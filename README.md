@@ -53,7 +53,7 @@ Frontend เรียก `/api/*` บน origin เดียวกับเว�
 1. สร้างหรือใช้ Supabase staging project ใส่ `SUPABASE_URL`, publishable key, service role key และ random `SESSION_SECRET` ใน environment ฝั่ง server
 2. ใช้ `database/migrations/001_core.sql` **ครั้งเดียว** เพื่อสร้างตารางและ functions
 3. ใช้ `002_import_legacy.sql` **ครั้งเดียว** ถ้ามีข้อมูล `user_cashflow_data` เดิม โดยหยุด writer เดิมก่อน คู่มือเต็มอยู่ใน [database/README.md](database/README.md)
-4. ใช้ `003_security_hardening.sql` และ `004_roles_groups.sql` แล้วรัน `database/security-check.sql`; เพิ่ม role ระบบและกลุ่ม พร้อมปิด privileged RPC จาก browser และบังคับ Storage รายงานเป็น private
+4. ใช้ `003_security_hardening.sql`, `004_roles_groups.sql`, `005_group_finance.sql` และ `006_public_profiles.sql` แล้วรัน `database/security-check.sql`; เพิ่ม role ระบบ กลุ่ม การเงินกลุ่ม และโปรไฟล์สาธารณะที่ไม่เปิดเผยอีเมล
 5. ตั้ง Supabase Auth Site URL เป็น `APP_URL` และเพิ่ม redirect URL `<APP_URL>/api/auth` ตั้ง Google provider หากต้องการ
 6. เปิด email confirmation และจัด SMTP ของ Supabase สำหรับอีเมลสมัครสมาชิก ฟีเจอร์ LINE reset ใช้รหัสอีกระบบหนึ่ง
 
@@ -64,6 +64,8 @@ Frontend เรียก `/api/*` บน origin เดียวกับเว�
 เปิดเมนู **กลุ่ม & สมาชิก** ด้วยบัญชีจริง ผู้ใช้ทุกคนเริ่มเป็น `user` และสร้างกลุ่มได้ ผู้สร้างเป็น `leader` (หัวหน้า) อัตโนมัติ สมาชิกใหม่เป็น `member` (ลูกน้อง) หัวหน้าเชิญด้วยอีเมล ผู้รับต้องยืนยันอีเมลแล้วกดรับคำเชิญในบัญชีของตัวเองภายใน 7 วัน คำเชิญนี้แสดงในเว็บ ไม่ได้ส่งอีเมลแจ้งเตือนแยก
 
 หัวหน้าเพิ่ม/ลดสิทธิ์ นำสมาชิกออก แก้ไข/ลบกลุ่ม และโอนตำแหน่งได้ มีหัวหน้าได้หลายคน การโอนให้สมาชิกคนอื่นทำให้ผู้โอนกลับเป็นลูกน้อง กลุ่มต้องเหลือหัวหน้าอย่างน้อยหนึ่งคนก่อนออกจากกลุ่มหรือลดสิทธิ์ `admin` ดูแลทุกกลุ่มและจัดการ role ระบบได้ การเป็นหัวหน้ากลุ่มไม่ทำให้เป็น admin และกลุ่มไม่เปิดเผยข้อมูลการเงินส่วนตัวของสมาชิก
+
+บัญชีมีชื่อแสดงผลที่แก้ได้และ User ID รูปแบบ `SQ-XXXXXXXXXX` ที่แก้ไม่ได้ การค้นหาและเชิญสมาชิกใช้ชื่อหรือ User ID และ API กลุ่มไม่ส่งอีเมลสมาชิกออกไปยังหน้าเว็บ ชื่ออาจซ้ำกันได้จึงต้องตรวจ User ID ก่อนส่งคำเชิญ
 
 หากฐานข้อมูลมี 001–003 อยู่แล้ว ให้ใช้เฉพาะ **004** สำหรับฟีเจอร์นี้ ก่อนกำหนด admin คนแรก สมัครและยืนยันอีเมลบัญชีที่ต้องการ จากนั้นทบทวน [database/bootstrap-admin.sql](database/bootstrap-admin.sql) เปลี่ยน UUID ให้ตรงกับ `auth.users.id` แล้วรันด้วยสิทธิ์ postgres/migration บัญชีแรกที่สมัครจะไม่ได้เป็น admin อัตโนมัติ ต่อจากนั้นเปลี่ยน role ผ่านหน้า **จัดการผู้ใช้** ของ admin คู่มือและตารางสิทธิ์อยู่ใน [database/README.md](database/README.md)
 

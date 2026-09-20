@@ -25,6 +25,9 @@ before(async () => {
   await db.exec(
     await readFile("database/migrations/005_group_finance.sql", "utf8"),
   );
+  await db.exec(
+    await readFile("database/migrations/006_public_profiles.sql", "utf8"),
+  );
 });
 after(() => db.close());
 async function one(sql: string, params: unknown[] = []) {
@@ -319,8 +322,8 @@ test("admins can moderate outside groups and manage global roles without inherit
   );
   assert.equal(
     (
-      await one("select cashflow_admin_accounts($1,'b@example.com',0) data", [
-        admin,
+      await one("select cashflow_admin_accounts($1,(select public_id from cashflow_profiles where user_id=$2),0) data", [
+        admin,b,
       ])
     ).data.users[0].role,
     "user",
@@ -337,6 +340,7 @@ test("anon and authenticated cannot read private tables, mutate roles, or execut
         "cashflow_group_invitations",
         "cashflow_group_audit",
         "cashflow_role_audit",
+        "cashflow_profiles",
       ]) {
         await assert.rejects(
           db.exec(`select * from ${table}`),
@@ -355,6 +359,7 @@ test("anon and authenticated cannot read private tables, mutate roles, or execut
         db.query("select cashflow_set_system_role($1,$1,'admin')", [a]),
         /permission denied/,
       );
+      await assert.rejects(db.query("select cashflow_profile_get($1)",[a]),/permission denied/);
       await assert.rejects(
         act(a, "create", { groupId: randomUUID(), name: "Bypass" }),
         /permission denied/,
@@ -373,6 +378,21 @@ test("anon and authenticated cannot read private tables, mutate roles, or execut
   } finally {
     await db.exec("reset role");
   }
+});
+test("public profiles hide email, keep public IDs immutable, and invitations target accounts",async()=>{
+  const id=await create();
+  const before=await one("select public_id from cashflow_profiles where user_id=$1",[b]);
+  await db.query("select cashflow_profile_update($1,'Team Member')",[b]);
+  await assert.rejects(db.query("update cashflow_profiles set public_id='SQ-AAAAAAAAAA' where user_id=$1",[b]),/public_id_immutable/);
+  const found=(await one("select cashflow_group_user_search($1,$2,'Team Member') data",[a,id])).data;
+  assert.equal(found[0].publicId,before.public_id); assert.equal(found[0].displayName,"Team Member"); assert.equal(JSON.stringify(found).includes("email"),false);
+  await db.query("select cashflow_group_invite_account($1,$2,$3)",[a,id,b]);
+  const inbox=(await one("select cashflow_groups_snapshot($1,'mine',0) data",[b])).data.invitations;
+  assert.equal(inbox.length,1); assert.equal(JSON.stringify(inbox).includes("email"),false);
+  const invitation=await one("select id from cashflow_group_invitations where group_id=$1 and invited_user_id=$2 and status='pending'",[id,b]);
+  await db.query("select cashflow_group_invitation_respond($1,$2,true)",[b,invitation.id]);
+  const detail=(await one("select cashflow_group_detail($1,$2) data",[a,id])).data;
+  assert.equal(detail.members.some((m:any)=>m.publicId===before.public_id),true); assert.equal(JSON.stringify(detail).includes("email"),false);
 });
 test("database validation rolls back invalid names, email and group roles without changing members", async () => {
   const id = await create();

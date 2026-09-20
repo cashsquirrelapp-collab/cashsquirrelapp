@@ -30,6 +30,7 @@ before(async()=>{
  await db.exec(await readFile('database/migrations/003_security_hardening.sql','utf8'));
  await db.exec(await readFile('database/migrations/004_roles_groups.sql','utf8'));
  await db.exec(await readFile('database/migrations/005_group_finance.sql','utf8'));
+ await db.exec(await readFile('database/migrations/006_public_profiles.sql','utf8'));
 });
 after(()=>db.close());
 async function one(sql:string,params:any[]=[]){return (await db.query<any>(sql,params)).rows[0];}

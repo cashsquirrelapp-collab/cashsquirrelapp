@@ -10,8 +10,8 @@ const user = {
 };
 const member = {
   userId: '22222222-2222-4222-8222-222222222222',
-  email: 'member@example.com',
-  name: 'Team member',
+  publicId: 'SQ-2222222222',
+  displayName: 'Team member',
   role: 'member' as const,
   joinedAt: '2026-09-17T00:00:00Z',
 };
@@ -27,8 +27,8 @@ const initialGroup = (): GroupDetail => ({
   members: [
     {
       userId: user.id,
-      email: user.email,
-      name: 'Leader',
+      publicId: 'SQ-1111111111',
+      displayName: 'Leader',
       role: 'leader',
       joinedAt: '2026-09-17T00:00:00Z',
     },
@@ -119,7 +119,8 @@ test('create, invite, promote and transfer leadership; membership controls updat
             id,
             groupId: group!.id,
             groupName: group!.name,
-            email: action.email,
+            publicId: member.publicId,
+            displayName: member.displayName,
             expiresAt: '2027-01-01T00:00:00Z',
           },
         ];
@@ -140,6 +141,8 @@ test('create, invite, promote and transfer leadership; membership controls updat
       }
       return route.fulfill({ json: { ok: true, groupId: group!.id } });
     }
+    if (new URL(route.request().url()).searchParams.has('memberSearch'))
+      return route.fulfill({json:{users:[member]}});
     if (new URL(route.request().url()).searchParams.has('groupId'))
       return route.fulfill({ json: group });
     return route.fulfill({
@@ -163,8 +166,9 @@ test('create, invite, promote and transfer leadership; membership controls updat
   await expect(
     page.getByRole('button', { name: 'ออกจากกลุ่ม', exact: true }),
   ).toBeDisabled();
-  await page.getByLabel('เชิญสมาชิกด้วยอีเมล').fill(member.email);
-  await page.getByRole('button', { name: 'ส่งคำเชิญ' }).click();
+  await page.getByLabel('ค้นหาสมาชิกด้วยชื่อหรือ User ID').fill(member.publicId);
+  await page.getByRole('button', { name: 'ค้นหา' }).click();
+  await page.getByRole('button', { name: 'เชิญ', exact:true }).click();
   await expect(
     page.getByRole('heading', { name: 'คำเชิญที่รออยู่' }),
   ).toBeVisible();
@@ -220,7 +224,7 @@ test('admin can browse outside groups and manage roles; self demotion removes ad
     memberRole: SystemRole = 'user';
   const group = initialGroup();
   group.myRole = null;
-  group.members[0] = { ...group.members[0], userId: '33333333-3333-4333-8333-333333333333', email: 'creator@example.com', name: 'Group creator' };
+  group.members[0] = { ...group.members[0], userId: '33333333-3333-4333-8333-333333333333', publicId: 'SQ-3333333333', displayName: 'Group creator' };
   await page.route('**/api/auth', (route) =>
     route.fulfill({ json: { session: { user: { ...user, role } } } }),
   );
@@ -251,13 +255,15 @@ test('admin can browse outside groups and manage roles; self demotion removes ad
         users: [
           {
             userId: user.id,
-            email: user.email,
+            publicId: 'SQ-1111111111',
+            displayName: 'Leader',
             role,
             createdAt: user.created_at,
           },
           {
             userId: member.userId,
-            email: member.email,
+            publicId: member.publicId,
+            displayName: member.displayName,
             role: memberRole,
             createdAt: user.created_at,
           },
@@ -334,7 +340,7 @@ test('pending confirmation and group state cannot carry across accounts', async 
     page.getByRole('heading', { name: 'สมาชิกในกลุ่ม (2)' }),
   ).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'ตกลง', exact: true })).toHaveCount(0);
-  await expect(page.getByText(member.email, { exact: true })).toHaveCount(0);
+  await expect(page.getByText(member.displayName, { exact: true })).toHaveCount(0);
   expect(mutations).toBe(0);
   await expect(page.getByRole('button', { name: /Design team/ })).toHaveCount(
     0,

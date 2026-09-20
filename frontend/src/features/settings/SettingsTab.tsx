@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconCrown, IconClose, IconCheck } from '../../components/ui/icons';
+import type { PublicProfile } from '../../../../shared/groups';
 
 interface SettingsTabProps {
   isGroupFinance?: boolean;
@@ -98,6 +99,25 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [newFixedExpenseName, setNewFixedExpenseName] = useState('');
   const [newFixedExpenseAmount, setNewFixedExpenseAmount] = useState('');
+  const [profile,setProfile]=useState<PublicProfile|null>(null);
+  const [displayName,setDisplayName]=useState('');
+  const [profileBusy,setProfileBusy]=useState(false);
+
+  useEffect(()=>{
+    if(!session?.user?.id || session?.isGuest || isGroupFinance)return;
+    const controller=new AbortController();
+    apiJson<PublicProfile>('/api/profile',{signal:controller.signal,headers:{'X-Account-ID':session.user.id}})
+      .then(value=>{setProfile(value);setDisplayName(value.displayName);})
+      .catch(error=>{if(!controller.signal.aborted)triggerAlert('โหลดโปรไฟล์ไม่สำเร็จ',error.message);});
+    return()=>controller.abort();
+  },[session?.user?.id,session?.isGuest,isGroupFinance]);
+
+  const saveProfile=async()=>{
+    if(!session?.user?.id || displayName.trim().length<2)return;
+    setProfileBusy(true);
+    try { const value=await apiJson<PublicProfile>('/api/profile',{method:'POST',headers:{'X-Account-ID':session.user.id},body:JSON.stringify({displayName:displayName.trim()})});setProfile(value);setDisplayName(value.displayName);triggerAlert('บันทึกชื่อแล้ว','ชื่อใหม่จะแสดงในกลุ่มและผลการค้นหา'); }
+    catch(error){triggerAlert('บันทึกชื่อไม่สำเร็จ',(error as Error).message);} finally{setProfileBusy(false);}
+  };
 
   const [lineLinkCode, setLineLinkCode] = useState<string | null>(null);
   const [isGeneratingLineCode, setIsGeneratingLineCode] = useState(false);
@@ -272,6 +292,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-12">
+          {!isGroupFinance && session && !session.isGuest && <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3"><User className="w-4.5 h-4.5 text-emerald-600"/><h3 className="text-xs font-black uppercase tracking-wider">โปรไฟล์ผู้ใช้</h3></div>
+            <label className="block text-xs font-bold">ชื่อที่แสดง
+              <input className="mt-2 w-full bg-brand-faint dark:bg-stone-950 border border-brand-border rounded-xl px-3 py-2.5 text-sm" value={displayName} onChange={e=>setDisplayName(e.target.value)} minLength={2} maxLength={60}/>
+            </label>
+            <div><p className="text-xs font-bold">User ID</p><div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-brand-faint dark:bg-stone-950 border border-brand-border px-3 py-2.5"><code className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{profile?.publicId || 'กำลังโหลด…'}</code>{profile?.publicId&&<button type="button" className="text-xs font-bold" onClick={()=>navigator.clipboard.writeText(profile.publicId)}><Copy className="w-3.5 h-3.5"/></button>}</div><p className="text-[10px] text-brand-muted mt-1">รหัสนี้สร้างถาวรและไม่สามารถแก้ไขได้ ใช้ให้ผู้อื่นค้นหาเพื่อเชิญเข้ากลุ่ม</p></div>
+            <button type="button" onClick={()=>void saveProfile()} disabled={profileBusy||displayName.trim().length<2||displayName.trim()===profile?.displayName} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50">{profileBusy?'กำลังบันทึก…':'บันทึกชื่อ'}</button>
+          </div>}
           {/* Language */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
@@ -684,9 +712,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 
                 <div className="min-w-0 flex-1 text-center sm:text-left">
                   <p className="text-[9px] text-brand-muted font-extrabold uppercase tracking-wider">บัญชีผู้ใช้งานปัจจุบัน</p>
-                  <p className="text-xs text-brand-text dark:text-neutral-200 font-black truncate max-w-[200px]" title={session?.user?.email}>
-                    {session?.user?.email || 'Guest User (ใช้งานแบบออฟไลน์)'}
+                  <p className="text-xs text-brand-text dark:text-neutral-200 font-black truncate max-w-[200px]" title={profile?.displayName}>
+                    {profile?.displayName || (session?.isGuest ? 'Guest User (ใช้งานแบบออฟไลน์)' : 'กำลังโหลดโปรไฟล์…')}
                   </p>
+                  {profile?.publicId && <p className="text-[10px] text-brand-muted font-mono">{profile.publicId}</p>}
                   <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-1">
                     <label className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-bold cursor-pointer">
                       เปลี่ยนรูปภาพ

@@ -16,7 +16,8 @@ import report from '../handlers/send-monthly-report.js';
 import digest from '../handlers/send-overdue-digest.js';
 import setup from '../handlers/setup-line-richmenu.js';
 import stripe from '../handlers/stripe-webhook.js';
-const routes:Record<string,Handler>={auth,data,groups,'admin-users':adminUsers,'download-report':download,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'setup-line-richmenu':setup,'stripe-webhook':stripe};
+import profile from '../handlers/profile.js';
+const routes:Record<string,Handler>={auth,data,groups,profile,'admin-users':adminUsers,'download-report':download,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'setup-line-richmenu':setup,'stripe-webhook':stripe};
 const rawRoutes=new Set(['stripe-webhook','line-webhook']);
 export function routeHandler(route:string):Handler {
  return withGuard(async(req,res)=>{
@@ -29,7 +30,7 @@ export function routeHandler(route:string):Handler {
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
- },{csrf:['auth','data','groups','admin-users','line-link-code','password-reset-line','notify'].includes(route)});
+ },{csrf:['auth','data','groups','profile','admin-users','line-link-code','password-reset-line','notify'].includes(route)});
 }
 export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
  const route=req.query.route;

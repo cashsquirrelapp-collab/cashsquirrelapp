@@ -72,9 +72,11 @@ JSONB ช่วยคง field เดิม แต่รูป/base64 และ 
 ## อัปเกรด role และกลุ่ม (มี 001–003 แล้ว)
 
 1. สำรองฐานข้อมูล แล้ว apply `migrations/004_roles_groups.sql` ด้วย postgres/migration role บน staging การ backfill และ signup trigger ให้ทุกบัญชีเริ่มเป็น user ไม่เชื่อ role ใน user metadata
-2. สมัครบัญชี admin ที่ต้องการและยืนยันอีเมล ตรวจ `auth.users.id` กับอีเมลให้ตรงกัน เปิด `bootstrap-admin.sql` เปลี่ยน nil UUID เป็น ID นี้และทบทวนก่อนรัน สคริปต์ใช้ได้เฉพาะกรณียังไม่มี admin และบันทึก audit สำหรับการเริ่มต้น
-3. Refresh/login ด้วยบัญชีนี้แล้วเปิด **กลุ่ม & สมาชิก → จัดการผู้ใช้** การเปลี่ยน role ครั้งถัดไปใช้หน้า admin ซึ่งป้องกันการลดสิทธิ์ admin คนสุดท้าย
-4. รัน `security-check.sql` ตรวจ RLS/privileges/กลุ่มต้องมีหัวหน้า แล้วทดสอบ user A/B/คนนอก/admin กับบัญชีจริงก่อน deploy
+2. รัน `migrations/005_group_finance.sql` เพื่อเพิ่มพื้นที่การเงินกลุ่ม
+3. รัน `migrations/006_public_profiles.sql` เพื่อสร้างชื่อแสดงผล, User ID ถาวร และคำเชิญแบบผูกบัญชี
+4. สมัครบัญชี admin ที่ต้องการและยืนยันอีเมล ตรวจ `auth.users.id` กับอีเมลให้ตรงกัน เปิด `bootstrap-admin.sql` เปลี่ยน nil UUID เป็น ID นี้และทบทวนก่อนรัน สคริปต์ใช้ได้เฉพาะกรณียังไม่มี admin และบันทึก audit สำหรับการเริ่มต้น
+5. Refresh/login ด้วยบัญชีนี้แล้วเปิด **กลุ่ม & สมาชิก → จัดการผู้ใช้** การเปลี่ยน role ครั้งถัดไปใช้หน้า admin ซึ่งป้องกันการลดสิทธิ์ admin คนสุดท้าย
+6. รัน `security-check.sql` ตรวจ RLS/privileges/กลุ่มต้องมีหัวหน้า แล้วทดสอบ user A/B/คนนอก/admin กับบัญชีจริงก่อน deploy
 
 | การทำงาน | user / คนนอกกลุ่ม | ลูกน้อง | หัวหน้า | admin |
 |---|---|---|---|---|

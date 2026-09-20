@@ -100,15 +100,15 @@ export default function AdminUsersPanel({
         }}
       >
         <label className="sr-only" htmlFor="admin-user-search">
-          {copy('ค้นหาอีเมลผู้ใช้', 'Search user email')}
+          {copy('ค้นหาชื่อหรือ User ID', 'Search name or User ID')}
         </label>
         <input
           id="admin-user-search"
           className={input}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={copy('ค้นหาด้วยอีเมล', 'Search by email')}
-          maxLength={254}
+          placeholder={copy('ชื่อ หรือ SQ-XXXXXXXXXX', 'Name or SQ-XXXXXXXXXX')}
+          maxLength={60}
         />
         <button className={`${primary} shrink-0`} disabled={busy}>
           {copy('ค้นหา', 'Search')}
@@ -132,10 +132,10 @@ export default function AdminUsersPanel({
           >
             <div className="min-w-0">
               <p className="font-semibold text-sm break-all">
-                {user.email}
+                {user.displayName}
                 {user.userId === userId ? copy(' (คุณ)', ' (you)') : ''}
               </p>
-              <p className="text-xs text-brand-muted mt-1">{user.role}</p>
+              <p className="text-xs text-brand-muted mt-1 font-mono">{user.publicId} · {user.role}</p>
             </div>
             <button
               className={secondary}
@@ -145,8 +145,8 @@ export default function AdminUsersPanel({
                 triggerConfirm(
                   copy('เปลี่ยน role ระบบ', 'Change system role'),
                   copy(
-                    `${user.email} → ${role} การให้ admin จะให้สิทธิ์ดูแลทุกกลุ่มและจัดการ role ผู้ใช้`,
-                    `${user.email} → ${role}. Admin grants access to all groups and user role management.`,
+                    `${user.displayName} (${user.publicId}) → ${role} การให้ admin จะให้สิทธิ์ดูแลทุกกลุ่มและจัดการ role ผู้ใช้`,
+                    `${user.displayName} (${user.publicId}) → ${role}. Admin grants access to all groups and user role management.`,
                   ),
                   () => {
                     void setRole(user.userId, role);

@@ -22,7 +22,7 @@ begin
       raise exception 'Unexpected owner policies: %',t;
     end if;
   end loop;
-  foreach t in array array['cashflow_private_state','cashflow_line_links','cashflow_challenges','cashflow_rate_limits','cashflow_revoked_sessions','cashflow_payment_events','cashflow_payments','cashflow_webhook_events','cashflow_delivery_claims','cashflow_user_roles','cashflow_groups','cashflow_group_members','cashflow_group_invitations','cashflow_group_audit','cashflow_role_audit','cashflow_group_finance'] loop
+  foreach t in array array['cashflow_private_state','cashflow_line_links','cashflow_challenges','cashflow_rate_limits','cashflow_revoked_sessions','cashflow_payment_events','cashflow_payments','cashflow_webhook_events','cashflow_delivery_claims','cashflow_user_roles','cashflow_profiles','cashflow_groups','cashflow_group_members','cashflow_group_invitations','cashflow_group_audit','cashflow_role_audit','cashflow_group_finance'] loop
     if not exists(select 1 from pg_class where oid=to_regclass('public.'||t) and relrowsecurity)
       or has_table_privilege('anon','public.'||t,'select,insert,update,delete')
       or has_table_privilege('authenticated','public.'||t,'select,insert,update,delete') then

@@ -15,6 +15,7 @@ import type {
   GroupDetail,
   GroupRole,
   GroupSnapshot,
+  PublicProfile,
 } from '../../../../shared/groups';
 import { groupApi } from '../../services/groups';
 import { getCurrentAccount } from '../../services/api';
@@ -58,7 +59,8 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [email, setEmail] = useState('');
+  const [memberQuery, setMemberQuery] = useState('');
+  const [memberResults, setMemberResults] = useState<PublicProfile[]>([]);
   const mounted = useRef(true),
     writing = useRef(false);
   const newGroupId = useRef('');
@@ -155,7 +157,8 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
       setNotice(copy('บันทึกเรียบร้อยแล้ว', 'Changes saved'));
       setCreating(false);
       setEditing(false);
-      setEmail('');
+      setMemberQuery('');
+      setMemberResults([]);
       if (action.action === 'create' || action.action === 'accept') {
         await reload();
         setSelected(result.groupId);
@@ -515,7 +518,8 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
                             setDetail(null);
                             setSelected(group.id);
                             setEditing(false);
-                            setEmail('');
+                            setMemberQuery('');
+                            setMemberResults([]);
                           }}
                         >
                           <p className="font-bold break-words">{group.name}</p>
@@ -623,46 +627,53 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
                       {canManage && (
                         <form
                           className="mt-5 border-t border-brand-border/40 pt-5"
-                          onSubmit={(e) => {
+                          onSubmit={async (e) => {
                             e.preventDefault();
-                            void mutate({
-                              action: 'invite',
-                              groupId: detail.id,
-                              email: email.trim().toLowerCase(),
-                            });
+                            if(memberQuery.trim().length<2)return;
+                            setBusy(true);setError('');
+                            try { const found=await groupApi.searchUsers(userId,detail.id,memberQuery.trim());setMemberResults(found.users); }
+                            catch(e){setError((e as Error).message);} finally{setBusy(false);}
                           }}
                         >
                           <label
                             className="text-sm font-semibold block mb-2"
-                            htmlFor="group-invite-email"
+                            htmlFor="group-member-search"
                           >
-                            {copy('เชิญสมาชิกด้วยอีเมล', 'Invite by email')}
+                            {copy('ค้นหาสมาชิกด้วยชื่อหรือ User ID', 'Find by name or User ID')}
                           </label>
                           <div className="flex flex-col sm:flex-row gap-2">
                             <input
-                              id="group-invite-email"
-                              type="email"
+                              id="group-member-search"
+                              type="search"
                               required
-                              maxLength={254}
-                              placeholder="member@example.com"
+                              minLength={2}
+                              maxLength={60}
+                              placeholder={copy('ชื่อ หรือ SQ-XXXXXXXXXX','Name or SQ-XXXXXXXXXX')}
                               className={input}
-                              value={email}
-                              onChange={(e) => setEmail(e.target.value)}
+                              value={memberQuery}
+                              onChange={(e) => setMemberQuery(e.target.value)}
                             />
                             <button
                               className={`${primary} shrink-0`}
-                              disabled={busy || !email.trim()}
+                              disabled={busy || memberQuery.trim().length<2}
                             >
                               <UserPlus size={16} />
-                              {copy('ส่งคำเชิญ', 'Invite')}
+                              {copy('ค้นหา', 'Search')}
                             </button>
                           </div>
                           <p className="mt-2 text-xs text-brand-muted">
                             {copy(
-                              'คำเชิญอยู่ในบัญชีผู้รับนาน 7 วัน ผู้รับต้องยืนยันอีเมลและกดเข้าร่วมเอง',
-                              'Invitations appear in the recipient’s account for 7 days. They must verify their email and accept.',
+                              'เลือกบัญชีจากผลค้นหา คำเชิญจะอยู่ในบัญชีผู้รับ 7 วันและผู้รับต้องกดเข้าร่วมเอง',
+                              'Choose an account below. The invitation remains available for 7 days and requires acceptance.',
                             )}
                           </p>
+                          <div className="mt-3 divide-y divide-brand-border/30">
+                            {memberResults.map(user=><div key={user.userId} className="py-3 flex items-center justify-between gap-3">
+                              <div className="min-w-0"><p className="font-semibold text-sm truncate">{user.displayName}</p><p className="text-xs text-brand-muted font-mono">{user.publicId}</p></div>
+                              <button type="button" className={secondary} disabled={busy} onClick={()=>void mutate({action:'invite',groupId:detail.id,userId:user.userId})}><UserPlus size={14}/>{copy('เชิญ','Invite')}</button>
+                            </div>)}
+                            {!!memberQuery.trim() && !memberResults.length && <p className="text-xs text-brand-muted py-3">{copy('ค้นหาเพื่อแสดงบัญชีที่ตรงกัน','Search to show matching accounts')}</p>}
+                          </div>
                         </form>
                       )}
                     </div>
@@ -685,7 +696,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
                             className="flex flex-wrap justify-between items-center gap-2 border-t border-brand-border/30 py-3"
                           >
                             <span className="text-sm break-all">
-                              {inv.email}
+                              <span><strong>{inv.displayName || copy('ผู้ใช้เดิม','Legacy user')}</strong><br/><span className="text-xs text-brand-muted font-mono">{inv.publicId || '—'}</span></span>
                             </span>
                             <button
                               className={secondary}
@@ -693,7 +704,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
                               onClick={() =>
                                 confirm(
                                   copy('ยกเลิกคำเชิญ', 'Revoke invitation'),
-                                  inv.email || '',
+                                  `${inv.displayName || ''} ${inv.publicId || ''}`,
                                   {
                                     action: 'revoke-invite',
                                     groupId: detail.id,
@@ -723,9 +734,9 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
                                 {activityLabels[event.action] || event.action}
                               </p>
                               <p className="text-brand-muted mt-1 break-all">
-                                {event.actorEmail || '—'}
-                                {event.targetEmail
-                                  ? ` → ${event.targetEmail}`
+                                {event.actorDisplayName || '—'} {event.actorPublicId ? `(${event.actorPublicId})` : ''}
+                                {event.targetDisplayName
+                                  ? ` → ${event.targetDisplayName} (${event.targetPublicId || '—'})`
                                   : ''}{' '}
                                 ·{' '}
                                 {new Date(event.createdAt).toLocaleString(

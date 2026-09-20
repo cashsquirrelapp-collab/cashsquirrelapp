@@ -4,6 +4,7 @@ import type {
   GroupDetail,
   GroupSnapshot,
   SystemRole,
+  PublicProfile,
 } from '../../../shared/groups';
 import { apiJson } from './api';
 
@@ -26,6 +27,9 @@ export const groupApi = {
       `/api/groups?groupId=${encodeURIComponent(id)}`,
       { signal, headers: { 'X-Account-ID': account } },
     );
+  },
+  searchUsers(account:string,groupId:string,query:string,signal?:AbortSignal) {
+    return apiJson<{users:PublicProfile[]}>(`/api/groups?groupId=${encodeURIComponent(groupId)}&memberSearch=${encodeURIComponent(query)}`,{signal,headers:{'X-Account-ID':account}});
   },
   mutate(account: string, action: GroupAction) {
     return apiJson<{ ok: true; groupId: string }>('/api/groups', {

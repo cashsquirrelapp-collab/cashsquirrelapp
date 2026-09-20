@@ -48,6 +48,13 @@ export default withGuard(
     const db = getSupabaseAdmin();
     if (req.method === 'GET') {
       await rateLimit('groups-read', user.id, 90, 60);
+      if (req.query.memberSearch !== undefined) {
+        const query=z.object({groupId:z.uuid(),memberSearch:z.string().trim().min(2).max(60)}).safeParse(req.query);
+        if (!query.success) throw new HttpError(400,'กรุณาค้นหาอย่างน้อย 2 ตัวอักษร');
+        const result=await db.rpc('cashflow_group_user_search',{p_actor:user.id,p_group_id:query.data.groupId,p_query:query.data.memberSearch});
+        if (result.error) groupDbError(result.error);
+        res.json({users:result.data}); return;
+      }
       if (req.query.groupId !== undefined) {
         const id = z.uuid().safeParse(req.query.groupId);
         if (!id.success) throw new HttpError(400, 'รหัสกลุ่มไม่ถูกต้อง');
@@ -80,6 +87,16 @@ export default withGuard(
     await rateLimit('groups-write', user.id, 30, 60);
     if (action.data.action === 'create')
       await rateLimit('groups-create', user.id, 10, 3600);
+    if (action.data.action === 'invite') {
+      const invited=await db.rpc('cashflow_group_invite_account',{p_actor:user.id,p_group_id:action.data.groupId,p_target:action.data.userId});
+      if (invited.error) groupDbError(invited.error);
+      res.json({ok:true,groupId:action.data.groupId}); return;
+    }
+    if (action.data.action === 'accept' || action.data.action === 'decline') {
+      const answered=await db.rpc('cashflow_group_invitation_respond',{p_actor:user.id,p_invitation_id:action.data.invitationId,p_accept:action.data.action==='accept'});
+      if (answered.error) groupDbError(answered.error);
+      res.json({ok:true,groupId:answered.data}); return;
+    }
     const result = await db.rpc('cashflow_group_mutate', {
       p_actor: user.id,
       p_action: action.data.action,

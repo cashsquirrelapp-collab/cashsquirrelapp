@@ -45,18 +45,14 @@ export default function GroupMembersPanel({
           >
             <div className="flex gap-3 min-w-0">
               <span className="flex items-center justify-center rounded-full bg-brand-faint text-brand-blue-acc w-10 h-10 shrink-0 font-bold">
-                {(member.name || member.email || '?').slice(0, 1).toUpperCase()}
+                {(member.displayName || '?').slice(0, 1).toUpperCase()}
               </span>
               <div className="min-w-0">
                 <p className="font-semibold text-sm break-words">
-                  {member.name || member.email}
+                  {member.displayName}
                   {member.userId === userId ? copy(' (คุณ)', ' (you)') : ''}
                 </p>
-                {member.name && (
-                  <p className="text-xs text-brand-muted break-all">
-                    {member.email}
-                  </p>
-                )}
+                <p className="text-xs text-brand-muted font-mono break-all">{member.publicId}</p>
                 <span
                   className={`inline-block mt-1 text-xs font-bold ${member.role === 'leader' ? 'text-brand-blue-acc' : 'text-brand-muted'}`}
                 >
@@ -76,7 +72,7 @@ export default function GroupMembersPanel({
                   onClick={() =>
                     confirm(
                       copy('เปลี่ยนสิทธิ์สมาชิก', 'Change member role'),
-                      `${member.email} → ${roleLabel(member.role === 'leader' ? 'member' : 'leader')}`,
+                      `${member.displayName} (${member.publicId}) → ${roleLabel(member.role === 'leader' ? 'member' : 'leader')}`,
                       {
                         action: 'member-role',
                         groupId: detail.id,
@@ -100,8 +96,8 @@ export default function GroupMembersPanel({
                           confirm(
                             copy('โอนตำแหน่งหัวหน้า', 'Transfer leadership'),
                             copy(
-                              `โอนให้ ${member.email} คุณจะกลับเป็นลูกน้องและเสียสิทธิ์จัดการกลุ่ม`,
-                              `Transfer to ${member.email}. You will become a member and lose group management access.`,
+                              `โอนให้ ${member.displayName} (${member.publicId}) คุณจะกลับเป็นลูกน้องและเสียสิทธิ์จัดการกลุ่ม`,
+                              `Transfer to ${member.displayName} (${member.publicId}). You will become a member and lose group management access.`,
                             ),
                             {
                               action: 'transfer',
@@ -125,7 +121,7 @@ export default function GroupMembersPanel({
                       onClick={() =>
                         confirm(
                           copy('นำสมาชิกออกจากกลุ่ม', 'Remove member'),
-                          member.email,
+                          `${member.displayName} (${member.publicId})`,
                           {
                             action: 'remove-member',
                             groupId: detail.id,

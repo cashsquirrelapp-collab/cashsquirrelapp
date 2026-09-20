@@ -15,7 +15,8 @@ export interface GroupInvitation {
   id: string;
   groupId: string;
   groupName: string;
-  email?: string;
+  publicId?: string;
+  displayName?: string;
   expiresAt: string;
 }
 export interface GroupSnapshot {
@@ -27,8 +28,8 @@ export interface GroupSnapshot {
 }
 export interface GroupMember {
   userId: string;
-  email: string;
-  name: string;
+  publicId: string;
+  displayName: string;
   role: GroupRole;
   joinedAt: string;
 }
@@ -38,8 +39,10 @@ export interface GroupDetail extends GroupSummary {
   activity: {
     id: string;
     action: string;
-    actorEmail: string | null;
-    targetEmail: string | null;
+    actorPublicId: string | null;
+    actorDisplayName: string | null;
+    targetPublicId: string | null;
+    targetDisplayName: string | null;
     createdAt: string;
   }[];
 }
@@ -57,10 +60,7 @@ export const groupActionSchema = z.discriminatedUnion('action', [
     .object({
       action: z.literal('invite'),
       groupId,
-      email: z
-        .email()
-        .max(254)
-        .transform((v) => v.toLowerCase()),
+      userId: z.uuid(),
     })
     .strict(),
   z.object({ action: z.literal('accept'), invitationId: z.uuid() }).strict(),
@@ -92,10 +92,12 @@ export const groupActionSchema = z.discriminatedUnion('action', [
 export type GroupAction = z.infer<typeof groupActionSchema>;
 export interface AdminAccount {
   userId: string;
-  email: string;
+  publicId: string;
+  displayName: string;
   role: SystemRole;
   createdAt: string;
 }
+export interface PublicProfile { userId: string; publicId: string; displayName: string }
 export interface AdminAccounts {
   users: AdminAccount[];
   total: number;
