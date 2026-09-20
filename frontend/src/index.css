@@ -1,0 +1,234 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-brand-bg: var(--bg);
+  --color-brand-white: var(--white);
+  --color-brand-text: var(--text);
+  --color-brand-muted: var(--muted);
+  --color-brand-faint: var(--faint);
+  --color-brand-border: var(--border);
+  --color-brand-green-bg: var(--green-bg);
+  --color-brand-green-acc: var(--green-acc);
+  --color-brand-blue-bg: var(--blue-bg);
+  --color-brand-blue-acc: var(--blue-acc);
+  --color-brand-pink-bg: var(--pink-bg);
+  --color-brand-pink-acc: var(--pink-acc);
+  --color-brand-yellow-bg: var(--yellow-bg);
+  --color-brand-yellow-acc: var(--yellow-acc);
+  --color-brand-purple-bg: var(--purple-bg);
+  --color-brand-purple-acc: var(--purple-acc);
+
+  /* Overwrite default emerald/amber/rose Tailwind colors for status coherence with the Natural Tones theme */
+  --color-emerald-50: var(--green-bg);
+  --color-emerald-100: var(--green-bg);
+  --color-emerald-500: var(--green-acc);
+  --color-emerald-600: var(--green-acc);
+  --color-emerald-700: var(--green-acc);
+
+  --color-amber-50: var(--yellow-bg);
+  --color-amber-100: var(--yellow-bg);
+  --color-amber-300: var(--yellow-acc);
+  --color-amber-400: var(--yellow-acc);
+  --color-amber-500: var(--yellow-acc);
+  --color-amber-600: var(--yellow-acc);
+  --color-amber-700: var(--yellow-acc);
+
+  --color-rose-50: var(--pink-bg);
+  --color-rose-100: var(--pink-bg);
+  --color-rose-500: var(--pink-acc);
+  --color-rose-600: var(--pink-acc);
+  --color-rose-700: var(--pink-acc);
+
+  --color-purple-50: var(--purple-bg);
+  --color-purple-500: var(--purple-acc);
+  --color-purple-600: var(--purple-acc);
+
+  --color-blue-50: var(--blue-bg);
+  --color-blue-500: var(--blue-acc);
+  --color-blue-600: var(--blue-acc);
+}
+
+:root {
+  --bg: #FBF2E4; /* Cinnamon cream background */
+  --white: #FFFFFF;
+  --text: #3D2314; /* Deep rich acorn/cocoa brown */
+  --muted: #7A5C43; /* Soft warm hazelnut slate */
+  --faint: #F5EFE6; /* Cozy almond background / warm cream */
+  --border: #E8DFD3; /* Soft clay border contrast */
+  
+  --green-bg: #F5EFE6; /* Warm cream */
+  --green-acc: #7A4419; /* Chestnut brown for main/success/buttons */
+  
+  --blue-bg: #FAECE8; /* Cozy soft orange/peach background */
+  --blue-acc: #E65F2B; /* Vibrant brand acorn orange */
+  
+  --pink-bg: #FAECE8; /* Soft terracotta cream background */
+  --pink-acc: #A63F1B; /* Deep rust/clay crimson warnings */
+  
+  --yellow-bg: #FDF6EC; /* Soft warm amber background */
+  --yellow-acc: #C17817; /* Caramel orange secondary/warning */
+  
+  --purple-bg: #F5EFE6;
+  --purple-acc: #7A5C43;
+
+  /* Actual green/red for the income-vs-savings chart specifically -- --green-acc is a warm
+     brown brand token everywhere else, not a real green, so it can't be reused for a chart
+     that needs to visually read as green (income) vs red (savings). */
+  --chart-income-met: #125442;
+  --chart-savings-met: #C96B5A;
+
+  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+}
+
+.dark {
+  --bg: #1C130B; /* Cozy dark cinnamon bark background */
+  --white: #261810; /* Cozy dark cocoa card background */
+  --text: #F7EFEA; /* Warm creamy almond white text */
+  --muted: #A89689; /* Clear bright milk chocolate gray descriptions */
+  --faint: #322117; /* Deep dry wood/dark branch accent */
+  --border: #422E22; /* Warm clay-wood border lines */
+  
+  --green-bg: #2A1D15; 
+  --green-acc: #E8A560; /* Squirrel golden light orange for main/success/buttons */
+  
+  --blue-bg: #2E2117; 
+  --blue-acc: #FFA473; /* Vibrant warm peach/orange */
+  
+  --pink-bg: #351C15; 
+  --pink-acc: #FA7E52; /* Terracotta rose alert */
+  
+  --yellow-bg: #352115; 
+  --yellow-acc: #F2B76B; /* Soft light golden caramel secondary/warning */
+  
+  --purple-bg: #2E1E16;
+  --purple-acc: #D2C0B0;
+
+  --chart-income-met: #49CCA9;
+  --chart-savings-met: #F4AE91;
+}
+
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar behavior for goals scroll and list boxes */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Base custom interactive states */
+.active-tab-indicator {
+  view-transition-name: active-tab;
+}
+
+@media print {
+  body {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    font-size: 12pt;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Hide everything except the element with class .print-area, its ancestor chain, and its
+     descendants. Uses display:none (removes from flow) rather than visibility:hidden --
+     visibility:hidden leaves hidden elements occupying their normal layout height, which made
+     the print job paginate against the full (invisible) app height and stranded the real content
+     several blank pages in. :has() finds the correct elements to hide at any nesting depth
+     without needing to know the exact DOM structure (none of this app's print targets are
+     portaled to a direct child of body). */
+  #root *:not(:has(.print-area)):not(.print-area):not(.print-area *) {
+    display: none !important;
+  }
+
+  /* Any ancestor of the print target (the modal overlay etc.) may be position:fixed/absolute
+     with a capped height for on-screen use -- reset those so the target renders in plain normal
+     flow, which paginates predictably instead of being pinned to a viewport position that print
+     handles inconsistently across pages. */
+  #root *:has(.print-area) {
+    position: static !important;
+    inset: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .print-area {
+    display: block !important;
+    position: static;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Force color print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* The tax report modal is sized/spaced for an on-screen dialog (generous padding, space-y
+     gaps, larger headings) -- left as-is it overflows onto several pages. Compact it down to fit
+     one A4 page by shrinking spacing/padding/headings, scoped to this modal only so the invoice
+     print view (which already fits) is untouched. */
+  #printable-tax-report-modal {
+    padding: 10px !important;
+  }
+  #printable-tax-report-modal h1 {
+    font-size: 15px !important;
+  }
+  #printable-tax-report-modal .space-y-6 > * + * {
+    margin-top: 6px !important;
+  }
+  #printable-tax-report-modal .space-y-4 > * + * {
+    margin-top: 4px !important;
+  }
+  #printable-tax-report-modal table th,
+  #printable-tax-report-modal table td {
+    padding: 2px 6px !important;
+  }
+  #printable-tax-report-modal .pb-5 {
+    padding-bottom: 6px !important;
+  }
+  #printable-tax-report-modal .pb-4 {
+    padding-bottom: 6px !important;
+  }
+  #printable-tax-report-modal .pb-1 {
+    padding-bottom: 2px !important;
+  }
+  #printable-tax-report-modal .p-4 {
+    padding: 6px !important;
+  }
+  #printable-tax-report-modal .gap-6 {
+    gap: 8px !important;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 10mm;
+}
+

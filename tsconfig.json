@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": false,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "strict": true
+  },
+  "include": [
+    "frontend/src",
+    "frontend/vite.config.ts",
+    "backend/src",
+    "api",
+    "shared",
+    "tests",
+    "backend/scripts",
+    "playwright.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "build"
+  ]
+}

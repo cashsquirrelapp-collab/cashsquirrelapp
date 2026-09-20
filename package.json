@@ -1,0 +1,53 @@
+{
+  "name": "cash-squirrel",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --import tsx --watch-path=backend/src --watch-path=shared backend/src/server.ts",
+    "build": "vite build --config frontend/vite.config.ts && esbuild backend/src/server.ts --bundle --platform=node --format=esm --packages=external --outfile=build/backend/server.js",
+    "start": "NODE_ENV=production node build/backend/server.js",
+    "preview": "vite preview --config frontend/vite.config.ts",
+    "lint": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "check": "npm run lint && npm test && npm run build",
+    "audit:production": "npm audit --omit=dev --audit-level=moderate",
+    "test:e2e": "playwright test",
+    "billing:backfill": "node --import tsx backend/scripts/generateStripeBackfill.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "nodemailer": "^9.0.4",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "recharts": "^3.9.0",
+    "stripe": "^22.3.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.14.0",
+    "@types/nodemailer": "^8.0.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "autoprefixer": "^10.4.21",
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

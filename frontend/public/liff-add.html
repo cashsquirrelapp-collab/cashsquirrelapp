@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>บันทึกรายการ - กระรอกตุนเงิน</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root {
+    --bg: #FBF2E4;
+    --card: #FFFFFF;
+    --text: #3D2314;
+    --muted: #7A5C43;
+    --faint: #F5EFE6;
+    --border: #E8DFD3;
+    --accent: #E65F2B;
+    --accent-soft: #FAECE8;
+    --expense: #A63F1B;
+    --expense-soft: #FAECE8;
+    --tip-bg: #EAF6EE;
+    --tip-text: #1F7A46;
+    --step-inactive: #E8DFD3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17100A;
+      --card: #241A12;
+      --text: #F7EFEA;
+      --muted: #A89689;
+      --faint: #2E2117;
+      --border: #422E22;
+      --accent: #E8A560;
+      --accent-soft: #2A1D15;
+      --expense: #FF8A73;
+      --expense-soft: #3A1F17;
+      --tip-bg: #16261D;
+      --tip-text: #6EE7A8;
+      --step-inactive: #3A2A1D;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 480px; margin: 0 auto; padding: 16px 16px 32px; }
+
+  .kind-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .kind-tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--faint);
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .kind-tab.active.income { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .kind-tab.active.expense { background: var(--expense-soft); color: var(--expense); border-color: var(--expense); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 20px;
+  }
+
+  .card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+  .step-eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+  .card-title { font-size: 19px; font-weight: 800; margin: 2px 0 0; }
+
+  .steps-row { display: flex; align-items: center; gap: 4px; margin-bottom: 16px; }
+  .step-pill { display: flex; align-items: center; gap: 6px; flex: 1; }
+  .step-dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; flex-shrink: 0;
+    background: var(--step-inactive); color: var(--muted);
+  }
+  .step-pill.done .step-dot { background: var(--accent); color: #1a1006; }
+  .step-pill.current .step-dot { background: var(--accent); color: #1a1006; }
+  .step-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .step-pill.current .step-label, .step-pill.done .step-label { color: var(--text); font-weight: 600; }
+  .step-line { flex: 1; height: 2px; background: var(--step-inactive); margin: 0 2px; }
+  .step-line.done { background: var(--accent); }
+
+  .tip-box {
+    display: flex;
+    gap: 10px;
+    background: var(--tip-bg);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+  }
+  .tip-box .avatar { width: 24px; height: 24px; flex-shrink: 0; }
+  .tip-box .tip-title { color: var(--tip-text); font-weight: 700; font-size: 12.5px; margin: 0 0 3px; }
+  .tip-box .tip-text { color: var(--text); font-size: 12.5px; line-height: 1.5; margin: 0; opacity: 0.9; }
+
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 14px 0 6px; font-weight: 500; }
+  label:first-of-type { margin-top: 0; }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--faint);
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    appearance: none;
+  }
+  textarea { resize: vertical; min-height: 64px; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  .pill-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+  .pill-choice {
+    padding: 9px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--faint);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .pill-choice.selected.income { background: var(--accent); color: #1a1006; border-color: var(--accent); }
+  .pill-choice.selected.expense { background: var(--expense); color: #1a1006; border-color: var(--expense); }
+
+  .receipt-box {
+    background: var(--faint);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-top: 16px;
+    font-size: 13px;
+  }
+  .receipt-row { display: flex; justify-content: space-between; padding: 3px 0; color: var(--muted); }
+  .receipt-row.total { color: var(--accent); font-weight: 700; border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; }
+
+  .step-fields { display: none; }
+  .step-fields.visible { display: block; }
+
+  .nav-row { display: flex; gap: 10px; margin-top: 22px; }
+  .btn {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-back { background: var(--faint); color: var(--text); border: 1px solid var(--border); }
+  .btn-primary.income { background: var(--accent); color: #1a1006; }
+  .btn-primary.expense { background: var(--expense); color: #1a1006; }
+  .btn-primary:disabled { opacity: 0.55; }
+
+  .error {
+    color: var(--expense);
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+    background: var(--expense-soft);
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  .status { text-align: center; padding: 70px 16px; }
+  .status .emoji { width: 56px; height: 56px; margin: 0 auto 14px; }
+  .status h2 { margin: 0 0 8px; font-size: 18px; }
+  .status p { color: var(--muted); font-size: 14px; margin: 0; }
+  .status button {
+    margin-top: 24px;
+    padding: 13px 28px;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #1a1006;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="page" id="form-view">
+  <div class="kind-tabs">
+    <div class="kind-tab active income" id="tab-income">รายรับ (งานดีล)</div>
+    <div class="kind-tab expense" id="tab-expense">รายจ่าย</div>
+  </div>
+
+  <!-- JOB WIZARD -->
+  <div id="job-card" class="card">
+    <div class="card-header">
+      <div>
+        <div class="step-eyebrow" id="job-step-eyebrow">ขั้นตอน 1 จาก 3</div>
+        <h1 class="card-title">เพิ่มงานใหม่</h1>
+      </div>
+    </div>
+
+    <div class="steps-row" id="job-steps-row"></div>
+
+    <div class="tip-box">
+      <img class="avatar" src="/favicon.svg" alt="กระรอกตุนเงิน" />
+      <div>
+        <p class="tip-title">คำแนะนำจากกระรอก</p>
+        <p class="tip-text" id="job-tip-text">กรอก "ชื่องาน" แล้วเลือก "ประเภทงาน" ด้านล่างได้เลยนะ เปลี่ยนทีหลังได้เสมอ</p>
+      </div>
+    </div>
+
+    <div class="step-fields visible" data-job-step="1">
+      <label>ชื่องาน / ดีล / สัญญา *</label>
+      <input type="text" id="job-name" placeholder="เช่น รับตัดต่อวิดีโอรีวิว" />
+
+      <label>แบรนด์ / ลูกค้าที่จ้าง</label>
+      <input type="text" id="job-client" placeholder="เช่น บริษัท ABC" />
+
+      <label>เลือกประเภทงาน</label>
+      <div class="pill-grid" id="job-type-pills">
+        <div class="pill-choice selected income" data-type="ยังไม่ระบุ">ยังไม่ระบุ</div>
+        <div class="pill-choice income" data-type="Sponsored Post">Sponsored Post</div>
+        <div class="pill-choice income" data-type="Video Production">Video Production</div>
+        <div class="pill-choice income" data-type="Digital Product">Digital Product</div>
+        <div class="pill-choice income" data-type="Consulting / Advisory">Consulting / Advisory</div>
+        <div class="pill-choice income" data-type="งานทั่วไปอื่นๆ">งานทั่วไปอื่นๆ</div>
+      </div>
+    </div>
+
+    <div class="step-fields" data-job-step="2">
+      <label>มูลค่าค่าจ้างเต็ม (บาท) *</label>
+      <input type="number" id="job-value" placeholder="เช่น 5000" min="0" />
+
+      <label>หัก ณ ที่จ่าย (Withholding Tax)</label>
+      <select id="job-whtRate">
+        <option value="0">0% (ไม่มีหัก) — รับยอดเต็ม เช่น ไม่เข้าระบบภาษี</option>
+        <option value="1">1% (ขนส่ง) — งานโฆษณาขนส่งบริการพิเศษ</option>
+        <option value="3">3% (ทั่วไป) — งานจ้างทำของ ฟรีแลนซ์ไทย</option>
+        <option value="5">5% (ค่าเช่า) — ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ</option>
+      </select>
+
+      <label>สถานะการจ่ายเงิน</label>
+      <div class="pill-grid" id="job-status-pills">
+        <div class="pill-choice selected income" data-status="paid">จ่ายครบแล้ว</div>
+        <div class="pill-choice income" data-status="partial">มัดจำแล้ว</div>
+        <div class="pill-choice income" data-status="pending">ยังไม่จ่าย</div>
+      </div>
+
+      <div id="received-amount-field" class="hidden">
+        <label>มัดจำมาแล้ว (บาท)</label>
+        <input type="number" id="job-receivedAmount" placeholder="เช่น 1000" min="0" />
+      </div>
+
+      <div class="receipt-box" id="job-receipt">
+        <div class="receipt-row"><span>มูลค่างานเต็ม</span><span id="receipt-value">฿0</span></div>
+        <div class="receipt-row" id="receipt-wht-row"><span>หัก ณ ที่จ่าย (0%)</span><span id="receipt-wht">-฿0</span></div>
+        <div class="receipt-row"><span>ยอดสุทธิหลังหักภาษี</span><span id="receipt-net">฿0</span></div>
+        <div class="receipt-row"><span>รับแล้ว</span><span id="receipt-received">฿0</span></div>
+        <div class="receipt-row total"><span>ค้างรับ</span><span id="receipt-pending">฿0</span></div>
+      </div>
+    </div>
+
+    <div class="step-fields" data-job-step="3">
+      <label>เครดิตเทอม (วัน, 0 = ได้เงินทันที)</label>
+      <input type="number" id="job-creditTerm" value="0" min="0" />
+      <p class="tip-text" style="margin-top:6px;color:var(--muted);">จำนวนวันที่ลูกค้าจะโอนเงินหลังส่งงาน</p>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn btn-back hidden" id="job-back-btn">ย้อนกลับ</button>
+      <button class="btn btn-primary income" id="job-next-btn">ขั้นตอนถัดไป →</button>
+    </div>
+    <div class="error" id="job-error-box"></div>
+  </div>
+
+  <!-- EXPENSE FORM -->
+  <div id="expense-card" class="card hidden">
+    <div class="card-header">
+      <div><h1 class="card-title">เพิ่มรายจ่าย</h1></div>
+    </div>
+
+    <div class="tip-box">
+      <img class="avatar" src="/favicon.svg" alt="กระรอกตุนเงิน" />
+      <div>
+        <p class="tip-title">คำแนะนำจากกระรอก</p>
+        <p class="tip-text">กรอกชื่อรายการ เลือกหมวดหมู่ แล้วใส่จำนวนเงินได้เลยครับ</p>
+      </div>
+    </div>
+
+    <label>ชื่อรายการ *</label>
+    <input type="text" id="expense-name" placeholder="เช่น ค่าซอฟต์แวร์ตัดต่อ" />
+
+    <label>หมวดหมู่</label>
+    <select id="expense-category">
+      <option>ค่าอุปกรณ์/ซอฟต์แวร์</option>
+      <option>ค่าโฆษณา/ยิงแอด</option>
+      <option>ค่าเดินทาง/น้ำมัน</option>
+      <option>อาหาร/รับรองลูกค้า</option>
+      <option>จ้างงานต่อ (Outsource)</option>
+      <option>ภาษี/ธรรมเนียม</option>
+      <option>ค่าบริการ/สาธารณูปโภค</option>
+      <option>อื่นๆ</option>
+    </select>
+
+    <label>จำนวนเงิน (บาท) *</label>
+    <input type="number" id="expense-amount" placeholder="เช่น 500" min="0" />
+
+    <div class="nav-row">
+      <button class="btn btn-primary expense" id="expense-submit-btn">บันทึกรายจ่าย</button>
+    </div>
+    <div class="error" id="expense-error-box"></div>
+  </div>
+</div>
+
+<div id="status-view" class="status hidden"></div>
+
+<script src="/liff-add.js" defer></script>
+
+</body>
+</html>

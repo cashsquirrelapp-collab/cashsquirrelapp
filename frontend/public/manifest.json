@@ -1,0 +1,25 @@
+{
+  "name": "กระรอกตุนเงิน - ระบบวางแผนรายรับฟรีแลนซ์",
+  "short_name": "กระรอกตุนเงิน",
+  "description": "ระบบติดตามเครดิตเทอม บันทึกรับเงิน และวางแผนการเงินสำหรับฟรีแลนซ์มืออาชีพ",
+  "start_url": "/?pwa=true",
+  "display": "standalone",
+  "background_color": "#FCFBF9",
+  "theme_color": "#E65F2B",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "48x48 72x72 96x96 128x128 192x192 384x384 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "orientation": "portrait-primary",
+  "categories": ["finance", "productivity"]
+}

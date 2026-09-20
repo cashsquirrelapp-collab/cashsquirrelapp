@@ -1,0 +1,127 @@
+import { test,expect } from '@playwright/test';
+test.beforeEach(async({page})=>{await page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'user',groups:[],invitations:[],total:0,page:0}}));});
+const user={id:'11111111-1111-4111-8111-111111111111',email:'test@example.com',role:'user',created_at:'2026-01-01T00:00:00Z',user_metadata:{}};
+const snapshot={jobs:[],expenses:[],goals:[],invoices:[],settings:{monthlyExpense:0,monthlyRevenueGoal:20000,savingsPercentage:40,profileSetupCompleted:true,userPersona:'freelance'},statuses:[{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}],job_types:['Sponsored Post'],notif_settings:{enabled:true,alertEmail:user.email,serviceType:'mailto',emailjsServiceId:'',emailjsTemplateId:'',emailjsPublicKey:'',pendingQueue:[],lineUserId:null},avatar_data_url:null,issuer_profile:null};
+const versions={cashflow_jobs:{},cashflow_expenses:{},cashflow_goals:{},cashflow_invoices:{},cashflow_documents:{settings:1,statuses:1,job_types:1,notif_settings:1}};
+test('login and all feature tabs render after separation without browser errors',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ let loggedIn=false;
+ await page.route('**/api/auth',route=>{
+  const request=route.request();
+  if(request.method()==='POST') { expect(request.headers()['x-csrf-protection']).toBe('1');loggedIn=request.postDataJSON().action!=='logout'; }
+  return route.fulfill({json:{session:loggedIn?{user}:null,user:loggedIn?user:null}});
+ });
+ await page.route('**/api/data',route=>route.fulfill({json:route.request().method()==='POST'?{ok:true}:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'user',groups:[],invitations:[],total:0,page:0}}));
+ await page.goto('/');
+ await page.locator('input[type=email]').first().fill(user.email);
+ await page.locator('input[type=password]').first().fill('test-password-123');
+ await page.locator('form button[type=submit]').first().click();
+ await expect(page.getByText(user.email).first()).toBeVisible();
+ const sidebar=page.locator('aside');
+ await expect(page.getByRole('heading',{name:'วางแผนวันนี้ ให้เงินเติบโตทุกวัน'})).toBeVisible();
+ const tools=sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'});
+ await tools.click();
+ const names=await sidebar.locator('nav button').allTextContents();
+ for(const name of names) {
+  const button=sidebar.locator('nav button').filter({hasText:name.trim()}).first();
+  if(name.includes('เครื่องมือเพิ่มเติม'))continue;
+  if(await button.isVisible()) { await button.click();await expect(button).toHaveAttribute('aria-current','page');await expect(page.locator('#main-content')).not.toContainText('กำลังโหลด');await expect(page.getByText('โหลดหน้านี้ไม่สำเร็จ',{exact:true})).toHaveCount(0); }
+ }
+ await sidebar.locator('nav button').first().click();
+ await expect(page.getByRole('heading',{name:'วางแผนวันนี้ ให้เงินเติบโตทุกวัน'})).toBeVisible();
+ if(await page.locator('html').evaluate(el=>el.classList.contains('dark')))await sidebar.getByRole('button').last().click();
+ await expect(page.locator('#dashboard-top')).toBeVisible();
+ await page.waitForTimeout(350);
+ await page.screenshot({path:'artifacts/desktop.png',fullPage:true});
+ expect(errors).toEqual([]);
+ const storage=await page.evaluate(()=>({local:{...localStorage},session:{...sessionStorage},cookie:document.cookie}));
+ expect(JSON.stringify(storage)).not.toContain('access_token');expect(JSON.stringify(storage)).not.toContain('refresh_token');
+ for(const key of [...Object.keys(storage.local),...Object.keys(storage.session)])expect(key).not.toMatch(/^cashflow_(jobs|goals|settings|statuses|job_types|expenses|notif_settings|user_avatar|invoices|issuer)(_|$)/);
+});
+test('LIFF form loads under production CSP without inline handlers',async({page})=>{
+ await page.route('https://static.line-scdn.net/**',route=>route.fulfill({contentType:'application/javascript',body:'window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>false};'}));
+ await page.route('**/api/liff-config',route=>route.fulfill({json:{liffId:'test-liff'}}));
+ await page.goto('/liff-add.html');
+ await page.locator('#tab-expense').click();await expect(page.locator('#expense-card')).toBeVisible();
+ await page.locator('#tab-income').click();await expect(page.locator('#job-card')).toBeVisible();
+ expect(await page.locator('[onclick]').count()).toBe(0);
+});
+test('mobile login layout remains inside the viewport',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
+ await page.setViewportSize({width:390,height:844});await page.goto('/');
+ await expect(page.locator('input[type=email]').first()).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'artifacts/mobile-login.png',fullPage:true});
+});
+
+test('legacy invoice requires owner confirmation and is saved through versioned backend API',async({page})=>{
+ const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'',bankName:'',bankAccount:'',bankAccountName:''};
+ const legacy={id:'legacy-invoice',documentType:'invoice',documentNo:'INV-LEGACY-001',createdDate:'2026-09-17',issuer:profile,client:{name:'Test client',address:'Bangkok',phone:'',email:'',taxId:''},items:[{id:'item',description:'Consulting',quantity:1,price:100}],vatRate:0,whtRate:0};
+ await page.addInitScript(value=>localStorage.setItem('remix_invoices',JSON.stringify([value])),legacy);
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ let saved:any[]=[];
+ await page.route('**/api/data',async route=>{
+  if(route.request().method()==='POST'){
+   expect(route.request().headers()['x-account-id']).toBe(user.id);
+   saved.push(...route.request().postDataJSON().changes);
+   return route.fulfill({json:{ok:true}});
+  }
+  return route.fulfill({json:{snapshot,versions,subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');await expect(page.getByRole('heading',{name:'วางแผนวันนี้ ให้เงินเติบโตทุกวัน'})).toBeVisible();
+ const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
+ await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (0)'})).toBeVisible();
+ expect(saved.some(c=>c.table==='cashflow_invoices')).toBe(false);
+ await page.getByRole('button',{name:'นำเข้าเอกสารเดิมจากเครื่อง'}).click();
+ await page.getByRole('button',{name:'ตกลง',exact:true}).click();
+ await expect.poll(()=>saved.filter(c=>c.table==='cashflow_invoices').length).toBe(1);
+ expect(saved.find(c=>c.table==='cashflow_invoices')).toMatchObject({id:'legacy-invoice',version:null,op:'set'});
+ await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (1)'})).toBeVisible();
+});
+
+test('expired authentication hides private views and never leaves financial browser caches',async({page})=>{
+ const privateJob={id:'private-job',name:'Private account record',value:100,received:0,pending:100,client:'Private client',type:'Design',status:'pending',creditTerm:0,note:'',payDate:null};
+ let expired=false;
+ await page.addInitScript(()=>{
+  localStorage.setItem('cashflow_jobs_old@example.com','[{"name":"stale private record"}]');
+  sessionStorage.setItem('cashflow_invoices_old-owner','[{"documentNo":"PRIVATE"}]');
+ });
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:expired?null:{user}}}));
+ await page.route('**/api/data',route=>route.fulfill({json:{snapshot:{...snapshot,jobs:[privateJob]},versions:{...versions,cashflow_jobs:{'private-job':1}},subscription:null}}));
+ await page.goto('/');await expect(page.getByRole('heading',{name:'วางแผนวันนี้ ให้เงินเติบโตทุกวัน'})).toBeVisible();
+ expired=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
+ const storage=await page.evaluate(()=>({...localStorage,...sessionStorage}));
+ for(const key of Object.keys(storage))expect(key).not.toMatch(/^cashflow_(jobs|goals|settings|statuses|job_types|expenses|notif_settings|user_avatar|invoices|issuer)(_|$)/);
+ expect(JSON.stringify(storage)).not.toContain('Private account record');
+});
+
+test('account switching cannot reuse the previous account invoice working copy',async({page})=>{
+ const second={...user,id:'22222222-2222-4222-8222-222222222222',email:'second@example.com'};
+ const profile={name:'Private issuer A',address:'Bangkok',phone:'',email:'',taxId:'',bankName:'',bankAccount:'',bankAccountName:''};
+ const invoice={id:'private-a',documentType:'invoice',documentNo:'INV-PRIVATE-A',createdDate:'2026-09-17',issuer:profile,client:{name:'Private client A',address:'',phone:'',email:'',taxId:''},items:[],vatRate:0,whtRate:0};
+ let switched=false;
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user:switched?second:user}}}));
+ await page.route('**/api/data',route=>{
+  const owner=route.request().headers()['x-account-id'];
+  return route.fulfill({json:{snapshot:{...snapshot,invoices:owner===user.id?[invoice]:[]},versions:{...versions,cashflow_invoices:owner===user.id?{'private-a':1}:{}},subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');await expect(page.getByRole('heading',{name:'วางแผนวันนี้ ให้เงินเติบโตทุกวัน'})).toBeVisible();
+ const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ await expect(page.getByText('INV-PRIVATE-A').first()).toBeVisible();
+ switched=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await expect(page.getByText(second.email).first()).toBeVisible();
+ await expect(page.getByText('INV-PRIVATE-A')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (0)'})).toBeVisible();
+});
+
+test('a protected API 401 immediately removes private views without waiting for the session timer',async({page})=>{
+ let denied=false;
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data',route=>denied?route.fulfill({status:401,json:{error:'Session expired'}}):route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/');await expect(page.getByText('เชื่อมต่อคลาวด์',{exact:true})).toBeVisible();
+ denied=true;const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
+});
