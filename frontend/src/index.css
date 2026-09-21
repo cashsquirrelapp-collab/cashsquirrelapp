@@ -212,7 +212,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background:
     radial-gradient(circle at 7% 18%, rgba(255, 211, 153, .5), transparent 25rem),
     radial-gradient(circle at 94% 82%, rgba(238, 181, 104, .25), transparent 28rem),
-    var(--bg);
+    #fbf2e4;
 }
 
 .auth-welcome-inner {
@@ -237,6 +237,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   margin: auto;
   padding: 2rem;
 }
+.auth-welcome-copy h1 { color: #3d2314; }
+.auth-welcome-copy > p:first-of-type { color: #a65f32; }
+.auth-welcome-copy > p:nth-of-type(2) { color: #806958; }
 .auth-welcome-brand {
   display: inline-flex;
   border: 1px solid rgba(111, 65, 37, .18);
@@ -326,22 +329,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   /* One compact viewport: the illustration leads, then the action panel finishes the page. */
   .auth-welcome,
   .auth-welcome-inner { height: 100svh; min-height: 100svh; overflow: hidden; }
-  .auth-welcome-inner { grid-template-rows: 42svh 58svh; }
+  .auth-welcome-inner { grid-template-rows: 44svh 56svh; }
   .auth-welcome-copy {
     min-height: 0;
-    height: 58svh;
+    height: 56svh;
     width: min(calc(100% - 2rem), 32rem);
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
     padding: clamp(1.2rem, 5vw, 2rem) clamp(1.25rem, 6vw, 2rem) max(1rem, env(safe-area-inset-bottom));
   }
-  .auth-welcome-copy .auth-welcome-brand { padding: 6px 11px; font-size: 9px; }
+  .auth-welcome-copy::before {
+    content: '';
+    position: absolute;
+    inset: 44svh 0 0;
+    z-index: -1;
+    background: linear-gradient(180deg, #f8ead7 0%, #fdf6ec 28%, #fbf2e4 100%);
+  }
+  .auth-welcome-copy .auth-welcome-brand { align-self: center; width: auto; padding: 6px 14px; font-size: 9px; }
   .auth-welcome-copy > p:first-of-type { margin-top: .9rem; font-size: .75rem; }
   .auth-welcome-copy h1 { margin-top: .4rem; font-size: clamp(2rem, 10vw, 3rem); line-height: 1.08; }
-  .auth-welcome-copy > p:nth-of-type(2) { margin-top: .65rem; font-size: .92rem; line-height: 1.55; }
-  .auth-welcome-copy .auth-welcome-cta { width: 100%; justify-content: center; margin-top: 1.15rem; padding: 13px 15px; }
+  .auth-welcome-copy > p:nth-of-type(2) { max-width: 27rem; margin-top: .65rem; font-size: .92rem; line-height: 1.55; }
+  .auth-welcome-copy .auth-welcome-cta { width: min(100%, 27rem); justify-content: center; margin-top: 1.25rem; padding: 13px 15px; }
   .auth-welcome-showcase {
     min-height: 0;
-    height: 42svh;
+    height: 44svh;
     grid-row: 1;
     border-radius: 0;
     padding: max(1rem, env(safe-area-inset-top)) 1.25rem .9rem;
@@ -349,8 +361,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .auth-welcome-copy { grid-row: 2; }
   .auth-welcome-slide-header,
   .auth-welcome-slide-copy { display: none; }
-  .auth-welcome-visual { min-height: 0; height: 34svh; }
-  .auth-welcome-image { width: min(72vw, 18rem); max-height: 32svh; border-radius: 22px; }
+  .auth-welcome-visual { min-height: 0; height: 36svh; }
+  .auth-welcome-image { width: min(76vw, 19rem); max-height: 34svh; border-radius: 22px; }
   .auth-welcome-slide-dots { justify-content: center; margin-top: .55rem; }
   .auth-welcome-orbit { width: 34px; height: 34px; font-size: 13px; }
   .auth-welcome-showcase .auth-story-dot { width: 6px; height: 6px; }
@@ -367,7 +379,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     overflow: hidden;
     border: 1px solid rgba(104, 68, 43, .14);
     border-radius: 34px;
-    background: color-mix(in srgb, var(--bg) 94%, white);
+    background: #fdf6ec;
     box-shadow: 0 24px 70px rgba(72, 47, 29, .13);
   }
   .auth-welcome-copy {
