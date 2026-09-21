@@ -125,6 +125,22 @@ function AuthWelcome({ onContinue }: { onContinue: () => void }) {
           <p className="mt-7 text-sm font-bold text-[#A65F32]">วางแผนเงินอย่างสบายใจ</p>
           <h1 className="mt-3 font-display text-4xl font-black tracking-tight text-brand-text sm:text-6xl">กระรอกตุนเงิน</h1>
           <p className="mt-4 max-w-md text-base leading-7 text-brand-muted sm:text-lg">จัดรายรับ รายจ่าย เป้าหมาย และเงินของกลุ่มไว้ในที่เดียว</p>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`mobile-feature-${story.title}`}
+              initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
+              transition={{ duration: .26, ease: [0.22, 1, 0.36, 1] }}
+              className="auth-welcome-mobile-feature"
+            >
+              <span className="auth-welcome-mobile-feature-icon" aria-hidden="true">{story.icon}</span>
+              <span className="auth-welcome-mobile-feature-text">
+                <strong>{story.title}</strong>
+                <small>{story.description}</small>
+              </span>
+            </motion.div>
+          </AnimatePresence>
           <button type="button" onClick={onContinue} className="auth-welcome-cta mt-8">
             Go to Kraroktunngern <span aria-hidden="true">🐿️</span><ArrowRight className="h-4 w-4" />
           </button>
