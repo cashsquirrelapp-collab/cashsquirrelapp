@@ -191,6 +191,108 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   box-shadow: var(--shadow-card-hover);
 }
 
+/* The first visit starts with the product story, then hands visitors into the familiar auth form. */
+.auth-welcome {
+  position: relative;
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  overflow: hidden;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(255, 211, 153, .52), transparent 24rem),
+    radial-gradient(circle at 94% 82%, rgba(238, 181, 104, .32), transparent 28rem),
+    var(--bg);
+}
+
+.auth-welcome-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(100%, 1120px);
+  align-items: center;
+  gap: 32px;
+}
+
+.auth-welcome-copy { padding: 12px; }
+.auth-welcome-brand {
+  display: inline-flex;
+  border: 1px solid rgba(111, 65, 37, .18);
+  border-radius: 999px;
+  padding: 8px 13px;
+  color: #7b4c32;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+.auth-welcome-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 15px;
+  padding: 14px 18px;
+  background: #e65f2b;
+  box-shadow: 0 12px 24px rgba(194, 77, 27, .22);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 900;
+  transition: transform .2s var(--ease-soft), box-shadow .2s var(--ease-soft), background .2s var(--ease-soft);
+}
+.auth-welcome-cta:hover { transform: translateY(-2px); background: #d85221; box-shadow: 0 16px 28px rgba(194, 77, 27, .28); }
+.auth-welcome-cta:focus-visible { outline: 3px solid rgba(230, 95, 43, .35); outline-offset: 4px; }
+
+.auth-welcome-showcase {
+  position: relative;
+  display: flex;
+  min-height: min(650px, calc(100svh - 48px));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(65, 39, 23, .22);
+  border-radius: 32px;
+  padding: 28px;
+  background: linear-gradient(145deg, #3d2314 0%, #573521 50%, #814b29 120%);
+  box-shadow: 0 26px 70px rgba(72, 47, 29, .22);
+}
+.auth-welcome-glow {
+  position: absolute;
+  top: -14rem;
+  right: -10rem;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 212, 165, .23), transparent 67%);
+}
+.auth-welcome-visual { position: relative; display: grid; flex: 1; min-height: 260px; place-items: center; }
+.auth-welcome-mascot { animation: auth-welcome-float 5s ease-in-out infinite; }
+.auth-welcome-orbit {
+  position: absolute;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.26);
+  border-radius: 50%;
+  background: rgba(255, 238, 210, .13);
+  color: #ffe1bb;
+  font-size: 18px;
+  font-weight: 900;
+  backdrop-filter: blur(6px);
+  animation: auth-welcome-float 5.8s ease-in-out infinite;
+}
+.auth-welcome-orbit-one { top: 19%; left: 14%; }
+.auth-welcome-orbit-two { right: 14%; bottom: 16%; animation-delay: -2s; }
+.auth-welcome-ambient { position: absolute; border-radius: 50%; filter: blur(3px); pointer-events: none; }
+.auth-welcome-ambient-one { top: -12rem; left: -12rem; width: 30rem; height: 30rem; background: rgba(250, 191, 105, .13); }
+.auth-welcome-ambient-two { right: -16rem; bottom: -18rem; width: 38rem; height: 38rem; background: rgba(231, 151, 72, .13); }
+@keyframes auth-welcome-float { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-10px) rotate(2deg); } }
+
+@media (min-width: 800px) {
+  .auth-welcome-inner { grid-template-columns: minmax(0, .84fr) minmax(460px, 1.16fr); gap: 64px; }
+  .auth-welcome-copy { padding: 32px; }
+}
+
 .auth-story-panel {
   position: relative;
   min-height: 235px;
@@ -381,6 +483,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-mascot-float { animation: none; }
+  .auth-welcome-mascot,
+  .auth-welcome-orbit { animation: none; }
   .auth-story-mascot,
   .auth-story-coin { animation: none; }
   .dashboard-quick-action,

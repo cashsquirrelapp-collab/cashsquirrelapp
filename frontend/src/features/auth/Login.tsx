@@ -93,6 +93,72 @@ function AuthStorySlider() {
   );
 }
 
+function AuthWelcome({ onContinue }: { onContinue: () => void }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  React.useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  React.useEffect(() => {
+    if (reducedMotion) return;
+    const timer = window.setInterval(() => setActiveIndex(current => (current + 1) % AUTH_STORIES.length), 4800);
+    return () => window.clearInterval(timer);
+  }, [reducedMotion]);
+
+  const story = AUTH_STORIES[activeIndex];
+
+  return (
+    <section className="auth-welcome" aria-label="ยินดีต้อนรับสู่กระรอกตุนเงิน">
+      <div className="auth-welcome-ambient auth-welcome-ambient-one" aria-hidden="true" />
+      <div className="auth-welcome-ambient auth-welcome-ambient-two" aria-hidden="true" />
+      <div className="auth-welcome-inner">
+        <div className="auth-welcome-copy">
+          <span className="auth-welcome-brand">CASH SQUIRREL</span>
+          <p className="mt-7 text-sm font-bold text-[#A65F32]">วางแผนเงินอย่างสบายใจ</p>
+          <h1 className="mt-3 font-display text-4xl font-black tracking-tight text-brand-text sm:text-6xl">กระรอกตุนเงิน</h1>
+          <p className="mt-4 max-w-md text-base leading-7 text-brand-muted sm:text-lg">จัดรายรับ รายจ่าย เป้าหมาย และเงินของกลุ่มไว้ในที่เดียว</p>
+          <button type="button" onClick={onContinue} className="auth-welcome-cta mt-8">
+            Go to Kraroktunngern <span aria-hidden="true">🐿️</span><ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="auth-welcome-showcase">
+          <div className="auth-welcome-glow" aria-hidden="true" />
+          <div className="relative z-10 flex items-center justify-between gap-3">
+            <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-black tracking-[0.16em] text-white/90">CASH SQUIRREL</span>
+            <span className="text-xl" aria-hidden="true">{story.icon}</span>
+          </div>
+          <div className="auth-welcome-visual" aria-hidden="true">
+            <span className="auth-welcome-orbit auth-welcome-orbit-one">฿</span>
+            <span className="auth-welcome-orbit auth-welcome-orbit-two">✦</span>
+            <AnimatePresence mode="wait">
+              <motion.div key={story.title} initial={reducedMotion ? false : { opacity: 0, scale: .92, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={reducedMotion ? undefined : { opacity: 0, scale: 1.06, y: -12 }} transition={{ duration: .42, ease: [0.22, 1, 0.36, 1] }}>
+                <Mascot mood={story.mood} size={240} className="auth-welcome-mascot" />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          <AnimatePresence mode="wait">
+            <motion.div key={story.title} initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={reducedMotion ? undefined : { opacity: 0, x: -18 }} transition={{ duration: .32 }} className="relative z-10">
+              <p className="text-sm font-bold text-[#FFD4A7]">{story.accent}</p>
+              <h2 className="mt-2 font-display text-3xl font-black text-white">{story.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-white/70">{story.description}</p>
+            </motion.div>
+          </AnimatePresence>
+          <div className="relative z-10 mt-6 flex gap-2" role="tablist" aria-label="เลือกเรื่องเล่า">
+            {AUTH_STORIES.map((item, index) => <button key={item.title} type="button" role="tab" aria-selected={index === activeIndex} aria-label={`เรื่องเล่าที่ ${index + 1}`} onClick={() => setActiveIndex(index)} className={`auth-story-dot ${index === activeIndex ? 'is-active' : ''}`} />)}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
   const { t } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
@@ -105,6 +171,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
+  const [showWelcome, setShowWelcome] = useState(true);
 
   React.useEffect(() => {
     if (error) {
@@ -279,6 +346,14 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   };
 
   return (
+    <>
+      <AnimatePresence>
+        {showWelcome && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -24 }} transition={{ duration: .38, ease: [0.22, 1, 0.36, 1] }} className="fixed inset-0 z-[100] overflow-y-auto bg-brand-bg">
+            <AuthWelcome onContinue={() => setShowWelcome(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     <div className="auth-page min-h-screen bg-brand-bg flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden transition-colors duration-300">
       
       {/* Background Decorative Rings */}
@@ -732,5 +807,6 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       <div className="hidden lg:block"><AuthStorySlider /></div>
       </div>
     </div>
+    </>
   );
 }
