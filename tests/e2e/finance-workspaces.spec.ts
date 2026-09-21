@@ -120,6 +120,16 @@ async function setup(page: Page) {
   await page.route("**/api/auth", (route) =>
     route.fulfill({ json: { session: { user } } }),
   );
+  // E2E runs without Supabase credentials, so keep the account-profile request local.
+  await page.route("**/api/profile", (route) =>
+    route.fulfill({
+      json: {
+        userId: user.id,
+        publicId: "SQ-1111111111",
+        displayName: "Test member",
+      },
+    }),
+  );
   await page.route("**/api/groups?*", (route) =>
     route.fulfill({
       json: {
