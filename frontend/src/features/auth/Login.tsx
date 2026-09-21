@@ -173,8 +173,29 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(() => window.location.hash !== '#login');
   const [authEntry, setAuthEntry] = useState(0);
+
+  React.useEffect(() => {
+    const syncWelcomeWithHistory = () => setShowWelcome(window.location.hash !== '#login');
+    window.addEventListener('popstate', syncWelcomeWithHistory);
+    return () => window.removeEventListener('popstate', syncWelcomeWithHistory);
+  }, []);
+
+  const openLogin = () => {
+    window.history.pushState({ cashSquirrelView: 'login' }, '', `${window.location.pathname}${window.location.search}#login`);
+    setAuthEntry(current => current + 1);
+    setShowWelcome(false);
+  };
+
+  const returnToWelcome = () => {
+    if (window.location.hash === '#login' && window.history.state?.cashSquirrelView === 'login') {
+      window.history.back();
+      return;
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    setShowWelcome(true);
+  };
 
   React.useEffect(() => {
     if (error) {
@@ -353,7 +374,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       <AnimatePresence>
         {showWelcome && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -24 }} transition={{ duration: .38, ease: [0.22, 1, 0.36, 1] }} className="fixed inset-0 z-[100] overflow-y-auto bg-brand-bg">
-            <AuthWelcome onContinue={() => { setAuthEntry(current => current + 1); setShowWelcome(false); }} />
+            <AuthWelcome onContinue={openLogin} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -365,7 +386,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
       <button
         type="button"
-        onClick={() => setShowWelcome(true)}
+        onClick={returnToWelcome}
         className="auth-back-to-welcome absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-white/90 px-3.5 py-2.5 text-xs font-extrabold text-brand-muted shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:text-brand-text"
       >
         <ChevronLeft className="h-4 w-4" />
