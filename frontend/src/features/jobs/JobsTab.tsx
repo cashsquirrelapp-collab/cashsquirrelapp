@@ -498,7 +498,7 @@ export default function JobsTab({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="page-content space-y-6">
       {/* 1. Header with Stats */}
       <div className="flex items-center justify-between px-1">
         <div>

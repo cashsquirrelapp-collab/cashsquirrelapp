@@ -338,7 +338,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto pb-12">
+    <div className="page-content space-y-6 max-w-2xl mx-auto pb-12">
           {!isGroupFinance && session && !session.isGuest && <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3"><User className="w-4.5 h-4.5 text-emerald-600"/><h3 className="text-xs font-black uppercase tracking-wider">โปรไฟล์ผู้ใช้</h3></div>
             <label className="block text-xs font-bold">ชื่อที่แสดง

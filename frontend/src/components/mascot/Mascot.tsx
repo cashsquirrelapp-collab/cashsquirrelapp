@@ -119,6 +119,14 @@ export function Mascot({
           animation: squirrelWave 0.8s ease-in-out infinite;
           transform-origin: 66px 64px;
         }
+        @media (prefers-reduced-motion: reduce) {
+          .squirrel-tail-wag,
+          .squirrel-blink,
+          .squirrel-accessory,
+          .squirrel-wave-arm {
+            animation: none !important;
+          }
+        }
       `}</style>
 
       <svg

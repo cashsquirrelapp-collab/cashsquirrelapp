@@ -207,7 +207,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
   };
   return (
     <section
-      className="space-y-6 text-brand-text min-w-0"
+      className="page-content space-y-6 text-brand-text min-w-0"
       aria-label={copy('จัดการกลุ่ม', 'Group management')}
     >
       <div className="flex flex-wrap items-start justify-between gap-4">

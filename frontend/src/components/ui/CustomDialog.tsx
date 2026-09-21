@@ -52,14 +52,14 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-y-auto" role="presentation">
         {/* Backdrop overlay */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={handleCancel}
-          className="fixed inset-0 bg-neutral-900/60 backdrop-blur-xs cursor-pointer"
+          className="fixed inset-0 bg-[#302018]/25 backdrop-blur-[2px] cursor-pointer"
         />
 
         {/* Dialog Box */}
@@ -67,8 +67,11 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
           initial={{ scale: 0.95, opacity: 0, y: 15 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 15 }}
-          transition={{ type: 'spring', duration: 0.4 }}
-          className="relative bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4"
+          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={dialog.title}
+          className="relative bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-[22px] p-6 shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4"
         >
           <div className="flex items-start gap-4">
             <div className="p-3 bg-brand-faint dark:bg-neutral-800 rounded-2xl">
@@ -92,7 +95,7 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
                 placeholder={dialog.placeholder}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                className="w-full bg-brand-faint dark:bg-neutral-800/50 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-emerald-500/50"
+                className="w-full bg-brand-faint dark:bg-neutral-800/50 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-brand-green-acc focus:ring-4 focus:ring-brand-green-acc/10"
               />
             )}
 
@@ -108,7 +111,7 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
               )}
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                className="px-5 py-2.5 bg-brand-green-acc hover:brightness-110 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer focus:outline-none focus:ring-4 focus:ring-brand-green-acc/20"
               >
                 {t('common.ok')}
               </button>

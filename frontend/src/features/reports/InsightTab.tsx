@@ -414,7 +414,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="page-content space-y-6 max-w-5xl mx-auto pb-12">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-display font-black text-lg text-brand-text dark:text-white">วิเคราะห์รายได้เชิงลึก</h2>

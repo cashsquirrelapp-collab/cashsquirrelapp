@@ -679,7 +679,7 @@ export default function MonthlyReportTab({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-content space-y-6">
       
       {/* Dynamic Header Section */}
       <div className="bg-brand-white p-6 rounded-3xl border border-brand-border/40 shadow-sm relative overflow-hidden">

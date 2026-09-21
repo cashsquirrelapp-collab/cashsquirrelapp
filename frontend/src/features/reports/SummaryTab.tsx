@@ -327,7 +327,7 @@ export default function SummaryTab({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-content space-y-6">
       {/* 1. Header Bar with dynamic month switch */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

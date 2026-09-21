@@ -1748,12 +1748,12 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen bg-brand-bg flex lg:flex-row flex-col overflow-hidden">
+    <div className="app-shell h-screen bg-brand-bg flex lg:flex-row flex-col overflow-hidden">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-100 focus:rounded-xl focus:bg-white focus:p-3 focus:text-stone-900">ข้ามไปเนื้อหา</a>
 
       {/* 💻 iPad / MacBook / PC Desktop Sidebar (Hidden on mobile devices) -- own scroll region so
           it stays put while the main content (e.g. a 100-job list) scrolls independently */}
-      <aside className="hidden lg:flex flex-col w-68 bg-brand-white border-r border-brand-border/40 shrink-0 select-none p-6 relative overflow-y-auto no-scrollbar">
+      <aside className="app-sidebar hidden lg:flex flex-col w-68 bg-brand-white border-r border-brand-border/40 shrink-0 select-none p-6 relative overflow-y-auto no-scrollbar">
         <button
           type="button"
           onClick={() => setActiveTab('dashboard')}
@@ -2060,7 +2060,7 @@ export default function App() {
       <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
         
         {/* Top Header Bar with branding & Dark Mode toggle (Sticky on mobile, simple title on desktop) */}
-        <div className="flex justify-between items-center px-5 py-4 bg-brand-white border-b border-brand-border/40 select-none shrink-0 lg:px-8">
+        <div className="app-topbar flex justify-between items-center px-5 py-4 bg-brand-white border-b border-brand-border/40 select-none shrink-0 lg:px-8">
           <div className="flex items-center gap-3">
             {/* Hamburger button for Mobile Drawer Menu */}
             <button
@@ -2121,7 +2121,7 @@ export default function App() {
 
         {/* Scrollable Container with responsive max widths */}
         {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>}
-        <div id="main-content" role="main" inert={switchingFinance} className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
+        <div id="main-content" role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
           
           {/* Global Month Exploration Bar (สำรวจฤดูกาลเก็บเกี่ยว) - Display only on Dashboard */}
           {activeTab === 'dashboard' && <section className="relative mb-6 overflow-hidden rounded-3xl border border-[#E65F2B]/15 bg-gradient-to-br from-brand-white via-brand-white to-[#E65F2B]/10 p-6 sm:p-8">
@@ -2184,7 +2184,7 @@ export default function App() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
             >
               {activeTab === 'dashboard' && (
                 <DashboardTab

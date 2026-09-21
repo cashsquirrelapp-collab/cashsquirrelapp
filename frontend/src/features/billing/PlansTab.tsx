@@ -36,7 +36,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
     : t('plans.statusNone');
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="page-content space-y-6 max-w-4xl mx-auto pb-12">
       <div className="text-center space-y-1.5">
         <Mascot mood="proud" size={72} className="mx-auto mb-2" />
         <h2 className="font-display font-black text-xl text-brand-text dark:text-white">{t('plans.title')}</h2>

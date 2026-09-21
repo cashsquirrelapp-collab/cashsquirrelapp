@@ -87,6 +87,9 @@
   --radius-xl: 24px;
   --radius-lg: 16px;
   --radius-md: 12px;
+  --shadow-card: 0 8px 30px rgba(70, 49, 36, 0.055);
+  --shadow-card-hover: 0 12px 38px rgba(70, 49, 36, 0.09);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
@@ -118,11 +121,162 @@
 
 body {
   background-color: var(--bg);
-  background-image: radial-gradient(var(--border) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-image: radial-gradient(circle at 18% 0%, rgba(230, 192, 140, .14), transparent 30%), radial-gradient(circle at 100% 92%, rgba(196, 142, 93, .08), transparent 24%);
   color: var(--text);
   font-family: var(--font-sans);
   overflow-x: hidden;
+}
+
+button, a, input, select, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--blue-acc) 48%, transparent);
+  outline-offset: 2px;
+}
+
+.app-shell {
+  background: radial-gradient(circle at 12% 0%, rgba(229, 170, 103, .12), transparent 25%), var(--bg);
+}
+
+.app-sidebar {
+  background: color-mix(in srgb, var(--white) 96%, var(--bg));
+}
+
+.app-topbar {
+  background: color-mix(in srgb, var(--white) 94%, var(--bg));
+  backdrop-filter: blur(12px);
+}
+
+.app-content-panel {
+  background-image: radial-gradient(circle at 92% 4%, rgba(230, 192, 140, .10), transparent 22%);
+}
+
+/* A consistent, understated elevation language for the many existing feature cards. Individual
+   cards still opt into hover effects where they are interactive. */
+.page-content > :is(.bg-brand-white, .bg-brand-faint) {
+  box-shadow: var(--shadow-card);
+}
+
+/* Authentication is deliberately a separate composition from the app shell: it can feel more
+   welcoming without adding motion or illustrations to the financial workspace. */
+.auth-page::before {
+  content: '';
+  position: absolute;
+  width: min(48vw, 42rem);
+  height: min(48vw, 42rem);
+  top: -32rem;
+  right: -22rem;
+  border-radius: 999px;
+  background: rgba(231, 166, 75, .12);
+  filter: blur(12px);
+  pointer-events: none;
+}
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 28px;
+}
+
+.auth-form-column {
+  width: 100%;
+  max-width: 31rem;
+  margin: 0 auto;
+}
+
+.auth-form-card {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.auth-story-panel {
+  position: relative;
+  min-height: 235px;
+  overflow: hidden;
+  border: 1px solid rgba(85, 60, 46, .12);
+  border-radius: 26px;
+  padding: 20px;
+  color: white;
+  background: linear-gradient(138deg, #3d2314 0%, #5a3828 54%, #8b552a 145%);
+  box-shadow: 0 18px 46px rgba(70, 49, 36, .17);
+}
+
+.auth-story-glow {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  filter: blur(3px);
+}
+
+.auth-story-glow-one {
+  width: 18rem;
+  height: 18rem;
+  right: -7rem;
+  top: -8rem;
+  background: radial-gradient(circle, rgba(255, 213, 165, .24), transparent 66%);
+}
+
+.auth-story-glow-two {
+  width: 15rem;
+  height: 15rem;
+  bottom: -8rem;
+  left: -6rem;
+  background: radial-gradient(circle, rgba(255, 180, 103, .18), transparent 68%);
+}
+
+.auth-story-visual {
+  position: relative;
+  display: grid;
+  flex: 1;
+  min-height: 92px;
+  place-items: center;
+}
+
+.auth-story-mascot { width: 112px !important; height: 112px !important; animation: auth-float 5.5s ease-in-out infinite; }
+.auth-story-coin {
+  position: absolute;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 50%;
+  background: rgba(255, 235, 201, .15);
+  color: #ffe2bd;
+  font-size: 13px;
+  font-weight: 900;
+  backdrop-filter: blur(5px);
+}
+.auth-story-coin-one { top: 4%; left: 17%; animation: auth-float 4.6s ease-in-out infinite; }
+.auth-story-coin-two { right: 16%; bottom: 2%; animation: auth-float 6.2s ease-in-out infinite reverse; }
+
+.auth-story-dot {
+  width: 7px;
+  height: 7px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,.32);
+  cursor: pointer;
+  transition: width 200ms var(--ease-soft), background 200ms var(--ease-soft);
+}
+.auth-story-dot.is-active { width: 24px; background: #ffd4a7; }
+.auth-story-dot:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+
+@keyframes auth-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@media (min-width: 1024px) {
+  .auth-layout { grid-template-columns: minmax(0, .95fr) minmax(360px, .85fr); gap: 54px; }
+  .auth-form-column { margin: auto; }
+  .auth-story-panel { min-height: 620px; padding: 36px; }
+  .auth-story-visual { min-height: 300px; }
+  .auth-story-mascot { width: 190px !important; height: 190px !important; }
+  .auth-story-coin-one { top: 24%; }
+  .auth-story-coin-two { bottom: 20%; }
 }
 
 /* Dashboard: a small layer of product-specific polish built on the existing brand tokens.
@@ -227,6 +381,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-mascot-float { animation: none; }
+  .auth-story-mascot,
+  .auth-story-coin { animation: none; }
   .dashboard-quick-action,
   .dashboard-summary-card,
   .dashboard-quick-icon,

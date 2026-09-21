@@ -1,7 +1,7 @@
 import { apiFetch } from '../../services/api';
 import React, { useState } from 'react';
 import { authClient } from '../../services/auth';
-import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -12,6 +12,87 @@ interface LoginProps {
   onGuestLogin: (email: string) => void;
 }
 
+const AUTH_STORIES: { title: string; description: string; accent: string; mood: MascotMood; icon: string }[] = [
+  { title: 'เก็บทีละนิด', description: 'ทุกเป้าหมายใหญ่ เริ่มต้นจากเงินก้อนเล็ก', accent: 'จากเมล็ดเล็กสู่คลังใหญ่', mood: 'happy', icon: '🪙' },
+  { title: 'รู้ว่าเงินไปไหน', description: 'เห็นภาพรายรับรายจ่ายได้ง่ายขึ้นในที่เดียว', accent: 'จัดระเบียบให้เงินทำงาน', mood: 'proud', icon: '📈' },
+  { title: 'ไปถึงเป้าหมาย', description: 'วางแผนวันนี้ เพื่อสิ่งที่อยากได้ในวันข้างหน้า', accent: 'ค่อย ๆ ตุน เดี๋ยวก็ถึง', mood: 'wave', icon: '🌱' },
+];
+
+function AuthStorySlider() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  React.useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  React.useEffect(() => {
+    if (paused || reducedMotion) return;
+    const timer = window.setInterval(() => setActiveIndex(current => (current + 1) % AUTH_STORIES.length), 5200);
+    return () => window.clearInterval(timer);
+  }, [paused, reducedMotion]);
+
+  const story = AUTH_STORIES[activeIndex];
+
+  return (
+    <aside
+      aria-label="เรื่องเล่ากระรอกตุนเงิน"
+      className="auth-story-panel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <div className="auth-story-glow auth-story-glow-one" aria-hidden="true" />
+      <div className="auth-story-glow auth-story-glow-two" aria-hidden="true" />
+      <div className="relative z-10 flex h-full flex-col justify-between">
+        <div className="flex items-center justify-between gap-3">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-black tracking-[0.16em] text-white/85">CASH SQUIRREL</span>
+          <span className="text-lg" aria-hidden="true">{story.icon}</span>
+        </div>
+
+        <div className="auth-story-visual" aria-hidden="true">
+          <span className="auth-story-coin auth-story-coin-one">฿</span>
+          <span className="auth-story-coin auth-story-coin-two">✦</span>
+          <Mascot mood={story.mood} size={190} className="auth-story-mascot" />
+        </div>
+
+        <div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={story.title}
+              initial={reducedMotion ? false : { opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={reducedMotion ? undefined : { opacity: 0, x: -12 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <p className="text-xs font-bold text-[#FFD4A7]">{story.accent}</p>
+              <h2 className="mt-2 font-display text-3xl font-black tracking-tight text-white">{story.title}</h2>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-white/70">{story.description}</p>
+            </motion.div>
+          </AnimatePresence>
+          <div className="mt-6 flex items-center gap-2" role="tablist" aria-label="เลือกเรื่องเล่า">
+            {AUTH_STORIES.map((item, index) => (
+              <button
+                key={item.title}
+                type="button"
+                role="tab"
+                aria-selected={index === activeIndex}
+                aria-label={`เรื่องเล่าที่ ${index + 1}: ${item.title}`}
+                onClick={() => setActiveIndex(index)}
+                className={`auth-story-dot ${index === activeIndex ? 'is-active' : ''}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
   const { t } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
@@ -19,6 +100,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -197,7 +279,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden transition-colors duration-300">
+    <div className="auth-page min-h-screen bg-brand-bg flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden transition-colors duration-300">
       
       {/* Background Decorative Rings */}
       <div className="absolute top-[-20%] left-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
@@ -218,9 +300,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         </button>
       </div>
 
-      <div className="w-full max-w-md z-10">
+      <div className="auth-layout relative z-10 w-full max-w-6xl">
+      <div className="auth-form-column">
         {/* Brand Header */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-6 sm:mb-7">
           <Mascot mood={mascotMood} size={100} className="mb-2" />
           <h2 className="text-2xl font-display font-extrabold tracking-tight text-brand-text sm:text-3xl">
             {t('login.brandName')}
@@ -230,10 +313,14 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           </p>
         </div>
 
+        <div className="mb-6 lg:hidden">
+          <AuthStorySlider />
+        </div>
+
         {/* Form Card */}
         <motion.div
           layout
-          className="bg-brand-white border border-brand-border/40 rounded-3xl p-6 sm:p-8 shadow-xl shadow-brand-text/5 dark:shadow-none"
+          className="auth-form-card bg-brand-white border border-brand-border/40 rounded-[24px] p-6 sm:p-8 shadow-xl shadow-brand-text/5 dark:shadow-none"
         >
           {/* Tabs for Login / SignUp (only show if not in Forgot Password mode) */}
           {!isForgotPassword ? (
@@ -526,13 +613,16 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                     <Lock className="w-4.5 h-4.5" />
                   </span>
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={isSignUp ? t('login.passwordPlaceholderSignup') : t('login.passwordPlaceholderSignin')}
                     required
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
+                    className="w-full pl-10 pr-11 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                   />
+                  <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 flex items-center px-3 text-brand-muted hover:text-brand-text transition-colors" aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -551,13 +641,16 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       <Lock className="w-4.5 h-4.5" />
                     </span>
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder={t('login.confirmPasswordPlaceholder')}
                       required={isSignUp}
-                      className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
+                      className="w-full pl-10 pr-11 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
+                    <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 flex items-center px-3 text-brand-muted hover:text-brand-text transition-colors" aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </motion.div>
               )}
@@ -635,6 +728,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           <span className="mx-1.5">&middot;</span>
           <a href="/terms" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">{t('login.termsOfUse')}</a>
         </p>
+      </div>
+      <div className="hidden lg:block"><AuthStorySlider /></div>
       </div>
     </div>
   );
