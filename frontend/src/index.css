@@ -424,8 +424,39 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     background:
       linear-gradient(180deg, rgba(30, 14, 7, .08) 0%, rgba(30, 14, 7, 0) 42%, rgba(30, 14, 7, .5) 72%, rgba(30, 14, 7, .72) 100%);
   }
-  .auth-welcome-slide-header,
-  .auth-welcome-slide-copy { display: none; }
+  .auth-welcome-slide-header { display: none; }
+  .auth-welcome-slide-copy {
+    position: absolute;
+    right: 20px;
+    bottom: clamp(17.25rem, 34svh, 19rem);
+    left: 20px;
+    z-index: 4;
+    margin: 0 auto;
+    max-width: 25rem;
+    padding: 13px 16px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 18px;
+    background: rgba(46, 23, 12, .58);
+    box-shadow: 0 12px 32px rgba(24, 11, 5, .18);
+    text-align: center;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .auth-welcome-slide-copy > p:first-child {
+    font-size: .68rem;
+    line-height: 1.2;
+  }
+  .auth-welcome-slide-copy h2 {
+    margin-top: .25rem;
+    font-size: 1.35rem;
+    line-height: 1.15;
+  }
+  .auth-welcome-slide-copy > p:last-child {
+    margin-top: .25rem;
+    font-size: .75rem;
+    line-height: 1.35;
+    color: rgba(255, 255, 255, .78);
+  }
   .auth-welcome-visual {
     position: absolute;
     inset: 0;
@@ -467,6 +498,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     .auth-welcome-copy h1 { font-size: 1.9rem; }
     .auth-welcome-copy > p:nth-of-type(2) { font-size: .8rem; }
     .auth-welcome-copy .auth-welcome-cta { margin-top: .8rem; padding: 11px 13px; }
+    .auth-welcome-slide-copy {
+      bottom: 13.25rem;
+      padding: 10px 14px;
+    }
+    .auth-welcome-slide-copy > p:first-child,
+    .auth-welcome-slide-copy > p:last-child { display: none; }
+    .auth-welcome-slide-copy h2 { margin: 0; font-size: 1rem; }
   }
 }
 
