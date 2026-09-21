@@ -30,6 +30,38 @@ import { Mascot } from '../../components/mascot/Mascot';
 import { IconCrown, IconClose, IconCheck } from '../../components/ui/icons';
 import type { PublicProfile } from '../../../../shared/groups';
 
+const MAX_AVATAR_DATA_URL_LENGTH = 450_000;
+
+async function prepareAvatarDataUrl(file: File): Promise<string> {
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    throw new Error('รองรับเฉพาะรูป PNG, JPG หรือ WEBP');
+  }
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = sourceUrl;
+    await image.decode();
+    let longestEdge = Math.min(512, Math.max(image.naturalWidth, image.naturalHeight));
+    let quality = 0.82;
+    while (longestEdge >= 96) {
+      const scale = longestEdge / Math.max(image.naturalWidth, image.naturalHeight);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('เบราว์เซอร์ไม่รองรับการเตรียมรูปภาพ');
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const value = canvas.toDataURL('image/jpeg', quality);
+      if (value.length <= MAX_AVATAR_DATA_URL_LENGTH) return value;
+      longestEdge = Math.floor(longestEdge * 0.8);
+      quality = Math.max(0.55, quality - 0.08);
+    }
+    throw new Error('รูปภาพยังมีขนาดใหญ่เกินไป กรุณาเลือกภาพอื่น');
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
 interface SettingsTabProps {
   isGroupFinance?: boolean;
   settings: AppSettings;
@@ -236,6 +268,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const handleRemoveFixedExpenseItem = (id: string) => {
     const updatedItems = fixedExpenseItems.filter(item => item.id !== id);
     onUpdateSettings({ ...settings, fixedExpenseItems: updatedItems, monthlyExpense: sumFixedExpenseItems(updatedItems) });
+  };
+
+  const handleAvatarFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      triggerAlert('ไฟล์ใหญ่เกินไป', 'กรุณาเลือกรูปภาพที่มีขนาดไม่เกิน 5MB');
+      return;
+    }
+    try {
+      onUpdateUserAvatar(await prepareAvatarDataUrl(file));
+    } catch (error) {
+      triggerAlert('ใช้รูปภาพนี้ไม่ได้', error instanceof Error ? error.message : 'กรุณาลองเลือกรูปอื่น');
+    }
   };
 
   // Drag and drop handlers
@@ -689,23 +736,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <Upload className="w-3 h-3" />
                     <input 
                       type="file" 
-                      accept="image/*" 
+                      accept="image/png,image/jpeg,image/webp"
                       className="hidden" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 2 * 1024 * 1024) {
-                            triggerAlert('ไฟล์ใหญ่เกินไป', 'กรุณาอัปโหลดรูปภาพที่มีขนาดไม่เกิน 2MB');
-                            return;
-                          }
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const base64 = event.target?.result as string;
-                            onUpdateUserAvatar(base64);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
+                      onChange={event => void handleAvatarFile(event)}
                     />
                   </label>
                 </div>
@@ -721,23 +754,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       เปลี่ยนรูปภาพ
                       <input 
                         type="file" 
-                        accept="image/*" 
+                        accept="image/png,image/jpeg,image/webp"
                         className="hidden" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            if (file.size > 2 * 1024 * 1024) {
-                              triggerAlert('ไฟล์ใหญ่เกินไป', 'กรุณาอัปโหลดรูปภาพที่มีขนาดไม่เกิน 2MB');
-                              return;
-                            }
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                              const base64 = event.target?.result as string;
-                              onUpdateUserAvatar(base64);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
+                        onChange={event => void handleAvatarFile(event)}
                       />
                     </label>
                     {userAvatar && (

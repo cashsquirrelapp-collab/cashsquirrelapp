@@ -64,9 +64,14 @@ export default withGuard(
     try {
       changes = validateChanges(req.body?.changes);
     } catch {
+      const isAvatarChange = Array.isArray(req.body?.changes) && req.body.changes.some(
+        (change: any) => change?.table === 'cashflow_documents' && change?.id === 'avatar_data_url',
+      );
       throw new HttpError(
         400,
-        "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบรายการและจำนวนเงิน",
+        isAvatarChange
+          ? 'รูปภาพไม่ถูกต้องหรือมีขนาดใหญ่เกินไป กรุณาเลือก PNG, JPG หรือ WEBP'
+          : "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบรายการและจำนวนเงิน",
       );
     }
     if (
