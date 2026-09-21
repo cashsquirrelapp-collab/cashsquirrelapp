@@ -18,6 +18,7 @@ test('login and all feature tabs render after separation without browser errors'
  await page.route('**/api/data*',route=>route.fulfill({json:route.request().method()==='POST'?{ok:true}:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'user',groups:[],invitations:[],total:0,page:0}}));
  await page.goto('/');
+ await page.getByRole('button',{name:/Go to Kraroktunngern/}).click();
  await page.locator('input[type=email]').first().fill(user.email);
  await page.locator('input[type=password]').first().fill('test-password-123');
  await page.locator('form button[type=submit]').first().click();
@@ -54,6 +55,9 @@ test('LIFF form loads under production CSP without inline handlers',async({page}
 test('mobile login layout remains inside the viewport',async({page})=>{
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.setViewportSize({width:390,height:844});await page.goto('/');
+ await expect(page.getByRole('button',{name:/Go to Kraroktunngern/})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:/Go to Kraroktunngern/}).click();
  await expect(page.locator('input[type=email]').first()).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'artifacts/mobile-login.png',fullPage:true});
