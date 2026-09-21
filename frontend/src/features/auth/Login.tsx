@@ -12,10 +12,12 @@ interface LoginProps {
   onGuestLogin: (email: string) => void;
 }
 
-const AUTH_STORIES: { title: string; description: string; accent: string; mood: MascotMood; icon: string }[] = [
-  { title: 'เก็บทีละนิด', description: 'ทุกเป้าหมายใหญ่ เริ่มต้นจากเงินก้อนเล็ก', accent: 'จากเมล็ดเล็กสู่คลังใหญ่', mood: 'happy', icon: '🪙' },
-  { title: 'รู้ว่าเงินไปไหน', description: 'เห็นภาพรายรับรายจ่ายได้ง่ายขึ้นในที่เดียว', accent: 'จัดระเบียบให้เงินทำงาน', mood: 'proud', icon: '📈' },
-  { title: 'ไปถึงเป้าหมาย', description: 'วางแผนวันนี้ เพื่อสิ่งที่อยากได้ในวันข้างหน้า', accent: 'ค่อย ๆ ตุน เดี๋ยวก็ถึง', mood: 'wave', icon: '🌱' },
+const AUTH_STORIES: { title: string; description: string; accent: string; mood: MascotMood; icon: string; image: string }[] = [
+  { title: 'เก็บทีละนิด', description: 'ทุกเป้าหมายใหญ่ เริ่มต้นจากเงินก้อนเล็ก', accent: 'จากเมล็ดเล็กสู่คลังใหญ่', mood: 'happy', icon: '🪙', image: '/onboarding/save-coins.jpg' },
+  { title: 'รู้ว่าเงินไปไหน', description: 'เห็นภาพรายรับรายจ่ายได้ง่ายขึ้นในที่เดียว', accent: 'จัดระเบียบให้เงินทำงาน', mood: 'proud', icon: '📈', image: '/onboarding/track-spending.jpg' },
+  { title: 'ไปถึงเป้าหมาย', description: 'วางแผนวันนี้ เพื่อสิ่งที่อยากได้ในวันข้างหน้า', accent: 'ค่อย ๆ ตุน เดี๋ยวก็ถึง', mood: 'wave', icon: '🌱', image: '/onboarding/grow-goals.jpg' },
+  { title: 'แชร์กับคนสำคัญ', description: 'วางแผนเงินของกลุ่มร่วมกันได้อย่างโปร่งใส', accent: 'ตุนไปด้วยกัน', mood: 'celebrate', icon: '🤝', image: '/onboarding/shared-finance.jpg' },
+  { title: 'พักได้เมื่อพร้อม', description: 'เงินที่เป็นระบบ ช่วยให้ทุกวันเบาใจขึ้น', accent: 'ค่อย ๆ ไปตามจังหวะ', mood: 'sleepy', icon: '🌙', image: '/onboarding/calm-planning.jpg' },
 ];
 
 function AuthStorySlider() {
@@ -139,7 +141,7 @@ function AuthWelcome({ onContinue }: { onContinue: () => void }) {
             <span className="auth-welcome-orbit auth-welcome-orbit-two">✦</span>
             <AnimatePresence mode="wait">
               <motion.div key={story.title} initial={reducedMotion ? false : { opacity: 0, scale: .92, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={reducedMotion ? undefined : { opacity: 0, scale: 1.06, y: -12 }} transition={{ duration: .42, ease: [0.22, 1, 0.36, 1] }}>
-                <Mascot mood={story.mood} size={240} className="auth-welcome-mascot" />
+                <img src={story.image} alt="" className="auth-welcome-image" />
               </motion.div>
             </AnimatePresence>
           </div>
@@ -172,6 +174,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [success, setSuccess] = useState<string | null>(null);
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
   const [showWelcome, setShowWelcome] = useState(true);
+  const [authEntry, setAuthEntry] = useState(0);
 
   React.useEffect(() => {
     if (error) {
@@ -350,7 +353,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       <AnimatePresence>
         {showWelcome && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -24 }} transition={{ duration: .38, ease: [0.22, 1, 0.36, 1] }} className="fixed inset-0 z-[100] overflow-y-auto bg-brand-bg">
-            <AuthWelcome onContinue={() => setShowWelcome(false)} />
+            <AuthWelcome onContinue={() => { setAuthEntry(current => current + 1); setShowWelcome(false); }} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -388,13 +391,13 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           </p>
         </div>
 
-        <div className="mb-6 lg:hidden">
-          <AuthStorySlider />
-        </div>
-
         {/* Form Card */}
         <motion.div
+          key={authEntry}
           layout
+          initial={authEntry ? { opacity: 0, y: 26, scale: .98 } : false}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: .48, ease: [0.22, 1, 0.36, 1] }}
           className="auth-form-card bg-brand-white border border-brand-border/40 rounded-[24px] p-6 sm:p-8 shadow-xl shadow-brand-text/5 dark:shadow-none"
         >
           {/* Tabs for Login / SignUp (only show if not in Forgot Password mode) */}
@@ -804,7 +807,6 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           <a href="/terms" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">{t('login.termsOfUse')}</a>
         </p>
       </div>
-      <div className="hidden lg:block"><AuthStorySlider /></div>
       </div>
     </div>
     </>

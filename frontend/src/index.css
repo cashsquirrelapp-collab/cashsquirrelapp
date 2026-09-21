@@ -191,6 +191,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   box-shadow: var(--shadow-card-hover);
 }
 
+/* The card remounts after the welcome screen closes, so the form arrives in a calm sequence. */
+.auth-form-card > * { animation: auth-form-arrive .42s both var(--ease-soft); }
+.auth-form-card > *:nth-child(2) { animation-delay: .05s; }
+.auth-form-card > *:nth-child(3) { animation-delay: .1s; }
+.auth-form-card > *:nth-child(4) { animation-delay: .15s; }
+.auth-form-card form > * { animation: auth-form-arrive .42s both var(--ease-soft); }
+.auth-form-card form > *:nth-child(1) { animation-delay: .10s; }
+.auth-form-card form > *:nth-child(2) { animation-delay: .16s; }
+.auth-form-card form > *:nth-child(3) { animation-delay: .22s; }
+.auth-form-card form > *:nth-child(4) { animation-delay: .28s; }
+@keyframes auth-form-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
 /* The first visit starts with the product story, then hands visitors into the familiar auth form. */
 .auth-welcome {
   position: relative;
@@ -265,7 +277,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: radial-gradient(circle, rgba(255, 212, 165, .23), transparent 67%);
 }
 .auth-welcome-visual { position: relative; display: grid; flex: 1; min-height: 260px; place-items: center; }
-.auth-welcome-mascot { animation: auth-welcome-float 5s ease-in-out infinite; }
+.auth-welcome-image {
+  display: block;
+  width: min(100%, 23rem);
+  max-height: 22rem;
+  border-radius: 24px;
+  object-fit: cover;
+  box-shadow: 0 22px 42px rgba(19, 10, 5, .24);
+  animation: auth-welcome-float 5s ease-in-out infinite;
+}
 .auth-welcome-orbit {
   position: absolute;
   display: grid;
@@ -483,8 +503,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-mascot-float { animation: none; }
-  .auth-welcome-mascot,
+  .auth-welcome-image,
   .auth-welcome-orbit { animation: none; }
+  .auth-form-card > *,
+  .auth-form-card form > * { animation: none; }
   .auth-story-mascot,
   .auth-story-coin { animation: none; }
   .dashboard-quick-action,
