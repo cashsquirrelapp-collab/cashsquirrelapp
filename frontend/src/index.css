@@ -209,10 +209,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   place-items: center;
   overflow: hidden;
   padding: 0;
-  background:
-    radial-gradient(circle at 8% 18%, rgba(255, 211, 153, .52), transparent 24rem),
-    radial-gradient(circle at 94% 82%, rgba(238, 181, 104, .32), transparent 28rem),
-    var(--bg);
+  background: #3d2314;
 }
 
 .auth-welcome-inner {
@@ -221,8 +218,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   display: grid;
   width: 100%;
   min-height: 100svh;
-  align-items: center;
-  gap: 32px;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
 }
 
 .auth-welcome-copy {
@@ -230,7 +227,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   min-height: 48svh;
   flex-direction: column;
   justify-content: center;
-  padding: clamp(2rem, 8vw, 9rem);
+  grid-column: 1;
+  grid-row: 1;
+  z-index: 2;
+  width: min(calc(100% - 2rem), 37rem);
+  margin: auto auto 1.5rem;
+  border: 1px solid rgba(255, 245, 228, .5);
+  border-radius: 28px;
+  padding: 2rem;
+  background: rgba(255, 248, 238, .90);
+  box-shadow: 0 24px 60px rgba(35, 17, 7, .28);
+  backdrop-filter: blur(16px);
 }
 .auth-welcome-brand {
   display: inline-flex;
@@ -263,14 +270,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-welcome-showcase {
   position: relative;
   display: flex;
-  min-height: 52svh;
+  min-height: 100svh;
   flex-direction: column;
+  grid-column: 1;
+  grid-row: 1;
   overflow: hidden;
-  border: 1px solid rgba(65, 39, 23, .22);
-  border-radius: 30px 30px 0 0;
-  padding: 28px clamp(1.5rem, 5vw, 5rem);
+  border: 0;
+  border-radius: 0;
+  padding: clamp(1.5rem, 5vw, 5rem);
   background: linear-gradient(145deg, #3d2314 0%, #573521 50%, #814b29 120%);
-  box-shadow: 0 26px 70px rgba(72, 47, 29, .22);
+  box-shadow: none;
 }
 .auth-welcome-glow {
   position: absolute;
@@ -281,16 +290,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 212, 165, .23), transparent 67%);
 }
-.auth-welcome-visual { position: relative; display: grid; flex: 1; min-height: 260px; place-items: center; }
+.auth-welcome-visual { position: absolute; inset: 0; display: grid; place-items: center; }
 .auth-welcome-image {
-  display: block;
-  width: min(100%, 34rem);
-  max-height: 48svh;
-  border-radius: 28px;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
   object-fit: cover;
-  box-shadow: 0 22px 42px rgba(19, 10, 5, .24);
-  animation: auth-welcome-float 5s ease-in-out infinite;
+  opacity: .62;
+  box-shadow: none;
+  animation: auth-welcome-image-enter .7s both var(--ease-soft);
 }
+.auth-welcome-visual::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(40, 20, 10, .72), rgba(53, 27, 13, .16) 65%, rgba(37, 18, 8, .45)); }
 .auth-welcome-orbit {
   position: absolute;
   display: grid;
@@ -312,12 +323,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-welcome-ambient-one { top: -12rem; left: -12rem; width: 30rem; height: 30rem; background: rgba(250, 191, 105, .13); }
 .auth-welcome-ambient-two { right: -16rem; bottom: -18rem; width: 38rem; height: 38rem; background: rgba(231, 151, 72, .13); }
 @keyframes auth-welcome-float { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-10px) rotate(2deg); } }
+@keyframes auth-welcome-image-enter { from { opacity: 0; transform: scale(1.04); } to { opacity: .62; transform: scale(1); } }
 
 @media (min-width: 800px) {
-  .auth-welcome-inner { grid-template-columns: minmax(0, .85fr) minmax(560px, 1.15fr); gap: 0; }
-  .auth-welcome-copy { min-height: 100svh; padding: clamp(3rem, 9vw, 11rem); }
-  .auth-welcome-showcase { min-height: 100svh; border-radius: 0; padding: clamp(2rem, 5vw, 5rem); }
-  .auth-welcome-image { width: min(100%, 38rem); max-height: 58svh; }
+  .auth-welcome-copy {
+    min-height: 0;
+    margin: auto auto auto clamp(3rem, 9vw, 12rem);
+    padding: clamp(2.5rem, 4vw, 4.5rem);
+  }
+  .auth-welcome-showcase { min-height: 100svh; padding: clamp(2rem, 5vw, 5rem); }
 }
 
 .auth-story-panel {
