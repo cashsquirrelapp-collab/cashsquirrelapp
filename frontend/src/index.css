@@ -175,10 +175,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .auth-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-  gap: 28px;
+  display: block;
+  max-width: 31rem;
 }
 
 .auth-form-column {
@@ -210,7 +208,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   min-height: 100svh;
   place-items: center;
   overflow: hidden;
-  padding: 24px;
+  padding: 0;
   background:
     radial-gradient(circle at 8% 18%, rgba(255, 211, 153, .52), transparent 24rem),
     radial-gradient(circle at 94% 82%, rgba(238, 181, 104, .32), transparent 28rem),
@@ -221,12 +219,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   position: relative;
   z-index: 1;
   display: grid;
-  width: min(100%, 1120px);
+  width: 100%;
+  min-height: 100svh;
   align-items: center;
   gap: 32px;
 }
 
-.auth-welcome-copy { padding: 12px; }
+.auth-welcome-copy {
+  display: flex;
+  min-height: 48svh;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 8vw, 9rem);
+}
 .auth-welcome-brand {
   display: inline-flex;
   border: 1px solid rgba(111, 65, 37, .18);
@@ -258,12 +263,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-welcome-showcase {
   position: relative;
   display: flex;
-  min-height: min(650px, calc(100svh - 48px));
+  min-height: 52svh;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(65, 39, 23, .22);
-  border-radius: 32px;
-  padding: 28px;
+  border-radius: 30px 30px 0 0;
+  padding: 28px clamp(1.5rem, 5vw, 5rem);
   background: linear-gradient(145deg, #3d2314 0%, #573521 50%, #814b29 120%);
   box-shadow: 0 26px 70px rgba(72, 47, 29, .22);
 }
@@ -279,9 +284,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-welcome-visual { position: relative; display: grid; flex: 1; min-height: 260px; place-items: center; }
 .auth-welcome-image {
   display: block;
-  width: min(100%, 23rem);
-  max-height: 22rem;
-  border-radius: 24px;
+  width: min(100%, 34rem);
+  max-height: 48svh;
+  border-radius: 28px;
   object-fit: cover;
   box-shadow: 0 22px 42px rgba(19, 10, 5, .24);
   animation: auth-welcome-float 5s ease-in-out infinite;
@@ -309,8 +314,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes auth-welcome-float { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-10px) rotate(2deg); } }
 
 @media (min-width: 800px) {
-  .auth-welcome-inner { grid-template-columns: minmax(0, .84fr) minmax(460px, 1.16fr); gap: 64px; }
-  .auth-welcome-copy { padding: 32px; }
+  .auth-welcome-inner { grid-template-columns: minmax(0, .85fr) minmax(560px, 1.15fr); gap: 0; }
+  .auth-welcome-copy { min-height: 100svh; padding: clamp(3rem, 9vw, 11rem); }
+  .auth-welcome-showcase { min-height: 100svh; border-radius: 0; padding: clamp(2rem, 5vw, 5rem); }
+  .auth-welcome-image { width: min(100%, 38rem); max-height: 58svh; }
 }
 
 .auth-story-panel {
@@ -392,7 +399,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (min-width: 1024px) {
-  .auth-layout { grid-template-columns: minmax(0, .95fr) minmax(360px, .85fr); gap: 54px; }
   .auth-form-column { margin: auto; }
   .auth-story-panel { min-height: 620px; padding: 36px; }
   .auth-story-visual { min-height: 300px; }

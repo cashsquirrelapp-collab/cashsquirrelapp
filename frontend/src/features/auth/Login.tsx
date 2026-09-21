@@ -363,6 +363,15 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       <div className="absolute top-[-20%] left-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
 
+      <button
+        type="button"
+        onClick={() => setShowWelcome(true)}
+        className="auth-back-to-welcome absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-white/90 px-3.5 py-2.5 text-xs font-extrabold text-brand-muted shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:text-brand-text"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        กลับไปดูแนะนำ
+      </button>
+
       {/* Theme Toggle (Top Right) -- language toggle lives in Settings only */}
       <div className="absolute top-6 right-6 flex items-center gap-2">
         <button
