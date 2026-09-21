@@ -323,37 +323,69 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes auth-welcome-image-enter { from { opacity: 0; transform: scale(.96) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
 @media (max-width: 799px) {
-  /* Mobile uses the same two equal visual weights as desktop, stacked top to bottom. */
+  /* One compact viewport: the illustration leads, then the action panel finishes the page. */
+  .auth-welcome,
+  .auth-welcome-inner { height: 100svh; min-height: 100svh; overflow: hidden; }
+  .auth-welcome-inner { grid-template-rows: 42svh 58svh; }
   .auth-welcome-copy {
-    min-height: 50svh;
-    width: min(calc(100% - 2.5rem), 34rem);
-    padding: clamp(1.5rem, 7vw, 2.25rem);
+    min-height: 0;
+    height: 58svh;
+    width: min(calc(100% - 2rem), 32rem);
+    justify-content: flex-start;
+    padding: clamp(1.2rem, 5vw, 2rem) clamp(1.25rem, 6vw, 2rem) max(1rem, env(safe-area-inset-bottom));
   }
-  .auth-welcome-copy .auth-welcome-cta { margin-top: 1.25rem; }
+  .auth-welcome-copy .auth-welcome-brand { padding: 6px 11px; font-size: 9px; }
+  .auth-welcome-copy > p:first-of-type { margin-top: .9rem; font-size: .75rem; }
+  .auth-welcome-copy h1 { margin-top: .4rem; font-size: clamp(2rem, 10vw, 3rem); line-height: 1.08; }
+  .auth-welcome-copy > p:nth-of-type(2) { margin-top: .65rem; font-size: .92rem; line-height: 1.55; }
+  .auth-welcome-copy .auth-welcome-cta { width: 100%; justify-content: center; margin-top: 1.15rem; padding: 13px 15px; }
   .auth-welcome-showcase {
-    min-height: 50svh;
+    min-height: 0;
+    height: 42svh;
+    grid-row: 1;
     border-radius: 0;
-    padding: 1.25rem 1.5rem;
+    padding: max(1rem, env(safe-area-inset-top)) 1.25rem .9rem;
   }
-  .auth-welcome-visual { min-height: 10rem; }
-  .auth-welcome-image { width: min(60vw, 15rem); max-height: 23svh; border-radius: 20px; }
+  .auth-welcome-copy { grid-row: 2; }
+  .auth-welcome-slide-header,
+  .auth-welcome-slide-copy { display: none; }
+  .auth-welcome-visual { min-height: 0; height: 34svh; }
+  .auth-welcome-image { width: min(72vw, 18rem); max-height: 32svh; border-radius: 22px; }
+  .auth-welcome-slide-dots { justify-content: center; margin-top: .55rem; }
   .auth-welcome-orbit { width: 34px; height: 34px; font-size: 13px; }
-  .auth-welcome-showcase h2 { font-size: 1.65rem; }
   .auth-welcome-showcase .auth-story-dot { width: 6px; height: 6px; }
   .auth-welcome-showcase .auth-story-dot.is-active { width: 22px; }
 }
 
 @media (min-width: 800px) {
-  .auth-welcome-inner { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: 1fr; }
+  .auth-welcome { padding: clamp(1rem, 2vw, 1.75rem); }
+  .auth-welcome-inner {
+    max-width: 92rem;
+    min-height: calc(100svh - clamp(2rem, 4vw, 3.5rem));
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    grid-template-rows: 1fr;
+    overflow: hidden;
+    border: 1px solid rgba(104, 68, 43, .14);
+    border-radius: 34px;
+    background: color-mix(in srgb, var(--bg) 94%, white);
+    box-shadow: 0 24px 70px rgba(72, 47, 29, .13);
+  }
   .auth-welcome-copy {
-    min-height: 100svh;
+    min-height: 0;
     grid-column: 1;
     grid-row: 1;
     margin: auto;
-    padding: clamp(2.5rem, 6vw, 7rem);
+    padding: clamp(2.75rem, 5.5vw, 6.5rem);
   }
-  .auth-welcome-showcase { min-height: 100svh; grid-column: 2; grid-row: 1; border-radius: 0; padding: clamp(2rem, 5vw, 5rem); }
-  .auth-welcome-image { width: min(100%, 32rem); max-height: 58svh; }
+  .auth-welcome-showcase {
+    min-height: 0;
+    grid-column: 2;
+    grid-row: 1;
+    border: 0;
+    border-radius: 0;
+    padding: clamp(2rem, 4vw, 4rem);
+  }
+  .auth-welcome-image { width: min(100%, 30rem); max-height: 54svh; }
 }
 
 .auth-story-panel {

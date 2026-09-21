@@ -132,7 +132,7 @@ function AuthWelcome({ onContinue }: { onContinue: () => void }) {
 
         <div className="auth-welcome-showcase">
           <div className="auth-welcome-glow" aria-hidden="true" />
-          <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="auth-welcome-slide-header relative z-10 flex items-center justify-between gap-3">
             <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-black tracking-[0.16em] text-white/90">CASH SQUIRREL</span>
             <span className="text-xl" aria-hidden="true">{story.icon}</span>
           </div>
@@ -146,13 +146,13 @@ function AuthWelcome({ onContinue }: { onContinue: () => void }) {
             </AnimatePresence>
           </div>
           <AnimatePresence mode="wait">
-            <motion.div key={story.title} initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={reducedMotion ? undefined : { opacity: 0, x: -18 }} transition={{ duration: .32 }} className="relative z-10">
+            <motion.div key={story.title} initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={reducedMotion ? undefined : { opacity: 0, x: -18 }} transition={{ duration: .32 }} className="auth-welcome-slide-copy relative z-10">
               <p className="text-sm font-bold text-[#FFD4A7]">{story.accent}</p>
               <h2 className="mt-2 font-display text-3xl font-black text-white">{story.title}</h2>
               <p className="mt-2 text-sm leading-6 text-white/70">{story.description}</p>
             </motion.div>
           </AnimatePresence>
-          <div className="relative z-10 mt-6 flex gap-2" role="tablist" aria-label="เลือกเรื่องเล่า">
+          <div className="auth-welcome-slide-dots relative z-10 mt-6 flex gap-2" role="tablist" aria-label="เลือกเรื่องเล่า">
             {AUTH_STORIES.map((item, index) => <button key={item.title} type="button" role="tab" aria-selected={index === activeIndex} aria-label={`เรื่องเล่าที่ ${index + 1}`} onClick={() => setActiveIndex(index)} className={`auth-story-dot ${index === activeIndex ? 'is-active' : ''}`} />)}
           </div>
         </div>
