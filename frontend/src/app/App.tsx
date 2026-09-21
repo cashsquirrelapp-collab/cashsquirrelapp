@@ -2210,6 +2210,10 @@ export default function App() {
                   notifSettings={notifSettings}
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
+                  onQuickRecord={(mode) => {
+                    setRecordMode(mode);
+                    setActiveTab('jobs');
+                  }}
                 />
               )}
 

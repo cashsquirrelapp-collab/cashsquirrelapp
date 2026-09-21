@@ -28,7 +28,9 @@ import {
   ChevronUp,
   Mail,
   AlertCircle,
-  Send
+  Send,
+  ReceiptText,
+  PiggyBank
 } from 'lucide-react';
 
 interface DashboardTabProps {
@@ -48,6 +50,7 @@ interface DashboardTabProps {
   notifSettings: NotifSettings;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
+  onQuickRecord?: (mode: 'income' | 'expense') => void;
 }
 
 // Animates a number counting up from 0 to `target` whenever the target changes
@@ -101,6 +104,7 @@ export default function DashboardTab({
   notifSettings,
   triggerAlert,
   triggerConfirm,
+  onQuickRecord,
 }: DashboardTabProps) {
   const { t } = useLanguage();
   const [isAlertExpanded, setIsAlertExpanded] = React.useState(false);
@@ -763,27 +767,62 @@ export default function DashboardTab({
   const animatedReceived = useCountUp(totalReceived);
   const animatedPending = useCountUp(totalPending);
   const animatedProfit = useCountUp(Math.max(0, profit));
+  const greeting = new Date().getHours() < 12 ? 'สวัสดีตอนเช้า' : new Date().getHours() < 18 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น';
+  const summaryCards = [
+    {
+      label: 'รายรับที่ได้รับ',
+      value: animatedReceived,
+      detail: receivedChangePct === null ? 'เริ่มบันทึกรายรับเพื่อเห็นแนวโน้ม' : `${receivedChangePct >= 0 ? '↑' : '↓'} ${Math.abs(receivedChangePct)}% จากเดือนก่อน`,
+      tone: 'income',
+      icon: TrendingUp,
+    },
+    {
+      label: 'รายจ่ายเดือนนี้',
+      value: totalCashOutThisMonth,
+      detail: `${monthVariableExpenses.length} รายการที่บันทึกแล้ว`,
+      tone: 'expense',
+      icon: TrendingDown,
+    },
+    {
+      label: 'เงินออมสุทธิ',
+      value: Math.max(0, profit),
+      detail: profit >= 0 ? 'พร้อมตุนไว้สำหรับเป้าหมาย' : `ขาดอีก ${formatCurrency(Math.abs(profit))}`,
+      tone: 'saving',
+      icon: PiggyBank,
+    },
+  ];
 
   return (
-    <div id="dashboard-top" className="space-y-6 scroll-mt-6 text-brand-text">
+    <div id="dashboard-top" className="dashboard-shell space-y-6 scroll-mt-6 text-brand-text">
       
-      {/* 1. Header Bar */}
-      <div className="px-1">
-        <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase font-bold" title={t('dash.forecastLabelTooltip')}>
-          {t('dash.forecastLabel')}
-        </span>
-        <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
-          {t('dash.title')}
-        </h2>
-      </div>
+      {/* Dashboard greeting -- keeps the month selector and all existing navigation in App.tsx. */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+        className="dashboard-greeting flex flex-col gap-2 px-1 sm:flex-row sm:items-end sm:justify-between"
+      >
+        <div>
+          <p className="text-sm font-bold text-[#A66A43] dark:text-[#F2B76B]">{greeting} ☀️</p>
+          <h2 className="mt-1 text-3xl font-black font-display tracking-tight text-brand-text sm:text-4xl">ยินดีต้อนรับกลับมา!</h2>
+          <p className="mt-1 text-sm text-brand-muted">วันนี้ก็เป็นอีกวันที่ดีในการเก็บออม 🌱</p>
+        </div>
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-brand-border/70 bg-brand-white/80 px-3 py-2 text-xs font-semibold text-brand-muted shadow-sm">
+          <Calendar className="h-3.5 w-3.5 text-[#C17817]" />
+          {formatMonthKey(selectedMonthKey)}
+        </div>
+      </motion.div>
 
       {/* 2. Hero Card */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-[#3D2314] text-white rounded-3xl p-6 border border-[#2B180D]"
+        transition={{ duration: 0.38, delay: 0.05 }}
+        className="dashboard-balance-card relative overflow-hidden rounded-[26px] border border-[#3A2418] p-6 text-white shadow-[0_18px_42px_rgba(67,42,25,0.18)] sm:p-7"
       >
-        <div className="space-y-4">
+        <div className="dashboard-balance-orb dashboard-balance-orb-one" aria-hidden="true" />
+        <div className="dashboard-balance-orb dashboard-balance-orb-two" aria-hidden="true" />
+        <div className="relative space-y-5">
           <div className="flex justify-between items-start">
             <button
               type="button"
@@ -794,20 +833,22 @@ export default function DashboardTab({
               <p className="text-xs font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title={t('dash.contractValueFullTooltip')}>
                 {t('dash.contractValueLabel', { month: formatMonthKey(selectedMonthKey) })}
               </p>
-              <h3 className="text-4xl font-extrabold font-mono tracking-tight text-[#E65F2B] mt-1.5 group-hover:underline decoration-2 underline-offset-4">
+              <h3 className="mt-1.5 text-4xl font-extrabold font-mono tracking-tight text-[#FFD2A7] sm:text-5xl group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(animatedContractVal)}
               </h3>
+              <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-white/65">
+                <TrendingUp className="h-3.5 w-3.5 text-[#A9E0BC]" />
+                {receivedChangePct === null ? 'เริ่มสะสมข้อมูลในเดือนนี้' : `${receivedChangePct >= 0 ? '+' : ''}${receivedChangePct}% จากเดือนที่แล้ว`}
+              </p>
             </button>
-            {totalReceived > 0 && (
-              <motion.div
-                initial={{ scale: 0, rotate: -15 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: 'spring', damping: 10, stiffness: 200, delay: 0.15 }}
-                className="shrink-0"
-              >
-                <Mascot mood="celebrate" size={56} />
-              </motion.div>
-            )}
+            <motion.div
+              initial={{ scale: 0, rotate: -15 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', damping: 10, stiffness: 200, delay: 0.15 }}
+              className="dashboard-mascot-float shrink-0 rounded-2xl bg-white/10 p-2 backdrop-blur-sm"
+            >
+              <Mascot mood={totalReceived > 0 ? 'celebrate' : 'happy'} size={58} />
+            </motion.div>
           </div>
 
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/10">
@@ -871,6 +912,46 @@ export default function DashboardTab({
           </div>
         </div>
       </motion.div>
+
+      {/* Shortcuts deliberately reuse existing routes/record modes; no separate state or API. */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32, delay: 0.1 }}
+        aria-label="ทางลัด"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
+        {[
+          { label: 'เพิ่มรายรับ', icon: TrendingUp, tone: 'quick-income', action: () => onQuickRecord?.('income') },
+          { label: 'เพิ่มรายจ่าย', icon: TrendingDown, tone: 'quick-expense', action: () => onQuickRecord?.('expense') },
+          { label: 'เป้าหมายออม', icon: PiggyBank, tone: 'quick-goal', action: () => onSwitchTab('split') },
+          { label: 'ดูรายการ', icon: ReceiptText, tone: 'quick-list', action: () => onSwitchTab('jobs') },
+        ].map(({ label, icon: Icon, tone, action }) => (
+          <button key={label} type="button" onClick={action} className={`dashboard-quick-action ${tone}`}>
+            <span className="dashboard-quick-icon"><Icon className="h-5 w-5" /></span>
+            <span>{label}</span>
+          </button>
+        ))}
+      </motion.section>
+
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="สรุปยอดเดือนนี้">
+        {summaryCards.map(({ label, value, detail, tone, icon: Icon }, index) => (
+          <motion.button
+            type="button"
+            key={label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.12 + index * 0.06 }}
+            onClick={() => setBreakdownFilter(index === 0 ? 'received' : index === 1 ? 'profit' : 'profit')}
+            className={`dashboard-summary-card dashboard-summary-${tone} text-left`}
+          >
+            <span className="dashboard-summary-icon"><Icon className="h-4 w-4" /></span>
+            <span className="mt-4 block text-xs font-bold text-brand-muted">{label}</span>
+            <strong className="mt-1 block text-2xl font-black font-mono tracking-tight text-brand-text">{formatCurrency(value)}</strong>
+            <span className="mt-2 block text-[11px] font-semibold text-brand-muted">{detail}</span>
+          </motion.button>
+        ))}
+      </section>
 
       {/* 3. Alert Zone */}
       <motion.div
