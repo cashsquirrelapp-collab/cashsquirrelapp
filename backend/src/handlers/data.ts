@@ -34,6 +34,7 @@ export default withGuard(
     };
     if (req.method === "GET") {
       await rateLimit("data-read", user.id, 120, 60);
+      const includeInvoices = req.query.includeInvoices !== "0";
       // These are independent database reads. Run them together so the dashboard
       // does not pay for two cross-region round trips during initial loading.
       const subscriptionRequest = admin
@@ -61,6 +62,15 @@ export default withGuard(
         financeError(groupFinance!.error);
         finance = groupFinance!.data;
       } else finance = personalFinance!;
+      // Invoices can contain many line items and are only needed by InvoiceTab.
+      // Keep the initial dashboard response small; that tab requests the full
+      // snapshot when the user opens it.
+      if (!includeInvoices) {
+        delete finance.snapshot.invoices;
+        delete finance.snapshot.issuer_profile;
+        delete finance.versions.cashflow_invoices;
+        delete finance.versions.cashflow_documents?.issuer_profile;
+      }
       const result = { ...finance, subscription: subscription.data };
       if (Buffer.byteLength(JSON.stringify(result)) > 4 * 1024 * 1024)
         throw new HttpError(

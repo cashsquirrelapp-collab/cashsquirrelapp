@@ -23,7 +23,7 @@ export async function readCloud(userId: string) {
   activeAccount(userId);
   const request = (reads.get(userId) || 0) + 1;
   reads.set(userId, request);
-  const result = await apiJson<any>("/api/data", {
+  const result = await apiJson<any>("/api/data?includeInvoices=0", {
     headers: financeHeaders(userId),
   });
   assertFinanceWorkspace(userId, epoch);

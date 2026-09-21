@@ -55,7 +55,7 @@ const snapshot = {
   issuer_profile: null,
 };
 async function finance(page: Page) {
-  await page.route('**/api/data', (route) =>
+  await page.route('**/api/data*', (route) =>
     route.fulfill({
       json:
         route.request().method() === 'POST'

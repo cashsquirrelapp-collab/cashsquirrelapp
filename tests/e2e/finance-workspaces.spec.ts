@@ -149,7 +149,7 @@ async function setup(page: Page) {
       },
     }),
   );
-  await page.route("**/api/data", (route) => {
+  await page.route("**/api/data*", (route) => {
     const request = route.request(),
       scope = request.headers()["x-finance-group"] || "";
     expect(request.headers()["x-account-id"]).toBe(user.id);
@@ -354,7 +354,7 @@ test("a delayed response from the previous group cannot populate the next worksp
     release = resolve;
   });
   let started = false;
-  await page.route("**/api/data", async (route) => {
+  await page.route("**/api/data*", async (route) => {
     if (
       route.request().method() === "GET" &&
       route.request().headers()["x-finance-group"] === group

@@ -15,7 +15,7 @@ test('login and all feature tabs render after separation without browser errors'
   if(request.method()==='POST') { expect(request.headers()['x-csrf-protection']).toBe('1');loggedIn=request.postDataJSON().action!=='logout'; }
   return route.fulfill({json:{session:loggedIn?{user}:null,user:loggedIn?user:null}});
  });
- await page.route('**/api/data',route=>route.fulfill({json:route.request().method()==='POST'?{ok:true}:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:route.request().method()==='POST'?{ok:true}:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'user',groups:[],invitations:[],total:0,page:0}}));
  await page.goto('/');
  await page.locator('input[type=email]').first().fill(user.email);
@@ -65,7 +65,7 @@ test('legacy invoice requires owner confirmation and is saved through versioned 
  await page.addInitScript(value=>localStorage.setItem('remix_invoices',JSON.stringify([value])),legacy);
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  let saved:any[]=[];
- await page.route('**/api/data',async route=>{
+ await page.route('**/api/data*',async route=>{
   if(route.request().method()==='POST'){
    expect(route.request().headers()['x-account-id']).toBe(user.id);
    saved.push(...route.request().postDataJSON().changes);
@@ -93,7 +93,7 @@ test('expired authentication hides private views and never leaves financial brow
   sessionStorage.setItem('cashflow_invoices_old-owner','[{"documentNo":"PRIVATE"}]');
  });
  await page.route('**/api/auth',route=>route.fulfill({json:{session:expired?null:{user}}}));
- await page.route('**/api/data',route=>route.fulfill({json:{snapshot:{...snapshot,jobs:[privateJob]},versions:{...versions,cashflow_jobs:{'private-job':1}},subscription:null}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,jobs:[privateJob]},versions:{...versions,cashflow_jobs:{'private-job':1}},subscription:null}}));
  await page.goto('/');await expect(page.getByRole('heading',{name:'วางแผนวันนี้ ให้เงินเติบโตทุกวัน'})).toBeVisible();
  expired=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
@@ -108,7 +108,7 @@ test('account switching cannot reuse the previous account invoice working copy',
  const invoice={id:'private-a',documentType:'invoice',documentNo:'INV-PRIVATE-A',createdDate:'2026-09-17',issuer:profile,client:{name:'Private client A',address:'',phone:'',email:'',taxId:''},items:[],vatRate:0,whtRate:0};
  let switched=false;
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user:switched?second:user}}}));
- await page.route('**/api/data',route=>{
+ await page.route('**/api/data*',route=>{
   const owner=route.request().headers()['x-account-id'];
   return route.fulfill({json:{snapshot:{...snapshot,invoices:owner===user.id?[invoice]:[]},versions:{...versions,cashflow_invoices:owner===user.id?{'private-a':1}:{}},subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
@@ -124,7 +124,7 @@ test('account switching cannot reuse the previous account invoice working copy',
 test('a protected API 401 immediately removes private views without waiting for the session timer',async({page})=>{
  let denied=false;
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
- await page.route('**/api/data',route=>denied?route.fulfill({status:401,json:{error:'Session expired'}}):route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.route('**/api/data*',route=>denied?route.fulfill({status:401,json:{error:'Session expired'}}):route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');await expect(page.getByText('เชื่อมต่อคลาวด์',{exact:true})).toBeVisible();
  denied=true;const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
  await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
