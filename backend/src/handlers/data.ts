@@ -34,21 +34,33 @@ export default withGuard(
     };
     if (req.method === "GET") {
       await rateLimit("data-read", user.id, 120, 60);
-      const subscription = await admin
+      // These are independent database reads. Run them together so the dashboard
+      // does not pay for two cross-region round trips during initial loading.
+      const subscriptionRequest = admin
         .from("subscriptions")
         .select("status,plan,current_period_end")
         .eq("user_id", user.id)
         .maybeSingle();
+      const groupFinanceRequest = groupId
+        ? admin.rpc("cashflow_group_finance_snapshot", {
+            p_actor: user.id,
+            p_group_id: groupId,
+          })
+        : Promise.resolve(null);
+      const personalFinanceRequest = groupId
+        ? Promise.resolve(null)
+        : publicSnapshot(user.id);
+      const [subscription, groupFinance, personalFinance] = await Promise.all([
+        subscriptionRequest,
+        groupFinanceRequest,
+        personalFinanceRequest,
+      ]);
       if (subscription.error) throw subscription.error;
       let finance;
       if (groupId) {
-        const r = await admin.rpc("cashflow_group_finance_snapshot", {
-          p_actor: user.id,
-          p_group_id: groupId,
-        });
-        financeError(r.error);
-        finance = r.data;
-      } else finance = await publicSnapshot(user.id);
+        financeError(groupFinance!.error);
+        finance = groupFinance!.data;
+      } else finance = personalFinance!;
       const result = { ...finance, subscription: subscription.data };
       if (Buffer.byteLength(JSON.stringify(result)) > 4 * 1024 * 1024)
         throw new HttpError(
