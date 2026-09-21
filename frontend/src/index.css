@@ -326,47 +326,148 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes auth-welcome-image-enter { from { opacity: 0; transform: scale(.96) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
 @media (max-width: 799px) {
-  /* One compact viewport: the illustration leads, then the action panel finishes the page. */
+  /* Mobile uses one immersive canvas with a floating action sheet. Keeping the art and copy in
+     the same layer avoids the awkward two-panel split created by mobile browser chrome. */
   .auth-welcome,
-  .auth-welcome-inner { height: 100svh; min-height: 100svh; overflow: hidden; }
-  .auth-welcome-inner { grid-template-rows: 44svh 56svh; }
+  .auth-welcome-inner {
+    height: 100svh;
+    min-height: 100svh;
+    overflow: hidden;
+  }
+  .auth-welcome {
+    display: block;
+    padding: 0;
+    background: #3f2417;
+  }
+  .auth-welcome-inner {
+    position: relative;
+    display: block;
+  }
   .auth-welcome-copy {
-    min-height: 0;
-    height: 56svh;
-    width: min(calc(100% - 2rem), 32rem);
+    position: absolute;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 12px;
+    z-index: 5;
+    min-height: auto;
+    width: auto;
+    margin: 0;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: clamp(1.2rem, 5vw, 2rem) clamp(1.25rem, 6vw, 2rem) max(1rem, env(safe-area-inset-bottom));
+    padding: clamp(1.35rem, 5.5vw, 2rem);
+    border: 1px solid rgba(116, 72, 43, .13);
+    border-radius: 30px;
+    background: rgba(255, 249, 239, .96);
+    box-shadow: 0 24px 70px rgba(28, 13, 5, .32);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
   }
-  .auth-welcome-copy::before {
+  .auth-welcome-copy::after {
     content: '';
     position: absolute;
-    inset: 44svh 0 0;
-    z-index: -1;
-    background: linear-gradient(180deg, #f8ead7 0%, #fdf6ec 28%, #fbf2e4 100%);
+    top: 9px;
+    left: 50%;
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(103, 66, 43, .16);
+    transform: translateX(-50%);
   }
-  .auth-welcome-copy .auth-welcome-brand { align-self: center; width: auto; padding: 6px 14px; font-size: 9px; }
-  .auth-welcome-copy > p:first-of-type { margin-top: .9rem; font-size: .75rem; }
-  .auth-welcome-copy h1 { margin-top: .4rem; font-size: clamp(2rem, 10vw, 3rem); line-height: 1.08; }
-  .auth-welcome-copy > p:nth-of-type(2) { max-width: 27rem; margin-top: .65rem; font-size: .92rem; line-height: 1.55; }
-  .auth-welcome-copy .auth-welcome-cta { width: min(100%, 27rem); justify-content: center; margin-top: 1.25rem; padding: 13px 15px; }
+  .auth-welcome-copy .auth-welcome-brand {
+    align-self: center;
+    width: auto;
+    padding: 6px 13px;
+    font-size: 8px;
+    background: rgba(255, 255, 255, .58);
+  }
+  .auth-welcome-copy > p:first-of-type {
+    margin-top: .85rem;
+    font-size: .72rem;
+  }
+  .auth-welcome-copy h1 {
+    margin-top: .3rem;
+    font-size: clamp(2rem, 9.5vw, 2.8rem);
+    line-height: 1.04;
+  }
+  .auth-welcome-copy > p:nth-of-type(2) {
+    max-width: 24rem;
+    margin-top: .55rem;
+    font-size: clamp(.82rem, 3.7vw, .95rem);
+    line-height: 1.5;
+  }
+  .auth-welcome-copy .auth-welcome-cta {
+    width: min(100%, 24rem);
+    justify-content: center;
+    margin-top: 1rem;
+    padding: 13px 14px;
+    border-radius: 16px;
+  }
   .auth-welcome-showcase {
-    min-height: 0;
-    height: 44svh;
-    grid-row: 1;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    min-height: 100svh;
+    height: 100svh;
     border-radius: 0;
-    padding: max(1rem, env(safe-area-inset-top)) 1.25rem .9rem;
+    border: 0;
+    padding: 0;
+    background: #4c2b1b;
+    box-shadow: none;
   }
-  .auth-welcome-copy { grid-row: 2; }
+  .auth-welcome-showcase::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(30, 14, 7, .08) 0%, rgba(30, 14, 7, 0) 42%, rgba(30, 14, 7, .5) 72%, rgba(30, 14, 7, .72) 100%);
+  }
   .auth-welcome-slide-header,
   .auth-welcome-slide-copy { display: none; }
-  .auth-welcome-visual { min-height: 0; height: 36svh; }
-  .auth-welcome-image { width: min(76vw, 19rem); max-height: 34svh; border-radius: 22px; }
-  .auth-welcome-slide-dots { justify-content: center; margin-top: .55rem; }
-  .auth-welcome-orbit { width: 34px; height: 34px; font-size: 13px; }
-  .auth-welcome-showcase .auth-story-dot { width: 6px; height: 6px; }
-  .auth-welcome-showcase .auth-story-dot.is-active { width: 22px; }
+  .auth-welcome-visual {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    height: 100%;
+  }
+  .auth-welcome-visual > div { width: 100%; height: 100%; }
+  .auth-welcome-image {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    object-fit: cover;
+    object-position: center 24%;
+    box-shadow: none;
+  }
+  .auth-welcome-slide-dots {
+    position: absolute;
+    top: max(1rem, env(safe-area-inset-top));
+    left: 50%;
+    z-index: 4;
+    justify-content: center;
+    margin: 0;
+    padding: 9px 12px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 999px;
+    background: rgba(48, 24, 12, .28);
+    backdrop-filter: blur(10px);
+    transform: translateX(-50%);
+  }
+  .auth-welcome-orbit { display: none; }
+  .auth-welcome-showcase .auth-story-dot { width: 6px; height: 6px; background: rgba(255,255,255,.48); }
+  .auth-welcome-showcase .auth-story-dot.is-active { width: 22px; background: #ffe0b8; }
+
+  @media (max-height: 700px) {
+    .auth-welcome-copy { padding: 1.1rem 1.2rem; border-radius: 24px; }
+    .auth-welcome-copy .auth-welcome-brand { display: none; }
+    .auth-welcome-copy > p:first-of-type { margin-top: 0; }
+    .auth-welcome-copy h1 { font-size: 1.9rem; }
+    .auth-welcome-copy > p:nth-of-type(2) { font-size: .8rem; }
+    .auth-welcome-copy .auth-welcome-cta { margin-top: .8rem; padding: 11px 13px; }
+  }
 }
 
 @media (min-width: 800px) {
