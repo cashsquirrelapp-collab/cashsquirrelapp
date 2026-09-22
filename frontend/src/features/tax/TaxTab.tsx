@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import * as XLSX from 'xlsx';
 import { Job, AppSettings, Expense } from '../../../../shared/types';
 import { formatCurrency } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
@@ -374,7 +373,15 @@ export default function TaxTab({
     triggerAlert('ดาวน์โหลด CSV สำเร็จ', 'จัดส่งและดาวน์โหลดไฟล์รายงานสรุปเรียบร้อยแล้ว');
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    // The spreadsheet writer is much larger than the tax calculator; download it only for export.
+    let XLSX: typeof import('xlsx');
+    try {
+      XLSX = await import('xlsx');
+    } catch {
+      triggerAlert('ดาวน์โหลด Excel ไม่สำเร็จ', 'โหลดเครื่องมือสร้างไฟล์ไม่สำเร็จ กรุณาลองอีกครั้ง');
+      return;
+    }
     const bracketRows = (label: string, breakdown: { range: string; taxable: number; rate: number; tax: number }[]) => [
       [`ขั้นบันไดภาษี — ${label}`, '', '', ''],
       ['ช่วงเงินได้สุทธิ (บาท)', 'ฐานภาษีในช่วงนี้ (บาท)', 'อัตราภาษี (%)', 'ภาษีในช่วงนี้ (บาท)'],

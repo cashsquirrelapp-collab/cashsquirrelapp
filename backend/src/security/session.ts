@@ -35,14 +35,25 @@ export async function requireUser(req: VercelRequest, res: VercelResponse, check
   let session = readCookie<PrivateSession>(req);
   if (!session?.access_token || !session.refresh_token) throw new HttpError(401, 'กรุณาเข้าสู่ระบบ');
   const original = sealedSessionIdentity(session.access_token);
-  const checked = await getSupabaseAdmin().rpc('cashflow_session_active', { p_user_id: original.sub, p_session_id: original.session_id });
+  const auth = createAuthClient();
+  const activeRequest = getSupabaseAdmin().rpc('cashflow_session_active', { p_user_id: original.sub, p_session_id: original.session_id });
+  const sessionExpired = !Number.isFinite(session.issued_at) || session.issued_at > Date.now() || session.issued_at + SESSION_LIFETIME <= Date.now();
+  const needsRefresh = (session.expires_at || 0)*1000 < Date.now()+30000;
+  // For a normal request these independent checks can share one network round trip.
+  // Expired or refreshing sessions keep the sequential path below so revocation is
+  // checked before any provider refresh or expiry handling.
+  const userRequest = !sessionExpired && !needsRefresh
+    ? auth.auth.getUser(session.access_token)
+    : null;
+  const [checked, initialUser] = userRequest
+    ? await Promise.all([activeRequest, userRequest])
+    : [await activeRequest, null];
   if (checked.error) throw checked.error;
   if (!checked.data) { writeCookie(res, null); throw new HttpError(401, 'Session revoked'); }
-  if (!Number.isFinite(session.issued_at) || session.issued_at > Date.now() || session.issued_at + SESSION_LIFETIME <= Date.now()) {
+  if (sessionExpired) {
     await revokeSession(session); writeCookie(res, null); throw new HttpError(401, 'Session expired');
   }
-  const auth = createAuthClient();
-  if ((session.expires_at || 0)*1000 < Date.now()+30000) {
+  if (needsRefresh) {
     const refreshed = await auth.auth.refreshSession({ refresh_token: session.refresh_token });
     if (refreshed.error || !refreshed.data.session) { writeCookie(res, null); throw new HttpError(401, 'Session expired'); }
     const identity = sealedSessionIdentity(refreshed.data.session.access_token);
@@ -50,7 +61,7 @@ export async function requireUser(req: VercelRequest, res: VercelResponse, check
     const issuedAt = session.issued_at;
     session = { ...refreshed.data.session, issued_at: issuedAt }; storeSession(res, refreshed.data.session, issuedAt);
   }
-  const { data, error } = await auth.auth.getUser(session.access_token);
+  const { data, error } = initialUser || await auth.auth.getUser(session.access_token);
   if (error || !data.user) { writeCookie(res, null); throw new HttpError(401, 'Session expired'); }
   if (data.user.id !== original.sub) throw new HttpError(401, 'Session invalid');
   if (checkAccount && req.headers['x-account-id'] && req.headers['x-account-id'] !== data.user.id) throw new HttpError(401, 'บัญชีผู้ใช้เปลี่ยนแล้ว กรุณาโหลดหน้าใหม่');

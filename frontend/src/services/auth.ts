@@ -9,6 +9,9 @@ let current: PublicSession | null = null;
 let revision=0;
 const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('cashflow-auth');
 const listeners = new Set<(event: string, session: PublicSession | null) => void>();
+type SessionCheck = { data: { session: PublicSession | null }; error: Error | null };
+let sessionRequest: Promise<SessionCheck> | null = null;
+let sessionRequestRevision = -1;
 function emit(event: string, broadcast = true) { if(broadcast)channel?.postMessage('changed'); setCurrentAccount(current?.user.id); listeners.forEach(fn=>fn(event,current)); }
 function updateSession(next: PublicSession | null) {
   if(current?.user.id!==next?.user.id) { privateCache.clear(); clearCloud(); clearLegacyFinancialCache(); }
@@ -25,8 +28,30 @@ async function action(action: string, values: Record<string, unknown> = {}) {
     return { data: result, error: null };
   } catch (error) { return { data: { session: null, user: null }, error: error as Error }; }
 }
+async function getSession(): Promise<SessionCheck> {
+  const version = revision;
+  if (sessionRequest && sessionRequestRevision === version) return sessionRequest;
+  const request: Promise<SessionCheck> = (async () => {
+    try {
+      const result = await apiJson<{ session: PublicSession | null }>('/api/auth');
+      if (version !== revision) return { data: { session: current }, error: null };
+      const previous = current?.user.id;
+      const previousRole = current?.user.role;
+      updateSession(result.session);
+      if (previous !== current?.user.id) { revision++; emit(current ? 'SIGNED_IN' : 'SIGNED_OUT', false); }
+      else if (previousRole !== current?.user.role) { revision++; emit('USER_UPDATED', false); }
+      return { data: result, error: null };
+    } catch (error) {
+      return { data: { session: current }, error: error as Error };
+    }
+  })();
+  sessionRequest = request;
+  sessionRequestRevision = version;
+  try { return await request; }
+  finally { if (sessionRequest === request) sessionRequest = null; }
+}
 export const authClient = { auth: {
-  async getSession() { const version=revision;try { const result = await apiJson<{ session: PublicSession | null }>('/api/auth');if(version!==revision)return {data:{session:current},error:null};const previous=current?.user.id,previousRole=current?.user.role; updateSession(result.session);if(previous!==current?.user.id){revision++;emit(current?'SIGNED_IN':'SIGNED_OUT',false);}else if(previousRole!==current?.user.role){revision++;emit('USER_UPDATED',false);}return { data: result, error:null }; } catch (error) { return { data: { session:current }, error:error as Error }; } },
+  getSession,
   signInWithPassword: (values: { email: string; password: string })=>action('signin', values),
   signUp: (values: { email: string; password: string; options?: unknown })=>action('signup', values),
   signInWithOAuth: (_values: unknown)=>action('oauth'),

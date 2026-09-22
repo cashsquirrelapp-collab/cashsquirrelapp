@@ -53,30 +53,6 @@ interface DashboardTabProps {
   onQuickRecord?: (mode: 'income' | 'expense') => void;
 }
 
-// Animates a number counting up from 0 to `target` whenever the target changes
-function useCountUp(target: number, duration = 700): number {
-  const [value, setValue] = React.useState(0);
-
-  React.useEffect(() => {
-    let rafId: number;
-    const start = performance.now();
-
-    const step = (now: number) => {
-      const progress = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.round(target * eased));
-      if (progress < 1) {
-        rafId = requestAnimationFrame(step);
-      }
-    };
-
-    rafId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafId);
-  }, [target, duration]);
-
-  return value;
-}
-
 const formatAbbreviatedTarget = (value: number): string => {
   if (value >= 1000000) {
     const m = value / 1000000;
@@ -569,7 +545,10 @@ export default function DashboardTab({
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
   }, []);
   
-  const selectedMonthJobs = jobs.filter(j => getMonthKey(j.payDate || j.postDate) === selectedMonthKey);
+  const selectedMonthJobs = React.useMemo(
+    () => jobs.filter(j => getMonthKey(j.payDate || j.postDate) === selectedMonthKey),
+    [jobs, selectedMonthKey],
+  );
   
   // Trust the recorded `received` field as-is -- never assume a "done" job's full value was
   // received when that field is still 0/unset, since that shows phantom income the user never
@@ -599,15 +578,21 @@ export default function DashboardTab({
   // the variable-expense tracker and never moves when the user records a new one. Kept as the
   // itemized list (not just the sum) so the "กำไรสุทธิ" breakdown popup can show exactly which
   // records ate into the total, not just a number the user has to take on faith.
-  const monthVariableExpenses = expenses.filter(e => getMonthKey(e.date) === selectedMonthKey);
+  const monthVariableExpenses = React.useMemo(
+    () => expenses.filter(e => getMonthKey(e.date) === selectedMonthKey),
+    [expenses, selectedMonthKey],
+  );
   const variableExpenseThisMonth = monthVariableExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   // Money moved into savings goals this month via the deposit modal's "deduct from cash"
   // option. Tracked on the goal transaction itself, never as a fake Expense -- a savings
   // transfer isn't a real expense and would wrongly show up in tax/expense reports otherwise.
-  const monthGoalDeductions = goals.flatMap(g => (g.history || [])
-    .filter(tx => tx.type === 'deposit' && tx.deductedFromCash && getMonthKey(tx.date) === selectedMonthKey)
-    .map(tx => ({ ...tx, goalName: g.name, goalEmoji: g.emoji }))
+  const monthGoalDeductions = React.useMemo(
+    () => goals.flatMap(g => (g.history || [])
+      .filter(tx => tx.type === 'deposit' && tx.deductedFromCash && getMonthKey(tx.date) === selectedMonthKey)
+      .map(tx => ({ ...tx, goalName: g.name, goalEmoji: g.emoji }))
+    ),
+    [goals, selectedMonthKey],
   );
   const goalDeductionsThisMonth = monthGoalDeductions.reduce((sum, tx) => sum + tx.amount, 0);
 
@@ -627,9 +612,12 @@ export default function DashboardTab({
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
   }, [selectedMonthKey]);
 
-  const prevMonthReceived = jobs
-    .filter(j => getMonthKey(j.payDate || j.postDate) === prevMonthKey)
-    .reduce((sum, j) => sum + (j.received || 0), 0);
+  const prevMonthReceived = React.useMemo(
+    () => jobs.reduce((sum, j) => getMonthKey(j.payDate || j.postDate) === prevMonthKey
+      ? sum + (j.received || 0)
+      : sum, 0),
+    [jobs, prevMonthKey],
+  );
 
   const receivedChangePct = prevMonthReceived > 0
     ? Math.round(((totalReceived - prevMonthReceived) / prevMonthReceived) * 100)
@@ -713,38 +701,40 @@ export default function DashboardTab({
     }
   };
 
-  const forecastMonthsList = getForecastMonths();
-  const projectedMonthsData = forecastMonthsList.map(monthKey => {
-    let totalConfirmed = 0;
-    let totalPending = 0;
-    jobs.forEach(j => {
-      if (j.received > 0 && getMonthKey(j.payDate || j.postDate) === monthKey) {
-        totalConfirmed += j.received;
-      }
-      if (j.pending > 0 && j.isPosted !== false) {
-        const expectedPayDate = j.payDate || j.postDate;
-        if (getMonthKey(expectedPayDate) === monthKey) {
-          totalPending += j.pending;
-        }
-      }
-    });
-    const monthVariableExpense = expenses
-      .filter(e => getMonthKey(e.date) === monthKey)
-      .reduce((sum, e) => sum + e.amount, 0);
-    const totalIncome = totalConfirmed + totalPending;
-    const totalExpense = settings.monthlyExpense + monthVariableExpense;
-    const isSufficient = totalIncome >= totalExpense;
-    const balance = totalIncome - totalExpense;
-    return {
-      monthKey,
-      totalIncome,
-      totalExpense,
-      isSufficient,
-      balance,
-    };
-  });
+  const projectedMonthsData = React.useMemo(() => {
+    const forecastMonthsList = getForecastMonths();
+    const totals = new Map(forecastMonthsList.map(monthKey => [monthKey, {
+      confirmed: 0,
+      pending: 0,
+      variableExpense: 0,
+    }]));
 
-  const upcomingPayments = jobs
+    jobs.forEach(j => {
+      const month = totals.get(getMonthKey(j.payDate || j.postDate));
+      if (!month) return;
+      if (j.received > 0) month.confirmed += j.received;
+      if (j.pending > 0 && j.isPosted !== false) month.pending += j.pending;
+    });
+    expenses.forEach(e => {
+      const month = totals.get(getMonthKey(e.date));
+      if (month) month.variableExpense += e.amount;
+    });
+
+    return forecastMonthsList.map(monthKey => {
+      const month = totals.get(monthKey)!;
+      const totalIncome = month.confirmed + month.pending;
+      const totalExpense = settings.monthlyExpense + month.variableExpense;
+      return {
+        monthKey,
+        totalIncome,
+        totalExpense,
+        isSufficient: totalIncome >= totalExpense,
+        balance: totalIncome - totalExpense,
+      };
+    });
+  }, [jobs, expenses, settings.monthlyExpense]);
+
+  const upcomingPayments = React.useMemo(() => jobs
     .filter(j => j.pending > 0 && j.isPosted !== false)
     .map(j => {
       const rel = getRelativeDaysText(j.payDate || j.postDate);
@@ -760,18 +750,13 @@ export default function DashboardTab({
       if (!a.isOverdue && b.isOverdue) return 1;
       return a.daysCount - b.daysCount;
     })
-    .slice(0, 4);
+    .slice(0, 4), [jobs]);
 
-  // Count-up animated values for the hero card
-  const animatedContractVal = useCountUp(totalContractVal);
-  const animatedReceived = useCountUp(totalReceived);
-  const animatedPending = useCountUp(totalPending);
-  const animatedProfit = useCountUp(Math.max(0, profit));
   const greeting = new Date().getHours() < 12 ? 'สวัสดีตอนเช้า' : new Date().getHours() < 18 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น';
   const summaryCards = [
     {
       label: 'รายรับที่ได้รับ',
-      value: animatedReceived,
+      value: totalReceived,
       detail: receivedChangePct === null ? 'เริ่มบันทึกรายรับเพื่อเห็นแนวโน้ม' : `${receivedChangePct >= 0 ? '↑' : '↓'} ${Math.abs(receivedChangePct)}% จากเดือนก่อน`,
       tone: 'income',
       icon: TrendingUp,
@@ -834,7 +819,7 @@ export default function DashboardTab({
                 {t('dash.contractValueLabel', { month: formatMonthKey(selectedMonthKey) })}
               </p>
               <h3 className="mt-1.5 text-4xl font-extrabold font-mono tracking-tight text-[#FFD2A7] sm:text-5xl group-hover:underline decoration-2 underline-offset-4">
-                {formatCurrency(animatedContractVal)}
+                {formatCurrency(totalContractVal)}
               </h3>
               <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-white/65">
                 <TrendingUp className="h-3.5 w-3.5 text-[#A9E0BC]" />
@@ -870,7 +855,7 @@ export default function DashboardTab({
                 )}
               </p>
               <p className="text-lg font-black font-mono text-white mt-0.5 group-hover:underline decoration-2 underline-offset-4">
-                {formatCurrency(animatedReceived)}
+                {formatCurrency(totalReceived)}
               </p>
               {totalCashOutThisMonth > 0 && (
                 <p className="text-[9px] font-bold text-white/50 mt-0.5" title={t('dash.afterExpenseTooltip')}>
@@ -888,7 +873,7 @@ export default function DashboardTab({
                 {t('dash.pending')}
               </p>
               <p className="text-lg font-black font-mono text-white mt-0.5 group-hover:underline decoration-2 underline-offset-4">
-                {formatCurrency(animatedPending)}
+                {formatCurrency(totalPending)}
               </p>
             </button>
             <button
@@ -901,7 +886,7 @@ export default function DashboardTab({
                 {t('dash.netProfit')}
               </p>
               <p className="text-lg font-black font-mono mt-0.5 text-[#E65F2B] group-hover:underline decoration-2 underline-offset-4">
-                {formatCurrency(animatedProfit)}
+                {formatCurrency(Math.max(0, profit))}
               </p>
               {profit < 0 && (
                 <p className="text-[9px] font-bold text-rose-400 mt-0.5">

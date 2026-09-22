@@ -63,6 +63,19 @@ test('mobile login layout remains inside the viewport',async({page})=>{
  await page.screenshot({path:'artifacts/mobile-login.png',fullPage:true});
 });
 
+test('tax Excel export downloads after loading the spreadsheet writer on demand',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/');
+ const sidebar=page.locator('aside');
+ await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
+ await sidebar.getByRole('button',{name:'ผู้ช่วยจัดการภาษี'}).click();
+ const downloadPromise=page.waitForEvent('download');
+ await page.getByRole('button',{name:'ดาวน์โหลด Excel (.xlsx)'}).click();
+ const download=await downloadPromise;
+ expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
+});
+
 test('legacy invoice requires owner confirmation and is saved through versioned backend API',async({page})=>{
  const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'',bankName:'',bankAccount:'',bankAccountName:''};
  const legacy={id:'legacy-invoice',documentType:'invoice',documentNo:'INV-LEGACY-001',createdDate:'2026-09-17',issuer:profile,client:{name:'Test client',address:'Bangkok',phone:'',email:'',taxId:''},items:[{id:'item',description:'Consulting',quantity:1,price:100}],vatRate:0,whtRate:0};

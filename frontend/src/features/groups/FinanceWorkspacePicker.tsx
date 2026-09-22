@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Users, Wallet, RefreshCw } from "lucide-react";
 import type { GroupSummary } from "../../../../shared/groups";
 import { groupApi } from "../../services/groups";
@@ -17,9 +17,15 @@ export default function FinanceWorkspacePicker({
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const loadedAccount = useRef(account);
+  const lastRefresh = useRef(0);
   useEffect(() => {
     const abort = new AbortController();
-    setGroups([]);
+    if (loadedAccount.current !== account) {
+      loadedAccount.current = account;
+      lastRefresh.current = 0;
+      setGroups([]);
+    }
     setError("");
     (async () => {
       const rows: GroupSummary[] = [];
@@ -33,12 +39,17 @@ export default function FinanceWorkspacePicker({
         rows.push(...result.groups.filter((group) => group.myRole));
         if ((page + 1) * 20 >= result.total) break;
       }
-      if (!abort.signal.aborted) setGroups(rows);
+      if (!abort.signal.aborted) {
+        setGroups(rows);
+        lastRefresh.current = Date.now();
+      }
     })().catch((e) => {
       if (!abort.signal.aborted) setError(e.message);
     });
     const refresh = () => {
-      if (document.visibilityState === "visible") setRevision((n) => n + 1);
+      if (document.visibilityState === "visible" && Date.now() - lastRefresh.current > 30000) {
+        setRevision((n) => n + 1);
+      }
     };
     window.addEventListener("focus", refresh);
     return () => {

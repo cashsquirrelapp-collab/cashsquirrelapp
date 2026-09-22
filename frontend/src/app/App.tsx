@@ -5,21 +5,34 @@ import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings,
 import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from '../sampleData';
 import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES, dateLocale } from '../utils';
 
-import DashboardTab from '../features/dashboard/DashboardTab';
-const JobsTab = lazy(() => import('../features/jobs/JobsTab'));
-const ExpenseRecordView = lazy(() => import('../features/expenses/ExpenseRecordView'));
-const TimelineTab = lazy(() => import('../features/reports/TimelineTab'));
-const SplitTab = lazy(() => import('../features/goals/SplitTab'));
-const SummaryTab = lazy(() => import('../features/reports/SummaryTab'));
+const loadDashboardTab = () => import('../features/dashboard/DashboardTab');
+const loadJobsTab = () => import('../features/jobs/JobsTab');
+const loadExpenseRecordView = () => import('../features/expenses/ExpenseRecordView');
+const loadTimelineTab = () => import('../features/reports/TimelineTab');
+const loadSplitTab = () => import('../features/goals/SplitTab');
+const loadSummaryTab = () => import('../features/reports/SummaryTab');
+const loadMonthlyReportTab = () => import('../features/reports/MonthlyReportTab');
+const loadTaxTab = () => import('../features/tax/TaxTab');
+const loadSettingsTab = () => import('../features/settings/SettingsTab').then(module => ({ default: module.SettingsTab }));
+const loadInvoiceTab = () => import('../features/invoices/InvoiceTab').then(module => ({ default: module.InvoiceTab }));
+const loadInsightTab = () => import('../features/reports/InsightTab').then(module => ({ default: module.InsightTab }));
+const loadPlansTab = () => import('../features/billing/PlansTab').then(module => ({ default: module.PlansTab }));
+const loadGroupsTab = () => import('../features/groups/GroupsTab');
+const JobsTab = lazy(loadJobsTab);
+const DashboardTab = lazy(loadDashboardTab);
+const ExpenseRecordView = lazy(loadExpenseRecordView);
+const TimelineTab = lazy(loadTimelineTab);
+const SplitTab = lazy(loadSplitTab);
+const SummaryTab = lazy(loadSummaryTab);
 import CustomDialog from '../components/ui/CustomDialog';
 import Login from '../features/auth/Login';
-const MonthlyReportTab = lazy(() => import('../features/reports/MonthlyReportTab'));
-const TaxTab = lazy(() => import('../features/tax/TaxTab'));
-const SettingsTab = lazy(() => import('../features/settings/SettingsTab').then(module => ({ default: module.SettingsTab })));
-const InvoiceTab = lazy(() => import('../features/invoices/InvoiceTab').then(module => ({ default: module.InvoiceTab })));
-const InsightTab = lazy(() => import('../features/reports/InsightTab').then(module => ({ default: module.InsightTab })));
-const PlansTab = lazy(() => import('../features/billing/PlansTab').then(module => ({ default: module.PlansTab })));
-const GroupsTab = lazy(() => import('../features/groups/GroupsTab'));
+const MonthlyReportTab = lazy(loadMonthlyReportTab);
+const TaxTab = lazy(loadTaxTab);
+const SettingsTab = lazy(loadSettingsTab);
+const InvoiceTab = lazy(loadInvoiceTab);
+const InsightTab = lazy(loadInsightTab);
+const PlansTab = lazy(loadPlansTab);
+const GroupsTab = lazy(loadGroupsTab);
 import FinanceWorkspacePicker from '../features/groups/FinanceWorkspacePicker';
 import { financeKey, setFinanceWorkspace, assertFinanceWorkspace } from '../services/financeWorkspace';
 import { authClient } from '../services/auth';
@@ -33,9 +46,9 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { computeMonthlySummary, currentMonthKey as getCurrentMonthKeyBkk, nowInBangkok } from '../../../shared/monthlySummary';
 import { Mascot } from '../components/mascot/Mascot';
 import { MascotToast } from '../components/mascot/MascotToast';
-import { ProfileSetupWizard } from '../features/onboarding/ProfileSetupWizard';
+const ProfileSetupWizard = lazy(() => import('../features/onboarding/ProfileSetupWizard').then(module => ({ default: module.ProfileSetupWizard })));
 import { PremiumUpsell } from '../features/billing/PremiumUpsell';
-import { ProPromoModal } from '../features/billing/ProPromoModal';
+const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
 import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
 import { IconCrown, IconPalette } from '../components/ui/icons';
@@ -74,6 +87,23 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups';
+
+// Fetch a feature's code before navigation when the user shows intent to open it. Dynamic
+// imports are cached by the browser, so React.lazy reuses the same download on selection.
+const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
+  jobs: loadJobsTab,
+  timeline: loadTimelineTab,
+  groups: loadGroupsTab,
+  summary: loadSummaryTab,
+  split: loadSplitTab,
+  report: loadMonthlyReportTab,
+  insight: loadInsightTab,
+  tax: loadTaxTab,
+  invoice: loadInvoiceTab,
+  plans: loadPlansTab,
+  settings: loadSettingsTab,
+};
+const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch(() => {}); };
 
 // Core items stay visible at all times; "more" items are grouped under a
 // collapsible section so first-time users see a simpler menu by default.
@@ -226,6 +256,9 @@ export default function App() {
       <button
         key={item.key}
         aria-current={activeTab === item.key ? 'page' : undefined}
+        onPointerEnter={() => prefetchFeature(item.key)}
+        onFocus={() => prefetchFeature(item.key)}
+        onTouchStart={() => prefetchFeature(item.key)}
         onClick={() => {
           setActiveTab(item.key);
           if (closeMobileOnClick) setIsMobileMenuOpen(false);
@@ -273,6 +306,22 @@ export default function App() {
   const financeConflictRef = useRef(false);
   const [loadedFinanceOwner,setLoadedFinanceOwner]=useState('');
   const switchingFinanceRef=useRef(false);
+
+  useEffect(() => {
+    if (!session?.user?.id || (!session.isGuest && loadedFinanceOwner !== financeOwner)) return;
+    // Warm only the primary routes after the account is usable. Loading every feature at once
+    // competes with the first dashboard render, especially on slower phones.
+    const timer = window.setTimeout(() => {
+      for (const tab of ['jobs', 'timeline', 'groups'] as const) {
+        prefetchFeature(tab);
+      }
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [session?.user?.id, session?.isGuest, loadedFinanceOwner, financeOwner]);
+
+  useEffect(() => {
+    if (session?.user?.id) void loadDashboardTab().catch(() => {});
+  }, [session?.user?.id]);
 
   // Dark Mode reactive state & local storage synchronization
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -2178,16 +2227,9 @@ export default function App() {
               {lastCloudError && <p role="alert" className="mt-3 text-sm text-red-600">{lastCloudError}</p>}
               {cloudSyncStatus==='failed' && <button className="mt-4 rounded-xl bg-brand-green-acc px-4 py-2 font-bold" onClick={()=>void loadCloudData(session.user.email)}>ลองโหลดอีกครั้ง</button>}
             </div>
-          ) : <AnimatePresence mode="wait">
-            <motion.div
-              key={`${financeOwner}:${activeTab}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-            >
+          ) : <div key={`${financeOwner}:${activeTab}`}>
               {activeTab === 'dashboard' && (
-                <DashboardTab
+                <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><DashboardTab
                   jobs={jobs}
                   goals={goals}
                   settings={settings}
@@ -2214,7 +2256,7 @@ export default function App() {
                     setRecordMode(mode);
                     setActiveTab('jobs');
                   }}
-                />
+                /></Suspense>
               )}
 
               {activeTab === 'jobs' && (
@@ -2463,8 +2505,7 @@ export default function App() {
                   isPro={isPro}
                 /></Suspense>
               )}
-            </motion.div>
-          </AnimatePresence>}
+            </div>}
         </div>
 
         {/* Custom Dialog overlay */}
@@ -2476,13 +2517,13 @@ export default function App() {
         {/* 🎉 Pro plan promo, shown once/day to non-Pro users */}
         <AnimatePresence>
           {isProPromoOpen && (
-            <ProPromoModal
+            <Suspense fallback={null}><ProPromoModal
               onUpgrade={() => {
                 setIsProPromoOpen(false);
                 handleUpgrade();
               }}
               onClose={() => setIsProPromoOpen(false)}
-            />
+            /></Suspense>
           )}
         </AnimatePresence>
 
@@ -2562,8 +2603,8 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <ProfileSetupWizard
-          isOpen={!financeGroupId && !!isLoadedForUser && (!settings.profileSetupCompleted || isSetupWizardPreview)}
+        {!financeGroupId && !!isLoadedForUser && (!settings.profileSetupCompleted || isSetupWizardPreview) && <Suspense fallback={null}><ProfileSetupWizard
+          isOpen={true}
           settings={settings}
           onUpdateSettings={handleUpdateSettings}
           onAddGoal={handleAddGoal}
@@ -2572,7 +2613,7 @@ export default function App() {
           onComplete={() => {
             setIsSetupWizardPreview(false);
           }}
-        />
+        /></Suspense>}
 
         <MascotToast />
       </div>
