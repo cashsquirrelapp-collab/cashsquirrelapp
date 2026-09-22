@@ -748,13 +748,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   view-transition-name: active-tab;
 }
 
-/* A short entrance makes menu changes clear without delaying the next screen. */
+/* Keep the whole page moving together when switching sections. */
 .app-tab-enter {
-  animation: app-tab-arrive 260ms cubic-bezier(.22, 1, .36, 1) both;
+  animation: app-tab-arrive 360ms cubic-bezier(.22, 1, .36, 1) both;
 }
 
 @keyframes app-tab-arrive {
-  from { opacity: 0; transform: translate3d(20px, 0, 0); }
+  from { opacity: 0; transform: translate3d(28px, 8px, 0); }
   to { opacity: 1; transform: none; }
 }
 
