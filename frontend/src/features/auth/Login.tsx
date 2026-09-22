@@ -394,11 +394,6 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         </motion.div>
       )}
     <div className="auth-page min-h-screen bg-brand-bg flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden transition-colors duration-300">
-      
-      {/* Background Decorative Rings */}
-      <div className="absolute top-[-20%] left-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
-
       <button
         type="button"
         onClick={returnToWelcome}
