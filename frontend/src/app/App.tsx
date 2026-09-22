@@ -1,6 +1,6 @@
 import { privateCache } from '../services/privateCache';
 import { validateChanges, notificationPreferences } from '../../../shared/validation';
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense, startTransition } from 'react';
 import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense, GoalTransaction } from '../../../shared/types';
 import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from '../sampleData';
 import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES, dateLocale } from '../utils';
@@ -250,6 +250,11 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [moreNavOpen, setMoreNavOpen] = useState(false);
 
+  const navigateTab = (tab: TabKey) => {
+    prefetchFeature(tab);
+    startTransition(() => setActiveTab(tab));
+  };
+
   const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean) => {
     const Icon = item.icon;
     return (
@@ -260,7 +265,7 @@ export default function App() {
         onFocus={() => prefetchFeature(item.key)}
         onTouchStart={() => prefetchFeature(item.key)}
         onClick={() => {
-          setActiveTab(item.key);
+          navigateTab(item.key);
           if (closeMobileOnClick) setIsMobileMenuOpen(false);
         }}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-bold transition-all cursor-pointer ${
@@ -909,7 +914,7 @@ export default function App() {
       setRecordMode('expense');
       setAutoOpenAddExpense(true);
     }
-    setActiveTab('jobs');
+    navigateTab('jobs');
 
     params.delete('job');
     params.delete('expense');
@@ -1116,7 +1121,7 @@ export default function App() {
               'ตรวจพบดีลค้างชำระเลยกำหนด!',
               `ระบบตรวจพบดีลงานเลยกำหนดเครดิตเทอมใหม่วันนี้ (จำนวน ${newCount} รายการ)\n\nคุณต้องการไปที่ "แดชบอร์ดติดตามทวงถามเครดิตเทอม" เพื่อตรวจสอบคิวทวงหนี้และกดส่งอีเมลทวงถามเลยไหมครับ?`,
               () => {
-                setActiveTab('report');
+                navigateTab('report');
               }
             );
           }, 1500);
@@ -1263,7 +1268,7 @@ export default function App() {
   // card breakdown, the credit-term board) so they all land on the same quick-action row.
   const handleViewJob = (id: string) => {
     setScrollToJobId(id);
-    setActiveTab('jobs');
+    navigateTab('jobs');
   };
 
   const handleEditJob = (id: string, updated: Partial<Job>) => {
@@ -1805,7 +1810,7 @@ export default function App() {
       <aside className="app-sidebar hidden lg:flex flex-col w-68 bg-brand-white border-r border-brand-border/40 shrink-0 select-none p-6 relative overflow-y-auto no-scrollbar">
         <button
           type="button"
-          onClick={() => setActiveTab('dashboard')}
+          onClick={() => navigateTab('dashboard')}
           className="flex items-center gap-2.5 mb-8 px-2 cursor-pointer text-left hover:opacity-80 transition-opacity"
           title={t("nav.backToDashboard")}
         >
@@ -1864,7 +1869,7 @@ export default function App() {
           {session && !session.isGuest && (
             <button
               type="button"
-              onClick={() => setActiveTab('plans')}
+              onClick={() => navigateTab('plans')}
               className="w-full text-left px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40 hover:border-brand-border transition-colors cursor-pointer"
             >
               {isPaidActive ? (
@@ -1958,7 +1963,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveTab('dashboard');
+                      navigateTab('dashboard');
                       setIsMobileMenuOpen(false);
                     }}
                     className="flex items-center gap-2.5 cursor-pointer text-left"
@@ -2028,7 +2033,7 @@ export default function App() {
                   {session && !session.isGuest && (
                     <button
                       type="button"
-                      onClick={() => { setActiveTab('plans'); setIsMobileMenuOpen(false); }}
+                      onClick={() => { navigateTab('plans'); setIsMobileMenuOpen(false); }}
                       className="w-full text-left px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40 hover:border-brand-border transition-colors cursor-pointer"
                     >
                       {isPaidActive ? (
@@ -2150,7 +2155,7 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setActiveTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
+            <button type="button" onClick={() => navigateTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
               <span className={`h-1.5 w-1.5 rounded-full ${cloudSyncStatus === 'failed' ? 'bg-red-500' : cloudSyncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
               {session.isGuest ? 'โหมดทดลอง' : cloudSyncStatus === 'failed' ? 'บันทึกไม่สำเร็จ' : cloudSyncStatus === 'pending' ? 'กำลังโหลดข้อมูล' : 'เชื่อมต่อคลาวด์'}
             </button>
@@ -2171,13 +2176,13 @@ export default function App() {
         {/* Scrollable Container with responsive max widths */}
         {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>}
         <div id="main-content" role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
-          <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}>
+          <Suspense fallback={null}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {/* Global Month Exploration Bar (สำรวจฤดูกาลเก็บเกี่ยว) - Display only on Dashboard */}
           {activeTab === 'dashboard' && <section className="relative mb-6 overflow-hidden rounded-3xl border border-[#E65F2B]/15 bg-gradient-to-br from-brand-white via-brand-white to-[#E65F2B]/10 p-6 sm:p-8">
             <div className="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
               <div><p className="mb-2 text-xs font-semibold tracking-widest text-[#E65F2B]">CASH SQUIRREL / พื้นที่ของคุณ</p><h1 className="text-2xl font-black tracking-tight sm:text-3xl">วางแผนวันนี้ ให้เงินเติบโตทุกวัน</h1><p className="mt-2 max-w-lg text-sm leading-6 text-brand-muted">จัดการรายรับ รายจ่าย และเป้าหมายการออมจากที่เดียว เห็นภาพรวมชัดขึ้น แล้วค่อย ๆ ตุนความมั่นคงไปด้วยกัน</p>
-              <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => {setRecordMode('income');setActiveTab('jobs');}} className="rounded-xl bg-[#E65F2B] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110">บันทึกรายรับ</button><button type="button" onClick={() => {setRecordMode('expense');setActiveTab('jobs');}} className="rounded-xl border border-brand-border bg-brand-white px-4 py-2.5 text-sm font-bold transition hover:bg-brand-faint">บันทึกรายจ่าย</button><button type="button" onClick={() => setActiveTab('split')} className="rounded-xl px-4 py-2.5 text-sm font-bold text-[#E65F2B] hover:bg-[#E65F2B]/5">ดูเป้าหมายออม →</button></div></div>
+              <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => {setRecordMode('income');navigateTab('jobs');}} className="rounded-xl bg-[#E65F2B] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110">บันทึกรายรับ</button><button type="button" onClick={() => {setRecordMode('expense');navigateTab('jobs');}} className="rounded-xl border border-brand-border bg-brand-white px-4 py-2.5 text-sm font-bold transition hover:bg-brand-faint">บันทึกรายจ่าย</button><button type="button" onClick={() => navigateTab('split')} className="rounded-xl px-4 py-2.5 text-sm font-bold text-[#E65F2B] hover:bg-[#E65F2B]/5">ดูเป้าหมายออม →</button></div></div>
               <div className="hidden shrink-0 rounded-full bg-[#E65F2B]/5 p-5 sm:block"><Mascot mood="happy" size={100}/></div>
             </div>
           </section>}
@@ -2236,14 +2241,14 @@ export default function App() {
                   settings={settings}
                   expenses={expenses}
                   onUpdateSettings={handleUpdateSettings}
-                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) setActiveTab(id as TabKey); }}
+                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   onOpenAddGoal={() => {
                     setInitialSelectedGoalId('ADD_NEW_GOAL');
-                    setActiveTab('split');
+                    navigateTab('split');
                   }}
                   onOpenGoalDetail={(id) => {
                     setInitialSelectedGoalId(id);
-                    setActiveTab('split');
+                    navigateTab('split');
                   }}
                   statuses={statuses}
                   selectedMonthKey={selectedMonthKey}
@@ -2255,7 +2260,7 @@ export default function App() {
                   triggerConfirm={triggerConfirm}
                   onQuickRecord={(mode) => {
                     setRecordMode(mode);
-                    setActiveTab('jobs');
+                    navigateTab('jobs');
                   }}
                 />
               )}
@@ -2266,7 +2271,7 @@ export default function App() {
                       WIP/Posted switch inside JobsTab itself */}
                   <div className="relative flex bg-brand-white border border-brand-border rounded-2xl p-1.5 shadow-2xs">
                     <button
-                      onClick={() => setRecordMode('income')}
+                      onClick={() => startTransition(() => setRecordMode('income'))}
                       className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
                     >
                       {recordMode === 'income' && (
@@ -2281,7 +2286,7 @@ export default function App() {
                       </span>
                     </button>
                     <button
-                      onClick={() => setRecordMode('expense')}
+                      onClick={() => startTransition(() => setRecordMode('expense'))}
                       className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
                     >
                       {recordMode === 'expense' && (
@@ -2340,7 +2345,7 @@ export default function App() {
                   goals={goals}
                   settings={settings}
                   onEditJob={handleEditJob}
-                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) setActiveTab(id as TabKey); }}
+                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
                   triggerPrompt={triggerPrompt}
@@ -2361,7 +2366,7 @@ export default function App() {
                   statuses={statuses}
                   onEditJob={(jobId) => {
                     setScrollToJobId(jobId);
-                    setActiveTab('jobs');
+                    navigateTab('jobs');
                   }}
                   onDeleteJob={handleDeleteJob}
                 />
@@ -2382,7 +2387,7 @@ export default function App() {
                   onAllocateSavingsToGoal={handleAllocateSavingsToGoal}
                   onAllocateMultipleSavings={handleAllocateMultipleSavings}
                   onUpdateSettings={handleUpdateSettings}
-                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) setActiveTab(id as TabKey); }}
+                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   onImportData={handleImportData}
                   onExportData={handleExportData}
                   onClearAllData={handleClearAllData}
@@ -2444,7 +2449,7 @@ export default function App() {
                   userEmail={session?.user?.email || 'user@example.com'}
                   notifSettings={notifSettings}
                   onUpdateNotifSettings={setNotifSettings}
-                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) setActiveTab(id as TabKey); }}
+                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   onViewJob={handleViewJob}
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
@@ -2453,7 +2458,7 @@ export default function App() {
 
               {activeTab === 'insight' && (
                 isPro ? (
-                  <InsightTab jobs={jobs} onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) setActiveTab(id as TabKey); }} />
+                  <InsightTab jobs={jobs} onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }} />
                 ) : (
                   <PremiumUpsell
                     feature={t('premium.insightFeature')}
@@ -2482,7 +2487,7 @@ export default function App() {
                   key={financeOwner}
                   isGroupFinance={!!financeGroupId}
                   settings={settings}
-                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) setActiveTab(id as TabKey); }}
+                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   onUpdateSettings={handleUpdateSettings}
                   onImportData={handleImportData}
                   onClearAllData={handleClearAllData}
