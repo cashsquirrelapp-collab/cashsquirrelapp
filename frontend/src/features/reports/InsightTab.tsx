@@ -110,7 +110,7 @@ const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: React.Re
 
 export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => {
   const [period, setPeriod] = useState<PeriodOption>('6');
-  const [categoryChartMode, setCategoryChartMode] = useState<'bar' | 'pie'>('bar');
+  const [categoryChartMode, setCategoryChartMode] = useState<'bar' | 'pie'>('pie');
   // Which client/type bucket the user clicked on a chart, to drill into the list of jobs behind
   // it. `otherKeys` is only populated for the "อื่นๆ" bucket -- the real keys folded into it in
   // THIS chart (bar's top 8 vs pie's top 5 fold different sets into "Other"), so we know which
@@ -567,17 +567,6 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
           <div className="flex items-center bg-brand-faint dark:bg-stone-850 border border-brand-border dark:border-neutral-800 rounded-xl p-1 gap-1">
             <button
               type="button"
-              onClick={() => setCategoryChartMode('bar')}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1.5 transition-all cursor-pointer ${
-                categoryChartMode === 'bar'
-                  ? 'bg-brand-white dark:bg-stone-700 text-brand-text dark:text-white shadow-xs'
-                  : 'text-brand-muted hover:text-brand-text'
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5" /> แท่ง
-            </button>
-            <button
-              type="button"
               onClick={() => setCategoryChartMode('pie')}
               className={`px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1.5 transition-all cursor-pointer ${
                 categoryChartMode === 'pie'
@@ -586,6 +575,17 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
               }`}
             >
               <PieChartIcon className="w-3.5 h-3.5" /> วงกลม
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategoryChartMode('bar')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1.5 transition-all cursor-pointer ${
+                categoryChartMode === 'bar'
+                  ? 'bg-brand-white dark:bg-stone-700 text-brand-text dark:text-white shadow-xs'
+                  : 'text-brand-muted hover:text-brand-text'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" /> แท่ง
             </button>
           </div>
         </div>

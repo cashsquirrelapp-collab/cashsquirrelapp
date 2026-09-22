@@ -168,6 +168,7 @@ export interface InvoiceItem {
   description: string;
   quantity: number;
   price: number;
+  discount?: number;
 }
 
 export interface InvoiceProfile {
@@ -188,6 +189,7 @@ export interface Invoice {
   documentNo: string;
   createdDate: string; // YYYY-MM-DD
   dueDate?: string; // YYYY-MM-DD
+  responseDate?: string; // YYYY-MM-DD, วันที่ตอบรับ
   issuer: InvoiceProfile;
   client: {
     name: string;
@@ -195,6 +197,7 @@ export interface Invoice {
     phone: string;
     email: string;
     taxId: string;
+    contactName?: string; // ผู้ติดต่อ / เรียน
   };
   items: InvoiceItem[];
   vatRate: number; // 0 | 7
