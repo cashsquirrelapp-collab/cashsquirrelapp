@@ -900,7 +900,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   });
 
   return (
-    <div className="page-content space-y-6 pb-16">
+    <div className="page-content app-tab-enter space-y-6 pb-16">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-border bg-brand-white px-4 py-3 text-xs no-print" role="status">
         <span className={storageError ? 'text-red-600' : 'text-brand-muted'}>{storageError || (saving ? 'กำลังบันทึกเอกสาร…' : ownerId ? 'เอกสารของบัญชีนี้ · บันทึกบนคลาวด์' : 'โหมดทดลอง · ข้อมูลชั่วคราวในเครื่อง')}</span>
         {ownerId && localStorage.getItem('remix_invoices') && <button type="button" onClick={importLegacy} className="font-bold text-[#E65F2B]">นำเข้าเอกสารเดิมจากเครื่อง</button>}
@@ -967,7 +967,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
       {/* SUB-TAB 1: DOCUMENTS LIST & LIVE PREVIEW GRID */}
       {activeSubTab === 'list' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="app-subtab-enter grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* Left Column: List of saved documents (5 cols) */}
           <div className="lg:col-span-5 space-y-4 no-print">
@@ -1419,7 +1419,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
       {/* SUB-TAB 2: DOCUMENT EDITOR (CREATE / EDIT) */}
       {activeSubTab === 'create' && (
-        <form onSubmit={handleSaveInvoice} className="bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-3xl p-6 shadow-sm space-y-6 no-print">
+        <form onSubmit={handleSaveInvoice} className="app-subtab-enter bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-3xl p-6 shadow-sm space-y-6 no-print">
           
           <div className="flex items-center justify-between border-b border-brand-border pb-3.5">
             <div className="flex items-center gap-2">
@@ -1844,7 +1844,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
       {/* SUB-TAB 3: DEFAULT ISSUER PROFILE SETTING */}
       {activeSubTab === 'issuer_profile' && (
-        <form onSubmit={handleSaveIssuerProfile} className="bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-3xl p-6 shadow-sm space-y-5 no-print">
+        <form onSubmit={handleSaveIssuerProfile} className="app-subtab-enter bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-3xl p-6 shadow-sm space-y-5 no-print">
           
           <div className="flex items-center gap-2 border-b border-brand-border pb-3.5">
             <div className="p-2 bg-indigo-50 dark:bg-stone-950 rounded-xl text-indigo-600 dark:text-indigo-400">

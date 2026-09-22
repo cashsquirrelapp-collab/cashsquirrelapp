@@ -2172,7 +2172,7 @@ export default function App() {
         {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>}
         <div id="main-content" role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
           <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}>
-          <div key={`${financeOwner}:${activeTab}`} className="app-tab-enter">
+          <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {/* Global Month Exploration Bar (สำรวจฤดูกาลเก็บเกี่ยว) - Display only on Dashboard */}
           {activeTab === 'dashboard' && <section className="relative mb-6 overflow-hidden rounded-3xl border border-[#E65F2B]/15 bg-gradient-to-br from-brand-white via-brand-white to-[#E65F2B]/10 p-6 sm:p-8">
             <div className="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
@@ -2424,11 +2424,13 @@ export default function App() {
                     triggerConfirm={triggerConfirm}
                   />
                 ) : (
-                  <PremiumUpsell
-                    feature={t('premium.invoiceFeature')}
-                    description={t('premium.invoiceDesc')}
-                    onUpgrade={handleUpgrade}
-                  />
+                  <div className="app-tab-enter">
+                    <PremiumUpsell
+                      feature={t('premium.invoiceFeature')}
+                      description={t('premium.invoiceDesc')}
+                      onUpgrade={handleUpgrade}
+                    />
+                  </div>
                 )
               )}
 
