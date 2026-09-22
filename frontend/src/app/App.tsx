@@ -2171,6 +2171,7 @@ export default function App() {
         {/* Scrollable Container with responsive max widths */}
         {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>}
         <div id="main-content" role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
+          <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}>
           <div key={`${financeOwner}:${activeTab}`} className="app-tab-enter">
           {/* Global Month Exploration Bar (สำรวจฤดูกาลเก็บเกี่ยว) - Display only on Dashboard */}
           {activeTab === 'dashboard' && <section className="relative mb-6 overflow-hidden rounded-3xl border border-[#E65F2B]/15 bg-gradient-to-br from-brand-white via-brand-white to-[#E65F2B]/10 p-6 sm:p-8">
@@ -2229,7 +2230,7 @@ export default function App() {
             </div>
           ) : <div>
               {activeTab === 'dashboard' && (
-                <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><DashboardTab
+                <DashboardTab
                   jobs={jobs}
                   goals={goals}
                   settings={settings}
@@ -2256,7 +2257,7 @@ export default function App() {
                     setRecordMode(mode);
                     setActiveTab('jobs');
                   }}
-                /></Suspense>
+                />
               )}
 
               {activeTab === 'jobs' && (
@@ -2297,7 +2298,7 @@ export default function App() {
                   </div>
 
                   {recordMode === 'income' ? (
-                    <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><JobsTab
+                    <JobsTab
                       jobs={jobs}
                       onAddJob={handleAddJob}
                       onEditJob={handleEditJob}
@@ -2314,9 +2315,9 @@ export default function App() {
                       triggerPrompt={triggerPrompt}
                       scrollToJobId={scrollToJobId}
                       onScrollToJobHandled={() => setScrollToJobId(null)}
-                    /></Suspense>
+                    />
                   ) : (
-                    <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><ExpenseRecordView
+                    <ExpenseRecordView
                       expenses={expenses}
                       onAddExpense={handleAddExpense}
                       onEditExpense={handleEditExpense}
@@ -2328,13 +2329,13 @@ export default function App() {
                       onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
                       scrollToExpenseId={scrollToExpenseId}
                       onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
-                    /></Suspense>
+                    />
                   )}
                 </div>
               )}
 
               {activeTab === 'summary' && (
-                <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><SummaryTab
+                <SummaryTab
                   jobs={jobs}
                   goals={goals}
                   settings={settings}
@@ -2350,11 +2351,11 @@ export default function App() {
                   statuses={statuses}
                   selectedMonth={selectedMonthKey}
                   onSelectMonth={setSelectedMonthKey}
-                /></Suspense>
+                />
               )}
 
               {activeTab === 'timeline' && (
-                <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><TimelineTab
+                <TimelineTab
                   jobs={jobs}
                   settings={settings}
                   statuses={statuses}
@@ -2363,11 +2364,11 @@ export default function App() {
                     setActiveTab('jobs');
                   }}
                   onDeleteJob={handleDeleteJob}
-                /></Suspense>
+                />
               )}
 
               {activeTab === 'split' && (
-                <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><SplitTab
+                <SplitTab
                   jobs={jobs}
                   goals={goals}
                   expenses={expenses}
@@ -2391,19 +2392,19 @@ export default function App() {
                   initialSelectedGoalId={initialSelectedGoalId}
                   onClearInitialGoalId={() => setInitialSelectedGoalId(null)}
                   selectedMonthKey={selectedMonthKey}
-                /></Suspense>
+                />
               )}
 
               {activeTab === 'tax' && (
                 isPro ? (
-                  <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><TaxTab
+                  <TaxTab
                     jobs={jobs}
                     expenses={expenses}
                     settings={settings}
                     onUpdateSettings={handleUpdateSettings}
                     triggerAlert={triggerAlert}
                     triggerConfirm={triggerConfirm}
-                  /></Suspense>
+                  />
                 ) : (
                   <PremiumUpsell
                     feature={t('premium.taxFeature')}
@@ -2415,13 +2416,13 @@ export default function App() {
 
               {activeTab === 'invoice' && (
                 isPro ? (
-                  <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><InvoiceTab
+                  <InvoiceTab
                     key={financeOwner || 'guest'}
                     ownerId={session?.isGuest ? undefined : financeOwner}
                     jobs={jobs}
                     triggerAlert={triggerAlert}
                     triggerConfirm={triggerConfirm}
-                  /></Suspense>
+                  />
                 ) : (
                   <PremiumUpsell
                     feature={t('premium.invoiceFeature')}
@@ -2432,7 +2433,7 @@ export default function App() {
               )}
 
               {activeTab === 'report' && (
-                <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><MonthlyReportTab
+                <MonthlyReportTab
                   jobs={jobs}
                   goals={goals}
                   expenses={expenses}
@@ -2445,12 +2446,12 @@ export default function App() {
                   onViewJob={handleViewJob}
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
-                /></Suspense>
+                />
               )}
 
               {activeTab === 'insight' && (
                 isPro ? (
-                  <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><InsightTab jobs={jobs} onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) setActiveTab(id as TabKey); }} /></Suspense>
+                  <InsightTab jobs={jobs} onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) setActiveTab(id as TabKey); }} />
                 ) : (
                   <PremiumUpsell
                     feature={t('premium.insightFeature')}
@@ -2461,21 +2462,21 @@ export default function App() {
               )}
 
               {activeTab === 'groups' && (
-                <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><GroupsTab key={session.user.id} userId={session.user.id} isGuest={!!session.isGuest} triggerConfirm={triggerConfirm} /></Suspense>
+                <GroupsTab key={session.user.id} userId={session.user.id} isGuest={!!session.isGuest} triggerConfirm={triggerConfirm} />
               )}
               {activeTab === 'plans' && (
-                <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><PlansTab
+                <PlansTab
                   isPro={isPro}
                   isPaidActive={isPaidActive}
                   isInFreeTrial={isInFreeTrial}
                   trialEndsAt={trialEndsAt}
                   subscription={subscription}
                   onUpgrade={handleUpgrade}
-                /></Suspense>
+                />
               )}
 
               {activeTab === 'settings' && (
-                <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><SettingsTab
+                <SettingsTab
                   key={financeOwner}
                   isGroupFinance={!!financeGroupId}
                   settings={settings}
@@ -2503,10 +2504,11 @@ export default function App() {
                   notifSettings={notifSettings}
                   onUpdateNotifSettings={setNotifSettings}
                   isPro={isPro}
-                /></Suspense>
+                />
               )}
             </div>}
           </div>
+          </Suspense>
         </div>
 
         {/* Custom Dialog overlay */}
