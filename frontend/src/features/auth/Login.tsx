@@ -178,7 +178,7 @@ function AuthWelcome({ onContinue }: { onContinue: () => void }) {
 }
 
 export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
-  const { t } = useLanguage();
+  const { t, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -206,6 +206,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
   const returnToWelcome = () => {
     if (window.location.hash === '#login' && window.history.state?.cashSquirrelView === 'login') {
+      setShowWelcome(true);
       window.history.back();
       return;
     }
@@ -387,13 +388,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
   return (
     <>
-      <AnimatePresence>
-        {showWelcome && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -24 }} transition={{ duration: .38, ease: [0.22, 1, 0.36, 1] }} className="fixed inset-0 z-[100] overflow-y-auto bg-brand-bg">
-            <AuthWelcome onContinue={openLogin} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {showWelcome && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .38, ease: [0.22, 1, 0.36, 1] }} className="fixed inset-0 z-[100] overflow-y-auto bg-brand-bg">
+          <AuthWelcome onContinue={openLogin} />
+        </motion.div>
+      )}
     <div className="auth-page min-h-screen bg-brand-bg flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden transition-colors duration-300">
       
       {/* Background Decorative Rings */}
@@ -403,17 +402,28 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       <button
         type="button"
         onClick={returnToWelcome}
-        className="auth-back-to-welcome absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-white/90 px-3.5 py-2.5 text-xs font-extrabold text-brand-muted shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:text-brand-text"
+        className="auth-back-to-welcome absolute left-4 top-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-white/90 px-4 py-2.5 text-xs font-extrabold text-brand-muted shadow-sm backdrop-blur transition-colors hover:text-brand-text sm:left-5 sm:top-5"
       >
         <ChevronLeft className="h-4 w-4" />
-        กลับไปดูแนะนำ
+        {t('login.backToWelcome')}
       </button>
 
-      {/* Theme Toggle (Top Right) -- language toggle lives in Settings only */}
-      <div className="absolute top-6 right-6 flex items-center gap-2">
+      {/* Keep both controls above the form and large enough for touch screens. */}
+      <div className="absolute right-4 top-4 z-30 flex items-center gap-2 sm:right-6 sm:top-6">
         <button
+          type="button"
+          onClick={toggleLanguage}
+          className="flex h-11 min-w-11 items-center justify-center rounded-2xl border border-brand-border/40 bg-brand-white px-3 text-xs font-black text-brand-text shadow-sm transition-colors hover:bg-brand-faint/60 cursor-pointer"
+          aria-label={t('login.languageSwitchLabel')}
+          title={t('login.languageSwitchLabel')}
+        >
+          {t('login.languageToggle')}
+        </button>
+        <button
+          type="button"
           onClick={() => setDarkMode(!darkMode)}
-          className="p-3 rounded-2xl bg-brand-white hover:bg-brand-faint/60 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border/40 shadow-sm cursor-pointer"
+          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-brand-border/40 bg-brand-white text-brand-text shadow-sm transition-colors hover:bg-brand-faint/60 cursor-pointer"
+          aria-label={darkMode ? t('login.darkModeOff') : t('login.darkModeOn')}
           title={darkMode ? t('login.darkModeOff') : t('login.darkModeOn')}
         >
           {darkMode ? (
@@ -424,7 +434,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         </button>
       </div>
 
-      <div className="auth-layout relative z-10 w-full max-w-6xl">
+      <div className="auth-layout relative z-10 w-full">
       <div className="auth-form-column">
         {/* Brand Header */}
         <div className="text-center mb-6 sm:mb-7">

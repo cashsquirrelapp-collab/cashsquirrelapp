@@ -176,12 +176,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .auth-layout {
   display: block;
-  max-width: 31rem;
+  max-width: 28rem;
 }
 
 .auth-form-column {
   width: 100%;
-  max-width: 31rem;
+  max-width: 28rem;
   margin: 0 auto;
 }
 
@@ -759,6 +759,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* Base custom interactive states */
 .active-tab-indicator {
   view-transition-name: active-tab;
+}
+
+/* A short entrance makes menu changes clear without delaying the next screen. */
+.app-tab-enter {
+  animation: app-tab-arrive 260ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+@keyframes app-tab-arrive {
+  from { opacity: 0; transform: translate3d(20px, 0, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-tab-enter { animation: none; }
 }
 
 @media print {

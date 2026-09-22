@@ -164,6 +164,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'login.darkModeOn': 'เปลี่ยนเป็นโหมดมืด',
     'login.darkModeOff': 'เปลี่ยนเป็นโหมดสว่าง',
     'login.languageToggle': 'EN',
+    'login.languageSwitchLabel': 'เปลี่ยนเป็นภาษาอังกฤษ',
+    'login.backToWelcome': 'กลับไปดูแนะนำ',
 
     // Login errors/success (fixed strings only -- dynamic server error messages pass through as-is)
     'login.err.passwordMismatch': 'รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้งค่ะ',
@@ -773,6 +775,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'login.darkModeOn': 'Switch to dark mode',
     'login.darkModeOff': 'Switch to light mode',
     'login.languageToggle': 'TH',
+    'login.languageSwitchLabel': 'Switch to Thai',
+    'login.backToWelcome': 'Back to introduction',
 
     'login.err.passwordMismatch': "Passwords don't match. Please check and try again.",
     'login.err.generic': 'A connection error occurred. Please try again.',

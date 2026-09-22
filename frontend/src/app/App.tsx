@@ -2227,7 +2227,7 @@ export default function App() {
               {lastCloudError && <p role="alert" className="mt-3 text-sm text-red-600">{lastCloudError}</p>}
               {cloudSyncStatus==='failed' && <button className="mt-4 rounded-xl bg-brand-green-acc px-4 py-2 font-bold" onClick={()=>void loadCloudData(session.user.email)}>ลองโหลดอีกครั้ง</button>}
             </div>
-          ) : <div key={`${financeOwner}:${activeTab}`}>
+          ) : <div key={`${financeOwner}:${activeTab}`} className="app-tab-enter">
               {activeTab === 'dashboard' && (
                 <Suspense fallback={<div className="p-8 text-center text-stone-500" role="status">กำลังโหลด…</div>}><DashboardTab
                   jobs={jobs}
