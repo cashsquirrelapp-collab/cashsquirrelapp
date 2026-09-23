@@ -182,7 +182,7 @@ test('a protected API 401 immediately removes private views without waiting for 
  let denied=false;
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',route=>denied?route.fulfill({status:401,json:{error:'Session expired'}}):route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
- await page.goto('/');await expect(page.getByText('เชื่อมต่อคลาวด์',{exact:true})).toBeVisible();
+ await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
  denied=true;const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
  await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
 });
