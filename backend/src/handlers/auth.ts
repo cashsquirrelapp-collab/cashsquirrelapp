@@ -6,7 +6,7 @@ import { appOrigin, required, supabaseUrl } from '../config/env.js';
 import { readCookie, writeCookie } from '../security/cookies.js';
 import { publicUser, storeSession, requireUser, revokeSession, type PrivateSession } from '../security/session.js';
 import { rateLimit } from '../security/rateLimit.js';
-const credentials = z.object({ email: z.email().max(254).transform(v=>v.toLowerCase()), password: z.string().min(1).max(128) });
+const credentials = z.object({ email: z.email().max(254).transform(v=>v.toLowerCase()), password: z.string().min(1).max(128), displayName: z.string().trim().min(2).max(60).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() });
 export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   if(req.method==='GET' && req.query.code===undefined && !readCookie<PrivateSession>(req)) { res.json({session:null});return; }
   const verifier = readCookie<{ storage: Record<string,string>; expires: number }>(req,'oauth');
@@ -50,7 +50,8 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   }
   if (action==='signup') {
     if (parsed.data.password.length < 8) throw new HttpError(400,'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
-    const {data,error}=await auth.auth.signUp({...parsed.data,options:{emailRedirectTo:`${appOrigin()}/api/auth`}});
+    const {email,password,displayName}=parsed.data;
+    const {data,error}=await auth.auth.signUp({email,password,options:{emailRedirectTo:`${appOrigin()}/api/auth`,data:{full_name:displayName}}});
     if (error) {
       const code=typeof error.code==='string' && /^[a-z_]{1,80}$/.test(error.code) ? error.code : 'unknown';
       console.warn('Signup provider rejected',{code,status:error.status});

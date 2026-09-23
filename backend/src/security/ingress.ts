@@ -33,6 +33,7 @@ export function clientIp(req: VercelRequest): string {
 const limiter = new RequestLimiter();
 const policies: Record<string, { group: string; limit: number }> = {
   auth: { group: 'auth', limit: 30 },
+  'password-reset-email': { group: 'reset', limit: 10 },
   'password-reset-line': { group: 'reset', limit: 10 },
   'liff-submit': { group: 'liff', limit: 20 },
   'download-report': { group: 'download', limit: 20 },

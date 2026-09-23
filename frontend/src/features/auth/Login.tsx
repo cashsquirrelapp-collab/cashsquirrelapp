@@ -181,6 +181,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const { t, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -224,14 +225,21 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     }
   }, [error, success]);
 
-  // Password recovery states -- delivered over LINE (api/password-reset-line.ts) instead of
-  // Supabase's built-in email-based recovery, which depends on the project's SMTP staying
-  // healthy. The code + the new password are submitted together in one step here, since there's
-  // no Supabase recovery session to hand off to once the code checks out server-side.
+  // The recovery code and new password are verified together by the server. This keeps the
+  // password-changing authority off the browser while preserving a mobile-friendly OTP flow.
   const [recoveryStep, setRecoveryStep] = useState<'request' | 'verify'>('request');
   const [otpToken, setOtpToken] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [otpSecondsLeft, setOtpSecondsLeft] = useState(300);
+
+  React.useEffect(() => {
+    if (!isForgotPassword || recoveryStep !== 'verify' || otpSecondsLeft <= 0) return;
+    const timer = window.setInterval(() => setOtpSecondsLeft(current => Math.max(0, current - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [isForgotPassword, recoveryStep, otpSecondsLeft]);
+
+  const otpCountdown = `${Math.floor(otpSecondsLeft / 60)}:${String(otpSecondsLeft % 60).padStart(2, '0')}`;
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,6 +258,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         const { error: signUpErr, data } = await authClient.auth.signUp({
           email,
           password,
+          displayName: displayName.trim(),
         });
         if (signUpErr) throw signUpErr;
 
@@ -292,22 +301,15 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setSuccess(null);
 
     try {
-      const res = await apiFetch('/api/password-reset-line', {
+      const res = await apiFetch('/api/password-reset-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step: 'request', email }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || t('login.err.resetGeneric'));
-      if (data.reason === 'not_linked') {
-        setError(t('login.err.notLinked'));
-        return;
-      }
-      if (data.reason === 'send_failed') {
-        setError(t('login.err.sendFailed'));
-        return;
-      }
       setSuccess(t('login.success.codeSent'));
+      setOtpSecondsLeft(300);
       setRecoveryStep('verify');
     } catch (err: any) {
       setError(err.message || t('login.err.resetGeneric'));
@@ -327,7 +329,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setSuccess(null);
 
     try {
-      const res = await apiFetch('/api/password-reset-line', {
+      const res = await apiFetch('/api/password-reset-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step: 'verify', email, code: otpToken, newPassword: resetNewPassword }),
@@ -353,7 +355,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setError(null);
     setSuccess(null);
     try {
-      const res = await apiFetch('/api/password-reset-line', {
+      const res = await apiFetch('/api/password-reset-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step: 'request', email }),
@@ -361,6 +363,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || t('login.err.resetGeneric'));
       setOtpToken('');
+      setOtpSecondsLeft(300);
       setSuccess(t('login.success.codeResent'));
     } catch (err: any) {
       setError(err.message || t('login.err.resetGeneric'));
@@ -617,16 +620,20 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                     <input
                       type="text"
                       inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={12}
+                      autoComplete="one-time-code"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
                       value={otpToken}
-                      onChange={(e) => setOtpToken(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                      onChange={(e) => setOtpToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder={t('login.verificationCodePlaceholder')}
                       required
                       autoFocus
                       className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-base tracking-[0.5em] text-center font-mono focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50 placeholder:tracking-normal placeholder:text-xs placeholder:font-sans"
                     />
                   </div>
+                  <p className={`mt-2 text-center text-[11px] font-bold ${otpSecondsLeft > 0 ? 'text-brand-muted' : 'text-pink-acc'}`} aria-live="polite">
+                    {otpSecondsLeft > 0 ? `${t('login.codeExpiresIn')} ${otpCountdown}` : t('login.codeExpired')}
+                  </p>
                 </div>
 
                 <div>
@@ -669,7 +676,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
                 <button
                   type="submit"
-                  disabled={loading || otpToken.length < 6 || resetNewPassword.length < 6}
+                  disabled={loading || otpSecondsLeft <= 0 || otpToken.length !== 6 || resetNewPassword.length < 8}
                   className="w-full py-3.5 px-4 bg-[#E65F2B] hover:bg-[#D98324] dark:bg-[#E65F2B] dark:hover:bg-[#FFA473] text-white font-extrabold rounded-2xl text-xs shadow-md shadow-orange-600/10 dark:shadow-none hover:shadow-lg hover:shadow-orange-600/15 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 >
                   {loading ? (
@@ -699,6 +706,29 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
             /* Login & Sign Up Form */
             <>
             <form onSubmit={handleAuth} className="space-y-4">
+              {isSignUp && (
+                <div>
+                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
+                    {t('login.displayName')}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-brand-muted">
+                      <UserPlus className="w-4.5 h-4.5" />
+                    </span>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value.slice(0, 60))}
+                      placeholder={t('login.displayNamePlaceholder')}
+                      minLength={2}
+                      maxLength={60}
+                      autoComplete="name"
+                      required
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
                   {t('login.email')}

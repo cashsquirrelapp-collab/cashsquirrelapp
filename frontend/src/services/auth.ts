@@ -53,7 +53,7 @@ async function getSession(): Promise<SessionCheck> {
 export const authClient = { auth: {
   getSession,
   signInWithPassword: (values: { email: string; password: string })=>action('signin', values),
-  signUp: (values: { email: string; password: string; options?: unknown })=>action('signup', values),
+  signUp: (values: { email: string; password: string; displayName?: string; options?: unknown })=>action('signup', values),
   signInWithOAuth: (_values: unknown)=>action('oauth'),
   signOut: ()=>action('logout'),
   onAuthStateChange(fn: (event: string, session: PublicSession | null)=>void) { listeners.add(fn); return { data: { subscription: { unsubscribe: ()=>{listeners.delete(fn);} } } }; }
