@@ -7,6 +7,84 @@ test.beforeEach(async({page})=>{
 const user={id:'11111111-1111-4111-8111-111111111111',email:'test@example.com',role:'user',created_at:'2026-01-01T00:00:00Z',user_metadata:{}};
 const snapshot={jobs:[],expenses:[],goals:[],invoices:[],settings:{monthlyExpense:0,monthlyRevenueGoal:20000,savingsPercentage:40,profileSetupCompleted:true,userPersona:'freelance'},statuses:[{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}],job_types:['Sponsored Post'],notif_settings:{enabled:true,alertEmail:user.email,serviceType:'mailto',emailjsServiceId:'',emailjsTemplateId:'',emailjsPublicKey:'',pendingQueue:[],lineUserId:null},avatar_data_url:null,issuer_profile:null};
 const versions={cashflow_jobs:{},cashflow_expenses:{},cashflow_goals:{},cashflow_invoices:{},cashflow_documents:{settings:1,statuses:1,job_types:1,notif_settings:1}};
+
+test('new-account onboarding is persisted when dismissed and does not return after reload',async({page})=>{
+ const newUser={...user,created_at:'2026-09-24T00:00:00Z'};
+ let storedSettings={...snapshot.settings,profileSetupCompleted:false};
+ let settingsVersion=1;
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user:newUser}}}));
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()==='POST'){
+   const body=route.request().postDataJSON();
+   for(const change of body.changes||[])if(change.table==='cashflow_documents'&&change.id==='settings'){
+    storedSettings=change.data;settingsVersion+=1;
+   }
+   return route.fulfill({json:{ok:true}});
+  }
+  return route.fulfill({json:{
+   snapshot:{...snapshot,settings:storedSettings,notif_settings:{...snapshot.notif_settings,alertEmail:newUser.email}},
+   versions:{...versions,cashflow_documents:{...versions.cashflow_documents,settings:settingsVersion}},
+   subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'},
+  }});
+ });
+ await page.goto('/');
+ await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toBeVisible();
+ await page.getByRole('button',{name:'ปิดแบบสอบถาม'}).click();
+ await expect.poll(()=>storedSettings.profileSetupCompleted).toBe(true);
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
+ await expect(page.locator('#dashboard-top')).toBeVisible();
+});
+
+test('skipping onboarding once persists the handled state for a new session',async({page})=>{
+ const newUser={...user,created_at:'2026-09-24T00:00:00Z'};
+ let storedSettings={...snapshot.settings,profileSetupCompleted:false};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user:newUser}}}));
+ await page.route('**/api/data*',route=>{
+  if(route.request().method()==='POST'){
+   const body=route.request().postDataJSON();
+   for(const change of body.changes||[])if(change.table==='cashflow_documents'&&change.id==='settings')storedSettings=change.data;
+   return route.fulfill({json:{ok:true}});
+  }
+  return route.fulfill({json:{snapshot:{...snapshot,settings:storedSettings},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');
+ await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toBeVisible();
+ await page.getByRole('button',{name:'ข้าม'}).click();
+ await expect.poll(()=>storedSettings.profileSetupCompleted).toBe(true);
+ await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
+});
+
+test('completing onboarding persists and never repeats',async({page})=>{
+ const newUser={...user,created_at:'2026-09-24T00:00:00Z'};
+ let storedSettings={...snapshot.settings,profileSetupCompleted:false};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user:newUser}}}));
+ await page.route('**/api/data*',route=>{
+  if(route.request().method()==='POST'){
+   const body=route.request().postDataJSON();
+   for(const change of body.changes||[])if(change.table==='cashflow_documents'&&change.id==='settings')storedSettings=change.data;
+   return route.fulfill({json:{ok:true}});
+  }
+  return route.fulfill({json:{snapshot:{...snapshot,settings:storedSettings},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');
+ for(let step=0;step<3;step++)await page.getByRole('button',{name:'ถัดไป'}).click();
+ await page.getByRole('button',{name:'เริ่มใช้งานเลย!'}).click();
+ await expect.poll(()=>storedSettings.profileSetupCompleted).toBe(true);
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
+});
+
+test('accounts created before rollout are never prompted retroactively',async({page})=>{
+ const existingUser={...user,created_at:'2026-09-22T23:59:59Z'};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user:existingUser}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,settings:{...snapshot.settings,profileSetupCompleted:false}},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/');
+ await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
+ await expect(page.locator('#dashboard-top')).toBeVisible();
+});
 test('login and all feature tabs render after separation without browser errors',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  let loggedIn=false;
@@ -25,6 +103,7 @@ test('login and all feature tabs render after separation without browser errors'
  await expect(page.getByText(user.email).first()).toBeVisible();
  const sidebar=page.locator('aside');
  await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
  await expect(page.getByText('วางแผนวันนี้ ให้เงินเติบโตทุกวัน')).toHaveCount(0);
  for(const action of ['เพิ่มรายรับ','เพิ่มรายจ่าย','เป้าหมายออม','ดูรายการ'])await expect(page.getByRole('button',{name:action})).toBeVisible();
  const quickPay=page.getByRole('button',{name:'รับเงินด่วน'});

@@ -47,6 +47,7 @@ import { computeMonthlySummary, currentMonthKey as getCurrentMonthKeyBkk, nowInB
 import { Mascot } from '../components/mascot/Mascot';
 import { MascotToast } from '../components/mascot/MascotToast';
 const ProfileSetupWizard = lazy(() => import('../features/onboarding/ProfileSetupWizard').then(module => ({ default: module.ProfileSetupWizard })));
+import { normalizeProfileSetupSettings, shouldShowProfileSetup } from '../features/onboarding/profileSetupState';
 import { PremiumUpsell } from '../features/billing/PremiumUpsell';
 const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
 import { fireMascot } from '../mascotBus';
@@ -694,7 +695,10 @@ export default function App() {
       if (sessionRef.current?.user?.id !== user.id || financeOwnerRef.current!==owner || request!==loadRequestRef.current) return false;
       const data = result.snapshot;
       setJobs(cleanJobs(data.jobs || [])); setGoals(data.goals || []); setExpenses(data.expenses || []);
-      setSettings(data.settings || {...defaultSettings,profileSetupCompleted:!!financeGroupId});
+      const loadedSettings = data.settings || defaultSettings;
+      setSettings(financeGroupId
+        ? { ...loadedSettings, profileSetupCompleted: true }
+        : normalizeProfileSetupSettings(loadedSettings, user.created_at));
       setStatuses(data.statuses ? cleanStatuses(data.statuses) : [{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}]);
       setJobTypes(data.job_types ? cleanJobTypes(data.job_types) : DEFAULT_JOB_TYPES);
       setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
@@ -1685,6 +1689,23 @@ export default function App() {
     setSettings(newSettings);
   };
 
+  const handleProfileSetupSettings = async (newSettings: AppSettings) => {
+    if (!session?.user?.id || session.isGuest || financeGroupId || cloudReadyRef.current !== financeOwner) return;
+    try {
+      await saveCloud(financeOwner, { settings: newSettings });
+      setSettings(newSettings);
+      setLastCloudError(null);
+      setCloudSyncStatus('synced');
+    } catch (error: any) {
+      setLastCloudError(formatError(error));
+      setCloudSyncStatus('failed');
+      fireMascot({ mood: 'alert', message: `บันทึกสถานะแบบสอบถามไม่สำเร็จ: ${formatError(error)}` });
+      throw error;
+    }
+  };
+
+  const shouldShowSetupWizard = !session?.isGuest && shouldShowProfileSetup(settings, session?.user?.created_at);
+
   // Backup and Restore Management
   const handleExportData = async () => {
     let cloud: any = { invoices: JSON.parse(privateCache.getItem('cashflow_invoices_guest') || '[]'), issuer_profile: JSON.parse(privateCache.getItem('cashflow_issuer_guest') || 'null') };
@@ -2602,14 +2623,18 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {!financeGroupId && !!isLoadedForUser && (!settings.profileSetupCompleted || isSetupWizardPreview) && <Suspense fallback={null}><ProfileSetupWizard
+        {!financeGroupId && !!isLoadedForUser && (shouldShowSetupWizard || isSetupWizardPreview) && <Suspense fallback={null}><ProfileSetupWizard
           isOpen={true}
           settings={settings}
-          onUpdateSettings={handleUpdateSettings}
+          onUpdateSettings={handleProfileSetupSettings}
           onAddGoal={handleAddGoal}
           onAddJobTypes={(types) => setJobTypes(prev => Array.from(new Set([...prev, ...types])))}
           isPreview={isSetupWizardPreview}
           onComplete={() => {
+            setIsSetupWizardPreview(false);
+          }}
+          onDismiss={async () => {
+            await handleProfileSetupSettings({ ...settings, profileSetupCompleted: true });
             setIsSetupWizardPreview(false);
           }}
         /></Suspense>}
