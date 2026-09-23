@@ -18,7 +18,7 @@ export default withGuard(async(req,res)=>{
    const otp=String(randomInt(100000,1000000));
    const saved=await admin.from('cashflow_challenges').upsert({user_id:row.user_id,purpose:'reset',code_hash:challengeHash(otp),expires_at:new Date(Date.now()+300000).toISOString(),attempts:0});
    if(saved.error)throw saved.error;
-   const delivered=await sendGmailEmail(email,'รหัสยืนยันการตั้งรหัสผ่านใหม่ | Cash Squirrel',`
+   const delivered=await sendGmailEmail(email,'รหัสยืนยันการตั้งรหัสผ่านใหม่ | Krarok Tunngern',`
     <!doctype html>
     <html lang="th">
       <body style="margin:0;padding:0;background:#f5f3ef;font-family:Arial,'Noto Sans Thai',sans-serif;color:#29231f">
@@ -30,7 +30,7 @@ export default withGuard(async(req,res)=>{
                 <td style="padding:22px 30px;background:#2d2118">
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                     <tr>
-                      <td style="color:#ffffff;font-size:17px;font-weight:700;letter-spacing:.2px">Cash Squirrel</td>
+                      <td style="color:#ffffff;font-size:17px;font-weight:700;letter-spacing:.2px">Krarok Tunngern</td>
                       <td align="right" style="color:#f6b977;font-size:12px;font-weight:700;letter-spacing:1px">SECURE ACCESS</td>
                     </tr>
                   </table>
@@ -56,14 +56,14 @@ export default withGuard(async(req,res)=>{
                 <td style="padding:4px 30px 34px">
                   <div style="border-left:3px solid #d97745;padding:2px 0 2px 14px">
                     <div style="font-size:13px;font-weight:700;color:#403731">เพื่อความปลอดภัย</div>
-                    <div style="margin-top:5px;font-size:13px;line-height:1.65;color:#74685f">เจ้าหน้าที่ของ Cash Squirrel จะไม่ขอรหัสนี้จากคุณ หากคุณไม่ได้เป็นผู้ส่งคำขอ สามารถละเว้นอีเมลฉบับนี้ได้ทันที</div>
+                    <div style="margin-top:5px;font-size:13px;line-height:1.65;color:#74685f">เจ้าหน้าที่ของ Krarok Tunngern จะไม่ขอรหัสนี้จากคุณ หากคุณไม่ได้เป็นผู้ส่งคำขอ สามารถละเว้นอีเมลฉบับนี้ได้ทันที</div>
                   </div>
                 </td>
               </tr>
               <tr>
                 <td style="padding:20px 30px;background:#faf8f5;border-top:1px solid #eee8e1;text-align:center;color:#8b8078;font-size:11px;line-height:1.6">
                   อีเมลนี้ส่งโดยระบบอัตโนมัติ กรุณาอย่าตอบกลับ<br>
-                  © Cash Squirrel · ระบบจัดการกระแสเงินสดสำหรับบุคคลและองค์กร
+                  © Krarok Tunngern · ระบบจัดการกระแสเงินสดสำหรับบุคคลและองค์กร
                 </td>
               </tr>
             </table>
