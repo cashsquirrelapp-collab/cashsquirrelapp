@@ -265,6 +265,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         if (data?.session) {
           setSuccess(t('login.success.signUpWithSession'));
         } else {
+          // Email confirmation is on, so there's no session yet: hop to the sign-in tab with the
+          // email already filled in, so the user can sign in as soon as they've clicked the link.
+          setIsSignUp(false);
+          setPassword('');
+          setConfirmPassword('');
           setSuccess(t('login.success.signUpNeedsConfirm'));
         }
       } else {
