@@ -221,9 +221,11 @@ test("members edit a shared workspace and switching saves to the old scope witho
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
-  await expect(
-    page.getByText("สมาชิกทุกคนดูและแก้ไขได้", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toHaveValue(group);
+  await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toHaveAttribute(
+    "title",
+    "บัญชีการเงินของกลุ่ม",
+  );
   await settings(page);
   await expect(
     page.getByText("รายงานและไฟล์สำรองใช้ข้อมูลของกลุ่มที่เลือก", {
