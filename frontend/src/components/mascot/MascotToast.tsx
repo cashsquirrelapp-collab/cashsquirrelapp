@@ -28,17 +28,17 @@ export function MascotToast() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 max-w-[340px] md:max-w-sm w-full pointer-events-none">
+    <div aria-live="polite" className="fixed top-4 inset-x-4 sm:top-20 sm:right-6 sm:left-auto z-[9999] flex flex-col gap-3 max-w-[calc(100vw-2rem)] sm:max-w-sm w-auto sm:w-full pointer-events-none">
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => (
           <motion.div
             key={toast.id}
             layout
-            initial={{ opacity: 0, y: 40, scale: 0.92, rotate: -1 }}
+            initial={{ opacity: 0, y: -12, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: -20, transition: { duration: 0.2 } }}
-            transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-            className="pointer-events-auto bg-white/95 dark:bg-brand-white/95 border border-brand-border/40 backdrop-blur-md rounded-2xl p-4 shadow-xl flex items-center gap-3 text-brand-text relative overflow-hidden"
+            exit={{ opacity: 0, scale: 0.96, y: -8, transition: { duration: 0.15 } }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="pointer-events-auto bg-white dark:bg-stone-900 border border-brand-border/70 rounded-2xl p-3 shadow-xl flex items-center gap-3 text-brand-text relative overflow-hidden"
           >
             {/* Top tiny colored highlight strip */}
             <div className={`absolute top-0 left-0 right-0 h-1 ${

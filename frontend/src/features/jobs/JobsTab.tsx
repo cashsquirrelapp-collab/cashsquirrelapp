@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Job, StatusOption } from '../../../../shared/types';
 import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate, DEFAULT_JOB_TYPES } from '../../utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -97,6 +98,7 @@ export default function JobsTab({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [subTab, setSubTab] = useState<'all' | 'wip' | 'posted'>('all');
+  const [showFilters, setShowFilters] = useState(false);
   
   // Local form states for adding a job
   const [formName, setFormName] = useState('');
@@ -508,16 +510,9 @@ export default function JobsTab({
 
   return (
     <div className="page-content space-y-6">
-      {/* 1. Header with Stats */}
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase">
-            {t('jobs.subtitle')}
-          </span>
-          <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
-            {t('jobs.title', { count: jobs.length })}
-          </h2>
-        </div>
+      {/* Primary action: the page title and mode switch live in App.tsx. */}
+      <div className="flex items-center justify-between gap-3 px-1">
+        <p className="text-sm font-bold text-brand-text">งานดีลทั้งหมด <span className="text-brand-muted">({jobs.length})</span></p>
         <div className="flex items-center gap-2 shrink-0">
           <motion.button
             whileTap={{ scale: 0.95 }}
@@ -549,9 +544,10 @@ export default function JobsTab({
       </div>
 
       {/* 2. Search & Filters Bar */}
-      <div className="space-y-3 bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-4 shadow-xs">
-        <div className="relative">
-          <Search className="absolute left-3.5 top-3 w-4 h-4 text-brand-muted" />
+      <div className="space-y-3 bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-3 shadow-xs">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
           <input
             type="text"
             placeholder={t('jobs.searchPlaceholder')}
@@ -559,9 +555,13 @@ export default function JobsTab({
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-brand-faint text-xs text-brand-text placeholder-brand-muted rounded-xl pl-10 pr-4 py-3 outline-none border border-transparent focus:border-emerald-500/50 transition-all font-medium"
           />
+          </div>
+          <button type="button" onClick={() => setShowFilters(value => !value)} aria-expanded={showFilters} className={`shrink-0 rounded-xl border px-3 py-3 text-xs font-bold transition-colors ${showFilters || statusFilter !== 'all' || typeFilter !== 'all' ? 'border-[#D98324]/40 bg-[#D98324]/10 text-[#9A541C]' : 'border-brand-border bg-brand-white text-brand-muted hover:bg-brand-faint'}`}>
+            <Filter className="inline h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">ตัวกรอง</span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        {showFilters && <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {/* Status Filter */}
           <div className="flex items-center gap-1.5 bg-brand-faint px-3 py-2 rounded-xl border border-brand-border/40">
             <Filter className="w-3.5 h-3.5 text-brand-muted shrink-0" />
@@ -596,7 +596,7 @@ export default function JobsTab({
               ))}
             </select>
           </div>
-        </div>
+        </div>}
       </div>
 
 
@@ -923,7 +923,7 @@ export default function JobsTab({
       </div>
 
       {/* 4. Sliding Bottom Sheet Modal for Adding Job */}
-      <AnimatePresence>
+      {createPortal(<AnimatePresence>
         {isAddJobOpen && (
           <div className="fixed inset-0 z-200">
             {/* Backdrop */}
@@ -1662,10 +1662,10 @@ export default function JobsTab({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
 
       {/* 5. Sliding Bottom Sheet Modal for Editing Job */}
-      <AnimatePresence>
+      {createPortal(<AnimatePresence>
         {editingJob && (
           <div className="fixed inset-0 z-200">
             {/* Backdrop */}
@@ -2400,13 +2400,13 @@ export default function JobsTab({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
 
       {/* Delivery-date / credit-term prompt for marking a WIP job as delivered when it has no
           postDate yet -- same date field + credit-term picker markup as the edit form's own
           "posted" step, driven by separate delivery* state so its Save doesn't route through
           the full edit form (and its own second LINE notification). */}
-      <AnimatePresence>
+      {createPortal(<AnimatePresence>
         {deliveryPromptJob && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
             <motion.div
@@ -2556,7 +2556,7 @@ export default function JobsTab({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
     </div>
   );
 }

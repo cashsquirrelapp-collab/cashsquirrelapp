@@ -658,38 +658,37 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   animation: dashboard-float 5s ease-in-out infinite;
 }
 
-.dashboard-quick-action,
-.dashboard-summary-card {
+.dashboard-quick-action {
   border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
   background: color-mix(in srgb, var(--white) 94%, transparent);
   box-shadow: 0 8px 24px rgba(71, 49, 37, .055);
   transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background 200ms ease;
 }
 
-.dashboard-quick-action:hover,
-.dashboard-summary-card:hover {
+.dashboard-quick-action:hover {
   transform: translateY(-2px);
   box-shadow: 0 14px 30px rgba(71, 49, 37, .10);
 }
 
-.dashboard-quick-action:focus-visible,
-.dashboard-summary-card:focus-visible {
+.dashboard-quick-action:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--blue-acc) 50%, transparent);
   outline-offset: 3px;
 }
 
 .dashboard-quick-action {
-  min-height: 104px;
-  border-radius: 18px;
-  padding: 16px;
+  min-height: 60px;
+  border-radius: 16px;
+  padding: 9px 11px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.dashboard-quick-icon,
-.dashboard-summary-icon {
+.dashboard-quick-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -698,22 +697,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .dashboard-quick-action:hover .dashboard-quick-icon { transform: scale(1.06); }
-.dashboard-quick-icon { width: 38px; height: 38px; }
+.dashboard-quick-icon { width: 34px; height: 34px; flex: 0 0 auto; }
 .quick-income .dashboard-quick-icon { background: #eaf5ee; color: #287449; }
 .quick-expense .dashboard-quick-icon { background: #fceeee; color: #be5353; }
+.quick-pay .dashboard-quick-icon { background: #fff0e8; color: #d85b2a; }
 .quick-goal .dashboard-quick-icon { background: #fff4e2; color: #b16d1d; }
 .quick-list .dashboard-quick-icon { background: var(--faint); color: var(--muted); }
-
-.dashboard-summary-card {
-  min-height: 150px;
-  border-radius: 20px;
-  padding: 18px;
-}
-
-.dashboard-summary-icon { width: 32px; height: 32px; }
-.dashboard-summary-income .dashboard-summary-icon { background: #eaf5ee; color: #287449; }
-.dashboard-summary-expense .dashboard-summary-icon { background: #fceeee; color: #be5353; }
-.dashboard-summary-saving .dashboard-summary-icon { background: #fff4e2; color: #b16d1d; }
 
 @keyframes dashboard-float {
   0%, 100% { transform: translateY(0); }
@@ -729,9 +718,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .auth-story-mascot,
   .auth-story-coin { animation: none; }
   .dashboard-quick-action,
-  .dashboard-summary-card,
-  .dashboard-quick-icon,
-  .dashboard-summary-icon { transition: none; }
+  .dashboard-quick-icon { transition: none; }
 }
 
 /* Custom scrollbar behavior for goals scroll and list boxes */
@@ -748,9 +735,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   view-transition-name: active-tab;
 }
 
-/* Keep the whole page moving together when switching sections. */
+/* Keep navigation feedback quick and avoid transforms here. A transformed ancestor changes the
+   containing block for fixed overlays, which can strand a modal below the scroll viewport. */
 .app-tab-enter {
-  animation: app-tab-arrive 360ms cubic-bezier(.22, 1, .36, 1) both;
+  animation: app-tab-arrive 140ms ease-out both;
 }
 
 .app-subtab-enter {
@@ -758,8 +746,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @keyframes app-tab-arrive {
-  from { opacity: 0; transform: translate3d(28px, 8px, 0); }
-  to { opacity: 1; transform: none; }
+  from { opacity: .72; }
+  to { opacity: 1; }
 }
 
 @keyframes app-subtab-arrive {

@@ -1,7 +1,8 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
 import { formatCurrency, getForecastMonths, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../../utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconArrowUpRight, IconBolt, IconCoin } from '../../components/ui/icons';
@@ -21,11 +22,8 @@ import {
   Check,
   Copy,
   MessageSquare,
-  Calendar,
   Flame,
   Bell,
-  ChevronDown,
-  ChevronUp,
   Mail,
   AlertCircle,
   Send,
@@ -84,12 +82,12 @@ export default function DashboardTab({
 }: DashboardTabProps) {
   const { t } = useLanguage();
   const [isAlertExpanded, setIsAlertExpanded] = React.useState(false);
-  const [isRadarExpanded, setIsRadarExpanded] = React.useState(false);
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
   // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.
   const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | 'profit' | null>(null);
   const [quickSearch, setQuickSearch] = React.useState('');
-  const [visibleCount, setVisibleCount] = React.useState(4);
+  const [visibleCount, setVisibleCount] = React.useState(3);
+  const [isQuickPayExpanded, setIsQuickPayExpanded] = React.useState(false);
   const [isSendingSimulated, setIsSendingSimulated] = React.useState(false);
 
   // Credit Term Report for the 3-box dashboard
@@ -752,58 +750,15 @@ export default function DashboardTab({
     })
     .slice(0, 4), [jobs]);
 
-  const greeting = new Date().getHours() < 12 ? 'สวัสดีตอนเช้า' : new Date().getHours() < 18 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น';
-  const summaryCards = [
-    {
-      label: 'รายรับที่ได้รับ',
-      value: totalReceived,
-      detail: receivedChangePct === null ? 'เริ่มบันทึกรายรับเพื่อเห็นแนวโน้ม' : `${receivedChangePct >= 0 ? '↑' : '↓'} ${Math.abs(receivedChangePct)}% จากเดือนก่อน`,
-      tone: 'income',
-      icon: TrendingUp,
-    },
-    {
-      label: 'รายจ่ายเดือนนี้',
-      value: totalCashOutThisMonth,
-      detail: `${monthVariableExpenses.length} รายการที่บันทึกแล้ว`,
-      tone: 'expense',
-      icon: TrendingDown,
-    },
-    {
-      label: 'เงินออมสุทธิ',
-      value: Math.max(0, profit),
-      detail: profit >= 0 ? 'พร้อมตุนไว้สำหรับเป้าหมาย' : `ขาดอีก ${formatCurrency(Math.abs(profit))}`,
-      tone: 'saving',
-      icon: PiggyBank,
-    },
-  ];
-
   return (
-    <div id="dashboard-top" className="dashboard-shell space-y-6 scroll-mt-6 text-brand-text">
+    <div id="dashboard-top" className="dashboard-shell flex flex-col gap-7 scroll-mt-6 text-brand-text">
       
-      {/* Dashboard greeting -- keeps the month selector and all existing navigation in App.tsx. */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.32 }}
-        className="dashboard-greeting flex flex-col gap-2 px-1 sm:flex-row sm:items-end sm:justify-between"
-      >
-        <div>
-          <p className="text-sm font-bold text-[#A66A43] dark:text-[#F2B76B]">{greeting} ☀️</p>
-          <h2 className="mt-1 text-3xl font-black font-display tracking-tight text-brand-text sm:text-4xl">ยินดีต้อนรับกลับมา!</h2>
-          <p className="mt-1 text-sm text-brand-muted">วันนี้ก็เป็นอีกวันที่ดีในการเก็บออม 🌱</p>
-        </div>
-        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-brand-border/70 bg-brand-white/80 px-3 py-2 text-xs font-semibold text-brand-muted shadow-sm">
-          <Calendar className="h-3.5 w-3.5 text-[#C17817]" />
-          {formatMonthKey(selectedMonthKey)}
-        </div>
-      </motion.div>
-
       {/* 2. Hero Card */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.38, delay: 0.05 }}
-        className="dashboard-balance-card relative overflow-hidden rounded-[26px] border border-[#3A2418] p-6 text-white shadow-[0_18px_42px_rgba(67,42,25,0.18)] sm:p-7"
+        className="dashboard-balance-card order-1 relative overflow-hidden rounded-[26px] border border-[#3A2418] p-6 text-white shadow-[0_18px_42px_rgba(67,42,25,0.18)] sm:p-7"
       >
         <div className="dashboard-balance-orb dashboard-balance-orb-one" aria-hidden="true" />
         <div className="dashboard-balance-orb dashboard-balance-orb-two" aria-hidden="true" />
@@ -830,20 +785,20 @@ export default function DashboardTab({
               initial={{ scale: 0, rotate: -15 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: 'spring', damping: 10, stiffness: 200, delay: 0.15 }}
-              className="dashboard-mascot-float shrink-0 rounded-2xl bg-white/10 p-2 backdrop-blur-sm"
+              className="dashboard-mascot-float shrink-0"
             >
               <Mascot mood={totalReceived > 0 ? 'celebrate' : 'happy'} size={58} />
             </motion.div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/10">
+          <div className="grid grid-cols-1 gap-3 pt-4 border-t border-white/10 sm:grid-cols-3 sm:gap-4">
             <button
               type="button"
               onClick={() => setBreakdownFilter('received')}
               className="text-left cursor-pointer group"
               title={t('dash.receivedTooltip')}
             >
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase flex items-center gap-1.5 group-hover:text-white/80">
+              <p className="text-xs font-semibold text-white/65 tracking-wide uppercase flex items-center gap-1.5 group-hover:text-white/85">
                 <span>{t('dash.received')}</span>
                 {receivedChangePct !== null && receivedChangePct !== 0 && (
                   <span className={`inline-flex items-center gap-0.5 text-[9px] font-black normal-case ${
@@ -854,11 +809,11 @@ export default function DashboardTab({
                   </span>
                 )}
               </p>
-              <p className="text-lg font-black font-mono text-white mt-0.5 group-hover:underline decoration-2 underline-offset-4">
+              <p className="text-2xl font-black font-mono text-white mt-1 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(totalReceived)}
               </p>
               {totalCashOutThisMonth > 0 && (
-                <p className="text-[9px] font-bold text-white/50 mt-0.5" title={t('dash.afterExpenseTooltip')}>
+                <p className="text-xs font-semibold text-white/75 mt-1" title={t('dash.afterExpenseTooltip')}>
                   {t('dash.afterExpense', { amount: formatCurrency(receivedAfterVariableExpense) })}
                 </p>
               )}
@@ -869,10 +824,10 @@ export default function DashboardTab({
               className="text-left cursor-pointer group"
               title={t('dash.pendingTooltip')}
             >
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title={t('dash.pendingSubTooltip')}>
+              <p className="text-xs font-semibold text-white/65 tracking-wide uppercase group-hover:text-white/85" title={t('dash.pendingSubTooltip')}>
                 {t('dash.pending')}
               </p>
-              <p className="text-lg font-black font-mono text-white mt-0.5 group-hover:underline decoration-2 underline-offset-4">
+              <p className="text-2xl font-black font-mono text-white mt-1 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(totalPending)}
               </p>
             </button>
@@ -882,10 +837,10 @@ export default function DashboardTab({
               className="text-left cursor-pointer group"
               title={t('dash.netProfitTooltip')}
             >
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title={t('dash.netProfitSubTooltip')}>
+              <p className="text-xs font-semibold text-white/65 tracking-wide uppercase group-hover:text-white/85" title={t('dash.netProfitSubTooltip')}>
                 {t('dash.netProfit')}
               </p>
-              <p className="text-lg font-black font-mono mt-0.5 text-[#E65F2B] group-hover:underline decoration-2 underline-offset-4">
+              <p className="text-2xl font-black font-mono mt-1 text-[#FF9D6D] group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(Math.max(0, profit))}
               </p>
               {profit < 0 && (
@@ -904,45 +859,27 @@ export default function DashboardTab({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, delay: 0.1 }}
         aria-label="ทางลัด"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+        className="order-3 grid grid-cols-2 gap-2.5 sm:grid-cols-5 sm:gap-3"
       >
         {[
           { label: 'เพิ่มรายรับ', icon: TrendingUp, tone: 'quick-income', action: () => onQuickRecord?.('income') },
           { label: 'เพิ่มรายจ่าย', icon: TrendingDown, tone: 'quick-expense', action: () => onQuickRecord?.('expense') },
+          { label: 'รับเงินด่วน', icon: Coins, tone: 'quick-pay', action: () => setIsQuickPayExpanded(true) },
           { label: 'เป้าหมายออม', icon: PiggyBank, tone: 'quick-goal', action: () => onSwitchTab('split') },
           { label: 'ดูรายการ', icon: ReceiptText, tone: 'quick-list', action: () => onSwitchTab('jobs') },
         ].map(({ label, icon: Icon, tone, action }) => (
           <button key={label} type="button" onClick={action} className={`dashboard-quick-action ${tone}`}>
-            <span className="dashboard-quick-icon"><Icon className="h-5 w-5" /></span>
+            <span className="dashboard-quick-icon"><Icon className="h-4.5 w-4.5" /></span>
             <span>{label}</span>
           </button>
         ))}
       </motion.section>
 
-      <section className="grid gap-3 sm:grid-cols-3" aria-label="สรุปยอดเดือนนี้">
-        {summaryCards.map(({ label, value, detail, tone, icon: Icon }, index) => (
-          <motion.button
-            type="button"
-            key={label}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.12 + index * 0.06 }}
-            onClick={() => setBreakdownFilter(index === 0 ? 'received' : index === 1 ? 'profit' : 'profit')}
-            className={`dashboard-summary-card dashboard-summary-${tone} text-left`}
-          >
-            <span className="dashboard-summary-icon"><Icon className="h-4 w-4" /></span>
-            <span className="mt-4 block text-xs font-bold text-brand-muted">{label}</span>
-            <strong className="mt-1 block text-2xl font-black font-mono tracking-tight text-brand-text">{formatCurrency(value)}</strong>
-            <span className="mt-2 block text-[11px] font-semibold text-brand-muted">{detail}</span>
-          </motion.button>
-        ))}
-      </section>
-
       {/* 3. Alert Zone */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`p-4 rounded-2xl border border-l-4 bg-brand-white flex flex-col gap-2 transition-all ${
+        className={`order-2 p-4 rounded-2xl border border-l-4 bg-brand-white flex flex-col gap-2 transition-all ${
           alertStatus === 'danger'
             ? 'border-brand-border border-l-[#A63F1B]'
             : alertStatus === 'warning'
@@ -1013,33 +950,19 @@ export default function DashboardTab({
       </motion.div>
 
       {/* 4-Month Cash Flow Projections: กราฟแสดงโพรงไม้แบบใหม่ (Acorn Hollows) */}
-      <motion.div layout className="space-y-3 bg-brand-white border border-brand-border rounded-3xl p-4 shadow-sm transition-all">
-        <div 
-          onClick={() => setIsRadarExpanded(!isRadarExpanded)}
-          className="flex items-center justify-between cursor-pointer select-none"
-        >
+      <motion.div layout className="order-5 space-y-3 bg-brand-white border border-brand-border rounded-3xl p-4 shadow-sm transition-all">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div>
               <h4 className="text-xs font-black tracking-wider text-brand-muted uppercase" title={t('dash.radarTitleTooltip')}>
                 {t('dash.radarTitle')}
               </h4>
-              <p className="text-[10px] text-brand-muted mt-0.5">
-                {isRadarExpanded
-                  ? t('dash.radarExpandedSubtitle')
-                  : t('dash.radarCollapsedSubtitle', { count: projectedMonthsData.filter(m => m.isSufficient).length })}
-              </p>
+              <p className="text-[10px] text-brand-muted mt-0.5">{t('dash.radarExpandedSubtitle')}</p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-extrabold text-brand-muted bg-brand-faint px-2 py-0.5 rounded-full uppercase tracking-wider">
-              {isRadarExpanded ? t('dash.radarCollapseButton') : t('dash.radarExpandButton')}
-            </span>
           </div>
         </div>
 
-        {isRadarExpanded && (
-          <motion.div
+        <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             className="pt-3 border-t border-brand-border/40 space-y-3"
@@ -1120,12 +1043,11 @@ export default function DashboardTab({
                 );
               })}
             </div>
-          </motion.div>
-        )}
+        </motion.div>
       </motion.div>
 
       {/* 4. Financial Goals Slider */}
-      <div className="space-y-3">
+      <div className="order-6 space-y-3">
         <div className="flex items-center justify-between px-1">
           <div>
             <h4 className="text-xs font-black tracking-widest text-brand-muted uppercase" title={t('dash.savingsGoalsTooltip')}>
@@ -1193,23 +1115,20 @@ export default function DashboardTab({
         </div>
       </div>
 
-      <VineDivider />
+      <div className="order-7"><VineDivider /></div>
 
-      {/* 4.5 บันทึกรับเงินด่วน (Quick Payment Recorder) */}
-      <div className="bg-brand-white p-5 sm:p-6 rounded-3xl border border-brand-border/40 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
-          <div>
-            <h4 className="text-base font-extrabold font-display text-brand-text flex items-center gap-1.5">
-              {t('dash.quickPayTitle')} <IconBolt className="w-3.5 h-3.5" />
-            </h4>
-            <p className="text-[11px] text-brand-muted">
-              {t('dash.quickPaySubtitle')}
-            </p>
-          </div>
-          <span className="self-start sm:self-center text-[11px] font-extrabold text-brand-text bg-brand-faint px-3 py-1 rounded-full uppercase tracking-wider">
-            {t('dash.pendingDealsCount', { count: unpaidJobs.length })}
-          </span>
-        </div>
+      {/* Quick payment stays out of the overview until the shortcut is used. */}
+      {isQuickPayExpanded && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs" onClick={() => setIsQuickPayExpanded(false)}>
+          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl border border-brand-border bg-brand-white p-5 shadow-xl sm:p-6" onClick={event => event.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-lg font-extrabold font-display text-brand-text flex items-center gap-1.5">{t('dash.quickPayTitle')} <Coins className="w-4 h-4" /></h4>
+                <p className="text-xs text-brand-muted">{t('dash.quickPaySubtitle')}</p>
+              </div>
+              <button type="button" onClick={() => setIsQuickPayExpanded(false)} aria-label="ปิดหน้าต่างรับเงินด่วน" className="rounded-xl bg-brand-faint p-2 text-brand-muted hover:text-brand-text"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="space-y-4">
 
         {/* Search Bar */}
         <div className="relative">
@@ -1350,14 +1269,14 @@ export default function DashboardTab({
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
             {filteredUnpaidJobs.length > visibleCount ? (
               <button
-                onClick={() => setVisibleCount(prev => prev + 4)}
+                onClick={() => setVisibleCount(prev => prev + 3)}
                 className="w-full sm:w-auto py-2.5 px-6 bg-brand-faint hover:bg-brand-border/30 text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-brand-border/40 text-center flex-1"
               >
                 {t('dash.showMore', { count: filteredUnpaidJobs.length - visibleCount, remaining: unpaidJobs.length - visibleCount })}
               </button>
-            ) : visibleCount > 4 ? (
+            ) : visibleCount > 3 ? (
               <button
-                onClick={() => setVisibleCount(4)}
+                onClick={() => setVisibleCount(3)}
                 className="w-full sm:w-auto py-2.5 px-6 bg-brand-faint hover:bg-brand-border/30 text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-brand-border/40 text-center flex-1"
               >
                 {t('dash.collapseList')}
@@ -1375,18 +1294,21 @@ export default function DashboardTab({
             </button>
           </div>
         )}
-      </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Breakdown popup: which jobs (or, for "กำไรสุทธิ", which deductions) make up the clicked
           hero-card figure */}
-      <AnimatePresence>
-        {breakdownFilter && (() => {
+      {breakdownFilter && (() => {
           const breakdownJobs =
             breakdownFilter === 'contract' ? selectedMonthJobs :
             breakdownFilter === 'received' ? selectedMonthJobs.filter(j => (j.received || 0) > 0) :
             breakdownFilter === 'pending' ? selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0) :
             [];
-          return (
+          return createPortal(
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setBreakdownFilter(null)}>
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -1513,10 +1435,10 @@ export default function DashboardTab({
                   </div>
                 )}
               </motion.div>
-            </div>
+            </div>,
+            document.body
           );
         })()}
-      </AnimatePresence>
 
     </div>
   );
