@@ -2176,9 +2176,9 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
-            {!session.isGuest && <button type="button" onClick={() => navigateTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
-              <span className={`h-1.5 w-1.5 rounded-full ${cloudSyncStatus === 'failed' ? 'bg-red-500' : cloudSyncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-              {cloudSyncStatus === 'failed' ? 'บันทึกไม่สำเร็จ' : cloudSyncStatus === 'pending' ? 'กำลังโหลด' : 'ซิงก์แล้ว'}
+            {!session.isGuest && (cloudSyncStatus === 'failed' || cloudSyncStatus === 'pending') && <button type="button" onClick={() => navigateTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
+              <span className={`h-1.5 w-1.5 rounded-full ${cloudSyncStatus === 'failed' ? 'bg-red-500' : 'bg-amber-500'}`} />
+              {cloudSyncStatus === 'failed' ? 'บันทึกไม่สำเร็จ' : 'กำลังโหลด'}
             </button>}
             <button
               onClick={() => setDarkMode(!darkMode)}
@@ -2605,9 +2605,6 @@ export default function App() {
                     </ul>
                   </div>
 
-                  <p className="text-[10px] text-brand-muted italic">
-                    สถานะการเชื่อมต่อที่เป็นสัญลักษณ์ก้อนเมฆสีเขียว "ซิงค์แล้ว" บ่งบอกว่าข้อมูลปัจจุบันของคุณตรงกับระบบคลาวด์เรียบร้อยแล้วครับ!
-                  </p>
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-brand-border/40 flex justify-end">
