@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Job, StatusOption } from '../../../../shared/types';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { formatCurrency, safeFormatThaiDate, getRelativeDaysText } from '../../utils';
@@ -55,7 +56,7 @@ export function JobDetailModal({ job, statuses, onClose, onEdit, onDelete }: Job
   const showPayCountdown = job.pending > 0 && job.payDate && job.isPosted !== false;
   const relText = showPayCountdown ? getRelativeDaysText(job.payDate) : null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-200">
         <motion.div
@@ -202,6 +203,7 @@ export function JobDetailModal({ job, statuses, onClose, onEdit, onDelete }: Job
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

@@ -19,10 +19,11 @@ const PERSONA_OPTIONS: { id: NonNullable<AppSettings['userPersona']>; label: str
 interface ProfileSetupWizardProps {
   isOpen: boolean;
   settings: AppSettings;
-  onUpdateSettings: (settings: AppSettings) => void;
+  onUpdateSettings: (settings: AppSettings) => Promise<void>;
   onAddGoal: (goal: Omit<Goal, 'id'>) => void;
   onAddJobTypes: (types: string[]) => void;
   onComplete: () => void;
+  onDismiss: () => Promise<void>;
   /** True when reopened from Settings for a preview, rather than a real first-time signup. */
   isPreview?: boolean;
 }
@@ -59,6 +60,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
   onAddGoal,
   onAddJobTypes,
   onComplete,
+  onDismiss,
   isPreview = false,
 }) => {
   const [step, setStep] = useState(0);
@@ -70,6 +72,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [goalName, setGoalName] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Always start from step 0 with fresh values whenever the wizard is (re)opened
   React.useEffect(() => {
@@ -103,8 +106,10 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
 
   const expenseTotal = sumFixedExpenseItems(fixedExpenseItems);
 
-  const finishSetup = () => {
-    onUpdateSettings({
+  const finishSetup = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    const completedSettings = {
       ...settings,
       fixedExpenseItems: fixedExpenseItems.length > 0 ? fixedExpenseItems : settings.fixedExpenseItems,
       monthlyExpense: fixedExpenseItems.length > 0 ? expenseTotal : settings.monthlyExpense,
@@ -112,39 +117,57 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
       profileJobTypeOther: jobTypeOther.trim() || undefined,
       profileSetupCompleted: true,
       userPersona: persona,
-    });
+    };
 
-    // Actually wire the answer into the real "เลือกประเภทงาน" picker options — otherwise
-    // asking the question is pointless.
-    const newJobTypeLabels = jobTypes
-      .map(id => JOB_TYPE_OPTIONS.find(o => o.id === id)?.jobTypeLabel)
-      .filter((label): label is string => !!label);
-    const trimmedOther = jobTypeOther.trim();
-    if (jobTypes.includes('other') && trimmedOther) {
-      newJobTypeLabels.push(trimmedOther);
-    }
-    if (newJobTypeLabels.length > 0) {
-      onAddJobTypes(newJobTypeLabels);
-    }
+    try {
+      // Persist the handled flag before closing. This avoids the autosave debounce/window-close
+      // race that used to make the questionnaire return after an immediate reload.
+      await onUpdateSettings(completedSettings);
 
-    const targetValue = parseFloat(goalTarget);
-    if (goalName.trim() && !isNaN(targetValue) && targetValue > 0) {
-      onAddGoal({
-        name: goalName.trim(),
-        type: 'save',
-        target: targetValue,
-        current: 0,
-        deadline: new Date().toISOString().split('T')[0],
-        emoji: '🎯',
-        bg: '#ECFDF5',
-        acc: '#059669',
-      });
-    }
+      // Actually wire the answer into the real "เลือกประเภทงาน" picker options — otherwise
+      // asking the question is pointless.
+      const newJobTypeLabels = jobTypes
+        .map(id => JOB_TYPE_OPTIONS.find(o => o.id === id)?.jobTypeLabel)
+        .filter((label): label is string => !!label);
+      const trimmedOther = jobTypeOther.trim();
+      if (jobTypes.includes('other') && trimmedOther) {
+        newJobTypeLabels.push(trimmedOther);
+      }
+      if (newJobTypeLabels.length > 0) {
+        onAddJobTypes(newJobTypeLabels);
+      }
 
-    onComplete();
+      const targetValue = parseFloat(goalTarget);
+      if (goalName.trim() && !isNaN(targetValue) && targetValue > 0) {
+        onAddGoal({
+          name: goalName.trim(),
+          type: 'save',
+          target: targetValue,
+          current: 0,
+          deadline: new Date().toISOString().split('T')[0],
+          emoji: '🎯',
+          bg: '#ECFDF5',
+          acc: '#059669',
+        });
+      }
+
+      onComplete();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const goNext = () => step === totalSteps - 1 ? finishSetup() : setStep(s => s + 1);
+  const goNext = () => step === totalSteps - 1 ? void finishSetup() : setStep(s => s + 1);
+
+  const dismiss = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await onDismiss();
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -156,6 +179,15 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
           transition={{ type: 'spring', damping: 26, stiffness: 260 }}
           className="relative bg-brand-white dark:bg-stone-900 rounded-[28px] p-7 shadow-[0_24px_60px_-15px_rgba(166,63,27,0.25)] max-w-md w-full max-h-[90vh] overflow-y-auto no-scrollbar"
         >
+          <button
+            type="button"
+            onClick={() => void dismiss()}
+            disabled={isSaving}
+            aria-label="ปิดแบบสอบถาม"
+            className="absolute right-4 top-4 z-10 rounded-full p-2 text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text"
+          >
+            <IconClose className="h-4 w-4" />
+          </button>
           {/* Header */}
           <div className="flex flex-col items-center text-center gap-4">
             <div className="relative">
@@ -401,7 +433,8 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={goNext}
+                onClick={() => void dismiss()}
+                disabled={isSaving}
                 className="px-3.5 py-2.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-neutral-800 rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
               >
                 ข้าม
@@ -409,6 +442,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
               <motion.button
                 whileTap={{ scale: 0.96 }}
                 onClick={goNext}
+                disabled={isSaving}
                 className="px-6 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 <span>{step === totalSteps - 1 ? 'เริ่มใช้งานเลย!' : 'ถัดไป'}</span>

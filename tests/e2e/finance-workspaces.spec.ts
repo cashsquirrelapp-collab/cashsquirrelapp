@@ -188,7 +188,7 @@ async function setup(page: Page) {
   await page.goto("/");
   await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "วางแผนวันนี้ ให้เงินเติบโตทุกวัน" }),
+    page.getByRole("heading", { name: "ภาพรวมกระแสเงินสด" }),
   ).toBeVisible();
   return {
     stores,
@@ -370,7 +370,7 @@ test("a delayed response from the previous group cannot populate the next worksp
   await expect.poll(() => started).toBe(true);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(other);
   await expect(
-    page.getByRole("heading", { name: "วางแผนวันนี้ ให้เงินเติบโตทุกวัน" }),
+    page.getByRole("heading", { name: "ภาพรวมกระแสเงินสด" }),
   ).toBeVisible();
   release();
   await invoices(page);

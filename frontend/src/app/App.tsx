@@ -47,6 +47,7 @@ import { computeMonthlySummary, currentMonthKey as getCurrentMonthKeyBkk, nowInB
 import { Mascot } from '../components/mascot/Mascot';
 import { MascotToast } from '../components/mascot/MascotToast';
 const ProfileSetupWizard = lazy(() => import('../features/onboarding/ProfileSetupWizard').then(module => ({ default: module.ProfileSetupWizard })));
+import { normalizeProfileSetupSettings, shouldShowProfileSetup } from '../features/onboarding/profileSetupState';
 import { PremiumUpsell } from '../features/billing/PremiumUpsell';
 const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
 import { fireMascot } from '../mascotBus';
@@ -694,7 +695,10 @@ export default function App() {
       if (sessionRef.current?.user?.id !== user.id || financeOwnerRef.current!==owner || request!==loadRequestRef.current) return false;
       const data = result.snapshot;
       setJobs(cleanJobs(data.jobs || [])); setGoals(data.goals || []); setExpenses(data.expenses || []);
-      setSettings(data.settings || {...defaultSettings,profileSetupCompleted:!!financeGroupId});
+      const loadedSettings = data.settings || defaultSettings;
+      setSettings(financeGroupId
+        ? { ...loadedSettings, profileSetupCompleted: true }
+        : normalizeProfileSetupSettings(loadedSettings, user.created_at));
       setStatuses(data.statuses ? cleanStatuses(data.statuses) : [{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}]);
       setJobTypes(data.job_types ? cleanJobTypes(data.job_types) : DEFAULT_JOB_TYPES);
       setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
@@ -1685,6 +1689,23 @@ export default function App() {
     setSettings(newSettings);
   };
 
+  const handleProfileSetupSettings = async (newSettings: AppSettings) => {
+    if (!session?.user?.id || session.isGuest || financeGroupId || cloudReadyRef.current !== financeOwner) return;
+    try {
+      await saveCloud(financeOwner, { settings: newSettings });
+      setSettings(newSettings);
+      setLastCloudError(null);
+      setCloudSyncStatus('synced');
+    } catch (error: any) {
+      setLastCloudError(formatError(error));
+      setCloudSyncStatus('failed');
+      fireMascot({ mood: 'alert', message: `บันทึกสถานะแบบสอบถามไม่สำเร็จ: ${formatError(error)}` });
+      throw error;
+    }
+  };
+
+  const shouldShowSetupWizard = !session?.isGuest && shouldShowProfileSetup(settings, session?.user?.created_at);
+
   // Backup and Restore Management
   const handleExportData = async () => {
     let cloud: any = { invoices: JSON.parse(privateCache.getItem('cashflow_invoices_guest') || '[]'), issuer_profile: JSON.parse(privateCache.getItem('cashflow_issuer_guest') || 'null') };
@@ -2155,7 +2176,7 @@ export default function App() {
       <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
         
         {/* Top Header Bar with branding & Dark Mode toggle (Sticky on mobile, simple title on desktop) */}
-        <div className="app-topbar flex justify-between items-center px-5 py-4 bg-brand-white border-b border-brand-border/40 select-none shrink-0 lg:px-8">
+        <div className={`app-topbar flex justify-between items-center px-5 py-4 bg-brand-white border-b border-brand-border/40 select-none shrink-0 lg:px-8 ${['dashboard', 'jobs'].includes(activeTab) ? 'lg:hidden' : ''}`}>
           <div className="flex items-center gap-3">
             {/* Hamburger button for Mobile Drawer Menu */}
             <button
@@ -2163,7 +2184,7 @@ export default function App() {
               className="p-1.5 rounded-xl bg-brand-faint hover:bg-brand-border/30 text-brand-muted hover:text-brand-text transition-all cursor-pointer lg:hidden flex items-center justify-center border border-brand-border/10"
               title={t('header.openMenu')}
             >
-              <Menu className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+              <Menu className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
             </button>
 
             {activeTab === 'settings' ? (
@@ -2196,19 +2217,19 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => navigateTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
-              <span className={`h-1.5 w-1.5 rounded-full ${cloudSyncStatus === 'failed' ? 'bg-red-500' : cloudSyncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-              {session.isGuest ? 'โหมดทดลอง' : cloudSyncStatus === 'failed' ? 'บันทึกไม่สำเร็จ' : cloudSyncStatus === 'pending' ? 'กำลังโหลดข้อมูล' : 'เชื่อมต่อคลาวด์'}
-            </button>
+            {!session.isGuest && (cloudSyncStatus === 'failed' || cloudSyncStatus === 'pending') && <button type="button" onClick={() => navigateTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
+              <span className={`h-1.5 w-1.5 rounded-full ${cloudSyncStatus === 'failed' ? 'bg-red-500' : 'bg-amber-500'}`} />
+              {cloudSyncStatus === 'failed' ? 'บันทึกไม่สำเร็จ' : 'กำลังโหลด'}
+            </button>}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-xl bg-brand-faint hover:bg-brand-border/40 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border/20 cursor-pointer lg:hidden"
+              className="group h-10 w-10 rounded-2xl bg-brand-white hover:bg-brand-faint text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border shadow-sm hover:shadow-md cursor-pointer lg:hidden"
               title={darkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
             >
               {darkMode ? (
-                <Sun className="w-4 h-4 text-amber-500 fill-amber-500/10" />
+                <Sun className="w-4.5 h-4.5 text-[#D98324] fill-[#D98324]/15 transition-transform group-hover:rotate-12" />
               ) : (
-                <Moon className="w-4 h-4 text-[#006e40] dark:text-[#52d294] fill-[#006e40]/10" />
+                <Moon className="w-4.5 h-4.5 text-[#6F4932] fill-[#6F4932]/10 transition-transform group-hover:-rotate-12" />
               )}
             </button>
           </div>
@@ -2219,36 +2240,21 @@ export default function App() {
         <div id="main-content" role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
           <Suspense fallback={null}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
-          {/* Global Month Exploration Bar (สำรวจฤดูกาลเก็บเกี่ยว) - Display only on Dashboard */}
-          {activeTab === 'dashboard' && <section className="relative mb-6 overflow-hidden rounded-3xl border border-[#E65F2B]/15 bg-gradient-to-br from-brand-white via-brand-white to-[#E65F2B]/10 p-6 sm:p-8">
-            <div className="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-              <div><p className="mb-2 text-xs font-semibold tracking-widest text-[#E65F2B]">CASH SQUIRREL / พื้นที่ของคุณ</p><h1 className="text-2xl font-black tracking-tight sm:text-3xl">วางแผนวันนี้ ให้เงินเติบโตทุกวัน</h1><p className="mt-2 max-w-lg text-sm leading-6 text-brand-muted">จัดการรายรับ รายจ่าย และเป้าหมายการออมจากที่เดียว เห็นภาพรวมชัดขึ้น แล้วค่อย ๆ ตุนความมั่นคงไปด้วยกัน</p>
-              <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => {setRecordMode('income');navigateTab('jobs');}} className="rounded-xl bg-[#E65F2B] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-110">บันทึกรายรับ</button><button type="button" onClick={() => {setRecordMode('expense');navigateTab('jobs');}} className="rounded-xl border border-brand-border bg-brand-white px-4 py-2.5 text-sm font-bold transition hover:bg-brand-faint">บันทึกรายจ่าย</button><button type="button" onClick={() => navigateTab('split')} className="rounded-xl px-4 py-2.5 text-sm font-bold text-[#E65F2B] hover:bg-[#E65F2B]/5">ดูเป้าหมายออม →</button></div></div>
-              <div className="hidden shrink-0 rounded-full bg-[#E65F2B]/5 p-5 sm:block"><Mascot mood="happy" size={100}/></div>
-            </div>
-          </section>}
           {activeTab === 'dashboard' && (
-            <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-3xl p-5 shadow-sm animate-fade-in">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-[#E65F2B]/10 dark:bg-[#FFA473]/10 rounded-2xl text-[#E65F2B] dark:text-[#FFA473] shrink-0 border border-[#E65F2B]/10">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-brand-text dark:text-white tracking-wide">
-                    {t('header.monthPickerTitle')}
-                  </h4>
-                  <p className="text-[10px] text-brand-muted mt-0.5 leading-relaxed">
-                    {t('header.monthPickerDesc')}
-                  </p>
-                </div>
+            <section className="mb-4 flex items-center justify-end gap-3 lg:justify-between" aria-labelledby="dashboard-title">
+              <div className="hidden lg:block">
+                <h1 id="dashboard-title" className="text-3xl font-black tracking-tight text-brand-text">
+                  ภาพรวมกระแสเงินสด
+                </h1>
+                <p className="mt-1 text-sm text-brand-muted">ยอดรับ รายจ่าย และเงินคงเหลือของเดือนที่เลือก</p>
               </div>
-
-              <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
-                <span className="text-[10px] font-bold text-brand-muted mr-1">{t('header.monthPickerLabel')}</span>
+              <div className="flex items-center gap-2">
+                <label htmlFor="dashboard-month" className="text-xs font-bold text-brand-muted">{t('header.monthPickerLabel')}</label>
                 <select
+                  id="dashboard-month"
                   value={selectedMonthKey}
                   onChange={(e) => setSelectedMonthKey(e.target.value)}
-                  className="bg-brand-white dark:bg-stone-800 text-xs font-black text-[#E65F2B] dark:text-[#FFA473] border border-brand-border/60 rounded-xl px-3.5 py-2 outline-none focus:border-[#E65F2B] dark:focus:border-[#FFA473] cursor-pointer min-w-[160px] shadow-sm font-sans"
+                  className="min-w-[150px] cursor-pointer rounded-xl border border-brand-border bg-brand-white px-3 py-2 text-sm font-bold text-brand-text outline-none focus:border-[#E65F2B]"
                 >
                   {availableMonthKeys.map(key => (
                     <option key={key} value={key}>
@@ -2259,13 +2265,13 @@ export default function App() {
                 {selectedMonthKey !== currentMonthKey && (
                   <button
                     onClick={() => setSelectedMonthKey(currentMonthKey)}
-                    className="px-3 py-2 bg-[#E65F2B]/10 hover:bg-[#E65F2B]/20 text-[#E65F2B] dark:text-[#FFA473] rounded-xl text-[10px] font-black transition-all cursor-pointer border border-[#E65F2B]/15 hover:scale-102"
+                    className="cursor-pointer rounded-xl px-3 py-2 text-xs font-bold text-[#E65F2B] hover:bg-[#E65F2B]/10"
                   >
                     {t('header.backToCurrent')}
                   </button>
                 )}
               </div>
-            </div>
+            </section>
           )}
 
           {!session.isGuest && loadedFinanceOwner!==financeOwner && !['groups','plans'].includes(activeTab) ? (
@@ -2308,32 +2314,35 @@ export default function App() {
 
               {activeTab === 'jobs' && (
                 <div className="space-y-6">
-                  {/* รายรับ / รายจ่าย mode switch -- same pill-toggle pattern used for the
-                      WIP/Posted switch inside JobsTab itself */}
-                  <div className="relative flex bg-brand-white border border-brand-border rounded-2xl p-1.5 shadow-2xs">
+                  <section className="flex flex-col gap-4 rounded-3xl border border-brand-border bg-brand-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                    <div>
+                      <h1 className="text-2xl font-black tracking-tight text-brand-text">บันทึกรายรับ–รายจ่าย</h1>
+                      <p className="mt-1 text-xs text-brand-muted">เลือกประเภทที่ต้องการ แล้วจัดการเฉพาะข้อมูลที่เกี่ยวข้อง</p>
+                    </div>
+                  <div className="relative flex w-full bg-brand-faint border border-brand-border/60 rounded-2xl p-1 sm:w-auto sm:min-w-[260px]">
                     <button
                       onClick={() => startTransition(() => setRecordMode('income'))}
-                      className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
+                      className="relative flex-1 px-4 py-2.5 rounded-xl text-center cursor-pointer overflow-hidden"
                     >
                       {recordMode === 'income' && (
                         <motion.div
                           layoutId="record-mode-toggle"
-                          className="absolute inset-0 bg-brand-faint border border-brand-border/40 rounded-xl"
+                          className="absolute inset-0 bg-brand-white border border-brand-border rounded-xl shadow-sm"
                           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                         />
                       )}
                       <span className={`relative z-10 text-xs font-black ${recordMode === 'income' ? 'text-brand-text' : 'text-brand-muted'}`}>
-                        รายรับ (งานดีล)
+                        รายรับ
                       </span>
                     </button>
                     <button
                       onClick={() => startTransition(() => setRecordMode('expense'))}
-                      className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
+                      className="relative flex-1 px-4 py-2.5 rounded-xl text-center cursor-pointer overflow-hidden"
                     >
                       {recordMode === 'expense' && (
                         <motion.div
                           layoutId="record-mode-toggle"
-                          className="absolute inset-0 bg-brand-faint border border-brand-border/40 rounded-xl"
+                          className="absolute inset-0 bg-brand-white border border-brand-border rounded-xl shadow-sm"
                           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                         />
                       )}
@@ -2342,6 +2351,7 @@ export default function App() {
                       </span>
                     </button>
                   </div>
+                  </section>
 
                   {recordMode === 'income' ? (
                     <JobsTab
@@ -2636,9 +2646,6 @@ export default function App() {
                     </ul>
                   </div>
 
-                  <p className="text-[10px] text-brand-muted italic">
-                    สถานะการเชื่อมต่อที่เป็นสัญลักษณ์ก้อนเมฆสีเขียว "ซิงค์แล้ว" บ่งบอกว่าข้อมูลปัจจุบันของคุณตรงกับระบบคลาวด์เรียบร้อยแล้วครับ!
-                  </p>
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-brand-border/40 flex justify-end">
@@ -2654,14 +2661,18 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {!financeGroupId && !!isLoadedForUser && (!settings.profileSetupCompleted || isSetupWizardPreview) && <Suspense fallback={null}><ProfileSetupWizard
+        {!financeGroupId && !!isLoadedForUser && (shouldShowSetupWizard || isSetupWizardPreview) && <Suspense fallback={null}><ProfileSetupWizard
           isOpen={true}
           settings={settings}
-          onUpdateSettings={handleUpdateSettings}
+          onUpdateSettings={handleProfileSetupSettings}
           onAddGoal={handleAddGoal}
           onAddJobTypes={(types) => setJobTypes(prev => Array.from(new Set([...prev, ...types])))}
           isPreview={isSetupWizardPreview}
           onComplete={() => {
+            setIsSetupWizardPreview(false);
+          }}
+          onDismiss={async () => {
+            await handleProfileSetupSettings({ ...settings, profileSetupCompleted: true });
             setIsSetupWizardPreview(false);
           }}
         /></Suspense>}
