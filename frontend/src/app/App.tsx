@@ -1776,19 +1776,60 @@ export default function App() {
   };
 
   if (loadingSession) {
+    // Skeleton of the app shell itself (sidebar + dashboard) instead of a spinner -- shows the
+    // layout that's about to load so the wait reads as "getting there" rather than a blank pause.
+    const bar = (extra = '') => `bg-brand-border dark:bg-neutral-700 rounded-full ${extra}`;
+    const card = 'rounded-[var(--radius-lg)] bg-brand-faint dark:bg-neutral-800/60 border border-brand-border/70 dark:border-neutral-700/60';
     return (
-      <div className="min-h-screen bg-brand-bg flex flex-col justify-center items-center p-6 text-center select-none">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col items-center"
-        >
-          <Mascot mood="happy" size={130} animated={true} className="mb-4" />
-          <div className="w-10 h-10 rounded-full border-4 border-brand-green-acc/25 border-t-brand-green-acc animate-spin mb-3 mt-1" />
-          <h2 className="text-sm font-extrabold text-brand-text font-display mb-1">กระรอกตุนเงิน</h2>
-          <p className="text-[11px] font-bold text-brand-muted tracking-wide animate-pulse">กำลังเตรียมความอบอุ่นให้กระเป๋าเงินของคุณ...</p>
-        </motion.div>
+      <div className="app-shell h-screen bg-brand-bg flex lg:flex-row flex-col overflow-hidden select-none" aria-busy="true" aria-label="กำลังโหลด">
+        <div className="hidden lg:flex flex-col w-68 bg-brand-white border-r border-brand-border/40 shrink-0 p-6 animate-pulse">
+          <div className="flex items-center gap-2.5 mb-8 px-2">
+            <div className={bar('w-9 h-9 shrink-0')} />
+            <div className="space-y-1.5">
+              <div className={bar('w-24 h-2.5')} />
+              <div className={bar('w-16 h-2')} />
+            </div>
+          </div>
+          <div className="space-y-1.5 flex-1">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2.5 px-3 py-2.5">
+                <div className={bar('w-4 h-4 shrink-0')} />
+                <div className={bar(`h-2.5 ${i === 0 ? 'w-28' : 'w-20'}`)} />
+              </div>
+            ))}
+          </div>
+          <div className={`p-3 flex items-center gap-2 ${card}`}>
+            <div className={bar('w-7 h-7 shrink-0')} />
+            <div className={bar('w-24 h-2.5')} />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 animate-pulse">
+          <div className="flex items-center justify-between">
+            <div className={bar('w-40 h-4')} />
+            <div className={bar('w-8 h-8 shrink-0')} />
+          </div>
+
+          <div className={`p-6 space-y-3 ${card}`}>
+            <div className={bar('w-56 h-5')} />
+            <div className={bar('w-full max-w-md h-2.5')} />
+            <div className="flex gap-2 pt-1">
+              <div className={bar('w-28 h-8')} />
+              <div className={bar('w-28 h-8')} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className={`p-4 space-y-2.5 ${card}`}>
+                <div className={bar('w-16 h-2.5')} />
+                <div className={bar('w-20 h-4')} />
+              </div>
+            ))}
+          </div>
+
+          <div className={`h-40 ${card}`} />
+        </div>
       </div>
     );
   }
