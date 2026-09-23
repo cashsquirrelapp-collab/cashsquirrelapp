@@ -8,6 +8,21 @@ const user={id:'11111111-1111-4111-8111-111111111111',email:'test@example.com',r
 const snapshot={jobs:[],expenses:[],goals:[],invoices:[],settings:{monthlyExpense:0,monthlyRevenueGoal:20000,savingsPercentage:40,profileSetupCompleted:true,userPersona:'freelance'},statuses:[{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}],job_types:['Sponsored Post'],notif_settings:{enabled:true,alertEmail:user.email,serviceType:'mailto',emailjsServiceId:'',emailjsTemplateId:'',emailjsPublicKey:'',pendingQueue:[],lineUserId:null},avatar_data_url:null,issuer_profile:null};
 const versions={cashflow_jobs:{},cashflow_expenses:{},cashflow_goals:{},cashflow_invoices:{},cashflow_documents:{settings:1,statuses:1,job_types:1,notif_settings:1}};
 
+test('refresh shows the branded skeleton until the account session is ready',async({page})=>{
+ let releaseAuth!:()=>void;
+ const authGate=new Promise<void>(resolve=>{releaseAuth=resolve;});
+ await page.route('**/api/auth',async route=>{
+  await authGate;
+  await route.fulfill({json:{session:null}});
+ });
+ await page.goto('/',{waitUntil:'domcontentloaded'});
+ await expect(page.getByRole('status')).toContainText('กำลังโหลดข้อมูล กรุณารอสักครู่');
+ await expect(page.locator('.app-skeleton-block').first()).toBeVisible();
+ expect(await page.locator('.app-skeleton-block').count()).toBeGreaterThan(20);
+ releaseAuth();
+ await expect(page.getByRole('button',{name:/Go to Kraroktunngern/})).toBeVisible();
+});
+
 test('new-account onboarding is persisted when dismissed and does not return after reload',async({page})=>{
  const newUser={...user,created_at:'2026-09-24T00:00:00Z'};
  let storedSettings={...snapshot.settings,profileSetupCompleted:false};

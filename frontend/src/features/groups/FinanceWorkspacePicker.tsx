@@ -58,27 +58,22 @@ export default function FinanceWorkspacePicker({
     };
   }, [account, revision]);
   return (
-    <div className="shrink-0 border-b border-brand-border/40 bg-brand-white px-5 py-3 lg:px-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
-          {groupId ? <Users size={20} /> : <Wallet size={20} />}
+    <div className="relative flex min-w-0 items-center gap-1.5">
+      <div className="flex min-w-0 items-center rounded-2xl border border-brand-border bg-brand-bg p-1 shadow-sm">
+        <div className="hidden rounded-xl bg-emerald-50 p-2 text-emerald-700 sm:block" aria-hidden="true">
+          {groupId ? <Users size={16} /> : <Wallet size={16} />}
         </div>
-        <div className="min-w-0 flex-1">
-          <label
-            htmlFor="finance-workspace"
-            className="block text-xs font-bold text-brand-muted mb-1"
-          >
-            บัญชีการเงิน
-          </label>
+        <label htmlFor="finance-workspace" className="sr-only">บัญชีการเงิน</label>
           <select
             id="finance-workspace"
             value={groupId || ""}
             disabled={busy}
+            title={groupId ? "บัญชีการเงินของกลุ่ม" : "บัญชีการเงินส่วนตัว"}
             onChange={(e) => {
               const id = e.target.value || undefined;
               void onChange(id, groups.find((group) => group.id === id)?.name);
             }}
-            className="w-full max-w-md rounded-xl border border-brand-border bg-brand-bg px-3 py-2 text-sm font-bold text-brand-text"
+            className="w-26 min-w-0 cursor-pointer border-0 bg-transparent px-2 py-1.5 text-xs font-extrabold text-brand-text outline-none disabled:cursor-wait sm:w-44"
           >
             <option value="">ส่วนตัว</option>
             {groupId && !groups.some((group) => group.id === groupId) && (
@@ -90,26 +85,18 @@ export default function FinanceWorkspacePicker({
               </option>
             ))}
           </select>
-        </div>
         <button
           type="button"
           disabled={busy}
           onClick={() => setRevision((n) => n + 1)}
           aria-label="รีเฟรชบัญชีการเงิน"
-          className="rounded-xl border border-brand-border p-2 text-brand-muted"
+          className="rounded-xl p-2 text-brand-muted transition-colors hover:bg-brand-white hover:text-brand-text disabled:cursor-wait disabled:opacity-50"
         >
-          <RefreshCw size={16} />
+          <RefreshCw size={14} className={busy ? "animate-spin" : ""} />
         </button>
-        <p className="w-full sm:w-auto text-xs text-brand-muted">
-          {busy
-            ? "กำลังบันทึกและเปลี่ยนบัญชี…"
-            : groupId
-              ? "สมาชิกทุกคนดูและแก้ไขได้"
-              : "ข้อมูลส่วนตัวของคุณ"}
-        </p>
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-xs text-red-600">
+        <p role="alert" className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-red-200 bg-red-50 p-2 text-xs text-red-700 shadow-lg">
           โหลดรายชื่อกลุ่มไม่สำเร็จ: {error}
         </p>
       )}

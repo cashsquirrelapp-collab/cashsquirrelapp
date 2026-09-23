@@ -25,6 +25,7 @@ const TimelineTab = lazy(loadTimelineTab);
 const SplitTab = lazy(loadSplitTab);
 const SummaryTab = lazy(loadSummaryTab);
 import CustomDialog from '../components/ui/CustomDialog';
+import { AppLoadingSkeleton, ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
 import Login from '../features/auth/Login';
 const MonthlyReportTab = lazy(loadMonthlyReportTab);
 const TaxTab = lazy(loadTaxTab);
@@ -1797,62 +1798,11 @@ export default function App() {
   };
 
   if (loadingSession) {
-    // Skeleton of the app shell itself (sidebar + dashboard) instead of a spinner -- shows the
-    // layout that's about to load so the wait reads as "getting there" rather than a blank pause.
-    const bar = (extra = '') => `bg-brand-border dark:bg-neutral-700 rounded-full ${extra}`;
-    const card = 'rounded-[var(--radius-lg)] bg-brand-faint dark:bg-neutral-800/60 border border-brand-border/70 dark:border-neutral-700/60';
-    return (
-      <div className="app-shell h-screen bg-brand-bg flex lg:flex-row flex-col overflow-hidden select-none" aria-busy="true" aria-label="กำลังโหลด">
-        <div className="hidden lg:flex flex-col w-68 bg-brand-white border-r border-brand-border/40 shrink-0 p-6 animate-pulse">
-          <div className="flex items-center gap-2.5 mb-8 px-2">
-            <div className={bar('w-9 h-9 shrink-0')} />
-            <div className="space-y-1.5">
-              <div className={bar('w-24 h-2.5')} />
-              <div className={bar('w-16 h-2')} />
-            </div>
-          </div>
-          <div className="space-y-1.5 flex-1">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2.5 px-3 py-2.5">
-                <div className={bar('w-4 h-4 shrink-0')} />
-                <div className={bar(`h-2.5 ${i === 0 ? 'w-28' : 'w-20'}`)} />
-              </div>
-            ))}
-          </div>
-          <div className={`p-3 flex items-center gap-2 ${card}`}>
-            <div className={bar('w-7 h-7 shrink-0')} />
-            <div className={bar('w-24 h-2.5')} />
-          </div>
-        </div>
+    return <AppLoadingSkeleton />;
+  }
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 animate-pulse">
-          <div className="flex items-center justify-between">
-            <div className={bar('w-40 h-4')} />
-            <div className={bar('w-8 h-8 shrink-0')} />
-          </div>
-
-          <div className={`p-6 space-y-3 ${card}`}>
-            <div className={bar('w-56 h-5')} />
-            <div className={bar('w-full max-w-md h-2.5')} />
-            <div className="flex gap-2 pt-1">
-              <div className={bar('w-28 h-8')} />
-              <div className={bar('w-28 h-8')} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className={`p-4 space-y-2.5 ${card}`}>
-                <div className={bar('w-16 h-2.5')} />
-                <div className={bar('w-20 h-4')} />
-              </div>
-            ))}
-          </div>
-
-          <div className={`h-40 ${card}`} />
-        </div>
-      </div>
-    );
+  if (switchingFinance && session) {
+    return <AppLoadingSkeleton />;
   }
 
   if (!session) {
@@ -2176,7 +2126,7 @@ export default function App() {
       <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
         
         {/* Top Header Bar with branding & Dark Mode toggle (Sticky on mobile, simple title on desktop) */}
-        <div className={`app-topbar flex justify-between items-center px-5 py-4 bg-brand-white border-b border-brand-border/40 select-none shrink-0 lg:px-8 ${['dashboard', 'jobs'].includes(activeTab) ? 'lg:hidden' : ''}`}>
+        <div className="app-topbar flex justify-between items-center gap-3 px-5 py-3 bg-brand-white border-b border-brand-border/40 select-none shrink-0 lg:px-8">
           <div className="flex items-center gap-3">
             {/* Hamburger button for Mobile Drawer Menu */}
             <button
@@ -2217,6 +2167,7 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
+            {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>}
             {!session.isGuest && (cloudSyncStatus === 'failed' || cloudSyncStatus === 'pending') && <button type="button" onClick={() => navigateTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
               <span className={`h-1.5 w-1.5 rounded-full ${cloudSyncStatus === 'failed' ? 'bg-red-500' : 'bg-amber-500'}`} />
               {cloudSyncStatus === 'failed' ? 'บันทึกไม่สำเร็จ' : 'กำลังโหลด'}
@@ -2236,9 +2187,8 @@ export default function App() {
         </div>
 
         {/* Scrollable Container with responsive max widths */}
-        {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>}
         <div id="main-content" role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
-          <Suspense fallback={null}>
+          <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
             <section className="mb-4 flex items-center justify-end gap-3 lg:justify-between" aria-labelledby="dashboard-title">
@@ -2274,7 +2224,9 @@ export default function App() {
             </section>
           )}
 
-          {!session.isGuest && loadedFinanceOwner!==financeOwner && !['groups','plans'].includes(activeTab) ? (
+          {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !['groups','plans'].includes(activeTab) ? (
+            <ContentLoadingSkeleton />
+          ) : !session.isGuest && loadedFinanceOwner!==financeOwner && !['groups','plans'].includes(activeTab) ? (
             <div role="status" className="rounded-3xl border border-brand-border bg-brand-white p-8 text-center">
               <p className="font-bold text-brand-text">{cloudSyncStatus==='failed' ? 'โหลดบัญชีการเงินไม่สำเร็จ' : 'กำลังโหลดบัญชีการเงิน…'}</p>
               {lastCloudError && <p role="alert" className="mt-3 text-sm text-red-600">{lastCloudError}</p>}

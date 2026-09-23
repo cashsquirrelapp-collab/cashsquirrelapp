@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));
@@ -6,7 +6,8 @@
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /* Inter's zero is clean and undotted; tabular figures keep financial columns aligned. */
+  --font-mono: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
   --color-brand-bg: var(--bg);
   --color-brand-white: var(--white);
@@ -131,6 +132,10 @@ button, a, input, select, textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--blue-acc) 48%, transparent);
   outline-offset: 2px;
@@ -151,6 +156,45 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .app-content-panel {
   background-image: radial-gradient(circle at 92% 4%, rgba(230, 192, 140, .10), transparent 22%);
+}
+
+/* Skeleton screens preserve the app's real layout while session, workspace, or lazy feature data
+   is arriving. The moving highlight is intentionally subtle so loading feels alive, not noisy. */
+.app-skeleton-content {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.app-skeleton-card {
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 1.5rem;
+  background: color-mix(in srgb, var(--white) 96%, var(--bg));
+  padding: 1.25rem;
+  box-shadow: var(--shadow-card);
+}
+
+.app-skeleton-block {
+  position: relative;
+  overflow: hidden;
+  border-radius: .55rem;
+  background: color-mix(in srgb, var(--muted) 13%, var(--faint));
+}
+
+.app-skeleton-block::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--white) 68%, transparent), transparent);
+  animation: app-skeleton-shimmer 1.55s ease-in-out infinite;
+}
+
+@keyframes app-skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-skeleton-block::after { animation: none; }
 }
 
 /* A consistent, understated elevation language for the many existing feature cards. Individual
