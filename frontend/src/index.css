@@ -134,6 +134,8 @@ button, a, input, select, textarea {
 
 .font-mono {
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
