@@ -6,8 +6,8 @@
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', 'Inter', sans-serif;
-  /* Outfit keeps financial figures clean and brand-consistent without a dotted zero. */
-  --font-mono: 'Outfit', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  /* Neutral sans figures match modern accounting UIs without a dotted zero. */
+  --font-mono: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
   --color-brand-bg: var(--bg);
   --color-brand-white: var(--white);
