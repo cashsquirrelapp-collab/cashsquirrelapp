@@ -14,7 +14,8 @@ export default withGuard(async(req,res)=>{
  const result=await admin.from('cashflow_account_snapshot').select('user_id').eq('email',email).maybeSingle();
  if(result.error)throw result.error; const row=result.data;
  if(step==='request') {
-  if(row) {
+  if(!row)throw new HttpError(404,'ไม่พบบัญชีที่สมัครด้วยอีเมลนี้ กรุณาตรวจสอบอีเมลหรือสมัครสมาชิกก่อน');
+  {
    const otp=String(randomInt(100000,1000000));
    const saved=await admin.from('cashflow_challenges').upsert({user_id:row.user_id,purpose:'reset',code_hash:challengeHash(otp),expires_at:new Date(Date.now()+300000).toISOString(),attempts:0});
    if(saved.error)throw saved.error;
@@ -73,7 +74,6 @@ export default withGuard(async(req,res)=>{
     </html>`);
    if(!delivered)await admin.from('cashflow_challenges').delete().eq('user_id',row.user_id).eq('purpose','reset');
   }
-  // Keep one response for missing accounts and delivery failures to prevent account discovery.
   res.json({ok:true});return;
  }
  if(!row||!code||!newPassword)throw new HttpError(400,'รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
