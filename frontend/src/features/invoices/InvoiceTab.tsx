@@ -926,10 +926,12 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   return (
     <div className="page-content app-tab-enter space-y-6 pb-16">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-border bg-brand-white px-4 py-3 text-xs no-print" role="status">
-        <span className={storageError ? 'text-red-600' : 'text-brand-muted'}>{storageError || (saving ? 'กำลังบันทึกเอกสาร…' : ownerId ? 'เอกสารของบัญชีนี้ · บันทึกบนคลาวด์' : 'โหมดทดลอง · ข้อมูลชั่วคราวในเครื่อง')}</span>
-        {ownerId && localStorage.getItem('remix_invoices') && <button type="button" onClick={importLegacy} className="font-bold text-[#E65F2B]">นำเข้าเอกสารเดิมจากเครื่อง</button>}
-      </div>
+      {(storageError || saving || (ownerId && localStorage.getItem('remix_invoices'))) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-border bg-brand-white px-4 py-3 text-xs no-print" role="status">
+          {(storageError || saving) && <span className={storageError ? 'text-red-600' : 'text-brand-muted'}>{storageError || 'กำลังบันทึกเอกสาร…'}</span>}
+          {ownerId && localStorage.getItem('remix_invoices') && <button type="button" onClick={importLegacy} className="font-bold text-[#E65F2B]">นำเข้าเอกสารเดิมจากเครื่อง</button>}
+        </div>
+      )}
       
       {/* Navigation Sub-Tabs Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-brand-border pb-4 no-print">
