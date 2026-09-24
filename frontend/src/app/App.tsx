@@ -2101,9 +2101,9 @@ export default function App() {
           
           <div className="flex items-center gap-2">
             {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>} 
-            {!session.isGuest && (cloudSyncStatus === 'failed' || cloudSyncStatus === 'pending') && <button type="button" onClick={() => navigateTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
-              <span className={`h-1.5 w-1.5 rounded-full ${cloudSyncStatus === 'failed' ? 'bg-red-500' : 'bg-amber-500'}`} />
-              {cloudSyncStatus === 'failed' ? 'บันทึกไม่สำเร็จ' : 'กำลังโหลด'}
+            {!session.isGuest && cloudSyncStatus === 'failed' && <button type="button" onClick={() => navigateTab('settings')} className="hidden sm:inline-flex items-center gap-2 rounded-full border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700" aria-label="ดูสถานะการบันทึกข้อมูล">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              บันทึกไม่สำเร็จ
             </button>}
             <button
               onClick={() => setDarkMode(!darkMode)}
