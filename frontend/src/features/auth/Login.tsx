@@ -188,12 +188,15 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(() => new URLSearchParams(window.location.search).get('emailConfirmed') === '1' ? t('login.success.emailConfirmed') : null);
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
-  const [showWelcome, setShowWelcome] = useState(() => window.location.hash !== '#login');
+  const [showWelcome, setShowWelcome] = useState(() => new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && window.location.hash !== '#login');
   const [authEntry, setAuthEntry] = useState(0);
 
   React.useEffect(() => {
+    if(new URLSearchParams(window.location.search).get('emailConfirmed')==='1'){
+      window.history.replaceState(null,'',`${window.location.pathname}#login`);
+    }
     const syncWelcomeWithHistory = () => setShowWelcome(window.location.hash !== '#login');
     window.addEventListener('popstate', syncWelcomeWithHistory);
     return () => window.removeEventListener('popstate', syncWelcomeWithHistory);
@@ -264,6 +267,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
         if (data?.session) {
           setSuccess(t('login.success.signUpWithSession'));
+        } else if (data?.confirmationEmailSent === false) {
+          setError(t('login.err.confirmationEmailFailed'));
         } else {
           // Email confirmation is on, so there's no session yet: hop to the sign-in tab with the
           // email already filled in, so the user can sign in as soon as they've clicked the link.

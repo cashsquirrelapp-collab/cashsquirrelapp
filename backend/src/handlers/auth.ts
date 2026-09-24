@@ -3,10 +3,17 @@ import { z } from 'zod';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { withGuard, HttpError } from '../http/guard.js';
 import { appOrigin, required, supabaseUrl } from '../config/env.js';
-import { readCookie, writeCookie } from '../security/cookies.js';
+import { readCookie, writeCookie, seal } from '../security/cookies.js';
 import { publicUser, storeSession, requireUser, revokeSession, type PrivateSession } from '../security/session.js';
 import { rateLimit } from '../security/rateLimit.js';
+import { getSupabaseAdmin } from '../config/supabase.js';
+import { sendSignupConfirmationEmail } from '../services/gmail.js';
 const credentials = z.object({ email: z.email().max(254).transform(v=>v.toLowerCase()), password: z.string().min(1).max(128), displayName: z.string().trim().min(2).max(60).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() });
+
+async function sendConfirmation(userId:string,email:string,displayName?:string):Promise<boolean>{
+  const token=seal({purpose:'confirm-email',userId,email,expires:Date.now()+86400000});
+  return sendSignupConfirmationEmail(email,displayName,`${appOrigin()}/api/confirm-email?token=${encodeURIComponent(token)}`);
+}
 export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   if(req.method==='GET' && req.query.code===undefined && !readCookie<PrivateSession>(req)) { res.json({session:null});return; }
   const verifier = readCookie<{ storage: Record<string,string>; expires: number }>(req,'oauth');
@@ -45,6 +52,12 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   await rateLimit(`auth-${action}`,parsed.data.email,20,600);
   if (action==='signin') {
     const {data,error}=await auth.auth.signInWithPassword(parsed.data);
+    if (error?.code==='email_not_confirmed') {
+      const admin=getSupabaseAdmin();
+      const found=await admin.from('cashflow_account_snapshot').select('user_id').eq('email',parsed.data.email).maybeSingle();
+      if(found.data?.user_id)await sendConfirmation(found.data.user_id,parsed.data.email);
+      throw new HttpError(403,'บัญชียังไม่ได้ยืนยันอีเมล ระบบส่งลิงก์ยืนยันฉบับใหม่ให้แล้ว กรุณาตรวจสอบกล่องจดหมายและสแปม');
+    }
     if (error || !data.session) throw new HttpError(401,'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
     const user=await publicUser(data.user); storeSession(res,data.session); res.json({session:{user},user}); return;
   }
@@ -66,7 +79,11 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     writeCookie(res,{storage:Object.fromEntries(Object.entries(storage).filter(([key])=>key.endsWith('-code-verifier'))),expires:Date.now()+86400000},'oauth',86400);
     if (data.session) storeSession(res,data.session);
     const user=data.user ? await publicUser(data.user) : null;
-    res.json({session:data.session ? {user} : null,user}); return;
+    let confirmationEmailSent=true;
+    if(data.user&&!data.session&&Array.isArray(data.user.identities)&&data.user.identities.length>0){
+      confirmationEmailSent=await sendConfirmation(data.user.id,email,displayName);
+    }
+    res.json({session:data.session ? {user} : null,user,confirmationEmailSent}); return;
   }
   throw new HttpError(400,'Invalid action');
 },{csrf:true});

@@ -17,7 +17,8 @@ import digest from '../handlers/send-overdue-digest.js';
 import setup from '../handlers/setup-line-richmenu.js';
 import stripe from '../handlers/stripe-webhook.js';
 import profile from '../handlers/profile.js';
-const routes:Record<string,Handler>={auth,data,groups,profile,'admin-users':adminUsers,'download-report':download,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'setup-line-richmenu':setup,'stripe-webhook':stripe};
+import confirmEmail from '../handlers/confirm-email.js';
+const routes:Record<string,Handler>={auth,data,groups,profile,'admin-users':adminUsers,'confirm-email':confirmEmail,'download-report':download,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'setup-line-richmenu':setup,'stripe-webhook':stripe};
 const rawRoutes=new Set(['stripe-webhook','line-webhook']);
 export function routeHandler(route:string):Handler {
  return withGuard(async(req,res)=>{
