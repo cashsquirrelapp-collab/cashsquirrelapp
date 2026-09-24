@@ -304,7 +304,18 @@ export default function JobsTab({
 
     const calculatedPay = calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays);
 
+    // The quick "ได้เงินครบแล้ว" actions stamp paymentStatus:'paid', and Dashboard's quick-pay list
+    // treats that flag as paid regardless of status -- so editing such a job back to unpaid/partial
+    // here has to move the flag with it, or it silently vanishes from that list. Only touched when
+    // an existing flag would disagree with the chosen status, so ordinary edits of untouched jobs
+    // don't emit a spurious "paid" change (which would fire a LINE notification).
+    const derivedPaymentStatus = behavior === 'done' ? 'paid' : behavior === 'partial' ? 'partial' : 'unpaid';
+    const paymentStatusPatch = editingJob.paymentStatus && editingJob.paymentStatus !== derivedPaymentStatus
+      ? { paymentStatus: derivedPaymentStatus }
+      : {};
+
     onEditJob(editingJob.id, {
+      ...paymentStatusPatch,
       name: editName,
       type: finalType,
       client: editClient,
