@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Users, Wallet, RefreshCw } from "lucide-react";
+import { ChevronDown, CreditCard, RefreshCw, Users } from "lucide-react";
 import type { GroupSummary } from "../../../../shared/groups";
 import { groupApi } from "../../services/groups";
 
@@ -58,12 +58,13 @@ export default function FinanceWorkspacePicker({
     };
   }, [account, revision]);
   return (
-    <div className="relative flex min-w-0 items-center gap-1.5">
-      <div className="flex min-w-0 items-center rounded-2xl border border-brand-border bg-brand-bg p-1 shadow-sm">
-        <div className="hidden rounded-xl bg-emerald-50 p-2 text-emerald-700 sm:block" aria-hidden="true">
-          {groupId ? <Users size={16} /> : <Wallet size={16} />}
+    <div className="relative flex min-w-0 items-center">
+      <div className="flex min-w-0 items-center rounded-full border border-[#E8D9C7] bg-[#FFF5E7] px-2 py-1 shadow-sm dark:border-stone-700 dark:bg-stone-800">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#79583F] dark:text-[#E8C7A7]" aria-hidden="true">
+          {groupId ? <Users size={18} strokeWidth={2.2} /> : <CreditCard size={18} strokeWidth={2.2} />}
         </div>
         <label htmlFor="finance-workspace" className="sr-only">บัญชีการเงิน</label>
+        <div className="relative min-w-0">
           <select
             id="finance-workspace"
             value={groupId || ""}
@@ -73,7 +74,7 @@ export default function FinanceWorkspacePicker({
               const id = e.target.value || undefined;
               void onChange(id, groups.find((group) => group.id === id)?.name);
             }}
-            className="w-26 min-w-0 cursor-pointer border-0 bg-transparent px-2 py-1.5 text-xs font-extrabold text-brand-text outline-none disabled:cursor-wait sm:w-44"
+            className="w-24 min-w-0 appearance-none cursor-pointer border-0 bg-transparent py-1.5 pl-1 pr-7 text-xs font-extrabold text-brand-text outline-none disabled:cursor-wait sm:w-36"
           >
             <option value="">ส่วนตัว</option>
             {groupId && !groups.some((group) => group.id === groupId) && (
@@ -85,12 +86,15 @@ export default function FinanceWorkspacePicker({
               </option>
             ))}
           </select>
+          <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-4 w-4 -translate-y-1/2 text-[#79583F] dark:text-[#E8C7A7]" />
+        </div>
+        <div className="mx-1 h-7 w-px bg-[#DDC9B3] dark:bg-stone-600" aria-hidden="true" />
         <button
           type="button"
           disabled={busy}
           onClick={() => setRevision((n) => n + 1)}
           aria-label="รีเฟรชบัญชีการเงิน"
-          className="rounded-xl p-2 text-brand-muted transition-colors hover:bg-brand-white hover:text-brand-text disabled:cursor-wait disabled:opacity-50"
+          className="rounded-full p-2 text-[#79583F] transition-colors hover:bg-white/70 hover:text-brand-text disabled:cursor-wait disabled:opacity-50 dark:text-[#E8C7A7] dark:hover:bg-stone-700"
         >
           <RefreshCw size={14} className={busy ? "animate-spin" : ""} />
         </button>

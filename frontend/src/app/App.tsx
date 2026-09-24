@@ -2071,9 +2071,7 @@ export default function App() {
               <Menu className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
             </button>
 
-            {activeTab === 'dashboard' ? (
-              !session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>
-            ) : activeTab === 'settings' ? (
+            {activeTab === 'settings' ? (
               <div className="flex items-center gap-2.5">
                 <Mascot mood="happy" size={32} className="shrink-0" />
                 <div className="flex flex-col">
@@ -2102,7 +2100,7 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
-            {activeTab !== 'dashboard' && !session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>}
+            {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>} 
             {!session.isGuest && (cloudSyncStatus === 'failed' || cloudSyncStatus === 'pending') && <button type="button" onClick={() => navigateTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
               <span className={`h-1.5 w-1.5 rounded-full ${cloudSyncStatus === 'failed' ? 'bg-red-500' : 'bg-amber-500'}`} />
               {cloudSyncStatus === 'failed' ? 'บันทึกไม่สำเร็จ' : 'กำลังโหลด'}
