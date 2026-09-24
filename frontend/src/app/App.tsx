@@ -84,7 +84,8 @@ import {
   Smartphone,
   ChevronDown,
   Wrench,
-  BarChart3
+  BarChart3,
+  RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -2137,7 +2138,9 @@ export default function App() {
               <Menu className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
             </button>
 
-            {activeTab === 'settings' ? (
+            {activeTab === 'dashboard' ? (
+              !session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>
+            ) : activeTab === 'settings' ? (
               <div className="flex items-center gap-2.5">
                 <Mascot mood="happy" size={32} className="shrink-0" />
                 <div className="flex flex-col">
@@ -2151,7 +2154,6 @@ export default function App() {
               </div>
             ) : (
               <span className="font-display font-extrabold text-base sm:text-xl tracking-tight text-brand-text">
-                {activeTab === 'dashboard' && t('header.dashboard')}
                 {activeTab === 'jobs' && t('header.jobs')}
                 {activeTab === 'tax' && t('header.tax')}
                 {activeTab === 'invoice' && t('header.invoice')}
@@ -2167,7 +2169,7 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
-            {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>}
+            {activeTab !== 'dashboard' && !session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>}
             {!session.isGuest && (cloudSyncStatus === 'failed' || cloudSyncStatus === 'pending') && <button type="button" onClick={() => navigateTab('settings')} className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${cloudSyncStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-700' : 'border-brand-border/50 bg-brand-bg text-brand-muted'}`} aria-label="ดูสถานะการบันทึกข้อมูล">
               <span className={`h-1.5 w-1.5 rounded-full ${cloudSyncStatus === 'failed' ? 'bg-red-500' : 'bg-amber-500'}`} />
               {cloudSyncStatus === 'failed' ? 'บันทึกไม่สำเร็จ' : 'กำลังโหลด'}
@@ -2191,20 +2193,25 @@ export default function App() {
           <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
-            <section className="mb-4 flex items-center justify-end gap-3 lg:justify-between" aria-labelledby="dashboard-title">
-              <div className="hidden lg:block">
-                <h1 id="dashboard-title" className="text-3xl font-black tracking-tight text-brand-text">
-                  ภาพรวมกระแสเงินสด
-                </h1>
-                <p className="mt-1 text-sm text-brand-muted">ยอดรับ รายจ่าย และเงินคงเหลือของเดือนที่เลือก</p>
+            <section className="mb-5 flex flex-col gap-4 border-b border-brand-border/30 pb-5 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="dashboard-title">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 id="dashboard-title" className="text-2xl font-black tracking-tight text-brand-text sm:text-3xl">
+                    ภาพรวมกระแสเงินสด
+                  </h1>
+                  <span className="rounded-full bg-[#E65F2B]/10 px-2.5 py-1 text-[10px] font-black text-[#B9471D] dark:text-[#FFA473]">เสบียงปัจจุบัน</span>
+                </div>
+                <p className="mt-1 text-xs font-medium text-brand-muted sm:text-sm">ยอดรับ รายจ่าย และเสบียงคงเหลือตามรอบเวลาที่ประเมินจริง</p>
               </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="dashboard-month" className="text-xs font-bold text-brand-muted">{t('header.monthPickerLabel')}</label>
+              <div className="flex w-full items-center gap-2 sm:w-auto">
+                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-[#E65F2B]/10 bg-[#E65F2B]/5 px-3 sm:flex-none">
+                <Calendar className="h-4 w-4 shrink-0 text-[#C95529]" />
+                <label htmlFor="dashboard-month" className="hidden whitespace-nowrap text-xs font-bold text-brand-muted lg:inline">{t('header.monthPickerLabel')}</label>
                 <select
                   id="dashboard-month"
                   value={selectedMonthKey}
                   onChange={(e) => setSelectedMonthKey(e.target.value)}
-                  className="min-w-[150px] cursor-pointer rounded-xl border border-brand-border bg-brand-white px-3 py-2 text-sm font-bold text-brand-text outline-none focus:border-[#E65F2B]"
+                  className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent py-2.5 text-xs font-black text-[#A8441E] outline-none sm:min-w-[170px] sm:text-sm"
                 >
                   {availableMonthKeys.map(key => (
                     <option key={key} value={key}>
@@ -2212,12 +2219,15 @@ export default function App() {
                     </option>
                   ))}
                 </select>
+                </div>
                 {selectedMonthKey !== currentMonthKey && (
                   <button
                     onClick={() => setSelectedMonthKey(currentMonthKey)}
-                    className="cursor-pointer rounded-xl px-3 py-2 text-xs font-bold text-[#E65F2B] hover:bg-[#E65F2B]/10"
+                    className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-[#E65F2B]/10 text-[#B9471D] transition-colors hover:bg-[#E65F2B]/20"
+                    title={t('header.backToCurrent')}
+                    aria-label={t('header.backToCurrent')}
                   >
-                    {t('header.backToCurrent')}
+                    <RotateCcw className="h-4 w-4" />
                   </button>
                 )}
               </div>
