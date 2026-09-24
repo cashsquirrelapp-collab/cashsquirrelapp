@@ -38,7 +38,6 @@ import {
 import { TaxEvidence, WhtDocument, Expense } from '../../../../shared/types';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconWarning, IconAlertDot, IconCalendar, IconCheck, IconBulb } from '../../components/ui/icons';
-import { apiJson } from '../../services/api';
 
 interface MonthlyReportTabProps {
   jobs: Job[];
@@ -478,21 +477,6 @@ export default function MonthlyReportTab({
     };
   }, [jobs]);
 
-  const handleSendServerCreditAlert = async () => {
-    setIsSendingSimulated(true);
-    setSimulationStep(2);
-    try {
-      const result=await apiJson<{emailSent:boolean;lineSent:boolean;count:number}>('/api/send-credit-alert',{method:'POST',body:'{}'});
-      const channels=[result.emailSent?'อีเมล':'',result.lineSent?'LINE':''].filter(Boolean).join(' และ ');
-      triggerAlert('ส่งแจ้งเตือนสำเร็จ!',`ส่งรายการเครดิตเทอม ${result.count} รายการผ่าน${channels}เรียบร้อยแล้ว`);
-    } catch(error) {
-      triggerAlert('ส่งแจ้งเตือนไม่สำเร็จ',(error as Error).message);
-    } finally {
-      setIsSendingSimulated(false);
-      setSimulationStep(0);
-    }
-  };
-
   // Helper to trigger email client and display animated/active feedback
   const handleSendEmailReport = () => {
     const todayThaiStr = new Date().toLocaleDateString('th-TH', {
@@ -722,7 +706,7 @@ export default function MonthlyReportTab({
           <div className="shrink-0 flex items-center gap-4">
             <Mascot mood="wave" size={72} className="shrink-0 hidden sm:inline-flex" />
             <button
-              onClick={()=>void handleSendServerCreditAlert()}
+              onClick={handleSendEmailReport}
               disabled={isSendingSimulated}
               className="py-3 px-5 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-extrabold rounded-2xl text-xs shadow-md shadow-emerald-600/10 dark:shadow-none hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] disabled:opacity-50"
             >
