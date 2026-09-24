@@ -90,6 +90,7 @@ export default function MonthlyReportTab({
     onUpdateNotifSettings({
       ...notifSettings,
       enabled: localEnabled,
+      dailyDigestEnabled: localEnabled,
       alertEmail: localEmail,
       serviceType: localServiceType as 'mailto' | 'emailjs',
       emailjsServiceId: localServiceId,

@@ -296,7 +296,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         skipped += 1;
         continue;
       }
-      if (!notifSettings.dailyDigestEnabled) {
+      // Older settings screens saved the master switch as `enabled`; newer records use the
+      // explicit `dailyDigestEnabled`. Supporting both connects existing users to the Gmail
+      // delivery without forcing them to re-enter notification settings.
+      const digestEnabled = notifSettings.dailyDigestEnabled ?? notifSettings.enabled ?? false;
+      if (!digestEnabled) {
         console.log(`send-overdue-digest: skip ${row.email} -- dailyDigestEnabled is off`);
         skipped += 1;
         continue;
