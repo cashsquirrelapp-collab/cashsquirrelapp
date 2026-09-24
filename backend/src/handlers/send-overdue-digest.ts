@@ -55,7 +55,7 @@ interface JobWithDiff extends JobRow {
 // Trust the recorded `pending` field as-is, same as Dashboard/Summary/Timeline -- don't also gate
 // on status behavior or paymentStatus, or a job whose paid flag and pending amount have drifted
 // out of sync silently skips the digest instead of surfacing as money still owed.
-function findJobsNeedingAttention(jobs: JobRow[]): JobWithDiff[] {
+export function findJobsNeedingAttention(jobs: JobRow[]): JobWithDiff[] {
   return jobs
     .map((j) => {
       const targetDateStr = j.dueDate || j.payDate;
@@ -173,7 +173,7 @@ function buildSectionFlex(title: string, badgeColor: string, jobs: JobWithDiff[]
   ];
 }
 
-function buildDigestFlexMessage(jobs: JobWithDiff[]): LineMessage {
+export function buildDigestFlexMessage(jobs: JobWithDiff[]): LineMessage {
   const overdue = jobs.filter((j) => j.diffDays < 0);
   const dueToday = jobs.filter((j) => j.diffDays === 0);
   const dueSoon = jobs.filter((j) => j.diffDays > 0);
@@ -221,7 +221,7 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-async function sendDigestEmail(to: string, jobs: JobWithDiff[]): Promise<boolean> {
+export async function sendDigestEmail(to: string, jobs: JobWithDiff[]): Promise<boolean> {
   const overdueCount = jobs.filter((j) => j.diffDays < 0).length;
   const subject = overdueCount > 0
     ? `สรุปงานค้างชำระเลยกำหนด ${overdueCount} รายการ - กระรอกตุนเงิน`
