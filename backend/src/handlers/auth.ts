@@ -76,6 +76,12 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       if(code==='captcha_failed')throw new HttpError(400,'ยืนยัน CAPTCHA ไม่สำเร็จ กรุณาติดต่อผู้ดูแลหากไม่มีช่องยืนยันบนหน้าเว็บ');
       throw new HttpError(400,'สมัครสมาชิกไม่สำเร็จ กรุณาติดต่อผู้ดูแล (รหัสอ้างอิง: '+code+')');
     }
+    // Supabase deliberately returns an obfuscated user with no identities when an email is
+    // already registered. Treating that response as a new signup misleads the user into trying
+    // the newly entered password even though the existing password was never changed.
+    if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0){
+      throw new HttpError(409,'อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบหรือใช้เมนูลืมรหัสผ่าน');
+    }
     writeCookie(res,{storage:Object.fromEntries(Object.entries(storage).filter(([key])=>key.endsWith('-code-verifier'))),expires:Date.now()+86400000},'oauth',86400);
     if (data.session) storeSession(res,data.session);
     const user=data.user ? await publicUser(data.user) : null;

@@ -81,7 +81,9 @@ export default withGuard(async(req,res)=>{
  if(consumed.error)throw consumed.error; if(!consumed.data)throw new HttpError(400,'รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
  // Consume before changing the password: retries cannot reuse the same challenge.
  const revoked=await admin.rpc('cashflow_revoke_user_sessions',{p_user_id:row.user_id});if(revoked.error)throw revoked.error;
- const changed=await admin.auth.admin.updateUserById(row.user_id,{password:newPassword});
+ // Receiving the OTP proves control of this mailbox, so recovery also completes email
+ // confirmation for accounts that were stranded by the provider's original confirmation mail.
+ const changed=await admin.auth.admin.updateUserById(row.user_id,{password:newPassword,email_confirm:true});
  if(changed.error)throw new HttpError(503,'เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาขอรหัสยืนยันใหม่');
  // Every existing BFF session was revoked before the password update.
  res.json({ok:true});
