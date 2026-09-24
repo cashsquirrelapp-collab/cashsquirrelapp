@@ -2060,7 +2060,7 @@ export default function App() {
       <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
         
         {/* Top Header Bar with branding & Dark Mode toggle (Sticky on mobile, simple title on desktop) */}
-        <div className="app-topbar flex justify-between items-center gap-3 px-5 py-3 bg-brand-white border-b border-brand-border/40 select-none shrink-0 lg:px-8">
+        <div className="app-topbar relative z-[200] flex shrink-0 select-none items-center justify-between gap-3 overflow-visible border-b border-brand-border/40 bg-brand-white px-5 py-3 lg:px-8">
           <div className="flex items-center gap-3">
             {/* Hamburger button for Mobile Drawer Menu */}
             <button
