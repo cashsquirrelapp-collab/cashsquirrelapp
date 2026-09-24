@@ -13,7 +13,10 @@ export default withGuard(async(req,res)=>{
   res.json({ok:true});return;
  }
  await rateLimit('line-link',user.id,5,900);
- const code=randomBytes(8).toString('hex').toUpperCase(); const expiresAt=new Date(Date.now()+900000).toISOString();
+ // A link code is a short-lived proof that the signed-in web account controls the
+ // LINE chat that sends it back. Creating a new code replaces the previous hash,
+ // and the database claim consumes it atomically, so it can only be used once.
+ const code=randomBytes(8).toString('hex').toUpperCase(); const expiresAt=new Date(Date.now()+300000).toISOString();
  const saved=await admin.from('cashflow_challenges').upsert({user_id:user.id,purpose:'link',code_hash:challengeHash(code),expires_at:expiresAt,attempts:0});
  if(saved.error)throw saved.error;res.json({code,expiresAt});
 },{csrf:true});

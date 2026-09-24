@@ -24,7 +24,10 @@ import {
   MessageCircle,
   ExternalLink,
   Copy,
-  Languages
+  Languages,
+  Clock3,
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconCrown, IconClose, IconCheck } from '../../components/ui/icons';
@@ -152,6 +155,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   const [lineLinkCode, setLineLinkCode] = useState<string | null>(null);
+  const [lineLinkCodeExpiresAt, setLineLinkCodeExpiresAt] = useState<number | null>(null);
+  const [lineLinkSecondsLeft, setLineLinkSecondsLeft] = useState(0);
   const [isGeneratingLineCode, setIsGeneratingLineCode] = useState(false);
   const [lineLinkCopied, setLineLinkCopied] = useState(false);
 
@@ -167,11 +172,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'สร้างรหัสเชื่อมต่อไม่สำเร็จ');
       setLineLinkCode(json.code);
-      // The API wrote this straight to Supabase, bypassing local state -- if we don't mirror
-      // it here too, the app's own debounced/on-hide cloud-save (which fires the instant you
-      // switch to LINE to type the code) will overwrite it with this stale copy and erase it
-      // before you can ever send it.
-      onUpdateNotifSettings({ ...notifSettings, lineLinkCode: json.code, lineLinkCodeExpiresAt: json.expiresAt });
+      setLineLinkCodeExpiresAt(new Date(json.expiresAt).getTime());
+      setLineLinkSecondsLeft(Math.max(0, Math.ceil((new Date(json.expiresAt).getTime() - Date.now()) / 1000)));
+      setLineLinkCopied(false);
     } catch (err: any) {
       triggerAlert('สร้างรหัสเชื่อมต่อไม่สำเร็จ', err.message || 'ลองใหม่อีกครั้งครับ');
     } finally {
@@ -180,12 +183,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   const handleCopyLineCode = () => {
-    if (!lineLinkCode) return;
+    if (!lineLinkCode || lineLinkSecondsLeft <= 0) return;
     navigator.clipboard.writeText(lineLinkCode).then(() => {
       setLineLinkCopied(true);
       setTimeout(() => setLineLinkCopied(false), 2000);
     });
   };
+
+  useEffect(() => {
+    if (!lineLinkCode || !lineLinkCodeExpiresAt || notifSettings.lineUserId) return;
+    const updateCountdown = () => {
+      const seconds = Math.max(0, Math.ceil((lineLinkCodeExpiresAt - Date.now()) / 1000));
+      setLineLinkSecondsLeft(seconds);
+      if (seconds === 0) setLineLinkCopied(false);
+    };
+    updateCountdown();
+    const interval = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(interval);
+  }, [lineLinkCode, lineLinkCodeExpiresAt, notifSettings.lineUserId]);
 
   // Both digest toggles below write straight to merge_notif_settings the moment they're
   // clicked, the same way handleDisconnectLine does for lineUserId, instead of only relying on
@@ -220,6 +235,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           await apiJson('/api/line-link-code', { method: 'POST', headers: { 'X-Account-ID': session.user.id }, body: JSON.stringify({ action: 'disconnect' }) });
           onUpdateNotifSettings({ ...notifSettings, lineUserId: null });
           setLineLinkCode(null);
+          setLineLinkCodeExpiresAt(null);
+          setLineLinkSecondsLeft(0);
         } catch (error: any) { triggerAlert('ยกเลิกการเชื่อมต่อไม่สำเร็จ', error.message); }
 
       }
@@ -240,6 +257,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       catch { return; }
       if (!data?.notif_settings?.lineUserId) return;
       setLineLinkCode(null);
+      setLineLinkCodeExpiresAt(null);
+      setLineLinkSecondsLeft(0);
       onUpdateNotifSettings({ ...notifSettings, lineUserId: data.notif_settings.lineUserId });
     }, 3000);
     return () => clearInterval(interval);
@@ -622,9 +641,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
 
                 {lineLinkCode && !notifSettings.lineUserId && (
-                  <div className="mt-3 pt-3 border-t border-brand-border/30 space-y-2.5">
+                  <div className="mt-3 pt-3 border-t border-brand-border/30 space-y-3">
+                    <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <div>
+                        <p className="text-[10px] font-black text-brand-text dark:text-white">ยืนยันบัญชี LINE อย่างปลอดภัย</p>
+                        <p className="mt-0.5 text-[9px] leading-relaxed text-brand-muted">รหัสนี้ใช้ได้ครั้งเดียวและผูกได้กับบัญชีที่กำลังเข้าใช้อยู่เท่านั้น ห้ามส่งต่อให้ผู้อื่น</p>
+                      </div>
+                    </div>
                     <p className="text-[10px] text-brand-muted leading-relaxed">
-                      1. แอดเพื่อน LINE OA <span className="font-bold text-brand-text dark:text-white">@859mlugf</span>{' '}
+                      1. แอดเพื่อน LINE Official Account <span className="font-bold text-brand-text dark:text-white">@859mlugf</span>{' '}
                       <a
                         href="https://line.me/R/ti/p/@859mlugf"
                         target="_blank"
@@ -634,22 +660,36 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         (เปิดลิงก์แอดเพื่อน <ExternalLink className="w-2.5 h-2.5" />)
                       </a>
                       <br />
-                      2. พิมพ์รหัสด้านล่างส่งไปที่แชท เพื่อยืนยันว่าเป็นบัญชีนี้
+                      2. ส่งรหัสด้านล่างเข้าแชทภายใน 5 นาที เพื่อยืนยันว่า LINE นี้เป็นของคุณ
                     </p>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-brand-faint dark:bg-stone-850 rounded-xl px-3 py-2 text-center font-mono font-black text-sm tracking-widest text-brand-text dark:text-white">
+                      <div className={`flex-1 rounded-xl border px-3 py-2.5 text-center font-mono text-base font-black tracking-[0.18em] ${lineLinkSecondsLeft > 0 ? 'border-brand-border/50 bg-brand-faint text-brand-text dark:bg-stone-850 dark:text-white' : 'border-rose-500/30 bg-rose-500/5 text-rose-500'}`}>
                         {lineLinkCode}
                       </div>
                       <button
                         type="button"
                         onClick={handleCopyLineCode}
-                        className="shrink-0 p-2 rounded-xl border border-brand-border/60 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-stone-850 transition-colors cursor-pointer"
+                        disabled={lineLinkSecondsLeft <= 0}
+                        className="shrink-0 p-2.5 rounded-xl border border-brand-border/60 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-stone-850 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                         title="คัดลอกรหัส"
                       >
                         {lineLinkCopied ? <IconCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
-                    <p className="text-[9px] text-brand-muted/80">รหัสนี้ใช้ได้ 15 นาที หมดอายุแล้วกดเชื่อมต่อใหม่ได้เลย</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={`inline-flex items-center gap-1.5 text-[10px] font-bold ${lineLinkSecondsLeft > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        <Clock3 className="h-3.5 w-3.5" />
+                        {lineLinkSecondsLeft > 0
+                          ? `หมดอายุใน ${String(Math.floor(lineLinkSecondsLeft / 60)).padStart(2, '0')}:${String(lineLinkSecondsLeft % 60).padStart(2, '0')} นาที`
+                          : 'รหัสหมดอายุแล้ว'}
+                      </p>
+                      {lineLinkSecondsLeft <= 0 && (
+                        <button type="button" onClick={handleGenerateLineCode} disabled={isGeneratingLineCode} className="inline-flex items-center gap-1.5 rounded-lg bg-[#06C755] px-2.5 py-1.5 text-[10px] font-bold text-white hover:bg-[#05B34C] disabled:opacity-50">
+                          <RefreshCw className={`h-3 w-3 ${isGeneratingLineCode ? 'animate-spin' : ''}`} />
+                          สร้างรหัสใหม่
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
