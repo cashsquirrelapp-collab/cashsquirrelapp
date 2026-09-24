@@ -251,6 +251,7 @@ export default function App() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [moreNavOpen, setMoreNavOpen] = useState(false);
 
   const navigateTab = (tab: TabKey) => {
@@ -1862,74 +1863,6 @@ export default function App() {
           {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
         </nav>
 
-        {/* User profile & signout container */}
-        <div className="mb-4 p-3 rounded-2xl bg-brand-faint/40 dark:bg-neutral-800/20 border border-brand-border/20 dark:border-neutral-800/40 flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-blue-acc/15 dark:bg-[#FFA473]/15 flex items-center justify-center text-[#E65F2B] dark:text-[#FFA473] font-extrabold text-xs shrink-0 overflow-hidden">
-              {userAvatar ? (
-                <img src={userAvatar} className="w-full h-full object-cover" alt="User Avatar" />
-              ) : (
-                <User className="w-3.5 h-3.5" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] text-brand-muted truncate font-extrabold" title={session?.user?.email}>
-                {session?.user?.email}
-              </p>
-            </div>
-          </div>
-
-          {session && !session.isGuest && (
-            <button
-              type="button"
-              onClick={() => navigateTab('plans')}
-              className="w-full text-left px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40 hover:border-brand-border transition-colors cursor-pointer"
-            >
-              {isPaidActive ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO</span>
-                  {subscription?.currentPeriodEnd && (
-                    <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                      {t('sidebar.until', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
-                    </span>
-                  )}
-                </>
-              ) : isInFreeTrial ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">{t('plans.freeTrialBadge')}</span>
-                  {trialEndsAt && (
-                    <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                      {t('sidebar.until', { date: trialEndsAt.toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-[#E65F2B] shrink-0" />
-                  <span className="text-brand-muted">FREE</span>
-                </>
-              )}
-            </button>
-          )}
-          <button
-            onClick={() => {
-              triggerConfirm(
-                'ออกจากระบบ',
-                'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?',
-                async () => {
-                  await handleSignOut();
-                }
-              );
-            }}
-            className="w-full py-1.5 px-3 bg-pink-bg hover:bg-pink-bg/80 text-pink-acc border border-pink-acc/10 rounded-xl text-[10px] font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <LogOut className="w-3 h-3" />
-            <span>ออกจากระบบ</span>
-          </button>
-        </div>
-
         {/* Desktop bottom status/theme bar */}
         <div className="pt-4 border-t border-brand-border/40 flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
@@ -2185,6 +2118,36 @@ export default function App() {
                 <Moon className="w-4.5 h-4.5 text-[#6F4932] fill-[#6F4932]/10 transition-transform group-hover:-rotate-12" />
               )}
             </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsProfileMenuOpen(open => !open)}
+                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#E65F2B]/15 bg-[#E65F2B] text-white shadow-sm transition-all hover:shadow-md active:scale-95"
+                aria-label="เปิดเมนูโปรไฟล์"
+                aria-expanded={isProfileMenuOpen}
+              >
+                {userAvatar ? <img src={userAvatar} className="h-full w-full object-cover" alt="User Avatar" /> : <User className="h-4.5 w-4.5" />}
+              </button>
+              <AnimatePresence>
+                {isProfileMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-12 z-[120] w-64 overflow-hidden rounded-2xl border border-brand-border bg-brand-white p-2 shadow-2xl dark:bg-stone-900"
+                  >
+                    <div className="border-b border-brand-border/40 px-3 py-2.5">
+                      <p className="truncate text-xs font-black text-brand-text">{session?.user?.email || 'บัญชีผู้ใช้'}</p>
+                      <p className="mt-1 text-[10px] font-bold text-brand-muted">{isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}</p>
+                    </div>
+                    {!session.isGuest && <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('settings'); }} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><Settings className="h-4 w-4 text-brand-muted" />ตั้งค่าโปรไฟล์</button>}
+                    {!session.isGuest && <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><IconCrown className="h-4 w-4 text-amber-500" />แพ็กเกจของฉัน</button>}
+                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); triggerConfirm('ออกจากระบบ', 'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?', async () => { await handleSignOut(); }); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"><LogOut className="h-4 w-4" />ออกจากระบบ</button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
