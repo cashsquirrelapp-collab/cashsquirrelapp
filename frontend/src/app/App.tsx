@@ -2151,6 +2151,20 @@ export default function App() {
           </div>
         </div>
 
+        <AnimatePresence initial={false}>
+          {isProfileMenuOpen && (
+            <motion.div
+              key="profile-menu-space"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 174, opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="shrink-0 border-b border-brand-border/40 bg-brand-white"
+              aria-hidden="true"
+            />
+          )}
+        </AnimatePresence>
+
         {/* Scrollable Container with responsive max widths */}
         <div id="main-content" role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
           <Suspense fallback={<ContentLoadingSkeleton />}>
