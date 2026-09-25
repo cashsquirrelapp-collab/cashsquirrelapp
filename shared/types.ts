@@ -4,6 +4,15 @@ export interface StatusOption {
   behavior: 'done' | 'partial' | 'pending';
 }
 
+export interface JobInstallment {
+  id: string;
+  label: string;
+  amount: number;
+  dueDate: string | null;
+  paidAt: string | null;
+  status: 'pending' | 'paid';
+}
+
 export interface Job {
   id: string;
   name: string;
@@ -28,6 +37,7 @@ export interface Job {
   excludeHolidays?: boolean; // ไม่นับวันหยุดราชการและเสาร์-อาทิตย์ ในการคำนวณวันดีล/เครดิตเทอม
   followUpCount?: number; // จำนวนครั้งที่ติดตามทวงถามเครดิตเทอม
   lastFollowUpDate?: string; // วันที่ติดตามล่าสุด (YYYY-MM-DD)
+  installments?: JobInstallment[]; // ตารางรับเงินแต่ละงวด (มีเฉพาะงานที่แบ่งชำระ)
 }
 
 export interface TaxEvidence {
@@ -207,6 +217,5 @@ export interface Invoice {
   deliveryTerm?: string; // ระยะเวลาการส่งมอบสินค้า/บริการ
   refNo?: string; // อ้างอิงเลขที่ใบเสนอราคา/ใบสั่งซื้อ
 }
-
 
 

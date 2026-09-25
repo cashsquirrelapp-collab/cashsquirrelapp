@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Job, StatusOption } from '../../../../shared/types';
+import { Job, JobInstallment, StatusOption } from '../../../../shared/types';
 import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate, DEFAULT_JOB_TYPES } from '../../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from '../../components/mascot/Mascot';
@@ -9,6 +9,7 @@ import NumberInput from '../../components/ui/NumberInput';
 import JobTypeSelector from './JobTypeSelector';
 import WithholdingTaxSelector from './WithholdingTaxSelector';
 import WorkStageSelector from './WorkStageSelector';
+import InstallmentPlanner from './InstallmentPlanner';
 import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight } from '../../components/ui/icons';
 import {
   Briefcase,
@@ -120,6 +121,7 @@ export default function JobsTab({
   const [formNote, setFormNote] = useState('');
   const [formWhtRate, setFormWhtRate] = useState<number>(0); // หัก ณ ที่จ่าย %
   const [formExcludeHolidays, setFormExcludeHolidays] = useState(false); // ไม่นับเสาร์อาทิตย์และวันหยุดข้าราชการ
+  const [formInstallments, setFormInstallments] = useState<JobInstallment[]>([]);
 
   // 🌰 Wizard/Step form state
   const [formStep, setFormStep] = useState(1);
@@ -182,6 +184,7 @@ export default function JobsTab({
   const [editNote, setEditNote] = useState('');
   const [editWhtRate, setEditWhtRate] = useState<number>(0); // หัก ณ ที่จ่าย %
   const [editExcludeHolidays, setEditExcludeHolidays] = useState(false); // ไม่นับเสาร์อาทิตย์และวันหยุดข้าราชการ
+  const [editInstallments, setEditInstallments] = useState<JobInstallment[]>([]);
 
   // States for custom entry inside Edit Form
   const [editCustomTypeInput, setEditCustomTypeInput] = useState('');
@@ -208,6 +211,7 @@ export default function JobsTab({
       setEditNote(editingJob.note || '');
       setEditWhtRate(editingJob.whtRate || 0);
       setEditExcludeHolidays(editingJob.excludeHolidays || false);
+      setEditInstallments(editingJob.installments || []);
       setEditCustomTypeInput('');
       setEditCustomStatusLabelInput('');
       setEditCustomStatusBehavior('pending');
@@ -294,25 +298,47 @@ export default function JobsTab({
     const valueNum = parseFloat(editValue) || 0;
     const whtAmountNum = Math.round(valueNum * (editWhtRate / 100));
     const netReceivable = valueNum - whtAmountNum;
+    const normalizedEditInstallments = editStatus === 'installment' ? editInstallments.map((row, index) => ({
+      ...row,
+      label: row.label.trim() || `งวดที่ ${index + 1}`,
+      amount: Number(row.amount) || 0,
+    })) : [];
+    if (editStatus === 'installment') {
+      const installmentTotal = normalizedEditInstallments.reduce((sum, row) => sum + row.amount, 0);
+      if (normalizedEditInstallments.length === 0 || Math.abs(installmentTotal - netReceivable) > 0.01) {
+        triggerAlert('ยอดแบ่งชำระยังไม่ตรง', `ยอดรวมทุกงวดต้องเท่ากับยอดรับสุทธิ ${formatCurrency(netReceivable)}`);
+        return;
+      }
+    }
     let receivedNum = 0;
 
     if (behavior === 'done') {
       receivedNum = netReceivable;
     } else if (behavior === 'partial') {
-      receivedNum = parseFloat(editReceived) || 0;
+      receivedNum = editStatus === 'installment'
+        ? normalizedEditInstallments.filter((row) => row.status === 'paid').reduce((sum, row) => sum + row.amount, 0)
+        : parseFloat(editReceived) || 0;
     } else {
       receivedNum = 0; // pending/unspecified
     }
     const pendingNum = Math.max(0, netReceivable - receivedNum);
 
-    const calculatedPay = calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays);
+    const nextInstallmentDue = normalizedEditInstallments
+      .filter((row) => row.status !== 'paid' && row.dueDate)
+      .map((row) => row.dueDate as string)
+      .sort()[0];
+    const calculatedPay = editStatus === 'installment'
+      ? (nextInstallmentDue || null)
+      : calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays);
 
     // The quick "ได้เงินครบแล้ว" actions stamp paymentStatus:'paid', and Dashboard's quick-pay list
     // treats that flag as paid regardless of status -- so editing such a job back to unpaid/partial
     // here has to move the flag with it, or it silently vanishes from that list. Only touched when
     // an existing flag would disagree with the chosen status, so ordinary edits of untouched jobs
     // don't emit a spurious "paid" change (which would fire a LINE notification).
-    const derivedPaymentStatus = behavior === 'done' ? 'paid' : behavior === 'partial' ? 'partial' : 'unpaid';
+    const derivedPaymentStatus = behavior === 'done' || (netReceivable > 0 && receivedNum >= netReceivable)
+      ? 'paid'
+      : behavior === 'partial' && receivedNum > 0 ? 'partial' : 'unpaid';
     const paymentStatusPatch = editingJob.paymentStatus && editingJob.paymentStatus !== derivedPaymentStatus
       ? { paymentStatus: derivedPaymentStatus }
       : {};
@@ -335,7 +361,8 @@ export default function JobsTab({
       hoursSpent: editHoursSpent.trim() ? parseFloat(editHoursSpent) : undefined,
       whtRate: editWhtRate,
       whtAmount: whtAmountNum,
-      excludeHolidays: editExcludeHolidays
+      excludeHolidays: editExcludeHolidays,
+      installments: normalizedEditInstallments
     });
 
     triggerAlert(t('jobs.alertEditSuccessTitle'), t('jobs.alertEditSuccessMsg'));
@@ -418,17 +445,40 @@ export default function JobsTab({
     const valueNum = parseFloat(formValue) || 0;
     const whtAmountNum = Math.round(valueNum * (formWhtRate / 100));
     const netReceivable = valueNum - whtAmountNum;
+    const normalizedInstallments = formStatus === 'installment' ? formInstallments.map((row, index) => ({
+      ...row,
+      label: row.label.trim() || `งวดที่ ${index + 1}`,
+      amount: Number(row.amount) || 0,
+    })) : [];
+    if (formStatus === 'installment') {
+      const installmentTotal = normalizedInstallments.reduce((sum, row) => sum + row.amount, 0);
+      if (normalizedInstallments.length === 0 || Math.abs(installmentTotal - netReceivable) > 0.01) {
+        triggerAlert('ยอดแบ่งชำระยังไม่ตรง', `ยอดรวมทุกงวดต้องเท่ากับยอดรับสุทธิ ${formatCurrency(netReceivable)}`);
+        return;
+      }
+    }
     let receivedNum = 0;
     if (behavior === 'done') {
       receivedNum = netReceivable;
     } else if (behavior === 'partial') {
-      receivedNum = parseFloat(formReceived) || 0;
+      receivedNum = formStatus === 'installment'
+        ? normalizedInstallments.filter((row) => row.status === 'paid').reduce((sum, row) => sum + row.amount, 0)
+        : parseFloat(formReceived) || 0;
     } else {
       receivedNum = 0; // pending/unspecified
     }
     const pendingNum = Math.max(0, netReceivable - receivedNum);
 
-    const payDateCalculated = calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays);
+    const nextInstallmentDue = normalizedInstallments
+      .filter((row) => row.status !== 'paid' && row.dueDate)
+      .map((row) => row.dueDate as string)
+      .sort()[0];
+    const payDateCalculated = formStatus === 'installment'
+      ? (nextInstallmentDue || null)
+      : calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays);
+    const derivedPaymentStatus = behavior === 'done' || (netReceivable > 0 && receivedNum >= netReceivable)
+      ? 'paid'
+      : behavior === 'partial' && receivedNum > 0 ? 'partial' : 'unpaid';
 
     onAddJob({
       name: formName,
@@ -443,11 +493,13 @@ export default function JobsTab({
       startDate: formStartDate,
       isPosted: formIsPosted,
       payDate: payDateCalculated,
+      paymentStatus: derivedPaymentStatus,
       note: formNote,
       hoursSpent: formHoursSpent.trim() ? parseFloat(formHoursSpent) : undefined,
       whtRate: formWhtRate,
       whtAmount: whtAmountNum,
-      excludeHolidays: formExcludeHolidays
+      excludeHolidays: formExcludeHolidays,
+      installments: normalizedInstallments
     });
 
     // Reset Form
@@ -468,6 +520,7 @@ export default function JobsTab({
     setFormNote('');
     setFormWhtRate(0);
     setFormExcludeHolidays(false);
+    setFormInstallments([]);
     setFormStep(1);
     onCloseAddJob();
   };
@@ -1375,7 +1428,7 @@ export default function JobsTab({
                       )}
 
                       {/* Received Deposit input - shown only if status is "partial" */}
-                      {(formStatus === 'partial' || 
+                      {formStatus !== 'installment' && (formStatus === 'partial' ||
                         (formStatus !== '__custom__' && statuses.find(s => s.id === formStatus)?.behavior === 'partial') ||
                         (formStatus === '__custom__' && customStatusBehavior === 'partial')) && (
                         <div className="space-y-1.5 animate-fade-in">
@@ -1387,6 +1440,14 @@ export default function JobsTab({
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
                           />
                         </div>
+                      )}
+
+                      {formStatus === 'installment' && (
+                        <InstallmentPlanner
+                          installments={formInstallments}
+                          onChange={setFormInstallments}
+                          targetAmount={Math.max(0, (parseFloat(formValue) || 0) - Math.round((parseFloat(formValue) || 0) * (formWhtRate / 100)))}
+                        />
                       )}
                     </motion.div>
                   )}
@@ -2088,7 +2149,7 @@ export default function JobsTab({
                       </div>
 
                       {/* Received Deposit input - shown only if status is "partial" */}
-                      {(editStatus === 'partial' || 
+                      {editStatus !== 'installment' && (editStatus === 'partial' ||
                         (editStatus !== '__custom__' && statuses.find(s => s.id === editStatus)?.behavior === 'partial') ||
                         (editStatus === '__custom__' && editCustomStatusBehavior === 'partial')) && (
                         <div className="space-y-1.5 animate-fade-in">
@@ -2100,6 +2161,15 @@ export default function JobsTab({
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
                           />
                         </div>
+                      )}
+
+                      {editStatus === 'installment' && (
+                        <InstallmentPlanner
+                          installments={editInstallments}
+                          onChange={setEditInstallments}
+                          targetAmount={Math.max(0, (parseFloat(editValue) || 0) - Math.round((parseFloat(editValue) || 0) * (editWhtRate / 100)))}
+                          accent="indigo"
+                        />
                       )}
 
                       <WithholdingTaxSelector rate={editWhtRate} onChange={setEditWhtRate} value={editValue} accent="indigo" />

@@ -158,6 +158,27 @@ export function JobDetailModal({ job, statuses, onClose, onEdit, onDelete }: Job
               </div>
             </div>
 
+            {job.installments && job.installments.length > 0 && (
+              <div className="space-y-2 rounded-2xl border border-brand-border/60 bg-brand-faint/50 p-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-xs font-black text-brand-text dark:text-white">ตารางชำระ</h5>
+                  <span className="text-[10px] font-bold text-brand-muted">{job.installments.filter((row) => row.status === 'paid').length}/{job.installments.length} งวดแล้ว</span>
+                </div>
+                {job.installments.map((row) => (
+                  <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl bg-white p-2.5 dark:bg-stone-850">
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-black text-brand-text dark:text-white">{row.label}</p>
+                      <p className="text-[9px] font-semibold text-brand-muted">{row.status === 'paid' ? `รับแล้ว ${safeFormatThaiDate(row.paidAt)}` : row.dueDate ? `ครบกำหนด ${safeFormatThaiDate(row.dueDate)}` : 'ยังไม่ระบุวันครบกำหนด'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-xs font-black font-mono ${row.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>{formatCurrency(row.amount)}</p>
+                      <span className={`text-[9px] font-bold ${row.status === 'paid' ? 'text-emerald-600' : 'text-brand-muted'}`}>{row.status === 'paid' ? 'ชำระแล้ว' : 'รอชำระ'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {job.whtRate && job.whtRate > 0 ? (
               <div className="flex items-center justify-between text-[10px] bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-xl text-amber-800 dark:text-amber-400 font-bold leading-none select-none">
                 <span>{t('jobs.whtDeducted', { rate: job.whtRate })}</span>

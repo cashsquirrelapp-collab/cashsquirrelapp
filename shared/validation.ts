@@ -9,7 +9,8 @@ export const notificationPreferences=z.object({
  pendingQueue:z.array(z.object({id,jobId:id,jobName:text,client:text,pendingAmount:money,dueDate:text,detectedDate:text,status:z.enum(['pending','sent','skipped']),sentDate:text.optional()})).max(10000).optional(),
  dailyDigestEnabled:z.boolean().optional(),monthlyReportEnabled:z.boolean().optional()
 });
-const job=z.object({id,name:z.string().min(1).max(500),value:money,received:money,pending:money,client:text,type:text,status:text,creditTerm:z.number().int().min(0).max(3650),note:text,payDate:z.string().nullable(),hoursSpent:money.optional(),whtRate:z.number().min(0).max(100).optional(),whtAmount:money.optional(),followUpCount:z.number().int().min(0).optional()}).passthrough();
+const installment=z.object({id:text,label:z.string().min(1).max(100),amount:money,dueDate:z.string().nullable(),paidAt:z.string().nullable(),status:z.enum(['pending','paid'])});
+const job=z.object({id,name:z.string().min(1).max(500),value:money,received:money,pending:money,client:text,type:text,status:text,creditTerm:z.number().int().min(0).max(3650),note:text,payDate:z.string().nullable(),hoursSpent:money.optional(),whtRate:z.number().min(0).max(100).optional(),whtAmount:money.optional(),followUpCount:z.number().int().min(0).optional(),installments:z.array(installment).max(100).optional()}).passthrough();
 const expense=z.object({id,name:z.string().min(1).max(500),amount:money,category:text,date:text,note:text.optional()}).passthrough();
 const goal=z.object({id,name:z.string().min(1).max(500),target:money,current:money,history:z.array(z.object({id,type:z.enum(['deposit','withdraw']),amount:money,date:text,reason:text}).passthrough()).max(10000).optional()}).passthrough();
 const profile=z.object({name:text,address:text,phone:text,email:text,taxId:text,bankName:text,bankAccount:text,bankAccountName:text,logoUrl:z.string().max(500000).optional()});
