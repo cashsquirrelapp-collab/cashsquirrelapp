@@ -138,7 +138,7 @@ export const DOCUMENT_CSS = `
 .da4-kv .v.name{font-weight:600}
 .da4-contact{font-size:10px;display:flex;flex-direction:column;gap:3px}
 .da4-contact div{display:flex;gap:7px;align-items:flex-start;word-break:break-all}
-.da4-meta{background:var(--da4-tint);border-left:3px solid var(--da4-accent);border-radius:8px;padding:8px 12px;font-size:10.5px;align-self:start;margin-top:8px}
+.da4-meta{background:var(--da4-tint);border-left:3px solid var(--da4-accent);border-radius:0;padding:8px 12px;font-size:10.5px;align-self:start;margin-top:8px}
 .da4-meta div{display:grid;grid-template-columns:82px 1fr;gap:4px}
 .da4-meta .k{font-weight:600}
 .da4-callback{font-weight:500;font-size:10.5px;margin:10px 0 0 12px}
@@ -147,8 +147,7 @@ export const DOCUMENT_CSS = `
 .da4-cont span{font-size:10px}
 .da4-table{width:100%;border-collapse:collapse;margin-top:10px;table-layout:fixed}
 .da4-table th{background:var(--da4-tint);font-size:10.5px;font-weight:600;padding:8px 6px;height:34px;text-align:right}
-.da4-table th:first-child{text-align:left;border-radius:8px 0 0 8px;padding-left:8px}
-.da4-table th:last-child{border-radius:0 8px 8px 0}
+.da4-table th:first-child{text-align:left;padding-left:8px}
 .da4-table td{padding:7px 6px 3px;vertical-align:top;font-size:10.5px;text-align:right;font-variant-numeric:tabular-nums}
 .da4-table td.desc{text-align:left;padding-left:8px;word-break:break-word;white-space:pre-line}
 .da4-table td.desc .n{display:inline-block;width:16px}
@@ -163,7 +162,7 @@ export const DOCUMENT_CSS = `
 .da4-sumrows .l{font-weight:600}
 .da4-sumrows .r{text-align:right}
 .da4-sumrows .r.txt{grid-column:2}
-.da4-totalbox{background:var(--da4-tint);border-left:3px solid var(--da4-accent);border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:baseline;font-weight:600}
+.da4-totalbox{background:var(--da4-tint);border-left:3px solid var(--da4-accent);border-radius:0;padding:9px 12px;display:flex;justify-content:space-between;align-items:baseline;font-weight:600}
 .da4-totalbox .amt{font-size:17px;font-weight:500}
 .da4-totalbox .amt small{font-size:9.5px}
 .da4-minirows{display:grid;grid-template-columns:1fr auto;row-gap:2px;font-size:10px;margin:8px 8px 0 12px}
@@ -180,7 +179,7 @@ export const DOCUMENT_CSS = `
 .da4-sig .area{height:58px;border-bottom:1px dashed #8C857D;display:flex;align-items:center;justify-content:center}
 .da4-sig .area.noline{border-bottom:none}
 .da4-sig .area img{max-width:100%;max-height:52px;object-fit:contain}
-.da4-sig .area.box{border:1px dashed #8C857D;border-radius:8px;height:62px}
+.da4-sig .area.box{border:1px dashed #8C857D;border-radius:0;height:62px}
 .da4-sig .under{margin-top:4px;min-height:14px;font-size:9.5px}
 .da4-pageno{text-align:center;font-size:9px;margin-top:6px}
 .da4-sheet{display:flex;flex-direction:column;gap:16px}
@@ -244,7 +243,7 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                 <div className="da4-top">
                   <div className="da4-logo-slot">{issuer.logoUrl ? <img className="da4-logo" src={issuer.logoUrl} alt="" /> : null}</div>
                   <div className="da4-titlebox">
-                    <div className="orig">(ต้นฉบับ)</div>
+                    {meta.isTax ? <div className="orig">(ต้นฉบับ)</div> : null}
                     <h1>{meta.th}</h1>
                   </div>
                 </div>
