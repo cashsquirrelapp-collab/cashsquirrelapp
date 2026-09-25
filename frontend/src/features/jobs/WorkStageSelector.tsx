@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BriefcaseBusiness, Check, ChevronDown, PackageCheck } from 'lucide-react';
+import { Check, ChevronDown, CirclePlay, CircleCheckBig } from 'lucide-react';
 
 interface WorkStageSelectorProps {
   isPosted: boolean;
@@ -10,15 +10,15 @@ interface WorkStageSelectorProps {
 const stages = [
   {
     value: false,
-    title: 'รับดีลแล้ว',
-    description: 'ตกลงรับโปรเจกต์จากลูกค้า แต่ยังไม่ได้ส่งมอบงาน',
-    Icon: BriefcaseBusiness,
+    title: 'เริ่มงาน / บริการแล้ว',
+    description: 'กำลังทำงาน ให้บริการ หรือดำเนินกิจกรรมตามข้อตกลง',
+    Icon: CirclePlay,
   },
   {
     value: true,
-    title: 'ส่งมอบงานแล้ว',
-    description: 'ส่งงานเรียบร้อย เริ่มนับวันเครดิตเทอมได้',
-    Icon: PackageCheck,
+    title: 'งาน / บริการเสร็จแล้ว',
+    description: 'ทำงาน สอน หรือส่งมอบครบแล้ว เริ่มนับเครดิตเทอมได้',
+    Icon: CircleCheckBig,
   },
 ] as const;
 
@@ -36,7 +36,7 @@ export default function WorkStageSelector({ isPosted, onChange, accent = 'emeral
     <section className="space-y-2">
       <div>
         <label className="block text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-neutral-400">ขั้นตอนของงาน</label>
-        <p className="mt-1 text-[10px] font-medium text-brand-muted">เลือกตามว่าตอนนี้งานยังอยู่ระหว่างทำ หรือส่งมอบแล้ว</p>
+        <p className="mt-1 text-[10px] font-medium text-brand-muted">เลือกตามว่าตอนนี้งานหรือบริการกำลังดำเนินการ หรือเสร็จสมบูรณ์แล้ว</p>
       </div>
 
       <button
