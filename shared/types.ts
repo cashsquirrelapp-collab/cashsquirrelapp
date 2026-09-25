@@ -193,6 +193,7 @@ export interface InvoiceProfile {
   bankAccount: string;
   bankAccountName: string;
   logoUrl?: string;
+  logoHeight?: number; // ความสูงโลโก้บนเอกสาร (px, 40–200)
   signatureUrl?: string; // ลายเซ็นผู้ออกเอกสาร (data URL)
   website?: string;
 }

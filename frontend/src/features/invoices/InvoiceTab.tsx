@@ -4,7 +4,7 @@ import { readInvoices, saveCloud } from '../../services/cloud';
 import { validateChanges } from '../../../../shared/validation';
 import React, { useState, useEffect } from 'react';
 import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../../../shared/types';
-import { DocumentPreview, DOCUMENT_TYPES, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
+import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,7 +42,8 @@ const BrandImageField: React.FC<{
   value?: string;
   onChange: (value: string) => void;
   onError: (title: string, message: string) => void;
-}> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError }) => (
+  size?: { value: number; min: number; max: number; onChange: (value: number) => void };
+}> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError, size }) => (
   <div className="md:col-span-12 bg-stone-50 dark:bg-stone-950/40 p-5 rounded-2xl border border-brand-border/40 space-y-3.5">
     <div className="flex items-center gap-2">
       <div className="p-1.5 bg-[#E65F2B]/10 rounded-lg text-[#E65F2B]">
@@ -98,6 +99,22 @@ const BrandImageField: React.FC<{
             </button>
           )}
         </div>
+        {size && value ? (
+          <label className="flex items-center gap-3 text-[10px] font-black text-brand-muted">
+            <span className="shrink-0">ขนาดบนเอกสาร</span>
+            <input
+              type="range"
+              min={size.min}
+              max={size.max}
+              step={4}
+              value={size.value}
+              onChange={(e) => size.onChange(Number(e.target.value))}
+              aria-label="ขนาดโลโก้บนเอกสาร"
+              className="w-full max-w-xs accent-[#E65F2B] cursor-pointer"
+            />
+            <span className="font-mono w-14 text-right">{size.value}px</span>
+          </label>
+        ) : null}
         <p className="text-[9px] text-brand-muted leading-relaxed">
           * รองรับ PNG, JPEG และ WebP ไม่เกิน 2MB ระบบย่อภาพก่อนบันทึก
         </p>
@@ -520,6 +537,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     issuer: {
       ...inv.issuer,
       logoUrl: issuerProfile.logoUrl || inv.issuer.logoUrl,
+      logoHeight: issuerProfile.logoUrl ? issuerProfile.logoHeight : inv.issuer.logoHeight,
       signatureUrl: issuerProfile.signatureUrl || inv.issuer.signatureUrl
     }
   });
@@ -1350,6 +1368,12 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               value={issuerProfile.logoUrl}
               onChange={(logoUrl) => setIssuerProfile(prev => ({ ...prev, logoUrl }))}
               onError={triggerAlert}
+              size={{
+                value: issuerProfile.logoHeight || DEFAULT_LOGO_HEIGHT,
+                min: MIN_LOGO_HEIGHT,
+                max: MAX_LOGO_HEIGHT,
+                onChange: (logoHeight) => setIssuerProfile(prev => ({ ...prev, logoHeight }))
+              }}
             />
             <BrandImageField
               title="ลายเซ็นผู้ออกเอกสาร (Signature)"

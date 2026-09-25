@@ -288,10 +288,12 @@ test('uploaded logo and signature are saved to the profile and appear on existin
  await files.nth(0).setInputFiles({name:'logo.png',mimeType:'image/png',buffer:png});
  await files.nth(1).setInputFiles({name:'sign.png',mimeType:'image/png',buffer:png});
  await expect(page.locator('img[src^="data:image"]')).toHaveCount(2);
+ await page.getByRole('slider',{name:'ขนาดโลโก้บนเอกสาร'}).fill('152');
  await page.getByRole('button',{name:/บันทึก/}).last().click();
  await page.getByRole('button',{name:'ตกลง',exact:true}).click();
- await expect.poll(()=>saved.some(c=>c.id==='issuer_profile'&&c.data.logoUrl?.startsWith('data:image')&&c.data.signatureUrl?.startsWith('data:image'))).toBe(true);
+ await expect.poll(()=>saved.some(c=>c.id==='issuer_profile'&&c.data.logoUrl?.startsWith('data:image')&&c.data.signatureUrl?.startsWith('data:image')&&c.data.logoHeight===152)).toBe(true);
  await expect(page.getByTestId('document-preview').locator('.da4-logo')).toHaveCount(1);
+ expect(await page.getByTestId('document-preview').locator('.da4-logo').evaluate(el=>getComputedStyle(el).maxHeight)).toBe('152px');
  await expect(page.getByTestId('document-preview').locator('.da4-sig img')).toHaveCount(2); // signature + seller stamp (logo)
 });
 

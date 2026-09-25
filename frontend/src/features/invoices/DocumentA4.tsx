@@ -69,6 +69,12 @@ const CONTENT_H = A4_HEIGHT_PX - PAGE_PAD_Y * 2 - PAGENO_H;
 const TABLE_HEAD_H = 34;
 const CONT_HEAD_H = 50;
 
+export const DEFAULT_LOGO_HEIGHT = 96;
+export const MIN_LOGO_HEIGHT = 40;
+export const MAX_LOGO_HEIGHT = 200;
+const logoHeightOf = (issuer: { logoHeight?: number }): number =>
+  Math.min(MAX_LOGO_HEIGHT, Math.max(MIN_LOGO_HEIGHT, issuer.logoHeight || DEFAULT_LOGO_HEIGHT));
+
 const lineCount = (text: string | undefined, charsPerLine: number): number => {
   if (!text) return 0;
   return text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / charsPerLine)), 0);
@@ -80,7 +86,7 @@ const rowHeight = (item: InvoiceItem): number =>
 const firstHeadHeight = (invoice: Invoice): number => {
   const issuerLines = lineCount(invoice.issuer.address, 46) + 2;
   const clientLines = lineCount(invoice.client.address, 46) + 2 + (invoice.client.contactName ? 1 : 0);
-  return 96 + 30 + Math.max(issuerLines * 17, 62) + 24 + Math.max(clientLines * 17, 62) + 24;
+  return Math.max(96, logoHeightOf(invoice.issuer) + 22) + 30 + Math.max(issuerLines * 17, 62) + 24 + Math.max(clientLines * 17, 62) + 24;
 };
 
 const footerHeight = (invoice: Invoice, meta: DocumentMeta): number => {
@@ -123,9 +129,9 @@ export const DOCUMENT_CSS = `
 .da4-page{position:relative;width:210mm;height:297mm;padding:38px 10mm;background:#fff;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page}
 .da4-page:last-child{page-break-after:auto;break-after:auto}
 .da4-ico{width:11px;height:11px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.da4-top{display:flex;justify-content:space-between;align-items:flex-end;min-height:84px}
-.da4-logo-slot{width:150px;height:74px;display:flex;align-items:center}
-.da4-logo{max-width:150px;max-height:74px;object-fit:contain}
+.da4-top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.da4-logo-slot{display:flex;align-items:center;min-width:0}
+.da4-logo{max-width:280px;object-fit:contain;display:block}
 .da4-titlebox{text-align:right}
 .da4-titlebox .orig{font-size:10px;font-weight:400;margin-bottom:9px;letter-spacing:.02em}
 .da4-titlebox h1{margin:0;font-size:27px;line-height:1.2;font-weight:700;color:var(--da4-accent);display:inline-block;padding-bottom:5px;border-bottom:3px solid var(--da4-accent)}
@@ -240,8 +246,10 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
             {pageIndex === 0 ? (
               <>
                 {/* Logo slot stays reserved even when no logo is uploaded (Profile → logo) */}
-                <div className="da4-top">
-                  <div className="da4-logo-slot">{issuer.logoUrl ? <img className="da4-logo" src={issuer.logoUrl} alt="" /> : null}</div>
+                <div className="da4-top" style={{ minHeight: logoHeightOf(issuer) + 10 }}>
+                  <div className="da4-logo-slot" style={{ height: logoHeightOf(issuer), minWidth: 150 }}>
+                    {issuer.logoUrl ? <img className="da4-logo" style={{ maxHeight: logoHeightOf(issuer) }} src={issuer.logoUrl} alt="" /> : null}
+                  </div>
                   <div className="da4-titlebox">
                     {meta.isTax ? <div className="orig">(ต้นฉบับ)</div> : null}
                     <h1>{meta.th}</h1>
