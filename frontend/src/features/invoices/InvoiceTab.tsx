@@ -4,6 +4,7 @@ import { readInvoices, saveCloud } from '../../services/cloud';
 import { validateChanges } from '../../../../shared/validation';
 import React, { useState, useEffect } from 'react';
 import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../../../shared/types';
+import { THAI_BANKS, findThaiBank } from './thaiBanks';
 import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
@@ -194,6 +195,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   // Copy-state feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string>('');
+  const [bankOtherMode, setBankOtherMode] = useState(false);
 
   // Load from local storage on mount
   useEffect(() => {
@@ -538,7 +540,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       ...inv.issuer,
       logoUrl: issuerProfile.logoUrl || inv.issuer.logoUrl,
       logoHeight: issuerProfile.logoUrl ? issuerProfile.logoHeight : inv.issuer.logoHeight,
-      signatureUrl: issuerProfile.signatureUrl || inv.issuer.signatureUrl
+      signatureUrl: issuerProfile.signatureUrl || inv.issuer.signatureUrl,
+      // documents made before any bank details were saved pick up the current ones
+      ...(inv.issuer.bankAccount ? {} : { bankName: issuerProfile.bankName, bankAccount: issuerProfile.bankAccount, bankAccountName: issuerProfile.bankAccountName })
     }
   });
 
@@ -1458,13 +1462,36 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             {/* Bank Name */}
             <div className="md:col-span-4 flex flex-col gap-1.5">
               <label className="text-[9px] font-bold text-brand-muted uppercase">ชื่อธนาคาร</label>
-              <input
-                type="text"
-                value={issuerProfile.bankName}
-                onChange={(e) => setIssuerProfile({ ...issuerProfile, bankName: e.target.value })}
-                placeholder="เช่น ธนาคารกสิกรไทย (KBank)"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
+              <select
+                value={findThaiBank(issuerProfile.bankName) ? issuerProfile.bankName : issuerProfile.bankName || bankOtherMode ? '__other' : ''}
+                onChange={(e) => {
+                  if (e.target.value === '__other') {
+                    setBankOtherMode(true);
+                    if (findThaiBank(issuerProfile.bankName)) setIssuerProfile({ ...issuerProfile, bankName: '' });
+                  } else {
+                    setBankOtherMode(false);
+                    setIssuerProfile({ ...issuerProfile, bankName: e.target.value });
+                  }
+                }}
+                aria-label="ธนาคาร"
+                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
+              >
+                <option value="">— เลือกธนาคาร —</option>
+                {THAI_BANKS.map(bank => (
+                  <option key={bank.code} value={bank.name}>{bank.name} ({bank.code})</option>
+                ))}
+                <option value="__other">อื่น ๆ (พิมพ์ชื่อเอง)</option>
+              </select>
+              {!findThaiBank(issuerProfile.bankName) && (issuerProfile.bankName || bankOtherMode) && (
+                <input
+                  type="text"
+                  value={issuerProfile.bankName}
+                  onChange={(e) => setIssuerProfile({ ...issuerProfile, bankName: e.target.value })}
+                  placeholder="พิมพ์ชื่อธนาคาร / ช่องทางรับเงิน เช่น พร้อมเพย์"
+                  aria-label="ชื่อธนาคารอื่น ๆ"
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              )}
             </div>
 
             {/* Bank Account */}

@@ -288,11 +288,14 @@ test('uploaded logo and signature are saved to the profile and appear on existin
  await files.nth(0).setInputFiles({name:'logo.png',mimeType:'image/png',buffer:png});
  await files.nth(1).setInputFiles({name:'sign.png',mimeType:'image/png',buffer:png});
  await expect(page.locator('img[src^="data:image"]')).toHaveCount(2);
+ await page.getByLabel('ธนาคาร',{exact:true}).selectOption('ธนาคารกสิกรไทย');
+ await page.getByPlaceholder('เช่น 123-4-56789-0').fill('012-3-45678-9');
  await page.getByRole('slider',{name:'ขนาดโลโก้บนเอกสาร'}).fill('152');
  await page.getByRole('button',{name:/บันทึก/}).last().click();
  await page.getByRole('button',{name:'ตกลง',exact:true}).click();
- await expect.poll(()=>saved.some(c=>c.id==='issuer_profile'&&c.data.logoUrl?.startsWith('data:image')&&c.data.signatureUrl?.startsWith('data:image')&&c.data.logoHeight===152)).toBe(true);
+ await expect.poll(()=>saved.some(c=>c.id==='issuer_profile'&&c.data.logoUrl?.startsWith('data:image')&&c.data.signatureUrl?.startsWith('data:image')&&c.data.logoHeight===152&&c.data.bankName==='ธนาคารกสิกรไทย')).toBe(true);
  await expect(page.getByTestId('document-preview').locator('.da4-logo')).toHaveCount(1);
+ await expect(page.getByTestId('document-preview').locator('.da4-chip')).toHaveText('KBANK');
  expect(await page.getByTestId('document-preview').locator('.da4-logo').evaluate(el=>getComputedStyle(el).maxHeight)).toBe('152px');
  await expect(page.getByTestId('document-preview').locator('.da4-sig img')).toHaveCount(2); // signature + seller stamp (logo)
 });

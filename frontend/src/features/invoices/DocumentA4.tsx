@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { DocumentType, Invoice, InvoiceItem } from '../../../../shared/types';
+import { findThaiBank } from './thaiBanks';
 import { calculateDocumentTotals, formatDocDate, formatMoney, thaiBahtText } from './documentMath';
 
 export { calculateDocumentTotals, formatDocDate, formatMoney, thaiBahtText };
@@ -178,6 +179,7 @@ export const DOCUMENT_CSS = `
 .da4-pay .kv2{display:grid;grid-template-columns:auto 1fr;row-gap:5px;column-gap:14px;align-content:start}
 .da4-pay .kv2 .k{font-weight:600;white-space:nowrap}
 .da4-pay .kv2 span{white-space:nowrap}
+.da4-chip{display:inline-block;border:1px solid var(--da4-accent);color:var(--da4-accent);font-size:8.5px;font-weight:600;line-height:1;padding:2px 4px;margin-right:5px;vertical-align:1px}
 .da4-bank{display:flex;gap:6px;align-items:flex-start}
 .da4-remark{min-height:26px;font-size:10.5px;white-space:pre-line;word-break:break-word}
 .da4-sig{display:grid;grid-template-columns:repeat(5,1fr);column-gap:8px;font-size:9.5px;text-align:center}
@@ -387,7 +389,10 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                           <div className="da4-bank">
                             <Ico name="landmark" />
                             <div>
-                              <div>{issuer.bankName}{meta.isReceipt && invoice.paymentMethod ? ` (${invoice.paymentMethod})` : ''}</div>
+                              <div>
+                                {findThaiBank(issuer.bankName) ? <span className="da4-chip">{findThaiBank(issuer.bankName)!.code}</span> : null}
+                                {issuer.bankName}{meta.isReceipt && invoice.paymentMethod ? ` (${invoice.paymentMethod})` : ''}
+                              </div>
                               <div className="b">เลขที่บัญชี {issuer.bankAccount}</div>
                               <div>{issuer.bankAccountName || issuer.name}</div>
                             </div>
