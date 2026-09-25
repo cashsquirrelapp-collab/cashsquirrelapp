@@ -113,13 +113,13 @@ export const paginateItems = (invoice: Invoice): InvoiceItem[][] => {
 // Styles -- layout follows the formal Thai reference sheet; colour identity is our orange theme
 // ---------------------------------------------------------------------------------------------
 
-export const DOCUMENT_FONT_URL = 'https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap';
+export const DOCUMENT_FONT_URL = 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Sarabun:wght@300;400;500;600;700&display=swap';
 
 export const DOCUMENT_CSS = `
 .da4{--da4-accent:#E65F2B;--da4-tint:#FCE9DD;--da4-line:#CFC8C0;--da4-ink:#1F1B18;--da4-muted:#4A433D;
-  font-family:'Prompt','Sarabun','Noto Sans Thai',system-ui,sans-serif;color:var(--da4-ink);font-size:10.5px;line-height:1.5;font-weight:300;-webkit-print-color-adjust:exact;print-color-adjust:exact;text-align:left}
+  font-family:'Outfit','Sarabun','Noto Sans Thai',system-ui,sans-serif;color:var(--da4-ink);font-size:11px;line-height:1.45;font-weight:400;-webkit-print-color-adjust:exact;print-color-adjust:exact;text-align:left}
 .da4 *{box-sizing:border-box}
-.da4 b,.da4 .b{font-weight:500}
+.da4 b,.da4 .b{font-weight:600}
 .da4-page{position:relative;width:210mm;height:297mm;padding:38px 10mm;background:#fff;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page}
 .da4-page:last-child{page-break-after:auto;break-after:auto}
 .da4-ico{width:11px;height:11px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -127,28 +127,28 @@ export const DOCUMENT_CSS = `
 .da4-logo-slot{width:150px;height:74px;display:flex;align-items:center}
 .da4-logo{max-width:150px;max-height:74px;object-fit:contain}
 .da4-titlebox{text-align:right}
-.da4-titlebox .orig{font-size:10px;font-weight:400}
-.da4-titlebox h1{margin:0;font-size:27px;line-height:1.2;font-weight:500;color:var(--da4-accent)}
+.da4-titlebox .orig{font-size:10px;font-weight:400;margin-bottom:9px;letter-spacing:.02em}
+.da4-titlebox h1{margin:0;font-size:27px;line-height:1.2;font-weight:700;color:var(--da4-accent);display:inline-block;padding-bottom:5px;border-bottom:3px solid var(--da4-accent)}
 .da4-headgrid{display:grid;grid-template-columns:1fr 32%;column-gap:14px;margin-top:14px}
 .da4-party{display:grid;grid-template-columns:1fr 36%;column-gap:10px;padding:8px 0}
 .da4-party + .da4-party{border-top:1px solid var(--da4-line)}
 .da4-kv{display:grid;grid-template-columns:62px 1fr;row-gap:2px;font-size:10.5px}
-.da4-kv .k{font-weight:500}
+.da4-kv .k{font-weight:600;color:var(--da4-muted)}
 .da4-kv .v{word-break:break-word;white-space:pre-line}
-.da4-kv .v.name{font-weight:500}
+.da4-kv .v.name{font-weight:600}
 .da4-contact{font-size:10px;display:flex;flex-direction:column;gap:3px}
 .da4-contact div{display:flex;gap:7px;align-items:flex-start;word-break:break-all}
-.da4-meta{background:var(--da4-tint);border-radius:4px;padding:8px 12px;font-size:10.5px;align-self:start;margin-top:8px}
+.da4-meta{background:var(--da4-tint);border-left:3px solid var(--da4-accent);border-radius:8px;padding:8px 12px;font-size:10.5px;align-self:start;margin-top:8px}
 .da4-meta div{display:grid;grid-template-columns:82px 1fr;gap:4px}
-.da4-meta .k{font-weight:500}
+.da4-meta .k{font-weight:600}
 .da4-callback{font-weight:500;font-size:10.5px;margin:10px 0 0 12px}
 .da4-cont{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--da4-line)}
-.da4-cont strong{font-size:15px;font-weight:500;color:var(--da4-accent)}
+.da4-cont strong{font-size:15px;font-weight:700;color:var(--da4-accent)}
 .da4-cont span{font-size:10px}
 .da4-table{width:100%;border-collapse:collapse;margin-top:10px;table-layout:fixed}
-.da4-table th{background:var(--da4-tint);font-size:10.5px;font-weight:500;padding:8px 6px;height:34px;text-align:right}
-.da4-table th:first-child{text-align:left;border-radius:4px 0 0 4px;padding-left:8px}
-.da4-table th:last-child{border-radius:0 4px 4px 0}
+.da4-table th{background:var(--da4-tint);font-size:10.5px;font-weight:600;padding:8px 6px;height:34px;text-align:right}
+.da4-table th:first-child{text-align:left;border-radius:8px 0 0 8px;padding-left:8px}
+.da4-table th:last-child{border-radius:0 8px 8px 0}
 .da4-table td{padding:7px 6px 3px;vertical-align:top;font-size:10.5px;text-align:right;font-variant-numeric:tabular-nums}
 .da4-table td.desc{text-align:left;padding-left:8px;word-break:break-word;white-space:pre-line}
 .da4-table td.desc .n{display:inline-block;width:16px}
@@ -157,30 +157,30 @@ export const DOCUMENT_CSS = `
 .da4-grow{flex:1 1 auto;min-height:0}
 .da4-foot{margin-top:auto}
 .da4-sec{display:grid;grid-template-columns:100px 1fr;border-top:1px solid var(--da4-line);padding:9px 0}
-.da4-sec > .lab{display:flex;gap:5px;align-items:flex-start;font-weight:500;font-size:10.5px}
+.da4-sec > .lab{display:flex;gap:5px;align-items:flex-start;font-weight:600;font-size:10.5px;color:var(--da4-accent)}
 .da4-sum{display:grid;grid-template-columns:1fr 36%;column-gap:14px}
 .da4-sumrows{display:grid;grid-template-columns:1fr auto;column-gap:16px;row-gap:5px;font-size:10.5px;align-content:start}
-.da4-sumrows .l{font-weight:500}
+.da4-sumrows .l{font-weight:600}
 .da4-sumrows .r{text-align:right}
 .da4-sumrows .r.txt{grid-column:2}
-.da4-totalbox{background:var(--da4-tint);border-radius:4px;padding:9px 12px;display:flex;justify-content:space-between;align-items:baseline;font-weight:500}
-.da4-totalbox .amt{font-size:16px;font-weight:400}
+.da4-totalbox{background:var(--da4-tint);border-left:3px solid var(--da4-accent);border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:baseline;font-weight:600}
+.da4-totalbox .amt{font-size:17px;font-weight:500}
 .da4-totalbox .amt small{font-size:9.5px}
 .da4-minirows{display:grid;grid-template-columns:1fr auto;row-gap:2px;font-size:10px;margin:8px 8px 0 12px}
-.da4-minirows .l{font-weight:500}
+.da4-minirows .l{font-weight:600}
 .da4-minirows .r{text-align:right;padding-left:14px}
 .da4-pay{display:grid;grid-template-columns:200px 1fr auto;column-gap:14px;font-size:10.5px}
 .da4-pay .kv2{display:grid;grid-template-columns:auto 1fr;row-gap:5px;column-gap:14px;align-content:start}
-.da4-pay .kv2 .k{font-weight:500;white-space:nowrap}
+.da4-pay .kv2 .k{font-weight:600;white-space:nowrap}
 .da4-pay .kv2 span{white-space:nowrap}
 .da4-bank{display:flex;gap:6px;align-items:flex-start}
 .da4-remark{min-height:26px;font-size:10.5px;white-space:pre-line;word-break:break-word}
 .da4-sig{display:grid;grid-template-columns:repeat(5,1fr);column-gap:8px;font-size:9.5px;text-align:center}
-.da4-sig .role{font-weight:500;font-size:9.5px;line-height:1.3;min-height:26px}
+.da4-sig .role{font-weight:600;font-size:9.5px;line-height:1.3;min-height:26px}
 .da4-sig .area{height:58px;border-bottom:1px dashed #8C857D;display:flex;align-items:center;justify-content:center}
 .da4-sig .area.noline{border-bottom:none}
 .da4-sig .area img{max-width:100%;max-height:52px;object-fit:contain}
-.da4-sig .area.box{border:1px dashed #8C857D;border-radius:3px;height:62px}
+.da4-sig .area.box{border:1px dashed #8C857D;border-radius:8px;height:62px}
 .da4-sig .under{margin-top:4px;min-height:14px;font-size:9.5px}
 .da4-pageno{text-align:center;font-size:9px;margin-top:6px}
 .da4-sheet{display:flex;flex-direction:column;gap:16px}
