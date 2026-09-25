@@ -73,6 +73,20 @@ const CONT_HEAD_H = 50;
 export const DEFAULT_LOGO_HEIGHT = 96;
 export const MIN_LOGO_HEIGHT = 40;
 export const MAX_LOGO_HEIGHT = 200;
+export const DEFAULT_BANNER_HEIGHT = 110;
+export const MIN_BANNER_HEIGHT = 40;
+export const MAX_BANNER_HEIGHT = 240;
+const bannerHeightOf = (issuer: { headerImageHeight?: number }): number =>
+  Math.min(MAX_BANNER_HEIGHT, Math.max(MIN_BANNER_HEIGHT, issuer.headerImageHeight || DEFAULT_BANNER_HEIGHT));
+const TITLE_ROW_H = 62;
+
+// Height taken by the logo / banner + title area at the top of the first page
+const topAreaHeight = (issuer: Invoice['issuer']): number => {
+  if (issuer.headerImageUrl) return bannerHeightOf(issuer) + TITLE_ROW_H + 18;
+  if (issuer.logoUrl && issuer.logoPosition === 'center') return logoHeightOf(issuer) + TITLE_ROW_H + 12;
+  return Math.max(96, logoHeightOf(issuer) + 22);
+};
+
 const logoHeightOf = (issuer: { logoHeight?: number }): number =>
   Math.min(MAX_LOGO_HEIGHT, Math.max(MIN_LOGO_HEIGHT, issuer.logoHeight || DEFAULT_LOGO_HEIGHT));
 
@@ -87,7 +101,7 @@ const rowHeight = (item: InvoiceItem): number =>
 const firstHeadHeight = (invoice: Invoice): number => {
   const issuerLines = lineCount(invoice.issuer.address, 46) + 2;
   const clientLines = lineCount(invoice.client.address, 46) + 2 + (invoice.client.contactName ? 1 : 0);
-  return Math.max(96, logoHeightOf(invoice.issuer) + 22) + 30 + Math.max(issuerLines * 17, 62) + 24 + Math.max(clientLines * 17, 62) + 24;
+  return topAreaHeight(invoice.issuer) + 30 + Math.max(issuerLines * 17, 62) + 24 + Math.max(clientLines * 17, 62) + 24;
 };
 
 const footerHeight = (invoice: Invoice, meta: DocumentMeta): number => {
@@ -134,6 +148,12 @@ export const DOCUMENT_CSS = `
 .da4-logo-slot{display:flex;align-items:center;min-width:0}
 .da4-logo{max-width:280px;object-fit:contain;display:block}
 .da4-titlebox{text-align:right}
+.da4-top.pos-right{flex-direction:row-reverse}
+.da4-top.pos-right .da4-titlebox{text-align:left}
+.da4-top.pos-center{flex-direction:column;align-items:center;gap:8px}
+.da4-top.pos-center .da4-titlebox{align-self:flex-end}
+.da4-top.banner{justify-content:flex-end}
+.da4-banner{display:block;width:100%;object-fit:contain;object-position:center;margin-bottom:10px}
 .da4-titlebox .orig{font-size:10px;font-weight:400;margin-bottom:9px;letter-spacing:.02em}
 .da4-titlebox h1{margin:0;font-size:27px;line-height:1.2;font-weight:700;color:var(--da4-accent);display:inline-block;padding-bottom:5px;border-bottom:3px solid var(--da4-accent)}
 .da4-headgrid{display:grid;grid-template-columns:1fr 32%;column-gap:14px;margin-top:14px}
@@ -247,16 +267,32 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
           <section className="da4-page" key={pageIndex} data-page={pageIndex + 1}>
             {pageIndex === 0 ? (
               <>
-                {/* Logo slot stays reserved even when no logo is uploaded (Profile → logo) */}
-                <div className="da4-top" style={{ minHeight: logoHeightOf(issuer) + 10 }}>
-                  <div className="da4-logo-slot" style={{ height: logoHeightOf(issuer), minWidth: 150 }}>
-                    {issuer.logoUrl ? <img className="da4-logo" style={{ maxHeight: logoHeightOf(issuer) }} src={issuer.logoUrl} alt="" /> : null}
+                {issuer.headerImageUrl ? (
+                  // Custom header: the user's own full-width banner replaces the logo slot
+                  <>
+                    <img className="da4-banner" style={{ height: bannerHeightOf(issuer) }} src={issuer.headerImageUrl} alt="" />
+                    <div className="da4-top banner">
+                      <div className="da4-titlebox">
+                        {meta.isTax ? <div className="orig">(ต้นฉบับ)</div> : null}
+                        <h1>{meta.th}</h1>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  // Logo slot stays reserved even when no logo is uploaded (Profile → logo)
+                  <div
+                    className={`da4-top ${issuer.logoPosition === 'right' ? 'pos-right' : issuer.logoPosition === 'center' ? 'pos-center' : ''}`}
+                    style={{ minHeight: issuer.logoPosition === 'center' && issuer.logoUrl ? undefined : logoHeightOf(issuer) + 10 }}
+                  >
+                    <div className="da4-logo-slot" style={{ height: logoHeightOf(issuer), minWidth: issuer.logoPosition === 'center' ? 0 : 150 }}>
+                      {issuer.logoUrl ? <img className="da4-logo" style={{ maxHeight: logoHeightOf(issuer) }} src={issuer.logoUrl} alt="" /> : null}
+                    </div>
+                    <div className="da4-titlebox">
+                      {meta.isTax ? <div className="orig">(ต้นฉบับ)</div> : null}
+                      <h1>{meta.th}</h1>
+                    </div>
                   </div>
-                  <div className="da4-titlebox">
-                    {meta.isTax ? <div className="orig">(ต้นฉบับ)</div> : null}
-                    <h1>{meta.th}</h1>
-                  </div>
-                </div>
+                )}
 
                 <div className="da4-headgrid">
                   <div>

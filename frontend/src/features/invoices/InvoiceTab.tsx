@@ -5,7 +5,7 @@ import { validateChanges } from '../../../../shared/validation';
 import React, { useState, useEffect } from 'react';
 import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../../../shared/types';
 import { THAI_BANKS, findThaiBank } from './thaiBanks';
-import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
+import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, DEFAULT_BANNER_HEIGHT, MIN_BANNER_HEIGHT, MAX_BANNER_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { motion, AnimatePresence } from 'motion/react';
@@ -44,7 +44,8 @@ const BrandImageField: React.FC<{
   onChange: (value: string) => void;
   onError: (title: string, message: string) => void;
   size?: { value: number; min: number; max: number; onChange: (value: number) => void };
-}> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError, size }) => (
+  extra?: React.ReactNode;
+}> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError, size, extra }) => (
   <div className="md:col-span-12 bg-stone-50 dark:bg-stone-950/40 p-5 rounded-2xl border border-brand-border/40 space-y-3.5">
     <div className="flex items-center gap-2">
       <div className="p-1.5 bg-[#E65F2B]/10 rounded-lg text-[#E65F2B]">
@@ -116,6 +117,7 @@ const BrandImageField: React.FC<{
             <span className="font-mono w-14 text-right">{size.value}px</span>
           </label>
         ) : null}
+        {value ? extra : null}
         <p className="text-[9px] text-brand-muted leading-relaxed">
           * รองรับ PNG, JPEG และ WebP ไม่เกิน 2MB ระบบย่อภาพก่อนบันทึก
         </p>
@@ -540,6 +542,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       ...inv.issuer,
       logoUrl: issuerProfile.logoUrl || inv.issuer.logoUrl,
       logoHeight: issuerProfile.logoUrl ? issuerProfile.logoHeight : inv.issuer.logoHeight,
+      logoPosition: issuerProfile.logoUrl ? issuerProfile.logoPosition : inv.issuer.logoPosition,
+      headerImageUrl: issuerProfile.headerImageUrl || inv.issuer.headerImageUrl,
+      headerImageHeight: issuerProfile.headerImageUrl ? issuerProfile.headerImageHeight : inv.issuer.headerImageHeight,
       signatureUrl: issuerProfile.signatureUrl || inv.issuer.signatureUrl,
       // documents made before any bank details were saved pick up the current ones
       ...(inv.issuer.bankAccount ? {} : { bankName: issuerProfile.bankName, bankAccount: issuerProfile.bankAccount, bankAccountName: issuerProfile.bankAccountName })
@@ -1377,6 +1382,40 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 min: MIN_LOGO_HEIGHT,
                 max: MAX_LOGO_HEIGHT,
                 onChange: (logoHeight) => setIssuerProfile(prev => ({ ...prev, logoHeight }))
+              }}
+              extra={(
+                <div className="flex items-center gap-3 text-[10px] font-black text-brand-muted">
+                  <span className="shrink-0">ตำแหน่งโลโก้</span>
+                  <div className="flex gap-1.5" role="group" aria-label="ตำแหน่งโลโก้">
+                    {([['left', 'ซ้าย'], ['center', 'กลาง'], ['right', 'ขวา']] as const).map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        aria-pressed={(issuerProfile.logoPosition || 'left') === key}
+                        onClick={() => setIssuerProfile(prev => ({ ...prev, logoPosition: key }))}
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black cursor-pointer transition-all ${(issuerProfile.logoPosition || 'left') === key ? 'bg-[#E65F2B] text-white' : 'bg-brand-white dark:bg-stone-900 border border-brand-border/60 text-brand-muted'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            />
+            <BrandImageField
+              title="แบนเนอร์หัวเอกสาร (ออกแบบส่วนหัวเอง)"
+              hint="อัปโหลดภาพส่วนหัวที่คุณออกแบบเอง (โลโก้ ชื่อร้าน ข้อมูลติดต่อ ฯลฯ) ภาพจะแสดงเต็มความกว้างด้านบนของเอกสาร และใช้แทนตำแหน่งโลโก้ ควรเป็นภาพแนวนอน"
+              emptyLabel="ไม่มีแบนเนอร์"
+              uploadLabel="อัปโหลดแบนเนอร์"
+              removeLabel="ลบแบนเนอร์"
+              value={issuerProfile.headerImageUrl}
+              onChange={(headerImageUrl) => setIssuerProfile(prev => ({ ...prev, headerImageUrl }))}
+              onError={triggerAlert}
+              size={{
+                value: issuerProfile.headerImageHeight || DEFAULT_BANNER_HEIGHT,
+                min: MIN_BANNER_HEIGHT,
+                max: MAX_BANNER_HEIGHT,
+                onChange: (headerImageHeight) => setIssuerProfile(prev => ({ ...prev, headerImageHeight }))
               }}
             />
             <BrandImageField
