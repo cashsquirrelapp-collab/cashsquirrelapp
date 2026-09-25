@@ -3,7 +3,8 @@ import { imageFileToDataUrl } from '../../services/images';
 import { readInvoices, saveCloud } from '../../services/cloud';
 import { validateChanges } from '../../../../shared/validation';
 import React, { useState, useEffect } from 'react';
-import { Job, Invoice, InvoiceItem, InvoiceProfile } from '../../../../shared/types';
+import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../../../shared/types';
+import { DocumentPreview, DOCUMENT_TYPES, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { motion, AnimatePresence } from 'motion/react';
@@ -27,26 +28,9 @@ import {
   Download,
   Upload,
   Phone,
-  Mail,
-  Landmark,
-  StickyNote,
-  PenLine
+  Mail
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
-
-// Small inline-SVG icons for the printed/PDF document -- raw HTML strings, not React
-// components, since handlePrintDocument builds a plain HTML document via string
-// interpolation for a separate print window (emoji render inconsistently across OS/print
-// fonts, hence vector icons instead).
-const svgIcon = (inner: string, color: string) =>
-  `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;display:inline-block;">${inner}</svg>`;
-
-const ICON_PHONE = svgIcon('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>', '#6b7280');
-const ICON_MAIL = svgIcon('<rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/>', '#6b7280');
-const ICON_USER = svgIcon('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', '#6b7280');
-const ICON_BANK = `<svg width="10" height="10" viewBox="0 0 24 24" style="vertical-align:-1px;margin-right:4px;display:inline-block;"><polygon points="12,2 22,8 2,8" fill="#9ca3af"/><rect x="4" y="9" width="2" height="10" fill="#9ca3af"/><rect x="11" y="9" width="2" height="10" fill="#9ca3af"/><rect x="18" y="9" width="2" height="10" fill="#9ca3af"/><rect x="2" y="20" width="20" height="2" fill="#9ca3af"/></svg>`;
-const ICON_NOTE = svgIcon('<rect x="3" y="2" width="18" height="20" rx="2"/><path d="M7 7h10M7 12h10M7 17h6"/>', '#9ca3af');
-const ICON_PEN = svgIcon('<path d="M4 20l3.5-1 11.5-11.5-2.5-2.5L5 16.5z"/>', '#9ca3af');
 
 interface InvoiceTabProps {
   jobs: Job[];
@@ -71,7 +55,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'list' | 'create' | 'issuer_profile'>('list');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
-  const [docTypeFilter, setDocTypeFilter] = useState<'all' | 'quotation' | 'invoice' | 'receipt'>('all');
+  const [docTypeFilter, setDocTypeFilter] = useState<'all' | DocumentType>('all');
 
   // Default Issuer Profile
   const [issuerProfile, setIssuerProfile] = useState<InvoiceProfile>({
@@ -87,7 +71,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   });
 
   // Editor states
-  const [docType, setDocType] = useState<'invoice' | 'receipt' | 'quotation'>('invoice');
+  const [docType, setDocType] = useState<DocumentType>('invoice');
   const [docNo, setDocNo] = useState('');
   const [createdDate, setCreatedDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
@@ -98,6 +82,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const [clientEmail, setClientEmail] = useState('');
   const [clientTaxId, setClientTaxId] = useState('');
   const [clientContactName, setClientContactName] = useState('');
+  const [clientCode, setClientCode] = useState('');
+  const [clientBranch, setClientBranch] = useState('');
+  const [paidDate, setPaidDate] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paidAmount, setPaidAmount] = useState<number | ''>('');
   
   const [paymentTerm, setPaymentTerm] = useState('');
   const [deliveryTerm, setDeliveryTerm] = useState('');
@@ -243,7 +232,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setInvoiceItems(invoiceItems.filter(item => item.id !== id));
   };
 
-  const handleItemFieldChange = (id: string, field: 'description' | 'quantity' | 'price' | 'discount', value: any) => {
+  const handleItemFieldChange = (id: string, field: 'description' | 'quantity' | 'price' | 'discount' | 'unit' | 'detail', value: any) => {
     setInvoiceItems(invoiceItems.map(item => {
       if (item.id === id) {
         if (field === 'quantity') {
@@ -263,11 +252,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   // Calculate Subtotal, VAT, WHT, Grand total (subtotal is net of each line's own discount)
   const calculateTotals = (itemsList: InvoiceItem[], vat: number, wht: number) => {
-    const subtotal = itemsList.reduce((sum, item) => sum + (item.quantity * item.price - (item.discount || 0)), 0);
-    const vatAmount = vat > 0 ? subtotal * (vat / 100) : 0;
-    const whtAmount = wht > 0 ? subtotal * (wht / 100) : 0;
-    const grandTotal = subtotal + vatAmount - whtAmount;
-    return { subtotal, vatAmount, whtAmount, grandTotal };
+    const t = calculateDocumentTotals(itemsList, vat, wht);
+    return { subtotal: t.subtotal, vatAmount: t.vatAmount, whtAmount: t.whtAmount, grandTotal: t.payable };
   };
 
   const { subtotal, vatAmount, whtAmount, grandTotal } = calculateTotals(invoiceItems, vatRate, whtRate);
@@ -300,7 +286,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         phone: clientPhone,
         email: clientEmail,
         taxId: clientTaxId,
-        contactName: clientContactName || undefined
+        contactName: clientContactName || undefined,
+        code: clientCode || undefined,
+        branch: clientBranch || undefined
       },
       items: invoiceItems,
       vatRate: vatRate,
@@ -308,7 +296,10 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       note: docNote,
       paymentTerm: paymentTerm || undefined,
       deliveryTerm: deliveryTerm || undefined,
-      refNo: refNo || undefined
+      refNo: refNo || undefined,
+      paidDate: paidDate || undefined,
+      paymentMethod: paymentMethod || undefined,
+      paidAmount: paidAmount === '' ? undefined : paidAmount
     };
 
     let updatedList;
@@ -362,6 +353,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setClientEmail('');
     setClientTaxId('');
     setClientContactName('');
+    setClientCode('');
+    setClientBranch('');
+    setPaidDate('');
+    setPaymentMethod('');
+    setPaidAmount('');
     setInvoiceItems([{ id: '1', description: '', quantity: 1, price: 0, discount: 0 }]);
     setVatRate(0);
     setWhtRate(0);
@@ -384,6 +380,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         setClientEmail('');
         setClientTaxId('');
         setClientContactName('');
+        setClientCode('');
+        setClientBranch('');
+        setPaidDate('');
+        setPaymentMethod('');
+        setPaidAmount('');
         setInvoiceItems([{ id: '1', description: '', quantity: 1, price: 0, discount: 0 }]);
         setVatRate(0);
         setWhtRate(0);
@@ -398,13 +399,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         if (!editingInvoiceId) {
           const thaiYear = new Date().getFullYear() + 543;
           const serial = String(invoices.length + 1).padStart(3, '0');
-          if (docType === 'invoice') {
-            setDocNo(`INV-${thaiYear}-${serial}`);
-          } else if (docType === 'receipt') {
-            setDocNo(`REC-${thaiYear}-${serial}`);
-          } else if (docType === 'quotation') {
-            setDocNo(`QT-${thaiYear}-${serial}`);
-          }
+          setDocNo(`${getDocumentMeta(docType).prefix}-${thaiYear}-${serial}`);
           setCreatedDate(new Date().toISOString().split('T')[0]);
           setDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
         }
@@ -428,6 +423,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setClientEmail(inv.client.email || '');
     setClientTaxId(inv.client.taxId || '');
     setClientContactName(inv.client.contactName || '');
+    setClientCode(inv.client.code || '');
+    setClientBranch(inv.client.branch || '');
+    setPaidDate(inv.paidDate || '');
+    setPaymentMethod(inv.paymentMethod || '');
+    setPaidAmount(inv.paidAmount ?? '');
     setInvoiceItems(inv.items);
     setVatRate(inv.vatRate);
     setWhtRate(inv.whtRate);
@@ -446,7 +446,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     const duplicated: Invoice = {
       ...inv,
       id: crypto.randomUUID(),
-      documentNo: `INV-${thaiYear}-${serial}`,
+      documentNo: `${getDocumentMeta(inv.documentType).prefix}-${thaiYear}-${serial}`,
+      paidDate: undefined,
       createdDate: new Date().toISOString().split('T')[0],
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     };
@@ -455,453 +456,13 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     triggerAlert('คัดลอกบิลสำเร็จ', `สร้างเอกสารใบใหม่โดยคัดลอกโครงร่างจากใบ ${inv.documentNo} เรียบร้อยแล้ว`);
   };
 
-  // handlePrintDocument builds a full HTML document via string interpolation and writes it into
-  // a same-origin window with document.write -- every user-editable field going in (client/issuer
-  // name/address/contact info, bank details, item descriptions, notes, document numbers) has to
-  // go through this first, or a client/issuer name like `<script>...</script>` would execute in
-  // that window with access to this app's own origin (including whatever the Supabase session is
-  // stored in), not just render as inert text.
-  const escapeHtml = (value: unknown): string => {
-    if (value === null || value === undefined) return '';
-    return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-  };
-
-  // Native Vector PDF export (Opens in a new window to bypass iframe print sandbox limitations, ensuring perfect Thai fonts)
   const handlePrintDocument = () => {
     if (!selectedInvoice) return;
-
-    // Build the clean printed HTML with beautiful layout and Google Font (Sarabun)
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
+    if (!printDocument(selectedInvoice)) {
       triggerAlert(
         'ป็อปอัปถูกบล็อก',
         'เบราว์เซอร์ของคุณบล็อกป็อปอัป กรุณาอนุญาตการแสดงป็อปอัปสำหรับเว็บไซต์นี้เพื่อให้สามารถพิมพ์หรือบันทึก PDF ในหน้าต่างใหม่ได้'
       );
-      return;
-    }
-
-    const docTypeLabel = selectedInvoice.documentType === 'invoice' 
-      ? 'ใบแจ้งหนี้' 
-      : selectedInvoice.documentType === 'receipt' 
-      ? 'ใบเสร็จรับเงิน' 
-      : 'ใบเสนอราคา';
-
-    const docTypeEng = selectedInvoice.documentType === 'invoice' 
-      ? 'INVOICE' 
-      : selectedInvoice.documentType === 'receipt' 
-      ? 'RECEIPT' 
-      : 'QUOTATION';
-
-    const docTitle = `${docTypeLabel}_${escapeHtml(selectedInvoice.documentNo)}`;
-    
-    const sTotals = calculateTotals(selectedInvoice.items, selectedInvoice.vatRate, selectedInvoice.whtRate);
-    
-    // One row per actual item -- no filler rows padded on for a document with only a
-    // handful of items. A short items list should just look short, not stretched out.
-    let itemRows = '';
-
-    selectedInvoice.items.forEach((item, i) => {
-      const lineBeforeTax = item.quantity * item.price - (item.discount || 0);
-      itemRows += `
-        <tr style="border-bottom: 1px solid #e5e7eb; font-size: 10.5px;">
-          <td style="padding: 7px 10px; font-weight: 600; color: #111827; line-height: 1.35; border-right: 1px solid #f3f4f6;">${i + 1}. ${escapeHtml(item.description) || '-'}</td>
-          <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; border-right: 1px solid #f3f4f6;">${item.quantity}</td>
-          <td style="padding: 7px 10px; text-align: right; font-family: monospace; border-right: 1px solid #f3f4f6;">${formatCurrency(item.price).replace('฿', '')}</td>
-          <td style="padding: 7px 10px; text-align: right; font-family: monospace; color: #6b7280; border-right: 1px solid #f3f4f6;">${formatCurrency(item.discount || 0).replace('฿', '')}</td>
-          <td style="padding: 7px 10px; text-align: right; font-family: monospace; color: #6b7280; border-right: 1px solid #f3f4f6;">${selectedInvoice.vatRate}%</td>
-          <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; color: #111827;">${formatCurrency(lineBeforeTax).replace('฿', '')}</td>
-        </tr>
-      `;
-    });
-
-    const bankSection = selectedInvoice.documentType !== 'quotation' && selectedInvoice.issuer.bankAccount ? `
-      <div style="margin-top: 0;">
-        <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">${ICON_BANK} ชำระเงิน / PAYMENT</p>
-        <div style="padding: 8px 12px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 10px; display: inline-block;">
-          <div style="font-weight: bold; color: #111827;">ธนาคาร: ${escapeHtml(selectedInvoice.issuer.bankName)}</div>
-          <div style="color: #4b5563; margin-top: 2px;">
-            เลขที่บัญชี: <span style="font-family: monospace; font-weight: bold; color: #000; font-size: 12px;">${escapeHtml(selectedInvoice.issuer.bankAccount)}</span>
-          </div>
-          <div style="color: #6b7280; font-weight: 500; margin-top: 2px;">
-            ชื่อบัญชี: ${escapeHtml(selectedInvoice.issuer.bankAccountName || selectedInvoice.issuer.name)}
-          </div>
-        </div>
-      </div>
-    ` : '';
-
-    const noteSection = `
-      <div style="font-size: 10.5px; margin-top: 10px;">
-        <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.05em;">${ICON_NOTE} หมายเหตุ / REMARK</p>
-        <p style="color: #4b5563; font-style: italic; margin: 0; white-space: pre-line; line-height: 1.35;">${selectedInvoice.note ? escapeHtml(selectedInvoice.note) : '-'}</p>
-      </div>
-    `;
-
-    const dueDateLabel = selectedInvoice.documentType === 'invoice'
-      ? 'ครบกำหนดชำระ:'
-      : selectedInvoice.documentType === 'receipt'
-      ? 'วันที่รับเงิน:'
-      : 'ใช้ได้ถึง:';
-
-    const dueDateColor = selectedInvoice.documentType === 'invoice' ? '#ef4444' : '#111827';
-
-    let leftSignatureLabel = 'ผู้ออกเอกสาร (ผู้ขาย)';
-    let rightSignatureLabel = 'ผู้รับเอกสาร (ลูกค้า)';
-
-    const printHTML = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${docTitle}</title>
-          <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <style>
-            @media print {
-              @page {
-                size: A4;
-                margin: 12mm;
-              }
-              body {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-            }
-            body {
-              font-family: 'Sarabun', 'Inter', sans-serif;
-              color: #1f2937;
-              background-color: #ffffff;
-              margin: 0;
-              padding: 8px;
-              line-height: 1.35;
-            }
-            .page-container {
-              max-width: 800px;
-              margin: 0 auto;
-              position: relative;
-              transform-origin: top center;
-            }
-            .header-bar {
-              height: 4px;
-              background-color: #e65f2b;
-              width: 100%;
-              margin-bottom: 12px;
-              border-radius: 2px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 5px;
-            }
-            th {
-              background-color: #f9fafb;
-              color: #4b5563;
-              font-weight: bold;
-              border-bottom: 1px solid #e5e7eb;
-              border-right: 1px solid #e5e7eb;
-              padding: 7px 10px;
-              font-size: 10px;
-              text-transform: uppercase;
-              letter-spacing: 0.02em;
-            }
-            th:last-child {
-              border-right: none;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="page-container">
-            <div class="header-bar"></div>
-            
-            <!-- 1. Header Row (Logo on Left, Title on Right) -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; gap: 20px;">
-              <div>
-                ${selectedInvoice.issuer.logoUrl ? `
-                  <img src="${escapeHtml(selectedInvoice.issuer.logoUrl)}" style="max-height: 52px; max-width: 180px; object-fit: contain;" alt="Logo" />
-                ` : `
-                  <div style="font-size: 16px; font-weight: 800; color: #e65f2b; letter-spacing: 0.05em; max-width: 220px; word-wrap: break-word;">
-                    ${escapeHtml(selectedInvoice.issuer.name) || '-'}
-                  </div>
-                `}
-              </div>
-              <div style="text-align: right;">
-                <p style="color: #9ca3af; font-weight: 700; font-size: 10px; margin: 0 0 2px 0;">(ต้นฉบับ)</p>
-                <h1 style="font-size: 22px; font-weight: 800; color: #e65f2b; margin: 0; letter-spacing: 0.01em; font-family: 'Sarabun', sans-serif;">
-                  ${docTypeLabel}
-                </h1>
-                <p style="color: #9ca3af; font-weight: 700; font-size: 9px; margin: 2px 0 0 0; text-transform: uppercase; letter-spacing: 0.05em;">
-                  ${docTypeEng}
-                </p>
-              </div>
-            </div>
-            <div style="border-bottom: 2px solid #e65f2b; margin-bottom: 12px;"></div>
-
-            <!-- 2. Issuer & Document Info side-by-side -->
-            <div style="display: flex; justify-content: space-between; gap: 24px; font-size: 10.5px; line-height: 1.4;">
-
-              <!-- Left: ISSUER (ผู้ขาย) -->
-              <div style="flex: 1.3;">
-                <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">ผู้ขาย</p>
-                <div style="font-weight: 800; font-size: 13px; color: #111827;">${escapeHtml(selectedInvoice.issuer.name) || '-'}</div>
-                ${selectedInvoice.issuer.address ? `<div style="font-size: 11px; color: #4b5563; margin-top: 4px; white-space: pre-line; line-height: 1.4;">${escapeHtml(selectedInvoice.issuer.address)}</div>` : ''}
-                <div style="font-size: 11px; color: #4b5563; margin-top: 6px;">
-                  ${selectedInvoice.issuer.phone ? `<div>${ICON_PHONE}${escapeHtml(selectedInvoice.issuer.phone)}</div>` : ''}
-                  ${selectedInvoice.issuer.email ? `<div style="margin-top: 2px;">${ICON_MAIL}${escapeHtml(selectedInvoice.issuer.email)}</div>` : ''}
-                  ${selectedInvoice.issuer.taxId ? `<div style="margin-top: 2px;">เลขที่ภาษี: <span style="font-family: monospace; font-weight: bold; color: #111827;">${escapeHtml(selectedInvoice.issuer.taxId)}</span></div>` : ''}
-                </div>
-              </div>
-
-              <!-- Right: DOCUMENT METADATA CARD -->
-              <div style="flex: 1; padding: 10px 12px; border: 1px solid #dbe4f5; border-radius: 10px; background-color: #f4f7fd; min-width: 240px;">
-                <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 0.05em;">ข้อมูลเอกสาร</p>
-                <table style="width: 100%; border-collapse: collapse; margin-top: 0; font-size: 10.5px;">
-                  <tr>
-                    <td style="padding: 2px 0; font-weight: bold; color: #4b5563; width: 100px;">เลขที่เอกสาร:</td>
-                    <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${escapeHtml(selectedInvoice.documentNo)}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">วันที่ออก:</td>
-                    <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${escapeHtml(selectedInvoice.createdDate)}</td>
-                  </tr>
-                  ${selectedInvoice.documentType === 'quotation' ? `
-                    <tr>
-                      <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">วันที่ตอบรับ:</td>
-                      <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${selectedInvoice.responseDate ? escapeHtml(selectedInvoice.responseDate) : '-'}</td>
-                    </tr>
-                  ` : ''}
-                  ${selectedInvoice.dueDate ? `
-                    <tr>
-                      <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">${dueDateLabel}</td>
-                      <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: ${dueDateColor}; text-align: right;">${escapeHtml(selectedInvoice.dueDate)}</td>
-                    </tr>
-                  ` : ''}
-                  ${selectedInvoice.paymentTerm ? `
-                    <tr>
-                      <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">เงื่อนไขการชำระ:</td>
-                      <td style="padding: 2px 0; font-weight: bold; color: #111827; text-align: right;">${escapeHtml(selectedInvoice.paymentTerm)}</td>
-                    </tr>
-                  ` : ''}
-                  ${selectedInvoice.documentType === 'quotation' && selectedInvoice.deliveryTerm ? `
-                    <tr>
-                      <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">ระยะเวลาส่งมอบ:</td>
-                      <td style="padding: 2px 0; font-weight: bold; color: #111827; text-align: right;">${escapeHtml(selectedInvoice.deliveryTerm)}</td>
-                    </tr>
-                  ` : ''}
-                  <tr>
-                    <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">อ้างอิง:</td>
-                    <td style="padding: 2px 0; font-family: monospace; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.refNo ? escapeHtml(selectedInvoice.refNo) : '-'}</td>
-                  </tr>
-                </table>
-              </div>
-
-            </div>
-
-            <!-- 3. Customer Info side-by-side -->
-            <div style="display: flex; justify-content: space-between; gap: 24px; margin-top: 14px; font-size: 10.5px; line-height: 1.4;">
-
-              <!-- Left: CLIENT (ลูกค้า) -->
-              <div style="flex: 1.3; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background-color: #fcfcfc;">
-                <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">ลูกค้า</p>
-                <div style="font-weight: 800; font-size: 13px; color: #111827;">${escapeHtml(selectedInvoice.client.name) || '-'}</div>
-                ${selectedInvoice.client.address ? `<div style="font-size: 11px; color: #4b5563; margin-top: 4px; white-space: pre-line; line-height: 1.4;">${escapeHtml(selectedInvoice.client.address)}</div>` : ''}
-                <div style="font-size: 11px; color: #4b5563; margin-top: 6px;">
-                  ${selectedInvoice.client.taxId ? `<div>เลขที่ภาษี: <span style="font-family: monospace; font-weight: bold; color: #111827;">${escapeHtml(selectedInvoice.client.taxId)}</span></div>` : ''}
-                  <div style="margin-top: 2px;">เรียน: ${selectedInvoice.client.contactName ? escapeHtml(selectedInvoice.client.contactName) : '-'}</div>
-                </div>
-              </div>
-
-              <!-- Right: CONTACT-BACK CARD -->
-              <div style="flex: 1; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background-color: #fafafa; min-width: 240px;">
-                <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">ติดต่อกลับที่</p>
-                <div style="font-size: 11px; color: #374151; line-height: 1.6;">
-                  <div>${ICON_USER}${selectedInvoice.client.contactName ? escapeHtml(selectedInvoice.client.contactName) : '-'}</div>
-                  <div>${ICON_PHONE}${selectedInvoice.client.phone ? escapeHtml(selectedInvoice.client.phone) : '-'}</div>
-                  <div>${ICON_MAIL}${selectedInvoice.client.email ? escapeHtml(selectedInvoice.client.email) : '-'}</div>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- 4. Items Table -->
-            <div style="margin: 14px 0; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;">
-              <table>
-                <thead>
-                  <tr>
-                    <th style="text-align: left;">คำอธิบาย</th>
-                    <th style="width: 55px; text-align: right;">จำนวน</th>
-                    <th style="width: 90px; text-align: right;">ราคา</th>
-                    <th style="width: 80px; text-align: right;">ส่วนลด</th>
-                    <th style="width: 55px; text-align: right;">VAT</th>
-                    <th style="width: 120px; text-align: right;">มูลค่าก่อนภาษี</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${itemRows}
-                </tbody>
-              </table>
-            </div>
-
-            <!-- 5. Summary block -->
-            <div style="display: flex; justify-content: flex-end; margin: 12px 0;">
-              <div style="width: 300px; font-size: 10.5px; color: #4b5563;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                  <span>${selectedInvoice.vatRate > 0 ? `มูลค่าที่คำนวณภาษี ${selectedInvoice.vatRate}%:` : 'มูลค่าก่อนภาษี:'}</span>
-                  <span style="font-family: monospace; font-weight: bold; color: #111827;">${formatCurrency(sTotals.subtotal).replace('฿', '')}</span>
-                </div>
-                ${selectedInvoice.vatRate > 0 ? `
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                    <span>ภาษีมูลค่าเพิ่ม ${selectedInvoice.vatRate}%:</span>
-                    <span style="font-family: monospace;">${formatCurrency(sTotals.vatAmount).replace('฿', '')}</span>
-                  </div>
-                ` : ''}
-
-                <div style="border-top: 1px solid #d1d5db; padding-top: 6px; margin-top: 6px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; background: #FDF3EC; border: 1px solid rgba(230,95,43,0.25); border-radius: 10px; padding: 8px 12px;">
-                    <span style="font-size: 12px; font-weight: bold; color: #292524;">จำนวนเงินทั้งสิ้น:</span>
-                    <span style="font-family: monospace; font-size: 15px; font-weight: 900; color: #E65F2B;">
-                      ${formatCurrency(sTotals.subtotal + sTotals.vatAmount).replace('฿', '')}
-                    </span>
-                  </div>
-                </div>
-                <div style="text-align: right; font-size: 9.5px; font-weight: bold; color: #6b7280; margin-top: 5px;">
-                  (${thaiBahtText(sTotals.subtotal + sTotals.vatAmount)})
-                </div>
-
-                <div style="display: flex; justify-content: space-between; margin-top: 8px; padding-top: 6px; border-top: 1px dashed #d1d5db; color: #6b7280;">
-                  <span>จำนวนเงินที่ถูกหัก ณ ที่จ่าย ${selectedInvoice.whtRate}%:</span>
-                  <span style="font-family: monospace;">-${formatCurrency(sTotals.whtAmount).replace('฿', '')}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 4px; font-weight: bold; color: #111827;">
-                  <span>จำนวนเงินที่ชำระ:</span>
-                  <span style="font-family: monospace; font-size: 12px;">${formatCurrency(sTotals.grandTotal).replace('฿', '')}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 6. Payment & Notes -->
-            <div style="margin: 12px 0;">
-              ${bankSection}
-              ${noteSection}
-            </div>
-
-            <!-- 7. Signature / Certification block -->
-            <div style="margin-top: 8px;">
-              <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 14px 0; text-transform: uppercase; letter-spacing: 0.05em;">${ICON_PEN} รับรอง</p>
-              <div style="display: flex; justify-content: space-between; gap: 20px; text-align: center; font-size: 9.5px;">
-                <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                  <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 7.5px; margin-bottom: 22px;">${leftSignatureLabel}</p>
-                  <div style="border-bottom: 1px dashed #9ca3af; width: 100%; margin-bottom: 4px;"></div>
-                  <p style="font-weight: bold; color: #111827; margin: 0;">${escapeHtml(selectedInvoice.issuer.name) || '.......................'}</p>
-                  <p style="color: #9ca3af; font-size: 8.5px; margin-top: 3px;">วันที่ ........ / ........ / ................</p>
-                </div>
-
-                <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                  <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 7.5px; margin-bottom: 22px;">ผู้อนุมัติเอกสาร (ผู้ขาย)</p>
-                  <div style="border: 1px dashed #d1d5db; border-radius: 8px; width: 100%; height: 42px;"></div>
-                </div>
-
-                <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                  <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 7.5px; margin-bottom: 22px;">${rightSignatureLabel}</p>
-                  <div style="border-bottom: 1px dashed #9ca3af; width: 100%; margin-bottom: 4px;"></div>
-                  <p style="font-weight: bold; color: #111827; margin: 0;">${escapeHtml(selectedInvoice.client.name) || '.......................'}</p>
-                  <p style="color: #9ca3af; font-size: 8.5px; margin-top: 3px;">วันที่ ........ / ........ / ................</p>
-                </div>
-
-                <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                  <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 7.5px; margin-bottom: 22px;">ตราประทับ (ลูกค้า)</p>
-                  <div style="border: 1px dashed #d1d5db; border-radius: 8px; width: 100%; height: 42px;"></div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(printHTML);
-    printWindow.document.close();
-    const printNow = () => {
-      const container = printWindow.document.querySelector<HTMLElement>('.page-container');
-      if (container) {
-        const maximumHeight = (297 - 24) * (96 / 25.4) - 16;
-        const height = container.scrollHeight;
-        if (height > maximumHeight) { const scale = maximumHeight / height; container.style.transform = `scale(${scale})`; container.style.marginBottom = `${-(height * (1-scale))}px`; }
-      }
-      printWindow.setTimeout(() => printWindow.print(), 150);
-    };
-    printWindow.onload = () => { void printWindow.document.fonts.ready.then(printNow); };
-  };
-
-  // Convert Thai Baht values to Thai Text (for standard formal invoicing)
-  const thaiBahtText = (num: number): string => {
-    try {
-      if (num === 0) return 'ศูนย์บาทถ้วน';
-      
-      const numbers = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
-      const positions = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน', 'ล้าน'];
-      
-      const parts = num.toFixed(2).split('.');
-      const integerPart = parts[0];
-      const decimalPart = parts[1];
-      
-      let bahtStr = '';
-      
-      // Read integer digits
-      const len = integerPart.length;
-      for (let i = 0; i < len; i++) {
-        const digit = parseInt(integerPart.charAt(i));
-        const pos = len - i - 1;
-        
-        if (digit !== 0) {
-          if (pos % 6 === 0 && pos > 0) {
-            bahtStr += 'ล้าน';
-          }
-          
-          let digitName = numbers[digit];
-          let posName = positions[pos % 6];
-          
-          // Special cases for tens place
-          if (pos % 6 === 1) {
-            if (digit === 1) digitName = '';
-            else if (digit === 2) digitName = 'ยี่';
-          }
-          // Special case for ones place
-          if (pos % 6 === 0 && i > 0 && digit === 1 && integerPart.charAt(i - 1) !== '0') {
-            digitName = 'เอ็ด';
-          }
-          
-          bahtStr += digitName + posName;
-        }
-      }
-      
-      if (bahtStr !== '') bahtStr += 'บาท';
-      
-      // Read decimal parts
-      if (parseInt(decimalPart) === 0) {
-        bahtStr += 'ถ้วน';
-      } else {
-        const d1 = parseInt(decimalPart.charAt(0));
-        const d2 = parseInt(decimalPart.charAt(1));
-        let stangStr = '';
-        
-        if (d1 !== 0) {
-          let name = numbers[d1];
-          if (d1 === 1) name = '';
-          else if (d1 === 2) name = 'ยี่';
-          stangStr += name + 'สิบ';
-        }
-        
-        if (d2 !== 0) {
-          let name = numbers[d2];
-          if (d2 === 1 && d1 !== 0) name = 'เอ็ด';
-          stangStr += name;
-        }
-        bahtStr += stangStr + 'สตางค์';
-      }
-      
-      return bahtStr;
-    } catch (e) {
-      return '';
     }
   };
 
@@ -1009,6 +570,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 { key: 'quotation', label: 'ใบเสนอราคา' },
                 { key: 'invoice', label: 'ใบแจ้งหนี้' },
                 { key: 'receipt', label: 'ใบเสร็จรับเงิน' },
+                { key: 'taxInvoice', label: 'ใบกำกับภาษี' },
+                { key: 'receiptTaxInvoice', label: 'ใบเสร็จ/ใบกำกับภาษี' },
               ] as const).map(f => {
                 const count = f.key === 'all' ? invoices.length : invoices.filter(inv => inv.documentType === f.key).length;
                 const isActive = docTypeFilter === f.key;
@@ -1060,11 +623,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                           <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
                             inv.documentType === 'invoice'
                               ? 'bg-[#E65F2B]/15 text-[#E65F2B] dark:text-[#FFA473]'
-                              : inv.documentType === 'receipt'
+                              : getDocumentMeta(inv.documentType).isReceipt
                               ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                               : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
                           }`}>
-                            {inv.documentType === 'invoice' ? 'ใบแจ้งหนี้' : inv.documentType === 'receipt' ? 'ใบเสร็จรับเงิน' : 'ใบเสนอราคา'}
+                            {getDocumentMeta(inv.documentType).th}
                           </span>
                           <span className="text-xs font-black text-brand-text dark:text-white truncate font-mono">
                             #{inv.documentNo}
@@ -1126,277 +689,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                   <span>แนะนำวิธีเซฟ PDF: คลิกปุ่มพิมพ์ขวาบน แล้วเลือกปลายทางเป็น "บันทึกเป็น PDF (Save as PDF)"</span>
                 </div>
 
-                {/* Print Sheet Paper (Formed to A4 style ratio) */}
-                <div className="bg-white text-black p-8 sm:p-12 border border-stone-200 shadow-xl rounded-3xl min-h-[850px] font-sans print-area relative overflow-hidden select-text text-[11px] leading-normal">
-                  
-                  {/* Watermark branding header -- kept dark/neutral to read as an official
-                      document rather than a branded marketing piece */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-stone-900" />
-
-                  {/* 1. Document Header Row (Logo on Left, Title on Right) */}
-                  <div className="flex justify-between items-start pb-2.5 gap-6">
-                    {selectedInvoice.issuer.logoUrl ? (
-                      <div className="shrink-0">
-                        <img
-                          src={selectedInvoice.issuer.logoUrl}
-                          alt="Company Logo"
-                          className="max-h-14 max-w-[150px] object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    ) : (
-                      <div className="text-sm font-black text-stone-900 tracking-wider shrink-0 max-w-[220px] break-words">
-                        {selectedInvoice.issuer.name || '-'}
-                      </div>
-                    )}
-                    <div className="space-y-1 min-w-0 text-right">
-                      <p className="text-stone-400 font-bold text-[9px]">(ต้นฉบับ)</p>
-                      <h1 className="text-xl sm:text-2xl font-black text-[#E65F2B] tracking-wide uppercase">
-                        {selectedInvoice.documentType === 'invoice'
-                          ? 'ใบแจ้งหนี้'
-                          : selectedInvoice.documentType === 'receipt'
-                          ? 'ใบเสร็จรับเงิน'
-                          : 'ใบเสนอราคา'}
-                      </h1>
-                      <p className="text-stone-400 font-bold tracking-wider text-[9px] uppercase">
-                        {selectedInvoice.documentType === 'invoice'
-                          ? 'INVOICE'
-                          : selectedInvoice.documentType === 'receipt'
-                          ? 'RECEIPT'
-                          : 'QUOTATION'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="border-b-2 border-[#E65F2B] mb-3" />
-
-                  {/* 2. Issuer & Document Info side-by-side */}
-                  <div className="flex flex-col sm:flex-row justify-between gap-6 text-[11px] leading-relaxed">
-
-                    {/* Left Column: ISSUER (ผู้ขาย) */}
-                    <div className="flex-1.3 space-y-1.5">
-                      <p className="text-stone-400 font-bold tracking-wider text-[8px] uppercase">ผู้ขาย</p>
-                      <div className="font-extrabold text-stone-900 text-[12px]">{selectedInvoice.issuer.name || '-'}</div>
-                      {selectedInvoice.issuer.address && (
-                        <div className="text-[10px] text-stone-600 mt-1 whitespace-pre-line leading-relaxed">{selectedInvoice.issuer.address}</div>
-                      )}
-                      <div className="text-[10px] text-stone-500 space-y-0.5 pt-1">
-                        {selectedInvoice.issuer.phone && <p className="flex items-center gap-1"><Phone className="w-2.5 h-2.5 shrink-0" /> {selectedInvoice.issuer.phone}</p>}
-                        {selectedInvoice.issuer.email && <p className="flex items-center gap-1"><Mail className="w-2.5 h-2.5 shrink-0" /> {selectedInvoice.issuer.email}</p>}
-                        {selectedInvoice.issuer.taxId && (
-                          <p>เลขที่ภาษี: <span className="font-mono font-bold text-stone-900">{selectedInvoice.issuer.taxId}</span></p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right Column: DOCUMENT METADATA CARD */}
-                    <div className="flex-1 p-4 bg-[#f4f7fd] border border-[#dbe4f5] rounded-xl min-w-[230px] space-y-2">
-                      <p className="text-stone-400 font-bold tracking-wider text-[8px] uppercase">ข้อมูลเอกสาร</p>
-                      <table className="w-full border-collapse text-[11px]">
-                        <tbody>
-                          <tr>
-                            <td className="p-0 py-0.5 font-bold text-stone-500 w-24">เลขที่เอกสาร:</td>
-                            <td className="p-0 py-0.5 font-mono font-bold text-stone-900 text-right">{selectedInvoice.documentNo}</td>
-                          </tr>
-                          <tr>
-                            <td className="p-0 py-0.5 font-bold text-stone-500">วันที่ออก:</td>
-                            <td className="p-0 py-0.5 font-mono font-bold text-stone-900 text-right">{selectedInvoice.createdDate}</td>
-                          </tr>
-                          {selectedInvoice.documentType === 'quotation' && (
-                            <tr>
-                              <td className="p-0 py-0.5 font-bold text-stone-500">วันที่ตอบรับ:</td>
-                              <td className="p-0 py-0.5 font-mono font-bold text-stone-900 text-right">{selectedInvoice.responseDate || '-'}</td>
-                            </tr>
-                          )}
-                          {selectedInvoice.dueDate && (
-                            <tr>
-                              <td className="p-0 py-0.5 font-bold text-stone-500">
-                                {selectedInvoice.documentType === 'invoice'
-                                  ? 'ครบกำหนดชำระ:'
-                                  : selectedInvoice.documentType === 'receipt'
-                                  ? 'วันที่รับเงิน:'
-                                  : 'ใช้ได้ถึง:'}
-                              </td>
-                              <td className={`p-0 py-0.5 font-mono font-black text-right ${selectedInvoice.documentType === 'invoice' ? 'text-red-600' : 'text-stone-900'}`}>
-                                {selectedInvoice.dueDate}
-                              </td>
-                            </tr>
-                          )}
-                          {selectedInvoice.paymentTerm && (
-                            <tr>
-                              <td className="p-0 py-0.5 font-bold text-stone-500">เงื่อนไขการชำระ:</td>
-                              <td className="p-0 py-0.5 font-bold text-stone-900 text-right">{selectedInvoice.paymentTerm}</td>
-                            </tr>
-                          )}
-                          {selectedInvoice.documentType === 'quotation' && selectedInvoice.deliveryTerm && (
-                            <tr>
-                              <td className="p-0 py-0.5 font-bold text-stone-500">ระยะเวลาส่งมอบ:</td>
-                              <td className="p-0 py-0.5 font-bold text-stone-900 text-right">{selectedInvoice.deliveryTerm}</td>
-                            </tr>
-                          )}
-                          <tr>
-                            <td className="p-0 py-0.5 font-bold text-stone-500">อ้างอิง:</td>
-                            <td className="p-0 py-0.5 font-mono font-bold text-stone-900 text-right">{selectedInvoice.refNo || '-'}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                  </div>
-
-                  {/* 3. Customer Info side-by-side */}
-                  <div className="flex flex-col sm:flex-row justify-between gap-6 mt-3.5 text-[11px] leading-relaxed">
-
-                    {/* Left: CLIENT (ลูกค้า) */}
-                    <div className="flex-1.3 p-4 bg-[#fcfcfc] border border-stone-200/80 rounded-xl space-y-1.5">
-                      <p className="text-stone-400 font-bold tracking-wider text-[8px] uppercase">ลูกค้า</p>
-                      <div className="font-extrabold text-stone-900 text-[12px]">{selectedInvoice.client.name || '-'}</div>
-                      {selectedInvoice.client.address && (
-                        <div className="text-[10px] text-stone-600 mt-1 whitespace-pre-line leading-relaxed">{selectedInvoice.client.address}</div>
-                      )}
-                      <div className="text-[10px] text-stone-500 space-y-0.5 pt-1">
-                        {selectedInvoice.client.taxId && (
-                          <p>เลขที่ภาษี: <span className="font-mono font-bold text-stone-900">{selectedInvoice.client.taxId}</span></p>
-                        )}
-                        <p>เรียน: {selectedInvoice.client.contactName || '-'}</p>
-                      </div>
-                    </div>
-
-                    {/* Right: CONTACT-BACK CARD */}
-                    <div className="flex-1 p-4 bg-stone-50 border border-stone-200/80 rounded-xl min-w-[230px] space-y-1">
-                      <p className="text-stone-400 font-bold tracking-wider text-[8px] uppercase mb-1.5">ติดต่อกลับที่</p>
-                      <p className="text-[11px] text-stone-700 flex items-center gap-1.5"><User className="w-3 h-3 shrink-0" /> {selectedInvoice.client.contactName || '-'}</p>
-                      <p className="text-[11px] text-stone-700 flex items-center gap-1.5"><Phone className="w-3 h-3 shrink-0" /> {selectedInvoice.client.phone || '-'}</p>
-                      <p className="text-[11px] text-stone-700 flex items-center gap-1.5"><Mail className="w-3 h-3 shrink-0" /> {selectedInvoice.client.email || '-'}</p>
-                    </div>
-
-                  </div>
-
-                  {/* 4. Items List Table - one row per actual item, no filler rows padded on */}
-                  <div className="my-6 overflow-x-auto border border-stone-200 rounded-xl">
-                    <table className="w-full min-w-[560px] border-collapse text-[10px] sm:text-[11px]">
-                      <thead>
-                        <tr className="bg-stone-50 text-stone-500 font-bold border-b border-stone-200">
-                          <th className="py-2.5 px-3 text-left border-r border-stone-200">คำอธิบาย</th>
-                          <th className="py-2.5 px-3 text-right w-14 border-r border-stone-200">จำนวน</th>
-                          <th className="py-2.5 px-3 text-right w-20 border-r border-stone-200">ราคา</th>
-                          <th className="py-2.5 px-3 text-right w-20 border-r border-stone-200">ส่วนลด</th>
-                          <th className="py-2.5 px-3 text-right w-12 border-r border-stone-200">VAT</th>
-                          <th className="py-2.5 px-3 text-right w-28">มูลค่าก่อนภาษี</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedInvoice.items.map((item, i) => (
-                          <tr key={item.id} className="border-b border-stone-100 last:border-b-0 text-stone-800 font-medium">
-                            <td className="py-3 px-3 text-left font-semibold text-stone-950 leading-relaxed border-r border-stone-100">{i + 1}. {item.description || '(ไม่มีรายละเอียด)'}</td>
-                            <td className="py-3 px-3 text-right font-mono font-bold text-stone-900 border-r border-stone-100 w-14">{item.quantity}</td>
-                            <td className="py-3 px-3 text-right font-mono text-stone-700 border-r border-stone-100 w-20">{formatCurrency(item.price).replace('฿', '')}</td>
-                            <td className="py-3 px-3 text-right font-mono text-stone-500 border-r border-stone-100 w-20">{formatCurrency(item.discount || 0).replace('฿', '')}</td>
-                            <td className="py-3 px-3 text-right font-mono text-stone-500 border-r border-stone-100 w-12">{selectedInvoice.vatRate}%</td>
-                            <td className="py-3 px-3 text-right font-mono font-bold text-stone-950 w-28">
-                              {formatCurrency(item.quantity * item.price - (item.discount || 0)).replace('฿', '')}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* 5. Summary block */}
-                  <div className="flex justify-end my-4">
-                    <div className="w-full max-w-[320px] space-y-1.5 text-stone-700 font-medium text-[11px]">
-                      {(() => {
-                        const sTotals = calculateTotals(selectedInvoice.items, selectedInvoice.vatRate, selectedInvoice.whtRate);
-                        return (
-                          <>
-                            <div className="flex justify-between">
-                              <span>{selectedInvoice.vatRate > 0 ? `มูลค่าที่คำนวณภาษี ${selectedInvoice.vatRate}%:` : 'มูลค่าก่อนภาษี:'}</span>
-                              <span className="font-mono font-bold">{formatCurrency(sTotals.subtotal).replace('฿', '')}</span>
-                            </div>
-
-                            {selectedInvoice.vatRate > 0 && (
-                              <div className="flex justify-between text-stone-600">
-                                  <span>ภาษีมูลค่าเพิ่ม {selectedInvoice.vatRate}%:</span>
-                                  <span className="font-mono">{formatCurrency(sTotals.vatAmount).replace('฿', '')}</span>
-                              </div>
-                            )}
-
-                            <div className="border-t border-stone-300 pt-2 mt-2">
-                              <div className="flex justify-between items-center bg-[#FDF3EC] border border-[#E65F2B]/25 rounded-xl px-3 py-2">
-                                <span className="text-[12px] font-bold text-stone-900">จำนวนเงินทั้งสิ้น:</span>
-                                <span className="font-mono text-base font-black text-[#E65F2B]">
-                                  {formatCurrency(sTotals.subtotal + sTotals.vatAmount).replace('฿', '')}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="text-right text-[10px] font-bold text-stone-500 pt-0.5">
-                              ({thaiBahtText(sTotals.subtotal + sTotals.vatAmount)})
-                            </div>
-
-                            <div className="flex justify-between mt-2 pt-1.5 border-t border-dashed border-stone-300 text-stone-500">
-                              <span>จำนวนเงินที่ถูกหัก ณ ที่จ่าย {selectedInvoice.whtRate}%:</span>
-                              <span className="font-mono">-{formatCurrency(sTotals.whtAmount).replace('฿', '')}</span>
-                            </div>
-                            <div className="flex justify-between font-bold text-stone-900">
-                              <span>จำนวนเงินที่ชำระ:</span>
-                              <span className="font-mono text-[12px]">{formatCurrency(sTotals.grandTotal).replace('฿', '')}</span>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* 6. Payment & Notes */}
-                  <div className="space-y-4">
-                    {selectedInvoice.documentType !== 'quotation' && selectedInvoice.issuer.bankAccount && (
-                      <div className="space-y-1">
-                        <p className="text-[8px] font-bold tracking-wider text-stone-400 uppercase flex items-center gap-1"><Landmark className="w-2.5 h-2.5" /> ชำระเงิน / PAYMENT</p>
-                        <div className="inline-block pl-3.5 border-l border-dashed border-stone-300 text-[10px] space-y-0.5 text-stone-600">
-                          <p className="font-bold text-stone-900">{selectedInvoice.issuer.bankName}</p>
-                          <p>เลขบัญชี: <span className="font-mono font-bold text-stone-950 text-[11px]">{selectedInvoice.issuer.bankAccount}</span></p>
-                          <p className="text-stone-500 font-medium">ชื่อบัญชี: {selectedInvoice.issuer.bankAccountName || selectedInvoice.issuer.name}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="space-y-1 pt-1 border-t border-dashed border-stone-100">
-                      <p className="text-stone-400 font-bold tracking-wider text-[8px] uppercase flex items-center gap-1"><StickyNote className="w-2.5 h-2.5" /> หมายเหตุ / REMARK</p>
-                      <p className="text-stone-600 font-medium italic leading-relaxed whitespace-pre-line">{selectedInvoice.note || '-'}</p>
-                    </div>
-                  </div>
-
-                  {/* 7. Signature / Certification Section - 4 columns matching the formal template */}
-                  <div className="pt-4 border-t border-stone-100 mt-6">
-                    <p className="text-stone-400 font-bold uppercase tracking-wider text-[8px] mb-4 flex items-center gap-1"><PenLine className="w-2.5 h-2.5" /> รับรอง</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center text-[9.5px]">
-                      <div className="space-y-1.5">
-                        <p className="text-stone-400 font-bold uppercase tracking-wider text-[7.5px]">ผู้ออกเอกสาร (ผู้ขาย)</p>
-                        <div className="h-6 border-b border-dashed border-stone-300" />
-                        <p className="font-bold text-stone-800">{selectedInvoice.issuer.name || '.......................'}</p>
-                        <p className="text-stone-400 text-[8.5px]">วันที่ ........ / ........ / ................</p>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <p className="text-stone-400 font-bold uppercase tracking-wider text-[7.5px]">ผู้อนุมัติเอกสาร (ผู้ขาย)</p>
-                        <div className="border border-dashed border-stone-300 rounded-lg h-11" />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <p className="text-stone-400 font-bold uppercase tracking-wider text-[7.5px]">ผู้รับเอกสาร (ลูกค้า)</p>
-                        <div className="h-6 border-b border-dashed border-stone-300" />
-                        <p className="font-bold text-stone-800">{selectedInvoice.client.name || '.......................'}</p>
-                        <p className="text-stone-400 text-[8.5px]">วันที่ ........ / ........ / ................</p>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <p className="text-stone-400 font-bold uppercase tracking-wider text-[7.5px]">ตราประทับ (ลูกค้า)</p>
-                        <div className="border border-dashed border-stone-300 rounded-lg h-11" />
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
+                <DocumentPreview invoice={selectedInvoice} />
               </div>
             ) : (
               <div className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-3xl p-12 text-center text-brand-muted flex flex-col items-center justify-center min-h-[400px]">
@@ -1480,24 +773,20 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               <select
                 value={docType}
                 onChange={(e) => {
-                  const val = e.target.value as 'invoice' | 'receipt' | 'quotation';
+                  const val = e.target.value as DocumentType;
                   setDocType(val);
                   // Update prefix if current document number matches the default structure
                   const thaiYear = new Date().getFullYear() + 543;
                   const serial = String(invoices.length + 1).padStart(3, '0');
-                  if (val === 'invoice') {
-                    setDocNo(`INV-${thaiYear}-${serial}`);
-                  } else if (val === 'receipt') {
-                    setDocNo(`REC-${thaiYear}-${serial}`);
-                  } else if (val === 'quotation') {
-                    setDocNo(`QT-${thaiYear}-${serial}`);
-                  }
+                  setDocNo(`${getDocumentMeta(val).prefix}-${thaiYear}-${serial}`);
+                  // Tax invoices carry VAT by definition
+                  if (getDocumentMeta(val).isTax && vatRate === 0) setVatRate(7);
                 }}
                 className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
               >
-                <option value="invoice">ใบแจ้งหนี้ (Invoice)</option>
-                <option value="receipt">ใบเสร็จรับเงิน (Receipt)</option>
-                <option value="quotation">ใบเสนอราคา (Quotation)</option>
+                {DOCUMENT_TYPES.map(type => (
+                  <option key={type} value={type}>{getDocumentMeta(type).th} ({getDocumentMeta(type).en})</option>
+                ))}
               </select>
             </div>
 
@@ -1527,7 +816,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             {/* Due Date */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">
-                {docType === 'quotation' ? 'ใช้ได้ถึง' : 'วันที่กำหนดชำระเงิน'}
+                {docType === 'quotation' ? 'ยืนราคาถึงวันที่' : getDocumentMeta(docType).isReceipt ? 'วันที่รับเงิน (ถ้าต่างจากวันชำระ)' : 'วันที่กำหนดชำระเงิน'}
               </label>
               <input
                 type="date"
@@ -1597,6 +886,40 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             </div>
           </div>
 
+          {/* Receipt-only: how and when the money was received */}
+          {getDocumentMeta(docType).isReceipt && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-[#E65F2B]/5 border border-[#E65F2B]/15 rounded-2xl">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">วันที่รับชำระเงิน</label>
+                <input
+                  type="date"
+                  value={paidDate}
+                  onChange={(e) => setPaidDate(e.target.value)}
+                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">วิธีชำระเงิน</label>
+                <input
+                  type="text"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  placeholder="เช่น โอนเงิน, เงินสด, พร้อมเพย์"
+                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">จำนวนเงินที่ได้รับ (เว้นว่าง = ยอดสุทธิ)</label>
+                <NumberInput
+                  value={paidAmount}
+                  onChange={(raw) => setPaidAmount(raw === '' ? '' : Math.max(0, parseFloat(raw) || 0))}
+                  placeholder="บาท"
+                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-black font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Customer / Client Details Card */}
           <div className="p-4 bg-brand-faint/45 dark:bg-stone-950/20 border border-brand-border/60 rounded-2xl space-y-4">
             <h4 className="text-[11px] font-black text-brand-text dark:text-white uppercase tracking-wider flex items-center gap-1.5">
@@ -1624,6 +947,28 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                   onChange={(e) => setClientTaxId(e.target.value)}
                   placeholder="เช่น 0105561000222 (13 หลัก)"
                   className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+
+              <div className="md:col-span-6 flex flex-col gap-1.5">
+                <label className="text-[9px] font-bold text-brand-muted uppercase">รหัสลูกค้า (ถ้ามี)</label>
+                <input
+                  type="text"
+                  value={clientCode}
+                  onChange={(e) => setClientCode(e.target.value)}
+                  placeholder="เช่น C-0012"
+                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+
+              <div className="md:col-span-6 flex flex-col gap-1.5">
+                <label className="text-[9px] font-bold text-brand-muted uppercase">สาขา</label>
+                <input
+                  type="text"
+                  value={clientBranch}
+                  onChange={(e) => setClientBranch(e.target.value)}
+                  placeholder="เช่น สำนักงานใหญ่ หรือ สาขา 00001"
+                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                 />
               </div>
 
@@ -1705,6 +1050,13 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                       placeholder="เช่น ออกแบบเว็บไซต์, เขียนโค้ดระบบ, ค่าจัดหาวิดีโอ"
                       className="w-full bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                     />
+                    <input
+                      type="text"
+                      value={item.detail || ''}
+                      onChange={(e) => handleItemFieldChange(item.id, 'detail', e.target.value)}
+                      placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)"
+                      className="w-full mt-1.5 bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-xl px-3 py-1.5 text-[11px] font-medium text-brand-muted dark:text-stone-300 outline-none focus:border-[#E65F2B]"
+                    />
                   </div>
 
                   <div className="w-full sm:w-24 shrink-0 flex gap-2 sm:block">
@@ -1715,6 +1067,17 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                       onChange={(e) => handleItemFieldChange(item.id, 'quantity', e.target.value)}
                       placeholder="จำนวน"
                       className="w-full bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-black font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] text-center"
+                    />
+                  </div>
+
+                  <div className="w-full sm:w-20 shrink-0 flex gap-2 sm:block">
+                    <span className="sm:hidden text-[9px] font-bold text-brand-muted self-center">หน่วย:</span>
+                    <input
+                      type="text"
+                      value={item.unit || ''}
+                      onChange={(e) => handleItemFieldChange(item.id, 'unit', e.target.value)}
+                      placeholder="หน่วย"
+                      className="w-full bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] text-center"
                     />
                   </div>
 

@@ -236,6 +236,36 @@ test('legacy invoice requires owner confirmation and is saved through versioned 
  await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (1)'})).toBeVisible();
 });
 
+test('invoice preview and print render the shared A4 document and the editor offers all five types',async({page,context})=>{
+ const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'1234567890123',bankName:'KBank',bankAccount:'012-3-45678-9',bankAccountName:'Test issuer'};
+ const invoice={id:'tax-1',documentType:'receiptTaxInvoice',documentNo:'RTX-2569-001',createdDate:'2026-09-17',issuer:profile,client:{name:'<b>Client</b>',address:'Bangkok',phone:'',email:'',taxId:'0105560123456',branch:'สำนักงานใหญ่'},items:[{id:'i1',description:'Design work',unit:'งาน',quantity:2,price:1000,discount:100}],vatRate:7,whtRate:0,paymentMethod:'โอนเงิน'};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,invoices:[invoice]},versions:{...versions,cashflow_invoices:{'tax-1':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/');await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
+ await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ const preview=page.getByTestId('document-preview');
+ await expect(preview.getByRole('heading',{name:'ใบเสร็จรับเงิน / ใบกำกับภาษี'})).toBeVisible();
+ await expect(preview).toContainText('RECEIPT / TAX INVOICE');
+ await expect(preview).toContainText('1,900.00');
+ await expect(preview).toContainText('2,033.00');
+ await expect(preview).toContainText('สองพันสามสิบสามบาทถ้วน');
+ await expect(preview.locator('b')).toHaveCount(0);
+ const popupPromise=context.waitForEvent('page');
+ await page.getByRole('button',{name:'พิมพ์ / บันทึกเป็น PDF'}).click();
+ const popup=await popupPromise;
+ await expect(popup.locator('.da4-page')).toHaveCount(1);
+ await expect(popup.locator('.da4-page')).toContainText('2,033.00');
+ expect(await popup.locator('b').count()).toBe(0);
+ await popup.close();
+ await page.getByRole('button',{name:'ออกเอกสารใหม่'}).click();
+ const typeSelect=page.locator('select:has(option[value=taxInvoice])');
+ await expect(typeSelect.locator('option')).toHaveCount(5);
+ await typeSelect.selectOption('taxInvoice');
+ await expect(page.getByPlaceholder('หน่วย')).toBeVisible();
+ await expect(page.getByPlaceholder('รายละเอียดเพิ่มเติม (ไม่บังคับ)')).toBeVisible();
+});
+
 test('expired authentication hides private views and never leaves financial browser caches',async({page})=>{
  const privateJob={id:'private-job',name:'Private account record',value:100,received:0,pending:100,client:'Private client',type:'Design',status:'pending',creditTerm:0,note:'',payDate:null};
  let expired=false;

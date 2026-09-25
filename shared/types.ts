@@ -179,6 +179,8 @@ export interface InvoiceItem {
   quantity: number;
   price: number;
   discount?: number;
+  unit?: string; // หน่วย (ชิ้น, งาน, ชม.)
+  detail?: string; // รายละเอียดเพิ่มเติมใต้ชื่อรายการ
 }
 
 export interface InvoiceProfile {
@@ -193,9 +195,11 @@ export interface InvoiceProfile {
   logoUrl?: string;
 }
 
+export type DocumentType = 'quotation' | 'invoice' | 'receipt' | 'taxInvoice' | 'receiptTaxInvoice';
+
 export interface Invoice {
   id: string;
-  documentType: 'invoice' | 'receipt' | 'quotation';
+  documentType: DocumentType;
   documentNo: string;
   createdDate: string; // YYYY-MM-DD
   dueDate?: string; // YYYY-MM-DD
@@ -208,6 +212,8 @@ export interface Invoice {
     email: string;
     taxId: string;
     contactName?: string; // ผู้ติดต่อ / เรียน
+    code?: string; // รหัสลูกค้า
+    branch?: string; // สาขา (เช่น สำนักงานใหญ่)
   };
   items: InvoiceItem[];
   vatRate: number; // 0 | 7
@@ -216,6 +222,9 @@ export interface Invoice {
   paymentTerm?: string; // เงื่อนไขการชำระเงิน
   deliveryTerm?: string; // ระยะเวลาการส่งมอบสินค้า/บริการ
   refNo?: string; // อ้างอิงเลขที่ใบเสนอราคา/ใบสั่งซื้อ
+  paidDate?: string; // YYYY-MM-DD, วันที่รับชำระ (ใบเสร็จ)
+  paymentMethod?: string; // วิธีชำระเงิน (ใบเสร็จ)
+  paidAmount?: number; // จำนวนเงินที่ได้รับจริง (ใบเสร็จ) -- ว่าง = เท่ากับยอดสุทธิ
 }
 
 
