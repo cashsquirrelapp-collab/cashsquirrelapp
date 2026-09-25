@@ -696,7 +696,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 { key: 'invoice', label: 'ใบแจ้งหนี้' },
                 { key: 'receipt', label: 'ใบเสร็จรับเงิน' },
                 { key: 'taxInvoice', label: 'ใบกำกับภาษี' },
-                { key: 'receiptTaxInvoice', label: 'ใบเสร็จ/ใบกำกับภาษี' },
               ] as const).map(f => {
                 const count = f.key === 'all' ? invoices.length : invoices.filter(inv => inv.documentType === f.key).length;
                 const isActive = docTypeFilter === f.key;
@@ -909,7 +908,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 }}
                 className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
               >
-                {DOCUMENT_TYPES.map(type => (
+                {(docType === 'receiptTaxInvoice' ? [...DOCUMENT_TYPES, docType] : DOCUMENT_TYPES).map(type => (
                   <option key={type} value={type}>{getDocumentMeta(type).th} ({getDocumentMeta(type).en})</option>
                 ))}
               </select>

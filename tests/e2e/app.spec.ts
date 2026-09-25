@@ -236,7 +236,7 @@ test('legacy invoice requires owner confirmation and is saved through versioned 
  await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (1)'})).toBeVisible();
 });
 
-test('invoice preview and print render the shared A4 document and the editor offers all five types',async({page,context})=>{
+test('invoice preview and print render the shared A4 document and the editor offers the four creatable types',async({page,context})=>{
  const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'1234567890123',bankName:'KBank',bankAccount:'012-3-45678-9',bankAccountName:'Test issuer'};
  const invoice={id:'tax-1',documentType:'receiptTaxInvoice',documentNo:'RTX-2569-001',createdDate:'2026-09-17',issuer:profile,client:{name:'<b>Client</b>',address:'Bangkok',phone:'',email:'',taxId:'0105560123456',branch:'สำนักงานใหญ่'},items:[{id:'i1',description:'Design work',unit:'งาน',quantity:2,price:1000,discount:100}],vatRate:7,whtRate:0,paymentMethod:'โอนเงิน'};
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
@@ -260,7 +260,7 @@ test('invoice preview and print render the shared A4 document and the editor off
  await popup.close();
  await page.getByRole('button',{name:'ออกเอกสารใหม่'}).click();
  const typeSelect=page.locator('select:has(option[value=taxInvoice])');
- await expect(typeSelect.locator('option')).toHaveCount(5);
+ await expect(typeSelect.locator('option')).toHaveCount(4);
  await typeSelect.selectOption('taxInvoice');
  await expect(page.getByPlaceholder('หน่วย')).toBeVisible();
  await expect(page.getByPlaceholder('รายละเอียดเพิ่มเติม (ไม่บังคับ)')).toBeVisible();

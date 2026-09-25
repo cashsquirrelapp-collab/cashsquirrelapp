@@ -15,7 +15,9 @@ export { calculateDocumentTotals, formatDocDate, formatMoney, thaiBahtText };
 export const A4_WIDTH_PX = 793.7; // 210mm @ 96dpi
 export const A4_HEIGHT_PX = 1122.5; // 297mm @ 96dpi
 
-export const DOCUMENT_TYPES: DocumentType[] = ['quotation', 'invoice', 'receipt', 'taxInvoice', 'receiptTaxInvoice'];
+// Types offered when creating a document. 'receiptTaxInvoice' is no longer offered, but
+// documents already saved with it still render (see DOCUMENT_META).
+export const DOCUMENT_TYPES: DocumentType[] = ['quotation', 'invoice', 'receipt', 'taxInvoice'];
 
 interface DocumentMeta {
   th: string;
