@@ -214,6 +214,13 @@ export const DOCUMENT_CSS = `
 export const PRINT_PAGE_CSS = `
 @page{size:A4 portrait;margin:0}
 html,body{margin:0;padding:0;background:#fff}
+@media print{
+  html,body{height:auto;overflow:visible}
+  /* A hair under 297mm: browsers that round the paper height (iPad Safari) would otherwise push
+     a full-height page onto a second, blank sheet */
+  .da4-page{height:296mm !important;overflow:hidden;break-inside:avoid;page-break-inside:avoid}
+  .da4-page:last-child{page-break-after:avoid !important;break-after:avoid !important}
+}
 `;
 
 // ---------------------------------------------------------------------------------------------

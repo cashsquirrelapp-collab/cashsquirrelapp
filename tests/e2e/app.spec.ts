@@ -257,6 +257,11 @@ test('invoice preview and print render the shared A4 document and the editor off
  await expect(popup.locator('.da4-page')).toHaveCount(1);
  await expect(popup.locator('.da4-page')).toContainText('2,033.00');
  expect(await popup.locator('b').count()).toBe(0);
+ const printed=await context.newPage();
+ await printed.setContent(await popup.content());
+ const pdf=await printed.pdf({preferCSSPageSize:true,printBackground:true});
+ await printed.close();
+ expect((pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)||[]).length).toBe(1); // one document page = one sheet
  await popup.close();
  await page.getByRole('button',{name:'ออกเอกสารใหม่'}).click();
  const typeSelect=page.locator('select:has(option[value=taxInvoice])');
