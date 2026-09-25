@@ -51,7 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         lineUserId,
         '🔌 ยกเลิกการเชื่อมต่อ LINE กับกระรอกตุนเงินแล้วครับ\nจะไม่มีการแจ้งเตือนส่งเข้าช่องทางนี้อีก หากต้องการเชื่อมต่อใหม่ ไปที่หน้าตั้งค่าในแอปได้เลยครับ'
       );
-      res.status(200).json({ ok: sent });
+      res.status(sent ? 200 : 502).json(sent ? { ok: true } : { error: 'LINE rejected the notification' });
       return;
     }
 
@@ -68,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return;
       }
       const sent = await sendLineMessagePayload(lineUserId, message);
-      res.status(200).json({ ok: sent });
+      res.status(sent ? 200 : 502).json(sent ? { ok: true } : { error: 'LINE rejected the notification' });
       return;
     }
 
@@ -84,19 +84,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return;
       }
       const sent = await sendLineMessagePayload(lineUserId, message);
-      res.status(200).json({ ok: sent });
+      res.status(sent ? 200 : 502).json(sent ? { ok: true } : { error: 'LINE rejected the notification' });
       return;
     }
 
     if (event === 'record-edited') {
       const monthNet = typeof body.monthNet === 'number' ? body.monthNet : undefined;
-      if (body.kind !== 'job' || !body.record || typeof body.record.name !== 'string') {
+      if (!body.record || typeof body.record.name !== 'string') {
         res.status(400).json({ error: 'Invalid payload' });
         return;
       }
-      const message = buildJobEditedMessage(body.record as JobCardData, monthNet);
+      const message = body.kind === 'job'
+        ? buildJobEditedMessage(body.record as JobCardData, monthNet)
+        : body.kind === 'expense'
+          ? buildExpenseSavedMessage(body.record as Expense, monthNet)
+          : null;
+      if (!message) {
+        res.status(400).json({ error: 'Invalid payload' });
+        return;
+      }
       const sent = await sendLineMessagePayload(lineUserId, message);
-      res.status(200).json({ ok: sent });
+      res.status(sent ? 200 : 502).json(sent ? { ok: true } : { error: 'LINE rejected the notification' });
       return;
     }
 
@@ -112,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return;
       }
       const sent = await sendLineMessagePayload(lineUserId, message);
-      res.status(200).json({ ok: sent });
+      res.status(sent ? 200 : 502).json(sent ? { ok: true } : { error: 'LINE rejected the notification' });
       return;
     }
 

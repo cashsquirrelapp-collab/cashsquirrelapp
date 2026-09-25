@@ -1147,17 +1147,22 @@ export default function App() {
   // web app -- mirrors the same "bank app" receipt the LINE bot/LIFF form already send, so
   // recording something here pings LINE too instead of only when added from there. Never blocks
   // or surfaces an error to the user; a failed/skipped push is silently fine.
+  const reportLineNotifyFailure = (err: unknown) => {
+    console.warn('LINE notification failed:', err);
+    fireMascot({ mood: 'alert', message: 'บันทึกข้อมูลแล้ว แต่ส่งแจ้งเตือน LINE ไม่สำเร็จ กรุณาตรวจการเชื่อมต่อในหน้าตั้งค่า' });
+  };
+
   const notifyLineRecordAdded = (kind: 'job' | 'expense', record: Job | Expense, monthNet: number | undefined) => {
     if (!session?.user?.email || session.isGuest || financeGroupId) return;
     (async () => {
       try {
-        await apiFetch('/api/notify', {
+        await apiJson('/api/notify', {
           method: 'POST',
           headers: { 'X-Account-ID': session.user.id },
           body: JSON.stringify({ event: 'record-added', kind, record, monthNet }),
         });
       } catch (err) {
-        console.warn('notifyLineRecordAdded failed:', err);
+        reportLineNotifyFailure(err);
       }
     })();
   };
@@ -1166,17 +1171,17 @@ export default function App() {
   // "รับเงิน" card via handleEditJob's wasCompleted branch) previously sent no LINE notification
   // at all -- editing a job's name/client/value/status through JobsTab's edit form landed
   // silently. This covers that gap with its own "แก้ไขงาน" card.
-  const notifyLineRecordEdited = (record: Job, monthNet: number | undefined) => {
+  const notifyLineRecordEdited = (kind: 'job' | 'expense', record: Job | Expense, monthNet: number | undefined) => {
     if (!session?.user?.email || session.isGuest || financeGroupId) return;
     (async () => {
       try {
-        await apiFetch('/api/notify', {
+        await apiJson('/api/notify', {
           method: 'POST',
           headers: { 'X-Account-ID': session.user.id },
-          body: JSON.stringify({ event: 'record-edited', kind: 'job', record, monthNet }),
+          body: JSON.stringify({ event: 'record-edited', kind, record, monthNet }),
         });
       } catch (err) {
-        console.warn('notifyLineRecordEdited failed:', err);
+        reportLineNotifyFailure(err);
       }
     })();
   };
@@ -1191,13 +1196,13 @@ export default function App() {
         const body = kind === 'job'
           ? { kind, record: { name: (record as Job).name, client: (record as Job).client, value: (record as Job).value, isPosted: (record as Job).isPosted }, monthNet }
           : { kind, record: { name: (record as Expense).name, category: (record as Expense).category, amount: (record as Expense).amount }, monthNet };
-        await apiFetch('/api/notify', {
+        await apiJson('/api/notify', {
           method: 'POST',
           headers: { 'X-Account-ID': session.user.id },
           body: JSON.stringify({ event: 'record-deleted', ...body }),
         });
       } catch (err) {
-        console.warn('notifyLineRecordDeleted failed:', err);
+        reportLineNotifyFailure(err);
       }
     })();
   };
@@ -1215,13 +1220,13 @@ export default function App() {
         const body = kind === 'created'
           ? { kind, goal: { name: goal.name, target: goal.target, deadline: goal.deadline } }
           : { kind, goal: { name: goal.name, target: goal.target, current: goal.current }, tx };
-        await apiFetch('/api/notify', {
+        await apiJson('/api/notify', {
           method: 'POST',
           headers: { 'X-Account-ID': session.user.id },
           body: JSON.stringify({ event: 'goal-event', ...body }),
         });
       } catch (err) {
-        console.warn('notifyLineGoalEvent failed:', err);
+        reportLineNotifyFailure(err);
       }
     })();
   };
@@ -1365,7 +1370,7 @@ export default function App() {
       // firing a LINE card on every one of those.
       if (oldJob && updated.name !== undefined) {
         const mergedJob = { ...oldJob, ...updated };
-        notifyLineRecordEdited(mergedJob, monthNetSafe(freshJobs, expenses));
+        notifyLineRecordEdited('job', mergedJob, monthNetSafe(freshJobs, expenses));
       }
     }
   };
@@ -1661,7 +1666,17 @@ export default function App() {
   };
 
   const handleEditExpense = (id: string, updated: Partial<Expense>) => {
-    setExpenses(prev => prev.map(e => e.id === id ? { ...e, ...updated } : e));
+    let editedExpense: Expense | undefined;
+    let freshExpenses: Expense[] = expenses;
+    setExpenses(prev => {
+      freshExpenses = prev.map(e => {
+        if (e.id !== id) return e;
+        editedExpense = { ...e, ...updated };
+        return editedExpense;
+      });
+      return freshExpenses;
+    });
+    if (editedExpense) notifyLineRecordEdited('expense', editedExpense, monthNetSafe(jobs, freshExpenses));
   };
 
   const handleDeleteExpense = (id: string) => {

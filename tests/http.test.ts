@@ -7,6 +7,7 @@ import Stripe from 'stripe';
 import { ensurePrivateReportBucket } from '../backend/src/services/reportStorage.js';
 process.env.APP_URL='http://127.0.0.1:3000';process.env.SUPABASE_URL='https://project.supabase.co';process.env.SUPABASE_PUBLISHABLE_KEY='test-key';process.env.SUPABASE_SERVICE_ROLE_KEY='test-admin';process.env.SESSION_SECRET='test-only-secret-'.repeat(4);process.env.STRIPE_SECRET_KEY='sk_test_only';process.env.STRIPE_WEBHOOK_SECRET='whsec_test';process.env.STRIPE_PRO_PAYMENT_LINK_ID='plink_test';
 process.env.LINE_CHANNEL_ID='test-channel';
+process.env.LINE_CHANNEL_ACCESS_TOKEN='test-line-token';
 const user={id:'11111111-1111-4111-8111-111111111111',email:'a@example.com',user_metadata:{role:'admin'}};
 const sessionId='33333333-3333-4333-8333-333333333333';
 const jwt=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:sessionId})).toString('base64url')}.test`;
@@ -14,6 +15,7 @@ const expiredJwt=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:sessi
 const cookie=`cashflow-session=${seal({access_token:jwt,refresh_token:'private-refresh',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()})}`;
 const realFetch=globalThis.fetch;let failure=false;let server:Server;let origin:string;
 let failRevocation=false,providerSignoutFails=false,notifyFailure=false;
+let notifyLinked=false,linePushStatus=200,linePushes=0;
 let signupError={code:'email_address_not_authorized',msg:'private SMTP credentials should never appear'};
 let refreshed=0,lineVerifications=0,downloaded=0,bucketUpdates=0;
 let currentRole='user', groupError: {code:string;message:string} | null=null;
@@ -24,6 +26,9 @@ before(async()=>{
   const url=String(input);
   const json=(body:any,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}});
   if(url==='https://api.line.me/oauth2/v2.1/verify'){lineVerifications++;return json({error:'invalid_token'},401);}
+  if(url==='https://api.line.me/v2/bot/message/push'){
+   linePushes++;return json(linePushStatus===200?{}:{message:'provider rejected'},linePushStatus);
+  }
   if(!url.startsWith('https://project.supabase.co/'))return realFetch(input,init);
   if(url.includes('/auth/v1/signup'))return json({...signupError,error_code:signupError.code},422);
   if(url.includes('/auth/v1/token')){refreshed++;return json({access_token:jwt,refresh_token:'private-refresh',expires_in:3600,token_type:'bearer',user});}
@@ -50,7 +55,7 @@ before(async()=>{
    const record=JSON.parse(String(init?.body));assert.equal(record.user_id,user.id);revoked.add(record.session_id);return json(null);
   }
   if(url.includes('/auth/v1/logout'))return providerSignoutFails?json({msg:'JWT expired'},401):new Response(null,{status:204});
-  if(url.includes('/cashflow_account_snapshot'))return notifyFailure?json({message:'private notification DB details',code:'XX000'},500):json({notif_settings:{}});
+  if(url.includes('/cashflow_account_snapshot'))return notifyFailure?json({message:'private notification DB details',code:'XX000'},500):json({notif_settings:notifyLinked?{lineUserId:'U-test-user'}:{}});
   if(url.includes('/storage/v1/object/authenticated/monthly-reports/')){
    downloaded++;assert.ok(url.endsWith(`/${user.id}/2026-09.xlsx`));assert.equal(new Headers(init?.headers).get('apikey'),'test-admin');assert.equal(init?.redirect,'error');return new Response('test-report-bytes');
   }
@@ -218,6 +223,14 @@ test('notification failures never expose internal DB errors',async()=>{
   const response=await realFetch(origin+'/api/notify',{method:'POST',headers:{cookie,'x-account-id':user.id,origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"event":"record-added"}'});
   assert.equal(response.status,500);assert.ok(!(await response.text()).includes('private notification'));
  }finally{notifyFailure=false;}
+});
+test('notification endpoint reports LINE delivery rejection instead of silently succeeding',async()=>{
+ notifyLinked=true;linePushStatus=401;
+ try {
+  const before=linePushes;
+  const response=await realFetch(origin+'/api/notify',{method:'POST',headers:{cookie,'x-account-id':user.id,origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"event":"record-added","kind":"expense","record":{"id":"expense-1","name":"test","category":"other","amount":100,"date":"2026-09-26"}}'});
+  assert.equal(response.status,502);assert.equal(linePushes,before+1);assert.ok(!(await response.text()).includes('provider rejected'));
+ }finally{notifyLinked=false;linePushStatus=200;}
 });
 test('LIFF flooding is rejected before provider verification even with changing spoofed IP headers',async()=>{
  const before=lineVerifications;
