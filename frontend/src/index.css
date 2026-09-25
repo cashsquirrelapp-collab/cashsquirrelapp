@@ -156,6 +156,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   backdrop-filter: blur(12px);
 }
 
+/* Feature dialogs live inside the scrollable content area. Keep the global header visually and
+   interactively inside the same modal backdrop, even for dialogs rendered by lazy-loaded tabs. */
+.app-shell:has(.app-content-panel .fixed.inset-0) .app-topbar {
+  pointer-events: none;
+}
+
+.app-shell:has(.app-content-panel .fixed.inset-0) .app-topbar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+}
+
 .app-content-panel {
   background-image: radial-gradient(circle at 92% 4%, rgba(230, 192, 140, .10), transparent 22%);
 }
