@@ -43,20 +43,20 @@ export default function WorkStageSelector({ isPosted, onChange, accent = 'emeral
         type="button"
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
-        className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition-all ${selectedClass}`}
+        className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all ${selectedClass}`}
       >
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
-          <selected.Icon className="h-5 w-5" />
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
+          <selected.Icon className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <strong className="block text-xs font-black">{selected.title}</strong>
-          <span className="mt-0.5 block text-[10px] font-medium leading-relaxed text-brand-muted">{selected.description}</span>
+          <strong className="block text-[11px] font-black">{selected.title}</strong>
+          <span className="mt-0.5 block text-[9px] font-medium leading-relaxed text-brand-muted">{selected.description}</span>
         </span>
         <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="animate-fade-in space-y-2 rounded-2xl border border-brand-border/50 bg-brand-white p-2 shadow-sm dark:bg-stone-800">
+        <div className="animate-fade-in space-y-1 rounded-xl border border-brand-border/50 bg-brand-white p-1.5 shadow-sm dark:bg-stone-800">
           {stages.map((stage) => {
             const active = stage.value === isPosted;
             return (
@@ -67,16 +67,16 @@ export default function WorkStageSelector({ isPosted, onChange, accent = 'emeral
                   onChange(stage.value);
                   setOpen(false);
                 }}
-                className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
+                className={`flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${
                   active
                     ? selectedClass
                     : 'border-transparent hover:border-brand-border/50 hover:bg-brand-faint dark:hover:bg-stone-900'
                 }`}
               >
-                <stage.Icon className="mt-0.5 h-4 w-4 shrink-0 text-brand-muted" />
+                <stage.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-muted" />
                 <span className="min-w-0 flex-1">
-                  <strong className="block text-xs font-black text-brand-text">{stage.title}</strong>
-                  <span className="mt-0.5 block text-[10px] font-medium leading-relaxed text-brand-muted">{stage.description}</span>
+                  <strong className="block text-[11px] font-black text-brand-text">{stage.title}</strong>
+                  <span className="mt-0.5 block text-[9px] font-medium leading-relaxed text-brand-muted">{stage.description}</span>
                 </span>
                 {active && <Check className="mt-0.5 h-4 w-4 shrink-0" />}
               </button>

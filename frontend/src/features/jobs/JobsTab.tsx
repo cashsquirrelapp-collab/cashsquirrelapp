@@ -288,6 +288,15 @@ export default function JobsTab({
           triggerAlert(t('jobs.alertValueRequiredTitle'), t('jobs.alertValueRequiredMsg'));
           return;
         }
+        if (editStatus === 'installment') {
+          const target = val - Math.round(val * (editWhtRate / 100));
+          const total = editInstallments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+          if (editInstallments.length === 0 || editInstallments.some((row) => !Number.isFinite(row.amount) || row.amount <= 0) || Math.abs(total - target) > 0.01) {
+            const difference = target - total;
+            triggerAlert('ตรวจสอบยอดแต่ละงวด', difference > 0 ? `ยอดรวมยังขาด ${formatCurrency(difference)} กรุณาเพิ่มหรือแก้ไขงวดให้ครบก่อนไปขั้นตอนที่ 3` : difference < 0 ? `ยอดรวมเกิน ${formatCurrency(Math.abs(difference))} กรุณาแก้ไขก่อนไปขั้นตอนที่ 3` : 'ทุกงวดต้องมียอดมากกว่า 0 บาท');
+            return;
+          }
+        }
       }
       setEditFormStep(prev => prev + 1);
       return;
@@ -424,6 +433,15 @@ export default function JobsTab({
         if (!formValue.trim() || isNaN(val) || val < 0) {
           triggerAlert(t('jobs.alertValueRequiredTitle'), t('jobs.alertValueRequiredMsg'));
           return;
+        }
+        if (formStatus === 'installment') {
+          const target = val - Math.round(val * (formWhtRate / 100));
+          const total = formInstallments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+          if (formInstallments.length === 0 || formInstallments.some((row) => !Number.isFinite(row.amount) || row.amount <= 0) || Math.abs(total - target) > 0.01) {
+            const difference = target - total;
+            triggerAlert('ตรวจสอบยอดแต่ละงวด', difference > 0 ? `ยอดรวมยังขาด ${formatCurrency(difference)} กรุณาเพิ่มหรือแก้ไขงวดให้ครบก่อนไปขั้นตอนที่ 3` : difference < 0 ? `ยอดรวมเกิน ${formatCurrency(Math.abs(difference))} กรุณาแก้ไขก่อนไปขั้นตอนที่ 3` : 'ทุกงวดต้องมียอดมากกว่า 0 บาท');
+            return;
+          }
         }
       }
       setFormStep(prev => prev + 1);
