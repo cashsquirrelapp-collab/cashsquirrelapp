@@ -2065,63 +2065,22 @@ export default function App() {
       {/* 📱 / 💻 Main Section: Handles responsive paddings & maximum constraints */}
       <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
         
-        {/* Top Header Bar with branding & Dark Mode toggle (Sticky on mobile, simple title on desktop) */}
-        <div className={`app-topbar relative flex shrink-0 select-none items-center justify-between gap-3 overflow-visible border-b border-brand-border/40 bg-brand-white px-5 py-3 lg:px-8 ${isProfileMenuOpen ? 'z-40' : ''}`}>
-          <div className="flex items-center gap-3">
-            {/* Hamburger button for Mobile Drawer Menu */}
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="p-1.5 rounded-xl bg-brand-faint hover:bg-brand-border/30 text-brand-muted hover:text-brand-text transition-all cursor-pointer lg:hidden flex items-center justify-center border border-brand-border/10"
-              title={t('header.openMenu')}
-            >
-              <Menu className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
-            </button>
+        {/* Floating account controls: keep the page chrome hidden until the account corner is used. */}
+        <div className={`pointer-events-none absolute inset-x-0 top-0 flex select-none items-start justify-between p-3 lg:justify-end lg:p-5 ${isProfileMenuOpen ? 'z-[110]' : 'z-40'}`}>
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-brand-border/60 bg-brand-white/90 text-brand-muted shadow-sm backdrop-blur-md transition-all hover:text-brand-text lg:hidden"
+            title={t('header.openMenu')}
+          >
+            <Menu className="h-4.5 w-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
+          </button>
 
-            {activeTab === 'settings' ? (
-              <div className="flex items-center gap-2.5">
-                <Mascot mood="happy" size={32} className="shrink-0" />
-                <div className="flex flex-col">
-                  <span className="font-display font-extrabold text-base sm:text-xl tracking-tight text-brand-text leading-tight">
-                    {t('header.settingsTitle')}
-                  </span>
-                  <span className="text-xs text-brand-muted dark:text-neutral-400 font-medium leading-relaxed mt-1 hidden sm:inline">
-                    {t('header.settingsSubtitle')}
-                  </span>
-                </div>
+          <div className="group pointer-events-auto flex items-center justify-end gap-2">
+            {!session.isGuest && (
+              <div className={`overflow-hidden transition-all duration-300 ease-out ${isProfileMenuOpen ? 'max-w-[220px] translate-x-0 opacity-100' : 'max-w-0 translate-x-3 opacity-0 group-hover:max-w-[220px] group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:max-w-[220px] group-focus-within:translate-x-0 group-focus-within:opacity-100'}`}>
+                <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>
               </div>
-            ) : (
-              <span className="font-display font-extrabold text-base sm:text-xl tracking-tight text-brand-text">
-                {activeTab === 'jobs' && t('header.jobs')}
-                {activeTab === 'tax' && t('header.tax')}
-                {activeTab === 'invoice' && t('header.invoice')}
-                {activeTab === 'summary' && t('header.summary')}
-                {activeTab === 'timeline' && t('header.timeline')}
-                {activeTab === 'split' && t('header.split')}
-                {activeTab === 'report' && t('header.report')}
-                {activeTab === 'insight' && t('header.insight')}
-                {activeTab === 'plans' && t('header.plans')}
-                {activeTab === 'groups' && t('header.groups')}
-              </span>
             )}
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {!session.isGuest && cloudSyncStatus === 'failed' && <button type="button" onClick={() => navigateTab('settings')} className="hidden sm:inline-flex items-center gap-2 rounded-full border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700" aria-label="ดูสถานะการบันทึกข้อมูล">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-              บันทึกไม่สำเร็จ
-            </button>}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="group h-10 w-10 rounded-2xl bg-brand-white hover:bg-brand-faint text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border shadow-sm hover:shadow-md cursor-pointer lg:hidden"
-              title={darkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
-            >
-              {darkMode ? (
-                <Sun className="w-4.5 h-4.5 text-[#D98324] fill-[#D98324]/15 transition-transform group-hover:rotate-12" />
-              ) : (
-                <Moon className="w-4.5 h-4.5 text-[#6F4932] fill-[#6F4932]/10 transition-transform group-hover:-rotate-12" />
-              )}
-            </button>
-            {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>} 
             <div className="relative">
               <button
                 type="button"
