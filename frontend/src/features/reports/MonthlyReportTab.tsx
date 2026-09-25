@@ -304,6 +304,7 @@ export default function MonthlyReportTab({
     // Total income: contract value and actual received
     const annualContractValue = yearJobs.reduce((sum, j) => sum + j.value, 0);
     const annualReceivedValue = jobs.flatMap(getJobPaymentEntries).reduce((sum, entry) => entry.date?.startsWith(yearStr) ? sum + entry.amount : sum, 0);
+    const annualWhtAmount = yearJobs.reduce((sum, j) => sum + (j.whtAmount || 0), 0);
 
     // Filter expenses for selected year
     const yearExpenses = (expenses || []).filter(e => {
@@ -343,6 +344,7 @@ export default function MonthlyReportTab({
       selectedYear,
       annualContractValue,
       annualReceivedValue,
+      annualWhtAmount,
       annualVariableExpenses,
       annualFixedExpenses,
       totalAnnualExpense,
@@ -859,9 +861,15 @@ export default function MonthlyReportTab({
               <p className="text-2xl font-black font-mono text-emerald-700 dark:text-emerald-400 leading-none">
                 {formatCurrency(annualMetrics.annualReceivedValue)}
               </p>
-              <div className="flex justify-between items-center mt-3 pt-2 border-t border-emerald-500/10">
-                <span className="text-[10px] text-brand-muted dark:text-neutral-400 font-medium">มูลค่าสัญญาดีลงานรวมปี:</span>
-                <span className="text-[10px] font-mono font-bold text-brand-text dark:text-white">{formatCurrency(annualMetrics.annualContractValue)}</span>
+              <div className="mt-3 space-y-1.5 border-t border-emerald-500/10 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-brand-muted dark:text-neutral-400 font-medium">มูลค่าสัญญาดีลงานรวมปี:</span>
+                  <span className="text-[10px] font-mono font-bold text-brand-text dark:text-white">{formatCurrency(annualMetrics.annualContractValue)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">หัก ณ ที่จ่ายรวมรายปี:</span>
+                  <span className="text-[10px] font-mono font-black text-amber-700 dark:text-amber-400">{formatCurrency(annualMetrics.annualWhtAmount)}</span>
+                </div>
               </div>
             </div>
           </div>
