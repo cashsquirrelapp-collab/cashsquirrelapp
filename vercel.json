@@ -15,6 +15,14 @@
   "outputDirectory": "build/frontend",
   "rewrites": [
     {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/index?route=:path*"
     },
