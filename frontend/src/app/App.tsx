@@ -2060,7 +2060,7 @@ export default function App() {
       <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
         
         {/* Top Header Bar with branding & Dark Mode toggle (Sticky on mobile, simple title on desktop) */}
-        <div className="app-topbar relative z-[200] flex shrink-0 select-none items-center justify-between gap-3 overflow-visible border-b border-brand-border/40 bg-brand-white px-5 py-3 lg:px-8">
+        <div className="app-topbar relative z-40 flex shrink-0 select-none items-center justify-between gap-3 overflow-visible border-b border-brand-border/40 bg-brand-white px-5 py-3 lg:px-8">
           <div className="flex items-center gap-3">
             {/* Hamburger button for Mobile Drawer Menu */}
             <button
@@ -2100,7 +2100,6 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
-            {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>} 
             {!session.isGuest && cloudSyncStatus === 'failed' && <button type="button" onClick={() => navigateTab('settings')} className="hidden sm:inline-flex items-center gap-2 rounded-full border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700" aria-label="ดูสถานะการบันทึกข้อมูล">
               <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
               บันทึกไม่สำเร็จ
@@ -2116,6 +2115,7 @@ export default function App() {
                 <Moon className="w-4.5 h-4.5 text-[#6F4932] fill-[#6F4932]/10 transition-transform group-hover:-rotate-12" />
               )}
             </button>
+            {!session.isGuest && <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>} 
             <div className="relative">
               <button
                 type="button"
@@ -2148,20 +2148,6 @@ export default function App() {
             </div>
           </div>
         </div>
-
-        <AnimatePresence initial={false}>
-          {isProfileMenuOpen && (
-            <motion.div
-              key="profile-menu-space"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 174, opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="shrink-0 border-b border-brand-border/40 bg-brand-white"
-              aria-hidden="true"
-            />
-          )}
-        </AnimatePresence>
 
         {/* Scrollable Container with responsive max widths */}
         <div id="main-content" role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
