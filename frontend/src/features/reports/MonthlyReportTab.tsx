@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job, Goal, AppSettings, NotifSettings } from '../../../../shared/types';
 import { formatCurrency, getMonthKey, formatMonthKey, getRelativeDaysText } from '../../utils';
+import { getJobPaymentEntries, getMonthKeyFromDate } from '../../../../shared/installmentPayments';
 import { 
   BarChart, 
   Bar, 
@@ -302,7 +303,7 @@ export default function MonthlyReportTab({
     
     // Total income: contract value and actual received
     const annualContractValue = yearJobs.reduce((sum, j) => sum + j.value, 0);
-    const annualReceivedValue = yearJobs.reduce((sum, j) => sum + (j.received || 0), 0);
+    const annualReceivedValue = jobs.flatMap(getJobPaymentEntries).reduce((sum, entry) => entry.date?.startsWith(yearStr) ? sum + entry.amount : sum, 0);
 
     // Filter expenses for selected year
     const yearExpenses = (expenses || []).filter(e => {
@@ -318,6 +319,7 @@ export default function MonthlyReportTab({
       if (j.postDate) activeMonths.add(j.postDate.substring(0, 7));
       if (j.payDate) activeMonths.add(j.payDate.substring(0, 7));
     });
+    jobs.flatMap(getJobPaymentEntries).forEach((entry) => entry.date?.startsWith(yearStr) && activeMonths.add(getMonthKeyFromDate(entry.date)));
     yearExpenses.forEach(e => {
       if (e.date) activeMonths.add(e.date.substring(0, 7));
     });
@@ -392,9 +394,12 @@ export default function MonthlyReportTab({
         const key = getMonthKey(dateKey);
         if (dataMap[key]) {
           dataMap[key].income += j.value;
-          dataMap[key].received += (j.received || 0);
         }
       }
+      getJobPaymentEntries(j).forEach((entry) => {
+        const key = getMonthKeyFromDate(entry.date);
+        if (dataMap[key]) dataMap[key].received += entry.amount;
+      });
     });
 
     // Add variable expenses

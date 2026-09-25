@@ -26,6 +26,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
+import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
 
 interface TaxTabProps {
   jobs: Job[];
@@ -90,6 +91,7 @@ export default function TaxTab({
 
   const systemJobsForYear = useMemo(() => {
     return jobs.filter(j => {
+      if (j.installments?.length) return getJobPaymentEntries(j).some((entry) => entry.date && new Date(`${entry.date}T00:00:00`).getFullYear() === taxYear);
       const d = j.payDate || j.postDate || j.startDate;
       if (!d) return false;
       return new Date(d).getFullYear() === taxYear;
@@ -101,6 +103,16 @@ export default function TaxTab({
     let secondHalfJobsSum = 0;
 
     systemJobsForYear.forEach(j => {
+      if (j.installments?.length) {
+        getJobPaymentEntries(j).forEach((entry) => {
+          if (!entry.date) return;
+          const date = new Date(`${entry.date}T00:00:00`);
+          if (date.getFullYear() !== taxYear) return;
+          if (date.getMonth() <= 5) firstHalfJobsSum += entry.amount;
+          else secondHalfJobsSum += entry.amount;
+        });
+        return;
+      }
       const dateStr = j.payDate || j.postDate || j.startDate;
       if (!dateStr) return;
       const date = new Date(dateStr);
@@ -421,29 +433,42 @@ export default function TaxTab({
       'วันเริ่มงาน',
       'วันดีล/วันเผยแพร่',
       'กำหนดชำระเงิน',
+      'งวดชำระ',
+      'สถานะงวด',
+      'วันรับเงินจริง',
       'หมายเหตุ'
     ];
-    const incomeRows = jobs.map((j) => {
+    const incomeRows = jobs.flatMap((j) => {
       let statusText = j.status;
       if (j.status === 'done') statusText = 'จ่ายแล้ว';
       else if (j.status === 'partial' || j.status === 'installment') statusText = j.status === 'installment' ? 'แบ่งชำระเป็นงวด' : 'มัดจำ/จ่ายบางส่วน';
       else if (j.status === 'pending') statusText = 'ยังไม่จ่าย';
-      return [
+      const baseRow = (label: string, installmentStatus: string, paidAt: string, received: number, pending: number, contractValue: number, whtAmount: number, dueDate: string) => [
         j.name,
         j.type || 'ทั่วไป',
         j.client || '-',
-        j.value || 0,
+        contractValue,
         j.whtRate || 0,
-        j.whtAmount || 0,
-        j.received || 0,
-        j.pending || 0,
+        whtAmount,
+        received,
+        pending,
         statusText,
         j.creditTerm || 0,
         j.startDate || '-',
         j.postDate || '-',
-        j.payDate || '-',
+        dueDate || '-',
+        label || '-',
+        installmentStatus || '-',
+        paidAt || '-',
         j.note || ''
       ];
+      if (!j.installments?.length) return [baseRow('', '', j.payDate || '', j.received || 0, j.pending || 0, j.value || 0, j.whtAmount || 0, j.payDate || '')];
+      const netTotal = Math.max(1, j.value - (j.whtAmount || 0));
+      return j.installments.map((row, index) => {
+        const previousAllocated = j.installments!.slice(0, index).reduce((sum, item) => sum + Math.round((j.whtAmount || 0) * (item.amount / netTotal)), 0);
+        const allocatedWht = index === j.installments!.length - 1 ? Math.max(0, (j.whtAmount || 0) - previousAllocated) : Math.round((j.whtAmount || 0) * (row.amount / netTotal));
+        return baseRow(row.label, row.status === 'paid' ? 'รับแล้ว' : 'รอชำระ', row.paidAt || '', row.status === 'paid' ? row.amount : 0, row.status === 'paid' ? 0 : row.amount, index === 0 ? j.value : 0, allocatedWht, row.dueDate || '');
+      });
     });
 
     const expenseHeaders = ['ชื่อรายการ', 'หมวดหมู่', 'จำนวนเงิน (บาท)', 'วันที่', 'หมายเหตุ'];

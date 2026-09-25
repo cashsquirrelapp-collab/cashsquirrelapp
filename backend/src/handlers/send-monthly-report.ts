@@ -191,20 +191,35 @@ function buildMonthlyExcelBase64(monthLabel: string, s: MonthlySummary, jobs: Jo
   ];
 
   const incomeHeaders = [
-    'ชื่อโปรเจกต์', 'ประเภทงาน', 'ลูกค้า', 'มูลค่ารวม (บาท)', 'หัก ณ ที่จ่าย (%)',
+    'ชื่อโปรเจกต์', 'ประเภทงาน', 'ลูกค้า', 'งวดชำระ', 'สถานะงวด', 'วันที่รับเงินจริง', 'มูลค่ารวม (บาท)', 'หัก ณ ที่จ่าย (%)',
     'จำนวนภาษีหัก ณ ที่จ่าย (บาท)', 'ยอดได้รับแล้ว (บาท)', 'ยอดค้างชำระ (บาท)',
     'สถานะโครงการ', 'เครดิตเทอม (วัน)', 'วันเริ่มงาน', 'วันดีล/วันเผยแพร่', 'กำหนดชำระเงิน', 'หมายเหตุ'
   ];
-  const incomeRows = jobs.map((j) => {
+  const incomeRows = jobs.flatMap((j) => {
     let statusText = j.status;
     if (j.status === 'done') statusText = 'จ่ายแล้ว';
     else if (j.status === 'partial' || j.status === 'installment') statusText = j.status === 'installment' ? 'แบ่งชำระเป็นงวด' : 'มัดจำ/จ่ายบางส่วน';
     else if (j.status === 'pending') statusText = 'ยังไม่จ่าย';
-    return [
-      j.name, j.type || 'ทั่วไป', j.client || '-', j.value || 0, j.whtRate || 0,
-      j.whtAmount || 0, j.received || 0, j.pending || 0, statusText || '-',
-      j.creditTerm || 0, j.startDate || '-', j.postDate || '-', j.payDate || '-', j.note || ''
-    ];
+    if (!j.installments?.length) {
+      return [[
+        j.name, j.type || 'ทั่วไป', j.client || '-', '-', '-', '-', j.value || 0, j.whtRate || 0,
+        j.whtAmount || 0, j.received || 0, j.pending || 0, statusText || '-',
+        j.creditTerm || 0, j.startDate || '-', j.postDate || '-', j.payDate || '-', j.note || ''
+      ]];
+    }
+    return j.installments.map((row, index) => {
+      const ratio = j.value > 0 ? row.amount / j.value : 0;
+      return [
+        j.name, j.type || 'ทั่วไป', j.client || '-', row.label,
+        row.status === 'paid' ? 'รับเงินแล้ว' : 'รอรับเงิน', row.paidAt || '-',
+        index === 0 ? j.value || 0 : 0, j.whtRate || 0,
+        Math.round((j.whtAmount || 0) * ratio * 100) / 100,
+        row.status === 'paid' ? row.amount : 0,
+        row.status === 'pending' ? row.amount : 0,
+        statusText || '-', j.creditTerm || 0, j.startDate || '-', j.postDate || '-',
+        row.dueDate || '-', j.note || ''
+      ];
+    });
   });
 
   const expenseHeaders = ['ชื่อรายการ', 'หมวดหมู่', 'จำนวนเงิน (บาท)', 'วันที่', 'หมายเหตุ'];

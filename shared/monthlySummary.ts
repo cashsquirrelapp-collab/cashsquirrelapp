@@ -17,6 +17,14 @@ export interface JobRow {
   note?: string;
   isPosted?: boolean;
   paymentStatus?: string;
+  installments?: Array<{
+    id: string;
+    label: string;
+    amount: number;
+    dueDate: string | null;
+    paidAt: string | null;
+    status: 'pending' | 'paid';
+  }>;
 }
 
 export interface ExpenseRow {
@@ -69,7 +77,10 @@ export function dateKeyInMonth(dateStr: string | undefined | null, monthKey: str
 }
 
 export function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {
-  return jobs.filter((j) => dateKeyInMonth(j.payDate || j.postDate, monthKey));
+  return jobs.filter((j) =>
+    dateKeyInMonth(j.payDate || j.postDate, monthKey)
+    || (j.installments || []).some((row) => dateKeyInMonth(row.paidAt || row.dueDate, monthKey))
+  );
 }
 
 export function expensesInMonth(expenses: ExpenseRow[], monthKey: string): ExpenseRow[] {
@@ -96,6 +107,14 @@ export function computeMonthlySummary(
     const dateKey = j.payDate || j.postDate;
     if (dateKeyInMonth(dateKey, monthKey)) {
       income += j.value || 0;
+    }
+    if (j.installments?.length) {
+      received += j.installments.reduce((sum, row) => (
+        row.status === 'paid' && dateKeyInMonth(row.paidAt || dateKey, monthKey)
+          ? sum + (row.amount || 0)
+          : sum
+      ), 0);
+    } else if (dateKeyInMonth(dateKey, monthKey)) {
       received += j.received || 0;
     }
   }

@@ -157,6 +157,9 @@ export const exportJobsToCSV = (jobs: Job[]): boolean => {
     'วันเริ่มงาน',
     'วันดีล/วันเผยแพร่',
     'กำหนดชำระเงิน',
+    'งวดชำระ',
+    'สถานะงวด',
+    'วันรับเงินจริง',
     'หมายเหตุ'
   ];
 
@@ -166,28 +169,39 @@ export const exportJobsToCSV = (jobs: Job[]): boolean => {
     return str.includes(',') || str.includes('\n') || str.includes('"') ? `"${str}"` : str;
   };
 
-  const rows = jobs.map(j => {
+  const rows = jobs.flatMap(j => {
     let statusText = j.status;
     if (j.status === 'done') statusText = 'จ่ายแล้ว';
     else if (j.status === 'partial' || j.status === 'installment') statusText = j.status === 'installment' ? 'แบ่งชำระเป็นงวด' : 'มัดจำ/จ่ายบางส่วน';
     else if (j.status === 'pending') statusText = 'ยังไม่จ่าย';
 
-    return [
+    const base = (installmentLabel: string, installmentStatus: string, paidAt: string, received: number, pending: number, contractValue: number, whtAmount: number, dueDate: string) => [
       escapeCSV(j.name),
       escapeCSV(j.type || 'ทั่วไป'),
       escapeCSV(j.client || '-'),
-      j.value || 0,
+      contractValue,
       j.whtRate || 0,
-      j.whtAmount || 0,
-      j.received || 0,
-      j.pending || 0,
+      whtAmount,
+      received,
+      pending,
       escapeCSV(statusText),
       j.creditTerm || 0,
       escapeCSV(j.startDate || '-'),
       escapeCSV(j.postDate || '-'),
-      escapeCSV(j.payDate || '-'),
+      escapeCSV(dueDate || '-'),
+      escapeCSV(installmentLabel || '-'),
+      escapeCSV(installmentStatus || '-'),
+      escapeCSV(paidAt || '-'),
       escapeCSV(j.note || '')
     ];
+    if (!j.installments?.length) return [base('', '', j.payDate || '', j.received || 0, j.pending || 0, j.value || 0, j.whtAmount || 0, j.payDate || '')];
+    const netTotal = Math.max(1, j.value - (j.whtAmount || 0));
+    return j.installments.map((row, index) => {
+      const allocatedWht = index === j.installments!.length - 1
+        ? Math.max(0, (j.whtAmount || 0) - j.installments!.slice(0, -1).reduce((sum, item) => sum + Math.round((j.whtAmount || 0) * (item.amount / netTotal)), 0))
+        : Math.round((j.whtAmount || 0) * (row.amount / netTotal));
+      return base(row.label, row.status === 'paid' ? 'รับแล้ว' : 'รอชำระ', row.paidAt || '', row.status === 'paid' ? row.amount : 0, row.status === 'paid' ? 0 : row.amount, index === 0 ? j.value : 0, allocatedWht, row.dueDate || '');
+    });
   });
 
   const csvContent = '﻿' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');

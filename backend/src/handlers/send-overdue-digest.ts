@@ -19,6 +19,14 @@ interface JobRow {
   payDate: string | null;
   followUpCount?: number;
   lastFollowUpDate?: string;
+  installments?: Array<{
+    id: string;
+    label: string;
+    amount: number;
+    dueDate: string | null;
+    paidAt: string | null;
+    status: 'pending' | 'paid';
+  }>;
 }
 
 interface NotifSettingsRow {
@@ -57,15 +65,31 @@ interface JobWithDiff extends JobRow {
 // out of sync silently skips the digest instead of surfacing as money still owed.
 function findJobsNeedingAttention(jobs: JobRow[]): JobWithDiff[] {
   return jobs
-    .map((j) => {
+    .flatMap((j) => {
+      if (j.installments?.length) {
+        return j.installments.flatMap((row) => {
+          if (row.status === 'paid' || row.amount <= 0 || !row.dueDate) return [];
+          const diffDays = diffDaysFromToday(row.dueDate);
+          if (diffDays > 2) return [];
+          return [{
+            ...j,
+            id: `${j.id}:${row.id}`,
+            name: `${j.name} • ${row.label}`,
+            pending: row.amount,
+            dueDate: row.dueDate,
+            payDate: row.dueDate,
+            diffDays,
+          }];
+        });
+      }
       const targetDateStr = j.dueDate || j.payDate;
-      if (j.pending <= 0 || !targetDateStr) return null;
+      if (j.pending <= 0 || !targetDateStr) return [];
 
       const diffDays = diffDaysFromToday(targetDateStr);
-      if (diffDays > 2) return null;
-      return { ...j, diffDays };
+      if (diffDays > 2) return [];
+      return [{ ...j, diffDays }];
     })
-    .filter((j): j is JobWithDiff => j !== null);
+    .filter((j): j is JobWithDiff => !!j);
 }
 
 function dueLabel(diffDays: number): string {

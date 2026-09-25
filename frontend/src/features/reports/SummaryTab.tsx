@@ -27,6 +27,7 @@ import {
 import { fireMascot } from '../../mascotBus';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconCheck, IconArrowUp, IconArrowRight } from '../../components/ui/icons';
+import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate, getReceivedForMonth, getPendingForMonth } from '../../../../shared/installmentPayments';
 
 interface SummaryTabProps {
   jobs: Job[];
@@ -151,6 +152,8 @@ export default function SummaryTab({
       if (dateKey) {
         keys.add(getMonthKey(dateKey));
       }
+      getJobPaymentEntries(j).forEach((entry) => entry.date && keys.add(getMonthKeyFromDate(entry.date)));
+      getJobPendingEntries(j).forEach((entry) => entry.dueDate && keys.add(getMonthKeyFromDate(entry.dueDate)));
     });
     
     return Array.from(keys).sort().reverse(); // Newest first
@@ -158,7 +161,7 @@ export default function SummaryTab({
 
   // Filter jobs for selected month
   const monthJobs = useMemo(() => {
-    return jobs.filter(j => getMonthKey(j.payDate || j.postDate) === selectedMonth);
+    return jobs.filter(j => getMonthKey(j.payDate || j.postDate) === selectedMonth || getReceivedForMonth(j, selectedMonth) > 0 || getPendingForMonth(j, selectedMonth) > 0);
   }, [jobs, selectedMonth]);
 
   // Calculations for selected month
@@ -166,12 +169,12 @@ export default function SummaryTab({
     // Trust the recorded `received` field as-is -- never assume a "done" job's full value was
     // received when that field is still 0/unset, since that shows phantom income the user never
     // actually got and disagrees with the Timeline tab, which only counts received > 0.
-    const totalReceived = monthJobs.reduce((sum, j) => sum + (j.received || 0), 0);
+    const totalReceived = monthJobs.reduce((sum, j) => sum + getReceivedForMonth(j, selectedMonth), 0);
 
     // Trust the recorded `pending` field as-is, same reasoning as totalReceived above -- a
     // properly-saved "done" job already has pending forced to 0, so gating on isPaid here was
     // redundant and hid money for any job whose paid flag and pending amount had drifted apart.
-    const totalPending = monthJobs.reduce((sum, j) => sum + j.pending, 0);
+    const totalPending = monthJobs.reduce((sum, j) => sum + getPendingForMonth(j, selectedMonth), 0);
 
     const totalContractVal = monthJobs.reduce((sum, j) => {
       const isPaid = j.status === 'done' || 
@@ -247,11 +250,11 @@ export default function SummaryTab({
   const monthlySummaries = useMemo(() => {
     return availableMonths
       .map(monthKey => {
-        const monthJobs = jobs.filter(j => getMonthKey(j.payDate || j.postDate) === monthKey);
+        const monthJobs = jobs.filter(j => getMonthKey(j.payDate || j.postDate) === monthKey || getReceivedForMonth(j, monthKey) > 0 || getPendingForMonth(j, monthKey) > 0);
         
-        const mReceived = monthJobs.reduce((sum, j) => sum + (j.received || 0), 0);
+        const mReceived = monthJobs.reduce((sum, j) => sum + getReceivedForMonth(j, monthKey), 0);
 
-        const mPending = monthJobs.reduce((sum, j) => sum + j.pending, 0);
+        const mPending = monthJobs.reduce((sum, j) => sum + getPendingForMonth(j, monthKey), 0);
 
         const mContract = monthJobs.reduce((sum, j) => {
           const isPaid = j.status === 'done' || 
@@ -287,6 +290,10 @@ export default function SummaryTab({
   }, [jobs, availableMonths, settings.monthlyExpense, currentMonthKey, selectedMonth, expenses]);
 
   const handleCollectPending = (job: Job) => {
+    if (job.installments?.length) {
+      alert('งานนี้แบ่งชำระเป็นงวด กรุณากด “รับเงินงวดถัดไป” ที่การ์ดงานเพื่อบันทึกงวดและวันที่รับเงินจริง');
+      return;
+    }
     triggerConfirm(
       'รับเงินส่วนที่เหลือสำเร็จ',
       `คุณต้องการบันทึกว่าได้รับเงินค้างชำระทั้งหมดจำนวน ${formatCurrency(job.pending)} จากงาน "${job.name}" แล้วใช่ไหม?`,
@@ -305,6 +312,10 @@ export default function SummaryTab({
   };
 
   const handleUpdatePartial = (job: Job, amount: number) => {
+    if (job.installments?.length) {
+      alert('งานนี้แบ่งชำระเป็นงวด กรุณาบันทึกจากรายการงวดเพื่อให้ยอดและรายงานตรงกัน');
+      return;
+    }
     if (amount <= 0 || amount > job.pending) {
       triggerAlert('จำนวนเงินไม่ถูกต้อง', 'ยอดเงินที่บันทึกต้องมากกว่า 0 และไม่เกินจำนวนยอดที่ยังค้างจ่ายอยู่');
       return;
@@ -769,6 +780,11 @@ export default function SummaryTab({
 
                   {/* Dynamic payment updates */}
                   <div className="flex flex-wrap items-center gap-2">
+                    {j.installments?.length ? (
+                      <span className="px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
+                        แบ่งชำระ {j.installments.length} งวด • บันทึกรับเงินจากการ์ดงาน
+                      </span>
+                    ) : <>
                     {/* Fast payment collection input */}
                     <div className="flex items-center gap-1">
                       <NumberInput
@@ -791,6 +807,7 @@ export default function SummaryTab({
                     >
                       <CheckCircle2 className="w-3 h-3" /> รับเงินครบแล้ว
                     </button>
+                    </>}
                   </div>
                 </div>
               );

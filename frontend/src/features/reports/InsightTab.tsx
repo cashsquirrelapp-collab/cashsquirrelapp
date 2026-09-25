@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job } from '../../../../shared/types';
+import { getJobPaymentEntries, getJobPendingEntries } from '../../../../shared/installmentPayments';
 import { formatCurrency, getMonthKey, formatMonthKey, safeFormatThaiDate } from '../../utils';
 import {
   BarChart,
@@ -61,14 +62,19 @@ function typeKey(j: Job): string {
   return (j.type || '').trim() || 'ยังไม่ระบุ';
 }
 
-function aggregate(jobs: Job[], keyFn: (j: Job) => string): Bucket[] {
+function aggregate(
+  jobs: Job[],
+  keyFn: (j: Job) => string,
+  receivedFn: (j: Job) => number = (j) => j.received || 0,
+  pendingFn: (j: Job) => number = (j) => j.pending || 0
+): Bucket[] {
   const map = new Map<string, Bucket>();
   for (const j of jobs) {
     const key = keyFn(j);
     const existing = map.get(key) || { key, value: 0, received: 0, pending: 0, count: 0 };
     existing.value += j.value || 0;
-    existing.received += j.received || 0;
-    existing.pending += j.pending || 0;
+    existing.received += receivedFn(j);
+    existing.pending += pendingFn(j);
     existing.count += 1;
     map.set(key, existing);
   }
@@ -129,11 +135,20 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
   const filteredJobs = useMemo(() => {
     if (!periodCutoff) return jobs;
     return jobs.filter((j) => {
-      const dateStr = j.postDate || j.payDate;
-      if (!dateStr) return true; // keep undated jobs rather than silently drop them
-      return new Date(dateStr + 'T00:00:00') >= periodCutoff;
+      const activityDates = [j.postDate || j.payDate, ...getJobPaymentEntries(j).map((entry) => entry.date), ...getJobPendingEntries(j).map((entry) => entry.date)].filter(Boolean) as string[];
+      if (activityDates.length === 0) return true;
+      return activityDates.some((dateStr) => new Date(dateStr + 'T00:00:00') >= periodCutoff);
     });
   }, [jobs, periodCutoff]);
+
+  const receivedInPeriod = (job: Job) => getJobPaymentEntries(job).reduce((sum, entry) => {
+    if (periodCutoff && (!entry.date || new Date(entry.date + 'T00:00:00') < periodCutoff)) return sum;
+    return sum + entry.amount;
+  }, 0);
+  const pendingInPeriod = (job: Job) => getJobPendingEntries(job).reduce((sum, entry) => {
+    if (periodCutoff && (!entry.date || new Date(entry.date + 'T00:00:00') < periodCutoff)) return sum;
+    return sum + entry.amount;
+  }, 0);
 
   const drilldownJobs = useMemo(() => {
     if (!drilldown) return [];
@@ -145,17 +160,17 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
     return filteredJobs.filter((j) => keyFn(j) === drilldown.bucket.key);
   }, [drilldown, filteredJobs]);
 
-  const byClient = useMemo(() => topNWithRest(aggregate(filteredJobs, clientKey), TOP_N), [filteredJobs]);
-  const byType = useMemo(() => topNWithRest(aggregate(filteredJobs, typeKey), TOP_N), [filteredJobs]);
+  const byClient = useMemo(() => topNWithRest(aggregate(filteredJobs, clientKey, receivedInPeriod, pendingInPeriod), TOP_N), [filteredJobs, periodCutoff]);
+  const byType = useMemo(() => topNWithRest(aggregate(filteredJobs, typeKey, receivedInPeriod, pendingInPeriod), TOP_N), [filteredJobs, periodCutoff]);
   // The top PIE_N entries here are always the same items, in the same order, as the first PIE_N
   // of byClient/byType above (both come from the same sorted aggregate() call) -- so a category's
   // color stays consistent whether you're looking at the bar or the pie view.
-  const byClientPie = useMemo(() => topNWithRest(aggregate(filteredJobs, clientKey), PIE_N), [filteredJobs]);
-  const byTypePie = useMemo(() => topNWithRest(aggregate(filteredJobs, typeKey), PIE_N), [filteredJobs]);
+  const byClientPie = useMemo(() => topNWithRest(aggregate(filteredJobs, clientKey, receivedInPeriod, pendingInPeriod), PIE_N), [filteredJobs, periodCutoff]);
+  const byTypePie = useMemo(() => topNWithRest(aggregate(filteredJobs, typeKey, receivedInPeriod, pendingInPeriod), PIE_N), [filteredJobs, periodCutoff]);
 
   const topClient = byClient.find((b) => b.key !== 'อื่นๆ');
-  const totalReceived = filteredJobs.reduce((sum, j) => sum + (j.received || 0), 0);
-  const totalPending = filteredJobs.reduce((sum, j) => sum + (j.pending || 0), 0);
+  const totalReceived = filteredJobs.reduce((sum, j) => sum + receivedInPeriod(j), 0);
+  const totalPending = filteredJobs.reduce((sum, j) => sum + pendingInPeriod(j), 0);
   const distinctClientCount = new Set(filteredJobs.map(clientKey)).size;
 
   const avgPerClient = distinctClientCount > 0 ? totalReceived / distinctClientCount : 0;
@@ -164,7 +179,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
   const hoursStat = useMemo(() => {
     const hoursJobs = filteredJobs.filter((j) => (j.hoursSpent || 0) > 0);
     const totalHours = hoursJobs.reduce((s, j) => s + (j.hoursSpent || 0), 0);
-    const totalRev = hoursJobs.reduce((s, j) => s + (j.received || 0), 0);
+    const totalRev = hoursJobs.reduce((s, j) => s + receivedInPeriod(j), 0);
     return totalHours > 0 ? totalRev / totalHours : null;
   }, [filteredJobs]);
 
@@ -175,15 +190,16 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
   const trendData = useMemo(() => {
     const map = new Map<string, number>();
     for (const j of filteredJobs) {
-      const dateStr = j.postDate || j.payDate;
-      if (!dateStr) continue;
-      const key = getMonthKey(dateStr);
-      map.set(key, (map.get(key) || 0) + (j.received || 0));
+      for (const entry of getJobPaymentEntries(j)) {
+        if (!entry.date || (periodCutoff && new Date(entry.date + 'T00:00:00') < periodCutoff)) continue;
+        const key = getMonthKey(entry.date);
+        map.set(key, (map.get(key) || 0) + entry.amount);
+      }
     }
     return Array.from(map.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([key, received]) => ({ month: key, monthLabel: formatMonthKey(key), received }));
-  }, [filteredJobs]);
+  }, [filteredJobs, periodCutoff]);
 
   const retention = useMemo(() => {
     if (!periodCutoff) return null; // "ทั้งหมด" has no prior period to compare against
@@ -205,8 +221,8 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
       const key = clientKey(j);
       const earliest = earliestByClient.get(key);
       const isNew = !earliest || earliest >= periodCutoff;
-      if (isNew) newRevenue += j.received || 0;
-      else recurringRevenue += j.received || 0;
+      if (isNew) newRevenue += receivedInPeriod(j);
+      else recurringRevenue += receivedInPeriod(j);
       if (!seenClients.has(key)) {
         seenClients.add(key);
         if (isNew) newCount += 1;
@@ -222,7 +238,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
       if (!j.hoursSpent || j.hoursSpent <= 0) continue;
       const key = typeKey(j);
       const existing = map.get(key) || { type: key, received: 0, hours: 0 };
-      existing.received += j.received || 0;
+      existing.received += receivedInPeriod(j);
       existing.hours += j.hoursSpent;
       map.set(key, existing);
     }

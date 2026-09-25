@@ -8,6 +8,7 @@ import { Mascot } from '../../components/mascot/Mascot';
 import { IconArrowUpRight, IconBolt, IconCoin } from '../../components/ui/icons';
 import { VineDivider } from '../../components/mascot/VineDivider';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate } from '../../../../shared/installmentPayments';
 import {
   TrendingUp,
   TrendingDown,
@@ -543,15 +544,23 @@ export default function DashboardTab({
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
   }, []);
   
-  const selectedMonthJobs = React.useMemo(
-    () => jobs.filter(j => getMonthKey(j.payDate || j.postDate) === selectedMonthKey),
+  const receivedEntriesForMonth = React.useMemo(
+    () => jobs.flatMap(getJobPaymentEntries).filter((entry) => getMonthKeyFromDate(entry.date) === selectedMonthKey),
     [jobs, selectedMonthKey],
+  );
+  const pendingEntriesForMonth = React.useMemo(
+    () => jobs.flatMap((job) => job.isPosted === false ? [] : getJobPendingEntries(job)).filter((entry) => getMonthKeyFromDate(entry.dueDate) === selectedMonthKey),
+    [jobs, selectedMonthKey],
+  );
+  const selectedMonthJobs = React.useMemo(
+    () => jobs.filter(j => getMonthKey(j.payDate || j.postDate) === selectedMonthKey || receivedEntriesForMonth.some((entry) => entry.jobId === j.id) || pendingEntriesForMonth.some((entry) => entry.jobId === j.id)),
+    [jobs, selectedMonthKey, receivedEntriesForMonth, pendingEntriesForMonth],
   );
   
   // Trust the recorded `received` field as-is -- never assume a "done" job's full value was
   // received when that field is still 0/unset, since that shows phantom income the user never
   // actually got and disagrees with the Timeline tab, which only counts received > 0.
-  const totalReceived = selectedMonthJobs.reduce((sum, j) => sum + (j.received || 0), 0);
+  const totalReceived = receivedEntriesForMonth.reduce((sum, entry) => sum + entry.amount, 0);
 
   // Trust the recorded `pending` field as-is, the same way totalReceived trusts `received` --
   // don't also gate on isPaid. A properly-saved "done" job already has pending forced to 0
@@ -559,12 +568,7 @@ export default function DashboardTab({
   // well-formed data and actively hid money for any job whose paid flag and pending amount had
   // drifted out of sync, disagreeing with the Timeline tab (which never checks isPaid here) and
   // making dashboard money vanish from both totals at once.
-  const totalPending = selectedMonthJobs.reduce((sum, j) => {
-    // WIP jobs (not yet posted/delivered) aren't expected income yet, so they don't count
-    // toward the pending-receivable total shown on the dashboard.
-    if (j.isPosted === false) return sum;
-    return sum + j.pending;
-  }, 0);
+  const totalPending = pendingEntriesForMonth.reduce((sum, entry) => sum + entry.amount, 0);
 
   // Must equal totalReceived + totalPending, not a separately-derived sum -- otherwise it
   // silently drifts from the rest of the app (e.g. the Timeline tab's monthly total), which
@@ -611,9 +615,7 @@ export default function DashboardTab({
   }, [selectedMonthKey]);
 
   const prevMonthReceived = React.useMemo(
-    () => jobs.reduce((sum, j) => getMonthKey(j.payDate || j.postDate) === prevMonthKey
-      ? sum + (j.received || 0)
-      : sum, 0),
+    () => jobs.flatMap(getJobPaymentEntries).reduce((sum, entry) => getMonthKeyFromDate(entry.date) === prevMonthKey ? sum + entry.amount : sum, 0),
     [jobs, prevMonthKey],
   );
 
@@ -708,10 +710,14 @@ export default function DashboardTab({
     }]));
 
     jobs.forEach(j => {
-      const month = totals.get(getMonthKey(j.payDate || j.postDate));
-      if (!month) return;
-      if (j.received > 0) month.confirmed += j.received;
-      if (j.pending > 0 && j.isPosted !== false) month.pending += j.pending;
+      getJobPaymentEntries(j).forEach((entry) => {
+        const month = totals.get(getMonthKeyFromDate(entry.date));
+        if (month) month.confirmed += entry.amount;
+      });
+      if (j.isPosted !== false) getJobPendingEntries(j).forEach((entry) => {
+        const month = totals.get(getMonthKeyFromDate(entry.dueDate));
+        if (month) month.pending += entry.amount;
+      });
     });
     expenses.forEach(e => {
       const month = totals.get(getMonthKey(e.date));
@@ -1220,7 +1226,14 @@ export default function DashboardTab({
                     </span>
                   </div>
 
-                  <button
+                  {j.installments?.length ? (
+                    <button
+                      onClick={() => onViewJob?.(j.id)}
+                      className="py-1.5 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-extrabold rounded-xl transition-all cursor-pointer"
+                    >
+                      ดูและรับเงินแต่ละงวด
+                    </button>
+                  ) : <button
                     onClick={() => {
                       const today = new Date();
                       const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -1250,7 +1263,7 @@ export default function DashboardTab({
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
                     <span>{t('dash.fullyPaidButton')}</span>
-                  </button>
+                  </button>}
                 </div>
               </motion.div>
             );
@@ -1305,9 +1318,14 @@ export default function DashboardTab({
       {breakdownFilter && (() => {
           const breakdownJobs =
             breakdownFilter === 'contract' ? selectedMonthJobs :
-            breakdownFilter === 'received' ? selectedMonthJobs.filter(j => (j.received || 0) > 0) :
+            breakdownFilter === 'received' ? selectedMonthJobs.filter(j => receivedEntriesForMonth.some((entry) => entry.jobId === j.id)) :
             breakdownFilter === 'pending' ? selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0) :
             [];
+          const breakdownItems = breakdownFilter === 'received'
+            ? receivedEntriesForMonth.map((entry) => ({ id: entry.id, jobId: entry.jobId, name: entry.jobName, client: entry.client, detail: entry.kind === 'installment' ? entry.label : '', amount: entry.amount }))
+            : breakdownFilter === 'pending'
+            ? pendingEntriesForMonth.map((entry) => ({ id: entry.id, jobId: entry.jobId, name: entry.jobName, client: entry.client, detail: entry.kind === 'installment' ? entry.label : '', amount: entry.amount }))
+            : breakdownJobs.map((job) => ({ id: job.id, jobId: job.id, name: job.name, client: job.client, detail: '', amount: job.value }));
           return createPortal(
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setBreakdownFilter(null)}>
               <motion.div
@@ -1337,7 +1355,7 @@ export default function DashboardTab({
                       {breakdownFilter === 'contract' && formatCurrency(totalContractVal)}
                       {breakdownFilter === 'received' && formatCurrency(totalReceived)}
                       {breakdownFilter === 'pending' && formatCurrency(totalPending)}
-                      {t('dash.breakdownTotalFrom', { count: breakdownJobs.length })}
+                      {t('dash.breakdownTotalFrom', { count: breakdownItems.length })}
                     </p>
                   )}
                 </div>
@@ -1405,31 +1423,27 @@ export default function DashboardTab({
                   </div>
                 ) : (
                   <div className="overflow-y-auto space-y-2 -mx-1 px-1">
-                    {breakdownJobs.map(j => (
+                    {breakdownItems.map(item => (
                       <button
-                        key={j.id}
+                        key={item.id}
                         type="button"
                         onClick={() => {
                           setBreakdownFilter(null);
-                          onViewJob?.(j.id);
+                          onViewJob?.(item.jobId);
                         }}
                         className="w-full flex items-center justify-between gap-2 p-3 bg-brand-faint/60 hover:bg-brand-faint dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl text-left transition-all cursor-pointer"
                       >
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-brand-text dark:text-white truncate">{j.name}</p>
-                          <p className="text-[10px] text-brand-muted truncate">{j.client || t('dash.noClientListed')}</p>
+                          <p className="text-xs font-bold text-brand-text dark:text-white truncate">{item.name}</p>
+                          <p className="text-[10px] text-brand-muted truncate">{item.detail ? `${item.detail} • ` : ''}{item.client || t('dash.noClientListed')}</p>
                         </div>
                         <span className="text-xs font-mono font-black text-brand-text dark:text-white shrink-0">
-                          {formatCurrency(
-                            breakdownFilter === 'contract' ? j.value :
-                            breakdownFilter === 'received' ? (j.received || 0) :
-                            j.pending
-                          )}
+                          {formatCurrency(item.amount)}
                         </span>
                       </button>
                     ))}
 
-                    {breakdownJobs.length === 0 && (
+                    {breakdownItems.length === 0 && (
                       <p className="text-xs text-brand-muted text-center py-6">{t('dash.noJobsThisCategory')}</p>
                     )}
                   </div>

@@ -15,6 +15,7 @@ import { Mascot } from '../../components/mascot/Mascot';
 import { IconCoin, IconWarning, IconCheck } from '../../components/ui/icons';
 import { JobDetailModal } from '../jobs/JobDetailModal';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate } from '../../../../shared/installmentPayments';
 
 interface TimelineTabProps {
   jobs: Job[];
@@ -52,22 +53,21 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
     let totalPending = 0;
 
     jobs.forEach(j => {
-      // 1. Confirmed portion: lands on the payDate || postDate month
-      if (j.received > 0 && getMonthKey(j.payDate || j.postDate) === monthKey) {
-        totalConfirmed += j.received;
-        const isDone = j.status === 'done' || statuses.find(s => s.id === j.status)?.behavior === 'done';
+      // 1. Confirmed cash: installment jobs create one event per paid installment.
+      getJobPaymentEntries(j).filter((entry) => getMonthKeyFromDate(entry.date) === monthKey).forEach((entry) => {
+        totalConfirmed += entry.amount;
         monthlyEvents.push({
-          id: `${j.id}-rec`,
+          id: `${j.id}-rec-${entry.id}`,
           jobId: j.id,
-          title: j.name + (!isDone ? t('timeline.depositSuffix') : ''),
+          title: entry.kind === 'installment' ? `${j.name} • ${entry.label}` : j.name,
           client: j.client,
-          amount: j.received,
+          amount: entry.amount,
           isConfirmed: true,
-          dateStr: j.payDate || j.postDate || '',
+          dateStr: entry.date || '',
           daysRemainingText: t('timeline.receivedStatus'),
           isOverdue: false,
         });
-      }
+      });
 
       // 2. Pending portion: lands on the payDate month (or postDate month if payDate is null).
       // WIP jobs (not yet posted/delivered) are shown for visibility but excluded from the
@@ -75,29 +75,27 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
       // Trust the recorded `pending` field as-is, same as Dashboard/Summary -- don't also gate on
       // isPaid, or a job whose paid flag and pending amount have drifted out of sync silently
       // vanishes from every tab instead of surfacing as money still owed.
-      if (j.pending > 0) {
-        const expectedPayDate = j.payDate || j.postDate;
-        if (getMonthKey(expectedPayDate) === monthKey) {
+      getJobPendingEntries(j).filter((entry) => getMonthKeyFromDate(entry.dueDate) === monthKey).forEach((entry) => {
+        const expectedPayDate = entry.dueDate;
           const isWip = j.isPosted === false;
           if (!isWip) {
-            totalPending += j.pending;
+            totalPending += entry.amount;
           }
           const rel = getRelativeDaysText(expectedPayDate);
 
           monthlyEvents.push({
-            id: `${j.id}-pend`,
+            id: `${j.id}-pend-${entry.id}`,
             jobId: j.id,
-            title: j.name + (isWip ? t('timeline.wipForecastSuffix') : j.creditTerm > 0 ? t('timeline.creditDaysSuffixParen', { n: j.creditTerm }) : ''),
+            title: entry.kind === 'installment' ? `${j.name} • ${entry.label}` : j.name + (isWip ? t('timeline.wipForecastSuffix') : j.creditTerm > 0 ? t('timeline.creditDaysSuffixParen', { n: j.creditTerm }) : ''),
             client: j.client,
-            amount: j.pending,
+            amount: entry.amount,
             isConfirmed: false,
             dateStr: expectedPayDate || '',
             daysRemainingText: isWip ? t('timeline.wipWaitingOnAir', { text: rel.text }) : rel.text,
             isOverdue: rel.isOverdue,
             isWipPending: isWip,
           });
-        }
-      }
+      });
 
       // 3. WIP Milestone: lands on the postDate month (Target production/on-air)
       if (j.isPosted === false && j.postDate) {

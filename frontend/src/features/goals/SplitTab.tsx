@@ -2,6 +2,7 @@ import { imageFileToDataUrl } from '../../services/images';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Job, Goal, AppSettings, GoalTransaction, Expense } from '../../../../shared/types';
 import { formatCurrency, getMonthKey, dateLocale } from '../../utils';
+import { getReceivedForMonth } from '../../../../shared/installmentPayments';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   PiggyBank, 
@@ -122,8 +123,7 @@ export default function SplitTab({
 
   // 1. Calculate Received This Month (Confirmed Income)
   const receivedThisMonth = jobs
-    .filter(j => getMonthKey(j.payDate || j.postDate) === currentMonthKey)
-    .reduce((sum, j) => sum + j.received, 0);
+    .reduce((sum, j) => sum + getReceivedForMonth(j, currentMonthKey), 0);
 
   // 2. Net Profit calculation (Received - fixed monthly expense - this month's logged variable
   // expenses) -- previously only subtracted the fixed monthly expense, so a month with real
