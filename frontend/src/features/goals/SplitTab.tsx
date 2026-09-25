@@ -889,21 +889,21 @@ export default function SplitTab({
 
               <button
                 onClick={handleApplyPresetSplit}
-                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
               >
                 <IconTarget className="w-3 h-3" /> {t('split.setSlidersByRatio')}
               </button>
 
               <button
                 onClick={handleApplyEqualSplit}
-                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
               >
                 <IconScale className="w-3 h-3" /> {t('split.splitEqually')}
               </button>
 
               <button
                 onClick={handleResetAllocations}
-                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-muted rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-muted rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
               >
                 <IconClear className="w-3 h-3" /> {t('split.clearAllSliders')}
               </button>
@@ -1016,21 +1016,21 @@ export default function SplitTab({
                         <button
                           onClick={() => handleAddAmount(100)}
                           disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer"
+                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
                         >
                           +100
                         </button>
                         <button
                           onClick={() => handleAddAmount(500)}
                           disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer"
+                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
                         >
                           +500
                         </button>
                         <button
                           onClick={() => handleAddAmount(1000)}
                           disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer"
+                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
                         >
                           +1k
                         </button>
