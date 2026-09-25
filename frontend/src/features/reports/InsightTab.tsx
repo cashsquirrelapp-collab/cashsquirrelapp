@@ -15,7 +15,7 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
-import { Users, Briefcase, Crown, AlertTriangle, UserPlus, TrendingUp, Clock, ArrowRight, BarChart3, PieChart as PieChartIcon, X } from 'lucide-react';
+import { Users, Briefcase, Crown, AlertTriangle, UserPlus, TrendingUp, ArrowRight, BarChart3, PieChart as PieChartIcon, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 
 interface InsightTabProps {
@@ -176,13 +176,6 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
   const avgPerClient = distinctClientCount > 0 ? totalReceived / distinctClientCount : 0;
   const avgPerJob = filteredJobs.length > 0 ? totalReceived / filteredJobs.length : 0;
 
-  const hoursStat = useMemo(() => {
-    const hoursJobs = filteredJobs.filter((j) => (j.hoursSpent || 0) > 0);
-    const totalHours = hoursJobs.reduce((s, j) => s + (j.hoursSpent || 0), 0);
-    const totalRev = hoursJobs.reduce((s, j) => s + receivedInPeriod(j), 0);
-    return totalHours > 0 ? totalRev / totalHours : null;
-  }, [filteredJobs]);
-
   const unidentifiedCount = useMemo(() => filteredJobs.filter((j) => !(j.client || '').trim()).length, [filteredJobs]);
 
   const concentrationPct = topClient && totalReceived > 0 ? topClient.received / totalReceived : 0;
@@ -231,21 +224,6 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
     }
     return { newCount, newRevenue, recurringCount, recurringRevenue };
   }, [jobs, filteredJobs, periodCutoff]);
-
-  const effortRanking = useMemo(() => {
-    const map = new Map<string, { type: string; received: number; hours: number }>();
-    for (const j of filteredJobs) {
-      if (!j.hoursSpent || j.hoursSpent <= 0) continue;
-      const key = typeKey(j);
-      const existing = map.get(key) || { type: key, received: 0, hours: 0 };
-      existing.received += receivedInPeriod(j);
-      existing.hours += j.hoursSpent;
-      map.set(key, existing);
-    }
-    return Array.from(map.values())
-      .map((e) => ({ ...e, rate: e.hours > 0 ? e.received / e.hours : 0 }))
-      .sort((a, b) => b.rate - a.rate);
-  }, [filteredJobs]);
 
   const handleBucketClick = (dimension: 'client' | 'type', data: Bucket[], bucket: Bucket) => {
     if (bucket.key === 'อื่นๆ') {
@@ -450,7 +428,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
       </div>
 
       {/* Stat tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatTile
           icon={<Users className="w-3.5 h-3.5" />}
           label="รายรับเฉลี่ย/ลูกค้า"
@@ -462,12 +440,6 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
           label="รับแล้ว / ค้างรับ"
           value={formatCurrency(totalReceived)}
           sub={`ค้างรับ ${formatCurrency(totalPending)}`}
-        />
-        <StatTile
-          icon={<Clock className="w-3.5 h-3.5" />}
-          label="฿/ชั่วโมงเฉลี่ย"
-          value={hoursStat !== null ? formatCurrency(hoursStat) : '—'}
-          sub={hoursStat === null ? 'ยังไม่มีข้อมูลชั่วโมง' : undefined}
         />
       </div>
 
@@ -636,40 +608,6 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
           </div>
         </div>
       )}
-
-      {/* Effort vs Return */}
-      <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-3xl p-5 sm:p-6 shadow-sm">
-        <h3 className="font-display font-extrabold text-sm text-brand-text dark:text-white flex items-center gap-2 mb-1">
-          <Clock className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
-          ความคุ้มค่าต่อชั่วโมง (฿/ชม.) ตามประเภทงาน
-        </h3>
-        <p className="text-[11px] text-brand-muted mb-4">รู้ว่างานประเภทไหนทำแล้วได้เงินเยอะแต่ใช้เวลาน้อย</p>
-        {effortRanking.length === 0 ? (
-          <p className="text-xs text-brand-muted text-center py-8">
-            ยังไม่มีข้อมูลชั่วโมงที่ใช้ ลองกรอกตอนเพิ่ม/แก้ไขงานดีลได้เลย
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {effortRanking.map((e, i) => (
-              <div
-                key={e.type}
-                className="flex items-center justify-between gap-3 p-3 bg-brand-faint dark:bg-neutral-800/40 rounded-2xl"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-5 h-5 rounded-full bg-[#E65F2B]/10 text-[#E65F2B] dark:text-[#FFA473] text-[10px] font-black flex items-center justify-center shrink-0">
-                    {i + 1}
-                  </span>
-                  <span className="text-xs font-bold text-brand-text dark:text-neutral-200 truncate">{e.type}</span>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs font-black font-mono text-[#E65F2B] dark:text-[#FFA473]">{formatCurrency(e.rate)}/ชม.</p>
-                  <p className="text-[9px] text-brand-muted">{e.hours} ชม. รวม</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Drilldown: which jobs make up the client/type bucket the user just clicked */}
       <AnimatePresence>
