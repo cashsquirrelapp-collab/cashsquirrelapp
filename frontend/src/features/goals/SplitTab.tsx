@@ -154,9 +154,6 @@ export default function SplitTab({
   const availableFromReceivedThisMonth = Math.max(0, receivedThisMonth - alreadyAllocatedThisMonth);
 
   // 3. Split calculations based on individual goal's allocatedPercentage
-  const expPercent = Math.min(100, (settings.monthlyExpense / Math.max(1, receivedThisMonth)) * 100);
-  const profitPercent = Math.max(0, 100 - expPercent);
-
   const totalAllocatedPct = goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
 
   // Calculate segment breakdown for visual representation based on rawNetProfit (planned target quota)
@@ -174,7 +171,22 @@ export default function SplitTab({
   }).filter(s => s.pctOfTotal > 0);
 
   const totalSegmentPct = goalSegments.reduce((sum, s) => sum + s.pctOfTotal, 0);
-  const remainingProfitPct = Math.max(0, (rawNetProfit / Math.max(1, receivedThisMonth)) * 100 - (totalSegmentPct));
+  const expensePercent = Math.min(100, ((settings.monthlyExpense + variableExpenseThisMonth) / Math.max(1, receivedThisMonth)) * 100);
+  const remainingProfitPct = Math.max(0, 100 - expensePercent - totalSegmentPct);
+  const donutGradient = useMemo(() => {
+    if (receivedThisMonth <= 0) return 'conic-gradient(#E8DFD3 0deg 360deg)';
+    let cursor = 0;
+    const parts: string[] = [];
+    const addPart = (color: string, percent: number) => {
+      const start = cursor;
+      cursor = Math.min(100, cursor + Math.max(0, percent));
+      if (cursor > start) parts.push(`${color} ${start * 3.6}deg ${cursor * 3.6}deg`);
+    };
+    addPart('#E65F2B', expensePercent);
+    goalSegments.forEach((segment) => addPart(segment.color || '#059669', segment.pctOfTotal));
+    addPart('#E8DFD3', Math.max(0, 100 - cursor));
+    return `conic-gradient(${parts.join(', ')})`;
+  }, [receivedThisMonth, expensePercent, goalSegments]);
 
   // 5. Breakeven revenue calculations
   // To cover both expenses and reach the monthly revenue goal
@@ -700,149 +712,102 @@ export default function SplitTab({
         <Mascot mood="wave" size={64} className="shrink-0" />
       </div>
 
-      {/* Section 1: Interactive Pie/Bar Split representation */}
-      <div className="bg-brand-white border border-brand-border rounded-[var(--radius-xl)] p-5 space-y-6 shadow-xs">
-        <div>
-          <h4 className="text-xs font-bold tracking-wider text-brand-muted uppercase inline-flex items-center gap-1">
-            {t('split.splitChartTitle')} <IconBarChart className="w-3 h-3" />
-          </h4>
-          
-          {/* Multi-colored horizontal stacked bar representing all configured goal quotas */}
-          <div className="w-full h-4 bg-brand-faint rounded-full flex overflow-hidden mt-3 shadow-inner">
-            {receivedThisMonth > 0 ? (
-              <>
-                <div 
-                  className="bg-rose-500 h-full transition-all duration-500" 
-                  style={{ width: `${expPercent}%` }} 
-                  title={t('split.fixedExpenseTooltip', { pct: expPercent.toFixed(0) })}
-                />
-                {goalSegments.map(seg => (
-                  <div 
-                    key={seg.id}
-                    className="h-full transition-all duration-500" 
-                    style={{ width: `${seg.pctOfTotal}%`, backgroundColor: seg.color }}
-                    title={t('split.segmentTooltip', { name: seg.name, pct: seg.pctOfTotal.toFixed(0) })}
-                  />
-                ))}
-                {remainingProfitPct > 0 && (
-                  <div 
-                    className="bg-amber-500/25 h-full transition-all duration-500" 
-                    style={{ width: `${remainingProfitPct}%` }}
-                    title={t('split.unallocatedProfitTooltip', { pct: remainingProfitPct.toFixed(0) })}
-                  />
-                )}
-              </>
-            ) : (
-              <div className="w-full bg-brand-border text-center text-[10px] text-brand-muted flex items-center justify-center font-semibold">
-                {t('split.noIncomeToCalc')}
+      {/* Overview: answer the three questions a first-time user has before asking them to allocate. */}
+      <section className="overflow-hidden rounded-[28px] border border-brand-border bg-brand-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="border-b border-brand-border/50 bg-gradient-to-r from-[#FFF8EE] to-white px-5 py-5 dark:from-neutral-900 dark:to-neutral-900 sm:px-7">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-[#9A541C]">
+                <IconBarChart className="h-4 w-4" /> ภาพรวมเงินเดือนนี้
               </div>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-[10px] font-bold uppercase tracking-wider">
-            <div className="flex items-center gap-1.5 text-rose-500">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-              <span>{t('split.fixedExpenseLegend', { pct: expPercent.toFixed(0) })}</span>
+              <h3 className="mt-1 text-xl font-black text-brand-text dark:text-white">เงินของคุณถูกแบ่งไปทางไหนบ้าง</h3>
+              <p className="mt-1 text-xs text-brand-muted">เริ่มจากเงินที่รับจริง หักค่าใช้จ่าย แล้วค่อยจัดเงินที่เหลือเข้าเป้าหมาย</p>
             </div>
-            {goalSegments.map(seg => (
-              <div key={seg.id} className="flex items-center gap-1.5" style={{ color: seg.color }}>
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: seg.color }} />
-                <span>{t('split.segmentLegend', { name: seg.name, pct: seg.pctOfTotal.toFixed(0) })}</span>
-              </div>
-            ))}
-            {remainingProfitPct > 0 && (
-              <div className="flex items-center gap-1.5 text-amber-600">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500/40" />
-                <span>{t('split.remainingProfitLegend', { pct: remainingProfitPct.toFixed(0) })}</span>
-              </div>
-            )}
+            <span className={`w-fit rounded-full px-3 py-1.5 text-[11px] font-black ${totalAllocatedPct > 100 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+              สัดส่วนเป้าหมายรวม {totalAllocatedPct}%
+            </span>
           </div>
         </div>
 
-        {/* Detailed Breakdown list */}
-        <div className="divide-y divide-brand-faint border-t border-brand-faint pt-2">
-          {/* 1. Monthly revenue */}
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-2">
-              <Coins className="w-4 h-4 text-emerald-600" />
-              <span className="text-xs font-bold text-brand-text">{t('split.receivedThisMonth')}</span>
-            </div>
-            <span className="text-sm font-extrabold font-mono text-brand-text">
-              {formatCurrency(receivedThisMonth)}
-            </span>
-          </div>
-
-          {/* 2. Expenses deduction */}
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-2">
-              <TrendingDown className="w-4 h-4 text-rose-500" />
-              <span className="text-xs font-bold text-brand-text">{t('split.minusFixedExpense')}</span>
-            </div>
-            <span className="text-sm font-extrabold font-mono text-rose-500">
-              - {formatCurrency(settings.monthlyExpense)}
-            </span>
-          </div>
-
-          {/* 3. Net profit - HIGHLY PROMINENT */}
-          <div className="flex flex-col items-center justify-center p-5 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 rounded-xl my-4 text-center">
-            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-              <span className="text-xs font-black uppercase tracking-wider">{t('split.netProfitRemaining')}</span>
-            </div>
-            <div className="text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">
-              {formatCurrency(netProfit)}
-            </div>
-          </div>
-
-          {/* Custom Goals Quota Summary Section */}
-          <div className="pt-4 space-y-4">
-            <div className="bg-neutral-50 dark:bg-neutral-800/40 border border-brand-border rounded-xl p-4 space-y-3">
-              <div className="flex justify-between items-center border-b border-brand-faint pb-2">
-                <span className="text-xs font-bold text-brand-text inline-flex items-center gap-1">{t('split.goalQuotaSummary')} <IconTarget className="w-3 h-3" /></span>
-                <span className={`text-xs font-mono font-black py-0.5 px-2 rounded-full ${
-                  totalAllocatedPct > 100 
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' 
-                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                }`}>
-                  {t('split.totalQuota', { pct: totalAllocatedPct })}
-                </span>
+        <div className="grid gap-7 p-5 sm:p-7 lg:grid-cols-[300px_1fr]">
+          <div className="flex flex-col items-center justify-center">
+            <div className="relative h-56 w-56 rounded-full shadow-inner" style={{ background: donutGradient }} aria-label="แผนภูมิสัดส่วนเงินเดือนนี้">
+              <div className="absolute inset-[25px] flex flex-col items-center justify-center rounded-full border border-brand-border/50 bg-white text-center shadow-sm dark:bg-neutral-900">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">จัดสรรได้ตอนนี้</span>
+                <strong className="mt-1 font-mono text-2xl font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(netProfit)}</strong>
+                <span className="mt-1 text-[10px] text-brand-muted">หลังหักรายจ่ายแล้ว</span>
               </div>
+            </div>
+            <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[10px] font-bold text-brand-muted">
+              <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#E65F2B]" />ค่าใช้จ่าย {expensePercent.toFixed(0)}%</span>
+              <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-emerald-600" />เป้าหมาย {totalSegmentPct.toFixed(0)}%</span>
+              <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#E8DFD3]" />ยังไม่จัดสรร {remainingProfitPct.toFixed(0)}%</span>
+            </div>
+          </div>
 
-              {totalAllocatedPct > 100 && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[10px] text-rose-700 dark:text-rose-400 font-bold leading-relaxed flex items-start gap-1.5">
-                  <IconWarning className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>{t('split.quotaOverWarning', { pct: totalAllocatedPct })}</span>
+          <div className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-emerald-700"><Coins className="h-4 w-4" />เงินรับจริง</div>
+                <p className="mt-2 font-mono text-xl font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(receivedThisMonth)}</p>
+              </div>
+              <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 dark:border-rose-500/20 dark:bg-rose-500/10">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-rose-700"><TrendingDown className="h-4 w-4" />รายจ่ายรวม</div>
+                <p className="mt-2 font-mono text-xl font-black text-rose-700 dark:text-rose-400">{formatCurrency(settings.monthlyExpense + variableExpenseThisMonth)}</p>
+                <p className="mt-1 text-[9px] text-brand-muted">คงที่ {formatCurrency(settings.monthlyExpense)} · แปรผัน {formatCurrency(variableExpenseThisMonth)}</p>
+              </div>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-500/20 dark:bg-amber-500/10">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-amber-700"><PiggyBank className="h-4 w-4" />แบ่งไปแล้ว</div>
+                <p className="mt-2 font-mono text-xl font-black text-amber-700 dark:text-amber-400">{formatCurrency(alreadyAllocatedThisMonth)}</p>
+              </div>
+            </div>
+
+            {totalAllocatedPct > 100 && (
+              <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">
+                <IconWarning className="mt-0.5 h-4 w-4 shrink-0" /> สัดส่วนเป้าหมายรวมเกิน 100% กรุณาลดเปอร์เซ็นต์ก่อนยืนยันการแบ่งเงิน
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-brand-border/70 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-black text-brand-text dark:text-white">แผนจัดสรรตามเป้าหมาย</h4>
+                  <p className="text-[10px] text-brand-muted">จำนวนที่ระบบแนะนำจากเงินที่จัดสรรได้ในเดือนนี้</p>
+                </div>
+                <button type="button" onClick={handleQuickProportionalAllocation} className="rounded-xl bg-brand-text px-3 py-2 text-[10px] font-black text-white transition hover:opacity-90 disabled:opacity-40" disabled={netProfit <= 0 || goals.length === 0}>
+                  แบ่งตามสัดส่วนทันที
+                </button>
+              </div>
+              {goals.length === 0 ? (
+                <button type="button" onClick={() => setIsAddGoalLocalOpen(true)} className="w-full rounded-xl border border-dashed border-brand-border p-5 text-xs font-bold text-[#9A541C] hover:bg-brand-faint">+ สร้างเป้าหมายแรก</button>
+              ) : (
+                <div className="space-y-3">
+                  {goals.map((goal) => {
+                    const pct = goal.allocatedPercentage || 0;
+                    const suggested = Math.min(Math.max(0, goal.target - goal.current), Math.floor(netProfit * pct / 100));
+                    const progress = goal.target > 0 ? Math.min(100, goal.current / goal.target * 100) : 0;
+                    return (
+                      <button key={goal.id} type="button" onClick={() => setSelectedGoal(goal)} className="grid w-full grid-cols-[1fr_auto] items-center gap-4 rounded-xl p-2 text-left transition hover:bg-brand-faint">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg text-base" style={{ backgroundColor: goal.bg }}>{goal.imageUrl ? <img src={goal.imageUrl} alt="" className="h-full w-full object-cover" /> : goal.emoji}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-3"><span className="truncate text-xs font-black text-brand-text dark:text-white">{goal.name}</span><span className="text-[10px] font-black" style={{ color: goal.acc }}>{pct}%</span></div>
+                              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-brand-faint"><div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: goal.acc }} /></div>
+                              <p className="mt-1 text-[9px] text-brand-muted">สะสมแล้ว {formatCurrency(goal.current)} จาก {formatCurrency(goal.target)}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right"><span className="block text-[9px] text-brand-muted">แนะนำเดือนนี้</span><strong className="font-mono text-xs text-brand-text dark:text-white">{formatCurrency(suggested)}</strong></div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
-
-              <div className="space-y-2">
-                {goals.map(g => {
-                  const pct = g.allocatedPercentage || 0;
-                  const amt = Math.floor(netProfit * (pct / 100));
-                  return (
-                    <div key={g.id} className="flex items-center justify-between text-xs py-1">
-                      <div className="flex items-center gap-2">
-                        {g.imageUrl ? (
-                          <img
-                            src={g.imageUrl}
-                            alt={g.name}
-                            referrerPolicy="no-referrer"
-                            className="w-5 h-5 rounded-md object-cover shrink-0"
-                          />
-                        ) : (
-                          <span className="text-sm shrink-0">{g.emoji}</span>
-                        )}
-                        <span className="font-semibold text-brand-text truncate max-w-[140px]">{g.name}</span>
-                        <span className="text-[9px] font-black font-mono text-brand-muted shrink-0">({pct}%)</span>
-                      </div>
-                      <span className="font-bold font-mono text-brand-text">{formatCurrency(amt)}</span>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Section 2: Dynamic Profit Allocation Manager */}
       <div className="bg-brand-white border border-brand-border rounded-[var(--radius-xl)] p-5 space-y-6 shadow-xs">
