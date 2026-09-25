@@ -193,6 +193,7 @@ export interface InvoiceProfile {
   bankAccount: string;
   bankAccountName: string;
   logoUrl?: string;
+  website?: string;
 }
 
 export type DocumentType = 'quotation' | 'invoice' | 'receipt' | 'taxInvoice' | 'receiptTaxInvoice';

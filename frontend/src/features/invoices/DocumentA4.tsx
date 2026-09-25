@@ -32,27 +32,27 @@ export const DOCUMENT_META: Record<DocumentType, DocumentMeta> = {
   quotation: {
     th: 'ใบเสนอราคา', en: 'QUOTATION', dateLabel: 'วันที่เสนอราคา', dueLabel: 'ยืนราคาถึงวันที่',
     isReceipt: false, isQuotation: true, isTax: false, prefix: 'QT',
-    signatures: ['ผู้เสนอราคา', 'ผู้อนุมัติ', 'ลูกค้าตอบรับ', 'ตราประทับ']
+    signatures: ['ผู้เสนอราคา', 'ผู้อนุมัติเอกสาร', 'ผู้สั่งซื้อ', 'ตราประทับ']
   },
   invoice: {
     th: 'ใบแจ้งหนี้', en: 'INVOICE', dateLabel: 'วันที่ออกเอกสาร', dueLabel: 'ครบกำหนดชำระ',
     isReceipt: false, isQuotation: false, isTax: false, prefix: 'INV',
-    signatures: ['ผู้ออกเอกสาร', 'ผู้อนุมัติ', 'ผู้รับเอกสาร', 'ตราประทับ']
+    signatures: ['ผู้ออกเอกสาร', 'ผู้อนุมัติเอกสาร', 'ผู้รับเอกสาร', 'ตราประทับ']
   },
   receipt: {
     th: 'ใบเสร็จรับเงิน', en: 'RECEIPT', dateLabel: 'วันที่ออกเอกสาร', dueLabel: 'วันที่รับเงิน',
     isReceipt: true, isQuotation: false, isTax: false, prefix: 'REC',
-    signatures: ['ผู้รับเงิน', 'ผู้อนุมัติ', 'ผู้จ่ายเงิน', 'ตราประทับ']
+    signatures: ['ผู้รับเงิน', 'ผู้อนุมัติเอกสาร', 'ผู้จ่ายเงิน', 'ตราประทับ']
   },
   taxInvoice: {
     th: 'ใบกำกับภาษี', en: 'TAX INVOICE', dateLabel: 'วันที่ออกเอกสาร', dueLabel: 'ครบกำหนดชำระ',
     isReceipt: false, isQuotation: false, isTax: true, prefix: 'TAX',
-    signatures: ['ผู้ออกใบกำกับภาษี', 'ผู้อนุมัติ', 'ผู้รับเอกสาร', 'ตราประทับ']
+    signatures: ['ผู้ออกใบกำกับภาษี', 'ผู้อนุมัติเอกสาร', 'ผู้รับเอกสาร', 'ตราประทับ']
   },
   receiptTaxInvoice: {
-    th: 'ใบเสร็จรับเงิน / ใบกำกับภาษี', en: 'RECEIPT / TAX INVOICE', dateLabel: 'วันที่ออกเอกสาร', dueLabel: 'วันที่รับเงิน',
+    th: 'ใบเสร็จรับเงิน/ใบกำกับภาษี', en: 'RECEIPT / TAX INVOICE', dateLabel: 'วันที่ออกเอกสาร', dueLabel: 'วันที่รับเงิน',
     isReceipt: true, isQuotation: false, isTax: true, prefix: 'RTX',
-    signatures: ['ผู้รับเงิน', 'ผู้อนุมัติ', 'ผู้จ่ายเงิน', 'ตราประทับ']
+    signatures: ['ผู้รับเงิน', 'ผู้อนุมัติเอกสาร', 'ผู้จ่ายเงิน', 'ตราประทับ']
   }
 };
 
@@ -63,11 +63,11 @@ export const getDocumentMeta = (type: string): DocumentMeta => DOCUMENT_META[typ
 // Estimates are deliberately a little generous so a page never overflows.
 // ---------------------------------------------------------------------------------------------
 
-const PAGE_PAD_Y = 42; // px, top + bottom padding of a page (see CSS)
-const PAGENO_H = 26; // page-number line pinned under the content
+const PAGE_PAD_Y = 38; // px, top + bottom padding of a page (see CSS)
+const PAGENO_H = 22; // page-number line pinned under the content
 const CONTENT_H = A4_HEIGHT_PX - PAGE_PAD_Y * 2 - PAGENO_H;
-const TABLE_HEAD_H = 30;
-const CONT_HEAD_H = 56;
+const TABLE_HEAD_H = 34;
+const CONT_HEAD_H = 50;
 
 const lineCount = (text: string | undefined, charsPerLine: number): number => {
   if (!text) return 0;
@@ -75,20 +75,18 @@ const lineCount = (text: string | undefined, charsPerLine: number): number => {
 };
 
 const rowHeight = (item: InvoiceItem): number =>
-  13 + 15 * Math.max(1, lineCount(item.description, 36)) + (item.detail ? 14 * lineCount(item.detail, 48) : 0);
+  12 + 15 * Math.max(1, lineCount(item.description, 46)) + (item.detail ? 14 * lineCount(item.detail, 52) : 0);
 
 const firstHeadHeight = (invoice: Invoice): number => {
-  const issuerLines = lineCount(invoice.issuer.address, 56) + (invoice.issuer.phone || invoice.issuer.email ? 1 : 0) + (invoice.issuer.taxId ? 1 : 0);
-  const clientLines = lineCount(invoice.client.address, 50) + (invoice.client.contactName ? 1 : 0) + (invoice.client.phone || invoice.client.email ? 1 : 0) + (invoice.client.taxId ? 1 : 0);
-  return 130 + Math.max(issuerLines * 15, 60) + 32 + Math.max(clientLines * 15 + 62, 132);
+  const issuerLines = lineCount(invoice.issuer.address, 46) + 2;
+  const clientLines = lineCount(invoice.client.address, 46) + 2 + (invoice.client.contactName ? 1 : 0);
+  return 96 + 30 + Math.max(issuerLines * 17, 62) + 24 + Math.max(clientLines * 17, 62) + 24;
 };
 
 const footerHeight = (invoice: Invoice, meta: DocumentMeta): number => {
-  const totals = calculateDocumentTotals(invoice.items, invoice.vatRate, invoice.whtRate);
-  const summaryRows = 2 + (totals.discount > 0 ? 2 : 0) + (invoice.vatRate > 0 ? 1 : 0) + (invoice.whtRate > 0 ? 2 : 0) + (meta.isReceipt ? 2 : 0);
-  const summary = summaryRows * 22 + 6;
-  const left = 46 + (invoice.issuer.bankAccount && !meta.isQuotation ? 70 : 0) + 30 + lineCount(invoice.note, 56) * 14;
-  return Math.max(summary, left) + 128;
+  const payment = meta.isQuotation ? 0 : 70;
+  const remark = 32 + 14 * Math.max(1, lineCount(invoice.note, 90));
+  return 118 + payment + remark + 128;
 };
 
 export const paginateItems = (invoice: Invoice): InvoiceItem[][] => {
@@ -112,69 +110,79 @@ export const paginateItems = (invoice: Invoice): InvoiceItem[][] => {
 };
 
 // ---------------------------------------------------------------------------------------------
-// Styles -- our app's orange theme on a white sheet
+// Styles -- layout follows the formal Thai reference sheet; colour identity is our orange theme
 // ---------------------------------------------------------------------------------------------
 
-export const DOCUMENT_FONT_URL = 'https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap';
+export const DOCUMENT_FONT_URL = 'https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap';
 
 export const DOCUMENT_CSS = `
-.da4{--da4-accent:#E65F2B;--da4-accent-dark:#A63F1B;--da4-tint:#FDF3EC;--da4-head:#FBE3D3;--da4-line:#E8DFD3;--da4-ink:#1C1917;--da4-muted:#6B625A;
-  font-family:'Sarabun','Noto Sans Thai',system-ui,sans-serif;color:var(--da4-ink);font-size:11.5px;line-height:1.4;-webkit-print-color-adjust:exact;print-color-adjust:exact;text-align:left}
+.da4{--da4-accent:#E65F2B;--da4-tint:#FCE9DD;--da4-line:#CFC8C0;--da4-ink:#1F1B18;--da4-muted:#4A433D;
+  font-family:'Prompt','Sarabun','Noto Sans Thai',system-ui,sans-serif;color:var(--da4-ink);font-size:10.5px;line-height:1.5;font-weight:300;-webkit-print-color-adjust:exact;print-color-adjust:exact;text-align:left}
 .da4 *{box-sizing:border-box}
-.da4-page{position:relative;width:210mm;height:297mm;padding:11mm 12mm;background:#fff;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page}
+.da4 b,.da4 .b{font-weight:500}
+.da4-page{position:relative;width:210mm;height:297mm;padding:38px 10mm;background:#fff;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page}
 .da4-page:last-child{page-break-after:auto;break-after:auto}
-.da4-topbar{position:absolute;left:0;right:0;top:0;height:6px;background:var(--da4-accent)}
-.da4-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}
-.da4-issuer{display:flex;gap:12px;flex:1;min-width:0}
-.da4-logo{width:64px;height:64px;object-fit:contain;flex:none}
-.da4-issuer-name{font-size:15px;font-weight:700;margin:0 0 2px}
-.da4-issuer p{margin:0;color:var(--da4-muted);font-size:10.5px;white-space:pre-line}
-.da4-title{text-align:right;flex:none;max-width:52%}
-.da4-title h1{margin:0;font-size:22px;font-weight:800;color:var(--da4-accent);line-height:1.15}
-.da4-title .en{font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--da4-muted);margin-top:2px}
-.da4-meta{margin-top:8px;border:1px solid var(--da4-line);border-radius:8px;background:var(--da4-tint);padding:6px 10px;font-size:10.5px;min-width:210px}
-.da4-meta div{display:flex;justify-content:space-between;gap:14px}
-.da4-meta span:first-child{color:var(--da4-muted)}
-.da4-meta strong{font-weight:700}
-.da4-cont{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--da4-accent);padding-bottom:6px;margin-bottom:8px}
-.da4-cont strong{font-size:14px;color:var(--da4-accent)}
-.da4-cont span{font-size:10.5px;color:var(--da4-muted)}
-.da4-parties{display:grid;grid-template-columns:1.35fr 1fr;gap:10px;margin-top:14px}
-.da4-box{border:1px solid var(--da4-line);border-radius:8px;padding:8px 10px}
-.da4-box h3{margin:0 0 5px;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--da4-accent);text-transform:uppercase}
-.da4-kv{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;font-size:10.5px}
-.da4-kv dt{color:var(--da4-muted);margin:0}
-.da4-kv dd{margin:0;font-weight:400;white-space:pre-line;word-break:break-word}
-.da4-customer-name{font-size:12.5px;font-weight:700;margin:0 0 3px}
-.da4-table{width:100%;border-collapse:collapse;margin-top:12px;table-layout:fixed}
-.da4-table th{background:var(--da4-head);color:var(--da4-accent-dark);font-size:10.5px;font-weight:700;padding:6px 7px;border:1px solid var(--da4-line);height:30px}
-.da4-table td{padding:5px 7px;border:1px solid var(--da4-line);vertical-align:top;font-size:11px}
-.da4-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.da4-table .ctr{text-align:center}
-.da4-table .desc{word-break:break-word;white-space:pre-line}
-.da4-table .detail{color:var(--da4-muted);font-size:10px;margin-top:1px;white-space:pre-line}
+.da4-ico{width:11px;height:11px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.da4-top{display:flex;justify-content:space-between;align-items:flex-end;min-height:84px}
+.da4-logo-slot{width:150px;height:74px;display:flex;align-items:center}
+.da4-logo{max-width:150px;max-height:74px;object-fit:contain}
+.da4-titlebox{text-align:right}
+.da4-titlebox .orig{font-size:10px;font-weight:400}
+.da4-titlebox h1{margin:0;font-size:27px;line-height:1.2;font-weight:500;color:var(--da4-accent)}
+.da4-headgrid{display:grid;grid-template-columns:1fr 32%;column-gap:14px;margin-top:14px}
+.da4-party{display:grid;grid-template-columns:1fr 36%;column-gap:10px;padding:8px 0}
+.da4-party + .da4-party{border-top:1px solid var(--da4-line)}
+.da4-kv{display:grid;grid-template-columns:62px 1fr;row-gap:2px;font-size:10.5px}
+.da4-kv .k{font-weight:500}
+.da4-kv .v{word-break:break-word;white-space:pre-line}
+.da4-kv .v.name{font-weight:500}
+.da4-contact{font-size:10px;display:flex;flex-direction:column;gap:3px}
+.da4-contact div{display:flex;gap:7px;align-items:flex-start;word-break:break-all}
+.da4-meta{background:var(--da4-tint);border-radius:4px;padding:8px 12px;font-size:10.5px;align-self:start;margin-top:8px}
+.da4-meta div{display:grid;grid-template-columns:82px 1fr;gap:4px}
+.da4-meta .k{font-weight:500}
+.da4-callback{font-weight:500;font-size:10.5px;margin:10px 0 0 12px}
+.da4-cont{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--da4-line)}
+.da4-cont strong{font-size:15px;font-weight:500;color:var(--da4-accent)}
+.da4-cont span{font-size:10px}
+.da4-table{width:100%;border-collapse:collapse;margin-top:10px;table-layout:fixed}
+.da4-table th{background:var(--da4-tint);font-size:10.5px;font-weight:500;padding:8px 6px;height:34px;text-align:right}
+.da4-table th:first-child{text-align:left;border-radius:4px 0 0 4px;padding-left:8px}
+.da4-table th:last-child{border-radius:0 4px 4px 0}
+.da4-table td{padding:7px 6px 3px;vertical-align:top;font-size:10.5px;text-align:right;font-variant-numeric:tabular-nums}
+.da4-table td.desc{text-align:left;padding-left:8px;word-break:break-word;white-space:pre-line}
+.da4-table td.desc .n{display:inline-block;width:16px}
+.da4-table td.desc .sub{font-size:10px;padding-left:16px;white-space:pre-line}
 .da4-table tr{page-break-inside:avoid;break-inside:avoid}
 .da4-grow{flex:1 1 auto;min-height:0}
 .da4-foot{margin-top:auto}
-.da4-sumrow{display:grid;grid-template-columns:1fr 46%;gap:14px;align-items:start}
-.da4-text-amount{border:1px solid var(--da4-line);border-radius:8px;background:var(--da4-tint);padding:6px 10px;font-weight:700;font-size:11px}
-.da4-text-amount small{display:block;color:var(--da4-muted);font-weight:500;font-size:9.5px}
-.da4-note h4{margin:8px 0 2px;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--da4-muted);text-transform:uppercase}
-.da4-note p{margin:0;font-size:10.5px;white-space:pre-line;word-break:break-word}
-.da4-sum{font-size:11px}
-.da4-sum div{display:flex;justify-content:space-between;gap:10px;padding:2.5px 0}
-.da4-sum .v{font-variant-numeric:tabular-nums;font-weight:600}
-.da4-sum .muted{color:var(--da4-muted)}
-.da4-sum .total{margin-top:4px;background:var(--da4-accent);color:#fff;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:800}
-.da4-sum .total .v{font-weight:800}
-.da4-sum .payable{font-weight:700;border-top:1px dashed var(--da4-line);margin-top:4px;padding-top:5px}
-.da4-sig{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px;text-align:center;font-size:10px}
-.da4-sig .line{height:38px;border-bottom:1px dashed #A8A29E}
-.da4-sig .stamp{height:38px;border:1px dashed #C9BFB3;border-radius:8px}
-.da4-sig .role{font-weight:700;margin-top:4px}
-.da4-sig .date{color:var(--da4-muted);font-size:9.5px;margin-top:2px}
-.da4-sig .name{font-size:9.5px;color:var(--da4-muted);min-height:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.da4-pageno{text-align:center;font-size:9.5px;color:var(--da4-muted);margin-top:10px}
+.da4-sec{display:grid;grid-template-columns:100px 1fr;border-top:1px solid var(--da4-line);padding:9px 0}
+.da4-sec > .lab{display:flex;gap:5px;align-items:flex-start;font-weight:500;font-size:10.5px}
+.da4-sum{display:grid;grid-template-columns:1fr 36%;column-gap:14px}
+.da4-sumrows{display:grid;grid-template-columns:1fr auto;column-gap:16px;row-gap:5px;font-size:10.5px;align-content:start}
+.da4-sumrows .l{font-weight:500}
+.da4-sumrows .r{text-align:right}
+.da4-sumrows .r.txt{grid-column:2}
+.da4-totalbox{background:var(--da4-tint);border-radius:4px;padding:9px 12px;display:flex;justify-content:space-between;align-items:baseline;font-weight:500}
+.da4-totalbox .amt{font-size:16px;font-weight:400}
+.da4-totalbox .amt small{font-size:9.5px}
+.da4-minirows{display:grid;grid-template-columns:1fr auto;row-gap:2px;font-size:10px;margin:8px 8px 0 12px}
+.da4-minirows .l{font-weight:500}
+.da4-minirows .r{text-align:right;padding-left:14px}
+.da4-pay{display:grid;grid-template-columns:200px 1fr auto;column-gap:14px;font-size:10.5px}
+.da4-pay .kv2{display:grid;grid-template-columns:auto 1fr;row-gap:5px;column-gap:14px;align-content:start}
+.da4-pay .kv2 .k{font-weight:500;white-space:nowrap}
+.da4-pay .kv2 span{white-space:nowrap}
+.da4-bank{display:flex;gap:6px;align-items:flex-start}
+.da4-remark{min-height:26px;font-size:10.5px;white-space:pre-line;word-break:break-word}
+.da4-sig{display:grid;grid-template-columns:repeat(5,1fr);column-gap:8px;font-size:9.5px;text-align:center}
+.da4-sig .role{font-weight:500;font-size:9.5px;line-height:1.3;min-height:26px}
+.da4-sig .area{height:58px;border-bottom:1px dashed #8C857D;display:flex;align-items:center;justify-content:center}
+.da4-sig .area.noline{border-bottom:none}
+.da4-sig .area img{max-width:100%;max-height:52px;object-fit:contain}
+.da4-sig .area.box{border:1px dashed #8C857D;border-radius:3px;height:62px}
+.da4-sig .under{margin-top:4px;min-height:14px;font-size:9.5px}
+.da4-pageno{text-align:center;font-size:9px;margin-top:6px}
 .da4-sheet{display:flex;flex-direction:column;gap:16px}
 .da4-sheet .da4-page{box-shadow:0 6px 24px rgba(28,25,23,.16);border-radius:2px}
 .da4-print-root .da4-page{box-shadow:none;border-radius:0}
@@ -189,13 +197,22 @@ html,body{margin:0;padding:0;background:#fff}
 // Rendering
 // ---------------------------------------------------------------------------------------------
 
-const Row: React.FC<{ label: string; children?: React.ReactNode }> = ({ label, children }) =>
-  children ? (
-    <>
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </>
-  ) : null;
+type IconName = 'phone' | 'mail' | 'globe' | 'clipboard' | 'banknote' | 'message' | 'pen' | 'landmark';
+
+const ICON_PATHS: Record<IconName, React.ReactNode> = {
+  phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />,
+  mail: <><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 6L2 7" /></>,
+  globe: <><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></>,
+  clipboard: <><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 12h6M9 16h6" /></>,
+  banknote: <><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></>,
+  message: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+  pen: <><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z" /></>,
+  landmark: <path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2 3 8h18z" />
+};
+
+const Ico: React.FC<{ name: IconName }> = ({ name }) => (
+  <svg className="da4-ico" viewBox="0 0 24 24" aria-hidden="true">{ICON_PATHS[name]}</svg>
+);
 
 interface DocumentA4Props {
   invoice: Invoice;
@@ -209,71 +226,65 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
   const pages = paginateItems(invoice);
   const totalPages = pages.length;
   const { issuer, client } = invoice;
-  const showBank = !meta.isQuotation && !!issuer.bankAccount;
+  const showPayment = !meta.isQuotation;
   const receivedAmount = invoice.paidAmount ?? totals.payable;
   const isLastPage = (index: number) => index === totalPages - 1;
   const startNo = (index: number) => pages.slice(0, index).reduce((sum, rows) => sum + rows.length, 0);
+  const payDate = meta.isReceipt ? invoice.paidDate || invoice.dueDate : invoice.dueDate;
+  const clientTitle = `${client.code ? `${client.code} ` : ''}${client.name || '-'}${client.branch ? ` (${client.branch})` : ''}`;
 
   return (
     <div className={`da4 ${print ? 'da4-print-root' : ''}`}>
       <div className={print ? undefined : 'da4-sheet'}>
         {pages.map((rows, pageIndex) => (
           <section className="da4-page" key={pageIndex} data-page={pageIndex + 1}>
-            <div className="da4-topbar" />
-
             {pageIndex === 0 ? (
               <>
-                <header className="da4-head">
-                  <div className="da4-issuer">
-                    {issuer.logoUrl ? <img className="da4-logo" src={issuer.logoUrl} alt="" /> : null}
-                    <div style={{ minWidth: 0 }}>
-                      <p className="da4-issuer-name" style={{ color: 'var(--da4-ink)' }}>{issuer.name || '-'}</p>
-                      {issuer.address ? <p>{issuer.address}</p> : null}
-                      {issuer.phone || issuer.email ? (
-                        <p>{[issuer.phone && `โทร ${issuer.phone}`, issuer.email].filter(Boolean).join('  |  ')}</p>
-                      ) : null}
-                      {issuer.taxId ? <p>เลขประจำตัวผู้เสียภาษี {issuer.taxId}</p> : null}
-                    </div>
-                  </div>
-                  <div className="da4-title">
+                {/* Logo slot stays reserved even when no logo is uploaded (Profile → logo) */}
+                <div className="da4-top">
+                  <div className="da4-logo-slot">{issuer.logoUrl ? <img className="da4-logo" src={issuer.logoUrl} alt="" /> : null}</div>
+                  <div className="da4-titlebox">
+                    <div className="orig">(ต้นฉบับ)</div>
                     <h1>{meta.th}</h1>
-                    <div className="en">{meta.en}</div>
-                    <div className="da4-meta">
-                      <div><span>เลขที่</span><strong>{invoice.documentNo || '-'}</strong></div>
-                      <div><span>{meta.dateLabel}</span><strong>{formatDocDate(invoice.createdDate) || '-'}</strong></div>
-                      {meta.isReceipt ? (
-                        invoice.paidDate || invoice.dueDate ? <div><span>{meta.dueLabel}</span><strong>{formatDocDate(invoice.paidDate || invoice.dueDate)}</strong></div> : null
-                      ) : invoice.dueDate ? (
-                        <div><span>{meta.dueLabel}</span><strong>{formatDocDate(invoice.dueDate)}</strong></div>
-                      ) : null}
-                      {meta.isQuotation && invoice.responseDate ? <div><span>วันที่ตอบรับ</span><strong>{formatDocDate(invoice.responseDate)}</strong></div> : null}
-                      {invoice.refNo ? <div><span>อ้างอิง</span><strong>{invoice.refNo}</strong></div> : null}
+                  </div>
+                </div>
+
+                <div className="da4-headgrid">
+                  <div>
+                    <div className="da4-party">
+                      <dl className="da4-kv" style={{ margin: 0 }}>
+                        <span className="k">ผู้ขาย :</span><span className="v name">{issuer.name || '-'}</span>
+                        <span className="k">ที่อยู่ :</span><span className="v">{issuer.address || '-'}</span>
+                        <span className="k">เลขที่ภาษี :</span><span className="v">{issuer.taxId || '-'}</span>
+                      </dl>
+                      <div className="da4-contact">
+                        <div><Ico name="phone" /><span>{issuer.phone || '-'}</span></div>
+                        <div><Ico name="mail" /><span>{issuer.email || '-'}</span></div>
+                        {issuer.website ? <div><Ico name="globe" /><span>{issuer.website}</span></div> : null}
+                      </div>
+                    </div>
+                    <div className="da4-party">
+                      <dl className="da4-kv" style={{ margin: 0 }}>
+                        <span className="k">ลูกค้า :</span><span className="v name">{clientTitle}</span>
+                        <span className="k">ที่อยู่ :</span><span className="v">{client.address || '-'}</span>
+                        <span className="k">เลขที่ภาษี :</span><span className="v">{client.taxId || '-'}</span>
+                        <span className="k">เรียน :</span><span className="v">{client.contactName || '-'}</span>
+                      </dl>
+                      <div className="da4-contact">
+                        <div><Ico name="phone" /><span>{client.phone || '-'}</span></div>
+                        <div><Ico name="mail" /><span>{client.email || '-'}</span></div>
+                      </div>
                     </div>
                   </div>
-                </header>
-
-                <div className="da4-parties">
-                  <div className="da4-box">
-                    <h3>{meta.isQuotation ? 'เสนอราคาถึง / Customer' : 'ลูกค้า / Customer'}</h3>
-                    <p className="da4-customer-name">{client.name || '-'}{client.branch ? ` (${client.branch})` : ''}</p>
-                    <dl className="da4-kv">
-                      <Row label="รหัสลูกค้า">{client.code}</Row>
-                      <Row label="ที่อยู่">{client.address}</Row>
-                      <Row label="เลขผู้เสียภาษี">{client.taxId}</Row>
-                      <Row label="ผู้ติดต่อ">{client.contactName}</Row>
-                      <Row label="โทร">{client.phone}</Row>
-                      <Row label="อีเมล">{client.email}</Row>
-                    </dl>
-                  </div>
-                  <div className="da4-box">
-                    <h3>เงื่อนไข / Terms</h3>
-                    <dl className="da4-kv">
-                      <Row label="การชำระเงิน">{invoice.paymentTerm}</Row>
-                      <Row label="กำหนดส่งมอบ">{invoice.deliveryTerm}</Row>
-                      {meta.isReceipt ? <Row label="วิธีชำระ">{invoice.paymentMethod}</Row> : null}
-                      {meta.isReceipt ? <Row label="วันที่ชำระ">{formatDocDate(invoice.paidDate)}</Row> : null}
-                      <Row label="ภาษีมูลค่าเพิ่ม">{invoice.vatRate > 0 ? `${invoice.vatRate}%` : meta.isTax ? undefined : 'ไม่มี'}</Row>
-                    </dl>
+                  <div>
+                    <div className="da4-meta">
+                      <div><span className="k">เลขที่เอกสาร :</span><span>{invoice.documentNo || '-'}</span></div>
+                      <div><span className="k">วันที่ออก :</span><span>{formatDocDate(invoice.createdDate) || '-'}</span></div>
+                      {!meta.isReceipt && invoice.dueDate ? <div><span className="k">{meta.dueLabel} :</span><span>{formatDocDate(invoice.dueDate)}</span></div> : null}
+                      {meta.isQuotation && invoice.responseDate ? <div><span className="k">วันที่ตอบรับ :</span><span>{formatDocDate(invoice.responseDate)}</span></div> : null}
+                      <div><span className="k">อ้างอิง :</span><span>{invoice.refNo || ''}</span></div>
+                    </div>
+                    <div className="da4-callback">ติดต่อกลับที่ :</div>
                   </div>
                 </div>
               </>
@@ -284,41 +295,38 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
               </div>
             )}
 
-            {rows.length > 0 || !isLastPage(pageIndex) || pageIndex === 0 ? (
+            {rows.length > 0 || pageIndex === 0 ? (
               <table className="da4-table">
                 <colgroup>
-                  <col style={{ width: '6%' }} />
                   <col />
-                  <col style={{ width: '9%' }} />
-                  <col style={{ width: '8%' }} />
-                  <col style={{ width: '14%' }} />
-                  <col style={{ width: '11%' }} />
-                  <col style={{ width: '15%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '7%' }} />
+                  <col style={{ width: '16%' }} />
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>ลำดับ</th>
-                    <th>รายละเอียด</th>
+                    <th>คำอธิบาย</th>
                     <th>จำนวน</th>
-                    <th>หน่วย</th>
-                    <th>ราคา/หน่วย</th>
+                    <th>ราคา</th>
                     <th>ส่วนลด</th>
-                    <th>จำนวนเงิน</th>
+                    <th>VAT</th>
+                    <th>มูลค่าก่อนภาษี</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((item, i) => (
                     <tr key={item.id}>
-                      <td className="ctr">{startNo(pageIndex) + i + 1}</td>
-                      <td>
-                        <div className="desc">{item.description || '-'}</div>
-                        {item.detail ? <div className="detail">{item.detail}</div> : null}
+                      <td className="desc">
+                        <span className="n">{startNo(pageIndex) + i + 1}.</span><span className="b">{item.description || '-'}</span>
+                        {item.detail ? <div className="sub">{item.detail}</div> : null}
                       </td>
-                      <td className="num">{item.quantity.toLocaleString('en-US')}</td>
-                      <td className="ctr">{item.unit || ''}</td>
-                      <td className="num">{formatMoney(item.price)}</td>
-                      <td className="num">{item.discount ? formatMoney(item.discount) : '-'}</td>
-                      <td className="num"><strong>{formatMoney(item.quantity * item.price - (item.discount || 0))}</strong></td>
+                      <td>{formatMoney(item.quantity)}{item.unit ? ` ${item.unit}` : ''}</td>
+                      <td>{formatMoney(item.price)}</td>
+                      <td>{formatMoney(item.discount || 0)}</td>
+                      <td>{invoice.vatRate}%</td>
+                      <td>{formatMoney(item.quantity * item.price - (item.discount || 0))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -329,65 +337,93 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
 
             {isLastPage(pageIndex) ? (
               <div className="da4-foot">
-                <div className="da4-sumrow">
-                  <div>
-                    <div className="da4-text-amount">
-                      <small>จำนวนเงินตัวอักษร</small>
-                      ({thaiBahtText(totals.total)})
-                    </div>
-                    {showBank ? (
-                      <div className="da4-note">
-                        <h4>ช่องทางชำระเงิน</h4>
-                        <p>
-                          {issuer.bankName}{'\n'}
-                          เลขที่บัญชี {issuer.bankAccount}{'\n'}
-                          ชื่อบัญชี {issuer.bankAccountName || issuer.name}
-                        </p>
-                      </div>
-                    ) : null}
-                    <div className="da4-note">
-                      <h4>หมายเหตุ</h4>
-                      <p>{invoice.note || '-'}</p>
-                    </div>
-                  </div>
-
+                <div className="da4-sec">
+                  <div className="lab"><Ico name="clipboard" />สรุป</div>
                   <div className="da4-sum">
-                    {totals.discount > 0 ? (
-                      <>
-                        <div><span className="muted">รวมเป็นเงิน</span><span className="v">{formatMoney(totals.gross)}</span></div>
-                        <div><span className="muted">ส่วนลด</span><span className="v">-{formatMoney(totals.discount)}</span></div>
-                      </>
-                    ) : null}
-                    <div><span className="muted">{invoice.vatRate > 0 ? 'มูลค่าก่อนภาษี' : 'รวมเป็นเงิน'}</span><span className="v">{formatMoney(totals.subtotal)}</span></div>
-                    {invoice.vatRate > 0 ? (
-                      <div><span className="muted">ภาษีมูลค่าเพิ่ม {invoice.vatRate}%</span><span className="v">{formatMoney(totals.vatAmount)}</span></div>
-                    ) : null}
-                    <div className="total"><span>จำนวนเงินทั้งสิ้น</span><span className="v">{formatMoney(totals.total)}</span></div>
-                    {invoice.whtRate > 0 ? (
-                      <>
-                        <div className="muted" style={{ marginTop: 4 }}><span>หัก ณ ที่จ่าย {invoice.whtRate}%</span><span className="v">-{formatMoney(totals.whtAmount)}</span></div>
-                        <div className="payable"><span>จำนวนเงินที่ชำระ</span><span className="v">{formatMoney(totals.payable)}</span></div>
-                      </>
-                    ) : null}
-                    {meta.isReceipt ? (
-                      <div className="payable"><span>ได้รับเงินแล้ว</span><span className="v">{formatMoney(receivedAmount)}</span></div>
-                    ) : null}
+                    <div className="da4-sumrows">
+                      <span className="l">{invoice.vatRate > 0 ? `มูลค่าที่คำนวณภาษี ${invoice.vatRate}%` : 'มูลค่าก่อนภาษี'}</span>
+                      <span className="r">{formatMoney(totals.subtotal)} บาท</span>
+                      {invoice.vatRate > 0 ? (
+                        <>
+                          <span className="l">ภาษีมูลค่าเพิ่ม {invoice.vatRate}%</span>
+                          <span className="r">{formatMoney(totals.vatAmount)} บาท</span>
+                        </>
+                      ) : null}
+                      <span className="l">จำนวนเงินทั้งสิ้น</span>
+                      <span className="r txt">{thaiBahtText(totals.total)}</span>
+                    </div>
+                    <div>
+                      <div className="da4-totalbox">
+                        <span>จำนวนเงินทั้งสิ้น</span>
+                        <span className="amt">{formatMoney(totals.total)} <small>บาท</small></span>
+                      </div>
+                      <div className="da4-minirows">
+                        <span className="l">จำนวนเงินที่ถูกหัก ณ ที่จ่าย{invoice.whtRate > 0 ? ` ${invoice.whtRate}%` : ''}</span>
+                        <span className="r">{formatMoney(totals.whtAmount)} บาท</span>
+                        <span className="l" style={{ textAlign: 'right' }}>จำนวนเงินที่ชำระ:</span>
+                        <span className="r">{formatMoney(totals.payable)} บาท</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="da4-sig">
-                  {meta.signatures.map((role, i) => (
-                    <div key={role}>
-                      {i === 1 || i === 3 ? <div className="stamp" /> : <div className="line" />}
-                      <div className="role">{role}</div>
-                      {i === 0 || i === 2 ? (
-                        <>
-                          <div className="name">{i === 0 ? issuer.name : client.name}</div>
-                          <div className="date">วันที่ ...... / ...... / ..........</div>
-                        </>
-                      ) : null}
+                {showPayment ? (
+                  <div className="da4-sec">
+                    <div className="lab"><Ico name="banknote" />ชำระเงิน</div>
+                    <div className="da4-pay">
+                      <div className="kv2">
+                        <span className="k">{meta.isReceipt ? 'วันที่ชำระ :' : 'กำหนดชำระ :'}</span><span>{formatDocDate(payDate) || '-'}</span>
+                        <span className="k">จำนวนเงินรวม :</span><span>{formatMoney(meta.isReceipt ? receivedAmount : totals.payable)} บาท</span>
+                      </div>
+                      <div>
+                        {issuer.bankAccount ? (
+                          <div className="da4-bank">
+                            <Ico name="landmark" />
+                            <div>
+                              <div>{issuer.bankName}{meta.isReceipt && invoice.paymentMethod ? ` (${invoice.paymentMethod})` : ''}</div>
+                              <div className="b">เลขที่บัญชี {issuer.bankAccount}</div>
+                              <div>{issuer.bankAccountName || issuer.name}</div>
+                            </div>
+                          </div>
+                        ) : meta.isReceipt && invoice.paymentMethod ? <div>{invoice.paymentMethod}</div> : null}
+                      </div>
+                      <div>{meta.isReceipt ? `${formatMoney(receivedAmount)} บาท` : ''}</div>
                     </div>
-                  ))}
+                  </div>
+                ) : null}
+
+                <div className="da4-sec">
+                  <div className="lab"><Ico name="message" />หมายเหตุ</div>
+                  <div className="da4-remark">{invoice.note || ''}</div>
+                </div>
+
+                <div className="da4-sec">
+                  <div className="lab"><Ico name="pen" />รับรอง</div>
+                  <div className="da4-sig">
+                    <div>
+                      <div className="role">{meta.signatures[0]} (ผู้ขาย)</div>
+                      <div className="area" />
+                      <div className="under">{formatDocDate(invoice.createdDate)}</div>
+                    </div>
+                    <div>
+                      <div className="role">{meta.signatures[1]} (ผู้ขาย)</div>
+                      <div className="area" />
+                      <div className="under">{formatDocDate(invoice.createdDate)}</div>
+                    </div>
+                    <div>
+                      <div className="role">ตราประทับ (ผู้ขาย)</div>
+                      <div className="area noline">{issuer.logoUrl ? <img src={issuer.logoUrl} alt="" /> : null}</div>
+                    </div>
+                    <div>
+                      <div className="role">{meta.signatures[2]} (ลูกค้า)</div>
+                      <div className="area" />
+                      <div className="under b">{client.name}</div>
+                    </div>
+                    <div>
+                      <div className="role">ตราประทับ (ลูกค้า)</div>
+                      <div className="area box" />
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : null}

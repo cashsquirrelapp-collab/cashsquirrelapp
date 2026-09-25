@@ -245,8 +245,8 @@ test('invoice preview and print render the shared A4 document and the editor off
  const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
  await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
  const preview=page.getByTestId('document-preview');
- await expect(preview.getByRole('heading',{name:'ใบเสร็จรับเงิน / ใบกำกับภาษี'})).toBeVisible();
- await expect(preview).toContainText('RECEIPT / TAX INVOICE');
+ await expect(preview.getByRole('heading',{name:'ใบเสร็จรับเงิน/ใบกำกับภาษี'})).toBeVisible();
+ await expect(preview).toContainText('(ต้นฉบับ)');
  await expect(preview).toContainText('1,900.00');
  await expect(preview).toContainText('2,033.00');
  await expect(preview).toContainText('สองพันสามสิบสามบาทถ้วน');

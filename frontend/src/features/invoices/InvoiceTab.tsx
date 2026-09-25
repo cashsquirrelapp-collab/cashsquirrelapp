@@ -1439,6 +1439,18 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               />
             </div>
 
+
+            {/* Website (printed under the contact details) */}
+            <div className="md:col-span-12 flex flex-col gap-1.5">
+              <label className="text-[9px] font-bold text-brand-muted uppercase">เว็บไซต์ (ไม่บังคับ)</label>
+              <input
+                type="text"
+                value={issuerProfile.website || ''}
+                onChange={(e) => setIssuerProfile({ ...issuerProfile, website: e.target.value })}
+                placeholder="เช่น https://www.example.com"
+                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+              />
+            </div>
           </div>
 
           <div className="pt-3 flex gap-3 border-t border-brand-border/40">

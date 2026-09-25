@@ -7,12 +7,12 @@ import type { InvoiceItem } from '../../../../shared/types';
 export const formatMoney = (value: number): string =>
   (Number.isFinite(value) ? value : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// Buddhist-era dd/mm/yyyy, the way Thai business documents write dates
+// dd/mm/yyyy (Gregorian year), matching the reference sheet
 export const formatDocDate = (value?: string): string => {
   if (!value) return '';
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   if (!match) return value;
-  return `${match[3]}/${match[2]}/${Number(match[1]) + 543}`;
+  return `${match[3]}/${match[2]}/${match[1]}`;
 };
 
 export const thaiBahtText = (num: number): string => {

@@ -31,7 +31,7 @@ test('document totals apply line discounts, VAT and withholding', () => {
 
 test('money and date formatting', () => {
   assert.equal(formatMoney(1234.5), '1,234.50');
-  assert.equal(formatDocDate('2026-09-26'), '26/09/2569');
+  assert.equal(formatDocDate('2026-09-26'), '26/09/2026');
   assert.equal(formatDocDate(''), '');
 });
 
