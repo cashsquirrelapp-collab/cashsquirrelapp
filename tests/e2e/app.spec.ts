@@ -266,6 +266,35 @@ test('invoice preview and print render the shared A4 document and the editor off
  await expect(page.getByPlaceholder('รายละเอียดเพิ่มเติม (ไม่บังคับ)')).toBeVisible();
 });
 
+test('uploaded logo and signature are saved to the profile and appear on existing documents',async({page})=>{
+ const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'',bankName:'',bankAccount:'',bankAccountName:''};
+ const invoice={id:'old-1',documentType:'invoice',documentNo:'INV-OLD-001',createdDate:'2026-09-17',issuer:profile,client:{name:'Client',address:'',phone:'',email:'',taxId:''},items:[{id:'i1',description:'Work',quantity:1,price:100}],vatRate:0,whtRate:0};
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAEklEQVR4nGN4Fq/9Hx9mGBkKAFHYm8E0k7sPAAAAAElFTkSuQmCC','base64');
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ const saved:any[]=[];
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
+  return route.fulfill({json:{snapshot:{...snapshot,invoices:[invoice]},versions:{...versions,cashflow_invoices:{'old-1':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
+ await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ const preview=page.getByTestId('document-preview');
+ await expect(preview).toContainText('INV-OLD-001');
+ await expect(preview.locator('.da4-logo')).toHaveCount(0);
+ await page.getByRole('button',{name:'ข้อมูลโปรไฟล์ของฉัน'}).click();
+ const files=page.locator('input[type=file]');
+ await expect(files).toHaveCount(2);
+ await files.nth(0).setInputFiles({name:'logo.png',mimeType:'image/png',buffer:png});
+ await files.nth(1).setInputFiles({name:'sign.png',mimeType:'image/png',buffer:png});
+ await expect(page.locator('img[src^="data:image"]')).toHaveCount(2);
+ await page.getByRole('button',{name:/บันทึก/}).last().click();
+ await page.getByRole('button',{name:'ตกลง',exact:true}).click();
+ await expect.poll(()=>saved.some(c=>c.id==='issuer_profile'&&c.data.logoUrl?.startsWith('data:image')&&c.data.signatureUrl?.startsWith('data:image'))).toBe(true);
+ await expect(page.getByTestId('document-preview').locator('.da4-logo')).toHaveCount(1);
+ await expect(page.getByTestId('document-preview').locator('.da4-sig img')).toHaveCount(2); // signature + seller stamp (logo)
+});
+
 test('expired authentication hides private views and never leaves financial browser caches',async({page})=>{
  const privateJob={id:'private-job',name:'Private account record',value:100,received:0,pending:100,client:'Private client',type:'Design',status:'pending',creditTerm:0,note:'',payDate:null};
  let expired=false;

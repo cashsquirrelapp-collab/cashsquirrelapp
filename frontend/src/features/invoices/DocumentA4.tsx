@@ -402,7 +402,7 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                   <div className="da4-sig">
                     <div>
                       <div className="role">{meta.signatures[0]} (ผู้ขาย)</div>
-                      <div className="area" />
+                      <div className="area">{issuer.signatureUrl ? <img src={issuer.signatureUrl} alt="" /> : null}</div>
                       <div className="under">{formatDocDate(invoice.createdDate)}</div>
                     </div>
                     <div>

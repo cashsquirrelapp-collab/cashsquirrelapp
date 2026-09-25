@@ -193,6 +193,7 @@ export interface InvoiceProfile {
   bankAccount: string;
   bankAccountName: string;
   logoUrl?: string;
+  signatureUrl?: string; // ลายเซ็นผู้ออกเอกสาร (data URL)
   website?: string;
 }
 

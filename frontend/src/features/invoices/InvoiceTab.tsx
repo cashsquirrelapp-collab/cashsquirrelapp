@@ -32,6 +32,81 @@ import {
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 
+// Upload box for the logo / signature images kept on the issuer profile
+const BrandImageField: React.FC<{
+  title: string;
+  hint: string;
+  emptyLabel: string;
+  uploadLabel: string;
+  removeLabel: string;
+  value?: string;
+  onChange: (value: string) => void;
+  onError: (title: string, message: string) => void;
+}> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError }) => (
+  <div className="md:col-span-12 bg-stone-50 dark:bg-stone-950/40 p-5 rounded-2xl border border-brand-border/40 space-y-3.5">
+    <div className="flex items-center gap-2">
+      <div className="p-1.5 bg-[#E65F2B]/10 rounded-lg text-[#E65F2B]">
+        <Settings className="w-4 h-4" />
+      </div>
+      <div>
+        <h4 className="text-xs font-black text-brand-text dark:text-white uppercase">{title}</h4>
+        <p className="text-[9px] text-brand-muted">{hint}</p>
+      </div>
+    </div>
+
+    <div className="flex flex-col sm:flex-row gap-5 items-center">
+      <div className="w-24 h-24 border border-brand-border/60 rounded-2xl bg-white dark:bg-stone-900 flex items-center justify-center overflow-hidden shrink-0 shadow-inner border-dashed">
+        {value ? (
+          <img src={value} alt="" className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
+        ) : (
+          <div className="text-center p-2 flex flex-col items-center gap-1">
+            <Upload className="w-5 h-5 text-brand-muted" />
+            <span className="text-[8px] text-brand-muted font-bold">{emptyLabel}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 space-y-2 w-full">
+        <div className="flex flex-wrap gap-2">
+          <label className="px-4 py-2 bg-[#E65F2B] hover:bg-[#E65F2B]/90 text-white text-[10px] font-black rounded-xl cursor-pointer transition-all flex items-center gap-1.5 shadow-xs">
+            <Upload className="w-3.5 h-3.5" />
+            <span>{uploadLabel}</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const input = e.currentTarget;
+                const file = input.files?.[0];
+                input.value = ''; // picking the same file again must still fire onChange
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                  onError('ไฟล์มีขนาดใหญ่เกินไป', 'กรุณาอัปโหลดภาพที่มีขนาดไม่เกิน 2MB เพื่อประสิทธิภาพที่รวดเร็ว');
+                  return;
+                }
+                imageFileToDataUrl(file).then(onChange).catch(error => onError('อัปโหลดภาพไม่สำเร็จ', error.message));
+              }}
+            />
+          </label>
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              className="px-3.5 py-2 bg-stone-100 hover:bg-red-50 dark:bg-stone-800 dark:hover:bg-red-950/20 text-stone-600 dark:text-stone-300 hover:text-red-600 dark:hover:text-red-400 text-[10px] font-black rounded-xl transition-all cursor-pointer"
+            >
+              {removeLabel}
+            </button>
+          )}
+        </div>
+        <p className="text-[9px] text-brand-muted leading-relaxed">
+          * รองรับ PNG, JPEG และ WebP ไม่เกิน 2MB ระบบย่อภาพก่อนบันทึก
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+
 interface InvoiceTabProps {
   jobs: Job[];
   ownerId?: string;
@@ -438,6 +513,17 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setActiveSubTab('create');
   };
 
+  // Documents keep the issuer details they were created with, but the logo and signature come
+  // from the current profile so uploading them also updates documents created earlier.
+  const withCurrentBranding = (inv: Invoice): Invoice => ({
+    ...inv,
+    issuer: {
+      ...inv.issuer,
+      logoUrl: issuerProfile.logoUrl || inv.issuer.logoUrl,
+      signatureUrl: issuerProfile.signatureUrl || inv.issuer.signatureUrl
+    }
+  });
+
   // Copy details of an invoice to make a new one
   const handleDuplicateInvoice = (inv: Invoice, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -458,7 +544,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   const handlePrintDocument = () => {
     if (!selectedInvoice) return;
-    if (!printDocument(selectedInvoice)) {
+    if (!printDocument(withCurrentBranding(selectedInvoice))) {
       triggerAlert(
         'ป็อปอัปถูกบล็อก',
         'เบราว์เซอร์ของคุณบล็อกป็อปอัป กรุณาอนุญาตการแสดงป็อปอัปสำหรับเว็บไซต์นี้เพื่อให้สามารถพิมพ์หรือบันทึก PDF ในหน้าต่างใหม่ได้'
@@ -689,7 +775,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                   <span>แนะนำวิธีเซฟ PDF: คลิกปุ่มพิมพ์ขวาบน แล้วเลือกปลายทางเป็น "บันทึกเป็น PDF (Save as PDF)"</span>
                 </div>
 
-                <DocumentPreview invoice={selectedInvoice} />
+                <DocumentPreview invoice={withCurrentBranding(selectedInvoice)} />
               </div>
             ) : (
               <div className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-3xl p-12 text-center text-brand-muted flex flex-col items-center justify-center min-h-[400px]">
@@ -1254,86 +1340,28 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             
-            {/* Company Logo Upload / Selection */}
-            <div className="md:col-span-12 bg-stone-50 dark:bg-stone-950/40 p-5 rounded-2xl border border-brand-border/40 space-y-3.5">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-[#E65F2B]/10 rounded-lg text-[#E65F2B]">
-                  <Settings className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-brand-text dark:text-white uppercase">โลโก้บริษัท / แบรนด์ของคุณ (Company Logo)</h4>
-                  <p className="text-[9px] text-brand-muted">โลโก้นี้จะปรากฏที่มุมบนซ้ายของใบแจ้งหนี้, ใบเสร็จรับเงิน และใบเสนอราคาของคุณเพื่อเพิ่มความน่าเชื่อถือ</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-5 items-center">
-                {/* Logo Preview box */}
-                <div className="w-24 h-24 border border-brand-border/60 rounded-2xl bg-white dark:bg-stone-900 flex items-center justify-center overflow-hidden shrink-0 shadow-inner relative group border-dashed">
-                  {issuerProfile.logoUrl ? (
-                    <>
-                      <img 
-                        src={issuerProfile.logoUrl} 
-                        alt="Logo Preview" 
-                        className="w-full h-full object-contain p-2"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIssuerProfile({ ...issuerProfile, logoUrl: '' })}
-                          className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[9px] font-bold transition-all cursor-pointer"
-                        >
-                          ลบรูป
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center p-2 flex flex-col items-center gap-1">
-                      <Upload className="w-5 h-5 text-brand-muted animate-bounce" />
-                      <span className="text-[8px] text-brand-muted font-bold">ไม่มีโลโก้</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Upload & Controls */}
-                <div className="flex-1 space-y-2 w-full">
-                  <div className="flex flex-wrap gap-2">
-                    <label className="px-4 py-2 bg-[#E65F2B] hover:bg-[#E65F2B]/90 text-white text-[10px] font-black rounded-xl cursor-pointer transition-all flex items-center gap-1.5 shadow-xs">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>อัปโหลดภาพโลโก้</span>
-                      <input 
-                        type="file" 
-                        accept="image/png,image/jpeg,image/webp" 
-                        className="hidden" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            if (file.size > 2 * 1024 * 1024) {
-                              triggerAlert('ไฟล์มีขนาดใหญ่เกินไป', 'กรุณาอัปโหลดภาพที่มีขนาดไม่เกิน 2MB เพื่อประสิทธิภาพที่รวดเร็ว');
-                              return;
-                            }
-                            imageFileToDataUrl(file).then(logoUrl=>setIssuerProfile(prev=>({...prev,logoUrl}))).catch(error=>triggerAlert('อัปโหลดภาพไม่สำเร็จ',error.message));
-                          }
-                        }}
-                      />
-                    </label>
-
-                    {issuerProfile.logoUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setIssuerProfile({ ...issuerProfile, logoUrl: '' })}
-                        className="px-3.5 py-2 bg-stone-100 hover:bg-red-50 dark:bg-stone-800 dark:hover:bg-red-950/20 text-stone-600 dark:text-stone-300 hover:text-red-600 dark:hover:text-red-400 text-[10px] font-black rounded-xl transition-all cursor-pointer"
-                      >
-                        ลบโลโก้
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-[9px] text-brand-muted leading-relaxed">
-                    * รองรับ PNG, JPEG และ WebP ไม่เกิน 2MB ระบบย่อภาพก่อนบันทึก แนะนำภาพจัตุรัสหรือแนวนอน
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* Company logo + signature (printed on every document) */}
+            <BrandImageField
+              title="โลโก้บริษัท / แบรนด์ของคุณ (Company Logo)"
+              hint="โลโก้นี้จะปรากฏที่มุมบนซ้ายของเอกสารทุกประเภท และเป็นตราประทับผู้ขาย"
+              emptyLabel="ไม่มีโลโก้"
+              uploadLabel="อัปโหลดภาพโลโก้"
+              removeLabel="ลบโลโก้"
+              value={issuerProfile.logoUrl}
+              onChange={(logoUrl) => setIssuerProfile(prev => ({ ...prev, logoUrl }))}
+              onError={triggerAlert}
+            />
+            <BrandImageField
+              title="ลายเซ็นผู้ออกเอกสาร (Signature)"
+              hint="ลายเซ็นจะแสดงเหนือเส้นลายเซ็นในช่อง “ผู้ออกเอกสาร” แนะนำไฟล์ PNG พื้นหลังโปร่งใส"
+              emptyLabel="ไม่มีลายเซ็น"
+              uploadLabel="อัปโหลดลายเซ็น"
+              removeLabel="ลบลายเซ็น"
+              value={issuerProfile.signatureUrl}
+              onChange={(signatureUrl) => setIssuerProfile(prev => ({ ...prev, signatureUrl }))}
+              onError={triggerAlert}
+            />
+            <p className="md:col-span-12 text-[10px] font-bold text-[#E65F2B]">* หลังอัปโหลดรูป อย่าลืมกดปุ่มบันทึกด้านล่างสุดของหน้านี้ รูปจึงจะถูกเก็บและแสดงบนเอกสาร</p>
 
             {/* Issuer Name */}
             <div className="md:col-span-6 flex flex-col gap-1.5">
