@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 import NumberInput from '../../components/ui/NumberInput';
+import JobTypeSelector from './JobTypeSelector';
 import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight } from '../../components/ui/icons';
 import {
   Briefcase,
@@ -1060,8 +1061,20 @@ export default function JobsTab({
                         />
                       </div>
 
-                      {/* Category Type as Pills */}
-                      <div className="space-y-2">
+                      <JobTypeSelector
+                        value={formType}
+                        onChange={(value) => {
+                          setFormType(value);
+                          if (value !== '__custom__') setCustomTypeInput('');
+                        }}
+                        customInput={customTypeInput}
+                        onCustomInputChange={setCustomTypeInput}
+                        jobTypes={jobTypes}
+                        setJobTypes={setJobTypes}
+                      />
+
+                      {/* Legacy category controls retained for data compatibility; replaced by the organized selector above. */}
+                      <div className="hidden">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldType')}</label>
 
                         <div className="space-y-2.5">
@@ -1802,8 +1815,21 @@ export default function JobsTab({
                         />
                       </div>
 
-                      {/* Category Type as Pills */}
-                      <div className="space-y-2">
+                      <JobTypeSelector
+                        value={editType}
+                        onChange={(value) => {
+                          setEditType(value);
+                          if (value !== '__custom__') setEditCustomTypeInput('');
+                        }}
+                        customInput={editCustomTypeInput}
+                        onCustomInputChange={setEditCustomTypeInput}
+                        jobTypes={jobTypes}
+                        setJobTypes={setJobTypes}
+                        accent="indigo"
+                      />
+
+                      {/* Legacy category controls retained for data compatibility; replaced by the organized selector above. */}
+                      <div className="hidden">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldType')}</label>
 
                         <div className="space-y-2.5">
