@@ -111,7 +111,6 @@ export default function JobsTab({
   const [formClient, setFormClient] = useState('');
   const [formValue, setFormValue] = useState('');
   const [formReceived, setFormReceived] = useState('');
-  const [formHoursSpent, setFormHoursSpent] = useState('');
   const [formStatus, setFormStatus] = useState<string>('pending');
   const [formCreditTerm, setFormCreditTerm] = useState<number>(0);
   // Unlike formStartDate (WIP), this one is left blank by default -- it's the actual delivery/
@@ -149,8 +148,6 @@ export default function JobsTab({
 
   // States for custom entry on-the-fly
   const [customTypeInput, setCustomTypeInput] = useState('');
-  const [customStatusLabelInput, setCustomStatusLabelInput] = useState('');
-  const [customStatusBehavior, setCustomStatusBehavior] = useState<'pending' | 'partial' | 'done'>('pending');
 
   // States for Manage Expandable Panel
   const [isManageOpen, setIsManageOpen] = useState(false);
@@ -179,7 +176,6 @@ export default function JobsTab({
   const [editClient, setEditClient] = useState('');
   const [editValue, setEditValue] = useState('');
   const [editReceived, setEditReceived] = useState('');
-  const [editHoursSpent, setEditHoursSpent] = useState('');
   const [editStatus, setEditStatus] = useState('');
   const [editCreditTerm, setEditCreditTerm] = useState<number>(0);
   const [editPostDate, setEditPostDate] = useState('');
@@ -192,8 +188,6 @@ export default function JobsTab({
 
   // States for custom entry inside Edit Form
   const [editCustomTypeInput, setEditCustomTypeInput] = useState('');
-  const [editCustomStatusLabelInput, setEditCustomStatusLabelInput] = useState('');
-  const [editCustomStatusBehavior, setEditCustomStatusBehavior] = useState<'pending' | 'partial' | 'done'>('pending');
 
   // 🌰 Edit Wizard/Step form state
   const [editFormStep, setEditFormStep] = useState(1);
@@ -206,7 +200,6 @@ export default function JobsTab({
       setEditClient(editingJob.client || '');
       setEditValue(String(editingJob.value));
       setEditReceived(String(editingJob.received));
-      setEditHoursSpent(editingJob.hoursSpent ? String(editingJob.hoursSpent) : '');
       setEditStatus(editingJob.status);
       setEditCreditTerm(editingJob.creditTerm);
       setEditPostDate(editingJob.postDate || getLocalDateStr());
@@ -217,8 +210,6 @@ export default function JobsTab({
       setEditExcludeHolidays(editingJob.excludeHolidays || false);
       setEditInstallments(editingJob.installments || []);
       setEditCustomTypeInput('');
-      setEditCustomStatusLabelInput('');
-      setEditCustomStatusBehavior('pending');
       setEditFormStep(1);
       setEditCanSubmit(false);
     }
@@ -322,26 +313,9 @@ export default function JobsTab({
       }
     }
 
-    let finalStatus = editStatus;
-    let behavior: 'done' | 'partial' | 'pending' = 'pending';
-    if (editStatus === '__custom__') {
-      const labelTrimmed = editCustomStatusLabelInput.trim();
-      if (!labelTrimmed) {
-        triggerAlert(t('jobs.alertStatusNameRequiredTitle'), t('jobs.alertStatusNameRequiredMsg'));
-        return;
-      }
-      finalStatus = `status-${Date.now()}`;
-      behavior = editCustomStatusBehavior;
-      const newStatusOpt: StatusOption = {
-        id: finalStatus,
-        label: labelTrimmed,
-        behavior: editCustomStatusBehavior
-      };
-      setStatuses(prev => [...prev, newStatusOpt]);
-    } else {
-      const matched = statuses.find(s => s.id === editStatus);
-      behavior = matched ? matched.behavior : 'pending';
-    }
+    const finalStatus = editStatus;
+    const matchedStatus = statuses.find(s => s.id === editStatus);
+    const behavior: 'done' | 'partial' | 'pending' = matchedStatus ? matchedStatus.behavior : 'pending';
 
     const valueNum = parseFloat(editValue) || 0;
     const whtAmountNum = Math.round(valueNum * (editWhtRate / 100));
@@ -406,7 +380,6 @@ export default function JobsTab({
       isPosted: editIsPosted,
       payDate: calculatedPay,
       note: editNote,
-      hoursSpent: editHoursSpent.trim() ? parseFloat(editHoursSpent) : undefined,
       whtRate: editWhtRate,
       whtAmount: whtAmountNum,
       excludeHolidays: editExcludeHolidays,
@@ -478,26 +451,9 @@ export default function JobsTab({
       }
     }
 
-    let finalStatus = formStatus;
-    let behavior: 'done' | 'partial' | 'pending' = 'pending';
-    if (formStatus === '__custom__') {
-      const labelTrimmed = customStatusLabelInput.trim();
-      if (!labelTrimmed) {
-        triggerAlert(t('jobs.alertStatusNameRequiredTitle'), t('jobs.alertStatusNameRequiredMsg'));
-        return;
-      }
-      finalStatus = `status-${Date.now()}`;
-      behavior = customStatusBehavior;
-      const newStatusOpt: StatusOption = {
-        id: finalStatus,
-        label: labelTrimmed,
-        behavior: customStatusBehavior
-      };
-      setStatuses(prev => [...prev, newStatusOpt]);
-    } else {
-      const matched = statuses.find(s => s.id === formStatus);
-      behavior = matched ? matched.behavior : 'pending';
-    }
+    const finalStatus = formStatus;
+    const matchedStatus = statuses.find(s => s.id === formStatus);
+    const behavior: 'done' | 'partial' | 'pending' = matchedStatus ? matchedStatus.behavior : 'pending';
 
     const valueNum = parseFloat(formValue) || 0;
     const whtAmountNum = Math.round(valueNum * (formWhtRate / 100));
@@ -552,7 +508,6 @@ export default function JobsTab({
       payDate: payDateCalculated,
       paymentStatus: derivedPaymentStatus,
       note: formNote,
-      hoursSpent: formHoursSpent.trim() ? parseFloat(formHoursSpent) : undefined,
       whtRate: formWhtRate,
       whtAmount: whtAmountNum,
       excludeHolidays: formExcludeHolidays,
@@ -564,12 +519,9 @@ export default function JobsTab({
     setFormClient('');
     setFormValue('');
     setFormReceived('');
-    setFormHoursSpent('');
     setFormStatus('pending');
     setFormType('ยังไม่ระบุ');
     setCustomTypeInput('');
-    setCustomStatusLabelInput('');
-    setCustomStatusBehavior('pending');
     setFormCreditTerm(0);
     setFormPostDate('');
     setFormStartDate(getLocalDateStr());
@@ -649,8 +601,6 @@ export default function JobsTab({
               setFormStatus('pending');
               setFormType('ยังไม่ระบุ');
               setCustomTypeInput('');
-              setCustomStatusLabelInput('');
-              setCustomStatusBehavior('pending');
               setFormCreditTerm(0);
               setFormPostDate('');
               setFormStartDate(getLocalDateStr());
@@ -1415,19 +1365,6 @@ export default function JobsTab({
                           />
                         </div>
 
-                        {/* Hours spent (optional, for ฿/hour insight) */}
-                        <div className="space-y-1.5 col-span-2">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldHours')}</label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.5"
-                            placeholder={t('jobs.fieldHoursPlaceholder')}
-                            value={formHoursSpent}
-                            onChange={(e) => setFormHoursSpent(e.target.value)}
-                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
-                          />
-                        </div>
                       </div>
 
                       <WithholdingTaxSelector rate={formWhtRate} onChange={setFormWhtRate} value={formValue} />
@@ -1452,8 +1389,7 @@ export default function JobsTab({
                         </div>
                       </div>
 
-                      {/* Project Status -- one segmented control instead of a card grid, with
-                          "other" pulled out as its own subtle radio rather than another segment */}
+                      {/* Project Status */}
                       <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
                           {t('jobs.fieldProjectStatus')} <span className="text-rose-500">*</span>
@@ -1492,17 +1428,6 @@ export default function JobsTab({
                             );
                           })}
                         </div>
-                        <label className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
-                          <input
-                            type="radio"
-                            checked={formStatus === '__custom__'}
-                            onChange={() => setFormStatus('__custom__')}
-                            className="w-3.5 h-3.5 accent-[#E65F2B] cursor-pointer"
-                          />
-                          <span className={`text-[11px] font-bold ${formStatus === '__custom__' ? 'text-[#E65F2B]' : 'text-brand-muted'}`}>
-                            {t('jobs.customStatusOption')}
-                          </span>
-                        </label>
                       </div>
 
                       {/* Live calculated mockup tax receipt */}
@@ -1525,51 +1450,9 @@ export default function JobsTab({
                         </div>
                       </div>
 
-                      {/* Custom Status Setup */}
-                      {formStatus === '__custom__' && (
-                        <div className="bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/15 rounded-2xl p-3.5 space-y-3 animate-fade-in mt-2">
-                          <div>
-                            <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">{t('jobs.customStatusNameLabelAdd')}</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder={t('jobs.customStatusNamePlaceholderAdd')}
-                              value={customStatusLabelInput}
-                              onChange={(e) => setCustomStatusLabelInput(e.target.value)}
-                              className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 font-semibold"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">{t('jobs.customStatusBehaviorLabelAdd')}</label>
-                            <select
-                              value={customStatusBehavior}
-                              onChange={(e: any) => {
-                                const b = e.target.value;
-                                setCustomStatusBehavior(b);
-                                if (b === 'done') {
-                                  setFormReceived(formValue);
-                                } else if (b === 'partial') {
-                                  if (parseFloat(formReceived) === parseFloat(formValue)) {
-                                    setFormReceived('');
-                                  }
-                                } else {
-                                  setFormReceived('0');
-                                }
-                              }}
-                              className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white rounded-xl p-2.5 outline-none border border-brand-border/40 cursor-pointer font-semibold"
-                            >
-                              <option value="pending">{t('jobs.statusOptPending')}</option>
-                              <option value="partial">{t('jobs.statusOptPartialAdd')}</option>
-                              <option value="done">{t('jobs.statusOptDoneAdd')}</option>
-                            </select>
-                          </div>
-                        </div>
-                      )}
-
                       {/* Received Deposit input - shown only if status is "partial" */}
                       {formStatus !== 'installment' && (formStatus === 'partial' ||
-                        (formStatus !== '__custom__' && statuses.find(s => s.id === formStatus)?.behavior === 'partial') ||
-                        (formStatus === '__custom__' && customStatusBehavior === 'partial')) && (
+                        statuses.find(s => s.id === formStatus)?.behavior === 'partial') && (
                         <div className="space-y-1.5 animate-fade-in">
                           <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{formStatus === 'installment' ? 'ยอดที่ได้รับแล้วจากทุกงวด (฿)' : t('jobs.fieldReceivedNow')}</label>
                           <NumberInput
@@ -2182,19 +2065,6 @@ export default function JobsTab({
                           />
                         </div>
 
-                        {/* Hours spent (optional, for ฿/hour insight) */}
-                        <div className="space-y-1.5 col-span-2">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldHours')}</label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.5"
-                            placeholder={t('jobs.fieldHoursPlaceholder')}
-                            value={editHoursSpent}
-                            onChange={(e) => setEditHoursSpent(e.target.value)}
-                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
-                          />
-                        </div>
                       </div>
 
                       {/* Status Selection -- segmented control, matching the add-job flow */}
@@ -2234,63 +2104,11 @@ export default function JobsTab({
                             );
                           })}
                         </div>
-                        <label className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
-                          <input
-                            type="radio"
-                            checked={editStatus === '__custom__'}
-                            onChange={() => setEditStatus('__custom__')}
-                            className="w-3.5 h-3.5 accent-[#E65F2B] cursor-pointer"
-                          />
-                          <span className={`text-[11px] font-bold ${editStatus === '__custom__' ? 'text-[#E65F2B]' : 'text-brand-muted'}`}>
-                            {t('jobs.customStatusOption')}
-                          </span>
-                        </label>
-
-                        {editStatus === '__custom__' && (
-                          <div className="bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/15 rounded-2xl p-3.5 space-y-3 animate-fade-in mt-2">
-                            <div>
-                              <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">{t('jobs.customStatusNameLabelAdd')}</label>
-                              <input
-                                type="text"
-                                required
-                                placeholder={t('jobs.customStatusNamePlaceholderEdit')}
-                                value={editCustomStatusLabelInput}
-                                onChange={(e) => setEditCustomStatusLabelInput(e.target.value)}
-                                className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 font-semibold"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">{t('jobs.customStatusBehaviorLabelEdit')}</label>
-                              <select
-                                value={editCustomStatusBehavior}
-                                onChange={(e: any) => {
-                                  const b = e.target.value;
-                                  setEditCustomStatusBehavior(b);
-                                  if (b === 'done') {
-                                    setEditReceived(editValue);
-                                  } else if (b === 'partial') {
-                                    if (parseFloat(editReceived) === parseFloat(editValue)) {
-                                      setEditReceived('');
-                                    }
-                                  } else {
-                                    setEditReceived('0');
-                                  }
-                                }}
-                                className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white rounded-xl p-2.5 outline-none border border-brand-border/40 cursor-pointer font-semibold"
-                              >
-                                <option value="pending">{t('jobs.statusOptPending')}</option>
-                                <option value="partial">{t('jobs.statusOptPartialEdit')}</option>
-                                <option value="done">{t('jobs.statusOptDoneEdit')}</option>
-                              </select>
-                            </div>
-                          </div>
-                        )}
                       </div>
 
                       {/* Received Deposit input - shown only if status is "partial" */}
                       {editStatus !== 'installment' && (editStatus === 'partial' ||
-                        (editStatus !== '__custom__' && statuses.find(s => s.id === editStatus)?.behavior === 'partial') ||
-                        (editStatus === '__custom__' && editCustomStatusBehavior === 'partial')) && (
+                        statuses.find(s => s.id === editStatus)?.behavior === 'partial') && (
                         <div className="space-y-1.5 animate-fade-in">
                           <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{editStatus === 'installment' ? 'ยอดที่ได้รับแล้วจากทุกงวด (฿)' : t('jobs.fieldReceivedNow')}</label>
                           <NumberInput
