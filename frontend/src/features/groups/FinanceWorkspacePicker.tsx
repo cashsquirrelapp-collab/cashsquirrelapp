@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, CreditCard, RefreshCw, Users } from "lucide-react";
+import { ChevronDown, CreditCard, Users } from "lucide-react";
 import type { GroupSummary } from "../../../../shared/groups";
 import { groupApi } from "../../services/groups";
 
@@ -88,16 +88,6 @@ export default function FinanceWorkspacePicker({
           </select>
           <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-4 w-4 -translate-y-1/2 text-[#79583F] dark:text-[#E8C7A7]" />
         </div>
-        <div className="mx-1 h-7 w-px bg-[#DDC9B3] dark:bg-stone-600" aria-hidden="true" />
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setRevision((n) => n + 1)}
-          aria-label="รีเฟรชบัญชีการเงิน"
-          className="rounded-full p-2 text-[#79583F] transition-colors hover:bg-white/70 hover:text-brand-text disabled:cursor-wait disabled:opacity-50 dark:text-[#E8C7A7] dark:hover:bg-stone-700"
-        >
-          <RefreshCw size={14} className={busy ? "animate-spin" : ""} />
-        </button>
       </div>
       {error && (
         <p role="alert" className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-red-200 bg-red-50 p-2 text-xs text-red-700 shadow-lg">
