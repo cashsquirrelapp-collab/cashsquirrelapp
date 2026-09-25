@@ -195,9 +195,6 @@ export interface InvoiceProfile {
   logoUrl?: string;
   logoPosition?: 'left' | 'center' | 'right' | 'custom'; // ตำแหน่งโลโก้ในส่วนหัว
   logoOffset?: number; // 0 (ซ้ายสุด) – 100 (ขวาสุด) เมื่อ logoPosition = 'custom'
-  headerImageUrl?: string; // แบนเนอร์หัวเอกสารเต็มความกว้าง (แทนโลโก้ในส่วนหัว)
-  headerImageOffset?: number; // 0 (ชิดซ้าย) – 100 (ชิดขวา) ตำแหน่งภาพในแบนเนอร์ ค่าเริ่มต้น 50
-  headerImageHeight?: number; // ความสูงแบนเนอร์ (px, 40–240)
   logoHeight?: number; // ความสูงโลโก้บนเอกสาร (px, 40–200)
   signatureUrl?: string; // ลายเซ็นผู้ออกเอกสาร (data URL)
   website?: string;

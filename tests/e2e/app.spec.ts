@@ -284,9 +284,9 @@ test('uploaded logo and signature are saved to the profile and appear on existin
  await expect(preview.locator('.da4-logo')).toHaveCount(0);
  await page.getByRole('button',{name:'ข้อมูลโปรไฟล์ของฉัน'}).click();
  const files=page.locator('input[type=file]');
- await expect(files).toHaveCount(3); // logo, banner, signature
+ await expect(files).toHaveCount(2); // logo, signature
  await files.nth(0).setInputFiles({name:'logo.png',mimeType:'image/png',buffer:png});
- await files.nth(2).setInputFiles({name:'sign.png',mimeType:'image/png',buffer:png});
+ await files.nth(1).setInputFiles({name:'sign.png',mimeType:'image/png',buffer:png});
  await expect(page.getByTestId('header-live-preview').locator('.da4-logo')).toHaveCount(1);
  await expect(page.getByTestId('header-live-preview').locator('.da4-sig img')).toHaveCount(2);
  await page.getByLabel('ธนาคาร',{exact:true}).selectOption('ธนาคารกสิกรไทย');
@@ -305,14 +305,6 @@ test('uploaded logo and signature are saved to the profile and appear on existin
  await page.getByRole('button',{name:'ข้อมูลโปรไฟล์ของฉัน'}).click();
  await page.getByRole('slider',{name:'เลื่อนโลโก้ซ้าย-ขวา'}).fill('30');
  await expect(page.getByTestId('header-live-preview').locator('.da4-top.pos-custom')).toHaveAttribute('style',/--da4-x: 30%/);
- await page.locator('input[type=file]').nth(1).setInputFiles({name:'banner.png',mimeType:'image/png',buffer:png});
- await page.getByRole('slider',{name:'ความสูงแบนเนอร์บนเอกสาร'}).waitFor();
- await page.getByRole('slider',{name:'เลื่อนแบนเนอร์ซ้าย-ขวา'}).fill('10');
- await expect(page.getByTestId('header-live-preview').locator('.da4-banner')).toHaveCSS('object-position','10% 50%');
- await page.getByRole('button',{name:/บันทึก/}).last().click();
- await page.getByRole('button',{name:'ตกลง',exact:true}).click();
- await expect(page.getByTestId('document-preview').locator('.da4-banner')).toHaveCount(1);
- await expect(page.getByTestId('document-preview').locator('.da4-top .da4-logo')).toHaveCount(0);
 });
 
 test('expired authentication hides private views and never leaves financial browser caches',async({page})=>{

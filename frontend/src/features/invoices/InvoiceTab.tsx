@@ -5,7 +5,7 @@ import { validateChanges } from '../../../../shared/validation';
 import React, { useState, useEffect } from 'react';
 import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../../../shared/types';
 import { THAI_BANKS, findThaiBank } from './thaiBanks';
-import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, DEFAULT_BANNER_HEIGHT, MIN_BANNER_HEIGHT, MAX_BANNER_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
+import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { motion, AnimatePresence } from 'motion/react';
@@ -557,9 +557,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       logoHeight: issuerProfile.logoUrl ? issuerProfile.logoHeight : inv.issuer.logoHeight,
       logoPosition: issuerProfile.logoUrl ? issuerProfile.logoPosition : inv.issuer.logoPosition,
       logoOffset: issuerProfile.logoUrl ? issuerProfile.logoOffset : inv.issuer.logoOffset,
-      headerImageUrl: issuerProfile.headerImageUrl || inv.issuer.headerImageUrl,
-      headerImageHeight: issuerProfile.headerImageUrl ? issuerProfile.headerImageHeight : inv.issuer.headerImageHeight,
-      headerImageOffset: issuerProfile.headerImageUrl ? issuerProfile.headerImageOffset : inv.issuer.headerImageOffset,
       signatureUrl: issuerProfile.signatureUrl || inv.issuer.signatureUrl,
       // documents made before any bank details were saved pick up the current ones
       ...(inv.issuer.bankAccount ? {} : { bankName: issuerProfile.bankName, bankAccount: issuerProfile.bankAccount, bankAccountName: issuerProfile.bankAccountName })
@@ -1440,39 +1437,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     <span className="font-mono w-14 text-right">{issuerProfile.logoPosition === 'custom' ? issuerProfile.logoOffset ?? 50 : issuerProfile.logoPosition === 'center' ? 50 : issuerProfile.logoPosition === 'right' ? 100 : 0}%</span>
                   </label>
                 </div>
-              )}
-            />
-            <BrandImageField
-              title="แบนเนอร์หัวเอกสาร (ออกแบบส่วนหัวเอง)"
-              hint="อัปโหลดภาพส่วนหัวที่คุณออกแบบเอง (โลโก้ ชื่อร้าน ข้อมูลติดต่อ ฯลฯ) ภาพจะแสดงเต็มความกว้างด้านบนของเอกสาร และใช้แทนตำแหน่งโลโก้ ควรเป็นภาพแนวนอน"
-              emptyLabel="ไม่มีแบนเนอร์"
-              uploadLabel="อัปโหลดแบนเนอร์"
-              removeLabel="ลบแบนเนอร์"
-              value={issuerProfile.headerImageUrl}
-              onChange={(headerImageUrl) => setIssuerProfile(prev => ({ ...prev, headerImageUrl }))}
-              onError={triggerAlert}
-              size={{
-                label: 'ความสูงแบนเนอร์บนเอกสาร',
-                value: issuerProfile.headerImageHeight || DEFAULT_BANNER_HEIGHT,
-                min: MIN_BANNER_HEIGHT,
-                max: MAX_BANNER_HEIGHT,
-                onChange: (headerImageHeight) => setIssuerProfile(prev => ({ ...prev, headerImageHeight }))
-              }}
-              extra={(
-                <label className="flex items-center gap-3 text-[10px] font-black text-brand-muted">
-                  <span className="shrink-0">เลื่อนซ้าย–ขวา</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={issuerProfile.headerImageOffset ?? 50}
-                    onChange={(e) => setIssuerProfile(prev => ({ ...prev, headerImageOffset: Number(e.target.value) }))}
-                    aria-label="เลื่อนแบนเนอร์ซ้าย-ขวา"
-                    className="w-full max-w-xs accent-[#E65F2B] cursor-pointer"
-                  />
-                  <span className="font-mono w-14 text-right">{issuerProfile.headerImageOffset ?? 50}%</span>
-                </label>
               )}
             />
             <BrandImageField
