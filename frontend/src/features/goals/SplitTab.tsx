@@ -716,7 +716,7 @@ export default function SplitTab({
       </div>
 
       {/* Overview: answer the three questions a first-time user has before asking them to allocate. */}
-      <section className="overflow-hidden rounded-[28px] border border-brand-border bg-brand-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <section className="hidden" aria-hidden="true">
         <div className="border-b border-brand-border/50 bg-gradient-to-r from-[#FFF8EE] to-white px-5 py-5 dark:from-neutral-900 dark:to-neutral-900 sm:px-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -812,57 +812,41 @@ export default function SplitTab({
         </div>
       </section>
 
-      {/* Section 2: Dynamic Profit Allocation Manager */}
+      {/* Single allocation workspace */}
       <section className="rounded-[28px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
         <div className="mb-6 flex flex-col gap-3 border-b border-brand-border/50 pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 2</span>
-            <h3 className="mt-1 text-xl font-black text-brand-text dark:text-white">กำหนดจำนวนเงินที่จะใส่แต่ละเป้าหมาย</h3>
-            <p className="mt-1 text-xs text-brand-muted">พิมพ์จำนวนเงินหรือเลื่อนแถบ ระบบจะคุมยอดรวมไม่ให้เกินเงินที่จัดสรรได้</p>
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B] dark:text-[#FFA473]">แบ่งเงินเข้าเป้าหมาย</span>
+            <h3 className="mt-1 text-xl font-black text-brand-text dark:text-white">เลือกจำนวนเงิน แล้วกดยืนยันได้เลย</h3>
+            <p className="mt-1 text-xs text-brand-muted dark:text-neutral-300">กรอกยอดในเป้าหมายที่ต้องการ ระบบจะคุมยอดรวมไม่ให้เกินเงินที่มีจริง</p>
           </div>
-          <div className="rounded-xl bg-brand-faint px-4 py-2 text-right"><span className="block text-[9px] font-bold text-brand-muted">ยังแบ่งได้อีก</span><strong className="font-mono text-base text-[#9A541C]">{formatCurrency(remainingNetProfit)}</strong></div>
+          <div className="rounded-xl bg-brand-faint px-4 py-2 text-right dark:bg-neutral-800"><span className="block text-[9px] font-bold text-brand-muted dark:text-neutral-300">ยังแบ่งได้อีก</span><strong className="font-mono text-base text-[#9A541C] dark:text-[#F4C99E]">{formatCurrency(remainingNetProfit)}</strong></div>
         </div>
 
         {(netProfit > 0 || (settings.accumulatedRemainder || 0) > 0) ? (
           <div className="space-y-6">
             {/* 4 Allocation Info Cards */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <div className="rounded-2xl border border-brand-border/60 bg-brand-faint/70 p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-bold text-brand-muted uppercase">{t('split.netProfitThisMonth')}</span>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-brand-border/60 bg-brand-faint/70 p-4 flex flex-col justify-between dark:border-neutral-700 dark:bg-neutral-800">
+                <span className="text-[10px] font-bold text-brand-muted uppercase dark:text-neutral-300">พร้อมแบ่งตอนนี้</span>
                 <div className="flex items-center justify-between mt-1">
-                  <span className="text-lg font-black font-mono text-emerald-600">{formatCurrency(netProfit)}</span>
+                  <span className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(netProfit)}</span>
                 </div>
-                <span className="text-[9px] text-brand-muted mt-0.5">{t('split.fullProfit', { amount: formatCurrency(rawNetProfit) })}</span>
+                <span className="text-[9px] text-brand-muted mt-0.5 dark:text-neutral-400">หลังหักรายจ่ายและยอดที่แบ่งไปแล้ว</span>
               </div>
-              <div className="rounded-2xl border border-brand-border/60 bg-brand-faint/70 p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-bold text-brand-muted uppercase">{t('split.accumulatedRemainder')}</span>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-lg font-black font-mono text-indigo-600">{formatCurrency(settings.accumulatedRemainder || 0)}</span>
-                  {(settings.accumulatedRemainder || 0) > 0 && (
-                    <button
-                      onClick={handleAllocateRemainderToAnyGoal}
-                      className="text-[9px] font-extrabold bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded cursor-pointer"
-                      title={t('split.dropIntoGoalTooltip')}
-                    >
-                      {t('split.dropIntoGoal')}
-                    </button>
-                  )}
-                </div>
-                <span className="text-[9px] text-brand-muted mt-0.5">{t('split.remainderDesc')}</span>
-              </div>
-              <div className="rounded-2xl border border-brand-border/60 bg-brand-faint/70 p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-bold text-brand-muted uppercase">ยอดที่เลือกแบ่งรอบนี้</span>
-                <span className="text-lg font-black font-mono text-purple-600 mt-1">{formatCurrency(totalCustomAllocated)}</span>
-                <span className="text-[9px] text-brand-muted mt-0.5">{t('split.sliderSetAmount')}</span>
+              <div className="rounded-2xl border border-brand-border/60 bg-brand-faint/70 p-4 flex flex-col justify-between dark:bg-neutral-800">
+                <span className="text-[10px] font-bold text-brand-muted uppercase dark:text-neutral-300">กำลังแบ่งรอบนี้</span>
+                <span className="text-lg font-black font-mono text-purple-600 dark:text-purple-400 mt-1">{formatCurrency(totalCustomAllocated)}</span>
+                <span className="text-[9px] text-brand-muted mt-0.5 dark:text-neutral-400">รวมจากทุกเป้าหมายด้านล่าง</span>
               </div>
               <div className={`border rounded-2xl p-4 flex flex-col justify-between transition-all ${
                 remainingNetProfit > 0 
                   ? 'bg-amber-500/5 border-amber-300 dark:border-amber-500/30' 
                   : 'bg-emerald-500/5 border-emerald-300 dark:border-emerald-500/30'
               }`}>
-                <span className="text-[10px] font-bold text-brand-muted uppercase">{t('split.remainingToSlide')}</span>
+                <span className="text-[10px] font-bold text-brand-muted uppercase dark:text-neutral-300">เหลือหลังยืนยัน</span>
                 <div className="flex items-center justify-between mt-1">
-                  <span className={`text-lg font-black font-mono ${remainingNetProfit > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                  <span className={`text-lg font-black font-mono ${remainingNetProfit > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                     {formatCurrency(remainingNetProfit)}
                   </span>
                   {remainingNetProfit === 0 && (
@@ -871,13 +855,20 @@ export default function SplitTab({
                     </span>
                   )}
                 </div>
-                <span className="text-[9px] text-brand-muted mt-0.5">{t('split.remainingSliderDesc')}</span>
+                <span className="text-[9px] text-brand-muted mt-0.5 dark:text-neutral-400">ปรับเพิ่มได้จนกว่ายอดนี้จะหมด</span>
               </div>
             </div>
 
+            {(settings.accumulatedRemainder || 0) > 0 && (
+              <div className="flex flex-col gap-2 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-3 dark:border-indigo-500/30 dark:bg-indigo-500/10 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-bold text-indigo-800 dark:text-indigo-200">มียอดคงเหลือสะสม {formatCurrency(settings.accumulatedRemainder || 0)}</p>
+                <button onClick={handleAllocateRemainderToAnyGoal} className="rounded-xl bg-indigo-600 px-3 py-2 text-[10px] font-black text-white hover:bg-indigo-700">เลือกเป้าหมายที่จะใส่เงิน</button>
+              </div>
+            )}
+
             {/* Presets Row */}
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-faint/40 p-3">
-              <span className="mr-1 text-[10px] font-black text-brand-muted uppercase">ตัวช่วยแบ่งเงิน</span>
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-faint/40 p-3 dark:bg-neutral-800/80">
+              <span className="mr-1 text-[10px] font-black text-brand-muted uppercase dark:text-neutral-300">เริ่มแบบเร็ว หรือกรอกเองด้านล่าง</span>
               
               <button
                 onClick={handleQuickProportionalAllocation}
@@ -889,21 +880,21 @@ export default function SplitTab({
 
               <button
                 onClick={handleApplyPresetSplit}
-                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-700"
               >
                 <IconTarget className="w-3 h-3" /> {t('split.setSlidersByRatio')}
               </button>
 
               <button
                 onClick={handleApplyEqualSplit}
-                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-700"
               >
                 <IconScale className="w-3 h-3" /> {t('split.splitEqually')}
               </button>
 
               <button
                 onClick={handleResetAllocations}
-                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-muted rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-muted rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-700"
               >
                 <IconClear className="w-3 h-3" /> {t('split.clearAllSliders')}
               </button>
@@ -957,7 +948,7 @@ export default function SplitTab({
                 return (
                   <div 
                     key={g.id}
-                    className="space-y-4 rounded-2xl border border-brand-border/70 bg-white p-5 shadow-xs transition-all hover:border-[#D98324]/50 dark:bg-neutral-900"
+                    className="space-y-4 rounded-2xl border border-brand-border/70 bg-white p-5 shadow-xs transition-all hover:border-[#D98324]/50 dark:border-neutral-700 dark:bg-neutral-900"
                   >
                     {/* Header line */}
                     <div className="flex items-center justify-between gap-3">
@@ -982,15 +973,15 @@ export default function SplitTab({
                               {g.type === 'save' ? t('split.goalTypeSave') : g.type === 'invest' ? t('split.goalTypeInvest') : t('split.goalTypeGeneral')}
                             </span>
                           </h5>
-                          <p className="text-[10px] text-brand-muted mt-0.5">
+                          <p className="text-[10px] text-brand-muted mt-0.5 dark:text-neutral-300">
                             {t('split.cumulativeProgress', { current: formatCurrency(g.current), target: formatCurrency(g.target), pct: pctOfGoal.toFixed(0) })}
                           </p>
                         </div>
                       </div>
 
                       {/* Right-side value input box */}
-                      <div className="flex items-center gap-1 bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-700 rounded-xl px-2.5 py-1.5 w-28 shrink-0">
-                        <span className="text-[10px] font-extrabold text-brand-muted">฿</span>
+                      <div className="flex items-center gap-1 bg-brand-white dark:bg-neutral-800 border border-brand-border dark:border-neutral-600 rounded-xl px-2.5 py-1.5 w-28 shrink-0">
+                        <span className="text-[10px] font-extrabold text-brand-muted dark:text-neutral-300">฿</span>
                         <NumberInput
                            value={currentAllocated || ''}
                            onChange={handleInputChange}
@@ -1016,21 +1007,21 @@ export default function SplitTab({
                         <button
                           onClick={() => handleAddAmount(100)}
                           disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer"
+                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
                         >
                           +100
                         </button>
                         <button
                           onClick={() => handleAddAmount(500)}
                           disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer"
+                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
                         >
                           +500
                         </button>
                         <button
                           onClick={() => handleAddAmount(1000)}
                           disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer"
+                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
                         >
                           +1k
                         </button>
@@ -1068,20 +1059,20 @@ export default function SplitTab({
             <h5 className="text-xs font-extrabold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
               {t('split.noProfitTitle')}
             </h5>
-            <p className="text-[10px] text-brand-muted max-w-md mx-auto leading-relaxed">
+            <p className="text-[10px] text-brand-muted max-w-md mx-auto leading-relaxed dark:text-neutral-300">
               {t('split.noProfitDesc')}
             </p>
           </div>
         )}
       </section>
 
-      {/* Section 3: Savings Targets Cards Grid (Merged TargetTab) */}
+      {/* Savings target cards */}
       <section className="space-y-5 rounded-[28px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 3</span>
-            <h3 className="mt-1 text-xl font-black text-brand-text dark:text-white">ติดตามเป้าหมายทั้งหมด</h3>
-            <p className="mt-1 text-xs text-brand-muted">กดการ์ดเพื่อฝาก ถอน โอนเงิน หรือแก้ไขรายละเอียดเป้าหมาย</p>
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B] dark:text-[#FFA473]">เป้าหมายของฉัน</span>
+            <h3 className="mt-1 text-xl font-black text-brand-text dark:text-white">ติดตามเงินที่สะสมไว้</h3>
+            <p className="mt-1 text-xs text-brand-muted dark:text-neutral-300">กดการ์ดเพื่อฝาก ถอน โอนเงิน หรือแก้ไขรายละเอียดเป้าหมาย</p>
           </div>
           <button
             onClick={() => setIsAddGoalLocalOpen(true)}
@@ -1092,10 +1083,10 @@ export default function SplitTab({
         </div>
 
         {goals.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-brand-border bg-brand-faint/40 p-12 text-center text-brand-muted">
+          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-brand-border bg-brand-faint/40 p-12 text-center text-brand-muted dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300">
             <Mascot mood="sleepy" size={100} />
             <div>
-              <p className="text-xs font-semibold text-brand-text">{t('split.noGoalsTitle')}</p>
+              <p className="text-xs font-semibold text-brand-text dark:text-white">{t('split.noGoalsTitle')}</p>
               <p className="text-[10px] mt-1">{t('split.noGoalsDesc')}</p>
             </div>
           </div>
@@ -1108,7 +1099,7 @@ export default function SplitTab({
                   key={g.id}
                   whileHover={{ scale: 1.015 }}
                   onClick={() => setSelectedGoal(g)}
-                  className="relative flex min-h-[190px] cursor-pointer select-none flex-col justify-between overflow-hidden rounded-2xl border border-brand-border/80 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-[#D98324]/50 hover:shadow-lg dark:bg-neutral-900"
+                  className="relative flex min-h-[190px] cursor-pointer select-none flex-col justify-between overflow-hidden rounded-2xl border border-brand-border/80 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-[#D98324]/50 hover:shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
                 >
                   <div>
                     <div 
@@ -1122,9 +1113,9 @@ export default function SplitTab({
                       )}
                     </div>
 
-                    <h4 className="truncate text-sm font-black leading-tight text-brand-text">{g.name}</h4>
+                    <h4 className="truncate text-sm font-black leading-tight text-brand-text dark:text-white">{g.name}</h4>
                     <div className="flex items-center justify-between gap-1 mt-1">
-                      <p className="text-[9px] text-brand-muted font-bold uppercase tracking-wider">
+                      <p className="text-[9px] text-brand-muted font-bold uppercase tracking-wider dark:text-neutral-300">
                         {g.type === 'save' ? t('split.goalTypeSaveShort') : g.type === 'invest' ? t('split.goalTypeInvestShort') : g.type === 'emergency' ? t('split.goalTypeEmergencyShort') : t('split.goalTypeGeneral')}
                       </p>
                       {g.allocatedPercentage !== undefined && g.allocatedPercentage > 0 && (
@@ -1138,8 +1129,8 @@ export default function SplitTab({
                   {/* Progress and values */}
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between items-baseline text-[11px]">
-                      <span className="font-mono text-base font-black text-brand-text">{formatCurrency(g.current)}</span>
-                      <span className="text-[9px] text-brand-muted">/ {formatCurrency(g.target)}</span>
+                      <span className="font-mono text-base font-black text-brand-text dark:text-white">{formatCurrency(g.current)}</span>
+                      <span className="text-[9px] text-brand-muted dark:text-neutral-300">/ {formatCurrency(g.target)}</span>
                     </div>
 
                     <div className="w-full h-1.5 bg-brand-faint rounded-full overflow-hidden">
