@@ -23,7 +23,8 @@ import {
   Clock,
   ExternalLink,
   Edit2,
-  Send
+  Send,
+  WalletCards
 } from 'lucide-react';
 
 // Local (not UTC) YYYY-MM-DD -- avoids the date shifting by a day near midnight in UTC+7,
@@ -168,6 +169,9 @@ export default function JobsTab({
   const [deliveryPostDate, setDeliveryPostDate] = useState('');
   const [deliveryCreditTerm, setDeliveryCreditTerm] = useState(0);
   const [deliveryExcludeHolidays, setDeliveryExcludeHolidays] = useState(false);
+  const [installmentPaymentJob, setInstallmentPaymentJob] = useState<Job | null>(null);
+  const [selectedInstallmentId, setSelectedInstallmentId] = useState('');
+  const [installmentPaidDate, setInstallmentPaidDate] = useState(getLocalDateStr());
 
   // Edit form states
   const [editName, setEditName] = useState('');
@@ -219,6 +223,41 @@ export default function JobsTab({
       setEditCanSubmit(false);
     }
   }, [editingJob]);
+
+  const openInstallmentPayment = (job: Job) => {
+    const pendingRows = (job.installments || [])
+      .filter((row) => row.status !== 'paid')
+      .sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31'));
+    setInstallmentPaymentJob(job);
+    setSelectedInstallmentId(pendingRows[0]?.id || '');
+    setInstallmentPaidDate(getLocalDateStr());
+  };
+
+  const confirmInstallmentPayment = () => {
+    if (!installmentPaymentJob || !selectedInstallmentId || !installmentPaidDate) return;
+    const installments = (installmentPaymentJob.installments || []).map((row) =>
+      row.id === selectedInstallmentId
+        ? { ...row, status: 'paid' as const, paidAt: installmentPaidDate }
+        : row
+    );
+    const received = installments
+      .filter((row) => row.status === 'paid')
+      .reduce((sum, row) => sum + row.amount, 0);
+    const netReceivable = Math.max(0, installmentPaymentJob.value - (installmentPaymentJob.whtAmount || 0));
+    const pendingRows = installments
+      .filter((row) => row.status !== 'paid' && row.dueDate)
+      .sort((a, b) => (a.dueDate as string).localeCompare(b.dueDate as string));
+    const isPaid = received >= netReceivable || installments.every((row) => row.status === 'paid');
+    onEditJob(installmentPaymentJob.id, {
+      installments,
+      received,
+      pending: Math.max(0, netReceivable - received),
+      paymentStatus: isPaid ? 'paid' : 'partial',
+      payDate: isPaid ? installmentPaidDate : (pendingRows[0]?.dueDate || null),
+    });
+    setInstallmentPaymentJob(null);
+    setSelectedInstallmentId('');
+  };
 
   React.useEffect(() => {
     if (editFormStep === 3) {
@@ -874,6 +913,8 @@ export default function JobsTab({
                       const statusInfo = getStatusDisplay(j.status);
                       const isDone = statusInfo.behavior === 'done';
                       const isPending = statusInfo.behavior === 'pending';
+                      const isInstallment = j.status === 'installment' && Boolean(j.installments?.length);
+                      const pendingInstallments = (j.installments || []).filter((row) => row.status !== 'paid');
                       return (
                         <>
                           {j.isPosted === false && (
@@ -907,7 +948,21 @@ export default function JobsTab({
                               <Send className="w-3.5 h-3.5" /> {t('jobs.actionMarkPosted')}
                             </button>
                           )}
-                          {!isDone && (
+                          {isInstallment && pendingInstallments.length > 0 && (
+                            <button
+                              onClick={() => openInstallmentPayment(j)}
+                              className="flex items-center gap-1 rounded-lg bg-[#E65F2B] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#D8551F]"
+                            >
+                              <WalletCards className="h-3.5 w-3.5" />
+                              รับเงินงวดถัดไป
+                            </button>
+                          )}
+                          {isInstallment && pendingInstallments.length === 0 && (
+                            <span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                              <CheckCircle className="h-3.5 w-3.5" /> รับครบทุกงวดแล้ว
+                            </span>
+                          )}
+                          {!isDone && !isInstallment && (
                             <button
                               onClick={() => {
                                 const today = new Date();
@@ -930,7 +985,7 @@ export default function JobsTab({
                               <CheckCircle className="w-3.5 h-3.5" /> {t('jobs.actionMarkPaidFull')}
                             </button>
                           )}
-                          {isPending && (
+                          {isPending && !isInstallment && (
                             <button
                               onClick={() => {
                                 const partialVal = Math.round(j.value * 0.3); // suggest 30% deposit
@@ -988,6 +1043,72 @@ export default function JobsTab({
           })
         )}
       </div>
+
+      {createPortal(
+        <AnimatePresence>
+          {installmentPaymentJob && (
+            <div className="fixed inset-0 z-210">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setInstallmentPaymentJob(null)}
+                className="absolute inset-0 bg-black/45 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                className="absolute bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 p-4"
+              >
+                <div className="max-h-[85vh] space-y-4 overflow-y-auto rounded-3xl bg-brand-white p-5 shadow-2xl dark:bg-stone-900">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#E65F2B]">รับเงินเป็นงวด</p>
+                      <h3 className="mt-1 text-lg font-black text-brand-text dark:text-white">{installmentPaymentJob.name}</h3>
+                      <p className="mt-1 text-[11px] font-semibold text-brand-muted">เลือกเฉพาะงวดที่ได้รับเงินแล้ว ระบบจะคำนวณยอดค้างและงวดถัดไปให้</p>
+                    </div>
+                    <button type="button" onClick={() => setInstallmentPaymentJob(null)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-faint text-xl text-brand-muted">×</button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(installmentPaymentJob.installments || []).filter((row) => row.status !== 'paid').map((row) => (
+                      <button
+                        key={row.id}
+                        type="button"
+                        onClick={() => setSelectedInstallmentId(row.id)}
+                        className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition-colors ${selectedInstallmentId === row.id ? 'border-[#E65F2B] bg-orange-50/70' : 'border-brand-border/60 bg-brand-faint/50'}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-black text-brand-text">{row.label}</p>
+                          <p className="mt-0.5 text-[10px] font-semibold text-brand-muted">{row.dueDate ? `ครบกำหนด ${safeFormatThaiDate(row.dueDate)}` : 'ยังไม่ระบุวันครบกำหนด'}</p>
+                        </div>
+                        <p className="shrink-0 font-mono text-sm font-black text-[#E65F2B]">{formatCurrency(row.amount)}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-brand-muted">วันที่รับเงินจริง</label>
+                    <input type="date" value={installmentPaidDate} onChange={(event) => setInstallmentPaidDate(event.target.value)} className="w-full rounded-xl border border-brand-border/60 bg-brand-faint p-3 text-sm font-bold outline-none focus:border-[#E65F2B]" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={confirmInstallmentPayment}
+                    disabled={!selectedInstallmentId || !installmentPaidDate}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#E65F2B] py-3.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <CheckCircle className="h-4 w-4" /> ยืนยันรับเงินงวดนี้
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* 4. Sliding Bottom Sheet Modal for Adding Job */}
       {createPortal(<AnimatePresence>
