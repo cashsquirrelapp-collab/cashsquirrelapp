@@ -83,7 +83,7 @@ const TITLE_ROW_H = 62;
 // Height taken by the logo / banner + title area at the top of the first page
 const topAreaHeight = (issuer: Invoice['issuer']): number => {
   if (issuer.headerImageUrl) return bannerHeightOf(issuer) + TITLE_ROW_H + 18;
-  if (issuer.logoUrl && issuer.logoPosition === 'center') return logoHeightOf(issuer) + TITLE_ROW_H + 12;
+  if (issuer.logoUrl && (issuer.logoPosition === 'center' || issuer.logoPosition === 'custom')) return logoHeightOf(issuer) + TITLE_ROW_H + 12;
   return Math.max(96, logoHeightOf(issuer) + 22);
 };
 
@@ -150,8 +150,10 @@ export const DOCUMENT_CSS = `
 .da4-titlebox{text-align:right}
 .da4-top.pos-right{flex-direction:row-reverse}
 .da4-top.pos-right .da4-titlebox{text-align:left}
-.da4-top.pos-center{flex-direction:column;align-items:center;gap:8px}
-.da4-top.pos-center .da4-titlebox{align-self:flex-end}
+.da4-top.pos-center,.da4-top.pos-custom{flex-direction:column;align-items:stretch;gap:8px}
+.da4-top.pos-center .da4-titlebox,.da4-top.pos-custom .da4-titlebox{align-self:flex-end}
+.da4-top.pos-center .da4-logo-slot,.da4-top.pos-custom .da4-logo-slot{position:relative;width:100%}
+.da4-top.pos-center .da4-logo,.da4-top.pos-custom .da4-logo{position:absolute;top:0;left:var(--da4-x,50%);transform:translateX(calc(var(--da4-x,50%) * -1))}
 .da4-top.banner{justify-content:flex-end}
 .da4-banner{display:block;width:100%;object-fit:contain;object-position:center;margin-bottom:10px}
 .da4-titlebox .orig{font-size:10px;font-weight:400;margin-bottom:9px;letter-spacing:.02em}
@@ -281,10 +283,13 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                 ) : (
                   // Logo slot stays reserved even when no logo is uploaded (Profile → logo)
                   <div
-                    className={`da4-top ${issuer.logoPosition === 'right' ? 'pos-right' : issuer.logoPosition === 'center' ? 'pos-center' : ''}`}
-                    style={{ minHeight: issuer.logoPosition === 'center' && issuer.logoUrl ? undefined : logoHeightOf(issuer) + 10 }}
+                    className={`da4-top ${issuer.logoPosition === 'right' ? 'pos-right' : issuer.logoPosition === 'center' ? 'pos-center' : issuer.logoPosition === 'custom' ? 'pos-custom' : ''}`}
+                    style={{
+                      minHeight: (issuer.logoPosition === 'center' || issuer.logoPosition === 'custom') && issuer.logoUrl ? undefined : logoHeightOf(issuer) + 10,
+                      ['--da4-x' as string]: `${issuer.logoPosition === 'custom' ? Math.min(100, Math.max(0, issuer.logoOffset ?? 50)) : 50}%`
+                    }}
                   >
-                    <div className="da4-logo-slot" style={{ height: logoHeightOf(issuer), minWidth: issuer.logoPosition === 'center' ? 0 : 150 }}>
+                    <div className="da4-logo-slot" style={{ height: logoHeightOf(issuer), minWidth: issuer.logoPosition === 'center' || issuer.logoPosition === 'custom' ? 0 : 150 }}>
                       {issuer.logoUrl ? <img className="da4-logo" style={{ maxHeight: logoHeightOf(issuer) }} src={issuer.logoUrl} alt="" /> : null}
                     </div>
                     <div className="da4-titlebox">
@@ -488,7 +493,9 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
 // On-screen preview: paper stays A4-sized and is scaled down to fit the available width
 // ---------------------------------------------------------------------------------------------
 
-export const DocumentPreview: React.FC<{ invoice: Invoice }> = ({ invoice }) => {
+// `crop` shows only the top N px of the first page (used for the live header preview);
+// `maxScale` caps how large the paper is drawn.
+export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxScale?: number }> = ({ invoice, crop, maxScale = 1 }) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const pageCount = useMemo(() => paginateItems(invoice).length, [invoice]);
@@ -508,14 +515,14 @@ export const DocumentPreview: React.FC<{ invoice: Invoice }> = ({ invoice }) => 
   useLayoutEffect(() => {
     const el = hostRef.current;
     if (!el) return;
-    const update = () => setScale(Math.min(1, Math.max(0.3, el.clientWidth / A4_WIDTH_PX)));
+    const update = () => setScale(Math.min(maxScale, Math.max(0.3, el.clientWidth / A4_WIDTH_PX)));
     update();
     const observer = new ResizeObserver(update);
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  const sheetHeight = (pageCount * A4_HEIGHT_PX + (pageCount - 1) * 16) * scale;
+  const sheetHeight = crop ? crop * scale : (pageCount * A4_HEIGHT_PX + (pageCount - 1) * 16) * scale;
   return (
     <div ref={hostRef} className="w-full" data-testid="document-preview">
       <style>{DOCUMENT_CSS}</style>

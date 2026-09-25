@@ -193,7 +193,8 @@ export interface InvoiceProfile {
   bankAccount: string;
   bankAccountName: string;
   logoUrl?: string;
-  logoPosition?: 'left' | 'center' | 'right'; // ตำแหน่งโลโก้ในส่วนหัว
+  logoPosition?: 'left' | 'center' | 'right' | 'custom'; // ตำแหน่งโลโก้ในส่วนหัว
+  logoOffset?: number; // 0 (ซ้ายสุด) – 100 (ขวาสุด) เมื่อ logoPosition = 'custom'
   headerImageUrl?: string; // แบนเนอร์หัวเอกสารเต็มความกว้าง (แทนโลโก้ในส่วนหัว)
   headerImageHeight?: number; // ความสูงแบนเนอร์ (px, 40–240)
   logoHeight?: number; // ความสูงโลโก้บนเอกสาร (px, 40–200)

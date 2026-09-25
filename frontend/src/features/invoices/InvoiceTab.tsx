@@ -43,7 +43,7 @@ const BrandImageField: React.FC<{
   value?: string;
   onChange: (value: string) => void;
   onError: (title: string, message: string) => void;
-  size?: { value: number; min: number; max: number; onChange: (value: number) => void };
+  size?: { label: string; value: number; min: number; max: number; onChange: (value: number) => void };
   extra?: React.ReactNode;
 }> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError, size, extra }) => (
   <div className="md:col-span-12 bg-stone-50 dark:bg-stone-950/40 p-5 rounded-2xl border border-brand-border/40 space-y-3.5">
@@ -111,7 +111,7 @@ const BrandImageField: React.FC<{
               step={4}
               value={size.value}
               onChange={(e) => size.onChange(Number(e.target.value))}
-              aria-label="ขนาดโลโก้บนเอกสาร"
+              aria-label={size.label}
               className="w-full max-w-xs accent-[#E65F2B] cursor-pointer"
             />
             <span className="font-mono w-14 text-right">{size.value}px</span>
@@ -534,6 +534,19 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setActiveSubTab('create');
   };
 
+  // Sample document for the live header preview in the profile tab (uses the unsaved profile)
+  const livePreviewInvoice: Invoice = {
+    id: 'live-preview',
+    documentType: 'invoice',
+    documentNo: 'INV-2026-001',
+    createdDate: new Date().toISOString().split('T')[0],
+    issuer: issuerProfile,
+    client: { name: 'ชื่อลูกค้าตัวอย่าง', address: 'ที่อยู่ลูกค้าตัวอย่าง', phone: '', email: '', taxId: '' },
+    items: [{ id: 'p1', description: 'รายการตัวอย่าง', quantity: 1, price: 1000 }],
+    vatRate: 0,
+    whtRate: 0
+  };
+
   // Documents keep the issuer details they were created with, but the logo and signature come
   // from the current profile so uploading them also updates documents created earlier.
   const withCurrentBranding = (inv: Invoice): Invoice => ({
@@ -543,6 +556,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       logoUrl: issuerProfile.logoUrl || inv.issuer.logoUrl,
       logoHeight: issuerProfile.logoUrl ? issuerProfile.logoHeight : inv.issuer.logoHeight,
       logoPosition: issuerProfile.logoUrl ? issuerProfile.logoPosition : inv.issuer.logoPosition,
+      logoOffset: issuerProfile.logoUrl ? issuerProfile.logoOffset : inv.issuer.logoOffset,
       headerImageUrl: issuerProfile.headerImageUrl || inv.issuer.headerImageUrl,
       headerImageHeight: issuerProfile.headerImageUrl ? issuerProfile.headerImageHeight : inv.issuer.headerImageHeight,
       signatureUrl: issuerProfile.signatureUrl || inv.issuer.signatureUrl,
@@ -1367,6 +1381,14 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             
+            {/* Live header preview -- redraws on every change, before anything is saved */}
+            <div className="md:col-span-12 sticky top-2 z-20 rounded-2xl border border-[#E65F2B]/30 bg-brand-white dark:bg-stone-900 p-3 shadow-md" data-testid="header-live-preview">
+              <p className="mb-2 text-[10px] font-black text-[#E65F2B]">ตัวอย่างส่วนหัวเอกสาร (เปลี่ยนตามที่คุณปรับทันที)</p>
+              <div className="overflow-hidden rounded-xl border border-brand-border/60 bg-stone-200">
+                <DocumentPreview invoice={livePreviewInvoice} crop={400} maxScale={0.8} />
+              </div>
+            </div>
+
             {/* Company logo + signature (printed on every document) */}
             <BrandImageField
               title="โลโก้บริษัท / แบรนด์ของคุณ (Company Logo)"
@@ -1378,27 +1400,44 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               onChange={(logoUrl) => setIssuerProfile(prev => ({ ...prev, logoUrl }))}
               onError={triggerAlert}
               size={{
+                label: 'ขนาดโลโก้บนเอกสาร',
                 value: issuerProfile.logoHeight || DEFAULT_LOGO_HEIGHT,
                 min: MIN_LOGO_HEIGHT,
                 max: MAX_LOGO_HEIGHT,
                 onChange: (logoHeight) => setIssuerProfile(prev => ({ ...prev, logoHeight }))
               }}
               extra={(
-                <div className="flex items-center gap-3 text-[10px] font-black text-brand-muted">
-                  <span className="shrink-0">ตำแหน่งโลโก้</span>
-                  <div className="flex gap-1.5" role="group" aria-label="ตำแหน่งโลโก้">
-                    {([['left', 'ซ้าย'], ['center', 'กลาง'], ['right', 'ขวา']] as const).map(([key, label]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        aria-pressed={(issuerProfile.logoPosition || 'left') === key}
-                        onClick={() => setIssuerProfile(prev => ({ ...prev, logoPosition: key }))}
-                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black cursor-pointer transition-all ${(issuerProfile.logoPosition || 'left') === key ? 'bg-[#E65F2B] text-white' : 'bg-brand-white dark:bg-stone-900 border border-brand-border/60 text-brand-muted'}`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                <div className="space-y-2 text-[10px] font-black text-brand-muted">
+                  <div className="flex items-center gap-3">
+                    <span className="shrink-0">ตำแหน่งโลโก้</span>
+                    <div className="flex gap-1.5" role="group" aria-label="ตำแหน่งโลโก้">
+                      {([['left', 'ซ้าย'], ['center', 'กลาง'], ['right', 'ขวา']] as const).map(([key, label]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          aria-pressed={(issuerProfile.logoPosition || 'left') === key}
+                          onClick={() => setIssuerProfile(prev => ({ ...prev, logoPosition: key }))}
+                          className={`px-3 py-1.5 rounded-xl text-[10px] font-black cursor-pointer transition-all ${(issuerProfile.logoPosition || 'left') === key ? 'bg-[#E65F2B] text-white' : 'bg-brand-white dark:bg-stone-900 border border-brand-border/60 text-brand-muted'}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                  <label className="flex items-center gap-3">
+                    <span className="shrink-0">เลื่อนซ้าย–ขวา</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={issuerProfile.logoPosition === 'custom' ? issuerProfile.logoOffset ?? 50 : issuerProfile.logoPosition === 'center' ? 50 : issuerProfile.logoPosition === 'right' ? 100 : 0}
+                      onChange={(e) => setIssuerProfile(prev => ({ ...prev, logoPosition: 'custom', logoOffset: Number(e.target.value) }))}
+                      aria-label="เลื่อนโลโก้ซ้าย-ขวา"
+                      className="w-full max-w-xs accent-[#E65F2B] cursor-pointer"
+                    />
+                    <span className="font-mono w-14 text-right">{issuerProfile.logoPosition === 'custom' ? issuerProfile.logoOffset ?? 50 : issuerProfile.logoPosition === 'center' ? 50 : issuerProfile.logoPosition === 'right' ? 100 : 0}%</span>
+                  </label>
                 </div>
               )}
             />
@@ -1412,6 +1451,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               onChange={(headerImageUrl) => setIssuerProfile(prev => ({ ...prev, headerImageUrl }))}
               onError={triggerAlert}
               size={{
+                label: 'ความสูงแบนเนอร์บนเอกสาร',
                 value: issuerProfile.headerImageHeight || DEFAULT_BANNER_HEIGHT,
                 min: MIN_BANNER_HEIGHT,
                 max: MAX_BANNER_HEIGHT,
