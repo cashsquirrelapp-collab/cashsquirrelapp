@@ -7,6 +7,8 @@ import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 import NumberInput from '../../components/ui/NumberInput';
 import JobTypeSelector from './JobTypeSelector';
+import WithholdingTaxSelector from './WithholdingTaxSelector';
+import WorkStageSelector from './WorkStageSelector';
 import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight } from '../../components/ui/icons';
 import {
   Briefcase,
@@ -1236,8 +1238,10 @@ export default function JobsTab({
                         </div>
                       </div>
 
-                      {/* Withholding Tax -- clean dropdown instead of a card grid */}
-                      <div className="space-y-1.5">
+                      <WithholdingTaxSelector rate={formWhtRate} onChange={setFormWhtRate} value={formValue} />
+
+                      {/* Legacy tax controls are kept hidden while saved records remain compatible. */}
+                      <div className="hidden">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
                           {t('jobs.fieldWht')}
                         </label>
@@ -1262,7 +1266,7 @@ export default function JobsTab({
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
                           {t('jobs.fieldProjectStatus')} <span className="text-rose-500">*</span>
                         </label>
-                        <div className="flex bg-brand-faint dark:bg-stone-850 rounded-xl p-1 gap-1">
+                        <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-faint p-1 dark:bg-stone-850 sm:grid-cols-4">
                           {statuses.map(s => {
                             const isSelected = formStatus === s.id;
                             const activeColor =
@@ -1287,7 +1291,7 @@ export default function JobsTab({
                                     setFormReceived('0');
                                   }
                                 }}
-                                className={`flex-1 py-2.5 px-1.5 rounded-lg text-center text-[11px] font-black transition-all cursor-pointer truncate ${
+                                className={`min-w-0 py-2.5 px-1.5 rounded-lg text-center text-[11px] font-black transition-all cursor-pointer truncate ${
                                   isSelected ? `${activeColor} shadow-xs` : 'text-brand-muted hover:text-brand-text'
                                 }`}
                               >
@@ -1310,7 +1314,7 @@ export default function JobsTab({
                       </div>
 
                       {/* Live calculated mockup tax receipt */}
-                      <div className="bg-[#E65F2B]/5 dark:bg-[#FFA473]/5 border border-[#E65F2B]/15 dark:border-[#FFA473]/15 rounded-2xl p-3.5 space-y-2.5">
+                      <div className="hidden">
                         <div className="flex items-center justify-between text-[10px] text-brand-muted dark:text-neutral-400 font-black uppercase">
                           <span>{t('jobs.taxReceiptTitle')}</span>
                         </div>
@@ -1375,9 +1379,9 @@ export default function JobsTab({
                         (formStatus !== '__custom__' && statuses.find(s => s.id === formStatus)?.behavior === 'partial') ||
                         (formStatus === '__custom__' && customStatusBehavior === 'partial')) && (
                         <div className="space-y-1.5 animate-fade-in">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldReceivedNow')}</label>
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{formStatus === 'installment' ? 'ยอดที่ได้รับแล้วจากทุกงวด (฿)' : t('jobs.fieldReceivedNow')}</label>
                           <NumberInput
-                            placeholder={t('jobs.fieldReceivedNowPlaceholder')}
+                            placeholder={formStatus === 'installment' ? 'เช่น 15000' : t('jobs.fieldReceivedNowPlaceholder')}
                             value={formReceived}
                             onChange={setFormReceived}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
@@ -1396,10 +1400,12 @@ export default function JobsTab({
                       exit={{ opacity: 0, x: 15 }}
                       className="space-y-4"
                     >
-                      {/* WIP vs Posted progress level -- one pill control with a sliding
+                      <WorkStageSelector isPosted={formIsPosted} onChange={setFormIsPosted} />
+
+                      {/* Legacy WIP vs Posted control retained hidden for state compatibility.
                           highlight instead of two separate boxes, so it reads as a single
                           switch rather than two things to compare and read. */}
-                      <div className="space-y-2">
+                      <div className="hidden">
                         <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">{t('jobs.currentStatusLabel')}</label>
                         <div className="relative flex bg-brand-faint dark:bg-stone-850 border border-brand-border/60 rounded-2xl p-1">
                           <button
@@ -1994,7 +2000,7 @@ export default function JobsTab({
                       {/* Status Selection -- segmented control, matching the add-job flow */}
                       <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldProjectStatus')}</label>
-                        <div className="flex flex-wrap bg-brand-faint dark:bg-stone-850 rounded-xl p-1 gap-1">
+                        <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-faint p-1 dark:bg-stone-850 sm:grid-cols-4">
                           {[{ id: 'unspecified', label: t('jobs.statusUnspecifiedLabel'), behavior: 'pending' as const }, ...statuses].map(s => {
                             const isSelected = editStatus === s.id;
                             const activeColor =
@@ -2019,7 +2025,7 @@ export default function JobsTab({
                                     setEditReceived('0');
                                   }
                                 }}
-                                className={`flex-1 min-w-[70px] py-2.5 px-1.5 rounded-lg text-center text-[11px] font-black transition-all cursor-pointer truncate ${
+                                className={`min-w-0 py-2.5 px-1.5 rounded-lg text-center text-[11px] font-black transition-all cursor-pointer truncate ${
                                   isSelected ? `${activeColor} shadow-xs` : 'text-brand-muted hover:text-brand-text'
                                 }`}
                               >
@@ -2086,9 +2092,9 @@ export default function JobsTab({
                         (editStatus !== '__custom__' && statuses.find(s => s.id === editStatus)?.behavior === 'partial') ||
                         (editStatus === '__custom__' && editCustomStatusBehavior === 'partial')) && (
                         <div className="space-y-1.5 animate-fade-in">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldReceivedNow')}</label>
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{editStatus === 'installment' ? 'ยอดที่ได้รับแล้วจากทุกงวด (฿)' : t('jobs.fieldReceivedNow')}</label>
                           <NumberInput
-                            placeholder={t('jobs.fieldReceivedNowPlaceholder')}
+                            placeholder={editStatus === 'installment' ? 'เช่น 15000' : t('jobs.fieldReceivedNowPlaceholder')}
                             value={editReceived}
                             onChange={setEditReceived}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
@@ -2096,8 +2102,10 @@ export default function JobsTab({
                         </div>
                       )}
 
-                      {/* Withholding Tax -- clean dropdown instead of a card grid */}
-                      <div className="space-y-1.5">
+                      <WithholdingTaxSelector rate={editWhtRate} onChange={setEditWhtRate} value={editValue} accent="indigo" />
+
+                      {/* Legacy tax controls are kept hidden while saved records remain compatible. */}
+                      <div className="hidden">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
                           {t('jobs.fieldWht')}
                         </label>
@@ -2117,7 +2125,7 @@ export default function JobsTab({
                       </div>
 
                       {/* Live calculated mockup tax receipt */}
-                      <div className="bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/15 dark:border-indigo-500/15 rounded-2xl p-3.5 space-y-2.5">
+                      <div className="hidden">
                         <div className="flex items-center justify-between text-[10px] text-brand-muted dark:text-neutral-400 font-black uppercase">
                           <span>{t('jobs.taxReceiptTitleEdit')}</span>
                         </div>
@@ -2147,10 +2155,12 @@ export default function JobsTab({
                       exit={{ opacity: 0, x: 15 }}
                       className="space-y-4"
                     >
-                      {/* WIP vs Posted progress level -- one pill control with a sliding
+                      <WorkStageSelector isPosted={editIsPosted} onChange={setEditIsPosted} accent="indigo" />
+
+                      {/* Legacy WIP vs Posted control retained hidden for state compatibility.
                           highlight instead of two separate boxes, so it reads as a single
                           switch rather than two things to compare and read. */}
-                      <div className="space-y-2">
+                      <div className="hidden">
                         <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">{t('jobs.currentStatusLabel')}</label>
                         <div className="relative flex bg-brand-faint dark:bg-stone-850 border border-brand-border/60 rounded-2xl p-1">
                           <button

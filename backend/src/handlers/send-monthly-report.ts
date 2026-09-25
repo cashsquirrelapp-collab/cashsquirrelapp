@@ -198,7 +198,7 @@ function buildMonthlyExcelBase64(monthLabel: string, s: MonthlySummary, jobs: Jo
   const incomeRows = jobs.map((j) => {
     let statusText = j.status;
     if (j.status === 'done') statusText = 'จ่ายแล้ว';
-    else if (j.status === 'partial') statusText = 'มัดจำ/จ่ายบางส่วน';
+    else if (j.status === 'partial' || j.status === 'installment') statusText = j.status === 'installment' ? 'แบ่งชำระเป็นงวด' : 'มัดจำ/จ่ายบางส่วน';
     else if (j.status === 'pending') statusText = 'ยังไม่จ่าย';
     return [
       j.name, j.type || 'ทั่วไป', j.client || '-', j.value || 0, j.whtRate || 0,

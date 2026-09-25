@@ -144,6 +144,7 @@ const cleanStatuses = (arr: any[]): StatusOption[] => {
   if (!Array.isArray(arr)) return [
     { id: 'done', label: 'จ่ายเงินครบแล้ว', behavior: 'done' },
     { id: 'partial', label: 'มัดจำแล้ว', behavior: 'partial' },
+    { id: 'installment', label: 'แบ่งชำระเป็นงวด', behavior: 'partial' },
     { id: 'pending', label: 'ยังไม่จ่าย', behavior: 'pending' },
   ];
 
@@ -168,7 +169,7 @@ const cleanStatuses = (arr: any[]): StatusOption[] => {
 
   const seenLabels = new Set<string>();
   const seenIds = new Set<string>();
-  return cleaned.filter(s => {
+  cleaned = cleaned.filter(s => {
     if (!s.id || !s.label) return false;
     const key = s.label.toLowerCase().trim().replace(/\s+/g, '');
     if (seenIds.has(s.id) || seenLabels.has(key)) {
@@ -178,6 +179,10 @@ const cleanStatuses = (arr: any[]): StatusOption[] => {
     seenLabels.add(key);
     return true;
   });
+  if (!cleaned.some((status) => status.id === 'installment')) {
+    cleaned.splice(Math.min(2, cleaned.length), 0, { id: 'installment', label: 'แบ่งชำระเป็นงวด', behavior: 'partial' });
+  }
+  return cleaned;
 };
 
 const cleanJobType = (t: any): string => {
@@ -498,6 +503,7 @@ export default function App() {
     return [
       { id: 'done', label: 'จ่ายเงินครบแล้ว', behavior: 'done' },
       { id: 'partial', label: 'มัดจำแล้ว', behavior: 'partial' },
+      { id: 'installment', label: 'แบ่งชำระเป็นงวด', behavior: 'partial' },
       { id: 'pending', label: 'ยังไม่จ่าย', behavior: 'pending' },
     ];
   });
@@ -702,7 +708,7 @@ export default function App() {
       setSettings(financeGroupId
         ? { ...loadedSettings, profileSetupCompleted: true }
         : normalizeProfileSetupSettings(loadedSettings, user.created_at));
-      setStatuses(data.statuses ? cleanStatuses(data.statuses) : [{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}]);
+      setStatuses(data.statuses ? cleanStatuses(data.statuses) : [{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'installment',label:'แบ่งชำระเป็นงวด',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}]);
       setJobTypes(data.job_types ? cleanJobTypes(data.job_types) : DEFAULT_JOB_TYPES);
       setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
       if(!financeGroupId)setUserAvatar(data.avatar_data_url || '');

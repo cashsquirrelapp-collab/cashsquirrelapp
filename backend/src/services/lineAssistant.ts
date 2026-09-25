@@ -907,7 +907,7 @@ export interface JobCardData {
 export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
   const isDone = job.status === 'done';
-  const isPartial = job.status === 'partial';
+  const isPartial = job.status === 'partial' || job.status === 'installment';
   const isPaidSome = isDone || isPartial;
   const statusLabel = isWip ? 'สต็อก (ยังไม่ส่งงาน)' : isDone ? 'จ่ายครบแล้ว' : isPartial ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const appUrl = process.env.APP_URL;
@@ -1109,7 +1109,7 @@ export function buildJobDeletedMessage(job: { name: string; client?: string; val
 // which only reaches this path when the payload looks like a real edit-form save.
 export function buildJobEditedMessage(job: JobCardData, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
-  const statusLabel = isWip ? 'สต็อก (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
+  const statusLabel = isWip ? 'สต็อก (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'installment' ? 'แบ่งชำระเป็นงวด' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const bodyContents = [
     buildTypeBadge('pencil', 'แก้ไขงาน', '#2563EB'),
     buildStatementRow('แก้ไขงาน', formatCurrency(job.value), { size: 'xl', color: '#2563EB' }),

@@ -265,7 +265,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'jobs.wht1': '1% (ขนส่ง) — งานโฆษณาขนส่งบริการพิเศษ',
     'jobs.wht3': '3% (ทั่วไป) — งานจ้างทำของ ฟรีแลนซ์ไทย',
     'jobs.wht5': '5% (ค่าเช่า) — ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ',
-    'jobs.fieldProjectStatus': 'สถานะโครงการ',
+    'jobs.fieldProjectStatus': 'สถานะการรับเงิน',
     'jobs.customStatusOption': 'อื่นๆ (เขียนสถานะเอง...)',
     'jobs.customStatusNameLabelAdd': 'ระบุชื่อสถานะใหม่',
     'jobs.customStatusNamePlaceholderAdd': 'เช่น รอส่งมอบงาน, รองวดที่ 2',
