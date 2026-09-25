@@ -559,6 +559,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       logoOffset: issuerProfile.logoUrl ? issuerProfile.logoOffset : inv.issuer.logoOffset,
       headerImageUrl: issuerProfile.headerImageUrl || inv.issuer.headerImageUrl,
       headerImageHeight: issuerProfile.headerImageUrl ? issuerProfile.headerImageHeight : inv.issuer.headerImageHeight,
+      headerImageOffset: issuerProfile.headerImageUrl ? issuerProfile.headerImageOffset : inv.issuer.headerImageOffset,
       signatureUrl: issuerProfile.signatureUrl || inv.issuer.signatureUrl,
       // documents made before any bank details were saved pick up the current ones
       ...(inv.issuer.bankAccount ? {} : { bankName: issuerProfile.bankName, bankAccount: issuerProfile.bankAccount, bankAccountName: issuerProfile.bankAccountName })
@@ -1457,6 +1458,22 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 max: MAX_BANNER_HEIGHT,
                 onChange: (headerImageHeight) => setIssuerProfile(prev => ({ ...prev, headerImageHeight }))
               }}
+              extra={(
+                <label className="flex items-center gap-3 text-[10px] font-black text-brand-muted">
+                  <span className="shrink-0">เลื่อนซ้าย–ขวา</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={issuerProfile.headerImageOffset ?? 50}
+                    onChange={(e) => setIssuerProfile(prev => ({ ...prev, headerImageOffset: Number(e.target.value) }))}
+                    aria-label="เลื่อนแบนเนอร์ซ้าย-ขวา"
+                    className="w-full max-w-xs accent-[#E65F2B] cursor-pointer"
+                  />
+                  <span className="font-mono w-14 text-right">{issuerProfile.headerImageOffset ?? 50}%</span>
+                </label>
+              )}
             />
             <BrandImageField
               title="ลายเซ็นผู้ออกเอกสาร (Signature)"

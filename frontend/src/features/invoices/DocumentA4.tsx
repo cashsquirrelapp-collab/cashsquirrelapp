@@ -155,7 +155,7 @@ export const DOCUMENT_CSS = `
 .da4-top.pos-center .da4-logo-slot,.da4-top.pos-custom .da4-logo-slot{position:relative;width:100%}
 .da4-top.pos-center .da4-logo,.da4-top.pos-custom .da4-logo{position:absolute;top:0;left:var(--da4-x,50%);transform:translateX(calc(var(--da4-x,50%) * -1))}
 .da4-top.banner{justify-content:flex-end}
-.da4-banner{display:block;width:100%;object-fit:contain;object-position:center;margin-bottom:10px}
+.da4-banner{display:block;width:100%;object-fit:contain;margin-bottom:10px}
 .da4-titlebox .orig{font-size:10px;font-weight:400;margin-bottom:9px;letter-spacing:.02em}
 .da4-titlebox h1{margin:0;font-size:27px;line-height:1.2;font-weight:700;color:var(--da4-accent);display:inline-block;padding-bottom:5px;border-bottom:3px solid var(--da4-accent)}
 .da4-headgrid{display:grid;grid-template-columns:1fr 32%;column-gap:14px;margin-top:14px}
@@ -272,7 +272,7 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                 {issuer.headerImageUrl ? (
                   // Custom header: the user's own full-width banner replaces the logo slot
                   <>
-                    <img className="da4-banner" style={{ height: bannerHeightOf(issuer) }} src={issuer.headerImageUrl} alt="" />
+                    <img className="da4-banner" style={{ height: bannerHeightOf(issuer), objectPosition: `${Math.min(100, Math.max(0, issuer.headerImageOffset ?? 50))}% 50%` }} src={issuer.headerImageUrl} alt="" />
                     <div className="da4-top banner">
                       <div className="da4-titlebox">
                         {meta.isTax ? <div className="orig">(ต้นฉบับ)</div> : null}
