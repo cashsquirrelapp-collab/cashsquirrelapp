@@ -190,7 +190,6 @@ export default function SplitTab({
 
   // 5. Breakeven revenue calculations
   // To cover both expenses and reach the monthly revenue goal
-  const revenueProgressPct = Math.min(100, (receivedThisMonth / settings.monthlyRevenueGoal) * 100);
 
   // State for dynamic profit allocation values
   const [customAllocations, setCustomAllocations] = useState<Record<string, number>>({});
@@ -1164,47 +1163,6 @@ export default function SplitTab({
             })}
           </div>
         )}
-      </section>
-
-      {/* Section 4: Revenue target assessment card & Break-even analysis */}
-      <section className="rounded-[28px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
-        <div className="mb-5 flex items-center justify-between">
-          <div><span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">สุขภาพการเงิน</span><h3 className="mt-1 text-lg font-black text-brand-text dark:text-white">รายรับเดือนนี้ถึงเป้าหรือยัง</h3></div>
-          <IconCoin className="h-6 w-6 text-[#D98324]" />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1 rounded-2xl border border-rose-200 bg-rose-50/60 p-4 dark:border-rose-500/20 dark:bg-rose-500/10">
-            <span className="text-[10px] text-brand-muted font-bold uppercase block">{t('split.livingCostCover')}</span>
-            <p className="text-base font-black font-mono text-rose-500">
-              {formatCurrency(settings.monthlyExpense)}
-            </p>
-            <p className="text-[10px] text-brand-muted font-medium">{t('split.livingCostDesc')}</p>
-          </div>
-
-          <div className="space-y-1 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
-            <span className="text-[10px] text-brand-muted font-bold uppercase block">{t('split.comfortGoal')}</span>
-            <p className="text-base font-black font-mono text-emerald-600">
-              {formatCurrency(settings.monthlyRevenueGoal)}
-            </p>
-            <p className="text-[10px] text-brand-muted font-medium">{t('split.comfortGoalDesc')}</p>
-          </div>
-        </div>
-
-        {/* Progress of revenue goal */}
-        <div className="mt-5 space-y-2 rounded-2xl border border-brand-border/50 p-4">
-          <div className="flex justify-between text-xs font-semibold">
-            <span className="text-brand-text">{t('split.revenueProgressLabel')}</span>
-            <span className="text-emerald-600 font-bold">{revenueProgressPct.toFixed(0)}%</span>
-          </div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-brand-faint">
-            <div 
-              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-              style={{ width: `${revenueProgressPct}%` }}
-            />
-          </div>
-          <p className="text-[10px] text-brand-muted">รับแล้ว {formatCurrency(receivedThisMonth)} จากเป้ารายรับ {formatCurrency(settings.monthlyRevenueGoal)}</p>
-        </div>
       </section>
 
       {/* Merged TargetTab Modal: Add Goal Bottom Sheet */}
