@@ -76,7 +76,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     if (lockStatus.error) throw lockStatus.error;
     if (Number(lockStatus.data) > 0) {
       res.setHeader('Retry-After', String(lockStatus.data));
-      throw new HttpError(429, `ลองรหัสผ่านผิดครบจำนวนแล้ว กรุณารอ ${Math.ceil(Number(lockStatus.data) / 60)} นาทีแล้วลองใหม่`);
+      throw new HttpError(429, `กรอกรหัสผ่านผิดเกินจำนวนครั้งที่กำหนด โปรดลองเข้าสู่ระบบในอีก ${Math.ceil(Number(lockStatus.data) / 60)} นาที`, 'login_locked');
     }
     const {data,error}=await auth.auth.signInWithPassword(parsed.data);
     if (error?.code==='email_not_confirmed') {
@@ -93,7 +93,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
         if (Number(result?.locked_for_seconds) > 0) {
           if (result?.notify_user) await sendLoginSecurityAlert(parsed.data.email);
           res.setHeader('Retry-After', String(result.locked_for_seconds));
-          throw new HttpError(429, 'กรอกรหัสผ่านผิดครบ 6 ครั้ง ระบบล็อกการเข้าสู่ระบบ 5 นาที หากอีเมลนี้ยืนยันบัญชีแล้ว ระบบได้ส่งอีเมลแจ้งเตือน');
+          throw new HttpError(429, 'กรอกรหัสผ่านผิดเกินจำนวนครั้งที่กำหนด โปรดลองเข้าสู่ระบบในอีก 5 นาที หากอีเมลนี้ยืนยันบัญชีแล้ว ระบบได้ส่งอีเมลแจ้งเตือน', 'login_locked');
         }
       }
       throw new HttpError(401,'อีเมลหรือรหัสผ่านไม่ถูกต้อง');

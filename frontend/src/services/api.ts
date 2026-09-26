@@ -16,6 +16,10 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await apiFetch(path, init);
   let result:any;try{result=await response.json();}catch{throw Object.assign(new Error(response.status===413?'ข้อมูลมีขนาดใหญ่เกินไป กรุณาลดรูปหรือไฟล์แนบ':'บริการไม่พร้อมใช้งาน กรุณาลองใหม่'),{status:response.status});}
-  if (!response.ok) throw Object.assign(new Error(result.error || 'Request failed'), { status: response.status });
+  if (!response.ok) throw Object.assign(new Error(result.error || 'Request failed'), {
+    status: response.status,
+    code: typeof result.code === 'string' ? result.code : undefined,
+    retryAfter: Number(response.headers.get('Retry-After')) || undefined,
+  });
   return result;
 }

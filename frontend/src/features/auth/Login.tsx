@@ -6,6 +6,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 
+async function loginLockStorageKey(email: string): Promise<string> {
+  const normalized = email.trim().toLowerCase();
+  const bytes = new TextEncoder().encode(normalized);
+  const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+  const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  return `cash-squirrel-login-lock:${hash}`;
+}
+
 interface LoginProps {
   darkMode: boolean;
   setDarkMode: (dark: boolean) => void;
@@ -182,6 +190,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isAccountRecovery, setIsAccountRecovery] = useState(() => new URLSearchParams(window.location.search).get('recover') === '1');
+  const [loginLock, setLoginLock] = useState<{ email: string; until: number } | null>(null);
+  const [loginLockSeconds, setLoginLockSeconds] = useState(0);
   const [backupRecoveryEmail, setBackupRecoveryEmail] = useState('');
   const [backupRecoveryCode, setBackupRecoveryCode] = useState('');
   const [backupRecoverySent, setBackupRecoverySent] = useState(false);
@@ -196,6 +206,40 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
   const [showWelcome, setShowWelcome] = useState(() => new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && window.location.hash !== '#login');
   const [authEntry, setAuthEntry] = useState(0);
+
+  React.useEffect(() => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const key = await loginLockStorageKey(normalized);
+        const until = Number(localStorage.getItem(key));
+        if (cancelled || email.trim().toLowerCase() !== normalized) return;
+        if (until > Date.now()) setLoginLock({ email: normalized, until });
+        else { localStorage.removeItem(key); setLoginLock(current => current?.email === normalized ? null : current); }
+      } catch { /* The server still enforces the lock if browser storage is unavailable. */ }
+    })();
+    return () => { cancelled = true; };
+  }, [email]);
+
+  React.useEffect(() => {
+    if (!loginLock) { setLoginLockSeconds(0); return; }
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((loginLock.until - Date.now()) / 1000));
+      setLoginLockSeconds(remaining);
+      if (remaining === 0) {
+        void loginLockStorageKey(loginLock.email).then(key => localStorage.removeItem(key)).catch(() => {});
+        setLoginLock(current => current?.email === loginLock.email ? null : current);
+      }
+    };
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [loginLock]);
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const loginLockedForThisEmail = !isSignUp && !isForgotPassword && !isAccountRecovery && !!loginLock && loginLock.email === normalizedEmail && loginLockSeconds > 0;
 
   React.useEffect(() => {
     if(new URLSearchParams(window.location.search).get('emailConfirmed')==='1'){
@@ -303,8 +347,21 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           password,
         });
         if (signInErr) throw signInErr;
+        try {
+          const key = await loginLockStorageKey(normalizedEmail);
+          localStorage.removeItem(key);
+        } catch { /* Successful authentication must not depend on browser storage. */ }
+        setLoginLock(current => current?.email === normalizedEmail ? null : current);
       }
     } catch (err: any) {
+      if (!isSignUp && err.code === 'login_locked') {
+        const until = Date.now() + Math.max(1, Number(err.retryAfter) || 300) * 1000;
+        const lockedEmail = normalizedEmail;
+        setLoginLock({ email: lockedEmail, until });
+        setError(null);
+        void loginLockStorageKey(lockedEmail).then(key => localStorage.setItem(key, String(until))).catch(() => {});
+        return;
+      }
       let message = err.message || t('login.err.generic');
       if (message.toLowerCase().includes('invalid login credentials') || message.toLowerCase().includes('wrong password') || message.toLowerCase().includes('user not found') || message.toLowerCase().includes('invalid_credentials')) {
         message = t('login.err.invalidCredentials');
@@ -558,7 +615,27 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           )}
 
           <AnimatePresence mode="wait">
-            {error && (
+            {loginLockedForThisEmail ? (
+              <motion.div
+                key="login-lockout"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                role="alert"
+                aria-live="assertive"
+                className="mb-4 rounded-2xl border border-orange-200/80 bg-orange-500/5 p-3.5 text-brand-text dark:border-orange-300/60 dark:bg-orange-300/5"
+              >
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="mt-0.5 h-4.5 w-4.5 shrink-0 text-orange-600 dark:text-orange-300" />
+                  <div className="text-xs font-semibold leading-relaxed">
+                    <p>กรอกรหัสผ่านผิดเกินจำนวนครั้งที่กำหนด โปรดลองเข้าสู่ระบบในอีก</p>
+                    <p className="mt-1 font-black tabular-nums text-orange-700 dark:text-orange-300">
+                      {Math.floor(loginLockSeconds / 60)}:{String(loginLockSeconds % 60).padStart(2, '0')} นาที
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ) : error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -864,7 +941,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || loginLockedForThisEmail}
                 className="w-full py-3.5 px-4 bg-[#E65F2B] hover:bg-[#D98324] dark:bg-[#E65F2B] dark:hover:bg-[#FFA473] text-white font-extrabold rounded-2xl text-xs shadow-md shadow-orange-600/10 dark:shadow-none hover:shadow-lg hover:shadow-orange-600/15 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading ? (
