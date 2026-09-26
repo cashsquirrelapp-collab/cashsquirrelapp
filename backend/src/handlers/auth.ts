@@ -28,6 +28,10 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       const { data,error } = await auth.auth.exchangeCodeForSession(req.query.code);
       writeCookie(res,null,'oauth');
       if (error || !data.session) throw new HttpError(400,'เข้าสู่ระบบไม่สำเร็จ');
+      if (data.user?.app_metadata?.account_closure_kind === 'deletion') {
+        await auth.auth.signOut();
+        res.status(302); res.setHeader('Location',`${appOrigin()}/app?recover=1#login`); res.end(); return;
+      }
       storeSession(res,data.session); res.status(302); res.setHeader('Location',`${appOrigin()}/app`); res.end(); return;
     }
     try { const user=await requireUser(req,res,false,true); res.json({ session:{user:await publicUser(user)} }); }
@@ -59,6 +63,10 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       throw new HttpError(403,'บัญชียังไม่ได้ยืนยันอีเมล ระบบส่งลิงก์ยืนยันฉบับใหม่ให้แล้ว กรุณาตรวจสอบกล่องจดหมายและสแปม');
     }
     if (error || !data.session) throw new HttpError(401,'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+    if (data.user.app_metadata?.account_closure_kind === 'deletion') {
+      await auth.auth.signOut();
+      throw new HttpError(403, 'บัญชีนี้อยู่ระหว่างรอลบ กู้คืนผ่านอีเมลสำรองได้ภายใน 30 วัน');
+    }
     const user=await publicUser(data.user); storeSession(res,data.session); res.json({session:{user},user}); return;
   }
   if (action==='signup') {

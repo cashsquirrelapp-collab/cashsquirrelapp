@@ -55,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const reminderWindowEnd = new Date(runAt.getTime() + 4 * 86_400_000).toISOString();
   const reminders = await admin.from('cashflow_account_pauses').select('user_id,delete_after')
-    .eq('state', 'paused').gt('delete_after', now).lt('delete_after', reminderWindowEnd).order('delete_after').limit(1000);
+    .eq('state', 'paused').eq('closure_kind', 'pause').gt('delete_after', now).lt('delete_after', reminderWindowEnd).order('delete_after').limit(1000);
   if (reminders.error) throw reminders.error;
   let reminded = 0;
   let reminderFailed = 0;
@@ -69,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       claimed = await claimDelivery(key);
       if (!claimed) continue;
       // Skip a reminder if the owner reopened the account after the list query.
-      const fresh = await admin.from('cashflow_account_pauses').select('delete_after').eq('user_id', row.user_id).eq('state', 'paused').gt('delete_after', new Date().toISOString()).maybeSingle();
+      const fresh = await admin.from('cashflow_account_pauses').select('delete_after').eq('user_id', row.user_id).eq('state', 'paused').eq('closure_kind', 'pause').gt('delete_after', new Date().toISOString()).maybeSingle();
       if (fresh.error) throw fresh.error;
       if (!fresh.data || fresh.data.delete_after !== row.delete_after) { await releaseDelivery(key); claimed = false; continue; }
       const account = await admin.auth.admin.getUserById(row.user_id);

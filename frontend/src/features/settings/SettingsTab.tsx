@@ -135,6 +135,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [accountBusy, setAccountBusy] = useState(false);
   const [deletionRequested, setDeletionRequested] = useState(false);
   const [deletionCode, setDeletionCode] = useState('');
+  const [backupEmail, setBackupEmail] = useState<string | null>(null);
+  const [backupInput, setBackupInput] = useState('');
+  const [backupCode, setBackupCode] = useState('');
+  const [backupPending, setBackupPending] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [newFixedExpenseName, setNewFixedExpenseName] = useState('');
   const [newFixedExpenseAmount, setNewFixedExpenseAmount] = useState('');
@@ -154,8 +158,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   );
 
   const requestDeletion = () => triggerConfirm(
-    'ลบบัญชีถาวร',
-    'กดตกลงเพื่อเริ่มลบบัญชีถาวร บัญชี ข้อมูลส่วนตัวและข้อมูลการเงินของคุณจะถูกลบและกู้คืนไม่ได้ ข้อมูลของสมาชิกคนอื่นในกลุ่มจะไม่ถูกลบ ขั้นต่อไปต้องกรอกรหัสที่ส่งไปยังอีเมลบัญชีนี้',
+    'ยืนยันคำขอลบบัญชี',
+    'บัญชีจะปิดใช้งานทันที แต่ข้อมูลยังอยู่ 30 วัน ระหว่างนี้กู้คืนได้ด้วยอีเมลสำรองที่ยืนยันไว้ หลังครบ 30 วันข้อมูลจะถูกลบถาวร ขั้นต่อไปต้องกรอกรหัสจากอีเมลหลัก',
     async () => {
       setAccountBusy(true);
       const result = await authClient.auth.requestAccountDeletion();
@@ -170,7 +174,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setAccountBusy(true);
     const result = await authClient.auth.deleteAccount(deletionCode);
     setAccountBusy(false);
-    if (result.error) triggerAlert('ลบบัญชีไม่สำเร็จ', result.error.message);
+    if (result.error) triggerAlert('ปิดบัญชีไม่สำเร็จ', result.error.message);
     else { setDeletionCode(''); setDeletionRequested(false); }
   };
 
@@ -182,6 +186,34 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       .catch(error=>{if(!controller.signal.aborted)triggerAlert('โหลดโปรไฟล์ไม่สำเร็จ',error.message);});
     return()=>controller.abort();
   },[session?.user?.id,session?.isGuest,isGroupFinance]);
+
+  useEffect(() => {
+    if (!session?.user?.id || session?.isGuest || isGroupFinance) return;
+    const controller = new AbortController();
+    apiJson<{ backupEmail: string | null }>('/api/account', { signal: controller.signal, headers: { 'X-Account-ID': session.user.id } })
+      .then(value => setBackupEmail(value.backupEmail)).catch(() => {});
+    return () => controller.abort();
+  }, [session?.user?.id, session?.isGuest, isGroupFinance]);
+
+  const requestBackupEmail = async () => {
+    setAccountBusy(true);
+    try {
+      await apiJson('/api/account', { method: 'POST', headers: { 'X-Account-ID': session.user.id }, body: JSON.stringify({ action: 'backup-request', email: backupInput.trim() }) });
+      setBackupPending(true);
+      triggerAlert('ส่งรหัสแล้ว', 'ตรวจอีเมลสำรองและกรอกรหัส 6 หลักภายใน 5 นาที');
+    } catch (error) { triggerAlert('ส่งรหัสไม่สำเร็จ', (error as Error).message); }
+    finally { setAccountBusy(false); }
+  };
+
+  const confirmBackupEmail = async () => {
+    setAccountBusy(true);
+    try {
+      const value = await apiJson<{ backupEmail: string }>('/api/account', { method: 'POST', headers: { 'X-Account-ID': session.user.id }, body: JSON.stringify({ action: 'backup-confirm', code: backupCode }) });
+      setBackupEmail(value.backupEmail); setBackupPending(false); setBackupCode('');
+      triggerAlert('ยืนยันสำเร็จ', 'ใช้อีเมลสำรองนี้กู้คืนบัญชีระหว่าง 30 วันหลังปิดบัญชีได้');
+    } catch (error) { triggerAlert('ยืนยันไม่สำเร็จ', (error as Error).message); }
+    finally { setAccountBusy(false); }
+  };
 
   const saveProfile=async()=>{
     if(!session?.user?.id || displayName.trim().length<2)return;
@@ -906,6 +938,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </button>
               )}
 
+              {session && !session.isGuest && !isGroupFinance && (
+                <div className="rounded-2xl border border-brand-border bg-brand-white p-4 space-y-2.5">
+                  <h5 className="text-sm font-black text-brand-text">อีเมลสำรองสำหรับกู้คืนบัญชี</h5>
+                  <p className="text-xs text-brand-muted">{backupEmail ? `ยืนยันแล้ว: ${backupEmail}` : 'เพิ่มและยืนยันอีเมลสำรองก่อนสั่งลบบัญชี'}</p>
+                  <input type="email" autoComplete="email" value={backupInput} onChange={event => setBackupInput(event.target.value)}
+                    placeholder="อีเมลสำรอง" aria-label="อีเมลสำรอง" className="w-full rounded-xl border border-brand-border bg-brand-bg px-3 py-2 text-sm text-brand-text" />
+                  <button type="button" disabled={accountBusy || !backupInput.includes('@')} onClick={() => void requestBackupEmail()}
+                    className="w-full rounded-xl border border-brand-border px-3 py-2 text-xs font-bold text-brand-text disabled:opacity-50">ส่งรหัสยืนยันไปยังอีเมลสำรอง</button>
+                  {backupPending && <div className="space-y-2">
+                    <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={backupCode}
+                      onChange={event => setBackupCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="รหัส 6 หลัก" aria-label="รหัสยืนยันอีเมลสำรอง" className="w-full rounded-xl border border-brand-border bg-brand-bg px-3 py-2 text-sm text-brand-text" />
+                    <button type="button" disabled={accountBusy || backupCode.length !== 6} onClick={() => void confirmBackupEmail()}
+                      className="w-full rounded-xl bg-[#E65F2B] px-3 py-2 text-xs font-bold text-white disabled:opacity-50">ยืนยันอีเมลสำรอง</button>
+                  </div>}
+                </div>
+              )}
+
               {/* Safety switch to toggle Danger Zone */}
               <button
                 type="button"
@@ -943,15 +993,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <div className="space-y-3 border-t border-rose-500/20 pt-3">
                         <div>
                           <h5 className="text-[11px] font-black text-brand-text">จัดการบัญชีของฉัน</h5>
-                          <p className="mt-1 text-[10px] leading-relaxed text-brand-muted">พักบัญชีได้สูงสุด 30 วัน หากไม่เปิดใช้อีกครั้งจะลบถาวร หรือเลือกลบบัญชีทันทีโดยยืนยันผ่านอีเมล</p>
+                          <p className="mt-1 text-[10px] leading-relaxed text-brand-muted">พักบัญชีหรือสั่งลบบัญชีได้ โดยข้อมูลจะถูกลบจริงหลัง 30 วัน หากสั่งลบต้องยืนยันอีเมลสำรองก่อนเพื่อใช้กู้คืน</p>
                         </div>
                         <button type="button" disabled={accountBusy} onClick={pauseAccount}
                           className="w-full rounded-xl border border-amber-500/40 px-3 py-2.5 text-[11px] font-bold text-amber-800 hover:bg-amber-500/10 disabled:opacity-50 dark:text-amber-300">
                           พักบัญชีชั่วคราว 30 วัน
                         </button>
-                        <button type="button" disabled={accountBusy} onClick={requestDeletion}
+                        <button type="button" disabled={accountBusy || !backupEmail} onClick={requestDeletion}
                           className="w-full rounded-xl border border-rose-500/40 px-3 py-2.5 text-[11px] font-bold text-rose-700 hover:bg-rose-500/10 disabled:opacity-50 dark:text-rose-300">
-                          ลบบัญชีถาวร
+                          ปิดบัญชีและลบข้อมูลหลัง 30 วัน
                         </button>
                         {deletionRequested && (
                           <div className="space-y-2 rounded-xl border border-rose-500/30 p-3">
@@ -960,11 +1010,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                               value={deletionCode} onChange={event => setDeletionCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
                               className="w-full rounded-lg border border-brand-border bg-brand-white px-3 py-2 text-brand-text" placeholder="รหัส 6 หลัก" />
                             <button type="button" disabled={accountBusy || deletionCode.length !== 6} onClick={() => triggerConfirm(
-                              'ยืนยันลบบัญชีถาวร',
-                              'กดตกลงเพื่อใช้รหัสยืนยันและลบบัญชี ข้อมูลส่วนตัว และข้อมูลการเงินของคุณทันที การดำเนินการนี้ย้อนกลับไม่ได้',
+                              'ยืนยันปิดบัญชี',
+                              'กดตกลงเพื่อปิดการใช้งานบัญชีทันที ข้อมูลจะเก็บไว้ 30 วันและกู้คืนผ่านอีเมลสำรองได้ หลังครบกำหนดจะถูกลบถาวร',
                               () => { void deleteAccount(); }
                             )}
-                              className="w-full rounded-lg bg-rose-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-50">ยืนยันลบบัญชีถาวร</button>
+                              className="w-full rounded-lg bg-rose-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-50">ยืนยันปิดบัญชี</button>
                           </div>
                         )}
                       </div>

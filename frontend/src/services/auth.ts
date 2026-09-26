@@ -4,7 +4,7 @@ import { clearCloud } from './cloud';
 // Compatibility facade for the existing auth UI. Tokens never enter browser JavaScript.
 import { apiJson } from './api';
 import type { SystemRole } from '../../../shared/groups';
-type PublicSession = { user: { id: string; email: string; role: SystemRole; accountPaused?: boolean; accountDeleteAfter?: string | null; created_at: string; user_metadata: Record<string, string> } };
+type PublicSession = { user: { id: string; email: string; role: SystemRole; accountPaused?: boolean; accountClosureKind?: 'pause' | 'deletion'; accountDeleteAfter?: string | null; created_at: string; user_metadata: Record<string, string> } };
 let current: PublicSession | null = null;
 let revision=0;
 const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('cashflow-auth');

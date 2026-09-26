@@ -25,6 +25,7 @@ export async function publicUser(user: User) {
     accountDeleteAfter = pause.data?.delete_after || null;
   }
   return { id: user.id, email: user.email, role: await systemRole(user.id), accountPaused, accountDeleteAfter,
+    accountClosureKind: user.app_metadata?.account_closure_kind === 'deletion' ? 'deletion' : 'pause',
     created_at: user.created_at, user_metadata: { full_name: user.user_metadata?.full_name, avatar_url: user.user_metadata?.avatar_url } };
 }
 export function storeSession(res: VercelResponse, session: Session, issuedAt = Date.now()) {

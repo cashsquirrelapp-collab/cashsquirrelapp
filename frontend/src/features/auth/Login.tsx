@@ -181,6 +181,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const { t, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isAccountRecovery, setIsAccountRecovery] = useState(() => new URLSearchParams(window.location.search).get('recover') === '1');
+  const [backupRecoveryEmail, setBackupRecoveryEmail] = useState('');
+  const [backupRecoveryCode, setBackupRecoveryCode] = useState('');
+  const [backupRecoverySent, setBackupRecoverySent] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -243,6 +247,22 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   }, [isForgotPassword, recoveryStep, otpSecondsLeft]);
 
   const otpCountdown = `${Math.floor(otpSecondsLeft / 60)}:${String(otpSecondsLeft % 60).padStart(2, '0')}`;
+
+  const handleAccountRecovery = async (event: React.FormEvent) => {
+    event.preventDefault(); setLoading(true); setError(null); setSuccess(null);
+    try {
+      const response = await apiFetch('/api/recover-account', { method: 'POST', body: JSON.stringify({
+        action: backupRecoverySent ? 'verify' : 'request', email: backupRecoveryEmail.trim(), code: backupRecoverySent ? backupRecoveryCode : undefined
+      }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'ทำรายการไม่สำเร็จ');
+      if (backupRecoverySent) {
+        setSuccess('กู้คืนบัญชีสำเร็จ กรุณาเข้าสู่ระบบด้วยบัญชีเดิม');
+        setIsAccountRecovery(false); setBackupRecoverySent(false); setBackupRecoveryCode('');
+      } else { setBackupRecoverySent(true); setSuccess('หากอีเมลสำรองนี้ผูกกับบัญชีที่กู้คืนได้ ระบบจะส่งรหัสให้'); }
+    } catch (error) { setError((error as Error).message); }
+    finally { setLoading(false); }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -465,13 +485,14 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           className="auth-form-card bg-brand-white border border-brand-border/40 rounded-[24px] p-6 sm:p-8 shadow-xl shadow-brand-text/5 dark:shadow-none"
         >
           {/* Tabs for Login / SignUp (only show if not in Forgot Password mode) */}
-          {!isForgotPassword ? (
+          {!isForgotPassword && !isAccountRecovery ? (
             <div className="flex p-1 bg-brand-bg/50 border border-brand-border/20 rounded-2xl mb-6">
               <button
                 type="button"
                 onClick={() => {
                   setIsSignUp(false);
                   setIsForgotPassword(false);
+                  setIsAccountRecovery(false);
                   setRecoveryStep('request');
                   setOtpToken('');
                   setResetNewPassword('');
@@ -493,6 +514,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 onClick={() => {
                   setIsSignUp(true);
                   setIsForgotPassword(false);
+                  setIsAccountRecovery(false);
                   setRecoveryStep('request');
                   setOtpToken('');
                   setResetNewPassword('');
@@ -515,7 +537,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
               <button
                 type="button"
                 onClick={() => {
-                  if (recoveryStep === 'verify') {
+                  if (isAccountRecovery) {
+                    setIsAccountRecovery(false); setBackupRecoverySent(false);
+                  } else if (recoveryStep === 'verify') {
                     setRecoveryStep('request');
                   } else {
                     setIsForgotPassword(false);
@@ -528,7 +552,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <h3 className="font-display font-extrabold text-lg text-brand-text">
-                {recoveryStep === 'request' ? t('login.recoveryTitleRequest') : t('login.recoveryTitleVerify')}
+                {isAccountRecovery ? 'กู้คืนบัญชีที่ปิดไว้' : recoveryStep === 'request' ? t('login.recoveryTitleRequest') : t('login.recoveryTitleVerify')}
               </h3>
             </div>
           )}
@@ -559,7 +583,21 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
             )}
           </AnimatePresence>
 
-          {isForgotPassword ? (
+          {isAccountRecovery ? (
+            <form onSubmit={handleAccountRecovery} className="space-y-4">
+              <p className="text-xs leading-relaxed text-brand-muted">กู้คืนบัญชีที่สั่งลบภายใน 30 วัน โดยใช้รหัสที่ส่งไปยังอีเมลสำรองที่ยืนยันไว้</p>
+              <input type="email" required autoComplete="email" value={backupRecoveryEmail} onChange={event => setBackupRecoveryEmail(event.target.value)}
+                placeholder="อีเมลสำรอง" aria-label="อีเมลสำรอง" className="w-full rounded-2xl border border-brand-border bg-brand-bg/20 px-4 py-3 text-sm text-brand-text" />
+              {backupRecoverySent && <input type="text" required inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                value={backupRecoveryCode} onChange={event => setBackupRecoveryCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="รหัส 6 หลัก" aria-label="รหัสกู้คืนบัญชี" className="w-full rounded-2xl border border-brand-border bg-brand-bg/20 px-4 py-3 text-sm text-brand-text" />}
+              <button type="submit" disabled={loading || (backupRecoverySent && backupRecoveryCode.length !== 6)}
+                className="w-full rounded-2xl bg-[#E65F2B] px-4 py-3 text-xs font-bold text-white disabled:opacity-50">
+                {loading ? 'กำลังดำเนินการ...' : backupRecoverySent ? 'ยืนยันและเปิดบัญชีอีกครั้ง' : 'ส่งรหัสไปยังอีเมลสำรอง'}
+              </button>
+              {backupRecoverySent && <button type="button" disabled={loading} onClick={() => { setBackupRecoverySent(false); setBackupRecoveryCode(''); }} className="w-full text-xs text-brand-muted">ขอรหัสใหม่</button>}
+            </form>
+          ) : isForgotPassword ? (
             /* Forgot Password Form Flow */
             recoveryStep === 'request' ? (
               <form onSubmit={handleResetRequest} className="space-y-4">
@@ -847,6 +885,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 )}
               </button>
             </form>
+
+            {!isSignUp && <button type="button" onClick={() => { setIsAccountRecovery(true); setBackupRecoverySent(false); setError(null); setSuccess(null); }}
+              className="mt-3 w-full text-center text-xs font-bold text-[#E65F2B] hover:underline">กู้คืนบัญชีที่สั่งลบภายใน 30 วัน</button>}
 
             <div className="flex items-center gap-3 my-4">
               <div className="flex-1 h-px bg-brand-border/40" />
