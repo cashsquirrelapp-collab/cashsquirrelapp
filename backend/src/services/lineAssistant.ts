@@ -1220,6 +1220,9 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
     return { type: 'text', text: 'ขอโทษครับ ระบบมีปัญหาชั่วคราวตอนนี้ ลองพิมพ์คำถามใหม่อีกครั้งครับ' };
   }
   if (!user) return null;
+  const account = await supabaseAdmin.auth.admin.getUserById(user.user_id);
+  if (account.error || !account.data.user) return { type: 'text', text: 'ไม่สามารถตรวจสอบสถานะบัญชีได้ กรุณาลองอีกครั้ง' };
+  if (account.data.user.app_metadata?.account_paused === true) return { type: 'text', text: 'บัญชีนี้พักใช้งานอยู่ กรุณาเปิดใช้งานอีกครั้งในเว็บไซต์' };
   user.operationId = operationId;
 
   // LINE chat is a Pro-only feature (per PlansTab's feature list) -- once the free trial and any

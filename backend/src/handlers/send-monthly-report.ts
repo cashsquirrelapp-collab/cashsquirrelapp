@@ -330,6 +330,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       try {
+        const account = await supabaseAdmin.auth.admin.getUserById(row.user_id);
+        if (account.error) throw account.error;
+        if (account.data.user?.app_metadata?.account_paused === true) { skipped += 1; continue; }
         const jobs: JobRow[] = row.jobs || [];
         const expenses: ExpenseRow[] = row.expenses || [];
         const goals: GoalRow[] = row.goals || [];

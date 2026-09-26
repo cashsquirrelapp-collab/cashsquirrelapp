@@ -14,7 +14,19 @@ export function sealedSessionIdentity(token: string) {
   try { return identitySchema.parse(JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())); }
   catch { throw new HttpError(401, 'Session invalid'); }
 }
-export async function publicUser(user: User) { return { id: user.id, email: user.email, role: await systemRole(user.id), created_at: user.created_at, user_metadata: { full_name: user.user_metadata?.full_name, avatar_url: user.user_metadata?.avatar_url } }; }
+export async function publicUser(user: User) {
+  const accountPaused = user.app_metadata?.account_paused === true;
+  let accountDeleteAfter: string | null = accountPaused && typeof user.app_metadata?.account_delete_after === 'string'
+    ? user.app_metadata.account_delete_after : null;
+  // Older paused accounts were backfilled by the migration without Auth metadata dates.
+  if (accountPaused && !accountDeleteAfter) {
+    const pause = await getSupabaseAdmin().from('cashflow_account_pauses').select('delete_after').eq('user_id', user.id).maybeSingle();
+    if (pause.error) throw pause.error;
+    accountDeleteAfter = pause.data?.delete_after || null;
+  }
+  return { id: user.id, email: user.email, role: await systemRole(user.id), accountPaused, accountDeleteAfter,
+    created_at: user.created_at, user_metadata: { full_name: user.user_metadata?.full_name, avatar_url: user.user_metadata?.avatar_url } };
+}
 export function storeSession(res: VercelResponse, session: Session, issuedAt = Date.now()) {
   const identity = sealedSessionIdentity(session.access_token);
   if (session.user.id !== identity.sub) throw new HttpError(401, 'Session invalid');
@@ -31,7 +43,7 @@ export async function revokeSession(session: Pick<PrivateSession, 'access_token'
   const signedOut = await admin.auth.admin.signOut(session.access_token, 'local');
   if (signedOut.error) console.error('Provider signout failed after session revocation', { type: signedOut.error.name });
 }
-export async function requireUser(req: VercelRequest, res: VercelResponse, checkAccount = true): Promise<User> {
+export async function requireUser(req: VercelRequest, res: VercelResponse, checkAccount = true, allowPaused = false): Promise<User> {
   let session = readCookie<PrivateSession>(req);
   if (!session?.access_token || !session.refresh_token) throw new HttpError(401, 'กรุณาเข้าสู่ระบบ');
   const original = sealedSessionIdentity(session.access_token);
@@ -69,5 +81,6 @@ export async function requireUser(req: VercelRequest, res: VercelResponse, check
   const active = await getSupabaseAdmin().rpc('cashflow_session_active', { p_user_id: data.user.id, p_session_id: original.session_id });
   if (active.error) throw active.error;
   if (!active.data) { writeCookie(res, null); throw new HttpError(401, 'Session revoked'); }
+  if (!allowPaused && data.user.app_metadata?.account_paused === true) throw new HttpError(403, 'บัญชีนี้พักใช้งานอยู่ กรุณาเปิดใช้งานอีกครั้ง');
   return data.user;
 }

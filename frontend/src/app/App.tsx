@@ -1824,6 +1824,29 @@ export default function App() {
     return <AppLoadingSkeleton />;
   }
 
+  if (session?.user?.accountPaused) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-brand-bg px-4 py-10">
+        <div className="w-full max-w-md rounded-3xl border border-brand-border bg-brand-white p-8 text-center shadow-xl">
+          <Mascot mood="wave" size={72} />
+          <h1 className="mt-4 font-display text-2xl font-black text-brand-text">บัญชีพักใช้งานอยู่</h1>
+          <p className="mt-3 text-sm leading-relaxed text-brand-muted">
+            ข้อมูลของคุณยังอยู่ครบ หากไม่เปิดใช้งานภายใน 30 วัน บัญชีและข้อมูลส่วนตัวจะถูกลบถาวรในรอบประมวลผลถัดไป เราจะส่งอีเมลเตือนวันละครั้งใน 3 วันสุดท้าย
+            {session.user.accountDeleteAfter && ` เหลือ ${Math.max(0, Math.ceil((new Date(session.user.accountDeleteAfter).getTime() - Date.now()) / 86_400_000))} วัน (ครบกำหนด ${new Date(session.user.accountDeleteAfter).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' })} น.)`}
+          </p>
+          {(!session.user.accountDeleteAfter || new Date(session.user.accountDeleteAfter).getTime() > Date.now()) && (
+            <button type="button" onClick={async () => {
+              const result = await authClient.auth.reactivateAccount();
+              if (result.error) triggerAlert('เปิดใช้บัญชีไม่สำเร็จ', result.error.message);
+            }} className="mt-6 w-full rounded-xl bg-[#E65F2B] px-4 py-3 font-bold text-white hover:bg-[#D8551F]">เปิดใช้บัญชีอีกครั้ง</button>
+          )}
+          <button type="button" onClick={() => void handleSignOut()} className="mt-3 w-full rounded-xl border border-brand-border px-4 py-3 font-bold text-brand-text hover:bg-brand-faint">ออกจากระบบ</button>
+        </div>
+        <CustomDialog dialog={dialog} onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))} />
+      </main>
+    );
+  }
+
   if (switchingFinance && session) {
     return <AppLoadingSkeleton />;
   }

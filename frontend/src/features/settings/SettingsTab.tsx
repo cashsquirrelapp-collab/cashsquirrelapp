@@ -3,6 +3,7 @@ import { AppSettings, FixedExpenseItem, NotifSettings } from '../../../../shared
 import { formatCurrency, sumFixedExpenseItems, dateLocale } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { apiFetch, apiJson } from '../../services/api';
+import { authClient } from '../../services/auth';
 import { saveNotificationPatch } from '../../services/cloud';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -131,12 +132,47 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 }) => {
   const { t, language, toggleLanguage } = useLanguage();
   const [showDangerZone, setShowDangerZone] = useState(false);
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [deletionRequested, setDeletionRequested] = useState(false);
+  const [deletionCode, setDeletionCode] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [newFixedExpenseName, setNewFixedExpenseName] = useState('');
   const [newFixedExpenseAmount, setNewFixedExpenseAmount] = useState('');
   const [profile,setProfile]=useState<PublicProfile|null>(null);
   const [displayName,setDisplayName]=useState('');
   const [profileBusy,setProfileBusy]=useState(false);
+
+  const pauseAccount = () => triggerConfirm(
+    'ยืนยันพักบัญชี 30 วัน',
+    'กดตกลงเพื่อพักบัญชีและออกจากระบบทุกอุปกรณ์ คุณเปิดใช้บัญชีอีกครั้งได้ภายใน 30 วัน ระบบจะส่งอีเมลเตือนวันละหนึ่งฉบับใน 3 วันสุดท้ายก่อนครบกำหนด หากไม่กลับมา บัญชีและข้อมูลของคุณจะถูกลบถาวรในการประมวลผลรายวันและกู้คืนไม่ได้ ต้องมีหัวหน้ากลุ่มและ admin คนอื่นที่ยังใช้งานได้ก่อนพักบัญชี หากภายหลังเกิดเงื่อนไขที่ทำให้ลบไม่ได้ ระบบจะเลื่อนการลบและลองใหม่ในวันถัดไป',
+    async () => {
+      setAccountBusy(true);
+      const result = await authClient.auth.pauseAccount();
+      setAccountBusy(false);
+      if (result.error) triggerAlert('พักบัญชีไม่สำเร็จ', result.error.message);
+    }
+  );
+
+  const requestDeletion = () => triggerConfirm(
+    'ลบบัญชีถาวร',
+    'กดตกลงเพื่อเริ่มลบบัญชีถาวร บัญชี ข้อมูลส่วนตัวและข้อมูลการเงินของคุณจะถูกลบและกู้คืนไม่ได้ ข้อมูลของสมาชิกคนอื่นในกลุ่มจะไม่ถูกลบ ขั้นต่อไปต้องกรอกรหัสที่ส่งไปยังอีเมลบัญชีนี้',
+    async () => {
+      setAccountBusy(true);
+      const result = await authClient.auth.requestAccountDeletion();
+      setAccountBusy(false);
+      if (result.error) triggerAlert('ส่งรหัสไม่สำเร็จ', result.error.message);
+      else { setDeletionCode(''); setDeletionRequested(true); triggerAlert('ส่งรหัสแล้ว', 'กรอกรหัส 6 หลักจากอีเมลภายใน 5 นาทีเพื่อยืนยันการลบบัญชี'); }
+    }
+  );
+
+  const deleteAccount = async () => {
+    if (!/^\d{6}$/.test(deletionCode)) { triggerAlert('รหัสไม่ครบ', 'กรุณากรอกรหัสยืนยัน 6 หลัก'); return; }
+    setAccountBusy(true);
+    const result = await authClient.auth.deleteAccount(deletionCode);
+    setAccountBusy(false);
+    if (result.error) triggerAlert('ลบบัญชีไม่สำเร็จ', result.error.message);
+    else { setDeletionCode(''); setDeletionRequested(false); }
+  };
 
   useEffect(()=>{
     if(!session?.user?.id || session?.isGuest || isGroupFinance)return;
@@ -898,10 +934,41 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <div>
                         <h5 className="text-[11px] font-bold">โซนความเสี่ยงสูง (Danger Zone)</h5>
                         <p className="text-[10px] text-brand-muted dark:text-rose-300/85 mt-0.5 leading-relaxed">
-                          ปุ่มสำหรับล้างและลบโครงสร้างฐานข้อมูลรวมถึงดีลงาน เงินออมทั้งหมดของระบบ ข้อมูลของคุณจะสูญหายถาวรทันที
+                          เลือกพักบัญชี ลบบัญชีถาวร หรือรีเซ็ตข้อมูลการเงินของคุณ โปรดตรวจสอบผลของแต่ละรายการก่อนยืนยัน
                         </p>
                       </div>
                     </div>
+
+                    {session && !session.isGuest && !isGroupFinance && (
+                      <div className="space-y-3 border-t border-rose-500/20 pt-3">
+                        <div>
+                          <h5 className="text-[11px] font-black text-brand-text">จัดการบัญชีของฉัน</h5>
+                          <p className="mt-1 text-[10px] leading-relaxed text-brand-muted">พักบัญชีได้สูงสุด 30 วัน หากไม่เปิดใช้อีกครั้งจะลบถาวร หรือเลือกลบบัญชีทันทีโดยยืนยันผ่านอีเมล</p>
+                        </div>
+                        <button type="button" disabled={accountBusy} onClick={pauseAccount}
+                          className="w-full rounded-xl border border-amber-500/40 px-3 py-2.5 text-[11px] font-bold text-amber-800 hover:bg-amber-500/10 disabled:opacity-50 dark:text-amber-300">
+                          พักบัญชีชั่วคราว 30 วัน
+                        </button>
+                        <button type="button" disabled={accountBusy} onClick={requestDeletion}
+                          className="w-full rounded-xl border border-rose-500/40 px-3 py-2.5 text-[11px] font-bold text-rose-700 hover:bg-rose-500/10 disabled:opacity-50 dark:text-rose-300">
+                          ลบบัญชีถาวร
+                        </button>
+                        {deletionRequested && (
+                          <div className="space-y-2 rounded-xl border border-rose-500/30 p-3">
+                            <label htmlFor="account-deletion-code" className="block text-[11px] font-bold text-brand-text">รหัสยืนยันจากอีเมล</label>
+                            <input id="account-deletion-code" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                              value={deletionCode} onChange={event => setDeletionCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                              className="w-full rounded-lg border border-brand-border bg-brand-white px-3 py-2 text-brand-text" placeholder="รหัส 6 หลัก" />
+                            <button type="button" disabled={accountBusy || deletionCode.length !== 6} onClick={() => triggerConfirm(
+                              'ยืนยันลบบัญชีถาวร',
+                              'กดตกลงเพื่อใช้รหัสยืนยันและลบบัญชี ข้อมูลส่วนตัว และข้อมูลการเงินของคุณทันที การดำเนินการนี้ย้อนกลับไม่ได้',
+                              () => { void deleteAccount(); }
+                            )}
+                              className="w-full rounded-lg bg-rose-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-50">ยืนยันลบบัญชีถาวร</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <button
                       onClick={() => {

@@ -30,7 +30,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       if (error || !data.session) throw new HttpError(400,'เข้าสู่ระบบไม่สำเร็จ');
       storeSession(res,data.session); res.status(302); res.setHeader('Location',`${appOrigin()}/app`); res.end(); return;
     }
-    try { const user=await requireUser(req,res,false); res.json({ session:{user:await publicUser(user)} }); }
+    try { const user=await requireUser(req,res,false,true); res.json({ session:{user:await publicUser(user)} }); }
     catch (error) { if (!(error instanceof HttpError) || error.status!==401) throw error; res.json({session:null}); }
     return;
   }

@@ -3,6 +3,10 @@
   "cleanUrls": false,
   "crons": [
     {
+      "path": "/api/close-expired-accounts",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/send-overdue-digest",
       "schedule": "0 1 * * *"
     },
