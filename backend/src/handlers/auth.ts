@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { withGuard, HttpError } from '../http/guard.js';
@@ -7,12 +8,27 @@ import { readCookie, writeCookie, seal } from '../security/cookies.js';
 import { publicUser, storeSession, requireUser, revokeSession, type PrivateSession } from '../security/session.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
-import { sendSignupConfirmationEmail } from '../services/gmail.js';
+import { sendGmailEmail, sendSignupConfirmationEmail } from '../services/gmail.js';
 const credentials = z.object({ email: z.email().max(254).transform(v=>v.toLowerCase()), password: z.string().min(1).max(128), displayName: z.string().trim().min(2).max(60).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() });
 
 async function sendConfirmation(userId:string,email:string,displayName?:string):Promise<boolean>{
   const token=seal({purpose:'confirm-email',userId,email,expires:Date.now()+86400000});
   return sendSignupConfirmationEmail(email,displayName,`${appOrigin()}/api/confirm-email?token=${encodeURIComponent(token)}`);
+}
+function loginEmailKey(email: string): string {
+  return createHash('sha256').update(email.trim().toLowerCase()).digest('hex');
+}
+async function sendLoginSecurityAlert(email: string): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const found = await admin.from('cashflow_account_snapshot').select('user_id').eq('email', email).maybeSingle();
+  if (found.error || !found.data?.user_id) return;
+  const account = await admin.auth.admin.getUserById(found.data.user_id);
+  const confirmedEmail = account.data.user?.email_confirmed_at ? account.data.user.email : null;
+  if (!confirmedEmail || confirmedEmail.toLowerCase() !== email) return;
+  const occurredAt = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' });
+  const sent = await sendGmailEmail(confirmedEmail, 'แจ้งเตือนความปลอดภัยในการเข้าสู่ระบบ | Krarok Tunngern',
+    `<div style="font-family:Arial,sans-serif;max-width:540px;margin:auto;color:#34251d"><h2>มีการพยายามเข้าสู่ระบบบัญชีของคุณ</h2><p>มีการกรอกรหัสผ่านไม่ถูกต้องครบ 6 ครั้ง บัญชีจึงถูกล็อกการเข้าสู่ระบบชั่วคราว 5 นาที</p><p>เวลา: ${occurredAt} (เวลาไทย)</p><p>หากเป็นคุณ ให้รอ 5 นาทีแล้วลองใหม่ หากไม่ใช่คุณ แนะนำให้เปลี่ยนรหัสผ่านทันที และตรวจสอบความปลอดภัยของอีเมลด้วย</p></div>`);
+  if (!sent) console.error('Login security email delivery failed');
 }
 export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   if(req.method==='GET' && req.query.code===undefined && !readCookie<PrivateSession>(req)) { res.json({session:null});return; }
@@ -55,6 +71,13 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   if (!parsed.success) throw new HttpError(400,'ใช้อีเมลที่ถูกต้อง และรหัสผ่าน 8–128 ตัวอักษร');
   await rateLimit(`auth-${action}`,parsed.data.email,20,600);
   if (action==='signin') {
+    const emailKey = loginEmailKey(parsed.data.email);
+    const lockStatus = await getSupabaseAdmin().rpc('cashflow_login_lock_status', { p_email_key: emailKey });
+    if (lockStatus.error) throw lockStatus.error;
+    if (Number(lockStatus.data) > 0) {
+      res.setHeader('Retry-After', String(lockStatus.data));
+      throw new HttpError(429, `ลองรหัสผ่านผิดครบจำนวนแล้ว กรุณารอ ${Math.ceil(Number(lockStatus.data) / 60)} นาทีแล้วลองใหม่`);
+    }
     const {data,error}=await auth.auth.signInWithPassword(parsed.data);
     if (error?.code==='email_not_confirmed') {
       const admin=getSupabaseAdmin();
@@ -62,7 +85,21 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       if(found.data?.user_id)await sendConfirmation(found.data.user_id,parsed.data.email);
       throw new HttpError(403,'บัญชียังไม่ได้ยืนยันอีเมล ระบบส่งลิงก์ยืนยันฉบับใหม่ให้แล้ว กรุณาตรวจสอบกล่องจดหมายและสแปม');
     }
-    if (error || !data.session) throw new HttpError(401,'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+    if (error || !data.session) {
+      if (error && (error.code === 'invalid_credentials' || error.code === 'user_not_found' || error.status === 400)) {
+        const failed = await getSupabaseAdmin().rpc('cashflow_record_login_failure', { p_email_key: emailKey });
+        if (failed.error) throw failed.error;
+        const result = Array.isArray(failed.data) ? failed.data[0] : failed.data;
+        if (Number(result?.locked_for_seconds) > 0) {
+          if (result?.notify_user) await sendLoginSecurityAlert(parsed.data.email);
+          res.setHeader('Retry-After', String(result.locked_for_seconds));
+          throw new HttpError(429, 'กรอกรหัสผ่านผิดครบ 6 ครั้ง ระบบล็อกการเข้าสู่ระบบ 5 นาที หากอีเมลนี้ยืนยันบัญชีแล้ว ระบบได้ส่งอีเมลแจ้งเตือน');
+        }
+      }
+      throw new HttpError(401,'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+    }
+    const resetAttempts = await getSupabaseAdmin().rpc('cashflow_reset_login_failures', { p_email_key: emailKey });
+    if (resetAttempts.error) throw resetAttempts.error;
     if (data.user.app_metadata?.account_closure_kind === 'deletion') {
       await auth.auth.signOut();
       throw new HttpError(403, 'บัญชีนี้อยู่ระหว่างรอลบ กู้คืนผ่านอีเมลสำรองได้ภายใน 30 วัน');

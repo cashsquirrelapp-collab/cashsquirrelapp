@@ -13,7 +13,7 @@ export function withGuard(handler: Handler, options: { csrf?: boolean } = {}): H
       await handler(req, res);
     } catch (error) {
       const status = error instanceof HttpError ? error.status : 500;
-      if(status===429)res.setHeader('Retry-After','60');
+      if(status===429 && !res.hasHeader('Retry-After'))res.setHeader('Retry-After','60');
       console.error('API request failed', { path: req.url?.split('?')[0], status, type: error instanceof Error ? error.name : 'UnknownError' });
       if (!res.headersSent) res.status(status).json({ error: status === 500 ? 'บริการไม่พร้อมใช้งาน กรุณาลองใหม่' : (error as Error).message });
     }
