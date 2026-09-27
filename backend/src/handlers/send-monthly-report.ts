@@ -107,21 +107,25 @@ function buildReportFlexMessage(monthLabel: string, s: MonthlySummary, downloadU
   const row = (label: string, value: string, color: string) => ({
     type: 'box',
     layout: 'horizontal',
+    margin: 'sm',
+    spacing: 'md',
     contents: [
-      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 2 },
-      { type: 'text', text: value, size: 'sm', color, weight: 'bold', flex: 3, align: 'end' },
+      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 3, wrap: true, maxLines: 2 },
+      { type: 'text', text: value, size: 'sm', color, weight: 'bold', flex: 2, align: 'end', gravity: 'center', wrap: false },
     ],
   });
 
   const contents: any = {
     type: 'bubble',
+    size: 'kilo',
     body: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#FBF2E4',
+      backgroundColor: '#FFF9F0',
       borderWidth: '1px',
       borderColor: '#D8CBB8',
-      paddingAll: '20px',
+      cornerRadius: '14px',
+      paddingAll: '18px',
       spacing: 'md',
       contents: [
         { type: 'text', text: `สรุปงบเดือน ${monthLabel}`, weight: 'bold', size: 'md', color: '#4338CA' },

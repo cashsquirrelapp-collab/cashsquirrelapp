@@ -222,7 +222,8 @@ function buildDigestFlexMessage(jobs: JobWithDiff[]): LineMessage {
 
   const contents: any = {
     type: 'bubble',
-    body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', paddingAll: '20px', spacing: 'xs', contents: bodyContents },
+    size: 'kilo',
+    body: { type: 'box', layout: 'vertical', backgroundColor: '#FFF9F0', borderWidth: '1px', borderColor: '#E6D8C7', cornerRadius: '14px', paddingAll: '18px', spacing: 'sm', contents: bodyContents },
   };
 
   const altText = overdue.length > 0

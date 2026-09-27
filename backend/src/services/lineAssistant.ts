@@ -542,26 +542,51 @@ function textBubbles(text: string): LineMessage[] {
 }
 
 function buildSectionLabel(text: string, color: string) {
-  return { type: 'text', text, size: 'xs', weight: 'bold', color, margin: 'lg' };
+  return {
+    type: 'box',
+    layout: 'horizontal',
+    backgroundColor: '#F3E8D8',
+    cornerRadius: '8px',
+    paddingAll: '8px',
+    margin: 'lg',
+    contents: [{ type: 'text', text, size: 'xs', weight: 'bold', color, wrap: true }],
+  };
 }
 
 // Shared cream "bank statement" bubble shell every Quick Reply report below is built on.
 function buildReceiptCard(bodyContents: any[], altText: string): LineMessage {
   const contents = {
     type: 'bubble',
-    body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', borderWidth: '1px', borderColor: '#D8CBB8', paddingAll: '20px', spacing: 'sm', contents: bodyContents },
+    size: 'kilo',
+    body: { type: 'box', layout: 'vertical', backgroundColor: '#FFF9F0', borderWidth: '1px', borderColor: '#E6D8C7', cornerRadius: '14px', paddingAll: '18px', spacing: 'sm', contents: bodyContents },
   };
   return { type: 'flex', altText, contents };
 }
 
 function buildJobRow(name: string, client: string, amount: number, color: string) {
-  return buildStatementRow(name + (client ? ` (${client})` : ''), formatCurrency(amount), { bold: false, color });
+  return {
+    type: 'box',
+    layout: 'horizontal',
+    margin: 'md',
+    spacing: 'md',
+    contents: [
+      {
+        type: 'box', layout: 'vertical', flex: 3, spacing: 'xs',
+        contents: [
+          { type: 'text', text: name, size: 'sm', weight: 'bold', color: '#3D2314', wrap: true, maxLines: 2 },
+          ...(client ? [{ type: 'text', text: client, size: 'xxs', color: '#A88A6E', wrap: true, maxLines: 1 }] : []),
+        ],
+      },
+      { type: 'text', text: formatCurrency(amount), size: 'sm', weight: 'bold', color, flex: 2, align: 'end', gravity: 'center', wrap: false },
+    ],
+  };
 }
 
 function buildUnpaidJobsMessage(snapshot: DataSnapshot): LineMessage {
   if (snapshot.unpaid.length === 0) return { type: 'text', text: '🎉 ตอนนี้ไม่มีงานค้างจ่ายเลยครับ' };
   const bodyContents: any[] = [
-    buildStatementRow('งานค้างจ่าย', `ทั้งหมด ${snapshot.unpaid.length} งาน`, { size: 'xl', color: '#3D2314' }),
+    buildTypeBadge('deal', 'งานค้างจ่าย', '#A63F1B'),
+    buildStatementRow('รายการ', `${snapshot.unpaid.length} งาน`, { size: 'lg', color: '#3D2314' }),
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
     ...snapshot.unpaid.flatMap((j) => [
       buildJobRow(j.name, j.client, j.pending, '#A63F1B'),
@@ -602,7 +627,8 @@ function buildThisMonthSummaryMessage(snapshot: DataSnapshot): LineMessage {
 function buildWipJobsMessage(snapshot: DataSnapshot): LineMessage {
   if (snapshot.wip.length === 0) return { type: 'text', text: '📦 ตอนนี้ไม่มีงานในสต็อก (ยังไม่โพสต์) เลยครับ' };
   const bodyContents: any[] = [
-    buildStatementRow('งานในสต็อก', `ทั้งหมด ${snapshot.wip.length} งาน`, { size: 'xl', color: '#3D2314' }),
+    buildTypeBadge('package', 'งานในสต็อก', '#4338CA'),
+    buildStatementRow('รายการ', `${snapshot.wip.length} งาน`, { size: 'lg', color: '#3D2314' }),
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
     ...snapshot.wip.map((j) => buildJobRow(j.name, j.client, j.value, '#4338CA')),
   ];
@@ -626,8 +652,9 @@ function buildThisMonthJobsMessage(snapshot: DataSnapshot): LineMessage {
   const unpaidSum = unpaid.reduce((sum, j) => sum + j.pending, 0);
 
   const bodyContents: any[] = [
-    buildStatementRow('งานเดือนนี้', monthLabel, { size: 'xl', color: '#3D2314' }),
-    { type: 'text', text: `ทั้งหมด ${snapshot.thisMonthJobs.length} งาน`, size: 'xs', color: '#A88A6E' },
+    buildTypeBadge('receipt', 'งานเดือนนี้', '#E65F2B'),
+    buildStatementRow('เดือน', monthLabel, { size: 'lg', color: '#3D2314' }),
+    buildStatementRow('รวม', `${snapshot.thisMonthJobs.length} งาน`, { bold: false, color: '#7A5C43' }),
   ];
 
   if (unpaid.length > 0) {
@@ -874,9 +901,11 @@ function buildStatementRow(label: string, value: string, opts?: { size?: string;
   return {
     type: 'box',
     layout: 'horizontal',
+    margin: 'sm',
+    spacing: 'md',
     contents: [
-      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 2, gravity: 'center', wrap: true },
-      { type: 'text', text: value, size: opts?.size || 'sm', color: opts?.color || '#3D2314', weight: opts?.bold === false ? 'regular' : 'bold', flex: 3, align: 'end', wrap: true },
+      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 3, gravity: 'center', wrap: true, maxLines: 2 },
+      { type: 'text', text: value, size: opts?.size || 'sm', color: opts?.color || '#3D2314', weight: opts?.bold === false ? 'regular' : 'bold', flex: 2, align: 'end', gravity: 'center', wrap: false },
     ],
   };
 }
