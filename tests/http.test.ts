@@ -168,7 +168,7 @@ test('OAuth stores PKCE only, exchanges code server-side, and never returns toke
  const verifier=unseal<any>(oauth.slice(oauth.indexOf('=')+1));assert.equal(Object.keys(verifier.storage).length,1);assert.ok(Object.keys(verifier.storage)[0].endsWith('-code-verifier'));
  assert.ok(!JSON.stringify(verifier).includes('access_token'));
  const callback=await realFetch(origin+'/api/auth?code=fake-code',{headers:{cookie:oauth},redirect:'manual'});
- assert.equal(callback.status,302);assert.equal(callback.headers.get('location'),process.env.APP_URL+'/app');
+ assert.equal(callback.status,302);assert.equal(callback.headers.get('location'),process.env.APP_URL+'/');
  assert.ok(callback.headers.getSetCookie().some(value=>value.startsWith('cashflow-session=')&&value.includes('HttpOnly')));
  const session=await realFetch(origin+'/api/auth',{headers:{cookie,'x-account-id':'old-account'}});
  assert.equal(session.status,200);const publicData=await session.json() as any;assert.equal(publicData.session.user.id,user.id);assert.equal(publicData.session.user.role,'user');assert.equal(publicData.session.user.user_metadata.role,undefined);assert.equal(publicData.session.access_token,undefined);
@@ -207,7 +207,7 @@ test('refresh preserves the absolute lifetime and an eight-hour session is revok
 });
 test('reports require login, reject other owners and arbitrary URLs, and download only the authenticated owner path',async()=>{
  const anonymous=await realFetch(origin+'/api/download-report?month=2026-09&account='+user.id,{redirect:'manual'});
- assert.equal(anonymous.status,302);assert.ok(anonymous.headers.get('location')?.includes('/app?report=2026-09'));
+ assert.equal(anonymous.status,302);assert.ok(anonymous.headers.get('location')?.includes('/?report=2026-09'));
  const before=downloaded;
  const wrong=await realFetch(origin+'/api/download-report?month=2026-09&account=22222222-2222-4222-8222-222222222222',{headers:{cookie}});assert.equal(wrong.status,403);
  const arbitrary=await realFetch(origin+'/api/download-report?u=https://evil.com',{headers:{cookie}});assert.equal(arbitrary.status,400);
