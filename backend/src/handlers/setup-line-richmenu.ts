@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../http/types.js';
 
 // One-time (re-runnable) admin setup: creates the LINE Official Account's Rich Menu -- the
 // persistent 2x3 button grid shown under the chat input for every user of this OA -- uploads the
-// generated image (public/richmenu-large.png, 2500x1686, matching the app's cream/orange theme),
+// generated image (public/richmenu-large.jpg, 2500x1686, matching the app's cream/orange theme),
 // and sets it as the default for all users. Not called by any user-facing flow; hit manually with
 // CRON_SECRET the same way the digest/report crons are triggered for testing. Safe to re-run: it
 // always creates a fresh rich menu and re-points the "default for all users" pointer at it, so
@@ -75,15 +75,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 2. Upload the image (fetched from this deployment's own public/ folder rather than bundled
     // directly, so editing the PNG and redeploying is enough to pick up a new design next run).
-    const imageRes = await fetch(`${appUrl.replace(/\/$/, '')}/richmenu-large.png`);
+    const imageRes = await fetch(`${appUrl.replace(/\/$/, '')}/richmenu-large.jpg`);
     if (!imageRes.ok) {
-      res.status(500).json({ error: 'Failed to fetch richmenu-large.png from public/' });
+      res.status(500).json({ error: 'Failed to fetch richmenu-large.jpg from public/' });
       return;
     }
     const imageBuffer = await imageRes.arrayBuffer();
     const uploadRes = await fetch(`https://api-data.line.me/v2/bot/richmenu/${richMenuId}/content`, {
       method: 'POST',
-      headers: { 'Content-Type': 'image/png', Authorization: `Bearer ${accessToken}` },
+      headers: { 'Content-Type': 'image/jpeg', Authorization: `Bearer ${accessToken}` },
       body: Buffer.from(imageBuffer),
     });
     if (!uploadRes.ok) {
