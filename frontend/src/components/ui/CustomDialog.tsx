@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomDialogState } from '../../../../shared/types';
 import { AlertCircle, HelpCircle, CheckCircle } from 'lucide-react';
@@ -50,7 +51,15 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
     }
   };
 
-  return (
+  // Portaled straight to <body>, not rendered inline in the app tree -- DashboardTab/JobsTab/
+  // JobDetailModal's own modals already portal there too, and any of them can trigger this dialog
+  // (e.g. the Dashboard quick-pay list's "ได้เงินครบแล้ว" confirm). An inline z-[999] here still
+  // loses to a later document.body portal once *any* ancestor between this component and <body>
+  // picks up a transform/filter/backdrop-filter (each opens its own stacking context, which traps
+  // "fixed" positioning and makes the z-index only compare within that ancestor) -- the dialog was
+  // still in the DOM and technically clickable at its coordinates, just painted underneath instead
+  // of on top, so confirming from inside another modal silently did nothing the user could see.
+  return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-y-auto" role="presentation">
         {/* Backdrop overlay */}
@@ -119,6 +128,7 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
           </form>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

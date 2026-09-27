@@ -312,6 +312,34 @@ test('uploaded logo and signature are saved to the profile and appear on existin
  await expect(page.getByTestId('header-live-preview').locator('.da4-top.pos-custom')).toHaveAttribute('style',/--da4-x: 30%/);
 });
 
+test('quick-pay confirm dialog is clickable on top of the quick-pay list, not hidden behind it',async({page})=>{
+ // Regression test for CustomDialog rendering inline instead of portaled: with an ancestor
+ // between it and <body> that opens its own stacking context, its z-[999] only wins inside that
+ // context, so a later document.body portal (Dashboard's own quick-pay list) painted over it. The
+ // confirm dialog was still in the DOM and technically at the right coordinates, so a raw click
+ // there did nothing visible -- exactly what marking a partially-paid job as fully paid from this
+ // list looked like to a user. Playwright's own .click() already fails loudly if the target isn't
+ // the topmost element at its point, so this test would fail on the old inline-rendered dialog.
+ const partialJob={id:'partial-job',name:'ผลิตคลิปโฆษณา TikTok',value:8000,received:4000,pending:4000,client:'ร้านกาแฟ Brew Days',type:'Video Production',status:'partial',paymentStatus:'partial',creditTerm:15,note:'',payDate:null};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ const saved:any[]=[];
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
+  return route.fulfill({json:{snapshot:{...snapshot,jobs:[partialJob]},versions:{...versions,cashflow_jobs:{'partial-job':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'user',groups:[],invitations:[],total:0,page:0}}));
+ await page.goto('/');await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ await page.getByRole('button',{name:'รับเงินด่วน'}).click();
+ await expect(page.getByRole('heading',{name:'บันทึกรับเงินด่วน'})).toBeVisible();
+ await expect(page.getByText('ผลิตคลิปโฆษณา TikTok')).toBeVisible();
+ await page.getByRole('button',{name:'ได้เงินครบแล้ว'}).click();
+ const confirmDialog=page.getByRole('dialog',{name:'บันทึกรับเงินครบถ้วน'});
+ await expect(confirmDialog).toBeVisible();
+ await confirmDialog.getByRole('button',{name:'ตกลง'}).click(); // throws if occluded by the quick-pay modal behind old code
+ await expect(page.getByText('ผลิตคลิปโฆษณา TikTok')).toHaveCount(0);
+ await expect.poll(()=>saved.find(c=>c.id==='partial-job')?.data?.paymentStatus).toBe('paid');
+});
+
 test('expired authentication hides private views and never leaves financial browser caches',async({page})=>{
  const privateJob={id:'private-job',name:'Private account record',value:100,received:0,pending:100,client:'Private client',type:'Design',status:'pending',creditTerm:0,note:'',payDate:null};
  let expired=false;
