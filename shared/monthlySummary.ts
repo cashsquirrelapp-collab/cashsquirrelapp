@@ -37,6 +37,12 @@ export interface ExpenseRow {
 
 export interface GoalRow {
   allocatedPercentage?: number;
+  history?: Array<{
+    type: 'deposit' | 'withdraw';
+    amount: number;
+    date: string;
+    deductedFromCash?: boolean;
+  }>;
 }
 
 export interface SettingsRow {
@@ -49,6 +55,7 @@ export interface MonthlySummary {
   income: number;
   received: number;
   variableExpense: number;
+  cashGoalDeductions: number;
   fixedExpenseCalculated: number;
   netFlow: number;
   receivedAfterVariableExpense: number;
@@ -101,23 +108,31 @@ export function computeMonthlySummary(
   const totalAllocatedPct = goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
   const savingsPct = totalAllocatedPct > 0 ? totalAllocatedPct : (settings.savingsPercentage || 40);
 
-  let income = 0;
   let received = 0;
+  let pending = 0;
   for (const j of jobs) {
     const dateKey = j.payDate || j.postDate;
-    if (dateKeyInMonth(dateKey, monthKey)) {
-      income += j.value || 0;
-    }
     if (j.installments?.length) {
       received += j.installments.reduce((sum, row) => (
         row.status === 'paid' && dateKeyInMonth(row.paidAt || dateKey, monthKey)
           ? sum + (row.amount || 0)
           : sum
       ), 0);
+      if (j.isPosted !== false) {
+        pending += j.installments.reduce((sum, row) => (
+          row.status !== 'paid' && dateKeyInMonth(row.dueDate || dateKey, monthKey)
+            ? sum + (row.amount || 0)
+            : sum
+        ), 0);
+      }
     } else if (dateKeyInMonth(dateKey, monthKey)) {
       received += j.received || 0;
+      if (j.isPosted !== false) pending += j.pending || 0;
     }
   }
+  // This is the Dashboard's contract-value definition for the selected month. Using the gross
+  // job value here drifted as soon as installment due/paid dates crossed month boundaries.
+  const income = received + pending;
 
   let variableExpense = 0;
   for (const e of expenses) {
@@ -126,16 +141,22 @@ export function computeMonthlySummary(
     }
   }
 
+  const cashGoalDeductions = goals.reduce((sum, goal) => sum + (goal.history || []).reduce((goalSum, tx) => (
+    tx.type === 'deposit' && tx.deductedFromCash && dateKeyInMonth(tx.date, monthKey)
+      ? goalSum + (tx.amount || 0)
+      : goalSum
+  ), 0), 0);
+
   const fixedExpense = settings.monthlyExpense || 0;
   const fixedExpenseCalculated = fixedExpense; // includeFullYearFixed = true (default)
-  const netFlow = received - fixedExpenseCalculated - variableExpense;
+  const netFlow = received - fixedExpenseCalculated - variableExpense - cashGoalDeductions;
   // Cash actually left in hand: money received minus money already spent on logged variable
   // expenses this month. fixedExpense is excluded here since it's a recurring budget line
   // (already reflected in netFlow's warning), not a dated transaction that's left the wallet yet.
-  const receivedAfterVariableExpense = Math.max(0, received - variableExpense);
+  const receivedAfterVariableExpense = Math.max(0, received - variableExpense - cashGoalDeductions);
   const actualSavings = Math.round(receivedAfterVariableExpense * (savingsPct / 100));
 
-  return { income, received, variableExpense, fixedExpenseCalculated, netFlow, receivedAfterVariableExpense, actualSavings };
+  return { income, received, variableExpense, cashGoalDeductions, fixedExpenseCalculated, netFlow, receivedAfterVariableExpense, actualSavings };
 }
 
 export function formatCurrency(n: number): string {

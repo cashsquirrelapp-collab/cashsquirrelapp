@@ -55,3 +55,30 @@ test('monthly notification summary counts only installments actually paid in tha
   assert.equal(jobsInMonth([installmentJob], '2026-10').length, 1);
   assert.equal(computeMonthlySummary([installmentJob], [], [], { monthlyExpense: 0 }, '2026-10').received, 0);
 });
+
+test('monthly notification summary matches dashboard cash totals', () => {
+  const job: Job = {
+    ...installmentJob,
+    value: 10_000,
+    received: 4_000,
+    pending: 6_000,
+    isPosted: true,
+    installments: [
+      { id: 'paid', label: 'งวดแรก', amount: 4_000, dueDate: '2026-09-10', paidAt: '2026-09-12', status: 'paid' },
+      { id: 'due', label: 'งวดสอง', amount: 6_000, dueDate: '2026-09-30', paidAt: null, status: 'pending' },
+    ],
+  };
+  const summary = computeMonthlySummary(
+    [job],
+    [{ name: 'ค่าเดินทาง', amount: 500, date: '2026-09-20' }],
+    [{ allocatedPercentage: 20, history: [{ type: 'deposit', amount: 1_000, date: '2026-09-25', deductedFromCash: true }] }],
+    { monthlyExpense: 300 },
+    '2026-09',
+  );
+
+  assert.equal(summary.received, 4_000);
+  assert.equal(summary.income, 10_000);
+  assert.equal(summary.cashGoalDeductions, 1_000);
+  assert.equal(summary.netFlow, 2_200);
+  assert.equal(summary.receivedAfterVariableExpense, 2_500);
+});
