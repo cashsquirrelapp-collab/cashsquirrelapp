@@ -360,8 +360,8 @@ async function classifyMessage(
     งานที่ใกล้ครบกำหนด_ภายใน10วัน_เรียงใกล้สุดก่อน: snapshot.dueSoon.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} (${j.dueText})`),
     งานที่เข้าเดือนนี้: snapshot.thisMonthJobs.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)} ${j.isUnpaid ? `(ค้าง ${formatCurrency(j.pending)})` : j.isPosted === false ? '(ในสต็อก)' : '(จ่ายแล้ว)'}`),
     ยอดค้างรับทั้งหมดรวมทุกงาน: formatCurrency(snapshot.totalPendingAllTime),
-    สรุปเดือนนี้: { เดือน: snapshot.thisMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.thisMonth.received), เงินออกทั้งหมด: formatCurrency(snapshot.thisMonth.fixedExpenseCalculated + snapshot.thisMonth.variableExpense + snapshot.thisMonth.cashGoalDeductions), กระแสเงินสดสุทธิ: formatCurrency(Math.max(0, snapshot.thisMonth.netFlow)), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.thisMonth.actualSavings) },
-    สรุปเดือนที่แล้ว: { เดือน: snapshot.lastMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.lastMonth.received), เงินออกทั้งหมด: formatCurrency(snapshot.lastMonth.fixedExpenseCalculated + snapshot.lastMonth.variableExpense + snapshot.lastMonth.cashGoalDeductions), กระแสเงินสดสุทธิ: formatCurrency(Math.max(0, snapshot.lastMonth.netFlow)), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.lastMonth.actualSavings) },
+    สรุปเดือนนี้: { เดือน: snapshot.thisMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.thisMonth.received), รายจ่ายที่บันทึกจริง: formatCurrency(snapshot.thisMonth.variableExpense), เงินย้ายเข้ากระปุก: formatCurrency(snapshot.thisMonth.cashGoalDeductions), งบประจำที่ตั้งไว้_ยังไม่ใช่รายการจ่ายจริง: formatCurrency(snapshot.thisMonth.fixedExpenseCalculated), คงเหลือหลังรายการจริง: formatCurrency(snapshot.thisMonth.receivedAfterVariableExpense), คงเหลือหลังเผื่องบประจำ: formatCurrency(Math.max(0, snapshot.thisMonth.netFlow)) },
+    สรุปเดือนที่แล้ว: { เดือน: snapshot.lastMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.lastMonth.received), รายจ่ายที่บันทึกจริง: formatCurrency(snapshot.lastMonth.variableExpense), เงินย้ายเข้ากระปุก: formatCurrency(snapshot.lastMonth.cashGoalDeductions), งบประจำที่ตั้งไว้_ยังไม่ใช่รายการจ่ายจริง: formatCurrency(snapshot.lastMonth.fixedExpenseCalculated), คงเหลือหลังรายการจริง: formatCurrency(snapshot.lastMonth.receivedAfterVariableExpense), คงเหลือหลังเผื่องบประจำ: formatCurrency(Math.max(0, snapshot.lastMonth.netFlow)) },
     พยากรณ์รายรับเดือนถัดไป_3เดือน: snapshot.upcomingForecast.map((f) => `${formatMonthKey(f.monthKey)} (เดือน ${f.monthKey}): คาดว่าจะได้รับ ${formatCurrency(f.expectedIncome)} (รวมยอดที่รับแล้ว+ยอดค้างรับของงานที่ส่งมอบแล้วซึ่งมีกำหนดชำระในเดือนนี้ ไม่รวมงานสต็อกที่ยังไม่ส่งมอบเพราะยังไม่รู้วันชำระแน่นอน)`),
     เป้าหมายออม: snapshot.goals.map((g) => `${g.name} เป้าหมาย ${formatCurrency(g.target)} สะสมแล้ว ${formatCurrency(g.current)} (${g.target > 0 ? Math.round((g.current / g.target) * 100) : 0}%) กำหนดเสร็จ ${g.deadline}${g.allocatedPercentage ? ` แบ่งจากกำไรอัตโนมัติ ${g.allocatedPercentage}%` : ''}`),
   };
@@ -587,16 +587,27 @@ function buildUnpaidJobsMessage(snapshot: DataSnapshot): LineMessage {
 function buildThisMonthSummaryMessage(snapshot: DataSnapshot): LineMessage {
   const s = snapshot.thisMonth;
   const monthLabel = formatMonthKey(s.monthKey);
+  const actualCashOut = s.variableExpense + s.cashGoalDeductions;
   const bodyContents: any[] = [
-    buildStatementRow('สรุปเดือนนี้', monthLabel, { size: 'xl', color: '#3D2314' }),
+    buildTypeBadge('receipt', 'สรุปเงินเดือนนี้', '#E65F2B'),
+    buildStatementRow('เดือน', monthLabel, { size: 'lg', color: '#3D2314' }),
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildStatementRow('รับแล้วจริง', formatCurrency(s.received), { bold: false, color: '#0E9F6E' }),
-    buildStatementRow('เงินออกทั้งหมด', formatCurrency(s.fixedExpenseCalculated + s.variableExpense + s.cashGoalDeductions), { bold: false, color: '#A63F1B' }),
+    buildSectionLabel('เงินเข้า', '#0E9F6E'),
+    buildStatementRow('รับเงินจริง', `+${formatCurrency(s.received)}`, { color: '#0E9F6E' }),
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildStatementRow('กระแสเงินสดสุทธิ', formatCurrency(Math.max(0, s.netFlow)), { color: '#3D2314' }),
-    buildStatementRow('ยอดออมสะสมโดยประมาณ', formatCurrency(s.actualSavings), { bold: false, color: '#0E9F6E' }),
+    buildSectionLabel('รายการที่เงินออกจริง', '#A63F1B'),
+    buildStatementRow('รายจ่ายที่บันทึก', `-${formatCurrency(s.variableExpense)}`, { bold: false, color: '#A63F1B' }),
+    buildStatementRow('ย้ายเข้ากระปุก', `-${formatCurrency(s.cashGoalDeductions)}`, { bold: false, color: '#B45309' }),
+    buildStatementRow('รวมออกจริง', `-${formatCurrency(actualCashOut)}`, { color: '#A63F1B' }),
+    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
+    buildStatementRow('คงเหลือหลังรายการจริง', formatCurrency(s.receivedAfterVariableExpense), { size: 'lg', color: '#0E9F6E' }),
+    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
+    buildSectionLabel('งบที่กันไว้ (ยังไม่ใช่เงินออก)', '#7A5C43'),
+    buildStatementRow('งบประจำต่อเดือน', formatCurrency(s.fixedExpenseCalculated), { bold: false, color: '#7A5C43' }),
+    buildStatementRow('เหลือหลังเผื่องบประจำ', formatCurrency(Math.max(0, s.netFlow)), { color: '#3D2314' }),
+    { type: 'text', text: 'งบประจำเป็นวงเงินที่ตั้งไว้ ระบบยังไม่ถือว่าจ่ายจริงจนกว่าจะบันทึกรายการ', size: 'xxs', color: '#A88A6E', wrap: true, margin: 'sm' },
   ];
-  return buildReceiptCard(bodyContents, `สรุปเดือนนี้ (${monthLabel}) • รับแล้ว ${formatCurrency(s.received)} • คงเหลือ ${formatCurrency(Math.max(0, s.netFlow))}`);
+  return buildReceiptCard(bodyContents, `สรุปเดือนนี้ (${monthLabel}) • รับจริง ${formatCurrency(s.received)} • ออกจริง ${formatCurrency(actualCashOut)} • คงเหลือ ${formatCurrency(s.receivedAfterVariableExpense)}`);
 }
 
 function buildWipJobsMessage(snapshot: DataSnapshot): LineMessage {
