@@ -18,7 +18,7 @@ const AREAS: { bounds: { x: number; y: number; width: number; height: number }; 
   { bounds: { x: 833, y: 0, width: 834, height: 843 }, action: { type: 'message', label: 'งานค้างจ่าย', text: 'งานค้างจ่าย' } },
   { bounds: { x: 1667, y: 0, width: 833, height: 843 }, action: { type: 'message', label: 'สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
   { bounds: { x: 0, y: 843, width: 833, height: 843 }, action: { type: 'message', label: 'งานเดือนนี้', text: 'งานเดือนนี้' } },
-  { bounds: { x: 833, y: 843, width: 834, height: 843 }, action: { type: 'message', label: 'งานสต็อก', text: 'งานสต็อก' } },
+  { bounds: { x: 833, y: 843, width: 834, height: 843 }, action: { type: 'message', label: 'กำลังดำเนินการ', text: 'กำลังดำเนินการ' } },
   { bounds: { x: 1667, y: 843, width: 833, height: 843 }, action: { type: 'uri', label: 'เปิดแอป' } }, // uri filled in below once APP_URL is known
 ];
 

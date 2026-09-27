@@ -434,7 +434,7 @@ ${recentHistory.map((h) => `${h.role === 'user' ? 'ผู้ใช้' : 'คุ
 - "กระแสเงินสดสุทธิ" ในข้อมูลนี้ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- มันคือ (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้ในระบบเท่านั้น) และไม่ติดลบต่ำกว่า 0 ถ้าผู้ใช้ถามถึงกำไร ให้ตอบด้วยตัวเลขนี้ได้แต่ต้องบอกด้วยว่านี่คือกระแสเงินสดสุทธิจากรายการที่บันทึกไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ผู้ใช้ยังไม่ได้บันทึกเข้าระบบ (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน ต้นทุนอื่นๆ) ซึ่งจะไม่ถูกรวมในตัวเลขนี้
 - ถ้าถามว่าตัวเลขใดตัวเลขหนึ่ง "รวมอะไรบ้าง" หรือครบถ้วนหรือไม่ ให้อธิบายตามจริงว่าเป็นผลรวมของอะไร (เช่น รายจ่ายรวม = ค่าใช้จ่ายคงที่ + ค่าใช้จ่ายผันแปรที่บันทึกไว้ในแอป) และบอกตรงๆ ว่าถ้ามีรายจ่ายอะไรที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
 - ถ้าคำถามเกี่ยวกับการเพิ่ม/แก้ไข/ลบข้อมูล ให้แนะนำให้กดปุ่ม "📝 ฟอร์มบันทึก" แทน เพราะที่นี่ตอบได้แค่คำถาม แก้ไขข้อมูลไม่ได้
-- ปุ่มลัดที่มีอยู่จริงในแชทมีแค่นี้เท่านั้น: "📝 ฟอร์มบันทึก", "📋 งานค้างจ่าย", "📊 สรุปเดือนนี้", "📅 งานเดือนนี้", "📦 งานสต็อก" ห้ามอ้างถึงหรือแนะนำปุ่มชื่ออื่นที่ไม่มีอยู่ในรายการนี้เด็ดขาด (เช่นห้ามพูดถึงปุ่ม "สรุปรายรับ" เพราะไม่มีจริง)
+- ปุ่มลัดที่มีอยู่จริงในแชทมีแค่นี้เท่านั้น: "📝 ฟอร์มบันทึก", "📋 งานค้างจ่าย", "📊 สรุปเดือนนี้", "📅 งานเดือนนี้", "📦 กำลังดำเนินการ" ห้ามอ้างถึงหรือแนะนำปุ่มชื่ออื่นที่ไม่มีอยู่ในรายการนี้เด็ดขาด (เช่นห้ามพูดถึงปุ่ม "สรุปรายรับ" เพราะไม่มีจริง)
 - ถ้าคำถามถามถึงอนาคต (เดือนหน้า เดือนถัดไป หรือเดือนที่ระบุชื่อ) ให้เช็คจาก "พยากรณ์รายรับเดือนถัดไป_3เดือน" และ "งานที่ยังไม่จ่ายเงิน" (ที่มีระบุเดือนกำกับไว้) ก่อนเสมอ ห้ามบอกว่าไม่มีข้อมูลทั้งที่จริงมีอยู่ในสองส่วนนี้
 - ถ้าคำถามใช้คำว่า "เร็วๆ นี้"/"ใกล้ครบกำหนด"/"อีกไม่นาน" หรือถามแบบไม่ระบุช่วงเวลาชัดเจนว่างานไหนใกล้ถึงกำหนดชำระ ให้ตอบจาก "งานที่ใกล้ครบกำหนด_ภายใน10วัน_เรียงใกล้สุดก่อน" เท่านั้น (ที่คัดมาแล้วว่าใกล้จริงๆ ภายใน 10 วัน) ห้ามเอารายการทั้งหมดจาก "งานที่ยังไม่จ่ายเงิน" มาตอบเพราะจะเยอะเกินไปจนไม่เห็นภาพว่าอันไหนด่วนจริง ถ้ารายการนี้ว่างเปล่าให้บอกว่าไม่มีงานไหนใกล้ครบกำหนดในเร็วๆ นี้
 
@@ -520,7 +520,7 @@ function getQuickReply(): import('./line.js').LineQuickReply {
     { type: 'action', action: { type: 'message', label: '📋 งานค้างจ่าย', text: 'งานค้างจ่าย' } },
     { type: 'action', action: { type: 'message', label: '📊 สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
     { type: 'action', action: { type: 'message', label: '📅 งานเดือนนี้', text: 'งานเดือนนี้' } },
-    { type: 'action', action: { type: 'message', label: '📦 งานสต็อก', text: 'งานสต็อก' } }
+    { type: 'action', action: { type: 'message', label: '📦 กำลังดำเนินการ', text: 'กำลังดำเนินการ' } }
   );
   return { items: items.slice(0, 13) };
 }
@@ -625,14 +625,14 @@ function buildThisMonthSummaryMessage(snapshot: DataSnapshot): LineMessage {
 }
 
 function buildWipJobsMessage(snapshot: DataSnapshot): LineMessage {
-  if (snapshot.wip.length === 0) return { type: 'text', text: '📦 ตอนนี้ไม่มีงานในสต็อก (ยังไม่โพสต์) เลยครับ' };
+  if (snapshot.wip.length === 0) return { type: 'text', text: '📦 ตอนนี้ไม่มีงานที่กำลังดำเนินการครับ' };
   const bodyContents: any[] = [
-    buildTypeBadge('package', 'งานในสต็อก', '#4338CA'),
+    buildTypeBadge('package', 'กำลังดำเนินการ', '#4338CA'),
     buildStatementRow('รายการ', `${snapshot.wip.length} งาน`, { size: 'lg', color: '#3D2314' }),
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
     ...snapshot.wip.map((j) => buildJobRow(j.name, j.client, j.value, '#4338CA')),
   ];
-  return buildReceiptCard(bodyContents, `งานในสต็อก ${snapshot.wip.length} งาน (ยังไม่ส่งงาน)`);
+  return buildReceiptCard(bodyContents, `กำลังดำเนินการ ${snapshot.wip.length} งาน`);
 }
 
 // Flex "receipt" card version of the month's job list -- grouped into unpaid/paid/stock
@@ -674,7 +674,7 @@ function buildThisMonthJobsMessage(snapshot: DataSnapshot): LineMessage {
   if (wip.length > 0) {
     bodyContents.push(
       { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-      buildSectionLabel(`📦 ในสต็อก (${wip.length})`, '#4338CA'),
+      buildSectionLabel(`📦 กำลังดำเนินการ (${wip.length})`, '#4338CA'),
       ...wip.map((j) => buildJobRow(j.name, j.client, j.value, '#4338CA'))
     );
   }
@@ -694,6 +694,7 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => LineMessage> = {
   งานค้างจ่าย: buildUnpaidJobsMessage,
   สรุปเดือนนี้: buildThisMonthSummaryMessage,
   งานสต็อก: buildWipJobsMessage,
+  กำลังดำเนินการ: buildWipJobsMessage,
   งานเดือนนี้: buildThisMonthJobsMessage,
 };
 
@@ -938,14 +939,14 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
   const isDone = job.status === 'done';
   const isPartial = job.status === 'partial' || job.status === 'installment';
   const isPaidSome = isDone || isPartial;
-  const statusLabel = isWip ? 'สต็อก (ยังไม่ส่งงาน)' : isDone ? 'จ่ายครบแล้ว' : isPartial ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
+  const statusLabel = isWip ? 'กำลังดำเนินการ' : isDone ? 'จ่ายครบแล้ว' : isPartial ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   // Four distinct moments, four distinct badges: WIP (indigo), posted with nothing received yet
   // (teal "ดีลงาน"), a deposit landed but the job isn't fully paid (amber "ได้รับมัดจำ" -- kept
   // separate from full payment per direct feedback: a deposit shouldn't read as "รับเงินแล้ว" the
   // same way a completed payment does), and fully paid (green "รับเงินแล้ว"). Before this, "done"
   // and "partial" shared the same green badge and headline, so a card for a job that had only
   // gotten a deposit looked identical to one that was fully settled.
-  const headerLabel = isWip ? 'สต็อกใหม่' : isDone ? 'รับเงิน' : isPartial ? 'รับมัดจำ' : 'มูลค่าดีล';
+  const headerLabel = isWip ? 'งานใหม่' : isDone ? 'รับเงิน' : isPartial ? 'รับมัดจำ' : 'มูลค่าดีล';
   const headerColor = isWip ? '#4338CA' : isDone ? '#0E9F6E' : isPartial ? '#B45309' : '#0D9488';
   // job.value is the full contract value, not what's actually landed -- for a partial payment
   // that's just the deposit, so show job.received (falling back to value if a caller doesn't send
@@ -964,7 +965,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
       spacing: 'md',
       contents: [
         isWip
-          ? buildTypeBadge('package', 'เข้าสต็อก', headerColor)
+          ? buildTypeBadge('package', 'กำลังดำเนินการ', headerColor)
           : isDone
             ? buildTypeBadge('coin', 'รับเงินแล้ว', headerColor)
             : isPartial
@@ -982,7 +983,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
     },
   };
 
-  return { type: 'flex', altText: isWip ? `เพิ่มงาน "${job.name}" เข้าสต็อกแล้วครับ` : `บันทึกงาน "${job.name}" สำเร็จแล้วครับ`, contents };
+  return { type: 'flex', altText: isWip ? `เพิ่มงาน "${job.name}" เป็นกำลังดำเนินการแล้วครับ` : `บันทึกงาน "${job.name}" สำเร็จแล้วครับ`, contents };
 }
 
 // Builds a real Expense record the same way ExpenseRecordView.tsx's add-expense form does.
@@ -1081,7 +1082,7 @@ export function buildJobDeletedMessage(job: { name: string; client?: string; val
 // which only reaches this path when the payload looks like a real edit-form save.
 export function buildJobEditedMessage(job: JobCardData, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
-  const statusLabel = isWip ? 'สต็อก (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'installment' ? 'แบ่งชำระเป็นงวด' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
+  const statusLabel = isWip ? 'กำลังดำเนินการ' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'installment' ? 'แบ่งชำระเป็นงวด' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const bodyContents = [
     buildTypeBadge('pencil', 'แก้ไขงาน', '#2563EB'),
     buildStatementRow('แก้ไขงาน', formatCurrency(job.value), { size: 'xl', color: '#2563EB' }),
