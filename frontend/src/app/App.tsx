@@ -36,6 +36,7 @@ const PlansTab = lazy(loadPlansTab);
 const GroupsTab = lazy(loadGroupsTab);
 import FinanceWorkspacePicker from '../features/groups/FinanceWorkspacePicker';
 import { financeKey, setFinanceWorkspace, assertFinanceWorkspace } from '../services/financeWorkspace';
+import { groupApi } from '../services/groups';
 import { authClient } from '../services/auth';
 import { apiFetch, apiJson } from '../services/api';
 import { readCloud, saveCloud, saveAppCloud, clearCloud, exportCloud, flushCloud } from '../services/cloud';
@@ -54,6 +55,7 @@ const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').the
 import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
 import { IconCrown, IconPalette } from '../components/ui/icons';
+import type { GroupSummary, PublicProfile } from '../../../shared/groups';
 
 import { 
   Home, 
@@ -90,6 +92,51 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups';
+
+const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups'];
+const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
+
+function isTabKey(value: string | undefined): value is TabKey {
+  return !!value && TAB_KEYS.includes(value as TabKey);
+}
+
+function workspaceSlug(value: string): string {
+  return value.normalize('NFKC').trim().toLocaleLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function parseWorkspaceRoute(pathname: string): { tab: TabKey; workspaceSlug: string | null } {
+  let segments: string[];
+  try { segments = pathname.split('/').filter(Boolean).map(segment => decodeURIComponent(segment)); }
+  catch { segments = []; }
+  if (segments.length >= 2 && isTabKey(segments[0])) {
+    return { tab: segments[0], workspaceSlug: workspaceSlug(segments[1]) || null };
+  }
+  if (segments.length === 1 && isTabKey(segments[0])) return { tab: segments[0], workspaceSlug: null };
+  if (segments.length === 1) {
+    const slug = workspaceSlug(segments[0]);
+    if (ROOT_RESERVED_SLUGS.has(slug)) return { tab: 'dashboard', workspaceSlug: null };
+    return { tab: 'dashboard', workspaceSlug: slug || null };
+  }
+  return { tab: 'dashboard', workspaceSlug: null };
+}
+
+function workspaceRoutePath(tab: TabKey, slug: string): string {
+  return `/${tab}/${encodeURIComponent(slug)}`;
+}
+
+function personalWorkspaceSlug(profile: Pick<PublicProfile, 'displayName' | 'publicId' | 'userId'>): string {
+  return workspaceSlug(profile.displayName) || workspaceSlug(profile.publicId) || 'account';
+}
+
+function groupWorkspaceSlug(group: GroupSummary, groups: GroupSummary[], personalSlug: string): string {
+  const slug = workspaceSlug(group.name) || 'group';
+  const duplicateName = groups.filter(candidate => workspaceSlug(candidate.name) === slug).length > 1;
+  return slug === personalSlug || duplicateName
+    ? `${slug}-${group.id.replace(/-/g, '').slice(0, 8).toLowerCase()}`
+    : slug;
+}
 
 // Fetch a feature's code before navigation when the user shows intent to open it. Dynamic
 // imports are cached by the browser, so React.lazy reuses the same download on selection.
@@ -254,6 +301,24 @@ const markRecentlyDeleted = (storageKey: string, id: string) => {
 
 export default function App() {
   const { t } = useLanguage();
+  const [pathname, setPathname] = useState(() => window.location.pathname);
+  const navigatePath = (path: string, replace = false, preserveSearch = false) => {
+    const search = preserveSearch ? window.location.search : '';
+    const nextUrl = `${path}${search}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (currentUrl !== nextUrl) window.history[replace ? 'replaceState' : 'pushState']({}, '', nextUrl);
+    setPathname(path);
+  };
+  useEffect(() => {
+    const syncPath = () => setPathname(window.location.pathname);
+    window.addEventListener('popstate', syncPath);
+    window.addEventListener('cash-squirrel:navigate', syncPath);
+    return () => {
+      window.removeEventListener('popstate', syncPath);
+      window.removeEventListener('cash-squirrel:navigate', syncPath);
+    };
+  }, []);
+
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -262,6 +327,8 @@ export default function App() {
   const navigateTab = (tab: TabKey) => {
     prefetchFeature(tab);
     startTransition(() => setActiveTab(tab));
+    const workspace = parseWorkspaceRoute(window.location.pathname).workspaceSlug;
+    if (workspace) navigatePath(workspaceRoutePath(tab, workspace));
   };
 
   const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean) => {
@@ -308,6 +375,12 @@ export default function App() {
   // Authentication State
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [routeContext, setRouteContext] = useState<{
+    userId: string;
+    profile: PublicProfile;
+    groups: GroupSummary[];
+    groupsLoaded: boolean;
+  } | null>(null);
   const [financeSelection, setFinanceSelection] = useState<{account:string;groupId?:string;name?:string}>({account:''});
   const [switchingFinance, setSwitchingFinance] = useState(false);
   const financeGroupId = financeSelection.account === session?.user?.id ? financeSelection.groupId : undefined;
@@ -320,6 +393,59 @@ export default function App() {
   const financeConflictRef = useRef(false);
   const [loadedFinanceOwner,setLoadedFinanceOwner]=useState('');
   const switchingFinanceRef=useRef(false);
+
+  useEffect(() => {
+    const onProfileUpdated = (event: Event) => {
+      const profile = (event as CustomEvent<PublicProfile>).detail;
+      if (!profile || !routeContext || routeContext.userId !== profile.userId) return;
+      const next = { ...routeContext, profile };
+      setRouteContext(next);
+      const personalSlug = personalWorkspaceSlug(profile);
+      const selectedGroup = financeGroupId ? routeContext.groups.find(group => group.id === financeGroupId) : undefined;
+      const slug = selectedGroup ? groupWorkspaceSlug(selectedGroup, routeContext.groups, personalSlug) : personalSlug;
+      navigatePath(workspaceRoutePath(activeTab, slug), true, true);
+    };
+    const onGroupRenamed = (event: Event) => {
+      const detail = (event as CustomEvent<{ groupId: string; name: string }>).detail;
+      if (!detail?.groupId || !detail.name || !routeContext || routeContext.userId !== session?.user?.id) return;
+      const groups = routeContext.groups.map(group => group.id === detail.groupId ? { ...group, name: detail.name } : group);
+      setRouteContext({ ...routeContext, groups });
+      if (financeGroupId) {
+        const selectedGroup = groups.find(group => group.id === financeGroupId);
+        if (selectedGroup) {
+          const personalSlug = personalWorkspaceSlug(routeContext.profile);
+          navigatePath(workspaceRoutePath(activeTab, groupWorkspaceSlug(selectedGroup, groups, personalSlug)), true, true);
+        }
+      }
+    };
+    const onGroupsChanged = () => {
+      const userId = session?.user?.id;
+      if (!userId || session?.isGuest) return;
+      const controller = new AbortController();
+      void (async () => {
+        try {
+          const first = await groupApi.snapshot(userId, 'mine', 0, controller.signal);
+          const groups = first.groups.filter(group => !!group.myRole);
+          for (let page = 1; page < Math.min(10, Math.ceil(first.total / 20)); page++) {
+            const result = await groupApi.snapshot(userId, 'mine', page, controller.signal);
+            groups.push(...result.groups.filter(group => !!group.myRole));
+          }
+          if (controller.signal.aborted) return;
+          setRouteContext(current => current?.userId === userId ? { ...current, groups, groupsLoaded: true } : current);
+        } catch {
+          // Keep the last known group routes if refresh fails; the normal picker reports its own errors.
+        }
+      })();
+    };
+    window.addEventListener('cash-squirrel:profile-updated', onProfileUpdated);
+    window.addEventListener('cash-squirrel:group-renamed', onGroupRenamed);
+    window.addEventListener('cash-squirrel:groups-changed', onGroupsChanged);
+    return () => {
+      window.removeEventListener('cash-squirrel:profile-updated', onProfileUpdated);
+      window.removeEventListener('cash-squirrel:group-renamed', onGroupRenamed);
+      window.removeEventListener('cash-squirrel:groups-changed', onGroupsChanged);
+    };
+  }, [activeTab, financeGroupId, routeContext, session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id || (!session.isGuest && loadedFinanceOwner !== financeOwner)) return;
@@ -428,6 +554,49 @@ export default function App() {
     return () => { subscription.unsubscribe();window.removeEventListener('focus',recheck);document.removeEventListener('visibilitychange',recheck);window.clearInterval(sessionTimer); };
   }, []);
 
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || session?.isGuest) {
+      setRouteContext(null);
+      return;
+    }
+    const controller = new AbortController();
+    setRouteContext(null);
+    void (async () => {
+      const profileFallback: PublicProfile = {
+        userId,
+        publicId: String(session.user.user_metadata?.public_id || userId.slice(0, 8)),
+        displayName: String(session.user.user_metadata?.display_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'บัญชีของฉัน'),
+      };
+      const [profileResult, groupsResult] = await Promise.allSettled([
+        apiJson<PublicProfile>('/api/profile', { signal: controller.signal, headers: { 'X-Account-ID': userId } }),
+        groupApi.snapshot(userId, 'mine', 0, controller.signal),
+      ]);
+      if (controller.signal.aborted) return;
+      let groups: GroupSummary[] = [];
+      let groupsLoaded = groupsResult.status === 'fulfilled';
+      if (groupsResult.status === 'fulfilled') {
+        groups = groupsResult.value.groups.filter(group => !!group.myRole);
+        const totalPages = Math.min(10, Math.ceil(groupsResult.value.total / 20));
+        try {
+          for (let page = 1; page < totalPages; page++) {
+            const result = await groupApi.snapshot(userId, 'mine', page, controller.signal);
+            groups.push(...result.groups.filter(group => !!group.myRole));
+          }
+        } catch {
+          groupsLoaded = false;
+        }
+      }
+      setRouteContext({
+        userId,
+        profile: profileResult.status === 'fulfilled' ? profileResult.value : profileFallback,
+        groups,
+        groupsLoaded,
+      });
+    })();
+    return () => controller.abort();
+  }, [session?.user?.id, session?.isGuest]);
+
   const handleGuestLogin = (guestEmail: string) => {
     const guestSessionObj = {
       user: {
@@ -450,6 +619,7 @@ export default function App() {
     for (const storage of [localStorage, sessionStorage]) for (const key of Object.keys(storage)) if (key.startsWith('cashflow_') && (key.includes(ownerEmail || 'never-match') || key.includes(session?.user?.id || 'never-match'))) storage.removeItem(key);
     localStorage.removeItem('cashflow_guest_session');
     setSession(null);
+    navigatePath('/login', true);
   };
 
   // Private report links resume after login with a real account.
@@ -683,7 +853,7 @@ export default function App() {
         loadSubscriptionData(session.user.id);
         triggerAlert('สมัครสมาชิกสำเร็จ!', 'ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
       }
-      window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+      window.history.replaceState({}, '', window.location.pathname);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id, financeOwner]);
@@ -737,7 +907,7 @@ export default function App() {
     }
   };
 
-  const switchFinance = async (groupId?:string,name?:string) => {
+  const switchFinance = async (groupId?:string,name?:string,updateUrl = true) => {
     if(switchingFinanceRef.current || groupId===financeGroupId || !session?.user?.id)return;
     switchingFinanceRef.current=true;
     setSwitchingFinance(true);
@@ -754,6 +924,20 @@ export default function App() {
       const next=financeKey(session.user.id,groupId);
       financeOwnerRef.current=next;setFinanceWorkspace(next);
       setFinanceSelection({account:session.user.id,groupId,name});
+      if (updateUrl && routeContext?.userId === session.user.id) {
+        const personalSlug = personalWorkspaceSlug(routeContext.profile);
+        let selectedGroup = groupId ? routeContext.groups.find(group => group.id === groupId) : undefined;
+        let routeGroups = routeContext.groups;
+        if (groupId && !selectedGroup && name) {
+          selectedGroup = { id: groupId, name, description: '', createdAt: '', myRole: 'member', memberCount: 1, leaderCount: 0 };
+          routeGroups = [...routeContext.groups, selectedGroup];
+          setRouteContext({ ...routeContext, groups: routeGroups });
+        }
+        const nextSlug = selectedGroup
+          ? groupWorkspaceSlug(selectedGroup, routeGroups, personalSlug)
+          : personalSlug;
+        navigatePath(workspaceRoutePath(activeTab, nextSlug));
+      }
       setIsLoadedForUser(null);setCloudSyncStatus('pending');
       setLoadedFinanceOwner('');financeConflictRef.current=false;
       setJobs([]);setExpenses([]);setGoals([]);
@@ -763,6 +947,62 @@ export default function App() {
     } catch(error:any) {triggerAlert('เปลี่ยนบัญชีการเงินไม่สำเร็จ',error.message);}
     finally {switchingFinanceRef.current=false;setSwitchingFinance(false);}
   };
+
+  useEffect(() => {
+    if (!loadingSession && !session && pathname === '/app') navigatePath('/login', true, true);
+  }, [loadingSession, session, pathname]);
+
+  // The root segment names the active personal or group workspace. Resolving it here makes
+  // pasted links and browser back/forward restore the same finance workspace after a refresh.
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    if (session.isGuest) {
+      const requestedRoute = parseWorkspaceRoute(pathname);
+      if (activeTab !== requestedRoute.tab) setActiveTab(requestedRoute.tab);
+      const demoPath = workspaceRoutePath(requestedRoute.tab, 'demo');
+      if (pathname !== demoPath) navigatePath(demoPath, true, true);
+      return;
+    }
+    if (!routeContext || routeContext.userId !== session.user.id) return;
+
+    const personalSlug = personalWorkspaceSlug(routeContext.profile);
+    const requestedRoute = parseWorkspaceRoute(pathname);
+    const isWorkspaceRoot = pathname === '/' || pathname === '/app' || pathname === '/login';
+    const requestedTab = isWorkspaceRoot ? activeTab : requestedRoute.tab;
+    const requestedSlug = requestedRoute.workspaceSlug;
+    if (activeTab !== requestedTab) setActiveTab(requestedTab);
+    const defaultRoute = isWorkspaceRoot || !requestedSlug;
+
+    if (defaultRoute || requestedSlug === personalSlug) {
+      if (financeGroupId) void switchFinance(undefined, undefined, false);
+      const personalPath = workspaceRoutePath(requestedTab, personalSlug);
+      if (pathname !== personalPath) navigatePath(personalPath, true, true);
+      return;
+    }
+
+    const group = routeContext.groups.find(candidate => groupWorkspaceSlug(candidate, routeContext.groups, personalSlug) === requestedSlug);
+    if (group) {
+      if (financeGroupId !== group.id) void switchFinance(group.id, group.name, false);
+      const groupPath = workspaceRoutePath(requestedTab, groupWorkspaceSlug(group, routeContext.groups, personalSlug));
+      if (pathname !== groupPath) navigatePath(groupPath, true, true);
+      return;
+    }
+
+    const selectedGroup = financeGroupId ? routeContext.groups.find(candidate => candidate.id === financeGroupId) : undefined;
+    if (selectedGroup) {
+      const selectedPath = workspaceRoutePath(requestedTab, groupWorkspaceSlug(selectedGroup, routeContext.groups, personalSlug));
+      if (pathname !== selectedPath) navigatePath(selectedPath, true, true);
+      return;
+    }
+
+    // If membership lookup failed, keep an unrecognized deep link intact so a transient API
+    // error does not silently change the URL. Once the group list is available, typos fall back
+    // to the user's own workspace.
+    if (routeContext.groupsLoaded) {
+      if (financeGroupId) void switchFinance(undefined, undefined, false);
+      navigatePath(workspaceRoutePath(requestedTab, personalSlug), true, true);
+    }
+  }, [pathname, session?.user?.id, session?.isGuest, routeContext, financeGroupId, activeTab]);
 
   // Load user data whenever session changes
   useEffect(() => {
@@ -1861,7 +2101,7 @@ export default function App() {
 
   return (
     <div className="app-shell h-screen bg-brand-bg flex lg:flex-row flex-col overflow-hidden">
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-100 focus:rounded-xl focus:bg-white focus:p-3 focus:text-stone-900">ข้ามไปเนื้อหา</a>
+      <button type="button" onClick={() => { const main = document.getElementById('main-content'); main?.focus(); main?.scrollIntoView({ behavior: 'smooth' }); }} className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-100 focus:rounded-xl focus:bg-white focus:p-3 focus:text-stone-900">ข้ามไปเนื้อหา</button>
 
       {/* 💻 iPad / MacBook / PC Desktop Sidebar (Hidden on mobile devices) -- own scroll region so
           it stays put while the main content (e.g. a 100-job list) scrolls independently */}
@@ -2153,7 +2393,7 @@ export default function App() {
         </div>
 
         {/* Scrollable Container with responsive max widths */}
-        <div id="main-content" role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
+        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
           <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (

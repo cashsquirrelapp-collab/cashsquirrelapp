@@ -204,7 +204,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(() => new URLSearchParams(window.location.search).get('emailConfirmed') === '1' ? t('login.success.emailConfirmed') : null);
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
-  const [showWelcome, setShowWelcome] = useState(() => new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && window.location.hash !== '#login');
+  const [showWelcome, setShowWelcome] = useState(() => window.location.pathname === '/' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && new URLSearchParams(window.location.search).get('recover') !== '1' && window.location.hash !== '#login');
   const [authEntry, setAuthEntry] = useState(0);
 
   React.useEffect(() => {
@@ -242,27 +242,31 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const loginLockedForThisEmail = !isSignUp && !isForgotPassword && !isAccountRecovery && !!loginLock && loginLock.email === normalizedEmail && loginLockSeconds > 0;
 
   React.useEffect(() => {
-    if(new URLSearchParams(window.location.search).get('emailConfirmed')==='1'){
-      window.history.replaceState(null,'',`${window.location.pathname}#login`);
+    const params = new URLSearchParams(window.location.search);
+    const emailConfirmed = params.get('emailConfirmed') === '1';
+    if (emailConfirmed) params.delete('emailConfirmed');
+    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || params.get('recover') === '1';
+    const nextPath = shouldUseLoginPath ? '/login' : window.location.pathname;
+    const nextUrl = `${nextPath}${params.size ? `?${params}` : ''}`;
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextUrl) {
+      window.history.replaceState(null, '', nextUrl);
+      window.dispatchEvent(new Event('cash-squirrel:navigate'));
     }
-    const syncWelcomeWithHistory = () => setShowWelcome(window.location.hash !== '#login');
+    const syncWelcomeWithHistory = () => setShowWelcome(window.location.pathname === '/' && new URLSearchParams(window.location.search).get('recover') !== '1' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && window.location.hash !== '#login');
     window.addEventListener('popstate', syncWelcomeWithHistory);
     return () => window.removeEventListener('popstate', syncWelcomeWithHistory);
   }, []);
 
   const openLogin = () => {
-    window.history.pushState({ cashSquirrelView: 'login' }, '', `${window.location.pathname}${window.location.search}#login`);
+    window.history.pushState({ cashSquirrelView: 'login' }, '', `/login${window.location.search}`);
+    window.dispatchEvent(new Event('cash-squirrel:navigate'));
     setAuthEntry(current => current + 1);
     setShowWelcome(false);
   };
 
   const returnToWelcome = () => {
-    if (window.location.hash === '#login' && window.history.state?.cashSquirrelView === 'login') {
-      setShowWelcome(true);
-      window.history.back();
-      return;
-    }
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    window.history.replaceState(null, '', '/');
+    window.dispatchEvent(new Event('cash-squirrel:navigate'));
     setShowWelcome(true);
   };
 

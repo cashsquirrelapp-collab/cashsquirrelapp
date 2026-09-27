@@ -154,6 +154,10 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
     try {
       const result = await groupApi.mutate(userId, action);
       if (!active()) return;
+      window.dispatchEvent(new Event('cash-squirrel:groups-changed'));
+      if (action.action === 'rename') {
+        window.dispatchEvent(new CustomEvent('cash-squirrel:group-renamed', { detail: { groupId: result.groupId, name: action.name } }));
+      }
       setNotice(copy('บันทึกเรียบร้อยแล้ว', 'Changes saved'));
       setCreating(false);
       setEditing(false);

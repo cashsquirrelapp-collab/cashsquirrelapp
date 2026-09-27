@@ -33,6 +33,18 @@
     {
       "source": "/app",
       "destination": "/index.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:page/:workspace",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:slug",
+      "destination": "/index.html"
     }
   ],
   "headers": [

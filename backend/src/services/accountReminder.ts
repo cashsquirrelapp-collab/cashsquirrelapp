@@ -16,7 +16,7 @@ export async function sendAccountPauseReminder(email: string, deleteAfter: Date,
   const deadline = new Intl.DateTimeFormat('th-TH', {
     timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(deleteAfter);
-  const url = `${appOrigin()}/app#login`;
+  const url = `${appOrigin()}/login`;
   return sendGmailEmail(email, `อีก ${daysLeft} วัน บัญชีจะถูกลบถาวร | Krarok Tunngern`, `
     <!doctype html>
     <html lang="th"><body style="margin:0;padding:30px 12px;background:#f8f1e7;font-family:Arial,'Noto Sans Thai',sans-serif;color:#382519">

@@ -218,7 +218,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const saveProfile=async()=>{
     if(!session?.user?.id || displayName.trim().length<2)return;
     setProfileBusy(true);
-    try { const value=await apiJson<PublicProfile>('/api/profile',{method:'POST',headers:{'X-Account-ID':session.user.id},body:JSON.stringify({displayName:displayName.trim()})});setProfile(value);setDisplayName(value.displayName);triggerAlert('บันทึกชื่อแล้ว','ชื่อใหม่จะแสดงในกลุ่มและผลการค้นหา'); }
+    try { const value=await apiJson<PublicProfile>('/api/profile',{method:'POST',headers:{'X-Account-ID':session.user.id},body:JSON.stringify({displayName:displayName.trim()})});setProfile(value);setDisplayName(value.displayName);window.dispatchEvent(new CustomEvent('cash-squirrel:profile-updated',{detail:value}));triggerAlert('บันทึกชื่อแล้ว','ชื่อใหม่จะแสดงในกลุ่มและผลการค้นหา'); }
     catch(error){triggerAlert('บันทึกชื่อไม่สำเร็จ',(error as Error).message);} finally{setProfileBusy(false);}
   };
 

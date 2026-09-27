@@ -16,7 +16,7 @@ export default withGuard(async (req, res) => {
     if (!(error instanceof HttpError) || error.status !== 401) throw error;
     const params = new URLSearchParams({ report: month });
     if (typeof req.query.account === 'string') params.set('account', req.query.account);
-    res.status(302); res.setHeader('Location', `${appOrigin()}/app?${params}`); res.end(); return;
+    res.status(302); res.setHeader('Location', `${appOrigin()}/?${params}`); res.end(); return;
   }
   if (req.query.account !== undefined && req.query.account !== user.id) throw new HttpError(403, 'รายงานนี้เป็นของบัญชีอื่น กรุณาเข้าสู่ระบบด้วยบัญชีเจ้าของรายงาน');
   await rateLimit('report-download', user.id, 10, 60);
