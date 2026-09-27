@@ -431,7 +431,15 @@ export default function App() {
             groups.push(...result.groups.filter(group => !!group.myRole));
           }
           if (controller.signal.aborted) return;
-          setRouteContext(current => current?.userId === userId ? { ...current, groups, groupsLoaded: true } : current);
+          setRouteContext(current => {
+            if (!current || current.userId !== userId) return current;
+            return {
+              userId: current.userId,
+              profile: current.profile,
+              groups,
+              groupsLoaded: true,
+            };
+          });
         } catch {
           // Keep the last known group routes if refresh fails; the normal picker reports its own errors.
         }
@@ -924,14 +932,15 @@ export default function App() {
       const next=financeKey(session.user.id,groupId);
       financeOwnerRef.current=next;setFinanceWorkspace(next);
       setFinanceSelection({account:session.user.id,groupId,name});
-      if (updateUrl && routeContext?.userId === session.user.id) {
-        const personalSlug = personalWorkspaceSlug(routeContext.profile);
-        let selectedGroup = groupId ? routeContext.groups.find(group => group.id === groupId) : undefined;
-        let routeGroups = routeContext.groups;
+      const currentRouteContext = routeContext;
+      if (updateUrl && currentRouteContext && currentRouteContext.userId === session.user.id) {
+        const personalSlug = personalWorkspaceSlug(currentRouteContext.profile);
+        let selectedGroup = groupId ? currentRouteContext.groups.find(group => group.id === groupId) : undefined;
+        let routeGroups = currentRouteContext.groups;
         if (groupId && !selectedGroup && name) {
           selectedGroup = { id: groupId, name, description: '', createdAt: '', myRole: 'member', memberCount: 1, leaderCount: 0 };
-          routeGroups = [...routeContext.groups, selectedGroup];
-          setRouteContext({ ...routeContext, groups: routeGroups });
+          routeGroups = [...currentRouteContext.groups, selectedGroup];
+          setRouteContext({ ...currentRouteContext, groups: routeGroups });
         }
         const nextSlug = selectedGroup
           ? groupWorkspaceSlug(selectedGroup, routeGroups, personalSlug)
