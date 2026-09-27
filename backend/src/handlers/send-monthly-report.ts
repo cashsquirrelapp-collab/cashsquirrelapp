@@ -94,7 +94,7 @@ function buildReportLineText(monthLabel: string, s: MonthlySummary, downloadUrl:
     '',
     downloadUrl
       ? `ดาวน์โหลดไฟล์ Excel ฉบับเต็ม: ${downloadUrl}`
-      : 'ไฟล์ Excel ฉบับเต็มส่งไปในอีเมลแล้ว เปิดแอปกระรอกตุนเงินเพื่อดูรายละเอียดเพิ่มเติม',
+      : 'ไฟล์ Excel ฉบับเต็มส่งไปในอีเมลแล้ว',
   ].join('\n');
 }
 

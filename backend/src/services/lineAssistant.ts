@@ -545,23 +545,12 @@ function buildSectionLabel(text: string, color: string) {
   return { type: 'text', text, size: 'xs', weight: 'bold', color, margin: 'lg' };
 }
 
-// Shared cream "bank statement" bubble shell every Quick Reply report below is built on --
-// same visual language as buildJobSavedMessage (statement rows, separators, open-app footer),
-// so every report reads as one consistent card style instead of a mix of card and plain text.
-function buildReceiptCard(bodyContents: any[], altText: string, buttonColor: string = '#E65F2B', showButton: boolean = true): LineMessage {
-  const contents: any = {
+// Shared cream "bank statement" bubble shell every Quick Reply report below is built on.
+function buildReceiptCard(bodyContents: any[], altText: string): LineMessage {
+  const contents = {
     type: 'bubble',
     body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', borderWidth: '1px', borderColor: '#D8CBB8', paddingAll: '20px', spacing: 'sm', contents: bodyContents },
   };
-  const appUrl = process.env.APP_URL;
-  if (appUrl && showButton) {
-    contents.footer = {
-      type: 'box',
-      layout: 'vertical',
-      paddingAll: '12px',
-      contents: [{ type: 'button', style: 'primary', color: buttonColor, action: { type: 'uri', label: 'เปิดแอป', uri: appUrl.replace(/\/$/, '') } }],
-    };
-  }
   return { type: 'flex', altText, contents };
 }
 
@@ -911,7 +900,7 @@ export interface JobCardData {
 // Squirrel-branded Flex "receipt" card shown right after a job is saved -- styled like a bank
 // transfer notification (big amount up top, clean label/value rows below) since that's the
 // clearest, most familiar shape for this kind of confirmation. Falls back to a plain-text
-// summary when APP_URL isn't configured (no working deep link yet). monthNet, when given, adds
+// summary. monthNet, when given, adds
 // a running "คงเหลือเดือนนี้" line -- receivedAfterVariableExpense from computeMonthlySummary
 // (received minus already-logged variable expenses, not netFlow), matching the Dashboard's
 // "คงเหลือหลังหักรายจ่าย" figure. Computed by the caller so this stays a pure display function.
@@ -921,7 +910,6 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
   const isPartial = job.status === 'partial' || job.status === 'installment';
   const isPaidSome = isDone || isPartial;
   const statusLabel = isWip ? 'สต็อก (ยังไม่ส่งงาน)' : isDone ? 'จ่ายครบแล้ว' : isPartial ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
-  const appUrl = process.env.APP_URL;
   // Four distinct moments, four distinct badges: WIP (indigo), posted with nothing received yet
   // (teal "ดีลงาน"), a deposit landed but the job isn't fully paid (amber "ได้รับมัดจำ" -- kept
   // separate from full payment per direct feedback: a deposit shouldn't read as "รับเงินแล้ว" the
@@ -934,21 +922,6 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
   // that's just the deposit, so show job.received (falling back to value if a caller doesn't send
   // it) instead of implying the whole contract amount arrived.
   const displayAmount = isPaidSome ? (job.received ?? job.value) : job.value;
-
-  if (!appUrl) {
-    const lines = [
-      isWip ? '📦 บันทึกงานเข้าสต็อกแล้วครับ!' : 'บันทึกงานสำเร็จแล้วครับ! ✅',
-      '',
-      `ชื่องาน: ${job.name}`,
-      ...(job.client ? [`ลูกค้า: ${job.client}`] : []),
-      `มูลค่า: ${formatCurrency(job.value)}`,
-      ...(job.whtRate ? [`หัก ณ ที่จ่าย ${job.whtRate}%: -${formatCurrency(job.whtAmount || 0)}`] : []),
-      `สถานะ: ${statusLabel}`,
-      ...(!isWip && (job.pending || 0) > 0 ? [`ยอดค้างรับ: ${formatCurrency(job.pending || 0)}`] : []),
-      ...(!isWip && monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(Math.max(0, monthNet))}`] : []),
-    ];
-    return { type: 'text', text: lines.join('\n') };
-  }
 
   const contents = {
     type: 'bubble',
@@ -976,19 +949,6 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
         buildStatementRow('สถานะ', statusLabel, { bold: false }),
         ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
         ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
-      ],
-    },
-    footer: {
-      type: 'box',
-      layout: 'vertical',
-      paddingAll: '12px',
-      contents: [
-        {
-          type: 'button',
-          style: 'primary',
-          color: headerColor,
-          action: { type: 'uri', label: 'เปิดแอป', uri: `${appUrl.replace(/\/$/, '')}/?job=${encodeURIComponent(job.id)}` },
-        },
       ],
     },
   };
@@ -1040,23 +1000,8 @@ export function computeMonthNetForUser(user: UserRow, extraJob?: JobRow, extraEx
 // Same squirrel-branded Flex "receipt" style as the job-saved card, but in the app's rust/clay
 // accent (--pink-acc in src/index.css) instead of acorn orange, so income vs expense reads apart
 // at a glance. No specific-record deep link yet (only jobs support ?job=<id> in App.tsx), so the
-// button just opens the app.
+// card confirms the saved expense without adding a navigation button.
 export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): LineMessage {
-  const appUrl = process.env.APP_URL;
-
-  if (!appUrl) {
-    const lines = [
-      'บันทึกรายจ่ายสำเร็จแล้วครับ! 🧾',
-      '',
-      `รายการ: ${expense.name}`,
-      `หมวด: ${expense.category}`,
-      `จำนวน: ${formatCurrency(expense.amount)}`,
-      `วันที่: ${expense.date}`,
-      ...(monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(Math.max(0, monthNet))}`] : []),
-    ];
-    return { type: 'text', text: lines.join('\n') };
-  }
-
   const contents = {
     type: 'bubble',
     body: {
@@ -1074,19 +1019,6 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
         buildStatementRow('รายการ', expense.name, { bold: false }),
         buildStatementRow('หมวด', expense.category, { bold: false }),
         ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
-      ],
-    },
-    footer: {
-      type: 'box',
-      layout: 'vertical',
-      paddingAll: '12px',
-      contents: [
-        {
-          type: 'button',
-          style: 'primary',
-          color: '#A63F1B',
-          action: { type: 'uri', label: 'เปิดแอป', uri: `${appUrl.replace(/\/$/, '')}/?expense=${encodeURIComponent(expense.id)}` },
-        },
       ],
     },
   };
@@ -1109,7 +1041,7 @@ export function buildJobDeletedMessage(job: { name: string; client?: string; val
   ];
   // No "เปิดแอป" button here -- the job is gone, there's nothing left in the app for this card
   // to open to.
-  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`, '#78716C', false);
+  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`);
 }
 
 // Sent when a job is edited through JobsTab's edit form without that edit also being a full
@@ -1131,7 +1063,7 @@ export function buildJobEditedMessage(job: JobCardData, monthNet?: number): Line
     ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ยอดค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
     ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
   ];
-  return buildReceiptCard(bodyContents, `แก้ไขงาน "${job.name}" แล้วครับ`, '#2563EB');
+  return buildReceiptCard(bodyContents, `แก้ไขงาน "${job.name}" แล้วครับ`);
 }
 
 // Same idea as buildJobDeletedMessage, for a deleted variable expense.
@@ -1144,7 +1076,7 @@ export function buildExpenseDeletedMessage(expense: { name: string; category?: s
     ...(expense.category ? [buildStatementRow('หมวด', expense.category, { bold: false })] : []),
     ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
   ];
-  return buildReceiptCard(bodyContents, `ลบรายจ่าย "${expense.name}" แล้วครับ`, '#78716C');
+  return buildReceiptCard(bodyContents, `ลบรายจ่าย "${expense.name}" แล้วครับ`);
 }
 
 export function buildGoalCreatedMessage(goal: { name: string; target: number; deadline?: string }): LineMessage {
@@ -1157,7 +1089,7 @@ export function buildGoalCreatedMessage(goal: { name: string; target: number; de
     buildStatementRow('ยอดเป้าหมาย', formatCurrency(goal.target), { bold: false }),
     ...(goal.deadline ? [buildStatementRow('กำหนดเสร็จ', goal.deadline, { bold: false })] : []),
   ];
-  return buildReceiptCard(bodyContents, `สร้างเป้าหมายใหม่ "${goal.name}" แล้วครับ`, '#7C3AED');
+  return buildReceiptCard(bodyContents, `สร้างเป้าหมายใหม่ "${goal.name}" แล้วครับ`);
 }
 
 // Covers both deposit (ฝากเงินเพิ่ม) and withdraw (ดึงเงินออก) -- same card shape, colored and
@@ -1178,7 +1110,7 @@ export function buildGoalTransactionMessage(
     ...(tx.reason ? [buildStatementRow('เหตุผล', tx.reason, { bold: false })] : []),
     buildStatementRow('ยอดสะสมล่าสุด', `${formatCurrency(goal.current)} / ${formatCurrency(goal.target)}`, { bold: false }),
   ];
-  return buildReceiptCard(bodyContents, `${headerLabel} "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`, headerColor);
+  return buildReceiptCard(bodyContents, `${headerLabel} "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`);
 }
 
 // Sent when a goal deposit/withdraw history entry is deleted (the trash icon on each row in the
@@ -1198,7 +1130,7 @@ export function buildGoalTransactionDeletedMessage(
     ...(tx.reason ? [buildStatementRow('เหตุผลเดิม', tx.reason, { bold: false })] : []),
     buildStatementRow('ยอดสะสมล่าสุด', `${formatCurrency(goal.current)} / ${formatCurrency(goal.target)}`, { bold: false }),
   ];
-  return buildReceiptCard(bodyContents, `ลบรายการ "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`, '#78716C');
+  return buildReceiptCard(bodyContents, `ลบรายการ "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`);
 }
 
 function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {

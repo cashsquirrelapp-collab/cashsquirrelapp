@@ -225,16 +225,6 @@ function buildDigestFlexMessage(jobs: JobWithDiff[]): LineMessage {
     body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', paddingAll: '20px', spacing: 'xs', contents: bodyContents },
   };
 
-  const appUrl = process.env.APP_URL;
-  if (appUrl) {
-    contents.footer = {
-      type: 'box',
-      layout: 'vertical',
-      paddingAll: '12px',
-      contents: [{ type: 'button', style: 'primary', color: '#E65F2B', action: { type: 'uri', label: 'เปิดแอป', uri: appUrl.replace(/\/$/, '') } }],
-    };
-  }
-
   const altText = overdue.length > 0
     ? `แจ้งเตือนดีลค้างชำระเลยกำหนด ${overdue.length} รายการ`
     : `สรุปดีลใกล้ครบกำหนดชำระ ${jobs.length} รายการ`;
