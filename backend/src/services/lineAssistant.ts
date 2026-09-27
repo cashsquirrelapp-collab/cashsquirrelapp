@@ -600,12 +600,12 @@ function buildThisMonthSummaryMessage(snapshot: DataSnapshot): LineMessage {
     buildStatementRow('ย้ายเข้ากระปุก', `-${formatCurrency(s.cashGoalDeductions)}`, { bold: false, color: '#B45309' }),
     buildStatementRow('รวมออกจริง', `-${formatCurrency(actualCashOut)}`, { color: '#A63F1B' }),
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildStatementRow('คงเหลือหลังรายการจริง', formatCurrency(s.receivedAfterVariableExpense), { size: 'lg', color: '#0E9F6E' }),
+    buildStatementRow('เหลือจริง', formatCurrency(s.receivedAfterVariableExpense), { size: 'lg', color: '#0E9F6E' }),
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildSectionLabel('งบที่กันไว้ (ยังไม่ใช่เงินออก)', '#7A5C43'),
-    buildStatementRow('งบประจำต่อเดือน', formatCurrency(s.fixedExpenseCalculated), { bold: false, color: '#7A5C43' }),
-    buildStatementRow('เหลือหลังเผื่องบประจำ', formatCurrency(Math.max(0, s.netFlow)), { color: '#3D2314' }),
-    { type: 'text', text: 'งบประจำเป็นวงเงินที่ตั้งไว้ ระบบยังไม่ถือว่าจ่ายจริงจนกว่าจะบันทึกรายการ', size: 'xxs', color: '#A88A6E', wrap: true, margin: 'sm' },
+    buildSectionLabel('งบสำรอง', '#7A5C43'),
+    buildStatementRow('งบประจำ', formatCurrency(s.fixedExpenseCalculated), { bold: false, color: '#7A5C43' }),
+    buildStatementRow('เหลือหลังกันงบ', formatCurrency(Math.max(0, s.netFlow)), { color: '#3D2314' }),
+    { type: 'text', text: 'งบประจำยังไม่ใช่เงินจ่ายจริง', size: 'xxs', color: '#A88A6E', wrap: true, margin: 'sm' },
   ];
   return buildReceiptCard(bodyContents, `สรุปเดือนนี้ (${monthLabel}) • รับจริง ${formatCurrency(s.received)} • ออกจริง ${formatCurrency(actualCashOut)} • คงเหลือ ${formatCurrency(s.receivedAfterVariableExpense)}`);
 }
