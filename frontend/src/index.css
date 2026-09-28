@@ -1,13 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-display: 'Outfit', 'Inter', sans-serif;
+  /* Thai glyphs need a font that actually ships them -- Inter/Outfit fell back to whatever
+     Thai font the OS happened to have, so headings and body text rendered in two unrelated
+     typefaces side by side. IBM Plex Sans Thai + IBM Plex Sans share weights/metrics, so
+     Thai and Latin/numerals (บาท amounts) sit consistently in the same paragraph. */
+  --font-sans: 'IBM Plex Sans Thai', 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'IBM Plex Sans Thai', 'IBM Plex Sans', sans-serif;
   /* Neutral sans figures match modern accounting UIs without a dotted zero. */
-  --font-mono: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
 
   --color-brand-bg: var(--bg);
   --color-brand-white: var(--white);
@@ -57,12 +61,16 @@
 }
 
 :root {
-  --bg: #FBF2E4; /* Cinnamon cream background */
+  /* Reskin toward the clean white-canvas look of modern SaaS dashboards (Paypers, ป้านวล):
+     near-white page bg instead of a saturated cinnamon tint, neutral warm-gray text/border
+     instead of cocoa/hazelnut/clay, so the orange CI accent reads as the one accent color
+     instead of competing with a tinted background everywhere. */
+  --bg: #FAFAF9; /* Near-white page canvas */
   --white: #FFFFFF;
-  --text: #3D2314; /* Deep rich acorn/cocoa brown */
-  --muted: #7A5C43; /* Soft warm hazelnut slate */
-  --faint: #F5EFE6; /* Cozy almond background / warm cream */
-  --border: #E8DFD3; /* Soft clay border contrast */
+  --text: #1C1917; /* Neutral near-black, warm undertone kept subtle */
+  --muted: #6B6660; /* Neutral warm-gray for supporting text */
+  --faint: #F3F2F0; /* Very light neutral for subtle fills */
+  --border: #E5E3DF; /* Soft neutral hairline border */
   
   --green-bg: #F5EFE6; /* Warm cream */
   --green-acc: #7A4419; /* Chestnut brown for main/success/buttons */
