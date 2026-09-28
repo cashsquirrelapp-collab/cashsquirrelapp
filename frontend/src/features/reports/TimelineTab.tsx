@@ -9,7 +9,8 @@ import {
   AlertTriangle,
   ArrowUpRight,
   ArrowDownRight,
-  ChevronRight
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconCoin, IconWarning, IconCheck } from '../../components/ui/icons';
@@ -25,9 +26,10 @@ interface TimelineTabProps {
   // clicking a Timeline row itself only opens that read-only view, never the edit form directly.
   onEditJob?: (jobId: string) => void;
   onDeleteJob: (jobId: string) => void;
+  onBack: () => void;
 }
 
-export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDeleteJob }: TimelineTabProps) {
+export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDeleteJob, onBack }: TimelineTabProps) {
   const { t } = useLanguage();
   const forecastMonths = getForecastMonths();
   const [viewJobId, setViewJobId] = useState<string | null>(null);
@@ -138,7 +140,7 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
   return (
     <div className="page-content space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex flex-col gap-4 px-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase inline-flex items-center gap-1">
             {t('timeline.subtitle')}
@@ -147,6 +149,14 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
             {t('timeline.title')}
           </h2>
         </div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex w-fit items-center gap-2 rounded-xl border border-brand-border bg-brand-white px-4 py-2.5 text-xs font-black text-brand-text shadow-sm transition hover:bg-brand-faint"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          กลับหน้าภาพรวม
+        </button>
       </div>
 
       {/* Intro info box */}

@@ -2595,6 +2595,7 @@ export default function App() {
                     navigateTab('jobs');
                   }}
                   onDeleteJob={handleDeleteJob}
+                  onBack={() => navigateTab('dashboard')}
                 />
               )}
 
