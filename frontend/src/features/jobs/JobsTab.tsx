@@ -102,7 +102,7 @@ export default function JobsTab({
   }, [scrollToJobId, onScrollToJobHandled]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [subTab, setSubTab] = useState<'all' | 'wip' | 'posted'>('all');
+  const [subTab, setSubTab] = useState<'all' | 'working' | 'waiting_payment' | 'closed'>('all');
   const [showFilters, setShowFilters] = useState(false);
   
   // Local form states for adding a job
@@ -124,12 +124,12 @@ export default function JobsTab({
   const [formInstallments, setFormInstallments] = useState<JobInstallment[]>([]);
 
   // 🌰 Wizard/Step form state
-  const [formStep, setFormStep] = useState(1);
+  const [formStep, setFormStep] = useState(3);
   const [canSubmit, setCanSubmit] = useState(false);
 
   React.useEffect(() => {
     if (isAddJobOpen) {
-      setFormStep(1);
+      setFormStep(3);
       setCanSubmit(false);
     }
   }, [isAddJobOpen]);
@@ -431,6 +431,12 @@ export default function JobsTab({
       return;
     }
 
+    const enteredValue = parseFloat(formValue);
+    if (!formValue.trim() || isNaN(enteredValue) || enteredValue < 0) {
+      triggerAlert(t('jobs.alertValueRequiredTitle'), t('jobs.alertValueRequiredMsg'));
+      return;
+    }
+
     // formPostDate starts blank on purpose (see its useState comment) -- for a posted job it
     // feeds payDate/monthly reporting directly, so it can't be left empty like formStartDate can.
     if (formIsPosted && !formPostDate) {
@@ -569,8 +575,9 @@ export default function JobsTab({
 
   // Counts for each sub-tab
   const totalCount = jobs.length;
-  const wipCount = jobs.filter(j => j.isPosted === false).length;
-  const postedCount = jobs.filter(j => j.isPosted !== false).length;
+  const workingCount = jobs.filter(j => j.isPosted === false).length;
+  const waitingPaymentCount = jobs.filter(j => j.isPosted !== false && j.pending > 0).length;
+  const closedCount = jobs.filter(j => j.isPosted !== false && j.pending <= 0).length;
 
   // Filter & Search Jobs logic
   const filteredJobs = jobs.filter(j => {
@@ -578,9 +585,10 @@ export default function JobsTab({
                           j.client.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || j.status === statusFilter;
     const matchesType = typeFilter === 'all' || j.type === typeFilter;
-    const matchesSubTab = subTab === 'all' || 
-                          (subTab === 'wip' && j.isPosted === false) || 
-                          (subTab === 'posted' && j.isPosted !== false);
+    const matchesSubTab = subTab === 'all' ||
+                          (subTab === 'working' && j.isPosted === false) ||
+                          (subTab === 'waiting_payment' && j.isPosted !== false && j.pending > 0) ||
+                          (subTab === 'closed' && j.isPosted !== false && j.pending <= 0);
     return matchesSearch && matchesStatus && matchesType && matchesSubTab;
   });
 
@@ -607,7 +615,7 @@ export default function JobsTab({
               setFormIsPosted(false);
               setFormNote('');
               setFormWhtRate(0);
-              setFormStep(1);
+              setFormStep(3);
               onOpenAddJob();
             }}
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
@@ -676,7 +684,7 @@ export default function JobsTab({
 
 
       {/* Sub-tab Navigation Selector */}
-      <div className="flex flex-col sm:flex-row bg-brand-white border border-brand-border rounded-2xl p-1.5 gap-1.5 shadow-2xs">
+      <div className="grid grid-cols-2 bg-brand-white border border-brand-border rounded-2xl p-1.5 gap-1.5 shadow-2xs lg:grid-cols-4">
         <button
           onClick={() => setSubTab('all')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
@@ -688,24 +696,34 @@ export default function JobsTab({
           {t('jobs.tabAll', { count: totalCount })}
         </button>
         <button
-          onClick={() => setSubTab('wip')}
+          onClick={() => setSubTab('working')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
-            subTab === 'wip'
+            subTab === 'working'
               ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
               : 'text-brand-muted hover:text-brand-text'
           }`}
         >
-          {t('jobs.tabWip', { count: wipCount })}
+          งานที่ต้องทำ ({workingCount})
         </button>
         <button
-          onClick={() => setSubTab('posted')}
+          onClick={() => setSubTab('waiting_payment')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
-            subTab === 'posted'
+            subTab === 'waiting_payment'
               ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
               : 'text-brand-muted hover:text-brand-text'
           }`}
         >
-          {t('jobs.tabPosted', { count: postedCount })}
+          งานเสร็จรอเงิน ({waitingPaymentCount})
+        </button>
+        <button
+          onClick={() => setSubTab('closed')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
+            subTab === 'closed'
+              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
+              : 'text-brand-muted hover:text-brand-text'
+          }`}
+        >
+          ปิดงานแล้ว ({closedCount})
         </button>
       </div>
 
@@ -768,11 +786,9 @@ export default function JobsTab({
 
                 {/* Status badges — the one row that says what state this job is in */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {j.isPosted === false && (
-                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-brand-faint text-brand-muted">
-                      {t('jobs.badgeWip')}
-                    </span>
-                  )}
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold ${j.isPosted === false ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}`}>
+                    งาน: {j.isPosted === false ? 'กำลังทำ' : 'เสร็จแล้ว'}
+                  </span>
                   {(() => {
                     const statusInfo = getStatusDisplay(j.status);
                     const isDone = statusInfo.behavior === 'done';
@@ -785,7 +801,7 @@ export default function JobsTab({
                           ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
                           : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
                       }`}>
-                        {statusInfo.label}
+                        เงิน: {statusInfo.label}
                       </span>
                     );
                   })()}
@@ -1104,9 +1120,7 @@ export default function JobsTab({
 
               <div className="flex justify-between items-center shrink-0">
                 <div>
-                  <span className="text-[9px] font-black tracking-wider text-[#E65F2B] dark:text-[#FFA473] uppercase">
-                    {t('jobs.stepOf', { step: formStep })}
-                  </span>
+                  <span className="text-[9px] font-black tracking-wider text-[#E65F2B] dark:text-[#FFA473] uppercase">กรอกครั้งเดียว บันทึกได้เลย</span>
                   <h3 className="text-lg font-black text-brand-text dark:text-white font-display mt-0.5">
                     {t('jobs.addModalTitle')}
                   </h3>
@@ -1120,7 +1134,7 @@ export default function JobsTab({
               </div>
 
               {/* Progress Stepper Indicator */}
-              <div className="flex items-center justify-between py-2 border-b border-brand-border/30 shrink-0">
+              <div className="hidden" aria-hidden="true">
                 {[
                   { step: 1, name: t('jobs.stepDealInfo') },
                   { step: 2, name: t('jobs.stepMoneyTax') },
@@ -1162,17 +1176,15 @@ export default function JobsTab({
                     {t('jobs.mascotAdviceTitle')}
                   </h4>
                   <p className="text-[11px] text-brand-text/80 dark:text-neutral-200 font-medium leading-relaxed">
-                    {formStep === 1 && t('jobs.addAdviceStep1')}
-                    {formStep === 2 && t('jobs.addAdviceStep2')}
-                    {formStep === 3 && t('jobs.addAdviceStep3')}
+                    กรอกข้อมูลหลักก่อน แล้วเลือกสถานะงานกับสถานะเงินแยกกัน ช่องเพิ่มเติมจะแสดงเฉพาะเมื่อจำเป็น
                   </p>
                 </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4 text-xs font-semibold flex-1">
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="sync">
                   {/* STEP 1: Basic Project Info */}
-                  {formStep === 1 && (
+                  {formStep === 3 && (
                     <motion.div
                       key="step1"
                       initial={{ opacity: 0, x: -15 }}
@@ -1180,6 +1192,10 @@ export default function JobsTab({
                       exit={{ opacity: 0, x: 15 }}
                       className="space-y-4"
                     >
+                      <div className="border-b border-brand-border/30 pb-2">
+                        <p className="text-xs font-black text-brand-text dark:text-white">ข้อมูลงาน</p>
+                        <p className="mt-0.5 text-[10px] text-brand-muted">ข้อมูลที่จำเป็นสำหรับค้นหาและติดตามงาน</p>
+                      </div>
                       {/* Name */}
                       <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldName')} <span className="text-rose-500">*</span></label>
@@ -1344,7 +1360,7 @@ export default function JobsTab({
                   )}
 
                   {/* STEP 2: Money, Taxes, Progress, Terms, and Notes */}
-                  {formStep === 2 && (
+                  {formStep === 3 && (
                     <motion.div
                       key="step2"
                       initial={{ opacity: 0, x: -15 }}
@@ -1352,6 +1368,10 @@ export default function JobsTab({
                       exit={{ opacity: 0, x: 15 }}
                       className="space-y-4"
                     >
+                      <div className="border-b border-brand-border/30 pb-2 pt-2">
+                        <p className="text-xs font-black text-brand-text dark:text-white">สถานะเงิน</p>
+                        <p className="mt-0.5 text-[10px] text-brand-muted">เลือกรับเงินครั้งเดียว มัดจำ หรือแบ่งเป็นงวดได้</p>
+                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         {/* Contract value */}
                         <div className="space-y-1.5 col-span-2">
@@ -1483,6 +1503,10 @@ export default function JobsTab({
                       exit={{ opacity: 0, x: 15 }}
                       className="space-y-4"
                     >
+                      <div className="border-b border-brand-border/30 pb-2 pt-2">
+                        <p className="text-xs font-black text-brand-text dark:text-white">สถานะงาน</p>
+                        <p className="mt-0.5 text-[10px] text-brand-muted">สถานะนี้แยกจากการรับเงิน งานยังทำอยู่ก็รับเงินก่อนได้</p>
+                      </div>
                       <WorkStageSelector isPosted={formIsPosted} onChange={setFormIsPosted} />
 
                       {/* Legacy WIP vs Posted control retained hidden for state compatibility.
@@ -1722,16 +1746,6 @@ export default function JobsTab({
 
                 {/* Bottom Navigation buttons */}
                 <div className="flex items-center gap-3 pt-3 border-t border-brand-border/30 shrink-0">
-                  {formStep > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setFormStep(prev => prev - 1)}
-                      className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1"
-                    >
-                      <IconArrowLeft className="w-3 h-3" /> {t('jobs.back')}
-                    </button>
-                  )}
-                  
                   {formStep < 3 ? (
                     <button
                       key="btn-next"
