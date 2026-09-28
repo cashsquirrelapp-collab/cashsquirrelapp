@@ -82,10 +82,9 @@ export default function DashboardTab({
   onQuickRecord,
 }: DashboardTabProps) {
   const { t } = useLanguage();
-  // Mirrors App.tsx's own showAllocationTab check for the sidebar: off by default (a solo
-  // freelancer tracking profit alone may never want a savings-split view), but an account that
-  // already has goals saved keeps seeing this section regardless of the toggle.
-  const showAllocationTab = !!settings.allocationFeatureEnabled || goals.length > 0;
+  // Mirrors App.tsx: after legacy accounts are migrated on load, the explicit toggle controls
+  // whether this optional feature appears. Turning it off never deletes saved goals.
+  const showAllocationTab = !!settings.allocationFeatureEnabled;
   const [isAlertExpanded, setIsAlertExpanded] = React.useState(false);
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
   // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.

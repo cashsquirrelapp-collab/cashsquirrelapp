@@ -121,10 +121,8 @@ export interface AppSettings {
   // group vs the collapsible "เครื่องมือเพิ่มเติม" group. Every feature stays reachable either
   // way; this only changes what's shown by default so first-time users see less at once.
   userPersona?: 'school' | 'university' | 'freelance' | 'employee';
-  // Opt-in for the "จัดสรรเงิน & เป้าหมายออม" (savings-goal allocation) tab -- off by default,
-  // since a solo freelancer just tracking profit may never want a savings-split view. Ignored
-  // (treated as on) once the account actually has any goals saved -- see showAllocationTab in
-  // App.tsx / DashboardTab.tsx.
+  // Opt-in for the "จัดสรรเงิน & เป้าหมายออม" tab. Legacy accounts with saved goals are
+  // migrated to true on load; users may later hide the feature without deleting those goals.
   allocationFeatureEnabled?: boolean;
 }
 
@@ -236,5 +234,4 @@ export interface Invoice {
   paymentMethod?: string; // วิธีชำระเงิน (ใบเสร็จ)
   paidAmount?: number; // จำนวนเงินที่ได้รับจริง (ใบเสร็จ) -- ว่าง = เท่ากับยอดสุทธิ
 }
-
 

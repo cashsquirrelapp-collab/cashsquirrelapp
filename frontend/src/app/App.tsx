@@ -642,10 +642,9 @@ export default function App() {
 
   // "จัดสรรเงิน & เป้าหมายออม" (savings-goal allocation) is opt-in: a solo freelancer just
   // tracking profit may never want it, so it stays out of the sidebar until switched on in
-  // Settings -- except an account that already has goals saved (from before this toggle existed,
-  // or someone who added one another way) keeps seeing it regardless of the toggle, so nobody's
-  // existing goals quietly become unreachable.
-  const showAllocationTab = !!settings.allocationFeatureEnabled || goals.length > 0;
+  // Existing accounts are migrated when their cloud snapshot loads. After that, the explicit
+  // toggle is authoritative, so a user can hide the feature without deleting saved goals.
+  const showAllocationTab = !!settings.allocationFeatureEnabled;
 
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
@@ -878,11 +877,16 @@ export default function App() {
       const result = await readCloud(owner);
       if (sessionRef.current?.user?.id !== user.id || financeOwnerRef.current!==owner || request!==loadRequestRef.current) return false;
       const data = result.snapshot;
-      setJobs(cleanJobs(data.jobs || [])); setGoals(data.goals || []); setExpenses(data.expenses || []);
+      const loadedGoals = data.goals || [];
+      setJobs(cleanJobs(data.jobs || [])); setGoals(loadedGoals); setExpenses(data.expenses || []);
       const loadedSettings = data.settings || defaultSettings;
+      const migratedSettings = {
+        ...loadedSettings,
+        allocationFeatureEnabled: loadedSettings.allocationFeatureEnabled ?? loadedGoals.length > 0,
+      };
       setSettings(financeGroupId
-        ? { ...loadedSettings, profileSetupCompleted: true }
-        : normalizeProfileSetupSettings(loadedSettings, user.created_at));
+        ? { ...migratedSettings, profileSetupCompleted: true }
+        : normalizeProfileSetupSettings(migratedSettings, user.created_at));
       setStatuses(data.statuses ? cleanStatuses(data.statuses) : [{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'installment',label:'แบ่งชำระเป็นงวด',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}]);
       setJobTypes(data.job_types ? cleanJobTypes(data.job_types) : DEFAULT_JOB_TYPES);
       setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
@@ -1025,7 +1029,7 @@ export default function App() {
         const sample = buildSampleData();
         setJobs(cleanJobs(sample.jobs));
         setGoals(sample.goals);
-        setSettings(sample.settings);
+        setSettings({ ...sample.settings, allocationFeatureEnabled: sample.goals.length > 0 });
         setExpenses(sample.expenses);
         setNotifSettings({
           enabled: true,
@@ -2022,7 +2026,10 @@ export default function App() {
       if (session?.isGuest) { if(parsed.invoices)privateCache.setItem('cashflow_invoices_guest',JSON.stringify(parsed.invoices)); if(parsed.issuerProfile)privateCache.setItem('cashflow_issuer_guest',JSON.stringify(parsed.issuerProfile)); }
       if (parsed.jobs) setJobs(cleanJobs(parsed.jobs));
       if (parsed.goals) setGoals(parsed.goals);
-      if (parsed.settings) setSettings(parsed.settings);
+      if (parsed.settings) setSettings({
+        ...parsed.settings,
+        allocationFeatureEnabled: parsed.settings.allocationFeatureEnabled ?? (parsed.goals || goals).length > 0,
+      });
       if (parsed.statuses) setStatuses(cleanStatuses(parsed.statuses));
       if (parsed.jobTypes) {
         setJobTypes(cleanJobTypes(parsed.jobTypes));

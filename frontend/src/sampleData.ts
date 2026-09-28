@@ -5,6 +5,7 @@ export const defaultSettings: AppSettings = {
   monthlyRevenueGoal: 35000,
   savingsPercentage: 40,
   accumulatedRemainder: 0,
+  allocationFeatureEnabled: false,
 };
 
 // New accounts start with no jobs/goals -- a blank slate to fill in themselves, not
