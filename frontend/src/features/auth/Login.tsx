@@ -201,7 +201,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('confirmationExpired') === '1' ? t('login.err.confirmationExpired')
+      : params.get('authLinkError') === '1' ? t('login.err.authLink') : null;
+  });
   const [success, setSuccess] = useState<string | null>(() => new URLSearchParams(window.location.search).get('emailConfirmed') === '1' ? t('login.success.emailConfirmed') : null);
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
   const [showWelcome, setShowWelcome] = useState(() => window.location.pathname === '/' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && new URLSearchParams(window.location.search).get('recover') !== '1' && window.location.hash !== '#login');
@@ -245,7 +249,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     const params = new URLSearchParams(window.location.search);
     const emailConfirmed = params.get('emailConfirmed') === '1';
     if (emailConfirmed) params.delete('emailConfirmed');
-    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || params.get('recover') === '1';
+    const authLinkError = params.get('authLinkError') === '1';
+    if (authLinkError) params.delete('authLinkError');
+    const confirmationExpired = params.get('confirmationExpired') === '1';
+    if (confirmationExpired) params.delete('confirmationExpired');
+    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || authLinkError || confirmationExpired || params.get('recover') === '1';
     const nextPath = shouldUseLoginPath ? '/login' : window.location.pathname;
     const nextUrl = `${nextPath}${params.size ? `?${params}` : ''}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextUrl) {

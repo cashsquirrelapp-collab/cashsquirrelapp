@@ -9,6 +9,7 @@ import { publicUser, storeSession, requireUser, revokeSession, type PrivateSessi
 import { rateLimit } from '../security/rateLimit.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { sendGmailEmail, sendSignupConfirmationEmail, sendSignupWelcomeEmail } from '../services/gmail.js';
+import { markSignupWelcomePending, sendPendingSignupWelcome } from '../services/signupWelcome.js';
 const credentials = z.object({ email: z.email().max(254).transform(v=>v.toLowerCase()), password: z.string().min(1).max(128), displayName: z.string().trim().min(2).max(60).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() });
 
 async function sendConfirmation(userId:string,email:string,displayName?:string):Promise<boolean>{
@@ -40,10 +41,15 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   } });
   if (req.method === 'GET') {
     if (typeof req.query.code === 'string') {
-      if (!verifier || verifier.expires < Date.now()) throw new HttpError(400,'การเข้าสู่ระบบหมดเวลา กรุณาลองอีกครั้ง');
+      if (!verifier || verifier.expires < Date.now()) {
+        writeCookie(res,null,'oauth');
+        res.status(302); res.setHeader('Location',`${appOrigin()}/login?authLinkError=1`); res.end(); return;
+      }
       const { data,error } = await auth.auth.exchangeCodeForSession(req.query.code);
       writeCookie(res,null,'oauth');
-      if (error || !data.session) throw new HttpError(400,'เข้าสู่ระบบไม่สำเร็จ');
+      if (error || !data.session) {
+        res.status(302); res.setHeader('Location',`${appOrigin()}/login?authLinkError=1`); res.end(); return;
+      }
       if (data.user?.app_metadata?.account_closure_kind === 'deletion') {
         await auth.auth.signOut();
         res.status(302); res.setHeader('Location',`${appOrigin()}/login?recover=1`); res.end(); return;
@@ -66,6 +72,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
         const welcomeEmailSent = await sendSignupWelcomeEmail(data.user.email, displayName);
         if (!welcomeEmailSent) console.error('Google signup welcome email delivery failed');
       }
+      if (data.user?.app_metadata?.provider === 'email') await sendPendingSignupWelcome(data.user);
       storeSession(res,data.session); res.status(302); res.setHeader('Location',`${appOrigin()}/`); res.end(); return;
     }
     try { const user=await requireUser(req,res,false,true); res.json({ session:{user:await publicUser(user)} }); }
@@ -122,6 +129,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       await auth.auth.signOut();
       throw new HttpError(403, 'บัญชีนี้อยู่ระหว่างรอลบ กู้คืนผ่านอีเมลสำรองได้ภายใน 30 วัน');
     }
+    await sendPendingSignupWelcome(data.user);
     const user=await publicUser(data.user); storeSession(res,data.session); res.json({session:{user},user}); return;
   }
   if (action==='signup') {
@@ -151,6 +159,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     let confirmationEmailSent=true;
     let signupEmailSent=true;
     if(data.user&&!data.session&&Array.isArray(data.user.identities)&&data.user.identities.length>0){
+      await markSignupWelcomePending(data.user);
       confirmationEmailSent=await sendConfirmation(data.user.id,email,displayName);
     }
     if(data.user&&data.session&&Array.isArray(data.user.identities)&&data.user.identities.length>0){

@@ -174,6 +174,21 @@ test('OAuth stores PKCE only, exchanges code server-side, and never returns toke
  assert.equal(session.status,200);const publicData=await session.json() as any;assert.equal(publicData.session.user.id,user.id);assert.equal(publicData.session.user.role,'user');assert.equal(publicData.session.user.user_metadata.role,undefined);assert.equal(publicData.session.access_token,undefined);
 });
 
+test('email confirmation callback opened without the original browser cookie returns to login',async()=>{
+ const callback=await realFetch(origin+'/api/auth?code=fake-code',{redirect:'manual'});
+ assert.equal(callback.status,302);
+ assert.equal(callback.headers.get('location'),process.env.APP_URL+'/login?authLinkError=1');
+ assert.ok(!callback.headers.get('location')?.includes('fake-code'));
+});
+
+test('expired custom confirmation links return to login without exposing the token',async()=>{
+ const token=seal({purpose:'confirm-email',userId:user.id,email:user.email,expires:Date.now()-1000});
+ const callback=await realFetch(origin+`/api/confirm-email?token=${token}`,{redirect:'manual'});
+ assert.equal(callback.status,302);
+ assert.equal(callback.headers.get('location'),process.env.APP_URL+'/login?confirmationExpired=1');
+ assert.ok(!callback.headers.get('location')?.includes(token));
+});
+
 test('expired-token logout revokes the original session and rejects copied-cookie replay before refreshing',async()=>{
  revoked.clear();providerSignoutFails=true;
  const expiredCookie=`cashflow-session=${seal({access_token:expiredJwt,refresh_token:'private-refresh',expires_at:1,issued_at:Date.now()-3600000})}`;
