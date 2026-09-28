@@ -885,7 +885,11 @@ export default function DashboardTab({
           { label: 'เพิ่มรายจ่าย', icon: TrendingDown, tone: 'quick-expense', action: () => onQuickRecord?.('expense') },
           { label: 'รับเงินด่วน', icon: Coins, tone: 'quick-pay', action: () => setIsQuickPayExpanded(true) },
           { label: 'เป้าหมายออม', icon: PiggyBank, tone: 'quick-goal', action: () => onSwitchTab('split') },
-          { label: 'ปฏิทินงาน', icon: CalendarDays, tone: 'quick-list', action: () => onSwitchTab('timeline') },
+          // Short form of the Timeline tab's own heading ("ไทม์ไลน์รับเงิน") -- this shortcut used
+          // to say "ปฏิทินงาน" instead, a name that matched neither that heading nor the (now
+          // sidebar-hidden) nav label, so this was the one remaining door into that page and it
+          // called it something else again.
+          { label: 'ไทม์ไลน์', icon: CalendarDays, tone: 'quick-list', action: () => onSwitchTab('timeline') },
         ].map(({ label, icon: Icon, tone, action }) => (
           <button key={label} type="button" onClick={action} className={`dashboard-quick-action ${tone}`}>
             <span className="dashboard-quick-icon"><Icon className="h-4.5 w-4.5" /></span>

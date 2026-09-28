@@ -161,17 +161,23 @@ const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch((
 // label is a translation key (resolved via t() at render time), not display text -- this array
 // is a module-level constant built once at load, before any component (and its language context)
 // exists, so it can't call t() itself.
+// Core row is ordered by how often a freelancer actually opens each tab, not by build order --
+// invoice/ออกบิล is used every time a job wraps up, so it sits in the always-visible row instead
+// of behind "เครื่องมือเพิ่มเติม". Groups moved into "more": the group feature isn't live for
+// most accounts yet, so it doesn't earn permanent top-row space over something used daily.
+// (timeline stays 'core' here too, but hiddenFromSidebar below still keeps it out of the sidebar
+// list entirely -- it's reached from the dashboard's own "ปฏิทินงาน" shortcut instead.)
 const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
   { key: 'dashboard', labelKey: 'nav.dashboard', icon: Home, group: 'core' },
   { key: 'jobs', labelKey: 'nav.jobs', icon: Briefcase, group: 'core' },
   { key: 'timeline', labelKey: 'nav.timeline', icon: Calendar, group: 'core' },
-  { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'core' },
+  { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'core' },
   { key: 'summary', labelKey: 'nav.summary', icon: Wallet, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
   { key: 'insight', labelKey: 'nav.insight', icon: BarChart3, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
-  { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
+  { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
   { key: 'plans', labelKey: 'nav.plans', icon: IconCrown, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
 ];
