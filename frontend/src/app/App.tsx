@@ -637,7 +637,7 @@ export default function App() {
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
   const navItems = React.useMemo(() => {
-    const hiddenFromSidebar = new Set<TabKey>(['timeline', 'summary', 'insight', 'tax', 'plans', 'settings']);
+    const hiddenFromSidebar = new Set<TabKey>(['timeline', 'summary', 'insight', 'tax', 'plans']);
     const persona = settings.userPersona;
     if (!persona || persona === 'freelance') return NAV_ITEMS.filter(item => !hiddenFromSidebar.has(item.key));
     const coreKeys = PERSONA_CORE_KEYS[persona];

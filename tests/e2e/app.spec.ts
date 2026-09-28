@@ -136,8 +136,7 @@ test('login and all feature tabs render after separation without browser errors'
   const button=sidebar.locator('nav button').filter({hasText:name.trim()}).first();
   if(await button.isVisible()) { await button.click();await expect(button).toHaveAttribute('aria-current','page');await expect(page.locator('#main-content')).not.toContainText('กำลังโหลด');await expect(page.getByText('โหลดหน้านี้ไม่สำเร็จ',{exact:true})).toHaveCount(0); }
  }
- await page.getByRole('button',{name:'เปิดเมนูโปรไฟล์'}).click();
- await page.getByRole('button',{name:'ตั้งค่าและบัญชี'}).click();
+ await sidebar.getByRole('button',{name:'ตั้งค่าระบบ'}).click();
  await expect(page.getByRole('heading',{name:'โปรไฟล์ผู้ใช้'})).toBeVisible();
  await expect(page.getByText('SQ-1111111111',{exact:true}).first()).toBeVisible();
  await sidebar.locator('nav button').first().click();
