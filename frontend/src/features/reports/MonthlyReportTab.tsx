@@ -281,8 +281,60 @@ export default function MonthlyReportTab({
   }, [jobs, expenses]);
 
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [selectedWhtMonth, setSelectedWhtMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [showMonthlyWhtDetails, setShowMonthlyWhtDetails] = useState(false);
   const [includeFullYearFixed, setIncludeFullYearFixed] = useState(true);
   const [showYearlyBreakdownTable, setShowYearlyBreakdownTable] = useState(false);
+
+  const whtPaymentEntries = useMemo(() => jobs.flatMap((job) => {
+    const totalWht = Math.max(0, job.whtAmount || 0);
+    if (totalWht <= 0) return [];
+
+    if (job.installments?.length) {
+      const netTotal = Math.max(1, job.value - totalWht);
+      let allocatedBefore = 0;
+      return job.installments.flatMap((row, index) => {
+        const allocatedWht = index === job.installments!.length - 1
+          ? Math.max(0, totalWht - allocatedBefore)
+          : Math.round(totalWht * ((row.amount || 0) / netTotal));
+        allocatedBefore += allocatedWht;
+        if (row.status !== 'paid' || !row.paidAt || allocatedWht <= 0) return [];
+        return [{
+          id: `${job.id}-${row.id}`,
+          jobId: job.id,
+          jobName: job.name,
+          client: job.client || '-',
+          label: row.label || `งวดที่ ${index + 1}`,
+          date: row.paidAt,
+          amount: allocatedWht,
+        }];
+      });
+    }
+
+    const paidDate = job.payDate || job.postDate || job.startDate;
+    if (!paidDate || job.received <= 0) return [];
+    return [{
+      id: `${job.id}-wht`,
+      jobId: job.id,
+      jobName: job.name,
+      client: job.client || '-',
+      label: 'รับเงินครั้งเดียว',
+      date: paidDate,
+      amount: totalWht,
+    }];
+  }), [jobs]);
+
+  const selectedMonthWhtEntries = useMemo(
+    () => whtPaymentEntries.filter((entry) => getMonthKeyFromDate(entry.date) === selectedWhtMonth),
+    [whtPaymentEntries, selectedWhtMonth]
+  );
+  const selectedMonthWhtTotal = useMemo(
+    () => selectedMonthWhtEntries.reduce((sum, entry) => sum + entry.amount, 0),
+    [selectedMonthWhtEntries]
+  );
 
   // Annual financial metrics calculation
   const annualMetrics = useMemo(() => {
@@ -304,7 +356,7 @@ export default function MonthlyReportTab({
     // Total income: contract value and actual received
     const annualContractValue = yearJobs.reduce((sum, j) => sum + j.value, 0);
     const annualReceivedValue = jobs.flatMap(getJobPaymentEntries).reduce((sum, entry) => entry.date?.startsWith(yearStr) ? sum + entry.amount : sum, 0);
-    const annualWhtAmount = yearJobs.reduce((sum, j) => sum + (j.whtAmount || 0), 0);
+    const annualWhtAmount = whtPaymentEntries.reduce((sum, entry) => entry.date.startsWith(yearStr) ? sum + entry.amount : sum, 0);
 
     // Filter expenses for selected year
     const yearExpenses = (expenses || []).filter(e => {
@@ -353,7 +405,7 @@ export default function MonthlyReportTab({
       expenseCount: yearExpenses.length,
       activeMonthsCount
     };
-  }, [jobs, expenses, settings.monthlyExpense, selectedYear, includeFullYearFixed]);
+  }, [jobs, expenses, settings.monthlyExpense, selectedYear, includeFullYearFixed, whtPaymentEntries]);
 
   // 1. Process 12 calendar months for selectedYear
   const monthlyData = useMemo(() => {
@@ -366,6 +418,7 @@ export default function MonthlyReportTab({
         targetSavings: number;
         fixedExpense: number;
         variableExpense: number;
+        whtAmount: number;
         netFlow: number;
       } 
     } = {};
@@ -385,6 +438,7 @@ export default function MonthlyReportTab({
         targetSavings: Math.round(settings.monthlyRevenueGoal * (savingsPct / 100)),
         fixedExpense: settings.monthlyExpense,
         variableExpense: 0,
+        whtAmount: 0,
         netFlow: 0
       };
     }
@@ -402,6 +456,11 @@ export default function MonthlyReportTab({
         const key = getMonthKeyFromDate(entry.date);
         if (dataMap[key]) dataMap[key].received += entry.amount;
       });
+    });
+
+    whtPaymentEntries.forEach((entry) => {
+      const key = getMonthKeyFromDate(entry.date);
+      if (dataMap[key]) dataMap[key].whtAmount += entry.amount;
     });
 
     // Add variable expenses
@@ -432,7 +491,7 @@ export default function MonthlyReportTab({
           netFlow
         };
       });
-  }, [jobs, expenses, goals, settings, selectedYear, includeFullYearFixed]);
+  }, [jobs, expenses, goals, settings, selectedYear, includeFullYearFixed, whtPaymentEntries]);
 
   // 2. Savings Goals Progress Data
   const goalsData = useMemo(() => {
@@ -808,7 +867,12 @@ export default function MonthlyReportTab({
               <span className="text-xs font-bold text-brand-muted dark:text-neutral-400">เลือกปีบัญชี:</span>
               <select
                 value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                onChange={(e) => {
+                  const year = Number(e.target.value);
+                  setSelectedYear(year);
+                  setSelectedWhtMonth(`${year}-${selectedWhtMonth.slice(5)}`);
+                  setShowMonthlyWhtDetails(false);
+                }}
                 className="py-1.5 px-3 bg-brand-bg dark:bg-neutral-800 border border-brand-border dark:border-neutral-700 text-brand-text dark:text-white rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
               >
                 {availableYears.map((y) => (
@@ -921,6 +985,60 @@ export default function MonthlyReportTab({
 
         </div>
 
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 dark:bg-amber-500/10 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">ภาษีหัก ณ ที่จ่ายรายเดือน</p>
+              <p className="mt-1 text-2xl font-black font-mono text-amber-700 dark:text-amber-400">{formatCurrency(selectedMonthWhtTotal)}</p>
+              <p className="mt-1 text-[11px] text-brand-muted">จากรายการที่รับเงินจริงใน {formatMonthKey(selectedWhtMonth)} จำนวน {selectedMonthWhtEntries.length} รายการ</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:items-end">
+              <select
+                aria-label="เลือกเดือนภาษีหัก ณ ที่จ่าย"
+                value={selectedWhtMonth}
+                onChange={(e) => {
+                  setSelectedWhtMonth(e.target.value);
+                  setShowMonthlyWhtDetails(false);
+                }}
+                className="rounded-xl border border-amber-500/20 bg-brand-white px-3 py-2 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-amber-500/20 dark:bg-neutral-900 dark:text-white"
+              >
+                {monthlyData.map((month) => <option key={month.month} value={month.month}>{month.monthLabel}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowMonthlyWhtDetails((open) => !open)}
+                className="text-xs font-black text-amber-700 hover:underline dark:text-amber-400"
+              >
+                {showMonthlyWhtDetails ? 'ซ่อนรายละเอียด' : 'ดูว่าเป็นยอดจากงานไหน'}
+              </button>
+            </div>
+          </div>
+
+          <AnimatePresence initial={false}>
+            {showMonthlyWhtDetails && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                <div className="mt-4 space-y-2 border-t border-amber-500/15 pt-4">
+                  {selectedMonthWhtEntries.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => onViewJob?.(entry.jobId)}
+                      className="flex w-full items-center justify-between gap-4 rounded-xl border border-brand-border/40 bg-brand-white px-3 py-3 text-left hover:border-amber-500/30 dark:bg-neutral-900"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-black text-brand-text dark:text-white">{entry.jobName}</span>
+                        <span className="mt-0.5 block truncate text-[10px] text-brand-muted">{entry.client} · {entry.label} · {entry.date}</span>
+                      </span>
+                      <span className="shrink-0 font-mono text-xs font-black text-amber-700 dark:text-amber-400">{formatCurrency(entry.amount)}</span>
+                    </button>
+                  ))}
+                  {selectedMonthWhtEntries.length === 0 && <p className="py-4 text-center text-xs text-brand-muted">เดือนนี้ยังไม่มีรายการภาษีหัก ณ ที่จ่ายจากเงินที่รับแล้ว</p>}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         {/* Button to toggle 12-Month Table Breakdown */}
         <div className="pt-2 flex justify-between items-center border-t border-brand-border/20">
           <button
@@ -964,6 +1082,7 @@ export default function MonthlyReportTab({
                         <th className="py-2 px-3">เดือน</th>
                         <th className="py-2 px-3 text-right">รายรับสัญญา</th>
                         <th className="py-2 px-3 text-right">รายรับโอนเข้าจริง</th>
+                        <th className="py-2 px-3 text-right">หัก ณ ที่จ่าย</th>
                         <th className="py-2 px-3 text-right">รายจ่ายคงที่</th>
                         <th className="py-2 px-3 text-right">รายจ่ายแปรผัน</th>
                         <th className="py-2 px-3 text-right">กระแสเงินสดสุทธิ</th>
@@ -980,6 +1099,9 @@ export default function MonthlyReportTab({
                           </td>
                           <td className="py-2 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(m.received)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-amber-700 dark:text-amber-400">
+                            {formatCurrency(m.whtAmount)}
                           </td>
                           <td className="py-2 px-3 text-right text-rose-600 dark:text-rose-400">
                             {formatCurrency(m.fixedExpenseCalculated)}
@@ -998,6 +1120,7 @@ export default function MonthlyReportTab({
                         <td className="py-2.5 px-3 font-sans font-extrabold">รวมยอดทั้งปี ({selectedYear})</td>
                         <td className="py-2.5 px-3 text-right">{formatCurrency(annualMetrics.annualContractValue)}</td>
                         <td className="py-2.5 px-3 text-right text-emerald-700 dark:text-emerald-400 font-black">{formatCurrency(annualMetrics.annualReceivedValue)}</td>
+                        <td className="py-2.5 px-3 text-right text-amber-700 dark:text-amber-400">{formatCurrency(annualMetrics.annualWhtAmount)}</td>
                         <td className="py-2.5 px-3 text-right text-rose-700 dark:text-rose-400">{formatCurrency(annualMetrics.annualFixedExpenses)}</td>
                         <td className="py-2.5 px-3 text-right text-rose-700 dark:text-rose-400">{formatCurrency(annualMetrics.annualVariableExpenses)}</td>
                         <td className="py-2.5 px-3 text-right font-black text-blue-700 dark:text-blue-400">
