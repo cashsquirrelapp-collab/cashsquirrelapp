@@ -135,7 +135,7 @@ export default function JobsTab({
   }, [isAddJobOpen]);
 
   React.useEffect(() => {
-    if (formStep === 3) {
+    if (isAddJobOpen && formStep === 3) {
       setCanSubmit(false);
       const timer = setTimeout(() => {
         setCanSubmit(true);
@@ -144,7 +144,7 @@ export default function JobsTab({
     } else {
       setCanSubmit(false);
     }
-  }, [formStep]);
+  }, [formStep, isAddJobOpen]);
 
   // States for custom entry on-the-fly
   const [customTypeInput, setCustomTypeInput] = useState('');
@@ -536,7 +536,7 @@ export default function JobsTab({
     setFormWhtRate(0);
     setFormExcludeHolidays(false);
     setFormInstallments([]);
-    setFormStep(1);
+    setFormStep(3);
     onCloseAddJob();
   };
 
@@ -1113,7 +1113,7 @@ export default function JobsTab({
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] space-y-4 font-sans border-t border-brand-border/40"
+              className="absolute inset-x-0 bottom-0 sm:inset-x-6 sm:top-6 sm:bottom-6 lg:inset-x-10 xl:inset-x-[8vw] w-full sm:w-auto bg-brand-white dark:bg-stone-900 rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 sm:p-7 lg:p-8 overflow-y-auto max-h-[94vh] sm:max-h-none space-y-5 font-sans border border-brand-border/40"
             >
               {/* Drag indicator */}
               <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full mx-auto mb-1 shrink-0" />
