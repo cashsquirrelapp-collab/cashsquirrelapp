@@ -80,10 +80,9 @@ async function finance(page: Page) {
 }
 async function openGroups(page: Page) {
   await page.goto('/');
-  await page
-    .locator('aside')
-    .getByRole('button', { name: 'กลุ่ม & สมาชิก' })
-    .click();
+  const sidebar = page.locator('aside');
+  await sidebar.getByRole('button', { name: 'เครื่องมือเพิ่มเติม' }).click();
+  await sidebar.getByRole('button', { name: 'กลุ่ม & สมาชิก' }).click();
   await expect(
     page.getByRole('heading', { name: 'กลุ่มของเรา' }),
   ).toBeVisible();

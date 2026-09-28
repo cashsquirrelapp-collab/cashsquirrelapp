@@ -82,9 +82,6 @@ export default function DashboardTab({
   onQuickRecord,
 }: DashboardTabProps) {
   const { t } = useLanguage();
-  // Mirrors App.tsx: after legacy accounts are migrated on load, the explicit toggle controls
-  // whether this optional feature appears. Turning it off never deletes saved goals.
-  const showAllocationTab = !!settings.allocationFeatureEnabled;
   const [isAlertExpanded, setIsAlertExpanded] = React.useState(false);
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
   // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.
@@ -881,14 +878,13 @@ export default function DashboardTab({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, delay: 0.1 }}
         aria-label="ทางลัด"
-        className={`order-3 grid grid-cols-2 gap-2.5 sm:gap-3 ${showAllocationTab ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}
+        className="order-3 grid grid-cols-2 gap-2.5 sm:grid-cols-5 sm:gap-3"
       >
         {[
           { label: 'เพิ่มรายรับ', icon: TrendingUp, tone: 'quick-income', action: () => onQuickRecord?.('income') },
           { label: 'เพิ่มรายจ่าย', icon: TrendingDown, tone: 'quick-expense', action: () => onQuickRecord?.('expense') },
           { label: 'รับเงินด่วน', icon: Coins, tone: 'quick-pay', action: () => setIsQuickPayExpanded(true) },
-          // Hidden entirely while the allocation feature is off -- see showAllocationTab above.
-          ...(showAllocationTab ? [{ label: 'เป้าหมายออม', icon: PiggyBank, tone: 'quick-goal', action: () => onSwitchTab('split') }] : []),
+          { label: 'เป้าหมายออม', icon: PiggyBank, tone: 'quick-goal', action: () => onSwitchTab('split') },
           // Short form of the Timeline tab's own heading ("ไทม์ไลน์รับเงิน") -- this shortcut used
           // to say "ปฏิทินงาน" instead, a name that matched neither that heading nor the (now
           // sidebar-hidden) nav label, so this was the one remaining door into that page and it
@@ -1073,8 +1069,7 @@ export default function DashboardTab({
         </motion.div>
       </motion.div>
 
-      {/* 4. Financial Goals Slider -- gated by showAllocationTab, see its definition above */}
-      {showAllocationTab && (
+      {/* 4. Financial Goals Slider */}
       <div className="order-6 space-y-3">
         <div className="flex items-center justify-between px-1">
           <div>
@@ -1142,7 +1137,6 @@ export default function DashboardTab({
           </motion.button>
         </div>
       </div>
-      )}
 
       <div className="order-7"><VineDivider /></div>
 

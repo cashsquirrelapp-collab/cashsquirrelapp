@@ -210,6 +210,8 @@ async function settings(page: Page) {
 async function invoices(page: Page) {
   const sidebar = page.locator("aside");
   const button = sidebar.getByRole("button", { name: "ออกบิล & ใบเสร็จ" });
+  if (!(await button.isVisible()))
+    await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
   await button.click();
 }
 test("members edit a shared workspace and switching saves to the old scope without touching personal finance", async ({
@@ -278,7 +280,8 @@ test("invoices, issuer profiles and exports follow the selected group and reset 
   await settings(page);
   // Export from the consolidated reports area uses the same scoped invoice snapshot.
   const sidebar = page.locator("aside");
-  await sidebar.getByRole("button", { name: "รายงานและภาษี" }).click();
+  await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
+  await sidebar.getByRole("button", { name: "รายงาน & เครดิตเทอม" }).click();
   await page.getByRole("button", { name: "ส่งออกข้อมูล" }).click();
   const downloadPromise = page.waitForEvent("download");
   await page

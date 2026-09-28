@@ -86,7 +86,8 @@ import {
   Smartphone,
   ChevronDown,
   BarChart3,
-  RotateCcw
+  RotateCcw,
+  Wrench
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -161,22 +162,16 @@ const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch((
 // label is a translation key (resolved via t() at render time), not display text -- this array
 // is a module-level constant built once at load, before any component (and its language context)
 // exists, so it can't call t() itself.
-// Core row is ordered by how often a freelancer actually opens each tab, not by build order --
-// invoice/ออกบิล is used every time a job wraps up, so it sits in the always-visible row instead
-// of behind "เครื่องมือเพิ่มเติม". Groups moved into "more": the group feature isn't live for
-// most accounts yet, so it doesn't earn permanent top-row space over something used daily.
-// (timeline stays 'core' here too, but hiddenFromSidebar below still keeps it out of the sidebar
-// list entirely -- it's reached from the dashboard's own "ปฏิทินงาน" shortcut instead.)
 const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
   { key: 'dashboard', labelKey: 'nav.dashboard', icon: Home, group: 'core' },
   { key: 'jobs', labelKey: 'nav.jobs', icon: Briefcase, group: 'core' },
   { key: 'timeline', labelKey: 'nav.timeline', icon: Calendar, group: 'core' },
-  { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'core' },
   { key: 'summary', labelKey: 'nav.summary', icon: Wallet, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
   { key: 'insight', labelKey: 'nav.insight', icon: BarChart3, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
+  { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
   { key: 'plans', labelKey: 'nav.plans', icon: IconCrown, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
@@ -328,6 +323,7 @@ export default function App() {
   const [reportSection, setReportSection] = useState<'overview' | 'clients' | 'tax' | 'export'>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [moreNavOpen, setMoreNavOpen] = useState(false);
 
   const navigateTab = (tab: TabKey) => {
     prefetchFeature(tab);
@@ -360,6 +356,20 @@ export default function App() {
       </button>
     );
   };
+
+  const renderMoreToggle = () => (
+    <button
+      type="button"
+      onClick={() => setMoreNavOpen(open => !open)}
+      className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl text-[13px] font-bold text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text transition-all cursor-pointer"
+    >
+      <span className="flex items-center gap-3">
+        <Wrench className="w-4.5 h-4.5" />
+        <span>{t('nav.moreTools')}</span>
+      </span>
+      <ChevronDown className={`w-4 h-4 transition-transform ${showMoreNavItems ? 'rotate-180' : ''}`} />
+    </button>
+  );
 
   const [isSetupWizardPreview, setIsSetupWizardPreview] = useState(false);
 
@@ -640,26 +650,20 @@ export default function App() {
 
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
 
-  // "จัดสรรเงิน & เป้าหมายออม" (savings-goal allocation) is opt-in: a solo freelancer just
-  // tracking profit may never want it, so it stays out of the sidebar until switched on in
-  // Existing accounts are migrated when their cloud snapshot loads. After that, the explicit
-  // toggle is authoritative, so a user can hide the feature without deleting saved goals.
-  const showAllocationTab = !!settings.allocationFeatureEnabled;
-
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
   const navItems = React.useMemo(() => {
-    const hiddenFromSidebar = new Set<TabKey>(['timeline', 'summary', 'insight', 'tax', 'plans']);
-    if (!showAllocationTab) hiddenFromSidebar.add('split');
     const persona = settings.userPersona;
-    if (!persona || persona === 'freelance') return NAV_ITEMS.filter(item => !hiddenFromSidebar.has(item.key));
+    if (!persona || persona === 'freelance') return NAV_ITEMS;
     const coreKeys = PERSONA_CORE_KEYS[persona];
     return NAV_ITEMS.map(item =>
       item.group === 'bottom' || item.key === 'dashboard' || item.key === 'jobs' || item.key === 'groups'
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
-    ).filter(item => !hiddenFromSidebar.has(item.key));
-  }, [settings.userPersona, showAllocationTab]);
+    );
+  }, [settings.userPersona]);
+  const isMoreTabActive = navItems.some(item => item.group === 'more' && item.key === activeTab);
+  const showMoreNavItems = moreNavOpen || isMoreTabActive;
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(() => {
     return {
       enabled: true,
@@ -877,16 +881,11 @@ export default function App() {
       const result = await readCloud(owner);
       if (sessionRef.current?.user?.id !== user.id || financeOwnerRef.current!==owner || request!==loadRequestRef.current) return false;
       const data = result.snapshot;
-      const loadedGoals = data.goals || [];
-      setJobs(cleanJobs(data.jobs || [])); setGoals(loadedGoals); setExpenses(data.expenses || []);
+      setJobs(cleanJobs(data.jobs || [])); setGoals(data.goals || []); setExpenses(data.expenses || []);
       const loadedSettings = data.settings || defaultSettings;
-      const migratedSettings = {
-        ...loadedSettings,
-        allocationFeatureEnabled: loadedSettings.allocationFeatureEnabled ?? loadedGoals.length > 0,
-      };
       setSettings(financeGroupId
-        ? { ...migratedSettings, profileSetupCompleted: true }
-        : normalizeProfileSetupSettings(migratedSettings, user.created_at));
+        ? { ...loadedSettings, profileSetupCompleted: true }
+        : normalizeProfileSetupSettings(loadedSettings, user.created_at));
       setStatuses(data.statuses ? cleanStatuses(data.statuses) : [{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'installment',label:'แบ่งชำระเป็นงวด',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}]);
       setJobTypes(data.job_types ? cleanJobTypes(data.job_types) : DEFAULT_JOB_TYPES);
       setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
@@ -1029,7 +1028,7 @@ export default function App() {
         const sample = buildSampleData();
         setJobs(cleanJobs(sample.jobs));
         setGoals(sample.goals);
-        setSettings({ ...sample.settings, allocationFeatureEnabled: sample.goals.length > 0 });
+        setSettings(sample.settings);
         setExpenses(sample.expenses);
         setNotifSettings({
           enabled: true,
@@ -2026,10 +2025,7 @@ export default function App() {
       if (session?.isGuest) { if(parsed.invoices)privateCache.setItem('cashflow_invoices_guest',JSON.stringify(parsed.invoices)); if(parsed.issuerProfile)privateCache.setItem('cashflow_issuer_guest',JSON.stringify(parsed.issuerProfile)); }
       if (parsed.jobs) setJobs(cleanJobs(parsed.jobs));
       if (parsed.goals) setGoals(parsed.goals);
-      if (parsed.settings) setSettings({
-        ...parsed.settings,
-        allocationFeatureEnabled: parsed.settings.allocationFeatureEnabled ?? (parsed.goals || goals).length > 0,
-      });
+      if (parsed.settings) setSettings(parsed.settings);
       if (parsed.statuses) setStatuses(cleanStatuses(parsed.statuses));
       if (parsed.jobTypes) {
         setJobTypes(cleanJobTypes(parsed.jobTypes));
@@ -2142,7 +2138,20 @@ export default function App() {
         <nav className="space-y-1.5 flex-1">
           {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, false))}
 
-          {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
+          {renderMoreToggle()}
+          <AnimatePresence initial={false}>
+            {showMoreNavItems && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-1.5 overflow-hidden"
+              >
+                {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
         </nav>
@@ -2223,7 +2232,20 @@ export default function App() {
                 <nav className="space-y-1.5">
                   {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, true))}
 
-                  {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
+                  {renderMoreToggle()}
+                  <AnimatePresence initial={false}>
+                    {showMoreNavItems && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="space-y-1.5 overflow-hidden"
+                      >
+                        {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
                 </nav>
