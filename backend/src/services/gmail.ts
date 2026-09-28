@@ -59,15 +59,15 @@ export async function sendSignupConfirmationEmail(to: string, displayName: strin
     <!doctype html>
     <html lang="th">
       <body style="margin:0;padding:0;background:#f5f3ef;font-family:Arial,'Noto Sans Thai',sans-serif;color:#29231f">
-        <div style="display:none;max-height:0;overflow:hidden;opacity:0">ยืนยันอีเมลเพื่อเริ่มใช้งานบัญชี Krarok Tunngern ของคุณ</div>
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0">ยืนยันอีเมลเพื่อเปิดใช้งานบัญชี Krarok Tunngern ของคุณ</div>
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f3ef;padding:32px 12px">
           <tr><td align="center">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e8e1d8;border-radius:18px;overflow:hidden">
               <tr><td style="padding:22px 30px;background:#2d2118;color:#ffffff;font-size:17px;font-weight:700">Krarok Tunngern</td></tr>
               <tr><td style="padding:36px 30px 18px">
-                <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;color:#a65328;text-transform:uppercase">Welcome</div>
-                <h1 style="margin:10px 0 12px;font-size:25px;line-height:1.35;color:#29231f">ยินดีต้อนรับ ${safeName}</h1>
-                <p style="margin:0;font-size:15px;line-height:1.75;color:#655b53">บัญชีของคุณถูกสร้างแล้ว เหลือเพียงยืนยันว่าอีเมลนี้เป็นของคุณก่อนเริ่มใช้งาน</p>
+                <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;color:#a65328;text-transform:uppercase">Email confirmation</div>
+                <h1 style="margin:10px 0 12px;font-size:25px;line-height:1.35;color:#29231f">ยืนยันอีเมลของคุณ</h1>
+                <p style="margin:0;font-size:15px;line-height:1.75;color:#655b53">สวัสดี ${safeName} กรุณายืนยันว่าอีเมลนี้เป็นของคุณเพื่อเปิดใช้งานบัญชี หลังยืนยันเรียบร้อยแล้ว เราจะส่งอีเมลต้อนรับให้คุณ</p>
               </td></tr>
               <tr><td style="padding:10px 30px 30px;text-align:center">
                 <a href="${safeUrl}" style="display:inline-block;border-radius:12px;background:#d85b2a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:14px 24px">ยืนยันอีเมลและเปิดใช้งานบัญชี</a>
@@ -78,6 +78,30 @@ export async function sendSignupConfirmationEmail(to: string, displayName: strin
                   <div style="font-size:13px;font-weight:700;color:#403731">หากคุณไม่ได้สมัครบัญชีนี้</div>
                   <div style="margin-top:5px;font-size:13px;line-height:1.65;color:#74685f">ไม่ต้องกดลิงก์และสามารถละเว้นอีเมลนี้ได้ เราจะไม่เปิดใช้งานบัญชีจนกว่าจะยืนยันอีเมล</div>
                 </div>
+              </td></tr>
+              <tr><td style="padding:20px 30px;background:#faf8f5;border-top:1px solid #eee8e1;text-align:center;color:#8b8078;font-size:11px;line-height:1.6">อีเมลนี้ส่งโดยระบบอัตโนมัติ กรุณาอย่าตอบกลับ<br>© Krarok Tunngern · ระบบจัดการกระแสเงินสดสำหรับบุคคลและองค์กร</td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </body>
+    </html>`);
+}
+
+export async function sendSignupWelcomeEmail(to: string, displayName?: string): Promise<boolean> {
+  const safeName = escapeHtml(displayName?.trim() || 'ผู้ใช้ใหม่');
+  return sendGmailEmail(to, 'ยินดีต้อนรับสู่กระรอกตุนเงิน | Welcome to Krarok Tunngern', `
+    <!doctype html>
+    <html lang="th">
+      <body style="margin:0;padding:0;background:#f5f3ef;font-family:Arial,'Noto Sans Thai',sans-serif;color:#29231f">
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0">บัญชีกระรอกตุนเงินของคุณพร้อมใช้งานแล้ว</div>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f3ef;padding:32px 12px">
+          <tr><td align="center">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e8e1d8;border-radius:18px;overflow:hidden">
+              <tr><td style="padding:22px 30px;background:#2d2118;color:#ffffff;font-size:17px;font-weight:700">Krarok Tunngern</td></tr>
+              <tr><td style="padding:36px 30px 30px">
+                <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;color:#a65328;text-transform:uppercase">Welcome to Krarok Tunngern</div>
+                <h1 style="margin:10px 0 12px;font-size:25px;line-height:1.35;color:#29231f">ยินดีต้อนรับ ${safeName}</h1>
+                <p style="margin:0;font-size:15px;line-height:1.75;color:#655b53">สมัครสมาชิกกระรอกตุนเงินเรียบร้อยแล้ว คุณสามารถเข้าสู่ระบบเพื่อจัดการรายรับ รายจ่าย และเป้าหมายการเงินของคุณได้เลย</p>
               </td></tr>
               <tr><td style="padding:20px 30px;background:#faf8f5;border-top:1px solid #eee8e1;text-align:center;color:#8b8078;font-size:11px;line-height:1.6">อีเมลนี้ส่งโดยระบบอัตโนมัติ กรุณาอย่าตอบกลับ<br>© Krarok Tunngern · ระบบจัดการกระแสเงินสดสำหรับบุคคลและองค์กร</td></tr>
             </table>

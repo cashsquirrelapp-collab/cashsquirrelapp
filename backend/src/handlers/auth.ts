@@ -8,7 +8,7 @@ import { readCookie, writeCookie, seal } from '../security/cookies.js';
 import { publicUser, storeSession, requireUser, revokeSession, type PrivateSession } from '../security/session.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
-import { sendGmailEmail, sendSignupConfirmationEmail } from '../services/gmail.js';
+import { sendGmailEmail, sendSignupConfirmationEmail, sendSignupWelcomeEmail } from '../services/gmail.js';
 const credentials = z.object({ email: z.email().max(254).transform(v=>v.toLowerCase()), password: z.string().min(1).max(128), displayName: z.string().trim().min(2).max(60).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() });
 
 async function sendConfirmation(userId:string,email:string,displayName?:string):Promise<boolean>{
@@ -47,6 +47,24 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       if (data.user?.app_metadata?.account_closure_kind === 'deletion') {
         await auth.auth.signOut();
         res.status(302); res.setHeader('Location',`${appOrigin()}/login?recover=1`); res.end(); return;
+      }
+      const googleIdentity = data.user?.identities?.find(identity => identity.provider === 'google');
+      const accountCreatedAt = data.user ? Date.parse(data.user.created_at) : Number.NaN;
+      const googleIdentityCreatedAt = googleIdentity?.created_at ? Date.parse(googleIdentity.created_at) : Number.NaN;
+      const accountAgeMs = Date.now() - accountCreatedAt;
+      const firstGoogleSignup = data.user?.app_metadata?.provider === 'google'
+        && Boolean(googleIdentity)
+        && Number.isFinite(accountCreatedAt)
+        && Number.isFinite(googleIdentityCreatedAt)
+        && accountAgeMs >= 0
+        && accountAgeMs <= 10 * 60 * 1000
+        && Math.abs(accountCreatedAt - googleIdentityCreatedAt) <= 5 * 60 * 1000;
+      if (firstGoogleSignup && data.user?.email) {
+        const displayName = typeof data.user.user_metadata?.full_name === 'string'
+          ? data.user.user_metadata.full_name
+          : undefined;
+        const welcomeEmailSent = await sendSignupWelcomeEmail(data.user.email, displayName);
+        if (!welcomeEmailSent) console.error('Google signup welcome email delivery failed');
       }
       storeSession(res,data.session); res.status(302); res.setHeader('Location',`${appOrigin()}/`); res.end(); return;
     }
@@ -131,10 +149,14 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     if (data.session) storeSession(res,data.session);
     const user=data.user ? await publicUser(data.user) : null;
     let confirmationEmailSent=true;
+    let signupEmailSent=true;
     if(data.user&&!data.session&&Array.isArray(data.user.identities)&&data.user.identities.length>0){
       confirmationEmailSent=await sendConfirmation(data.user.id,email,displayName);
     }
-    res.json({session:data.session ? {user} : null,user,confirmationEmailSent}); return;
+    if(data.user&&data.session&&Array.isArray(data.user.identities)&&data.user.identities.length>0){
+      signupEmailSent=await sendSignupWelcomeEmail(email,displayName);
+    }
+    res.json({session:data.session ? {user} : null,user,confirmationEmailSent,signupEmailSent}); return;
   }
   throw new HttpError(400,'Invalid action');
 },{csrf:true});

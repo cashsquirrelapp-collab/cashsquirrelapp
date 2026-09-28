@@ -334,7 +334,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         if (signUpErr) throw signUpErr;
 
         if (data?.session) {
-          setSuccess(t('login.success.signUpWithSession'));
+          setSuccess(data?.signupEmailSent === false
+            ? t('login.err.signupEmailFailed')
+            : t('login.success.signUpWithSession'));
         } else if (data?.confirmationEmailSent === false) {
           setError(t('login.err.confirmationEmailFailed'));
         } else {
