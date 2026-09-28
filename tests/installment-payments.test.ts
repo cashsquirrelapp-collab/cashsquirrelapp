@@ -4,6 +4,7 @@ import type { Job } from '../shared/types';
 import {
   getJobPaymentEntries,
   getJobPendingEntries,
+  getOutstandingAmount,
   getReceivedForMonth,
   getPendingForMonth,
 } from '../shared/installmentPayments';
@@ -41,6 +42,17 @@ test('pending installments are attributed to their own due month', () => {
   assert.equal(getJobPendingEntries(installmentJob).length, 2);
   assert.equal(getPendingForMonth(installmentJob, '2026-10'), 100_000);
   assert.equal(getPendingForMonth(installmentJob, '2026-11'), 100_000);
+});
+
+test('quick-pay outstanding amount ignores workflow labels and includes every unpaid installment', () => {
+  const misleadingStatus: Job = { ...installmentJob, status: 'done', paymentStatus: 'paid' };
+  assert.equal(getOutstandingAmount(misleadingStatus), 200_000);
+
+  const fullyPaid: Job = {
+    ...installmentJob,
+    installments: installmentJob.installments?.map((row) => ({ ...row, status: 'paid' as const })),
+  };
+  assert.equal(getOutstandingAmount(fullyPaid), 0);
 });
 
 test('legacy one-time jobs keep their aggregate behavior', () => {

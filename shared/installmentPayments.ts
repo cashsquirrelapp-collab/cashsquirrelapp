@@ -73,6 +73,10 @@ export const getJobPendingEntries = (job: Job): JobPendingEntry[] => {
   }] : [];
 };
 
+/** Outstanding money is financial state, so it must not depend on a workflow/status label. */
+export const getOutstandingAmount = (job: Job): number =>
+  getJobPendingEntries(job).reduce((sum, entry) => sum + entry.amount, 0);
+
 export const getMonthKeyFromDate = (date: string | null | undefined): string => date ? date.slice(0, 7) : '';
 
 export const getReceivedForMonth = (job: Job, monthKey: string): number =>

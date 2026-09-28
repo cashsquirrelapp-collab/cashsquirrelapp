@@ -8,7 +8,7 @@ import { Mascot } from '../../components/mascot/Mascot';
 import { IconArrowUpRight, IconBolt, IconCoin } from '../../components/ui/icons';
 import { VineDivider } from '../../components/mascot/VineDivider';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate } from '../../../../shared/installmentPayments';
+import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate, getOutstandingAmount } from '../../../../shared/installmentPayments';
 import {
   TrendingUp,
   TrendingDown,
@@ -342,14 +342,27 @@ export default function DashboardTab({
   const [copiedJobId, setCopiedJobId] = React.useState<string | null>(null);
   const [followUpStyle, setFollowUpStyle] = React.useState<'polite' | 'cute' | 'urgent'>('polite');
 
-  const unpaidJobs = React.useMemo(() => {
-    return jobs.filter(j => {
-      const isPaid = j.status === 'done' || 
-                      j.paymentStatus === 'paid' || 
-                      (statuses && statuses.find(s => s.id === j.status)?.behavior === 'done');
-      return !isPaid;
+  const unpaidJobs = React.useMemo<Job[]>(() => {
+    return jobs.flatMap((job) => {
+      const pendingEntries = getJobPendingEntries(job);
+      const outstandingAmount = getOutstandingAmount(job);
+      if (outstandingAmount <= 0) return [];
+
+      // A workflow status can be edited independently from the money received. The quick-pay
+      // list therefore follows the real outstanding entries, including installments in future
+      // months, and only uses the nearest unpaid due date for sorting/display.
+      const nextDueDate = pendingEntries
+        .map((entry) => entry.dueDate)
+        .filter((date): date is string => Boolean(date))
+        .sort()[0];
+
+      return [{
+        ...job,
+        pending: outstandingAmount,
+        payDate: nextDueDate || job.payDate,
+      }];
     });
-  }, [jobs, statuses]);
+  }, [jobs]);
 
   const filteredUnpaidJobs = React.useMemo(() => {
     const q = quickSearch.trim().toLowerCase();
