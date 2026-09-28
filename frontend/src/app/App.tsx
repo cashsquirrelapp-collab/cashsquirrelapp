@@ -653,13 +653,13 @@ export default function App() {
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
   const navItems = React.useMemo(() => {
     const persona = settings.userPersona;
-    if (!persona || persona === 'freelance') return NAV_ITEMS;
+    if (!persona || persona === 'freelance') return NAV_ITEMS.filter(item => item.key !== 'timeline');
     const coreKeys = PERSONA_CORE_KEYS[persona];
     return NAV_ITEMS.map(item =>
       item.group === 'bottom' || item.key === 'dashboard' || item.key === 'jobs' || item.key === 'groups'
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
-    );
+    ).filter(item => item.key !== 'timeline');
   }, [settings.userPersona]);
   const isMoreTabActive = navItems.some(item => item.group === 'more' && item.key === activeTab);
   const showMoreNavItems = moreNavOpen || isMoreTabActive;
