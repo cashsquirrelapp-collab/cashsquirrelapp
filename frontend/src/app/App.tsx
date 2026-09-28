@@ -2348,7 +2348,6 @@ export default function App() {
                       <p className="truncate text-xs font-black text-brand-text">{session?.user?.email || 'บัญชีผู้ใช้'}</p>
                       <p className="mt-1 text-[10px] font-bold text-brand-muted">{isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}</p>
                     </div>
-                    {!session.isGuest && <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('settings'); }} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><Settings className="h-4 w-4 text-brand-muted" />ตั้งค่าและบัญชี</button>}
                     {!session.isGuest && <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><IconCrown className="h-4 w-4 text-amber-500" />แพ็กเกจของฉัน</button>}
                     <button type="button" onClick={() => setDarkMode(!darkMode)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint">
                       {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-emerald-600" />}
