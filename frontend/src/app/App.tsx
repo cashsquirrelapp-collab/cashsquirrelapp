@@ -85,7 +85,6 @@ import {
   FileText,
   Smartphone,
   ChevronDown,
-  Wrench,
   BarChart3,
   RotateCcw
 } from 'lucide-react';
@@ -323,7 +322,6 @@ export default function App() {
   const [reportSection, setReportSection] = useState<'overview' | 'clients' | 'tax' | 'export'>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [moreNavOpen, setMoreNavOpen] = useState(false);
 
   const navigateTab = (tab: TabKey) => {
     prefetchFeature(tab);
@@ -356,20 +354,6 @@ export default function App() {
       </button>
     );
   };
-
-  const renderMoreToggle = () => (
-    <button
-      type="button"
-      onClick={() => setMoreNavOpen(open => !open)}
-      className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl text-[13px] font-bold text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text transition-all cursor-pointer"
-    >
-      <span className="flex items-center gap-3">
-        <Wrench className="w-4.5 h-4.5" />
-        <span>{t('nav.moreTools')}</span>
-      </span>
-      <ChevronDown className={`w-4 h-4 transition-transform ${showMoreNavItems ? 'rotate-180' : ''}`} />
-    </button>
-  );
 
   const [isSetupWizardPreview, setIsSetupWizardPreview] = useState(false);
 
@@ -663,9 +647,6 @@ export default function App() {
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
     ).filter(item => !hiddenFromSidebar.has(item.key));
   }, [settings.userPersona]);
-  const isMoreTabActive = navItems.some(item => item.group === 'more' && item.key === activeTab);
-  const showMoreNavItems = moreNavOpen || isMoreTabActive;
-
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(() => {
     return {
       enabled: true,
@@ -2140,20 +2121,7 @@ export default function App() {
         <nav className="space-y-1.5 flex-1">
           {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, false))}
 
-          {renderMoreToggle()}
-          <AnimatePresence initial={false}>
-            {showMoreNavItems && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-1.5 overflow-hidden"
-              >
-                {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
 
           {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
         </nav>
@@ -2234,20 +2202,7 @@ export default function App() {
                 <nav className="space-y-1.5">
                   {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, true))}
 
-                  {renderMoreToggle()}
-                  <AnimatePresence initial={false}>
-                    {showMoreNavItems && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="space-y-1.5 overflow-hidden"
-                      >
-                        {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
 
                   {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
                 </nav>

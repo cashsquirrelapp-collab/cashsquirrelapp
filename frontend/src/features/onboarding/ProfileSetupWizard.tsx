@@ -8,7 +8,7 @@ import { formatCurrency, formatNumberWithCommas, stripNumberInput, sumFixedExpen
 
 // Drives the default nav grouping in App.tsx (see PERSONA_CORE_KEYS there) -- picking one
 // here doesn't lock anything away, it just changes what shows up in the main menu by
-// default vs the collapsible "เครื่องมือเพิ่มเติม" section.
+// default vs the remaining navigation items.
 const PERSONA_OPTIONS: { id: NonNullable<AppSettings['userPersona']>; label: string; description: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'school', label: 'นักเรียน', description: 'เก็บเงินค่าขนม บันทึกรายรับ-รายจ่ายง่ายๆ', icon: Backpack },
   { id: 'university', label: 'นักศึกษา', description: 'มีรายได้พิเศษบ้าง อยากตั้งเป้าออมด้วย', icon: GraduationCap },

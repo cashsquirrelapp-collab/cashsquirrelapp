@@ -210,8 +210,6 @@ async function settings(page: Page) {
 async function invoices(page: Page) {
   const sidebar = page.locator("aside");
   const button = sidebar.getByRole("button", { name: "ออกบิล & ใบเสร็จ" });
-  if (!(await button.isVisible()))
-    await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
   await button.click();
 }
 test("members edit a shared workspace and switching saves to the old scope without touching personal finance", async ({
