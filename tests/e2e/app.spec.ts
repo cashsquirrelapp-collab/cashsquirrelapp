@@ -120,7 +120,7 @@ test('login and all feature tabs render after separation without browser errors'
  await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
  await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
  await expect(page.getByText('วางแผนวันนี้ ให้เงินเติบโตทุกวัน')).toHaveCount(0);
- for(const action of ['เพิ่มรายรับ','เพิ่มรายจ่าย','เป้าหมายออม','ดูรายการ'])await expect(page.getByRole('button',{name:action})).toBeVisible();
+ for(const action of ['เพิ่มรายรับ','เพิ่มรายจ่าย','เป้าหมายออม','ปฏิทินงาน'])await expect(page.getByRole('button',{name:action})).toBeVisible();
  const quickPay=page.getByRole('button',{name:'รับเงินด่วน'});
  await quickPay.click();
  await expect(page.getByRole('heading',{name:'บันทึกรับเงินด่วน'})).toBeVisible();
