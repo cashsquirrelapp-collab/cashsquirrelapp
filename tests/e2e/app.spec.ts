@@ -139,7 +139,8 @@ test('login and all feature tabs render after separation without browser errors'
   if(name.includes('เครื่องมือเพิ่มเติม'))continue;
   if(await button.isVisible()) { await button.click();await expect(button).toHaveAttribute('aria-current','page');await expect(page.locator('#main-content')).not.toContainText('กำลังโหลด');await expect(page.getByText('โหลดหน้านี้ไม่สำเร็จ',{exact:true})).toHaveCount(0); }
  }
- await sidebar.getByRole('button',{name:'ตั้งค่าระบบ'}).click();
+ await page.getByRole('button',{name:'เปิดเมนูโปรไฟล์'}).click();
+ await page.getByRole('button',{name:'ตั้งค่าและบัญชี'}).click();
  await expect(page.getByRole('heading',{name:'โปรไฟล์ผู้ใช้'})).toBeVisible();
  await expect(page.getByText('SQ-1111111111',{exact:true}).first()).toBeVisible();
  await sidebar.locator('nav button').first().click();
@@ -202,8 +203,8 @@ test('tax Excel export downloads after loading the spreadsheet writer on demand'
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
- await sidebar.getByRole('button',{name:'ผู้ช่วยจัดการภาษี'}).click();
+ await sidebar.getByRole('button',{name:'รายงานและภาษี'}).click();
+ await page.getByRole('button',{name:'ภาษี',exact:true}).click();
  const downloadPromise=page.waitForEvent('download');
  await page.getByRole('button',{name:'ดาวน์โหลด Excel (.xlsx)'}).click();
  const download=await downloadPromise;

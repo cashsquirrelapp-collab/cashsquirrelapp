@@ -320,6 +320,7 @@ export default function App() {
   }, []);
 
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [reportSection, setReportSection] = useState<'overview' | 'clients' | 'tax' | 'export'>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [moreNavOpen, setMoreNavOpen] = useState(false);
@@ -652,14 +653,15 @@ export default function App() {
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
   const navItems = React.useMemo(() => {
+    const hiddenFromSidebar = new Set<TabKey>(['timeline', 'summary', 'insight', 'tax', 'plans', 'settings']);
     const persona = settings.userPersona;
-    if (!persona || persona === 'freelance') return NAV_ITEMS.filter(item => item.key !== 'timeline');
+    if (!persona || persona === 'freelance') return NAV_ITEMS.filter(item => !hiddenFromSidebar.has(item.key));
     const coreKeys = PERSONA_CORE_KEYS[persona];
     return NAV_ITEMS.map(item =>
       item.group === 'bottom' || item.key === 'dashboard' || item.key === 'jobs' || item.key === 'groups'
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
-    ).filter(item => item.key !== 'timeline');
+    ).filter(item => !hiddenFromSidebar.has(item.key));
   }, [settings.userPersona]);
   const isMoreTabActive = navItems.some(item => item.group === 'more' && item.key === activeTab);
   const showMoreNavItems = moreNavOpen || isMoreTabActive;
@@ -2391,8 +2393,12 @@ export default function App() {
                       <p className="truncate text-xs font-black text-brand-text">{session?.user?.email || 'บัญชีผู้ใช้'}</p>
                       <p className="mt-1 text-[10px] font-bold text-brand-muted">{isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}</p>
                     </div>
-                    {!session.isGuest && <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('settings'); }} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><Settings className="h-4 w-4 text-brand-muted" />ตั้งค่าโปรไฟล์</button>}
+                    {!session.isGuest && <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('settings'); }} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><Settings className="h-4 w-4 text-brand-muted" />ตั้งค่าและบัญชี</button>}
                     {!session.isGuest && <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><IconCrown className="h-4 w-4 text-amber-500" />แพ็กเกจของฉัน</button>}
+                    <button type="button" onClick={() => setDarkMode(!darkMode)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint">
+                      {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-emerald-600" />}
+                      {darkMode ? 'ใช้โหมดสว่าง' : 'ใช้โหมดมืด'}
+                    </button>
                     <button type="button" onClick={() => { setIsProfileMenuOpen(false); triggerConfirm('ออกจากระบบ', 'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?', async () => { await handleSignOut(); }); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"><LogOut className="h-4 w-4" />ออกจากระบบ</button>
                   </motion.div>
                 )}
@@ -2667,20 +2673,78 @@ export default function App() {
               )}
 
               {activeTab === 'report' && (
-                <MonthlyReportTab
-                  jobs={jobs}
-                  goals={goals}
-                  expenses={expenses}
-                  settings={settings}
-                  onUpdateSettings={handleUpdateSettings}
-                  userEmail={session?.user?.email || 'user@example.com'}
-                  notifSettings={notifSettings}
-                  onUpdateNotifSettings={setNotifSettings}
-                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
-                  onViewJob={handleViewJob}
-                  triggerAlert={triggerAlert}
-                  triggerConfirm={triggerConfirm}
-                />
+                <div className="space-y-5">
+                  <section className="rounded-3xl border border-brand-border bg-brand-white p-4 shadow-sm sm:p-5">
+                    <div className="mb-4">
+                      <h1 className="text-2xl font-black tracking-tight text-brand-text">รายงานและภาษี</h1>
+                      <p className="mt-1 text-xs text-brand-muted">ดูภาพรวมธุรกิจ วิเคราะห์รายได้ เตรียมภาษี และส่งออกข้อมูลจากที่เดียว</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 rounded-2xl bg-brand-faint p-1.5 sm:grid-cols-4">
+                      {([
+                        ['overview', 'ภาพรวมธุรกิจ'],
+                        ['clients', 'ลูกค้าและประเภทงาน'],
+                        ['tax', 'ภาษี'],
+                        ['export', 'ส่งออกข้อมูล'],
+                      ] as const).map(([key, label]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setReportSection(key)}
+                          className={`rounded-xl px-3 py-2.5 text-[11px] font-black transition-all sm:text-xs ${reportSection === key ? 'bg-brand-white text-[#B9471D] shadow-sm ring-1 ring-[#E65F2B]/15' : 'text-brand-muted hover:text-brand-text'}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  {reportSection === 'overview' && (
+                    <MonthlyReportTab
+                      jobs={jobs}
+                      goals={goals}
+                      expenses={expenses}
+                      settings={settings}
+                      onUpdateSettings={handleUpdateSettings}
+                      userEmail={session?.user?.email || 'user@example.com'}
+                      notifSettings={notifSettings}
+                      onUpdateNotifSettings={setNotifSettings}
+                      onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
+                      onViewJob={handleViewJob}
+                      triggerAlert={triggerAlert}
+                      triggerConfirm={triggerConfirm}
+                    />
+                  )}
+
+                  {reportSection === 'clients' && (
+                    isPro
+                      ? <InsightTab jobs={jobs} onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }} />
+                      : <PremiumUpsell feature={t('premium.insightFeature')} description={t('premium.insightDesc')} onUpgrade={handleUpgrade} />
+                  )}
+
+                  {reportSection === 'tax' && (
+                    isPro
+                      ? <TaxTab jobs={jobs} expenses={expenses} settings={settings} onUpdateSettings={handleUpdateSettings} triggerAlert={triggerAlert} triggerConfirm={triggerConfirm} />
+                      : <PremiumUpsell feature={t('premium.taxFeature')} description={t('premium.taxDesc')} onUpgrade={handleUpgrade} />
+                  )}
+
+                  {reportSection === 'export' && (
+                    <section className="rounded-3xl border border-brand-border bg-brand-white p-6 shadow-sm sm:p-8">
+                      <div className="mx-auto max-w-2xl text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E65F2B]/10 text-[#B9471D]">
+                          <Download className="h-5 w-5" />
+                        </div>
+                        <h2 className="mt-4 text-xl font-black text-brand-text">ส่งออกข้อมูลธุรกิจ</h2>
+                        <p className="mt-2 text-sm text-brand-muted">ดาวน์โหลดข้อมูลงาน รายรับ รายจ่าย และการตั้งค่าเพื่อสำรองหรือส่งต่อให้ผู้ทำบัญชี</p>
+                        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                          <button type="button" onClick={() => void handleExportData()} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#E65F2B] px-5 py-3 text-xs font-black text-white shadow-sm hover:bg-[#D85022]">
+                            <Download className="h-4 w-4" /> ดาวน์โหลดไฟล์สำรอง
+                          </button>
+                          {!session.isGuest && <button type="button" onClick={() => navigateTab('settings')} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-border bg-brand-white px-5 py-3 text-xs font-black text-brand-text hover:bg-brand-faint"><Settings className="h-4 w-4" /> จัดการนำเข้าและสำรอง</button>}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+                </div>
               )}
 
               {activeTab === 'insight' && (
