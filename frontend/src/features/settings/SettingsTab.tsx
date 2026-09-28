@@ -28,7 +28,8 @@ import {
   Languages,
   Clock3,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  PiggyBank
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconCrown, IconClose, IconCheck } from '../../components/ui/icons';
@@ -563,6 +564,50 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Card 1.6: Allocation feature opt-in -- "จัดสรรเงิน & เป้าหมายออม" is too personal/optional
+              for a solo freelancer just tracking profit, so it's hidden from the sidebar and dashboard
+              by default and surfaced here as a free toggle (not Pro-gated). Turning it off never hides
+              an account's existing goals -- see showAllocationTab in App.tsx / DashboardTab.tsx. */}
+          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
+              <PiggyBank className="w-4.5 h-4.5 text-pink-acc" />
+              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
+                การจัดสรรเงินและเป้าหมายออม
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onUpdateSettings({ ...settings, allocationFeatureEnabled: !settings.allocationFeatureEnabled })}
+              className={`w-full flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                settings.allocationFeatureEnabled
+                  ? 'bg-emerald-500/10 border-emerald-500/30'
+                  : 'bg-brand-white dark:bg-stone-900 border-brand-border/40 dark:border-neutral-800 hover:border-brand-border'
+              }`}
+            >
+              <PiggyBank className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473] shrink-0" />
+              <div className="min-w-0 flex-1">
+                <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
+                  เปิดใช้แท็บจัดสรรเงิน & เป้าหมายออม
+                </span>
+                <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
+                  สำหรับใครที่อยากแบ่งกำไรไปเก็บเป็นเป้าหมาย เช่น กองทุนฉุกเฉินหรืออัปเกรดอุปกรณ์ เปิดไว้จะโชว์แท็บนี้ในเมนูและหน้าแดชบอร์ด
+                </p>
+              </div>
+              <div
+                className={`shrink-0 w-9 h-5 rounded-full transition-colors relative ${
+                  settings.allocationFeatureEnabled ? 'bg-emerald-600' : 'bg-brand-border dark:bg-neutral-700'
+                }`}
+              >
+                <div
+                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+                    settings.allocationFeatureEnabled ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+                />
+              </div>
+            </button>
           </div>
 
           {/* Card 1.5: Notifications -- LINE linking + email report/digest opt-ins. Moved here

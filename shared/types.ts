@@ -121,6 +121,11 @@ export interface AppSettings {
   // group vs the collapsible "เครื่องมือเพิ่มเติม" group. Every feature stays reachable either
   // way; this only changes what's shown by default so first-time users see less at once.
   userPersona?: 'school' | 'university' | 'freelance' | 'employee';
+  // Opt-in for the "จัดสรรเงิน & เป้าหมายออม" (savings-goal allocation) tab -- off by default,
+  // since a solo freelancer just tracking profit may never want a savings-split view. Ignored
+  // (treated as on) once the account actually has any goals saved -- see showAllocationTab in
+  // App.tsx / DashboardTab.tsx.
+  allocationFeatureEnabled?: boolean;
 }
 
 export interface PendingReminder {

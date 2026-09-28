@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Expense } from '../../../../shared/types';
-import { formatCurrency, getMonthKey, formatMonthKey } from '../../utils';
-import { Plus, Trash2, Receipt, Pencil } from 'lucide-react';
+import { AppSettings, Expense } from '../../../../shared/types';
+import { formatCurrency, getMonthKey, formatMonthKey, sumFixedExpenseItems } from '../../utils';
+import { Plus, Trash2, Receipt, Pencil, Repeat } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import NumberInput from '../../components/ui/NumberInput';
 
@@ -18,6 +18,12 @@ interface ExpenseRecordViewProps {
   onAutoOpenAddHandled?: () => void;
   scrollToExpenseId?: string | null;
   onScrollToExpenseHandled?: () => void;
+  // Ticking "รายจ่ายประจำทุกเดือน" below writes straight into this -- the fixed-cost baseline
+  // used for burn-rate/profit math, previously only editable by retyping the same line item over
+  // in ตั้งค่าระบบ. Unticking never removes an existing fixed item on its own (that stays a
+  // deliberate action in Settings); this only ever adds or refreshes the matching amount.
+  settings: AppSettings;
+  onUpdateSettings: (settings: AppSettings) => void;
 }
 
 const EXPENSE_CATEGORIES = [
@@ -46,6 +52,8 @@ export default function ExpenseRecordView({
   onAutoOpenAddHandled,
   scrollToExpenseId,
   onScrollToExpenseHandled,
+  settings,
+  onUpdateSettings,
 }: ExpenseRecordViewProps) {
   // One shared bottom-sheet form for both add and edit -- `formMode` picks which action submit
   // takes, `editingId` carries which record is being edited (null while adding).
@@ -56,7 +64,12 @@ export default function ExpenseRecordView({
   const [expCategory, setExpCategory] = useState(EXPENSE_CATEGORIES[0]);
   const [expDate, setExpDate] = useState(new Date().toISOString().split('T')[0]);
   const [expNote, setExpNote] = useState('');
+  const [expIsFixed, setExpIsFixed] = useState(false);
   const [highlightedExpenseId, setHighlightedExpenseId] = useState<string | null>(null);
+
+  const fixedExpenseItems = settings.fixedExpenseItems || [];
+  const findFixedItem = (name: string) =>
+    fixedExpenseItems.find(item => item.name.trim().toLowerCase() === name.trim().toLowerCase());
 
   const openAddForm = () => {
     setExpName('');
@@ -64,6 +77,7 @@ export default function ExpenseRecordView({
     setExpCategory(EXPENSE_CATEGORIES[0]);
     setExpDate(new Date().toISOString().split('T')[0]);
     setExpNote('');
+    setExpIsFixed(false);
     setEditingId(null);
     setFormMode('add');
   };
@@ -74,6 +88,9 @@ export default function ExpenseRecordView({
     setExpCategory(expense.category);
     setExpDate(expense.date);
     setExpNote(expense.note || '');
+    // Pre-ticked when this record's name already matches a fixed-cost line item in Settings, so
+    // re-opening a bill you already flagged last time doesn't look like it forgot.
+    setExpIsFixed(!!findFixedItem(expense.name));
     setEditingId(expense.id);
     setFormMode('edit');
   };
@@ -130,10 +147,26 @@ export default function ExpenseRecordView({
     };
     if (formMode === 'edit' && editingId) {
       onEditExpense(editingId, payload);
-      triggerAlert('แก้ไขรายจ่ายสำเร็จ!', 'อัปเดตข้อมูลรายจ่ายเรียบร้อยแล้ว');
     } else {
       onAddExpense(payload);
-      triggerAlert('บันทึกรายจ่ายสำเร็จ!', 'บันทึกข้อมูลรายจ่ายผันแปรของคุณเรียบร้อยแล้ว');
+    }
+
+    let fixedNote = '';
+    if (expIsFixed) {
+      const existing = findFixedItem(payload.name);
+      const updatedItems = existing
+        ? fixedExpenseItems.map(item => item.id === existing.id ? { ...item, amount: payload.amount } : item)
+        : [...fixedExpenseItems, { id: crypto.randomUUID(), name: payload.name, amount: payload.amount }];
+      onUpdateSettings({ ...settings, fixedExpenseItems: updatedItems, monthlyExpense: sumFixedExpenseItems(updatedItems) });
+      fixedNote = existing
+        ? ' และอัปเดตยอดใน "ค่าใช้จ่ายคงที่รายเดือน" ให้แล้ว'
+        : ' และเพิ่มเข้า "ค่าใช้จ่ายคงที่รายเดือน" ในหน้าตั้งค่าให้แล้ว';
+    }
+
+    if (formMode === 'edit' && editingId) {
+      triggerAlert('แก้ไขรายจ่ายสำเร็จ!', `อัปเดตข้อมูลรายจ่ายเรียบร้อยแล้ว${fixedNote}`);
+    } else {
+      triggerAlert('บันทึกรายจ่ายสำเร็จ!', `บันทึกข้อมูลรายจ่ายผันแปรของคุณเรียบร้อยแล้ว${fixedNote}`);
     }
     closeForm();
   };
@@ -206,6 +239,11 @@ export default function ExpenseRecordView({
                       <span className="text-[8px] bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 font-bold px-1.5 py-0.5 rounded-sm">
                         {e.category}
                       </span>
+                      {findFixedItem(e.name) && (
+                        <span className="flex items-center gap-0.5 text-[8px] bg-brand-faint dark:bg-neutral-800 text-brand-muted font-bold px-1.5 py-0.5 rounded-sm" title="นับเป็นค่าใช้จ่ายคงที่รายเดือนแล้ว">
+                          <Repeat className="w-2.5 h-2.5" /> ประจำ
+                        </span>
+                      )}
                       {e.note && (
                         <span className="text-[9px] text-brand-muted italic">({e.note})</span>
                       )}
@@ -343,6 +381,24 @@ export default function ExpenseRecordView({
                     className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-2 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
                   />
                 </div>
+
+                <label className="flex items-start gap-2.5 p-3 bg-brand-faint/40 dark:bg-neutral-800/40 border border-brand-border/50 dark:border-neutral-800 rounded-xl cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={expIsFixed}
+                    onChange={(e) => setExpIsFixed(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-orange-600 cursor-pointer shrink-0"
+                  />
+                  <span>
+                    <span className="flex items-center gap-1.5 font-bold text-brand-text dark:text-white">
+                      <Repeat className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                      รายจ่ายประจำทุกเดือน (เช่น ค่าเน็ต ค่าห้อง)
+                    </span>
+                    <span className="block text-[9px] text-brand-muted font-medium mt-0.5">
+                      ติ๊กไว้เพื่อให้ยอดนี้นับเป็น &quot;ค่าใช้จ่ายคงที่รายเดือน&quot; อัตโนมัติ ไม่ต้องไปพิมพ์ซ้ำที่หน้าตั้งค่า
+                    </span>
+                  </span>
+                </label>
 
                 <button
                   type="submit"

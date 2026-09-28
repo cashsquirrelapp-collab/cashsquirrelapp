@@ -640,10 +640,18 @@ export default function App() {
 
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
 
+  // "จัดสรรเงิน & เป้าหมายออม" (savings-goal allocation) is opt-in: a solo freelancer just
+  // tracking profit may never want it, so it stays out of the sidebar until switched on in
+  // Settings -- except an account that already has goals saved (from before this toggle existed,
+  // or someone who added one another way) keeps seeing it regardless of the toggle, so nobody's
+  // existing goals quietly become unreachable.
+  const showAllocationTab = !!settings.allocationFeatureEnabled || goals.length > 0;
+
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
   const navItems = React.useMemo(() => {
     const hiddenFromSidebar = new Set<TabKey>(['timeline', 'summary', 'insight', 'tax', 'plans']);
+    if (!showAllocationTab) hiddenFromSidebar.add('split');
     const persona = settings.userPersona;
     if (!persona || persona === 'freelance') return NAV_ITEMS.filter(item => !hiddenFromSidebar.has(item.key));
     const coreKeys = PERSONA_CORE_KEYS[persona];
@@ -652,7 +660,7 @@ export default function App() {
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
     ).filter(item => !hiddenFromSidebar.has(item.key));
-  }, [settings.userPersona]);
+  }, [settings.userPersona, showAllocationTab]);
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(() => {
     return {
       enabled: true,
@@ -2526,6 +2534,8 @@ export default function App() {
                       onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
                       scrollToExpenseId={scrollToExpenseId}
                       onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
+                      settings={settings}
+                      onUpdateSettings={handleUpdateSettings}
                     />
                   )}
                 </div>
