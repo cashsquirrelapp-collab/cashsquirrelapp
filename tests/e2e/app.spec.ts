@@ -203,8 +203,7 @@ test('tax Excel export downloads after loading the spreadsheet writer on demand'
  await page.goto('/');
  const sidebar=page.locator('aside');
  await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
- await sidebar.getByRole('button',{name:'รายงาน & เครดิตเทอม'}).click();
- await page.getByRole('button',{name:'ภาษี',exact:true}).click();
+ await sidebar.getByRole('button',{name:'ผู้ช่วยจัดการภาษี'}).click();
  const downloadPromise=page.waitForEvent('download');
  await page.getByRole('button',{name:'ดาวน์โหลด Excel (.xlsx)'}).click();
  const download=await downloadPromise;

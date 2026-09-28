@@ -278,11 +278,10 @@ test("invoices, issuer profiles and exports follow the selected group and reset 
   await expect(page.getByText("Other-001", { exact: true })).toBeVisible();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await settings(page);
-  // Export from the consolidated reports area uses the same scoped invoice snapshot.
+  // Export from summary uses the same scoped invoice snapshot.
   const sidebar = page.locator("aside");
   await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
-  await sidebar.getByRole("button", { name: "รายงาน & เครดิตเทอม" }).click();
-  await page.getByRole("button", { name: "ส่งออกข้อมูล" }).click();
+  await sidebar.getByRole("button", { name: "สรุปยอดรายรับ" }).click();
   const downloadPromise = page.waitForEvent("download");
   await page
     .locator("#main-content")
