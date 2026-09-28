@@ -985,60 +985,6 @@ export default function MonthlyReportTab({
 
         </div>
 
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 dark:bg-amber-500/10 sm:p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">ภาษีหัก ณ ที่จ่ายรายเดือน</p>
-              <p className="mt-1 text-2xl font-black font-mono text-amber-700 dark:text-amber-400">{formatCurrency(selectedMonthWhtTotal)}</p>
-              <p className="mt-1 text-[11px] text-brand-muted">จากรายการที่รับเงินจริงใน {formatMonthKey(selectedWhtMonth)} จำนวน {selectedMonthWhtEntries.length} รายการ</p>
-            </div>
-            <div className="flex flex-col gap-2 sm:items-end">
-              <select
-                aria-label="เลือกเดือนภาษีหัก ณ ที่จ่าย"
-                value={selectedWhtMonth}
-                onChange={(e) => {
-                  setSelectedWhtMonth(e.target.value);
-                  setShowMonthlyWhtDetails(false);
-                }}
-                className="rounded-xl border border-amber-500/20 bg-brand-white px-3 py-2 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-amber-500/20 dark:bg-neutral-900 dark:text-white"
-              >
-                {monthlyData.map((month) => <option key={month.month} value={month.month}>{month.monthLabel}</option>)}
-              </select>
-              <button
-                type="button"
-                onClick={() => setShowMonthlyWhtDetails((open) => !open)}
-                className="text-xs font-black text-amber-700 hover:underline dark:text-amber-400"
-              >
-                {showMonthlyWhtDetails ? 'ซ่อนรายละเอียด' : 'ดูว่าเป็นยอดจากงานไหน'}
-              </button>
-            </div>
-          </div>
-
-          <AnimatePresence initial={false}>
-            {showMonthlyWhtDetails && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="mt-4 space-y-2 border-t border-amber-500/15 pt-4">
-                  {selectedMonthWhtEntries.map((entry) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => onViewJob?.(entry.jobId)}
-                      className="flex w-full items-center justify-between gap-4 rounded-xl border border-brand-border/40 bg-brand-white px-3 py-3 text-left hover:border-amber-500/30 dark:bg-neutral-900"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-xs font-black text-brand-text dark:text-white">{entry.jobName}</span>
-                        <span className="mt-0.5 block truncate text-[10px] text-brand-muted">{entry.client} · {entry.label} · {entry.date}</span>
-                      </span>
-                      <span className="shrink-0 font-mono text-xs font-black text-amber-700 dark:text-amber-400">{formatCurrency(entry.amount)}</span>
-                    </button>
-                  ))}
-                  {selectedMonthWhtEntries.length === 0 && <p className="py-4 text-center text-xs text-brand-muted">เดือนนี้ยังไม่มีรายการภาษีหัก ณ ที่จ่ายจากเงินที่รับแล้ว</p>}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
         {/* Button to toggle 12-Month Table Breakdown */}
         <div className="pt-2 flex justify-between items-center border-t border-brand-border/20">
           <button
@@ -1135,6 +1081,62 @@ export default function MonthlyReportTab({
           )}
         </AnimatePresence>
       </div>
+
+      {/* Monthly withholding tax is intentionally separate from the annual summary. */}
+      <section className="rounded-3xl border border-amber-500/20 bg-brand-white p-5 shadow-sm dark:bg-neutral-900 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">สรุปรายเดือน</p>
+            <h3 className="mt-1 font-display text-base font-black text-brand-text dark:text-white">ภาษีหัก ณ ที่จ่ายรายเดือน</h3>
+            <p className="mt-2 text-2xl font-black font-mono text-amber-700 dark:text-amber-400">{formatCurrency(selectedMonthWhtTotal)}</p>
+            <p className="mt-1 text-[11px] text-brand-muted">จากรายการที่รับเงินจริงใน {formatMonthKey(selectedWhtMonth)} จำนวน {selectedMonthWhtEntries.length} รายการ</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <select
+              aria-label="เลือกเดือนภาษีหัก ณ ที่จ่าย"
+              value={selectedWhtMonth}
+              onChange={(e) => {
+                setSelectedWhtMonth(e.target.value);
+                setShowMonthlyWhtDetails(false);
+              }}
+              className="rounded-xl border border-amber-500/20 bg-brand-bg px-3 py-2 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-amber-500/20 dark:bg-neutral-800 dark:text-white"
+            >
+              {monthlyData.map((month) => <option key={month.month} value={month.month}>{month.monthLabel}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={() => setShowMonthlyWhtDetails((open) => !open)}
+              className="text-xs font-black text-amber-700 hover:underline dark:text-amber-400"
+            >
+              {showMonthlyWhtDetails ? 'ซ่อนรายละเอียด' : 'ดูว่าเป็นยอดจากงานไหน'}
+            </button>
+          </div>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {showMonthlyWhtDetails && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+              <div className="mt-4 space-y-2 border-t border-amber-500/15 pt-4">
+                {selectedMonthWhtEntries.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => onViewJob?.(entry.jobId)}
+                    className="flex w-full items-center justify-between gap-4 rounded-xl border border-brand-border/40 bg-brand-bg px-3 py-3 text-left hover:border-amber-500/30 dark:bg-neutral-800"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-black text-brand-text dark:text-white">{entry.jobName}</span>
+                      <span className="mt-0.5 block truncate text-[10px] text-brand-muted">{entry.client} · {entry.label} · {entry.date}</span>
+                    </span>
+                    <span className="shrink-0 font-mono text-xs font-black text-amber-700 dark:text-amber-400">{formatCurrency(entry.amount)}</span>
+                  </button>
+                ))}
+                {selectedMonthWhtEntries.length === 0 && <p className="py-4 text-center text-xs text-brand-muted">เดือนนี้ยังไม่มีรายการภาษีหัก ณ ที่จ่ายจากเงินที่รับแล้ว</p>}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
 
       {/* Credit Term Overdue and Alerts Board */}
       <div className="bg-brand-white p-5 sm:p-6 rounded-3xl border border-brand-border/40 shadow-sm space-y-4">
