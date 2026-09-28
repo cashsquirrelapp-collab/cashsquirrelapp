@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job, Goal, AppSettings, NotifSettings } from '../../../../shared/types';
 import { formatCurrency, getMonthKey, formatMonthKey, getRelativeDaysText } from '../../utils';
-import { getJobPaymentEntries, getMonthKeyFromDate, getPendingForMonth } from '../../../../shared/installmentPayments';
+import { getJobPaymentEntries, getMonthKeyFromDate } from '../../../../shared/installmentPayments';
 import { 
   BarChart, 
   Bar, 
@@ -283,7 +283,6 @@ export default function MonthlyReportTab({
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [includeFullYearFixed, setIncludeFullYearFixed] = useState(true);
   const [showYearlyBreakdownTable, setShowYearlyBreakdownTable] = useState(false);
-  const [overviewPeriod, setOverviewPeriod] = useState<'month' | 'year'>('month');
 
   const whtPaymentEntries = useMemo(() => jobs.flatMap((job) => {
     const totalWht = Math.max(0, job.whtAmount || 0);
@@ -479,15 +478,6 @@ export default function MonthlyReportTab({
         };
       });
   }, [jobs, expenses, goals, settings, selectedYear, includeFullYearFixed, whtPaymentEntries]);
-
-  const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-  const overviewMonth = monthlyData.find((month) => month.month === currentMonthKey)
-    || monthlyData.find((month) => month.month.endsWith(`-${String(new Date().getMonth() + 1).padStart(2, '0')}`))
-    || monthlyData[0];
-  const monthlyOutstanding = useMemo(() => jobs.reduce(
-    (sum, job) => sum + getPendingForMonth(job, overviewMonth?.month || currentMonthKey),
-    0
-  ), [jobs, overviewMonth?.month, currentMonthKey]);
 
   // 2. Savings Goals Progress Data
   const goalsData = useMemo(() => {
@@ -751,17 +741,17 @@ export default function MonthlyReportTab({
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-[10px] uppercase font-extrabold tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-md">
-                ภาพรวมธุรกิจ
+                สรุปภาพรวมรายเดือน & อีเมลรายงาน
               </span>
               <span className="text-[10px] bg-brand-faint px-2 py-1 rounded-md font-mono text-brand-muted">
                 {userEmail}
               </span>
             </div>
             <h2 className="text-xl font-display font-black tracking-tight text-brand-text sm:text-2xl">
-              สรุปการเงินของธุรกิจ
+              รายงานวิเคราะห์กระแสเงินสดและเงินออม
             </h2>
             <p className="text-xs text-brand-muted mt-1 leading-relaxed">
-              ดูเงินเข้า เงินค้างรับ รายจ่าย และกำไรสุทธิ โดยเลือกดูได้ทั้งเดือนนี้และภาพรวมทั้งปี
+              เปรียบเทียบความสัมพันธ์ของรายรับเฉลี่ยกับยอดเงินออม และจัดการติดตามดีลเครดิตเทอมเพื่อรักษาความคล่องตัวทางการเงินของคุณ
             </p>
           </div>
 
@@ -831,64 +821,7 @@ export default function MonthlyReportTab({
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-brand-border/40 bg-brand-white p-2 shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-brand-faint p-1 dark:bg-neutral-800 sm:max-w-sm">
-          <button
-            type="button"
-            onClick={() => setOverviewPeriod('month')}
-            className={`rounded-lg px-4 py-2.5 text-xs font-black transition-all ${overviewPeriod === 'month' ? 'bg-brand-white text-[#B9471D] shadow-sm dark:bg-neutral-700 dark:text-orange-300' : 'text-brand-muted hover:text-brand-text dark:hover:text-white'}`}
-          >
-            เดือนนี้
-          </button>
-          <button
-            type="button"
-            onClick={() => setOverviewPeriod('year')}
-            className={`rounded-lg px-4 py-2.5 text-xs font-black transition-all ${overviewPeriod === 'year' ? 'bg-brand-white text-[#B9471D] shadow-sm dark:bg-neutral-700 dark:text-orange-300' : 'text-brand-muted hover:text-brand-text dark:hover:text-white'}`}
-          >
-            รายปี
-          </button>
-        </div>
-        <span className="hidden text-[11px] font-bold text-brand-muted sm:block">
-          {overviewPeriod === 'month' ? formatMonthKey(overviewMonth?.month || currentMonthKey) : `ปี ค.ศ. ${selectedYear}`}
-        </span>
-      </div>
-
-      {overviewPeriod === 'month' && overviewMonth && (
-        <section className="rounded-3xl border border-brand-border/40 bg-brand-white p-5 shadow-xs dark:border-neutral-800 dark:bg-neutral-900 sm:p-6">
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">ภาพรวมเดือนนี้</p>
-              <h3 className="mt-1 font-display text-lg font-black text-brand-text dark:text-white">สถานะการเงิน {overviewMonth.monthLabel}</h3>
-              <p className="mt-1 text-xs text-brand-muted">ตัวเลขสำคัญที่ใช้ติดตามงานและเงินสดในเดือนปัจจุบัน</p>
-            </div>
-            <Calendar className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            {[
-              ['มูลค่างาน', overviewMonth.income, 'text-brand-text dark:text-white'],
-              ['รับเงินจริงแล้ว', overviewMonth.received, 'text-emerald-700 dark:text-emerald-400'],
-              ['ยอดค้างรับ', monthlyOutstanding, 'text-amber-700 dark:text-amber-400'],
-              ['รายจ่ายรวม', overviewMonth.fixedExpenseCalculated + overviewMonth.variableExpense, 'text-rose-700 dark:text-rose-400'],
-              ['กำไรสุทธิ', overviewMonth.netFlow, overviewMonth.netFlow >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-rose-700 dark:text-rose-400'],
-            ].map(([label, value, color]) => (
-              <div key={String(label)} className="rounded-2xl border border-brand-border/30 bg-brand-bg/50 p-4 dark:border-neutral-700 dark:bg-neutral-800/60">
-                <p className="text-[11px] font-bold text-brand-muted">{label}</p>
-                <p className={`mt-2 font-mono text-xl font-black ${color}`}>{formatCurrency(Number(value))}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 grid gap-3 border-t border-brand-border/30 pt-4 text-xs sm:grid-cols-3 dark:border-neutral-800">
-            <div className="flex items-center justify-between"><span className="text-brand-muted">รายจ่ายคงที่</span><strong className="font-mono text-brand-text dark:text-white">{formatCurrency(overviewMonth.fixedExpenseCalculated)}</strong></div>
-            <div className="flex items-center justify-between"><span className="text-brand-muted">รายจ่ายแปรผัน</span><strong className="font-mono text-brand-text dark:text-white">{formatCurrency(overviewMonth.variableExpense)}</strong></div>
-            <div className="flex items-center justify-between"><span className="text-brand-muted">หัก ณ ที่จ่าย</span><strong className="font-mono text-amber-700 dark:text-amber-400">{formatCurrency(overviewMonth.whtAmount)}</strong></div>
-          </div>
-        </section>
-      )}
-
       {/* Annual Financial Summary Section */}
-      {overviewPeriod === 'year' && (
       <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border/40 dark:border-neutral-800 rounded-3xl p-6 shadow-xs space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-brand-border/30 dark:border-neutral-800 pb-4">
           <div>
@@ -1124,7 +1057,6 @@ export default function MonthlyReportTab({
           )}
         </AnimatePresence>
       </div>
-      )}
 
       {/* Credit Term Overdue and Alerts Board */}
       <div className="bg-brand-white p-5 sm:p-6 rounded-3xl border border-brand-border/40 shadow-sm space-y-4">
