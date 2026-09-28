@@ -281,11 +281,6 @@ export default function MonthlyReportTab({
   }, [jobs, expenses]);
 
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-  const [selectedWhtMonth, setSelectedWhtMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
-  const [showMonthlyWhtDetails, setShowMonthlyWhtDetails] = useState(false);
   const [includeFullYearFixed, setIncludeFullYearFixed] = useState(true);
   const [showYearlyBreakdownTable, setShowYearlyBreakdownTable] = useState(false);
   const [overviewPeriod, setOverviewPeriod] = useState<'month' | 'year'>('month');
@@ -327,15 +322,6 @@ export default function MonthlyReportTab({
       amount: totalWht,
     }];
   }), [jobs]);
-
-  const selectedMonthWhtEntries = useMemo(
-    () => whtPaymentEntries.filter((entry) => getMonthKeyFromDate(entry.date) === selectedWhtMonth),
-    [whtPaymentEntries, selectedWhtMonth]
-  );
-  const selectedMonthWhtTotal = useMemo(
-    () => selectedMonthWhtEntries.reduce((sum, entry) => sum + entry.amount, 0),
-    [selectedMonthWhtEntries]
-  );
 
   // Annual financial metrics calculation
   const annualMetrics = useMemo(() => {
@@ -781,14 +767,6 @@ export default function MonthlyReportTab({
 
           <div className="shrink-0 flex items-center gap-4">
             <Mascot mood="wave" size={72} className="shrink-0 hidden sm:inline-flex" />
-            <button
-              onClick={handleSendEmailReport}
-              disabled={isSendingSimulated}
-              className="py-3 px-5 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-extrabold rounded-2xl text-xs shadow-md shadow-emerald-600/10 dark:shadow-none hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] disabled:opacity-50"
-            >
-              <Mail className="w-4.5 h-4.5 animate-pulse" />
-              <span>ส่งรายงานเครดิตเทอมเข้าอีเมล</span>
-            </button>
           </div>
         </div>
 
@@ -937,8 +915,6 @@ export default function MonthlyReportTab({
                 onChange={(e) => {
                   const year = Number(e.target.value);
                   setSelectedYear(year);
-                  setSelectedWhtMonth(`${year}-${selectedWhtMonth.slice(5)}`);
-                  setShowMonthlyWhtDetails(false);
                 }}
                 className="py-1.5 px-3 bg-brand-bg dark:bg-neutral-800 border border-brand-border dark:border-neutral-700 text-brand-text dark:text-white rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
               >
@@ -1150,62 +1126,6 @@ export default function MonthlyReportTab({
       </div>
       )}
 
-      {/* Monthly withholding tax is intentionally separate from the annual summary. */}
-      <section className="rounded-3xl border border-amber-500/20 bg-brand-white p-5 shadow-sm dark:bg-neutral-900 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">สรุปรายเดือน</p>
-            <h3 className="mt-1 font-display text-base font-black text-brand-text dark:text-white">ภาษีหัก ณ ที่จ่ายรายเดือน</h3>
-            <p className="mt-2 text-2xl font-black font-mono text-amber-700 dark:text-amber-400">{formatCurrency(selectedMonthWhtTotal)}</p>
-            <p className="mt-1 text-[11px] text-brand-muted">จากรายการที่รับเงินจริงใน {formatMonthKey(selectedWhtMonth)} จำนวน {selectedMonthWhtEntries.length} รายการ</p>
-          </div>
-          <div className="flex flex-col gap-2 sm:items-end">
-            <select
-              aria-label="เลือกเดือนภาษีหัก ณ ที่จ่าย"
-              value={selectedWhtMonth}
-              onChange={(e) => {
-                setSelectedWhtMonth(e.target.value);
-                setShowMonthlyWhtDetails(false);
-              }}
-              className="rounded-xl border border-amber-500/20 bg-brand-bg px-3 py-2 text-xs font-bold text-brand-text outline-none focus:ring-2 focus:ring-amber-500/20 dark:bg-neutral-800 dark:text-white"
-            >
-              {monthlyData.map((month) => <option key={month.month} value={month.month}>{month.monthLabel}</option>)}
-            </select>
-            <button
-              type="button"
-              onClick={() => setShowMonthlyWhtDetails((open) => !open)}
-              className="text-xs font-black text-amber-700 hover:underline dark:text-amber-400"
-            >
-              {showMonthlyWhtDetails ? 'ซ่อนรายละเอียด' : 'ดูว่าเป็นยอดจากงานไหน'}
-            </button>
-          </div>
-        </div>
-
-        <AnimatePresence initial={false}>
-          {showMonthlyWhtDetails && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-              <div className="mt-4 space-y-2 border-t border-amber-500/15 pt-4">
-                {selectedMonthWhtEntries.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    onClick={() => onViewJob?.(entry.jobId)}
-                    className="flex w-full items-center justify-between gap-4 rounded-xl border border-brand-border/40 bg-brand-bg px-3 py-3 text-left hover:border-amber-500/30 dark:bg-neutral-800"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-black text-brand-text dark:text-white">{entry.jobName}</span>
-                      <span className="mt-0.5 block truncate text-[10px] text-brand-muted">{entry.client} · {entry.label} · {entry.date}</span>
-                    </span>
-                    <span className="shrink-0 font-mono text-xs font-black text-amber-700 dark:text-amber-400">{formatCurrency(entry.amount)}</span>
-                  </button>
-                ))}
-                {selectedMonthWhtEntries.length === 0 && <p className="py-4 text-center text-xs text-brand-muted">เดือนนี้ยังไม่มีรายการภาษีหัก ณ ที่จ่ายจากเงินที่รับแล้ว</p>}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
-
       {/* Credit Term Overdue and Alerts Board */}
       <div className="bg-brand-white p-5 sm:p-6 rounded-3xl border border-brand-border/40 shadow-sm space-y-4">
         <div className="flex items-center gap-2.5 mb-2">
@@ -1250,13 +1170,6 @@ export default function MonthlyReportTab({
                         <span className="font-mono font-black text-pink-acc">{formatCurrency(j.pending)}</span>
                         <span className="text-[9px] bg-pink-bg text-pink-acc font-black px-1.5 py-0.5 rounded-sm">{days.text}</span>
                       </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleAlertSelfEmail(j); }}
-                        className="mt-2 w-full py-1.5 px-2 bg-brand-bg hover:bg-brand-faint dark:bg-neutral-800/40 dark:hover:bg-neutral-800 border border-brand-border/30 text-brand-text font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-all"
-                      >
-                        <Mail className="w-3 h-3 text-pink-acc" />
-                        <span>แจ้งเตือนเข้าเมลตัวเอง</span>
-                      </button>
                     </div>
                   );
                 })}
@@ -1294,13 +1207,6 @@ export default function MonthlyReportTab({
                         <span className="font-mono font-black text-yellow-acc">{formatCurrency(j.pending)}</span>
                         <span className="text-[9px] bg-yellow-bg text-yellow-acc font-black px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5">วันนี้ <IconAlertDot className="w-2.5 h-2.5" /></span>
                       </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleAlertSelfEmail(j); }}
-                        className="mt-2 w-full py-1.5 px-2 bg-brand-bg hover:bg-brand-faint dark:bg-neutral-800/40 dark:hover:bg-neutral-800 border border-brand-border/30 text-brand-text font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-all"
-                      >
-                        <Mail className="w-3 h-3 text-yellow-acc" />
-                        <span>แจ้งเตือนเข้าเมลตัวเอง</span>
-                      </button>
                     </div>
                   );
                 })}
@@ -1339,13 +1245,6 @@ export default function MonthlyReportTab({
                         <span className="font-mono font-black text-blue-acc">{formatCurrency(j.pending)}</span>
                         <span className="text-[9px] bg-blue-bg text-blue-acc font-black px-1.5 py-0.5 rounded-sm">{days.text}</span>
                       </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleAlertSelfEmail(j); }}
-                        className="mt-2 w-full py-1.5 px-2 bg-brand-bg hover:bg-brand-faint dark:bg-neutral-800/40 dark:hover:bg-neutral-800 border border-brand-border/30 text-brand-text font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-all"
-                      >
-                        <Mail className="w-3 h-3 text-blue-acc" />
-                        <span>แจ้งเตือนเข้าเมลตัวเอง</span>
-                      </button>
                     </div>
                   );
                 })}
