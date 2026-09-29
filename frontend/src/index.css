@@ -128,6 +128,11 @@
 .draft10-cash > header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
 .draft10-cash > header h1 { font-size:24px; font-weight:800; }
 .draft10-cash > header select { min-width:180px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:#fff; font-size:11px; font-weight:700; }
+.draft10-cash-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.draft10-cash-actions button,.draft10-cash-actions label { min-height:38px; display:inline-flex; align-items:center; gap:6px; padding:8px 11px; border:1px solid var(--border); border-radius:9px; background:#fff; color:var(--text); font-size:10px; font-weight:800; cursor:pointer; }
+.draft10-cash-actions button.is-primary { border-color:#e65f2b; background:#e65f2b; color:#fff; }
+.draft10-cash-actions svg { width:14px; height:14px; }
+.draft10-cash-actions input { display:none; }
 .draft10-cash-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 .draft10-cash-kpis article { padding:20px; min-height:112px; border:1px solid var(--border); border-radius:14px; background:#fff; }
 .draft10-cash-kpis span { display:block; color:var(--muted); font-size:11px; }
@@ -148,6 +153,10 @@
 /* Draft 10 — Goals. One clear allocation action replaces the legacy multi-step tools. */
 .draft10-goals { max-width:960px; margin:0 auto; }
 .draft10-goals > h1 { margin-bottom:14px; font-size:24px; font-weight:800; }
+.draft10-goals-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
+.draft10-goals-heading h1 { font-size:24px; font-weight:800; }
+.draft10-goals-heading button { display:inline-flex; align-items:center; gap:7px; padding:10px 14px; border-radius:9px; background:#e65f2b; color:#fff; font-size:10px; font-weight:800; }
+.draft10-goals-heading svg { width:14px; height:14px; }
 .draft10-goals-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:18px 22px; border:1px solid var(--border); border-radius:14px; background:#fff; }
 .draft10-goals-summary > div { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid #eeeae6; grid-column:1 / -1; }
 .draft10-goals-summary span { color:var(--muted); font-size:11px; }
@@ -163,6 +172,9 @@
 .draft10-goals-list .icon { width:34px; height:34px; display:grid; place-items:center; border-radius:9px; background:#fff0e8; }
 .draft10-goals-list h2 { flex:1; font-size:13px; font-weight:800; }
 .draft10-goals-list button { padding:9px 14px; border-radius:8px; background:#fff0e8; color:#d75a27; font-size:10px; font-weight:800; }
+.draft10-goal-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.draft10-goal-actions button:nth-child(2) { background:#fff2f1; color:#c64e48; }
+.draft10-goal-actions button.is-primary { background:#e65f2b; color:#fff; }
 .draft10-goals-list .amount { display:flex; justify-content:space-between; margin-top:14px; color:var(--muted); font-size:10px; }
 .draft10-goals-list .track { height:5px; margin-top:8px; border-radius:9px; background:#f0efed; overflow:hidden; }
 .draft10-goals-list .track i { display:block; height:100%; border-radius:inherit; background:#e65f2b; }
@@ -173,6 +185,10 @@
   .draft10-calendar-agenda { order:-1; }
   .draft10-report-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .draft10-cash-kpis { grid-template-columns:1fr; }
+  .draft10-cash > header { align-items:flex-start; }
+  .draft10-cash-actions { width:100%; justify-content:flex-start; }
+  .draft10-goals-list header { align-items:flex-start; flex-wrap:wrap; }
+  .draft10-goal-actions { width:100%; justify-content:flex-start; }
 }
 @media (max-width: 640px) {
   .draft10-calendar-heading { align-items:flex-start; }

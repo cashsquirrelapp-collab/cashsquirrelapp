@@ -696,9 +696,37 @@ export default function SplitTab({
     reader.readAsText(file);
   };
 
+  const handleQuickAddGoal = () => {
+    triggerPrompt('เพิ่มเป้าหมายการเงิน', 'ตั้งชื่อเป้าหมายใหม่', '', 'เช่น เงินฉุกเฉิน', 'text', name => {
+      if (!name.trim()) return;
+      triggerPrompt('ยอดเป้าหมาย', `ต้องการเก็บเงินสำหรับ “${name.trim()}” เท่าไร`, '', 'เช่น 50000', 'number', value => {
+        const target = Number(value);
+        if (!Number.isFinite(target) || target <= 0) {
+          triggerAlert('ยอดไม่ถูกต้อง', 'กรุณาระบุยอดเป้าหมายมากกว่า 0 บาท');
+          return;
+        }
+        onAddGoal({
+          name: name.trim(),
+          type: 'save',
+          target,
+          current: 0,
+          deadline: new Date().toISOString().split('T')[0],
+          emoji: '🎯',
+          bg: '#FFF0E8',
+          acc: '#E65F2B',
+          allocatedPercentage: 0,
+          history: [],
+        });
+      });
+    });
+  };
+
   return (
     <div className="draft10-goals page-content">
-      <h1>เป้าหมายการเงิน</h1>
+      <header className="draft10-goals-heading">
+        <h1>เป้าหมายการเงิน</h1>
+        <button type="button" onClick={handleQuickAddGoal}><Plus />เพิ่มเป้าหมาย</button>
+      </header>
       <section className="draft10-goals-summary">
         <div><span>รายรับ</span><strong>{formatCurrency(receivedThisMonth)}</strong></div>
         <div><span>รายจ่าย</span><strong>{formatCurrency(Math.max(0, receivedThisMonth - rawNetProfit))}</strong></div>
@@ -711,7 +739,14 @@ export default function SplitTab({
         {goals.map(goal => {
           const percent = goal.target > 0 ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
           return <article key={goal.id}>
-            <header><span className="icon">{goal.emoji || '◎'}</span><h2>{goal.name}</h2><button type="button" onClick={() => triggerPrompt('จัดสรรเงิน', `เพิ่มเงินเข้าเป้าหมาย ${goal.name}`, '', 'จำนวนเงิน', 'number', value => onUpdateGoalProgress(goal.id, Number(value) || 0, 'จัดสรรเงิน', undefined, true))}>จัดสรรเงิน</button></header>
+            <header>
+              <span className="icon">{goal.emoji || '◎'}</span><h2>{goal.name}</h2>
+              <div className="draft10-goal-actions">
+                <button type="button" onClick={() => triggerPrompt('แก้ไขชื่อเป้าหมาย', 'ระบุชื่อใหม่', goal.name, 'ชื่อเป้าหมาย', 'text', value => value.trim() && onUpdateGoal(goal.id, { name: value.trim() }))}>แก้ไข</button>
+                <button type="button" onClick={() => triggerConfirm('ลบเป้าหมาย', `ต้องการลบ “${goal.name}” ใช่ไหม`, () => onDeleteGoal(goal.id))}>ลบ</button>
+                <button type="button" className="is-primary" onClick={() => triggerPrompt('จัดสรรเงิน', `เพิ่มเงินเข้าเป้าหมาย ${goal.name}`, '', 'จำนวนเงิน', 'number', value => onUpdateGoalProgress(goal.id, Number(value) || 0, 'จัดสรรเงิน', undefined, true))}>จัดสรรเงิน</button>
+              </div>
+            </header>
             <div className="amount"><span>{formatCurrency(goal.current)} / {formatCurrency(goal.target)}</span><b>{percent}%</b></div>
             <div className="track"><i style={{ width: `${percent}%` }} /></div>
           </article>;

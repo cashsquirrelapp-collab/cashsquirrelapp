@@ -188,7 +188,7 @@ async function setup(page: Page) {
   await page.goto("/");
   await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "ภาพรวมกระแสเงินสด" }),
+    page.locator(".draft10-dashboard"),
   ).toBeVisible();
   return {
     stores,
@@ -209,9 +209,7 @@ async function settings(page: Page) {
 }
 async function invoices(page: Page) {
   const sidebar = page.locator("aside");
-  const button = sidebar.getByRole("button", { name: "ออกบิล & ใบเสร็จ" });
-  if (!(await button.isVisible()))
-    await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
+  const button = sidebar.getByRole("button", { name: "เอกสาร", exact: true });
   await button.click();
 }
 test("members edit a shared workspace and switching saves to the old scope without touching personal finance", async ({
@@ -280,8 +278,7 @@ test("invoices, issuer profiles and exports follow the selected group and reset 
   await settings(page);
   // Export from summary uses the same scoped invoice snapshot.
   const sidebar = page.locator("aside");
-  await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
-  await sidebar.getByRole("button", { name: "สรุปยอดรายรับ" }).click();
+  await sidebar.getByRole("button", { name: "รายรับ-รายจ่าย", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page
     .locator("#main-content")
@@ -335,9 +332,9 @@ test("removed membership rejects reload and permits returning to personal financ
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await invoices(page);
   await expect(page.getByText("Team-001", { exact: true })).toBeVisible();
-  state.deny();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(other);
   await expect(page.getByText("Other-001", { exact: true })).toBeVisible();
+  state.deny();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await expect(
     page.getByText("โหลดบัญชีการเงินไม่สำเร็จ", { exact: true }),
@@ -373,7 +370,7 @@ test("a delayed response from the previous group cannot populate the next worksp
   await expect.poll(() => started).toBe(true);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(other);
   await expect(
-    page.getByRole("heading", { name: "ภาพรวมกระแสเงินสด" }),
+    page.locator(".draft10-dashboard"),
   ).toBeVisible();
   release();
   await invoices(page);

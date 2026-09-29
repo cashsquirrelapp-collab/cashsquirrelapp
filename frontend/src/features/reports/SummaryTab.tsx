@@ -341,9 +341,14 @@ export default function SummaryTab({
     <div className="draft10-cash page-content">
       <header>
         <h1>รายรับ–รายจ่าย</h1>
-        <select value={selectedMonth} onChange={(event) => onSelectMonth(event.target.value)}>
-          {availableMonths.map(month => <option key={month} value={month}>{formatMonthKey(month)}</option>)}
-        </select>
+        <div className="draft10-cash-actions">
+          <select value={selectedMonth} onChange={(event) => onSelectMonth(event.target.value)} aria-label="เลือกเดือน">
+            {availableMonths.map(month => <option key={month} value={month}>{formatMonthKey(month)}</option>)}
+          </select>
+          <button type="button" onClick={onExportData}><Download />สำรองข้อมูล (.json)</button>
+          <button type="button" className="is-primary" onClick={handleExportCSV}><FileSpreadsheet />ส่งออก CSV</button>
+          <label><Upload />นำเข้าข้อมูล<input type="file" accept="application/json,.json" onChange={handleFileChange} /></label>
+        </div>
       </header>
       <section className="draft10-cash-kpis">
         <article><span>เงินเข้า</span><strong>{formatCurrency(metrics.totalReceived)}</strong></article>

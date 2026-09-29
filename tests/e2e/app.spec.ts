@@ -20,7 +20,7 @@ test('refresh shows the branded skeleton until the account session is ready',asy
  await expect(page.locator('.app-skeleton-block').first()).toBeVisible();
  expect(await page.locator('.app-skeleton-block').count()).toBeGreaterThan(20);
  releaseAuth();
- await expect(page.getByRole('button',{name:/Go to Kraroktunngern/})).toBeVisible();
+ await expect(page.getByRole('button',{name:'เข้าสู่ระบบ',exact:true}).first()).toBeVisible();
 });
 
 test('new-account onboarding is persisted when dismissed and does not return after reload',async({page})=>{
@@ -65,7 +65,7 @@ test('skipping onboarding once persists the handled state for a new session',asy
  });
  await page.goto('/');
  await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toBeVisible();
- await page.getByRole('button',{name:'ข้าม'}).click();
+ await page.getByRole('button',{name:'ข้าม',exact:true}).click();
  await expect.poll(()=>storedSettings.profileSetupCompleted).toBe(true);
  await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
  await page.reload();
@@ -111,39 +111,29 @@ test('login and all feature tabs render after separation without browser errors'
  await page.route('**/api/data*',route=>route.fulfill({json:route.request().method()==='POST'?{ok:true}:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'user',groups:[],invitations:[],total:0,page:0}}));
  await page.goto('/');
- await page.getByRole('button',{name:/Go to Kraroktunngern/}).click();
+ await page.getByRole('button',{name:'เข้าสู่ระบบ',exact:true}).first().click();
  await page.locator('input[type=email]').first().fill(user.email);
  await page.locator('input[type=password]').first().fill('test-password-123');
  await page.locator('form button[type=submit]').first().click();
- await expect(page.getByText(user.email).first()).toBeVisible();
  const sidebar=page.locator('aside');
- await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ await expect(page.locator('.draft10-dashboard')).toBeVisible();
  await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
  await expect(page.getByText('วางแผนวันนี้ ให้เงินเติบโตทุกวัน')).toHaveCount(0);
- for(const action of ['เพิ่มรายรับ','เพิ่มรายจ่าย','เป้าหมายออม','ปฏิทินงาน'])await expect(page.getByRole('button',{name:action})).toBeVisible();
- const quickPay=page.getByRole('button',{name:'รับเงินด่วน'});
- await quickPay.click();
- await expect(page.getByRole('heading',{name:'บันทึกรับเงินด่วน'})).toBeVisible();
- await expect(page.locator('.fixed.inset-0').locator('input[type=text]')).toBeVisible();
- await page.getByRole('button',{name:'ปิดหน้าต่างรับเงินด่วน'}).click();
- await page.getByRole('button',{name:/มูลค่างานตามสัญญา/}).click();
- const breakdownHeading=page.getByRole('heading',{name:/งานทั้งหมดของเดือน/});
- await expect(breakdownHeading).toBeVisible();
- await page.locator('.fixed.inset-0').click({position:{x:5,y:5}});
- await expect(breakdownHeading).toHaveCount(0);
- const tools=sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'});
- await tools.click();
+ for(const action of ['รับเงินด่วน','เพิ่มรายรับ','ออกเอกสาร','เพิ่มเติม'])await expect(page.getByRole('button',{name:action})).toBeVisible();
+ await sidebar.getByRole('button',{name:'ปฏิทิน',exact:true}).click();
+ await expect(page.locator('.draft10-calendar')).toBeVisible();
+ await sidebar.getByRole('button',{name:'ภาพรวม',exact:true}).click();
+ await expect(page.locator('.draft10-dashboard')).toBeVisible();
  const names=await sidebar.locator('nav button').allTextContents();
  for(const name of names) {
   const button=sidebar.locator('nav button').filter({hasText:name.trim()}).first();
-  if(name.includes('เครื่องมือเพิ่มเติม'))continue;
   if(await button.isVisible()) { await button.click();await expect(button).toHaveAttribute('aria-current','page');await expect(page.locator('#main-content')).not.toContainText('กำลังโหลด');await expect(page.getByText('โหลดหน้านี้ไม่สำเร็จ',{exact:true})).toHaveCount(0); }
  }
- await sidebar.getByRole('button',{name:'ตั้งค่าระบบ'}).click();
+ await sidebar.getByRole('button',{name:'ตั้งค่า',exact:true}).click();
  await expect(page.getByRole('heading',{name:'โปรไฟล์ผู้ใช้'})).toBeVisible();
  await expect(page.getByText('SQ-1111111111',{exact:true}).first()).toBeVisible();
  await sidebar.locator('nav button').first().click();
- await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ await expect(page.locator('.draft10-dashboard')).toBeVisible();
  if(await page.locator('html').evaluate(el=>el.classList.contains('dark')))await sidebar.getByRole('button').last().click();
  await expect(page.locator('#dashboard-top')).toBeVisible();
  await page.waitForTimeout(350);
@@ -164,9 +154,9 @@ test('LIFF form loads under production CSP without inline handlers',async({page}
 test('mobile login layout remains inside the viewport',async({page})=>{
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.setViewportSize({width:390,height:844});await page.goto('/');
- await expect(page.getByRole('button',{name:/Go to Kraroktunngern/})).toBeVisible();
+ await expect(page.getByRole('button',{name:'เข้าสู่ระบบ',exact:true}).first()).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.getByRole('button',{name:/Go to Kraroktunngern/}).click();
+ await page.locator('.draft-hero-actions button').click();
  await expect(page.locator('input[type=email]').first()).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'artifacts/mobile-login.png',fullPage:true});
@@ -176,7 +166,7 @@ test('add-job sheet stays in the viewport and success feedback appears at the to
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',route=>route.fulfill({json:route.request().method()==='POST'?{ok:true}:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');
- await page.locator('aside').getByRole('button',{name:'บันทึกรายรับ-รายจ่าย'}).click();
+ await page.locator('aside').getByRole('button',{name:'งาน',exact:true}).click();
  await page.getByRole('button',{name:/เพิ่มงานใหม่/}).click();
  const sheet=page.getByRole('heading',{name:'เพิ่มโปรเจกต์งานใหม่'}).locator('..').locator('..');
  await expect(sheet).toBeVisible();
@@ -202,8 +192,7 @@ test('tax Excel export downloads after loading the spreadsheet writer on demand'
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
- await sidebar.getByRole('button',{name:'ผู้ช่วยจัดการภาษี'}).click();
+ await sidebar.getByRole('button',{name:'ภาษี',exact:true}).click();
  const downloadPromise=page.waitForEvent('download');
  await page.getByRole('button',{name:'ดาวน์โหลด Excel (.xlsx)'}).click();
  const download=await downloadPromise;
@@ -224,9 +213,9 @@ test('legacy invoice requires owner confirmation and is saved through versioned 
   }
   return route.fulfill({json:{snapshot,versions,subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
- await page.goto('/');await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ await page.goto('/');await expect(page.locator('.draft10-dashboard')).toBeVisible();
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (0)'})).toBeVisible();
  expect(saved.some(c=>c.table==='cashflow_invoices')).toBe(false);
  await page.getByRole('button',{name:'นำเข้าเอกสารเดิมจากเครื่อง'}).click();
@@ -241,9 +230,9 @@ test('invoice preview and print render the shared A4 document and the editor off
  const invoice={id:'tax-1',documentType:'receiptTaxInvoice',documentNo:'RTX-2569-001',createdDate:'2026-09-17',issuer:profile,client:{name:'<b>Client</b>',address:'Bangkok',phone:'',email:'',taxId:'0105560123456',branch:'สำนักงานใหญ่'},items:[{id:'i1',description:'Design work',unit:'งาน',quantity:2,price:1000,discount:100}],vatRate:7,whtRate:0,paymentMethod:'โอนเงิน'};
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,invoices:[invoice]},versions:{...versions,cashflow_invoices:{'tax-1':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
- await page.goto('/');await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ await page.goto('/');await expect(page.locator('.draft10-dashboard')).toBeVisible();
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  const preview=page.getByTestId('document-preview');
  await expect(preview.getByRole('heading',{name:'ใบเสร็จรับเงิน/ใบกำกับภาษี'})).toBeVisible();
  await expect(preview).toContainText('(ต้นฉบับ)');
@@ -281,9 +270,9 @@ test('uploaded logo and signature are saved to the profile and appear on existin
   if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
   return route.fulfill({json:{snapshot:{...snapshot,invoices:[invoice]},versions:{...versions,cashflow_invoices:{'old-1':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
- await page.goto('/');await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ await page.goto('/');await expect(page.locator('.draft10-dashboard')).toBeVisible();
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  const preview=page.getByTestId('document-preview');
  await expect(preview).toContainText('INV-OLD-001');
  await expect(preview.locator('.da4-logo')).toHaveCount(0);
@@ -328,15 +317,16 @@ test('quick-pay confirm dialog is clickable on top of the quick-pay list, not hi
   return route.fulfill({json:{snapshot:{...snapshot,jobs:[partialJob]},versions:{...versions,cashflow_jobs:{'partial-job':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
  await page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'user',groups:[],invitations:[],total:0,page:0}}));
- await page.goto('/');await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ await page.goto('/');await expect(page.locator('.draft10-dashboard')).toBeVisible();
  await page.getByRole('button',{name:'รับเงินด่วน'}).click();
- await expect(page.getByRole('heading',{name:'บันทึกรับเงินด่วน'})).toBeVisible();
- await expect(page.getByText('ผลิตคลิปโฆษณา TikTok')).toBeVisible();
- await page.getByRole('button',{name:'ได้เงินครบแล้ว'}).click();
+ const quickPayModal=page.locator('.fixed.inset-0').filter({has:page.getByRole('heading',{name:'บันทึกรับเงินด่วน'})});
+ await expect(quickPayModal).toBeVisible();
+ await expect(quickPayModal.getByText('ผลิตคลิปโฆษณา TikTok',{exact:true})).toBeVisible();
+ await quickPayModal.getByRole('button',{name:'ได้เงินครบแล้ว'}).click();
  const confirmDialog=page.getByRole('dialog',{name:'บันทึกรับเงินครบถ้วน'});
  await expect(confirmDialog).toBeVisible();
  await confirmDialog.getByRole('button',{name:'ตกลง'}).click(); // throws if occluded by the quick-pay modal behind old code
- await expect(page.getByText('ผลิตคลิปโฆษณา TikTok')).toHaveCount(0);
+ await expect(quickPayModal.getByText('ผลิตคลิปโฆษณา TikTok',{exact:true})).toHaveCount(0);
  await expect.poll(()=>saved.find(c=>c.id==='partial-job')?.data?.paymentStatus).toBe('paid');
 });
 
@@ -349,7 +339,7 @@ test('expired authentication hides private views and never leaves financial brow
  });
  await page.route('**/api/auth',route=>route.fulfill({json:{session:expired?null:{user}}}));
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,jobs:[privateJob]},versions:{...versions,cashflow_jobs:{'private-job':1}},subscription:null}}));
- await page.goto('/');await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
+ await page.goto('/');await expect(page.locator('.draft10-dashboard')).toBeVisible();
  expired=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
  const storage=await page.evaluate(()=>({...localStorage,...sessionStorage}));
@@ -367,11 +357,10 @@ test('account switching cannot reuse the previous account invoice working copy',
   const owner=route.request().headers()['x-account-id'];
   return route.fulfill({json:{snapshot:{...snapshot,invoices:owner===user.id?[invoice]:[]},versions:{...versions,cashflow_invoices:owner===user.id?{'private-a':1}:{}},subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
- await page.goto('/');await expect(page.getByRole('heading',{name:'ภาพรวมกระแสเงินสด'})).toBeVisible();
- const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ await page.goto('/');await expect(page.locator('.draft10-dashboard')).toBeVisible();
+ const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  await expect(page.getByText('INV-PRIVATE-A').first()).toBeVisible();
  switched=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
- await expect(page.getByText(second.email).first()).toBeVisible();
  await expect(page.getByText('INV-PRIVATE-A')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (0)'})).toBeVisible();
 });
@@ -381,6 +370,6 @@ test('a protected API 401 immediately removes private views without waiting for 
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',route=>denied?route.fulfill({status:401,json:{error:'Session expired'}}):route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
- denied=true;const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'ออกบิล & ใบเสร็จ'}).click();
+ denied=true;const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
 });
