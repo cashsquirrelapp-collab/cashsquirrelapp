@@ -69,6 +69,7 @@ export default function MonthlyReportTab({
   triggerConfirm,
   expenses = []
 }: MonthlyReportTabProps) {
+  const [reportView, setReportView] = useState<'overview' | 'income' | 'clients' | 'credit'>('overview');
   const [isSendingSimulated, setIsSendingSimulated] = useState(false);
   const [simulationStep, setSimulationStep] = useState(0);
 
@@ -731,6 +732,63 @@ export default function MonthlyReportTab({
     );
   };
 
+  const draft10Clients = Array.from(jobs.reduce((map, job) => {
+    const key = job.client || 'ไม่ระบุลูกค้า';
+    const current = map.get(key) || { name: key, jobs: 0, received: 0, pending: 0 };
+    current.jobs += 1;
+    current.received += Math.max(0, job.value - job.pending);
+    current.pending += job.pending;
+    map.set(key, current);
+    return map;
+  }, new Map<string, { name: string; jobs: number; received: number; pending: number }>()).values());
+
+  if (reportView) return (
+    <div className="draft10-report page-content">
+      <h1>รายงาน</h1>
+      <nav className="draft10-report-tabs" aria-label="ประเภทรายงาน">
+        {([
+          ['overview', 'ภาพรวม'],
+          ['income', 'รายได้'],
+          ['clients', 'ลูกค้า'],
+          ['credit', 'Credit Term'],
+        ] as const).map(([key, label]) => (
+          <button key={key} type="button" className={reportView === key ? 'is-active' : ''} onClick={() => setReportView(key)}>{label}</button>
+        ))}
+      </nav>
+
+      {reportView === 'overview' && <>
+        <section className="draft10-report-kpis">
+          <article><span>รายรับ</span><strong>{formatCurrency(annualMetrics.annualReceivedValue)}</strong></article>
+          <article><span>รายจ่าย</span><strong>{formatCurrency(annualMetrics.totalAnnualExpense)}</strong></article>
+          <article><span>กำไร</span><strong>{formatCurrency(Math.max(0, annualMetrics.netAnnualBalance))}</strong></article>
+          <article><span>เงินค้างรับ</span><strong>{formatCurrency(jobs.reduce((sum, job) => sum + job.pending, 0))}</strong></article>
+        </section>
+        <section className="draft10-report-chart">
+          <h2>แนวโน้มรายเดือน</h2>
+          <svg viewBox="0 0 900 190" role="img" aria-label="แนวโน้มรายได้รายเดือน"><polyline points="20,135 180,100 340,145 500,68 660,92 875,48" fill="none" stroke="#E65F2B" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </section>
+      </>}
+
+      {reportView === 'income' && <section className="draft10-report-table">
+        <h2>รายได้รายเดือน</h2>
+        <div className="draft10-report-row is-head"><span>เดือน</span><span>รับเงินจริง</span><span>รายจ่าย</span><span>กำไรสุทธิ</span></div>
+        {monthlyData.map(month => <div key={month.month} className="draft10-report-row"><span>{month.monthLabel}</span><span>{formatCurrency(month.received)}</span><span>{formatCurrency(month.fixedExpenseCalculated + month.variableExpense)}</span><span>{formatCurrency(month.netFlow)}</span></div>)}
+      </section>}
+
+      {reportView === 'clients' && <section className="draft10-report-table">
+        <h2>รายได้ตามลูกค้า</h2>
+        <div className="draft10-report-row is-head"><span>ลูกค้า</span><span>จำนวนงาน</span><span>รับแล้ว</span><span>ค้างรับ</span></div>
+        {draft10Clients.map(client => <div key={client.name} className="draft10-report-row"><span>{client.name}</span><span>{client.jobs}</span><span>{formatCurrency(client.received)}</span><span>{formatCurrency(client.pending)}</span></div>)}
+      </section>}
+
+      {reportView === 'credit' && <section className="draft10-credit-list">
+        <h2>ติดตาม Credit Term</h2>
+        {[...creditTermReport.overdue, ...creditTermReport.dueToday, ...creditTermReport.upcoming].map(job => <button key={job.id} type="button" onClick={() => onViewJob?.(job.id)}><span><b>{job.name}</b><small>{job.client} · Credit {job.creditTerm} วัน</small></span><strong>{formatCurrency(job.pending)}</strong></button>)}
+        {creditTermReport.totalPendingCount === 0 && <p>ไม่มีรายการค้างรับในช่วงนี้</p>}
+      </section>}
+    </div>
+  );
+
   return (
     <div className="page-content space-y-6">
       
@@ -1199,18 +1257,11 @@ export default function MonthlyReportTab({
             <span>ยอดค้างจ่ายจากดิวมัดจำและเครดิตเทอมทั้งหมดรวมกันจำนวน <span className="font-extrabold text-brand-text font-mono">{formatCurrency(creditTermReport.totalPendingValue)}</span> จากดีลทั้งหมด <span className="font-extrabold text-brand-text font-mono">{creditTermReport.totalPendingCount}</span> รายการ</span>
           </div>
 
-          <button
-            onClick={handleSendEmailReport}
-            className="w-full sm:w-auto py-2.5 px-4 bg-brand-text hover:bg-brand-muted text-brand-white font-extrabold rounded-xl text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>ส่งรายงานสรุปยอดค้างจ่ายทั้งหมดเข้าเมลตนเอง</span>
-          </button>
         </div>
       </div>
 
       {/* Grid: Bar Chart + Savings Goals progress */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="hidden" aria-hidden="true">
         
         {/* Left 2 Cols: Monthly Income vs Savings Goals Bar Chart */}
         <div className="xl:col-span-2 bg-brand-white p-5 sm:p-6 rounded-3xl border border-brand-border/40 shadow-sm flex flex-col">

@@ -98,15 +98,68 @@
 .draft10-plans { padding-top:48px; }
 .draft10-plan-card { min-height:310px; box-shadow:0 3px 12px rgb(65 45 30 / 5%); }
 
+/* Draft 10 — Reports. Only the four views present in the reference are exposed. */
+.draft10-report { max-width:1200px; margin:0 auto; }
+.draft10-report > h1 { font-size:24px; font-weight:800; margin-bottom:12px; }
+.draft10-report-tabs { display:flex; gap:6px; margin-bottom:16px; }
+.draft10-report-tabs button { padding:9px 18px; border-radius:8px; background:#f5f4f2; color:var(--muted); font-size:11px; font-weight:700; }
+.draft10-report-tabs button.is-active { background:#fff0e8; color:#d75a27; }
+.draft10-report-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.draft10-report-kpis article { min-height:118px; padding:20px; border:1px solid var(--border); border-radius:14px; background:#fff; }
+.draft10-report-kpis span { display:block; color:var(--muted); font-size:11px; }
+.draft10-report-kpis strong { display:block; margin-top:10px; font-size:23px; font-variant-numeric:tabular-nums; }
+.draft10-report-kpis article:first-child strong { color:#1f9c70; }
+.draft10-report-kpis article:nth-child(2) strong { color:#d75d57; }
+.draft10-report-kpis article:last-child strong { color:#d75a27; }
+.draft10-report-chart,.draft10-report-table,.draft10-credit-list { margin-top:14px; padding:20px; border:1px solid var(--border); border-radius:14px; background:#fff; }
+.draft10-report-chart h2,.draft10-report-table h2,.draft10-credit-list h2 { font-size:13px; font-weight:800; margin-bottom:12px; }
+.draft10-report-chart svg { width:100%; height:250px; }
+.draft10-report-row { display:grid; grid-template-columns:1.25fr repeat(3,1fr); gap:12px; padding:14px 8px; border-bottom:1px solid #eeeae6; font-size:11px; }
+.draft10-report-row span:not(:first-child) { text-align:right; font-variant-numeric:tabular-nums; }
+.draft10-report-row.is-head { color:var(--muted); font-size:10px; font-weight:700; }
+.draft10-credit-list button { width:100%; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:15px 6px; border-bottom:1px solid #eeeae6; text-align:left; }
+.draft10-credit-list button span { display:flex; flex-direction:column; gap:3px; }
+.draft10-credit-list button b { font-size:12px; }
+.draft10-credit-list button small,.draft10-credit-list > p { color:var(--muted); font-size:10px; }
+.draft10-credit-list button strong { color:#d75a27; font-size:12px; font-variant-numeric:tabular-nums; }
+
+/* Draft 10 — Income and expense. Export, backup and goal widgets live in their own pages. */
+.draft10-cash { max-width:1200px; margin:0 auto; }
+.draft10-cash > header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
+.draft10-cash > header h1 { font-size:24px; font-weight:800; }
+.draft10-cash > header select { min-width:180px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:#fff; font-size:11px; font-weight:700; }
+.draft10-cash-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.draft10-cash-kpis article { padding:20px; min-height:112px; border:1px solid var(--border); border-radius:14px; background:#fff; }
+.draft10-cash-kpis span { display:block; color:var(--muted); font-size:11px; }
+.draft10-cash-kpis strong { display:block; margin-top:10px; font-size:23px; }
+.draft10-cash-kpis article:first-child strong { color:#1f9c70; }
+.draft10-cash-kpis article:nth-child(2) strong { color:#d85d57; }
+.draft10-cash-chart,.draft10-cash-latest { margin-top:14px; padding:20px; border:1px solid var(--border); border-radius:14px; background:#fff; }
+.draft10-cash-chart h2,.draft10-cash-latest h2 { margin-bottom:12px; font-size:13px; font-weight:800; }
+.draft10-cash-chart svg { width:100%; height:250px; }
+.draft10-cash-latest button,.draft10-cash-latest > div { width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 8px; border-bottom:1px solid #eeeae6; text-align:left; }
+.draft10-cash-latest span { display:flex; flex-direction:column; gap:3px; }
+.draft10-cash-latest b { font-size:11px; }
+.draft10-cash-latest small,.draft10-cash-latest > p { color:var(--muted); font-size:10px; }
+.draft10-cash-latest strong { font-size:11px; font-variant-numeric:tabular-nums; }
+.draft10-cash-latest strong.income { color:#1f9c70; }
+.draft10-cash-latest strong.expense { color:#d85d57; }
+
 @media (max-width: 900px) {
   .draft10-calendar-layout { grid-template-columns:1fr; }
   .draft10-calendar-agenda { order:-1; }
+  .draft10-report-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .draft10-cash-kpis { grid-template-columns:1fr; }
 }
 @media (max-width: 640px) {
   .draft10-calendar-heading { align-items:flex-start; }
   .draft10-calendar-grid { gap:4px; padding:10px; }
   .draft10-calendar-cell { min-height:72px; padding:6px; }
   .draft10-calendar-cell span { font-size:0; height:7px; width:7px; padding:0; border-radius:50%; display:inline-block; margin-right:3px; }
+  .draft10-report-tabs { overflow-x:auto; padding-bottom:4px; }
+  .draft10-report-tabs button { white-space:nowrap; }
+  .draft10-report-row { min-width:620px; }
+  .draft10-report-table { overflow-x:auto; }
 }
 
 :root {

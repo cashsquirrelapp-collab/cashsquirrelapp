@@ -15,7 +15,6 @@ const loadMonthlyReportTab = () => import('../features/reports/MonthlyReportTab'
 const loadTaxTab = () => import('../features/tax/TaxTab');
 const loadSettingsTab = () => import('../features/settings/SettingsTab').then(module => ({ default: module.SettingsTab }));
 const loadInvoiceTab = () => import('../features/invoices/InvoiceTab').then(module => ({ default: module.InvoiceTab }));
-const loadInsightTab = () => import('../features/reports/InsightTab').then(module => ({ default: module.InsightTab }));
 const loadPlansTab = () => import('../features/billing/PlansTab').then(module => ({ default: module.PlansTab }));
 const loadGroupsTab = () => import('../features/groups/GroupsTab');
 const JobsTab = lazy(loadJobsTab);
@@ -31,7 +30,6 @@ const MonthlyReportTab = lazy(loadMonthlyReportTab);
 const TaxTab = lazy(loadTaxTab);
 const SettingsTab = lazy(loadSettingsTab);
 const InvoiceTab = lazy(loadInvoiceTab);
-const InsightTab = lazy(loadInsightTab);
 const PlansTab = lazy(loadPlansTab);
 const GroupsTab = lazy(loadGroupsTab);
 import FinanceWorkspacePicker from '../features/groups/FinanceWorkspacePicker';
@@ -90,9 +88,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups';
+type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'plans' | 'groups';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'plans', 'groups'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
 
 function isTabKey(value: string | undefined): value is TabKey {
@@ -146,7 +144,6 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   summary: loadSummaryTab,
   split: loadSplitTab,
   report: loadMonthlyReportTab,
-  insight: loadInsightTab,
   tax: loadTaxTab,
   invoice: loadInvoiceTab,
   plans: loadPlansTab,
@@ -2572,18 +2569,6 @@ export default function App() {
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
                 />
-              )}
-
-              {activeTab === 'insight' && (
-                isPro ? (
-                  <InsightTab jobs={jobs} onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }} />
-                ) : (
-                  <PremiumUpsell
-                    feature={t('premium.insightFeature')}
-                    description={t('premium.insightDesc')}
-                    onUpgrade={handleUpgrade}
-                  />
-                )
               )}
 
               {activeTab === 'groups' && (

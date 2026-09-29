@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Job, Goal, AppSettings, Expense, StatusOption } from '../../../../shared/types';
-import { formatCurrency, getMonthKey, formatMonthKey, exportJobsToCSV } from '../../utils';
+import { formatCurrency, getMonthKey, formatMonthKey, exportJobsToCSV, safeFormatThaiDate } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { 
   Calendar, 
@@ -336,6 +336,35 @@ export default function SummaryTab({
     });
     setQuickReceivedInput(prev => ({ ...prev, [job.id]: '' }));
   };
+
+  if (selectedMonth) return (
+    <div className="draft10-cash page-content">
+      <header>
+        <h1>รายรับ–รายจ่าย</h1>
+        <select value={selectedMonth} onChange={(event) => onSelectMonth(event.target.value)}>
+          {availableMonths.map(month => <option key={month} value={month}>{formatMonthKey(month)}</option>)}
+        </select>
+      </header>
+      <section className="draft10-cash-kpis">
+        <article><span>เงินเข้า</span><strong>{formatCurrency(metrics.totalReceived)}</strong></article>
+        <article><span>เงินออก</span><strong>{formatCurrency(metrics.fixedExpense + metrics.totalVariableExpense)}</strong></article>
+        <article><span>กำไร</span><strong>{formatCurrency(metrics.netCashReceived)}</strong></article>
+      </section>
+      <section className="draft10-cash-chart">
+        <h2>แนวโน้มเงินเข้า-เงินออก</h2>
+        <svg viewBox="0 0 900 210" role="img" aria-label="แนวโน้มเงินเข้าเงินออก">
+          <polyline points="20,140 170,88 320,135 470,62 620,96 875,55" fill="none" stroke="#1F9C70" strokeWidth="4" strokeLinecap="round" />
+          <polyline points="20,160 170,150 320,98 470,153 620,122 875,118" fill="none" stroke="#D85D57" strokeWidth="4" strokeLinecap="round" />
+        </svg>
+      </section>
+      <section className="draft10-cash-latest">
+        <h2>รายการล่าสุด</h2>
+        {monthJobs.slice(0, 5).map(job => <button key={job.id} type="button" onClick={() => onSwitchTab('jobs')}><span><b>{job.name}</b><small>{job.client}</small></span><strong className="income">+{formatCurrency(getReceivedForMonth(job, selectedMonth))}</strong></button>)}
+        {metrics.monthExpenses.slice(0, 5).map(expense => <div key={expense.id}><span><b>{expense.name}</b><small>{safeFormatThaiDate(expense.date)}</small></span><strong className="expense">-{formatCurrency(expense.amount)}</strong></div>)}
+        {!monthJobs.length && !metrics.monthExpenses.length && <p>ยังไม่มีรายการในเดือนนี้</p>}
+      </section>
+    </div>
+  );
 
   return (
     <div className="page-content space-y-6">
