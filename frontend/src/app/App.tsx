@@ -18,6 +18,10 @@ const loadInvoiceTab = () => import('../features/invoices/InvoiceTab').then(modu
 const loadInsightTab = () => import('../features/reports/InsightTab').then(module => ({ default: module.InsightTab }));
 const loadPlansTab = () => import('../features/billing/PlansTab').then(module => ({ default: module.PlansTab }));
 const loadGroupsTab = () => import('../features/groups/GroupsTab');
+const loadClientsTab = () => import('../features/clients/ClientsTab');
+const loadCalendarTab = () => import('../features/calendar/CalendarTab');
+const ClientsTab = lazy(loadClientsTab);
+const CalendarTab = lazy(loadCalendarTab);
 const JobsTab = lazy(loadJobsTab);
 const DashboardTab = lazy(loadDashboardTab);
 const ExpenseRecordView = lazy(loadExpenseRecordView);
@@ -87,13 +91,15 @@ import {
   ChevronDown,
   BarChart3,
   RotateCcw,
-  Wrench
+  Wrench,
+  CalendarDays,
+  Contact
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups';
+type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
 
 function isTabKey(value: string | undefined): value is TabKey {
@@ -152,6 +158,8 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   invoice: loadInvoiceTab,
   plans: loadPlansTab,
   settings: loadSettingsTab,
+  clients: loadClientsTab,
+  calendar: loadCalendarTab,
 };
 const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch(() => {}); };
 
@@ -165,13 +173,15 @@ const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch((
 const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
   { key: 'dashboard', labelKey: 'nav.dashboard', icon: Home, group: 'core' },
   { key: 'jobs', labelKey: 'nav.jobs', icon: Briefcase, group: 'core' },
-  { key: 'timeline', labelKey: 'nav.timeline', icon: Calendar, group: 'core' },
+  { key: 'calendar', labelKey: 'nav.calendar', icon: CalendarDays, group: 'core' },
+  { key: 'timeline', labelKey: 'nav.timeline', icon: Calendar, group: 'more' },
   { key: 'summary', labelKey: 'nav.summary', icon: Wallet, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
   { key: 'insight', labelKey: 'nav.insight', icon: BarChart3, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
+  { key: 'clients', labelKey: 'nav.clients', icon: Contact, group: 'more' },
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
   { key: 'plans', labelKey: 'nav.plans', icon: IconCrown, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
@@ -2705,6 +2715,18 @@ export default function App() {
 
               {activeTab === 'groups' && (
                 <GroupsTab key={session.user.id} userId={session.user.id} isGuest={!!session.isGuest} triggerConfirm={triggerConfirm} />
+              )}
+              {activeTab === 'clients' && (
+                <ClientsTab
+                  jobs={jobs}
+                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
+                />
+              )}
+              {activeTab === 'calendar' && (
+                <CalendarTab
+                  jobs={jobs}
+                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
+                />
               )}
               {activeTab === 'plans' && (
                 <PlansTab
