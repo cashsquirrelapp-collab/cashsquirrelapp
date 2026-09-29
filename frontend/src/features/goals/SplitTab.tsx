@@ -696,6 +696,31 @@ export default function SplitTab({
     reader.readAsText(file);
   };
 
+  if (selectedMonthKey) return (
+    <div className="draft10-goals page-content">
+      <h1>เป้าหมายการเงิน</h1>
+      <section className="draft10-goals-summary">
+        <div><span>รายรับ</span><strong>{formatCurrency(receivedThisMonth)}</strong></div>
+        <div><span>รายจ่าย</span><strong>{formatCurrency(Math.max(0, receivedThisMonth - rawNetProfit))}</strong></div>
+        <div className="profit"><span>กำไรสุทธิ</span><strong>{formatCurrency(rawNetProfit)}</strong></div>
+        <div><span>จัดสรรแล้ว</span><strong>{formatCurrency(alreadyAllocatedThisMonth)}</strong></div>
+        <div className="available"><span>พร้อมจัดสรร</span><strong>{formatCurrency(netProfit)}</strong></div>
+      </section>
+      <p className="draft10-goals-note">เงินที่จัดสรรเข้าเป้าหมายยังเป็นเงินของคุณ ไม่บันทึกเป็นรายจ่าย</p>
+      <section className="draft10-goals-list">
+        {goals.map(goal => {
+          const percent = goal.target > 0 ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
+          return <article key={goal.id}>
+            <header><span className="icon">{goal.emoji || '◎'}</span><h2>{goal.name}</h2><button type="button" onClick={() => triggerPrompt('จัดสรรเงิน', `เพิ่มเงินเข้าเป้าหมาย ${goal.name}`, '', 'จำนวนเงิน', 'number', value => onUpdateGoalProgress(goal.id, Number(value) || 0, 'จัดสรรเงิน', undefined, true))}>จัดสรรเงิน</button></header>
+            <div className="amount"><span>{formatCurrency(goal.current)} / {formatCurrency(goal.target)}</span><b>{percent}%</b></div>
+            <div className="track"><i style={{ width: `${percent}%` }} /></div>
+          </article>;
+        })}
+        {!goals.length && <div className="empty">ยังไม่มีเป้าหมายการเงิน</div>}
+      </section>
+    </div>
+  );
+
   return (
     <div className="page-content space-y-6">
       {/* Header */}

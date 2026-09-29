@@ -145,6 +145,29 @@
 .draft10-cash-latest strong.income { color:#1f9c70; }
 .draft10-cash-latest strong.expense { color:#d85d57; }
 
+/* Draft 10 — Goals. One clear allocation action replaces the legacy multi-step tools. */
+.draft10-goals { max-width:960px; margin:0 auto; }
+.draft10-goals > h1 { margin-bottom:14px; font-size:24px; font-weight:800; }
+.draft10-goals-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:18px 22px; border:1px solid var(--border); border-radius:14px; background:#fff; }
+.draft10-goals-summary > div { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid #eeeae6; grid-column:1 / -1; }
+.draft10-goals-summary span { color:var(--muted); font-size:11px; }
+.draft10-goals-summary strong { font-size:12px; font-variant-numeric:tabular-nums; }
+.draft10-goals-summary .profit strong { font-size:16px; }
+.draft10-goals-summary .available { color:#d75a27; border-bottom:0; }
+.draft10-goals-summary .available span { color:#d75a27; font-weight:800; }
+.draft10-goals-summary .available strong { font-size:16px; }
+.draft10-goals-note { margin:12px 2px 18px; color:var(--muted); font-size:10px; }
+.draft10-goals-list { display:grid; gap:12px; }
+.draft10-goals-list article { padding:20px; border:1px solid var(--border); border-radius:14px; background:#fff; }
+.draft10-goals-list header { display:flex; align-items:center; gap:10px; }
+.draft10-goals-list .icon { width:34px; height:34px; display:grid; place-items:center; border-radius:9px; background:#fff0e8; }
+.draft10-goals-list h2 { flex:1; font-size:13px; font-weight:800; }
+.draft10-goals-list button { padding:9px 14px; border-radius:8px; background:#fff0e8; color:#d75a27; font-size:10px; font-weight:800; }
+.draft10-goals-list .amount { display:flex; justify-content:space-between; margin-top:14px; color:var(--muted); font-size:10px; }
+.draft10-goals-list .track { height:5px; margin-top:8px; border-radius:9px; background:#f0efed; overflow:hidden; }
+.draft10-goals-list .track i { display:block; height:100%; border-radius:inherit; background:#e65f2b; }
+.draft10-goals-list .empty { padding:40px; border:1px solid var(--border); border-radius:14px; background:#fff; color:var(--muted); text-align:center; font-size:11px; }
+
 @media (max-width: 900px) {
   .draft10-calendar-layout { grid-template-columns:1fr; }
   .draft10-calendar-agenda { order:-1; }
