@@ -72,8 +72,8 @@
   --faint: #F3F2F0; /* Very light neutral for subtle fills */
   --border: #E5E3DF; /* Soft neutral hairline border */
   
-  --green-bg: #F5EFE6; /* Warm cream */
-  --green-acc: #7A4419; /* Chestnut brown for main/success/buttons */
+  --green-bg: #E8F8F0; /* Soft mint */
+  --green-acc: #18A66A; /* Draft 10 real green for success/positive states */
   
   --blue-bg: #FAECE8; /* Cozy soft orange/peach background */
   --blue-acc: #E65F2B; /* Vibrant brand acorn orange */
@@ -111,8 +111,8 @@
   --faint: #2A2B2F; /* Subtle dark fill */
   --border: #34353A; /* Subtle neutral border */
   
-  --green-bg: #2A1D15; 
-  --green-acc: #E8A560; /* Squirrel golden light orange for main/success/buttons */
+  --green-bg: #14251C;
+  --green-acc: #4ADE80; /* Real green for success/positive states, dark mode */
   
   --blue-bg: #2E2117; 
   --blue-acc: #FFA473; /* Vibrant warm peach/orange */
