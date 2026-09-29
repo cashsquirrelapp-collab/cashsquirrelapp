@@ -402,6 +402,7 @@ export function Mascot({
           <>
             {/* One normal eye, one squinting -- classic "pondering" asymmetry */}
             <circle cx="41" cy="46" r="3" fill={colors.eyes} />
+            <circle cx="42" cy="45" r="1" fill="white" />
             <path d="M56 46.5C57.5 45 60.5 45 62 46.5" stroke={colors.eyes} strokeWidth="2" strokeLinecap="round" />
             <path d="M55 41L63 39" stroke={colors.eyes} strokeWidth="1.8" strokeLinecap="round" />
           </>
@@ -411,6 +412,8 @@ export function Mascot({
           <>
             <circle cx="41" cy="47" r="2.8" fill={colors.eyes} />
             <circle cx="59" cy="47" r="2.8" fill={colors.eyes} />
+            <circle cx="42" cy="46" r="0.9" fill="white" />
+            <circle cx="60" cy="46" r="0.9" fill="white" />
             {/* Inner-up worried eyebrows */}
             <path d="M37 41L44 44" stroke={colors.eyes} strokeWidth="1.8" strokeLinecap="round" />
             <path d="M63 41L56 44" stroke={colors.eyes} strokeWidth="1.8" strokeLinecap="round" />
@@ -429,9 +432,12 @@ export function Mascot({
 
         {mood === 'waiting' && (
           <>
-            {/* Calm, neutral dot eyes -- no eyebrows, no tension */}
+            {/* Calm, neutral dot eyes -- no eyebrows, no tension. Shine dots match every other
+                round-eyed mood (happy, alert, etc.) so they read as alive, not flat/dull. */}
             <circle cx="41" cy="46" r="3" fill={colors.eyes} />
             <circle cx="59" cy="46" r="3" fill={colors.eyes} />
+            <circle cx="42" cy="45" r="1" fill="white" />
+            <circle cx="60" cy="45" r="1" fill="white" />
           </>
         )}
 

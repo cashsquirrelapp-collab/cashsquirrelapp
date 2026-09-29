@@ -77,6 +77,13 @@
 }
 
 :root {
+  /* The app manages its own light/dark theme via the .dark class below, never the browser's
+     native one -- without declaring color-scheme, a browser/OS set to dark can still apply its
+     own auto-dark heuristic to sparse, mostly-empty screens (like the full-page loader) even
+     though everything is correctly styled light, producing a mismatched dark flash the rest of
+     the (content-dense) app doesn't get. */
+  color-scheme: light;
+
   /* Reskin toward the clean white-canvas look of modern SaaS dashboards (Paypers, ป้านวล):
      near-white page bg instead of a saturated cinnamon tint, neutral warm-gray text/border
      instead of cocoa/hazelnut/clay, so the orange CI accent reads as the one accent color
@@ -118,6 +125,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   /* Draft 6 dark mode: charcoal/dark-gray surfaces with the orange CI accent, matching the
      light-mode "Reskin phase 1" neutral direction instead of the old brown cinnamon/cocoa dark UI. */
   --bg: #17181B; /* Charcoal page canvas */
