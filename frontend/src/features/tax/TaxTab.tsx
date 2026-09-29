@@ -78,6 +78,7 @@ export default function TaxTab({
   });
 
   const [isShowingPrintModal, setIsShowingPrintModal] = useState(false);
+  const [taxStep, setTaxStep] = useState<number>(1);
 
   const allowanceOptions = [
     { key: 'life_insurance', label: 'ประกันชีวิต (ลดหย่อนได้ไม่เกิน 100,000 บาท)', cap: 100000, type: 'input' },
@@ -487,7 +488,7 @@ export default function TaxTab({
     <div className="page-content space-y-6" id="tax-assistant-container">
       
       {/* HEADER SECTION */}
-      <div className="bg-brand-white p-6 rounded-3xl border border-brand-border/40 shadow-sm relative overflow-hidden">
+      <div className="bg-brand-white p-6 rounded-[14px] border border-brand-border/40 shadow-sm relative overflow-hidden">
         <div className="absolute top-[-20%] right-[-10%] w-60 h-60 bg-emerald-600/5 dark:bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative z-10 font-sans">
           <div>
@@ -546,126 +547,77 @@ export default function TaxTab({
         </div>
       </div>
 
-      {/* TOP INCOME SUMMARY CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border/40 shadow-sm rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-brand-border transition-all">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/5 rounded-full blur-lg pointer-events-none" />
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/10">ครึ่งปีแรก (ม.ค. - มิ.ย.)</span>
-            <p className="text-2xl font-mono font-black text-brand-text dark:text-white mt-2.5">{formatCurrency(h1Revenue)}</p>
+      {/* KPI CARDS -- matches the mockup's 5-card row, all full-year figures */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {[
+          { label: 'รายได้สะสม', value: fullRevenue },
+          { label: 'ค่าใช้จ่ายที่ใช้ได้', value: fullExpense },
+          { label: 'ค่าลดหย่อน', value: fullPersonalAllowance + fullOtherAllowances },
+          { label: 'รายได้สุทธิประมาณการ', value: fullNetIncome },
+        ].map(kpi => (
+          <div key={kpi.label} className="rounded-[14px] border border-brand-border bg-brand-white dark:bg-neutral-900 dark:border-neutral-800 p-[14px]">
+            <p className="text-[10px] text-brand-muted">{kpi.label}</p>
+            <p className="mt-1 text-sm font-semibold text-brand-text dark:text-white">{formatCurrency(kpi.value)}</p>
           </div>
-          <div className="mt-2.5 flex items-center justify-between text-[11px] text-brand-muted">
-            <span>รวมรายรับ 6 เดือนแรก</span>
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">ภ.ง.ด. 94</span>
-          </div>
-        </div>
-
-        <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border/40 shadow-sm rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-brand-border transition-all">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 rounded-full blur-lg pointer-events-none" />
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/10">ครึ่งปีหลัง (ก.ค. - ธ.ค.)</span>
-            <p className="text-2xl font-mono font-black text-brand-text dark:text-white mt-2.5">{formatCurrency(h2Revenue)}</p>
-          </div>
-          <div className="mt-2.5 flex items-center justify-between text-[11px] text-brand-muted">
-            <span>รวมรายรับ 6 เดือนหลัง</span>
-            <span className="font-semibold text-blue-600 dark:text-blue-400">สะสมสิ้นปี</span>
-          </div>
-        </div>
-
-        <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border/40 shadow-sm rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-brand-border transition-all">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/5 rounded-full blur-lg pointer-events-none" />
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/15">รายได้รวมทั้งปี (12 เดือน)</span>
-            <p className="text-2xl sm:text-3xl font-mono font-black text-brand-text dark:text-white mt-2">{formatCurrency(fullRevenue)}</p>
-          </div>
-          <div className="mt-2.5 flex items-center justify-between text-[11px] text-brand-muted">
-            <span>รายรับรวมประเมินภาษีประจำปี</span>
-            <span className="font-black text-purple-600 dark:text-purple-400">ภ.ง.ด. 90</span>
-          </div>
+        ))}
+        <div className="rounded-[14px] border border-[#F0997B] bg-[#FFF1E8] dark:bg-[#3A2015] dark:border-[#8A3212] p-[14px]">
+          <p className="text-[10px] text-[#8A3212] dark:text-[#F0997B]">ภาษีประมาณการ</p>
+          <p className="mt-1 text-sm font-semibold text-[#C24A16] dark:text-[#F0997B]">{formatCurrency(fullTaxDetails.totalTax)}</p>
         </div>
       </div>
 
-      {/* TAX FORM STATUS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className={`p-5 rounded-3xl border ${isH1FilingRequired ? 'bg-brand-yellow-bg/30 border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-white dark:bg-neutral-900 border-brand-border/40 text-brand-text'} flex flex-col justify-between shadow-sm`}>
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <div>
-              <h4 className="text-sm font-extrabold text-brand-text dark:text-white flex items-center gap-1.5">
-                <FileCheck className={`w-4 h-4 ${isH1FilingRequired ? 'text-brand-yellow-acc' : 'text-brand-muted'}`} />
-                แบบภาษีครึ่งปีแรก (ภ.ง.ด. 94)
-              </h4>
-              <p className="text-[11px] text-brand-muted mt-1 leading-relaxed">
-                ยื่นช่วง ก.ค. - ก.ย. ของปีภาษีปัจจุบัน โดยประเมินฐานรายได้รอบครึ่งปีแรกเพื่อสะสมสิทธิ์และชำระล่วงหน้าบางส่วน
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Mascot mood={isH1FilingRequired ? "alert" : "happy"} size={32} />
-              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border shrink-0 ${isH1FilingRequired ? 'bg-brand-yellow-bg border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-green-bg border-brand-green-acc/20 text-brand-green-acc'}`}>
-                {isH1FilingRequired ? 'ต้องยื่นแบบภาษี' : 'ยังไม่ต้องยื่น'}
-              </span>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-brand-border/20 flex items-center justify-between text-[11px]">
-            <span className="text-brand-muted font-semibold">เกณฑ์ยื่นแบบ: รายได้สะสม ครึ่งปีแรกมากกว่า 60,000 บาท</span>
-            <span className={`font-bold ${isH1FilingRequired ? 'text-brand-yellow-acc' : 'text-brand-green-acc'}`}>
-              {isH1FilingRequired ? 'แนะนำให้ยื่นภายในกำหนด' : 'รายได้ไม่ถึงเกณฑ์ยื่น'}
-            </span>
-          </div>
-        </div>
-
-        <div className={`p-5 rounded-3xl border ${isFullFilingRequired ? 'bg-brand-yellow-bg/30 border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-white dark:bg-neutral-900 border-brand-border/40 text-brand-text'} flex flex-col justify-between shadow-sm`}>
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <div>
-              <h4 className="text-sm font-extrabold text-brand-text dark:text-white flex items-center gap-1.5">
-                <FileCheck className={`w-4 h-4 ${isFullFilingRequired ? 'text-brand-yellow-acc' : 'text-brand-muted'}`} />
-                แบบภาษีเงินได้สิ้นปี (ภ.ง.ด. 90)
-              </h4>
-              <p className="text-[11px] text-brand-muted mt-1 leading-relaxed">
-                ยื่นช่วง ม.ค. - มี.ค. ของปีถัดไป เป็นการนำรายได้สะสมทั้งปีมาหักลดหย่อนเพื่อประมวลผลการคำนวณชำระสุทธิ
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Mascot mood={isFullFilingRequired ? "alert" : "happy"} size={32} />
-              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border shrink-0 ${isFullFilingRequired ? 'bg-brand-yellow-bg border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-green-bg border-brand-green-acc/20 text-brand-green-acc'}`}>
-                {isFullFilingRequired ? 'ต้องยื่นแบบภาษี' : 'ยังไม่ต้องยื่น'}
-              </span>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-brand-border/20 flex items-center justify-between text-[11px]">
-            <span className="text-brand-muted font-semibold">เกณฑ์ยื่นแบบ: รายได้รวมทั้งปีมากกว่า 60,000 บาท</span>
-            <span className={`font-bold ${isFullFilingRequired ? 'text-brand-yellow-acc' : 'text-brand-green-acc'}`}>
-              {isFullFilingRequired ? 'แนะนำให้ยื่นภายในกำหนด' : 'รายได้ไม่ถึงเกณฑ์ยื่น'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* INTERACTIVE WORKSPACE */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* LEFT COLUMN: TAX PARAMETER SETTINGS */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="bg-brand-white p-5 sm:p-6 rounded-3xl border border-brand-border/40 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-              <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2">
-                <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
-                ส่วนตั้งค่าข้อมูลภาษีและการประเมินรายรับ
-              </h3>
-              
+      {/* STEP NAVIGATOR -- matches the mockup's circular numbered steps */}
+      <div className="flex items-center">
+        {(['รายได้', 'ค่าใช้จ่าย', 'ลดหย่อน', 'ประมาณภาษี'] as const).map((label, i) => {
+          const n = i + 1;
+          const active = n === taxStep;
+          const done = n < taxStep;
+          return (
+            <div key={label} className="flex flex-1 items-center">
               <button
-                onClick={() => handleAutoSync()}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-faint dark:bg-neutral-800 hover:bg-brand-border/40 dark:hover:bg-neutral-700 border border-brand-border/40 dark:border-neutral-800 rounded-xl text-xs font-black text-emerald-600 dark:text-emerald-400 transition-all select-none cursor-pointer active:scale-95"
+                type="button"
+                onClick={() => setTaxStep(n)}
+                className="flex flex-col items-center gap-1.5 cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>ดึงข้อมูลรายรับรายจ่ายในระบบ</span>
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                    active || done ? 'bg-[#F36A2D] text-white' : 'bg-brand-faint text-brand-muted'
+                  }`}
+                >
+                  {n}
+                </span>
+                <span className={`whitespace-nowrap text-[11px] ${active ? 'text-brand-text dark:text-white' : 'text-brand-muted'}`}>{label}</span>
               </button>
+              {n < 4 && <div className="mx-2 mb-[18px] h-px flex-1 bg-brand-border dark:bg-neutral-800" />}
             </div>
+          );
+        })}
+      </div>
 
-            <p className="text-[11px] text-brand-muted mb-4 leading-relaxed">
-              * ข้อมูลจะถูกดึงและรวบรวมเฉพาะจากรายการงานดีลและค่าใช้จ่ายจริงที่คุณได้ระบุหรือบันทึกไว้ในแอปพลิเคชันนี้เท่านั้น ไม่มีการสร้างข้อมูลสมมติขึ้นเอง
-            </p>
+      {/* STEP CONTENT */}
+      <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm min-h-[180px]">
+        {taxStep === 1 && (<>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2">
+              <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
+              รายได้ทั้งปี
+            </h3>
 
-            {/* Income Inputs */}
+            <button
+              onClick={() => handleAutoSync()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-faint dark:bg-neutral-800 hover:bg-brand-border/40 dark:hover:bg-neutral-700 border border-brand-border/40 dark:border-neutral-800 rounded-xl text-xs font-black text-emerald-600 dark:text-emerald-400 transition-all select-none cursor-pointer active:scale-95"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>ดึงข้อมูลรายรับรายจ่ายในระบบ</span>
+            </button>
+          </div>
+
+          <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-1">{formatCurrency(fullRevenue)}</p>
+          <p className="text-[11px] text-brand-muted mb-4 leading-relaxed">
+            รวมรายได้จากงานที่บันทึกไว้ในระบบอัตโนมัติ * ข้อมูลจะถูกดึงและรวบรวมเฉพาะจากรายการงานดีลและค่าใช้จ่ายจริงที่คุณได้ระบุหรือบันทึกไว้ในแอปพลิเคชันนี้เท่านั้น ไม่มีการสร้างข้อมูลสมมติขึ้นเอง
+          </p>
+
+          {/* Income Inputs */}
             <div className="space-y-4 mb-6">
               <div className="bg-brand-faint/30 dark:bg-neutral-800/30 p-4 rounded-2xl border border-brand-border/20 dark:border-neutral-800/40">
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-brand-text dark:text-neutral-200 mb-3 flex items-center gap-1.5">
@@ -733,7 +685,14 @@ export default function TaxTab({
                 </div>
               </div>
             </div>
+        </>)}
 
+        {taxStep === 2 && (<>
+            <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-5">
+              <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
+              ค่าใช้จ่าย
+            </h3>
+            <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-4">{formatCurrency(fullExpense)}</p>
             {/* Expense Deduction Method */}
             <div className="space-y-3.5 mb-6">
               <div>
@@ -812,9 +771,16 @@ export default function TaxTab({
                 )}
               </AnimatePresence>
             </div>
+        </>)}
 
+        {taxStep === 3 && (<>
+            <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-5">
+              <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
+              ค่าลดหย่อน
+            </h3>
+            <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-4">{formatCurrency(fullPersonalAllowance + fullOtherAllowances)}</p>
             {/* Dynamic Allowances Section */}
-            <div className="pt-5 border-t border-brand-border/20">
+            <div className="pt-0 border-t-0">
               <label className="block text-xs font-extrabold text-brand-text dark:text-white mb-2">สิทธิ์ลดหย่อนเพิ่มเติมอื่นๆ</label>
               <div className="flex gap-2 mb-4">
                 <select
@@ -906,13 +872,72 @@ export default function TaxTab({
                 )}
               </div>
             </div>
-          </div>
-        </div>
+        </>)}
 
-        {/* RIGHT COLUMN: TAX CALCULATION COMPARISON */}
-        <div className="lg:col-span-5 space-y-6">
-          
-          <div className="bg-brand-white border border-brand-border/40 rounded-3xl p-5 sm:p-6 shadow-sm relative overflow-hidden">
+        {taxStep === 4 && (<>
+          <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-1">
+            <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
+            ประมาณภาษีที่ต้องจ่าย
+          </h3>
+          <p className="text-[11px] text-brand-muted mb-4">คำนวณจากอัตราก้าวหน้า</p>
+          <p className="text-[26px] font-semibold text-[#C24A16] mb-5">{formatCurrency(fullTaxDetails.totalTax)}</p>
+
+          {/* TAX FORM STATUS CARDS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className={`p-5 rounded-[14px] border ${isH1FilingRequired ? 'bg-brand-yellow-bg/30 border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-white dark:bg-neutral-900 border-brand-border/40 text-brand-text'} flex flex-col justify-between shadow-sm`}>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <h4 className="text-sm font-extrabold text-brand-text dark:text-white flex items-center gap-1.5">
+                    <FileCheck className={`w-4 h-4 ${isH1FilingRequired ? 'text-brand-yellow-acc' : 'text-brand-muted'}`} />
+                    แบบภาษีครึ่งปีแรก (ภ.ง.ด. 94)
+                  </h4>
+                  <p className="text-[11px] text-brand-muted mt-1 leading-relaxed">
+                    ยื่นช่วง ก.ค. - ก.ย. ของปีภาษีปัจจุบัน โดยประเมินฐานรายได้รอบครึ่งปีแรกเพื่อสะสมสิทธิ์และชำระล่วงหน้าบางส่วน
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Mascot mood={isH1FilingRequired ? "alert" : "happy"} size={32} />
+                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border shrink-0 ${isH1FilingRequired ? 'bg-brand-yellow-bg border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-green-bg border-brand-green-acc/20 text-brand-green-acc'}`}>
+                    {isH1FilingRequired ? 'ต้องยื่นแบบภาษี' : 'ยังไม่ต้องยื่น'}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-brand-border/20 flex items-center justify-between text-[11px]">
+                <span className="text-brand-muted font-semibold">เกณฑ์ยื่นแบบ: รายได้สะสม ครึ่งปีแรกมากกว่า 60,000 บาท</span>
+                <span className={`font-bold ${isH1FilingRequired ? 'text-brand-yellow-acc' : 'text-brand-green-acc'}`}>
+                  {isH1FilingRequired ? 'แนะนำให้ยื่นภายในกำหนด' : 'รายได้ไม่ถึงเกณฑ์ยื่น'}
+                </span>
+              </div>
+            </div>
+
+            <div className={`p-5 rounded-[14px] border ${isFullFilingRequired ? 'bg-brand-yellow-bg/30 border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-white dark:bg-neutral-900 border-brand-border/40 text-brand-text'} flex flex-col justify-between shadow-sm`}>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <h4 className="text-sm font-extrabold text-brand-text dark:text-white flex items-center gap-1.5">
+                    <FileCheck className={`w-4 h-4 ${isFullFilingRequired ? 'text-brand-yellow-acc' : 'text-brand-muted'}`} />
+                    แบบภาษีเงินได้สิ้นปี (ภ.ง.ด. 90)
+                  </h4>
+                  <p className="text-[11px] text-brand-muted mt-1 leading-relaxed">
+                    ยื่นช่วง ม.ค. - มี.ค. ของปีถัดไป เป็นการนำรายได้สะสมทั้งปีมาหักลดหย่อนเพื่อประมวลผลการคำนวณชำระสุทธิ
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Mascot mood={isFullFilingRequired ? "alert" : "happy"} size={32} />
+                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border shrink-0 ${isFullFilingRequired ? 'bg-brand-yellow-bg border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-green-bg border-brand-green-acc/20 text-brand-green-acc'}`}>
+                    {isFullFilingRequired ? 'ต้องยื่นแบบภาษี' : 'ยังไม่ต้องยื่น'}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-brand-border/20 flex items-center justify-between text-[11px]">
+                <span className="text-brand-muted font-semibold">เกณฑ์ยื่นแบบ: รายได้รวมทั้งปีมากกว่า 60,000 บาท</span>
+                <span className={`font-bold ${isFullFilingRequired ? 'text-brand-yellow-acc' : 'text-brand-green-acc'}`}>
+                  {isFullFilingRequired ? 'แนะนำให้ยื่นภายในกำหนด' : 'รายได้ไม่ถึงเกณฑ์ยื่น'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[14px] border border-brand-border/40 dark:border-neutral-800 p-5 sm:p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-600/5 rounded-full blur-xl pointer-events-none" />
             <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-4">
               <TrendingUp className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
@@ -1012,7 +1037,7 @@ export default function TaxTab({
           </div>
 
           {/* DOCUMENTS TO PREPARE CARD */}
-          <div className="bg-brand-white border border-brand-border/40 rounded-3xl p-5 sm:p-6 shadow-sm">
+          <div className="mt-6 rounded-[14px] border border-brand-border/40 dark:border-neutral-800 p-5 sm:p-6">
             <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-4">
               <FileCheck className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
               เช็คลิสต์เตรียมเอกสารที่สำคัญ
@@ -1119,7 +1144,27 @@ export default function TaxTab({
               </button>
             </div>
           </div>
-        </div>
+        </>)}
+      </div>
+
+      {/* STEP NAV BUTTONS */}
+      <div className="flex gap-2.5">
+        <button
+          type="button"
+          onClick={() => setTaxStep(s => Math.max(1, s - 1))}
+          disabled={taxStep === 1}
+          className="rounded-xl bg-brand-faint dark:bg-neutral-800 px-[18px] py-2.5 text-[13px] text-brand-muted transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          ย้อนกลับ
+        </button>
+        <button
+          type="button"
+          onClick={() => setTaxStep(s => Math.min(4, s + 1))}
+          disabled={taxStep === 4}
+          className="rounded-xl bg-[#F36A2D] px-[18px] py-2.5 text-[13px] font-medium text-white transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          ถัดไป
+        </button>
       </div>
 
       {/* PRINT PREVIEW / DETAILED PDF MODAL OVERLAY */}
