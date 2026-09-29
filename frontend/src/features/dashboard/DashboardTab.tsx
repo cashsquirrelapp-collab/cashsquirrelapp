@@ -777,7 +777,7 @@ export default function DashboardTab({
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.38, delay: 0.05 }}
-        className="dashboard-balance-card order-1 relative overflow-hidden rounded-[26px] border border-[#3A2418] p-6 text-white shadow-[0_18px_42px_rgba(67,42,25,0.18)] sm:p-7"
+        className="dashboard-balance-card order-1 relative overflow-hidden rounded-[26px] border border-brand-border p-6 text-brand-text shadow-[0_18px_42px_rgba(67,42,25,0.08)] sm:p-7"
       >
         <div className="dashboard-balance-orb dashboard-balance-orb-one" aria-hidden="true" />
         <div className="dashboard-balance-orb dashboard-balance-orb-two" aria-hidden="true" />
@@ -789,14 +789,14 @@ export default function DashboardTab({
               className="text-left cursor-pointer group"
               title={t('dash.contractValueTooltip')}
             >
-              <p className="text-xs font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title={t('dash.contractValueFullTooltip')}>
+              <p className="text-xs font-medium text-brand-muted tracking-wider uppercase group-hover:text-brand-text" title={t('dash.contractValueFullTooltip')}>
                 {t('dash.contractValueLabel', { month: formatMonthKey(selectedMonthKey) })}
               </p>
-              <h3 className="mt-1.5 text-4xl font-extrabold font-mono tracking-tight text-[#FFD2A7] sm:text-5xl group-hover:underline decoration-2 underline-offset-4">
+              <h3 className="mt-1.5 text-4xl font-extrabold font-mono tracking-tight text-[#C24A16] sm:text-5xl group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(totalContractVal)}
               </h3>
-              <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-white/65">
-                <TrendingUp className="h-3.5 w-3.5 text-[#A9E0BC]" />
+              <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-muted">
+                <TrendingUp className="h-3.5 w-3.5 text-[#18A66A]" />
                 {receivedChangePct === null ? 'เริ่มสะสมข้อมูลในเดือนนี้' : `${receivedChangePct >= 0 ? '+' : ''}${receivedChangePct}% จากเดือนที่แล้ว`}
               </p>
             </button>
@@ -810,29 +810,29 @@ export default function DashboardTab({
             </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 pt-4 border-t border-white/10 sm:grid-cols-3 sm:gap-4">
+          <div className="grid grid-cols-1 gap-3 pt-4 border-t border-brand-border sm:grid-cols-3 sm:gap-4">
             <button
               type="button"
               onClick={() => setBreakdownFilter('received')}
               className="text-left cursor-pointer group"
               title={t('dash.receivedTooltip')}
             >
-              <p className="text-xs font-semibold text-white/65 tracking-wide uppercase flex items-center gap-1.5 group-hover:text-white/85">
+              <p className="text-xs font-semibold text-brand-muted tracking-wide uppercase flex items-center gap-1.5 group-hover:text-brand-text">
                 <span>{t('dash.received')}</span>
                 {receivedChangePct !== null && receivedChangePct !== 0 && (
                   <span className={`inline-flex items-center gap-0.5 text-[9px] font-black normal-case ${
-                    receivedChangePct > 0 ? 'text-emerald-400' : 'text-rose-400'
+                    receivedChangePct > 0 ? 'text-[#18A66A]' : 'text-rose-500'
                   }`}>
                     {receivedChangePct > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
                     {receivedChangePct > 0 ? '+' : ''}{receivedChangePct}%
                   </span>
                 )}
               </p>
-              <p className="text-2xl font-black font-mono text-white mt-1 group-hover:underline decoration-2 underline-offset-4">
+              <p className="text-2xl font-black font-mono text-brand-text mt-1 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(totalReceived)}
               </p>
               {totalCashOutThisMonth > 0 && (
-                <p className="text-xs font-semibold text-white/75 mt-1" title={t('dash.afterExpenseTooltip')}>
+                <p className="text-xs font-semibold text-brand-muted mt-1" title={t('dash.afterExpenseTooltip')}>
                   {t('dash.afterExpense', { amount: formatCurrency(receivedAfterVariableExpense) })}
                 </p>
               )}
@@ -843,10 +843,10 @@ export default function DashboardTab({
               className="text-left cursor-pointer group"
               title={t('dash.pendingTooltip')}
             >
-              <p className="text-xs font-semibold text-white/65 tracking-wide uppercase group-hover:text-white/85" title={t('dash.pendingSubTooltip')}>
+              <p className="text-xs font-semibold text-brand-muted tracking-wide uppercase group-hover:text-brand-text" title={t('dash.pendingSubTooltip')}>
                 {t('dash.pending')}
               </p>
-              <p className="text-2xl font-black font-mono text-white mt-1 group-hover:underline decoration-2 underline-offset-4">
+              <p className="text-2xl font-black font-mono text-brand-text mt-1 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(totalPending)}
               </p>
             </button>
@@ -856,14 +856,14 @@ export default function DashboardTab({
               className="text-left cursor-pointer group"
               title={t('dash.netProfitTooltip')}
             >
-              <p className="text-xs font-semibold text-white/65 tracking-wide uppercase group-hover:text-white/85" title={t('dash.netProfitSubTooltip')}>
+              <p className="text-xs font-semibold text-brand-muted tracking-wide uppercase group-hover:text-brand-text" title={t('dash.netProfitSubTooltip')}>
                 {t('dash.netProfit')}
               </p>
-              <p className="text-2xl font-black font-mono mt-1 text-[#FF9D6D] group-hover:underline decoration-2 underline-offset-4">
+              <p className="text-2xl font-black font-mono mt-1 text-[#18A66A] group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(Math.max(0, profit))}
               </p>
               {profit < 0 && (
-                <p className="text-[9px] font-bold text-rose-400 mt-0.5">
+                <p className="text-[9px] font-bold text-rose-500 mt-0.5">
                   {t('dash.stillShort', { amount: formatCurrency(Math.abs(profit)) })}
                 </p>
               )}

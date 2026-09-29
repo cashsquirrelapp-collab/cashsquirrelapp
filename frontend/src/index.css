@@ -717,7 +717,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .dashboard-balance-card {
-  background: linear-gradient(135deg, #3d2314 0%, #563320 56%, #7a4419 140%);
+  background: linear-gradient(135deg, #fff3e8 0%, #fde4ce 100%);
 }
 
 .dashboard-balance-orb {
