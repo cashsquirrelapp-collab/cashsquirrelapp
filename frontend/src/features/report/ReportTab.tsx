@@ -1,12 +1,23 @@
 import React, { useMemo, useState } from 'react';
-import { Job, Expense } from '../../../../shared/types';
+import { Job, Goal, AppSettings, NotifSettings, Expense } from '../../../../shared/types';
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
-import { formatCurrency, getRelativeDaysText } from '../../utils';
+import { formatCurrency } from '../../utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import MonthlyReportTab from '../reports/MonthlyReportTab';
 
 interface ReportTabProps {
   jobs: Job[];
   expenses: Expense[];
+  goals: Goal[];
+  settings: AppSettings;
+  onUpdateSettings: (settings: AppSettings) => void;
+  userEmail: string;
+  notifSettings: NotifSettings;
+  onUpdateNotifSettings: (notifSettings: NotifSettings) => void;
+  onSwitchTab: (tabId: string) => void;
+  onViewJob?: (jobId: string) => void;
+  triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
+  triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
 }
 
 type ViewKey = 'overview' | 'income' | 'clients' | 'credit';
@@ -18,7 +29,10 @@ const VIEWS: { key: ViewKey; label: string }[] = [
   { key: 'credit', label: 'Credit Term' },
 ];
 
-export default function ReportTab({ jobs, expenses }: ReportTabProps) {
+export default function ReportTab({
+  jobs, expenses, goals, settings, onUpdateSettings, userEmail, notifSettings,
+  onUpdateNotifSettings, onSwitchTab, onViewJob, triggerAlert, triggerConfirm,
+}: ReportTabProps) {
   const [view, setView] = useState<ViewKey>('overview');
 
   const totalIncome = useMemo(() => jobs.flatMap(getJobPaymentEntries).reduce((s, e) => s + e.amount, 0), [jobs]);
@@ -74,44 +88,57 @@ export default function ReportTab({ jobs, expenses }: ReportTabProps) {
   const repeatClients = clientRevenue.filter(c => c.count > 1).length;
   const highestOutstanding = [...clientRevenue].sort((a, b) => b.pending - a.pending)[0];
 
-  const creditBuckets = useMemo(() => {
-    const unpaid = jobs.filter(j => j.pending > 0 && j.isPosted !== false);
-    const buckets = [
-      { label: 'เกินกำหนด', color: '#C43A3A', border: '#F7C1C1', items: [] as Job[] },
-      { label: 'ครบกำหนดวันนี้', color: '#8A5A0B', border: '#EAE7E3', items: [] as Job[] },
-      { label: 'ภายใน 7 วัน', color: '#8A5A0B', border: '#EAE7E3', items: [] as Job[] },
-      { label: 'ภายใน 14 วัน', color: '#211D1A', border: '#EAE7E3', items: [] as Job[] },
-      { label: 'ภายใน 30 วัน', color: '#211D1A', border: '#EAE7E3', items: [] as Job[] },
-    ];
-    unpaid.forEach(j => {
-      const rel = getRelativeDaysText(j.payDate || j.postDate);
-      if (rel.isOverdue) buckets[0].items.push(j);
-      else if (rel.daysCount === 0) buckets[1].items.push(j);
-      else if (rel.daysCount <= 7) buckets[2].items.push(j);
-      else if (rel.daysCount <= 14) buckets[3].items.push(j);
-      else if (rel.daysCount <= 30) buckets[4].items.push(j);
-    });
-    return buckets;
-  }, [jobs]);
+  const tabSwitcher = (
+    <div className="flex flex-wrap gap-2">
+      {VIEWS.map(v => (
+        <button
+          key={v.key}
+          type="button"
+          onClick={() => setView(v.key)}
+          className={`rounded-lg px-3.5 py-2 text-xs cursor-pointer transition-colors ${
+            view === v.key ? 'bg-[#FFF1E8] font-medium text-[#C24A16]' : 'bg-brand-faint text-brand-muted hover:text-brand-text'
+          }`}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  // The "Credit Term" view is the app's existing, much richer credit-collection & reminder
+  // workflow (MonthlyReportTab) -- it already exceeds the mockup's simple aging-bucket view, so
+  // it's reused as-is rather than reimplemented, and rendered outside the page-content wrapper
+  // since it brings its own.
+  if (view === 'credit') {
+    return (
+      <div className="space-y-4">
+        <div className="page-content !pb-0">
+          <h2 className="mb-3 text-[19px] font-semibold text-brand-text">รายงาน</h2>
+          {tabSwitcher}
+        </div>
+        <MonthlyReportTab
+          jobs={jobs}
+          goals={goals}
+          expenses={expenses}
+          settings={settings}
+          onUpdateSettings={onUpdateSettings}
+          userEmail={userEmail}
+          notifSettings={notifSettings}
+          onUpdateNotifSettings={onUpdateNotifSettings}
+          onSwitchTab={onSwitchTab}
+          onViewJob={onViewJob}
+          triggerAlert={triggerAlert}
+          triggerConfirm={triggerConfirm}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="page-content space-y-4">
       <h2 className="text-[19px] font-semibold text-brand-text">รายงาน</h2>
 
-      <div className="flex flex-wrap gap-2">
-        {VIEWS.map(v => (
-          <button
-            key={v.key}
-            type="button"
-            onClick={() => setView(v.key)}
-            className={`rounded-lg px-3.5 py-2 text-xs cursor-pointer transition-colors ${
-              view === v.key ? 'bg-[#FFF1E8] font-medium text-[#C24A16]' : 'bg-brand-faint text-brand-muted hover:text-brand-text'
-            }`}
-          >
-            {v.label}
-          </button>
-        ))}
-      </div>
+      {tabSwitcher}
 
       {view === 'overview' && (
         <>
@@ -201,20 +228,6 @@ export default function ReportTab({ jobs, expenses }: ReportTabProps) {
         </>
       )}
 
-      {view === 'credit' && (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
-          {creditBuckets.map(b => {
-            const amount = b.items.reduce((s, j) => s + j.pending, 0);
-            return (
-              <div key={b.label} className="rounded-[14px] border bg-brand-white p-[14px]" style={{ borderColor: b.items.length > 0 ? b.border : undefined }}>
-                <p className="text-[11px] text-brand-muted">{b.label}</p>
-                <p className="mt-1.5 text-[17px] font-semibold" style={{ color: b.items.length > 0 ? b.color : '#211D1A' }}>{b.items.length} รายการ</p>
-                <p className="mt-0.5 text-xs text-brand-muted">{formatCurrency(amount)}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

@@ -11,7 +11,6 @@ const loadExpenseRecordView = () => import('../features/expenses/ExpenseRecordVi
 const loadTimelineTab = () => import('../features/reports/TimelineTab');
 const loadSplitTab = () => import('../features/goals/SplitTab');
 const loadSummaryTab = () => import('../features/reports/SummaryTab');
-const loadMonthlyReportTab = () => import('../features/reports/MonthlyReportTab');
 const loadTaxTab = () => import('../features/tax/TaxTab');
 const loadSettingsTab = () => import('../features/settings/SettingsTab').then(module => ({ default: module.SettingsTab }));
 const loadInvoiceTab = () => import('../features/invoices/InvoiceTab').then(module => ({ default: module.InvoiceTab }));
@@ -38,7 +37,6 @@ import CustomDialog from '../components/ui/CustomDialog';
 import { AppLoadingSkeleton, ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
 import Login from '../features/auth/Login';
 import LandingPage from '../features/marketing/LandingPage';
-const MonthlyReportTab = lazy(loadMonthlyReportTab);
 const TaxTab = lazy(loadTaxTab);
 const SettingsTab = lazy(loadSettingsTab);
 const InvoiceTab = lazy(loadInvoiceTab);
@@ -104,14 +102,13 @@ import {
   Bell,
   Plus,
   Clock,
-  ArrowLeftRight,
-  PieChart
+  ArrowLeftRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar' | 'receivables' | 'incomeExpense' | 'reportOverview';
+type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar' | 'receivables' | 'incomeExpense';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar', 'receivables', 'incomeExpense', 'reportOverview'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar', 'receivables', 'incomeExpense'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
 
 function isTabKey(value: string | undefined): value is TabKey {
@@ -164,7 +161,7 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   groups: loadGroupsTab,
   summary: loadSummaryTab,
   split: loadSplitTab,
-  report: loadMonthlyReportTab,
+  report: loadReportOverviewTab,
   insight: loadInsightTab,
   tax: loadTaxTab,
   invoice: loadInvoiceTab,
@@ -174,7 +171,6 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   receivables: loadReceivablesTab,
   calendar: loadCalendarTab,
   incomeExpense: loadIncomeExpenseTab,
-  reportOverview: loadReportOverviewTab,
 };
 const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch(() => {}); };
 
@@ -195,7 +191,6 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'incomeExpense', labelKey: 'nav.incomeExpense', icon: ArrowLeftRight, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
-  { key: 'reportOverview', labelKey: 'nav.reportOverview', icon: PieChart, group: 'more' },
   { key: 'insight', labelKey: 'nav.insight', icon: BarChart3, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
@@ -2728,7 +2723,7 @@ export default function App() {
               )}
 
               {activeTab === 'report' && (
-                <MonthlyReportTab
+                <ReportOverviewTab
                   jobs={jobs}
                   goals={goals}
                   expenses={expenses}
@@ -2774,9 +2769,6 @@ export default function App() {
               )}
               {activeTab === 'incomeExpense' && (
                 <IncomeExpenseTab jobs={jobs} expenses={expenses} />
-              )}
-              {activeTab === 'reportOverview' && (
-                <ReportOverviewTab jobs={jobs} expenses={expenses} />
               )}
               {activeTab === 'calendar' && (
                 <CalendarTab
