@@ -727,199 +727,85 @@ export default function JobsTab({
         </button>
       </div>
 
-      {/* 3. Jobs List */}
-      <div className="space-y-3">
-        {filteredJobs.length === 0 ? (
-          <div className="bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-10 text-center text-brand-muted flex flex-col items-center justify-center gap-3">
-            <Mascot mood="sleepy" size={100} />
-            <div>
-              <p className="text-xs font-semibold text-brand-text">{t('jobs.emptyTitle')}</p>
-              <p className="text-[10px] mt-1">{t('jobs.emptyHint')}</p>
-            </div>
+      {/* 3. Jobs List -- table layout matching the Draft 10 mockup exactly (งาน/แหล่งรายได้,
+          ลูกค้า/ผู้จ่ายเงิน, กำหนด, สถานะงาน, สถานะเงิน, จำนวนเงิน columns). The mockup's table
+          row only opens a read-only detail drawer; this app's rows also carry real quick-actions
+          (mark posted/paid, installment payment, edit, delete) that don't fit six columns, so
+          those live in an added "การดำเนินการ" actions column instead of being dropped. */}
+      {filteredJobs.length === 0 ? (
+        <div className="bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-10 text-center text-brand-muted flex flex-col items-center justify-center gap-3">
+          <Mascot mood="sleepy" size={100} />
+          <div>
+            <p className="text-xs font-semibold text-brand-text">{t('jobs.emptyTitle')}</p>
+            <p className="text-[10px] mt-1">{t('jobs.emptyHint')}</p>
           </div>
-        ) : (
-          filteredJobs.map(j => {
-            const catColors = getCategoryColor(j.type);
-            const relText = getRelativeDaysText(j.payDate || j.postDate);
-            const showPayCountdown = j.pending > 0 && j.payDate && j.isPosted !== false;
+        </div>
+      ) : (
+        <div className="bg-brand-white border border-brand-border rounded-[14px] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-brand-border">
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">งาน / แหล่งรายได้</th>
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">ลูกค้า / ผู้จ่ายเงิน</th>
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">กำหนด</th>
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">สถานะงาน</th>
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">สถานะเงิน</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-brand-muted">จำนวนเงิน</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-brand-muted">การดำเนินการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredJobs.map(j => {
+                  const relText = getRelativeDaysText(j.payDate || j.postDate);
+                  const statusInfo = getStatusDisplay(j.status);
+                  const isDone = statusInfo.behavior === 'done';
+                  const isPartial = statusInfo.behavior === 'partial';
+                  const isPending = statusInfo.behavior === 'pending';
+                  const isInstallment = j.status === 'installment' && Boolean(j.installments?.length);
+                  const pendingInstallments = (j.installments || []).filter((row) => row.status !== 'paid');
+                  const dueLabel = j.isPosted === false
+                    ? (j.postDate ? safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' }) : t('jobs.statusUnspecifiedLabel'))
+                    : (j.payDate ? relText.text : safeFormatThaiDate(j.postDate));
 
-            return (
-              <motion.div
-                key={j.id}
-                id={`job-card-${j.id}`}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className={`bg-brand-white border rounded-[var(--radius-lg)] p-5 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden ${
-                  highlightedJobId === j.id
-                    ? 'border-[#E65F2B] ring-2 ring-[#E65F2B]/40'
-                    : 'border-brand-border'
-                }`}
-              >
-                {/* Visual Accent bar on the left */}
-                <div className={`absolute left-0 top-0 bottom-0 w-1 ${catColors.dot}`} />
-
-                {/* Job Info Header — name + amount are the two things that should read first */}
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1 min-w-0">
-                    <h4 className="text-lg font-extrabold text-brand-text leading-snug truncate">
-                      {j.name}
-                    </h4>
-                    <div className="flex items-center gap-1.5 text-[11px] text-brand-muted font-medium flex-wrap">
-                      <span>{j.type}</span>
-                      {j.client && (
-                        <>
-                          <span className="opacity-40">•</span>
-                          <span className="flex items-center gap-1"><User className="w-3 h-3" />{j.client}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <p className="text-2xl font-black font-mono text-brand-text">
-                      {formatCurrency(j.value)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Status badges — the one row that says what state this job is in */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold ${j.isPosted === false ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}`}>
-                    งาน: {j.isPosted === false ? 'กำลังทำ' : 'เสร็จแล้ว'}
-                  </span>
-                  {(() => {
-                    const statusInfo = getStatusDisplay(j.status);
-                    const isDone = statusInfo.behavior === 'done';
-                    const isPartial = statusInfo.behavior === 'partial';
-                    return (
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold ${
-                        isDone
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
-                          : isPartial
-                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                          : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
-                      }`}>
-                        เงิน: {statusInfo.label}
-                      </span>
-                    );
-                  })()}
-                </div>
-
-                {/* Dates & Credit Terms or WIP section — one quiet line, not a boxed grid */}
-                {j.isPosted === false ? (
-                  <div className="flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
-                    <span>{t('jobs.startedOn', { date: safeFormatThaiDate(j.startDate || j.postDate, { day: 'numeric', month: 'short' }) })}</span>
-                    <span className="opacity-40">|</span>
-                    <span>{j.postDate ? t('jobs.targetOnAir', { date: safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' }) }) : t('jobs.statusUnspecifiedLabel')}</span>
-                    <span className="opacity-40">|</span>
-                    <span className="font-bold">
-                      {t('jobs.creditColon', { text: j.creditTerm === 0 ? t('jobs.creditImmediate') : t('jobs.creditDaysSuffix', { n: j.creditTerm }) })}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
-                    <span>{t('jobs.dealDate', { date: safeFormatThaiDate(j.postDate) })}</span>
-                    <span className="opacity-40">|</span>
-                    {j.creditTerm === 0 ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">{t('jobs.noCreditLabel')}</span>
-                    ) : (
-                      <>
-                        <span className="font-bold">{t('jobs.creditDaysLabel', { n: j.creditTerm })}</span>
-                        {j.payDate && (
-                          <span>{t('jobs.dueDateParen', { date: safeFormatThaiDate(j.payDate, { day: 'numeric', month: 'short' }) })}</span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Financial breakdown — full value is already shown up top, so only the two numbers that move */}
-                <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                  <div className="bg-brand-faint p-2.5 rounded-xl">
-                    <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">{t('jobs.received')}</span>
-                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 font-mono text-sm">{formatCurrency(j.received)}</span>
-                  </div>
-                  <div className={`p-2.5 rounded-xl ${j.pending > 0 ? 'bg-amber-500/10' : 'bg-brand-faint'}`}>
-                    <span className={`text-[9px] uppercase font-extrabold tracking-wider block ${j.pending > 0 ? 'text-amber-600 dark:text-amber-400/80' : 'text-brand-muted'}`}>{t('jobs.pendingAmount')}</span>
-                    <span className={`font-extrabold font-mono text-sm ${j.pending > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-brand-muted'}`}>
-                      {formatCurrency(j.pending)}
-                    </span>
-                  </div>
-                </div>
-
-                {j.whtRate && j.whtRate > 0 ? (
-                  <div className="flex items-center justify-between text-[10px] bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-xl text-amber-800 dark:text-amber-400 font-bold leading-none select-none">
-                    <span className="flex items-center gap-1">{t('jobs.whtDeducted', { rate: j.whtRate })}</span>
-                    <span className="font-mono">-{formatCurrency(j.whtAmount || 0)}</span>
-                  </div>
-                ) : null}
-
-                {/* Pay date countdown badge */}
-                {showPayCountdown && (
-                  <div className={`p-2.5 rounded-xl text-xs flex items-center justify-between font-semibold border ${
-                    relText.isOverdue
-                      ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10'
-                      : 'bg-amber-50/50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-100/40 dark:border-amber-500/10'
-                  }`}>
-                    <span className="flex items-center gap-1">
-                      <Clock className={`w-4 h-4 shrink-0 ${relText.isOverdue ? 'text-rose-500' : 'text-amber-500'}`} /> {t('jobs.timeUntilDue')}
-                    </span>
-                    <span className="font-black">{relText.text}</span>
-                  </div>
-                )}
-
-                {/* WIP countdown badge */}
-                {j.isPosted === false && j.postDate && (
-                  <div className={`p-2.5 rounded-xl text-xs flex items-center justify-between font-semibold border ${
-                    getRelativeDaysText(j.postDate).isOverdue
-                      ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10'
-                      : 'bg-brand-faint text-brand-text border-brand-border/40'
-                  }`}>
-                    <span className="flex items-center gap-1">
-                      <Clock className={`w-4 h-4 shrink-0 ${getRelativeDaysText(j.postDate).isOverdue ? 'text-rose-500' : 'text-brand-muted'}`} /> {t('jobs.productionTimeLeft')}
-                    </span>
-                    <span className="font-black">{getRelativeDaysText(j.postDate).text}</span>
-                  </div>
-                )}
-
-                {j.note && (
-                  <p className="text-xs text-brand-muted bg-brand-faint p-2.5 rounded-xl border border-brand-border/40 italic">
-                    {t('jobs.noteLabel', { note: j.note })}
-                  </p>
-                )}
-
-                {/* Mini Interaction row */}
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const statusInfo = getStatusDisplay(j.status);
-                      const isDone = statusInfo.behavior === 'done';
-                      const isPending = statusInfo.behavior === 'pending';
-                      const isInstallment = j.status === 'installment' && Boolean(j.installments?.length);
-                      const pendingInstallments = (j.installments || []).filter((row) => row.status !== 'paid');
-                      return (
-                        <>
+                  return (
+                    <tr
+                      key={j.id}
+                      id={`job-card-${j.id}`}
+                      onClick={() => setEditingJob(j)}
+                      className={`cursor-pointer border-b border-brand-border last:border-b-0 transition-colors hover:bg-brand-faint/60 ${
+                        highlightedJobId === j.id ? 'bg-[#FFF1E8]' : ''
+                      }`}
+                    >
+                      <td className="px-3 py-3 font-medium text-brand-text max-w-[220px] truncate">{j.name}</td>
+                      <td className="px-3 py-3 text-brand-muted max-w-[160px] truncate">{j.client || '—'}</td>
+                      <td className={`px-3 py-3 whitespace-nowrap ${relText.isOverdue && j.pending > 0 ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-brand-muted'}`}>{dueLabel}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-md px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${j.isPosted === false ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}`}>
+                          {j.isPosted === false ? 'กำลังทำ' : 'เสร็จแล้ว'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-md px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
+                          isDone
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
+                            : isPartial
+                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
+                            : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+                        }`}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right font-medium font-mono text-brand-text whitespace-nowrap">{formatCurrency(j.value)}</td>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
                           {j.isPosted === false && (
                             <button
                               onClick={() => {
-                                // A single direct save, no detour through the edit modal -- that
-                                // used to open straight into step 3 to let the user fill in the
-                                // delivery date, but its own "บันทึกข้อมูลดีลงาน" save fired a
-                                // second, redundant "แก้ไขงาน" LINE notification on top of this
-                                // click's own "ดีลงาน" card. Already told us the on-air date when
-                                // this job was set up as WIP -- don't ask again or clobber it with
-                                // today's date; otherwise default to today (editable later same as
-                                // any other field).
                                 if (j.postDate) {
                                   onEditJob(j.id, { isPosted: true });
                                   return;
                                 }
-                                // No postDate captured at WIP creation -- ask for it (and the
-                                // credit term) now instead of silently defaulting to today with
-                                // no credit term, same single-save path as above (no edit-modal
-                                // detour, no second LINE notification).
                                 const today = new Date();
                                 const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                                 setDeliveryPostDate(j.postDate || localDateStr);
@@ -927,26 +813,22 @@ export default function JobsTab({
                                 setDeliveryExcludeHolidays(j.excludeHolidays || false);
                                 setDeliveryPromptJob(j);
                               }}
-                              className="text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg text-white bg-[#E65F2B] hover:bg-[#D8551F] transition-colors cursor-pointer"
+                              title={t('jobs.actionMarkPosted')}
                             >
-                              <Send className="w-3.5 h-3.5" /> {t('jobs.actionMarkPosted')}
+                              <Send className="w-3.5 h-3.5" />
                             </button>
                           )}
                           {isInstallment && pendingInstallments.length > 0 && (
                             <button
                               onClick={() => openInstallmentPayment(j)}
-                              className="flex items-center gap-1 rounded-lg bg-[#E65F2B] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#D8551F]"
+                              className="p-1.5 rounded-lg text-white bg-[#E65F2B] hover:bg-[#D8551F] transition-colors cursor-pointer"
+                              title="รับเงินงวดถัดไป"
                             >
                               <WalletCards className="h-3.5 w-3.5" />
-                              รับเงินงวดถัดไป
                             </button>
                           )}
-                          {isInstallment && pendingInstallments.length === 0 && (
-                            <span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
-                              <CheckCircle className="h-3.5 w-3.5" /> รับครบทุกงวดแล้ว
-                            </span>
-                          )}
-                          {!isDone && !isInstallment && (
+                          {!isDone && !isInstallment && j.isPosted !== false && (
                             <button
                               onClick={() => {
                                 const today = new Date();
@@ -960,19 +842,16 @@ export default function JobsTab({
                                   isPosted: true
                                 });
                               }}
-                              className={
-                                j.isPosted === false
-                                  ? "text-xs font-bold text-brand-muted hover:text-emerald-600 dark:hover:text-emerald-300 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-brand-border cursor-pointer"
-                                  : "text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-                              }
+                              className="p-1.5 rounded-lg text-white bg-[#E65F2B] hover:bg-[#D8551F] transition-colors cursor-pointer"
+                              title={t('jobs.actionMarkPaidFull')}
                             >
-                              <CheckCircle className="w-3.5 h-3.5" /> {t('jobs.actionMarkPaidFull')}
+                              <CheckCircle className="w-3.5 h-3.5" />
                             </button>
                           )}
                           {isPending && !isInstallment && (
                             <button
                               onClick={() => {
-                                const partialVal = Math.round(j.value * 0.3); // suggest 30% deposit
+                                const partialVal = Math.round(j.value * 0.3);
                                 triggerPrompt(
                                   t('jobs.partialPromptTitle'),
                                   t('jobs.partialPromptMessage', { name: j.name, amount: partialVal.toLocaleString() }),
@@ -995,38 +874,36 @@ export default function JobsTab({
                                   }
                                 );
                               }}
-                              className="text-xs font-bold text-brand-muted hover:text-amber-600 dark:hover:text-amber-300 px-2.5 py-1.5 rounded-lg transition-colors border border-brand-border cursor-pointer"
+                              className="p-1.5 rounded-lg text-brand-muted hover:text-amber-600 dark:hover:text-amber-300 border border-brand-border transition-colors cursor-pointer"
+                              title={t('jobs.actionMarkPartial')}
                             >
-                              {t('jobs.actionMarkPartial')}
+                              <Clock className="w-3.5 h-3.5" />
                             </button>
                           )}
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setEditingJob(j)}
-                      className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/15 rounded-lg transition-colors cursor-pointer"
-                      title={t('jobs.editTooltip')}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => onDeleteJob(j.id)}
-                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/15 rounded-lg transition-colors cursor-pointer"
-                      title={t('jobs.deleteTooltip')}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })
-        )}
-      </div>
+                          <button
+                            onClick={() => setEditingJob(j)}
+                            className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/15 rounded-lg transition-colors cursor-pointer"
+                            title={t('jobs.editTooltip')}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => onDeleteJob(j.id)}
+                            className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/15 rounded-lg transition-colors cursor-pointer"
+                            title={t('jobs.deleteTooltip')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {createPortal(
         <AnimatePresence>
