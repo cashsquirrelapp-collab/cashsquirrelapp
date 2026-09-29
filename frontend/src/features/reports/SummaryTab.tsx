@@ -874,17 +874,17 @@ export default function SummaryTab({
                     
                     <div className="flex flex-wrap gap-1.5 pt-0.5">
                       {isShortfall ? (
-                        <span className="text-[9px] font-black text-rose-600 dark:text-rose-400 bg-rose-55/10 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/15">
+                        <span className="text-[9px] font-black text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/15">
                           ยังไม่พอค่าใช้จ่ายคงที่
                         </span>
                       ) : (
-                        <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-55/10 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-100/15">
+                        <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-100/15">
                           ผ่านค่าใช้จ่ายคงที่ (+{formatCurrency(summary.profit)})
                         </span>
                       )}
 
                       {metGoal && (
-                        <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-55/10 dark:bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-100/15">
+                        <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-100/15">
                           ผ่านเป้าหมายรายได้ยอดออม!
                         </span>
                       )}
