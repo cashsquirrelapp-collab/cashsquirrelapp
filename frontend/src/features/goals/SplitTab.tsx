@@ -699,7 +699,7 @@ export default function SplitTab({
   return (
     <div className="page-content space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 rounded-[28px] border border-[#F0D9BE] px-6 py-6 text-[#2B1B0F] shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-8" style={{ background: 'linear-gradient(135deg, #fff3e8 0%, #fde4ce 100%)' }}>
+      <div className="flex flex-col gap-4 rounded-[14px] border border-[#F0D9BE] px-6 py-6 text-[#2B1B0F] shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-8" style={{ background: 'linear-gradient(135deg, #fff3e8 0%, #fde4ce 100%)' }}>
         <div>
           <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-wider text-[#9A541C] uppercase">
             <PiggyBank className="h-4 w-4" /> วางแผนเงินให้ทุกบาทมีเป้าหมาย
@@ -716,7 +716,7 @@ export default function SplitTab({
       </div>
 
       {/* Overview: answer the three questions a first-time user has before asking them to allocate. */}
-      <section className="overflow-hidden rounded-[28px] border border-brand-border bg-brand-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <section className="overflow-hidden rounded-[14px] border border-brand-border bg-brand-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
         <div className="border-b border-brand-border/50 bg-gradient-to-r from-[#FFF8EE] to-white px-5 py-5 dark:from-neutral-900 dark:to-neutral-900 sm:px-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -813,7 +813,7 @@ export default function SplitTab({
       </section>
 
       {/* Section 2: Dynamic Profit Allocation Manager */}
-      <section className="rounded-[28px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
+      <section className="rounded-[14px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
         <div className="mb-6 flex flex-col gap-3 border-b border-brand-border/50 pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 2</span>
@@ -1076,7 +1076,7 @@ export default function SplitTab({
       </section>
 
       {/* Section 3: Savings Targets Cards Grid (Merged TargetTab) */}
-      <section className="space-y-5 rounded-[28px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
+      <section className="space-y-5 rounded-[14px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 3</span>
