@@ -59,8 +59,8 @@ export default function FinanceWorkspacePicker({
   }, [account, revision]);
   return (
     <div className="relative flex min-w-0 items-center">
-      <div className="flex min-w-0 items-center rounded-full border border-[#E8D9C7] bg-[#FFF5E7] px-2 py-1 shadow-sm dark:border-stone-700 dark:bg-stone-800">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#79583F] dark:text-[#E8C7A7]" aria-hidden="true">
+      <div className="flex min-w-0 items-center rounded-full border border-brand-border bg-brand-white px-2 py-1 shadow-sm">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#C24A16] dark:text-[#FFA473]" aria-hidden="true">
           {groupId ? <Users size={18} strokeWidth={2.2} /> : <CreditCard size={18} strokeWidth={2.2} />}
         </div>
         <label htmlFor="finance-workspace" className="sr-only">บัญชีการเงิน</label>
@@ -86,7 +86,7 @@ export default function FinanceWorkspacePicker({
               </option>
             ))}
           </select>
-          <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-4 w-4 -translate-y-1/2 text-[#79583F] dark:text-[#E8C7A7]" />
+          <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
         </div>
       </div>
       {error && (

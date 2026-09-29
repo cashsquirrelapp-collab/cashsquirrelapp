@@ -102,12 +102,14 @@
 }
 
 .dark {
-  --bg: #1C130B; /* Cozy dark cinnamon bark background */
-  --white: #261810; /* Cozy dark cocoa card background */
-  --text: #F7EFEA; /* Warm creamy almond white text */
-  --muted: #A89689; /* Clear bright milk chocolate gray descriptions */
-  --faint: #322117; /* Deep dry wood/dark branch accent */
-  --border: #422E22; /* Warm clay-wood border lines */
+  /* Draft 6 dark mode: charcoal/dark-gray surfaces with the orange CI accent, matching the
+     light-mode "Reskin phase 1" neutral direction instead of the old brown cinnamon/cocoa dark UI. */
+  --bg: #17181B; /* Charcoal page canvas */
+  --white: #212226; /* Dark gray card surface */
+  --text: #F2F0ED; /* Warm off-white text */
+  --muted: #9A968F; /* Neutral warm-gray for supporting text */
+  --faint: #2A2B2F; /* Subtle dark fill */
+  --border: #34353A; /* Subtle neutral border */
   
   --green-bg: #2A1D15; 
   --green-acc: #E8A560; /* Squirrel golden light orange for main/success/buttons */
