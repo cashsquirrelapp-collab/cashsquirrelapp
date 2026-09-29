@@ -343,10 +343,10 @@ export default function App() {
           navigateTab(item.key);
           if (closeMobileOnClick) setIsMobileMenuOpen(false);
         }}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-bold transition-all cursor-pointer ${
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all cursor-pointer ${
           activeTab === item.key
-            ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-            : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
+            ? 'bg-[#FFF0E8] text-[#D9551D] dark:bg-[#34231B] dark:text-[#FFA473] font-bold'
+            : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'
         }`}
       >
         <Icon className="w-4.5 h-4.5" />
@@ -2112,28 +2112,28 @@ export default function App() {
 
       {/* 💻 iPad / MacBook / PC Desktop Sidebar (Hidden on mobile devices) -- own scroll region so
           it stays put while the main content (e.g. a 100-job list) scrolls independently */}
-      <aside className="app-sidebar hidden lg:flex flex-col w-68 bg-brand-white border-r border-brand-border/40 shrink-0 select-none p-6 relative overflow-y-auto no-scrollbar">
+      <aside className="app-sidebar hidden lg:flex flex-col w-60 bg-brand-white border-r border-brand-border shrink-0 select-none px-4 py-5 relative overflow-y-auto no-scrollbar">
         <button
           type="button"
           onClick={() => navigateTab('dashboard')}
-          className="flex items-center gap-2.5 mb-8 px-2 cursor-pointer text-left hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 mb-7 px-2 cursor-pointer text-left hover:opacity-80 transition-opacity"
           title={t("nav.backToDashboard")}
         >
           <div className="shrink-0">
-            <Mascot mood="happy" size={36} />
+              <Mascot mood="happy" size={32} />
           </div>
           <div>
-            <h1 className="font-display font-black text-sm tracking-tight text-brand-text">
+            <h1 className="font-display font-bold text-sm tracking-tight text-brand-text">
               กระรอกตุนเงิน
             </h1>
-            <p className="text-[9px] text-[#E65F2B] dark:text-[#FFA473] font-black uppercase tracking-wider">
+            <p className="text-[9px] text-[#E65F2B] dark:text-[#FFA473] font-semibold tracking-wide">
               คลังกระรอกตุนเสบียง
             </p>
           </div>
         </button>
 
         {/* Desktop Sidebar Navigation List */}
-        <nav className="space-y-1.5 flex-1">
+        <nav className="space-y-1 flex-1">
           {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, false))}
 
           {renderMoreToggle()}
@@ -2403,7 +2403,7 @@ export default function App() {
         </div>
 
         {/* Scrollable Container with responsive max widths */}
-        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
+        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-6 lg:py-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none">
           <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
