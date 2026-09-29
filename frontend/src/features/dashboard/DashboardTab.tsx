@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
-import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../../utils';
+import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, getForecastMonths, safeFormatThaiDate } from '../../utils';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -787,6 +787,40 @@ export default function DashboardTab({
       .slice(0, 5);
   }, [jobs, expenses]);
 
+  const forecastRadar = React.useMemo(() => {
+    const forecastMonthsList = getForecastMonths();
+    const totals = new Map(forecastMonthsList.map(monthKey => [monthKey, { confirmed: 0, pending: 0, variableExpense: 0 }]));
+    jobs.forEach(j => {
+      getJobPaymentEntries(j).forEach((entry) => {
+        const month = totals.get(getMonthKeyFromDate(entry.date));
+        if (month) month.confirmed += entry.amount;
+      });
+      if (j.isPosted !== false) getJobPendingEntries(j).forEach((entry) => {
+        const month = totals.get(getMonthKeyFromDate(entry.dueDate));
+        if (month) month.pending += entry.amount;
+      });
+    });
+    expenses.forEach(e => {
+      const month = totals.get(getMonthKey(e.date));
+      if (month) month.variableExpense += e.amount;
+    });
+    return forecastMonthsList.map(monthKey => {
+      const month = totals.get(monthKey)!;
+      const totalIncome = month.confirmed + month.pending;
+      const totalExpense = settings.monthlyExpense + month.variableExpense;
+      const balance = totalIncome - totalExpense;
+      const hasData = totalIncome > 0;
+      const status = !hasData
+        ? { label: 'ยังไม่มีข้อมูล', color: '#B8B3AC' }
+        : balance < 0
+        ? { label: 'ควรหาเพิ่ม', color: '#E95454' }
+        : balance < totalExpense * 0.3
+        ? { label: 'พอใช้', color: '#F2A93B' }
+        : { label: 'ปลอดภัย', color: '#18A66A' };
+      return { monthKey, balance, hasData, ...status };
+    });
+  }, [jobs, expenses, settings.monthlyExpense]);
+
   const currentMonthKeyForCalendar = React.useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -1195,8 +1229,37 @@ export default function DashboardTab({
         </div>
       </div>
 
+      {/* Forward-looking 4-month forecast, matching the mockup's "เรดาร์เสบียง 4 เดือน" card --
+          reuses the same forecast aggregation the old radar widget had before it was removed,
+          just restyled to the compact card the mockup actually shows instead of the old
+          "Acorn Hollows" fill-bar cards. */}
+      <div className="order-6 bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
+        <h4 className="text-[13px] font-medium text-brand-text">เรดาร์เสบียง 4 เดือน</h4>
+        <p className="mb-3.5 text-[11px] text-brand-muted">เงินที่คาดว่าจะได้ เทียบกับรายจ่ายประจำเดือน</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {forecastRadar.map(m => (
+            <div key={m.monthKey} className="pt-2" style={{ borderTop: `3px solid ${m.color}` }}>
+              <p className="text-[11px] text-brand-muted">{formatMonthKey(m.monthKey).split(' ')[0]}</p>
+              <p className="mt-0.5 text-[11px] font-semibold" style={{ color: m.color }}>{m.label}</p>
+              <p className="mt-0.5 text-[10px] text-brand-muted">{m.hasData ? `เหลือ ${formatCurrency(m.balance)}` : '—'}</p>
+            </div>
+          ))}
+        </div>
+        {upcomingPayments.length > 0 && (() => {
+          const next = upcomingPayments.find(p => !p.isOverdue) || upcomingPayments[0];
+          return (
+            <div className="mt-3.5 flex items-center gap-2 rounded-xl bg-[#FBF2E4] px-2.5 py-2">
+              <Mascot mood="thinking" size={24} />
+              <p className="text-[11px] text-brand-text">
+                {next.isOverdue ? 'มีเงินเกินกำหนดที่ต้องติดตาม' : `อีก ${next.daysCount} วันคาดว่าจะมีเงินเข้า`} <strong>{formatCurrency(next.pending)}</strong>
+              </p>
+            </div>
+          );
+        })()}
+      </div>
+
       {/* 4. Financial Goals Slider */}
-      <div className="order-6 space-y-3">
+      <div className="order-7 space-y-3">
         <div className="flex items-center justify-between px-1">
           <div>
             <h4 className="text-xs font-black tracking-widest text-brand-muted uppercase" title={t('dash.savingsGoalsTooltip')}>
@@ -1264,7 +1327,7 @@ export default function DashboardTab({
         </div>
       </div>
 
-      <div className="order-7"><VineDivider /></div>
+      <div className="order-8"><VineDivider /></div>
 
       {/* Quick payment stays out of the overview until the shortcut is used. */}
       {isQuickPayExpanded && createPortal(
