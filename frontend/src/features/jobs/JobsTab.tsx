@@ -1253,129 +1253,6 @@ export default function JobsTab({
                         setJobTypes={setJobTypes}
                       />
 
-                      {/* Legacy category controls retained for data compatibility; replaced by the organized selector above. */}
-                      <div className="hidden">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldType')}</label>
-
-                        <div className="space-y-2.5">
-                          <div className="space-y-1.5">
-                            <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">{t('jobs.typeBasicLabel')}</p>
-                            <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
-                              {['ยังไม่ระบุ', ...DEFAULT_JOB_TYPES].map(t => {
-                                const isSelected = formType === t;
-                                return (
-                                  <button
-                                    key={t}
-                                    type="button"
-                                    onClick={() => {
-                                      setFormType(t);
-                                      setCustomTypeInput('');
-                                    }}
-                                    className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
-                                      isSelected
-                                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm hover:bg-emerald-700'
-                                        : 'bg-brand-faint dark:bg-stone-900 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
-                                    }`}
-                                  >
-                                    {t}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {(() => {
-                            const customTypes = Array.from(new Set(jobTypes)).filter(t => t && !DEFAULT_JOB_TYPES.includes(t));
-                            return customTypes.length > 0 ? (
-                              <div className="space-y-1.5">
-                                <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">{t('jobs.typeCustomLabel')}</p>
-                                <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
-                                  {customTypes.map(tp => {
-                                    const isSelected = formType === tp;
-                                    return (
-                                      <span
-                                        key={tp}
-                                        className={`pl-3 pr-1.5 py-1 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1 ${
-                                          isSelected
-                                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                                            : 'bg-brand-faint dark:bg-stone-900 border-brand-border/50 text-brand-text dark:text-neutral-300'
-                                        }`}
-                                      >
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setFormType(tp);
-                                            setCustomTypeInput('');
-                                          }}
-                                          className="cursor-pointer"
-                                        >
-                                          {tp}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setJobTypes(prev => prev.filter(x => x !== tp));
-                                            if (formType === tp) setFormType('ยังไม่ระบุ');
-                                          }}
-                                          className={`p-0.5 rounded-full cursor-pointer transition-colors ${isSelected ? 'hover:bg-white/20' : 'text-brand-muted hover:bg-rose-500/10 hover:text-rose-600'}`}
-                                          title={t('jobs.removeTypeTooltip')}
-                                        >
-                                          <IconClose className="w-2.5 h-2.5" />
-                                        </button>
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : null;
-                          })()}
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormType('__custom__');
-                            }}
-                            className={`px-3 py-2.5 rounded-2xl text-[11px] font-black transition-all cursor-pointer border flex items-center justify-center gap-1 border-dashed w-full ${
-                              formType === '__custom__'
-                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
-                            }`}
-                          >
-                            {t('jobs.addCustomType')}
-                          </button>
-                        </div>
-
-                        {formType === '__custom__' && (
-                          <div className="animate-fade-in space-y-2 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 rounded-2xl border border-emerald-500/15">
-                            <label className="text-[10px] text-emerald-800 dark:text-emerald-400 font-extrabold uppercase block">{t('jobs.customTypeNameLabel')}</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                placeholder={t('jobs.customTypePlaceholder')}
-                                value={customTypeInput}
-                                onChange={(e) => setCustomTypeInput(e.target.value)}
-                                className="flex-1 bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-semibold"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const trimmed = customTypeInput.trim();
-                                  if (trimmed) {
-                                    if (!jobTypes.includes(trimmed)) {
-                                      setJobTypes(prev => [...prev, trimmed]);
-                                    }
-                                    setFormType(trimmed);
-                                    setCustomTypeInput('');
-                                  }
-                                }}
-                                className="px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black cursor-pointer transition-colors"
-                              >
-                                {t('jobs.confirmOk')}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     </motion.div>
                   )}
 
@@ -1405,25 +1282,6 @@ export default function JobsTab({
 
                       <WithholdingTaxSelector rate={formWhtRate} onChange={setFormWhtRate} value={formValue} />
 
-                      {/* Legacy tax controls are kept hidden while saved records remain compatible. */}
-                      <div className="hidden">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
-                          {t('jobs.fieldWht')}
-                        </label>
-                        <div className="relative">
-                          <select
-                            value={formWhtRate}
-                            onChange={(e) => setFormWhtRate(Number(e.target.value))}
-                            className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-emerald-500 cursor-pointer transition-colors"
-                          >
-                            <option value={0}>{t('jobs.wht0')}</option>
-                            <option value={1}>{t('jobs.wht1')}</option>
-                            <option value={3}>{t('jobs.wht3')}</option>
-                            <option value={5}>{t('jobs.wht5')}</option>
-                          </select>
-                          <ChevronDown className="w-4 h-4 text-brand-muted absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
 
                       {/* Project Status */}
                       <div className="space-y-1.5">
@@ -1466,25 +1324,6 @@ export default function JobsTab({
                         </div>
                       </div>
 
-                      {/* Live calculated mockup tax receipt */}
-                      <div className="hidden">
-                        <div className="flex items-center justify-between text-[10px] text-brand-muted dark:text-neutral-400 font-black uppercase">
-                          <span>{t('jobs.taxReceiptTitle')}</span>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-y-1.5 text-xs">
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.grossValueLabel')}</div>
-                          <div className="text-right font-black font-mono dark:text-white">฿{(parseFloat(formValue) || 0).toLocaleString()}</div>
-                          
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.whtDeductedLabel', { rate: formWhtRate })}</div>
-                          <div className="text-right font-black font-mono text-amber-600 dark:text-amber-400">- ฿{Math.round((parseFloat(formValue) || 0) * (formWhtRate / 100)).toLocaleString()}</div>
-
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.netAfterTaxLabel')}</div>
-                          <div className="text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
-                            ฿{( (parseFloat(formValue) || 0) - Math.round((parseFloat(formValue) || 0) * (formWhtRate / 100)) ).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
 
                       {/* Received Deposit input - shown only if status is "partial" */}
                       {formStatus !== 'installment' && (formStatus === 'partial' ||
@@ -1520,45 +1359,6 @@ export default function JobsTab({
                       className="space-y-4"
                     >
                       <WorkStageSelector isPosted={formIsPosted} onChange={setFormIsPosted} />
-
-                      {/* Legacy WIP vs Posted control retained hidden for state compatibility.
-                          highlight instead of two separate boxes, so it reads as a single
-                          switch rather than two things to compare and read. */}
-                      <div className="hidden">
-                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">{t('jobs.currentStatusLabel')}</label>
-                        <div className="relative flex bg-brand-faint dark:bg-stone-850 border border-brand-border/60 rounded-2xl p-1">
-                          <button
-                            type="button"
-                            onClick={() => setFormIsPosted(false)}
-                            className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
-                          >
-                            {!formIsPosted && (
-                              <motion.div
-                                layoutId="wip-toggle-add"
-                                className="absolute inset-0 bg-amber-500 rounded-xl"
-                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                              />
-                            )}
-                            <span className={`relative z-10 text-xs font-black block ${!formIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>{t('jobs.wipShort')}</span>
-                            <span className={`relative z-10 text-[9px] font-bold ${!formIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>{t('jobs.wipSub')}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFormIsPosted(true)}
-                            className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
-                          >
-                            {formIsPosted && (
-                              <motion.div
-                                layoutId="wip-toggle-add"
-                                className="absolute inset-0 bg-emerald-500 rounded-xl"
-                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                              />
-                            )}
-                            <span className={`relative z-10 text-xs font-black block ${formIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>{t('jobs.postedShort')}</span>
-                            <span className={`relative z-10 text-[9px] font-bold ${formIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>{t('jobs.postedSub')}</span>
-                          </button>
-                        </div>
-                      </div>
 
                       <AnimatePresence mode="wait">
                         {!formIsPosted ? (
@@ -1953,129 +1753,6 @@ export default function JobsTab({
                         accent="indigo"
                       />
 
-                      {/* Legacy category controls retained for data compatibility; replaced by the organized selector above. */}
-                      <div className="hidden">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldType')}</label>
-
-                        <div className="space-y-2.5">
-                          <div className="space-y-1.5">
-                            <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">{t('jobs.typeBasicLabel')}</p>
-                            <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
-                              {['ยังไม่ระบุ', ...DEFAULT_JOB_TYPES].map(t => {
-                                const isSelected = editType === t;
-                                return (
-                                  <button
-                                    key={t}
-                                    type="button"
-                                    onClick={() => {
-                                      setEditType(t);
-                                      setEditCustomTypeInput('');
-                                    }}
-                                    className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
-                                      isSelected
-                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm hover:bg-indigo-700'
-                                        : 'bg-brand-faint dark:bg-stone-900 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
-                                    }`}
-                                  >
-                                    {t}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {(() => {
-                            const customTypes = Array.from(new Set(jobTypes)).filter(t => t && !DEFAULT_JOB_TYPES.includes(t));
-                            return customTypes.length > 0 ? (
-                              <div className="space-y-1.5">
-                                <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">{t('jobs.typeCustomLabel')}</p>
-                                <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
-                                  {customTypes.map(tp => {
-                                    const isSelected = editType === tp;
-                                    return (
-                                      <span
-                                        key={tp}
-                                        className={`pl-3 pr-1.5 py-1 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1 ${
-                                          isSelected
-                                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                                            : 'bg-brand-faint dark:bg-stone-900 border-brand-border/50 text-brand-text dark:text-neutral-300'
-                                        }`}
-                                      >
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setEditType(tp);
-                                            setEditCustomTypeInput('');
-                                          }}
-                                          className="cursor-pointer"
-                                        >
-                                          {tp}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setJobTypes(prev => prev.filter(x => x !== tp));
-                                            if (editType === tp) setEditType('ยังไม่ระบุ');
-                                          }}
-                                          className={`p-0.5 rounded-full cursor-pointer transition-colors ${isSelected ? 'hover:bg-white/20' : 'text-brand-muted hover:bg-rose-500/10 hover:text-rose-600'}`}
-                                          title={t('jobs.removeTypeTooltip')}
-                                        >
-                                          <IconClose className="w-2.5 h-2.5" />
-                                        </button>
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : null;
-                          })()}
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditType('__custom__');
-                            }}
-                            className={`px-3 py-2.5 rounded-2xl text-[11px] font-black transition-all cursor-pointer border flex items-center justify-center gap-1 border-dashed w-full ${
-                              editType === '__custom__'
-                                ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
-                            }`}
-                          >
-                            {t('jobs.addCustomType')}
-                          </button>
-                        </div>
-
-                        {editType === '__custom__' && (
-                          <div className="animate-fade-in space-y-2 bg-indigo-500/5 dark:bg-indigo-500/10 p-3 rounded-2xl border border-indigo-500/15">
-                            <label className="text-[10px] text-indigo-800 dark:text-indigo-400 font-extrabold uppercase block">{t('jobs.customTypeNameLabel')}</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                placeholder={t('jobs.customTypePlaceholder')}
-                                value={editCustomTypeInput}
-                                onChange={(e) => setEditCustomTypeInput(e.target.value)}
-                                className="flex-1 bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const trimmed = editCustomTypeInput.trim();
-                                  if (trimmed) {
-                                    if (!jobTypes.includes(trimmed)) {
-                                      setJobTypes(prev => [...prev, trimmed]);
-                                    }
-                                    setEditType(trimmed);
-                                    setEditCustomTypeInput('');
-                                  }
-                                }}
-                                className="px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black cursor-pointer transition-colors"
-                              >
-                                {t('jobs.confirmOk')}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     </motion.div>
                   )}
 
@@ -2167,45 +1844,7 @@ export default function JobsTab({
 
                       <WithholdingTaxSelector rate={editWhtRate} onChange={setEditWhtRate} value={editValue} accent="indigo" />
 
-                      {/* Legacy tax controls are kept hidden while saved records remain compatible. */}
-                      <div className="hidden">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
-                          {t('jobs.fieldWht')}
-                        </label>
-                        <div className="relative">
-                          <select
-                            value={editWhtRate}
-                            onChange={(e) => setEditWhtRate(Number(e.target.value))}
-                            className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-indigo-500 cursor-pointer transition-colors"
-                          >
-                            <option value={0}>{t('jobs.wht0')}</option>
-                            <option value={1}>{t('jobs.wht1')}</option>
-                            <option value={3}>{t('jobs.wht3')}</option>
-                            <option value={5}>{t('jobs.wht5')}</option>
-                          </select>
-                          <ChevronDown className="w-4 h-4 text-brand-muted absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
 
-                      {/* Live calculated mockup tax receipt */}
-                      <div className="hidden">
-                        <div className="flex items-center justify-between text-[10px] text-brand-muted dark:text-neutral-400 font-black uppercase">
-                          <span>{t('jobs.taxReceiptTitleEdit')}</span>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-y-1.5 text-xs">
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.grossValueLabel')}</div>
-                          <div className="text-right font-black font-mono dark:text-white">฿{(parseFloat(editValue) || 0).toLocaleString()}</div>
-
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.whtDeductedLabel', { rate: editWhtRate })}</div>
-                          <div className="text-right font-black font-mono text-amber-600 dark:text-amber-400">- ฿{Math.round((parseFloat(editValue) || 0) * (editWhtRate / 100)).toLocaleString()}</div>
-
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.netAfterTaxLabel')}</div>
-                          <div className="text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
-                            ฿{((parseFloat(editValue) || 0) - Math.round((parseFloat(editValue) || 0) * (editWhtRate / 100))).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
                     </motion.div>
                   )}
 
@@ -2219,45 +1858,6 @@ export default function JobsTab({
                       className="space-y-4"
                     >
                       <WorkStageSelector isPosted={editIsPosted} onChange={setEditIsPosted} accent="indigo" />
-
-                      {/* Legacy WIP vs Posted control retained hidden for state compatibility.
-                          highlight instead of two separate boxes, so it reads as a single
-                          switch rather than two things to compare and read. */}
-                      <div className="hidden">
-                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">{t('jobs.currentStatusLabel')}</label>
-                        <div className="relative flex bg-brand-faint dark:bg-stone-850 border border-brand-border/60 rounded-2xl p-1">
-                          <button
-                            type="button"
-                            onClick={() => setEditIsPosted(false)}
-                            className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
-                          >
-                            {!editIsPosted && (
-                              <motion.div
-                                layoutId="wip-toggle-edit"
-                                className="absolute inset-0 bg-amber-500 rounded-xl"
-                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                              />
-                            )}
-                            <span className={`relative z-10 text-xs font-black block ${!editIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>{t('jobs.wipShort')}</span>
-                            <span className={`relative z-10 text-[9px] font-bold ${!editIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>{t('jobs.wipSub')}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditIsPosted(true)}
-                            className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
-                          >
-                            {editIsPosted && (
-                              <motion.div
-                                layoutId="wip-toggle-edit"
-                                className="absolute inset-0 bg-emerald-500 rounded-xl"
-                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                              />
-                            )}
-                            <span className={`relative z-10 text-xs font-black block ${editIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>{t('jobs.postedShort')}</span>
-                            <span className={`relative z-10 text-[9px] font-bold ${editIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>{t('jobs.postedSub')}</span>
-                          </button>
-                        </div>
-                      </div>
 
                       <AnimatePresence mode="wait">
                         {!editIsPosted ? (
