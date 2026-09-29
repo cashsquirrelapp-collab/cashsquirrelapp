@@ -20,9 +20,13 @@ const loadPlansTab = () => import('../features/billing/PlansTab').then(module =>
 const loadGroupsTab = () => import('../features/groups/GroupsTab');
 const loadClientsTab = () => import('../features/clients/ClientsTab');
 const loadReceivablesTab = () => import('../features/receivables/ReceivablesTab');
+const loadIncomeExpenseTab = () => import('../features/incomeExpense/IncomeExpenseTab');
+const loadReportOverviewTab = () => import('../features/report/ReportTab');
 const loadCalendarTab = () => import('../features/calendar/CalendarTab');
 const ClientsTab = lazy(loadClientsTab);
 const ReceivablesTab = lazy(loadReceivablesTab);
+const IncomeExpenseTab = lazy(loadIncomeExpenseTab);
+const ReportOverviewTab = lazy(loadReportOverviewTab);
 const CalendarTab = lazy(loadCalendarTab);
 const JobsTab = lazy(loadJobsTab);
 const DashboardTab = lazy(loadDashboardTab);
@@ -99,13 +103,15 @@ import {
   Search,
   Bell,
   Plus,
-  Clock
+  Clock,
+  ArrowLeftRight,
+  PieChart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar' | 'receivables';
+type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar' | 'receivables' | 'incomeExpense' | 'reportOverview';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar', 'receivables'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar', 'receivables', 'incomeExpense', 'reportOverview'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
 
 function isTabKey(value: string | undefined): value is TabKey {
@@ -167,6 +173,8 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   clients: loadClientsTab,
   receivables: loadReceivablesTab,
   calendar: loadCalendarTab,
+  incomeExpense: loadIncomeExpenseTab,
+  reportOverview: loadReportOverviewTab,
 };
 const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch(() => {}); };
 
@@ -184,8 +192,10 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'timeline', labelKey: 'nav.timeline', icon: Calendar, group: 'more' },
   { key: 'summary', labelKey: 'nav.summary', icon: Wallet, group: 'more' },
   { key: 'receivables', labelKey: 'nav.receivables', icon: Clock, group: 'more' },
+  { key: 'incomeExpense', labelKey: 'nav.incomeExpense', icon: ArrowLeftRight, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
+  { key: 'reportOverview', labelKey: 'nav.reportOverview', icon: PieChart, group: 'more' },
   { key: 'insight', labelKey: 'nav.insight', icon: BarChart3, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
@@ -2761,6 +2771,12 @@ export default function App() {
                   onEditJob={handleEditJob}
                   triggerAlert={triggerAlert}
                 />
+              )}
+              {activeTab === 'incomeExpense' && (
+                <IncomeExpenseTab jobs={jobs} expenses={expenses} />
+              )}
+              {activeTab === 'reportOverview' && (
+                <ReportOverviewTab jobs={jobs} expenses={expenses} />
               )}
               {activeTab === 'calendar' && (
                 <CalendarTab
