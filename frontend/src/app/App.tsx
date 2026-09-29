@@ -675,15 +675,16 @@ export default function App() {
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
   const navItems = React.useMemo(() => {
+    const base = settings.goalsFeatureEnabled === false ? NAV_ITEMS.filter(item => item.key !== 'split') : NAV_ITEMS;
     const persona = settings.userPersona;
-    if (!persona || persona === 'freelance') return NAV_ITEMS;
+    if (!persona || persona === 'freelance') return base;
     const coreKeys = PERSONA_CORE_KEYS[persona];
-    return NAV_ITEMS.map(item =>
+    return base.map(item =>
       item.group === 'bottom' || item.key === 'dashboard' || item.key === 'jobs' || item.key === 'groups'
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
     );
-  }, [settings.userPersona]);
+  }, [settings.userPersona, settings.goalsFeatureEnabled]);
   const isMoreTabActive = navItems.some(item => item.group === 'more' && item.key === activeTab);
   const showMoreNavItems = moreNavOpen || isMoreTabActive;
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(() => {
@@ -2791,6 +2792,7 @@ export default function App() {
                 <SettingsTab
                   key={financeOwner}
                   isGroupFinance={!!financeGroupId}
+                  businessProfileOwnerId={session?.isGuest ? undefined : financeOwner}
                   settings={settings}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   onUpdateSettings={handleUpdateSettings}

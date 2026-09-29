@@ -4,7 +4,6 @@ import { readInvoices, saveCloud } from '../../services/cloud';
 import { validateChanges } from '../../../../shared/validation';
 import React, { useState, useEffect } from 'react';
 import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../../../shared/types';
-import { THAI_BANKS, findThaiBank } from './thaiBanks';
 import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
@@ -21,8 +20,7 @@ import {
   Check, 
   User, 
   Building, 
-  Calendar, 
-  DollarSign,
+  Calendar,
   Briefcase,
   AlertCircle,
   FileSpreadsheet,
@@ -33,8 +31,10 @@ import {
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 
-// Upload box for the logo / signature images kept on the issuer profile
-const BrandImageField: React.FC<{
+// Upload box for the logo / signature images kept on the issuer profile. Exported so the
+// business-profile editor on the Settings page (the only place that edits this profile now)
+// can reuse it without duplicating the upload/crop/position UI.
+export const BrandImageField: React.FC<{
   title: string;
   hint: string;
   emptyLabel: string;
@@ -147,7 +147,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const issuerKey = `cashflow_issuer_${ownerId || 'guest'}`;
   // Local states
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [activeSubTab, setActiveSubTab] = useState<'list' | 'create' | 'issuer_profile'>('list');
+  const [activeSubTab, setActiveSubTab] = useState<'list' | 'create'>('list');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [docTypeFilter, setDocTypeFilter] = useState<'all' | DocumentType>('all');
@@ -197,7 +197,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   // Copy-state feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string>('');
-  const [bankOtherMode, setBankOtherMode] = useState(false);
 
   // Load from local storage on mount
   useEffect(() => {
@@ -276,16 +275,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         setStorageError(error.message); triggerAlert('บันทึกเอกสารไม่สำเร็จ', error.message);
       }).finally(() => setSaving(false));
     }
-  };
-
-  // Save issuer profile
-  const handleSaveIssuerProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    privateCache.setItem(issuerKey, JSON.stringify(issuerProfile));
-    try { if (ownerId) await saveCloud(ownerId, { issuer_profile: issuerProfile }); }
-    catch (error: any) { triggerAlert('บันทึกข้อมูลไม่สำเร็จ', error.message); return; }
-    triggerAlert('บันทึกสำเร็จ', 'บันทึกข้อมูลผู้ถือบิล/ผู้ออกบิลเรียบร้อยแล้ว ข้อมูลนี้จะถูกนำไปใช้เป็นค่าเริ่มต้นในบิลใบถัดไป');
-    setActiveSubTab('list');
   };
 
   // Pre-fill fields from Job selection
@@ -534,19 +523,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setActiveSubTab('create');
   };
 
-  // Sample document for the live header preview in the profile tab (uses the unsaved profile)
-  const livePreviewInvoice: Invoice = {
-    id: 'live-preview',
-    documentType: 'invoice',
-    documentNo: 'INV-2026-001',
-    createdDate: new Date().toISOString().split('T')[0],
-    issuer: issuerProfile,
-    client: { name: 'ชื่อลูกค้าตัวอย่าง', address: 'ที่อยู่ลูกค้าตัวอย่าง', phone: '', email: '', taxId: '' },
-    items: [{ id: 'p1', description: 'รายการตัวอย่าง', quantity: 1, price: 1000 }],
-    vatRate: 0,
-    whtRate: 0
-  };
-
   // Documents keep the issuer details they were created with, but the logo and signature come
   // from the current profile so uploading them also updates documents created earlier.
   const withCurrentBranding = (inv: Invoice): Invoice => ({
@@ -643,17 +619,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             <Plus className="w-3.5 h-3.5" />
             <span>ออกเอกสารใหม่</span>
           </button>
-          <button
-            onClick={() => setActiveSubTab('issuer_profile')}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeSubTab === 'issuer_profile'
-                ? 'bg-[#E65F2B] text-white'
-                : 'bg-brand-white dark:bg-stone-900 text-brand-muted hover:text-brand-text border border-brand-border/60'
-            }`}
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>ข้อมูลโปรไฟล์ของฉัน</span>
-          </button>
         </div>
 
         {activeSubTab === 'list' && selectedInvoice && (
@@ -673,7 +638,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         <div className="space-y-1">
           <h4 className="text-xs font-black text-orange-900 dark:text-orange-300">คู่มือออกเอกสารจากคุณกระรอก</h4>
           <p className="text-[10px] text-orange-800/80 dark:text-orange-400/80 leading-relaxed">
-            ยินดีต้อนรับสู่ระบบออกบิลแสนสะดวกครับ! คุณสามารถเลือกดึงข้อมูลจากดีลงานได้ทันทีโดยไม่ต้องเสียเวลากรอกเอง และแนะนำให้ใส่ข้อมูลบัญชีโอนเงินที่แท็บ <span className="font-extrabold text-[#E65F2B]">"ข้อมูลโปรไฟล์ของฉัน"</span> เพื่อเป็นค่าเริ่มต้นสำหรับเอกสารทุกใบครับ! เมื่อออกเอกสารเสร็จแล้ว สามารถกดพิมพ์หรือเลือกปลายทางเป็น Save as PDF เพื่อนำส่งลูกค้าได้ทันที
+            ยินดีต้อนรับสู่ระบบออกบิลแสนสะดวกครับ! คุณสามารถเลือกดึงข้อมูลจากดีลงานได้ทันทีโดยไม่ต้องเสียเวลากรอกเอง และแนะนำให้ใส่ข้อมูลบัญชีโอนเงินที่หน้า <span className="font-extrabold text-[#E65F2B]">"ตั้งค่า → โปรไฟล์ธุรกิจ"</span> เพื่อเป็นค่าเริ่มต้นสำหรับเอกสารทุกใบครับ! เมื่อออกเอกสารเสร็จแล้ว สามารถกดพิมพ์หรือเลือกปลายทางเป็น Save as PDF เพื่อนำส่งลูกค้าได้ทันที
           </p>
         </div>
       </div>
@@ -1353,258 +1318,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
             </div>
 
-          </div>
-
-        </form>
-      )}
-
-      {/* SUB-TAB 3: DEFAULT ISSUER PROFILE SETTING */}
-      {activeSubTab === 'issuer_profile' && (
-        <form onSubmit={handleSaveIssuerProfile} className="app-subtab-enter bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-3xl p-6 shadow-sm space-y-5 no-print">
-          
-          <div className="flex items-center gap-2 border-b border-brand-border pb-3.5">
-            <div className="p-2 bg-indigo-50 dark:bg-stone-950 rounded-xl text-indigo-600 dark:text-indigo-400">
-              <User className="w-4.5 h-4.5" />
-            </div>
-            <div>
-              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-                ข้อมูลส่วนตัวผู้ถือรับเงิน / ผู้ออกบิลใบเสร็จ (Default Issuer)
-              </h3>
-              <p className="text-[9px] text-brand-muted mt-0.5">
-                กรอกข้อมูลส่วนตัวหรือห้างหุ้นส่วนของคุณ เพียงครั้งเดียว เพื่อนำไปใช้เป็นค่าเริ่มต้นเมื่อกดออกบิลใหม่
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            
-            {/* Live header preview -- redraws on every change, before anything is saved */}
-            <div className="md:col-span-12 sticky top-2 z-20 rounded-2xl border border-[#E65F2B]/30 bg-brand-white dark:bg-stone-900 p-3 shadow-md" data-testid="header-live-preview">
-              <p className="mb-2 text-[10px] font-black text-[#E65F2B]">ตัวอย่างส่วนหัวเอกสาร (เปลี่ยนตามที่คุณปรับทันที)</p>
-              <div className="overflow-hidden rounded-xl border border-brand-border/60 bg-stone-200">
-                <DocumentPreview invoice={livePreviewInvoice} crop={400} maxScale={0.8} />
-              </div>
-            </div>
-
-            {/* Company logo + signature (printed on every document) */}
-            <BrandImageField
-              title="โลโก้บริษัท / แบรนด์ของคุณ (Company Logo)"
-              hint="โลโก้นี้จะปรากฏที่มุมบนซ้ายของเอกสารทุกประเภท และเป็นตราประทับผู้ขาย"
-              emptyLabel="ไม่มีโลโก้"
-              uploadLabel="อัปโหลดภาพโลโก้"
-              removeLabel="ลบโลโก้"
-              value={issuerProfile.logoUrl}
-              onChange={(logoUrl) => setIssuerProfile(prev => ({ ...prev, logoUrl }))}
-              onError={triggerAlert}
-              size={{
-                label: 'ขนาดโลโก้บนเอกสาร',
-                value: issuerProfile.logoHeight || DEFAULT_LOGO_HEIGHT,
-                min: MIN_LOGO_HEIGHT,
-                max: MAX_LOGO_HEIGHT,
-                onChange: (logoHeight) => setIssuerProfile(prev => ({ ...prev, logoHeight }))
-              }}
-              extra={(
-                <div className="space-y-2 text-[10px] font-black text-brand-muted">
-                  <div className="flex items-center gap-3">
-                    <span className="shrink-0">ตำแหน่งโลโก้</span>
-                    <div className="flex gap-1.5" role="group" aria-label="ตำแหน่งโลโก้">
-                      {([['left', 'ซ้าย'], ['center', 'กลาง'], ['right', 'ขวา']] as const).map(([key, label]) => (
-                        <button
-                          key={key}
-                          type="button"
-                          aria-pressed={(issuerProfile.logoPosition || 'left') === key}
-                          onClick={() => setIssuerProfile(prev => ({ ...prev, logoPosition: key }))}
-                          className={`px-3 py-1.5 rounded-xl text-[10px] font-black cursor-pointer transition-all ${(issuerProfile.logoPosition || 'left') === key ? 'bg-[#E65F2B] text-white' : 'bg-brand-white dark:bg-stone-900 border border-brand-border/60 text-brand-muted'}`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <label className="flex items-center gap-3">
-                    <span className="shrink-0">เลื่อนซ้าย–ขวา</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={issuerProfile.logoPosition === 'custom' ? issuerProfile.logoOffset ?? 50 : issuerProfile.logoPosition === 'center' ? 50 : issuerProfile.logoPosition === 'right' ? 100 : 0}
-                      onChange={(e) => setIssuerProfile(prev => ({ ...prev, logoPosition: 'custom', logoOffset: Number(e.target.value) }))}
-                      aria-label="เลื่อนโลโก้ซ้าย-ขวา"
-                      className="w-full max-w-xs accent-[#E65F2B] cursor-pointer"
-                    />
-                    <span className="font-mono w-14 text-right">{issuerProfile.logoPosition === 'custom' ? issuerProfile.logoOffset ?? 50 : issuerProfile.logoPosition === 'center' ? 50 : issuerProfile.logoPosition === 'right' ? 100 : 0}%</span>
-                  </label>
-                </div>
-              )}
-            />
-            <BrandImageField
-              title="ลายเซ็นผู้ออกเอกสาร (Signature)"
-              hint="ลายเซ็นจะแสดงเหนือเส้นลายเซ็นในช่อง “ผู้ออกเอกสาร” แนะนำไฟล์ PNG พื้นหลังโปร่งใส"
-              emptyLabel="ไม่มีลายเซ็น"
-              uploadLabel="อัปโหลดลายเซ็น"
-              removeLabel="ลบลายเซ็น"
-              value={issuerProfile.signatureUrl}
-              onChange={(signatureUrl) => setIssuerProfile(prev => ({ ...prev, signatureUrl }))}
-              onError={triggerAlert}
-            />
-            <p className="md:col-span-12 text-[10px] font-bold text-[#E65F2B]">* หลังอัปโหลดรูป อย่าลืมกดปุ่มบันทึกด้านล่างสุดของหน้านี้ รูปจึงจะถูกเก็บและแสดงบนเอกสาร</p>
-
-            {/* Issuer Name */}
-            <div className="md:col-span-6 flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">ชื่อ-นามสกุล ของคุณ หรือ บริษัท</label>
-              <input
-                type="text"
-                value={issuerProfile.name}
-                onChange={(e) => setIssuerProfile({ ...issuerProfile, name: e.target.value })}
-                placeholder="เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-            {/* Issuer Tax ID */}
-            <div className="md:col-span-6 flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">เลขผู้เสียภาษี (บุคคลธรรมดา หรือ นิติบุคคล)</label>
-              <input
-                type="text"
-                value={issuerProfile.taxId}
-                onChange={(e) => setIssuerProfile({ ...issuerProfile, taxId: e.target.value })}
-                placeholder="เลขผู้เสียภาษี 13 หลัก"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-            {/* Issuer Address */}
-            <div className="md:col-span-12 flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">ที่อยู่ออกใบเสร็จ / ที่อยู่จดทะเบียน</label>
-              <textarea
-                value={issuerProfile.address}
-                onChange={(e) => setIssuerProfile({ ...issuerProfile, address: e.target.value })}
-                placeholder="เช่น 456 ถนนสุขุมวิท 21 แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพมหานคร 10110"
-                rows={3}
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-            {/* Phone */}
-            <div className="md:col-span-6 flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">เบอร์โทรศัพท์ติดต่อ</label>
-              <input
-                type="text"
-                value={issuerProfile.phone}
-                onChange={(e) => setIssuerProfile({ ...issuerProfile, phone: e.target.value })}
-                placeholder="เช่น 089-999-9999"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-            {/* Email */}
-            <div className="md:col-span-6 flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">อีเมล</label>
-              <input
-                type="email"
-                value={issuerProfile.email}
-                onChange={(e) => setIssuerProfile({ ...issuerProfile, email: e.target.value })}
-                placeholder="เช่น myemail@gmail.com"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-            {/* Divider */}
-            <div className="md:col-span-12 border-t border-brand-border/40 my-2 pt-2">
-              <h4 className="text-[11px] font-black text-brand-text dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                <DollarSign className="w-4 h-4 text-emerald-600" />
-                <span>ช่องทางรับโอนเงินของฉัน</span>
-              </h4>
-            </div>
-
-            {/* Bank Name */}
-            <div className="md:col-span-4 flex flex-col gap-1.5">
-              <label className="text-[9px] font-bold text-brand-muted uppercase">ชื่อธนาคาร</label>
-              <select
-                value={findThaiBank(issuerProfile.bankName) ? issuerProfile.bankName : issuerProfile.bankName || bankOtherMode ? '__other' : ''}
-                onChange={(e) => {
-                  if (e.target.value === '__other') {
-                    setBankOtherMode(true);
-                    if (findThaiBank(issuerProfile.bankName)) setIssuerProfile({ ...issuerProfile, bankName: '' });
-                  } else {
-                    setBankOtherMode(false);
-                    setIssuerProfile({ ...issuerProfile, bankName: e.target.value });
-                  }
-                }}
-                aria-label="ธนาคาร"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
-              >
-                <option value="">— เลือกธนาคาร —</option>
-                {THAI_BANKS.map(bank => (
-                  <option key={bank.code} value={bank.name}>{bank.name} ({bank.code})</option>
-                ))}
-                <option value="__other">อื่น ๆ (พิมพ์ชื่อเอง)</option>
-              </select>
-              {!findThaiBank(issuerProfile.bankName) && (issuerProfile.bankName || bankOtherMode) && (
-                <input
-                  type="text"
-                  value={issuerProfile.bankName}
-                  onChange={(e) => setIssuerProfile({ ...issuerProfile, bankName: e.target.value })}
-                  placeholder="พิมพ์ชื่อธนาคาร / ช่องทางรับเงิน เช่น พร้อมเพย์"
-                  aria-label="ชื่อธนาคารอื่น ๆ"
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
-              )}
-            </div>
-
-            {/* Bank Account */}
-            <div className="md:col-span-4 flex flex-col gap-1.5">
-              <label className="text-[9px] font-bold text-brand-muted uppercase">เลขที่บัญชี</label>
-              <input
-                type="text"
-                value={issuerProfile.bankAccount}
-                onChange={(e) => setIssuerProfile({ ...issuerProfile, bankAccount: e.target.value })}
-                placeholder="เช่น 123-4-56789-0"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-            {/* Bank Account Name */}
-            <div className="md:col-span-4 flex flex-col gap-1.5">
-              <label className="text-[9px] font-bold text-brand-muted uppercase">ชื่อบัญชีโอนรับเงิน</label>
-              <input
-                type="text"
-                value={issuerProfile.bankAccountName}
-                onChange={(e) => setIssuerProfile({ ...issuerProfile, bankAccountName: e.target.value })}
-                placeholder="เช่น นายออมสิน ดีแท้"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-
-            {/* Website (printed under the contact details) */}
-            <div className="md:col-span-12 flex flex-col gap-1.5">
-              <label className="text-[9px] font-bold text-brand-muted uppercase">เว็บไซต์ (ไม่บังคับ)</label>
-              <input
-                type="text"
-                value={issuerProfile.website || ''}
-                onChange={(e) => setIssuerProfile({ ...issuerProfile, website: e.target.value })}
-                placeholder="เช่น https://www.example.com"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-          </div>
-
-          <div className="pt-3 flex gap-3 border-t border-brand-border/40">
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-[#E65F2B] hover:bg-[#A63F1B] text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <span>บันทึกตั้งค่าโปรไฟล์</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('list')}
-              className="px-5 py-2.5 bg-brand-faint hover:bg-brand-border/40 text-brand-text dark:bg-stone-950 dark:hover:bg-stone-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
-            >
-              ยกเลิก
-            </button>
           </div>
 
         </form>

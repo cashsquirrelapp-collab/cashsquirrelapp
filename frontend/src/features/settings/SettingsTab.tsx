@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { AppSettings, FixedExpenseItem, NotifSettings } from '../../../../shared/types';
+import { AppSettings, FixedExpenseItem, NotifSettings, Invoice, InvoiceProfile } from '../../../../shared/types';
 import { formatCurrency, sumFixedExpenseItems, dateLocale } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { apiFetch, apiJson } from '../../services/api';
 import { authClient } from '../../services/auth';
-import { saveNotificationPatch } from '../../services/cloud';
+import { saveNotificationPatch, readInvoices, saveCloud } from '../../services/cloud';
+import { privateCache } from '../../services/privateCache';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -28,11 +29,19 @@ import {
   Languages,
   Clock3,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  Building2,
+  Wallet,
+  Sparkles,
+  ShieldQuestion,
+  KeyRound
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconCrown, IconClose, IconCheck } from '../../components/ui/icons';
 import type { PublicProfile } from '../../../../shared/groups';
+import { BrandImageField } from '../invoices/InvoiceTab';
+import { DocumentPreview, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT } from '../invoices/DocumentA4';
+import { THAI_BANKS, findThaiBank } from '../invoices/thaiBanks';
 
 const MAX_AVATAR_DATA_URL_LENGTH = 450_000;
 
@@ -66,8 +75,25 @@ async function prepareAvatarDataUrl(file: File): Promise<string> {
   }
 }
 
+type SettingsSection = 'account' | 'business' | 'finance' | 'features' | 'notif' | 'lang' | 'security' | 'backup';
+
+const SUBNAV: { key: SettingsSection; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'account', label: 'บัญชีของฉัน', Icon: User },
+  { key: 'business', label: 'โปรไฟล์ธุรกิจ', Icon: Building2 },
+  { key: 'finance', label: 'การเงิน', Icon: Wallet },
+  { key: 'features', label: 'ฟีเจอร์เสริม', Icon: Sparkles },
+  { key: 'notif', label: 'การแจ้งเตือน', Icon: Bell },
+  { key: 'lang', label: 'ภาษาและการแสดงผล', Icon: Languages },
+  { key: 'security', label: 'ความปลอดภัย', Icon: ShieldQuestion },
+  { key: 'backup', label: 'สำรองและนำเข้าข้อมูล', Icon: FileJson },
+];
+
 interface SettingsTabProps {
   isGroupFinance?: boolean;
+  // Same value passed to InvoiceTab's `ownerId` -- the business profile (logo, name, tax ID,
+  // bank account) lives in the same `issuer_profile` cloud field InvoiceTab already reads when
+  // creating documents, so both must resolve to the same owner.
+  businessProfileOwnerId?: string;
   settings: AppSettings;
   onSwitchTab: (tabId: string) => void;
   onUpdateSettings: (settings: AppSettings) => void;
@@ -105,6 +131,7 @@ interface SettingsTabProps {
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
+  businessProfileOwnerId,
   settings,
   onSwitchTab,
   onUpdateSettings,
@@ -145,6 +172,61 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [profile,setProfile]=useState<PublicProfile|null>(null);
   const [displayName,setDisplayName]=useState('');
   const [profileBusy,setProfileBusy]=useState(false);
+
+  // Which of the 8 category tabs the sub-nav is showing -- mirrors the mockup's Settings.dc.html
+  // sidebar-within-a-sidebar layout, replacing the old single long scroll.
+  const [section, setSection] = useState<SettingsSection>('account');
+
+  // Business profile (logo, name, tax ID, bank account) -- this is the same `issuer_profile`
+  // cloud field InvoiceTab reads when creating a new document. Editing moved here (Settings is
+  // where the mockup puts it); InvoiceTab now only reads it. Loaded independently the same way
+  // InvoiceTab already loads it, since Settings mounts before Invoice ever has, so there's no
+  // shared in-memory state to reuse.
+  const businessIssuerKey = `cashflow_issuer_${businessProfileOwnerId || 'guest'}`;
+  const [issuerProfile, setIssuerProfile] = useState<InvoiceProfile>({
+    name: '', address: '', phone: '', email: '', taxId: '', bankName: '', bankAccount: '', bankAccountName: '', logoUrl: ''
+  });
+  const [businessProfileSaving, setBusinessProfileSaving] = useState(false);
+  const [bankOtherMode, setBankOtherMode] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (businessProfileOwnerId) {
+      readInvoices(businessProfileOwnerId).then(data => {
+        if (cancelled) return;
+        if (data.issuer_profile) { setIssuerProfile(data.issuer_profile); privateCache.setItem(businessIssuerKey, JSON.stringify(data.issuer_profile)); }
+      }).catch(() => {});
+      return () => { cancelled = true; };
+    }
+    const saved = privateCache.getItem(businessIssuerKey);
+    if (saved) { try { setIssuerProfile(JSON.parse(saved)); } catch { /* ignore corrupt cache */ } }
+  }, [businessProfileOwnerId]);
+
+  const saveBusinessProfile = async () => {
+    privateCache.setItem(businessIssuerKey, JSON.stringify(issuerProfile));
+    if (!businessProfileOwnerId) { triggerAlert('บันทึกสำเร็จ', 'บันทึกโปรไฟล์ธุรกิจไว้ในเครื่องนี้แล้ว'); return; }
+    setBusinessProfileSaving(true);
+    try {
+      await saveCloud(businessProfileOwnerId, { issuer_profile: issuerProfile });
+      triggerAlert('บันทึกสำเร็จ', 'บันทึกโปรไฟล์ธุรกิจแล้ว ข้อมูลนี้จะถูกนำไปใช้เป็นค่าเริ่มต้นในเอกสารใบถัดไป');
+    } catch (error) {
+      triggerAlert('บันทึกไม่สำเร็จ', (error as Error).message);
+    } finally {
+      setBusinessProfileSaving(false);
+    }
+  };
+
+  const businessPreviewInvoice: Invoice = {
+    id: 'settings-preview',
+    documentType: 'invoice',
+    documentNo: 'INV-2026-001',
+    createdDate: new Date().toISOString().split('T')[0],
+    issuer: issuerProfile,
+    client: { name: 'ชื่อลูกค้าตัวอย่าง', address: 'ที่อยู่ลูกค้าตัวอย่าง', phone: '', email: '', taxId: '' },
+    items: [{ id: 'p1', description: 'รายการตัวอย่าง', quantity: 1, price: 1000 }],
+    vatRate: 0,
+    whtRate: 0
+  };
 
   const pauseAccount = () => triggerConfirm(
     'ยืนยันพักบัญชี 30 วัน',
@@ -425,7 +507,44 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   return (
-    <div className="page-content space-y-6 max-w-2xl mx-auto pb-12">
+    <div className="page-content">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        {/* Desktop: vertical sub-nav sidebar, matching the mockup's second sidebar column */}
+        <nav className="hidden w-[200px] shrink-0 flex-col gap-0.5 lg:flex">
+          <div className="mb-2 px-2 text-[15px] font-semibold text-brand-text">ตั้งค่า</div>
+          {SUBNAV.map(s => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setSection(s.key)}
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13px] transition-colors cursor-pointer ${
+                section === s.key ? 'bg-[#FFF1E8] font-medium text-[#C24A16]' : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'
+              }`}
+            >
+              <s.Icon className="h-4 w-4 shrink-0" />
+              <span>{s.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Mobile/tablet: horizontal scrollable pills instead of a sidebar */}
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:hidden">
+          {SUBNAV.map(s => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setSection(s.key)}
+              className={`shrink-0 whitespace-nowrap rounded-lg px-3.5 py-2 text-xs transition-colors cursor-pointer ${
+                section === s.key ? 'bg-[#FFF1E8] font-medium text-[#C24A16]' : 'bg-brand-faint text-brand-muted hover:text-brand-text'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-w-0 flex-1 space-y-6 pb-12 lg:max-w-2xl">
+        {section === 'account' && (<>
           {!isGroupFinance && session && !session.isGuest && <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3"><User className="w-4.5 h-4.5 text-emerald-600"/><h3 className="text-xs font-black uppercase tracking-wider">โปรไฟล์ผู้ใช้</h3></div>
             <label className="block text-xs font-bold">ชื่อที่แสดง
@@ -434,6 +553,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <div><p className="text-xs font-bold">User ID</p><div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-brand-faint dark:bg-stone-950 border border-brand-border px-3 py-2.5"><code className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{profile?.publicId || 'กำลังโหลด…'}</code>{profile?.publicId&&<button type="button" className="text-xs font-bold" onClick={()=>navigator.clipboard.writeText(profile.publicId)}><Copy className="w-3.5 h-3.5"/></button>}</div><p className="text-[10px] text-brand-muted mt-1">รหัสนี้สร้างถาวรและไม่สามารถแก้ไขได้ ใช้ให้ผู้อื่นค้นหาเพื่อเชิญเข้ากลุ่ม</p></div>
             <button type="button" onClick={()=>void saveProfile()} disabled={profileBusy||displayName.trim().length<2||displayName.trim()===profile?.displayName} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50">{profileBusy?'กำลังบันทึก…':'บันทึกชื่อ'}</button>
           </div>}
+          {(isGroupFinance || !session || session.isGuest) && (
+            <div className="rounded-2xl border border-brand-border bg-brand-white p-4 text-sm text-brand-muted">
+              {session?.isGuest ? 'โหมดทดลองใช้งาน (Guest) ไม่มีบัญชีถาวรให้ตั้งค่าตรงนี้' : 'บัญชีนี้ใช้ข้อมูลของกลุ่มที่เลือก'}
+            </div>
+          )}
+        </>)}
+        {section === 'lang' && (<>
           {/* Language */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
@@ -468,7 +594,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             </div>
           </div>
-
+        </>)}
+        {section === 'finance' && (<>
           {/* Card 1: Proportions & Financial Targets */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
@@ -564,7 +691,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             </div>
           </div>
-
+        </>)}
+        {section === 'notif' && (<>
           {/* Card 1.5: Notifications -- LINE linking + email report/digest opt-ins. Moved here
               from the "รายงานรายเดือน" tab since these are account-level connections, not
               report content, and were easy to miss buried among charts and tables there. */}
@@ -764,7 +892,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>}
           {isGroupFinance && <p className="rounded-2xl border border-brand-border bg-brand-white p-4 text-sm text-brand-muted">รายงานและไฟล์สำรองใช้ข้อมูลของกลุ่มที่เลือก การเชื่อม LINE และรายงานอัตโนมัติเป็นของบัญชีส่วนตัว</p>}
-
+        </>)}
+        {section === 'backup' && (<>
           {/* Card 2: Offline Backup / Restore */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
@@ -819,7 +948,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </button>
             </div>
           </div>
-
+        </>)}
+        {section === 'security' && (<>
           {/* Card 3: Account Controls & Danger Zone */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
@@ -1057,6 +1187,272 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </AnimatePresence>
             </div>
           </div>
+        </>)}
+        {section === 'business' && (<>
+          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
+            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
+              <Building2 className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
+              <div>
+                <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">โปรไฟล์ธุรกิจ</h3>
+                <p className="mt-0.5 text-[10px] text-brand-muted">ข้อมูลที่แสดงบนเอกสาร ใบเสนอราคา ใบแจ้งหนี้ -- ใช้เป็นค่าเริ่มต้นทุกครั้งที่ออกเอกสารใหม่</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#E65F2B]/30 bg-brand-white dark:bg-stone-900 p-3 shadow-sm">
+              <p className="mb-2 text-[10px] font-black text-[#E65F2B]">ตัวอย่างส่วนหัวเอกสาร (เปลี่ยนตามที่คุณปรับทันที)</p>
+              <div className="overflow-hidden rounded-xl border border-brand-border/60 bg-stone-200">
+                <DocumentPreview invoice={businessPreviewInvoice} crop={400} maxScale={0.8} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+              <BrandImageField
+                title="โลโก้ธุรกิจ (Company Logo)"
+                hint="โลโก้นี้จะปรากฏที่มุมบนซ้ายของเอกสารทุกประเภท และเป็นตราประทับผู้ขาย"
+                emptyLabel="ไม่มีโลโก้"
+                uploadLabel="อัปโหลดใหม่"
+                removeLabel="ลบโลโก้"
+                value={issuerProfile.logoUrl}
+                onChange={(logoUrl) => setIssuerProfile(prev => ({ ...prev, logoUrl }))}
+                onError={triggerAlert}
+                size={{
+                  label: 'ขนาดโลโก้บนเอกสาร',
+                  value: issuerProfile.logoHeight || DEFAULT_LOGO_HEIGHT,
+                  min: MIN_LOGO_HEIGHT,
+                  max: MAX_LOGO_HEIGHT,
+                  onChange: (logoHeight) => setIssuerProfile(prev => ({ ...prev, logoHeight }))
+                }}
+                extra={(
+                  <div className="space-y-2 text-[10px] font-black text-brand-muted">
+                    <div className="flex items-center gap-3">
+                      <span className="shrink-0">ตำแหน่งโลโก้</span>
+                      <div className="flex gap-1.5" role="group" aria-label="ตำแหน่งโลโก้">
+                        {([['left', 'ซ้าย'], ['center', 'กลาง'], ['right', 'ขวา']] as const).map(([key, label]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            aria-pressed={(issuerProfile.logoPosition || 'left') === key}
+                            onClick={() => setIssuerProfile(prev => ({ ...prev, logoPosition: key }))}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black cursor-pointer transition-all ${(issuerProfile.logoPosition || 'left') === key ? 'bg-[#E65F2B] text-white' : 'bg-brand-white dark:bg-stone-900 border border-brand-border/60 text-brand-muted'}`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-3">
+                      <span className="shrink-0">เลื่อนซ้าย–ขวา</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={issuerProfile.logoPosition === 'custom' ? issuerProfile.logoOffset ?? 50 : issuerProfile.logoPosition === 'center' ? 50 : issuerProfile.logoPosition === 'right' ? 100 : 0}
+                        onChange={(e) => setIssuerProfile(prev => ({ ...prev, logoPosition: 'custom', logoOffset: Number(e.target.value) }))}
+                        aria-label="เลื่อนโลโก้ซ้าย-ขวา"
+                        className="w-full max-w-xs accent-[#E65F2B] cursor-pointer"
+                      />
+                      <span className="font-mono w-14 text-right">{issuerProfile.logoPosition === 'custom' ? issuerProfile.logoOffset ?? 50 : issuerProfile.logoPosition === 'center' ? 50 : issuerProfile.logoPosition === 'right' ? 100 : 0}%</span>
+                    </label>
+                  </div>
+                )}
+              />
+              <BrandImageField
+                title="ลายเซ็นผู้ออกเอกสาร (Signature)"
+                hint="ลายเซ็นจะแสดงเหนือเส้นลายเซ็นในช่อง “ผู้ออกเอกสาร” แนะนำไฟล์ PNG พื้นหลังโปร่งใส"
+                emptyLabel="ไม่มีลายเซ็น"
+                uploadLabel="อัปโหลดลายเซ็น"
+                removeLabel="ลบลายเซ็น"
+                value={issuerProfile.signatureUrl}
+                onChange={(signatureUrl) => setIssuerProfile(prev => ({ ...prev, signatureUrl }))}
+                onError={triggerAlert}
+              />
+
+              <div className="md:col-span-6 flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">ชื่อธุรกิจ</label>
+                <input
+                  type="text"
+                  value={issuerProfile.name}
+                  onChange={(e) => setIssuerProfile({ ...issuerProfile, name: e.target.value })}
+                  placeholder="เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด"
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+                <p className="text-[9px] text-brand-muted">ใช้เป็นชื่อผู้ออกเอกสาร</p>
+              </div>
+
+              <div className="md:col-span-6 flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">เลขผู้เสียภาษี</label>
+                <input
+                  type="text"
+                  value={issuerProfile.taxId}
+                  onChange={(e) => setIssuerProfile({ ...issuerProfile, taxId: e.target.value })}
+                  placeholder="เลขผู้เสียภาษี 13 หลัก"
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+                <p className="text-[9px] text-brand-muted">แสดงบนใบกำกับภาษีเต็มรูป</p>
+              </div>
+
+              <div className="md:col-span-12 flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">ที่อยู่ออกใบเสร็จ / ที่อยู่จดทะเบียน</label>
+                <textarea
+                  value={issuerProfile.address}
+                  onChange={(e) => setIssuerProfile({ ...issuerProfile, address: e.target.value })}
+                  placeholder="เช่น 456 ถนนสุขุมวิท 21 แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพมหานคร 10110"
+                  rows={3}
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+
+              <div className="md:col-span-6 flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">เบอร์โทรศัพท์ติดต่อ</label>
+                <input
+                  type="text"
+                  value={issuerProfile.phone}
+                  onChange={(e) => setIssuerProfile({ ...issuerProfile, phone: e.target.value })}
+                  placeholder="เช่น 089-999-9999"
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+
+              <div className="md:col-span-6 flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">อีเมล</label>
+                <input
+                  type="email"
+                  value={issuerProfile.email}
+                  onChange={(e) => setIssuerProfile({ ...issuerProfile, email: e.target.value })}
+                  placeholder="เช่น myemail@gmail.com"
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+
+              <div className="md:col-span-12 border-t border-brand-border/40 my-2 pt-2">
+                <h4 className="text-[11px] font-black text-brand-text dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Wallet className="w-4 h-4 text-emerald-600" />
+                  <span>ช่องทางรับโอนเงินของฉัน</span>
+                </h4>
+              </div>
+
+              <div className="md:col-span-4 flex flex-col gap-1.5">
+                <label className="text-[9px] font-bold text-brand-muted uppercase">ชื่อธนาคาร</label>
+                <select
+                  value={findThaiBank(issuerProfile.bankName) ? issuerProfile.bankName : issuerProfile.bankName || bankOtherMode ? '__other' : ''}
+                  onChange={(e) => {
+                    if (e.target.value === '__other') {
+                      setBankOtherMode(true);
+                      if (findThaiBank(issuerProfile.bankName)) setIssuerProfile({ ...issuerProfile, bankName: '' });
+                    } else {
+                      setBankOtherMode(false);
+                      setIssuerProfile({ ...issuerProfile, bankName: e.target.value });
+                    }
+                  }}
+                  aria-label="ธนาคาร"
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
+                >
+                  <option value="">— เลือกธนาคาร —</option>
+                  {THAI_BANKS.map(bank => (
+                    <option key={bank.code} value={bank.name}>{bank.name} ({bank.code})</option>
+                  ))}
+                  <option value="__other">อื่น ๆ (พิมพ์ชื่อเอง)</option>
+                </select>
+                {!findThaiBank(issuerProfile.bankName) && (issuerProfile.bankName || bankOtherMode) && (
+                  <input
+                    type="text"
+                    value={issuerProfile.bankName}
+                    onChange={(e) => setIssuerProfile({ ...issuerProfile, bankName: e.target.value })}
+                    placeholder="พิมพ์ชื่อธนาคาร / ช่องทางรับเงิน เช่น พร้อมเพย์"
+                    aria-label="ชื่อธนาคารอื่น ๆ"
+                    className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  />
+                )}
+              </div>
+
+              <div className="md:col-span-4 flex flex-col gap-1.5">
+                <label className="text-[9px] font-bold text-brand-muted uppercase">เลขที่บัญชี</label>
+                <input
+                  type="text"
+                  value={issuerProfile.bankAccount}
+                  onChange={(e) => setIssuerProfile({ ...issuerProfile, bankAccount: e.target.value })}
+                  placeholder="เช่น 123-4-56789-0"
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+
+              <div className="md:col-span-4 flex flex-col gap-1.5">
+                <label className="text-[9px] font-bold text-brand-muted uppercase">ชื่อบัญชีโอนรับเงิน</label>
+                <input
+                  type="text"
+                  value={issuerProfile.bankAccountName}
+                  onChange={(e) => setIssuerProfile({ ...issuerProfile, bankAccountName: e.target.value })}
+                  placeholder="เช่น นายออมสิน ดีแท้"
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+
+              <div className="md:col-span-12 flex flex-col gap-1.5">
+                <label className="text-[9px] font-bold text-brand-muted uppercase">เว็บไซต์ (ไม่บังคับ)</label>
+                <input
+                  type="text"
+                  value={issuerProfile.website || ''}
+                  onChange={(e) => setIssuerProfile({ ...issuerProfile, website: e.target.value })}
+                  placeholder="เช่น https://www.example.com"
+                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-brand-border/40">
+              <button
+                type="button"
+                onClick={() => void saveBusinessProfile()}
+                disabled={businessProfileSaving}
+                className="px-6 py-2.5 bg-[#E65F2B] hover:bg-[#A63F1B] text-white rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50"
+              >
+                {businessProfileSaving ? 'กำลังบันทึก…' : 'บันทึกโปรไฟล์ธุรกิจ'}
+              </button>
+            </div>
+          </div>
+        </>)}
+        {section === 'features' && (<>
+          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
+              <Sparkles className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
+              <div>
+                <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">ฟีเจอร์เสริม</h3>
+                <p className="mt-0.5 text-[10px] text-brand-muted">เปิดใช้งานได้ตามต้องการ ไม่กระทบฟีเจอร์หลักของแอป</p>
+              </div>
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-brand-border/40 p-4">
+              <div>
+                <p className="text-xs font-bold text-brand-text dark:text-white">เป้าหมายการเงิน & การจัดสรรกำไร</p>
+                <p className="mt-1 text-[10px] leading-relaxed text-brand-muted">
+                  แบ่งกำไรไปยังเป้าหมาย เช่น กองทุนฉุกเฉิน ซื้ออุปกรณ์ หรือลงทุน — เงินที่จัดสรรยังเป็นของคุณ ไม่นับเป็นรายจ่าย กำไรสุทธิจึงไม่ลดลง
+                </p>
+                <p className={`mt-2 text-[11px] font-medium ${settings.goalsFeatureEnabled === false ? 'text-brand-muted' : 'text-[#C24A16]'}`}>
+                  {settings.goalsFeatureEnabled === false
+                    ? 'ปิดอยู่ — ไม่แสดงในเมนูและหน้าภาพรวม'
+                    : 'เปิดอยู่ — เมนู "เป้าหมายการเงิน" แสดงในไซด์บาร์ และมีวิดเจ็ตในหน้าภาพรวม'}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.goalsFeatureEnabled !== false}
+                onClick={() => onUpdateSettings({ ...settings, goalsFeatureEnabled: settings.goalsFeatureEnabled === false ? true : false })}
+                className={`relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors cursor-pointer ${
+                  settings.goalsFeatureEnabled === false ? 'bg-brand-border dark:bg-neutral-700' : 'bg-[#F36A2D]'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${
+                    settings.goalsFeatureEnabled === false ? 'left-0.5' : 'left-[18px]'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </>)}
+        </div>
+      </div>
     </div>
   );
 };

@@ -121,6 +121,10 @@ export interface AppSettings {
   // group vs the collapsible "เครื่องมือเพิ่มเติม" group. Every feature stays reachable either
   // way; this only changes what's shown by default so first-time users see less at once.
   userPersona?: 'school' | 'university' | 'freelance' | 'employee';
+  // Whether the "เป้าหมายการเงิน" (savings goals / profit allocation) feature shows up in the
+  // nav and dashboard. Defaults to true (undefined treated as enabled) so existing accounts that
+  // already use it keep seeing it; this only lets users who don't want it hide it.
+  goalsFeatureEnabled?: boolean;
 }
 
 export interface PendingReminder {
