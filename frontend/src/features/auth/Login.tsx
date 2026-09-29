@@ -104,84 +104,58 @@ function AuthStorySlider() {
 }
 
 function AuthWelcome({ onContinue }: { onContinue: () => void }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  React.useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReducedMotion(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
-
-  React.useEffect(() => {
-    if (reducedMotion) return;
-    const timer = window.setInterval(() => setActiveIndex(current => (current + 1) % AUTH_STORIES.length), 4800);
-    return () => window.clearInterval(timer);
-  }, [reducedMotion]);
-
-  const story = AUTH_STORIES[activeIndex];
-
   return (
-    <section className="auth-welcome" aria-label="ยินดีต้อนรับสู่กระรอกตุนเงิน">
-      <div className="auth-welcome-ambient auth-welcome-ambient-one" aria-hidden="true" />
-      <div className="auth-welcome-ambient auth-welcome-ambient-two" aria-hidden="true" />
-      <div className="auth-welcome-inner">
-        <div className="auth-welcome-copy">
-          <span className="auth-welcome-brand">CASH SQUIRREL</span>
-          <p className="mt-7 text-sm font-bold text-[#A65F32]">วางแผนเงินอย่างสบายใจ</p>
-          <h1 className="mt-3 font-display text-4xl font-black tracking-tight text-brand-text sm:text-6xl">กระรอกตุนเงิน</h1>
-          <p className="mt-4 max-w-md text-base leading-7 text-brand-muted sm:text-lg">จัดรายรับ รายจ่าย เป้าหมาย และเงินของกลุ่มไว้ในที่เดียว</p>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`mobile-feature-${story.title}`}
-              initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
-              transition={{ duration: .26, ease: [0.22, 1, 0.36, 1] }}
-              className="auth-welcome-mobile-feature"
-            >
-              <span className="auth-welcome-mobile-feature-icon" aria-hidden="true">{story.icon}</span>
-              <span className="auth-welcome-mobile-feature-text">
-                <strong>{story.title}</strong>
-                <small>{story.description}</small>
-              </span>
-            </motion.div>
-          </AnimatePresence>
-          <button type="button" onClick={onContinue} className="auth-welcome-cta mt-8">
-            Go to Kraroktunngern <span aria-hidden="true">🐿️</span><ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
+    <main className="draft-landing" aria-label="กระรอกตุนเงิน ระบบหลังบ้านสำหรับคนที่หาเงินด้วยตัวเอง">
+      <header className="draft-landing-nav">
+        <div className="draft-brand-lockup"><Mascot mood="happy" size={32} animated={false} /><strong>กระรอกตุนเงิน</strong></div>
+        <nav aria-label="เมนูหน้าแนะนำ">
+          <a href="#workflow">ฟีเจอร์</a><a href="#receivables">ติดตามเงิน</a><a href="#audience">เหมาะกับใคร</a><a href="#pricing">ราคา</a>
+        </nav>
+        <div className="draft-nav-actions"><button type="button" onClick={onContinue}>เข้าสู่ระบบ</button><button type="button" className="is-primary" onClick={onContinue}>เริ่มใช้งานฟรี</button></div>
+      </header>
 
-        <div className="auth-welcome-showcase">
-          <div className="auth-welcome-glow" aria-hidden="true" />
-          <div className="auth-welcome-slide-header relative z-10 flex items-center justify-between gap-3">
-            <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-black tracking-[0.16em] text-white/90">CASH SQUIRREL</span>
-            <span className="text-xl" aria-hidden="true">{story.icon}</span>
-          </div>
-          <div className="auth-welcome-visual" aria-hidden="true">
-            <span className="auth-welcome-orbit auth-welcome-orbit-one">฿</span>
-            <span className="auth-welcome-orbit auth-welcome-orbit-two">✦</span>
-            <AnimatePresence mode="wait">
-              <motion.div key={story.title} initial={reducedMotion ? false : { opacity: 0, scale: .92, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={reducedMotion ? undefined : { opacity: 0, scale: 1.06, y: -12 }} transition={{ duration: .42, ease: [0.22, 1, 0.36, 1] }}>
-                <img src={story.image} alt="" className="auth-welcome-image" />
-              </motion.div>
-            </AnimatePresence>
-          </div>
-          <AnimatePresence mode="wait">
-            <motion.div key={story.title} initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={reducedMotion ? undefined : { opacity: 0, x: -18 }} transition={{ duration: .32 }} className="auth-welcome-slide-copy relative z-10">
-              <p className="text-sm font-bold text-[#FFD4A7]">{story.accent}</p>
-              <h2 className="mt-2 font-display text-3xl font-black text-white">{story.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-white/70">{story.description}</p>
-            </motion.div>
-          </AnimatePresence>
-          <div className="auth-welcome-slide-dots relative z-10 mt-6 flex gap-2" role="tablist" aria-label="เลือกเรื่องเล่า">
-            {AUTH_STORIES.map((item, index) => <button key={item.title} type="button" role="tab" aria-selected={index === activeIndex} aria-label={`เรื่องเล่าที่ ${index + 1}`} onClick={() => setActiveIndex(index)} className={`auth-story-dot ${index === activeIndex ? 'is-active' : ''}`} />)}
-          </div>
+      <section className="draft-hero">
+        <p className="draft-eyebrow">ระบบหลังบ้านสำหรับคนที่หาเงินด้วยตัวเอง</p>
+        <h1>รับงานเอง ทำงานเอง<br />ไม่ต้องจำเรื่องเงินเองทุกอย่าง</h1>
+        <p className="draft-lead">ตั้งแต่รับงาน ส่งงาน รอ Credit Term รับเงินจริง<br className="hidden sm:block" /> ไปจนถึงรายจ่าย กำไร เอกสาร และภาษี ทุกอย่างอยู่ในที่เดียว</p>
+        <div className="draft-hero-actions"><button type="button" onClick={onContinue}>เริ่มใช้งานฟรี</button><a href="#workflow">ดูว่าทำงานยังไง <ArrowRight className="h-4 w-4" /></a></div>
+        <p className="draft-audience-line">Creator · Freelancer · Tutor · Coach · Developer · Designer · คนมีงานเสริม</p>
+        <div className="draft-product-stage">
+          <div className="draft-floating-card is-left"><small>รอรับเงิน</small><strong>฿7,365</strong><span>DDproperty · Credit 30 วัน</span></div>
+          <Mascot mood="wave" size={116} className="draft-hero-mascot" />
+          <div className="draft-floating-card is-right"><small>กำไรสุทธิ</small><strong className="is-profit">฿25,970</strong><span>↑ 18% จากเดือนก่อน</span></div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <section id="workflow" className="draft-section draft-workflow">
+        <p className="draft-kicker">การทำงาน</p><h2>ตั้งแต่รับงาน จนเงินจริงเข้ากระเป๋า</h2>
+        <div className="draft-flow" aria-label="ขั้นตอนการทำงาน"><span>รับงาน</span><b>→</b><span>ทำงาน</span><b>→</b><span>ส่งงาน</span><b>→</b><span className="is-active">Credit Term</span><b>→</b><span>รับเงินจริง</span><b>→</b><span className="is-success">เห็นกำไร</span></div>
+      </section>
+
+      <section id="receivables" className="draft-section draft-feature-grid">
+        <div><p className="draft-kicker">CREDIT TERM</p><h2>เงินไหนยังไม่เข้า<br />ไม่ต้องจำเอง</h2><p>เห็นงานที่ส่งแล้ว เงินที่ยังรอ และวันครบกำหนดในพื้นที่เดียว พร้อมติดตามต่อได้ทันที</p></div>
+        <div className="draft-ui-card"><div className="draft-ui-card-head"><strong>เงินที่ยังต้องติดตาม</strong><span>รวม ฿7,365</span></div><div className="draft-receivable-row"><span><b>Brand Consultation</b><small>DDproperty · Credit 30 วัน</small></span><strong>฿3,665</strong></div><div className="draft-receivable-row"><span><b>Website Review</b><small>ครบกำหนดอีก 3 วัน</small></span><strong>฿2,200</strong></div><div className="draft-receivable-row"><span><b>Workshop</b><small>ครบกำหนดวันนี้</small></span><strong>฿1,500</strong></div></div>
+      </section>
+
+      <section className="draft-section draft-feature-grid is-reverse">
+        <div className="draft-ui-card draft-summary-card"><span><small>รับเงินจริง</small><strong>฿44,880</strong></span><span><small>รอรับเงิน</small><strong className="is-orange">฿7,365</strong></span><span><small>รายจ่าย</small><strong>฿18,910</strong></span><span><small>กำไรสุทธิ</small><strong className="is-profit">฿25,970</strong></span><svg viewBox="0 0 420 70" aria-hidden="true"><path d="M5 58 L58 35 L112 47 L166 18 L220 34 L274 14 L328 28 L415 5" /></svg></div>
+        <div><p className="draft-kicker">PROFIT</p><h2>เห็นกำไรจริง<br />ไม่ใช่แค่ยอดเงินเข้า</h2><p>รวมรายรับ รายจ่าย และเงินค้างรับให้เห็นภาพเดียว เพื่อรู้ว่างานที่ทำอยู่เหลือเงินจริงเท่าไหร่</p></div>
+      </section>
+
+      <section id="audience" className="draft-section draft-audience">
+        <p className="draft-kicker">เหมาะกับคุณไหม?</p><h2>ถ้าคุณหาเงินจากงานของตัวเอง<br />กระรอกตุนเงินถูกทำมาเพื่อคุณ</h2><p>งานคุณอาจไม่เหมือนกัน แต่ปัญหาหลังบ้านคล้ายกัน</p>
+        <div className="draft-scenario-grid">{[
+          ['ส่งงานแล้วต้องรอเงินอีก 30–60 วัน','Creator · Consultant · Freelancer'],
+          ['ลูกค้าจ่ายมัดจำ แล้วจ่ายอีกทีหลังส่งงาน','Designer · Developer · Photographer'],
+          ['เดือนหนึ่งรับหลายจ๊อบ จนจำไม่ไหวว่าใครจ่ายแล้ว','Tutor · Coach · Event Worker'],
+          ['มีรายได้หลายทาง แต่ไม่รู้ว่าเหลือกำไรเท่าไหร่','Creator · Side Hustler'],
+        ].map(([title,tags]) => <article key={title}><strong>{title}</strong><span>{tags}</span></article>)}</div>
+      </section>
+
+      <section id="pricing" className="draft-section draft-pricing"><p className="draft-kicker">เริ่มต้นได้ฟรี</p><h2>เริ่มฟรี อัปเกรดเมื่อพร้อม</h2><div className="draft-price-grid"><article><small>Free</small><strong>฿0</strong><p>เริ่มจัดการงานและเงินได้ทันที</p></article><article className="is-featured"><small>Pro</small><strong>฿149 <em>/เดือน</em></strong><p>ทดลองใช้ฟรี 14 วัน · ต่ออายุด้วยตัวเอง</p></article></div><button type="button" onClick={onContinue}>เริ่มใช้งานฟรี</button></section>
+
+      <footer className="draft-landing-footer"><Mascot mood="proud" size={70} /><h2>พร้อมรู้ว่าเงินของคุณ<br />อยู่ไหนแล้วหรือยัง?</h2><button type="button" onClick={onContinue}>เริ่มใช้งานฟรี</button></footer>
+    </main>
   );
 }
 
@@ -534,16 +508,22 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       </div>
 
       <div className="auth-layout relative z-10 w-full">
+      <aside className="draft-login-story" aria-label="ภาพรวมงานและเงิน">
+        <div className="draft-brand-lockup"><Mascot mood="happy" size={34} animated={false} /><strong>กระรอกตุนเงิน</strong></div>
+        <div className="draft-login-story-copy">
+          <p className="draft-kicker">ระบบหลังบ้านของคนทำงานอิสระ</p>
+          <h1>งานเยอะ เงินหลายทาง<br />จัดการให้เห็นภาพได้ง่ายขึ้น</h1>
+          <ul><li>รู้ว่างานไหนกำลังทำและต้องส่งเมื่อไหร่</li><li>เห็น Credit Term และเงินที่ยังรอรับ</li><li>รู้ว่ารับเงินจริงแล้วเหลือกำไรเท่าไหร่</li></ul>
+          <div className="draft-login-snapshot"><div><small>รอรับเงิน</small><strong>฿7,365</strong></div><div><small>กำไรเดือนนี้</small><strong className="is-profit">฿25,970</strong></div></div>
+        </div>
+        <div className="draft-login-flow"><span>รับงาน</span><b>→</b><span>ทำงาน</span><b>→</b><span>ส่งงาน</span><b>→</b><span>รับเงินจริง</span></div>
+      </aside>
       <div className="auth-form-column">
         {/* Brand Header */}
-        <div className="text-center mb-6 sm:mb-7">
-          <Mascot mood={mascotMood} size={100} className="mb-2" />
-          <h2 className="text-2xl font-display font-extrabold tracking-tight text-brand-text sm:text-3xl">
-            {t('login.brandName')}
-          </h2>
-          <p className="mt-1.5 text-xs font-bold text-[#E65F2B] dark:text-[#FFA473] uppercase tracking-wider">
-            {t('login.tagline')}
-          </p>
+        <div className="text-left mb-6 sm:mb-7">
+          <Mascot mood={mascotMood} size={68} className="mb-3" />
+          <h2 className="text-2xl font-display font-extrabold tracking-tight text-brand-text sm:text-3xl">ยินดีต้อนรับกลับ</h2>
+          <p className="mt-1.5 text-sm font-medium text-brand-muted">เข้าสู่ระบบเพื่อจัดการงานและเงินของคุณต่อ</p>
         </div>
 
         {/* Form Card */}

@@ -243,6 +243,196 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .app-skeleton-block::after { animation: none; }
 }
 
+/* UI Draft 10 public pages -------------------------------------------------
+   These rules intentionally sit at the end of the sheet: the auth logic predates the
+   reskin, while Draft 10 supplies the new product/brand presentation around it. */
+.draft-landing {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: #fffdfa;
+  color: #1c1917;
+}
+
+.draft-landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 2rem;
+  min-height: 68px;
+  padding: 0 clamp(1.25rem, 5vw, 5rem);
+  border-bottom: 1px solid rgba(231, 226, 220, .76);
+  background: rgba(255, 253, 250, .92);
+  backdrop-filter: blur(16px);
+}
+
+.draft-brand-lockup { display: inline-flex; align-items: center; gap: .65rem; font-size: .9rem; }
+.draft-landing-nav nav { display: flex; gap: 1.8rem; font-size: .76rem; color: #746d66; }
+.draft-landing-nav a { transition: color .16s var(--ease-soft); }
+.draft-landing-nav a:hover { color: #e8652d; }
+.draft-nav-actions { justify-self: end; display: flex; align-items: center; gap: .7rem; }
+.draft-nav-actions button,
+.draft-hero-actions button,
+.draft-pricing > button,
+.draft-landing-footer button {
+  min-height: 42px;
+  border-radius: 9px;
+  padding: .7rem 1.15rem;
+  font-size: .78rem;
+  font-weight: 700;
+  transition: transform .16s var(--ease-soft), background .16s var(--ease-soft), box-shadow .16s var(--ease-soft);
+}
+.draft-nav-actions .is-primary,
+.draft-hero-actions button,
+.draft-pricing > button,
+.draft-landing-footer button { background: #ed6a32; color: white; box-shadow: 0 7px 18px rgba(230, 95, 43, .18); }
+.draft-nav-actions button:hover,
+.draft-hero-actions button:hover,
+.draft-pricing > button:hover,
+.draft-landing-footer button:hover { transform: translateY(-1px); }
+
+.draft-hero {
+  position: relative;
+  display: flex;
+  min-height: 760px;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(5rem, 9vw, 8rem) 1.5rem 5rem;
+  text-align: center;
+  background:
+    radial-gradient(circle at 8% 24%, rgba(237,106,50,.06) 0 2%, transparent 2.2%),
+    radial-gradient(circle at 90% 28%, rgba(237,106,50,.05) 0 2.5%, transparent 2.7%),
+    linear-gradient(#fffdfa 0%, #fffdfa 62%, #fff7ef 100%);
+}
+.draft-eyebrow,
+.draft-kicker { color: #d75c27; font-size: .74rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.draft-hero h1 { max-width: 850px; margin-top: 1rem; font-size: clamp(2.4rem, 5vw, 4.8rem); line-height: 1.12; letter-spacing: -.045em; }
+.draft-hero h1,
+.draft-section h2,
+.draft-landing-footer h2 { color: #1c1917; }
+.draft-lead { margin-top: 1.4rem; max-width: 660px; color: #746d66; font-size: clamp(.95rem, 1.4vw, 1.1rem); line-height: 1.9; }
+.draft-hero-actions { display: flex; align-items: center; gap: 1.25rem; margin-top: 2rem; }
+.draft-hero-actions a { display: inline-flex; align-items: center; gap: .4rem; color: #4e4741; font-size: .82rem; font-weight: 700; }
+.draft-audience-line { margin-top: 1.35rem; color: #a09891; font-size: .7rem; }
+
+.draft-product-stage { position: relative; display: grid; width: min(820px, 100%); min-height: 270px; margin-top: 3.25rem; place-items: center; border: 1px solid #f2e5d9; border-radius: 22px; background: linear-gradient(135deg, #fff8f1, #ffefe2); box-shadow: 0 18px 50px rgba(70, 41, 22, .07); }
+.draft-hero-mascot { filter: drop-shadow(0 16px 18px rgba(94, 50, 24, .11)); }
+.draft-floating-card { position: absolute; display: flex; width: 190px; flex-direction: column; gap: .2rem; padding: 1rem; border: 1px solid #eee6df; border-radius: 13px; background: rgba(255,255,255,.96); text-align: left; box-shadow: 0 12px 32px rgba(45, 31, 22, .1); }
+.draft-floating-card.is-left { left: 8%; bottom: 18%; }
+.draft-floating-card.is-right { right: 8%; top: 17%; }
+.draft-floating-card small { color: #8e867f; font-size: .65rem; }
+.draft-floating-card strong { font-size: 1.35rem; }
+.draft-floating-card span { color: #8e867f; font-size: .58rem; }
+.is-profit { color: #148260 !important; }
+.is-orange { color: #e8652d !important; }
+
+.draft-section { width: min(1120px, calc(100% - 3rem)); margin-inline: auto; padding: clamp(4.5rem, 8vw, 8rem) 0; }
+.draft-section h2 { margin-top: .65rem; font-size: clamp(1.8rem, 3vw, 3.1rem); line-height: 1.18; letter-spacing: -.04em; }
+.draft-section p:not(.draft-kicker) { margin-top: 1rem; color: #777069; line-height: 1.8; }
+.draft-workflow { text-align: center; }
+.draft-flow { display: flex; align-items: center; justify-content: center; gap: clamp(.45rem, 2vw, 1.4rem); margin-top: 2.5rem; color: #817972; font-size: .75rem; }
+.draft-flow span { display: grid; min-width: 76px; min-height: 42px; place-items: center; border: 1px solid #e8e2dc; border-radius: 999px; background: #fff; }
+.draft-flow .is-active { border-color: #f1b58f; background: #fff1e7; color: #dc5e29; }
+.draft-flow .is-success { border-color: #a7d8c8; background: #edf9f5; color: #168b6b; }
+.draft-flow b { color: #c9c1ba; font-weight: 400; }
+
+.draft-feature-grid { display: grid; grid-template-columns: .78fr 1.22fr; align-items: center; gap: clamp(3rem, 8vw, 8rem); }
+.draft-feature-grid.is-reverse { grid-template-columns: 1.22fr .78fr; }
+.draft-ui-card { overflow: hidden; border: 1px solid #e9e4df; border-radius: 16px; background: white; padding: 1.35rem; box-shadow: 0 13px 35px rgba(38, 29, 23, .06); }
+.draft-ui-card-head { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #eeeae6; font-size: .78rem; }
+.draft-ui-card-head span { color: #e8652d; font-weight: 700; }
+.draft-receivable-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #f1eeeb; font-size: .72rem; }
+.draft-receivable-row:last-child { border-bottom: 0; }
+.draft-receivable-row > span { display: flex; flex-direction: column; gap: .2rem; }
+.draft-receivable-row small { color: #98918a; }
+.draft-summary-card { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
+.draft-summary-card span { display: flex; flex-direction: column; gap: .35rem; }
+.draft-summary-card small { color: #8a837d; font-size: .65rem; }
+.draft-summary-card strong { font-size: 1.25rem; }
+.draft-summary-card svg { grid-column: 1/-1; width: 100%; height: 80px; }
+.draft-summary-card path { fill: none; stroke: #e8652d; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+.draft-audience { text-align: center; }
+.draft-scenario-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 2.4rem; text-align: left; }
+.draft-scenario-grid article { display: flex; min-height: 112px; flex-direction: column; justify-content: space-between; padding: 1.2rem; border: 1px solid #eae5e0; border-radius: 13px; background: white; }
+.draft-scenario-grid strong { font-size: .88rem; }
+.draft-scenario-grid span { color: #9a928b; font-size: .65rem; }
+.draft-pricing { text-align: center; }
+.draft-price-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 280px)); justify-content: center; gap: 1rem; margin: 2.5rem 0 1.5rem; text-align: left; }
+.draft-price-grid article { display: flex; min-height: 150px; flex-direction: column; gap: .55rem; padding: 1.5rem; border: 1px solid #e7e1dc; border-radius: 15px; background: white; }
+.draft-price-grid article.is-featured { border-color: #ec8c5e; box-shadow: 0 15px 32px rgba(230, 95, 43, .09); }
+.draft-price-grid strong { font-size: 1.8rem; }
+.draft-price-grid em { color: #817972; font-size: .72rem; font-style: normal; font-weight: 500; }
+.draft-price-grid p { margin: 0 !important; font-size: .72rem; }
+.draft-landing-footer { display: flex; min-height: 420px; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 1.5rem; background: linear-gradient(#fffaf5, #fff5ea); text-align: center; }
+.draft-landing-footer h2 { margin: 1rem 0 1.5rem; font-size: clamp(1.6rem, 3vw, 2.4rem); line-height: 1.25; }
+
+/* Draft 10 split login. The form remains the existing production auth component. */
+.auth-page { background: #fffdfa; }
+.auth-layout { display: grid; width: min(1180px, calc(100vw - 3rem)); grid-template-columns: minmax(0, 1.1fr) minmax(400px, .72fr); align-items: stretch; gap: clamp(3rem, 7vw, 7rem); }
+.draft-login-story { display: flex; min-height: 650px; flex-direction: column; justify-content: space-between; padding: 2.5rem 0; }
+.draft-login-story-copy { max-width: 590px; }
+.draft-login-story h1 { margin-top: .85rem; font-size: clamp(2.6rem, 4.5vw, 4.3rem); line-height: 1.14; letter-spacing: -.045em; }
+.draft-login-story ul { display: grid; gap: .8rem; margin-top: 2rem; color: #6f6963; font-size: .85rem; }
+.draft-login-story li { position: relative; padding-left: 1.4rem; }
+.draft-login-story li::before { content: "✓"; position: absolute; left: 0; color: #168b6b; font-weight: 800; }
+.draft-login-snapshot { display: grid; grid-template-columns: repeat(2, minmax(0, 190px)); gap: 1rem; margin-top: 2.4rem; }
+.draft-login-snapshot div { display: flex; flex-direction: column; gap: .35rem; padding: 1rem 1.1rem; border: 1px solid #e8e2dd; border-radius: 13px; background: white; box-shadow: var(--shadow-card); }
+.draft-login-snapshot small { color: #89827c; font-size: .68rem; }
+.draft-login-snapshot strong { color: #e8652d; font-size: 1.35rem; }
+.draft-login-flow { display: flex; flex-wrap: wrap; gap: .6rem; color: #948d87; font-size: .68rem; }
+.draft-login-flow b { color: #c8c1bb; }
+.auth-form-column { align-self: center; width: min(100%, 430px); }
+.auth-form-card { border-radius: 15px !important; box-shadow: 0 16px 48px rgba(45, 32, 23, .08) !important; }
+.auth-form-card input,
+.auth-form-card button { border-radius: 9px !important; }
+
+.dark .auth-page { background: #151515; color: #f7f5f2; }
+.dark .draft-login-story h1 { color: #f7f5f2; }
+.dark .draft-login-snapshot div { border-color: #34322f; background: #1b1b19; color: #f7f5f2; }
+.dark .draft-login-story li { color: #aaa59f; }
+
+@media (max-width: 900px) {
+  .draft-landing-nav { grid-template-columns: 1fr auto; }
+  .draft-landing-nav nav { display: none; }
+  .draft-nav-actions button:first-child { display: none; }
+  .draft-feature-grid,
+  .draft-feature-grid.is-reverse { grid-template-columns: 1fr; gap: 2.5rem; }
+  .draft-feature-grid.is-reverse > :first-child { order: 2; }
+  .auth-layout { display: block; width: min(100%, 470px); }
+  .draft-login-story { display: none; }
+}
+
+@media (max-width: 640px) {
+  .draft-landing-nav { min-height: 60px; padding-inline: 1rem; }
+  .draft-brand-lockup strong { font-size: .78rem; }
+  .draft-nav-actions .is-primary { min-height: 38px; padding: .55rem .75rem; font-size: .7rem; }
+  .draft-hero { min-height: auto; padding: 4rem 1rem 3rem; }
+  .draft-hero h1 { font-size: 2.35rem; }
+  .draft-hero-actions { flex-direction: column; gap: .9rem; }
+  .draft-audience-line { max-width: 320px; line-height: 1.7; }
+  .draft-product-stage { min-height: 330px; margin-top: 2.2rem; }
+  .draft-floating-card { width: 154px; padding: .8rem; }
+  .draft-floating-card.is-left { left: 4%; bottom: 8%; }
+  .draft-floating-card.is-right { right: 4%; top: 7%; }
+  .draft-hero-mascot { margin-top: 1rem; }
+  .draft-section { width: min(100% - 2rem, 1120px); padding: 4rem 0; }
+  .draft-flow { overflow-x: auto; justify-content: flex-start; padding-bottom: .75rem; }
+  .draft-flow span { flex: 0 0 76px; }
+  .draft-summary-card { grid-template-columns: repeat(2, 1fr); }
+  .draft-scenario-grid,
+  .draft-price-grid { grid-template-columns: 1fr; }
+  .draft-price-grid { justify-content: stretch; }
+  .auth-page { justify-content: flex-start; padding-top: 5.5rem !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draft-landing *,
+  .draft-login-story * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
 /* A consistent, understated elevation language for the many existing feature cards. Individual
    cards still opt into hover effects where they are interactive. */
 .page-content > :is(.bg-brand-white, .bg-brand-faint) {
@@ -252,13 +442,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* Authentication is deliberately a separate composition from the app shell: it can feel more
    welcoming without adding motion or illustrations to the financial workspace. */
 .auth-layout {
-  display: block;
-  max-width: 28rem;
+  display: grid;
+  width: min(1180px, calc(100vw - 3rem));
+  max-width: 1180px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(400px, .72fr);
+  align-items: stretch;
+  gap: clamp(3rem, 7vw, 7rem);
 }
 
 .auth-form-column {
-  width: 100%;
-  max-width: 28rem;
+  align-self: center;
+  width: min(100%, 430px);
+  max-width: 430px;
   margin: 0 auto;
 }
 
@@ -277,6 +472,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-form-card form > *:nth-child(3) { animation-delay: .22s; }
 .auth-form-card form > *:nth-child(4) { animation-delay: .28s; }
 @keyframes auth-form-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 900px) {
+  .auth-layout { display: block; width: min(100%, 470px); max-width: 470px; }
+  .draft-login-story { display: none; }
+}
 
 /* The first visit starts with the product story, then hands visitors into the familiar auth form. */
 .auth-welcome {
