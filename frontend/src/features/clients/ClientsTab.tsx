@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Job } from '../../../../shared/types';
 import { formatCurrency, safeFormatThaiDate } from '../../utils';
 import { Mascot } from '../../components/mascot/Mascot';
-import { Users } from 'lucide-react';
 
 interface ClientsTabProps {
   jobs: Job[];
@@ -11,6 +10,7 @@ interface ClientsTabProps {
 
 interface ClientRow {
   name: string;
+  type: string;
   jobCount: number;
   totalRevenue: number;
   totalPending: number;
@@ -19,7 +19,7 @@ interface ClientRow {
 
 export default function ClientsTab({ jobs, onSwitchTab }: ClientsTabProps) {
   const clientRows = useMemo<ClientRow[]>(() => {
-    const byClient = new Map<string, ClientRow>();
+    const byClient = new Map<string, ClientRow & { typeCounts: Map<string, number> }>();
     jobs.forEach(job => {
       const name = (job.client || '').trim() || 'ไม่ระบุชื่อลูกค้า';
       const jobDate = job.postDate || job.startDate || null;
@@ -28,33 +28,38 @@ export default function ClientsTab({ jobs, onSwitchTab }: ClientsTabProps) {
         existing.jobCount += 1;
         existing.totalRevenue += job.value;
         existing.totalPending += job.pending;
+        existing.typeCounts.set(job.type, (existing.typeCounts.get(job.type) || 0) + 1);
         if (jobDate && (!existing.latestJobDate || jobDate > existing.latestJobDate)) {
           existing.latestJobDate = jobDate;
         }
       } else {
         byClient.set(name, {
-          name,
-          jobCount: 1,
-          totalRevenue: job.value,
-          totalPending: job.pending,
-          latestJobDate: jobDate,
+          name, type: job.type, jobCount: 1, totalRevenue: job.value, totalPending: job.pending,
+          latestJobDate: jobDate, typeCounts: new Map([[job.type, 1]]),
         });
       }
     });
-    return Array.from(byClient.values()).sort((a, b) => b.totalRevenue - a.totalRevenue);
+    return Array.from(byClient.values())
+      .map(({ typeCounts, ...row }) => ({
+        ...row,
+        // Client doesn't have its own "type" field -- show the most common job type booked
+        // with them instead, the closest real-data proxy for the mockup's category column.
+        type: Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || row.type,
+      }))
+      .sort((a, b) => b.totalRevenue - a.totalRevenue);
   }, [jobs]);
 
   if (clientRows.length === 0) {
     return (
       <div className="page-content">
-        <div className="bg-brand-white border border-brand-border rounded-3xl p-10 text-center flex flex-col items-center gap-3">
+        <div className="rounded-[14px] border border-brand-border bg-brand-white p-10 text-center flex flex-col items-center gap-3">
           <Mascot mood="wave" size={72} />
-          <h3 className="text-sm font-black text-brand-text">ยังไม่มีลูกค้าในระบบ</h3>
+          <h3 className="text-sm font-medium text-brand-text">ยังไม่มีลูกค้าในระบบ</h3>
           <p className="text-xs text-brand-muted max-w-sm">ลูกค้าจะปรากฏที่นี่โดยอัตโนมัติทันทีที่คุณบันทึกงานพร้อมชื่อลูกค้า</p>
           <button
             type="button"
             onClick={() => onSwitchTab('jobs')}
-            className="mt-2 px-5 py-2.5 bg-[#E65F2B] hover:bg-[#D98324] text-white text-xs font-black rounded-2xl transition-colors cursor-pointer"
+            className="mt-2 px-5 py-2.5 bg-[#E65F2B] hover:bg-[#D98324] text-white text-xs font-medium rounded-lg transition-colors cursor-pointer"
           >
             + บันทึกงานใหม่
           </button>
@@ -65,38 +70,32 @@ export default function ClientsTab({ jobs, onSwitchTab }: ClientsTabProps) {
 
   return (
     <div className="page-content space-y-4">
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E65F2B]/10">
-          <Users className="h-4.5 w-4.5 text-[#E65F2B]" />
-        </div>
-        <div>
-          <h2 className="text-lg font-black text-brand-text">ลูกค้า</h2>
-          <p className="text-xs text-brand-muted">สรุปรายชื่อลูกค้า รายได้รวม และเงินค้างรับต่อราย โดยรวมจากงานที่บันทึกไว้</p>
-        </div>
-      </div>
+      <h2 className="text-[19px] font-semibold text-brand-text">ลูกค้า</h2>
 
-      <div className="overflow-hidden rounded-3xl border border-brand-border bg-brand-white shadow-sm">
+      <div className="overflow-hidden rounded-[14px] border border-brand-border bg-brand-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-xs">
+          <table className="w-full min-w-[640px] text-left text-[13px]">
             <thead>
-              <tr className="border-b border-brand-border bg-brand-faint/60 text-[10px] font-black uppercase tracking-wide text-brand-muted">
-                <th className="px-5 py-3">ชื่อ</th>
-                <th className="px-5 py-3">จำนวนงาน</th>
-                <th className="px-5 py-3">รายได้รวม</th>
-                <th className="px-5 py-3">งานล่าสุด</th>
-                <th className="px-5 py-3 text-right">เงินค้างรับ</th>
+              <tr className="border-b border-brand-border">
+                <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">ชื่อ</th>
+                <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">ประเภท</th>
+                <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">จำนวนงาน</th>
+                <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">รายได้รวม</th>
+                <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">งานล่าสุด</th>
+                <th className="px-3 py-2.5 text-right text-[11px] font-medium text-brand-muted">เงินค้างรับ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-brand-border/60">
+            <tbody>
               {clientRows.map(row => (
-                <tr key={row.name} className="hover:bg-brand-faint/40 transition-colors">
-                  <td className="px-5 py-4 font-bold text-brand-text">{row.name}</td>
-                  <td className="px-5 py-4 text-brand-muted">{row.jobCount}</td>
-                  <td className="px-5 py-4 font-mono font-bold text-brand-text">{formatCurrency(row.totalRevenue)}</td>
-                  <td className="px-5 py-4 text-brand-muted">
+                <tr key={row.name} className="border-b border-brand-border last:border-b-0 hover:bg-brand-faint/60 transition-colors">
+                  <td className="px-3 py-3 font-medium text-brand-text">{row.name}</td>
+                  <td className="px-3 py-3 text-brand-muted">{row.type}</td>
+                  <td className="px-3 py-3 text-brand-muted">{row.jobCount}</td>
+                  <td className="px-3 py-3 text-brand-text">{formatCurrency(row.totalRevenue)}</td>
+                  <td className="px-3 py-3 text-brand-muted">
                     {row.latestJobDate ? safeFormatThaiDate(row.latestJobDate) : '—'}
                   </td>
-                  <td className={`px-5 py-4 text-right font-mono font-bold ${row.totalPending > 0 ? 'text-[#A63F1B]' : 'text-brand-muted'}`}>
+                  <td className={`px-3 py-3 text-right ${row.totalPending > 0 ? 'font-medium text-[#C24A16]' : 'text-brand-muted'}`}>
                     {formatCurrency(row.totalPending)}
                   </td>
                 </tr>
