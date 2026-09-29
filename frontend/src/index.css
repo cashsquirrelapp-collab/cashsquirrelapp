@@ -1196,6 +1196,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   display: none;
 }
 
+.jobs-draft-client {
+  display: none;
+}
+
 @media (min-width: 1024px) {
   .jobs-draft-list {
     overflow: hidden;
@@ -1207,7 +1211,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
   .jobs-draft-table-head {
     display: grid;
-    grid-template-columns: minmax(230px, 1.8fr) minmax(118px, .8fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(170px, 1.1fr);
+    grid-template-columns: minmax(250px, 1.8fr) minmax(160px, 1fr) minmax(120px, .8fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(110px, .75fr);
     gap: 14px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--color-brand-border);
@@ -1220,7 +1224,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
   .jobs-draft-list > .jobs-draft-row {
     display: grid;
-    grid-template-columns: minmax(230px, 1.8fr) minmax(118px, .8fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(170px, 1.1fr);
+    grid-template-columns: minmax(250px, 1.8fr) minmax(160px, 1fr) minmax(120px, .8fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(110px, .75fr);
     align-items: center;
     gap: 14px;
     margin: 0 !important;
@@ -1252,13 +1256,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     min-width: 0;
   }
 
+  .jobs-draft-client {
+    display: block;
+    grid-column: 2;
+  }
+
   .jobs-draft-primary h4 {
     font-size: 14px !important;
   }
 
   .jobs-draft-primary > .jobs-draft-amount {
     position: absolute;
-    right: calc(170px + 34px);
+    right: 20px;
     width: 110px;
     top: 50%;
     transform: translateY(-50%);
@@ -1269,7 +1278,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 
   .jobs-draft-date {
-    grid-column: 2;
+    grid-column: 3;
     border: 0 !important;
     padding: 0 !important;
   }
@@ -1279,7 +1288,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 
   .jobs-draft-status {
-    grid-column: 3 / span 2;
+    grid-column: 4 / span 2;
     display: grid !important;
     grid-template-columns: 1fr 1fr;
     gap: 8px !important;
@@ -1292,22 +1301,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 
   .jobs-draft-actions {
-    grid-column: 6;
-    justify-content: flex-end !important;
-    gap: 5px;
-  }
-
-  .jobs-draft-actions > div:first-child {
-    justify-content: flex-end;
-    gap: 4px;
-  }
-
-  .jobs-draft-actions button {
-    white-space: nowrap;
-  }
-
-  .jobs-draft-actions > div:first-child button:nth-child(n+2) {
-    display: none;
+    display: none !important;
   }
 
   .jobs-draft-breakdown,

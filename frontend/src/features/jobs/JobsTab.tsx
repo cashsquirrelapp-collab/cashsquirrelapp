@@ -593,12 +593,11 @@ export default function JobsTab({
   });
 
   return (
-    <div className="page-content space-y-6">
+    <div className="page-content space-y-5">
       {/* Primary action: the page title and mode switch live in App.tsx. */}
-      <div className="flex items-center justify-between gap-3 px-1">
+      <div className="jobs-draft-toolbar flex items-center justify-between gap-4">
         <div>
-          <p className="text-xl font-black text-brand-text">งานของฉัน</p>
-          <p className="mt-0.5 text-xs font-medium text-brand-muted">ติดตามสถานะงานและการรับเงินในที่เดียว</p>
+          <h1 className="text-[22px] font-bold text-brand-text">งานของฉัน</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <motion.button
@@ -621,7 +620,7 @@ export default function JobsTab({
               setFormStep(1);
               onOpenAddJob();
             }}
-            className="px-4 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="px-5 py-2.5 bg-[#F46A2A] hover:bg-[#E65F2B] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <Briefcase className="w-3.5 h-3.5" /> {t('jobs.addNew')}
           </motion.button>
@@ -629,7 +628,7 @@ export default function JobsTab({
       </div>
 
       {/* 2. Search & Filters Bar */}
-      <div className="space-y-3 bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-3 shadow-xs">
+      <div className="jobs-draft-search space-y-3 bg-transparent p-0">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
@@ -638,7 +637,7 @@ export default function JobsTab({
             placeholder={t('jobs.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-brand-faint text-xs text-brand-text placeholder-brand-muted rounded-xl pl-10 pr-4 py-3 outline-none border border-transparent focus:border-emerald-500/50 transition-all font-medium"
+            className="w-full bg-brand-white text-xs text-brand-text placeholder-brand-muted rounded-lg pl-10 pr-4 py-3 outline-none border border-brand-border focus:border-[#F46A2A]/50 transition-all font-medium"
           />
           </div>
           <button type="button" onClick={() => setShowFilters(value => !value)} aria-expanded={showFilters} className={`shrink-0 rounded-xl border px-3 py-3 text-xs font-bold transition-colors ${showFilters || statusFilter !== 'all' || typeFilter !== 'all' ? 'border-[#D98324]/40 bg-[#D98324]/10 text-[#9A541C]' : 'border-brand-border bg-brand-white text-brand-muted hover:bg-brand-faint'}`}>
@@ -687,12 +686,12 @@ export default function JobsTab({
 
 
       {/* Sub-tab Navigation Selector */}
-      <div className="grid grid-cols-2 bg-brand-white border border-brand-border rounded-2xl p-1.5 gap-1.5 shadow-2xs lg:grid-cols-4">
+      <div className="jobs-draft-tabs flex flex-wrap items-center gap-2 bg-transparent border-0 p-0 shadow-none">
         <button
           onClick={() => setSubTab('all')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
             subTab === 'all'
-              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
+              ? 'bg-[#FFF0E8] text-[#D9551D]'
               : 'text-brand-muted hover:text-brand-text'
           }`}
         >
@@ -702,7 +701,7 @@ export default function JobsTab({
           onClick={() => setSubTab('working')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
             subTab === 'working'
-              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
+              ? 'bg-[#FFF0E8] text-[#D9551D]'
               : 'text-brand-muted hover:text-brand-text'
           }`}
         >
@@ -712,7 +711,7 @@ export default function JobsTab({
           onClick={() => setSubTab('waiting_payment')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
             subTab === 'waiting_payment'
-              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
+              ? 'bg-[#FFF0E8] text-[#D9551D]'
               : 'text-brand-muted hover:text-brand-text'
           }`}
         >
@@ -722,7 +721,7 @@ export default function JobsTab({
           onClick={() => setSubTab('closed')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
             subTab === 'closed'
-              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
+              ? 'bg-[#FFF0E8] text-[#D9551D]'
               : 'text-brand-muted hover:text-brand-text'
           }`}
         >
@@ -734,12 +733,12 @@ export default function JobsTab({
       <div className="jobs-draft-list space-y-3">
         {filteredJobs.length > 0 && (
           <div className="jobs-draft-table-head" aria-hidden="true">
-            <span>งาน / ลูกค้า</span>
+            <span>งาน / แหล่งรายได้</span>
+            <span>ลูกค้า / ผู้จ่ายเงิน</span>
             <span>กำหนดส่ง</span>
             <span>สถานะงาน</span>
             <span>สถานะเงิน</span>
             <span className="text-right">มูลค่างาน</span>
-            <span className="text-right">จัดการ</span>
           </div>
         )}
         {filteredJobs.length === 0 ? (
@@ -764,6 +763,12 @@ export default function JobsTab({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setEditingJob(j)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') setEditingJob(j);
+                }}
                 className={`jobs-draft-row bg-brand-white border rounded-[var(--radius-lg)] p-5 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden ${
                   highlightedJobId === j.id
                     ? 'border-[#E65F2B] ring-2 ring-[#E65F2B]/40'
@@ -796,6 +801,8 @@ export default function JobsTab({
                     </p>
                   </div>
                 </div>
+
+                <div className="jobs-draft-client text-xs font-medium text-brand-muted truncate">{j.client || '—'}</div>
 
                 {/* Status badges — the one row that says what state this job is in */}
                 <div className="jobs-draft-status flex items-center gap-2 flex-wrap">
@@ -904,7 +911,7 @@ export default function JobsTab({
                 )}
 
                 {/* Mini Interaction row */}
-                <div className="jobs-draft-actions flex items-center justify-between pt-1">
+                <div className="jobs-draft-actions flex items-center justify-between pt-1" onClick={(event) => event.stopPropagation()}>
                   <div className="flex items-center gap-2">
                     {(() => {
                       const statusInfo = getStatusDisplay(j.status);

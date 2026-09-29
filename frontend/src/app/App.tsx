@@ -167,10 +167,9 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'timeline', labelKey: 'nav.timeline', icon: Calendar, group: 'core' },
   { key: 'summary', labelKey: 'nav.summary', icon: Wallet, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
-  { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
-  { key: 'insight', labelKey: 'nav.insight', icon: BarChart3, group: 'more' },
-  { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
+  { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
+  { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
   { key: 'plans', labelKey: 'nav.plans', icon: IconCrown, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
@@ -340,6 +339,7 @@ export default function App() {
         onFocus={() => prefetchFeature(item.key)}
         onTouchStart={() => prefetchFeature(item.key)}
         onClick={() => {
+          if (item.key === 'jobs') setRecordMode('income');
           navigateTab(item.key);
           if (closeMobileOnClick) setIsMobileMenuOpen(false);
         }}
@@ -2458,46 +2458,7 @@ export default function App() {
               )}
 
               {activeTab === 'jobs' && (
-                <div className="space-y-6">
-                  <section className="flex flex-col gap-4 rounded-3xl border border-brand-border bg-brand-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
-                    <div>
-                      <h1 className="text-2xl font-black tracking-tight text-brand-text">บันทึกรายรับ–รายจ่าย</h1>
-                      <p className="mt-1 text-xs text-brand-muted">เลือกประเภทที่ต้องการ แล้วจัดการเฉพาะข้อมูลที่เกี่ยวข้อง</p>
-                    </div>
-                  <div className="relative flex w-full bg-brand-faint border border-brand-border/60 rounded-2xl p-1 sm:w-auto sm:min-w-[260px]">
-                    <button
-                      onClick={() => startTransition(() => setRecordMode('income'))}
-                      className="relative flex-1 px-4 py-2.5 rounded-xl text-center cursor-pointer overflow-hidden"
-                    >
-                      {recordMode === 'income' && (
-                        <motion.div
-                          layoutId="record-mode-toggle"
-                          className="absolute inset-0 bg-brand-white border border-brand-border rounded-xl shadow-sm"
-                          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        />
-                      )}
-                      <span className={`relative z-10 text-xs font-black ${recordMode === 'income' ? 'text-brand-text' : 'text-brand-muted'}`}>
-                        รายรับ
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => startTransition(() => setRecordMode('expense'))}
-                      className="relative flex-1 px-4 py-2.5 rounded-xl text-center cursor-pointer overflow-hidden"
-                    >
-                      {recordMode === 'expense' && (
-                        <motion.div
-                          layoutId="record-mode-toggle"
-                          className="absolute inset-0 bg-brand-white border border-brand-border rounded-xl shadow-sm"
-                          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        />
-                      )}
-                      <span className={`relative z-10 text-xs font-black ${recordMode === 'expense' ? 'text-brand-text' : 'text-brand-muted'}`}>
-                        รายจ่าย
-                      </span>
-                    </button>
-                  </div>
-                  </section>
-
+                <div>
                   {recordMode === 'income' ? (
                     <JobsTab
                       jobs={jobs}
