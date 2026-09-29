@@ -57,7 +57,7 @@ export function FullPageLoader({ title = 'กำลังเปิดคลั�
       aria-live="polite"
       aria-busy="true"
     >
-      <LoadingMascot state="loading-spin" mood="happy" size={104} />
+      <LoadingMascot state="loading-wait" mood="waiting" size={104} />
       <p className="mt-1 text-sm font-semibold text-brand-text">{title}</p>
       <p className="text-xs text-brand-muted" aria-live="off">{messages[messageIndex]}</p>
       <LoadingDots />

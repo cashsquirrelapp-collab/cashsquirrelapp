@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Mascot, MascotMood } from './Mascot';
 
-export type LoadingMascotState = 'appear' | 'loading-spin' | 'success' | 'idle';
+export type LoadingMascotState = 'appear' | 'loading-wait' | 'success' | 'idle';
 
 interface LoadingMascotProps {
   state: LoadingMascotState;
@@ -11,18 +11,23 @@ interface LoadingMascotProps {
   className?: string;
 }
 
-const SPIN_EASE = [0.45, 0, 0.2, 1] as const;
-
 /**
  * Motion wrapper around the official <Mascot/> -- never redraws or recolors it, only moves it.
  * Reusable across every loading/transition moment instead of each call site hand-rolling its own
- * spin/bounce timing.
+ * timing.
+ *
+ * The loading state is a gentle float (matches the reference mockup's own loaderFloat keyframe --
+ * translateY + a touch of scale, no body rotation). An earlier pass spun the mascot 360deg per
+ * loop; that read as "a spinner wearing a mascot skin" rather than the squirrel actually waiting,
+ * and the mockup's own motion notes explicitly rule out spinning the body. Reaction comes from the
+ * mood (default 'waiting', which already carries its own clock accessory + calm expression) rather
+ * than from rotating it.
  */
 export function LoadingMascot({ state, mood = 'happy', size = 104, className = '' }: LoadingMascotProps) {
   const reduceMotion = useReducedMotion();
 
   if (reduceMotion) {
-    // Section 11: no 360deg spin under prefers-reduced-motion -- just a gentle fade/scale-in,
+    // Section 11: no motion loop under prefers-reduced-motion -- just a gentle fade/scale-in,
     // held steady while loading and settling on success.
     return (
       <motion.div
@@ -36,26 +41,19 @@ export function LoadingMascot({ state, mood = 'happy', size = 104, className = '
     );
   }
 
-  if (state === 'loading-spin') {
+  if (state === 'loading-wait') {
     return (
       <motion.div
         className={className}
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{
           opacity: 1,
-          rotate: [0, 120, 280, 360, 360, 360],
-          scale: [0.92, 0.96, 1.04, 1, 1.03, 1],
-          y: [0, 0, 0, 0, -4, 0],
+          y: [0, -5, 0],
+          scale: [1, 1.02, 1],
         }}
         transition={{
           opacity: { duration: 0.2, ease: 'easeOut' },
-          default: {
-            duration: 1.25,
-            times: [0, 0.27, 0.54, 0.77, 0.92, 1],
-            ease: [SPIN_EASE, SPIN_EASE, SPIN_EASE, 'easeOut', 'easeOut'],
-            repeat: Infinity,
-            repeatDelay: 0.14,
-          },
+          default: { duration: 2.2, ease: 'easeInOut', repeat: Infinity },
         }}
       >
         <Mascot mood={mood} size={size} animated />
@@ -67,8 +65,8 @@ export function LoadingMascot({ state, mood = 'happy', size = 104, className = '
     return (
       <motion.div
         className={className}
-        initial={{ rotate: 0, scale: 1 }}
-        animate={{ rotate: 360, scale: [1, 1.06, 1] }}
+        initial={{ scale: 1 }}
+        animate={{ scale: [1, 1.08, 1] }}
         transition={{ duration: 0.38, ease: 'easeOut' }}
       >
         <Mascot mood={mood} size={size} animated />
