@@ -84,7 +84,7 @@
   --bg: #FAFAF9; /* Near-white page canvas */
   --white: #FFFFFF;
   --text: #1C1917; /* Neutral near-black, warm undertone kept subtle */
-  --muted: #6B6660; /* Neutral warm-gray for supporting text */
+  --muted: #7D7772; /* Neutral warm-gray for supporting text -- matches Draft 10 source exactly */
   --faint: #F3F2F0; /* Very light neutral for subtle fills */
   --border: #E5E3DF; /* Soft neutral hairline border */
   
