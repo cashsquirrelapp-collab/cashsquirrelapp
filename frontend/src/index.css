@@ -39,25 +39,41 @@
 
   --color-amber-50: var(--yellow-bg);
   --color-amber-100: var(--yellow-bg);
+  --color-amber-200: var(--yellow-bg);
   --color-amber-300: var(--yellow-acc);
   --color-amber-400: var(--yellow-acc);
   --color-amber-500: var(--yellow-acc);
   --color-amber-600: var(--yellow-acc);
   --color-amber-700: var(--yellow-acc);
+  --color-amber-800: var(--yellow-acc);
+  --color-amber-900: var(--yellow-acc);
+  --color-amber-950: var(--yellow-acc);
 
   --color-rose-50: var(--pink-bg);
   --color-rose-100: var(--pink-bg);
+  --color-rose-200: var(--pink-bg);
+  --color-rose-300: var(--pink-acc);
   --color-rose-500: var(--pink-acc);
   --color-rose-600: var(--pink-acc);
   --color-rose-700: var(--pink-acc);
+  --color-rose-800: var(--pink-acc);
+  --color-rose-900: var(--pink-acc);
+  --color-rose-950: var(--pink-acc);
 
   --color-purple-50: var(--purple-bg);
+  --color-purple-300: var(--purple-acc);
+  --color-purple-400: var(--purple-acc);
   --color-purple-500: var(--purple-acc);
   --color-purple-600: var(--purple-acc);
 
   --color-blue-50: var(--blue-bg);
+  --color-blue-100: var(--blue-bg);
+  --color-blue-300: var(--blue-acc);
+  --color-blue-400: var(--blue-acc);
   --color-blue-500: var(--blue-acc);
   --color-blue-600: var(--blue-acc);
+  --color-blue-700: var(--blue-acc);
+  --color-blue-900: var(--blue-acc);
 }
 
 :root {
