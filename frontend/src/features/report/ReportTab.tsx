@@ -3,6 +3,7 @@ import { Job, Goal, AppSettings, NotifSettings, Expense } from '../../../../shar
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
 import { formatCurrency } from '../../utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ArrowDown, ArrowUp, Wallet, Clock } from 'lucide-react';
 import MonthlyReportTab from '../reports/MonthlyReportTab';
 
 interface ReportTabProps {
@@ -144,14 +145,15 @@ export default function ReportTab({
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: 'รายรับ', value: totalIncome },
-              { label: 'รายจ่าย', value: totalExpense },
-              { label: 'กำไร', value: profit },
-              { label: 'เงินค้างรับ', value: totalPending },
+              { label: 'รายรับ', value: totalIncome, Icon: ArrowDown },
+              { label: 'รายจ่าย', value: totalExpense, Icon: ArrowUp },
+              { label: 'กำไร', value: profit, Icon: Wallet },
+              { label: 'เงินค้างรับ', value: totalPending, Icon: Clock },
             ].map(kpi => (
               <div key={kpi.label} className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
-                <p className="text-xs text-brand-muted">{kpi.label}</p>
-                <p className="mt-1.5 text-lg font-semibold text-brand-text">{formatCurrency(kpi.value)}</p>
+                <kpi.Icon className="h-5 w-5 text-[#C24A16]" strokeWidth={1.8} />
+                <p className="mt-2 text-xs text-brand-muted">{kpi.label}</p>
+                <p className="mt-0.5 text-lg font-semibold text-brand-text">{formatCurrency(kpi.value)}</p>
               </div>
             ))}
           </div>
