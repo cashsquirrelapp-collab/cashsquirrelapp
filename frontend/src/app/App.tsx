@@ -369,7 +369,7 @@ export default function App() {
         }}
         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all cursor-pointer ${
           activeTab === item.key
-            ? 'bg-[#FFF0E8] text-[#D9551D] dark:bg-[#34231B] dark:text-[#FFA473] font-bold'
+            ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#34231B] dark:text-[#FFA473] font-bold'
             : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'
         }`}
       >
