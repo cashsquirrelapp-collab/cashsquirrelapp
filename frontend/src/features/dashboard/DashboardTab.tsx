@@ -777,7 +777,7 @@ export default function DashboardTab({
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.38, delay: 0.05 }}
-        className="dashboard-balance-card order-1 relative overflow-hidden rounded-[26px] border border-brand-border p-6 text-brand-text shadow-[0_18px_42px_rgba(67,42,25,0.08)] sm:p-7"
+        className="dashboard-balance-card order-1 relative overflow-hidden rounded-[26px] border border-[#F0D9BE] p-6 text-[#2B1B0F] shadow-[0_18px_42px_rgba(67,42,25,0.08)] sm:p-7"
       >
         <div className="dashboard-balance-orb dashboard-balance-orb-one" aria-hidden="true" />
         <div className="dashboard-balance-orb dashboard-balance-orb-two" aria-hidden="true" />
@@ -789,13 +789,13 @@ export default function DashboardTab({
               className="text-left cursor-pointer group"
               title={t('dash.contractValueTooltip')}
             >
-              <p className="text-xs font-medium text-brand-muted tracking-wider uppercase group-hover:text-brand-text" title={t('dash.contractValueFullTooltip')}>
+              <p className="text-xs font-medium text-[#8A6F5C] tracking-wider uppercase group-hover:text-[#2B1B0F]" title={t('dash.contractValueFullTooltip')}>
                 {t('dash.contractValueLabel', { month: formatMonthKey(selectedMonthKey) })}
               </p>
               <h3 className="mt-1.5 text-4xl font-extrabold font-mono tracking-tight text-[#C24A16] sm:text-5xl group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(totalContractVal)}
               </h3>
-              <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-muted">
+              <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#8A6F5C]">
                 <TrendingUp className="h-3.5 w-3.5 text-[#18A66A]" />
                 {receivedChangePct === null ? 'เริ่มสะสมข้อมูลในเดือนนี้' : `${receivedChangePct >= 0 ? '+' : ''}${receivedChangePct}% จากเดือนที่แล้ว`}
               </p>
@@ -810,14 +810,14 @@ export default function DashboardTab({
             </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 pt-4 border-t border-brand-border sm:grid-cols-3 sm:gap-4">
+          <div className="grid grid-cols-1 gap-3 pt-4 border-t border-[#F0D9BE] sm:grid-cols-3 sm:gap-4">
             <button
               type="button"
               onClick={() => setBreakdownFilter('received')}
               className="text-left cursor-pointer group"
               title={t('dash.receivedTooltip')}
             >
-              <p className="text-xs font-semibold text-brand-muted tracking-wide uppercase flex items-center gap-1.5 group-hover:text-brand-text">
+              <p className="text-xs font-semibold text-[#8A6F5C] tracking-wide uppercase flex items-center gap-1.5 group-hover:text-[#2B1B0F]">
                 <span>{t('dash.received')}</span>
                 {receivedChangePct !== null && receivedChangePct !== 0 && (
                   <span className={`inline-flex items-center gap-0.5 text-[9px] font-black normal-case ${
@@ -828,11 +828,11 @@ export default function DashboardTab({
                   </span>
                 )}
               </p>
-              <p className="text-2xl font-black font-mono text-brand-text mt-1 group-hover:underline decoration-2 underline-offset-4">
+              <p className="text-2xl font-black font-mono text-[#2B1B0F] mt-1 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(totalReceived)}
               </p>
               {totalCashOutThisMonth > 0 && (
-                <p className="text-xs font-semibold text-brand-muted mt-1" title={t('dash.afterExpenseTooltip')}>
+                <p className="text-xs font-semibold text-[#8A6F5C] mt-1" title={t('dash.afterExpenseTooltip')}>
                   {t('dash.afterExpense', { amount: formatCurrency(receivedAfterVariableExpense) })}
                 </p>
               )}
@@ -843,10 +843,10 @@ export default function DashboardTab({
               className="text-left cursor-pointer group"
               title={t('dash.pendingTooltip')}
             >
-              <p className="text-xs font-semibold text-brand-muted tracking-wide uppercase group-hover:text-brand-text" title={t('dash.pendingSubTooltip')}>
+              <p className="text-xs font-semibold text-[#8A6F5C] tracking-wide uppercase group-hover:text-[#2B1B0F]" title={t('dash.pendingSubTooltip')}>
                 {t('dash.pending')}
               </p>
-              <p className="text-2xl font-black font-mono text-brand-text mt-1 group-hover:underline decoration-2 underline-offset-4">
+              <p className="text-2xl font-black font-mono text-[#2B1B0F] mt-1 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(totalPending)}
               </p>
             </button>
@@ -856,7 +856,7 @@ export default function DashboardTab({
               className="text-left cursor-pointer group"
               title={t('dash.netProfitTooltip')}
             >
-              <p className="text-xs font-semibold text-brand-muted tracking-wide uppercase group-hover:text-brand-text" title={t('dash.netProfitSubTooltip')}>
+              <p className="text-xs font-semibold text-[#8A6F5C] tracking-wide uppercase group-hover:text-[#2B1B0F]" title={t('dash.netProfitSubTooltip')}>
                 {t('dash.netProfit')}
               </p>
               <p className="text-2xl font-black font-mono mt-1 text-[#18A66A] group-hover:underline decoration-2 underline-offset-4">
