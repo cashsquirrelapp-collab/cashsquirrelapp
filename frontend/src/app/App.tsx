@@ -34,7 +34,9 @@ const TimelineTab = lazy(loadTimelineTab);
 const SplitTab = lazy(loadSplitTab);
 const SummaryTab = lazy(loadSummaryTab);
 import CustomDialog from '../components/ui/CustomDialog';
-import { AppLoadingSkeleton, ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
+import { ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
+import { FullPageLoader } from '../components/ui/FullPageLoader';
+import { useDelayedLoader } from '../hooks/useDelayedLoader';
 import Login from '../features/auth/Login';
 import LandingPage from '../features/marketing/LandingPage';
 const TaxTab = lazy(loadTaxTab);
@@ -416,6 +418,10 @@ export default function App() {
   const financeConflictRef = useRef(false);
   const [loadedFinanceOwner,setLoadedFinanceOwner]=useState('');
   const switchingFinanceRef=useRef(false);
+  // Full-page loader gating (loading-system spec): skip it entirely for fast (<400ms) auth
+  // checks/workspace switches, and never let it flash for less than ~600ms once shown.
+  const showSessionLoader = useDelayedLoader(loadingSession);
+  const showFinanceSwitchLoader = useDelayedLoader(switchingFinance);
 
   useEffect(() => {
     const onProfileUpdated = (event: Event) => {
@@ -1603,7 +1609,8 @@ export default function App() {
     if (wasCompleted) {
       fireMascot({
         mood: 'celebrate',
-        message: `ยินดีด้วยค้าบ! งานนี้ปิดดีลรับเงินเข้าคลังกระรอกเรียบร้อยแล้ว! อู้ฟู่สุดๆ!`
+        message: `ยินดีด้วยค้าบ! งานนี้ปิดดีลรับเงินเข้าคลังกระรอกเรียบร้อยแล้ว! อู้ฟู่สุดๆ!`,
+        amount: oldJob?.pending || undefined
       });
       leafBus.trigger({ count: 28, type: 'mixed', durationMs: 5000 });
       // Same "รับเงิน" LINE card as a brand-new fully-paid job -- this is a payment landing on an
@@ -2093,7 +2100,7 @@ export default function App() {
   };
 
   if (loadingSession) {
-    return <AppLoadingSkeleton />;
+    return showSessionLoader ? <FullPageLoader /> : null;
   }
 
   if (session?.user?.accountPaused) {
@@ -2120,7 +2127,7 @@ export default function App() {
   }
 
   if (switchingFinance && session) {
-    return <AppLoadingSkeleton />;
+    return showFinanceSwitchLoader ? <FullPageLoader title="กำลังย้ายไปพื้นที่ทำงานใหม่…" messages={['กำลังโหลดข้อมูลของพื้นที่ใหม่']} /> : null;
   }
 
   if (!session) {

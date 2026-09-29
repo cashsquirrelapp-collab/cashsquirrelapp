@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from './Mascot';
+import { LoadingMascot } from './LoadingMascot';
 import { mascotBus, MascotToastEvent } from '../../mascotBus';
 import { X } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { formatCurrency } from '../../utils';
 
 export function MascotToast() {
   const { t } = useLanguage();
@@ -47,20 +49,39 @@ export function MascotToast() {
               toast.mood === 'sleepy' ? 'bg-neutral-400' : 'bg-indigo-600 dark:bg-indigo-400'
             }`} />
 
-            {/* Mascot Container */}
+            {/* Mascot Container -- payment-received toasts use the settle animation (spin state
+                already finished by the time the toast appears) instead of the static mascot. */}
             <div className="flex-shrink-0 bg-brand-faint dark:bg-neutral-800/40 p-1.5 rounded-2xl border border-brand-border/20 self-start mt-0.5">
-              <Mascot mood={toast.mood} size={50} animated={true} />
+              {toast.amount !== undefined ? (
+                <LoadingMascot state="success" mood="celebrate" size={50} />
+              ) : (
+                <Mascot mood={toast.mood} size={50} animated={true} />
+              )}
             </div>
 
             {/* Content speech bubble */}
             <div className="flex-grow text-xs font-semibold leading-relaxed pr-5 select-text">
-              <p className="text-brand-text dark:text-neutral-100 font-display text-[13px] font-extrabold flex items-center gap-1">
-                {toast.mood === 'happy' && t('toast.happy')}
-                {toast.mood === 'celebrate' && t('toast.celebrate')}
-                {toast.mood === 'alert' && t('toast.alert')}
-                {toast.mood === 'sleepy' && t('toast.sleepy')}
-              </p>
-              <p className="text-brand-muted dark:text-neutral-300 mt-1 font-medium">{toast.message}</p>
+              {toast.amount !== undefined ? (
+                <>
+                  <p className="text-brand-text dark:text-neutral-100 font-display text-[13px] font-extrabold">
+                    รับเงินเรียบร้อย
+                  </p>
+                  <p className="text-brand-muted dark:text-neutral-300 mt-1 font-medium">{toast.message}</p>
+                  <p className="text-[#18A66A] dark:text-emerald-400 mt-1 font-mono font-extrabold text-sm">
+                    รับเงิน {formatCurrency(toast.amount)} แล้ว
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-brand-text dark:text-neutral-100 font-display text-[13px] font-extrabold flex items-center gap-1">
+                    {toast.mood === 'happy' && t('toast.happy')}
+                    {toast.mood === 'celebrate' && t('toast.celebrate')}
+                    {toast.mood === 'alert' && t('toast.alert')}
+                    {toast.mood === 'sleepy' && t('toast.sleepy')}
+                  </p>
+                  <p className="text-brand-muted dark:text-neutral-300 mt-1 font-medium">{toast.message}</p>
+                </>
+              )}
             </div>
 
             {/* Close Button */}

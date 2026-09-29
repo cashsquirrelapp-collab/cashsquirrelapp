@@ -5,6 +5,9 @@ export interface MascotToastEvent {
   mood: MascotMood;
   message: string;
   duration?: number;
+  /** Set for a payment-received moment (Quick Payment Success) -- renders the coin-pop/settle
+   * sequence and "รับเงิน ฿X แล้ว" line instead of the plain toast layout. */
+  amount?: number;
 }
 
 type MascotBusListener = (event: MascotToastEvent) => void;
@@ -19,12 +22,13 @@ class MascotBus {
     };
   }
 
-  fire({ mood, message, duration = 4000 }: { mood: MascotMood; message: string; duration?: number }) {
+  fire({ mood, message, duration = 4000, amount }: { mood: MascotMood; message: string; duration?: number; amount?: number }) {
     const event: MascotToastEvent = {
       id: Math.random().toString(36).substring(2, 9),
       mood,
       message,
       duration,
+      amount,
     };
     this.listeners.forEach((listener) => listener(event));
   }
@@ -32,6 +36,6 @@ class MascotBus {
 
 export const mascotBus = new MascotBus();
 
-export function fireMascot({ mood, message, duration }: { mood: MascotMood; message: string; duration?: number }) {
-  mascotBus.fire({ mood, message, duration });
+export function fireMascot({ mood, message, duration, amount }: { mood: MascotMood; message: string; duration?: number; amount?: number }) {
+  mascotBus.fire({ mood, message, duration, amount });
 }

@@ -844,7 +844,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* Keep navigation feedback quick and avoid transforms here. A transformed ancestor changes the
    containing block for fixed overlays, which can strand a modal below the scroll viewport. */
 .app-tab-enter {
-  animation: app-tab-arrive 140ms ease-out both;
+  animation: app-tab-arrive 150ms ease-out both;
 }
 
 .app-subtab-enter {
@@ -852,7 +852,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @keyframes app-tab-arrive {
-  from { opacity: .72; }
+  from { opacity: 0; }
   to { opacity: 1; }
 }
 
