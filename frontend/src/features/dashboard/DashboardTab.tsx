@@ -764,6 +764,73 @@ export default function DashboardTab({
     })
     .slice(0, 4), [jobs]);
 
+  const recentActivity = React.useMemo(() => {
+    const paymentEvents = jobs.flatMap(j => getJobPaymentEntries(j).map(entry => ({
+      key: entry.id,
+      date: entry.date || '',
+      label: `รับเงิน ${entry.client || entry.jobName}`,
+      sub: 'เงินเข้า',
+      amount: `+${formatCurrency(entry.amount)}`,
+      isIncome: true,
+    })));
+    const expenseEvents = expenses.map(e => ({
+      key: e.id,
+      date: e.date,
+      label: e.name,
+      sub: 'รายจ่าย',
+      amount: `-${formatCurrency(e.amount)}`,
+      isIncome: false,
+    }));
+    return [...paymentEvents, ...expenseEvents]
+      .filter(ev => ev.date)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 5);
+  }, [jobs, expenses]);
+
+  const currentMonthKeyForCalendar = React.useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const miniCalendarDays = React.useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const todayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const dayColor = new Map<string, { bg: string; color: string }>();
+    jobs.forEach(j => {
+      const dueDate = j.payDate || j.dueDate;
+      if (dueDate && j.isPosted !== false) {
+        const key = dueDate.slice(0, 10);
+        const isPaid = j.pending <= 0;
+        const isOverdue = !isPaid && key < todayKey;
+        const isDueSoon = !isPaid && !isOverdue && key <= todayKey.slice(0, 8) + String(now.getDate() + 7).padStart(2, '0');
+        dayColor.set(key, isPaid
+          ? { bg: '#E9F8F1', color: '#18A66A' }
+          : isOverdue
+          ? { bg: '#FFF0F0', color: '#C43A3A' }
+          : isDueSoon
+          ? { bg: '#FAEEDA', color: '#8A5A0B' }
+          : { bg: 'transparent', color: 'inherit' });
+      }
+    });
+
+    const cells: { n: number | null; bg: string; color: string }[] = [];
+    for (let i = 0; i < firstWeekday; i++) cells.push({ n: null, bg: 'transparent', color: 'inherit' });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isToday = key === todayKey;
+      const style = dayColor.get(key);
+      cells.push(isToday
+        ? { n: d, bg: '#E65F2B', color: '#ffffff' }
+        : { n: d, ...(style || { bg: 'transparent', color: 'inherit' }) });
+    }
+    return cells;
+  }, [jobs]);
+
   return (
     <div id="dashboard-top" className="dashboard-shell flex flex-col gap-7 scroll-mt-6 text-brand-text">
       
@@ -1078,6 +1145,55 @@ export default function DashboardTab({
           </motion.div>
         )}
       </motion.div>
+
+      {/* Recent activity + mini financial calendar, matching the mockup's second row below
+          the chart/watchlist row. */}
+      <div className="order-5 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
+          <div className="mb-1 flex items-center justify-between">
+            <h4 className="text-[13px] font-medium text-brand-text">รายการล่าสุด</h4>
+            <button type="button" onClick={() => onSwitchTab('jobs')} className="text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">
+              ดูทั้งหมด →
+            </button>
+          </div>
+          {recentActivity.length === 0 ? (
+            <p className="py-6 text-center text-xs text-brand-muted">ยังไม่มีรายการล่าสุด</p>
+          ) : recentActivity.map(ev => (
+            <div key={ev.key} className="flex items-center justify-between border-t border-brand-border py-2">
+              <div>
+                <p className="text-xs text-brand-text">{ev.label}</p>
+                <p className="mt-0.5 text-[10px] text-brand-muted">{ev.sub}</p>
+              </div>
+              <p className={`text-xs font-medium ${ev.isIncome ? 'text-[#18A66A]' : 'text-brand-text'}`}>{ev.amount}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
+          <div className="mb-0.5 flex items-center justify-between">
+            <h4 className="text-[13px] font-medium text-brand-text">ปฏิทินการเงิน</h4>
+            <CalendarDays className="h-4 w-4 text-brand-muted" />
+          </div>
+          <p className="mb-2.5 text-[11px] text-brand-muted">{formatMonthKey(currentMonthKeyForCalendar)}</p>
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-brand-muted">
+            {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(w => <div key={w}>{w}</div>)}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1 text-center text-[11px]">
+            {miniCalendarDays.map((cell, i) => (
+              <div key={i} className="rounded-md py-1" style={{ background: cell.bg, color: cell.color }}>
+                {cell.n ?? ''}
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2.5 text-[9px] text-brand-muted">
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#378ADD]" />นัดหมาย</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#F36A2D]" />Credit Term</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#F2A93B]" />ใกล้ครบ</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#18A66A]" />เงินเข้า</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E95454]" />เกินกำหนด</span>
+          </div>
+        </div>
+      </div>
 
       {/* 4. Financial Goals Slider */}
       <div className="order-6 space-y-3">
