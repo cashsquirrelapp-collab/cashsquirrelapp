@@ -715,7 +715,7 @@ export default function SplitTab({
       </div>
 
       {/* Overview: answer the three questions a first-time user has before asking them to allocate. */}
-      <section className="overflow-hidden rounded-[28px] border border-brand-border bg-brand-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <section className="overflow-hidden rounded-2xl border border-brand-border bg-brand-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
         <div className="border-b border-brand-border/50 bg-brand-white px-5 py-5 dark:bg-neutral-900 sm:px-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -812,7 +812,7 @@ export default function SplitTab({
       </section>
 
       {/* Section 2: Dynamic Profit Allocation Manager */}
-      <section className="rounded-[28px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
+      <section className="rounded-2xl border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
         <div className="mb-6 flex flex-col gap-3 border-b border-brand-border/50 pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 2</span>
@@ -1054,7 +1054,7 @@ export default function SplitTab({
                 whileTap={{ scale: 0.99 }}
                 onClick={handleConfirmAllocations}
                 disabled={totalCustomAllocated <= 0}
-                className="w-full py-4 bg-[#3D2314] hover:bg-[#5A3420] text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:bg-stone-300 dark:disabled:bg-stone-800 disabled:text-stone-500 dark:disabled:text-stone-600 disabled:shadow-none cursor-pointer"
+                className="w-full py-4 bg-[#E65F2B] hover:bg-[#D8551F] text-white font-black text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:bg-stone-300 dark:disabled:bg-stone-800 disabled:text-stone-500 dark:disabled:text-stone-600 disabled:shadow-none cursor-pointer"
               >
                 <span>{t('split.confirmAllocateBtn', { amount: formatCurrency(totalCustomAllocated) })}</span>
                 <IconRocket className="w-4 h-4" />
@@ -1075,7 +1075,7 @@ export default function SplitTab({
       </section>
 
       {/* Section 3: Savings Targets Cards Grid (Merged TargetTab) */}
-      <section className="space-y-5 rounded-[28px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
+      <section className="space-y-5 rounded-2xl border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 3</span>
