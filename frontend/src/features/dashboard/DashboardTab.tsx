@@ -858,6 +858,29 @@ export default function DashboardTab({
           </div>
         </aside>
       </section>
+
+      <section className="draft10-dashboard-bottom-grid">
+        <article className="draft10-bottom-card">
+          <div className="draft10-bottom-heading"><h2>รายการล่าสุด</h2><button type="button" onClick={() => onSwitchTab('jobs')}>ดูทั้งหมด →</button></div>
+          <div className="draft10-recent-list">
+            {jobs.slice(0, 3).map((job) => (
+              <button key={job.id} type="button" onClick={() => onViewJob?.(job.id)}>
+                <div><strong>{job.name}</strong><span>{job.client}</span></div>
+                <b>{formatCurrency(job.value)}</b>
+              </button>
+            ))}
+          </div>
+        </article>
+        <article className="draft10-bottom-card">
+          <div className="draft10-bottom-heading"><h2>ปฏิทินการเงิน</h2><CalendarDays className="h-4 w-4 text-brand-muted" /></div>
+          <div className="draft10-mini-calendar">
+            {['อา','จ','อ','พ','พฤ','ศ','ส'].map(day => <span key={day} className="is-day">{day}</span>)}
+            {Array.from({length: 14}, (_, index) => index + 1).map(day => (
+              <button key={day} type="button" className={day === 3 || day === 9 ? 'has-event' : ''}>{day}</button>
+            ))}
+          </div>
+        </article>
+      </section>
     </div>
   );
 
