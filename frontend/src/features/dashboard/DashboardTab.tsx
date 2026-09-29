@@ -91,6 +91,8 @@ export default function DashboardTab({
   const [visibleCount, setVisibleCount] = React.useState(3);
   const [isQuickPayExpanded, setIsQuickPayExpanded] = React.useState(false);
   const [isSendingSimulated, setIsSendingSimulated] = React.useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
+  const greetingName = userEmail?.split('@')[0] || 'คุณ';
 
   // Credit Term Report for the 3-box dashboard
   const creditTermReport = React.useMemo(() => {
@@ -765,105 +767,55 @@ export default function DashboardTab({
   return (
     <div id="dashboard-top" className="dashboard-shell flex flex-col gap-7 scroll-mt-6 text-brand-text">
       
-      {/* 2. Hero Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.38, delay: 0.05 }}
-        className="dashboard-balance-card order-1 relative overflow-hidden rounded-[26px] border border-[#F0D9BE] p-6 text-[#2B1B0F] shadow-[0_18px_42px_rgba(67,42,25,0.08)] sm:p-7"
-      >
-        <div className="dashboard-balance-orb dashboard-balance-orb-one" aria-hidden="true" />
-        <div className="dashboard-balance-orb dashboard-balance-orb-two" aria-hidden="true" />
-        <div className="relative space-y-5">
-          <div className="flex justify-between items-start">
-            <button
-              type="button"
-              onClick={() => setBreakdownFilter('contract')}
-              className="text-left cursor-pointer group"
-              title={t('dash.contractValueTooltip')}
-            >
-              <p className="text-xs font-medium text-[#8A6F5C] tracking-wider uppercase group-hover:text-[#2B1B0F]" title={t('dash.contractValueFullTooltip')}>
-                {t('dash.contractValueLabel', { month: formatMonthKey(selectedMonthKey) })}
-              </p>
-              <h3 className="mt-1.5 text-4xl font-extrabold font-mono tracking-tight text-[#C24A16] sm:text-5xl group-hover:underline decoration-2 underline-offset-4">
-                {formatCurrency(totalContractVal)}
-              </h3>
-              <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#8A6F5C]">
-                <TrendingUp className="h-3.5 w-3.5 text-[#18A66A]" />
-                {receivedChangePct === null ? 'เริ่มสะสมข้อมูลในเดือนนี้' : `${receivedChangePct >= 0 ? '+' : ''}${receivedChangePct}% จากเดือนที่แล้ว`}
-              </p>
-            </button>
-            <motion.div
-              initial={{ scale: 0, rotate: -15 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', damping: 10, stiffness: 200, delay: 0.15 }}
-              className="dashboard-mascot-float shrink-0"
-            >
-              <Mascot mood={totalReceived > 0 ? 'celebrate' : 'happy'} size={58} />
-            </motion.div>
-          </div>
+      {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
+          pre-existing Alert Zone below, which already owns order-2. */}
+      <div className="order-1 flex flex-col gap-5">
+      <div>
+        <h2 className="text-xl font-black tracking-tight text-brand-text sm:text-2xl">
+          สวัสดีครับ {greetingName}
+        </h2>
+        <p className="mt-1 text-xs font-medium text-brand-muted sm:text-sm">
+          ตอนนี้มี {upcomingPayments.length} รายการที่ต้องติดตาม และมีเงินรอรับ {formatCurrency(totalPending)}
+        </p>
+      </div>
 
-          <div className="grid grid-cols-1 gap-3 pt-4 border-t border-[#F0D9BE] sm:grid-cols-3 sm:gap-4">
-            <button
-              type="button"
-              onClick={() => setBreakdownFilter('received')}
-              className="text-left cursor-pointer group"
-              title={t('dash.receivedTooltip')}
-            >
-              <p className="text-xs font-semibold text-[#8A6F5C] tracking-wide uppercase flex items-center gap-1.5 group-hover:text-[#2B1B0F]">
-                <span>{t('dash.received')}</span>
-                {receivedChangePct !== null && receivedChangePct !== 0 && (
-                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-black normal-case ${
-                    receivedChangePct > 0 ? 'text-[#18A66A]' : 'text-rose-500'
-                  }`}>
-                    {receivedChangePct > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-                    {receivedChangePct > 0 ? '+' : ''}{receivedChangePct}%
-                  </span>
-                )}
-              </p>
-              <p className="text-2xl font-black font-mono text-[#2B1B0F] mt-1 group-hover:underline decoration-2 underline-offset-4">
-                {formatCurrency(totalReceived)}
-              </p>
-              {totalCashOutThisMonth > 0 && (
-                <p className="text-xs font-semibold text-[#8A6F5C] mt-1" title={t('dash.afterExpenseTooltip')}>
-                  {t('dash.afterExpense', { amount: formatCurrency(receivedAfterVariableExpense) })}
-                </p>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setBreakdownFilter('pending')}
-              className="text-left cursor-pointer group"
-              title={t('dash.pendingTooltip')}
-            >
-              <p className="text-xs font-semibold text-[#8A6F5C] tracking-wide uppercase group-hover:text-[#2B1B0F]" title={t('dash.pendingSubTooltip')}>
-                {t('dash.pending')}
-              </p>
-              <p className="text-2xl font-black font-mono text-[#2B1B0F] mt-1 group-hover:underline decoration-2 underline-offset-4">
-                {formatCurrency(totalPending)}
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBreakdownFilter('profit')}
-              className="text-left cursor-pointer group"
-              title={t('dash.netProfitTooltip')}
-            >
-              <p className="text-xs font-semibold text-[#8A6F5C] tracking-wide uppercase group-hover:text-[#2B1B0F]" title={t('dash.netProfitSubTooltip')}>
-                {t('dash.netProfit')}
-              </p>
-              <p className="text-2xl font-black font-mono mt-1 text-[#18A66A] group-hover:underline decoration-2 underline-offset-4">
-                {formatCurrency(Math.max(0, profit))}
-              </p>
-              {profit < 0 && (
-                <p className="text-[9px] font-bold text-rose-500 mt-0.5">
-                  {t('dash.stillShort', { amount: formatCurrency(Math.abs(profit)) })}
-                </p>
-              )}
-            </button>
-          </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => setBreakdownFilter('received')}
+          className="rounded-3xl border border-brand-border bg-brand-white p-4 text-left shadow-sm transition-all hover:shadow-md cursor-pointer sm:p-5"
+        >
+          <p className="text-[11px] font-bold text-brand-muted">รับเงินจริงเดือนนี้</p>
+          <p className="mt-1.5 text-xl font-black font-mono text-brand-text sm:text-2xl">{formatCurrency(totalReceived)}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setBreakdownFilter('pending')}
+          className="rounded-3xl border border-brand-border bg-brand-white p-4 text-left shadow-sm transition-all hover:shadow-md cursor-pointer sm:p-5"
+        >
+          <p className="text-[11px] font-bold text-brand-muted">รอรับเงิน</p>
+          <p className="mt-1.5 text-xl font-black font-mono text-[#C24A16] sm:text-2xl">{formatCurrency(totalPending)}</p>
+        </button>
+        <div className="rounded-3xl border border-brand-border bg-brand-white p-4 shadow-sm sm:p-5">
+          <p className="text-[11px] font-bold text-brand-muted">รายจ่ายเดือนนี้</p>
+          <p className="mt-1.5 text-xl font-black font-mono text-brand-text sm:text-2xl">{formatCurrency(totalCashOutThisMonth + settings.monthlyExpense)}</p>
         </div>
-      </motion.div>
+        <button
+          type="button"
+          onClick={() => setBreakdownFilter('profit')}
+          className="rounded-3xl border border-brand-border bg-brand-white p-4 text-left shadow-sm transition-all hover:shadow-md cursor-pointer sm:p-5"
+        >
+          <p className="text-[11px] font-bold text-brand-muted">กำไรสุทธิ</p>
+          <p className="mt-1.5 text-xl font-black font-mono text-[#18A66A] sm:text-2xl">{formatCurrency(Math.max(0, profit))}</p>
+          {receivedChangePct !== null && (
+            <p className={`mt-1 inline-flex items-center gap-1 text-[10px] font-bold ${receivedChangePct >= 0 ? 'text-[#18A66A]' : 'text-rose-500'}`}>
+              {receivedChangePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {receivedChangePct >= 0 ? '+' : ''}{receivedChangePct}% จากเดือนก่อน
+            </p>
+          )}
+        </button>
+      </div>
+      </div>
 
       {/* Shortcuts deliberately reuse existing routes/record modes; no separate state or API. */}
       <motion.section
@@ -871,24 +823,54 @@ export default function DashboardTab({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, delay: 0.1 }}
         aria-label="ทางลัด"
-        className="order-3 grid grid-cols-2 gap-2.5 sm:grid-cols-5 sm:gap-3"
+        className="order-3 relative grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3"
       >
-        {[
-          { label: 'เพิ่มรายรับ', icon: TrendingUp, tone: 'quick-income', action: () => onQuickRecord?.('income') },
-          { label: 'เพิ่มรายจ่าย', icon: TrendingDown, tone: 'quick-expense', action: () => onQuickRecord?.('expense') },
-          { label: 'รับเงินด่วน', icon: Coins, tone: 'quick-pay', action: () => setIsQuickPayExpanded(true) },
-          { label: 'เป้าหมายออม', icon: PiggyBank, tone: 'quick-goal', action: () => onSwitchTab('split') },
-          // Short form of the Timeline tab's own heading ("ไทม์ไลน์รับเงิน") -- this shortcut used
-          // to say "ปฏิทินงาน" instead, a name that matched neither that heading nor the (now
-          // sidebar-hidden) nav label, so this was the one remaining door into that page and it
-          // called it something else again.
-          { label: 'ไทม์ไลน์', icon: CalendarDays, tone: 'quick-list', action: () => onSwitchTab('timeline') },
-        ].map(({ label, icon: Icon, tone, action }) => (
-          <button key={label} type="button" onClick={action} className={`dashboard-quick-action ${tone}`}>
-            <span className="dashboard-quick-icon"><Icon className="h-4.5 w-4.5" /></span>
-            <span>{label}</span>
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={() => setIsQuickPayExpanded(true)}
+          className="dashboard-quick-action quick-pay !border-[#E65F2B] !bg-[#E65F2B]/10"
+        >
+          <span className="dashboard-quick-icon"><Coins className="h-4.5 w-4.5" /></span>
+          <span>รับเงินด่วน</span>
+        </button>
+        <button type="button" onClick={() => onQuickRecord?.('income')} className="dashboard-quick-action quick-income">
+          <span className="dashboard-quick-icon"><TrendingUp className="h-4.5 w-4.5" /></span>
+          <span>เพิ่มรายรับ</span>
+        </button>
+        <button type="button" onClick={() => onSwitchTab('invoice')} className="dashboard-quick-action quick-list">
+          <span className="dashboard-quick-icon"><IconArrowUpRight className="h-4.5 w-4.5" /></span>
+          <span>ออกเอกสาร</span>
+        </button>
+        <button type="button" onClick={() => setIsMoreMenuOpen(v => !v)} className="dashboard-quick-action quick-goal">
+          <span className="dashboard-quick-icon">•••</span>
+          <span>เพิ่มเติม</span>
+        </button>
+
+        {isMoreMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute right-0 top-[calc(100%+8px)] z-20 w-52 rounded-2xl border border-brand-border bg-brand-white p-1.5 shadow-lg"
+          >
+            {[
+              { label: 'เพิ่มรายจ่าย', icon: TrendingDown, action: () => onQuickRecord?.('expense') },
+              { label: 'เป้าหมายออม', icon: PiggyBank, action: () => onSwitchTab('split') },
+              { label: 'ไทม์ไลน์', icon: CalendarDays, action: () => onSwitchTab('timeline') },
+              { label: 'ปฏิทิน', icon: CalendarDays, action: () => onSwitchTab('calendar') },
+              { label: 'ลูกค้า', icon: Coins, action: () => onSwitchTab('clients') },
+            ].map(({ label, icon: Icon, action }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => { action(); setIsMoreMenuOpen(false); }}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
+              >
+                <Icon className="h-4 w-4 text-brand-muted" />
+                {label}
+              </button>
+            ))}
+          </motion.div>
+        )}
       </motion.section>
 
       {/* Cash flow trend + receivables watchlist -- replaces the old 4-month risk-radar
