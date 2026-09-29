@@ -137,6 +137,51 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
     };
   });
 
+  const calendarMonth = timelineMonths[0];
+  const [calendarYear, calendarMonthIndex] = calendarMonth.monthKey.split('-').map(Number);
+  const calendarDayCount = new Date(calendarYear, calendarMonthIndex, 0).getDate();
+  const calendarStartDay = new Date(calendarYear, calendarMonthIndex - 1, 1).getDay();
+  const eventsByDay = new Map<number, typeof calendarMonth.events>();
+  calendarMonth.events.forEach(event => {
+    const day = Number(event.dateStr?.slice(8, 10));
+    if (!day) return;
+    eventsByDay.set(day, [...(eventsByDay.get(day) || []), event]);
+  });
+
+  if (calendarMonth.monthKey) return (
+    <div className="draft10-calendar page-content">
+      <div className="draft10-calendar-heading">
+        <h1>ปฏิทิน · {formatMonthKey(calendarMonth.monthKey)}</h1>
+        <div><button className="is-active">เดือน</button><button>สัปดาห์</button></div>
+      </div>
+      <div className="draft10-calendar-legend">
+        <span className="blue">งาน/นัดหมาย</span><span className="orange">Credit Term</span><span className="amber">ใกล้ครบกำหนด</span><span className="green">เงินเข้า</span><span className="red">เกินกำหนด</span>
+      </div>
+      <div className="draft10-calendar-layout">
+        <section className="draft10-calendar-grid">
+          {['อา','จ','อ','พ','พฤ','ศ','ส'].map(day => <span key={day} className="draft10-calendar-dayname">{day}</span>)}
+          {Array.from({length: calendarStartDay}, (_, index) => <span key={`blank-${index}`} className="draft10-calendar-cell is-blank" />)}
+          {Array.from({length: calendarDayCount}, (_, index) => index + 1).map(day => (
+            <button key={day} type="button" className="draft10-calendar-cell">
+              <b>{day}</b>
+              {(eventsByDay.get(day) || []).slice(0, 2).map(event => (
+                <span key={event.id} className={event.isConfirmed ? 'green' : event.isOverdue ? 'red' : event.isWipMilestone ? 'blue' : 'orange'}>{event.title}</span>
+              ))}
+            </button>
+          ))}
+        </section>
+        <aside className="draft10-calendar-agenda">
+          <h2>รายการวันนี้</h2>
+          {(calendarMonth.events.length ? calendarMonth.events.slice(0, 4) : []).map(event => (
+            <button key={event.id} type="button" onClick={() => setViewJobId(event.jobId)}><i className={event.isConfirmed ? 'green' : event.isOverdue ? 'red' : 'orange'} />{event.title}</button>
+          ))}
+          {!calendarMonth.events.length && <p>ยังไม่มีรายการในเดือนนี้</p>}
+        </aside>
+      </div>
+      {viewedJob && <JobDetailModal job={viewedJob} statuses={statuses} onClose={() => setViewJobId(null)} onEdit={() => onEditJob?.(viewedJob.id)} onDelete={() => onDeleteJob(viewedJob.id)} />}
+    </div>
+  );
+
   return (
     <div className="page-content space-y-6">
       {/* Header */}
