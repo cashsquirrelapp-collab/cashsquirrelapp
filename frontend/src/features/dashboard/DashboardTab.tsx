@@ -29,7 +29,8 @@ import {
   AlertCircle,
   Send,
   PiggyBank,
-  CalendarDays
+  CalendarDays,
+  FileText
 } from 'lucide-react';
 
 interface DashboardTabProps {
@@ -768,6 +769,97 @@ export default function DashboardTab({
       return a.daysCount - b.daysCount;
     })
     .slice(0, 4), [jobs]);
+
+  const dashboardName = userEmail.split('@')[0] || 'คุณ';
+
+  // Draft 10 is the visual source of truth for the overview. The calculations and actions
+  // below still use the production data; only the old dashboard presentation is replaced.
+  if (selectedMonthKey !== '__draft10_legacy__') return (
+    <div id="dashboard-top" className="draft10-dashboard text-brand-text">
+      <div className="draft10-dashboard-topbar">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+          <input
+            value={quickSearch}
+            onChange={(event) => setQuickSearch(event.target.value)}
+            placeholder="ค้นหางาน ลูกค้า หรือเอกสาร..."
+            className="h-11 w-full rounded-xl border border-brand-border bg-brand-white pl-11 pr-4 text-sm outline-none transition-colors focus:border-[#F46A2A]/50"
+          />
+        </div>
+        <Bell className="h-5 w-5 text-brand-muted" />
+        <button type="button" onClick={() => onQuickRecord?.('income')} className="draft10-primary-button">
+          <Plus className="h-4 w-4" /> เพิ่มงาน
+        </button>
+      </div>
+
+      <section className="draft10-dashboard-greeting">
+        <Mascot mood="wave" size={48} />
+        <div>
+          <h1>สวัสดีครับ {dashboardName}</h1>
+          <p>ตอนนี้มี {upcomingPayments.length} รายการที่ต้องติดตาม และมีเงินรอรับ {formatCurrency(totalPending)}</p>
+        </div>
+      </section>
+
+      <section className="draft10-kpi-grid">
+        <button type="button" onClick={() => setBreakdownFilter('received')}>
+          <span>รับเงินจริงเดือนนี้</span>
+          <strong>{formatCurrency(totalReceived)}</strong>
+        </button>
+        <button type="button" onClick={() => setBreakdownFilter('pending')} className="is-pending">
+          <span>รอรับเงิน</span>
+          <strong>{formatCurrency(totalPending)}</strong>
+        </button>
+        <button type="button" onClick={() => onQuickRecord?.('expense')}>
+          <span>รายจ่ายเดือนนี้</span>
+          <strong>{formatCurrency(settings.monthlyExpense + totalCashOutThisMonth)}</strong>
+        </button>
+        <button type="button" onClick={() => setBreakdownFilter('profit')} className="is-profit">
+          <span>กำไรสุทธิ</span>
+          <strong>{formatCurrency(profit)}</strong>
+          <small><TrendingUp className="h-3.5 w-3.5" /> ภาพรวมเดือนนี้</small>
+        </button>
+      </section>
+
+      <p className="draft10-kpi-note">{jobs.length} งานทั้งหมด · {creditTermReport.overdue.length} รายการเกินกำหนด</p>
+
+      <section className="draft10-quick-grid" aria-label="ทางลัด">
+        <button type="button" className="is-active" onClick={() => onSwitchTab('jobs')}><Coins />รับเงินด่วน</button>
+        <button type="button" onClick={() => onQuickRecord?.('income')}><TrendingUp />เพิ่มรายรับ</button>
+        <button type="button" onClick={() => onSwitchTab('invoice')}><FileText />ออกเอกสาร</button>
+        <button type="button" onClick={() => onSwitchTab('jobs')}><span className="draft10-more-icon">•••</span>เพิ่มเติม</button>
+      </section>
+
+      <section className="draft10-dashboard-main-grid">
+        <article className="draft10-chart-card">
+          <div className="draft10-card-heading">
+            <h2>กระแสเงินสด 12 เดือน</h2>
+            <div><span className="legend-bar" />รับเงินจริง <span className="legend-line" />กำไรสุทธิ</div>
+          </div>
+          <div className="draft10-chart" aria-label="กราฟกระแสเงินสด 12 เดือน">
+            {[42,58,35,74,49,66,41,83,55,70,46,62].map((height, index) => <span key={index} style={{height: `${height}%`}} />)}
+            <svg viewBox="0 0 1000 260" preserveAspectRatio="none" aria-hidden="true">
+              <polyline points="10,185 95,135 180,220 265,88 350,155 435,105 520,175 605,74 690,135 775,55 860,112 990,80" />
+            </svg>
+          </div>
+        </article>
+
+        <aside className="draft10-followup-card">
+          <div className="draft10-followup-heading">
+            <Mascot mood={upcomingPayments.some(job => job.isOverdue) ? 'alert' : 'happy'} size={38} />
+            <div><h2>เงินที่ต้องติดตาม</h2><p>เรียงจากเร่งด่วนที่สุดก่อน</p></div>
+          </div>
+          <div className="draft10-followup-list">
+            {upcomingPayments.length ? upcomingPayments.map((job) => (
+              <button key={job.id} type="button" onClick={() => onViewJob?.(job.id)} className={job.isOverdue ? 'is-overdue' : job.daysCount <= 3 ? 'is-soon' : ''}>
+                <div><strong>{job.name}</strong><span>{job.client}{job.creditTerm ? ` · Credit ${job.creditTerm} วัน` : ''}</span><em>{job.daysText}</em></div>
+                <b>{formatCurrency(job.pending)}</b>
+              </button>
+            )) : <div className="draft10-empty-followup"><Mascot mood="happy" size={54} /><p>ยังไม่มีเงินที่ต้องติดตาม</p></div>}
+          </div>
+        </aside>
+      </section>
+    </div>
+  );
 
   return (
     <div id="dashboard-top" className="dashboard-shell flex flex-col gap-7 scroll-mt-6 text-brand-text">

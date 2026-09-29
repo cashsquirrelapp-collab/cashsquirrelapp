@@ -2375,48 +2375,6 @@ export default function App() {
         <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-6 lg:py-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none">
           <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
-          {activeTab === 'dashboard' && (
-            <section className="mb-5 flex flex-col gap-4 border-b border-brand-border/30 pb-5 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="dashboard-title">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <h1 id="dashboard-title" className="text-2xl font-black tracking-tight text-brand-text sm:text-3xl">
-                    ภาพรวมกระแสเงินสด
-                  </h1>
-                  <span className="rounded-full bg-[#E65F2B]/10 px-2.5 py-1 text-[10px] font-black text-[#B9471D] dark:text-[#FFA473]">เสบียงปัจจุบัน</span>
-                </div>
-                <p className="mt-1 text-xs font-medium text-brand-muted sm:text-sm">ยอดรับ รายจ่าย และเสบียงคงเหลือตามรอบเวลาที่ประเมินจริง</p>
-              </div>
-              <div className="flex w-full items-center gap-2 sm:w-auto">
-                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-[#E65F2B]/10 bg-[#E65F2B]/5 px-3 sm:flex-none">
-                <Calendar className="h-4 w-4 shrink-0 text-[#C95529]" />
-                <label htmlFor="dashboard-month" className="hidden whitespace-nowrap text-xs font-bold text-brand-muted lg:inline">{t('header.monthPickerLabel')}</label>
-                <select
-                  id="dashboard-month"
-                  value={selectedMonthKey}
-                  onChange={(e) => setSelectedMonthKey(e.target.value)}
-                  className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent py-2.5 text-xs font-black text-[#A8441E] outline-none sm:min-w-[170px] sm:text-sm"
-                >
-                  {availableMonthKeys.map(key => (
-                    <option key={key} value={key}>
-                      {formatMonthKey(key)} {key === currentMonthKey ? t('header.currentMonthSuffix') : ''}
-                    </option>
-                  ))}
-                </select>
-                </div>
-                {selectedMonthKey !== currentMonthKey && (
-                  <button
-                    onClick={() => setSelectedMonthKey(currentMonthKey)}
-                    className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-[#E65F2B]/10 text-[#B9471D] transition-colors hover:bg-[#E65F2B]/20"
-                    title={t('header.backToCurrent')}
-                    aria-label={t('header.backToCurrent')}
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </section>
-          )}
-
           {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !['groups','plans'].includes(activeTab) ? (
             <ContentLoadingSkeleton />
           ) : !session.isGuest && loadedFinanceOwner!==financeOwner && !['groups','plans'].includes(activeTab) ? (
