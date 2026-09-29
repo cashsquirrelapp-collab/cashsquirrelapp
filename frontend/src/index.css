@@ -917,15 +917,63 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .dashboard-balance-card {
-  background: linear-gradient(135deg, #3d2314 0%, #563320 56%, #7a4419 140%);
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent;
+  padding: 0 !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
+.dashboard-balance-card > .relative {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-balance-card > .relative > .flex,
+.dashboard-balance-card > .relative > .grid > button {
+  min-height: 132px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--white);
+  padding: 1.2rem;
+  box-shadow: var(--shadow-card);
+  transition: transform 160ms var(--ease-soft), border-color 160ms var(--ease-soft), box-shadow 160ms var(--ease-soft);
+}
+
+.dashboard-balance-card > .relative > .flex:hover,
+.dashboard-balance-card > .relative > .grid > button:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, #ed6a32 38%, var(--border));
+  box-shadow: var(--shadow-card-hover);
+}
+
+.dashboard-balance-card > .relative > .grid {
+  display: contents;
+}
+
+.dashboard-balance-card [class*="text-white"] { color: var(--muted) !important; }
+.dashboard-balance-card h3,
+.dashboard-balance-card .font-mono { color: var(--text) !important; }
+.dashboard-balance-card > .relative > .grid > button:nth-child(2) .font-mono { color: #e8652d !important; }
+.dashboard-balance-card > .relative > .grid > button:nth-child(3) .font-mono { color: #168b6b !important; }
+.dashboard-balance-card > .relative > .flex { grid-column: auto; }
+.dashboard-balance-card > .relative > .flex > button { flex: 1; }
+.dashboard-balance-card > .relative > .flex .dashboard-mascot-float { margin-left: .5rem; }
+
+@media (max-width: 1100px) {
+  .dashboard-balance-card > .relative { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .dashboard-balance-card > .relative { grid-template-columns: 1fr; }
+  .dashboard-balance-card > .relative > .flex,
+  .dashboard-balance-card > .relative > .grid > button { min-height: 112px; }
 }
 
 .dashboard-balance-orb {
-  position: absolute;
-  pointer-events: none;
-  border-radius: 999px;
-  filter: blur(4px);
-  opacity: .65;
+  display: none;
 }
 
 .dashboard-balance-orb-one {

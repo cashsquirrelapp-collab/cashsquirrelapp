@@ -648,18 +648,11 @@ export default function App() {
 
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
 
-  // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
-  // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
+  // Draft 10 keeps the primary product map visible. Hiding half the app behind a generic
+  // "more tools" drawer made first-time users guess where reports, tax and documents lived.
   const navItems = React.useMemo(() => {
-    const persona = settings.userPersona;
-    if (!persona || persona === 'freelance') return NAV_ITEMS;
-    const coreKeys = PERSONA_CORE_KEYS[persona];
-    return NAV_ITEMS.map(item =>
-      item.group === 'bottom' || item.key === 'dashboard' || item.key === 'jobs' || item.key === 'groups'
-        ? item
-        : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
-    );
-  }, [settings.userPersona]);
+    return NAV_ITEMS.map(item => item.group === 'more' ? { ...item, group: 'core' as const } : item);
+  }, []);
   const isMoreTabActive = navItems.some(item => item.group === 'more' && item.key === activeTab);
   const showMoreNavItems = moreNavOpen || isMoreTabActive;
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(() => {
@@ -2136,20 +2129,8 @@ export default function App() {
         <nav className="space-y-1 flex-1">
           {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, false))}
 
-          {renderMoreToggle()}
-          <AnimatePresence initial={false}>
-            {showMoreNavItems && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-1.5 overflow-hidden"
-              >
-                {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {navItems.some(item => item.group === 'more') && renderMoreToggle()}
+          {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
 
           {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
         </nav>
@@ -2230,20 +2211,8 @@ export default function App() {
                 <nav className="space-y-1.5">
                   {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, true))}
 
-                  {renderMoreToggle()}
-                  <AnimatePresence initial={false}>
-                    {showMoreNavItems && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="space-y-1.5 overflow-hidden"
-                      >
-                        {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {navItems.some(item => item.group === 'more') && renderMoreToggle()}
+                  {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
 
                   {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
                 </nav>
