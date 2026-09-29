@@ -699,19 +699,19 @@ export default function SplitTab({
   return (
     <div className="page-content space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 rounded-[28px] bg-[#3D2314] px-6 py-6 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      <div className="flex flex-col gap-4 rounded-[28px] border border-[#F0D9BE] px-6 py-6 text-[#2B1B0F] shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-8" style={{ background: 'linear-gradient(135deg, #fff3e8 0%, #fde4ce 100%)' }}>
         <div>
-          <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-wider text-[#F4C99E] uppercase">
+          <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-wider text-[#9A541C] uppercase">
             <PiggyBank className="h-4 w-4" /> วางแผนเงินให้ทุกบาทมีเป้าหมาย
           </span>
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
+          <h2 className="mt-1 text-2xl font-black tracking-tight text-[#2B1B0F] sm:text-3xl">
             {t('split.title')}
           </h2>
-          <p className="mt-2 max-w-2xl text-xs leading-relaxed text-[#E8D7C5]">ดูเงินคงเหลือ วางสัดส่วน และเติมเป้าหมายออมได้จากหน้าเดียว โดยระบบจะไม่ให้แบ่งเกินเงินที่มีจริง</p>
+          <p className="mt-2 max-w-2xl text-xs leading-relaxed text-[#8A6F5C]">ดูเงินคงเหลือ วางสัดส่วน และเติมเป้าหมายออมได้จากหน้าเดียว โดยระบบจะไม่ให้แบ่งเกินเงินที่มีจริง</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+        <div className="flex items-center gap-3 rounded-2xl bg-white/60 px-4 py-3 backdrop-blur-sm">
           <Mascot mood="wave" size={52} className="shrink-0" />
-          <div><span className="block text-[9px] font-bold text-[#E8D7C5]">พร้อมจัดสรร</span><strong className="font-mono text-lg text-white">{formatCurrency(netProfit)}</strong></div>
+          <div><span className="block text-[9px] font-bold text-[#8A6F5C]">พร้อมจัดสรร</span><strong className="font-mono text-lg text-[#2B1B0F]">{formatCurrency(netProfit)}</strong></div>
         </div>
       </div>
 
@@ -1055,7 +1055,7 @@ export default function SplitTab({
                 whileTap={{ scale: 0.99 }}
                 onClick={handleConfirmAllocations}
                 disabled={totalCustomAllocated <= 0}
-                className="w-full py-4 bg-[#3D2314] hover:bg-[#5A3420] text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:bg-stone-300 dark:disabled:bg-stone-800 disabled:text-stone-500 dark:disabled:text-stone-600 disabled:shadow-none cursor-pointer"
+                className="w-full py-4 bg-[#E65F2B] hover:bg-[#D98324] text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:bg-stone-300 dark:disabled:bg-stone-800 disabled:text-stone-500 dark:disabled:text-stone-600 disabled:shadow-none cursor-pointer"
               >
                 <span>{t('split.confirmAllocateBtn', { amount: formatCurrency(totalCustomAllocated) })}</span>
                 <IconRocket className="w-4 h-4" />
