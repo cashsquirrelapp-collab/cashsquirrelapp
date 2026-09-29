@@ -898,6 +898,43 @@ export default function DashboardTab({
         ))}
       </motion.section>
 
+      {/* Receivables watchlist -- reuses the same upcomingPayments data already computed above
+          for other views; this is just its first on-page rendering. */}
+      {upcomingPayments.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, delay: 0.12 }}
+          className="order-4 bg-brand-white border border-brand-border rounded-3xl p-4 shadow-sm sm:p-5"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-xs font-black tracking-wider text-brand-muted uppercase">เงินที่ต้องติดตาม</h4>
+            <button
+              type="button"
+              onClick={() => onSwitchTab('jobs')}
+              className="text-[10px] font-black text-[#E65F2B] dark:text-[#FFA473] hover:underline cursor-pointer"
+            >
+              ดูทั้งหมด
+            </button>
+          </div>
+          <div className="divide-y divide-brand-border/50">
+            {upcomingPayments.map(payment => (
+              <div key={payment.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-brand-text truncate">{payment.name}</p>
+                  <p className="mt-0.5 text-[11px] text-brand-muted truncate">
+                    {payment.client || 'ไม่ระบุลูกค้า'} · {payment.daysText}
+                  </p>
+                </div>
+                <p className={`shrink-0 text-sm font-mono font-black ${payment.isOverdue ? 'text-[#A63F1B]' : 'text-brand-text'}`}>
+                  {formatCurrency(payment.pending)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* 3. Alert Zone */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
