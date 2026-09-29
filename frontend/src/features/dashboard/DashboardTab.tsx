@@ -1,9 +1,10 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
-import { formatCurrency, getForecastMonths, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../../utils';
+import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../../utils';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconArrowUpRight, IconBolt, IconCoin } from '../../components/ui/icons';
 import { VineDivider } from '../../components/mascot/VineDivider';
@@ -552,11 +553,6 @@ export default function DashboardTab({
     }
   };
 
-  const currentMonthKey = React.useMemo(() => {
-    const d = new Date();
-    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
-  }, []);
-  
   const receivedEntriesForMonth = React.useMemo(
     () => jobs.flatMap(getJobPaymentEntries).filter((entry) => getMonthKeyFromDate(entry.date) === selectedMonthKey),
     [jobs, selectedMonthKey],
@@ -714,22 +710,21 @@ export default function DashboardTab({
     }
   };
 
-  const projectedMonthsData = React.useMemo(() => {
-    const forecastMonthsList = getForecastMonths();
-    const totals = new Map(forecastMonthsList.map(monthKey => [monthKey, {
-      confirmed: 0,
-      pending: 0,
-      variableExpense: 0,
-    }]));
+  const last12MonthsData = React.useMemo(() => {
+    const monthsList: string[] = [];
+    const cursor = new Date();
+    cursor.setDate(1);
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(cursor.getFullYear(), cursor.getMonth() - i, 1);
+      monthsList.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+
+    const totals = new Map(monthsList.map(monthKey => [monthKey, { received: 0, variableExpense: 0 }]));
 
     jobs.forEach(j => {
       getJobPaymentEntries(j).forEach((entry) => {
         const month = totals.get(getMonthKeyFromDate(entry.date));
-        if (month) month.confirmed += entry.amount;
-      });
-      if (j.isPosted !== false) getJobPendingEntries(j).forEach((entry) => {
-        const month = totals.get(getMonthKeyFromDate(entry.dueDate));
-        if (month) month.pending += entry.amount;
+        if (month) month.received += entry.amount;
       });
     });
     expenses.forEach(e => {
@@ -737,16 +732,14 @@ export default function DashboardTab({
       if (month) month.variableExpense += e.amount;
     });
 
-    return forecastMonthsList.map(monthKey => {
+    return monthsList.map(monthKey => {
       const month = totals.get(monthKey)!;
-      const totalIncome = month.confirmed + month.pending;
-      const totalExpense = settings.monthlyExpense + month.variableExpense;
+      const profit = month.received - settings.monthlyExpense - month.variableExpense;
       return {
         monthKey,
-        totalIncome,
-        totalExpense,
-        isSufficient: totalIncome >= totalExpense,
-        balance: totalIncome - totalExpense,
+        monthLabel: formatMonthKey(monthKey).split(' ')[0],
+        received: month.received,
+        profit,
       };
     });
   }, [jobs, expenses, settings.monthlyExpense]);
@@ -898,42 +891,82 @@ export default function DashboardTab({
         ))}
       </motion.section>
 
-      {/* Receivables watchlist -- reuses the same upcomingPayments data already computed above
-          for other views; this is just its first on-page rendering. */}
-      {upcomingPayments.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.32, delay: 0.12 }}
-          className="order-4 bg-brand-white border border-brand-border rounded-3xl p-4 shadow-sm sm:p-5"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-black tracking-wider text-brand-muted uppercase">เงินที่ต้องติดตาม</h4>
-            <button
-              type="button"
-              onClick={() => onSwitchTab('jobs')}
-              className="text-[10px] font-black text-[#E65F2B] dark:text-[#FFA473] hover:underline cursor-pointer"
-            >
-              ดูทั้งหมด
-            </button>
+      {/* Cash flow trend + receivables watchlist -- replaces the old 4-month risk-radar
+          forecast with the real Draft 10 layout: a 12-month received/profit chart next to
+          the watchlist, matching upcomingPayments already computed above. */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32, delay: 0.12 }}
+        className="order-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]"
+      >
+        <div className="bg-brand-white border border-brand-border rounded-3xl p-4 shadow-sm sm:p-5">
+          <h4 className="mb-4 text-xs font-black tracking-wider text-brand-muted uppercase">กระแสเงินสด 12 เดือน</h4>
+          <div className="h-64 w-full text-xs font-bold">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={last12MonthsData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#dfd9cd" opacity={0.3} vertical={false} />
+                <XAxis dataKey="monthLabel" stroke="#8A6F5C" fontSize={10} tickLine={false} axisLine={false} dy={8} />
+                <YAxis stroke="#8A6F5C" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(230, 95, 43, 0.05)' }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload as { monthLabel: string; received: number; profit: number };
+                      return (
+                        <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/60 p-3.5 rounded-2xl shadow-lg space-y-1.5 min-w-[160px]">
+                          <p className="text-xs font-black text-brand-text dark:text-white mb-1 border-b border-brand-border/40 pb-1">{d.monthLabel}</p>
+                          <div className="flex justify-between gap-4 text-[11px]">
+                            <span className="text-brand-muted font-bold">รับเงินจริง:</span>
+                            <span className="font-extrabold text-[#8A6F5C] font-mono">{formatCurrency(d.received)}</span>
+                          </div>
+                          <div className="flex justify-between gap-4 text-[11px]">
+                            <span className="text-brand-muted font-bold">กำไรสุทธิ:</span>
+                            <span className="font-extrabold text-[#E65F2B] dark:text-[#FFA473] font-mono">{formatCurrency(d.profit)}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="received" fill="#E8DDD1" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                <Line type="monotone" dataKey="profit" stroke="#E65F2B" strokeWidth={2.5} dot={{ r: 3, fill: '#E65F2B' }} />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
-          <div className="divide-y divide-brand-border/50">
-            {upcomingPayments.map(payment => (
-              <div key={payment.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-brand-text truncate">{payment.name}</p>
-                  <p className="mt-0.5 text-[11px] text-brand-muted truncate">
-                    {payment.client || 'ไม่ระบุลูกค้า'} · {payment.daysText}
+        </div>
+
+        {upcomingPayments.length > 0 && (
+          <div className="bg-brand-white border border-brand-border rounded-3xl p-4 shadow-sm sm:p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-black tracking-wider text-brand-muted uppercase">เงินที่ต้องติดตาม</h4>
+              <button
+                type="button"
+                onClick={() => onSwitchTab('jobs')}
+                className="text-[10px] font-black text-[#E65F2B] dark:text-[#FFA473] hover:underline cursor-pointer"
+              >
+                ดูทั้งหมด
+              </button>
+            </div>
+            <div className="divide-y divide-brand-border/50">
+              {upcomingPayments.map(payment => (
+                <div key={payment.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-brand-text truncate">{payment.name}</p>
+                    <p className="mt-0.5 text-[11px] text-brand-muted truncate">
+                      {payment.client || 'ไม่ระบุลูกค้า'} · {payment.daysText}
+                    </p>
+                  </div>
+                  <p className={`shrink-0 text-sm font-mono font-black ${payment.isOverdue ? 'text-[#A63F1B]' : 'text-brand-text'}`}>
+                    {formatCurrency(payment.pending)}
                   </p>
                 </div>
-                <p className={`shrink-0 text-sm font-mono font-black ${payment.isOverdue ? 'text-[#A63F1B]' : 'text-brand-text'}`}>
-                  {formatCurrency(payment.pending)}
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </motion.div>
-      )}
+        )}
+      </motion.div>
 
       {/* 3. Alert Zone */}
       <motion.div
@@ -1007,103 +1040,6 @@ export default function DashboardTab({
             )}
           </motion.div>
         )}
-      </motion.div>
-
-      {/* 4-Month Cash Flow Projections: กราฟแสดงโพรงไม้แบบใหม่ (Acorn Hollows) */}
-      <motion.div layout className="order-5 space-y-3 bg-brand-white border border-brand-border rounded-3xl p-4 shadow-sm transition-all">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div>
-              <h4 className="text-xs font-black tracking-wider text-brand-muted uppercase" title={t('dash.radarTitleTooltip')}>
-                {t('dash.radarTitle')}
-              </h4>
-              <p className="text-[10px] text-brand-muted mt-0.5">{t('dash.radarExpandedSubtitle')}</p>
-            </div>
-          </div>
-        </div>
-
-        <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="pt-3 border-t border-brand-border/40 space-y-3"
-          >
-            <div className="flex justify-between items-center text-[10px] text-brand-muted">
-              <span>{t('dash.radarFootnote', { amount: formatCurrency(settings.monthlyExpense) })}</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {projectedMonthsData.map((m, idx) => {
-                const isCurrent = m.monthKey === currentMonthKey;
-                const fillPercentage = Math.min(100, (m.totalIncome / Math.max(1, m.totalExpense)) * 100);
-                
-                return (
-                  <motion.div
-                    key={m.monthKey}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="p-4 rounded-3xl border border-brand-border flex flex-col justify-between space-y-4 transition-all bg-brand-white"
-                  >
-                    {/* ด้านบนการ์ด: ข้อมูลเดือนและสถานะความอุดมสมบูรณ์ */}
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black text-stone-900 dark:text-white">
-                            {formatMonthKey(m.monthKey)}
-                          </span>
-                          {isCurrent && (
-                            <span className="text-[8px] bg-brand-text text-brand-bg px-1.5 py-0.2 rounded font-black uppercase">
-                              {t('dash.thisSeason')}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[9px] text-brand-muted">{t('dash.expectedYield')}</p>
-                      </div>
-
-                      <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-brand-faint border border-brand-border/40">
-                        <Mascot mood={m.isSufficient ? "celebrate" : "sleepy"} size={32} />
-                      </div>
-                    </div>
-
-                    {/* ส่วนกลางการ์ด: ดีไซน์รูปทรงกราฟิกโพรงไม้เก็บลูกนัทโอ๊ค (Acorn Hollows Visual) */}
-                    <div className="relative w-full h-20 bg-brand-faint rounded-2xl border border-brand-border flex items-end overflow-hidden">
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: `${fillPercentage}%` }}
-                        transition={{ duration: 0.8, delay: idx * 0.1 }}
-                        className={`w-full transition-all rounded-b-xl ${
-                          m.isSufficient ? 'bg-[#E65F2B]' : 'bg-[#A63F1B]'
-                        }`}
-                      />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center p-1 text-center">
-                        <span className="text-xs font-mono font-black text-stone-950 dark:text-stone-100">
-                          {formatCurrency(m.totalIncome)}
-                        </span>
-                        <span className="text-[8px] font-bold text-brand-muted uppercase tracking-wider mt-0.5">
-                          {t('dash.percentOfNest', { pct: fillPercentage.toFixed(0) })}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* ด้านล่างการ์ด: ข้อมูลดุลบัญชีเสบียงประจำเดือน */}
-                    <div className="pt-2 border-t border-brand-border/40 space-y-1">
-                      <div className="flex justify-between items-center text-[10px] font-bold">
-                        <span className="text-brand-muted">{t('dash.surplus')}</span>
-                        <span className={`font-mono text-xs font-black ${m.isSufficient ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#A63F1B] dark:text-[#FA7E52]'}`}>
-                          {m.balance >= 0 ? '+' : ''}{formatCurrency(m.balance)}
-                        </span>
-                      </div>
-                      {!m.isSufficient && (
-                        <p className="text-[9px] text-[#A63F1B] dark:text-[#FA7E52] font-black leading-normal animate-pulse">
-                          {t('dash.stillShortSurvive', { amount: formatCurrency(Math.abs(m.balance)) })}
-                        </p>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-        </motion.div>
       </motion.div>
 
       {/* 4. Financial Goals Slider */}
