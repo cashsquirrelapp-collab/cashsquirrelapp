@@ -589,6 +589,17 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           transition={{ duration: .48, ease: [0.22, 1, 0.36, 1] }}
           className="auth-form-card bg-brand-white border border-brand-border/40 rounded-[24px] p-6 sm:p-8 shadow-xl shadow-brand-text/5 dark:shadow-none"
         >
+          {!isForgotPassword && !isAccountRecovery && (
+            <div className="mb-5">
+              <h2 className="font-display text-2xl font-extrabold text-brand-text">
+                {isSignUp ? 'สร้างบัญชีใหม่' : 'ยินดีต้อนรับกลับ'}
+              </h2>
+              <p className="mt-1 text-xs font-medium text-brand-muted">
+                {isSignUp ? 'เริ่มจัดการงานและเงินของคุณวันนี้' : 'กลับมาดูงานและเงินของคุณต่อกัน'}
+              </p>
+            </div>
+          )}
+
           {/* Tabs for Login / SignUp (only show if not in Forgot Password mode) */}
           {!isForgotPassword && !isAccountRecovery ? (
             <div className="flex p-1 bg-brand-bg/50 border border-brand-border/20 rounded-2xl mb-6">
