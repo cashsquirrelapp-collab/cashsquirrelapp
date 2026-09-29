@@ -27,6 +27,7 @@ const SummaryTab = lazy(loadSummaryTab);
 import CustomDialog from '../components/ui/CustomDialog';
 import { AppLoadingSkeleton, ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
 import Login from '../features/auth/Login';
+import LandingPage from '../features/marketing/LandingPage';
 const MonthlyReportTab = lazy(loadMonthlyReportTab);
 const TaxTab = lazy(loadTaxTab);
 const SettingsTab = lazy(loadSettingsTab);
@@ -2099,6 +2100,10 @@ export default function App() {
   }
 
   if (!session) {
+    const rootSegments = pathname.split('/').filter(Boolean);
+    if (rootSegments.length === 0) {
+      return <LandingPage onNavigate={(path) => navigatePath(path)} />;
+    }
     return (
       <>
         <Login darkMode={darkMode} setDarkMode={setDarkMode} onGuestLogin={handleGuestLogin} />

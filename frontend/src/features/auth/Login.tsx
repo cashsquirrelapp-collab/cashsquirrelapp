@@ -1,7 +1,7 @@
 import { apiFetch } from '../../services/api';
 import React, { useState } from 'react';
 import { authClient } from '../../services/auth';
-import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft, Eye, EyeOff, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -534,9 +534,43 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       </div>
 
       <div className="auth-layout relative z-10 w-full">
+      <div className="auth-brand-panel">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-[9px] bg-[#FFF1E8]" />
+          <span className="text-[15px] font-bold text-brand-text">กระรอกตุนเงิน</span>
+        </div>
+        <h1 className="mt-9 text-[32px] font-bold leading-tight text-brand-text">
+          งานเยอะ เงินหลายทาง<br />จัดการให้เห็นภาพได้ง่ายขึ้น
+        </h1>
+        <div className="mt-6 flex flex-col gap-3">
+          {[
+            'รู้ว่าเงินไหนเข้าแล้ว และเงินไหนยังต้องตาม',
+            'เห็น Credit Term และวันครบกำหนด โดยไม่ต้องจำเอง',
+            'สรุปรายรับ รายจ่าย และกำไรจริงในที่เดียว',
+          ].map((benefit) => (
+            <div key={benefit} className="flex items-start gap-2.5">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#18A66A]" strokeWidth={2.5} />
+              <span className="text-[13px] text-brand-text">{benefit}</span>
+            </div>
+          ))}
+        </div>
+        <div className="relative mt-9 h-32">
+          <div className="absolute left-0 top-2 w-44 rounded-2xl border border-brand-border bg-brand-white p-3.5 shadow-lg shadow-black/5">
+            <div className="text-[10px] text-brand-muted">รอรับเงิน</div>
+            <div className="mt-0.5 text-base font-bold text-[#F36A2D]">฿7,365</div>
+            <div className="mt-1.5 text-[10px] font-medium text-brand-text">DDproperty</div>
+            <div className="text-[9px] text-brand-muted">Credit 30 วัน · อีก 3 วัน</div>
+          </div>
+          <div className="absolute right-0 top-14 w-44 rounded-2xl border border-brand-border bg-brand-white p-3.5 shadow-lg shadow-black/5">
+            <div className="text-[10px] text-brand-muted">กำไรสุทธิ</div>
+            <div className="mt-0.5 text-base font-bold text-[#18A66A]">฿25,970</div>
+            <div className="mt-1.5 text-[9px] font-medium text-[#18A66A]">↑ 18% จากเดือนก่อน</div>
+          </div>
+        </div>
+      </div>
       <div className="auth-form-column">
         {/* Brand Header */}
-        <div className="text-center mb-6 sm:mb-7">
+        <div className="text-center mb-6 sm:mb-7 lg:hidden">
           <Mascot mood={mascotMood} size={100} className="mb-2" />
           <h2 className="text-2xl font-display font-extrabold tracking-tight text-brand-text sm:text-3xl">
             {t('login.brandName')}

@@ -234,14 +234,32 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* Authentication is deliberately a separate composition from the app shell: it can feel more
    welcoming without adding motion or illustrations to the financial workspace. */
 .auth-layout {
-  display: block;
-  max-width: 28rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  max-width: 72rem;
+  width: 100%;
+  margin: 0 auto;
+}
+@media (min-width: 1024px) {
+  .auth-layout { flex-direction: row; align-items: center; text-align: left; }
 }
 
 .auth-form-column {
   width: 100%;
   max-width: 28rem;
   margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.auth-brand-panel {
+  display: none;
+  max-width: 28rem;
+}
+@media (min-width: 1024px) {
+  .auth-brand-panel { display: block; }
 }
 
 .auth-form-card {
