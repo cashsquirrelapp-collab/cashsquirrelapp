@@ -667,17 +667,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         )}
       </div>
 
-      {/* Cute Squirrel Guide Box */}
-      <div className="bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100/60 dark:border-orange-500/10 p-4 rounded-3xl flex items-center gap-4 no-print shadow-xs">
-        <Mascot mood="wave" size={72} className="shrink-0" />
-        <div className="space-y-1">
-          <h4 className="text-xs font-black text-orange-900 dark:text-orange-300">คู่มือออกเอกสารจากคุณกระรอก</h4>
-          <p className="text-[10px] text-orange-800/80 dark:text-orange-400/80 leading-relaxed">
-            ยินดีต้อนรับสู่ระบบออกบิลแสนสะดวกครับ! คุณสามารถเลือกดึงข้อมูลจากดีลงานได้ทันทีโดยไม่ต้องเสียเวลากรอกเอง และแนะนำให้ใส่ข้อมูลบัญชีโอนเงินที่แท็บ <span className="font-extrabold text-[#E65F2B]">"ข้อมูลโปรไฟล์ของฉัน"</span> เพื่อเป็นค่าเริ่มต้นสำหรับเอกสารทุกใบครับ! เมื่อออกเอกสารเสร็จแล้ว สามารถกดพิมพ์หรือเลือกปลายทางเป็น Save as PDF เพื่อนำส่งลูกค้าได้ทันที
-          </p>
-        </div>
-      </div>
-
       {/* SUB-TAB 1: DOCUMENTS LIST & LIVE PREVIEW GRID */}
       {activeSubTab === 'list' && (
         <div className="app-subtab-enter grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

@@ -475,20 +475,20 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-[#3D2314] dark:bg-[#261810] text-white rounded-3xl p-6 flex items-center gap-4 relative overflow-hidden"
+          className="bg-brand-white dark:bg-stone-900 border border-brand-border text-brand-text rounded-2xl p-6 flex items-center gap-4 relative overflow-hidden shadow-sm"
         >
-          <div className="absolute -right-6 -top-6 opacity-10">
+          <div className="absolute -right-6 -top-6 opacity-[0.04]">
             <Crown className="w-32 h-32" />
           </div>
           <div className="w-14 h-14 rounded-2xl bg-[#E65F2B]/20 flex items-center justify-center shrink-0 relative">
             <Crown className="w-7 h-7 text-[#FFA473]" />
           </div>
           <div className="min-w-0 relative">
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-white/60">ลูกค้าอันดับ 1 ของช่วงนี้</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-brand-muted">ลูกค้าอันดับ 1 ของช่วงนี้</p>
             <p className="text-lg font-display font-black truncate">{topClient.key}</p>
-            <p className="text-sm font-mono font-black text-[#FFA473] mt-0.5">
+            <p className="text-sm font-mono font-black text-[#E65F2B] mt-0.5">
               {formatCurrency(topClient.received)}
-              <span className="text-[10px] font-sans font-bold text-white/50 ml-1.5">
+              <span className="text-[10px] font-sans font-bold text-brand-muted ml-1.5">
                 ({totalReceived > 0 ? Math.round((topClient.received / totalReceived) * 100) : 0}% ของรายรับทั้งหมด)
               </span>
             </p>

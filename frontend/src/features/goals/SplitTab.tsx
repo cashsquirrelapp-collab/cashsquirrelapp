@@ -699,25 +699,24 @@ export default function SplitTab({
   return (
     <div className="page-content space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 rounded-[28px] bg-[#3D2314] px-6 py-6 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      <div className="flex flex-col gap-4 border-b border-brand-border px-1 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-wider text-[#F4C99E] uppercase">
+          <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-wider text-[#E65F2B] uppercase">
             <PiggyBank className="h-4 w-4" /> วางแผนเงินให้ทุกบาทมีเป้าหมาย
           </span>
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
+          <h2 className="mt-1 text-2xl font-black tracking-tight text-brand-text sm:text-3xl">
             {t('split.title')}
           </h2>
-          <p className="mt-2 max-w-2xl text-xs leading-relaxed text-[#E8D7C5]">ดูเงินคงเหลือ วางสัดส่วน และเติมเป้าหมายออมได้จากหน้าเดียว โดยระบบจะไม่ให้แบ่งเกินเงินที่มีจริง</p>
+          <p className="mt-2 max-w-2xl text-xs leading-relaxed text-brand-muted">ดูเงินคงเหลือ วางสัดส่วน และเติมเป้าหมายออมได้จากหน้าเดียว โดยระบบจะไม่ให้แบ่งเกินเงินที่มีจริง</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-          <Mascot mood="wave" size={52} className="shrink-0" />
-          <div><span className="block text-[9px] font-bold text-[#E8D7C5]">พร้อมจัดสรร</span><strong className="font-mono text-lg text-white">{formatCurrency(netProfit)}</strong></div>
+        <div className="rounded-xl border border-brand-border bg-brand-white px-5 py-3 text-right">
+          <span className="block text-[9px] font-bold text-brand-muted">พร้อมจัดสรร</span><strong className="font-mono text-lg text-brand-text">{formatCurrency(netProfit)}</strong>
         </div>
       </div>
 
       {/* Overview: answer the three questions a first-time user has before asking them to allocate. */}
       <section className="overflow-hidden rounded-[28px] border border-brand-border bg-brand-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="border-b border-brand-border/50 bg-gradient-to-r from-[#FFF8EE] to-white px-5 py-5 dark:from-neutral-900 dark:to-neutral-900 sm:px-7">
+        <div className="border-b border-brand-border/50 bg-brand-white px-5 py-5 dark:bg-neutral-900 sm:px-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-[#9A541C]">
