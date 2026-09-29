@@ -596,7 +596,10 @@ export default function JobsTab({
     <div className="page-content space-y-6">
       {/* Primary action: the page title and mode switch live in App.tsx. */}
       <div className="flex items-center justify-between gap-3 px-1">
-        <p className="text-sm font-bold text-brand-text">งานดีลทั้งหมด <span className="text-brand-muted">({jobs.length})</span></p>
+        <div>
+          <p className="text-xl font-black text-brand-text">งานของฉัน</p>
+          <p className="mt-0.5 text-xs font-medium text-brand-muted">ติดตามสถานะงานและการรับเงินในที่เดียว</p>
+        </div>
         <div className="flex items-center gap-2 shrink-0">
           <motion.button
             whileTap={{ scale: 0.95 }}
@@ -618,7 +621,7 @@ export default function JobsTab({
               setFormStep(1);
               onOpenAddJob();
             }}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="px-4 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <Briefcase className="w-3.5 h-3.5" /> {t('jobs.addNew')}
           </motion.button>
@@ -728,7 +731,17 @@ export default function JobsTab({
       </div>
 
       {/* 3. Jobs List */}
-      <div className="space-y-3">
+      <div className="jobs-draft-list space-y-3">
+        {filteredJobs.length > 0 && (
+          <div className="jobs-draft-table-head" aria-hidden="true">
+            <span>งาน / ลูกค้า</span>
+            <span>กำหนดส่ง</span>
+            <span>สถานะงาน</span>
+            <span>สถานะเงิน</span>
+            <span className="text-right">มูลค่างาน</span>
+            <span className="text-right">จัดการ</span>
+          </div>
+        )}
         {filteredJobs.length === 0 ? (
           <div className="bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-10 text-center text-brand-muted flex flex-col items-center justify-center gap-3">
             <Mascot mood="sleepy" size={100} />
@@ -751,7 +764,7 @@ export default function JobsTab({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className={`bg-brand-white border rounded-[var(--radius-lg)] p-5 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden ${
+                className={`jobs-draft-row bg-brand-white border rounded-[var(--radius-lg)] p-5 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden ${
                   highlightedJobId === j.id
                     ? 'border-[#E65F2B] ring-2 ring-[#E65F2B]/40'
                     : 'border-brand-border'
@@ -761,7 +774,7 @@ export default function JobsTab({
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${catColors.dot}`} />
 
                 {/* Job Info Header — name + amount are the two things that should read first */}
-                <div className="flex items-start justify-between gap-4">
+                <div className="jobs-draft-primary flex items-start justify-between gap-4">
                   <div className="space-y-1 min-w-0">
                     <h4 className="text-lg font-extrabold text-brand-text leading-snug truncate">
                       {j.name}
@@ -777,7 +790,7 @@ export default function JobsTab({
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0">
+                  <div className="jobs-draft-amount text-right shrink-0">
                     <p className="text-2xl font-black font-mono text-brand-text">
                       {formatCurrency(j.value)}
                     </p>
@@ -785,7 +798,7 @@ export default function JobsTab({
                 </div>
 
                 {/* Status badges — the one row that says what state this job is in */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="jobs-draft-status flex items-center gap-2 flex-wrap">
                   <span className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold ${j.isPosted === false ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}`}>
                     งาน: {j.isPosted === false ? 'กำลังทำ' : 'เสร็จแล้ว'}
                   </span>
@@ -809,7 +822,7 @@ export default function JobsTab({
 
                 {/* Dates & Credit Terms or WIP section — one quiet line, not a boxed grid */}
                 {j.isPosted === false ? (
-                  <div className="flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
+                  <div className="jobs-draft-date flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
                     <span>{t('jobs.startedOn', { date: safeFormatThaiDate(j.startDate || j.postDate, { day: 'numeric', month: 'short' }) })}</span>
                     <span className="opacity-40">|</span>
                     <span>{j.postDate ? t('jobs.targetOnAir', { date: safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' }) }) : t('jobs.statusUnspecifiedLabel')}</span>
@@ -819,7 +832,7 @@ export default function JobsTab({
                     </span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
+                  <div className="jobs-draft-date flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
                     <span>{t('jobs.dealDate', { date: safeFormatThaiDate(j.postDate) })}</span>
                     <span className="opacity-40">|</span>
                     {j.creditTerm === 0 ? (
@@ -836,7 +849,7 @@ export default function JobsTab({
                 )}
 
                 {/* Financial breakdown — full value is already shown up top, so only the two numbers that move */}
-                <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                <div className="jobs-draft-breakdown grid grid-cols-2 gap-2 text-center text-xs">
                   <div className="bg-brand-faint p-2.5 rounded-xl">
                     <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">{t('jobs.received')}</span>
                     <span className="font-extrabold text-emerald-600 dark:text-emerald-400 font-mono text-sm">{formatCurrency(j.received)}</span>
@@ -891,7 +904,7 @@ export default function JobsTab({
                 )}
 
                 {/* Mini Interaction row */}
-                <div className="flex items-center justify-between pt-1">
+                <div className="jobs-draft-actions flex items-center justify-between pt-1">
                   <div className="flex items-center gap-2">
                     {(() => {
                       const statusInfo = getStatusDisplay(j.status);

@@ -1189,3 +1189,132 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   size: A4;
   margin: 10mm;
 }
+
+/* Draft 10 — desktop jobs register. Mobile keeps the richer card treatment, while wider
+   screens become a calm, scan-friendly ledger without changing any job/payment behaviour. */
+.jobs-draft-table-head {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .jobs-draft-list {
+    overflow: hidden;
+    border: 1px solid var(--color-brand-border);
+    border-radius: 18px;
+    background: var(--color-brand-white);
+    box-shadow: 0 1px 2px rgb(58 35 20 / 0.04);
+  }
+
+  .jobs-draft-table-head {
+    display: grid;
+    grid-template-columns: minmax(230px, 1.8fr) minmax(118px, .8fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(170px, 1.1fr);
+    gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-brand-border);
+    background: var(--color-brand-faint);
+    color: var(--color-brand-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .02em;
+  }
+
+  .jobs-draft-list > .jobs-draft-row {
+    display: grid;
+    grid-template-columns: minmax(230px, 1.8fr) minmax(118px, .8fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(110px, .75fr) minmax(170px, 1.1fr);
+    align-items: center;
+    gap: 14px;
+    margin: 0 !important;
+    padding: 17px 20px;
+    border: 0;
+    border-bottom: 1px solid var(--color-brand-border);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .jobs-draft-list > .jobs-draft-row:last-child {
+    border-bottom: 0;
+  }
+
+  .jobs-draft-list > .jobs-draft-row:hover {
+    background: color-mix(in srgb, var(--color-brand-faint) 60%, transparent);
+    box-shadow: none;
+  }
+
+  .jobs-draft-row > .jobs-draft-primary,
+  .jobs-draft-row > .jobs-draft-date,
+  .jobs-draft-row > .jobs-draft-status,
+  .jobs-draft-row > .jobs-draft-actions {
+    margin: 0 !important;
+  }
+
+  .jobs-draft-primary {
+    display: block !important;
+    min-width: 0;
+  }
+
+  .jobs-draft-primary h4 {
+    font-size: 14px !important;
+  }
+
+  .jobs-draft-primary > .jobs-draft-amount {
+    position: absolute;
+    right: calc(170px + 34px);
+    width: 110px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .jobs-draft-primary > .jobs-draft-amount p {
+    font-size: 15px !important;
+  }
+
+  .jobs-draft-date {
+    grid-column: 2;
+    border: 0 !important;
+    padding: 0 !important;
+  }
+
+  .jobs-draft-date > span:not(:first-child) {
+    display: none;
+  }
+
+  .jobs-draft-status {
+    grid-column: 3 / span 2;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+  }
+
+  .jobs-draft-status span {
+    display: inline-flex;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .jobs-draft-actions {
+    grid-column: 6;
+    justify-content: flex-end !important;
+    gap: 5px;
+  }
+
+  .jobs-draft-actions > div:first-child {
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .jobs-draft-actions button {
+    white-space: nowrap;
+  }
+
+  .jobs-draft-actions > div:first-child button:nth-child(n+2) {
+    display: none;
+  }
+
+  .jobs-draft-breakdown,
+  .jobs-draft-row > div[class*="bg-amber-500/5"],
+  .jobs-draft-row > div[class*="bg-rose-50"],
+  .jobs-draft-row > div[class*="bg-amber-50/50"],
+  .jobs-draft-row > p[class*="italic"] {
+    display: none !important;
+  }
+}
