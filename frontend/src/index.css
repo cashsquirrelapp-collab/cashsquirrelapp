@@ -91,17 +91,17 @@
   --green-bg: #E8F8F0; /* Soft mint */
   --green-acc: #18A66A; /* Draft 10 real green for success/positive states */
   
-  --blue-bg: #FAECE8; /* Cozy soft orange/peach background */
-  --blue-acc: #E65F2B; /* Vibrant brand acorn orange */
+  --blue-bg: #FFF0E8;
+  --blue-acc: #F26A2B;
   
-  --pink-bg: #FAECE8; /* Soft terracotta cream background */
-  --pink-acc: #A63F1B; /* Deep rust/clay crimson warnings */
+  --pink-bg: #FFF0EF;
+  --pink-acc: #D85D57;
   
-  --yellow-bg: #FDF6EC; /* Soft warm amber background */
-  --yellow-acc: #C17817; /* Caramel orange secondary/warning */
+  --yellow-bg: #FFF7E8;
+  --yellow-acc: #D99B2B;
   
-  --purple-bg: #F5EFE6;
-  --purple-acc: #7A5C43;
+  --purple-bg: #F5F3FB;
+  --purple-acc: #75658D;
 
   /* Actual green/red for the income-vs-savings chart specifically -- --green-acc is a warm
      brown brand token everywhere else, not a real green, so it can't be reused for a chart
@@ -109,11 +109,11 @@
   --chart-income-met: #125442;
   --chart-savings-met: #C96B5A;
 
-  --radius-xl: 24px;
-  --radius-lg: 16px;
-  --radius-md: 12px;
-  --shadow-card: 0 8px 30px rgba(70, 49, 36, 0.055);
-  --shadow-card-hover: 0 12px 38px rgba(70, 49, 36, 0.09);
+  --radius-xl: 16px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --shadow-card: 0 1px 2px rgba(30, 27, 24, .035), 0 8px 24px rgba(30, 27, 24, .025);
+  --shadow-card-hover: 0 2px 5px rgba(30, 27, 24, .06), 0 14px 32px rgba(30, 27, 24, .05);
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -130,17 +130,17 @@
   --green-bg: #14251C;
   --green-acc: #4ADE80; /* Real green for success/positive states, dark mode */
   
-  --blue-bg: #2E2117; 
-  --blue-acc: #FFA473; /* Vibrant warm peach/orange */
+  --blue-bg: #34231B;
+  --blue-acc: #FF9A68;
   
-  --pink-bg: #351C15; 
-  --pink-acc: #FA7E52; /* Terracotta rose alert */
+  --pink-bg: #351D1B;
+  --pink-acc: #F18B84;
   
-  --yellow-bg: #352115; 
-  --yellow-acc: #F2B76B; /* Soft light golden caramel secondary/warning */
+  --yellow-bg: #342B18;
+  --yellow-acc: #EDBE63;
   
-  --purple-bg: #2E1E16;
-  --purple-acc: #D2C0B0;
+  --purple-bg: #29252F;
+  --purple-acc: #C6B8D8;
 
   --chart-income-met: #49CCA9;
   --chart-savings-met: #F4AE91;
@@ -148,7 +148,7 @@
 
 body {
   background-color: var(--bg);
-  background-image: radial-gradient(circle at 18% 0%, rgba(230, 192, 140, .14), transparent 30%), radial-gradient(circle at 100% 92%, rgba(196, 142, 93, .08), transparent 24%);
+  background-image: none;
   color: var(--text);
   font-family: var(--font-sans);
   overflow-x: hidden;
@@ -170,16 +170,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .app-shell {
-  background: radial-gradient(circle at 12% 0%, rgba(229, 170, 103, .12), transparent 25%), var(--bg);
+  background: var(--bg);
 }
 
 .app-sidebar {
-  background: color-mix(in srgb, var(--white) 96%, var(--bg));
+  background: var(--white);
 }
 
 .app-topbar {
-  background: color-mix(in srgb, var(--white) 94%, var(--bg));
-  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--white) 97%, transparent);
+  backdrop-filter: blur(18px);
 }
 
 /* Feature dialogs live inside the scrollable content area. Keep the global header visually and
@@ -199,8 +199,28 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .app-content-panel {
-  background-image: radial-gradient(circle at 92% 4%, rgba(230, 192, 140, .10), transparent 22%);
+  background-image: none;
 }
+
+/* UI Draft 10: a quiet, document-like workspace. Existing feature logic stays untouched while
+   cards, controls and page density share one professional visual language. */
+.page-content :is(.rounded-3xl, .rounded-\[2rem\], .rounded-\[2\.5rem\]) { border-radius: 1rem; }
+.page-content :is(.shadow-xl, .shadow-2xl) { box-shadow: var(--shadow-card-hover); }
+.page-content :is(.shadow-lg, .shadow-md, .shadow-sm) { box-shadow: var(--shadow-card); }
+.page-content :is(.bg-brand-white, .bg-brand-faint) {
+  border-color: color-mix(in srgb, var(--border) 88%, transparent);
+}
+.page-content input,
+.page-content select,
+.page-content textarea {
+  border-radius: .75rem;
+}
+.page-content button { border-radius: .75rem; }
+.page-content h1,
+.page-content h2,
+.page-content h3 { letter-spacing: -.025em; }
+.dark .page-content .bg-white { background-color: var(--white); }
+.dark .page-content .text-stone-900 { color: var(--text); }
 
 /* Skeleton screens preserve the app's real layout while session, workspace, or lazy feature data
    is arriving. The moving highlight is intentionally subtle so loading feels alive, not noisy. */
