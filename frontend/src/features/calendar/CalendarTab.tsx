@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { Job } from '../../../../shared/types';
 import { formatCurrency, dateLocale } from '../../utils';
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CalendarTabProps {
   jobs: Job[];
   onSwitchTab: (id: string) => void;
 }
 
-type EventKind = 'post' | 'paid' | 'overdue' | 'dueSoon' | 'upcoming';
+type EventKind = 'post' | 'creditTerm' | 'dueSoon' | 'paid' | 'overdue';
 
 interface DayEvent {
   jobId: string;
@@ -19,18 +19,21 @@ interface DayEvent {
   label: string;
 }
 
+// Colors match the Draft 10 mockup source (Calendar.dc.html) exactly, not the brand accent
+// palette -- this legend is its own fixed 5-color system independent of light/dark theme.
 const EVENT_STYLES: Record<EventKind, { dot: string; text: string; bg: string }> = {
-  post: { dot: 'bg-[#4A78C9]', text: 'text-[#4A78C9]', bg: 'bg-[#EAF1FB]' },
-  paid: { dot: 'bg-[#18A66A]', text: 'text-[#18A66A]', bg: 'bg-[#E8F8F0]' },
-  overdue: { dot: 'bg-[#A63F1B]', text: 'text-[#A63F1B]', bg: 'bg-[#FAECE8]' },
-  dueSoon: { dot: 'bg-[#C17817]', text: 'text-[#C17817]', bg: 'bg-[#FDF6EC]' },
-  upcoming: { dot: 'bg-[#8A6F5C]', text: 'text-[#8A6F5C]', bg: 'bg-brand-faint' },
+  post: { dot: '#378ADD', text: '#185FA5', bg: '#E6F1FB' },
+  creditTerm: { dot: '#F36A2D', text: '#C24A16', bg: '#FFF1E8' },
+  dueSoon: { dot: '#F2A93B', text: '#8A5A0B', bg: '#FAEEDA' },
+  paid: { dot: '#18A66A', text: '#12724A', bg: '#E9F8F1' },
+  overdue: { dot: '#E95454', text: '#C43A3A', bg: '#FFF0F0' },
 };
 
 const EVENT_LEGEND: { kind: EventKind; label: string }[] = [
   { kind: 'post', label: 'งาน/นัดหมาย' },
+  { kind: 'creditTerm', label: 'Credit Term' },
   { kind: 'dueSoon', label: 'ใกล้ครบกำหนด' },
-  { kind: 'paid', label: 'เงินเข้าแล้ว' },
+  { kind: 'paid', label: 'เงินเข้า' },
   { kind: 'overdue', label: 'เกินกำหนด' },
 ];
 
@@ -55,11 +58,12 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
     };
 
     const todayKey = toDateKey(new Date());
+    const dueSoonCutoff = toDateKey(new Date(Date.now() + 7 * 86400000));
     jobs.forEach(job => {
       if (job.postDate) {
         push(job.postDate, {
           jobId: job.id, jobName: job.name, client: job.client, amount: job.value,
-          kind: 'post', label: 'ส่งงาน/นัดหมาย',
+          kind: 'post', label: `ส่งงาน/นัดหมาย ${job.name}`,
         });
       }
       const dueDate = job.payDate || job.dueDate;
@@ -67,12 +71,16 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
         const key = dueDate.slice(0, 10);
         const isPaid = job.pending <= 0;
         const isOverdue = !isPaid && key < todayKey;
-        const isDueSoon = !isPaid && !isOverdue && key <= toDateKey(new Date(Date.now() + 7 * 86400000));
-        push(dueDate, {
-          jobId: job.id, jobName: job.name, client: job.client, amount: job.pending || job.value,
-          kind: isPaid ? 'paid' : isOverdue ? 'overdue' : isDueSoon ? 'dueSoon' : 'upcoming',
-          label: isPaid ? 'ครบกำหนด (จ่ายแล้ว)' : isOverdue ? 'เกินกำหนดชำระ' : 'ครบกำหนดชำระ',
-        });
+        const isDueSoon = !isPaid && !isOverdue && key <= dueSoonCutoff;
+        const kind: EventKind = isPaid ? 'paid' : isOverdue ? 'overdue' : isDueSoon ? 'dueSoon' : 'creditTerm';
+        const label = isPaid
+          ? `รับเงิน ${job.client || job.name} ${formatCurrency(job.pending || job.value)}`
+          : isOverdue
+          ? `เกินกำหนด ${job.name}`
+          : isDueSoon
+          ? `ใกล้ครบกำหนด ${job.name}`
+          : `ครบกำหนด ${job.name}`;
+        push(dueDate, { jobId: job.id, jobName: job.name, client: job.client, amount: job.pending || job.value, kind, label });
       }
     });
     return map;
@@ -101,61 +109,56 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
   const selectedEvents = eventsByDay.get(selectedKey) || [];
   const monthLabel = viewDate.toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
   const todayKey = toDateKey(new Date());
+  const selectedDateLabel = new Date(selectedKey).toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
     <div className="page-content space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-[19px] font-semibold text-brand-text">ปฏิทิน · {monthLabel}</h2>
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E65F2B]/10">
-            <CalendarDays className="h-4.5 w-4.5 text-[#E65F2B]" />
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              className="rounded-lg border border-brand-border p-1.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => { setViewDate(new Date()); setSelectedKey(todayKey); }}
+              className="rounded-lg border border-brand-border px-2.5 py-1.5 text-[11px] font-medium text-brand-muted hover:text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
+            >
+              วันนี้
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              className="rounded-lg border border-brand-border p-1.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
-          <div>
-            <h2 className="text-lg font-black text-brand-text">ปฏิทิน</h2>
-            <p className="text-xs text-brand-muted">งาน นัดหมาย และวันครบกำหนดชำระ รวมจากงานที่บันทึกไว้</p>
+          <div className="flex items-center gap-1.5">
+            <button type="button" className="rounded-lg bg-[#FFF1E8] px-3.5 py-1.5 text-xs font-medium text-[#C24A16] cursor-default">เดือน</button>
+            <button type="button" className="rounded-lg bg-brand-faint px-3.5 py-1.5 text-xs text-brand-muted cursor-not-allowed" title="เร็วๆ นี้">สัปดาห์</button>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-brand-border bg-brand-white px-4 py-3">
+      <div className="flex flex-wrap gap-3.5 text-[11px] text-brand-muted">
         {EVENT_LEGEND.map(({ kind, label }) => (
-          <span key={kind} className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-muted">
-            <span className={`h-2 w-2 rounded-full ${EVENT_STYLES[kind].dot}`} />
+          <span key={kind} className="inline-flex items-center gap-1">
+            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: EVENT_STYLES[kind].dot }} />
             {label}
           </span>
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
-        <div className="rounded-3xl border border-brand-border bg-brand-white p-4 shadow-sm sm:p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-black text-brand-text">{monthLabel}</h3>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                className="rounded-lg border border-brand-border p-1.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => { setViewDate(new Date()); setSelectedKey(todayKey); }}
-                className="rounded-lg border border-brand-border px-2.5 py-1.5 text-[10px] font-black text-brand-muted hover:text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
-              >
-                วันนี้
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                className="rounded-lg border border-brand-border p-1.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] font-black uppercase tracking-wide text-brand-muted">
-            {WEEKDAYS_TH.map(w => <div key={w} className="py-1.5">{w}</div>)}
+      <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
+        <div>
+          <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] text-brand-muted mb-1.5">
+            {WEEKDAYS_TH.map(w => <div key={w}>{w}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-1.5">
             {gridDays.map(({ date, inMonth }) => {
@@ -168,17 +171,26 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
                   key={key}
                   type="button"
                   onClick={() => setSelectedKey(key)}
-                  className={`flex min-h-[64px] flex-col items-start gap-1 rounded-xl border p-1.5 text-left transition-colors cursor-pointer ${
-                    isSelected ? 'border-[#E65F2B] bg-[#FAECE8]' : 'border-brand-border/60 hover:bg-brand-faint'
+                  className={`flex min-h-[78px] flex-col items-start gap-0.5 rounded-[10px] border bg-brand-white p-1.5 text-left transition-colors cursor-pointer ${
+                    isSelected ? 'border-[#F36A2D]' : 'border-brand-border hover:bg-brand-faint'
                   } ${!inMonth ? 'opacity-35' : ''}`}
                 >
-                  <span className={`text-[11px] font-bold ${isToday ? 'flex h-5 w-5 items-center justify-center rounded-full bg-[#E65F2B] text-white' : isSelected ? 'text-[#2B1B0F]' : 'text-brand-text'}`}>
+                  <span className={`text-[11px] font-medium ${isToday ? 'flex h-5 w-5 items-center justify-center rounded-full bg-[#E65F2B] text-white' : 'text-brand-text'}`}>
                     {date.getDate()}
                   </span>
-                  <div className="flex flex-wrap gap-0.5">
-                    {events.slice(0, 3).map((e, i) => (
-                      <span key={i} className={`h-1.5 w-1.5 rounded-full ${EVENT_STYLES[e.kind].dot}`} />
+                  <div className="flex w-full flex-col gap-0.5">
+                    {events.slice(0, 2).map((e, i) => (
+                      <span
+                        key={i}
+                        className="block w-full truncate rounded px-1 py-0.5 text-[9px]"
+                        style={{ background: EVENT_STYLES[e.kind].bg, color: EVENT_STYLES[e.kind].text }}
+                      >
+                        {e.label}
+                      </span>
                     ))}
+                    {events.length > 2 && (
+                      <span className="text-[9px] text-brand-muted">+{events.length - 2}</span>
+                    )}
                   </div>
                 </button>
               );
@@ -186,30 +198,22 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-brand-border bg-brand-white p-4 shadow-sm sm:p-5">
-          <h4 className="mb-3 text-xs font-black text-brand-muted uppercase tracking-wide">
-            รายการวัน{new Date(selectedKey).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' })}
-          </h4>
+        <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+          <h4 className="mb-3 text-[13px] font-medium text-brand-text">รายการ{selectedDateLabel}</h4>
           {selectedEvents.length === 0 ? (
             <p className="py-6 text-center text-xs text-brand-muted">ไม่มีรายการในวันนี้</p>
           ) : (
-            <div className="space-y-2.5">
-              {selectedEvents.map((e, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => onSwitchTab('jobs')}
-                  className={`w-full rounded-xl px-3 py-2.5 text-left transition-colors cursor-pointer ${EVENT_STYLES[e.kind].bg}`}
-                >
-                  <p className={`text-[10px] font-black ${EVENT_STYLES[e.kind].text}`}>{e.label}</p>
-                  <p className="mt-0.5 text-xs font-bold text-[#2B1B0F] truncate">{e.jobName}</p>
-                  <div className="mt-1 flex items-center justify-between">
-                    <span className="text-[11px] text-[#8A6F5C] truncate">{e.client || 'ไม่ระบุลูกค้า'}</span>
-                    <span className="text-xs font-mono font-black text-[#2B1B0F] shrink-0">{formatCurrency(e.amount)}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+            selectedEvents.map((e, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onSwitchTab('jobs')}
+                className="flex w-full items-start gap-2 border-t border-brand-border py-2 text-left first:border-t-0 cursor-pointer"
+              >
+                <span className="mt-[5px] inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: EVENT_STYLES[e.kind].dot }} />
+                <span className="text-xs text-brand-text">{e.label}</span>
+              </button>
+            ))
           )}
         </div>
       </div>
