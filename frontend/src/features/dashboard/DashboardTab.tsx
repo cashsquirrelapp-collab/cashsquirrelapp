@@ -1,10 +1,10 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
-import { formatAxisBaht, formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../../utils';
+import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../../utils';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { IncomeExpenseChart } from './IncomeExpenseChart';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconArrowUpRight, IconBolt, IconCoin } from '../../components/ui/icons';
 import { VineDivider } from '../../components/mascot/VineDivider';
@@ -663,42 +663,6 @@ export default function DashboardTab({
     }
   };
 
-  const last12MonthsData = React.useMemo(() => {
-    const monthsList: string[] = [];
-    const cursor = new Date();
-    cursor.setDate(1);
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(cursor.getFullYear(), cursor.getMonth() - i, 1);
-      monthsList.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-    }
-
-    const totals = new Map(monthsList.map(monthKey => [monthKey, { received: 0, variableExpense: 0, expenseNames: [] as string[] }]));
-
-    jobs.forEach(j => {
-      getJobPaymentEntries(j).forEach((entry) => {
-        const month = totals.get(getMonthKeyFromDate(entry.date));
-        if (month) month.received += entry.amount;
-      });
-    });
-    expenses.forEach(e => {
-      const month = totals.get(getMonthKey(e.date));
-      if (month) {
-        month.variableExpense += e.amount;
-        month.expenseNames.push(e.name);
-      }
-    });
-
-    return monthsList.map(monthKey => {
-      const month = totals.get(monthKey)!;
-      const profit = month.received - fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, month.expenseNames) - month.variableExpense;
-      return {
-        monthKey,
-        monthLabel: formatMonthKey(monthKey).split(' ')[0],
-        received: month.received,
-        profit,
-      };
-    });
-  }, [jobs, expenses, settings.monthlyExpense, settings.fixedExpenseItems]);
 
   const upcomingPayments = React.useMemo(() => jobs
     .filter(j => j.pending > 0 && j.isPosted !== false)
@@ -921,57 +885,14 @@ export default function DashboardTab({
         )}
       </motion.section>
 
-      {/* Cash flow trend + receivables watchlist -- replaces the old 4-month risk-radar
-          forecast with the real Draft 10 layout: a 12-month received/profit chart next to
-          the watchlist, matching upcomingPayments already computed above. */}
+      {/* Income/expense chart next to the receivables watchlist. */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, delay: 0.12 }}
         className="order-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]"
       >
-        <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
-          <div className="mb-3.5 flex items-center justify-between">
-            <h4 className="text-[13px] font-medium text-brand-text">กระแสเงินสด 12 เดือน</h4>
-            <div className="flex items-center gap-3.5 text-[10px] text-brand-muted">
-              <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-[#D8D4CE]" />รับเงินจริง</span>
-              <span className="inline-flex items-center gap-1"><span className="inline-block h-0.5 w-2.5 bg-[#E65F2B] align-middle" />กำไรสุทธิ</span>
-            </div>
-          </div>
-          <div className="h-64 w-full text-xs font-bold">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={last12MonthsData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#dfd9cd" opacity={0.3} vertical={false} />
-                <XAxis dataKey="monthLabel" stroke="#8A6F5C" fontSize={10} tickLine={false} axisLine={false} dy={8} />
-                <YAxis stroke="#8A6F5C" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => formatAxisBaht(Number(v))} />
-                <Tooltip
-                  cursor={{ fill: 'rgba(230, 95, 43, 0.05)' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const d = payload[0].payload as { monthLabel: string; received: number; profit: number };
-                      return (
-                        <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/60 p-3.5 rounded-2xl shadow-lg space-y-1.5 min-w-[160px]">
-                          <p className="text-xs font-black text-brand-text dark:text-white mb-1 border-b border-brand-border/40 pb-1">{d.monthLabel}</p>
-                          <div className="flex justify-between gap-4 text-[11px]">
-                            <span className="text-brand-muted font-bold">รับเงินจริง:</span>
-                            <span className="font-extrabold text-[#8A6F5C] font-mono">{formatCurrency(d.received)}</span>
-                          </div>
-                          <div className="flex justify-between gap-4 text-[11px]">
-                            <span className="text-brand-muted font-bold">กำไรสุทธิ:</span>
-                            <span className="font-extrabold text-[#E65F2B] dark:text-[#FFA473] font-mono">{formatCurrency(d.profit)}</span>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar dataKey="received" fill="#E8DDD1" radius={[6, 6, 0, 0]} maxBarSize={28} />
-                <Line type="monotone" dataKey="profit" stroke="#E65F2B" strokeWidth={2.5} dot={{ r: 3, fill: '#E65F2B' }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <IncomeExpenseChart jobs={jobs} expenses={expenses} settings={settings} />
 
         {upcomingPayments.length > 0 && (
           <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
