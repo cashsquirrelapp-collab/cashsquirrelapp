@@ -74,7 +74,6 @@ export default function DashboardTab({
   const [isQuickPayExpanded, setIsQuickPayExpanded] = React.useState(false);
   const [isSendingSimulated, setIsSendingSimulated] = React.useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
-  const greetingName = userEmail?.split('@')[0] || 'คุณ';
 
   // Credit Term Report for the 3-box dashboard
   const creditTermReport = React.useMemo(() => {
@@ -755,20 +754,6 @@ export default function DashboardTab({
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
       <div className="order-1 flex flex-col gap-5">
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFF7F1]">
-          <Mascot mood={totalReceived > 0 ? 'celebrate' : 'happy'} size={38} />
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-[22px] font-semibold leading-tight tracking-tight text-brand-text">
-            สวัสดีครับ {greetingName}
-          </h2>
-          <p className="mt-1 text-sm text-brand-muted">
-            ตอนนี้มี {upcomingPayments.length} รายการที่ต้องติดตาม และมีเงินรอรับ {formatCurrency(totalPending)}
-          </p>
-        </div>
-      </div>
-
       <MonthlyWorkValueBanner jobs={jobs} monthKey={selectedMonthKey} onOpenDetails={() => setBreakdownFilter('workValue')} />
 
       <div>
