@@ -7,7 +7,7 @@ import { X } from 'lucide-react';
 import { IncomeExpenseChart } from './IncomeExpenseChart';
 import { MonthlyWorkValueBanner } from './MonthlyWorkValueBanner';
 import { Mascot } from '../../components/mascot/Mascot';
-import { IconArrowUpRight, IconBolt, IconCoin } from '../../components/ui/icons';
+import { IconArrowUpRight } from '../../components/ui/icons';
 import { VineDivider } from '../../components/mascot/VineDivider';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate, getOutstandingAmount } from '../../../../shared/installmentPayments';
@@ -17,7 +17,6 @@ import {
   TrendingDown,
   Coins,
   Clock, 
-  CheckCircle,
   ChevronRight, 
   Search,
   Check,
@@ -1006,189 +1005,162 @@ export default function DashboardTab({
 
       {/* Quick payment stays out of the overview until the shortcut is used. */}
       {isQuickPayExpanded && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs" onClick={() => setIsQuickPayExpanded(false)}>
-          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl border border-brand-border bg-brand-white p-5 shadow-xl sm:p-6" onClick={event => event.stopPropagation()}>
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h4 className="text-lg font-extrabold font-display text-brand-text flex items-center gap-1.5">{t('dash.quickPayTitle')} <Coins className="w-4 h-4" /></h4>
-                <p className="text-xs text-brand-muted">{t('dash.quickPaySubtitle')}</p>
-              </div>
-              <button type="button" onClick={() => setIsQuickPayExpanded(false)} aria-label="ปิดหน้าต่างรับเงินด่วน" className="rounded-xl bg-brand-faint p-2 text-brand-muted hover:text-brand-text"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="space-y-4">
-
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
-          <input
-            type="text"
-            value={quickSearch}
-            onChange={(e) => setQuickSearch(e.target.value)}
-            className="w-full bg-brand-white border border-brand-border/60 hover:border-brand-border focus:border-[#E65F2B] rounded-2xl py-3 pl-10 pr-4 text-xs font-semibold text-brand-text placeholder-brand-muted/70 outline-none transition-all"
-            placeholder={t('dash.searchPlaceholder')}
-          />
-          {quickSearch && (
-            <button
-              onClick={() => setQuickSearch('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-muted hover:text-brand-text"
-            >
-              {t('dash.clear')}
-            </button>
-          )}
-        </div>
-
-        {/* Alert bar with Mascot inside */}
-        {creditTermReport.overdue.length > 0 && (
-          <div 
-            onClick={() => {
-              playHapticAndSound();
-              if (onSwitchTab) {
-                onSwitchTab('report');
-              }
-            }}
-            className="bg-brand-white border border-l-4 border-brand-border border-l-[#A63F1B] rounded-2xl p-3 flex items-center gap-3 cursor-pointer hover:bg-brand-faint/60 transition-all group"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(33,29,26,0.35)] p-4" onClick={() => setIsQuickPayExpanded(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-pay-title"
+            className="flex w-full max-w-md max-h-[85vh] flex-col rounded-2xl border border-brand-border bg-brand-white p-[22px] shadow-[0_12px_32px_rgba(33,29,26,0.18)] dark:bg-stone-900"
+            onClick={event => event.stopPropagation()}
           >
-            <div className="w-10 h-10 bg-brand-faint border border-brand-border/40 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
-              <Mascot mood="alert" size={32} className="animate-wiggle" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-brand-text group-hover:underline">
-                {t('dash.overdueAlert')} <IconArrowUpRight className="w-3 h-3 inline-block align-middle" />
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Card list */}
-        <div className="space-y-2.5">
-          {filteredUnpaidJobs.slice(0, visibleCount).map((j: any) => {
-            const isOverdue = j.isOverdue;
-
-            return (
-              <motion.div
-                key={j.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-brand-white hover:border-brand-border/75 border border-brand-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {/* Coin icon circle */}
-                  <div className="w-10 h-10 rounded-full bg-brand-faint flex items-center justify-center text-brand-muted border border-brand-border/30 shrink-0">
-                    <Coins className="w-5 h-5" />
-                  </div>
-                  
-                  {/* Info */}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-extrabold text-xs text-brand-text truncate block max-w-[200px] sm:max-w-xs">
-                        {j.name}
-                      </span>
-                      {isOverdue && (
-                        <span className="text-[9px] font-extrabold text-pink-acc bg-pink-bg px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shrink-0">
-                          {t('dash.overdueTag')}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[11px] text-brand-muted font-semibold truncate block mt-0.5">
-                      {j.client || t('dash.noClientSpecified')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right actions and money */}
-                <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pt-3 sm:pt-0 border-t sm:border-0 border-brand-border/20">
-                  <div className="text-left sm:text-right">
-                    <span className="font-mono font-black text-sm text-[#E65F2B] block">
-                      {formatCurrency(j.pending)}
-                    </span>
-                    <span className={`text-[10px] font-bold block mt-0.5 ${isOverdue ? 'text-pink-acc' : 'text-brand-muted'}`}>
-                      {j.daysText || t('dash.noDateSpecified')}
-                    </span>
-                  </div>
-
-                  {j.installments?.length ? (
-                    <button
-                      onClick={() => onViewJob?.(j.id)}
-                      className="py-1.5 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-extrabold rounded-xl transition-all cursor-pointer"
-                    >
-                      ดูและรับเงินแต่ละงวด
-                    </button>
-                  ) : <button
-                    onClick={() => {
-                      const today = new Date();
-                      const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-                      triggerConfirm(
-                        t('dash.confirmFullPaymentTitle'),
-                        t('dash.confirmFullPaymentBody', { amount: formatCurrency(j.pending), name: j.name }),
-                        () => {
-                          if (onEditJob) {
-                            onEditJob(j.id, {
-                              status: 'done',
-                              received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
-                              pending: 0,
-                              paymentStatus: 'paid',
-                              payDate: localDateStr,
-                              // This quick-list includes WIP/stock jobs too (unpaidJobs isn't
-                              // filtered by isPosted) -- without this, marking one paid from here
-                              // left it stuck flagged as "not yet delivered" even though it's now
-                              // fully paid, unlike the equivalent button in JobsTab.
-                              isPosted: true
-                            });
-                          }
-                        }
-                      );
-                    }}
-                    className="py-1.5 px-3.5 bg-brand-text hover:bg-brand-muted text-brand-white text-[10px] font-extrabold rounded-xl transition-all flex items-center gap-1 cursor-pointer"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>{t('dash.fullyPaidButton')}</span>
-                  </button>}
-                </div>
-              </motion.div>
-            );
-          })}
-
-          {filteredUnpaidJobs.length === 0 && (
-            <div className="text-center py-10 bg-brand-white/40 border border-dashed border-brand-border rounded-2xl text-xs text-brand-muted font-medium flex flex-col items-center gap-1.5">
-              <IconCoin className="w-5 h-5" />
-              <span>{t('dash.noUnpaidDeals')}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Load more / Actions bottom bar */}
-        {filteredUnpaidJobs.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
-            {filteredUnpaidJobs.length > visibleCount ? (
-              <button
-                onClick={() => setVisibleCount(prev => prev + 3)}
-                className="w-full sm:w-auto py-2.5 px-6 bg-brand-faint hover:bg-brand-border/30 text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-brand-border/40 text-center flex-1"
-              >
-                {t('dash.showMore', { count: filteredUnpaidJobs.length - visibleCount, remaining: unpaidJobs.length - visibleCount })}
+            <div className="mb-3.5 flex items-start justify-between gap-3">
+              <div>
+                <h4 id="quick-pay-title" className="text-[15px] font-semibold text-brand-text">{t('dash.quickPayTitle')}</h4>
+                <p className="mt-0.5 text-xs text-brand-muted">{t('dash.quickPaySubtitle')}</p>
+              </div>
+              <button type="button" onClick={() => setIsQuickPayExpanded(false)} aria-label="ปิดหน้าต่างรับเงินด่วน" className="rounded-md p-1 text-brand-muted hover:text-brand-text cursor-pointer">
+                <X className="h-4 w-4" />
               </button>
-            ) : visibleCount > 3 ? (
+            </div>
+
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+              <input
+                type="text"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                className="w-full rounded-[10px] border border-brand-border bg-brand-white py-2.5 pl-9 pr-14 text-[13px] text-brand-text placeholder:text-brand-muted outline-none transition-colors focus:border-[#E65F2B] dark:bg-neutral-950"
+                placeholder={t('dash.searchPlaceholder')}
+              />
+              {quickSearch && (
+                <button
+                  type="button"
+                  onClick={() => setQuickSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-brand-muted hover:text-brand-text cursor-pointer"
+                >
+                  {t('dash.clear')}
+                </button>
+              )}
+            </div>
+
+            {creditTermReport.overdue.length > 0 && (
               <button
-                onClick={() => setVisibleCount(3)}
-                className="w-full sm:w-auto py-2.5 px-6 bg-brand-faint hover:bg-brand-border/30 text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-brand-border/40 text-center flex-1"
+                type="button"
+                onClick={() => {
+                  playHapticAndSound();
+                  setIsQuickPayExpanded(false);
+                  onSwitchTab('receivables');
+                }}
+                className="mb-3 flex w-full items-center gap-2.5 rounded-[10px] bg-[#FFF0F0] px-3 py-2 text-left text-xs text-[#C43A3A] transition-colors hover:bg-[#FFE6E6] dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60 cursor-pointer"
               >
-                {t('dash.collapseList')}
+                <Mascot mood="alert" size={24} />
+                <span className="flex-1">{t('dash.overdueAlert')}</span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
               </button>
-            ) : (
-              <div className="flex-1" />
             )}
 
-            <button
-              onClick={() => onSwitchTab('jobs')}
-              className="w-full sm:w-auto py-2.5 px-5 bg-brand-white hover:bg-brand-faint border border-brand-border text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-1"
-            >
-              <span>{t('dash.manageAllDeals')}</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+            <p className="mb-2 text-xs text-brand-muted">รับเงินจากงานไหน?</p>
+            <div className="-mx-1 flex-1 space-y-2 overflow-y-auto px-1">
+              {filteredUnpaidJobs.slice(0, visibleCount).map((j: any) => {
+                const isOverdue = j.isOverdue;
+                return (
+                  <div key={j.id} className="flex flex-col gap-2 rounded-[10px] border border-brand-border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-[13px] font-medium text-brand-text">{j.name}</p>
+                        {isOverdue && (
+                          <span className="shrink-0 rounded-md bg-[#FFF0F0] px-1.5 py-px text-[10px] text-[#C43A3A] dark:bg-rose-950/40 dark:text-rose-300">{t('dash.overdueTag')}</span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate text-[11px] text-brand-muted">
+                        {j.client || t('dash.noClientSpecified')}
+                        <span className={isOverdue ? 'text-[#C43A3A] dark:text-rose-300' : ''}> · {j.daysText || t('dash.noDateSpecified')}</span>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center justify-between gap-2.5 sm:justify-end">
+                      <span className="font-mono text-[13px] font-semibold text-brand-text">{formatCurrency(j.pending)}</span>
+                      {j.installments?.length ? (
+                        <button
+                          type="button"
+                          onClick={() => onViewJob?.(j.id)}
+                          className="rounded-lg border border-[#E65F2B] px-2.5 py-1.5 text-[11px] font-medium text-[#E65F2B] transition-colors hover:bg-[#FFF1E8] cursor-pointer"
+                        >
+                          รับเงินรายงวด
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = new Date();
+                            const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                            triggerConfirm(
+                              t('dash.confirmFullPaymentTitle'),
+                              t('dash.confirmFullPaymentBody', { amount: formatCurrency(j.pending), name: j.name }),
+                              () => {
+                                if (onEditJob) {
+                                  onEditJob(j.id, {
+                                    status: 'done',
+                                    received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
+                                    pending: 0,
+                                    paymentStatus: 'paid',
+                                    payDate: localDateStr,
+                                    // The quick list includes undelivered WIP jobs too; paying one
+                                    // must also mark it delivered, like the same action in JobsTab.
+                                    isPosted: true
+                                  });
+                                }
+                              }
+                            );
+                          }}
+                          className="rounded-lg bg-[#E65F2B] px-2.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-[#D85723] cursor-pointer"
+                        >
+                          {t('dash.fullyPaidButton')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {filteredUnpaidJobs.length === 0 && (
+                <div className="flex flex-col items-center gap-1.5 rounded-[10px] border border-dashed border-brand-border py-8 text-xs text-brand-muted">
+                  <Mascot mood="happy" size={36} />
+                  <span>{t('dash.noUnpaidDeals')}</span>
+                </div>
+              )}
             </div>
+
+            {filteredUnpaidJobs.length > 0 && (
+              <div className="mt-3.5 flex flex-col items-stretch gap-2 sm:flex-row">
+                {filteredUnpaidJobs.length > visibleCount ? (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(prev => prev + 3)}
+                    className="flex-1 rounded-[10px] bg-brand-faint px-4 py-2.5 text-xs font-medium text-brand-text transition-colors hover:bg-brand-border/40 cursor-pointer"
+                  >
+                    {t('dash.showMore', { count: filteredUnpaidJobs.length - visibleCount, remaining: unpaidJobs.length - visibleCount })}
+                  </button>
+                ) : visibleCount > 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(3)}
+                    className="flex-1 rounded-[10px] bg-brand-faint px-4 py-2.5 text-xs font-medium text-brand-text transition-colors hover:bg-brand-border/40 cursor-pointer"
+                  >
+                    {t('dash.collapseList')}
+                  </button>
+                ) : (
+                  <div className="hidden flex-1 sm:block" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => onSwitchTab('jobs')}
+                  className="flex items-center justify-center gap-1 rounded-[10px] border border-brand-border px-4 py-2.5 text-xs font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
+                >
+                  {t('dash.manageAllDeals')}
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>,
         document.body
