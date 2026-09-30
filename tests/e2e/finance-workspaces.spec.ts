@@ -226,7 +226,7 @@ test("members edit a shared workspace and switching saves to the old scope witho
     "บัญชีการเงินของกลุ่ม",
   );
   await settings(page);
-  await expect(page.getByRole("heading", { name: "สัดส่วน & เป้าหมายการเงินคงที่" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "การเงิน" })).toBeVisible();
   await page.locator("#main-content input").first().fill("Group office");
   // Fixed expense item editor: add a real finance change then switch before debounce.
   await page.locator("#main-content input").nth(1).fill("700");
@@ -301,7 +301,7 @@ test("failed saves block switching and keep the selected workspace and unsaved d
   const state = await setup(page);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await settings(page);
-  await expect(page.getByRole("heading", { name: "สัดส่วน & เป้าหมายการเงินคงที่" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "การเงิน" })).toBeVisible();
   await page.locator("#main-content input").first().fill("Unsaved office");
   await page.locator("#main-content input").nth(1).fill("999");
   await page
