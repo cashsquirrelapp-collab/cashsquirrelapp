@@ -9,6 +9,7 @@ interface CalendarTabProps {
 }
 
 type EventKind = 'post' | 'creditTerm' | 'dueSoon' | 'paid' | 'overdue';
+type CalendarView = 'month' | 'week';
 
 interface DayEvent {
   jobId: string;
@@ -43,9 +44,23 @@ function toDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function fromDateKey(key: string): Date {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function startOfWeek(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay());
+}
+
+function addDays(date: Date, amount: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
+}
+
 export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
   const [viewDate, setViewDate] = useState(() => new Date());
   const [selectedKey, setSelectedKey] = useState<string>(() => toDateKey(new Date()));
+  const [calendarView, setCalendarView] = useState<CalendarView>('month');
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, DayEvent[]>();
@@ -87,6 +102,14 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
   }, [jobs]);
 
   const gridDays = useMemo(() => {
+    if (calendarView === 'week') {
+      const firstDay = startOfWeek(viewDate);
+      return Array.from({ length: 7 }, (_, index) => ({
+        date: addDays(firstDay, index),
+        inMonth: true,
+      }));
+    }
+
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     const firstOfMonth = new Date(year, month, 1);
@@ -104,22 +127,46 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
       cells.push({ date: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1), inMonth: false });
     }
     return cells;
-  }, [viewDate]);
+  }, [calendarView, viewDate]);
 
   const selectedEvents = eventsByDay.get(selectedKey) || [];
   const monthLabel = viewDate.toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
   const todayKey = toDateKey(new Date());
-  const selectedDateLabel = new Date(selectedKey).toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+  const selectedDateLabel = fromDateKey(selectedKey).toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+  const weekStart = startOfWeek(viewDate);
+  const weekEnd = addDays(weekStart, 6);
+  const weekLabel = `${weekStart.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' })} – ${weekEnd.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const headingLabel = calendarView === 'month' ? monthLabel : weekLabel;
+
+  const movePeriod = (direction: -1 | 1) => {
+    if (calendarView === 'week') {
+      const nextDate = addDays(viewDate, direction * 7);
+      setViewDate(nextDate);
+      setSelectedKey(toDateKey(nextDate));
+      return;
+    }
+
+    const nextDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + direction, 1);
+    setViewDate(nextDate);
+    setSelectedKey(toDateKey(nextDate));
+  };
+
+  const changeView = (nextView: CalendarView) => {
+    const selectedDate = fromDateKey(selectedKey);
+    setCalendarView(nextView);
+    setViewDate(selectedDate);
+  };
 
   return (
     <div className="page-content space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 lg:pr-14">
-        <h2 className="text-[19px] font-semibold text-brand-text">ปฏิทิน · {monthLabel}</h2>
+        <h2 className="text-[19px] font-semibold text-brand-text">ปฏิทิน · {headingLabel}</h2>
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              onClick={() => movePeriod(-1)}
+              aria-label={calendarView === 'month' ? 'เดือนก่อนหน้า' : 'สัปดาห์ก่อนหน้า'}
               className="rounded-lg border border-brand-border p-1.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -133,15 +180,26 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
             </button>
             <button
               type="button"
-              onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              onClick={() => movePeriod(1)}
+              aria-label={calendarView === 'month' ? 'เดือนถัดไป' : 'สัปดาห์ถัดไป'}
               className="rounded-lg border border-brand-border p-1.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
           <div className="flex items-center gap-1.5">
-            <button type="button" className="rounded-lg bg-[#FFF1E8] px-3.5 py-1.5 text-xs font-medium text-[#C24A16] cursor-default">เดือน</button>
-            <button type="button" className="rounded-lg bg-brand-faint px-3.5 py-1.5 text-xs text-brand-muted cursor-not-allowed" title="เร็วๆ นี้">สัปดาห์</button>
+            <button
+              type="button"
+              onClick={() => changeView('month')}
+              aria-pressed={calendarView === 'month'}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${calendarView === 'month' ? 'bg-[#FFF1E8] text-[#C24A16]' : 'bg-brand-faint text-brand-muted hover:text-brand-text'}`}
+            >เดือน</button>
+            <button
+              type="button"
+              onClick={() => changeView('week')}
+              aria-pressed={calendarView === 'week'}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${calendarView === 'week' ? 'bg-[#FFF1E8] text-[#C24A16]' : 'bg-brand-faint text-brand-muted hover:text-brand-text'}`}
+            >สัปดาห์</button>
           </div>
         </div>
       </div>
@@ -156,22 +214,25 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
-        <div>
-          <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] text-brand-muted mb-1.5">
-            {WEEKDAYS_TH.map(w => <div key={w}>{w}</div>)}
-          </div>
-          <div className="grid grid-cols-7 gap-1.5">
+        <div className="overflow-x-auto pb-1">
+          <div className={calendarView === 'week' ? 'min-w-[680px]' : ''} data-calendar-view={calendarView}>
+            <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] text-brand-muted mb-1.5">
+              {WEEKDAYS_TH.map(w => <div key={w}>{w}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-1.5">
             {gridDays.map(({ date, inMonth }) => {
               const key = toDateKey(date);
               const events = eventsByDay.get(key) || [];
               const isSelected = key === selectedKey;
               const isToday = key === todayKey;
+              const visibleEventLimit = calendarView === 'week' ? 6 : 2;
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setSelectedKey(key)}
-                  className={`flex min-h-[78px] flex-col items-start gap-0.5 rounded-[10px] border bg-brand-white p-1.5 text-left transition-colors cursor-pointer ${
+                  aria-label={date.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  className={`flex flex-col items-start gap-0.5 rounded-[10px] border bg-brand-white p-1.5 text-left transition-colors cursor-pointer ${calendarView === 'week' ? 'min-h-[240px]' : 'min-h-[78px]'} ${
                     isSelected ? 'border-[#F36A2D]' : 'border-brand-border hover:bg-brand-faint'
                   } ${!inMonth ? 'opacity-35' : ''}`}
                 >
@@ -179,7 +240,7 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
                     {date.getDate()}
                   </span>
                   <div className="flex w-full flex-col gap-0.5">
-                    {events.slice(0, 2).map((e, i) => (
+                    {events.slice(0, visibleEventLimit).map((e, i) => (
                       <span
                         key={i}
                         className="block w-full truncate rounded px-1 py-0.5 text-[9px]"
@@ -188,13 +249,14 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
                         {e.label}
                       </span>
                     ))}
-                    {events.length > 2 && (
-                      <span className="text-[9px] text-brand-muted">+{events.length - 2}</span>
+                    {events.length > visibleEventLimit && (
+                      <span className="text-[9px] text-brand-muted">+{events.length - visibleEventLimit}</span>
                     )}
                   </div>
                 </button>
               );
             })}
+            </div>
           </div>
         </div>
 
