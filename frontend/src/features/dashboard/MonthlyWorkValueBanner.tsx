@@ -13,7 +13,7 @@ const shiftMonth = (monthKey: string, delta: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
-export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthKey: string }) {
+export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs: Job[]; monthKey: string; onOpenDetails: () => void }) {
   const [tooltipOpen, setTooltipOpen] = React.useState(false);
   const tooltipId = React.useId();
 
@@ -42,7 +42,8 @@ export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthK
   return (
     <section
       aria-labelledby="work-value-label"
-      className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-brand-white p-[18px] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6"
+      onClick={onOpenDetails}
+      className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-brand-border bg-brand-white p-[18px] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6"
     >
       <div className="flex items-center gap-4">
         <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#FFF1E8] sm:flex" aria-hidden="true">
@@ -56,7 +57,7 @@ export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthK
               aria-label="มูลค่างานเดือนนี้คืออะไร"
               aria-describedby={tooltipOpen ? tooltipId : undefined}
               aria-expanded={tooltipOpen}
-              onClick={() => setTooltipOpen(true)}
+              onClick={(e) => { e.stopPropagation(); setTooltipOpen(true); }}
               onMouseEnter={() => setTooltipOpen(true)}
               onMouseLeave={() => setTooltipOpen(false)}
               onFocus={() => setTooltipOpen(true)}
@@ -70,6 +71,7 @@ export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthK
               <div
                 id={tooltipId}
                 role="tooltip"
+                onClick={(e) => e.stopPropagation()}
                 className="absolute bottom-full left-0 z-20 mb-1.5 w-72 rounded-lg border border-brand-border bg-brand-white px-3 py-2.5 text-xs leading-5 text-brand-text shadow-md"
               >
                 <p>{TOOLTIP_TEXT}</p>
@@ -99,7 +101,14 @@ export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthK
               </div>
             )}
           </div>
-          <p className="mt-0.5 font-mono text-[30px] font-semibold leading-9 text-brand-text">{formatCurrency(current.value)}</p>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpenDetails(); }}
+            aria-label={`ดูรายละเอียดมูลค่างานเดือนนี้ ${formatCurrency(current.value)}`}
+            className="mt-0.5 block rounded-md text-left font-mono text-[30px] font-semibold leading-9 text-brand-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E65F2B] cursor-pointer"
+          >
+            {formatCurrency(current.value)}
+          </button>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1">
             <p className="text-sm text-brand-muted">
               {current.count > 0 ? `${current.count} งาน` : 'ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดในเดือนนี้'}

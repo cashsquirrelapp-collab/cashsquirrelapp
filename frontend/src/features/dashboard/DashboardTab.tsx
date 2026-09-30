@@ -11,7 +11,7 @@ import { IconArrowUpRight, IconBolt, IconCoin } from '../../components/ui/icons'
 import { VineDivider } from '../../components/mascot/VineDivider';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate, getOutstandingAmount } from '../../../../shared/installmentPayments';
-import { fixedExpenseForMonth } from '../../../../shared/monthlySummary';
+import { fixedExpenseForMonth, workValueRowsForMonth } from '../../../../shared/monthlySummary';
 import {
   TrendingUp,
   TrendingDown,
@@ -69,7 +69,7 @@ export default function DashboardTab({
   const { t } = useLanguage();
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
   // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.
-  const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | 'profit' | null>(null);
+  const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | 'profit' | 'expense' | 'workValue' | null>(null);
   const [quickSearch, setQuickSearch] = React.useState('');
   const [visibleCount, setVisibleCount] = React.useState(3);
   const [isQuickPayExpanded, setIsQuickPayExpanded] = React.useState(false);
@@ -770,7 +770,7 @@ export default function DashboardTab({
         </div>
       </div>
 
-      <MonthlyWorkValueBanner jobs={jobs} monthKey={selectedMonthKey} />
+      <MonthlyWorkValueBanner jobs={jobs} monthKey={selectedMonthKey} onOpenDetails={() => setBreakdownFilter('workValue')} />
 
       <div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -790,10 +790,14 @@ export default function DashboardTab({
           <p className="text-xs text-brand-muted">รอรับเงิน</p>
           <p className="mt-1 text-xl leading-7 font-semibold font-mono text-[#E65F2B]">{formatCurrency(totalPending)}</p>
         </button>
-        <div className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+        <button
+          type="button"
+          onClick={() => setBreakdownFilter('expense')}
+          className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
+        >
           <p className="text-xs text-brand-muted">รายจ่ายเดือนนี้</p>
           <p className="mt-1 text-xl leading-7 font-semibold font-mono text-brand-text">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
-        </div>
+        </button>
         <button
           type="button"
           onClick={() => setBreakdownFilter('profit')}
@@ -1203,6 +1207,21 @@ export default function DashboardTab({
             : breakdownFilter === 'pending'
             ? pendingEntriesForMonth.map((entry) => ({ id: entry.id, jobId: entry.jobId, name: entry.jobName, client: entry.client, detail: entry.kind === 'installment' ? entry.label : '', amount: entry.amount }))
             : breakdownJobs.map((job) => ({ id: job.id, jobId: job.id, name: job.name, client: job.client, detail: '', amount: job.value }));
+          const loggedExpenseNames = new Set(monthVariableExpenses.map(e => e.name.trim().toLowerCase()));
+          const fixedRows = settings.fixedExpenseItems && settings.fixedExpenseItems.length > 0
+            ? settings.fixedExpenseItems.map(item => ({ id: item.id, name: item.name, amount: item.amount, covered: loggedExpenseNames.has(item.name.trim().toLowerCase()) }))
+            : settings.monthlyExpense > 0 ? [{ id: 'legacy-total', name: 'ค่าใช้จ่ายคงที่รายเดือน', amount: settings.monthlyExpense, covered: false }] : [];
+          const workRows = breakdownFilter === 'workValue' ? workValueRowsForMonth(jobs, selectedMonthKey) : [];
+          const workTotals = workRows.reduce((acc, row) => ({
+            value: acc.value + row.value, received: acc.received + row.received, pending: acc.pending + row.pending,
+            otherMonths: acc.otherMonths + row.otherMonths, wht: acc.wht + row.wht, grossValue: acc.grossValue + row.grossValue,
+          }), { value: 0, received: 0, pending: 0, otherMonths: 0, wht: 0, grossValue: 0 });
+          const summaryRow = (label: string, amount: number, tone = 'text-brand-text dark:text-white', sign = '') => (
+            <div className="flex justify-between gap-3">
+              <span className="text-brand-muted">{label}</span>
+              <span className={`font-mono font-bold ${tone}`}>{sign}{formatCurrency(amount)}</span>
+            </div>
+          );
           return createPortal(
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setBreakdownFilter(null)}>
               <motion.div
@@ -1226,8 +1245,16 @@ export default function DashboardTab({
                     {breakdownFilter === 'received' && t('dash.breakdownReceivedTitle')}
                     {breakdownFilter === 'pending' && t('dash.breakdownPendingTitle')}
                     {breakdownFilter === 'profit' && t('dash.breakdownProfitTitle')}
+                    {breakdownFilter === 'expense' && 'รายจ่ายเดือนนี้มาจากอะไรบ้าง'}
+                    {breakdownFilter === 'workValue' && 'มูลค่างานเดือนนี้มาจากงานไหนบ้าง'}
                   </h3>
-                  {breakdownFilter !== 'profit' && (
+                  {breakdownFilter === 'expense' && (
+                    <p className="text-xs text-brand-muted mt-0.5">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
+                  )}
+                  {breakdownFilter === 'workValue' && (
+                    <p className="text-xs text-brand-muted mt-0.5">{formatCurrency(workTotals.value)} จาก {workRows.length} งาน (หลังหัก ณ ที่จ่าย)</p>
+                  )}
+                  {(breakdownFilter === 'contract' || breakdownFilter === 'received' || breakdownFilter === 'pending') && (
                     <p className="text-xs text-brand-muted mt-0.5">
                       {breakdownFilter === 'contract' && formatCurrency(totalContractVal)}
                       {breakdownFilter === 'received' && formatCurrency(totalReceived)}
@@ -1237,7 +1264,99 @@ export default function DashboardTab({
                   )}
                 </div>
 
-                {breakdownFilter === 'profit' ? (
+                {breakdownFilter === 'expense' ? (
+                  <div className="overflow-y-auto space-y-3 -mx-1 px-1">
+                    <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                      {summaryRow('ค่าใช้จ่ายคงที่รายเดือน', fixedExpenseThisMonth)}
+                      {summaryRow(`รายจ่ายที่บันทึก (${monthVariableExpenses.length} รายการ)`, variableExpenseThisMonth, 'text-brand-text dark:text-white', '+ ')}
+                      <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
+                      <div className="flex justify-between gap-3">
+                        <span className="font-bold text-brand-text dark:text-white">= รายจ่ายเดือนนี้</span>
+                        <span className="font-mono font-black text-brand-text dark:text-white">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</span>
+                      </div>
+                    </div>
+
+                    {fixedRows.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">ค่าใช้จ่ายคงที่</p>
+                        <div className="space-y-1.5">
+                          {fixedRows.map(item => (
+                            <div key={item.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                              <div className="min-w-0">
+                                <p className={`truncate ${item.covered ? 'text-brand-muted' : 'text-brand-text dark:text-white'}`}>{item.name}</p>
+                                {item.covered && <p className="text-[10px] text-brand-muted">บันทึกจ่ายเดือนนี้แล้ว นับจากรายการที่บันทึกด้านล่าง</p>}
+                              </div>
+                              <span className={`font-mono font-bold shrink-0 ${item.covered ? 'text-brand-muted line-through' : 'text-brand-text dark:text-white'}`}>{formatCurrency(item.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">รายจ่ายที่บันทึกเดือนนี้</p>
+                      {monthVariableExpenses.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {monthVariableExpenses.map(e => (
+                            <div key={e.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                              <div className="min-w-0">
+                                <p className="text-brand-text dark:text-white truncate">{e.name}</p>
+                                <p className="text-[10px] text-brand-muted">{safeFormatThaiDate(e.date)}</p>
+                              </div>
+                              <span className="font-mono font-bold text-brand-text dark:text-white shrink-0">{formatCurrency(e.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="py-3 text-center text-xs text-brand-muted">ยังไม่มีรายจ่ายที่บันทึกในเดือนนี้</p>
+                      )}
+                    </div>
+                  </div>
+                ) : breakdownFilter === 'workValue' ? (
+                  <div className="overflow-y-auto space-y-3 -mx-1 px-1">
+                    <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                      {summaryRow('รับแล้วเดือนนี้', workTotals.received)}
+                      {summaryRow('รอรับเดือนนี้', workTotals.pending, 'text-brand-text dark:text-white', '+ ')}
+                      {workTotals.otherMonths !== 0 && summaryRow('รับก่อนหน้า / ครบกำหนดเดือนอื่น', workTotals.otherMonths, 'text-brand-text dark:text-white', '+ ')}
+                      <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
+                      <div className="flex justify-between gap-3">
+                        <span className="font-bold text-brand-text dark:text-white">= มูลค่างานเดือนนี้</span>
+                        <span className="font-mono font-black text-brand-text dark:text-white">{formatCurrency(workTotals.value)}</span>
+                      </div>
+                      {workTotals.wht > 0 && (
+                        <p className="pt-1 text-[11px] text-brand-muted">หัก ณ ที่จ่ายให้แล้ว {formatCurrency(workTotals.wht)} (ก่อนหัก {formatCurrency(workTotals.grossValue)})</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {workRows.map(row => {
+                        const parts = [
+                          row.received > 0 ? `รับแล้ว ${formatCurrency(row.received)}` : '',
+                          row.pending > 0 ? `รอรับ ${formatCurrency(row.pending)}` : '',
+                          row.otherMonths !== 0 ? `เดือนอื่น ${formatCurrency(row.otherMonths)}` : '',
+                          row.wht > 0 ? `หัก ณ ที่จ่าย ${formatCurrency(row.wht)}` : '',
+                        ].filter(Boolean).join(' · ');
+                        return (
+                          <button
+                            key={row.jobId}
+                            type="button"
+                            onClick={() => { setBreakdownFilter(null); onViewJob?.(row.jobId); }}
+                            className="w-full flex items-center justify-between gap-2 p-3 bg-brand-faint/60 hover:bg-brand-faint dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl text-left transition-all cursor-pointer"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-brand-text dark:text-white truncate">{row.name}</p>
+                              <p className="text-[10px] text-brand-muted truncate">{row.client || t('dash.noClientListed')}</p>
+                              {parts && <p className="text-[10px] text-brand-muted">{parts}</p>}
+                            </div>
+                            <span className="text-xs font-mono font-black text-brand-text dark:text-white shrink-0">{formatCurrency(row.value)}</span>
+                          </button>
+                        );
+                      })}
+                      {workRows.length === 0 && (
+                        <p className="text-xs text-brand-muted text-center py-6">ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดในเดือนนี้</p>
+                      )}
+                    </div>
+                  </div>
+                ) : breakdownFilter === 'profit' ? (
                   <div className="overflow-y-auto space-y-3 -mx-1 px-1">
                     {/* Calculation steps */}
                     <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">

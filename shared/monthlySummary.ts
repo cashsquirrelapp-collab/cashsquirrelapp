@@ -128,30 +128,46 @@ export interface WorkValueBreakdown {
 // skips not-yet-delivered WIP jobs). An installment job counts at its full value in each month it
 // has a payment or due date in, not just that month's installment. value always equals
 // received + pending + otherMonths so the banner can show where the number comes from.
-export function workValueForMonth(jobs: Job[], monthKey: string): WorkValueBreakdown {
-  const result: WorkValueBreakdown = { value: 0, grossValue: 0, count: 0, received: 0, pending: 0, wht: 0, otherMonths: 0 };
+export interface WorkValueRow {
+  jobId: string;
+  name: string;
+  client: string;
+  grossValue: number;
+  wht: number;
+  value: number;
+  received: number;
+  pending: number;
+  otherMonths: number;
+}
+
+export function workValueRowsForMonth(jobs: Job[], monthKey: string): WorkValueRow[] {
+  const rows: WorkValueRow[] = [];
   for (const job of jobs) {
-    const received = getJobPaymentEntries(job)
-      .filter((entry) => dateKeyInMonth(entry.date, monthKey))
-      .reduce((sum, entry) => sum + entry.amount, 0);
-    const dueEntries = job.isPosted === false
+    const paidThisMonth = getJobPaymentEntries(job).filter((entry) => dateKeyInMonth(entry.date, monthKey));
+    const dueThisMonth = job.isPosted === false
       ? []
       : getJobPendingEntries(job).filter((entry) => dateKeyInMonth(entry.dueDate, monthKey));
-    const hasPayment = getJobPaymentEntries(job).some((entry) => dateKeyInMonth(entry.date, monthKey));
-    if (!hasPayment && dueEntries.length === 0) continue;
-    const pending = dueEntries.reduce((sum, entry) => sum + entry.amount, 0);
-    const gross = job.value || 0;
-    const wht = job.whtAmount ?? Math.round(gross * ((job.whtRate || 0) / 100));
-    const net = gross - wht;
-    result.value += net;
-    result.grossValue += gross;
-    result.count += 1;
-    result.received += received;
-    result.pending += pending;
-    result.wht += wht;
-    result.otherMonths += net - received - pending;
+    if (paidThisMonth.length === 0 && dueThisMonth.length === 0) continue;
+    const grossValue = job.value || 0;
+    const wht = job.whtAmount ?? Math.round(grossValue * ((job.whtRate || 0) / 100));
+    const value = grossValue - wht;
+    const received = paidThisMonth.reduce((sum, entry) => sum + entry.amount, 0);
+    const pending = dueThisMonth.reduce((sum, entry) => sum + entry.amount, 0);
+    rows.push({ jobId: job.id, name: job.name, client: job.client || '', grossValue, wht, value, received, pending, otherMonths: value - received - pending });
   }
-  return result;
+  return rows;
+}
+
+export function workValueForMonth(jobs: Job[], monthKey: string): WorkValueBreakdown {
+  return workValueRowsForMonth(jobs, monthKey).reduce<WorkValueBreakdown>((acc, row) => ({
+    value: acc.value + row.value,
+    grossValue: acc.grossValue + row.grossValue,
+    count: acc.count + 1,
+    received: acc.received + row.received,
+    pending: acc.pending + row.pending,
+    wht: acc.wht + row.wht,
+    otherMonths: acc.otherMonths + row.otherMonths,
+  }), { value: 0, grossValue: 0, count: 0, received: 0, pending: 0, wht: 0, otherMonths: 0 });
 }
 
 export function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {
