@@ -67,13 +67,32 @@ export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthK
               <Info className="h-3.5 w-3.5" />
             </button>
             {tooltipOpen && (
-              <span
+              <div
                 id={tooltipId}
                 role="tooltip"
-                className="absolute bottom-full left-0 z-20 mb-1.5 w-64 rounded-lg border border-brand-border bg-brand-white px-3 py-2 text-xs leading-5 text-brand-text shadow-md"
+                className="absolute bottom-full left-0 z-20 mb-1.5 w-72 rounded-lg border border-brand-border bg-brand-white px-3 py-2.5 text-xs leading-5 text-brand-text shadow-md"
               >
-                {TOOLTIP_TEXT}
-              </span>
+                <p>{TOOLTIP_TEXT}</p>
+                {current.count > 0 && (
+                  <dl className="mt-2 space-y-0.5 border-t border-brand-border pt-2">
+                    {[
+                      { label: 'รับแล้วเดือนนี้', value: current.received },
+                      { label: 'รอรับเดือนนี้', value: current.pending },
+                      { label: 'หัก ณ ที่จ่าย', value: current.wht },
+                      { label: 'รับก่อนหน้า / ครบกำหนดเดือนอื่น', value: current.otherMonths },
+                    ].filter(row => row.value !== 0).map((row, i) => (
+                      <div key={row.label} className="flex justify-between gap-3">
+                        <dt className="text-brand-muted">{i > 0 ? '+ ' : ''}{row.label}</dt>
+                        <dd className="font-mono">{formatCurrency(row.value)}</dd>
+                      </div>
+                    ))}
+                    <div className="flex justify-between gap-3 border-t border-brand-border pt-1 font-semibold">
+                      <dt>= มูลค่างานเดือนนี้</dt>
+                      <dd className="font-mono">{formatCurrency(current.value)}</dd>
+                    </div>
+                  </dl>
+                )}
+              </div>
             )}
           </div>
           <p className="mt-0.5 font-mono text-[30px] font-semibold leading-9 text-brand-text">{formatCurrency(current.value)}</p>

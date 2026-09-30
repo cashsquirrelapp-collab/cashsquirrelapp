@@ -107,16 +107,46 @@ export function fixedExpenseForMonth(
   return fixedItems.reduce((sum, item) => (logged.has(item.name.trim().toLowerCase()) ? sum : sum + (item.amount || 0)), 0);
 }
 
+export interface WorkValueBreakdown {
+  value: number;
+  count: number;
+  /** Net money received this month from these jobs -- same entries as the "รับเงินจริง" card. */
+  received: number;
+  /** Net money due this month -- same entries as the "รอรับเงิน" card. */
+  pending: number;
+  /** Withholding tax on these jobs: the gap between gross value and what the client pays. */
+  wht: number;
+  /** Rest of these jobs' value that was received earlier or falls due in another month. */
+  otherMonths: number;
+}
+
 // "มูลค่างานเดือนนี้": gross value (before WHT) of every job that has money received or a payment
 // due in the month -- the same entries the dashboard's received and pending cards count (pending
 // skips not-yet-delivered WIP jobs). An installment job counts at its full value in each month it
-// has a payment or due date in, not just that month's installment.
-export function workValueForMonth(jobs: Job[], monthKey: string): { value: number; count: number } {
-  return jobs.reduce((acc, job) => {
+// has a payment or due date in, not just that month's installment. value always equals
+// received + pending + wht + otherMonths so the banner can show where the number comes from.
+export function workValueForMonth(jobs: Job[], monthKey: string): WorkValueBreakdown {
+  const result: WorkValueBreakdown = { value: 0, count: 0, received: 0, pending: 0, wht: 0, otherMonths: 0 };
+  for (const job of jobs) {
+    const received = getJobPaymentEntries(job)
+      .filter((entry) => dateKeyInMonth(entry.date, monthKey))
+      .reduce((sum, entry) => sum + entry.amount, 0);
+    const dueEntries = job.isPosted === false
+      ? []
+      : getJobPendingEntries(job).filter((entry) => dateKeyInMonth(entry.dueDate, monthKey));
     const hasPayment = getJobPaymentEntries(job).some((entry) => dateKeyInMonth(entry.date, monthKey));
-    const hasDue = job.isPosted !== false && getJobPendingEntries(job).some((entry) => dateKeyInMonth(entry.dueDate, monthKey));
-    return hasPayment || hasDue ? { value: acc.value + (job.value || 0), count: acc.count + 1 } : acc;
-  }, { value: 0, count: 0 });
+    if (!hasPayment && dueEntries.length === 0) continue;
+    const pending = dueEntries.reduce((sum, entry) => sum + entry.amount, 0);
+    const value = job.value || 0;
+    const wht = job.whtAmount ?? Math.round(value * ((job.whtRate || 0) / 100));
+    result.value += value;
+    result.count += 1;
+    result.received += received;
+    result.pending += pending;
+    result.wht += wht;
+    result.otherMonths += value - wht - received - pending;
+  }
+  return result;
 }
 
 export function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {
