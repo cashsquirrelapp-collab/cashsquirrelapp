@@ -966,3 +966,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   size: A4;
   margin: 10mm;
 }
+
+/* Recharts makes the chart focusable; hide the ring after a mouse click but keep it for keyboard focus. */
+.recharts-wrapper:focus:not(:focus-visible),
+.recharts-surface:focus:not(:focus-visible) {
+  outline: none;
+}

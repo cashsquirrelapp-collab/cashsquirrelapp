@@ -634,8 +634,14 @@ export default function DashboardTab({
     [jobs, prevMonthKey],
   );
 
-  const receivedChangePct = prevMonthReceived > 0
-    ? Math.round(((totalReceived - prevMonthReceived) / prevMonthReceived) * 100)
+  // The trend line sits under "กำไรสุทธิ", so it compares profit (same formula as `profit`), not received.
+  const prevMonthProfit = React.useMemo(() => {
+    const prevExpenses = expenses.filter(e => getMonthKey(e.date) === prevMonthKey);
+    const prevVariable = prevExpenses.reduce((sum, e) => sum + e.amount, 0);
+    return prevMonthReceived - fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, prevExpenses.map(e => e.name)) - prevVariable;
+  }, [expenses, prevMonthKey, prevMonthReceived, settings.monthlyExpense, settings.fixedExpenseItems]);
+  const profitChangePct = prevMonthProfit > 0
+    ? Math.round(((profit - prevMonthProfit) / prevMonthProfit) * 100)
     : null;
 
   let alertStatus: 'danger' | 'warning' | 'success' = 'success';
@@ -900,34 +906,34 @@ export default function DashboardTab({
         <button
           type="button"
           onClick={() => setBreakdownFilter('received')}
-          className="rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
+          className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
         >
           <p className="text-xs text-brand-muted">รับเงินจริงเดือนนี้</p>
-          <p className="mt-1 text-xl font-semibold font-mono text-brand-text">{formatCurrency(totalReceived)}</p>
+          <p className="mt-1 text-xl leading-7 font-semibold font-mono text-brand-text">{formatCurrency(totalReceived)}</p>
         </button>
         <button
           type="button"
           onClick={() => setBreakdownFilter('pending')}
-          className="rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
+          className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
         >
           <p className="text-xs text-brand-muted">รอรับเงิน</p>
-          <p className="mt-1 text-xl font-semibold font-mono text-[#E65F2B]">{formatCurrency(totalPending)}</p>
+          <p className="mt-1 text-xl leading-7 font-semibold font-mono text-[#E65F2B]">{formatCurrency(totalPending)}</p>
         </button>
-        <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+        <div className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
           <p className="text-xs text-brand-muted">รายจ่ายเดือนนี้</p>
-          <p className="mt-1 text-xl font-semibold font-mono text-brand-text">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
+          <p className="mt-1 text-xl leading-7 font-semibold font-mono text-brand-text">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
         </div>
         <button
           type="button"
           onClick={() => setBreakdownFilter('profit')}
-          className="rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
+          className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
         >
           <p className="text-xs text-brand-muted">กำไรสุทธิ</p>
-          <p className="mt-1 text-[22px] font-bold font-mono text-[#18A66A]">{formatCurrency(Math.max(0, profit))}</p>
-          {receivedChangePct !== null && (
-            <p className={`mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium ${receivedChangePct >= 0 ? 'text-[#18A66A]' : 'text-rose-500'}`}>
-              {receivedChangePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {receivedChangePct >= 0 ? '↑ ' : '↓ '}{Math.abs(receivedChangePct)}% จากเดือนก่อน
+          <p className={`mt-1 text-[22px] leading-7 font-bold font-mono ${profit >= 0 ? 'text-[#18A66A]' : 'text-rose-600'}`}>{formatCurrency(profit)}</p>
+          {profitChangePct !== null && (
+            <p className={`mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium ${profitChangePct >= 0 ? 'text-[#18A66A]' : 'text-rose-500'}`}>
+              {profitChangePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {profitChangePct >= 0 ? '↑ ' : '↓ '}{Math.abs(profitChangePct)}% จากเดือนก่อน
             </p>
           )}
         </button>
