@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Job, StatusOption } from '../../../../shared/types';
-import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate } from '../../utils';
+import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate, dateLocale } from '../../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 import JobFormDrawer from './JobFormDrawer';
+import { sortJobs, groupsByMonth, jobSortDate, type JobSort } from './jobSort';
 import {
   Search,
   Filter,
@@ -95,7 +96,7 @@ export default function JobsTab({
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [subTab, setSubTab] = useState<'all' | 'working' | 'waiting_payment' | 'closed'>('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [sortBy, setSortBy] = useState<'recent' | 'due' | 'amount' | 'name'>('recent');
+  const [sortBy, setSortBy] = useState<JobSort>('recent');
   const [actionMenu, setActionMenu] = useState<{ job: Job; top: number; left: number; up: boolean } | null>(null);
   const actionMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -212,11 +213,16 @@ export default function JobsTab({
                           (subTab === 'closed' && isClosed(j));
     return matchesSearch && matchesStatus && matchesType && matchesSubTab;
   });
-  const dueKey = (j: Job) => (isWorking(j) ? j.postDate : j.payDate || j.postDate) || '9999-12-31';
-  const sortedJobs = sortBy === 'recent' ? filteredJobs : [...filteredJobs].sort((a, b) =>
-    sortBy === 'due' ? dueKey(a).localeCompare(dueKey(b))
-      : sortBy === 'amount' ? (b.value || 0) - (a.value || 0)
-      : a.name.localeCompare(b.name, 'th'));
+  const sortedJobs = sortJobs(filteredJobs, sortBy, subTab);
+  const showMonthLabels = groupsByMonth(sortBy, subTab);
+  const monthLabel = (j: Job) => {
+    const date = jobSortDate(j, subTab);
+    if (!date) return 'ไม่ระบุวันที่';
+    const [y, m] = date.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
+  };
+  const startsMonth = (index: number) =>
+    showMonthLabels && (index === 0 || monthLabel(sortedJobs[index - 1]) !== monthLabel(sortedJobs[index]));
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
@@ -442,10 +448,10 @@ export default function JobsTab({
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="h-10 w-10 appearance-none rounded-xl border border-brand-border bg-brand-white text-xs text-transparent outline-none transition-colors hover:bg-brand-faint focus:border-[#E65F2B] cursor-pointer sm:w-auto sm:pl-3 sm:pr-8 sm:text-brand-text"
             >
-              <option className="text-brand-text" value="recent">เรียงตาม: ล่าสุด</option>
-              <option className="text-brand-text" value="due">เรียงตาม: ใกล้กำหนด</option>
-              <option className="text-brand-text" value="amount">เรียงตาม: ยอดเงินสูงสุด</option>
-              <option className="text-brand-text" value="name">เรียงตาม: ชื่อ ก–ฮ</option>
+              <option className="text-brand-text" value="recent">เรียงตาม: {subTab === 'waiting_payment' ? 'ด่วนที่สุด' : 'ล่าสุด'}</option>
+              <option className="text-brand-text" value="oldest">เรียงตาม: {subTab === 'waiting_payment' ? 'ครบกำหนดไกลสุด' : 'เก่าสุด'}</option>
+              <option className="text-brand-text" value="amountDesc">เรียงตาม: มูลค่าสูงสุด</option>
+              <option className="text-brand-text" value="amountAsc">เรียงตาม: มูลค่าต่ำสุด</option>
             </select>
             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 hidden h-3.5 w-3.5 -translate-y-1/2 text-brand-muted sm:block" />
           </div>
@@ -539,12 +545,17 @@ export default function JobsTab({
                 </tr>
               </thead>
               <tbody>
-                {sortedJobs.map(j => {
+                {sortedJobs.map((j, index) => {
                   const info = describeJob(j);
                   const overdue = info.dueTone === 'overdue';
                   return (
+                    <React.Fragment key={j.id}>
+                    {startsMonth(index) && (
+                      <tr className="border-b border-brand-border">
+                        <th colSpan={7} scope="rowgroup" className="px-4 pb-1.5 pt-4 text-left text-xs font-medium text-brand-muted">{monthLabel(j)}</th>
+                      </tr>
+                    )}
                     <tr
-                      key={j.id}
                       data-job-id={j.id}
                       onClick={() => setEditingJob(j)}
                       className={`cursor-pointer border-b border-brand-border last:border-b-0 transition-colors hover:bg-brand-faint/60 ${
@@ -581,6 +592,7 @@ export default function JobsTab({
                         </button>
                       </td>
                     </tr>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -588,11 +600,14 @@ export default function JobsTab({
           </div>
 
           <div className="space-y-2 sm:hidden">
-            {sortedJobs.map(j => {
+            {sortedJobs.map((j, index) => {
               const info = describeJob(j);
               return (
+                <React.Fragment key={j.id}>
+                {startsMonth(index) && (
+                  <p className="px-1 pt-2 text-xs font-medium text-brand-muted">{monthLabel(j)}</p>
+                )}
                 <div
-                  key={j.id}
                   data-job-id={j.id}
                   onClick={() => setEditingJob(j)}
                   className={`cursor-pointer overflow-hidden rounded-[14px] border border-brand-border bg-brand-white px-4 py-3 ${accentShadow(info.dueTone)} ${
@@ -624,6 +639,7 @@ export default function JobsTab({
                     </button>
                   </div>
                 </div>
+                </React.Fragment>
               );
             })}
           </div>
