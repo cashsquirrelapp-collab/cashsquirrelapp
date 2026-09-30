@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Job } from '../shared/types';
-import { sortJobs, groupsByMonth } from '../frontend/src/features/jobs/jobSort';
+import { sortJobs, matchesPeriod, periodMonths } from '../frontend/src/features/jobs/jobSort';
 
 const job = (id: string, fields: Partial<Job>): Job => ({
   id, name: id, type: 'ยังไม่ระบุ', client: '', value: 1000, received: 0, pending: 1000,
@@ -50,12 +50,34 @@ test('รอรับเงิน orders by payment urgency, not by job month', 
     job('no-due', {}),
   ];
   assert.deepEqual(sortJobs(awaiting, 'recent', 'waiting_payment').map(j => j.id), ['overdue', 'due-soon', 'due-later', 'no-due']);
-  assert.equal(groupsByMonth('recent', 'waiting_payment'), false);
-  assert.equal(groupsByMonth('recent', 'all'), true);
 });
 
 test('amount sorts ignore dates', () => {
   const byValue = [job('a', { value: 500 }), job('b', { value: 9000, postDate: '2020-01-01' }), job('c', { value: 3000 })];
   assert.deepEqual(sortJobs(byValue, 'amountDesc', 'all').map(j => j.id), ['b', 'c', 'a']);
   assert.deepEqual(sortJobs(byValue, 'amountAsc', 'all').map(j => j.id), ['a', 'c', 'b']);
+});
+
+test('month filter keeps only that month, by the same date the tab sorts on', () => {
+  const sep = jobs.filter(j => matchesPeriod(j, { kind: 'month', month: '2026-09' }, 'all')).map(j => j.id);
+  assert.deepEqual(sep.sort(), ['mae-sep', 'sep-early', 'today-added-last']);
+  assert.equal(matchesPeriod(job('x', {}), { kind: 'month', month: '2026-09' }, 'all'), false);
+  assert.equal(matchesPeriod(job('x', {}), { kind: 'all' }, 'all'), true);
+  // Awaiting payment filters by the due month, not the delivery month.
+  const due = job('d', { postDate: '2026-08-20', payDate: '2026-09-19' });
+  assert.equal(matchesPeriod(due, { kind: 'month', month: '2026-09' }, 'waiting_payment'), true);
+  assert.equal(matchesPeriod(due, { kind: 'month', month: '2026-09' }, 'all'), false);
+});
+
+test('date range is inclusive on both ends and either end may be open', () => {
+  const inRange = (from: string, to: string) =>
+    jobs.filter(j => matchesPeriod(j, { kind: 'range', from, to }, 'all')).map(j => j.id).sort();
+  assert.deepEqual(inRange('2026-07-29', '2026-08-20'), ['aug-early', 'skin-jul', 'start-only-aug']);
+  assert.deepEqual(inRange('2026-09-30', ''), ['mae-sep', 'today-added-last']);
+  assert.deepEqual(inRange('', '2026-06-30'), ['net-jun']);
+});
+
+test('month options come from real job dates, newest first, without the current month', () => {
+  assert.deepEqual(periodMonths(jobs, 'all', '2026-10'), ['2026-09', '2026-08', '2026-07', '2026-06']);
+  assert.deepEqual(periodMonths(jobs, 'all', '2026-09'), ['2026-08', '2026-07', '2026-06']);
 });

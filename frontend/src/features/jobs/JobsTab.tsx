@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 import JobFormDrawer from './JobFormDrawer';
-import { sortJobs, groupsByMonth, jobSortDate, type JobSort } from './jobSort';
+import { sortJobs, matchesPeriod, periodMonths, monthKeyOf, type JobSort, type JobPeriod } from './jobSort';
 import {
   Search,
   Filter,
@@ -15,7 +15,9 @@ import {
   Clock,
   Plus,
   MoreHorizontal,
-  ArrowUpDown
+  CalendarDays,
+  Check,
+  X
 } from 'lucide-react';
 
 // Local (not UTC) YYYY-MM-DD -- avoids the date shifting by a day near midnight in UTC+7,
@@ -24,6 +26,22 @@ function getLocalDateStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+type JobStage = 'working' | 'awaiting' | 'closed';
+type DueTone = 'overdue' | 'today' | 'soon' | 'normal';
+type PaymentLabel = 'ยังไม่จ่าย' | 'รับบางส่วน' | 'แบ่งงวด' | 'รับครบแล้ว';
+const STAGE_FILTERS: { key: JobStage; label: string }[] = [
+  { key: 'working', label: 'กำลังทำ' },
+  { key: 'awaiting', label: 'เสร็จแล้ว' },
+  { key: 'closed', label: 'ปิดงานแล้ว' },
+];
+const PAYMENT_FILTERS: PaymentLabel[] = ['ยังไม่จ่าย', 'รับบางส่วน', 'แบ่งงวด', 'รับครบแล้ว'];
+const SORT_OPTIONS: { key: JobSort; label: string; waitingLabel?: string }[] = [
+  { key: 'recent', label: 'ล่าสุด', waitingLabel: 'ด่วนที่สุด' },
+  { key: 'oldest', label: 'เก่าสุด', waitingLabel: 'ครบกำหนดไกลสุด' },
+  { key: 'amountDesc', label: 'มูลค่าสูงสุด' },
+  { key: 'amountAsc', label: 'มูลค่าต่ำสุด' },
+];
 
 interface JobsTabProps {
   jobs: Job[];
@@ -92,10 +110,12 @@ export default function JobsTab({
     // nothing to scroll to, still consume the request so it doesn't fire again on next render.
     onScrollToJobHandled?.();
   }, [scrollToJobId, onScrollToJobHandled]);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
+  // Filter panel values; the panel edits a draft copy and only "ใช้ตัวกรอง" applies it.
+  type JobFilters = { stages: JobStage[]; payments: PaymentLabel[]; types: string[] };
+  const emptyFilters: JobFilters = { stages: [], payments: [], types: [] };
+  const [filters, setFilters] = useState<JobFilters>(emptyFilters);
+  const [period, setPeriod] = useState<JobPeriod>({ kind: 'all' });
   const [subTab, setSubTab] = useState<'all' | 'working' | 'waiting_payment' | 'closed'>('all');
-  const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<JobSort>('recent');
   // One popover for the row's ⋯ menu and for the clickable stage/payment badges.
   type MenuKind = 'actions' | 'stage' | 'payment';
@@ -187,9 +207,6 @@ export default function JobsTab({
     return { label: s.label, behavior: s.behavior };
   };
 
-  // Unique job categories in current list for secondary filter
-  const uniqueTypes = Array.from(new Set(jobs.map(j => j.type)));
-
   // Stages: in progress (not delivered yet) -> awaiting payment (delivered, money outstanding) -> closed.
   const isWorking = (j: Job) => j.isPosted === false;
   const isAwaitingPayment = (j: Job) => j.isPosted !== false && j.pending > 0;
@@ -202,36 +219,120 @@ export default function JobsTab({
     { key: 'closed' as const, label: 'ปิดงานแล้ว', count: jobs.filter(isClosed).length },
   ];
 
-  const query = searchTerm.trim().toLowerCase();
-  const filteredJobs = jobs.filter(j => {
-    const matchesSearch = !query
-      || j.name.toLowerCase().includes(query)
-      || (j.client || '').toLowerCase().includes(query)
-      || (j.type || '').toLowerCase().includes(query);
-    const matchesStatus = statusFilter === 'all' || j.status === statusFilter;
-    const matchesType = typeFilter === 'all' || j.type === typeFilter;
-    const matchesSubTab = subTab === 'all' ||
-                          (subTab === 'working' && isWorking(j)) ||
-                          (subTab === 'waiting_payment' && isAwaitingPayment(j)) ||
-                          (subTab === 'closed' && isClosed(j));
-    return matchesSearch && matchesStatus && matchesType && matchesSubTab;
-  });
-  const sortedJobs = sortJobs(filteredJobs, sortBy, subTab);
-  const showMonthLabels = groupsByMonth(sortBy, subTab);
-  const monthLabel = (j: Job) => {
-    const date = jobSortDate(j, subTab);
-    if (!date) return 'ไม่ระบุวันที่';
-    const [y, m] = date.split('-').map(Number);
-    return new Date(y, m - 1, 1).toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
+  // Stage and payment as shown on the row badges; the filter panel filters on these same values.
+  const stageOf = (j: Job): JobStage => isWorking(j) ? 'working' : isClosed(j) ? 'closed' : 'awaiting';
+  const paymentOf = (j: Job): PaymentLabel => {
+    const isInstallment = j.status === 'installment' && Boolean(j.installments?.length);
+    return isInstallment && j.pending > 0 ? 'แบ่งงวด'
+      : j.pending <= 0 && (j.received > 0 || getStatusDisplay(j.status).behavior === 'done') ? 'รับครบแล้ว'
+      : j.received > 0 ? 'รับบางส่วน'
+      : 'ยังไม่จ่าย';
   };
-  const startsMonth = (index: number) =>
-    showMonthLabels && (index === 0 || monthLabel(sortedJobs[index - 1]) !== monthLabel(sortedJobs[index]));
+
+  // filter -> sort pipeline, recomputed only when an input changes.
+  const sortedJobs = React.useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    const inTab = (j: Job) => subTab === 'all'
+      || (subTab === 'working' && isWorking(j))
+      || (subTab === 'waiting_payment' && isAwaitingPayment(j))
+      || (subTab === 'closed' && isClosed(j));
+    const filtered = jobs.filter(j =>
+      inTab(j)
+      && matchesPeriod(j, period, subTab)
+      && (!query
+        || j.name.toLowerCase().includes(query)
+        || (j.client || '').toLowerCase().includes(query)
+        || (j.type || '').toLowerCase().includes(query))
+      && (filters.stages.length === 0 || filters.stages.includes(stageOf(j)))
+      && (filters.payments.length === 0 || filters.payments.includes(paymentOf(j)))
+      && (filters.types.length === 0 || filters.types.includes(j.type || 'ยังไม่ระบุ')));
+    return sortJobs(filtered, sortBy, subTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, statuses, searchTerm, subTab, period, filters, sortBy]);
+
+  const activeFilterCount = filters.stages.length + filters.payments.length + filters.types.length;
+  const currentMonth = monthKeyOf();
+  const monthOptions = React.useMemo(() => periodMonths(jobs, subTab, currentMonth), [jobs, subTab, currentMonth]);
+  const typeOptions = React.useMemo(
+    () => Array.from(new Set(jobs.map(j => j.type || 'ยังไม่ระบุ'))).sort((a, b) =>
+      a === 'ยังไม่ระบุ' ? 1 : b === 'ยังไม่ระบุ' ? -1 : a.localeCompare(b, 'th')),
+    [jobs]
+  );
+
   const clearFilters = () => {
     setSearchTerm('');
-    setStatusFilter('all');
-    setTypeFilter('all');
+    setFilters(emptyFilters);
+    setPeriod({ kind: 'all' });
     setSubTab('all');
   };
+
+  // Month / filter panel: a popover under its button on desktop, a bottom sheet on phones.
+  const [panel, setPanel] = useState<{ kind: 'month' | 'filter'; top: number; left: number; width: number; sheet: boolean } | null>(null);
+  const [draftFilters, setDraftFilters] = useState<JobFilters>(emptyFilters);
+  const [draftSort, setDraftSort] = useState<JobSort>('recent');
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
+
+  const openPanel = (event: React.MouseEvent<HTMLButtonElement>, kind: 'month' | 'filter') => {
+    if (panel?.kind === kind) { setPanel(null); return; }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = kind === 'month' ? 280 : 360;
+    const anchor = kind === 'month' ? rect.left : rect.right - width;
+    setPanel({
+      kind,
+      width,
+      top: rect.bottom + 6,
+      left: Math.max(8, Math.min(anchor, window.innerWidth - width - 8)),
+      sheet: window.innerWidth < 640,
+    });
+    if (kind === 'filter') {
+      setDraftFilters(filters);
+      setDraftSort(sortBy);
+    } else {
+      setRangeOpen(period.kind === 'range');
+      setRangeFrom(period.kind === 'range' ? period.from : '');
+      setRangeTo(period.kind === 'range' ? period.to : '');
+    }
+  };
+
+  React.useEffect(() => {
+    if (!panel) return;
+    const close = () => setPanel(null);
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', close);
+    };
+  }, [panel]);
+
+  const choosePeriod = (next: JobPeriod) => { setPeriod(next); setPanel(null); };
+  const applyRange = () => {
+    if (!rangeFrom && !rangeTo) return;
+    const [from, to] = rangeFrom && rangeTo && rangeFrom > rangeTo ? [rangeTo, rangeFrom] : [rangeFrom, rangeTo];
+    choosePeriod({ kind: 'range', from, to });
+  };
+  const applyFilters = () => { setFilters(draftFilters); setSortBy(draftSort); setPanel(null); };
+  const toggleDraft = <K extends keyof JobFilters>(key: K, value: JobFilters[K][number]) =>
+    setDraftFilters(current => {
+      const list = current[key] as string[];
+      return { ...current, [key]: list.includes(value) ? list.filter(v => v !== value) : [...list, value] };
+    });
+
+  const monthName = (key: string) => {
+    const [y, m] = key.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
+  };
+  const shortDate = (date: string) => safeFormatThaiDate(date, { day: 'numeric', month: 'short', year: '2-digit' });
+  const periodLabel = (value: JobPeriod) =>
+    value.kind === 'all' ? 'เดือนทั้งหมด'
+      : value.kind === 'month' ? (value.month === currentMonth ? 'เดือนนี้' : monthName(value.month))
+      : value.from && value.to ? `${shortDate(value.from)} – ${shortDate(value.to)}`
+      : value.from ? `ตั้งแต่ ${shortDate(value.from)}` : `ถึง ${shortDate(value.to)}`;
+  const sortLabel = (option: (typeof SORT_OPTIONS)[number]) =>
+    subTab === 'waiting_payment' && option.waitingLabel ? option.waitingLabel : option.label;
 
   const openAddJobForm = () => {
     setEditingJob(null);
@@ -336,10 +437,10 @@ export default function JobsTab({
   const describeJob = (j: Job) => {
     const statusInfo = getStatusDisplay(j.status);
     const isInstallment = j.status === 'installment' && Boolean(j.installments?.length);
-    const stage = isWorking(j) ? 'working' : isClosed(j) ? 'closed' : 'awaiting';
+    const stage = stageOf(j);
     const dateStr = stage === 'working' ? j.postDate : (j.payDate || j.postDate);
     let dueText = 'ยังไม่ระบุ';
-    let dueTone: 'overdue' | 'soon' | 'normal' = 'normal';
+    let dueTone: DueTone = 'normal';
     if (dateStr) {
       const longDate = safeFormatThaiDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
       if (stage === 'closed') {
@@ -349,13 +450,11 @@ export default function JobsTab({
         today.setHours(0, 0, 0, 0);
         const diff = Math.round((new Date(`${dateStr}T00:00:00`).getTime() - today.getTime()) / 86400000);
         dueText = diff === 0 ? 'วันนี้' : diff === 1 ? 'พรุ่งนี้' : diff < 0 ? `เกินกำหนด ${-diff} วัน` : diff <= 14 ? `อีก ${diff} วัน` : longDate;
-        if (stage === 'awaiting') dueTone = diff < 0 ? 'overdue' : diff <= 3 ? 'soon' : 'normal';
+        // Delivery deadlines (in progress) and payment due dates (awaiting) both need attention.
+        dueTone = diff < 0 ? 'overdue' : diff === 0 ? 'today' : diff <= 3 ? 'soon' : 'normal';
       }
     }
-    const payment = isInstallment && j.pending > 0 ? 'แบ่งงวด'
-      : j.pending <= 0 && (j.received > 0 || statusInfo.behavior === 'done') ? 'รับครบแล้ว'
-      : j.received > 0 ? 'รับบางส่วน'
-      : 'ยังไม่จ่าย';
+    const payment = paymentOf(j);
     return { statusInfo, isInstallment, stage, dueText, dueTone, payment };
   };
 
@@ -457,11 +556,15 @@ export default function JobsTab({
     </span>
   );
 
-  const dueClass = (tone: 'overdue' | 'soon' | 'normal') =>
-    tone === 'overdue' ? 'font-medium text-[#C43A3A] dark:text-rose-300' : tone === 'soon' ? 'font-medium text-amber-700 dark:text-amber-300' : 'text-brand-muted';
+  const dueClass = (tone: DueTone) =>
+    tone === 'overdue' ? 'font-medium text-[#C43A3A] dark:text-rose-300'
+      : tone === 'today' ? 'font-medium text-[#C24A16] dark:text-orange-300'
+      : tone === 'soon' ? 'font-medium text-amber-700 dark:text-amber-300'
+      : 'text-brand-muted';
 
-  const accentShadow = (tone: 'overdue' | 'soon' | 'normal') =>
-    tone === 'overdue' ? 'shadow-[inset_3px_0_0_#E95454]' : tone === 'soon' ? 'shadow-[inset_3px_0_0_#F2A93B]' : '';
+  // Thin left accent only on rows that need attention; the row itself is never tinted.
+  const accentShadow = (tone: DueTone) =>
+    tone === 'overdue' ? 'shadow-[inset_3px_0_0_#E95454]' : tone === 'today' || tone === 'soon' ? 'shadow-[inset_3px_0_0_#F08A4B]' : '';
 
   const typeLabel = (j: Job) => (j.type && j.type !== 'ยังไม่ระบุ' ? j.type : '');
 
@@ -515,80 +618,67 @@ export default function JobsTab({
         })}
       </div>
 
-      {/* Search, sort and filter */}
-      <div className="mb-3 space-y-2">
+      {/* Search, month, sort and filter: one row on wide screens, search above the controls otherwise */}
+      <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="relative min-w-0 lg:flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+          <input
+            type="text"
+            placeholder="ค้นหาชื่องาน ลูกค้า หรือแบรนด์..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-10 w-full rounded-xl border border-brand-border bg-brand-white pl-9 pr-3 text-[13px] text-brand-text placeholder:text-brand-muted outline-none transition-colors focus:border-[#E65F2B]"
+          />
+        </div>
         <div className="flex items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
-            <input
-              type="text"
-              placeholder="ค้นหาชื่องาน ลูกค้า หรือแบรนด์..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-10 w-full rounded-xl border border-brand-border bg-brand-white pl-9 pr-3 text-[13px] text-brand-text placeholder:text-brand-muted outline-none transition-colors focus:border-[#E65F2B]"
-            />
-          </div>
-          <div className="relative shrink-0">
-            {/* Icon-only on phones; the native picker still shows the option labels. */}
-            <ArrowUpDown className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 text-brand-text sm:hidden" />
+          <button
+            type="button"
+            onClick={(event) => openPanel(event, 'month')}
+            aria-haspopup="dialog"
+            aria-expanded={panel?.kind === 'month'}
+            aria-label={`ช่วงเวลา: ${periodLabel(period)}`}
+            className={`flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border bg-brand-white px-3 text-xs transition-colors hover:bg-brand-faint cursor-pointer sm:flex-none sm:min-w-[150px] ${
+              period.kind !== 'all' ? 'border-[#F3B08C] font-medium text-[#C24A16] dark:border-orange-400/40 dark:text-orange-300' : 'border-brand-border text-brand-text'
+            }`}
+          >
+            <CalendarDays className="h-4 w-4 shrink-0 opacity-70" />
+            <span className="min-w-0 flex-1 truncate text-left">{periodLabel(period)}</span>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-brand-muted" />
+          </button>
+          {/* On phones sorting lives inside the filter sheet. */}
+          <div className="relative hidden shrink-0 sm:block">
             <select
               aria-label="เรียงตาม"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="h-10 w-10 appearance-none rounded-xl border border-brand-border bg-brand-white text-xs text-transparent outline-none transition-colors hover:bg-brand-faint focus:border-[#E65F2B] cursor-pointer sm:w-auto sm:pl-3 sm:pr-8 sm:text-brand-text"
+              onChange={(e) => setSortBy(e.target.value as JobSort)}
+              className="h-10 appearance-none rounded-xl border border-brand-border bg-brand-white pl-3 pr-8 text-xs text-brand-text outline-none transition-colors hover:bg-brand-faint focus:border-[#E65F2B] cursor-pointer"
             >
-              <option className="text-brand-text" value="recent">เรียงตาม: {subTab === 'waiting_payment' ? 'ด่วนที่สุด' : 'ล่าสุด'}</option>
-              <option className="text-brand-text" value="oldest">เรียงตาม: {subTab === 'waiting_payment' ? 'ครบกำหนดไกลสุด' : 'เก่าสุด'}</option>
-              <option className="text-brand-text" value="amountDesc">เรียงตาม: มูลค่าสูงสุด</option>
-              <option className="text-brand-text" value="amountAsc">เรียงตาม: มูลค่าต่ำสุด</option>
+              {SORT_OPTIONS.map(option => (
+                <option key={option.key} value={option.key}>เรียงตาม: {sortLabel(option)}</option>
+              ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 hidden h-3.5 w-3.5 -translate-y-1/2 text-brand-muted sm:block" />
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
           </div>
           <button
             type="button"
-            onClick={() => setShowFilters(value => !value)}
-            aria-expanded={showFilters}
-            aria-label="ตัวกรอง"
-            className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs transition-colors cursor-pointer ${
-              showFilters || statusFilter !== 'all' || typeFilter !== 'all'
-                ? 'border-[#F3B08C] bg-[#FFF1E8] text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
-                : 'border-brand-border bg-brand-white text-brand-text hover:bg-brand-faint'
+            onClick={(event) => openPanel(event, 'filter')}
+            aria-haspopup="dialog"
+            aria-expanded={panel?.kind === 'filter'}
+            className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl border bg-brand-white px-3 text-xs transition-colors hover:bg-brand-faint cursor-pointer ${
+              activeFilterCount > 0 ? 'border-[#F3B08C] font-medium text-[#C24A16] dark:border-orange-400/40 dark:text-orange-300' : 'border-brand-border text-brand-text'
             }`}
           >
             <Filter className="h-4 w-4" />
-            <span className="hidden sm:inline">ตัวกรอง</span>
+            ตัวกรอง
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-[#FFF1E8] px-1.5 text-[11px] leading-[18px] text-[#C24A16] dark:bg-orange-500/15 dark:text-orange-300">{activeFilterCount}</span>
+            )}
+            {/* Phones sort from inside this sheet, so flag a non-default sort here. */}
+            {activeFilterCount === 0 && sortBy !== 'recent' && (
+              <span className="h-1.5 w-1.5 rounded-full bg-[#E65F2B] sm:hidden" aria-label="เปลี่ยนการเรียงแล้ว" />
+            )}
           </button>
         </div>
-
-        {showFilters && (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <select
-              aria-label="กรองตามสถานะการชำระ"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-10 rounded-xl border border-brand-border bg-brand-white px-3 text-xs text-brand-text outline-none focus:border-[#E65F2B] cursor-pointer"
-            >
-              <option value="all">{t('jobs.filterStatusAll')}</option>
-              {statuses.map(s => (
-                <option key={s.id} value={s.id}>{s.label}</option>
-              ))}
-            </select>
-            <select
-              aria-label="กรองตามประเภทงาน"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="h-10 rounded-xl border border-brand-border bg-brand-white px-3 text-xs text-brand-text outline-none focus:border-[#E65F2B] cursor-pointer"
-            >
-              <option value="all">{t('jobs.filterTypeAll')}</option>
-              {Array.from(new Set(jobTypes)).filter(Boolean).map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-              {uniqueTypes.filter(ut => !jobTypes.includes(ut)).map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
 
       {/* Jobs list: table from sm up, compact cards on phones */}
@@ -609,24 +699,52 @@ export default function JobsTab({
       ) : sortedJobs.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-[14px] border border-brand-border bg-brand-white px-6 py-10 text-center">
           <Mascot mood="thinking" size={56} />
-          <p className="mt-1 text-sm font-medium text-brand-text">ไม่พบงานที่ตรงกับตัวกรองนี้</p>
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="mt-1 h-9 rounded-xl border border-brand-border px-4 text-xs text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
-          >
-            ล้างตัวกรอง
-          </button>
+          {period.kind !== 'all' && !searchTerm.trim() && activeFilterCount === 0 ? (
+            <>
+              <p className="mt-1 text-sm font-medium text-brand-text">
+                {period.kind === 'range' ? 'ยังไม่มีงานในช่วงเวลานี้' : 'ยังไม่มีงานในเดือนนี้'}
+              </p>
+              <div className="mt-1 flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPeriod({ kind: 'all' })}
+                  className="h-9 rounded-xl border border-brand-border px-4 text-xs text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
+                >
+                  ล้างตัวกรองเดือน
+                </button>
+                <button
+                  type="button"
+                  onClick={openAddJobForm}
+                  className="flex h-9 items-center gap-1 rounded-xl bg-[#E65F2B] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#D85723] cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" /> เพิ่มงาน
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-sm font-medium text-brand-text">ไม่พบงานที่ตรงกับตัวกรองนี้</p>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="mt-1 h-9 rounded-xl border border-brand-border px-4 text-xs text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
+              >
+                ล้างตัวกรอง
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <>
-          <div className="hidden overflow-hidden rounded-[14px] border border-brand-border bg-brand-white sm:block">
+          <div className="hidden overflow-clip rounded-[14px] border border-brand-border bg-brand-white sm:block">
             <table className="w-full table-fixed text-left text-[13px]">
-              <thead>
-                <tr className="border-b border-brand-border">
+              {/* Sticks while a long list scrolls (desktop shell only; the phone/tablet top bar would cover it). */}
+              {/* -top-8 cancels the content panel's lg:pt-8 so the header meets the panel's top edge. */}
+              <thead className="lg:sticky lg:-top-8 lg:z-10">
+                <tr className="border-b border-brand-border [&>th]:bg-brand-white [&>th]:shadow-[inset_0_-1px_0_var(--color-brand-border)]">
                   <th className="w-[34%] px-4 py-2.5 text-xs font-medium text-brand-muted lg:w-[26%]">งาน / แหล่งรายได้</th>
                   <th className="hidden px-3 py-2.5 text-xs font-medium text-brand-muted lg:table-cell">ลูกค้า / ผู้จ่าย</th>
-                  <th className="px-3 py-2.5 text-xs font-medium text-brand-muted">กำหนด</th>
+                  <th className="w-[136px] px-3 py-2.5 text-xs font-medium text-brand-muted">กำหนด</th>
                   <th className="px-3 py-2.5 text-xs font-medium text-brand-muted">สถานะงาน</th>
                   <th className="hidden px-3 py-2.5 text-xs font-medium text-brand-muted lg:table-cell">การชำระ</th>
                   <th className="px-3 py-2.5 text-right text-xs font-medium text-brand-muted">จำนวนเงิน</th>
@@ -634,17 +752,12 @@ export default function JobsTab({
                 </tr>
               </thead>
               <tbody>
-                {sortedJobs.map((j, index) => {
+                {sortedJobs.map((j) => {
                   const info = describeJob(j);
                   const overdue = info.dueTone === 'overdue';
                   return (
-                    <React.Fragment key={j.id}>
-                    {startsMonth(index) && (
-                      <tr className="border-b border-brand-border">
-                        <th colSpan={7} scope="rowgroup" className="px-4 pb-1.5 pt-4 text-left text-xs font-medium text-brand-muted">{monthLabel(j)}</th>
-                      </tr>
-                    )}
                     <tr
+                      key={j.id}
                       data-job-id={j.id}
                       onClick={() => setEditingJob(j)}
                       className={`cursor-pointer border-b border-brand-border last:border-b-0 transition-colors hover:bg-brand-faint/60 ${
@@ -659,7 +772,7 @@ export default function JobsTab({
                         </p>
                       </td>
                       <td className="hidden truncate px-3 py-3 text-brand-muted lg:table-cell">{j.client || '—'}</td>
-                      <td className={`whitespace-nowrap px-3 py-3 ${dueClass(info.dueTone)}`}>{info.dueText}</td>
+                      <td className={`truncate whitespace-nowrap px-3 py-3 ${dueClass(info.dueTone)}`} title={info.dueText}>{info.dueText}</td>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-1">
                           {badgeMenu(j, 'stage', i => stageBadge(info.stage, i), 'สถานะงาน')}
@@ -681,7 +794,6 @@ export default function JobsTab({
                         </button>
                       </td>
                     </tr>
-                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -689,14 +801,11 @@ export default function JobsTab({
           </div>
 
           <div className="space-y-2 sm:hidden">
-            {sortedJobs.map((j, index) => {
+            {sortedJobs.map((j) => {
               const info = describeJob(j);
               return (
-                <React.Fragment key={j.id}>
-                {startsMonth(index) && (
-                  <p className="px-1 pt-2 text-xs font-medium text-brand-muted">{monthLabel(j)}</p>
-                )}
                 <div
+                  key={j.id}
                   data-job-id={j.id}
                   onClick={() => setEditingJob(j)}
                   className={`cursor-pointer overflow-hidden rounded-[14px] border border-brand-border bg-brand-white px-4 py-3 ${accentShadow(info.dueTone)} ${
@@ -728,13 +837,154 @@ export default function JobsTab({
                     </button>
                   </div>
                 </div>
-                </React.Fragment>
               );
             })}
           </div>
         </>
       )}
       </div>
+
+      {panel && createPortal(
+        <div className="fixed inset-0 z-[150]">
+          <div className={`absolute inset-0 ${panel.sheet ? 'bg-black/40' : ''}`} onClick={() => setPanel(null)} />
+          <div
+            role="dialog"
+            aria-label={panel.kind === 'month' ? 'เลือกช่วงเวลา' : 'ตัวกรอง'}
+            className={panel.sheet
+              ? 'absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-brand-border bg-brand-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 dark:bg-stone-900'
+              : 'absolute max-h-[70vh] overflow-y-auto rounded-xl border border-brand-border bg-brand-white shadow-lg dark:bg-stone-900'}
+            style={panel.sheet ? undefined : { top: panel.top, left: panel.left, width: panel.width }}
+          >
+            {panel.sheet && (
+              <div className="mb-1 flex items-center justify-between">
+                <p className="text-[15px] font-semibold text-brand-text">{panel.kind === 'month' ? 'เลือกเดือน' : 'ตัวกรอง'}</p>
+                <button type="button" onClick={() => setPanel(null)} aria-label="ปิด" className="rounded-lg p-2 text-brand-muted hover:bg-brand-faint cursor-pointer">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            {panel.kind === 'month' ? (
+              <div className={panel.sheet ? '' : 'p-1.5'}>
+                {[
+                  { key: 'all', label: 'เดือนทั้งหมด', value: { kind: 'all' } as JobPeriod },
+                  { key: currentMonth, label: 'เดือนนี้', secondary: monthName(currentMonth), value: { kind: 'month', month: currentMonth } as JobPeriod },
+                  ...monthOptions.map(month => ({ key: month, label: monthName(month), value: { kind: 'month', month } as JobPeriod })),
+                ].map(option => {
+                  const active = option.value.kind === 'all'
+                    ? period.kind === 'all'
+                    : period.kind === 'month' && option.value.kind === 'month' && period.month === option.value.month;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => choosePeriod(option.value)}
+                      aria-pressed={active}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 text-left text-[13px] transition-colors hover:bg-brand-faint cursor-pointer ${panel.sheet ? 'min-h-11' : 'min-h-9'} ${active ? 'font-medium text-[#C24A16] dark:text-orange-300' : 'text-brand-text'}`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        {option.label}
+                        {'secondary' in option && <span className="ml-1.5 text-xs font-normal text-brand-muted">{option.secondary}</span>}
+                      </span>
+                      {active && <Check className="h-4 w-4 shrink-0" />}
+                    </button>
+                  );
+                })}
+                <div className="my-1.5 border-t border-brand-border" />
+                <button
+                  type="button"
+                  onClick={() => setRangeOpen(v => !v)}
+                  aria-expanded={rangeOpen}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 text-left text-[13px] transition-colors hover:bg-brand-faint cursor-pointer ${panel.sheet ? 'min-h-11' : 'min-h-9'} ${period.kind === 'range' ? 'font-medium text-[#C24A16] dark:text-orange-300' : 'text-brand-text'}`}
+                >
+                  <span className="min-w-0 flex-1">เลือกช่วงเวลา</span>
+                  {period.kind === 'range' ? <Check className="h-4 w-4 shrink-0" /> : <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-brand-muted transition-transform ${rangeOpen ? 'rotate-180' : ''}`} />}
+                </button>
+                {rangeOpen && (
+                  <div className="space-y-2.5 px-3 pb-2 pt-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="block text-xs text-brand-muted">
+                        จาก
+                        <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-brand-border bg-brand-white px-2 text-xs text-brand-text outline-none focus:border-[#E65F2B] dark:bg-neutral-950" />
+                      </label>
+                      <label className="block text-xs text-brand-muted">
+                        ถึง
+                        <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-brand-border bg-brand-white px-2 text-xs text-brand-text outline-none focus:border-[#E65F2B] dark:bg-neutral-950" />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={applyRange}
+                      disabled={!rangeFrom && !rangeTo}
+                      className="h-10 w-full rounded-lg bg-[#E65F2B] text-xs font-semibold text-white transition-colors hover:bg-[#D85723] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                    >
+                      ใช้ช่วงเวลานี้
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className={panel.sheet ? 'space-y-4 pt-1' : 'space-y-4 p-4'}>
+                {[
+                  // Sorting sits in this sheet on phones, where there is no room for its own dropdown.
+                  ...(panel.sheet ? [{
+                    title: 'เรียงตาม',
+                    options: SORT_OPTIONS.map(option => ({ key: option.key, label: sortLabel(option), active: draftSort === option.key, toggle: () => setDraftSort(option.key) })),
+                  }] : []),
+                  {
+                    title: 'สถานะงาน',
+                    options: STAGE_FILTERS.map(option => ({ key: option.key, label: option.label, active: draftFilters.stages.includes(option.key), toggle: () => toggleDraft('stages', option.key) })),
+                  },
+                  {
+                    title: 'การชำระ',
+                    options: PAYMENT_FILTERS.map(label => ({ key: label, label, active: draftFilters.payments.includes(label), toggle: () => toggleDraft('payments', label) })),
+                  },
+                  {
+                    title: 'ประเภทงาน',
+                    options: typeOptions.map(type => ({ key: type, label: type, active: draftFilters.types.includes(type), toggle: () => toggleDraft('types', type) })),
+                  },
+                ].map(group => (
+                  <fieldset key={group.title}>
+                    <legend className="mb-2 text-xs font-medium text-brand-muted">{group.title}</legend>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.options.map(option => (
+                        <button
+                          key={option.key}
+                          type="button"
+                          onClick={option.toggle}
+                          aria-pressed={option.active}
+                          className={`h-8 max-w-full truncate rounded-full border px-3 text-xs transition-colors cursor-pointer ${option.active
+                            ? 'border-[#F3B08C] bg-[#FFF1E8] font-medium text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
+                            : 'border-brand-border text-brand-text hover:bg-brand-faint'}`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                ))}
+                <div className="flex gap-2 border-t border-brand-border pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setDraftFilters(emptyFilters)}
+                    className="h-10 flex-1 rounded-xl border border-brand-border text-xs text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
+                  >
+                    ล้างตัวกรอง
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyFilters}
+                    className="h-10 flex-[2] rounded-xl bg-[#E65F2B] text-xs font-semibold text-white transition-colors hover:bg-[#D85723] cursor-pointer"
+                  >
+                    ใช้ตัวกรอง
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
 
       {actionMenu && createPortal(
         <div
