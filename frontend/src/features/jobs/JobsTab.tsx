@@ -12,19 +12,14 @@ import WorkStageSelector from './WorkStageSelector';
 import InstallmentPlanner from './InstallmentPlanner';
 import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight } from '../../components/ui/icons';
 import {
-  Briefcase,
   Search,
   Filter,
-  Trash2,
   CheckCircle,
   ChevronDown,
-  User,
-  FileText,
   Clock,
-  ExternalLink,
-  Edit2,
-  Send,
-  WalletCards
+  Plus,
+  MoreHorizontal,
+  ArrowUpDown
 } from 'lucide-react';
 
 // Local (not UTC) YYYY-MM-DD -- avoids the date shifting by a day near midnight in UTC+7,
@@ -88,7 +83,8 @@ export default function JobsTab({
 
   React.useEffect(() => {
     if (!scrollToJobId) return;
-    const el = document.getElementById(`job-card-${scrollToJobId}`);
+    const el = Array.from(document.querySelectorAll<HTMLElement>(`[data-job-id="${scrollToJobId}"]`))
+      .find(node => node.offsetParent !== null);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setHighlightedJobId(scrollToJobId);
@@ -104,6 +100,31 @@ export default function JobsTab({
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [subTab, setSubTab] = useState<'all' | 'working' | 'waiting_payment' | 'closed'>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState<'recent' | 'due' | 'amount' | 'name'>('recent');
+  const [actionMenu, setActionMenu] = useState<{ job: Job; top: number; left: number; up: boolean } | null>(null);
+  const actionMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!actionMenu) return;
+    const close = () => setActionMenu(null);
+    const onPointer = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // The ⋯ trigger toggles the menu itself on click; closing here first would reopen it.
+      if (actionMenuRef.current?.contains(target) || target.closest?.('[aria-haspopup="menu"]')) return;
+      close();
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [actionMenu]);
   
   // Local form states for adding a job
   const [formName, setFormName] = useState('');
@@ -552,24 +573,6 @@ export default function JobsTab({
     onCloseAddJob();
   };
 
-  // Helper to get category tag color
-  const getCategoryColor = (type: string) => {
-    switch (type) {
-      case 'Sponsored':
-      case 'Sponsored Post':
-        return { bg: 'bg-indigo-50 border-indigo-100 dark:bg-indigo-500/10 dark:border-indigo-500/20', text: 'text-indigo-600 dark:text-indigo-300', dot: 'bg-indigo-600' };
-      case 'Video Production':
-        return { bg: 'bg-emerald-50 border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20', text: 'text-emerald-600 dark:text-emerald-300', dot: 'bg-emerald-600' };
-      case 'Digital Product':
-        return { bg: 'bg-purple-50 border-purple-100 dark:bg-purple-500/10 dark:border-purple-500/20', text: 'text-purple-600 dark:text-purple-300', dot: 'bg-purple-600' };
-      case 'Consulting':
-      case 'Consulting / Advisory':
-        return { bg: 'bg-amber-50 border-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20', text: 'text-amber-600 dark:text-amber-300', dot: 'bg-amber-600' };
-      default:
-        return { bg: 'bg-cyan-50 border-cyan-100 dark:bg-cyan-500/10 dark:border-cyan-500/20', text: 'text-cyan-600 dark:text-cyan-300', dot: 'bg-cyan-600' };
-    }
-  };
-
   // Helper to get status information
   const getStatusDisplay = (statusId: string) => {
     const s = statuses.find(opt => opt.id === statusId);
@@ -585,330 +588,409 @@ export default function JobsTab({
   // Unique job categories in current list for secondary filter
   const uniqueTypes = Array.from(new Set(jobs.map(j => j.type)));
 
-  // Counts for each sub-tab
-  const totalCount = jobs.length;
-  const workingCount = jobs.filter(j => j.isPosted === false).length;
-  const waitingPaymentCount = jobs.filter(j => j.isPosted !== false && j.pending > 0).length;
-  const closedCount = jobs.filter(j => j.isPosted !== false && j.pending <= 0).length;
+  // Stages: in progress (not delivered yet) -> awaiting payment (delivered, money outstanding) -> closed.
+  const isWorking = (j: Job) => j.isPosted === false;
+  const isAwaitingPayment = (j: Job) => j.isPosted !== false && j.pending > 0;
+  const isClosed = (j: Job) => j.isPosted !== false && j.pending <= 0;
+  const awaitingJobs = jobs.filter(isAwaitingPayment);
+  const tabs = [
+    { key: 'all' as const, label: 'ทั้งหมด', count: jobs.length },
+    { key: 'working' as const, label: 'กำลังทำ', count: jobs.filter(isWorking).length },
+    { key: 'waiting_payment' as const, label: 'รอรับเงิน', count: awaitingJobs.length, amount: awaitingJobs.reduce((sum, j) => sum + j.pending, 0) },
+    { key: 'closed' as const, label: 'ปิดงานแล้ว', count: jobs.filter(isClosed).length },
+  ];
 
-  // Filter & Search Jobs logic
+  const query = searchTerm.trim().toLowerCase();
   const filteredJobs = jobs.filter(j => {
-    const matchesSearch = j.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          j.client.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !query
+      || j.name.toLowerCase().includes(query)
+      || (j.client || '').toLowerCase().includes(query)
+      || (j.type || '').toLowerCase().includes(query);
     const matchesStatus = statusFilter === 'all' || j.status === statusFilter;
     const matchesType = typeFilter === 'all' || j.type === typeFilter;
     const matchesSubTab = subTab === 'all' ||
-                          (subTab === 'working' && j.isPosted === false) ||
-                          (subTab === 'waiting_payment' && j.isPosted !== false && j.pending > 0) ||
-                          (subTab === 'closed' && j.isPosted !== false && j.pending <= 0);
+                          (subTab === 'working' && isWorking(j)) ||
+                          (subTab === 'waiting_payment' && isAwaitingPayment(j)) ||
+                          (subTab === 'closed' && isClosed(j));
     return matchesSearch && matchesStatus && matchesType && matchesSubTab;
   });
+  const dueKey = (j: Job) => (isWorking(j) ? j.postDate : j.payDate || j.postDate) || '9999-12-31';
+  const sortedJobs = sortBy === 'recent' ? filteredJobs : [...filteredJobs].sort((a, b) =>
+    sortBy === 'due' ? dueKey(a).localeCompare(dueKey(b))
+      : sortBy === 'amount' ? (b.value || 0) - (a.value || 0)
+      : a.name.localeCompare(b.name, 'th'));
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setTypeFilter('all');
+    setSubTab('all');
+  };
+
+  const openAddJobForm = () => {
+    // Ensure form values are clean
+    setFormName('');
+    setFormClient('');
+    setFormValue('');
+    setFormReceived('');
+    setFormDepositDate(getLocalDateStr());
+    setFormStatus('pending');
+    setFormType('ยังไม่ระบุ');
+    setCustomTypeInput('');
+    setFormCreditTerm(0);
+    setFormPostDate('');
+    setFormStartDate(getLocalDateStr());
+    setFormIsPosted(false);
+    setFormNote('');
+    setFormWhtRate(0);
+    setFormStep(1);
+    onOpenAddJob();
+  };
+
+  const markPosted = (j: Job) => {
+    if (j.postDate) {
+      onEditJob(j.id, { isPosted: true });
+      return;
+    }
+    setDeliveryPostDate(j.postDate || getLocalDateStr());
+    setDeliveryCreditTerm(j.creditTerm || 0);
+    setDeliveryExcludeHolidays(j.excludeHolidays || false);
+    setDeliveryPromptJob(j);
+  };
+
+  const markPaidFull = (j: Job) => {
+    onEditJob(j.id, {
+      status: 'done',
+      received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
+      pending: 0,
+      paymentStatus: 'paid',
+      payDate: getLocalDateStr(),
+      isPosted: true
+    });
+  };
+
+  const promptPartial = (j: Job) => {
+    const partialVal = Math.round(j.value * 0.3);
+    triggerPrompt(
+      t('jobs.partialPromptTitle'),
+      t('jobs.partialPromptMessage', { name: j.name, amount: partialVal.toLocaleString() }),
+      String(partialVal),
+      t('jobs.enterAmountPlaceholder'),
+      'number',
+      (val) => {
+        const amt = parseFloat(val) || 0;
+        if (amt > 0) {
+          const localDateStr = getLocalDateStr();
+          onEditJob(j.id, {
+            status: 'partial',
+            received: amt,
+            pending: Math.max(0, (j.value - Math.round(j.value * ((j.whtRate || 0) / 100))) - amt),
+            paymentStatus: 'partial',
+            depositDate: localDateStr,
+            depositAmount: amt
+          });
+        }
+      }
+    );
+  };
+
+  const describeJob = (j: Job) => {
+    const statusInfo = getStatusDisplay(j.status);
+    const isInstallment = j.status === 'installment' && Boolean(j.installments?.length);
+    const stage = isWorking(j) ? 'working' : isClosed(j) ? 'closed' : 'awaiting';
+    const dateStr = stage === 'working' ? j.postDate : (j.payDate || j.postDate);
+    let dueText = 'ยังไม่ระบุ';
+    let dueTone: 'overdue' | 'soon' | 'normal' = 'normal';
+    if (dateStr) {
+      const longDate = safeFormatThaiDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
+      if (stage === 'closed') {
+        dueText = longDate;
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diff = Math.round((new Date(`${dateStr}T00:00:00`).getTime() - today.getTime()) / 86400000);
+        dueText = diff === 0 ? 'วันนี้' : diff === 1 ? 'พรุ่งนี้' : diff < 0 ? `เกินกำหนด ${-diff} วัน` : diff <= 14 ? `อีก ${diff} วัน` : longDate;
+        if (stage === 'awaiting') dueTone = diff < 0 ? 'overdue' : diff <= 3 ? 'soon' : 'normal';
+      }
+    }
+    const payment = isInstallment && j.pending > 0 ? 'แบ่งงวด'
+      : j.pending <= 0 && (j.received > 0 || statusInfo.behavior === 'done') ? 'รับครบแล้ว'
+      : j.received > 0 ? 'รับบางส่วน'
+      : 'ยังไม่จ่าย';
+    return { statusInfo, isInstallment, stage, dueText, dueTone, payment };
+  };
+
+  const jobActions = (j: Job) => {
+    const { statusInfo, isInstallment } = describeJob(j);
+    const hasPendingInstallment = (j.installments || []).some(row => row.status !== 'paid');
+    const actions: { label: string; run: () => void; danger?: boolean }[] = [
+      { label: 'ดูและแก้ไขรายละเอียด', run: () => setEditingJob(j) },
+    ];
+    if (j.isPosted === false) actions.push({ label: 'ส่งมอบงานแล้ว', run: () => markPosted(j) });
+    if (isInstallment && hasPendingInstallment) actions.push({ label: 'รับเงินงวดถัดไป', run: () => openInstallmentPayment(j) });
+    if (statusInfo.behavior !== 'done' && !isInstallment && j.isPosted !== false) actions.push({ label: 'บันทึกรับเงินครบ', run: () => markPaidFull(j) });
+    if (statusInfo.behavior === 'pending' && !isInstallment) actions.push({ label: 'บันทึกรับมัดจำ / บางส่วน', run: () => promptPartial(j) });
+    actions.push({ label: 'ลบงาน', run: () => onDeleteJob(j.id), danger: true });
+    return actions;
+  };
+
+  const openActionMenu = (event: React.MouseEvent<HTMLButtonElement>, job: Job) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = 224;
+    const up = rect.bottom + 280 > window.innerHeight;
+    setActionMenu(current => current?.job.id === job.id ? null : {
+      job,
+      left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)),
+      top: up ? rect.top - 4 : rect.bottom + 4,
+      up,
+    });
+  };
+
+  const stageBadge = (stage: string) => (
+    <span className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
+      stage === 'working'
+        ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
+        : stage === 'awaiting'
+        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+        : 'bg-brand-faint text-brand-muted'
+    }`}>
+      {stage === 'working' ? 'กำลังทำ' : stage === 'awaiting' ? 'เสร็จแล้ว' : 'ปิดงานแล้ว'}
+    </span>
+  );
+
+  const paymentBadge = (payment: string, overdue: boolean) => (
+    <span className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
+      payment === 'รับครบแล้ว'
+        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+        : overdue
+        ? 'bg-[#FFF0F0] text-[#C43A3A] dark:bg-rose-950/40 dark:text-rose-300'
+        : payment === 'รับบางส่วน'
+        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+        : payment === 'แบ่งงวด'
+        ? 'bg-brand-faint text-brand-text'
+        : 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-orange-300'
+    }`}>
+      {payment}
+    </span>
+  );
+
+  const dueClass = (tone: 'overdue' | 'soon' | 'normal') =>
+    tone === 'overdue' ? 'font-medium text-[#C43A3A] dark:text-rose-300' : tone === 'soon' ? 'font-medium text-amber-700 dark:text-amber-300' : 'text-brand-muted';
+
+  const accentShadow = (tone: 'overdue' | 'soon' | 'normal') =>
+    tone === 'overdue' ? 'shadow-[inset_3px_0_0_#E95454]' : tone === 'soon' ? 'shadow-[inset_3px_0_0_#F2A93B]' : '';
+
+  const typeLabel = (j: Job) => (j.type && j.type !== 'ยังไม่ระบุ' ? j.type : '');
 
   return (
-    <div className="page-content space-y-6">
-      {/* Primary action: the page title and mode switch live in App.tsx. */}
-      <div className="flex items-center justify-between gap-3 px-1">
-        <p className="text-sm font-bold text-brand-text">งานดีลทั้งหมด <span className="text-brand-muted">({jobs.length})</span></p>
-        <div className="flex items-center gap-2 shrink-0">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              // Ensure form values are clean
-              setFormName('');
-              setFormClient('');
-              setFormValue('');
-              setFormReceived('');
-              setFormDepositDate(getLocalDateStr());
-              setFormStatus('pending');
-              setFormType('ยังไม่ระบุ');
-              setCustomTypeInput('');
-              setFormCreditTerm(0);
-              setFormPostDate('');
-              setFormStartDate(getLocalDateStr());
-              setFormIsPosted(false);
-              setFormNote('');
-              setFormWhtRate(0);
-              setFormStep(1);
-              onOpenAddJob();
-            }}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
-          >
-            <Briefcase className="w-3.5 h-3.5" /> {t('jobs.addNew')}
-          </motion.button>
+    <div className="page-content">
+      {/* Page header */}
+      <div className="mb-5 flex items-end justify-between gap-3 border-b border-brand-border/30 pb-3.5">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold leading-tight tracking-tight text-brand-text lg:text-[26px]">งาน</h1>
+          <p className="mt-0.5 text-[13px] text-brand-muted">
+            <span className="hidden sm:inline">ติดตามงานตั้งแต่รับงาน จนถึงวันที่เงินจริงเข้ามา</span>
+            <span className="sm:hidden">ติดตามงานตั้งแต่รับงานจนถึงรับเงินจริง</span>
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={openAddJobForm}
+          aria-label="เพิ่มงาน"
+          className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#D85723] cursor-pointer"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">เพิ่มงาน</span>
+          <span className="sm:hidden">เพิ่ม</span>
+        </button>
       </div>
 
-      {/* 2. Search & Filters Bar */}
-      <div className="space-y-3 bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-3 shadow-xs">
+      {/* Stage tabs */}
+      <div className="no-scrollbar -mx-1 mb-4 flex gap-2 overflow-x-auto px-1" role="tablist" aria-label="สถานะงาน">
+        {tabs.map(tab => {
+          const active = subTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setSubTab(tab.key)}
+              className={`flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 text-[13px] transition-colors cursor-pointer ${
+                active
+                  ? 'border-[#F3B08C] bg-[#FFF1E8] font-semibold text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
+                  : 'border-brand-border bg-brand-white text-brand-muted hover:text-brand-text'
+              }`}
+            >
+              {tab.label}
+              <span className={active ? '' : 'text-brand-text'}>{tab.count}</span>
+              {tab.amount !== undefined && tab.amount > 0 && (
+                <span className={active ? 'font-normal' : 'text-brand-muted'}>· {formatCurrency(tab.amount)}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search, sort and filter */}
+      <div className="mb-3 space-y-2">
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
-          <input
-            type="text"
-            placeholder={t('jobs.searchPlaceholder')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-brand-faint text-xs text-brand-text placeholder-brand-muted rounded-xl pl-10 pr-4 py-3 outline-none border border-transparent focus:border-emerald-500/50 transition-all font-medium"
-          />
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+            <input
+              type="text"
+              placeholder="ค้นหาชื่องาน ลูกค้า หรือแบรนด์..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-10 w-full rounded-xl border border-brand-border bg-brand-white pl-9 pr-3 text-[13px] text-brand-text placeholder:text-brand-muted outline-none transition-colors focus:border-[#E65F2B]"
+            />
           </div>
-          <button type="button" onClick={() => setShowFilters(value => !value)} aria-expanded={showFilters} className={`shrink-0 rounded-xl border px-3 py-3 text-xs font-bold transition-colors ${showFilters || statusFilter !== 'all' || typeFilter !== 'all' ? 'border-[#D98324]/40 bg-[#D98324]/10 text-[#9A541C]' : 'border-brand-border bg-brand-white text-brand-muted hover:bg-brand-faint'}`}>
-            <Filter className="inline h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">ตัวกรอง</span>
+          <div className="relative shrink-0">
+            {/* Icon-only on phones; the native picker still shows the option labels. */}
+            <ArrowUpDown className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 text-brand-text sm:hidden" />
+            <select
+              aria-label="เรียงตาม"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="h-10 w-10 appearance-none rounded-xl border border-brand-border bg-brand-white text-xs text-transparent outline-none transition-colors hover:bg-brand-faint focus:border-[#E65F2B] cursor-pointer sm:w-auto sm:pl-3 sm:pr-8 sm:text-brand-text"
+            >
+              <option className="text-brand-text" value="recent">เรียงตาม: ล่าสุด</option>
+              <option className="text-brand-text" value="due">เรียงตาม: ใกล้กำหนด</option>
+              <option className="text-brand-text" value="amount">เรียงตาม: ยอดเงินสูงสุด</option>
+              <option className="text-brand-text" value="name">เรียงตาม: ชื่อ ก–ฮ</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 hidden h-3.5 w-3.5 -translate-y-1/2 text-brand-muted sm:block" />
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowFilters(value => !value)}
+            aria-expanded={showFilters}
+            aria-label="ตัวกรอง"
+            className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs transition-colors cursor-pointer ${
+              showFilters || statusFilter !== 'all' || typeFilter !== 'all'
+                ? 'border-[#F3B08C] bg-[#FFF1E8] text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
+                : 'border-brand-border bg-brand-white text-brand-text hover:bg-brand-faint'
+            }`}
+          >
+            <Filter className="h-4 w-4" />
+            <span className="hidden sm:inline">ตัวกรอง</span>
           </button>
         </div>
 
-        {showFilters && <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5 bg-brand-faint px-3 py-2 rounded-xl border border-brand-border/40">
-            <Filter className="w-3.5 h-3.5 text-brand-muted shrink-0" />
+        {showFilters && (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <select
+              aria-label="กรองตามสถานะการชำระ"
               value={statusFilter}
-              onChange={(e: any) => setStatusFilter(e.target.value)}
-              className="w-full bg-transparent text-xs font-semibold text-brand-text outline-none cursor-pointer"
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-10 rounded-xl border border-brand-border bg-brand-white px-3 text-xs text-brand-text outline-none focus:border-[#E65F2B] cursor-pointer"
             >
               <option value="all">{t('jobs.filterStatusAll')}</option>
               {statuses.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
+                <option key={s.id} value={s.id}>{s.label}</option>
               ))}
             </select>
-          </div>
-
-          {/* Type Filter */}
-          <div className="flex items-center gap-1.5 bg-brand-faint px-3 py-2 rounded-xl border border-brand-border/40">
-            <Briefcase className="w-3.5 h-3.5 text-brand-muted shrink-0" />
             <select
+              aria-label="กรองตามประเภทงาน"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full bg-transparent text-xs font-semibold text-brand-text outline-none cursor-pointer"
+              className="h-10 rounded-xl border border-brand-border bg-brand-white px-3 text-xs text-brand-text outline-none focus:border-[#E65F2B] cursor-pointer"
             >
               <option value="all">{t('jobs.filterTypeAll')}</option>
-              {Array.from(new Set(jobTypes)).filter(Boolean).map(t => (
-                <option key={t} value={t}>{t}</option>
+              {Array.from(new Set(jobTypes)).filter(Boolean).map(type => (
+                <option key={type} value={type}>{type}</option>
               ))}
-              {uniqueTypes.filter(ut => !jobTypes.includes(ut)).map(t => (
-                <option key={t} value={t}>{t}</option>
+              {uniqueTypes.filter(ut => !jobTypes.includes(ut)).map(type => (
+                <option key={type} value={type}>{type}</option>
               ))}
             </select>
           </div>
-        </div>}
+        )}
       </div>
 
-
-
-      {/* Sub-tab Navigation Selector */}
-      <div className="grid grid-cols-2 bg-brand-white border border-brand-border rounded-2xl p-1.5 gap-1.5 shadow-2xs lg:grid-cols-4">
-        <button
-          onClick={() => setSubTab('all')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
-            subTab === 'all'
-              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
-              : 'text-brand-muted hover:text-brand-text'
-          }`}
-        >
-          {t('jobs.tabAll', { count: totalCount })}
-        </button>
-        <button
-          onClick={() => setSubTab('working')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
-            subTab === 'working'
-              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
-              : 'text-brand-muted hover:text-brand-text'
-          }`}
-        >
-          งานที่ต้องทำ ({workingCount})
-        </button>
-        <button
-          onClick={() => setSubTab('waiting_payment')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
-            subTab === 'waiting_payment'
-              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
-              : 'text-brand-muted hover:text-brand-text'
-          }`}
-        >
-          งานเสร็จรอเงิน ({waitingPaymentCount})
-        </button>
-        <button
-          onClick={() => setSubTab('closed')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
-            subTab === 'closed'
-              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
-              : 'text-brand-muted hover:text-brand-text'
-          }`}
-        >
-          ปิดงานแล้ว ({closedCount})
-        </button>
-      </div>
-
-      {/* 3. Jobs List -- table layout matching the Draft 10 mockup exactly (งาน/แหล่งรายได้,
-          ลูกค้า/ผู้จ่ายเงิน, กำหนด, สถานะงาน, สถานะเงิน, จำนวนเงิน columns). The mockup's table
-          row only opens a read-only detail drawer; this app's rows also carry real quick-actions
-          (mark posted/paid, installment payment, edit, delete) that don't fit six columns, so
-          those live in an added "การดำเนินการ" actions column instead of being dropped. */}
-      {filteredJobs.length === 0 ? (
-        <div className="bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-10 text-center text-brand-muted flex flex-col items-center justify-center gap-3">
-          <Mascot mood="sleepy" size={100} />
-          <div>
-            <p className="text-xs font-semibold text-brand-text">{t('jobs.emptyTitle')}</p>
-            <p className="text-[10px] mt-1">{t('jobs.emptyHint')}</p>
-          </div>
+      {/* Jobs list: table from sm up, compact cards on phones */}
+      <div>
+      {jobs.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-[14px] border border-brand-border bg-brand-white px-6 py-10 text-center">
+          <Mascot mood="happy" size={72} />
+          <p className="mt-1 text-sm font-semibold text-brand-text">ยังไม่มีงาน</p>
+          <p className="max-w-sm text-xs text-brand-muted">เริ่มเพิ่มงานแรกของคุณ แล้วกระรอกจะช่วยติดตามจนถึงวันที่รับเงินจริง</p>
+          <button
+            type="button"
+            onClick={openAddJobForm}
+            className="mt-2 flex h-10 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#D85723] cursor-pointer"
+          >
+            <Plus className="h-4 w-4" /> เพิ่มงาน
+          </button>
+        </div>
+      ) : sortedJobs.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-[14px] border border-brand-border bg-brand-white px-6 py-10 text-center">
+          <Mascot mood="thinking" size={56} />
+          <p className="mt-1 text-sm font-medium text-brand-text">ไม่พบงานที่ตรงกับตัวกรองนี้</p>
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="mt-1 h-9 rounded-xl border border-brand-border px-4 text-xs text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
+          >
+            ล้างตัวกรอง
+          </button>
         </div>
       ) : (
-        <div className="bg-brand-white border border-brand-border rounded-[14px] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-left text-[13px]">
+        <>
+          <div className="hidden overflow-hidden rounded-[14px] border border-brand-border bg-brand-white sm:block">
+            <table className="w-full table-fixed text-left text-[13px]">
               <thead>
                 <tr className="border-b border-brand-border">
-                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">งาน / แหล่งรายได้</th>
-                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">ลูกค้า / ผู้จ่ายเงิน</th>
-                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">กำหนด</th>
-                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">สถานะงาน</th>
-                  <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">สถานะเงิน</th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-brand-muted">จำนวนเงิน</th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-brand-muted">การดำเนินการ</th>
+                  <th className="w-[34%] px-4 py-2.5 text-xs font-medium text-brand-muted lg:w-[26%]">งาน / แหล่งรายได้</th>
+                  <th className="hidden px-3 py-2.5 text-xs font-medium text-brand-muted lg:table-cell">ลูกค้า / ผู้จ่าย</th>
+                  <th className="px-3 py-2.5 text-xs font-medium text-brand-muted">กำหนด</th>
+                  <th className="px-3 py-2.5 text-xs font-medium text-brand-muted">สถานะงาน</th>
+                  <th className="hidden px-3 py-2.5 text-xs font-medium text-brand-muted lg:table-cell">การชำระ</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-medium text-brand-muted">จำนวนเงิน</th>
+                  <th className="w-12 px-2 py-2.5"><span className="sr-only">การดำเนินการ</span></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredJobs.map(j => {
-                  const relText = getRelativeDaysText(j.payDate || j.postDate);
-                  const statusInfo = getStatusDisplay(j.status);
-                  const isDone = statusInfo.behavior === 'done';
-                  const isPartial = statusInfo.behavior === 'partial';
-                  const isPending = statusInfo.behavior === 'pending';
-                  const isInstallment = j.status === 'installment' && Boolean(j.installments?.length);
-                  const pendingInstallments = (j.installments || []).filter((row) => row.status !== 'paid');
-                  const dueLabel = j.isPosted === false
-                    ? (j.postDate ? safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' }) : t('jobs.statusUnspecifiedLabel'))
-                    : (j.payDate ? relText.text : safeFormatThaiDate(j.postDate));
-
+                {sortedJobs.map(j => {
+                  const info = describeJob(j);
+                  const overdue = info.dueTone === 'overdue';
                   return (
                     <tr
                       key={j.id}
-                      id={`job-card-${j.id}`}
+                      data-job-id={j.id}
                       onClick={() => setEditingJob(j)}
                       className={`cursor-pointer border-b border-brand-border last:border-b-0 transition-colors hover:bg-brand-faint/60 ${
-                        highlightedJobId === j.id ? 'bg-[#FFF1E8]' : ''
+                        highlightedJobId === j.id ? 'bg-[#FFF1E8] dark:bg-orange-500/10' : ''
                       }`}
                     >
-                      <td className="px-3 py-3 font-medium text-brand-text max-w-[220px] truncate">{j.name}</td>
-                      <td className="px-3 py-3 text-brand-muted max-w-[160px] truncate">{j.client || '—'}</td>
-                      <td className={`px-3 py-3 whitespace-nowrap ${relText.isOverdue && j.pending > 0 ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-brand-muted'}`}>{dueLabel}</td>
-                      <td className="px-3 py-3">
-                        <span className={`rounded-md px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${j.isPosted === false ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}`}>
-                          {j.isPosted === false ? 'กำลังทำ' : 'เสร็จแล้ว'}
-                        </span>
+                      <td className={`px-4 py-3 ${accentShadow(info.dueTone)}`}>
+                        <p className="truncate font-medium text-brand-text">{j.name}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-brand-muted">
+                          <span className="lg:hidden">{j.client || '—'}{typeLabel(j) ? ' · ' : ''}</span>
+                          {typeLabel(j)}
+                        </p>
                       </td>
+                      <td className="hidden truncate px-3 py-3 text-brand-muted lg:table-cell">{j.client || '—'}</td>
+                      <td className={`whitespace-nowrap px-3 py-3 ${dueClass(info.dueTone)}`}>{info.dueText}</td>
                       <td className="px-3 py-3">
-                        <span className={`rounded-md px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
-                          isDone
-                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
-                            : isPartial
-                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                            : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
-                        }`}>
-                          {statusInfo.label}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-right font-medium font-mono text-brand-text whitespace-nowrap">{formatCurrency(j.value)}</td>
-                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          {j.isPosted === false && (
-                            <button
-                              onClick={() => {
-                                if (j.postDate) {
-                                  onEditJob(j.id, { isPosted: true });
-                                  return;
-                                }
-                                const today = new Date();
-                                const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                setDeliveryPostDate(j.postDate || localDateStr);
-                                setDeliveryCreditTerm(j.creditTerm || 0);
-                                setDeliveryExcludeHolidays(j.excludeHolidays || false);
-                                setDeliveryPromptJob(j);
-                              }}
-                              className="p-1.5 rounded-lg text-white bg-[#E65F2B] hover:bg-[#D8551F] transition-colors cursor-pointer"
-                              title={t('jobs.actionMarkPosted')}
-                            >
-                              <Send className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {isInstallment && pendingInstallments.length > 0 && (
-                            <button
-                              onClick={() => openInstallmentPayment(j)}
-                              className="p-1.5 rounded-lg text-white bg-[#E65F2B] hover:bg-[#D8551F] transition-colors cursor-pointer"
-                              title="รับเงินงวดถัดไป"
-                            >
-                              <WalletCards className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          {!isDone && !isInstallment && j.isPosted !== false && (
-                            <button
-                              onClick={() => {
-                                const today = new Date();
-                                const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                onEditJob(j.id, {
-                                  status: 'done',
-                                  received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
-                                  pending: 0,
-                                  paymentStatus: 'paid',
-                                  payDate: localDateStr,
-                                  isPosted: true
-                                });
-                              }}
-                              className="p-1.5 rounded-lg text-white bg-[#E65F2B] hover:bg-[#D8551F] transition-colors cursor-pointer"
-                              title={t('jobs.actionMarkPaidFull')}
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {isPending && !isInstallment && (
-                            <button
-                              onClick={() => {
-                                const partialVal = Math.round(j.value * 0.3);
-                                triggerPrompt(
-                                  t('jobs.partialPromptTitle'),
-                                  t('jobs.partialPromptMessage', { name: j.name, amount: partialVal.toLocaleString() }),
-                                  String(partialVal),
-                                  t('jobs.enterAmountPlaceholder'),
-                                  'number',
-                                  (val) => {
-                                    const amt = parseFloat(val) || 0;
-                                    if (amt > 0) {
-                                      const today = new Date();
-                                      const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                      onEditJob(j.id, {
-                                        status: 'partial',
-                                        received: amt,
-                                        pending: Math.max(0, (j.value - Math.round(j.value * ((j.whtRate || 0) / 100))) - amt),
-                                        paymentStatus: 'partial',
-                                        depositDate: localDateStr,
-                                        depositAmount: amt
-                                      });
-                                    }
-                                  }
-                                );
-                              }}
-                              className="p-1.5 rounded-lg text-brand-muted hover:text-amber-600 dark:hover:text-amber-300 border border-brand-border transition-colors cursor-pointer"
-                              title={t('jobs.actionMarkPartial')}
-                            >
-                              <Clock className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setEditingJob(j)}
-                            className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/15 rounded-lg transition-colors cursor-pointer"
-                            title={t('jobs.editTooltip')}
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => onDeleteJob(j.id)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/15 rounded-lg transition-colors cursor-pointer"
-                            title={t('jobs.deleteTooltip')}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        <div className="flex flex-wrap gap-1">
+                          {stageBadge(info.stage)}
+                          <span className="lg:hidden">{paymentBadge(info.payment, overdue)}</span>
                         </div>
+                      </td>
+                      <td className="hidden px-3 py-3 lg:table-cell">{paymentBadge(info.payment, overdue)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold text-brand-text">{formatCurrency(j.value)}</td>
+                      <td className="px-2 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={(event) => openActionMenu(event, j)}
+                          aria-label={`ตัวเลือกของงาน ${j.name}`}
+                          aria-haspopup="menu"
+                          aria-expanded={actionMenu?.job.id === j.id}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -916,7 +998,74 @@ export default function JobsTab({
               </tbody>
             </table>
           </div>
-        </div>
+
+          <div className="space-y-2 sm:hidden">
+            {sortedJobs.map(j => {
+              const info = describeJob(j);
+              return (
+                <div
+                  key={j.id}
+                  data-job-id={j.id}
+                  onClick={() => setEditingJob(j)}
+                  className={`cursor-pointer overflow-hidden rounded-[14px] border border-brand-border bg-brand-white px-4 py-3 ${accentShadow(info.dueTone)} ${
+                    highlightedJobId === j.id ? 'bg-[#FFF1E8] dark:bg-orange-500/10' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-brand-text">{j.name}</p>
+                      <p className="mt-0.5 truncate text-xs text-brand-muted">{j.client || '—'}{typeLabel(j) ? ` · ${typeLabel(j)}` : ''}</p>
+                    </div>
+                    <p className="shrink-0 font-mono text-sm font-semibold text-brand-text">{formatCurrency(j.value)}</p>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      {stageBadge(info.stage)}
+                      {paymentBadge(info.payment, info.dueTone === 'overdue')}
+                      <span className={`text-[11px] ${dueClass(info.dueTone)}`}>{info.dueText}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(event) => openActionMenu(event, j)}
+                      aria-label={`ตัวเลือกของงาน ${j.name}`}
+                      aria-haspopup="menu"
+                      aria-expanded={actionMenu?.job.id === j.id}
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+      </div>
+
+      {actionMenu && createPortal(
+        <div
+          ref={actionMenuRef}
+          role="menu"
+          aria-label={`ตัวเลือกของงาน ${actionMenu.job.name}`}
+          className="fixed z-[150] w-56 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900"
+          style={{ top: actionMenu.top, left: actionMenu.left, transform: actionMenu.up ? 'translateY(-100%)' : undefined }}
+        >
+          {jobActions(actionMenu.job).map(action => (
+            <button
+              key={action.label}
+              type="button"
+              role="menuitem"
+              onClick={() => { setActionMenu(null); action.run(); }}
+              className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors cursor-pointer ${
+                action.danger ? 'text-[#C43A3A] hover:bg-[#FFF0F0] dark:text-rose-300 dark:hover:bg-rose-950/40' : 'text-brand-text hover:bg-brand-faint'
+              }`}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>,
+        document.body
       )}
 
       {createPortal(

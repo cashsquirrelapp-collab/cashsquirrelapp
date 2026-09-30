@@ -943,7 +943,7 @@ export default function DashboardTab({
         <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
           <div className="mb-1 flex items-center justify-between">
             <h4 className="text-[13px] font-medium text-brand-text">รายการล่าสุด</h4>
-            <button type="button" onClick={() => onSwitchTab('jobs')} className="text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">
+            <button type="button" onClick={() => onSwitchTab('incomeExpense')} className="text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">
               ดูทั้งหมด →
             </button>
           </div>

@@ -48,9 +48,7 @@ const LEGACY_CATEGORY_LABELS: Record<string, string> = {
 };
 const categoryLabel = (category: string) => LEGACY_CATEGORY_LABELS[category] || category;
 
-// The "รายจ่าย" half of the บันทึกรายรับ-รายจ่าย umbrella tab -- lives alongside JobsTab
-// (the "รายรับ" half) instead of buried inside the Summary tab, so recording either an
-// income or an expense starts from the same obvious place.
+// Expense recording, shown on the รายรับ-รายจ่าย page under the income/expense overview.
 export default function ExpenseRecordView({
   expenses,
   onAddExpense,

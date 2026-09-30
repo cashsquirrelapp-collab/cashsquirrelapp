@@ -166,7 +166,7 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   clients: loadClientsTab,
   receivables: loadReceivablesTab,
   calendar: loadCalendarTab,
-  incomeExpense: loadIncomeExpenseTab,
+  incomeExpense: () => Promise.all([loadIncomeExpenseTab(), loadExpenseRecordView()]),
 };
 const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch(() => {}); };
 
@@ -1205,9 +1205,6 @@ export default function App() {
   const [scrollToJobId, setScrollToJobId] = useState<string | null>(null);
   const [scrollToExpenseId, setScrollToExpenseId] = useState<string | null>(null);
   const [autoOpenAddExpense, setAutoOpenAddExpense] = useState(false);
-  // Umbrella "บันทึกรายรับ-รายจ่าย" tab: income (jobs) and expense are sub-modes of the
-  // same place instead of living in two disconnected tabs.
-  const [recordMode, setRecordMode] = useState<'income' | 'expense'>('income');
 
   // Deep links from the LINE assistant's Quick Reply buttons: once this user's data has loaded,
   // jump straight to the relevant spot in the Jobs tab and strip the param from the URL.
@@ -1223,23 +1220,12 @@ export default function App() {
     const openAddExpense = params.get('openAddExpense');
     if (!jobId && !expenseId && !openAddJob && !openAddExpense) return;
 
-    if (jobId) {
-      setRecordMode('income');
-      setScrollToJobId(jobId);
-    }
-    if (expenseId) {
-      setRecordMode('expense');
-      setScrollToExpenseId(expenseId);
-    }
-    if (openAddJob) {
-      setRecordMode('income');
-      setIsAddJobOpen(true);
-    }
-    if (openAddExpense) {
-      setRecordMode('expense');
-      setAutoOpenAddExpense(true);
-    }
-    navigateTab('jobs');
+    if (jobId) setScrollToJobId(jobId);
+    if (expenseId) setScrollToExpenseId(expenseId);
+    if (openAddJob) setIsAddJobOpen(true);
+    if (openAddExpense) setAutoOpenAddExpense(true);
+    // Expenses are managed on the รายรับ-รายจ่าย page; jobs on the Jobs page.
+    navigateTab(expenseId || openAddExpense ? 'incomeExpense' : 'jobs');
 
     params.delete('job');
     params.delete('expense');
@@ -2502,7 +2488,7 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setRecordMode('income'); setIsAddJobOpen(true); navigateTab('jobs'); }}
+                    onClick={() => { setIsAddJobOpen(true); navigateTab('jobs'); }}
                     className="flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-2xl bg-[#E65F2B] px-4 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#D98324] cursor-pointer"
                   >
                     <Plus className="h-4 w-4 shrink-0" /> เพิ่มงาน
@@ -2538,56 +2524,18 @@ export default function App() {
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
                   onQuickRecord={(mode) => {
-                    setRecordMode(mode);
-                    if (mode === 'income') setIsAddJobOpen(true);
-                    else setAutoOpenAddExpense(true);
-                    navigateTab('jobs');
+                    if (mode === 'income') {
+                      setIsAddJobOpen(true);
+                      navigateTab('jobs');
+                    } else {
+                      setAutoOpenAddExpense(true);
+                      navigateTab('incomeExpense');
+                    }
                   }}
                 />
               )}
 
               {activeTab === 'jobs' && (
-                <div className="space-y-6">
-                  <section className="flex flex-col gap-4 rounded-3xl border border-brand-border bg-brand-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
-                    <div>
-                      <h1 className="text-2xl font-black tracking-tight text-brand-text">บันทึกรายรับ–รายจ่าย</h1>
-                      <p className="mt-1 text-xs text-brand-muted">เลือกประเภทที่ต้องการ แล้วจัดการเฉพาะข้อมูลที่เกี่ยวข้อง</p>
-                    </div>
-                  <div className="relative flex w-full bg-brand-faint border border-brand-border/60 rounded-2xl p-1 sm:w-auto sm:min-w-[260px]">
-                    <button
-                      onClick={() => startTransition(() => setRecordMode('income'))}
-                      className="relative flex-1 px-4 py-2.5 rounded-xl text-center cursor-pointer overflow-hidden"
-                    >
-                      {recordMode === 'income' && (
-                        <motion.div
-                          layoutId="record-mode-toggle"
-                          className="absolute inset-0 bg-brand-white border border-brand-border rounded-xl shadow-sm"
-                          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        />
-                      )}
-                      <span className={`relative z-10 text-xs font-black ${recordMode === 'income' ? 'text-brand-text' : 'text-brand-muted'}`}>
-                        รายรับ
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => startTransition(() => setRecordMode('expense'))}
-                      className="relative flex-1 px-4 py-2.5 rounded-xl text-center cursor-pointer overflow-hidden"
-                    >
-                      {recordMode === 'expense' && (
-                        <motion.div
-                          layoutId="record-mode-toggle"
-                          className="absolute inset-0 bg-brand-white border border-brand-border rounded-xl shadow-sm"
-                          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        />
-                      )}
-                      <span className={`relative z-10 text-xs font-black ${recordMode === 'expense' ? 'text-brand-text' : 'text-brand-muted'}`}>
-                        รายจ่าย
-                      </span>
-                    </button>
-                  </div>
-                  </section>
-
-                  {recordMode === 'income' ? (
                     <JobsTab
                       jobs={jobs}
                       onAddJob={handleAddJob}
@@ -2606,24 +2554,6 @@ export default function App() {
                       scrollToJobId={scrollToJobId}
                       onScrollToJobHandled={() => setScrollToJobId(null)}
                     />
-                  ) : (
-                    <ExpenseRecordView
-                      expenses={expenses}
-                      onAddExpense={handleAddExpense}
-                      onEditExpense={handleEditExpense}
-                      onDeleteExpense={handleDeleteExpense}
-                      selectedMonth={selectedMonthKey}
-                      triggerAlert={triggerAlert}
-                      triggerConfirm={triggerConfirm}
-                      autoOpenAdd={autoOpenAddExpense}
-                      onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
-                      scrollToExpenseId={scrollToExpenseId}
-                      onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
-                      settings={settings}
-                      onUpdateSettings={handleUpdateSettings}
-                    />
-                  )}
-                </div>
               )}
 
               {activeTab === 'split' && (
@@ -2732,7 +2662,24 @@ export default function App() {
                 />
               )}
               {activeTab === 'incomeExpense' && (
-                <IncomeExpenseTab jobs={jobs} expenses={expenses} onExportData={handleExportData} triggerAlert={triggerAlert} />
+                <div className="space-y-6">
+                  <IncomeExpenseTab jobs={jobs} expenses={expenses} onExportData={handleExportData} triggerAlert={triggerAlert} />
+                    <ExpenseRecordView
+                      expenses={expenses}
+                      onAddExpense={handleAddExpense}
+                      onEditExpense={handleEditExpense}
+                      onDeleteExpense={handleDeleteExpense}
+                      selectedMonth={selectedMonthKey}
+                      triggerAlert={triggerAlert}
+                      triggerConfirm={triggerConfirm}
+                      autoOpenAdd={autoOpenAddExpense}
+                      onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
+                      scrollToExpenseId={scrollToExpenseId}
+                      onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
+                      settings={settings}
+                      onUpdateSettings={handleUpdateSettings}
+                    />
+                </div>
               )}
               {activeTab === 'calendar' && (
                 <CalendarTab

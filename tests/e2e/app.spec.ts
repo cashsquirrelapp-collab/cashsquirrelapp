@@ -212,8 +212,8 @@ test('add-job sheet stays in the viewport and success feedback appears at the to
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',route=>route.fulfill({json:route.request().method()==='POST'?{ok:true}:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');
- await page.locator('aside').getByRole('button',{name:'บันทึกรายรับ-รายจ่าย'}).click();
- await page.getByRole('button',{name:/เพิ่มงานใหม่/}).click();
+ await page.locator('aside').getByRole('button',{name:'งาน',exact:true}).click();
+ await page.getByRole('button',{name:'เพิ่มงาน',exact:true}).first().click();
  const sheet=page.getByRole('heading',{name:'เพิ่มโปรเจกต์งานใหม่'}).locator('..').locator('..');
  await expect(sheet).toBeVisible();
  await expect.poll(async()=>{const box=await sheet.boundingBox();return box ? Math.round(box.y) : 9999;}).toBeLessThan(900);
