@@ -98,6 +98,7 @@ interface SettingsTabProps {
   onSwitchTab: (tabId: string) => void;
   onUpdateSettings: (settings: AppSettings) => void;
   onImportData: (data: string) => void;
+  onExportData: () => void;
   onClearAllData: () => void;
   cloudSyncStatus: 'synced' | 'pending' | 'failed' | 'not_setup';
   loadCloudData: (email: string) => void;
@@ -136,6 +137,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onSwitchTab,
   onUpdateSettings,
   onImportData,
+  onExportData,
   onClearAllData,
   cloudSyncStatus,
   loadCloudData,
@@ -938,13 +940,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </label>
               </div>
 
-              {/* Pointer to export buttons, which now live on the Summary tab */}
+              {/* Keep backup and restore together after retiring the duplicate summary page. */}
               <button
                 type="button"
-                onClick={() => onSwitchTab('summary')}
+                onClick={onExportData}
                 className="w-full py-2.5 bg-brand-faint dark:bg-neutral-800/50 hover:bg-brand-border/30 dark:hover:bg-neutral-800 text-brand-text dark:text-neutral-200 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-brand-border/40 dark:border-neutral-700"
               >
-                <Download className="w-3.5 h-3.5" /> ต้องการสำรอง/Export ข้อมูล? ไปที่หน้า "สรุปยอดรายรับ"
+                <Download className="w-3.5 h-3.5" /> สำรองข้อมูลทั้งหมด (.json)
               </button>
             </div>
           </div>
