@@ -1601,6 +1601,12 @@ export default function App() {
   // Jumps to the Jobs tab and scrolls straight to one job's card, briefly highlighted --
   // shared by every clickable job reference outside the Jobs tab itself (Dashboard's hero
   // card breakdown, the credit-term board) so they all land on the same quick-action row.
+  // Job types are plain labels on each job, so renaming a type relabels the jobs that use it.
+  // One state update (not an onEditJob per job) so no per-job toasts or notifications fire.
+  const handleRenameJobType = (from: string, to: string) => {
+    setJobs(prev => prev.map(j => (j.type === from ? { ...j, type: to } : j)));
+  };
+
   const handleViewJob = (id: string) => {
     setScrollToJobId(id);
     navigateTab('jobs');
@@ -2551,6 +2557,7 @@ export default function App() {
                       setStatuses={setStatuses}
                       jobTypes={jobTypes}
                       setJobTypes={setJobTypes}
+                      onRenameJobType={handleRenameJobType}
                       triggerAlert={triggerAlert}
                       triggerConfirm={triggerConfirm}
                       triggerPrompt={triggerPrompt}

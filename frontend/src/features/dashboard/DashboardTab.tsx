@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
+import { jobNetReceivable } from '../../../../shared/wht';
 import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../../utils';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
@@ -1085,7 +1086,7 @@ export default function DashboardTab({
                                 if (onEditJob) {
                                   onEditJob(j.id, {
                                     status: 'done',
-                                    received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
+                                    received: jobNetReceivable(j),
                                     pending: 0,
                                     paymentStatus: 'paid',
                                     payDate: localDateStr,

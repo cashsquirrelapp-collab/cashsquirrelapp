@@ -1198,13 +1198,15 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                   <label className="text-[9px] font-bold text-brand-muted uppercase">ภาษีหัก ณ ที่จ่าย (Withholding Tax)</label>
                   <select
                     value={whtRate}
-                    onChange={(e) => setWhtRate(parseInt(e.target.value) || 0)}
+                    onChange={(e) => setWhtRate(parseFloat(e.target.value) || 0)}
                     className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
                   >
                     <option value={0}>ไม่มีการหัก ณ ที่จ่าย</option>
                     <option value={1}>หัก ณ ที่จ่ายค่าขนส่ง (1%)</option>
                     <option value={3}>หัก ณ ที่จ่ายฟรีแลนซ์/บริการ (3%)</option>
                     <option value={5}>หัก ณ ที่จ่ายค่าเช่า/โฆษณา (5%)</option>
+                    {/* A job with a custom rate (e.g. 1.5%) carries it into the document. */}
+                    {![0, 1, 3, 5].includes(whtRate) && <option value={whtRate}>หัก ณ ที่จ่ายอัตรากำหนดเอง ({whtRate}%)</option>}
                   </select>
                 </div>
 

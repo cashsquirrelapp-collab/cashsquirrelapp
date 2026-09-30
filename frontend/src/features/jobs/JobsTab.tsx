@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 import JobFormDrawer from './JobFormDrawer';
+import { jobNetReceivable } from '../../../../shared/wht';
 import { sortJobs, matchesPeriod, periodMonths, monthKeyOf, type JobSort, type JobPeriod } from './jobSort';
 import {
   Search,
@@ -55,6 +56,7 @@ interface JobsTabProps {
   setStatuses: React.Dispatch<React.SetStateAction<StatusOption[]>>;
   jobTypes: string[];
   setJobTypes: React.Dispatch<React.SetStateAction<string[]>>;
+  onRenameJobType: (from: string, to: string) => void;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   triggerPrompt: (
@@ -85,6 +87,7 @@ export default function JobsTab({
   setStatuses,
   jobTypes,
   setJobTypes,
+  onRenameJobType,
   triggerAlert,
   triggerConfirm,
   triggerPrompt,
@@ -178,7 +181,7 @@ export default function JobsTab({
     const received = installments
       .filter((row) => row.status === 'paid')
       .reduce((sum, row) => sum + row.amount, 0);
-    const netReceivable = Math.max(0, installmentPaymentJob.value - (installmentPaymentJob.whtAmount || 0));
+    const netReceivable = jobNetReceivable(installmentPaymentJob);
     const pendingRows = installments
       .filter((row) => row.status !== 'paid' && row.dueDate)
       .sort((a, b) => (a.dueDate as string).localeCompare(b.dueDate as string));
@@ -370,8 +373,7 @@ export default function JobsTab({
   };
 
   // Net amount the client actually pays (value minus withholding tax).
-  const netReceivable = (j: Job) =>
-    Math.max(0, j.value - (j.whtAmount || Math.round(j.value * ((j.whtRate || 0) / 100))));
+  const netReceivable = (j: Job) => jobNetReceivable(j);
 
   // Recomputed on delivery: jobs saved while in progress by older versions can carry pending 0,
   // which would wrongly land an unpaid job in "ปิดงานแล้ว".
@@ -1202,6 +1204,8 @@ export default function JobsTab({
         statuses={statuses}
         jobTypes={jobTypes}
         setJobTypes={setJobTypes}
+        jobs={jobs}
+        onRenameJobType={onRenameJobType}
         onClose={closeJobForm}
         onAdd={onAddJob}
         onEdit={onEditJob}

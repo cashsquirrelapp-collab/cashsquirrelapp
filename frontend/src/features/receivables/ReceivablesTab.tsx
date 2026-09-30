@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Job } from '../../../../shared/types';
+import { jobNetReceivable } from '../../../../shared/wht';
 import { formatCurrency, getRelativeDaysText, safeFormatThaiDate, toLocalDateKey, isReminderDue } from '../../utils';
 import { Mascot } from '../../components/mascot/Mascot';
 
@@ -52,7 +53,7 @@ export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerAler
         const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         onEditJob(j.id, {
           status: 'done',
-          received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
+          received: jobNetReceivable(j),
           pending: 0,
           paymentStatus: 'paid',
           payDate: localDateStr,

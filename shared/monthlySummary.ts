@@ -1,5 +1,6 @@
 import type { Job } from './types.js';
 import { getJobPaymentEntries, getJobPendingEntries, splitReceivedByDate } from './installmentPayments.js';
+import { jobWhtAmount, roundMoney } from './wht.js';
 
 export interface JobRow {
   id: string;
@@ -149,8 +150,8 @@ export function workValueRowsForMonth(jobs: Job[], monthKey: string): WorkValueR
       : getJobPendingEntries(job).filter((entry) => dateKeyInMonth(entry.dueDate, monthKey));
     if (paidThisMonth.length === 0 && dueThisMonth.length === 0) continue;
     const grossValue = job.value || 0;
-    const wht = job.whtAmount ?? Math.round(grossValue * ((job.whtRate || 0) / 100));
-    const value = grossValue - wht;
+    const wht = jobWhtAmount(job);
+    const value = roundMoney(grossValue - wht);
     const received = paidThisMonth.reduce((sum, entry) => sum + entry.amount, 0);
     const pending = dueThisMonth.reduce((sum, entry) => sum + entry.amount, 0);
     rows.push({ jobId: job.id, name: job.name, client: job.client || '', grossValue, wht, value, received, pending, otherMonths: value - received - pending });

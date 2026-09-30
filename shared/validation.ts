@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidWhtRate } from './wht.js';
 export const entityTables = ['cashflow_jobs','cashflow_expenses','cashflow_goals','cashflow_invoices','cashflow_documents'] as const;
 const id=z.string().min(1).max(128).refine(value=>!['__proto__','prototype','constructor'].includes(value));
 const money=z.number().finite().min(0).max(1_000_000_000_000);
@@ -10,7 +11,7 @@ export const notificationPreferences=z.object({
  dailyDigestEnabled:z.boolean().optional(),monthlyReportEnabled:z.boolean().optional()
 });
 const installment=z.object({id:text,label:z.string().min(1).max(100),amount:money,dueDate:z.string().nullable(),paidAt:z.string().nullable(),status:z.enum(['pending','paid'])});
-const job=z.object({id,name:z.string().min(1).max(500),value:money,received:money,pending:money,client:text,type:text,status:text,creditTerm:z.number().int().min(0).max(3650),note:text,payDate:z.string().nullable(),hoursSpent:money.optional(),whtRate:z.number().min(0).max(100).optional(),whtAmount:money.optional(),followUpCount:z.number().int().min(0).optional(),depositDate:z.string().max(10).nullable().optional(),depositAmount:money.optional(),remindAt:z.string().max(10).nullable().optional(),installments:z.array(installment).max(100).optional()}).passthrough();
+const job=z.object({id,name:z.string().min(1).max(500),value:money,received:money,pending:money,client:text,type:text,status:text,creditTerm:z.number().int().min(0).max(3650),note:text,payDate:z.string().nullable(),hoursSpent:money.optional(),whtRate:z.number().min(0).max(100).refine(isValidWhtRate,'WHT rate allows at most 2 decimals').optional(),whtAmount:money.optional(),followUpCount:z.number().int().min(0).optional(),depositDate:z.string().max(10).nullable().optional(),depositAmount:money.optional(),remindAt:z.string().max(10).nullable().optional(),installments:z.array(installment).max(100).optional()}).passthrough();
 const expense=z.object({id,name:z.string().min(1).max(500),amount:money,category:text,date:text,note:text.optional()}).passthrough();
 const goal=z.object({id,name:z.string().min(1).max(500),target:money,current:money,history:z.array(z.object({id,type:z.enum(['deposit','withdraw']),amount:money,date:text,reason:text}).passthrough()).max(10000).optional()}).passthrough();
 const profile=z.object({name:text,address:text,phone:text,email:text,taxId:text,bankName:text,bankAccount:text,bankAccountName:text,logoUrl:z.string().max(500000).optional(),signatureUrl:z.string().max(500000).optional(),logoHeight:z.number().min(20).max(300).optional(),logoPosition:z.enum(['left','center','right','custom']).optional(),logoOffset:z.number().min(0).max(100).optional(),website:text.optional()});

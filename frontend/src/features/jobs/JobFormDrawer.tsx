@@ -6,9 +6,11 @@ import { Job, JobInstallment, StatusOption } from '../../../../shared/types';
 import { calculatePayDate, formatCurrency, safeFormatThaiDate, DEFAULT_JOB_TYPES } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import InstallmentPlanner from './InstallmentPlanner';
+import JobTypeManager from './JobTypeManager';
+import { WHT_PRESET_RATES, isValidWhtRate, whtAmountFor, roundMoney } from '../../../../shared/wht';
 
 type Payment = 'unpaid' | 'paid' | 'partial' | 'installment';
-type FieldKey = 'name' | 'value' | 'postDate' | 'received' | 'installments' | 'type';
+type FieldKey = 'name' | 'value' | 'postDate' | 'received' | 'installments' | 'type' | 'wht';
 
 const PAYMENT_OPTIONS: { key: Payment; label: string }[] = [
   { key: 'unpaid', label: 'ยังไม่จ่าย' },
@@ -17,7 +19,6 @@ const PAYMENT_OPTIONS: { key: Payment; label: string }[] = [
   { key: 'installment', label: 'แบ่งงวด' },
 ];
 const CREDIT_TERMS = [0, 30, 45, 60, 90];
-const WHT_RATES = [0, 1, 3, 5];
 const CUSTOM_TYPE = '__custom__';
 
 const todayStr = (offsetDays = 0) => {
@@ -25,6 +26,11 @@ const todayStr = (offsetDays = 0) => {
   d.setDate(d.getDate() + offsetDays);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
+// WHT on a custom rate can land on satang (1.5% of 1,234 = 18.51); show them instead of rounding.
+const formatMoney = (amount: number) => Number.isInteger(amount)
+  ? formatCurrency(amount)
+  : `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const behaviorOf = (statusId: string, statuses: StatusOption[]) =>
   statuses.find(s => s.id === statusId)?.behavior
@@ -51,12 +57,16 @@ interface JobFormDrawerProps {
   statuses: StatusOption[];
   jobTypes: string[];
   setJobTypes: React.Dispatch<React.SetStateAction<string[]>>;
+  /** All jobs, for type usage counts in the type manager. */
+  jobs: Job[];
+  /** Relabels every job of one type (type manager rename). */
+  onRenameJobType: (from: string, to: string) => void;
   onClose: () => void;
   onAdd: (job: Omit<Job, 'id'>) => void;
   onEdit: (id: string, updated: Partial<Job>) => void;
 }
 
-export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTypes, onClose, onAdd, onEdit }: JobFormDrawerProps) {
+export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTypes, jobs, onRenameJobType, onClose, onAdd, onEdit }: JobFormDrawerProps) {
   const isEdit = Boolean(job);
   const [name, setName] = React.useState('');
   const [client, setClient] = React.useState('');
@@ -73,6 +83,9 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
   const [isPosted, setIsPosted] = React.useState(false);
   const [startDate, setStartDate] = React.useState(todayStr());
   const [whtRate, setWhtRate] = React.useState(0);
+  // "กำหนดเอง": free percentage (up to 2 decimals) typed as text, used instead of the preset.
+  const [whtCustom, setWhtCustom] = React.useState<string | null>(null);
+  const [typeManagerOpen, setTypeManagerOpen] = React.useState(false);
   const [type, setType] = React.useState('ยังไม่ระบุ');
   const [customType, setCustomType] = React.useState('');
   const [note, setNote] = React.useState('');
@@ -97,7 +110,11 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     setInstallments(job?.installments ?? []);
     setIsPosted(job ? job.isPosted !== false : false);
     setStartDate(job ? job.startDate ?? '' : todayStr());
-    setWhtRate(job?.whtRate ?? 0);
+    const savedRate = job?.whtRate ?? 0;
+    const isPresetRate = WHT_PRESET_RATES.includes(savedRate);
+    setWhtRate(isPresetRate ? savedRate : 0);
+    setWhtCustom(isPresetRate ? null : String(savedRate));
+    setTypeManagerOpen(false);
     setType(job?.type || 'ยังไม่ระบุ');
     setCustomType('');
     setNote(job?.note ?? '');
@@ -108,14 +125,18 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
 
   React.useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !typeManagerOpen) onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, typeManagerOpen]);
 
   const gross = Math.max(0, parseFloat(value) || 0);
-  const whtAmount = Math.round(gross * (whtRate / 100));
-  const net = gross - whtAmount;
+  const customRate = whtCustom === null ? null : whtCustom.trim() === '' ? NaN : Number(whtCustom);
+  const customRateValid = customRate !== null && isValidWhtRate(customRate);
+  // The rate that is saved and calculated with; an invalid custom entry counts as 0 until fixed.
+  const effectiveWhtRate = whtCustom === null ? whtRate : customRateValid ? (customRate as number) : 0;
+  const whtAmount = whtAmountFor(gross, effectiveWhtRate);
+  const net = roundMoney(gross - whtAmount);
   const receivedNum = parseFloat(received) || 0;
   const installmentTotal = installments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   const installmentsMatch = installments.length > 0 && installments.every(row => Number(row.amount) > 0) && Math.abs(installmentTotal - net) <= 0.01;
@@ -127,7 +148,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     : payment === 'partial' ? receivedNum
     : payment === 'installment' ? installments.filter(row => row.status === 'paid').reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
     : 0;
-  const showSummary = gross > 0 && (payment === 'partial' || payment === 'installment' || whtRate > 0);
+  const showSummary = gross > 0 && (payment === 'partial' || payment === 'installment' || effectiveWhtRate > 0);
 
   const clearError = (key: FieldKey) => setErrors(prev => (prev[key] ? { ...prev, [key]: undefined } : prev));
 
@@ -155,9 +176,11 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     }
     const finalType = type === CUSTOM_TYPE ? customType.trim() : type;
     if (type === CUSTOM_TYPE && !finalType) next.type = 'กรุณาระบุชื่อประเภทงาน';
+    if (whtCustom !== null && !customRateValid) next.wht = 'ใส่อัตรา 0–100% ทศนิยมไม่เกิน 2 ตำแหน่ง';
     setErrors(next);
-    const firstInvalid = (['name', 'value', 'postDate', 'received', 'installments', 'type'] as FieldKey[]).find(key => next[key]);
+    const firstInvalid = (['name', 'value', 'postDate', 'received', 'installments', 'type', 'wht'] as FieldKey[]).find(key => next[key]);
     if (firstInvalid) {
+      if (firstInvalid === 'wht') setAdvancedOpen(true);
       if (firstInvalid === 'type') setAdvancedOpen(true);
       requestAnimationFrame(() => {
         const el = document.getElementById(`job-form-${firstInvalid}`);
@@ -203,7 +226,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
       isPosted,
       payDate,
       note,
-      whtRate,
+      whtRate: effectiveWhtRate,
       whtAmount,
       excludeHolidays,
       installments: normalizedInstallments,
@@ -514,8 +537,8 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                   </div>
                 )}
 
-                {whtRate > 0 && gross > 0 && (
-                  <p className="text-xs text-brand-muted">หัก ณ ที่จ่าย {whtRate}% ({formatCurrency(whtAmount)}) · รับสุทธิ {formatCurrency(net)}</p>
+                {effectiveWhtRate > 0 && gross > 0 && (
+                  <p className="text-xs text-brand-muted">หัก ณ ที่จ่าย {effectiveWhtRate}% ({formatMoney(whtAmount)}) · รับสุทธิ {formatMoney(net)}</p>
                 )}
               </section>
 
@@ -532,9 +555,25 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                   <span className="text-[15px] font-semibold text-brand-text">รายละเอียดเพิ่มเติม</span>
                   <ChevronDown className={`h-4 w-4 text-brand-muted transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
                 </button>
-                {!advancedOpen && (
-                  <p className="mt-0.5 text-xs text-brand-muted">ประเภทงาน หัก ณ ที่จ่าย วันที่เริ่มงาน และโน้ต</p>
-                )}
+                {!advancedOpen && (() => {
+                  const parts = [
+                    type !== 'ยังไม่ระบุ' && type !== CUSTOM_TYPE ? type : '',
+                    effectiveWhtRate > 0 ? `หัก ณ ที่จ่าย ${effectiveWhtRate}%` : '',
+                  ].filter(Boolean);
+                  return (
+                    <>
+                      <p className="mt-0.5 text-xs text-brand-muted">
+                        {parts.length > 0 ? parts.join(' · ') : 'ประเภทงาน หัก ณ ที่จ่าย วันที่เริ่มงาน และโน้ตภายใน'}
+                      </p>
+                      {note.trim() && (
+                        <div className="mt-2.5 rounded-[10px] bg-brand-faint px-3 py-2">
+                          <p className="text-[11px] font-medium text-brand-muted">โน้ตภายใน</p>
+                          <p className="mt-0.5 line-clamp-3 whitespace-pre-line text-[13px] text-brand-text">{note.trim()}</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 {advancedOpen && (
                   <div className="mt-4 space-y-5">
                     <div id="job-form-type">
@@ -572,32 +611,68 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                           </button>
                         </div>
                       )}
-                      {customTypes.includes(type) && (
-                        <button
-                          type="button"
-                          onClick={() => { setJobTypes(prev => prev.filter(t => t !== type)); setType('ยังไม่ระบุ'); }}
-                          className="mt-1 text-xs text-[#C43A3A] hover:underline cursor-pointer"
-                        >
-                          ลบประเภท "{type}" ออกจากรายการ
-                        </button>
-                      )}
                       {errorText('type')}
+                      <button
+                        type="button"
+                        onClick={() => setTypeManagerOpen(true)}
+                        className="mt-1.5 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-orange-300"
+                      >
+                        จัดการประเภทงาน
+                      </button>
                     </div>
 
-                    <div>
+                    <div id="job-form-wht">
                       <p className={labelClass}>หัก ณ ที่จ่าย</p>
-                      <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="อัตราหัก ณ ที่จ่าย">
-                        {WHT_RATES.map(rate => (
-                          <button key={rate} type="button" role="radio" aria-checked={whtRate === rate} onClick={() => setWhtRate(rate)} className={segment(whtRate === rate)}>
-                            {rate}%
-                          </button>
-                        ))}
+                      <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="อัตราหัก ณ ที่จ่าย">
+                        {WHT_PRESET_RATES.map(rate => {
+                          const active = whtCustom === null && whtRate === rate;
+                          return (
+                            <button key={rate} type="button" role="radio" aria-checked={active} onClick={() => { setWhtRate(rate); setWhtCustom(null); clearError('wht'); }} className={`${segment(active)} px-1`}>
+                              {rate}%
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={whtCustom !== null}
+                          onClick={() => { if (whtCustom === null) setWhtCustom(''); }}
+                          className={`${segment(whtCustom !== null)} px-1`}
+                        >
+                          กำหนดเอง
+                        </button>
                       </div>
-                      {whtRate > 0 && gross > 0 && (
+                      {whtCustom !== null && (
+                        <div className="mt-2">
+                          <label htmlFor="job-form-wht-input" className="mb-1 block text-xs text-brand-muted">อัตราหัก ณ ที่จ่าย (%)</label>
+                          <div className="relative">
+                            <input
+                              id="job-form-wht-input"
+                              type="text"
+                              inputMode="decimal"
+                              autoFocus
+                              value={whtCustom}
+                              onChange={(e) => {
+                                // Digits and one dot, at most 2 decimals.
+                                const raw = e.target.value.replace(/[^\d.]/g, '');
+                                if (/^\d{0,3}(\.\d{0,2})?$/.test(raw)) { setWhtCustom(raw); clearError('wht'); }
+                              }}
+                              placeholder="เช่น 1.5"
+                              aria-invalid={Boolean(errors.wht)}
+                              className={`${inputClass(errors.wht)} pr-9 font-mono`}
+                            />
+                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">%</span>
+                          </div>
+                          {errors.wht
+                            ? errorText('wht')
+                            : whtCustom.trim() !== '' && !customRateValid && <p className="mt-1 text-xs text-[#C43A3A] dark:text-rose-300">ใส่ได้ 0–100% ทศนิยมไม่เกิน 2 ตำแหน่ง</p>}
+                        </div>
+                      )}
+                      {effectiveWhtRate > 0 && gross > 0 && (
                         <dl className="mt-2 space-y-1 rounded-[10px] bg-brand-faint px-3 py-2.5 text-[13px]">
-                          <div className="flex justify-between"><dt className="text-brand-muted">มูลค่างาน</dt><dd className="font-mono">{formatCurrency(gross)}</dd></div>
-                          <div className="flex justify-between"><dt className="text-brand-muted">หัก ณ ที่จ่าย {whtRate}%</dt><dd className="font-mono">-{formatCurrency(whtAmount)}</dd></div>
-                          <div className="flex justify-between border-t border-brand-border pt-1 font-semibold"><dt>รับสุทธิ</dt><dd className="font-mono">{formatCurrency(net)}</dd></div>
+                          <div className="flex justify-between"><dt className="text-brand-muted">มูลค่างาน (ก่อนหัก)</dt><dd className="font-mono">{formatMoney(gross)}</dd></div>
+                          <div className="flex justify-between"><dt className="text-brand-muted">หัก ณ ที่จ่าย {effectiveWhtRate}%</dt><dd className="font-mono">-{formatMoney(whtAmount)}</dd></div>
+                          <div className="flex justify-between border-t border-brand-border pt-1 font-semibold"><dt>รับสุทธิ</dt><dd className="font-mono">{formatMoney(net)}</dd></div>
                         </dl>
                       )}
                     </div>
@@ -608,15 +683,17 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                     </div>
 
                     <div>
-                      <label htmlFor="job-form-note" className={labelClass}>โน้ต</label>
+                      <label htmlFor="job-form-note" className={labelClass}>โน้ตภายใน</label>
                       <textarea
                         id="job-form-note"
                         rows={3}
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                         placeholder="รายละเอียดเพิ่มเติม ลิงก์ หรือเงื่อนไขของงาน..."
+                        aria-describedby="job-form-note-help"
                         className="w-full rounded-[10px] border border-brand-border bg-brand-white px-3 py-2.5 text-sm text-brand-text placeholder:text-brand-muted outline-none focus:border-[#E65F2B] dark:bg-neutral-950"
                       />
+                      <p id="job-form-note-help" className="mt-1 text-xs text-brand-muted">แสดงเฉพาะในรายละเอียดงาน ไม่ถูกนำไปใส่ในเอกสารลูกค้า</p>
                     </div>
                   </div>
                 )}
@@ -626,9 +703,9 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
             <div className="border-t border-brand-border px-6 py-4">
               {showSummary && (
                 <dl className="mb-3 grid grid-cols-3 gap-2 text-center">
-                  <div><dt className="text-[11px] text-brand-muted">มูลค่างาน</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatCurrency(gross)}</dd></div>
-                  <div><dt className="text-[11px] text-brand-muted">รับแล้ว</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatCurrency(summaryReceived)}</dd></div>
-                  <div><dt className="text-[11px] text-brand-muted">รอรับ</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatCurrency(Math.max(0, net - summaryReceived))}</dd></div>
+                  <div><dt className="text-[11px] text-brand-muted">มูลค่างาน</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(gross)}</dd></div>
+                  <div><dt className="text-[11px] text-brand-muted">รับแล้ว</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(summaryReceived)}</dd></div>
+                  <div><dt className="text-[11px] text-brand-muted">รอรับ</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(roundMoney(Math.max(0, net - summaryReceived)))}</dd></div>
                 </dl>
               )}
               <div className="flex gap-3">
@@ -641,6 +718,17 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
               </div>
             </div>
           </motion.form>
+          <JobTypeManager
+            open={typeManagerOpen}
+            onClose={() => setTypeManagerOpen(false)}
+            jobTypes={jobTypes}
+            setJobTypes={setJobTypes}
+            jobs={jobs}
+            onRename={(from, to) => {
+              onRenameJobType(from, to);
+              if (type === from) setType(to);
+            }}
+          />
         </div>
       )}
     </AnimatePresence>,
