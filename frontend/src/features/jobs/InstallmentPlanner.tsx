@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarDays, Calculator, Check, Plus, ShieldAlert, Trash2 } from 'lucide-react';
+import { CalendarDays, Check, Plus, Trash2 } from 'lucide-react';
 import { JobInstallment } from '../../../../shared/types';
 import NumberInput from '../../components/ui/NumberInput';
 import { formatCurrency } from '../../utils';
@@ -8,115 +8,197 @@ interface Props {
   installments: JobInstallment[];
   onChange: (value: JobInstallment[]) => void;
   targetAmount: number;
-  accent?: 'orange' | 'indigo';
 }
+
+const QUICK_COUNTS = [2, 3, 4, 6];
 
 const localDate = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export default function InstallmentPlanner({ installments, onChange, targetAmount, accent = 'orange' }: Props) {
-  const [installmentCount, setInstallmentCount] = React.useState('3');
+// Same day of the month `months` later, clamped to the month's last day (31 Jan -> 28/29 Feb).
+const addMonths = (date: string, months: number) => {
+  const [y, m, d] = date.split('-').map(Number);
+  const lastDay = new Date(y, m - 1 + months + 1, 0).getDate();
+  const next = new Date(y, m - 1 + months, Math.min(d, lastDay));
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+};
+
+// Styled like the rest of JobFormDrawer (plain labels, 10px-radius inputs, segment buttons).
+const inputClass = 'h-10 w-full rounded-[10px] border border-brand-border bg-brand-white px-3 text-sm text-brand-text placeholder:text-brand-muted outline-none transition-colors focus:border-[#E65F2B] dark:bg-neutral-950';
+const segment = (active: boolean) =>
+  `h-10 rounded-[10px] border px-3 text-[13px] transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${active
+    ? 'border-[#F3B08C] bg-[#FFF1E8] font-semibold text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
+    : 'border-brand-border bg-brand-white text-brand-text hover:bg-brand-faint'}`;
+
+export default function InstallmentPlanner({ installments, onChange, targetAmount }: Props) {
   const total = installments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   const paid = installments.filter((row) => row.status === 'paid').reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-  const remaining = targetAmount - total;
+  const remaining = Math.round((targetAmount - total) * 100) / 100;
+  const hasPaid = installments.some((row) => row.status === 'paid');
+  const canSplit = targetAmount > 0 && !hasPaid;
 
   const update = (id: string, patch: Partial<JobInstallment>) => {
     onChange(installments.map((row) => row.id === id ? { ...row, ...patch } : row));
   };
 
+  // A new row takes whatever is still missing, so the total lands on the job value.
   const addRow = () => {
-    const amount = Math.max(0, remaining);
     onChange([...installments, {
       id: `installment-${Date.now()}-${installments.length}`,
       label: `งวดที่ ${installments.length + 1}`,
-      amount,
+      amount: Math.max(0, remaining),
       dueDate: null,
       paidAt: null,
       status: 'pending',
     }]);
   };
 
-  const generateEqualInstallments = () => {
-    const count = Math.max(2, Math.min(100, Math.floor(Number(installmentCount) || 0)));
-    if (!targetAmount || count < 2 || installments.some((row) => row.status === 'paid')) return;
+  // Equal split; the rounding remainder goes to the last installment so the total is exact.
+  // Due dates already typed in are kept by position.
+  const split = (count: number) => {
+    if (!canSplit) return;
     const baseAmount = Math.floor((targetAmount / count) * 100) / 100;
     const now = Date.now();
     onChange(Array.from({ length: count }, (_, index) => ({
       id: `installment-${now}-${index}`,
       label: `งวดที่ ${index + 1}`,
       amount: index === count - 1 ? Number((targetAmount - baseAmount * (count - 1)).toFixed(2)) : baseAmount,
-      dueDate: null,
+      dueDate: installments[index]?.dueDate ?? null,
       paidAt: null,
       status: 'pending' as const,
     })));
   };
 
+  const firstDue = installments[0]?.dueDate;
+  const canFillMonthly = Boolean(firstDue) && installments.length > 1 && installments.slice(1).some((row) => !row.dueDate);
+  const fillMonthly = () => {
+    if (!firstDue) return;
+    onChange(installments.map((row, index) => index === 0 || row.dueDate ? row : { ...row, dueDate: addMonths(firstDue, index) }));
+  };
+
   return (
-    <section className="space-y-3 rounded-2xl border border-amber-200/70 bg-amber-50/50 p-3.5 dark:border-amber-500/20 dark:bg-amber-500/5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h4 className="text-sm font-black text-brand-text dark:text-white">แผนรับเงินเป็นงวด</h4>
-          <p className="mt-0.5 text-[10px] font-semibold text-brand-muted">ระบุยอดและวันครบกำหนดของแต่ละงวด ระบบจะรวมยอดให้อัตโนมัติ</p>
+    <div className="space-y-4">
+      <div>
+        <p className="mb-1.5 text-[13px] font-medium text-brand-text">แบ่งกี่งวด?</p>
+        <div className="grid grid-cols-4 gap-1.5">
+          {QUICK_COUNTS.map((count) => (
+            <button
+              key={count}
+              type="button"
+              onClick={() => split(count)}
+              disabled={!canSplit}
+              aria-pressed={installments.length === count}
+              className={segment(installments.length === count)}
+            >
+              {count} งวด
+            </button>
+          ))}
         </div>
-        <button type="button" onClick={addRow} className={`inline-flex shrink-0 items-center gap-1 rounded-xl px-3 py-2 text-[11px] font-black text-white ${accent === 'indigo' ? 'bg-indigo-500' : 'bg-orange-500'}`}>
-          <Plus className="h-3.5 w-3.5" /> {installments.length === 0 ? 'เพิ่มงวด' : 'เพิ่มงวดถัดไป'}
-        </button>
+        <p className="mt-1.5 text-xs text-brand-muted">
+          {targetAmount <= 0
+            ? 'ใส่มูลค่างานด้านบนก่อน แล้วเลือกจำนวนงวด'
+            : hasPaid
+            ? 'มีงวดที่รับเงินแล้ว จึงแบ่งใหม่ไม่ได้ แต่ยังแก้ยอดงวดที่รอรับได้'
+            : 'แบ่งยอดเท่ากันให้ เศษที่ไม่ลงตัวรวมไว้ในงวดสุดท้าย'}
+        </p>
       </div>
 
-      <div className="rounded-2xl border border-brand-border/60 bg-white/80 p-3 dark:bg-stone-900/70">
-        <div className="flex items-center gap-2">
-          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${accent === 'indigo' ? 'bg-indigo-50 text-indigo-600' : 'bg-orange-50 text-orange-600'}`}><Calculator className="h-4 w-4" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-black text-brand-text dark:text-white">ให้ระบบช่วยแบ่งยอดเท่ากัน</p>
-            <p className="text-[9px] font-semibold text-brand-muted">เศษที่แบ่งไม่ลงตัวจะถูกรวมไว้ในงวดสุดท้าย ยอดรวมจะตรงพอดี</p>
-          </div>
-        </div>
-        <div className="mt-2 flex gap-2">
-          <input type="number" min="2" max="100" step="1" value={installmentCount} onChange={(event) => setInstallmentCount(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-brand-border/60 bg-brand-faint px-3 py-2 text-sm font-black outline-none" aria-label="จำนวนงวด" />
-          <button type="button" onClick={generateEqualInstallments} disabled={!targetAmount || installments.some((row) => row.status === 'paid')} className={`rounded-xl px-3 py-2 text-[11px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40 ${accent === 'indigo' ? 'bg-indigo-600' : 'bg-orange-600'}`}>แบ่งเป็น {Math.max(0, Math.floor(Number(installmentCount) || 0))} งวด</button>
-        </div>
-        {installments.some((row) => row.status === 'paid') && <p className="mt-2 text-[9px] font-bold text-amber-700">แบ่งใหม่ไม่ได้เพราะมีงวดที่รับเงินแล้ว คุณยังแก้ยอดงวดที่รอชำระได้</p>}
-      </div>
-
-      {installments.length === 0 ? (
-        <button type="button" onClick={addRow} className="w-full rounded-xl border border-dashed border-amber-300 p-4 text-xs font-bold text-amber-700 dark:border-amber-500/30 dark:text-amber-300">
-          + เพิ่มงวดแรก
-        </button>
-      ) : installments.map((row, index) => (
-        <div key={row.id} className="rounded-xl border border-brand-border/60 bg-white p-3 dark:bg-stone-900">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <input value={row.label} onChange={(e) => update(row.id, { label: e.target.value })} aria-label={`ชื่องวดที่ ${index + 1}`} className="min-w-0 flex-1 bg-transparent text-xs font-black text-brand-text outline-none dark:text-white" />
-            <button type="button" onClick={() => onChange(installments.filter((item) => item.id !== row.id))} className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50" aria-label={`ลบงวดที่ ${index + 1}`}><Trash2 className="h-3.5 w-3.5" /></button>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-[9px] font-extrabold uppercase text-brand-muted">ยอดงวด (บาท)</label>
-              <NumberInput value={String(row.amount || '')} onChange={(value) => update(row.id, { amount: Number(value) || 0 })} placeholder="0" className="w-full rounded-xl border border-brand-border/50 bg-brand-faint p-2.5 text-sm font-bold outline-none" />
-            </div>
-            <div>
-              <label className="mb-1 block text-[9px] font-extrabold uppercase text-brand-muted">วันครบกำหนด</label>
-              <div className="relative"><CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" /><input type="date" value={row.dueDate || ''} onChange={(e) => update(row.id, { dueDate: e.target.value || null })} className="w-full rounded-xl border border-brand-border/50 bg-brand-faint py-2.5 pl-9 pr-2 text-xs font-bold outline-none" /></div>
-            </div>
-          </div>
-          <button type="button" onClick={() => update(row.id, row.status === 'paid' ? { status: 'pending', paidAt: null } : { status: 'paid', paidAt: localDate() })} className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-black ${row.status === 'paid' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-brand-border/60 text-brand-muted'}`}>
-            <Check className="h-3.5 w-3.5" /> {row.status === 'paid' ? `รับเงินแล้ว ${row.paidAt || ''}` : 'กดเมื่อรับเงินงวดนี้แล้ว'}
-          </button>
-        </div>
-      ))}
-
-      <div className="grid grid-cols-3 gap-2 rounded-xl bg-white/80 p-2.5 text-center dark:bg-stone-900/70">
-        <div><span className="block text-[9px] font-bold text-brand-muted">รวมงวด</span><strong className="text-xs font-black">{formatCurrency(total)}</strong></div>
-        <div><span className="block text-[9px] font-bold text-brand-muted">รับแล้ว</span><strong className="text-xs font-black text-emerald-600">{formatCurrency(paid)}</strong></div>
-        <div><span className="block text-[9px] font-bold text-brand-muted">{remaining === 0 ? 'ยอดตรงแล้ว' : remaining > 0 ? 'ยังขาด' : 'เกินยอด'}</span><strong className={`text-xs font-black ${remaining === 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(Math.abs(remaining))}</strong></div>
-      </div>
-      {remaining !== 0 && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          <p className="text-[10px] font-bold leading-relaxed">ยังบันทึกไม่ได้ ยอดรวมทุกงวด{remaining > 0 ? `ยังขาด ${formatCurrency(remaining)}` : `เกิน ${formatCurrency(Math.abs(remaining))}`} กด “เพิ่มงวดถัดไป” เพื่อเติมยอดที่ขาดอัตโนมัติ</p>
+      {installments.length > 0 && (
+        <div className="space-y-2">
+          {installments.map((row, index) => {
+            const isPaid = row.status === 'paid';
+            return (
+              <div key={row.id} className="rounded-[10px] border border-brand-border p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <input
+                    value={row.label}
+                    onChange={(e) => update(row.id, { label: e.target.value })}
+                    aria-label={`ชื่องวดที่ ${index + 1}`}
+                    className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-brand-text outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => update(row.id, isPaid ? { status: 'pending', paidAt: null } : { status: 'paid', paidAt: localDate() })}
+                    aria-pressed={isPaid}
+                    className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs transition-colors cursor-pointer ${isPaid
+                      ? 'border-emerald-200 bg-emerald-50 font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
+                      : 'border-brand-border text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`}
+                  >
+                    {isPaid && <Check className="h-3 w-3" />}
+                    {isPaid ? 'รับเงินแล้ว' : 'ยังไม่รับ'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChange(installments.filter((item) => item.id !== row.id))}
+                    aria-label={`ลบงวดที่ ${index + 1}`}
+                    className="rounded-lg p-1.5 text-brand-muted transition-colors hover:bg-[#FFF0F0] hover:text-[#C43A3A] cursor-pointer dark:hover:bg-rose-950/40"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-brand-muted">ยอด</span>
+                    <span className="relative block">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
+                      <NumberInput
+                        value={String(row.amount || '')}
+                        onChange={(value) => update(row.id, { amount: Number(value) || 0 })}
+                        placeholder="0"
+                        aria-label={`ยอดงวดที่ ${index + 1}`}
+                        className={`${inputClass} pl-7 font-mono`}
+                      />
+                    </span>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-brand-muted">{isPaid ? 'วันที่รับเงิน' : 'ครบกำหนด'}</span>
+                    <span className="relative block">
+                      <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+                      <input
+                        type="date"
+                        value={(isPaid ? row.paidAt : row.dueDate) || ''}
+                        onChange={(e) => update(row.id, isPaid ? { paidAt: e.target.value || null } : { dueDate: e.target.value || null })}
+                        aria-label={`${isPaid ? 'วันที่รับเงิน' : 'วันครบกำหนด'}งวดที่ ${index + 1}`}
+                        className={`${inputClass} pl-9 text-[13px]`}
+                      />
+                    </span>
+                  </label>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-    </section>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <button
+          type="button"
+          onClick={addRow}
+          className="inline-flex items-center gap-1 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-orange-300"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {installments.length === 0 ? 'กำหนดงวดเอง' : remaining > 0 ? `เพิ่มงวด (ยอดที่เหลือ ${formatCurrency(remaining)})` : 'เพิ่มงวด'}
+        </button>
+        {canFillMonthly && (
+          <button type="button" onClick={fillMonthly} className="text-xs text-brand-muted hover:text-brand-text hover:underline cursor-pointer">
+            ครบกำหนดทุกเดือน ตามวันของงวดแรก
+          </button>
+        )}
+      </div>
+
+      {installments.length > 0 && targetAmount > 0 && (
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-[10px] bg-brand-faint px-3 py-2.5 text-[13px]">
+          <span className="text-brand-muted">
+            รวม {installments.length} งวด <span className="font-mono font-semibold text-brand-text">{formatCurrency(total)}</span> จาก {formatCurrency(targetAmount)}
+            {paid > 0 && <> · รับแล้ว <span className="font-mono text-emerald-700 dark:text-emerald-300">{formatCurrency(paid)}</span></>}
+          </span>
+          <span className={remaining === 0 ? 'font-medium text-emerald-700 dark:text-emerald-300' : remaining > 0 ? 'font-medium text-amber-700 dark:text-amber-300' : 'font-medium text-[#C43A3A] dark:text-rose-300'}>
+            {remaining === 0 ? 'ยอดตรงแล้ว' : remaining > 0 ? `ยังขาด ${formatCurrency(remaining)}` : `เกิน ${formatCurrency(Math.abs(remaining))}`}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

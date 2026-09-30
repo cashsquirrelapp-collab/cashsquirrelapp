@@ -78,7 +78,6 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
   const [note, setNote] = React.useState('');
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [creditOptionsOpen, setCreditOptionsOpen] = React.useState(false);
-  const [installmentsOpen, setInstallmentsOpen] = React.useState(false);
   const [errors, setErrors] = React.useState<Partial<Record<FieldKey, string>>>({});
 
   React.useEffect(() => {
@@ -105,7 +104,6 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     setErrors({});
     setAdvancedOpen(false);
     setCreditOptionsOpen(Boolean(job?.excludeHolidays));
-    setInstallmentsOpen(false);
   }, [open, job, statuses]);
 
   React.useEffect(() => {
@@ -152,7 +150,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     if (payment === 'installment' && !installmentsMatch) {
       const diff = net - installmentTotal;
       next.installments = installments.length === 0 || installments.some(row => !(Number(row.amount) > 0))
-        ? 'ตั้งค่างวดการชำระ และทุกงวดต้องมียอดมากกว่า 0 บาท'
+        ? 'เลือกจำนวนงวด และทุกงวดต้องมียอดมากกว่า 0 บาท'
         : diff > 0 ? `ยอดรวมทุกงวดยังขาด ${formatCurrency(diff)}` : `ยอดรวมทุกงวดเกิน ${formatCurrency(Math.abs(diff))}`;
     }
     const finalType = type === CUSTOM_TYPE ? customType.trim() : type;
@@ -160,7 +158,6 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     setErrors(next);
     const firstInvalid = (['name', 'value', 'postDate', 'received', 'installments', 'type'] as FieldKey[]).find(key => next[key]);
     if (firstInvalid) {
-      if (firstInvalid === 'installments') setInstallmentsOpen(true);
       if (firstInvalid === 'type') setAdvancedOpen(true);
       requestAnimationFrame(() => {
         const el = document.getElementById(`job-form-${firstInvalid}`);
@@ -508,32 +505,12 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
 
                 {payment === 'installment' && (
                   <div id="job-form-installments" className="space-y-2">
-                    <div className={`flex items-center justify-between gap-3 rounded-[10px] border px-3 py-2.5 ${errors.installments ? 'border-[#E95454]' : 'border-brand-border'}`}>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-medium text-brand-text">การชำระแบบแบ่งงวด</p>
-                        <p className="text-xs text-brand-muted">
-                          {installments.length > 0
-                            ? `${installments.length} งวด · รวม ${formatCurrency(installmentTotal)} จาก ${formatCurrency(net)}`
-                            : 'ยังไม่ได้ตั้งค่างวด'}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setInstallmentsOpen(v => !v)}
-                        aria-expanded={installmentsOpen}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#C24A16] hover:bg-[#FFF1E8] cursor-pointer dark:text-orange-300"
-                      >
-                        ตั้งค่างวดการชำระ {installmentsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
+                    <InstallmentPlanner
+                      installments={installments}
+                      onChange={(rows) => { setInstallments(rows); clearError('installments'); }}
+                      targetAmount={net}
+                    />
                     {errorText('installments')}
-                    {installmentsOpen && (
-                      <InstallmentPlanner
-                        installments={installments}
-                        onChange={(rows) => { setInstallments(rows); clearError('installments'); }}
-                        targetAmount={net}
-                      />
-                    )}
                   </div>
                 )}
 
