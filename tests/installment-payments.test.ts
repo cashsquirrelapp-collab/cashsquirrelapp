@@ -8,7 +8,7 @@ import {
   getReceivedForMonth,
   getPendingForMonth,
 } from '../shared/installmentPayments';
-import { computeMonthlySummary, fixedExpenseForMonth, jobsInMonth } from '../shared/monthlySummary';
+import { computeMonthlySummary, fixedExpenseForMonth, jobsInMonth, workValueForMonth } from '../shared/monthlySummary';
 
 const installmentJob: Job = {
   id: 'job-1',
@@ -137,4 +137,19 @@ test('a logged bill that is also a fixed item counts once in its month', () => {
   const oct = computeMonthlySummary([], expenses, [], settings, '2026-10');
   assert.equal(oct.fixedExpenseCalculated, 17_000);
   assert.equal(fixedExpenseForMonth(9_000, undefined, ['ค่าห้อง']), 9_000);
+});
+
+test('monthly work value uses gross job value by intake date, regardless of payments', () => {
+  const base = { ...installmentJob, installments: undefined, received: 0, pending: 0, payDate: null };
+  const jobs: Job[] = [
+    { ...base, id: 'w1', value: 10_000, received: 3_000, pending: 7_000, startDate: '2026-09-02', depositDate: '2026-09-02', depositAmount: 3_000 },
+    { ...installmentJob, id: 'w2', value: 30_000, startDate: '2026-09-05' },
+    { ...base, id: 'w3', value: 10_000, whtRate: 3, whtAmount: 300, received: 9_700, startDate: undefined, postDate: '2026-09-20' },
+    { ...base, id: 'w4', value: 5_000, startDate: '2026-08-30', payDate: '2026-09-29', received: 5_000 },
+  ];
+  assert.deepEqual(workValueForMonth(jobs, '2026-09'), { value: 50_000, count: 3 });
+  const paidLater = jobs.map((j) => (j.id === 'w1' ? { ...j, received: 10_000, pending: 0, payDate: '2026-10-05' } : j));
+  assert.deepEqual(workValueForMonth(paidLater, '2026-09'), { value: 50_000, count: 3 });
+  assert.deepEqual(workValueForMonth(jobs, '2026-08'), { value: 5_000, count: 1 });
+  assert.deepEqual(workValueForMonth(jobs, '2026-07'), { value: 0, count: 0 });
 });

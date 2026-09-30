@@ -5,6 +5,7 @@ import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeF
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { IncomeExpenseChart } from './IncomeExpenseChart';
+import { MonthlyWorkValueBanner } from './MonthlyWorkValueBanner';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconArrowUpRight, IconBolt, IconCoin } from '../../components/ui/icons';
 import { VineDivider } from '../../components/mascot/VineDivider';
@@ -768,6 +769,8 @@ export default function DashboardTab({
           </p>
         </div>
       </div>
+
+      <MonthlyWorkValueBanner jobs={jobs} monthKey={selectedMonthKey} />
 
       <div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

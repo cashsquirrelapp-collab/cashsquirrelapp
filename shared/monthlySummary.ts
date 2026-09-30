@@ -106,6 +106,22 @@ export function fixedExpenseForMonth(
   return fixedItems.reduce((sum, item) => (logged.has(item.name.trim().toLowerCase()) ? sum : sum + (item.amount || 0)), 0);
 }
 
+// Jobs have no created-at field. startDate is the "วันรับงาน / เริ่มเตรียมงาน" date (the add-job
+// form defaults it to today); jobs created from LINE only carry postDate, so that is the fallback.
+export function jobIntakeDate(job: Pick<JobRow, 'startDate' | 'postDate'>): string | null {
+  return job.startDate || job.postDate || null;
+}
+
+// "มูลค่างานที่รับเดือนนี้": gross contract value (before WHT) of jobs taken in during the month,
+// independent of how much has been paid or how it is split into installments.
+export function workValueForMonth(jobs: JobRow[], monthKey: string): { value: number; count: number } {
+  return jobs.reduce((acc, job) => (
+    dateKeyInMonth(jobIntakeDate(job), monthKey)
+      ? { value: acc.value + (job.value || 0), count: acc.count + 1 }
+      : acc
+  ), { value: 0, count: 0 });
+}
+
 export function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {
   return jobs.filter((j) =>
     dateKeyInMonth(j.payDate || j.postDate, monthKey)
