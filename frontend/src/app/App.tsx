@@ -339,6 +339,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  // The account corner lives in the desktop sidebar and in the floating top bar on smaller screens;
+  // only one is rendered so there is a single profile menu and workspace picker on the page.
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
   const [moreNavOpen, setMoreNavOpen] = useState(false);
 
   const navigateTab = (tab: TabKey) => {
@@ -347,6 +356,32 @@ export default function App() {
     const workspace = parseWorkspaceRoute(window.location.pathname).workspaceSlug;
     if (workspace) navigatePath(workspaceRoutePath(tab, workspace));
   };
+
+  const renderProfileMenu = (position: string) => (
+    <AnimatePresence>
+      {isProfileMenuOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -6, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -6, scale: 0.98 }}
+          transition={{ duration: 0.15 }}
+          className={`absolute ${position} z-[120] overflow-hidden rounded-2xl border border-brand-border bg-brand-white p-2 shadow-2xl dark:bg-stone-900`}
+        >
+
+                    <div className="border-b border-brand-border/40 px-3 py-2.5">
+                      <p className="truncate text-xs font-black text-brand-text">{session?.user?.email || 'บัญชีผู้ใช้'}</p>
+                      <p className="mt-1 text-[10px] font-bold text-brand-muted">{isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}</p>
+                    </div>
+                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><IconCrown className="h-4 w-4 text-amber-500" />แพ็กเกจของฉัน</button>
+                    <button type="button" onClick={() => setDarkMode(!darkMode)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint">
+                      {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-emerald-600" />}
+                      {darkMode ? 'ใช้โหมดสว่าง' : 'ใช้โหมดมืด'}
+                    </button>
+                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); triggerConfirm('ออกจากระบบ', 'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?', async () => { await handleSignOut(); }); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"><LogOut className="h-4 w-4" />ออกจากระบบ</button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean) => {
     const Icon = item.icon;
@@ -2205,9 +2240,37 @@ export default function App() {
             )}
           </AnimatePresence>
 
-          {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
         </nav>
 
+        <div className="mt-3 border-t border-brand-border pt-3">
+          <nav className="space-y-1" aria-label="แพ็กเกจและตั้งค่า">
+            {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
+          </nav>
+          {isDesktop && (
+            <div className="mt-2 space-y-2">
+              {!session.isGuest && (
+                <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>
+              )}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsProfileMenuOpen(open => !open)}
+                  aria-label="เปิดเมนูโปรไฟล์"
+                  aria-expanded={isProfileMenuOpen}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-brand-faint cursor-pointer"
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-faint text-brand-muted">
+                    {userAvatar ? <img src={userAvatar} className="h-full w-full object-cover" alt="" /> : <User className="h-3.5 w-3.5" />}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-brand-text">
+                    {routeContext?.profile.displayName || session.user.email?.split('@')[0] || 'บัญชีของฉัน'}
+                  </span>
+                </button>
+                {renderProfileMenu('bottom-full inset-x-0 mb-2')}
+              </div>
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* 📱 Mobile Sidebar Slide-out Drawer */}
@@ -2369,8 +2432,9 @@ export default function App() {
       {/* 📱 / 💻 Main Section: Handles responsive paddings & maximum constraints */}
       <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
         
-        {/* Floating account controls: keep the page chrome hidden until the account corner is used. */}
-        <div className={`pointer-events-none absolute inset-x-0 top-0 flex select-none items-start justify-between p-3 lg:justify-end lg:p-5 ${isProfileMenuOpen ? 'z-[110]' : 'z-40'}`}>
+        {/* Floating menu + account controls for screens without the sidebar. */}
+        {!isDesktop && (
+        <div className={`pointer-events-none absolute inset-x-0 top-0 flex select-none items-start justify-between p-3 ${isProfileMenuOpen ? 'z-[110]' : 'z-40'}`}>
           <button
             onClick={() => setIsMobileMenuOpen(true)}
             className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-brand-border/60 bg-brand-white/90 text-brand-muted shadow-sm backdrop-blur-md transition-all hover:text-brand-text lg:hidden"
@@ -2395,31 +2459,11 @@ export default function App() {
               >
                 {userAvatar ? <img src={userAvatar} className="h-full w-full object-cover" alt="User Avatar" /> : <User className="h-4.5 w-4.5" />}
               </button>
-              <AnimatePresence>
-                {isProfileMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-12 z-[120] w-64 overflow-hidden rounded-2xl border border-brand-border bg-brand-white p-2 shadow-2xl dark:bg-stone-900"
-                  >
-                    <div className="border-b border-brand-border/40 px-3 py-2.5">
-                      <p className="truncate text-xs font-black text-brand-text">{session?.user?.email || 'บัญชีผู้ใช้'}</p>
-                      <p className="mt-1 text-[10px] font-bold text-brand-muted">{isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}</p>
-                    </div>
-                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><IconCrown className="h-4 w-4 text-amber-500" />แพ็กเกจของฉัน</button>
-                    <button type="button" onClick={() => setDarkMode(!darkMode)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint">
-                      {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-emerald-600" />}
-                      {darkMode ? 'ใช้โหมดสว่าง' : 'ใช้โหมดมืด'}
-                    </button>
-                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); triggerConfirm('ออกจากระบบ', 'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?', async () => { await handleSignOut(); }); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"><LogOut className="h-4 w-4" />ออกจากระบบ</button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {renderProfileMenu('right-0 top-12 w-64')}
             </div>
           </div>
         </div>
+        )}
 
         {/* Scrollable Container with responsive max widths */}
         <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:py-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none">
@@ -2427,7 +2471,7 @@ export default function App() {
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
             <section className="mb-5 flex flex-col gap-4 border-b border-brand-border/30 pb-5" aria-labelledby="dashboard-title">
-              <div className="flex items-center justify-end gap-2 lg:pr-14">
+              <div className="flex items-center justify-end gap-2">
                 <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"

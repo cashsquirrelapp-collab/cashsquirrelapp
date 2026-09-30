@@ -159,7 +159,7 @@ export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
 
   return (
     <div className="page-content space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 lg:pr-14">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[19px] font-semibold text-brand-text">ปฏิทิน · {headingLabel}</h2>
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1.5">
