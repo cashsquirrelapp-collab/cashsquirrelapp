@@ -108,6 +108,18 @@ test('retired duplicate finance tabs resolve to the current calendar and income 
  await expect(sidebar.getByRole('button',{name:'สรุปยอดรายรับ & ออม'})).toHaveCount(0);
  await sidebar.getByRole('button',{name:'ปฏิทิน',exact:true}).click();
  await expect(page.getByRole('heading',{name:/^ปฏิทิน ·/})).toBeVisible();
+ const calendarHeading=page.getByRole('heading',{name:/^ปฏิทิน ·/});
+ const monthHeading=await calendarHeading.textContent();
+ await page.getByRole('button',{name:'สัปดาห์',exact:true}).click();
+ await expect(page.locator('[data-calendar-view="week"]')).toBeVisible();
+ await expect(page.locator('[data-calendar-view="week"] button[aria-label]')).toHaveCount(7);
+ await expect(page.getByRole('button',{name:'สัปดาห์',exact:true})).toHaveAttribute('aria-pressed','true');
+ const weekHeading=await calendarHeading.textContent();
+ expect(weekHeading).not.toBe(monthHeading);
+ await page.getByRole('button',{name:'สัปดาห์ถัดไป'}).click();
+ await expect(calendarHeading).not.toHaveText(weekHeading||'');
+ await page.getByRole('button',{name:'เดือน',exact:true}).click();
+ await expect(page.locator('[data-calendar-view="month"]')).toBeVisible();
  await sidebar.getByRole('button',{name:'รายรับ-รายจ่าย',exact:true}).click();
  await expect(page.getByRole('heading',{name:'รายรับ–รายจ่าย'})).toBeVisible();
  await page.goto('/timeline');
