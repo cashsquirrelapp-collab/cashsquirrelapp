@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
-import { formatAxisBaht, formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, getForecastMonths, safeFormatThaiDate } from '../../utils';
+import { formatAxisBaht, formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../../utils';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -16,11 +16,8 @@ import {
   TrendingDown,
   Coins,
   Clock, 
-  AlertTriangle, 
-  CheckCircle2, 
   CheckCircle,
   ChevronRight, 
-  Plus,
   Search,
   Check,
   Copy,
@@ -28,7 +25,6 @@ import {
   Flame,
   Bell,
   Mail,
-  AlertCircle,
   Send,
   PiggyBank,
   CalendarDays
@@ -41,8 +37,6 @@ interface DashboardTabProps {
   expenses: Expense[];
   onUpdateSettings?: (settings: AppSettings) => void;
   onSwitchTab: (tabId: string) => void;
-  onOpenAddGoal: () => void;
-  onOpenGoalDetail: (goalId: string) => void;
   statuses?: StatusOption[];
   selectedMonthKey: string;
   onEditJob?: (id: string, updated: Partial<Job>) => void;
@@ -54,16 +48,6 @@ interface DashboardTabProps {
   onQuickRecord?: (mode: 'income' | 'expense') => void;
 }
 
-const formatAbbreviatedTarget = (value: number): string => {
-  if (value >= 1000000) {
-    const m = value / 1000000;
-    return (m % 1 === 0 ? m : m.toFixed(1).replace(/\.0$/, '')) + 'M';
-  } else {
-    const k = value / 1000;
-    return (k % 1 === 0 ? k : k.toFixed(1).replace(/\.0$/, '')) + 'k';
-  }
-};
-
 export default function DashboardTab({
   jobs,
   goals,
@@ -71,8 +55,6 @@ export default function DashboardTab({
   expenses,
   onUpdateSettings,
   onSwitchTab,
-  onOpenAddGoal,
-  onOpenGoalDetail,
   statuses = [],
   selectedMonthKey,
   onEditJob,
@@ -84,7 +66,6 @@ export default function DashboardTab({
   onQuickRecord,
 }: DashboardTabProps) {
   const { t } = useLanguage();
-  const [isAlertExpanded, setIsAlertExpanded] = React.useState(false);
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
   // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.
   const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | 'profit' | null>(null);
@@ -644,46 +625,6 @@ export default function DashboardTab({
     ? Math.round(((profit - prevMonthProfit) / prevMonthProfit) * 100)
     : null;
 
-  let alertStatus: 'danger' | 'warning' | 'success' = 'success';
-  let alertHeadline = '';
-  let alertFullMessage = '';
-  const monthName = formatMonthKey(selectedMonthKey);
-
-  if (selectedMonthJobs.length === 0) {
-    alertStatus = 'warning';
-    alertHeadline = t('dash.noRecordsThisMonth', { month: monthName });
-    alertFullMessage = t('dash.noRecordsThisMonthFull', { month: monthName });
-  } else if (profit < 0) {
-    alertStatus = 'danger';
-    alertHeadline = t('dash.crisisHeadline', { amount: formatCurrency(Math.abs(profit)) });
-    alertFullMessage = t('dash.crisisFull', {
-      month: monthName,
-      received: formatCurrency(totalReceived),
-      fixed: formatCurrency(fixedExpenseThisMonth),
-      variable: variableExpenseThisMonth > 0 ? t('dash.crisisVariablePart', { amount: formatCurrency(variableExpenseThisMonth) }) : '',
-      goal: '',
-      short: formatCurrency(Math.abs(profit)),
-    });
-  } else if (profit >= 0 && profit < 5000) {
-    alertStatus = 'warning';
-    alertHeadline = t('dash.lowHeadline', { month: monthName, amount: formatCurrency(profit) });
-    alertFullMessage = t('dash.lowFull', { month: monthName, amount: formatCurrency(profit) });
-  } else {
-    alertStatus = 'success';
-    alertHeadline = t('dash.goodHeadline', { amount: formatCurrency(profit) });
-    alertFullMessage = t('dash.goodFull', { month: monthName, amount: formatCurrency(profit) });
-  }
-
-  const fixedItemsBase = settings.fixedExpenseItems && settings.fixedExpenseItems.length > 0
-    ? settings.fixedExpenseItems
-    : (settings.monthlyExpense > 0 ? [{ id: 'legacy-total', name: t('dash.legacyFixedExpenseName'), amount: settings.monthlyExpense }] : []);
-  let fixedItemsCumulative = 0;
-  const fixedItemsCoverage = fixedItemsBase.map(item => {
-    fixedItemsCumulative += item.amount;
-    return { ...item, covered: totalReceived >= fixedItemsCumulative };
-  });
-  const fixedItemsCoveredCount = fixedItemsCoverage.filter(i => i.covered).length;
-
   const playHapticAndSound = () => {
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -799,43 +740,6 @@ export default function DashboardTab({
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 5);
   }, [jobs, expenses]);
-
-  const forecastRadar = React.useMemo(() => {
-    const forecastMonthsList = getForecastMonths();
-    const totals = new Map(forecastMonthsList.map(monthKey => [monthKey, { confirmed: 0, pending: 0, variableExpense: 0, expenseNames: [] as string[] }]));
-    jobs.forEach(j => {
-      getJobPaymentEntries(j).forEach((entry) => {
-        const month = totals.get(getMonthKeyFromDate(entry.date));
-        if (month) month.confirmed += entry.amount;
-      });
-      if (j.isPosted !== false) getJobPendingEntries(j).forEach((entry) => {
-        const month = totals.get(getMonthKeyFromDate(entry.dueDate));
-        if (month) month.pending += entry.amount;
-      });
-    });
-    expenses.forEach(e => {
-      const month = totals.get(getMonthKey(e.date));
-      if (month) {
-        month.variableExpense += e.amount;
-        month.expenseNames.push(e.name);
-      }
-    });
-    return forecastMonthsList.map(monthKey => {
-      const month = totals.get(monthKey)!;
-      const totalIncome = month.confirmed + month.pending;
-      const totalExpense = fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, month.expenseNames) + month.variableExpense;
-      const balance = totalIncome - totalExpense;
-      const hasData = totalIncome > 0;
-      const status = !hasData
-        ? { label: 'ยังไม่มีข้อมูล', color: '#B8B3AC' }
-        : balance < 0
-        ? { label: 'ควรหาเพิ่ม', color: '#E95454' }
-        : balance < totalExpense * 0.3
-        ? { label: 'พอใช้', color: '#F2A93B' }
-        : { label: 'ปลอดภัย', color: '#18A66A' };
-      return { monthKey, balance, hasData, ...status };
-    });
-  }, [jobs, expenses, settings.monthlyExpense, settings.fixedExpenseItems]);
 
   const currentMonthKeyForCalendar = React.useMemo(() => {
     const now = new Date();
@@ -1122,80 +1026,6 @@ export default function DashboardTab({
         )}
       </motion.div>
 
-      {/* 3. Alert Zone */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className={`order-2 p-4 rounded-2xl border border-l-4 bg-brand-white flex flex-col gap-2 transition-all ${
-          alertStatus === 'danger'
-            ? 'border-brand-border border-l-[#A63F1B]'
-            : alertStatus === 'warning'
-            ? 'border-brand-border border-l-[#D98324]'
-            : 'border-brand-border border-l-[#125442]'
-        }`}
-      >
-        <div className="flex items-center justify-between w-full gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="shrink-0">
-              {alertStatus === 'danger' ? (
-                <AlertTriangle className="w-5 h-5 text-[#A63F1B] dark:text-[#FA7E52]" />
-              ) : alertStatus === 'warning' ? (
-                <AlertTriangle className="w-5 h-5 text-[#D98324] dark:text-[#F2B76B]" />
-              ) : (
-                <CheckCircle2 className="w-5 h-5 text-[#125442] dark:text-[#4ade80]" />
-              )}
-            </div>
-            <h4 className="text-xs font-black tracking-tight font-sans text-brand-text">
-              {alertHeadline}
-            </h4>
-          </div>
-          <button
-            onClick={() => setIsAlertExpanded(!isAlertExpanded)}
-            className="text-[10px] font-black underline shrink-0 px-2.5 py-1 rounded-lg text-brand-muted hover:bg-brand-faint transition-colors cursor-pointer"
-          >
-            {isAlertExpanded ? t('dash.hideDetails') : t('dash.viewDetails')}
-          </button>
-        </div>
-
-        {isAlertExpanded && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="pt-2 border-t border-brand-border/40 text-[11px] leading-relaxed font-medium text-brand-muted"
-          >
-            {alertFullMessage}
-
-            {fixedItemsCoverage.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-brand-border/30 space-y-1.5">
-                <p className="text-[10px] font-black text-brand-muted uppercase tracking-wide">
-                  {t('dash.fixedExpenseHeader', { amount: formatCurrency(settings.monthlyExpense) })}
-                </p>
-                {fixedItemsCoverage.map(item => (
-                  <div key={item.id} className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {item.covered ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#125442] dark:text-[#4ade80] shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-3.5 h-3.5 text-brand-muted shrink-0" />
-                      )}
-                      <span className={`font-semibold truncate ${item.covered ? 'text-brand-text' : 'text-brand-muted'}`}>
-                        {item.name}
-                      </span>
-                    </div>
-                    <span className={`font-mono font-bold shrink-0 ${item.covered ? 'text-brand-text' : 'text-brand-muted'}`}>
-                      {formatCurrency(item.amount)}
-                    </span>
-                  </div>
-                ))}
-                <p className="text-[9px] text-brand-muted/80 pt-1">
-                  {t('dash.fixedExpenseCoverage', { received: formatCurrency(totalReceived), covered: fixedItemsCoveredCount, total: fixedItemsCoverage.length })}
-                </p>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </motion.div>
-
       {/* Recent activity + mini financial calendar, matching the mockup's second row below
           the chart/watchlist row. */}
       <div className="order-5 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
@@ -1242,104 +1072,6 @@ export default function DashboardTab({
             <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#18A66A]" />เงินเข้า</span>
             <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E95454]" />เกินกำหนด</span>
           </div>
-        </div>
-      </div>
-
-      {/* Forward-looking 4-month forecast, matching the mockup's "เรดาร์เสบียง 4 เดือน" card --
-          reuses the same forecast aggregation the old radar widget had before it was removed,
-          just restyled to the compact card the mockup actually shows instead of the old
-          "Acorn Hollows" fill-bar cards. */}
-      <div className="order-6 bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
-        <h4 className="text-[13px] font-medium text-brand-text">เรดาร์เสบียง 4 เดือน</h4>
-        <p className="mb-3.5 text-[11px] text-brand-muted">เงินที่คาดว่าจะได้ เทียบกับรายจ่ายประจำเดือน</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {forecastRadar.map(m => (
-            <div key={m.monthKey} className="pt-2" style={{ borderTop: `3px solid ${m.color}` }}>
-              <p className="text-[11px] text-brand-muted">{formatMonthKey(m.monthKey).split(' ')[0]}</p>
-              <p className="mt-0.5 text-[11px] font-semibold" style={{ color: m.color }}>{m.label}</p>
-              <p className="mt-0.5 text-[10px] text-brand-muted">{m.hasData ? `เหลือ ${formatCurrency(m.balance)}` : '—'}</p>
-            </div>
-          ))}
-        </div>
-        {upcomingPayments.length > 0 && (() => {
-          const next = upcomingPayments.find(p => !p.isOverdue) || upcomingPayments[0];
-          return (
-            <div className="mt-3.5 flex items-center gap-2 rounded-xl bg-[#FBF2E4] px-2.5 py-2">
-              <Mascot mood="thinking" size={24} />
-              <p className="text-[11px] text-brand-text">
-                {next.isOverdue ? 'มีเงินเกินกำหนดที่ต้องติดตาม' : `อีก ${next.daysCount} วันคาดว่าจะมีเงินเข้า`} <strong>{formatCurrency(next.pending)}</strong>
-              </p>
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* 4. Financial Goals Slider */}
-      <div className="order-7 space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <div>
-            <h4 className="text-xs font-black tracking-widest text-brand-muted uppercase" title={t('dash.savingsGoalsTooltip')}>
-              {t('dash.savingsGoalsTitle')}
-            </h4>
-          </div>
-          <button
-            onClick={() => onSwitchTab('split')}
-            className="text-xs font-black text-[#E65F2B] dark:text-[#FFA473] hover:text-[#D98324] flex items-center gap-0.5"
-          >
-            {t('dash.goToVault')} <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-        
-        <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
-          {goals.map(g => {
-            const pct = g.target > 0 ? Math.min(100, (g.current / g.target) * 100) : 0;
-            return (
-              <motion.div
-                key={g.id}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => onOpenGoalDetail(g.id)}
-                className="w-40 shrink-0 bg-brand-white border border-brand-border rounded-2xl p-4 cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden"
-              >
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-3 shadow-inner overflow-hidden border border-brand-border/40"
-                  style={{ backgroundColor: g.bg || 'var(--faint)' }}
-                >
-                  {g.imageUrl ? (
-                    <img src={g.imageUrl} alt={g.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                  ) : g.emoji ? (
-                    g.emoji
-                  ) : (
-                    <IconCoin className="w-6 h-6 text-[#E65F2B]" />
-                  )}
-                </div>
-                <h5 className="text-sm font-bold text-brand-text truncate">{g.name}</h5>
-                <p className="text-[10px] text-brand-muted mt-0.5">
-                  {t('dash.accumulated')} <span className="font-extrabold text-stone-950 dark:text-white font-mono text-xs">{formatCurrency(g.current)}</span>
-                </p>
-                <div className="w-full h-1.5 bg-brand-faint rounded-full overflow-hidden mt-3 mb-1">
-                  <div 
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${pct}%`, backgroundColor: '#E65F2B' }}
-                  />
-                </div>
-                <div className="flex justify-between items-center text-[10px] font-semibold text-brand-muted">
-                  <span className="text-[#E65F2B] dark:text-[#FFA473] font-black text-xs">{pct.toFixed(0)}%</span>
-                  <span>{t('dash.target')} <span className="font-extrabold text-stone-900 dark:text-stone-100 font-mono">{formatAbbreviatedTarget(g.target)}</span></span>
-                </div>
-              </motion.div>
-            );
-          })}
-          
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={onOpenAddGoal}
-            className="w-36 shrink-0 bg-brand-white/40 dark:bg-stone-800/20 border-2 border-dashed border-brand-border rounded-2xl flex flex-col items-center justify-center gap-2 text-brand-muted hover:text-[#E65F2B] dark:hover:text-[#FFA473] hover:border-[#E65F2B]/40 hover:bg-brand-faint transition-all p-4"
-          >
-            <div className="w-10 h-10 rounded-full bg-brand-white border border-brand-border flex items-center justify-center text-brand-muted">
-              <Plus className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold">{t('dash.digNewGoal')}</span>
-          </motion.button>
         </div>
       </div>
 

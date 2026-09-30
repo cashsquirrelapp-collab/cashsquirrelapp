@@ -3,7 +3,7 @@ import { validateChanges, notificationPreferences } from '../../../shared/valida
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense, startTransition } from 'react';
 import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense, GoalTransaction } from '../../../shared/types';
 import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from '../sampleData';
-import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES, dateLocale, formatCurrency, isReminderDue, toLocalDateKey } from '../utils';
+import { getMonthKey, DEFAULT_JOB_TYPES, dateLocale, formatCurrency, isReminderDue, toLocalDateKey } from '../utils';
 
 const loadDashboardTab = () => import('../features/dashboard/DashboardTab');
 const loadJobsTab = () => import('../features/jobs/JobsTab');
@@ -68,7 +68,6 @@ import {
   Home, 
   Settings,
   Briefcase, 
-  Calendar, 
   Percent, 
   Target,
   Sun,
@@ -91,11 +90,9 @@ import {
   Smartphone,
   ChevronDown,
   BarChart3,
-  RotateCcw,
   Wrench,
   CalendarDays,
   Contact,
-  Search,
   Bell,
   Plus,
   Clock,
@@ -2470,43 +2467,8 @@ export default function App() {
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
             <section className="mb-5 flex flex-col gap-4 border-b border-brand-border/30 pb-5" aria-labelledby="dashboard-title">
-              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center lg:pr-14">
-                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-brand-border bg-brand-white px-3.5 py-2.5">
-                  <Search className="h-4 w-4 shrink-0 text-brand-muted" />
-                  <input
-                    type="text"
-                    placeholder="ค้นหางาน ลูกค้า หรือเอกสาร..."
-                    className="min-w-0 flex-1 border-0 bg-transparent text-xs font-medium text-brand-text outline-none placeholder:text-brand-muted sm:text-sm"
-                    onKeyDown={(e) => { if (e.key === 'Enter') navigateTab('jobs'); }}
-                  />
-                </div>
+              <div className="flex items-center justify-end gap-2 lg:pr-14">
                 <div className="flex shrink-0 items-center gap-2">
-                  <div className="flex items-center gap-1 rounded-2xl border border-brand-border bg-brand-white px-1.5 py-1.5">
-                    <Calendar className="h-4 w-4 shrink-0 text-[#C95529] ml-1" />
-                    <select
-                      id="dashboard-month"
-                      value={selectedMonthKey}
-                      onChange={(e) => setSelectedMonthKey(e.target.value)}
-                      className="min-w-0 cursor-pointer border-0 bg-transparent py-1 pr-1 text-xs font-black text-[#A8441E] outline-none"
-                      title={t('header.monthPickerLabel')}
-                    >
-                      {availableMonthKeys.map(key => (
-                        <option key={key} value={key}>
-                          {formatMonthKey(key)} {key === currentMonthKey ? t('header.currentMonthSuffix') : ''}
-                        </option>
-                      ))}
-                    </select>
-                    {selectedMonthKey !== currentMonthKey && (
-                      <button
-                        onClick={() => setSelectedMonthKey(currentMonthKey)}
-                        className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-[#E65F2B]/10 text-[#B9471D] transition-colors hover:bg-[#E65F2B]/20"
-                        title={t('header.backToCurrent')}
-                        aria-label={t('header.backToCurrent')}
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
                   <button
                     type="button"
                     onClick={() => navigateTab('receivables')}
@@ -2559,14 +2521,6 @@ export default function App() {
                   expenses={expenses}
                   onUpdateSettings={handleUpdateSettings}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
-                  onOpenAddGoal={() => {
-                    setInitialSelectedGoalId('ADD_NEW_GOAL');
-                    navigateTab('split');
-                  }}
-                  onOpenGoalDetail={(id) => {
-                    setInitialSelectedGoalId(id);
-                    navigateTab('split');
-                  }}
                   statuses={statuses}
                   selectedMonthKey={selectedMonthKey}
                   onEditJob={handleEditJob}
