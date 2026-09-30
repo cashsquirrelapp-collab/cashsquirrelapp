@@ -876,13 +876,13 @@ export default function DashboardTab({
         </button>
         <button
           type="button"
-          onClick={() => onSwitchTab('invoice')}
+          onClick={() => onQuickRecord?.('expense')}
           className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left cursor-pointer"
         >
-          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-faint">
-            <IconArrowUpRight className="h-4 w-4 text-brand-muted" />
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-[#FFF0F0]">
+            <TrendingDown className="h-4 w-4 text-[#C43A3A]" />
           </span>
-          <span className="text-xs font-medium text-brand-text">ออกเอกสาร</span>
+          <span className="text-xs font-medium text-brand-text">เพิ่มรายจ่าย</span>
         </button>
         <button
           type="button"
@@ -902,9 +902,8 @@ export default function DashboardTab({
             className="absolute right-0 top-[calc(100%+8px)] z-20 w-52 rounded-2xl border border-brand-border bg-brand-white p-1.5 shadow-lg"
           >
             {[
-              { label: 'เพิ่มรายจ่าย', icon: TrendingDown, action: () => onQuickRecord?.('expense') },
+              { label: 'ออกเอกสาร', icon: IconArrowUpRight, action: () => onSwitchTab('invoice') },
               { label: 'เป้าหมายออม', icon: PiggyBank, action: () => onSwitchTab('split') },
-              { label: 'ปฏิทิน', icon: CalendarDays, action: () => onSwitchTab('calendar') },
               { label: 'ปฏิทิน', icon: CalendarDays, action: () => onSwitchTab('calendar') },
               { label: 'ลูกค้า', icon: Coins, action: () => onSwitchTab('clients') },
             ].map(({ label, icon: Icon, action }) => (
