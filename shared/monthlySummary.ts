@@ -1,4 +1,4 @@
-import { splitReceivedByDate } from './installmentPayments';
+import { splitReceivedByDate } from './installmentPayments.js';
 
 export interface JobRow {
   id: string;
