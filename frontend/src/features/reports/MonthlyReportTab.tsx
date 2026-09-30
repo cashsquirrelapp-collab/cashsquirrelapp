@@ -48,7 +48,7 @@ interface MonthlyReportTabProps {
   userEmail: string;
   notifSettings: NotifSettings;
   onUpdateNotifSettings: (notifSettings: NotifSettings) => void;
-  onSwitchTab: (tabId: 'dashboard' | 'jobs' | 'summary' | 'timeline' | 'split' | 'report' | 'plans') => void;
+  onSwitchTab: (tabId: 'dashboard' | 'jobs' | 'split' | 'report' | 'plans') => void;
   onViewJob?: (jobId: string) => void;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;

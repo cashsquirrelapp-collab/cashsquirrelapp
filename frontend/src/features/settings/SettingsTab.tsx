@@ -98,6 +98,7 @@ interface SettingsTabProps {
   onSwitchTab: (tabId: string) => void;
   onUpdateSettings: (settings: AppSettings) => void;
   onImportData: (data: string) => void;
+  onExportData: () => void;
   onClearAllData: () => void;
   cloudSyncStatus: 'synced' | 'pending' | 'failed' | 'not_setup';
   loadCloudData: (email: string) => void;
@@ -136,6 +137,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onSwitchTab,
   onUpdateSettings,
   onImportData,
+  onExportData,
   onClearAllData,
   cloudSyncStatus,
   loadCloudData,
@@ -889,10 +891,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => onSwitchTab('summary')}
+              onClick={onExportData}
               className="shrink-0 rounded-lg bg-brand-faint dark:bg-neutral-800 px-3.5 py-2 text-xs text-brand-text dark:text-white transition-all cursor-pointer"
             >
-              ไปที่หน้าสรุป
+              ดาวน์โหลด .json
             </button>
           </div>
         </>)}

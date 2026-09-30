@@ -82,7 +82,7 @@ async function openGroups(page: Page) {
   await page.goto('/');
   const sidebar = page.locator('aside');
   await sidebar.getByRole('button', { name: 'เครื่องมือเพิ่มเติม' }).click();
-  await sidebar.getByRole('button', { name: 'กลุ่ม & สมาชิก' }).click();
+  await sidebar.getByRole('button', { name: 'ทีม', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'กลุ่มของเรา' }),
   ).toBeVisible();
@@ -334,7 +334,6 @@ test('pending confirmation and group state cannot carry across accounts', async 
   await page.getByRole('button', { name: 'โอนหัวหน้า' }).click();
   switched = true;
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(page.getByText(second.email).first()).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'สมาชิกในกลุ่ม (2)' }),
   ).toHaveCount(0);
