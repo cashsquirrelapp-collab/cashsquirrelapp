@@ -61,7 +61,7 @@ import { PremiumUpsell } from '../features/billing/PremiumUpsell';
 const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
 import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
-import { IconCrown, IconPalette } from '../components/ui/icons';
+import { IconCrown } from '../components/ui/icons';
 import type { GroupSummary, PublicProfile } from '../../../shared/groups';
 
 import { 
@@ -2208,23 +2208,6 @@ export default function App() {
           {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
         </nav>
 
-        {/* Desktop bottom status/theme bar */}
-        <div className="pt-4 border-t border-brand-border/40 flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-brand-muted font-bold inline-flex items-center gap-1">โหมดธีมสว่าง/มืด <IconPalette className="w-2.5 h-2.5" /></span>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-xl bg-brand-faint hover:bg-brand-border/40 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border/20 cursor-pointer"
-              title={darkMode ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
-            >
-              {darkMode ? (
-                <Sun className="w-4 h-4 text-amber-500 fill-amber-500/10" />
-              ) : (
-                <Moon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 fill-emerald-600/10" />
-              )}
-            </button>
-          </div>
-        </div>
       </aside>
 
       {/* 📱 Mobile Sidebar Slide-out Drawer */}
@@ -2376,29 +2359,6 @@ export default function App() {
                     <LogOut className="w-3 h-3" />
                     <span>ออกจากระบบ</span>
                   </button>
-                </div>
-
-                {/* Theme Controls on Mobile */}
-                <div className="pt-2 border-t border-brand-border/20">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[9px] text-brand-muted font-bold inline-flex items-center gap-1">ธีมสว่าง/มืด <IconPalette className="w-2.5 h-2.5" /></span>
-                    <button
-                      onClick={() => setDarkMode(!darkMode)}
-                      className="p-2 rounded-xl bg-brand-faint hover:bg-brand-border/40 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5 border border-brand-border/20 cursor-pointer text-xs font-bold w-full"
-                    >
-                      {darkMode ? (
-                        <>
-                          <Sun className="w-3.5 h-3.5 text-amber-500" />
-                          <span>สว่าง</span>
-                        </>
-                      ) : (
-                        <>
-                          <Moon className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>มืด</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
                 </div>
               </div>
             </motion.aside>
