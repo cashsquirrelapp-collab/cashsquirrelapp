@@ -20,8 +20,9 @@ const CREDIT_TERMS = [0, 30, 45, 60, 90];
 const WHT_RATES = [0, 1, 3, 5];
 const CUSTOM_TYPE = '__custom__';
 
-const todayStr = () => {
+const todayStr = (offsetDays = 0) => {
   const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
@@ -146,7 +147,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     const next: Partial<Record<FieldKey, string>> = {};
     if (!name.trim()) next.name = 'กรุณาระบุชื่องาน';
     if (!value.trim() || Number.isNaN(parseFloat(value)) || parseFloat(value) < 0) next.value = 'กรุณาระบุมูลค่างาน';
-    if (isPosted && !postDate) next.postDate = 'กรุณาระบุวันที่ส่งงาน / ให้บริการ';
+    if (isPosted && !postDate) next.postDate = 'กรุณาเลือกวันที่ส่งงาน';
     if (payment === 'partial' && (receivedNum <= 0 || receivedNum > net)) next.received = receivedNum <= 0 ? 'กรุณาระบุยอดที่รับแล้ว' : 'ยอดที่รับแล้วต้องไม่เกินยอดรับสุทธิ';
     if (payment === 'installment' && !installmentsMatch) {
       const diff = net - installmentTotal;
@@ -264,7 +265,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
       <div className="rounded-[10px] bg-[#FFF7F1] px-3 py-2 text-[13px] dark:bg-orange-500/10">
         {expectedPayDate
           ? <span className="text-brand-text">คาดว่าจะได้รับเงิน <strong className="font-semibold">{safeFormatThaiDate(expectedPayDate)}</strong></span>
-          : <span className="text-brand-muted">เลือกวันที่ส่งงานด้านบน เพื่อคำนวณวันที่จะได้รับเงิน</span>}
+          : <span className="text-brand-muted">ใส่วันส่งงานด้านบน แล้วจะคำนวณวันที่ได้รับเงินให้</span>}
       </div>
       {creditTerm > 0 && (
         <div>
@@ -334,18 +335,18 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                   />
                   {errorText('name')}
                 </div>
-                <div>
-                  <label htmlFor="job-form-client" className={labelClass}>ลูกค้า / ผู้จ่าย</label>
-                  <input
-                    id="job-form-client"
-                    type="text"
-                    value={client}
-                    onChange={(e) => setClient(e.target.value)}
-                    placeholder="เช่น Skinness"
-                    className={inputClass()}
-                  />
-                </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="job-form-client" className={labelClass}>ลูกค้า / ผู้จ่าย</label>
+                    <input
+                      id="job-form-client"
+                      type="text"
+                      value={client}
+                      onChange={(e) => setClient(e.target.value)}
+                      placeholder="เช่น Skinness"
+                      className={inputClass()}
+                    />
+                  </div>
                   <div id="job-form-value">
                     <label htmlFor="job-form-value-input" className={labelClass}>มูลค่างาน <span className="text-[#C43A3A]">*</span></label>
                     <div className="relative">
@@ -361,22 +362,89 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                     </div>
                     {errorText('value')}
                   </div>
-                  <div id="job-form-postDate">
-                    <label htmlFor="job-form-postDate-input" className={labelClass}>
-                      {isPosted ? <>วันที่ส่งงาน / ให้บริการ <span className="text-[#C43A3A]">*</span></> : 'กำหนดส่ง / วันที่ให้บริการ'}
-                    </label>
-                    {dateInput('job-form-postDate-input', postDate, (v) => { setPostDate(v); clearError('postDate'); }, errors.postDate)}
-                    {postDate
-                      ? <button type="button" onClick={() => setPostDate('')} className="mt-1 text-xs text-brand-muted hover:text-brand-text cursor-pointer">ยังไม่กำหนด</button>
-                      : !errors.postDate && <p className="mt-1 text-xs text-brand-muted">ยังไม่กำหนดก็ได้</p>}
-                    {errorText('postDate')}
-                  </div>
                 </div>
               </section>
 
               <div className="border-t border-brand-border" />
 
-              {/* B. การรับเงิน */}
+              {/* B. สถานะงาน + วันส่งงาน -- asked together so the date always has one clear meaning */}
+              <section className="space-y-4" aria-label="สถานะงาน">
+                <div>
+                  <h3 className="text-[15px] font-semibold text-brand-text">งานนี้ถึงไหนแล้ว?</h3>
+                  <p className="mt-0.5 text-xs text-brand-muted">ใช้คำนวณว่าจะได้รับเงินวันไหน</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="สถานะงาน">
+                  {[
+                    { posted: false, title: 'กำลังทำ', hint: 'ยังไม่ได้ส่งงาน' },
+                    { posted: true, title: 'ส่งงานแล้ว', hint: 'ส่งงาน / ให้บริการเสร็จแล้ว' },
+                  ].map(option => {
+                    const active = isPosted === option.posted;
+                    return (
+                      <button
+                        key={option.title}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => {
+                          setIsPosted(option.posted);
+                          clearError('postDate');
+                          // Delivered work almost always went out today; saves a trip to the date picker.
+                          if (option.posted && !postDate) setPostDate(todayStr());
+                        }}
+                        className={`rounded-[10px] border px-3 py-2.5 text-left transition-colors cursor-pointer ${active
+                          ? 'border-[#F3B08C] bg-[#FFF1E8] dark:border-orange-400/40 dark:bg-orange-500/10'
+                          : 'border-brand-border bg-brand-white hover:bg-brand-faint'}`}
+                      >
+                        <span className={`block text-[13px] ${active ? 'font-semibold text-[#C24A16] dark:text-orange-300' : 'font-medium text-brand-text'}`}>{option.title}</span>
+                        <span className="mt-0.5 block text-[11px] text-brand-muted">{option.hint}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div id="job-form-postDate">
+                  <label htmlFor="job-form-postDate-input" className={labelClass}>
+                    {isPosted
+                      ? <>ส่งงานวันไหน? <span className="text-[#C43A3A]">*</span></>
+                      : <>จะส่งงานวันไหน? <span className="font-normal text-brand-muted">(ไม่บังคับ)</span></>}
+                  </label>
+                  {dateInput('job-form-postDate-input', postDate, (v) => { setPostDate(v); clearError('postDate'); }, errors.postDate)}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {(isPosted
+                      ? [{ label: 'วันนี้', date: todayStr() }, { label: 'เมื่อวาน', date: todayStr(-1) }]
+                      : [{ label: 'วันนี้', date: todayStr() }, { label: 'พรุ่งนี้', date: todayStr(1) }, { label: 'อีก 7 วัน', date: todayStr(7) }]
+                    ).map(chip => (
+                      <button
+                        key={chip.label}
+                        type="button"
+                        onClick={() => { setPostDate(chip.date); clearError('postDate'); }}
+                        className={`h-8 rounded-full border px-3 text-xs transition-colors cursor-pointer ${postDate === chip.date
+                          ? 'border-[#F3B08C] bg-[#FFF1E8] font-medium text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
+                          : 'border-brand-border text-brand-text hover:bg-brand-faint'}`}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                    {!isPosted && postDate && (
+                      <button type="button" onClick={() => setPostDate('')} className="h-8 px-2 text-xs text-brand-muted hover:text-brand-text cursor-pointer">
+                        ยังไม่กำหนด
+                      </button>
+                    )}
+                  </div>
+                  {errorText('postDate')}
+                  {!errors.postDate && (
+                    <p className="mt-1.5 text-xs text-brand-muted">
+                      {isPosted
+                        ? 'Credit Term จะเริ่มนับจากวันส่งงาน'
+                        : postDate ? 'ถ้าส่งงานจริงคนละวัน ค่อยมาแก้ตอนส่งงานได้' : 'ยังไม่รู้ก็เว้นไว้ได้ ค่อยใส่ตอนส่งงาน'}
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              <div className="border-t border-brand-border" />
+
+              {/* C. การรับเงิน */}
               <section className="space-y-4" aria-label="การรับเงิน">
                 <div>
                   <h3 className="text-[15px] font-semibold text-brand-text">การรับเงิน</h3>
@@ -471,26 +539,6 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
 
                 {whtRate > 0 && gross > 0 && (
                   <p className="text-xs text-brand-muted">หัก ณ ที่จ่าย {whtRate}% ({formatCurrency(whtAmount)}) · รับสุทธิ {formatCurrency(net)}</p>
-                )}
-              </section>
-
-              <div className="border-t border-brand-border" />
-
-              {/* C. สถานะงาน */}
-              <section className="space-y-3" aria-label="สถานะงาน">
-                <h3 className="text-[15px] font-semibold text-brand-text">สถานะงาน</h3>
-                <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="สถานะงาน">
-                  <button type="button" role="radio" aria-checked={!isPosted} onClick={() => { setIsPosted(false); clearError('postDate'); }} className={segment(!isPosted)}>
-                    กำลังทำ
-                  </button>
-                  <button type="button" role="radio" aria-checked={isPosted} onClick={() => setIsPosted(true)} className={segment(isPosted)}>
-                    ส่งงานแล้ว / ให้บริการแล้ว
-                  </button>
-                </div>
-                {isPosted && (
-                  <p className="text-xs text-brand-muted">
-                    {postDate ? `ส่งงานวันที่ ${safeFormatThaiDate(postDate)} · เริ่มนับ Credit Term จากวันนี้` : 'ระบุวันที่ส่งงาน / ให้บริการ ด้านบน'}
-                  </p>
                 )}
               </section>
 
