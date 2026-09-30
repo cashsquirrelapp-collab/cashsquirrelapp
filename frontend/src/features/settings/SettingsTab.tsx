@@ -547,253 +547,214 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
         <div className="min-w-0 flex-1 space-y-6 pb-12 lg:max-w-2xl">
         {section === 'account' && (<>
-          {!isGroupFinance && session && !session.isGuest && <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3"><User className="w-4.5 h-4.5 text-emerald-600"/><h3 className="text-xs font-black uppercase tracking-wider">โปรไฟล์ผู้ใช้</h3></div>
-            <label className="block text-xs font-bold">ชื่อที่แสดง
-              <input className="mt-2 w-full bg-brand-faint dark:bg-stone-950 border border-brand-border rounded-xl px-3 py-2.5 text-sm" value={displayName} onChange={e=>setDisplayName(e.target.value)} minLength={2} maxLength={60}/>
-            </label>
-            <div><p className="text-xs font-bold">User ID</p><div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-brand-faint dark:bg-stone-950 border border-brand-border px-3 py-2.5"><code className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{profile?.publicId || 'กำลังโหลด…'}</code>{profile?.publicId&&<button type="button" className="text-xs font-bold" onClick={()=>navigator.clipboard.writeText(profile.publicId)}><Copy className="w-3.5 h-3.5"/></button>}</div><p className="text-[10px] text-brand-muted mt-1">รหัสนี้สร้างถาวรและไม่สามารถแก้ไขได้ ใช้ให้ผู้อื่นค้นหาเพื่อเชิญเข้ากลุ่ม</p></div>
-            <button type="button" onClick={()=>void saveProfile()} disabled={profileBusy||displayName.trim().length<2||displayName.trim()===profile?.displayName} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50">{profileBusy?'กำลังบันทึก…':'บันทึกชื่อ'}</button>
-          </div>}
+          <div>
+            <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">บัญชีของฉัน</h3>
+            <p className="mt-1 text-xs text-brand-muted">ข้อมูลผู้ใช้และการเข้าสู่ระบบ</p>
+          </div>
+          {!isGroupFinance && session && !session.isGuest && (<>
+            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+              <p className="text-[13px] font-medium text-brand-text dark:text-white">ชื่อที่แสดง</p>
+              <p className="mb-3 text-xs text-brand-muted">ชื่อที่แสดงในแอปและเอกสาร</p>
+              <input
+                className="w-full rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                value={displayName} onChange={e=>setDisplayName(e.target.value)} minLength={2} maxLength={60}
+              />
+              <button
+                type="button" onClick={()=>void saveProfile()}
+                disabled={profileBusy||displayName.trim().length<2||displayName.trim()===profile?.displayName}
+                className="mt-3 rounded-lg bg-[#F36A2D] px-4 py-2 text-xs font-medium text-white cursor-pointer disabled:opacity-50"
+              >
+                {profileBusy?'กำลังบันทึก…':'บันทึกชื่อ'}
+              </button>
+            </div>
+
+            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+              <p className="text-[13px] font-medium text-brand-text dark:text-white">อีเมล</p>
+              <p className="mb-3 text-xs text-brand-muted">ใช้สำหรับเข้าสู่ระบบและแจ้งเตือน</p>
+              <input
+                readOnly
+                className="w-full cursor-not-allowed rounded-[10px] border border-brand-border dark:border-neutral-800 bg-brand-faint dark:bg-neutral-950 px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none"
+                value={session?.user?.email || ''}
+              />
+            </div>
+
+            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+              <p className="text-[13px] font-medium text-brand-text dark:text-white">User ID</p>
+              <p className="mb-3 text-xs text-brand-muted">รหัสถาวร ใช้ให้ผู้อื่นค้นหาเพื่อเชิญเข้ากลุ่ม แก้ไขไม่ได้</p>
+              <div className="flex items-center justify-between gap-3 rounded-[10px] border border-brand-border dark:border-neutral-800 bg-brand-faint dark:bg-neutral-950 px-3 py-2.5">
+                <code className="text-[13px] font-medium text-brand-text dark:text-white">{profile?.publicId || 'กำลังโหลด…'}</code>
+                {profile?.publicId && (
+                  <button type="button" className="text-brand-muted hover:text-brand-text cursor-pointer" onClick={()=>navigator.clipboard.writeText(profile.publicId)}>
+                    <Copy className="w-3.5 h-3.5"/>
+                  </button>
+                )}
+              </div>
+            </div>
+          </>)}
           {(isGroupFinance || !session || session.isGuest) && (
-            <div className="rounded-2xl border border-brand-border bg-brand-white p-4 text-sm text-brand-muted">
+            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-xs text-brand-muted">
               {session?.isGuest ? 'โหมดทดลองใช้งาน (Guest) ไม่มีบัญชีถาวรให้ตั้งค่าตรงนี้' : 'บัญชีนี้ใช้ข้อมูลของกลุ่มที่เลือก'}
             </div>
           )}
         </>)}
         {section === 'lang' && (<>
-          {/* Language */}
-          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
-              <Languages className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
-              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-                {t('settings.language')}
-              </h3>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-brand-muted dark:text-neutral-400 max-w-xs">
-                {t('settings.languageDescription')}
-              </p>
-              <div className="flex items-center bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-2xl p-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => language !== 'th' && toggleLanguage()}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                    language === 'th' ? 'bg-emerald-600 text-white shadow-sm' : 'text-brand-muted hover:text-brand-text'
-                  }`}
-                >
-                  ไทย
-                </button>
-                <button
-                  type="button"
-                  onClick={() => language !== 'en' && toggleLanguage()}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                    language === 'en' ? 'bg-emerald-600 text-white shadow-sm' : 'text-brand-muted hover:text-brand-text'
-                  }`}
-                >
-                  EN
-                </button>
-              </div>
+          <div>
+            <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">ภาษาและการแสดงผล</h3>
+            <p className="mt-1 text-xs text-brand-muted">{t('settings.languageDescription')}</p>
+          </div>
+          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => language !== 'th' && toggleLanguage()}
+                className={`rounded-lg px-4 py-2 text-xs transition-all cursor-pointer ${
+                  language === 'th' ? 'bg-[#FFF1E8] font-medium text-[#C24A16]' : 'bg-brand-faint text-brand-muted hover:text-brand-text'
+                }`}
+              >
+                ไทย
+              </button>
+              <button
+                type="button"
+                onClick={() => language !== 'en' && toggleLanguage()}
+                className={`rounded-lg px-4 py-2 text-xs transition-all cursor-pointer ${
+                  language === 'en' ? 'bg-[#FFF1E8] font-medium text-[#C24A16]' : 'bg-brand-faint text-brand-muted hover:text-brand-text'
+                }`}
+              >
+                English
+              </button>
             </div>
           </div>
         </>)}
         {section === 'finance' && (<>
-          {/* Card 1: Proportions & Financial Targets */}
-          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
-            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
-              <Database className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
-              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-                สัดส่วน & เป้าหมายการเงินคงที่
-              </h3>
+          <div>
+            <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">การเงิน</h3>
+            <p className="mt-1 text-xs text-brand-muted">ค่าใช้จ่ายคงที่และเป้าหมายรายรับต่อเดือน</p>
+          </div>
+
+          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[13px] font-medium text-brand-text dark:text-white">
+                {isGroupFinance ? 'ค่าใช้จ่ายกลุ่มรายเดือนคงที่' : 'ค่าใช้จ่ายคงที่ต่อเดือน'}
+              </p>
+              <span className="text-xs font-mono font-medium text-[#C24A16]">รวม {formatCurrency(settings.monthlyExpense)}</span>
             </div>
+            <p className="mb-3 text-xs text-brand-muted">เช่น ค่าเน็ต ค่าห้อง ค่าซอฟต์แวร์ — แตกเป็นรายการย่อยได้เอง ระบบรวมยอดให้อัตโนมัติ</p>
 
-            <div className="space-y-4">
-              {/* Base Expense - itemized breakdown */}
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between items-baseline">
-                  <label className="text-xs font-bold text-brand-text dark:text-neutral-200">
-                    {isGroupFinance ? 'ค่าใช้จ่ายกลุ่มรายเดือนคงที่ (฿)' : 'ค่าใช้จ่ายส่วนตัวรายเดือนคงที่ (฿)'}
-                  </label>
-                  <span className="text-[10px] font-mono font-black text-emerald-600">
-                    รวม {formatCurrency(settings.monthlyExpense)}
-                  </span>
-                </div>
-
-                {fixedExpenseItems.length > 0 && (
-                  <div className="space-y-1.5">
-                    {fixedExpenseItems.map(item => (
-                      <div key={item.id} className="flex items-center justify-between gap-2 bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2">
-                        <span className="text-xs font-bold text-brand-text dark:text-neutral-200 truncate">{item.name}</span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs font-mono font-black text-brand-text dark:text-white">{formatCurrency(item.amount)}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveFixedExpenseItem(item.id)}
-                            className="text-neutral-400 hover:text-rose-600 cursor-pointer transition-colors"
-                            title="ลบรายการนี้"
-                          >
-                            <IconClose className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+            {fixedExpenseItems.length > 0 && (
+              <div className="mb-2.5 space-y-1.5">
+                {fixedExpenseItems.map(item => (
+                  <div key={item.id} className="flex items-center justify-between gap-2 rounded-[10px] border border-brand-border dark:border-neutral-800 bg-brand-faint dark:bg-neutral-950 px-3 py-2">
+                    <span className="truncate text-[13px] text-brand-text dark:text-neutral-200">{item.name}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="font-mono text-[13px] font-medium text-brand-text dark:text-white">{formatCurrency(item.amount)}</span>
+                      <button type="button" onClick={() => handleRemoveFixedExpenseItem(item.id)} className="text-brand-muted hover:text-rose-600 cursor-pointer transition-colors" title="ลบรายการนี้">
+                        <IconClose className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
-                )}
-
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    value={newFixedExpenseName}
-                    onChange={(e) => setNewFixedExpenseName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFixedExpenseItem(); } }}
-                    placeholder="เช่น ค่าห้อง, ค่ารถ, ค่าเน็ต"
-                    className="flex-1 min-w-0 bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-emerald-500"
-                  />
-                  <NumberInput
-                    value={newFixedExpenseAmount}
-                    onChange={setNewFixedExpenseAmount}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFixedExpenseItem(); } }}
-                    placeholder="บาท"
-                    className="w-24 shrink-0 bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-emerald-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddFixedExpenseItem}
-                    className="shrink-0 p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all cursor-pointer"
-                    title="เพิ่มรายการ"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <p className="text-[9px] text-brand-muted leading-relaxed">
-                  เงินขั้นต่ำที่ต้องจ่ายออกทุกเดือนสำหรับค่ากิน ค่าห้อง ค่าน้ำ ค่าไฟคงที่ — แตกเป็นรายการย่อยได้เอง ระบบรวมยอดให้อัตโนมัติ
-                </p>
+                ))}
               </div>
+            )}
 
-              {/* Target Revenue */}
-              <div className="flex flex-col gap-2 pt-2 border-t border-brand-border/20 dark:border-neutral-800/40">
-                <div className="flex justify-between items-baseline">
-                  <label className="text-xs font-bold text-brand-text dark:text-neutral-200">
-                    เป้ารายรับพึงประสงค์รายเดือน (฿)
-                  </label>
-                  <span className="text-[10px] font-mono font-black text-emerald-600">
-                    {formatCurrency(settings.monthlyRevenueGoal)}
-                  </span>
-                </div>
-                <NumberInput
-                  value={settings.monthlyRevenueGoal}
-                  onChange={(raw) => onUpdateSettings({ ...settings, monthlyRevenueGoal: parseFloat(raw) || 0 })}
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-emerald-500 w-full"
-                  placeholder="เช่น 50000"
-                />
-                <p className="text-[9px] text-brand-muted leading-relaxed">
-                  เป้าหมายรายได้รวมสูงสุดที่คุณตั้งเป้าจะกวาดให้ถึงในรอบเดือนเก็บเกี่ยวนี้
-                </p>
-              </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={newFixedExpenseName}
+                onChange={(e) => setNewFixedExpenseName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFixedExpenseItem(); } }}
+                placeholder="เช่น ค่าห้อง, ค่ารถ, ค่าเน็ต"
+                className="min-w-0 flex-1 rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+              />
+              <NumberInput
+                value={newFixedExpenseAmount}
+                onChange={setNewFixedExpenseAmount}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFixedExpenseItem(); } }}
+                placeholder="บาท"
+                className="w-24 shrink-0 rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2 text-[13px] font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+              />
+              <button type="button" onClick={handleAddFixedExpenseItem} className="shrink-0 rounded-[10px] bg-[#F36A2D] p-2.5 text-white cursor-pointer" title="เพิ่มรายการ">
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
+          </div>
+
+          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[13px] font-medium text-brand-text dark:text-white">เป้ารายรับต่อเดือน</p>
+              <span className="text-xs font-mono font-medium text-[#C24A16]">{formatCurrency(settings.monthlyRevenueGoal)}</span>
+            </div>
+            <p className="mb-3 text-xs text-brand-muted">ใช้แสดงความคืบหน้าในหน้าภาพรวม</p>
+            <NumberInput
+              value={settings.monthlyRevenueGoal}
+              onChange={(raw) => onUpdateSettings({ ...settings, monthlyRevenueGoal: parseFloat(raw) || 0 })}
+              className="w-full rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2.5 text-[13px] font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+              placeholder="เช่น 50000"
+            />
           </div>
         </>)}
         {section === 'notif' && (<>
+          <div>
+            <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">การแจ้งเตือน</h3>
+            <p className="mt-1 text-xs text-brand-muted">เลือกช่องทางและเรื่องที่อยากให้แจ้งเตือน</p>
+          </div>
+
           {/* Card 1.5: Notifications -- LINE linking + email report/digest opt-ins. Moved here
               from the "รายงานรายเดือน" tab since these are account-level connections, not
               report content, and were easy to miss buried among charts and tables there. */}
-          {!isGroupFinance && <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
-              <Bell className="w-4.5 h-4.5 text-pink-acc" />
-              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-                การแจ้งเตือน
-              </h3>
-            </div>
+          {!isGroupFinance && (<>
+            <button
+              type="button"
+              disabled={!isPro}
+              onClick={() => {
+                if (!isPro) {
+                  onSwitchTab('plans');
+                  return;
+                }
+                handleToggleMonthlyReport();
+              }}
+              className="w-full flex items-center justify-between gap-3 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-left transition-all cursor-pointer"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-brand-text dark:text-white">สรุปงบการเงินรายเดือนอัตโนมัติ</p>
+                <p className="mt-0.5 text-xs text-brand-muted leading-relaxed">
+                  {isPro
+                    ? 'ส่งทุกวันที่ 1 ของเดือน ทางอีเมลของบัญชีนี้ (และ LINE ด้วยถ้าเชื่อมต่อไว้)'
+                    : 'ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน'}
+                </p>
+              </div>
+              <span className={`relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors ${notifSettings.monthlyReportEnabled ? 'bg-[#F36A2D]' : 'bg-brand-border dark:bg-neutral-700'}`}>
+                <span className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${notifSettings.monthlyReportEnabled ? 'left-[18px]' : 'left-0.5'}`} />
+              </span>
+            </button>
 
-            <div className="space-y-3">
-              {/* Monthly report email opt-in (Pro) */}
-              <button
-                type="button"
-                disabled={!isPro}
-                onClick={() => {
-                  if (!isPro) {
-                    onSwitchTab('plans');
-                    return;
-                  }
-                  handleToggleMonthlyReport();
-                }}
-                className={`w-full flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                  notifSettings.monthlyReportEnabled
-                    ? 'bg-emerald-500/10 border-emerald-500/30'
-                    : 'bg-brand-white dark:bg-stone-900 border-brand-border/40 dark:border-neutral-800 hover:border-brand-border'
-                }`}
-              >
-                <Mail className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473] shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
-                    สรุปงบการเงินรายเดือนอัตโนมัติ                  </span>
-                  <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
-                    {isPro
-                      ? 'ระบบส่งสรุปรายรับ-รายจ่ายของเดือนที่ผ่านมาให้อัตโนมัติทุกวันที่ 1 ทางอีเมลของบัญชีนี้โดยไม่ต้องตั้งค่าอะไรเพิ่ม (และ LINE ด้วยถ้าเชื่อมต่อไว้)'
-                      : 'ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน'}
-                  </p>
-                </div>
-                <div
-                  className={`shrink-0 w-9 h-5 rounded-full transition-colors relative ${
-                    notifSettings.monthlyReportEnabled ? 'bg-emerald-600' : 'bg-brand-border dark:bg-neutral-700'
-                  }`}
-                >
-                  <div
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                      notifSettings.monthlyReportEnabled ? 'translate-x-4' : 'translate-x-0.5'
-                    }`}
-                  />
-                </div>
-              </button>
+            <button
+              type="button"
+              disabled={!isPro}
+              onClick={() => {
+                if (!isPro) {
+                  onSwitchTab('plans');
+                  return;
+                }
+                handleToggleDailyDigest();
+              }}
+              className="w-full flex items-center justify-between gap-3 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-left transition-all cursor-pointer"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-brand-text dark:text-white">แจ้งเตือนงานค้างชำระรายวัน</p>
+                <p className="mt-0.5 text-xs text-brand-muted leading-relaxed">
+                  {isPro
+                    ? 'ส่งสรุปดีลที่เลยกำหนดชำระให้ทุกเช้า ทางอีเมลของบัญชีนี้ (และ LINE ด้วยถ้าเชื่อมต่อไว้)'
+                    : 'ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน'}
+                </p>
+              </div>
+              <span className={`relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors ${notifSettings.dailyDigestEnabled ? 'bg-[#F36A2D]' : 'bg-brand-border dark:bg-neutral-700'}`}>
+                <span className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${notifSettings.dailyDigestEnabled ? 'left-[18px]' : 'left-0.5'}`} />
+              </span>
+            </button>
 
-              {/* Daily overdue-digest opt-in (Pro) */}
-              <button
-                type="button"
-                disabled={!isPro}
-                onClick={() => {
-                  if (!isPro) {
-                    onSwitchTab('plans');
-                    return;
-                  }
-                  handleToggleDailyDigest();
-                }}
-                className={`w-full flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                  notifSettings.dailyDigestEnabled
-                    ? 'bg-emerald-500/10 border-emerald-500/30'
-                    : 'bg-brand-white dark:bg-stone-900 border-brand-border/40 dark:border-neutral-800 hover:border-brand-border'
-                }`}
-              >
-                <Mail className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473] shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
-                    แจ้งเตือนงานค้างชำระรายวัน                  </span>
-                  <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
-                    {isPro
-                      ? 'ส่งสรุปดีลที่เลยกำหนดชำระให้ทุกเช้า ทางอีเมลของบัญชีนี้โดยไม่ต้องตั้งค่าอะไรเพิ่ม (และ LINE ด้วยถ้าเชื่อมต่อไว้) ไม่ต้องเปิดแอปเอง'
-                      : 'ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน'}
-                  </p>
-                </div>
-                <div
-                  className={`shrink-0 w-9 h-5 rounded-full transition-colors relative ${
-                    notifSettings.dailyDigestEnabled ? 'bg-emerald-600' : 'bg-brand-border dark:bg-neutral-700'
-                  }`}
-                >
-                  <div
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                      notifSettings.dailyDigestEnabled ? 'translate-x-4' : 'translate-x-0.5'
-                    }`}
-                  />
-                </div>
-              </button>
-
-              {/* LINE notification linking -- reuses the same Pro gate as the email digests above,
-                  since it's the same underlying notification feature. */}
-              <div className={`p-3 rounded-2xl border ${
-                notifSettings.lineUserId
-                  ? 'bg-emerald-500/10 border-emerald-500/30'
-                  : 'bg-brand-white dark:bg-stone-900 border-brand-border/40 dark:border-neutral-800'
-              }`}>
+            {/* LINE notification linking -- reuses the same Pro gate as the email digests above,
+                since it's the same underlying notification feature. */}
+            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
                 <div className="flex items-center gap-2.5">
                   <MessageCircle className="w-4 h-4 text-[#06C755] shrink-0" />
                   <div className="min-w-0 flex-1">
@@ -891,79 +852,60 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </div>
                 )}
               </div>
-            </div>
-          </div>}
-          {isGroupFinance && <p className="rounded-2xl border border-brand-border bg-brand-white p-4 text-sm text-brand-muted">รายงานและไฟล์สำรองใช้ข้อมูลของกลุ่มที่เลือก การเชื่อม LINE และรายงานอัตโนมัติเป็นของบัญชีส่วนตัว</p>}
+          </>)}
+          {isGroupFinance && <p className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-xs text-brand-muted">รายงานและไฟล์สำรองใช้ข้อมูลของกลุ่มที่เลือก การเชื่อม LINE และรายงานอัตโนมัติเป็นของบัญชีส่วนตัว</p>}
         </>)}
         {section === 'backup' && (<>
-          {/* Card 2: Offline Backup / Restore */}
-          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
-            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
-              <FileJson className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
-              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-                สำรอง & นำเข้าข้อมูลออฟไลน์
-              </h3>
-            </div>
+          <div>
+            <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">สำรองและนำเข้าข้อมูล</h3>
+            <p className="mt-1 text-xs text-brand-muted">ดาวน์โหลดข้อมูลสำรองหรือย้ายข้อมูลกลับเข้าระบบ</p>
+          </div>
 
-            <div className="space-y-4">
-              {/* Seamless Drag-and-Drop Area */}
-              <div 
-                onDragEnter={handleDrag}
-                onDragOver={handleDrag}
-                onDragLeave={handleDrag}
-                onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center min-h-[140px] ${
-                  dragActive 
-                    ? 'border-indigo-500 bg-indigo-50/10 dark:bg-indigo-500/5 ring-4 ring-indigo-500/10' 
-                    : 'border-brand-border hover:border-brand-border/80 dark:border-neutral-800 dark:hover:border-neutral-700 bg-brand-faint/30 dark:bg-neutral-800/20'
-                }`}
-              >
-                <input 
-                  type="file" 
-                  id="json-settings-uploader" 
-                  accept=".json" 
-                  className="hidden" 
-                  onChange={handleFileChange} 
-                />
-                <label htmlFor="json-settings-uploader" className="cursor-pointer block space-y-2.5 w-full">
-                  <div className="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-full inline-block">
-                    <Upload className="w-5.5 h-5.5 text-indigo-600 dark:text-indigo-400 animate-bounce" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-brand-text dark:text-white">
-                      ลากไฟล์สำรอง .json มาวางที่นี่
-                    </p>
-                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-extrabold mt-1">
-                      หรือคลิกเพื่อค้นหาและเลือกไฟล์กู้คืน
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Keep backup and restore together after retiring the duplicate summary page. */}
-              <button
-                type="button"
-                onClick={onExportData}
-                className="w-full py-2.5 bg-brand-faint dark:bg-neutral-800/50 hover:bg-brand-border/30 dark:hover:bg-neutral-800 text-brand-text dark:text-neutral-200 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-brand-border/40 dark:border-neutral-700"
-              >
-                <Download className="w-3.5 h-3.5" /> สำรองข้อมูลทั้งหมด (.json)
-              </button>
+          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <p className="text-[13px] font-medium text-brand-text dark:text-white">นำเข้าข้อมูล</p>
+            <p className="mb-3 text-xs text-brand-muted">อัปโหลดไฟล์สำรอง .json ที่เคยดาวน์โหลดไว้</p>
+            <div
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              className={`flex min-h-[120px] flex-col items-center justify-center rounded-[10px] border-2 border-dashed p-5 text-center transition-all cursor-pointer ${
+                dragActive
+                  ? 'border-[#F36A2D] bg-[#FFF1E8]/60'
+                  : 'border-brand-border dark:border-neutral-800 bg-brand-faint/40 dark:bg-neutral-950 hover:border-brand-border/80'
+              }`}
+            >
+              <input type="file" id="json-settings-uploader" accept=".json" className="hidden" onChange={handleFileChange} />
+              <label htmlFor="json-settings-uploader" className="block w-full cursor-pointer space-y-1.5">
+                <Upload className="mx-auto h-5 w-5 text-brand-muted" />
+                <p className="text-[13px] font-medium text-brand-text dark:text-white">ลากไฟล์สำรอง .json มาวางที่นี่</p>
+                <p className="text-xs text-[#C24A16]">หรือคลิกเพื่อค้นหาและเลือกไฟล์กู้คืน</p>
+              </label>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <div>
+              <p className="text-[13px] font-medium text-brand-text dark:text-white">ดาวน์โหลดไฟล์สำรอง</p>
+              <p className="mt-0.5 text-xs text-brand-muted">งาน รายรับ รายจ่าย และการตั้งค่าทั้งหมด</p>
+            </div>
+            <button
+              type="button"
+              onClick={onExportData}
+              className="shrink-0 rounded-lg bg-brand-faint dark:bg-neutral-800 px-3.5 py-2 text-xs text-brand-text dark:text-white transition-all cursor-pointer"
+            >
+              ดาวน์โหลด .json
+            </button>
           </div>
         </>)}
         {section === 'security' && (<>
-          {/* Card 3: Account Controls & Danger Zone */}
-          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
-            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
-              <User className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
-              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-                บัญชีความปลอดภัย & การควบคุมพิเศษ
-              </h3>
-            </div>
+          <div>
+            <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">ความปลอดภัย</h3>
+            <p className="mt-1 text-xs text-brand-muted">จัดการบัญชีและการเข้าถึง</p>
+          </div>
 
-            <div className="space-y-4">
-              {/* Profile card row */}
-              <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-brand-faint/40 dark:bg-neutral-800/20 border border-brand-border/20 dark:border-neutral-800/40 rounded-3xl w-full">
+          {/* Profile card row */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 w-full">
                 <div className="relative flex-shrink-0">
                   <div className="w-14 h-14 rounded-2xl bg-blue-acc/15 dark:bg-[#FFA473]/15 flex items-center justify-center text-[#E65F2B] dark:text-[#FFA473] font-extrabold overflow-hidden border border-brand-border/30">
                     {userAvatar ? (
@@ -1031,7 +973,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
 
               {session && !session.isGuest && (
-                <div className="p-4 bg-gradient-to-br from-[#FDF3EC] to-brand-faint/40 dark:from-[#2A1810] dark:to-neutral-800/40 rounded-2xl space-y-2.5">
+                <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-brand-text dark:text-white inline-flex items-center gap-1">แพ็กเกจโปร <IconCrown className="w-3 h-3" /></span>
                     {isPaidActive && (
@@ -1052,7 +994,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => onSwitchTab('plans')}
-                    className="w-full py-2 bg-[#E65F2B] hover:bg-[#D8551F] text-white text-[10px] font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
+                    className="w-full py-2 bg-[#F36A2D] hover:bg-[#E65F2B] text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1"
                   >
                     ดูรายละเอียดแพ็กเกจทั้งหมด <ArrowRight className="w-3 h-3" />
                   </button>
@@ -1063,7 +1005,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <button
                   type="button"
                   onClick={onReplaySetupWizard}
-                  className="w-full py-2.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-300 border border-neutral-200/55 dark:border-neutral-800 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className="w-full rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 py-3.5 text-xs text-brand-text dark:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Mascot mood="wave" size={24} className="mr-0.5" />
                   <span>ดูหน้าตั้งค่าบัญชีเริ่มต้นอีกครั้ง</span>
@@ -1071,19 +1013,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               )}
 
               {session && !session.isGuest && !isGroupFinance && (
-                <div className="rounded-2xl border border-brand-border bg-brand-white p-4 space-y-2.5">
-                  <h5 className="text-sm font-black text-brand-text">อีเมลสำรองสำหรับกู้คืนบัญชี</h5>
+                <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 space-y-2.5">
+                  <p className="text-[13px] font-medium text-brand-text dark:text-white">อีเมลสำรองสำหรับกู้คืนบัญชี</p>
                   <p className="text-xs text-brand-muted">{backupEmail ? `ยืนยันแล้ว: ${backupEmail}` : 'เพิ่มและยืนยันอีเมลสำรองก่อนสั่งลบบัญชี'}</p>
                   <input type="email" autoComplete="email" value={backupInput} onChange={event => setBackupInput(event.target.value)}
-                    placeholder="อีเมลสำรอง" aria-label="อีเมลสำรอง" className="w-full rounded-xl border border-brand-border bg-brand-bg px-3 py-2 text-sm text-brand-text" />
+                    placeholder="อีเมลสำรอง" aria-label="อีเมลสำรอง" className="w-full rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]" />
                   <button type="button" disabled={accountBusy || !backupInput.includes('@')} onClick={() => void requestBackupEmail()}
-                    className="w-full rounded-xl border border-brand-border px-3 py-2 text-xs font-bold text-brand-text disabled:opacity-50">ส่งรหัสยืนยันไปยังอีเมลสำรอง</button>
+                    className="w-full rounded-lg border border-brand-border dark:border-neutral-800 px-3 py-2 text-xs text-brand-text dark:text-white disabled:opacity-50 cursor-pointer">ส่งรหัสยืนยันไปยังอีเมลสำรอง</button>
                   {backupPending && <div className="space-y-2">
                     <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={backupCode}
                       onChange={event => setBackupCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="รหัส 6 หลัก" aria-label="รหัสยืนยันอีเมลสำรอง" className="w-full rounded-xl border border-brand-border bg-brand-bg px-3 py-2 text-sm text-brand-text" />
+                      placeholder="รหัส 6 หลัก" aria-label="รหัสยืนยันอีเมลสำรอง" className="w-full rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]" />
                     <button type="button" disabled={accountBusy || backupCode.length !== 6} onClick={() => void confirmBackupEmail()}
-                      className="w-full rounded-xl bg-[#E65F2B] px-3 py-2 text-xs font-bold text-white disabled:opacity-50">ยืนยันอีเมลสำรอง</button>
+                      className="w-full rounded-lg bg-[#F36A2D] px-3 py-2 text-xs text-white disabled:opacity-50 cursor-pointer">ยืนยันอีเมลสำรอง</button>
                   </div>}
                 </div>
               )}
@@ -1092,10 +1034,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDangerZone(!showDangerZone)}
-                className={`w-full py-2.5 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                  showDangerZone 
-                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30' 
-                    : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-300 border-neutral-200/55 dark:border-neutral-800'
+                className={`w-full rounded-[14px] border py-3.5 text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  showDangerZone
+                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30'
+                    : 'border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 text-brand-text dark:text-white'
                 }`}
               >
                 <Lock className="w-3.5 h-3.5" />
@@ -1109,7 +1051,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="bg-rose-500/5 dark:bg-rose-950/15 border border-rose-500/20 rounded-2xl p-4 mt-1 space-y-3 overflow-hidden"
+                    className="bg-rose-500/5 dark:bg-rose-950/15 border border-rose-500/20 rounded-[14px] p-4 mt-1 space-y-3 overflow-hidden"
                   >
                     <div className="flex items-start gap-2 text-rose-800 dark:text-rose-400">
                       <AlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5" />
@@ -1187,22 +1129,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
-          </div>
         </>)}
         {section === 'business' && (<>
-          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
-            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
-              <Building2 className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
-              <div>
-                <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">โปรไฟล์ธุรกิจ</h3>
-                <p className="mt-0.5 text-[10px] text-brand-muted">ข้อมูลที่แสดงบนเอกสาร ใบเสนอราคา ใบแจ้งหนี้ -- ใช้เป็นค่าเริ่มต้นทุกครั้งที่ออกเอกสารใหม่</p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[#E65F2B]/30 bg-brand-white dark:bg-stone-900 p-3 shadow-sm">
-              <p className="mb-2 text-[10px] font-black text-[#E65F2B]">ตัวอย่างส่วนหัวเอกสาร (เปลี่ยนตามที่คุณปรับทันที)</p>
-              <div className="overflow-hidden rounded-xl border border-brand-border/60 bg-stone-200">
+          <div>
+            <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">โปรไฟล์ธุรกิจ</h3>
+            <p className="mt-1 text-xs text-brand-muted">ข้อมูลที่แสดงบนเอกสาร ใบเสนอราคา ใบแจ้งหนี้</p>
+          </div>
+          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 space-y-5">
+            <div className="rounded-[10px] border border-[#F36A2D]/30 bg-brand-faint/40 dark:bg-neutral-950 p-3">
+              <p className="mb-2 text-xs font-medium text-[#C24A16]">ตัวอย่างส่วนหัวเอกสาร (เปลี่ยนตามที่คุณปรับทันที)</p>
+              <div className="overflow-hidden rounded-[10px] border border-brand-border/60 bg-stone-200">
                 <DocumentPreview invoice={businessPreviewInvoice} crop={400} maxScale={0.8} />
               </div>
             </div>
@@ -1271,71 +1207,68 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               />
 
               <div className="md:col-span-6 flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">ชื่อธุรกิจ</label>
+                <label className="text-[13px] font-medium text-brand-text dark:text-white">ชื่อธุรกิจ</label>
                 <input
                   type="text"
                   value={issuerProfile.name}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, name: e.target.value })}
                   placeholder="เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด"
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                 />
                 <p className="text-[9px] text-brand-muted">ใช้เป็นชื่อผู้ออกเอกสาร</p>
               </div>
 
               <div className="md:col-span-6 flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">เลขผู้เสียภาษี</label>
+                <label className="text-[13px] font-medium text-brand-text dark:text-white">เลขผู้เสียภาษี</label>
                 <input
                   type="text"
                   value={issuerProfile.taxId}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, taxId: e.target.value })}
                   placeholder="เลขผู้เสียภาษี 13 หลัก"
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                 />
                 <p className="text-[9px] text-brand-muted">แสดงบนใบกำกับภาษีเต็มรูป</p>
               </div>
 
               <div className="md:col-span-12 flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">ที่อยู่ออกใบเสร็จ / ที่อยู่จดทะเบียน</label>
+                <label className="text-[13px] font-medium text-brand-text dark:text-white">ที่อยู่ออกใบเสร็จ / ที่อยู่จดทะเบียน</label>
                 <textarea
                   value={issuerProfile.address}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, address: e.target.value })}
                   placeholder="เช่น 456 ถนนสุขุมวิท 21 แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพมหานคร 10110"
                   rows={3}
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                 />
               </div>
 
               <div className="md:col-span-6 flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">เบอร์โทรศัพท์ติดต่อ</label>
+                <label className="text-[13px] font-medium text-brand-text dark:text-white">เบอร์โทรศัพท์ติดต่อ</label>
                 <input
                   type="text"
                   value={issuerProfile.phone}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, phone: e.target.value })}
                   placeholder="เช่น 089-999-9999"
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                 />
               </div>
 
               <div className="md:col-span-6 flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">อีเมล</label>
+                <label className="text-[13px] font-medium text-brand-text dark:text-white">อีเมล</label>
                 <input
                   type="email"
                   value={issuerProfile.email}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, email: e.target.value })}
                   placeholder="เช่น myemail@gmail.com"
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                 />
               </div>
 
-              <div className="md:col-span-12 border-t border-brand-border/40 my-2 pt-2">
-                <h4 className="text-[11px] font-black text-brand-text dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <Wallet className="w-4 h-4 text-emerald-600" />
-                  <span>ช่องทางรับโอนเงินของฉัน</span>
-                </h4>
+              <div className="md:col-span-12 border-t border-brand-border dark:border-neutral-800 pt-4">
+                <p className="text-[13px] font-medium text-brand-text dark:text-white">ช่องทางรับโอนเงินของฉัน</p>
               </div>
 
               <div className="md:col-span-4 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">ชื่อธนาคาร</label>
+                <label className="text-[13px] font-medium text-brand-text dark:text-white">ชื่อธนาคาร</label>
                 <select
                   value={findThaiBank(issuerProfile.bankName) ? issuerProfile.bankName : issuerProfile.bankName || bankOtherMode ? '__other' : ''}
                   onChange={(e) => {
@@ -1348,7 +1281,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     }
                   }}
                   aria-label="ธนาคาร"
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
+                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
                 >
                   <option value="">— เลือกธนาคาร —</option>
                   {THAI_BANKS.map(bank => (
@@ -1363,51 +1296,51 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     onChange={(e) => setIssuerProfile({ ...issuerProfile, bankName: e.target.value })}
                     placeholder="พิมพ์ชื่อธนาคาร / ช่องทางรับเงิน เช่น พร้อมเพย์"
                     aria-label="ชื่อธนาคารอื่น ๆ"
-                    className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                    className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                   />
                 )}
               </div>
 
               <div className="md:col-span-4 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">เลขที่บัญชี</label>
+                <label className="text-[13px] font-medium text-brand-text dark:text-white">เลขที่บัญชี</label>
                 <input
                   type="text"
                   value={issuerProfile.bankAccount}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, bankAccount: e.target.value })}
                   placeholder="เช่น 123-4-56789-0"
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                 />
               </div>
 
               <div className="md:col-span-4 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">ชื่อบัญชีโอนรับเงิน</label>
+                <label className="text-[13px] font-medium text-brand-text dark:text-white">ชื่อบัญชีโอนรับเงิน</label>
                 <input
                   type="text"
                   value={issuerProfile.bankAccountName}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, bankAccountName: e.target.value })}
                   placeholder="เช่น นายออมสิน ดีแท้"
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                 />
               </div>
 
               <div className="md:col-span-12 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">เว็บไซต์ (ไม่บังคับ)</label>
+                <label className="text-[13px] font-medium text-brand-text dark:text-white">เว็บไซต์ (ไม่บังคับ)</label>
                 <input
                   type="text"
                   value={issuerProfile.website || ''}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, website: e.target.value })}
                   placeholder="เช่น https://www.example.com"
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-brand-border/40">
+            <div className="pt-4 border-t border-brand-border dark:border-neutral-800">
               <button
                 type="button"
                 onClick={() => void saveBusinessProfile()}
                 disabled={businessProfileSaving}
-                className="px-6 py-2.5 bg-[#E65F2B] hover:bg-[#A63F1B] text-white rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50"
+                className="rounded-lg bg-[#F36A2D] hover:bg-[#E65F2B] px-6 py-2.5 text-xs text-white transition-all cursor-pointer disabled:opacity-50"
               >
                 {businessProfileSaving ? 'กำลังบันทึก…' : 'บันทึกโปรไฟล์ธุรกิจ'}
               </button>
@@ -1415,26 +1348,22 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
         </>)}
         {section === 'features' && (<>
-          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
-              <Sparkles className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
-              <div>
-                <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">ฟีเจอร์เสริม</h3>
-                <p className="mt-0.5 text-[10px] text-brand-muted">เปิดใช้งานได้ตามต้องการ ไม่กระทบฟีเจอร์หลักของแอป</p>
-              </div>
+          <div>
+            <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">ฟีเจอร์เสริม</h3>
+            <p className="mt-1 text-xs text-brand-muted">เปิดใช้งานได้ตามต้องการ ไม่กระทบฟีเจอร์หลักของแอป</p>
+          </div>
+          <div className="flex items-start justify-between gap-4 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <div>
+              <p className="text-[13px] font-medium text-brand-text dark:text-white">เป้าหมายการเงิน & การจัดสรรกำไร</p>
+              <p className="mt-1 text-xs leading-relaxed text-brand-muted">
+                แบ่งกำไรไปยังเป้าหมาย เช่น กองทุนฉุกเฉิน ซื้ออุปกรณ์ หรือลงทุน — เงินที่จัดสรรยังเป็นของคุณ ไม่นับเป็นรายจ่าย กำไรสุทธิจึงไม่ลดลง
+              </p>
+              <p className={`mt-2 text-xs font-medium ${settings.goalsFeatureEnabled === false ? 'text-brand-muted' : 'text-[#C24A16]'}`}>
+                {settings.goalsFeatureEnabled === false
+                  ? 'ปิดอยู่ — ไม่แสดงในเมนูและหน้าภาพรวม'
+                  : 'เปิดอยู่ — เมนู "เป้าหมายการเงิน" แสดงในไซด์บาร์ และมีวิดเจ็ตในหน้าภาพรวม'}
+              </p>
             </div>
-            <div className="flex items-start justify-between gap-4 rounded-2xl border border-brand-border/40 p-4">
-              <div>
-                <p className="text-xs font-bold text-brand-text dark:text-white">เป้าหมายการเงิน & การจัดสรรกำไร</p>
-                <p className="mt-1 text-[10px] leading-relaxed text-brand-muted">
-                  แบ่งกำไรไปยังเป้าหมาย เช่น กองทุนฉุกเฉิน ซื้ออุปกรณ์ หรือลงทุน — เงินที่จัดสรรยังเป็นของคุณ ไม่นับเป็นรายจ่าย กำไรสุทธิจึงไม่ลดลง
-                </p>
-                <p className={`mt-2 text-[11px] font-medium ${settings.goalsFeatureEnabled === false ? 'text-brand-muted' : 'text-[#C24A16]'}`}>
-                  {settings.goalsFeatureEnabled === false
-                    ? 'ปิดอยู่ — ไม่แสดงในเมนูและหน้าภาพรวม'
-                    : 'เปิดอยู่ — เมนู "เป้าหมายการเงิน" แสดงในไซด์บาร์ และมีวิดเจ็ตในหน้าภาพรวม'}
-                </p>
-              </div>
               <button
                 type="button"
                 role="switch"
@@ -1451,7 +1380,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 />
               </button>
             </div>
-          </div>
         </>)}
         </div>
       </div>
