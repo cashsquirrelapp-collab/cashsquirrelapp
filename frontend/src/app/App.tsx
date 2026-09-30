@@ -2466,11 +2466,15 @@ export default function App() {
         )}
 
         {/* Scrollable Container with responsive max widths */}
-        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:py-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none">
+        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
           <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
-            <section className="mb-5 flex flex-col gap-4 border-b border-brand-border/30 pb-5" aria-labelledby="dashboard-title">
+            <section className="mb-4 flex items-center justify-between gap-4 border-b border-brand-border/30 pb-3" aria-labelledby="dashboard-title">
+              <div className="min-w-0">
+                <h1 id="dashboard-title" className="text-2xl font-semibold leading-tight tracking-tight text-brand-text sm:text-[26px]">ภาพรวม</h1>
+                <p className="mt-0.5 text-[13px] font-normal text-brand-muted">Dashboard</p>
+              </div>
               <div className="flex items-center justify-end gap-2">
                 <div className="flex shrink-0 items-center gap-2">
                   <button
