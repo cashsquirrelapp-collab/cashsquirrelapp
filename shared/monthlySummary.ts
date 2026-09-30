@@ -1,4 +1,5 @@
-import { splitReceivedByDate } from './installmentPayments.js';
+import type { Job } from './types.js';
+import { getJobPaymentEntries, getJobPendingEntries, splitReceivedByDate } from './installmentPayments.js';
 
 export interface JobRow {
   id: string;
@@ -106,20 +107,16 @@ export function fixedExpenseForMonth(
   return fixedItems.reduce((sum, item) => (logged.has(item.name.trim().toLowerCase()) ? sum : sum + (item.amount || 0)), 0);
 }
 
-// Jobs have no created-at field. startDate is the "วันรับงาน / เริ่มเตรียมงาน" date (the add-job
-// form defaults it to today); jobs created from LINE only carry postDate, so that is the fallback.
-export function jobIntakeDate(job: Pick<JobRow, 'startDate' | 'postDate'>): string | null {
-  return job.startDate || job.postDate || null;
-}
-
-// "มูลค่างานที่รับเดือนนี้": gross contract value (before WHT) of jobs taken in during the month,
-// independent of how much has been paid or how it is split into installments.
-export function workValueForMonth(jobs: JobRow[], monthKey: string): { value: number; count: number } {
-  return jobs.reduce((acc, job) => (
-    dateKeyInMonth(jobIntakeDate(job), monthKey)
-      ? { value: acc.value + (job.value || 0), count: acc.count + 1 }
-      : acc
-  ), { value: 0, count: 0 });
+// "มูลค่างานเดือนนี้": gross value (before WHT) of every job that has money received or a payment
+// due in the month -- the same entries the dashboard's received and pending cards count (pending
+// skips not-yet-delivered WIP jobs). An installment job counts at its full value in each month it
+// has a payment or due date in, not just that month's installment.
+export function workValueForMonth(jobs: Job[], monthKey: string): { value: number; count: number } {
+  return jobs.reduce((acc, job) => {
+    const hasPayment = getJobPaymentEntries(job).some((entry) => dateKeyInMonth(entry.date, monthKey));
+    const hasDue = job.isPosted !== false && getJobPendingEntries(job).some((entry) => dateKeyInMonth(entry.dueDate, monthKey));
+    return hasPayment || hasDue ? { value: acc.value + (job.value || 0), count: acc.count + 1 } : acc;
+  }, { value: 0, count: 0 });
 }
 
 export function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {

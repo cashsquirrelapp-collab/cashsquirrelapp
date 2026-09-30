@@ -4,7 +4,7 @@ import { Job } from '../../../../shared/types';
 import { workValueForMonth } from '../../../../shared/monthlySummary';
 import { dateLocale, formatCurrency } from '../../utils';
 
-const TOOLTIP_TEXT = 'มูลค่ารวมของงานที่รับในเดือนนี้ ไม่ว่าจะได้รับเงินแล้วหรือยัง';
+const TOOLTIP_TEXT = 'มูลค่าเต็มของงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนนี้ ไม่ว่าจะได้รับเงินแล้วหรือยัง';
 const TREND_MONTHS = 6;
 
 const shiftMonth = (monthKey: string, delta: number) => {
@@ -50,10 +50,10 @@ export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthK
         </span>
         <div className="min-w-0">
           <div className="relative flex items-center gap-1.5">
-            <p id="work-value-label" className="text-sm font-medium text-brand-muted">มูลค่างานที่รับเดือนนี้</p>
+            <p id="work-value-label" className="text-sm font-medium text-brand-muted">มูลค่างานเดือนนี้</p>
             <button
               type="button"
-              aria-label="มูลค่างานที่รับเดือนนี้คืออะไร"
+              aria-label="มูลค่างานเดือนนี้คืออะไร"
               aria-describedby={tooltipOpen ? tooltipId : undefined}
               aria-expanded={tooltipOpen}
               onClick={() => setTooltipOpen(true)}
@@ -79,7 +79,7 @@ export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthK
           <p className="mt-0.5 font-mono text-[30px] font-semibold leading-9 text-brand-text">{formatCurrency(current.value)}</p>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1">
             <p className="text-sm text-brand-muted">
-              {current.count > 0 ? `${current.count} งานใหม่` : 'ยังไม่มีงานใหม่ในเดือนนี้'}
+              {current.count > 0 ? `${current.count} งาน` : 'ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดในเดือนนี้'}
             </p>
             <div className="sm:hidden">{comparison}</div>
           </div>
