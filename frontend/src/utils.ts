@@ -27,6 +27,14 @@ export const formatCurrency = (val: number): string => {
   }).format(val).replace('THB', '฿');
 };
 
+export const formatAxisBaht = (val: number, symbol = '฿'): string => {
+  const abs = Math.abs(val);
+  const sign = val < 0 ? '-' : '';
+  if (abs < 1000) return `${sign}${symbol}${Math.round(abs)}`;
+  if (abs < 1_000_000) return `${sign}${symbol}${Number((abs / 1000).toFixed(1))}k`;
+  return `${sign}${symbol}${Number((abs / 1_000_000).toFixed(1))}M`;
+};
+
 // Add thousand-separator commas to a raw numeric string as the user types (e.g. "12000" -> "12,000")
 export const formatNumberWithCommas = (raw: string): string => {
   if (!raw) return '';

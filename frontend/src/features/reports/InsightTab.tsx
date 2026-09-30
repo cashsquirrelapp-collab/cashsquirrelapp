@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job } from '../../../../shared/types';
 import { getJobPaymentEntries, getJobPendingEntries } from '../../../../shared/installmentPayments';
-import { formatCurrency, getMonthKey, formatMonthKey, safeFormatThaiDate } from '../../utils';
+import { formatAxisBaht, formatCurrency, getMonthKey, formatMonthKey, safeFormatThaiDate } from '../../utils';
 import {
   BarChart,
   Bar,
@@ -256,7 +256,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`}
+                tickFormatter={(v) => formatAxisBaht(Number(v))}
               />
               <YAxis type="category" dataKey="key" stroke="#4f5350" fontSize={10} tickLine={false} axisLine={false} width={110} />
               <Tooltip
@@ -521,7 +521,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => formatAxisBaht(Number(v))}
                 />
                 <Tooltip
                   cursor={{ fill: 'rgba(230, 95, 43, 0.05)' }}

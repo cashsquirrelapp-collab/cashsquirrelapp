@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Job, Goal, AppSettings, NotifSettings, Expense } from '../../../../shared/types';
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
-import { formatCurrency } from '../../utils';
+import { formatAxisBaht, formatCurrency, dateLocale } from '../../utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ArrowDown, ArrowUp, Wallet, Clock } from 'lucide-react';
 import MonthlyReportTab from '../reports/MonthlyReportTab';
@@ -54,7 +54,10 @@ export default function ReportTab({
       const key = (entry.date || '').slice(0, 7);
       if (byMonth.has(key)) byMonth.set(key, (byMonth.get(key) || 0) + entry.amount);
     }));
-    return monthsList.map(m => ({ month: m.slice(5), value: byMonth.get(m) || 0 }));
+    return monthsList.map(m => ({
+      month: new Date(Number(m.slice(0, 4)), Number(m.slice(5)) - 1, 1).toLocaleDateString(dateLocale(), { month: 'short' }),
+      value: byMonth.get(m) || 0,
+    }));
   }, [jobs]);
 
   const jobCount = jobs.length;
@@ -164,7 +167,7 @@ export default function ReportTab({
                 <LineChart data={trend} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#dfd9cd" opacity={0.3} vertical={false} />
                   <XAxis dataKey="month" stroke="#7D7772" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#7D7772" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
+                  <YAxis stroke="#7D7772" fontSize={10} tickLine={false} axisLine={false} tickCount={3} tickFormatter={(v) => formatAxisBaht(Number(v))} />
                   <Tooltip formatter={(v) => formatCurrency(Number(v ?? 0))} />
                   <Line type="monotone" dataKey="value" stroke="#E65F2B" strokeWidth={3} dot={false} />
                 </LineChart>

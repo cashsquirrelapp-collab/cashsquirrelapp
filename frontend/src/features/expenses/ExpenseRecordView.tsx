@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppSettings, Expense } from '../../../../shared/types';
-import { formatCurrency, getMonthKey, formatMonthKey, sumFixedExpenseItems } from '../../utils';
+import { formatCurrency, getMonthKey, formatMonthKey, sumFixedExpenseItems, safeFormatThaiDate } from '../../utils';
 import { Plus, Trash2, Receipt, Pencil, Repeat } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import NumberInput from '../../components/ui/NumberInput';
@@ -36,6 +36,17 @@ const EXPENSE_CATEGORIES = [
   'ค่าบริการ/สาธารณูปโภค',
   'อื่นๆ'
 ];
+
+// Records saved before the Thai category list stored English keys.
+const LEGACY_CATEGORY_LABELS: Record<string, string> = {
+  Equipment: 'ค่าอุปกรณ์/ซอฟต์แวร์',
+  Marketing: 'ค่าโฆษณา/ยิงแอด',
+  Travel: 'ค่าเดินทาง/น้ำมัน',
+  Tax: 'ภาษี/ธรรมเนียม',
+  Fixed: 'ค่าบริการ/สาธารณูปโภค',
+  Other: 'อื่นๆ',
+};
+const categoryLabel = (category: string) => LEGACY_CATEGORY_LABELS[category] || category;
 
 // The "รายจ่าย" half of the บันทึกรายรับ-รายจ่าย umbrella tab -- lives alongside JobsTab
 // (the "รายรับ" half) instead of buried inside the Summary tab, so recording either an
@@ -85,7 +96,7 @@ export default function ExpenseRecordView({
   const openEditForm = (expense: Expense) => {
     setExpName(expense.name);
     setExpAmount(String(expense.amount));
-    setExpCategory(expense.category);
+    setExpCategory(categoryLabel(expense.category));
     setExpDate(expense.date);
     setExpNote(expense.note || '');
     // Pre-ticked when this record's name already matches a fixed-cost line item in Settings, so
@@ -237,7 +248,7 @@ export default function ExpenseRecordView({
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-extrabold text-brand-text dark:text-white">{e.name}</span>
                       <span className="text-[8px] bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 font-bold px-1.5 py-0.5 rounded-sm">
-                        {e.category}
+                        {categoryLabel(e.category)}
                       </span>
                       {findFixedItem(e.name) && (
                         <span className="flex items-center gap-0.5 text-[8px] bg-brand-faint dark:bg-neutral-800 text-brand-muted font-bold px-1.5 py-0.5 rounded-sm" title="นับเป็นค่าใช้จ่ายคงที่รายเดือนแล้ว">
@@ -248,7 +259,7 @@ export default function ExpenseRecordView({
                         <span className="text-[9px] text-brand-muted italic">({e.note})</span>
                       )}
                     </div>
-                    <p className="text-[9px] text-brand-muted font-mono">{e.date}</p>
+                    <p className="text-[9px] text-brand-muted">{safeFormatThaiDate(e.date)}</p>
                   </div>
 
                   <div className="flex items-center gap-3">

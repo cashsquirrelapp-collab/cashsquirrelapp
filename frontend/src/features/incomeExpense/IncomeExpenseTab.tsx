@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Job, Expense } from '../../../../shared/types';
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
-import { formatCurrency, getMonthKey, formatMonthKey, safeFormatThaiDate } from '../../utils';
+import { formatAxisBaht, formatCurrency, getMonthKey, formatMonthKey, safeFormatThaiDate } from '../../utils';
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface IncomeExpenseTabProps {
@@ -79,7 +79,7 @@ export default function IncomeExpenseTab({ jobs, expenses }: IncomeExpenseTabPro
             <ComposedChart data={trend} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#dfd9cd" opacity={0.3} vertical={false} />
               <XAxis dataKey="monthLabel" stroke="#7D7772" fontSize={10} tickLine={false} axisLine={false} />
-              <YAxis stroke="#7D7772" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
+              <YAxis stroke="#7D7772" fontSize={10} tickLine={false} axisLine={false} tickCount={3} tickFormatter={(v) => formatAxisBaht(Number(v))} />
               <Tooltip
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {

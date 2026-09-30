@@ -2439,12 +2439,12 @@ export default function App() {
         </div>
 
         {/* Scrollable Container with responsive max widths */}
-        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-6 lg:py-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none">
+        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className="app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:py-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none">
           <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
             <section className="mb-5 flex flex-col gap-4 border-b border-brand-border/30 pb-5" aria-labelledby="dashboard-title">
-              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center lg:pr-14">
                 <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-brand-border bg-brand-white px-3.5 py-2.5">
                   <Search className="h-4 w-4 shrink-0 text-brand-muted" />
                   <input
@@ -2499,7 +2499,7 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigateTab('jobs')}
+                    onClick={() => { setRecordMode('income'); setIsAddJobOpen(true); navigateTab('jobs'); }}
                     className="flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-2xl bg-[#E65F2B] px-4 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#D98324] cursor-pointer"
                   >
                     <Plus className="h-4 w-4 shrink-0" /> เพิ่มงาน
@@ -2544,6 +2544,8 @@ export default function App() {
                   triggerConfirm={triggerConfirm}
                   onQuickRecord={(mode) => {
                     setRecordMode(mode);
+                    if (mode === 'income') setIsAddJobOpen(true);
+                    else setAutoOpenAddExpense(true);
                     navigateTab('jobs');
                   }}
                 />
@@ -2772,7 +2774,9 @@ export default function App() {
                 <ReceivablesTab
                   jobs={jobs}
                   onEditJob={handleEditJob}
+                  onViewJob={handleViewJob}
                   triggerAlert={triggerAlert}
+                  triggerConfirm={triggerConfirm}
                 />
               )}
               {activeTab === 'incomeExpense' && (

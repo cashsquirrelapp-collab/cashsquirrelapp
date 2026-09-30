@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job, Goal, AppSettings, NotifSettings } from '../../../../shared/types';
-import { formatCurrency, getMonthKey, formatMonthKey, getRelativeDaysText } from '../../utils';
+import { formatAxisBaht, formatCurrency, getMonthKey, formatMonthKey, getRelativeDaysText } from '../../utils';
 import { getJobPaymentEntries, getMonthKeyFromDate } from '../../../../shared/installmentPayments';
 import { 
   BarChart, 
@@ -1258,7 +1258,7 @@ export default function MonthlyReportTab({
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => formatAxisBaht(Number(v), "")}
                 />
                 <Tooltip 
                   cursor={{ fill: 'rgba(18, 84, 66, 0.03)' }}

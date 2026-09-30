@@ -133,7 +133,7 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
     {
       id: 'demo-expense-1',
       name: 'ค่าเช่าซอฟต์แวร์ตัดต่อวิดีโอ',
-      category: 'Equipment',
+      category: 'ค่าอุปกรณ์/ซอฟต์แวร์',
       amount: 1500,
       date: toISODate(addDays(today, -6)),
       note: 'Adobe Premiere Pro รายเดือน',
@@ -141,7 +141,7 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
     {
       id: 'demo-expense-2',
       name: 'ค่าเดินทางไปถ่ายงานลูกค้า',
-      category: 'Travel',
+      category: 'ค่าเดินทาง/น้ำมัน',
       amount: 350,
       date: toISODate(addDays(today, -3)),
       note: '',

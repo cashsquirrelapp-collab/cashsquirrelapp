@@ -6,7 +6,9 @@ import { Mascot } from '../../components/mascot/Mascot';
 interface ReceivablesTabProps {
   jobs: Job[];
   onEditJob: (id: string, updated: Partial<Job>) => void;
+  onViewJob: (id: string) => void;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
+  triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
 }
 
 type GroupKey = 'overdue' | 'dueToday' | 'dueSoon' | 'normal';
@@ -20,7 +22,7 @@ const GROUP_META: Record<GroupKey, { label: string; dot: string; badgeBg: string
 
 const GROUP_ORDER: GroupKey[] = ['overdue', 'dueToday', 'dueSoon', 'normal'];
 
-export default function ReceivablesTab({ jobs, onEditJob, triggerAlert }: ReceivablesTabProps) {
+export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerAlert, triggerConfirm }: ReceivablesTabProps) {
   const unpaidJobs = useMemo(() => jobs.filter(j => j.pending > 0 && j.isPosted !== false), [jobs]);
 
   const groups = useMemo(() => {
@@ -36,16 +38,28 @@ export default function ReceivablesTab({ jobs, onEditJob, triggerAlert }: Receiv
   const totalPending = unpaidJobs.reduce((sum, j) => sum + j.pending, 0);
 
   const markReceived = (j: Job) => {
-    const today = new Date();
-    const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    onEditJob(j.id, {
-      status: 'done',
-      received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
-      pending: 0,
-      paymentStatus: 'paid',
-      payDate: localDateStr,
-      isPosted: true,
-    });
+    // Installment jobs track each งวด separately, so closing the whole job here would leave the
+    // unpaid rows open -- send them to the job's own per-installment payment flow instead.
+    if (j.installments?.length) {
+      onViewJob(j.id);
+      return;
+    }
+    triggerConfirm(
+      'บันทึกรับเงิน',
+      `ยืนยันว่าได้รับเงิน ${formatCurrency(j.pending)} จากงาน "${j.name}" ครบแล้ว?`,
+      () => {
+        const today = new Date();
+        const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        onEditJob(j.id, {
+          status: 'done',
+          received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
+          pending: 0,
+          paymentStatus: 'paid',
+          payDate: localDateStr,
+          isPosted: true,
+        });
+      },
+    );
   };
 
   const remindMe = (j: Job) => {
@@ -125,7 +139,7 @@ export default function ReceivablesTab({ jobs, onEditJob, triggerAlert }: Receiv
                             onClick={() => markReceived(j)}
                             className="rounded-lg bg-[#E65F2B] px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-[#D98324] transition-colors cursor-pointer"
                           >
-                            บันทึกรับเงิน
+                            {j.installments?.length ? 'รับเงินรายงวด' : 'บันทึกรับเงิน'}
                           </button>
                         </div>
                       </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
-import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, getForecastMonths, safeFormatThaiDate } from '../../utils';
+import { formatAxisBaht, formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, getForecastMonths, safeFormatThaiDate } from '../../utils';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -1024,7 +1024,7 @@ export default function DashboardTab({
               <ComposedChart data={last12MonthsData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#dfd9cd" opacity={0.3} vertical={false} />
                 <XAxis dataKey="monthLabel" stroke="#8A6F5C" fontSize={10} tickLine={false} axisLine={false} dy={8} />
-                <YAxis stroke="#8A6F5C" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
+                <YAxis stroke="#8A6F5C" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => formatAxisBaht(Number(v))} />
                 <Tooltip
                   cursor={{ fill: 'rgba(230, 95, 43, 0.05)' }}
                   content={({ active, payload }) => {

@@ -140,7 +140,7 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
   return (
     <div className="page-content space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 px-1 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 px-1 sm:flex-row sm:items-center sm:justify-between lg:pr-14">
         <div>
           <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase inline-flex items-center gap-1">
             {t('timeline.subtitle')}
