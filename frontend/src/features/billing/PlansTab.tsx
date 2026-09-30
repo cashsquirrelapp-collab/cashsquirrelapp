@@ -6,6 +6,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 
 interface PlansTabProps {
   isPro: boolean;
+  isGuestPreview: boolean;
   isPaidActive: boolean;
   isInFreeTrial: boolean;
   trialEndsAt: Date | null;
@@ -22,6 +23,7 @@ const PRO_FEATURE_KEYS = ['plans.pro1', 'plans.pro2', 'plans.pro3', 'plans.pro4'
 
 export const PlansTab: React.FC<PlansTabProps> = ({
   isPro,
+  isGuestPreview,
   isPaidActive,
   isInFreeTrial,
   trialEndsAt,
@@ -29,7 +31,9 @@ export const PlansTab: React.FC<PlansTabProps> = ({
   onUpgrade
 }) => {
   const { t } = useLanguage();
-  const statusText = isPaidActive && subscription?.currentPeriodEnd
+  const statusText = isGuestPreview
+    ? t('plans.guestPreviewStatus')
+    : isPaidActive && subscription?.currentPeriodEnd
     ? t('plans.statusActive', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
     : isInFreeTrial && trialEndsAt
     ? t('plans.statusTrial', { date: trialEndsAt.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
@@ -87,7 +91,11 @@ export const PlansTab: React.FC<PlansTabProps> = ({
               </li>
             ))}
           </ul>
-          {isPaidActive ? (
+          {isGuestPreview ? (
+            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full">
+              {t('plans.guestPreviewBadge')}
+            </span>
+          ) : isPaidActive ? (
             <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
               {t('plans.currentPlan')}
             </span>
@@ -107,9 +115,9 @@ export const PlansTab: React.FC<PlansTabProps> = ({
           onClick={onUpgrade}
           className="px-8 py-3 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-2xl text-xs font-black cursor-pointer"
         >
-          {isPaidActive ? t('plans.renewCta') : t('plans.subscribeCta')}
+          {isGuestPreview ? t('plans.guestCreateAccountCta') : isPaidActive ? t('plans.renewCta') : t('plans.subscribeCta')}
         </button>
-        <p className="text-[10px] text-brand-muted">{t('plans.paymentNote')}</p>
+        {!isGuestPreview && <p className="text-[10px] text-brand-muted">{t('plans.paymentNote')}</p>}
       </div>
     </div>
   );

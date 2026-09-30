@@ -701,7 +701,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {/* Card 1.5: Notifications -- LINE linking + email report/digest opt-ins. Moved here
               from the "รายงานรายเดือน" tab since these are account-level connections, not
               report content, and were easy to miss buried among charts and tables there. */}
-          {!isGroupFinance && (<>
+          {!isGroupFinance && session?.isGuest && (
+            <p className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-xs leading-relaxed text-brand-muted">
+              {t('plans.guestPreviewSettingsNote')}
+            </p>
+          )}
+          {!isGroupFinance && !session?.isGuest && (<>
             <button
               type="button"
               disabled={!isPro}
