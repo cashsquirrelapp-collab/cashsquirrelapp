@@ -1,13 +1,14 @@
 import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
 // Sends automated emails through a real Gmail account instead of a third-party transactional
 // service, since Resend's free sandbox domain (onboarding@resend.dev) can only deliver to the
 // Resend account owner's own email -- it silently can't reach any other app user. Gmail has no
 // such restriction once authenticated with an App Password.
 
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 
-function getTransporter(): nodemailer.Transporter {
+function getTransporter(): Transporter {
   const gmailUser = process.env.GMAIL_USER;
   const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
   if (!gmailUser || !gmailAppPassword) {

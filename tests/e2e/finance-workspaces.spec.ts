@@ -187,9 +187,7 @@ async function setup(page: Page) {
   });
   await page.goto("/");
   await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "ภาพรวมกระแสเงินสด" }),
-  ).toBeVisible();
+  await expect(page.locator("#dashboard-top")).toBeVisible();
   return {
     stores,
     writes,
@@ -206,10 +204,11 @@ async function settings(page: Page) {
     .locator("aside nav")
     .getByRole("button", { name: "ตั้งค่า" })
     .click();
+  await page.getByRole("button", { name: "การเงิน", exact: true }).click();
 }
 async function invoices(page: Page) {
   const sidebar = page.locator("aside");
-  const button = sidebar.getByRole("button", { name: "ออกบิล & ใบเสร็จ" });
+  const button = sidebar.getByRole("button", { name: "เอกสาร", exact: true });
   if (!(await button.isVisible()))
     await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
   await button.click();
@@ -227,11 +226,7 @@ test("members edit a shared workspace and switching saves to the old scope witho
     "บัญชีการเงินของกลุ่ม",
   );
   await settings(page);
-  await expect(
-    page.getByText("รายงานและไฟล์สำรองใช้ข้อมูลของกลุ่มที่เลือก", {
-      exact: false,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "การเงิน" })).toBeVisible();
   await page.locator("#main-content input").first().fill("Group office");
   // Fixed expense item editor: add a real finance change then switch before debounce.
   await page.locator("#main-content input").nth(1).fill("700");
@@ -270,18 +265,18 @@ test("invoices, issuer profiles and exports follow the selected group and reset 
 }) => {
   await setup(page);
   await invoices(page);
-  await expect(page.getByText("Personal-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Personal-001", { exact: true })).toBeVisible();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
-  await expect(page.getByText("Team-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Team-001", { exact: true })).toBeVisible();
   await expect(page.getByText("Personal-001", { exact: true })).toHaveCount(0);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(other);
-  await expect(page.getByText("Other-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Other-001", { exact: true })).toBeVisible();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await settings(page);
-  // Export from summary uses the same scoped invoice snapshot.
+  // Export from the current income/expense page uses the same scoped invoice snapshot.
   const sidebar = page.locator("aside");
   await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
-  await sidebar.getByRole("button", { name: "สรุปยอดรายรับ" }).click();
+  await sidebar.getByRole("button", { name: "รายรับ-รายจ่าย", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page
     .locator("#main-content")
@@ -306,11 +301,7 @@ test("failed saves block switching and keep the selected workspace and unsaved d
   const state = await setup(page);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await settings(page);
-  await expect(
-    page.getByText("รายงานและไฟล์สำรองใช้ข้อมูลของกลุ่มที่เลือก", {
-      exact: false,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "การเงิน" })).toBeVisible();
   await page.locator("#main-content input").first().fill("Unsaved office");
   await page.locator("#main-content input").nth(1).fill("999");
   await page
@@ -323,9 +314,11 @@ test("failed saves block switching and keep the selected workspace and unsaved d
   await expect(
     page.getByText("เปลี่ยนบัญชีการเงินไม่สำเร็จ", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("dialog", { name: "เปลี่ยนบัญชีการเงินไม่สำเร็จ" }).getByRole("button", { name: "ตกลง", exact: true }).click();
   await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toHaveValue(
     group,
   );
+  await page.getByRole("button", { name: "การเงิน", exact: true }).click();
   await expect(page.getByText("Unsaved office", { exact: true })).toBeVisible();
 });
 test("removed membership rejects reload and permits returning to personal finance without leaking group data", async ({
@@ -334,10 +327,10 @@ test("removed membership rejects reload and permits returning to personal financ
   const state = await setup(page);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await invoices(page);
-  await expect(page.getByText("Team-001", { exact: true })).toBeVisible();
-  state.deny();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Team-001", { exact: true })).toBeVisible();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(other);
-  await expect(page.getByText("Other-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Other-001", { exact: true })).toBeVisible();
+  state.deny();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await expect(
     page.getByText("โหลดบัญชีการเงินไม่สำเร็จ", { exact: true }),
@@ -345,7 +338,7 @@ test("removed membership rejects reload and permits returning to personal financ
   await expect(page.getByText("Team-001", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Other-001", { exact: true })).toHaveCount(0);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption("");
-  await expect(page.getByText("Personal-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Personal-001", { exact: true })).toBeVisible();
 });
 
 test("a delayed response from the previous group cannot populate the next workspace", async ({
@@ -372,12 +365,10 @@ test("a delayed response from the previous group cannot populate the next worksp
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await expect.poll(() => started).toBe(true);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(other);
-  await expect(
-    page.getByRole("heading", { name: "ภาพรวมกระแสเงินสด" }),
-  ).toBeVisible();
+  await expect(page.locator("#dashboard-top")).toBeVisible();
   release();
   await invoices(page);
-  await expect(page.getByText("Other-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Other-001", { exact: true })).toBeVisible();
   await expect(page.getByText("Late team-001", { exact: true })).toHaveCount(0);
   await page.waitForTimeout(1800);
   await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toHaveValue(

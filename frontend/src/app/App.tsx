@@ -8,9 +8,7 @@ import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES, dateLocale } from '../u
 const loadDashboardTab = () => import('../features/dashboard/DashboardTab');
 const loadJobsTab = () => import('../features/jobs/JobsTab');
 const loadExpenseRecordView = () => import('../features/expenses/ExpenseRecordView');
-const loadTimelineTab = () => import('../features/reports/TimelineTab');
 const loadSplitTab = () => import('../features/goals/SplitTab');
-const loadSummaryTab = () => import('../features/reports/SummaryTab');
 const loadTaxTab = () => import('../features/tax/TaxTab');
 const loadSettingsTab = () => import('../features/settings/SettingsTab').then(module => ({ default: module.SettingsTab }));
 const loadInvoiceTab = () => import('../features/invoices/InvoiceTab').then(module => ({ default: module.InvoiceTab }));
@@ -30,9 +28,7 @@ const CalendarTab = lazy(loadCalendarTab);
 const JobsTab = lazy(loadJobsTab);
 const DashboardTab = lazy(loadDashboardTab);
 const ExpenseRecordView = lazy(loadExpenseRecordView);
-const TimelineTab = lazy(loadTimelineTab);
 const SplitTab = lazy(loadSplitTab);
-const SummaryTab = lazy(loadSummaryTab);
 import CustomDialog from '../components/ui/CustomDialog';
 import { ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
 import { FullPageLoader } from '../components/ui/FullPageLoader';
@@ -77,7 +73,6 @@ import {
   Target,
   Sun,
   Moon,
-  Wallet,
   LogOut,
   User,
   Users,
@@ -108,10 +103,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar' | 'receivables' | 'incomeExpense';
+type TabKey = 'dashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar' | 'receivables' | 'incomeExpense';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar', 'receivables', 'incomeExpense'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar', 'receivables', 'incomeExpense'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
+const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense' };
 
 function isTabKey(value: string | undefined): value is TabKey {
   return !!value && TAB_KEYS.includes(value as TabKey);
@@ -127,6 +123,9 @@ function parseWorkspaceRoute(pathname: string): { tab: TabKey; workspaceSlug: st
   let segments: string[];
   try { segments = pathname.split('/').filter(Boolean).map(segment => decodeURIComponent(segment)); }
   catch { segments = []; }
+  if (segments[0] && RETIRED_TAB_ALIASES[segments[0]]) {
+    return { tab: RETIRED_TAB_ALIASES[segments[0]], workspaceSlug: segments[1] ? workspaceSlug(segments[1]) || null : null };
+  }
   if (segments.length >= 2 && isTabKey(segments[0])) {
     return { tab: segments[0], workspaceSlug: workspaceSlug(segments[1]) || null };
   }
@@ -159,9 +158,7 @@ function groupWorkspaceSlug(group: GroupSummary, groups: GroupSummary[], persona
 // imports are cached by the browser, so React.lazy reuses the same download on selection.
 const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   jobs: loadJobsTab,
-  timeline: loadTimelineTab,
   groups: loadGroupsTab,
-  summary: loadSummaryTab,
   split: loadSplitTab,
   report: loadReportOverviewTab,
   insight: loadInsightTab,
@@ -187,8 +184,6 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'dashboard', labelKey: 'nav.dashboard', icon: Home, group: 'core' },
   { key: 'jobs', labelKey: 'nav.jobs', icon: Briefcase, group: 'core' },
   { key: 'calendar', labelKey: 'nav.calendar', icon: CalendarDays, group: 'core' },
-  { key: 'timeline', labelKey: 'nav.timeline', icon: Calendar, group: 'more' },
-  { key: 'summary', labelKey: 'nav.summary', icon: Wallet, group: 'more' },
   { key: 'receivables', labelKey: 'nav.receivables', icon: Clock, group: 'more' },
   { key: 'incomeExpense', labelKey: 'nav.incomeExpense', icon: ArrowLeftRight, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
@@ -208,8 +203,8 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
 // (handled separately below) for every persona.
 const PERSONA_CORE_KEYS: Record<'school' | 'university' | 'employee', TabKey[]> = {
   school: ['split'],
-  university: ['split', 'summary'],
-  employee: ['split', 'summary'],
+  university: ['split', 'incomeExpense'],
+  employee: ['split', 'incomeExpense'],
 };
 
 const cleanStatuses = (arr: any[]): StatusOption[] => {
@@ -489,7 +484,7 @@ export default function App() {
     // Warm only the primary routes after the account is usable. Loading every feature at once
     // competes with the first dashboard render, especially on slower phones.
     const timer = window.setTimeout(() => {
-      for (const tab of ['jobs', 'timeline', 'groups'] as const) {
+      for (const tab of ['jobs', 'calendar', 'groups'] as const) {
         prefetchFeature(tab);
       }
     }, 1200);
@@ -779,7 +774,10 @@ export default function App() {
     !!subscription.currentPeriodEnd &&
     new Date(subscription.currentPeriodEnd).getTime() > Date.now();
 
-  const isPro = isInFreeTrial || isPaidActive;
+  // Guest mode previews local Pro tools with sample data. Server-side Pro access
+  // still requires a real account and is checked independently by the API.
+  const isGuestProPreview = session?.isGuest === true;
+  const isPro = isGuestProPreview || isInFreeTrial || isPaidActive;
 
   // 🌰 Global Month Exploration (สำรวจฤดูกาลเก็บเกี่ยว)
   const currentMonthKey = React.useMemo(() => {
@@ -857,7 +855,11 @@ export default function App() {
 
   const handleUpgrade = () => {
     const currentUser = session?.user;
-    if (!currentUser || session?.isGuest) {
+    if (session?.isGuest) {
+      void handleSignOut();
+      return;
+    }
+    if (!currentUser) {
       triggerAlert('ต้องสมัครสมาชิกก่อนครับ', 'กรุณาสมัครบัญชีจริงด้วยอีเมล (ไม่ใช่โหมดทดลองใช้งานฟรี) ก่อนอัปเกรดเป็นสมาชิกรายเดือนครับ');
       return;
     }
@@ -1733,7 +1735,7 @@ export default function App() {
       // A savings transfer is not an Expense -- it must never land in the `expenses` array,
       // since tax reports, monthly summaries, and CSV exports all sum that array and would
       // wrongly treat money moved into savings as a deductible business expense. Cash-on-hand
-      // totals (Dashboard/SummaryTab) read this flag directly off the goal's own history instead.
+      // totals read this flag directly off the goal's own history instead.
       ...(amount > 0 && deductFromCash ? { deductedFromCash: true } : {}),
     };
 
@@ -2303,13 +2305,18 @@ export default function App() {
                     </div>
                   </div>
 
-                  {session && !session.isGuest && (
+                  {session && (
                     <button
                       type="button"
                       onClick={() => { navigateTab('plans'); setIsMobileMenuOpen(false); }}
                       className="w-full text-left px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40 hover:border-brand-border transition-colors cursor-pointer"
                     >
-                      {isPaidActive ? (
+                      {isGuestProPreview ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                          <span className="font-display font-black text-indigo-600 dark:text-indigo-400">{t('plans.guestPreviewBadge')}</span>
+                        </>
+                      ) : isPaidActive ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                           <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO</span>
@@ -2423,9 +2430,9 @@ export default function App() {
                   >
                     <div className="border-b border-brand-border/40 px-3 py-2.5">
                       <p className="truncate text-xs font-black text-brand-text">{session?.user?.email || 'บัญชีผู้ใช้'}</p>
-                      <p className="mt-1 text-[10px] font-bold text-brand-muted">{isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}</p>
+                      <p className="mt-1 text-[10px] font-bold text-brand-muted">{isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}</p>
                     </div>
-                    {!session.isGuest && <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><IconCrown className="h-4 w-4 text-amber-500" />แพ็กเกจของฉัน</button>}
+                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><IconCrown className="h-4 w-4 text-amber-500" />แพ็กเกจของฉัน</button>
                     <button type="button" onClick={() => setDarkMode(!darkMode)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint">
                       {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-emerald-600" />}
                       {darkMode ? 'ใช้โหมดสว่าง' : 'ใช้โหมดมืด'}
@@ -2631,40 +2638,6 @@ export default function App() {
                 </div>
               )}
 
-              {activeTab === 'summary' && (
-                <SummaryTab
-                  jobs={jobs}
-                  goals={goals}
-                  settings={settings}
-                  onEditJob={handleEditJob}
-                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
-                  triggerAlert={triggerAlert}
-                  triggerConfirm={triggerConfirm}
-                  triggerPrompt={triggerPrompt}
-                  expenses={expenses}
-                  onImportData={handleImportData}
-                  onExportData={handleExportData}
-                  onClearAllData={handleClearAllData}
-                  statuses={statuses}
-                  selectedMonth={selectedMonthKey}
-                  onSelectMonth={setSelectedMonthKey}
-                />
-              )}
-
-              {activeTab === 'timeline' && (
-                <TimelineTab
-                  jobs={jobs}
-                  settings={settings}
-                  statuses={statuses}
-                  onEditJob={(jobId) => {
-                    setScrollToJobId(jobId);
-                    navigateTab('jobs');
-                  }}
-                  onDeleteJob={handleDeleteJob}
-                  onBack={() => navigateTab('dashboard')}
-                />
-              )}
-
               {activeTab === 'split' && (
                 <SplitTab
                   jobs={jobs}
@@ -2735,17 +2708,8 @@ export default function App() {
               {activeTab === 'report' && (
                 <ReportOverviewTab
                   jobs={jobs}
-                  goals={goals}
                   expenses={expenses}
-                  settings={settings}
-                  onUpdateSettings={handleUpdateSettings}
-                  userEmail={session?.user?.email || 'user@example.com'}
-                  notifSettings={notifSettings}
-                  onUpdateNotifSettings={setNotifSettings}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
-                  onViewJob={handleViewJob}
-                  triggerAlert={triggerAlert}
-                  triggerConfirm={triggerConfirm}
                 />
               )}
 
@@ -2780,7 +2744,7 @@ export default function App() {
                 />
               )}
               {activeTab === 'incomeExpense' && (
-                <IncomeExpenseTab jobs={jobs} expenses={expenses} />
+                <IncomeExpenseTab jobs={jobs} expenses={expenses} onExportData={handleExportData} triggerAlert={triggerAlert} />
               )}
               {activeTab === 'calendar' && (
                 <CalendarTab
@@ -2791,6 +2755,7 @@ export default function App() {
               {activeTab === 'plans' && (
                 <PlansTab
                   isPro={isPro}
+                  isGuestPreview={isGuestProPreview}
                   isPaidActive={isPaidActive}
                   isInFreeTrial={isInFreeTrial}
                   trialEndsAt={trialEndsAt}
@@ -2808,6 +2773,7 @@ export default function App() {
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   onUpdateSettings={handleUpdateSettings}
                   onImportData={handleImportData}
+                  onExportData={handleExportData}
                   onClearAllData={handleClearAllData}
                   cloudSyncStatus={cloudSyncStatus}
                   loadCloudData={loadCloudData}

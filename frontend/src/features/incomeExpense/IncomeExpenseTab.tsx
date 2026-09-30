@@ -1,15 +1,18 @@
 import React, { useMemo } from 'react';
 import { Job, Expense } from '../../../../shared/types';
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
-import { formatAxisBaht, formatCurrency, getMonthKey, formatMonthKey, safeFormatThaiDate } from '../../utils';
+import { formatAxisBaht, formatCurrency, getMonthKey, formatMonthKey, safeFormatThaiDate, exportJobsToCSV } from '../../utils';
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Download } from 'lucide-react';
 
 interface IncomeExpenseTabProps {
   jobs: Job[];
   expenses: Expense[];
+  onExportData: () => void;
+  triggerAlert: (title: string, message: string) => void;
 }
 
-export default function IncomeExpenseTab({ jobs, expenses }: IncomeExpenseTabProps) {
+export default function IncomeExpenseTab({ jobs, expenses, onExportData, triggerAlert }: IncomeExpenseTabProps) {
   const totals = useMemo(() => {
     const income = jobs.flatMap(getJobPaymentEntries).reduce((sum, e) => sum + e.amount, 0);
     const expense = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -55,7 +58,16 @@ export default function IncomeExpenseTab({ jobs, expenses }: IncomeExpenseTabPro
 
   return (
     <div className="page-content space-y-4">
-      <h2 className="text-[19px] font-semibold text-brand-text">รายรับ–รายจ่าย</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-[19px] font-semibold text-brand-text">รายรับ–รายจ่าย</h2>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onExportData} className="inline-flex items-center gap-1.5 rounded-lg border border-brand-border bg-brand-white px-3 py-2 text-[11px] font-semibold text-brand-text"><Download className="h-3.5 w-3.5" />สำรองข้อมูล (.json)</button>
+          <button type="button" onClick={() => {
+            if (!exportJobsToCSV(jobs)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีข้อมูลงานสำหรับส่งออก');
+            else triggerAlert('ส่งออกสำเร็จ', 'ดาวน์โหลดไฟล์ CSV สำหรับ Excel และ Google Sheets แล้ว');
+          }} className="inline-flex items-center gap-1.5 rounded-lg bg-[#E65F2B] px-3 py-2 text-[11px] font-semibold text-white"><Download className="h-3.5 w-3.5" />ส่งออก CSV</button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
