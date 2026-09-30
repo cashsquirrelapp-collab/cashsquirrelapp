@@ -2694,17 +2694,8 @@ export default function App() {
               {activeTab === 'report' && (
                 <ReportOverviewTab
                   jobs={jobs}
-                  goals={goals}
                   expenses={expenses}
-                  settings={settings}
-                  onUpdateSettings={handleUpdateSettings}
-                  userEmail={session?.user?.email || 'user@example.com'}
-                  notifSettings={notifSettings}
-                  onUpdateNotifSettings={setNotifSettings}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
-                  onViewJob={handleViewJob}
-                  triggerAlert={triggerAlert}
-                  triggerConfirm={triggerConfirm}
                 />
               )}
 

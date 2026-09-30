@@ -115,6 +115,19 @@ test('retired duplicate finance tabs resolve to the current calendar and income 
  await page.goto('/summary');
  await expect(page.getByRole('heading',{name:'รายรับ–รายจ่าย'})).toBeVisible();
 });
+test('credit report stays concise and hands collection work to receivables',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/');
+ const sidebar=page.locator('aside');
+ await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
+ await sidebar.getByRole('button',{name:'รายงาน & เครดิตเทอม'}).click();
+ await page.getByRole('button',{name:'Credit Term',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'ติดตาม Credit Term'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'รายงานวิเคราะห์กระแสเงินสดและเงินออม'})).toHaveCount(0);
+ await page.getByRole('button',{name:/ไปจัดการเงินค้างรับ/}).click();
+ await expect(page.getByText('ตอนนี้ไม่มีเงินที่ต้องตาม',{exact:true})).toBeVisible();
+});
 test('login and all feature tabs render after separation without browser errors',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  let loggedIn=false;
