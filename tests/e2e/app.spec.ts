@@ -214,18 +214,18 @@ test('add-job sheet stays in the viewport and success feedback appears at the to
  await page.goto('/');
  await page.locator('aside').getByRole('button',{name:'งาน',exact:true}).click();
  await page.getByRole('button',{name:'เพิ่มงาน',exact:true}).first().click();
- const sheet=page.getByRole('heading',{name:'เพิ่มโปรเจกต์งานใหม่'}).locator('..').locator('..');
+ const sheet=page.getByRole('heading',{name:'เพิ่มงาน',exact:true}).locator('..').locator('..');
  await expect(sheet).toBeVisible();
  await expect.poll(async()=>{const box=await sheet.boundingBox();return box ? Math.round(box.y) : 9999;}).toBeLessThan(900);
  await expect.poll(async()=>{const box=await sheet.boundingBox();return box ? Math.round(box.y+box.height) : 9999;}).toBeLessThanOrEqual(900);
  expect(await sheet.evaluate(el=>el.closest('.fixed')?.parentElement===document.body)).toBe(true);
 
- await page.getByPlaceholder('เช่น รับเขียนบทความรีวิว / รีวิวลิปสติกแบรนด์ A').fill('Regression project');
- await page.getByRole('button',{name:'ขั้นตอนถัดไป'}).click();
- await page.getByPlaceholder('เช่น 30000').fill('1000');
- await page.getByRole('button',{name:'ขั้นตอนถัดไป'}).click();
- await expect(page.getByRole('button',{name:'บันทึกข้อมูลดีลงาน'})).toBeEnabled({timeout:2000});
- await page.getByRole('button',{name:'บันทึกข้อมูลดีลงาน'}).click();
+ await page.getByRole('button',{name:'บันทึกงาน'}).click();
+ await expect(page.getByText('กรุณาระบุชื่องาน')).toBeVisible();
+ await page.getByLabel('ชื่องาน / โปรเจกต์').fill('Regression project');
+ await page.getByLabel('มูลค่างาน').fill('1000');
+ await page.getByRole('button',{name:'บันทึกงาน'}).click();
+ await expect(page.getByRole('heading',{name:'เพิ่มงาน',exact:true})).toHaveCount(0);
  const toast=page.locator('[aria-live="polite"]').getByText(/Regression project/);
  await expect(toast).toBeVisible();
  const toastBox=await toast.locator('..').boundingBox();

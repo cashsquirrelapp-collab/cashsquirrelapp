@@ -1589,8 +1589,8 @@ export default function App() {
       return freshJobs;
     });
     fireMascot({
-      mood: 'celebrate',
-      message: `เพิ่มงาน "${newJob.name}" ชิ้นใหม่เรียบร้อยแล้วค้าบ! สู้ๆ น้าเจ้ากระรอก!`
+      mood: 'happy',
+      message: `เพิ่มงานเรียบร้อย: ${newJob.name}`
     });
     // Trigger a celebratory green leaves shower!
     leafBus.trigger({ count: 16, type: 'green', durationMs: 3500 });
@@ -1643,7 +1643,10 @@ export default function App() {
     // A deposit (the "ได้มัดจำ" quick action) used to send no LINE card at all -- per feedback, a
     // partial payment landing is worth its own notification, distinct from a full payment (its own
     // amber "ได้รับมัดจำ" badge in buildJobSavedMessage, not the green "รับเงินแล้ว" one).
-    const wasPartialPayment = !wasCompleted && !wasDelivered && updated.status === 'partial';
+    // Only a deposit that is new or larger counts: the edit form re-sends status on every save, so
+    // editing any other field of a partially paid job must not announce another deposit.
+    const wasPartialPayment = !wasCompleted && !wasDelivered && updated.status === 'partial'
+      && (oldJob?.status !== 'partial' || (updated.received ?? 0) > (oldJob?.received ?? 0));
 
     if (wasCompleted) {
       fireMascot({
