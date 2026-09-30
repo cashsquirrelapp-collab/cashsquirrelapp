@@ -42,6 +42,8 @@ interface DashboardTabProps {
   selectedMonthKey: string;
   onEditJob?: (id: string, updated: Partial<Job>) => void;
   onViewJob?: (jobId: string) => void;
+  /** Opens the calendar page, optionally on a given YYYY-MM-DD. */
+  onOpenCalendar?: (dateKey?: string) => void;
   userEmail: string;
   notifSettings: NotifSettings;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
@@ -60,6 +62,7 @@ export default function DashboardTab({
   selectedMonthKey,
   onEditJob,
   onViewJob,
+  onOpenCalendar,
   userEmail,
   notifSettings,
   triggerAlert,
@@ -736,15 +739,15 @@ export default function DashboardTab({
       }
     });
 
-    const cells: { n: number | null; bg: string; color: string }[] = [];
+    const cells: { n: number | null; key?: string; bg: string; color: string }[] = [];
     for (let i = 0; i < firstWeekday; i++) cells.push({ n: null, bg: 'transparent', color: 'inherit' });
     for (let d = 1; d <= daysInMonth; d++) {
       const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const isToday = key === todayKey;
       const style = dayColor.get(key);
       cells.push(isToday
-        ? { n: d, bg: '#E65F2B', color: '#ffffff' }
-        : { n: d, ...(style || { bg: 'transparent', color: 'inherit' }) });
+        ? { n: d, key, bg: '#E65F2B', color: '#ffffff' }
+        : { n: d, key, ...(style || { bg: 'transparent', color: 'inherit' }) });
     }
     return cells;
   }, [jobs]);
@@ -964,17 +967,29 @@ export default function DashboardTab({
         <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
           <div className="mb-0.5 flex items-center justify-between">
             <h4 className="text-[13px] font-medium text-brand-text">ปฏิทินการเงิน</h4>
-            <CalendarDays className="h-4 w-4 text-brand-muted" />
+            <button type="button" onClick={() => (onOpenCalendar ? onOpenCalendar() : onSwitchTab('calendar'))} className="inline-flex items-center gap-1 text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">
+              <CalendarDays className="h-3.5 w-3.5" /> ดูปฏิทิน →
+            </button>
           </div>
           <p className="mb-2.5 text-[11px] text-brand-muted">{formatMonthKey(currentMonthKeyForCalendar)}</p>
           <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-brand-muted">
             {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(w => <div key={w}>{w}</div>)}
           </div>
           <div className="mt-1 grid grid-cols-7 gap-1 text-center text-[11px]">
-            {miniCalendarDays.map((cell, i) => (
-              <div key={i} className="rounded-md py-1" style={{ background: cell.bg, color: cell.color }}>
-                {cell.n ?? ''}
-              </div>
+            {miniCalendarDays.map((cell, i) => cell.key ? (
+              // Each day opens the calendar page on that date, where its jobs are listed.
+              <button
+                key={i}
+                type="button"
+                onClick={() => (onOpenCalendar ? onOpenCalendar(cell.key) : onSwitchTab('calendar'))}
+                aria-label={`ดูปฏิทินวันที่ ${safeFormatThaiDate(cell.key, { day: 'numeric', month: 'long', year: 'numeric' })}`}
+                className="rounded-md py-1 transition-shadow hover:ring-1 hover:ring-[#F3B08C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B] cursor-pointer"
+                style={{ background: cell.bg, color: cell.color }}
+              >
+                {cell.n}
+              </button>
+            ) : (
+              <div key={i} />
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-2.5 text-[9px] text-brand-muted">

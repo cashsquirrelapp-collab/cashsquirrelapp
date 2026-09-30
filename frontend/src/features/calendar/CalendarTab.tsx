@@ -6,6 +6,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 interface CalendarTabProps {
   jobs: Job[];
   onSwitchTab: (id: string) => void;
+  /** YYYY-MM-DD to open on (e.g. a day clicked in the dashboard's mini calendar). */
+  initialDateKey?: string | null;
+  onInitialDateHandled?: () => void;
 }
 
 type EventKind = 'post' | 'creditTerm' | 'dueSoon' | 'paid' | 'overdue';
@@ -57,9 +60,12 @@ function addDays(date: Date, amount: number): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
 }
 
-export default function CalendarTab({ jobs, onSwitchTab }: CalendarTabProps) {
-  const [viewDate, setViewDate] = useState(() => new Date());
-  const [selectedKey, setSelectedKey] = useState<string>(() => toDateKey(new Date()));
+export default function CalendarTab({ jobs, onSwitchTab, initialDateKey, onInitialDateHandled }: CalendarTabProps) {
+  const startKey = initialDateKey && /^\d{4}-\d{2}-\d{2}$/.test(initialDateKey) ? initialDateKey : null;
+  const [viewDate, setViewDate] = useState(() => (startKey ? fromDateKey(startKey) : new Date()));
+  const [selectedKey, setSelectedKey] = useState<string>(() => startKey ?? toDateKey(new Date()));
+  // The requested date is only a starting point; clear it so a later visit opens on today.
+  React.useEffect(() => { if (initialDateKey) onInitialDateHandled?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
 
   const eventsByDay = useMemo(() => {

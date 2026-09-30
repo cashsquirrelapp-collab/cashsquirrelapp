@@ -1607,6 +1607,9 @@ export default function App() {
     setJobs(prev => prev.map(j => (j.type === from ? { ...j, type: to } : j)));
   };
 
+  // Day picked in the dashboard's mini calendar; CalendarTab opens on it, then clears it.
+  const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null);
+
   const handleViewJob = (id: string) => {
     setScrollToJobId(id);
     navigateTab('jobs');
@@ -2528,6 +2531,7 @@ export default function App() {
                   selectedMonthKey={selectedMonthKey}
                   onEditJob={handleEditJob}
                   onViewJob={handleViewJob}
+                  onOpenCalendar={(dateKey?: string) => { setCalendarFocusDate(dateKey ?? null); navigateTab('calendar'); }}
                   userEmail={session?.user?.email || 'user@example.com'}
                   notifSettings={notifSettings}
                   triggerAlert={triggerAlert}
@@ -2695,6 +2699,8 @@ export default function App() {
                 <CalendarTab
                   jobs={jobs}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
+                  initialDateKey={calendarFocusDate}
+                  onInitialDateHandled={() => setCalendarFocusDate(null)}
                 />
               )}
               {activeTab === 'plans' && (
