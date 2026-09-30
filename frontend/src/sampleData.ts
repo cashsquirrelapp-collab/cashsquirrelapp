@@ -92,7 +92,7 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
       client: 'ร้าน Cozy Home Decor',
       value: 6000,
       received: 0,
-      pending: 0,
+      pending: 6000,
       status: 'pending',
       creditTerm: 15,
       startDate: toISODate(addDays(today, -1)),

@@ -97,7 +97,9 @@ export default function JobsTab({
   const [subTab, setSubTab] = useState<'all' | 'working' | 'waiting_payment' | 'closed'>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<JobSort>('recent');
-  const [actionMenu, setActionMenu] = useState<{ job: Job; top: number; left: number; up: boolean } | null>(null);
+  // One popover for the row's ⋯ menu and for the clickable stage/payment badges.
+  type MenuKind = 'actions' | 'stage' | 'payment';
+  const [actionMenu, setActionMenu] = useState<{ job: Job; kind: MenuKind; top: number; left: number; up: boolean } | null>(null);
   const actionMenuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -161,13 +163,14 @@ export default function JobsTab({
       .filter((row) => row.status !== 'paid' && row.dueDate)
       .sort((a, b) => (a.dueDate as string).localeCompare(b.dueDate as string));
     const isPaid = received >= netReceivable || installments.every((row) => row.status === 'paid');
-    onEditJob(installmentPaymentJob.id, {
+    const paidRow = installments.find(row => row.id === selectedInstallmentId);
+    applyQuickChange(installmentPaymentJob, {
       installments,
       received,
       pending: Math.max(0, netReceivable - received),
       paymentStatus: isPaid ? 'paid' : 'partial',
       payDate: isPaid ? installmentPaidDate : (pendingRows[0]?.dueDate || null),
-    });
+    }, isPaid ? 'รับเงินครบแล้ว' : `รับเงิน${paidRow?.label ? ` ${paidRow.label}` : 'งวดนี้'}`);
     setInstallmentPaymentJob(null);
     setSelectedInstallmentId('');
   };
@@ -240,9 +243,43 @@ export default function JobsTab({
     onCloseAddJob();
   }, [onCloseAddJob]);
 
+  // Quick status changes (badges, ⋯ menu, delivery/payment prompts) go through here so each one
+  // can be taken back from the undo bar: it restores exactly the fields the change touched.
+  const [undo, setUndo] = useState<{ jobId: string; message: string; previous: Partial<Job> } | null>(null);
+  const [undoHovered, setUndoHovered] = useState(false);
+  React.useEffect(() => {
+    if (!undo || undoHovered) return;
+    const timer = setTimeout(() => setUndo(null), 8000);
+    return () => clearTimeout(timer);
+  }, [undo, undoHovered]);
+
+  const applyQuickChange = (j: Job, updated: Partial<Job>, message: string) => {
+    const previous = Object.fromEntries(
+      (Object.keys(updated) as (keyof Job)[]).map(key => [key, j[key]])
+    ) as Partial<Job>;
+    onEditJob(j.id, updated);
+    setUndo({ jobId: j.id, message: `${message} · ${j.name}`, previous });
+  };
+
+  const undoQuickChange = () => {
+    if (!undo) return;
+    onEditJob(undo.jobId, undo.previous);
+    setUndo(null);
+    setUndoHovered(false);
+  };
+
+  // Net amount the client actually pays (value minus withholding tax).
+  const netReceivable = (j: Job) =>
+    Math.max(0, j.value - (j.whtAmount || Math.round(j.value * ((j.whtRate || 0) / 100))));
+
+  // Recomputed on delivery: jobs saved while in progress by older versions can carry pending 0,
+  // which would wrongly land an unpaid job in "ปิดงานแล้ว".
+  const outstanding = (j: Job) =>
+    getStatusDisplay(j.status).behavior === 'done' ? 0 : Math.max(0, netReceivable(j) - (j.received || 0));
+
   const markPosted = (j: Job) => {
     if (j.postDate) {
-      onEditJob(j.id, { isPosted: true });
+      applyQuickChange(j, { isPosted: true, pending: outstanding(j) }, 'ส่งงานแล้ว');
       return;
     }
     setDeliveryPostDate(j.postDate || getLocalDateStr());
@@ -251,40 +288,49 @@ export default function JobsTab({
     setDeliveryPromptJob(j);
   };
 
-  const markPaidFull = (j: Job) => {
-    onEditJob(j.id, {
-      status: 'done',
-      received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
-      pending: 0,
-      paymentStatus: 'paid',
-      payDate: getLocalDateStr(),
-      isPosted: true
-    });
-  };
+  const markWorking = (j: Job) => applyQuickChange(j, { isPosted: false }, 'กลับเป็นกำลังทำ');
 
-  const promptPartial = (j: Job) => {
-    const partialVal = Math.round(j.value * 0.3);
-    triggerPrompt(
-      t('jobs.partialPromptTitle'),
-      t('jobs.partialPromptMessage', { name: j.name, amount: partialVal.toLocaleString() }),
-      String(partialVal),
-      t('jobs.enterAmountPlaceholder'),
-      'number',
-      (val) => {
-        const amt = parseFloat(val) || 0;
-        if (amt > 0) {
-          const localDateStr = getLocalDateStr();
-          onEditJob(j.id, {
-            status: 'partial',
-            received: amt,
-            pending: Math.max(0, (j.value - Math.round(j.value * ((j.whtRate || 0) / 100))) - amt),
-            paymentStatus: 'partial',
-            depositDate: localDateStr,
-            depositAmount: amt
-          });
-        }
-      }
-    );
+  // Recording money needs a date (and an amount for a deposit) -- it moves the dashboard's
+  // monthly totals, so it is never changed with a single click.
+  const [paymentForm, setPaymentForm] = useState<{ job: Job; mode: 'full' | 'partial'; amount: string; date: string } | null>(null);
+  React.useEffect(() => {
+    if (!paymentForm) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setPaymentForm(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [paymentForm]);
+  const markPaidFull = (j: Job) => setPaymentForm({ job: j, mode: 'full', amount: '', date: getLocalDateStr() });
+  const promptPartial = (j: Job) => setPaymentForm({ job: j, mode: 'partial', amount: '', date: getLocalDateStr() });
+
+  const paymentFormAmount = paymentForm ? parseFloat(paymentForm.amount.replace(/,/g, '')) || 0 : 0;
+  const paymentFormError = !paymentForm || !paymentForm.date ? 'กรุณาเลือกวันที่รับเงิน'
+    : paymentForm.mode === 'partial' && paymentFormAmount <= 0 ? 'กรุณาใส่ยอดที่ได้รับ'
+    : paymentForm.mode === 'partial' && paymentFormAmount >= netReceivable(paymentForm.job) ? 'ยอดนี้เท่ากับหรือเกินยอดที่ต้องรับ ให้ใช้ "รับเงินครบ" แทน'
+    : '';
+
+  const confirmPaymentForm = () => {
+    if (!paymentForm || paymentFormError) return;
+    const { job: j, mode, date } = paymentForm;
+    if (mode === 'full') {
+      applyQuickChange(j, {
+        status: 'done',
+        received: netReceivable(j),
+        pending: 0,
+        paymentStatus: 'paid',
+        payDate: date,
+        isPosted: true
+      }, 'รับเงินครบแล้ว');
+    } else {
+      applyQuickChange(j, {
+        status: 'partial',
+        received: paymentFormAmount,
+        pending: Math.max(0, netReceivable(j) - paymentFormAmount),
+        paymentStatus: 'partial',
+        depositDate: date,
+        depositAmount: paymentFormAmount
+      }, `รับบางส่วน ${formatCurrency(paymentFormAmount)}`);
+    }
+    setPaymentForm(null);
   };
 
   const describeJob = (j: Job) => {
@@ -313,35 +359,76 @@ export default function JobsTab({
     return { statusInfo, isInstallment, stage, dueText, dueTone, payment };
   };
 
-  const jobActions = (j: Job) => {
+  type MenuAction = { label: string; run: () => void; danger?: boolean };
+
+  // Work stage: forward to delivered, or back to in progress while no money is closed out.
+  const stageActions = (j: Job): MenuAction[] => {
+    const { stage } = describeJob(j);
+    if (stage === 'working') return [{ label: 'ส่งงานแล้ว', run: () => markPosted(j) }];
+    if (stage === 'awaiting') return [{ label: 'กลับเป็นกำลังทำ', run: () => markWorking(j) }];
+    return [];
+  };
+
+  // Payment only moves forward here; taking money back out stays in the edit form.
+  const paymentActions = (j: Job): MenuAction[] => {
     const { statusInfo, isInstallment } = describeJob(j);
     const hasPendingInstallment = (j.installments || []).some(row => row.status !== 'paid');
-    const actions: { label: string; run: () => void; danger?: boolean }[] = [
-      { label: 'ดูและแก้ไขรายละเอียด', run: () => setEditingJob(j) },
-    ];
-    if (j.isPosted === false) actions.push({ label: 'ส่งมอบงานแล้ว', run: () => markPosted(j) });
+    const actions: MenuAction[] = [];
     if (isInstallment && hasPendingInstallment) actions.push({ label: 'รับเงินงวดถัดไป', run: () => openInstallmentPayment(j) });
-    if (statusInfo.behavior !== 'done' && !isInstallment && j.isPosted !== false) actions.push({ label: 'บันทึกรับเงินครบ', run: () => markPaidFull(j) });
-    if (statusInfo.behavior === 'pending' && !isInstallment) actions.push({ label: 'บันทึกรับมัดจำ / บางส่วน', run: () => promptPartial(j) });
-    actions.push({ label: 'ลบงาน', run: () => onDeleteJob(j.id), danger: true });
+    if (statusInfo.behavior !== 'done' && !isInstallment && j.isPosted !== false) actions.push({ label: 'รับเงินครบ', run: () => markPaidFull(j) });
+    if (statusInfo.behavior === 'pending' && !isInstallment) actions.push({ label: 'รับมัดจำ / บางส่วน', run: () => promptPartial(j) });
     return actions;
   };
 
-  const openActionMenu = (event: React.MouseEvent<HTMLButtonElement>, job: Job) => {
+  const jobActions = (j: Job): MenuAction[] => {
+    return [
+      { label: 'ดูและแก้ไขรายละเอียด', run: () => setEditingJob(j) },
+      ...stageActions(j),
+      ...paymentActions(j),
+      { label: 'ลบงาน', run: () => onDeleteJob(j.id), danger: true },
+    ];
+  };
+
+  const menuActions = (menu: { job: Job; kind: MenuKind }) =>
+    menu.kind === 'stage' ? stageActions(menu.job) : menu.kind === 'payment' ? paymentActions(menu.job) : jobActions(menu.job);
+
+  const openActionMenu = (event: React.MouseEvent<HTMLButtonElement>, job: Job, kind: MenuKind = 'actions') => {
     event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
-    const width = 224;
-    const up = rect.bottom + 280 > window.innerHeight;
-    setActionMenu(current => current?.job.id === job.id ? null : {
+    const width = kind === 'actions' ? 224 : 200;
+    const up = rect.bottom + (kind === 'actions' ? 280 : 140) > window.innerHeight;
+    // The ⋯ menu hangs off the button's right edge; badge menus open under the badge itself.
+    const anchor = kind === 'actions' ? rect.right - width : rect.left;
+    setActionMenu(current => current?.job.id === job.id && current.kind === kind ? null : {
       job,
-      left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)),
+      kind,
+      left: Math.max(8, Math.min(anchor, window.innerWidth - width - 8)),
       top: up ? rect.top - 4 : rect.bottom + 4,
       up,
     });
   };
 
-  const stageBadge = (stage: string) => (
-    <span className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
+  // A badge becomes a small dropdown trigger when there is something it can change to.
+  const badgeMenu = (j: Job, kind: 'stage' | 'payment', badge: (interactive: boolean) => React.ReactNode, label: string) => {
+    const options = kind === 'stage' ? stageActions(j) : paymentActions(j);
+    if (options.length === 0) return badge(false);
+    const open = actionMenu?.job.id === j.id && actionMenu.kind === kind;
+    return (
+      <button
+        type="button"
+        onClick={(event) => openActionMenu(event, j, kind)}
+        aria-label={`เปลี่ยน${label}ของงาน ${j.name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`group -my-1.5 inline-flex items-center rounded-lg py-1.5 transition-opacity cursor-pointer ${open ? '' : 'hover:opacity-80'}`}
+      >
+        {badge(true)}
+      </button>
+    );
+  };
+
+  const stageBadge = (stage: string, interactive = false) => (
+    <span className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
       stage === 'working'
         ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
         : stage === 'awaiting'
@@ -349,11 +436,12 @@ export default function JobsTab({
         : 'bg-brand-faint text-brand-muted'
     }`}>
       {stage === 'working' ? 'กำลังทำ' : stage === 'awaiting' ? 'เสร็จแล้ว' : 'ปิดงานแล้ว'}
+      {interactive && <ChevronDown className="-mr-0.5 h-3 w-3 opacity-70" aria-hidden="true" />}
     </span>
   );
 
-  const paymentBadge = (payment: string, overdue: boolean) => (
-    <span className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
+  const paymentBadge = (payment: string, overdue: boolean, interactive = false) => (
+    <span className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
       payment === 'รับครบแล้ว'
         ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
         : overdue
@@ -365,6 +453,7 @@ export default function JobsTab({
         : 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-orange-300'
     }`}>
       {payment}
+      {interactive && <ChevronDown className="-mr-0.5 h-3 w-3 opacity-70" aria-hidden="true" />}
     </span>
   );
 
@@ -573,11 +662,11 @@ export default function JobsTab({
                       <td className={`whitespace-nowrap px-3 py-3 ${dueClass(info.dueTone)}`}>{info.dueText}</td>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {stageBadge(info.stage)}
-                          <span className="lg:hidden">{paymentBadge(info.payment, overdue)}</span>
+                          {badgeMenu(j, 'stage', i => stageBadge(info.stage, i), 'สถานะงาน')}
+                          <span className="lg:hidden">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, overdue, i), 'การชำระ')}</span>
                         </div>
                       </td>
-                      <td className="hidden px-3 py-3 lg:table-cell">{paymentBadge(info.payment, overdue)}</td>
+                      <td className="hidden px-3 py-3 lg:table-cell">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, overdue, i), 'การชำระ')}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold text-brand-text">{formatCurrency(j.value)}</td>
                       <td className="px-2 py-3 text-right">
                         <button
@@ -623,8 +712,8 @@ export default function JobsTab({
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                      {stageBadge(info.stage)}
-                      {paymentBadge(info.payment, info.dueTone === 'overdue')}
+                      {badgeMenu(j, 'stage', i => stageBadge(info.stage, i), 'สถานะงาน')}
+                      {badgeMenu(j, 'payment', i => paymentBadge(info.payment, info.dueTone === 'overdue', i), 'การชำระ')}
                       <span className={`text-[11px] ${dueClass(info.dueTone)}`}>{info.dueText}</span>
                     </div>
                     <button
@@ -651,11 +740,14 @@ export default function JobsTab({
         <div
           ref={actionMenuRef}
           role="menu"
-          aria-label={`ตัวเลือกของงาน ${actionMenu.job.name}`}
-          className="fixed z-[150] w-56 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900"
+          aria-label={actionMenu.kind === 'stage' ? `เปลี่ยนสถานะงาน ${actionMenu.job.name}` : actionMenu.kind === 'payment' ? `บันทึกการชำระ ${actionMenu.job.name}` : `ตัวเลือกของงาน ${actionMenu.job.name}`}
+          className={`fixed z-[150] ${actionMenu.kind === 'actions' ? 'w-56' : 'w-[200px]'} rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900`}
           style={{ top: actionMenu.top, left: actionMenu.left, transform: actionMenu.up ? 'translateY(-100%)' : undefined }}
         >
-          {jobActions(actionMenu.job).map(action => (
+          {actionMenu.kind !== 'actions' && (
+            <p className="px-3 pb-1 pt-1.5 text-[11px] text-brand-muted">{actionMenu.kind === 'stage' ? 'เปลี่ยนสถานะงานเป็น' : 'บันทึกการรับเงิน'}</p>
+          )}
+          {menuActions(actionMenu).map(action => (
             <button
               key={action.label}
               type="button"
@@ -735,6 +827,122 @@ export default function JobsTab({
             </div>
           )}
         </AnimatePresence>,
+        document.body
+      )}
+
+      {paymentForm && createPortal(
+        <div
+          className="fixed inset-0 z-[210] flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+          onClick={() => setPaymentForm(null)}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-payment-title"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => { event.preventDefault(); confirmPaymentForm(); }}
+            className="w-full space-y-4 rounded-t-2xl border border-brand-border bg-brand-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl dark:bg-stone-900 sm:max-w-sm sm:rounded-2xl sm:pb-5"
+          >
+            <div>
+              <h3 id="quick-payment-title" className="text-base font-semibold text-brand-text">
+                {paymentForm.mode === 'full' ? 'รับเงินครบ' : 'รับมัดจำ / บางส่วน'}
+              </h3>
+              <p className="mt-0.5 truncate text-xs text-brand-muted">{paymentForm.job.name}{paymentForm.job.client ? ` · ${paymentForm.job.client}` : ''}</p>
+            </div>
+
+            {paymentForm.mode === 'full' ? (
+              <div className="rounded-xl bg-brand-faint px-3.5 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-xs text-brand-muted">{paymentForm.job.received > 0 ? 'ยอดที่รับครั้งนี้' : 'ยอดที่ได้รับ'}</span>
+                  <span className="font-mono text-lg font-semibold text-brand-text">{formatCurrency(Math.max(0, netReceivable(paymentForm.job) - (paymentForm.job.received || 0)))}</span>
+                </div>
+                {paymentForm.job.received > 0 && (
+                  <p className="mt-1 text-right text-[11px] text-brand-muted">
+                    รับไปแล้ว {formatCurrency(paymentForm.job.received)} · รวม {formatCurrency(netReceivable(paymentForm.job))}
+                  </p>
+                )}
+                {netReceivable(paymentForm.job) < paymentForm.job.value && (
+                  <p className="mt-1 text-right text-[11px] text-brand-muted">
+                    มูลค่างาน {formatCurrency(paymentForm.job.value)} หัก ณ ที่จ่าย {formatCurrency(paymentForm.job.value - netReceivable(paymentForm.job))}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-brand-text">ยอดที่ได้รับ (บาท)</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  value={paymentForm.amount}
+                  onChange={(event) => setPaymentForm(form => form && { ...form, amount: event.target.value.replace(/[^\d.,]/g, '') })}
+                  placeholder="0"
+                  className="h-11 w-full rounded-xl border border-brand-border bg-brand-white px-3 font-mono text-sm text-brand-text outline-none focus:border-[#E65F2B]"
+                />
+                <span className="mt-1 block text-[11px] text-brand-muted">ยอดที่ต้องรับทั้งหมด {formatCurrency(netReceivable(paymentForm.job))}</span>
+              </label>
+            )}
+
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-brand-text">วันที่รับเงิน</span>
+              <input
+                type="date"
+                value={paymentForm.date}
+                onChange={(event) => setPaymentForm(form => form && { ...form, date: event.target.value })}
+                className="h-11 w-full rounded-xl border border-brand-border bg-brand-white px-3 text-sm text-brand-text outline-none focus:border-[#E65F2B]"
+              />
+            </label>
+
+            {paymentFormError && (paymentForm.mode === 'full' || paymentForm.amount !== '') && (
+              <p role="alert" className="text-xs text-[#C43A3A] dark:text-rose-300">{paymentFormError}</p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setPaymentForm(null)}
+                className="h-11 flex-1 rounded-xl border border-brand-border text-sm text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="submit"
+                disabled={Boolean(paymentFormError)}
+                className="h-11 flex-[2] rounded-xl bg-[#E65F2B] text-sm font-semibold text-white transition-colors hover:bg-[#D85723] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+              >
+                บันทึกรับเงิน
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body
+      )}
+
+      {undo && createPortal(
+        <div
+          role="status"
+          aria-live="polite"
+          onMouseEnter={() => setUndoHovered(true)}
+          onMouseLeave={() => setUndoHovered(false)}
+          className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[160] flex w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-xl bg-stone-900 py-2.5 pl-4 pr-2 text-[13px] text-white shadow-lg dark:border dark:border-stone-700 dark:bg-stone-800"
+        >
+          <span className="min-w-0 flex-1 truncate">{undo.message}</span>
+          <button
+            type="button"
+            onClick={undoQuickChange}
+            className="h-8 shrink-0 rounded-lg px-3 font-semibold text-[#FFA473] transition-colors hover:bg-white/10 cursor-pointer"
+          >
+            เลิกทำ
+          </button>
+          <button
+            type="button"
+            onClick={() => { setUndo(null); setUndoHovered(false); }}
+            aria-label="ปิด"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
+          >
+            ×
+          </button>
+        </div>,
         document.body
       )}
 
@@ -881,13 +1089,14 @@ export default function JobsTab({
                   onClick={() => {
                     const job = deliveryPromptJob;
                     if (!job || !deliveryPostDate) return;
-                    onEditJob(job.id, {
+                    applyQuickChange(job, {
                       isPosted: true,
+                      pending: outstanding(job),
                       postDate: deliveryPostDate,
                       creditTerm: deliveryCreditTerm,
                       excludeHolidays: deliveryExcludeHolidays,
                       payDate: calculatePayDate(deliveryPostDate, deliveryCreditTerm, deliveryExcludeHolidays)
-                    });
+                    }, 'ส่งงานแล้ว');
                     setDeliveryPromptJob(null);
                   }}
                   disabled={!deliveryPostDate}
