@@ -165,9 +165,14 @@ export default function ExpenseRecordView({
     let fixedNote = '';
     if (expIsFixed) {
       const existing = findFixedItem(payload.name);
+      // Same carry-forward as Settings: an account that only has the old lump-sum total keeps it
+      // as its own item instead of being replaced by this one bill.
+      const baseItems = fixedExpenseItems.length === 0 && settings.monthlyExpense > 0
+        ? [{ id: crypto.randomUUID(), name: 'ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)', amount: settings.monthlyExpense }]
+        : fixedExpenseItems;
       const updatedItems = existing
-        ? fixedExpenseItems.map(item => item.id === existing.id ? { ...item, amount: payload.amount } : item)
-        : [...fixedExpenseItems, { id: crypto.randomUUID(), name: payload.name, amount: payload.amount }];
+        ? baseItems.map(item => item.id === existing.id ? { ...item, amount: payload.amount } : item)
+        : [...baseItems, { id: crypto.randomUUID(), name: payload.name, amount: payload.amount }];
       onUpdateSettings({ ...settings, fixedExpenseItems: updatedItems, monthlyExpense: sumFixedExpenseItems(updatedItems) });
       fixedNote = existing
         ? ' และอัปเดตยอดใน "ค่าใช้จ่ายคงที่รายเดือน" ให้แล้ว'

@@ -8,7 +8,7 @@ import {
   getReceivedForMonth,
   getPendingForMonth,
 } from '../shared/installmentPayments';
-import { computeMonthlySummary, jobsInMonth } from '../shared/monthlySummary';
+import { computeMonthlySummary, fixedExpenseForMonth, jobsInMonth } from '../shared/monthlySummary';
 
 const installmentJob: Job = {
   id: 'job-1',
@@ -123,4 +123,18 @@ test('jobs without a recorded deposit date keep the old single-date behavior', (
   const legacyPartial: Job = { ...installmentJob, id: 'job-4', installments: undefined, received: 3_000, pending: 2_000, payDate: '2026-10-01' };
   assert.equal(getReceivedForMonth(legacyPartial, '2026-10'), 3_000);
   assert.equal(computeMonthlySummary([legacyPartial], [], [], {}, '2026-10').received, 3_000);
+});
+
+test('a logged bill that is also a fixed item counts once in its month', () => {
+  const settings = { monthlyExpense: 17_000, fixedExpenseItems: [{ name: 'ค่าห้อง', amount: 12_000 }, { name: 'ค่าเน็ต', amount: 5_000 }] };
+  const expenses = [
+    { name: ' ค่าห้อง ', amount: 12_500, date: '2026-09-01' },
+    { name: 'ค่าเดินทาง', amount: 300, date: '2026-09-03' },
+  ];
+  assert.equal(fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, expenses.map((e) => e.name)), 5_000);
+  const sep = computeMonthlySummary([], expenses, [], settings, '2026-09');
+  assert.equal(sep.fixedExpenseCalculated + sep.variableExpense, 17_800);
+  const oct = computeMonthlySummary([], expenses, [], settings, '2026-10');
+  assert.equal(oct.fixedExpenseCalculated, 17_000);
+  assert.equal(fixedExpenseForMonth(9_000, undefined, ['ค่าห้อง']), 9_000);
 });

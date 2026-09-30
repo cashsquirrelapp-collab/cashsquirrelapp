@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Job, Goal, AppSettings, GoalTransaction, Expense } from '../../../../shared/types';
 import { formatCurrency, getMonthKey, dateLocale } from '../../utils';
 import { getReceivedForMonth } from '../../../../shared/installmentPayments';
+import { fixedExpenseForMonth } from '../../../../shared/monthlySummary';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   PiggyBank, 
@@ -129,10 +130,10 @@ export default function SplitTab({
   // expenses) -- previously only subtracted the fixed monthly expense, so a month with real
   // logged expenses (DashboardTab's "กำไรสุทธิ" breakdown already accounts for these) could show
   // an overstated profit here that didn't match Dashboard's figure at all.
-  const variableExpenseThisMonth = expenses
-    .filter(e => getMonthKey(e.date) === currentMonthKey)
-    .reduce((sum, e) => sum + e.amount, 0);
-  const rawNetProfit = Math.max(0, receivedThisMonth - settings.monthlyExpense - variableExpenseThisMonth);
+  const monthExpenses = expenses.filter(e => getMonthKey(e.date) === currentMonthKey);
+  const variableExpenseThisMonth = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const fixedExpenseThisMonth = fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, monthExpenses.map(e => e.name));
+  const rawNetProfit = Math.max(0, receivedThisMonth - fixedExpenseThisMonth - variableExpenseThisMonth);
   // Derived live from goal deposit history (deductedFromCash deposits this month), same source
   // DashboardTab's own "กำไรสุทธิ" breakdown uses -- previously this read a separately
   // incrementally-updated settings.allocatedMonths counter, which drifted out of sync with the
@@ -171,7 +172,7 @@ export default function SplitTab({
   }).filter(s => s.pctOfTotal > 0);
 
   const totalSegmentPct = goalSegments.reduce((sum, s) => sum + s.pctOfTotal, 0);
-  const expensePercent = Math.min(100, ((settings.monthlyExpense + variableExpenseThisMonth) / Math.max(1, receivedThisMonth)) * 100);
+  const expensePercent = Math.min(100, ((fixedExpenseThisMonth + variableExpenseThisMonth) / Math.max(1, receivedThisMonth)) * 100);
   const remainingProfitPct = Math.max(0, 100 - expensePercent - totalSegmentPct);
   const donutGradient = useMemo(() => {
     if (receivedThisMonth <= 0) return 'conic-gradient(#E8DFD3 0deg 360deg)';
@@ -756,8 +757,8 @@ export default function SplitTab({
               </div>
               <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 dark:border-rose-500/20 dark:bg-rose-500/10">
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase text-rose-700"><TrendingDown className="h-4 w-4" />รายจ่ายรวม</div>
-                <p className="mt-2 font-mono text-xl font-black text-rose-700 dark:text-rose-400">{formatCurrency(settings.monthlyExpense + variableExpenseThisMonth)}</p>
-                <p className="mt-1 text-[9px] text-brand-muted">คงที่ {formatCurrency(settings.monthlyExpense)} · แปรผัน {formatCurrency(variableExpenseThisMonth)}</p>
+                <p className="mt-2 font-mono text-xl font-black text-rose-700 dark:text-rose-400">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
+                <p className="mt-1 text-[9px] text-brand-muted">คงที่ {formatCurrency(fixedExpenseThisMonth)} · แปรผัน {formatCurrency(variableExpenseThisMonth)}</p>
               </div>
               <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-500/20 dark:bg-amber-500/10">
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase text-amber-700"><PiggyBank className="h-4 w-4" />แบ่งไปแล้ว</div>

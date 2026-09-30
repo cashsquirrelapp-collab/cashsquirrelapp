@@ -10,6 +10,7 @@ import { IconArrowUpRight, IconBolt, IconCoin } from '../../components/ui/icons'
 import { VineDivider } from '../../components/mascot/VineDivider';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate, getOutstandingAmount } from '../../../../shared/installmentPayments';
+import { fixedExpenseForMonth } from '../../../../shared/monthlySummary';
 import {
   TrendingUp,
   TrendingDown,
@@ -596,6 +597,7 @@ export default function DashboardTab({
     [expenses, selectedMonthKey],
   );
   const variableExpenseThisMonth = monthVariableExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const fixedExpenseThisMonth = fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, monthVariableExpenses.map(e => e.name));
 
   // Money moved into savings goals this month via the deposit modal's "deduct from cash"
   // option. Tracked on the goal transaction itself, never as a fake Expense -- a savings
@@ -611,7 +613,9 @@ export default function DashboardTab({
 
   const totalCashOutThisMonth = variableExpenseThisMonth + goalDeductionsThisMonth;
 
-  const profit = totalReceived - settings.monthlyExpense - totalCashOutThisMonth;
+  // Savings-goal transfers are an allocation of what's left, not an expense, so they stay out of
+  // profit (matching the 12-month chart and the Split tab) and only reduce cash-in-hand below.
+  const profit = totalReceived - fixedExpenseThisMonth - variableExpenseThisMonth;
   // What's actually left in hand right now: money already received minus money already spent
   // on logged variable expenses and cash-funded goal deposits. Deliberately excludes the
   // fixed-expense budget line (that's what `profit` above is for) since fixed bills haven't
@@ -649,9 +653,9 @@ export default function DashboardTab({
     alertFullMessage = t('dash.crisisFull', {
       month: monthName,
       received: formatCurrency(totalReceived),
-      fixed: formatCurrency(settings.monthlyExpense),
+      fixed: formatCurrency(fixedExpenseThisMonth),
       variable: variableExpenseThisMonth > 0 ? t('dash.crisisVariablePart', { amount: formatCurrency(variableExpenseThisMonth) }) : '',
-      goal: goalDeductionsThisMonth > 0 ? t('dash.crisisGoalPart', { amount: formatCurrency(goalDeductionsThisMonth) }) : '',
+      goal: '',
       short: formatCurrency(Math.abs(profit)),
     });
   } else if (profit >= 0 && profit < 5000) {
@@ -721,7 +725,7 @@ export default function DashboardTab({
       monthsList.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     }
 
-    const totals = new Map(monthsList.map(monthKey => [monthKey, { received: 0, variableExpense: 0 }]));
+    const totals = new Map(monthsList.map(monthKey => [monthKey, { received: 0, variableExpense: 0, expenseNames: [] as string[] }]));
 
     jobs.forEach(j => {
       getJobPaymentEntries(j).forEach((entry) => {
@@ -731,12 +735,15 @@ export default function DashboardTab({
     });
     expenses.forEach(e => {
       const month = totals.get(getMonthKey(e.date));
-      if (month) month.variableExpense += e.amount;
+      if (month) {
+        month.variableExpense += e.amount;
+        month.expenseNames.push(e.name);
+      }
     });
 
     return monthsList.map(monthKey => {
       const month = totals.get(monthKey)!;
-      const profit = month.received - settings.monthlyExpense - month.variableExpense;
+      const profit = month.received - fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, month.expenseNames) - month.variableExpense;
       return {
         monthKey,
         monthLabel: formatMonthKey(monthKey).split(' ')[0],
@@ -744,7 +751,7 @@ export default function DashboardTab({
         profit,
       };
     });
-  }, [jobs, expenses, settings.monthlyExpense]);
+  }, [jobs, expenses, settings.monthlyExpense, settings.fixedExpenseItems]);
 
   const upcomingPayments = React.useMemo(() => jobs
     .filter(j => j.pending > 0 && j.isPosted !== false)
@@ -789,7 +796,7 @@ export default function DashboardTab({
 
   const forecastRadar = React.useMemo(() => {
     const forecastMonthsList = getForecastMonths();
-    const totals = new Map(forecastMonthsList.map(monthKey => [monthKey, { confirmed: 0, pending: 0, variableExpense: 0 }]));
+    const totals = new Map(forecastMonthsList.map(monthKey => [monthKey, { confirmed: 0, pending: 0, variableExpense: 0, expenseNames: [] as string[] }]));
     jobs.forEach(j => {
       getJobPaymentEntries(j).forEach((entry) => {
         const month = totals.get(getMonthKeyFromDate(entry.date));
@@ -802,12 +809,15 @@ export default function DashboardTab({
     });
     expenses.forEach(e => {
       const month = totals.get(getMonthKey(e.date));
-      if (month) month.variableExpense += e.amount;
+      if (month) {
+        month.variableExpense += e.amount;
+        month.expenseNames.push(e.name);
+      }
     });
     return forecastMonthsList.map(monthKey => {
       const month = totals.get(monthKey)!;
       const totalIncome = month.confirmed + month.pending;
-      const totalExpense = settings.monthlyExpense + month.variableExpense;
+      const totalExpense = fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, month.expenseNames) + month.variableExpense;
       const balance = totalIncome - totalExpense;
       const hasData = totalIncome > 0;
       const status = !hasData
@@ -819,7 +829,7 @@ export default function DashboardTab({
         : { label: 'ปลอดภัย', color: '#18A66A' };
       return { monthKey, balance, hasData, ...status };
     });
-  }, [jobs, expenses, settings.monthlyExpense]);
+  }, [jobs, expenses, settings.monthlyExpense, settings.fixedExpenseItems]);
 
   const currentMonthKeyForCalendar = React.useMemo(() => {
     const now = new Date();
@@ -905,7 +915,7 @@ export default function DashboardTab({
         </button>
         <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
           <p className="text-xs text-brand-muted">รายจ่ายเดือนนี้</p>
-          <p className="mt-1 text-xl font-semibold font-mono text-brand-text">{formatCurrency(totalCashOutThisMonth + settings.monthlyExpense)}</p>
+          <p className="mt-1 text-xl font-semibold font-mono text-brand-text">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
         </div>
         <button
           type="button"
@@ -1576,18 +1586,12 @@ export default function DashboardTab({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-brand-muted">{t('dash.breakdownFixedExpenseRow')}</span>
-                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(settings.monthlyExpense)}</span>
+                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(fixedExpenseThisMonth)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-brand-muted">{t('dash.breakdownVariableExpenseRow', { count: monthVariableExpenses.length })}</span>
                         <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(variableExpenseThisMonth)}</span>
                       </div>
-                      {goalDeductionsThisMonth > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-brand-muted">{t('dash.breakdownGoalDeductionRow', { count: monthGoalDeductions.length })}</span>
-                          <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(goalDeductionsThisMonth)}</span>
-                        </div>
-                      )}
                       <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
                       <div className="flex justify-between">
                         <span className="font-bold text-brand-text dark:text-white">{t('dash.breakdownNetProfitRow')}</span>
@@ -1595,6 +1599,18 @@ export default function DashboardTab({
                           {formatCurrency(profit)}
                         </span>
                       </div>
+                      {goalDeductionsThisMonth > 0 && (
+                        <>
+                          <div className="flex justify-between pt-1">
+                            <span className="text-brand-muted">{t('dash.breakdownGoalDeductionRow', { count: monthGoalDeductions.length })}</span>
+                            <span className="font-mono font-bold text-brand-muted">-{formatCurrency(goalDeductionsThisMonth)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-brand-muted">คงเหลือหลังโอนเข้าเป้าหมายออม</span>
+                            <span className="font-mono font-bold text-brand-text dark:text-white">{formatCurrency(profit - goalDeductionsThisMonth)}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     {/* Itemized variable expenses */}

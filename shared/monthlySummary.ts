@@ -49,8 +49,14 @@ export interface GoalRow {
   }>;
 }
 
+export interface FixedItemRow {
+  name: string;
+  amount: number;
+}
+
 export interface SettingsRow {
   monthlyExpense?: number;
+  fixedExpenseItems?: FixedItemRow[];
   monthlyRevenueGoal?: number;
   savingsPercentage?: number;
 }
@@ -85,6 +91,19 @@ export function previousMonthKey(): string {
 
 export function dateKeyInMonth(dateStr: string | undefined | null, monthKey: string): boolean {
   return !!dateStr && dateStr.substring(0, 7) === monthKey;
+}
+
+// Ticking "รายจ่ายประจำทุกเดือน" on a logged expense also adds it as a fixed item, so a dated
+// expense named like a fixed item is that bill's actual payment for the month: its fixed line is
+// skipped instead of counting the same bill twice.
+export function fixedExpenseForMonth(
+  monthlyExpense: number | undefined,
+  fixedItems: FixedItemRow[] | undefined,
+  monthExpenseNames: Array<string | undefined>,
+): number {
+  if (!fixedItems?.length) return monthlyExpense || 0;
+  const logged = new Set(monthExpenseNames.map((name) => (name || '').trim().toLowerCase()).filter(Boolean));
+  return fixedItems.reduce((sum, item) => (logged.has(item.name.trim().toLowerCase()) ? sum : sum + (item.amount || 0)), 0);
 }
 
 export function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {
@@ -140,12 +159,8 @@ export function computeMonthlySummary(
   // job value here drifted as soon as installment due/paid dates crossed month boundaries.
   const income = received + pending;
 
-  let variableExpense = 0;
-  for (const e of expenses) {
-    if (dateKeyInMonth(e.date, monthKey)) {
-      variableExpense += e.amount || 0;
-    }
-  }
+  const monthExpenses = expenses.filter((e) => dateKeyInMonth(e.date, monthKey));
+  const variableExpense = monthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
   const cashGoalDeductions = goals.reduce((sum, goal) => sum + (goal.history || []).reduce((goalSum, tx) => (
     tx.type === 'deposit' && tx.deductedFromCash && dateKeyInMonth(tx.date, monthKey)
@@ -153,8 +168,7 @@ export function computeMonthlySummary(
       : goalSum
   ), 0), 0);
 
-  const fixedExpense = settings.monthlyExpense || 0;
-  const fixedExpenseCalculated = fixedExpense; // includeFullYearFixed = true (default)
+  const fixedExpenseCalculated = fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, monthExpenses.map((e) => e.name));
   const netFlow = received - fixedExpenseCalculated - variableExpense - cashGoalDeductions;
   // Cash actually left in hand: money received minus money already spent on logged variable
   // expenses this month. fixedExpense is excluded here since it's a recurring budget line
