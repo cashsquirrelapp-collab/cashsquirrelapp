@@ -249,13 +249,13 @@ test('legacy invoice requires owner confirmation and is saved through versioned 
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
  const sidebar=page.locator('aside');
  await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
- await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (0)'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'รายการเอกสาร'}).getByText('0 รายการ')).toBeVisible();
  expect(saved.some(c=>c.table==='cashflow_invoices')).toBe(false);
  await page.getByRole('button',{name:'นำเข้าเอกสารเดิมจากเครื่อง'}).click();
  await page.getByRole('button',{name:'ตกลง',exact:true}).click();
  await expect.poll(()=>saved.filter(c=>c.table==='cashflow_invoices').length).toBe(1);
  expect(saved.find(c=>c.table==='cashflow_invoices')).toMatchObject({id:'legacy-invoice',version:null,op:'set'});
- await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (1)'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'รายการเอกสาร'}).getByText('1 รายการ')).toBeVisible();
 });
 
 test('invoice preview and print render the shared A4 document and the editor offers the four creatable types',async({page,context})=>{
@@ -267,6 +267,12 @@ test('invoice preview and print render the shared A4 document and the editor off
  const sidebar=page.locator('aside');
  await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  const preview=page.getByTestId('document-preview');
+ await expect(page.getByRole('heading',{name:'เอกสาร',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:/ใบเสนอราคา/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/ใบแจ้งหนี้/})).toBeVisible();
+ await expect(page.getByRole('button',{name:'แก้ไข'})).toBeVisible();
+ await expect(page.getByRole('button',{name:/Duplicate/})).toBeVisible();
+ await expect(page.getByTestId('document-preview-canvas')).toBeVisible();
  await expect(preview.getByRole('heading',{name:'ใบเสร็จรับเงิน/ใบกำกับภาษี'})).toBeVisible();
  await expect(preview).toContainText('(ต้นฉบับ)');
  await expect(preview).toContainText('1,900.00');
@@ -405,7 +411,7 @@ test('account switching cannot reuse the previous account invoice working copy',
  await expect(page.getByText('INV-PRIVATE-A').first()).toBeVisible();
  switched=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await expect(page.getByText('INV-PRIVATE-A')).toHaveCount(0);
- await expect(page.getByRole('button',{name:'รายการเอกสารทั้งหมด (0)'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'รายการเอกสาร'}).getByText('0 รายการ')).toBeVisible();
 });
 
 test('a protected API 401 immediately removes private views without waiting for the session timer',async({page})=>{

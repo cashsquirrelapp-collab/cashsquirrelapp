@@ -12,24 +12,30 @@ import {
   FileText, 
   Plus, 
   Trash2, 
-  Printer, 
   Settings, 
-  ChevronRight, 
   ArrowLeft, 
   Copy, 
-  Check, 
   User, 
   Building, 
   Calendar,
   Briefcase,
   AlertCircle,
-  FileSpreadsheet,
   Download,
   Upload,
-  Phone,
-  Mail
+  Send
 } from 'lucide-react';
-import { Mascot } from '../../components/mascot/Mascot';
+
+type DocumentWorkspaceTab = Exclude<DocumentType, 'receiptTaxInvoice'>;
+
+const DOCUMENT_WORKSPACE_TABS: Array<{ key: DocumentWorkspaceTab; label: string }> = [
+  { key: 'quotation', label: 'ใบเสนอราคา' },
+  { key: 'invoice', label: 'ใบแจ้งหนี้' },
+  { key: 'receipt', label: 'ใบเสร็จ' },
+  { key: 'taxInvoice', label: 'ใบกำกับภาษี' }
+];
+
+const getWorkspaceTab = (type: DocumentType): DocumentWorkspaceTab =>
+  type === 'receiptTaxInvoice' ? 'taxInvoice' : type;
 
 // Upload box for the logo / signature images kept on the issuer profile. Exported so the
 // business-profile editor on the Settings page (the only place that edits this profile now)
@@ -150,7 +156,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'list' | 'create'>('list');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
-  const [docTypeFilter, setDocTypeFilter] = useState<'all' | DocumentType>('all');
+  const [docTypeFilter, setDocTypeFilter] = useState<DocumentWorkspaceTab>('quotation');
 
   // Default Issuer Profile
   const [issuerProfile, setIssuerProfile] = useState<InvoiceProfile>({
@@ -398,13 +404,14 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
     saveInvoicesToStorage(updatedList);
     setSelectedInvoice(newInvoice);
+    setDocTypeFilter(getWorkspaceTab(newInvoice.documentType));
     setEditingInvoiceId(null);
     setActiveSubTab('list');
   };
 
   // Delete invoice
-  const handleDeleteInvoice = (id: string, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleDeleteInvoice = (id: string, event?: React.MouseEvent) => {
+    event?.stopPropagation();
     triggerConfirm(
       'ยืนยันการลบบิล',
       'คุณแน่ใจหรือไม่ว่าต้องการลบเอกสารใบนี้? ข้อมูลการออกบิลของใบนี้จะหายไปอย่างถาวร',
@@ -493,8 +500,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   };
 
   // Edit existing invoice
-  const handleStartEditInvoice = (inv: Invoice, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleStartEditInvoice = (inv: Invoice, event?: React.MouseEvent) => {
+    event?.stopPropagation();
     setEditingInvoiceId(inv.id);
     setSelectedJobId('');
     setDocType(inv.documentType);
@@ -540,8 +547,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   });
 
   // Copy details of an invoice to make a new one
-  const handleDuplicateInvoice = (inv: Invoice, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleDuplicateInvoice = (inv: Invoice, event?: React.MouseEvent) => {
+    event?.stopPropagation();
     const thaiYear = new Date().getFullYear() + 543;
     const serial = String(invoices.length + 1).padStart(3, '0');
     const duplicated: Invoice = {
@@ -554,6 +561,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     };
     saveInvoicesToStorage([duplicated, ...invoices]);
     setSelectedInvoice(duplicated);
+    setDocTypeFilter(getWorkspaceTab(duplicated.documentType));
     triggerAlert('คัดลอกบิลสำเร็จ', `สร้างเอกสารใบใหม่โดยคัดลอกโครงร่างจากใบ ${inv.documentNo} เรียบร้อยแล้ว`);
   };
 
@@ -567,10 +575,23 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     }
   };
 
+  const handleSendToCustomer = () => {
+    if (!selectedInvoice) return;
+    if (!selectedInvoice.client.email) {
+      triggerAlert('ยังไม่มีอีเมลลูกค้า', 'กรุณากดแก้ไขและเพิ่มอีเมลลูกค้าก่อนส่งเอกสาร');
+      return;
+    }
+    const meta = getDocumentMeta(selectedInvoice.documentType);
+    const subject = `${meta.th} เลขที่ ${selectedInvoice.documentNo}`;
+    const body = `เรียน ${selectedInvoice.client.name}\n\nกรุณาตรวจสอบ${meta.th} เลขที่ ${selectedInvoice.documentNo} ที่แนบมาพร้อมอีเมลนี้\n\nขอบคุณครับ`;
+    window.location.href = `mailto:${encodeURIComponent(selectedInvoice.client.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
   // Sync selected invoice on load if none selected
   useEffect(() => {
     if (invoices.length > 0 && !selectedInvoice) {
       setSelectedInvoice(invoices[0]);
+      setDocTypeFilter(getWorkspaceTab(invoices[0].documentType));
     }
   }, [invoices, selectedInvoice]);
 
@@ -586,6 +607,15 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     } catch (error: any) { triggerAlert('นำเข้าเอกสารไม่สำเร็จ', error.message); }
   });
 
+  const filteredInvoices = invoices.filter(inv => getWorkspaceTab(inv.documentType) === docTypeFilter);
+
+  const handleWorkspaceTabChange = (tab: DocumentWorkspaceTab) => {
+    setDocTypeFilter(tab);
+    const firstDocument = invoices.find(inv => getWorkspaceTab(inv.documentType) === tab);
+    setSelectedInvoice(firstDocument || null);
+    setActiveSubTab('list');
+  };
+
   return (
     <div className="page-content app-tab-enter space-y-6 pb-16">
       {(storageError || saving || (ownerId && localStorage.getItem('remix_invoices'))) && (
@@ -595,200 +625,132 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         </div>
       )}
       
-      {/* Navigation Sub-Tabs Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-brand-border pb-4 no-print">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveSubTab('list')}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeSubTab === 'list'
-                ? 'bg-[#E65F2B] text-white'
-                : 'bg-brand-white dark:bg-stone-900 text-brand-muted hover:text-brand-text border border-brand-border/60'
-            }`}
-          >
-            รายการเอกสารทั้งหมด ({invoices.length})
-          </button>
-          <button
-            onClick={handleOpenCreateForm}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeSubTab === 'create'
-                ? 'bg-[#E65F2B] text-white'
-                : 'bg-brand-white dark:bg-stone-900 text-brand-muted hover:text-brand-text border border-brand-border/60'
-            }`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>ออกเอกสารใหม่</span>
-          </button>
+      <div className="flex items-center justify-between gap-4 no-print">
+        <div>
+          <h1 className="text-2xl font-black text-brand-text dark:text-white">เอกสาร</h1>
+          <p className="mt-1 text-xs text-brand-muted">จัดการใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ และใบกำกับภาษี</p>
         </div>
-
-        {activeSubTab === 'list' && selectedInvoice && (
-          <button
-            onClick={handlePrintDocument}
-            className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:scale-102 active:scale-98"
-          >
-            <Printer className="w-4 h-4 animate-pulse" />
-            <span>พิมพ์ / บันทึกเป็น PDF</span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleOpenCreateForm}
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#E65F2B] px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-[#CF4E1D]"
+        >
+          <Plus className="h-4 w-4" />
+          <span>ออกเอกสารใหม่</span>
+        </button>
       </div>
 
-      {/* Cute Squirrel Guide Box */}
-      <div className="bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100/60 dark:border-orange-500/10 p-4 rounded-3xl flex items-center gap-4 no-print shadow-xs">
-        <Mascot mood="wave" size={72} className="shrink-0" />
-        <div className="space-y-1">
-          <h4 className="text-xs font-black text-orange-900 dark:text-orange-300">คู่มือออกเอกสารจากคุณกระรอก</h4>
-          <p className="text-[10px] text-orange-800/80 dark:text-orange-400/80 leading-relaxed">
-            ยินดีต้อนรับสู่ระบบออกบิลแสนสะดวกครับ! คุณสามารถเลือกดึงข้อมูลจากดีลงานได้ทันทีโดยไม่ต้องเสียเวลากรอกเอง และแนะนำให้ใส่ข้อมูลบัญชีโอนเงินที่หน้า <span className="font-extrabold text-[#E65F2B]">"ตั้งค่า → โปรไฟล์ธุรกิจ"</span> เพื่อเป็นค่าเริ่มต้นสำหรับเอกสารทุกใบครับ! เมื่อออกเอกสารเสร็จแล้ว สามารถกดพิมพ์หรือเลือกปลายทางเป็น Save as PDF เพื่อนำส่งลูกค้าได้ทันที
-          </p>
+      {activeSubTab === 'list' && (
+        <div className="flex gap-2 overflow-x-auto pb-1 no-print" aria-label="ประเภทเอกสาร">
+          {DOCUMENT_WORKSPACE_TABS.map(tab => {
+            const count = invoices.filter(inv => getWorkspaceTab(inv.documentType) === tab.key).length;
+            const isActive = docTypeFilter === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => handleWorkspaceTabChange(tab.key)}
+                aria-pressed={isActive}
+                className={`shrink-0 rounded-xl px-5 py-3 text-xs font-black transition ${
+                  isActive
+                    ? 'bg-[#FFF0E7] text-[#D85324] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]'
+                    : 'bg-[#F5F6F8] text-brand-muted hover:bg-[#EEEFF2] hover:text-brand-text dark:bg-stone-900 dark:hover:bg-stone-800'
+                }`}
+              >
+                {tab.label}
+                <span className="sr-only"> {count} รายการ</span>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      )}
 
       {/* SUB-TAB 1: DOCUMENTS LIST & LIVE PREVIEW GRID */}
       {activeSubTab === 'list' && (
-        <div className="app-subtab-enter grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* Left Column: List of saved documents (5 cols) */}
-          <div className="lg:col-span-5 space-y-4 no-print">
-            <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-              ประวัติและเอกสารออกบิลของคุณ
-            </h3>
-
-            {/* Document type filter chips */}
-            <div className="flex flex-wrap gap-1.5">
-              {([
-                { key: 'all', label: 'ทั้งหมด' },
-                { key: 'quotation', label: 'ใบเสนอราคา' },
-                { key: 'invoice', label: 'ใบแจ้งหนี้' },
-                { key: 'receipt', label: 'ใบเสร็จรับเงิน' },
-                { key: 'taxInvoice', label: 'ใบกำกับภาษี' },
-              ] as const).map(f => {
-                const count = f.key === 'all' ? invoices.length : invoices.filter(inv => inv.documentType === f.key).length;
-                const isActive = docTypeFilter === f.key;
-                return (
-                  <button
-                    key={f.key}
-                    onClick={() => setDocTypeFilter(f.key)}
-                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-[#E65F2B] text-white'
-                        : 'bg-brand-white dark:bg-stone-900 text-brand-muted hover:text-brand-text border border-brand-border/60'
-                    }`}
-                  >
-                    {f.label} ({count})
-                  </button>
-                );
-              })}
+        <div className="app-subtab-enter grid min-h-[680px] grid-cols-1 items-stretch gap-4 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+          <section className="overflow-hidden rounded-2xl border border-brand-border/70 bg-brand-white dark:bg-stone-900 no-print" aria-label="รายการเอกสาร">
+            <div className="flex items-center justify-between border-b border-brand-border/60 px-5 py-4">
+              <div>
+                <h2 className="text-sm font-black text-brand-text dark:text-white">{DOCUMENT_WORKSPACE_TABS.find(tab => tab.key === docTypeFilter)?.label}</h2>
+                <p className="mt-0.5 text-[10px] font-bold text-brand-muted">{filteredInvoices.length} รายการ</p>
+              </div>
             </div>
 
-            {invoices.length === 0 ? (
-              <div className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-3xl p-8 text-center text-brand-muted flex flex-col items-center">
-                <Mascot mood="sleepy" size={100} className="mx-auto mb-3" />
-                <p className="text-xs font-bold">ยังไม่มีการออกเอกสารบิล</p>
-                <p className="text-[10px] mt-1">คลิกปุ่ม "ออกเอกสารใหม่" ด้านบนเพื่อเริ่มทำใบแจ้งหนี้หรือใบเสร็จรับเงินใบแรกของคุณ</p>
-              </div>
-            ) : invoices.filter(inv => docTypeFilter === 'all' || inv.documentType === docTypeFilter).length === 0 ? (
-              <div className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-3xl p-8 text-center text-brand-muted flex flex-col items-center">
-                <Mascot mood="sleepy" size={80} className="mx-auto mb-3" />
-                <p className="text-xs font-bold">ยังไม่มีเอกสารประเภทนี้</p>
+            {filteredInvoices.length === 0 ? (
+              <div className="flex min-h-[300px] flex-col items-center justify-center px-8 text-center text-brand-muted">
+                <FileText className="mb-3 h-9 w-9 text-brand-border" />
+                <p className="text-xs font-black">ยังไม่มีเอกสารประเภทนี้</p>
+                <button type="button" onClick={handleOpenCreateForm} className="mt-4 text-xs font-black text-[#E65F2B] hover:underline">
+                  + สร้างเอกสารใหม่
+                </button>
               </div>
             ) : (
-              <div className="space-y-2.5 max-h-[700px] overflow-y-auto no-scrollbar">
-                {invoices.filter(inv => docTypeFilter === 'all' || inv.documentType === docTypeFilter).map((inv) => {
+              <div className="max-h-[760px] overflow-y-auto">
+                {filteredInvoices.map((inv) => {
                   const isSelected = selectedInvoice?.id === inv.id;
                   const totals = calculateTotals(inv.items, inv.vatRate, inv.whtRate);
                   
                   return (
                     <div
                       key={inv.id}
-                      onClick={() => setSelectedInvoice(inv)}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center ${
+                      className={`group flex w-full items-center border-b border-brand-border/50 transition last:border-b-0 ${
                         isSelected
-                          ? 'bg-blue-acc/10 border-[#E65F2B] dark:border-[#FFA473] shadow-xs'
-                          : 'bg-brand-white hover:bg-brand-faint/45 dark:bg-stone-900 border-brand-border/60'
+                          ? 'bg-[#FFF0E7] dark:bg-[#E65F2B]/15'
+                          : 'bg-brand-white hover:bg-brand-faint/60 dark:bg-stone-900 dark:hover:bg-stone-800/70'
                       }`}
                     >
-                      <div className="space-y-1 min-w-0 flex-1 pr-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
-                            inv.documentType === 'invoice'
-                              ? 'bg-[#E65F2B]/15 text-[#E65F2B] dark:text-[#FFA473]'
-                              : getDocumentMeta(inv.documentType).isReceipt
-                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
-                          }`}>
-                            {getDocumentMeta(inv.documentType).th}
-                          </span>
-                          <span className="text-xs font-black text-brand-text dark:text-white truncate font-mono">
-                            #{inv.documentNo}
-                          </span>
-                        </div>
-                        <p className="text-[11px] font-bold text-brand-muted dark:text-stone-300 truncate">
-                          {inv.client.name}
-                        </p>
-                        <p className="text-[10px] text-brand-muted/70 flex items-center gap-1 font-mono">
-                          <Calendar className="w-3 h-3" /> {inv.createdDate}
-                        </p>
-                      </div>
-
-                      <div className="text-right flex flex-col items-end shrink-0 gap-1.5">
-                        <span className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400">
-                          {formatCurrency(totals.grandTotal)}
+                      <button type="button" onClick={() => setSelectedInvoice(inv)} className="min-w-0 flex-1 px-5 py-5 text-left">
+                        <span className="block truncate text-sm font-black text-brand-text dark:text-white">{inv.documentNo}</span>
+                        <span className="mt-1 block truncate text-xs font-bold text-brand-muted">
+                          {inv.client.name} · {formatCurrency(totals.grandTotal)}
                         </span>
-                        
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={(e) => handleStartEditInvoice(inv, e)}
-                            title="แก้ไขข้อมูลบิลใบนี้"
-                            className="p-1.5 rounded-lg hover:bg-brand-border/30 dark:hover:bg-stone-800 text-brand-muted hover:text-[#E65F2B] transition-all cursor-pointer border border-brand-border/10"
-                          >
-                            <Settings className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={(e) => handleDuplicateInvoice(inv, e)}
-                            title="คัดลอกโคลนข้อมูลบิลนี้"
-                            className="p-1.5 rounded-lg hover:bg-brand-border/30 dark:hover:bg-stone-800 text-brand-muted hover:text-indigo-500 transition-all cursor-pointer border border-brand-border/10"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={(e) => handleDeleteInvoice(inv.id, e)}
-                            title="ลบเอกสารใบนี้ถาวร"
-                            className="p-1.5 rounded-lg hover:bg-pink-bg/85 dark:hover:bg-[#351C15] text-pink-acc hover:text-[#FFA473] transition-all cursor-pointer border border-pink-acc/10"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => handleDeleteInvoice(inv.id, event)}
+                        aria-label={`ลบเอกสาร ${inv.documentNo}`}
+                        className="mr-3 rounded-lg p-2 text-brand-muted opacity-60 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/20"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
+          </section>
 
-          {/* Right Column: Full beautiful printed-sheet preview (7 cols) */}
-          <div className="lg:col-span-7 space-y-4">
-            <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider no-print">
-              พรีวิวบิลใบแจ้งหนี้ / ใบเสร็จจริง
-            </h3>
-
+          <section className="min-w-0">
             {selectedInvoice ? (
-              <div className="space-y-3">
-                <div className="p-1 bg-brand-white/40 dark:bg-stone-900/40 rounded-xl flex items-center justify-between px-3 text-[10px] text-brand-muted font-black border border-brand-border/30 no-print">
-                  <span>แนะนำวิธีเซฟ PDF: คลิกปุ่มพิมพ์ขวาบน แล้วเลือกปลายทางเป็น "บันทึกเป็น PDF (Save as PDF)"</span>
+              <div className="flex h-full min-w-0 flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-2 no-print" aria-label="คำสั่งเอกสาร">
+                  <button type="button" onClick={() => handleStartEditInvoice(selectedInvoice)} className="rounded-xl bg-[#F5F6F8] px-4 py-3 text-xs font-black text-brand-text transition hover:bg-[#EAEBEE] dark:bg-stone-900 dark:text-white dark:hover:bg-stone-800">
+                    แก้ไข
+                  </button>
+                  <button type="button" onClick={() => handleDuplicateInvoice(selectedInvoice)} className="inline-flex items-center gap-1.5 rounded-xl bg-[#F5F6F8] px-4 py-3 text-xs font-black text-brand-text transition hover:bg-[#EAEBEE] dark:bg-stone-900 dark:text-white dark:hover:bg-stone-800">
+                    <Copy className="h-3.5 w-3.5" /> Duplicate
+                  </button>
+                  <button type="button" onClick={handlePrintDocument} aria-label="พิมพ์ / บันทึกเป็น PDF" className="inline-flex items-center gap-1.5 rounded-xl bg-[#F5F6F8] px-4 py-3 text-xs font-black text-brand-text transition hover:bg-[#EAEBEE] dark:bg-stone-900 dark:text-white dark:hover:bg-stone-800">
+                    <Download className="h-3.5 w-3.5" /> Download PDF
+                  </button>
+                  <button type="button" onClick={handleSendToCustomer} className="inline-flex items-center gap-1.5 rounded-xl bg-[#FF5A16] px-4 py-3 text-xs font-black text-white shadow-sm transition hover:bg-[#E94B0A]">
+                    <Send className="h-3.5 w-3.5" /> ส่งให้ลูกค้า
+                  </button>
                 </div>
-
-                <DocumentPreview invoice={withCurrentBranding(selectedInvoice)} />
+                <div data-testid="document-preview-canvas" className="flex min-h-[620px] flex-1 items-start justify-center overflow-auto rounded-2xl bg-[#F2F3F5] p-4 sm:p-7 lg:p-10 dark:bg-stone-950">
+                  <div className="w-full max-w-[794px] min-w-[680px] shadow-sm">
+                    <DocumentPreview invoice={withCurrentBranding(selectedInvoice)} />
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-3xl p-12 text-center text-brand-muted flex flex-col items-center justify-center min-h-[400px]">
-                <Mascot mood="happy" size={100} className="mx-auto mb-4" />
-                <p className="text-xs font-bold">เลือกบิลในตารางด้านซ้ายเพื่อพรีวิวและเซฟเป็น PDF</p>
-                <p className="text-[10px] mt-1 max-w-sm">หรือหากยังไม่มีเอกสาร ให้กดปุ่ม "ออกเอกสารใหม่" ด้านซ้ายเพื่อกรอกข้อมูลให้เสร็จสรรพ</p>
+              <div className="flex min-h-[680px] flex-col items-center justify-center rounded-2xl bg-[#F2F3F5] p-12 text-center text-brand-muted dark:bg-stone-950">
+                <FileText className="mb-4 h-12 w-12 text-brand-border" />
+                <p className="text-xs font-black">เลือกเอกสารด้านซ้ายเพื่อดูตัวอย่าง</p>
+                <p className="mt-1 text-[10px]">หรือสร้างเอกสารใหม่เพื่อเริ่มใช้งาน</p>
               </div>
             )}
-          </div>
-
+          </section>
         </div>
       )}
 

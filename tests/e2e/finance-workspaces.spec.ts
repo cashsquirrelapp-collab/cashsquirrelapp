@@ -265,12 +265,12 @@ test("invoices, issuer profiles and exports follow the selected group and reset 
 }) => {
   await setup(page);
   await invoices(page);
-  await expect(page.getByText("Personal-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Personal-001", { exact: true })).toBeVisible();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
-  await expect(page.getByText("Team-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Team-001", { exact: true })).toBeVisible();
   await expect(page.getByText("Personal-001", { exact: true })).toHaveCount(0);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(other);
-  await expect(page.getByText("Other-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Other-001", { exact: true })).toBeVisible();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await settings(page);
   // Export from the current income/expense page uses the same scoped invoice snapshot.
@@ -327,9 +327,9 @@ test("removed membership rejects reload and permits returning to personal financ
   const state = await setup(page);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await invoices(page);
-  await expect(page.getByText("Team-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Team-001", { exact: true })).toBeVisible();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(other);
-  await expect(page.getByText("Other-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Other-001", { exact: true })).toBeVisible();
   state.deny();
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await expect(
@@ -338,7 +338,7 @@ test("removed membership rejects reload and permits returning to personal financ
   await expect(page.getByText("Team-001", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Other-001", { exact: true })).toHaveCount(0);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption("");
-  await expect(page.getByText("Personal-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Personal-001", { exact: true })).toBeVisible();
 });
 
 test("a delayed response from the previous group cannot populate the next workspace", async ({
@@ -368,7 +368,7 @@ test("a delayed response from the previous group cannot populate the next worksp
   await expect(page.locator("#dashboard-top")).toBeVisible();
   release();
   await invoices(page);
-  await expect(page.getByText("Other-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "รายการเอกสาร" }).getByText("Other-001", { exact: true })).toBeVisible();
   await expect(page.getByText("Late team-001", { exact: true })).toHaveCount(0);
   await page.waitForTimeout(1800);
   await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toHaveValue(
