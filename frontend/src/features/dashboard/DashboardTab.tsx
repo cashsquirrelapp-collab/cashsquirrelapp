@@ -749,7 +749,7 @@ export default function DashboardTab({
   }, [jobs]);
 
   return (
-    <div id="dashboard-top" className="dashboard-shell flex flex-col gap-6 scroll-mt-6 text-brand-text">
+    <div id="dashboard-top" className="dashboard-shell flex flex-col scroll-mt-6 text-brand-text">
       
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
@@ -807,7 +807,7 @@ export default function DashboardTab({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, delay: 0.1 }}
         aria-label="ทางลัด"
-        className="order-3 relative -mt-1 grid grid-cols-2 gap-2.5 sm:grid-cols-4"
+        className="order-3 relative mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4"
       >
         <button
           type="button"
@@ -881,7 +881,7 @@ export default function DashboardTab({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, delay: 0.12 }}
-        className="order-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]"
+        className="order-4 mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]"
       >
         <IncomeExpenseChart jobs={jobs} expenses={expenses} settings={settings} />
 
@@ -939,7 +939,7 @@ export default function DashboardTab({
 
       {/* Recent activity + mini financial calendar, matching the mockup's second row below
           the chart/watchlist row. */}
-      <div className="order-5 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="order-5 mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
           <div className="mb-1 flex items-center justify-between">
             <h4 className="text-[13px] font-medium text-brand-text">รายการล่าสุด</h4>
@@ -986,7 +986,7 @@ export default function DashboardTab({
         </div>
       </div>
 
-      <div className="order-8"><VineDivider /></div>
+      <div className="order-8 mt-7"><VineDivider /></div>
 
       {/* Quick payment stays out of the overview until the shortcut is used. */}
       {isQuickPayExpanded && createPortal(

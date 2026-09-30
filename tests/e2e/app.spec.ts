@@ -156,6 +156,8 @@ test('login and all feature tabs render after separation without browser errors'
  await page.locator('input[type=password]').first().fill('test-password-123');
  await page.locator('form button[type=submit]').first().click();
  await expect(page.locator('#dashboard-top')).toBeVisible();
+ await expect(page.getByRole('heading',{name:'ภาพรวม',exact:true})).toBeVisible();
+ await expect(page.getByText('Dashboard',{exact:true})).toBeVisible();
  const sidebar=page.locator('aside');
  await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
  await expect(page.getByText('วางแผนวันนี้ ให้เงินเติบโตทุกวัน')).toHaveCount(0);
