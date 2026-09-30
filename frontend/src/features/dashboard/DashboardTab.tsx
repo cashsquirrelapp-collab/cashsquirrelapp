@@ -7,6 +7,8 @@ import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { IncomeExpenseChart } from './IncomeExpenseChart';
 import { MonthlyWorkValueBanner } from './MonthlyWorkValueBanner';
+import JobPaymentDialog from '../jobs/JobPaymentDialog';
+import { useQuickUndo } from '../jobs/useQuickUndo';
 import { Mascot } from '../../components/mascot/Mascot';
 import { IconArrowUpRight } from '../../components/ui/icons';
 import { VineDivider } from '../../components/mascot/VineDivider';
@@ -74,10 +76,26 @@ export default function DashboardTab({
   // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.
   const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | 'profit' | 'expense' | 'workValue' | null>(null);
   const [quickSearch, setQuickSearch] = React.useState('');
-  const [visibleCount, setVisibleCount] = React.useState(3);
+  // Job being paid from the quick-pay list (the shared Jobs-page payment dialog), with undo.
+  const [payingJob, setPayingJob] = React.useState<Job | null>(null);
+  const { apply: applyQuickChange, bar: undoBar } = useQuickUndo(onEditJob ?? (() => {}));
   const [isQuickPayExpanded, setIsQuickPayExpanded] = React.useState(false);
   const [isSendingSimulated, setIsSendingSimulated] = React.useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
+  const moreMenuRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!isMoreMenuOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!moreMenuRef.current?.contains(event.target as Node)) setIsMoreMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setIsMoreMenuOpen(false); };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isMoreMenuOpen]);
 
   // Credit Term Report for the 3-box dashboard
   const creditTermReport = React.useMemo(() => {
@@ -352,19 +370,21 @@ export default function DashboardTab({
     });
   }, [jobs]);
 
+  // Undelivered work with no delivery date has no due date yet; the pending-entry fallback
+  // (its start date) would otherwise read as "เลยกำหนด".
+  const withDueInfo = (j: Job) => {
+    if (j.isPosted === false && !j.postDate) {
+      return { ...j, daysText: 'ยังไม่ส่งงาน', isOverdue: false, daysCount: Number.MAX_SAFE_INTEGER, noDueDate: true };
+    }
+    const rel = getRelativeDaysText(j.payDate || j.postDate);
+    return { ...j, daysText: rel.text, isOverdue: rel.isOverdue, daysCount: rel.daysCount, noDueDate: !(j.payDate || j.postDate) };
+  };
+
   const filteredUnpaidJobs = React.useMemo(() => {
     const q = quickSearch.trim().toLowerCase();
     if (!q) {
       return unpaidJobs
-        .map(j => {
-          const rel = getRelativeDaysText(j.payDate || j.postDate);
-          return {
-            ...j,
-            daysText: rel.text,
-            isOverdue: rel.isOverdue,
-            daysCount: rel.daysCount,
-          };
-        })
+        .map(withDueInfo)
         .sort((a, b) => {
           if (a.isOverdue && !b.isOverdue) return -1;
           if (!a.isOverdue && b.isOverdue) return 1;
@@ -376,15 +396,7 @@ export default function DashboardTab({
         j.name.toLowerCase().includes(q) || 
         (j.client && j.client.toLowerCase().includes(q))
       )
-      .map(j => {
-        const rel = getRelativeDaysText(j.payDate || j.postDate);
-        return {
-          ...j,
-          daysText: rel.text,
-          isOverdue: rel.isOverdue,
-          daysCount: rel.daysCount,
-        };
-      });
+      .map(withDueInfo);
   }, [unpaidJobs, quickSearch]);
 
   // Calculations for Credit Term tracking dashboard
@@ -815,7 +827,7 @@ export default function DashboardTab({
       >
         <button
           type="button"
-          onClick={() => setIsQuickPayExpanded(true)}
+          onClick={() => { setIsMoreMenuOpen(false); setIsQuickPayExpanded(true); }}
           className="flex items-center gap-2.5 rounded-xl border border-[#F8D6C2] bg-[#FFF1E8] px-3.5 py-3 text-left cursor-pointer"
         >
           <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-white">
@@ -843,9 +855,13 @@ export default function DashboardTab({
           </span>
           <span className="text-xs font-medium text-brand-text">เพิ่มรายจ่าย</span>
         </button>
+        {/* display:contents keeps the grid layout; the wrapper only scopes outside-click. */}
+        <div ref={moreMenuRef} className="contents">
         <button
           type="button"
           onClick={() => setIsMoreMenuOpen(v => !v)}
+          aria-haspopup="menu"
+          aria-expanded={isMoreMenuOpen}
           className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left cursor-pointer"
         >
           <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-faint">
@@ -858,7 +874,8 @@ export default function DashboardTab({
           <motion.div
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="absolute right-0 top-[calc(100%+8px)] z-20 w-52 rounded-2xl border border-brand-border bg-brand-white p-1.5 shadow-lg"
+            role="menu"
+            className="absolute right-0 top-[calc(100%+8px)] z-20 w-52 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900"
           >
             {[
               { label: 'ออกเอกสาร', icon: IconArrowUpRight, action: () => onSwitchTab('invoice') },
@@ -869,8 +886,9 @@ export default function DashboardTab({
               <button
                 key={label}
                 type="button"
+                role="menuitem"
                 onClick={() => { action(); setIsMoreMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
               >
                 <Icon className="h-4 w-4 text-brand-muted" />
                 {label}
@@ -878,6 +896,7 @@ export default function DashboardTab({
             ))}
           </motion.div>
         )}
+        </div>
       </motion.section>
 
       {/* Income/expense chart next to the receivables watchlist. */}
@@ -1060,112 +1079,85 @@ export default function DashboardTab({
               </button>
             )}
 
-            <p className="mb-2 text-xs text-brand-muted">รับเงินจากงานไหน?</p>
-            <div className="-mx-1 flex-1 space-y-2 overflow-y-auto px-1">
-              {filteredUnpaidJobs.slice(0, visibleCount).map((j: any) => {
-                const isOverdue = j.isOverdue;
-                return (
-                  <div key={j.id} className="flex flex-col gap-2 rounded-[10px] border border-brand-border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-[13px] font-medium text-brand-text">{j.name}</p>
-                        {isOverdue && (
-                          <span className="shrink-0 rounded-md bg-[#FFF0F0] px-1.5 py-px text-[10px] text-[#C43A3A] dark:bg-rose-950/40 dark:text-rose-300">{t('dash.overdueTag')}</span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 truncate text-[11px] text-brand-muted">
-                        {j.client || t('dash.noClientSpecified')}
-                        <span className={isOverdue ? 'text-[#C43A3A] dark:text-rose-300' : ''}> · {j.daysText || t('dash.noDateSpecified')}</span>
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center justify-between gap-2.5 sm:justify-end">
-                      <span className="font-mono text-[13px] font-semibold text-brand-text">{formatCurrency(j.pending)}</span>
-                      {j.installments?.length ? (
-                        <button
-                          type="button"
-                          onClick={() => onViewJob?.(j.id)}
-                          className="rounded-lg border border-[#E65F2B] px-2.5 py-1.5 text-[11px] font-medium text-[#E65F2B] transition-colors hover:bg-[#FFF1E8] cursor-pointer"
-                        >
-                          รับเงินรายงวด
-                        </button>
-                      ) : (
+            <p className="mb-2 text-xs text-brand-muted">
+              รับเงินจากงานไหน? · ค้างรับ {unpaidJobs.length} งาน {formatCurrency(unpaidJobs.reduce((sum, j) => sum + (j.pending || 0), 0))}
+            </p>
+            {/* Rows follow the Jobs page: thin left accent only when a payment needs attention,
+                due text coloured by urgency, one quiet action per row. */}
+            <div className="-mx-1 flex-1 overflow-y-auto px-1">
+              {filteredUnpaidJobs.length > 0 && (
+                <ul className="divide-y divide-brand-border overflow-hidden rounded-[10px] border border-brand-border">
+                  {filteredUnpaidJobs.map((j: any) => {
+                    const tone = j.noDueDate ? 'normal'
+                      : j.isOverdue ? 'overdue' : j.daysCount === 0 ? 'today' : j.daysCount <= 3 ? 'soon' : 'normal';
+                    const dueClass = tone === 'overdue' ? 'text-[#C43A3A] dark:text-rose-300'
+                      : tone === 'today' ? 'text-[#C24A16] dark:text-orange-300'
+                      : tone === 'soon' ? 'text-amber-700 dark:text-amber-300' : '';
+                    const accent = tone === 'overdue' ? 'shadow-[inset_3px_0_0_#E95454]' : tone === 'normal' ? '' : 'shadow-[inset_3px_0_0_#F08A4B]';
+                    const hasInstallments = Boolean(j.installments?.length);
+                    return (
+                      <li key={j.id} className={`flex items-center gap-3 px-3 py-2.5 ${accent}`}>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-medium text-brand-text">{j.name}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-brand-muted">
+                            {j.client || t('dash.noClientSpecified')}
+                            <span className={dueClass}> · {j.daysText || t('dash.noDateSpecified')}</span>
+                          </p>
+                        </div>
+                        <span className="shrink-0 font-mono text-[13px] font-semibold text-brand-text">{formatCurrency(j.pending)}</span>
                         <button
                           type="button"
                           onClick={() => {
-                            const today = new Date();
-                            const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                            triggerConfirm(
-                              t('dash.confirmFullPaymentTitle'),
-                              t('dash.confirmFullPaymentBody', { amount: formatCurrency(j.pending), name: j.name }),
-                              () => {
-                                if (onEditJob) {
-                                  onEditJob(j.id, {
-                                    status: 'done',
-                                    received: jobNetReceivable(j),
-                                    pending: 0,
-                                    paymentStatus: 'paid',
-                                    payDate: localDateStr,
-                                    // The quick list includes undelivered WIP jobs too; paying one
-                                    // must also mark it delivered, like the same action in JobsTab.
-                                    isPosted: true
-                                  });
-                                }
-                              }
-                            );
+                            if (hasInstallments) { onViewJob?.(j.id); return; }
+                            // Pay against the stored job; this row is a display copy with the
+                            // outstanding amount and next due date filled in.
+                            const stored = jobs.find(job => job.id === j.id);
+                            if (stored) setPayingJob(stored);
                           }}
-                          className="rounded-lg bg-[#E65F2B] px-2.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-[#D85723] cursor-pointer"
+                          className="h-8 shrink-0 rounded-lg border border-brand-border px-3 text-xs font-medium text-brand-text transition-colors hover:border-[#F3B08C] hover:bg-[#FFF1E8] hover:text-[#C24A16] cursor-pointer dark:hover:text-orange-300"
                         >
-                          {t('dash.fullyPaidButton')}
+                          {hasInstallments ? 'รับเงินงวด' : 'รับเงิน'}
                         </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
 
               {filteredUnpaidJobs.length === 0 && (
                 <div className="flex flex-col items-center gap-1.5 rounded-[10px] border border-dashed border-brand-border py-8 text-xs text-brand-muted">
                   <Mascot mood="happy" size={36} />
-                  <span>{t('dash.noUnpaidDeals')}</span>
+                  <span>{quickSearch.trim() ? 'ไม่พบงานที่ค้นหา' : t('dash.noUnpaidDeals')}</span>
                 </div>
               )}
             </div>
 
-            {filteredUnpaidJobs.length > 0 && (
-              <div className="mt-3.5 flex flex-col items-stretch gap-2 sm:flex-row">
-                {filteredUnpaidJobs.length > visibleCount ? (
-                  <button
-                    type="button"
-                    onClick={() => setVisibleCount(prev => prev + 3)}
-                    className="flex-1 rounded-[10px] bg-brand-faint px-4 py-2.5 text-xs font-medium text-brand-text transition-colors hover:bg-brand-border/40 cursor-pointer"
-                  >
-                    {t('dash.showMore', { count: filteredUnpaidJobs.length - visibleCount, remaining: unpaidJobs.length - visibleCount })}
-                  </button>
-                ) : visibleCount > 3 ? (
-                  <button
-                    type="button"
-                    onClick={() => setVisibleCount(3)}
-                    className="flex-1 rounded-[10px] bg-brand-faint px-4 py-2.5 text-xs font-medium text-brand-text transition-colors hover:bg-brand-border/40 cursor-pointer"
-                  >
-                    {t('dash.collapseList')}
-                  </button>
-                ) : (
-                  <div className="hidden flex-1 sm:block" />
-                )}
-                <button
-                  type="button"
-                  onClick={() => onSwitchTab('jobs')}
-                  className="flex items-center justify-center gap-1 rounded-[10px] border border-brand-border px-4 py-2.5 text-xs font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
-                >
-                  {t('dash.manageAllDeals')}
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
+            <div className="mt-3.5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setIsQuickPayExpanded(false); onSwitchTab('jobs'); }}
+                className="inline-flex items-center gap-1 text-xs text-brand-muted transition-colors hover:text-[#E65F2B] cursor-pointer"
+              >
+                {t('dash.manageAllDeals')}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>,
         document.body
       )}
+
+      <JobPaymentDialog
+        job={payingJob}
+        initialMode="full"
+        allowPartial={Boolean(payingJob && !(payingJob.received > 0) && !payingJob.installments?.length)}
+        onClose={() => setPayingJob(null)}
+        onConfirm={(updated, message) => {
+          if (payingJob) applyQuickChange(payingJob, updated, message);
+          setPayingJob(null);
+        }}
+      />
+      {undoBar}
 
       {/* Breakdown popup: which jobs (or, for "กำไรสุทธิ", which deductions) make up the clicked
           hero-card figure */}

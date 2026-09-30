@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 import JobFormDrawer from './JobFormDrawer';
+import JobPaymentDialog, { type PaymentMode } from './JobPaymentDialog';
+import { useQuickUndo } from './useQuickUndo';
 import { jobNetReceivable } from '../../../../shared/wht';
 import { sortJobs, matchesPeriod, periodMonths, monthKeyOf, type JobSort, type JobPeriod } from './jobSort';
 import {
@@ -349,28 +351,7 @@ export default function JobsTab({
 
   // Quick status changes (badges, ⋯ menu, delivery/payment prompts) go through here so each one
   // can be taken back from the undo bar: it restores exactly the fields the change touched.
-  const [undo, setUndo] = useState<{ jobId: string; message: string; previous: Partial<Job> } | null>(null);
-  const [undoHovered, setUndoHovered] = useState(false);
-  React.useEffect(() => {
-    if (!undo || undoHovered) return;
-    const timer = setTimeout(() => setUndo(null), 8000);
-    return () => clearTimeout(timer);
-  }, [undo, undoHovered]);
-
-  const applyQuickChange = (j: Job, updated: Partial<Job>, message: string) => {
-    const previous = Object.fromEntries(
-      (Object.keys(updated) as (keyof Job)[]).map(key => [key, j[key]])
-    ) as Partial<Job>;
-    onEditJob(j.id, updated);
-    setUndo({ jobId: j.id, message: `${message} · ${j.name}`, previous });
-  };
-
-  const undoQuickChange = () => {
-    if (!undo) return;
-    onEditJob(undo.jobId, undo.previous);
-    setUndo(null);
-    setUndoHovered(false);
-  };
+  const { apply: applyQuickChange, bar: undoBar } = useQuickUndo(onEditJob);
 
   // Net amount the client actually pays (value minus withholding tax).
   const netReceivable = (j: Job) => jobNetReceivable(j);
@@ -395,46 +376,9 @@ export default function JobsTab({
 
   // Recording money needs a date (and an amount for a deposit) -- it moves the dashboard's
   // monthly totals, so it is never changed with a single click.
-  const [paymentForm, setPaymentForm] = useState<{ job: Job; mode: 'full' | 'partial'; amount: string; date: string } | null>(null);
-  React.useEffect(() => {
-    if (!paymentForm) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setPaymentForm(null); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [paymentForm]);
-  const markPaidFull = (j: Job) => setPaymentForm({ job: j, mode: 'full', amount: '', date: getLocalDateStr() });
-  const promptPartial = (j: Job) => setPaymentForm({ job: j, mode: 'partial', amount: '', date: getLocalDateStr() });
-
-  const paymentFormAmount = paymentForm ? parseFloat(paymentForm.amount.replace(/,/g, '')) || 0 : 0;
-  const paymentFormError = !paymentForm || !paymentForm.date ? 'กรุณาเลือกวันที่รับเงิน'
-    : paymentForm.mode === 'partial' && paymentFormAmount <= 0 ? 'กรุณาใส่ยอดที่ได้รับ'
-    : paymentForm.mode === 'partial' && paymentFormAmount >= netReceivable(paymentForm.job) ? 'ยอดนี้เท่ากับหรือเกินยอดที่ต้องรับ ให้ใช้ "รับเงินครบ" แทน'
-    : '';
-
-  const confirmPaymentForm = () => {
-    if (!paymentForm || paymentFormError) return;
-    const { job: j, mode, date } = paymentForm;
-    if (mode === 'full') {
-      applyQuickChange(j, {
-        status: 'done',
-        received: netReceivable(j),
-        pending: 0,
-        paymentStatus: 'paid',
-        payDate: date,
-        isPosted: true
-      }, 'รับเงินครบแล้ว');
-    } else {
-      applyQuickChange(j, {
-        status: 'partial',
-        received: paymentFormAmount,
-        pending: Math.max(0, netReceivable(j) - paymentFormAmount),
-        paymentStatus: 'partial',
-        depositDate: date,
-        depositAmount: paymentFormAmount
-      }, `รับบางส่วน ${formatCurrency(paymentFormAmount)}`);
-    }
-    setPaymentForm(null);
-  };
+  const [paymentForm, setPaymentForm] = useState<{ job: Job; mode: PaymentMode } | null>(null);
+  const markPaidFull = (j: Job) => setPaymentForm({ job: j, mode: 'full' });
+  const promptPartial = (j: Job) => setPaymentForm({ job: j, mode: 'partial' });
 
   const describeJob = (j: Job) => {
     const statusInfo = getStatusDisplay(j.status);
@@ -1082,121 +1026,19 @@ export default function JobsTab({
         document.body
       )}
 
-      {paymentForm && createPortal(
-        <div
-          className="fixed inset-0 z-[210] flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
-          onClick={() => setPaymentForm(null)}
-        >
-          <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="quick-payment-title"
-            onClick={(event) => event.stopPropagation()}
-            onSubmit={(event) => { event.preventDefault(); confirmPaymentForm(); }}
-            className="w-full space-y-4 rounded-t-2xl border border-brand-border bg-brand-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl dark:bg-stone-900 sm:max-w-sm sm:rounded-2xl sm:pb-5"
-          >
-            <div>
-              <h3 id="quick-payment-title" className="text-base font-semibold text-brand-text">
-                {paymentForm.mode === 'full' ? 'รับเงินครบ' : 'รับมัดจำ / บางส่วน'}
-              </h3>
-              <p className="mt-0.5 truncate text-xs text-brand-muted">{paymentForm.job.name}{paymentForm.job.client ? ` · ${paymentForm.job.client}` : ''}</p>
-            </div>
+      <JobPaymentDialog
+        job={paymentForm?.job ?? null}
+        initialMode={paymentForm?.mode ?? 'full'}
+        allowPartial={Boolean(paymentForm && getStatusDisplay(paymentForm.job.status).behavior === 'pending' && !describeJob(paymentForm.job).isInstallment)}
+        allowFull={Boolean(paymentForm && paymentForm.job.isPosted !== false && getStatusDisplay(paymentForm.job.status).behavior !== 'done')}
+        onClose={() => setPaymentForm(null)}
+        onConfirm={(updated, message) => {
+          if (paymentForm) applyQuickChange(paymentForm.job, updated, message);
+          setPaymentForm(null);
+        }}
+      />
 
-            {paymentForm.mode === 'full' ? (
-              <div className="rounded-xl bg-brand-faint px-3.5 py-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-xs text-brand-muted">{paymentForm.job.received > 0 ? 'ยอดที่รับครั้งนี้' : 'ยอดที่ได้รับ'}</span>
-                  <span className="font-mono text-lg font-semibold text-brand-text">{formatCurrency(Math.max(0, netReceivable(paymentForm.job) - (paymentForm.job.received || 0)))}</span>
-                </div>
-                {paymentForm.job.received > 0 && (
-                  <p className="mt-1 text-right text-[11px] text-brand-muted">
-                    รับไปแล้ว {formatCurrency(paymentForm.job.received)} · รวม {formatCurrency(netReceivable(paymentForm.job))}
-                  </p>
-                )}
-                {netReceivable(paymentForm.job) < paymentForm.job.value && (
-                  <p className="mt-1 text-right text-[11px] text-brand-muted">
-                    มูลค่างาน {formatCurrency(paymentForm.job.value)} หัก ณ ที่จ่าย {formatCurrency(paymentForm.job.value - netReceivable(paymentForm.job))}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-medium text-brand-text">ยอดที่ได้รับ (บาท)</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  autoFocus
-                  value={paymentForm.amount}
-                  onChange={(event) => setPaymentForm(form => form && { ...form, amount: event.target.value.replace(/[^\d.,]/g, '') })}
-                  placeholder="0"
-                  className="h-11 w-full rounded-xl border border-brand-border bg-brand-white px-3 font-mono text-sm text-brand-text outline-none focus:border-[#E65F2B]"
-                />
-                <span className="mt-1 block text-[11px] text-brand-muted">ยอดที่ต้องรับทั้งหมด {formatCurrency(netReceivable(paymentForm.job))}</span>
-              </label>
-            )}
-
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-brand-text">วันที่รับเงิน</span>
-              <input
-                type="date"
-                value={paymentForm.date}
-                onChange={(event) => setPaymentForm(form => form && { ...form, date: event.target.value })}
-                className="h-11 w-full rounded-xl border border-brand-border bg-brand-white px-3 text-sm text-brand-text outline-none focus:border-[#E65F2B]"
-              />
-            </label>
-
-            {paymentFormError && (paymentForm.mode === 'full' || paymentForm.amount !== '') && (
-              <p role="alert" className="text-xs text-[#C43A3A] dark:text-rose-300">{paymentFormError}</p>
-            )}
-
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setPaymentForm(null)}
-                className="h-11 flex-1 rounded-xl border border-brand-border text-sm text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="submit"
-                disabled={Boolean(paymentFormError)}
-                className="h-11 flex-[2] rounded-xl bg-[#E65F2B] text-sm font-semibold text-white transition-colors hover:bg-[#D85723] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
-              >
-                บันทึกรับเงิน
-              </button>
-            </div>
-          </form>
-        </div>,
-        document.body
-      )}
-
-      {undo && createPortal(
-        <div
-          role="status"
-          aria-live="polite"
-          onMouseEnter={() => setUndoHovered(true)}
-          onMouseLeave={() => setUndoHovered(false)}
-          className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[160] flex w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-xl bg-stone-900 py-2.5 pl-4 pr-2 text-[13px] text-white shadow-lg dark:border dark:border-stone-700 dark:bg-stone-800"
-        >
-          <span className="min-w-0 flex-1 truncate">{undo.message}</span>
-          <button
-            type="button"
-            onClick={undoQuickChange}
-            className="h-8 shrink-0 rounded-lg px-3 font-semibold text-[#FFA473] transition-colors hover:bg-white/10 cursor-pointer"
-          >
-            เลิกทำ
-          </button>
-          <button
-            type="button"
-            onClick={() => { setUndo(null); setUndoHovered(false); }}
-            aria-label="ปิด"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
-          >
-            ×
-          </button>
-        </div>,
-        document.body
-      )}
+      {undoBar}
 
       <JobFormDrawer
         open={isAddJobOpen || Boolean(editingJob)}

@@ -364,7 +364,7 @@ test('uploaded logo and signature are saved to the profile and appear on existin
  await expect(page.getByTestId('document-preview').locator('.da4-top.pos-custom')).toHaveAttribute('style',/--da4-x: 30%/);
 });
 
-test('quick-pay confirm dialog is clickable on top of the quick-pay list, not hidden behind it',async({page})=>{
+test('quick-pay payment dialog is clickable on top of the quick-pay list, not hidden behind it',async({page})=>{
  // Regression test for CustomDialog rendering inline instead of portaled: with an ancestor
  // between it and <body> that opens its own stacking context, its z-[999] only wins inside that
  // context, so a later document.body portal (Dashboard's own quick-pay list) painted over it. The
@@ -385,12 +385,17 @@ test('quick-pay confirm dialog is clickable on top of the quick-pay list, not hi
  await expect(page.getByRole('heading',{name:'บันทึกรับเงินด่วน'})).toBeVisible();
  const quickPayModal=page.locator('.fixed.inset-0').filter({has:page.getByRole('heading',{name:'บันทึกรับเงินด่วน'})});
  await expect(quickPayModal.getByText('ผลิตคลิปโฆษณา TikTok',{exact:true})).toBeVisible();
- await quickPayModal.getByRole('button',{name:'ได้เงินครบแล้ว'}).click();
- const confirmDialog=page.getByRole('dialog',{name:'บันทึกรับเงินครบถ้วน'});
- await expect(confirmDialog).toBeVisible();
- await confirmDialog.getByRole('button',{name:'ตกลง'}).click(); // throws if occluded by the quick-pay modal behind old code
+ await quickPayModal.getByRole('button',{name:'รับเงิน',exact:true}).click();
+ // Same payment dialog as the Jobs page: remaining amount for a partly paid job, and a date.
+ const paymentDialog=page.getByRole('dialog',{name:'บันทึกรับเงิน',exact:true});
+ await expect(paymentDialog).toBeVisible();
+ await expect(paymentDialog.getByText('ยอดที่รับครั้งนี้')).toBeVisible();
+ await expect(paymentDialog.getByText('฿4,000',{exact:true})).toBeVisible();
+ await paymentDialog.getByRole('button',{name:'บันทึกรับเงิน'}).click(); // throws if occluded by the quick-pay modal
  await expect(quickPayModal.getByText('ผลิตคลิปโฆษณา TikTok',{exact:true})).toHaveCount(0);
  await expect.poll(()=>saved.find(c=>c.id==='partial-job')?.data?.paymentStatus).toBe('paid');
+ expect(saved.find(c=>c.id==='partial-job')?.data?.received).toBe(8000);
+ await expect(page.getByRole('status').getByRole('button',{name:'เลิกทำ'})).toBeVisible();
 });
 
 test('expired authentication hides private views and never leaves financial browser caches',async({page})=>{
