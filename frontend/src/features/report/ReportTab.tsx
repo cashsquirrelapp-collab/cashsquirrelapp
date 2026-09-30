@@ -1,24 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Job, Goal, AppSettings, NotifSettings, Expense } from '../../../../shared/types';
+import { Job, Expense } from '../../../../shared/types';
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
-import { formatCurrency } from '../../utils';
+import { formatCurrency, getRelativeDaysText } from '../../utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowDown, ArrowUp, Wallet, Clock } from 'lucide-react';
-import MonthlyReportTab from '../reports/MonthlyReportTab';
+import { ArrowDown, ArrowUp, Wallet, Clock, ArrowRight, TriangleAlert } from 'lucide-react';
 
 interface ReportTabProps {
   jobs: Job[];
   expenses: Expense[];
-  goals: Goal[];
-  settings: AppSettings;
-  onUpdateSettings: (settings: AppSettings) => void;
-  userEmail: string;
-  notifSettings: NotifSettings;
-  onUpdateNotifSettings: (notifSettings: NotifSettings) => void;
   onSwitchTab: (tabId: string) => void;
-  onViewJob?: (jobId: string) => void;
-  triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
-  triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
 }
 
 type ViewKey = 'overview' | 'income' | 'clients' | 'credit';
@@ -31,8 +21,7 @@ const VIEWS: { key: ViewKey; label: string }[] = [
 ];
 
 export default function ReportTab({
-  jobs, expenses, goals, settings, onUpdateSettings, userEmail, notifSettings,
-  onUpdateNotifSettings, onSwitchTab, onViewJob, triggerAlert, triggerConfirm,
+  jobs, expenses, onSwitchTab,
 }: ReportTabProps) {
   const [view, setView] = useState<ViewKey>('overview');
 
@@ -89,6 +78,22 @@ export default function ReportTab({
   const repeatClients = clientRevenue.filter(c => c.count > 1).length;
   const highestOutstanding = [...clientRevenue].sort((a, b) => b.pending - a.pending)[0];
 
+  const receivables = useMemo(() => jobs.filter(job => job.pending > 0 && job.isPosted !== false), [jobs]);
+  const creditSummary = useMemo(() => {
+    let overdue = 0;
+    let dueSoon = 0;
+    for (const job of receivables) {
+      const relative = getRelativeDaysText(job.payDate || job.postDate);
+      if (relative.isOverdue) overdue += 1;
+      else if (relative.daysCount <= 7) dueSoon += 1;
+    }
+    return {
+      total: receivables.reduce((sum, job) => sum + job.pending, 0),
+      overdue,
+      dueSoon,
+    };
+  }, [receivables]);
+
   const tabSwitcher = (
     <div className="flex flex-wrap gap-2">
       {VIEWS.map(v => (
@@ -105,35 +110,6 @@ export default function ReportTab({
       ))}
     </div>
   );
-
-  // The "Credit Term" view is the app's existing, much richer credit-collection & reminder
-  // workflow (MonthlyReportTab) -- it already exceeds the mockup's simple aging-bucket view, so
-  // it's reused as-is rather than reimplemented, and rendered outside the page-content wrapper
-  // since it brings its own.
-  if (view === 'credit') {
-    return (
-      <div className="space-y-4">
-        <div className="page-content !pb-0">
-          <h2 className="mb-3 text-[19px] font-semibold text-brand-text">รายงาน</h2>
-          {tabSwitcher}
-        </div>
-        <MonthlyReportTab
-          jobs={jobs}
-          goals={goals}
-          expenses={expenses}
-          settings={settings}
-          onUpdateSettings={onUpdateSettings}
-          userEmail={userEmail}
-          notifSettings={notifSettings}
-          onUpdateNotifSettings={onUpdateNotifSettings}
-          onSwitchTab={onSwitchTab}
-          onViewJob={onViewJob}
-          triggerAlert={triggerAlert}
-          triggerConfirm={triggerConfirm}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="page-content space-y-4">
@@ -228,6 +204,45 @@ export default function ReportTab({
             </div>
           </div>
         </>
+      )}
+
+      {view === 'credit' && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+              <Clock className="h-5 w-5 text-[#C24A16]" strokeWidth={1.8} />
+              <p className="mt-2 text-xs text-brand-muted">เงินค้างรับทั้งหมด</p>
+              <p className="mt-0.5 text-lg font-semibold text-brand-text">{formatCurrency(creditSummary.total)}</p>
+              <p className="mt-1 text-[11px] text-brand-muted">{receivables.length} รายการ</p>
+            </div>
+            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+              <TriangleAlert className="h-5 w-5 text-[#C43A3A]" strokeWidth={1.8} />
+              <p className="mt-2 text-xs text-brand-muted">เกินกำหนด</p>
+              <p className="mt-0.5 text-lg font-semibold text-brand-text">{creditSummary.overdue} รายการ</p>
+            </div>
+            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+              <Clock className="h-5 w-5 text-[#B97816]" strokeWidth={1.8} />
+              <p className="mt-2 text-xs text-brand-muted">ครบกำหนดภายใน 7 วัน</p>
+              <p className="mt-0.5 text-lg font-semibold text-brand-text">{creditSummary.dueSoon} รายการ</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 rounded-[14px] border border-brand-border bg-brand-white p-[18px] sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-[13px] font-medium text-brand-text">ติดตาม Credit Term</h3>
+              <p className="mt-1 max-w-xl text-xs leading-5 text-brand-muted">
+                ดูรายการครบกำหนด ตั้งเตือน และบันทึกรับเงินได้ที่หน้า “เงินที่ยังไม่ได้รับ”
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSwitchTab('receivables')}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#E65F2B] px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#D85723]"
+            >
+              ไปจัดการเงินค้างรับ <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
       )}
 
     </div>
