@@ -108,25 +108,28 @@ export function fixedExpenseForMonth(
 }
 
 export interface WorkValueBreakdown {
+  /** Net of withholding tax: what these jobs pay out, so it lines up with the received/pending cards. */
   value: number;
+  /** Contract value before withholding tax. */
+  grossValue: number;
   count: number;
   /** Net money received this month from these jobs -- same entries as the "รับเงินจริง" card. */
   received: number;
   /** Net money due this month -- same entries as the "รอรับเงิน" card. */
   pending: number;
-  /** Withholding tax on these jobs: the gap between gross value and what the client pays. */
+  /** Withholding tax deducted automatically: grossValue - value. */
   wht: number;
   /** Rest of these jobs' value that was received earlier or falls due in another month. */
   otherMonths: number;
 }
 
-// "มูลค่างานเดือนนี้": gross value (before WHT) of every job that has money received or a payment
+// "มูลค่างานเดือนนี้": value after withholding tax of every job that has money received or a payment
 // due in the month -- the same entries the dashboard's received and pending cards count (pending
 // skips not-yet-delivered WIP jobs). An installment job counts at its full value in each month it
 // has a payment or due date in, not just that month's installment. value always equals
-// received + pending + wht + otherMonths so the banner can show where the number comes from.
+// received + pending + otherMonths so the banner can show where the number comes from.
 export function workValueForMonth(jobs: Job[], monthKey: string): WorkValueBreakdown {
-  const result: WorkValueBreakdown = { value: 0, count: 0, received: 0, pending: 0, wht: 0, otherMonths: 0 };
+  const result: WorkValueBreakdown = { value: 0, grossValue: 0, count: 0, received: 0, pending: 0, wht: 0, otherMonths: 0 };
   for (const job of jobs) {
     const received = getJobPaymentEntries(job)
       .filter((entry) => dateKeyInMonth(entry.date, monthKey))
@@ -137,14 +140,16 @@ export function workValueForMonth(jobs: Job[], monthKey: string): WorkValueBreak
     const hasPayment = getJobPaymentEntries(job).some((entry) => dateKeyInMonth(entry.date, monthKey));
     if (!hasPayment && dueEntries.length === 0) continue;
     const pending = dueEntries.reduce((sum, entry) => sum + entry.amount, 0);
-    const value = job.value || 0;
-    const wht = job.whtAmount ?? Math.round(value * ((job.whtRate || 0) / 100));
-    result.value += value;
+    const gross = job.value || 0;
+    const wht = job.whtAmount ?? Math.round(gross * ((job.whtRate || 0) / 100));
+    const net = gross - wht;
+    result.value += net;
+    result.grossValue += gross;
     result.count += 1;
     result.received += received;
     result.pending += pending;
     result.wht += wht;
-    result.otherMonths += value - wht - received - pending;
+    result.otherMonths += net - received - pending;
   }
   return result;
 }

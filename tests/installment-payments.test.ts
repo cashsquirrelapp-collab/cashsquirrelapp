@@ -139,7 +139,7 @@ test('a logged bill that is also a fixed item counts once in its month', () => {
   assert.equal(fixedExpenseForMonth(9_000, undefined, ['ค่าห้อง']), 9_000);
 });
 
-test('monthly work value is the gross value of jobs with money in or due that month', () => {
+test('monthly work value is the after-WHT value of jobs with money in or due that month', () => {
   const base = { ...installmentJob, installments: undefined, received: 0, pending: 0, payDate: null, postDate: '2026-08-01' };
   const jobs: Job[] = [
     // deposit this month, rest due next month: counted at full value in both months
@@ -154,19 +154,22 @@ test('monthly work value is the gross value of jobs with money in or due that mo
     { ...base, id: 'w5', value: 8_000, pending: 8_000, isPosted: false, payDate: '2026-09-25' },
   ];
   const sep = workValueForMonth(jobs, '2026-09');
-  assert.equal(sep.value, 525_000);
+  assert.equal(sep.grossValue, 525_000);
+  assert.equal(sep.value, 525_000 - 300);
   assert.equal(sep.count, 4);
   assert.equal(sep.received, 3_000 + 300_000 + 9_700 + 5_000);
   assert.equal(sep.pending, 0);
   assert.equal(sep.wht, 300);
-  assert.equal(sep.value, sep.received + sep.pending + sep.wht + sep.otherMonths);
+  assert.equal(sep.value, sep.received + sep.pending + sep.otherMonths);
+  assert.equal(sep.grossValue - sep.value, sep.wht);
   assert.equal(sep.otherMonths, 7_000 + 200_000);
   const oct = workValueForMonth(jobs, '2026-10');
   assert.equal(oct.value, 510_000);
+  assert.equal(oct.wht, 0);
   assert.equal(oct.count, 2);
   assert.equal(oct.pending, 7_000 + 100_000);
-  assert.equal(oct.value, oct.received + oct.pending + oct.wht + oct.otherMonths);
+  assert.equal(oct.value, oct.received + oct.pending + oct.otherMonths);
   assert.equal(workValueForMonth(jobs, '2026-07').value, 0);
   const paidLater = jobs.map((j) => (j.id === 'w1' ? { ...j, received: 10_000, pending: 0, payDate: '2026-10-05' } : j));
-  assert.equal(workValueForMonth(paidLater, '2026-09').value, 525_000);
+  assert.equal(workValueForMonth(paidLater, '2026-09').value, 525_000 - 300);
 });

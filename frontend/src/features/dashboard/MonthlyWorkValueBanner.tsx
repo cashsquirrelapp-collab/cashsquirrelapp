@@ -4,7 +4,7 @@ import { Job } from '../../../../shared/types';
 import { workValueForMonth } from '../../../../shared/monthlySummary';
 import { dateLocale, formatCurrency } from '../../utils';
 
-const TOOLTIP_TEXT = 'มูลค่าเต็มของงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนนี้ ไม่ว่าจะได้รับเงินแล้วหรือยัง';
+const TOOLTIP_TEXT = 'มูลค่างานหลังหัก ณ ที่จ่าย ของงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนนี้ ไม่ว่าจะได้รับเงินแล้วหรือยัง';
 const TREND_MONTHS = 6;
 
 const shiftMonth = (monthKey: string, delta: number) => {
@@ -78,7 +78,6 @@ export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthK
                     {[
                       { label: 'รับแล้วเดือนนี้', value: current.received },
                       { label: 'รอรับเดือนนี้', value: current.pending },
-                      { label: 'หัก ณ ที่จ่าย', value: current.wht },
                       { label: 'รับก่อนหน้า / ครบกำหนดเดือนอื่น', value: current.otherMonths },
                     ].filter(row => row.value !== 0).map((row, i) => (
                       <div key={row.label} className="flex justify-between gap-3">
@@ -91,6 +90,11 @@ export function MonthlyWorkValueBanner({ jobs, monthKey }: { jobs: Job[]; monthK
                       <dd className="font-mono">{formatCurrency(current.value)}</dd>
                     </div>
                   </dl>
+                )}
+                {current.count > 0 && current.wht > 0 && (
+                  <p className="pt-1 text-[11px] text-brand-muted">
+                    หัก ณ ที่จ่ายให้แล้ว {formatCurrency(current.wht)} (ก่อนหัก {formatCurrency(current.grossValue)})
+                  </p>
                 )}
               </div>
             )}
