@@ -1,3 +1,5 @@
+import { splitReceivedByDate } from './installmentPayments';
+
 export interface JobRow {
   id: string;
   name: string;
@@ -17,6 +19,8 @@ export interface JobRow {
   note?: string;
   isPosted?: boolean;
   paymentStatus?: string;
+  depositDate?: string | null;
+  depositAmount?: number;
   installments?: Array<{
     id: string;
     label: string;
@@ -86,6 +90,7 @@ export function dateKeyInMonth(dateStr: string | undefined | null, monthKey: str
 export function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {
   return jobs.filter((j) =>
     dateKeyInMonth(j.payDate || j.postDate, monthKey)
+    || (!j.installments?.length && dateKeyInMonth(j.depositDate, monthKey))
     || (j.installments || []).some((row) => dateKeyInMonth(row.paidAt || row.dueDate, monthKey))
   );
 }
@@ -125,9 +130,10 @@ export function computeMonthlySummary(
             : sum
         ), 0);
       }
-    } else if (dateKeyInMonth(dateKey, monthKey)) {
-      received += j.received || 0;
-      if (j.isPosted !== false) pending += j.pending || 0;
+    } else {
+      received += splitReceivedByDate(j.received || 0, j.depositAmount, j.depositDate, dateKey || null)
+        .reduce((sum, part) => (dateKeyInMonth(part.date, monthKey) ? sum + part.amount : sum), 0);
+      if (j.isPosted !== false && dateKeyInMonth(dateKey, monthKey)) pending += j.pending || 0;
     }
   }
   // This is the Dashboard's contract-value definition for the selected month. Using the gross

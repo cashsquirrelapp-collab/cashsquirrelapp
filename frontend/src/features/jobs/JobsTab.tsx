@@ -111,6 +111,7 @@ export default function JobsTab({
   const [formClient, setFormClient] = useState('');
   const [formValue, setFormValue] = useState('');
   const [formReceived, setFormReceived] = useState('');
+  const [formDepositDate, setFormDepositDate] = useState(getLocalDateStr());
   const [formStatus, setFormStatus] = useState<string>('pending');
   const [formCreditTerm, setFormCreditTerm] = useState<number>(0);
   // Unlike formStartDate (WIP), this one is left blank by default -- it's the actual delivery/
@@ -176,6 +177,7 @@ export default function JobsTab({
   const [editClient, setEditClient] = useState('');
   const [editValue, setEditValue] = useState('');
   const [editReceived, setEditReceived] = useState('');
+  const [editDepositDate, setEditDepositDate] = useState(getLocalDateStr());
   const [editStatus, setEditStatus] = useState('');
   const [editCreditTerm, setEditCreditTerm] = useState<number>(0);
   const [editPostDate, setEditPostDate] = useState('');
@@ -200,6 +202,7 @@ export default function JobsTab({
       setEditClient(editingJob.client || '');
       setEditValue(String(editingJob.value));
       setEditReceived(String(editingJob.received));
+      setEditDepositDate(editingJob.depositDate || getLocalDateStr());
       setEditStatus(editingJob.status);
       setEditCreditTerm(editingJob.creditTerm);
       setEditPostDate(editingJob.postDate || getLocalDateStr());
@@ -364,9 +367,14 @@ export default function JobsTab({
     const paymentStatusPatch = editingJob.paymentStatus && editingJob.paymentStatus !== derivedPaymentStatus
       ? { paymentStatus: derivedPaymentStatus }
       : {};
+    // A fully-paid edit keeps the recorded deposit so it still counts in the month it arrived.
+    const depositPatch = editStatus !== 'installment' && behavior === 'partial' && receivedNum > 0
+      ? { depositDate: editDepositDate || getLocalDateStr(), depositAmount: receivedNum }
+      : receivedNum > 0 ? {} : { depositDate: null, depositAmount: 0 };
 
     onEditJob(editingJob.id, {
       ...paymentStatusPatch,
+      ...depositPatch,
       name: editName,
       type: finalType,
       client: editClient,
@@ -513,6 +521,9 @@ export default function JobsTab({
       isPosted: formIsPosted,
       payDate: payDateCalculated,
       paymentStatus: derivedPaymentStatus,
+      ...(formStatus !== 'installment' && behavior === 'partial' && receivedNum > 0
+        ? { depositDate: formDepositDate || getLocalDateStr(), depositAmount: receivedNum }
+        : {}),
       note: formNote,
       whtRate: formWhtRate,
       whtAmount: whtAmountNum,
@@ -525,6 +536,7 @@ export default function JobsTab({
     setFormClient('');
     setFormValue('');
     setFormReceived('');
+    setFormDepositDate(getLocalDateStr());
     setFormStatus('pending');
     setFormType('ยังไม่ระบุ');
     setCustomTypeInput('');
@@ -606,6 +618,7 @@ export default function JobsTab({
               setFormClient('');
               setFormValue('');
               setFormReceived('');
+              setFormDepositDate(getLocalDateStr());
               setFormStatus('pending');
               setFormType('ยังไม่ระบุ');
               setCustomTypeInput('');
@@ -868,7 +881,8 @@ export default function JobsTab({
                                         received: amt,
                                         pending: Math.max(0, (j.value - Math.round(j.value * ((j.whtRate || 0) / 100))) - amt),
                                         paymentStatus: 'partial',
-                                        payDate: localDateStr
+                                        depositDate: localDateStr,
+                                        depositAmount: amt
                                       });
                                     }
                                   }
@@ -1353,6 +1367,15 @@ export default function JobsTab({
                             value={formReceived}
                             onChange={setFormReceived}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
+                          />
+                          <label htmlFor="form-deposit-date" className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block pt-1.5">วันที่รับมัดจำ</label>
+                          <input
+                            id="form-deposit-date"
+                            type="date"
+                            value={formDepositDate}
+                            max={getLocalDateStr()}
+                            onChange={(e) => setFormDepositDate(e.target.value)}
+                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500"
                           />
                         </div>
                       )}
@@ -2009,6 +2032,15 @@ export default function JobsTab({
                             value={editReceived}
                             onChange={setEditReceived}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
+                          />
+                          <label htmlFor="edit-deposit-date" className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block pt-1.5">วันที่รับมัดจำ</label>
+                          <input
+                            id="edit-deposit-date"
+                            type="date"
+                            value={editDepositDate}
+                            max={getLocalDateStr()}
+                            onChange={(e) => setEditDepositDate(e.target.value)}
+                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500"
                           />
                         </div>
                       )}

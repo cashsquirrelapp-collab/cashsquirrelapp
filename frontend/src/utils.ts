@@ -1,5 +1,6 @@
 import { Job, FixedExpenseItem } from '../../shared/types';
 import { currentLanguage } from './i18n/currentLanguage.js';
+import { getOutstandingAmount } from '../../shared/installmentPayments';
 
 // The built-in job type chips every account starts with. Anything a user adds via
 // "เขียนประเภทงานเอง..." is a custom type, kept separate in the picker so it can be removed.
@@ -26,6 +27,12 @@ export const formatCurrency = (val: number): string => {
     maximumFractionDigits: 0,
   }).format(val).replace('THB', '฿');
 };
+
+export const toLocalDateKey = (date = new Date()): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+export const isReminderDue = (job: Job, todayKey = toLocalDateKey()): boolean =>
+  !!job.remindAt && job.remindAt <= todayKey && getOutstandingAmount(job) > 0;
 
 export const formatAxisBaht = (val: number, symbol = '฿'): string => {
   const abs = Math.abs(val);

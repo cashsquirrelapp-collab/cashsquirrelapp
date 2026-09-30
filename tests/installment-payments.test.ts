@@ -94,3 +94,33 @@ test('monthly notification summary matches dashboard cash totals', () => {
   assert.equal(summary.netFlow, 2_200);
   assert.equal(summary.receivedAfterVariableExpense, 2_500);
 });
+
+test('a deposit counts in the month it was received, not the remaining balance due month', () => {
+  const partial: Job = {
+    ...installmentJob, id: 'job-3', installments: undefined, value: 8_000, received: 4_000, pending: 4_000,
+    status: 'partial', payDate: '2026-10-10', depositDate: '2026-09-25', depositAmount: 4_000,
+  };
+  assert.equal(getReceivedForMonth(partial, '2026-09'), 4_000);
+  assert.equal(getReceivedForMonth(partial, '2026-10'), 0);
+  assert.equal(getPendingForMonth(partial, '2026-10'), 4_000);
+  const summarySep = computeMonthlySummary([partial], [], [], {}, '2026-09');
+  const summaryOct = computeMonthlySummary([partial], [], [], {}, '2026-10');
+  assert.equal(summarySep.received, 4_000);
+  assert.equal(summaryOct.received, 0);
+  assert.equal(summaryOct.income, 4_000);
+  assert.ok(jobsInMonth([partial], '2026-09').length === 1);
+
+  const paidLater: Job = { ...partial, received: 8_000, pending: 0, status: 'done', paymentStatus: 'paid', payDate: '2026-10-08' };
+  assert.deepEqual(getJobPaymentEntries(paidLater).map(({ label, amount, date }) => ({ label, amount, date })), [
+    { label: 'รับมัดจำ', amount: 4_000, date: '2026-09-25' },
+    { label: 'รับเงิน', amount: 4_000, date: '2026-10-08' },
+  ]);
+  assert.equal(computeMonthlySummary([paidLater], [], [], {}, '2026-09').received, 4_000);
+  assert.equal(computeMonthlySummary([paidLater], [], [], {}, '2026-10').received, 4_000);
+});
+
+test('jobs without a recorded deposit date keep the old single-date behavior', () => {
+  const legacyPartial: Job = { ...installmentJob, id: 'job-4', installments: undefined, received: 3_000, pending: 2_000, payDate: '2026-10-01' };
+  assert.equal(getReceivedForMonth(legacyPartial, '2026-10'), 3_000);
+  assert.equal(computeMonthlySummary([legacyPartial], [], [], {}, '2026-10').received, 3_000);
+});

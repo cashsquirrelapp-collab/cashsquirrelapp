@@ -37,6 +37,9 @@ export interface Job {
   excludeHolidays?: boolean; // ไม่นับวันหยุดราชการและเสาร์-อาทิตย์ ในการคำนวณวันดีล/เครดิตเทอม
   followUpCount?: number; // จำนวนครั้งที่ติดตามทวงถามเครดิตเทอม
   lastFollowUpDate?: string; // วันที่ติดตามล่าสุด (YYYY-MM-DD)
+  depositDate?: string | null; // วันที่รับเงินมัดจำจริง (YYYY-MM-DD) -- แยกจาก payDate ที่เป็นวันครบกำหนดยอดที่เหลือ
+  depositAmount?: number; // ยอดมัดจำที่รับ ณ depositDate
+  remindAt?: string | null; // วันที่ให้แอปเตือนตัวเองให้ตามเงินงานนี้ (YYYY-MM-DD)
   installments?: JobInstallment[]; // ตารางรับเงินแต่ละงวด (มีเฉพาะงานที่แบ่งชำระ)
 }
 

@@ -1,9 +1,9 @@
 import { privateCache } from '../services/privateCache';
 import { validateChanges, notificationPreferences } from '../../../shared/validation';
-import React, { useState, useEffect, useRef, lazy, Suspense, startTransition } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense, startTransition } from 'react';
 import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense, GoalTransaction } from '../../../shared/types';
 import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from '../sampleData';
-import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES, dateLocale } from '../utils';
+import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES, dateLocale, formatCurrency, isReminderDue, toLocalDateKey } from '../utils';
 
 const loadDashboardTab = () => import('../features/dashboard/DashboardTab');
 const loadJobsTab = () => import('../features/jobs/JobsTab');
@@ -1412,9 +1412,9 @@ export default function App() {
           setTimeout(() => {
             triggerConfirm(
               'ตรวจพบดีลค้างชำระเลยกำหนด!',
-              `ระบบตรวจพบดีลงานเลยกำหนดเครดิตเทอมใหม่วันนี้ (จำนวน ${newCount} รายการ)\n\nคุณต้องการไปที่ "แดชบอร์ดติดตามทวงถามเครดิตเทอม" เพื่อตรวจสอบคิวทวงหนี้และกดส่งอีเมลทวงถามเลยไหมครับ?`,
+              `ระบบตรวจพบดีลงานเลยกำหนดเครดิตเทอมใหม่วันนี้ (จำนวน ${newCount} รายการ)\n\nต้องการไปที่หน้าเงินรอรับ เพื่อตั้งเตือนหรือบันทึกรับเงินเลยไหมครับ?`,
               () => {
-                navigateTab('report');
+                navigateTab('receivables');
               }
             );
           }, 1500);
@@ -1422,6 +1422,25 @@ export default function App() {
       }
     }
   }, [session, isLoadedForUser, jobs, statuses, notifSettings.enabled]);
+
+  // Self-reminders set from the receivables "เตือนฉัน" button: nudge once per day when opened.
+  const dueReminderJobs = useMemo(() => jobs.filter(j => isReminderDue(j)), [jobs]);
+  useEffect(() => {
+    if (!(session?.user?.email && isLoadedForUser === session.user.email) || dueReminderJobs.length === 0) return;
+    const shownKey = `cs_reminders_shown_${session.user.email}_${toLocalDateKey()}`;
+    try {
+      if (localStorage.getItem(shownKey)) return;
+      localStorage.setItem(shownKey, '1');
+    } catch {
+      // Without storage the nudge may repeat on reload; the badge and card still show it.
+    }
+    const [first, ...rest] = dueReminderJobs;
+    fireMascot({
+      mood: 'alert',
+      message: `ถึงเวลาตามเงินแล้ว: ${first.client || first.name} ${formatCurrency(first.pending)}${rest.length ? ` และอีก ${rest.length} รายการ` : ''} ดูได้ที่หน้าเงินรอรับ`,
+      duration: 9000,
+    });
+  }, [session, isLoadedForUser, dueReminderJobs]);
 
   // Best-effort push to LINE (if linked) whenever a job/expense is added straight through the
   // web app -- mirrors the same "bank app" receipt the LINE bot/LIFF form already send, so
@@ -2490,10 +2509,17 @@ export default function App() {
                   </div>
                   <button
                     type="button"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-brand-border bg-brand-white text-brand-muted transition-colors hover:text-brand-text cursor-pointer"
-                    aria-label="การแจ้งเตือน"
+                    onClick={() => navigateTab('receivables')}
+                    className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-brand-border bg-brand-white text-brand-muted transition-colors hover:text-brand-text cursor-pointer"
+                    aria-label={dueReminderJobs.length ? `การแจ้งเตือน: ถึงเวลาตามเงิน ${dueReminderJobs.length} รายการ` : 'การแจ้งเตือน'}
+                    title={dueReminderJobs.length ? `ถึงเวลาตามเงิน ${dueReminderJobs.length} รายการ` : 'ดูเงินที่ต้องติดตาม'}
                   >
                     <Bell className="h-4 w-4" />
+                    {dueReminderJobs.length > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E65F2B] px-1 text-[9px] font-semibold text-white">
+                        {dueReminderJobs.length}
+                      </span>
+                    )}
                   </button>
                   <button
                     type="button"

@@ -63,6 +63,8 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
       payDate: toISODate(addDays(today, 10)),
       dueDate: toISODate(addDays(today, 10)),
       paymentStatus: 'partial',
+      depositDate: toISODate(addDays(today, -5)),
+      depositAmount: 4000,
       note: 'มัดจำมาแล้วครึ่งหนึ่ง ที่เหลือรอตัดจบ',
     },
     {

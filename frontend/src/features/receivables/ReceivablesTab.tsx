@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Job } from '../../../../shared/types';
-import { formatCurrency, getRelativeDaysText, safeFormatThaiDate } from '../../utils';
+import { formatCurrency, getRelativeDaysText, safeFormatThaiDate, toLocalDateKey, isReminderDue } from '../../utils';
 import { Mascot } from '../../components/mascot/Mascot';
 
 interface ReceivablesTabProps {
@@ -62,8 +62,19 @@ export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerAler
     );
   };
 
-  const remindMe = (j: Job) => {
-    triggerAlert('ตั้งเตือนแล้ว', `จะเตือนให้ติดตามเงินค้างรับจาก "${j.client || j.name}" อีกครั้ง`);
+  const [reminderPickerFor, setReminderPickerFor] = useState<string | null>(null);
+
+  const setReminder = (j: Job, daysAhead: number | null) => {
+    setReminderPickerFor(null);
+    if (daysAhead === null) {
+      onEditJob(j.id, { remindAt: null });
+      return;
+    }
+    const at = new Date();
+    at.setDate(at.getDate() + daysAhead);
+    const remindAt = toLocalDateKey(at);
+    onEditJob(j.id, { remindAt });
+    triggerAlert('ตั้งเตือนแล้ว', `แอปจะเตือนให้ตามเงินจาก "${j.client || j.name}" วันที่ ${safeFormatThaiDate(remindAt)}`);
   };
 
   if (unpaidJobs.length === 0) {
@@ -129,10 +140,19 @@ export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerAler
                         <div className="flex gap-1.5">
                           <button
                             type="button"
-                            onClick={() => remindMe(j)}
-                            className="rounded-lg bg-brand-faint px-2.5 py-1.5 text-[11px] text-brand-muted hover:bg-brand-border/40 transition-colors cursor-pointer"
+                            onClick={() => setReminderPickerFor(prev => (prev === j.id ? null : j.id))}
+                            aria-expanded={reminderPickerFor === j.id}
+                            className={`rounded-lg px-2.5 py-1.5 text-[11px] transition-colors cursor-pointer ${
+                              isReminderDue(j)
+                                ? 'bg-[#FFF1E8] font-medium text-[#C24A16]'
+                                : 'bg-brand-faint text-brand-muted hover:bg-brand-border/40'
+                            }`}
                           >
-                            เตือนฉัน
+                            {isReminderDue(j)
+                              ? 'ถึงเวลาตามแล้ว'
+                              : j.remindAt
+                                ? `เตือน ${safeFormatThaiDate(j.remindAt, { day: 'numeric', month: 'short' })}`
+                                : 'เตือนฉัน'}
                           </button>
                           <button
                             type="button"
@@ -143,6 +163,34 @@ export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerAler
                           </button>
                         </div>
                       </div>
+                      {reminderPickerFor === j.id && (
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-brand-border pt-2.5">
+                          <span className="mr-1 text-[11px] text-brand-muted">เตือนฉันอีกครั้ง</span>
+                          {[
+                            { label: 'พรุ่งนี้', days: 1 },
+                            { label: 'อีก 3 วัน', days: 3 },
+                            { label: 'อีก 7 วัน', days: 7 },
+                          ].map(option => (
+                            <button
+                              key={option.days}
+                              type="button"
+                              onClick={() => setReminder(j, option.days)}
+                              className="rounded-lg border border-brand-border px-2.5 py-1 text-[11px] text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                          {j.remindAt && (
+                            <button
+                              type="button"
+                              onClick={() => setReminder(j, null)}
+                              className="rounded-lg px-2.5 py-1 text-[11px] text-brand-muted hover:text-brand-text cursor-pointer"
+                            >
+                              ยกเลิกการเตือน
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

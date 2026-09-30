@@ -755,6 +755,7 @@ export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; clien
     postDate: today,
     isPosted: true,
     payDate,
+    ...(status === 'partial' && received > 0 ? { depositDate: today, depositAmount: received } : {}),
     note: draft.note || '',
   };
 }
