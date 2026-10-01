@@ -485,12 +485,12 @@ export default function JobsTab({
     </span>
   );
 
-  const paymentBadge = (payment: string, overdue: boolean, interactive = false) => (
+  // One colour per payment state, always. Lateness is shown by the red due date and the row's
+  // left accent, so the badge doesn't also turn red (that made "ยังไม่จ่าย" look like two states).
+  const paymentBadge = (payment: string, interactive = false) => (
     <span className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
       payment === 'รับครบแล้ว'
         ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-        : overdue
-        ? 'bg-[#FFF0F0] text-[#C43A3A] dark:bg-rose-950/40 dark:text-rose-300'
         : payment === 'รับบางส่วน'
         ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
         : payment === 'แบ่งงวด'
@@ -700,7 +700,6 @@ export default function JobsTab({
               <tbody>
                 {sortedJobs.map((j) => {
                   const info = describeJob(j);
-                  const overdue = info.dueTone === 'overdue';
                   return (
                     <tr
                       key={j.id}
@@ -722,10 +721,10 @@ export default function JobsTab({
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-1">
                           {badgeMenu(j, 'stage', i => stageBadge(info.stage, i), 'สถานะงาน')}
-                          <span className="lg:hidden">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, overdue, i), 'การชำระ')}</span>
+                          <span className="lg:hidden">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), 'การชำระ')}</span>
                         </div>
                       </td>
-                      <td className="hidden px-3 py-3 lg:table-cell">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, overdue, i), 'การชำระ')}</td>
+                      <td className="hidden px-3 py-3 lg:table-cell">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), 'การชำระ')}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold text-brand-text">{formatCurrency(j.value)}</td>
                       <td className="px-2 py-3 text-right">
                         <button
@@ -768,7 +767,7 @@ export default function JobsTab({
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       {badgeMenu(j, 'stage', i => stageBadge(info.stage, i), 'สถานะงาน')}
-                      {badgeMenu(j, 'payment', i => paymentBadge(info.payment, info.dueTone === 'overdue', i), 'การชำระ')}
+                      {badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), 'การชำระ')}
                       <span className={`text-[11px] ${dueClass(info.dueTone)}`}>{info.dueText}</span>
                     </div>
                     <button
