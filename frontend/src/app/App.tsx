@@ -7,7 +7,6 @@ import { getMonthKey, DEFAULT_JOB_TYPES, dateLocale, formatCurrency, isReminderD
 
 const loadDashboardTab = () => import('../features/dashboard/DashboardTab');
 const loadJobsTab = () => import('../features/jobs/JobsTab');
-const loadExpenseRecordView = () => import('../features/expenses/ExpenseRecordView');
 const loadSplitTab = () => import('../features/goals/SplitTab');
 const loadTaxTab = () => import('../features/tax/TaxTab');
 const loadSettingsTab = () => import('../features/settings/SettingsTab').then(module => ({ default: module.SettingsTab }));
@@ -27,7 +26,6 @@ const ReportOverviewTab = lazy(loadReportOverviewTab);
 const CalendarTab = lazy(loadCalendarTab);
 const JobsTab = lazy(loadJobsTab);
 const DashboardTab = lazy(loadDashboardTab);
-const ExpenseRecordView = lazy(loadExpenseRecordView);
 const SplitTab = lazy(loadSplitTab);
 import CustomDialog from '../components/ui/CustomDialog';
 import { ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
@@ -168,7 +166,7 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   clients: loadClientsTab,
   receivables: loadReceivablesTab,
   calendar: loadCalendarTab,
-  incomeExpense: () => Promise.all([loadIncomeExpenseTab(), loadExpenseRecordView()]),
+  incomeExpense: loadIncomeExpenseTab,
 };
 const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch(() => {}); };
 
@@ -1229,7 +1227,7 @@ export default function App() {
     if (expenseId) setScrollToExpenseId(expenseId);
     if (openAddJob) setIsAddJobOpen(true);
     if (openAddExpense) setAutoOpenAddExpense(true);
-    // Expenses are managed on the รายรับ-รายจ่าย page; jobs on the Jobs page.
+    // Expenses are managed on the การเงิน page; jobs on the Jobs page.
     navigateTab(expenseId || openAddExpense ? 'incomeExpense' : 'jobs');
 
     params.delete('job');
@@ -2668,24 +2666,25 @@ export default function App() {
                 />
               )}
               {activeTab === 'incomeExpense' && (
-                <div className="space-y-6">
-                  <IncomeExpenseTab jobs={jobs} expenses={expenses} onExportData={handleExportData} triggerAlert={triggerAlert} />
-                    <ExpenseRecordView
-                      expenses={expenses}
-                      onAddExpense={handleAddExpense}
-                      onEditExpense={handleEditExpense}
-                      onDeleteExpense={handleDeleteExpense}
-                      selectedMonth={selectedMonthKey}
-                      triggerAlert={triggerAlert}
-                      triggerConfirm={triggerConfirm}
-                      autoOpenAdd={autoOpenAddExpense}
-                      onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
-                      scrollToExpenseId={scrollToExpenseId}
-                      onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
-                      settings={settings}
-                      onUpdateSettings={handleUpdateSettings}
-                    />
-                </div>
+                <IncomeExpenseTab
+                  jobs={jobs}
+                  expenses={expenses}
+                  settings={settings}
+                  onUpdateSettings={handleUpdateSettings}
+                  onAddExpense={handleAddExpense}
+                  onEditExpense={handleEditExpense}
+                  onDeleteExpense={handleDeleteExpense}
+                  onEditJob={handleEditJob}
+                  onViewJob={handleViewJob}
+                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
+                  onExportData={handleExportData}
+                  triggerAlert={triggerAlert}
+                  triggerConfirm={triggerConfirm}
+                  autoOpenAdd={autoOpenAddExpense}
+                  onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
+                  scrollToExpenseId={scrollToExpenseId}
+                  onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
+                />
               )}
               {activeTab === 'calendar' && (
                 <CalendarTab
