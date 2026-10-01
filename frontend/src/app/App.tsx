@@ -63,6 +63,7 @@ import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
 import { IconCrown } from '../components/ui/icons';
 import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
+import { BrandLogo } from '../components/brand/BrandLogo';
 import type { GroupSummary, PublicProfile } from '../../../shared/groups';
 
 import { 
@@ -2211,7 +2212,7 @@ export default function App() {
           title={t("nav.backToDashboard")}
         >
           <div className="shrink-0">
-              <Mascot mood="happy" size={32} />
+              <BrandLogo size={34} />
           </div>
           <div>
             <h1 className="font-display font-bold text-sm tracking-tight text-brand-text">
@@ -2309,7 +2310,7 @@ export default function App() {
                     title={t("nav.backToDashboard")}
                   >
                     <div className="shrink-0">
-                      <Mascot mood="happy" size={36} />
+                      <BrandLogo size={36} />
                     </div>
                     <div>
                       <h1 className="font-display font-black text-xs tracking-tight text-brand-text">
