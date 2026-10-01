@@ -2,9 +2,9 @@ import React from 'react';
 import { Briefcase, Info } from 'lucide-react';
 import { Job } from '../../../../shared/types';
 import { workValueForMonth } from '../../../../shared/monthlySummary';
-import { dateLocale, formatCurrency } from '../../utils';
+import { dateLocale, formatCurrency, withMonth } from '../../utils';
 
-const TOOLTIP_TEXT = 'มูลค่างานหลังหัก ณ ที่จ่าย ของงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนนี้ ไม่ว่าจะได้รับเงินแล้วหรือยัง';
+const TOOLTIP_TEXT = 'มูลค่างานหลังหัก ณ ที่จ่าย ของงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนที่เลือก ไม่ว่าจะได้รับเงินแล้วหรือยัง';
 const TREND_MONTHS = 6;
 
 const shiftMonth = (monthKey: string, delta: number) => {
@@ -51,10 +51,10 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
         </span>
         <div className="min-w-0">
           <div className="relative flex items-center gap-1.5">
-            <p id="work-value-label" className="text-sm font-medium text-brand-muted">มูลค่างานเดือนนี้</p>
+            <p id="work-value-label" className="text-sm font-medium text-brand-muted">{withMonth('มูลค่างาน', monthKey)}</p>
             <button
               type="button"
-              aria-label="มูลค่างานเดือนนี้คืออะไร"
+              aria-label={`${withMonth('มูลค่างาน', monthKey)}คืออะไร`}
               aria-describedby={tooltipOpen ? tooltipId : undefined}
               aria-expanded={tooltipOpen}
               onClick={(e) => { e.stopPropagation(); setTooltipOpen(true); }}
@@ -78,8 +78,8 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
                 {current.count > 0 && (
                   <dl className="mt-2 space-y-0.5 border-t border-brand-border pt-2">
                     {[
-                      { label: 'รับแล้วเดือนนี้', value: current.received },
-                      { label: 'รอรับเดือนนี้', value: current.pending },
+                      { label: withMonth('รับแล้ว', monthKey), value: current.received },
+                      { label: withMonth('รอรับ', monthKey), value: current.pending },
                       { label: 'รับก่อนหน้า / ครบกำหนดเดือนอื่น', value: current.otherMonths },
                     ].filter(row => row.value !== 0).map((row, i) => (
                       <div key={row.label} className="flex justify-between gap-3">
@@ -88,7 +88,7 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
                       </div>
                     ))}
                     <div className="flex justify-between gap-3 border-t border-brand-border pt-1 font-semibold">
-                      <dt>= มูลค่างานเดือนนี้</dt>
+                      <dt>= {withMonth('มูลค่างาน', monthKey)}</dt>
                       <dd className="font-mono">{formatCurrency(current.value)}</dd>
                     </div>
                   </dl>
@@ -104,14 +104,14 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOpenDetails(); }}
-            aria-label={`ดูรายละเอียดมูลค่างานเดือนนี้ ${formatCurrency(current.value)}`}
+            aria-label={`ดูรายละเอียด${withMonth('มูลค่างาน', monthKey)} ${formatCurrency(current.value)}`}
             className="mt-0.5 block rounded-md text-left font-mono text-[30px] font-semibold leading-9 text-brand-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E65F2B] cursor-pointer"
           >
             {formatCurrency(current.value)}
           </button>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1">
             <p className="text-sm text-brand-muted">
-              {current.count > 0 ? `${current.count} งาน` : 'ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดในเดือนนี้'}
+              {current.count > 0 ? `${current.count} งาน` : withMonth('ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดใน', monthKey)}
             </p>
             <div className="sm:hidden">{comparison}</div>
           </div>

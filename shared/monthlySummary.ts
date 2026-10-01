@@ -98,6 +98,22 @@ export function dateKeyInMonth(dateStr: string | undefined | null, monthKey: str
 // Ticking "รายจ่ายประจำทุกเดือน" on a logged expense also adds it as a fixed item, so a dated
 // expense named like a fixed item is that bill's actual payment for the month: its fixed line is
 // skipped instead of counting the same bill twice.
+/**
+ * YYYY-MM of the account's earliest dated record (job start/delivery/payment or expense), or
+ * null when there is none. Fixed monthly costs only count from this month on: months before
+ * the account existed must not show rent or subscriptions as spent.
+ */
+export function firstActivityMonth(
+  jobs: Job[],
+  expenses: { date?: string | null }[],
+): string | null {
+  const dates = [
+    ...jobs.flatMap(job => [job.startDate, job.postDate, ...getJobPaymentEntries(job).map(entry => entry.date)]),
+    ...expenses.map(expense => expense.date),
+  ].filter((date): date is string => typeof date === 'string' && /^\d{4}-\d{2}/.test(date)).sort();
+  return dates[0]?.slice(0, 7) ?? null;
+}
+
 export function fixedExpenseForMonth(
   monthlyExpense: number | undefined,
   fixedItems: FixedItemRow[] | undefined,

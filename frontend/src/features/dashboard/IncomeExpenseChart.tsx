@@ -3,17 +3,18 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Respons
 import { ChevronDown } from 'lucide-react';
 import { AppSettings, Expense, Job } from '../../../../shared/types';
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
-import { fixedExpenseForMonth } from '../../../../shared/monthlySummary';
+import { firstActivityMonth, fixedExpenseForMonth } from '../../../../shared/monthlySummary';
 import { dateLocale, formatCurrency, toLocalDateKey } from '../../utils';
 
-type RangeKey = '7d' | '30d' | '3m' | '12m';
+type RangeKey = '1m' | '3m' | '12m';
 type Granularity = 'day' | 'week' | 'month';
 
-const RANGES: { key: RangeKey; label: string; granularities: Granularity[] }[] = [
-  { key: '7d', label: '7 วันล่าสุด', granularities: ['day'] },
-  { key: '30d', label: '30 วันล่าสุด', granularities: ['day', 'week'] },
-  { key: '3m', label: '3 เดือนล่าสุด', granularities: ['week', 'month'] },
-  { key: '12m', label: '12 เดือนล่าสุด', granularities: ['month'] },
+// Spans end at the dashboard's selected month (the header period picker), so the chart has no
+// month selector of its own: the selected month alone, or the 3 / 12 months up to it.
+const RANGES: { key: RangeKey; label: string; months: number; granularities: Granularity[] }[] = [
+  { key: '1m', label: 'ทั้งเดือน', months: 1, granularities: ['day', 'week'] },
+  { key: '3m', label: '3 เดือน', months: 3, granularities: ['week', 'month'] },
+  { key: '12m', label: '12 เดือน', months: 12, granularities: ['month'] },
 ];
 
 const GRANULARITY_LABELS: Record<Granularity, string> = { day: 'แบบวัน', week: 'แบบสัปดาห์', month: 'แบบเดือน' };
@@ -41,13 +42,20 @@ const mondayKey = (dateKey: string) => {
   return toLocalDateKey(d);
 };
 
-function buildBuckets(range: RangeKey, granularity: Granularity, jobs: Job[], expenses: Expense[], settings: AppSettings): Bucket[] {
-  const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  if (range === '7d') start.setDate(start.getDate() - 6);
-  if (range === '30d') start.setDate(start.getDate() - 29);
-  if (range === '3m') start.setMonth(start.getMonth() - 2, 1);
-  if (range === '12m') start.setMonth(start.getMonth() - 11, 1);
+/** First and last day the chart covers: the span ending at monthKey, cut off at today. */
+export function chartWindow(range: RangeKey, monthKey: string, now = new Date()) {
+  const [y, m] = monthKey.split('-').map(Number);
+  const months = RANGES.find(r => r.key === range)!.months;
+  const start = new Date(y, m - 1 - (months - 1), 1);
+  const monthEnd = new Date(y, m, 0);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // The current month stops at today; a future month still shows its (empty) days.
+  const end = monthEnd > today && start <= today ? today : monthEnd;
+  return { start, end };
+}
+
+function buildBuckets(range: RangeKey, granularity: Granularity, jobs: Job[], expenses: Expense[], settings: AppSettings, monthKey: string): Bucket[] {
+  const { start, end: today } = chartWindow(range, monthKey);
 
   const keys: string[] = [];
   const cursor = new Date(start);
@@ -61,8 +69,9 @@ function buildBuckets(range: RangeKey, granularity: Granularity, jobs: Job[], ex
   }
 
   const startKey = toLocalDateKey(start);
+  const endKey = toLocalDateKey(today);
   const bucketOf = (dateKey: string | null | undefined) => {
-    if (!dateKey || dateKey.slice(0, 10) < startKey) return null;
+    if (!dateKey || dateKey.slice(0, 10) < startKey || dateKey.slice(0, 10) > endKey) return null;
     const day = dateKey.slice(0, 10);
     return granularity === 'day' ? day : granularity === 'week' ? mondayKey(day) : day.slice(0, 7);
   };
@@ -83,11 +92,7 @@ function buildBuckets(range: RangeKey, granularity: Granularity, jobs: Job[], ex
   // Fixed costs are a monthly budget line with no date, so they only fit the monthly view -- and
   // only from the first month the account has any record, not for months before it existed.
   if (granularity === 'month') {
-    const activityDates = [
-      ...jobs.flatMap(job => [job.startDate, job.postDate, ...getJobPaymentEntries(job).map(entry => entry.date)]),
-      ...expenses.map(expense => expense.date),
-    ].filter((date): date is string => !!date).sort();
-    const firstMonth = activityDates[0]?.slice(0, 7);
+    const firstMonth = firstActivityMonth(jobs, expenses);
     totals.forEach((bucket, monthKey) => {
       if (firstMonth && monthKey >= firstMonth) {
         bucket.expense += fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, bucket.expenseNames);
@@ -127,8 +132,8 @@ function ChartSelect<T extends string>({ value, options, onChange, label }: {
   );
 }
 
-export function IncomeExpenseChart({ jobs, expenses, settings }: { jobs: Job[]; expenses: Expense[]; settings: AppSettings }) {
-  const [range, setRange] = React.useState<RangeKey>('7d');
+export function IncomeExpenseChart({ jobs, expenses, settings, monthKey }: { jobs: Job[]; expenses: Expense[]; settings: AppSettings; monthKey: string }) {
+  const [range, setRange] = React.useState<RangeKey>('1m');
   const [granularity, setGranularity] = React.useState<Granularity>('day');
   const rangeMeta = RANGES.find(r => r.key === range)!;
 
@@ -139,14 +144,21 @@ export function IncomeExpenseChart({ jobs, expenses, settings }: { jobs: Job[]; 
   };
 
   const data = React.useMemo(
-    () => buildBuckets(range, granularity, jobs, expenses, settings),
-    [range, granularity, jobs, expenses, settings],
+    () => buildBuckets(range, granularity, jobs, expenses, settings, monthKey),
+    [range, granularity, jobs, expenses, settings, monthKey],
   );
+  const { start, end } = chartWindow(range, monthKey);
+  const periodText = range === '1m'
+    ? start.toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' })
+    : `${start.toLocaleDateString(dateLocale(), { month: 'short', year: start.getFullYear() === end.getFullYear() ? undefined : 'numeric' })} – ${end.toLocaleDateString(dateLocale(), { month: 'short', year: 'numeric' })}`;
 
   return (
     <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2.5">
-        <h4 className="text-[15px] font-semibold text-brand-text">รายรับ-รายจ่าย</h4>
+        <div>
+          <h4 className="text-[15px] font-semibold text-brand-text">รายรับ-รายจ่าย</h4>
+          <p className="mt-0.5 text-[11px] text-brand-muted">{periodText}</p>
+        </div>
         <div className="flex items-center gap-2">
           <ChartSelect
             label="ช่วงเวลา"

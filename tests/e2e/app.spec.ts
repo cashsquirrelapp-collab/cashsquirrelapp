@@ -83,7 +83,7 @@ test('completing onboarding persists and never repeats',async({page})=>{
   return route.fulfill({json:{snapshot:{...snapshot,settings:storedSettings},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
  await page.goto('/');
- for(let step=0;step<3;step++)await page.getByRole('button',{name:'ถัดไป'}).click();
+ for(let step=0;step<3;step++)await page.getByRole('button',{name:'ถัดไป',exact:true}).click();
  await page.getByRole('button',{name:'เริ่มใช้งานเลย!'}).click();
  await expect.poll(()=>storedSettings.profileSetupCompleted).toBe(true);
  await page.reload();

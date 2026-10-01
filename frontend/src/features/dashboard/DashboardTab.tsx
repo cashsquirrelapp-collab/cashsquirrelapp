@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
 import { jobNetReceivable } from '../../../../shared/wht';
-import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../../utils';
+import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate, withMonth, currentMonthKeyNow } from '../../utils';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { IncomeExpenseChart } from './IncomeExpenseChart';
@@ -14,7 +14,7 @@ import { IconArrowUpRight } from '../../components/ui/icons';
 import { VineDivider } from '../../components/mascot/VineDivider';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate, getOutstandingAmount } from '../../../../shared/installmentPayments';
-import { fixedExpenseForMonth, workValueRowsForMonth } from '../../../../shared/monthlySummary';
+import { firstActivityMonth, fixedExpenseForMonth, workValueRowsForMonth } from '../../../../shared/monthlySummary';
 import {
   TrendingUp,
   TrendingDown,
@@ -593,7 +593,12 @@ export default function DashboardTab({
     [expenses, selectedMonthKey],
   );
   const variableExpenseThisMonth = monthVariableExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const fixedExpenseThisMonth = fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, monthVariableExpenses.map(e => e.name));
+  // Fixed costs only from the account's first recorded month (or this month for a new account),
+  // so browsing back past the start doesn't show rent as spent in months nothing existed.
+  const fixedCostsFrom = React.useMemo(() => firstActivityMonth(jobs, expenses) ?? currentMonthKeyNow(), [jobs, expenses]);
+  const fixedFor = (monthKey: string, expenseNames: string[]) =>
+    monthKey >= fixedCostsFrom ? fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, expenseNames) : 0;
+  const fixedExpenseThisMonth = fixedFor(selectedMonthKey, monthVariableExpenses.map(e => e.name));
 
   // Money moved into savings goals this month via the deposit modal's "deduct from cash"
   // option. Tracked on the goal transaction itself, never as a fake Expense -- a savings
@@ -634,8 +639,9 @@ export default function DashboardTab({
   const prevMonthProfit = React.useMemo(() => {
     const prevExpenses = expenses.filter(e => getMonthKey(e.date) === prevMonthKey);
     const prevVariable = prevExpenses.reduce((sum, e) => sum + e.amount, 0);
-    return prevMonthReceived - fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, prevExpenses.map(e => e.name)) - prevVariable;
-  }, [expenses, prevMonthKey, prevMonthReceived, settings.monthlyExpense, settings.fixedExpenseItems]);
+    return prevMonthReceived - fixedFor(prevMonthKey, prevExpenses.map(e => e.name)) - prevVariable;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses, prevMonthKey, prevMonthReceived, settings.monthlyExpense, settings.fixedExpenseItems, fixedCostsFrom]);
   const profitChangePct = prevMonthProfit > 0
     ? Math.round(((profit - prevMonthProfit) / prevMonthProfit) * 100)
     : null;
@@ -720,18 +726,17 @@ export default function DashboardTab({
       .slice(0, 5);
   }, [jobs, expenses]);
 
-  const currentMonthKeyForCalendar = React.useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }, []);
+  const currentMonthKeyForCalendar = selectedMonthKey;
 
   const miniCalendarDays = React.useMemo(() => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const [year, month] = (() => { const [y, m] = selectedMonthKey.split('-').map(Number); return [y, m - 1]; })();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstWeekday = new Date(year, month, 1).getDay();
-    const todayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    // Real today (the month shown may be another one); "due soon" is within the next 7 days.
+    const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const todayKey = dayKey(now);
+    const soonKey = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7));
 
     const dayColor = new Map<string, { bg: string; color: string }>();
     jobs.forEach(j => {
@@ -740,7 +745,7 @@ export default function DashboardTab({
         const key = dueDate.slice(0, 10);
         const isPaid = j.pending <= 0;
         const isOverdue = !isPaid && key < todayKey;
-        const isDueSoon = !isPaid && !isOverdue && key <= todayKey.slice(0, 8) + String(now.getDate() + 7).padStart(2, '0');
+        const isDueSoon = !isPaid && !isOverdue && key <= soonKey;
         dayColor.set(key, isPaid
           ? { bg: '#E9F8F1', color: '#18A66A' }
           : isOverdue
@@ -762,7 +767,7 @@ export default function DashboardTab({
         : { n: d, key, ...(style || { bg: 'transparent', color: 'inherit' }) });
     }
     return cells;
-  }, [jobs]);
+  }, [jobs, selectedMonthKey]);
 
   return (
     <div id="dashboard-top" className="dashboard-shell flex flex-col scroll-mt-6 text-brand-text">
@@ -779,7 +784,7 @@ export default function DashboardTab({
           onClick={() => setBreakdownFilter('received')}
           className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
         >
-          <p className="text-xs text-brand-muted">รับเงินจริงเดือนนี้</p>
+          <p className="text-xs text-brand-muted">{withMonth('รับเงินจริง', selectedMonthKey)}</p>
           <p className="mt-1 text-xl leading-7 font-semibold font-mono text-brand-text">{formatCurrency(totalReceived)}</p>
         </button>
         <button
@@ -787,7 +792,7 @@ export default function DashboardTab({
           onClick={() => setBreakdownFilter('pending')}
           className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
         >
-          <p className="text-xs text-brand-muted">รอรับเงิน</p>
+          <p className="text-xs text-brand-muted">{selectedMonthKey === currentMonthKeyNow() ? 'รอรับเงิน' : `รอรับ ${formatMonthKey(selectedMonthKey)}`}</p>
           <p className="mt-1 text-xl leading-7 font-semibold font-mono text-[#E65F2B]">{formatCurrency(totalPending)}</p>
         </button>
         <button
@@ -795,7 +800,7 @@ export default function DashboardTab({
           onClick={() => setBreakdownFilter('expense')}
           className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
         >
-          <p className="text-xs text-brand-muted">รายจ่ายเดือนนี้</p>
+          <p className="text-xs text-brand-muted">{withMonth('รายจ่าย', selectedMonthKey)}</p>
           <p className="mt-1 text-xl leading-7 font-semibold font-mono text-brand-text">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
         </button>
         <button
@@ -906,7 +911,7 @@ export default function DashboardTab({
         transition={{ duration: 0.32, delay: 0.12 }}
         className="order-4 mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]"
       >
-        <IncomeExpenseChart jobs={jobs} expenses={expenses} settings={settings} />
+        <IncomeExpenseChart jobs={jobs} expenses={expenses} settings={settings} monthKey={selectedMonthKey} />
 
         {upcomingPayments.length > 0 && (
           <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
@@ -915,7 +920,11 @@ export default function DashboardTab({
                 <Mascot mood="thinking" size={28} />
               </div>
               <div className="min-w-0 flex-1">
-                <h4 className="text-[13px] font-medium text-brand-text">เงินที่ต้องติดตาม</h4>
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-[13px] font-medium text-brand-text">เงินที่ต้องติดตาม</h4>
+                  {/* Always today's receivables, whatever month the dashboard is showing. */}
+                  <span className="rounded-md bg-brand-faint px-1.5 py-px text-[10px] text-brand-muted" title="แสดงข้อมูล ณ วันนี้ ไม่ขึ้นกับเดือนที่เลือก">สถานะปัจจุบัน</span>
+                </div>
                 <p className="text-[11px] text-brand-muted">เรียงจากเร่งด่วนที่สุดก่อน</p>
               </div>
               <button
@@ -1210,8 +1219,8 @@ export default function DashboardTab({
                     {breakdownFilter === 'received' && t('dash.breakdownReceivedTitle')}
                     {breakdownFilter === 'pending' && t('dash.breakdownPendingTitle')}
                     {breakdownFilter === 'profit' && t('dash.breakdownProfitTitle')}
-                    {breakdownFilter === 'expense' && 'รายจ่ายเดือนนี้มาจากอะไรบ้าง'}
-                    {breakdownFilter === 'workValue' && 'มูลค่างานเดือนนี้มาจากงานไหนบ้าง'}
+                    {breakdownFilter === 'expense' && `${withMonth('รายจ่าย', selectedMonthKey)}มาจากอะไรบ้าง`}
+                    {breakdownFilter === 'workValue' && `${withMonth('มูลค่างาน', selectedMonthKey)}มาจากงานไหนบ้าง`}
                   </h3>
                   {breakdownFilter === 'expense' && (
                     <p className="text-xs text-brand-muted mt-0.5">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
@@ -1236,7 +1245,7 @@ export default function DashboardTab({
                       {summaryRow(`รายจ่ายที่บันทึก (${monthVariableExpenses.length} รายการ)`, variableExpenseThisMonth, 'text-brand-text dark:text-white', '+ ')}
                       <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
                       <div className="flex justify-between gap-3">
-                        <span className="font-bold text-brand-text dark:text-white">= รายจ่ายเดือนนี้</span>
+                        <span className="font-bold text-brand-text dark:text-white">= {withMonth('รายจ่าย', selectedMonthKey)}</span>
                         <span className="font-mono font-black text-brand-text dark:text-white">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</span>
                       </div>
                     </div>
@@ -1249,7 +1258,7 @@ export default function DashboardTab({
                             <div key={item.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
                               <div className="min-w-0">
                                 <p className={`truncate ${item.covered ? 'text-brand-muted' : 'text-brand-text dark:text-white'}`}>{item.name}</p>
-                                {item.covered && <p className="text-[10px] text-brand-muted">บันทึกจ่ายเดือนนี้แล้ว นับจากรายการที่บันทึกด้านล่าง</p>}
+                                {item.covered && <p className="text-[10px] text-brand-muted">บันทึกจ่ายแล้วในเดือนนี้ นับจากรายการที่บันทึกด้านล่าง</p>}
                               </div>
                               <span className={`font-mono font-bold shrink-0 ${item.covered ? 'text-brand-muted line-through' : 'text-brand-text dark:text-white'}`}>{formatCurrency(item.amount)}</span>
                             </div>
@@ -1259,7 +1268,7 @@ export default function DashboardTab({
                     )}
 
                     <div>
-                      <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">รายจ่ายที่บันทึกเดือนนี้</p>
+                      <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">{withMonth('รายจ่ายที่บันทึก', selectedMonthKey)}</p>
                       {monthVariableExpenses.length > 0 ? (
                         <div className="space-y-1.5">
                           {monthVariableExpenses.map(e => (
@@ -1273,19 +1282,19 @@ export default function DashboardTab({
                           ))}
                         </div>
                       ) : (
-                        <p className="py-3 text-center text-xs text-brand-muted">ยังไม่มีรายจ่ายที่บันทึกในเดือนนี้</p>
+                        <p className="py-3 text-center text-xs text-brand-muted">{withMonth('ยังไม่มีรายจ่ายที่บันทึกใน', selectedMonthKey)}</p>
                       )}
                     </div>
                   </div>
                 ) : breakdownFilter === 'workValue' ? (
                   <div className="overflow-y-auto space-y-3 -mx-1 px-1">
                     <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
-                      {summaryRow('รับแล้วเดือนนี้', workTotals.received)}
-                      {summaryRow('รอรับเดือนนี้', workTotals.pending, 'text-brand-text dark:text-white', '+ ')}
+                      {summaryRow(withMonth('รับแล้ว', selectedMonthKey), workTotals.received)}
+                      {summaryRow(withMonth('รอรับ', selectedMonthKey), workTotals.pending, 'text-brand-text dark:text-white', '+ ')}
                       {workTotals.otherMonths !== 0 && summaryRow('รับก่อนหน้า / ครบกำหนดเดือนอื่น', workTotals.otherMonths, 'text-brand-text dark:text-white', '+ ')}
                       <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
                       <div className="flex justify-between gap-3">
-                        <span className="font-bold text-brand-text dark:text-white">= มูลค่างานเดือนนี้</span>
+                        <span className="font-bold text-brand-text dark:text-white">= {withMonth('มูลค่างาน', selectedMonthKey)}</span>
                         <span className="font-mono font-black text-brand-text dark:text-white">{formatCurrency(workTotals.value)}</span>
                       </div>
                       {workTotals.wht > 0 && (
@@ -1317,7 +1326,7 @@ export default function DashboardTab({
                         );
                       })}
                       {workRows.length === 0 && (
-                        <p className="text-xs text-brand-muted text-center py-6">ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดในเดือนนี้</p>
+                        <p className="text-xs text-brand-muted text-center py-6">{withMonth('ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดใน', selectedMonthKey)}</p>
                       )}
                     </div>
                   </div>

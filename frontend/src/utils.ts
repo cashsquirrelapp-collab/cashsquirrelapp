@@ -122,6 +122,16 @@ export const getForecastMonths = (baseDate = new Date()): string[] => {
 
 // Format month key to a display label -- Thai month + Buddhist Era year in Thai ("ก.ย. 2569"),
 // Gregorian month + year in English ("Sep 2026") -- each reads naturally to its own audience.
+/** YYYY-MM of today, local time. */
+export const currentMonthKeyNow = (): string => toLocalDateKey().slice(0, 7);
+
+/**
+ * Appends the month to a label: "รายจ่ายเดือนนี้" for the current month, "รายจ่าย ส.ค. 2569"
+ * for any other, so dashboard labels stay true while viewing a past or future month.
+ */
+export const withMonth = (base: string, monthKey: string): string =>
+  monthKey === currentMonthKeyNow() ? `${base}เดือนนี้` : `${base} ${formatMonthKey(monthKey)}`;
+
 export const formatMonthKey = (key: string): string => {
   const [yearStr, monthStr] = key.split('-');
   const monthIdx = parseInt(monthStr) - 1;

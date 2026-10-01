@@ -62,6 +62,7 @@ const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').the
 import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
 import { IconCrown } from '../components/ui/icons';
+import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
 import type { GroupSummary, PublicProfile } from '../../../shared/groups';
 
 import { 
@@ -818,6 +819,9 @@ export default function App() {
   }, []);
 
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey);
+  // The dashboard's own period (header picker). Kept apart from selectedMonthKey, which other
+  // pages read without showing any month control of their own.
+  const [dashboardMonthKey, setDashboardMonthKey] = useState<string>(currentMonthKey);
 
   const availableMonthKeys = React.useMemo(() => {
     const keys = new Set<string>();
@@ -2468,12 +2472,16 @@ export default function App() {
           <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
-            <section className="mb-4 flex items-center justify-between gap-4 border-b border-brand-border/30 pb-3" aria-labelledby="dashboard-title">
+            <section className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-brand-border/30 pb-3" aria-labelledby="dashboard-title">
               <div className="min-w-0">
                 <h1 id="dashboard-title" className="text-2xl font-semibold leading-tight tracking-tight text-brand-text sm:text-[26px]">ภาพรวม</h1>
                 <p className="mt-0.5 text-[13px] font-normal text-brand-muted">Dashboard</p>
               </div>
-              <div className="flex items-center justify-end gap-2">
+              <div className="contents sm:flex sm:items-center sm:justify-end sm:gap-2">
+                {/* Phones: its own full-width row under the title; wider screens: before the bell. */}
+                <div className="order-last w-full sm:order-none sm:w-auto">
+                  <DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} />
+                </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
@@ -2528,7 +2536,7 @@ export default function App() {
                   onUpdateSettings={handleUpdateSettings}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   statuses={statuses}
-                  selectedMonthKey={selectedMonthKey}
+                  selectedMonthKey={dashboardMonthKey}
                   onEditJob={handleEditJob}
                   onViewJob={handleViewJob}
                   onOpenCalendar={(dateKey?: string) => { setCalendarFocusDate(dateKey ?? null); navigateTab('calendar'); }}
