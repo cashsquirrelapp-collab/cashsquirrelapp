@@ -63,7 +63,7 @@ import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
 import { IconCrown } from '../components/ui/icons';
 import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
-import { BrandLogo } from '../components/brand/BrandLogo';
+import { BrandLockup } from '../components/brand/BrandLogo';
 import type { GroupSummary, PublicProfile } from '../../../shared/groups';
 
 import { 
@@ -2211,17 +2211,7 @@ export default function App() {
           className="flex items-center gap-2.5 mb-7 px-2 cursor-pointer text-left hover:opacity-80 transition-opacity"
           title={t("nav.backToDashboard")}
         >
-          <div className="shrink-0">
-              <BrandLogo size={34} />
-          </div>
-          <div>
-            <h1 className="font-display font-bold text-sm tracking-tight text-brand-text">
-              กระรอกตุนเงิน
-            </h1>
-            <p className="text-[9px] text-[#E65F2B] dark:text-[#FFA473] font-semibold tracking-wide">
-              คลังกระรอกตุนเสบียง
-            </p>
-          </div>
+          <BrandLockup size={34} />
         </button>
 
         {/* Desktop Sidebar Navigation List */}
@@ -2309,17 +2299,7 @@ export default function App() {
                     className="flex items-center gap-2.5 cursor-pointer text-left"
                     title={t("nav.backToDashboard")}
                   >
-                    <div className="shrink-0">
-                      <BrandLogo size={36} />
-                    </div>
-                    <div>
-                      <h1 className="font-display font-black text-xs tracking-tight text-brand-text">
-                        กระรอกตุนเงิน
-                      </h1>
-                      <p className="text-[9px] text-[#E65F2B] dark:text-[#FFA473] font-black uppercase tracking-wider">
-                        คลังกระรอกตุนเสบียง
-                      </p>
-                    </div>
+                    <BrandLockup size={32} />
                   </button>
                   <button
                     onClick={() => setIsMobileMenuOpen(false)}

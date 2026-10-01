@@ -20,6 +20,7 @@ export type MascotAction =
   | 'idle'
   | 'wave'
   | 'hold-coin'
+  | 'hold-baht'
   | 'hold-calendar'
   | 'hold-document'
   | 'hold-phone'
@@ -35,6 +36,8 @@ interface MascotProps {
   animated?: boolean;
   className?: string;
   size?: number | 'sm' | 'md' | 'lg';
+  /** Crop of the 100x100 artwork (e.g. a tighter square for icons). The drawing never changes. */
+  viewBox?: string;
 }
 
 const SIZE_PRESETS: Record<'sm' | 'md' | 'lg', number> = { sm: 48, md: 88, lg: 140 };
@@ -46,6 +49,7 @@ export function Mascot({
   animated = true,
   className = '',
   size = 120,
+  viewBox = '0 0 100 100',
 }: MascotProps) {
   const resolvedSize = typeof size === 'number' ? size : SIZE_PRESETS[size];
 
@@ -191,7 +195,9 @@ export function Mascot({
   const eyesAnimationClass = mood === 'sleepy' ? '' : (animated ? 'squirrel-blink' : '');
   const isWaveAction = action === 'wave' || (action === 'idle' && mood === 'wave');
   const isCelebrateAction = action === 'celebrate';
-  const isHoldAction = action === 'hold-coin' || action === 'hold-calendar' || action === 'hold-document' || action === 'hold-phone';
+  const isHoldAction = action === 'hold-coin' || action === 'hold-baht' || action === 'hold-calendar' || action === 'hold-document' || action === 'hold-phone';
+  // Holding the ฿ coin (the logo pose) fills the paw, so the mood's floating accessory is dropped.
+  const showMoodAccessory = action !== 'hold-baht';
 
   return (
     <div
@@ -250,7 +256,7 @@ export function Mascot({
       `}</style>
 
       <svg
-        viewBox="0 0 100 100"
+        viewBox={viewBox}
         className="w-full h-full"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -513,6 +519,21 @@ export function Mascot({
             <path d="M64 60C68 55 70 50 70 46" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
             <circle cx="70" cy="44" r="4" fill={colors.body} />
           </>
+        ) : action === 'hold-baht' ? (
+          <>
+            {/* Same raised arm as the other hold poses, gripping a flat Thai Baht coin. */}
+            <path d="M64 60C68 55 70 50 70 46" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
+            <circle cx="75.5" cy="40" r="8.5" fill="#F4B63F" stroke="#C98A0B" strokeWidth="1.2" />
+            <circle cx="75.5" cy="40" r="6.2" stroke="#E2A12A" strokeWidth="0.8" />
+            <path
+              d="M72.7 36.3H75.9Q78 36.3 78 38.15Q78 40 75.9 40H72.7M72.7 40H76.3Q78.5 40 78.5 41.95Q78.5 43.9 76.3 43.9H72.7V36.3M75.5 34.9V45.3"
+              stroke="#8A5A00"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle cx="70" cy="44" r="4" fill={colors.body} />
+          </>
         ) : isHoldAction ? (
           <>
             <path d="M64 60C68 55 70 50 70 46" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
@@ -598,7 +619,7 @@ export function Mascot({
               </>
             )}
           </g>
-        ) : (
+        ) : showMoodAccessory && (
           <>
             {mood === 'celebrate' && (
               <g className="squirrel-accessory">

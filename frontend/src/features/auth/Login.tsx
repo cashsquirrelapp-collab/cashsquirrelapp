@@ -4,7 +4,7 @@ import { authClient } from '../../services/auth';
 import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft, Eye, EyeOff, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from '../../components/mascot/Mascot';
-import { BrandLogo } from '../../components/brand/BrandLogo';
+import { BrandLockup } from '../../components/brand/BrandLogo';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 async function loginLockStorageKey(email: string): Promise<string> {
@@ -536,12 +536,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
       <div className="auth-layout relative z-10 w-full">
       <div className="auth-brand-panel">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#FFF1E8]">
-            <BrandLogo size={30} />
-          </span>
-          <span className="text-[15px] font-bold text-brand-text">กระรอกตุนเงิน</span>
-        </div>
+        <BrandLockup size={32} />
         <h1 className="mt-9 text-[32px] font-bold leading-tight text-brand-text">
           งานเยอะ เงินหลายทาง<br />จัดการให้เห็นภาพได้ง่ายขึ้น
         </h1>

@@ -1,5 +1,5 @@
 import { Mascot } from '../../components/mascot/Mascot';
-import { BrandLogo } from '../../components/brand/BrandLogo';
+import { BrandLockup } from '../../components/brand/BrandLogo';
 import {
   FileText,
   BarChart3,
@@ -86,10 +86,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       {/* Nav */}
       <header className="flex items-center justify-between border-b border-[#F0EEEA] px-5 py-4 sm:px-10 lg:px-16">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#FFF1E8]">
-            <BrandLogo size={30} />
-          </span>
-          <span className="text-[15px] font-bold">กระรอกตุนเงิน</span>
+          <BrandLockup size={32} />
         </div>
         <nav className="hidden items-center gap-8 lg:flex">
           <a href="#features" className="text-[13px] text-[#6B6660] hover:text-[#211D1A]">ฟีเจอร์</a>
