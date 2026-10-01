@@ -84,13 +84,14 @@ import {
   ChevronDown,
   BarChart3,
   RotateCcw,
-  Wrench
+  Wrench,
+  Receipt
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'plans' | 'groups';
+type TabKey = 'dashboard' | 'jobs' | 'expenses' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'plans' | 'groups';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'plans', 'groups'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'expenses', 'tax', 'summary', 'timeline', 'split', 'report', 'settings', 'invoice', 'plans', 'groups'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
 
 function isTabKey(value: string | undefined): value is TabKey {
@@ -139,6 +140,7 @@ function groupWorkspaceSlug(group: GroupSummary, groups: GroupSummary[], persona
 // imports are cached by the browser, so React.lazy reuses the same download on selection.
 const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   jobs: loadJobsTab,
+  expenses: loadExpenseRecordView,
   timeline: loadTimelineTab,
   groups: loadGroupsTab,
   summary: loadSummaryTab,
@@ -162,6 +164,7 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'dashboard', labelKey: 'nav.dashboard', icon: Home, group: 'core' },
   { key: 'jobs', labelKey: 'nav.jobs', icon: Briefcase, group: 'core' },
   { key: 'timeline', labelKey: 'nav.timeline', icon: Calendar, group: 'core' },
+  { key: 'expenses', labelKey: 'nav.expenses', icon: Receipt, group: 'core' },
   { key: 'summary', labelKey: 'nav.summary', icon: Wallet, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
@@ -336,7 +339,6 @@ export default function App() {
         onFocus={() => prefetchFeature(item.key)}
         onTouchStart={() => prefetchFeature(item.key)}
         onClick={() => {
-          if (item.key === 'jobs') setRecordMode('income');
           navigateTab(item.key);
           if (closeMobileOnClick) setIsMobileMenuOpen(false);
         }}
@@ -645,10 +647,8 @@ export default function App() {
 
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
 
-  // Draft 10 keeps the primary product map visible. Hiding half the app behind a generic
-  // "more tools" drawer made first-time users guess where reports, tax and documents lived.
   const navItems = React.useMemo(() => {
-    return NAV_ITEMS.map(item => item.group === 'more' ? { ...item, group: 'core' as const } : item);
+    return NAV_ITEMS;
   }, []);
   const isMoreTabActive = navItems.some(item => item.group === 'more' && item.key === activeTab);
   const showMoreNavItems = moreNavOpen || isMoreTabActive;
@@ -763,8 +763,11 @@ export default function App() {
         keys.add(getMonthKey(dateKey));
       }
     });
+    expenses.forEach(expense => {
+      if (expense.date) keys.add(getMonthKey(expense.date));
+    });
     return Array.from(keys).sort();
-  }, [jobs]);
+  }, [jobs, expenses]);
 
   useEffect(() => {
     if (!availableMonthKeys.includes(selectedMonthKey)) {
@@ -1130,9 +1133,7 @@ export default function App() {
   const [scrollToJobId, setScrollToJobId] = useState<string | null>(null);
   const [scrollToExpenseId, setScrollToExpenseId] = useState<string | null>(null);
   const [autoOpenAddExpense, setAutoOpenAddExpense] = useState(false);
-  // Umbrella "บันทึกรายรับ-รายจ่าย" tab: income (jobs) and expense are sub-modes of the
-  // same place instead of living in two disconnected tabs.
-  const [recordMode, setRecordMode] = useState<'income' | 'expense'>('income');
+  // Deep-link state for opening a specific job or expense in its dedicated workspace.
 
   // Deep links from the LINE assistant's Quick Reply buttons: once this user's data has loaded,
   // jump straight to the relevant spot in the Jobs tab and strip the param from the URL.
@@ -1149,22 +1150,20 @@ export default function App() {
     if (!jobId && !expenseId && !openAddJob && !openAddExpense) return;
 
     if (jobId) {
-      setRecordMode('income');
       setScrollToJobId(jobId);
     }
     if (expenseId) {
-      setRecordMode('expense');
+      navigateTab('expenses');
       setScrollToExpenseId(expenseId);
     }
     if (openAddJob) {
-      setRecordMode('income');
       setIsAddJobOpen(true);
     }
     if (openAddExpense) {
-      setRecordMode('expense');
+      navigateTab('expenses');
       setAutoOpenAddExpense(true);
     }
-    navigateTab('jobs');
+    if (jobId || openAddJob) navigateTab('jobs');
 
     params.delete('job');
     params.delete('expense');
@@ -2127,7 +2126,7 @@ export default function App() {
           {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, false))}
 
           {navItems.some(item => item.group === 'more') && renderMoreToggle()}
-          {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
+          {showMoreNavItems && navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
 
           {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
         </nav>
@@ -2209,7 +2208,7 @@ export default function App() {
                   {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, true))}
 
                   {navItems.some(item => item.group === 'more') && renderMoreToggle()}
-                  {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
+                  {showMoreNavItems && navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
 
                   {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
                 </nav>
@@ -2406,15 +2405,12 @@ export default function App() {
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
                   onQuickRecord={(mode) => {
-                    setRecordMode(mode);
-                    navigateTab('jobs');
+                    navigateTab(mode === 'expense' ? 'expenses' : 'jobs');
                   }}
                 />
               )}
 
               {activeTab === 'jobs' && (
-                <div>
-                  {recordMode === 'income' ? (
                     <JobsTab
                       jobs={jobs}
                       onAddJob={handleAddJob}
@@ -2433,24 +2429,26 @@ export default function App() {
                       scrollToJobId={scrollToJobId}
                       onScrollToJobHandled={() => setScrollToJobId(null)}
                     />
-                  ) : (
-                    <ExpenseRecordView
-                      expenses={expenses}
-                      onAddExpense={handleAddExpense}
-                      onEditExpense={handleEditExpense}
-                      onDeleteExpense={handleDeleteExpense}
-                      selectedMonth={selectedMonthKey}
-                      triggerAlert={triggerAlert}
-                      triggerConfirm={triggerConfirm}
-                      autoOpenAdd={autoOpenAddExpense}
-                      onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
-                      scrollToExpenseId={scrollToExpenseId}
-                      onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
-                      settings={settings}
-                      onUpdateSettings={handleUpdateSettings}
-                    />
-                  )}
-                </div>
+              )}
+
+              {activeTab === 'expenses' && (
+                <ExpenseRecordView
+                  expenses={expenses}
+                  onAddExpense={handleAddExpense}
+                  onEditExpense={handleEditExpense}
+                  onDeleteExpense={handleDeleteExpense}
+                  selectedMonth={selectedMonthKey}
+                  onSelectMonth={setSelectedMonthKey}
+                  onExportData={handleExportData}
+                  triggerAlert={triggerAlert}
+                  triggerConfirm={triggerConfirm}
+                  autoOpenAdd={autoOpenAddExpense}
+                  onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
+                  scrollToExpenseId={scrollToExpenseId}
+                  onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
+                  settings={settings}
+                  onUpdateSettings={handleUpdateSettings}
+                />
               )}
 
               {activeTab === 'summary' && (

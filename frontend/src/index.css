@@ -1,6 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+Thai:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
+@layer components {
+  .field {
+    @apply w-full rounded-xl border border-brand-border bg-brand-white px-3 py-3 text-sm font-semibold text-brand-text outline-none transition focus:border-[#E65F2B] focus:ring-2 focus:ring-[#E65F2B]/10;
+  }
+  .menu-row {
+    @apply block w-full rounded-lg px-3 py-2 text-left text-xs font-bold hover:bg-brand-faint;
+  }
+}
+
 @variant dark (&:where(.dark, .dark *));
 
 @theme {

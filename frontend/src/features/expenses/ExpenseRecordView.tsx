@@ -1,424 +1,86 @@
-import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Download, MoreHorizontal, Pencil, Plus, Receipt, Repeat, Search, Trash2, X } from 'lucide-react';
 import { AppSettings, Expense } from '../../../../shared/types';
-import { formatCurrency, getMonthKey, formatMonthKey, sumFixedExpenseItems } from '../../utils';
-import { Plus, Trash2, Receipt, Pencil, Repeat } from 'lucide-react';
+import { formatCurrency, formatMonthKey, getMonthKey, sumFixedExpenseItems } from '../../utils';
 import { Mascot } from '../../components/mascot/Mascot';
 import NumberInput from '../../components/ui/NumberInput';
 
-interface ExpenseRecordViewProps {
-  expenses: Expense[];
-  onAddExpense: (expense: Omit<Expense, 'id'>) => void;
-  onEditExpense: (id: string, updated: Partial<Expense>) => void;
-  onDeleteExpense: (id: string) => void;
-  selectedMonth: string;
+interface Props {
+  expenses: Expense[]; onAddExpense: (expense: Omit<Expense, 'id'>) => void;
+  onEditExpense: (id: string, updated: Partial<Expense>) => void; onDeleteExpense: (id: string) => void;
+  selectedMonth: string; onSelectMonth: (month: string) => void; onExportData?: () => void;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
-  autoOpenAdd?: boolean;
-  onAutoOpenAddHandled?: () => void;
-  scrollToExpenseId?: string | null;
-  onScrollToExpenseHandled?: () => void;
-  // Ticking "รายจ่ายประจำทุกเดือน" below writes straight into this -- the fixed-cost baseline
-  // used for burn-rate/profit math, previously only editable by retyping the same line item over
-  // in ตั้งค่าระบบ. Unticking never removes an existing fixed item on its own (that stays a
-  // deliberate action in Settings); this only ever adds or refreshes the matching amount.
-  settings: AppSettings;
-  onUpdateSettings: (settings: AppSettings) => void;
+  autoOpenAdd?: boolean; onAutoOpenAddHandled?: () => void; scrollToExpenseId?: string | null;
+  onScrollToExpenseHandled?: () => void; settings: AppSettings; onUpdateSettings: (settings: AppSettings) => void;
 }
 
-const EXPENSE_CATEGORIES = [
-  'ค่าอุปกรณ์/ซอฟต์แวร์',
-  'ค่าโฆษณา/ยิงแอด',
-  'ค่าเดินทาง/น้ำมัน',
-  'อาหาร/รับรองลูกค้า',
-  'จ้างงานต่อ (Outsource)',
-  'ภาษี/ธรรมเนียม',
-  'ค่าบริการ/สาธารณูปโภค',
-  'อื่นๆ'
-];
+// Stored values stay exactly as production uses them, so historical data remains safe.
+const CATEGORIES = ['ค่าอุปกรณ์/ซอฟต์แวร์', 'ค่าโฆษณา/ยิงแอด', 'ค่าเดินทาง/น้ำมัน', 'อาหาร/รับรองลูกค้า', 'จ้างงานต่อ (Outsource)', 'ภาษี/ธรรมเนียม', 'ค่าบริการ/สาธารณูปโภค', 'อื่นๆ'];
+type ExpenseType = 'all' | 'fixed' | 'general';
+type SortMode = 'latest' | 'oldest' | 'highest' | 'lowest';
 
-// The "รายจ่าย" half of the บันทึกรายรับ-รายจ่าย umbrella tab -- lives alongside JobsTab
-// (the "รายรับ" half) instead of buried inside the Summary tab, so recording either an
-// income or an expense starts from the same obvious place.
-export default function ExpenseRecordView({
-  expenses,
-  onAddExpense,
-  onEditExpense,
-  onDeleteExpense,
-  selectedMonth,
-  triggerAlert,
-  triggerConfirm,
-  autoOpenAdd,
-  onAutoOpenAddHandled,
-  scrollToExpenseId,
-  onScrollToExpenseHandled,
-  settings,
-  onUpdateSettings,
-}: ExpenseRecordViewProps) {
-  // One shared bottom-sheet form for both add and edit -- `formMode` picks which action submit
-  // takes, `editingId` carries which record is being edited (null while adding).
+const localDate = (value: string) => {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+const shiftMonth = (month: string, delta: number) => {
+  const [year, value] = month.split('-').map(Number); const next = new Date(year, value - 1 + delta, 1);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+};
+
+export default function ExpenseRecordView({ expenses, onAddExpense, onEditExpense, onDeleteExpense, selectedMonth, onSelectMonth, onExportData, triggerAlert, triggerConfirm, autoOpenAdd, onAutoOpenAddHandled, scrollToExpenseId, onScrollToExpenseHandled, settings, onUpdateSettings }: Props) {
   const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [expName, setExpName] = useState('');
-  const [expAmount, setExpAmount] = useState('');
-  const [expCategory, setExpCategory] = useState(EXPENSE_CATEGORIES[0]);
-  const [expDate, setExpDate] = useState(new Date().toISOString().split('T')[0]);
-  const [expNote, setExpNote] = useState('');
-  const [expIsFixed, setExpIsFixed] = useState(false);
-  const [highlightedExpenseId, setHighlightedExpenseId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null); const [detail, setDetail] = useState<Expense | null>(null);
+  const [manageRecurring, setManageRecurring] = useState(false); const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false); const [typeFilter, setTypeFilter] = useState<ExpenseType>('all');
+  const [categoryFilter, setCategoryFilter] = useState('all'); const [sortMode, setSortMode] = useState<SortMode>('latest'); const [query, setQuery] = useState('');
+  const [name, setName] = useState(''); const [amount, setAmount] = useState(''); const [category, setCategory] = useState(CATEGORIES[0]);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10)); const [note, setNote] = useState(''); const [isFixed, setIsFixed] = useState(false);
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const fixedItems = settings.fixedExpenseItems || [];
+  const fixedNames = useMemo(() => new Set(fixedItems.map(item => item.name.trim().toLocaleLowerCase())), [fixedItems]);
+  const expenseIsFixed = (expense: Expense) => fixedNames.has(expense.name.trim().toLocaleLowerCase());
+  const monthExpenses = useMemo(() => expenses.filter(expense => getMonthKey(expense.date) === selectedMonth), [expenses, selectedMonth]);
+  const totals = useMemo(() => monthExpenses.reduce((result, expense) => { result.total += expense.amount; result[expenseIsFixed(expense) ? 'fixed' : 'general'] += expense.amount; return result; }, { total: 0, fixed: 0, general: 0 }), [monthExpenses, fixedNames]);
+  const filtered = useMemo(() => monthExpenses.filter(expense => typeFilter === 'all' || (typeFilter === 'fixed') === expenseIsFixed(expense)).filter(expense => categoryFilter === 'all' || expense.category === categoryFilter).filter(expense => `${expense.name} ${expense.note || ''} ${expense.category}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort((a, b) => sortMode === 'highest' ? b.amount - a.amount : sortMode === 'lowest' ? a.amount - b.amount : sortMode === 'oldest' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)), [monthExpenses, typeFilter, categoryFilter, query, sortMode, fixedNames]);
 
-  const fixedExpenseItems = settings.fixedExpenseItems || [];
-  const findFixedItem = (name: string) =>
-    fixedExpenseItems.find(item => item.name.trim().toLowerCase() === name.trim().toLowerCase());
+  const resetForm = () => { setName(''); setAmount(''); setCategory(CATEGORIES[0]); setDate(new Date().toISOString().slice(0, 10)); setNote(''); setIsFixed(false); setEditingId(null); };
+  const openAdd = () => { resetForm(); setFormMode('add'); };
+  const openEdit = (expense: Expense) => { setName(expense.name); setAmount(String(expense.amount)); setCategory(expense.category); setDate(expense.date); setNote(expense.note || ''); setIsFixed(expenseIsFixed(expense)); setEditingId(expense.id); setDetail(null); setOpenMenu(null); setFormMode('edit'); };
+  React.useEffect(() => { if (autoOpenAdd) { openAdd(); onAutoOpenAddHandled?.(); } }, [autoOpenAdd]);
+  React.useEffect(() => { if (!scrollToExpenseId) return; const expense = expenses.find(item => item.id === scrollToExpenseId); if (expense && getMonthKey(expense.date) !== selectedMonth) onSelectMonth(getMonthKey(expense.date)); window.setTimeout(() => { document.getElementById(`expense-card-${scrollToExpenseId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setHighlighted(scrollToExpenseId); window.setTimeout(() => setHighlighted(null), 2200); }, 80); onScrollToExpenseHandled?.(); }, [scrollToExpenseId]);
 
-  const openAddForm = () => {
-    setExpName('');
-    setExpAmount('');
-    setExpCategory(EXPENSE_CATEGORIES[0]);
-    setExpDate(new Date().toISOString().split('T')[0]);
-    setExpNote('');
-    setExpIsFixed(false);
-    setEditingId(null);
-    setFormMode('add');
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault(); const numericAmount = Number(amount);
+    if (!name.trim() || !numericAmount || !date || !category) return triggerAlert('ข้อมูลไม่ครบถ้วน', 'กรุณากรอกรายการ จำนวนเงิน วันที่ และหมวดหมู่ให้ครบถ้วน');
+    const payload = { name: name.trim(), amount: numericAmount, category, date, note: note.trim() };
+    if (formMode === 'edit' && editingId) onEditExpense(editingId, payload); else onAddExpense(payload);
+    if (isFixed) { const existing = fixedItems.find(item => item.name.trim().toLocaleLowerCase() === payload.name.toLocaleLowerCase()); const items = existing ? fixedItems.map(item => item.id === existing.id ? { ...item, amount: numericAmount } : item) : [...fixedItems, { id: crypto.randomUUID(), name: payload.name, amount: numericAmount }]; onUpdateSettings({ ...settings, fixedExpenseItems: items, monthlyExpense: sumFixedExpenseItems(items) }); }
+    triggerAlert(formMode === 'edit' ? 'แก้ไขรายจ่ายแล้ว' : 'บันทึกรายจ่ายแล้ว', isFixed ? 'บันทึกรายการและอัปเดตรายจ่ายประจำเรียบร้อยแล้ว' : 'บันทึกค่าใช้จ่ายเรียบร้อยแล้ว'); setFormMode(null); resetForm();
   };
+  const exportCsv = () => { const rows = [['รายการ', 'วันที่', 'ประเภท', 'หมวดหมู่', 'จำนวนเงิน', 'โน้ต'], ...monthExpenses.map(expense => [expense.name, expense.date, expenseIsFixed(expense) ? 'รายจ่ายประจำ' : 'รายจ่ายทั่วไป', expense.category, String(expense.amount), expense.note || ''])]; const csv = '\ufeff' + rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n'); const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = `expenses-${selectedMonth}.csv`; link.click(); URL.revokeObjectURL(url); setExportOpen(false); };
 
-  const openEditForm = (expense: Expense) => {
-    setExpName(expense.name);
-    setExpAmount(String(expense.amount));
-    setExpCategory(expense.category);
-    setExpDate(expense.date);
-    setExpNote(expense.note || '');
-    // Pre-ticked when this record's name already matches a fixed-cost line item in Settings, so
-    // re-opening a bill you already flagged last time doesn't look like it forgot.
-    setExpIsFixed(!!findFixedItem(expense.name));
-    setEditingId(expense.id);
-    setFormMode('edit');
-  };
-
-  const closeForm = () => {
-    setFormMode(null);
-    setEditingId(null);
-  };
-
-  React.useEffect(() => {
-    if (!autoOpenAdd) return;
-    openAddForm();
-    onAutoOpenAddHandled?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenAdd, onAutoOpenAddHandled]);
-
-  // Same scroll-to-and-highlight-real-row pattern as JobsTab's scrollToJobId -- shared by every
-  // clickable expense reference outside this view (currently the LINE assistant's "เปิดแอป"
-  // button on a saved-expense card), so tapping it lands on the actual row instead of just the
-  // top of the tab.
-  React.useEffect(() => {
-    if (!scrollToExpenseId) return;
-    const el = document.getElementById(`expense-card-${scrollToExpenseId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setHighlightedExpenseId(scrollToExpenseId);
-      const timer = setTimeout(() => setHighlightedExpenseId(null), 2500);
-      onScrollToExpenseHandled?.();
-      return () => clearTimeout(timer);
-    }
-    // Expense isn't in the currently visible month's list -- nothing to scroll to, still consume
-    // the request so it doesn't fire again on next render.
-    onScrollToExpenseHandled?.();
-  }, [scrollToExpenseId, onScrollToExpenseHandled]);
-
-  const monthExpenses = useMemo(
-    () => expenses.filter(e => getMonthKey(e.date) === selectedMonth).sort((a, b) => b.date.localeCompare(a.date)),
-    [expenses, selectedMonth]
-  );
-  const totalVariableExpense = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
-
-  const handleExpenseSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!expName.trim() || !expAmount) {
-      triggerAlert('ข้อมูลไม่ครบถ้วน', 'กรุณาระบุชื่อรายการและจำนวนเงินของค่าใช้จ่ายให้ครบถ้วน');
-      return;
-    }
-    const payload = {
-      name: expName,
-      amount: parseFloat(expAmount) || 0,
-      category: expCategory,
-      date: expDate,
-      note: expNote
-    };
-    if (formMode === 'edit' && editingId) {
-      onEditExpense(editingId, payload);
-    } else {
-      onAddExpense(payload);
-    }
-
-    let fixedNote = '';
-    if (expIsFixed) {
-      const existing = findFixedItem(payload.name);
-      const updatedItems = existing
-        ? fixedExpenseItems.map(item => item.id === existing.id ? { ...item, amount: payload.amount } : item)
-        : [...fixedExpenseItems, { id: crypto.randomUUID(), name: payload.name, amount: payload.amount }];
-      onUpdateSettings({ ...settings, fixedExpenseItems: updatedItems, monthlyExpense: sumFixedExpenseItems(updatedItems) });
-      fixedNote = existing
-        ? ' และอัปเดตยอดใน "ค่าใช้จ่ายคงที่รายเดือน" ให้แล้ว'
-        : ' และเพิ่มเข้า "ค่าใช้จ่ายคงที่รายเดือน" ในหน้าตั้งค่าให้แล้ว';
-    }
-
-    if (formMode === 'edit' && editingId) {
-      triggerAlert('แก้ไขรายจ่ายสำเร็จ!', `อัปเดตข้อมูลรายจ่ายเรียบร้อยแล้ว${fixedNote}`);
-    } else {
-      triggerAlert('บันทึกรายจ่ายสำเร็จ!', `บันทึกข้อมูลรายจ่ายผันแปรของคุณเรียบร้อยแล้ว${fixedNote}`);
-    }
-    closeForm();
-  };
-
-  return (
-    <div className="page-content space-y-6">
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase">
-            ผู้ช่วยจัดการรายจ่าย
-          </span>
-          <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
-            รายจ่ายผันแปร ({monthExpenses.length})
-          </h2>
-        </div>
-      </div>
-
-      <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-2xs space-y-5">
-        <div className="flex items-center justify-between border-b border-brand-border/40 pb-4 flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <Receipt className="w-4.5 h-4.5 text-orange-500" />
-            <div>
-              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-                บันทึกรายจ่ายผันแปรเสริมประจำเดือน
-              </h3>
-              <p className="text-[10px] text-brand-muted dark:text-neutral-400 mt-0.5">
-                บันทึกรายจ่ายเพิ่มเติมในรอบเดือนนี้ (ค่าอุปกรณ์, ค่าแอด, ค่าเดินทาง ฯลฯ)
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-orange-700 bg-orange-50 dark:bg-orange-500/10 dark:text-orange-400 px-2.5 py-1 rounded-md font-mono">
-              จ่ายเพิ่มรวม {formatCurrency(totalVariableExpense)}
-            </span>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={openAddForm}
-              className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
-            >
-              <Plus className="w-3.5 h-3.5" /> บันทึกรายจ่าย
-            </motion.button>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <h4 className="text-[10px] font-bold text-brand-text dark:text-neutral-300 uppercase tracking-wide">
-            รายละเอียดรายจ่ายประจำเดือน {formatMonthKey(selectedMonth)} ({monthExpenses.length} รายการ)
-          </h4>
-
-          {monthExpenses.length === 0 ? (
-            <div className="text-center py-10 border border-dashed border-brand-border dark:border-neutral-800 rounded-2xl bg-brand-faint/10 flex flex-col items-center gap-2">
-              <Mascot mood="sleepy" size={56} />
-              <p className="text-xs font-semibold text-brand-muted">ไม่มีบันทึกรายจ่ายผันแปรเสริมสำหรับเดือนนี้</p>
-              <p className="text-[9px] text-brand-muted/80">เงินสดไหลคงเหลือเต็มเม็ดเต็มหน่วย</p>
-            </div>
-          ) : (
-            <div className="space-y-2 divide-y divide-brand-border/20 dark:divide-neutral-800">
-              {monthExpenses.map(e => (
-                <div
-                  key={e.id}
-                  id={`expense-card-${e.id}`}
-                  className={`pt-2.5 first:pt-0 flex items-center justify-between gap-3 text-xs rounded-xl transition-colors duration-500 ${
-                    highlightedExpenseId === e.id ? 'bg-orange-50 dark:bg-orange-500/10 -mx-2 px-2' : ''
-                  }`}
-                >
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-extrabold text-brand-text dark:text-white">{e.name}</span>
-                      <span className="text-[8px] bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 font-bold px-1.5 py-0.5 rounded-sm">
-                        {e.category}
-                      </span>
-                      {findFixedItem(e.name) && (
-                        <span className="flex items-center gap-0.5 text-[8px] bg-brand-faint dark:bg-neutral-800 text-brand-muted font-bold px-1.5 py-0.5 rounded-sm" title="นับเป็นค่าใช้จ่ายคงที่รายเดือนแล้ว">
-                          <Repeat className="w-2.5 h-2.5" /> ประจำ
-                        </span>
-                      )}
-                      {e.note && (
-                        <span className="text-[9px] text-brand-muted italic">({e.note})</span>
-                      )}
-                    </div>
-                    <p className="text-[9px] text-brand-muted font-mono">{e.date}</p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold font-mono text-rose-600">
-                      -{formatCurrency(e.amount)}
-                    </span>
-                    <button
-                      onClick={() => openEditForm(e)}
-                      className="p-1 hover:bg-brand-faint dark:hover:bg-neutral-800 text-brand-muted hover:text-brand-text rounded-md transition-colors cursor-pointer"
-                      title="แก้ไขรายจ่ายนี้"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        triggerConfirm(
-                          'ยืนยันการลบรายจ่าย',
-                          `คุณต้องการลบรายการรายจ่าย "${e.name}" จำนวนเงิน ${formatCurrency(e.amount)} ใช่หรือไม่?`,
-                          () => onDeleteExpense(e.id)
-                        );
-                      }}
-                      className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-brand-muted hover:text-rose-600 rounded-md transition-colors cursor-pointer"
-                      title="ลบรายจ่ายนี้"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Sliding Bottom Sheet Modal for Adding/Editing a Variable Expense */}
-      <AnimatePresence>
-        {formMode !== null && (
-          <div className="fixed inset-0 z-200">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeForm}
-              className="absolute inset-0 bg-black/40 backdrop-blur-xs"
-            />
-
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] space-y-4 font-sans border-t border-brand-border/40"
-            >
-              <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full mx-auto mb-1 shrink-0" />
-
-              <div className="flex justify-between items-center shrink-0">
-                <h3 className="text-lg font-black text-brand-text dark:text-white font-display">
-                  {formMode === 'edit' ? 'แก้ไขรายจ่าย' : 'บันทึกค่าใช้จ่ายใหม่'}
-                </h3>
-                <button
-                  onClick={closeForm}
-                  className="w-8 h-8 rounded-full bg-brand-faint dark:bg-stone-850 hover:bg-brand-border/40 text-xl text-brand-muted hover:text-brand-text flex items-center justify-center transition-colors cursor-pointer"
-                >
-                  ×
-                </button>
-              </div>
-
-              <form onSubmit={handleExpenseSubmit} className="space-y-3 text-xs font-semibold">
-                <div>
-                  <label className="text-[9px] font-bold text-brand-muted block mb-1">ชื่อรายการรายจ่าย</label>
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder="เช่น ซื้อจอมอนิเตอร์, ค่าส่งของลูกค้า"
-                    value={expName}
-                    onChange={(e) => setExpName(e.target.value)}
-                    className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-2 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[9px] font-bold text-brand-muted block mb-1">จำนวนเงิน (บาท)</label>
-                  <NumberInput
-                    placeholder="เช่น 1500"
-                    value={expAmount}
-                    onChange={setExpAmount}
-                    className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-2 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[9px] font-bold text-brand-muted block mb-1">หมวดหมู่</label>
-                    <select
-                      value={expCategory}
-                      onChange={(e) => setExpCategory(e.target.value)}
-                      className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2 py-2 text-xs font-semibold outline-none cursor-pointer"
-                    >
-                      {EXPENSE_CATEGORIES.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[9px] font-bold text-brand-muted block mb-1">วันที่ทำรายการ</label>
-                    <input
-                      type="date"
-                      value={expDate}
-                      onChange={(e) => setExpDate(e.target.value)}
-                      onClick={(e) => {
-                        try {
-                          e.currentTarget.showPicker();
-                        } catch (err) {
-                          console.log(err);
-                        }
-                      }}
-                      className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2 py-2 text-xs font-semibold outline-none cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[9px] font-bold text-brand-muted block mb-1">หมายเหตุ / โน้ตย่อ</label>
-                  <input
-                    type="text"
-                    placeholder="เช่น ใบเสร็จอยู่ในเครื่อง..."
-                    value={expNote}
-                    onChange={(e) => setExpNote(e.target.value)}
-                    className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-2 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
-                  />
-                </div>
-
-                <label className="flex items-start gap-2.5 p-3 bg-brand-faint/40 dark:bg-neutral-800/40 border border-brand-border/50 dark:border-neutral-800 rounded-xl cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={expIsFixed}
-                    onChange={(e) => setExpIsFixed(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 accent-orange-600 cursor-pointer shrink-0"
-                  />
-                  <span>
-                    <span className="flex items-center gap-1.5 font-bold text-brand-text dark:text-white">
-                      <Repeat className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                      รายจ่ายประจำทุกเดือน (เช่น ค่าเน็ต ค่าห้อง)
-                    </span>
-                    <span className="block text-[9px] text-brand-muted font-medium mt-0.5">
-                      ติ๊กไว้เพื่อให้ยอดนี้นับเป็น &quot;ค่าใช้จ่ายคงที่รายเดือน&quot; อัตโนมัติ ไม่ต้องไปพิมพ์ซ้ำที่หน้าตั้งค่า
-                    </span>
-                  </span>
-                </label>
-
-                <button
-                  type="submit"
-                  className="w-full px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  {formMode === 'edit' ? (
-                    <>
-                      <Pencil className="w-3.5 h-3.5" /> บันทึกการแก้ไข
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-3.5 h-3.5" /> บันทึกจ่ายออกผันแปร
-                    </>
-                  )}
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+  return <div className="mx-auto w-full max-w-7xl space-y-5 pb-12 pt-8 lg:pt-0">
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><h1 className="font-display text-3xl font-black tracking-tight text-brand-text sm:text-4xl">รายจ่าย</h1><p className="mt-1 text-sm font-medium text-brand-muted">จัดการค่าใช้จ่ายประจำและค่าใช้จ่ายทั่วไปของคุณ</p></div><div className="flex items-center gap-2"><div className="relative"><button onClick={() => setExportOpen(value => !value)} className="flex h-11 items-center gap-2 rounded-xl border border-brand-border bg-brand-white px-4 text-sm font-bold text-brand-text"><Download className="h-4 w-4" />ส่งออก<ChevronDown className="h-4 w-4" /></button>{exportOpen && <div className="absolute right-0 top-12 z-30 w-48 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-xl"><button onClick={exportCsv} className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold hover:bg-brand-faint">CSV เดือนนี้</button>{onExportData && <button onClick={() => { onExportData(); setExportOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold hover:bg-brand-faint">สำรองข้อมูล JSON</button>}</div>}</div><button onClick={openAdd} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#E65F2B] px-4 text-sm font-black text-white shadow-sm sm:flex-none"><Plus className="h-4 w-4" /><span className="sm:hidden">เพิ่ม</span><span className="hidden sm:inline">เพิ่มรายจ่าย</span></button></div></header>
+    <div className="flex items-center gap-2"><button aria-label="เดือนก่อนหน้า" onClick={() => onSelectMonth(shiftMonth(selectedMonth, -1))} className="h-10 w-10 rounded-xl border border-brand-border bg-brand-white text-brand-muted"><ChevronLeft className="mx-auto h-4 w-4" /></button><label className="relative flex h-10 min-w-44 items-center justify-center gap-2 rounded-xl border border-brand-border bg-brand-white px-4 text-sm font-black text-brand-text"><CalendarDays className="h-4 w-4 text-[#E65F2B]" />{formatMonthKey(selectedMonth)}<input aria-label="เลือกเดือน" type="month" value={selectedMonth} onChange={event => onSelectMonth(event.target.value)} className="absolute inset-0 cursor-pointer opacity-0" /></label><button aria-label="เดือนถัดไป" onClick={() => onSelectMonth(shiftMonth(selectedMonth, 1))} className="h-10 w-10 rounded-xl border border-brand-border bg-brand-white text-brand-muted"><ChevronRight className="mx-auto h-4 w-4" /></button>{selectedMonth !== getMonthKey(new Date().toISOString()) && <button onClick={() => onSelectMonth(getMonthKey(new Date().toISOString()))} className="ml-1 text-xs font-bold text-[#D9551D] hover:underline">กลับมาเดือนนี้</button>}</div>
+    <section className="rounded-2xl border border-brand-border bg-brand-white p-5 shadow-2xs sm:p-6"><div className="mb-4 flex items-center justify-between"><p className="text-sm font-black text-brand-text">{formatMonthKey(selectedMonth)}</p><button onClick={() => setManageRecurring(true)} className="text-xs font-bold text-brand-muted hover:text-[#D9551D]">จัดการรายจ่ายประจำ</button></div><div className="grid grid-cols-3 divide-x divide-brand-border">{[['รายจ่ายทั้งหมด', totals.total], ['รายจ่ายประจำ', totals.fixed], ['รายจ่ายทั่วไป', totals.general]].map(([label, value]) => <div key={String(label)} className="px-2 first:pl-0 sm:px-6"><p className="text-[10px] font-bold text-brand-muted sm:text-xs">{label}</p><p className="mt-1 truncate font-mono text-lg font-black text-brand-text sm:text-2xl">{formatCurrency(Number(value))}</p></div>)}</div></section>
+    <div className="flex w-fit rounded-xl bg-brand-faint p-1">{([['all', 'ทั้งหมด'], ['fixed', 'ประจำ'], ['general', 'ทั่วไป']] as const).map(([value, label]) => <button key={value} onClick={() => setTypeFilter(value)} className={`rounded-lg px-4 py-2 text-xs font-black ${typeFilter === value ? 'bg-[#FFF0E8] text-[#D9551D] shadow-xs' : 'text-brand-muted'}`}>{label}</button>)}</div>
+    <div className="flex flex-col gap-2 lg:flex-row"><label className="flex h-11 flex-1 items-center gap-2 rounded-xl border border-brand-border bg-brand-white px-3"><Search className="h-4 w-4 text-brand-muted" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="ค้นหารายจ่าย..." className="w-full bg-transparent text-sm font-semibold outline-none" /></label><select value={categoryFilter} onChange={event => setCategoryFilter(event.target.value)} className="h-11 rounded-xl border border-brand-border bg-brand-white px-3 text-xs font-bold"><option value="all">หมวดหมู่ทั้งหมด</option>{CATEGORIES.map(item => <option key={item}>{item}</option>)}</select><select value={sortMode} onChange={event => setSortMode(event.target.value as SortMode)} className="h-11 rounded-xl border border-brand-border bg-brand-white px-3 text-xs font-bold"><option value="latest">เรียงตาม: ล่าสุด</option><option value="oldest">เก่าสุด</option><option value="highest">จำนวนเงินสูงสุด</option><option value="lowest">จำนวนเงินต่ำสุด</option></select></div>
+    <ExpenseList filtered={filtered} expenseIsFixed={expenseIsFixed} highlighted={highlighted} openMenu={openMenu} setOpenMenu={setOpenMenu} setDetail={setDetail} openEdit={openEdit} openAdd={openAdd} triggerConfirm={triggerConfirm} onDeleteExpense={onDeleteExpense} />
+    <AnimatePresence>{(formMode || detail || manageRecurring) && <div className="fixed inset-0 z-[200]"><motion.button aria-label="ปิด" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setFormMode(null); setDetail(null); setManageRecurring(false); }} className="absolute inset-0 h-full w-full bg-black/35 backdrop-blur-[2px]" /><motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 260 }} className="absolute inset-y-0 right-0 flex w-full flex-col bg-brand-white shadow-2xl sm:w-[480px]">{formMode ? <ExpenseForm formMode={formMode} submit={submit} close={() => setFormMode(null)} name={name} setName={setName} amount={amount} setAmount={setAmount} date={date} setDate={setDate} category={category} setCategory={setCategory} isFixed={isFixed} setIsFixed={setIsFixed} note={note} setNote={setNote} /> : detail ? <><DrawerHeader title="รายละเอียดรายจ่าย" onClose={() => setDetail(null)} /><div className="flex-1 space-y-6 overflow-y-auto px-7 py-7"><div><p className="text-sm font-bold text-brand-muted">รายการ</p><p className="mt-1 text-xl font-black text-brand-text">{detail.name}</p></div><p className="font-mono text-3xl font-black text-brand-text">{formatCurrency(detail.amount)}</p>{[['วันที่', localDate(detail.date)], ['ประเภท', expenseIsFixed(detail) ? 'รายจ่ายประจำ' : 'รายจ่ายทั่วไป'], ['หมวดหมู่', detail.category], ['โน้ต', detail.note || '—']].map(([label, value]) => <div key={label} className="border-b border-brand-border pb-4"><p className="text-xs font-bold text-brand-muted">{label}</p><p className="mt-1 text-sm font-bold text-brand-text">{value}</p></div>)}</div><div className="border-t border-brand-border p-5"><button onClick={() => openEdit(detail)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#E65F2B] px-4 py-3 text-sm font-black text-white"><Pencil className="h-4 w-4" />แก้ไขรายจ่าย</button></div></> : <RecurringDrawer fixedItems={fixedItems} settings={settings} onUpdateSettings={onUpdateSettings} close={() => setManageRecurring(false)} />}</motion.aside></div>}</AnimatePresence>
+  </div>;
 }
+
+function ExpenseList({ filtered, expenseIsFixed, highlighted, openMenu, setOpenMenu, setDetail, openEdit, openAdd, triggerConfirm, onDeleteExpense }: any) {
+  return <section className="overflow-visible rounded-2xl border border-brand-border bg-brand-white shadow-2xs">{filtered.length === 0 ? <div className="flex flex-col items-center px-5 py-14 text-center"><Mascot mood="sleepy" size={64} /><h3 className="mt-3 text-base font-black text-brand-text">ยังไม่มีรายจ่ายในเดือนนี้</h3><p className="mt-1 text-sm text-brand-muted">เพิ่มรายจ่ายเพื่อดูว่าค่าใช้จ่ายของคุณไปอยู่ที่ไหนบ้าง</p><button onClick={openAdd} className="mt-5 flex items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 py-2.5 text-sm font-black text-white"><Plus className="h-4 w-4" />เพิ่มรายจ่าย</button></div> : <><div className="hidden grid-cols-[minmax(180px,1.7fr)_120px_120px_minmax(180px,1.2fr)_130px_44px] border-b border-brand-border px-5 py-3 text-[11px] font-black text-brand-muted lg:grid"><span>รายการ</span><span>วันที่</span><span>ประเภท</span><span>หมวดหมู่</span><span className="text-right">จำนวนเงิน</span><span /></div><div className="divide-y divide-brand-border/70">{filtered.map((expense: Expense) => { const fixed = expenseIsFixed(expense); return <div key={expense.id} id={`expense-card-${expense.id}`} onClick={() => setDetail(expense)} className={`relative cursor-pointer px-4 py-4 hover:bg-brand-faint/50 lg:grid lg:grid-cols-[minmax(180px,1.7fr)_120px_120px_minmax(180px,1.2fr)_130px_44px] lg:items-center lg:px-5 ${highlighted === expense.id ? 'bg-[#FFF0E8]' : ''}`}><div className="flex items-start justify-between gap-3 lg:block"><div><p className="font-black text-brand-text">{expense.name}</p><p className="mt-1 text-xs text-brand-muted lg:hidden">{localDate(expense.date)} · {expense.category}</p></div><span className="font-mono text-base font-black text-brand-text lg:hidden">{formatCurrency(expense.amount)}</span></div><span className="hidden text-xs font-semibold text-brand-muted lg:block">{localDate(expense.date)}</span><span className={`mt-2 inline-flex w-fit rounded-full px-2.5 py-1 text-[10px] font-black lg:mt-0 ${fixed ? 'bg-[#FFF0E8] text-[#C94D1C]' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'}`}>{fixed ? 'ประจำ' : 'ทั่วไป'}</span><span className="hidden truncate pr-3 text-xs font-semibold text-brand-muted lg:block">{expense.category}</span><span className="hidden text-right font-mono text-sm font-black text-brand-text lg:block">{formatCurrency(expense.amount)}</span><div className="absolute bottom-3 right-3 lg:static"><button aria-label="เมนูรายการ" onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === expense.id ? null : expense.id); }} className="flex h-8 w-8 items-center justify-center rounded-lg text-brand-muted"><MoreHorizontal className="h-5 w-5" /></button>{openMenu === expense.id && <div onClick={event => event.stopPropagation()} className="absolute right-0 top-9 z-30 w-36 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-xl"><button onClick={() => { setDetail(expense); setOpenMenu(null); }} className="menu-row">ดูรายละเอียด</button><button onClick={() => openEdit(expense)} className="menu-row">แก้ไข</button><button onClick={() => { setOpenMenu(null); triggerConfirm('ยืนยันการลบรายจ่าย', `ต้องการลบ “${expense.name}” จำนวน ${formatCurrency(expense.amount)} ใช่หรือไม่?`, () => onDeleteExpense(expense.id)); }} className="menu-row text-red-600">ลบ</button></div>}</div></div>; })}</div></>}</section>;
+}
+
+function ExpenseForm({ formMode, submit, close, name, setName, amount, setAmount, date, setDate, category, setCategory, isFixed, setIsFixed, note, setNote }: any) {
+  return <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col"><div className="border-b border-brand-border px-5 py-5 sm:px-7"><div className="flex items-start justify-between"><div><h2 className="text-xl font-black text-brand-text">{formMode === 'edit' ? 'แก้ไขรายจ่าย' : 'เพิ่มรายจ่าย'}</h2><p className="mt-1 text-sm text-brand-muted">บันทึกค่าใช้จ่ายที่เกิดขึ้นจริง</p></div><button type="button" onClick={close} className="rounded-lg p-2 text-brand-muted"><X className="h-5 w-5" /></button></div></div><div className="flex-1 space-y-5 overflow-y-auto px-5 py-6 sm:px-7"><Field label="รายการ *"><input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="เช่น ค่าเดินทางไปพบลูกค้า" className="field" /></Field><Field label="จำนวนเงิน *"><NumberInput value={amount} onChange={setAmount} placeholder="0.00" className="field" /></Field><Field label="วันที่ *"><input type="date" value={date} onChange={event => setDate(event.target.value)} className="field" /></Field><Field label="หมวดหมู่ *"><select value={category} onChange={event => setCategory(event.target.value)} className="field">{CATEGORIES.map(item => <option key={item}>{item}</option>)}</select></Field><Field label="ประเภท"><div className="grid grid-cols-2 rounded-xl bg-brand-faint p-1"><button type="button" onClick={() => setIsFixed(false)} className={`rounded-lg px-3 py-2.5 text-xs font-black ${!isFixed ? 'bg-brand-white text-[#D9551D] shadow-xs' : 'text-brand-muted'}`}>รายจ่ายทั่วไป</button><button type="button" onClick={() => setIsFixed(true)} className={`rounded-lg px-3 py-2.5 text-xs font-black ${isFixed ? 'bg-[#FFF0E8] text-[#D9551D]' : 'text-brand-muted'}`}>รายจ่ายประจำ</button></div></Field>{isFixed && <div className="rounded-xl border border-[#F1D2C1] bg-[#FFF8F3] p-4"><div className="flex gap-2"><Repeat className="mt-0.5 h-4 w-4 text-[#D9551D]" /><div><p className="text-xs font-black text-brand-text">รายจ่ายประจำ</p><p className="mt-1 text-xs leading-relaxed text-brand-muted">ใช้สำหรับค่าใช้จ่ายที่เกิดซ้ำเป็นประจำ เช่น อินเทอร์เน็ต ค่าบริการ หรือค่าสมาชิก</p></div></div></div>}<Field label="โน้ต"><textarea value={note} onChange={event => setNote(event.target.value)} rows={3} placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)" className="field resize-none" /></Field></div><div className="grid grid-cols-2 gap-3 border-t border-brand-border bg-brand-white px-5 py-4 sm:px-7"><button type="button" onClick={close} className="rounded-xl border border-brand-border px-4 py-3 text-sm font-black">ยกเลิก</button><button type="submit" className="rounded-xl bg-[#E65F2B] px-4 py-3 text-sm font-black text-white">{formMode === 'edit' ? 'บันทึกการแก้ไข' : 'บันทึกรายจ่าย'}</button></div></form>;
+}
+
+function RecurringDrawer({ fixedItems, settings, onUpdateSettings, close }: any) { return <><DrawerHeader title="จัดการรายจ่ายประจำ" onClose={close} /><div className="flex-1 overflow-y-auto px-6 py-6"><p className="mb-5 text-sm leading-relaxed text-brand-muted">รายการเหล่านี้ใช้เป็นค่าใช้จ่ายประจำในระบบเดิม และจับคู่กับรายจ่ายด้วยชื่อรายการ</p>{fixedItems.length ? <div className="divide-y divide-brand-border rounded-xl border border-brand-border">{fixedItems.map((item: any) => <div key={item.id} className="flex items-center justify-between gap-4 px-4 py-4"><span className="font-bold text-brand-text">{item.name}</span><div className="flex items-center gap-2"><span className="font-mono font-black text-brand-text">{formatCurrency(item.amount)}</span><button onClick={() => { const items = fixedItems.filter((candidate: any) => candidate.id !== item.id); onUpdateSettings({ ...settings, fixedExpenseItems: items, monthlyExpense: sumFixedExpenseItems(items) }); }} className="rounded-lg p-2 text-brand-muted hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div>)}</div> : <div className="rounded-xl border border-dashed border-brand-border p-8 text-center"><Receipt className="mx-auto h-7 w-7 text-brand-muted" /><p className="mt-2 text-sm font-bold text-brand-muted">ยังไม่มีรายจ่ายประจำ</p></div>}</div></>; }
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-2 block text-xs font-black text-brand-text">{label}</span>{children}</label>; }
+function DrawerHeader({ title, onClose }: { title: string; onClose: () => void }) { return <div className="flex items-center justify-between border-b border-brand-border px-6 py-5"><h2 className="text-xl font-black text-brand-text">{title}</h2><button onClick={onClose} className="rounded-lg p-2 text-brand-muted"><X className="h-5 w-5" /></button></div>; }
