@@ -202,6 +202,21 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Google sign-in leaves this page with loading on. Coming back with the browser's Back button
+  // (or cancelling on Google) restores the page from the back/forward cache with that state
+  // intact, which used to leave the button spinning forever -- reset it whenever the page is
+  // shown again, and if the redirect never happens at all.
+  const oauthTimerRef = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setLoading(false);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
+      if (oauthTimerRef.current) window.clearTimeout(oauthTimerRef.current);
+    };
+  }, []);
   const [error, setError] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('confirmationExpired') === '1' ? t('login.err.confirmationExpired')
@@ -485,6 +500,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         }
       });
       if (googleErr) throw googleErr;
+      // Normally the browser is already on its way to Google; if it is still here after a while
+      // (blocked redirect, offline), give the buttons back.
+      if (oauthTimerRef.current) window.clearTimeout(oauthTimerRef.current);
+      oauthTimerRef.current = window.setTimeout(() => setLoading(false), 12000);
     } catch (err: any) {
       setError(err.message || t('login.err.googleGeneric'));
       setLoading(false);
