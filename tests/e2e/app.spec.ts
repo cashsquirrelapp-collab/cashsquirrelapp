@@ -107,8 +107,10 @@ test('retired duplicate finance tabs resolve to the current calendar and income 
  await expect(sidebar.getByRole('button',{name:'ไทม์ไลน์ปฏิทินงาน'})).toHaveCount(0);
  await expect(sidebar.getByRole('button',{name:'สรุปยอดรายรับ & ออม'})).toHaveCount(0);
  await sidebar.getByRole('button',{name:'ปฏิทิน',exact:true}).click();
- await expect(page.getByRole('heading',{name:/^ปฏิทิน ·/})).toBeVisible();
- const calendarHeading=page.getByRole('heading',{name:/^ปฏิทิน ·/});
+ await expect(page.getByRole('heading',{name:'ปฏิทิน',exact:true,level:1})).toBeVisible();
+ // Calendar view is the default; its period heading (month / week range) is the page's h2.
+ await expect(page.getByRole('tab',{name:'ปฏิทิน'})).toHaveAttribute('aria-selected','true');
+ const calendarHeading=page.getByRole('heading',{level:2});
  const monthHeading=await calendarHeading.textContent();
  await page.getByRole('button',{name:'สัปดาห์',exact:true}).click();
  await expect(page.locator('[data-calendar-view="week"]')).toBeVisible();
@@ -122,8 +124,10 @@ test('retired duplicate finance tabs resolve to the current calendar and income 
  await expect(page.locator('[data-calendar-view="month"]')).toBeVisible();
  await sidebar.getByRole('button',{name:'รายรับ-รายจ่าย',exact:true}).click();
  await expect(page.getByRole('heading',{name:'รายรับ–รายจ่าย'})).toBeVisible();
+ // The retired /timeline page now opens the calendar's Timeline view.
  await page.goto('/timeline');
- await expect(page.getByRole('heading',{name:/^ปฏิทิน ·/})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'ปฏิทิน',exact:true,level:1})).toBeVisible();
+ await expect(page.getByRole('tab',{name:'ไทม์ไลน์'})).toHaveAttribute('aria-selected','true');
  await page.goto('/summary');
  await expect(page.getByRole('heading',{name:'รายรับ–รายจ่าย'})).toBeVisible();
 });

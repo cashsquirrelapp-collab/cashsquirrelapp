@@ -1614,6 +1614,9 @@ export default function App() {
 
   // Day picked in the dashboard's mini calendar; CalendarTab opens on it, then clears it.
   const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null);
+  // The retired /timeline page is now the calendar's Timeline view: an old link opens it there.
+  const [calendarLinkView] = useState<'timeline' | null>(() =>
+    window.location.pathname.split('/').filter(Boolean)[0] === 'timeline' ? 'timeline' : null);
 
   const handleViewJob = (id: string) => {
     setScrollToJobId(id);
@@ -2687,8 +2690,13 @@ export default function App() {
               {activeTab === 'calendar' && (
                 <CalendarTab
                   jobs={jobs}
+                  expenses={expenses}
+                  settings={settings}
+                  onViewJob={handleViewJob}
+                  onAddJob={() => { setIsAddJobOpen(true); navigateTab('jobs'); }}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   initialDateKey={calendarFocusDate}
+                  linkedView={calendarLinkView}
                   onInitialDateHandled={() => setCalendarFocusDate(null)}
                 />
               )}

@@ -1,14 +1,35 @@
 import React, { useMemo, useState } from 'react';
-import { Job } from '../../../../shared/types';
+import { motion, AnimatePresence } from 'motion/react';
+import { AppSettings, Expense, Job } from '../../../../shared/types';
 import { formatCurrency, dateLocale } from '../../utils';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
+import { TimelineView } from './TimelineView';
+
+type PageView = 'calendar' | 'timeline';
+const VIEW_STORAGE_KEY = 'cashsquirrel_calendar_view';
+
+// ?view= wins (shareable link), then the last view used on this device, then the calendar.
+const initialPageView = (forceCalendar: boolean, linkedView?: PageView | null): PageView => {
+  if (forceCalendar) return 'calendar';
+  if (linkedView) return linkedView;
+  const fromUrl = new URLSearchParams(window.location.search).get('view');
+  if (fromUrl === 'timeline' || fromUrl === 'calendar') return fromUrl;
+  try { return localStorage.getItem(VIEW_STORAGE_KEY) === 'timeline' ? 'timeline' : 'calendar'; } catch { return 'calendar'; }
+};
 
 interface CalendarTabProps {
   jobs: Job[];
+  expenses: Expense[];
+  settings: AppSettings;
   onSwitchTab: (id: string) => void;
+  /** Jump to a job (same behaviour as the dashboard's job links). */
+  onViewJob: (jobId: string) => void;
+  onAddJob: () => void;
   /** YYYY-MM-DD to open on (e.g. a day clicked in the dashboard's mini calendar). */
   initialDateKey?: string | null;
   onInitialDateHandled?: () => void;
+  /** View requested by the link the app was opened with (e.g. the retired /timeline URL). */
+  linkedView?: PageView | null;
 }
 
 type EventKind = 'post' | 'creditTerm' | 'dueSoon' | 'paid' | 'overdue';
@@ -60,8 +81,17 @@ function addDays(date: Date, amount: number): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
 }
 
-export default function CalendarTab({ jobs, onSwitchTab, initialDateKey, onInitialDateHandled }: CalendarTabProps) {
+export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onViewJob, onAddJob, initialDateKey, onInitialDateHandled, linkedView }: CalendarTabProps) {
   const startKey = initialDateKey && /^\d{4}-\d{2}-\d{2}$/.test(initialDateKey) ? initialDateKey : null;
+  // A specific day was requested (dashboard mini calendar), so that always opens the calendar.
+  const [pageView, setPageView] = useState<PageView>(() => initialPageView(Boolean(startKey), linkedView));
+  const switchView = (next: PageView) => {
+    setPageView(next);
+    try { localStorage.setItem(VIEW_STORAGE_KEY, next); } catch { /* private mode: just don't remember */ }
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', next);
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  };
   const [viewDate, setViewDate] = useState(() => (startKey ? fromDateKey(startKey) : new Date()));
   const [selectedKey, setSelectedKey] = useState<string>(() => startKey ?? toDateKey(new Date()));
   // The requested date is only a starting point; clear it so a later visit opens on today.
@@ -163,10 +193,37 @@ export default function CalendarTab({ jobs, onSwitchTab, initialDateKey, onIniti
     setViewDate(selectedDate);
   };
 
+  const segment = (active: boolean) =>
+    `flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-xs font-medium transition-colors cursor-pointer ${active
+      ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-orange-300'
+      : 'text-brand-muted hover:text-brand-text'}`;
+
   return (
     <div className="page-content space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-brand-border/30 pb-3.5">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold leading-tight tracking-tight text-brand-text lg:text-[26px]">ปฏิทิน</h1>
+          <p className="mt-0.5 text-[13px] text-brand-muted">ดูงาน กำหนด และจังหวะเงินของคุณ</p>
+        </div>
+        <div className="flex items-center gap-1 rounded-xl border border-brand-border bg-brand-white p-0.5" role="tablist" aria-label="มุมมองปฏิทิน">
+          <button type="button" role="tab" aria-selected={pageView === 'calendar'} onClick={() => switchView('calendar')} className={segment(pageView === 'calendar')}>
+            <CalendarDays className="h-4 w-4" /> ปฏิทิน
+          </button>
+          <button type="button" role="tab" aria-selected={pageView === 'timeline'} onClick={() => switchView('timeline')} className={segment(pageView === 'timeline')}>
+            <List className="h-4 w-4" /> ไทม์ไลน์
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+      {pageView === 'timeline' ? (
+        <motion.div key="timeline" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.18 }}>
+          <TimelineView jobs={jobs} expenses={expenses} settings={settings} onViewJob={onViewJob} onAddJob={onAddJob} />
+        </motion.div>
+      ) : (
+      <motion.div key="calendar" className="space-y-4" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.18 }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[19px] font-semibold text-brand-text">ปฏิทิน · {headingLabel}</h2>
+        <h2 className="text-[19px] font-semibold text-brand-text">{headingLabel}</h2>
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1.5">
             <button
@@ -285,6 +342,9 @@ export default function CalendarTab({ jobs, onSwitchTab, initialDateKey, onIniti
           )}
         </div>
       </div>
+      </motion.div>
+      )}
+      </AnimatePresence>
     </div>
   );
 }
