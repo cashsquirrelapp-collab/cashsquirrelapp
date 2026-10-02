@@ -276,10 +276,10 @@ test("invoices, issuer profiles and exports follow the selected group and reset 
   // Export from the current income/expense page uses the same scoped invoice snapshot.
   const sidebar = page.locator("aside");
   await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
-  await sidebar.getByRole("button", { name: "การเงิน", exact: true }).click();
+  await sidebar.getByRole("button", { name: "รายจ่าย", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.locator("#main-content").getByRole("button", { name: "ส่งออก" }).click();
-  await page.getByRole("menuitem", { name: "สำรองข้อมูล JSON" }).click();
+  await page.getByRole("menuitem", { name: "สำรองข้อมูลทั้งหมด (JSON)" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toContain("group-" + group);
   const backup = JSON.parse(await readFile((await download.path())!, "utf8"));

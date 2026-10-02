@@ -122,14 +122,14 @@ test('retired duplicate finance tabs resolve to the current calendar and income 
  await expect(calendarHeading).not.toHaveText(weekHeading||'');
  await page.getByRole('button',{name:'เดือน',exact:true}).click();
  await expect(page.locator('[data-calendar-view="month"]')).toBeVisible();
- await sidebar.getByRole('button',{name:'การเงิน',exact:true}).click();
- await expect(page.getByRole('heading',{name:'การเงิน',exact:true,level:1})).toBeVisible();
+ await sidebar.getByRole('button',{name:'รายจ่าย',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'รายจ่าย',exact:true,level:1})).toBeVisible();
  // The retired /timeline page now opens the calendar's Timeline view.
  await page.goto('/timeline');
  await expect(page.getByRole('heading',{name:'ปฏิทิน',exact:true,level:1})).toBeVisible();
  await expect(page.getByRole('tab',{name:'ไทม์ไลน์'})).toHaveAttribute('aria-selected','true');
  await page.goto('/summary');
- await expect(page.getByRole('heading',{name:'การเงิน',exact:true,level:1})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'รายจ่าย',exact:true,level:1})).toBeVisible();
 });
 test('credit report stays concise and hands collection work to receivables',async({page})=>{
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));

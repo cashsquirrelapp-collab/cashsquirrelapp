@@ -96,7 +96,7 @@ import {
   Bell,
   Plus,
   Clock,
-  ArrowLeftRight
+  Receipt
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -181,8 +181,9 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'dashboard', labelKey: 'nav.dashboard', icon: Home, group: 'core' },
   { key: 'jobs', labelKey: 'nav.jobs', icon: Briefcase, group: 'core' },
   { key: 'calendar', labelKey: 'nav.calendar', icon: CalendarDays, group: 'core' },
+  // Recording an expense is a primary action, so รายจ่าย is always in the main row.
+  { key: 'incomeExpense', labelKey: 'nav.incomeExpense', icon: Receipt, group: 'core' },
   { key: 'receivables', labelKey: 'nav.receivables', icon: Clock, group: 'more' },
-  { key: 'incomeExpense', labelKey: 'nav.incomeExpense', icon: ArrowLeftRight, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
   { key: 'insight', labelKey: 'nav.insight', icon: BarChart3, group: 'more' },
@@ -713,7 +714,7 @@ export default function App() {
     if (!persona || persona === 'freelance') return base;
     const coreKeys = PERSONA_CORE_KEYS[persona];
     return base.map(item =>
-      item.group === 'bottom' || item.key === 'dashboard' || item.key === 'jobs' || item.key === 'groups'
+      item.group === 'bottom' || item.key === 'dashboard' || item.key === 'jobs' || item.key === 'incomeExpense' || item.key === 'groups'
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
     );
@@ -2674,8 +2675,6 @@ export default function App() {
                   onAddExpense={handleAddExpense}
                   onEditExpense={handleEditExpense}
                   onDeleteExpense={handleDeleteExpense}
-                  onEditJob={handleEditJob}
-                  onViewJob={handleViewJob}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   onExportData={handleExportData}
                   triggerAlert={triggerAlert}

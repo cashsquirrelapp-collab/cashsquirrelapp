@@ -5,6 +5,7 @@ import { CalendarDays, X } from 'lucide-react';
 import { AppSettings, Expense } from '../../../../shared/types';
 import { sumFixedExpenseItems, toLocalDateKey } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
+import { LEGACY_FIXED_NAME } from './expenseMonth';
 
 export const EXPENSE_CATEGORIES = [
   'ค่าอุปกรณ์/ซอฟต์แวร์',
@@ -31,6 +32,8 @@ export const categoryLabel = (category: string) => LEGACY_CATEGORY_LABELS[catego
 interface ExpenseDrawerProps {
   open: boolean;
   expense: Expense | null;
+  /** Pre-filled values for a new expense (e.g. recording a fixed monthly line as paid). */
+  preset?: { name: string; amount: number; recurring: boolean } | null;
   settings: AppSettings;
   onUpdateSettings: (settings: AppSettings) => void;
   onAdd: (expense: Omit<Expense, 'id'>) => void;
@@ -44,7 +47,7 @@ interface ExpenseDrawerProps {
  * of) a matching line in Settings' fixed monthly costs, and never removes one on its own --
  * that stays a deliberate action in Settings.
  */
-export default function ExpenseDrawer({ open, expense, settings, onUpdateSettings, onAdd, onEdit, onClose, triggerAlert }: ExpenseDrawerProps) {
+export default function ExpenseDrawer({ open, expense, preset, settings, onUpdateSettings, onAdd, onEdit, onClose, triggerAlert }: ExpenseDrawerProps) {
   const [name, setName] = React.useState('');
   const [amount, setAmount] = React.useState('');
   const [date, setDate] = React.useState(toLocalDateKey());
@@ -54,23 +57,24 @@ export default function ExpenseDrawer({ open, expense, settings, onUpdateSetting
   const [errors, setErrors] = React.useState<{ name?: string; amount?: string; date?: string }>({});
 
   const fixedItems = settings.fixedExpenseItems || [];
+  const legacyLump = fixedItems.length === 0 && settings.monthlyExpense > 0;
   const findFixedItem = (value: string) => fixedItems.find(item => item.name.trim().toLowerCase() === value.trim().toLowerCase());
 
   React.useEffect(() => {
     if (!open) return;
-    setName(expense?.name ?? '');
-    setAmount(expense ? String(expense.amount) : '');
+    setName(expense?.name ?? preset?.name ?? '');
+    setAmount(expense ? String(expense.amount) : preset ? String(preset.amount) : '');
     setDate(expense?.date ?? toLocalDateKey());
     setCategory(expense ? categoryLabel(expense.category) : EXPENSE_CATEGORIES[0]);
     setNote(expense?.note ?? '');
     // Pre-selected when this record's name already matches a fixed line in Settings.
-    setRecurring(expense ? Boolean(findFixedItem(expense.name)) : false);
+    setRecurring(expense ? Boolean(findFixedItem(expense.name)) : Boolean(preset?.recurring));
     setErrors({});
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, expense?.id]);
+  }, [open, expense?.id, preset?.name]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -88,11 +92,12 @@ export default function ExpenseDrawer({ open, expense, settings, onUpdateSetting
 
     let fixedNote = '';
     if (recurring) {
-      const existing = findFixedItem(payload.name);
-      // An account that only has the old lump-sum total keeps it as its own item.
+      // An account that only has the old lump-sum total keeps it as its own item -- and the match
+      // is looked up in that list, so recording the lump itself updates it instead of adding a twin.
       const baseItems = fixedItems.length === 0 && settings.monthlyExpense > 0
-        ? [{ id: crypto.randomUUID(), name: 'ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)', amount: settings.monthlyExpense }]
+        ? [{ id: crypto.randomUUID(), name: LEGACY_FIXED_NAME, amount: settings.monthlyExpense }]
         : fixedItems;
+      const existing = baseItems.find(item => item.name.trim().toLowerCase() === payload.name.trim().toLowerCase());
       const updatedItems = existing
         ? baseItems.map(item => item.id === existing.id ? { ...item, amount: payload.amount } : item)
         : [...baseItems, { id: crypto.randomUUID(), name: payload.name, amount: payload.amount }];
@@ -132,7 +137,7 @@ export default function ExpenseDrawer({ open, expense, settings, onUpdateSetting
             <div className="flex items-start justify-between gap-3 border-b border-brand-border px-6 py-5">
               <div>
                 <h2 id="expense-drawer-title" className="text-lg font-semibold text-brand-text">{expense ? 'แก้ไขรายจ่าย' : 'เพิ่มรายจ่าย'}</h2>
-                <p className="mt-0.5 text-[13px] text-brand-muted">ค่าใช้จ่ายหรือเงินที่จ่ายออก</p>
+                <p className="mt-0.5 text-[13px] text-brand-muted">บันทึกค่าใช้จ่ายที่เกิดขึ้นจริง</p>
               </div>
               <button type="button" onClick={onClose} aria-label="ปิด" className="rounded-lg p-1.5 text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer">
                 <X className="h-5 w-5" />
@@ -164,7 +169,7 @@ export default function ExpenseDrawer({ open, expense, settings, onUpdateSetting
                 </div>
               </div>
               <div>
-                <label htmlFor="expense-category" className={label}>หมวดหมู่</label>
+                <label htmlFor="expense-category" className={label}>หมวดหมู่ <span className="text-[#C43A3A]">*</span></label>
                 <select id="expense-category" value={category} onChange={(e) => setCategory(e.target.value)} className={`${input()} cursor-pointer`}>
                   {/* A historical category that is no longer in the list stays selectable as-is. */}
                   {[...EXPENSE_CATEGORIES, ...(EXPENSE_CATEGORIES.includes(category) ? [] : [category])].map(c => <option key={c} value={c}>{c}</option>)}
@@ -183,9 +188,12 @@ export default function ExpenseDrawer({ open, expense, settings, onUpdateSetting
                   </button>
                 </div>
                 {recurring && (
-                  <p className="mt-2 text-xs text-brand-muted">
-                    {findFixedItem(name) ? 'อัปเดตยอดของรายการนี้ในรายจ่ายประจำทุกเดือน' : 'เพิ่มรายการนี้เข้ารายจ่ายประจำทุกเดือน (แก้หรือลบได้ที่หน้าตั้งค่า)'}
-                  </p>
+                  <div className="mt-2 rounded-[10px] bg-brand-faint px-3 py-2.5 text-xs leading-relaxed text-brand-muted">
+                    <p>ใช้สำหรับค่าใช้จ่ายที่เกิดซ้ำเป็นประจำ เช่น อินเทอร์เน็ต ค่าบริการ หรือค่าสมาชิก</p>
+                    <p className="mt-1 text-brand-text">
+                      {findFixedItem(name) || (legacyLump && name.trim() === LEGACY_FIXED_NAME) ? `อัปเดตยอด "${name.trim()}" ในรายจ่ายประจำทุกเดือน` : 'เพิ่มรายการนี้เข้ารายจ่ายประจำทุกเดือน แก้หรือเอาออกได้ที่ "จัดการรายจ่ายประจำ"'}
+                    </p>
+                  </div>
                 )}
               </fieldset>
               <div>
