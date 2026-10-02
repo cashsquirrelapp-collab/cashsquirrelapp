@@ -7,7 +7,8 @@ import { Mascot } from '../../components/mascot/Mascot';
 import NumberInput from '../../components/ui/NumberInput';
 import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
 import ExpenseDrawer, { EXPENSE_CATEGORIES, categoryLabel } from './ExpenseDrawer';
-import { LEGACY_FIXED_NAME, buildExpenseMonth, sortExpenseRows, type ExpenseRow, type ExpenseSort } from './expenseMonth';
+import { FIXED_BUCKET, LEGACY_FIXED_NAME, buildExpenseMonth, expenseBreakdown, sortExpenseRows, type ExpenseRow, type ExpenseSort } from './expenseMonth';
+import { CategoryBars, ExpenseDonut, categoryIcon, type BreakdownMode } from './ExpenseAnalytics';
 
 // รายจ่าย: the one place to record and review spending. Expenses only -- money from jobs lives
 // in Jobs / Dashboard. Two user-facing types: ประจำ (linked by name to the fixed monthly lines in
@@ -25,6 +26,8 @@ const SORTS: { key: ExpenseSort; label: string }[] = [
 
 const fullDate = (date: string) => safeFormatThaiDate(date, { day: 'numeric', month: 'short', year: 'numeric' });
 const shortDate = (date: string) => safeFormatThaiDate(date, { day: 'numeric', month: 'short' });
+/** The category a row is grouped and filtered under; fixed lines from Settings have none of their own. */
+const rowCategory = (row: ExpenseRow) => row.fromSettings ? FIXED_BUCKET : categoryLabel(row.category);
 
 function exportExpensesCSV(rows: ExpenseRow[], monthKey: string): boolean {
   if (rows.length === 0) return false;
@@ -83,6 +86,8 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   const [exportOpen, setExportOpen] = React.useState(false);
   const [menu, setMenu] = React.useState<{ key: string; top: number; left: number; up: boolean; items: MenuItem[] } | null>(null);
   const [highlightId, setHighlightId] = React.useState<string | null>(null);
+  const [barMode, setBarMode] = React.useState<BreakdownMode>('category');
+  const [donutMode, setDonutMode] = React.useState<BreakdownMode>('category');
 
   const month = React.useMemo(
     () => buildExpenseMonth(jobs, expenses, settings, monthKey, currentMonth),
@@ -92,10 +97,19 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   const query = search.trim().toLowerCase();
   const rows = sortExpenseRows(month.rows.filter(r =>
     (typeFilter === 'all' || (typeFilter === 'recurring' ? r.recurring : !r.recurring))
-    && (category === 'all' || (!r.fromSettings && categoryLabel(r.category) === category))
+    && (category === 'all' || rowCategory(r) === category)
     && (!query || r.name.toLowerCase().includes(query) || (r.note || '').toLowerCase().includes(query))), sort);
   // Only real production categories (plus any historical label still in use this month).
-  const categoryOptions = Array.from(new Set([...EXPENSE_CATEGORIES, ...month.rows.filter(r => r.category).map(r => categoryLabel(r.category))]));
+  const categoryOptions = Array.from(new Set([...EXPENSE_CATEGORIES, ...month.rows.filter(r => r.category).map(r => categoryLabel(r.category)),
+    ...(month.rows.some(r => r.fromSettings) ? [FIXED_BUCKET] : [])]));
+  // Charts read the whole month; picking a bar or slice drives the same filters as the toolbar.
+  const chartProps = (mode: BreakdownMode, onModeChange: (mode: BreakdownMode) => void) => ({
+    slices: expenseBreakdown(month.rows, mode, rowCategory),
+    mode,
+    onModeChange,
+    selected: mode === 'category' ? (category === 'all' ? null : category) : (typeFilter === 'all' ? null : typeFilter),
+    onSelect: (key: string | null) => mode === 'category' ? setCategory(key ?? 'all') : setTypeFilter((key ?? 'all') as TypeFilter),
+  });
   const filtersActive = typeFilter !== 'all' || category !== 'all' || Boolean(query);
 
   const openAdd = (preset?: { name: string; amount: number; recurring: boolean }) => setDrawer({ expense: null, preset });
@@ -165,7 +179,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
     setMenu({ key: row.id, items: rowMenu(row), up, left: Math.max(8, Math.min(rect.right - 210, window.innerWidth - 218)), top: up ? rect.top - 4 : rect.bottom + 4 });
   };
 
-  const card = 'rounded-[14px] border border-brand-border bg-brand-white';
+  const card = 'rounded-2xl border border-brand-border bg-brand-white';
   const select = 'h-10 appearance-none rounded-xl border border-brand-border bg-brand-white pl-3 pr-8 text-xs text-brand-text outline-none transition-colors hover:bg-brand-faint focus:border-[#E65F2B] cursor-pointer';
   const menuButton = (row: ExpenseRow) => (
     <button type="button" onClick={(e) => openMenu(e, row)} aria-label={`ตัวเลือกของรายจ่าย ${row.name}`} aria-haspopup="menu" aria-expanded={menu?.key === row.id}
@@ -214,20 +228,36 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
 
       <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} />
 
-      {/* Three calm numbers */}
-      <section aria-label={`สรุปรายจ่าย ${monthLabel}`} className={`${card} px-4 py-3`}>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-xs font-medium text-brand-muted">{monthLabel}</p>
+      {/* Month summary: expenses only; what's left over lives on the dashboard */}
+      <section aria-label={`สรุปรายจ่าย ${monthLabel}`} className="rounded-2xl border border-brand-border bg-brand-white p-4 sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-[13px] font-medium text-brand-muted">{monthLabel}</p>
           <button type="button" onClick={() => setManageOpen(true)} className="inline-flex items-center gap-0.5 text-xs text-brand-muted hover:text-[#E65F2B] cursor-pointer">
             จัดการรายจ่ายประจำ <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
-        <dl className="grid grid-cols-3 divide-x divide-brand-border">
-          <div className="pr-3"><dt className="text-[11px] text-brand-muted">รายจ่ายทั้งหมด</dt><dd className="mt-0.5 font-mono text-lg font-semibold text-brand-text sm:text-xl">{formatCurrency(month.total)}</dd></div>
-          <div className="px-3 sm:px-4"><dt className="text-[11px] text-brand-muted">ประจำ</dt><dd className="mt-0.5 font-mono text-lg font-semibold text-brand-text sm:text-xl">{formatCurrency(month.recurringTotal)}</dd></div>
-          <div className="pl-3 sm:pl-4"><dt className="text-[11px] text-brand-muted">ทั่วไป</dt><dd className="mt-0.5 font-mono text-lg font-semibold text-brand-text sm:text-xl">{formatCurrency(month.generalTotal)}</dd></div>
-        </dl>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+          <dl className="grid flex-1 grid-cols-3 divide-x divide-brand-border">
+            {([['รายจ่ายทั้งหมด', month.total], ['รายจ่ายประจำ', month.recurringTotal], ['รายจ่ายทั่วไป', month.generalTotal]] as const).map(([label, value], i) => (
+              <div key={label} className={i === 0 ? 'pr-3 sm:pr-5' : i === 1 ? 'px-3 sm:px-5' : 'pl-3 sm:pl-5'}>
+                <dt className="text-[11px] text-brand-muted sm:text-[13px]">{label}</dt>
+                <dd className="mt-1 truncate font-mono text-lg font-semibold tracking-tight text-brand-text sm:text-[28px] sm:leading-9">{formatCurrency(value)}</dd>
+              </div>
+            ))}
+          </dl>
+          <button type="button" onClick={() => props.onSwitchTab('dashboard')}
+            className="group flex items-center justify-between gap-3 rounded-xl bg-brand-faint px-4 py-3 text-left transition-colors hover:bg-[#FFF1E8] cursor-pointer lg:w-[240px] lg:flex-col lg:items-start lg:gap-1.5 dark:hover:bg-orange-500/10">
+            <span className="text-xs text-brand-muted">อยากดูว่าเดือนนี้เหลือเท่าไหร่?</span>
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-[13px] font-semibold text-[#C24A16] dark:text-orange-300">ดูภาพรวม <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
+          </button>
+        </div>
       </section>
+
+      {/* What the money went on. Tablet stacks; phones get the donut below the list. */}
+      <div className="grid gap-4 lg:grid-cols-[55fr_45fr]">
+        <CategoryBars {...chartProps(barMode, setBarMode)} />
+        <div className="hidden md:block"><ExpenseDonut {...chartProps(donutMode, setDonutMode)} total={month.total} /></div>
+      </div>
 
       {/* Type tabs + toolbar */}
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
@@ -298,12 +328,17 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                 {rows.map(row => (
                   <tr key={row.id} data-expense-id={row.id} onClick={() => setDetail(row)}
                     className={`cursor-pointer border-b border-brand-border transition-colors last:border-b-0 hover:bg-brand-faint/60 ${highlightId === row.id ? 'bg-[#FFF1E8] dark:bg-orange-500/10' : ''}`}>
-                    <td className="truncate px-4 py-2.5 font-medium text-brand-text">{row.name}{row.note && <span className="block truncate text-[11px] font-normal text-brand-muted">{row.note}</span>}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-brand-muted">{dateText(row)}</td>
-                    <td className="px-3 py-2.5"><TypeBadge recurring={row.recurring} /></td>
-                    <td className="truncate px-3 py-2.5 text-brand-muted">{row.fromSettings ? 'ตั้งไว้ทุกเดือน' : categoryLabel(row.category)}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono font-semibold text-brand-text">{formatCurrency(row.amount)}</td>
-                    <td className="px-2 py-2.5 text-right">{menuButton(row)}</td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <CategoryIcon category={rowCategory(row)} />
+                        <span className="min-w-0 truncate font-medium text-brand-text">{row.name}{row.note && <span className="block truncate text-[11px] font-normal text-brand-muted">{row.note}</span>}</span>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3.5 text-brand-muted">{dateText(row)}</td>
+                    <td className="px-3 py-3.5"><TypeBadge recurring={row.recurring} /></td>
+                    <td className="truncate px-3 py-3.5 text-brand-muted">{rowCategory(row)}</td>
+                    <td className="whitespace-nowrap px-3 py-3.5 text-right font-mono font-semibold text-brand-text">{formatCurrency(row.amount)}</td>
+                    <td className="px-2 py-3.5 text-right">{menuButton(row)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -317,13 +352,15 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                   <p className="min-w-0 truncate text-sm font-medium text-brand-text">{row.name}</p>
                   <p className="shrink-0 font-mono text-sm font-semibold text-brand-text">{formatCurrency(row.amount)}</p>
                 </div>
-                <p className="mt-0.5 truncate text-xs text-brand-muted">{dateText(row, true)} · {row.fromSettings ? 'ตั้งไว้ทุกเดือน' : categoryLabel(row.category)}</p>
+                <p className="mt-0.5 truncate text-xs text-brand-muted">{dateText(row, true)} · {rowCategory(row)}</p>
                 <div className="mt-1.5 flex items-center justify-between"><TypeBadge recurring={row.recurring} />{menuButton(row)}</div>
               </li>
             ))}
           </ul>
         </>
       )}
+
+      <div className="md:hidden"><ExpenseDonut {...chartProps(donutMode, setDonutMode)} total={month.total} /></div>
 
       <button type="button" onClick={() => props.onSwitchTab('report')} className="inline-flex items-center gap-1 text-xs text-brand-muted hover:text-[#E65F2B] cursor-pointer">
         ดูรายงานรายจ่าย <ChevronRight className="h-3.5 w-3.5" />
@@ -366,6 +403,11 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
       />
     </div>
   );
+}
+
+function CategoryIcon({ category }: { category: string }) {
+  const Icon = categoryIcon(category);
+  return <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-faint text-brand-muted"><Icon className="h-3.5 w-3.5" /></span>;
 }
 
 function TypeBadge({ recurring }: { recurring: boolean }) {

@@ -84,3 +84,46 @@ export function sortExpenseRows(rows: ExpenseRow[], sort: ExpenseSort): ExpenseR
     : byDate(sort === 'recent');
   return [...rows].sort(compare);
 }
+
+/** Category bucket for fixed lines from Settings -- they carry no category of their own. */
+export const FIXED_BUCKET = 'ตั้งไว้ทุกเดือน';
+
+export interface ExpenseSlice {
+  key: string;
+  label: string;
+  amount: number;
+  count: number;
+  /** Share of the month's total, 0-100 (0 when the month has no spending). */
+  percent: number;
+}
+
+/**
+ * The month's spending grouped for the charts: by category (largest first) or by type (ประจำ /
+ * ทั่วไป). `categoryOf` maps a recorded row to its display category; fixed lines from Settings
+ * group under FIXED_BUCKET. Empty groups are left out.
+ */
+export function expenseBreakdown(rows: ExpenseRow[], mode: 'category' | 'type', categoryOf: (row: ExpenseRow) => string): ExpenseSlice[] {
+  const total = rows.reduce((sum, r) => sum + r.amount, 0);
+  const groups = new Map<string, { amount: number; count: number }>();
+  for (const row of rows) {
+    if (row.amount <= 0) continue;
+    const key = mode === 'type' ? (row.recurring ? 'recurring' : 'general') : row.fromSettings ? FIXED_BUCKET : categoryOf(row);
+    const group = groups.get(key) || { amount: 0, count: 0 };
+    group.amount += row.amount;
+    group.count += 1;
+    groups.set(key, group);
+  }
+  const slices = [...groups].map(([key, g]) => ({
+    key,
+    label: mode === 'type' ? (key === 'recurring' ? 'รายจ่ายประจำ' : 'รายจ่ายทั่วไป') : key,
+    amount: g.amount,
+    count: g.count,
+    percent: total > 0 ? (g.amount / total) * 100 : 0,
+  }));
+  return mode === 'type'
+    ? slices.sort((a, b) => (a.key === 'recurring' ? -1 : 1) - (b.key === 'recurring' ? -1 : 1))
+    : slices.sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label, 'th'));
+}
+
+/** Whole-number percent for display; a real but tiny share reads "<1%" rather than "0%". */
+export const percentText = (percent: number) => percent > 0 && percent < 0.5 ? '<1%' : `${Math.round(percent)}%`;
