@@ -7,23 +7,20 @@ import {
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { AppSettings, Expense, Goal, Job, NotifSettings } from '../../../../shared/types';
+import { Job, NotifSettings } from '../../../../shared/types';
 import { getJobPaymentEntries, getJobPendingEntries } from '../../../../shared/installmentPayments';
 import { formatCurrency, formatMonthKey, getMonthKey } from '../../utils';
 
 interface Props {
   jobs: Job[];
-  goals: Goal[];
-  settings: AppSettings;
-  onUpdateSettings: (settings: AppSettings) => void;
   userEmail: string;
   notifSettings: NotifSettings;
-  onUpdateNotifSettings: (settings: NotifSettings) => void;
-  onSwitchTab: (tabId: 'dashboard' | 'jobs' | 'summary' | 'timeline' | 'split' | 'report' | 'plans') => void;
+  onSwitchTab: (tabId: string) => void;
   onViewJob?: (jobId: string) => void;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
-  triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
-  expenses?: Expense[];
+  initialTab?: ReportTab;
+  isPro?: boolean;
+  onUpgrade?: () => void;
 }
 
 type ReportTab = 'overview' | 'clients' | 'types' | 'credit';
@@ -58,8 +55,8 @@ const dateInPeriod = (value: string | null | undefined, cutoff: Date | null) => 
 
 const csvEscape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
 
-export default function MonthlyReportTab({ jobs, userEmail, notifSettings, onSwitchTab, onViewJob, triggerAlert }: Props) {
-  const [activeTab, setActiveTab] = useState<ReportTab>('overview');
+export default function MonthlyReportTab({ jobs, userEmail, notifSettings, onSwitchTab, onViewJob, triggerAlert, initialTab = 'overview', isPro = false, onUpgrade }: Props) {
+  const [activeTab, setActiveTab] = useState<ReportTab>(initialTab);
   const [period, setPeriod] = useState<Period>('6');
   const [trendMode, setTrendMode] = useState<TrendMode>('monthly');
   const [exportOpen, setExportOpen] = useState(false);
@@ -200,8 +197,8 @@ export default function MonthlyReportTab({ jobs, userEmail, notifSettings, onSwi
     </div>
 
     {activeTab === 'overview' && <Overview totalRevenue={totalRevenue} jobCount={jobCount} averagePerJob={averagePerJob} clientCount={clientCount} trend={trend} trendMode={trendMode} setTrendMode={setTrendMode} topClient={clientRanking[0]} topType={typeRanking[0]} monthlyTrend={monthlyTrend} showTable={showTable} setShowTable={setShowTable} onSwitchTab={onSwitchTab} />}
-    {activeTab === 'clients' && <Clients rankings={clientRanking} totalRevenue={totalRevenue} retention={retention} clientCount={clientCount} setDrilldown={setDrilldown} />}
-    {activeTab === 'types' && <JobTypes rankings={typeRanking} setDrilldown={setDrilldown} />}
+    {activeTab === 'clients' && (isPro ? <Clients rankings={clientRanking} totalRevenue={totalRevenue} retention={retention} clientCount={clientCount} setDrilldown={setDrilldown} /> : <BasicRanking title="รายได้ตามลูกค้า / ผู้จ่าย" rankings={clientRanking} onUpgrade={onUpgrade} />)}
+    {activeTab === 'types' && (isPro ? <JobTypes rankings={typeRanking} setDrilldown={setDrilldown} /> : <BasicRanking title="รายได้ตามประเภทงาน" rankings={typeRanking} onUpgrade={onUpgrade} />)}
     {activeTab === 'credit' && <Credit aging={aging} pendingTotal={pendingTotal} pendingCount={pendingEntries.length} overdueTotal={overdueTotal} onSwitchTab={onSwitchTab} />}
 
     <AnimatePresence>{drilldown && <Drilldown ranking={drilldown} close={() => setDrilldown(null)} onViewJob={onViewJob} />}</AnimatePresence>
@@ -229,7 +226,17 @@ function JobTypes({ rankings, setDrilldown }: any) {
 
 function Credit({ aging, pendingTotal, pendingCount, overdueTotal, onSwitchTab }: any) {
   const max = Math.max(...aging.map((item: AgingBucket) => item.amount), 1);
-  return <div className="space-y-5"><SummaryStrip items={[["ยอดที่ยังรอรับ", formatCurrency(pendingTotal)], ["จำนวนรายการ", `${pendingCount} รายการ`], ["เกินกำหนด", formatCurrency(overdueTotal)]]} /><section className="report-card"><h2 className="report-title">พฤติกรรมเครดิตเทอม</h2><p className="report-subtitle">วิเคราะห์ช่วงเวลาที่เงินควรเข้าจากงาน</p><div className="mt-6 space-y-4">{aging.map((item: AgingBucket) => <div key={item.key} className="grid grid-cols-[120px_1fr_auto] items-center gap-3"><div><p className={`text-xs font-semibold ${item.key === 'overdue' ? 'text-red-600' : 'text-brand-text'}`}>{item.label}</p><p className="text-[10px] text-brand-muted">{item.count} รายการ</p></div><div className="h-2 overflow-hidden rounded-full bg-brand-faint"><span className="block h-full rounded-full" style={{ width: `${item.amount / max * 100}%`, background: item.color }} /></div><span className="min-w-24 text-right font-mono text-xs font-bold text-brand-text">{formatCurrency(item.amount)}</span></div>)}</div><button onClick={() => onSwitchTab('summary')} className="mt-7 flex items-center gap-1 text-xs font-bold text-[#D9551D] hover:underline">ดูเงินที่ยังไม่ได้รับ<ArrowRight className="h-3.5 w-3.5" /></button></section></div>;
+  return <div className="space-y-5"><SummaryStrip items={[["ยอดที่ยังรอรับ", formatCurrency(pendingTotal)], ["จำนวนรายการ", `${pendingCount} รายการ`], ["เกินกำหนด", formatCurrency(overdueTotal)]]} /><section className="report-card"><h2 className="report-title">พฤติกรรมเครดิตเทอม</h2><p className="report-subtitle">วิเคราะห์ช่วงเวลาที่เงินควรเข้าจากงาน</p><div className="mt-6 space-y-4">{aging.map((item: AgingBucket) => <div key={item.key} className="grid grid-cols-[120px_1fr_auto] items-center gap-3"><div><p className={`text-xs font-semibold ${item.key === 'overdue' ? 'text-red-600' : 'text-brand-text'}`}>{item.label}</p><p className="text-[10px] text-brand-muted">{item.count} รายการ</p></div><div className="h-2 overflow-hidden rounded-full bg-brand-faint"><span className="block h-full rounded-full" style={{ width: `${item.amount / max * 100}%`, background: item.color }} /></div><span className="min-w-24 text-right font-mono text-xs font-bold text-brand-text">{formatCurrency(item.amount)}</span></div>)}</div><button onClick={() => onSwitchTab('receivables')} className="mt-7 flex items-center gap-1 text-xs font-bold text-[#D9551D] hover:underline">ดูเงินที่ยังไม่ได้รับ<ArrowRight className="h-3.5 w-3.5" /></button></section></div>;
+}
+
+function BasicRanking({ title, rankings, onUpgrade }: { title: string; rankings: Ranking[]; onUpgrade?: () => void }) {
+  return <div className="space-y-4">
+    <button type="button" onClick={onUpgrade} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#F3D2BE] bg-[#FFF7F1] px-5 py-4 text-left text-xs text-brand-text transition hover:bg-[#FFF1E8] dark:border-orange-400/20 dark:bg-orange-500/10">
+      <span>ปลดล็อกกราฟเชิงลึก การเปรียบเทียบ และรายละเอียดงานในแต่ละกลุ่ม</span>
+      <span className="inline-flex shrink-0 items-center gap-1 font-bold text-[#C24A16] dark:text-orange-300">อัปเกรด <ArrowRight className="h-3.5 w-3.5" /></span>
+    </button>
+    <section className="report-card"><h2 className="report-title">{title}</h2><p className="report-subtitle">ข้อมูลสรุปจากรายได้ที่รับจริงในช่วงนี้</p><div className="mt-5 divide-y divide-brand-border">{rankings.slice(0, 5).map(item => <div key={item.key} className="flex items-center justify-between gap-4 py-3 text-xs"><div className="min-w-0"><p className="truncate font-semibold text-brand-text">{item.key}</p><p className="mt-1 text-[10px] text-brand-muted">{item.count} งาน</p></div><span className="shrink-0 font-mono font-bold text-brand-text">{formatCurrency(item.revenue)}</span></div>)}{rankings.length === 0 && <p className="py-10 text-center text-sm text-brand-muted">ยังมีข้อมูลไม่พอสำหรับรายงานช่วงนี้</p>}</div></section>
+  </div>;
 }
 
 function SummaryStrip({ items }: { items: [string, string][] }) { return <section className={`grid rounded-2xl border border-brand-border bg-brand-white p-5 dark:bg-neutral-900 sm:p-6 ${items.length === 3 ? 'grid-cols-1 divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0' : 'grid-cols-2 lg:grid-cols-4'}`}>{items.map(([label, value], index) => <div key={label} className={`py-3 sm:px-5 sm:py-0 ${items.length === 4 && index % 2 === 1 ? 'border-l border-brand-border pl-4' : ''} ${items.length === 4 && index > 0 ? 'lg:border-l lg:border-brand-border lg:pl-5' : ''} ${items.length === 4 && index >= 2 ? 'border-t border-brand-border pt-4 lg:border-t-0 lg:pt-0' : ''}`}><p className="text-[11px] font-semibold text-brand-muted">{label}</p><p className="mt-1 font-mono text-xl font-bold text-brand-text sm:text-2xl">{value}</p></div>)}</section>; }

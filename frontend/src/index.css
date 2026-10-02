@@ -3,6 +3,33 @@
 @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@600&text=%E0%B8%81%E0%B8%A3%E0%B8%B0%E0%B8%A3%E0%B8%AD%E0%B8%81%E0%B8%95%E0%B8%B8%E0%B8%99%E0%B9%80%E0%B8%87%E0%B8%B4%E0%B8%99&display=swap');
 @import "tailwindcss";
 
+@layer components {
+  .report-card {
+    @apply rounded-2xl border border-brand-border bg-brand-white p-5 dark:border-neutral-800 dark:bg-neutral-900 sm:p-6;
+  }
+  .report-title {
+    @apply font-display text-[15px] font-bold text-brand-text dark:text-white;
+  }
+  .report-subtitle {
+    @apply mt-1 text-[11px] text-brand-muted;
+  }
+  .report-mode {
+    @apply rounded-md px-3 py-1.5 text-[10px] font-bold text-brand-muted;
+  }
+  .report-mode.is-active {
+    @apply bg-brand-white text-[#D9551D] shadow-xs dark:bg-neutral-700 dark:text-[#FFA473];
+  }
+  .report-table-row {
+    @apply grid grid-cols-[1.4fr_repeat(3,1fr)] gap-4 border-b border-brand-border px-5 py-3 text-xs text-brand-text last:border-0 sm:px-6;
+  }
+  .report-table-row span:not(:first-child) {
+    @apply text-right font-mono;
+  }
+  .report-table-head {
+    @apply bg-brand-faint/60 text-[10px] font-bold text-brand-muted;
+  }
+}
+
 @variant dark (&:where(.dark, .dark *));
 
 @theme {

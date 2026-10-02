@@ -11,13 +11,12 @@ const loadSplitTab = () => import('../features/goals/SplitTab');
 const loadTaxTab = () => import('../features/tax/TaxTab');
 const loadSettingsTab = () => import('../features/settings/SettingsTab').then(module => ({ default: module.SettingsTab }));
 const loadInvoiceTab = () => import('../features/invoices/InvoiceTab').then(module => ({ default: module.InvoiceTab }));
-const loadInsightTab = () => import('../features/reports/InsightTab').then(module => ({ default: module.InsightTab }));
 const loadPlansTab = () => import('../features/billing/PlansTab').then(module => ({ default: module.PlansTab }));
 const loadGroupsTab = () => import('../features/groups/GroupsTab');
 const loadClientsTab = () => import('../features/clients/ClientsTab');
 const loadReceivablesTab = () => import('../features/receivables/ReceivablesTab');
 const loadIncomeExpenseTab = () => import('../features/incomeExpense/IncomeExpenseTab');
-const loadReportOverviewTab = () => import('../features/report/ReportTab');
+const loadReportOverviewTab = () => import('../features/reports/MonthlyReportTab');
 const loadCalendarTab = () => import('../features/calendar/CalendarTab');
 const ClientsTab = lazy(loadClientsTab);
 const ReceivablesTab = lazy(loadReceivablesTab);
@@ -36,7 +35,6 @@ import LandingPage from '../features/marketing/LandingPage';
 const TaxTab = lazy(loadTaxTab);
 const SettingsTab = lazy(loadSettingsTab);
 const InvoiceTab = lazy(loadInvoiceTab);
-const InsightTab = lazy(loadInsightTab);
 const PlansTab = lazy(loadPlansTab);
 const GroupsTab = lazy(loadGroupsTab);
 import FinanceWorkspacePicker from '../features/groups/FinanceWorkspacePicker';
@@ -157,7 +155,7 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   groups: loadGroupsTab,
   split: loadSplitTab,
   report: loadReportOverviewTab,
-  insight: loadInsightTab,
+  insight: loadReportOverviewTab,
   tax: loadTaxTab,
   invoice: loadInvoiceTab,
   plans: loadPlansTab,
@@ -2629,14 +2627,17 @@ export default function App() {
                 )
               )}
 
-              {/* วิเคราะห์รายได้ now lives inside รายงาน; old /insight links open that view. */}
+              {/* วิเคราะห์รายได้ now lives inside รายงาน; old /insight links open the client view. */}
               {(activeTab === 'report' || activeTab === 'insight') && (
                 <ReportOverviewTab
                   jobs={jobs}
-                  expenses={expenses}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
-                  initialView={activeTab === 'insight' ? 'income' : undefined}
-                  insight={isPro ? <InsightTab embedded jobs={jobs} onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }} /> : undefined}
+                  initialTab={activeTab === 'insight' ? 'clients' : undefined}
+                  userEmail={session?.user?.email || 'user@example.com'}
+                  notifSettings={notifSettings}
+                  onViewJob={handleViewJob}
+                  triggerAlert={triggerAlert}
+                  isPro={isPro}
                   onUpgrade={isPro ? undefined : handleUpgrade}
                 />
               )}
