@@ -46,13 +46,13 @@ const TOP_N = 8;
 // rest fold into "อื่นๆ".
 const PIE_N = 5;
 const CONCENTRATION_RISK_THRESHOLD = 0.4;
-const CHART_COLORS = ['#E65F2B', '#C96B5A', '#D98324', '#C17817', '#7A4419', '#A63F1B', '#557c72', '#7A5C43'];
+const CHART_COLORS = ['#E65F2B', '#708090', '#4F8F82', '#D89A32', '#B87772', '#8D7B70', '#64748B', '#A58E7E'];
 // A CVD-validated categorical set (see scripts/validate_palette.js) used only for the pie/donut
 // view -- unlike the bar chart, where each category is also identified by its axis text label,
 // a pie's slices lean on color as the primary way to tell them apart at a glance, so this palette
 // is held to the stricter separation bar than CHART_COLORS above.
-const PIE_COLORS = ['#eb6834', '#2a78d6', '#1baf7a', '#eda100', '#e87ba4', '#008300'];
-const OTHER_BUCKET_COLOR = '#a89689';
+const PIE_COLORS = ['#E65F2B', '#5F7796', '#4F8F82', '#D89A32', '#B87772', '#8D7B70'];
+const OTHER_BUCKET_COLOR = '#A79A90';
 
 function clientKey(j: Job): string {
   return (j.client || '').trim() || 'ไม่ระบุลูกค้า';
@@ -237,12 +237,11 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
   };
 
   const renderBarChart = (data: Bucket[], title: string, icon: React.ReactNode, dimension: 'client' | 'type') => (
-    <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-3xl p-5 sm:p-6 shadow-sm">
-      <h3 className="font-display font-extrabold text-sm text-brand-text dark:text-white flex items-center gap-2 mb-1">
-        {icon}
-        {title}
-      </h3>
-      {data.length > 0 && <p className="text-[10px] text-brand-muted mb-4">คลิกที่แท่งเพื่อดูรายการงาน</p>}
+    <div className="rounded-2xl border border-brand-border bg-brand-white p-5 dark:border-neutral-800 dark:bg-stone-900 sm:p-6">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF0E8] text-[#E65F2B] dark:bg-[#34231B]">{icon}</span>
+        <div><h3 className="font-display text-[15px] font-bold text-brand-text dark:text-white">{title}</h3>{data.length > 0 && <p className="mt-0.5 text-[11px] text-brand-muted">คลิกที่แท่งเพื่อดูรายการงาน</p>}</div>
+      </div>
       {data.length === 0 ? (
         <p className="text-xs text-brand-muted text-center py-10">ยังไม่มีข้อมูลในช่วงเวลานี้</p>
       ) : (
@@ -308,27 +307,27 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
   const renderPieChart = (data: Bucket[], title: string, icon: React.ReactNode, dimension: 'client' | 'type') => {
     const total = data.reduce((sum, d) => sum + d.received, 0);
     return (
-      <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-3xl p-5 sm:p-6 shadow-sm">
-        <h3 className="font-display font-extrabold text-sm text-brand-text dark:text-white flex items-center gap-2 mb-1">
-          {icon}
-          {title}
-        </h3>
-        {data.length > 0 && <p className="text-[10px] text-brand-muted mb-4">คลิกที่ชิ้นหรือรายชื่อด้านล่างเพื่อดูรายการงาน</p>}
+      <div className="rounded-2xl border border-brand-border bg-brand-white p-5 dark:border-neutral-800 dark:bg-stone-900 sm:p-6">
+        <div className="mb-4 flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF0E8] text-[#E65F2B] dark:bg-[#34231B]">{icon}</span>
+          <div><h3 className="font-display text-[15px] font-bold text-brand-text dark:text-white">{title}</h3>{data.length > 0 && <p className="mt-0.5 text-[11px] text-brand-muted">คลิกกราฟหรือรายการเพื่อดูงาน</p>}</div>
+        </div>
         {data.length === 0 ? (
           <p className="text-xs text-brand-muted text-center py-10">ยังไม่มีข้อมูลในช่วงเวลานี้</p>
         ) : (
-          <div className="flex flex-col items-center gap-5">
-            <div className="relative w-full" style={{ height: 220 }}>
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative w-full" style={{ height: 196 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsPieChart>
                   <Pie
                     data={data}
                     dataKey="received"
                     nameKey="key"
-                    innerRadius="58%"
-                    outerRadius="90%"
-                    paddingAngle={2}
-                    stroke="none"
+                    innerRadius="64%"
+                    outerRadius="86%"
+                    paddingAngle={1.5}
+                    stroke="var(--color-brand-white)"
+                    strokeWidth={2}
                     isAnimationActive={false}
                     style={{ cursor: 'pointer' }}
                     onClick={(entry) => entry?.payload && handleBucketClick(dimension, data, entry.payload as Bucket)}
@@ -369,14 +368,14 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
               {/* Center total -- a donut's hole is otherwise wasted space, and "how much in total"
                   is the one number every slice below is a fraction of. */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[9px] font-extrabold uppercase tracking-wider text-brand-muted">รวม</span>
-                <span className="text-sm font-black font-mono text-brand-text dark:text-white">{formatCurrency(total)}</span>
+                <span className="text-[10px] font-semibold text-brand-muted">รวม</span>
+                <span className="mt-0.5 text-base font-bold font-mono text-brand-text dark:text-white">{formatCurrency(total)}</span>
               </div>
             </div>
 
             {/* Legend doubles as the direct label -- color is never the only way to tell two
                 slices apart here. */}
-            <div className="w-full space-y-1.5">
+            <div className="w-full divide-y divide-brand-border/60 border-t border-brand-border/60">
               {data.map((d, index) => {
                 const pct = total > 0 ? Math.round((d.received / total) * 100) : 0;
                 return (
@@ -384,18 +383,18 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
                     type="button"
                     key={d.key}
                     onClick={() => handleBucketClick(dimension, data, d)}
-                    className="w-full flex items-center justify-between gap-2 text-[11px] p-1 -m-1 rounded-lg hover:bg-brand-faint dark:hover:bg-neutral-800/60 transition-colors cursor-pointer"
+                    className="flex w-full items-center justify-between gap-3 px-1 py-2.5 text-[11px] transition-colors hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: d.key === 'อื่นๆ' ? OTHER_BUCKET_COLOR : PIE_COLORS[index % PIE_COLORS.length] }}
                       />
-                      <span className="font-bold text-brand-text dark:text-neutral-200 truncate">{d.key}</span>
+                      <span className="truncate font-semibold text-brand-text dark:text-neutral-200">{d.key}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 font-mono">
-                      <span className="font-extrabold text-brand-text dark:text-white">{formatCurrency(d.received)}</span>
-                      <span className="text-brand-muted">({pct}%)</span>
+                      <span className="font-bold text-brand-text dark:text-white">{formatCurrency(d.received)}</span>
+                      <span className="w-9 text-right text-brand-muted">{pct}%</span>
                     </div>
                   </button>
                 );
@@ -408,7 +407,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
   };
 
   return (
-    <div className="page-content space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="page-content mx-auto max-w-none space-y-6 pb-12">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-display font-black text-lg text-brand-text dark:text-white">วิเคราะห์รายได้เชิงลึก</h2>
@@ -552,11 +551,11 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
       {/* By-client / by-job-type charts */}
       <div className="space-y-3">
         <div className="flex items-center justify-end">
-          <div className="flex items-center bg-brand-faint dark:bg-stone-850 border border-brand-border dark:border-neutral-800 rounded-xl p-1 gap-1">
+          <div className="flex items-center gap-1 rounded-full border border-brand-border bg-brand-faint p-1 dark:border-neutral-800 dark:bg-stone-850">
             <button
               type="button"
               onClick={() => setCategoryChartMode('pie')}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-bold transition-all ${
                 categoryChartMode === 'pie'
                   ? 'bg-brand-white dark:bg-stone-700 text-brand-text dark:text-white shadow-xs'
                   : 'text-brand-muted hover:text-brand-text'
@@ -567,7 +566,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
             <button
               type="button"
               onClick={() => setCategoryChartMode('bar')}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-bold transition-all ${
                 categoryChartMode === 'bar'
                   ? 'bg-brand-white dark:bg-stone-700 text-brand-text dark:text-white shadow-xs'
                   : 'text-brand-muted hover:text-brand-text'
@@ -577,7 +576,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {categoryChartMode === 'bar'
             ? renderBarChart(byClient, 'รายรับตามลูกค้า', <Users className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />, 'client')
             : renderPieChart(byClientPie, 'รายรับตามลูกค้า', <Users className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />, 'client')}
@@ -589,21 +588,18 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
 
       {/* Client retention */}
       {retention && (
-        <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-3xl p-5 sm:p-6 shadow-sm">
-          <h3 className="font-display font-extrabold text-sm text-brand-text dark:text-white flex items-center gap-2 mb-5">
-            <UserPlus className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
-            ลูกค้าใหม่ vs. ลูกค้าเดิม
-          </h3>
+        <div className="rounded-2xl border border-brand-border bg-brand-white p-5 dark:border-neutral-800 dark:bg-stone-900 sm:p-6">
+          <div className="mb-5 flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF0E8] text-[#E65F2B] dark:bg-[#34231B]"><UserPlus className="h-4.5 w-4.5" /></span><h3 className="font-display text-[15px] font-bold text-brand-text dark:text-white">ลูกค้าใหม่ vs. ลูกค้าเดิม</h3></div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-brand-faint dark:bg-neutral-800/40 rounded-2xl p-4">
-              <p className="text-[9px] font-extrabold uppercase tracking-wider text-brand-muted">ลูกค้าใหม่</p>
-              <p className="text-lg font-black font-mono text-brand-text dark:text-white mt-0.5">{retention.newCount} ราย</p>
-              <p className="text-[10px] text-brand-muted mt-0.5">{formatCurrency(retention.newRevenue)}</p>
+            <div className="rounded-xl border border-brand-border/60 bg-brand-faint/50 p-4 dark:bg-neutral-800/40">
+              <p className="text-[11px] font-semibold text-brand-muted">ลูกค้าใหม่</p>
+              <p className="mt-1 text-xl font-bold font-mono text-brand-text dark:text-white">{retention.newCount} ราย</p>
+              <p className="mt-0.5 text-[11px] text-brand-muted">{formatCurrency(retention.newRevenue)}</p>
             </div>
-            <div className="bg-emerald-500/10 rounded-2xl p-4">
-              <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">ลูกค้าเดิม (ซื้อซ้ำ)</p>
-              <p className="text-lg font-black font-mono text-emerald-700 dark:text-emerald-400 mt-0.5">{retention.recurringCount} ราย</p>
-              <p className="text-[10px] text-emerald-700/70 dark:text-emerald-400/70 mt-0.5">{formatCurrency(retention.recurringRevenue)}</p>
+            <div className="rounded-xl border border-[#E9CFC0] bg-[#FFF7F2] p-4 dark:border-[#5A3425] dark:bg-[#34231B]">
+              <p className="text-[11px] font-semibold text-[#C95321] dark:text-[#FFA473]">ลูกค้าเดิม (ซื้อซ้ำ)</p>
+              <p className="mt-1 text-xl font-bold font-mono text-brand-text dark:text-white">{retention.recurringCount} ราย</p>
+              <p className="mt-0.5 text-[11px] text-brand-muted">{formatCurrency(retention.recurringRevenue)}</p>
             </div>
           </div>
         </div>

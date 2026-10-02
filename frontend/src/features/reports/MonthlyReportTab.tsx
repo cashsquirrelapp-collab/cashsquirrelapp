@@ -1,53 +1,24 @@
-import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Job, Goal, AppSettings, NotifSettings } from '../../../../shared/types';
-import { formatCurrency, getMonthKey, formatMonthKey, getRelativeDaysText } from '../../utils';
-import { getJobPaymentEntries, getMonthKeyFromDate } from '../../../../shared/installmentPayments';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer,
-  ReferenceLine
-} from 'recharts';
-import { 
-  FileText, 
-  Mail, 
-  Calendar, 
-  AlertCircle, 
-  CheckCircle2, 
-  TrendingUp, 
-  PiggyBank,
-  Send,
-  ArrowRight, 
-  ShieldCheck,
-  Bell,
-  Clock,
-  Briefcase,
-  Calculator,
-  Upload,
-  Trash2,
-  Eye,
-  Plus,
-  X,
-  FileCheck
+import React, { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import {
+  ArrowRight, ChevronDown, ChevronUp, Download, FileSpreadsheet,
+  Mail, MoreHorizontal, TrendingUp, X,
 } from 'lucide-react';
-import { TaxEvidence, WhtDocument, Expense } from '../../../../shared/types';
-import { Mascot } from '../../components/mascot/Mascot';
-import { IconWarning, IconAlertDot, IconCalendar, IconCheck, IconBulb } from '../../components/ui/icons';
+import {
+  CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts';
+import { AppSettings, Expense, Goal, Job, NotifSettings } from '../../../../shared/types';
+import { getJobPaymentEntries, getJobPendingEntries } from '../../../../shared/installmentPayments';
+import { formatCurrency, formatMonthKey, getMonthKey } from '../../utils';
 
-interface MonthlyReportTabProps {
+interface Props {
   jobs: Job[];
   goals: Goal[];
   settings: AppSettings;
   onUpdateSettings: (settings: AppSettings) => void;
   userEmail: string;
   notifSettings: NotifSettings;
-  onUpdateNotifSettings: (notifSettings: NotifSettings) => void;
+  onUpdateNotifSettings: (settings: NotifSettings) => void;
   onSwitchTab: (tabId: 'dashboard' | 'jobs' | 'summary' | 'timeline' | 'split' | 'report' | 'plans') => void;
   onViewJob?: (jobId: string) => void;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
@@ -55,737 +26,223 @@ interface MonthlyReportTabProps {
   expenses?: Expense[];
 }
 
-export default function MonthlyReportTab({
-  jobs,
-  goals,
-  settings,
-  onUpdateSettings,
-  userEmail,
-  notifSettings,
-  onUpdateNotifSettings,
-  onSwitchTab,
-  onViewJob,
-  triggerAlert,
-  triggerConfirm,
-  expenses = []
-}: MonthlyReportTabProps) {
-  const [reportView, setReportView] = useState<'overview' | 'income' | 'clients' | 'credit'>('overview');
-  const [isSendingSimulated, setIsSendingSimulated] = useState(false);
-  const [simulationStep, setSimulationStep] = useState(0);
+type ReportTab = 'overview' | 'clients' | 'types' | 'credit';
+type Period = '3' | '6' | '12' | 'all';
+type TrendMode = 'monthly' | 'annual';
 
-  const [localEmail, setLocalEmail] = useState(notifSettings.alertEmail || userEmail);
-  const [localServiceType, setLocalServiceType] = useState(notifSettings.serviceType || 'mailto');
-  const [localEnabled, setLocalEnabled] = useState(notifSettings.enabled ?? true);
-  const [localServiceId, setLocalServiceId] = useState(notifSettings.emailjsServiceId || '');
-  const [localTemplateId, setLocalTemplateId] = useState(notifSettings.emailjsTemplateId || '');
-  const [localPublicKey, setLocalPublicKey] = useState(notifSettings.emailjsPublicKey || '');
-  const [isSavedText, setIsSavedText] = useState(false);
+type Ranking = { key: string; revenue: number; count: number; jobs: Job[] };
+type TrendPoint = { key: string; label: string; revenue: number; jobs: number; clients: number };
+type AgingBucket = { key: string; label: string; amount: number; count: number; color: string };
 
-  const totalAllocatedPct = useMemo(() => {
-    return goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
-  }, [goals]);
-  const displaySavingsPercentage = totalAllocatedPct > 0 ? totalAllocatedPct : (settings.savingsPercentage || 40);
+const PERIODS: { key: Period; label: string }[] = [
+  { key: '3', label: '3 เดือน' }, { key: '6', label: '6 เดือน' },
+  { key: '12', label: '12 เดือน' }, { key: 'all', label: 'ทั้งหมด' },
+];
+const TABS: { key: ReportTab; label: string }[] = [
+  { key: 'overview', label: 'ภาพรวม' }, { key: 'clients', label: 'ลูกค้า' },
+  { key: 'types', label: 'ประเภทงาน' }, { key: 'credit', label: 'เครดิตเทอม' },
+];
+const BAR_COLORS = ['#E65F2B', '#C96A3D', '#D78A62', '#B88C75', '#95847A', '#B4AAA3'];
 
+const startOfPeriod = (period: Period) => {
+  if (period === 'all') return null;
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() - Number(period) + 1, 1);
+};
 
+const dateInPeriod = (value: string | null | undefined, cutoff: Date | null) => {
+  if (!cutoff) return true;
+  if (!value) return false;
+  return new Date(`${value}T00:00:00`) >= cutoff;
+};
 
-  const handleSaveNotifSettings = () => {
-    onUpdateNotifSettings({
-      ...notifSettings,
-      enabled: localEnabled,
-      dailyDigestEnabled: localEnabled,
-      alertEmail: localEmail,
-      serviceType: localServiceType as 'mailto' | 'emailjs',
-      emailjsServiceId: localServiceId,
-      emailjsTemplateId: localTemplateId,
-      emailjsPublicKey: localPublicKey
+const csvEscape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
+
+export default function MonthlyReportTab({ jobs, userEmail, notifSettings, onSwitchTab, onViewJob, triggerAlert }: Props) {
+  const [activeTab, setActiveTab] = useState<ReportTab>('overview');
+  const [period, setPeriod] = useState<Period>('6');
+  const [trendMode, setTrendMode] = useState<TrendMode>('monthly');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [showTable, setShowTable] = useState(false);
+  const [drilldown, setDrilldown] = useState<Ranking | null>(null);
+  const cutoff = useMemo(() => startOfPeriod(period), [period]);
+
+  const jobRevenue = useMemo(() => jobs.map(job => ({
+    job,
+    payments: getJobPaymentEntries(job).filter(payment => dateInPeriod(payment.date, cutoff)),
+  })).map(item => ({ ...item, revenue: item.payments.reduce((sum, payment) => sum + payment.amount, 0) }))
+    .filter(item => item.revenue > 0), [jobs, cutoff]);
+
+  const totalRevenue = jobRevenue.reduce((sum, item) => sum + item.revenue, 0);
+  const jobCount = jobRevenue.length;
+  const clientCount = new Set(jobRevenue.map(item => item.job.client.trim() || 'ไม่ระบุลูกค้า')).size;
+  const averagePerJob = jobCount ? totalRevenue / jobCount : 0;
+
+  const rankBy = (field: 'client' | 'type'): Ranking[] => {
+    const map = new Map<string, Ranking>();
+    jobRevenue.forEach(({ job, revenue }) => {
+      const key = (job[field] || '').trim() || (field === 'client' ? 'ไม่ระบุลูกค้า' : 'ยังไม่ระบุ');
+      const current = map.get(key) || { key, revenue: 0, count: 0, jobs: [] };
+      current.revenue += revenue; current.count += 1; current.jobs.push(job); map.set(key, current);
     });
-    setIsSavedText(true);
-    setTimeout(() => {
-      setIsSavedText(false);
-    }, 3000);
-    triggerAlert(
-      'บันทึกข้อมูลตั้งค่าสำเร็จ!',
-      'ระบบทำการบันทึกช่องทางจัดส่งแจ้งเตือนเข้าคลาวด์ Supabase เรียบร้อยแล้วครับ'
-    );
+    return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
   };
+  const clientRanking = useMemo(() => rankBy('client'), [jobRevenue]);
+  const typeRanking = useMemo(() => rankBy('type'), [jobRevenue]);
 
-  const handleSendReminder = (reminderId: string) => {
-    const q = notifSettings.pendingQueue || [];
-    const rem = q.find(r => r.id === reminderId);
-    if (!rem) return;
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const recipient = notifSettings.alertEmail || userEmail;
-
-    let bodyText = `เรียนติดตามและสอบถามความคืบหน้าการชำระเงินค่าบริการ:\n\n`;
-    bodyText += `โปรเจกต์งาน: ${rem.jobName}\n`;
-    bodyText += `ลูกค้า/เอเจนซี่: ${rem.client}\n`;
-    bodyText += `ยอดคงค้างจ่าย: ${rem.pendingAmount.toLocaleString()} บาท\n`;
-    bodyText += `กำหนดชำระเดิม: ${rem.dueDate || 'ไม่ระบุ'}\n\n`;
-    bodyText += `ทางเราขอเรียนสอบถามความคืบหน้าของเอกสารและการโอนชำระยอดดังกล่าว หากโอนชำระเรียบร้อยแล้ว หรือต้องการให้ประสานงานเอกสารใบเสร็จ/ใบกำกับภาษีเพิ่มเติมประการใด สามารถแจ้งกลับได้ทันทีครับ\n\n`;
-    bodyText += `ขอแสดงความนับถือ\n`;
-    bodyText += `ส่งผ่านโปรแกรมติดตามเครดิตเทอม กระรอกตุนเงิน\n`;
-    bodyText += `อีเมลผู้ใช้: ${userEmail}`;
-
-    const subject = `[ติดตามสถานะการชำระเงิน] ชื่องาน: ${rem.jobName} - ลูกค้า: ${rem.client}`;
-
-    if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsTemplateId && notifSettings.emailjsPublicKey) {
-      // Send automatically via EmailJS
-      fetch('https://api.emailjs.com/api/v1.0/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: notifSettings.emailjsServiceId,
-          template_id: notifSettings.emailjsTemplateId,
-          user_id: notifSettings.emailjsPublicKey,
-          template_params: {
-            to_email: recipient,
-            subject: subject,
-            message: bodyText,
-          }
-        })
-      })
-      .then(res => {
-        if (res.ok) {
-          const updated = q.map(r => r.id === reminderId ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
-          onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-          triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ!', `ระบบส่งอีเมลตรวจสอบรายการค้างชำระไปที่ ${recipient} เรียบร้อยแล้ว`);
-        } else {
-          res.text().then(errText => {
-            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลเพื่อส่งแบบ manual แทนครับ`, () => {
-              window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-              const updated = q.map(r => r.id === reminderId ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
-              onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-            });
-          });
-        }
-      })
-      .catch(err => {
-        triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลเพื่อให้คุณกดส่งเองแทนครับ`, () => {
-          window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-          const updated = q.map(r => r.id === reminderId ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
-          onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-        });
-      });
-    } else {
-      window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-      const updated = q.map(r => r.id === reminderId ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
-      onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-      triggerAlert('ดำเนินการเปิดเมลสำเร็จ!', 'ระบบเปิดหน้าต่างเขียนอีเมลของคุณเพื่อทวงถามยอดดังกล่าวแล้ว และปรับสถานะในคิวเรียบร้อย');
-    }
-  };
-
-  const handleSkipReminder = (reminderId: string) => {
-    const q = notifSettings.pendingQueue || [];
-    const todayStr = new Date().toISOString().split('T')[0];
-    const updated = q.map(r => r.id === reminderId ? { ...r, status: 'skipped' as const, sentDate: todayStr } : r);
-    onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-  };
-
-  const handleSendAllPendingReminders = () => {
-    const q = notifSettings.pendingQueue || [];
-    const pending = q.filter(r => r.status === 'pending');
-    if (pending.length === 0) return;
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const recipient = notifSettings.alertEmail || userEmail;
-
-    let bodyText = `แจ้งเตือนรายการดีลงานค้างชำระทั้งหมดรวบยอดประจำวันนี้:\n`;
-    bodyText += `-----------------------------------------\n`;
-    pending.forEach((rem, idx) => {
-      bodyText += `${idx + 1}. ชื่องาน: ${rem.jobName}\n`;
-      bodyText += `   • เอเจนซี่/ลูกค้า: ${rem.client}\n`;
-      bodyText += `   • วันกำหนดจ่ายเงิน: ${rem.dueDate || 'ไม่ระบุ'}\n`;
-      bodyText += `   • ยอดคงค้างจ่าย: ${rem.pendingAmount.toLocaleString()} ฿\n`;
-      bodyText += `-----------------------------------------\n`;
-    });
-    bodyText += `\nกรุณาดำเนินการโทรหรือทักไลน์/อีเมลเอเจนซี่ เพื่อติดตามยอดเงินและอัปเดตระบบแอปพลิเคชัน\n`;
-
-    const subject = `[ด่วน - รวมดีลค้างชำระ] ตรวจพบยอดเงินยังไม่เข้าค้างชำระทั้งหมด (${pending.length} รายการ)`;
-
-    if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsTemplateId && notifSettings.emailjsPublicKey) {
-      // Send automatically via EmailJS
-      fetch('https://api.emailjs.com/api/v1.0/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: notifSettings.emailjsServiceId,
-          template_id: notifSettings.emailjsTemplateId,
-          user_id: notifSettings.emailjsPublicKey,
-          template_params: {
-            to_email: recipient,
-            subject: subject,
-            message: bodyText,
-          }
-        })
-      })
-      .then(res => {
-        if (res.ok) {
-          const updated = q.map(r => r.status === 'pending' ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
-          onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-          triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ!', `ส่งข้อมูลทวงถามค้างชำระทั้งหมดรวม ${pending.length} รายการไปที่ ${recipient} เรียบร้อยแล้ว`);
-        } else {
-          res.text().then(errText => {
-            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลรวมเพื่อส่งแบบ manual แทนครับ`, () => {
-              window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-              const updated = q.map(r => r.status === 'pending' ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
-              onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-            });
-          });
-        }
-      })
-      .catch(err => {
-        triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลเพื่อให้คุณส่งเองแทนครับ`, () => {
-          window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-          const updated = q.map(r => r.status === 'pending' ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
-          onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-        });
-      });
-    } else {
-      window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-      const updated = q.map(r => r.status === 'pending' ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
-      onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-      triggerAlert('ดำเนินการเปิดเมลรวมสำเร็จ!', 'ระบบได้เปิดหน้าต่างเมลรวมรายการค้างจ่ายทั้งหมดยอดแล้ว');
-    }
-  };
-
-  const handleClearQueueHistory = () => {
-    triggerConfirm(
-      'ยืนยันการล้างประวัติคิว?',
-      'คุณแน่ใจหรือไม่ว่าต้องการลบประวัติและรายการในคิวทั้งหมด? (รายการดีลที่ค้างชำระจริงจะยังคงอยู่)',
-      () => {
-        onUpdateNotifSettings({ ...notifSettings, pendingQueue: [] });
-      }
-    );
-  };
-
-  // Extract all available years from jobs and expenses
-  const availableYears = useMemo(() => {
-    const yearsSet = new Set<number>();
-    yearsSet.add(new Date().getFullYear()); // Always include current year
-    
-    jobs.forEach(j => {
-      if (j.postDate) {
-        const y = new Date(j.postDate).getFullYear();
-        if (!isNaN(y)) yearsSet.add(y);
-      }
-    });
-
-    (expenses || []).forEach(e => {
-      if (e.date) {
-        const y = new Date(e.date).getFullYear();
-        if (!isNaN(y)) yearsSet.add(y);
-      }
-    });
-
-    return Array.from(yearsSet).sort((a, b) => b - a); // Newest year first
-  }, [jobs, expenses]);
-
-  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-  const [includeFullYearFixed, setIncludeFullYearFixed] = useState(true);
-  const [showYearlyBreakdownTable, setShowYearlyBreakdownTable] = useState(false);
-
-  const whtPaymentEntries = useMemo(() => jobs.flatMap((job) => {
-    const totalWht = Math.max(0, job.whtAmount || 0);
-    if (totalWht <= 0) return [];
-
-    if (job.installments?.length) {
-      const netTotal = Math.max(1, job.value - totalWht);
-      let allocatedBefore = 0;
-      return job.installments.flatMap((row, index) => {
-        const allocatedWht = index === job.installments!.length - 1
-          ? Math.max(0, totalWht - allocatedBefore)
-          : Math.round(totalWht * ((row.amount || 0) / netTotal));
-        allocatedBefore += allocatedWht;
-        if (row.status !== 'paid' || !row.paidAt || allocatedWht <= 0) return [];
-        return [{
-          id: `${job.id}-${row.id}`,
-          jobId: job.id,
-          jobName: job.name,
-          client: job.client || '-',
-          label: row.label || `งวดที่ ${index + 1}`,
-          date: row.paidAt,
-          amount: allocatedWht,
-        }];
-      });
-    }
-
-    const paidDate = job.payDate || job.postDate || job.startDate;
-    if (!paidDate || job.received <= 0) return [];
-    return [{
-      id: `${job.id}-wht`,
-      jobId: job.id,
-      jobName: job.name,
-      client: job.client || '-',
-      label: 'รับเงินครั้งเดียว',
-      date: paidDate,
-      amount: totalWht,
-    }];
-  }), [jobs]);
-
-  // Annual financial metrics calculation
-  const annualMetrics = useMemo(() => {
-    const yearStr = String(selectedYear);
-
-    // Filter jobs for selected year accurately checking postDate or payDate year
-    const yearJobs = jobs.filter(j => {
-      if (j.postDate) {
-        const y = new Date(j.postDate).getFullYear();
-        if (y === selectedYear) return true;
-      }
-      if (j.payDate) {
-        const y = new Date(j.payDate).getFullYear();
-        if (y === selectedYear) return true;
-      }
-      return false;
-    });
-    
-    // Total income: contract value and actual received
-    const annualContractValue = yearJobs.reduce((sum, j) => sum + j.value, 0);
-    const annualReceivedValue = jobs.flatMap(getJobPaymentEntries).reduce((sum, entry) => entry.date?.startsWith(yearStr) ? sum + entry.amount : sum, 0);
-    const annualWhtAmount = whtPaymentEntries.reduce((sum, entry) => entry.date.startsWith(yearStr) ? sum + entry.amount : sum, 0);
-
-    // Filter expenses for selected year
-    const yearExpenses = (expenses || []).filter(e => {
-      if (!e.date) return false;
-      const y = new Date(e.date).getFullYear();
-      return y === selectedYear;
-    });
-    const annualVariableExpenses = yearExpenses.reduce((sum, e) => sum + e.amount, 0);
-
-    // Count active months (months where user has either recorded a job or recorded an expense in this year)
-    const activeMonths = new Set<string>();
-    yearJobs.forEach(j => {
-      if (j.postDate) activeMonths.add(j.postDate.substring(0, 7));
-      if (j.payDate) activeMonths.add(j.payDate.substring(0, 7));
-    });
-    jobs.flatMap(getJobPaymentEntries).forEach((entry) => entry.date?.startsWith(yearStr) && activeMonths.add(getMonthKeyFromDate(entry.date)));
-    yearExpenses.forEach(e => {
-      if (e.date) activeMonths.add(e.date.substring(0, 7));
-    });
-
-    const activeMonthsCount = activeMonths.size;
-
-    // Annual fixed expense:
-    // If includeFullYearFixed is true, calculate full 12 months (12 * monthlyExpense).
-    // Otherwise calculate based on active months (activeMonthsCount * monthlyExpense).
-    const annualFixedExpenses = includeFullYearFixed
-      ? settings.monthlyExpense * 12
-      : settings.monthlyExpense * activeMonthsCount;
-
-    // Total expense (variable + fixed)
-    const totalAnnualExpense = annualVariableExpenses + annualFixedExpenses;
-
-    // Net cash balance (Received income - Total expense)
-    const netAnnualBalance = annualReceivedValue - totalAnnualExpense;
-
-    return {
-      selectedYear,
-      annualContractValue,
-      annualReceivedValue,
-      annualWhtAmount,
-      annualVariableExpenses,
-      annualFixedExpenses,
-      totalAnnualExpense,
-      netAnnualBalance,
-      jobCount: yearJobs.length,
-      expenseCount: yearExpenses.length,
-      activeMonthsCount
-    };
-  }, [jobs, expenses, settings.monthlyExpense, selectedYear, includeFullYearFixed, whtPaymentEntries]);
-
-  // 1. Process 12 calendar months for selectedYear
-  const monthlyData = useMemo(() => {
-    const dataMap: { 
-      [monthKey: string]: { 
-        month: string; 
-        income: number; 
-        received: number; 
-        targetRevenue: number; 
-        targetSavings: number;
-        fixedExpense: number;
-        variableExpense: number;
-        whtAmount: number;
-        netFlow: number;
-      } 
-    } = {};
-    
-    const totalAllocatedPct = goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
-    const savingsPct = totalAllocatedPct > 0 ? totalAllocatedPct : (settings.savingsPercentage || 40);
-
-    // Generate all 12 calendar months for selectedYear (ม.ค. - ธ.ค.)
-    for (let m = 1; m <= 12; m++) {
-      const mStr = String(m).padStart(2, '0');
-      const key = `${selectedYear}-${mStr}`;
-      dataMap[key] = {
-        month: key,
-        income: 0,
-        received: 0,
-        targetRevenue: settings.monthlyRevenueGoal,
-        targetSavings: Math.round(settings.monthlyRevenueGoal * (savingsPct / 100)),
-        fixedExpense: settings.monthlyExpense,
-        variableExpense: 0,
-        whtAmount: 0,
-        netFlow: 0
-      };
-    }
-
-    // Add actual job metrics
-    jobs.forEach(j => {
-      const dateKey = j.payDate || j.postDate;
-      if (dateKey) {
-        const key = getMonthKey(dateKey);
-        if (dataMap[key]) {
-          dataMap[key].income += j.value;
-        }
-      }
-      getJobPaymentEntries(j).forEach((entry) => {
-        const key = getMonthKeyFromDate(entry.date);
-        if (dataMap[key]) dataMap[key].received += entry.amount;
-      });
-    });
-
-    whtPaymentEntries.forEach((entry) => {
-      const key = getMonthKeyFromDate(entry.date);
-      if (dataMap[key]) dataMap[key].whtAmount += entry.amount;
-    });
-
-    // Add variable expenses
-    (expenses || []).forEach(e => {
-      if (e.date) {
-        const key = getMonthKey(e.date);
-        if (dataMap[key]) {
-          dataMap[key].variableExpense += e.amount;
-        }
-      }
-    });
-
-    // Format for Recharts and table
-    return Object.values(dataMap)
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .map(item => {
-        const savingsBase = Math.max(0, item.received - item.variableExpense);
-        const actualSavings = Math.round(savingsBase * (savingsPct / 100));
-        const fixedExp = includeFullYearFixed 
-          ? item.fixedExpense 
-          : (item.received > 0 || item.variableExpense > 0 ? item.fixedExpense : 0);
-        const netFlow = item.received - fixedExp - item.variableExpense;
-        return {
-          ...item,
-          monthLabel: formatMonthKey(item.month),
-          actualSavings,
-          fixedExpenseCalculated: fixedExp,
-          netFlow
-        };
-      });
-  }, [jobs, expenses, goals, settings, selectedYear, includeFullYearFixed, whtPaymentEntries]);
-
-  // 2. Savings Goals Progress Data
-  const goalsData = useMemo(() => {
-    return goals.map(g => ({
-      name: g.name,
-      target: g.target,
-      current: g.current,
-      emoji: g.emoji,
-      percent: Math.min(100, Math.round((g.current / g.target) * 100)),
-      color: g.acc
+  const monthlyTrend = useMemo<TrendPoint[]>(() => {
+    const map = new Map<string, { revenue: number; jobs: Set<string>; clients: Set<string> }>();
+    jobRevenue.forEach(({ job, payments }) => payments.forEach(payment => {
+      if (!payment.date) return;
+      const key = getMonthKey(payment.date);
+      const current = map.get(key) || { revenue: 0, jobs: new Set<string>(), clients: new Set<string>() };
+      current.revenue += payment.amount; current.jobs.add(job.id); current.clients.add(job.client.trim() || 'ไม่ระบุลูกค้า'); map.set(key, current);
     }));
-  }, [goals]);
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => ({ key, label: formatMonthKey(key).replace(/\s\d{4}$/, ''), revenue: value.revenue, jobs: value.jobs.size, clients: value.clients.size }));
+  }, [jobRevenue]);
 
-  // 3. Scan pending credit terms due today, overdue, or upcoming
-  const creditTermReport = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const today = new Date(todayStr + 'T00:00:00');
+  const annualTrend = useMemo<TrendPoint[]>(() => {
+    const map = new Map<string, { revenue: number; jobs: Set<string>; clients: Set<string> }>();
+    jobRevenue.forEach(({ job, payments }) => payments.forEach(payment => {
+      if (!payment.date) return;
+      const key = payment.date.slice(0, 4);
+      const current = map.get(key) || { revenue: 0, jobs: new Set<string>(), clients: new Set<string>() };
+      current.revenue += payment.amount; current.jobs.add(job.id); current.clients.add(job.client.trim() || 'ไม่ระบุลูกค้า'); map.set(key, current);
+    }));
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => ({ key, label: String(Number(key) + 543), revenue: value.revenue, jobs: value.jobs.size, clients: value.clients.size }));
+  }, [jobRevenue]);
+  const trend = trendMode === 'monthly' ? monthlyTrend : annualTrend;
 
-    const dueToday: Job[] = [];
-    const overdue: Job[] = [];
-    const upcoming: Job[] = [];
-
-    jobs.forEach(j => {
-      if (j.pending > 0 && j.payDate) {
-        const payDate = new Date(j.payDate + 'T00:00:00');
-        const diffTime = payDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) {
-          dueToday.push(j);
-        } else if (diffDays < 0) {
-          overdue.push(j);
-        } else if (diffDays > 0 && diffDays <= 14) {
-          upcoming.push(j);
-        }
-      }
+  const retention = useMemo(() => {
+    const earliest = new Map<string, Date>();
+    jobs.forEach(job => {
+      const key = job.client.trim() || 'ไม่ระบุลูกค้า';
+      const raw = job.postDate || job.startDate || job.payDate;
+      if (!raw) return;
+      const date = new Date(`${raw}T00:00:00`); const current = earliest.get(key);
+      if (!current || date < current) earliest.set(key, date);
     });
-
-    // Sort overdue by oldest first, upcoming by earliest first
-    overdue.sort((a, b) => (a.payDate || '').localeCompare(b.payDate || ''));
-    upcoming.sort((a, b) => (a.payDate || '').localeCompare(b.payDate || ''));
-
-    return {
-      dueToday,
-      overdue,
-      upcoming,
-      totalPendingCount: dueToday.length + overdue.length + upcoming.length,
-      totalPendingValue: [...dueToday, ...overdue, ...upcoming].reduce((sum, j) => sum + j.pending, 0)
-    };
-  }, [jobs]);
-
-  // Helper to trigger email client and display animated/active feedback
-  const handleSendEmailReport = () => {
-    const todayThaiStr = new Date().toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    let newCount = 0; let repeatCount = 0;
+    clientRanking.forEach(client => {
+      const first = earliest.get(client.key);
+      const repeat = cutoff ? !!first && first < cutoff : client.jobs.length > 1;
+      if (repeat) repeatCount += 1; else newCount += 1;
     });
+    const total = newCount + repeatCount;
+    return { newCount, repeatCount, newPct: total ? Math.round(newCount / total * 100) : 0, repeatPct: total ? Math.round(repeatCount / total * 100) : 0 };
+  }, [jobs, clientRanking, cutoff]);
 
+  const pendingEntries = useMemo(() => jobs.flatMap(job => getJobPendingEntries(job).map(entry => ({ ...entry, job }))), [jobs]);
+  const aging = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const buckets: AgingBucket[] = [
+      { key: 'overdue', label: 'เกินกำหนด', amount: 0, count: 0, color: '#D85C57' },
+      { key: 'today', label: 'ครบกำหนดวันนี้', amount: 0, count: 0, color: '#E65F2B' },
+      { key: '7', label: 'ภายใน 7 วัน', amount: 0, count: 0, color: '#D98B3A' },
+      { key: '14', label: 'ภายใน 14 วัน', amount: 0, count: 0, color: '#B99B76' },
+      { key: '30', label: 'ภายใน 30 วัน', amount: 0, count: 0, color: '#9A918B' },
+    ];
+    pendingEntries.forEach(entry => {
+      if (!entry.dueDate) return;
+      const due = new Date(`${entry.dueDate}T00:00:00`);
+      const days = Math.round((due.getTime() - today.getTime()) / 86400000);
+      const bucket = days < 0 ? buckets[0] : days === 0 ? buckets[1] : days <= 7 ? buckets[2] : days <= 14 ? buckets[3] : days <= 30 ? buckets[4] : null;
+      if (bucket) { bucket.amount += entry.amount; bucket.count += 1; }
+    });
+    return buckets;
+  }, [pendingEntries]);
+  const pendingTotal = pendingEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const overdueTotal = aging[0]?.amount || 0;
+
+  const exportRows = () => jobRevenue.flatMap(({ job, payments }) => payments.map(payment => ({
+    วันที่: payment.date || '', งาน: job.name, ลูกค้า: job.client || 'ไม่ระบุลูกค้า', ประเภทงาน: job.type || 'ยังไม่ระบุ', รายได้: payment.amount,
+  })));
+  const downloadCsv = () => {
+    const rows = exportRows(); const headers = ['วันที่', 'งาน', 'ลูกค้า', 'ประเภทงาน', 'รายได้'];
+    const csv = '\ufeff' + [headers.map(csvEscape).join(','), ...rows.map(row => headers.map(header => csvEscape(row[header as keyof typeof row])).join(','))].join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a');
+    link.href = url; link.download = `cash-squirrel-report-${period}-months.csv`; link.click(); URL.revokeObjectURL(url); setExportOpen(false);
+  };
+  const downloadXlsx = async () => {
+    try {
+      const XLSX = await import('xlsx'); const sheet = XLSX.utils.json_to_sheet(exportRows()); const book = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(book, sheet, 'รายงานรายได้'); XLSX.writeFile(book, `cash-squirrel-report-${period}-months.xlsx`); setExportOpen(false);
+    } catch { triggerAlert('ส่งออกไม่สำเร็จ', 'ไม่สามารถสร้างไฟล์ Excel ได้ กรุณาลองใหม่อีกครั้ง'); }
+  };
+  const emailReport = async () => {
     const recipient = notifSettings.alertEmail || userEmail;
-    const subjectText = `[กระรอกตุนเงิน] รายงานสรุปเงินครบกำหนดดีลเครดิตเทอม - ประจำวันที่ ${todayThaiStr}`;
-
-    let bodyText = `สวัสดีครับคุณผู้ใช้ กระรอกตุนเงิน\n`;
-    bodyText += `นี่คือรายงานสรุปยอดดีลงานที่ครบกำหนดชำระเครดิตเทอม ประจำวันที่ ${todayThaiStr}\n`;
-    bodyText += `ส่งตรงถึงคุณที่อีเมล: ${recipient}\n\n`;
-    bodyText += `=========================================\n`;
-    bodyText += `📊 สรุปภาพรวมยอดค้างชำระทั้งหมด: ${formatCurrency(creditTermReport.totalPendingValue)}\n`;
-    bodyText += `=========================================\n\n`;
-
-    if (creditTermReport.dueToday.length > 0) {
-      bodyText += `🔴 [ครบกำหนดชำระวันนี้ - วันที่ ${todayThaiStr}]\n`;
-      creditTermReport.dueToday.forEach((j, i) => {
-        bodyText += `${i + 1}. งาน: ${j.name}\n`;
-        bodyText += `   ลูกค้า: ${j.client}\n`;
-        bodyText += `   ยอดเงินค้างชำระ: ${formatCurrency(j.pending)} (จากมูลค่าเต็ม ${formatCurrency(j.value)})\n`;
-        bodyText += `   โน้ต: ${j.note || '-'}\n\n`;
-      });
-    } else {
-      bodyText += `🟢 ไม่มีดีลงานครบกำหนดวันนี้ครับ\n\n`;
-    }
-
-    if (creditTermReport.overdue.length > 0) {
-      bodyText += `⚠️ [เกินกำหนดชำระค้างส่ง - ด่วน!]\n`;
-      creditTermReport.overdue.forEach((j, i) => {
-        const days = getRelativeDaysText(j.payDate);
-        bodyText += `${i + 1}. งาน: ${j.name}\n`;
-        bodyText += `   ลูกค้า: ${j.client}\n`;
-        bodyText += `   ยอดเงินค้างชำระ: ${formatCurrency(j.pending)}\n`;
-        bodyText += `   วันครบกำหนดเดิม: ${j.payDate} (${days.text})\n`;
-        bodyText += `   โน้ต: ${j.note || '-'}\n\n`;
-      });
-    }
-
-    if (creditTermReport.upcoming.length > 0) {
-      bodyText += `📅 [กำลังจะครบกำหนดเร็วๆ นี้ (ใน 14 วัน)]\n`;
-      creditTermReport.upcoming.forEach((j, i) => {
-        const days = getRelativeDaysText(j.payDate);
-        bodyText += `${i + 1}. งาน: ${j.name}\n`;
-        bodyText += `   ลูกค้า: ${j.client}\n`;
-        bodyText += `   ยอดเงินที่จะครบกำหนด: ${formatCurrency(j.pending)}\n`;
-        bodyText += `   วันครบกำหนด: ${j.payDate} (${days.text})\n\n`;
-      });
-    }
-
-    bodyText += `-----------------------------------------\n`;
-    bodyText += `ติดตามและบันทึกกระแสเงินสดของคุณอย่างสม่ำเสมอเพื่อสุขภาพทางการเงินที่ดี!\n`;
-    bodyText += `จัดทำโดยระบบ กระรอกตุนเงิน (Supabase Client Secured)`;
-
-    const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
-
-    // 2. Start simulated flow or automatic sending
-    setIsSendingSimulated(true);
-    setSimulationStep(1);
-
-    setTimeout(() => {
-      setSimulationStep(2);
-    }, 1000);
-
-    setTimeout(() => {
-      if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsTemplateId && notifSettings.emailjsPublicKey) {
-        setSimulationStep(3);
-        fetch('https://api.emailjs.com/api/v1.0/email/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            service_id: notifSettings.emailjsServiceId,
-            template_id: notifSettings.emailjsTemplateId,
-            user_id: notifSettings.emailjsPublicKey,
-            template_params: {
-              to_email: recipient,
-              subject: subjectText,
-              message: bodyText,
-            }
-          })
-        })
-        .then(res => {
-          setIsSendingSimulated(false);
-          setSimulationStep(0);
-          if (res.ok) {
-            triggerAlert('ส่งรายงานสำเร็จ!', `ระบบส่งอีเมลสรุปข้อมูลเครดิตเทอมไปที่ ${recipient} เรียบร้อยแล้ว`);
-          } else {
-            res.text().then(errText => {
-              triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `EmailJS รายงานข้อผิดพลาด: ${errText}\n\nระบบเปิดแอปเมลสำรอง (Mailto) แทนเพื่อให้คุณส่งครับ`, () => {
-                window.location.href = mailtoUrl;
-              });
-            });
-          }
-        })
-        .catch(err => {
-          setIsSendingSimulated(false);
-          setSimulationStep(0);
-          triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบเปิดแอปเมลสำรอง (Mailto) แทนเพื่อให้คุณส่งครับ`, () => {
-            window.location.href = mailtoUrl;
-          });
-        });
-      } else {
-        setSimulationStep(3);
-        // Direct mailto
-        window.location.href = mailtoUrl;
-        setTimeout(() => {
-          setIsSendingSimulated(false);
-          setSimulationStep(0);
-          triggerAlert(
-            'เปิดระบบเมลสำเร็จ!',
-            `รายงานจะถูกร่างและเปิดขึ้นบนระบบของคุณเรียบร้อยแล้ว ปลายทางคือ ${recipient}`
-          );
-        }, 1000);
+    const body = `รายงานรายได้จากงาน (${PERIODS.find(item => item.key === period)?.label})\n\nรายได้จากงาน: ${formatCurrency(totalRevenue)}\nจำนวนงาน: ${jobCount}\nเฉลี่ยต่องาน: ${formatCurrency(averagePerJob)}\nลูกค้า / ผู้จ่าย: ${clientCount}\n\nลูกค้าสูงสุด: ${clientRanking[0]?.key || '-'} ${clientRanking[0] ? formatCurrency(clientRanking[0].revenue) : ''}\nประเภทงานสูงสุด: ${typeRanking[0]?.key || '-'} ${typeRanking[0] ? formatCurrency(typeRanking[0].revenue) : ''}`;
+    const subject = '[กระรอกตุนเงิน] รายงานรายได้จากงาน';
+    setExportOpen(false);
+    if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsTemplateId && notifSettings.emailjsPublicKey) {
+      try {
+        const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service_id: notifSettings.emailjsServiceId, template_id: notifSettings.emailjsTemplateId, user_id: notifSettings.emailjsPublicKey, template_params: { to_email: recipient, subject, message: body } }) });
+        if (!response.ok) throw new Error('EmailJS rejected the report');
+        triggerAlert('ส่งรายงานสำเร็จ', `ส่งรายงานไปที่ ${recipient} เรียบร้อยแล้ว`);
+        return;
+      } catch {
+        triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', 'ระบบจะเปิดแอปอีเมลเพื่อให้คุณตรวจสอบและส่งรายงานแทน', () => { window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; });
+        return;
       }
-    }, 2000);
+    }
+    window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  // Send alert to self via email about unpaid money
-  const handleAlertSelfEmail = (job: Job) => {
-    const days = getRelativeDaysText(job.payDate);
-    let alertStatusText = '';
+  return <div className="mx-auto w-full max-w-7xl space-y-5 pb-12 pt-8 lg:pt-0">
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div><h1 className="font-display text-3xl font-bold tracking-tight text-brand-text">รายงาน</h1><p className="mt-1 text-sm text-brand-muted">ดูผลงานและรูปแบบรายได้ย้อนหลัง</p></div>
+      <div className="relative"><button onClick={() => setExportOpen(value => !value)} className="flex h-10 items-center gap-2 rounded-xl border border-brand-border bg-brand-white px-4 text-xs font-bold text-brand-text hover:bg-brand-faint"><Download className="h-4 w-4" />ส่งออก<ChevronDown className="h-4 w-4" /></button>{exportOpen && <div className="absolute right-0 top-12 z-30 w-56 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-xl dark:bg-neutral-900"><ExportItem icon={<Download />} label="ดาวน์โหลด CSV (.csv)" onClick={downloadCsv} /><ExportItem icon={<FileSpreadsheet />} label="Excel (.xlsx)" onClick={downloadXlsx} /><ExportItem icon={<Mail />} label="ส่งรายงานทางอีเมล" onClick={emailReport} /></div>}</div>
+    </header>
 
-    if (days.isOverdue) {
-      alertStatusText = `เกินกำหนดชำระแล้ว ${Math.abs(days.daysCount)} วัน 🚨`;
-    } else if (days.daysCount === 0) {
-      alertStatusText = `ครบกำหนดชำระวันนี้! ⏰`;
-    } else {
-      alertStatusText = `กำลังจะครบกำหนดในอีก ${days.daysCount} วัน 📅`;
-    }
-
-    const recipient = notifSettings.alertEmail || userEmail;
-    const subjectText = `[แจ้งเตือนกระแสเงินสด] ยอดเงินยังไม่เข้า! ${alertStatusText} - งาน ${job.name}`;
-
-    let bodyText = `แจ้งเตือนความจำถึงตัวเอง (Personal Cashflow Alert):\n`;
-    bodyText += `ระบบตรวจพบว่างานนี้ "เงินยังไม่เข้า" หรือยอดชำระยังค้างอยู่!\n\n`;
-    bodyText += `-----------------------------------------\n`;
-    bodyText += `📌 รายละเอียดงานที่ผิดนัดชำระ/ค้างชำระ:\n`;
-    bodyText += `• ชื่องาน/ดีล: ${job.name}\n`;
-    bodyText += `• ลูกค้า/ผู้จ้าง: ${job.client}\n`;
-    bodyText += `• สถานะเครดิตเทอม: ${alertStatusText}\n`;
-    bodyText += `• วันครบกำหนดชำระเงิน: ${job.payDate || 'ไม่ระบุ'}\n`;
-    bodyText += `• มูลค่างานทั้งหมด: ${formatCurrency(job.value)}\n`;
-    bodyText += `• ยอดคงเหลือค้างจ่าย (Pending): ${formatCurrency(job.pending)}\n`;
-    bodyText += `• ยอดที่จ่ายมาแล้ว: ${formatCurrency(job.received)}\n`;
-    bodyText += `-----------------------------------------\n\n`;
-    bodyText += `💡 คำแนะนำในการดำเนินการต่อไป:\n`;
-    bodyText += `1. ตรวจสอบแอปพลิเคชันธนาคาร/รายการเดินบัญชี เพื่อยืนยันว่าไม่มีเงินโอนเข้าจากคุณ "${job.client || 'ลูกค้า'}" จริงๆ\n`;
-    bodyText += `2. หากยังไม่ได้รับเงิน ให้จัดทำและส่งใบเตือนยอดหนี้ค้างชำระ หรือโทร/ทักแชตไปสอบถามสถานะกับทางฝั่งลูกค้าทันที\n`;
-    bodyText += `3. หากได้รับเงินครบถ้วนแล้ว อย่าลืมกดแก้ไขงานนี้ในหน้า "ดีลงานทั้งหมด" หรือ "ไทม์ไลน์" และเปลี่ยนสถานะเป็น "จ่ายเงินครบแล้ว" เพื่อลบการแจ้งเตือนนี้ออก\n\n`;
-    bodyText += `ส่งจากระบบรายงานและติดตามเครดิตเทอม กระรอกตุนเงิน\n`;
-    bodyText += `ผู้ใช้: ${userEmail}`;
-
-    const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
-
-    triggerConfirm(
-      'แจ้งเตือนเงินค้างชำระเข้าเมลตัวเอง',
-      `คุณต้องการส่งร่างอีเมลแจ้งเตือนถึงตัวเอง เพื่อติดตามงาน "${job.name}" ที่${alertStatusText} หรือไม่? ระบบจะส่งอีเมลหาตัวคุณเองที่ ${recipient}`,
-      () => {
-        if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsPublicKey) {
-          setIsSendingSimulated(true);
-          fetch('https://api.emailjs.com/api/v1.0/email/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              service_id: notifSettings.emailjsServiceId,
-              template_id: notifSettings.emailjsTemplateId,
-              user_id: notifSettings.emailjsPublicKey,
-              template_params: {
-                to_email: recipient,
-                subject: subjectText,
-                message: bodyText,
-              }
-            })
-          })
-          .then(res => {
-            setIsSendingSimulated(false);
-            if (res.ok) {
-              triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ!', `ระบบส่งอีเมลตรวจสอบรายการค้างชำระไปที่ ${recipient} เรียบร้อยแล้ว`);
-            } else {
-              res.text().then(errText => {
-                triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
-                  window.location.href = mailtoUrl;
-                });
-              });
-            }
-          })
-          .catch(err => {
-            setIsSendingSimulated(false);
-            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
-              window.location.href = mailtoUrl;
-            });
-          });
-        } else {
-          window.location.href = mailtoUrl;
-        }
-      }
-    );
-  };
-
-  const draft10Clients = Array.from(jobs.reduce((map, job) => {
-    const key = job.client || 'ไม่ระบุลูกค้า';
-    const current = map.get(key) || { name: key, jobs: 0, received: 0, pending: 0 };
-    current.jobs += 1;
-    current.received += Math.max(0, job.value - job.pending);
-    current.pending += job.pending;
-    map.set(key, current);
-    return map;
-  }, new Map<string, { name: string; jobs: number; received: number; pending: number }>()).values());
-
-  return (
-    <div className="draft10-report page-content">
-      <h1>รายงาน</h1>
-      <nav className="draft10-report-tabs" aria-label="ประเภทรายงาน">
-        {([
-          ['overview', 'ภาพรวม'],
-          ['income', 'รายได้'],
-          ['clients', 'ลูกค้า'],
-          ['credit', 'Credit Term'],
-        ] as const).map(([key, label]) => (
-          <button key={key} type="button" className={reportView === key ? 'is-active' : ''} onClick={() => setReportView(key)}>{label}</button>
-        ))}
-      </nav>
-
-      {reportView === 'overview' && <>
-        <section className="draft10-report-kpis">
-          <article><span>รายรับ</span><strong>{formatCurrency(annualMetrics.annualReceivedValue)}</strong></article>
-          <article><span>รายจ่าย</span><strong>{formatCurrency(annualMetrics.totalAnnualExpense)}</strong></article>
-          <article><span>กำไร</span><strong>{formatCurrency(Math.max(0, annualMetrics.netAnnualBalance))}</strong></article>
-          <article><span>เงินค้างรับ</span><strong>{formatCurrency(jobs.reduce((sum, job) => sum + job.pending, 0))}</strong></article>
-        </section>
-        <section className="draft10-report-chart">
-          <h2>แนวโน้มรายเดือน</h2>
-          <svg viewBox="0 0 900 190" role="img" aria-label="แนวโน้มรายได้รายเดือน"><polyline points="20,135 180,100 340,145 500,68 660,92 875,48" fill="none" stroke="#E65F2B" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </section>
-      </>}
-
-      {reportView === 'income' && <section className="draft10-report-table">
-        <h2>รายได้รายเดือน</h2>
-        <div className="draft10-report-row is-head"><span>เดือน</span><span>รับเงินจริง</span><span>รายจ่าย</span><span>กำไรสุทธิ</span></div>
-        {monthlyData.map(month => <div key={month.month} className="draft10-report-row"><span>{month.monthLabel}</span><span>{formatCurrency(month.received)}</span><span>{formatCurrency(month.fixedExpenseCalculated + month.variableExpense)}</span><span>{formatCurrency(month.netFlow)}</span></div>)}
-      </section>}
-
-      {reportView === 'clients' && <section className="draft10-report-table">
-        <h2>รายได้ตามลูกค้า</h2>
-        <div className="draft10-report-row is-head"><span>ลูกค้า</span><span>จำนวนงาน</span><span>รับแล้ว</span><span>ค้างรับ</span></div>
-        {draft10Clients.map(client => <div key={client.name} className="draft10-report-row"><span>{client.name}</span><span>{client.jobs}</span><span>{formatCurrency(client.received)}</span><span>{formatCurrency(client.pending)}</span></div>)}
-      </section>}
-
-      {reportView === 'credit' && <section className="draft10-credit-list">
-        <h2>ติดตาม Credit Term</h2>
-        {[...creditTermReport.overdue, ...creditTermReport.dueToday, ...creditTermReport.upcoming].map(job => <button key={job.id} type="button" onClick={() => onViewJob?.(job.id)}><span><b>{job.name}</b><small>{job.client} · Credit {job.creditTerm} วัน</small></span><strong>{formatCurrency(job.pending)}</strong></button>)}
-        {creditTermReport.totalPendingCount === 0 && <p>ไม่มีรายการค้างรับในช่วงนี้</p>}
-      </section>}
+    <div className="flex flex-col gap-3 border-b border-brand-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex w-fit rounded-xl bg-brand-faint p-1">{PERIODS.map(item => <button key={item.key} onClick={() => setPeriod(item.key)} className={`rounded-lg px-3.5 py-2 text-xs font-bold transition ${period === item.key ? 'bg-[#FFF0E8] text-[#D9551D] shadow-xs' : 'text-brand-muted hover:text-brand-text'}`}>{item.label}</button>)}</div>
+      <div className="no-scrollbar flex gap-1 overflow-x-auto">{TABS.map(item => <button key={item.key} onClick={() => setActiveTab(item.key)} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-bold transition ${activeTab === item.key ? 'bg-[#FFF0E8] text-[#D9551D]' : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`}>{item.label}</button>)}</div>
     </div>
-  );
+
+    {activeTab === 'overview' && <Overview totalRevenue={totalRevenue} jobCount={jobCount} averagePerJob={averagePerJob} clientCount={clientCount} trend={trend} trendMode={trendMode} setTrendMode={setTrendMode} topClient={clientRanking[0]} topType={typeRanking[0]} monthlyTrend={monthlyTrend} showTable={showTable} setShowTable={setShowTable} onSwitchTab={onSwitchTab} />}
+    {activeTab === 'clients' && <Clients rankings={clientRanking} totalRevenue={totalRevenue} retention={retention} clientCount={clientCount} setDrilldown={setDrilldown} />}
+    {activeTab === 'types' && <JobTypes rankings={typeRanking} setDrilldown={setDrilldown} />}
+    {activeTab === 'credit' && <Credit aging={aging} pendingTotal={pendingTotal} pendingCount={pendingEntries.length} overdueTotal={overdueTotal} onSwitchTab={onSwitchTab} />}
+
+    <AnimatePresence>{drilldown && <Drilldown ranking={drilldown} close={() => setDrilldown(null)} onViewJob={onViewJob} />}</AnimatePresence>
+  </div>;
 }
+
+function Overview({ totalRevenue, jobCount, averagePerJob, clientCount, trend, trendMode, setTrendMode, topClient, topType, monthlyTrend, showTable, setShowTable, onSwitchTab }: any) {
+  return <div className="space-y-5">
+    <SummaryStrip items={[["รายได้จากงาน", formatCurrency(totalRevenue)], ["จำนวนงาน", `${jobCount} งาน`], ["เฉลี่ยต่องาน", formatCurrency(averagePerJob)], ["ลูกค้า / ผู้จ่าย", `${clientCount} ราย`]]} />
+    <section className="report-card"><div className="mb-5 flex items-start justify-between gap-3"><div><h2 className="report-title">แนวโน้มรายได้จากงาน</h2><p className="report-subtitle">รายได้ที่รับจริงตามช่วงเวลา</p></div><div className="flex rounded-lg bg-brand-faint p-1"><button onClick={() => setTrendMode('monthly')} className={`report-mode ${trendMode === 'monthly' ? 'is-active' : ''}`}>รายเดือน</button><button onClick={() => setTrendMode('annual')} className={`report-mode ${trendMode === 'annual' ? 'is-active' : ''}`}>รายปี</button></div></div>{trend.length ? <RevenueChart data={trend} /> : <Empty onSwitchTab={onSwitchTab} />}</section>
+    {trend.length > 0 && <section><h2 className="mb-3 text-sm font-bold text-brand-text">ข้อมูลเชิงลึก</h2><div className="grid gap-3 md:grid-cols-3"><Insight label="ลูกค้าที่สร้างรายได้สูงสุด" value={topClient?.key || '—'} amount={topClient ? formatCurrency(topClient.revenue) : '—'} /><Insight label="ประเภทงานที่สร้างรายได้สูงสุด" value={topType?.key || '—'} amount={topType ? formatCurrency(topType.revenue) : '—'} /><Insight label="รายได้เฉลี่ยต่องาน" value={formatCurrency(averagePerJob)} amount={`${jobCount} งานในช่วงนี้`} /></div></section>}
+    <section className="report-card !p-0"><button onClick={() => setShowTable((value: boolean) => !value)} className="flex w-full items-center justify-between px-5 py-4 text-sm font-bold text-brand-text sm:px-6">ดูรายละเอียด 12 เดือน{showTable ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button>{showTable && <div className="overflow-x-auto border-t border-brand-border"><div className="min-w-[620px]"><div className="report-table-row report-table-head"><span>เดือน</span><span>รายได้</span><span>จำนวนงาน</span><span>ลูกค้า</span></div>{monthlyTrend.slice(-12).map((row: TrendPoint) => <div key={row.key} className="report-table-row"><span>{formatMonthKey(row.key)}</span><span>{formatCurrency(row.revenue)}</span><span>{row.jobs}</span><span>{row.clients}</span></div>)}</div></div>}</section>
+  </div>;
+}
+
+function Clients({ rankings, totalRevenue, retention, clientCount, setDrilldown }: any) {
+  const concentration = totalRevenue && rankings[0] ? Math.round(rankings[0].revenue / totalRevenue * 100) : 0;
+  return <div className="space-y-5"><section className="report-card"><h2 className="report-title">รายได้ตามลูกค้า / ผู้จ่าย</h2><p className="report-subtitle">เรียงจากรายได้ที่รับจริงสูงสุด</p><RankingBars rankings={rankings} onClick={setDrilldown} /></section><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Insight label="ลูกค้าสูงสุด" value={rankings[0]?.key || '—'} amount={rankings[0] ? formatCurrency(rankings[0].revenue) : '—'} /><Insight label="ลูกค้าเดิม" value={`${retention.repeatPct}%`} amount={`${retention.repeatCount} ราย`} /><Insight label="ลูกค้าใหม่" value={`${retention.newPct}%`} amount={`${retention.newCount} ราย`} /><Insight label="เฉลี่ยต่อลูกค้า" value={formatCurrency(clientCount ? totalRevenue / clientCount : 0)} amount={`${clientCount} ราย`} /></div>{concentration >= 40 && <div className="rounded-2xl border border-[#E8D7B7] bg-[#FFF9EC] px-5 py-4 text-sm text-brand-text dark:border-amber-900/50 dark:bg-amber-950/20"><p className="font-bold">รายได้จำนวนมากมาจากลูกค้าไม่กี่ราย</p><p className="mt-1 text-xs text-brand-muted">{rankings[0].key} คิดเป็น {concentration}% ของรายได้ในช่วงนี้</p></div>}<section className="report-card"><div className="mb-3 flex items-center justify-between"><h2 className="report-title">ลูกค้าใหม่ vs. ลูกค้าเดิม</h2><span className="text-xs text-brand-muted">{clientCount} ราย</span></div><div className="flex h-2.5 overflow-hidden rounded-full bg-brand-faint"><span className="bg-[#E65F2B]" style={{ width: `${retention.repeatPct}%` }} /><span className="bg-[#D8D3CE]" style={{ width: `${retention.newPct}%` }} /></div><div className="mt-3 flex justify-between text-xs"><span className="font-semibold text-[#D9551D]">ลูกค้าเดิม {retention.repeatPct}%</span><span className="text-brand-muted">ลูกค้าใหม่ {retention.newPct}%</span></div></section></div>;
+}
+
+function JobTypes({ rankings, setDrilldown }: any) {
+  const bestAverage = [...rankings].sort((a: Ranking, b: Ranking) => b.revenue / b.count - a.revenue / a.count)[0];
+  return <div className="space-y-5"><section className="report-card"><h2 className="report-title">รายได้ตามประเภทงาน</h2><p className="report-subtitle">งานแบบไหนสร้างรายได้ให้คุณมากที่สุด?</p><RankingBars rankings={rankings} onClick={setDrilldown} showAverage /></section><div className="grid gap-3 sm:grid-cols-2"><Insight label="ประเภทที่สร้างรายได้สูงสุด" value={rankings[0]?.key || '—'} amount={rankings[0] ? `${formatCurrency(rankings[0].revenue)} · ${rankings[0].count} งาน` : '—'} /><Insight label="ค่าเฉลี่ยต่องานสูงสุด" value={bestAverage?.key || '—'} amount={bestAverage ? `${formatCurrency(bestAverage.revenue / bestAverage.count)} / งาน` : '—'} /></div></div>;
+}
+
+function Credit({ aging, pendingTotal, pendingCount, overdueTotal, onSwitchTab }: any) {
+  const max = Math.max(...aging.map((item: AgingBucket) => item.amount), 1);
+  return <div className="space-y-5"><SummaryStrip items={[["ยอดที่ยังรอรับ", formatCurrency(pendingTotal)], ["จำนวนรายการ", `${pendingCount} รายการ`], ["เกินกำหนด", formatCurrency(overdueTotal)]]} /><section className="report-card"><h2 className="report-title">พฤติกรรมเครดิตเทอม</h2><p className="report-subtitle">วิเคราะห์ช่วงเวลาที่เงินควรเข้าจากงาน</p><div className="mt-6 space-y-4">{aging.map((item: AgingBucket) => <div key={item.key} className="grid grid-cols-[120px_1fr_auto] items-center gap-3"><div><p className={`text-xs font-semibold ${item.key === 'overdue' ? 'text-red-600' : 'text-brand-text'}`}>{item.label}</p><p className="text-[10px] text-brand-muted">{item.count} รายการ</p></div><div className="h-2 overflow-hidden rounded-full bg-brand-faint"><span className="block h-full rounded-full" style={{ width: `${item.amount / max * 100}%`, background: item.color }} /></div><span className="min-w-24 text-right font-mono text-xs font-bold text-brand-text">{formatCurrency(item.amount)}</span></div>)}</div><button onClick={() => onSwitchTab('summary')} className="mt-7 flex items-center gap-1 text-xs font-bold text-[#D9551D] hover:underline">ดูเงินที่ยังไม่ได้รับ<ArrowRight className="h-3.5 w-3.5" /></button></section></div>;
+}
+
+function SummaryStrip({ items }: { items: [string, string][] }) { return <section className={`grid rounded-2xl border border-brand-border bg-brand-white p-5 dark:bg-neutral-900 sm:p-6 ${items.length === 3 ? 'grid-cols-1 divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0' : 'grid-cols-2 lg:grid-cols-4'}`}>{items.map(([label, value], index) => <div key={label} className={`py-3 sm:px-5 sm:py-0 ${items.length === 4 && index % 2 === 1 ? 'border-l border-brand-border pl-4' : ''} ${items.length === 4 && index > 0 ? 'lg:border-l lg:border-brand-border lg:pl-5' : ''} ${items.length === 4 && index >= 2 ? 'border-t border-brand-border pt-4 lg:border-t-0 lg:pt-0' : ''}`}><p className="text-[11px] font-semibold text-brand-muted">{label}</p><p className="mt-1 font-mono text-xl font-bold text-brand-text sm:text-2xl">{value}</p></div>)}</section>; }
+
+function RevenueChart({ data }: { data: TrendPoint[] }) { return <div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={data} margin={{ top: 16, right: 12, left: -12, bottom: 0 }}><CartesianGrid vertical={false} stroke="#E7E3DF" strokeDasharray="3 3" /><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#77716B', fontSize: 11 }} dy={8} /><YAxis axisLine={false} tickLine={false} tick={{ fill: '#77716B', fontSize: 10 }} tickFormatter={value => `฿${Math.round(value / 1000)}k`} /><Tooltip cursor={{ stroke: '#E65F2B', strokeOpacity: .18 }} content={({ active, payload }) => active && payload?.length ? <div className="rounded-xl border border-brand-border bg-brand-white p-3 shadow-lg"><p className="text-[11px] text-brand-muted">{payload[0].payload.label}</p><p className="mt-1 font-mono text-sm font-bold text-brand-text">{formatCurrency(Number(payload[0].value))}</p></div> : null} /><Line type="monotone" dataKey="revenue" stroke="#E65F2B" strokeWidth={2.5} dot={{ r: 3, fill: '#E65F2B', strokeWidth: 0 }} activeDot={{ r: 5, fill: '#E65F2B', stroke: '#FFF', strokeWidth: 2 }} /></LineChart></ResponsiveContainer></div>; }
+
+function RankingBars({ rankings, onClick, showAverage = false }: { rankings: Ranking[]; onClick: (ranking: Ranking) => void; showAverage?: boolean }) {
+  const max = rankings[0]?.revenue || 1;
+  return rankings.length ? <div className="mt-6 space-y-2">{rankings.slice(0, 8).map((item, index) => <button key={item.key} onClick={() => onClick(item)} className="grid w-full grid-cols-[minmax(110px,180px)_1fr_auto] items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-brand-faint/60"><div className="min-w-0"><p className="truncate text-xs font-semibold text-brand-text">{item.key}</p><p className="mt-0.5 text-[10px] text-brand-muted">{item.count} งาน{showAverage ? ` · เฉลี่ย ${formatCurrency(item.revenue / item.count)}` : ''}</p></div><div className="h-2.5 overflow-hidden rounded-full bg-brand-faint"><span className="block h-full rounded-full" style={{ width: `${Math.max(3, item.revenue / max * 100)}%`, background: BAR_COLORS[index % BAR_COLORS.length] }} /></div><span className="min-w-24 text-right font-mono text-xs font-bold text-brand-text">{formatCurrency(item.revenue)}</span></button>)}</div> : <div className="py-14 text-center text-sm text-brand-muted">ยังมีข้อมูลไม่พอสำหรับรายงานช่วงนี้</div>;
+}
+
+function Insight({ label, value, amount }: { label: string; value: string; amount: string }) { return <article className="rounded-2xl border border-brand-border bg-brand-white p-4 dark:bg-neutral-900"><p className="text-[11px] font-semibold text-brand-muted">{label}</p><p className="mt-2 truncate text-sm font-bold text-brand-text">{value}</p><p className="mt-1 font-mono text-xs text-brand-muted">{amount}</p></article>; }
+function Empty({ onSwitchTab }: { onSwitchTab: (tab: 'jobs') => void }) { return <div className="flex flex-col items-center py-14 text-center"><TrendingUp className="h-7 w-7 text-brand-muted" /><p className="mt-3 text-sm font-bold text-brand-text">ยังมีข้อมูลไม่พอสำหรับรายงานช่วงนี้</p><button onClick={() => onSwitchTab('jobs')} className="mt-4 text-xs font-bold text-[#D9551D] hover:underline">ดูงาน</button></div>; }
+function ExportItem({ icon, label, onClick }: { icon: React.ReactElement<{ className?: string }>; label: string; onClick: () => void }) { return <button onClick={onClick} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-brand-text hover:bg-brand-faint">{React.cloneElement(icon, { className: 'h-4 w-4 text-brand-muted' })}{label}</button>; }
+
+function Drilldown({ ranking, close, onViewJob }: { ranking: Ranking; close: () => void; onViewJob?: (id: string) => void }) { return <div className="fixed inset-0 z-[200]"><motion.button aria-label="ปิด" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={close} className="absolute inset-0 h-full w-full bg-black/35 backdrop-blur-[2px]" /><motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 260 }} className="absolute inset-y-0 right-0 flex w-full flex-col bg-brand-white shadow-2xl dark:bg-neutral-900 sm:w-[460px]"><header className="flex items-start justify-between border-b border-brand-border px-6 py-5"><div><p className="text-[10px] font-bold text-[#D9551D]">รายละเอียดรายงาน</p><h2 className="mt-1 text-xl font-bold text-brand-text">{ranking.key}</h2><p className="mt-1 font-mono text-sm text-brand-muted">{formatCurrency(ranking.revenue)} · {ranking.count} งาน</p></div><button onClick={close} className="rounded-lg p-2 text-brand-muted hover:bg-brand-faint"><X className="h-5 w-5" /></button></header><div className="flex-1 divide-y divide-brand-border overflow-y-auto px-6">{ranking.jobs.map(job => <button key={job.id} onClick={() => { close(); onViewJob?.(job.id); }} className="flex w-full items-center justify-between gap-4 py-4 text-left"><div className="min-w-0"><p className="truncate text-sm font-semibold text-brand-text">{job.name}</p><p className="mt-1 text-[11px] text-brand-muted">{job.client || 'ไม่ระบุลูกค้า'} · {job.type || 'ยังไม่ระบุ'}</p></div><MoreHorizontal className="h-4 w-4 shrink-0 text-brand-muted" /></button>)}</div></motion.aside></div>; }
