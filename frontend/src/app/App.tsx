@@ -1586,6 +1586,7 @@ export default function App() {
     const jobWithId: Job = {
       ...newJob,
       id: crypto.randomUUID(),
+      lastActivityAt: new Date().toISOString(),
     };
     let freshJobs: Job[] = jobs;
     setJobs(prev => {
@@ -1630,9 +1631,11 @@ export default function App() {
     // the first edit at all. setJobs's functional form always sees the true latest pending state.
     let oldJob: Job | undefined;
     let freshJobs: Job[] = jobs;
+    // Stamp the edit so jobs on the same date list the most recently touched one first.
+    const stamped = { ...updated, lastActivityAt: new Date().toISOString() };
     setJobs(prev => {
       oldJob = prev.find(j => j.id === id);
-      freshJobs = prev.map(j => j.id === id ? { ...j, ...updated } : j);
+      freshJobs = prev.map(j => j.id === id ? { ...j, ...stamped } : j);
       return freshJobs;
     });
 

@@ -63,10 +63,11 @@ test('month filter keeps only that month, by the same date the tab sorts on', ()
   assert.deepEqual(sep.sort(), ['mae-sep', 'sep-early', 'today-added-last']);
   assert.equal(matchesPeriod(job('x', {}), { kind: 'month', month: '2026-09' }, 'all'), false);
   assert.equal(matchesPeriod(job('x', {}), { kind: 'all' }, 'all'), true);
-  // Awaiting payment filters by the due month, not the delivery month.
+  // Delivered work is filed under its payment date (the date the list shows), in every tab.
   const due = job('d', { postDate: '2026-08-20', payDate: '2026-09-19' });
   assert.equal(matchesPeriod(due, { kind: 'month', month: '2026-09' }, 'waiting_payment'), true);
-  assert.equal(matchesPeriod(due, { kind: 'month', month: '2026-09' }, 'all'), false);
+  assert.equal(matchesPeriod(due, { kind: 'month', month: '2026-09' }, 'all'), true);
+  assert.equal(matchesPeriod(job('w', { isPosted: false, postDate: '2026-08-20', payDate: '2026-09-19' }), { kind: 'month', month: '2026-08' }, 'all'), true);
 });
 
 test('date range is inclusive on both ends and either end may be open', () => {
@@ -80,4 +81,23 @@ test('date range is inclusive on both ends and either end may be open', () => {
 test('month options come from real job dates, newest first, without the current month', () => {
   assert.deepEqual(periodMonths(jobs, 'all', '2026-10'), ['2026-09', '2026-08', '2026-07', '2026-06']);
   assert.deepEqual(periodMonths(jobs, 'all', '2026-09'), ['2026-08', '2026-07', '2026-06']);
+});
+
+test('ล่าสุด follows the date shown: a job paid today rises above work delivered earlier', () => {
+  const list = [
+    job('mae', { postDate: '2026-09-30', payDate: '2026-09-30', status: 'done', received: 1000, pending: 0 }),
+    job('paid-today', { postDate: '2026-09-25', payDate: '2026-10-02', status: 'done', received: 1500, pending: 0 }),
+    job('wip', { isPosted: false, postDate: '2026-10-05', payDate: '2026-10-20' }),
+  ];
+  assert.deepEqual(sortJobs(list, 'recent', 'all').map(j => j.id), ['wip', 'paid-today', 'mae']);
+});
+
+test('same day: the job touched last comes first under ล่าสุด, first under เก่าสุด', () => {
+  const list = [
+    job('first', { payDate: '2026-10-02', lastActivityAt: '2026-10-02T09:00:00Z' }),
+    job('old-record', { payDate: '2026-10-02' }),
+    job('second', { payDate: '2026-10-02', lastActivityAt: '2026-10-02T09:05:00Z' }),
+  ];
+  assert.deepEqual(sortJobs(list, 'recent', 'all').map(j => j.id), ['second', 'first', 'old-record']);
+  assert.deepEqual(sortJobs(list, 'oldest', 'all').map(j => j.id), ['first', 'second', 'old-record']);
 });

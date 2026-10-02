@@ -9,13 +9,13 @@ export type JobPeriod =
   | { kind: 'month'; month: string }
   | { kind: 'range'; from: string; to: string };
 
-// The date a row is ordered and month-filtered by. Jobs have no created-at field, so a job's own
-// date is its delivery/service date, else its start date. Awaiting-payment rows use when the money
-// is due (urgency), closed rows when it arrived.
+// The date a row is ordered and month-filtered by -- the same date the list shows in its
+// "กำหนด" column: in-progress work by its delivery date (else start date), delivered work by its
+// payment date (due date while unpaid, the day the money arrived once paid).
 export const jobSortDate = (job: Job, tab: JobTab): string =>
   tab === 'waiting_payment' ? job.payDate || job.postDate || ''
-    : tab === 'closed' ? job.payDate || job.postDate || job.startDate || ''
-    : job.postDate || job.startDate || '';
+    : job.isPosted === false ? job.postDate || job.startDate || ''
+    : job.payDate || job.postDate || job.startDate || '';
 
 /** Local YYYY-MM of a date (current month by default). */
 export const monthKeyOf = (date = new Date()) =>
@@ -44,14 +44,18 @@ export function periodMonths(jobs: Job[], tab: JobTab, currentMonth = monthKeyOf
   return [...months].sort().reverse();
 }
 
-// Dates are stored as YYYY-MM-DD, so plain string comparison is chronological. Ties keep list
-// order, which puts the most recently added job first (new jobs are prepended).
+// Dates are stored as YYYY-MM-DD, so plain string comparison is chronological. Same-day ties go
+// by when the job was last touched (e.g. which payment was recorded last), then list order.
 export function sortJobs(jobs: Job[], sortBy: JobSort, tab: JobTab): Job[] {
-  type Row = { job: Job; index: number; date: string };
-  const rows: Row[] = jobs.map((job, index) => ({ job, index, date: jobSortDate(job, tab) }));
+  type Row = { job: Job; index: number; date: string; touched: string };
+  const rows: Row[] = jobs.map((job, index) => ({ job, index, date: jobSortDate(job, tab), touched: job.lastActivityAt || '' }));
   const byDate = (newestFirst: boolean) => (a: Row, b: Row) => {
     if (!a.date !== !b.date) return a.date ? -1 : 1;
     if (a.date !== b.date) return (a.date < b.date ? -1 : 1) * (newestFirst ? -1 : 1);
+    if (a.touched !== b.touched) {
+      if (!a.touched || !b.touched) return a.touched ? -1 : 1; // untimed (older) records after
+      return (a.touched < b.touched ? -1 : 1) * (newestFirst ? -1 : 1);
+    }
     return a.index - b.index;
   };
   const compare =

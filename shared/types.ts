@@ -41,6 +41,7 @@ export interface Job {
   depositAmount?: number; // ยอดมัดจำที่รับ ณ depositDate
   remindAt?: string | null; // วันที่ให้แอปเตือนตัวเองให้ตามเงินงานนี้ (YYYY-MM-DD)
   installments?: JobInstallment[]; // ตารางรับเงินแต่ละงวด (มีเฉพาะงานที่แบ่งชำระ)
+  lastActivityAt?: string; // ISO time of the last add/edit (e.g. recording a payment); orders same-day jobs
 }
 
 export interface TaxEvidence {
