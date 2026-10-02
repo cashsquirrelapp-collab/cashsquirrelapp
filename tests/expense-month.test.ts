@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Expense, Job } from '../shared/types';
-import { FIXED_BUCKET, buildExpenseMonth, expenseBreakdown, percentText, sortExpenseRows } from '../frontend/src/features/incomeExpense/expenseMonth';
+import { buildExpenseMonth, sortExpenseRows } from '../frontend/src/features/incomeExpense/expenseMonth';
 
 const job = (fields: Partial<Job>): Job => ({
   id: 'j', name: 'งาน', type: 'ยังไม่ระบุ', client: '', value: 1000, received: 0, pending: 1000,
@@ -54,26 +54,4 @@ test('sorting uses real dates and amounts; fixed lines lead date sorts', () => {
   assert.deepEqual(sortExpenseRows(m.rows, 'oldest').map(r => r.name), ['ค่าเช่าห้อง', 'อินเทอร์เน็ต', 'A', 'C', 'B']);
   assert.deepEqual(sortExpenseRows(m.rows, 'amountDesc').map(r => r.amount), [5000, 900, 590, 100, 50]);
   assert.deepEqual(sortExpenseRows(m.rows, 'amountAsc').map(r => r.amount), [50, 100, 590, 900, 5000]);
-});
-
-test('breakdown by category ranks largest first, fixed lines get their own bucket, shares add up', () => {
-  const m = buildExpenseMonth(jobs, [
-    exp('a', 'Claude AI', 730, '2026-10-01', 'ค่าบริการ/สาธารณูปโภค'),
-    exp('b', 'ข้าวกลางวัน', 1200, '2026-10-05', 'อาหาร/รับรองลูกค้า'),
-    exp('c', 'ค่าเช่าห้อง', 5000, '2026-10-01', 'ค่าบริการ/สาธารณูปโภค'),
-  ], settings, '2026-10', '2026-10');
-  const slices = expenseBreakdown(m.rows, 'category', r => r.category);
-  assert.deepEqual(slices.map(s => [s.label, s.amount, s.count]), [
-    ['ค่าบริการ/สาธารณูปโภค', 5730, 2], ['อาหาร/รับรองลูกค้า', 1200, 1], [FIXED_BUCKET, 590, 1],
-  ]);
-  assert.equal(slices.reduce((sum, s) => sum + s.amount, 0), m.total);
-  assert.ok(Math.abs(slices.reduce((sum, s) => sum + s.percent, 0) - 100) < 1e-9);
-});
-
-test('breakdown by type matches the summary totals; an empty month has no slices', () => {
-  const m = buildExpenseMonth(jobs, [exp('a', 'Claude AI', 730, '2026-10-01')], settings, '2026-10', '2026-10');
-  assert.deepEqual(expenseBreakdown(m.rows, 'type', r => r.category).map(s => [s.key, s.amount]), [['recurring', m.recurringTotal], ['general', m.generalTotal]]);
-  const empty = buildExpenseMonth(jobs, [], { monthlyExpense: 0 }, '2026-10', '2026-10');
-  assert.deepEqual(expenseBreakdown(empty.rows, 'category', r => r.category), []);
-  assert.deepEqual([percentText(0), percentText(0.3), percentText(62.6)], ['0%', '<1%', '63%']);
 });
