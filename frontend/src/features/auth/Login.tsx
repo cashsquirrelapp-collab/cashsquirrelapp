@@ -1039,9 +1039,6 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
               </button>
             </form>
 
-            {!isSignUp && <button type="button" onClick={() => { setIsAccountRecovery(true); setBackupRecoverySent(false); setError(null); setSuccess(null); }}
-              className="mt-3 w-full text-center text-xs font-bold text-[#E65F2B] hover:underline">กู้คืนบัญชีที่สั่งลบภายใน 30 วัน</button>}
-
             <div className="flex items-center gap-3 my-4">
               <div className="flex-1 h-px bg-brand-border/40" />
               <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">{t('login.or')}</span>
