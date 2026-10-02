@@ -89,7 +89,6 @@ import {
   FileText,
   Smartphone,
   ChevronDown,
-  BarChart3,
   Wrench,
   CalendarDays,
   Contact,
@@ -186,7 +185,6 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'receivables', labelKey: 'nav.receivables', icon: Clock, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
-  { key: 'insight', labelKey: 'nav.insight', icon: BarChart3, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
   { key: 'clients', labelKey: 'nav.clients', icon: Contact, group: 'more' },
@@ -2631,24 +2629,16 @@ export default function App() {
                 )
               )}
 
-              {activeTab === 'report' && (
+              {/* วิเคราะห์รายได้ now lives inside รายงาน; old /insight links open that view. */}
+              {(activeTab === 'report' || activeTab === 'insight') && (
                 <ReportOverviewTab
                   jobs={jobs}
                   expenses={expenses}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
+                  initialView={activeTab === 'insight' ? 'income' : undefined}
+                  insight={isPro ? <InsightTab embedded jobs={jobs} onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }} /> : undefined}
+                  onUpgrade={isPro ? undefined : handleUpgrade}
                 />
-              )}
-
-              {activeTab === 'insight' && (
-                isPro ? (
-                  <InsightTab jobs={jobs} onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }} />
-                ) : (
-                  <PremiumUpsell
-                    feature={t('premium.insightFeature')}
-                    description={t('premium.insightDesc')}
-                    onUpgrade={handleUpgrade}
-                  />
-                )
               )}
 
               {activeTab === 'groups' && (

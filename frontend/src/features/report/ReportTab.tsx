@@ -9,21 +9,26 @@ interface ReportTabProps {
   jobs: Job[];
   expenses: Expense[];
   onSwitchTab: (tabId: string) => void;
+  /** The in-depth income analysis (members only). When absent, "รายได้" shows the basic summary. */
+  insight?: React.ReactNode;
+  onUpgrade?: () => void;
+  initialView?: ViewKey;
 }
 
-type ViewKey = 'overview' | 'income' | 'clients' | 'credit';
+export type ViewKey = 'overview' | 'income' | 'credit';
 
+// One reports page: the overall picture, income by client and job type (the in-depth analysis
+// for members), and credit-term follow-up.
 const VIEWS: { key: ViewKey; label: string }[] = [
   { key: 'overview', label: 'ภาพรวม' },
-  { key: 'income', label: 'รายได้' },
-  { key: 'clients', label: 'ลูกค้า' },
+  { key: 'income', label: 'รายได้ & ลูกค้า' },
   { key: 'credit', label: 'Credit Term' },
 ];
 
 export default function ReportTab({
-  jobs, expenses, onSwitchTab,
+  jobs, expenses, onSwitchTab, insight, onUpgrade, initialView,
 }: ReportTabProps) {
-  const [view, setView] = useState<ViewKey>('overview');
+  const [view, setView] = useState<ViewKey>(initialView ?? 'overview');
 
   const totalIncome = useMemo(() => jobs.flatMap(getJobPaymentEntries).reduce((s, e) => s + e.amount, 0), [jobs]);
   const totalExpense = useMemo(() => expenses.reduce((s, e) => s + e.amount, 0), [expenses]);
@@ -153,8 +158,17 @@ export default function ReportTab({
         </>
       )}
 
-      {view === 'income' && (
+      {view === 'income' && insight}
+
+      {view === 'income' && !insight && (
         <>
+          {onUpgrade && (
+            <button type="button" onClick={onUpgrade}
+              className="flex w-full items-center justify-between gap-3 rounded-[14px] border border-[#F3D2BE] bg-[#FFF7F1] px-4 py-3 text-left text-xs text-brand-text transition-colors hover:bg-[#FFF1E8] cursor-pointer dark:border-orange-400/20 dark:bg-orange-500/10">
+              <span>ดูแบบเชิงลึก: กราฟรายได้ตามลูกค้าและประเภทงาน เลือกช่วงเวลาได้ กดดูรายการงานได้</span>
+              <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-[#C24A16] dark:text-orange-300">อัปเกรด <ArrowRight className="h-3.5 w-3.5" /></span>
+            </button>
+          )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
               <p className="text-xs text-brand-muted">รายได้เฉลี่ย / งาน</p>
@@ -178,11 +192,7 @@ export default function ReportTab({
               </div>
             ))}
           </div>
-        </>
-      )}
 
-      {view === 'clients' && (
-        <>
           <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
             <h4 className="mb-2.5 text-[13px] font-medium text-brand-text">ลูกค้าที่สร้างรายได้สูง</h4>
             {topClients.length === 0 ? (

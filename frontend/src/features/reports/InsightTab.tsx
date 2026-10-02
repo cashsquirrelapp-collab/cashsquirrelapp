@@ -21,6 +21,8 @@ import { Mascot } from '../../components/mascot/Mascot';
 interface InsightTabProps {
   jobs: Job[];
   onSwitchTab: (tabId: string) => void;
+  /** Shown inside the รายงาน page: no page title of its own, just the period control. */
+  embedded?: boolean;
 }
 
 type PeriodOption = '3' | '6' | '12' | 'all';
@@ -114,7 +116,7 @@ const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: React.Re
   </div>
 );
 
-export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => {
+export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab, embedded = false }) => {
   const [period, setPeriod] = useState<PeriodOption>('6');
   const [categoryChartMode, setCategoryChartMode] = useState<'bar' | 'pie'>('pie');
   // Which client/type bucket the user clicked on a chart, to drill into the list of jobs behind
@@ -408,12 +410,16 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
   };
 
   return (
-    <div className="page-content space-y-6 max-w-5xl mx-auto pb-12">
+    <div className={embedded ? 'space-y-6' : 'page-content space-y-6 max-w-5xl mx-auto pb-12'}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="font-display font-black text-lg text-brand-text dark:text-white">วิเคราะห์รายได้เชิงลึก</h2>
-          <p className="text-xs text-brand-muted mt-0.5">ดูว่าลูกค้าคนไหนหรืองานประเภทไหนทำเงินให้คุณมากที่สุด</p>
-        </div>
+        {embedded ? (
+          <p className="text-xs text-brand-muted">ดูว่าลูกค้าคนไหนหรืองานประเภทไหนทำเงินให้คุณมากที่สุด</p>
+        ) : (
+          <div>
+            <h2 className="font-display font-black text-lg text-brand-text dark:text-white">วิเคราะห์รายได้เชิงลึก</h2>
+            <p className="text-xs text-brand-muted mt-0.5">ดูว่าลูกค้าคนไหนหรืองานประเภทไหนทำเงินให้คุณมากที่สุด</p>
+          </div>
+        )}
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value as PeriodOption)}
