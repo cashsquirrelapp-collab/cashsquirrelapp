@@ -119,7 +119,7 @@ export default function JobsTab({
   type JobFilters = { stages: JobStage[]; payments: PaymentLabel[]; types: string[] };
   const emptyFilters: JobFilters = { stages: [], payments: [], types: [] };
   const [filters, setFilters] = useState<JobFilters>(emptyFilters);
-  const [period, setPeriod] = useState<JobPeriod>({ kind: 'all' });
+  const [period, setPeriod] = useState<JobPeriod>(() => ({ kind: 'month', month: monthKeyOf() }));
   const [subTab, setSubTab] = useState<'all' | 'working' | 'waiting_payment' | 'closed'>('all');
   const [sortBy, setSortBy] = useState<JobSort>('recent');
   // One popover for the row's ⋯ menu and for the clickable stage/payment badges.
