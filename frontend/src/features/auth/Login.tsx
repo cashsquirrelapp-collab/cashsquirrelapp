@@ -190,7 +190,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const { t, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [isAccountRecovery, setIsAccountRecovery] = useState(() => new URLSearchParams(window.location.search).get('recover') === '1');
+  const initialRecoveryToken = new URLSearchParams(window.location.search).get('recover') || '';
+  const [accountRecoveryToken, setAccountRecoveryToken] = useState(initialRecoveryToken);
+  const [isAccountRecovery, setIsAccountRecovery] = useState(() => initialRecoveryToken.length >= 40);
   const [loginLock, setLoginLock] = useState<{ email: string; until: number } | null>(null);
   const [loginLockSeconds, setLoginLockSeconds] = useState(0);
   const [backupRecoveryEmail, setBackupRecoveryEmail] = useState('');
@@ -220,11 +222,13 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [error, setError] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('confirmationExpired') === '1' ? t('login.err.confirmationExpired')
-      : params.get('authLinkError') === '1' ? t('login.err.authLink') : null;
+      : params.get('authLinkError') === '1' ? t('login.err.authLink')
+      : params.get('accountDeletionPending') === '1' ? t('login.accountDeletionPending')
+      : params.has('recover') && (params.get('recover') || '').length < 40 ? t('login.invalidRecoveryLink') : null;
   });
   const [success, setSuccess] = useState<string | null>(() => new URLSearchParams(window.location.search).get('emailConfirmed') === '1' ? t('login.success.emailConfirmed') : null);
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
-  const [showWelcome, setShowWelcome] = useState(() => window.location.pathname === '/' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && new URLSearchParams(window.location.search).get('recover') !== '1' && window.location.hash !== '#login');
+  const [showWelcome, setShowWelcome] = useState(() => window.location.pathname === '/' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && !new URLSearchParams(window.location.search).has('recover') && window.location.hash !== '#login');
   const [authEntry, setAuthEntry] = useState(0);
 
   React.useEffect(() => {
@@ -269,14 +273,18 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     if (authLinkError) params.delete('authLinkError');
     const confirmationExpired = params.get('confirmationExpired') === '1';
     if (confirmationExpired) params.delete('confirmationExpired');
-    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || authLinkError || confirmationExpired || params.get('recover') === '1';
+    const accountDeletionPending = params.get('accountDeletionPending') === '1';
+    if (accountDeletionPending) params.delete('accountDeletionPending');
+    const invalidRecoveryLink = params.has('recover') && (params.get('recover') || '').length < 40;
+    if (invalidRecoveryLink) params.delete('recover');
+    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || authLinkError || confirmationExpired || accountDeletionPending || invalidRecoveryLink || params.has('recover');
     const nextPath = shouldUseLoginPath ? '/login' : window.location.pathname;
     const nextUrl = `${nextPath}${params.size ? `?${params}` : ''}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextUrl) {
       window.history.replaceState(null, '', nextUrl);
       window.dispatchEvent(new Event('cash-squirrel:navigate'));
     }
-    const syncWelcomeWithHistory = () => setShowWelcome(window.location.pathname === '/' && new URLSearchParams(window.location.search).get('recover') !== '1' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && window.location.hash !== '#login');
+    const syncWelcomeWithHistory = () => setShowWelcome(window.location.pathname === '/' && !new URLSearchParams(window.location.search).has('recover') && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && window.location.hash !== '#login');
     window.addEventListener('popstate', syncWelcomeWithHistory);
     return () => window.removeEventListener('popstate', syncWelcomeWithHistory);
   }, []);
@@ -320,17 +328,30 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
   const otpCountdown = `${Math.floor(otpSecondsLeft / 60)}:${String(otpSecondsLeft % 60).padStart(2, '0')}`;
 
+  const closeAccountRecovery = () => {
+    setIsAccountRecovery(false);
+    setAccountRecoveryToken('');
+    setBackupRecoverySent(false);
+    setBackupRecoveryCode('');
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('recover')) {
+      params.delete('recover');
+      window.history.replaceState(null, '', `${window.location.pathname}${params.size ? `?${params}` : ''}`);
+    }
+  };
+
   const handleAccountRecovery = async (event: React.FormEvent) => {
     event.preventDefault(); setLoading(true); setError(null); setSuccess(null);
     try {
       const response = await apiFetch('/api/recover-account', { method: 'POST', body: JSON.stringify({
-        action: backupRecoverySent ? 'verify' : 'request', email: backupRecoveryEmail.trim(), code: backupRecoverySent ? backupRecoveryCode : undefined
+        action: backupRecoverySent ? 'verify' : 'request', email: backupRecoveryEmail.trim(), token: accountRecoveryToken,
+        code: backupRecoverySent ? backupRecoveryCode : undefined
       }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'ทำรายการไม่สำเร็จ');
       if (backupRecoverySent) {
         setSuccess('กู้คืนบัญชีสำเร็จ กรุณาเข้าสู่ระบบด้วยบัญชีเดิม');
-        setIsAccountRecovery(false); setBackupRecoverySent(false); setBackupRecoveryCode('');
+        closeAccountRecovery(); setIsForgotPassword(false);
       } else { setBackupRecoverySent(true); setSuccess('หากอีเมลสำรองนี้ผูกกับบัญชีที่กู้คืนได้ ระบบจะส่งรหัสให้'); }
     } catch (error) { setError((error as Error).message); }
     finally { setLoading(false); }
@@ -671,7 +692,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 type="button"
                 onClick={() => {
                   if (isAccountRecovery) {
-                    setIsAccountRecovery(false); setBackupRecoverySent(false);
+                    closeAccountRecovery();
                   } else if (recoveryStep === 'verify') {
                     setRecoveryStep('request');
                   } else {
@@ -738,7 +759,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
           {isAccountRecovery ? (
             <form onSubmit={handleAccountRecovery} className="space-y-4">
-              <p className="text-xs leading-relaxed text-brand-muted">กู้คืนบัญชีที่สั่งลบภายใน 30 วัน โดยใช้รหัสที่ส่งไปยังอีเมลสำรองที่ยืนยันไว้</p>
+              <p className="text-xs leading-relaxed text-brand-muted">ลิงก์กู้คืนจากผู้ดูแลไม่ผูกกับบัญชีใดบัญชีหนึ่ง ใช้ได้ 1 ชั่วโมง กรอกอีเมลสำรองที่ยืนยันไว้เพื่อให้ระบบค้นหาบัญชีที่รอลบและส่งรหัส 6 หลักให้ โดยต้องกู้คืนก่อนครบ 30 วัน</p>
               <input type="email" required autoComplete="email" value={backupRecoveryEmail} onChange={event => setBackupRecoveryEmail(event.target.value)}
                 placeholder="อีเมลสำรอง" aria-label="อีเมลสำรอง" className="w-full rounded-2xl border border-brand-border bg-brand-bg/20 px-4 py-3 text-sm text-brand-text" />
               {backupRecoverySent && <input type="text" required inputMode="numeric" autoComplete="one-time-code" maxLength={6}
@@ -756,6 +777,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
               <form onSubmit={handleResetRequest} className="space-y-4">
                 <p className="text-[11px] text-brand-muted leading-relaxed">
                   {t('login.resetDescription')}
+                </p>
+                <p className="rounded-xl border border-brand-border/50 bg-brand-bg/40 px-3 py-2.5 text-[11px] leading-relaxed text-brand-muted">
+                  {t('login.deletionRecoveryHint')}
                 </p>
                 <div>
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">

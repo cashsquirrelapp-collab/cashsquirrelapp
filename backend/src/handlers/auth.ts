@@ -52,7 +52,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       }
       if (data.user?.app_metadata?.account_closure_kind === 'deletion') {
         await auth.auth.signOut();
-        res.status(302); res.setHeader('Location',`${appOrigin()}/login?recover=1`); res.end(); return;
+        res.status(302); res.setHeader('Location',`${appOrigin()}/login?accountDeletionPending=1`); res.end(); return;
       }
       const googleIdentity = data.user?.identities?.find(identity => identity.provider === 'google');
       const accountCreatedAt = data.user ? Date.parse(data.user.created_at) : Number.NaN;
@@ -127,7 +127,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     if (resetAttempts.error) throw resetAttempts.error;
     if (data.user.app_metadata?.account_closure_kind === 'deletion') {
       await auth.auth.signOut();
-      throw new HttpError(403, 'บัญชีนี้อยู่ระหว่างรอลบ กู้คืนผ่านอีเมลสำรองได้ภายใน 30 วัน');
+      throw new HttpError(403, 'บัญชีนี้อยู่ระหว่างรอลบ หากต้องการกู้คืน โปรดขอลิงก์จากผู้ดูแลระบบ แล้วใช้ลิงก์พร้อมอีเมลสำรองที่ยืนยันไว้ภายใน 30 วัน');
     }
     await sendPendingSignupWelcome(data.user);
     const user=await publicUser(data.user); storeSession(res,data.session); res.json({session:{user},user}); return;

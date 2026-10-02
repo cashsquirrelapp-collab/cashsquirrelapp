@@ -118,7 +118,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     if (!user.email || !user.email_confirmed_at) throw new HttpError(400, 'กรุณายืนยันอีเมลของบัญชีก่อนลบบัญชี');
     const otp = String(randomInt(100000, 1000000));
     const sent = await sendGmailEmail(user.email, 'รหัสยืนยันลบบัญชีถาวร | Krarok Tunngern',
-      `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#34251d"><h2>ยืนยันการปิดบัญชี</h2><p>รหัสสำหรับปิดบัญชี Krarok Tunngern ของคุณคือ</p><p style="font-size:32px;font-weight:bold;letter-spacing:8px">${otp}</p><p>บัญชีจะถูกปิดทันที ข้อมูลจะถูกลบหลัง 30 วัน ระหว่างนี้กู้คืนผ่านอีเมลสำรองได้ รหัสใช้ได้ 5 นาที</p></div>`);
+      `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#34251d"><h2>ยืนยันการปิดบัญชีถาวร</h2><p>รหัสสำหรับปิดบัญชี Krarok Tunngern ของคุณคือ</p><p style="font-size:32px;font-weight:bold;letter-spacing:8px">${otp}</p><p>บัญชีจะถูกปิดทันทีและข้อมูลจะถูกลบหลัง 30 วัน หากต้องการกู้คืนภายในช่วงนี้ ให้ติดต่อผู้ดูแลเพื่อขอลิงก์ แล้วใช้ลิงก์กับอีเมลสำรองที่ยืนยันไว้ รหัสนี้ใช้ได้ 5 นาที</p></div>`);
     if (!sent) throw new HttpError(503, 'ส่งรหัสยืนยันไม่สำเร็จ กรุณาลองอีกครั้ง');
     writeCookie(res, { userId: user.id, hash: challengeHash(`${user.id}:${otp}`), expires: Date.now() + 300_000 } satisfies DeleteChallenge, 'account-delete', 300);
     res.json({ ok: true });

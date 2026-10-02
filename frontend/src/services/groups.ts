@@ -1,5 +1,6 @@
 import type {
   AdminAccounts,
+  AdminDeletionRequests,
   GroupAction,
   GroupDetail,
   GroupSnapshot,
@@ -48,6 +49,19 @@ export const groupApi = {
       `/api/admin-users?search=${encodeURIComponent(search)}&page=${page}`,
       { signal, headers: { 'X-Account-ID': account } },
     );
+  },
+  accountDeletionRequests(account: string, signal?: AbortSignal) {
+    return apiJson<AdminDeletionRequests>('/api/admin-users?action=deletion-requests', {
+      signal,
+      headers: { 'X-Account-ID': account },
+    });
+  },
+  createAccountRecoveryLink(account: string) {
+    return apiJson<{ url: string; expiresAt: string }>('/api/admin-users', {
+      method: 'POST',
+      headers: { 'X-Account-ID': account },
+      body: JSON.stringify({ action: 'create-recovery-link' }),
+    });
   },
   setRole(account: string, userId: string, role: SystemRole) {
     return apiJson<{ ok: true }>('/api/admin-users', {

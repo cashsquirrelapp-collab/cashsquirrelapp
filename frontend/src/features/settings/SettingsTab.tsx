@@ -243,7 +243,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const requestDeletion = () => triggerConfirm(
     'ยืนยันคำขอลบบัญชี',
-    'บัญชีจะปิดใช้งานทันที แต่ข้อมูลยังอยู่ 30 วัน ระหว่างนี้กู้คืนได้ด้วยอีเมลสำรองที่ยืนยันไว้ หลังครบ 30 วันข้อมูลจะถูกลบถาวร ขั้นต่อไปต้องกรอกรหัสจากอีเมลหลัก',
+    'บัญชีจะปิดใช้งานทันที แต่ข้อมูลยังอยู่ 30 วัน ระบบจะไม่ส่งแจ้งเตือนการลบให้แอดมินโดยอัตโนมัติ หากต้องการกู้คืนก่อนครบกำหนด ให้ติดต่อแอดมินเพื่อขอลิงก์ แล้วรับรหัส 6 หลักทางอีเมลสำรองที่ยืนยันไว้ หลังครบ 30 วันข้อมูลจะถูกลบถาวร ขั้นต่อไปต้องกรอกรหัสจากอีเมลหลัก',
     async () => {
       setAccountBusy(true);
       const result = await authClient.auth.requestAccountDeletion();
@@ -294,7 +294,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     try {
       const value = await apiJson<{ backupEmail: string }>('/api/account', { method: 'POST', headers: { 'X-Account-ID': session.user.id }, body: JSON.stringify({ action: 'backup-confirm', code: backupCode }) });
       setBackupEmail(value.backupEmail); setBackupPending(false); setBackupCode('');
-      triggerAlert('ยืนยันสำเร็จ', 'ใช้อีเมลสำรองนี้กู้คืนบัญชีระหว่าง 30 วันหลังปิดบัญชีได้');
+      triggerAlert('ยืนยันสำเร็จ', 'อีเมลนี้ใช้รับรหัสกู้คืนได้ หลังแอดมินสร้างลิงก์ให้ ซึ่งลิงก์มีอายุ 1 ชั่วโมงและต้องใช้ก่อนครบ 30 วัน');
     } catch (error) { triggerAlert('ยืนยันไม่สำเร็จ', (error as Error).message); }
     finally { setAccountBusy(false); }
   };
@@ -1072,7 +1072,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <div className="space-y-3 border-t border-rose-500/20 pt-3">
                         <div>
                           <h5 className="text-[11px] font-black text-brand-text">จัดการบัญชีของฉัน</h5>
-                          <p className="mt-1 text-[10px] leading-relaxed text-brand-muted">พักบัญชีหรือสั่งลบบัญชีได้ โดยข้อมูลจะถูกลบจริงหลัง 30 วัน หากสั่งลบต้องยืนยันอีเมลสำรองก่อนเพื่อใช้กู้คืน</p>
+                          <p className="mt-1 text-[10px] leading-relaxed text-brand-muted">พักบัญชีหรือสั่งลบบัญชีได้ โดยข้อมูลจะถูกลบจริงหลัง 30 วัน ระบบไม่แจ้งแอดมินอัตโนมัติ หากสั่งลบถาวรและต้องการกู้คืน ให้ติดต่อแอดมินเพื่อขอลิงก์อายุ 1 ชั่วโมง แล้วรับรหัส 6 หลักทางอีเมลสำรองที่ยืนยันไว้</p>
                         </div>
                         <button type="button" disabled={accountBusy} onClick={pauseAccount}
                           className="w-full rounded-xl border border-amber-500/40 px-3 py-2.5 text-[11px] font-bold text-amber-800 hover:bg-amber-500/10 disabled:opacity-50 dark:text-amber-300">
@@ -1090,7 +1090,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                               className="w-full rounded-lg border border-brand-border bg-brand-white px-3 py-2 text-brand-text" placeholder="รหัส 6 หลัก" />
                             <button type="button" disabled={accountBusy || deletionCode.length !== 6} onClick={() => triggerConfirm(
                               'ยืนยันปิดบัญชี',
-                              'กดตกลงเพื่อปิดการใช้งานบัญชีทันที ข้อมูลจะเก็บไว้ 30 วันและกู้คืนผ่านอีเมลสำรองได้ หลังครบกำหนดจะถูกลบถาวร',
+                              'กดตกลงเพื่อปิดการใช้งานบัญชีทันที ข้อมูลจะเก็บไว้ 30 วัน หากต้องการกู้คืนต้องขอลิงก์จากแอดมินภายในกำหนด ลิงก์มีอายุ 1 ชั่วโมงและต้องใช้อีเมลสำรองที่ยืนยันไว้ หลังครบกำหนดจะถูกลบถาวร',
                               () => { void deleteAccount(); }
                             )}
                               className="w-full rounded-lg bg-rose-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-50">ยืนยันปิดบัญชี</button>

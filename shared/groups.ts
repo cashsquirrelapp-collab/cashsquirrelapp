@@ -103,6 +103,15 @@ export interface AdminAccounts {
   total: number;
   page: number;
 }
+export interface AdminDeletionRequest {
+  userId: string;
+  email: string;
+  requestedAt: string;
+  expiresAt: string;
+}
+export interface AdminDeletionRequests {
+  requests: AdminDeletionRequest[];
+}
 export const systemRoleActionSchema = z
   .object({ userId: z.uuid(), role: z.enum(['admin', 'user']) })
   .strict();
