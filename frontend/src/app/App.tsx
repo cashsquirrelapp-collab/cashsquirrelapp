@@ -407,9 +407,12 @@ export default function App() {
             ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#34231B] dark:text-[#FFA473] font-bold'
             : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'
         }`}
-        style={activeTab === item.key && hasCoreFeatureShadow ? { boxShadow: '0 5px 14px rgba(194, 74, 22, 0.14)' } : undefined}
+        style={activeTab === item.key && hasCoreFeatureShadow ? { boxShadow: '0 6px 16px rgba(194, 74, 22, 0.24)' } : undefined}
       >
-        <Icon className="w-4.5 h-4.5" />
+        <Icon
+          className="w-4.5 h-4.5"
+          style={activeTab === item.key && hasCoreFeatureShadow ? { filter: 'drop-shadow(0 2px 3px rgba(194, 74, 22, 0.42))' } : undefined}
+        />
         <span>{t(item.labelKey)}</span>
       </button>
     );
