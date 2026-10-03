@@ -343,7 +343,9 @@ export default function App() {
     };
   }, []);
 
-  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  // Resolve deep links before the first render so Suspense and cloud-loading
+  // placeholders match the requested page instead of flashing the dashboard.
+  const [activeTab, setActiveTab] = useState<TabKey>(() => parseWorkspaceRoute(window.location.pathname).tab);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   // The account corner lives in the desktop sidebar and in the floating top bar on smaller screens;
