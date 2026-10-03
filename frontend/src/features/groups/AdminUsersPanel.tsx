@@ -83,6 +83,23 @@ export default function AdminUsersPanel({
       if (mounted.current) setBusy(false);
     }
   };
+  const setProAccess = async (target: string, enabled: boolean) => {
+    if (!mounted.current || writing.current || getCurrentAccount() !== userId) return;
+    writing.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      await groupApi.setProAccess(userId, target, enabled);
+      if (!mounted.current || getCurrentAccount() !== userId) return;
+      setRevision(value => value + 1);
+      await onRoleChanged();
+    } catch (e) {
+      if (mounted.current) setError((e as Error).message);
+    } finally {
+      writing.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  };
   const createRecoveryLink = async () => {
     if (!mounted.current || writing.current || getCurrentAccount() !== userId) return;
     writing.current = true;
@@ -121,8 +138,8 @@ export default function AdminUsersPanel({
           </h2>
           <p className="text-xs text-brand-muted mt-1">
             {copy(
-              'ค้นหาบัญชีและถอดสิทธิ์ Admin ที่มีอยู่ได้',
-              'Search accounts and remove existing admin access.',
+              'ค้นหาบัญชี จัดการ Pro และถอดสิทธิ์ Admin ที่มีอยู่ได้',
+              'Search accounts, manage Pro access, and remove existing admin access.',
             )}
           </p>
         </div>
@@ -231,22 +248,55 @@ export default function AdminUsersPanel({
               </p>
               <p className="text-xs text-brand-muted mt-1 font-mono">{user.publicId} · {user.role}</p>
             </div>
-            {user.role === 'admin' && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${user.proStatus === 'admin' || user.proStatus === 'paid' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : user.proStatus === 'trial' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : user.proStatus === 'revoked' ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-brand-faint text-brand-muted'}`}>
+                {user.proStatus === 'admin'
+                  ? copy('Pro · แอดมินให้', 'Pro · Admin grant')
+                  : user.proStatus === 'paid'
+                    ? copy('Pro · ชำระแล้ว', 'Pro · Paid')
+                    : user.proStatus === 'trial'
+                      ? copy('Pro · ทดลองใช้', 'Pro · Trial')
+                      : user.proStatus === 'revoked'
+                        ? copy('ปิด Pro โดยแอดมิน', 'Pro disabled by admin')
+                        : copy('Free', 'Free')}
+              </span>
               <button
-                className={secondary}
+                type="button"
+                className={user.proStatus === 'admin' || user.proStatus === 'paid' || user.proStatus === 'trial' ? secondary : primary}
                 disabled={busy}
-                onClick={() => triggerConfirm(
-                  copy('ถอดสิทธิ์ Admin', 'Remove admin access'),
-                  copy(
-                    `ยืนยันเปลี่ยน ${user.displayName} (${user.publicId}) ให้เป็นผู้ใช้ทั่วไป`,
-                    `Confirm changing ${user.displayName} (${user.publicId}) to a regular user.`,
-                  ),
-                  () => { void setRole(user.userId, 'user'); },
-                )}
+                onClick={() => {
+                  const enable = !['admin', 'paid', 'trial'].includes(user.proStatus || 'none');
+                  triggerConfirm(
+                    enable ? copy('ให้สิทธิ์ Pro', 'Grant Pro access') : copy('ยกเลิก Pro', 'Cancel Pro access'),
+                    enable
+                      ? copy(`ให้ ${user.displayName} ใช้ Pro ได้จนกว่าแอดมินจะยกเลิก`, `Grant Pro to ${user.displayName} until an admin cancels it.`)
+                      : copy(`ยกเลิกสิทธิ์ Pro ของ ${user.displayName} ทันที`, `Revoke Pro access for ${user.displayName} immediately.`),
+                    () => { void setProAccess(user.userId, enable); },
+                  );
+                }}
               >
-                {copy('ถอดสิทธิ์ Admin', 'Remove admin')}
+                {['admin', 'paid', 'trial'].includes(user.proStatus || 'none')
+                  ? copy('ยกเลิก Pro', 'Cancel Pro')
+                  : copy('ให้ Pro', 'Grant Pro')}
               </button>
-            )}
+              {user.role === 'admin' && (
+                <button
+                  type="button"
+                  className={secondary}
+                  disabled={busy}
+                  onClick={() => triggerConfirm(
+                    copy('ถอดสิทธิ์ Admin', 'Remove admin access'),
+                    copy(
+                      `ยืนยันเปลี่ยน ${user.displayName} (${user.publicId}) ให้เป็นผู้ใช้ทั่วไป`,
+                      `Confirm changing ${user.displayName} (${user.publicId}) to a regular user.`,
+                    ),
+                    () => { void setRole(user.userId, 'user'); },
+                  )}
+                >
+                  {copy('ถอดสิทธิ์ Admin', 'Remove admin')}
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>

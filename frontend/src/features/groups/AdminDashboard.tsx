@@ -52,6 +52,7 @@ export default function AdminDashboard({
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [usage, setUsage] = useState<Awaited<ReturnType<typeof usageAnalyticsApi.adminSnapshot>> | null>(null);
+  const [selectedUsageDate, setSelectedUsageDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [usageLoading, setUsageLoading] = useState(true);
   const [usageError, setUsageError] = useState('');
@@ -62,6 +63,8 @@ export default function AdminDashboard({
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [detailPage, setDetailPage] = useState(0);
+  const [proActionUserId, setProActionUserId] = useState<string | null>(null);
+  const proActionInFlight = useRef(false);
   const detailPanelRef = useRef<HTMLElement>(null);
   const openPanel = (panelName: DashboardPanel) => {
     setActivePanel(panelName);
@@ -159,7 +162,7 @@ export default function AdminDashboard({
       section: 'groups',
     },
     {
-      label: copy('Pro แบบชำระเงิน', 'Paid Pro accounts'),
+      label: copy('Pro ที่ชำระเงินหรือแอดมินมอบให้', 'Paid or admin-granted Pro'),
       value: stats.proAccounts,
       icon: Crown,
       color: 'text-amber-600',
@@ -207,7 +210,7 @@ export default function AdminDashboard({
           : activePanel === 'groups'
             ? copy('กลุ่มทั้งหมด', 'All groups')
             : activePanel === 'pro'
-              ? copy('บัญชี Pro แบบชำระเงิน', 'Paid Pro accounts')
+              ? copy('บัญชี Pro ที่ชำระเงินหรือแอดมินมอบให้', 'Paid or admin-granted Pro accounts')
               : activePanel === 'invitations'
                 ? copy('คำเชิญที่ยังไม่หมดอายุ', 'Open invitations')
                 : activePanel === 'paused'
@@ -247,12 +250,35 @@ export default function AdminDashboard({
     return dailyByDate.get(date) || { date, activeUsers: 0, pageViews: 0 };
   }) : [];
   const maxDailyUsers = Math.max(1, ...dailyChart.map(day => day.activeUsers));
+  const selectedDay = selectedUsageDate
+    ? dailyByDate.get(selectedUsageDate) || { date: selectedUsageDate, activeUsers: 0, pageViews: 0 }
+    : null;
+  const selectedDayFeatures = selectedUsageDate
+    ? (usage?.dailyFeatures || [])
+      .filter(feature => feature.date === selectedUsageDate)
+      .sort((a, b) => b.pageViews - a.pageViews)
+    : [];
   const featureStats = USAGE_FEATURE_KEYS.map(key => ({
     key,
     ...(usage?.features.find(feature => feature.key === key) || { activeUsers: 0, pageViews: 0 }),
   })).sort((a, b) => b.pageViews - a.pageViews);
   const maxFeatureViews = Math.max(1, ...featureStats.map(feature => feature.pageViews));
   const formatMetric = (value: number) => value.toLocaleString(language === 'th' ? 'th-TH' : 'en-US');
+  const setProAccess = async (targetUserId: string, enabled: boolean) => {
+    if (proActionInFlight.current || getCurrentAccount() !== userId) return;
+    proActionInFlight.current = true;
+    setProActionUserId(targetUserId);
+    setDetailError('');
+    try {
+      await groupApi.setProAccess(userId, targetUserId, enabled);
+      if (getCurrentAccount() === userId) setRevision(value => value + 1);
+    } catch (cause) {
+      setDetailError((cause as Error).message);
+    } finally {
+      proActionInFlight.current = false;
+      setProActionUserId(null);
+    }
+  };
 
   return (
     <section aria-labelledby="admin-dashboard-title" className="space-y-5">
@@ -382,19 +408,31 @@ export default function AdminDashboard({
             </div>
             <div
               className="mt-5 grid h-32 grid-cols-[repeat(30,minmax(0,1fr))] items-end gap-1 sm:gap-1.5"
-              role="img"
+              role="group"
               aria-label={copy('กราฟจำนวนผู้ใช้งานรายวันใน 30 วันที่ผ่านมา', 'Daily active users over the last 30 days')}
             >
-              {dailyChart.map(day => (
-                <div key={day.date} className="flex h-full min-w-0 items-end" title={`${day.date}: ${formatMetric(day.activeUsers)} ${copy('คน', 'users')} · ${formatMetric(day.pageViews)} ${copy('ครั้ง', 'views')}`}>
-                  <div className="flex h-full w-full items-end overflow-hidden rounded-t-sm bg-brand-faint/70">
-                    <div
-                      className="w-full rounded-t-sm bg-brand-blue-acc transition-[height] duration-300"
-                      style={{ height: `${day.activeUsers ? Math.max(8, (day.activeUsers / maxDailyUsers) * 100) : 3}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+              {dailyChart.map(day => {
+                const selected = selectedUsageDate === day.date;
+                const label = `${day.date}: ${formatMetric(day.activeUsers)} ${copy('คน', 'users')} · ${formatMetric(day.pageViews)} ${copy('ครั้ง', 'views')}`;
+                return (
+                  <button
+                    key={day.date}
+                    type="button"
+                    className={`group flex h-full min-w-0 items-end rounded-t-md outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-white dark:focus-visible:ring-offset-stone-900 ${selected ? 'ring-2 ring-orange-400 ring-offset-1 ring-offset-brand-white dark:ring-offset-stone-900' : ''}`}
+                    onClick={() => setSelectedUsageDate(day.date)}
+                    aria-label={`${label}. ${copy('กดเพื่อดูรายละเอียดของวันดังกล่าว', 'Select to view this day’s details')}`}
+                    aria-pressed={selected}
+                    title={`${label} · ${copy('กดเพื่อดูรายละเอียด', 'Click to view details')}`}
+                  >
+                    <div className="flex h-full w-full items-end overflow-hidden rounded-t-sm bg-brand-faint/70">
+                      <div
+                        className={`w-full rounded-t-sm transition-[height,background-color] duration-300 group-hover:bg-orange-500 ${selected ? 'bg-orange-500' : 'bg-brand-blue-acc'}`}
+                        style={{ height: `${day.activeUsers ? Math.max(8, (day.activeUsers / maxDailyUsers) * 100) : 3}%` }}
+                      />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
             <div className="mt-2 flex justify-between text-[10px] text-brand-muted">
               <span>{usage?.fromDate || '—'}</span>
@@ -425,6 +463,62 @@ export default function AdminDashboard({
             </div>
           </div>
         </div>
+
+        {selectedUsageDate && selectedDay && (
+          <section className="rounded-2xl border border-brand-border/50 bg-brand-bg/55 p-4 sm:p-5" aria-live="polite" aria-labelledby="usage-day-detail-title">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-blue-acc">
+                  {copy('รายละเอียดรายวัน', 'Daily details')}
+                </p>
+                <h3 id="usage-day-detail-title" className="mt-1 text-lg font-display font-extrabold">
+                  {new Date(`${selectedUsageDate}T12:00:00+07:00`).toLocaleDateString(language === 'th' ? 'th-TH' : 'en-GB', {
+                    timeZone: 'Asia/Bangkok', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+                  })}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className={secondary}
+                onClick={() => setSelectedUsageDate(null)}
+                aria-label={copy('ปิดรายละเอียดรายวัน', 'Close daily details')}
+              >
+                <X size={15} /> {copy('ปิด', 'Close')}
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-brand-border/40 bg-brand-white p-4 dark:bg-stone-900">
+                <p className="text-xs font-semibold text-brand-muted">{copy('ผู้ใช้ไม่ซ้ำ', 'Unique users')}</p>
+                <p className="mt-1 text-2xl font-display font-extrabold text-brand-blue-acc">{formatMetric(selectedDay.activeUsers)} {copy('คน', 'users')}</p>
+              </div>
+              <div className="rounded-xl border border-brand-border/40 bg-brand-white p-4 dark:bg-stone-900">
+                <p className="text-xs font-semibold text-brand-muted">{copy('จำนวนเปิดหน้า', 'Page views')}</p>
+                <p className="mt-1 text-2xl font-display font-extrabold text-orange-600">{formatMetric(selectedDay.pageViews)} {copy('ครั้ง', 'views')}</p>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <h4 className="font-bold">{copy('เมนูที่มีการใช้งานในวันนี้', 'Features used on this day')}</h4>
+              {selectedDayFeatures.length ? (
+                <div className="mt-2 divide-y divide-brand-border/40">
+                  {selectedDayFeatures.map(feature => (
+                    <div key={feature.key} className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-2">
+                      <span className="text-sm font-semibold">{featureLabels[feature.key][language === 'th' ? 0 : 1]}</span>
+                      <span className="text-xs tabular-nums text-brand-muted">
+                        {formatMetric(feature.activeUsers)} {copy('คน', 'users')} · {formatMetric(feature.pageViews)} {copy('ครั้ง', 'views')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 rounded-xl bg-brand-white/70 px-4 py-5 text-center text-sm text-brand-muted dark:bg-stone-900/70">
+                  {copy('ไม่มีการเข้าใช้งานที่บันทึกไว้ในวันนี้', 'No usage was recorded on this day.')}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
         <p className="text-[11px] leading-relaxed text-brand-muted">
           {copy('เก็บยอดเปิดเมนูรายวันและรหัสนิรนามสำหรับนับผู้ใช้ ไม่เก็บอีเมล, URL, ข้อมูลที่กรอก หรือข้อมูลการเงิน', 'Only daily feature counts and pseudonymous keys for unique-user totals are stored. Emails, URLs, entered content, and financial data are never recorded.')}
         </p>
@@ -536,10 +630,45 @@ export default function AdminDashboard({
                             <p className="mt-1 text-xs text-brand-muted font-mono">{account.publicId} · {account.role === 'admin' ? 'Admin' : copy('ผู้ใช้', 'User')}</p>
                             <p className="mt-2 text-xs text-brand-muted">{copy('สมัครเมื่อ', 'Joined')} {formatDate(account.createdAt)}</p>
                           </div>
-                          {activePanel === 'pro' ? (
-                            <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-300">
-                              {account.plan || 'Pro'} · {copy('หมดอายุ', 'Expires')} {formatDate(account.currentPeriodEnd)}
-                            </span>
+                          {activePanel === 'pro' || activePanel === 'accounts' ? (
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <span className={`rounded-full px-3 py-1.5 text-xs ${['admin', 'paid', 'trial'].includes(account.proStatus || 'none') ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : account.proStatus === 'revoked' ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-brand-faint text-brand-muted'}`}>
+                                {activePanel === 'pro'
+                                  ? account.plan === 'admin_grant'
+                                    ? copy('Pro · แอดมินให้ (ไม่หมดอายุ)', 'Pro · Admin grant (no expiry)')
+                                    : `${account.plan || 'Pro'} · ${copy('หมดอายุ', 'Expires')} ${formatDate(account.currentPeriodEnd)}`
+                                  : account.proStatus === 'admin'
+                                    ? copy('Pro · แอดมินให้', 'Pro · Admin grant')
+                                    : account.proStatus === 'paid'
+                                      ? copy('Pro · ชำระแล้ว', 'Pro · Paid')
+                                      : account.proStatus === 'trial'
+                                        ? copy('Pro · ทดลองใช้', 'Pro · Trial')
+                                        : account.proStatus === 'revoked'
+                                          ? copy('ปิด Pro โดยแอดมิน', 'Pro disabled by admin')
+                                          : copy('Free', 'Free')}
+                              </span>
+                              <button
+                                type="button"
+                                className={['admin', 'paid', 'trial'].includes(account.proStatus || 'none') ? secondary : 'inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-amber-700 disabled:opacity-50'}
+                                disabled={proActionUserId !== null}
+                                onClick={() => {
+                                  const currentlyPro = ['admin', 'paid', 'trial'].includes(account.proStatus || 'none');
+                                  triggerConfirm(
+                                    currentlyPro ? copy('ยกเลิก Pro', 'Revoke Pro access') : copy('ให้สิทธิ์ Pro', 'Grant Pro access'),
+                                    currentlyPro
+                                      ? copy(`ปิดสิทธิ์ Pro ของ ${account.displayName} ทันที การดำเนินการนี้ไม่ได้ยกเลิกการเรียกเก็บเงินผ่าน Stripe`, `Immediately revoke Pro access for ${account.displayName}. This does not cancel Stripe billing.`)
+                                      : copy(`ให้ ${account.displayName} ใช้ Pro ได้จนกว่าแอดมินจะยกเลิก`, `Grant Pro to ${account.displayName} until an admin revokes it.`),
+                                    () => { void setProAccess(account.userId, !currentlyPro); },
+                                  );
+                                }}
+                              >
+                                {proActionUserId === account.userId
+                                  ? copy('กำลังบันทึก…', 'Saving…')
+                                  : ['admin', 'paid', 'trial'].includes(account.proStatus || 'none')
+                                    ? copy('ยกเลิก Pro', 'Revoke Pro')
+                                    : copy('ให้ Pro', 'Grant Pro')}
+                              </button>
+                            </div>
                           ) : activePanel === 'paused' || activePanel === 'deletions' ? (
                             <div className="text-right text-xs text-brand-muted">
                               <p className="inline-flex items-center gap-1"><CalendarClock size={14} /> {copy('เริ่มเมื่อ', 'Started')} {formatDate(account.pausedAt)}</p>

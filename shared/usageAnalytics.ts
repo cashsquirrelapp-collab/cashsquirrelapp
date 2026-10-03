@@ -32,6 +32,12 @@ export interface UsageAnalyticsSnapshot {
     activeUsers: number;
     pageViews: number;
   }[];
+  dailyFeatures: {
+    date: string;
+    key: UsageFeatureKey;
+    activeUsers: number;
+    pageViews: number;
+  }[];
   features: {
     key: UsageFeatureKey;
     activeUsers: number;

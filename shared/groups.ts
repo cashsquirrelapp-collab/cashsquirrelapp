@@ -137,6 +137,8 @@ export interface AdminAccount {
   displayName: string;
   role: SystemRole;
   createdAt: string;
+  proStatus?: AdminProStatus;
+  proExpiresAt?: string | null;
 }
 export interface PublicProfile { userId: string; publicId: string; displayName: string }
 export interface AdminAccounts {
@@ -144,6 +146,7 @@ export interface AdminAccounts {
   total: number;
   page: number;
 }
+export type AdminProStatus = 'admin' | 'paid' | 'trial' | 'revoked' | 'none';
 export interface AdminDeletionRequest {
   userId: string;
   email: string;

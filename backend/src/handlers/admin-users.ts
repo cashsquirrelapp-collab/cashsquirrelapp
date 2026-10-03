@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
-import { systemRoleActionSchema } from '../../../shared/groups.js';
+import { systemRoleActionSchema, type AdminAccount } from '../../../shared/groups.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { appOrigin } from '../config/env.js';
 import { HttpError, withGuard } from '../http/guard.js';
@@ -10,7 +10,13 @@ import { challengeHash, rateLimit } from '../security/rateLimit.js';
 import { groupDbError } from './groups.js';
 
 const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
+const FREE_TRIAL_DAYS = 14;
 const createRecoveryLinkSchema = z.object({ action: z.literal('create-recovery-link') }).strict();
+const setProAccessSchema = z.object({
+  action: z.literal('set-pro-access'),
+  userId: z.uuid(),
+  enabled: z.boolean(),
+}).strict();
 const dashboardDetailsQuerySchema = z.object({
   action: z.literal('dashboard-details'),
   section: z.enum(['accounts', 'admins', 'groups', 'pro', 'invitations', 'paused', 'deletions']),
@@ -56,7 +62,7 @@ export default withGuard(
           db.from('cashflow_user_roles').select('user_id', { count: 'exact', head: true }),
           db.from('cashflow_user_roles').select('user_id', { count: 'exact', head: true }).eq('role', 'admin'),
           db.from('cashflow_groups').select('id', { count: 'exact', head: true }),
-          db.from('subscriptions').select('user_id', { count: 'exact', head: true }).eq('status', 'active').gt('current_period_end', now),
+          db.from('subscriptions').select('user_id', { count: 'exact', head: true }).eq('status', 'active').or(`plan.eq.admin_grant,current_period_end.gt.${now}`),
           db.from('cashflow_group_invitations').select('id', { count: 'exact', head: true }).eq('status', 'pending').gt('expires_at', now),
           db.from('cashflow_account_pauses').select('user_id', { count: 'exact', head: true }).eq('closure_kind', 'pause').eq('state', 'paused').gt('delete_after', now),
           db.from('cashflow_account_pauses').select('user_id', { count: 'exact', head: true }).eq('closure_kind', 'deletion').eq('state', 'paused').gt('delete_after', now),
@@ -137,6 +143,7 @@ export default withGuard(
         let sourceRows: {
           user_id: string;
           role?: string;
+          status?: string;
           plan?: string | null;
           current_period_end?: string | null;
           closure_kind?: 'pause' | 'deletion';
@@ -156,8 +163,8 @@ export default withGuard(
           total = result.count || 0;
         } else if (section === 'pro') {
           const result = await db.from('subscriptions')
-            .select('user_id,plan,current_period_end', { count: 'exact' })
-            .eq('status', 'active').gt('current_period_end', now)
+            .select('user_id,status,plan,current_period_end', { count: 'exact' })
+            .eq('status', 'active').or(`plan.eq.admin_grant,current_period_end.gt.${now}`)
             .order('current_period_end', { ascending: true }).order('user_id', { ascending: true })
             .range(from, to);
           if (result.error) throw result.error;
@@ -186,19 +193,36 @@ export default withGuard(
         ]);
         if (profiles.error) throw profiles.error;
         if (roles.error) throw roles.error;
+        const subscriptionsResult = section === 'accounts'
+          ? await db.from('subscriptions').select('user_id,status,plan,current_period_end').in('user_id', userIds)
+          : { data: [], error: null };
+        if (subscriptionsResult.error) throw subscriptionsResult.error;
         const profilesById = new Map((profiles.data || []).map(profile => [profile.user_id, profile] as const));
         const rolesById = new Map((roles.data || []).map(role => [role.user_id, role.role] as const));
+        const subscriptionsById = new Map((subscriptionsResult.data || []).map(subscription => [subscription.user_id, subscription] as const));
         const accounts = sourceRows.map(row => {
           const profile = profilesById.get(row.user_id);
+          const subscription = section === 'pro' ? row : subscriptionsById.get(row.user_id);
+          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'none' = 'none';
+          if (subscription?.plan === 'admin_revoked') proStatus = 'revoked';
+          else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
+          else if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > Date.now()) proStatus = 'paid';
+          else if (profile?.created_at && new Date(profile.created_at).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now()) proStatus = 'trial';
           return {
             userId: row.user_id,
             publicId: profile?.public_id || '—',
             displayName: profile?.display_name || 'Unknown account',
             role: (row.role || rolesById.get(row.user_id) || 'user') as 'admin' | 'user',
             createdAt: profile?.created_at || '',
-            ...(section === 'pro' ? {
-              plan: row.plan,
-              currentPeriodEnd: row.current_period_end,
+            ...(section === 'accounts' || section === 'pro' ? {
+              proStatus,
+              proExpiresAt: proStatus === 'paid'
+                ? subscription?.current_period_end || null
+                : proStatus === 'trial' && profile?.created_at
+                  ? new Date(new Date(profile.created_at).getTime() + FREE_TRIAL_DAYS * 86400000).toISOString()
+                  : null,
+              plan: subscription?.plan,
+              currentPeriodEnd: subscription?.current_period_end,
             } : {}),
             ...(section === 'paused' || section === 'deletions' ? {
               closureKind: row.closure_kind,
@@ -227,7 +251,58 @@ export default withGuard(
         p_page: query.data.page,
       });
       if (result.error) groupDbError(result.error);
-      res.json(result.data);
+      const accounts = result.data as { users: AdminAccount[]; total: number; page: number };
+      const userIds = (accounts.users || []).map(account => account.userId);
+      const subscriptionResult = userIds.length
+        ? await db.from('subscriptions')
+          .select('user_id,status,plan,current_period_end').in('user_id', userIds)
+        : { data: [], error: null };
+      if (subscriptionResult.error) throw subscriptionResult.error;
+      const subscriptions = new Map((subscriptionResult.data || []).map(subscription => [subscription.user_id, subscription] as const));
+      const now = Date.now();
+      res.json({
+        ...accounts,
+        users: (accounts.users || []).map(account => {
+          const subscription = subscriptions.get(account.userId);
+          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'none' = 'none';
+          if (subscription?.plan === 'admin_revoked') proStatus = 'revoked';
+          else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
+          else if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) proStatus = 'paid';
+          else if (new Date(account.createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > now) proStatus = 'trial';
+          const proExpiresAt = proStatus === 'paid'
+            ? subscription?.current_period_end || null
+            : proStatus === 'trial'
+              ? new Date(new Date(account.createdAt).getTime() + FREE_TRIAL_DAYS * 86400000).toISOString()
+              : null;
+          return { ...account, proStatus, proExpiresAt };
+        }),
+      });
+      return;
+    }
+    if (req.body?.action === 'set-pro-access') {
+      const parsed = setProAccessSchema.safeParse(req.body);
+      if (!parsed.success) throw new HttpError(400, 'ข้อมูลแพ็กเกจ Pro ไม่ถูกต้อง');
+      const { userId, enabled } = parsed.data;
+      const [target, existing] = await Promise.all([
+        db.auth.admin.getUserById(userId),
+        db.from('subscriptions')
+          .select('stripe_customer_id,stripe_subscription_id,current_period_end')
+          .eq('user_id', userId).maybeSingle(),
+      ]);
+      if (target.error) throw target.error;
+      if (!target.data.user) throw new HttpError(404, 'ไม่พบบัญชีผู้ใช้');
+      if (existing.error) throw existing.error;
+      const saved = await db.from('subscriptions').upsert({
+        user_id: userId,
+        status: enabled ? 'active' : 'canceled',
+        plan: enabled ? 'admin_grant' : 'admin_revoked',
+        current_period_end: existing.data?.current_period_end || null,
+        stripe_customer_id: existing.data?.stripe_customer_id || null,
+        stripe_subscription_id: existing.data?.stripe_subscription_id || null,
+        updated_at: new Date().toISOString(),
+      });
+      if (saved.error) throw saved.error;
+      res.json({ ok: true });
       return;
     }
     if (req.body?.action === 'create-recovery-link') {

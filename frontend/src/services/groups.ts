@@ -90,4 +90,11 @@ export const groupApi = {
       body: JSON.stringify({ userId, role }),
     });
   },
+  setProAccess(account: string, userId: string, enabled: boolean) {
+    return apiJson<{ ok: true }>('/api/admin-users', {
+      method: 'POST',
+      headers: { 'X-Account-ID': account },
+      body: JSON.stringify({ action: 'set-pro-access', userId, enabled }),
+    });
+  },
 };
