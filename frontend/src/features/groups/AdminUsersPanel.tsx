@@ -64,6 +64,27 @@ export default function AdminUsersPanel({
       .catch(e => { if (!controller.signal.aborted) setError((e as Error).message); });
     return () => controller.abort();
   }, [userId, revision]);
+  useEffect(() => {
+    const controller = new AbortController();
+    let inFlight = false;
+    const refreshPresence = () => {
+      if (inFlight || document.visibilityState !== 'visible' || getCurrentAccount() !== userId) return;
+      inFlight = true;
+      void groupApi.accounts(userId, search, page, controller.signal)
+        .then(data => {
+          if (!controller.signal.aborted && getCurrentAccount() === userId) setResult(data);
+        })
+        .catch(() => {})
+        .finally(() => { inFlight = false; });
+    };
+    const interval = window.setInterval(refreshPresence, 10_000);
+    document.addEventListener('visibilitychange', refreshPresence);
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshPresence);
+    };
+  }, [userId, search, page]);
   const setRole = async (target: string, role: SystemRole) => {
     if (!mounted.current || writing.current || getCurrentAccount() !== userId)
       return;
@@ -247,6 +268,19 @@ export default function AdminUsersPanel({
                 {user.userId === userId ? copy(' (คุณ)', ' (you)') : ''}
               </p>
               <p className="text-xs text-brand-muted mt-1 font-mono">{user.publicId} · {user.role}</p>
+              <p className="mt-2 inline-flex flex-wrap items-center gap-1.5 text-xs">
+                <span className={`size-2 rounded-full ${user.isOnline ? 'bg-emerald-500' : 'bg-stone-400'}`} aria-hidden="true" />
+                <span className={user.isOnline ? 'font-semibold text-emerald-700 dark:text-emerald-300' : 'text-brand-muted'}>
+                  {user.isOnline ? copy('ออนไลน์', 'Online') : copy('ออฟไลน์', 'Offline')}
+                </span>
+                {user.lastSeenAt && (
+                  <span className="text-brand-muted">
+                    · {copy('ใช้งานล่าสุด', 'Last seen')} {new Date(user.lastSeenAt).toLocaleString(language === 'th' ? 'th-TH' : 'en-GB', {
+                      timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short',
+                    })}
+                  </span>
+                )}
+              </p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${user.proStatus === 'admin' || user.proStatus === 'paid' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : user.proStatus === 'trial' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : user.proStatus === 'revoked' ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-brand-faint text-brand-muted'}`}>

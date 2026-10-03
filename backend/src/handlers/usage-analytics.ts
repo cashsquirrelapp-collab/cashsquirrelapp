@@ -9,6 +9,7 @@ import { systemRole } from '../repositories/roles.js';
 import { rateLimit } from '../security/rateLimit.js';
 
 const recordSchema = z.object({ feature: z.enum(USAGE_FEATURE_KEYS) }).strict();
+const presenceHeartbeatSchema = z.object({ action: z.literal('presence-heartbeat') }).strict();
 
 function bangkokDate(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -28,6 +29,16 @@ export default withGuard(async (req, res) => {
   const db = getSupabaseAdmin();
 
   if (req.method === 'POST') {
+    if (presenceHeartbeatSchema.safeParse(req.body).success) {
+      await rateLimit('presence-heartbeat', user.id, 30, 60);
+      const heartbeat = await db.from('cashflow_user_presence').upsert({
+        user_id: user.id,
+        last_seen_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+      if (heartbeat.error) throw heartbeat.error;
+      res.json({ ok: true });
+      return;
+    }
     const parsed = recordSchema.safeParse(req.body);
     if (!parsed.success) throw new HttpError(400, 'ข้อมูลการใช้งานไม่ถูกต้อง');
     await rateLimit('usage-record', user.id, 180, 60);

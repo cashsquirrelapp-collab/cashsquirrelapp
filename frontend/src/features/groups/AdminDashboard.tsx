@@ -139,6 +139,29 @@ export default function AdminDashboard({
     return () => controller.abort();
   }, [userId, activePanel, detailPage, revision]);
 
+  useEffect(() => {
+    if (activePanel !== 'accounts' && activePanel !== 'admins' && activePanel !== 'pro') return;
+    const controller = new AbortController();
+    let inFlight = false;
+    const refreshPresence = () => {
+      if (inFlight || document.visibilityState !== 'visible' || getCurrentAccount() !== userId) return;
+      inFlight = true;
+      void groupApi.adminDashboardDetails(userId, activePanel, detailPage, controller.signal)
+        .then(result => {
+          if (!controller.signal.aborted && getCurrentAccount() === userId) setDetail(result);
+        })
+        .catch(() => {})
+        .finally(() => { inFlight = false; });
+    };
+    const interval = window.setInterval(refreshPresence, 10_000);
+    document.addEventListener('visibilitychange', refreshPresence);
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshPresence);
+    };
+  }, [userId, activePanel, detailPage]);
+
   const cards: DashboardCard[] = stats ? [
     {
       label: copy('บัญชีทั้งหมด', 'Total accounts'),
@@ -629,6 +652,13 @@ export default function AdminDashboard({
                             <h3 className="font-bold break-words">{account.displayName}</h3>
                             <p className="mt-1 text-xs text-brand-muted font-mono">{account.publicId} · {account.role === 'admin' ? 'Admin' : copy('ผู้ใช้', 'User')}</p>
                             <p className="mt-2 text-xs text-brand-muted">{copy('สมัครเมื่อ', 'Joined')} {formatDate(account.createdAt)}</p>
+                            <p className="mt-2 inline-flex flex-wrap items-center gap-1.5 text-xs">
+                              <span className={`size-2 rounded-full ${account.isOnline ? 'bg-emerald-500' : 'bg-stone-400'}`} aria-hidden="true" />
+                              <span className={account.isOnline ? 'font-semibold text-emerald-700 dark:text-emerald-300' : 'text-brand-muted'}>
+                                {account.isOnline ? copy('ออนไลน์', 'Online') : copy('ออฟไลน์', 'Offline')}
+                              </span>
+                              {account.lastSeenAt && <span className="text-brand-muted">· {copy('ใช้งานล่าสุด', 'Last seen')} {formatDate(account.lastSeenAt)}</span>}
+                            </p>
                           </div>
                           {activePanel === 'pro' || activePanel === 'accounts' ? (
                             <div className="flex flex-wrap items-center justify-end gap-2">

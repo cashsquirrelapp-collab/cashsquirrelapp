@@ -139,6 +139,8 @@ export interface AdminAccount {
   createdAt: string;
   proStatus?: AdminProStatus;
   proExpiresAt?: string | null;
+  isOnline?: boolean;
+  lastSeenAt?: string | null;
 }
 export interface PublicProfile { userId: string; publicId: string; displayName: string }
 export interface AdminAccounts {

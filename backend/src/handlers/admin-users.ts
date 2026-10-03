@@ -11,6 +11,7 @@ import { groupDbError } from './groups.js';
 
 const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
 const FREE_TRIAL_DAYS = 14;
+const ONLINE_WINDOW_MS = 60 * 1000;
 const createRecoveryLinkSchema = z.object({ action: z.literal('create-recovery-link') }).strict();
 const setProAccessSchema = z.object({
   action: z.literal('set-pro-access'),
@@ -22,6 +23,15 @@ const dashboardDetailsQuerySchema = z.object({
   section: z.enum(['accounts', 'admins', 'groups', 'pro', 'invitations', 'paused', 'deletions']),
   page: z.coerce.number().int().min(0).max(10000).default(0),
 });
+
+async function loadPresenceByUserId(db: ReturnType<typeof getSupabaseAdmin>, userIds: string[]) {
+  if (!userIds.length) return new Map<string, string>();
+  const result = await db.from('cashflow_user_presence')
+    .select('user_id,last_seen_at')
+    .in('user_id', userIds);
+  if (result.error) throw result.error;
+  return new Map((result.data || []).map(row => [row.user_id, row.last_seen_at] as const));
+}
 
 async function listDeletionRequests(db: ReturnType<typeof getSupabaseAdmin>) {
   const now = new Date().toISOString();
@@ -187,9 +197,10 @@ export default withGuard(
           res.json({ section, total, page, pageSize, accounts: [] });
           return;
         }
-        const [profiles, roles] = await Promise.all([
+        const [profiles, roles, presenceById] = await Promise.all([
           db.from('cashflow_profiles').select('user_id,public_id,display_name,created_at').in('user_id', userIds),
           db.from('cashflow_user_roles').select('user_id,role').in('user_id', userIds),
+          loadPresenceByUserId(db, userIds),
         ]);
         if (profiles.error) throw profiles.error;
         if (roles.error) throw roles.error;
@@ -203,6 +214,7 @@ export default withGuard(
         const accounts = sourceRows.map(row => {
           const profile = profilesById.get(row.user_id);
           const subscription = section === 'pro' ? row : subscriptionsById.get(row.user_id);
+          const lastSeenAt = presenceById.get(row.user_id) || null;
           let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'none' = 'none';
           if (subscription?.plan === 'admin_revoked') proStatus = 'revoked';
           else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
@@ -214,6 +226,8 @@ export default withGuard(
             displayName: profile?.display_name || 'Unknown account',
             role: (row.role || rolesById.get(row.user_id) || 'user') as 'admin' | 'user',
             createdAt: profile?.created_at || '',
+            isOnline: !!lastSeenAt && Date.now() - new Date(lastSeenAt).getTime() <= ONLINE_WINDOW_MS,
+            lastSeenAt,
             ...(section === 'accounts' || section === 'pro' ? {
               proStatus,
               proExpiresAt: proStatus === 'paid'
@@ -253,10 +267,13 @@ export default withGuard(
       if (result.error) groupDbError(result.error);
       const accounts = result.data as { users: AdminAccount[]; total: number; page: number };
       const userIds = (accounts.users || []).map(account => account.userId);
-      const subscriptionResult = userIds.length
-        ? await db.from('subscriptions')
-          .select('user_id,status,plan,current_period_end').in('user_id', userIds)
-        : { data: [], error: null };
+      const [subscriptionResult, presenceById] = await Promise.all([
+        userIds.length
+          ? db.from('subscriptions')
+            .select('user_id,status,plan,current_period_end').in('user_id', userIds)
+          : Promise.resolve({ data: [], error: null }),
+        loadPresenceByUserId(db, userIds),
+      ]);
       if (subscriptionResult.error) throw subscriptionResult.error;
       const subscriptions = new Map((subscriptionResult.data || []).map(subscription => [subscription.user_id, subscription] as const));
       const now = Date.now();
@@ -264,6 +281,7 @@ export default withGuard(
         ...accounts,
         users: (accounts.users || []).map(account => {
           const subscription = subscriptions.get(account.userId);
+          const lastSeenAt = presenceById.get(account.userId) || null;
           let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'none' = 'none';
           if (subscription?.plan === 'admin_revoked') proStatus = 'revoked';
           else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
@@ -274,7 +292,13 @@ export default withGuard(
             : proStatus === 'trial'
               ? new Date(new Date(account.createdAt).getTime() + FREE_TRIAL_DAYS * 86400000).toISOString()
               : null;
-          return { ...account, proStatus, proExpiresAt };
+          return {
+            ...account,
+            proStatus,
+            proExpiresAt,
+            isOnline: !!lastSeenAt && now - new Date(lastSeenAt).getTime() <= ONLINE_WINDOW_MS,
+            lastSeenAt,
+          };
         }),
       });
       return;

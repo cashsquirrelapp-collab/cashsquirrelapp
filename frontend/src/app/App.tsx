@@ -440,6 +440,30 @@ export default function App() {
   const lastTrackedUsageRef = useRef('');
   useEffect(() => {
     const userId = session?.user?.id;
+    if (!userId || session?.isGuest || loadingSession) return;
+
+    let inFlight = false;
+    const heartbeat = () => {
+      if (inFlight || document.visibilityState !== 'visible') return;
+      inFlight = true;
+      void usageAnalyticsApi.presenceHeartbeat(userId)
+        .catch(() => {})
+        .finally(() => { inFlight = false; });
+    };
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 20_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') heartbeat();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [loadingSession, session?.isGuest, session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
     if (!userId || session?.isGuest || loadingSession) {
       lastTrackedUsageRef.current = '';
       return;
