@@ -49,9 +49,9 @@ function Header({ page }: { page: SkeletonPage }) {
   </div>;
 }
 
-function Tabs({ count = 3 }: { count?: number }) {
+function Tabs({ count = 3, size = 'w-28' }: { count?: number; size?: string }) {
   return <div className="flex gap-2 overflow-hidden">
-    {items(count).map(index => <Block key={index} className="h-10 w-28 shrink-0 rounded-[10px]" />)}
+    {items(count).map(index => <Block key={index} className={`h-10 ${size} shrink-0 rounded-[10px]`} />)}
   </div>;
 }
 
@@ -91,21 +91,23 @@ function Rows({ count = 4, avatar = false, actions = false }: { count?: number; 
   </div>;
 }
 
-function Table({ columns = 6, mobileCards = false, compactColumns = false }: { columns?: number; mobileCards?: boolean; compactColumns?: boolean }) {
+function Table({ columns = 6, mobileCards = false, compactColumns = false, horizontal = false }: { columns?: number; mobileCards?: boolean; compactColumns?: boolean; horizontal?: boolean }) {
   const gridColumns = compactColumns ? 'grid-cols-5 lg:grid-cols-7' : columns === 3 ? 'grid-cols-3' : columns === 5 ? 'grid-cols-5' : columns === 7 ? 'grid-cols-7' : 'grid-cols-6';
   const responsiveColumn = (index: number) => compactColumns && (index === 1 || index === 4) ? 'hidden lg:block' : '';
   return <>
     {mobileCards && <div className="space-y-3 sm:hidden">
       {items(4).map(index => <Card key={index}><Rows count={1} actions /><Block className="h-3 w-2/3" /></Card>)}
     </div>}
-    <Card className={`overflow-hidden ${mobileCards ? 'hidden sm:block' : ''}`}>
-      <div className={`grid ${gridColumns} gap-3 border-b border-brand-border bg-brand-faint/40 px-4 py-3 sm:gap-4`}>
-        {items(columns).map(index => <Block key={index} className={`h-3 w-3/4 ${responsiveColumn(index)}`} />)}
-      </div>
-      {items(5).map(row => <div key={row} className={`grid ${gridColumns} items-center gap-3 border-b border-brand-border/50 px-4 py-4 last:border-0 sm:gap-4`}>
-        <Lines wide />{items(columns - 1).map(index => <Block key={index} className={`h-3 w-3/4 ${responsiveColumn(index + 1)}`} />)}
-      </div>)}
-    </Card>
+    <div className={horizontal ? 'overflow-x-auto' : ''}>
+      <Card className={`overflow-hidden ${mobileCards ? 'hidden sm:block' : ''}`}>
+        <div className={`grid ${gridColumns} ${horizontal ? 'min-w-[640px]' : ''} gap-3 border-b border-brand-border bg-brand-faint/40 px-4 py-3 sm:gap-4`}>
+          {items(columns).map(index => <Block key={index} className={`h-3 w-3/4 ${responsiveColumn(index)}`} />)}
+        </div>
+        {items(5).map(row => <div key={row} className={`grid ${gridColumns} ${horizontal ? 'min-w-[640px]' : ''} items-center gap-3 border-b border-brand-border/50 px-4 py-4 last:border-0 sm:gap-4`}>
+          <Lines wide />{items(columns - 1).map(index => <Block key={index} className={`h-3 w-3/4 ${responsiveColumn(index + 1)}`} />)}
+        </div>)}
+      </Card>
+    </div>
   </>;
 }
 
@@ -157,13 +159,26 @@ function Dashboard() {
 function Calendar() {
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <Block className="h-6 w-40" /><div className="flex gap-2"><Block className="h-9 w-28" /><Block className="h-9 w-32" /></div>
+      <Block className="h-6 w-40" />
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex gap-1.5"><Block className="h-8 w-8 rounded-lg" /><Block className="h-8 w-12 rounded-lg" /><Block className="h-8 w-8 rounded-lg" /></div>
+        <div className="flex gap-1.5"><Block className="h-8 w-16 rounded-lg" /><Block className="h-8 w-20 rounded-lg" /></div>
+      </div>
     </div>
     <div className="flex flex-wrap gap-3">{items(5).map(index => <Block key={index} className="h-3 w-20" />)}</div>
     <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
       <div className="min-w-0 overflow-x-auto"><CalendarGrid /></div>
       <Card><Block className="mb-3 h-4 w-40 max-w-full" /><Rows count={3} /></Card>
     </div>
+  </div>;
+}
+
+function MobileRecords({ expenses = false }: { expenses?: boolean }) {
+  return <div className="space-y-2 sm:hidden">
+    {items(4).map(index => <Card key={index} className="px-4 py-3">
+      <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1 space-y-2"><Block className="h-4 w-36 max-w-full" /><Block className="h-3 w-48 max-w-full" /></div><Block className="h-4 w-20 shrink-0" /></div>
+      <div className="mt-2 flex items-center justify-between gap-2"><div className="flex min-w-0 flex-wrap items-center gap-1.5"><Block className="h-5 w-16 rounded-full" /><Block className="h-5 w-16 rounded-full" />{expenses && <Block className="h-5 w-16 rounded-full" />}</div><Block className="h-8 w-8 shrink-0 rounded-lg" /></div>
+    </Card>)}
   </div>;
 }
 
@@ -174,13 +189,23 @@ function Records({ expenses = false }: { expenses?: boolean }) {
       <Card className="grid grid-cols-3 divide-x divide-brand-border px-4 py-3">
         {items(3).map(index => <div key={index} className="min-w-0 space-y-2 px-2"><Block className="h-3 w-16 max-w-full" /><Block className="h-6 w-24 max-w-full" /></div>)}
       </Card>
-    </> : <Tabs />}
-    <div className="flex flex-col gap-2 lg:flex-row">
-      {expenses && <Tabs />}
-      <Block className="h-10 min-w-0 shrink-0 rounded-[10px] lg:flex-1" />
-      <div className="flex gap-2"><Block className="h-10 w-32 rounded-[10px]" /><Block className="h-10 w-20 rounded-[10px]" /></div>
+    </> : <Tabs count={4} size="w-24" />}
+    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+      {expenses && <Tabs size="w-20" />}
+      <Block className="h-10 w-full min-w-0 shrink-0 rounded-xl lg:flex-1" />
+      <div className="flex items-center gap-2">
+        <Block className="h-10 min-w-0 flex-1 rounded-xl sm:w-[150px] sm:flex-none" />
+        {(!expenses) && <Block className="hidden h-10 w-32 rounded-xl sm:block" />}
+        <Block className="h-10 w-24 shrink-0 rounded-xl" />
+      </div>
     </div>
-    <Table columns={expenses ? 6 : 7} mobileCards compactColumns={!expenses} />
+    {expenses ? <>
+      <div className="hidden sm:block"><Table columns={6} /></div>
+      <MobileRecords expenses />
+    </> : <>
+      <div className="hidden sm:block"><Table columns={7} compactColumns /></div>
+      <MobileRecords />
+    </>}
   </div>;
 }
 
@@ -350,7 +375,7 @@ function PageBody({ page }: { page: SkeletonPage }) {
     case 'jobs': return <Records />;
     case 'incomeExpense': return <Records expenses />;
     case 'calendar': return <Calendar />;
-    case 'clients': return <Table />;
+    case 'clients': return <Table horizontal />;
     case 'receivables': return <Receivables />;
     case 'invoice': return <Documents />;
     case 'report': return <Report />;

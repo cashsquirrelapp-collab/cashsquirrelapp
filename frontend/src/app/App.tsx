@@ -499,10 +499,10 @@ export default function App() {
   const financeConflictRef = useRef(false);
   const [loadedFinanceOwner,setLoadedFinanceOwner]=useState('');
   const switchingFinanceRef=useRef(false);
-  // Full-page loader gating (loading-system spec): skip it entirely for fast (<400ms) auth
-  // checks/workspace switches, and never let it flash for less than ~600ms once shown.
+  // Skip full-page loaders for fast operations. Keep auth loading steady, while workspace
+  // switches can finish as soon as their data is ready without an extra long hold.
   const showSessionLoader = useDelayedLoader(loadingSession);
-  const showFinanceSwitchLoader = useDelayedLoader(switchingFinance);
+  const showFinanceSwitchLoader = useDelayedLoader(switchingFinance, { minVisible: 120 });
 
   useEffect(() => {
     const onProfileUpdated = (event: Event) => {

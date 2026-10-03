@@ -302,29 +302,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 
   .app-skeleton-block {
-    position: relative;
-    overflow: hidden;
     max-width: 100%;
     border-radius: .375rem;
     background: color-mix(in srgb, var(--muted) 13%, var(--faint));
   }
-
-  .app-skeleton-block::after {
-    position: absolute;
-    inset: 0;
-    content: '';
-    transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--white) 68%, transparent), transparent);
-    animation: app-skeleton-shimmer 1.55s ease-in-out infinite;
-  }
-}
-
-@keyframes app-skeleton-shimmer {
-  100% { transform: translateX(100%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-skeleton-block::after { animation: none; }
 }
 
 /* A consistent, understated elevation language for the many existing feature cards. Individual
