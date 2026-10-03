@@ -117,12 +117,12 @@ export default function AdminUsersPanel({
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <h2 className="font-bold text-lg">
-            {copy('สิทธิ์ผู้ใช้ทั้งระบบ', 'System user roles')}
+            {copy('บัญชีผู้ใช้', 'User accounts')}
           </h2>
           <p className="text-xs text-brand-muted mt-1">
             {copy(
-              'Admin ดูแลทุกกลุ่มและเปลี่ยน role ผู้ใช้ได้',
-              'Admins can moderate all groups and change user roles.',
+              'ค้นหาบัญชีและถอดสิทธิ์ Admin ที่มีอยู่ได้',
+              'Search accounts and remove existing admin access.',
             )}
           </p>
         </div>
@@ -231,27 +231,22 @@ export default function AdminUsersPanel({
               </p>
               <p className="text-xs text-brand-muted mt-1 font-mono">{user.publicId} · {user.role}</p>
             </div>
-            <button
-              className={secondary}
-              disabled={busy}
-              onClick={() => {
-                const role = user.role === 'admin' ? 'user' : 'admin';
-                triggerConfirm(
-                  copy('เปลี่ยน role ระบบ', 'Change system role'),
+            {user.role === 'admin' && (
+              <button
+                className={secondary}
+                disabled={busy}
+                onClick={() => triggerConfirm(
+                  copy('ถอดสิทธิ์ Admin', 'Remove admin access'),
                   copy(
-                    `${user.displayName} (${user.publicId}) → ${role} การให้ admin จะให้สิทธิ์ดูแลทุกกลุ่มและจัดการ role ผู้ใช้`,
-                    `${user.displayName} (${user.publicId}) → ${role}. Admin grants access to all groups and user role management.`,
+                    `ยืนยันเปลี่ยน ${user.displayName} (${user.publicId}) ให้เป็นผู้ใช้ทั่วไป`,
+                    `Confirm changing ${user.displayName} (${user.publicId}) to a regular user.`,
                   ),
-                  () => {
-                    void setRole(user.userId, role);
-                  },
-                );
-              }}
-            >
-              {user.role === 'admin'
-                ? copy('เปลี่ยนเป็น user', 'Make user')
-                : copy('ให้สิทธิ์ admin', 'Make admin')}
-            </button>
+                  () => { void setRole(user.userId, 'user'); },
+                )}
+              >
+                {copy('ถอดสิทธิ์ Admin', 'Remove admin')}
+              </button>
+            )}
           </div>
         ))}
       </div>

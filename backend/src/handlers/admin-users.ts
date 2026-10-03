@@ -253,6 +253,8 @@ export default withGuard(
     }
     const action = systemRoleActionSchema.safeParse(req.body);
     if (!action.success) throw new HttpError(400, 'ข้อมูลสิทธิ์ไม่ถูกต้อง');
+    if (action.data.role !== 'user')
+      throw new HttpError(403, 'ไม่สามารถเพิ่มสิทธิ์ Admin ผ่านหน้านี้ได้');
     const result = await db.rpc('cashflow_set_system_role', {
       p_actor: user.id,
       p_target: action.data.userId,
