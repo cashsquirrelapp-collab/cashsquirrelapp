@@ -1,3 +1,5 @@
+import PageHeader from '../../components/ui/PageHeader';
+import { uiPrimaryButton } from '../../components/ui/uiStyles';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Job, StatusOption } from '../../../../shared/types';
@@ -517,25 +519,18 @@ export default function JobsTab({
   return (
     <div className="page-content">
       {/* Page header */}
-      <div className="mb-5 flex items-end justify-between gap-3 border-b border-brand-border/30 pb-3.5">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold leading-tight tracking-tight text-brand-text lg:text-[26px]">งาน</h1>
-          <p className="mt-0.5 text-[13px] text-brand-muted">
-            <span className="hidden sm:inline">ติดตามงานตั้งแต่รับงาน จนถึงวันที่เงินจริงเข้ามา</span>
-            <span className="sm:hidden">ติดตามงานตั้งแต่รับงานจนถึงรับเงินจริง</span>
-          </p>
-        </div>
+      <PageHeader page="jobs" className="mb-5">
         <button
           type="button"
           onClick={openAddJobForm}
           aria-label="เพิ่มงาน"
-          className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#D85723] cursor-pointer"
+          className={uiPrimaryButton}
         >
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">เพิ่มงาน</span>
           <span className="sm:hidden">เพิ่ม</span>
         </button>
-      </div>
+      </PageHeader>
 
       {/* Stage tabs */}
       <div className="no-scrollbar -mx-1 mb-4 flex gap-2 overflow-x-auto px-1" role="tablist" aria-label="สถานะงาน">

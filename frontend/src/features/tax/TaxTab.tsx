@@ -1,3 +1,6 @@
+import { uiSurface } from '../../components/ui/uiStyles';
+import PageHeader from '../../components/ui/PageHeader';
+import { uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles';
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job, AppSettings, Expense } from '../../../../shared/types';
@@ -487,26 +490,7 @@ export default function TaxTab({
   return (
     <div className="page-content space-y-6" id="tax-assistant-container">
       
-      {/* HEADER SECTION */}
-      <div className="bg-brand-white p-6 rounded-[14px] border border-brand-border/40 shadow-sm relative overflow-hidden">
-        <div className="absolute top-[-20%] right-[-10%] w-60 h-60 bg-emerald-600/5 dark:bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative z-10 font-sans">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-[10px] uppercase font-extrabold tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-md">
-                ระบบคำนวณและประเมินภาษีอัตโนมัติ
-              </span>
-            </div>
-            <h2 className="text-lg sm:text-xl lg:text-2xl font-display font-black tracking-tight text-brand-text flex items-center gap-2 leading-snug">
-              <Mascot mood="wave" size={38} animated={true} className="shrink-0" />
-              <span className="min-w-0">ผู้ช่วยจัดการภาษีบุคคลธรรมดา</span>
-            </h2>
-            <p className="text-xs text-brand-muted mt-1 max-w-2xl leading-relaxed">
-              คำนวณเปรียบเทียบภาษีครึ่งปีแรก (ภ.ง.ด. 94) และภาษีสิ้นปี (ภ.ง.ด. 90) จากข้อมูลงานดีลและค่าใช้จ่ายจริงของคุณ เพื่อวางแผนอย่างเป็นระบบและแม่นยำ
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto shrink-0">
+      <PageHeader page="tax">
             <div className="flex items-center gap-1.5 bg-brand-faint dark:bg-neutral-800 p-1 rounded-2xl border border-brand-border/20 dark:border-neutral-850">
               <span className="text-xs font-bold text-brand-muted px-3">ปีภาษี:</span>
               <select
@@ -522,7 +506,7 @@ export default function TaxTab({
 
             <button
               onClick={() => setIsShowingPrintModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-white dark:bg-neutral-900 border border-brand-border/60 hover:bg-brand-faint dark:hover:bg-neutral-800 dark:border-neutral-800 rounded-2xl text-xs font-extrabold text-brand-text dark:text-neutral-200 transition-all cursor-pointer select-none active:scale-95 shadow-sm"
+              className={uiSecondaryButton}
             >
               <Printer className="w-4 h-4 text-brand-muted" />
               <span>พิมพ์รายงานสรุป</span>
@@ -530,7 +514,7 @@ export default function TaxTab({
 
             <button
               onClick={handleDownloadCSV}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-2xl text-xs font-extrabold transition-all cursor-pointer select-none active:scale-95 shadow-md shadow-emerald-950/20"
+              className={uiSecondaryButton}
             >
               <Download className="w-4 h-4" />
               <span>ดาวน์โหลด CSV</span>
@@ -538,14 +522,13 @@ export default function TaxTab({
 
             <button
               onClick={handleExportExcel}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white rounded-2xl text-xs font-extrabold transition-all cursor-pointer select-none active:scale-95 shadow-md shadow-orange-950/20"
+              className={uiPrimaryButton}
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>ดาวน์โหลด Excel (.xlsx)</span>
             </button>
-          </div>
-        </div>
-      </div>
+
+      </PageHeader>
 
       {/* KPI CARDS -- matches the mockup's 5-card row, all full-year figures */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -555,7 +538,7 @@ export default function TaxTab({
           { label: 'ค่าลดหย่อน', value: fullPersonalAllowance + fullOtherAllowances },
           { label: 'รายได้สุทธิประมาณการ', value: fullNetIncome },
         ].map(kpi => (
-          <div key={kpi.label} className="rounded-[14px] border border-brand-border bg-brand-white dark:bg-neutral-900 dark:border-neutral-800 p-[14px]">
+          <div key={kpi.label} className={`${uiSurface} p-[14px]`}>
             <p className="text-[10px] text-brand-muted">{kpi.label}</p>
             <p className="mt-1 text-sm font-semibold text-brand-text dark:text-white">{formatCurrency(kpi.value)}</p>
           </div>
@@ -595,7 +578,7 @@ export default function TaxTab({
       </div>
 
       {/* STEP CONTENT */}
-      <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm min-h-[180px]">
+      <div className={`${uiSurface} p-5 sm:p-6 shadow-sm min-h-[180px]`}>
         {taxStep === 1 && (<>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2">

@@ -213,6 +213,85 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background-image: radial-gradient(circle at 92% 4%, rgba(230, 192, 140, .10), transparent 22%);
 }
 
+/* Shared workspace primitives; utilities remain available for each page's layout. */
+@layer components {
+  .ui-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: .75rem 1rem;
+    padding-bottom: .875rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .ui-page-title {
+    color: var(--text);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .ui-page-description {
+    margin-top: .25rem;
+    max-width: 48rem;
+    color: var(--muted);
+    font-size: .8125rem;
+    line-height: 1.65;
+  }
+  .ui-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    max-width: 100%;
+  }
+  .ui-surface, .ui-panel {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--white);
+    box-shadow: var(--shadow-card);
+  }
+  .ui-panel { padding: 1.25rem; }
+  .ui-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.625rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    padding: .625rem .875rem;
+    color: var(--text);
+    font-size: .8125rem;
+    line-height: 1.5;
+  }
+  .ui-input::placeholder { color: var(--muted); }
+  .ui-button {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: .625rem 1rem;
+    font-size: .8125rem;
+    font-weight: 600;
+    line-height: 1.5;
+    cursor: pointer;
+    transition: background-color 150ms, border-color 150ms;
+  }
+  .ui-button-primary { background: var(--blue-acc); color: #fff; }
+  .ui-button-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--blue-acc) 88%, #000); }
+  .dark .ui-button-primary { color: #1c1917; }
+  .ui-button-secondary { border-color: var(--border); background: var(--white); color: var(--text); }
+  .ui-button-secondary:hover:not(:disabled) { background: var(--faint); }
+  .ui-button:disabled { cursor: not-allowed; opacity: .5; }
+  @media (min-width: 640px) { .ui-panel { padding: 1.5rem; } }
+  @media (min-width: 1024px) { .ui-page-title { font-size: 1.625rem; } }
+  @media (max-width: 639px) { .ui-page-actions { width: 100%; } }
+}
+
 /* Skeleton screens preserve the app's real layout while session, workspace, or lazy feature data
    is arriving. The moving highlight is intentionally subtle so loading feels alive, not noisy. */
 .app-skeleton-content {

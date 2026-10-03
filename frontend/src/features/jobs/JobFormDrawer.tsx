@@ -274,7 +274,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
 
   const creditTermBlock = (
     <div className="space-y-2">
-      <p className="text-[13px] font-medium text-brand-text">{payment === 'partial' ? 'Credit Term ของยอดคงเหลือ' : 'Credit Term'}</p>
+      <p className="text-[13px] font-medium text-brand-text">{payment === 'partial' ? 'ระยะเวลารับเงิน ของยอดคงเหลือ' : 'ระยะเวลารับเงิน'}</p>
       <div className="grid grid-cols-5 gap-1.5">
         {CREDIT_TERMS.map(days => (
           <button key={days} type="button" onClick={() => setCreditTerm(days)} className={segment(creditTerm === days)}>
@@ -291,7 +291,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
         <div>
           <button type="button" onClick={() => setCreditOptionsOpen(v => !v)} className="inline-flex items-center gap-1 text-xs text-brand-muted hover:text-brand-text cursor-pointer" aria-expanded={creditOptionsOpen}>
             {creditOptionsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-            ตัวเลือก Credit Term เพิ่มเติม
+            ตัวเลือกระยะเวลารับเงิน
           </button>
           {creditOptionsOpen && (
             <label className="mt-2 flex cursor-pointer items-center gap-2 text-[13px] text-brand-text">
@@ -455,7 +455,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                   {!errors.postDate && (
                     <p className="mt-1.5 text-xs text-brand-muted">
                       {isPosted
-                        ? 'Credit Term จะเริ่มนับจากวันส่งงาน'
+                        ? 'ระยะเวลารับเงิน จะเริ่มนับจากวันส่งงาน'
                         : postDate ? 'ถ้าส่งงานจริงคนละวัน ค่อยมาแก้ตอนส่งงานได้' : 'ยังไม่รู้ก็เว้นไว้ได้ ค่อยใส่ตอนส่งงาน'}
                     </p>
                   )}
@@ -563,11 +563,11 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                   return (
                     <>
                       <p className="mt-0.5 text-xs text-brand-muted">
-                        {parts.length > 0 ? parts.join(' · ') : 'ประเภทงาน หัก ณ ที่จ่าย วันที่เริ่มงาน และโน้ตภายใน'}
+                        {parts.length > 0 ? parts.join(' · ') : 'ประเภทงาน หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน'}
                       </p>
                       {note.trim() && (
                         <div className="mt-2.5 rounded-[10px] bg-brand-faint px-3 py-2">
-                          <p className="text-[11px] font-medium text-brand-muted">โน้ตภายใน</p>
+                          <p className="text-[11px] font-medium text-brand-muted">หมายเหตุภายใน</p>
                           <p className="mt-0.5 line-clamp-3 whitespace-pre-line text-[13px] text-brand-text">{note.trim()}</p>
                         </div>
                       )}
@@ -683,7 +683,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                     </div>
 
                     <div>
-                      <label htmlFor="job-form-note" className={labelClass}>โน้ตภายใน</label>
+                      <label htmlFor="job-form-note" className={labelClass}>หมายเหตุภายใน</label>
                       <textarea
                         id="job-form-note"
                         rows={3}

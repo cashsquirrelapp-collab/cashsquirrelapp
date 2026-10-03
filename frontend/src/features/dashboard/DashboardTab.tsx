@@ -1,3 +1,4 @@
+import { uiSurface } from '../../components/ui/uiStyles';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
@@ -782,7 +783,7 @@ export default function DashboardTab({
         <button
           type="button"
           onClick={() => setBreakdownFilter('received')}
-          className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
+          className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
         >
           <p className="text-xs text-brand-muted">{withMonth('รับเงินจริง', selectedMonthKey)}</p>
           <p className="mt-1 text-xl leading-7 font-semibold font-mono text-brand-text">{formatCurrency(totalReceived)}</p>
@@ -790,7 +791,7 @@ export default function DashboardTab({
         <button
           type="button"
           onClick={() => setBreakdownFilter('pending')}
-          className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
+          className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
         >
           <p className="text-xs text-brand-muted">{selectedMonthKey === currentMonthKeyNow() ? 'รอรับเงิน' : `รอรับ ${formatMonthKey(selectedMonthKey)}`}</p>
           <p className="mt-1 text-xl leading-7 font-semibold font-mono text-[#E65F2B]">{formatCurrency(totalPending)}</p>
@@ -798,7 +799,7 @@ export default function DashboardTab({
         <button
           type="button"
           onClick={() => setBreakdownFilter('expense')}
-          className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
+          className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
         >
           <p className="text-xs text-brand-muted">{withMonth('รายจ่าย', selectedMonthKey)}</p>
           <p className="mt-1 text-xl leading-7 font-semibold font-mono text-brand-text">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
@@ -806,7 +807,7 @@ export default function DashboardTab({
         <button
           type="button"
           onClick={() => setBreakdownFilter('profit')}
-          className="flex flex-col items-start justify-start rounded-[14px] border border-brand-border bg-brand-white p-[18px] text-left cursor-pointer"
+          className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
         >
           <p className="text-xs text-brand-muted">กำไรสุทธิ</p>
           <p className={`mt-1 text-[22px] leading-7 font-bold font-mono ${profit >= 0 ? 'text-[#18A66A]' : 'text-rose-600'}`}>{formatCurrency(profit)}</p>
@@ -914,7 +915,7 @@ export default function DashboardTab({
         <IncomeExpenseChart jobs={jobs} expenses={expenses} settings={settings} monthKey={selectedMonthKey} />
 
         {upcomingPayments.length > 0 && (
-          <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
+          <div className={`${uiSurface} p-[18px]`}>
             <div className="mb-2.5 flex items-center gap-2.5">
               <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-[#FFF1E8]">
                 <Mascot mood="thinking" size={28} />
@@ -972,7 +973,7 @@ export default function DashboardTab({
       {/* Recent activity + mini financial calendar, matching the mockup's second row below
           the chart/watchlist row. */}
       <div className="order-5 mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
+        <div className={`${uiSurface} p-[18px]`}>
           <div className="mb-1 flex items-center justify-between">
             <h4 className="text-[13px] font-medium text-brand-text">รายการล่าสุด</h4>
             <button type="button" onClick={() => onSwitchTab('incomeExpense')} className="text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">
@@ -992,7 +993,7 @@ export default function DashboardTab({
           ))}
         </div>
 
-        <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
+        <div className={`${uiSurface} p-[18px]`}>
           <div className="mb-0.5 flex items-center justify-between">
             <h4 className="text-[13px] font-medium text-brand-text">ปฏิทินการเงิน</h4>
             <button type="button" onClick={() => (onOpenCalendar ? onOpenCalendar() : onSwitchTab('calendar'))} className="inline-flex items-center gap-1 text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">

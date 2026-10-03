@@ -1,3 +1,6 @@
+import { uiSurface } from '../../components/ui/uiStyles';
+import { uiInput, uiPrimaryButton } from '../../components/ui/uiStyles';
+import PageHeader from '../../components/ui/PageHeader';
 import React, { useState, useEffect } from 'react';
 import { AppSettings, FixedExpenseItem, NotifSettings, Invoice, InvoiceProfile } from '../../../../shared/types';
 import { formatCurrency, sumFixedExpenseItems, dateLocale } from '../../utils';
@@ -509,7 +512,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   return (
-    <div className="page-content">
+    <div className="page-content space-y-5">
+      <PageHeader page="settings" />
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         {/* Desktop: vertical sub-nav sidebar, matching the mockup's second sidebar column */}
         <nav className="hidden w-[200px] shrink-0 flex-col gap-0.5 lg:flex">
@@ -552,23 +556,23 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <p className="mt-1 text-xs text-brand-muted">ข้อมูลผู้ใช้และการเข้าสู่ระบบ</p>
           </div>
           {!isGroupFinance && session && !session.isGuest && (<>
-            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <div className={`${uiSurface} p-5`}>
               <p className="text-[13px] font-medium text-brand-text dark:text-white">ชื่อที่แสดง</p>
               <p className="mb-3 text-xs text-brand-muted">ชื่อที่แสดงในแอปและเอกสาร</p>
               <input
-                className="w-full rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                className={uiInput}
                 value={displayName} onChange={e=>setDisplayName(e.target.value)} minLength={2} maxLength={60}
               />
               <button
                 type="button" onClick={()=>void saveProfile()}
                 disabled={profileBusy||displayName.trim().length<2||displayName.trim()===profile?.displayName}
-                className="mt-3 rounded-lg bg-[#F36A2D] px-4 py-2 text-xs font-medium text-white cursor-pointer disabled:opacity-50"
+                className={`${uiPrimaryButton} mt-3`}
               >
                 {profileBusy?'กำลังบันทึก…':'บันทึกชื่อ'}
               </button>
             </div>
 
-            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <div className={`${uiSurface} p-5`}>
               <p className="text-[13px] font-medium text-brand-text dark:text-white">อีเมล</p>
               <p className="mb-3 text-xs text-brand-muted">ใช้สำหรับเข้าสู่ระบบและแจ้งเตือน</p>
               <input
@@ -578,7 +582,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               />
             </div>
 
-            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <div className={`${uiSurface} p-5`}>
               <p className="text-[13px] font-medium text-brand-text dark:text-white">User ID</p>
               <p className="mb-3 text-xs text-brand-muted">รหัสถาวร ใช้ให้ผู้อื่นค้นหาเพื่อเชิญเข้ากลุ่ม แก้ไขไม่ได้</p>
               <div className="flex items-center justify-between gap-3 rounded-[10px] border border-brand-border dark:border-neutral-800 bg-brand-faint dark:bg-neutral-950 px-3 py-2.5">
@@ -592,7 +596,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </>)}
           {(isGroupFinance || !session || session.isGuest) && (
-            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-xs text-brand-muted">
+            <div className={`${uiSurface} p-5 text-xs text-brand-muted`}>
               {session?.isGuest ? 'โหมดทดลองใช้งาน (Guest) ไม่มีบัญชีถาวรให้ตั้งค่าตรงนี้' : 'บัญชีนี้ใช้ข้อมูลของกลุ่มที่เลือก'}
             </div>
           )}
@@ -602,7 +606,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">ภาษาและการแสดงผล</h3>
             <p className="mt-1 text-xs text-brand-muted">{t('settings.languageDescription')}</p>
           </div>
-          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+          <div className={`${uiSurface} p-5`}>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -631,7 +635,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <p className="mt-1 text-xs text-brand-muted">ค่าใช้จ่ายคงที่และเป้าหมายรายรับต่อเดือน</p>
           </div>
 
-          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+          <div className={`${uiSurface} p-5`}>
             <div className="flex items-baseline justify-between">
               <p className="text-[13px] font-medium text-brand-text dark:text-white">
                 {isGroupFinance ? 'ค่าใช้จ่ายกลุ่มรายเดือนคงที่' : 'ค่าใช้จ่ายคงที่ต่อเดือน'}
@@ -678,7 +682,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
 
-          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+          <div className={`${uiSurface} p-5`}>
             <div className="flex items-baseline justify-between">
               <p className="text-[13px] font-medium text-brand-text dark:text-white">เป้ารายรับต่อเดือน</p>
               <span className="text-xs font-mono font-medium text-[#C24A16]">{formatCurrency(settings.monthlyRevenueGoal)}</span>
@@ -687,7 +691,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <NumberInput
               value={settings.monthlyRevenueGoal}
               onChange={(raw) => onUpdateSettings({ ...settings, monthlyRevenueGoal: parseFloat(raw) || 0 })}
-              className="w-full rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2.5 text-[13px] font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+              className={`${uiInput} font-mono`}
               placeholder="เช่น 50000"
             />
           </div>
@@ -702,7 +706,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               from the "รายงานรายเดือน" tab since these are account-level connections, not
               report content, and were easy to miss buried among charts and tables there. */}
           {!isGroupFinance && session?.isGuest && (
-            <p className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-xs leading-relaxed text-brand-muted">
+            <p className={`${uiSurface} p-5 text-xs leading-relaxed text-brand-muted`}>
               {t('plans.guestPreviewSettingsNote')}
             </p>
           )}
@@ -717,7 +721,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 }
                 handleToggleMonthlyReport();
               }}
-              className="w-full flex items-center justify-between gap-3 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-left transition-all cursor-pointer"
+              className={`${uiSurface} w-full flex items-center justify-between gap-3 p-5 text-left transition-all cursor-pointer`}
             >
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium text-brand-text dark:text-white">สรุปงบการเงินรายเดือนอัตโนมัติ</p>
@@ -742,7 +746,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 }
                 handleToggleDailyDigest();
               }}
-              className="w-full flex items-center justify-between gap-3 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-left transition-all cursor-pointer"
+              className={`${uiSurface} w-full flex items-center justify-between gap-3 p-5 text-left transition-all cursor-pointer`}
             >
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium text-brand-text dark:text-white">แจ้งเตือนงานค้างชำระรายวัน</p>
@@ -759,7 +763,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
             {/* LINE notification linking -- reuses the same Pro gate as the email digests above,
                 since it's the same underlying notification feature. */}
-            <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+            <div className={`${uiSurface} p-5`}>
                 <div className="flex items-center gap-2.5">
                   <MessageCircle className="w-4 h-4 text-[#06C755] shrink-0" />
                   <div className="min-w-0 flex-1">
@@ -858,7 +862,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 )}
               </div>
           </>)}
-          {isGroupFinance && <p className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 text-xs text-brand-muted">รายงานและไฟล์สำรองใช้ข้อมูลของกลุ่มที่เลือก การเชื่อม LINE และรายงานอัตโนมัติเป็นของบัญชีส่วนตัว</p>}
+          {isGroupFinance && <p className={`${uiSurface} p-5 text-xs text-brand-muted`}>รายงานและไฟล์สำรองใช้ข้อมูลของกลุ่มที่เลือก การเชื่อม LINE และรายงานอัตโนมัติเป็นของบัญชีส่วนตัว</p>}
         </>)}
         {section === 'backup' && (<>
           <div>
@@ -866,7 +870,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <p className="mt-1 text-xs text-brand-muted">ดาวน์โหลดข้อมูลสำรองหรือย้ายข้อมูลกลับเข้าระบบ</p>
           </div>
 
-          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+          <div className={`${uiSurface} p-5`}>
             <p className="text-[13px] font-medium text-brand-text dark:text-white">นำเข้าข้อมูล</p>
             <p className="mb-3 text-xs text-brand-muted">อัปโหลดไฟล์สำรอง .json ที่เคยดาวน์โหลดไว้</p>
             <div
@@ -889,7 +893,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+          <div className={`${uiSurface} flex items-center justify-between gap-3 p-5`}>
             <div>
               <p className="text-[13px] font-medium text-brand-text dark:text-white">ดาวน์โหลดไฟล์สำรอง</p>
               <p className="mt-0.5 text-xs text-brand-muted">งาน รายรับ รายจ่าย และการตั้งค่าทั้งหมด</p>
@@ -910,7 +914,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
 
           {/* Profile card row */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 w-full">
+          <div className={`${uiSurface} flex flex-col sm:flex-row items-center gap-4 p-5 w-full`}>
                 <div className="relative flex-shrink-0">
                   <div className="w-14 h-14 rounded-2xl bg-blue-acc/15 dark:bg-[#FFA473]/15 flex items-center justify-center text-[#E65F2B] dark:text-[#FFA473] font-extrabold overflow-hidden border border-brand-border/30">
                     {userAvatar ? (
@@ -978,11 +982,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
 
               {session && !session.isGuest && (
-                <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 space-y-2.5">
+                <div className={`${uiSurface} p-5 space-y-2.5`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-brand-text dark:text-white inline-flex items-center gap-1">แพ็กเกจโปร <IconCrown className="w-3 h-3" /></span>
+                    <span className="text-xs font-black text-brand-text dark:text-white inline-flex items-center gap-1">แพ็กเกจ Pro <IconCrown className="w-3 h-3" /></span>
                     {isPaidActive && (
-                      <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Active</span>
+                      <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase">ใช้งานอยู่</span>
                     )}
                     {!isPaidActive && isInFreeTrial && (
                       <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase">{t('plans.freeTrialBadge')}</span>
@@ -1010,7 +1014,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <button
                   type="button"
                   onClick={onReplaySetupWizard}
-                  className="w-full rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 py-3.5 text-xs text-brand-text dark:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className={`${uiSurface} w-full py-3.5 text-xs text-brand-text dark:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer`}
                 >
                   <Mascot mood="wave" size={24} className="mr-0.5" />
                   <span>ดูหน้าตั้งค่าบัญชีเริ่มต้นอีกครั้ง</span>
@@ -1018,17 +1022,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               )}
 
               {session && !session.isGuest && !isGroupFinance && (
-                <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 space-y-2.5">
+                <div className={`${uiSurface} p-5 space-y-2.5`}>
                   <p className="text-[13px] font-medium text-brand-text dark:text-white">อีเมลสำรองสำหรับกู้คืนบัญชี</p>
                   <p className="text-xs text-brand-muted">{backupEmail ? `ยืนยันแล้ว: ${backupEmail}` : 'เพิ่มและยืนยันอีเมลสำรองก่อนสั่งลบบัญชี'}</p>
                   <input type="email" autoComplete="email" value={backupInput} onChange={event => setBackupInput(event.target.value)}
-                    placeholder="อีเมลสำรอง" aria-label="อีเมลสำรอง" className="w-full rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]" />
+                    placeholder="อีเมลสำรอง" aria-label="อีเมลสำรอง" className={uiInput} />
                   <button type="button" disabled={accountBusy || !backupInput.includes('@')} onClick={() => void requestBackupEmail()}
                     className="w-full rounded-lg border border-brand-border dark:border-neutral-800 px-3 py-2 text-xs text-brand-text dark:text-white disabled:opacity-50 cursor-pointer">ส่งรหัสยืนยันไปยังอีเมลสำรอง</button>
                   {backupPending && <div className="space-y-2">
                     <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={backupCode}
                       onChange={event => setBackupCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="รหัส 6 หลัก" aria-label="รหัสยืนยันอีเมลสำรอง" className="w-full rounded-[10px] border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 px-3 py-2 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]" />
+                      placeholder="รหัส 6 หลัก" aria-label="รหัสยืนยันอีเมลสำรอง" className={uiInput} />
                     <button type="button" disabled={accountBusy || backupCode.length !== 6} onClick={() => void confirmBackupEmail()}
                       className="w-full rounded-lg bg-[#F36A2D] px-3 py-2 text-xs text-white disabled:opacity-50 cursor-pointer">ยืนยันอีเมลสำรอง</button>
                   </div>}
@@ -1140,7 +1144,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">โปรไฟล์ธุรกิจ</h3>
             <p className="mt-1 text-xs text-brand-muted">ข้อมูลที่แสดงบนเอกสาร ใบเสนอราคา ใบแจ้งหนี้</p>
           </div>
-          <div className="rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5 space-y-5">
+          <div className={`${uiSurface} p-5 space-y-5`}>
             <div className="rounded-[10px] border border-[#F36A2D]/30 bg-brand-faint/40 dark:bg-neutral-950 p-3">
               <p className="mb-2 text-xs font-medium text-[#C24A16]">ตัวอย่างส่วนหัวเอกสาร (เปลี่ยนตามที่คุณปรับทันที)</p>
               <div className="overflow-hidden rounded-[10px] border border-brand-border/60 bg-stone-200">
@@ -1218,7 +1222,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   value={issuerProfile.name}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, name: e.target.value })}
                   placeholder="เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด"
-                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className={uiInput}
                 />
                 <p className="text-[9px] text-brand-muted">ใช้เป็นชื่อผู้ออกเอกสาร</p>
               </div>
@@ -1230,7 +1234,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   value={issuerProfile.taxId}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, taxId: e.target.value })}
                   placeholder="เลขผู้เสียภาษี 13 หลัก"
-                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className={`${uiInput} font-mono`}
                 />
                 <p className="text-[9px] text-brand-muted">แสดงบนใบกำกับภาษีเต็มรูป</p>
               </div>
@@ -1242,7 +1246,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, address: e.target.value })}
                   placeholder="เช่น 456 ถนนสุขุมวิท 21 แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพมหานคร 10110"
                   rows={3}
-                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className={uiInput}
                 />
               </div>
 
@@ -1253,7 +1257,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   value={issuerProfile.phone}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, phone: e.target.value })}
                   placeholder="เช่น 089-999-9999"
-                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className={uiInput}
                 />
               </div>
 
@@ -1264,7 +1268,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   value={issuerProfile.email}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, email: e.target.value })}
                   placeholder="เช่น myemail@gmail.com"
-                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className={uiInput}
                 />
               </div>
 
@@ -1286,7 +1290,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     }
                   }}
                   aria-label="ธนาคาร"
-                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
+                  className={uiInput}
                 >
                   <option value="">— เลือกธนาคาร —</option>
                   {THAI_BANKS.map(bank => (
@@ -1301,7 +1305,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     onChange={(e) => setIssuerProfile({ ...issuerProfile, bankName: e.target.value })}
                     placeholder="พิมพ์ชื่อธนาคาร / ช่องทางรับเงิน เช่น พร้อมเพย์"
                     aria-label="ชื่อธนาคารอื่น ๆ"
-                    className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                    className={uiInput}
                   />
                 )}
               </div>
@@ -1313,7 +1317,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   value={issuerProfile.bankAccount}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, bankAccount: e.target.value })}
                   placeholder="เช่น 123-4-56789-0"
-                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className={`${uiInput} font-mono`}
                 />
               </div>
 
@@ -1324,7 +1328,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   value={issuerProfile.bankAccountName}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, bankAccountName: e.target.value })}
                   placeholder="เช่น นายออมสิน ดีแท้"
-                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className={uiInput}
                 />
               </div>
 
@@ -1335,7 +1339,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   value={issuerProfile.website || ''}
                   onChange={(e) => setIssuerProfile({ ...issuerProfile, website: e.target.value })}
                   placeholder="เช่น https://www.example.com"
-                  className="border border-brand-border dark:border-neutral-800 dark:bg-neutral-950 rounded-[10px] px-3 py-2.5 text-[13px] text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                  className={uiInput}
                 />
               </div>
             </div>
@@ -1357,7 +1361,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <h3 className="text-[17px] font-semibold text-brand-text dark:text-white">ฟีเจอร์เสริม</h3>
             <p className="mt-1 text-xs text-brand-muted">เปิดใช้งานได้ตามต้องการ ไม่กระทบฟีเจอร์หลักของแอป</p>
           </div>
-          <div className="flex items-start justify-between gap-4 rounded-[14px] border border-brand-border dark:border-neutral-800 bg-brand-white dark:bg-neutral-900 p-5">
+          <div className={`${uiSurface} flex items-start justify-between gap-4 p-5`}>
             <div>
               <p className="text-[13px] font-medium text-brand-text dark:text-white">เป้าหมายการเงิน & การจัดสรรกำไร</p>
               <p className="mt-1 text-xs leading-relaxed text-brand-muted">

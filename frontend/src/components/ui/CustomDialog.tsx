@@ -1,3 +1,4 @@
+import { uiInput, uiPrimaryButton, uiSecondaryButton } from './uiStyles';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -104,7 +105,7 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
                 placeholder={dialog.placeholder}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                className="w-full bg-brand-faint dark:bg-neutral-800/50 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-brand-green-acc focus:ring-4 focus:ring-brand-green-acc/10"
+                className={uiInput}
               />
             )}
 
@@ -113,16 +114,16 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="px-4 py-2.5 bg-brand-faint dark:bg-neutral-800 text-brand-text dark:text-neutral-300 rounded-xl text-xs font-bold hover:bg-brand-border/40 transition-colors cursor-pointer"
+                  className={uiSecondaryButton}
                 >
                   {t('common.cancel')}
                 </button>
               )}
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-brand-green-acc hover:brightness-110 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer focus:outline-none focus:ring-4 focus:ring-brand-green-acc/20"
+                className={uiPrimaryButton}
               >
-                {t('common.ok')}
+                {t(dialog.type === 'alert' ? 'common.ok' : 'common.confirm')}
               </button>
             </div>
           </form>

@@ -1,3 +1,4 @@
+import { uiInput, uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -104,13 +105,13 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
       onUpdateSettings({ ...settings, fixedExpenseItems: updatedItems, monthlyExpense: sumFixedExpenseItems(updatedItems) });
       fixedNote = existing ? ' และอัปเดตยอดในรายจ่ายประจำให้แล้ว' : ' และเพิ่มเป็นรายจ่ายประจำทุกเดือนให้แล้ว';
     }
-    triggerAlert(expense ? 'แก้ไขรายจ่ายสำเร็จ!' : 'บันทึกรายจ่ายสำเร็จ!', `${expense ? 'อัปเดตข้อมูลรายจ่ายเรียบร้อยแล้ว' : 'บันทึกรายจ่ายเรียบร้อยแล้ว'}${fixedNote}`);
+    triggerAlert(expense ? 'แก้ไขรายจ่ายสำเร็จ' : 'บันทึกรายจ่ายสำเร็จ', `${expense ? 'อัปเดตข้อมูลรายจ่ายเรียบร้อยแล้ว' : 'บันทึกรายจ่ายเรียบร้อยแล้ว'}${fixedNote}`);
     onClose();
   };
 
   const label = 'mb-1.5 block text-[13px] font-medium text-brand-text';
   const input = (error?: string) =>
-    `h-11 w-full rounded-[10px] border bg-brand-white px-3 text-sm text-brand-text placeholder:text-brand-muted outline-none transition-colors focus:border-[#E65F2B] dark:bg-neutral-950 ${error ? 'border-[#E95454]' : 'border-brand-border'}`;
+    `${uiInput} h-11 ${error ? 'border-[#E95454]' : 'border-brand-border'}`;
   const errorText = (error?: string) => error ? <p className="mt-1 text-xs text-[#C43A3A] dark:text-rose-300">{error}</p> : null;
   const segment = (active: boolean) =>
     `rounded-[10px] border px-3 py-2.5 text-left transition-colors cursor-pointer ${active
@@ -197,14 +198,14 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
                 )}
               </fieldset>
               <div>
-                <label htmlFor="expense-note" className={label}>โน้ต</label>
+                <label htmlFor="expense-note" className={label}>หมายเหตุ</label>
                 <input id="expense-note" type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ใบเสร็จอยู่ในอีเมล" className={input()} />
               </div>
             </div>
 
             <div className="flex gap-3 border-t border-brand-border px-6 py-4">
-              <button type="button" onClick={onClose} className="h-12 rounded-xl border border-brand-border px-5 text-sm text-brand-text hover:bg-brand-faint cursor-pointer">ยกเลิก</button>
-              <button type="submit" className="h-12 flex-1 rounded-xl bg-[#E65F2B] text-sm font-semibold text-white hover:bg-[#D85723] cursor-pointer">บันทึกรายจ่าย</button>
+              <button type="button" onClick={onClose} className={`${uiSecondaryButton} h-12`}>ยกเลิก</button>
+              <button type="submit" className={`${uiPrimaryButton} h-12 flex-1`}>บันทึกรายจ่าย</button>
             </div>
           </motion.form>
         </div>

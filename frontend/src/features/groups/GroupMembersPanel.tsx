@@ -28,14 +28,14 @@ export default function GroupMembersPanel({
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
   const roleLabel = (role: GroupRole | null) =>
     role === 'leader'
-      ? copy('หัวหน้า', 'Leader')
+      ? copy('ผู้ดูแลทีม', 'Leader')
       : role === 'member'
-        ? copy('ลูกน้อง', 'Member')
+        ? copy('สมาชิก', 'Member')
         : copy('ดูแลโดย admin', 'Admin access');
   return (
     <div className={panel}>
       <h3 className="font-bold mb-4">
-        {copy('สมาชิกในกลุ่ม', 'Group members')} ({detail.memberCount})
+        {copy('สมาชิกในทีม', 'Group members')} ({detail.memberCount})
       </h3>
       <div className="divide-y divide-brand-border/40">
         {detail.members.map((member) => (
@@ -83,8 +83,8 @@ export default function GroupMembersPanel({
                   }
                 >
                   {member.role === 'leader'
-                    ? copy('ลดเป็นลูกน้อง', 'Make member')
-                    : copy('เพิ่มเป็นหัวหน้า', 'Make leader')}
+                    ? copy('ลดเป็นสมาชิก', 'Make member')
+                    : copy('เพิ่มเป็นผู้ดูแลทีม', 'Make leader')}
                 </button>
                 {member.userId !== userId && (
                   <>
@@ -94,9 +94,9 @@ export default function GroupMembersPanel({
                         disabled={busy || loading}
                         onClick={() =>
                           confirm(
-                            copy('โอนตำแหน่งหัวหน้า', 'Transfer leadership'),
+                            copy('โอนตำแหน่งผู้ดูแลทีม', 'Transfer leadership'),
                             copy(
-                              `โอนให้ ${member.displayName} (${member.publicId}) คุณจะกลับเป็นลูกน้องและเสียสิทธิ์จัดการกลุ่ม`,
+                              `โอนให้ ${member.displayName} (${member.publicId}) คุณจะกลับเป็นสมาชิกและเสียสิทธิ์จัดการทีม`,
                               `Transfer to ${member.displayName} (${member.publicId}). You will become a member and lose group management access.`,
                             ),
                             {
@@ -108,7 +108,7 @@ export default function GroupMembersPanel({
                         }
                       >
                         <ArrowRightLeft size={14} />
-                        {copy('โอนหัวหน้า', 'Transfer')}
+                        {copy('โอนผู้ดูแลทีม', 'Transfer')}
                       </button>
                     )}
                     <button
@@ -120,7 +120,7 @@ export default function GroupMembersPanel({
                       }
                       onClick={() =>
                         confirm(
-                          copy('นำสมาชิกออกจากกลุ่ม', 'Remove member'),
+                          copy('นำสมาชิกออกจากทีม', 'Remove member'),
                           `${member.displayName} (${member.publicId})`,
                           {
                             action: 'remove-member',
@@ -149,18 +149,18 @@ export default function GroupMembersPanel({
               (detail.myRole === 'leader' && detail.leaderCount === 1)
             }
             onClick={() =>
-              confirm(copy('ออกจากกลุ่ม', 'Leave group'), detail.name, {
+              confirm(copy('ออกจากทีม', 'Leave group'), detail.name, {
                 action: 'leave',
                 groupId: detail.id,
               })
             }
           >
-            {copy('ออกจากกลุ่ม', 'Leave group')}
+            {copy('ออกจากทีม', 'Leave group')}
           </button>
           {detail.myRole === 'leader' && detail.leaderCount === 1 && (
             <p className="text-xs text-brand-muted mt-2">
               {copy(
-                'เพิ่มหรือโอนหัวหน้าให้สมาชิกคนอื่นก่อนออกจากกลุ่ม',
+                'เพิ่มหรือโอนผู้ดูแลทีมให้สมาชิกคนอื่นก่อนออกจากทีม',
                 'Promote or transfer leadership to another member before leaving.',
               )}
             </p>

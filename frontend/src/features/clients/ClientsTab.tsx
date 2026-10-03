@@ -1,3 +1,6 @@
+import { uiSurface } from '../../components/ui/uiStyles';
+import PageHeader from '../../components/ui/PageHeader';
+import { uiPrimaryButton } from '../../components/ui/uiStyles';
 import React, { useMemo } from 'react';
 import { Job } from '../../../../shared/types';
 import { formatCurrency, safeFormatThaiDate } from '../../utils';
@@ -51,17 +54,18 @@ export default function ClientsTab({ jobs, onSwitchTab }: ClientsTabProps) {
 
   if (clientRows.length === 0) {
     return (
-      <div className="page-content">
-        <div className="rounded-[14px] border border-brand-border bg-brand-white p-10 text-center flex flex-col items-center gap-3">
+      <div className="page-content space-y-4">
+        <PageHeader page="clients" />
+        <div className={`${uiSurface} p-10 text-center flex flex-col items-center gap-3`}>
           <Mascot mood="wave" size={72} />
           <h3 className="text-sm font-medium text-brand-text">ยังไม่มีลูกค้าในระบบ</h3>
           <p className="text-xs text-brand-muted max-w-sm">ลูกค้าจะปรากฏที่นี่โดยอัตโนมัติทันทีที่คุณบันทึกงานพร้อมชื่อลูกค้า</p>
           <button
             type="button"
             onClick={() => onSwitchTab('jobs')}
-            className="mt-2 px-5 py-2.5 bg-[#E65F2B] hover:bg-[#D98324] text-white text-xs font-medium rounded-lg transition-colors cursor-pointer"
+            className={`${uiPrimaryButton} mt-2`}
           >
-            + บันทึกงานใหม่
+            เพิ่มงาน
           </button>
         </div>
       </div>
@@ -70,17 +74,17 @@ export default function ClientsTab({ jobs, onSwitchTab }: ClientsTabProps) {
 
   return (
     <div className="page-content space-y-4">
-      <h2 className="text-[19px] font-semibold text-brand-text">ลูกค้า</h2>
+      <PageHeader page="clients" />
 
-      <div className="overflow-hidden rounded-[14px] border border-brand-border bg-brand-white">
+      <div className={`${uiSurface} overflow-hidden`}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-[13px]">
             <thead>
               <tr className="border-b border-brand-border">
                 <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">ชื่อ</th>
-                <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">ประเภท</th>
+                <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">ประเภทงาน</th>
                 <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">จำนวนงาน</th>
-                <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">รายได้รวม</th>
+                <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">รายรับรวม</th>
                 <th className="px-3 py-2.5 text-[11px] font-medium text-brand-muted">งานล่าสุด</th>
                 <th className="px-3 py-2.5 text-right text-[11px] font-medium text-brand-muted">เงินค้างรับ</th>
               </tr>

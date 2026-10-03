@@ -1,3 +1,5 @@
+import PageHeader from '../../components/ui/PageHeader';
+import { uiInput, uiPrimaryButton, uiSecondaryButton, uiSurface } from '../../components/ui/uiStyles';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronRight, Download, MoreHorizontal, Plus, Search, Trash2, X } from 'lucide-react';
@@ -33,7 +35,7 @@ function exportExpensesCSV(rows: ExpenseRow[], monthKey: string): boolean {
     return /[",\n]/.test(text) ? `"${text}"` : text;
   };
   const lines = [
-    ['รายการ', 'วันที่', 'ประเภท', 'หมวดหมู่', 'จำนวนเงิน (บาท)', 'โน้ต'].join(','),
+    ['รายการ', 'วันที่', 'ประเภท', 'หมวดหมู่', 'จำนวนเงิน (บาท)', 'หมายเหตุ'].join(','),
     ...rows.map(r => [
       cell(r.name), cell(r.date || 'ทุกเดือน (ตั้งไว้)'), cell(r.recurring ? 'ประจำ' : 'ทั่วไป'),
       cell(r.fromSettings ? '' : categoryLabel(r.category)), r.amount, cell(r.note || ''),
@@ -165,7 +167,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
     setMenu({ key: row.id, items: rowMenu(row), up, left: Math.max(8, Math.min(rect.right - 210, window.innerWidth - 218)), top: up ? rect.top - 4 : rect.bottom + 4 });
   };
 
-  const card = 'rounded-[14px] border border-brand-border bg-brand-white';
+  const card = uiSurface;
   const select = 'h-10 appearance-none rounded-xl border border-brand-border bg-brand-white pl-3 pr-8 text-xs text-brand-text outline-none transition-colors hover:bg-brand-faint focus:border-[#E65F2B] cursor-pointer';
   const menuButton = (row: ExpenseRow) => (
     <button type="button" onClick={(e) => openMenu(e, row)} aria-label={`ตัวเลือกของรายจ่าย ${row.name}`} aria-haspopup="menu" aria-expanded={menu?.key === row.id}
@@ -178,18 +180,11 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   return (
     <div className="page-content space-y-4">
       {/* Header */}
-      <div className="flex items-end justify-between gap-3 border-b border-brand-border/30 pb-3.5">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold leading-tight tracking-tight text-brand-text lg:text-[26px]">รายจ่าย</h1>
-          <p className="mt-0.5 text-[13px] text-brand-muted">
-            <span className="hidden sm:inline">จัดการค่าใช้จ่ายประจำและค่าใช้จ่ายทั่วไปของคุณ</span>
-            <span className="sm:hidden">ค่าใช้จ่ายประจำและทั่วไป</span>
-          </p>
-        </div>
+      <PageHeader page="incomeExpense">
         <div className="flex shrink-0 items-center gap-2">
           <div className="relative" data-expense-menu>
             <button type="button" onClick={() => setExportOpen(v => !v)} aria-haspopup="menu" aria-expanded={exportOpen} aria-label="ส่งออก"
-              className="flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3 text-xs text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
+              className={uiSecondaryButton}>
               <Download className="h-4 w-4" /><span className="hidden sm:inline">ส่งออก</span><ChevronDown className="h-3.5 w-3.5 text-brand-muted" />
             </button>
             {exportOpen && (
@@ -206,11 +201,11 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
             )}
           </div>
           <button type="button" onClick={() => openAdd()}
-            className="flex h-10 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#D85723] cursor-pointer">
+            className={uiPrimaryButton}>
             <Plus className="h-4 w-4" /><span className="hidden sm:inline">เพิ่มรายจ่าย</span><span className="sm:hidden">เพิ่ม</span>
           </button>
         </div>
-      </div>
+      </PageHeader>
 
       <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} />
 
@@ -437,7 +432,7 @@ function ExpenseDetail({ row, onClose, onEdit, onDelete, onRecordPaid, onManage 
         {field('วันที่', row.date ? fullDate(row.date) : 'ทุกเดือน')}
         {field('ประเภท', <TypeBadge recurring={row.recurring} />)}
         {!row.fromSettings && field('หมวดหมู่', categoryLabel(row.category))}
-        {!row.fromSettings && field('โน้ต', row.note || '—')}
+        {!row.fromSettings && field('หมายเหตุ', row.note || '—')}
       </dl>
       {row.fromSettings && (
         <p className="mt-4 rounded-[10px] bg-brand-faint px-3 py-2.5 text-xs leading-relaxed text-brand-muted">
@@ -466,7 +461,7 @@ function RecurringManager({ settings, onUpdateSettings, onClose }: { settings: A
     setNewName(''); setNewAmount('');
   };
   const update = (id: string, patch: Partial<FixedExpenseItem>) => save(items.map(item => item.id === id ? { ...item, ...patch } : item));
-  const input = 'h-10 rounded-[10px] border border-brand-border bg-brand-white px-3 text-sm text-brand-text outline-none focus:border-[#E65F2B] dark:bg-neutral-950';
+  const input = uiInput;
   const legacyOnly = items.length === 0 && settings.monthlyExpense > 0;
 
   return (

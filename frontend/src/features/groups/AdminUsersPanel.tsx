@@ -199,9 +199,9 @@ export default function AdminUsersPanel({
       )}
       <section className="mb-6 rounded-2xl border border-orange-200/70 bg-orange-50/50 p-4 dark:border-orange-300/15 dark:bg-orange-300/5">
         <div className="mb-3">
-          <h3 className="font-bold text-sm">{copy('คำขอลบบัญชีถาวร', 'Permanent deletion requests')}</h3>
+          <h3 className="font-bold text-sm">{copy('กู้คืนบัญชี', 'Account recovery')}</h3>
           <p className="mt-1 text-xs leading-relaxed text-brand-muted">
-            {copy('ลิงก์นี้ไม่ผูกกับบัญชีใดบัญชีหนึ่ง ผู้ใช้กรอกอีเมลสำรองที่ยืนยันแล้วเพื่อค้นหาบัญชีที่รอลบ ลิงก์แต่ละอันมีอายุ 1 ชั่วโมง และลิงก์ที่ยังไม่หมดอายุใช้ได้ทุกอัน', 'These links are not tied to a specific account. Users enter their verified backup email to find the account awaiting deletion. Each link lasts 1 hour, and every unexpired link remains usable.')}
+            {copy('สร้างลิงก์กลางให้ผู้ใช้กู้คืนบัญชีด้วยอีเมลสำรองที่ยืนยันไว้ แต่ละลิงก์มีอายุ 1 ชั่วโมง และใช้ได้จนกว่าจะหมดอายุ', 'These links are not tied to a specific account. Users enter their verified backup email to find the account awaiting deletion. Each link lasts 1 hour, and every unexpired link remains usable.')}
           </p>
         </div>
         <button
@@ -234,7 +234,7 @@ export default function AdminUsersPanel({
         {deletionRequests === null ? (
           <p className="text-xs text-brand-muted">{copy('กำลังโหลดคำขอ…', 'Loading requests…')}</p>
         ) : deletionRequests.length === 0 ? (
-          <p className="rounded-xl bg-brand-white/70 px-3 py-3 text-xs text-brand-muted">{copy('ไม่มีคำขอลบบัญชีที่รออยู่', 'No pending account deletion requests.')}</p>
+          <p className="rounded-xl bg-brand-white/70 px-3 py-3 text-xs text-brand-muted">{copy('ไม่มีบัญชีรอลบ สามารถสร้างลิงก์กู้คืนไว้ได้', 'No accounts await deletion. You can still generate a recovery link.')}</p>
         ) : (
           <div className="space-y-3">
             {deletionRequests.map(request => {

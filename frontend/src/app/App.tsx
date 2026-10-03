@@ -1,3 +1,5 @@
+import PageHeader from '../components/ui/PageHeader';
+import { uiPrimaryButton } from '../components/ui/uiStyles';
 import { privateCache } from '../services/privateCache';
 import { validateChanges, notificationPreferences } from '../../../shared/validation';
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense, startTransition } from 'react';
@@ -2514,11 +2516,7 @@ export default function App() {
           <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
-            <section className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-brand-border/30 pb-3" aria-labelledby="dashboard-title">
-              <div className="min-w-0">
-                <h1 id="dashboard-title" className="text-2xl font-semibold leading-tight tracking-tight text-brand-text sm:text-[26px]">ภาพรวม</h1>
-                <p className="mt-0.5 text-[13px] font-normal text-brand-muted">Dashboard</p>
-              </div>
+            <PageHeader page="dashboard" id="dashboard-title" className="mb-4">
               <div className="contents sm:flex sm:items-center sm:justify-end sm:gap-2">
                 {/* Phones: its own full-width row under the title; wider screens: before the bell. */}
                 <div className="order-last w-full sm:order-none sm:w-auto">
@@ -2551,13 +2549,13 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => { setIsAddJobOpen(true); navigateTab('jobs'); }}
-                    className="flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-2xl bg-[#E65F2B] px-4 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#D98324] cursor-pointer"
+                    className={uiPrimaryButton}
                   >
                     <Plus className="h-4 w-4 shrink-0" /> เพิ่มงาน
                   </button>
                 </div>
               </div>
-            </section>
+            </PageHeader>
           )}
 
           {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !['groups','plans','adminDashboard'].includes(activeTab) ? (

@@ -1,3 +1,5 @@
+import { uiSurface } from '../../components/ui/uiStyles';
+import PageHeader from '../../components/ui/PageHeader';
 import { imageFileToDataUrl } from '../../services/images';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Job, Goal, AppSettings, GoalTransaction, Expense } from '../../../../shared/types';
@@ -699,25 +701,18 @@ export default function SplitTab({
 
   return (
     <div className="page-content space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 rounded-[14px] border border-[#F0D9BE] px-6 py-6 text-[#2B1B0F] shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-8" style={{ background: 'linear-gradient(135deg, #fff3e8 0%, #fde4ce 100%)' }}>
-        <div>
-          <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-wider text-[#9A541C] uppercase">
-            <PiggyBank className="h-4 w-4" /> วางแผนเงินให้ทุกบาทมีเป้าหมาย
-          </span>
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-[#2B1B0F] sm:text-3xl">
-            {t('split.title')}
-          </h2>
-          <p className="mt-2 max-w-2xl text-xs leading-relaxed text-[#8A6F5C]">ดูเงินคงเหลือ วางสัดส่วน และเติมเป้าหมายออมได้จากหน้าเดียว โดยระบบจะไม่ให้แบ่งเกินเงินที่มีจริง</p>
+      <PageHeader page="split">
+        <div className={`${uiSurface} flex items-center gap-3 px-4 py-2.5`}>
+          <Mascot mood="wave" size={44} className="shrink-0" />
+          <div>
+            <span className="block text-xs text-brand-muted">เงินพร้อมจัดสรร</span>
+            <strong className="text-lg font-semibold tabular-nums text-brand-text">{formatCurrency(netProfit)}</strong>
+          </div>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/60 px-4 py-3 backdrop-blur-sm">
-          <Mascot mood="wave" size={52} className="shrink-0" />
-          <div><span className="block text-[9px] font-bold text-[#8A6F5C]">พร้อมจัดสรร</span><strong className="font-mono text-lg text-[#2B1B0F]">{formatCurrency(netProfit)}</strong></div>
-        </div>
-      </div>
+      </PageHeader>
 
       {/* Overview: answer the three questions a first-time user has before asking them to allocate. */}
-      <section className="overflow-hidden rounded-[14px] border border-brand-border bg-brand-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <section className={`${uiSurface} overflow-hidden shadow-sm`}>
         <div className="border-b border-brand-border/50 bg-gradient-to-r from-[#FFF8EE] to-white px-5 py-5 dark:from-neutral-900 dark:to-neutral-900 sm:px-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -814,7 +809,7 @@ export default function SplitTab({
       </section>
 
       {/* Section 2: Dynamic Profit Allocation Manager */}
-      <section className="rounded-[14px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
+      <section className={`${uiSurface} p-5 shadow-sm sm:p-7`}>
         <div className="mb-6 flex flex-col gap-3 border-b border-brand-border/50 pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 2</span>
@@ -1077,7 +1072,7 @@ export default function SplitTab({
       </section>
 
       {/* Section 3: Savings Targets Cards Grid (Merged TargetTab) */}
-      <section className="space-y-5 rounded-[14px] border border-brand-border bg-brand-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-7">
+      <section className={`${uiSurface} space-y-5 p-5 shadow-sm sm:p-7`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 3</span>

@@ -1,3 +1,5 @@
+import { uiSurface } from '../../components/ui/uiStyles';
+import PageHeader from '../../components/ui/PageHeader';
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppSettings, Expense, Job } from '../../../../shared/types';
@@ -200,11 +202,7 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
 
   return (
     <div className="page-content space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-brand-border/30 pb-3.5">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold leading-tight tracking-tight text-brand-text lg:text-[26px]">ปฏิทิน</h1>
-          <p className="mt-0.5 text-[13px] text-brand-muted">ดูงาน กำหนด และจังหวะเงินของคุณ</p>
-        </div>
+      <PageHeader page="calendar">
         <div className="flex items-center gap-1 rounded-xl border border-brand-border bg-brand-white p-0.5" role="tablist" aria-label="มุมมองปฏิทิน">
           <button type="button" role="tab" aria-selected={pageView === 'calendar'} onClick={() => switchView('calendar')} className={segment(pageView === 'calendar')}>
             <CalendarDays className="h-4 w-4" /> ปฏิทิน
@@ -213,7 +211,7 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
             <List className="h-4 w-4" /> ไทม์ไลน์
           </button>
         </div>
-      </div>
+      </PageHeader>
 
       <AnimatePresence mode="wait" initial={false}>
       {pageView === 'timeline' ? (
@@ -323,7 +321,7 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
           </div>
         </div>
 
-        <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+        <div className={`${uiSurface} p-[18px]`}>
           <h4 className="mb-3 text-[13px] font-medium text-brand-text">รายการ{selectedDateLabel}</h4>
           {selectedEvents.length === 0 ? (
             <p className="py-6 text-center text-xs text-brand-muted">ไม่มีรายการในวันนี้</p>

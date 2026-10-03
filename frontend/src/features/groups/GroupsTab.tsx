@@ -1,3 +1,4 @@
+import PageHeader from '../../components/ui/PageHeader';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Check,
@@ -43,9 +44,9 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
   const roleLabel = (role: GroupRole | null) =>
     role === 'leader'
-      ? copy('หัวหน้า', 'Leader')
+      ? copy('ผู้ดูแลทีม', 'Leader')
       : role === 'member'
-        ? copy('ลูกน้อง', 'Member')
+        ? copy('สมาชิก', 'Member')
         : copy('ดูแลโดย admin', 'Admin access');
   const [snapshot, setSnapshot] = useState<GroupSnapshot | null>(null);
   const [detail, setDetail] = useState<GroupDetail | null>(null);
@@ -199,33 +200,24 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     setNotice('');
   };
   const activityLabels: Record<string, string> = {
-    create: copy('สร้างกลุ่ม', 'Created group'),
+    create: copy('สร้างทีม', 'Created group'),
     invite: copy('เชิญสมาชิก', 'Invited member'),
-    accept: copy('เข้าร่วมกลุ่ม', 'Joined group'),
+    accept: copy('เข้าร่วมทีม', 'Joined group'),
     decline: copy('ปฏิเสธคำเชิญ', 'Declined invitation'),
     'revoke-invite': copy('ยกเลิกคำเชิญ', 'Revoked invitation'),
-    'member-role:leader': copy('เพิ่มสิทธิ์หัวหน้า', 'Promoted leader'),
-    'member-role:member': copy('เปลี่ยนเป็นลูกน้อง', 'Demoted to member'),
-    transfer: copy('โอนตำแหน่งหัวหน้า', 'Transferred leadership'),
+    'member-role:leader': copy('เพิ่มสิทธิ์ผู้ดูแลทีม', 'Promoted leader'),
+    'member-role:member': copy('เปลี่ยนเป็นสมาชิก', 'Demoted to member'),
+    transfer: copy('โอนตำแหน่งผู้ดูแลทีม', 'Transferred leadership'),
     'remove-member': copy('นำสมาชิกออก', 'Removed member'),
-    leave: copy('ออกจากกลุ่ม', 'Left group'),
-    rename: copy('แก้ไขกลุ่ม', 'Updated group'),
+    leave: copy('ออกจากทีม', 'Left group'),
+    rename: copy('แก้ไขทีม', 'Updated group'),
   };
   return (
     <section
       className={`${embedded ? 'space-y-4' : 'page-content space-y-6'} text-brand-text min-w-0`}
-      aria-label={copy('จัดการกลุ่ม', 'Group management')}
+      aria-label={copy('จัดการทีม', 'Group management')}
     >
-      {!embedded && <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-blue-acc">WORK TOGETHER</span>
-          <h1 className="mt-2 text-2xl sm:text-3xl font-display font-extrabold">
-            {copy('กลุ่มของเรา', 'Your teams')}
-          </h1>
-          <p className="mt-2 text-sm text-brand-muted">
-            {copy('สร้างทีม ชวนสมาชิก และจัดการสิทธิ์ในที่เดียว', 'Create teams, invite people, and manage access in one place.')}
-          </p>
-        </div>
+      {!embedded && <PageHeader page="groups">
         {!isGuest && (
           <div className="flex gap-2">
             {view === 'groups' && <button
@@ -235,30 +227,30 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                 setError('');
                 void reload();
               }}
-              aria-label={copy('รีเฟรชกลุ่ม', 'Refresh groups')}
+              aria-label={copy('อัปเดตข้อมูลทีม', 'Refresh groups')}
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>}
             {view === 'groups' && <button className={primary} disabled={busy} onClick={openCreate}>
               <Plus size={16} />
-              {copy('สร้างกลุ่ม', 'Create group')}
+              {copy('สร้างทีม', 'Create group')}
             </button>}
           </div>
         )}
-      </div>}
+      </PageHeader>}
       {!embedded && view === 'groups' && <div className="grid gap-3 sm:grid-cols-3">
         {[
           {
             icon: Users,
-            title: copy('User', 'User'),
+            title: copy('ผู้ใช้งาน', 'User'),
             text: copy(
-              'สร้างกลุ่มและรับคำเชิญเข้าร่วมได้',
+              'สร้างทีมและรับคำเชิญเข้าร่วมได้',
               'Create groups and accept invitations.',
             ),
           },
           {
             icon: Crown,
-            title: copy('หัวหน้ากลุ่ม', 'Group leader'),
+            title: copy('ผู้ดูแลทีม', 'Group leader'),
             text: copy(
               'เชิญสมาชิก เปลี่ยนสิทธิ์ และโอนตำแหน่ง',
               'Invite people, change roles, and transfer leadership.',
@@ -266,9 +258,9 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
           },
           {
             icon: ShieldCheck,
-            title: 'Admin',
+            title: copy('ผู้ดูแลระบบ', 'Admin'),
             text: copy(
-              'ดูแลทุกกลุ่มและสิทธิ์ผู้ใช้ทั้งระบบ',
+              'ดูแลทุกทีมและสิทธิ์ผู้ใช้ทั้งระบบ',
               'Moderate all groups and manage system roles.',
             ),
           },
@@ -298,7 +290,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
           </h2>
           <p className="mt-3 text-sm text-brand-muted">
             {copy(
-              'ฟีเจอร์กลุ่มใช้กับบัญชีจริง กรุณาออกจากโหมดทดลองแล้วเข้าสู่ระบบหรือสมัครสมาชิก',
+              'ฟีเจอร์ทีมใช้กับบัญชีจริง กรุณาออกจากโหมดทดลองแล้วเข้าสู่ระบบหรือสมัครสมาชิก',
               'Groups require an account. Leave guest mode to sign in or register.',
             )}
           </p>
@@ -322,7 +314,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                   setCreating(false);
                 }}
               >
-                {copy('กลุ่มของฉัน', 'My groups')} · {snapshot.systemRole}
+                {copy('ทีมของฉัน', 'My groups')} · {snapshot.systemRole}
               </button>
               {snapshot.systemRole === 'admin' && (
                 <>
@@ -337,7 +329,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                       setCreating(false);
                     }}
                   >
-                    {copy('ทุกกลุ่ม', 'All groups')}
+                    {copy('ทุกทีม', 'All groups')}
                   </button>
                   <button
                     className={view === 'users' ? primary : secondary}
@@ -381,7 +373,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
             >
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-bold text-lg">
-                  {copy('สร้างกลุ่มใหม่', 'Create a new group')}
+                  {copy('สร้างทีมใหม่', 'Create a new group')}
                 </h2>
                 <button
                   type="button"
@@ -395,7 +387,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="text-sm font-semibold">
-                  {copy('ชื่อกลุ่ม', 'Group name')}
+                  {copy('ชื่อทีม', 'Group name')}
                   <input
                     className={`${input} mt-2`}
                     value={name}
@@ -417,7 +409,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
               </div>
               <p className="text-xs text-brand-muted mt-4 mb-4">
                 {copy(
-                  'คุณจะเป็นหัวหน้าอัตโนมัติ และเพิ่มหัวหน้าคนอื่นได้ภายหลัง',
+                  'คุณจะเป็นผู้ดูแลทีมอัตโนมัติ และเพิ่มผู้ดูแลทีมคนอื่นได้ภายหลัง',
                   'You become the leader automatically and can add more leaders later.',
                 )}
               </p>
@@ -428,7 +420,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
               >
                 {busy
                   ? copy('กำลังบันทึก…', 'Saving…')
-                  : copy('ยืนยันสร้างกลุ่ม', 'Create this group')}
+                  : copy('ยืนยันสร้างทีม', 'Create this group')}
               </button>
             </form>
           )}
@@ -499,8 +491,8 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                   <div className="flex items-center justify-between">
                     <h2 className="font-bold">
                       {scope === 'all'
-                        ? copy('ทุกกลุ่ม', 'All groups')
-                        : copy('กลุ่มของฉัน', 'My groups')}
+                        ? copy('ทุกทีม', 'All groups')
+                        : copy('ทีมของฉัน', 'My groups')}
                     </h2>
                     <span className="text-xs text-brand-muted">
                       {snapshot?.total || 0}
@@ -508,7 +500,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                   </div>
                   {!snapshot && loading ? (
                     <p className="mt-5 text-sm text-brand-muted">
-                      {copy('กำลังโหลดกลุ่ม…', 'Loading groups…')}
+                      {copy('กำลังโหลดทีม…', 'Loading groups…')}
                     </p>
                   ) : (
                     <div className="space-y-3 mt-4">
@@ -540,7 +532,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                           />
                           <p className="text-sm">
                             {copy(
-                              'ยังไม่มีกลุ่ม เริ่มสร้างทีมแรกได้เลย',
+                              'ยังไม่มีทีม เริ่มสร้างทีมแรกได้เลย',
                               'No groups yet. Create your first team.',
                             )}
                           </p>
@@ -563,7 +555,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-brand-blue-acc mb-2">
                             {roleLabel(detail.myRole)} · {detail.leaderCount}{' '}
-                            {copy('หัวหน้า', 'leaders')}
+                            {copy('ผู้ดูแลทีม', 'leaders')}
                           </p>
                           <h2 className="text-xl font-bold break-words">
                             {detail.name}
@@ -583,7 +575,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                               setCreating(false);
                             }}
                           >
-                            {copy('แก้ไขกลุ่ม', 'Edit group')}
+                            {copy('แก้ไขทีม', 'Edit group')}
                           </button>
                         )}
                       </div>
@@ -601,7 +593,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                           }}
                         >
                           <label className="block text-sm font-semibold">
-                            {copy('ชื่อกลุ่ม', 'Group name')}
+                            {copy('ชื่อทีม', 'Group name')}
                             <input
                               className={`${input} mt-2`}
                               value={name}
@@ -623,7 +615,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                             className={primary}
                             disabled={busy || !name.trim()}
                           >
-                            {copy('บันทึกกลุ่ม', 'Save group')}
+                            {copy('บันทึกทีม', 'Save group')}
                           </button>
                         </form>
                       )}
@@ -755,7 +747,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                             disabled={busy || loading}
                             onClick={() =>
                               confirm(
-                                copy('ลบกลุ่มถาวร', 'Delete group permanently'),
+                                copy('ลบทีมถาวร', 'Delete group permanently'),
                                 copy(
                                   `ลบ ${detail.name} พร้อมข้อมูลการเงิน สมาชิก และคำเชิญทั้งหมด?`,
                                   `Delete ${detail.name}, all financial data, memberships and invitations?`,
@@ -765,7 +757,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                             }
                           >
                             <Trash2 size={14} />
-                            {copy('ลบกลุ่ม', 'Delete group')}
+                            {copy('ลบทีม', 'Delete group')}
                           </button>
                         </div>
                       </div>
@@ -778,9 +770,9 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                     <Users size={36} className="opacity-40 mb-4" />
                     <p className="text-sm">
                       {selected && loading
-                        ? copy('กำลังโหลดกลุ่ม…', 'Loading group…')
+                        ? copy('กำลังโหลดทีม…', 'Loading group…')
                         : copy(
-                            'เลือกกลุ่มเพื่อดูสมาชิกและสิทธิ์',
+                            'เลือกทีมเพื่อดูสมาชิกและสิทธิ์',
                             'Select a group to see members and permissions.',
                           )}
                     </p>
@@ -791,7 +783,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
           )}
           <p className="text-xs text-brand-muted leading-relaxed">
             {copy(
-              'สิทธิ์ในกลุ่มแยกจาก role ของระบบ ข้อมูลรายรับ รายจ่าย และเอกสารส่วนตัวของแต่ละบัญชียังคงเป็นส่วนตัว',
+              'สิทธิ์ในทีมแยกจาก role ของระบบ ข้อมูลรายรับ รายจ่าย และเอกสารส่วนตัวของแต่ละบัญชียังคงเป็นส่วนตัว',
               'Group roles are separate from system roles. Each account’s income, expenses, and personal documents remain private.',
             )}
           </p>

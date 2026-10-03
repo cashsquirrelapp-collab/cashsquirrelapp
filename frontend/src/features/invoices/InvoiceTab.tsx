@@ -1,3 +1,5 @@
+import PageHeader from '../../components/ui/PageHeader';
+import { uiPrimaryButton } from '../../components/ui/uiStyles';
 import { privateCache } from '../../services/privateCache';
 import { imageFileToDataUrl } from '../../services/images';
 import { readInvoices, saveCloud } from '../../services/cloud';
@@ -625,20 +627,16 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         </div>
       )}
       
-      <div className="flex items-center justify-between gap-4 no-print">
-        <div>
-          <h1 className="text-2xl font-black text-brand-text dark:text-white">เอกสาร</h1>
-          <p className="mt-1 text-xs text-brand-muted">จัดการใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ และใบกำกับภาษี</p>
-        </div>
+      <PageHeader page="invoice" className="no-print">
         <button
           type="button"
           onClick={handleOpenCreateForm}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#E65F2B] px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-[#CF4E1D]"
+          className={uiPrimaryButton}
         >
           <Plus className="h-4 w-4" />
           <span>ออกเอกสารใหม่</span>
         </button>
-      </div>
+      </PageHeader>
 
       {activeSubTab === 'list' && (
         <div className="flex gap-2 overflow-x-auto pb-1 no-print" aria-label="ประเภทเอกสาร">

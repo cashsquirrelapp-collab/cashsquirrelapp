@@ -1,3 +1,4 @@
+import PageHeader from '../../components/ui/PageHeader';
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job } from '../../../../shared/types';
@@ -411,14 +412,10 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab, embed
 
   return (
     <div className={embedded ? 'space-y-6' : 'page-content space-y-6 max-w-5xl mx-auto pb-12'}>
+      {!embedded && <PageHeader page="insight" />}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        {embedded ? (
-          <p className="text-xs text-brand-muted">ดูว่าลูกค้าคนไหนหรืองานประเภทไหนทำเงินให้คุณมากที่สุด</p>
-        ) : (
-          <div>
-            <h2 className="font-display font-black text-lg text-brand-text dark:text-white">วิเคราะห์รายได้เชิงลึก</h2>
-            <p className="text-xs text-brand-muted mt-0.5">ดูว่าลูกค้าคนไหนหรืองานประเภทไหนทำเงินให้คุณมากที่สุด</p>
-          </div>
+        {embedded && (
+          <p className="text-xs text-brand-muted">เปรียบเทียบรายรับแยกตามลูกค้าและประเภทงาน</p>
         )}
         <select
           value={period}

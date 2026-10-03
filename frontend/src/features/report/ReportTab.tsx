@@ -1,3 +1,5 @@
+import { uiSurface } from '../../components/ui/uiStyles';
+import PageHeader from '../../components/ui/PageHeader';
 import React, { useMemo, useState } from 'react';
 import { Job, Expense } from '../../../../shared/types';
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
@@ -22,7 +24,7 @@ export type ViewKey = 'overview' | 'income' | 'credit';
 const VIEWS: { key: ViewKey; label: string }[] = [
   { key: 'overview', label: 'ภาพรวม' },
   { key: 'income', label: 'รายได้ & ลูกค้า' },
-  { key: 'credit', label: 'Credit Term' },
+  { key: 'credit', label: 'ระยะเวลารับเงิน' },
 ];
 
 export default function ReportTab({
@@ -121,7 +123,7 @@ export default function ReportTab({
 
   return (
     <div className="page-content space-y-4">
-      <h2 className="text-[19px] font-semibold text-brand-text">รายงาน</h2>
+      <PageHeader page="report" />
 
       {tabSwitcher}
 
@@ -134,14 +136,14 @@ export default function ReportTab({
               { label: 'กำไร', value: profit, Icon: Wallet },
               { label: 'เงินค้างรับ', value: totalPending, Icon: Clock },
             ].map(kpi => (
-              <div key={kpi.label} className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+              <div key={kpi.label} className={`${uiSurface} p-[18px]`}>
                 <kpi.Icon className="h-5 w-5 text-[#C24A16]" strokeWidth={1.8} />
                 <p className="mt-2 text-xs text-brand-muted">{kpi.label}</p>
                 <p className="mt-0.5 text-lg font-semibold text-brand-text">{formatCurrency(kpi.value)}</p>
               </div>
             ))}
           </div>
-          <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+          <div className={`${uiSurface} p-[18px]`}>
             <h4 className="mb-3 text-[13px] font-medium text-brand-text">แนวโน้มรายเดือน</h4>
             <div className="h-[120px] w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -170,20 +172,20 @@ export default function ReportTab({
             </button>
           )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+            <div className={`${uiSurface} p-[18px]`}>
               <p className="text-xs text-brand-muted">รายได้เฉลี่ย / งาน</p>
               <p className="mt-1 text-lg font-semibold text-brand-text">{formatCurrency(avgPerJob)}</p>
             </div>
-            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+            <div className={`${uiSurface} p-[18px]`}>
               <p className="text-xs text-brand-muted">รายได้เฉลี่ย / ลูกค้า</p>
               <p className="mt-1 text-lg font-semibold text-brand-text">{formatCurrency(avgPerClient)}</p>
             </div>
-            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+            <div className={`${uiSurface} p-[18px]`}>
               <p className="text-xs text-brand-muted">รายรับรวม</p>
               <p className="mt-1 text-lg font-semibold text-brand-text">{formatCurrency(totalIncome)}</p>
             </div>
           </div>
-          <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+          <div className={`${uiSurface} p-[18px]`}>
             <h4 className="mb-2.5 text-[13px] font-medium text-brand-text">รายได้ตามประเภทงาน</h4>
             {incomeByType.map(item => (
               <div key={item.type} className="flex items-center justify-between border-t border-brand-border py-2 text-xs first:border-t-0">
@@ -193,7 +195,7 @@ export default function ReportTab({
             ))}
           </div>
 
-          <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+          <div className={`${uiSurface} p-[18px]`}>
             <h4 className="mb-2.5 text-[13px] font-medium text-brand-text">ลูกค้าที่สร้างรายได้สูง</h4>
             {topClients.length === 0 ? (
               <p className="py-4 text-center text-xs text-brand-muted">ยังไม่มีข้อมูลลูกค้า</p>
@@ -205,11 +207,11 @@ export default function ReportTab({
             ))}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+            <div className={`${uiSurface} p-[18px]`}>
               <p className="text-xs text-brand-muted">ลูกค้าประจำ (Repeat)</p>
               <p className="mt-1 text-lg font-semibold text-brand-text">{repeatClients} ราย</p>
             </div>
-            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+            <div className={`${uiSurface} p-[18px]`}>
               <p className="text-xs text-brand-muted">เงินค้างรับสูงสุด</p>
               <p className="mt-1 text-lg font-semibold text-brand-text">
                 {highestOutstanding && highestOutstanding.pending > 0 ? `${highestOutstanding.name} · ${formatCurrency(highestOutstanding.pending)}` : '—'}
@@ -222,27 +224,27 @@ export default function ReportTab({
       {view === 'credit' && (
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+            <div className={`${uiSurface} p-[18px]`}>
               <Clock className="h-5 w-5 text-[#C24A16]" strokeWidth={1.8} />
               <p className="mt-2 text-xs text-brand-muted">เงินค้างรับทั้งหมด</p>
               <p className="mt-0.5 text-lg font-semibold text-brand-text">{formatCurrency(creditSummary.total)}</p>
               <p className="mt-1 text-[11px] text-brand-muted">{receivables.length} รายการ</p>
             </div>
-            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+            <div className={`${uiSurface} p-[18px]`}>
               <TriangleAlert className="h-5 w-5 text-[#C43A3A]" strokeWidth={1.8} />
               <p className="mt-2 text-xs text-brand-muted">เกินกำหนด</p>
               <p className="mt-0.5 text-lg font-semibold text-brand-text">{creditSummary.overdue} รายการ</p>
             </div>
-            <div className="rounded-[14px] border border-brand-border bg-brand-white p-[18px]">
+            <div className={`${uiSurface} p-[18px]`}>
               <Clock className="h-5 w-5 text-[#B97816]" strokeWidth={1.8} />
               <p className="mt-2 text-xs text-brand-muted">ครบกำหนดภายใน 7 วัน</p>
               <p className="mt-0.5 text-lg font-semibold text-brand-text">{creditSummary.dueSoon} รายการ</p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-[14px] border border-brand-border bg-brand-white p-[18px] sm:flex-row sm:items-center sm:justify-between">
+          <div className={`${uiSurface} flex flex-col gap-4 p-[18px] sm:flex-row sm:items-center sm:justify-between`}>
             <div>
-              <h3 className="text-[13px] font-medium text-brand-text">ติดตาม Credit Term</h3>
+              <h3 className="text-[13px] font-medium text-brand-text">ติดตามระยะเวลารับเงิน</h3>
               <p className="mt-1 max-w-xl text-xs leading-5 text-brand-muted">
                 ดูรายการครบกำหนด ตั้งเตือน และบันทึกรับเงินได้ที่หน้า “เงินที่ยังไม่ได้รับ”
               </p>

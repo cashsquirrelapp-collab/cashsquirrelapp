@@ -1,3 +1,4 @@
+import PageHeader from '../../components/ui/PageHeader';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   Activity,
@@ -178,35 +179,35 @@ export default function AdminDashboard({
       section: 'accounts',
     },
     {
-      label: 'Admin',
+      label: copy('ผู้ดูแลระบบ', 'Admins'),
       value: stats.adminAccounts,
       icon: ShieldCheck,
       color: 'text-brand-blue-acc',
       section: 'admins',
     },
     {
-      label: copy('กลุ่มทั้งหมด', 'Total groups'),
+      label: copy('ทีมทั้งหมด', 'Total groups'),
       value: stats.totalGroups,
       icon: BriefcaseBusiness,
       color: 'text-brand-text',
       section: 'groups',
     },
     {
-      label: copy('Pro ที่ชำระเงินหรือแอดมินมอบให้', 'Paid or admin-granted Pro'),
+      label: copy('สมาชิก Pro', 'Paid or admin-granted Pro'),
       value: stats.proAccounts,
       icon: Crown,
       color: 'text-amber-600',
       section: 'pro',
     },
     {
-      label: copy('คำเชิญที่ยังไม่หมดอายุ', 'Open invitations'),
+      label: copy('คำเชิญที่รอตอบรับ', 'Open invitations'),
       value: stats.pendingInvitations,
       icon: Mail,
       color: 'text-brand-blue-acc',
       section: 'invitations',
     },
     {
-      label: copy('พักบัญชีอยู่', 'Temporarily paused'),
+      label: copy('บัญชีที่พักชั่วคราว', 'Temporarily paused'),
       value: stats.pausedAccounts,
       icon: UserRound,
       color: 'text-brand-muted',
@@ -232,17 +233,17 @@ export default function AdminDashboard({
   const detailTitle = activePanel === 'manageUsers'
     ? copy('จัดการผู้ใช้', 'Manage users')
     : activePanel === 'manageGroups'
-      ? copy('จัดการทุกกลุ่ม', 'Manage all groups')
+      ? copy('จัดการทุกทีม', 'Manage all groups')
       : activePanel === 'accounts'
         ? copy('บัญชีทั้งหมด', 'All accounts')
         : activePanel === 'admins'
           ? copy('บัญชีผู้ดูแลระบบ', 'Admin accounts')
           : activePanel === 'groups'
-            ? copy('กลุ่มทั้งหมด', 'All groups')
+            ? copy('ทีมทั้งหมด', 'All groups')
             : activePanel === 'pro'
-              ? copy('บัญชี Pro ที่ชำระเงินหรือแอดมินมอบให้', 'Paid or admin-granted Pro accounts')
+              ? copy('บัญชี สมาชิก Pro', 'Paid or admin-granted Pro accounts')
               : activePanel === 'invitations'
-                ? copy('คำเชิญที่ยังไม่หมดอายุ', 'Open invitations')
+                ? copy('คำเชิญที่รอตอบรับ', 'Open invitations')
                 : activePanel === 'paused'
                   ? copy('บัญชีที่พักชั่วคราว', 'Temporarily paused accounts')
                   : activePanel === 'deletions'
@@ -266,7 +267,7 @@ export default function AdminDashboard({
     invoice: ['เอกสารและใบแจ้งหนี้', 'Documents and invoices'],
     insight: ['วิเคราะห์รายได้', 'Income insights'],
     plans: ['แพ็กเกจ', 'Plans'],
-    groups: ['กลุ่มและสมาชิก', 'Groups and members'],
+    groups: ['ทีมและสมาชิก', 'Groups and members'],
     clients: ['ลูกค้า', 'Clients'],
     calendar: ['ปฏิทินงาน', 'Calendar'],
     receivables: ['รายการรอรับเงิน', 'Receivables'],
@@ -312,29 +313,18 @@ export default function AdminDashboard({
 
   return (
     <section aria-labelledby="admin-dashboard-title" className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-blue-acc">
-            ADMIN OVERVIEW
-          </p>
-          <h2 id="admin-dashboard-title" className="mt-1 text-2xl font-display font-extrabold">
-            {copy('ภาพรวมระบบ', 'System overview')}
-          </h2>
-          <p className="mt-1 text-sm text-brand-muted">
-            {copy('สรุปสถานะบัญชี กลุ่ม และรายการที่ต้องติดตาม', 'A summary of accounts, groups, and items that need attention.')}
-          </p>
-        </div>
+      <PageHeader page="adminDashboard" id="admin-dashboard-title">
         <button
           type="button"
           className={secondary}
           disabled={loading}
           onClick={() => setRevision((value) => value + 1)}
-          aria-label={copy('รีเฟรชข้อมูลแอดมิน', 'Refresh admin overview')}
+          aria-label={copy('อัปเดตข้อมูลแอดมิน', 'Refresh admin overview')}
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          {copy('รีเฟรช', 'Refresh')}
+          {copy('อัปเดตข้อมูล', 'Refresh')}
         </button>
-      </div>
+      </PageHeader>
 
       {error && (
         <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 dark:bg-red-950/20 p-4 text-sm text-red-700 dark:text-red-300">
@@ -450,7 +440,7 @@ export default function AdminDashboard({
                     type="button"
                     className={`group relative flex h-full min-w-0 items-end rounded-t-md outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-white dark:focus-visible:ring-offset-stone-900 ${selected ? 'ring-2 ring-orange-400 ring-offset-1 ring-offset-brand-white dark:ring-offset-stone-900' : ''}`}
                     onClick={() => setSelectedUsageDate(day.date)}
-                    aria-label={`${label}. ${copy('กดเพื่อดูรายละเอียดของวันดังกล่าว', 'Select to view this day’s details')}`}
+                    aria-label={`${label}. ${copy('ดูรายละเอียดของวันนี้', 'Select to view this day’s details')}`}
                     aria-pressed={selected}
                   >
                     <span
@@ -569,14 +559,14 @@ export default function AdminDashboard({
 
       <div className={`${panel} flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}>
         <div>
-          <p className="font-bold">{copy('จัดการต่อ', 'Continue managing')}</p>
+          <p className="font-bold">{copy('การจัดการ', 'Continue managing')}</p>
           <p className="mt-1 text-sm text-brand-muted">
-            {copy('เลือกดูบัญชีผู้ใช้หรือกลุ่ม โดยข้อมูลการเงินส่วนตัวจะไม่แสดงในหน้านี้', 'Open user or group management. Personal financial data is not shown here.')}
+            {copy('เลือกดูบัญชีผู้ใช้หรือทีม โดยข้อมูลการเงินส่วนตัวจะไม่แสดงในหน้านี้', 'Open user or group management. Personal financial data is not shown here.')}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <button type="button" className={secondary} onClick={() => openPanel('manageUsers')} aria-controls="admin-dashboard-detail" aria-expanded={activePanel === 'manageUsers'}>{copy('จัดการผู้ใช้', 'Manage users')}</button>
-          <button type="button" className={secondary} onClick={() => openPanel('manageGroups')} aria-controls="admin-dashboard-detail" aria-expanded={activePanel === 'manageGroups'}>{copy('ดูทุกกลุ่ม', 'View groups')}</button>
+          <button type="button" className={secondary} onClick={() => openPanel('manageGroups')} aria-controls="admin-dashboard-detail" aria-expanded={activePanel === 'manageGroups'}>{copy('ดูทุกทีม', 'View groups')}</button>
         </div>
       </div>
 
