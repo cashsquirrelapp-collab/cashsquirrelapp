@@ -207,7 +207,7 @@ export default function AdminUsersPanel({
         <button
           type="button"
           className={secondary}
-          disabled={busy || !deletionRequests?.length}
+          disabled={busy}
           onClick={() => triggerConfirm(
             copy('สร้างลิงก์กู้คืนกลาง', 'Create a general recovery link'),
             copy('ลิงก์นี้ใช้ได้กับบัญชีที่สั่งลบถาวรและยังอยู่ในช่วงกู้คืน ผู้ใช้ต้องกรอกอีเมลสำรองที่ยืนยันไว้ ลิงก์มีอายุ 1 ชั่วโมง และการสร้างลิงก์เพิ่มจะไม่ยกเลิกลิงก์ที่ยังไม่หมดอายุ', 'This link can be used for any permanently deleted account still within its recovery period. The user must enter their verified backup email. It lasts 1 hour, and generating another link will not invalidate unexpired links.'),

@@ -333,11 +333,6 @@ export default withGuard(
       const parsed = createRecoveryLinkSchema.safeParse(req.body);
       if (!parsed.success) throw new HttpError(400, 'ข้อมูลสร้างลิงก์กู้คืนไม่ถูกต้อง');
       const issuedAt = Date.now();
-      const pending = await db.from('cashflow_account_pauses').select('user_id')
-        .eq('closure_kind', 'deletion').eq('state', 'paused')
-        .gt('delete_after', new Date(issuedAt).toISOString()).limit(1);
-      if (pending.error) throw pending.error;
-      if (!pending.data?.length) throw new HttpError(409, 'ไม่มีคำขอลบบัญชีถาวรที่ยังอยู่ในช่วงกู้คืน');
       const expiresAt = new Date(issuedAt + RECOVERY_LINK_TTL_MS).toISOString();
       const token = randomBytes(32).toString('base64url');
       const tokenHash = challengeHash(`account-recovery-link:${token}`);
