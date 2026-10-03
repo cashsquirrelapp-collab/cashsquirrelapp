@@ -103,7 +103,7 @@ export default withGuard(
       )
     )
       throw new HttpError(400, "รูปบัญชีเป็นข้อมูลส่วนตัว");
-    const { error } = groupId
+    const { data, error } = groupId
       ? await admin.rpc("cashflow_group_finance_apply", {
           p_actor: user.id,
           p_group_id: groupId,
@@ -114,6 +114,15 @@ export default withGuard(
           p_changes: changes,
         });
     financeError(error);
+    // The personal finance RPC returns false for a stale client baseline after
+    // rolling back the batch. Keep the existing conflict response for clients.
+    // `null` remains accepted while older deployed SQL still returns void.
+    if (!groupId && data === false) {
+      res.status(409).json({
+        error: "รายการนี้ถูกแก้ไขจากอีกช่องทาง กรุณาโหลดข้อมูลล่าสุดก่อนบันทึกอีกครั้ง",
+      });
+      return;
+    }
     res.json({ ok: true });
   },
   { csrf: true },
