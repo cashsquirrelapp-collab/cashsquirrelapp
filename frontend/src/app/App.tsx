@@ -389,6 +389,7 @@ export default function App() {
 
   const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean) => {
     const Icon = item.icon;
+    const hasCoreFeatureShadow = ['dashboard', 'jobs', 'calendar', 'incomeExpense'].includes(item.key);
     return (
       <button
         key={item.key}
@@ -405,6 +406,7 @@ export default function App() {
             ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#34231B] dark:text-[#FFA473] font-bold'
             : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'
         }`}
+        style={activeTab === item.key && hasCoreFeatureShadow ? { boxShadow: '0 5px 14px rgba(194, 74, 22, 0.14)' } : undefined}
       >
         <Icon className="w-4.5 h-4.5" />
         <span>{t(item.labelKey)}</span>
