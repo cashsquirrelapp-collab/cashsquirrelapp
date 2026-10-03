@@ -1,4 +1,5 @@
 import PageHeader from '../../components/ui/PageHeader';
+import { AdminDetailsLoadingSkeleton, AdminUsersLoadingSkeleton, GroupsLoadingSkeleton, SkeletonBlock } from '../../components/ui/AppLoadingSkeleton';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   Activity,
@@ -336,9 +337,12 @@ export default function AdminDashboard({
         {displayCards.map((card) => {
           if ('skeleton' in card) {
             return (
-              <div key={card.key} className={`${panel} min-h-32 animate-pulse`} aria-hidden="true">
-                <div className="h-3 w-28 rounded bg-brand-faint" />
-                <div className="mt-5 h-8 w-16 rounded bg-brand-faint" />
+              <div key={card.key} className={`${panel} min-h-32`} aria-hidden="true">
+                <div className="flex items-start justify-between gap-3">
+                  <SkeletonBlock className="h-4 w-28" />
+                  <SkeletonBlock className="h-[18px] w-[18px] shrink-0" />
+                </div>
+                <SkeletonBlock className="mt-4 h-9 w-16" />
               </div>
             );
           }
@@ -588,7 +592,7 @@ export default function AdminDashboard({
           </div>
 
           {activePanel === 'manageUsers' ? (
-            <Suspense fallback={<div className={`${panel} h-40 animate-pulse`} aria-label={copy('กำลังโหลด', 'Loading')} />}>
+            <Suspense fallback={<AdminUsersLoadingSkeleton />}>
               <AdminUsersPanel
                 userId={userId}
                 triggerConfirm={triggerConfirm}
@@ -596,7 +600,7 @@ export default function AdminDashboard({
               />
             </Suspense>
           ) : activePanel === 'manageGroups' ? (
-            <Suspense fallback={<div className={`${panel} h-40 animate-pulse`} aria-label={copy('กำลังโหลด', 'Loading')} />}>
+            <Suspense fallback={<GroupsLoadingSkeleton />}>
               <GroupsTab
                 userId={userId}
                 isGuest={false}
@@ -608,13 +612,7 @@ export default function AdminDashboard({
           ) : (
             <div className={`${panel} min-w-0`} aria-live="polite">
               {detailError && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-300">{detailError}</p>}
-              {detailLoading ? (
-                <div className="space-y-3" aria-label={copy('กำลังโหลดรายการ', 'Loading records')}>
-                  <div className="h-12 animate-pulse rounded-xl bg-brand-faint" />
-                  <div className="h-12 animate-pulse rounded-xl bg-brand-faint" />
-                  <div className="h-12 animate-pulse rounded-xl bg-brand-faint" />
-                </div>
-              ) : (
+              {detailLoading ? <AdminDetailsLoadingSkeleton /> : (
                 <>
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm text-brand-muted">

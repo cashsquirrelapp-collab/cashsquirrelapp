@@ -292,35 +292,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   @media (max-width: 639px) { .ui-page-actions { width: 100%; } }
 }
 
-/* Skeleton screens preserve the app's real layout while session, workspace, or lazy feature data
-   is arriving. The moving highlight is intentionally subtle so loading feels alive, not noisy. */
-.app-skeleton-content {
-  display: grid;
-  gap: 1.25rem;
-}
+/* Skeletons use the same surfaces as their pages. Keep base shapes in the component
+   layer so each placeholder can match the real control's radius and dimensions. */
+@layer components {
+  .app-skeleton-content {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+  }
 
-.app-skeleton-card {
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 1.5rem;
-  background: color-mix(in srgb, var(--white) 96%, var(--bg));
-  padding: 1.25rem;
-  box-shadow: var(--shadow-card);
-}
+  .app-skeleton-block {
+    position: relative;
+    overflow: hidden;
+    max-width: 100%;
+    border-radius: .375rem;
+    background: color-mix(in srgb, var(--muted) 13%, var(--faint));
+  }
 
-.app-skeleton-block {
-  position: relative;
-  overflow: hidden;
-  border-radius: .55rem;
-  background: color-mix(in srgb, var(--muted) 13%, var(--faint));
-}
-
-.app-skeleton-block::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--white) 68%, transparent), transparent);
-  animation: app-skeleton-shimmer 1.55s ease-in-out infinite;
+  .app-skeleton-block::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--white) 68%, transparent), transparent);
+    animation: app-skeleton-shimmer 1.55s ease-in-out infinite;
+  }
 }
 
 @keyframes app-skeleton-shimmer {

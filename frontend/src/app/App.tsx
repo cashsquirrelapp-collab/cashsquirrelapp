@@ -2513,7 +2513,7 @@ export default function App() {
 
         {/* Scrollable Container with responsive max widths */}
         <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
-          <Suspense fallback={<ContentLoadingSkeleton />}>
+          <Suspense fallback={<ContentLoadingSkeleton page={activeTab} />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
             <PageHeader page="dashboard" id="dashboard-title" className="mb-4">
@@ -2559,7 +2559,7 @@ export default function App() {
           )}
 
           {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !['groups','plans','adminDashboard'].includes(activeTab) ? (
-            <ContentLoadingSkeleton />
+            <ContentLoadingSkeleton page={activeTab} includeHeader={activeTab !== 'dashboard'} />
           ) : !session.isGuest && loadedFinanceOwner!==financeOwner && !['groups','plans','adminDashboard'].includes(activeTab) ? (
             <div role="status" className="rounded-3xl border border-brand-border bg-brand-white p-8 text-center">
               <p className="font-bold text-brand-text">{cloudSyncStatus==='failed' ? 'โหลดบัญชีการเงินไม่สำเร็จ' : 'กำลังโหลดบัญชีการเงิน…'}</p>
@@ -2707,7 +2707,7 @@ export default function App() {
               )}
               {activeTab === 'adminDashboard' && (
                 !session.isGuest && (!routeContext || routeContext.userId !== session.user.id)
-                  ? <ContentLoadingSkeleton />
+                  ? <ContentLoadingSkeleton page="adminDashboard" />
                   : routeContext?.systemRole === 'admin'
                     ? <AdminDashboardTab
                         userId={session.user.id}
