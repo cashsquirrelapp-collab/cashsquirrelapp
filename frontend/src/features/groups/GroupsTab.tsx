@@ -35,8 +35,10 @@ interface Props {
   userId: string;
   isGuest: boolean;
   triggerConfirm: Confirm;
+  initialView?: 'groups' | 'users';
+  initialScope?: 'mine' | 'all';
 }
-export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
+export default function GroupsTab({ userId, isGuest, triggerConfirm, initialView = 'groups', initialScope = 'mine' }: Props) {
   const { language } = useLanguage();
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
   const roleLabel = (role: GroupRole | null) =>
@@ -47,10 +49,10 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
         : copy('ดูแลโดย admin', 'Admin access');
   const [snapshot, setSnapshot] = useState<GroupSnapshot | null>(null);
   const [detail, setDetail] = useState<GroupDetail | null>(null);
-  const [scope, setScope] = useState<'mine' | 'all'>('mine');
+  const [scope, setScope] = useState<'mine' | 'all'>(initialScope);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
-  const [view, setView] = useState<'groups' | 'users'>('groups');
+  const [view, setView] = useState<'groups' | 'users'>(initialView);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -216,22 +218,17 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-blue-acc">
-            WORK TOGETHER
-          </span>
+          <span className="text-xs font-bold uppercase tracking-widest text-brand-blue-acc">WORK TOGETHER</span>
           <h1 className="mt-2 text-2xl sm:text-3xl font-display font-extrabold">
             {copy('กลุ่มของเรา', 'Your teams')}
           </h1>
           <p className="mt-2 text-sm text-brand-muted">
-            {copy(
-              'สร้างทีม ชวนสมาชิก และจัดการสิทธิ์ในที่เดียว',
-              'Create teams, invite people, and manage access in one place.',
-            )}
+            {copy('สร้างทีม ชวนสมาชิก และจัดการสิทธิ์ในที่เดียว', 'Create teams, invite people, and manage access in one place.')}
           </p>
         </div>
         {!isGuest && (
           <div className="flex gap-2">
-            <button
+            {view === 'groups' && <button
               className={secondary}
               disabled={busy || loading}
               onClick={() => {
@@ -241,15 +238,15 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
               aria-label={copy('รีเฟรชกลุ่ม', 'Refresh groups')}
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            </button>
-            <button className={primary} disabled={busy} onClick={openCreate}>
+            </button>}
+            {view === 'groups' && <button className={primary} disabled={busy} onClick={openCreate}>
               <Plus size={16} />
               {copy('สร้างกลุ่ม', 'Create group')}
-            </button>
+            </button>}
           </div>
         )}
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      {view === 'groups' && <div className="grid gap-3 sm:grid-cols-3">
         {[
           {
             icon: Users,
@@ -289,7 +286,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
             </div>
           </div>
         ))}
-      </div>
+      </div>}
       {isGuest ? (
         <div className={`${panel} text-center py-12`}>
           <Users className="mx-auto text-brand-blue-acc mb-4" size={40} />
@@ -322,6 +319,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
                   setView('groups');
                   setScope('mine');
                   setPage(0);
+                  setCreating(false);
                 }}
               >
                 {copy('กลุ่มของฉัน', 'My groups')} · {snapshot.systemRole}
@@ -336,13 +334,14 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
                       setView('groups');
                       setScope('all');
                       setPage(0);
+                      setCreating(false);
                     }}
                   >
                     {copy('ทุกกลุ่ม', 'All groups')}
                   </button>
                   <button
                     className={view === 'users' ? primary : secondary}
-                    onClick={() => setView('users')}
+                    onClick={() => { setView('users'); setCreating(false); }}
                   >
                     {copy('จัดการผู้ใช้', 'Manage users')}
                   </button>
@@ -367,7 +366,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm }: Props) {
               {notice}
             </div>
           )}
-          {creating && (
+          {creating && view === 'groups' && (
             <form
               className={panel}
               onSubmit={(e) => {

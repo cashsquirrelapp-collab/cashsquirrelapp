@@ -2,6 +2,15 @@ import { z } from 'zod';
 
 export type SystemRole = 'admin' | 'user';
 export type GroupRole = 'leader' | 'member';
+export interface AdminDashboardStats {
+  totalAccounts: number;
+  adminAccounts: number;
+  totalGroups: number;
+  proAccounts: number;
+  pendingInvitations: number;
+  pausedAccounts: number;
+  pendingDeletions: number;
+}
 export interface GroupSummary {
   id: string;
   name: string;

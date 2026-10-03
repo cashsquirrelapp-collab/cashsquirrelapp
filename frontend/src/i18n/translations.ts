@@ -8,6 +8,8 @@ export const translations: Record<Language, Record<string, string>> = {
   th: {
     // Sidebar navigation
     'nav.dashboard': 'ภาพรวม',
+    'nav.adminDashboard': 'แดชบอร์ดแอดมิน',
+    'admin.noAccess': 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น',
     'nav.groups': 'ทีม',
     'header.groups': 'กลุ่มและสิทธิ์สมาชิก',
     'nav.jobs': 'งาน',
@@ -640,6 +642,8 @@ export const translations: Record<Language, Record<string, string>> = {
   },
   en: {
     'nav.dashboard': 'Overview',
+    'nav.adminDashboard': 'Admin Dashboard',
+    'admin.noAccess': 'This page is available to administrators only.',
     'nav.groups': 'Team',
     'header.groups': 'Groups & Member Permissions',
     'nav.jobs': 'Jobs',

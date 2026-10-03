@@ -1,4 +1,5 @@
 import type {
+  AdminDashboardStats,
   AdminAccounts,
   AdminDeletionRequests,
   GroupAction,
@@ -49,6 +50,12 @@ export const groupApi = {
       `/api/admin-users?search=${encodeURIComponent(search)}&page=${page}`,
       { signal, headers: { 'X-Account-ID': account } },
     );
+  },
+  adminDashboard(account: string, signal?: AbortSignal) {
+    return apiJson<AdminDashboardStats>('/api/admin-users?action=dashboard', {
+      signal,
+      headers: { 'X-Account-ID': account },
+    });
   },
   accountDeletionRequests(account: string, signal?: AbortSignal) {
     return apiJson<AdminDeletionRequests>('/api/admin-users?action=deletion-requests', {

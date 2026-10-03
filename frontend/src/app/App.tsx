@@ -6,6 +6,7 @@ import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from '../
 import { getMonthKey, DEFAULT_JOB_TYPES, dateLocale, formatCurrency, isReminderDue, toLocalDateKey } from '../utils';
 
 const loadDashboardTab = () => import('../features/dashboard/DashboardTab');
+const loadAdminDashboardTab = () => import('../features/groups/AdminDashboard');
 const loadJobsTab = () => import('../features/jobs/JobsTab');
 const loadSplitTab = () => import('../features/goals/SplitTab');
 const loadTaxTab = () => import('../features/tax/TaxTab');
@@ -26,6 +27,7 @@ const ReportOverviewTab = lazy(loadReportOverviewTab);
 const CalendarTab = lazy(loadCalendarTab);
 const JobsTab = lazy(loadJobsTab);
 const DashboardTab = lazy(loadDashboardTab);
+const AdminDashboardTab = lazy(loadAdminDashboardTab);
 const SplitTab = lazy(loadSplitTab);
 import CustomDialog from '../components/ui/CustomDialog';
 import { ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
@@ -62,10 +64,11 @@ import { leafBus } from '../leafBus';
 import { IconCrown } from '../components/ui/icons';
 import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
 import { BrandLockup } from '../components/brand/BrandLogo';
-import type { GroupSummary, PublicProfile } from '../../../shared/groups';
+import type { GroupSummary, PublicProfile, SystemRole } from '../../../shared/groups';
 
 import { 
   Home, 
+  LayoutDashboard,
   Settings,
   Briefcase, 
   Percent, 
@@ -99,9 +102,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar' | 'receivables' | 'incomeExpense';
+type TabKey = 'dashboard' | 'adminDashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar' | 'receivables' | 'incomeExpense';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar', 'receivables', 'incomeExpense'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar', 'receivables', 'incomeExpense'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
 const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense' };
 
@@ -153,6 +156,7 @@ function groupWorkspaceSlug(group: GroupSummary, groups: GroupSummary[], persona
 // Fetch a feature's code before navigation when the user shows intent to open it. Dynamic
 // imports are cached by the browser, so React.lazy reuses the same download on selection.
 const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
+  adminDashboard: loadAdminDashboardTab,
   jobs: loadJobsTab,
   groups: loadGroupsTab,
   split: loadSplitTab,
@@ -178,6 +182,7 @@ const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch((
 // exists, so it can't call t() itself.
 const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
   { key: 'dashboard', labelKey: 'nav.dashboard', icon: Home, group: 'core' },
+  { key: 'adminDashboard', labelKey: 'nav.adminDashboard', icon: LayoutDashboard, group: 'core' },
   { key: 'jobs', labelKey: 'nav.jobs', icon: Briefcase, group: 'core' },
   { key: 'calendar', labelKey: 'nav.calendar', icon: CalendarDays, group: 'core' },
   // Recording an expense is a primary action, so รายจ่าย is always in the main row.
@@ -336,6 +341,7 @@ export default function App() {
   }, []);
 
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [groupsEntry, setGroupsEntry] = useState<{ view: 'groups' | 'users'; scope: 'mine' | 'all' }>({ view: 'groups', scope: 'mine' });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   // The account corner lives in the desktop sidebar and in the floating top bar on smaller screens;
@@ -431,7 +437,13 @@ export default function App() {
     profile: PublicProfile;
     groups: GroupSummary[];
     groupsLoaded: boolean;
+    systemRole: SystemRole | null;
   } | null>(null);
+  useEffect(() => {
+    if (activeTab === 'groups' && (groupsEntry.view !== 'groups' || groupsEntry.scope !== 'mine')) {
+      setGroupsEntry({ view: 'groups', scope: 'mine' });
+    }
+  }, [activeTab, groupsEntry]);
   const [financeSelection, setFinanceSelection] = useState<{account:string;groupId?:string;name?:string}>({account:''});
   const [switchingFinance, setSwitchingFinance] = useState(false);
   const financeGroupId = financeSelection.account === session?.user?.id ? financeSelection.groupId : undefined;
@@ -493,6 +505,7 @@ export default function App() {
               profile: current.profile,
               groups,
               groupsLoaded: true,
+              systemRole: first.systemRole,
             };
           });
         } catch {
@@ -655,6 +668,7 @@ export default function App() {
         profile: profileResult.status === 'fulfilled' ? profileResult.value : profileFallback,
         groups,
         groupsLoaded,
+        systemRole: groupsResult.status === 'fulfilled' ? groupsResult.value.systemRole : null,
       });
     })();
     return () => controller.abort();
@@ -707,16 +721,19 @@ export default function App() {
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
   const navItems = React.useMemo(() => {
-    const base = settings.goalsFeatureEnabled === false ? NAV_ITEMS.filter(item => item.key !== 'split') : NAV_ITEMS;
+    const base = NAV_ITEMS.filter(item =>
+      (settings.goalsFeatureEnabled !== false || item.key !== 'split') &&
+      (item.key !== 'adminDashboard' || (!session?.isGuest && routeContext?.systemRole === 'admin'))
+    );
     const persona = settings.userPersona;
     if (!persona || persona === 'freelance') return base;
     const coreKeys = PERSONA_CORE_KEYS[persona];
     return base.map(item =>
-      item.group === 'bottom' || item.key === 'dashboard' || item.key === 'jobs' || item.key === 'incomeExpense' || item.key === 'groups'
+      item.group === 'bottom' || item.key === 'dashboard' || item.key === 'adminDashboard' || item.key === 'jobs' || item.key === 'incomeExpense' || item.key === 'groups'
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
     );
-  }, [settings.userPersona, settings.goalsFeatureEnabled]);
+  }, [settings.userPersona, settings.goalsFeatureEnabled, routeContext?.systemRole, session?.isGuest]);
   const isMoreTabActive = navItems.some(item => item.group === 'more' && item.key === activeTab);
   const showMoreNavItems = moreNavOpen || isMoreTabActive;
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(() => {
@@ -2502,9 +2519,9 @@ export default function App() {
             </section>
           )}
 
-          {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !['groups','plans'].includes(activeTab) ? (
+          {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !['groups','plans','adminDashboard'].includes(activeTab) ? (
             <ContentLoadingSkeleton />
-          ) : !session.isGuest && loadedFinanceOwner!==financeOwner && !['groups','plans'].includes(activeTab) ? (
+          ) : !session.isGuest && loadedFinanceOwner!==financeOwner && !['groups','plans','adminDashboard'].includes(activeTab) ? (
             <div role="status" className="rounded-3xl border border-brand-border bg-brand-white p-8 text-center">
               <p className="font-bold text-brand-text">{cloudSyncStatus==='failed' ? 'โหลดบัญชีการเงินไม่สำเร็จ' : 'กำลังโหลดบัญชีการเงิน…'}</p>
               {lastCloudError && <p role="alert" className="mt-3 text-sm text-red-600">{lastCloudError}</p>}
@@ -2642,7 +2659,25 @@ export default function App() {
               )}
 
               {activeTab === 'groups' && (
-                <GroupsTab key={session.user.id} userId={session.user.id} isGuest={!!session.isGuest} triggerConfirm={triggerConfirm} />
+                <GroupsTab
+                  key={session.user.id}
+                  userId={session.user.id}
+                  isGuest={!!session.isGuest}
+                  triggerConfirm={triggerConfirm}
+                  initialView={groupsEntry.view}
+                  initialScope={groupsEntry.scope}
+                />
+              )}
+              {activeTab === 'adminDashboard' && (
+                !session.isGuest && (!routeContext || routeContext.userId !== session.user.id)
+                  ? <ContentLoadingSkeleton />
+                  : routeContext?.systemRole === 'admin'
+                    ? <AdminDashboardTab
+                        userId={session.user.id}
+                        onOpenUsers={() => { setGroupsEntry({ view: 'users', scope: 'mine' }); navigateTab('groups'); }}
+                        onOpenGroups={() => { setGroupsEntry({ view: 'groups', scope: 'all' }); navigateTab('groups'); }}
+                      />
+                    : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}
               {activeTab === 'clients' && (
                 <ClientsTab

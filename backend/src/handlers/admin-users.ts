@@ -45,6 +45,31 @@ export default withGuard(
     await rateLimit('admin-users', user.id, 30, 60);
     const db = getSupabaseAdmin();
     if (req.method === 'GET') {
+      if (req.query.action === 'dashboard') {
+        const now = new Date().toISOString();
+        const [accounts, admins, groups, proAccounts, invitations, pauses, deletions] = await Promise.all([
+          db.from('cashflow_user_roles').select('user_id', { count: 'exact', head: true }),
+          db.from('cashflow_user_roles').select('user_id', { count: 'exact', head: true }).eq('role', 'admin'),
+          db.from('cashflow_groups').select('id', { count: 'exact', head: true }),
+          db.from('subscriptions').select('user_id', { count: 'exact', head: true }).eq('status', 'active').gt('current_period_end', now),
+          db.from('cashflow_group_invitations').select('id', { count: 'exact', head: true }).eq('status', 'pending').gt('expires_at', now),
+          db.from('cashflow_account_pauses').select('user_id', { count: 'exact', head: true }).eq('closure_kind', 'pause').eq('state', 'paused').gt('delete_after', now),
+          db.from('cashflow_account_pauses').select('user_id', { count: 'exact', head: true }).eq('closure_kind', 'deletion').eq('state', 'paused').gt('delete_after', now),
+        ]);
+        for (const result of [accounts, admins, groups, proAccounts, invitations, pauses, deletions]) {
+          if (result.error) throw result.error;
+        }
+        res.json({
+          totalAccounts: accounts.count || 0,
+          adminAccounts: admins.count || 0,
+          totalGroups: groups.count || 0,
+          proAccounts: proAccounts.count || 0,
+          pendingInvitations: invitations.count || 0,
+          pausedAccounts: pauses.count || 0,
+          pendingDeletions: deletions.count || 0,
+        });
+        return;
+      }
       if (req.query.action === 'deletion-requests') {
         res.json(await listDeletionRequests(db));
         return;
