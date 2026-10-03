@@ -44,6 +44,7 @@ const GroupsTab = lazy(loadGroupsTab);
 import FinanceWorkspacePicker from '../features/groups/FinanceWorkspacePicker';
 import { financeKey, setFinanceWorkspace, assertFinanceWorkspace } from '../services/financeWorkspace';
 import { groupApi } from '../services/groups';
+import { usageAnalyticsApi } from '../services/usageAnalytics';
 import { authClient } from '../services/auth';
 import { apiFetch, apiJson } from '../services/api';
 import { readCloud, saveCloud, saveAppCloud, clearCloud, exportCloud, flushCloud } from '../services/cloud';
@@ -433,6 +434,23 @@ export default function App() {
   // Authentication State
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const lastTrackedUsageRef = useRef('');
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || session?.isGuest || loadingSession) {
+      lastTrackedUsageRef.current = '';
+      return;
+    }
+    const isWorkspaceRoot = pathname === '/' || pathname === '/app' || pathname === '/login';
+    const feature = isWorkspaceRoot ? activeTab : parseWorkspaceRoute(pathname).tab;
+    const viewKey = `${userId}:${feature}`;
+    // React StrictMode replays effects in development; count a tab transition only once.
+    if (lastTrackedUsageRef.current === viewKey) return;
+    lastTrackedUsageRef.current = viewKey;
+    void usageAnalyticsApi.recordFeatureView(userId, feature).catch(() => {
+      // Usage metrics are optional and must never delay or interrupt navigation.
+    });
+  }, [activeTab, loadingSession, pathname, session?.isGuest, session?.user?.id]);
   const [routeContext, setRouteContext] = useState<{
     userId: string;
     profile: PublicProfile;

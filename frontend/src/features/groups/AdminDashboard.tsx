@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
+  Activity,
   BriefcaseBusiness,
   CalendarClock,
   Crown,
+  Eye,
   Mail,
   RefreshCw,
   ShieldCheck,
@@ -18,7 +20,9 @@ import type {
   AdminDashboardSection,
   AdminDashboardStats,
 } from '../../../../shared/groups';
+import { USAGE_FEATURE_KEYS, type UsageFeatureKey } from '../../../../shared/usageAnalytics';
 import { groupApi } from '../../services/groups';
+import { usageAnalyticsApi } from '../../services/usageAnalytics';
 import { getCurrentAccount } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { Pagination, panel, secondary, type Confirm } from './groupUi';
@@ -47,7 +51,10 @@ export default function AdminDashboard({
   const { language } = useLanguage();
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
+  const [usage, setUsage] = useState<Awaited<ReturnType<typeof usageAnalyticsApi.adminSnapshot>> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [usageLoading, setUsageLoading] = useState(true);
+  const [usageError, setUsageError] = useState('');
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const [activePanel, setActivePanel] = useState<DashboardPanel | null>(null);
@@ -84,6 +91,23 @@ export default function AdminDashboard({
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [userId, revision]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setUsageLoading(true);
+    setUsageError('');
+    usageAnalyticsApi.adminSnapshot(userId, controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted && getCurrentAccount() === userId) setUsage(result);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) setUsageError((cause as Error).message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setUsageLoading(false);
       });
     return () => controller.abort();
   }, [userId, revision]);
@@ -198,6 +222,38 @@ export default function AdminDashboard({
     })
     : '—';
 
+  const featureLabels: Record<UsageFeatureKey, [string, string]> = {
+    dashboard: ['ภาพรวมกระแสเงินสด', 'Cash flow overview'],
+    adminDashboard: ['แดชบอร์ดแอดมิน', 'Admin dashboard'],
+    jobs: ['งาน', 'Jobs'],
+    tax: ['ภาษี', 'Tax'],
+    split: ['จัดสรรเงินและเป้าหมาย', 'Splits and goals'],
+    report: ['รายงาน', 'Reports'],
+    settings: ['ตั้งค่า', 'Settings'],
+    invoice: ['เอกสารและใบแจ้งหนี้', 'Documents and invoices'],
+    insight: ['วิเคราะห์รายได้', 'Income insights'],
+    plans: ['แพ็กเกจ', 'Plans'],
+    groups: ['กลุ่มและสมาชิก', 'Groups and members'],
+    clients: ['ลูกค้า', 'Clients'],
+    calendar: ['ปฏิทินงาน', 'Calendar'],
+    receivables: ['รายการรอรับเงิน', 'Receivables'],
+    incomeExpense: ['รายรับและรายจ่าย', 'Income and expenses'],
+  };
+  const dailyByDate = new Map((usage?.daily || []).map(day => [day.date, day] as const));
+  const dailyChart = usage ? Array.from({ length: 30 }, (_, index) => {
+    const day = new Date(`${usage.fromDate}T00:00:00.000Z`);
+    day.setUTCDate(day.getUTCDate() + index);
+    const date = day.toISOString().slice(0, 10);
+    return dailyByDate.get(date) || { date, activeUsers: 0, pageViews: 0 };
+  }) : [];
+  const maxDailyUsers = Math.max(1, ...dailyChart.map(day => day.activeUsers));
+  const featureStats = USAGE_FEATURE_KEYS.map(key => ({
+    key,
+    ...(usage?.features.find(feature => feature.key === key) || { activeUsers: 0, pageViews: 0 }),
+  })).sort((a, b) => b.pageViews - a.pageViews);
+  const maxFeatureViews = Math.max(1, ...featureStats.map(feature => feature.pageViews));
+  const formatMetric = (value: number) => value.toLocaleString(language === 'th' ? 'th-TH' : 'en-US');
+
   return (
     <section aria-labelledby="admin-dashboard-title" className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -263,6 +319,116 @@ export default function AdminDashboard({
           );
         })}
       </div>
+
+      <section className={`${panel} space-y-5`} aria-labelledby="usage-analytics-title">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-brand-blue-acc">
+              <Activity size={15} /> {copy('สถิติการใช้งาน', 'Usage analytics')}
+            </p>
+            <h2 id="usage-analytics-title" className="mt-1 text-xl font-display font-extrabold">
+              {copy('การเข้าใช้งานเว็บไซต์', 'Website usage')}
+            </h2>
+            <p className="mt-1 text-sm text-brand-muted">
+              {copy('สรุป 30 วันล่าสุด · นับเฉพาะบัญชีที่ลงชื่อเข้าใช้', 'Last 30 days · signed-in accounts only')}
+            </p>
+          </div>
+          {usage?.fromDate && usage.toDate && (
+            <p className="text-xs font-medium text-brand-muted">
+              {new Date(`${usage.fromDate}T12:00:00+07:00`).toLocaleDateString(language === 'th' ? 'th-TH' : 'en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short' })}
+              {' – '}
+              {new Date(`${usage.toDate}T12:00:00+07:00`).toLocaleDateString(language === 'th' ? 'th-TH' : 'en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+          )}
+        </div>
+
+        {usageError && (
+          <p role="alert" className="rounded-xl border border-red-300/60 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">
+            {usageError}
+          </p>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { label: copy('ผู้ใช้ไม่ซ้ำ · 30 วัน', 'Unique users · 30 days'), value: usage?.totals.activeUsers, icon: UsersRound, color: 'text-brand-blue-acc' },
+            { label: copy('ผู้ใช้งานวันนี้', 'Active users today'), value: usage?.totals.activeUsersToday, icon: UserRound, color: 'text-emerald-600' },
+            { label: copy('จำนวนเปิดหน้า · 30 วัน', 'Page views · 30 days'), value: usage?.totals.pageViews, icon: Eye, color: 'text-orange-600' },
+          ].map(metric => {
+            const Icon = metric.icon;
+            return (
+              <div key={metric.label} className="rounded-2xl border border-brand-border/50 bg-brand-bg/70 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-brand-muted">{metric.label}</p>
+                  <Icon size={16} className={metric.color} />
+                </div>
+                <p className={`mt-3 text-2xl font-display font-extrabold tabular-nums ${metric.color}`}>
+                  {usage ? formatMetric(metric.value || 0) : '—'}
+                </p>
+                {metric.label === copy('จำนวนเปิดหน้า · 30 วัน', 'Page views · 30 days') && usage && (
+                  <p className="mt-1 text-[11px] text-brand-muted">
+                    {copy('วันนี้', 'Today')}: {formatMetric(usage.totals.pageViewsToday)}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="min-w-0 rounded-2xl border border-brand-border/50 p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-bold">{copy('ผู้ใช้งานรายวัน', 'Daily active users')}</h3>
+              <span className="text-xs text-brand-muted">{copy('แยกตามวัน', 'By day')}</span>
+            </div>
+            <div
+              className="mt-5 grid h-32 grid-cols-[repeat(30,minmax(0,1fr))] items-end gap-1 sm:gap-1.5"
+              role="img"
+              aria-label={copy('กราฟจำนวนผู้ใช้งานรายวันใน 30 วันที่ผ่านมา', 'Daily active users over the last 30 days')}
+            >
+              {dailyChart.map(day => (
+                <div key={day.date} className="flex h-full min-w-0 items-end" title={`${day.date}: ${formatMetric(day.activeUsers)} ${copy('คน', 'users')} · ${formatMetric(day.pageViews)} ${copy('ครั้ง', 'views')}`}>
+                  <div className="flex h-full w-full items-end overflow-hidden rounded-t-sm bg-brand-faint/70">
+                    <div
+                      className="w-full rounded-t-sm bg-brand-blue-acc transition-[height] duration-300"
+                      style={{ height: `${day.activeUsers ? Math.max(8, (day.activeUsers / maxDailyUsers) * 100) : 3}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex justify-between text-[10px] text-brand-muted">
+              <span>{usage?.fromDate || '—'}</span>
+              <span>{usage?.toDate || '—'}</span>
+            </div>
+            {usageLoading && !usage && <p className="mt-3 text-xs text-brand-muted">{copy('กำลังโหลดสถิติ…', 'Loading analytics…')}</p>}
+          </div>
+
+          <div className="min-w-0 rounded-2xl border border-brand-border/50 p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-bold">{copy('เมนูที่ถูกเปิด', 'Most viewed features')}</h3>
+              <span className="text-xs text-brand-muted">{copy('30 วัน', '30 days')}</span>
+            </div>
+            <div className="mt-3 max-h-52 space-y-2 overflow-y-auto pr-1">
+              {featureStats.map(feature => (
+                <div key={feature.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5">
+                  <p className="truncate text-xs font-semibold" title={feature.key}>
+                    {featureLabels[feature.key][language === 'th' ? 0 : 1]}
+                  </p>
+                  <p className="text-right text-[11px] tabular-nums text-brand-muted">
+                    {formatMetric(feature.pageViews)} {copy('ครั้ง', 'views')} · {formatMetric(feature.activeUsers)} {copy('คน', 'users')}
+                  </p>
+                  <div className="col-span-2 h-1.5 overflow-hidden rounded-full bg-brand-faint">
+                    <div className="h-full rounded-full bg-orange-500 transition-[width] duration-300" style={{ width: `${feature.pageViews ? Math.max(2, (feature.pageViews / maxFeatureViews) * 100) : 0}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <p className="text-[11px] leading-relaxed text-brand-muted">
+          {copy('เก็บยอดเปิดเมนูรายวันและรหัสนิรนามสำหรับนับผู้ใช้ ไม่เก็บอีเมล, URL, ข้อมูลที่กรอก หรือข้อมูลการเงิน', 'Only daily feature counts and pseudonymous keys for unique-user totals are stored. Emails, URLs, entered content, and financial data are never recorded.')}
+        </p>
+      </section>
 
       <div className={`${panel} flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}>
         <div>
