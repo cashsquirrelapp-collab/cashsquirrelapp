@@ -2474,7 +2474,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* 📱 / 💻 Main Section: Handles responsive paddings & maximum constraints */}
-      <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
+      <div className="flex-1 flex flex-col h-screen min-h-0 min-w-0 relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
         
         {/* Floating menu + account controls for screens without the sidebar. */}
         {!isDesktop && (
@@ -2510,7 +2510,7 @@ export default function App() {
         )}
 
         {/* Scrollable Container with responsive max widths */}
-        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
+        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
           <Suspense fallback={<ContentLoadingSkeleton />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (

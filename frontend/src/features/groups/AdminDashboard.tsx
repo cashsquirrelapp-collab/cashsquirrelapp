@@ -74,10 +74,17 @@ export default function AdminDashboard({
 
   useEffect(() => {
     if (!activePanel) return;
-    detailPanelRef.current?.scrollIntoView({
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-      block: 'start',
+    const frame = window.requestAnimationFrame(() => {
+      const panel = detailPanelRef.current;
+      const scroller = document.getElementById('main-content');
+      if (!panel || !scroller) return;
+      const top = scroller.scrollTop + panel.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 16;
+      scroller.scrollTo({
+        top,
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      });
     });
+    return () => window.cancelAnimationFrame(frame);
   }, [activePanel]);
 
   useEffect(() => {
