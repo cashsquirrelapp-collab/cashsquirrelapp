@@ -35,10 +35,10 @@ interface Props {
   userId: string;
   isGuest: boolean;
   triggerConfirm: Confirm;
-  initialView?: 'groups' | 'users';
   initialScope?: 'mine' | 'all';
+  embedded?: boolean;
 }
-export default function GroupsTab({ userId, isGuest, triggerConfirm, initialView = 'groups', initialScope = 'mine' }: Props) {
+export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScope = 'mine', embedded = false }: Props) {
   const { language } = useLanguage();
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
   const roleLabel = (role: GroupRole | null) =>
@@ -52,7 +52,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialView
   const [scope, setScope] = useState<'mine' | 'all'>(initialScope);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
-  const [view, setView] = useState<'groups' | 'users'>(initialView);
+  const [view, setView] = useState<'groups' | 'users'>('groups');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -213,10 +213,10 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialView
   };
   return (
     <section
-      className="page-content space-y-6 text-brand-text min-w-0"
+      className={`${embedded ? 'space-y-4' : 'page-content space-y-6'} text-brand-text min-w-0`}
       aria-label={copy('จัดการกลุ่ม', 'Group management')}
     >
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {!embedded && <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <span className="text-xs font-bold uppercase tracking-widest text-brand-blue-acc">WORK TOGETHER</span>
           <h1 className="mt-2 text-2xl sm:text-3xl font-display font-extrabold">
@@ -245,8 +245,8 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialView
             </button>}
           </div>
         )}
-      </div>
-      {view === 'groups' && <div className="grid gap-3 sm:grid-cols-3">
+      </div>}
+      {!embedded && view === 'groups' && <div className="grid gap-3 sm:grid-cols-3">
         {[
           {
             icon: Users,
@@ -305,7 +305,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialView
         </div>
       ) : (
         <>
-          {snapshot && (
+          {snapshot && !embedded && (
             <div
               className="flex flex-wrap gap-2"
               role="group"

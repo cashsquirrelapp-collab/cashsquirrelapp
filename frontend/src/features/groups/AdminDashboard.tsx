@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   BriefcaseBusiness,
   Crown,
@@ -7,14 +7,17 @@ import {
   ShieldCheck,
   UserRound,
   UserRoundX,
-  Users,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import type { AdminDashboardStats } from '../../../../shared/groups';
 import { groupApi } from '../../services/groups';
 import { getCurrentAccount } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { panel, secondary } from './groupUi';
+import { panel, secondary, type Confirm } from './groupUi';
+
+const AdminUsersPanel = lazy(() => import('./AdminUsersPanel'));
+const GroupsTab = lazy(() => import('./GroupsTab'));
 
 type DashboardCard = {
   label: string;
@@ -27,12 +30,10 @@ type DashboardCard = {
 
 export default function AdminDashboard({
   userId,
-  onOpenUsers,
-  onOpenGroups,
+  triggerConfirm,
 }: {
   userId: string;
-  onOpenUsers: () => void;
-  onOpenGroups: () => void;
+  triggerConfirm: Confirm;
 }) {
   const { language } = useLanguage();
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
@@ -40,6 +41,18 @@ export default function AdminDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
+  const [activePanel, setActivePanel] = useState<'users' | 'groups' | null>(null);
+  const detailPanelRef = useRef<HTMLElement>(null);
+  const openUsers = () => setActivePanel('users');
+  const openGroups = () => setActivePanel('groups');
+
+  useEffect(() => {
+    if (!activePanel) return;
+    detailPanelRef.current?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  }, [activePanel]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -71,42 +84,42 @@ export default function AdminDashboard({
       value: stats.adminAccounts,
       icon: ShieldCheck,
       color: 'text-brand-blue-acc',
-      action: onOpenUsers,
+      action: openUsers,
     },
     {
       label: copy('กลุ่มทั้งหมด', 'Total groups'),
       value: stats.totalGroups,
       icon: BriefcaseBusiness,
       color: 'text-brand-text',
-      action: onOpenGroups,
+      action: openGroups,
     },
     {
       label: copy('Pro แบบชำระเงิน', 'Paid Pro accounts'),
       value: stats.proAccounts,
       icon: Crown,
       color: 'text-amber-600',
-      action: onOpenUsers,
+      action: openUsers,
     },
     {
       label: copy('คำเชิญที่ยังไม่หมดอายุ', 'Open invitations'),
       value: stats.pendingInvitations,
       icon: Mail,
       color: 'text-brand-blue-acc',
-      action: onOpenGroups,
+      action: openGroups,
     },
     {
       label: copy('พักบัญชีอยู่', 'Temporarily paused'),
       value: stats.pausedAccounts,
       icon: UserRound,
       color: 'text-brand-muted',
-      action: onOpenUsers,
+      action: openUsers,
     },
     {
       label: copy('รอลบบัญชีถาวร', 'Pending permanent deletion'),
       value: stats.pendingDeletions,
       icon: UserRoundX,
       color: stats.pendingDeletions ? 'text-orange-600' : 'text-brand-muted',
-      action: onOpenUsers,
+      action: openUsers,
       highlight: stats.pendingDeletions > 0,
     },
   ] : [];
@@ -188,10 +201,46 @@ export default function AdminDashboard({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          <button type="button" className={secondary} onClick={onOpenUsers}>{copy('จัดการผู้ใช้', 'Manage users')}</button>
-          <button type="button" className={secondary} onClick={onOpenGroups}>{copy('ดูทุกกลุ่ม', 'View groups')}</button>
+          <button type="button" className={secondary} onClick={openUsers} aria-controls="admin-dashboard-detail" aria-expanded={activePanel === 'users'}>{copy('จัดการผู้ใช้', 'Manage users')}</button>
+          <button type="button" className={secondary} onClick={openGroups} aria-controls="admin-dashboard-detail" aria-expanded={activePanel === 'groups'}>{copy('ดูทุกกลุ่ม', 'View groups')}</button>
         </div>
       </div>
+
+      {activePanel && (
+        <section id="admin-dashboard-detail" ref={detailPanelRef} className="app-tab-enter space-y-4 scroll-mt-4" aria-labelledby="admin-dashboard-detail-title">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="admin-dashboard-detail-title" className="text-xl font-display font-extrabold">
+              {activePanel === 'users' ? copy('จัดการผู้ใช้', 'Manage users') : copy('จัดการทุกกลุ่ม', 'Manage all groups')}
+            </h2>
+            <button
+              type="button"
+              className={secondary}
+              onClick={() => setActivePanel(null)}
+              aria-label={copy('ปิดส่วนจัดการ', 'Close management panel')}
+            >
+              <X size={16} />
+              {copy('ปิด', 'Close')}
+            </button>
+          </div>
+          <Suspense fallback={<div className={`${panel} h-40 animate-pulse`} aria-label={copy('กำลังโหลด', 'Loading')} />}>
+            {activePanel === 'users' ? (
+              <AdminUsersPanel
+                userId={userId}
+                triggerConfirm={triggerConfirm}
+                onRoleChanged={async () => setRevision(value => value + 1)}
+              />
+            ) : (
+              <GroupsTab
+                userId={userId}
+                isGuest={false}
+                triggerConfirm={triggerConfirm}
+                initialScope="all"
+                embedded
+              />
+            )}
+          </Suspense>
+        </section>
+      )}
     </section>
   );
 }

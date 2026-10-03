@@ -341,7 +341,6 @@ export default function App() {
   }, []);
 
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
-  const [groupsEntry, setGroupsEntry] = useState<{ view: 'groups' | 'users'; scope: 'mine' | 'all' }>({ view: 'groups', scope: 'mine' });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   // The account corner lives in the desktop sidebar and in the floating top bar on smaller screens;
@@ -439,11 +438,6 @@ export default function App() {
     groupsLoaded: boolean;
     systemRole: SystemRole | null;
   } | null>(null);
-  useEffect(() => {
-    if (activeTab === 'groups' && (groupsEntry.view !== 'groups' || groupsEntry.scope !== 'mine')) {
-      setGroupsEntry({ view: 'groups', scope: 'mine' });
-    }
-  }, [activeTab, groupsEntry]);
   const [financeSelection, setFinanceSelection] = useState<{account:string;groupId?:string;name?:string}>({account:''});
   const [switchingFinance, setSwitchingFinance] = useState(false);
   const financeGroupId = financeSelection.account === session?.user?.id ? financeSelection.groupId : undefined;
@@ -2664,8 +2658,6 @@ export default function App() {
                   userId={session.user.id}
                   isGuest={!!session.isGuest}
                   triggerConfirm={triggerConfirm}
-                  initialView={groupsEntry.view}
-                  initialScope={groupsEntry.scope}
                 />
               )}
               {activeTab === 'adminDashboard' && (
@@ -2674,8 +2666,7 @@ export default function App() {
                   : routeContext?.systemRole === 'admin'
                     ? <AdminDashboardTab
                         userId={session.user.id}
-                        onOpenUsers={() => { setGroupsEntry({ view: 'users', scope: 'mine' }); navigateTab('groups'); }}
-                        onOpenGroups={() => { setGroupsEntry({ view: 'groups', scope: 'all' }); navigateTab('groups'); }}
+                        triggerConfirm={triggerConfirm}
                       />
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}
