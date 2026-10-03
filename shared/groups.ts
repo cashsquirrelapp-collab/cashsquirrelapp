@@ -20,6 +20,38 @@ export interface GroupSummary {
   memberCount: number;
   leaderCount: number;
 }
+export type AdminDashboardSection =
+  | 'accounts'
+  | 'admins'
+  | 'groups'
+  | 'pro'
+  | 'invitations'
+  | 'paused'
+  | 'deletions';
+export interface AdminDashboardAccountDetail extends AdminAccount {
+  plan?: string | null;
+  currentPeriodEnd?: string | null;
+  closureKind?: 'pause' | 'deletion';
+  pausedAt?: string | null;
+  deleteAfter?: string | null;
+}
+export interface AdminDashboardInvitationDetail {
+  id: string;
+  groupId: string;
+  groupName: string;
+  email: string;
+  createdAt: string;
+  expiresAt: string;
+}
+export interface AdminDashboardDetails {
+  section: AdminDashboardSection;
+  total: number;
+  page: number;
+  pageSize: number;
+  accounts?: AdminDashboardAccountDetail[];
+  groups?: GroupSummary[];
+  invitations?: AdminDashboardInvitationDetail[];
+}
 export interface GroupInvitation {
   id: string;
   groupId: string;

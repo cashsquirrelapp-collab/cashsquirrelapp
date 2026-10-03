@@ -1,5 +1,7 @@
 import type {
   AdminDashboardStats,
+  AdminDashboardDetails,
+  AdminDashboardSection,
   AdminAccounts,
   AdminDeletionRequests,
   GroupAction,
@@ -56,6 +58,17 @@ export const groupApi = {
       signal,
       headers: { 'X-Account-ID': account },
     });
+  },
+  adminDashboardDetails(
+    account: string,
+    section: AdminDashboardSection,
+    page: number,
+    signal?: AbortSignal,
+  ) {
+    return apiJson<AdminDashboardDetails>(
+      `/api/admin-users?action=dashboard-details&section=${section}&page=${page}`,
+      { signal, headers: { 'X-Account-ID': account } },
+    );
   },
   accountDeletionRequests(account: string, signal?: AbortSignal) {
     return apiJson<AdminDeletionRequests>('/api/admin-users?action=deletion-requests', {

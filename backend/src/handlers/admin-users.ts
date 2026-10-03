@@ -11,6 +11,11 @@ import { groupDbError } from './groups.js';
 
 const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
 const createRecoveryLinkSchema = z.object({ action: z.literal('create-recovery-link') }).strict();
+const dashboardDetailsQuerySchema = z.object({
+  action: z.literal('dashboard-details'),
+  section: z.enum(['accounts', 'admins', 'groups', 'pro', 'invitations', 'paused', 'deletions']),
+  page: z.coerce.number().int().min(0).max(10000).default(0),
+});
 
 async function listDeletionRequests(db: ReturnType<typeof getSupabaseAdmin>) {
   const now = new Date().toISOString();
@@ -68,6 +73,141 @@ export default withGuard(
           pausedAccounts: pauses.count || 0,
           pendingDeletions: deletions.count || 0,
         });
+        return;
+      }
+      if (req.query.action === 'dashboard-details') {
+        const parsed = dashboardDetailsQuerySchema.safeParse(req.query);
+        if (!parsed.success) throw new HttpError(400, 'ตัวกรองข้อมูลแดชบอร์ดไม่ถูกต้อง');
+        const { section, page } = parsed.data;
+        const now = new Date().toISOString();
+
+        if (section === 'groups') {
+          const result = await db.rpc('cashflow_groups_snapshot', {
+            p_actor: user.id,
+            p_scope: 'all',
+            p_page: page,
+          });
+          if (result.error) groupDbError(result.error);
+          const snapshot = result.data as { groups?: unknown[]; total?: number };
+          res.json({
+            section,
+            total: snapshot.total || 0,
+            page,
+            pageSize: 20,
+            groups: snapshot.groups || [],
+          });
+          return;
+        }
+
+        if (section === 'invitations') {
+          const pageSize = 25;
+          const result = await db.from('cashflow_group_invitations')
+            .select('id,group_id,email,created_at,expires_at', { count: 'exact' })
+            .eq('status', 'pending').gt('expires_at', now)
+            .order('created_at', { ascending: false }).order('id', { ascending: false })
+            .range(page * pageSize, page * pageSize + pageSize - 1);
+          if (result.error) throw result.error;
+          const rows = result.data || [];
+          const groupIds = [...new Set(rows.map(row => row.group_id))];
+          const groups = groupIds.length
+            ? await db.from('cashflow_groups').select('id,name').in('id', groupIds)
+            : { data: [], error: null };
+          if (groups.error) throw groups.error;
+          const groupNames = new Map((groups.data || []).map(group => [group.id, group.name] as const));
+          res.json({
+            section,
+            total: result.count || 0,
+            page,
+            pageSize,
+            invitations: rows.map(row => ({
+              id: row.id,
+              groupId: row.group_id,
+              groupName: groupNames.get(row.group_id) || 'กลุ่มที่ถูกลบ',
+              email: row.email,
+              createdAt: row.created_at,
+              expiresAt: row.expires_at,
+            })),
+          });
+          return;
+        }
+
+        const pageSize = 25;
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        let sourceRows: {
+          user_id: string;
+          role?: string;
+          plan?: string | null;
+          current_period_end?: string | null;
+          closure_kind?: 'pause' | 'deletion';
+          paused_at?: string | null;
+          delete_after?: string | null;
+        }[] = [];
+        let total = 0;
+
+        if (section === 'accounts' || section === 'admins') {
+          let query = db.from('cashflow_user_roles')
+            .select('user_id,role,updated_at', { count: 'exact' });
+          if (section === 'admins') query = query.eq('role', 'admin');
+          const result = await query.order('updated_at', { ascending: false })
+            .order('user_id', { ascending: true }).range(from, to);
+          if (result.error) throw result.error;
+          sourceRows = result.data || [];
+          total = result.count || 0;
+        } else if (section === 'pro') {
+          const result = await db.from('subscriptions')
+            .select('user_id,plan,current_period_end', { count: 'exact' })
+            .eq('status', 'active').gt('current_period_end', now)
+            .order('current_period_end', { ascending: true }).order('user_id', { ascending: true })
+            .range(from, to);
+          if (result.error) throw result.error;
+          sourceRows = result.data || [];
+          total = result.count || 0;
+        } else {
+          const closureKind = section === 'paused' ? 'pause' : 'deletion';
+          const result = await db.from('cashflow_account_pauses')
+            .select('user_id,closure_kind,paused_at,delete_after', { count: 'exact' })
+            .eq('closure_kind', closureKind).eq('state', 'paused').gt('delete_after', now)
+            .order('paused_at', { ascending: false }).order('user_id', { ascending: true })
+            .range(from, to);
+          if (result.error) throw result.error;
+          sourceRows = result.data || [];
+          total = result.count || 0;
+        }
+
+        const userIds = sourceRows.map(row => row.user_id);
+        if (userIds.length === 0) {
+          res.json({ section, total, page, pageSize, accounts: [] });
+          return;
+        }
+        const [profiles, roles] = await Promise.all([
+          db.from('cashflow_profiles').select('user_id,public_id,display_name,created_at').in('user_id', userIds),
+          db.from('cashflow_user_roles').select('user_id,role').in('user_id', userIds),
+        ]);
+        if (profiles.error) throw profiles.error;
+        if (roles.error) throw roles.error;
+        const profilesById = new Map((profiles.data || []).map(profile => [profile.user_id, profile] as const));
+        const rolesById = new Map((roles.data || []).map(role => [role.user_id, role.role] as const));
+        const accounts = sourceRows.map(row => {
+          const profile = profilesById.get(row.user_id);
+          return {
+            userId: row.user_id,
+            publicId: profile?.public_id || '—',
+            displayName: profile?.display_name || 'Unknown account',
+            role: (row.role || rolesById.get(row.user_id) || 'user') as 'admin' | 'user',
+            createdAt: profile?.created_at || '',
+            ...(section === 'pro' ? {
+              plan: row.plan,
+              currentPeriodEnd: row.current_period_end,
+            } : {}),
+            ...(section === 'paused' || section === 'deletions' ? {
+              closureKind: row.closure_kind,
+              pausedAt: row.paused_at,
+              deleteAfter: row.delete_after,
+            } : {}),
+          };
+        });
+        res.json({ section, total, page, pageSize, accounts });
         return;
       }
       if (req.query.action === 'deletion-requests') {
