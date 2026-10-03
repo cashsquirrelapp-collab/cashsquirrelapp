@@ -441,19 +441,32 @@ export default function AdminDashboard({
               role="group"
               aria-label={copy('กราฟจำนวนผู้ใช้งานรายวันใน 30 วันที่ผ่านมา', 'Daily active users over the last 30 days')}
             >
-              {dailyChart.map(day => {
+              {dailyChart.map((day, index) => {
                 const selected = selectedUsageDate === day.date;
                 const label = `${day.date}: ${formatMetric(day.activeUsers)} ${copy('คน', 'users')} · ${formatMetric(day.pageViews)} ${copy('ครั้ง', 'views')}`;
                 return (
                   <button
                     key={day.date}
                     type="button"
-                    className={`group flex h-full min-w-0 items-end rounded-t-md outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-white dark:focus-visible:ring-offset-stone-900 ${selected ? 'ring-2 ring-orange-400 ring-offset-1 ring-offset-brand-white dark:ring-offset-stone-900' : ''}`}
+                    className={`group relative flex h-full min-w-0 items-end rounded-t-md outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-white dark:focus-visible:ring-offset-stone-900 ${selected ? 'ring-2 ring-orange-400 ring-offset-1 ring-offset-brand-white dark:ring-offset-stone-900' : ''}`}
                     onClick={() => setSelectedUsageDate(day.date)}
                     aria-label={`${label}. ${copy('กดเพื่อดูรายละเอียดของวันดังกล่าว', 'Select to view this day’s details')}`}
                     aria-pressed={selected}
-                    title={`${label} · ${copy('กดเพื่อดูรายละเอียด', 'Click to view details')}`}
                   >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none invisible absolute bottom-full z-20 mb-2 w-max rounded-xl bg-stone-900 px-3 py-2 text-left text-xs text-white shadow-lg opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 dark:bg-stone-100 dark:text-stone-900 ${index < 5 ? 'left-0' : index >= dailyChart.length - 5 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}
+                    >
+                      <span className="block font-semibold">
+                        {new Date(`${day.date}T12:00:00+07:00`).toLocaleDateString(language === 'th' ? 'th-TH' : 'en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span className="mt-1 block">
+                        {copy('ผู้ใช้งาน', 'Active users')} {formatMetric(day.activeUsers)} {copy('คน', 'users')}
+                      </span>
+                      <span className="mt-1 block text-[10px] opacity-75">
+                        {copy('คลิกเพื่อดูรายละเอียด', 'Click to view details')}
+                      </span>
+                    </span>
                     <div className="flex h-full w-full items-end overflow-hidden rounded-t-sm bg-brand-faint/70">
                       <div
                         className={`w-full rounded-t-sm transition-[height,background-color] duration-300 group-hover:bg-orange-500 ${selected ? 'bg-orange-500' : 'bg-brand-blue-acc'}`}
