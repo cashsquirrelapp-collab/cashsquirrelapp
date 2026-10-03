@@ -190,9 +190,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const { t, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const initialRecoveryToken = new URLSearchParams(window.location.search).get('recover') || '';
+  const initialParams = new URLSearchParams(window.location.search);
+  const initialRecoveryToken = initialParams.get('r') || initialParams.get('recover') || '';
   const [accountRecoveryToken, setAccountRecoveryToken] = useState(initialRecoveryToken);
-  const [isAccountRecovery, setIsAccountRecovery] = useState(() => initialRecoveryToken.length >= 40);
+  const [isAccountRecovery, setIsAccountRecovery] = useState(() => initialRecoveryToken.length >= 24);
   const [loginLock, setLoginLock] = useState<{ email: string; until: number } | null>(null);
   const [loginLockSeconds, setLoginLockSeconds] = useState(0);
   const [backupRecoveryEmail, setBackupRecoveryEmail] = useState('');
@@ -224,11 +225,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     return params.get('confirmationExpired') === '1' ? t('login.err.confirmationExpired')
       : params.get('authLinkError') === '1' ? t('login.err.authLink')
       : params.get('accountDeletionPending') === '1' ? t('login.accountDeletionPending')
-      : params.has('recover') && (params.get('recover') || '').length < 40 ? t('login.invalidRecoveryLink') : null;
+      : (params.has('r') || params.has('recover')) && (params.get('r') || params.get('recover') || '').length < 24 ? t('login.invalidRecoveryLink') : null;
   });
   const [success, setSuccess] = useState<string | null>(() => new URLSearchParams(window.location.search).get('emailConfirmed') === '1' ? t('login.success.emailConfirmed') : null);
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
-  const [showWelcome, setShowWelcome] = useState(() => window.location.pathname === '/' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && !new URLSearchParams(window.location.search).has('recover') && window.location.hash !== '#login');
+  const [showWelcome, setShowWelcome] = useState(() => window.location.pathname === '/' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && !new URLSearchParams(window.location.search).has('recover') && !new URLSearchParams(window.location.search).has('r') && window.location.hash !== '#login');
   const [authEntry, setAuthEntry] = useState(0);
 
   React.useEffect(() => {
@@ -275,16 +276,21 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     if (confirmationExpired) params.delete('confirmationExpired');
     const accountDeletionPending = params.get('accountDeletionPending') === '1';
     if (accountDeletionPending) params.delete('accountDeletionPending');
-    const invalidRecoveryLink = params.has('recover') && (params.get('recover') || '').length < 40;
-    if (invalidRecoveryLink) params.delete('recover');
-    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || authLinkError || confirmationExpired || accountDeletionPending || invalidRecoveryLink || params.has('recover');
+    const hasRecoveryLink = params.has('r') || params.has('recover');
+    const recoveryToken = params.get('r') || params.get('recover') || '';
+    const invalidRecoveryLink = hasRecoveryLink && recoveryToken.length < 24;
+    if (invalidRecoveryLink) { params.delete('r'); params.delete('recover'); }
+    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || authLinkError || confirmationExpired || accountDeletionPending || invalidRecoveryLink || hasRecoveryLink;
     const nextPath = shouldUseLoginPath ? '/login' : window.location.pathname;
     const nextUrl = `${nextPath}${params.size ? `?${params}` : ''}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextUrl) {
       window.history.replaceState(null, '', nextUrl);
       window.dispatchEvent(new Event('cash-squirrel:navigate'));
     }
-    const syncWelcomeWithHistory = () => setShowWelcome(window.location.pathname === '/' && !new URLSearchParams(window.location.search).has('recover') && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && window.location.hash !== '#login');
+    const syncWelcomeWithHistory = () => {
+      const currentParams = new URLSearchParams(window.location.search);
+      setShowWelcome(window.location.pathname === '/' && !currentParams.has('recover') && !currentParams.has('r') && currentParams.get('emailConfirmed') !== '1' && window.location.hash !== '#login');
+    };
     window.addEventListener('popstate', syncWelcomeWithHistory);
     return () => window.removeEventListener('popstate', syncWelcomeWithHistory);
   }, []);
@@ -334,8 +340,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setBackupRecoverySent(false);
     setBackupRecoveryCode('');
     const params = new URLSearchParams(window.location.search);
-    if (params.has('recover')) {
+    if (params.has('recover') || params.has('r')) {
       params.delete('recover');
+      params.delete('r');
       window.history.replaceState(null, '', `${window.location.pathname}${params.size ? `?${params}` : ''}`);
     }
   };
@@ -348,11 +355,14 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         code: backupRecoverySent ? backupRecoveryCode : undefined
       }) });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || 'ทำรายการไม่สำเร็จ');
+      if (!response.ok) {
+        if (body.code === 'backup_email_not_verified') throw new Error(t('login.accountRecoveryBackupEmailInvalid'));
+        throw new Error(body.error || 'ทำรายการไม่สำเร็จ');
+      }
       if (backupRecoverySent) {
-        setSuccess('กู้คืนบัญชีสำเร็จ กรุณาเข้าสู่ระบบด้วยบัญชีเดิม');
+        setSuccess(t('login.accountRecoverySuccess'));
         closeAccountRecovery(); setIsForgotPassword(false);
-      } else { setBackupRecoverySent(true); setSuccess('หากอีเมลสำรองนี้ผูกกับบัญชีที่กู้คืนได้ ระบบจะส่งรหัสให้'); }
+      } else { setBackupRecoverySent(true); setSuccess(t('login.accountRecoveryCodeSent')); }
     } catch (error) { setError((error as Error).message); }
     finally { setLoading(false); }
   };
@@ -539,14 +549,16 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         </motion.div>
       )}
     <div className="auth-page min-h-screen bg-brand-bg flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden transition-colors duration-300">
-      <button
-        type="button"
-        onClick={returnToWelcome}
-        className="auth-back-to-welcome absolute left-4 top-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-white/90 px-4 py-2.5 text-xs font-extrabold text-brand-muted shadow-sm backdrop-blur transition-colors hover:text-brand-text sm:left-5 sm:top-5"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        {t('login.backToWelcome')}
-      </button>
+      {!isAccountRecovery && (
+        <button
+          type="button"
+          onClick={returnToWelcome}
+          className="auth-back-to-welcome absolute left-4 top-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-white/90 px-4 py-2.5 text-xs font-extrabold text-brand-muted shadow-sm backdrop-blur transition-colors hover:text-brand-text sm:left-5 sm:top-5"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          {t('login.backToWelcome')}
+        </button>
+      )}
 
       {/* Keep both controls above the form and large enough for touch screens. */}
       <div className="absolute right-4 top-4 z-30 flex items-center gap-2 sm:right-6 sm:top-6">
@@ -687,7 +699,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex items-start gap-2 mb-6">
               <button
                 type="button"
                 onClick={() => {
@@ -702,12 +714,16 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   setSuccess(null);
                 }}
                 className="p-1.5 rounded-lg bg-brand-bg hover:bg-brand-faint border border-brand-border/40 text-brand-muted hover:text-brand-text transition-all cursor-pointer"
+                aria-label={t('login.accountRecoveryBack')}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <h3 className="font-display font-extrabold text-lg text-brand-text">
-                {isAccountRecovery ? 'กู้คืนบัญชีที่ปิดไว้' : recoveryStep === 'request' ? t('login.recoveryTitleRequest') : t('login.recoveryTitleVerify')}
-              </h3>
+              <div>
+                <h3 className="font-display font-extrabold text-lg text-brand-text">
+                  {isAccountRecovery ? t('login.accountRecoveryTitle') : recoveryStep === 'request' ? t('login.recoveryTitleRequest') : t('login.recoveryTitleVerify')}
+                </h3>
+                {isAccountRecovery && <p className="mt-1 text-xs leading-relaxed text-brand-muted">{t('login.accountRecoverySubtitle')}</p>}
+              </div>
             </div>
           )}
 
@@ -759,17 +775,29 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
           {isAccountRecovery ? (
             <form onSubmit={handleAccountRecovery} className="space-y-4">
-              <p className="text-xs leading-relaxed text-brand-muted">ลิงก์กู้คืนจากผู้ดูแลไม่ผูกกับบัญชีใดบัญชีหนึ่ง ใช้ได้ 1 ชั่วโมง กรอกอีเมลสำรองที่ยืนยันไว้เพื่อให้ระบบค้นหาบัญชีที่รอลบและส่งรหัส 6 หลักให้ โดยต้องกู้คืนก่อนครบ 30 วัน</p>
-              <input type="email" required autoComplete="email" value={backupRecoveryEmail} onChange={event => setBackupRecoveryEmail(event.target.value)}
-                placeholder="อีเมลสำรอง" aria-label="อีเมลสำรอง" className="w-full rounded-2xl border border-brand-border bg-brand-bg/20 px-4 py-3 text-sm text-brand-text" />
-              {backupRecoverySent && <input type="text" required inputMode="numeric" autoComplete="one-time-code" maxLength={6}
-                value={backupRecoveryCode} onChange={event => setBackupRecoveryCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="รหัส 6 หลัก" aria-label="รหัสกู้คืนบัญชี" className="w-full rounded-2xl border border-brand-border bg-brand-bg/20 px-4 py-3 text-sm text-brand-text" />}
+              <p className="text-xs leading-6 text-brand-muted">{t('login.accountRecoveryDescription')}</p>
+              <div>
+                <label htmlFor="account-recovery-email" className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted">{t('login.accountRecoveryEmail')}</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-brand-muted" aria-hidden="true"><Mail className="h-4.5 w-4.5" /></span>
+                  <input id="account-recovery-email" type="email" required autoComplete="email" value={backupRecoveryEmail} onChange={event => setBackupRecoveryEmail(event.target.value)}
+                    placeholder={t('login.emailPlaceholder')} aria-label={t('login.accountRecoveryEmail')} className="w-full rounded-2xl border border-brand-border/60 bg-brand-bg/20 py-3 pl-10 pr-4 text-xs text-brand-text outline-none transition-all placeholder:text-brand-muted/50 focus:border-[#E65F2B] focus:ring-4 focus:ring-orange-500/10 dark:focus:border-[#FFA473] dark:focus:ring-orange-500/5" />
+                </div>
+              </div>
+              {backupRecoverySent && (
+                <div>
+                  <label htmlFor="account-recovery-code" className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted">{t('login.accountRecoveryCode')}</label>
+                  <input id="account-recovery-code" type="text" required inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                    value={backupRecoveryCode} onChange={event => setBackupRecoveryCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder={t('login.verificationCodePlaceholder')} aria-label={t('login.accountRecoveryCode')} className="w-full rounded-2xl border border-brand-border/60 bg-brand-bg/20 px-4 py-3 text-sm tracking-[0.25em] text-brand-text outline-none transition-all placeholder:tracking-normal placeholder:text-brand-muted/50 focus:border-[#E65F2B] focus:ring-4 focus:ring-orange-500/10 dark:focus:border-[#FFA473] dark:focus:ring-orange-500/5" />
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-brand-muted">{t('login.accountRecoveryCodeHint')}</p>
+                </div>
+              )}
               <button type="submit" disabled={loading || (backupRecoverySent && backupRecoveryCode.length !== 6)}
-                className="w-full rounded-2xl bg-[#E65F2B] px-4 py-3 text-xs font-bold text-white disabled:opacity-50">
-                {loading ? 'กำลังดำเนินการ...' : backupRecoverySent ? 'ยืนยันและเปิดบัญชีอีกครั้ง' : 'ส่งรหัสไปยังอีเมลสำรอง'}
+                className="mt-2 flex w-full cursor-pointer select-none items-center justify-center gap-2 rounded-2xl bg-[#E65F2B] px-4 py-3.5 text-xs font-extrabold text-white shadow-md shadow-orange-600/10 transition-all hover:bg-[#D98324] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-none">
+                {loading ? <><Loader2 className="h-4 w-4 animate-spin" />{t('login.accountRecoveryProcessing')}</> : backupRecoverySent ? <><CheckCircle2 className="h-4 w-4" />{t('login.accountRecoveryConfirm')}</> : <><KeyRound className="h-4 w-4" />{t('login.accountRecoverySendCode')}</>}
               </button>
-              {backupRecoverySent && <button type="button" disabled={loading} onClick={() => { setBackupRecoverySent(false); setBackupRecoveryCode(''); }} className="w-full text-xs text-brand-muted">ขอรหัสใหม่</button>}
+              {backupRecoverySent && <button type="button" disabled={loading} onClick={() => { setBackupRecoverySent(false); setBackupRecoveryCode(''); setSuccess(null); }} className="w-full cursor-pointer text-xs font-semibold text-brand-muted transition-colors hover:text-brand-text disabled:cursor-not-allowed disabled:opacity-50">{t('login.accountRecoveryResend')}</button>}
             </form>
           ) : isForgotPassword ? (
             /* Forgot Password Form Flow */
@@ -1086,21 +1114,20 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
             </>
           )}
 
-          <div className="space-y-3 mt-4">
-            <button
-              type="button"
-              onClick={() => {
-                // Always the generic placeholder -- this is a no-signup guest trial, so it must
-                // never pick up whatever happens to be sitting in the email field (the browser's
-                // own autofill routinely fills that with the visitor's real saved email before
-                // they've touched anything, which isn't a guest login at all).
-                onGuestLogin('guest_demo@cashflow.com');
-              }}
-              className="w-full py-3.5 px-4 bg-orange-500/10 dark:bg-orange-500/5 hover:bg-orange-500/15 text-[#E65F2B] dark:text-[#FFA473] font-extrabold rounded-2xl text-xs border border-orange-500/20 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all shadow-sm"
-            >
-              {t('login.guestTrial')}
-            </button>
-          </div>
+          {!isAccountRecovery && (
+            <div className="mt-4 space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  // Use the generic demo identity, never the email autofilled into the form.
+                  onGuestLogin('guest_demo@cashflow.com');
+                }}
+                className="w-full py-3.5 px-4 bg-orange-500/10 dark:bg-orange-500/5 hover:bg-orange-500/15 text-[#E65F2B] dark:text-[#FFA473] font-extrabold rounded-2xl text-xs border border-orange-500/20 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all shadow-sm"
+              >
+                {t('login.guestTrial')}
+              </button>
+            </div>
+          )}
         </motion.div>
 
         {/* Footer info */}

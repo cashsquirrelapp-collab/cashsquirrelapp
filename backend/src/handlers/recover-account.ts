@@ -9,7 +9,7 @@ import { sendGmailEmail } from '../services/gmail.js';
 const input = z.object({
   action: z.enum(['request', 'verify']),
   email: z.email().max(254),
-  token: z.string().min(40).max(100),
+  token: z.string().min(24).max(100),
   code: z.string().regex(/^\d{6}$/).optional(),
 });
 const generic = { ok: true, message: 'หากลิงก์และอีเมลสำรองนี้ใช้กู้คืนได้ ระบบจะส่งรหัสให้' };
@@ -26,6 +26,12 @@ async function findActiveRecovery(admin: ReturnType<typeof getSupabaseAdmin>, to
   return { tokenHash, createdAt: link.data.created_at };
 }
 
+async function releaseRecoveryLink(admin: ReturnType<typeof getSupabaseAdmin>, tokenHash: string) {
+  await admin.from('cashflow_account_recovery_links').update({
+    consumed_at: null, recovered_user_id: null, recovered_email: null,
+  }).eq('token_hash', tokenHash);
+}
+
 export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
   const parsed = input.safeParse(req.body);
@@ -40,11 +46,15 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     if (action === 'request') { res.json(generic); return; }
     throw new HttpError(400, 'ลิงก์กู้คืน รหัส หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
   }
-  const backup = await admin.from('cashflow_backup_emails').select('user_id,verified_email')
+  const backup = await admin.from('cashflow_backup_emails').select('user_id,verified_email,verified_at')
     .eq('verified_email', email).maybeSingle();
   if (backup.error) throw backup.error;
-  if (!backup.data?.verified_email || backup.data.verified_email.toLowerCase() !== email) {
-    if (action === 'request') { res.json(generic); return; }
+  if (!backup.data?.verified_email || !backup.data.verified_at || backup.data.verified_email.toLowerCase() !== email) {
+    if (action === 'request') {
+      throw new HttpError(400,
+        'ไม่พบอีเมลนี้ในรายการอีเมลสำรองที่ยืนยันแล้ว โปรดตรวจสอบอีเมลที่กรอกและลองอีกครั้ง',
+        'backup_email_not_verified');
+    }
     throw new HttpError(400, 'ลิงก์กู้คืน รหัส หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
   }
   const pendingClosure = await admin.from('cashflow_account_pauses').select('user_id,paused_at,delete_after')
@@ -88,7 +98,9 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   if (Date.now() - Date.parse(recovery.createdAt) >= 60 * 60 * 1000) {
     throw new HttpError(400, 'ลิงก์กู้คืนหมดอายุแล้ว กรุณาติดต่อผู้ดูแลเพื่อขอลิงก์ใหม่');
   }
-  const usedLink = await admin.from('cashflow_account_recovery_links').update({ consumed_at: now })
+  const usedLink = await admin.from('cashflow_account_recovery_links').update({
+    consumed_at: now, recovered_user_id: userId, recovered_email: email,
+  })
     .eq('token_hash', recovery.tokenHash)
     .is('consumed_at', null).is('revoked_at', null).gt('expires_at', now)
     .gt('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
@@ -100,11 +112,11 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     .eq('closure_kind', 'deletion').eq('state', 'paused').gt('delete_after', now)
     .select('user_id').maybeSingle();
   if (removed.error) {
-    await admin.from('cashflow_account_recovery_links').update({ consumed_at: null }).eq('token_hash', recovery.tokenHash);
+    await releaseRecoveryLink(admin, recovery.tokenHash);
     throw removed.error;
   }
   if (!removed.data) {
-    await admin.from('cashflow_account_recovery_links').update({ consumed_at: null }).eq('token_hash', recovery.tokenHash);
+    await releaseRecoveryLink(admin, recovery.tokenHash);
     throw new HttpError(409, 'พ้นกำหนดกู้คืนแล้ว ระบบกำลังลบบัญชี');
   }
 
@@ -114,7 +126,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       user_id: userId, paused_at: pendingClosure.data.paused_at,
       delete_after: pendingClosure.data.delete_after, closure_kind: 'deletion',
     });
-    await admin.from('cashflow_account_recovery_links').update({ consumed_at: null }).eq('token_hash', recovery.tokenHash);
+    await releaseRecoveryLink(admin, recovery.tokenHash);
     throw new HttpError(503, 'กู้คืนบัญชีไม่สำเร็จ กรุณาลองใหม่');
   }
   const updated = await admin.auth.admin.updateUserById(userId, { app_metadata: {
@@ -126,7 +138,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       user_id: userId, paused_at: pendingClosure.data.paused_at,
       delete_after: pendingClosure.data.delete_after, closure_kind: 'deletion',
     });
-    await admin.from('cashflow_account_recovery_links').update({ consumed_at: null }).eq('token_hash', recovery.tokenHash);
+    await releaseRecoveryLink(admin, recovery.tokenHash);
     throw new HttpError(503, 'กู้คืนบัญชีไม่สำเร็จ กรุณาลองใหม่');
   }
   res.json({ ok: true });

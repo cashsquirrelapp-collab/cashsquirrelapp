@@ -12,6 +12,19 @@ import type {
 } from '../../../shared/groups';
 import { apiJson } from './api';
 
+export type AdminRecoveryLink = {
+  id: string;
+  url: string | null;
+  createdAt: string;
+  expiresAt: string;
+  consumedAt: string | null;
+  revokedAt: string | null;
+  recoveredUserId: string | null;
+  recoveredEmail: string | null;
+  recoveredPublicId: string | null;
+  recoveredDisplayName: string | null;
+};
+
 // Bind requests to the account which opened this view, including confirmation
 // callbacks. The backend rejects them if another account has since logged in.
 export const groupApi = {
@@ -76,8 +89,14 @@ export const groupApi = {
       headers: { 'X-Account-ID': account },
     });
   },
+  accountRecoveryLinks(account: string, includeUrls: boolean, signal?: AbortSignal) {
+    return apiJson<{ links: AdminRecoveryLink[] }>(`/api/admin-users?action=recovery-links&includeUrls=${includeUrls ? '1' : '0'}`, {
+      signal,
+      headers: { 'X-Account-ID': account },
+    });
+  },
   createAccountRecoveryLink(account: string) {
-    return apiJson<{ url: string; expiresAt: string }>('/api/admin-users', {
+    return apiJson<AdminRecoveryLink>('/api/admin-users', {
       method: 'POST',
       headers: { 'X-Account-ID': account },
       body: JSON.stringify({ action: 'create-recovery-link' }),

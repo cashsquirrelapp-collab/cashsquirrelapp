@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '../config/supabase.js';
 import { appOrigin } from '../config/env.js';
 import { HttpError, withGuard } from '../http/guard.js';
 import { requireUser } from '../security/session.js';
+import { seal, unseal } from '../security/cookies.js';
 import { systemRole } from '../repositories/roles.js';
 import { challengeHash, rateLimit } from '../security/rateLimit.js';
 import { groupDbError } from './groups.js';
@@ -252,6 +253,54 @@ export default withGuard(
         res.json(await listDeletionRequests(db));
         return;
       }
+      if (req.query.action === 'recovery-links') {
+        const now = new Date().toISOString();
+        const firstPage = await db.from('cashflow_account_recovery_links')
+          .select('id,token_ciphertext,created_at,expires_at,consumed_at,revoked_at,recovered_user_id,recovered_email')
+          .gt('expires_at', now)
+          .order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, 499);
+        if (firstPage.error) throw firstPage.error;
+        const rows = [...(firstPage.data || [])];
+        for (let offset = 500; (firstPage.data || []).length === 500; offset += 500) {
+          const nextPage = await db.from('cashflow_account_recovery_links')
+            .select('id,token_ciphertext,created_at,expires_at,consumed_at,revoked_at,recovered_user_id,recovered_email')
+            .gt('expires_at', now)
+            .order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + 499);
+          if (nextPage.error) throw nextPage.error;
+          rows.push(...(nextPage.data || []));
+          if ((nextPage.data || []).length < 500) break;
+        }
+        const recoveredUserIds = [...new Set(rows.map(row => row.recovered_user_id).filter((id): id is string => !!id))];
+        const profiles = recoveredUserIds.length
+          ? await db.from('cashflow_profiles').select('user_id,public_id,display_name').in('user_id', recoveredUserIds)
+          : { data: [], error: null };
+        if (profiles.error) throw profiles.error;
+        const profilesById = new Map((profiles.data || []).map(profile => [profile.user_id, profile] as const));
+        const includeUrls = req.query.includeUrls === '1';
+        res.json({ links: rows.map(row => {
+          const token = includeUrls && row.token_ciphertext ? unseal<string>(row.token_ciphertext) : null;
+          let url: string | null = null;
+          if (token) {
+            const recoveryUrl = new URL('/login', appOrigin());
+            recoveryUrl.searchParams.set('r', token);
+            url = recoveryUrl.toString();
+          }
+          const profile = row.recovered_user_id ? profilesById.get(row.recovered_user_id) : undefined;
+          return {
+            id: row.id,
+            url,
+            createdAt: row.created_at,
+            expiresAt: row.expires_at,
+            consumedAt: row.consumed_at,
+            revokedAt: row.revoked_at,
+            recoveredUserId: row.recovered_user_id,
+            recoveredEmail: row.recovered_email,
+            recoveredPublicId: profile?.public_id || null,
+            recoveredDisplayName: profile?.display_name || null,
+          };
+        }) });
+        return;
+      }
       const query = z
         .object({
           search: z.string().trim().max(254).default(''),
@@ -334,15 +383,22 @@ export default withGuard(
       if (!parsed.success) throw new HttpError(400, 'ข้อมูลสร้างลิงก์กู้คืนไม่ถูกต้อง');
       const issuedAt = Date.now();
       const expiresAt = new Date(issuedAt + RECOVERY_LINK_TTL_MS).toISOString();
-      const token = randomBytes(32).toString('base64url');
+      // 144 bits of entropy keeps the bearer link compact while remaining
+      // infeasible to guess; store a keyed hash for validation and ciphertext
+      // so this admin can restore the active URL in the dashboard.
+      const token = randomBytes(18).toString('base64url');
       const tokenHash = challengeHash(`account-recovery-link:${token}`);
+      const expired = await db.from('cashflow_account_recovery_links')
+        .delete().lte('expires_at', new Date(issuedAt).toISOString());
+      if (expired.error) throw expired.error;
       const saved = await db.from('cashflow_account_recovery_links').insert({
-        token_hash: tokenHash, created_by: user.id, expires_at: expiresAt,
-      });
+        token_hash: tokenHash, token_ciphertext: seal(token), created_by: user.id, expires_at: expiresAt,
+      }).select('id,created_at').single();
       if (saved.error) throw saved.error;
       const url = new URL('/login', appOrigin());
-      url.searchParams.set('recover', token);
-      res.json({ url: url.toString(), expiresAt });
+      url.searchParams.set('r', token);
+      res.json({ id: saved.data.id, url: url.toString(), createdAt: saved.data.created_at, expiresAt, consumedAt: null, revokedAt: null,
+        recoveredUserId: null, recoveredEmail: null, recoveredPublicId: null, recoveredDisplayName: null });
       return;
     }
     const action = systemRoleActionSchema.safeParse(req.body);

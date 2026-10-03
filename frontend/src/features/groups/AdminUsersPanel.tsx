@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { AdminAccounts, SystemRole } from '../../../../shared/groups';
-import { groupApi } from '../../services/groups';
+import { groupApi, type AdminRecoveryLink } from '../../services/groups';
 import { getCurrentAccount } from '../../services/api';
 import { authClient } from '../../services/auth';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -28,7 +28,8 @@ export default function AdminUsersPanel({
     [draft, setDraft] = useState(''),
     [search, setSearch] = useState('');
   const [deletionRequests, setDeletionRequests] = useState<{ userId: string; email: string; requestedAt: string; expiresAt: string }[] | null>(null);
-  const [recoveryLinks, setRecoveryLinks] = useState<{ url: string; expiresAt: string }[]>([]);
+  const [recoveryLinks, setRecoveryLinks] = useState<AdminRecoveryLink[]>([]);
+  const [recoveryLinksLoaded, setRecoveryLinksLoaded] = useState(false);
   const [creatingRecoveryLink, setCreatingRecoveryLink] = useState(false);
   const [copiedRecoveryLink, setCopiedRecoveryLink] = useState('');
   const [page, setPage] = useState(0),
@@ -64,6 +65,46 @@ export default function AdminUsersPanel({
       .catch(e => { if (!controller.signal.aborted) setError((e as Error).message); });
     return () => controller.abort();
   }, [userId, revision]);
+  useEffect(() => {
+    const controller = new AbortController();
+    let inFlight = false;
+    let includeUrls = true;
+    setRecoveryLinksLoaded(false);
+    const refreshRecoveryLinks = async () => {
+      if (inFlight || controller.signal.aborted || document.visibilityState !== 'visible') return;
+      inFlight = true;
+      try {
+        const result = await groupApi.accountRecoveryLinks(userId, includeUrls, controller.signal);
+        includeUrls = false;
+        if (!controller.signal.aborted && getCurrentAccount() === userId) {
+          setRecoveryLinks(current => result.links
+            .filter(link => new Date(link.expiresAt).getTime() > Date.now())
+            .map(link => ({ ...link, url: link.url || current.find(existing => existing.id === link.id)?.url || null })));
+          setRecoveryLinksLoaded(true);
+        }
+      } catch (e) {
+        if (!controller.signal.aborted) setError((e as Error).message);
+      } finally {
+        inFlight = false;
+      }
+    };
+    void refreshRecoveryLinks();
+    const interval = window.setInterval(() => { void refreshRecoveryLinks(); }, 15_000);
+    document.addEventListener('visibilitychange', refreshRecoveryLinks);
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshRecoveryLinks);
+    };
+  }, [userId, revision]);
+  useEffect(() => {
+    const removeExpiredLinks = () => setRecoveryLinks(current => {
+      const active = current.filter(link => new Date(link.expiresAt).getTime() > Date.now());
+      return active.length === current.length ? current : active;
+    });
+    const interval = window.setInterval(removeExpiredLinks, 5_000);
+    return () => window.clearInterval(interval);
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
     let inFlight = false;
@@ -131,7 +172,8 @@ export default function AdminUsersPanel({
     try {
       const result = await groupApi.createAccountRecoveryLink(userId);
       if (!mounted.current || getCurrentAccount() !== userId) return;
-      setRecoveryLinks(current => [result, ...current]);
+      setRecoveryLinks(current => [result, ...current.filter(link => link.id !== result.id)]);
+      setRecoveryLinksLoaded(true);
     } catch (e) {
       if (mounted.current) setError((e as Error).message);
     } finally {
@@ -142,10 +184,11 @@ export default function AdminUsersPanel({
       }
     }
   };
-  const copyRecoveryLink = async (link: { url: string; expiresAt: string }) => {
+  const copyRecoveryLink = async (link: AdminRecoveryLink) => {
+    if (!link.url) return;
     try {
       await navigator.clipboard.writeText(link.url);
-      setCopiedRecoveryLink(link.url);
+      setCopiedRecoveryLink(link.id);
     } catch {
       setError(copy('คัดลอกไม่ได้ กรุณาเลือกและคัดลอกลิงก์จากช่องข้อความ', 'Copy failed. Select and copy the link from the text field.'));
     }
@@ -216,19 +259,44 @@ export default function AdminUsersPanel({
         >
           {creatingRecoveryLink ? copy('กำลังสร้าง…', 'Creating…') : copy('สร้างลิงก์กู้คืน', 'Generate recovery link')}
         </button>
-        {recoveryLinks.length > 0 && (
+        {!recoveryLinksLoaded ? (
+          <p className="mt-3 rounded-xl bg-brand-white/70 px-3 py-3 text-xs text-brand-muted">{copy('กำลังโหลดลิงก์กู้คืน…', 'Loading recovery links…')}</p>
+        ) : recoveryLinks.length === 0 ? (
+          <p className="mt-3 rounded-xl bg-brand-white/70 px-3 py-3 text-xs text-brand-muted">{copy('ไม่มีลิงก์กู้คืนที่ยังไม่หมดอายุ', 'There are no unexpired recovery links.')}</p>
+        ) : (
           <div className="mt-3 space-y-2">
-            {recoveryLinks.map(link => (
-              <div key={link.url} className="rounded-xl border border-brand-border/40 bg-brand-white p-3.5">
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input aria-label={copy('ลิงก์กู้คืนบัญชี', 'Account recovery link')} className={input} value={link.url} readOnly onFocus={event => event.currentTarget.select()} />
-                  <button type="button" className={secondary} onClick={() => { void copyRecoveryLink(link); }}>
-                    {copiedRecoveryLink === link.url ? copy('คัดลอกแล้ว', 'Copied') : copy('คัดลอกลิงก์', 'Copy link')}
-                  </button>
+            {recoveryLinks.map(link => {
+              const dateOptions: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' };
+              const recoveredAccount = [link.recoveredDisplayName, link.recoveredPublicId].filter(Boolean).join(' · ') || link.recoveredUserId || copy('ไม่พบข้อมูลบัญชี', 'Account unavailable');
+              return (
+                <div key={link.id} className="rounded-xl border border-brand-border/40 bg-brand-white p-3.5">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    {link.url ? (
+                      <input aria-label={copy('ลิงก์กู้คืนบัญชี', 'Account recovery link')} className={`${input} min-w-0`} value={link.url} readOnly onFocus={event => event.currentTarget.select()} />
+                    ) : (
+                      <p className="min-w-0 flex-1 rounded-xl border border-brand-border/40 bg-brand-bg/40 px-3 py-2.5 text-xs leading-relaxed text-brand-muted">{copy('ลิงก์นี้สร้างก่อนเปิดใช้รายการลิงก์ และไม่สามารถเรียก URL กลับมาได้', 'This link predates link history and its URL cannot be restored.')}</p>
+                    )}
+                    <button type="button" className={secondary} disabled={!link.url} onClick={() => { void copyRecoveryLink(link); }}>
+                      {copiedRecoveryLink === link.id ? copy('คัดลอกแล้ว', 'Copied') : copy('คัดลอกลิงก์', 'Copy link')}
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-brand-muted">
+                    <span className={`rounded-full px-2 py-1 font-semibold ${link.consumedAt ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : link.revokedAt ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-brand-faint text-brand-muted'}`}>
+                      {link.consumedAt ? copy('ใช้กู้คืนแล้ว', 'Used') : link.revokedAt ? copy('ยกเลิกแล้ว', 'Revoked') : copy('ยังไม่ถูกใช้', 'Not used')}
+                    </span>
+                    <span>{copy('สร้างเมื่อ', 'Created')} {new Date(link.createdAt).toLocaleString(language === 'th' ? 'th-TH' : 'en-GB', dateOptions)}</span>
+                    <span>{copy('หมดอายุ', 'Expires')} {new Date(link.expiresAt).toLocaleString(language === 'th' ? 'th-TH' : 'en-GB', dateOptions)}</span>
+                  </div>
+                  {link.consumedAt && (
+                    <div className="mt-2 rounded-lg bg-brand-bg/50 px-3 py-2 text-xs leading-relaxed text-brand-text">
+                      <p><span className="font-semibold">{copy('บัญชีที่กู้คืน:', 'Account recovered:')}</span> {recoveredAccount}</p>
+                      {link.recoveredEmail && <p className="mt-0.5 break-all text-brand-muted">{copy('อีเมลสำรอง:', 'Backup email:')} {link.recoveredEmail}</p>}
+                      <p className="mt-0.5 text-[11px] text-brand-muted">{copy('กู้คืนเมื่อ', 'Recovered')} {new Date(link.consumedAt).toLocaleString(language === 'th' ? 'th-TH' : 'en-GB', dateOptions)}</p>
+                    </div>
+                  )}
                 </div>
-                <p className="mt-2 text-[11px] text-brand-muted">{copy('ลิงก์หมดอายุ', 'Link expires')} {new Date(link.expiresAt).toLocaleString(language === 'th' ? 'th-TH' : 'en-GB', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' })}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {deletionRequests === null ? (
