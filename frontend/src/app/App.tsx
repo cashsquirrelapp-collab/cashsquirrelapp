@@ -2,10 +2,14 @@ import PageHeader from '../components/ui/PageHeader';
 import { uiPrimaryButton } from '../components/ui/uiStyles';
 import { privateCache } from '../services/privateCache';
 import { validateChanges, notificationPreferences } from '../../../shared/validation';
-import React, { useState, useEffect, useMemo, useRef, lazy, Suspense, startTransition } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, startTransition } from 'react';
 import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense, GoalTransaction } from '../../../shared/types';
 import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from '../sampleData';
 import { getMonthKey, DEFAULT_JOB_TYPES, dateLocale, formatCurrency, isReminderDue, toLocalDateKey } from '../utils';
+import DashboardTab from '../features/dashboard/DashboardTab';
+import JobsTab from '../features/jobs/JobsTab';
+import CalendarTab from '../features/calendar/CalendarTab';
+import IncomeExpenseTab from '../features/incomeExpense/IncomeExpenseTab';
 
 const loadDashboardTab = () => import('../features/dashboard/DashboardTab');
 const loadAdminDashboardTab = () => import('../features/groups/AdminDashboard');
@@ -24,11 +28,7 @@ const loadReportOverviewTab = () => import('../features/report/ReportTab');
 const loadCalendarTab = () => import('../features/calendar/CalendarTab');
 const ClientsTab = lazy(loadClientsTab);
 const ReceivablesTab = lazy(loadReceivablesTab);
-const IncomeExpenseTab = lazy(loadIncomeExpenseTab);
 const ReportOverviewTab = lazy(loadReportOverviewTab);
-const CalendarTab = lazy(loadCalendarTab);
-const JobsTab = lazy(loadJobsTab);
-const DashboardTab = lazy(loadDashboardTab);
 const AdminDashboardTab = lazy(loadAdminDashboardTab);
 const SplitTab = lazy(loadSplitTab);
 import CustomDialog from '../components/ui/CustomDialog';
@@ -1189,7 +1189,7 @@ export default function App() {
   }, [pathname, session?.user?.id, session?.isGuest, routeContext, financeGroupId, activeTab]);
 
   // Load user data whenever session changes
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (session?.user?.email) {
       const email = session.user.email;
       if (isLoadedForUser === email && loadedWorkspaceRef.current===financeOwner) return;
@@ -2563,7 +2563,9 @@ export default function App() {
 
         {/* Scrollable Container with responsive max widths */}
         <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
-          <Suspense fallback={<ContentLoadingSkeleton page={activeTab} />}>
+          {!session.isGuest && loadedFinanceOwner !== financeOwner && !readReloadSnapshot(financeOwner)
+            ? <ContentLoadingSkeleton page={activeTab} />
+            : <Suspense fallback={<ContentLoadingSkeleton page={activeTab} />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
           {activeTab === 'dashboard' && (
             <PageHeader page="dashboard" id="dashboard-title" className="mb-4">
@@ -2859,7 +2861,7 @@ export default function App() {
               )}
             </div>}
           </div>
-          </Suspense>
+          </Suspense>}
         </div>
 
         {/* Custom Dialog overlay */}
