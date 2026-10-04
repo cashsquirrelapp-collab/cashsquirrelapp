@@ -42,7 +42,7 @@ npm run dev
 
 เปิด `http://127.0.0.1:3000` ค่า `APP_URL` ต้องตรงกับ origin ที่ใช้เปิดหน้าเว็บ การใช้ `localhost` แทน `127.0.0.1` ต้องแก้ `APP_URL` ให้ตรงกัน โหมดทดลองใช้ได้โดยไม่ใส่ credentials; บัญชีจริงต้องใส่ Supabase และ `SESSION_SECRET` พร้อมใช้ migrations ก่อน
 
-ข้อมูลการเงินที่ใช้งานอยู่เก็บในหน่วยความจำของหน้าและฐานข้อมูล ไม่เก็บ working copies ลง browser storage ข้อมูลที่ยัง sync ไม่สำเร็จควร export ก่อน reload/ปิดหน้า Session มีอายุสูงสุด 8 ชั่วโมง; production บังคับ HTTPS
+ข้อมูลการเงินที่ใช้งานอยู่เก็บในหน่วยความจำของหน้าและฐานข้อมูล หน้าหลักเก็บสำเนาล่าสุดที่ sync สำเร็จไว้ใน `sessionStorage` ของแท็บ เพื่อแสดงรายการเดิมทันทีระหว่างดึงข้อมูลล่าสุดหลัง reload; สำเนานี้ผูกกับบัญชี/พื้นที่การเงินและถูกล้างเมื่อเปลี่ยนบัญชีหรือออกจากระบบ ข้อมูลที่ยัง sync ไม่สำเร็จควร export ก่อน reload/ปิดหน้า Session มีอายุสูงสุด 8 ชั่วโมง; production บังคับ HTTPS
 
 Frontend เรียก `/api/*` บน origin เดียวกับเว็บ Backend เก็บ access/refresh token ใน cookie ที่เข้ารหัสและมี HttpOnly, SameSite; เมื่อใช้ HTTPS จะเพิ่ม Secure และชื่อแบบ `__Host-` หน้าเว็บไม่ได้รับ token หรือ service role key
 
