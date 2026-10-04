@@ -395,10 +395,14 @@ export default function App() {
   const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean) => {
     const Icon = item.icon;
     const hasCoreFeatureShadow = ['dashboard', 'jobs', 'calendar', 'incomeExpense'].includes(item.key);
+    const firstPathSegment = pathname.split('/').filter(Boolean)[0];
+    const routeHasExplicitTab = isTabKey(firstPathSegment) || !!(firstPathSegment && RETIRED_TAB_ALIASES[firstPathSegment]);
+    const navActiveTab = routeHasExplicitTab ? parseWorkspaceRoute(pathname).tab : activeTab;
+    const isActive = navActiveTab === item.key;
     return (
       <button
         key={item.key}
-        aria-current={activeTab === item.key ? 'page' : undefined}
+        aria-current={isActive ? 'page' : undefined}
         onPointerEnter={() => prefetchFeature(item.key)}
         onFocus={() => prefetchFeature(item.key)}
         onTouchStart={() => prefetchFeature(item.key)}
@@ -407,15 +411,15 @@ export default function App() {
           if (closeMobileOnClick) setIsMobileMenuOpen(false);
         }}
         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all cursor-pointer ${
-          activeTab === item.key
+          isActive
             ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#34231B] dark:text-[#FFA473] font-bold'
             : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'
         }`}
-        style={activeTab === item.key && hasCoreFeatureShadow ? { boxShadow: '0 6px 16px rgba(194, 74, 22, 0.24)' } : undefined}
+        style={isActive && hasCoreFeatureShadow ? { boxShadow: '0 6px 16px rgba(194, 74, 22, 0.24)' } : undefined}
       >
         <Icon
           className="w-4.5 h-4.5"
-          style={activeTab === item.key && hasCoreFeatureShadow ? { filter: 'drop-shadow(0 2px 3px rgba(194, 74, 22, 0.42))' } : undefined}
+          style={isActive && hasCoreFeatureShadow ? { filter: 'drop-shadow(0 2px 3px rgba(194, 74, 22, 0.42))' } : undefined}
         />
         <span>{t(item.labelKey)}</span>
       </button>
