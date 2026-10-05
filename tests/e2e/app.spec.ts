@@ -137,11 +137,11 @@ test('credit report stays concise and hands collection work to receivables',asyn
  await page.goto('/');
  const sidebar=page.locator('aside');
  await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
- await sidebar.getByRole('button',{name:'รายงาน & เครดิตเทอม'}).click();
- await page.getByRole('button',{name:'Credit Term',exact:true}).click();
- await expect(page.getByRole('heading',{name:'ติดตาม Credit Term'})).toBeVisible();
+ await sidebar.getByRole('button',{name:'รายงาน',exact:true}).click();
+ await page.getByRole('tab',{name:'ระยะเวลารับเงิน',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'ช่วงเวลาที่เงินควรเข้า'})).toBeVisible();
  await expect(page.getByRole('heading',{name:'รายงานวิเคราะห์กระแสเงินสดและเงินออม'})).toHaveCount(0);
- await page.getByRole('button',{name:/ไปจัดการเงินค้างรับ/}).click();
+ await page.getByRole('button',{name:/ดูเงินค้างรับ/}).click();
  await expect(page.getByText('ตอนนี้ไม่มีเงินที่ต้องตาม',{exact:true})).toBeVisible();
 });
 test('login and all feature tabs render after separation without browser errors',async({page})=>{
