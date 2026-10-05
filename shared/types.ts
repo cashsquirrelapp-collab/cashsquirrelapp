@@ -88,7 +88,8 @@ export interface Goal {
   target: number;
   current: number;
   deadline: string; // YYYY-MM-DD
-  emoji: string;
+  emoji: string; // legacy picture; goals now use `icon` (or imageUrl)
+  icon?: string; // key from GOAL_ICONS (frontend/src/features/goals/goalIcons.ts)
   bg: string; // Tailwind hex or class name
   acc: string; // Accent color hex or class name
   imageUrl?: string; // Custom image URL for the goal

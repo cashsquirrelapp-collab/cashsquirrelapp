@@ -5,6 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Job, Goal, AppSettings, GoalTransaction, Expense } from '../../../../shared/types';
 import { formatCurrency, getMonthKey, dateLocale, currentMonthKeyNow } from '../../utils';
 import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
+import { GOAL_ICONS, goalIconKey } from './goalIcons';
 import { Drawer, GoalAvatar, ProgressBar, goalPct, pctText, field, label, primaryBtn, secondaryBtn } from './SplitParts';
 import { getReceivedForMonth } from '../../../../shared/installmentPayments';
 import { fixedExpenseForMonth } from '../../../../shared/monthlySummary';
@@ -420,7 +421,8 @@ export default function SplitTab({
   const [formTarget, setFormTarget] = useState('');
   const [formCurrent, setFormCurrent] = useState('');
   const [formDeadline, setFormDeadline] = useState('');
-  const [formEmoji, setFormEmoji] = useState('🎯');
+  const [formEmoji, setFormEmoji] = useState('🎯'); // kept only so editing an old goal never drops its stored emoji
+  const [formIcon, setFormIcon] = useState('target');
   const [formBg, setFormBg] = useState('#ECFDF5');
   const [formAcc, setFormAcc] = useState('#059669');
   const [formImageUrl, setFormImageUrl] = useState('');
@@ -565,7 +567,8 @@ export default function SplitTab({
   // A fresh form every time, so values from a goal edited earlier never leak into a new one.
   const openAddGoal = () => {
     setFormName(''); setFormType('save'); setFormTarget(''); setFormCurrent(''); setFormDeadline('');
-    setFormEmoji('🎯'); setFormBg('#ECFDF5'); setFormAcc('#059669'); setFormImageUrl(''); setFormAllocatedPercentage('0');
+    setFormEmoji('🎯'); setFormIcon('target'); setFormBg('#ECFDF5'); setFormAcc('#059669'); setFormImageUrl(''); setFormAllocatedPercentage('0');
+    setFormAdvancedOpen(true); // picking an icon or photo is part of making a goal
     setIsAddGoalLocalOpen(true);
   };
 
@@ -576,6 +579,7 @@ export default function SplitTab({
     setFormCurrent(String(g.current));
     setFormDeadline(g.deadline || '');
     setFormEmoji(g.emoji || '🎯');
+    setFormIcon(goalIconKey(g));
     setFormBg(g.bg || '#ECFDF5');
     setFormAcc(g.acc || '#059669');
     setFormImageUrl(g.imageUrl || '');
@@ -594,6 +598,7 @@ export default function SplitTab({
       current: parseFloat(formCurrent) || 0,
       deadline: formDeadline || '',
       emoji: formEmoji,
+      icon: formIcon,
       bg: formBg,
       acc: formAcc,
       imageUrl: formImageUrl.trim() || undefined,
@@ -611,7 +616,6 @@ export default function SplitTab({
   };
 
   // Preset arrays for targets
-  const emojiPresets = ['🎯', '📷', '💻', '✈️', '🏕️', '🚨', '🐷', '📈', '🎸', '🏠', '🎓', '💍', '🚗', '💰'];
   const colorPresets = [
     { bg: '#ECFDF5', acc: '#059669', name: 'Emerald' },
     { bg: '#EFF6FF', acc: '#2563EB', name: 'Blue' },
@@ -631,7 +635,8 @@ export default function SplitTab({
       target: parseFloat(formTarget) || 0,
       current: parseFloat(formCurrent) || 0,
       deadline: formDeadline || new Date().toISOString().split('T')[0],
-      emoji: formEmoji,
+      emoji: '',
+      icon: formIcon,
       bg: formBg,
       acc: formAcc,
       imageUrl: formImageUrl.trim() || undefined,
@@ -864,7 +869,7 @@ export default function SplitTab({
                 const amount = preview?.allocations[g.id] || 0;
                 return (
                   <li key={g.id} className="grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_auto] items-center gap-3 text-[13px]">
-                    <span className="flex min-w-0 items-center gap-2"><span className="text-base leading-none">{g.imageUrl ? '' : g.emoji}</span><span className="truncate text-brand-text">{g.name}</span></span>
+                    <span className="flex min-w-0 items-center gap-2"><GoalAvatar goal={g} size={22} /><span className="truncate text-brand-text">{g.name}</span></span>
                     <span className="h-2 overflow-hidden rounded-full bg-brand-faint"><span className="block h-full rounded-full bg-[#E65F2B]" style={{ width: `${Math.min(100, pct)}%` }} /></span>
                     <span className="min-w-[3.5rem] text-right">
                       <span className="font-medium text-brand-text">{pct}%</span>
@@ -1133,27 +1138,30 @@ export default function SplitTab({
 
           <div className="border-t border-brand-border pt-4">
             <button type="button" onClick={() => setFormAdvancedOpen(v => !v)} aria-expanded={formAdvancedOpen} className="flex w-full items-center justify-between text-[13px] font-medium text-brand-text cursor-pointer">
-              <span className="flex items-center gap-2"><GoalAvatar goal={{ imageUrl: formImageUrl, emoji: formEmoji, bg: formBg, name: formName }} size={28} />รูป สัญลักษณ์ และสี</span>
+              <span className="flex items-center gap-2"><GoalAvatar goal={{ imageUrl: formImageUrl, icon: formIcon, type: formType, bg: formBg, acc: formAcc }} size={28} />ไอคอน รูป และสี</span>
               <ChevronDown className={`h-4 w-4 text-brand-muted transition-transform ${formAdvancedOpen ? 'rotate-180' : ''}`} />
             </button>
             {formAdvancedOpen && (
               <div className="mt-4 space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {emojiPresets.map(emoji => (
-                    <button key={emoji} type="button" onClick={() => { setFormEmoji(emoji); setFormImageUrl(''); }}
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl border text-lg transition-colors cursor-pointer ${formEmoji === emoji && !formImageUrl ? 'border-[#E65F2B] bg-[#FFF1E8] dark:bg-orange-500/10' : 'border-brand-border hover:bg-brand-faint'}`}>{emoji}</button>
-                  ))}
+                <div>
+                  <span className={label}>ไอคอน</span>
+                  <div className="grid grid-cols-6 gap-2 sm:grid-cols-7" role="radiogroup" aria-label="ไอคอนเป้าหมาย">
+                    {GOAL_ICONS.map(({ key, label: name, Icon }) => {
+                      const on = formIcon === key && !formImageUrl;
+                      return (
+                        <button key={key} type="button" role="radio" aria-checked={on} aria-label={name} title={name} onClick={() => { setFormIcon(key); setFormImageUrl(''); }}
+                          className={`flex aspect-square items-center justify-center rounded-xl border transition-colors cursor-pointer ${on ? 'border-[#E65F2B] bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'border-brand-border text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`}>
+                          <Icon className="h-5 w-5" strokeWidth={1.8} />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={label} htmlFor="goal-emoji">{t('split.customEmojiLabel')}</label>
-                    <input id="goal-emoji" type="text" maxLength={4} value={formEmoji} onChange={(e) => { setFormEmoji(e.target.value); setFormImageUrl(''); }} className={`${field} text-center`} />
-                  </div>
-                  <div>
-                    <span className={label}>{t('split.uploadGalleryLabel')}</span>
-                    <input type="file" id="goal-image-gallery" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleGalleryUpload(e, false)} className="hidden" />
-                    <label htmlFor="goal-image-gallery" className={`${secondaryBtn} w-full`}>{t('split.chooseFromDevice')}</label>
-                  </div>
+                <div>
+                  <span className={label}>หรือใช้รูปของคุณเอง</span>
+                  <input type="file" id="goal-image-gallery" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleGalleryUpload(e, false)} className="hidden" />
+                  <label htmlFor="goal-image-gallery" className={`${secondaryBtn} w-full`}><Upload className="h-4 w-4" /> {formImageUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูปจากเครื่อง'}</label>
+                  <p className="mt-1.5 text-xs text-brand-muted">PNG, JPG หรือ WebP ไม่เกิน 3MB</p>
                 </div>
                 {formImageUrl && (
                   <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-faint px-3 py-2.5">

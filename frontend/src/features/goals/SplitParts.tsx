@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import type { Goal } from '../../../../shared/types';
+import { goalIcon, goalIconKey } from './goalIcons';
 
 // Presentational pieces of จัดสรรเงิน & เป้าหมาย. No money logic lives here -- SplitTab keeps every
 // calculation and handler; these only lay things out.
@@ -41,11 +42,15 @@ export function Drawer({ open, title, onClose, children, footer, width = 520, z 
   );
 }
 
-/** The goal's own picture: uploaded image, else its emoji on its colour. */
-export function GoalAvatar({ goal, size = 44 }: { goal: Pick<Goal, 'imageUrl' | 'emoji' | 'bg' | 'name'>; size?: number }) {
+/** The goal's picture: the user's own image, else its line icon in the goal's colour. */
+export function GoalAvatar({ goal, size = 44 }: { goal: Pick<Goal, 'imageUrl' | 'type' | 'bg' | 'acc'> & { icon?: string; emoji?: string }; size?: number }) {
+  const Icon = goalIcon(goalIconKey(goal));
   return (
-    <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-brand-border/40" style={{ width: size, height: size, backgroundColor: goal.bg || 'var(--faint)', fontSize: size * 0.48 }}>
-      {goal.imageUrl ? <img src={goal.imageUrl} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : goal.emoji || '🎯'}
+    <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-brand-border/40"
+      style={{ width: size, height: size, backgroundColor: goal.imageUrl ? 'var(--faint)' : goal.bg || 'var(--faint)', color: goal.acc || '#E65F2B' }}>
+      {goal.imageUrl
+        ? <img src={goal.imageUrl} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+        : <Icon style={{ width: size * 0.5, height: size * 0.5 }} strokeWidth={1.8} aria-hidden />}
     </span>
   );
 }

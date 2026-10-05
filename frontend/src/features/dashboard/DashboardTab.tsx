@@ -1,4 +1,5 @@
 import { uiSurface } from '../../components/ui/uiStyles';
+import { GoalAvatar } from '../goals/SplitParts';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
@@ -607,7 +608,7 @@ export default function DashboardTab({
   const monthGoalDeductions = React.useMemo(
     () => goals.flatMap(g => (g.history || [])
       .filter(tx => tx.type === 'deposit' && tx.deductedFromCash && getMonthKey(tx.date) === selectedMonthKey)
-      .map(tx => ({ ...tx, goalName: g.name, goalEmoji: g.emoji }))
+      .map(tx => ({ ...tx, goalName: g.name, goal: g }))
     ),
     [goals, selectedMonthKey],
   );
@@ -1390,7 +1391,7 @@ export default function DashboardTab({
                         <div className="space-y-1.5">
                           {monthGoalDeductions.map(tx => (
                             <div key={tx.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
-                              <span className="text-brand-text dark:text-white truncate">{tx.goalEmoji} {tx.goalName}</span>
+                              <span className="flex min-w-0 items-center gap-2 text-brand-text dark:text-white"><GoalAvatar goal={tx.goal} size={20} /><span className="truncate">{tx.goalName}</span></span>
                               <span className="font-mono font-bold text-rose-600 dark:text-rose-400 shrink-0">-{formatCurrency(tx.amount)}</span>
                             </div>
                           ))}
