@@ -1,7 +1,7 @@
 import React from 'react';
-import { animate, motion, useInView, useReducedMotion } from 'motion/react';
+import { motion, useInView, useReducedMotion } from 'motion/react';
 
-// Shared building blocks for the marketing page: the easing, a scroll reveal, a count-up, and
+// Shared building blocks for the marketing page: the easing, a scroll reveal, and
 // the small app-style pieces (frame, status pill) the product visuals are made of. They copy
 // the app's own look (thin borders, near-black text, orange only as an accent) rather than
 // inventing a separate marketing UI.
@@ -61,20 +61,6 @@ export function useSeen<T extends Element>(amount = 0.35) {
 }
 
 export const baht = (n: number) => `฿${Math.round(n).toLocaleString('en-US')}`;
-
-/** A number that counts to `value` when it changes -- used only where the change is the point. */
-export function CountUp({ value, duration = 0.9, className }: { value: number; duration?: number; className?: string }) {
-  const reduce = useReducedMotion();
-  const [shown, setShown] = React.useState(value);
-  const from = React.useRef(value);
-  React.useEffect(() => {
-    if (reduce) { setShown(value); from.current = value; return; }
-    const controls = animate(from.current, value, { duration, ease: EASE, onUpdate: setShown });
-    from.current = value;
-    return () => controls.stop();
-  }, [value, duration, reduce]);
-  return <span className={className}>{baht(shown)}</span>;
-}
 
 export type PillTone = 'neutral' | 'orange' | 'amber' | 'green' | 'red' | 'blue';
 const PILL: Record<PillTone, string> = {

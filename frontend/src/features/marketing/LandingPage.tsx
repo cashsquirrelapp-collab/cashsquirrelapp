@@ -4,7 +4,8 @@ import { ArrowRight, Check, Play } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { BrandLockup } from '../../components/brand/BrandLogo';
 import { EASE, Eyebrow, Headline, LIGHT_VARS, Lead, Reveal, useSeen } from './landing/primitives';
-import { DemoJobCard, ProductTheater } from './landing/ProductTheater';
+import { DemoJobCard } from './landing/DemoJobCard';
+import { ProductTour } from './landing/ProductTour';
 import { CreditTermVisual, DashboardVisual, DocumentsVisual, ExpensesVisual, ReceivablesVisual } from './landing/ChapterVisuals';
 
 // Public landing page. One idea per section, the product as the visual, and motion only where
@@ -86,7 +87,7 @@ function Hero({ onStart }: { onStart: () => void }) {
   };
   const watch = () => {
     setRestart(n => n + 1);
-    theaterRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    theaterRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   };
   return (
     <section className="relative overflow-hidden pb-[clamp(4rem,3rem+4vw,8rem)] pt-[clamp(3.5rem,2rem+5vw,7.5rem)]">
@@ -116,8 +117,8 @@ function Hero({ onStart }: { onStart: () => void }) {
         </motion.div>
       </div>
       <motion.div ref={theaterRef} {...(reduce ? {} : { initial: { opacity: 0, y: 36, scale: 0.985 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { duration: 0.8, ease: EASE, delay: 0.75 } })}
-        className="mx-auto mt-[clamp(3.5rem,2.5rem+3vw,6rem)] w-full max-w-[1120px] px-4 sm:px-8">
-        <ProductTheater restartKey={restart} />
+        className="mx-auto mt-[clamp(3rem,2rem+3vw,5rem)] w-full max-w-[1120px] px-4 sm:px-8">
+        <ProductTour restartKey={restart} />
       </motion.div>
     </section>
   );
