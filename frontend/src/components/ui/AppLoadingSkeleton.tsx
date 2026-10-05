@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { uiSurface } from './uiStyles';
 
-type SkeletonPage = 'dashboard' | 'adminDashboard' | 'jobs' | 'calendar' | 'clients'
+type SkeletonPage = 'dashboard' | 'adminDashboard' | 'jobs' | 'calendar'
   | 'receivables' | 'incomeExpense' | 'split' | 'report' | 'insight' | 'tax'
   | 'invoice' | 'groups' | 'plans' | 'settings';
 
@@ -375,7 +375,6 @@ function PageBody({ page }: { page: SkeletonPage }) {
     case 'jobs': return <Records />;
     case 'incomeExpense': return <Records expenses />;
     case 'calendar': return <Calendar />;
-    case 'clients': return <Table horizontal />;
     case 'receivables': return <Receivables />;
     case 'invoice': return <Documents />;
     case 'report': return <Report />;

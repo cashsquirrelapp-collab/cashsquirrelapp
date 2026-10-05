@@ -20,12 +20,10 @@ const loadSettingsTab = () => import('../features/settings/SettingsTab').then(mo
 const loadInvoiceTab = () => import('../features/invoices/InvoiceTab').then(module => ({ default: module.InvoiceTab }));
 const loadPlansTab = () => import('../features/billing/PlansTab').then(module => ({ default: module.PlansTab }));
 const loadGroupsTab = () => import('../features/groups/GroupsTab');
-const loadClientsTab = () => import('../features/clients/ClientsTab');
 const loadReceivablesTab = () => import('../features/receivables/ReceivablesTab');
 const loadIncomeExpenseTab = () => import('../features/incomeExpense/IncomeExpenseTab');
 const loadReportOverviewTab = () => import('../features/report/ReportTab');
 const loadCalendarTab = () => import('../features/calendar/CalendarTab');
-const ClientsTab = lazy(loadClientsTab);
 const ReceivablesTab = lazy(loadReceivablesTab);
 const ReportOverviewTab = lazy(loadReportOverviewTab);
 const AdminDashboardTab = lazy(loadAdminDashboardTab);
@@ -95,7 +93,6 @@ import {
   ChevronDown,
   Wrench,
   CalendarDays,
-  Contact,
   Bell,
   Plus,
   Clock,
@@ -103,11 +100,12 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'adminDashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'clients' | 'calendar' | 'receivables' | 'incomeExpense';
+type TabKey = 'dashboard' | 'adminDashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'calendar' | 'receivables' | 'incomeExpense';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'clients', 'calendar', 'receivables', 'incomeExpense'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'calendar', 'receivables', 'incomeExpense'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
-const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense' };
+// The ลูกค้า page was removed; its per-client numbers live in รายงาน › ลูกค้า (the insight alias).
+const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense', clients: 'insight' };
 
 function isTabKey(value: string | undefined): value is TabKey {
   return !!value && TAB_KEYS.includes(value as TabKey);
@@ -197,7 +195,6 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   invoice: loadInvoiceTab,
   plans: loadPlansTab,
   settings: loadSettingsTab,
-  clients: loadClientsTab,
   receivables: loadReceivablesTab,
   calendar: loadCalendarTab,
   incomeExpense: loadIncomeExpenseTab,
@@ -224,7 +221,6 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
-  { key: 'clients', labelKey: 'nav.clients', icon: Contact, group: 'more' },
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
   { key: 'plans', labelKey: 'nav.plans', icon: IconCrown, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
@@ -2811,12 +2807,6 @@ export default function App() {
                         triggerConfirm={triggerConfirm}
                       />
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
-              )}
-              {activeTab === 'clients' && (
-                <ClientsTab
-                  jobs={jobs}
-                  onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
-                />
               )}
               {activeTab === 'receivables' && (
                 <ReceivablesTab

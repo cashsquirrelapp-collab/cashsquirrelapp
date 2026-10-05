@@ -888,7 +888,6 @@ export default function DashboardTab({
               { label: 'ออกเอกสาร', icon: IconArrowUpRight, action: () => onSwitchTab('invoice') },
               { label: 'เป้าหมายออม', icon: PiggyBank, action: () => onSwitchTab('split') },
               { label: 'ปฏิทิน', icon: CalendarDays, action: () => onSwitchTab('calendar') },
-              { label: 'ลูกค้า', icon: Coins, action: () => onSwitchTab('clients') },
             ].map(({ label, icon: Icon, action }) => (
               <button
                 key={label}

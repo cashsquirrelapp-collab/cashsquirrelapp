@@ -349,7 +349,7 @@ function Clients({ report, period, isPro, onUpgrade, onDrill, onJobs }: {
       {!isPro && <ProNote text="ดูลูกค้าเดิม vs ใหม่ เลือกช่วงเวลา และกดดูงานของแต่ละลูกค้า" onUpgrade={onUpgrade} />}
 
       {isPro && topClient && report.concentration >= CONCENTRATION_THRESHOLD && (
-        <p className="rounded-2xl border border-[#F1DDB0] bg-[#FFF8E8] px-4 py-3 text-[13px] text-[#7A5A12] dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-200">
+        <p className="rounded-2xl border border-[#F1DDB0] bg-[#FFF8E8] px-4 py-3 text-[13px] text-[#7A5A12] dark:border-[#E8B84A]/25 dark:bg-[#E8B84A]/10 dark:text-[#F3D28A]">
           รายได้ {pct(topClient.received, report.totalReceived)}% มาจาก {topClient.key} รายเดียว
         </p>
       )}

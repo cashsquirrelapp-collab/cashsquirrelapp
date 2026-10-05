@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 
-type Page = 'dashboard' | 'adminDashboard' | 'jobs' | 'calendar' | 'clients' | 'receivables'
+type Page = 'dashboard' | 'adminDashboard' | 'jobs' | 'calendar' | 'receivables'
   | 'incomeExpense' | 'split' | 'report' | 'insight' | 'tax' | 'invoice' | 'groups' | 'plans' | 'settings';
 
 export default function PageHeader({ page, id, className = '', children }: {
