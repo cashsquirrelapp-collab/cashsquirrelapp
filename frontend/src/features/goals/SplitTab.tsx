@@ -6,7 +6,7 @@ import { Job, Goal, AppSettings, GoalTransaction, Expense } from '../../../../sh
 import { formatCurrency, getMonthKey, dateLocale, currentMonthKeyNow } from '../../utils';
 import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
 import { GOAL_ICONS, goalIconKey } from './goalIcons';
-import { Drawer, GoalAvatar, ProgressBar, goalPct, pctText, field, label, primaryBtn, secondaryBtn } from './SplitParts';
+import { stripEmoji, Drawer, GoalAvatar, ProgressBar, goalPct, pctText, field, label, primaryBtn, secondaryBtn } from './SplitParts';
 import { getReceivedForMonth } from '../../../../shared/installmentPayments';
 import { fixedExpenseForMonth } from '../../../../shared/monthlySummary';
 import { motion, AnimatePresence } from 'motion/react';
@@ -792,6 +792,430 @@ export default function SplitTab({
 
   const card = `${uiSurface}`;
 
+  // Side-panel content, most specific first: the first open one is what the panel shows.
+  type Sheet = { key: string; title: string; width: number; footer?: React.ReactNode; body: React.ReactNode; back?: () => void };
+  const sheets: (Sheet | false)[] = [
+    (isTxModalOpen && Boolean(txGoal)) && {
+      key: 'tx', title: txType === 'deposit' ? 'ฝากเงิน' : 'ถอนเงิน', width: 460, back: (selectedGoal || manualOpen) ? () => setIsTxModalOpen(false) : undefined,
+      footer: <div className="flex gap-3">
+            <button type="button" onClick={() => setIsTxModalOpen(false)} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
+            <button type="submit" form="goal-tx-form" className={`${txType === 'deposit' ? primaryBtn : 'inline-flex h-11 items-center justify-center rounded-xl bg-brand-text px-4 text-sm font-semibold text-brand-white transition-opacity hover:opacity-90 cursor-pointer'} flex-[2]`}>
+              {txType === 'deposit' ? t('split.confirmDepositBtn') : t('split.confirmWithdrawBtn')}
+            </button>
+          </div>,
+      body: (<>
+        {txGoal && (
+          <form id="goal-tx-form" onSubmit={handleTxSubmit} className="space-y-5">
+            <div className="flex items-center gap-3"><GoalAvatar goal={txGoal} size={40} /><div><p className="text-sm font-medium text-brand-text">{txGoal.name}</p><p className="text-xs text-brand-muted">ยอดสะสม {formatCurrency(txGoal.current)}</p></div></div>
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-faint p-1" role="radiogroup" aria-label="ประเภทรายการ">
+              {(['deposit', 'withdraw'] as const).map(type => (
+                <button key={type} type="button" role="radio" aria-checked={txType === type} onClick={() => setTxType(type)}
+                  className={`h-9 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${txType === type ? 'bg-brand-white text-brand-text shadow-sm dark:bg-[#2A2B2F]' : 'text-brand-muted'}`}>
+                  {type === 'deposit' ? 'ฝากเข้า' : 'ถอนออก'}
+                </button>
+              ))}
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <label className={label} htmlFor="goal-tx-amount">{t('split.amountBahtRequired')}</label>
+                {txType === 'withdraw' && txGoal.current > 0 && (
+                  <button type="button" onClick={() => setTxAmount(String(txGoal.current))} className="mb-1.5 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">ถอนทั้งหมด {formatCurrency(txGoal.current)}</button>
+                )}
+              </div>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
+                <NumberInput id="goal-tx-amount" required value={txAmount} onChange={setTxAmount} placeholder={t('split.amountPlaceholder')} className={`${field} pl-8 font-mono`} />
+              </div>
+            </div>
+            {txType === 'deposit' && (
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-brand-border px-3.5 py-3">
+                <input type="checkbox" checked={txDeductFromCash} onChange={(e) => setTxDeductFromCash(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#E65F2B] cursor-pointer" />
+                <span><span className="block text-[13px] font-medium text-brand-text">{t('split.deductFromIncomeLabel')}</span><span className="mt-0.5 block text-xs leading-relaxed text-brand-muted">{t('split.deductFromIncomeDesc')}</span></span>
+              </label>
+            )}
+            <div>
+              <label className={label} htmlFor="goal-tx-date">{t('split.transactionDateLabel')}</label>
+              <input id="goal-tx-date" type="date" required value={txDate} onChange={(e) => setTxDate(e.target.value)} className={field} />
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-tx-reason">{t('split.reasonNoteLabel')}</label>
+              <input id="goal-tx-reason" type="text" value={txReason} onChange={(e) => setTxReason(e.target.value)} placeholder={txType === 'deposit' ? t('split.reasonPlaceholderDeposit') : t('split.reasonPlaceholderWithdraw')} className={field} />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(txType === 'deposit'
+                  ? [t('split.chipMonthlyDeposit'), t('split.chipSponsorIncome'), t('split.chipBonusTip'), t('split.chipAllocateProfit')]
+                  : [t('split.chipEquipment'), t('split.chipMaintenance'), t('split.chipEmergency'), t('split.chipTuition'), t('split.chipTransferAccount')]
+                ).map(chip => (
+                  <button key={chip} type="button" onClick={() => setTxReason(chip)} className="rounded-lg border border-brand-border px-2.5 py-1 text-xs text-brand-text hover:bg-brand-faint cursor-pointer">{chip}</button>
+                ))}
+              </div>
+            </div>
+          </form>
+        )}
+      </>),
+    },
+    (isTransferModalOpen && Boolean(transferFromGoal)) && {
+      key: 'transfer', title: 'โอนไปเป้าหมายอื่น', width: 460, back: selectedGoal ? () => setIsTransferModalOpen(false) : undefined,
+      footer: <div className="flex gap-3">
+            <button type="button" onClick={() => setIsTransferModalOpen(false)} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
+            <button type="submit" form="goal-transfer-form" className={`${primaryBtn} flex-[2]`}>{t('split.confirmTransferBtn')}</button>
+          </div>,
+      body: (<>
+        {transferFromGoal && (
+          <form id="goal-transfer-form" onSubmit={handleTransferSubmit} className="space-y-5">
+            <div className="flex items-center gap-3"><GoalAvatar goal={transferFromGoal} size={40} /><div><p className="text-xs text-brand-muted">{t('split.sourceColon')}</p><p className="text-sm font-medium text-brand-text">{transferFromGoal.name} · {formatCurrency(transferFromGoal.current)}</p></div></div>
+            <div>
+              <label className={label} htmlFor="goal-transfer-to">{t('split.transferToLabel')}</label>
+              <select id="goal-transfer-to" required value={transferToGoalId} onChange={(e) => setTransferToGoalId(e.target.value)} className={`${field} cursor-pointer`}>
+                {goals.filter(g => g.id !== transferFromGoal.id).map(g => (
+                  <option key={g.id} value={g.id}>{t('split.transferOptionLine', { emoji: g.emoji, name: g.name, current: formatCurrency(g.current), target: formatCurrency(g.target) })}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-transfer-amount">{t('split.amountBahtRequired')}</label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
+                <NumberInput id="goal-transfer-amount" required value={transferAmount} onChange={setTransferAmount} placeholder={t('split.amountPlaceholder')} className={`${field} pl-8 font-mono`} />
+              </div>
+              <p className="mt-1.5 text-xs text-brand-muted">{t('split.sourceBalanceLine', { amount: formatCurrency(transferFromGoal.current) })}</p>
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-transfer-date">{t('split.transactionDateLabel')}</label>
+              <input id="goal-transfer-date" type="date" required value={transferDate} onChange={(e) => setTransferDate(e.target.value)} className={field} />
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-transfer-reason">{t('split.reasonOptionalLabel')}</label>
+              <input id="goal-transfer-reason" type="text" value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder={t('split.transferReasonPlaceholder')} className={field} />
+            </div>
+          </form>
+        )}
+      </>),
+    },
+    (goalFormOpen) && {
+      key: 'form', title: isEditForm ? 'แก้ไขเป้าหมาย' : 'สร้างเป้าหมาย', width: 500, back: isEditForm ? closeGoalForm : undefined,
+      footer: <div className="flex gap-3">
+            <button type="button" onClick={closeGoalForm} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
+            <button type="submit" form="goal-form" className={`${primaryBtn} flex-[2]`}>{isEditForm ? 'บันทึกการแก้ไข' : 'สร้างเป้าหมาย'}</button>
+          </div>,
+      body: (<>
+        <form id="goal-form" onSubmit={isEditForm ? handleEditGoalSubmit : handleAddGoalSubmit} className="space-y-5">
+          <div>
+            <label className={label} htmlFor="goal-name">ชื่อเป้าหมาย <span className="text-[#C24A16]">*</span></label>
+            <input id="goal-name" type="text" required value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('split.goalNamePlaceholder')} className={field} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={label} htmlFor="goal-target">{t('split.targetAmountLabel')} <span className="text-[#C24A16]">*</span></label>
+              <NumberInput id="goal-target" required value={formTarget} onChange={setFormTarget} placeholder={t('split.targetAmountPlaceholder')} className={`${field} font-mono`} />
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-current">{isEditForm ? 'ยอดสะสมตอนนี้' : t('split.startingAmountLabel')}</label>
+              <NumberInput id="goal-current" value={formCurrent} onChange={setFormCurrent} placeholder="0" className={`${field} font-mono`} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={label} htmlFor="goal-type">{t('split.typeLabel')}</label>
+              <select id="goal-type" value={formType} onChange={(e) => setFormType(e.target.value as typeof formType)} className={`${field} cursor-pointer`}>
+                <option value="save">{t('split.typeSavingsAccount')}</option>
+                <option value="invest">{t('split.typeInvestment')}</option>
+                <option value="emergency">{t('split.typeEmergencyFund')}</option>
+                <option value="buy">{t('split.typeBuy')}</option>
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-deadline">{t('split.deadlineLabel')}</label>
+              <input id="goal-deadline" type="date" value={formDeadline} onChange={(e) => setFormDeadline(e.target.value)} className={`${field} cursor-pointer`} />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <label className={label} htmlFor="goal-pct">สัดส่วนจากเงินที่จัดสรร</label>
+              <span className="mb-1.5 text-[13px] font-semibold text-brand-text">{formAllocatedPercentage}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <input type="range" min="0" max={formMaxPct} step="5" value={formAllocatedPercentage} onChange={(e) => setFormAllocatedPercentage(e.target.value)} aria-label="สัดส่วน (เลื่อน)" className="flex-1 accent-[#E65F2B] cursor-pointer" />
+              <input id="goal-pct" type="number" min="0" max={formMaxPct} value={formAllocatedPercentage}
+                onChange={(e) => setFormAllocatedPercentage(String(Math.min(formMaxPct, Math.max(0, parseInt(e.target.value) || 0))))}
+                className={`${field.replace('w-full', '')} h-10 w-20 shrink-0 text-center font-mono`} />
+            </div>
+            <p className="mt-1.5 text-xs text-brand-muted">ตั้งได้สูงสุด {formMaxPct}% (เป้าหมายอื่นใช้ไปแล้ว {isEditForm ? totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0) : totalAllocatedPct}%)</p>
+          </div>
+
+          <div className="border-t border-brand-border pt-4">
+            <button type="button" onClick={() => setFormAdvancedOpen(v => !v)} aria-expanded={formAdvancedOpen} className="flex w-full items-center justify-between text-[13px] font-medium text-brand-text cursor-pointer">
+              <span className="flex items-center gap-2"><GoalAvatar goal={{ imageUrl: formImageUrl, icon: formIcon, type: formType, bg: formBg, acc: formAcc }} size={28} />ไอคอน รูป และสี</span>
+              <ChevronDown className={`h-4 w-4 text-brand-muted transition-transform ${formAdvancedOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {formAdvancedOpen && (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <span className={label}>ไอคอน</span>
+                  <div className="grid grid-cols-6 gap-2 sm:grid-cols-7" role="radiogroup" aria-label="ไอคอนเป้าหมาย">
+                    {GOAL_ICONS.map(({ key, label: name, Icon }) => {
+                      const on = formIcon === key && !formImageUrl;
+                      return (
+                        <button key={key} type="button" role="radio" aria-checked={on} aria-label={name} title={name} onClick={() => { setFormIcon(key); setFormImageUrl(''); }}
+                          className={`flex aspect-square items-center justify-center rounded-xl border transition-colors cursor-pointer ${on ? 'border-[#E65F2B] bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'border-brand-border text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`}>
+                          <Icon className="h-5 w-5" strokeWidth={1.8} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <span className={label}>หรือใช้รูปของคุณเอง</span>
+                  <input type="file" id="goal-image-gallery" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleGalleryUpload(e, false)} className="hidden" />
+                  <label htmlFor="goal-image-gallery" className={`${secondaryBtn} w-full`}><Upload className="h-4 w-4" /> {formImageUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูปจากเครื่อง'}</label>
+                  <p className="mt-1.5 text-xs text-brand-muted">PNG, JPG หรือ WebP ไม่เกิน 3MB</p>
+                </div>
+                {formImageUrl && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-faint px-3 py-2.5">
+                    <span className="flex items-center gap-2 text-[13px] text-brand-text"><img src={formImageUrl} alt="" className="h-9 w-9 rounded-lg object-cover" />{t('split.imageSelected')}</span>
+                    <button type="button" onClick={() => setFormImageUrl('')} className="text-[13px] text-brand-muted hover:text-brand-text cursor-pointer">{t('split.removeImage')}</button>
+                  </div>
+                )}
+                <div>
+                  <span className={label}>{t('split.chooseColorTheme')}</span>
+                  <div className="flex gap-3">
+                    {colorPresets.map(preset => (
+                      <button key={preset.name} type="button" aria-label={preset.name} onClick={() => { setFormBg(preset.bg); setFormAcc(preset.acc); }}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full border-2 cursor-pointer ${formBg === preset.bg ? 'border-brand-text' : 'border-transparent'}`} style={{ backgroundColor: preset.bg }}>
+                        <span className="h-4 w-4 rounded-full" style={{ backgroundColor: preset.acc }} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </form>
+      </>),
+    },
+    (ratioEditorOpen) && {
+      key: 'ratio', title: 'ปรับสัดส่วน', width: 480, back: undefined,
+      footer: <div className="flex gap-3">
+            <button type="button" onClick={() => setRatioEditorOpen(false)} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
+            <button type="button" onClick={saveRatios} disabled={ratioDraftTotal > 100} className={`${primaryBtn} flex-[2]`}>บันทึกสัดส่วน</button>
+          </div>,
+      body: (<>
+        <p className="text-[13px] text-brand-muted">เมื่อมีเงินพร้อมจัดสรร ระบบจะแบ่งเข้าแต่ละเป้าหมายตามสัดส่วนนี้ รวมกันได้ไม่เกิน 100%</p>
+        <ul className="mt-5 divide-y divide-brand-border">
+          {goals.map(g => (
+            <li key={g.id} className="flex items-center gap-3 py-3">
+              <GoalAvatar goal={g} size={36} />
+              <span className="min-w-0 flex-1 truncate text-sm text-brand-text">{g.name}</span>
+              <div className="relative w-24">
+                <input type="number" min="0" max="100" aria-label={`สัดส่วนของ ${g.name}`} value={ratioDraft[g.id] ?? 0}
+                  onChange={(e) => setRatioDraft(prev => ({ ...prev, [g.id]: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) }))}
+                  className={`${field} h-10 pr-7 text-right font-mono`} />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">%</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className={`mt-4 flex items-center justify-between rounded-xl px-4 py-3 text-[13px] ${ratioDraftTotal > 100 ? 'bg-[#FDEEEE] text-[#B83434] dark:bg-[#F19A9A]/10 dark:text-[#F19A9A]' : 'bg-brand-faint text-brand-text'}`}>
+          <span>รวม</span>
+          <span className="font-semibold">{ratioDraftTotal}%{ratioDraftTotal > 100 ? ' · เกิน 100%' : ratioDraftTotal < 100 ? ` · เหลืออีก ${100 - ratioDraftTotal}%` : ''}</span>
+        </div>
+      </>),
+    },
+    (manualOpen) && {
+      key: 'manual', title: 'ฝากเงินเข้าเป้าหมายเอง', width: 540, back: undefined,
+      footer: isCurrentMonth && netProfit > 0 ? (
+          <button type="button" onClick={() => { handleConfirmAllocations(); setManualOpen(false); }} disabled={totalCustomAllocated <= 0} className={`${primaryBtn} w-full`}>
+            แบ่งเงิน {formatCurrency(totalCustomAllocated)} เข้าเป้าหมาย
+          </button>
+        ) : undefined,
+      body: (<>
+        {isCurrentMonth && netProfit > 0 ? (
+          <section>
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h3 className="text-[15px] font-semibold text-brand-text">แบ่งเงินที่พร้อมจัดสรรเอง</h3>
+                <p className="mt-0.5 text-[13px] text-brand-muted">พร้อมจัดสรร {formatCurrency(netProfit)} · ยังแบ่งได้อีก <span className="font-medium text-brand-text">{formatCurrency(remainingNetProfit)}</span></p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={handleApplyPresetSplit} className={`${secondaryBtn} h-8 px-3 text-xs`}>{t('split.setSlidersByRatio')}</button>
+              <button type="button" onClick={handleApplyEqualSplit} className={`${secondaryBtn} h-8 px-3 text-xs`}>{t('split.splitEqually')}</button>
+              <button type="button" onClick={handleResetAllocations} className={`${secondaryBtn} h-8 px-3 text-xs`}>{t('split.clearAllSliders')}</button>
+            </div>
+            <ul className="mt-4 divide-y divide-brand-border">
+              {goals.map(g => {
+                const currentAllocated = customAllocations[g.id] || 0;
+                const maxAllowed = Math.max(0, Math.min(g.target - g.current, remainingNetProfit + currentAllocated));
+                const trackMax = Math.max(1, Math.min(g.target - g.current, netProfit));
+                const set = (v: number) => setCustomAllocations(prev => ({ ...prev, [g.id]: Math.max(0, Math.min(v, maxAllowed)) }));
+                return (
+                  <li key={g.id} className="py-3.5">
+                    <div className="flex items-center gap-3">
+                      <GoalAvatar goal={g} size={36} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-brand-text">{g.name}</p>
+                        <p className="text-xs text-brand-muted">{formatCurrency(g.current)} / {formatCurrency(g.target)}</p>
+                      </div>
+                      <div className="relative w-32">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
+                        <NumberInput aria-label={`จำนวนเงินเข้า ${g.name}`} value={currentAllocated || ''} onChange={(raw) => set(parseFloat(raw) || 0)} placeholder="0" className={`${field} h-10 pl-7 text-right font-mono`} />
+                      </div>
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-3 pl-12">
+                      <input type="range" min="0" max={trackMax} value={currentAllocated} onChange={(e) => set(parseFloat(e.target.value) || 0)} disabled={maxAllowed <= 0} aria-label={`เลื่อนจำนวนเงินเข้า ${g.name}`} className="flex-1 accent-[#E65F2B] cursor-pointer disabled:opacity-30" />
+                      <button type="button" onClick={() => set(maxAllowed)} disabled={maxAllowed <= currentAllocated} className="text-xs font-medium text-[#C24A16] disabled:opacity-40 cursor-pointer dark:text-[#FF9A6B]">ใส่ทั้งหมด</button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : (
+          <p className="rounded-xl bg-brand-faint px-4 py-3 text-[13px] text-brand-muted">
+            {isCurrentMonth ? 'ตอนนี้ยังไม่มีเงินพร้อมจัดสรรให้แบ่ง แต่ยังฝากเงินจากที่อื่นเข้าเป้าหมายได้' : 'แบ่งเงินพร้อมจัดสรรได้เฉพาะเดือนปัจจุบัน แต่ยังฝากเงินจากที่อื่นเข้าเป้าหมายได้'}
+          </p>
+        )}
+        <section className="mt-6 border-t border-brand-border pt-5">
+          <h3 className="text-[15px] font-semibold text-brand-text">ฝากเงินจากที่อื่น</h3>
+          <p className="mt-0.5 text-[13px] text-brand-muted">เช่น เงินเก็บเดิม โบนัส หรือเงินที่ไม่ได้มาจากงาน</p>
+          <ul className="mt-3 divide-y divide-brand-border">
+            {goals.map(g => (
+              <li key={g.id} className="flex items-center gap-3 py-3">
+                <GoalAvatar goal={g} size={36} />
+                <span className="min-w-0 flex-1 truncate text-sm text-brand-text">{g.name}</span>
+                <button type="button" onClick={() => openTxModal(g, 'deposit')} className={`${secondaryBtn} h-9 px-3 text-[13px]`}><Plus className="h-3.5 w-3.5" /> ฝาก</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </>),
+    },
+    (Boolean(selectedGoal)) && {
+      key: 'goal', title: 'เป้าหมาย', width: 520, back: undefined,
+      footer: selectedGoal ? (
+          <div className="space-y-2.5">
+            <button type="button" onClick={() => openTxModal(selectedGoal, 'deposit')} className={`${primaryBtn} w-full`}><Plus className="h-4 w-4" /> ฝากเงิน</button>
+            <div className={`grid gap-2.5 ${goals.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <button type="button" onClick={() => openTxModal(selectedGoal, 'withdraw')} className={secondaryBtn}><ArrowUpRight className="h-4 w-4" /> ถอนเงิน</button>
+              {goals.length > 1 && <button type="button" onClick={() => openTransferModal(selectedGoal)} className={secondaryBtn}><RefreshCcw className="h-4 w-4" /> โอนไปเป้าหมายอื่น</button>}
+            </div>
+          </div>
+        ) : undefined,
+      body: (<>
+        {selectedGoal && (() => {
+          const g = selectedGoal;
+          const pct = goalPct(g);
+          const done = g.current >= g.target && g.target > 0;
+          return (
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <label htmlFor="edit-goal-image-gallery" className="group relative shrink-0 cursor-pointer" title={t('split.uploadNewImageTooltip')}>
+                  <GoalAvatar goal={g} size={60} />
+                  <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/45 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">{t('split.changeImage')}</span>
+                </label>
+                <input type="file" id="edit-goal-image-gallery" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleGalleryUpload(e, true)} className="hidden" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-xl font-semibold text-brand-text">{g.name}</h3>
+                  <p className="mt-0.5 text-[13px] text-brand-muted">{typeLabel(g.type)}{g.deadline && <> · <span className={deadlinePassed(g) ? 'text-[#C43A3A] dark:text-[#F19A9A]' : ''}>{deadlinePassed(g) ? 'เลยกำหนด ' : 'ภายใน '}{deadlineText(g)}</span></>}</p>
+                  <button type="button" onClick={() => openEditGoalForm(g)} className="mt-2.5 inline-flex h-8 items-center gap-1.5 rounded-lg border border-brand-border px-3 text-xs font-medium text-brand-text hover:bg-brand-faint cursor-pointer">
+                    <IconPencil className="h-3.5 w-3.5" /> แก้ไขเป้าหมาย
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[13px] text-brand-muted">ความคืบหน้า</p>
+                <p className="mt-1 font-mono text-3xl font-semibold tracking-tight text-brand-text">{formatCurrency(g.current)}</p>
+                <p className="mt-0.5 text-[13px] text-brand-muted">จากเป้าหมาย {formatCurrency(g.target)}</p>
+                <div className="mt-3"><ProgressBar pct={pct} done={done} height={8} /></div>
+                <p className={`mt-2 text-[13px] ${done ? 'font-medium text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-muted'}`}>{done ? 'ถึงเป้าหมายแล้ว' : `${pctText(pct)} ของเป้าหมาย`}</p>
+              </div>
+
+              <dl className="rounded-xl border border-brand-border text-[13px]">
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <dt className="text-brand-muted">สัดส่วนจากเงินที่จัดสรร</dt>
+                  <dd className="flex items-center gap-2"><span className="font-semibold text-brand-text">{g.allocatedPercentage ?? 0}%</span>
+                    <button type="button" onClick={() => editRatio(g)} className="text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">ปรับ</button></dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-brand-border px-4 py-3">
+                  <dt className="text-brand-muted">เงินที่แนะนำให้แบ่งรอบนี้</dt>
+                  <dd className="font-mono font-semibold text-brand-text">{formatCurrency(recommendedFor(g))}</dd>
+                </div>
+              </dl>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="text-[15px] font-semibold text-brand-text">ประวัติ</h4>
+                  <div className="relative">
+                    <select aria-label="กรองประวัติ" value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value as typeof historyFilter)}
+                      className="h-8 appearance-none rounded-lg border border-brand-border bg-brand-white pl-2.5 pr-7 text-xs text-brand-text outline-none cursor-pointer dark:bg-transparent">
+                      <option value="all">ทั้งหมด</option>
+                      <option value="deposit">ฝากเข้า</option>
+                      <option value="withdraw">ถอนออก</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
+                  </div>
+                </div>
+                {historyGroups.length === 0 ? (
+                  <p className="py-6 text-center text-[13px] text-brand-muted">{t('split.noHistoryInCategory')}</p>
+                ) : historyGroups.map(group => (
+                  <div key={group.day} className="mt-3">
+                    <p className="pb-1 text-xs font-medium text-brand-muted">{dayLabel(group.day)}</p>
+                    <ul className="divide-y divide-brand-border">
+                      {group.items.map(tx => {
+                        const isDeposit = tx.type === 'deposit';
+                        const isTransfer = Boolean(tx.relatedGoalId);
+                        return (
+                          <li key={tx.id} className="flex items-center gap-3 py-2.5">
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isTransfer ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-[#FF9A6B]' : isDeposit ? 'bg-[#E9F7F0] text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]' : 'bg-brand-faint text-brand-muted'}`}>
+                              {isTransfer ? <RefreshCcw className="h-3.5 w-3.5" /> : isDeposit ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[13px] text-brand-text">{stripEmoji(tx.reason || '') || (isDeposit ? t('split.depositEntryFallback') : t('split.withdrawEntryFallback'))}</p>
+                              <p className="truncate text-[11px] text-brand-muted">
+                                {[timeLabel(tx), isTransfer ? `${isDeposit ? t('split.fromGoal') : t('split.toGoal')} ${stripEmoji(tx.relatedGoalName || '') || '—'}` : '', tx.deductedFromCash ? 'หักจากเงินรับจริง' : '', stripEmoji(tx.note || '')].filter(Boolean).join(' · ')}
+                              </p>
+                            </div>
+                            <span className={`shrink-0 font-mono text-[13px] font-medium ${isDeposit ? 'text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-text'}`}>{isDeposit ? '+' : '−'}{formatCurrency(tx.amount)}</span>
+                            {onDeleteGoalTransaction && (
+                              <div className="relative shrink-0">
+                                <button type="button" aria-label="ตัวเลือกรายการ" aria-haspopup="menu" aria-expanded={txMenuId === tx.id}
+                                  onClick={() => setTxMenuId(id => id === tx.id ? null : tx.id)}
+                                  className="rounded-lg p-1.5 text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer"><MoreHorizontal className="h-4 w-4" /></button>
+                                {txMenuId === tx.id && (
+                                  <div role="menu" className="absolute right-0 top-full z-10 mt-1 w-52 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#232428]">
+                                    <button type="button" role="menuitem" onClick={() => {
+                                      setTxMenuId(null);
+                                      triggerConfirm(t('split.deleteHistoryConfirmTitle'), t('split.deleteHistoryConfirmMsg', { reason: stripEmoji(tx.reason || ''), amount: formatCurrency(tx.amount) }), () => onDeleteGoalTransaction(g.id, tx.id, true));
+                                    }} className="flex w-full rounded-lg px-3 py-2 text-left text-[13px] text-[#C43A3A] hover:bg-[#FDEEEE] cursor-pointer dark:text-[#F19A9A] dark:hover:bg-[#F19A9A]/10">ลบรายการและคืนยอด</button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+
+              <button type="button" onClick={() => triggerConfirm(t('split.deleteGoalConfirmTitle'), t('split.deleteGoalConfirmMsg', { name: g.name }), () => { onDeleteGoal(g.id); setSelectedGoal(null); })}
+                className="inline-flex items-center gap-1.5 text-[13px] text-brand-muted hover:text-[#C43A3A] cursor-pointer">
+                <Trash2 className="h-3.5 w-3.5" /> {t('split.deleteThisGoalBtn')}
+              </button>
+            </div>
+          );
+        })()}
+      </>),
+    },
+  ];
+  const activeSheet = sheets.find((x): x is Sheet => Boolean(x));
+  const closeAllSheets = () => {
+    setIsTxModalOpen(false); setIsTransferModalOpen(false); closeGoalForm();
+    setRatioEditorOpen(false); setManualOpen(false); setSelectedGoal(null);
+  };
+
+
   return (
     <div className="page-content space-y-6">
       <PageHeader page="split">
@@ -966,419 +1390,11 @@ export default function SplitTab({
         )}
       </section>
 
-      {/* Goal detail */}
-      <Drawer open={Boolean(selectedGoal) && !goalFormOpen} title="เป้าหมาย" onClose={() => setSelectedGoal(null)}
-        footer={selectedGoal ? (
-          <div className="space-y-2.5">
-            <button type="button" onClick={() => openTxModal(selectedGoal, 'deposit')} className={`${primaryBtn} w-full`}><Plus className="h-4 w-4" /> ฝากเงิน</button>
-            <div className={`grid gap-2.5 ${goals.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              <button type="button" onClick={() => openTxModal(selectedGoal, 'withdraw')} className={secondaryBtn}><ArrowUpRight className="h-4 w-4" /> ถอนเงิน</button>
-              {goals.length > 1 && <button type="button" onClick={() => openTransferModal(selectedGoal)} className={secondaryBtn}><RefreshCcw className="h-4 w-4" /> โอนไปเป้าหมายอื่น</button>}
-            </div>
-          </div>
-        ) : undefined}>
-        {selectedGoal && (() => {
-          const g = selectedGoal;
-          const pct = goalPct(g);
-          const done = g.current >= g.target && g.target > 0;
-          return (
-            <div className="space-y-6">
-              <div className="flex items-start gap-4">
-                <label htmlFor="edit-goal-image-gallery" className="group relative shrink-0 cursor-pointer" title={t('split.uploadNewImageTooltip')}>
-                  <GoalAvatar goal={g} size={60} />
-                  <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/45 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">{t('split.changeImage')}</span>
-                </label>
-                <input type="file" id="edit-goal-image-gallery" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleGalleryUpload(e, true)} className="hidden" />
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-xl font-semibold text-brand-text">{g.name}</h3>
-                  <p className="mt-0.5 text-[13px] text-brand-muted">{typeLabel(g.type)}{g.deadline && <> · <span className={deadlinePassed(g) ? 'text-[#C43A3A] dark:text-[#F19A9A]' : ''}>{deadlinePassed(g) ? 'เลยกำหนด ' : 'ภายใน '}{deadlineText(g)}</span></>}</p>
-                  <button type="button" onClick={() => openEditGoalForm(g)} className="mt-2.5 inline-flex h-8 items-center gap-1.5 rounded-lg border border-brand-border px-3 text-xs font-medium text-brand-text hover:bg-brand-faint cursor-pointer">
-                    <IconPencil className="h-3.5 w-3.5" /> แก้ไขเป้าหมาย
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[13px] text-brand-muted">ความคืบหน้า</p>
-                <p className="mt-1 font-mono text-3xl font-semibold tracking-tight text-brand-text">{formatCurrency(g.current)}</p>
-                <p className="mt-0.5 text-[13px] text-brand-muted">จากเป้าหมาย {formatCurrency(g.target)}</p>
-                <div className="mt-3"><ProgressBar pct={pct} done={done} height={8} /></div>
-                <p className={`mt-2 text-[13px] ${done ? 'font-medium text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-muted'}`}>{done ? 'ถึงเป้าหมายแล้ว' : `${pctText(pct)} ของเป้าหมาย`}</p>
-              </div>
-
-              <dl className="rounded-xl border border-brand-border text-[13px]">
-                <div className="flex items-center justify-between gap-3 px-4 py-3">
-                  <dt className="text-brand-muted">สัดส่วนจากเงินที่จัดสรร</dt>
-                  <dd className="flex items-center gap-2"><span className="font-semibold text-brand-text">{g.allocatedPercentage ?? 0}%</span>
-                    <button type="button" onClick={() => editRatio(g)} className="text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">ปรับ</button></dd>
-                </div>
-                <div className="flex items-center justify-between gap-3 border-t border-brand-border px-4 py-3">
-                  <dt className="text-brand-muted">เงินที่แนะนำให้แบ่งรอบนี้</dt>
-                  <dd className="font-mono font-semibold text-brand-text">{formatCurrency(recommendedFor(g))}</dd>
-                </div>
-              </dl>
-
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-[15px] font-semibold text-brand-text">ประวัติ</h4>
-                  <div className="relative">
-                    <select aria-label="กรองประวัติ" value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value as typeof historyFilter)}
-                      className="h-8 appearance-none rounded-lg border border-brand-border bg-brand-white pl-2.5 pr-7 text-xs text-brand-text outline-none cursor-pointer dark:bg-transparent">
-                      <option value="all">ทั้งหมด</option>
-                      <option value="deposit">ฝากเข้า</option>
-                      <option value="withdraw">ถอนออก</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
-                  </div>
-                </div>
-                {historyGroups.length === 0 ? (
-                  <p className="py-6 text-center text-[13px] text-brand-muted">{t('split.noHistoryInCategory')}</p>
-                ) : historyGroups.map(group => (
-                  <div key={group.day} className="mt-3">
-                    <p className="pb-1 text-xs font-medium text-brand-muted">{dayLabel(group.day)}</p>
-                    <ul className="divide-y divide-brand-border">
-                      {group.items.map(tx => {
-                        const isDeposit = tx.type === 'deposit';
-                        const isTransfer = Boolean(tx.relatedGoalId);
-                        return (
-                          <li key={tx.id} className="flex items-center gap-3 py-2.5">
-                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isTransfer ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-[#FF9A6B]' : isDeposit ? 'bg-[#E9F7F0] text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]' : 'bg-brand-faint text-brand-muted'}`}>
-                              {isTransfer ? <RefreshCcw className="h-3.5 w-3.5" /> : isDeposit ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-[13px] text-brand-text">{tx.reason || (isDeposit ? t('split.depositEntryFallback') : t('split.withdrawEntryFallback'))}</p>
-                              <p className="truncate text-[11px] text-brand-muted">
-                                {[timeLabel(tx), isTransfer ? `${isDeposit ? t('split.fromGoal') : t('split.toGoal')} ${tx.relatedGoalName || '—'}` : '', tx.deductedFromCash ? 'หักจากเงินรับจริง' : '', tx.note || ''].filter(Boolean).join(' · ')}
-                              </p>
-                            </div>
-                            <span className={`shrink-0 font-mono text-[13px] font-medium ${isDeposit ? 'text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-text'}`}>{isDeposit ? '+' : '−'}{formatCurrency(tx.amount)}</span>
-                            {onDeleteGoalTransaction && (
-                              <div className="relative shrink-0">
-                                <button type="button" aria-label="ตัวเลือกรายการ" aria-haspopup="menu" aria-expanded={txMenuId === tx.id}
-                                  onClick={() => setTxMenuId(id => id === tx.id ? null : tx.id)}
-                                  className="rounded-lg p-1.5 text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer"><MoreHorizontal className="h-4 w-4" /></button>
-                                {txMenuId === tx.id && (
-                                  <div role="menu" className="absolute right-0 top-full z-10 mt-1 w-52 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#232428]">
-                                    <button type="button" role="menuitem" onClick={() => {
-                                      setTxMenuId(null);
-                                      triggerConfirm(t('split.deleteHistoryConfirmTitle'), t('split.deleteHistoryConfirmMsg', { reason: tx.reason, amount: formatCurrency(tx.amount) }), () => onDeleteGoalTransaction(g.id, tx.id, true));
-                                    }} className="flex w-full rounded-lg px-3 py-2 text-left text-[13px] text-[#C43A3A] hover:bg-[#FDEEEE] cursor-pointer dark:text-[#F19A9A] dark:hover:bg-[#F19A9A]/10">ลบรายการและคืนยอด</button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-
-              <button type="button" onClick={() => triggerConfirm(t('split.deleteGoalConfirmTitle'), t('split.deleteGoalConfirmMsg', { name: g.name }), () => { onDeleteGoal(g.id); setSelectedGoal(null); })}
-                className="inline-flex items-center gap-1.5 text-[13px] text-brand-muted hover:text-[#C43A3A] cursor-pointer">
-                <Trash2 className="h-3.5 w-3.5" /> {t('split.deleteThisGoalBtn')}
-              </button>
-            </div>
-          );
-        })()}
-      </Drawer>
-
-      {/* Create / edit goal: one form for both */}
-      <Drawer open={goalFormOpen} title={isEditForm ? 'แก้ไขเป้าหมาย' : 'สร้างเป้าหมาย'} onClose={closeGoalForm} width={500}
-        footer={
-          <div className="flex gap-3">
-            <button type="button" onClick={closeGoalForm} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
-            <button type="submit" form="goal-form" className={`${primaryBtn} flex-[2]`}>{isEditForm ? 'บันทึกการแก้ไข' : 'สร้างเป้าหมาย'}</button>
-          </div>
-        }>
-        <form id="goal-form" onSubmit={isEditForm ? handleEditGoalSubmit : handleAddGoalSubmit} className="space-y-5">
-          <div>
-            <label className={label} htmlFor="goal-name">ชื่อเป้าหมาย <span className="text-[#C24A16]">*</span></label>
-            <input id="goal-name" type="text" required value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('split.goalNamePlaceholder')} className={field} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={label} htmlFor="goal-target">{t('split.targetAmountLabel')} <span className="text-[#C24A16]">*</span></label>
-              <NumberInput id="goal-target" required value={formTarget} onChange={setFormTarget} placeholder={t('split.targetAmountPlaceholder')} className={`${field} font-mono`} />
-            </div>
-            <div>
-              <label className={label} htmlFor="goal-current">{isEditForm ? 'ยอดสะสมตอนนี้' : t('split.startingAmountLabel')}</label>
-              <NumberInput id="goal-current" value={formCurrent} onChange={setFormCurrent} placeholder="0" className={`${field} font-mono`} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={label} htmlFor="goal-type">{t('split.typeLabel')}</label>
-              <select id="goal-type" value={formType} onChange={(e) => setFormType(e.target.value as typeof formType)} className={`${field} cursor-pointer`}>
-                <option value="save">{t('split.typeSavingsAccount')}</option>
-                <option value="invest">{t('split.typeInvestment')}</option>
-                <option value="emergency">{t('split.typeEmergencyFund')}</option>
-                <option value="buy">{t('split.typeBuy')}</option>
-              </select>
-            </div>
-            <div>
-              <label className={label} htmlFor="goal-deadline">{t('split.deadlineLabel')}</label>
-              <input id="goal-deadline" type="date" value={formDeadline} onChange={(e) => setFormDeadline(e.target.value)} className={`${field} cursor-pointer`} />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <label className={label} htmlFor="goal-pct">สัดส่วนจากเงินที่จัดสรร</label>
-              <span className="mb-1.5 text-[13px] font-semibold text-brand-text">{formAllocatedPercentage}%</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <input type="range" min="0" max={formMaxPct} step="5" value={formAllocatedPercentage} onChange={(e) => setFormAllocatedPercentage(e.target.value)} aria-label="สัดส่วน (เลื่อน)" className="flex-1 accent-[#E65F2B] cursor-pointer" />
-              <input id="goal-pct" type="number" min="0" max={formMaxPct} value={formAllocatedPercentage}
-                onChange={(e) => setFormAllocatedPercentage(String(Math.min(formMaxPct, Math.max(0, parseInt(e.target.value) || 0))))}
-                className={`${field.replace('w-full', '')} h-10 w-20 shrink-0 text-center font-mono`} />
-            </div>
-            <p className="mt-1.5 text-xs text-brand-muted">ตั้งได้สูงสุด {formMaxPct}% (เป้าหมายอื่นใช้ไปแล้ว {isEditForm ? totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0) : totalAllocatedPct}%)</p>
-          </div>
-
-          <div className="border-t border-brand-border pt-4">
-            <button type="button" onClick={() => setFormAdvancedOpen(v => !v)} aria-expanded={formAdvancedOpen} className="flex w-full items-center justify-between text-[13px] font-medium text-brand-text cursor-pointer">
-              <span className="flex items-center gap-2"><GoalAvatar goal={{ imageUrl: formImageUrl, icon: formIcon, type: formType, bg: formBg, acc: formAcc }} size={28} />ไอคอน รูป และสี</span>
-              <ChevronDown className={`h-4 w-4 text-brand-muted transition-transform ${formAdvancedOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {formAdvancedOpen && (
-              <div className="mt-4 space-y-4">
-                <div>
-                  <span className={label}>ไอคอน</span>
-                  <div className="grid grid-cols-6 gap-2 sm:grid-cols-7" role="radiogroup" aria-label="ไอคอนเป้าหมาย">
-                    {GOAL_ICONS.map(({ key, label: name, Icon }) => {
-                      const on = formIcon === key && !formImageUrl;
-                      return (
-                        <button key={key} type="button" role="radio" aria-checked={on} aria-label={name} title={name} onClick={() => { setFormIcon(key); setFormImageUrl(''); }}
-                          className={`flex aspect-square items-center justify-center rounded-xl border transition-colors cursor-pointer ${on ? 'border-[#E65F2B] bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'border-brand-border text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`}>
-                          <Icon className="h-5 w-5" strokeWidth={1.8} />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div>
-                  <span className={label}>หรือใช้รูปของคุณเอง</span>
-                  <input type="file" id="goal-image-gallery" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleGalleryUpload(e, false)} className="hidden" />
-                  <label htmlFor="goal-image-gallery" className={`${secondaryBtn} w-full`}><Upload className="h-4 w-4" /> {formImageUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูปจากเครื่อง'}</label>
-                  <p className="mt-1.5 text-xs text-brand-muted">PNG, JPG หรือ WebP ไม่เกิน 3MB</p>
-                </div>
-                {formImageUrl && (
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-faint px-3 py-2.5">
-                    <span className="flex items-center gap-2 text-[13px] text-brand-text"><img src={formImageUrl} alt="" className="h-9 w-9 rounded-lg object-cover" />{t('split.imageSelected')}</span>
-                    <button type="button" onClick={() => setFormImageUrl('')} className="text-[13px] text-brand-muted hover:text-brand-text cursor-pointer">{t('split.removeImage')}</button>
-                  </div>
-                )}
-                <div>
-                  <span className={label}>{t('split.chooseColorTheme')}</span>
-                  <div className="flex gap-3">
-                    {colorPresets.map(preset => (
-                      <button key={preset.name} type="button" aria-label={preset.name} onClick={() => { setFormBg(preset.bg); setFormAcc(preset.acc); }}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full border-2 cursor-pointer ${formBg === preset.bg ? 'border-brand-text' : 'border-transparent'}`} style={{ backgroundColor: preset.bg }}>
-                        <span className="h-4 w-4 rounded-full" style={{ backgroundColor: preset.acc }} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </form>
-      </Drawer>
-
-      {/* Allocation % editor */}
-      <Drawer open={ratioEditorOpen} title="ปรับสัดส่วน" onClose={() => setRatioEditorOpen(false)} width={480}
-        footer={
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setRatioEditorOpen(false)} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
-            <button type="button" onClick={saveRatios} disabled={ratioDraftTotal > 100} className={`${primaryBtn} flex-[2]`}>บันทึกสัดส่วน</button>
-          </div>
-        }>
-        <p className="text-[13px] text-brand-muted">เมื่อมีเงินพร้อมจัดสรร ระบบจะแบ่งเข้าแต่ละเป้าหมายตามสัดส่วนนี้ รวมกันได้ไม่เกิน 100%</p>
-        <ul className="mt-5 divide-y divide-brand-border">
-          {goals.map(g => (
-            <li key={g.id} className="flex items-center gap-3 py-3">
-              <GoalAvatar goal={g} size={36} />
-              <span className="min-w-0 flex-1 truncate text-sm text-brand-text">{g.name}</span>
-              <div className="relative w-24">
-                <input type="number" min="0" max="100" aria-label={`สัดส่วนของ ${g.name}`} value={ratioDraft[g.id] ?? 0}
-                  onChange={(e) => setRatioDraft(prev => ({ ...prev, [g.id]: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) }))}
-                  className={`${field} h-10 pr-7 text-right font-mono`} />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">%</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <div className={`mt-4 flex items-center justify-between rounded-xl px-4 py-3 text-[13px] ${ratioDraftTotal > 100 ? 'bg-[#FDEEEE] text-[#B83434] dark:bg-[#F19A9A]/10 dark:text-[#F19A9A]' : 'bg-brand-faint text-brand-text'}`}>
-          <span>รวม</span>
-          <span className="font-semibold">{ratioDraftTotal}%{ratioDraftTotal > 100 ? ' · เกิน 100%' : ratioDraftTotal < 100 ? ` · เหลืออีก ${100 - ratioDraftTotal}%` : ''}</span>
-        </div>
-      </Drawer>
-
-      {/* Manual deposit: split this month's money by hand, or add money from elsewhere */}
-      <Drawer open={manualOpen} title="ฝากเงินเข้าเป้าหมายเอง" onClose={() => setManualOpen(false)} width={540}
-        footer={isCurrentMonth && netProfit > 0 ? (
-          <button type="button" onClick={() => { handleConfirmAllocations(); setManualOpen(false); }} disabled={totalCustomAllocated <= 0} className={`${primaryBtn} w-full`}>
-            แบ่งเงิน {formatCurrency(totalCustomAllocated)} เข้าเป้าหมาย
-          </button>
-        ) : undefined}>
-        {isCurrentMonth && netProfit > 0 ? (
-          <section>
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <h3 className="text-[15px] font-semibold text-brand-text">แบ่งเงินที่พร้อมจัดสรรเอง</h3>
-                <p className="mt-0.5 text-[13px] text-brand-muted">พร้อมจัดสรร {formatCurrency(netProfit)} · ยังแบ่งได้อีก <span className="font-medium text-brand-text">{formatCurrency(remainingNetProfit)}</span></p>
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={handleApplyPresetSplit} className={`${secondaryBtn} h-8 px-3 text-xs`}>{t('split.setSlidersByRatio')}</button>
-              <button type="button" onClick={handleApplyEqualSplit} className={`${secondaryBtn} h-8 px-3 text-xs`}>{t('split.splitEqually')}</button>
-              <button type="button" onClick={handleResetAllocations} className={`${secondaryBtn} h-8 px-3 text-xs`}>{t('split.clearAllSliders')}</button>
-            </div>
-            <ul className="mt-4 divide-y divide-brand-border">
-              {goals.map(g => {
-                const currentAllocated = customAllocations[g.id] || 0;
-                const maxAllowed = Math.max(0, Math.min(g.target - g.current, remainingNetProfit + currentAllocated));
-                const trackMax = Math.max(1, Math.min(g.target - g.current, netProfit));
-                const set = (v: number) => setCustomAllocations(prev => ({ ...prev, [g.id]: Math.max(0, Math.min(v, maxAllowed)) }));
-                return (
-                  <li key={g.id} className="py-3.5">
-                    <div className="flex items-center gap-3">
-                      <GoalAvatar goal={g} size={36} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-brand-text">{g.name}</p>
-                        <p className="text-xs text-brand-muted">{formatCurrency(g.current)} / {formatCurrency(g.target)}</p>
-                      </div>
-                      <div className="relative w-32">
-                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
-                        <NumberInput aria-label={`จำนวนเงินเข้า ${g.name}`} value={currentAllocated || ''} onChange={(raw) => set(parseFloat(raw) || 0)} placeholder="0" className={`${field} h-10 pl-7 text-right font-mono`} />
-                      </div>
-                    </div>
-                    <div className="mt-2.5 flex items-center gap-3 pl-12">
-                      <input type="range" min="0" max={trackMax} value={currentAllocated} onChange={(e) => set(parseFloat(e.target.value) || 0)} disabled={maxAllowed <= 0} aria-label={`เลื่อนจำนวนเงินเข้า ${g.name}`} className="flex-1 accent-[#E65F2B] cursor-pointer disabled:opacity-30" />
-                      <button type="button" onClick={() => set(maxAllowed)} disabled={maxAllowed <= currentAllocated} className="text-xs font-medium text-[#C24A16] disabled:opacity-40 cursor-pointer dark:text-[#FF9A6B]">ใส่ทั้งหมด</button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ) : (
-          <p className="rounded-xl bg-brand-faint px-4 py-3 text-[13px] text-brand-muted">
-            {isCurrentMonth ? 'ตอนนี้ยังไม่มีเงินพร้อมจัดสรรให้แบ่ง แต่ยังฝากเงินจากที่อื่นเข้าเป้าหมายได้' : 'แบ่งเงินพร้อมจัดสรรได้เฉพาะเดือนปัจจุบัน แต่ยังฝากเงินจากที่อื่นเข้าเป้าหมายได้'}
-          </p>
-        )}
-        <section className="mt-6 border-t border-brand-border pt-5">
-          <h3 className="text-[15px] font-semibold text-brand-text">ฝากเงินจากที่อื่น</h3>
-          <p className="mt-0.5 text-[13px] text-brand-muted">เช่น เงินเก็บเดิม โบนัส หรือเงินที่ไม่ได้มาจากงาน</p>
-          <ul className="mt-3 divide-y divide-brand-border">
-            {goals.map(g => (
-              <li key={g.id} className="flex items-center gap-3 py-3">
-                <GoalAvatar goal={g} size={36} />
-                <span className="min-w-0 flex-1 truncate text-sm text-brand-text">{g.name}</span>
-                <button type="button" onClick={() => openTxModal(g, 'deposit')} className={`${secondaryBtn} h-9 px-3 text-[13px]`}><Plus className="h-3.5 w-3.5" /> ฝาก</button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </Drawer>
-
-      {/* Deposit / withdraw */}
-      <Drawer open={isTxModalOpen && Boolean(txGoal)} title={txType === 'deposit' ? 'ฝากเงิน' : 'ถอนเงิน'} onClose={() => setIsTxModalOpen(false)} width={460} z={260}
-        footer={
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setIsTxModalOpen(false)} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
-            <button type="submit" form="goal-tx-form" className={`${txType === 'deposit' ? primaryBtn : 'inline-flex h-11 items-center justify-center rounded-xl bg-brand-text px-4 text-sm font-semibold text-brand-white transition-opacity hover:opacity-90 cursor-pointer'} flex-[2]`}>
-              {txType === 'deposit' ? t('split.confirmDepositBtn') : t('split.confirmWithdrawBtn')}
-            </button>
-          </div>
-        }>
-        {txGoal && (
-          <form id="goal-tx-form" onSubmit={handleTxSubmit} className="space-y-5">
-            <div className="flex items-center gap-3"><GoalAvatar goal={txGoal} size={40} /><div><p className="text-sm font-medium text-brand-text">{txGoal.name}</p><p className="text-xs text-brand-muted">ยอดสะสม {formatCurrency(txGoal.current)}</p></div></div>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-faint p-1" role="radiogroup" aria-label="ประเภทรายการ">
-              {(['deposit', 'withdraw'] as const).map(type => (
-                <button key={type} type="button" role="radio" aria-checked={txType === type} onClick={() => setTxType(type)}
-                  className={`h-9 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${txType === type ? 'bg-brand-white text-brand-text shadow-sm dark:bg-[#2A2B2F]' : 'text-brand-muted'}`}>
-                  {type === 'deposit' ? 'ฝากเข้า' : 'ถอนออก'}
-                </button>
-              ))}
-            </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <label className={label} htmlFor="goal-tx-amount">{t('split.amountBahtRequired')}</label>
-                {txType === 'withdraw' && txGoal.current > 0 && (
-                  <button type="button" onClick={() => setTxAmount(String(txGoal.current))} className="mb-1.5 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">ถอนทั้งหมด {formatCurrency(txGoal.current)}</button>
-                )}
-              </div>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
-                <NumberInput id="goal-tx-amount" required value={txAmount} onChange={setTxAmount} placeholder={t('split.amountPlaceholder')} className={`${field} pl-8 font-mono`} />
-              </div>
-            </div>
-            {txType === 'deposit' && (
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-brand-border px-3.5 py-3">
-                <input type="checkbox" checked={txDeductFromCash} onChange={(e) => setTxDeductFromCash(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#E65F2B] cursor-pointer" />
-                <span><span className="block text-[13px] font-medium text-brand-text">{t('split.deductFromIncomeLabel')}</span><span className="mt-0.5 block text-xs leading-relaxed text-brand-muted">{t('split.deductFromIncomeDesc')}</span></span>
-              </label>
-            )}
-            <div>
-              <label className={label} htmlFor="goal-tx-date">{t('split.transactionDateLabel')}</label>
-              <input id="goal-tx-date" type="date" required value={txDate} onChange={(e) => setTxDate(e.target.value)} className={field} />
-            </div>
-            <div>
-              <label className={label} htmlFor="goal-tx-reason">{t('split.reasonNoteLabel')}</label>
-              <input id="goal-tx-reason" type="text" value={txReason} onChange={(e) => setTxReason(e.target.value)} placeholder={txType === 'deposit' ? t('split.reasonPlaceholderDeposit') : t('split.reasonPlaceholderWithdraw')} className={field} />
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {(txType === 'deposit'
-                  ? [t('split.chipMonthlyDeposit'), t('split.chipSponsorIncome'), t('split.chipBonusTip'), t('split.chipAllocateProfit')]
-                  : [t('split.chipEquipment'), t('split.chipMaintenance'), t('split.chipEmergency'), t('split.chipTuition'), t('split.chipTransferAccount')]
-                ).map(chip => (
-                  <button key={chip} type="button" onClick={() => setTxReason(chip)} className="rounded-lg border border-brand-border px-2.5 py-1 text-xs text-brand-text hover:bg-brand-faint cursor-pointer">{chip}</button>
-                ))}
-              </div>
-            </div>
-          </form>
-        )}
-      </Drawer>
-
-      {/* Transfer between goals */}
-      <Drawer open={isTransferModalOpen && Boolean(transferFromGoal)} title="โอนไปเป้าหมายอื่น" onClose={() => setIsTransferModalOpen(false)} width={460} z={260}
-        footer={
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setIsTransferModalOpen(false)} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
-            <button type="submit" form="goal-transfer-form" className={`${primaryBtn} flex-[2]`}>{t('split.confirmTransferBtn')}</button>
-          </div>
-        }>
-        {transferFromGoal && (
-          <form id="goal-transfer-form" onSubmit={handleTransferSubmit} className="space-y-5">
-            <div className="flex items-center gap-3"><GoalAvatar goal={transferFromGoal} size={40} /><div><p className="text-xs text-brand-muted">{t('split.sourceColon')}</p><p className="text-sm font-medium text-brand-text">{transferFromGoal.name} · {formatCurrency(transferFromGoal.current)}</p></div></div>
-            <div>
-              <label className={label} htmlFor="goal-transfer-to">{t('split.transferToLabel')}</label>
-              <select id="goal-transfer-to" required value={transferToGoalId} onChange={(e) => setTransferToGoalId(e.target.value)} className={`${field} cursor-pointer`}>
-                {goals.filter(g => g.id !== transferFromGoal.id).map(g => (
-                  <option key={g.id} value={g.id}>{t('split.transferOptionLine', { emoji: g.emoji, name: g.name, current: formatCurrency(g.current), target: formatCurrency(g.target) })}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={label} htmlFor="goal-transfer-amount">{t('split.amountBahtRequired')}</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
-                <NumberInput id="goal-transfer-amount" required value={transferAmount} onChange={setTransferAmount} placeholder={t('split.amountPlaceholder')} className={`${field} pl-8 font-mono`} />
-              </div>
-              <p className="mt-1.5 text-xs text-brand-muted">{t('split.sourceBalanceLine', { amount: formatCurrency(transferFromGoal.current) })}</p>
-            </div>
-            <div>
-              <label className={label} htmlFor="goal-transfer-date">{t('split.transactionDateLabel')}</label>
-              <input id="goal-transfer-date" type="date" required value={transferDate} onChange={(e) => setTransferDate(e.target.value)} className={field} />
-            </div>
-            <div>
-              <label className={label} htmlFor="goal-transfer-reason">{t('split.reasonOptionalLabel')}</label>
-              <input id="goal-transfer-reason" type="text" value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder={t('split.transferReasonPlaceholder')} className={field} />
-            </div>
-          </form>
-        )}
+      {/* One side panel for the whole page. Opening something from inside it (deposit from a goal,
+          edit, transfer) swaps the panel's content, with a back arrow, instead of stacking panels. */}
+      <Drawer open={Boolean(activeSheet)} title={activeSheet?.title ?? ''} onClose={closeAllSheets} onBack={activeSheet?.back}
+        width={activeSheet?.width} footer={activeSheet?.footer} viewKey={activeSheet?.key}>
+        {activeSheet?.body}
       </Drawer>
     </div>
   );

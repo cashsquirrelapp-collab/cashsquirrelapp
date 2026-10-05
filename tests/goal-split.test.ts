@@ -27,3 +27,10 @@ test('goals without a percentage or already full get nothing; what cannot be pla
   assert.deepEqual(r.allocations, { none: 0, full: 0 });
   assert.equal(r.remainder, 500);
 });
+
+test('history text from older versions is shown without emoji', async () => {
+  const { stripEmoji } = await import('../frontend/src/features/goals/SplitParts');
+  assert.equal(stripEmoji('โอนย้ายมาจากเป้าหมาย "เก็บเงิน" 🔄'), 'โอนย้ายมาจากเป้าหมาย "เก็บเงิน"');
+  assert.equal(stripEmoji('🎯 ✈️ ทริป'), 'ทริป');
+  assert.equal(stripEmoji('ฝากเงิน 1,000'), 'ฝากเงิน 1,000');
+});
