@@ -17,31 +17,33 @@ export function sampleAvatar(hue: number): string {
 
 export const PREVIEW_GROUP_ID = 'preview-team';
 
-export function buildPreviewTeam(me: { userId: string; displayName: string; publicId?: string; avatarUrl?: string }): { snapshot: GroupSnapshot; detail: GroupDetail } {
+export function buildPreviewTeam(me: { userId: string; displayName: string; publicId?: string; avatarUrl?: string; email?: string }): { snapshot: GroupSnapshot; detail: GroupDetail } {
   const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString();
   const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+  const name = 'บริษัท ปาร์ค จำกัด';
+  // Sample people use example.com addresses and illustrated pictures, never real ones.
   const detail: GroupDetail = {
     id: PREVIEW_GROUP_ID,
-    name: 'ตัวอย่าง: สตูดิโอเล็กๆ ของคุณ',
+    name,
     description: 'ทีมตัวอย่างสำหรับดูหน้าตาฟีเจอร์ทีม',
     createdAt: daysAgo(30),
     myRole: 'leader',
-    memberCount: 4,
+    memberCount: 3,
     leaderCount: 1,
     presenceAt: new Date().toISOString(),
     members: [
-      { userId: me.userId, publicId: me.publicId || 'SQ-XXXXXXXXXX', displayName: me.displayName, role: 'leader', joinedAt: daysAgo(30), isOnline: true, lastSeenAt: minutesAgo(0), avatarUrl: me.avatarUrl || undefined },
-      { userId: 'preview-may', publicId: 'SQ-0000000001', displayName: 'เมย์ (ตัวอย่าง)', role: 'member', joinedAt: daysAgo(21), isOnline: true, lastSeenAt: minutesAgo(0), avatarUrl: sampleAvatar(18) },
-      { userId: 'preview-bank', publicId: 'SQ-0000000002', displayName: 'แบงก์ (ตัวอย่าง)', role: 'member', joinedAt: daysAgo(12), isOnline: false, lastSeenAt: minutesAgo(18), avatarUrl: sampleAvatar(205) },
-      { userId: 'preview-ploy', publicId: 'SQ-0000000003', displayName: 'พลอย (ตัวอย่าง)', role: 'member', joinedAt: daysAgo(5), isOnline: false, lastSeenAt: minutesAgo(26 * 60), avatarUrl: sampleAvatar(140) },
+      { userId: me.userId, publicId: me.publicId || 'SQ-XXXXXXXXXX', displayName: me.displayName, role: 'leader', joinedAt: daysAgo(30), isOnline: true, lastSeenAt: minutesAgo(0), avatarUrl: me.avatarUrl || undefined, email: me.email, assignedJobs: 12 },
+      { userId: 'preview-may', publicId: 'SQ-0000000001', displayName: 'May', role: 'member', joinedAt: daysAgo(21), isOnline: true, lastSeenAt: minutesAgo(0), avatarUrl: sampleAvatar(18), email: 'may.creator@example.com', assignedJobs: 7 },
+      { userId: 'preview-bank', publicId: 'SQ-0000000002', displayName: 'Bank', role: 'member', joinedAt: daysAgo(12), isOnline: false, lastSeenAt: minutesAgo(18), avatarUrl: sampleAvatar(205), email: 'bank.dev@example.com', assignedJobs: 4 },
     ],
     invitations: [
-      { id: 'preview-invite', groupId: PREVIEW_GROUP_ID, groupName: 'ตัวอย่าง: สตูดิโอเล็กๆ ของคุณ', publicId: 'SQ-0000000004', displayName: 'ติ๊ก (ตัวอย่าง)', expiresAt: new Date(Date.now() + 6.4 * 86_400_000).toISOString() },
+      { id: 'preview-invite', groupId: PREVIEW_GROUP_ID, groupName: name, publicId: 'SQ-0000000004', displayName: 'Tik', email: 'tik.freelance@example.com', sentAt: daysAgo(1), expiresAt: new Date(Date.now() + 6.4 * 86_400_000).toISOString() },
     ],
     activity: [
-      { id: 'preview-a1', action: 'accept', actorPublicId: 'SQ-0000000003', actorDisplayName: 'พลอย (ตัวอย่าง)', targetPublicId: null, targetDisplayName: null, createdAt: daysAgo(5) },
-      { id: 'preview-a2', action: 'invite', actorPublicId: me.publicId || null, actorDisplayName: me.displayName, targetPublicId: 'SQ-0000000003', targetDisplayName: 'พลอย (ตัวอย่าง)', createdAt: daysAgo(6) },
-      { id: 'preview-a3', action: 'accept', actorPublicId: 'SQ-0000000002', actorDisplayName: 'แบงก์ (ตัวอย่าง)', targetPublicId: null, targetDisplayName: null, createdAt: daysAgo(12) },
+      { id: 'preview-a1', action: 'accept', actorPublicId: 'SQ-0000000002', actorDisplayName: 'Bank', targetPublicId: null, targetDisplayName: null, createdAt: daysAgo(12) },
+      { id: 'preview-a2', action: 'invite', actorPublicId: me.publicId || null, actorDisplayName: me.displayName, targetPublicId: 'SQ-0000000002', targetDisplayName: 'Bank', createdAt: daysAgo(13) },
+      { id: 'preview-a3', action: 'accept', actorPublicId: 'SQ-0000000001', actorDisplayName: 'May', targetPublicId: null, targetDisplayName: null, createdAt: daysAgo(21) },
+      { id: 'preview-a4', action: 'create', actorPublicId: me.publicId || null, actorDisplayName: me.displayName, targetPublicId: null, targetDisplayName: null, createdAt: daysAgo(30) },
     ],
   };
   const snapshot: GroupSnapshot = {
@@ -55,5 +57,5 @@ export function buildPreviewTeam(me: { userId: string; displayName: string; publ
 }
 
 export const PREVIEW_SEARCH_RESULTS: PublicProfile[] = [
-  { userId: 'preview-search-1', publicId: 'SQ-0000000005', displayName: 'นัท (ตัวอย่าง)' },
+  { userId: 'preview-search-1', publicId: 'SQ-0000000005', displayName: 'Nat' },
 ];

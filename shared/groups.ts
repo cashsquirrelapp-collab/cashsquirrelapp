@@ -59,6 +59,9 @@ export interface GroupInvitation {
   publicId?: string;
   displayName?: string;
   expiresAt: string;
+  /** Sample-team (preview) only. */
+  email?: string;
+  sentAt?: string;
 }
 export interface GroupSnapshot {
   systemRole: SystemRole;
@@ -78,6 +81,9 @@ export interface GroupMember {
   lastSeenAt?: string | null;
   /** Profile picture, when one can be shown (today: your own, and the sample team). */
   avatarUrl?: string;
+  /** Sample-team (preview) only until the Team feature ships these. */
+  email?: string;
+  assignedJobs?: number;
 }
 export interface GroupDetail extends GroupSummary {
   members: GroupMember[];

@@ -157,16 +157,16 @@ test('create, invite, promote and transfer leadership; presence and controls upd
   await expect(page.getByText('ออนไลน์', { exact: true }).first()).toBeVisible();
   // promote, then transfer leadership through the member's ⋯ menu
   await page.getByRole('button', { name: `ตัวเลือกของ ${member.displayName}` }).click();
-  await page.getByRole('menuitem', { name: 'เพิ่มเป็นผู้ดูแลทีม' }).click();
+  await page.getByRole('menuitem', { name: 'เปลี่ยนสิทธิ์' }).click();
   await confirmDialog(page);
   await expect.poll(() => group!.leaderCount).toBe(2);
   await page.getByRole('button', { name: `ตัวเลือกของ ${member.displayName}` }).click();
-  await page.getByRole('menuitem', { name: 'โอนตำแหน่งผู้ดูแลทีม' }).click();
+  await page.getByRole('menuitem', { name: 'โอนหัวหน้ากลุ่ม' }).click();
   await expect(page.getByText(/คุณจะกลับเป็นสมาชิกและเสียสิทธิ์/)).toBeVisible();
   await confirmDialog(page);
   // The other member now leads; this account is a member (a system admin keeps admin access).
   await expect(page.getByText('สมาชิก · ', { exact: false }).first()).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Team member/ })).toContainText('ผู้ดูแลทีม');
+  await expect(page.getByRole('button', { name: /^Team member/ })).toContainText('หัวหน้ากลุ่ม');
   await page.getByRole('button', { name: 'ตั้งค่าทีม' }).click();
   await expect(page.getByRole('button', { name: 'ออกจากทีม', exact: true })).toBeEnabled();
   await page.keyboard.press('Escape');
@@ -241,7 +241,7 @@ test('admin can browse outside groups and manage roles; self demotion removes ad
   await expect(page.getByRole('button', { name: 'ตั้งค่าทีม' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'เชิญสมาชิก' }).first()).toBeVisible();
   await page.getByRole('button', { name: /^Group creator/ }).click();
-  await expect(page.getByRole('menuitem', { name: 'โอนตำแหน่งผู้ดูแลทีม' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'โอนหัวหน้ากลุ่ม' })).toHaveCount(0);
   await page.screenshot({ path: 'artifacts/groups-admin.png', fullPage: true });
   await page.getByRole('tab', { name: 'จัดการผู้ใช้', exact: true }).click();
   // Promoting to admin was removed from this panel; an admin can still step down.
@@ -275,7 +275,7 @@ test('pending confirmation and group state cannot carry across accounts', async 
   });
   await openGroups(page);
   await page.getByRole('button', { name: `ตัวเลือกของ ${member.displayName}` }).click();
-  await page.getByRole('menuitem', { name: 'โอนตำแหน่งผู้ดูแลทีม' }).click();
+  await page.getByRole('menuitem', { name: 'โอนหัวหน้ากลุ่ม' }).click();
   switched = true;
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.getByRole('tab', { name: 'สมาชิก (2)' })).toHaveCount(0);
@@ -299,10 +299,10 @@ test('until Team launches, regular users see a sample team and nothing is sent',
   await expect(sidebar.getByRole('button', { name: /ทีม.*เร็วๆ นี้/ })).toBeVisible();
   await sidebar.getByRole('button', { name: /^ทีม/ }).click();
   await expect(page.getByRole('note')).toContainText('ฟีเจอร์ทีมสำหรับธุรกิจขนาดเล็กกำลังจะมา');
-  await expect(page.getByText('เมย์ (ตัวอย่าง)')).toBeVisible();
+  await expect(page.getByText('May', { exact: true })).toBeVisible();
   await expect(page.getByText('ใช้งานล่าสุด 18 นาทีที่แล้ว')).toBeVisible();
   const before = calls.length;
-  await page.getByRole('button', { name: 'ตัวเลือกของ แบงก์ (ตัวอย่าง)' }).click();
+  await page.getByRole('button', { name: 'ตัวเลือกของ Bank' }).click();
   await page.getByRole('menuitem', { name: 'นำออกจากทีม' }).click();
   await expect(page.getByRole('status')).toContainText('นี่คือหน้าตัวอย่าง');
   expect(calls.slice(before).filter(c => c.startsWith('POST'))).toEqual([]);

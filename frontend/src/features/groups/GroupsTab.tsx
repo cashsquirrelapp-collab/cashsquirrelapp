@@ -1,9 +1,9 @@
 import PageHeader from '../../components/ui/PageHeader';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, Plus, Search, Settings, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
+import { Briefcase, Building2, Check, ChevronDown, ChevronRight, Crown, History, Mail, PenLine, Plus, Search, Settings, ShieldCheck, SlidersHorizontal, Trash2, UserCog, UserPlus, UserRound, Users } from 'lucide-react';
 import { uiSurface } from '../../components/ui/uiStyles';
 import { Drawer } from '../../components/ui/Drawer';
-import { RowMenu } from '../../components/ui/RowMenu';
+import { RowMenu, type RowMenuItem } from '../../components/ui/RowMenu';
 import type {
   GroupAction,
   GroupDetail,
@@ -34,14 +34,16 @@ interface Props {
   /** Team is not launched yet: show a sample team, never call the groups API. */
   preview?: boolean;
   /** The signed-in user's own profile, used for their row (photo, name). */
-  me?: { displayName: string; publicId?: string; avatarUrl?: string };
+  me?: { displayName: string; publicId?: string; avatarUrl?: string; email?: string };
+  /** Open the user's own profile settings. */
+  onEditProfile?: () => void;
 }
-export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScope = 'mine', embedded = false, preview = false, me }: Props) {
+export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScope = 'mine', embedded = false, preview = false, me, onEditProfile }: Props) {
   const { language } = useLanguage();
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
   const roleLabel = (role: GroupRole | null) =>
     role === 'leader'
-      ? copy('ผู้ดูแลทีม', 'Leader')
+      ? copy('หัวหน้ากลุ่ม', 'Team lead')
       : role === 'member'
         ? copy('สมาชิก', 'Member')
         : copy('ดูแลโดย admin', 'Admin access');
@@ -52,6 +54,10 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
   const [inviteOpen, setInviteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [memberView, setMemberView] = useState<'all' | 'online' | 'leaders'>('all');
+  const [memberViewOpen, setMemberViewOpen] = useState(false);
+  const memberViewRef = useRef<HTMLDivElement>(null);
+  const [openSection, setOpenSection] = useState<string | null>(null);
   const switcherRef = useRef<HTMLDivElement>(null);
   const [presenceAt, setPresenceAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -85,7 +91,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
   }, []);
   const reload = useCallback(async () => {
     if (preview) {
-      const sample = buildPreviewTeam({ userId, displayName: me?.displayName || 'คุณ', publicId: me?.publicId, avatarUrl: me?.avatarUrl });
+      const sample = buildPreviewTeam({ userId, displayName: me?.displayName || 'คุณ', publicId: me?.publicId, avatarUrl: me?.avatarUrl, email: me?.email });
       setSnapshot(sample.snapshot);
       setDetail(sample.detail);
       setSelected(sample.detail.id);
@@ -145,7 +151,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     } finally {
       if (!controller.signal.aborted && mounted.current) setLoading(false);
     }
-  }, [userId, isGuest, scope, page, selected, preview, me?.displayName, me?.publicId, me?.avatarUrl]);
+  }, [userId, isGuest, scope, page, selected, preview, me?.displayName, me?.publicId, me?.avatarUrl, me?.email]);
   useEffect(() => {
     setError('');
     void reload();
@@ -253,8 +259,17 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     document.addEventListener('mousedown', onDown); document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [switcherOpen]);
+  useEffect(() => {
+    if (!memberViewOpen) return;
+    const onDown = (e: MouseEvent) => { if (!memberViewRef.current?.contains(e.target as Node)) setMemberViewOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMemberViewOpen(false); };
+    document.addEventListener('mousedown', onDown); document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [memberViewOpen]);
   useEffect(() => { if (focusMemberId && detail && !detail.members.some(m => m.userId === focusMemberId)) { setFocusMemberId(null); setMemberSheetOpen(false); } }, [detail, focusMemberId]);
   useEffect(() => { if (!canManage && teamTab === 'invites') setTeamTab('members'); }, [canManage, teamTab]);
+  // The side panel starts on the signed-in user's own profile.
+  useEffect(() => { if (detail && !focusMemberId && detail.members.some(m => m.userId === userId)) setFocusMemberId(userId); }, [detail, focusMemberId, userId]);
 
   const activityLabels: Record<string, string> = {
     create: copy('สร้างทีม', 'Created group'),
@@ -262,9 +277,9 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     accept: copy('เข้าร่วมทีม', 'Joined group'),
     decline: copy('ปฏิเสธคำเชิญ', 'Declined invitation'),
     'revoke-invite': copy('ยกเลิกคำเชิญ', 'Revoked invitation'),
-    'member-role:leader': copy('เพิ่มสิทธิ์ผู้ดูแลทีม', 'Promoted leader'),
+    'member-role:leader': copy('เพิ่มเป็นหัวหน้ากลุ่ม', 'Made team lead'),
     'member-role:member': copy('เปลี่ยนเป็นสมาชิก', 'Demoted to member'),
-    transfer: copy('โอนตำแหน่งผู้ดูแลทีม', 'Transferred leadership'),
+    transfer: copy('โอนหัวหน้ากลุ่ม', 'Transferred team lead'),
     'remove-member': copy('นำสมาชิกออก', 'Removed member'),
     leave: copy('ออกจากทีม', 'Left group'),
     rename: copy('แก้ไขทีม', 'Updated group'),
@@ -290,27 +305,29 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
   const members = detail ? [...detail.members].sort((a, b) =>
     Number(isMe(b)) - Number(isMe(a)) || Number(isOnline(b)) - Number(isOnline(a)) || (a.role === b.role ? 0 : a.role === 'leader' ? -1 : 1) || a.displayName.localeCompare(b.displayName, 'th')) : [];
   const q = memberFilter.trim().toLowerCase();
-  const shownMembers = members.filter(m => !q || m.displayName.toLowerCase().includes(q) || m.publicId.toLowerCase().includes(q));
+  const shownMembers = members.filter(m =>
+    (memberView === 'all' || (memberView === 'online' ? isOnline(m) : m.role === 'leader')) &&
+    (!q || m.displayName.toLowerCase().includes(q) || m.publicId.toLowerCase().includes(q) || Boolean(m.email?.toLowerCase().includes(q))));
   const focusMember = detail?.members.find(m => m.userId === focusMemberId) ?? null;
   const lastLeader = (m: GroupMember) => m.role === 'leader' && (detail?.leaderCount ?? 0) <= 1;
   const memberActions = (m: GroupMember) => {
     if (!detail || !canManage) return [];
-    const items: { label: string; run: () => void; danger?: boolean }[] = [];
+    const items: RowMenuItem[] = [];
     if (!lastLeader(m)) items.push({
-      label: m.role === 'leader' ? copy('เปลี่ยนเป็นสมาชิก', 'Make member') : copy('เพิ่มเป็นผู้ดูแลทีม', 'Make leader'),
+      label: copy('เปลี่ยนสิทธิ์', 'Change role'), icon: UserCog,
       run: () => confirm(copy('เปลี่ยนสิทธิ์สมาชิก', 'Change member role'),
         `${m.displayName} (${m.publicId}) → ${roleLabel(m.role === 'leader' ? 'member' : 'leader')}`,
         { action: 'member-role', groupId: detail.id, userId: m.userId, role: m.role === 'leader' ? 'member' : 'leader' }),
     });
     if (!isMe(m) && detail.myRole === 'leader') items.push({
-      label: copy('โอนตำแหน่งผู้ดูแลทีม', 'Transfer leadership'),
-      run: () => confirm(copy('โอนตำแหน่งผู้ดูแลทีม', 'Transfer leadership'),
+      label: copy('โอนหัวหน้ากลุ่ม', 'Transfer team lead'), icon: Crown,
+      run: () => confirm(copy('โอนหัวหน้ากลุ่ม', 'Transfer team lead'),
         copy(`โอนให้ ${m.displayName} (${m.publicId}) คุณจะกลับเป็นสมาชิกและเสียสิทธิ์จัดการทีม`,
           `Transfer to ${m.displayName} (${m.publicId}). You will become a member and lose group management access.`),
         { action: 'transfer', groupId: detail.id, userId: m.userId }),
     });
     if (!isMe(m) && !lastLeader(m)) items.push({
-      label: copy('นำออกจากทีม', 'Remove from team'), danger: true,
+      label: copy('นำออกจากทีม', 'Remove from team'), danger: true, icon: Trash2,
       run: () => confirm(copy('นำสมาชิกออกจากทีม', 'Remove member'), `${m.displayName} (${m.publicId})`,
         { action: 'remove-member', groupId: detail.id, userId: m.userId }),
     });
@@ -324,6 +341,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     setEditing(false);
     setFocusMemberId(null);
     setMemberFilter('');
+    setMemberView('all');
     setTeamTab('members');
   };
   const memberActivity = (m: GroupMember) => (detail?.activity || [])
@@ -351,45 +369,102 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     );
   };
 
+  const timeText = (iso: string) => new Date(iso).toLocaleString(language === 'th' ? 'th-TH' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const sentText = (iso: string) => {
+    const days = Math.floor((now - new Date(iso).getTime()) / 86400000);
+    return days < 1 ? copy('ส่งเมื่อวันนี้', 'Sent today') : days < 2 ? copy('ส่งเมื่อ 1 วันที่แล้ว', 'Sent 1 day ago') : copy(`ส่งเมื่อ ${days} วันที่แล้ว`, `Sent ${days} days ago`);
+  };
+
+  const invitationRows = detail && (
+    <ul className="space-y-1">
+      {detail.invitations.map(inv => (
+        <li key={inv.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-3.5 hover:bg-brand-faint/60">
+          <span className="flex min-w-0 items-center gap-4">
+            {avatar({ displayName: inv.displayName || '?' }, 48, false)}
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-semibold text-brand-text">{inv.displayName || copy('ผู้ใช้เดิม', 'Legacy user')}</span>
+              <span className={`block truncate text-[13px] text-brand-muted ${inv.email ? '' : 'font-mono text-xs'}`}>{inv.email || inv.publicId || '—'}</span>
+              <span className="block text-xs text-brand-muted">
+                {inv.sentAt ? sentText(inv.sentAt) : copy('รอตอบรับ', 'Waiting')} · {daysLeft(inv.expiresAt) > 0 ? copy(`หมดอายุอีก ${daysLeft(inv.expiresAt)} วัน`, `expires in ${daysLeft(inv.expiresAt)} days`) : copy('หมดอายุวันนี้', 'expires today')}
+              </span>
+            </span>
+          </span>
+          <button type="button" disabled={busy}
+            className="inline-flex h-9 items-center rounded-xl border border-[#F0B8B8] px-4 text-[13px] font-medium text-[#C43A3A] transition-colors hover:bg-[#FDEEEE] disabled:opacity-40 cursor-pointer dark:border-[#F19A9A]/40 dark:text-[#F19A9A] dark:hover:bg-[#F19A9A]/10"
+            onClick={() => confirm(copy('ยกเลิกคำเชิญ', 'Revoke invitation'), `${inv.displayName || ''} ${inv.publicId || ''}`, { action: 'revoke-invite', groupId: detail.id, invitationId: inv.id })}>
+            {copy('ยกเลิก', 'Revoke')}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+
+  const detailRow = (key: string, Icon: typeof Users, label: string, value: React.ReactNode, body?: React.ReactNode) => {
+    const open = openSection === key && Boolean(body);
+    return (
+      <li>
+        <button type="button" disabled={!body} aria-expanded={body ? open : undefined} onClick={() => setOpenSection(open ? null : key)}
+          className="flex w-full items-center gap-3 px-1 py-3.5 text-left text-[14px] cursor-pointer disabled:cursor-default">
+          <Icon size={18} strokeWidth={1.7} className="shrink-0 text-brand-muted" />
+          <span className="flex-1 text-brand-text">{label}</span>
+          {value != null && <span className="text-[13px] text-brand-muted">{value}</span>}
+          {body && <ChevronRight size={16} className={`shrink-0 text-brand-muted transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />}
+        </button>
+        {open && <div className="pb-3 pl-8 pr-1">{body}</div>}
+      </li>
+    );
+  };
+
   const memberDetail = (m: GroupMember) => (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        {avatar(m, 64)}
-        <div className="min-w-0">
-          <p className="truncate text-lg font-semibold text-brand-text">{m.displayName}{isMe(m) ? copy(' (คุณ)', ' (you)') : ''}</p>
-          <p className="font-mono text-[13px] text-brand-muted">{m.publicId}</p>
-          <p className={`mt-1 flex items-center gap-1.5 text-[13px] ${isOnline(m) ? 'text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-muted'}`}>
-            <span className={`h-2 w-2 rounded-full ${isOnline(m) ? 'bg-[#18A66A]' : 'bg-[#B8B2AB]'}`} />{lastSeenText(m)}
+    <div className="space-y-5">
+      <div className="flex flex-col items-center pt-2 text-center">
+        {avatar(m, 104)}
+        <p className="mt-3 max-w-full truncate text-xl font-semibold text-brand-text">{m.displayName}</p>
+        <p className={`max-w-full truncate text-[13px] text-brand-muted ${m.email ? '' : 'font-mono'}`}>{m.email || m.publicId}</p>
+        {isMe(m) && onEditProfile && (
+          <button type="button" className={`${btnSecondary} mt-3 h-9`} onClick={onEditProfile}><PenLine size={14} />{copy('แก้ไขโปรไฟล์', 'Edit profile')}</button>
+        )}
+        <p className={`mt-3 flex items-center gap-1.5 text-[13px] ${isOnline(m) ? 'text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-muted'}`}>
+          <span className={`h-2 w-2 rounded-full ${isOnline(m) ? 'bg-[#18A66A]' : 'bg-[#B8B2AB]'}`} />{lastSeenText(m)}
+        </p>
+      </div>
+      <ul className="divide-y divide-brand-border border-y border-brand-border">
+        {detailRow('info', UserRound, copy('ข้อมูลส่วนตัว', 'Profile'), null, (
+          <dl className="space-y-1.5 text-[13px]">
+            <div className="flex justify-between gap-3"><dt className="text-brand-muted">User ID</dt><dd className="font-mono text-brand-text">{m.publicId}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-brand-muted">{copy('เข้าร่วมเมื่อ', 'Joined')}</dt><dd className="text-brand-text">{dateText(m.joinedAt)}</dd></div>
+          </dl>
+        ))}
+        {detailRow('role', ShieldCheck, copy('สิทธิ์ในทีม', 'Team role'), roleLabel(m.role))}
+        {m.assignedJobs != null && detailRow('jobs', Briefcase, copy('งานที่ได้รับมอบหมาย', 'Assigned jobs'), copy(`${m.assignedJobs} งาน`, `${m.assignedJobs} jobs`))}
+        {canManage && detailRow('activity', History, copy('กิจกรรมล่าสุด', 'Recent activity'), null, memberActivity(m).length ? (
+          <ul className="space-y-1.5">
+            {memberActivity(m).map(e => <li key={e.id} className="text-xs text-brand-muted"><span className="text-brand-text">{activityLabels[e.action] || e.action}</span> · {timeText(e.createdAt)}</li>)}
+          </ul>
+        ) : <p className="text-xs text-brand-muted">{copy('ยังไม่มีกิจกรรม', 'No activity yet')}</p>)}
+      </ul>
+      <div className="flex gap-3 rounded-2xl bg-[#FFF5EC] p-4 dark:bg-[#E65F2B]/10">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFE4CF] text-[#C24A16] dark:bg-[#E65F2B]/20 dark:text-[#FF9A6B]">{m.role === 'leader' ? <Crown size={17} /> : <Users size={17} />}</span>
+        <div>
+          <p className="text-[14px] font-semibold text-[#9A3D12] dark:text-[#FFB48C]">{m.role === 'leader' ? copy('หัวหน้ากลุ่ม (Owner)', 'Team lead (Owner)') : copy('สมาชิก (Member)', 'Member')}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-[#7A4A2E] dark:text-[#F3C9AE]">
+            {m.role === 'leader'
+              ? copy('มีสิทธิ์จัดการทีม เชิญสมาชิก เปลี่ยนสิทธิ์ และแก้ไขหรือลบทีมได้', 'Can manage the team, invite people, change roles and edit or delete the team.')
+              : copy('เห็นทีมและ Workspace ร่วมกัน แต่จัดการสมาชิกหรือสิทธิ์ไม่ได้', 'Shares the team workspace but cannot manage members or roles.')}
           </p>
         </div>
       </div>
-      <dl className="divide-y divide-brand-border rounded-xl border border-brand-border text-[13px]">
-        <div className="flex items-center justify-between gap-3 px-4 py-3"><dt className="text-brand-muted">{copy('สิทธิ์ในทีม', 'Team role')}</dt><dd className="font-medium text-brand-text">{roleLabel(m.role)}</dd></div>
-        <div className="flex items-center justify-between gap-3 px-4 py-3"><dt className="text-brand-muted">{copy('เข้าร่วมเมื่อ', 'Joined')}</dt><dd className="text-brand-text">{dateText(m.joinedAt)}</dd></div>
-      </dl>
-      <p className="text-xs leading-relaxed text-brand-muted">
-        {m.role === 'leader'
-          ? copy('ผู้ดูแลทีมเชิญสมาชิก เปลี่ยนสิทธิ์ โอนตำแหน่ง และแก้ไขหรือลบทีมได้', 'Leaders can invite people, change roles, transfer leadership and edit or delete the team.')
-          : copy('สมาชิกเห็นทีมและ Workspace ร่วมกัน แต่จัดการสมาชิกหรือสิทธิ์ไม่ได้', 'Members share the team workspace but cannot manage members or roles.')}
-      </p>
-      {canManage && memberActivity(m).length > 0 && (
-        <div>
-          <p className="mb-2 text-[13px] font-medium text-brand-text">{copy('กิจกรรมล่าสุดในทีม', 'Recent team activity')}</p>
-          <ul className="space-y-2">
-            {memberActivity(m).map(e => (
-              <li key={e.id} className="text-xs text-brand-muted"><span className="text-brand-text">{activityLabels[e.action] || e.action}</span> · {new Date(e.createdAt).toLocaleString(language === 'th' ? 'th-TH' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</li>
-            ))}
-          </ul>
-        </div>
-      )}
       {memberActions(m).length > 0 && (
-        <div className="space-y-2 border-t border-brand-border pt-4">
-          {memberActions(m).map(a => (
-            <button key={a.label} type="button" disabled={busy || loading} onClick={a.run}
-              className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-brand-faint disabled:opacity-40 cursor-pointer ${a.danger ? 'text-[#C43A3A] dark:text-[#F19A9A]' : 'text-brand-text'}`}>
-              {a.label}<ChevronRight size={16} className="text-brand-muted" />
-            </button>
-          ))}
+        <div className="space-y-1">
+          {memberActions(m).map(a => {
+            const Icon = a.icon;
+            return (
+              <button key={a.label} type="button" disabled={busy || loading} onClick={a.run}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-brand-faint disabled:opacity-40 cursor-pointer ${a.danger ? 'text-[#C43A3A] dark:text-[#F19A9A]' : 'text-brand-text'}`}>
+                {Icon && <Icon size={16} />}<span className="flex-1">{a.label}</span><ChevronRight size={16} className="text-brand-muted" />
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -397,6 +472,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
 
   const openMember = (m: GroupMember) => {
     setFocusMemberId(m.userId);
+    setOpenSection(null);
     if (window.matchMedia('(max-width: 1279px)').matches) setMemberSheetOpen(true);
   };
 
@@ -474,53 +550,75 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                   {scope === 'mine' && <button className={`${btnPrimary} mt-4`} disabled={busy} onClick={openCreate}><Plus size={16} />{copy('สร้างทีม', 'Create group')}</button>}
                 </div>
               ) : (
-                <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+                  <div className="min-w-0 space-y-4">
                   <div className={`${uiSurface} min-w-0`}>
                     {/* Workspace header + switcher */}
-                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-brand-border px-4 py-4 sm:px-5">
-                      <div className="relative min-w-0 flex-1" ref={switcherRef}>
-                        <button type="button" onClick={() => setSwitcherOpen(v => !v)} aria-haspopup="menu" aria-expanded={switcherOpen}
-                          className="group -ml-2 flex max-w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-lg px-2 py-1 text-left hover:bg-brand-faint cursor-pointer">
-                          <span className="truncate text-xl font-semibold text-brand-text">{detail?.name ?? snapshot.groups.find(g => g.id === selected)?.name ?? copy('เลือกทีม', 'Choose a team')}</span>
-                          <ChevronDown size={18} className="shrink-0 text-brand-muted" />
-                        </button>
-                        <p className="mt-0.5 text-[13px] text-brand-muted">
-                          {detail ? <>{detail.memberCount} {copy('สมาชิก', 'members')} · {roleLabel(detail.myRole)}{presenceFresh && <> · <span className="text-[#12804F] dark:text-[#6FD3A3]">{detail.members.filter(isOnline).length} {copy('ออนไลน์', 'online')}</span></>}</> : copy('กำลังโหลดทีม…', 'Loading team…')}
-                        </p>
-                        {switcherOpen && (
-                          <div role="menu" aria-label={copy('เลือกทีม', 'Choose a team')} className="absolute left-0 top-full z-30 mt-1.5 w-72 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#1F2024]">
-                            {snapshot.groups.map(g => (
-                              <button key={g.id} type="button" role="menuitem" onClick={() => pickGroup(g.id)}
-                                className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[13px] hover:bg-brand-faint cursor-pointer">
-                                <span className="min-w-0"><span className="block truncate text-brand-text">{g.name}</span><span className="block text-xs text-brand-muted">{g.memberCount} {copy('สมาชิก', 'members')} · {roleLabel(g.myRole)}</span></span>
-                                {g.id === selected && <Check size={16} className="shrink-0 text-[#C24A16]" />}
-                              </button>
-                            ))}
-                            <Pagination page={page} total={snapshot.total || 0} size={20} onChange={setPage} disabled={busy || loading} />
-                            {scope === 'mine' && (
-                              <>
-                                <div className="my-1 border-t border-brand-border" />
-                                <button type="button" role="menuitem" onClick={() => { setSwitcherOpen(false); openCreate(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint cursor-pointer"><Plus size={15} />{copy('สร้างทีมใหม่', 'Create a new team')}</button>
-                              </>
-                            )}
-                          </div>
-                        )}
+                    <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+                      <div className="flex min-w-0 flex-1 items-center gap-3.5">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-faint text-brand-muted"><Building2 size={22} strokeWidth={1.6} /></span>
+                        <div className="relative min-w-0 flex-1" ref={switcherRef}>
+                          <button type="button" onClick={() => setSwitcherOpen(v => !v)} aria-haspopup="menu" aria-expanded={switcherOpen}
+                            className="group -ml-2 flex max-w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-lg px-2 py-0.5 text-left hover:bg-brand-faint cursor-pointer">
+                            <span className="truncate text-xl font-semibold text-brand-text">{detail?.name ?? snapshot.groups.find(g => g.id === selected)?.name ?? copy('เลือกทีม', 'Choose a team')}</span>
+                            <ChevronDown size={16} className="shrink-0 text-brand-muted opacity-60 group-hover:opacity-100" />
+                          </button>
+                          <p className="text-[13px] text-brand-muted">
+                            {detail ? <>{detail.memberCount} {copy('สมาชิก', 'members')}{presenceFresh && <> · <span className="text-[#12804F] dark:text-[#6FD3A3]">{detail.members.filter(isOnline).length} {copy('ออนไลน์', 'online')}</span></>}</> : copy('กำลังโหลดทีม…', 'Loading team…')}
+                          </p>
+                          {switcherOpen && (
+                            <div role="menu" aria-label={copy('เลือกทีม', 'Choose a team')} className="absolute left-0 top-full z-30 mt-1.5 w-72 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#1F2024]">
+                              {snapshot.groups.map(g => (
+                                <button key={g.id} type="button" role="menuitem" onClick={() => pickGroup(g.id)}
+                                  className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[13px] hover:bg-brand-faint cursor-pointer">
+                                  <span className="min-w-0"><span className="block truncate text-brand-text">{g.name}</span><span className="block text-xs text-brand-muted">{g.memberCount} {copy('สมาชิก', 'members')} · {roleLabel(g.myRole)}</span></span>
+                                  {g.id === selected && <Check size={16} className="shrink-0 text-[#C24A16]" />}
+                                </button>
+                              ))}
+                              <Pagination page={page} total={snapshot.total || 0} size={20} onChange={setPage} disabled={busy || loading} />
+                              {scope === 'mine' && (
+                                <>
+                                  <div className="my-1 border-t border-brand-border" />
+                                  <button type="button" role="menuitem" onClick={() => { setSwitcherOpen(false); openCreate(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint cursor-pointer"><Plus size={15} />{copy('สร้างทีมใหม่', 'Create a new team')}</button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      {detail && <button type="button" className={btnSecondary} onClick={() => { setSettingsOpen(true); setName(detail.name); setDescription(detail.description); }}><Settings size={15} />{copy('ตั้งค่าทีม', 'Team settings')}</button>}
+                      {detail && <button type="button" className={`${btnSecondary} shrink-0`} onClick={() => { setSettingsOpen(true); setName(detail.name); setDescription(detail.description); }}><Settings size={15} /><span className="hidden sm:inline">{copy('ตั้งค่าทีม', 'Team settings')}</span></button>}
                     </div>
 
                     {detail ? (
                       <>
-                        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3 sm:px-5">
-                          <div className="flex gap-1" role="tablist" aria-label={copy('ข้อมูลทีม', 'Team')}>
+                        <div className="flex flex-wrap items-center gap-2 px-4 pb-2 pt-1 sm:px-5">
+                          <div className="flex gap-1.5" role="tablist" aria-label={copy('ข้อมูลทีม', 'Team')}>
                             <button role="tab" aria-selected={teamTab === 'members'} className={tabCls(teamTab === 'members')} onClick={() => setTeamTab('members')}>{copy('สมาชิก', 'Members')} ({detail.memberCount})</button>
                             {canManage && <button role="tab" aria-selected={teamTab === 'invites'} className={tabCls(teamTab === 'invites')} onClick={() => setTeamTab('invites')}>{copy('คำเชิญ', 'Invitations')} ({detail.invitations.length})</button>}
                           </div>
-                          {teamTab === 'members' && detail.members.length > 4 && (
-                            <div className="relative w-full sm:w-56">
-                              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
-                              <input type="search" value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)} placeholder={copy('ค้นหาสมาชิก…', 'Search members…')} aria-label={copy('ค้นหาสมาชิก', 'Search members')}
-                                className="h-9 w-full rounded-xl border border-brand-border bg-brand-white pl-8 pr-3 text-[13px] text-brand-text outline-none placeholder:text-brand-muted focus:border-[#E65F2B]" />
+                          {teamTab === 'members' && (
+                            <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">
+                              <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+                                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
+                                <input type="search" value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)} placeholder={copy('ค้นหาสมาชิก…', 'Search members…')} aria-label={copy('ค้นหาสมาชิก', 'Search members')}
+                                  className="h-10 w-full rounded-xl border border-brand-border bg-brand-white pl-8 pr-3 text-[13px] text-brand-text outline-none placeholder:text-brand-muted focus:border-[#E65F2B]" />
+                              </div>
+                              <div className="relative" ref={memberViewRef}>
+                                <button type="button" onClick={() => setMemberViewOpen(v => !v)} aria-haspopup="menu" aria-expanded={memberViewOpen} aria-label={copy('กรองสมาชิก', 'Filter members')}
+                                  className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors cursor-pointer ${memberView !== 'all' ? 'border-[#F3B08C] bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'border-brand-border text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`}>
+                                  <SlidersHorizontal size={16} />
+                                </button>
+                                {memberViewOpen && (
+                                  <div role="menu" className="absolute right-0 top-full z-30 mt-1.5 w-44 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#1F2024]">
+                                    {([['all', copy('ทั้งหมด', 'Everyone')], ['online', copy('ออนไลน์อยู่', 'Online now')], ['leaders', roleLabel('leader')]] as const).map(([key, text]) => (
+                                      <button key={key} type="button" role="menuitemradio" aria-checked={memberView === key} onClick={() => { setMemberView(key); setMemberViewOpen(false); }}
+                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint cursor-pointer">
+                                        {text}{memberView === key && <Check size={15} className="text-[#C24A16]" />}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -528,29 +626,32 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                         {teamTab === 'members' ? (
                           <>
                             <h3 className="sr-only">{copy('สมาชิกในทีม', 'Group members')} ({detail.memberCount})</h3>
-                            <ul className="mt-2 divide-y divide-brand-border">
+                            <ul className="space-y-1 px-2 pb-2 sm:px-3">
                               {shownMembers.map(m => {
                                 const actions = memberActions(m);
                                 const selectedRow = focusMemberId === m.userId;
                                 return (
-                                  <li key={m.userId} className={`flex items-center gap-2 pr-3 transition-colors duration-200 sm:pr-4 ${selectedRow ? 'bg-[#FFF7F1] dark:bg-[#E65F2B]/10' : 'hover:bg-brand-faint/50'}`}>
+                                  <li key={m.userId} className={`flex items-center gap-2 rounded-xl pr-2 transition-colors duration-200 ${selectedRow ? 'bg-[#FFF3EA] dark:bg-[#E65F2B]/12' : 'hover:bg-brand-faint/60'}`}>
                                     <button type="button" onClick={() => openMember(m)} aria-label={`${m.displayName} ${lastSeenText(m)}`}
-                                      className="flex min-w-0 flex-1 items-center gap-4 px-4 py-4 text-left cursor-pointer sm:px-5">
-                                      {avatar(m)}
+                                      className="flex min-w-0 flex-1 items-center gap-4 px-3 py-3.5 text-left cursor-pointer">
+                                      {avatar(m, 56)}
                                       <span className="min-w-0">
                                         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                          <span className="truncate text-[15px] font-semibold text-brand-text">{m.displayName}{isMe(m) ? copy(' (คุณ)', ' (you)') : ''}</span>
-                                          {m.role === 'leader' && <span className="rounded-md bg-[#FFF1E8] px-1.5 py-0.5 text-[11px] font-medium text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]">{roleLabel('leader')}</span>}
+                                          <span className="truncate text-[15px] font-semibold text-brand-text">{m.displayName}</span>
+                                          {m.role === 'leader' && <span className="rounded-md bg-[#FFE7D8] px-1.5 py-0.5 text-[11px] font-medium text-[#C24A16] dark:bg-[#E65F2B]/20 dark:text-[#FF9A6B]">{roleLabel('leader')}</span>}
+                                          {isMe(m) && <span className="text-xs text-brand-muted">{copy('(คุณ)', '(you)')}</span>}
                                         </span>
-                                        <span className="block font-mono text-xs text-brand-muted">{m.publicId}</span>
-                                        <span className={`mt-0.5 block text-xs ${isOnline(m) ? 'text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-muted'}`}>{lastSeenText(m)}</span>
+                                        <span className={`block truncate text-[13px] text-brand-muted ${m.email ? '' : 'font-mono text-xs'}`}>{m.email || m.publicId}</span>
+                                        <span className={`mt-0.5 flex items-center gap-1.5 text-xs ${isOnline(m) ? 'text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-muted'}`}>
+                                          <span className={`h-1.5 w-1.5 rounded-full ${isOnline(m) ? 'bg-[#18A66A]' : 'bg-[#B8B2AB]'}`} />{lastSeenText(m)}
+                                        </span>
                                       </span>
                                     </button>
-                                    {actions.length > 0 && <RowMenu label={copy(`ตัวเลือกของ ${m.displayName}`, `Options for ${m.displayName}`)} items={actions} />}
+                                    {actions.length > 0 && <RowMenu vertical width={200} label={copy(`ตัวเลือกของ ${m.displayName}`, `Options for ${m.displayName}`)} items={actions} />}
                                   </li>
                                 );
                               })}
-                              {shownMembers.length === 0 && <li className="px-5 py-8 text-center text-[13px] text-brand-muted">{copy('ไม่พบสมาชิกที่ตรงกับคำค้นหา', 'No matching members')}</li>}
+                              {shownMembers.length === 0 && <li className="px-5 py-8 text-center text-[13px] text-brand-muted">{copy('ไม่พบสมาชิกที่ตรงกับตัวกรอง', 'No matching members')}</li>}
                             </ul>
                             {detail.memberCount === 1 && canManage && (
                               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-border px-5 py-4">
@@ -560,37 +661,30 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                             )}
                           </>
                         ) : (
-                          <div className="mt-2">
-                            <h3 className="px-5 pb-1 pt-2 text-[13px] font-medium text-brand-muted">{copy('คำเชิญที่รออยู่', 'Pending invitations')}</h3>
+                          <div className="px-2 pb-2 sm:px-3">
                             {detail.invitations.length === 0 ? (
                               <p className="px-5 py-8 text-center text-[13px] text-brand-muted">{copy('ไม่มีคำเชิญที่รอตอบรับ', 'No pending invitations')}</p>
-                            ) : (
-                              <ul className="divide-y divide-brand-border">
-                                {detail.invitations.map(inv => (
-                                  <li key={inv.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
-                                    <span className="flex min-w-0 items-center gap-4">
-                                      {avatar({ displayName: inv.displayName || '?' }, 44, false)}
-                                      <span className="min-w-0">
-                                        <span className="block truncate text-[15px] font-semibold text-brand-text">{inv.displayName || copy('ผู้ใช้เดิม', 'Legacy user')}</span>
-                                        <span className="block font-mono text-xs text-brand-muted">{inv.publicId || '—'}</span>
-                                        <span className="block text-xs text-brand-muted">{copy('รอตอบรับ', 'Waiting')} · {daysLeft(inv.expiresAt) > 0 ? copy(`หมดอายุอีก ${daysLeft(inv.expiresAt)} วัน`, `expires in ${daysLeft(inv.expiresAt)} days`) : copy('หมดอายุวันนี้', 'expires today')}</span>
-                                      </span>
-                                    </span>
-                                    <button className={btnSecondary} disabled={busy} onClick={() => confirm(copy('ยกเลิกคำเชิญ', 'Revoke invitation'), `${inv.displayName || ''} ${inv.publicId || ''}`, { action: 'revoke-invite', groupId: detail.id, invitationId: inv.id })}>
-                                      {copy('ยกเลิกคำเชิญ', 'Revoke')}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
+                            ) : invitationRows}
                           </div>
                         )}
                       </>
                     ) : (
                       <div className="p-5" aria-busy="true">
-                        {[0, 1, 2].map(i => <div key={i} className="flex items-center gap-4 py-3"><span className="h-12 w-12 animate-pulse rounded-full bg-brand-faint" /><span className="flex-1 space-y-2"><span className="block h-3 w-40 animate-pulse rounded bg-brand-faint" /><span className="block h-2.5 w-24 animate-pulse rounded bg-brand-faint" /></span></div>)}
+                        {[0, 1, 2].map(i => <div key={i} className="flex items-center gap-4 py-3"><span className="h-14 w-14 animate-pulse rounded-full bg-brand-faint" /><span className="flex-1 space-y-2"><span className="block h-3 w-40 animate-pulse rounded bg-brand-faint" /><span className="block h-2.5 w-24 animate-pulse rounded bg-brand-faint" /></span></div>)}
                       </div>
                     )}
+                  </div>
+
+                  {/* Pending invitations under the member list */}
+                  {detail && canManage && teamTab === 'members' && detail.invitations.length > 0 && (
+                    <section className={`${uiSurface} px-2 pb-2 sm:px-3`} aria-labelledby="team-pending-invites">
+                      <div className="flex items-center gap-3 px-3 pb-2 pt-4">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]"><Mail size={17} /></span>
+                        <h3 id="team-pending-invites" className="text-[15px] font-semibold text-brand-text">{copy('คำเชิญรอการตอบรับ', 'Waiting for a reply')} ({detail.invitations.length})</h3>
+                      </div>
+                      {invitationRows}
+                    </section>
+                  )}
                   </div>
 
                   {/* Member detail: side panel on wide screens */}
@@ -689,7 +783,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                     onClick={() => confirm(copy('ออกจากทีม', 'Leave group'), detail.name, { action: 'leave', groupId: detail.id })}>
                     {copy('ออกจากทีม', 'Leave group')}
                   </button>
-                  {detail.myRole === 'leader' && detail.leaderCount === 1 && <p className="mt-2 text-xs text-brand-muted">{copy('เพิ่มหรือโอนผู้ดูแลทีมให้สมาชิกคนอื่นก่อนออกจากทีม', 'Promote or transfer leadership to another member before leaving.')}</p>}
+                  {detail.myRole === 'leader' && detail.leaderCount === 1 && <p className="mt-2 text-xs text-brand-muted">{copy('เพิ่มหรือโอนหัวหน้ากลุ่มให้สมาชิกคนอื่นก่อนออกจากทีม', 'Promote or transfer leadership to another member before leaving.')}</p>}
                 </div>
               )}
               {canManage && (
@@ -712,7 +806,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
           <label className="block text-[13px] font-medium text-brand-text">{copy('รายละเอียด', 'Description')}
             <input className={`${fieldCls} mt-1.5`} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
           </label>
-          <p className="text-xs text-brand-muted">{copy('คุณจะเป็นผู้ดูแลทีมอัตโนมัติ และเพิ่มผู้ดูแลทีมคนอื่นได้ภายหลัง', 'You become the leader automatically and can add more leaders later.')}</p>
+          <p className="text-xs text-brand-muted">{copy('คุณจะเป็นหัวหน้ากลุ่มอัตโนมัติ และเพิ่มหัวหน้ากลุ่มคนอื่นได้ภายหลัง', 'You become the leader automatically and can add more leaders later.')}</p>
           <button className={btnPrimary} type="submit" disabled={busy || !name.trim()}>{busy ? copy('กำลังบันทึก…', 'Saving…') : copy('ยืนยันสร้างทีม', 'Create this group')}</button>
         </form>
       </Drawer>

@@ -2765,7 +2765,9 @@ export default function App() {
                     displayName: routeContext?.profile.displayName || session.user.email?.split('@')[0] || 'คุณ',
                     publicId: routeContext?.profile.publicId,
                     avatarUrl: userAvatar || undefined,
+                    email: session.user.email || undefined,
                   }}
+                  onEditProfile={() => navigateTab('settings')}
                 />
               )}
               {activeTab === 'adminDashboard' && (
