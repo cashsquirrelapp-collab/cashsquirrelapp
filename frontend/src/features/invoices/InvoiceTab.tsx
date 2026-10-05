@@ -10,6 +10,7 @@ import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../.
 import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
 import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './DocumentWorkspaceParts';
+import { downloadBlob, usePdfFile } from './documentPdf';
 import { Eye, Search } from 'lucide-react';
 import NumberInput from '../../components/ui/NumberInput';
 import { motion, AnimatePresence } from 'motion/react';
@@ -612,6 +613,24 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     }
   };
 
+  // A real PDF file of the open document, prepared in the background for sharing and download.
+  const shownInvoice = selectedInvoice && getWorkspaceTab(selectedInvoice.documentType) === docTypeFilter ? withCurrentBranding(selectedInvoice) : null;
+  const pdf = usePdfFile(shownInvoice);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const handleDownloadPdf = async () => {
+    if (!shownInvoice) return;
+    setPdfBusy(true);
+    try {
+      const file = pdf.file ?? await pdf.ensure();
+      downloadBlob(file, file.name);
+    } catch {
+      triggerAlert('สร้างไฟล์ PDF ไม่สำเร็จ', 'จะเปิดหน้าพิมพ์แทน เลือก “บันทึกเป็น PDF” เพื่อเก็บไฟล์');
+      handlePrintDocument();
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const handleSendToCustomer = () => {
     if (!selectedInvoice) return;
     if (!selectedInvoice.client.email) {
@@ -770,10 +789,10 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     <button type="button" onClick={() => handleStartEditInvoice(selectedInvoice)} className="inline-flex h-10 items-center justify-center rounded-xl border border-brand-border bg-brand-white px-4 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
                       แก้ไข
                     </button>
-                    <button type="button" onClick={handlePrintDocument} aria-label="พิมพ์ / บันทึกเป็น PDF" title="เปิดหน้าพิมพ์ แล้วเลือกบันทึกเป็น PDF" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-4 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
-                      <Download className="h-4 w-4" /> <span className="hidden sm:inline">ดาวน์โหลด PDF</span><span className="sm:hidden">PDF</span>
+                    <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} aria-label="ดาวน์โหลด PDF" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-4 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint disabled:opacity-60 cursor-pointer">
+                      <Download className="h-4 w-4" /> <span className="hidden sm:inline">{pdfBusy ? 'กำลังสร้าง PDF…' : 'ดาวน์โหลด PDF'}</span><span className="sm:hidden">PDF</span>
                     </button>
-                    <ShareButton invoice={withCurrentBranding(selectedInvoice)} onDownload={handlePrintDocument} onEmail={handleSendToCustomer} notify={triggerAlert} />
+                    <ShareButton invoice={withCurrentBranding(selectedInvoice)} pdf={pdf} onDownload={handleDownloadPdf} onPrint={handlePrintDocument} onEmail={handleSendToCustomer} notify={triggerAlert} />
                   </div>
                 </div>
                 <PreviewCanvas invoice={withCurrentBranding(selectedInvoice)} className="h-[72vh] min-h-[420px] lg:h-auto lg:flex-1" />

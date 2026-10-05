@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Copy, Download, Mail, Maximize2, Minus, MoreHorizontal, Plus, Share2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Download, FileText, Loader2, Mail, Maximize2, Minus, MoreHorizontal, Plus, Printer, Share2, X } from 'lucide-react';
+import { documentPdfName, type PdfFileState } from './documentPdf';
 import type { DocumentType, Invoice } from '../../../../shared/types';
 import { formatCurrency, safeFormatThaiDate } from '../../utils';
 import { A4_HEIGHT_PX, A4_WIDTH_PX, DocumentPreview, calculateDocumentTotals, getDocumentMeta, paginateItems } from './DocumentA4';
@@ -102,6 +103,11 @@ export function shareMessage(inv: Invoice): string {
 }
 
 const canNativeShare = () => typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+const canShareFile = (file?: File) => {
+  try { return Boolean(file) && canNativeShare() && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file as File] }); }
+  catch { return false; }
+};
+const isPhone = () => window.matchMedia('(max-width: 639px)').matches;
 
 function useDismiss(open: boolean, close: () => void, root: React.RefObject<HTMLElement | null>) {
   React.useEffect(() => {
@@ -115,12 +121,14 @@ function useDismiss(open: boolean, close: () => void, root: React.RefObject<HTML
 }
 
 /**
- * "แชร์ให้ลูกค้า": the device's own share sheet (LINE, Messenger, AirDrop... appear there when
- * installed), copy a ready message, email, or save the PDF. There is no public document link and
- * no direct LINE send, so neither is offered. On phones with a share sheet it opens directly.
+ * "แชร์ให้ลูกค้า": send the PDF itself through the device's share sheet (LINE, Messenger,
+ * AirDrop, Mail... appear there when installed), copy a ready message, email, or save the PDF.
+ * The PDF is prepared in the background (see usePdfFile) because a share sheet only opens right
+ * after a tap; if it is not ready yet the menu says so and the next tap shares it.
  */
-export function ShareButton({ invoice, onDownload, onEmail, notify, className = '' }: {
-  invoice: Invoice; onDownload: () => void; onEmail: () => void; notify: (title: string, message: string) => void; className?: string;
+export function ShareButton({ invoice, pdf, onDownload, onPrint, onEmail, notify, className = '' }: {
+  invoice: Invoice; pdf: PdfFileState; onDownload: () => void; onPrint: () => void; onEmail: () => void;
+  notify: (title: string, message: string) => void; className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -128,23 +136,29 @@ export function ShareButton({ invoice, onDownload, onEmail, notify, className = 
   useDismiss(open, close, rootRef);
   const meta = getDocumentMeta(invoice.documentType);
   const text = shareMessage(invoice);
+  const title = `${meta.th} ${invoice.documentNo}`;
+  const fileShareable = canShareFile(pdf.file);
+  const fileShareSupported = canNativeShare() && typeof navigator.canShare === 'function';
 
-  const nativeShare = async () => {
-    setOpen(false);
-    try { await navigator.share({ title: `${meta.th} ${invoice.documentNo}`, text }); }
-    catch (e) { if ((e as Error)?.name !== 'AbortError') notify('แชร์ไม่สำเร็จ', 'ลองคัดลอกข้อความ หรือดาวน์โหลด PDF แทน'); }
+  const share = async (data: ShareData) => {
+    try { await navigator.share(data); }
+    catch (e) { if ((e as Error)?.name !== 'AbortError') notify('แชร์ไม่สำเร็จ', 'ลองดาวน์โหลด PDF แล้วส่งเอง หรือคัดลอกข้อความแทน'); }
   };
+  const shareFile = () => { if (!pdf.file) return; setOpen(false); void share({ files: [pdf.file], title, text }); };
+  const shareText = () => { setOpen(false); void share({ title, text }); };
   const copy = async () => {
     setOpen(false);
     try { await navigator.clipboard.writeText(text); notify('คัดลอกข้อความแล้ว', 'วางในแชตกับลูกค้า แล้วแนบไฟล์ PDF ได้เลย'); }
     catch { notify('คัดลอกไม่สำเร็จ', text); }
   };
   const onClick = () => {
-    if (canNativeShare() && window.matchMedia('(max-width: 639px)').matches) { void nativeShare(); return; }
+    if (fileShareable && isPhone()) { shareFile(); return; }
+    if (!pdf.file) pdf.ensure().catch(() => undefined);
     setOpen(v => !v);
   };
 
-  const item = 'flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-brand-faint cursor-pointer';
+  const item = 'flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-brand-faint cursor-pointer disabled:cursor-default disabled:hover:bg-transparent';
+  const sub = 'block text-xs text-brand-muted';
   return (
     <div ref={rootRef} className={`relative ${className}`}>
       <button type="button" onClick={onClick} aria-haspopup="menu" aria-expanded={open}
@@ -152,20 +166,29 @@ export function ShareButton({ invoice, onDownload, onEmail, notify, className = 
         <Share2 className="h-4 w-4" /> แชร์ให้ลูกค้า
       </button>
       {open && (
-        <div role="menu" aria-label="แชร์เอกสาร" className="absolute right-0 top-[calc(100%+6px)] z-40 w-[300px] rounded-2xl border border-brand-border bg-brand-white p-2 shadow-xl dark:bg-[#1F2024]">
+        <div role="menu" aria-label="แชร์เอกสาร" className="absolute right-0 top-[calc(100%+6px)] z-40 w-[310px] max-w-[calc(100vw-2rem)] rounded-2xl border border-brand-border bg-brand-white p-2 shadow-xl dark:bg-[#1F2024]">
           <div className="flex items-center justify-between px-3 pb-1 pt-1.5">
             <p className="text-[13px] font-semibold text-brand-text">แชร์เอกสาร</p>
             <button type="button" onClick={close} aria-label="ปิด" className="rounded-lg p-1 text-brand-muted hover:bg-brand-faint cursor-pointer"><X className="h-4 w-4" /></button>
           </div>
-          {canNativeShare() && (
-            <button type="button" role="menuitem" onClick={nativeShare} className={item}>
-              <Share2 className="mt-0.5 h-4 w-4 shrink-0 text-[#C24A16]" />
-              <span><span className="block text-[13px] font-medium text-brand-text">แชร์ผ่านแอป</span><span className="block text-xs text-brand-muted">เปิดเมนูแชร์ของเครื่อง เลือก LINE หรือแอปที่ใช้คุยกับลูกค้า</span></span>
+          {fileShareSupported && (
+            <button type="button" role="menuitem" onClick={shareFile} disabled={!fileShareable} className={item}>
+              {pdf.file || pdf.failed ? <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#C24A16]" /> : <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-[#C24A16]" />}
+              <span>
+                <span className="block text-[13px] font-medium text-brand-text">แชร์ไฟล์ PDF ผ่านแอป</span>
+                <span className={sub}>{pdf.failed ? 'สร้างไฟล์ไม่สำเร็จ ลองดาวน์โหลดแทน' : pdf.file && !fileShareable ? 'อุปกรณ์นี้แนบไฟล์ผ่านเมนูแชร์ไม่ได้' : pdf.file ? `${pdf.file.name} · เลือก LINE หรือแอปที่ใช้คุยกับลูกค้า` : 'กำลังเตรียมไฟล์ PDF…'}</span>
+              </span>
+            </button>
+          )}
+          {canNativeShare() && !fileShareable && (
+            <button type="button" role="menuitem" onClick={shareText} className={item}>
+              <Share2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-muted" />
+              <span><span className="block text-[13px] font-medium text-brand-text">แชร์ข้อความผ่านแอป</span><span className={sub}>ส่งเลขที่และยอด แล้วแนบไฟล์เองภายหลัง</span></span>
             </button>
           )}
           <button type="button" role="menuitem" onClick={copy} className={item}>
             <Copy className="mt-0.5 h-4 w-4 shrink-0 text-brand-muted" />
-            <span><span className="block text-[13px] font-medium text-brand-text">คัดลอกข้อความ</span><span className="block text-xs text-brand-muted">ข้อความพร้อมเลขที่และยอด สำหรับส่งให้ลูกค้า</span></span>
+            <span><span className="block text-[13px] font-medium text-brand-text">คัดลอกข้อความ</span><span className={sub}>ข้อความพร้อมเลขที่และยอด สำหรับส่งให้ลูกค้า</span></span>
           </button>
           {invoice.client.email && (
             <button type="button" role="menuitem" onClick={() => { setOpen(false); onEmail(); }} className={item}>
@@ -175,9 +198,13 @@ export function ShareButton({ invoice, onDownload, onEmail, notify, className = 
           )}
           <button type="button" role="menuitem" onClick={() => { setOpen(false); onDownload(); }} className={item}>
             <Download className="mt-0.5 h-4 w-4 shrink-0 text-brand-muted" />
-            <span><span className="block text-[13px] font-medium text-brand-text">ดาวน์โหลด PDF</span><span className="block text-xs text-brand-muted">บันทึกไฟล์ก่อนแล้วส่งเอง</span></span>
+            <span><span className="block text-[13px] font-medium text-brand-text">ดาวน์โหลด PDF</span><span className={sub}>บันทึกไฟล์ {documentPdfName(invoice)} แล้วส่งเอง</span></span>
           </button>
-          {!canNativeShare() && <p className="px-3 pb-1.5 pt-1 text-[11px] leading-relaxed text-brand-muted">เบราว์เซอร์นี้ไม่มีเมนูแชร์ของเครื่อง ใช้คัดลอกข้อความคู่กับไฟล์ PDF แทนได้</p>}
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); onPrint(); }} className={item}>
+            <Printer className="mt-0.5 h-4 w-4 shrink-0 text-brand-muted" />
+            <span><span className="block text-[13px] font-medium text-brand-text">พิมพ์</span><span className={sub}>เปิดหน้าพิมพ์ของเบราว์เซอร์</span></span>
+          </button>
+          {!canNativeShare() && <p className="px-3 pb-1.5 pt-1 text-[11px] leading-relaxed text-brand-muted">เบราว์เซอร์นี้ไม่มีเมนูแชร์ของเครื่อง ดาวน์โหลด PDF แล้วแนบในแชตกับลูกค้าได้เลย</p>}
         </div>
       )}
     </div>

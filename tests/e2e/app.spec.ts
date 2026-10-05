@@ -1,4 +1,5 @@
 import { test,expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 test.beforeEach(async({page})=>{
  await page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'user',groups:[],invitations:[],total:0,page:0}}));
  // The browser suite is isolated from Supabase; profile calls must be mocked too.
@@ -298,8 +299,14 @@ test('invoice preview and print render the shared A4 document and the editor off
  await expect(preview).toContainText('2,033.00');
  await expect(preview).toContainText('สองพันสามสิบสามบาทถ้วน');
  await expect(preview.locator('b')).toHaveCount(0);
+ const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'ดาวน์โหลด PDF'}).click()]);
+ expect(download.suggestedFilename()).toBe('RTX-2569-001.pdf');
+ const pdfBytes=readFileSync(await download.path());
+ expect(pdfBytes.subarray(0,5).toString()).toBe('%PDF-');
+ expect((pdfBytes.toString('latin1').match(/\/Type\s*\/Page[^s]/g)||[]).length).toBe(1);
  const popupPromise=context.waitForEvent('page');
- await page.getByRole('button',{name:'พิมพ์ / บันทึกเป็น PDF'}).click();
+ await page.getByRole('button',{name:'แชร์ให้ลูกค้า'}).click();
+ await page.getByRole('menuitem',{name:/พิมพ์/}).click();
  const popup=await popupPromise;
  await expect(popup.locator('.da4-page')).toHaveCount(1);
  await expect(popup.locator('.da4-page')).toContainText('2,033.00');
