@@ -5,9 +5,12 @@ import { imageFileToDataUrl } from '../../services/images';
 import { readInvoices, saveCloud } from '../../services/cloud';
 import { validateChanges } from '../../../../shared/validation';
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../../../shared/types';
 import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
+import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './DocumentWorkspaceParts';
+import { Eye, Search } from 'lucide-react';
 import NumberInput from '../../components/ui/NumberInput';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -38,6 +41,21 @@ const DOCUMENT_WORKSPACE_TABS: Array<{ key: DocumentWorkspaceTab; label: string 
 
 const getWorkspaceTab = (type: DocumentType): DocumentWorkspaceTab =>
   type === 'receiptTaxInvoice' ? 'taxInvoice' : type;
+
+// The open tab lives in ?type= so a refresh (or a shared link) lands on the same tab.
+const TAB_PARAM = 'type';
+const isWorkspaceTab = (v: string | null): v is DocumentWorkspaceTab => DOCUMENT_WORKSPACE_TABS.some(t => t.key === v);
+const readTabFromUrl = (): DocumentWorkspaceTab | null => {
+  try { const v = new URLSearchParams(window.location.search).get(TAB_PARAM); return isWorkspaceTab(v) ? v : null; } catch { return null; }
+};
+const writeTabToUrl = (tab: DocumentWorkspaceTab) => {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(TAB_PARAM) === tab) return;
+    url.searchParams.set(TAB_PARAM, tab);
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  } catch { /* the tab still works without the URL */ }
+};
 
 // Upload box for the logo / signature images kept on the issuer profile. Exported so the
 // business-profile editor on the Settings page (the only place that edits this profile now)
@@ -158,7 +176,18 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'list' | 'create'>('list');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
-  const [docTypeFilter, setDocTypeFilter] = useState<DocumentWorkspaceTab>('quotation');
+  const tabFromUrl = React.useRef(readTabFromUrl());
+  const [docTypeFilter, setDocTypeFilter] = useState<DocumentWorkspaceTab>(tabFromUrl.current ?? 'quotation');
+  const [listQuery, setListQuery] = useState('');
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  useEffect(() => { writeTabToUrl(docTypeFilter); }, [docTypeFilter]);
+  // Switching between the list and the form starts at the top, not wherever the long form was scrolled.
+  const pageTopRef = React.useRef<HTMLDivElement>(null);
+  const firstSubTabRender = React.useRef(true);
+  useEffect(() => {
+    if (firstSubTabRender.current) { firstSubTabRender.current = false; return; }
+    pageTopRef.current?.scrollIntoView({ block: 'start' });
+  }, [activeSubTab]);
 
   // Default Issuer Profile
   const [issuerProfile, setIssuerProfile] = useState<InvoiceProfile>({
@@ -351,6 +380,38 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   const { subtotal, vatAmount, whtAmount, grandTotal } = calculateTotals(invoiceItems, vatRate, whtRate);
 
+  // The document as the form currently describes it -- saved on submit, and drawn live next to
+  // the form while editing.
+  const buildDraftInvoice = (): Invoice => ({
+    id: editingInvoiceId || 'draft',
+    documentType: docType,
+    documentNo: docNo,
+    createdDate: createdDate,
+    dueDate: dueDate || undefined,
+    responseDate: responseDate || undefined,
+    issuer: issuerProfile,
+    client: {
+      name: clientName,
+      address: clientAddress,
+      phone: clientPhone,
+      email: clientEmail,
+      taxId: clientTaxId,
+      contactName: clientContactName || undefined,
+      code: clientCode || undefined,
+      branch: clientBranch || undefined
+    },
+    items: invoiceItems,
+    vatRate: vatRate,
+    whtRate: whtRate,
+    note: docNote,
+    paymentTerm: paymentTerm || undefined,
+    deliveryTerm: deliveryTerm || undefined,
+    refNo: refNo || undefined,
+    paidDate: paidDate || undefined,
+    paymentMethod: paymentMethod || undefined,
+    paidAmount: paidAmount === '' ? undefined : paidAmount
+  });
+
   // Create or Update Invoice
   const handleSaveInvoice = (e: React.FormEvent) => {
     e.preventDefault();
@@ -365,35 +426,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       return;
     }
 
-    const newInvoice: Invoice = {
-      id: editingInvoiceId || crypto.randomUUID(),
-      documentType: docType,
-      documentNo: docNo,
-      createdDate: createdDate,
-      dueDate: dueDate || undefined,
-      responseDate: responseDate || undefined,
-      issuer: issuerProfile,
-      client: {
-        name: clientName,
-        address: clientAddress,
-        phone: clientPhone,
-        email: clientEmail,
-        taxId: clientTaxId,
-        contactName: clientContactName || undefined,
-        code: clientCode || undefined,
-        branch: clientBranch || undefined
-      },
-      items: invoiceItems,
-      vatRate: vatRate,
-      whtRate: whtRate,
-      note: docNote,
-      paymentTerm: paymentTerm || undefined,
-      deliveryTerm: deliveryTerm || undefined,
-      refNo: refNo || undefined,
-      paidDate: paidDate || undefined,
-      paymentMethod: paymentMethod || undefined,
-      paidAmount: paidAmount === '' ? undefined : paidAmount
-    };
+    const newInvoice: Invoice = { ...buildDraftInvoice(), id: editingInvoiceId || crypto.randomUUID() };
 
     let updatedList;
     if (editingInvoiceId) {
@@ -421,22 +454,23 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         const updated = invoices.filter(inv => inv.id !== id);
         saveInvoicesToStorage(updated);
         if (selectedInvoice && selectedInvoice.id === id) {
-          setSelectedInvoice(updated[0] || null);
+          // stay on the same tab: select the next document of this type, if any
+          setSelectedInvoice(updated.find(inv => getWorkspaceTab(inv.documentType) === docTypeFilter) || null);
         }
       }
     );
   };
 
   // Open editor with empty form for creating new invoice
-  const handleOpenCreateForm = () => {
+  const handleOpenCreateForm = (type: DocumentType = docTypeFilter) => {
     setEditingInvoiceId(null);
     setSelectedJobId('');
-    setDocType('invoice');
+    setDocType(type);
     
     // Auto increment document no based on current count
     const thaiYear = new Date().getFullYear() + 543;
     const serial = String(invoices.length + 1).padStart(3, '0');
-    setDocNo(`INV-${thaiYear}-${serial}`);
+    setDocNo(`${getDocumentMeta(type).prefix}-${thaiYear}-${serial}`);
     
     setCreatedDate(new Date().toISOString().split('T')[0]);
     setDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
@@ -459,6 +493,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setPaymentTerm('โอนเงินผ่านบัญชีธนาคาร');
     setDeliveryTerm('ทันทีหลังได้รับเงินมัดจำ / ชำระเงิน');
     setRefNo('');
+    if (getDocumentMeta(type).isTax) setVatRate(7); // tax invoices carry VAT by definition
     setActiveSubTab('create');
   };
 
@@ -589,12 +624,19 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     window.location.href = `mailto:${encodeURIComponent(selectedInvoice.client.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  // Sync selected invoice on load if none selected
+  // Pick a document once, when the list first arrives. This used to run every time nothing was
+  // selected -- which is exactly the state after opening a tab with no documents -- and it then
+  // jumped back to the first document's tab, so ใบแจ้งหนี้ / ใบเสร็จ / ใบกำกับภาษี looked dead
+  // whenever an account only had quotations. A tab from the URL wins over the first document.
+  const initialSelectionDone = React.useRef(false);
   useEffect(() => {
-    if (invoices.length > 0 && !selectedInvoice) {
-      setSelectedInvoice(invoices[0]);
-      setDocTypeFilter(getWorkspaceTab(invoices[0].documentType));
-    }
+    if (initialSelectionDone.current || invoices.length === 0) return;
+    initialSelectionDone.current = true;
+    if (selectedInvoice) return;
+    const wanted = tabFromUrl.current;
+    const first = wanted ? invoices.find(inv => getWorkspaceTab(inv.documentType) === wanted) : invoices[0];
+    if (first) setSelectedInvoice(first);
+    if (!wanted && first) setDocTypeFilter(getWorkspaceTab(first.documentType));
   }, [invoices, selectedInvoice]);
 
   if (ownerId && !storageReady) return <div className="rounded-2xl border border-brand-border bg-brand-white p-8 text-center" role="status">{storageError || 'กำลังโหลดเอกสารของบัญชีนี้…'}</div>;
@@ -609,17 +651,23 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     } catch (error: any) { triggerAlert('นำเข้าเอกสารไม่สำเร็จ', error.message); }
   });
 
-  const filteredInvoices = invoices.filter(inv => getWorkspaceTab(inv.documentType) === docTypeFilter);
+  const query = listQuery.trim().toLowerCase();
+  const tabInvoices = invoices.filter(inv => getWorkspaceTab(inv.documentType) === docTypeFilter);
+  const filteredInvoices = tabInvoices.filter(inv => !query
+    || inv.documentNo.toLowerCase().includes(query) || (inv.client.name || '').toLowerCase().includes(query));
+  const activeTabLabel = DOCUMENT_WORKSPACE_TABS.find(tab => tab.key === docTypeFilter)?.label ?? '';
+  const creatableTypes = DOCUMENT_TYPES;
 
   const handleWorkspaceTabChange = (tab: DocumentWorkspaceTab) => {
     setDocTypeFilter(tab);
+    setListQuery('');
     const firstDocument = invoices.find(inv => getWorkspaceTab(inv.documentType) === tab);
     setSelectedInvoice(firstDocument || null);
     setActiveSubTab('list');
   };
 
   return (
-    <div className="page-content app-tab-enter space-y-6 pb-16">
+    <div ref={pageTopRef} className="page-content app-tab-enter space-y-6 pb-16">
       {(storageError || saving || (ownerId && localStorage.getItem('remix_invoices'))) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-border bg-brand-white px-4 py-3 text-xs no-print" role="status">
           {(storageError || saving) && <span className={storageError ? 'text-red-600' : 'text-brand-muted'}>{storageError || 'กำลังบันทึกเอกสาร…'}</span>}
@@ -628,18 +676,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       )}
       
       <PageHeader page="invoice" className="no-print">
-        <button
-          type="button"
-          onClick={handleOpenCreateForm}
-          className={uiPrimaryButton}
-        >
-          <Plus className="h-4 w-4" />
-          <span>ออกเอกสารใหม่</span>
-        </button>
+        <NewDocumentButton types={creatableTypes} onPick={handleOpenCreateForm} />
       </PageHeader>
 
       {activeSubTab === 'list' && (
-        <div className="flex gap-2 overflow-x-auto pb-1 no-print" aria-label="ประเภทเอกสาร">
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 no-print sm:mx-0 sm:px-0" role="tablist" aria-label="ประเภทเอกสาร">
           {DOCUMENT_WORKSPACE_TABS.map(tab => {
             const count = invoices.filter(inv => getWorkspaceTab(inv.documentType) === tab.key).length;
             const isActive = docTypeFilter === tab.key;
@@ -647,15 +688,18 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => handleWorkspaceTabChange(tab.key)}
+                role="tab"
+                aria-selected={isActive}
                 aria-pressed={isActive}
-                className={`shrink-0 rounded-xl px-5 py-3 text-xs font-black transition ${
+                onClick={() => handleWorkspaceTabChange(tab.key)}
+                className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-4 text-[13px] font-medium transition-colors cursor-pointer ${
                   isActive
-                    ? 'bg-[#FFF0E7] text-[#D85324] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]'
-                    : 'bg-[#F5F6F8] text-brand-muted hover:bg-[#EEEFF2] hover:text-brand-text dark:bg-stone-900 dark:hover:bg-stone-800'
+                    ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]'
+                    : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'
                 }`}
               >
                 {tab.label}
+                {count > 0 && <span className={`text-xs ${isActive ? 'text-[#C24A16]/70 dark:text-[#FF9A6B]/70' : 'text-brand-muted/80'}`}>{count}</span>}
                 <span className="sr-only"> {count} รายการ</span>
               </button>
             );
@@ -665,87 +709,80 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
       {/* SUB-TAB 1: DOCUMENTS LIST & LIVE PREVIEW GRID */}
       {activeSubTab === 'list' && (
-        <div className="app-subtab-enter grid min-h-[680px] grid-cols-1 items-stretch gap-4 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
-          <section className="overflow-hidden rounded-2xl border border-brand-border/70 bg-brand-white dark:bg-stone-900 no-print" aria-label="รายการเอกสาร">
-            <div className="flex items-center justify-between border-b border-brand-border/60 px-5 py-4">
-              <div>
-                <h2 className="text-sm font-black text-brand-text dark:text-white">{DOCUMENT_WORKSPACE_TABS.find(tab => tab.key === docTypeFilter)?.label}</h2>
-                <p className="mt-0.5 text-[10px] font-bold text-brand-muted">{filteredInvoices.length} รายการ</p>
+        <div className="app-subtab-enter grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-brand-border bg-brand-white no-print lg:h-[calc(100vh-232px)] lg:min-h-[560px]" aria-label="รายการเอกสาร">
+            <div className="border-b border-brand-border px-4 py-3.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <h2 className="text-[15px] font-semibold text-brand-text">{activeTabLabel}</h2>
+                <p className="text-xs text-brand-muted">{tabInvoices.length} รายการ</p>
               </div>
+              {tabInvoices.length > 0 && (
+                <div className="relative mt-3">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+                  <input type="search" value={listQuery} onChange={(e) => setListQuery(e.target.value)} placeholder="ค้นหาเลขที่ หรือชื่อลูกค้า" aria-label="ค้นหาเอกสาร"
+                    className="h-10 w-full rounded-xl border border-brand-border bg-brand-white pl-9 pr-3 text-[13px] text-brand-text outline-none placeholder:text-brand-muted focus:border-[#E65F2B]" />
+                </div>
+              )}
             </div>
 
-            {filteredInvoices.length === 0 ? (
-              <div className="flex min-h-[300px] flex-col items-center justify-center px-8 text-center text-brand-muted">
+            {tabInvoices.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
                 <FileText className="mb-3 h-9 w-9 text-brand-border" />
-                <p className="text-xs font-black">ยังไม่มีเอกสารประเภทนี้</p>
-                <button type="button" onClick={handleOpenCreateForm} className="mt-4 text-xs font-black text-[#E65F2B] hover:underline">
-                  + สร้างเอกสารใหม่
+                <p className="text-[13px] font-medium text-brand-text">ยังไม่มี{activeTabLabel}</p>
+                <button type="button" onClick={() => handleOpenCreateForm(docTypeFilter)} className="mt-4 inline-flex h-9 items-center gap-1 rounded-xl border border-brand-border px-3.5 text-[13px] font-medium text-brand-text hover:bg-brand-faint cursor-pointer">
+                  <Plus className="h-4 w-4" /> ออก{activeTabLabel}
                 </button>
               </div>
+            ) : filteredInvoices.length === 0 ? (
+              <p className="px-6 py-10 text-center text-[13px] text-brand-muted">ไม่พบเอกสารที่ตรงกับ “{listQuery}”</p>
             ) : (
-              <div className="max-h-[760px] overflow-y-auto">
+              <ul className="min-h-0 flex-1 overflow-y-auto">
                 {filteredInvoices.map((inv) => {
                   const isSelected = selectedInvoice?.id === inv.id;
                   const totals = calculateTotals(inv.items, inv.vatRate, inv.whtRate);
-                  
                   return (
-                    <div
-                      key={inv.id}
-                      className={`group flex w-full items-center border-b border-brand-border/50 transition last:border-b-0 ${
-                        isSelected
-                          ? 'bg-[#FFF0E7] dark:bg-[#E65F2B]/15'
-                          : 'bg-brand-white hover:bg-brand-faint/60 dark:bg-stone-900 dark:hover:bg-stone-800/70'
-                      }`}
-                    >
-                      <button type="button" onClick={() => setSelectedInvoice(inv)} className="min-w-0 flex-1 px-5 py-5 text-left">
-                        <span className="block truncate text-sm font-black text-brand-text dark:text-white">{inv.documentNo}</span>
-                        <span className="mt-1 block truncate text-xs font-bold text-brand-muted">
-                          {inv.client.name} · {formatCurrency(totals.grandTotal)}
+                    <li key={inv.id} className={`flex items-center gap-1 border-b border-brand-border pr-2 transition-colors last:border-b-0 ${isSelected ? 'bg-[#FFF1E8] dark:bg-[#E65F2B]/12' : 'hover:bg-brand-faint/60'}`}>
+                      <button type="button" onClick={() => setSelectedInvoice(inv)} aria-current={isSelected ? 'true' : undefined} className="min-w-0 flex-1 px-4 py-3.5 text-left cursor-pointer">
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className="truncate text-[13px] font-semibold text-brand-text">{inv.documentNo}</span>
+                          <span className="shrink-0 font-mono text-[13px] text-brand-text">{formatCurrency(totals.grandTotal)}</span>
                         </span>
+                        <span className="mt-0.5 block truncate text-xs text-brand-muted">{inv.client.name || 'ไม่ระบุลูกค้า'} · {new Date(inv.createdDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={(event) => handleDeleteInvoice(inv.id, event)}
-                        aria-label={`ลบเอกสาร ${inv.documentNo}`}
-                        className="mr-3 rounded-lg p-2 text-brand-muted opacity-60 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/20"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                      <RowMenu label={`ตัวเลือกของ ${inv.documentNo}`} items={[
+                        { label: 'แก้ไข', run: () => handleStartEditInvoice(inv) },
+                        { label: 'ทำสำเนา', run: () => handleDuplicateInvoice(inv) },
+                        { label: 'ลบเอกสาร', danger: true, run: () => handleDeleteInvoice(inv.id) },
+                      ]} />
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
           </section>
 
-          <section className="min-w-0">
-            {selectedInvoice ? (
-              <div className="flex h-full min-w-0 flex-col gap-4">
-                <div className="flex flex-wrap items-center gap-2 no-print" aria-label="คำสั่งเอกสาร">
-                  <button type="button" onClick={() => handleStartEditInvoice(selectedInvoice)} className="rounded-xl bg-[#F5F6F8] px-4 py-3 text-xs font-black text-brand-text transition hover:bg-[#EAEBEE] dark:bg-stone-900 dark:text-white dark:hover:bg-stone-800">
-                    แก้ไข
-                  </button>
-                  <button type="button" onClick={() => handleDuplicateInvoice(selectedInvoice)} className="inline-flex items-center gap-1.5 rounded-xl bg-[#F5F6F8] px-4 py-3 text-xs font-black text-brand-text transition hover:bg-[#EAEBEE] dark:bg-stone-900 dark:text-white dark:hover:bg-stone-800">
-                    <Copy className="h-3.5 w-3.5" /> Duplicate
-                  </button>
-                  <button type="button" onClick={handlePrintDocument} aria-label="พิมพ์ / บันทึกเป็น PDF" className="inline-flex items-center gap-1.5 rounded-xl bg-[#F5F6F8] px-4 py-3 text-xs font-black text-brand-text transition hover:bg-[#EAEBEE] dark:bg-stone-900 dark:text-white dark:hover:bg-stone-800">
-                    <Download className="h-3.5 w-3.5" /> Download PDF
-                  </button>
-                  <button type="button" onClick={handleSendToCustomer} className="inline-flex items-center gap-1.5 rounded-xl bg-[#FF5A16] px-4 py-3 text-xs font-black text-white shadow-sm transition hover:bg-[#E94B0A]">
-                    <Send className="h-3.5 w-3.5" /> ส่งให้ลูกค้า
-                  </button>
-                </div>
-                <div data-testid="document-preview-canvas" className="flex min-h-[620px] flex-1 items-start justify-center overflow-auto rounded-2xl bg-[#F2F3F5] p-4 sm:p-7 lg:p-10 dark:bg-stone-950">
-                  <div className="w-full max-w-[794px] min-w-[680px] shadow-sm">
-                    <DocumentPreview invoice={withCurrentBranding(selectedInvoice)} />
+          <section className="min-w-0" aria-label="ตัวอย่างเอกสาร">
+            {selectedInvoice && getWorkspaceTab(selectedInvoice.documentType) === docTypeFilter ? (
+              <div className="flex min-w-0 flex-col gap-3 lg:h-[calc(100vh-232px)] lg:min-h-[560px]">
+                <div className="flex flex-wrap items-center justify-between gap-2 no-print" aria-label="คำสั่งเอกสาร">
+                  <p className="min-w-0 truncate text-[13px] text-brand-muted"><span className="font-semibold text-brand-text">{selectedInvoice.documentNo}</span> · {selectedInvoice.client.name || 'ไม่ระบุลูกค้า'}</p>
+                  <div className="grid w-full grid-cols-[auto_auto_minmax(0,1fr)] gap-2 sm:flex sm:w-auto">
+                    <button type="button" onClick={() => handleStartEditInvoice(selectedInvoice)} className="inline-flex h-10 items-center justify-center rounded-xl border border-brand-border bg-brand-white px-4 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
+                      แก้ไข
+                    </button>
+                    <button type="button" onClick={handlePrintDocument} aria-label="พิมพ์ / บันทึกเป็น PDF" title="เปิดหน้าพิมพ์ แล้วเลือกบันทึกเป็น PDF" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-4 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
+                      <Download className="h-4 w-4" /> <span className="hidden sm:inline">ดาวน์โหลด PDF</span><span className="sm:hidden">PDF</span>
+                    </button>
+                    <ShareButton invoice={withCurrentBranding(selectedInvoice)} onDownload={handlePrintDocument} onEmail={handleSendToCustomer} notify={triggerAlert} />
                   </div>
                 </div>
+                <PreviewCanvas invoice={withCurrentBranding(selectedInvoice)} className="h-[72vh] min-h-[420px] lg:h-auto lg:flex-1" />
               </div>
             ) : (
-              <div className="flex min-h-[680px] flex-col items-center justify-center rounded-2xl bg-[#F2F3F5] p-12 text-center text-brand-muted dark:bg-stone-950">
+              <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-brand-border bg-[#F1EFEC] p-12 text-center dark:bg-[#141518] lg:h-[calc(100vh-232px)]">
                 <FileText className="mb-4 h-12 w-12 text-brand-border" />
-                <p className="text-xs font-black">เลือกเอกสารด้านซ้ายเพื่อดูตัวอย่าง</p>
-                <p className="mt-1 text-[10px]">หรือสร้างเอกสารใหม่เพื่อเริ่มใช้งาน</p>
+                <p className="text-[13px] font-medium text-brand-text">{tabInvoices.length ? 'เลือกเอกสารด้านซ้ายเพื่อดูตัวอย่าง' : `ยังไม่มี${activeTabLabel}`}</p>
+                <p className="mt-1 text-xs text-brand-muted">{tabInvoices.length ? 'เห็นทั้งหน้า A4 แล้วแชร์ให้ลูกค้าได้ทันที' : 'กด “ออกเอกสารใหม่” เพื่อเริ่ม'}</p>
               </div>
             )}
           </section>
@@ -754,41 +791,33 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
       {/* SUB-TAB 2: DOCUMENT EDITOR (CREATE / EDIT) */}
       {activeSubTab === 'create' && (
-        <form onSubmit={handleSaveInvoice} className="app-subtab-enter bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-3xl p-6 shadow-sm space-y-6 no-print">
-          
-          <div className="flex items-center justify-between border-b border-brand-border pb-3.5">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-[#E65F2B]/10 rounded-xl text-[#E65F2B]">
-                <FileText className="w-4.5 h-4.5" />
-              </div>
-              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-                {editingInvoiceId ? 'แก้ไขข้อมูลบิลดั้งเดิม' : 'สร้างเอกสารใบแจ้งหนี้ / ใบเสร็จใหม่'}
-              </h3>
-            </div>
-            
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('list')}
-              className="px-3.5 py-1.5 bg-brand-faint hover:bg-brand-border/40 text-brand-text text-[10px] font-black rounded-xl transition-all cursor-pointer flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3 h-3" />
-              <span>ย้อนกลับรายการ</span>
+        <div className="app-subtab-enter space-y-4 no-print">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <button type="button" onClick={() => setActiveSubTab('list')} className="mb-2 inline-flex items-center gap-1 text-[13px] text-brand-muted hover:text-brand-text cursor-pointer">
+              <ArrowLeft className="h-4 w-4" /> ย้อนกลับรายการ
             </button>
+            <h2 className="text-xl font-semibold text-brand-text">{editingInvoiceId ? 'แก้ไข' : 'สร้าง'}{getDocumentMeta(docType).th}</h2>
+            <p className="mt-0.5 text-[13px] text-brand-muted">กรอกข้อมูลเอกสาร และดูตัวอย่างแบบเรียลไทม์</p>
           </div>
+        </div>
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <form onSubmit={handleSaveInvoice} className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-2xl p-5 sm:p-6 space-y-6 pb-24 xl:pb-6">
 
           {/* Quick Pre-fill from Job/Deal */}
           {jobs.length > 0 && !editingInvoiceId && (
-            <div className="p-4 bg-[#E65F2B]/5 rounded-2xl border border-[#E65F2B]/10 space-y-2">
-              <label className="text-[10px] font-extrabold text-[#E65F2B] uppercase tracking-wide flex items-center gap-1">
-                <Briefcase className="w-3.5 h-3.5" /> ซิงค์ดึงข้อมูลโดยตรงจากดีลงานสะสมของคุณ
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-brand-text" htmlFor="doc-from-job">
+                <Briefcase className="h-4 w-4 text-brand-muted" /> ดึงข้อมูลจากงาน
               </label>
-              <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <select
+                  id="doc-from-job"
                   value={selectedJobId}
                   onChange={(e) => handleSelectJob(e.target.value)}
-                  className="bg-brand-white dark:bg-stone-800 text-xs font-bold text-brand-text dark:text-white border border-brand-border/50 rounded-xl px-3 py-2 outline-none focus:border-[#E65F2B] flex-1 cursor-pointer"
+                  className="h-10 flex-1 rounded-xl border border-brand-border bg-brand-white px-3 text-[13px] text-brand-text outline-none focus:border-[#E65F2B] cursor-pointer dark:bg-stone-800"
                 >
-                  <option value="" disabled>--- เลือกงานดีลเพื่อดึงข้อมูลอัตโนมัติ ---</option>
+                  <option value="" disabled>เลือกงาน แล้วระบบกรอกลูกค้า รายการ ยอด และภาษีให้</option>
                   {jobs.map(job => (
                     <option key={job.id} value={job.id}>
                       {job.name} (ลูกค้า: {job.client} | ยอด: {formatCurrency(job.value)})
@@ -799,17 +828,15 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 <button
                   type="button"
                   onClick={handleClearForm}
-                  className="px-4 py-2 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 hover:text-red-600 dark:hover:text-red-400 text-[10px] font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 border border-stone-200 dark:border-stone-700 shrink-0"
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-xl border border-brand-border px-3.5 text-[13px] text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer"
                   title="ล้างข้อมูลทั้งหมด"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>ล้างข้อมูลที่เลือก</span>
+                  ล้างข้อมูล
                 </button>
-
-                <p className="text-[9px] text-brand-muted leading-relaxed max-w-xs flex items-center">
-                  * เลือกร้านค้าเพื่อดึงข้อมูลลูกค้า, ชื่อบริการ, ยอดเงิน, และอัตราหัก ณ ที่จ่าย ของดีลนั้นลงแบบฟอร์มทันทีไม่ต้องพิมเอง
-                </p>
               </div>
+              {selectedJobId && (
+                <p className="text-xs text-brand-muted">ดึงข้อมูลจาก: <span className="font-medium text-brand-text">{jobs.find(j => j.id === selectedJobId)?.name}</span></p>
+              )}
             </div>
           )}
 
@@ -1283,6 +1310,28 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
           </div>
 
         </form>
+
+        {/* Live preview: beside the form on wide screens, a full-screen sheet on phones */}
+        <aside className="hidden xl:sticky xl:top-4 xl:block xl:h-[calc(100vh-2rem)]" aria-label="ตัวอย่างเอกสาร">
+          <PreviewCanvas invoice={withCurrentBranding(buildDraftInvoice())} className="h-full" />
+        </aside>
+        </div>
+        <button type="button" onClick={() => setMobilePreviewOpen(true)}
+          className="fixed inset-x-4 bottom-4 z-30 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-brand-text text-sm font-semibold text-brand-white shadow-lg xl:hidden cursor-pointer">
+          <Eye className="h-4 w-4" /> ดูตัวอย่าง
+        </button>
+        {/* Portalled: the page wrapper animates with a transform, which would trap a fixed overlay inside it. */}
+        {mobilePreviewOpen && createPortal(
+          <div className="fixed inset-0 z-[200] flex flex-col bg-brand-white xl:hidden" role="dialog" aria-modal="true" aria-label="ตัวอย่างเอกสาร">
+            <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
+              <p className="text-[15px] font-semibold text-brand-text">ตัวอย่าง{getDocumentMeta(docType).th}</p>
+              <button type="button" onClick={() => setMobilePreviewOpen(false)} className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-[#C24A16] hover:bg-brand-faint cursor-pointer">กลับไปแก้ไข</button>
+            </div>
+            <PreviewCanvas invoice={withCurrentBranding(buildDraftInvoice())} className="m-3 flex-1 rounded-xl" />
+          </div>,
+          document.body,
+        )}
+        </div>
       )}
 
     </div>

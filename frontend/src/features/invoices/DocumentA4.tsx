@@ -482,10 +482,12 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
 // ---------------------------------------------------------------------------------------------
 
 // `crop` shows only the top N px of the first page (used for the live header preview);
-// `maxScale` caps how large the paper is drawn.
-export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxScale?: number }> = ({ invoice, crop, maxScale = 1 }) => {
+// `maxScale` caps how large the paper is drawn; `scale` draws it at exactly that size instead of
+// fitting the width (the document workspace's zoom / fit-page controls set it).
+export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxScale?: number; scale?: number }> = ({ invoice, crop, maxScale = 1, scale: fixedScale }) => {
   const hostRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [fitScale, setScale] = useState(1);
+  const scale = fixedScale ?? fitScale;
   const pageCount = useMemo(() => paginateItems(invoice).length, [invoice]);
 
   useEffect(() => {
@@ -502,17 +504,17 @@ export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxSca
 
   useLayoutEffect(() => {
     const el = hostRef.current;
-    if (!el) return;
+    if (!el || fixedScale !== undefined) return;
     const update = () => setScale(Math.min(maxScale, Math.max(0.3, el.clientWidth / A4_WIDTH_PX)));
     update();
     const observer = new ResizeObserver(update);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [fixedScale]);
 
   const sheetHeight = crop ? crop * scale : (pageCount * A4_HEIGHT_PX + (pageCount - 1) * 16) * scale;
   return (
-    <div ref={hostRef} className="w-full" data-testid="document-preview">
+    <div ref={hostRef} className={fixedScale === undefined ? 'w-full' : 'mx-auto w-max'} data-testid="document-preview">
       <style>{DOCUMENT_CSS}</style>
       <div style={{ height: sheetHeight, width: A4_WIDTH_PX * scale, margin: '0 auto', overflow: 'hidden' }}>
         <div style={{ width: A4_WIDTH_PX, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
@@ -529,7 +531,8 @@ export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxSca
 
 const printShell = (invoice: Invoice): string => {
   const meta = getDocumentMeta(invoice.documentType);
-  const title = `${meta.th}_${invoice.documentNo}`.replace(/[<>&"']/g, '');
+  // The print window's title is what "Save as PDF" suggests as the file name, e.g. QT-2569-002.pdf
+  const title = (invoice.documentNo || meta.th).replace(/[<>&"'\/\\:*?|]/g, '');
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>` +
     `<link href="${DOCUMENT_FONT_URL}" rel="stylesheet"><style>${PRINT_PAGE_CSS}${DOCUMENT_CSS}</style></head><body><div id="root"></div></body></html>`;
 };

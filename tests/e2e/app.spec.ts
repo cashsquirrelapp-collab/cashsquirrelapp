@@ -286,10 +286,11 @@ test('invoice preview and print render the shared A4 document and the editor off
  await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  const preview=page.getByTestId('document-preview');
  await expect(page.getByRole('heading',{name:'เอกสาร',exact:true})).toBeVisible();
- await expect(page.getByRole('button',{name:/ใบเสนอราคา/})).toBeVisible();
- await expect(page.getByRole('button',{name:/ใบแจ้งหนี้/})).toBeVisible();
+ await expect(page.getByRole('tab',{name:/ใบเสนอราคา/})).toBeVisible();
+ await expect(page.getByRole('tab',{name:/ใบแจ้งหนี้/})).toBeVisible();
  await expect(page.getByRole('button',{name:'แก้ไข'})).toBeVisible();
- await expect(page.getByRole('button',{name:/Duplicate/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/แชร์ให้ลูกค้า/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/Duplicate/})).toHaveCount(0);
  await expect(page.getByTestId('document-preview-canvas')).toBeVisible();
  await expect(preview.getByRole('heading',{name:'ใบเสร็จรับเงิน/ใบกำกับภาษี'})).toBeVisible();
  await expect(preview).toContainText('(ต้นฉบับ)');
@@ -310,11 +311,43 @@ test('invoice preview and print render the shared A4 document and the editor off
  expect((pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)||[]).length).toBe(1); // one document page = one sheet
  await popup.close();
  await page.getByRole('button',{name:'ออกเอกสารใหม่'}).click();
+ await page.getByRole('menuitem',{name:'ใบแจ้งหนี้'}).click();
  const typeSelect=page.locator('select:has(option[value=taxInvoice])');
  await expect(typeSelect.locator('option')).toHaveCount(4);
  await typeSelect.selectOption('taxInvoice');
  await expect(page.getByPlaceholder('หน่วย')).toBeVisible();
  await expect(page.getByPlaceholder('รายละเอียดเพิ่มเติม (ไม่บังคับ)')).toBeVisible();
+});
+
+test('document tabs stay on the chosen type even when it has no documents, and survive a refresh',async({page})=>{
+ const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'1234567890123'};
+ const quote={id:'qt-1',documentType:'quotation',documentNo:'QT-2569-001',createdDate:'2026-09-17',issuer:profile,client:{name:'Client A',address:'',phone:'',email:'',taxId:''},items:[{id:'i1',description:'Design',quantity:1,price:6790}],vatRate:0,whtRate:0};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,invoices:[quote]},versions:{...versions,cashflow_invoices:{'qt-1':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
+ const sidebar=page.locator('aside');
+ await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
+ const tab=(name:string)=>page.getByRole('tab',{name:new RegExp(`^${name}`)});
+ await expect(tab('ใบเสนอราคา')).toHaveAttribute('aria-selected','true');
+ for(const name of ['ใบแจ้งหนี้','ใบเสร็จ','ใบกำกับภาษี','ใบแจ้งหนี้','ใบเสนอราคา','ใบกำกับภาษี']){
+  await tab(name).click();
+  await expect(tab(name)).toHaveAttribute('aria-selected','true');
+  await page.waitForTimeout(150); // the old bug bounced back to ใบเสนอราคา right after the click
+  await expect(tab(name)).toHaveAttribute('aria-selected','true');
+  if(name!=='ใบเสนอราคา') await expect(page.getByText(`ยังไม่มี${name}`).first()).toBeVisible();
+ }
+ await tab('ใบเสร็จ').click();
+ await expect(page).toHaveURL(/[?&]type=receipt/);
+ await page.reload();
+ await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).isVisible();
+ await expect(tab('ใบเสร็จ')).toHaveAttribute('aria-selected','true');
+ await tab('ใบเสนอราคา').click();
+ await expect(page.getByTestId('document-preview')).toContainText('6,790');
+ await page.getByRole('button',{name:'แชร์ให้ลูกค้า'}).click();
+ await expect(page.getByRole('menuitem',{name:/คัดลอกข้อความ/})).toBeVisible();
+ await expect(page.getByRole('menuitem',{name:/ดาวน์โหลด PDF/})).toBeVisible();
+ expect(errors).toEqual([]);
 });
 
 test('uploaded logo and signature are saved to the profile and appear on existing documents',async({page})=>{
