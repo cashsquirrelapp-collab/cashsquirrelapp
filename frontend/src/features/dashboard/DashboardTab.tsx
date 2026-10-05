@@ -915,8 +915,8 @@ export default function DashboardTab({
       >
         <IncomeExpenseChart jobs={jobs} expenses={expenses} settings={settings} monthKey={selectedMonthKey} />
 
-        {upcomingPayments.length > 0 && (
-          <div className={`${uiSurface} p-[18px]`}>
+        {/* Always shown, so the column keeps its place before there is any money to chase. */}
+        <div className={`${uiSurface} flex flex-col p-[18px]`}>
             <div className="mb-2.5 flex items-center gap-2.5">
               <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-[#FFF1E8]">
                 <Mascot mood="thinking" size={28} />
@@ -929,14 +929,48 @@ export default function DashboardTab({
                 </div>
                 <p className="text-[11px] text-brand-muted">เรียงจากเร่งด่วนที่สุดก่อน</p>
               </div>
-              <button
-                type="button"
-                onClick={() => onSwitchTab('jobs')}
-                className="shrink-0 text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer"
-              >
-                ดูทั้งหมด
-              </button>
+              {upcomingPayments.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onSwitchTab('jobs')}
+                  className="shrink-0 text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer"
+                >
+                  ดูทั้งหมด
+                </button>
+              )}
             </div>
+            {upcomingPayments.length === 0 && (
+              <div className="flex flex-1 flex-col border-t border-brand-border pt-3">
+                {/* Ghost rows: what a waiting payment will look like here. */}
+                <div aria-hidden className="space-y-2">
+                  {[0, 1].map(i => (
+                    <div key={i} className="rounded-[10px] border border-dashed border-brand-border py-2.5 pl-3 pr-2.5" style={{ opacity: 1 - i * 0.4 }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="h-2.5 w-24 rounded-full bg-brand-faint" />
+                        <span className="h-2.5 w-12 rounded-full bg-brand-faint" />
+                      </div>
+                      <span className="mt-2 block h-2 w-16 rounded-full bg-brand-faint" />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-start gap-2.5">
+                  <Mascot mood="happy" size={36} className="shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-brand-text">ยังไม่มีเงินที่ต้องตาม</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-brand-muted">ส่งงานแล้วยังไม่ได้เงินเมื่อไหร่ งานนั้นจะขึ้นที่นี่ เรียงจากใกล้ครบกำหนดที่สุด</p>
+                  </div>
+                </div>
+                <div className="mt-auto pt-4">
+                  <button
+                    type="button"
+                    onClick={() => onQuickRecord ? onQuickRecord('income') : onSwitchTab('jobs')}
+                    className="flex h-9 w-full items-center justify-center rounded-xl border border-brand-border text-xs font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
+                  >
+                    + บันทึกงาน
+                  </button>
+                </div>
+              </div>
+            )}
             {upcomingPayments.map(payment => {
               const badge = payment.isOverdue
                 ? { bg: '#FFF0F0', text: '#C43A3A', strip: '#E95454', label: `เกินกำหนด ${Math.abs(payment.daysCount)} วัน` }
@@ -967,8 +1001,7 @@ export default function DashboardTab({
                 </div>
               );
             })}
-          </div>
-        )}
+        </div>
       </motion.div>
 
       {/* Recent activity + mini financial calendar, matching the mockup's second row below
