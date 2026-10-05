@@ -19,6 +19,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import AdminUsersPanel from './AdminUsersPanel';
 import { panel, Pagination, type Confirm } from './groupUi';
 import { PREVIEW_SEARCH_RESULTS, buildPreviewTeam } from './teamPreview';
+import { Mascot } from '../../components/mascot/Mascot';
 
 // Presence comes from the app's 20-second heartbeat (online = seen in the last minute, decided
 // on the server). The page refreshes it every 20 seconds while visible; if that refresh stops
@@ -490,7 +491,9 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
       </PageHeader>}
 
       {preview && !embedded && (
-        <div className="flex items-start gap-3 rounded-2xl border border-[#F3D2BE] bg-[#FFF7F1] px-4 py-3.5 dark:border-[#E65F2B]/25 dark:bg-[#E65F2B]/10" role="note">
+        <div className="relative !mt-14 flex items-start gap-3 rounded-2xl border border-[#F3D2BE] bg-[#FFF7F1] py-3.5 pl-4 pr-24 dark:border-[#E65F2B]/25 dark:bg-[#E65F2B]/10 sm:pr-28" role="note">
+          {/* The mascot peeks over the banner's top edge (its lower half is hidden behind the edge) */}
+          <span className="pointer-events-none absolute bottom-[calc(100%-1px)] right-5 block h-[70px] w-[104px] overflow-hidden sm:right-9" aria-hidden><span className="block"><Mascot mood="wave" action="wave" size={104} /></span></span>
           <span className="mt-0.5 shrink-0 rounded-full bg-[#E65F2B] px-2 py-0.5 text-[11px] font-semibold text-white">{copy('เร็วๆ นี้', 'Coming soon')}</span>
           <p className="text-[13px] leading-relaxed text-[#7A4A2E] dark:text-[#F3C9AE]">
             {copy('ฟีเจอร์ทีมสำหรับธุรกิจขนาดเล็กกำลังจะมา หน้านี้เป็นตัวอย่างหน้าตา สมาชิกคนอื่นเป็นข้อมูลจำลอง และยังกดใช้งานจริงไม่ได้', 'Team for small businesses is coming. This is a preview: other members are sample data and nothing can be changed yet.')}
