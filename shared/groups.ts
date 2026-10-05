@@ -73,9 +73,14 @@ export interface GroupMember {
   displayName: string;
   role: GroupRole;
   joinedAt: string;
+  /** Heartbeat presence, only ever sent to people who can see this group. */
+  isOnline?: boolean;
+  lastSeenAt?: string | null;
 }
 export interface GroupDetail extends GroupSummary {
   members: GroupMember[];
+  /** Server time the presence fields were read. */
+  presenceAt?: string;
   invitations: GroupInvitation[];
   activity: {
     id: string;

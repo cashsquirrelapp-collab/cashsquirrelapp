@@ -39,7 +39,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'page.insightDescription': 'เปรียบเทียบรายรับแยกตามลูกค้าและประเภทงาน',
     'page.taxDescription': 'ประมาณการภาษีจากรายรับ รายจ่าย และค่าลดหย่อน',
     'page.invoiceDescription': 'จัดการใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ และใบกำกับภาษี',
-    'page.groupsDescription': 'สร้างทีม เชิญสมาชิก และจัดการสิทธิ์การเข้าถึง',
+    'page.groupsDescription': 'จัดการสมาชิก สิทธิ์ และ Workspace ของคุณ',
     'page.plansDescription': 'ดูแพ็กเกจปัจจุบันและเลือกเครื่องมือที่เหมาะกับคุณ',
     'page.settingsDescription': 'จัดการบัญชี การแจ้งเตือน และข้อมูลของคุณ',
 
@@ -704,7 +704,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'page.insightDescription': 'Compare income by client and job type',
     'page.taxDescription': 'Estimate tax from income, expenses, and deductions',
     'page.invoiceDescription': 'Manage quotations, invoices, receipts, and tax invoices',
-    'page.groupsDescription': 'Create teams, invite members, and manage access',
+    'page.groupsDescription': 'Manage your members, roles and workspace',
     'page.plansDescription': 'Review your current plan and choose the tools you need',
     'page.settingsDescription': 'Manage your account, notifications, and data',
 

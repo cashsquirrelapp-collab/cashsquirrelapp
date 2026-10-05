@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError, withGuard } from '../http/guard.js';
 import { requireUser } from '../security/session.js';
 import { rateLimit } from '../security/rateLimit.js';
+import { isOnlineAt, loadPresenceByUserId } from '../repositories/presence.js';
 
 export function groupDbError(error: {
   code?: string;
@@ -63,7 +64,18 @@ export default withGuard(
           p_group_id: id.data,
         });
         if (result.error) groupDbError(result.error);
-        res.json(result.data);
+        // The rpc above only answers people allowed to see this group, so presence is added for
+        // exactly its members -- nobody can read another group's online status through here.
+        const detail = result.data as { members?: { userId: string }[] } | null;
+        if (detail?.members?.length) {
+          const now = Date.now();
+          const seen = await loadPresenceByUserId(db, detail.members.map(m => m.userId));
+          detail.members = detail.members.map(m => {
+            const lastSeenAt = seen.get(m.userId) || null;
+            return { ...m, lastSeenAt, isOnline: isOnlineAt(lastSeenAt, now) };
+          });
+        }
+        res.json({ ...detail, presenceAt: new Date().toISOString() });
         return;
       }
       const query = z

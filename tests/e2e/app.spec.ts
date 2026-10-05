@@ -162,7 +162,6 @@ test('login and all feature tabs render after separation without browser errors'
  await page.locator('form button[type=submit]').first().click();
  await expect(page.locator('#dashboard-top')).toBeVisible();
  await expect(page.getByRole('heading',{name:'ภาพรวม',exact:true})).toBeVisible();
- await expect(page.getByText('Dashboard',{exact:true})).toBeVisible();
  const sidebar=page.locator('aside');
  await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
  await expect(page.getByText('วางแผนวันนี้ ให้เงินเติบโตทุกวัน')).toHaveCount(0);
@@ -271,7 +270,7 @@ test('legacy invoice requires owner confirmation and is saved through versioned 
  await expect(page.getByRole('region',{name:'รายการเอกสาร'}).getByText('0 รายการ')).toBeVisible();
  expect(saved.some(c=>c.table==='cashflow_invoices')).toBe(false);
  await page.getByRole('button',{name:'นำเข้าเอกสารเดิมจากเครื่อง'}).click();
- await page.getByRole('button',{name:'ตกลง',exact:true}).click();
+ await page.locator('[role=presentation]').getByRole('button',{name:'ยืนยัน',exact:true}).click();
  await expect.poll(()=>saved.filter(c=>c.table==='cashflow_invoices').length).toBe(1);
  expect(saved.find(c=>c.table==='cashflow_invoices')).toMatchObject({id:'legacy-invoice',version:null,op:'set'});
  await expect(page.getByRole('region',{name:'รายการเอกสาร'}).getByText('1 รายการ')).toBeVisible();

@@ -9,10 +9,10 @@ import { seal, unseal } from '../security/cookies.js';
 import { systemRole } from '../repositories/roles.js';
 import { challengeHash, rateLimit } from '../security/rateLimit.js';
 import { groupDbError } from './groups.js';
+import { loadPresenceByUserId, ONLINE_WINDOW_MS } from '../repositories/presence.js';
 
 const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
 const FREE_TRIAL_DAYS = 14;
-const ONLINE_WINDOW_MS = 60 * 1000;
 const createRecoveryLinkSchema = z.object({ action: z.literal('create-recovery-link') }).strict();
 const setProAccessSchema = z.object({
   action: z.literal('set-pro-access'),
@@ -24,15 +24,6 @@ const dashboardDetailsQuerySchema = z.object({
   section: z.enum(['accounts', 'admins', 'groups', 'pro', 'invitations', 'paused', 'deletions']),
   page: z.coerce.number().int().min(0).max(10000).default(0),
 });
-
-async function loadPresenceByUserId(db: ReturnType<typeof getSupabaseAdmin>, userIds: string[]) {
-  if (!userIds.length) return new Map<string, string>();
-  const result = await db.from('cashflow_user_presence')
-    .select('user_id,last_seen_at')
-    .in('user_id', userIds);
-  if (result.error) throw result.error;
-  return new Map((result.data || []).map(row => [row.user_id, row.last_seen_at] as const));
-}
 
 async function listDeletionRequests(db: ReturnType<typeof getSupabaseAdmin>) {
   const now = new Date().toISOString();
