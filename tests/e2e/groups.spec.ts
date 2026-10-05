@@ -126,7 +126,7 @@ test('create, invite, promote and transfer leadership; presence and controls upd
     const url = new URL(route.request().url());
     if (url.searchParams.has('memberSearch')) return route.fulfill({ json: { users: [member] } });
     if (url.searchParams.has('groupId')) return route.fulfill({ json: { ...group, presenceAt: new Date().toISOString() } });
-    return route.fulfill({ json: { systemRole: 'user', groups: group ? [group] : [], invitations: [], total: group ? 1 : 0, page: 0 } });
+    return route.fulfill({ json: { systemRole: 'admin', groups: group ? [group] : [], invitations: [], total: group ? 1 : 0, page: 0 } });
   });
   await openGroups(page);
   await page.getByRole('button', { name: 'สร้างทีม', exact: true }).first().click();
@@ -164,12 +164,11 @@ test('create, invite, promote and transfer leadership; presence and controls upd
   await page.getByRole('menuitem', { name: 'โอนตำแหน่งผู้ดูแลทีม' }).click();
   await expect(page.getByText(/คุณจะกลับเป็นสมาชิกและเสียสิทธิ์/)).toBeVisible();
   await confirmDialog(page);
-  await expect(page.getByRole('button', { name: 'เชิญสมาชิก' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^ตัวเลือกของ/ })).toHaveCount(0);
-  await expect(page.getByRole('tab', { name: /^คำเชิญ/ })).toHaveCount(0);
+  // The other member now leads; this account is a member (a system admin keeps admin access).
+  await expect(page.getByText('สมาชิก · ', { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Team member/ })).toContainText('ผู้ดูแลทีม');
   await page.getByRole('button', { name: 'ตั้งค่าทีม' }).click();
   await expect(page.getByRole('button', { name: 'ออกจากทีม', exact: true })).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'ลบทีม' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   expect(actions.map((a) => a.action)).toEqual(['create', 'invite', 'member-role', 'transfer']);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -193,7 +192,7 @@ test('presence is never shown as online once it stops refreshing', async ({ page
   await page.route('**/api/groups**', (route) => {
     const url = new URL(route.request().url());
     if (url.searchParams.has('groupId')) return fail ? route.abort() : route.fulfill({ json: { ...group, presenceAt: new Date().toISOString() } });
-    return route.fulfill({ json: { systemRole: 'user', groups: [group], invitations: [], total: 1, page: 0 } });
+    return route.fulfill({ json: { systemRole: 'admin', groups: [group], invitations: [], total: 1, page: 0 } });
   });
   await openGroups(page);
   await expect(page.getByText('2 ออนไลน์')).toBeVisible();
@@ -272,7 +271,7 @@ test('pending confirmation and group state cannot carry across accounts', async 
       return route.fulfill({ json: { ok: true, groupId: group.id } });
     }
     if (new URL(route.request().url()).searchParams.has('groupId')) return route.fulfill({ json: group });
-    return route.fulfill({ json: { systemRole: 'user', groups: switched ? [] : [group], invitations: [], total: switched ? 0 : 1, page: 0 } });
+    return route.fulfill({ json: { systemRole: 'admin', groups: switched ? [] : [group], invitations: [], total: switched ? 0 : 1, page: 0 } });
   });
   await openGroups(page);
   await page.getByRole('button', { name: `ตัวเลือกของ ${member.displayName}` }).click();
@@ -284,4 +283,28 @@ test('pending confirmation and group state cannot carry across accounts', async 
   await expect(page.getByText(member.displayName, { exact: true })).toHaveCount(0);
   expect(mutations).toBe(0);
   await expect(page.getByRole('button', { name: /Design team/ })).toHaveCount(0);
+});
+
+test('until Team launches, regular users see a sample team and nothing is sent', async ({ page }) => {
+  const calls: string[] = [];
+  await page.route('**/api/auth', (route) => route.fulfill({ json: { session: { user } } }));
+  await finance(page);
+  await page.route('**/api/groups**', (route) => {
+    calls.push(`${route.request().method()} ${new URL(route.request().url()).search}`);
+    return route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } });
+  });
+  await page.goto('/');
+  const sidebar = page.locator('aside');
+  await sidebar.getByRole('button', { name: 'เครื่องมือเพิ่มเติม' }).click();
+  await expect(sidebar.getByRole('button', { name: /ทีม.*เร็วๆ นี้/ })).toBeVisible();
+  await sidebar.getByRole('button', { name: /^ทีม/ }).click();
+  await expect(page.getByRole('note')).toContainText('ฟีเจอร์ทีมสำหรับธุรกิจขนาดเล็กกำลังจะมา');
+  await expect(page.getByText('เมย์ (ตัวอย่าง)')).toBeVisible();
+  await expect(page.getByText('ใช้งานล่าสุด 18 นาทีที่แล้ว')).toBeVisible();
+  const before = calls.length;
+  await page.getByRole('button', { name: 'ตัวเลือกของ แบงก์ (ตัวอย่าง)' }).click();
+  await page.getByRole('menuitem', { name: 'นำออกจากทีม' }).click();
+  await expect(page.getByRole('status')).toContainText('นี่คือหน้าตัวอย่าง');
+  expect(calls.slice(before).filter(c => c.startsWith('POST'))).toEqual([]);
+  expect(calls.filter(c => c.includes('groupId='))).toEqual([]);
 });

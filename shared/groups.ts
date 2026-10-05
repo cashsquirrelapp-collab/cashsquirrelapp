@@ -76,6 +76,8 @@ export interface GroupMember {
   /** Heartbeat presence, only ever sent to people who can see this group. */
   isOnline?: boolean;
   lastSeenAt?: string | null;
+  /** Profile picture, when one can be shown (today: your own, and the sample team). */
+  avatarUrl?: string;
 }
 export interface GroupDetail extends GroupSummary {
   members: GroupMember[];

@@ -18,6 +18,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 
 import AdminUsersPanel from './AdminUsersPanel';
 import { panel, Pagination, type Confirm } from './groupUi';
+import { PREVIEW_SEARCH_RESULTS, buildPreviewTeam } from './teamPreview';
 
 // Presence comes from the app's 20-second heartbeat (online = seen in the last minute, decided
 // on the server). The page refreshes it every 20 seconds while visible; if that refresh stops
@@ -30,8 +31,12 @@ interface Props {
   triggerConfirm: Confirm;
   initialScope?: 'mine' | 'all';
   embedded?: boolean;
+  /** Team is not launched yet: show a sample team, never call the groups API. */
+  preview?: boolean;
+  /** The signed-in user's own profile, used for their row (photo, name). */
+  me?: { displayName: string; publicId?: string; avatarUrl?: string };
 }
-export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScope = 'mine', embedded = false }: Props) {
+export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScope = 'mine', embedded = false, preview = false, me }: Props) {
   const { language } = useLanguage();
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
   const roleLabel = (role: GroupRole | null) =>
@@ -79,6 +84,15 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     };
   }, []);
   const reload = useCallback(async () => {
+    if (preview) {
+      const sample = buildPreviewTeam({ userId, displayName: me?.displayName || 'คุณ', publicId: me?.publicId, avatarUrl: me?.avatarUrl });
+      setSnapshot(sample.snapshot);
+      setDetail(sample.detail);
+      setSelected(sample.detail.id);
+      setPresenceAt(Date.now());
+      setNow(Date.now());
+      return;
+    }
     if (isGuest || getCurrentAccount() !== userId) return;
     request.current?.abort();
     const controller = new AbortController();
@@ -131,7 +145,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     } finally {
       if (!controller.signal.aborted && mounted.current) setLoading(false);
     }
-  }, [userId, isGuest, scope, page, selected]);
+  }, [userId, isGuest, scope, page, selected, preview, me?.displayName, me?.publicId, me?.avatarUrl]);
   useEffect(() => {
     setError('');
     void reload();
@@ -149,7 +163,12 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
       window.clearInterval(timer);
     };
   }, [reload]);
+  const previewNotice = () => {
+    setInviteOpen(false); setSettingsOpen(false); setCreating(false); setMemberSheetOpen(false);
+    setNotice(copy('นี่คือหน้าตัวอย่าง ฟีเจอร์ทีมยังไม่เปิดใช้งาน จึงยังไม่มีอะไรถูกบันทึก', 'This is a preview. Team is not available yet, so nothing was saved.'));
+  };
   const mutate = async (action: GroupAction) => {
+    if (preview) { previewNotice(); return; }
     if (!active() || writing.current) return;
     writing.current = true;
     setBusy(true);
@@ -190,7 +209,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     }
   };
   const confirm = (title: string, message: string, action: GroupAction) =>
-    triggerConfirm(title, message, () => {
+    preview ? previewNotice() : triggerConfirm(title, message, () => {
       void mutate(action);
     });
   const canManage =
@@ -209,7 +228,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
   }, [snapshot, selected, view]);
   // Presence refresh: one request per open team (not per member), only while the page is visible.
   useEffect(() => {
-    if (isGuest || !selected) return;
+    if (isGuest || preview || !selected) return;
     const tick = async () => {
       setNow(Date.now());
       if (document.hidden || writing.current || !active()) return;
@@ -226,7 +245,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     document.addEventListener('visibilitychange', onVisible);
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, userId, isGuest]);
+  }, [selected, userId, isGuest, preview]);
   useEffect(() => {
     if (!switcherOpen) return;
     const onDown = (e: MouseEvent) => { if (!switcherRef.current?.contains(e.target as Node)) setSwitcherOpen(false); };
@@ -319,9 +338,11 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
     const online = presence && m.userId ? isOnline(m as GroupMember) : false;
     return (
       <span className="relative inline-flex shrink-0" style={{ width: size, height: size }}>
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#F3EEE8] text-[15px] font-semibold text-[#8A5A3A] dark:bg-[#2A2B2F] dark:text-[#E8C9B3]" aria-hidden>
-          {(m.displayName || '?').trim().slice(0, 1).toUpperCase()}
-        </span>
+        {(m.avatarUrl || (m.userId === userId && me?.avatarUrl))
+          ? <img src={m.avatarUrl || me?.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
+          : <span className="flex h-full w-full items-center justify-center rounded-full bg-[#F3EEE8] text-[15px] font-semibold text-[#8A5A3A] dark:bg-[#2A2B2F] dark:text-[#E8C9B3]" aria-hidden>
+              {(m.displayName || '?').trim().slice(0, 1).toUpperCase()}
+            </span>}
         {presence && m.userId && (
           <span aria-hidden className={`absolute bottom-0 right-0 rounded-full border-2 border-brand-white transition-colors duration-500 ${online ? 'bg-[#18A66A]' : 'bg-[#B8B2AB]'}`}
             style={{ width: Math.max(10, size * 0.22), height: Math.max(10, size * 0.22) }} />
@@ -385,14 +406,22 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
       aria-label={copy('จัดการทีม', 'Group management')}
     >
       {!embedded && <PageHeader page="groups">
-        {!isGuest && view === 'groups' && (
+        {(!isGuest || preview) && view === 'groups' && (
           canManage
             ? <button className={btnPrimary} disabled={busy} onClick={() => { setInviteOpen(true); setMemberQuery(''); setMemberResults([]); }}><UserPlus size={16} />{copy('เชิญสมาชิก', 'Invite member')}</button>
             : !snapshot?.groups.length && <button className={btnPrimary} disabled={busy} onClick={openCreate}><Plus size={16} />{copy('สร้างทีม', 'Create group')}</button>
         )}
       </PageHeader>}
 
-      {isGuest ? (
+      {preview && !embedded && (
+        <div className="flex items-start gap-3 rounded-2xl border border-[#F3D2BE] bg-[#FFF7F1] px-4 py-3.5 dark:border-[#E65F2B]/25 dark:bg-[#E65F2B]/10" role="note">
+          <span className="mt-0.5 shrink-0 rounded-full bg-[#E65F2B] px-2 py-0.5 text-[11px] font-semibold text-white">{copy('เร็วๆ นี้', 'Coming soon')}</span>
+          <p className="text-[13px] leading-relaxed text-[#7A4A2E] dark:text-[#F3C9AE]">
+            {copy('ฟีเจอร์ทีมสำหรับธุรกิจขนาดเล็กกำลังจะมา หน้านี้เป็นตัวอย่างหน้าตา สมาชิกคนอื่นเป็นข้อมูลจำลอง และยังกดใช้งานจริงไม่ได้', 'Team for small businesses is coming. This is a preview: other members are sample data and nothing can be changed yet.')}
+          </p>
+        </div>
+      )}
+      {isGuest && !preview ? (
         <div className={`${panel} py-12 text-center`}>
           <Users className="mx-auto mb-4 text-brand-muted" size={36} />
           <h2 className="text-lg font-semibold">{copy('พร้อมสร้างทีมของคุณแล้วหรือยัง?', 'Ready to create your team?')}</h2>
@@ -595,6 +624,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
             onSubmit={async (e) => {
               e.preventDefault();
               if (memberQuery.trim().length < 2) return;
+              if (preview) { setMemberResults(PREVIEW_SEARCH_RESULTS); return; }
               setBusy(true); setError('');
               try { const found = await groupApi.searchUsers(userId, detail.id, memberQuery.trim()); setMemberResults(found.users); }
               catch (err) { setError((err as Error).message); } finally { setBusy(false); }

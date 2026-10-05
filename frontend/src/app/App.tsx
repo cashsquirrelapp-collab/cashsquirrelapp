@@ -452,6 +452,9 @@ export default function App() {
           <Icon className="w-4.5 h-4.5" />
         </span>
         <span>{t(item.labelKey)}</span>
+        {item.key === 'groups' && teamIsPreview && (
+          <span className="ml-auto rounded-full bg-[#FFF1E8] px-1.5 py-px text-[10px] font-semibold text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]">เร็วๆ นี้</span>
+        )}
       </button>
     );
   };
@@ -848,6 +851,8 @@ export default function App() {
   // User profile avatar image (base64 data URL). Synced to a per-user document in
   // Supabase so it follows the account across devices; the working copy remains only in React memory.
   const [userAvatar, setUserAvatar] = useState<string>('');
+  // The Team feature is not launched yet: everyone but system admins sees a preview of it.
+  const teamIsPreview = !!session?.isGuest || routeContext?.systemRole !== 'admin';
 
   const handleUpdateUserAvatar = (newAvatar: string) => {
     if(financeGroupId){triggerAlert('รูปบัญชีส่วนตัว','เลือกบัญชีการเงินส่วนตัวก่อนเปลี่ยนรูปบัญชี');return;}
@@ -2754,6 +2759,13 @@ export default function App() {
                   userId={session.user.id}
                   isGuest={!!session.isGuest}
                   triggerConfirm={triggerConfirm}
+                  // Team launches later for small businesses; until then only system admins use the real thing.
+                  preview={teamIsPreview}
+                  me={{
+                    displayName: routeContext?.profile.displayName || session.user.email?.split('@')[0] || 'คุณ',
+                    publicId: routeContext?.profile.publicId,
+                    avatarUrl: userAvatar || undefined,
+                  }}
                 />
               )}
               {activeTab === 'adminDashboard' && (
