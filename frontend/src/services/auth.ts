@@ -14,7 +14,16 @@ let sessionRequest: Promise<SessionCheck> | null = null;
 let sessionRequestRevision = -1;
 function emit(event: string, broadcast = true) { if(broadcast)channel?.postMessage('changed'); setCurrentAccount(current?.user.id); listeners.forEach(fn=>fn(event,current)); }
 function updateSession(next: PublicSession | null) {
-  if(current?.user.id!==next?.user.id || current?.user.accountPaused!==next?.user.accountPaused) { privateCache.clear(); clearCloud(); clearLegacyFinancialCache(); }
+  if(current?.user.id!==next?.user.id || current?.user.accountPaused!==next?.user.accountPaused) {
+    // On a full page reload, auth starts with `current === null` and then hydrates the
+    // already-signed-in user. Keep that user's short-lived reload snapshot so the app can
+    // paint the last known data while the cloud request is in flight. A real account switch
+    // or sign-out still clears it along with the other financial cache.
+    const restoringSession = !current && !!next;
+    privateCache.clear();
+    clearCloud();
+    clearLegacyFinancialCache({ preserveReloadSnapshots: restoringSession });
+  }
   current=next; setCurrentAccount(current?.user.id);
 }
 onSessionExpired(()=>{if(current){revision++;updateSession(null);emit('SIGNED_OUT');}});
