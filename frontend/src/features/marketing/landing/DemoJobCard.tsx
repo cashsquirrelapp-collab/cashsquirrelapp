@@ -16,7 +16,7 @@ export function DemoJobCard({ scene }: { scene: number }) {
     <motion.div layout transition={{ duration: 0.5, ease: EASE }} className="rounded-2xl border border-[#E7E4DF] bg-white p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[15px] font-semibold text-[#1C1917] sm:text-base">TikTok Campaign</p>
+          <p className="truncate text-[15px] font-semibold text-[#1C1917] sm:text-base">แคมเปญคลิปรีวิว</p>
           <p className="mt-0.5 text-[13px] text-[#77716B]">Brand A · Sponsored Post</p>
         </div>
         <p className="shrink-0 font-mono text-[15px] font-semibold text-[#1C1917] sm:text-base">฿15,000</p>

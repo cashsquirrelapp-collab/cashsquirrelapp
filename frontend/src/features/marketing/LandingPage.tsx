@@ -233,7 +233,7 @@ function Chapter({ id, bg, eyebrow, title, copy, visual, flip = false, centered 
       <div className={`${wrap} grid items-center gap-[clamp(2.5rem,1.5rem+3vw,6rem)] ${flip ? 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]'}`}>
         <Reveal className={flip ? 'lg:order-2' : ''}>
           <Eyebrow>{eyebrow}</Eyebrow>
-          <Headline className="mt-4 lg:whitespace-nowrap">{title}</Headline>
+          <Headline className="mt-4 xl:whitespace-nowrap">{title}</Headline>
           <Lead className="mt-5 max-w-md">{copy}</Lead>
         </Reveal>
         <Reveal delay={0.1} className={flip ? 'lg:order-1' : ''}>{visual}</Reveal>

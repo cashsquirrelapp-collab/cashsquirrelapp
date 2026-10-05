@@ -363,7 +363,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                       type="text"
                       value={client}
                       onChange={(e) => setClient(e.target.value)}
-                      placeholder="เช่น Skinness"
+                      placeholder="เช่น ใสใส สกินแคร์"
                       className={inputClass()}
                     />
                   </div>

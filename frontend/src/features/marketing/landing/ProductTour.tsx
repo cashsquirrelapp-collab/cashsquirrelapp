@@ -102,10 +102,10 @@ function Toast({ show, text }: { show: boolean; text: string }) {
 
 type Row = { id: string; name: string; client: string; date: string; dateTone?: 'red'; stage: string; stageTone: 'blue' | 'green' | 'neutral'; pay: string; payTone: 'orange' | 'green'; amount: number; fresh?: boolean };
 
-const ROW_SERUM: Row = { id: 'serum', name: 'รีวิวเซรั่ม', client: 'Skinness', date: 'ครบกำหนดวันนี้', stage: 'เสร็จแล้ว', stageTone: 'green', pay: 'ยังไม่จ่าย', payTone: 'orange', amount: 1500 };
+const ROW_SERUM: Row = { id: 'serum', name: 'รีวิวเซรั่ม', client: 'ใสใส สกินแคร์', date: 'ครบกำหนดวันนี้', stage: 'เสร็จแล้ว', stageTone: 'green', pay: 'ยังไม่จ่าย', payTone: 'orange', amount: 1500 };
 const ROW_CLASS: Row = { id: 'class', name: 'คลาสติวสอบ (4 ครั้ง)', client: 'คุณแพร', date: '3 ต.ค. 2569', stage: 'ปิดงานแล้ว', stageTone: 'neutral', pay: 'รับครบแล้ว', payTone: 'green', amount: 4800 };
-const ROW_DD: Row = { id: 'dd', name: 'Brand Consultation', client: 'DDproperty', date: 'เกินกำหนด 9 วัน', dateTone: 'red', stage: 'เสร็จแล้ว', stageTone: 'green', pay: 'ยังไม่จ่าย', payTone: 'orange', amount: 6665 };
-const ROW_TIKTOK: Row = { id: 'tiktok', name: 'TikTok Campaign', client: 'Brand A', date: '31 ต.ค. 2569', stage: 'เสร็จแล้ว', stageTone: 'green', pay: 'ยังไม่จ่าย', payTone: 'orange', amount: 15000 };
+const ROW_DD: Row = { id: 'dd', name: 'Brand Consultation', client: 'สวนสุข เอสเตท', date: 'เกินกำหนด 9 วัน', dateTone: 'red', stage: 'เสร็จแล้ว', stageTone: 'green', pay: 'ยังไม่จ่าย', payTone: 'orange', amount: 6665 };
+const ROW_TIKTOK: Row = { id: 'tiktok', name: 'แคมเปญคลิปรีวิว', client: 'Brand A', date: '31 ต.ค. 2569', stage: 'เสร็จแล้ว', stageTone: 'green', pay: 'ยังไม่จ่าย', payTone: 'orange', amount: 15000 };
 
 function JobsPage({ rows, counts, children, highlight, badgeMenu }: {
   rows: Row[]; counts: { all: number; working: number; waiting: number; waitingAmount: number; closed: number }; children?: React.ReactNode; highlight?: string;
@@ -186,7 +186,7 @@ function RecordScreen({ step }: ScreenProps) {
                 <p className="text-[17px] font-semibold text-[#1C1917]">เพิ่มงาน</p><X className="h-4 w-4 text-[#77716B]" />
               </div>
               <div className="flex-1 space-y-4 overflow-hidden px-6 py-4">
-                <Field label="ชื่องาน / โปรเจกต์" tour="name" focused={step === 3}><Typed text="TikTok Campaign" from={3} step={step} ms={1300} /></Field>
+                <Field label="ชื่องาน / โปรเจกต์" tour="name" focused={step === 3}><Typed text="แคมเปญคลิปรีวิว" from={3} step={step} ms={1300} /></Field>
                 <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-3">
                   <Field label="ลูกค้า / ผู้จ่าย" tour="client" focused={step === 4}><Typed text="Brand A" from={4} step={step} ms={1000} /></Field>
                   <Field label="มูลค่างาน" tour="value" focused={step === 5}><span className="text-[#A39D96]">฿</span>&nbsp;<Typed text="15,000" from={5} step={step} ms={900} /></Field>
@@ -248,10 +248,10 @@ const TIMELINE_STEPS: Step[] = [
 
 type TLRow = { id: string; date: string; name: string; client: string; amount: number; status: string; tone: 'red' | 'amber' | 'green' | 'neutral'; carried?: boolean };
 const TL_OCT: TLRow[] = [
-  { id: 'dd', date: '26 ก.ย.', name: 'Brand Consultation', client: 'DDproperty', amount: 6665, status: 'เกินกำหนด 9 วัน', tone: 'red', carried: true },
+  { id: 'dd', date: '26 ก.ย.', name: 'Brand Consultation', client: 'สวนสุข เอสเตท', amount: 6665, status: 'เกินกำหนด 9 วัน', tone: 'red', carried: true },
   { id: 'class', date: '3 ต.ค.', name: 'คลาสติวสอบ (4 ครั้ง)', client: 'คุณแพร', amount: 4800, status: 'รับแล้ว', tone: 'green' },
-  { id: 'serum', date: '5 ต.ค.', name: 'รีวิวเซรั่ม', client: 'Skinness', amount: 1500, status: 'ครบกำหนดวันนี้', tone: 'amber' },
-  { id: 'tiktok', date: '31 ต.ค.', name: 'TikTok Campaign', client: 'Brand A', amount: 15000, status: 'อีก 26 วัน', tone: 'neutral' },
+  { id: 'serum', date: '5 ต.ค.', name: 'รีวิวเซรั่ม', client: 'ใสใส สกินแคร์', amount: 1500, status: 'ครบกำหนดวันนี้', tone: 'amber' },
+  { id: 'tiktok', date: '31 ต.ค.', name: 'แคมเปญคลิปรีวิว', client: 'Brand A', amount: 15000, status: 'อีก 26 วัน', tone: 'neutral' },
 ];
 
 function TLRowView({ row }: { row: TLRow }) {
@@ -297,7 +297,7 @@ function TimelineScreen({ step }: ScreenProps) {
                   <span className={`text-[11px] ${d === 5 ? 'font-semibold text-[#C24A16]' : 'text-[#57514B]'}`}>{d}</span>
                   {d === 3 && <span className="mt-0.5 block truncate rounded bg-[#E9F7F0] px-1 text-[9px] text-[#12804F]">รับ ฿4,800</span>}
                   {d === 5 && <span className="mt-0.5 block truncate rounded bg-[#FFF6E5] px-1 text-[9px] text-[#9A6412]">รีวิวเซรั่ม</span>}
-                  {d === 31 && <span className="mt-0.5 block truncate rounded bg-[#FFF1E8] px-1 text-[9px] text-[#C24A16]">TikTok</span>}
+                  {d === 31 && <span className="mt-0.5 block truncate rounded bg-[#FFF1E8] px-1 text-[9px] text-[#C24A16]">คลิปรีวิว</span>}
                 </span>
               ))}
             </div>
@@ -378,12 +378,12 @@ function AlertScreen({ step }: ScreenProps) {
             <p className="mt-1 text-[13px] font-bold leading-snug text-[#E65F2B]">🚨 สรุปดีลงานที่ต้องติดตามเครดิตเทอม</p>
             <motion.div {...reveal(2)} className="mt-3 border-t border-[#E8DFD3] pt-2.5">
               <p className="font-bold text-[#DC2626]">⚠️ เกินกำหนดชำระเงินแล้ว (1 รายการ)</p>
-              <p className="mt-1.5 flex justify-between font-bold text-[#3D2314]"><span>DDproperty</span><span>฿6,665</span></p>
+              <p className="mt-1.5 flex justify-between font-bold text-[#3D2314]"><span>สวนสุข เอสเตท</span><span>฿6,665</span></p>
               <p className="flex justify-between text-[10px] text-[#7A5C43]"><span>Brand Consultation</span><span className="font-bold text-[#DC2626]">เลยกำหนดมาแล้ว 9 วัน</span></p>
             </motion.div>
             <motion.div {...reveal(3)} className="mt-3 border-t border-[#E8DFD3] pt-2.5">
               <p className="font-bold text-[#B45309]">⏰ ครบกำหนดวันนี้ (1 รายการ)</p>
-              <p className="mt-1.5 flex justify-between font-bold text-[#3D2314]"><span>Skinness</span><span>฿1,500</span></p>
+              <p className="mt-1.5 flex justify-between font-bold text-[#3D2314]"><span>ใสใส สกินแคร์</span><span>฿1,500</span></p>
               <p className="flex justify-between text-[10px] text-[#7A5C43]"><span>รีวิวเซรั่ม</span><span className="font-bold text-[#B45309]">ครบกำหนดวันนี้</span></p>
             </motion.div>
             <motion.div {...reveal(4)} className="mt-3 border-t border-[#E8DFD3] pt-2.5">
@@ -427,7 +427,7 @@ function PayScreen({ step }: ScreenProps) {
           <motion.div key="dlg" className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(33,29,26,0.25)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
             <motion.div initial={{ scale: 0.97, y: 8 }} animate={{ scale: 1, y: 0 }} transition={{ duration: 0.3, ease: EASE }} className="w-[380px] rounded-2xl bg-white p-5 shadow-xl">
               <p className="text-[15px] font-semibold text-[#1C1917]">บันทึกรับเงิน</p>
-              <p className="mt-0.5 text-[12px] text-[#77716B]">Brand Consultation · DDproperty</p>
+              <p className="mt-0.5 text-[12px] text-[#77716B]">Brand Consultation · สวนสุข เอสเตท</p>
               <div className="mt-4"><Segment options={['รับเงินครบ', 'รับมัดจำ / บางส่วน']} value="รับเงินครบ" /></div>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <Field label="ยอดที่ได้รับ (บาท)">6,665</Field>

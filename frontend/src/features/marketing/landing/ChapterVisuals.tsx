@@ -14,9 +14,9 @@ const show = (seen: boolean, delay = 0, y = 14) => ({
 
 // ---- 01 เงินที่ยังไม่ได้รับ ----
 const OWED = [
-  { name: 'Brand Consultation', client: 'DDproperty', amount: 6665, when: 'เกินกำหนด 4 วัน', tone: 'red' as const, strip: '#D64545' },
-  { name: 'รีวิวเซรั่ม', client: 'Skinness', amount: 1500, when: 'ครบกำหนดวันนี้', tone: 'amber' as const, strip: '#E6A23C' },
-  { name: 'TikTok Campaign', client: 'Brand A', amount: 15000, when: 'อีก 3 วัน', tone: 'orange' as const, strip: '#E65F2B' },
+  { name: 'Brand Consultation', client: 'สวนสุข เอสเตท', amount: 6665, when: 'เกินกำหนด 4 วัน', tone: 'red' as const, strip: '#D64545' },
+  { name: 'รีวิวเซรั่ม', client: 'ใสใส สกินแคร์', amount: 1500, when: 'ครบกำหนดวันนี้', tone: 'amber' as const, strip: '#E6A23C' },
+  { name: 'แคมเปญคลิปรีวิว', client: 'Brand A', amount: 15000, when: 'อีก 3 วัน', tone: 'orange' as const, strip: '#E65F2B' },
   { name: 'คลาสติวสอบ (4 ครั้ง)', client: 'คุณแพร', amount: 4800, when: 'อีก 12 วัน', tone: 'neutral' as const, strip: '#D9D4CE' },
 ];
 
@@ -91,7 +91,7 @@ export function CreditTermVisual() {
           <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
             <motion.div {...show(seen, 0.2)} className="rounded-xl border border-[#EFECE8] px-3.5 py-3">
               <p className="text-[11px] text-[#77716B]">1 ต.ค. · ส่งงาน</p>
-              <p className="mt-0.5 text-[13px] font-medium text-[#1C1917]">TikTok Campaign</p>
+              <p className="mt-0.5 text-[13px] font-medium text-[#1C1917]">แคมเปญคลิปรีวิว</p>
               <p className="mt-1 text-[12px] text-[#77716B]">ลูกค้าบอก Credit Term 30 วัน</p>
             </motion.div>
             <motion.div {...show(seen, 2.05)} className="rounded-xl bg-[#FFF1E8] px-3.5 py-3">
@@ -212,7 +212,7 @@ export function DocumentsVisual() {
     <div ref={ref} className="grid gap-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:items-center sm:gap-5">
       <motion.div {...show(seen, 0)} className="rounded-2xl border border-[#E7E4DF] bg-white p-4 sm:p-5">
         <p className="text-[11px] font-medium text-[#77716B]">งาน</p>
-        <p className="mt-1 text-[15px] font-semibold text-[#1C1917]">TikTok Campaign</p>
+        <p className="mt-1 text-[15px] font-semibold text-[#1C1917]">แคมเปญคลิปรีวิว</p>
         <dl className="mt-3 space-y-1.5 text-[12px]">
           {[['ลูกค้า', 'Brand A'], ['มูลค่า', '฿15,000'], ['หัก ณ ที่จ่าย', '3%'], ['Credit Term', '30 วัน']].map(([k, v]) => (
             <div key={k} className="flex justify-between gap-3"><dt className="text-[#77716B]">{k}</dt><dd className="font-medium text-[#1C1917]">{v}</dd></div>

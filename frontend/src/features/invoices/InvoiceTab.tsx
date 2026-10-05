@@ -253,7 +253,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         },
         items: [
           { id: 'i1', description: 'ออกแบบกราฟิกแบนเนอร์โฆษณาแคมเปญครบรอบ 5 ปี', quantity: 5, price: 2500 },
-          { id: 'i2', description: 'ตัดต่อวิดีโอสั้นลง TikTok และ Reels จำนวน 3 ตอน', quantity: 3, price: 4000 }
+          { id: 'i2', description: 'ตัดต่อวิดีโอสั้นลงโซเชียลมีเดีย จำนวน 3 ตอน', quantity: 3, price: 4000 }
         ],
         vatRate: 0,
         whtRate: 3,

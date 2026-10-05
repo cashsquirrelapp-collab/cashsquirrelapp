@@ -49,7 +49,7 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
     },
     {
       id: 'demo-job-2',
-      name: 'ผลิตคลิปโฆษณา TikTok',
+      name: 'ผลิตคลิปโฆษณาวิดีโอสั้น',
       type: 'Video Production',
       client: 'ร้านกาแฟ Brew Days',
       value: 8000,
@@ -138,7 +138,7 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
       category: 'ค่าอุปกรณ์/ซอฟต์แวร์',
       amount: 1500,
       date: toISODate(addDays(today, -6)),
-      note: 'Adobe Premiere Pro รายเดือน',
+      note: 'โปรแกรมตัดต่อวิดีโอ รายเดือน',
     },
     {
       id: 'demo-expense-2',

@@ -608,7 +608,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           <div className="absolute left-0 top-2 w-44 rounded-2xl border border-brand-border bg-brand-white p-3.5 shadow-lg shadow-black/5">
             <div className="text-[10px] text-brand-muted">รอรับเงิน</div>
             <div className="mt-0.5 text-base font-bold text-[#F36A2D]">฿7,365</div>
-            <div className="mt-1.5 text-[10px] font-medium text-brand-text">DDproperty</div>
+            <div className="mt-1.5 text-[10px] font-medium text-brand-text">สวนสุข เอสเตท</div>
             <div className="text-[9px] text-brand-muted">Credit 30 วัน · อีก 3 วัน</div>
           </div>
           <div className="absolute right-0 top-14 w-44 rounded-2xl border border-brand-border bg-brand-white p-3.5 shadow-lg shadow-black/5">
