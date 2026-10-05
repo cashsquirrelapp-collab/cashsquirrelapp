@@ -448,10 +448,12 @@ export default function App() {
         }`}
         style={isActive && hasCoreFeatureShadow ? { boxShadow: '0 6px 16px rgba(194, 74, 22, 0.24)' } : undefined}
       >
-        <Icon
-          className="w-4.5 h-4.5"
+        <span
+          className="inline-flex shrink-0"
           style={isActive && hasCoreFeatureShadow ? { filter: 'drop-shadow(0 2px 3px rgba(194, 74, 22, 0.42))' } : undefined}
-        />
+        >
+          <Icon className="w-4.5 h-4.5" />
+        </span>
         <span>{t(item.labelKey)}</span>
       </button>
     );

@@ -291,8 +291,8 @@ export default function AdminDashboard({
       .sort((a, b) => b.pageViews - a.pageViews)
     : [];
   const featureStats = USAGE_FEATURE_KEYS.map(key => ({
-    key,
     ...(usage?.features.find(feature => feature.key === key) || { activeUsers: 0, pageViews: 0 }),
+    key,
   })).sort((a, b) => b.pageViews - a.pageViews);
   const maxFeatureViews = Math.max(1, ...featureStats.map(feature => feature.pageViews));
   const formatMetric = (value: number) => value.toLocaleString(language === 'th' ? 'th-TH' : 'en-US');
