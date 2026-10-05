@@ -142,7 +142,7 @@ test('credit report stays concise and hands collection work to receivables',asyn
  await expect(page.getByRole('heading',{name:'ช่วงเวลาที่เงินควรเข้า'})).toBeVisible();
  await expect(page.getByRole('heading',{name:'รายงานวิเคราะห์กระแสเงินสดและเงินออม'})).toHaveCount(0);
  await page.getByRole('button',{name:/ดูเงินค้างรับ/}).click();
- await expect(page.getByText('ตอนนี้ไม่มีเงินที่ต้องตาม',{exact:true})).toBeVisible();
+ await expect(page.getByText('ไม่มีเงินค้างรับ',{exact:true})).toBeVisible();
 });
 test('login and all feature tabs render after separation without browser errors',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
