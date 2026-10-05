@@ -3,7 +3,9 @@ import PageHeader from '../../components/ui/PageHeader';
 import { imageFileToDataUrl } from '../../services/images';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Job, Goal, AppSettings, GoalTransaction, Expense } from '../../../../shared/types';
-import { formatCurrency, getMonthKey, dateLocale } from '../../utils';
+import { formatCurrency, getMonthKey, dateLocale, currentMonthKeyNow } from '../../utils';
+import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
+import { Drawer, GoalAvatar, ProgressBar, goalPct, pctText, field, label, primaryBtn, secondaryBtn } from './SplitParts';
 import { getReceivedForMonth } from '../../../../shared/installmentPayments';
 import { fixedExpenseForMonth } from '../../../../shared/monthlySummary';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,7 +36,10 @@ import {
   History,
   Search,
   FileText,
-  Tag
+  Tag,
+  ChevronDown,
+  ChevronRight,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -96,6 +101,56 @@ interface SplitTabProps {
   selectedMonthKey: string;
 }
 
+/**
+ * The automatic split: share the money among goals that have a percentage and are not full yet,
+ * in proportion to their percentages (relative to each other), capping each goal at its target
+ * and passing the overflow on. Whatever cannot go anywhere is returned as the remainder.
+ */
+export function proportionalSplit(goals: Goal[], totalToSplit: number): { allocations: Record<string, number>; remainder: number } {
+  const activeGoals = goals.filter(g => (g.allocatedPercentage || 0) > 0 && g.current < g.target);
+  let remainingToDistribute = totalToSplit;
+  const allocations: Record<string, number> = {};
+  goals.forEach(g => { allocations[g.id] = 0; });
+
+  let changed = true;
+  while (changed && remainingToDistribute > 0) {
+    changed = false;
+    const nonCappedActiveGoals = activeGoals.filter(g => {
+      const currentAlloc = allocations[g.id] || 0;
+      return (g.current + currentAlloc) < g.target;
+    });
+
+    if (nonCappedActiveGoals.length === 0) break;
+
+    const activeTotalPct = nonCappedActiveGoals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
+
+    for (const g of nonCappedActiveGoals) {
+      if (remainingToDistribute <= 0) break;
+      const pct = g.allocatedPercentage || 0;
+      const share = pct / activeTotalPct;
+      const amountToGive = Math.min(
+        g.target - (g.current + allocations[g.id]),
+        Math.floor(remainingToDistribute * share)
+      );
+      if (amountToGive > 0) {
+        allocations[g.id] += amountToGive;
+        remainingToDistribute -= amountToGive;
+        changed = true;
+      }
+    }
+
+    if (!changed && remainingToDistribute > 0) {
+      for (const g of nonCappedActiveGoals) {
+        if (remainingToDistribute <= 0) break;
+        allocations[g.id] += 1;
+        remainingToDistribute -= 1;
+        changed = true;
+      }
+    }
+  }
+  return { allocations, remainder: remainingToDistribute };
+}
+
 export default function SplitTab({
   jobs,
   goals,
@@ -122,7 +177,11 @@ export default function SplitTab({
   selectedMonthKey,
 }: SplitTabProps) {
   const { t } = useLanguage();
-  const currentMonthKey = selectedMonthKey;
+  // The page browses months on its own; App's selectedMonthKey is only the starting point.
+  const [viewMonth, setViewMonth] = useState(selectedMonthKey);
+  const currentMonthKey = viewMonth;
+  // Allocations are recorded with today's date, so they only make sense for the current month.
+  const isCurrentMonth = viewMonth === currentMonthKeyNow();
 
   // 1. Calculate Received This Month (Confirmed Income)
   const receivedThisMonth = jobs
@@ -158,38 +217,6 @@ export default function SplitTab({
 
   // 3. Split calculations based on individual goal's allocatedPercentage
   const totalAllocatedPct = goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
-
-  // Calculate segment breakdown for visual representation based on rawNetProfit (planned target quota)
-  const goalSegments = goals.map(g => {
-    const pct = g.allocatedPercentage || 0;
-    const amt = Math.min(g.target - g.current, Math.floor(rawNetProfit * (pct / 100)));
-    const pctOfTotal = receivedThisMonth > 0 ? (amt / receivedThisMonth) * 100 : 0;
-    return {
-      id: g.id,
-      name: g.name,
-      color: g.acc,
-      pctOfTotal,
-      amt,
-    };
-  }).filter(s => s.pctOfTotal > 0);
-
-  const totalSegmentPct = goalSegments.reduce((sum, s) => sum + s.pctOfTotal, 0);
-  const expensePercent = Math.min(100, ((fixedExpenseThisMonth + variableExpenseThisMonth) / Math.max(1, receivedThisMonth)) * 100);
-  const remainingProfitPct = Math.max(0, 100 - expensePercent - totalSegmentPct);
-  const donutGradient = useMemo(() => {
-    if (receivedThisMonth <= 0) return 'conic-gradient(#E8DFD3 0deg 360deg)';
-    let cursor = 0;
-    const parts: string[] = [];
-    const addPart = (color: string, percent: number) => {
-      const start = cursor;
-      cursor = Math.min(100, cursor + Math.max(0, percent));
-      if (cursor > start) parts.push(`${color} ${start * 3.6}deg ${cursor * 3.6}deg`);
-    };
-    addPart('#E65F2B', expensePercent);
-    goalSegments.forEach((segment) => addPart(segment.color || '#059669', segment.pctOfTotal));
-    addPart('#E8DFD3', Math.max(0, 100 - cursor));
-    return `conic-gradient(${parts.join(', ')})`;
-  }, [receivedThisMonth, expensePercent, goalSegments]);
 
   // 5. Breakeven revenue calculations
   // To cover both expenses and reach the monthly revenue goal
@@ -292,48 +319,7 @@ export default function SplitTab({
       return;
     }
 
-    let remainingToDistribute = totalToSplit;
-    const allocations: Record<string, number> = {};
-    goals.forEach(g => { allocations[g.id] = 0; });
-
-    let changed = true;
-    while (changed && remainingToDistribute > 0) {
-      changed = false;
-      const nonCappedActiveGoals = activeGoals.filter(g => {
-        const currentAlloc = allocations[g.id] || 0;
-        return (g.current + currentAlloc) < g.target;
-      });
-
-      if (nonCappedActiveGoals.length === 0) break;
-
-      const activeTotalPct = nonCappedActiveGoals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
-      
-      for (const g of nonCappedActiveGoals) {
-        if (remainingToDistribute <= 0) break;
-        const pct = g.allocatedPercentage || 0;
-        const share = pct / activeTotalPct;
-        const amountToGive = Math.min(
-          g.target - (g.current + allocations[g.id]),
-          Math.floor(remainingToDistribute * share)
-        );
-        if (amountToGive > 0) {
-          allocations[g.id] += amountToGive;
-          remainingToDistribute -= amountToGive;
-          changed = true;
-        }
-      }
-
-      if (!changed && remainingToDistribute > 0) {
-        for (const g of nonCappedActiveGoals) {
-          if (remainingToDistribute <= 0) break;
-          allocations[g.id] += 1;
-          remainingToDistribute -= 1;
-          changed = true;
-        }
-      }
-    }
-
-    const finalRemainder = remainingToDistribute;
+    const { allocations, remainder: finalRemainder } = proportionalSplit(goals, totalToSplit);
     const totalAllocatedToGoals = totalToSplit - finalRemainder;
 
     if (totalAllocatedToGoals <= 0) {
@@ -417,6 +403,14 @@ export default function SplitTab({
       }
     );
   };
+
+  // Page UI state (layout only)
+  const [goalSort, setGoalSort] = useState<'ratio' | 'progress' | 'name'>('ratio');
+  const [ratioEditorOpen, setRatioEditorOpen] = useState(false);
+  const [ratioDraft, setRatioDraft] = useState<Record<string, number>>({});
+  const [manualOpen, setManualOpen] = useState(false);
+  const [txMenuId, setTxMenuId] = useState<string | null>(null);
+  const [formAdvancedOpen, setFormAdvancedOpen] = useState(false);
 
   // Add Goal local form states (for local Add Goal sheet)
   const [isAddGoalLocalOpen, setIsAddGoalLocalOpen] = useState(false);
@@ -553,7 +547,7 @@ export default function SplitTab({
 
   useEffect(() => {
     if (initialSelectedGoalId === 'ADD_NEW_GOAL') {
-      setIsAddGoalLocalOpen(true);
+      openAddGoal();
       if (onClearInitialGoalId) {
         onClearInitialGoalId();
       }
@@ -567,6 +561,13 @@ export default function SplitTab({
       }
     }
   }, [initialSelectedGoalId, goals, onClearInitialGoalId]);
+
+  // A fresh form every time, so values from a goal edited earlier never leak into a new one.
+  const openAddGoal = () => {
+    setFormName(''); setFormType('save'); setFormTarget(''); setFormCurrent(''); setFormDeadline('');
+    setFormEmoji('🎯'); setFormBg('#ECFDF5'); setFormAcc('#059669'); setFormImageUrl(''); setFormAllocatedPercentage('0');
+    setIsAddGoalLocalOpen(true);
+  };
 
   const openEditGoalForm = (g: Goal) => {
     setFormName(g.name);
@@ -699,1653 +700,678 @@ export default function SplitTab({
     reader.readAsText(file);
   };
 
+  // ---------- derived view data (display only; every number comes from the logic above) ----------
+  const totalExpense = fixedExpenseThisMonth + variableExpenseThisMonth;
+  const carriedRemainder = settings.accumulatedRemainder || 0;
+  const totalToSplit = netProfit + carriedRemainder;
+  // The same split the "จัดสรร" button performs, so the preview always matches what it will do.
+  const preview = isCurrentMonth && totalToSplit > 0 ? proportionalSplit(goals, totalToSplit) : null;
+  const previewAllocated = preview ? totalToSplit - preview.remainder : 0;
+  const unassignedPct = Math.max(0, 100 - totalAllocatedPct);
+  const sortedGoals = useMemo(() => {
+    const list = [...goals];
+    if (goalSort === 'ratio') list.sort((a, b) => (b.allocatedPercentage || 0) - (a.allocatedPercentage || 0));
+    if (goalSort === 'progress') list.sort((a, b) => goalPct(b) - goalPct(a));
+    if (goalSort === 'name') list.sort((a, b) => a.name.localeCompare(b.name, 'th'));
+    return list;
+  }, [goals, goalSort]);
+  const typeLabel = (type: Goal['type']) => type === 'save' ? t('split.typeSavingsAccount') : type === 'invest' ? t('split.typeInvestment') : type === 'emergency' ? t('split.typeEmergencyFund') : t('split.typeBuy');
+  const todayKey = new Date().toISOString().split('T')[0];
+  const deadlineText = (g: Goal) => g.deadline ? new Date(g.deadline).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  const deadlinePassed = (g: Goal) => Boolean(g.deadline) && g.deadline < todayKey && g.current < g.target;
+  const emptyReason = receivedThisMonth <= 0
+    ? 'ยังไม่มีเงินรับจริงในเดือนนี้'
+    : totalExpense > receivedThisMonth
+      ? `รายจ่ายสูงกว่าเงินรับจริง ${formatCurrency(totalExpense - receivedThisMonth)}`
+      : alreadyAllocatedThisMonth > 0 ? 'แบ่งเงินของเดือนนี้เข้าเป้าหมายครบแล้ว' : 'เงินรับจริงเท่ากับรายจ่ายพอดี';
+  const recommendedFor = (g: Goal) => preview?.allocations[g.id] || 0;
+
+  const editRatio = (goal: Goal) => {
+    const otherGoalsTotalPct = totalAllocatedPct - (goal.allocatedPercentage || 0);
+    const maxPctForThisGoal = Math.max(0, 100 - otherGoalsTotalPct);
+    triggerPrompt(
+      t('split.editRatioPromptTitle'),
+      t('split.editRatioPromptMsg', { name: goal.name, max: maxPctForThisGoal, otherTotal: otherGoalsTotalPct }),
+      String(goal.allocatedPercentage ?? 0),
+      t('split.enterPctPlaceholder'),
+      'number',
+      (val) => {
+        const pct = Math.min(maxPctForThisGoal, Math.max(0, parseFloat(val) || 0));
+        onUpdateGoal(goal.id, { allocatedPercentage: pct });
+        setSelectedGoal(prev => prev ? { ...prev, allocatedPercentage: pct } : null);
+        triggerAlert(t('split.ratioUpdatedTitle'), t('split.ratioUpdatedMsg', { name: goal.name, pct }));
+      }
+    );
+  };
+
+  const ratioDraftTotal = (Object.values(ratioDraft) as number[]).reduce((s, v) => s + (v || 0), 0);
+  const openRatioEditor = () => {
+    const draft: Record<string, number> = {};
+    goals.forEach(g => { draft[g.id] = g.allocatedPercentage || 0; });
+    setRatioDraft(draft);
+    setRatioEditorOpen(true);
+  };
+  const saveRatios = () => {
+    if (ratioDraftTotal > 100) return;
+    goals.forEach(g => {
+      const next = ratioDraft[g.id] ?? 0;
+      if (next !== (g.allocatedPercentage || 0)) onUpdateGoal(g.id, { allocatedPercentage: next });
+    });
+    setRatioEditorOpen(false);
+  };
+
+  const historyGroups = useMemo(() => {
+    if (!selectedGoal) return [] as { day: string; items: GoalTransaction[] }[];
+    const items = (selectedGoal.history || [])
+      .filter(tx => historyFilter === 'all' || tx.type === historyFilter)
+      .sort((a, b) => (b.date + (b.createdAt || '')).localeCompare(a.date + (a.createdAt || '')));
+    const groups: { day: string; items: GoalTransaction[] }[] = [];
+    items.forEach(tx => {
+      const last = groups[groups.length - 1];
+      if (last && last.day === tx.date) last.items.push(tx); else groups.push({ day: tx.date, items: [tx] });
+    });
+    return groups;
+  }, [selectedGoal, historyFilter]);
+  const dayLabel = (day: string) => {
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    if (day === todayKey) return 'วันนี้';
+    if (day === yesterday.toISOString().split('T')[0]) return 'เมื่อวาน';
+    return new Date(`${day}T00:00:00`).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  const timeLabel = (tx: GoalTransaction) => tx.createdAt ? new Date(tx.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }) : '';
+
+  const isEditForm = isEditGoalLocalOpen;
+  const formMaxPct = isEditForm ? Math.max(0, 100 - (totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0))) : Math.max(0, 100 - totalAllocatedPct);
+  const goalFormOpen = isAddGoalLocalOpen || isEditGoalLocalOpen;
+  const closeGoalForm = () => { setIsAddGoalLocalOpen(false); setIsEditGoalLocalOpen(false); setFormAdvancedOpen(false); };
+
+  const card = `${uiSurface}`;
+
   return (
     <div className="page-content space-y-6">
       <PageHeader page="split">
-        <div className={`${uiSurface} flex items-center gap-3 px-4 py-2.5`}>
-          <Mascot mood="wave" size={44} className="shrink-0" />
-          <div>
-            <span className="block text-xs text-brand-muted">เงินพร้อมจัดสรร</span>
-            <strong className="text-lg font-semibold tabular-nums text-brand-text">{formatCurrency(netProfit)}</strong>
-          </div>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+          <DashboardPeriodPicker monthKey={viewMonth} onChange={setViewMonth} />
+          <button type="button" onClick={openAddGoal} className={`${primaryBtn} h-10 shrink-0`}>
+            <Plus className="h-4 w-4" /> สร้างเป้าหมาย
+          </button>
         </div>
       </PageHeader>
 
-      {/* Overview: answer the three questions a first-time user has before asking them to allocate. */}
-      <section className={`${uiSurface} overflow-hidden shadow-sm`}>
-        <div className="border-b border-brand-border/50 bg-gradient-to-r from-[#FFF8EE] to-white px-5 py-5 dark:from-neutral-900 dark:to-neutral-900 sm:px-7">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-[#9A541C]">
-                <IconBarChart className="h-4 w-4" /> ภาพรวมเงินเดือนนี้
-              </div>
-              <h3 className="mt-1 text-xl font-black text-brand-text dark:text-white">เงินของคุณถูกแบ่งไปทางไหนบ้าง</h3>
-              <p className="mt-1 text-xs text-brand-muted">เริ่มจากเงินที่รับจริง หักค่าใช้จ่าย แล้วค่อยจัดเงินที่เหลือเข้าเป้าหมาย</p>
-            </div>
-            <span className={`w-fit rounded-full px-3 py-1.5 text-[11px] font-black ${totalAllocatedPct > 100 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-              สัดส่วนเป้าหมายรวม {totalAllocatedPct}%
-            </span>
+      {/* Summary strip */}
+      <dl className={`${card} grid grid-cols-2 gap-y-4 px-4 py-4 sm:px-0 lg:grid-cols-4 lg:divide-x lg:divide-brand-border`}>
+        {[
+          { label: 'เงินรับจริง', value: receivedThisMonth, tone: 'text-brand-text', dot: receivedThisMonth > 0 },
+          { label: 'รายจ่ายรวม', value: totalExpense, tone: 'text-brand-text' },
+          { label: 'พร้อมจัดสรร', value: netProfit, tone: 'text-[#C24A16] dark:text-[#FF9A6B]' },
+          { label: 'จัดสรรแล้ว', value: alreadyAllocatedThisMonth, tone: 'text-brand-text' },
+        ].map(item => (
+          <div key={item.label} className="min-w-0 sm:px-6">
+            <dt className="flex items-center gap-1.5 text-[13px] text-brand-muted">{item.dot && <span className="h-1.5 w-1.5 rounded-full bg-[#18A66A]" />}{item.label}</dt>
+            <dd className={`mt-1 truncate font-mono text-xl font-semibold tracking-tight sm:text-2xl ${item.tone}`}>{formatCurrency(item.value)}</dd>
           </div>
-        </div>
+        ))}
+      </dl>
 
-        <div className="grid gap-7 p-5 sm:p-7 lg:grid-cols-[300px_1fr]">
-          <div className="flex flex-col items-center justify-center">
-            <div className="relative h-56 w-56 rounded-full shadow-inner" style={{ background: donutGradient }} aria-label="แผนภูมิสัดส่วนเงินเดือนนี้">
-              <div className="absolute inset-[25px] flex flex-col items-center justify-center rounded-full border border-brand-border/50 bg-white text-center shadow-sm dark:bg-neutral-900">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">จัดสรรได้ตอนนี้</span>
-                <strong className="mt-1 font-mono text-2xl font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(netProfit)}</strong>
-                <span className="mt-1 text-[10px] text-brand-muted">หลังหักรายจ่ายแล้ว</span>
+      {/* Available money + allocation plan */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+        <section className={`${card} flex flex-col p-5 sm:p-6`} aria-labelledby="split-available">
+          <h2 id="split-available" className="text-[17px] font-semibold text-brand-text">เงินที่พร้อมจัดสรรเดือนนี้</h2>
+          <p className="mt-3 font-mono text-[clamp(2rem,1.6rem+1.4vw,2.6rem)] font-semibold leading-none tracking-tight text-[#C24A16] dark:text-[#FF9A6B]">{formatCurrency(netProfit)}</p>
+          <p className="mt-2.5 text-[13px] text-brand-muted">
+            เงินรับจริง {formatCurrency(receivedThisMonth)} − รายจ่าย {formatCurrency(totalExpense)}
+            {alreadyAllocatedThisMonth > 0 && <> − แบ่งไปแล้ว {formatCurrency(alreadyAllocatedThisMonth)}</>}
+          </p>
+          {netProfit <= 0 && (
+            <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-[#FFF6E5] px-3.5 py-3 text-[13px] dark:bg-[#F0C46A]/10">
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#B7791F] dark:text-[#F0C46A]" />
+              <div>
+                <p className="font-medium text-[#7A5310] dark:text-[#F3D79A]">เดือนนี้ยังไม่มีเงินเหลือสำหรับจัดสรร</p>
+                <p className="mt-0.5 text-[#9A6B1F] dark:text-[#E3C88E]">{emptyReason}</p>
               </div>
             </div>
-            <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[10px] font-bold text-brand-muted">
-              <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#E65F2B]" />ค่าใช้จ่าย {expensePercent.toFixed(0)}%</span>
-              <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-emerald-600" />เป้าหมาย {totalSegmentPct.toFixed(0)}%</span>
-              <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#E8DFD3]" />ยังไม่จัดสรร {remainingProfitPct.toFixed(0)}%</span>
+          )}
+          {carriedRemainder > 0 && (
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-brand-border pt-4 text-[13px]">
+              <span className="text-brand-muted">เงินเหลือสะสมจากรอบก่อน <span className="font-mono font-medium text-brand-text">{formatCurrency(carriedRemainder)}</span></span>
+              <button type="button" onClick={handleAllocateRemainderToAnyGoal} className="shrink-0 font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">ใส่เข้าเป้าหมาย</button>
+            </div>
+          )}
+          <div className="mt-auto pt-5">
+            <button type="button" onClick={() => setManualOpen(true)} disabled={goals.length === 0} className={`${secondaryBtn} w-full`}>
+              <PlusCircle className="h-4 w-4" /> ฝากเงินเข้าเป้าหมายเอง
+            </button>
+          </div>
+        </section>
+
+        <section className={`${card} p-5 sm:p-6`} aria-labelledby="split-plan">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h2 id="split-plan" className="text-[17px] font-semibold text-brand-text">แผนแบ่งเงินเมื่อมีเงินเหลือ</h2>
+            <div className="text-right text-[13px]">
+              <p className={totalAllocatedPct > 100 ? 'font-medium text-[#C43A3A] dark:text-[#F19A9A]' : 'text-brand-text'}>สัดส่วนที่ตั้งไว้ {totalAllocatedPct}%</p>
+              {totalAllocatedPct <= 100 && unassignedPct > 0 && <p className="text-brand-muted">เหลืออีก {unassignedPct}%</p>}
             </div>
           </div>
-
-          <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-emerald-700"><Coins className="h-4 w-4" />เงินรับจริง</div>
-                <p className="mt-2 font-mono text-xl font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(receivedThisMonth)}</p>
+          {totalAllocatedPct > 100 && (
+            <p className="mt-3 rounded-xl bg-[#FDEEEE] px-3.5 py-2.5 text-[13px] text-[#B83434] dark:bg-[#F19A9A]/10 dark:text-[#F19A9A]">สัดส่วนรวมเกิน 100% ลดเปอร์เซ็นต์ของบางเป้าหมายก่อนแบ่งเงิน</p>
+          )}
+          {goals.length === 0 ? (
+            <p className="mt-6 text-[13px] text-brand-muted">ยังไม่มีเป้าหมาย สร้างเป้าหมายก่อนแล้วค่อยตั้งสัดส่วน</p>
+          ) : (
+            <ul className="mt-5 space-y-3.5">
+              {sortedGoals.map(g => {
+                const pct = g.allocatedPercentage || 0;
+                const amount = preview?.allocations[g.id] || 0;
+                return (
+                  <li key={g.id} className="grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_auto] items-center gap-3 text-[13px]">
+                    <span className="flex min-w-0 items-center gap-2"><span className="text-base leading-none">{g.imageUrl ? '' : g.emoji}</span><span className="truncate text-brand-text">{g.name}</span></span>
+                    <span className="h-2 overflow-hidden rounded-full bg-brand-faint"><span className="block h-full rounded-full bg-[#E65F2B]" style={{ width: `${Math.min(100, pct)}%` }} /></span>
+                    <span className="min-w-[3.5rem] text-right">
+                      <span className="font-medium text-brand-text">{pct}%</span>
+                      {preview && <span className="block font-mono text-xs text-brand-muted">{formatCurrency(amount)}</span>}
+                    </span>
+                  </li>
+                );
+              })}
+              {unassignedPct > 0 && totalAllocatedPct <= 100 && (
+                <li className="grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_auto] items-center gap-3 text-[13px]">
+                  <span className="truncate text-brand-muted">ยังไม่กำหนด</span>
+                  <span className="h-2 overflow-hidden rounded-full bg-brand-faint"><span className="block h-full rounded-full bg-brand-border" style={{ width: `${unassignedPct}%` }} /></span>
+                  <span className="min-w-[3.5rem] text-right text-brand-muted">{unassignedPct}%</span>
+                </li>
+              )}
+            </ul>
+          )}
+          <div className="mt-6 flex flex-col gap-3 border-t border-brand-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+            {preview && previewAllocated > 0 ? (
+              <div className="text-[13px]">
+                <p className="text-brand-muted">พร้อมจัดสรร <span className="font-mono font-medium text-brand-text">{formatCurrency(totalToSplit)}</span>{carriedRemainder > 0 && <> (รวมเงินเหลือสะสม)</>}</p>
+                {preview.remainder > 0 && <p className="mt-0.5 text-brand-muted">เก็บไว้รอบหน้า {formatCurrency(preview.remainder)}</p>}
               </div>
-              <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 dark:border-rose-500/20 dark:bg-rose-500/10">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-rose-700"><TrendingDown className="h-4 w-4" />รายจ่ายรวม</div>
-                <p className="mt-2 font-mono text-xl font-black text-rose-700 dark:text-rose-400">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
-                <p className="mt-1 text-[9px] text-brand-muted">คงที่ {formatCurrency(fixedExpenseThisMonth)} · แปรผัน {formatCurrency(variableExpenseThisMonth)}</p>
-              </div>
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-500/20 dark:bg-amber-500/10">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-amber-700"><PiggyBank className="h-4 w-4" />แบ่งไปแล้ว</div>
-                <p className="mt-2 font-mono text-xl font-black text-amber-700 dark:text-amber-400">{formatCurrency(alreadyAllocatedThisMonth)}</p>
-              </div>
-            </div>
-
-            {totalAllocatedPct > 100 && (
-              <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">
-                <IconWarning className="mt-0.5 h-4 w-4 shrink-0" /> สัดส่วนเป้าหมายรวมเกิน 100% กรุณาลดเปอร์เซ็นต์ก่อนยืนยันการแบ่งเงิน
-              </div>
+            ) : (
+              <p className="text-[13px] text-brand-muted">{!isCurrentMonth ? 'จัดสรรได้เฉพาะเดือนปัจจุบัน' : goals.some(g => (g.allocatedPercentage || 0) > 0) ? 'ตอนนี้ยังไม่มีเงินพร้อมจัดสรร' : 'ตั้งสัดส่วนให้เป้าหมายก่อน แล้วระบบจะแบ่งให้ตามนี้'}</p>
             )}
-
-            <div className="rounded-2xl border border-brand-border/70 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-black text-brand-text dark:text-white">แผนจัดสรรตามเป้าหมาย</h4>
-                  <p className="text-[10px] text-brand-muted">จำนวนที่ระบบแนะนำจากเงินที่จัดสรรได้ในเดือนนี้</p>
-                </div>
-                <button type="button" onClick={handleQuickProportionalAllocation} className="rounded-xl bg-brand-text px-3 py-2 text-[10px] font-black text-white transition hover:opacity-90 disabled:opacity-40" disabled={netProfit <= 0 || goals.length === 0}>
-                  แบ่งตามสัดส่วนทันที
-                </button>
-              </div>
-              {goals.length === 0 ? (
-                <button type="button" onClick={() => setIsAddGoalLocalOpen(true)} className="w-full rounded-xl border border-dashed border-brand-border p-5 text-xs font-bold text-[#9A541C] hover:bg-brand-faint">+ สร้างเป้าหมายแรก</button>
-              ) : (
-                <div className="space-y-3">
-                  {goals.map((goal) => {
-                    const pct = goal.allocatedPercentage || 0;
-                    const suggested = Math.min(Math.max(0, goal.target - goal.current), Math.floor(netProfit * pct / 100));
-                    const progress = goal.target > 0 ? Math.min(100, goal.current / goal.target * 100) : 0;
-                    return (
-                      <button key={goal.id} type="button" onClick={() => setSelectedGoal(goal)} className="grid w-full grid-cols-[1fr_auto] items-center gap-4 rounded-xl p-2 text-left transition hover:bg-brand-faint">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg text-base" style={{ backgroundColor: goal.bg }}>{goal.imageUrl ? <img src={goal.imageUrl} alt="" className="h-full w-full object-cover" /> : goal.emoji}</span>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-3"><span className="truncate text-xs font-black text-brand-text dark:text-white">{goal.name}</span><span className="text-[10px] font-black" style={{ color: goal.acc }}>{pct}%</span></div>
-                              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-brand-faint"><div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: goal.acc }} /></div>
-                              <p className="mt-1 text-[9px] text-brand-muted">สะสมแล้ว {formatCurrency(goal.current)} จาก {formatCurrency(goal.target)}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right"><span className="block text-[9px] text-brand-muted">แนะนำเดือนนี้</span><strong className="font-mono text-xs text-brand-text dark:text-white">{formatCurrency(suggested)}</strong></div>
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="flex shrink-0 gap-2">
+              <button type="button" onClick={openRatioEditor} disabled={goals.length === 0} className={`${secondaryBtn} h-10`}>ปรับสัดส่วน</button>
+              {preview && previewAllocated > 0 && totalAllocatedPct <= 100 && (
+                <button type="button" onClick={handleQuickProportionalAllocation} className={`${primaryBtn} h-10`}>จัดสรร {formatCurrency(previewAllocated)}</button>
               )}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      {/* Section 2: Dynamic Profit Allocation Manager */}
-      <section className={`${uiSurface} p-5 shadow-sm sm:p-7`}>
-        <div className="mb-6 flex flex-col gap-3 border-b border-brand-border/50 pb-5 sm:flex-row sm:items-end sm:justify-between">
+      {/* Goals */}
+      <section aria-labelledby="split-goals">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 2</span>
-            <h3 className="mt-1 text-xl font-black text-brand-text dark:text-white">กำหนดจำนวนเงินที่จะใส่แต่ละเป้าหมาย</h3>
-            <p className="mt-1 text-xs text-brand-muted">พิมพ์จำนวนเงินหรือเลื่อนแถบ ระบบจะคุมยอดรวมไม่ให้เกินเงินที่จัดสรรได้</p>
+            <h2 id="split-goals" className="text-[19px] font-semibold text-brand-text">เป้าหมายของคุณ</h2>
+            {goals.length > 0 && <p className="mt-0.5 text-[13px] text-brand-muted">{goals.length} เป้าหมาย · จัดสรรรวม {totalAllocatedPct}%</p>}
           </div>
-          <div className="rounded-xl bg-brand-faint px-4 py-2 text-right"><span className="block text-[9px] font-bold text-brand-muted">ยังแบ่งได้อีก</span><strong className="font-mono text-base text-[#9A541C]">{formatCurrency(remainingNetProfit)}</strong></div>
+          {goals.length > 1 && (
+            <div className="relative">
+              <select aria-label="เรียงเป้าหมาย" value={goalSort} onChange={(e) => setGoalSort(e.target.value as typeof goalSort)}
+                className="h-10 appearance-none rounded-xl border border-brand-border bg-brand-white pl-3 pr-8 text-[13px] text-brand-text outline-none hover:bg-brand-faint focus:border-[#E65F2B] cursor-pointer">
+                <option value="ratio">เรียงตาม: สัดส่วน</option>
+                <option value="progress">เรียงตาม: ความคืบหน้า</option>
+                <option value="name">เรียงตาม: ชื่อ</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+            </div>
+          )}
         </div>
-
-        {(netProfit > 0 || (settings.accumulatedRemainder || 0) > 0) ? (
-          <div className="space-y-6">
-            {/* 4 Allocation Info Cards */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <div className="rounded-2xl border border-brand-border/60 bg-brand-faint/70 p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-bold text-brand-muted uppercase">{t('split.netProfitThisMonth')}</span>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-lg font-black font-mono text-emerald-600">{formatCurrency(netProfit)}</span>
-                </div>
-                <span className="text-[9px] text-brand-muted mt-0.5">{t('split.fullProfit', { amount: formatCurrency(rawNetProfit) })}</span>
-              </div>
-              <div className="rounded-2xl border border-brand-border/60 bg-brand-faint/70 p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-bold text-brand-muted uppercase">{t('split.accumulatedRemainder')}</span>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-lg font-black font-mono text-indigo-600">{formatCurrency(settings.accumulatedRemainder || 0)}</span>
-                  {(settings.accumulatedRemainder || 0) > 0 && (
-                    <button
-                      onClick={handleAllocateRemainderToAnyGoal}
-                      className="text-[9px] font-extrabold bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded cursor-pointer"
-                      title={t('split.dropIntoGoalTooltip')}
-                    >
-                      {t('split.dropIntoGoal')}
-                    </button>
-                  )}
-                </div>
-                <span className="text-[9px] text-brand-muted mt-0.5">{t('split.remainderDesc')}</span>
-              </div>
-              <div className="rounded-2xl border border-brand-border/60 bg-brand-faint/70 p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-bold text-brand-muted uppercase">ยอดที่เลือกแบ่งรอบนี้</span>
-                <span className="text-lg font-black font-mono text-purple-600 mt-1">{formatCurrency(totalCustomAllocated)}</span>
-                <span className="text-[9px] text-brand-muted mt-0.5">{t('split.sliderSetAmount')}</span>
-              </div>
-              <div className={`border rounded-2xl p-4 flex flex-col justify-between transition-all ${
-                remainingNetProfit > 0 
-                  ? 'bg-amber-500/5 border-amber-300 dark:border-amber-500/30' 
-                  : 'bg-emerald-500/5 border-emerald-300 dark:border-emerald-500/30'
-              }`}>
-                <span className="text-[10px] font-bold text-brand-muted uppercase">{t('split.remainingToSlide')}</span>
-                <div className="flex items-center justify-between mt-1">
-                  <span className={`text-lg font-black font-mono ${remainingNetProfit > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                    {formatCurrency(remainingNetProfit)}
-                  </span>
-                  {remainingNetProfit === 0 && (
-                    <span className="text-[9px] font-extrabold bg-emerald-500 text-white px-2 py-0.5 rounded-full uppercase inline-flex items-center gap-0.5">
-                      {t('split.done')} <IconCheck className="w-2.5 h-2.5" />
-                    </span>
-                  )}
-                </div>
-                <span className="text-[9px] text-brand-muted mt-0.5">{t('split.remainingSliderDesc')}</span>
-              </div>
-            </div>
-
-            {/* Presets Row */}
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-faint/40 p-3">
-              <span className="mr-1 text-[10px] font-black text-brand-muted uppercase">ตัวช่วยแบ่งเงิน</span>
-              
-              <button
-                onClick={handleQuickProportionalAllocation}
-                className="px-3 py-2 bg-brand-text hover:opacity-90 text-white rounded-xl text-[10px] font-extrabold shadow-sm flex items-center gap-1 transition-all cursor-pointer"
-                title={t('split.quickProportionalTooltip')}
-              >
-                <Zap className="w-3 h-3 text-white" /> {t('split.quickProportionalBtn')}
-              </button>
-
-              <button
-                onClick={handleApplyPresetSplit}
-                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
-              >
-                <IconTarget className="w-3 h-3" /> {t('split.setSlidersByRatio')}
-              </button>
-
-              <button
-                onClick={handleApplyEqualSplit}
-                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-text rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
-              >
-                <IconScale className="w-3 h-3" /> {t('split.splitEqually')}
-              </button>
-
-              <button
-                onClick={handleResetAllocations}
-                className="px-3 py-2 bg-white border border-brand-border hover:bg-brand-faint text-brand-muted rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
-              >
-                <IconClear className="w-3 h-3" /> {t('split.clearAllSliders')}
-              </button>
-            </div>
-
-            {/* List of Goals with Custom Controls */}
-            <div className="grid gap-4 lg:grid-cols-2">
-              {goals.map(g => {
-                const currentAllocated = customAllocations[g.id] || 0;
-                const remainingToGoalLimit = g.target - g.current;
-                const maxAllowedForThisGoal = Math.min(remainingToGoalLimit, remainingNetProfit + currentAllocated);
-                // Stable ceiling for the slider track (doesn't shift when OTHER goals' sliders move),
-                // so the fill position only changes when this goal's own value changes.
-                const sliderTrackMax = Math.max(1, Math.min(remainingToGoalLimit, netProfit));
-                const pctOfGoal = g.target > 0 ? Math.min(100, (g.current / g.target) * 100) : 0;
-
-                const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-                  const val = parseFloat(e.target.value) || 0;
-                  const allowed = Math.min(val, maxAllowedForThisGoal);
-                  setCustomAllocations(prev => ({
-                    ...prev,
-                    [g.id]: Math.max(0, allowed)
-                  }));
-                };
-
-                const handleInputChange = (raw: string) => {
-                  const val = parseFloat(raw) || 0;
-                  const allowed = Math.min(val, maxAllowedForThisGoal);
-                  setCustomAllocations(prev => ({
-                    ...prev,
-                    [g.id]: Math.max(0, allowed)
-                  }));
-                };
-
-                const handleAddAmount = (amt: number) => {
-                  const nextVal = currentAllocated + amt;
-                  const allowed = Math.min(nextVal, maxAllowedForThisGoal);
-                  setCustomAllocations(prev => ({
-                    ...prev,
-                    [g.id]: Math.max(0, allowed)
-                  }));
-                };
-
-                const handleSetMax = () => {
-                  setCustomAllocations(prev => ({
-                    ...prev,
-                    [g.id]: Math.max(0, maxAllowedForThisGoal)
-                  }));
-                };
-
-                return (
-                  <div 
-                    key={g.id}
-                    className="space-y-4 rounded-2xl border border-brand-border/70 bg-white p-5 shadow-xs transition-all hover:border-[#D98324]/50 dark:bg-neutral-900"
-                  >
-                    {/* Header line */}
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-inner overflow-hidden border border-brand-border/20 shrink-0"
-                          style={{ backgroundColor: g.bg || 'var(--faint)' }}
-                        >
-                          {g.imageUrl ? (
-                            <img src={g.imageUrl} alt={g.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                          ) : (
-                            g.emoji
-                          )}
-                        </div>
-                        <div>
-                          <h5 className="text-xs font-extrabold text-brand-text dark:text-white flex items-center gap-1.5">
-                            <span>{g.name}</span>
-                            <span 
-                              className="text-[8px] font-black uppercase px-2 py-0.2 rounded-full border"
-                              style={{ color: g.acc, borderColor: `${g.acc}40`, backgroundColor: `${g.acc}08` }}
-                            >
-                              {g.type === 'save' ? t('split.goalTypeSave') : g.type === 'invest' ? t('split.goalTypeInvest') : t('split.goalTypeGeneral')}
-                            </span>
-                          </h5>
-                          <p className="text-[10px] text-brand-muted mt-0.5">
-                            {t('split.cumulativeProgress', { current: formatCurrency(g.current), target: formatCurrency(g.target), pct: pctOfGoal.toFixed(0) })}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Right-side value input box */}
-                      <div className="flex items-center gap-1 bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-700 rounded-xl px-2.5 py-1.5 w-28 shrink-0">
-                        <span className="text-[10px] font-extrabold text-brand-muted">฿</span>
-                        <NumberInput
-                           value={currentAllocated || ''}
-                           onChange={handleInputChange}
-                           className="w-full bg-transparent text-xs font-extrabold font-mono text-brand-text dark:text-neutral-100 outline-none text-right"
-                           placeholder="0"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Slider & Quick increments row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max={sliderTrackMax}
-                        value={currentAllocated}
-                        onChange={handleSliderChange}
-                        disabled={maxAllowedForThisGoal <= 0}
-                        className="flex-1 accent-emerald-600 dark:accent-emerald-400 h-1 bg-brand-faint dark:bg-neutral-800 rounded-lg cursor-pointer disabled:opacity-30"
-                      />
-
-                      <div className="flex gap-1 shrink-0 justify-end">
-                        <button
-                          onClick={() => handleAddAmount(100)}
-                          disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
-                        >
-                          +100
-                        </button>
-                        <button
-                          onClick={() => handleAddAmount(500)}
-                          disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
-                        >
-                          +500
-                        </button>
-                        <button
-                          onClick={() => handleAddAmount(1000)}
-                          disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2 py-1 bg-brand-white border border-brand-border rounded-md text-[9px] font-black text-brand-text hover:bg-brand-faint transition-all disabled:opacity-40 cursor-pointer dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
-                        >
-                          +1k
-                        </button>
-                        <button
-                          onClick={handleSetMax}
-                          disabled={maxAllowedForThisGoal <= currentAllocated}
-                          className="px-2.5 py-1 bg-emerald-500 text-white rounded-md text-[9px] font-black hover:bg-emerald-600 transition-all disabled:opacity-40 cursor-pointer"
-                        >
-                          MAX
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Confirm button */}
-            <div className="pt-4">
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={handleConfirmAllocations}
-                disabled={totalCustomAllocated <= 0}
-                className="w-full py-4 bg-[#E65F2B] hover:bg-[#D98324] text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:bg-stone-300 dark:disabled:bg-stone-800 disabled:text-stone-500 dark:disabled:text-stone-600 disabled:shadow-none cursor-pointer"
-              >
-                <span>{t('split.confirmAllocateBtn', { amount: formatCurrency(totalCustomAllocated) })}</span>
-                <IconRocket className="w-4 h-4" />
-              </motion.button>
-            </div>
-          </div>
-        ) : (
-          <div className="p-6 bg-amber-500/5 border border-dashed border-amber-500/20 rounded-2xl text-center space-y-2">
-            <IconWarning className="w-6 h-6 mx-auto text-amber-600 dark:text-amber-400" />
-            <h5 className="text-xs font-extrabold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
-              {t('split.noProfitTitle')}
-            </h5>
-            <p className="text-[10px] text-brand-muted max-w-md mx-auto leading-relaxed">
-              {t('split.noProfitDesc')}
-            </p>
-          </div>
-        )}
-      </section>
-
-      {/* Section 3: Savings Targets Cards Grid (Merged TargetTab) */}
-      <section className={`${uiSurface} space-y-5 p-5 shadow-sm sm:p-7`}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#E65F2B]">ขั้นตอนที่ 3</span>
-            <h3 className="mt-1 text-xl font-black text-brand-text dark:text-white">ติดตามเป้าหมายทั้งหมด</h3>
-            <p className="mt-1 text-xs text-brand-muted">กดการ์ดเพื่อฝาก ถอน โอนเงิน หรือแก้ไขรายละเอียดเป้าหมาย</p>
-          </div>
-          <button
-            onClick={() => setIsAddGoalLocalOpen(true)}
-            className="flex w-fit items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 py-2.5 text-[11px] font-black text-white shadow-sm transition-all hover:bg-[#C94E20]"
-          >
-            <Plus className="w-3.5 h-3.5" /> {t('split.createNewGoal')}
-          </button>
-        </div>
-
         {goals.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-brand-border bg-brand-faint/40 p-12 text-center text-brand-muted">
-            <Mascot mood="sleepy" size={100} />
-            <div>
-              <p className="text-xs font-semibold text-brand-text">{t('split.noGoalsTitle')}</p>
-              <p className="text-[10px] mt-1">{t('split.noGoalsDesc')}</p>
-            </div>
+          <div className={`${card} flex flex-col items-center gap-2 px-6 py-12 text-center`}>
+            <Mascot mood="thinking" size={64} />
+            <p className="mt-1 text-[15px] font-medium text-brand-text">ยังไม่มีเป้าหมาย</p>
+            <p className="text-[13px] text-brand-muted">เริ่มจากสิ่งที่อยากเก็บเงินให้ก่อน</p>
+            <button type="button" onClick={openAddGoal} className={`${primaryBtn} mt-3 h-10`}><Plus className="h-4 w-4" /> สร้างเป้าหมาย</button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {goals.map(g => {
-              const pct = g.target > 0 ? Math.min(100, (g.current / g.target) * 100) : 0;
+          <ul className={`${card} divide-y divide-brand-border overflow-hidden`}>
+            {sortedGoals.map(g => {
+              const pct = goalPct(g);
+              const done = g.current >= g.target && g.target > 0;
               return (
-                <motion.div
-                  key={g.id}
-                  whileHover={{ scale: 1.015 }}
-                  onClick={() => setSelectedGoal(g)}
-                  className="relative flex min-h-[190px] cursor-pointer select-none flex-col justify-between overflow-hidden rounded-2xl border border-brand-border/80 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-[#D98324]/50 hover:shadow-lg dark:bg-neutral-900"
-                >
-                  <div>
-                    <div 
-                      className="mb-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-brand-border/20 text-xl shadow-inner"
-                      style={{ backgroundColor: g.bg }}
-                    >
-                      {g.imageUrl ? (
-                        <img src={g.imageUrl} alt={g.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                      ) : (
-                        g.emoji
-                      )}
-                    </div>
-
-                    <h4 className="truncate text-sm font-black leading-tight text-brand-text">{g.name}</h4>
-                    <div className="flex items-center justify-between gap-1 mt-1">
-                      <p className="text-[9px] text-brand-muted font-bold uppercase tracking-wider">
-                        {g.type === 'save' ? t('split.goalTypeSaveShort') : g.type === 'invest' ? t('split.goalTypeInvestShort') : g.type === 'emergency' ? t('split.goalTypeEmergencyShort') : t('split.goalTypeGeneral')}
-                      </p>
-                      {g.allocatedPercentage !== undefined && g.allocatedPercentage > 0 && (
-                        <span className="text-[8px] font-black bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 rounded-md">
-                          {t('split.ratioBadge', { pct: g.allocatedPercentage ?? 0 })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Progress and values */}
-                  <div className="mt-2 space-y-1">
-                    <div className="flex justify-between items-baseline text-[11px]">
-                      <span className="font-mono text-base font-black text-brand-text">{formatCurrency(g.current)}</span>
-                      <span className="text-[9px] text-brand-muted">/ {formatCurrency(g.target)}</span>
-                    </div>
-
-                    <div className="w-full h-1.5 bg-brand-faint rounded-full overflow-hidden">
-                      <div 
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, backgroundColor: g.acc }}
-                      />
-                    </div>
-
-                    <div className="flex justify-between items-center text-[8px] font-semibold">
-                      <span style={{ color: g.acc }}>{t('split.pctSuccess', { pct: pct.toFixed(0) })}</span>
-                      {g.deadline && (
-                        <span className="text-brand-muted">
-                          {t('split.dueAbbrev', { date: new Date(g.deadline).toLocaleDateString(dateLocale(), { month: 'short', year: '2-digit' }) })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
+                <li key={g.id}>
+                  <button type="button" onClick={() => setSelectedGoal(g)}
+                    className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-brand-faint/60 cursor-pointer sm:px-5">
+                    <GoalAvatar goal={g} size={48} />
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="truncate text-[15px] font-semibold text-brand-text">{g.name}</span>
+                        <span className="text-xs text-brand-muted">{typeLabel(g.type)}</span>
+                      </span>
+                      <span className="mt-1 flex flex-wrap items-baseline justify-between gap-x-3 text-[13px]">
+                        <span className="font-mono text-brand-text">{formatCurrency(g.current)} <span className="text-brand-muted">/ {formatCurrency(g.target)}</span></span>
+                        <span className={done ? 'font-medium text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-muted'}>{done ? 'ถึงเป้าแล้ว' : `${pctText(pct)} ของเป้าหมาย`}</span>
+                      </span>
+                      <span className="mt-2 block"><ProgressBar pct={pct} done={done} /></span>
+                      <span className="mt-1.5 flex flex-wrap gap-x-3 text-xs text-brand-muted">
+                        <span>สัดส่วน {g.allocatedPercentage || 0}%</span>
+                        {g.deadline && <span className={deadlinePassed(g) ? 'text-[#C43A3A] dark:text-[#F19A9A]' : ''}>{deadlinePassed(g) ? 'เลยกำหนด ' : 'ภายใน '}{deadlineText(g)}</span>}
+                      </span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-brand-muted" />
+                  </button>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
       </section>
 
-      {/* Merged TargetTab Modal: Add Goal Bottom Sheet */}
-      <AnimatePresence>
-        {isAddGoalLocalOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-0 sm:p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsAddGoalLocalOpen(false)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-xs"
-            />
-
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-full sm:max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] space-y-5"
-            >
-              <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full mx-auto sm:hidden" />
-
-              <div className="flex justify-between items-center border-b border-brand-faint pb-3">
-                <h3 className="text-lg font-bold font-display text-brand-text dark:text-white">{t('split.createGoalTitle')}</h3>
-                <button onClick={() => setIsAddGoalLocalOpen(false)} className="text-2xl text-brand-muted hover:text-brand-text leading-none">&times;</button>
-              </div>
-
-              <form onSubmit={handleAddGoalSubmit} className="space-y-4 text-xs font-semibold">
-                <div className="space-y-1.5">
-                  <label className="text-brand-muted uppercase tracking-wider block">{t('split.goalNameLabel')}</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={t('split.goalNamePlaceholder')}
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    className="w-full bg-brand-faint text-sm text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-brand-muted uppercase tracking-wider block">{t('split.typeLabel')}</label>
-                    <select
-                      value={formType}
-                      onChange={(e: any) => setFormType(e.target.value)}
-                      className="w-full bg-brand-faint text-sm text-brand-text rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 cursor-pointer"
-                    >
-                      <option value="save">{t('split.typeSavingsAccount')}</option>
-                      <option value="invest">{t('split.typeInvestment')}</option>
-                      <option value="emergency">{t('split.typeEmergencyFund')}</option>
-                      <option value="buy">{t('split.typeBuy')}</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-brand-muted uppercase tracking-wider block">{t('split.deadlineLabel')}</label>
-                    <input
-                      type="date"
-                      value={formDeadline}
-                      onChange={(e) => setFormDeadline(e.target.value)}
-                      onClick={(e) => {
-                        try {
-                          e.currentTarget.showPicker();
-                        } catch (err) {
-                          console.log(err);
-                        }
-                      }}
-                      className="w-full bg-brand-faint text-sm text-brand-text rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-brand-muted uppercase tracking-wider block">{t('split.targetAmountLabel')}</label>
-                    <NumberInput
-                      required
-                      placeholder={t('split.targetAmountPlaceholder')}
-                      value={formTarget}
-                      onChange={setFormTarget}
-                      className="w-full bg-brand-faint text-sm text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-brand-muted uppercase tracking-wider block">{t('split.startingAmountLabel')}</label>
-                    <NumberInput
-                      placeholder="0"
-                      value={formCurrent}
-                      onChange={setFormCurrent}
-                      className="w-full bg-brand-faint text-sm text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 p-3.5 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-emerald-800 dark:text-emerald-400 uppercase tracking-wider block text-[11px] font-black">
-                      {t('split.monthlyAllocRatioLabel')}
-                    </label>
-                    <span className="text-xs font-black font-mono text-emerald-600">{formAllocatedPercentage}%</span>
-                  </div>
-                  <p className="text-[10px] text-brand-muted mb-2 leading-relaxed">
-                    {t('split.monthlyAllocRatioDesc', { pct: Math.max(0, 100 - totalAllocatedPct) })}
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min="0"
-                      max={Math.max(0, 100 - totalAllocatedPct)}
-                      step="5"
-                      value={formAllocatedPercentage}
-                      onChange={(e) => setFormAllocatedPercentage(e.target.value)}
-                      className="flex-1 accent-emerald-600 h-1.5 bg-brand-faint rounded-lg cursor-pointer"
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      max={Math.max(0, 100 - totalAllocatedPct)}
-                      value={formAllocatedPercentage}
-                      onChange={(e) => {
-                        const val = Math.min(Math.max(0, 100 - totalAllocatedPct), Math.max(0, parseInt(e.target.value) || 0));
-                        setFormAllocatedPercentage(String(val));
-                      }}
-                      className="bg-brand-white dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl px-2.5 py-1.5 text-xs font-bold font-mono text-brand-text outline-none focus:border-emerald-500 w-16 text-center"
-                    />
-                  </div>
-                </div>
-
-                {/* Emoji presets selection & Free input */}
-                <div className="space-y-2">
-                  <label className="text-brand-muted uppercase tracking-wider flex items-center gap-1">{t('split.chooseSymbolLabel')} <IconPalette className="w-3 h-3" /></label>
-                  
-                  {/* Preset list */}
-                  <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar">
-                    {emojiPresets.map(emoji => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => {
-                          setFormEmoji(emoji);
-                          setFormImageUrl('');
-                        }}
-                        className={`w-10 h-10 rounded-xl text-lg shrink-0 flex items-center justify-center border transition-all cursor-pointer ${
-                          formEmoji === emoji && !formImageUrl
-                            ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400 scale-105 font-bold' 
-                            : 'bg-brand-faint border-brand-border/40 text-brand-text hover:bg-brand-border/40 dark:bg-stone-800'
-                        }`}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Free-form Inputs with Gallery Upload */}
-                  <div className="space-y-3 pt-1">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-brand-muted uppercase tracking-wider block font-bold">{t('split.customEmojiLabel')}</label>
-                        <input
-                          type="text"
-                          maxLength={4}
-                          placeholder={t('split.customEmojiPlaceholder')}
-                          value={formEmoji}
-                          onChange={(e) => {
-                            setFormEmoji(e.target.value);
-                            setFormImageUrl('');
-                          }}
-                          className="w-full bg-brand-faint text-sm text-brand-text placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 focus:border-emerald-500 text-center font-bold"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-brand-muted uppercase tracking-wider block font-bold">{t('split.uploadGalleryLabel')}</label>
-                        <div className="relative">
-                          <input
-                            type="file"
-                            id="goal-image-gallery"
-                            accept="image/png,image/jpeg,image/webp"
-                            onChange={(e) => handleGalleryUpload(e, false)}
-                            className="hidden"
-                          />
-                          <label
-                            htmlFor="goal-image-gallery"
-                            className="w-full bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/25 border border-dashed border-emerald-500/30 hover:border-emerald-500 text-emerald-700 dark:text-emerald-400 rounded-xl p-2.5 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center"
-                          >
-                            <span>{t('split.chooseFromDevice')}</span>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Image Preview */}
-                    {formImageUrl && (
-                      <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <img 
-                            src={formImageUrl} 
-                            alt="Preview" 
-                            className="w-10 h-10 rounded-lg object-cover border border-emerald-500/20"
-                          />
-                          <div>
-                            <span className="text-[10px] font-bold text-brand-text block">{t('split.imageSelected')}</span>
-                            <span className="text-[8px] text-brand-muted font-mono truncate block max-w-[180px]">
-                              {t('split.uploadSuccess')}
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setFormImageUrl('')}
-                          className="px-2 py-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
-                        >
-                          {t('split.removeImage')}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Color presets selection */}
-                <div className="space-y-1.5">
-                  <label className="text-brand-muted uppercase tracking-wider block">{t('split.chooseColorTheme')}</label>
-                  <div className="flex gap-3 py-1">
-                    {colorPresets.map(preset => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => {
-                          setFormBg(preset.bg);
-                          setFormAcc(preset.acc);
-                        }}
-                        className={`w-7 h-7 rounded-full transition-all flex items-center justify-center border-2 ${
-                          formBg === preset.bg ? 'border-brand-text scale-110' : 'border-transparent'
-                        }`}
-                        style={{ backgroundColor: preset.acc }}
-                        title={preset.name}
-                      >
-                        {formBg === preset.bg && <IconCheck className="w-2.5 h-2.5 text-white" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"
-                >
-                  {t('split.saveGoalBtn')}
-                </button>
-              </form>
-            </motion.div>
+      {/* Goal detail */}
+      <Drawer open={Boolean(selectedGoal) && !goalFormOpen} title="เป้าหมาย" onClose={() => setSelectedGoal(null)}
+        footer={selectedGoal ? (
+          <div className="space-y-2.5">
+            <button type="button" onClick={() => openTxModal(selectedGoal, 'deposit')} className={`${primaryBtn} w-full`}><Plus className="h-4 w-4" /> ฝากเงิน</button>
+            <div className={`grid gap-2.5 ${goals.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <button type="button" onClick={() => openTxModal(selectedGoal, 'withdraw')} className={secondaryBtn}><ArrowUpRight className="h-4 w-4" /> ถอนเงิน</button>
+              {goals.length > 1 && <button type="button" onClick={() => openTransferModal(selectedGoal)} className={secondaryBtn}><RefreshCcw className="h-4 w-4" /> โอนไปเป้าหมายอื่น</button>}
+            </div>
           </div>
-        )}
-      </AnimatePresence>
-
-      {/* Merged TargetTab Modal: Edit Goal Bottom Sheet */}
-      <AnimatePresence>
-        {isEditGoalLocalOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-0 sm:p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsEditGoalLocalOpen(false)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-xs"
-            />
-
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-full sm:max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] space-y-5"
-            >
-              <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full mx-auto sm:hidden mb-1" />
-
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-base font-black text-brand-text dark:text-white flex items-center gap-1.5">
-                    {t('split.editGoalTitle')} <IconPencil className="w-3.5 h-3.5" />
-                  </h3>
-                  <p className="text-[10px] text-brand-muted mt-0.5">
-                    {t('split.editGoalDesc')}
-                  </p>
+        ) : undefined}>
+        {selectedGoal && (() => {
+          const g = selectedGoal;
+          const pct = goalPct(g);
+          const done = g.current >= g.target && g.target > 0;
+          return (
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <label htmlFor="edit-goal-image-gallery" className="group relative shrink-0 cursor-pointer" title={t('split.uploadNewImageTooltip')}>
+                  <GoalAvatar goal={g} size={60} />
+                  <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/45 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">{t('split.changeImage')}</span>
+                </label>
+                <input type="file" id="edit-goal-image-gallery" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleGalleryUpload(e, true)} className="hidden" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-xl font-semibold text-brand-text">{g.name}</h3>
+                  <p className="mt-0.5 text-[13px] text-brand-muted">{typeLabel(g.type)}{g.deadline && <> · <span className={deadlinePassed(g) ? 'text-[#C43A3A] dark:text-[#F19A9A]' : ''}>{deadlinePassed(g) ? 'เลยกำหนด ' : 'ภายใน '}{deadlineText(g)}</span></>}</p>
+                  <button type="button" onClick={() => openEditGoalForm(g)} className="mt-2.5 inline-flex h-8 items-center gap-1.5 rounded-lg border border-brand-border px-3 text-xs font-medium text-brand-text hover:bg-brand-faint cursor-pointer">
+                    <IconPencil className="h-3.5 w-3.5" /> แก้ไขเป้าหมาย
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsEditGoalLocalOpen(false)}
-                  className="p-1 bg-brand-faint hover:bg-brand-border dark:bg-stone-800 rounded-lg text-brand-muted hover:text-brand-text transition-all cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
 
-              <form onSubmit={handleEditGoalSubmit} className="space-y-4 text-xs">
-                {/* Name */}
-                <div className="space-y-1">
-                  <label className="text-brand-muted uppercase tracking-wider block">{t('split.goalNameRequiredLabel')}</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={t('split.goalNamePlaceholder2')}
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    className="w-full bg-brand-faint dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl p-2.5 text-sm font-bold text-brand-text outline-none focus:border-emerald-500"
-                  />
-                </div>
+              <div>
+                <p className="text-[13px] text-brand-muted">ความคืบหน้า</p>
+                <p className="mt-1 font-mono text-3xl font-semibold tracking-tight text-brand-text">{formatCurrency(g.current)}</p>
+                <p className="mt-0.5 text-[13px] text-brand-muted">จากเป้าหมาย {formatCurrency(g.target)}</p>
+                <div className="mt-3"><ProgressBar pct={pct} done={done} height={8} /></div>
+                <p className={`mt-2 text-[13px] ${done ? 'font-medium text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-muted'}`}>{done ? 'ถึงเป้าหมายแล้ว' : `${pctText(pct)} ของเป้าหมาย`}</p>
+              </div>
 
-                {/* Grid Inputs */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Type Selection */}
-                  <div className="space-y-1">
-                    <label className="text-brand-muted uppercase tracking-wider block">{t('split.accountTypeLabel')}</label>
-                    <select
-                      value={formType}
-                      onChange={(e: any) => setFormType(e.target.value)}
-                      className="w-full bg-brand-faint dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl p-2.5 text-xs font-bold text-brand-text outline-none focus:border-emerald-500 cursor-pointer"
-                    >
-                      <option value="save">{t('split.typeSavingsAccount2')}</option>
-                      <option value="invest">{t('split.typeInvestmentFund')}</option>
-                      <option value="emergency">{t('split.typeEmergencyFund')}</option>
-                      <option value="buy">{t('split.typeBigPurchase')}</option>
+              <dl className="rounded-xl border border-brand-border text-[13px]">
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <dt className="text-brand-muted">สัดส่วนจากเงินที่จัดสรร</dt>
+                  <dd className="flex items-center gap-2"><span className="font-semibold text-brand-text">{g.allocatedPercentage ?? 0}%</span>
+                    <button type="button" onClick={() => editRatio(g)} className="text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">ปรับ</button></dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-brand-border px-4 py-3">
+                  <dt className="text-brand-muted">เงินที่แนะนำให้แบ่งรอบนี้</dt>
+                  <dd className="font-mono font-semibold text-brand-text">{formatCurrency(recommendedFor(g))}</dd>
+                </div>
+              </dl>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="text-[15px] font-semibold text-brand-text">ประวัติ</h4>
+                  <div className="relative">
+                    <select aria-label="กรองประวัติ" value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value as typeof historyFilter)}
+                      className="h-8 appearance-none rounded-lg border border-brand-border bg-brand-white pl-2.5 pr-7 text-xs text-brand-text outline-none cursor-pointer dark:bg-transparent">
+                      <option value="all">ทั้งหมด</option>
+                      <option value="deposit">ฝากเข้า</option>
+                      <option value="withdraw">ถอนออก</option>
                     </select>
-                  </div>
-
-                  {/* Deadline date */}
-                  <div className="space-y-1">
-                    <label className="text-brand-muted uppercase tracking-wider block">{t('split.goalDeadlineLabel')}</label>
-                    <input
-                      type="date"
-                      value={formDeadline}
-                      onChange={(e) => setFormDeadline(e.target.value)}
-                      onClick={(e) => {
-                        try {
-                          e.currentTarget.showPicker();
-                        } catch (err) {
-                          console.log(err);
-                        }
-                      }}
-                      className="w-full bg-brand-faint dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl p-2 text-xs font-bold font-mono text-brand-text outline-none focus:border-emerald-500 cursor-pointer"
-                    />
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
                   </div>
                 </div>
-
-                {/* Target & Current Values */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-brand-muted uppercase tracking-wider block">{t('split.targetToSaveLabel')}</label>
-                    <NumberInput
-                      required
-                      placeholder={t('split.targetPlaceholder2')}
-                      value={formTarget}
-                      onChange={setFormTarget}
-                      className="w-full bg-brand-faint dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl p-2.5 text-sm font-bold font-mono text-brand-text outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-brand-muted uppercase tracking-wider block">{t('split.currentAmountLabel')}</label>
-                    <NumberInput
-                      required
-                      placeholder={t('split.currentAmountPlaceholder')}
-                      value={formCurrent}
-                      onChange={setFormCurrent}
-                      className="w-full bg-brand-faint dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl p-2.5 text-sm font-bold font-mono text-brand-text outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Profit Split slider input */}
-                <div className="p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl border border-brand-border/60 flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block">{t('split.monthlyDividendPct')}</span>
-                    <span className="text-[9px] text-brand-muted leading-relaxed block mt-0.5">
-                      {t('split.monthlyDividendDesc', { pct: Math.max(0, 100 - (totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0))) })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <input
-                      type="number"
-                      min="0"
-                      max={Math.max(0, 100 - (totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0)))}
-                      value={formAllocatedPercentage}
-                      onChange={(e) => {
-                        const maxPct = Math.max(0, 100 - (totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0)));
-                        const val = Math.min(maxPct, Math.max(0, parseInt(e.target.value) || 0));
-                        setFormAllocatedPercentage(String(val));
-                      }}
-                      className="bg-brand-white dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl px-2.5 py-1.5 text-xs font-bold font-mono text-brand-text outline-none focus:border-emerald-500 w-16 text-center"
-                    />
-                  </div>
-                </div>
-
-                {/* Emoji presets selection & Free input */}
-                <div className="space-y-2">
-                  <label className="text-brand-muted uppercase tracking-wider flex items-center gap-1">{t('split.chooseSymbolLabel')} <IconPalette className="w-3 h-3" /></label>
-                  
-                  {/* Preset list */}
-                  <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar">
-                    {emojiPresets.map(emoji => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => {
-                          setFormEmoji(emoji);
-                          setFormImageUrl('');
-                        }}
-                        className={`w-10 h-10 rounded-xl text-lg shrink-0 flex items-center justify-center border transition-all cursor-pointer ${
-                          formEmoji === emoji && !formImageUrl
-                            ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400 scale-105 font-bold' 
-                            : 'bg-brand-faint border-brand-border/40 text-brand-text hover:bg-brand-border/40 dark:bg-stone-800'
-                        }`}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Free-form Inputs with Gallery Upload */}
-                  <div className="space-y-3 pt-1">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-brand-muted uppercase tracking-wider block font-bold">{t('split.customEmojiLabel')}</label>
-                        <input
-                          type="text"
-                          maxLength={4}
-                          placeholder={t('split.customEmojiPlaceholder')}
-                          value={formEmoji}
-                          onChange={(e) => {
-                            setFormEmoji(e.target.value);
-                            setFormImageUrl('');
-                          }}
-                          className="w-full bg-brand-faint text-sm text-brand-text placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 focus:border-emerald-500 text-center font-bold"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-brand-muted uppercase tracking-wider block font-bold">{t('split.uploadGalleryLabel')}</label>
-                        <div className="relative">
-                          <input
-                            type="file"
-                            id="edit-goal-image-gallery-form"
-                            accept="image/png,image/jpeg,image/webp"
-                            onChange={(e) => handleGalleryUpload(e, false)}
-                            className="hidden"
-                          />
-                          <label
-                            htmlFor="edit-goal-image-gallery-form"
-                            className="w-full bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/25 border border-dashed border-emerald-500/30 hover:border-emerald-500 text-emerald-700 dark:text-emerald-400 rounded-xl p-2.5 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center"
-                          >
-                            <span>{t('split.chooseFromDevice')}</span>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Image Preview */}
-                    {formImageUrl && (
-                      <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <img 
-                            src={formImageUrl} 
-                            alt="Preview" 
-                            className="w-10 h-10 rounded-lg object-cover border border-emerald-500/20"
-                          />
-                          <div>
-                            <span className="text-[10px] font-bold text-brand-text block">{t('split.imageSelected')}</span>
-                            <span className="text-[8px] text-brand-muted font-mono truncate block max-w-[180px]">
-                              {t('split.uploadSuccess')}
+                {historyGroups.length === 0 ? (
+                  <p className="py-6 text-center text-[13px] text-brand-muted">{t('split.noHistoryInCategory')}</p>
+                ) : historyGroups.map(group => (
+                  <div key={group.day} className="mt-3">
+                    <p className="pb-1 text-xs font-medium text-brand-muted">{dayLabel(group.day)}</p>
+                    <ul className="divide-y divide-brand-border">
+                      {group.items.map(tx => {
+                        const isDeposit = tx.type === 'deposit';
+                        const isTransfer = Boolean(tx.relatedGoalId);
+                        return (
+                          <li key={tx.id} className="flex items-center gap-3 py-2.5">
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isTransfer ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-[#FF9A6B]' : isDeposit ? 'bg-[#E9F7F0] text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]' : 'bg-brand-faint text-brand-muted'}`}>
+                              {isTransfer ? <RefreshCcw className="h-3.5 w-3.5" /> : isDeposit ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                             </span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setFormImageUrl('')}
-                          className="px-2 py-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
-                        >
-                          {t('split.removeImage')}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Color presets selection */}
-                <div className="space-y-1.5">
-                  <label className="text-brand-muted uppercase tracking-wider block">{t('split.chooseColorTheme')}</label>
-                  <div className="flex gap-3 py-1">
-                    {colorPresets.map(preset => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => {
-                          setFormBg(preset.bg);
-                          setFormAcc(preset.acc);
-                        }}
-                        className={`w-7 h-7 rounded-full transition-all flex items-center justify-center border-2 ${
-                          formBg === preset.bg ? 'border-brand-text scale-110' : 'border-transparent'
-                        }`}
-                        style={{ backgroundColor: preset.acc }}
-                        title={preset.name}
-                      >
-                        {formBg === preset.bg && <IconCheck className="w-2.5 h-2.5 text-white" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"
-                >
-                  {t('split.saveEditGoalBtn')}
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Merged TargetTab Modal: Detail bottom sheet */}
-      <AnimatePresence>
-        {selectedGoal && !isEditGoalLocalOpen && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-0 sm:p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedGoal(null)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-xs"
-            />
-
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-full sm:max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] space-y-6"
-            >
-              <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full mx-auto sm:hidden mb-2" />
-
-              <button
-                type="button"
-                onClick={() => setSelectedGoal(null)}
-                className="absolute top-4 right-4 p-1.5 bg-brand-faint hover:bg-brand-border/40 dark:bg-stone-800 rounded-lg text-brand-muted hover:text-brand-text transition-all cursor-pointer z-10"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-4">
-                <div className="relative group shrink-0">
-                  <input
-                    type="file"
-                    id="edit-goal-image-gallery"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(e) => handleGalleryUpload(e, true)}
-                    className="hidden"
-                  />
-                  <label 
-                    htmlFor="edit-goal-image-gallery"
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-brand-border/30 overflow-hidden cursor-pointer relative transition-all hover:brightness-95 block bg-neutral-100 dark:bg-stone-800"
-                    style={{ backgroundColor: selectedGoal.bg }}
-                    title={t('split.uploadNewImageTooltip')}
-                  >
-                    {selectedGoal.imageUrl ? (
-                      <img src={selectedGoal.imageUrl} alt={selectedGoal.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                    ) : (
-                      selectedGoal.emoji
-                    )}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
-                      {t('split.changeImage')}
-                    </div>
-                  </label>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold font-display text-brand-text dark:text-white leading-tight truncate">{selectedGoal.name}</h3>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <p className="text-xs text-brand-muted font-bold uppercase shrink-0">
-                      {selectedGoal.type === 'save' ? t('split.savingsAccountLabel') : t('split.investmentFundLabel')}
-                    </p>
-                    <span className="text-neutral-300 dark:text-neutral-700">•</span>
-                    <label 
-                      htmlFor="edit-goal-image-gallery"
-                      className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer flex items-center gap-1"
-                    >
-                      {t('split.uploadSelfieOrGallery')}
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Stats detail */}
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-brand-muted uppercase tracking-widest block">{t('split.progressLabel')}</span>
-                <div className="flex justify-between items-baseline">
-                  <span className="text-3xl font-extrabold font-mono text-brand-text dark:text-white">{formatCurrency(selectedGoal.current)}</span>
-                  <span className="text-xs text-brand-muted font-bold">{t('split.fromTarget', { target: formatCurrency(selectedGoal.target) })}</span>
-                </div>
-
-                <div className="w-full h-3 bg-brand-faint dark:bg-neutral-800 rounded-full overflow-hidden mt-3">
-                  <div 
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${Math.min(100, (selectedGoal.current / selectedGoal.target) * 100)}%`, 
-                      backgroundColor: selectedGoal.acc 
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between items-center text-xs pt-1">
-                  <span className="font-extrabold" style={{ color: selectedGoal.acc }}>
-                    {t('split.pctAchieved', { pct: ((selectedGoal.current / selectedGoal.target) * 100).toFixed(1) })}
-                  </span>
-                  {selectedGoal.deadline && (
-                    <span className="text-brand-muted">
-                      {t('split.deadlineDue', { date: new Date(selectedGoal.deadline).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) })}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Allocation ratio card inside detail modal */}
-              <div className="p-3.5 bg-neutral-50 dark:bg-neutral-800/50 border border-brand-border/60 rounded-2xl space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-brand-muted uppercase tracking-widest block">{t('split.monthlyAllocRatio')}</span>
-                  <span className="text-xs font-black font-mono text-emerald-600">{t('split.pctOfNetProfit', { pct: (selectedGoal.allocatedPercentage ?? 0) })}</span>
-                </div>
-                <p className="text-[10px] text-brand-muted leading-relaxed">
-                  {t('split.monthlyAutoAllocDesc', { pct: selectedGoal.allocatedPercentage ?? 0 })}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const otherGoalsTotalPct = totalAllocatedPct - (selectedGoal.allocatedPercentage || 0);
-                    const maxPctForThisGoal = Math.max(0, 100 - otherGoalsTotalPct);
-                    triggerPrompt(
-                      t('split.editRatioPromptTitle'),
-                      t('split.editRatioPromptMsg', { name: selectedGoal.name, max: maxPctForThisGoal, otherTotal: otherGoalsTotalPct }),
-                      String(selectedGoal.allocatedPercentage ?? 0),
-                      t('split.enterPctPlaceholder'),
-                      'number',
-                      (val) => {
-                        const pct = Math.min(maxPctForThisGoal, Math.max(0, parseFloat(val) || 0));
-                        onUpdateGoal(selectedGoal.id, { allocatedPercentage: pct });
-                        setSelectedGoal(prev => prev ? { ...prev, allocatedPercentage: pct } : null);
-                        triggerAlert(t('split.ratioUpdatedTitle'), t('split.ratioUpdatedMsg', { name: selectedGoal.name, pct }));
-                      }
-                    );
-                  }}
-                  className="w-full py-1.5 bg-white dark:bg-stone-800 hover:bg-neutral-100 dark:hover:bg-stone-700 border border-brand-border text-brand-text dark:text-neutral-200 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <IconTarget className="w-3 h-3" /> {t('split.editRatioBtn')}
-                </button>
-              </div>
-
-              {/* Action buttons on Goal */}
-              <div className="space-y-2 pt-2 text-xs">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openTxModal(selectedGoal, 'deposit')}
-                    className="flex items-center justify-center gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 p-3 rounded-xl font-bold transition-all cursor-pointer border-none shadow-sm"
-                  >
-                    <IconCoin className="w-4 h-4" /> {t('split.depositMore')}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => openTxModal(selectedGoal, 'withdraw')}
-                    className="flex items-center justify-center gap-1.5 bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-900/10 dark:text-rose-400 dark:border-rose-900/30 hover:bg-rose-100 p-3 rounded-xl font-bold transition-all cursor-pointer shadow-xs"
-                  >
-                    <IconCoinOut className="w-4 h-4" /> {t('split.withdrawMoney')}
-                  </button>
-                </div>
-
-                {goals.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => openTransferModal(selectedGoal)}
-                    className="w-full flex items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/30 p-3 rounded-xl font-bold transition-all cursor-pointer"
-                  >
-                    <IconLoop className="w-4 h-4" /> {t('split.transferToOtherGoal')}
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => openEditGoalForm(selectedGoal)}
-                  className="w-full flex items-center justify-center gap-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/20 dark:hover:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30 p-3 rounded-xl font-bold transition-all cursor-pointer"
-                >
-                  <IconPencil className="w-3.5 h-3.5" /> {t('split.editGoalInfo')}
-                </button>
-              </div>
-
-              {/* Transaction History Section */}
-              <div className="pt-4 border-t border-brand-border/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <History className="w-4 h-4 text-brand-text dark:text-white" />
-                    <h4 className="text-xs font-extrabold text-brand-text dark:text-white">
-                      {t('split.historyTitle')}
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-bold text-brand-muted bg-brand-faint dark:bg-neutral-800 px-2 py-0.5 rounded-md">
-                    {t('split.itemsCount', { count: (selectedGoal.history || []).length })}
-                  </span>
-                </div>
-
-                {/* History Stats Summary Bar */}
-                {selectedGoal.history && selectedGoal.history.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div className="p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">{t('split.totalDepositsIn')}</span>
-                      <span className="font-mono font-extrabold text-emerald-700 dark:text-emerald-400">
-                        +{formatCurrency(selectedGoal.history.filter(h => h.type === 'deposit').reduce((sum, h) => sum + h.amount, 0))}
-                      </span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-rose-50/80 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-rose-700 dark:text-rose-400">{t('split.totalWithdrawnOut')}</span>
-                      <span className="font-mono font-extrabold text-rose-700 dark:text-rose-400">
-                        -{formatCurrency(selectedGoal.history.filter(h => h.type === 'withdraw').reduce((sum, h) => sum + h.amount, 0))}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Filter Pills */}
-                <div className="flex items-center justify-between gap-1 text-[10px] font-bold">
-                  <div className="flex items-center gap-1 bg-brand-faint dark:bg-neutral-800 p-1 rounded-xl w-full justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setHistoryFilter('all')}
-                      className={`flex-1 py-1 rounded-lg transition-all cursor-pointer text-center ${historyFilter === 'all' ? 'bg-white dark:bg-stone-700 text-brand-text dark:text-white shadow-xs font-black' : 'text-brand-muted hover:text-brand-text'}`}
-                    >
-                      {t('split.filterAll', { count: selectedGoal.history?.length || 0 })}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHistoryFilter('deposit')}
-                      className={`flex-1 py-1 rounded-lg transition-all cursor-pointer text-center ${historyFilter === 'deposit' ? 'bg-emerald-600 text-white shadow-xs font-black' : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}
-                    >
-                      <IconDot className="w-2 h-2 text-emerald-500 inline-block" /> {t('split.filterDeposit', { count: selectedGoal.history?.filter(h => h.type === 'deposit').length || 0 })}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHistoryFilter('withdraw')}
-                      className={`flex-1 py-1 rounded-lg transition-all cursor-pointer text-center ${historyFilter === 'withdraw' ? 'bg-rose-600 text-white shadow-xs font-black' : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20'}`}
-                    >
-                      <IconDot className="w-2 h-2 text-rose-500 inline-block" /> {t('split.filterWithdraw', { count: selectedGoal.history?.filter(h => h.type === 'withdraw').length || 0 })}
-                    </button>
-                  </div>
-                </div>
-
-                {/* History Items List */}
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1 no-scrollbar">
-                  {(() => {
-                    const filtered = (selectedGoal.history || []).filter(item => {
-                      if (historyFilter === 'deposit' && item.type !== 'deposit') return false;
-                      if (historyFilter === 'withdraw' && item.type !== 'withdraw') return false;
-                      return true;
-                    });
-
-                    if (filtered.length === 0) {
-                      return (
-                        <div className="p-6 text-center bg-brand-faint/50 dark:bg-neutral-800/40 rounded-2xl border border-dashed border-brand-border/40">
-                          <Mascot mood="happy" size={40} className="mx-auto mb-1.5 opacity-80" />
-                          <p className="text-xs font-bold text-brand-text dark:text-neutral-300">{t('split.noHistoryInCategory')}</p>
-                          <p className="text-[10px] text-brand-muted mt-0.5">
-                            {t('split.noHistoryHintPrefix')} <span className="text-emerald-600 font-bold">{t('split.depositMore')}</span> {t('split.noHistoryHintOr')} <span className="text-rose-600 font-bold">{t('split.withdrawMoney')}</span> {t('split.noHistoryHintSuffix')}
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    return filtered.map((tx) => {
-                      const isDeposit = tx.type === 'deposit';
-                      const formattedDate = new Date(tx.date).toLocaleDateString(dateLocale(), {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric'
-                      });
-
-                      return (
-                        <div
-                          key={tx.id}
-                          className={`p-3 rounded-2xl border flex items-center justify-between gap-2 text-xs transition-all ${
-                            isDeposit 
-                              ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-200/50 dark:border-emerald-900/30' 
-                              : 'bg-rose-50/40 dark:bg-rose-950/10 border-rose-200/50 dark:border-rose-900/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold ${
-                              isDeposit 
-                                ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400' 
-                                : 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400'
-                            }`}>
-                              {isDeposit ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-extrabold text-brand-text dark:text-white truncate leading-tight">
-                                {tx.reason || (isDeposit ? t('split.depositEntryFallback') : t('split.withdrawEntryFallback'))}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[13px] text-brand-text">{tx.reason || (isDeposit ? t('split.depositEntryFallback') : t('split.withdrawEntryFallback'))}</p>
+                              <p className="truncate text-[11px] text-brand-muted">
+                                {[timeLabel(tx), isTransfer ? `${isDeposit ? t('split.fromGoal') : t('split.toGoal')} ${tx.relatedGoalName || '—'}` : '', tx.deductedFromCash ? 'หักจากเงินรับจริง' : '', tx.note || ''].filter(Boolean).join(' · ')}
                               </p>
-                              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-brand-muted flex-wrap">
-                                <span className="font-medium">{formattedDate}</span>
-                                {tx.note && <span className="truncate">({tx.note})</span>}
-                                {tx.relatedGoalId && (
-                                  <span className="flex items-center gap-0.5 font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-1.5 py-0.2 rounded-md">
-                                    <RefreshCcw className="w-2.5 h-2.5" />
-                                    {isDeposit ? t('split.fromGoal') : t('split.toGoal')} {tx.relatedGoalName || '—'}
-                                  </span>
+                            </div>
+                            <span className={`shrink-0 font-mono text-[13px] font-medium ${isDeposit ? 'text-[#12804F] dark:text-[#6FD3A3]' : 'text-brand-text'}`}>{isDeposit ? '+' : '−'}{formatCurrency(tx.amount)}</span>
+                            {onDeleteGoalTransaction && (
+                              <div className="relative shrink-0">
+                                <button type="button" aria-label="ตัวเลือกรายการ" aria-haspopup="menu" aria-expanded={txMenuId === tx.id}
+                                  onClick={() => setTxMenuId(id => id === tx.id ? null : tx.id)}
+                                  className="rounded-lg p-1.5 text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer"><MoreHorizontal className="h-4 w-4" /></button>
+                                {txMenuId === tx.id && (
+                                  <div role="menu" className="absolute right-0 top-full z-10 mt-1 w-52 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#232428]">
+                                    <button type="button" role="menuitem" onClick={() => {
+                                      setTxMenuId(null);
+                                      triggerConfirm(t('split.deleteHistoryConfirmTitle'), t('split.deleteHistoryConfirmMsg', { reason: tx.reason, amount: formatCurrency(tx.amount) }), () => onDeleteGoalTransaction(g.id, tx.id, true));
+                                    }} className="flex w-full rounded-lg px-3 py-2 text-left text-[13px] text-[#C43A3A] hover:bg-[#FDEEEE] cursor-pointer dark:text-[#F19A9A] dark:hover:bg-[#F19A9A]/10">ลบรายการและคืนยอด</button>
+                                  </div>
                                 )}
                               </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className={`font-mono font-extrabold ${
-                              isDeposit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                            }`}>
-                              {isDeposit ? '+' : '-'}{formatCurrency(tx.amount)}
-                            </span>
-
-                            {onDeleteGoalTransaction && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  triggerConfirm(
-                                    t('split.deleteHistoryConfirmTitle'),
-                                    t('split.deleteHistoryConfirmMsg', { reason: tx.reason, amount: formatCurrency(tx.amount) }),
-                                    () => {
-                                      onDeleteGoalTransaction(selectedGoal.id, tx.id, true);
-                                    }
-                                  );
-                                }}
-                                className="p-1 text-neutral-400 hover:text-rose-600 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all cursor-pointer"
-                                title={t('split.deleteHistoryEntryTooltip')}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
                             )}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
               </div>
 
-              {/* Delete Goal Button */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerConfirm(
-                      t('split.deleteGoalConfirmTitle'),
-                      t('split.deleteGoalConfirmMsg', { name: selectedGoal.name }),
-                      () => {
-                        onDeleteGoal(selectedGoal.id);
-                        setSelectedGoal(null);
-                      }
-                    );
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-none"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> {t('split.deleteThisGoalBtn')}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Transaction Modal (Deposit / Withdraw with Reasons) */}
-      <AnimatePresence>
-        {isTxModalOpen && txGoal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-brand-white dark:bg-stone-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 w-full max-w-md shadow-xl space-y-4 relative"
-            >
-              <button
-                type="button"
-                onClick={() => setIsTxModalOpen(false)}
-                className="absolute top-4 right-4 p-1.5 bg-brand-faint hover:bg-brand-border/40 dark:bg-stone-800 rounded-lg text-brand-muted hover:text-brand-text transition-all cursor-pointer"
-              >
-                <X className="w-4 h-4" />
+              <button type="button" onClick={() => triggerConfirm(t('split.deleteGoalConfirmTitle'), t('split.deleteGoalConfirmMsg', { name: g.name }), () => { onDeleteGoal(g.id); setSelectedGoal(null); })}
+                className="inline-flex items-center gap-1.5 text-[13px] text-brand-muted hover:text-[#C43A3A] cursor-pointer">
+                <Trash2 className="h-3.5 w-3.5" /> {t('split.deleteThisGoalBtn')}
               </button>
+            </div>
+          );
+        })()}
+      </Drawer>
 
-              <div className="flex items-center gap-3">
-                <div className={`p-3 rounded-2xl ${
-                  txType === 'deposit' 
-                    ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' 
-                    : 'bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400'
-                }`}>
-                  {txType === 'deposit' ? <ArrowDownLeft className="w-6 h-6" /> : <ArrowUpRight className="w-6 h-6" />}
-                </div>
-                <div>
-                  <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
-                    {txType === 'deposit' ? t('split.depositMoreTitle') : t('split.withdrawMoneyTitle')}
-                  </h3>
-                  <p className="text-xs text-brand-muted">
-                    {t('split.goalColon')} <span className="font-bold text-brand-text dark:text-white">{txGoal.emoji} {txGoal.name}</span>
-                  </p>
-                </div>
-              </div>
+      {/* Create / edit goal: one form for both */}
+      <Drawer open={goalFormOpen} title={isEditForm ? 'แก้ไขเป้าหมาย' : 'สร้างเป้าหมาย'} onClose={closeGoalForm} width={500}
+        footer={
+          <div className="flex gap-3">
+            <button type="button" onClick={closeGoalForm} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
+            <button type="submit" form="goal-form" className={`${primaryBtn} flex-[2]`}>{isEditForm ? 'บันทึกการแก้ไข' : 'สร้างเป้าหมาย'}</button>
+          </div>
+        }>
+        <form id="goal-form" onSubmit={isEditForm ? handleEditGoalSubmit : handleAddGoalSubmit} className="space-y-5">
+          <div>
+            <label className={label} htmlFor="goal-name">ชื่อเป้าหมาย <span className="text-[#C24A16]">*</span></label>
+            <input id="goal-name" type="text" required value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('split.goalNamePlaceholder')} className={field} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={label} htmlFor="goal-target">{t('split.targetAmountLabel')} <span className="text-[#C24A16]">*</span></label>
+              <NumberInput id="goal-target" required value={formTarget} onChange={setFormTarget} placeholder={t('split.targetAmountPlaceholder')} className={`${field} font-mono`} />
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-current">{isEditForm ? 'ยอดสะสมตอนนี้' : t('split.startingAmountLabel')}</label>
+              <NumberInput id="goal-current" value={formCurrent} onChange={setFormCurrent} placeholder="0" className={`${field} font-mono`} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={label} htmlFor="goal-type">{t('split.typeLabel')}</label>
+              <select id="goal-type" value={formType} onChange={(e) => setFormType(e.target.value as typeof formType)} className={`${field} cursor-pointer`}>
+                <option value="save">{t('split.typeSavingsAccount')}</option>
+                <option value="invest">{t('split.typeInvestment')}</option>
+                <option value="emergency">{t('split.typeEmergencyFund')}</option>
+                <option value="buy">{t('split.typeBuy')}</option>
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-deadline">{t('split.deadlineLabel')}</label>
+              <input id="goal-deadline" type="date" value={formDeadline} onChange={(e) => setFormDeadline(e.target.value)} className={`${field} cursor-pointer`} />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <label className={label} htmlFor="goal-pct">สัดส่วนจากเงินที่จัดสรร</label>
+              <span className="mb-1.5 text-[13px] font-semibold text-brand-text">{formAllocatedPercentage}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <input type="range" min="0" max={formMaxPct} step="5" value={formAllocatedPercentage} onChange={(e) => setFormAllocatedPercentage(e.target.value)} aria-label="สัดส่วน (เลื่อน)" className="flex-1 accent-[#E65F2B] cursor-pointer" />
+              <input id="goal-pct" type="number" min="0" max={formMaxPct} value={formAllocatedPercentage}
+                onChange={(e) => setFormAllocatedPercentage(String(Math.min(formMaxPct, Math.max(0, parseInt(e.target.value) || 0))))}
+                className={`${field.replace('w-full', '')} h-10 w-20 shrink-0 text-center font-mono`} />
+            </div>
+            <p className="mt-1.5 text-xs text-brand-muted">ตั้งได้สูงสุด {formMaxPct}% (เป้าหมายอื่นใช้ไปแล้ว {isEditForm ? totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0) : totalAllocatedPct}%)</p>
+          </div>
 
-              <form onSubmit={handleTxSubmit} className="space-y-4 pt-1">
-                {/* Transaction type switcher inside modal */}
-                <div className="grid grid-cols-2 gap-1.5 p-1 bg-brand-faint dark:bg-stone-800 rounded-2xl text-xs font-extrabold">
-                  <button
-                    type="button"
-                    onClick={() => setTxType('deposit')}
-                    className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                      txType === 'deposit' 
-                        ? 'bg-emerald-600 text-white shadow-xs' 
-                        : 'text-brand-muted hover:text-brand-text'
-                    }`}
-                  >
-                    <ArrowDownLeft className="w-4 h-4" /> {t('split.transferIn')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTxType('withdraw')}
-                    className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                      txType === 'withdraw' 
-                        ? 'bg-rose-600 text-white shadow-xs' 
-                        : 'text-brand-muted hover:text-brand-text'
-                    }`}
-                  >
-                    <ArrowUpRight className="w-4 h-4" /> {t('split.withdrawOut')}
-                  </button>
+          <div className="border-t border-brand-border pt-4">
+            <button type="button" onClick={() => setFormAdvancedOpen(v => !v)} aria-expanded={formAdvancedOpen} className="flex w-full items-center justify-between text-[13px] font-medium text-brand-text cursor-pointer">
+              <span className="flex items-center gap-2"><GoalAvatar goal={{ imageUrl: formImageUrl, emoji: formEmoji, bg: formBg, name: formName }} size={28} />รูป สัญลักษณ์ และสี</span>
+              <ChevronDown className={`h-4 w-4 text-brand-muted transition-transform ${formAdvancedOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {formAdvancedOpen && (
+              <div className="mt-4 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {emojiPresets.map(emoji => (
+                    <button key={emoji} type="button" onClick={() => { setFormEmoji(emoji); setFormImageUrl(''); }}
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl border text-lg transition-colors cursor-pointer ${formEmoji === emoji && !formImageUrl ? 'border-[#E65F2B] bg-[#FFF1E8] dark:bg-orange-500/10' : 'border-brand-border hover:bg-brand-faint'}`}>{emoji}</button>
+                  ))}
                 </div>
-
-                {/* Amount input */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
-                      {t('split.amountBahtRequired')} <span className="text-rose-500">*</span>
-                    </label>
-                    {txType === 'withdraw' && txGoal.current > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setTxAmount(String(txGoal.current))}
-                        className="text-[10px] font-extrabold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer whitespace-nowrap"
-                      >
-                        {t('split.withdrawAllPct', { amount: formatCurrency(txGoal.current) })}
-                      </button>
-                    )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={label} htmlFor="goal-emoji">{t('split.customEmojiLabel')}</label>
+                    <input id="goal-emoji" type="text" maxLength={4} value={formEmoji} onChange={(e) => { setFormEmoji(e.target.value); setFormImageUrl(''); }} className={`${field} text-center`} />
                   </div>
-                  <div className="relative">
-                    <NumberInput
-                      required
-                      value={txAmount}
-                      onChange={setTxAmount}
-                      placeholder={t('split.amountPlaceholder')}
-                      className="w-full pl-9 pr-4 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-sm font-mono font-extrabold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                    <span className="absolute left-3 top-2.5 text-brand-muted font-bold text-xs">฿</span>
+                  <div>
+                    <span className={label}>{t('split.uploadGalleryLabel')}</span>
+                    <input type="file" id="goal-image-gallery" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleGalleryUpload(e, false)} className="hidden" />
+                    <label htmlFor="goal-image-gallery" className={`${secondaryBtn} w-full`}>{t('split.chooseFromDevice')}</label>
                   </div>
                 </div>
-
-                {/* Deduct-from-cash toggle -- only relevant for deposits. Lets money go into a
-                    goal before it's technically "net profit" yet, but still marks it as spent
-                    out of tracked income so cash-on-hand totals elsewhere reflect it. */}
-                {txType === 'deposit' && (
-                  <label className="flex items-start gap-2.5 p-3 bg-brand-faint/60 dark:bg-stone-800/60 border border-brand-border/60 dark:border-neutral-700 rounded-xl cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={txDeductFromCash}
-                      onChange={(e) => setTxDeductFromCash(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 accent-emerald-600 shrink-0 cursor-pointer"
-                    />
-                    <div className="space-y-0.5">
-                      <span className="text-xs font-bold text-brand-text dark:text-neutral-200 block">
-                        {t('split.deductFromIncomeLabel')}
-                      </span>
-                      <p className="text-[10px] text-brand-muted leading-relaxed">
-{t('split.deductFromIncomeDesc')}
-                      </p>
-                    </div>
-                  </label>
+                {formImageUrl && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-faint px-3 py-2.5">
+                    <span className="flex items-center gap-2 text-[13px] text-brand-text"><img src={formImageUrl} alt="" className="h-9 w-9 rounded-lg object-cover" />{t('split.imageSelected')}</span>
+                    <button type="button" onClick={() => setFormImageUrl('')} className="text-[13px] text-brand-muted hover:text-brand-text cursor-pointer">{t('split.removeImage')}</button>
+                  </div>
                 )}
-
-                {/* Date input */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
-                    {t('split.transactionDateLabel')}
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={txDate}
-                    onChange={(e) => setTxDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-xs font-bold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                {/* Reason / Details input */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
-                    {t('split.reasonNoteLabel')}
-                  </label>
-                  <input
-                    type="text"
-                    value={txReason}
-                    onChange={(e) => setTxReason(e.target.value)}
-                    placeholder={txType === 'deposit' ? t('split.reasonPlaceholderDeposit') : t('split.reasonPlaceholderWithdraw')}
-                    className="w-full px-3.5 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-xs font-bold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-
-                  {/* Reason Quick Chips */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {(txType === 'deposit'
-                      ? [
-                          { icon: IconCoin, label: t('split.chipMonthlyDeposit') },
-                          { icon: IconGift, label: t('split.chipSponsorIncome') },
-                          { icon: IconGem, label: t('split.chipBonusTip') },
-                          { icon: IconBolt, label: t('split.chipAllocateProfit') },
-                        ]
-                      : [
-                          { icon: IconCamera, label: t('split.chipEquipment') },
-                          { icon: IconTool, label: t('split.chipMaintenance') },
-                          { icon: IconAlertDot, label: t('split.chipEmergency') },
-                          { icon: IconGraduation, label: t('split.chipTuition') },
-                          { icon: IconLoop, label: t('split.chipTransferAccount') },
-                        ]
-                    ).map(({ icon: PresetIcon, label }) => (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => setTxReason(label)}
-                        className="px-2.5 py-1 bg-brand-faint hover:bg-brand-border/30 dark:bg-stone-800 text-[10px] font-bold text-brand-text dark:text-neutral-200 rounded-lg border border-brand-border/40 transition-all cursor-pointer flex items-center gap-1"
-                      >
-                        <PresetIcon className="w-3 h-3" /> {label}
+                <div>
+                  <span className={label}>{t('split.chooseColorTheme')}</span>
+                  <div className="flex gap-3">
+                    {colorPresets.map(preset => (
+                      <button key={preset.name} type="button" aria-label={preset.name} onClick={() => { setFormBg(preset.bg); setFormAcc(preset.acc); }}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full border-2 cursor-pointer ${formBg === preset.bg ? 'border-brand-text' : 'border-transparent'}`} style={{ backgroundColor: preset.bg }}>
+                        <span className="h-4 w-4 rounded-full" style={{ backgroundColor: preset.acc }} />
                       </button>
                     ))}
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsTxModalOpen(false)}
-                    className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-brand-text dark:text-neutral-200 font-extrabold text-xs rounded-xl transition-all cursor-pointer"
-                  >
-                    {t('split.cancel')}
-                  </button>
-                  <button
-                    type="submit"
-                    className={`flex-1 py-2.5 font-extrabold text-xs text-white rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                      txType === 'deposit' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
-                    }`}
-                  >
-                    {txType === 'deposit' ? <IconCoin className="w-3.5 h-3.5" /> : <IconCoinOut className="w-3.5 h-3.5" />}
-                    {txType === 'deposit' ? t('split.confirmDepositBtn') : t('split.confirmWithdrawBtn')}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Transfer Modal (Move money from one goal to another) */}
-      <AnimatePresence>
-        {isTransferModalOpen && transferFromGoal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-brand-white dark:bg-stone-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 w-full max-w-md shadow-xl space-y-4 relative"
-            >
-              <button
-                type="button"
-                onClick={() => setIsTransferModalOpen(false)}
-                className="absolute top-4 right-4 p-1.5 bg-brand-faint hover:bg-brand-border/40 dark:bg-stone-800 rounded-lg text-brand-muted hover:text-brand-text transition-all cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400">
-                  <RefreshCcw className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
-                    {t('split.transferBetweenGoalsTitle')}
-                  </h3>
-                  <p className="text-xs text-brand-muted">
-                    {t('split.sourceColon')} <span className="font-bold text-brand-text dark:text-white">{transferFromGoal.emoji} {transferFromGoal.name}</span>
-                  </p>
-                </div>
               </div>
-
-              <form onSubmit={handleTransferSubmit} className="space-y-4 pt-1">
-                {/* Destination goal select */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
-                    {t('split.transferToLabel')} <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    required
-                    value={transferToGoalId}
-                    onChange={(e) => setTransferToGoalId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-xs font-bold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    {goals.filter(g => g.id !== transferFromGoal.id).map(g => (
-                      <option key={g.id} value={g.id}>
-                        {t('split.transferOptionLine', { emoji: g.emoji, name: g.name, current: formatCurrency(g.current), target: formatCurrency(g.target) })}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Amount input */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
-                    {t('split.amountBahtRequired')} <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <NumberInput
-                      required
-                      value={transferAmount}
-                      onChange={setTransferAmount}
-                      placeholder={t('split.amountPlaceholder')}
-                      className="w-full pl-9 pr-4 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-sm font-mono font-extrabold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <span className="absolute left-3 top-2.5 text-brand-muted font-bold text-xs">฿</span>
-                  </div>
-                  <p className="text-[10px] text-brand-muted">
-                    {t('split.sourceBalanceLine', { amount: formatCurrency(transferFromGoal.current) })}
-                  </p>
-                </div>
-
-                {/* Date input */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
-                    {t('split.transactionDateLabel')}
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={transferDate}
-                    onChange={(e) => setTransferDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-xs font-bold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                {/* Reason / Details input */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
-                    {t('split.reasonOptionalLabel')}
-                  </label>
-                  <input
-                    type="text"
-                    value={transferReason}
-                    onChange={(e) => setTransferReason(e.target.value)}
-                    placeholder={t('split.transferReasonPlaceholder')}
-                    className="w-full px-3.5 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-xs font-bold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsTransferModalOpen(false)}
-                    className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-brand-text dark:text-neutral-200 font-extrabold text-xs rounded-xl transition-all cursor-pointer"
-                  >
-                    {t('split.cancel')}
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 font-extrabold text-xs text-white rounded-xl shadow-sm transition-all cursor-pointer bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-1.5"
-                  >
-                    <IconLoop className="w-3.5 h-3.5" /> {t('split.confirmTransferBtn')}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
+            )}
           </div>
+        </form>
+      </Drawer>
+
+      {/* Allocation % editor */}
+      <Drawer open={ratioEditorOpen} title="ปรับสัดส่วน" onClose={() => setRatioEditorOpen(false)} width={480}
+        footer={
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setRatioEditorOpen(false)} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
+            <button type="button" onClick={saveRatios} disabled={ratioDraftTotal > 100} className={`${primaryBtn} flex-[2]`}>บันทึกสัดส่วน</button>
+          </div>
+        }>
+        <p className="text-[13px] text-brand-muted">เมื่อมีเงินพร้อมจัดสรร ระบบจะแบ่งเข้าแต่ละเป้าหมายตามสัดส่วนนี้ รวมกันได้ไม่เกิน 100%</p>
+        <ul className="mt-5 divide-y divide-brand-border">
+          {goals.map(g => (
+            <li key={g.id} className="flex items-center gap-3 py-3">
+              <GoalAvatar goal={g} size={36} />
+              <span className="min-w-0 flex-1 truncate text-sm text-brand-text">{g.name}</span>
+              <div className="relative w-24">
+                <input type="number" min="0" max="100" aria-label={`สัดส่วนของ ${g.name}`} value={ratioDraft[g.id] ?? 0}
+                  onChange={(e) => setRatioDraft(prev => ({ ...prev, [g.id]: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) }))}
+                  className={`${field} h-10 pr-7 text-right font-mono`} />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">%</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className={`mt-4 flex items-center justify-between rounded-xl px-4 py-3 text-[13px] ${ratioDraftTotal > 100 ? 'bg-[#FDEEEE] text-[#B83434] dark:bg-[#F19A9A]/10 dark:text-[#F19A9A]' : 'bg-brand-faint text-brand-text'}`}>
+          <span>รวม</span>
+          <span className="font-semibold">{ratioDraftTotal}%{ratioDraftTotal > 100 ? ' · เกิน 100%' : ratioDraftTotal < 100 ? ` · เหลืออีก ${100 - ratioDraftTotal}%` : ''}</span>
+        </div>
+      </Drawer>
+
+      {/* Manual deposit: split this month's money by hand, or add money from elsewhere */}
+      <Drawer open={manualOpen} title="ฝากเงินเข้าเป้าหมายเอง" onClose={() => setManualOpen(false)} width={540}
+        footer={isCurrentMonth && netProfit > 0 ? (
+          <button type="button" onClick={() => { handleConfirmAllocations(); setManualOpen(false); }} disabled={totalCustomAllocated <= 0} className={`${primaryBtn} w-full`}>
+            แบ่งเงิน {formatCurrency(totalCustomAllocated)} เข้าเป้าหมาย
+          </button>
+        ) : undefined}>
+        {isCurrentMonth && netProfit > 0 ? (
+          <section>
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h3 className="text-[15px] font-semibold text-brand-text">แบ่งเงินที่พร้อมจัดสรรเอง</h3>
+                <p className="mt-0.5 text-[13px] text-brand-muted">พร้อมจัดสรร {formatCurrency(netProfit)} · ยังแบ่งได้อีก <span className="font-medium text-brand-text">{formatCurrency(remainingNetProfit)}</span></p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={handleApplyPresetSplit} className={`${secondaryBtn} h-8 px-3 text-xs`}>{t('split.setSlidersByRatio')}</button>
+              <button type="button" onClick={handleApplyEqualSplit} className={`${secondaryBtn} h-8 px-3 text-xs`}>{t('split.splitEqually')}</button>
+              <button type="button" onClick={handleResetAllocations} className={`${secondaryBtn} h-8 px-3 text-xs`}>{t('split.clearAllSliders')}</button>
+            </div>
+            <ul className="mt-4 divide-y divide-brand-border">
+              {goals.map(g => {
+                const currentAllocated = customAllocations[g.id] || 0;
+                const maxAllowed = Math.max(0, Math.min(g.target - g.current, remainingNetProfit + currentAllocated));
+                const trackMax = Math.max(1, Math.min(g.target - g.current, netProfit));
+                const set = (v: number) => setCustomAllocations(prev => ({ ...prev, [g.id]: Math.max(0, Math.min(v, maxAllowed)) }));
+                return (
+                  <li key={g.id} className="py-3.5">
+                    <div className="flex items-center gap-3">
+                      <GoalAvatar goal={g} size={36} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-brand-text">{g.name}</p>
+                        <p className="text-xs text-brand-muted">{formatCurrency(g.current)} / {formatCurrency(g.target)}</p>
+                      </div>
+                      <div className="relative w-32">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
+                        <NumberInput aria-label={`จำนวนเงินเข้า ${g.name}`} value={currentAllocated || ''} onChange={(raw) => set(parseFloat(raw) || 0)} placeholder="0" className={`${field} h-10 pl-7 text-right font-mono`} />
+                      </div>
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-3 pl-12">
+                      <input type="range" min="0" max={trackMax} value={currentAllocated} onChange={(e) => set(parseFloat(e.target.value) || 0)} disabled={maxAllowed <= 0} aria-label={`เลื่อนจำนวนเงินเข้า ${g.name}`} className="flex-1 accent-[#E65F2B] cursor-pointer disabled:opacity-30" />
+                      <button type="button" onClick={() => set(maxAllowed)} disabled={maxAllowed <= currentAllocated} className="text-xs font-medium text-[#C24A16] disabled:opacity-40 cursor-pointer dark:text-[#FF9A6B]">ใส่ทั้งหมด</button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : (
+          <p className="rounded-xl bg-brand-faint px-4 py-3 text-[13px] text-brand-muted">
+            {isCurrentMonth ? 'ตอนนี้ยังไม่มีเงินพร้อมจัดสรรให้แบ่ง แต่ยังฝากเงินจากที่อื่นเข้าเป้าหมายได้' : 'แบ่งเงินพร้อมจัดสรรได้เฉพาะเดือนปัจจุบัน แต่ยังฝากเงินจากที่อื่นเข้าเป้าหมายได้'}
+          </p>
         )}
-      </AnimatePresence>
+        <section className="mt-6 border-t border-brand-border pt-5">
+          <h3 className="text-[15px] font-semibold text-brand-text">ฝากเงินจากที่อื่น</h3>
+          <p className="mt-0.5 text-[13px] text-brand-muted">เช่น เงินเก็บเดิม โบนัส หรือเงินที่ไม่ได้มาจากงาน</p>
+          <ul className="mt-3 divide-y divide-brand-border">
+            {goals.map(g => (
+              <li key={g.id} className="flex items-center gap-3 py-3">
+                <GoalAvatar goal={g} size={36} />
+                <span className="min-w-0 flex-1 truncate text-sm text-brand-text">{g.name}</span>
+                <button type="button" onClick={() => openTxModal(g, 'deposit')} className={`${secondaryBtn} h-9 px-3 text-[13px]`}><Plus className="h-3.5 w-3.5" /> ฝาก</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </Drawer>
+
+      {/* Deposit / withdraw */}
+      <Drawer open={isTxModalOpen && Boolean(txGoal)} title={txType === 'deposit' ? 'ฝากเงิน' : 'ถอนเงิน'} onClose={() => setIsTxModalOpen(false)} width={460} z={260}
+        footer={
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setIsTxModalOpen(false)} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
+            <button type="submit" form="goal-tx-form" className={`${txType === 'deposit' ? primaryBtn : 'inline-flex h-11 items-center justify-center rounded-xl bg-brand-text px-4 text-sm font-semibold text-brand-white transition-opacity hover:opacity-90 cursor-pointer'} flex-[2]`}>
+              {txType === 'deposit' ? t('split.confirmDepositBtn') : t('split.confirmWithdrawBtn')}
+            </button>
+          </div>
+        }>
+        {txGoal && (
+          <form id="goal-tx-form" onSubmit={handleTxSubmit} className="space-y-5">
+            <div className="flex items-center gap-3"><GoalAvatar goal={txGoal} size={40} /><div><p className="text-sm font-medium text-brand-text">{txGoal.name}</p><p className="text-xs text-brand-muted">ยอดสะสม {formatCurrency(txGoal.current)}</p></div></div>
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-faint p-1" role="radiogroup" aria-label="ประเภทรายการ">
+              {(['deposit', 'withdraw'] as const).map(type => (
+                <button key={type} type="button" role="radio" aria-checked={txType === type} onClick={() => setTxType(type)}
+                  className={`h-9 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${txType === type ? 'bg-brand-white text-brand-text shadow-sm dark:bg-[#2A2B2F]' : 'text-brand-muted'}`}>
+                  {type === 'deposit' ? 'ฝากเข้า' : 'ถอนออก'}
+                </button>
+              ))}
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <label className={label} htmlFor="goal-tx-amount">{t('split.amountBahtRequired')}</label>
+                {txType === 'withdraw' && txGoal.current > 0 && (
+                  <button type="button" onClick={() => setTxAmount(String(txGoal.current))} className="mb-1.5 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">ถอนทั้งหมด {formatCurrency(txGoal.current)}</button>
+                )}
+              </div>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
+                <NumberInput id="goal-tx-amount" required value={txAmount} onChange={setTxAmount} placeholder={t('split.amountPlaceholder')} className={`${field} pl-8 font-mono`} />
+              </div>
+            </div>
+            {txType === 'deposit' && (
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-brand-border px-3.5 py-3">
+                <input type="checkbox" checked={txDeductFromCash} onChange={(e) => setTxDeductFromCash(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#E65F2B] cursor-pointer" />
+                <span><span className="block text-[13px] font-medium text-brand-text">{t('split.deductFromIncomeLabel')}</span><span className="mt-0.5 block text-xs leading-relaxed text-brand-muted">{t('split.deductFromIncomeDesc')}</span></span>
+              </label>
+            )}
+            <div>
+              <label className={label} htmlFor="goal-tx-date">{t('split.transactionDateLabel')}</label>
+              <input id="goal-tx-date" type="date" required value={txDate} onChange={(e) => setTxDate(e.target.value)} className={field} />
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-tx-reason">{t('split.reasonNoteLabel')}</label>
+              <input id="goal-tx-reason" type="text" value={txReason} onChange={(e) => setTxReason(e.target.value)} placeholder={txType === 'deposit' ? t('split.reasonPlaceholderDeposit') : t('split.reasonPlaceholderWithdraw')} className={field} />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(txType === 'deposit'
+                  ? [t('split.chipMonthlyDeposit'), t('split.chipSponsorIncome'), t('split.chipBonusTip'), t('split.chipAllocateProfit')]
+                  : [t('split.chipEquipment'), t('split.chipMaintenance'), t('split.chipEmergency'), t('split.chipTuition'), t('split.chipTransferAccount')]
+                ).map(chip => (
+                  <button key={chip} type="button" onClick={() => setTxReason(chip)} className="rounded-lg border border-brand-border px-2.5 py-1 text-xs text-brand-text hover:bg-brand-faint cursor-pointer">{chip}</button>
+                ))}
+              </div>
+            </div>
+          </form>
+        )}
+      </Drawer>
+
+      {/* Transfer between goals */}
+      <Drawer open={isTransferModalOpen && Boolean(transferFromGoal)} title="โอนไปเป้าหมายอื่น" onClose={() => setIsTransferModalOpen(false)} width={460} z={260}
+        footer={
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setIsTransferModalOpen(false)} className={`${secondaryBtn} flex-1`}>{t('split.cancel')}</button>
+            <button type="submit" form="goal-transfer-form" className={`${primaryBtn} flex-[2]`}>{t('split.confirmTransferBtn')}</button>
+          </div>
+        }>
+        {transferFromGoal && (
+          <form id="goal-transfer-form" onSubmit={handleTransferSubmit} className="space-y-5">
+            <div className="flex items-center gap-3"><GoalAvatar goal={transferFromGoal} size={40} /><div><p className="text-xs text-brand-muted">{t('split.sourceColon')}</p><p className="text-sm font-medium text-brand-text">{transferFromGoal.name} · {formatCurrency(transferFromGoal.current)}</p></div></div>
+            <div>
+              <label className={label} htmlFor="goal-transfer-to">{t('split.transferToLabel')}</label>
+              <select id="goal-transfer-to" required value={transferToGoalId} onChange={(e) => setTransferToGoalId(e.target.value)} className={`${field} cursor-pointer`}>
+                {goals.filter(g => g.id !== transferFromGoal.id).map(g => (
+                  <option key={g.id} value={g.id}>{t('split.transferOptionLine', { emoji: g.emoji, name: g.name, current: formatCurrency(g.current), target: formatCurrency(g.target) })}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-transfer-amount">{t('split.amountBahtRequired')}</label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
+                <NumberInput id="goal-transfer-amount" required value={transferAmount} onChange={setTransferAmount} placeholder={t('split.amountPlaceholder')} className={`${field} pl-8 font-mono`} />
+              </div>
+              <p className="mt-1.5 text-xs text-brand-muted">{t('split.sourceBalanceLine', { amount: formatCurrency(transferFromGoal.current) })}</p>
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-transfer-date">{t('split.transactionDateLabel')}</label>
+              <input id="goal-transfer-date" type="date" required value={transferDate} onChange={(e) => setTransferDate(e.target.value)} className={field} />
+            </div>
+            <div>
+              <label className={label} htmlFor="goal-transfer-reason">{t('split.reasonOptionalLabel')}</label>
+              <input id="goal-transfer-reason" type="text" value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder={t('split.transferReasonPlaceholder')} className={field} />
+            </div>
+          </form>
+        )}
+      </Drawer>
     </div>
   );
 }
