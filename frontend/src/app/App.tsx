@@ -211,14 +211,15 @@ const prefetchFeature = (tab: TabKey) => { void FEATURE_LOADERS[tab]?.().catch((
 // label is a translation key (resolved via t() at render time), not display text -- this array
 // is a module-level constant built once at load, before any component (and its language context)
 // exists, so it can't call t() itself.
-const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
+const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' | 'sub'; parent?: TabKey }[] = [
   { key: 'dashboard', labelKey: 'nav.dashboard', icon: Home, group: 'core' },
   { key: 'adminDashboard', labelKey: 'nav.adminDashboard', icon: LayoutDashboard, group: 'core' },
   { key: 'jobs', labelKey: 'nav.jobs', icon: Briefcase, group: 'core' },
   { key: 'calendar', labelKey: 'nav.calendar', icon: CalendarDays, group: 'core' },
+  // Money still owed follows the payment calendar, so it opens as a sub-item under ปฏิทิน.
+  { key: 'receivables', labelKey: 'nav.receivables', icon: Clock, group: 'sub', parent: 'calendar' },
   // Recording an expense is a primary action, so รายจ่าย is always in the main row.
   { key: 'incomeExpense', labelKey: 'nav.incomeExpense', icon: Receipt, group: 'core' },
-  { key: 'receivables', labelKey: 'nav.receivables', icon: Clock, group: 'more' },
   { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
@@ -420,7 +421,7 @@ export default function App() {
     </AnimatePresence>
   );
 
-  const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean) => {
+  const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean, subsOpen?: boolean) => {
     const Icon = item.icon;
     const hasCoreFeatureShadow = ['dashboard', 'jobs', 'calendar', 'incomeExpense'].includes(item.key);
     const firstPathSegment = pathname.split('/').filter(Boolean)[0];
@@ -438,7 +439,7 @@ export default function App() {
           navigateTab(item.key);
           if (closeMobileOnClick) setIsMobileMenuOpen(false);
         }}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all cursor-pointer ${
+        className={`w-full flex items-center gap-3 rounded-xl font-semibold transition-all cursor-pointer ${item.group === 'sub' ? 'px-3 py-2 text-[12.5px]' : 'px-3 py-2.5 text-[13px]'} ${
           isActive
             ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#34231B] dark:text-[#FFA473] font-bold'
             : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'
@@ -449,15 +450,46 @@ export default function App() {
           className="inline-flex shrink-0"
           style={isActive && hasCoreFeatureShadow ? { filter: 'drop-shadow(0 2px 3px rgba(194, 74, 22, 0.42))' } : undefined}
         >
-          <Icon className="w-4.5 h-4.5" />
+          <Icon className={item.group === 'sub' ? 'w-4 h-4' : 'w-4.5 h-4.5'} />
         </span>
         <span>{t(item.labelKey)}</span>
+        {subsOpen !== undefined && (
+          <ChevronDown aria-hidden className={`ml-auto h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${subsOpen ? 'rotate-180' : ''}`} />
+        )}
         {item.key === 'groups' && teamIsPreview && (
           <span className="ml-auto rounded-full bg-[#FFF1E8] px-1.5 py-px text-[10px] font-semibold text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]">เร็วๆ นี้</span>
         )}
       </button>
     );
   };
+
+  // Core items, each followed by its sub-items. Sub-items appear (indented on a guide line)
+  // only while their parent or one of them is the open page.
+  const renderCoreNav = (closeMobileOnClick: boolean) => navItems.filter(item => item.group === 'core').map(item => {
+    const subs = navItems.filter(sub => sub.group === 'sub' && sub.parent === item.key);
+    if (!subs.length) return renderNavButton(item, closeMobileOnClick);
+    const open = activeTab === item.key || subs.some(sub => sub.key === activeTab);
+    return (
+      <React.Fragment key={item.key}>
+        {renderNavButton(item, closeMobileOnClick, open)}
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="ml-[21px] mt-1 space-y-1 border-l border-brand-border pl-2">
+                {subs.map(sub => renderNavButton(sub, closeMobileOnClick))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </React.Fragment>
+    );
+  });
 
   const renderMoreToggle = () => (
     <button
@@ -811,7 +843,7 @@ export default function App() {
     if (!persona || persona === 'freelance') return base;
     const coreKeys = PERSONA_CORE_KEYS[persona];
     return base.map(item =>
-      item.group === 'bottom' || item.key === 'dashboard' || item.key === 'adminDashboard' || item.key === 'jobs' || item.key === 'incomeExpense' || item.key === 'groups'
+      item.group === 'bottom' || item.group === 'sub' || item.key === 'dashboard' || item.key === 'adminDashboard' || item.key === 'jobs' || item.key === 'incomeExpense' || item.key === 'groups'
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
     );
@@ -2333,7 +2365,7 @@ export default function App() {
 
         {/* Desktop Sidebar Navigation List */}
         <nav className="space-y-1 flex-1">
-          {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, false))}
+          {renderCoreNav(false)}
 
           {renderMoreToggle()}
           <AnimatePresence initial={false}>
@@ -2428,7 +2460,7 @@ export default function App() {
 
                 {/* Navigation Links inside Drawer */}
                 <nav className="space-y-1.5">
-                  {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, true))}
+                  {renderCoreNav(true)}
 
                   {renderMoreToggle()}
                   <AnimatePresence initial={false}>
