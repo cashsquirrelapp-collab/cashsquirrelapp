@@ -1,80 +1,405 @@
+import React from 'react';
+import { motion, useMotionValueEvent, useReducedMotion, useScroll } from 'motion/react';
+import { ArrowRight, Check, Play } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { BrandLockup } from '../../components/brand/BrandLogo';
-import {
-  FileText,
-  BarChart3,
-  MessageSquare,
-  UploadCloud,
-  Camera,
-  Code2,
-  Briefcase,
-  GraduationCap,
-  Ticket,
-  ShoppingBag,
-  Layers,
-  ArrowRight,
-} from 'lucide-react';
+import { EASE, Eyebrow, Headline, LIGHT_VARS, Lead, Reveal, useSeen } from './landing/primitives';
+import { DemoJobCard, ProductTheater } from './landing/ProductTheater';
+import { CreditTermVisual, DashboardVisual, DocumentsVisual, ExpensesVisual, ReceivablesVisual } from './landing/ChapterVisuals';
+
+// Public landing page. One idea per section, the product as the visual, and motion only where
+// it shows the workflow: a job becomes money that is due, then money that arrived.
 
 interface LandingPageProps {
   onNavigate: (path: string) => void;
 }
 
-const JOURNEY_STEPS: { label: string; kind: 'neutral' | 'highlight' | 'success' }[] = [
-  { label: 'รับงาน', kind: 'neutral' },
-  { label: 'กำลังทำ', kind: 'neutral' },
-  { label: 'ส่งงาน', kind: 'neutral' },
-  { label: 'รอเงิน (Credit Term)', kind: 'highlight' },
-  { label: 'รับเงินจริง', kind: 'neutral' },
-  { label: 'เห็นกำไร', kind: 'success' },
+const NAV = [
+  { href: '#features', label: 'ฟีเจอร์' },
+  { href: '#who', label: 'เหมาะกับใคร' },
+  { href: '#how', label: 'ทำงานยังไง' },
+  { href: '#pricing', label: 'ราคา' },
 ];
 
-const SCENARIOS: { headline: string; supporting: string; tags?: string[]; wide?: boolean }[] = [
-  { headline: 'ส่งงานไปแล้ว แต่ต้องรอเงินอีก 30–60 วัน', supporting: 'จำ Credit Term เอง และต้องคอยเช็กว่าใครถึงกำหนดแล้ว', tags: ['Creator', 'Consultant', 'Freelancer'] },
-  { headline: 'ลูกค้าจ่ายมัดจำก่อน แล้วจ่ายส่วนที่เหลือหลังส่งงาน', supporting: 'ต้องจำว่าได้รับมาแล้วเท่าไหร่ และยังเหลืออีกเท่าไหร่', tags: ['Designer', 'Developer', 'Photographer'] },
-  { headline: 'เดือนหนึ่งรับหลายจ๊อบ จนเริ่มจำไม่ไหวว่าใครจ่ายแล้ว', supporting: 'มีลูกค้าหลายคน หลายวันจ่าย และเงินเข้าคนละรอบ', tags: ['Tutor', 'Coach', 'Event Worker'] },
-  { headline: 'มีรายได้หลายทาง แต่ไม่รู้ว่าจริงๆ เหลือกำไรเท่าไหร่', supporting: 'ได้เงินเข้าหลายแหล่ง แต่ยังมีค่าใช้จ่ายตามมาอีก', tags: ['Creator', 'Side Hustler', 'Digital Seller'] },
-  { headline: 'ต้องออกเอกสารให้ลูกค้าเอง', supporting: 'ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ และข้อมูลภาษีอยู่คนละที่', tags: ['Consultant', 'Developer', 'Designer'] },
-  { headline: 'หาเงินเอง แต่ไม่ได้อยากเป็นฝ่ายบัญชีให้ตัวเอง', supporting: 'อยากโฟกัสงาน ไม่ใช่เปิดหลายไฟล์เพื่อจำเรื่องเงิน', wide: true },
+const AUDIENCE = [
+  { title: 'ฟรีแลนซ์', copy: 'หลายงาน หลายลูกค้า หลายวันจ่าย' },
+  { title: 'Creator', copy: 'หลายแบรนด์ หลายแคมเปญ หลายรอบจ่าย' },
+  { title: 'ครู / ติวเตอร์ / โค้ช', copy: 'มีคลาส มีลูกค้า มีเงินหลายรอบที่ต้องตาม' },
+  { title: 'นักเรียน–นักศึกษา', copy: 'เรียนไป รับงานไป' },
+  { title: 'Side Hustler', copy: 'มีเงินเดือน แต่รายได้ไม่ได้มีแค่เงินเดือน' },
+  { title: 'คนทำงานอิสระ', copy: 'รายได้เข้าตามงาน ไม่ได้เข้าตามสิ้นเดือน' },
 ];
 
-const OCCUPATIONS: { icon: typeof Camera; title: string; copy: string }[] = [
-  { icon: Camera, title: 'Creator / Influencer', copy: 'รับสปอนเซอร์หลายแบรนด์ ไม่ต้องจำเองว่าเจ้าไหนจ่ายวันไหน' },
-  { icon: FileText, title: 'Designer / Editor / Photographer', copy: 'รับมัดจำ ส่งงาน แล้วตามเงินส่วนที่เหลือได้ในที่เดียว' },
-  { icon: Code2, title: 'Developer / Web Designer', copy: 'งานเป็นเฟส แบ่งจ่ายหลายงวด ก็ยังรู้ว่าเงินไหนเข้าแล้ว' },
-  { icon: Briefcase, title: 'Consultant / Specialist', copy: 'ตั้งแต่งาน เอกสาร ไปจนถึงวันรับเงินจริง' },
-  { icon: GraduationCap, title: 'Tutor / Coach / Instructor', copy: 'ลูกค้าหลายคน รายรับหลายรอบ ก็ยังเห็นภาพรวม' },
-  { icon: Ticket, title: 'Event / Production Crew', copy: 'หลายงาน หลายผู้ว่าจ้าง และแต่ละงานได้เงินไม่พร้อมกัน' },
-  { icon: ShoppingBag, title: 'Digital Product Seller', copy: 'มีรายได้จากหลายช่องทาง แล้วอยากเห็นว่าจริงๆ เหลือเท่าไหร่' },
-  { icon: Layers, title: 'Side Hustler', copy: 'มีงานประจำ แต่รับจ๊อบเพิ่ม อยากรู้ว่างานเสริมทำเงินได้จริงแค่ไหน' },
+const DIFFERENCE = ['รับงาน', 'ส่งงาน', 'Credit Term', 'รอเงิน', 'รับจริง', 'หักรายจ่าย', 'เหลือจริง'];
+
+const STEPS = [
+  { title: 'รับงาน', copy: 'ใส่ชื่องาน มูลค่า และวันส่ง', scene: 0 },
+  { title: 'ส่งงาน', copy: 'กระรอกรู้ว่าเงินก้อนไหนกำลังรอ', scene: 3 },
+  { title: 'รับเงินจริง', copy: 'บันทึกรับเงินจากงานเดิม', scene: 4 },
+  { title: 'เห็นเงินเหลือจริง', copy: 'รู้ว่าเงินเข้าเท่าไหร่ ออกเท่าไหร่ และเหลือเท่าไหร่', scene: 5 },
 ];
 
-function FloatingCards() {
+const wrap = 'mx-auto w-full max-w-[1200px] px-5 sm:px-8 lg:px-12';
+const section = 'py-[clamp(5.5rem,4rem+6vw,11rem)]';
+
+function PrimaryButton({ onClick, children, size = 'md' }: { onClick: () => void; children: React.ReactNode; size?: 'md' | 'lg' }) {
   return (
-    <div className="relative mx-auto mt-10 h-64 w-full max-w-3xl sm:h-80">
-      <div className="absolute inset-0 flex items-center justify-center rounded-3xl bg-gradient-to-br from-[#FFF7F1] to-[#FBEEE4]">
-        <div className="sm:hidden">
-          <Mascot mood="happy" size={120} />
+    <button type="button" onClick={onClick}
+      className={`group inline-flex items-center justify-center gap-2 rounded-xl bg-[#E65F2B] font-semibold text-white transition-colors duration-200 hover:bg-[#D35221] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E65F2B] cursor-pointer ${size === 'lg' ? 'h-13 px-7 text-[15px]' : 'h-11 px-5 text-[14px]'}`}
+      style={size === 'lg' ? { height: 52 } : undefined}>
+      {children}
+      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-[3px]" />
+    </button>
+  );
+}
+
+function Nav({ onStart, onLogin }: { onStart: () => void; onLogin: () => void }) {
+  const [scrolled, setScrolled] = React.useState(false);
+  React.useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return (
+    <header className={`sticky top-0 z-50 transition-[background-color,border-color] duration-300 ${scrolled ? 'border-b border-[#ECE8E3] bg-[#FAF8F5]/92 backdrop-blur-md' : 'border-b border-transparent'}`}>
+      <div className={`${wrap} flex h-16 items-center justify-between gap-4`}>
+        <a href="/" aria-label="กระรอกตุนเงิน หน้าแรก"><BrandLockup size={30} /></a>
+        <nav className="hidden items-center gap-8 md:flex" aria-label="เมนูหลัก">
+          {NAV.map(item => <a key={item.href} href={item.href} className="text-[14px] text-[#5F5953] transition-colors hover:text-[#1C1917]">{item.label}</a>)}
+        </nav>
+        <div className="flex items-center gap-1 sm:gap-3">
+          <button type="button" onClick={onLogin} className="h-10 px-3 text-[14px] font-medium text-[#1C1917] hover:text-[#C24A16] cursor-pointer">เข้าสู่ระบบ</button>
+          <button type="button" onClick={onStart} className="hidden h-10 items-center rounded-xl bg-[#1C1917] px-4 text-[14px] font-medium text-white transition-colors hover:bg-black sm:inline-flex cursor-pointer">เริ่มใช้งานฟรี</button>
         </div>
-        <div className="hidden sm:block">
-          <Mascot mood="happy" size={150} />
+      </div>
+    </header>
+  );
+}
+
+function Hero({ onStart }: { onStart: () => void }) {
+  const reduce = useReducedMotion();
+  const [restart, setRestart] = React.useState(0);
+  const theaterRef = React.useRef<HTMLDivElement>(null);
+  const enter = (delay: number, y: number) => reduce ? {} : {
+    initial: { opacity: 0, y }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.6, ease: EASE, delay },
+  };
+  const watch = () => {
+    setRestart(n => n + 1);
+    theaterRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+  };
+  return (
+    <section className="relative overflow-hidden pb-[clamp(4rem,3rem+4vw,8rem)] pt-[clamp(3.5rem,2rem+5vw,7.5rem)]">
+      <div className={`${wrap} text-center`}>
+        <motion.p {...enter(0, 10)} className="text-[14px] font-medium text-[#C24A16] sm:text-[15px]">เลขาการเงินที่เกิดมาเพื่อคนรับงาน</motion.p>
+        {/* Exactly two lines at every width: the size follows the longer line's measure (~9.35em). */}
+        <motion.h1 {...enter(0.15, 22)} className="mx-auto mt-5 font-semibold leading-[1.1] tracking-[-0.015em] text-[#1C1917]"
+          style={{ fontSize: 'min(5.5rem, calc((100vw - 72px) / 9.5))' }}>
+          <span className="block whitespace-nowrap">เรื่องตามเงิน</span>
+          <span className="block whitespace-nowrap">ปล่อยให้กระรอกจัดการ</span>
+        </motion.h1>
+        <motion.div {...enter(0.45, 12)}>
+          <p className="mx-auto mt-7 max-w-[40rem] text-[clamp(1rem,0.9rem+0.4vw,1.2rem)] leading-[1.75] text-[#6B655F] [text-wrap:balance]">
+            {/* Phrases never split mid-way; lines break only between them. */}
+            {['ตั้งแต่รับงาน ออกบิล', 'กำหนด Credit Term', 'ตามเงินค้าง', 'จนรู้ว่าเหลือเงินจริงเท่าไหร่', 'กระรอกช่วยเก็บทุกอย่างไว้ในที่เดียว'].map((phrase, i) => (
+              <React.Fragment key={phrase}>{i === 3 && <br className="hidden md:block" />}<span className="whitespace-nowrap">{phrase}</span>{' '}</React.Fragment>
+            ))}
+          </p>
+          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <PrimaryButton onClick={onStart} size="lg">เริ่มใช้งานฟรี</PrimaryButton>
+            <button type="button" onClick={watch}
+              className="group inline-flex h-[52px] items-center gap-2.5 rounded-xl px-5 text-[15px] font-medium text-[#1C1917] transition-colors hover:bg-[#F1ECE6] cursor-pointer">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#DCD6CF] transition-colors group-hover:border-[#1C1917]"><Play className="ml-0.5 h-3 w-3 fill-current" /></span>
+              ดูการทำงาน
+            </button>
+          </div>
+        </motion.div>
+      </div>
+      <motion.div ref={theaterRef} {...(reduce ? {} : { initial: { opacity: 0, y: 36, scale: 0.985 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { duration: 0.8, ease: EASE, delay: 0.75 } })}
+        className="mx-auto mt-[clamp(3.5rem,2.5rem+3vw,6rem)] w-full max-w-[1120px] px-4 sm:px-8">
+        <ProductTheater restartKey={restart} />
+      </motion.div>
+    </section>
+  );
+}
+
+function Audience() {
+  const [active, setActive] = React.useState(0);
+  return (
+    <section id="who" className={`bg-white ${section}`}>
+      <div className={wrap}>
+        <Reveal>
+          <Headline>รายได้ไม่ได้เข้าวันเดียวทุกเดือน?<br />กระรอกเกิดมาเพื่อคุณ</Headline>
+          <Lead className="mt-5 max-w-xl">ถ้าต้องจำว่าใครยังไม่จ่าย กระรอกช่วยได้</Lead>
+        </Reveal>
+        <ol className="mt-[clamp(3rem,2rem+3vw,5rem)] border-t border-[#ECE8E3]">
+          {AUDIENCE.map((row, i) => (
+            <Reveal as="li" key={row.title} delay={i * 0.06}>
+              <div onMouseEnter={() => setActive(i)} onFocus={() => setActive(i)} tabIndex={0}
+                className="group grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline gap-x-4 border-b border-[#ECE8E3] py-6 outline-none sm:grid-cols-[4rem_minmax(0,0.9fr)_minmax(0,1.1fr)] sm:py-8">
+                <span className={`font-mono text-[13px] transition-colors duration-300 ${active === i ? 'text-[#E65F2B]' : 'text-[#B8B2AB]'}`}>{String(i + 1).padStart(2, '0')}</span>
+                <span className={`text-[clamp(1.4rem,1rem+1.4vw,2.25rem)] font-semibold leading-tight transition-colors duration-300 ${active === i ? 'text-[#1C1917]' : 'text-[#1C1917] sm:text-[#B8B2AB]'}`}>{row.title}</span>
+                <span className={`col-start-2 mt-1.5 text-[15px] leading-relaxed transition-colors duration-300 sm:col-start-3 sm:mt-0 sm:text-[17px] ${active === i ? 'text-[#57514B]' : 'text-[#77716B] sm:text-[#C2BCB5]'}`}>{row.copy}</span>
+              </div>
+            </Reveal>
+          ))}
+        </ol>
+        <Reveal className="mx-auto mt-[clamp(5rem,3rem+6vw,10rem)] max-w-3xl text-center">
+          <p className="text-[clamp(1.5rem,1rem+1.8vw,2.6rem)] font-semibold leading-[1.3] text-[#1C1917] [text-wrap:balance]">
+            ถ้ารายได้ของคุณไม่ได้เข้าวันเดียวทุกเดือน<br className="hidden sm:block" /> คุณไม่ควรต้องตามทุกอย่างด้วยความจำ
+          </p>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function Difference() {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start 75%', 'end 55%'] });
+  const [active, setActive] = React.useState(reduce ? DIFFERENCE.length - 1 : -1);
+  useMotionValueEvent(scrollYProgress, 'change', v => { if (!reduce) setActive(Math.min(DIFFERENCE.length - 1, Math.floor(v * DIFFERENCE.length) - 0)); });
+  const fill = DIFFERENCE.length > 1 ? Math.max(0, active) / (DIFFERENCE.length - 1) : 0;
+
+  return (
+    <section className={`bg-[#141416] ${section}`}>
+      <div className={wrap}>
+        <Reveal>
+          <Headline dark>เงินของคนรับงาน<br />เริ่มก่อนวันที่เงินเข้า</Headline>
+          <Lead dark className="mt-5 max-w-2xl">แอปทั่วไปเริ่มบันทึกตอนเงินเข้า–ออกแล้ว แต่กระรอกเริ่มช่วยคุณตั้งแต่วันที่รับงาน</Lead>
+        </Reveal>
+
+        <div ref={ref} className="relative mt-[clamp(3.5rem,2.5rem+4vw,7rem)]">
+          {/* Desktop: horizontal track */}
+          <div className="relative hidden lg:block">
+            <div className="absolute left-[calc(100%/14)] right-[calc(100%/14)] top-[11px] h-px bg-[#2E2E33]">
+              <div className="h-full origin-left bg-[#E65F2B] transition-transform duration-500 ease-out" style={{ transform: `scaleX(${fill})` }} />
+            </div>
+            <ol className="relative grid grid-cols-7">
+              {DIFFERENCE.map((label, i) => (
+                <li key={label} className="flex flex-col items-center text-center">
+                  <span className={`h-[23px] w-[23px] rounded-full border-2 transition-colors duration-500 ${i <= active ? 'border-[#E65F2B] bg-[#E65F2B]' : 'border-[#3A3A40] bg-[#141416]'}`} />
+                  <span className={`mt-4 text-[15px] transition-colors duration-500 ${i <= active ? 'text-[#F5F2EE]' : 'text-[#5E5B57]'}`}>{label}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+          {/* Phone / tablet: vertical */}
+          <ol className="relative space-y-6 pl-9 lg:hidden">
+            <span className="absolute bottom-2 left-[10px] top-2 w-px bg-[#2E2E33]">
+              <span className="block w-full origin-top bg-[#E65F2B] transition-transform duration-500 ease-out" style={{ height: '100%', transform: `scaleY(${fill})` }} />
+            </span>
+            {DIFFERENCE.map((label, i) => (
+              <li key={label} className="relative">
+                <span className={`absolute -left-9 top-1 h-[21px] w-[21px] rounded-full border-2 transition-colors duration-500 ${i <= active ? 'border-[#E65F2B] bg-[#E65F2B]' : 'border-[#3A3A40] bg-[#141416]'}`} />
+                <span className={`text-[19px] transition-colors duration-500 ${i <= active ? 'text-[#F5F2EE]' : 'text-[#5E5B57]'}`}>{label}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <Reveal className="mt-[clamp(5rem,3rem+6vw,10rem)] max-w-4xl">
+          <p className="text-[clamp(1rem,0.9rem+0.4vw,1.25rem)] text-[#A9A39C]">ไม่ได้แค่บอกว่ามีเงินเท่าไหร่</p>
+          <p className="mt-4 text-[clamp(2rem,1.2rem+3vw,4rem)] font-semibold leading-[1.15] text-[#F5F2EE] [text-wrap:balance]">
+            แต่บอกได้ว่า<br />เงินก้อนต่อไปจะมาจากงานไหน<br /><span className="text-[#FF9A6B]">และเมื่อไหร่</span>
+          </p>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function Chapter({ id, bg, eyebrow, title, copy, visual, flip = false, centered = false }: {
+  id?: string; bg: string; eyebrow: string; title: React.ReactNode; copy: string; visual: React.ReactNode; flip?: boolean; centered?: boolean;
+}) {
+  if (centered) {
+    return (
+      <section id={id} className={`${bg} ${section}`}>
+        <div className={wrap}>
+          <Reveal className="mx-auto max-w-3xl text-center">
+            <Eyebrow>{eyebrow}</Eyebrow>
+            <Headline className="mt-4">{title}</Headline>
+            <Lead className="mx-auto mt-5 max-w-xl">{copy}</Lead>
+          </Reveal>
+          <Reveal delay={0.1} className="mx-auto mt-[clamp(3rem,2rem+3vw,5rem)] max-w-[880px]">{visual}</Reveal>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section id={id} className={`${bg} ${section}`}>
+      <div className={`${wrap} grid items-center gap-[clamp(2.5rem,1.5rem+3vw,6rem)] ${flip ? 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]'}`}>
+        <Reveal className={flip ? 'lg:order-2' : ''}>
+          <Eyebrow>{eyebrow}</Eyebrow>
+          <Headline className="mt-4 lg:whitespace-nowrap">{title}</Headline>
+          <Lead className="mt-5 max-w-md">{copy}</Lead>
+        </Reveal>
+        <Reveal delay={0.1} className={flip ? 'lg:order-1' : ''}>{visual}</Reveal>
+      </div>
+    </section>
+  );
+}
+
+function TeamTeaser() {
+  const [ref, seen] = useSeen<HTMLDivElement>(0.4);
+  const reduce = useReducedMotion();
+  const members = [
+    { name: 'A', x: 16, y: 26 },
+    { name: 'B', x: 84, y: 26 },
+    { name: 'C', x: 50, y: 92 },
+  ];
+  return (
+    <section className={`bg-[#1C1B1F] ${section}`}>
+      <div className={`${wrap} grid items-center gap-[clamp(2.5rem,1.5rem+3vw,6rem)] lg:grid-cols-2`}>
+        <Reveal>
+          <span className="inline-flex rounded-full border border-[#3A3A40] px-3 py-1 text-[11px] font-semibold tracking-[0.14em] text-[#C9C3BC]">COMING SOON</span>
+          <Headline dark className="mt-5">Group &amp; Team กำลังมา</Headline>
+          <Lead dark className="mt-5 max-w-md">แชร์ Workspace และจัดการงานร่วมกันได้ง่ายขึ้น</Lead>
+        </Reveal>
+        <div ref={ref} className="relative mx-auto aspect-[10/8] w-full max-w-[460px]">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
+            {members.map((m, i) => (
+              <motion.line key={m.name} x1={m.x} y1={m.y} x2={50} y2={52} stroke="#4A4A52" strokeWidth={0.35} vectorEffect="non-scaling-stroke"
+                initial={reduce ? false : { pathLength: 0, opacity: 0 }} animate={seen ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
+                transition={{ duration: 1.1, ease: EASE, delay: 0.6 + i * 0.7 }} />
+            ))}
+          </svg>
+          <motion.div initial={reduce ? false : { opacity: 0, scale: 0.96 }} animate={seen ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.96 }} transition={{ duration: 0.7, ease: EASE }}
+            className="absolute left-1/2 top-[52%] w-[54%] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[#3A3A40] bg-[#232328] p-4">
+            <p className="text-[12px] font-medium text-[#F5F2EE]">Workspace</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {['งาน', 'เอกสาร', 'สถานะ'].map(t => <span key={t} className="rounded-md bg-[#2E2E34] px-2 py-1 text-[11px] text-[#C9C3BC]">{t}</span>)}
+            </div>
+          </motion.div>
+          {members.map((m, i) => (
+            <motion.span key={m.name} initial={reduce ? false : { opacity: 0 }} animate={seen ? { opacity: 1 } : { opacity: 0 }} transition={{ duration: 0.6, ease: EASE, delay: 0.4 + i * 0.7 }}
+              className="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#3A3A40] bg-[#232328] text-[13px] font-medium text-[#F5F2EE]"
+              style={{ left: `${m.x}%`, top: `${m.y}%` }}>
+              {m.name}
+            </motion.span>
+          ))}
         </div>
       </div>
-      <div className="absolute bottom-4 left-2 w-40 rounded-2xl border border-brand-border bg-brand-white p-3.5 text-left shadow-lg shadow-black/5 sm:bottom-8 sm:left-6 sm:w-48 sm:p-4">
-        <div className="text-[10px] text-brand-muted sm:text-[11px]">รอรับเงิน</div>
-        <div className="mt-0.5 text-base font-bold text-[#F36A2D] sm:text-lg">฿7,365</div>
-        <div className="mt-1.5 text-[10px] font-medium text-brand-text sm:text-[11px]">DDproperty</div>
-        <div className="text-[9px] text-brand-muted sm:text-[10px]">Credit 30 วัน · อีก 3 วัน</div>
+    </section>
+  );
+}
+
+function HowItWorks() {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start 70%', 'end 60%'] });
+  const [active, setActive] = React.useState(reduce ? STEPS.length - 1 : 0);
+  useMotionValueEvent(scrollYProgress, 'change', v => { if (!reduce) setActive(Math.max(0, Math.min(STEPS.length - 1, Math.floor(v * STEPS.length)))); });
+  return (
+    <section id="how" className={`bg-white ${section}`}>
+      <div className={wrap}>
+        <Reveal className="max-w-2xl">
+          <Headline>คุณทำงาน<br />กระรอกช่วยจำเรื่องเงิน</Headline>
+        </Reveal>
+        <div ref={ref} className="mt-[clamp(3rem,2rem+3vw,5rem)] grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-20">
+          <ol className="relative">
+            <span className="absolute bottom-4 left-[15px] top-4 w-px bg-[#ECE8E3]" aria-hidden>
+              <span className="block w-full origin-top bg-[#E65F2B] transition-transform duration-500 ease-out" style={{ height: '100%', transform: `scaleY(${active / (STEPS.length - 1)})` }} />
+            </span>
+            {STEPS.map((step, i) => (
+              <li key={step.title} className="relative grid grid-cols-[32px_minmax(0,1fr)] gap-5 pb-10 last:pb-0">
+                <span className={`relative z-[1] flex h-8 w-8 items-center justify-center rounded-full border font-mono text-[12px] transition-colors duration-500 ${i <= active ? 'border-[#E65F2B] bg-[#E65F2B] text-white' : 'border-[#E2DDD7] bg-white text-[#A39D96]'}`}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <div className={`transition-opacity duration-500 ${i <= active ? 'opacity-100' : 'opacity-45'}`}>
+                  <p className="text-[clamp(1.25rem,1rem+0.8vw,1.6rem)] font-semibold text-[#1C1917]">{step.title}</p>
+                  <p className="mt-1.5 max-w-sm text-[15px] leading-relaxed text-[#77716B]">{step.copy}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div className="lg:sticky lg:top-28 lg:self-start">
+            <div className="rounded-[22px] bg-[#FAF8F5] p-4 sm:p-6">
+              <DemoJobCard scene={STEPS[active].scene} />
+              <p className="mt-4 text-center text-[13px] text-[#77716B]">
+                {active === 0 && 'บันทึกงานใหม่ เงินก้อนนี้ยังไม่เกิด'}
+                {active === 1 && 'ส่งงานแล้ว เงินก้อนนี้กลายเป็นยอดที่รอรับ'}
+                {active === 2 && 'ลูกค้าโอนแล้ว กดรับเงินจากงานเดิมได้เลย'}
+                {active === 3 && 'ยอดรับจริงในภาพรวมอัปเดตให้เอง'}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="absolute right-3 top-3 w-40 rounded-2xl border border-brand-border bg-brand-white p-3.5 text-left shadow-lg shadow-black/5 sm:right-8 sm:top-6 sm:w-48 sm:p-4">
-        <div className="text-[10px] text-brand-muted sm:text-[11px]">กำไรสุทธิ</div>
-        <div className="mt-0.5 text-base font-bold text-[#18A66A] sm:text-lg">฿25,970</div>
-        <div className="mt-1.5 text-[9px] font-medium text-[#18A66A] sm:text-[10px]">↑ 18% จากเดือนก่อน</div>
+    </section>
+  );
+}
+
+function Pricing({ onStart }: { onStart: () => void }) {
+  return (
+    <section id="pricing" className={`bg-[#FAF8F5] ${section}`}>
+      <div className={`${wrap} text-center`}>
+        <Reveal>
+          <Headline>เริ่มก่อน<br />ค่อยตัดสินใจทีหลัง</Headline>
+        </Reveal>
+        <Reveal delay={0.1} className="mx-auto mt-[clamp(3rem,2rem+3vw,5rem)] max-w-md">
+          <p className="text-[15px] font-medium text-[#1C1917]">Pro</p>
+          <p className="mt-3 font-mono text-[clamp(3rem,2rem+3vw,4.5rem)] font-semibold leading-none tracking-tight text-[#1C1917]">฿149<span className="ml-2 font-sans text-[17px] font-normal tracking-normal text-[#77716B]">/ เดือน</span></p>
+          <ul className="mx-auto mt-8 space-y-3 text-left text-[15px] text-[#57514B] sm:w-fit">
+            {['ทดลองใช้ฟรี 14 วัน', 'ไม่มีการตัดเงินอัตโนมัติ', 'ไม่ต่ออายุ ก็ใช้แบบฟรีต่อได้'].map(t => (
+              <li key={t} className="flex items-center gap-3"><Check className="h-4 w-4 shrink-0 text-[#18A66A]" />{t}</li>
+            ))}
+          </ul>
+          <div className="mt-10"><PrimaryButton onClick={onStart} size="lg">เริ่มใช้งานฟรี</PrimaryButton></div>
+        </Reveal>
       </div>
-      <div className="absolute bottom-6 right-6 hidden items-center gap-2 rounded-2xl border border-brand-border bg-brand-white px-3.5 py-2.5 shadow-lg shadow-black/5 sm:flex">
-        <span className="h-2 w-2 rounded-full bg-[#E95454]" />
-        <span className="text-[11px] font-medium text-brand-text">2 รายการเกินกำหนด</span>
+    </section>
+  );
+}
+
+function FinalCta({ onStart }: { onStart: () => void }) {
+  return (
+    <section className={`bg-white ${section}`}>
+      <div className={`${wrap} text-center`}>
+        <Reveal className="mx-auto flex justify-center"><Mascot mood="proud" size={128} /></Reveal>
+        <Reveal delay={0.08}>
+          <p className="mt-8 text-[clamp(1.1rem,0.95rem+0.6vw,1.5rem)] text-[#77716B]">งานเยอะขึ้นได้</p>
+          <p className="mx-auto mt-3 max-w-3xl text-[clamp(2.2rem,1.2rem+3.8vw,4.75rem)] font-semibold leading-[1.1] tracking-[-0.01em] text-[#1C1917]">
+            เรื่องตามเงิน<br />ไม่ต้องเยอะขึ้นตาม
+          </p>
+          <Lead className="mx-auto mt-6 max-w-lg">ให้กระรอกช่วยจำเรื่องเงิน คุณเอาเวลาไปทำงานที่อยากทำ</Lead>
+          <div className="mt-10"><PrimaryButton onClick={onStart} size="lg">เริ่มใช้งานฟรี</PrimaryButton></div>
+        </Reveal>
       </div>
-    </div>
+    </section>
+  );
+}
+
+function Footer({ onLogin }: { onLogin: () => void }) {
+  const link = 'text-[14px] text-[#77716B] transition-colors hover:text-[#1C1917]';
+  return (
+    <footer className="border-t border-[#ECE8E3] bg-[#FAF8F5] py-14">
+      <div className={`${wrap} flex flex-col gap-10 sm:flex-row sm:justify-between`}>
+        <div>
+          <BrandLockup size={28} />
+          <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-[#77716B]">เลขาการเงินที่เกิดมาเพื่อคนรับงาน</p>
+        </div>
+        <div className="flex gap-16">
+          <div>
+            <p className="text-[13px] font-medium text-[#1C1917]">ผลิตภัณฑ์</p>
+            <ul className="mt-3 space-y-2">
+              <li><a href="#features" className={link}>ฟีเจอร์</a></li>
+              <li><a href="#pricing" className={link}>ราคา</a></li>
+              <li><button type="button" onClick={onLogin} className={`${link} cursor-pointer`}>เข้าสู่ระบบ</button></li>
+            </ul>
+          </div>
+          <div>
+            <p className="text-[13px] font-medium text-[#1C1917]">กฎหมาย</p>
+            <ul className="mt-3 space-y-2">
+              <li><a href="/privacy.html" className={link}>Privacy</a></li>
+              <li><a href="/terms.html" className={link}>Terms</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <p className={`${wrap} mt-12 text-[12px] text-[#A39D96]`}>© {new Date().getFullYear()} กระรอกตุนเงิน</p>
+    </footer>
   );
 }
 
@@ -82,212 +407,33 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
   const goLogin = () => onNavigate('/login');
 
   return (
-    <div className="min-h-screen bg-white text-[#211D1A]" style={{ fontFamily: 'var(--font-sans)' }}>
-      {/* Nav */}
-      <header className="flex items-center justify-between border-b border-[#F0EEEA] px-5 py-4 sm:px-10 lg:px-16">
-        <div className="flex items-center gap-2.5">
-          <BrandLockup size={32} />
-        </div>
-        <nav className="hidden items-center gap-8 lg:flex">
-          <a href="#features" className="text-[13px] text-[#6B6660] hover:text-[#211D1A]">ฟีเจอร์</a>
-          <a href="#who" className="text-[13px] text-[#6B6660] hover:text-[#211D1A]">เหมาะกับใคร</a>
-          <a href="#pricing" className="text-[13px] text-[#6B6660] hover:text-[#211D1A]">ราคา</a>
-        </nav>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button type="button" onClick={goLogin} className="px-2 text-[13px] font-medium text-[#211D1A] sm:px-1.5">เข้าสู่ระบบ</button>
-          <button type="button" onClick={goLogin} className="rounded-[10px] bg-[#F36A2D] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#D8551F]">เริ่มใช้งานฟรี</button>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <section className="relative overflow-hidden px-5 pb-14 pt-16 text-center sm:px-10 sm:pt-20 lg:px-16">
-        <h1 className="mx-auto max-w-3xl text-3xl font-bold leading-tight sm:text-4xl lg:text-[44px]">
-          รับงานเอง ทำงานเอง<br />ไม่ต้องจำเรื่องเงินเองทุกอย่าง
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#6B6660] sm:text-[15px]">
-          กระรอกตุนเงินช่วยจัดการตั้งแต่รับงาน รอเงิน Credit Term รายจ่าย ไปจนถึงกำไรจริง
-        </p>
-        <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <button type="button" onClick={goLogin} className="w-full rounded-xl bg-[#F36A2D] px-7 py-3.5 text-sm font-semibold text-white hover:bg-[#D8551F] sm:w-auto">เริ่มใช้งานฟรี</button>
-          <button type="button" onClick={goLogin} className="w-full rounded-xl border border-brand-border bg-white px-7 py-3.5 text-sm font-medium text-[#211D1A] hover:bg-brand-faint sm:w-auto">ทดลองดูระบบ</button>
-        </div>
-        <p className="mx-auto mt-4 max-w-lg text-xs text-[#9A968F]">
-          สำหรับคนที่หาเงินด้วยตัวเอง — Creator · Freelancer · Tutor · Coach · Developer · Designer · Photographer · Consultant · คนมีงานเสริม
-        </p>
-        <FloatingCards />
-      </section>
-
-      {/* Journey strip */}
-      <section className="px-5 pb-16 text-center sm:px-10 lg:px-16">
-        <p className="mb-6 text-xs font-semibold text-[#6B6660]">จากรับงาน ถึงเห็นกำไรจริง ครบในระบบเดียว</p>
-        <div className="mx-auto flex max-w-4xl flex-wrap items-start justify-center gap-1">
-          {JOURNEY_STEPS.map((step, idx) => (
-            <div key={step.label} className="flex items-center gap-1">
-              <div className="flex w-24 flex-col items-center gap-2">
-                <div
-                  className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border text-[13px] font-bold ${
-                    step.kind === 'highlight'
-                      ? 'border-[#F36A2D] bg-[#F36A2D] text-white'
-                      : step.kind === 'success'
-                      ? 'border-[#18A66A] bg-[#E9F8F1] text-[#12724A]'
-                      : 'border-[#EAE7E3] bg-[#F7F6F4] text-[#6B6660]'
-                  }`}
-                >
-                  {idx + 1}
-                </div>
-                <div className={`text-[11px] leading-tight ${step.kind === 'neutral' ? 'font-normal text-[#6B6660]' : 'font-semibold ' + (step.kind === 'highlight' ? 'text-[#C24A16]' : 'text-[#12724A]')}`}>
-                  {step.label}
-                </div>
-              </div>
-              {idx < JOURNEY_STEPS.length - 1 && (
-                <ArrowRight className="-mt-6 h-4 w-4 flex-shrink-0 text-[#D8D4CE]" />
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Feature sections */}
-      <section id="features" className="mx-auto max-w-6xl px-5 pb-16 sm:px-10 lg:px-16">
-        <div className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
-          <div>
-            <div className="mb-2.5 text-xs font-semibold tracking-wide text-[#C24A16]">CREDIT TERM</div>
-            <h2 className="mb-3.5 text-2xl font-bold leading-tight sm:text-[28px]">เงินไหนยังไม่เข้า<br />ไม่ต้องจำเอง</h2>
-            <p className="max-w-md text-sm leading-7 text-[#6B6660]">ระบบติดตามเงินค้างรับอัตโนมัติ เรียงตามความเร่งด่วน ตั้งแต่เกินกำหนดไปจนถึงยังไม่ถึงกำหนด พร้อมนับถอยหลัง Credit Term ให้ทุกวัน</p>
-          </div>
-          <div className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm">
-            <div className="mb-3 text-xs font-medium">เงินที่ต้องติดตาม</div>
-            {[
-              { name: 'Brand Consultation', sub: 'DDproperty · Credit 30 วัน', amount: '฿6,665', strip: '#E95454' },
-              { name: 'รีวิวสแปลนดับ', sub: 'Skinness · อีก 3 วัน', amount: '฿1,500', strip: '#F36A2D' },
-              { name: 'ผลิตคลิปโฆษณา TikTok', sub: 'Brew Days · รอรับปกติ', amount: '฿8,000', strip: '#D8D4CE' },
-            ].map((row) => (
-              <div key={row.name} className="flex items-center justify-between border-t border-brand-border py-2.5 pl-2.5" style={{ borderLeft: `3px solid ${row.strip}` }}>
-                <div>
-                  <div className="text-xs font-medium">{row.name}</div>
-                  <div className="text-[11px] text-[#6B6660]">{row.sub}</div>
-                </div>
-                <div className="text-xs font-medium">{row.amount}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-5 pb-16 sm:px-10 lg:px-16">
-        <div className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
-          <div className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm md:order-1">
-            <div className="mb-3.5 grid grid-cols-2 gap-2.5">
-              <div><div className="text-[11px] text-[#6B6660]">รับเงินจริง</div><div className="text-base font-semibold">฿44,880</div></div>
-              <div><div className="text-[11px] text-[#6B6660]">รอรับเงิน</div><div className="text-base font-semibold text-[#F36A2D]">฿7,365</div></div>
-              <div><div className="text-[11px] text-[#6B6660]">รายจ่าย</div><div className="text-base font-semibold">฿18,910</div></div>
-              <div><div className="text-[11px] text-[#6B6660]">กำไรสุทธิ</div><div className="text-base font-bold text-[#18A66A]">฿25,970</div></div>
-            </div>
-            <svg viewBox="0 0 400 90" className="h-16 w-full">
-              <polyline points="10,60 60,40 110,55 160,25 210,45 260,20 310,38 390,15" fill="none" stroke="#F36A2D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <div className="md:order-2">
-            <div className="mb-2.5 text-xs font-semibold tracking-wide text-[#C24A16]">ภาพรวม</div>
-            <h2 className="mb-3.5 text-2xl font-bold leading-tight sm:text-[28px]">เห็นกำไรจริง<br />ไม่ใช่แค่ยอดเงินเข้า</h2>
-            <p className="max-w-md text-sm leading-7 text-[#6B6660]">แยกให้ชัดระหว่างเงินที่รับแล้ว เงินที่รอรับ รายจ่าย และกำไรสุทธิที่เหลือจริง ไม่ปนกันจนงง</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-5 pb-16 text-center sm:px-10 lg:px-16">
-        <div className="mb-2.5 text-xs font-semibold tracking-wide text-[#C24A16]">ครบในที่เดียว</div>
-        <h2 className="mb-8 text-2xl font-bold sm:text-[28px]">เรื่องเงินหลายอย่าง อยู่ในที่เดียว</h2>
-        <div className="mx-auto grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            { icon: BarChart3, label: 'รายงาน' },
-            { icon: FileText, label: 'ภาษี' },
-            { icon: MessageSquare, label: 'แจ้งเตือนผ่าน LINE' },
-            { icon: UploadCloud, label: 'สำรองข้อมูล' },
-          ].map(({ icon: Icon, label }) => (
-            <div key={label} className="rounded-2xl border border-brand-border bg-white p-4 text-left shadow-sm">
-              <Icon className="mb-2 h-5 w-5 text-[#7D7772]" strokeWidth={1.8} />
-              <div className="text-xs font-medium">{label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Who it's for */}
-      <section id="who" className="bg-[#FAFAF8] px-5 pb-10 pt-16 text-center sm:px-10 lg:px-16">
-        <div className="mb-2.5 text-xs font-semibold tracking-wide text-[#C24A16]">เหมาะกับคุณไหม?</div>
-        <h2 className="mx-auto mb-4 max-w-xl text-2xl font-bold leading-snug sm:text-[28px]">ถ้าคุณหาเงินจากงานของตัวเอง และต้องจัดการหลังบ้านเอง<br />กระรอกตุนเงินถูกทำมาเพื่อคุณ</h2>
-        <p className="mx-auto mb-10 max-w-lg text-sm leading-7 text-[#6B6660]">ไม่ว่าคุณจะเรียกตัวเองว่า Freelancer, Creator, Coach หรือแค่มีงานเสริม ถ้าคุณต้องรับงาน ตามเงิน และดูรายได้ของตัวเอง คุณกำลังเจอปัญหาแบบเดียวกัน</p>
-
-        <div className="mx-auto mb-20 grid max-w-4xl gap-3.5 text-left sm:grid-cols-2">
-          {SCENARIOS.map((s) => (
-            <div key={s.headline} className={`rounded-2xl border border-brand-border p-5 ${s.wide ? 'sm:col-span-2 bg-[#FFF7F1]' : 'bg-white'}`}>
-              <div className="mb-2 text-[15px] font-semibold leading-snug">{s.headline}</div>
-              <div className="mb-3 text-xs leading-relaxed text-[#6B6660]">{s.supporting}</div>
-              {s.tags && (
-                <div className="flex flex-wrap gap-1.5">
-                  {s.tags.map((tag) => (
-                    <span key={tag} className="rounded-full bg-[#F7F6F4] px-2.5 py-1 text-[10px] text-[#7D7772]">{tag}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <h3 className="mb-8 text-xl font-bold sm:text-2xl">งานคุณอาจไม่เหมือนกัน<br />แต่ปัญหาหลังบ้านคล้ายกัน</h3>
-        <div className="mx-auto grid max-w-5xl gap-3 text-left sm:grid-cols-2 lg:grid-cols-4">
-          {OCCUPATIONS.map(({ icon: Icon, title, copy }) => (
-            <div key={title} className="rounded-2xl border border-brand-border bg-white p-4.5">
-              <Icon className="mb-2.5 h-5 w-5 text-[#7D7772]" strokeWidth={1.8} />
-              <div className="mb-1.5 text-xs font-semibold">{title}</div>
-              <div className="text-[11px] leading-relaxed text-[#6B6660]">{copy}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Pricing teaser */}
-      <section id="pricing" className="px-5 py-16 text-center sm:px-10 lg:px-16">
-        <div className="mb-2.5 text-xs font-semibold tracking-wide text-[#C24A16]">ราคา</div>
-        <h2 className="mb-7 text-2xl font-bold sm:text-[28px]">เริ่มฟรี อัปเกรดเมื่อพร้อม</h2>
-        <div className="mx-auto flex max-w-lg flex-col gap-4 sm:flex-row">
-          <div className="flex-1 rounded-2xl border border-brand-border bg-white p-6 text-left">
-            <div className="mb-1 text-[13px] font-semibold">Free</div>
-            <div className="mb-2.5 text-[22px] font-bold">฿0</div>
-            <div className="text-xs text-[#6B6660]">ติดตามงานและเงินได้ครบ ไม่มีค่าใช้จ่าย</div>
-          </div>
-          <div className="relative flex-1 rounded-2xl border-[1.5px] border-[#F36A2D] bg-white p-6 text-left">
-            <div className="absolute -top-2.5 right-4 rounded-full bg-[#F36A2D] px-2.5 py-0.5 text-[10px] font-semibold text-white">แนะนำ</div>
-            <div className="mb-1 text-[13px] font-semibold">Pro</div>
-            <div className="mb-2.5 text-[22px] font-bold">฿149 <span className="text-xs font-normal text-[#6B6660]">/ เดือน</span></div>
-            <div className="text-xs text-[#6B6660]">ผู้ช่วยภาษี เอกสารไม่จำกัด แจ้งเตือนผ่าน LINE</div>
-          </div>
-        </div>
-        <button type="button" onClick={() => onNavigate('/plans')} className="mt-6 rounded-xl border border-brand-border bg-white px-5 py-2.5 text-[13px] font-medium hover:bg-brand-faint">ดูแพ็กเกจ</button>
-      </section>
-
-      {/* Phase 2 teaser */}
-      <section className="bg-[#FAFAF8] px-5 py-12 text-center sm:px-10 lg:px-16">
-        <span className="mb-3.5 inline-block rounded-full bg-[#F2F3F5] px-3 py-1 text-[10px] font-bold tracking-wide text-[#6B6660]">เร็วๆ นี้</span>
-        <div className="mb-2 text-xl font-bold leading-snug">วันนี้สำหรับคนทำงานด้วยตัวเอง<br />วันข้างหน้า โตไปพร้อมทีมของคุณ</div>
-        <div className="text-[13px] text-[#6B6660]">ระบบสำหรับทีมและธุรกิจขนาดเล็กกำลังพัฒนา</div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="bg-gradient-to-b from-[#FFF7F1] to-white px-5 py-20 text-center sm:px-10 lg:px-16">
-        <Mascot mood="wave" size={88} className="mx-auto mb-5" />
-        <h2 className="mb-6 text-[26px] font-bold leading-snug">พร้อมรู้ว่าเงินของคุณ<br />อยู่ไหนแล้วหรือยัง?</h2>
-        <button type="button" onClick={goLogin} className="rounded-xl bg-[#F36A2D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#D8551F]">เริ่มใช้งานฟรี</button>
-      </section>
-
-      <footer className="flex flex-col items-center justify-between gap-3 border-t border-[#F0EEEA] px-5 py-7 text-center sm:flex-row sm:px-10 lg:px-16">
-        <div className="text-xs text-[#6B6660]">© 2569 กระรอกตุนเงิน</div>
-        <div className="flex gap-5">
-          <a href="/privacy" className="text-xs text-[#6B6660] hover:text-[#211D1A]">นโยบายความเป็นส่วนตัว</a>
-          <a href="/terms" className="text-xs text-[#6B6660] hover:text-[#211D1A]">เงื่อนไขการใช้งาน</a>
-        </div>
-      </footer>
+    <div className="min-h-screen bg-[#FAF8F5] text-[#1C1917] antialiased" style={{ ...LIGHT_VARS, fontFamily: 'var(--font-sans)', colorScheme: 'light' }}>
+      <Nav onStart={goLogin} onLogin={goLogin} />
+      <main>
+        <Hero onStart={goLogin} />
+        <Audience />
+        <Difference />
+        <Chapter id="features" bg="bg-[#FAF8F5]" eyebrow="เงินที่ยังไม่ได้รับ"
+          title={<>งานจบแล้ว<br />แต่เงินยังไม่เข้า<br /><span className="text-[#77716B]">กระรอกไม่ลืม</span></>}
+          copy="ยอดที่ยังไม่ได้รับอยู่ในที่เดียว เห็นทันทีว่าก้อนไหนเกินกำหนด ก้อนไหนใกล้ถึงวัน" visual={<ReceivablesVisual />} />
+        <Chapter bg="bg-white" eyebrow="Credit Term" flip
+          title={<>ลูกค้าบอก “อีก 30 วัน”<br /><span className="text-[#77716B]">กระรอกช่วยจำต่อให้</span></>}
+          copy="ส่งงานวันไหน ใส่ Credit Term กี่วัน กระรอกนับให้ แล้ววางวันที่เงินควรเข้าไว้บนปฏิทิน" visual={<CreditTermVisual />} />
+        <Chapter bg="bg-[#F6F2EC]" eyebrow="ภาพรวม" centered
+          title={<>ยอดงานเยอะ<br />ไม่ได้แปลว่าเงินในมือเยอะ</>}
+          copy="กระรอกแยกให้ว่างานทั้งหมดเท่าไหร่ เงินเข้าจริงเท่าไหร่ ยังรออีกเท่าไหร่ และเหลือจริงเท่าไหร่" visual={<DashboardVisual />} />
+        <Chapter bg="bg-white" eyebrow="รายจ่าย"
+          title={<>เงินหมดไปกับอะไร<br /><span className="text-[#77716B]">ไม่ต้องเดา</span></>}
+          copy="บันทึกรายจ่ายตามหมวด แล้วดูได้เลยว่าเดือนนี้เงินไปอยู่ที่ไหนมากที่สุด" visual={<ExpensesVisual />} />
+        <Chapter bg="bg-[#FAF8F5]" eyebrow="เอกสาร" flip
+          title={<>งานเดียว<br />เอกสารต่อได้เลย</>}
+          copy="ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ดึงชื่อลูกค้า ยอดเงิน และภาษีจากงานเดิม ไม่ต้องกรอกซ้ำ" visual={<DocumentsVisual />} />
+        <TeamTeaser />
+        <HowItWorks />
+        <Pricing onStart={goLogin} />
+        <FinalCta onStart={goLogin} />
+      </main>
+      <Footer onLogin={goLogin} />
     </div>
   );
 }
