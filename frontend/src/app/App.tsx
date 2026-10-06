@@ -444,7 +444,6 @@ export default function App() {
 
   const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean, subsOpen?: boolean) => {
     const Icon = item.icon;
-    const hasCoreFeatureShadow = ['dashboard', 'jobs', 'calendar', 'incomeExpense'].includes(item.key);
     const firstPathSegment = pathname.split('/').filter(Boolean)[0];
     const routeHasExplicitTab = isTabKey(firstPathSegment) || !!(firstPathSegment && RETIRED_TAB_ALIASES[firstPathSegment]);
     const navActiveTab = routeHasExplicitTab ? parseWorkspaceRoute(pathname).tab : activeTab;
@@ -465,12 +464,8 @@ export default function App() {
             ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#34231B] dark:text-[#FFA473] font-bold'
             : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'
         }`}
-        style={isActive && hasCoreFeatureShadow ? { boxShadow: '0 6px 16px rgba(194, 74, 22, 0.24)' } : undefined}
       >
-        <span
-          className="inline-flex shrink-0"
-          style={isActive && hasCoreFeatureShadow ? { filter: 'drop-shadow(0 2px 3px rgba(194, 74, 22, 0.42))' } : undefined}
-        >
+        <span className="inline-flex shrink-0">
           <Icon className={item.group === 'sub' ? 'w-4 h-4' : 'w-4.5 h-4.5'} />
         </span>
         <span>{t(item.labelKey)}</span>
