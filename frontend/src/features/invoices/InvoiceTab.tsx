@@ -1,5 +1,5 @@
 import PageHeader from '../../components/ui/PageHeader';
-import { uiPrimaryButton } from '../../components/ui/uiStyles';
+import { uiPrimaryButton, uiSurface } from '../../components/ui/uiStyles';
 import { privateCache } from '../../services/privateCache';
 import { imageFileToDataUrl } from '../../services/images';
 import { readInvoices, saveCloud } from '../../services/cloud';
@@ -28,8 +28,18 @@ import {
   AlertCircle,
   Download,
   Upload,
-  Send
+  Send,
+  ChevronDown,
+  RotateCcw
 } from 'lucide-react';
+
+// Editor form styles: one surface, sections split by a hairline, same-size fields everywhere.
+const formSection = 'space-y-4 border-b border-brand-border px-5 py-6 last-of-type:border-b-0 sm:px-6';
+const formHeading = 'text-[15px] font-semibold text-brand-text';
+const formLabel = 'mb-1.5 block text-[13px] font-medium text-brand-text';
+const formMiniLabel = 'mb-1 block text-xs text-brand-muted';
+const formHint = 'text-xs text-brand-muted';
+const formInput = 'h-11 w-full min-w-0 rounded-[10px] border border-brand-border bg-brand-white px-3.5 text-[14px] text-brand-text outline-none transition-colors placeholder:text-brand-muted/70 focus:border-[#E65F2B] dark:bg-[#141518]';
 
 type DocumentWorkspaceTab = Exclude<DocumentType, 'receiptTaxInvoice'>;
 
@@ -176,6 +186,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const [docTypeFilter, setDocTypeFilter] = useState<DocumentWorkspaceTab>(tabFromUrl.current ?? 'quotation');
   const [listQuery, setListQuery] = useState('');
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  // Optional payment/delivery terms and reference: hidden behind a toggle unless already filled in.
+  const [docTermsOpen, setDocTermsOpen] = useState(false);
   useEffect(() => { writeTabToUrl(docTypeFilter); }, [docTypeFilter]);
   // Switching between the list and the form starts at the top, not wherever the long form was scrolled.
   const pageTopRef = React.useRef<HTMLDivElement>(null);
@@ -219,6 +231,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const [paymentTerm, setPaymentTerm] = useState('');
   const [deliveryTerm, setDeliveryTerm] = useState('');
   const [refNo, setRefNo] = useState('');
+  const hasDocTerms = Boolean(paymentTerm || deliveryTerm || refNo);
+  const docTermsVisible = docTermsOpen || hasDocTerms;
   
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([
     { id: '1', description: 'บริการให้คำปรึกษา / บริการงานผลิตสร้างสรรค์', quantity: 1, price: 5000 }
@@ -815,514 +829,263 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             <p className="mt-0.5 text-[13px] text-brand-muted">กรอกข้อมูลเอกสาร และดูตัวอย่างแบบเรียลไทม์</p>
           </div>
         </div>
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-        <form onSubmit={handleSaveInvoice} className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-2xl p-5 sm:p-6 space-y-6 pb-24 xl:pb-6">
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.82fr)]">
+        <form onSubmit={handleSaveInvoice} className={`${uiSurface} relative pb-0`}>
 
-          {/* Quick Pre-fill from Job/Deal */}
+          {/* Quick pre-fill from a job */}
           {jobs.length > 0 && !editingInvoiceId && (
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-[13px] font-medium text-brand-text" htmlFor="doc-from-job">
-                <Briefcase className="h-4 w-4 text-brand-muted" /> ดึงข้อมูลจากงาน
+            <section className={formSection}>
+              <label className={formLabel} htmlFor="doc-from-job">
+                <span className="inline-flex items-center gap-1.5"><Briefcase className="h-4 w-4 text-brand-muted" /> ดึงข้อมูลจากงาน</span>
               </label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <select
-                  id="doc-from-job"
-                  value={selectedJobId}
-                  onChange={(e) => handleSelectJob(e.target.value)}
-                  className="h-10 flex-1 rounded-xl border border-brand-border bg-brand-white px-3 text-[13px] text-brand-text outline-none focus:border-[#E65F2B] cursor-pointer dark:bg-stone-800"
-                >
-                  <option value="" disabled>เลือกงาน แล้วระบบกรอกลูกค้า รายการ ยอด และภาษีให้</option>
-                  {jobs.map(job => (
-                    <option key={job.id} value={job.id}>
-                      {job.name} (ลูกค้า: {job.client} | ยอด: {formatCurrency(job.value)})
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  type="button"
-                  onClick={handleClearForm}
-                  className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-xl border border-brand-border px-3.5 text-[13px] text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer"
-                  title="ล้างข้อมูลทั้งหมด"
-                >
-                  ล้างข้อมูล
-                </button>
-              </div>
-              {selectedJobId && (
-                <p className="text-xs text-brand-muted">ดึงข้อมูลจาก: <span className="font-medium text-brand-text">{jobs.find(j => j.id === selectedJobId)?.name}</span></p>
-              )}
-            </div>
-          )}
-
-          {/* Document Settings Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            
-            {/* Doc Type */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">ประเภทเอกสาร</label>
-              <select
-                value={docType}
-                onChange={(e) => {
-                  const val = e.target.value as DocumentType;
-                  setDocType(val);
-                  // Update prefix if current document number matches the default structure
-                  const thaiYear = new Date().getFullYear() + 543;
-                  const serial = String(invoices.length + 1).padStart(3, '0');
-                  setDocNo(`${getDocumentMeta(val).prefix}-${thaiYear}-${serial}`);
-                  // Tax invoices carry VAT by definition
-                  if (getDocumentMeta(val).isTax && vatRate === 0) setVatRate(7);
-                }}
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
-              >
-                {(docType === 'receiptTaxInvoice' ? [...DOCUMENT_TYPES, docType] : DOCUMENT_TYPES).map(type => (
-                  <option key={type} value={type}>{getDocumentMeta(type).th} ({getDocumentMeta(type).en})</option>
+              <select id="doc-from-job" value={selectedJobId} onChange={(e) => handleSelectJob(e.target.value)} className={`${formInput} cursor-pointer`}>
+                <option value="" disabled>เลือกงาน แล้วระบบกรอกลูกค้า รายการ ยอด และภาษีให้</option>
+                {jobs.map(job => (
+                  <option key={job.id} value={job.id}>{job.name} (ลูกค้า: {job.client} | ยอด: {formatCurrency(job.value)})</option>
                 ))}
               </select>
+              {selectedJobId && <p className={formHint}>ดึงข้อมูลจาก <span className="font-medium text-brand-text">{jobs.find(j => j.id === selectedJobId)?.name}</span></p>}
+            </section>
+          )}
+
+          {/* 1. Document */}
+          <section className={formSection}>
+            <h3 className={formHeading}>ข้อมูลเอกสาร</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={formLabel} htmlFor="doc-type">ประเภทเอกสาร</label>
+                <select
+                  id="doc-type"
+                  value={docType}
+                  onChange={(e) => {
+                    const val = e.target.value as DocumentType;
+                    setDocType(val);
+                    // Update prefix if current document number matches the default structure
+                    const thaiYear = new Date().getFullYear() + 543;
+                    const serial = String(invoices.length + 1).padStart(3, '0');
+                    setDocNo(`${getDocumentMeta(val).prefix}-${thaiYear}-${serial}`);
+                    // Tax invoices carry VAT by definition
+                    if (getDocumentMeta(val).isTax && vatRate === 0) setVatRate(7);
+                  }}
+                  className={`${formInput} cursor-pointer`}
+                >
+                  {(docType === 'receiptTaxInvoice' ? [...DOCUMENT_TYPES, docType] : DOCUMENT_TYPES).map(type => (
+                    <option key={type} value={type}>{getDocumentMeta(type).th} ({getDocumentMeta(type).en})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={formLabel} htmlFor="doc-no">เลขที่เอกสาร</label>
+                <input id="doc-no" type="text" value={docNo} onChange={(e) => setDocNo(e.target.value)} placeholder="เช่น INV-2026-001" className={`${formInput} font-mono`} />
+              </div>
+              <div>
+                <label className={formLabel} htmlFor="doc-created">วันที่ออกเอกสาร</label>
+                <input id="doc-created" type="date" value={createdDate} onChange={(e) => setCreatedDate(e.target.value)} className={`${formInput} cursor-pointer`} />
+              </div>
+              <div>
+                <label className={formLabel} htmlFor="doc-due">
+                  {docType === 'quotation' ? 'ยืนราคาถึงวันที่' : getDocumentMeta(docType).isReceipt ? 'วันที่รับเงิน (ถ้าต่างจากวันชำระ)' : 'วันที่กำหนดชำระเงิน'}
+                </label>
+                <input id="doc-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${formInput} cursor-pointer`} />
+              </div>
+              {docType === 'quotation' && (
+                <div>
+                  <label className={formLabel} htmlFor="doc-response">วันที่ตอบรับ</label>
+                  <input id="doc-response" type="date" value={responseDate} onChange={(e) => setResponseDate(e.target.value)} className={`${formInput} cursor-pointer`} />
+                </div>
+              )}
             </div>
 
-            {/* Doc No */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">เลขที่เอกสาร</label>
-              <input
-                type="text"
-                value={docNo}
-                onChange={(e) => setDocNo(e.target.value)}
-                placeholder="เช่น INV-2026-001"
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-            {/* Created Date */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">วันที่ออกเอกสาร</label>
-              <input
-                type="date"
-                value={createdDate}
-                onChange={(e) => setCreatedDate(e.target.value)}
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
-              />
-            </div>
-
-            {/* Due Date */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">
-                {docType === 'quotation' ? 'ยืนราคาถึงวันที่' : getDocumentMeta(docType).isReceipt ? 'วันที่รับเงิน (ถ้าต่างจากวันชำระ)' : 'วันที่กำหนดชำระเงิน'}
-              </label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
-              />
-            </div>
-
-            {/* Response Date (quotation only) */}
-            {docType === 'quotation' && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">วันที่ตอบรับ</label>
-                <input
-                  type="date"
-                  value={responseDate}
-                  onChange={(e) => setResponseDate(e.target.value)}
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border/60 rounded-xl px-3.5 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
-                />
+            {/* Optional terms: tucked away until needed (opens by itself when something is filled in) */}
+            {/* Optional terms stay tucked away until needed; once something is filled in they stay visible */}
+            {!hasDocTerms && (
+              <button type="button" onClick={() => setDocTermsOpen(v => !v)} aria-expanded={docTermsVisible}
+                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#C24A16] cursor-pointer dark:text-[#FF9A6B]">
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${docTermsVisible ? 'rotate-180' : ''}`} />
+                เงื่อนไขและเลขอ้างอิง (ไม่บังคับ)
+              </button>
+            )}
+            {docTermsVisible && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={formLabel} htmlFor="doc-payment-term">เงื่อนไขการชำระเงิน</label>
+                  <input id="doc-payment-term" type="text" value={paymentTerm} onChange={(e) => setPaymentTerm(e.target.value)} placeholder="เช่น เงินสด, เครดิต 30 วัน, โอนเงิน 100%" className={formInput} />
+                </div>
+                <div>
+                  <label className={formLabel} htmlFor="doc-delivery-term">ระยะเวลาการส่งมอบสินค้า / บริการ</label>
+                  <input id="doc-delivery-term" type="text" value={deliveryTerm} onChange={(e) => setDeliveryTerm(e.target.value)} placeholder="เช่น ภายใน 7 วันทำการ, ทันทีหลังรับมัดจำ" className={formInput} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={formLabel} htmlFor="doc-ref">อ้างอิงเลขที่เอกสาร / ใบสั่งซื้อ (PO/QT Ref)</label>
+                  <input id="doc-ref" type="text" value={refNo} onChange={(e) => setRefNo(e.target.value)} placeholder="เช่น QT-2569-003, PO-9988" className={`${formInput} font-mono`} />
+                </div>
               </div>
             )}
-
-          </div>
-
-          {/* Document Optional Details Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-brand-faint/35 dark:bg-stone-950/10 border border-brand-border/40 rounded-2xl">
-            {/* Payment Term */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">
-                เงื่อนไขการชำระเงิน (เช่น เงินสด, เครดิต 30 วัน)
-              </label>
-              <input
-                type="text"
-                value={paymentTerm}
-                onChange={(e) => setPaymentTerm(e.target.value)}
-                placeholder="เช่น เงินสด, เครดิต 30 วัน, โอนเงิน 100%"
-                className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-            {/* Delivery Term */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">
-                ระยะเวลาการส่งมอบสินค้า / บริการ
-              </label>
-              <input
-                type="text"
-                value={deliveryTerm}
-                onChange={(e) => setDeliveryTerm(e.target.value)}
-                placeholder="เช่น ภายใน 7 วันทำการ, ทันทีหลังรับมัดจำ"
-                className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-
-            {/* Ref No */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">
-                อ้างอิงเลขที่เอกสาร / ใบสั่งซื้อ (PO/QT Ref)
-              </label>
-              <input
-                type="text"
-                value={refNo}
-                onChange={(e) => setRefNo(e.target.value)}
-                placeholder="เช่น QT-2569-003, PO-9988"
-                className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-              />
-            </div>
-          </div>
+          </section>
 
           {/* Receipt-only: how and when the money was received */}
           {getDocumentMeta(docType).isReceipt && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-[#E65F2B]/5 border border-[#E65F2B]/15 rounded-2xl">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">วันที่รับชำระเงิน</label>
-                <input
-                  type="date"
-                  value={paidDate}
-                  onChange={(e) => setPaidDate(e.target.value)}
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
-                />
+            <section className={formSection}>
+              <h3 className={formHeading}>การรับชำระเงิน</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                  <label className={formLabel} htmlFor="doc-paid-date">วันที่รับชำระเงิน</label>
+                  <input id="doc-paid-date" type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} className={`${formInput} cursor-pointer`} />
+                </div>
+                <div>
+                  <label className={formLabel} htmlFor="doc-paid-method">วิธีชำระเงิน</label>
+                  <input id="doc-paid-method" type="text" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} placeholder="เช่น โอนเงิน, เงินสด, พร้อมเพย์" className={formInput} />
+                </div>
+                <div>
+                  <label className={formLabel} htmlFor="doc-paid-amount">จำนวนเงินที่ได้รับ</label>
+                  <NumberInput id="doc-paid-amount" value={paidAmount} onChange={(raw) => setPaidAmount(raw === '' ? '' : Math.max(0, parseFloat(raw) || 0))} placeholder="เว้นว่าง = ยอดสุทธิ" className={`${formInput} font-mono`} />
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">วิธีชำระเงิน</label>
-                <input
-                  type="text"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  placeholder="เช่น โอนเงิน, เงินสด, พร้อมเพย์"
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-brand-muted dark:text-stone-300 uppercase">จำนวนเงินที่ได้รับ (เว้นว่าง = ยอดสุทธิ)</label>
-                <NumberInput
-                  value={paidAmount}
-                  onChange={(raw) => setPaidAmount(raw === '' ? '' : Math.max(0, parseFloat(raw) || 0))}
-                  placeholder="บาท"
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-black font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
-              </div>
-            </div>
+            </section>
           )}
 
-          {/* Customer / Client Details Card */}
-          <div className="p-4 bg-brand-faint/45 dark:bg-stone-950/20 border border-brand-border/60 rounded-2xl space-y-4">
-            <h4 className="text-[11px] font-black text-brand-text dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Building className="w-4 h-4 text-[#E65F2B]" />
-              <span>ข้อมูลลูกค้า / ผู้จ่ายเงิน (Bill To)</span>
-            </h4>
-
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-6 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">ชื่อลูกค้า หรือ ชื่อบริษัท</label>
-                <input
-                  type="text"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="เช่น บริษัท อะคอร์น มีเดีย จำกัด (สำนักงานใหญ่)"
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
+          {/* 2. Customer */}
+          <section className={formSection}>
+            <h3 className={formHeading}>ลูกค้า / ผู้จ่ายเงิน</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className={formLabel} htmlFor="client-name">ชื่อลูกค้า หรือ ชื่อบริษัท</label>
+                <input id="client-name" type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="เช่น บริษัท อะคอร์น มีเดีย จำกัด (สำนักงานใหญ่)" className={formInput} />
               </div>
-
-              <div className="md:col-span-6 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">เลขประจำตัวผู้เสียภาษีลูกค้า</label>
-                <input
-                  type="text"
-                  value={clientTaxId}
-                  onChange={(e) => setClientTaxId(e.target.value)}
-                  placeholder="เช่น 0105561000222 (13 หลัก)"
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
+              <div>
+                <label className={formLabel} htmlFor="client-tax">เลขประจำตัวผู้เสียภาษี</label>
+                <input id="client-tax" type="text" value={clientTaxId} onChange={(e) => setClientTaxId(e.target.value)} placeholder="13 หลัก" className={`${formInput} font-mono`} />
               </div>
-
-              <div className="md:col-span-6 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">รหัสลูกค้า (ถ้ามี)</label>
-                <input
-                  type="text"
-                  value={clientCode}
-                  onChange={(e) => setClientCode(e.target.value)}
-                  placeholder="เช่น C-0012"
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
+              <div>
+                <label className={formLabel} htmlFor="client-branch">สาขา</label>
+                <input id="client-branch" type="text" value={clientBranch} onChange={(e) => setClientBranch(e.target.value)} placeholder="เช่น สำนักงานใหญ่ หรือ 00001" className={formInput} />
               </div>
-
-              <div className="md:col-span-6 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">สาขา</label>
-                <input
-                  type="text"
-                  value={clientBranch}
-                  onChange={(e) => setClientBranch(e.target.value)}
-                  placeholder="เช่น สำนักงานใหญ่ หรือ สาขา 00001"
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
+              <div className="sm:col-span-2">
+                <label className={formLabel} htmlFor="client-address">ที่อยู่ผู้เสียภาษี</label>
+                <textarea id="client-address" value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} placeholder="เช่น 12/3 อาคารไอคอนิค ชั้น 5 แขวงคลองต้น เขตวัฒนา กรุงเทพฯ 10110" rows={2} className={`${formInput} h-auto py-2.5`} />
               </div>
-
-              <div className="md:col-span-12 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">ที่อยู่ผู้เสียภาษีลูกค้า</label>
-                <textarea
-                  value={clientAddress}
-                  onChange={(e) => setClientAddress(e.target.value)}
-                  placeholder="เช่น 12/3 อาคารไอคอนิค ชั้น 5 แขวงคลองต้น เขตวัฒนา กรุงเทพฯ 10110"
-                  rows={2}
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-semibold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
+              <div>
+                <label className={formLabel} htmlFor="client-contact">ชื่อผู้ติดต่อ (เรียน)</label>
+                <input id="client-contact" type="text" value={clientContactName} onChange={(e) => setClientContactName(e.target.value)} placeholder="เช่น คุณเอก ใจดี" className={formInput} />
               </div>
-
-              <div className="md:col-span-4 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">ชื่อผู้ติดต่อ (เรียน)</label>
-                <input
-                  type="text"
-                  value={clientContactName}
-                  onChange={(e) => setClientContactName(e.target.value)}
-                  placeholder="เช่น คุณเอก ใจดี"
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
+              <div>
+                <label className={formLabel} htmlFor="client-code">รหัสลูกค้า (ถ้ามี)</label>
+                <input id="client-code" type="text" value={clientCode} onChange={(e) => setClientCode(e.target.value)} placeholder="เช่น C-0012" className={`${formInput} font-mono`} />
               </div>
-
-              <div className="md:col-span-4 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">เบอร์โทรศัพท์ติดต่อ</label>
-                <input
-                  type="text"
-                  value={clientPhone}
-                  onChange={(e) => setClientPhone(e.target.value)}
-                  placeholder="เช่น 02-555-5555"
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
+              <div>
+                <label className={formLabel} htmlFor="client-phone">เบอร์โทรศัพท์</label>
+                <input id="client-phone" type="text" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="เช่น 02-555-5555" className={formInput} />
               </div>
-
-              <div className="md:col-span-4 flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">อีเมลลูกค้า</label>
-                <input
-                  type="email"
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                  placeholder="เช่น finance@client.co.th"
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
+              <div>
+                <label className={formLabel} htmlFor="client-email">อีเมล</label>
+                <input id="client-email" type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} placeholder="เช่น finance@client.co.th" className={formInput} />
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* Dynamic Table: Invoice Items */}
-          <div className="space-y-3.5">
-            <div className="flex items-center justify-between border-b border-brand-border/40 pb-2">
-              <label className="text-[10px] font-black text-brand-muted uppercase tracking-wider">
-                รายการค่าบริการและคำนวณเงินสด
-              </label>
-              
-              <button
-                type="button"
-                onClick={handleAddItemRow}
-                className="px-3 py-1.5 bg-[#E65F2B]/10 hover:bg-[#E65F2B]/20 text-[#E65F2B] dark:text-[#FFA473] text-[10px] font-black rounded-xl transition-all cursor-pointer flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>เพิ่มแถวรายการ</span>
-              </button>
-            </div>
-
-            <div className="space-y-2">
+          {/* 3. Items: description on its own line, numbers underneath, so nothing gets squeezed */}
+          <section className={formSection}>
+            <h3 className={formHeading}>รายการ</h3>
+            <ol className="divide-y divide-brand-border">
               {invoiceItems.map((item, idx) => (
-                <div key={item.id} className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center bg-brand-faint/30 dark:bg-stone-950/10 p-3 rounded-2xl border border-brand-border/50">
-                  <span className="text-[10px] font-black font-mono text-brand-muted shrink-0 w-6 text-center">
-                    {idx + 1}
-                  </span>
-
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type="text"
-                      value={item.description}
-                      onChange={(e) => handleItemFieldChange(item.id, 'description', e.target.value)}
-                      placeholder="เช่น ออกแบบเว็บไซต์, เขียนโค้ดระบบ, ค่าจัดหาวิดีโอ"
-                      className="w-full bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                    />
-                    <input
-                      type="text"
-                      value={item.detail || ''}
-                      onChange={(e) => handleItemFieldChange(item.id, 'detail', e.target.value)}
-                      placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)"
-                      className="w-full mt-1.5 bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-xl px-3 py-1.5 text-[11px] font-medium text-brand-muted dark:text-stone-300 outline-none focus:border-[#E65F2B]"
-                    />
+                <li key={item.id} className="py-4 first:pt-0">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-2.5 w-5 shrink-0 text-center font-mono text-[13px] text-brand-muted">{idx + 1}</span>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <input type="text" value={item.description} onChange={(e) => handleItemFieldChange(item.id, 'description', e.target.value)}
+                        placeholder="ชื่อรายการ เช่น ออกแบบเว็บไซต์, ค่าจัดทำวิดีโอ" aria-label={`ชื่อรายการที่ ${idx + 1}`} className={`${formInput} font-medium`} />
+                      <input type="text" value={item.detail || ''} onChange={(e) => handleItemFieldChange(item.id, 'detail', e.target.value)}
+                        placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)" aria-label={`รายละเอียดรายการที่ ${idx + 1}`} className={`${formInput} h-10 text-[13px] text-brand-muted`} />
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <label className="block">
+                          <span className={formMiniLabel}>จำนวน</span>
+                          <input type="number" value={item.quantity} onChange={(e) => handleItemFieldChange(item.id, 'quantity', e.target.value)} placeholder="จำนวน" className={`${formInput} text-center font-mono`} />
+                        </label>
+                        <label className="block">
+                          <span className={formMiniLabel}>หน่วย</span>
+                          <input type="text" value={item.unit || ''} onChange={(e) => handleItemFieldChange(item.id, 'unit', e.target.value)} placeholder="หน่วย" className={`${formInput} text-center`} />
+                        </label>
+                        <label className="block">
+                          <span className={formMiniLabel}>ราคาต่อหน่วย</span>
+                          <NumberInput value={item.price} onChange={(raw) => handleItemFieldChange(item.id, 'price', raw)} placeholder="0" className={`${formInput} text-right font-mono`} />
+                        </label>
+                        <label className="block">
+                          <span className={formMiniLabel}>ส่วนลด (บาท)</span>
+                          <NumberInput value={item.discount || 0} onChange={(raw) => handleItemFieldChange(item.id, 'discount', raw)} placeholder="0" className={`${formInput} text-right font-mono`} />
+                        </label>
+                      </div>
+                      <div className="flex items-center justify-between pt-0.5">
+                        <button type="button" onClick={() => handleRemoveItemRow(item.id)} title="ลบแถวนี้" aria-label={`ลบรายการที่ ${idx + 1}`}
+                          className="-ml-1.5 inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs text-brand-muted transition-colors hover:bg-[#FDEEEE] hover:text-[#C43A3A] cursor-pointer dark:hover:bg-[#F19A9A]/10 dark:hover:text-[#F19A9A]">
+                          <Trash2 className="h-3.5 w-3.5" /> ลบรายการ
+                        </button>
+                        <p className="text-[13px] text-brand-muted">รวม <span className="ml-1 font-mono text-[15px] font-semibold text-brand-text">{formatCurrency(item.quantity * item.price - (item.discount || 0))}</span></p>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="w-full sm:w-24 shrink-0 flex gap-2 sm:block">
-                    <span className="sm:hidden text-[9px] font-bold text-brand-muted self-center">จำนวน:</span>
-                    <input
-                      type="number"
-                      value={item.quantity}
-                      onChange={(e) => handleItemFieldChange(item.id, 'quantity', e.target.value)}
-                      placeholder="จำนวน"
-                      className="w-full bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-black font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] text-center"
-                    />
-                  </div>
-
-                  <div className="w-full sm:w-20 shrink-0 flex gap-2 sm:block">
-                    <span className="sm:hidden text-[9px] font-bold text-brand-muted self-center">หน่วย:</span>
-                    <input
-                      type="text"
-                      value={item.unit || ''}
-                      onChange={(e) => handleItemFieldChange(item.id, 'unit', e.target.value)}
-                      placeholder="หน่วย"
-                      className="w-full bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] text-center"
-                    />
-                  </div>
-
-                  <div className="w-full sm:w-36 shrink-0 flex gap-2 sm:block">
-                    <span className="sm:hidden text-[9px] font-bold text-brand-muted self-center">ราคาต่อหน่วย:</span>
-                    <NumberInput
-                      value={item.price}
-                      onChange={(raw) => handleItemFieldChange(item.id, 'price', raw)}
-                      placeholder="ราคา (บาท)"
-                      className="w-full bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-black font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] text-right"
-                    />
-                  </div>
-
-                  <div className="w-full sm:w-28 shrink-0 flex gap-2 sm:block">
-                    <span className="sm:hidden text-[9px] font-bold text-brand-muted self-center">ส่วนลด:</span>
-                    <NumberInput
-                      value={item.discount || 0}
-                      onChange={(raw) => handleItemFieldChange(item.id, 'discount', raw)}
-                      placeholder="ส่วนลด (บาท)"
-                      className="w-full bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-black font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] text-right"
-                    />
-                  </div>
-
-                  <div className="w-full sm:w-32 text-right self-center font-mono font-bold text-xs text-brand-text dark:text-white hidden sm:block">
-                    {formatCurrency(item.quantity * item.price - (item.discount || 0))}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItemRow(item.id)}
-                    className="p-2 bg-pink-bg text-pink-acc rounded-xl hover:bg-[#351C15]/50 transition-all cursor-pointer flex items-center justify-center border border-pink-acc/10 self-end sm:self-auto"
-                    title="ลบแถวนี้"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                </li>
               ))}
+            </ol>
+            <button type="button" onClick={handleAddItemRow}
+              className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-brand-border text-[13px] font-medium text-[#C24A16] transition-colors hover:border-[#F3B08C] hover:bg-[#FFF5EE] cursor-pointer dark:text-[#FF9A6B] dark:hover:bg-[#E65F2B]/10">
+              <Plus className="h-4 w-4" /> เพิ่มแถวรายการ
+            </button>
+          </section>
+
+          {/* 4. Tax + note */}
+          <section className={formSection}>
+            <h3 className={formHeading}>ภาษีและหมายเหตุ</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={formLabel} htmlFor="doc-vat">ภาษีมูลค่าเพิ่ม (VAT)</label>
+                <select id="doc-vat" value={vatRate} onChange={(e) => setVatRate(parseInt(e.target.value) || 0)} className={`${formInput} cursor-pointer`}>
+                  <option value={0}>ไม่มีภาษีมูลค่าเพิ่ม (0%)</option>
+                  <option value={7}>ภาษีมูลค่าเพิ่ม 7%</option>
+                </select>
+              </div>
+              <div>
+                <label className={formLabel} htmlFor="doc-wht">หัก ณ ที่จ่าย</label>
+                <select id="doc-wht" value={whtRate} onChange={(e) => setWhtRate(parseFloat(e.target.value) || 0)} className={`${formInput} cursor-pointer`}>
+                  <option value={0}>ไม่มีการหัก ณ ที่จ่าย</option>
+                  <option value={1}>ค่าขนส่ง 1%</option>
+                  <option value={3}>ฟรีแลนซ์ / บริการ 3%</option>
+                  <option value={5}>ค่าเช่า / โฆษณา 5%</option>
+                  {/* A job with a custom rate (e.g. 1.5%) carries it into the document. */}
+                  {![0, 1, 3, 5].includes(whtRate) && <option value={whtRate}>อัตรากำหนดเอง {whtRate}%</option>}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className={formLabel} htmlFor="doc-note">หมายเหตุ และเงื่อนไขท้ายเอกสาร</label>
+                <textarea id="doc-note" value={docNote} onChange={(e) => setDocNote(e.target.value)} placeholder="เช่น กรุณาโอนภายใน 30 วัน, หากชำระล่าช้าจะคิดดอกเบี้ยตามกฎหมาย" rows={3} className={`${formInput} h-auto py-2.5`} />
+              </div>
             </div>
+          </section>
+
+          {/* 5. Totals */}
+          <section className={`${formSection} pb-6`} aria-label="สรุปยอด">
+            <h3 className={formHeading}>สรุปยอด</h3>
+            <dl className="space-y-2 text-[14px]">
+              <div className="flex justify-between gap-4"><dt className="text-brand-muted">ยอดรวมก่อนภาษี</dt><dd className="font-mono text-brand-text">{formatCurrency(subtotal)}</dd></div>
+              {vatRate > 0 && <div className="flex justify-between gap-4"><dt className="text-brand-muted">ภาษีมูลค่าเพิ่ม {vatRate}%</dt><dd className="font-mono text-brand-text">+{formatCurrency(vatAmount)}</dd></div>}
+              {whtRate > 0 && <div className="flex justify-between gap-4"><dt className="text-brand-muted">หัก ณ ที่จ่าย {whtRate}%</dt><dd className="font-mono text-[#C43A3A] dark:text-[#F19A9A]">-{formatCurrency(whtAmount)}</dd></div>}
+              <div className="flex items-baseline justify-between gap-4 border-t border-brand-border pt-3">
+                <dt className="text-[15px] font-semibold text-brand-text">ยอดรับสุทธิ</dt>
+                <dd className="font-mono text-[26px] font-semibold leading-none text-brand-text">{formatCurrency(grandTotal)}</dd>
+              </div>
+            </dl>
+          </section>
+
+          {/* Actions stay in reach while scrolling a long form */}
+          <div className="sticky bottom-3 z-10 mx-3 mb-3 flex flex-nowrap items-center gap-1 rounded-xl border border-brand-border bg-brand-white/95 px-3 py-2.5 shadow-[0_8px_28px_rgba(20,18,16,0.12)] backdrop-blur sm:mx-4 sm:mb-4 dark:bg-[#232428]/95 dark:shadow-[0_8px_28px_rgba(0,0,0,0.4)]">
+            <button type="button" onClick={() => setActiveSubTab('list')} className="hidden h-11 rounded-xl px-4 text-[13px] font-medium sm:inline-flex sm:items-center text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer">ยกเลิก</button>
+            <button type="button" onClick={() => setMobilePreviewOpen(true)} className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer xl:hidden"><Eye className="h-4 w-4" />ดูตัวอย่าง</button>
+            <button type="button" onClick={handleClearForm} title="ล้างข้อมูลทั้งหมด" aria-label="ล้างข้อมูล" className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-[13px] font-medium text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer sm:px-4"><RotateCcw className="h-4 w-4 sm:hidden" /><span className="hidden sm:inline">ล้างข้อมูล</span></button>
+            <button type="submit" className="ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#E65F2B] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#D35221] cursor-pointer">
+              <FileText className="h-4 w-4" />
+              <span className="sm:hidden">บันทึก</span>
+              <span className="hidden sm:inline">{editingInvoiceId ? 'บันทึกการแก้ไข' : 'บันทึกและสร้างเอกสาร'}</span>
+            </button>
           </div>
-
-          {/* Tax Setting Card */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-            
-            {/* Left: VAT & WHT configuration */}
-            <div className="bg-brand-faint/30 dark:bg-stone-950/10 p-5 border border-brand-border/60 rounded-3xl space-y-4">
-              <h4 className="text-[10px] font-black text-brand-muted uppercase tracking-wider">
-                ตั้งค่าภาษีมูลค่าเพิ่ม & หัก ณ ที่จ่าย
-              </h4>
-
-              <div className="flex flex-col sm:flex-row gap-4">
-                
-                {/* VAT option */}
-                <div className="flex-1 flex flex-col gap-1.5">
-                  <label className="text-[9px] font-bold text-brand-muted uppercase">อัตราภาษีมูลค่าเพิ่ม (VAT)</label>
-                  <select
-                    value={vatRate}
-                    onChange={(e) => setVatRate(parseInt(e.target.value) || 0)}
-                    className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
-                  >
-                    <option value={0}>ไม่มีภาษีมูลค่าเพิ่ม (0%)</option>
-                    <option value={7}>ภาษีมูลค่าเพิ่มคงที่ (7%)</option>
-                  </select>
-                </div>
-
-                {/* WHT option */}
-                <div className="flex-1 flex flex-col gap-1.5">
-                  <label className="text-[9px] font-bold text-brand-muted uppercase">ภาษีหัก ณ ที่จ่าย (Withholding Tax)</label>
-                  <select
-                    value={whtRate}
-                    onChange={(e) => setWhtRate(parseFloat(e.target.value) || 0)}
-                    className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B] cursor-pointer"
-                  >
-                    <option value={0}>ไม่มีการหัก ณ ที่จ่าย</option>
-                    <option value={1}>หัก ณ ที่จ่ายค่าขนส่ง (1%)</option>
-                    <option value={3}>หัก ณ ที่จ่ายฟรีแลนซ์/บริการ (3%)</option>
-                    <option value={5}>หัก ณ ที่จ่ายค่าเช่า/โฆษณา (5%)</option>
-                    {/* A job with a custom rate (e.g. 1.5%) carries it into the document. */}
-                    {![0, 1, 3, 5].includes(whtRate) && <option value={whtRate}>หัก ณ ที่จ่ายอัตรากำหนดเอง ({whtRate}%)</option>}
-                  </select>
-                </div>
-
-              </div>
-
-              {/* Note / Terms */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[9px] font-bold text-brand-muted uppercase">หมายเหตุ และ เงื่อนไขท้ายบิล</label>
-                <textarea
-                  value={docNote}
-                  onChange={(e) => setDocNote(e.target.value)}
-                  placeholder="เช่น กรุณาโอนภายใน 30 วัน, หากชำระล่าช้าจะคิดดอกเบี้ยตามกฎหมาย"
-                  rows={2}
-                  className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3.5 py-2.5 text-xs font-semibold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
-                />
-              </div>
-
-            </div>
-
-            {/* Right: Summary values */}
-            <div className="bg-brand-faint/30 dark:bg-stone-950/10 p-5 border border-brand-border/60 rounded-3xl flex flex-col justify-between">
-              <h4 className="text-[10px] font-black text-brand-muted uppercase tracking-wider border-b border-brand-border/30 pb-2">
-                ยอดรวมเอกสารจำลอง
-              </h4>
-
-              <div className="space-y-2.5 py-4 text-xs font-semibold text-brand-muted">
-                <div className="flex justify-between">
-                  <span>ยอดรวมก่อนหักภาษี (Subtotal):</span>
-                  <span className="font-mono font-bold text-brand-text dark:text-white">{formatCurrency(subtotal)}</span>
-                </div>
-                {vatRate > 0 && (
-                  <div className="flex justify-between">
-                    <span>ภาษีมูลค่าเพิ่ม VAT ({vatRate}%):</span>
-                    <span className="font-mono text-brand-text dark:text-white">+{formatCurrency(vatAmount)}</span>
-                  </div>
-                )}
-                {whtRate > 0 && (
-                  <div className="flex justify-between text-[#A63F1B]">
-                    <span>หัก ณ ที่จ่าย ({whtRate}%):</span>
-                    <span className="font-mono font-bold">-{formatCurrency(whtAmount)}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between border-t border-brand-border/40 pt-2.5 text-sm font-black text-brand-text dark:text-white">
-                  <span>ยอดโอนรับสุทธิ (Grand Total):</span>
-                  <span className="font-mono text-emerald-600 dark:text-emerald-400 text-base">{formatCurrency(grandTotal)}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-[#E65F2B] hover:bg-[#A63F1B] text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-md shadow-brand-text/5 text-center flex items-center justify-center gap-1.5"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>{editingInvoiceId ? 'บันทึกการอัปเดตบิล' : 'บันทึกและสร้างเอกสารบิล'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearForm}
-                  className="py-3 px-4 bg-stone-100 hover:bg-stone-200 text-stone-600 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                >
-                  ล้างข้อมูล
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('list')}
-                  className="py-3 px-4 bg-brand-white hover:bg-brand-faint border border-brand-border/60 text-brand-text dark:bg-stone-900 dark:hover:bg-stone-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                >
-                  ยกเลิก
-                </button>
-              </div>
-
-            </div>
-
-          </div>
-
         </form>
 
         {/* Live preview: beside the form on wide screens, a full-screen sheet on phones */}
@@ -1330,10 +1093,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
           <PreviewCanvas invoice={withCurrentBranding(buildDraftInvoice())} className="h-full" />
         </aside>
         </div>
-        <button type="button" onClick={() => setMobilePreviewOpen(true)}
-          className="fixed inset-x-4 bottom-4 z-30 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-brand-text text-sm font-semibold text-brand-white shadow-lg xl:hidden cursor-pointer">
-          <Eye className="h-4 w-4" /> ดูตัวอย่าง
-        </button>
         {/* Portalled: the page wrapper animates with a transform, which would trap a fixed overlay inside it. */}
         {mobilePreviewOpen && createPortal(
           <div className="fixed inset-0 z-[200] flex flex-col bg-brand-white xl:hidden" role="dialog" aria-modal="true" aria-label="ตัวอย่างเอกสาร">
