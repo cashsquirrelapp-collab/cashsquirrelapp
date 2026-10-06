@@ -7,6 +7,7 @@ import { Drawer } from '../../components/ui/Drawer';
 import { RowMenu } from '../../components/ui/RowMenu';
 import { vaultFileUrl } from '../../services/vault';
 import { FileThumb, useVault } from './VaultProvider';
+import { downloadVaultZip } from './zip';
 
 // เอกสาร › คลังเอกสาร: every kept file (50 ทวิ, contracts / POs, others), searchable and filtered
 // by type and year, each linked to the job it belongs to.
@@ -35,6 +36,16 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
     (!q || [file.fileName, file.jobName, file.client].some(v => v?.toLowerCase().includes(q))));
   const count = (key: Filter) => (key === 'all' ? vault.files.length : vault.files.filter(f => f.kind === key).length);
   const opened = vault.files.find(f => f.id === openId) || null;
+  const [zipping, setZipping] = React.useState(false);
+  // Everything currently listed (type + year + search) as one ZIP, e.g. all of this year's 50 ทวิ.
+  const downloadShown = async () => {
+    if (!shown.length) return;
+    setZipping(true);
+    const kindName = filter === 'all' ? 'เอกสาร' : filter === 'wht50' ? 'ใบ50ทวิ' : filter === 'contract' ? 'สัญญา-PO' : 'อื่นๆ';
+    try { await downloadVaultZip(shown, `${kindName}${year === 'all' ? '' : `-${year}`}.zip`); }
+    catch (err) { window.alert((err as Error).message); }
+    finally { setZipping(false); }
+  };
 
   if (!vault.available) {
     return (
@@ -50,10 +61,17 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[19px] font-semibold text-brand-text">คลังเอกสาร</h2>
+        <div className="flex items-center gap-2">
+        <button type="button" onClick={() => void downloadShown()} disabled={!shown.length || zipping}
+          title="ดาวน์โหลดทุกไฟล์ที่แสดงอยู่เป็นไฟล์ ZIP เดียว"
+          className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text hover:bg-brand-faint disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
+          <Download className="h-4 w-4" /><span className="hidden sm:inline">{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดทั้งหมด (${shown.length})`}</span><span className="sm:hidden">ZIP</span>
+        </button>
         <button type="button" onClick={() => vault.openUpload({ kind: filter === 'all' ? 'wht50' : filter })}
           className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-[13px] font-semibold text-white hover:bg-[#D35221] cursor-pointer">
           <Plus className="h-4 w-4" />เพิ่มเอกสาร
         </button>
+        </div>
       </div>
 
       <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="ประเภทไฟล์">

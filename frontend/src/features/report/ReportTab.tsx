@@ -7,6 +7,7 @@ import { exportJobsToCSV, formatAxisBaht, formatCurrency, formatMonthKey, safeFo
 import { Mascot } from '../../components/mascot/Mascot';
 import PageHeader from '../../components/ui/PageHeader';
 import { uiSurface } from '../../components/ui/uiStyles';
+import { IncomeExportDialog } from './IncomeExport';
 import { AGING_LABELS, UNNAMED_CLIENT, buildReport, creditAging, jobsInBucket, type AgingKey, type Bucket, type Report, type ReportPeriod } from './reportData';
 
 // รายงาน: looking back. Where job income came from (clients, job types), how it moved month to
@@ -88,6 +89,7 @@ export default function ReportTab({ jobs, onSwitchTab, isPro, onUpgrade, initial
   const [view, setView] = useState<ViewKey>(initialView ?? 'overview');
   const [period, setPeriod] = useState<ReportPeriod>(isPro ? '6' : 'all');
   const [exportOpen, setExportOpen] = useState(false);
+  const [incomeExportOpen, setIncomeExportOpen] = useState(false);
   const [drill, setDrill] = useState<{ dimension: 'client' | 'type'; key: string } | null>(null);
   const report = useMemo(() => buildReport(jobs, period), [jobs, period]);
   const periodLabel = PERIODS.find(p => p.key === period)?.label ?? '';
@@ -120,6 +122,7 @@ export default function ReportTab({ jobs, onSwitchTab, isPro, onUpgrade, initial
           {exportOpen && (
             <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-30 w-64 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900">
               {[
+                { label: 'รายรับรายเดือน / ทั้งปี (Excel)', run: () => setIncomeExportOpen(true) },
                 { label: `สรุปรายงาน ${periodLabel} (CSV)`, run: () => { if (!exportReportCSV(report, periodLabel)) alert('ไม่พบข้อมูล', 'ยังไม่มีงานในช่วงเวลานี้'); } },
                 { label: 'ข้อมูลงานทั้งหมด (CSV)', run: () => { if (!exportJobsToCSV(jobs)) alert('ไม่พบข้อมูล', 'ยังไม่มีข้อมูลงานสำหรับส่งออก'); } },
               ].map(item => (
@@ -131,6 +134,7 @@ export default function ReportTab({ jobs, onSwitchTab, isPro, onUpgrade, initial
           )}
         </div>
       </PageHeader>
+      <IncomeExportDialog open={incomeExportOpen} jobs={jobs} onClose={() => setIncomeExportOpen(false)} notify={alert} />
 
       {/* Period (not for ระยะเวลารับเงิน, which is always "as of today") + tabs */}
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">

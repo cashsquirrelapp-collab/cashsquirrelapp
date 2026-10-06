@@ -60,3 +60,20 @@ export function buildZip(entries: { name: string; data: Uint8Array; date?: Date 
   end.setUint32(12, centralSize, true); end.setUint32(16, offset, true);
   return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
 }
+
+/** Fetch vault files (through the API, so access is checked) and save them as one ZIP. */
+export async function downloadVaultZip(files: { id: string; fileName: string; createdAt: string; client?: string | null; jobName?: string | null }[], zipName: string): Promise<void> {
+  const { vaultFileUrl } = await import('../../services/vault');
+  const entries = [];
+  for (const file of files) {
+    const response = await fetch(vaultFileUrl(file.id), { credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`ดาวน์โหลด ${file.fileName} ไม่สำเร็จ`);
+    const owner = file.client || file.jobName;
+    entries.push({ name: owner ? `${owner} - ${file.fileName}` : file.fileName, data: new Uint8Array(await response.arrayBuffer()), date: new Date(file.createdAt) });
+  }
+  const url = URL.createObjectURL(buildZip(entries));
+  const a = document.createElement('a');
+  a.href = url; a.download = zipName;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}

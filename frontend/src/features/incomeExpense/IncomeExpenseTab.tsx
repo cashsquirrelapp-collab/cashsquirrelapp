@@ -10,6 +10,7 @@ import NumberInput from '../../components/ui/NumberInput';
 import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
 import ExpenseDrawer, { EXPENSE_CATEGORIES, categoryLabel } from './ExpenseDrawer';
 import { LEGACY_FIXED_NAME, buildExpenseMonth, sortExpenseRows, type ExpenseRow, type ExpenseSort } from './expenseMonth';
+import { IncomeExportDialog } from '../report/IncomeExport';
 
 // รายจ่าย: the one place to record and review spending. Expenses only -- money from jobs lives
 // in Jobs / Dashboard. Two user-facing types: ประจำ (linked by name to the fixed monthly lines in
@@ -83,6 +84,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   const [detail, setDetail] = React.useState<ExpenseRow | null>(null);
   const [manageOpen, setManageOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
+  const [incomeExportOpen, setIncomeExportOpen] = React.useState(false);
   const [menu, setMenu] = React.useState<{ key: string; top: number; left: number; up: boolean; items: MenuItem[] } | null>(null);
   const [highlightId, setHighlightId] = React.useState<string | null>(null);
 
@@ -190,6 +192,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
             {exportOpen && (
               <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-30 w-60 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900">
                 {[
+                  { label: `รายรับ ${monthLabel} (Excel)`, run: () => setIncomeExportOpen(true) },
                   { label: `รายจ่าย ${monthLabel} (CSV)`, run: () => { if (!exportExpensesCSV(month.rows, monthKey)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีรายจ่ายในเดือนนี้'); } },
                   { label: 'ข้อมูลงานทั้งหมด (CSV)', run: () => { if (!exportJobsToCSV(jobs)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีข้อมูลงานสำหรับส่งออก'); else triggerAlert('ส่งออกสำเร็จ', 'ดาวน์โหลดไฟล์ CSV สำหรับ Excel และ Google Sheets แล้ว'); } },
                   { label: 'สำรองข้อมูลทั้งหมด (JSON)', run: props.onExportData },
@@ -206,6 +209,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
           </button>
         </div>
       </PageHeader>
+      <IncomeExportDialog open={incomeExportOpen} jobs={jobs} initialMonth={monthKey} onClose={() => setIncomeExportOpen(false)} notify={triggerAlert} />
 
       <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} />
 

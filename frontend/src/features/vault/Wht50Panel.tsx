@@ -5,10 +5,9 @@ import { jobWhtAmount } from '../../../../shared/wht';
 import { formatCurrency } from '../../utils';
 import { RowMenu } from '../../components/ui/RowMenu';
 import { uiSurface } from '../../components/ui/uiStyles';
-import { vaultFileUrl } from '../../services/vault';
 import { useVault } from './VaultProvider';
 import { paidYearOf, wht50Files, wht50StatusOf } from './vaultStatus';
-import { buildZip } from './zip';
+import { downloadVaultZip } from './zip';
 
 // ผู้ช่วยจัดการภาษี › 50 ทวิ: every job this year whose client withheld tax, whether its 50 ทวิ is
 // on file, and one click to download them all for filing.
@@ -45,23 +44,9 @@ export function Wht50Panel({ jobs, triggerAlert }: { jobs: Job[]; triggerAlert: 
     const files = have.flatMap(r => r.files);
     if (!files.length) return;
     setZipping(true);
-    try {
-      const entries = [];
-      for (const file of files) {
-        const response = await fetch(vaultFileUrl(file.id), { credentials: 'same-origin' });
-        if (!response.ok) throw new Error(`ดาวน์โหลด ${file.fileName} ไม่สำเร็จ`);
-        const job = rows.find(r => r.job.id === file.jobId)?.job;
-        entries.push({ name: `${job?.client || job?.name || 'ไม่ระบุลูกค้า'}/${file.fileName}`.replace(/\//g, ' - '), data: new Uint8Array(await response.arrayBuffer()), date: new Date(file.createdAt) });
-      }
-      const blob = buildZip(entries);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `ใบ50ทวิ-${year + 543}.zip`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    } catch (err) {
-      triggerAlert('ดาวน์โหลดไม่สำเร็จ', (err as Error).message);
-    } finally { setZipping(false); }
+    try { await downloadVaultZip(files, `ใบ50ทวิ-${year + 543}.zip`); }
+    catch (err) { triggerAlert('ดาวน์โหลดไม่สำเร็จ', (err as Error).message); }
+    finally { setZipping(false); }
   };
 
   const chip = (on: boolean) => `inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors cursor-pointer ${on ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`;
