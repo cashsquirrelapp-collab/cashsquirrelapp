@@ -871,7 +871,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <RowIcon icon={title === 'สรุปการเงินรายเดือน' ? Mail : Bell} />
                   <RowText title={<>{title}{!isPro && <ProBadge />}</>} desc={isPro ? desc : 'ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน'} />
                   {isPro ? <Switch on={on} onClick={toggle} label={title} />
-                    : <button type="button" onClick={() => onSwitchTab('plans')} className={`${uiSecondaryButton} shrink-0 px-3 text-xs`}>ดูแพ็กเกจ</button>}
+                    : <button type="button" onClick={() => onSwitchTab('plans')} className={`${uiSecondaryButton} shrink-0 px-3 text-xs`}>อัปเกรด</button>}
                 </div>
               ))}
               <NavRow lead={<LineLogo size={36} />} title="LINE" desc="รับแจ้งเตือนเดียวกับอีเมลผ่านแชท LINE" value={lineStatus} onClick={() => openView('line')} />
@@ -910,7 +910,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               ) : !lineLinkCode && (
                 <button type="button" onClick={startLineConnect} disabled={isGeneratingLineCode}
                   className="inline-flex h-10 items-center rounded-xl bg-[#06C755] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#05B34C] disabled:opacity-50 cursor-pointer">
-                  {isGeneratingLineCode ? 'กำลังสร้างรหัส…' : isPro ? 'เชื่อมต่อ LINE' : 'ดูแพ็กเกจ Pro'}
+                  {isGeneratingLineCode ? 'กำลังสร้างรหัส…' : isPro ? 'เชื่อมต่อ LINE' : 'อัปเกรดเป็น Pro'}
                 </button>
               )}
               {lineLinkCode && !lineConnected && (

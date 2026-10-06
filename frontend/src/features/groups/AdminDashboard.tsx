@@ -267,7 +267,7 @@ export default function AdminDashboard({
     settings: ['ตั้งค่า', 'Settings'],
     invoice: ['เอกสารและใบแจ้งหนี้', 'Documents and invoices'],
     insight: ['วิเคราะห์รายได้', 'Income insights'],
-    plans: ['แพ็กเกจ', 'Plans'],
+    plans: ['อัปเกรด', 'Upgrade'],
     groups: ['ทีมและสมาชิก', 'Groups and members'],
     clients: ['ลูกค้า', 'Clients'],
     calendar: ['ปฏิทินงาน', 'Calendar'],

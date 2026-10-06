@@ -60,7 +60,6 @@ import { PremiumUpsell } from '../features/billing/PremiumUpsell';
 const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
 import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
-import { IconCrown } from '../components/ui/icons';
 import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
 import { BrandLockup } from '../components/brand/BrandLogo';
 import type { GroupSummary, PublicProfile, SystemRole } from '../../../shared/groups';
@@ -71,7 +70,7 @@ import {
   Settings,
   Briefcase, 
   Target,
-  Sparkles,
+  ShoppingBag,
   MoreHorizontal,
   Sun,
   Moon,
@@ -222,7 +221,7 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
-  { key: 'plans', labelKey: 'nav.plans', icon: Sparkles, group: 'bottom' },
+  { key: 'plans', labelKey: 'nav.plans', icon: ShoppingBag, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
 ];
 
@@ -405,7 +404,7 @@ export default function App() {
                       <p className="truncate text-xs font-black text-brand-text">{session?.user?.email || 'บัญชีผู้ใช้'}</p>
                       <p className="mt-1 text-[10px] font-bold text-brand-muted">{isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}</p>
                     </div>
-                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><IconCrown className="h-4 w-4 text-amber-500" />แพ็กเกจของฉัน</button>
+                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><ShoppingBag className="h-4 w-4 text-[#E65F2B]" />อัปเกรด</button>
                     <button type="button" onClick={() => setDarkMode(!darkMode)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint">
                       {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-emerald-600" />}
                       {darkMode ? 'ใช้โหมดสว่าง' : 'ใช้โหมดมืด'}
@@ -2354,7 +2353,7 @@ export default function App() {
         </nav>
 
         <div className="mt-3 border-t border-brand-border pt-3">
-          <nav className="space-y-1" aria-label="แพ็กเกจและตั้งค่า">
+          <nav className="space-y-1" aria-label="อัปเกรดและตั้งค่า">
             {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
           </nav>
           {isDesktop && (
