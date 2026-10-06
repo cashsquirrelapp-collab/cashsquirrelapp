@@ -552,8 +552,8 @@ test('a job can be paid in full while still in progress and keeps its payment da
  // delivering it later closes the job without moving the payment date to the credit-term date
  await main.getByRole('button',{name:'เปลี่ยนสถานะงานของงาน ถ่ายคลิปรีวิว'}).first().click();
  await page.getByRole('menuitem',{name:'ส่งงานแล้ว'}).click();
- await expect(page.getByText('งานนี้รับเงินครบแล้ว ส่งงานแล้วจะย้ายไปปิดงานทันที')).toBeVisible();
- await page.getByRole('button',{name:'บันทึก',exact:true}).click();
+ await expect(page.getByText('งานนี้รับเงินครบแล้ว บันทึกแล้วจะย้ายไปปิดงานทันที')).toBeVisible();
+ await page.getByRole('button',{name:'บันทึกงานเสร็จแล้ว',exact:true}).click();
  await expect.poll(()=>saved.some(c=>c.id==='wip-job'&&c.data.isPosted===true&&c.data.payDate==='2026-10-02')).toBe(true);
 });
 
@@ -571,4 +571,46 @@ test('calendar shows how much money the open month brings in, matching the timel
  await card.getByRole('button',{name:/ดูในไทม์ไลน์/}).click();
  await expect(page.getByRole('tab',{name:/ไทม์ไลน์/})).toHaveAttribute('aria-selected','true');
  await expect(page.locator('#main-content')).toContainText('฿8,000');
+});
+
+test('marking work as done previews the expected payment date with the same calculation that is saved',async({page})=>{
+ const wip={id:'wip2',name:'ตัดต่อวิดีโอ',value:4000,received:0,pending:4000,client:'ลูกค้า C',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:30,note:'',payDate:null,isPosted:false,startDate:'2026-10-01'};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ const saved:any[]=[];
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
+  return route.fulfill({json:{snapshot:{...snapshot,jobs:[wip]},versions:{...versions,cashflow_jobs:{wip2:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
+ await page.locator('aside').getByRole('button',{name:'งาน',exact:true}).click();
+ await page.getByRole('tab',{name:/^กำลังทำ/}).click();
+ await page.locator('#main-content').getByRole('button',{name:'เปลี่ยนสถานะงานของงาน ตัดต่อวิดีโอ'}).first().click();
+ await page.getByRole('menuitem',{name:'ส่งงานแล้ว'}).click();
+ const dialog=page.getByRole('dialog',{name:'บันทึกว่างานเสร็จแล้ว'});
+ await expect(dialog.getByRole('radio',{name:'30 วัน'})).toHaveAttribute('aria-checked','true');
+ await dialog.getByLabel('วันที่ส่งงาน / ให้บริการ').fill('2026-12-15');
+ // 30 calendar days crosses the year
+ await expect(dialog.getByTestId('expected-pay-date')).toHaveText(/14 ม\.ค\. 2570/);
+ await dialog.getByRole('radio',{name:'ทันที'}).click();
+ await expect(dialog.getByTestId('expected-pay-date')).toHaveText(/15 ธ\.ค\. 2569/);
+ await expect(dialog).toContainText('ชำระทันที');
+ // business days skip weekends and Thai holidays (31 Dec / 1 Jan)
+ await dialog.getByRole('radio',{name:'45 วัน'}).click();
+ await dialog.getByRole('checkbox').check();
+ await expect(dialog.getByTestId('expected-pay-date')).toHaveCount(1);
+ await expect(dialog.getByTestId('expected-pay-date')).not.toHaveText(/15 ธ\.ค\. 2569/);
+ const preview=(await dialog.getByTestId('expected-pay-date').innerText()).trim();
+ // a cleared date blocks saving with an inline message
+ await dialog.getByLabel('วันที่ส่งงาน / ให้บริการ').fill('');
+ await expect(dialog.getByText('กรุณาเลือกวันที่ส่งงาน / ให้บริการ')).toBeVisible();
+ await expect(dialog.getByRole('button',{name:'บันทึกงานเสร็จแล้ว'})).toBeDisabled();
+ await dialog.getByLabel('วันที่ส่งงาน / ให้บริการ').fill('2026-12-15');
+ await expect(dialog.getByTestId('expected-pay-date')).toHaveText(preview);
+ await dialog.getByRole('button',{name:'บันทึกงานเสร็จแล้ว'}).click();
+ await expect(dialog).toHaveCount(0);
+ await expect.poll(()=>saved.find(c=>c.id==='wip2'&&c.data.isPosted===true)?.data).toMatchObject({postDate:'2026-12-15',creditTerm:45,excludeHolidays:true});
+ const stored=saved.find(c=>c.id==='wip2'&&c.data.isPosted===true).data.payDate;
+ const [y,m,d]=stored.split('-').map(Number);
+ const shown=new Date(y,m-1,d).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'});
+ expect(preview).toBe(shown);
 });

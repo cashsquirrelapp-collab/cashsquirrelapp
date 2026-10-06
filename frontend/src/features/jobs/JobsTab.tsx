@@ -3,12 +3,13 @@ import { uiPrimaryButton } from '../../components/ui/uiStyles';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Job, StatusOption } from '../../../../shared/types';
-import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate, dateLocale } from '../../utils';
+import { formatCurrency, calculatePayDate, safeFormatThaiDate, dateLocale } from '../../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 import JobFormDrawer from './JobFormDrawer';
 import JobPaymentDialog, { type PaymentMode } from './JobPaymentDialog';
+import { JobDeliveryDialog } from './JobDeliveryDialog';
 import { useQuickUndo } from './useQuickUndo';
 import { jobNetReceivable } from '../../../../shared/wht';
 import { sortJobs, matchesPeriod, periodMonths, monthKeyOf, type JobSort, type JobPeriod } from './jobSort';
@@ -17,7 +18,6 @@ import {
   Filter,
   CheckCircle,
   ChevronDown,
-  Clock,
   Plus,
   MoreHorizontal,
   CalendarDays,
@@ -159,9 +159,6 @@ export default function JobsTab({
   // instead of routing through the full multi-step edit form, so its own save doesn't fire a
   // second, redundant "แก้ไขงาน" LINE notification on top of this action's own "ดีลงาน" card.
   const [deliveryPromptJob, setDeliveryPromptJob] = useState<Job | null>(null);
-  const [deliveryPostDate, setDeliveryPostDate] = useState('');
-  const [deliveryCreditTerm, setDeliveryCreditTerm] = useState(0);
-  const [deliveryExcludeHolidays, setDeliveryExcludeHolidays] = useState(false);
   const [installmentPaymentJob, setInstallmentPaymentJob] = useState<Job | null>(null);
   const [selectedInstallmentId, setSelectedInstallmentId] = useState('');
   const [installmentPaidDate, setInstallmentPaidDate] = useState(getLocalDateStr());
@@ -368,9 +365,6 @@ export default function JobsTab({
       applyQuickChange(j, { isPosted: true, pending: outstanding(j) }, 'ส่งงานแล้ว');
       return;
     }
-    setDeliveryPostDate(j.postDate || getLocalDateStr());
-    setDeliveryCreditTerm(j.creditTerm || 0);
-    setDeliveryExcludeHolidays(j.excludeHolidays || false);
     setDeliveryPromptJob(j);
   };
 
@@ -1053,165 +1047,28 @@ export default function JobsTab({
           postDate yet -- same date field + credit-term picker markup as the edit form's own
           "posted" step, driven by separate delivery* state so its Save doesn't route through
           the full edit form (and its own second LINE notification). */}
-      {createPortal(<AnimatePresence>
-        {deliveryPromptJob && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 40 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="bg-brand-white dark:bg-stone-900 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 space-y-4 shadow-2xl border border-brand-border/40 dark:border-neutral-800"
-            >
-              <h3 className="text-sm font-black text-brand-text dark:text-white">{t('jobs.deliveryPromptTitle')}</h3>
-
-              {/* วันส่งมอบงาน */}
-              <div className="space-y-2 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 dark:bg-indigo-500/5 dark:border-indigo-500/15 shadow-2xs overflow-hidden">
-                <label className="text-indigo-900 dark:text-indigo-300 font-extrabold block text-[11px] uppercase tracking-wider">{t('jobs.deliveryDateLabel')}</label>
-                <input
-                  type="date"
-                  value={deliveryPostDate}
-                  onChange={(e) => setDeliveryPostDate(e.target.value)}
-                  onClick={(e) => {
-                    try {
-                      e.currentTarget.showPicker();
-                    } catch (err) {
-                      console.log(err);
-                    }
-                  }}
-                  className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
-                />
-
-                {!deliveryPaid && deliveryPostDate && deliveryCreditTerm > 0 && (
-                  <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
-                    <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
-                      <span className="font-bold">{t('jobs.dueDateLabel')}</span>
-                      <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
-                        {safeFormatThaiDate(calculatePayDate(deliveryPostDate, deliveryCreditTerm, deliveryExcludeHolidays))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
-                      <span className="font-bold flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-amber-500" /> {t('jobs.timeUntilDueColon')}
-                      </span>
-                      {(() => {
-                        const payDateVal = calculatePayDate(deliveryPostDate, deliveryCreditTerm, deliveryExcludeHolidays);
-                        const rel = getRelativeDaysText(payDateVal);
-                        return (
-                          <span className={`font-black px-2 py-0.5 rounded text-[10px] border ${
-                            rel.isOverdue
-                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-                          }`}>
-                            {rel.text}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Credit Term Selection -- not needed once the job is already paid in full */}
-              {deliveryPaid ? (
-                <p className="rounded-xl bg-[#E9F7F0] px-4 py-3 text-xs text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]">งานนี้รับเงินครบแล้ว ส่งงานแล้วจะย้ายไปปิดงานทันที</p>
-              ) : (
-              <div className="space-y-2.5 p-4 rounded-2xl bg-[#E65F2B]/5 border border-[#E65F2B]/20 dark:bg-[#E65F2B]/5 dark:border-[#E65F2B]/15 shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <label className="text-[#E65F2B] dark:text-[#FFA473] font-extrabold block text-[11px] uppercase tracking-wider">
-                    {t('jobs.creditTermLabel')}
-                  </label>
-                  <span className="text-[10px] text-[#E65F2B] dark:text-[#FFA473] font-bold">
-                    {t('jobs.autoCalculated')}
-                  </span>
-                </div>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {[
-                    { value: 0, label: t('jobs.creditNow') },
-                    { value: 30, label: t('jobs.creditDaysOpt', { n: 30 }) },
-                    { value: 45, label: t('jobs.creditDaysOpt', { n: 45 }) },
-                    { value: 60, label: t('jobs.creditDaysOpt', { n: 60 }) },
-                    { value: 90, label: t('jobs.creditDaysOpt', { n: 90 }) },
-                  ].map((opt) => {
-                    const isSelected = deliveryCreditTerm === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setDeliveryCreditTerm(opt.value)}
-                        className={`py-2.5 px-0.5 rounded-xl border text-center text-[10px] font-black transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#E65F2B] border-[#E65F2B] text-white shadow-xs scale-102'
-                            : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:border-brand-text/30'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {deliveryCreditTerm > 0 && (
-                  <div className="mt-2.5 pt-2.5 border-t border-[#E65F2B]/10 flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={deliveryExcludeHolidays}
-                        onChange={(e) => setDeliveryExcludeHolidays(e.target.checked)}
-                        className="w-4 h-4 rounded border-[#E65F2B]/30 text-[#E65F2B] focus:ring-[#E65F2B] accent-[#E65F2B] cursor-pointer"
-                      />
-                      <span className="text-[10px] font-bold text-[#E65F2B] dark:text-[#FFA473]">
-                        {t('jobs.excludeHolidaysLabel')}
-                      </span>
-                    </label>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#E65F2B]/10 text-[#E65F2B] dark:text-[#FFA473] font-bold">
-                      {t('jobs.businessDaysOnly')}
-                    </span>
-                  </div>
-                )}
-              </div>
-              )}
-
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setDeliveryPromptJob(null)}
-                  className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer"
-                >
-                  {t('jobs.deliveryPromptCancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const job = deliveryPromptJob;
-                    if (!job || !deliveryPostDate) return;
-                    applyQuickChange(job, {
-                      isPosted: true,
-                      pending: outstanding(job),
-                      postDate: deliveryPostDate,
-                      creditTerm: deliveryCreditTerm,
-                      excludeHolidays: deliveryExcludeHolidays,
-                      // A job paid in full before delivery keeps its real payment date.
-                      payDate: getStatusDisplay(job.status).behavior === 'done' && job.payDate
-                        ? job.payDate
-                        : calculatePayDate(deliveryPostDate, deliveryCreditTerm, deliveryExcludeHolidays)
-                    }, 'ส่งงานแล้ว');
-                    setDeliveryPromptJob(null);
-                  }}
-                  disabled={!deliveryPostDate}
-                  className={`flex-2 py-3 text-white rounded-xl text-xs font-black transition-all text-center shadow-sm ${
-                    deliveryPostDate
-                      ? 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer'
-                      : 'bg-indigo-600/50 cursor-not-allowed opacity-75'
-                  }`}
-                >
-                  {t('jobs.deliveryPromptSave')}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>, document.body)}
+      <JobDeliveryDialog
+        job={deliveryPromptJob}
+        defaultDate={getLocalDateStr()}
+        paidInFull={deliveryPaid}
+        onClose={() => setDeliveryPromptJob(null)}
+        onSave={({ postDate, creditTerm, excludeHolidays }) => {
+          const job = deliveryPromptJob;
+          if (!job) return;
+          applyQuickChange(job, {
+            isPosted: true,
+            pending: outstanding(job),
+            postDate,
+            creditTerm,
+            excludeHolidays,
+            // A job paid in full before delivery keeps its real payment date.
+            payDate: getStatusDisplay(job.status).behavior === 'done' && job.payDate
+              ? job.payDate
+              : calculatePayDate(postDate, creditTerm, excludeHolidays)
+          }, 'ส่งงานแล้ว');
+          setDeliveryPromptJob(null);
+        }}
+      />
     </div>
   );
 }
