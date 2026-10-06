@@ -147,7 +147,7 @@ test('signup translates provider errors without leaking messages or credentials'
  const cases=[['email_address_not_authorized',503,'ระบบส่งอีเมล'],['over_email_send_rate_limit',429,'อีเมลยืนยันครบจำนวน'],['weak_password',400,'รหัสผ่านไม่ผ่าน'],['unexpected_failure',400,'รหัสอ้างอิง: unexpected_failure']];
  for(const [code,status,message] of cases){
   signupError={code:String(code),msg:'private SMTP credentials should never appear'};
-  const r=await realFetch(origin+'/api/auth',{method:'POST',headers,body:JSON.stringify({action:'signup',email:'test@example.com',password:'test-password-123'})});
+  const r=await realFetch(origin+'/api/auth',{method:'POST',headers,body:JSON.stringify({action:'signup',email:'test@example.com',password:'Test-password-123'})});
   assert.equal(r.status,status);const body=await r.text();assert.ok(body.includes(String(message)));assert.ok(!body.includes('private SMTP'));
  }
 });
