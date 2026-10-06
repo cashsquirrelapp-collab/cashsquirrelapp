@@ -176,7 +176,7 @@ export function DocumentReveal({ invoice, className = '' }: { invoice: Invoice; 
   const full = progress >= 1;
   const duration = Math.round(280 + Math.min(170, travel / 4));
   return (
-    <div className={`relative min-h-0 ${className}`} style={{ maxHeight: Math.ceil(TOP + paperH + 12 + (canReveal ? POCKET : 8)) }}>
+    <div className={`relative min-h-0 ${className}`} style={{ maxHeight: Math.ceil(TOP + paperH + 12 + POCKET) }} /* constant, so the measured height can't flip the fit check back and forth */>
       <div
         ref={viewportRef}
         tabIndex={0}
