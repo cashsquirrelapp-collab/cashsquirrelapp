@@ -10,6 +10,7 @@ import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../.
 import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
 import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './DocumentWorkspaceParts';
+import { DocumentReveal } from './DocumentReveal';
 import { downloadBlob, usePdfFile } from './documentPdf';
 import { Eye, Search } from 'lucide-react';
 import NumberInput from '../../components/ui/NumberInput';
@@ -30,7 +31,8 @@ import {
   Upload,
   Send,
   ChevronDown,
-  RotateCcw
+  RotateCcw,
+  PenLine
 } from 'lucide-react';
 
 // Editor form styles: one surface, sections split by a hairline, same-size fields everywhere.
@@ -791,23 +793,35 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
           <section className="min-w-0" aria-label="ตัวอย่างเอกสาร">
             {selectedInvoice && getWorkspaceTab(selectedInvoice.documentType) === docTypeFilter ? (
-              <div className="flex min-w-0 flex-col gap-3 lg:h-[calc(100vh-232px)] lg:min-h-[560px]">
-                <div className="flex flex-wrap items-center justify-between gap-2 no-print" aria-label="คำสั่งเอกสาร">
-                  <p className="min-w-0 truncate text-[13px] text-brand-muted"><span className="font-semibold text-brand-text">{selectedInvoice.documentNo}</span> · {selectedInvoice.client.name || 'ไม่ระบุลูกค้า'}</p>
-                  <div className="grid w-full grid-cols-[auto_auto_minmax(0,1fr)] gap-2 sm:flex sm:w-auto">
-                    <button type="button" onClick={() => handleStartEditInvoice(selectedInvoice)} className="inline-flex h-10 items-center justify-center rounded-xl border border-brand-border bg-brand-white px-4 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
-                      แก้ไข
+              <div className="flex min-w-0 flex-col gap-4 lg:h-[calc(100vh-232px)] lg:min-h-[560px]">
+                {/* The document is the hero: a title, a few actions, then the paper itself */}
+                <div className="flex flex-wrap items-start justify-between gap-3 no-print" aria-label="คำสั่งเอกสาร">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-[22px] font-semibold leading-tight text-brand-text sm:text-[26px]">{selectedInvoice.documentNo}</h2>
+                    <p className="mt-1 truncate text-[13px] text-brand-muted">
+                      {selectedInvoice.client.name || 'ไม่ระบุลูกค้า'} · {getDocumentMeta(selectedInvoice.documentType).th} · {formatCurrency(calculateTotals(selectedInvoice.items, selectedInvoice.vatRate, selectedInvoice.whtRate).grandTotal)}
+                    </p>
+                  </div>
+                  <div className="flex w-full items-center gap-2 sm:w-auto">
+                    <button type="button" onClick={() => handleStartEditInvoice(selectedInvoice)} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
+                      <PenLine className="h-4 w-4" /> แก้ไข
                     </button>
-                    <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} aria-label="ดาวน์โหลด PDF" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-4 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint disabled:opacity-60 cursor-pointer">
+                    <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} aria-label="ดาวน์โหลด PDF" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint disabled:opacity-60 cursor-pointer">
                       <Download className="h-4 w-4" /> <span className="hidden sm:inline">{pdfBusy ? 'กำลังสร้าง PDF…' : 'ดาวน์โหลด PDF'}</span><span className="sm:hidden">PDF</span>
                     </button>
-                    <ShareButton invoice={withCurrentBranding(selectedInvoice)} pdf={pdf} onDownload={handleDownloadPdf} onPrint={handlePrintDocument} onEmail={handleSendToCustomer} notify={triggerAlert} />
+                    <div className="min-w-0 flex-1 sm:flex-none">
+                      <ShareButton invoice={withCurrentBranding(selectedInvoice)} pdf={pdf} onDownload={handleDownloadPdf} onPrint={handlePrintDocument} onEmail={handleSendToCustomer} notify={triggerAlert} />
+                    </div>
+                    <RowMenu label={`ตัวเลือกเพิ่มเติมของ ${selectedInvoice.documentNo}`} items={[
+                      { label: 'ทำสำเนา', run: () => handleDuplicateInvoice(selectedInvoice) },
+                      { label: 'ลบเอกสาร', danger: true, run: () => handleDeleteInvoice(selectedInvoice.id) },
+                    ]} />
                   </div>
                 </div>
-                <PreviewCanvas invoice={withCurrentBranding(selectedInvoice)} className="h-[72vh] min-h-[420px] lg:h-auto lg:flex-1" />
+                <DocumentReveal invoice={withCurrentBranding(selectedInvoice)} className="h-[72vh] min-h-[440px] lg:h-auto lg:flex-1" />
               </div>
             ) : (
-              <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-brand-border bg-[#F1EFEC] p-12 text-center dark:bg-[#141518] lg:h-[calc(100vh-232px)]">
+              <div className="flex min-h-[420px] flex-col items-center justify-center p-12 text-center lg:h-[calc(100vh-232px)]">
                 <FileText className="mb-4 h-12 w-12 text-brand-border" />
                 <p className="text-[13px] font-medium text-brand-text">{tabInvoices.length ? 'เลือกเอกสารด้านซ้ายเพื่อดูตัวอย่าง' : `ยังไม่มี${activeTabLabel}`}</p>
                 <p className="mt-1 text-xs text-brand-muted">{tabInvoices.length ? 'เห็นทั้งหน้า A4 แล้วแชร์ให้ลูกค้าได้ทันที' : 'กด “ออกเอกสารใหม่” เพื่อเริ่ม'}</p>

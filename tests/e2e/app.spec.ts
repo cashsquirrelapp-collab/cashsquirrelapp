@@ -285,7 +285,7 @@ test('invoice preview and print render the shared A4 document and the editor off
  await expect(page.getByRole('button',{name:'แก้ไข'})).toBeVisible();
  await expect(page.getByRole('button',{name:/แชร์ให้ลูกค้า/})).toBeVisible();
  await expect(page.getByRole('button',{name:/Duplicate/})).toHaveCount(0);
- await expect(page.getByTestId('document-preview-canvas')).toBeVisible();
+ await expect(page.getByTestId('document-reveal')).toBeVisible();
  await expect(preview.getByRole('heading',{name:'ใบเสร็จรับเงิน/ใบกำกับภาษี'})).toBeVisible();
  await expect(preview).toContainText('(ต้นฉบับ)');
  await expect(preview).toContainText('1,900.00');
@@ -613,4 +613,30 @@ test('marking work as done previews the expected payment date with the same calc
  const [y,m,d]=stored.split('-').map(Number);
  const shown=new Date(y,m-1,d).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'});
  expect(preview).toBe(shown);
+});
+
+test('documents are shown large and pulled out of the pocket by scrolling, without zoom controls',async({page})=>{
+ const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'1234567890123'};
+ const quote={id:'qt-r',documentType:'quotation',documentNo:'QT-2569-009',createdDate:'2026-09-17',issuer:profile,client:{name:'Client R',address:'',phone:'',email:'',taxId:''},items:[{id:'i1',description:'Design',quantity:1,price:6790}],vatRate:0,whtRate:0};
+ await page.setViewportSize({width:1280,height:720});
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,invoices:[quote]},versions:{...versions,cashflow_invoices:{'qt-r':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/invoice?type=quotation');
+ const reveal=page.getByTestId('document-reveal');
+ await expect(reveal).toHaveAttribute('data-reveal','peek');
+ await expect(page.getByText('พอดีหน้า')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'ขยาย'})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'ย่อ'})).toHaveCount(0);
+ const paper=reveal.getByTestId('document-preview');
+ const width=(await paper.boundingBox())!.width;
+ expect(width).toBeGreaterThan(500); // readable, not a thumbnail
+ const box=(await reveal.boundingBox())!;
+ await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
+ for(let i=0;i<8;i++){await page.mouse.wheel(0,90);await page.waitForTimeout(20);}
+ await expect(reveal).toHaveAttribute('data-reveal','full');
+ expect((await paper.boundingBox())!.width).toBeCloseTo(width,0); // moved, never resized
+ await reveal.focus();await page.keyboard.press('ArrowUp');
+ await expect(reveal).toHaveAttribute('data-reveal','peek');
+ await page.getByRole('button',{name:'ดูเอกสารทั้งหมด'}).click();
+ await expect(reveal).toHaveAttribute('data-reveal','full');
 });
