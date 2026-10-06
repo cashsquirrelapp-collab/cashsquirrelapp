@@ -70,7 +70,6 @@ import {
   LayoutDashboard,
   Settings,
   Briefcase, 
-  Percent, 
   Target,
   Sun,
   Moon,
@@ -217,7 +216,7 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'receivables', labelKey: 'nav.receivables', icon: Clock, group: 'sub', parent: 'calendar' },
   // Recording an expense is a primary action, so รายจ่าย is always in the main row.
   { key: 'incomeExpense', labelKey: 'nav.incomeExpense', icon: Receipt, group: 'core' },
-  { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
+  { key: 'split', labelKey: 'nav.split', icon: Target, group: 'more' },
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
