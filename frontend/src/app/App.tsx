@@ -1810,7 +1810,9 @@ export default function App() {
     if (wasCompleted) {
       fireMascot({
         mood: 'celebrate',
-        message: `ยินดีด้วยค้าบ! งานนี้ปิดดีลรับเงินเข้าคลังกระรอกเรียบร้อยแล้ว! อู้ฟู่สุดๆ!`,
+        message: (updated.isPosted ?? oldJob?.isPosted) === false
+          ? `ยินดีด้วยค้าบ! รับเงินงานนี้ครบแล้ว งานยังอยู่ในกำลังทำ ส่งงานเมื่อเสร็จได้เลย`
+          : `ยินดีด้วยค้าบ! งานนี้ปิดดีลรับเงินเข้าคลังกระรอกเรียบร้อยแล้ว! อู้ฟู่สุดๆ!`,
         amount: oldJob?.pending || undefined
       });
       leafBus.trigger({ count: 28, type: 'mixed', durationMs: 5000 });

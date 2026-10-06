@@ -537,3 +537,30 @@ test('settings overview shows current values and opens each setting on its own p
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+test('a job can be paid in full while still in progress and keeps its payment date when delivered',async({page})=>{
+ const wip={id:'wip-job',name:'ถ่ายคลิปรีวิว',value:3000,received:0,pending:3000,client:'ร้านตัวอย่าง',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:15,note:'',payDate:null,isPosted:false,startDate:'2026-10-01'};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ const saved:any[]=[];
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
+  return route.fulfill({json:{snapshot:{...snapshot,jobs:[wip]},versions:{...versions,cashflow_jobs:{'wip-job':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
+ await page.locator('aside').getByRole('button',{name:'งาน',exact:true}).click();
+ await page.getByRole('tab',{name:/^กำลังทำ/}).click();
+ const main=page.locator('#main-content');
+ await main.getByRole('button',{name:'เปลี่ยนการชำระของงาน ถ่ายคลิปรีวิว'}).first().click();
+ await page.getByRole('menuitem',{name:'รับเงินครบ'}).click();
+ await page.locator('input[type=date]').last().fill('2026-10-02');
+ await page.getByRole('button',{name:'บันทึกรับเงิน'}).click();
+ await expect.poll(()=>saved.some(c=>c.id==='wip-job'&&c.data.status==='done'&&c.data.pending===0&&c.data.payDate==='2026-10-02'&&c.data.isPosted===false)).toBe(true);
+ await expect(page.getByRole('tab',{name:/^กำลังทำ/})).toContainText('1');
+ await expect(main.getByRole('button',{name:'เปลี่ยนสถานะงานของงาน ถ่ายคลิปรีวิว'}).first()).toContainText('กำลังทำ');
+ // delivering it later closes the job without moving the payment date to the credit-term date
+ await main.getByRole('button',{name:'เปลี่ยนสถานะงานของงาน ถ่ายคลิปรีวิว'}).first().click();
+ await page.getByRole('menuitem',{name:'ส่งงานแล้ว'}).click();
+ await expect(page.getByText('งานนี้รับเงินครบแล้ว ส่งงานแล้วจะย้ายไปปิดงานทันที')).toBeVisible();
+ await page.getByRole('button',{name:'บันทึก',exact:true}).click();
+ await expect.poll(()=>saved.some(c=>c.id==='wip-job'&&c.data.isPosted===true&&c.data.payDate==='2026-10-02')).toBe(true);
+});

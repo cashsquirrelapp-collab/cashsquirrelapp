@@ -75,8 +75,8 @@ export default function JobPaymentDialog({ job, initialMode, allowPartial, allow
         pending: 0,
         paymentStatus: 'paid',
         payDate: date,
-        // Paying in full also marks undelivered work as delivered.
-        isPosted: true,
+        // The work stage is left as it is: clients sometimes pay in full before delivery, and the
+        // job stays "กำลังทำ" (already paid) until it is marked as delivered.
       }, 'รับเงินครบแล้ว');
     } else {
       onConfirm({

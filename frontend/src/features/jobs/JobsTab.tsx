@@ -374,6 +374,7 @@ export default function JobsTab({
     setDeliveryPromptJob(j);
   };
 
+  const deliveryPaid = Boolean(deliveryPromptJob && getStatusDisplay(deliveryPromptJob.status).behavior === 'done');
   const markWorking = (j: Job) => applyQuickChange(j, { isPosted: false }, 'กลับเป็นกำลังทำ');
 
   // Recording money needs a date (and an amount for a deposit) -- it moves the dashboard's
@@ -422,7 +423,8 @@ export default function JobsTab({
     const hasPendingInstallment = (j.installments || []).some(row => row.status !== 'paid');
     const actions: MenuAction[] = [];
     if (isInstallment && hasPendingInstallment) actions.push({ label: 'รับเงินงวดถัดไป', run: () => openInstallmentPayment(j) });
-    if (statusInfo.behavior !== 'done' && !isInstallment && j.isPosted !== false) actions.push({ label: 'รับเงินครบ', run: () => markPaidFull(j) });
+    // Clients sometimes pay in full before the work is delivered, so this is offered while in progress too.
+    if (statusInfo.behavior !== 'done' && !isInstallment) actions.push({ label: 'รับเงินครบ', run: () => markPaidFull(j) });
     if (statusInfo.behavior === 'pending' && !isInstallment) actions.push({ label: 'รับมัดจำ / บางส่วน', run: () => promptPartial(j) });
     return actions;
   };
@@ -1024,7 +1026,7 @@ export default function JobsTab({
         job={paymentForm?.job ?? null}
         initialMode={paymentForm?.mode ?? 'full'}
         allowPartial={Boolean(paymentForm && getStatusDisplay(paymentForm.job.status).behavior === 'pending' && !describeJob(paymentForm.job).isInstallment)}
-        allowFull={Boolean(paymentForm && paymentForm.job.isPosted !== false && getStatusDisplay(paymentForm.job.status).behavior !== 'done')}
+        allowFull={Boolean(paymentForm && getStatusDisplay(paymentForm.job.status).behavior !== 'done')}
         onClose={() => setPaymentForm(null)}
         onConfirm={(updated, message) => {
           if (paymentForm) applyQuickChange(paymentForm.job, updated, message);
@@ -1080,7 +1082,7 @@ export default function JobsTab({
                   className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
                 />
 
-                {deliveryPostDate && deliveryCreditTerm > 0 && (
+                {!deliveryPaid && deliveryPostDate && deliveryCreditTerm > 0 && (
                   <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
                     <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
                       <span className="font-bold">{t('jobs.dueDateLabel')}</span>
@@ -1110,7 +1112,10 @@ export default function JobsTab({
                 )}
               </div>
 
-              {/* Credit Term Selection */}
+              {/* Credit Term Selection -- not needed once the job is already paid in full */}
+              {deliveryPaid ? (
+                <p className="rounded-xl bg-[#E9F7F0] px-4 py-3 text-xs text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]">งานนี้รับเงินครบแล้ว ส่งงานแล้วจะย้ายไปปิดงานทันที</p>
+              ) : (
               <div className="space-y-2.5 p-4 rounded-2xl bg-[#E65F2B]/5 border border-[#E65F2B]/20 dark:bg-[#E65F2B]/5 dark:border-[#E65F2B]/15 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <label className="text-[#E65F2B] dark:text-[#FFA473] font-extrabold block text-[11px] uppercase tracking-wider">
@@ -1165,6 +1170,7 @@ export default function JobsTab({
                   </div>
                 )}
               </div>
+              )}
 
               <div className="flex items-center gap-3 pt-1">
                 <button
@@ -1185,7 +1191,10 @@ export default function JobsTab({
                       postDate: deliveryPostDate,
                       creditTerm: deliveryCreditTerm,
                       excludeHolidays: deliveryExcludeHolidays,
-                      payDate: calculatePayDate(deliveryPostDate, deliveryCreditTerm, deliveryExcludeHolidays)
+                      // A job paid in full before delivery keeps its real payment date.
+                      payDate: getStatusDisplay(job.status).behavior === 'done' && job.payDate
+                        ? job.payDate
+                        : calculatePayDate(deliveryPostDate, deliveryCreditTerm, deliveryExcludeHolidays)
                     }, 'ส่งงานแล้ว');
                     setDeliveryPromptJob(null);
                   }}
