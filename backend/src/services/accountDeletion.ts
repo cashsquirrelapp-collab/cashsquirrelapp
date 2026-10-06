@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '../config/supabase.js';
+import { removeVaultFolder } from './vault.js';
 import { HttpError } from '../http/guard.js';
 import { REPORTS_BUCKET } from './reportStorage.js';
 
@@ -53,6 +54,7 @@ export async function deleteAccountPermanently(userId: string) {
   const admin = getSupabaseAdmin();
   await ensureAccountCanBeDeleted(userId);
   await removeStoredReports(userId);
+  await removeVaultFolder('user', userId);
   const deleted = await admin.auth.admin.deleteUser(userId);
   if (deleted.error) {
     if (/last_leader/i.test(deleted.error.message)) throw new HttpError(409, 'กรุณาตั้งหัวหน้ากลุ่มคนอื่นหรือลบกลุ่มก่อนลบบัญชี');

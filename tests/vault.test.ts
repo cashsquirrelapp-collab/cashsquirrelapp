@@ -1,0 +1,65 @@
+import { after, before, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+import { cleanVaultFileName, sniffVaultMime } from '../shared/vault';
+
+const db = new PGlite();
+const a = '11111111-1111-4111-8111-111111111111', b = '22222222-2222-4222-8222-222222222222', g = '33333333-3333-4333-8333-333333333333';
+const file = (id: string) => `aaaaaaaa-aaaa-4aaa-8aaa-${id.padStart(12, '0')}`;
+const insert = (values: string) => db.exec(`insert into cashflow_vault_files(id,user_id,group_id,kind,file_name,mime_type,size_bytes,storage_path) values ${values}`);
+
+before(async () => {
+  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
+    create schema auth;create table auth.users(id uuid primary key);
+    create table public.cashflow_groups(id uuid primary key);
+    insert into auth.users values('${a}'),('${b}');insert into public.cashflow_groups values('${g}');`);
+  await db.exec(await readFile('database/migrations/018_document_vault.sql', 'utf8'));
+});
+after(() => db.close());
+
+test('a vault file belongs to exactly one account or group and only to known file types', async () => {
+  await insert(`('${file('1')}','${a}',null,'wht50','50Tawi.pdf','application/pdf',1000,'user/${a}/${file('1')}.pdf')`);
+  await insert(`('${file('2')}',null,'${g}','contract','PO.jpg','image/jpeg',2000,'group/${g}/${file('2')}.jpg')`);
+  await assert.rejects(insert(`('${file('3')}','${a}','${g}','other','x.pdf','application/pdf',1,'user/${a}/${file('3')}.pdf')`), /one_owner/);
+  await assert.rejects(insert(`('${file('4')}',null,null,'other','x.pdf','application/pdf',1,'user/${a}/${file('4')}.pdf')`), /one_owner/);
+  await assert.rejects(insert(`('${file('5')}','${a}',null,'other','x.exe','application/x-msdownload',1,'user/${a}/${file('5')}.pdf')`), /check constraint/);
+  await assert.rejects(insert(`('${file('6')}','${a}',null,'other','x.pdf','application/pdf',10485761,'user/${a}/${file('6')}.pdf')`), /check constraint/);
+  await assert.rejects(insert(`('${file('7')}','${a}',null,'other','x.pdf','application/pdf',1,'user/../etc/passwd')`), /check constraint/);
+  await assert.rejects(insert(`('${file('8')}','${a}',null,'receipt','x.pdf','application/pdf',1,'user/${a}/${file('8')}.pdf')`), /check constraint/);
+});
+
+test('browsers cannot read or write the vault table directly', async () => {
+  for (const role of ['anon', 'authenticated']) {
+    await db.exec(`set role ${role}`);
+    try {
+      await assert.rejects(db.query('select * from cashflow_vault_files'), /permission denied/);
+      await assert.rejects(insert(`('${file('9')}','${b}',null,'other','x.pdf','application/pdf',1,'user/${b}/${file('9')}.pdf')`), /permission denied/);
+    } finally { await db.exec('reset role'); }
+  }
+});
+
+test('vault rows go with the account or group they belong to', async () => {
+  await db.exec(`delete from auth.users where id='${a}'`);
+  await db.exec(`delete from public.cashflow_groups where id='${g}'`);
+  assert.equal((await db.query<{ n: number }>('select count(*)::int n from cashflow_vault_files')).rows[0].n, 0);
+});
+
+test('file type comes from the bytes, not the name', () => {
+  const bytes = (...values: number[]) => new Uint8Array(values);
+  assert.equal(sniffVaultMime(new TextEncoder().encode('%PDF-1.7\n')), 'application/pdf');
+  assert.equal(sniffVaultMime(bytes(0xff, 0xd8, 0xff, 0xe0)), 'image/jpeg');
+  assert.equal(sniffVaultMime(bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)), 'image/png');
+  assert.equal(sniffVaultMime(new TextEncoder().encode('RIFF\u0000\u0000\u0000\u0000WEBPVP8 ')), 'image/webp');
+  assert.equal(sniffVaultMime(new TextEncoder().encode('<html><script>')), null);
+  assert.equal(sniffVaultMime(new TextEncoder().encode('MZ\u0090\u0000')), null);
+  assert.equal(sniffVaultMime(bytes()), null);
+});
+
+test('file names are cleaned and always carry the real extension', () => {
+  assert.equal(cleanVaultFileName('../../etc/50Tawi_BrandA.pdf', 'application/pdf'), '50Tawi_BrandA.pdf');
+  assert.equal(cleanVaultFileName('scan "final".exe', 'image/jpeg'), 'scan final.jpg');
+  assert.equal(cleanVaultFileName('C:\\Users\\me\\ใบ 50 ทวิ.PNG', 'image/png'), 'ใบ 50 ทวิ.png');
+  assert.equal(cleanVaultFileName('', 'application/pdf'), 'document.pdf');
+  assert.ok(cleanVaultFileName('x'.repeat(500) + '.pdf', 'application/pdf').length <= 165);
+});

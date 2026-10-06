@@ -22,8 +22,11 @@ import closeExpiredAccounts from '../handlers/close-expired-accounts.js';
 import recoverAccount from '../handlers/recover-account.js';
 import confirmEmail from '../handlers/confirm-email.js';
 import usageAnalytics from '../handlers/usage-analytics.js';
-const routes:Record<string,Handler>={auth,data,groups,profile,account,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,'download-report':download,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'setup-line-richmenu':setup,'stripe-webhook':stripe};
-const rawRoutes=new Set(['stripe-webhook','line-webhook']);
+import vault from '../handlers/vault.js';
+import vaultUpload from '../handlers/vault-upload.js';
+import vaultFile from '../handlers/vault-file.js';
+const routes:Record<string,Handler>={auth,data,groups,profile,account,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'setup-line-richmenu':setup,'stripe-webhook':stripe};
+const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 export function routeHandler(route:string):Handler {
  return withGuard(async(req,res)=>{
   const handler=Object.hasOwn(routes,route)?routes[route]:undefined;if(!handler)throw new HttpError(404,'API not found');
@@ -35,7 +38,7 @@ export function routeHandler(route:string):Handler {
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
- },{csrf:['auth','data','groups','profile','account','recover-account','admin-users','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify'].includes(route)});
+ },{csrf:['auth','data','groups','profile','account','recover-account','admin-users','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload'].includes(route)});
 }
 export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
  const route=req.query.route;

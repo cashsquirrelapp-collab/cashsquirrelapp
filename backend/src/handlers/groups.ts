@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { removeVaultFolder } from '../services/vault.js';
 import { groupActionSchema } from '../../../shared/groups.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError, withGuard } from '../http/guard.js';
@@ -115,6 +116,11 @@ export default withGuard(
       p_input: action.data,
     });
     if (result.error) groupDbError(result.error);
+    // The group's vault rows go with the group; its stored files are removed here.
+    if (action.data.action === 'delete') {
+      await removeVaultFolder('group', action.data.groupId).catch(error =>
+        console.error('Vault cleanup after group delete failed', { type: error instanceof Error ? error.name : 'UnknownError' }));
+    }
     res.json({ ok: true, groupId: result.data });
   },
   { csrf: true },
