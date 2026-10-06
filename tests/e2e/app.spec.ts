@@ -104,7 +104,6 @@ test('retired duplicate finance tabs resolve to the current calendar and income 
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
  await expect(sidebar.getByRole('button',{name:'ไทม์ไลน์ปฏิทินงาน'})).toHaveCount(0);
  await expect(sidebar.getByRole('button',{name:'สรุปยอดรายรับ & ออม'})).toHaveCount(0);
  await sidebar.getByRole('button',{name:'ปฏิทิน',exact:true}).click();
@@ -137,7 +136,6 @@ test('credit report stays concise and hands collection work to receivables',asyn
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
  await sidebar.getByRole('button',{name:'รายงาน',exact:true}).click();
  await page.getByRole('tab',{name:'ระยะเวลารับเงิน',exact:true}).click();
  await expect(page.getByRole('heading',{name:'ช่วงเวลาที่เงินควรเข้า'})).toBeVisible();
@@ -171,12 +169,9 @@ test('login and all feature tabs render after separation without browser errors'
  await expect(page.getByRole('heading',{name:'บันทึกรับเงินด่วน'})).toBeVisible();
  await expect(page.locator('.fixed.inset-0').locator('input[type=text]')).toBeVisible();
  await page.getByRole('button',{name:'ปิดหน้าต่างรับเงินด่วน'}).click();
- const tools=sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'});
- await tools.click();
  const names=await sidebar.locator('nav button').allTextContents();
  for(const name of names) {
   const button=sidebar.locator('nav button').filter({hasText:name.trim()}).first();
-  if(name.includes('เครื่องมือเพิ่มเติม'))continue;
   if(await button.isVisible()) { await button.click();await expect(button).toHaveAttribute('aria-current','page');await expect(page.locator('#main-content')).not.toContainText('กำลังโหลด');await expect(page.getByText('โหลดหน้านี้ไม่สำเร็จ',{exact:true})).toHaveCount(0); }
  }
  await sidebar.getByRole('button',{name:'ตั้งค่า',exact:true}).click();
@@ -242,7 +237,6 @@ test('tax Excel export downloads after loading the spreadsheet writer on demand'
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
  await sidebar.getByRole('button',{name:'ภาษี',exact:true}).click();
  const downloadPromise=page.waitForEvent('download');
  await page.getByRole('button',{name:'ดาวน์โหลด Excel (.xlsx)'}).click();
@@ -266,7 +260,7 @@ test('legacy invoice requires owner confirmation and is saved through versioned 
  });
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
+ await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  await expect(page.getByRole('region',{name:'รายการเอกสาร'}).getByText('0 รายการ')).toBeVisible();
  expect(saved.some(c=>c.table==='cashflow_invoices')).toBe(false);
  await page.getByRole('button',{name:'นำเข้าเอกสารเดิมจากเครื่อง'}).click();
@@ -283,7 +277,7 @@ test('invoice preview and print render the shared A4 document and the editor off
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,invoices:[invoice]},versions:{...versions,cashflow_invoices:{'tax-1':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
+ await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  const preview=page.getByTestId('document-preview');
  await expect(page.getByRole('heading',{name:'เอกสาร',exact:true})).toBeVisible();
  await expect(page.getByRole('tab',{name:/ใบเสนอราคา/})).toBeVisible();
@@ -333,7 +327,7 @@ test('document tabs stay on the chosen type even when it has no documents, and s
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
+ await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  const tab=(name:string)=>page.getByRole('tab',{name:new RegExp(`^${name}`)});
  await expect(tab('ใบเสนอราคา')).toHaveAttribute('aria-selected','true');
  for(const name of ['ใบแจ้งหนี้','ใบเสร็จ','ใบกำกับภาษี','ใบแจ้งหนี้','ใบเสนอราคา','ใบกำกับภาษี']){
@@ -346,7 +340,6 @@ test('document tabs stay on the chosen type even when it has no documents, and s
  await tab('ใบเสร็จ').click();
  await expect(page).toHaveURL(/[?&]type=receipt/);
  await page.reload();
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).isVisible();
  await expect(tab('ใบเสร็จ')).toHaveAttribute('aria-selected','true');
  await tab('ใบเสนอราคา').click();
  await expect(page.getByTestId('document-preview')).toContainText('6,790');
@@ -374,7 +367,7 @@ test('uploaded logo and signature are saved to the profile and appear on existin
  });
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
  const sidebar=page.locator('aside');
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
+ await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  const preview=page.getByTestId('document-preview');
  await expect(preview).toContainText('INV-OLD-001');
  await expect(preview.locator('.da4-logo')).toHaveCount(0);
@@ -394,7 +387,6 @@ test('uploaded logo and signature are saved to the profile and appear on existin
  await page.getByRole('button',{name:/บันทึก/}).last().click();
  await page.getByRole('button',{name:'ตกลง',exact:true}).click();
  await expect.poll(()=>saved.some(c=>c.id==='issuer_profile'&&c.data.logoUrl?.startsWith('data:image')&&c.data.signatureUrl?.startsWith('data:image')&&c.data.logoHeight===152&&c.data.logoPosition==='right'&&c.data.bankName==='ธนาคารกสิกรไทย')).toBe(true);
- await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
  await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  await expect(page.getByTestId('document-preview').locator('.da4-logo')).toHaveCount(1);
  await expect(page.getByTestId('document-preview').locator('.da4-chip')).toHaveText('KBANK');
@@ -469,7 +461,7 @@ test('account switching cannot reuse the previous account invoice working copy',
   return route.fulfill({json:{snapshot:{...snapshot,invoices:owner===user.id?[invoice]:[]},versions:{...versions,cashflow_invoices:owner===user.id?{'private-a':1}:{}},subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
- const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
+ const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  await expect(page.getByText('INV-PRIVATE-A').first()).toBeVisible();
  switched=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await expect(page.getByText('INV-PRIVATE-A')).toHaveCount(0);
@@ -481,7 +473,7 @@ test('a protected API 401 immediately removes private views without waiting for 
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',route=>denied?route.fulfill({status:401,json:{error:'Session expired'}}):route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
- denied=true;const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
+ denied=true;const sidebar=page.locator('aside');
  await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
 });
 

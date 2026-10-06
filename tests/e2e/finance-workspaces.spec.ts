@@ -209,8 +209,6 @@ async function settings(page: Page) {
 async function invoices(page: Page) {
   const sidebar = page.locator("aside");
   const button = sidebar.getByRole("button", { name: "เอกสาร", exact: true });
-  if (!(await button.isVisible()))
-    await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
   await button.click();
 }
 test("members edit a shared workspace and switching saves to the old scope without touching personal finance", async ({
@@ -275,7 +273,6 @@ test("invoices, issuer profiles and exports follow the selected group and reset 
   await settings(page);
   // Export from the current income/expense page uses the same scoped invoice snapshot.
   const sidebar = page.locator("aside");
-  await sidebar.getByRole("button", { name: "เครื่องมือเพิ่มเติม" }).click();
   await sidebar.getByRole("button", { name: "รายจ่าย", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.locator("#main-content").getByRole("button", { name: "ส่งออก" }).click();

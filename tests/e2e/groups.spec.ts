@@ -81,7 +81,6 @@ async function finance(page: Page) {
 async function openGroups(page: Page) {
   await page.goto('/');
   const sidebar = page.locator('aside');
-  await sidebar.getByRole('button', { name: 'เครื่องมือเพิ่มเติม' }).click();
   await sidebar.getByRole('button', { name: 'ทีม', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'ทีม', exact: true })).toBeVisible();
 }
@@ -295,7 +294,6 @@ test('until Team launches, regular users see a sample team and nothing is sent',
   });
   await page.goto('/');
   const sidebar = page.locator('aside');
-  await sidebar.getByRole('button', { name: 'เครื่องมือเพิ่มเติม' }).click();
   await expect(sidebar.getByRole('button', { name: /ทีม.*เร็วๆ นี้/ })).toBeVisible();
   await sidebar.getByRole('button', { name: /^ทีม/ }).click();
   await expect(page.getByRole('note')).toContainText('ฟีเจอร์ทีมสำหรับธุรกิจขนาดเล็กกำลังจะมา');
