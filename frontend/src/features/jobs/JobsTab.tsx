@@ -10,6 +10,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import JobFormDrawer from './JobFormDrawer';
 import JobPaymentDialog, { type PaymentMode } from './JobPaymentDialog';
 import { JobDeliveryDialog } from './JobDeliveryDialog';
+import { Wht50Chip } from '../vault/VaultProvider';
 import { useQuickUndo } from './useQuickUndo';
 import { jobNetReceivable } from '../../../../shared/wht';
 import { sortJobs, matchesPeriod, periodMonths, monthKeyOf, type JobSort, type JobPeriod } from './jobSort';
@@ -715,7 +716,7 @@ export default function JobsTab({
                           <span className="lg:hidden">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), 'การชำระ')}</span>
                         </div>
                       </td>
-                      <td className="hidden px-3 py-3 lg:table-cell">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), 'การชำระ')}</td>
+                      <td className="hidden px-3 py-3 lg:table-cell"><div className="flex flex-col items-start gap-1">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), 'การชำระ')}<Wht50Chip job={j} /></div></td>
                       <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold text-brand-text">{formatCurrency(j.value)}</td>
                       <td className="px-2 py-3 text-right">
                         <button
@@ -759,6 +760,7 @@ export default function JobsTab({
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       {badgeMenu(j, 'stage', i => stageBadge(info.stage, i), 'สถานะงาน')}
                       {badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), 'การชำระ')}
+                      <Wht50Chip job={j} />
                       <span className={`text-[11px] ${dueClass(info.dueTone)}`}>{info.dueText}</span>
                     </div>
                     <button

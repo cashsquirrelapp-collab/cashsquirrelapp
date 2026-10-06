@@ -640,3 +640,43 @@ test('documents are shown large and pulled out of the pocket by scrolling, witho
  await page.getByRole('button',{name:'ดูเอกสารทั้งหมด'}).click();
  await expect(reveal).toHaveAttribute('data-reveal','full');
 });
+
+test('document vault: files are listed, uploaded to a job, and a paid job with withholding tax asks for its 50 ทวิ',async({page})=>{
+ const wht={id:'wht-job',name:'TikTok Campaign',value:10000,whtRate:3,whtAmount:300,received:0,pending:9700,client:'Brand A',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:0,note:'',postDate:'2099-01-01',payDate:'2099-01-01',isPosted:true};
+ let files:any[]=[{id:'f0000000-0000-4000-8000-000000000001',kind:'contract',jobId:null,jobName:null,client:null,fileName:'PO_BrandA.pdf',mimeType:'application/pdf',sizeBytes:4000,createdAt:'2026-10-01T00:00:00Z'}];
+ const uploads:any[]=[];
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,jobs:[wht]},versions:{...versions,cashflow_jobs:{'wht-job':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.route('**/api/vault',route=>route.fulfill({json:{files}}));
+ await page.route('**/api/vault-upload',route=>{
+  const meta=JSON.parse(decodeURIComponent(route.request().headers()['x-vault-meta']));uploads.push(meta);
+  const file={id:`f0000000-0000-4000-8000-00000000010${uploads.length}`,kind:meta.kind,jobId:meta.jobId,jobName:meta.jobName,client:meta.client,fileName:meta.fileName,mimeType:'application/pdf',sizeBytes:route.request().postDataBuffer()!.length,createdAt:new Date().toISOString()};
+  files=[file,...files];return route.fulfill({status:201,json:{file}});
+ });
+ await page.goto('/invoice?area=vault');
+ await expect(page.getByRole('tab',{name:'คลังเอกสาร'})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByText('PO_BrandA.pdf')).toBeVisible();
+ // pay the job: the 50 ทวิ prompt follows and attaches straight to that job
+ await page.locator('aside').getByRole('button',{name:'งาน',exact:true}).click();
+ await page.getByRole('tab',{name:/^ทั้งหมด/}).click();
+ await page.getByRole('button',{name:'ล้างตัวกรองเดือน'}).click();
+ await page.locator('#main-content').getByRole('button',{name:'เปลี่ยนการชำระของงาน TikTok Campaign'}).first().click();
+ await page.getByRole('menuitem',{name:'รับเงินครบ'}).click();
+ await page.getByRole('button',{name:'บันทึกรับเงิน'}).click();
+ const prompt=page.getByRole('dialog',{name:'รับเงินเรียบร้อยแล้ว'});
+ await expect(prompt).toContainText('฿300');
+ await prompt.getByRole('button',{name:'แนบใบ 50 ทวิ'}).click();
+ const dialog=page.getByRole('dialog',{name:'แนบใบ 50 ทวิ'});
+ await expect(dialog).toContainText('TikTok Campaign');
+ await page.getByTestId('vault-file-input').setInputFiles([{name:'50Tawi_BrandA.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.7 test')},{name:'too-big.pdf',mimeType:'application/pdf',buffer:Buffer.alloc(10*1024*1024+1)}]);
+ await expect(dialog.getByText('ไฟล์ใหญ่เกิน 10 MB')).toBeVisible(); // stopped before upload
+ await dialog.getByRole('button',{name:'บันทึก',exact:true}).click();
+ await expect(page.getByText('แนบเอกสารเรียบร้อยแล้ว')).toBeVisible();
+ expect(uploads).toEqual([{kind:'wht50',jobId:'wht-job',jobName:'TikTok Campaign',client:'Brand A',fileName:'50Tawi_BrandA.pdf'}]);
+ await page.getByRole('button',{name:'เสร็จสิ้น'}).click();
+ await expect(page.locator('#main-content').getByRole('button',{name:/50 ทวิ/})).toBeVisible();
+ // the tax page counts it as on file
+ await page.locator('aside').getByRole('button',{name:'ภาษี',exact:true}).click();
+ await page.getByRole('tab',{name:'50 ทวิ'}).click();
+ await expect(page.getByText('เอกสารพร้อม 1 จาก 1 รายการ')).toBeVisible();
+});

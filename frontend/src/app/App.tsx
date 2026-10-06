@@ -40,6 +40,7 @@ const InvoiceTab = lazy(loadInvoiceTab);
 const PlansTab = lazy(loadPlansTab);
 const GroupsTab = lazy(loadGroupsTab);
 import FinanceWorkspacePicker from '../features/groups/FinanceWorkspacePicker';
+import { VaultProvider } from '../features/vault/VaultProvider';
 import { financeKey, setFinanceWorkspace, assertFinanceWorkspace } from '../services/financeWorkspace';
 import { groupApi } from '../services/groups';
 import { usageAnalyticsApi } from '../services/usageAnalytics';
@@ -1826,6 +1827,9 @@ export default function App() {
         amount: oldJob?.pending || undefined
       });
       leafBus.trigger({ count: 28, type: 'mixed', durationMs: 5000 });
+      // A job with withholding tax: offer to attach its 50 ทวิ right away (the vault decides
+      // whether the workspace can keep files).
+      if (oldJob) window.dispatchEvent(new CustomEvent('cash-squirrel:wht-paid', { detail: { ...oldJob, ...updated } }));
       // Same "รับเงิน" LINE card as a brand-new fully-paid job -- this is a payment landing on an
       // existing project, so it should read the same way ("ได้รับยอดของโปรเจกต์นี้แล้ว เท่าไหร่").
       if (oldJob) {
@@ -2594,6 +2598,16 @@ export default function App() {
 
         {/* Scrollable Container with responsive max widths */}
         <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
+          {/* Document vault for the open finance workspace, shared by Documents, Jobs and Tax */}
+          <VaultProvider
+            financeKey={financeOwner}
+            available={!session.isGuest && Boolean(financeOwner)}
+            isPro={isInFreeTrial || isPaidActive}
+            jobs={jobs}
+            onUpgrade={() => navigateTab('plans')}
+            triggerConfirm={triggerConfirm}
+            triggerAlert={triggerAlert}
+          >
           {!session.isGuest && loadedFinanceOwner !== financeOwner && !readReloadSnapshot(financeOwner)
             ? <ContentLoadingSkeleton page={activeTab} />
             : <Suspense fallback={<ContentLoadingSkeleton page={activeTab} />}>
@@ -2898,6 +2912,7 @@ export default function App() {
             </div>}
           </div>
           </Suspense>}
+          </VaultProvider>
         </div>
 
         {/* Custom Dialog overlay */}

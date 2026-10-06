@@ -63,3 +63,22 @@ test('file names are cleaned and always carry the real extension', () => {
   assert.equal(cleanVaultFileName('', 'application/pdf'), 'document.pdf');
   assert.ok(cleanVaultFileName('x'.repeat(500) + '.pdf', 'application/pdf').length <= 165);
 });
+
+test('the ZIP bundle is a valid archive that unzip tools can read', async () => {
+  const { buildZip, crc32 } = await import('../frontend/src/features/vault/zip');
+  assert.equal(crc32(new TextEncoder().encode('123456789')), 0xcbf43926);
+  const blob = buildZip([
+    { name: 'Brand A - 50Tawi.pdf', data: new TextEncoder().encode('%PDF-1.7 a') },
+    { name: 'Brand A - 50Tawi.pdf', data: new TextEncoder().encode('%PDF-1.7 b') },
+    { name: 'ใบ 50 ทวิ.jpg', data: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]) },
+  ]);
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const view = new DataView(bytes.buffer);
+  assert.equal(view.getUint32(0, true), 0x04034b50);
+  const end = bytes.length - 22;
+  assert.equal(view.getUint32(end, true), 0x06054b50);
+  assert.equal(view.getUint16(end + 10, true), 3);
+  const text = new TextDecoder().decode(bytes);
+  assert.ok(text.includes('Brand A - 50Tawi (2).pdf')); // same name kept apart
+  assert.ok(text.includes('ใบ 50 ทวิ.jpg'));
+});

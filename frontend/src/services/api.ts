@@ -7,7 +7,8 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   const requestedAccount=currentAccount;
   const headers = new Headers(init.headers); headers.set('X-CSRF-Protection','1');
   if(currentAccount && !headers.has('X-Account-ID')) headers.set('X-Account-ID',currentAccount);
-  if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type','application/json');
+  // JSON for string bodies; raw uploads (Blob/File) keep their own type.
+  if (typeof init.body === 'string' && !headers.has('Content-Type')) headers.set('Content-Type','application/json');
   if(typeof init.body==='string' && new Blob([init.body]).size>4*1024*1024)throw Object.assign(new Error('ข้อมูลมีขนาดใหญ่เกินไป กรุณาลดขนาดรูปหรือไฟล์แนบ'),{status:413});
   const response=await fetch(path, { ...init, headers, credentials: 'same-origin', cache:'no-store' });
   if(response.status===401 && path!=='/api/auth' && requestedAccount===currentAccount)expired?.();
