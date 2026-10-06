@@ -389,6 +389,7 @@ export default function App() {
     if (workspace) navigatePath(workspaceRoutePath(tab, workspace));
   };
 
+  const profileMenuItem = 'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer';
   const renderProfileMenu = (position: string) => (
     <AnimatePresence>
       {isProfileMenuOpen && (
@@ -397,19 +398,45 @@ export default function App() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.98 }}
           transition={{ duration: 0.15 }}
-          className={`absolute ${position} z-[120] overflow-hidden rounded-2xl border border-brand-border bg-brand-white p-2 shadow-2xl dark:bg-stone-900`}
+          className={`absolute ${position} z-[120] overflow-hidden rounded-2xl border border-brand-border bg-brand-white p-1.5 shadow-[0_16px_40px_rgba(20,18,16,0.16)] dark:bg-[#1F2024] dark:shadow-[0_16px_40px_rgba(0,0,0,0.5)]`}
         >
 
-                    <div className="border-b border-brand-border/40 px-3 py-2.5">
-                      <p className="truncate text-xs font-black text-brand-text">{session?.user?.email || 'บัญชีผู้ใช้'}</p>
-                      <p className="mt-1 text-[10px] font-bold text-brand-muted">{isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}</p>
-                    </div>
-                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint"><ShoppingBag className="h-4 w-4 text-[#E65F2B]" />อัปเกรด</button>
-                    <button type="button" onClick={() => setDarkMode(!darkMode)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-brand-text hover:bg-brand-faint">
-                      {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-emerald-600" />}
-                      {darkMode ? 'ใช้โหมดสว่าง' : 'ใช้โหมดมืด'}
-                    </button>
-                    <button type="button" onClick={() => { setIsProfileMenuOpen(false); triggerConfirm('ออกจากระบบ', 'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?', async () => { await handleSignOut(); }); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"><LogOut className="h-4 w-4" />ออกจากระบบ</button>
+          {/* Who is signed in, and on which plan */}
+          <div className="flex items-center gap-3 px-2.5 pb-3 pt-2">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-faint text-brand-muted">
+              {userAvatar ? <img src={userAvatar} className="h-full w-full object-cover" alt="" /> : <User className="h-4.5 w-4.5" />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14px] font-semibold text-brand-text">{routeContext?.profile.displayName || session?.user?.email?.split('@')[0] || 'บัญชีผู้ใช้'}</span>
+              <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                <span className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold ${isPaidActive || isGuestProPreview ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'bg-brand-faint text-brand-muted'}`}>
+                  {isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}
+                </span>
+                <span className="min-w-0 truncate text-xs text-brand-muted">{session?.user?.email || ''}</span>
+              </span>
+            </span>
+          </div>
+          <div className="border-t border-brand-border pt-1.5">
+            <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className={profileMenuItem}>
+              <ShoppingBag className="h-4 w-4 text-brand-muted" />อัปเกรด
+            </button>
+            <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('settings'); }} className={profileMenuItem}>
+              <Settings className="h-4 w-4 text-brand-muted" />ตั้งค่า
+            </button>
+            <button type="button" role="switch" aria-checked={darkMode} onClick={() => setDarkMode(!darkMode)} className={profileMenuItem}>
+              <Moon className="h-4 w-4 text-brand-muted" />
+              <span className="flex-1">โหมดมืด</span>
+              <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${darkMode ? 'bg-[#E65F2B]' : 'bg-[#D9D4CE] dark:bg-[#3A3B40]'}`}>
+                <span className={`absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${darkMode ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+              </span>
+            </button>
+          </div>
+          <div className="mt-1.5 border-t border-brand-border pt-1.5">
+            <button type="button" onClick={() => { setIsProfileMenuOpen(false); triggerConfirm('ออกจากระบบ', 'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?', async () => { await handleSignOut(); }); }}
+              className={`${profileMenuItem} !text-[#C43A3A] hover:!bg-[#FDEEEE] dark:!text-[#F19A9A] dark:hover:!bg-[#F19A9A]/10`}>
+              <LogOut className="h-4 w-4" />ออกจากระบบ
+            </button>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
