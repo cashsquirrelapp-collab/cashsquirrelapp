@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, CreditCard, Users } from "lucide-react";
+import { ChevronDown, ChevronsUpDown, Users, Wallet } from "lucide-react";
 import type { GroupSummary } from "../../../../shared/groups";
 import { groupApi } from "../../services/groups";
 
@@ -8,11 +8,14 @@ export default function FinanceWorkspacePicker({
   groupId,
   busy,
   onChange,
+  variant = "compact",
 }: {
   account: string;
   groupId?: string;
   busy: boolean;
   onChange: (groupId?: string, name?: string) => Promise<void>;
+  /** "row": full-width row in the sidebar account card; "compact": pill in the phone header. */
+  variant?: "row" | "compact";
 }) {
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [error, setError] = useState("");
@@ -57,38 +60,56 @@ export default function FinanceWorkspacePicker({
       window.removeEventListener("focus", refresh);
     };
   }, [account, revision]);
+  const Icon = groupId ? Users : Wallet;
+  const currentLabel = groupId ? groups.find((group) => group.id === groupId)?.name || "กลุ่มที่เลือก" : "ส่วนตัว";
+  const select = (className: string) => (
+    <select
+      id="finance-workspace"
+      value={groupId || ""}
+      disabled={busy}
+      title={groupId ? "บัญชีการเงินของกลุ่ม" : "บัญชีการเงินส่วนตัว"}
+      onChange={(e) => {
+        const id = e.target.value || undefined;
+        void onChange(id, groups.find((group) => group.id === id)?.name);
+      }}
+      className={`min-w-0 appearance-none cursor-pointer border-0 bg-transparent text-brand-text outline-none disabled:cursor-wait ${className}`}
+    >
+      <option value="">ส่วนตัว</option>
+      {groupId && !groups.some((group) => group.id === groupId) && (
+        <option value={groupId}>กลุ่มที่เลือก — กดรีเฟรชรายชื่อ</option>
+      )}
+      {groups.map((group) => (
+        <option key={group.id} value={group.id}>
+          กลุ่ม: {group.name}
+        </option>
+      ))}
+    </select>
+  );
   return (
     <div className="relative flex min-w-0 items-center">
-      <div className="flex min-w-0 items-center rounded-full border border-brand-border bg-brand-white px-2 py-1 shadow-sm">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#C24A16] dark:text-[#FFA473]" aria-hidden="true">
-          {groupId ? <Users size={18} strokeWidth={2.2} /> : <CreditCard size={18} strokeWidth={2.2} />}
+      <label htmlFor="finance-workspace" className="sr-only">บัญชีการเงิน</label>
+      {variant === "row" ? (
+        <div className="group relative flex w-full min-w-0 items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-brand-faint">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]" aria-hidden="true">
+            <Icon size={16} strokeWidth={2} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10.5px] leading-tight text-brand-muted" aria-hidden="true">บัญชีการเงิน</span>
+            <span className="block truncate pr-6 text-[13px] font-semibold leading-tight text-brand-text" aria-hidden="true">{currentLabel}</span>
+          </span>
+          <ChevronsUpDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
+          {/* The real select covers the whole row so a click anywhere opens it */}
+          {select("absolute inset-0 h-full w-full opacity-0")}
         </div>
-        <label htmlFor="finance-workspace" className="sr-only">บัญชีการเงิน</label>
-        <div className="relative min-w-0">
-          <select
-            id="finance-workspace"
-            value={groupId || ""}
-            disabled={busy}
-            title={groupId ? "บัญชีการเงินของกลุ่ม" : "บัญชีการเงินส่วนตัว"}
-            onChange={(e) => {
-              const id = e.target.value || undefined;
-              void onChange(id, groups.find((group) => group.id === id)?.name);
-            }}
-            className="w-24 min-w-0 appearance-none cursor-pointer border-0 bg-transparent py-1.5 pl-1 pr-7 text-xs font-extrabold text-brand-text outline-none disabled:cursor-wait sm:w-36"
-          >
-            <option value="">ส่วนตัว</option>
-            {groupId && !groups.some((group) => group.id === groupId) && (
-              <option value={groupId}>กลุ่มที่เลือก — กดรีเฟรชรายชื่อ</option>
-            )}
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                กลุ่ม: {group.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+      ) : (
+        <div className="relative flex min-w-0 items-center gap-1.5 rounded-full border border-brand-border bg-brand-white py-1 pl-1.5 pr-2 shadow-sm">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]" aria-hidden="true">
+            <Icon size={14} strokeWidth={2.2} />
+          </span>
+          {select("w-24 py-1 pr-5 text-xs font-semibold sm:w-36")}
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
         </div>
-      </div>
+      )}
       {error && (
         <p role="alert" className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-red-200 bg-red-50 p-2 text-xs text-red-700 shadow-lg">
           โหลดรายชื่อกลุ่มไม่สำเร็จ: {error}

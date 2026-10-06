@@ -71,6 +71,8 @@ import {
   Settings,
   Briefcase, 
   Target,
+  Sparkles,
+  MoreHorizontal,
   Sun,
   Moon,
   LogOut,
@@ -220,7 +222,7 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
-  { key: 'plans', labelKey: 'nav.plans', icon: IconCrown, group: 'bottom' },
+  { key: 'plans', labelKey: 'nav.plans', icon: Sparkles, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
 ];
 
@@ -2356,24 +2358,30 @@ export default function App() {
             {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
           </nav>
           {isDesktop && (
-            <div className="mt-2 space-y-2">
-              {!session.isGuest && (
-                <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>
-              )}
+            // One account card: which finance account is open, then who is signed in.
+            <div className="mt-3 rounded-2xl border border-brand-border bg-brand-white p-1 dark:bg-[#1F2024]">
+              {!session.isGuest && (<>
+                <FinanceWorkspacePicker variant="row" account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>
+                <div className="mx-2 my-1 border-t border-brand-border" />
+              </>)}
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setIsProfileMenuOpen(open => !open)}
                   aria-label="เปิดเมนูโปรไฟล์"
                   aria-expanded={isProfileMenuOpen}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-brand-faint cursor-pointer"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-brand-faint cursor-pointer"
                 >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-faint text-brand-muted">
-                    {userAvatar ? <img src={userAvatar} className="h-full w-full object-cover" alt="" /> : <User className="h-3.5 w-3.5" />}
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-faint text-brand-muted">
+                    {userAvatar ? <img src={userAvatar} className="h-full w-full object-cover" alt="" /> : <User className="h-4 w-4" />}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-brand-text">
-                    {routeContext?.profile.displayName || session.user.email?.split('@')[0] || 'บัญชีของฉัน'}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-semibold leading-tight text-brand-text">
+                      {routeContext?.profile.displayName || session.user.email?.split('@')[0] || 'บัญชีของฉัน'}
+                    </span>
+                    {session.user.email && <span className="block truncate text-[10.5px] leading-tight text-brand-muted">{session.user.email}</span>}
                   </span>
+                  <MoreHorizontal className="h-4 w-4 shrink-0 text-brand-muted" />
                 </button>
                 {renderProfileMenu('bottom-full inset-x-0 mb-2')}
               </div>
