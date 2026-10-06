@@ -269,17 +269,14 @@ export default withGuard(
         const profilesById = new Map((profiles.data || []).map(profile => [profile.user_id, profile] as const));
         const includeUrls = req.query.includeUrls === '1';
         res.json({ links: rows.map(row => {
-          const token = includeUrls && row.token_ciphertext ? unseal<string>(row.token_ciphertext) : null;
-          let url: string | null = null;
-          if (token) {
-            const recoveryUrl = new URL('/login', appOrigin());
-            recoveryUrl.searchParams.set('r', token);
-            url = recoveryUrl.toString();
-          }
+          const recoveryCode = includeUrls && !row.consumed_at && !row.revoked_at && row.token_ciphertext
+            ? unseal<string>(row.token_ciphertext) : null;
+          const url = recoveryCode ? new URL('/recover', appOrigin()).toString() : null;
           const profile = row.recovered_user_id ? profilesById.get(row.recovered_user_id) : undefined;
           return {
             id: row.id,
             url,
+            recoveryCode,
             createdAt: row.created_at,
             expiresAt: row.expires_at,
             consumedAt: row.consumed_at,
@@ -374,9 +371,8 @@ export default withGuard(
       if (!parsed.success) throw new HttpError(400, 'ข้อมูลสร้างลิงก์กู้คืนไม่ถูกต้อง');
       const issuedAt = Date.now();
       const expiresAt = new Date(issuedAt + RECOVERY_LINK_TTL_MS).toISOString();
-      // 144 bits of entropy keeps the bearer link compact while remaining
-      // infeasible to guess; store a keyed hash for validation and ciphertext
-      // so this admin can restore the active URL in the dashboard.
+      // The 144-bit secret is sent separately from the URL. Its keyed hash
+      // validates recovery; ciphertext lets admins retrieve active codes.
       const token = randomBytes(18).toString('base64url');
       const tokenHash = challengeHash(`account-recovery-link:${token}`);
       const expired = await db.from('cashflow_account_recovery_links')
@@ -386,9 +382,8 @@ export default withGuard(
         token_hash: tokenHash, token_ciphertext: seal(token), created_by: user.id, expires_at: expiresAt,
       }).select('id,created_at').single();
       if (saved.error) throw saved.error;
-      const url = new URL('/login', appOrigin());
-      url.searchParams.set('r', token);
-      res.json({ id: saved.data.id, url: url.toString(), createdAt: saved.data.created_at, expiresAt, consumedAt: null, revokedAt: null,
+      const url = new URL('/recover', appOrigin());
+      res.json({ id: saved.data.id, url: url.toString(), recoveryCode: token, createdAt: saved.data.created_at, expiresAt, consumedAt: null, revokedAt: null,
         recoveredUserId: null, recoveredEmail: null, recoveredPublicId: null, recoveredDisplayName: null });
       return;
     }

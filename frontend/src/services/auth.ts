@@ -72,6 +72,8 @@ async function getSession(): Promise<SessionCheck> {
 export const authClient = { auth: {
   getSession,
   signInWithPassword: (values: { email: string; password: string })=>action('signin', values),
+  requestLoginUnlock: (values: { email: string; password: string })=>action('unlock-request', values),
+  signInWithUnlockCode: (values: { email: string; password: string; code: string })=>action('unlock-verify', values),
   signUp: (values: { email: string; password: string; displayName?: string; options?: unknown })=>action('signup', values),
   signInWithOAuth: (_values: unknown)=>action('oauth'),
   signOut: ()=>action('logout'),

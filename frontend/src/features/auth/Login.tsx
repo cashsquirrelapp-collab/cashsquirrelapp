@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from '../../components/mascot/Mascot';
 import { BrandLockup } from '../../components/brand/BrandLogo';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { isValidPassword, passwordRequirements, type PasswordRequirement } from '../../../../shared/passwordPolicy';
 
 async function loginLockStorageKey(email: string): Promise<string> {
   const normalized = email.trim().toLowerCase();
@@ -186,6 +187,30 @@ function AuthWelcome({ onContinue }: { onContinue: () => void }) {
   );
 }
 
+function PasswordChecklist({ password, confirmation }: { password: string; confirmation: string }) {
+  const { t } = useLanguage();
+  const requirements = passwordRequirements(password);
+  const rules: { key: PasswordRequirement | 'match'; met: boolean }[] = [
+    ...(['length', 'uppercase', 'lowercase', 'number', 'symbol'] as const).map(key => ({ key, met: requirements[key] })),
+    { key: 'match', met: confirmation.length > 0 && password === confirmation },
+  ];
+  return (
+    <div className="rounded-2xl border border-brand-border/50 bg-brand-bg/35 px-4 py-3">
+      <p className="mb-2 text-[11px] font-extrabold text-brand-text">{t('login.passwordRequirements')}</p>
+      <ul className="grid gap-1.5 sm:grid-cols-2">
+        {rules.map(({ key, met }) => (
+          <li key={key} className={`flex items-start gap-2 text-[11px] leading-5 ${met ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-muted'}`}>
+            <span aria-hidden="true" className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${met ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-brand-border'}`}>
+              {met && <Check className="h-3 w-3" strokeWidth={3} />}
+            </span>
+            <span>{t(`login.passwordRule.${key}`)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
   const { t, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
@@ -193,9 +218,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const initialParams = new URLSearchParams(window.location.search);
   const initialRecoveryToken = initialParams.get('r') || initialParams.get('recover') || '';
   const [accountRecoveryToken, setAccountRecoveryToken] = useState(initialRecoveryToken);
-  const [isAccountRecovery, setIsAccountRecovery] = useState(() => initialRecoveryToken.length >= 24);
+  const [isAccountRecovery, setIsAccountRecovery] = useState(() => window.location.pathname === '/recover' || initialRecoveryToken.length >= 24);
   const [loginLock, setLoginLock] = useState<{ email: string; until: number } | null>(null);
   const [loginLockSeconds, setLoginLockSeconds] = useState(0);
+  const [unlockCode, setUnlockCode] = useState('');
+  const [unlockCodeSent, setUnlockCodeSent] = useState(false);
   const [backupRecoveryEmail, setBackupRecoveryEmail] = useState('');
   const [backupRecoveryCode, setBackupRecoveryCode] = useState('');
   const [backupRecoverySent, setBackupRecoverySent] = useState(false);
@@ -203,6 +230,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const signupPasswordValid = isValidPassword(password) && confirmPassword.length > 0 && password === confirmPassword;
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   // Google sign-in leaves this page with loading on. Coming back with the browser's Back button
@@ -265,6 +293,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
   const normalizedEmail = email.trim().toLowerCase();
   const loginLockedForThisEmail = !isSignUp && !isForgotPassword && !isAccountRecovery && !!loginLock && loginLock.email === normalizedEmail && loginLockSeconds > 0;
+  React.useEffect(() => {
+    setUnlockCode('');
+    setUnlockCodeSent(false);
+  }, [normalizedEmail]);
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -279,9 +311,12 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     const hasRecoveryLink = params.has('r') || params.has('recover');
     const recoveryToken = params.get('r') || params.get('recover') || '';
     const invalidRecoveryLink = hasRecoveryLink && recoveryToken.length < 24;
-    if (invalidRecoveryLink) { params.delete('r'); params.delete('recover'); }
-    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || authLinkError || confirmationExpired || accountDeletionPending || invalidRecoveryLink || hasRecoveryLink;
-    const nextPath = shouldUseLoginPath ? '/login' : window.location.pathname;
+    // Old links remain usable until their one-hour expiry, but do not keep
+    // their secret in the browser's address bar after this page loads.
+    params.delete('r'); params.delete('recover');
+    const shouldUseRecoveryPath = (hasRecoveryLink && !invalidRecoveryLink) || window.location.pathname === '/recover';
+    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || authLinkError || confirmationExpired || accountDeletionPending || invalidRecoveryLink;
+    const nextPath = shouldUseRecoveryPath ? '/recover' : shouldUseLoginPath ? '/login' : window.location.pathname;
     const nextUrl = `${nextPath}${params.size ? `?${params}` : ''}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextUrl) {
       window.history.replaceState(null, '', nextUrl);
@@ -324,6 +359,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [otpToken, setOtpToken] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const resetPasswordValid = isValidPassword(resetNewPassword) && resetConfirmPassword.length > 0 && resetNewPassword === resetConfirmPassword;
   const [otpSecondsLeft, setOtpSecondsLeft] = useState(300);
 
   React.useEffect(() => {
@@ -339,24 +375,20 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setAccountRecoveryToken('');
     setBackupRecoverySent(false);
     setBackupRecoveryCode('');
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('recover') || params.has('r')) {
-      params.delete('recover');
-      params.delete('r');
-      window.history.replaceState(null, '', `${window.location.pathname}${params.size ? `?${params}` : ''}`);
-    }
+    window.history.replaceState(null, '', '/login');
+    window.dispatchEvent(new Event('cash-squirrel:navigate'));
   };
 
   const handleAccountRecovery = async (event: React.FormEvent) => {
     event.preventDefault(); setLoading(true); setError(null); setSuccess(null);
     try {
+      if (accountRecoveryToken.trim().length < 24) throw new Error(t('login.invalidRecoveryLink'));
       const response = await apiFetch('/api/recover-account', { method: 'POST', body: JSON.stringify({
-        action: backupRecoverySent ? 'verify' : 'request', email: backupRecoveryEmail.trim(), token: accountRecoveryToken,
+        action: backupRecoverySent ? 'verify' : 'request', email: backupRecoveryEmail.trim(), token: accountRecoveryToken.trim(),
         code: backupRecoverySent ? backupRecoveryCode : undefined
       }) });
       const body = await response.json();
       if (!response.ok) {
-        if (body.code === 'backup_email_not_verified') throw new Error(t('login.accountRecoveryBackupEmailInvalid'));
         throw new Error(body.error || 'ทำรายการไม่สำเร็จ');
       }
       if (backupRecoverySent) {
@@ -367,17 +399,48 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     finally { setLoading(false); }
   };
 
+  const handleUnlockRequest = async () => {
+    if (!normalizedEmail || !password) { setError(t('login.unlockEnterPassword')); return; }
+    setLoading(true); setError(null); setSuccess(null);
+    try {
+      const result = await authClient.auth.requestLoginUnlock({ email: normalizedEmail, password });
+      if (result.error) throw result.error;
+      setUnlockCodeSent(true);
+      setSuccess(t('login.unlockCodeSent'));
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setLoading(false); }
+  };
+
+  const handleUnlockSignIn = async () => {
+    if (!normalizedEmail || !password || unlockCode.length !== 6) return;
+    setLoading(true); setError(null); setSuccess(null);
+    try {
+      const result = await authClient.auth.signInWithUnlockCode({ email: normalizedEmail, password, code: unlockCode });
+      if (result.error) throw result.error;
+      try {
+        const key = await loginLockStorageKey(normalizedEmail);
+        localStorage.removeItem(key);
+      } catch { /* Successful authentication must not depend on browser storage. */ }
+      setLoginLock(null);
+      setUnlockCode('');
+      setUnlockCodeSent(false);
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setLoading(false); }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSignUp && password !== confirmPassword) {
+      setError(t('login.err.passwordMismatch'));
+      return;
+    }
+    if (isSignUp && !signupPasswordValid) {
+      setError(t('login.err.passwordRequirements'));
+      return;
+    }
     setLoading(true);
     setError(null);
     setSuccess(null);
-
-    if (isSignUp && password !== confirmPassword) {
-      setError(t('login.err.passwordMismatch'));
-      setLoading(false);
-      return;
-    }
 
     try {
       if (isSignUp) {
@@ -470,6 +533,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     e.preventDefault();
     if (resetNewPassword !== resetConfirmPassword) {
       setError(t('login.err.newPasswordMismatch'));
+      return;
+    }
+    if (!resetPasswordValid) {
+      setError(t('login.err.passwordRequirements'));
       return;
     }
     setLoading(true);
@@ -745,6 +812,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                     <p className="mt-1 font-black tabular-nums text-orange-700 dark:text-orange-300">
                       {Math.floor(loginLockSeconds / 60)}:{String(loginLockSeconds % 60).padStart(2, '0')} นาที
                     </p>
+                    <p className="mt-1 text-brand-muted">{t('login.unlockExplanation')}</p>
+                    {error && <p className="mt-2 text-red-600 dark:text-red-300">{error}</p>}
                   </div>
                 </div>
               </motion.div>
@@ -776,6 +845,13 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           {isAccountRecovery ? (
             <form onSubmit={handleAccountRecovery} className="space-y-4">
               <p className="text-xs leading-6 text-brand-muted">{t('login.accountRecoveryDescription')}</p>
+              <div>
+                <label htmlFor="account-recovery-link-code" className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted">{t('login.accountRecoveryLinkCode')}</label>
+                <input id="account-recovery-link-code" type="password" required autoComplete="off" spellCheck={false} minLength={24} maxLength={100}
+                  value={accountRecoveryToken} onChange={event => setAccountRecoveryToken(event.target.value.trim())}
+                  placeholder={t('login.accountRecoveryLinkCodePlaceholder')} aria-label={t('login.accountRecoveryLinkCode')}
+                  className="w-full rounded-2xl border border-brand-border/60 bg-brand-bg/20 px-4 py-3 font-mono text-xs text-brand-text outline-none transition-all placeholder:font-sans placeholder:text-brand-muted/50 focus:border-[#E65F2B] focus:ring-4 focus:ring-orange-500/10 dark:focus:border-[#FFA473] dark:focus:ring-orange-500/5" />
+              </div>
               <div>
                 <label htmlFor="account-recovery-email" className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted">{t('login.accountRecoveryEmail')}</label>
                 <div className="relative">
@@ -902,6 +978,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       value={resetNewPassword}
                       onChange={(e) => setResetNewPassword(e.target.value)}
                       placeholder={t('login.newPasswordPlaceholder')}
+                      minLength={8}
+                      maxLength={128}
+                      autoComplete="new-password"
                       required
                       className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
@@ -921,15 +1000,19 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       value={resetConfirmPassword}
                       onChange={(e) => setResetConfirmPassword(e.target.value)}
                       placeholder={t('login.confirmNewPasswordPlaceholder')}
+                      maxLength={128}
+                      autoComplete="new-password"
                       required
                       className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
                   </div>
                 </div>
 
+                <PasswordChecklist password={resetNewPassword} confirmation={resetConfirmPassword} />
+
                 <button
                   type="submit"
-                  disabled={loading || otpSecondsLeft <= 0 || otpToken.length !== 6 || resetNewPassword.length < 8}
+                  disabled={loading || otpSecondsLeft <= 0 || otpToken.length !== 6 || !resetPasswordValid}
                   className="w-full py-3.5 px-4 bg-[#E65F2B] hover:bg-[#D98324] dark:bg-[#E65F2B] dark:hover:bg-[#FFA473] text-white font-extrabold rounded-2xl text-xs shadow-md shadow-orange-600/10 dark:shadow-none hover:shadow-lg hover:shadow-orange-600/15 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 >
                   {loading ? (
@@ -1029,6 +1112,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={isSignUp ? t('login.passwordPlaceholderSignup') : t('login.passwordPlaceholderSignin')}
+                    minLength={isSignUp ? 8 : undefined}
+                    maxLength={128}
+                    autoComplete={isSignUp ? 'new-password' : 'current-password'}
                     required
                     className="w-full pl-10 pr-11 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                   />
@@ -1037,6 +1123,31 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   </button>
                 </div>
               </div>
+
+              {loginLockedForThisEmail && (
+                <div className="space-y-3 rounded-2xl border border-brand-border/60 bg-brand-bg/30 p-3.5">
+                  <p className="text-xs leading-relaxed text-brand-muted">{t('login.unlockInstructions')}</p>
+                  {unlockCodeSent && (
+                    <div>
+                      <label htmlFor="login-unlock-code" className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted">{t('login.accountRecoveryCode')}</label>
+                      <input id="login-unlock-code" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                        value={unlockCode} onChange={event => setUnlockCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                        className="w-full rounded-xl border border-brand-border/60 bg-brand-white px-4 py-3 text-sm tracking-[0.25em] text-brand-text outline-none focus:border-[#E65F2B]"
+                        placeholder={t('login.verificationCodePlaceholder')} />
+                    </div>
+                  )}
+                  <button type="button" disabled={loading || !email.trim() || !password} onClick={() => { void handleUnlockRequest(); }}
+                    className="w-full rounded-xl border border-brand-border bg-brand-white px-4 py-3 text-xs font-bold text-brand-text transition-colors hover:bg-brand-faint disabled:opacity-50">
+                    {unlockCodeSent ? t('login.unlockResendCode') : t('login.unlockSendCode')}
+                  </button>
+                  {unlockCodeSent && (
+                    <button type="button" disabled={loading || unlockCode.length !== 6 || !password} onClick={() => { void handleUnlockSignIn(); }}
+                      className="w-full rounded-xl bg-[#E65F2B] px-4 py-3 text-xs font-bold text-white transition-colors hover:bg-[#D8551F] disabled:opacity-50">
+                      {t('login.unlockConfirm')}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {isSignUp && (
                 <motion.div
@@ -1057,6 +1168,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder={t('login.confirmPasswordPlaceholder')}
+                      maxLength={128}
+                      autoComplete="new-password"
                       required={isSignUp}
                       className="w-full pl-10 pr-11 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
@@ -1067,9 +1180,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 </motion.div>
               )}
 
+              {isSignUp && <PasswordChecklist password={password} confirmation={confirmPassword} />}
+
               <button
                 type="submit"
-                disabled={loading || loginLockedForThisEmail}
+                disabled={loading || loginLockedForThisEmail || (isSignUp && !signupPasswordValid)}
                 className="w-full py-3.5 px-4 bg-[#E65F2B] hover:bg-[#D98324] dark:bg-[#E65F2B] dark:hover:bg-[#FFA473] text-white font-extrabold rounded-2xl text-xs shadow-md shadow-orange-600/10 dark:shadow-none hover:shadow-lg hover:shadow-orange-600/15 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading ? (

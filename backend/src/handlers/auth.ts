@@ -1,16 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
-import { createHash } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import { z } from 'zod';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { withGuard, HttpError } from '../http/guard.js';
 import { appOrigin, required, supabaseUrl } from '../config/env.js';
 import { readCookie, writeCookie, seal } from '../security/cookies.js';
 import { publicUser, storeSession, requireUser, revokeSession, type PrivateSession } from '../security/session.js';
-import { rateLimit } from '../security/rateLimit.js';
+import { challengeHash, rateLimit } from '../security/rateLimit.js';
+import { clientIp } from '../security/ingress.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { sendGmailEmail, sendSignupConfirmationEmail, sendSignupWelcomeEmail } from '../services/gmail.js';
 import { markSignupWelcomePending, sendPendingSignupWelcome } from '../services/signupWelcome.js';
+import { isValidPassword } from '../../../shared/passwordPolicy.js';
 const credentials = z.object({ email: z.email().max(254).transform(v=>v.toLowerCase()), password: z.string().min(1).max(128), displayName: z.string().trim().min(2).max(60).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() });
+const unlockCode = z.string().regex(/^\d{6}$/);
+const unlockRequestMessage = { ok: true, message: 'หากข้อมูลถูกต้อง ระบบจะส่งรหัสยืนยันไปยังอีเมลของบัญชี' };
 
 async function sendConfirmation(userId:string,email:string,displayName?:string):Promise<boolean>{
   const token=seal({purpose:'confirm-email',userId,email,expires:Date.now()+86400000});
@@ -28,7 +32,7 @@ async function sendLoginSecurityAlert(email: string): Promise<void> {
   if (!confirmedEmail || confirmedEmail.toLowerCase() !== email) return;
   const occurredAt = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' });
   const sent = await sendGmailEmail(confirmedEmail, 'แจ้งเตือนความปลอดภัยในการเข้าสู่ระบบ | Krarok Tunngern',
-    `<div style="font-family:Arial,sans-serif;max-width:540px;margin:auto;color:#34251d"><h2>มีการพยายามเข้าสู่ระบบบัญชีของคุณ</h2><p>มีการกรอกรหัสผ่านไม่ถูกต้องครบ 6 ครั้ง บัญชีจึงถูกล็อกการเข้าสู่ระบบชั่วคราว 5 นาที</p><p>เวลา: ${occurredAt} (เวลาไทย)</p><p>หากเป็นคุณ ให้รอ 5 นาทีแล้วลองใหม่ หากไม่ใช่คุณ แนะนำให้เปลี่ยนรหัสผ่านทันที และตรวจสอบความปลอดภัยของอีเมลด้วย</p></div>`);
+    `<div style="font-family:Arial,sans-serif;max-width:540px;margin:auto;color:#34251d"><h2>มีการพยายามเข้าสู่ระบบบัญชีของคุณ</h2><p>มีการกรอกรหัสผ่านไม่ถูกต้องครบ 6 ครั้ง การเข้าสู่ระบบด้วยรหัสผ่านจึงถูกพัก 5 นาที</p><p>เวลา: ${occurredAt} (เวลาไทย)</p><p>หากเป็นคุณ สามารถรอ 5 นาที หรือใช้รหัสผ่านที่ถูกต้องพร้อมรหัสยืนยันทางอีเมลเพื่อเข้าใช้ได้ทันที หากไม่ใช่คุณ แนะนำให้เปลี่ยนรหัสผ่านและตรวจสอบความปลอดภัยของอีเมล</p></div>`);
   if (!sent) console.error('Login security email delivery failed');
 }
 export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
@@ -91,10 +95,88 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     if (error) throw new HttpError(400,'เริ่มการเข้าสู่ระบบไม่สำเร็จ');
     writeCookie(res,{storage:Object.fromEntries(Object.entries(storage).filter(([key])=>key.endsWith('-code-verifier'))),expires:Date.now()+600000},'oauth',600); res.json({url:data.url}); return;
   }
-  if (!['signin', 'signup'].includes(action)) throw new HttpError(400,'Invalid action');
+  if (!['signin', 'signup', 'unlock-request', 'unlock-verify'].includes(action)) throw new HttpError(400,'Invalid action');
   const parsed=credentials.safeParse(req.body);
-  if (!parsed.success) throw new HttpError(400,'ใช้อีเมลที่ถูกต้อง และรหัสผ่าน 8–128 ตัวอักษร');
-  await rateLimit(`auth-${action}`,parsed.data.email,20,600);
+  if (!parsed.success) throw new HttpError(400,'กรุณาตรวจสอบอีเมลและรหัสผ่าน');
+  if (action === 'signup') await rateLimit('auth-signup', parsed.data.email, 20, 600);
+  else await rateLimit(`auth-${action}-source`, `${clientIp(req)}:${parsed.data.email}`, action === 'unlock-request' ? 6 : 20, 600);
+  if (action === 'unlock-request' || action === 'unlock-verify') {
+    const emailKey = loginEmailKey(parsed.data.email);
+    const admin = getSupabaseAdmin();
+    const startedAt = Date.now();
+    const respondGenerically = async () => {
+      const remaining = 1500 - (Date.now() - startedAt);
+      if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+      res.json(unlockRequestMessage);
+    };
+    const clearTemporaryAuth = async () => {
+      try {
+        const signedOut = await auth.auth.signOut({ scope: 'local' });
+        if (signedOut.error) console.error('Could not clear temporary login session', { type: signedOut.error.name });
+      } catch (cause) {
+        console.error('Could not clear temporary login session', { type: cause instanceof Error ? cause.name : 'UnknownError' });
+      }
+    };
+    const code = action === 'unlock-verify' ? unlockCode.safeParse(req.body?.code) : null;
+    if (action === 'unlock-verify' && !code?.success) throw new HttpError(400, 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
+    const locked = await admin.rpc('cashflow_login_lock_status', { p_email_key: emailKey });
+    if (locked.error) throw locked.error;
+    if (action === 'unlock-request' && Number(locked.data) <= 0) { await respondGenerically(); return; }
+    const { data, error } = await auth.auth.signInWithPassword(parsed.data);
+    if (error || !data.session || !data.user || !data.user.email_confirmed_at ||
+        data.user.email?.toLowerCase() !== parsed.data.email ||
+        data.user.app_metadata?.account_closure_kind === 'deletion') {
+      if (action === 'unlock-request') { await respondGenerically(); return; }
+      throw new HttpError(401, 'อีเมล รหัสผ่าน หรือรหัสยืนยันไม่ถูกต้อง');
+    }
+    if (action === 'unlock-request') {
+      try {
+        // Only a verified password can reach this per-account email quota.
+        try { await rateLimit('login-unlock-email', data.user.id, 3, 900); }
+        catch (cause) {
+          if (!(cause instanceof HttpError) || cause.status !== 429) throw cause;
+          await respondGenerically(); return;
+        }
+        const otp = String(randomInt(100000, 1000000));
+        const saved = await admin.from('cashflow_challenges').upsert({
+          user_id: data.user.id, purpose: 'login-unlock',
+          code_hash: challengeHash(`${data.user.id}:${parsed.data.email}:${otp}`),
+          expires_at: new Date(Date.now() + 300_000).toISOString(), attempts: 0,
+        });
+        if (saved.error) throw saved.error;
+        const sent = await sendGmailEmail(parsed.data.email, 'รหัสยืนยันการเข้าสู่ระบบ | Krarok Tunngern',
+          `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto"><h2>ยืนยันการเข้าสู่ระบบ</h2><p>รหัสยืนยันของคุณคือ <strong style="font-size:28px">${otp}</strong></p><p>รหัสใช้ได้ 5 นาที หากไม่ได้ขอรหัสนี้ กรุณาเปลี่ยนรหัสผ่านและตรวจสอบอีเมลของคุณ</p></div>`);
+        if (!sent) {
+          await admin.from('cashflow_challenges').delete()
+            .eq('user_id', data.user.id).eq('purpose', 'login-unlock')
+            .eq('code_hash', challengeHash(`${data.user.id}:${parsed.data.email}:${otp}`));
+          console.error('Login unlock email delivery failed');
+        }
+      } catch (cause) {
+        console.error('Could not prepare login unlock challenge', { type: cause instanceof Error ? cause.name : 'UnknownError' });
+      } finally {
+        await clearTemporaryAuth();
+      }
+      await respondGenerically(); return;
+    }
+    if (!code?.success) throw new HttpError(400, 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
+    const consumed = await admin.rpc('cashflow_consume_challenge', {
+      p_user_id: data.user.id, p_purpose: 'login-unlock',
+      p_hash: challengeHash(`${data.user.id}:${parsed.data.email}:${code.data}`),
+    });
+    if (consumed.error) throw consumed.error;
+    if (!consumed.data) {
+      await clearTemporaryAuth();
+      throw new HttpError(401, 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
+    }
+    const resetAttempts = await admin.rpc('cashflow_reset_login_failures', { p_email_key: emailKey });
+    if (resetAttempts.error) throw resetAttempts.error;
+    await sendPendingSignupWelcome(data.user);
+    const user = await publicUser(data.user);
+    storeSession(res, data.session);
+    res.json({ session: { user }, user });
+    return;
+  }
   if (action==='signin') {
     const emailKey = loginEmailKey(parsed.data.email);
     const lockStatus = await getSupabaseAdmin().rpc('cashflow_login_lock_status', { p_email_key: emailKey });
@@ -127,13 +209,13 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     if (resetAttempts.error) throw resetAttempts.error;
     if (data.user.app_metadata?.account_closure_kind === 'deletion') {
       await auth.auth.signOut();
-      throw new HttpError(403, 'บัญชีนี้อยู่ระหว่างรอลบ หากต้องการกู้คืน โปรดขอลิงก์จากผู้ดูแลระบบ แล้วใช้ลิงก์พร้อมอีเมลสำรองที่ยืนยันไว้ภายใน 30 วัน');
+      throw new HttpError(403, 'บัญชีนี้อยู่ระหว่างรอลบ หากต้องการกู้คืน โปรดขอลิงก์และรหัสกู้คืนจากผู้ดูแลระบบ แล้วใช้อีเมลสำรองที่ยืนยันไว้ภายใน 30 วัน');
     }
     await sendPendingSignupWelcome(data.user);
     const user=await publicUser(data.user); storeSession(res,data.session); res.json({session:{user},user}); return;
   }
   if (action==='signup') {
-    if (parsed.data.password.length < 8) throw new HttpError(400,'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
+    if (!isValidPassword(parsed.data.password)) throw new HttpError(400,'รหัสผ่านต้องยาว 8–128 ตัวอักษร และมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก ตัวเลข และสัญลักษณ์อย่างน้อยอย่างละ 1 ตัว');
     const {email,password,displayName}=parsed.data;
     const {data,error}=await auth.auth.signUp({email,password,options:{emailRedirectTo:`${appOrigin()}/api/auth`,data:{full_name:displayName}}});
     if (error) {

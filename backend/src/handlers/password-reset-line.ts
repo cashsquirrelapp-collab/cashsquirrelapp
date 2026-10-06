@@ -4,6 +4,7 @@ import { withGuard,HttpError } from '../http/guard.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { rateLimit,challengeHash } from '../security/rateLimit.js';
 import { sendGmailEmail } from '../services/gmail.js';
+import { isValidPassword } from '../../../shared/passwordPolicy.js';
 export default withGuard(async(req,res)=>{
  if(req.method!=='POST')throw new HttpError(405,'Method not allowed');
  const input=z.object({email:z.email().max(254).transform(v=>v.toLowerCase()),step:z.enum(['request','verify']).default('request'),code:z.string().regex(/^\d{6}$/).optional(),newPassword:z.string().min(8).max(128).optional()}).safeParse(req.body);
@@ -77,6 +78,7 @@ export default withGuard(async(req,res)=>{
   res.json({ok:true});return;
  }
  if(!row||!code||!newPassword)throw new HttpError(400,'รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
+ if(!isValidPassword(newPassword))throw new HttpError(400,'รหัสผ่านใหม่ต้องยาว 8–128 ตัวอักษร และมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก ตัวเลข และสัญลักษณ์อย่างน้อยอย่างละ 1 ตัว');
  const consumed=await admin.rpc('cashflow_consume_challenge',{p_user_id:row.user_id,p_purpose:'reset',p_hash:challengeHash(code)});
  if(consumed.error)throw consumed.error; if(!consumed.data)throw new HttpError(400,'รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
  // Consume before changing the password: retries cannot reuse the same challenge.

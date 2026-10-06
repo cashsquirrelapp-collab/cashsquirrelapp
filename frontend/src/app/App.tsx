@@ -2289,6 +2289,13 @@ export default function App() {
     return showSessionLoader ? <FullPageLoader /> : null;
   }
 
+  // Let legacy one-hour recovery links reach Login so it can immediately
+  // remove their secret query parameter, even when a session already exists.
+  const legacyRecoveryParams = pathname === '/login' ? new URLSearchParams(window.location.search) : null;
+  if (pathname === '/recover' || legacyRecoveryParams?.has('r') || legacyRecoveryParams?.has('recover')) {
+    return <Login darkMode={darkMode} setDarkMode={setDarkMode} onGuestLogin={handleGuestLogin} />;
+  }
+
   if (session?.user?.accountPaused) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-brand-bg px-4 py-10">
@@ -2296,7 +2303,7 @@ export default function App() {
           <Mascot mood="wave" size={72} />
           <h1 className="mt-4 font-display text-2xl font-black text-brand-text">{session.user.accountClosureKind === 'deletion' ? 'บัญชีอยู่ระหว่างรอลบ' : 'บัญชีพักใช้งานอยู่'}</h1>
           <p className="mt-3 text-sm leading-relaxed text-brand-muted">
-            {session.user.accountClosureKind === 'deletion' ? 'บัญชีใช้งานไม่ได้แล้ว ข้อมูลยังอยู่ 30 วัน กู้คืนผ่านอีเมลสำรองที่ยืนยันไว้จากหน้าเข้าสู่ระบบได้ก่อนครบกำหนด หลังจากนั้นข้อมูลจะถูกลบถาวร' : 'ข้อมูลของคุณยังอยู่ครบ หากไม่เปิดใช้งานภายใน 30 วัน บัญชีและข้อมูลส่วนตัวจะถูกลบถาวรในรอบประมวลผลถัดไป เราจะส่งอีเมลเตือนวันละครั้งใน 3 วันสุดท้าย'}
+            {session.user.accountClosureKind === 'deletion' ? 'บัญชีใช้งานไม่ได้แล้ว ข้อมูลยังอยู่ 30 วัน หากต้องการกู้คืน โปรดขอลิงก์และรหัสจากผู้ดูแลระบบ แล้วใช้อีเมลสำรองที่ยืนยันไว้ก่อนครบกำหนด หลังจากนั้นข้อมูลจะถูกลบถาวร' : 'ข้อมูลของคุณยังอยู่ครบ หากไม่เปิดใช้งานภายใน 30 วัน บัญชีและข้อมูลส่วนตัวจะถูกลบถาวรในรอบประมวลผลถัดไป เราจะส่งอีเมลเตือนวันละครั้งใน 3 วันสุดท้าย'}
             {session.user.accountDeleteAfter && ` เหลือ ${Math.max(0, Math.ceil((new Date(session.user.accountDeleteAfter).getTime() - Date.now()) / 86_400_000))} วัน (ครบกำหนด ${new Date(session.user.accountDeleteAfter).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' })} น.)`}
           </p>
           {session.user.accountClosureKind !== 'deletion' && (!session.user.accountDeleteAfter || new Date(session.user.accountDeleteAfter).getTime() > Date.now()) && (

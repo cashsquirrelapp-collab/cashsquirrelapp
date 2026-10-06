@@ -39,6 +39,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/recover",
+      "destination": "/index.html"
+    },
+    {
       "source": "/:page/:workspace",
       "destination": "/index.html"
     },
@@ -61,7 +65,7 @@
         },
         {
           "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
+          "value": "no-referrer"
         },
         {
           "key": "Strict-Transport-Security",
@@ -84,6 +88,18 @@
           "key": "Cache-Control",
           "value": "no-store"
         }
+      ]
+    },
+    {
+      "source": "/recover",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/login",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
       ]
     }
   ]

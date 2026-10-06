@@ -32,6 +32,7 @@ export default function AdminUsersPanel({
   const [recoveryLinksLoaded, setRecoveryLinksLoaded] = useState(false);
   const [creatingRecoveryLink, setCreatingRecoveryLink] = useState(false);
   const [copiedRecoveryLink, setCopiedRecoveryLink] = useState('');
+  const [copiedRecoveryCode, setCopiedRecoveryCode] = useState('');
   const [page, setPage] = useState(0),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
@@ -79,7 +80,15 @@ export default function AdminUsersPanel({
         if (!controller.signal.aborted && getCurrentAccount() === userId) {
           setRecoveryLinks(current => result.links
             .filter(link => new Date(link.expiresAt).getTime() > Date.now())
-            .map(link => ({ ...link, url: link.url || current.find(existing => existing.id === link.id)?.url || null })));
+            .map(link => {
+              const previous = current.find(existing => existing.id === link.id);
+              const active = !link.consumedAt && !link.revokedAt;
+              return {
+                ...link,
+                url: active ? link.url || previous?.url || null : null,
+                recoveryCode: active ? link.recoveryCode || previous?.recoveryCode || null : null,
+              };
+            }));
           setRecoveryLinksLoaded(true);
         }
       } catch (e) {
@@ -169,6 +178,7 @@ export default function AdminUsersPanel({
     setBusy(true);
     setError('');
     setCopiedRecoveryLink('');
+    setCopiedRecoveryCode('');
     try {
       const result = await groupApi.createAccountRecoveryLink(userId);
       if (!mounted.current || getCurrentAccount() !== userId) return;
@@ -191,6 +201,15 @@ export default function AdminUsersPanel({
       setCopiedRecoveryLink(link.id);
     } catch {
       setError(copy('คัดลอกไม่ได้ กรุณาเลือกและคัดลอกลิงก์จากช่องข้อความ', 'Copy failed. Select and copy the link from the text field.'));
+    }
+  };
+  const copyRecoveryCode = async (link: AdminRecoveryLink) => {
+    if (!link.recoveryCode) return;
+    try {
+      await navigator.clipboard.writeText(link.recoveryCode);
+      setCopiedRecoveryCode(link.id);
+    } catch {
+      setError(copy('คัดลอกไม่ได้ กรุณาเลือกและคัดลอกรหัสจากช่องข้อความ', 'Copy failed. Select and copy the code from the text field.'));
     }
   };
   return (
@@ -244,7 +263,7 @@ export default function AdminUsersPanel({
         <div className="mb-3">
           <h3 className="font-bold text-sm">{copy('กู้คืนบัญชี', 'Account recovery')}</h3>
           <p className="mt-1 text-xs leading-relaxed text-brand-muted">
-            {copy('สร้างลิงก์กลางให้ผู้ใช้กู้คืนบัญชีด้วยอีเมลสำรองที่ยืนยันไว้ แต่ละลิงก์มีอายุ 1 ชั่วโมง และใช้ได้จนกว่าจะหมดอายุ', 'These links are not tied to a specific account. Users enter their verified backup email to find the account awaiting deletion. Each link lasts 1 hour, and every unexpired link remains usable.')}
+            {copy('สร้างลิงก์และรหัสกู้คืนแยกกัน ส่งให้ผู้ใช้คนละช่องทาง ผู้ใช้ต้องใช้อีเมลสำรองที่ยืนยันไว้ แต่ละรหัสมีอายุ 1 ชั่วโมง', 'Create a recovery link and a separate code. Send them through separate channels. The user must use a verified backup email. Each code lasts 1 hour.')}
           </p>
         </div>
         <button
@@ -252,12 +271,12 @@ export default function AdminUsersPanel({
           className={secondary}
           disabled={busy}
           onClick={() => triggerConfirm(
-            copy('สร้างลิงก์กู้คืนกลาง', 'Create a general recovery link'),
-            copy('ลิงก์นี้ใช้ได้กับบัญชีที่สั่งลบถาวรและยังอยู่ในช่วงกู้คืน ผู้ใช้ต้องกรอกอีเมลสำรองที่ยืนยันไว้ ลิงก์มีอายุ 1 ชั่วโมง และการสร้างลิงก์เพิ่มจะไม่ยกเลิกลิงก์ที่ยังไม่หมดอายุ', 'This link can be used for any permanently deleted account still within its recovery period. The user must enter their verified backup email. It lasts 1 hour, and generating another link will not invalidate unexpired links.'),
+            copy('สร้างรหัสกู้คืนกลาง', 'Create a general recovery code'),
+            copy('ลิงก์เปิดหน้ากู้คืน ส่วนรหัสใช้ยืนยันสิทธิ์และมีอายุ 1 ชั่วโมง ส่งลิงก์กับรหัสแยกช่องทาง รหัสใหม่จะไม่ยกเลิกรหัสที่ยังไม่หมดอายุ', 'The link opens the recovery page. The code authorizes recovery for 1 hour. Send the link and code through separate channels. New codes do not invalidate active codes.'),
             () => { void createRecoveryLink(); },
           )}
         >
-          {creatingRecoveryLink ? copy('กำลังสร้าง…', 'Creating…') : copy('สร้างลิงก์กู้คืน', 'Generate recovery link')}
+          {creatingRecoveryLink ? copy('กำลังสร้าง…', 'Creating…') : copy('สร้างรหัสกู้คืน', 'Generate recovery code')}
         </button>
         {!recoveryLinksLoaded ? (
           <p className="mt-3 rounded-xl bg-brand-white/70 px-3 py-3 text-xs text-brand-muted">{copy('กำลังโหลดลิงก์กู้คืน…', 'Loading recovery links…')}</p>
@@ -274,12 +293,28 @@ export default function AdminUsersPanel({
                     {link.url ? (
                       <input aria-label={copy('ลิงก์กู้คืนบัญชี', 'Account recovery link')} className={`${input} min-w-0`} value={link.url} readOnly onFocus={event => event.currentTarget.select()} />
                     ) : (
-                      <p className="min-w-0 flex-1 rounded-xl border border-brand-border/40 bg-brand-bg/40 px-3 py-2.5 text-xs leading-relaxed text-brand-muted">{copy('ลิงก์นี้สร้างก่อนเปิดใช้รายการลิงก์ และไม่สามารถเรียก URL กลับมาได้', 'This link predates link history and its URL cannot be restored.')}</p>
+                      <p className="min-w-0 flex-1 rounded-xl border border-brand-border/40 bg-brand-bg/40 px-3 py-2.5 text-xs leading-relaxed text-brand-muted">
+                        {link.consumedAt || link.revokedAt
+                          ? copy('รหัสนี้ใช้แล้วหรือถูกยกเลิก', 'This code was used or revoked.')
+                          : copy('รหัสนี้สร้างก่อนเปิดใช้รายการลิงก์ และไม่สามารถเรียกกลับมาได้', 'This code predates link history and cannot be restored.')}
+                      </p>
                     )}
                     <button type="button" className={secondary} disabled={!link.url} onClick={() => { void copyRecoveryLink(link); }}>
                       {copiedRecoveryLink === link.id ? copy('คัดลอกแล้ว', 'Copied') : copy('คัดลอกลิงก์', 'Copy link')}
                     </button>
                   </div>
+                  {!link.consumedAt && !link.revokedAt && (
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      {link.recoveryCode ? (
+                        <input aria-label={copy('รหัสกู้คืนสำหรับส่งแยก', 'Recovery code to send separately')} type="password" className={`${input} min-w-0 font-mono`} value={link.recoveryCode} readOnly onFocus={event => event.currentTarget.select()} />
+                      ) : (
+                        <p className="min-w-0 flex-1 rounded-xl border border-brand-border/40 bg-brand-bg/40 px-3 py-2.5 text-xs text-brand-muted">{copy('ไม่สามารถเรียกรหัสกู้คืนเดิมกลับมาได้', 'This recovery code cannot be retrieved.')}</p>
+                      )}
+                      <button type="button" className={secondary} disabled={!link.recoveryCode} onClick={() => { void copyRecoveryCode(link); }}>
+                        {copiedRecoveryCode === link.id ? copy('คัดลอกแล้ว', 'Copied') : copy('คัดลอกรหัส', 'Copy code')}
+                      </button>
+                    </div>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-brand-muted">
                     <span className={`rounded-full px-2 py-1 font-semibold ${link.consumedAt ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : link.revokedAt ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-brand-faint text-brand-muted'}`}>
                       {link.consumedAt ? copy('ใช้กู้คืนแล้ว', 'Used') : link.revokedAt ? copy('ยกเลิกแล้ว', 'Revoked') : copy('ยังไม่ถูกใช้', 'Not used')}

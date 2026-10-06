@@ -4,6 +4,7 @@ import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { withGuard, HttpError } from '../http/guard.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { challengeHash, rateLimit } from '../security/rateLimit.js';
+import { clientIp } from '../security/ingress.js';
 import { sendGmailEmail } from '../services/gmail.js';
 
 const input = z.object({
@@ -12,7 +13,8 @@ const input = z.object({
   token: z.string().min(24).max(100),
   code: z.string().regex(/^\d{6}$/).optional(),
 });
-const generic = { ok: true, message: 'หากลิงก์และอีเมลสำรองนี้ใช้กู้คืนได้ ระบบจะส่งรหัสให้' };
+const generic = { ok: true, message: 'หากรหัสกู้คืนและอีเมลสำรองนี้ใช้กู้คืนได้ ระบบจะส่งรหัสยืนยันให้' };
+const REQUEST_RESPONSE_FLOOR_MS = 2500;
 
 async function findActiveRecovery(admin: ReturnType<typeof getSupabaseAdmin>, token: string) {
   const tokenHash = challengeHash(`account-recovery-link:${token}`);
@@ -34,36 +36,42 @@ async function releaseRecoveryLink(admin: ReturnType<typeof getSupabaseAdmin>, t
 
 export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+  const startedAt = Date.now();
   const parsed = input.safeParse(req.body);
-  if (!parsed.success) throw new HttpError(400, 'ลิงก์กู้คืนหมดอายุหรือไม่ถูกต้อง');
+  if (!parsed.success) throw new HttpError(400, 'รหัสกู้คืนหรือข้อมูลที่กรอกไม่ถูกต้อง');
   const { action, code, token } = parsed.data;
   const email = parsed.data.email.trim().toLowerCase();
   const admin = getSupabaseAdmin();
   const tokenHash = challengeHash(`account-recovery-link:${token}`);
-  await rateLimit(`recover-link-${action}`, `${tokenHash}:${email}`, action === 'request' ? 4 : 8, 900);
+  await rateLimit(`recover-source-${action}`, clientIp(req), action === 'request' ? 20 : 30, 900);
+  await rateLimit(`recover-token-${action}`, tokenHash, action === 'request' ? 30 : 50, 3600);
+  await rateLimit(`recover-email-${action}`, `${tokenHash}:${email}`, action === 'request' ? 4 : 8, 900);
+  const respondToRequest = async () => {
+    const remaining = REQUEST_RESPONSE_FLOOR_MS - (Date.now() - startedAt);
+    if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+    res.json(generic);
+  };
   const recovery = await findActiveRecovery(admin, token);
   if (!recovery) {
-    if (action === 'request') { res.json(generic); return; }
-    throw new HttpError(400, 'ลิงก์กู้คืน รหัส หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
+    if (action === 'request') { await respondToRequest(); return; }
+    throw new HttpError(400, 'รหัสกู้คืน รหัสยืนยัน หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
   }
   const backup = await admin.from('cashflow_backup_emails').select('user_id,verified_email,verified_at')
     .eq('verified_email', email).maybeSingle();
   if (backup.error) throw backup.error;
   if (!backup.data?.verified_email || !backup.data.verified_at || backup.data.verified_email.toLowerCase() !== email) {
     if (action === 'request') {
-      throw new HttpError(400,
-        'ไม่พบอีเมลนี้ในรายการอีเมลสำรองที่ยืนยันแล้ว โปรดตรวจสอบอีเมลที่กรอกและลองอีกครั้ง',
-        'backup_email_not_verified');
+      await respondToRequest(); return;
     }
-    throw new HttpError(400, 'ลิงก์กู้คืน รหัส หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
+    throw new HttpError(400, 'รหัสกู้คืน รหัสยืนยัน หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
   }
   const pendingClosure = await admin.from('cashflow_account_pauses').select('user_id,paused_at,delete_after')
     .eq('user_id', backup.data.user_id).eq('closure_kind', 'deletion').eq('state', 'paused')
     .gt('delete_after', new Date().toISOString()).maybeSingle();
   if (pendingClosure.error) throw pendingClosure.error;
   if (!pendingClosure.data) {
-    if (action === 'request') { res.json(generic); return; }
-    throw new HttpError(400, 'ลิงก์กู้คืน รหัส หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
+    if (action === 'request') { await respondToRequest(); return; }
+    throw new HttpError(400, 'รหัสกู้คืน รหัสยืนยัน หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
   }
   const userId = pendingClosure.data.user_id;
 
@@ -74,14 +82,18 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       code_hash: challengeHash(`${userId}:${email}:${otp}`),
       expires_at: new Date(Date.now() + 300_000).toISOString(), attempts: 0,
     });
-    if (saved.error) throw saved.error;
-    const sent = await sendGmailEmail(email, 'กู้คืนบัญชี Krarok Tunngern',
-      `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto"><h2>กู้คืนบัญชี</h2><p>รหัสกู้คืนบัญชีที่กำลังรอลบคือ <strong style="font-size:28px">${otp}</strong></p><p>รหัสใช้ได้ 5 นาที หากไม่ได้ทำรายการนี้ให้ละเว้นอีเมล</p></div>`);
-    if (!sent) {
-      await admin.from('cashflow_challenges').delete().eq('user_id', userId).eq('purpose', 'account-recover');
-      throw new HttpError(503, 'ส่งรหัสไม่สำเร็จ กรุณาลองใหม่');
+    if (saved.error) {
+      console.error('Could not create account recovery challenge', { type: saved.error.name });
+      await respondToRequest(); return;
     }
-    res.json(generic);
+    const sent = await sendGmailEmail(email, 'รหัสยืนยันการกู้คืนบัญชี | Krarok Tunngern',
+      `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto"><h2>ยืนยันการกู้คืนบัญชี</h2><p>รหัสยืนยัน 6 หลักของคุณคือ <strong style="font-size:28px">${otp}</strong></p><p>รหัสใช้ได้ 5 นาที หากไม่ได้ทำรายการนี้ให้ละเว้นอีเมล</p></div>`);
+    if (!sent) {
+      await admin.from('cashflow_challenges').delete().eq('user_id', userId).eq('purpose', 'account-recover')
+        .eq('code_hash', challengeHash(`${userId}:${email}:${otp}`));
+      console.error('Account recovery email delivery failed');
+    }
+    await respondToRequest();
     return;
   }
 
@@ -92,11 +104,11 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     p_hash: challengeHash(`${userId}:${email}:${code}`),
   });
   if (consumed.error) throw consumed.error;
-  if (!consumed.data) throw new HttpError(400, 'ลิงก์กู้คืน รหัส หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
+  if (!consumed.data) throw new HttpError(400, 'รหัสกู้คืน รหัสยืนยัน หรืออีเมลสำรองไม่ถูกต้องหรือหมดอายุ');
 
   const now = new Date().toISOString();
   if (Date.now() - Date.parse(recovery.createdAt) >= 60 * 60 * 1000) {
-    throw new HttpError(400, 'ลิงก์กู้คืนหมดอายุแล้ว กรุณาติดต่อผู้ดูแลเพื่อขอลิงก์ใหม่');
+    throw new HttpError(400, 'รหัสกู้คืนหมดอายุแล้ว กรุณาติดต่อผู้ดูแลเพื่อขอรหัสใหม่');
   }
   const usedLink = await admin.from('cashflow_account_recovery_links').update({
     consumed_at: now, recovered_user_id: userId, recovered_email: email,
@@ -106,7 +118,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     .gt('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
     .select('id').maybeSingle();
   if (usedLink.error) throw usedLink.error;
-  if (!usedLink.data) throw new HttpError(409, 'ลิงก์กู้คืนถูกใช้แล้วหรือหมดอายุ กรุณาติดต่อผู้ดูแลเพื่อขอลิงก์ใหม่');
+  if (!usedLink.data) throw new HttpError(409, 'รหัสกู้คืนถูกใช้แล้วหรือหมดอายุ กรุณาติดต่อผู้ดูแลเพื่อขอรหัสใหม่');
 
   const removed = await admin.from('cashflow_account_pauses').delete().eq('user_id', userId)
     .eq('closure_kind', 'deletion').eq('state', 'paused').gt('delete_after', now)
