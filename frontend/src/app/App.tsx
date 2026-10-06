@@ -2892,6 +2892,8 @@ export default function App() {
                   notifSettings={notifSettings}
                   onUpdateNotifSettings={setNotifSettings}
                   isPro={isPro}
+                  darkMode={darkMode}
+                  onSetDarkMode={setDarkMode}
                 />
               )}
             </div>}

@@ -73,32 +73,27 @@ export const BrandImageField: React.FC<{
   size?: { label: string; value: number; min: number; max: number; onChange: (value: number) => void };
   extra?: React.ReactNode;
 }> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError, size, extra }) => (
-  <div className="md:col-span-12 bg-stone-50 dark:bg-stone-950/40 p-5 rounded-2xl border border-brand-border/40 space-y-3.5">
-    <div className="flex items-center gap-2">
-      <div className="p-1.5 bg-[#E65F2B]/10 rounded-lg text-[#E65F2B]">
-        <Settings className="w-4 h-4" />
-      </div>
-      <div>
-        <h4 className="text-xs font-black text-brand-text dark:text-white uppercase">{title}</h4>
-        <p className="text-[9px] text-brand-muted">{hint}</p>
-      </div>
+  <div className="space-y-3">
+    <div>
+      <h4 className="text-[14px] font-medium text-brand-text">{title}</h4>
+      <p className="mt-0.5 text-xs text-brand-muted">{hint}</p>
     </div>
 
     <div className="flex flex-col sm:flex-row gap-5 items-center">
-      <div className="w-24 h-24 border border-brand-border/60 rounded-2xl bg-white dark:bg-stone-900 flex items-center justify-center overflow-hidden shrink-0 shadow-inner border-dashed">
+      <div className="w-24 h-24 border border-dashed border-brand-border rounded-xl bg-white dark:bg-[#141518] flex items-center justify-center overflow-hidden shrink-0">
         {value ? (
           <img src={value} alt="" className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
         ) : (
           <div className="text-center p-2 flex flex-col items-center gap-1">
             <Upload className="w-5 h-5 text-brand-muted" />
-            <span className="text-[8px] text-brand-muted font-bold">{emptyLabel}</span>
+            <span className="text-[11px] text-brand-muted">{emptyLabel}</span>
           </div>
         )}
       </div>
 
       <div className="flex-1 space-y-2 w-full">
         <div className="flex flex-wrap gap-2">
-          <label className="px-4 py-2 bg-[#E65F2B] hover:bg-[#E65F2B]/90 text-white text-[10px] font-black rounded-xl cursor-pointer transition-all flex items-center gap-1.5 shadow-xs">
+          <label className="px-3.5 py-2 bg-[#E65F2B] hover:bg-[#D35221] text-white text-[13px] font-medium rounded-xl cursor-pointer transition-colors flex items-center gap-1.5">
             <Upload className="w-3.5 h-3.5" />
             <span>{uploadLabel}</span>
             <input
@@ -122,15 +117,15 @@ export const BrandImageField: React.FC<{
             <button
               type="button"
               onClick={() => onChange('')}
-              className="px-3.5 py-2 bg-stone-100 hover:bg-red-50 dark:bg-stone-800 dark:hover:bg-red-950/20 text-stone-600 dark:text-stone-300 hover:text-red-600 dark:hover:text-red-400 text-[10px] font-black rounded-xl transition-all cursor-pointer"
+              className="px-3.5 py-2 border border-brand-border text-brand-text hover:bg-[#FDEEEE] hover:text-[#C43A3A] dark:hover:bg-[#F19A9A]/10 dark:hover:text-[#F19A9A] text-[13px] rounded-xl transition-colors cursor-pointer"
             >
               {removeLabel}
             </button>
           )}
         </div>
         {size && value ? (
-          <label className="flex items-center gap-3 text-[10px] font-black text-brand-muted">
-            <span className="shrink-0">ขนาดบนเอกสาร</span>
+          <label className="flex items-center gap-3 text-xs text-brand-muted">
+            <span className="w-24 shrink-0">ขนาดบนเอกสาร</span>
             <input
               type="range"
               min={size.min}
@@ -145,7 +140,7 @@ export const BrandImageField: React.FC<{
           </label>
         ) : null}
         {value ? extra : null}
-        <p className="text-[9px] text-brand-muted leading-relaxed">
+        <p className="text-[11px] text-brand-muted leading-relaxed">
           * รองรับ PNG, JPEG และ WebP ไม่เกิน 2MB ระบบย่อภาพก่อนบันทึก
         </p>
       </div>

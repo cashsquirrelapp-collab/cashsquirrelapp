@@ -204,7 +204,7 @@ async function settings(page: Page) {
     .locator("aside nav")
     .getByRole("button", { name: "ตั้งค่า" })
     .click();
-  await page.getByRole("button", { name: "การเงิน", exact: true }).click();
+  await page.getByRole("button", { name: "รายจ่ายประจำ", exact: true }).click();
 }
 async function invoices(page: Page) {
   const sidebar = page.locator("aside");
@@ -226,7 +226,7 @@ test("members edit a shared workspace and switching saves to the old scope witho
     "บัญชีการเงินของกลุ่ม",
   );
   await settings(page);
-  await expect(page.getByRole("heading", { name: "การเงิน" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "รายจ่ายประจำ" })).toBeVisible();
   await page.locator("#main-content input").first().fill("Group office");
   // Fixed expense item editor: add a real finance change then switch before debounce.
   await page.locator("#main-content input").nth(1).fill("700");
@@ -298,7 +298,7 @@ test("failed saves block switching and keep the selected workspace and unsaved d
   const state = await setup(page);
   await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
   await settings(page);
-  await expect(page.getByRole("heading", { name: "การเงิน" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "รายจ่ายประจำ" })).toBeVisible();
   await page.locator("#main-content input").first().fill("Unsaved office");
   await page.locator("#main-content input").nth(1).fill("999");
   await page
@@ -315,7 +315,7 @@ test("failed saves block switching and keep the selected workspace and unsaved d
   await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toHaveValue(
     group,
   );
-  await page.getByRole("button", { name: "การเงิน", exact: true }).click();
+  await page.getByRole("button", { name: "รายจ่ายประจำ", exact: true }).click();
   await expect(page.getByText("Unsaved office", { exact: true })).toBeVisible();
 });
 test("removed membership rejects reload and permits returning to personal finance without leaking group data", async ({

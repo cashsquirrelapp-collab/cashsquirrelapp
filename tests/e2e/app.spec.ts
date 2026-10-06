@@ -180,7 +180,7 @@ test('login and all feature tabs render after separation without browser errors'
   if(await button.isVisible()) { await button.click();await expect(button).toHaveAttribute('aria-current','page');await expect(page.locator('#main-content')).not.toContainText('กำลังโหลด');await expect(page.getByText('โหลดหน้านี้ไม่สำเร็จ',{exact:true})).toHaveCount(0); }
  }
  await sidebar.getByRole('button',{name:'ตั้งค่า',exact:true}).click();
- await expect(page.getByRole('heading',{name:'บัญชีของฉัน'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'บัญชี',exact:true})).toBeVisible();
  await expect(page.getByText('SQ-1111111111',{exact:true}).first()).toBeVisible();
  await sidebar.locator('nav button').first().click();
  await expect(page.locator('#dashboard-top')).toBeVisible();
@@ -483,4 +483,57 @@ test('a protected API 401 immediately removes private views without waiting for 
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
  denied=true;const sidebar=page.locator('aside');await sidebar.getByRole('button',{name:'เครื่องมือเพิ่มเติม'}).click();
  await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
+});
+
+test('settings overview shows current values and opens each setting on its own page',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/account',route=>route.fulfill({json:{backupEmail:null}}));
+ const saved:any[]=[];
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
+  return route.fulfill({json:{snapshot:{...snapshot,settings:{...snapshot.settings,monthlyExpense:12000,fixedExpenseItems:[{id:'rent',name:'ค่าห้อง',amount:12000}],monthlyRevenueGoal:25000}},versions,subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
+ const sidebar=page.locator('aside');
+ await sidebar.getByRole('button',{name:'ตั้งค่า',exact:true}).click();
+ const main=page.locator('#main-content');
+ // overview: summary values, real LINE logo, no forms or document preview
+ await expect(main.getByText('SQ-1111111111',{exact:true})).toBeVisible();
+ await expect(main.getByRole('button',{name:'รายจ่ายประจำ',exact:true})).toContainText('฿12,000');
+ await expect(main.getByRole('button',{name:'เป้ารายรับต่อเดือน',exact:true})).toContainText('฿25,000');
+ await expect(main.getByRole('button',{name:'LINE',exact:true}).getByRole('img',{name:'LINE'})).toBeVisible();
+ await expect(main.getByRole('button',{name:'LINE',exact:true})).toContainText('ยังไม่ได้เชื่อมต่อ');
+ await expect(main.locator('input:not([type=file])')).toHaveCount(0);
+ await expect(page.getByTestId('document-preview')).toHaveCount(0);
+ await expect(main.getByText('แพ็กเกจ Pro')).toHaveCount(0);
+ // goals toggle writes the existing feature flag
+ await main.getByRole('switch',{name:'เป้าหมายการเงิน & การจัดสรร'}).click();
+ await expect(main.getByRole('switch',{name:'เป้าหมายการเงิน & การจัดสรร'})).toHaveAttribute('aria-checked','false');
+ await expect.poll(()=>saved.some(c=>c.id==='settings'&&c.data.goalsFeatureEnabled===false)).toBe(true);
+ // income target in a compact sheet
+ await main.getByRole('button',{name:'เป้ารายรับต่อเดือน',exact:true}).click();
+ await page.getByRole('dialog').getByRole('textbox').fill('30000');
+ await page.getByRole('dialog').getByRole('button',{name:'บันทึก',exact:true}).click();
+ await expect(main.getByRole('button',{name:'เป้ารายรับต่อเดือน',exact:true})).toContainText('฿30,000');
+ // theme sheet
+ await main.getByRole('button',{name:'การแสดงผล',exact:true}).click();
+ const dark=await page.locator('html').evaluate(el=>el.classList.contains('dark'));
+ await page.getByRole('dialog').getByRole('radio',{name:dark?'สว่าง':'มืด'}).click();
+ await expect.poll(()=>page.locator('html').evaluate(el=>el.classList.contains('dark'))).toBe(!dark);
+ await page.keyboard.press('Escape');
+ // a detail page has a back link and no settings sidebar
+ await main.getByRole('button',{name:'บัญชี & ความปลอดภัย',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'บัญชี & ความปลอดภัย'})).toBeVisible();
+ await expect(main.getByText('แพ็กเกจ Pro')).toHaveCount(0);
+ await main.getByRole('button',{name:'ตั้งค่า',exact:true}).click();
+ // import asks before replacing data
+ await main.getByRole('button',{name:'สำรอง & นำเข้าข้อมูล',exact:true}).click();
+ const before=saved.length;
+ await page.locator('#json-settings-uploader').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({settings:{...snapshot.settings,monthlyRevenueGoal:99999}}))});
+ await expect(page.getByText('นำเข้าข้อมูลจากไฟล์สำรอง')).toBeVisible();
+ await page.waitForTimeout(1800);
+ expect(saved.slice(before).some(c=>c.id==='settings'&&c.data.monthlyRevenueGoal===99999)).toBe(false);
+ await page.getByRole('button',{name:'ยกเลิก',exact:true}).click();
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
