@@ -556,3 +556,19 @@ test('a job can be paid in full while still in progress and keeps its payment da
  await page.getByRole('button',{name:'บันทึก',exact:true}).click();
  await expect.poll(()=>saved.some(c=>c.id==='wip-job'&&c.data.isPosted===true&&c.data.payDate==='2026-10-02')).toBe(true);
 });
+
+test('calendar shows how much money the open month brings in, matching the timeline',async({page})=>{
+ const now=new Date();const ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+ const paid={id:'paid',name:'งานรับแล้ว',value:5000,received:5000,pending:0,client:'ลูกค้า A',type:'Sponsored Post',status:'done',paymentStatus:'paid',creditTerm:0,note:'',postDate:`${ym}-01`,payDate:`${ym}-02`,isPosted:true};
+ const waiting={id:'wait',name:'งานรอรับ',value:3000,received:0,pending:3000,client:'ลูกค้า B',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:0,note:'',postDate:`${ym}-28`,payDate:`${ym}-28`,isPosted:true};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,jobs:[paid,waiting]},versions:{...versions,cashflow_jobs:{paid:1,wait:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/calendar?view=calendar');
+ const card=page.getByRole('region',{name:'เงินเข้าเดือนนี้'});
+ await expect(card).toContainText('฿8,000');
+ await expect(card).toContainText('รับแล้ว');
+ await expect(card).toContainText('฿5,000');
+ await card.getByRole('button',{name:/ดูในไทม์ไลน์/}).click();
+ await expect(page.getByRole('tab',{name:/ไทม์ไลน์/})).toHaveAttribute('aria-selected','true');
+ await expect(page.locator('#main-content')).toContainText('฿8,000');
+});

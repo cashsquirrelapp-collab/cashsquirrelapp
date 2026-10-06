@@ -40,12 +40,14 @@ interface TimelineViewProps {
   settings: AppSettings;
   onViewJob: (jobId: string) => void;
   onAddJob: () => void;
+  /** Month to start from (e.g. the month that was open in the calendar). */
+  initialMonth?: string;
 }
 
-export function TimelineView({ jobs, expenses, settings, onViewJob, onAddJob }: TimelineViewProps) {
+export function TimelineView({ jobs, expenses, settings, onViewJob, onAddJob, initialMonth }: TimelineViewProps) {
   const todayKey = toLocalDateKey();
   const currentMonth = todayKey.slice(0, 7);
-  const [fromMonth, setFromMonth] = React.useState(currentMonth);
+  const [fromMonth, setFromMonth] = React.useState(initialMonth && /^\d{4}-\d{2}$/.test(initialMonth) ? initialMonth : currentMonth);
   const [monthCount, setMonthCount] = React.useState(DEFAULT_MONTHS);
   const [filter, setFilter] = React.useState<Filter>('all');
 

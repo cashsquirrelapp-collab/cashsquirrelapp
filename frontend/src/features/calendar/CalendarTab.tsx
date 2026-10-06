@@ -6,6 +6,7 @@ import { AppSettings, Expense, Job } from '../../../../shared/types';
 import { formatCurrency, dateLocale } from '../../utils';
 import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { TimelineView } from './TimelineView';
+import { MonthMoneySummary } from './MonthMoneySummary';
 
 type PageView = 'calendar' | 'timeline';
 const VIEW_STORAGE_KEY = 'cashsquirrel_calendar_view';
@@ -87,6 +88,7 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
   const startKey = initialDateKey && /^\d{4}-\d{2}-\d{2}$/.test(initialDateKey) ? initialDateKey : null;
   // A specific day was requested (dashboard mini calendar), so that always opens the calendar.
   const [pageView, setPageView] = useState<PageView>(() => initialPageView(Boolean(startKey), linkedView));
+  const [timelineMonth, setTimelineMonth] = useState<string | undefined>(undefined);
   const switchView = (next: PageView) => {
     setPageView(next);
     try { localStorage.setItem(VIEW_STORAGE_KEY, next); } catch { /* private mode: just don't remember */ }
@@ -207,7 +209,7 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
           <button type="button" role="tab" aria-selected={pageView === 'calendar'} onClick={() => switchView('calendar')} className={segment(pageView === 'calendar')}>
             <CalendarDays className="h-4 w-4" /> ปฏิทิน
           </button>
-          <button type="button" role="tab" aria-selected={pageView === 'timeline'} onClick={() => switchView('timeline')} className={segment(pageView === 'timeline')}>
+          <button type="button" role="tab" aria-selected={pageView === 'timeline'} onClick={() => { setTimelineMonth(undefined); switchView('timeline'); }} className={segment(pageView === 'timeline')}>
             <List className="h-4 w-4" /> ไทม์ไลน์
           </button>
         </div>
@@ -216,7 +218,7 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
       <AnimatePresence mode="wait" initial={false}>
       {pageView === 'timeline' ? (
         <motion.div key="timeline" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.18 }}>
-          <TimelineView jobs={jobs} expenses={expenses} settings={settings} onViewJob={onViewJob} onAddJob={onAddJob} />
+          <TimelineView jobs={jobs} expenses={expenses} settings={settings} onViewJob={onViewJob} onAddJob={onAddJob} initialMonth={timelineMonth} />
         </motion.div>
       ) : (
       <motion.div key="calendar" className="space-y-4" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.18 }}>
@@ -253,13 +255,13 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
               type="button"
               onClick={() => changeView('month')}
               aria-pressed={calendarView === 'month'}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${calendarView === 'month' ? 'bg-[#FFF1E8] text-[#C24A16]' : 'bg-brand-faint text-brand-muted hover:text-brand-text'}`}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${calendarView === 'month' ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-orange-300' : 'bg-brand-faint text-brand-muted hover:text-brand-text'}`}
             >เดือน</button>
             <button
               type="button"
               onClick={() => changeView('week')}
               aria-pressed={calendarView === 'week'}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${calendarView === 'week' ? 'bg-[#FFF1E8] text-[#C24A16]' : 'bg-brand-faint text-brand-muted hover:text-brand-text'}`}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${calendarView === 'week' ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-orange-300' : 'bg-brand-faint text-brand-muted hover:text-brand-text'}`}
             >สัปดาห์</button>
           </div>
         </div>
@@ -274,8 +276,16 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
-        <div className="overflow-x-auto pb-1">
+      {/* Desktop: calendar on the left, month money + selected day on the right.
+          Phones: month money first, then the calendar, then the day. */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_280px] lg:grid-rows-[auto_1fr]">
+        <MonthMoneySummary
+          jobs={jobs}
+          monthKey={toDateKey(viewDate).slice(0, 7)}
+          onOpenTimeline={() => { setTimelineMonth(toDateKey(viewDate).slice(0, 7)); switchView('timeline'); }}
+          className="lg:col-start-2 lg:row-start-1"
+        />
+        <div className="overflow-x-auto pb-1 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           <div className={calendarView === 'week' ? 'min-w-[680px]' : ''} data-calendar-view={calendarView}>
             <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] text-brand-muted mb-1.5">
               {WEEKDAYS_TH.map(w => <div key={w}>{w}</div>)}
@@ -321,7 +331,7 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
           </div>
         </div>
 
-        <div className={`${uiSurface} p-[18px]`}>
+        <div className={`${uiSurface} self-start p-[18px] lg:col-start-2 lg:row-start-2`}>
           <h4 className="mb-3 text-[13px] font-medium text-brand-text">รายการ{selectedDateLabel}</h4>
           {selectedEvents.length === 0 ? (
             <p className="py-6 text-center text-xs text-brand-muted">ไม่มีรายการในวันนี้</p>
