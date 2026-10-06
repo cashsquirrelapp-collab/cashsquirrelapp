@@ -413,7 +413,6 @@ export default function App() {
                 <span className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold ${isPaidActive || isGuestProPreview ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'bg-brand-faint text-brand-muted'}`}>
                   {isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}
                 </span>
-                <span className="min-w-0 truncate text-xs text-brand-muted">{session?.user?.email || ''}</span>
               </span>
             </span>
           </div>
@@ -2416,7 +2415,6 @@ export default function App() {
                     <span className="block truncate text-[13px] font-semibold leading-tight text-brand-text">
                       {routeContext?.profile.displayName || session.user.email?.split('@')[0] || 'บัญชีของฉัน'}
                     </span>
-                    {session.user.email && <span className="block truncate text-[10.5px] leading-tight text-brand-muted">{session.user.email}</span>}
                   </span>
                   <MoreHorizontal className="h-4 w-4 shrink-0 text-brand-muted" />
                 </button>
