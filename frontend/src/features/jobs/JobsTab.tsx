@@ -1,9 +1,10 @@
 import PageHeader from '../../components/ui/PageHeader';
-import { uiPrimaryButton } from '../../components/ui/uiStyles';
+import { uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles';
+import { IncomeExportDialog } from '../report/IncomeExport';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Job, StatusOption } from '../../../../shared/types';
-import { formatCurrency, calculatePayDate, safeFormatThaiDate, dateLocale } from '../../utils';
+import { formatCurrency, calculatePayDate, safeFormatThaiDate, dateLocale, exportJobsToCSV } from '../../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -19,6 +20,7 @@ import {
   Filter,
   CheckCircle,
   ChevronDown,
+  Download,
   Plus,
   MoreHorizontal,
   CalendarDays,
@@ -160,6 +162,17 @@ export default function JobsTab({
   // instead of routing through the full multi-step edit form, so its own save doesn't fire a
   // second, redundant "แก้ไขงาน" LINE notification on top of this action's own "ดีลงาน" card.
   const [deliveryPromptJob, setDeliveryPromptJob] = useState<Job | null>(null);
+  // ส่งออก: income as Excel (month or year) or every job as CSV.
+  const [exportOpen, setExportOpen] = useState(false);
+  const [incomeExportOpen, setIncomeExportOpen] = useState(false);
+  const exportMenuRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!exportOpen) return;
+    const onDown = (e: MouseEvent) => { if (!exportMenuRef.current?.contains(e.target as Node)) setExportOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setExportOpen(false); };
+    document.addEventListener('mousedown', onDown); document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [exportOpen]);
   const [installmentPaymentJob, setInstallmentPaymentJob] = useState<Job | null>(null);
   const [selectedInstallmentId, setSelectedInstallmentId] = useState('');
   const [installmentPaidDate, setInstallmentPaidDate] = useState(getLocalDateStr());
@@ -517,6 +530,22 @@ export default function JobsTab({
     <div className="page-content">
       {/* Page header */}
       <PageHeader page="jobs" className="mb-5">
+        <div className="relative" ref={exportMenuRef}>
+          <button type="button" onClick={() => setExportOpen(v => !v)} aria-haspopup="menu" aria-expanded={exportOpen} aria-label="ส่งออก" className={uiSecondaryButton}>
+            <Download className="h-4 w-4" /><span>ส่งออก</span><ChevronDown className="h-3.5 w-3.5 text-brand-muted" />
+          </button>
+          {exportOpen && (
+            <div role="menu" className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#1F2024] sm:left-auto sm:right-0">
+              {[
+                { label: 'รายรับรายเดือน / ทั้งปี (Excel)', run: () => setIncomeExportOpen(true) },
+                { label: 'ข้อมูลงานทั้งหมด (CSV)', run: () => { if (!exportJobsToCSV(jobs)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีข้อมูลงานสำหรับส่งออก'); } },
+              ].map(item => (
+                <button key={item.label} type="button" role="menuitem" onClick={() => { setExportOpen(false); item.run(); }}
+                  className="flex w-full rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint cursor-pointer">{item.label}</button>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={openAddJobForm}
@@ -528,6 +557,7 @@ export default function JobsTab({
           <span className="sm:hidden">เพิ่ม</span>
         </button>
       </PageHeader>
+      <IncomeExportDialog open={incomeExportOpen} jobs={jobs} onClose={() => setIncomeExportOpen(false)} notify={triggerAlert} />
 
       {/* Stage tabs */}
       <div className="no-scrollbar -mx-1 mb-4 flex gap-2 overflow-x-auto px-1" role="tablist" aria-label="สถานะงาน">

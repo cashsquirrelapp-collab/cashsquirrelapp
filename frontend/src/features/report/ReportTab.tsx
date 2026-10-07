@@ -115,12 +115,12 @@ export default function ReportTab({ jobs, onSwitchTab, isPro, onUpgrade, initial
     <div className="page-content space-y-4">
       <PageHeader page="report">
         <div className="relative shrink-0" data-report-export>
-          <button type="button" onClick={() => setExportOpen(v => !v)} aria-haspopup="menu" aria-expanded={exportOpen}
+          <button type="button" onClick={() => setExportOpen(v => !v)} aria-haspopup="menu" aria-expanded={exportOpen} aria-label="ส่งออก"
             className="flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3 text-xs text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
-            <Download className="h-4 w-4" /><span className="hidden sm:inline">ส่งออก</span><ChevronDown className="h-3.5 w-3.5 text-brand-muted" />
+            <Download className="h-4 w-4" /><span>ส่งออก</span><ChevronDown className="h-3.5 w-3.5 text-brand-muted" />
           </button>
           {exportOpen && (
-            <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-30 w-64 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900">
+            <div role="menu" className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900 sm:left-auto sm:right-0">
               {[
                 { label: 'รายรับรายเดือน / ทั้งปี (Excel)', run: () => setIncomeExportOpen(true) },
                 { label: `สรุปรายงาน ${periodLabel} (CSV)`, run: () => { if (!exportReportCSV(report, periodLabel)) alert('ไม่พบข้อมูล', 'ยังไม่มีงานในช่วงเวลานี้'); } },

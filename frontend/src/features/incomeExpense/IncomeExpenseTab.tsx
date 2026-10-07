@@ -187,10 +187,10 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
           <div className="relative" data-expense-menu>
             <button type="button" onClick={() => setExportOpen(v => !v)} aria-haspopup="menu" aria-expanded={exportOpen} aria-label="ส่งออก"
               className={uiSecondaryButton}>
-              <Download className="h-4 w-4" /><span className="hidden sm:inline">ส่งออก</span><ChevronDown className="h-3.5 w-3.5 text-brand-muted" />
+              <Download className="h-4 w-4" /><span>ส่งออก</span><ChevronDown className="h-3.5 w-3.5 text-brand-muted" />
             </button>
             {exportOpen && (
-              <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-30 w-60 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900">
+              <div role="menu" className="absolute left-0 top-[calc(100%+6px)] z-30 w-60 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900 sm:left-auto sm:right-0">
                 {[
                   { label: `รายรับ ${monthLabel} (Excel)`, run: () => setIncomeExportOpen(true) },
                   { label: `รายจ่าย ${monthLabel} (CSV)`, run: () => { if (!exportExpensesCSV(month.rows, monthKey)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีรายจ่ายในเดือนนี้'); } },
