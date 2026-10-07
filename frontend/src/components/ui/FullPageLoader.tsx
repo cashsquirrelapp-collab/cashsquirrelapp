@@ -2,12 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { LoadingMascot } from '../mascot/LoadingMascot';
 
-const DEFAULT_MESSAGES = [
-  'กำลังเช็กเงินที่ต้องติดตาม',
-  'กำลังดู Credit Term',
-  'กำลังสรุปกระแสเงินสด',
-  'กำลังเตรียมข้อมูลของคุณ',
-];
+// Plain, honest wording: the app is loading, nothing more specific is happening.
+const DEFAULT_MESSAGES = ['กำลังโหลดข้อมูล กรุณารอสักครู่'];
 
 interface FullPageLoaderProps {
   /** Main headline -- keep this the same across contexts per the loading-system spec. */
@@ -39,7 +35,7 @@ function LoadingDots() {
  * else uses a skeleton instead; see useDelayedLoader for the show-delay/min-visible gating that
  * keeps this from flashing on fast loads.
  */
-export function FullPageLoader({ title = 'กำลังเปิดคลังกระรอก…', messages = DEFAULT_MESSAGES }: FullPageLoaderProps) {
+export function FullPageLoader({ title = 'กำลังโหลด…', messages = DEFAULT_MESSAGES }: FullPageLoaderProps) {
   const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
@@ -61,7 +57,7 @@ export function FullPageLoader({ title = 'กำลังเปิดคลั�
       <p className="mt-1 text-sm font-semibold text-brand-text">{title}</p>
       <p className="text-xs text-brand-muted" aria-live="off">{messages[messageIndex]}</p>
       <LoadingDots />
-      <span className="sr-only">กำลังโหลดข้อมูล กรุณารอสักครู่</span>
+      {messages[messageIndex] !== 'กำลังโหลดข้อมูล กรุณารอสักครู่' && <span className="sr-only">กำลังโหลดข้อมูล กรุณารอสักครู่</span>}
     </div>
   );
 }
