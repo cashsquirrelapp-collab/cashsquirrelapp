@@ -682,3 +682,38 @@ test('document vault: files are listed, uploaded to a job, and a paid job with w
  await page.getByRole('tab',{name:'50 ทวิ'}).click();
  await expect(page.getByText('เอกสารพร้อม 1 จาก 1 รายการ')).toBeVisible();
 });
+
+test('document vault: files dropped on the page or the upload dialog are added without picking them',async({page})=>{
+ let files:any[]=[];
+ const uploads:any[]=[];
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot,versions,subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.route('**/api/vault',route=>route.fulfill({json:{files}}));
+ await page.route('**/api/vault-upload',route=>{
+  const meta=JSON.parse(decodeURIComponent(route.request().headers()['x-vault-meta']));uploads.push(meta);
+  const file={id:`f0000000-0000-4000-8000-00000000020${uploads.length}`,kind:meta.kind,jobId:null,jobName:null,client:null,fileName:meta.fileName,mimeType:'application/pdf',sizeBytes:10,createdAt:new Date().toISOString()};
+  files=[file,...files];return route.fulfill({status:201,json:{file}});
+ });
+ await page.goto('/vault');
+ await expect(page.getByRole('heading',{name:'คลังเอกสาร',level:1})).toBeVisible();
+ const drop=async(testId:string,type:string,names:string[])=>page.getByTestId(testId).evaluate((el,{type,names})=>{
+  const dt=new DataTransfer();
+  for(const name of names)dt.items.add(new File([name.endsWith('.pdf')?'%PDF-1.7 test':'jpeg'],name,{type:name.endsWith('.pdf')?'application/pdf':'image/jpeg'}));
+  el.dispatchEvent(new DragEvent(type,{bubbles:true,cancelable:true,dataTransfer:dt}));
+ },{type,names});
+ await drop('vault-page','dragenter',['50Tawi_BrandA.pdf']);
+ await expect(page.getByText('วางไฟล์เพื่อเพิ่มเข้าคลัง')).toBeVisible();
+ await drop('vault-page','drop',['50Tawi_BrandA.pdf']);
+ await expect(page.getByText('วางไฟล์เพื่อเพิ่มเข้าคลัง')).toBeHidden();
+ const dialog=page.getByRole('dialog',{name:'แนบใบ 50 ทวิ'});
+ await expect(dialog.getByText('50Tawi_BrandA.pdf')).toBeVisible();
+ // more files dropped straight into the dialog join the list
+ await drop('vault-drop-zone','dragenter',['scan.jpg']);
+ await expect(dialog.getByText('วางไฟล์ที่นี่')).toBeVisible();
+ await drop('vault-drop-zone','drop',['scan.jpg']);
+ await expect(dialog.getByText('scan.jpg')).toBeVisible();
+ await expect(dialog.getByText('50Tawi_BrandA.pdf')).toBeVisible();
+ await dialog.getByRole('button',{name:'บันทึก',exact:true}).click();
+ await expect(page.getByText('แนบเอกสารเรียบร้อยแล้ว')).toBeVisible();
+ expect(uploads.map(u=>u.fileName).sort()).toEqual(['50Tawi_BrandA.pdf','scan.jpg']);
+});

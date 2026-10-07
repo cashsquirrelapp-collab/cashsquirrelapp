@@ -16,7 +16,7 @@ import { wht50Files } from './vaultStatus';
 // Documents, Jobs and Tax pages, plus the dialogs those pages open (upload, the 50 ทวิ prompt
 // after a payment, and a job's files).
 
-interface UploadRequest { kind: VaultKind; job?: Job | null }
+interface UploadRequest { kind: VaultKind; job?: Job | null; /** Files dropped on a page before the dialog opened. */ files?: File[] }
 
 interface VaultApi {
   /** Signed-in account (not guest): the vault works here. */
@@ -245,27 +245,43 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, existing, o
   const fileInput = React.useRef<HTMLInputElement>(null);
   const cameraInput = React.useRef<HTMLInputElement>(null);
 
+  const [dragging, setDragging] = React.useState(false);
+  const dragDepth = React.useRef(0);
+  // Image previews live until the dialog closes (or the file is taken out of the list).
+  const previews = React.useRef<string[]>([]);
+  const releasePreviews = () => { previews.current.forEach(url => URL.revokeObjectURL(url)); previews.current = []; };
   React.useEffect(() => {
     if (!request) return;
-    setPicked([]); setFailures([]); setDoneIds(null); setBusy(null);
+    setPicked([]); setFailures([]); setDoneIds(null); setBusy(null); setDragging(false); dragDepth.current = 0;
     setKind(request.kind); setJobId(request.job?.id || '');
-  }, [request]);
-  // Release image previews when the picked list changes or the dialog closes.
-  React.useEffect(() => () => picked.forEach(p => p.preview && URL.revokeObjectURL(p.preview)), [picked]);
+    if (request.files?.length) add(request.files);
+    return releasePreviews;
+  }, [request]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fixedJob = request?.job || null;
   const job = fixedJob || jobs.find(j => j.id === jobId) || null;
   const title = kind === 'wht50' ? 'แนบใบ 50 ทวิ' : 'เพิ่มเอกสาร';
 
-  const add = (list: FileList | null) => {
+  const add = (list: FileList | File[] | null) => {
     if (!list) return;
-    const next = Array.from(list).map((file, i): Picked => ({
+    const next = Array.from(list).map((file, i): Picked => {
+      const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+      if (preview) previews.current.push(preview);
+      return {
       key: `${Date.now()}-${i}-${file.name}`,
       file,
-      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+      preview,
       error: !okType(file) ? 'รองรับเฉพาะ PDF, JPG, PNG, WEBP' : file.size > VAULT_MAX_BYTES ? 'ไฟล์ใหญ่เกิน 10 MB' : '',
-    }));
+      };
+    });
     setPicked(current => [...current, ...next]);
+  };
+  // Drag files from the computer straight into the dialog.
+  const dropHandlers = {
+    onDragEnter: (e: React.DragEvent) => { if (!e.dataTransfer.types.includes('Files')) return; e.preventDefault(); dragDepth.current += 1; setDragging(true); },
+    onDragOver: (e: React.DragEvent) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } },
+    onDragLeave: () => { dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDragging(false); },
+    onDrop: (e: React.DragEvent) => { e.preventDefault(); dragDepth.current = 0; setDragging(false); if (!busy) add(e.dataTransfer.files); },
   };
 
   const save = async () => {
@@ -322,10 +338,17 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, existing, o
         </div>
       ) : (
         <>
-          <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="relative min-h-0 flex-1 overflow-y-auto p-6" {...dropHandlers} data-testid="vault-drop-zone">
+            {dragging && (
+              <div className="pointer-events-none absolute inset-3 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#E65F2B] bg-[#FFF5EE]/95 text-center dark:bg-[#2A1F1A]/95">
+                <Upload className="h-7 w-7 text-[#C24A16] dark:text-[#FF9A6B]" />
+                <p className="text-[15px] font-semibold text-[#C24A16] dark:text-[#FF9A6B]">วางไฟล์ที่นี่</p>
+                <p className="text-xs text-brand-muted">PDF, JPG, PNG, WEBP ไม่เกิน 10 MB ต่อไฟล์</p>
+              </div>
+            )}
             <div className="pr-8 text-center">
               <p className="text-[17px] font-semibold text-brand-text">{title}</p>
-              <p className="mt-1 text-[13px] text-brand-muted">อัปโหลดไฟล์จากเครื่อง หรือถ่ายรูปเอกสาร แนบได้มากกว่า 1 ไฟล์</p>
+              <p className="mt-1 text-[13px] text-brand-muted">ลากไฟล์มาวาง เลือกจากเครื่อง หรือถ่ายรูปเอกสาร แนบได้มากกว่า 1 ไฟล์</p>
               {fixedJob && <p className="mt-2 truncate text-xs text-brand-muted"><span className="font-medium text-brand-text">{fixedJob.name}</span>{fixedJob.client ? ` · ${fixedJob.client}` : ''}</p>}
             </div>
 
@@ -352,7 +375,7 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, existing, o
             <div className="mt-5 grid grid-cols-2 gap-2.5">
               <button type="button" onClick={() => fileInput.current?.click()} className="flex flex-col items-center gap-1 rounded-2xl border border-brand-border px-3 py-4 text-center transition-colors hover:border-[#F3B08C] hover:bg-[#FFF8F2] cursor-pointer dark:hover:bg-[#E65F2B]/10">
                 <Upload className="h-5 w-5 text-brand-text" />
-                <span className="text-[13px] font-medium text-brand-text">เลือกไฟล์</span>
+                <span className="text-[13px] font-medium text-brand-text">ลากมาวาง หรือเลือกไฟล์</span>
                 <span className="text-[11px] text-brand-muted">JPG, PNG, WEBP, PDF</span>
               </button>
               <button type="button" onClick={() => cameraInput.current?.click()} className="flex flex-col items-center gap-1 rounded-2xl border border-brand-border px-3 py-4 text-center transition-colors hover:border-[#F3B08C] hover:bg-[#FFF8F2] cursor-pointer dark:hover:bg-[#E65F2B]/10">
@@ -374,7 +397,7 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, existing, o
                       <span className={`block aspect-[3/4] overflow-hidden rounded-xl border ${p.error ? 'border-[#E95454]' : 'border-brand-border'}`}>
                         {p.preview ? <img src={p.preview} alt="" className="h-full w-full object-cover" /> : <PdfIcon className="h-full w-full" />}
                       </span>
-                      <button type="button" onClick={() => setPicked(list => list.filter(item => item.key !== p.key))} aria-label={`เอา ${p.file.name} ออก`}
+                      <button type="button" onClick={() => { if (p.preview) URL.revokeObjectURL(p.preview); setPicked(list => list.filter(item => item.key !== p.key)); }} aria-label={`เอา ${p.file.name} ออก`}
                         className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-brand-border bg-brand-white text-brand-muted shadow-sm hover:text-brand-text cursor-pointer"><X className="h-3.5 w-3.5" /></button>
                       <p className="mt-1 truncate text-[11px] text-brand-text">{p.file.name}</p>
                       <p className={`text-[10.5px] ${p.error ? 'text-[#C43A3A] dark:text-[#F19A9A]' : 'text-brand-muted'}`}>{p.error || formatFileSize(p.file.size)}</p>

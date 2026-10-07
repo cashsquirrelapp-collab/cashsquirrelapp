@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, ExternalLink, FolderOpen, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, FolderOpen, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
 import type { Job } from '../../../../shared/types';
 import { VAULT_KIND_LABEL, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { safeFormatThaiDate } from '../../utils';
@@ -38,6 +38,21 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
   const count = (key: Filter) => (key === 'all' ? vault.files.length : vault.files.filter(f => f.kind === key).length);
   const opened = vault.files.find(f => f.id === openId) || null;
   const [zipping, setZipping] = React.useState(false);
+  // Drop files anywhere on the page: the upload dialog opens with them already picked.
+  const [pageDragging, setPageDragging] = React.useState(false);
+  const pageDepth = React.useRef(0);
+  const hasFiles = (e: React.DragEvent) => e.dataTransfer.types.includes('Files');
+  const pageDrop = {
+    onDragEnter: (e: React.DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); pageDepth.current += 1; setPageDragging(true); },
+    onDragOver: (e: React.DragEvent) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } },
+    onDragLeave: () => { pageDepth.current = Math.max(0, pageDepth.current - 1); if (!pageDepth.current) setPageDragging(false); },
+    onDrop: (e: React.DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); pageDepth.current = 0; setPageDragging(false);
+      const dropped = Array.from(e.dataTransfer.files);
+      if (dropped.length) vault.openUpload({ kind: filter === 'all' ? 'wht50' : filter, files: dropped });
+    },
+  };
   // Everything currently listed (type + year + search) as one ZIP, e.g. all of this year's 50 ทวิ.
   const downloadShown = async () => {
     if (!shown.length) return;
@@ -62,7 +77,16 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4" {...pageDrop} data-testid="vault-page">
+      {pageDragging && (
+        <div className="pointer-events-none fixed inset-0 z-[150] flex items-center justify-center bg-black/20 p-6 backdrop-blur-[1px]">
+          <div className="flex w-full max-w-md flex-col items-center gap-2 rounded-3xl border-2 border-dashed border-[#E65F2B] bg-brand-white px-8 py-12 text-center shadow-xl dark:bg-[#1F2024]">
+            <Upload className="h-9 w-9 text-[#C24A16] dark:text-[#FF9A6B]" />
+            <p className="text-[17px] font-semibold text-brand-text">วางไฟล์เพื่อเพิ่มเข้าคลัง</p>
+            <p className="text-[13px] text-brand-muted">PDF, JPG, PNG, WEBP ไม่เกิน 10 MB ต่อไฟล์</p>
+          </div>
+        </div>
+      )}
       <PageHeader page="vault">
         <div className="flex items-center gap-2">
         <button type="button" onClick={() => void downloadShown()} disabled={!shown.length || zipping}
