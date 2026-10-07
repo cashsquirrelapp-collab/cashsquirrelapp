@@ -15,6 +15,7 @@ before(async () => {
     create table public.cashflow_groups(id uuid primary key);
     insert into auth.users values('${a}'),('${b}');insert into public.cashflow_groups values('${g}');`);
   await db.exec(await readFile('database/migrations/018_document_vault.sql', 'utf8'));
+  await db.exec(await readFile('database/migrations/019_vault_expense_slips.sql', 'utf8'));
 });
 after(() => db.close());
 
@@ -26,6 +27,7 @@ test('a vault file belongs to exactly one account or group and only to known fil
   await assert.rejects(insert(`('${file('5')}','${a}',null,'other','x.exe','application/x-msdownload',1,'user/${a}/${file('5')}.pdf')`), /check constraint/);
   await assert.rejects(insert(`('${file('6')}','${a}',null,'other','x.pdf','application/pdf',10485761,'user/${a}/${file('6')}.pdf')`), /check constraint/);
   await assert.rejects(insert(`('${file('7')}','${a}',null,'other','x.pdf','application/pdf',1,'user/../etc/passwd')`), /check constraint/);
+  await insert(`('${file('10')}','${a}',null,'expense','slip.jpg','image/jpeg',500,'user/${a}/${file('10')}.jpg')`); // expense slips (019)
   await assert.rejects(insert(`('${file('8')}','${a}',null,'receipt','x.pdf','application/pdf',1,'user/${a}/${file('8')}.pdf')`), /check constraint/);
 });
 
@@ -81,4 +83,34 @@ test('the ZIP bundle is a valid archive that unzip tools can read', async () => 
   const text = new TextDecoder().decode(bytes);
   assert.ok(text.includes('Brand A - 50Tawi (2).pdf')); // same name kept apart
   assert.ok(text.includes('ใบ 50 ทวิ.jpg'));
+});
+
+test('the ZIP sorts files into a folder per job, expense slips by month, and unlinked files apart', async () => {
+  const { buildZip, vaultZipPaths } = await import('../frontend/src/features/vault/zip');
+  const at = '2026-10-05T03:00:00Z';
+  const file = (id: string, kind: string, fileName: string, link: { jobId?: string; jobName?: string; client?: string } = {}) =>
+    ({ id, kind: kind as 'wht50', fileName, createdAt: at, jobId: link.jobId || null, jobName: link.jobName || null, client: link.client || null });
+  const paths = vaultZipPaths([
+    file('1', 'wht50', '50Tawi.pdf', { jobId: 'j1', jobName: 'โปรเจคครีมกันแดดสีจันทร์', client: 'Brand A' }),
+    file('2', 'contract', 'PO.pdf', { jobId: 'j1', jobName: 'โปรเจคครีมกันแดดสีจันทร์', client: 'Brand A' }),
+    file('3', 'wht50', '50Tawi.pdf', { jobId: 'j2', jobName: 'Sponsored Post', client: 'Brand A' }),
+    file('4', 'wht50', '50Tawi.pdf', { jobId: 'j3', jobName: 'Sponsored Post', client: 'Brand B' }),
+    file('5', 'expense', 'slip.jpg', { jobId: 'e1', jobName: 'ค่าเช่าสตูดิโอ' }),
+    file('6', 'other', 'note.pdf'),
+    file('7', 'contract', 'x.pdf', { jobId: 'j4', jobName: '../../etc/passwd' }),
+  ], [{ id: 'e1', date: '2026-09-28' }]);
+  assert.deepEqual(paths, [
+    'โปรเจคครีมกันแดดสีจันทร์/50Tawi.pdf',
+    'โปรเจคครีมกันแดดสีจันทร์/PO.pdf',
+    'Sponsored Post/50Tawi.pdf',
+    'Sponsored Post - Brand B/50Tawi.pdf',
+    'รายจ่าย/2569-09 กันยายน/ค่าเช่าสตูดิโอ - slip.jpg',
+    'ไม่ได้ผูกกับงาน/note.pdf',
+    '..-..-etc-passwd/x.pdf',
+  ]);
+  // folder names stay inside the archive: no ".." part survives
+  const bytes = new Uint8Array(await buildZip(paths.map(name => ({ name, data: new Uint8Array([1]) }))).arrayBuffer());
+  const text = new TextDecoder().decode(bytes);
+  assert.ok(text.includes('-..-etc-passwd/x.pdf'));
+  assert.ok(!/(^|\/)\.\.\//.test(text.replace(/[^\x20-\x7e/]/g, '\n')));
 });

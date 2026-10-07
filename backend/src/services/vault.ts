@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
 import type { VercelRequest } from '../http/types.js';
-import { VAULT_EXT, VAULT_MAX_BYTES, VAULT_MAX_FILES, cleanVaultFileName, sniffVaultMime, type VaultFile, type VaultKind } from '../../../shared/vault.js';
+import { VAULT_EXT, VAULT_KINDS, VAULT_MAX_BYTES, VAULT_MAX_FILES, cleanVaultFileName, sniffVaultMime, type VaultFile, type VaultKind } from '../../../shared/vault.js';
 
 // Document vault storage. Files sit in a private bucket under the owning workspace's folder
 // (user/<id>/… or group/<id>/…); every read and write goes through the API, which checks the
@@ -72,7 +72,7 @@ export async function listVaultFiles(scope: VaultScope): Promise<VaultFile[]> {
 }
 
 export const vaultMetaSchema = z.object({
-  kind: z.enum(['wht50', 'contract', 'other']),
+  kind: z.enum(VAULT_KINDS),
   jobId: z.string().trim().min(1).max(120).nullable().optional(),
   jobName: z.string().trim().max(200).nullable().optional(),
   client: z.string().trim().max(200).nullable().optional(),
@@ -118,7 +118,7 @@ async function findInScope(scope: VaultScope, id: string): Promise<Row> {
 export const vaultUpdateSchema = z.object({
   action: z.literal('update'),
   id: z.uuid(),
-  kind: z.enum(['wht50', 'contract', 'other']).optional(),
+  kind: z.enum(VAULT_KINDS).optional(),
   jobId: z.string().trim().min(1).max(120).nullable().optional(),
   jobName: z.string().trim().max(200).nullable().optional(),
   client: z.string().trim().max(200).nullable().optional(),

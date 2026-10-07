@@ -1,6 +1,10 @@
 // Minimal ZIP writer (stored, no compression) for bundling vault files in the browser. PDFs and
 // photos are already compressed, so storing them as-is keeps the ZIP small enough and simple.
 
+import type { Expense } from '../../../../shared/types';
+import type { VaultFile } from '../../../../shared/vault';
+import { getThaiMonthName } from '../../../../shared/calendar';
+
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -24,7 +28,10 @@ function dosDateTime(date: Date): { time: number; date: number } {
   };
 }
 
-/** Bundle files into one ZIP. Names are made unique so nothing overwrites another file. */
+const safePart = (part: string) => part.replace(/[\\:*?"<>|\u0000-\u001f]/g, '_').replace(/^[.\s]+|[.\s]+$/g, '').slice(0, 120) || 'file';
+
+/** Bundle files into one ZIP. Names may hold folders ("Project/file.pdf"); each part is made
+ * safe and whole paths unique, so nothing overwrites another file. */
 export function buildZip(entries: { name: string; data: Uint8Array; date?: Date }[]): Blob {
   const encoder = new TextEncoder();
   const used = new Set<string>();
@@ -32,8 +39,9 @@ export function buildZip(entries: { name: string; data: Uint8Array; date?: Date 
   const central: Uint8Array[] = [];
   let offset = 0;
   for (const entry of entries) {
-    let name = entry.name.replace(/[\\/:*?"<>|]/g, '_') || 'file';
-    for (let n = 2; used.has(name.toLowerCase()); n++) name = entry.name.replace(/(\.[^.]+)?$/, ` (${n})$1`);
+    const clean = entry.name.split('/').map(safePart).join('/');
+    let name = clean;
+    for (let n = 2; used.has(name.toLowerCase()); n++) name = clean.replace(/(\.[^./]+)?$/, ` (${n})$1`);
     used.add(name.toLowerCase());
     const nameBytes = encoder.encode(name);
     const crc = crc32(entry.data);
@@ -62,14 +70,47 @@ export function buildZip(entries: { name: string; data: Uint8Array; date?: Date 
 }
 
 /** Fetch vault files (through the API, so access is checked) and save them as one ZIP. */
-export async function downloadVaultZip(files: { id: string; fileName: string; createdAt: string; client?: string | null; jobName?: string | null }[], zipName: string): Promise<void> {
-  const { vaultFileUrl } = await import('../../services/vault');
-  const entries = [];
+type ZipFile = Pick<VaultFile, 'id' | 'kind' | 'fileName' | 'createdAt' | 'jobId' | 'jobName' | 'client'>;
+
+/** Where each file goes inside the ZIP: one folder per job (named after the job), expense slips
+ * under รายจ่าย by month, and anything not linked to a job in its own folder. */
+export function vaultZipPaths(files: ZipFile[], expenses: Pick<Expense, 'id' | 'date'>[] = []): string[] {
+  const clean = (text: string) => text.replace(/\//g, '-').trim();
+  // Two different jobs with the same name get the client added, then a number.
+  const jobFolders = new Map<string, string>();
+  const taken = new Set<string>();
   for (const file of files) {
+    if (file.kind === 'expense' || !file.jobId || jobFolders.has(file.jobId)) continue;
+    const base = clean(file.jobName || 'งาน');
+    let folder = base;
+    if (taken.has(folder.toLowerCase()) && file.client) folder = `${base} - ${clean(file.client)}`;
+    for (let n = 2; taken.has(folder.toLowerCase()); n++) folder = `${base} (${n})`;
+    taken.add(folder.toLowerCase());
+    jobFolders.set(file.jobId, folder);
+  }
+  const expenseDate = new Map(expenses.map(e => [e.id, e.date]));
+  return files.map(file => {
+    if (file.kind === 'expense') {
+      const date = (file.jobId && expenseDate.get(file.jobId)) || file.createdAt.slice(0, 10);
+      const month = Number(date.slice(5, 7));
+      const monthFolder = `${Number(date.slice(0, 4)) + 543}-${date.slice(5, 7)} ${getThaiMonthName(month - 1)}`;
+      return `รายจ่าย/${monthFolder}/${file.jobName ? `${clean(file.jobName)} - ` : ''}${file.fileName}`;
+    }
+    const folder = file.jobId ? jobFolders.get(file.jobId) : 'ไม่ได้ผูกกับงาน';
+    return `${folder}/${file.fileName}`;
+  });
+}
+
+/** Fetch vault files (through the API, so access is checked) and save them as one ZIP, sorted
+ * into folders (see vaultZipPaths). */
+export async function downloadVaultZip(files: ZipFile[], zipName: string, expenses: Pick<Expense, 'id' | 'date'>[] = []): Promise<void> {
+  const { vaultFileUrl } = await import('../../services/vault');
+  const paths = vaultZipPaths(files, expenses);
+  const entries = [];
+  for (const [index, file] of files.entries()) {
     const response = await fetch(vaultFileUrl(file.id), { credentials: 'same-origin' });
     if (!response.ok) throw new Error(`ดาวน์โหลด ${file.fileName} ไม่สำเร็จ`);
-    const owner = file.client || file.jobName;
-    entries.push({ name: owner ? `${owner} - ${file.fileName}` : file.fileName, data: new Uint8Array(await response.arrayBuffer()), date: new Date(file.createdAt) });
+    entries.push({ name: paths[index], data: new Uint8Array(await response.arrayBuffer()), date: new Date(file.createdAt) });
   }
   const url = URL.createObjectURL(buildZip(entries));
   const a = document.createElement('a');

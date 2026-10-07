@@ -11,6 +11,8 @@ import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
 import ExpenseDrawer, { EXPENSE_CATEGORIES, categoryLabel } from './ExpenseDrawer';
 import { LEGACY_FIXED_NAME, buildExpenseMonth, sortExpenseRows, type ExpenseRow, type ExpenseSort } from './expenseMonth';
 import { IncomeExportDialog } from '../report/IncomeExport';
+import { ExpenseSlipMark, ExpenseSlips } from '../vault/ExpenseSlips';
+import { useVault } from '../vault/VaultProvider';
 
 // รายจ่าย: the one place to record and review spending. Expenses only -- money from jobs lives
 // in Jobs / Dashboard. Two user-facing types: ประจำ (linked by name to the fixed monthly lines in
@@ -74,6 +76,7 @@ interface IncomeExpenseTabProps {
 
 export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   const { jobs, expenses, settings, triggerAlert, triggerConfirm } = props;
+  const vault = useVault();
   const currentMonth = currentMonthKeyNow();
   const [monthKey, setMonthKey] = React.useState(currentMonth);
   const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all');
@@ -115,6 +118,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
     : [
         { label: 'ดูรายละเอียด', run: () => setDetail(row) },
         { label: 'แก้ไข', run: () => openEdit(row.id) },
+        ...(vault.available ? [{ label: 'แนบสลิป / ใบเสร็จ', run: () => { const expense = expenses.find(e => e.id === row.id); if (expense) vault.openUpload({ kind: 'expense', expense }); } }] : []),
         { label: 'ลบ', danger: true, run: () => confirmDelete(row) },
       ];
 
@@ -297,7 +301,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                 {rows.map(row => (
                   <tr key={row.id} data-expense-id={row.id} onClick={() => setDetail(row)}
                     className={`cursor-pointer border-b border-brand-border transition-colors last:border-b-0 hover:bg-brand-faint/60 ${highlightId === row.id ? 'bg-[#FFF1E8] dark:bg-orange-500/10' : ''}`}>
-                    <td className="truncate px-4 py-2.5 font-medium text-brand-text">{row.name}{row.note && <span className="block truncate text-[11px] font-normal text-brand-muted">{row.note}</span>}</td>
+                    <td className="truncate px-4 py-2.5 font-medium text-brand-text">{row.name}{!row.fromSettings && <ExpenseSlipMark expenseId={row.id} />}{row.note && <span className="block truncate text-[11px] font-normal text-brand-muted">{row.note}</span>}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-brand-muted">{dateText(row)}</td>
                     <td className="px-3 py-2.5"><TypeBadge recurring={row.recurring} /></td>
                     <td className="truncate px-3 py-2.5 text-brand-muted">{row.fromSettings ? 'ตั้งไว้ทุกเดือน' : categoryLabel(row.category)}</td>
@@ -313,7 +317,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
               <li key={row.id} data-expense-id={row.id} onClick={() => setDetail(row)}
                 className={`${card} cursor-pointer px-4 py-3 ${highlightId === row.id ? 'bg-[#FFF1E8] dark:bg-orange-500/10' : ''}`}>
                 <div className="flex items-start justify-between gap-3">
-                  <p className="min-w-0 truncate text-sm font-medium text-brand-text">{row.name}</p>
+                  <p className="min-w-0 truncate text-sm font-medium text-brand-text">{row.name}{!row.fromSettings && <ExpenseSlipMark expenseId={row.id} />}</p>
                   <p className="shrink-0 font-mono text-sm font-semibold text-brand-text">{formatCurrency(row.amount)}</p>
                 </div>
                 <p className="mt-0.5 truncate text-xs text-brand-muted">{dateText(row, true)} · {row.fromSettings ? 'ตั้งไว้ทุกเดือน' : categoryLabel(row.category)}</p>
@@ -344,6 +348,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
       {detail && (
         <ExpenseDetail
           row={detail}
+          expense={detail.fromSettings ? null : expenses.find(e => e.id === detail.id) || null}
           onClose={() => setDetail(null)}
           onEdit={() => { setDetail(null); openEdit(detail.id); }}
           onDelete={() => { setDetail(null); confirmDelete(detail); }}
@@ -406,8 +411,8 @@ function SidePanel({ title, subtitle, onClose, children, footer }: { title: stri
   );
 }
 
-function ExpenseDetail({ row, onClose, onEdit, onDelete, onRecordPaid, onManage }: {
-  row: ExpenseRow; onClose: () => void; onEdit: () => void; onDelete: () => void; onRecordPaid: () => void; onManage: () => void;
+function ExpenseDetail({ row, expense, onClose, onEdit, onDelete, onRecordPaid, onManage }: {
+  row: ExpenseRow; expense: Expense | null; onClose: () => void; onEdit: () => void; onDelete: () => void; onRecordPaid: () => void; onManage: () => void;
 }) {
   const field = (label: string, value: React.ReactNode) => (
     <div className="flex justify-between gap-4 border-b border-brand-border py-2.5 last:border-b-0">
@@ -438,6 +443,7 @@ function ExpenseDetail({ row, onClose, onEdit, onDelete, onRecordPaid, onManage 
         {!row.fromSettings && field('หมวดหมู่', categoryLabel(row.category))}
         {!row.fromSettings && field('หมายเหตุ', row.note || '—')}
       </dl>
+      {expense && <ExpenseSlips expense={expense} />}
       {row.fromSettings && (
         <p className="mt-4 rounded-[10px] bg-brand-faint px-3 py-2.5 text-xs leading-relaxed text-brand-muted">
           ยอดนี้นับเป็นรายจ่ายของทุกเดือนอยู่แล้ว เมื่อบันทึกว่าจ่ายแล้ว รายการที่บันทึกจะแทนยอดนี้ในเดือนนั้น ไม่นับซ้ำ

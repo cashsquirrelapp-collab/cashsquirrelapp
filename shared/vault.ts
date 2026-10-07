@@ -1,6 +1,9 @@
-// Document vault: shared types and rules for files kept with jobs (50 ทวิ, contracts / POs, other).
+// Document vault: shared types and rules for files kept with jobs (50 ทวิ, contracts / POs, other)
+// and with expenses (slips / receipts). For kind 'expense' the link fields point at the expense:
+// jobId is the expense's id and jobName its name.
 
-export type VaultKind = 'wht50' | 'contract' | 'other';
+export type VaultKind = 'wht50' | 'contract' | 'expense' | 'other';
+export const VAULT_KINDS = ['wht50', 'contract', 'expense', 'other'] as const;
 export type VaultMime = 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp';
 
 export interface VaultFile {
@@ -22,6 +25,7 @@ export const VAULT_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
 export const VAULT_KIND_LABEL: Record<VaultKind, string> = {
   wht50: 'ใบ 50 ทวิ',
   contract: 'สัญญา / PO',
+  expense: 'สลิปรายจ่าย',
   other: 'อื่น ๆ',
 };
 

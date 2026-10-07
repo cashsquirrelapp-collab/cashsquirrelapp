@@ -14,6 +14,11 @@ export function wht50Files(job: Pick<Job, 'id'>, files: VaultFile[]): VaultFile[
   return files.filter(file => file.kind === 'wht50' && file.jobId === job.id);
 }
 
+/** Slips / receipts kept with an expense. */
+export function expenseFiles(expense: { id: string }, files: VaultFile[]): VaultFile[] {
+  return files.filter(file => file.kind === 'expense' && file.jobId === expense.id);
+}
+
 export function wht50StatusOf(job: Job, files: VaultFile[]): Wht50Status {
   if (jobWhtAmount(job) <= 0) return 'none';
   if (wht50Files(job, files).length > 0) return 'have';

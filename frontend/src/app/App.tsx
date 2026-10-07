@@ -2613,6 +2613,7 @@ export default function App() {
             available={!session.isGuest && Boolean(financeOwner)}
             isPro={isInFreeTrial || isPaidActive}
             jobs={jobs}
+            expenses={expenses}
             onUpgrade={() => navigateTab('plans')}
             triggerConfirm={triggerConfirm}
             triggerAlert={triggerAlert}
@@ -2830,7 +2831,7 @@ export default function App() {
                       />
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}
-              {activeTab === 'vault' && <VaultPage jobs={jobs} />}
+              {activeTab === 'vault' && <VaultPage jobs={jobs} expenses={expenses} />}
               {activeTab === 'receivables' && (
                 <ReceivablesTab
                   jobs={jobs}

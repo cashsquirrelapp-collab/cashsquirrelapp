@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { Camera, CheckCircle2, Download, ExternalLink, FileText, Plus, Trash2, Upload, X } from 'lucide-react';
-import type { Job } from '../../../../shared/types';
+import type { Expense, Job } from '../../../../shared/types';
 import { VAULT_ACCEPT, VAULT_KIND_LABEL, VAULT_MAX_BYTES, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { jobWhtAmount, jobNetReceivable } from '../../../../shared/wht';
 import { formatCurrency, safeFormatThaiDate } from '../../utils';
@@ -16,7 +16,14 @@ import { wht50Files } from './vaultStatus';
 // Documents, Jobs and Tax pages, plus the dialogs those pages open (upload, the 50 ทวิ prompt
 // after a payment, and a job's files).
 
-interface UploadRequest { kind: VaultKind; job?: Job | null; /** Files dropped on a page before the dialog opened. */ files?: File[] }
+interface UploadRequest {
+  kind: VaultKind;
+  job?: Job | null;
+  /** Slip / receipt for this expense (kind 'expense'). */
+  expense?: Expense | null;
+  /** Files dropped on a page before the dialog opened. */
+  files?: File[];
+}
 
 interface VaultApi {
   /** Signed-in account (not guest): the vault works here. */
@@ -40,11 +47,12 @@ export function useVault(): VaultApi {
   return value;
 }
 
-export function VaultProvider({ financeKey, available, isPro, jobs, onUpgrade, triggerConfirm, triggerAlert, children }: {
+export function VaultProvider({ financeKey, available, isPro, jobs, expenses, onUpgrade, triggerConfirm, triggerAlert, children }: {
   financeKey: string;
   available: boolean;
   isPro: boolean;
   jobs: Job[];
+  expenses: Expense[];
   onUpgrade: () => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void) => void;
   triggerAlert: (title: string, message: string) => void;
@@ -118,6 +126,7 @@ export function VaultProvider({ financeKey, available, isPro, jobs, onUpgrade, t
         available={available}
         isPro={isPro}
         jobs={jobs}
+        expenses={expenses}
         existing={files}
         onUpgrade={() => { setUpload(null); onUpgrade(); }}
         onUploaded={file => setFiles(list => [file, ...list.filter(item => item.id !== file.id)])}
@@ -224,12 +233,16 @@ function WhtPaidPrompt({ job, onAttach, onClose }: { job: Job | null; onAttach: 
 interface Picked { key: string; file: File; preview: string | null; error: string }
 const okType = (file: File) => /^(application\/pdf|image\/(jpeg|png|webp))$/.test(file.type) || /\.(pdf|jpe?g|png|webp)$/i.test(file.name);
 
-function UploadDialog({ request, financeKey, available, isPro, jobs, existing, onUpgrade, onUploaded, onRemove, onClose }: {
+/** Expense choices for linking a slip: newest first, with date and amount to tell them apart. */
+const expenseOptionLabel = (e: Expense) => `${e.name} · ${safeFormatThaiDate(e.date, { day: 'numeric', month: 'short', year: '2-digit' })} · ${formatCurrency(e.amount)}`;
+
+function UploadDialog({ request, financeKey, available, isPro, jobs, expenses, existing, onUpgrade, onUploaded, onRemove, onClose }: {
   request: UploadRequest | null;
   financeKey: string;
   available: boolean;
   isPro: boolean;
   jobs: Job[];
+  expenses: Expense[];
   existing: VaultFile[];
   onUpgrade: () => void;
   onUploaded: (file: VaultFile) => void;
@@ -253,14 +266,22 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, existing, o
   React.useEffect(() => {
     if (!request) return;
     setPicked([]); setFailures([]); setDoneIds(null); setBusy(null); setDragging(false); dragDepth.current = 0;
-    setKind(request.kind); setJobId(request.job?.id || '');
+    setKind(request.kind); setJobId(request.job?.id || request.expense?.id || '');
     if (request.files?.length) add(request.files);
     return releasePreviews;
   }, [request]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fixedJob = request?.job || null;
-  const job = fixedJob || jobs.find(j => j.id === jobId) || null;
-  const title = kind === 'wht50' ? 'แนบใบ 50 ทวิ' : 'เพิ่มเอกสาร';
+  const fixedExpense = request?.expense || null;
+  const fixed = fixedJob || fixedExpense;
+  // A slip links to an expense; every other kind links to a job. Both use the same link fields.
+  const forExpense = kind === 'expense';
+  const job = forExpense ? null : fixedJob || jobs.find(j => j.id === jobId) || null;
+  const expense = forExpense ? fixedExpense || expenses.find(e => e.id === jobId) || null : null;
+  const link = job ? { jobId: job.id, jobName: job.name, client: job.client || null } : expense ? { jobId: expense.id, jobName: expense.name, client: null } : { jobId: null, jobName: null, client: null };
+  const sortedExpenses = React.useMemo(() => [...expenses].sort((a, b) => (b.date || '').localeCompare(a.date || '')), [expenses]);
+  const title = kind === 'wht50' ? 'แนบใบ 50 ทวิ' : forExpense ? 'แนบสลิป / ใบเสร็จ' : 'เพิ่มเอกสาร';
+  const pickKind = (next: VaultKind) => { if ((next === 'expense') !== forExpense) setJobId(''); setKind(next); };
 
   const add = (list: FileList | File[] | null) => {
     if (!list) return;
@@ -291,7 +312,7 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, existing, o
     const ids: string[] = []; const failed: string[] = [];
     for (const [index, item] of ready.entries()) {
       try {
-        const file = await uploadVault(financeKey, item.file, { kind, jobId: job?.id || null, jobName: job?.name || null, client: job?.client || null });
+        const file = await uploadVault(financeKey, item.file, { kind, ...link });
         onUploaded(file); ids.push(file.id);
       } catch (err) {
         if ((err as { code?: string }).code === 'pro_required') { setBusy(null); onUpgrade(); return; }
@@ -304,7 +325,7 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, existing, o
     if (ids.length) { setPicked([]); setDoneIds(ids); }
   };
 
-  const doneFiles = doneIds ? (job ? existing.filter(f => f.jobId === job.id && f.kind === kind) : existing.filter(f => doneIds.includes(f.id))) : [];
+  const doneFiles = doneIds ? (link.jobId ? existing.filter(f => f.jobId === link.jobId && f.kind === kind) : existing.filter(f => doneIds.includes(f.id))) : [];
 
   return (
     <Modal open={Boolean(request)} onClose={busy ? () => {} : onClose} label={title}>
@@ -324,7 +345,7 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, existing, o
           <div className="flex flex-col items-center text-center">
             <CheckCircle2 className="h-12 w-12 text-[#18A66A]" />
             <p className="mt-3 text-[16px] font-semibold text-[#12804F] dark:text-[#6FD3A3]">แนบเอกสารเรียบร้อยแล้ว</p>
-            <p className="mt-1 text-[13px] text-brand-muted">ไฟล์ถูกเก็บ{job ? 'ไว้กับงานนี้' : 'ในคลังเอกสาร'}เรียบร้อย ดูหรือเพิ่มไฟล์ได้ตลอด</p>
+            <p className="mt-1 text-[13px] text-brand-muted">ไฟล์ถูกเก็บ{job ? 'ไว้กับงานนี้' : expense ? 'ไว้กับรายจ่ายนี้' : 'ในคลังเอกสาร'}เรียบร้อย ดูหรือเพิ่มไฟล์ได้ตลอด</p>
           </div>
           {failures.length > 0 && <ul className="mt-4 space-y-1 rounded-xl bg-[#FDEEEE] p-3 text-xs text-[#B83434] dark:bg-[#F19A9A]/10 dark:text-[#F19A9A]">{failures.map(f => <li key={f}>{f}</li>)}</ul>}
           <div className="mt-5 rounded-2xl border border-brand-border px-4 pt-3">
@@ -350,23 +371,29 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, existing, o
               <p className="text-[17px] font-semibold text-brand-text">{title}</p>
               <p className="mt-1 text-[13px] text-brand-muted">ลากไฟล์มาวาง เลือกจากเครื่อง หรือถ่ายรูปเอกสาร แนบได้มากกว่า 1 ไฟล์</p>
               {fixedJob && <p className="mt-2 truncate text-xs text-brand-muted"><span className="font-medium text-brand-text">{fixedJob.name}</span>{fixedJob.client ? ` · ${fixedJob.client}` : ''}</p>}
+              {fixedExpense && <p className="mt-2 truncate text-xs text-brand-muted"><span className="font-medium text-brand-text">{fixedExpense.name}</span> · {formatCurrency(fixedExpense.amount)}</p>}
             </div>
 
-            {!fixedJob && (
+            {!fixed && (
               <div className="mt-5 space-y-3">
-                <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="ประเภทเอกสาร">
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4" role="radiogroup" aria-label="ประเภทเอกสาร">
                   {(Object.keys(VAULT_KIND_LABEL) as VaultKind[]).map(k => (
-                    <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)}
+                    <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => pickKind(k)}
                       className={`h-10 rounded-full border text-[13px] font-medium transition-colors cursor-pointer ${kind === k ? 'border-[#E65F2B] bg-[#E65F2B] text-white' : 'border-brand-border text-brand-text hover:bg-brand-faint'}`}>
                       {VAULT_KIND_LABEL[k]}
                     </button>
                   ))}
                 </div>
                 <label className="block">
-                  <span className="mb-1.5 block text-[13px] font-medium text-brand-text">ผูกกับงาน (ไม่บังคับ)</span>
+                  <span className="mb-1.5 block text-[13px] font-medium text-brand-text">{forExpense ? 'ผูกกับรายจ่าย (ไม่บังคับ)' : 'ผูกกับงาน (ไม่บังคับ)'}</span>
                   <select value={jobId} onChange={e => setJobId(e.target.value)} className="h-11 w-full rounded-[10px] border border-brand-border bg-brand-white px-3 text-[14px] text-brand-text outline-none focus:border-[#E65F2B] dark:bg-[#141518]">
-                    <option value="">ไม่ผูกกับงาน</option>
-                    {jobs.map(j => <option key={j.id} value={j.id}>{j.name}{j.client ? ` · ${j.client}` : ''}</option>)}
+                    {forExpense ? <>
+                      <option value="">ไม่ผูกกับรายจ่าย</option>
+                      {sortedExpenses.map(e => <option key={e.id} value={e.id}>{expenseOptionLabel(e)}</option>)}
+                    </> : <>
+                      <option value="">ไม่ผูกกับงาน</option>
+                      {jobs.map(j => <option key={j.id} value={j.id}>{j.name}{j.client ? ` · ${j.client}` : ''}</option>)}
+                    </>}
                   </select>
                 </label>
               </div>

@@ -717,3 +717,46 @@ test('document vault: files dropped on the page or the upload dialog are added w
  await expect(page.getByText('แนบเอกสารเรียบร้อยแล้ว')).toBeVisible();
  expect(uploads.map(u=>u.fileName).sort()).toEqual(['50Tawi_BrandA.pdf','scan.jpg']);
 });
+
+test('expense slips: attach a slip from the expense, then the vault ZIP sorts files into folders',async({page})=>{
+ const today=new Date();const date=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`;
+ const expense={id:'exp-1',name:'ค่าเช่าสตูดิโอ',category:'Fixed',amount:3500,date};
+ let files:any[]=[{id:'f0000000-0000-4000-8000-000000000301',kind:'wht50',jobId:'job-1',jobName:'โปรเจคครีมกันแดดสีจันทร์',client:'Brand A',fileName:'50Tawi.pdf',mimeType:'application/pdf',sizeBytes:10,createdAt:'2026-10-01T00:00:00Z'}];
+ const uploads:any[]=[];
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,expenses:[expense]},versions:{...versions,cashflow_expenses:{'exp-1':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.route('**/api/vault',route=>route.fulfill({json:{files}}));
+ await page.route('**/api/vault-file*',route=>route.fulfill({body:Buffer.from('%PDF-1.7 x'),contentType:'application/pdf'}));
+ await page.route('**/api/vault-upload',route=>{
+  const meta=JSON.parse(decodeURIComponent(route.request().headers()['x-vault-meta']));uploads.push(meta);
+  const file={id:'f0000000-0000-4000-8000-000000000302',kind:meta.kind,jobId:meta.jobId,jobName:meta.jobName,client:meta.client,fileName:meta.fileName,mimeType:'image/jpeg',sizeBytes:10,createdAt:new Date().toISOString()};
+  files=[file,...files];return route.fulfill({status:201,json:{file}});
+ });
+ await page.goto('/');
+ await page.locator('aside').getByRole('button',{name:'รายจ่าย',exact:true}).click();
+ await page.locator('#main-content tr',{hasText:'ค่าเช่าสตูดิโอ'}).click();
+ const detail=page.getByRole('dialog',{name:'ค่าเช่าสตูดิโอ'});
+ await expect(detail.getByText('แนบสลิปโอนเงินหรือใบเสร็จ')).toBeVisible();
+ await page.getByTestId('expense-slips').evaluate(el=>{
+  const dt=new DataTransfer();dt.items.add(new File(['jpeg'],'slip-kbank.jpg',{type:'image/jpeg'}));
+  el.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));
+ });
+ const dialog=page.getByRole('dialog',{name:'แนบสลิป / ใบเสร็จ'});
+ await expect(dialog).toContainText('ค่าเช่าสตูดิโอ');
+ await expect(dialog.getByText('slip-kbank.jpg')).toBeVisible();
+ await dialog.getByRole('button',{name:'บันทึก',exact:true}).click();
+ await expect(page.getByText('แนบเอกสารเรียบร้อยแล้ว')).toBeVisible();
+ expect(uploads).toEqual([{kind:'expense',jobId:'exp-1',jobName:'ค่าเช่าสตูดิโอ',client:null,fileName:'slip-kbank.jpg'}]);
+ await page.getByRole('button',{name:'เสร็จสิ้น'}).click();
+ await expect(detail.getByText('สลิป / ใบเสร็จ (1)')).toBeVisible();
+ await detail.getByRole('button',{name:'ปิด'}).click();
+ await expect(page.locator('#main-content tr',{hasText:'ค่าเช่าสตูดิโอ'}).getByLabel('มีสลิป 1 ไฟล์')).toBeVisible();
+ // the vault lists the slip under its own type, and the ZIP has a folder per job and รายจ่าย by month
+ await page.locator('aside').getByRole('button',{name:'เอกสาร',exact:true}).click();
+ await page.locator('aside').getByRole('button',{name:'คลังเอกสาร'}).click();
+ await expect(page.getByRole('tab',{name:/สลิปรายจ่าย/})).toContainText('1');
+ const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/ดาวน์โหลดทั้งหมด/}).click()]);
+ const zip=(await import('node:fs')).readFileSync((await download.path())!).toString('utf8');
+ expect(zip).toContain('โปรเจคครีมกันแดดสีจันทร์/50Tawi.pdf');
+ expect(zip).toMatch(new RegExp(`รายจ่าย/${today.getFullYear()+543}-${String(today.getMonth()+1).padStart(2,'0')} [^/]+/ค่าเช่าสตูดิโอ - slip-kbank.jpg`));
+});

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Download, ExternalLink, FolderOpen, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
-import type { Job } from '../../../../shared/types';
+import type { Expense, Job } from '../../../../shared/types';
 import { VAULT_KIND_LABEL, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { safeFormatThaiDate } from '../../utils';
 import { Drawer } from '../../components/ui/Drawer';
@@ -10,19 +10,20 @@ import { vaultFileUrl } from '../../services/vault';
 import { FileThumb, useVault } from './VaultProvider';
 import { downloadVaultZip } from './zip';
 
-// เอกสาร › คลังเอกสาร: every kept file (50 ทวิ, contracts / POs, others), searchable and filtered
-// by type and year, each linked to the job it belongs to.
+// เอกสาร › คลังเอกสาร: every kept file (50 ทวิ, contracts / POs, expense slips, others), searchable
+// and filtered by type and year, each linked to the job (or, for slips, the expense) it belongs to.
 
 type Filter = 'all' | VaultKind;
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'ทุกไฟล์' },
   { key: 'wht50', label: '50 ทวิ' },
   { key: 'contract', label: 'สัญญา / PO' },
+  { key: 'expense', label: 'สลิปรายจ่าย' },
   { key: 'other', label: 'อื่น ๆ' },
 ];
 const thaiYear = (iso: string) => Number(iso.slice(0, 4)) + 543;
 
-export function VaultTab({ jobs }: { jobs: Job[] }) {
+export function VaultTab({ jobs, expenses }: { jobs: Job[]; expenses: Expense[] }) {
   const vault = useVault();
   const [filter, setFilter] = React.useState<Filter>('all');
   const [query, setQuery] = React.useState('');
@@ -57,8 +58,8 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
   const downloadShown = async () => {
     if (!shown.length) return;
     setZipping(true);
-    const kindName = filter === 'all' ? 'เอกสาร' : filter === 'wht50' ? 'ใบ50ทวิ' : filter === 'contract' ? 'สัญญา-PO' : 'อื่นๆ';
-    try { await downloadVaultZip(shown, `${kindName}${year === 'all' ? '' : `-${year}`}.zip`); }
+    const kindName = filter === 'all' ? 'เอกสาร' : filter === 'wht50' ? 'ใบ50ทวิ' : filter === 'contract' ? 'สัญญา-PO' : filter === 'expense' ? 'สลิปรายจ่าย' : 'อื่นๆ';
+    try { await downloadVaultZip(shown, `${kindName}${year === 'all' ? '' : `-${year}`}.zip`, expenses); }
     catch (err) { window.alert((err as Error).message); }
     finally { setZipping(false); }
   };
@@ -90,7 +91,7 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
       <PageHeader page="vault">
         <div className="flex items-center gap-2">
         <button type="button" onClick={() => void downloadShown()} disabled={!shown.length || zipping}
-          title="ดาวน์โหลดทุกไฟล์ที่แสดงอยู่เป็นไฟล์ ZIP เดียว"
+          title="ดาวน์โหลดทุกไฟล์ที่แสดงอยู่เป็นไฟล์ ZIP เดียว แยกโฟลเดอร์ตามงาน"
           className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text hover:bg-brand-faint disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
           <Download className="h-4 w-4" /><span className="hidden sm:inline">{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดทั้งหมด (${shown.length})`}</span><span className="sm:hidden">ZIP</span>
         </button>
@@ -113,7 +114,7 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
-          <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="ค้นหาชื่อไฟล์ งาน หรือลูกค้า..." aria-label="ค้นหาเอกสาร"
+          <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="ค้นหาชื่อไฟล์ งาน รายจ่าย หรือลูกค้า..." aria-label="ค้นหาเอกสาร"
             className="h-10 w-full rounded-xl border border-brand-border bg-brand-white pl-9 pr-3 text-[13px] text-brand-text outline-none placeholder:text-brand-muted focus:border-[#E65F2B]" />
         </div>
         <select value={year} onChange={e => setYear(e.target.value === 'all' ? 'all' : Number(e.target.value))} aria-label="ปี"
@@ -131,7 +132,7 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
         <div className="flex flex-col items-center rounded-2xl border border-dashed border-brand-border px-6 py-14 text-center">
           <FolderOpen className="mb-3 h-9 w-9 text-brand-border" />
           <p className="text-[14px] font-medium text-brand-text">{vault.files.length ? 'ไม่พบไฟล์ที่ตรงกับตัวกรอง' : 'ยังไม่มีเอกสารในคลัง'}</p>
-          <p className="mt-1 text-[13px] text-brand-muted">{vault.files.length ? 'ลองเปลี่ยนคำค้นหาหรือปี' : 'แนบใบ 50 ทวิ สัญญา หรือ PO ไว้กับงาน หาเจอได้ทันทีตอนยื่นภาษี'}</p>
+          <p className="mt-1 text-[13px] text-brand-muted">{vault.files.length ? 'ลองเปลี่ยนคำค้นหาหรือปี' : 'แนบใบ 50 ทวิ สัญญา PO หรือสลิปรายจ่าย หาเจอได้ทันทีตอนยื่นภาษี'}</p>
           {!vault.files.length && (
             <button type="button" onClick={() => vault.openUpload({ kind: 'wht50' })} className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border px-4 text-[13px] font-medium text-brand-text hover:bg-brand-faint cursor-pointer"><Plus className="h-4 w-4" />เพิ่มเอกสาร</button>
           )}
@@ -163,12 +164,12 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
         </section>
       )}
 
-      <FileDrawer file={opened} jobs={jobs} onClose={() => setOpenId(null)} />
+      <FileDrawer file={opened} jobs={jobs} expenses={expenses} onClose={() => setOpenId(null)} />
     </div>
   );
 }
 
-function FileDrawer({ file, jobs, onClose }: { file: VaultFile | null; jobs: Job[]; onClose: () => void }) {
+function FileDrawer({ file, jobs, expenses, onClose }: { file: VaultFile | null; jobs: Job[]; expenses: Expense[]; onClose: () => void }) {
   const vault = useVault();
   const [kind, setKind] = React.useState<VaultKind>('other');
   const [jobId, setJobId] = React.useState('');
@@ -176,13 +177,21 @@ function FileDrawer({ file, jobs, onClose }: { file: VaultFile | null; jobs: Job
   const [error, setError] = React.useState('');
   React.useEffect(() => { if (file) { setKind(file.kind); setJobId(file.jobId || ''); setError(''); } }, [file]);
   const changed = file && (kind !== file.kind || jobId !== (file.jobId || ''));
+  // Slips link to an expense, everything else to a job; switching between them clears the link.
+  const forExpense = kind === 'expense';
+  const pickKind = (next: VaultKind) => { if ((next === 'expense') !== forExpense) setJobId(''); setKind(next); };
+  const sameSide = file ? (file.kind === 'expense') === forExpense : false;
   const save = async () => {
     if (!file) return;
-    const job = jobs.find(j => j.id === jobId);
+    const job = forExpense ? null : jobs.find(j => j.id === jobId);
+    const expense = forExpense ? expenses.find(e => e.id === jobId) : null;
     setSaving(true); setError('');
-    // A link to a job that no longer exists is kept as it was unless the user picks another one.
-    const keepOld = !job && jobId !== '' && jobId === file.jobId;
-    const link = keepOld ? { jobId: file.jobId, jobName: file.jobName, client: file.client } : { jobId: job?.id || null, jobName: job?.name || null, client: job?.client || null };
+    // A link to a job or expense that no longer exists is kept as it was unless the user picks another one.
+    const keepOld = !job && !expense && jobId !== '' && jobId === file.jobId && sameSide;
+    const link = keepOld ? { jobId: file.jobId, jobName: file.jobName, client: file.client }
+      : job ? { jobId: job.id, jobName: job.name, client: job.client || null }
+      : expense ? { jobId: expense.id, jobName: expense.name, client: null }
+      : { jobId: null, jobName: null, client: null };
     try { await vault.update(file, { kind, ...link }); }
     catch (err) { setError((err as Error).message); }
     finally { setSaving(false); }
@@ -208,16 +217,18 @@ function FileDrawer({ file, jobs, onClose }: { file: VaultFile | null; jobs: Job
           <div className="space-y-3 border-t border-brand-border pt-4">
             <label className="block">
               <span className="mb-1.5 block text-[13px] font-medium text-brand-text">ประเภท</span>
-              <select value={kind} onChange={e => setKind(e.target.value as VaultKind)} className="h-11 w-full rounded-[10px] border border-brand-border bg-brand-white px-3 text-[14px] text-brand-text outline-none focus:border-[#E65F2B] dark:bg-[#141518]">
+              <select value={kind} onChange={e => pickKind(e.target.value as VaultKind)} className="h-11 w-full rounded-[10px] border border-brand-border bg-brand-white px-3 text-[14px] text-brand-text outline-none focus:border-[#E65F2B] dark:bg-[#141518]">
                 {(Object.keys(VAULT_KIND_LABEL) as VaultKind[]).map(k => <option key={k} value={k}>{VAULT_KIND_LABEL[k]}</option>)}
               </select>
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-[13px] font-medium text-brand-text">งาน</span>
+              <span className="mb-1.5 block text-[13px] font-medium text-brand-text">{forExpense ? 'รายจ่าย' : 'งาน'}</span>
               <select value={jobId} onChange={e => setJobId(e.target.value)} className="h-11 w-full rounded-[10px] border border-brand-border bg-brand-white px-3 text-[14px] text-brand-text outline-none focus:border-[#E65F2B] dark:bg-[#141518]">
-                <option value="">ไม่ผูกกับงาน</option>
-                {file.jobId && !jobs.some(j => j.id === file.jobId) && <option value={file.jobId}>{file.jobName || 'งานเดิม'}</option>}
-                {jobs.map(j => <option key={j.id} value={j.id}>{j.name}{j.client ? ` · ${j.client}` : ''}</option>)}
+                <option value="">{forExpense ? 'ไม่ผูกกับรายจ่าย' : 'ไม่ผูกกับงาน'}</option>
+                {sameSide && file.jobId && !(forExpense ? expenses : jobs).some(item => item.id === file.jobId) && <option value={file.jobId}>{file.jobName || (forExpense ? 'รายจ่ายเดิม' : 'งานเดิม')}</option>}
+                {forExpense
+                  ? [...expenses].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(e => <option key={e.id} value={e.id}>{e.name} · {safeFormatThaiDate(e.date, { day: 'numeric', month: 'short', year: '2-digit' })}</option>)
+                  : jobs.map(j => <option key={j.id} value={j.id}>{j.name}{j.client ? ` · ${j.client}` : ''}</option>)}
               </select>
             </label>
             {error && <p className="text-xs text-[#C43A3A] dark:text-[#F19A9A]">{error}</p>}
