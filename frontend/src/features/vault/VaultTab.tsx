@@ -4,6 +4,7 @@ import type { Job } from '../../../../shared/types';
 import { VAULT_KIND_LABEL, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { safeFormatThaiDate } from '../../utils';
 import { Drawer } from '../../components/ui/Drawer';
+import PageHeader from '../../components/ui/PageHeader';
 import { RowMenu } from '../../components/ui/RowMenu';
 import { vaultFileUrl } from '../../services/vault';
 import { FileThumb, useVault } from './VaultProvider';
@@ -49,18 +50,20 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
 
   if (!vault.available) {
     return (
+      <>
+      <PageHeader page="vault" />
       <div className="flex flex-col items-center px-6 py-16 text-center">
         <FolderOpen className="mb-3 h-10 w-10 text-brand-border" />
         <p className="text-[15px] font-medium text-brand-text">คลังเอกสารใช้ได้กับบัญชีจริง</p>
         <p className="mt-1 max-w-sm text-[13px] text-brand-muted">เก็บใบ 50 ทวิ สัญญา และ PO ไว้กับงาน ออกจากโหมดทดลองแล้วเข้าสู่ระบบเพื่อใช้งาน</p>
       </div>
+      </>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[19px] font-semibold text-brand-text">คลังเอกสาร</h2>
+      <PageHeader page="vault">
         <div className="flex items-center gap-2">
         <button type="button" onClick={() => void downloadShown()} disabled={!shown.length || zipping}
           title="ดาวน์โหลดทุกไฟล์ที่แสดงอยู่เป็นไฟล์ ZIP เดียว"
@@ -72,7 +75,7 @@ export function VaultTab({ jobs }: { jobs: Job[] }) {
           <Plus className="h-4 w-4" />เพิ่มเอกสาร
         </button>
         </div>
-      </div>
+      </PageHeader>
 
       <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="ประเภทไฟล์">
         {FILTERS.map(f => (

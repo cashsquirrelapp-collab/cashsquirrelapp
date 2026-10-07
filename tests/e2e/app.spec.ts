@@ -654,8 +654,9 @@ test('document vault: files are listed, uploaded to a job, and a paid job with w
   const file={id:`f0000000-0000-4000-8000-00000000010${uploads.length}`,kind:meta.kind,jobId:meta.jobId,jobName:meta.jobName,client:meta.client,fileName:meta.fileName,mimeType:'application/pdf',sizeBytes:route.request().postDataBuffer()!.length,createdAt:new Date().toISOString()};
   files=[file,...files];return route.fulfill({status:201,json:{file}});
  });
- await page.goto('/invoice?area=vault');
- await expect(page.getByRole('tab',{name:'คลังเอกสาร'})).toHaveAttribute('aria-selected','true');
+ await page.goto('/invoice?area=vault'); // an old link opens the vault's own page
+ await expect(page.getByRole('heading',{name:'คลังเอกสาร',level:1})).toBeVisible();
+ await expect(page.locator('aside').getByRole('button',{name:'คลังเอกสาร'})).toHaveAttribute('aria-current','page');
  await expect(page.getByText('PO_BrandA.pdf')).toBeVisible();
  // pay the job: the 50 ทวิ prompt follows and attaches straight to that job
  await page.locator('aside').getByRole('button',{name:'งาน',exact:true}).click();

@@ -4,7 +4,7 @@ import { uiSurface } from './uiStyles';
 
 type SkeletonPage = 'dashboard' | 'adminDashboard' | 'jobs' | 'calendar'
   | 'receivables' | 'incomeExpense' | 'split' | 'report' | 'insight' | 'tax'
-  | 'invoice' | 'groups' | 'plans' | 'settings';
+  | 'invoice' | 'groups' | 'plans' | 'settings' | 'vault';
 
 const items = (count: number) => Array.from({ length: count }, (_, index) => index);
 
@@ -377,6 +377,7 @@ function PageBody({ page }: { page: SkeletonPage }) {
     case 'calendar': return <Calendar />;
     case 'receivables': return <Receivables />;
     case 'invoice': return <Documents />;
+    case 'vault': return <Table />;
     case 'report': return <Report />;
     case 'insight': return <Report insight />;
     case 'split': return <Goals />;

@@ -21,10 +21,12 @@ const loadInvoiceTab = () => import('../features/invoices/InvoiceTab').then(modu
 const loadPlansTab = () => import('../features/billing/PlansTab').then(module => ({ default: module.PlansTab }));
 const loadGroupsTab = () => import('../features/groups/GroupsTab');
 const loadReceivablesTab = () => import('../features/receivables/ReceivablesTab');
+const loadVaultPage = () => import('../features/vault/VaultPage');
 const loadIncomeExpenseTab = () => import('../features/incomeExpense/IncomeExpenseTab');
 const loadReportOverviewTab = () => import('../features/report/ReportTab');
 const loadCalendarTab = () => import('../features/calendar/CalendarTab');
 const ReceivablesTab = lazy(loadReceivablesTab);
+const VaultPage = lazy(loadVaultPage);
 const ReportOverviewTab = lazy(loadReportOverviewTab);
 const AdminDashboardTab = lazy(loadAdminDashboardTab);
 const SplitTab = lazy(loadSplitTab);
@@ -90,6 +92,7 @@ import {
   ShieldAlert,
   Leaf,
   FileText,
+  FolderOpen,
   Smartphone,
   ChevronDown,
   CalendarDays,
@@ -100,9 +103,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'adminDashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'calendar' | 'receivables' | 'incomeExpense';
+type TabKey = 'dashboard' | 'adminDashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'calendar' | 'receivables' | 'incomeExpense' | 'vault';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'calendar', 'receivables', 'incomeExpense'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'calendar', 'receivables', 'incomeExpense', 'vault'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
 // The ลูกค้า page was removed; its per-client numbers live in รายงาน › ลูกค้า (the insight alias).
 const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense', clients: 'insight' };
@@ -196,6 +199,7 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   plans: loadPlansTab,
   settings: loadSettingsTab,
   receivables: loadReceivablesTab,
+  vault: loadVaultPage,
   calendar: loadCalendarTab,
   incomeExpense: loadIncomeExpenseTab,
 };
@@ -221,6 +225,8 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
   { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
+  // Kept files (50 ทวิ, contracts / POs) open as a sub-item under เอกสาร.
+  { key: 'vault', labelKey: 'nav.vault', icon: FolderOpen, group: 'sub', parent: 'invoice' },
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
   { key: 'plans', labelKey: 'nav.plans', icon: ShoppingBag, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
@@ -389,6 +395,14 @@ export default function App() {
     const workspace = parseWorkspaceRoute(window.location.pathname).workspaceSlug;
     if (workspace) navigatePath(workspaceRoutePath(tab, workspace));
   };
+  // Old links to the vault (/invoice?area=vault) open its own page now.
+  useEffect(() => {
+    if (activeTab !== 'invoice' || new URLSearchParams(window.location.search).get('area') !== 'vault') return;
+    const workspace = parseWorkspaceRoute(window.location.pathname).workspaceSlug;
+    if (!workspace) return; // wait until the address carries the workspace
+    window.history.replaceState(window.history.state, '', window.location.pathname);
+    navigateTab('vault');
+  }, [activeTab, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const profileMenuItem = 'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer';
   const renderProfileMenu = (position: string) => (
@@ -481,7 +495,7 @@ export default function App() {
 
   // Core items, each followed by its sub-items. Sub-items appear (indented on a guide line)
   // only while their parent or one of them is the open page.
-  const renderCoreNav = (closeMobileOnClick: boolean) => navItems.filter(item => item.group === 'core').map(item => {
+  const renderNavGroup = (group: 'core' | 'more', closeMobileOnClick: boolean) => navItems.filter(item => item.group === group).map(item => {
     const subs = navItems.filter(sub => sub.group === 'sub' && sub.parent === item.key);
     if (!subs.length) return renderNavButton(item, closeMobileOnClick);
     const open = activeTab === item.key || subs.some(sub => sub.key === activeTab);
@@ -545,7 +559,9 @@ export default function App() {
       return;
     }
     const isWorkspaceRoot = pathname === '/' || pathname === '/app' || pathname === '/login';
-    const feature = isWorkspaceRoot ? activeTab : parseWorkspaceRoute(pathname).tab;
+    const tab = isWorkspaceRoot ? activeTab : parseWorkspaceRoute(pathname).tab;
+    // The vault is counted as part of เอกสาร (the usage counters only know the original pages).
+    const feature = tab === 'vault' ? 'invoice' : tab;
     const viewKey = `${userId}:${feature}`;
     // React StrictMode replays effects in development; count a tab transition only once.
     if (lastTrackedUsageRef.current === viewKey) return;
@@ -2378,9 +2394,9 @@ export default function App() {
 
         {/* Desktop Sidebar Navigation List */}
         <nav className="space-y-1 flex-1">
-          {renderCoreNav(false)}
+          {renderNavGroup('core', false)}
 
-          {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
+          {renderNavGroup('more', false)}
 
         </nav>
 
@@ -2465,9 +2481,9 @@ export default function App() {
 
                 {/* Navigation Links inside Drawer */}
                 <nav className="space-y-1.5">
-                  {renderCoreNav(true)}
+                  {renderNavGroup('core', true)}
 
-                  {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
+                  {renderNavGroup('more', true)}
 
                   {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
                 </nav>
@@ -2814,6 +2830,7 @@ export default function App() {
                       />
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}
+              {activeTab === 'vault' && <VaultPage jobs={jobs} />}
               {activeTab === 'receivables' && (
                 <ReceivablesTab
                   jobs={jobs}

@@ -11,7 +11,6 @@ import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, 
 import { formatCurrency } from '../../utils';
 import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './DocumentWorkspaceParts';
 import { DocumentReveal } from './DocumentReveal';
-import { VaultTab } from '../vault/VaultTab';
 import { downloadBlob, usePdfFile } from './documentPdf';
 import { Eye, Search } from 'lucide-react';
 import NumberInput from '../../components/ui/NumberInput';
@@ -183,14 +182,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   // Local states
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<'list' | 'create'>('list');
-  // Issued documents, or the vault of kept files (50 ทวิ, contracts / POs). ?area=vault links straight to the vault.
-  const [area, setArea] = useState<'issued' | 'vault'>(() => new URLSearchParams(window.location.search).get('area') === 'vault' ? 'vault' : 'issued');
-  const switchArea = (next: 'issued' | 'vault') => {
-    setArea(next);
-    const url = new URL(window.location.href);
-    if (next === 'vault') url.searchParams.set('area', 'vault'); else url.searchParams.delete('area');
-    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-  };
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const tabFromUrl = React.useRef(readTabFromUrl());
@@ -715,23 +706,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       )}
       
       <PageHeader page="invoice" className="no-print">
-        {area === 'issued' && <NewDocumentButton types={creatableTypes} onPick={handleOpenCreateForm} />}
+        <NewDocumentButton types={creatableTypes} onPick={handleOpenCreateForm} />
       </PageHeader>
 
+
       {activeSubTab === 'list' && (
-        <div className="inline-flex rounded-xl border border-brand-border bg-brand-white p-1 no-print" role="tablist" aria-label="ส่วนของเอกสาร">
-          {([['issued', 'เอกสารที่ออก'], ['vault', 'คลังเอกสาร']] as const).map(([key, label]) => (
-            <button key={key} type="button" role="tab" aria-selected={area === key} onClick={() => switchArea(key)}
-              className={`h-9 rounded-lg px-4 text-[13px] font-medium transition-colors cursor-pointer ${area === key ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'text-brand-muted hover:text-brand-text'}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {activeSubTab === 'list' && area === 'vault' && <VaultTab jobs={jobs} />}
-
-      {activeSubTab === 'list' && area === 'issued' && (
         <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 no-print sm:mx-0 sm:px-0" role="tablist" aria-label="ประเภทเอกสาร">
           {DOCUMENT_WORKSPACE_TABS.map(tab => {
             const count = invoices.filter(inv => getWorkspaceTab(inv.documentType) === tab.key).length;
@@ -760,7 +739,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       )}
 
       {/* SUB-TAB 1: DOCUMENTS LIST & LIVE PREVIEW GRID */}
-      {activeSubTab === 'list' && area === 'issued' && (
+      {activeSubTab === 'list' && (
         <div className="app-subtab-enter grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
           <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-brand-border bg-brand-white no-print lg:h-[calc(100vh-232px)] lg:min-h-[560px]" aria-label="รายการเอกสาร">
             <div className="border-b border-brand-border px-4 py-3.5">
