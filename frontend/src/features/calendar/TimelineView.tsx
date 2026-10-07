@@ -19,7 +19,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'ทั้งหมด' },
   { key: 'pending', label: 'รอรับเงิน' },
   { key: 'received', label: 'รับแล้ว' },
-  { key: 'overdue', label: 'เกินกำหนด' },
+  { key: 'overdue', label: 'เกินกำหนดชำระ' },
 ];
 const matches = (item: TimelineItem, filter: Filter) =>
   filter === 'all' || (filter === 'received' ? item.status === 'received' : filter === 'overdue' ? item.status === 'overdue' : item.status !== 'received');
@@ -29,10 +29,10 @@ const ESTIMATE_NOTE = 'ประมาณจากวันส่งงาน/�
 
 const statusText = (item: TimelineItem) =>
   item.status === 'received' ? `รับแล้ว ✓ ${safeFormatThaiDate(item.date, { day: 'numeric', month: 'short' })}`
-    : item.status === 'overdue' ? `เกินกำหนด ${-item.days} วัน`
-    : item.days === 0 ? 'ครบกำหนดวันนี้'
-    : item.days === 1 ? 'พรุ่งนี้'
-    : `อีก ${item.days} วัน`;
+    : item.status === 'overdue' ? `เกินกำหนดชำระ ${-item.days} วัน`
+    : item.days === 0 ? 'ครบกำหนดชำระวันนี้'
+    : item.days === 1 ? 'ครบกำหนดชำระพรุ่งนี้'
+    : `ครบกำหนดชำระอีก ${item.days} วัน`;
 
 interface TimelineViewProps {
   jobs: Job[];
@@ -161,10 +161,10 @@ export function TimelineView({ jobs, expenses, settings, onViewJob, onAddJob, in
                       </div>
                     </div>
 
-                    {carried.length > 0 && <p className="px-1 pt-1 text-[11px] font-medium text-[#C43A3A] dark:text-rose-300">ค้างจากเดือนก่อน</p>}
+                    {carried.length > 0 && <p className="px-1 pt-1 text-[11px] font-medium text-[#C43A3A] dark:text-rose-300">ค้างชำระจากเดือนก่อน</p>}
                     {[...carried, ...(carried.length > 0 && inMonth.length > 0 ? [null] : []), ...inMonth].map((item, index) =>
                       item === null
-                        ? <p key="in-month" className="px-1 pt-1 text-[11px] font-medium text-brand-muted">ครบกำหนดเดือนนี้</p>
+                        ? <p key="in-month" className="px-1 pt-1 text-[11px] font-medium text-brand-muted">ครบกำหนดชำระเดือนนี้</p>
                         : <TimelineRow key={`${item.id}-${index}`} item={item} onOpen={() => onViewJob(item.jobId)} />
                     )}
                     {items.length === 0 && <p className="px-1 text-xs text-brand-muted">ไม่มีรายการตามตัวกรองนี้</p>}

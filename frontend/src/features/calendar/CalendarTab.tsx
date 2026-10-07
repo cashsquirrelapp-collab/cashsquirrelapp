@@ -59,10 +59,10 @@ const EVENT_STYLES: Record<EventKind, { dot: string; text: string; bg: string }>
 
 const EVENT_LEGEND: { kind: EventKind; label: string }[] = [
   { kind: 'post', label: 'งาน/นัดหมาย' },
-  { kind: 'creditTerm', label: 'Credit Term' },
-  { kind: 'dueSoon', label: 'ใกล้ครบกำหนด' },
-  { kind: 'paid', label: 'เงินเข้า' },
-  { kind: 'overdue', label: 'เกินกำหนด' },
+  { kind: 'creditTerm', label: 'ครบกำหนดชำระ' },
+  { kind: 'dueSoon', label: 'ใกล้ครบกำหนดชำระ' },
+  { kind: 'paid', label: 'ได้รับเงินแล้ว' },
+  { kind: 'overdue', label: 'เกินกำหนดชำระ' },
 ];
 
 const WEEKDAYS_TH = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
@@ -131,10 +131,10 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
         const label = isPaid
           ? `รับเงิน ${job.client || job.name} ${formatCurrency(job.pending || job.value)}`
           : isOverdue
-          ? `เกินกำหนด ${job.name}`
+          ? `เกินกำหนดชำระ ${job.name}`
           : isDueSoon
-          ? `ใกล้ครบกำหนด ${job.name}`
-          : `ครบกำหนด ${job.name}`;
+          ? `ใกล้ครบกำหนดชำระ ${job.name}`
+          : `ครบกำหนดชำระ ${job.name}`;
         push(dueDate, { jobId: job.id, jobName: job.name, client: job.client, amount: job.pending || job.value, kind, label });
       }
     });

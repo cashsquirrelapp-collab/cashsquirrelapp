@@ -151,7 +151,8 @@ export const DOCUMENT_CSS = `
 .da4-top.pos-center .da4-logo-slot,.da4-top.pos-custom .da4-logo-slot{position:relative;width:100%}
 .da4-top.pos-center .da4-logo,.da4-top.pos-custom .da4-logo{position:absolute;top:0;left:var(--da4-x,50%);transform:translateX(calc(var(--da4-x,50%) * -1))}
 .da4-titlebox .orig{font-size:10px;font-weight:400;margin-bottom:9px;letter-spacing:.02em}
-.da4-titlebox h1{margin:0;font-size:27px;line-height:1.2;font-weight:700;color:var(--da4-accent);display:inline-block;padding-bottom:5px;border-bottom:3px solid var(--da4-accent)}
+.da4-titlebox h1{margin:0;font-size:25px;line-height:1.2;font-weight:700;letter-spacing:.06em;color:var(--da4-accent);display:inline-block;padding-bottom:5px;border-bottom:3px solid var(--da4-accent)}
+.da4-titlebox .th{margin-top:5px;font-size:12px;font-weight:600;color:#5c5c5c;letter-spacing:.01em}
 .da4-headgrid{display:grid;grid-template-columns:1fr 32%;column-gap:14px;margin-top:14px}
 .da4-party{display:grid;grid-template-columns:1fr 36%;column-gap:10px;padding:8px 0}
 .da4-party + .da4-party{border-top:1px solid var(--da4-line)}
@@ -282,8 +283,10 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                     {issuer.logoUrl ? <img className="da4-logo" style={{ maxHeight: logoHeightOf(issuer) }} src={issuer.logoUrl} alt="" /> : null}
                   </div>
                   <div className="da4-titlebox">
-                    {meta.isTax ? <div className="orig">(ต้นฉบับ)</div> : null}
-                    <h1>{meta.th}</h1>
+                    {meta.isTax ? <div className="orig">ORIGINAL (ต้นฉบับ)</div> : null}
+                    {/* English title for a professional look; the Thai name stays underneath (a tax invoice must carry it). */}
+                    <h1>{meta.en}</h1>
+                    <div className="th">{meta.th}</div>
                   </div>
                 </div>
 

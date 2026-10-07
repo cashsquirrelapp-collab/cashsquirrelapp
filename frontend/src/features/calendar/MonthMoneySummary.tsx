@@ -33,7 +33,7 @@ export function MonthMoneySummary({ jobs, monthKey, onOpenTimeline, className = 
   const rows = [
     { key: 'received', label: 'รับแล้ว', amount: month.received, dot: '#18A66A', show: true },
     { key: 'waiting', label: 'รอรับ', amount: waiting, dot: '#F36A2D', show: !isPast || waiting > 0 },
-    { key: 'overdue', label: 'เกินกำหนด', amount: overdue, dot: '#E95454', show: overdue > 0 },
+    { key: 'overdue', label: 'เกินกำหนดชำระ', amount: overdue, dot: '#E95454', show: overdue > 0 },
   ].filter(r => r.show);
 
   return (

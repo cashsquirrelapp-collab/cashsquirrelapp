@@ -286,7 +286,8 @@ test('invoice preview and print render the shared A4 document and the editor off
  await expect(page.getByRole('button',{name:/แชร์ให้ลูกค้า/})).toBeVisible();
  await expect(page.getByRole('button',{name:/Duplicate/})).toHaveCount(0);
  await expect(page.getByTestId('document-reveal')).toBeVisible();
- await expect(preview.getByRole('heading',{name:'ใบเสร็จรับเงิน/ใบกำกับภาษี'})).toBeVisible();
+ await expect(preview.getByRole('heading',{name:'RECEIPT / TAX INVOICE'})).toBeVisible();
+ await expect(preview).toContainText('ใบเสร็จรับเงิน/ใบกำกับภาษี'); // Thai name kept under the English title
  await expect(preview).toContainText('(ต้นฉบับ)');
  await expect(preview).toContainText('1,900.00');
  await expect(preview).toContainText('2,033.00');
