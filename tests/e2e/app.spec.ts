@@ -846,3 +846,21 @@ test('a document with withholding tax highlights the net amount to transfer, and
  await expect(doc.locator('.da4-pre')).toContainText('165.00');
  await expect(doc.getByText('หมายเหตุ')).toHaveCount(0);
 });
+
+test('the dashboard shows the money on hand once the user sets it, and saves it with the settings',async({page})=>{
+ const t=new Date();const today=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+ const job={id:'paid',name:'งานรับแล้ว',value:10180,received:10180,pending:0,client:'A',type:'Sponsored Post',status:'done',paymentStatus:'paid',creditTerm:0,note:'',postDate:today,payDate:today,isPosted:true};
+ const saved:any[]=[];
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
+  return route.fulfill({json:{snapshot:{...snapshot,jobs:[job],expenses:[{id:'e1',name:'Cualde AI',category:'Other',amount:730,date:today}]},versions:{...versions,cashflow_jobs:{paid:1},cashflow_expenses:{e1:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');
+ const card=page.getByRole('region',{name:'เงินที่มีตอนนี้'});
+ await card.getByRole('button',{name:'ตั้งยอดเงินที่มีตอนนี้'}).click();
+ await page.getByLabel('ยอดเงินตอนนี้').fill('5200');
+ await page.getByRole('button',{name:'บันทึกยอด'}).click();
+ await expect(card).toContainText('฿5,200');
+ await expect.poll(()=>saved.some(c=>c.id==='settings'&&c.data.cashAnchor?.amount===5200&&c.data.cashAnchor.baseReceived===10180&&c.data.cashAnchor.baseSpent===730)).toBe(true);
+});

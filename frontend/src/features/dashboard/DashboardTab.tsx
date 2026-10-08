@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { IncomeExpenseChart } from './IncomeExpenseChart';
 import { MonthlyWorkValueBanner } from './MonthlyWorkValueBanner';
+import { CashOnHandCard } from './CashOnHandCard';
 import JobPaymentDialog from '../jobs/JobPaymentDialog';
 import { useQuickUndo } from '../jobs/useQuickUndo';
 import { Mascot } from '../../components/mascot/Mascot';
@@ -777,6 +778,7 @@ export default function DashboardTab({
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
       <div className="order-1 flex flex-col gap-5">
+      <CashOnHandCard jobs={jobs} expenses={expenses} settings={settings} onUpdateSettings={onUpdateSettings} />
       <MonthlyWorkValueBanner jobs={jobs} monthKey={selectedMonthKey} onOpenDetails={() => setBreakdownFilter('workValue')} />
 
       <div>

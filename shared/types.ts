@@ -130,6 +130,8 @@ export interface AppSettings {
   // nav and dashboard. Defaults to true (undefined treated as enabled) so existing accounts that
   // already use it keep seeing it; this only lets users who don't want it hide it.
   goalsFeatureEnabled?: boolean;
+  // "เงินที่มีตอนนี้": the balance the user last told us and the totals at that moment (see shared/cashBalance).
+  cashAnchor?: { amount: number; at: string; baseReceived: number; baseSpent: number };
 }
 
 export interface PendingReminder {
