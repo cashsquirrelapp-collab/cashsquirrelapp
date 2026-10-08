@@ -784,3 +784,18 @@ test('a job tapped on the timeline slides up as a card, and its edit button open
  await sheet.getByRole('button',{name:'แก้ไขงาน'}).click();
  await expect(page.locator('input[value="มีดโกนหนวด"]').first()).toBeVisible(); // the job's edit form
 });
+
+test('opening a job from the timeline lands on it in Jobs with an orange frame, even outside the month filter',async({page})=>{
+ const d=new Date();d.setMonth(d.getMonth()+3);const ym=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+ const target={id:'later',name:'งานเดือนหน้าๆ',value:5000,received:0,pending:5000,client:'Brand Z',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:0,note:'',postDate:`${ym}-10`,payDate:`${ym}-10`,isPosted:true};
+ const others=Array.from({length:14},(_,i)=>({...target,id:`o${i}`,name:`งานอื่น ${i}`,postDate:`${ym}-0${(i%9)+1}`,payDate:`${ym}-0${(i%9)+1}`}));
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,jobs:[...others,target]},versions:{...versions,cashflow_jobs:Object.fromEntries([...others,target].map(j=>[j.id,1]))},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto(`/calendar?view=timeline`);
+ await page.getByRole('button',{name:'เดือนถัดไป'}).click();await page.getByRole('button',{name:'เดือนถัดไป'}).click();await page.getByRole('button',{name:'เดือนถัดไป'}).click();
+ await page.locator('#main-content').getByRole('button',{name:/งานเดือนหน้าๆ/}).click();
+ await page.getByRole('dialog',{name:'งานเดือนหน้าๆ'}).getByRole('button',{name:/ดูในหน้างาน/}).click();
+ const row=page.locator('[data-job-id="later"]:visible');
+ await expect(row).toHaveClass(/job-spotlight/);
+ await expect(row).toBeInViewport();
+});

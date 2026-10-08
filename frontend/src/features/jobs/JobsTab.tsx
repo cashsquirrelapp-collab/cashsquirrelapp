@@ -110,21 +110,6 @@ export default function JobsTab({
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedJobId, setHighlightedJobId] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (!scrollToJobId) return;
-    const el = Array.from(document.querySelectorAll<HTMLElement>(`[data-job-id="${scrollToJobId}"]`))
-      .find(node => node.offsetParent !== null);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setHighlightedJobId(scrollToJobId);
-      const timer = setTimeout(() => setHighlightedJobId(null), 2500);
-      onScrollToJobHandled?.();
-      return () => clearTimeout(timer);
-    }
-    // Job isn't in the currently filtered/visible list (search/status/type filter excludes it) --
-    // nothing to scroll to, still consume the request so it doesn't fire again on next render.
-    onScrollToJobHandled?.();
-  }, [scrollToJobId, onScrollToJobHandled]);
   // Filter panel values; the panel edits a draft copy and only "ใช้ตัวกรอง" applies it.
   type JobFilters = { stages: JobStage[]; payments: PaymentLabel[]; types: string[] };
   const emptyFilters: JobFilters = { stages: [], payments: [], types: [] };
@@ -294,6 +279,38 @@ export default function JobsTab({
     setPeriod({ kind: 'all' });
     setSubTab('all');
   };
+
+  // Arriving for one job (from the calendar, dashboard, timeline…): make sure it is in the list --
+  // whatever month / tab / search was on -- then scroll to it and spotlight it so it stands out.
+  const [spotlightTarget, setSpotlightTarget] = useState<string | null>(null);
+  React.useEffect(() => {
+    if (!scrollToJobId) return;
+    if (jobs.some(j => j.id === scrollToJobId) && !sortedJobs.some(j => j.id === scrollToJobId)) clearFilters();
+    setSpotlightTarget(scrollToJobId);
+    onScrollToJobHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToJobId]);
+  React.useEffect(() => {
+    if (!spotlightTarget) return;
+    let frame = 0; let tries = 0;
+    const find = () => {
+      const el = Array.from(document.querySelectorAll<HTMLElement>(`[data-job-id="${CSS.escape(spotlightTarget)}"]`)).find(node => node.offsetParent !== null);
+      if (!el) { if (++tries < 40) frame = requestAnimationFrame(find); else setSpotlightTarget(null); return; }
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedJobId(spotlightTarget);
+      setSpotlightTarget(null);
+    };
+    frame = requestAnimationFrame(find);
+    return () => { cancelAnimationFrame(frame); };
+  }, [spotlightTarget, sortedJobs]);
+  // The spotlight ends after a while, or as soon as the user taps anywhere.
+  React.useEffect(() => {
+    if (!highlightedJobId) return;
+    const timer = window.setTimeout(() => setHighlightedJobId(null), 6000);
+    const clear = () => setHighlightedJobId(null);
+    const arm = window.setTimeout(() => document.addEventListener('pointerdown', clear, { once: true }), 400);
+    return () => { window.clearTimeout(timer); window.clearTimeout(arm); document.removeEventListener('pointerdown', clear); };
+  }, [highlightedJobId]);
 
   // Month / filter panel: a popover under its button on desktop, a bottom sheet on phones.
   const [panel, setPanel] = useState<{ kind: 'month' | 'filter'; top: number; left: number; width: number; sheet: boolean } | null>(null);
@@ -739,7 +756,7 @@ export default function JobsTab({
                       data-job-id={j.id}
                       onClick={() => setEditingJob(j)}
                       className={`cursor-pointer border-b border-brand-border last:border-b-0 transition-colors hover:bg-brand-faint/60 ${
-                        highlightedJobId === j.id ? 'bg-[#FFF1E8] dark:bg-orange-500/10' : ''
+                        highlightedJobId === j.id ? 'job-spotlight' : ''
                       }`}
                     >
                       <td className={`px-4 py-3 ${accentShadow(info.dueTone)}`}>
@@ -787,7 +804,7 @@ export default function JobsTab({
                   data-job-id={j.id}
                   onClick={() => setEditingJob(j)}
                   className={`cursor-pointer overflow-hidden rounded-[14px] border border-brand-border bg-brand-white px-4 py-3 ${accentShadow(info.dueTone)} ${
-                    highlightedJobId === j.id ? 'bg-[#FFF1E8] dark:bg-orange-500/10' : ''
+                    highlightedJobId === j.id ? 'job-spotlight' : ''
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
