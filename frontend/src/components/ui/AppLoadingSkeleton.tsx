@@ -351,10 +351,16 @@ function Tax() {
 }
 
 function Receivables() {
-  return <div className="mx-auto max-w-[860px] space-y-6">
-    <div className="space-y-2"><Block className="h-3 w-28" /><Block className="h-9 w-40" /><Block className="h-3 w-36" /></div>
-    {items(2).map(index => <div key={index} className="space-y-3"><Block className="h-4 w-32" />
-      {items(2).map(row => <Card key={row}><Rows count={1} actions /><Block className="h-3 w-1/2" /></Card>)}
+  // Same column and card as the real page: name + client / amount, a divider, the term line, then
+  // the days chip with เตือนฉัน / บันทึกรับเงิน. w-full: a grid item with mx-auto would shrink.
+  return <div className="mx-auto w-full max-w-[860px] space-y-5">
+    <div className="space-y-2"><Block className="h-3 w-28" /><Block className="h-9 w-40" /><Block className="h-3 w-16" /></div>
+    {items(2).map(index => <div key={index} className="space-y-3"><Block className="h-4 w-44" />
+      {items(index === 0 ? 1 : 2).map(row => <Card key={row} className="px-[18px] py-4">
+        <div className="flex items-start justify-between gap-4"><Lines /><Block className="h-5 w-20" /></div>
+        <div className="mt-4 flex flex-wrap gap-4 border-t border-brand-border/60 pt-4"><Block className="h-3 w-28" /><Block className="h-3 w-24" /><Block className="h-3 w-28" /></div>
+        <div className="mt-4 flex items-center justify-between gap-3"><Block className="h-6 w-16 rounded-full" /><div className="flex gap-2"><Block className="h-10 w-20 rounded-xl" /><Block className="h-10 w-28 rounded-xl" /></div></div>
+      </Card>)}
     </div>)}
   </div>;
 }
