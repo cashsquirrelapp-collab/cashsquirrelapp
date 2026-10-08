@@ -13,7 +13,7 @@ import JobPaymentDialog, { type PaymentMode } from './JobPaymentDialog';
 import { JobDeliveryDialog } from './JobDeliveryDialog';
 import { Wht50Chip } from '../vault/VaultProvider';
 import { useQuickUndo } from './useQuickUndo';
-import { jobNetReceivable } from '../../../../shared/wht';
+import { jobNetReceivable, jobWhtAmount } from '../../../../shared/wht';
 import { sortJobs, matchesPeriod, periodMonths, monthKeyOf, type JobSort, type JobPeriod } from './jobSort';
 import {
   Search,
@@ -396,6 +396,17 @@ export default function JobsTab({
 
   // Net amount the client actually pays (value minus withholding tax).
   const netReceivable = (j: Job) => jobNetReceivable(j);
+  // The amount a job brings in: after withholding tax when there is some, with the gross and the
+  // rate underneath so the deduction is still visible.
+  const amountCell = (j: Job, align: 'right' | 'left' = 'right') => {
+    const wht = jobWhtAmount(j);
+    return wht > 0 ? (
+      <span className={`inline-flex flex-col ${align === 'right' ? 'items-end' : 'items-start'}`}>
+        <span>{formatCurrency(jobNetReceivable(j))}</span>
+        <span className="font-sans text-[10.5px] font-normal text-brand-muted">หัก {j.whtRate}% จาก {formatCurrency(j.value)}</span>
+      </span>
+    ) : formatCurrency(j.value);
+  };
 
   // Recomputed on delivery: jobs saved while in progress by older versions can carry pending 0,
   // which would wrongly land an unpaid job in "ปิดงานแล้ว".
@@ -775,7 +786,7 @@ export default function JobsTab({
                         </div>
                       </td>
                       <td className="hidden px-3 py-3 lg:table-cell"><div className="flex flex-col items-start gap-1">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), 'การชำระ')}<Wht50Chip job={j} /></div></td>
-                      <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold text-brand-text">{formatCurrency(j.value)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold text-brand-text">{amountCell(j)}</td>
                       <td className="px-2 py-3 text-right">
                         <button
                           type="button"
@@ -812,7 +823,7 @@ export default function JobsTab({
                       <p className="truncate text-sm font-medium text-brand-text">{j.name}</p>
                       <p className="mt-0.5 truncate text-xs text-brand-muted">{j.client || '—'}{typeLabel(j) ? ` · ${typeLabel(j)}` : ''}</p>
                     </div>
-                    <p className="shrink-0 font-mono text-sm font-semibold text-brand-text">{formatCurrency(j.value)}</p>
+                    <div className="shrink-0 text-right font-mono text-sm font-semibold text-brand-text">{amountCell(j)}</div>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">

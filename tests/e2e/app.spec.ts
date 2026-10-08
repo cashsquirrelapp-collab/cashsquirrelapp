@@ -812,3 +812,14 @@ test('a job clicked in the calendar day list is scrolled to and framed on the Jo
  await expect(row).toHaveClass(/job-spotlight/);
  await expect(row).toBeInViewport();
 });
+
+test('jobs with withholding tax list the amount after the deduction, with the gross underneath',async({page})=>{
+ const t=new Date();const today=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+ const job={id:'sak',name:'ผลิตภัณฑ์ Sak A',value:2500,whtRate:3,whtAmount:75,received:0,pending:2425,client:'jammie',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:0,note:'',postDate:today,payDate:today,isPosted:true};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,jobs:[job]},versions:{...versions,cashflow_jobs:{sak:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/jobs');
+ const row=page.locator('[data-job-id="sak"]:visible');
+ await expect(row).toContainText('฿2,425');
+ await expect(row).toContainText('หัก 3% จาก ฿2,500');
+});
