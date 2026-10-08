@@ -392,7 +392,7 @@ test('uploaded logo and signature are saved to the profile and appear on existin
  await expect.poll(()=>saved.some(c=>c.id==='issuer_profile'&&c.data.logoUrl?.startsWith('data:image')&&c.data.signatureUrl?.startsWith('data:image')&&c.data.logoHeight===152&&c.data.logoPosition==='right'&&c.data.bankName==='ธนาคารกสิกรไทย')).toBe(true);
  await sidebar.getByRole('button',{name:'เอกสาร',exact:true}).click();
  await expect(page.getByTestId('document-preview').locator('.da4-logo')).toHaveCount(1);
- await expect(page.getByTestId('document-preview').locator('img.da4-bank')).toHaveAttribute('src','/banks/KBANK.png'); // the bank's own logo
+ await expect(page.getByTestId('document-preview').locator('img.da4-banklogo')).toHaveAttribute('src','/banks/KBANK.png'); // the bank's own logo
  await expect(page.getByTestId('document-preview').locator('.da4-top.pos-right')).toHaveCount(1);
  await expect(page.getByTestId('document-preview').locator('.da4-logo')).toHaveAttribute('style',/max-height: 152px/);
  await expect(page.getByTestId('document-preview').locator('.da4-sig img')).toHaveCount(2); // signature + seller stamp (logo)

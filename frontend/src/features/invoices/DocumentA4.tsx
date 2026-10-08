@@ -196,7 +196,7 @@ export const DOCUMENT_CSS = `
 .da4-pay .kv2{display:grid;grid-template-columns:auto 1fr;row-gap:5px;column-gap:14px;align-content:start}
 .da4-pay .kv2 .k{font-weight:600;white-space:nowrap}
 .da4-pay .kv2 span{white-space:nowrap}
-.da4-bank{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:5px;vertical-align:-3px}
+.da4-banklogo{display:block;width:22px;height:22px;border-radius:50%;flex:none;box-shadow:0 0 0 0.5px rgba(0,0,0,.08)}
 .da4-chip{display:inline-block;border:1px solid var(--da4-accent);color:var(--da4-accent);font-size:8.5px;font-weight:600;line-height:1;padding:2px 4px;margin-right:5px;vertical-align:1px}
 .da4-bank{display:flex;gap:6px;align-items:flex-start}
 .da4-remark{min-height:26px;font-size:10.5px;white-space:pre-line;word-break:break-word}
@@ -420,11 +420,13 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                       <div>
                         {issuer.bankAccount ? (
                           <div className="da4-bank">
-                            <Ico name="landmark" />
+                            {/* The bank's own logo stands in for the generic bank icon when we have one. */}
+                            {thaiBankLogo(findThaiBank(issuer.bankName))
+                              ? <img className="da4-banklogo" src={thaiBankLogo(findThaiBank(issuer.bankName))!} alt={findThaiBank(issuer.bankName)!.code} />
+                              : <Ico name="landmark" />}
                             <div>
                               <div>
-                                {thaiBankLogo(findThaiBank(issuer.bankName)) ? <img className="da4-bank" src={thaiBankLogo(findThaiBank(issuer.bankName))!} alt={findThaiBank(issuer.bankName)!.code} />
-                                  : findThaiBank(issuer.bankName) ? <span className="da4-chip">{findThaiBank(issuer.bankName)!.code}</span> : null}
+                                {!thaiBankLogo(findThaiBank(issuer.bankName)) && findThaiBank(issuer.bankName) ? <span className="da4-chip">{findThaiBank(issuer.bankName)!.code}</span> : null}
                                 {issuer.bankName}{meta.isReceipt && invoice.paymentMethod ? ` (${invoice.paymentMethod})` : ''}
                               </div>
                               <div className="b">เลขที่บัญชี {issuer.bankAccount}</div>
