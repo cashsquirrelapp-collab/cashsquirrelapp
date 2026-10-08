@@ -799,3 +799,16 @@ test('opening a job from the timeline lands on it in Jobs with an orange frame, 
  await expect(row).toHaveClass(/job-spotlight/);
  await expect(row).toBeInViewport();
 });
+
+test('a job clicked in the calendar day list is scrolled to and framed on the Jobs page',async({page})=>{
+ const t=new Date();const today=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+ const target={id:'durian',name:'Durian Charlene',value:4000,received:0,pending:4000,client:'Brand D',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:21,note:'',postDate:today,payDate:today,isPosted:true};
+ const others=Array.from({length:14},(_,i)=>({...target,id:`c${i}`,name:`งานอื่น ${i}`,payDate:today,postDate:today}));
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,jobs:[target,...others]},versions:{...versions,cashflow_jobs:Object.fromEntries([target,...others].map(j=>[j.id,1]))},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/calendar?view=calendar');
+ await page.locator('#main-content').getByRole('button',{name:/ครบกำหนดชำระ.*Durian Charlene/}).last().click();
+ const row=page.locator('[data-job-id="durian"]:visible');
+ await expect(row).toHaveClass(/job-spotlight/);
+ await expect(row).toBeInViewport();
+});

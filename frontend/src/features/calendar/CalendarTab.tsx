@@ -342,7 +342,7 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
               <button
                 key={i}
                 type="button"
-                onClick={() => onSwitchTab('jobs')}
+                onClick={() => onViewJob(e.jobId)}
                 className="flex w-full items-start gap-2 border-t border-brand-border py-2 text-left first:border-t-0 cursor-pointer"
               >
                 <span className="mt-[5px] inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: EVENT_STYLES[e.kind].dot }} />
