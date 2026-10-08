@@ -9,7 +9,7 @@ import { Mascot } from './Mascot';
 export function DocumentLoader({ title = 'กำลังโหลดเอกสาร…', detail = 'กำลังเตรียมเอกสารของคุณ กรุณารอสักครู่' }: { title?: string; detail?: string }) {
   const reduceMotion = useReducedMotion();
   return (
-    <div role="status" aria-live="polite" className="flex flex-col items-center px-6 py-14 text-center">
+    <div role="status" aria-live="polite" className="flex min-h-[calc(100dvh-12rem)] flex-col items-center justify-center px-6 py-10 text-center">
       <motion.div
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
@@ -24,7 +24,7 @@ export function DocumentLoader({ title = 'กำลังโหลดเอก�
             animate={reduceMotion ? undefined : { y: [0, -1.5, 0] }}
             transition={{ duration: 0.84, ease: 'easeInOut', repeat: Infinity }}
           >
-            <Mascot mood="waiting" action="typing" size={150} />
+            <Mascot mood="waiting" action="typing" size={112} />
           </motion.div>
         </motion.div>
       </motion.div>
