@@ -4,6 +4,7 @@ import { AppSettings, Expense, Job } from '../../../../shared/types';
 import { firstActivityMonth, fixedExpenseForMonth } from '../../../../shared/monthlySummary';
 import { formatCurrency, formatMonthKey, safeFormatThaiDate, toLocalDateKey } from '../../utils';
 import { Mascot } from '../../components/mascot/Mascot';
+import { JobPeekSheet } from './JobPeekSheet';
 import { buildCashTimeline, shiftMonthKey, type TimelineItem, type TimelineStatus } from './cashTimeline';
 
 // Same status colours as the calendar legend (CalendarTab EVENT_STYLES): one language for both views.
@@ -39,12 +40,18 @@ interface TimelineViewProps {
   expenses: Expense[];
   settings: AppSettings;
   onViewJob: (jobId: string) => void;
+  onEditJob: (jobId: string) => void;
+  onDeleteJob: (jobId: string) => void;
   onAddJob: () => void;
   /** Month to start from (e.g. the month that was open in the calendar). */
   initialMonth?: string;
 }
 
-export function TimelineView({ jobs, expenses, settings, onViewJob, onAddJob, initialMonth }: TimelineViewProps) {
+export function TimelineView({ jobs, expenses, settings, onViewJob, onEditJob, onDeleteJob, onAddJob, initialMonth }: TimelineViewProps) {
+  // The job a row was tapped for; it opens as a card sliding up over the timeline.
+  const [peekId, setPeekId] = React.useState<string | null>(null);
+  const peekJob = peekId ? jobs.find(j => j.id === peekId) || null : null;
+  const closePeek = React.useCallback(() => setPeekId(null), []);
   const todayKey = toLocalDateKey();
   const currentMonth = todayKey.slice(0, 7);
   const [fromMonth, setFromMonth] = React.useState(initialMonth && /^\d{4}-\d{2}$/.test(initialMonth) ? initialMonth : currentMonth);
@@ -165,7 +172,7 @@ export function TimelineView({ jobs, expenses, settings, onViewJob, onAddJob, in
                     {[...carried, ...(carried.length > 0 && inMonth.length > 0 ? [null] : []), ...inMonth].map((item, index) =>
                       item === null
                         ? <p key="in-month" className="px-1 pt-1 text-[11px] font-medium text-brand-muted">ครบกำหนดชำระเดือนนี้</p>
-                        : <TimelineRow key={`${item.id}-${index}`} item={item} onOpen={() => onViewJob(item.jobId)} />
+                        : <TimelineRow key={`${item.id}-${index}`} item={item} onOpen={() => setPeekId(item.jobId)} />
                     )}
                     {items.length === 0 && <p className="px-1 text-xs text-brand-muted">ไม่มีรายการตามตัวกรองนี้</p>}
 
@@ -204,6 +211,13 @@ export function TimelineView({ jobs, expenses, settings, onViewJob, onAddJob, in
           </div>
         </div>
       )}
+      <JobPeekSheet
+        job={peekJob}
+        onClose={closePeek}
+        onOpenInJobs={job => { setPeekId(null); onViewJob(job.id); }}
+        onEdit={job => { setPeekId(null); onEditJob(job.id); }}
+        onDelete={job => { setPeekId(null); onDeleteJob(job.id); }}
+      />
     </div>
   );
 }

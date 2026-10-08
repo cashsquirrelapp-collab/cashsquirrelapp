@@ -762,3 +762,25 @@ test('expense slips: attach a slip from the expense, then the vault ZIP sorts fi
  expect(zip).toContain('โปรเจคครีมกันแดดสีจันทร์/50Tawi.pdf');
  expect(zip).toMatch(new RegExp(`รายจ่าย/${today.getFullYear()+543}-${String(today.getMonth()+1).padStart(2,'0')} [^/]+/ค่าเช่าสตูดิโอ - slip-kbank.jpg`));
 });
+
+test('a job tapped on the timeline slides up as a card, and its edit button opens the edit form',async({page})=>{
+ const now=new Date();const ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+ const job={id:'knife',name:'มีดโกนหนวด',value:2000,whtRate:3,whtAmount:60,received:0,pending:1940,client:'Brand A',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:30,note:'',postDate:`${ym}-01`,payDate:`${ym}-28`,isPosted:true};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,jobs:[job]},versions:{...versions,cashflow_jobs:{knife:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/calendar?view=timeline');
+ await page.locator('#main-content').getByRole('button',{name:/มีดโกนหนวด/}).click();
+ const sheet=page.getByRole('dialog',{name:'มีดโกนหนวด'});
+ await expect(sheet).toBeVisible();
+ await expect(sheet).toContainText('฿2,000');
+ await expect(sheet).toContainText('ค้างรับ');
+ await expect(sheet).toContainText('฿1,940');
+ await expect(sheet).toContainText('หัก ณ ที่จ่าย 3%');
+ await expect(sheet).toContainText('กำหนดชำระเงินที่เหลือ');
+ await expect(page).toHaveURL(/view=timeline/); // still on the timeline
+ await page.keyboard.press('Escape');
+ await expect(sheet).toBeHidden();
+ await page.locator('#main-content').getByRole('button',{name:/มีดโกนหนวด/}).click();
+ await sheet.getByRole('button',{name:'แก้ไขงาน'}).click();
+ await expect(page.locator('input[value="มีดโกนหนวด"]').first()).toBeVisible(); // the job's edit form
+});

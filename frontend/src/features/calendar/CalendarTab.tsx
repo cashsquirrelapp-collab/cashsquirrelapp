@@ -27,6 +27,8 @@ interface CalendarTabProps {
   onSwitchTab: (id: string) => void;
   /** Jump to a job (same behaviour as the dashboard's job links). */
   onViewJob: (jobId: string) => void;
+  onEditJob: (jobId: string) => void;
+  onDeleteJob: (jobId: string) => void;
   onAddJob: () => void;
   /** YYYY-MM-DD to open on (e.g. a day clicked in the dashboard's mini calendar). */
   initialDateKey?: string | null;
@@ -84,7 +86,7 @@ function addDays(date: Date, amount: number): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
 }
 
-export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onViewJob, onAddJob, initialDateKey, onInitialDateHandled, linkedView }: CalendarTabProps) {
+export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onViewJob, onEditJob, onDeleteJob, onAddJob, initialDateKey, onInitialDateHandled, linkedView }: CalendarTabProps) {
   const startKey = initialDateKey && /^\d{4}-\d{2}-\d{2}$/.test(initialDateKey) ? initialDateKey : null;
   // A specific day was requested (dashboard mini calendar), so that always opens the calendar.
   const [pageView, setPageView] = useState<PageView>(() => initialPageView(Boolean(startKey), linkedView));
@@ -218,7 +220,7 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
       <AnimatePresence mode="wait" initial={false}>
       {pageView === 'timeline' ? (
         <motion.div key="timeline" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.18 }}>
-          <TimelineView jobs={jobs} expenses={expenses} settings={settings} onViewJob={onViewJob} onAddJob={onAddJob} initialMonth={timelineMonth} />
+          <TimelineView jobs={jobs} expenses={expenses} settings={settings} onViewJob={onViewJob} onEditJob={onEditJob} onDeleteJob={onDeleteJob} onAddJob={onAddJob} initialMonth={timelineMonth} />
         </motion.div>
       ) : (
       <motion.div key="calendar" className="space-y-4" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.18 }}>

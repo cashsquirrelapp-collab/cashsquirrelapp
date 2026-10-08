@@ -1368,6 +1368,7 @@ export default function App() {
   // instead of opening a separate read-only popup or leaving the user to scroll through however
   // many jobs they've recorded to find it themselves.
   const [scrollToJobId, setScrollToJobId] = useState<string | null>(null);
+  const [editJobRequest, setEditJobRequest] = useState<string | null>(null);
   const [scrollToExpenseId, setScrollToExpenseId] = useState<string | null>(null);
   const [autoOpenAddExpense, setAutoOpenAddExpense] = useState(false);
 
@@ -1779,6 +1780,7 @@ export default function App() {
   const [calendarLinkView] = useState<'timeline' | null>(() =>
     window.location.pathname.split('/').filter(Boolean)[0] === 'timeline' ? 'timeline' : null);
 
+  const clearEditJobRequest = React.useCallback(() => setEditJobRequest(null), []);
   const handleViewJob = (id: string) => {
     setScrollToJobId(id);
     navigateTab('jobs');
@@ -2722,6 +2724,8 @@ export default function App() {
                       triggerPrompt={triggerPrompt}
                       scrollToJobId={scrollToJobId}
                       onScrollToJobHandled={() => setScrollToJobId(null)}
+                      editJobId={editJobRequest}
+                      onEditJobHandled={clearEditJobRequest}
                     />
               )}
 
@@ -2866,6 +2870,8 @@ export default function App() {
                   expenses={expenses}
                   settings={settings}
                   onViewJob={handleViewJob}
+                  onEditJob={(id: string) => { setEditJobRequest(id); navigateTab('jobs'); }}
+                  onDeleteJob={handleDeleteJob}
                   onAddJob={() => { setIsAddJobOpen(true); navigateTab('jobs'); }}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   initialDateKey={calendarFocusDate}

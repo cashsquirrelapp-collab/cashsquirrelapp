@@ -80,6 +80,9 @@ interface JobsTabProps {
   // breakdown so clicking a job jumps to the exact "paid in full / partial deposit" quick-action row.
   scrollToJobId?: string | null;
   onScrollToJobHandled?: () => void;
+  /** Open this job's edit form on arrival (e.g. "แก้ไข" on a job opened from the timeline). */
+  editJobId?: string | null;
+  onEditJobHandled?: () => void;
 }
 
 export default function JobsTab({
@@ -100,6 +103,8 @@ export default function JobsTab({
   triggerPrompt,
   scrollToJobId,
   onScrollToJobHandled,
+  editJobId,
+  onEditJobHandled,
 }: JobsTabProps) {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
@@ -156,6 +161,12 @@ export default function JobsTab({
   
   // Editing logic (optional but amazing!)
   const [editingJob, setEditingJob] = useState<Job | null>(null);
+  React.useEffect(() => {
+    if (!editJobId) return;
+    const job = jobs.find(j => j.id === editJobId);
+    if (job) setEditingJob(job);
+    onEditJobHandled?.();
+  }, [editJobId, jobs, onEditJobHandled]);
 
   // Delivery-date/credit-term prompt shown when marking a WIP job as delivered without a
   // postDate already on it (see the actionMarkPosted button below) -- a lightweight modal
