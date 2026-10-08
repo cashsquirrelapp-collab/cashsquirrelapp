@@ -1,10 +1,9 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Copy, Download, FileText, Loader2, Mail, Maximize2, Minus, MoreHorizontal, Plus, Printer, Share2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileText, Loader2, Maximize2, Minus, MoreHorizontal, Plus, Printer, Share2, X } from 'lucide-react';
 import { documentPdfName, type PdfFileState } from './documentPdf';
 import type { DocumentType, Invoice } from '../../../../shared/types';
-import { formatCurrency, safeFormatThaiDate } from '../../utils';
-import { A4_HEIGHT_PX, A4_WIDTH_PX, DocumentPreview, calculateDocumentTotals, getDocumentMeta, paginateItems } from './DocumentA4';
+import { A4_HEIGHT_PX, A4_WIDTH_PX, DocumentPreview, getDocumentMeta, paginateItems } from './DocumentA4';
 
 // Workspace pieces for the เอกสาร page: the fit-to-page preview canvas, the share menu, and the
 // small menus. The A4 templates themselves (DocumentA4) are untouched.
@@ -86,22 +85,6 @@ export function PreviewCanvas({ invoice, className = '' }: { invoice: Invoice; c
   );
 }
 
-/** The message a user pastes to their client, from the document's real values only. */
-export function shareMessage(inv: Invoice): string {
-  const meta = getDocumentMeta(inv.documentType);
-  const amount = formatCurrency(calculateDocumentTotals(inv.items, inv.vatRate, inv.whtRate).payable);
-  const lines = ['สวัสดีครับ', `ส่ง${meta.th} ${inv.documentNo}`];
-  if (inv.documentType === 'quotation') {
-    lines.push(`ยอดรวม ${amount}`);
-    if (inv.dueDate) lines.push(`ยืนราคาถึง ${safeFormatThaiDate(inv.dueDate)}`);
-  } else {
-    lines.push(`ยอด ${amount}`);
-    if ((inv.documentType === 'invoice' || inv.documentType === 'taxInvoice') && inv.dueDate) lines.push(`กำหนดชำระ ${safeFormatThaiDate(inv.dueDate)}`);
-  }
-  lines[lines.length - 1] += ' ครับ';
-  return lines.join('\n');
-}
-
 const canNativeShare = () => typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 const canShareFile = (file?: File) => {
   try { return Boolean(file) && canNativeShare() && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file as File] }); }
@@ -122,12 +105,12 @@ function useDismiss(open: boolean, close: () => void, root: React.RefObject<HTML
 
 /**
  * "แชร์ให้ลูกค้า": send the PDF itself through the device's share sheet (LINE, Messenger,
- * AirDrop, Mail... appear there when installed), copy a ready message, email, or save the PDF.
+ * AirDrop, Mail... appear there when installed), or save / print the PDF. Only the file is sent.
  * The PDF is prepared in the background (see usePdfFile) because a share sheet only opens right
  * after a tap; if it is not ready yet the menu says so and the next tap shares it.
  */
-export function ShareButton({ invoice, pdf, onDownload, onPrint, onEmail, notify, className = '' }: {
-  invoice: Invoice; pdf: PdfFileState; onDownload: () => void; onPrint: () => void; onEmail: () => void;
+export function ShareButton({ invoice, pdf, onDownload, onPrint, notify, className = '' }: {
+  invoice: Invoice; pdf: PdfFileState; onDownload: () => void; onPrint: () => void;
   notify: (title: string, message: string) => void; className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -135,22 +118,15 @@ export function ShareButton({ invoice, pdf, onDownload, onPrint, onEmail, notify
   const close = React.useCallback(() => setOpen(false), []);
   useDismiss(open, close, rootRef);
   const meta = getDocumentMeta(invoice.documentType);
-  const text = shareMessage(invoice);
   const title = `${meta.th} ${invoice.documentNo}`;
   const fileShareable = canShareFile(pdf.file);
   const fileShareSupported = canNativeShare() && typeof navigator.canShare === 'function';
 
   const share = async (data: ShareData) => {
     try { await navigator.share(data); }
-    catch (e) { if ((e as Error)?.name !== 'AbortError') notify('แชร์ไม่สำเร็จ', 'ลองดาวน์โหลด PDF แล้วส่งเอง หรือคัดลอกข้อความแทน'); }
+    catch (e) { if ((e as Error)?.name !== 'AbortError') notify('แชร์ไม่สำเร็จ', 'ลองดาวน์โหลด PDF แล้วส่งเองแทน'); }
   };
-  const shareFile = () => { if (!pdf.file) return; setOpen(false); void share({ files: [pdf.file], title, text }); };
-  const shareText = () => { setOpen(false); void share({ title, text }); };
-  const copy = async () => {
-    setOpen(false);
-    try { await navigator.clipboard.writeText(text); notify('คัดลอกข้อความแล้ว', 'วางในแชตกับลูกค้า แล้วแนบไฟล์ PDF ได้เลย'); }
-    catch { notify('คัดลอกไม่สำเร็จ', text); }
-  };
+  const shareFile = () => { if (!pdf.file) return; setOpen(false); void share({ files: [pdf.file], title }); };
   const onClick = () => {
     if (fileShareable && isPhone()) { shareFile(); return; }
     if (!pdf.file) pdf.ensure().catch(() => undefined);
@@ -178,22 +154,6 @@ export function ShareButton({ invoice, pdf, onDownload, onPrint, onEmail, notify
                 <span className="block text-[13px] font-medium text-brand-text">แชร์ไฟล์ PDF ผ่านแอป</span>
                 <span className={sub}>{pdf.failed ? 'สร้างไฟล์ไม่สำเร็จ ลองดาวน์โหลดแทน' : pdf.file && !fileShareable ? 'อุปกรณ์นี้แนบไฟล์ผ่านเมนูแชร์ไม่ได้' : pdf.file ? `${pdf.file.name} · เลือก LINE หรือแอปที่ใช้คุยกับลูกค้า` : 'กำลังเตรียมไฟล์ PDF…'}</span>
               </span>
-            </button>
-          )}
-          {canNativeShare() && !fileShareable && (
-            <button type="button" role="menuitem" onClick={shareText} className={item}>
-              <Share2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-muted" />
-              <span><span className="block text-[13px] font-medium text-brand-text">แชร์ข้อความผ่านแอป</span><span className={sub}>ส่งเลขที่และยอด แล้วแนบไฟล์เองภายหลัง</span></span>
-            </button>
-          )}
-          <button type="button" role="menuitem" onClick={copy} className={item}>
-            <Copy className="mt-0.5 h-4 w-4 shrink-0 text-brand-muted" />
-            <span><span className="block text-[13px] font-medium text-brand-text">คัดลอกข้อความ</span><span className={sub}>ข้อความพร้อมเลขที่และยอด สำหรับส่งให้ลูกค้า</span></span>
-          </button>
-          {invoice.client.email && (
-            <button type="button" role="menuitem" onClick={() => { setOpen(false); onEmail(); }} className={item}>
-              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand-muted" />
-              <span><span className="block text-[13px] font-medium text-brand-text">ส่งทางอีเมล</span><span className="block truncate text-xs text-brand-muted">{invoice.client.email}</span></span>
             </button>
           )}
           <button type="button" role="menuitem" onClick={() => { setOpen(false); onDownload(); }} className={item}>

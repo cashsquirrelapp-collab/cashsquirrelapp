@@ -643,18 +643,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     }
   };
 
-  const handleSendToCustomer = () => {
-    if (!selectedInvoice) return;
-    if (!selectedInvoice.client.email) {
-      triggerAlert('ยังไม่มีอีเมลลูกค้า', 'กรุณากดแก้ไขและเพิ่มอีเมลลูกค้าก่อนส่งเอกสาร');
-      return;
-    }
-    const meta = getDocumentMeta(selectedInvoice.documentType);
-    const subject = `${meta.th} เลขที่ ${selectedInvoice.documentNo}`;
-    const body = `เรียน ${selectedInvoice.client.name}\n\nกรุณาตรวจสอบ${meta.th} เลขที่ ${selectedInvoice.documentNo} ที่แนบมาพร้อมอีเมลนี้\n\nขอบคุณครับ`;
-    window.location.href = `mailto:${encodeURIComponent(selectedInvoice.client.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  };
-
   // Pick a document once, when the list first arrives. This used to run every time nothing was
   // selected -- which is exactly the state after opening a tab with no documents -- and it then
   // jumped back to the first document's tab, so ใบแจ้งหนี้ / ใบเสร็จ / ใบกำกับภาษี looked dead
@@ -814,7 +802,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                       <Download className="h-4 w-4" /> <span className="hidden sm:inline">{pdfBusy ? 'กำลังสร้าง PDF…' : 'ดาวน์โหลด PDF'}</span><span className="sm:hidden">PDF</span>
                     </button>
                     <div className="min-w-0 flex-1 sm:flex-none">
-                      <ShareButton invoice={withCurrentBranding(selectedInvoice)} pdf={pdf} onDownload={handleDownloadPdf} onPrint={handlePrintDocument} onEmail={handleSendToCustomer} notify={triggerAlert} />
+                      <ShareButton invoice={withCurrentBranding(selectedInvoice)} pdf={pdf} onDownload={handleDownloadPdf} onPrint={handlePrintDocument} notify={triggerAlert} />
                     </div>
                     <RowMenu label={`ตัวเลือกเพิ่มเติมของ ${selectedInvoice.documentNo}`} items={[
                       { label: 'ทำสำเนา', run: () => handleDuplicateInvoice(selectedInvoice) },

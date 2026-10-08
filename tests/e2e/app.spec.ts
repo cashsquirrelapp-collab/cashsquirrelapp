@@ -345,7 +345,7 @@ test('document tabs stay on the chosen type even when it has no documents, and s
  await tab('ใบเสนอราคา').click();
  await expect(page.getByTestId('document-preview')).toContainText('6,790');
  await page.getByRole('button',{name:'แชร์ให้ลูกค้า'}).click();
- await expect(page.getByRole('menuitem',{name:/คัดลอกข้อความ/})).toBeVisible();
+ await expect(page.getByRole('menuitem',{name:/คัดลอกข้อความ|ส่งทางอีเมล|แชร์ข้อความ/})).toHaveCount(0); // only the PDF is sent
  await expect(page.getByRole('menuitem',{name:/ดาวน์โหลด PDF/})).toBeVisible();
  expect(errors).toEqual([]);
 });
