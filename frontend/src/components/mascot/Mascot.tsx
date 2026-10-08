@@ -25,7 +25,9 @@ export type MascotAction =
   | 'hold-document'
   | 'hold-phone'
   | 'celebrate'
-  | 'sleep';
+  | 'sleep'
+  /** Both paws tapping a little keyboard, a document filling in beside it (loading documents). */
+  | 'typing';
 
 export type MascotProp = 'none' | 'coin' | 'calendar' | 'document' | 'phone' | 'clipboard' | 'chart' | 'warning';
 
@@ -196,8 +198,9 @@ export function Mascot({
   const isWaveAction = action === 'wave' || (action === 'idle' && mood === 'wave');
   const isCelebrateAction = action === 'celebrate';
   const isHoldAction = action === 'hold-coin' || action === 'hold-baht' || action === 'hold-calendar' || action === 'hold-document' || action === 'hold-phone';
+  const isTypingAction = action === 'typing';
   // Holding the ฿ coin (the logo pose) fills the paw, so the mood's floating accessory is dropped.
-  const showMoodAccessory = action !== 'hold-baht';
+  const showMoodAccessory = action !== 'hold-baht' && !isTypingAction;
 
   return (
     <div
@@ -244,12 +247,39 @@ export function Mascot({
         .squirrel-zzz {
           animation: zzzFloat 2.4s ease-in-out infinite;
         }
+        @keyframes typeTap {
+          0%, 100% { transform: translateY(0px); }
+          45% { transform: translateY(1.8px); }
+        }
+        @keyframes keyGlow {
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 1; }
+        }
+        @keyframes docLine {
+          0% { stroke-dashoffset: 9; opacity: 1; }
+          35%, 88% { stroke-dashoffset: 0; opacity: 1; }
+          100% { stroke-dashoffset: 0; opacity: 0; }
+        }
+        @keyframes docFloat {
+          0%, 100% { transform: translateY(0px) rotate(4deg); }
+          50% { transform: translateY(-1.5px) rotate(2deg); }
+        }
+        .squirrel-type-l { animation: typeTap 0.42s ease-in-out infinite; }
+        .squirrel-type-r { animation: typeTap 0.42s ease-in-out infinite; animation-delay: 0.21s; }
+        .squirrel-key { animation: keyGlow 0.84s ease-in-out infinite; }
+        .squirrel-doc { animation: docFloat 2.6s ease-in-out infinite; transform-origin: 80px 46px; }
+        .squirrel-doc-line { stroke-dasharray: 9; animation: docLine 2.6s ease-out infinite; }
         @media (prefers-reduced-motion: reduce) {
           .squirrel-tail-wag,
           .squirrel-blink,
           .squirrel-accessory,
           .squirrel-wave-arm,
-          .squirrel-zzz {
+          .squirrel-zzz,
+          .squirrel-type-l,
+          .squirrel-type-r,
+          .squirrel-key,
+          .squirrel-doc,
+          .squirrel-doc-line {
             animation: none !important;
           }
         }
@@ -494,9 +524,34 @@ export function Mascot({
           <path d="M47 56Q50 57 53 56" stroke={colors.eyes} strokeWidth="1.4" fill="none" strokeLinecap="round" />
         )}
 
+        {isTypingAction && (
+          <>
+            {/* The document being keyed in, lines appearing one after another */}
+            <g className={animated ? 'squirrel-doc' : ''}>
+              <rect x="72" y="30" width="16" height="21" rx="1.8" fill="#FFFFFF" stroke={colors.eyes} strokeWidth="1.1" />
+              <path d="M75 34.5h7" stroke="#E65F2B" strokeWidth="1.4" strokeLinecap="round" />
+              {[38.5, 42, 45.5].map((y, i) => (
+                <path key={y} d={`M75 ${y}h${i === 2 ? 6 : 9}`} stroke={colors.eyes} strokeWidth="0.9" strokeLinecap="round"
+                  className={animated ? 'squirrel-doc-line' : ''} style={animated ? { animationDelay: `${i * 0.55}s` } : undefined} />
+              ))}
+            </g>
+            {/* Little keyboard in front of the belly */}
+            <rect x="31" y="70" width="38" height="8" rx="2.2" fill="#3A3F45" />
+            <rect x="31" y="70" width="38" height="2" rx="1" fill="#4B5158" />
+            {[0, 1, 2, 3, 4, 5].map(i => <rect key={`k${i}`} x={34 + i * 5.4} y="72.6" width="3.6" height="1.6" rx="0.5" fill="#6B727A" />)}
+            {[0, 1, 2, 3, 4].map(i => <rect key={`j${i}`} x={36.6 + i * 5.4} y="75" width="3.6" height="1.5" rx="0.5" fill="#6B727A" />)}
+            <rect x="50.8" y="72.6" width="3.6" height="1.6" rx="0.5" fill="#F4B63F" className={animated ? 'squirrel-key' : ''} />
+          </>
+        )}
+
         {/* Paws */}
         {/* Left arm */}
-        {isCelebrateAction ? (
+        {isTypingAction ? (
+          <g className={animated ? 'squirrel-type-l' : ''}>
+            <path d="M36 61C37 65 39 68 41 70" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
+            <ellipse cx="41.5" cy="71" rx="3.6" ry="2.6" fill={colors.body} />
+          </g>
+        ) : isCelebrateAction ? (
           <>
             <path d="M36 60C32 55 30 50 30 46" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
             <circle cx="30" cy="44" r="4" fill={colors.body} />
@@ -508,7 +563,12 @@ export function Mascot({
         )}
 
         {/* Right arm */}
-        {isWaveAction ? (
+        {isTypingAction ? (
+          <g className={animated ? 'squirrel-type-r' : ''}>
+            <path d="M64 61C63 65 61 68 59 70" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
+            <ellipse cx="58.5" cy="71" rx="3.6" ry="2.6" fill={colors.body} />
+          </g>
+        ) : isWaveAction ? (
           <g className={animated ? 'squirrel-wave-arm' : ''}>
             {/* Waving hand path */}
             <path d="M64 62C68 56 73 49 76 46" stroke={colors.body} strokeWidth="5" strokeLinecap="round" />
