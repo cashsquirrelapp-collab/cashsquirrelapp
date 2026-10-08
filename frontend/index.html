@@ -18,6 +18,26 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Before the app's code arrives on a refresh, a signed-in user sees the app's skeleton
+         (sidebar + cards with a moving shine) instead of a blank page. React replaces it on mount.
+         Only reads two non-personal flags the app keeps in localStorage. -->
+    <style>
+      .boot{position:fixed;inset:0;display:flex;background:#FAFAF9;font-size:0}
+      .boot.dark{background:#17181B}
+      .boot i{display:block;border-radius:8px;background:linear-gradient(100deg,#EDEBE8 30%,#F7F6F4 50%,#EDEBE8 70%) #EDEBE8;background-size:220% 100%;background-attachment:fixed;animation:bootShine 1.5s ease-in-out infinite}
+      .boot.dark i{background:linear-gradient(100deg,#2A2B30 30%,#33343A 50%,#2A2B30 70%) #2A2B30;background-size:220% 100%;background-attachment:fixed}
+      .boot .side{display:none;width:240px;flex:none;padding:20px 16px;background:#fff;border-right:1px solid #E5E3DF}
+      .boot.dark .side{background:#212226;border-color:#34353A}
+      .boot .main{flex:1;min-width:0;padding:64px 16px 24px}
+      .boot .card{border:1px solid #E5E3DF;border-radius:14px;background:#fff;padding:18px;box-shadow:0 1px 3px rgba(60,40,28,.07),0 8px 22px rgba(60,40,28,.09)}
+      .boot.dark .card{background:#212226;border-color:#34353A;box-shadow:0 1px 2px rgba(0,0,0,.35),0 8px 22px rgba(0,0,0,.3)}
+      .boot .row{display:grid;gap:12px;grid-template-columns:repeat(2,1fr);margin-top:16px}
+      @media (min-width:640px){.boot .main{padding:64px 24px 24px}.boot .row{grid-template-columns:repeat(4,1fr)}}
+      @media (min-width:1024px){.boot .side{display:block}.boot .main{padding:32px 40px}}
+      @keyframes bootShine{from{background-position:110% 0}to{background-position:-110% 0}}
+      @media (prefers-reduced-motion:reduce){.boot i{animation:none}}
+    </style>
+    <script src="/boot-skeleton.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -395,3 +395,26 @@ export function ContentLoadingSkeleton({ page = 'dashboard', includeHeader = tru
     <PageBody page={page} />
   </LoadingFrame>;
 }
+
+/**
+ * The whole app while a refresh restores the session: the sidebar (desktop) or top bar (phone)
+ * and the open page's own skeleton, so the layout is in place before the real data arrives.
+ */
+export function AppShellSkeleton({ page = 'dashboard' }: { page?: SkeletonPage }) {
+  return <div className="app-shell flex h-screen flex-col overflow-hidden bg-brand-bg lg:flex-row">
+    <div aria-hidden="true" className="hidden w-60 shrink-0 flex-col border-r border-brand-border bg-brand-white px-4 py-5 lg:flex">
+      <div className="mb-7 flex items-center gap-2.5 px-2"><Block className="h-[34px] w-[34px] rounded-full" /><Block className="h-5 w-32" /></div>
+      <div className="flex-1 space-y-1">
+        {items(9).map(index => <div key={index} className="flex items-center gap-3 rounded-xl px-3 py-2.5"><Block className="h-5 w-5 rounded-md" /><Block className={`h-3.5 ${['w-16', 'w-10', 'w-14', 'w-14', 'w-16', 'w-14', 'w-10', 'w-14', 'w-10'][index]}`} /></div>)}
+      </div>
+      <div className="mt-4 space-y-3 rounded-2xl border border-brand-border p-3">
+        <div className="flex items-center gap-2.5"><Block className="h-9 w-9 rounded-full" /><Lines /></div>
+        <div className="flex items-center gap-2.5 border-t border-brand-border pt-3"><Block className="h-9 w-9 rounded-full" /><Block className="h-3.5 w-24" /></div>
+      </div>
+    </div>
+    <div className="min-h-0 min-w-0 flex-1 overflow-hidden px-4 pb-6 pt-16 sm:px-6 lg:px-8 lg:pt-8 xl:px-10">
+      <div aria-hidden="true" className="fixed inset-x-4 top-3 flex items-center justify-between lg:hidden"><Block className="h-10 w-10 rounded-full" /><Block className="h-10 w-10 rounded-full" /></div>
+      <ContentLoadingSkeleton page={page} />
+    </div>
+  </div>;
+}

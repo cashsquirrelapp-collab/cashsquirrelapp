@@ -308,7 +308,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .app-skeleton-block {
     max-width: 100%;
     border-radius: .375rem;
-    background: color-mix(in srgb, var(--muted) 13%, var(--faint));
+    /* A soft highlight sweeps across every placeholder, so loading reads as loading. */
+    --skeleton-base: color-mix(in srgb, var(--muted) 13%, var(--faint));
+    --skeleton-shine: color-mix(in srgb, var(--white) 70%, var(--skeleton-base));
+    background: linear-gradient(100deg, var(--skeleton-base) 30%, var(--skeleton-shine) 50%, var(--skeleton-base) 70%) var(--skeleton-base);
+    background-size: 220% 100%;
+    background-attachment: fixed;
+    animation: app-skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+  @keyframes app-skeleton-shimmer {
+    from { background-position: 110% 0; }
+    to { background-position: -110% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .app-skeleton-block { animation: none; background: var(--skeleton-base); }
   }
 }
 

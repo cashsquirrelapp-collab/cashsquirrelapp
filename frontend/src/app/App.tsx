@@ -31,7 +31,7 @@ const ReportOverviewTab = lazy(loadReportOverviewTab);
 const AdminDashboardTab = lazy(loadAdminDashboardTab);
 const SplitTab = lazy(loadSplitTab);
 import CustomDialog from '../components/ui/CustomDialog';
-import { ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
+import { AppShellSkeleton, ContentLoadingSkeleton } from '../components/ui/AppLoadingSkeleton';
 import { FullPageLoader } from '../components/ui/FullPageLoader';
 import { useDelayedLoader } from '../hooks/useDelayedLoader';
 import Login from '../features/auth/Login';
@@ -141,6 +141,13 @@ function parseWorkspaceRoute(pathname: string): { tab: TabKey; workspaceSlug: st
 
 function workspaceRoutePath(tab: TabKey, slug: string): string {
   return `/${tab}/${encodeURIComponent(slug)}`;
+}
+
+// Set while a real (non-guest) session is open, so the next page load can show the app's skeleton
+// before the session check finishes. Holds no account data; index.html reads it too.
+const SIGNED_IN_HINT = 'cashflow_signed_in';
+function hadSessionBefore(): boolean {
+  try { return localStorage.getItem(SIGNED_IN_HINT) === '1'; } catch { return false; }
 }
 
 function reloadSnapshotKey(owner: string): string {
@@ -592,6 +599,13 @@ export default function App() {
   // Skip full-page loaders for fast operations. Keep auth loading steady, while workspace
   // switches can finish as soon as their data is ready without an extra long hold.
   const showSessionLoader = useDelayedLoader(loadingSession);
+  useEffect(() => {
+    if (loadingSession) return;
+    try {
+      if (session && !session.isGuest) localStorage.setItem(SIGNED_IN_HINT, '1');
+      else localStorage.removeItem(SIGNED_IN_HINT);
+    } catch { /* storage blocked: no hint, the plain loader shows */ }
+  }, [loadingSession, session]);
   const showFinanceSwitchLoader = useDelayedLoader(switchingFinance, { minVisible: 120 });
 
   useEffect(() => {
@@ -2329,6 +2343,9 @@ export default function App() {
   };
 
   if (loadingSession) {
+    // A refresh by someone who was signed in: lay out the app's skeleton straight away (the page
+    // they are on, with the sidebar) instead of a blank screen. First visits keep the loader.
+    if (hadSessionBefore()) return <AppShellSkeleton page={parseWorkspaceRoute(pathname).tab} />;
     return showSessionLoader ? <FullPageLoader /> : null;
   }
 
