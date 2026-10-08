@@ -199,7 +199,10 @@ export const DOCUMENT_CSS = `
 .da4-pay .kv2 span{white-space:nowrap}
 .da4-banklogo{display:block;width:22px;height:22px;border-radius:50%;flex:none;box-shadow:0 0 0 0.5px rgba(0,0,0,.08)}
 .da4-chip{display:inline-block;border:1px solid var(--da4-accent);color:var(--da4-accent);font-size:8.5px;font-weight:600;line-height:1;padding:2px 4px;margin-right:5px;vertical-align:1px}
-.da4-bank{display:flex;gap:6px;align-items:flex-start}
+.da4-bank{display:flex;gap:8px;align-items:center}
+.da4-bankinfo{display:grid;row-gap:4px;line-height:1.35}
+.da4-bankline{display:flex;flex-wrap:wrap;column-gap:18px;row-gap:2px}
+.da4-bankname{color:#57534e}
 .da4-remark{min-height:26px;font-size:10.5px;white-space:pre-line;word-break:break-word}
 .da4-sig{display:grid;grid-template-columns:repeat(5,1fr);column-gap:8px;font-size:9.5px;text-align:center}
 .da4-sig .role{font-weight:600;font-size:9.5px;line-height:1.3;min-height:26px}
@@ -431,13 +434,16 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                             {thaiBankLogo(findThaiBank(issuer.bankName))
                               ? <img className="da4-banklogo" src={thaiBankLogo(findThaiBank(issuer.bankName))!} alt={findThaiBank(issuer.bankName)!.code} />
                               : <Ico name="landmark" />}
-                            <div>
-                              <div>
-                                {!thaiBankLogo(findThaiBank(issuer.bankName)) && findThaiBank(issuer.bankName) ? <span className="da4-chip">{findThaiBank(issuer.bankName)!.code}</span> : null}
-                                {issuer.bankName}
+                            {/* Bank and account number on one line, the account name under them. */}
+                            <div className="da4-bankinfo">
+                              <div className="da4-bankline">
+                                <span>
+                                  {!thaiBankLogo(findThaiBank(issuer.bankName)) && findThaiBank(issuer.bankName) ? <span className="da4-chip">{findThaiBank(issuer.bankName)!.code}</span> : null}
+                                  {issuer.bankName}
+                                </span>
+                                <span className="b">เลขที่บัญชี {issuer.bankAccount}</span>
                               </div>
-                              <div className="b">เลขที่บัญชี {issuer.bankAccount}</div>
-                              <div>{issuer.bankAccountName || issuer.name}</div>
+                              <div className="da4-bankname">{issuer.bankAccountName || issuer.name}</div>
                             </div>
                           </div>
                         ) : null}
