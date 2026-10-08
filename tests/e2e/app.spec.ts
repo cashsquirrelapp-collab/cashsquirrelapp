@@ -627,13 +627,23 @@ test('documents show the whole A4 page at once, without zoom controls',async({pa
  await page.goto('/invoice?type=quotation');
  const view=page.getByTestId('document-view');
  await expect(view).toBeVisible();
- await expect(page.getByRole('button',{name:'ขยาย'})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'ขยาย',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'ดูเอกสารทั้งหมด'})).toHaveCount(0); // no pocket to pull from
  const paper=view.getByTestId('document-preview');
  const v=(await view.boundingBox())!, p=(await paper.boundingBox())!;
  expect(p.y).toBeGreaterThanOrEqual(v.y-1); // the whole page is inside the view
  expect(p.y+p.height).toBeLessThanOrEqual(v.y+v.height+1);
  expect(p.height/p.width).toBeCloseTo(297/210,1); // a real A4 shape, not cropped
+ // full screen for reading
+ await paper.click();
+ const full=page.getByTestId('document-fullscreen');
+ await expect(full).toBeVisible();
+ expect((await full.getByTestId('document-preview').boundingBox())!.width).toBeGreaterThan(p.width*1.3);
+ await page.keyboard.press('Escape');
+ await expect(full).toHaveCount(0);
+ await page.getByRole('button',{name:'ขยายเอกสารเต็มจอ'}).click();
+ await page.getByRole('button',{name:'ปิดเต็มจอ'}).click();
+ await expect(full).toHaveCount(0);
 });
 
 test('document vault: files are listed, uploaded to a job, and a paid job with withholding tax asks for its 50 ทวิ',async({page})=>{
