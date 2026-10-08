@@ -825,3 +825,18 @@ test('jobs with withholding tax list the amount after the deduction, with the gr
  await expect(row).toContainText('฿2,425');
  await expect(row).toContainText('หัก 3% จาก ฿2,500');
 });
+
+test('a document with withholding tax highlights the net amount to transfer, and has no empty note section',async({page})=>{
+ const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'1234567890123'};
+ const inv={id:'inv-w',documentType:'invoice',documentNo:'INV-2569-002',createdDate:'2026-10-08',dueDate:'2026-10-16',issuer:profile,client:{name:'IzaBelle',address:'',phone:'',email:'',taxId:''},items:[{id:'i1',description:'DNA Protein',quantity:1,price:5500}],vatRate:0,whtRate:3,note:''};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,invoices:[inv]},versions:{...versions,cashflow_invoices:{'inv-w':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/invoice?type=invoice');
+ const doc=page.getByTestId('document-view').getByTestId('document-preview');
+ await expect(doc.locator('.da4-totalbox')).toContainText('ยอดชำระสุทธิ');
+ await expect(doc.locator('.da4-totalbox')).toContainText('5,335.00');
+ await expect(doc.locator('.da4-pre')).toContainText('5,500.00');
+ await expect(doc.locator('.da4-pre')).toContainText('หัก ณ ที่จ่าย 3%');
+ await expect(doc.locator('.da4-pre')).toContainText('165.00');
+ await expect(doc.getByText('หมายเหตุ')).toHaveCount(0);
+});

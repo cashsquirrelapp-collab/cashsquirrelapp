@@ -192,6 +192,7 @@ export const DOCUMENT_CSS = `
 .da4-minirows{display:grid;grid-template-columns:1fr auto;row-gap:2px;font-size:10px;margin:8px 8px 0 12px}
 .da4-minirows .l{font-weight:600}
 .da4-minirows .r{text-align:right;padding-left:14px}
+.da4-minirows.da4-pre{margin:0 12px 6px 15px;color:#57534e}
 .da4-pay{display:grid;grid-template-columns:200px 1fr auto;column-gap:14px;font-size:10.5px}
 .da4-pay .kv2{display:grid;grid-template-columns:auto 1fr;row-gap:5px;column-gap:14px;align-content:start}
 .da4-pay .kv2 .k{font-weight:600;white-space:nowrap}
@@ -261,6 +262,7 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
   // How to pay (bank account) on quotations, invoices and tax invoices; a receipt records money
   // already received, so it has no payment section.
   const showPayment = !meta.isReceipt;
+  const withheld = totals.whtAmount > 0;
   const isLastPage = (index: number) => index === totalPages - 1;
   const startNo = (index: number) => pages.slice(0, index).reduce((sum, rows) => sum + rows.length, 0);
   const clientTitle = `${client.code ? `${client.code} ` : ''}${client.name || '-'}${client.branch ? ` (${client.branch})` : ''}`;
@@ -391,19 +393,23 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                           <span className="r">{formatMoney(totals.vatAmount)} บาท</span>
                         </>
                       ) : null}
-                      <span className="l">จำนวนเงินทั้งสิ้น</span>
-                      <span className="r txt">{thaiBahtText(totals.total)}</span>
+                      <span className="l">{withheld ? 'ยอดชำระสุทธิ' : 'จำนวนเงินทั้งสิ้น'}</span>
+                      <span className="r txt">{thaiBahtText(withheld ? totals.payable : totals.total)}</span>
                     </div>
                     <div>
+                      {/* With withholding tax the client transfers the net amount, so that is the
+                          figure that stands out; the full amount and the deduction sit above it. */}
+                      {withheld ? (
+                        <div className="da4-minirows da4-pre">
+                          <span className="l">จำนวนเงินทั้งสิ้น</span>
+                          <span className="r">{formatMoney(totals.total)} บาท</span>
+                          <span className="l">หัก ณ ที่จ่าย {invoice.whtRate}%</span>
+                          <span className="r">−{formatMoney(totals.whtAmount)} บาท</span>
+                        </div>
+                      ) : null}
                       <div className="da4-totalbox">
-                        <span>จำนวนเงินทั้งสิ้น</span>
-                        <span className="amt">{formatMoney(totals.total)} <small>บาท</small></span>
-                      </div>
-                      <div className="da4-minirows">
-                        <span className="l">จำนวนเงินที่ถูกหัก ณ ที่จ่าย{invoice.whtRate > 0 ? ` ${invoice.whtRate}%` : ''}</span>
-                        <span className="r">{formatMoney(totals.whtAmount)} บาท</span>
-                        <span className="l" style={{ textAlign: 'right' }}>จำนวนเงินที่ชำระ:</span>
-                        <span className="r">{formatMoney(totals.payable)} บาท</span>
+                        <span>{withheld ? 'ยอดชำระสุทธิ' : 'จำนวนเงินทั้งสิ้น'}</span>
+                        <span className="amt">{formatMoney(withheld ? totals.payable : totals.total)} <small>บาท</small></span>
                       </div>
                     </div>
                   </div>
@@ -441,10 +447,12 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                   </div>
                 ) : null}
 
-                <div className="da4-sec">
-                  <div className="lab"><Ico name="message" />หมายเหตุ</div>
-                  <div className="da4-remark">{invoice.note || ''}</div>
-                </div>
+                {invoice.note?.trim() ? (
+                  <div className="da4-sec">
+                    <div className="lab"><Ico name="message" />หมายเหตุ</div>
+                    <div className="da4-remark">{invoice.note}</div>
+                  </div>
+                ) : null}
 
                 <div className="da4-sec">
                   <div className="lab"><Ico name="pen" />รับรอง</div>
