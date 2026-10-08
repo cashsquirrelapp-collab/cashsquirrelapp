@@ -11,7 +11,7 @@ import { Job, Invoice, InvoiceItem, InvoiceProfile, DocumentType } from '../../.
 import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT, calculateDocumentTotals, getDocumentMeta, printDocument } from './DocumentA4';
 import { formatCurrency } from '../../utils';
 import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './DocumentWorkspaceParts';
-import { DocumentReveal } from './DocumentReveal';
+import { DocumentFullView } from './DocumentFullView';
 import { downloadBlob, usePdfFile } from './documentPdf';
 import { Eye, Search } from 'lucide-react';
 import NumberInput from '../../components/ui/NumberInput';
@@ -810,7 +810,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     ]} />
                   </div>
                 </div>
-                <DocumentReveal invoice={withCurrentBranding(selectedInvoice)} className="h-[72vh] min-h-[440px] lg:h-auto lg:flex-1" />
+                <DocumentFullView invoice={withCurrentBranding(selectedInvoice)} className="h-[72vh] min-h-[440px] lg:h-auto lg:flex-1" />
               </div>
             ) : (
               <div className="flex min-h-[420px] flex-col items-center justify-center p-12 text-center lg:h-[calc(100vh-232px)]">
