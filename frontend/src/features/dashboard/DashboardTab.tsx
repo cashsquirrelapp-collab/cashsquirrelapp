@@ -835,7 +835,7 @@ export default function DashboardTab({
         <button
           type="button"
           onClick={() => { setIsMoreMenuOpen(false); setIsQuickPayExpanded(true); }}
-          className="flex items-center gap-2.5 rounded-xl border border-[#F8D6C2] bg-[#FFF1E8] px-3.5 py-3 text-left cursor-pointer"
+          className="flex items-center gap-2.5 rounded-xl border border-[#F8D6C2] bg-[#FFF1E8] px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
         >
           <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-white">
             <Coins className="h-4 w-4 text-[#E65F2B]" />
@@ -845,7 +845,7 @@ export default function DashboardTab({
         <button
           type="button"
           onClick={() => onQuickRecord?.('income')}
-          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left cursor-pointer"
+          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
         >
           <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-[#E9F8F1]">
             <TrendingUp className="h-4 w-4 text-[#4E9D78]" />
@@ -855,7 +855,7 @@ export default function DashboardTab({
         <button
           type="button"
           onClick={() => onQuickRecord?.('expense')}
-          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left cursor-pointer"
+          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
         >
           <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-[#FFF0F0]">
             <TrendingDown className="h-4 w-4 text-[#C43A3A]" />
@@ -869,7 +869,7 @@ export default function DashboardTab({
           onClick={() => setIsMoreMenuOpen(v => !v)}
           aria-haspopup="menu"
           aria-expanded={isMoreMenuOpen}
-          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left cursor-pointer"
+          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
         >
           <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-faint">
             <span className="text-brand-muted">•••</span>

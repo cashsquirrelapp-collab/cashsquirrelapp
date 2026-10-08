@@ -121,13 +121,17 @@
   --radius-xl: 24px;
   --radius-lg: 16px;
   --radius-md: 12px;
-  --shadow-card: 0 8px 30px rgba(70, 49, 36, 0.055);
-  --shadow-card-hover: 0 12px 38px rgba(70, 49, 36, 0.09);
+  /* Two layers: a tight contact shadow so the card edge reads, and a soft lift underneath. */
+  --shadow-card: 0 1px 3px rgba(60, 40, 28, 0.07), 0 8px 22px rgba(60, 40, 28, 0.09);
+  --shadow-card-hover: 0 2px 4px rgba(60, 40, 28, 0.07), 0 12px 30px rgba(60, 40, 28, 0.13);
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
   color-scheme: dark;
+  /* Warm brown shadows vanish on charcoal; dark mode needs deeper, neutral ones. */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 22px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.4), 0 14px 32px rgba(0, 0, 0, 0.4);
 
   /* Draft 6 dark mode: charcoal/dark-gray surfaces with the orange CI accent, matching the
      light-mode "Reskin phase 1" neutral direction instead of the old brown cinnamon/cocoa dark UI. */
@@ -311,6 +315,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* A consistent, understated elevation language for the many existing feature cards. Individual
    cards still opt into hover effects where they are interactive. */
 .page-content > :is(.bg-brand-white, .bg-brand-faint) {
+  box-shadow: var(--shadow-card);
+}
+/* Every outer white card in the app gets the same lift, however deep it sits in a page: a white,
+   bordered, rounded block that is not inside another card (rows inside a card stay flat) and has
+   no shadow of its own. Small controls (inputs, links, chips, small buttons) stay flat; large
+   rounded tiles that are buttons (quick actions) are cards too. */
+#main-content :is(div, section, article, aside, ul, li, form, button:is([class*="rounded-2xl"], [class*="rounded-3xl"], [class*="rounded-[1"], [class*="rounded-[2"])).bg-brand-white.border:is([class*="rounded-xl"], [class*="rounded-2xl"], [class*="rounded-3xl"], [class*="rounded-[1"], [class*="rounded-[2"]):not([class*="shadow"]):not(.bg-brand-white .bg-brand-white, .ui-surface .bg-brand-white, .ui-panel .bg-brand-white, [role="dialog"] .bg-brand-white, [role="menu"] .bg-brand-white) {
   box-shadow: var(--shadow-card);
 }
 
