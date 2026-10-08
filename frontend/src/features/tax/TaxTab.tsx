@@ -29,7 +29,6 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
-import { Wht50Panel } from '../vault/Wht50Panel';
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
 
 interface TaxTabProps {
@@ -83,8 +82,6 @@ export default function TaxTab({
 
   const [isShowingPrintModal, setIsShowingPrintModal] = useState(false);
   const [taxStep, setTaxStep] = useState<number>(1);
-  // ภาพรวมภาษี, or the 50 ทวิ certificates kept for this year's withheld tax. ?view=wht50 opens it directly.
-  const [taxView, setTaxView] = useState<'overview' | 'wht50'>(() => new URLSearchParams(window.location.search).get('view') === 'wht50' ? 'wht50' : 'overview');
 
   const allowanceOptions = [
     { key: 'life_insurance', label: 'ประกันชีวิต (ลดหย่อนได้ไม่เกิน 100,000 บาท)', cap: 100000, type: 'input' },
@@ -494,7 +491,7 @@ export default function TaxTab({
     <div className="page-content space-y-6" id="tax-assistant-container">
       
       <PageHeader page="tax">
-            {taxView === 'overview' && (<>
+            {(<>
             <div className="flex items-center gap-1.5 bg-brand-faint dark:bg-neutral-800 p-1 rounded-2xl border border-brand-border/20 dark:border-neutral-850">
               <span className="text-xs font-bold text-brand-muted px-3">ปีภาษี:</span>
               <select
@@ -534,16 +531,6 @@ export default function TaxTab({
             </>)}
       </PageHeader>
 
-      <div className="inline-flex rounded-xl border border-brand-border bg-brand-white p-1" role="tablist" aria-label="ส่วนของผู้ช่วยภาษี">
-        {([['overview', 'ภาพรวมภาษี'], ['wht50', '50 ทวิ']] as const).map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={taxView === key} onClick={() => setTaxView(key)}
-            className={`h-9 rounded-lg px-4 text-[13px] font-medium transition-colors cursor-pointer ${taxView === key ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'text-brand-muted hover:text-brand-text'}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {taxView === 'wht50' ? <Wht50Panel jobs={jobs} triggerAlert={triggerAlert} /> : (<>
 
       {/* KPI CARDS -- matches the mockup's 5-card row, all full-year figures */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -1164,8 +1151,6 @@ export default function TaxTab({
           ถัดไป
         </button>
       </div>
-
-      </>)}
 
       {/* PRINT PREVIEW / DETAILED PDF MODAL OVERLAY */}
       <AnimatePresence>

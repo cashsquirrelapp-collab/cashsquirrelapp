@@ -22,11 +22,13 @@ const loadPlansTab = () => import('../features/billing/PlansTab').then(module =>
 const loadGroupsTab = () => import('../features/groups/GroupsTab');
 const loadReceivablesTab = () => import('../features/receivables/ReceivablesTab');
 const loadVaultPage = () => import('../features/vault/VaultPage');
+const loadWht50Page = () => import('../features/vault/Wht50Page');
 const loadIncomeExpenseTab = () => import('../features/incomeExpense/IncomeExpenseTab');
 const loadReportOverviewTab = () => import('../features/report/ReportTab');
 const loadCalendarTab = () => import('../features/calendar/CalendarTab');
 const ReceivablesTab = lazy(loadReceivablesTab);
 const VaultPage = lazy(loadVaultPage);
+const Wht50Page = lazy(loadWht50Page);
 const ReportOverviewTab = lazy(loadReportOverviewTab);
 const AdminDashboardTab = lazy(loadAdminDashboardTab);
 const SplitTab = lazy(loadSplitTab);
@@ -93,6 +95,7 @@ import {
   Leaf,
   FileText,
   FolderOpen,
+  FileCheck2,
   Smartphone,
   ChevronDown,
   CalendarDays,
@@ -103,9 +106,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'adminDashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'calendar' | 'receivables' | 'incomeExpense' | 'vault';
+type TabKey = 'dashboard' | 'adminDashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'calendar' | 'receivables' | 'incomeExpense' | 'vault' | 'wht50';
 
-const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'calendar', 'receivables', 'incomeExpense', 'vault'];
+const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'calendar', 'receivables', 'incomeExpense', 'vault', 'wht50'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
 // The ลูกค้า page was removed; its per-client numbers live in รายงาน › ลูกค้า (the insight alias).
 const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense', clients: 'insight' };
@@ -207,6 +210,7 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   settings: loadSettingsTab,
   receivables: loadReceivablesTab,
   vault: loadVaultPage,
+  wht50: loadWht50Page,
   calendar: loadCalendarTab,
   incomeExpense: loadIncomeExpenseTab,
 };
@@ -234,6 +238,7 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
   // Kept files (50 ทวิ, contracts / POs) open as a sub-item under เอกสาร.
   { key: 'vault', labelKey: 'nav.vault', icon: FolderOpen, group: 'sub', parent: 'invoice' },
+  { key: 'wht50', labelKey: 'nav.wht50', icon: FileCheck2, group: 'sub', parent: 'invoice' },
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
   { key: 'plans', labelKey: 'nav.plans', icon: ShoppingBag, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
@@ -410,6 +415,14 @@ export default function App() {
     window.history.replaceState(window.history.state, '', window.location.pathname);
     navigateTab('vault');
   }, [activeTab, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Old links to the 50 ทวิ tab on the tax page (/tax?view=wht50) open its page under เอกสาร.
+  useEffect(() => {
+    if (activeTab !== 'tax' || new URLSearchParams(window.location.search).get('view') !== 'wht50') return;
+    const workspace = parseWorkspaceRoute(window.location.pathname).workspaceSlug;
+    if (!workspace) return;
+    window.history.replaceState(window.history.state, '', window.location.pathname);
+    navigateTab('wht50');
+  }, [activeTab, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const profileMenuItem = 'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer';
   const renderProfileMenu = (position: string) => (
@@ -568,7 +581,7 @@ export default function App() {
     const isWorkspaceRoot = pathname === '/' || pathname === '/app' || pathname === '/login';
     const tab = isWorkspaceRoot ? activeTab : parseWorkspaceRoute(pathname).tab;
     // The vault is counted as part of เอกสาร (the usage counters only know the original pages).
-    const feature = tab === 'vault' ? 'invoice' : tab;
+    const feature = tab === 'vault' || tab === 'wht50' ? 'invoice' : tab;
     const viewKey = `${userId}:${feature}`;
     // React StrictMode replays effects in development; count a tab transition only once.
     if (lastTrackedUsageRef.current === viewKey) return;
@@ -2855,6 +2868,7 @@ export default function App() {
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}
               {activeTab === 'vault' && <VaultPage jobs={jobs} expenses={expenses} />}
+              {activeTab === 'wht50' && <Wht50Page jobs={jobs} triggerAlert={triggerAlert} />}
               {activeTab === 'receivables' && (
                 <ReceivablesTab
                   jobs={jobs}

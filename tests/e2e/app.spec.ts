@@ -681,10 +681,16 @@ test('document vault: files are listed, uploaded to a job, and a paid job with w
  expect(uploads).toEqual([{kind:'wht50',jobId:'wht-job',jobName:'TikTok Campaign',client:'Brand A',fileName:'50Tawi_BrandA.pdf'}]);
  await page.getByRole('button',{name:'เสร็จสิ้น'}).click();
  await expect(page.locator('#main-content').getByRole('button',{name:/50 ทวิ/})).toBeVisible();
- // the tax page counts it as on file
+ // เอกสาร › ใบ 50 ทวิ counts it as on file; the tax page no longer has the tab
  await page.locator('aside').getByRole('button',{name:'ภาษี',exact:true}).click();
- await page.getByRole('tab',{name:'50 ทวิ'}).click();
+ await expect(page.getByRole('tab',{name:'50 ทวิ'})).toHaveCount(0);
+ await page.locator('aside').getByRole('button',{name:'เอกสาร',exact:true}).click();
+ await page.locator('aside').getByRole('button',{name:'ใบ 50 ทวิ'}).click();
+ await expect(page.getByRole('heading',{name:'ใบ 50 ทวิ',level:1})).toBeVisible();
  await expect(page.getByText('เอกสารพร้อม 1 จาก 1 รายการ')).toBeVisible();
+ // an old link to the tax page's 50 ทวิ tab lands on the new page
+ await page.goto('/tax?view=wht50');
+ await expect(page.getByRole('heading',{name:'ใบ 50 ทวิ',level:1})).toBeVisible();
 });
 
 test('document vault: files dropped on the page or the upload dialog are added without picking them',async({page})=>{

@@ -4,7 +4,7 @@ import { uiSurface } from './uiStyles';
 
 type SkeletonPage = 'dashboard' | 'adminDashboard' | 'jobs' | 'calendar'
   | 'receivables' | 'incomeExpense' | 'split' | 'report' | 'insight' | 'tax'
-  | 'invoice' | 'groups' | 'plans' | 'settings' | 'vault';
+  | 'invoice' | 'groups' | 'plans' | 'settings' | 'vault' | 'wht50';
 
 const items = (count: number) => Array.from({ length: count }, (_, index) => index);
 
@@ -333,9 +333,20 @@ function Plans() {
   </div>;
 }
 
+function Wht50() {
+  return <div className="space-y-4">
+    <Card className="space-y-5 p-5 sm:p-6">
+      <div className="flex justify-between gap-3"><Block className="h-6 w-72 max-w-full" /><Block className="h-10 w-36 rounded-full" /></div>
+      <div className="grid gap-3 sm:grid-cols-3">{items(3).map(index => <div key={index} className="space-y-2 rounded-2xl bg-brand-faint/50 p-4"><Block className="h-3 w-20" /><Block className="h-7 w-24" /></div>)}</div>
+      <div className="flex items-center gap-4"><div className="flex-1 space-y-2"><Block className="h-3 w-40" /><Block className="h-2 w-full rounded-full" /></div><Block className="h-11 w-48 rounded-full" /></div>
+    </Card>
+    <div className="flex flex-wrap items-center justify-between gap-2"><Tabs count={3} size="w-24" /><div className="flex gap-2"><Block className="h-11 w-60 rounded-full" /><Block className="h-11 w-44 rounded-full" /></div></div>
+    <Card className="overflow-hidden px-5 py-2">{items(4).map(index => <div key={index} className="flex items-center gap-6 border-b border-brand-border/50 py-4 last:border-0"><div className="flex-1"><Lines /></div><Block className="h-4 w-16" /><Block className="h-4 w-20" /><Block className="h-6 w-24 rounded-full" /><Block className="h-9 w-32 rounded-full" /></div>)}</Card>
+  </div>;
+}
+
 function Tax() {
   return <div className="space-y-6">
-    <Tabs count={2} size="w-28" />
     <Stats count={5} className="grid-cols-2 sm:grid-cols-5" compact />
     <div className="flex items-center">{items(4).map(index => <div key={index} className="flex flex-1 items-center"><Block className="h-7 w-7 rounded-full" />{index < 3 && <Block className="mx-2 h-px flex-1" />}</div>)}</div>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{items(4).map(index => <Block key={index} className="h-16 rounded-[14px]" />)}</div>
@@ -383,6 +394,7 @@ function PageBody({ page }: { page: SkeletonPage }) {
     case 'receivables': return <Receivables />;
     case 'invoice': return <Documents />;
     case 'vault': return <Vault />;
+    case 'wht50': return <Wht50 />;
     case 'report': return <Report />;
     case 'insight': return <Report insight />;
     case 'split': return <Goals />;
