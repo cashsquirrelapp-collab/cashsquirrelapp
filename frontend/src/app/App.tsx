@@ -2665,7 +2665,7 @@ export default function App() {
             </PageHeader>
           )}
 
-          {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !['groups','plans','adminDashboard'].includes(activeTab) ? (
+          {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !readReloadSnapshot(financeOwner) && !['groups','plans','adminDashboard'].includes(activeTab) ? (
             <ContentLoadingSkeleton page={activeTab} includeHeader={activeTab !== 'dashboard'} />
           ) : !session.isGuest && loadedFinanceOwner!==financeOwner && !['groups','plans','adminDashboard'].includes(activeTab) ? (
             <div role="status" className="rounded-3xl border border-brand-border bg-brand-white p-8 text-center">

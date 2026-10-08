@@ -34,9 +34,9 @@ function Lines({ wide = false }: { wide?: boolean }) {
 function Header({ page }: { page: SkeletonPage }) {
   const actions: Partial<Record<SkeletonPage, string[]>> = {
     dashboard: ['w-36', 'w-10', 'w-10', 'w-24'], adminDashboard: ['w-28'],
-    jobs: ['w-28'], calendar: ['w-48'], incomeExpense: ['w-28', 'w-28'],
-    invoice: ['w-36'], groups: ['w-28', 'w-28'], tax: ['w-36', 'w-36', 'w-32', 'w-40'],
-    split: ['w-52'], plans: ['w-12'],
+    jobs: ['w-24', 'w-28'], calendar: ['w-36'], incomeExpense: ['w-28', 'w-28'],
+    report: ['w-24'], insight: ['w-24'], invoice: ['w-36'], groups: ['w-28'], tax: ['w-36', 'w-36', 'w-32', 'w-40'],
+    split: ['w-36', 'w-28'], vault: ['w-36', 'w-28'], plans: ['w-[52px]'],
   };
   return <div className="ui-page-header">
     <div className="min-w-0 flex-1 space-y-2">
@@ -44,7 +44,7 @@ function Header({ page }: { page: SkeletonPage }) {
       <Block className="h-3.5 w-full max-w-[420px]" />
     </div>
     {actions[page] && <div className="ui-page-actions">
-      {actions[page]!.map((width, index) => <Block key={index} className={`h-10 max-w-full rounded-[10px] ${width}`} />)}
+      {actions[page]!.map((width, index) => <Block key={index} className={`${page === 'plans' ? 'h-[52px] w-[52px] rounded-full' : 'h-10 max-w-full rounded-[10px]'} ${width}`} />)}
     </div>}
   </div>;
 }
@@ -162,13 +162,14 @@ function Calendar() {
       <Block className="h-6 w-40" />
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="flex gap-1.5"><Block className="h-8 w-8 rounded-lg" /><Block className="h-8 w-12 rounded-lg" /><Block className="h-8 w-8 rounded-lg" /></div>
-        <div className="flex gap-1.5"><Block className="h-8 w-16 rounded-lg" /><Block className="h-8 w-20 rounded-lg" /></div>
+        <div className="flex gap-1 rounded-xl border border-brand-border p-0.5"><Block className="h-8 w-20 rounded-[10px]" /><Block className="h-8 w-20 rounded-[10px]" /></div>
       </div>
     </div>
     <div className="flex flex-wrap gap-3">{items(5).map(index => <Block key={index} className="h-3 w-20" />)}</div>
     <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
-      <div className="min-w-0 overflow-x-auto"><CalendarGrid /></div>
-      <Card><Block className="mb-3 h-4 w-40 max-w-full" /><Rows count={3} /></Card>
+      <div className="min-w-0 overflow-x-auto lg:row-span-2"><CalendarGrid /></div>
+      <Card className="space-y-3"><Lines /><Block className="h-8 w-28" /><Block className="h-4 w-32" /></Card>
+      <Card className="self-start"><Block className="mb-3 h-4 w-40 max-w-full" /><Rows count={3} /></Card>
     </div>
   </div>;
 }
@@ -234,7 +235,7 @@ function Documents() {
 
 function Report({ insight = false }: { insight?: boolean }) {
   return <div className="space-y-4">
-    <Tabs />
+    <Tabs count={4} />
     {insight ? <>
       <div className="flex justify-end"><Block className="h-10 w-40 rounded-[10px]" /></div>
       <Stats count={3} className="grid-cols-1 sm:grid-cols-3" />
@@ -247,44 +248,32 @@ function Report({ insight = false }: { insight?: boolean }) {
 
 function Goals() {
   return <div className="space-y-6">
-    <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border px-5 py-5 sm:px-7"><Lines wide /><Block className="h-7 w-28 rounded-full" /></div>
-      <div className="grid gap-7 p-5 sm:p-7 lg:grid-cols-[300px_1fr]">
-        <div className="flex flex-col items-center justify-center gap-4">
-          <div className="flex h-56 w-56 max-w-full items-center justify-center rounded-full border-[25px] border-brand-faint"><Lines /></div>
-          <Block className="h-3 w-44" />
-        </div>
-        <div className="space-y-4"><Stats count={3} className="grid-cols-1 sm:grid-cols-3" /><Card className="p-4"><Block className="h-4 w-36" /><Rows count={3} /></Card></div>
-      </div>
+    <Card className="grid grid-cols-2 gap-y-4 px-4 py-4 sm:grid-cols-4 sm:px-0">
+      {items(4).map(index => <div key={index} className="space-y-2 sm:px-6"><Block className="h-3 w-24 max-w-full" /><Block className="h-7 w-28 max-w-full" /></div>)}
     </Card>
-    <Stats />
-    <div className="flex justify-between gap-3"><Block className="h-6 w-40" /><Block className="h-10 w-28 rounded-[10px]" /></div>
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {items(3).map(index => <Card key={index} className="space-y-4 p-5"><Block className="h-12 w-12 rounded-xl" /><Lines wide /><Block className="h-2 w-full rounded-full" /><Block className="h-10 w-full rounded-[10px]" /></Card>)}
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      <Card className="flex min-h-56 flex-col space-y-3 p-5 sm:p-6"><Block className="h-5 w-52 max-w-full" /><Block className="mt-2 h-10 w-40" /><Block className="h-3 w-3/4" /><Block className="mt-auto h-10 w-full rounded-[10px]" /></Card>
+      <Card className="space-y-4 p-5 sm:p-6"><div className="flex justify-between gap-3"><Block className="h-5 w-52 max-w-full" /><Block className="h-4 w-20" /></div><Rows count={4} /></Card>
     </div>
+    <div className="flex flex-wrap items-end justify-between gap-2"><div className="space-y-2"><Block className="h-6 w-40" /><Block className="h-3 w-32" /></div><Block className="h-10 w-36 rounded-[10px]" /></div>
+    <Card className="overflow-hidden">{items(3).map(index => <div key={index} className="flex items-center gap-4 border-b border-brand-border/50 px-4 py-4 last:border-0"><Block className="h-12 w-12 shrink-0 rounded-full" /><div className="min-w-0 flex-1 space-y-2"><Block className="h-4 w-40 max-w-full" /><Block className="h-3 w-56 max-w-full" /><Block className="h-2 w-full rounded-full" /><Block className="h-3 w-36 max-w-full" /></div><Block className="h-5 w-16 shrink-0" /></div>)}</Card>
   </div>;
 }
 
 function Settings() {
-  return <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-    <div className="hidden w-[200px] shrink-0 space-y-1 lg:block">
-      <Block className="mb-3 h-5 w-20" />
-      {items(8).map(index => <div key={index} className="flex items-center gap-2.5 px-3 py-2.5"><Block className="h-4 w-4 shrink-0" /><Block className="h-3 w-28" /></div>)}
+  return <div className="grid max-w-[1180px] items-start gap-7 lg:grid-cols-2">
+    <div className="space-y-7">
+      <Card className="flex items-center gap-4 p-5"><Block className="h-[68px] w-[68px] shrink-0 rounded-full" /><div className="min-w-0 flex-1 space-y-2"><Block className="h-5 w-40 max-w-full" /><Block className="h-3 w-52 max-w-full" /><Block className="h-3 w-28" /></div><Block className="h-10 w-32 rounded-[10px]" /></Card>
+      {[2, 3].map((count, index) => <Card key={index} className="space-y-4 p-5"><Block className="h-4 w-32" />{items(count).map(row => <div key={row} className="flex items-center gap-3 border-t border-brand-border/50 pt-3"><Block className="h-8 w-8 shrink-0 rounded-full" /><Lines wide /><Block className="h-4 w-12" /></div>)}</Card>)}
     </div>
-    <div className="lg:hidden"><Tabs count={8} /></div>
-    <div className="min-w-0 flex-1 space-y-6 lg:max-w-2xl">
-      <Lines />
-      {items(3).map(index => <Card key={index} className="space-y-3 p-5">
-        <Lines /><Block className="h-[42px] w-full rounded-[10px]" />
-        {index === 0 && <Block className="h-10 w-28 rounded-[10px]" />}
-      </Card>)}
+    <div className="space-y-7">
+      {[2, 2, 1].map((count, index) => <Card key={index} className="space-y-4 p-5"><Block className="h-4 w-36" />{items(count).map(row => <div key={row} className="flex items-center gap-3 border-t border-brand-border/50 pt-3"><Block className="h-8 w-8 shrink-0 rounded-full" /><Lines wide /><Block className="h-4 w-16" /></div>)}</Card>)}
     </div>
   </div>;
 }
 
-function GroupPanels({ embedded = false }: { embedded?: boolean }) {
+function GroupPanels() {
   return <div className="space-y-6">
-    {!embedded && <><Stats count={3} className="grid-cols-1 sm:grid-cols-3" icon /><Tabs /></>}
     <div className="grid gap-6 xl:grid-cols-[minmax(240px,1fr)_minmax(0,2fr)]">
       <Card className="ui-panel self-start"><Block className="h-5 w-28" /><Rows count={3} /><Block className="mt-4 h-8 w-28" /></Card>
       <Card className="ui-panel space-y-5"><Lines /><Block className="h-3 w-3/4" /><Rows count={4} avatar actions /></Card>
@@ -316,7 +305,7 @@ export function AdminUsersLoadingSkeleton() {
 }
 
 export function GroupsLoadingSkeleton() {
-  return <LoadingFrame><GroupPanels embedded /></LoadingFrame>;
+  return <LoadingFrame><GroupPanels /></LoadingFrame>;
 }
 
 export function AdminDetailsLoadingSkeleton() {
@@ -346,7 +335,9 @@ function Plans() {
 
 function Tax() {
   return <div className="space-y-6">
+    <Tabs count={2} size="w-28" />
     <Stats count={5} className="grid-cols-2 sm:grid-cols-5" compact />
+    <div className="flex items-center">{items(4).map(index => <div key={index} className="flex flex-1 items-center"><Block className="h-7 w-7 rounded-full" />{index < 3 && <Block className="mx-2 h-px flex-1" />}</div>)}</div>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{items(4).map(index => <Block key={index} className="h-16 rounded-[14px]" />)}</div>
     <Card className="space-y-5 p-5 sm:p-6">
       <div className="flex flex-wrap justify-between gap-3"><Block className="h-4 w-36" /><Block className="h-8 w-48" /></div>
@@ -368,6 +359,14 @@ function Receivables() {
   </div>;
 }
 
+function Vault() {
+  return <div className="space-y-4">
+    <Tabs count={5} size="w-24" />
+    <div className="flex flex-col gap-2 sm:flex-row"><Block className="h-10 min-w-0 flex-1 rounded-xl" /><Block className="h-10 w-full rounded-xl sm:w-36" /></div>
+    <Card className="overflow-hidden px-4 py-2">{items(3).map(index => <div key={index} className="flex items-center gap-4 border-b border-brand-border/50 py-3.5 last:border-0"><Block className="h-14 w-11 shrink-0 rounded-lg" /><div className="min-w-0 flex-1 space-y-2"><Block className="h-4 w-52 max-w-full" /><Block className="h-3 w-24" /><Block className="h-3 w-40 max-w-full" /></div><Block className="hidden h-3 w-24 sm:block" /></div>)}</Card>
+  </div>;
+}
+
 function PageBody({ page }: { page: SkeletonPage }) {
   switch (page) {
     case 'dashboard': return <Dashboard />;
@@ -377,7 +376,7 @@ function PageBody({ page }: { page: SkeletonPage }) {
     case 'calendar': return <Calendar />;
     case 'receivables': return <Receivables />;
     case 'invoice': return <Documents />;
-    case 'vault': return <Table />;
+    case 'vault': return <Vault />;
     case 'report': return <Report />;
     case 'insight': return <Report insight />;
     case 'split': return <Goals />;
