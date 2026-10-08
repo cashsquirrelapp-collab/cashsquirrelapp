@@ -2684,11 +2684,13 @@ export default function App() {
             </PageHeader>
           )}
 
-          {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !readReloadSnapshot(financeOwner) && !['groups','plans','adminDashboard'].includes(activeTab) ? (
+          {/* While the account's data loads (a refresh included) every page shows its own skeleton;
+              the text box below is only for a load that failed. */}
+          {!session.isGuest && loadedFinanceOwner!==financeOwner && cloudSyncStatus!=='failed' && !['groups','plans','adminDashboard'].includes(activeTab) ? (
             <ContentLoadingSkeleton page={activeTab} includeHeader={activeTab !== 'dashboard'} />
           ) : !session.isGuest && loadedFinanceOwner!==financeOwner && !['groups','plans','adminDashboard'].includes(activeTab) ? (
-            <div role="status" className="rounded-3xl border border-brand-border bg-brand-white p-8 text-center">
-              <p className="font-bold text-brand-text">{cloudSyncStatus==='failed' ? 'โหลดบัญชีการเงินไม่สำเร็จ' : 'กำลังโหลดบัญชีการเงิน…'}</p>
+            <div role="alert" className="rounded-3xl border border-brand-border bg-brand-white p-8 text-center">
+              <p className="font-bold text-brand-text">โหลดบัญชีการเงินไม่สำเร็จ</p>
               {lastCloudError && <p role="alert" className="mt-3 text-sm text-red-600">{lastCloudError}</p>}
               {cloudSyncStatus==='failed' && <button className="mt-4 rounded-xl bg-brand-green-acc px-4 py-2 font-bold" onClick={()=>void loadCloudData(session.user.email)}>ลองโหลดอีกครั้ง</button>}
             </div>
