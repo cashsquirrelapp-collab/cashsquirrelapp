@@ -852,7 +852,7 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
  const job={id:'paid',name:'งานรับแล้ว',value:10180,received:10180,pending:0,client:'A',type:'Sponsored Post',status:'done',paymentStatus:'paid',creditTerm:0,note:'',postDate:today,payDate:today,isPosted:true};
  const waiting={id:'wait',name:'งานรอรับ',value:4000,received:0,pending:4000,client:'B',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:0,note:'',postDate:today,payDate:today,isPosted:true};
  const expenses=[{id:'e1',name:'ค่าใช้จ่ายเดิม',category:'Other',amount:12000,date:today},{id:'e2',name:'ตัดต่อ อาร์ต 2 คลิป',category:'Other',amount:600,date:today},{id:'e3',name:'Claude AI',category:'Other',amount:730,date:today}];
- const goal={id:'g1',name:'ซื้อคอม',type:'buy',target:30000,current:3000,deadline:'2027-12-31',emoji:'',bg:'#FFF',acc:'#E65F2B'};
+ const goal={id:'g1',name:'ซื้อคอม',type:'buy',target:30000,current:3000,deadline:'2027-12-31',emoji:'',bg:'#FFF',acc:'#E65F2B',history:[{id:'h1',type:'deposit',amount:3000,date:today,reason:'ออม',deductedFromCash:true}]};
  const saved:any[]=[];
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',async route=>{
@@ -861,6 +861,9 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
  });
  await page.goto('/');
  await expect(page.getByRole('region',{name:'เงินที่มีตอนนี้'})).toHaveCount(0); // no extra card on the dashboard
+ // what's left this month: received - expenses - savings set aside = 10,180 - 13,330 - 3,000
+ await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('เงินที่เหลือ');
+ await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('6,150');
  await page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first().click();
  const modal=page.getByRole('dialog',{name:'รายละเอียดการเงินเดือนนี้'});
  const summary=modal.getByRole('region',{name:'สรุปเดือนนี้'});
@@ -869,6 +872,8 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
  await expect(summary).toContainText('−฿13,330');
  await expect(summary).toContainText('กำไรสุทธิเดือนนี้');
  await expect(summary).toContainText('−฿3,150');
+ await expect(summary).toContainText('แบ่งออมเข้าเป้าหมาย (1 รายการ)');
+ await expect(page.getByTestId('left-this-month')).toContainText('−฿6,150');
  const cash=modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'});
  await expect(cash).toContainText('ยังคำนวณไม่ได้'); // no fake balance before it is set
  await cash.getByRole('button',{name:'ตั้งยอดเริ่มต้น'}).click();
