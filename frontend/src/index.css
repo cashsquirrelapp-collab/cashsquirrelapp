@@ -1055,18 +1055,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline: none;
 }
 
-/* A job opened from elsewhere (calendar, dashboard, timeline): an orange frame that pulses a few
-   times and a warm tint, so it is obvious which row it is. Outline works on table rows too. */
+/* A job opened from elsewhere (calendar, dashboard, timeline): an orange frame and warm tint
+   that blink slowly three times, then stay lit until the spotlight ends. Outline works on table
+   rows too. */
 .job-spotlight {
   position: relative;
-  background: #FFF1E8 !important;
+  background-color: #FFF1E8;
   outline: 2px solid #E65F2B;
   outline-offset: -2px;
-  animation: job-spotlight-pulse 1.2s ease-in-out 3;
+  animation: job-spotlight-blink 1.6s ease-in-out 3;
 }
-.dark .job-spotlight { background: rgba(230, 95, 43, .14) !important; outline-color: #FF9A6B; }
-@keyframes job-spotlight-pulse {
-  0%, 100% { outline-color: #E65F2B; box-shadow: 0 0 0 0 rgba(230, 95, 43, .35); }
-  50% { outline-color: #F6A57D; box-shadow: 0 0 0 6px rgba(230, 95, 43, 0); }
+.dark .job-spotlight { background-color: rgba(230, 95, 43, .16); outline-color: #FF9A6B; }
+@keyframes job-spotlight-blink {
+  0%, 100% { outline-color: #E65F2B; background-color: #FFF1E8; }
+  50% { outline-color: transparent; background-color: transparent; }
+}
+.dark .job-spotlight { animation-name: job-spotlight-blink-dark; }
+@keyframes job-spotlight-blink-dark {
+  0%, 100% { outline-color: #FF9A6B; background-color: rgba(230, 95, 43, .16); }
+  50% { outline-color: transparent; background-color: transparent; }
 }
 @media (prefers-reduced-motion: reduce) { .job-spotlight { animation: none; } }

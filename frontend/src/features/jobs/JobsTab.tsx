@@ -306,7 +306,7 @@ export default function JobsTab({
   // The spotlight ends after a while, or as soon as the user taps anywhere.
   React.useEffect(() => {
     if (!highlightedJobId) return;
-    const timer = window.setTimeout(() => setHighlightedJobId(null), 6000);
+    const timer = window.setTimeout(() => setHighlightedJobId(null), 7000); // 3 slow blinks, then lit a moment
     const clear = () => setHighlightedJobId(null);
     const arm = window.setTimeout(() => document.addEventListener('pointerdown', clear, { once: true }), 400);
     return () => { window.clearTimeout(timer); window.clearTimeout(arm); document.removeEventListener('pointerdown', clear); };
