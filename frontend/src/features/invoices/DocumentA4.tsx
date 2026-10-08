@@ -258,11 +258,11 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
   const pages = paginateItems(invoice);
   const totalPages = pages.length;
   const { issuer, client } = invoice;
-  const showPayment = !meta.isQuotation;
-  const receivedAmount = invoice.paidAmount ?? totals.payable;
+  // How to pay (bank account) on quotations, invoices and tax invoices; a receipt records money
+  // already received, so it has no payment section.
+  const showPayment = !meta.isReceipt;
   const isLastPage = (index: number) => index === totalPages - 1;
   const startNo = (index: number) => pages.slice(0, index).reduce((sum, rows) => sum + rows.length, 0);
-  const payDate = meta.isReceipt ? invoice.paidDate || invoice.dueDate : invoice.dueDate;
   const clientTitle = `${client.code ? `${client.code} ` : ''}${client.name || '-'}${client.branch ? ` (${client.branch})` : ''}`;
 
   return (
@@ -414,8 +414,9 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                     <div className="lab"><Ico name="banknote" />ชำระเงิน</div>
                     <div className="da4-pay">
                       <div className="kv2">
-                        <span className="k">{meta.isReceipt ? 'วันที่ชำระ :' : 'กำหนดชำระ :'}</span><span>{formatDocDate(payDate) || '-'}</span>
-                        <span className="k">จำนวนเงินรวม :</span><span>{formatMoney(meta.isReceipt ? receivedAmount : totals.payable)} บาท</span>
+                        {/* A quotation's date is how long the price holds (shown in the header), not a due date. */}
+                        {!meta.isQuotation && <><span className="k">กำหนดชำระ :</span><span>{formatDocDate(invoice.dueDate) || '-'}</span></>}
+                        <span className="k">จำนวนเงินรวม :</span><span>{formatMoney(totals.payable)} บาท</span>
                       </div>
                       <div>
                         {issuer.bankAccount ? (
@@ -427,15 +428,15 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                             <div>
                               <div>
                                 {!thaiBankLogo(findThaiBank(issuer.bankName)) && findThaiBank(issuer.bankName) ? <span className="da4-chip">{findThaiBank(issuer.bankName)!.code}</span> : null}
-                                {issuer.bankName}{meta.isReceipt && invoice.paymentMethod ? ` (${invoice.paymentMethod})` : ''}
+                                {issuer.bankName}
                               </div>
                               <div className="b">เลขที่บัญชี {issuer.bankAccount}</div>
                               <div>{issuer.bankAccountName || issuer.name}</div>
                             </div>
                           </div>
-                        ) : meta.isReceipt && invoice.paymentMethod ? <div>{invoice.paymentMethod}</div> : null}
+                        ) : null}
                       </div>
-                      <div>{meta.isReceipt ? `${formatMoney(receivedAmount)} บาท` : ''}</div>
+                      <div />
                     </div>
                   </div>
                 ) : null}
