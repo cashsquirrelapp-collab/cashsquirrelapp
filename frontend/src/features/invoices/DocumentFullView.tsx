@@ -1,12 +1,12 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Maximize2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { Invoice } from '../../../../shared/types';
 import { A4_HEIGHT_PX, A4_WIDTH_PX, DocumentPreview } from './DocumentA4';
 
 // The selected document, a whole A4 page at once: scaled to fit the space it has (width and
 // height), centred. A document with more pages scrolls down to the next ones. Clicking the paper
-// (or ขยายเต็มจอ) opens it full screen at a readable size.
+// opens it full screen at a readable size; nothing is drawn over the paper.
 
 const PAD = 20;
 
@@ -34,11 +34,8 @@ export function DocumentFullView({ invoice, className = '' }: { invoice: Invoice
       className={`relative min-h-0 overflow-y-auto overscroll-contain rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B]/40 ${className}`}>
       <div key={invoice.id} className="doc-view-enter flex justify-center" style={{ padding: PAD }}>
         <button type="button" onClick={() => setExpanded(true)} aria-label="ขยายเอกสารเต็มจอ" title="กดเพื่อดูเต็มจอ"
-          className="group relative block cursor-zoom-in rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B]">
+          className="relative block cursor-zoom-in rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B]">
           <DocumentPreview invoice={invoice} scale={scale} />
-          <span className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/65 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-            <Maximize2 className="h-3.5 w-3.5" />ขยายเต็มจอ
-          </span>
         </button>
       </div>
       {expanded && <FullScreenDocument invoice={invoice} onClose={() => setExpanded(false)} />}
