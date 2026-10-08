@@ -72,13 +72,18 @@ interface IncomeExpenseTabProps {
   onAutoOpenAddHandled?: () => void;
   scrollToExpenseId?: string | null;
   onScrollToExpenseHandled?: () => void;
+  /** Month to open on (YYYY-MM), e.g. from the dashboard's financial details. */
+  initialMonth?: string | null;
+  onInitialMonthHandled?: () => void;
 }
 
 export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   const { jobs, expenses, settings, triggerAlert, triggerConfirm } = props;
   const vault = useVault();
   const currentMonth = currentMonthKeyNow();
-  const [monthKey, setMonthKey] = React.useState(currentMonth);
+  const [monthKey, setMonthKey] = React.useState(() => props.initialMonth && /^\d{4}-\d{2}$/.test(props.initialMonth) ? props.initialMonth : currentMonth);
+  // The requested month is used once; opening รายจ่าย again later starts on this month as usual.
+  React.useEffect(() => { if (props.initialMonth) props.onInitialMonthHandled?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all');
   const [category, setCategory] = React.useState('all');
   const [sort, setSort] = React.useState<ExpenseSort>('recent');

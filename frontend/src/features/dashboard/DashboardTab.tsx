@@ -9,7 +9,7 @@ import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { IncomeExpenseChart } from './IncomeExpenseChart';
 import { MonthlyWorkValueBanner } from './MonthlyWorkValueBanner';
-import { CashOnHandCard } from './CashOnHandCard';
+import { FinancialDetailsModal } from './FinancialDetailsModal';
 import JobPaymentDialog from '../jobs/JobPaymentDialog';
 import { useQuickUndo } from '../jobs/useQuickUndo';
 import { Mascot } from '../../components/mascot/Mascot';
@@ -54,6 +54,8 @@ interface DashboardTabProps {
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   onQuickRecord?: (mode: 'income' | 'expense') => void;
+  /** Opens รายจ่าย on a given month (from the financial details). */
+  onOpenExpenses?: (monthKey: string) => void;
 }
 
 export default function DashboardTab({
@@ -73,6 +75,7 @@ export default function DashboardTab({
   triggerAlert,
   triggerConfirm,
   onQuickRecord,
+  onOpenExpenses,
 }: DashboardTabProps) {
   const { t } = useLanguage();
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
@@ -778,7 +781,6 @@ export default function DashboardTab({
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
       <div className="order-1 flex flex-col gap-5">
-      <CashOnHandCard jobs={jobs} expenses={expenses} settings={settings} onUpdateSettings={onUpdateSettings} />
       <MonthlyWorkValueBanner jobs={jobs} monthKey={selectedMonthKey} onOpenDetails={() => setBreakdownFilter('workValue')} />
 
       <div>
@@ -1206,7 +1208,26 @@ export default function DashboardTab({
 
       {/* Breakdown popup: which jobs (or, for "กำไรสุทธิ", which deductions) make up the clicked
           hero-card figure */}
-      {breakdownFilter && (() => {
+      {breakdownFilter === 'profit' && (
+        <FinancialDetailsModal
+          monthKey={selectedMonthKey}
+          received={totalReceived}
+          receivedCount={receivedEntriesForMonth.length}
+          fixedExpense={fixedExpenseThisMonth}
+          variableExpense={variableExpenseThisMonth}
+          variableExpenses={monthVariableExpenses}
+          profit={profit}
+          jobs={jobs}
+          expenses={expenses}
+          goals={goals}
+          settings={settings}
+          onUpdateSettings={onUpdateSettings}
+          onOpenExpenses={() => { setBreakdownFilter(null); if (onOpenExpenses) onOpenExpenses(selectedMonthKey); else onSwitchTab('incomeExpense'); }}
+          onOpenGoals={() => { setBreakdownFilter(null); onSwitchTab('split'); }}
+          onClose={() => setBreakdownFilter(null)}
+        />
+      )}
+      {breakdownFilter && breakdownFilter !== 'profit' && (() => {
           const breakdownJobs =
             breakdownFilter === 'contract' ? selectedMonthJobs :
             breakdownFilter === 'received' ? selectedMonthJobs.filter(j => receivedEntriesForMonth.some((entry) => entry.jobId === j.id)) :
@@ -1254,7 +1275,6 @@ export default function DashboardTab({
                     {breakdownFilter === 'contract' && t('dash.breakdownAllJobsTitle', { month: formatMonthKey(selectedMonthKey) })}
                     {breakdownFilter === 'received' && t('dash.breakdownReceivedTitle')}
                     {breakdownFilter === 'pending' && t('dash.breakdownPendingTitle')}
-                    {breakdownFilter === 'profit' && t('dash.breakdownProfitTitle')}
                     {breakdownFilter === 'expense' && `${withMonth('รายจ่าย', selectedMonthKey)}มาจากอะไรบ้าง`}
                     {breakdownFilter === 'workValue' && `${withMonth('มูลค่างาน', selectedMonthKey)}มาจากงานไหนบ้าง`}
                   </h3>
@@ -1365,73 +1385,6 @@ export default function DashboardTab({
                         <p className="text-xs text-brand-muted text-center py-6">{withMonth('ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดใน', selectedMonthKey)}</p>
                       )}
                     </div>
-                  </div>
-                ) : breakdownFilter === 'profit' ? (
-                  <div className="overflow-y-auto space-y-3 -mx-1 px-1">
-                    {/* Calculation steps */}
-                    <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-brand-muted">{t('dash.breakdownReceivedRow')}</span>
-                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">+{formatCurrency(totalReceived)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-brand-muted">{t('dash.breakdownFixedExpenseRow')}</span>
-                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(fixedExpenseThisMonth)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-brand-muted">{t('dash.breakdownVariableExpenseRow', { count: monthVariableExpenses.length })}</span>
-                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(variableExpenseThisMonth)}</span>
-                      </div>
-                      <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
-                      <div className="flex justify-between">
-                        <span className="font-bold text-brand-text dark:text-white">{t('dash.breakdownNetProfitRow')}</span>
-                        <span className={`font-mono font-black ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                          {formatCurrency(profit)}
-                        </span>
-                      </div>
-                      {goalDeductionsThisMonth > 0 && (
-                        <>
-                          <div className="flex justify-between pt-1">
-                            <span className="text-brand-muted">{t('dash.breakdownGoalDeductionRow', { count: monthGoalDeductions.length })}</span>
-                            <span className="font-mono font-bold text-brand-muted">-{formatCurrency(goalDeductionsThisMonth)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-brand-muted">คงเหลือหลังโอนเข้าเป้าหมายออม</span>
-                            <span className="font-mono font-bold text-brand-text dark:text-white">{formatCurrency(profit - goalDeductionsThisMonth)}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Itemized variable expenses */}
-                    {monthVariableExpenses.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">{t('dash.breakdownVariableExpenseHeader')}</p>
-                        <div className="space-y-1.5">
-                          {monthVariableExpenses.map(e => (
-                            <div key={e.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
-                              <span className="text-brand-text dark:text-white truncate">{e.name}</span>
-                              <span className="font-mono font-bold text-rose-600 dark:text-rose-400 shrink-0">-{formatCurrency(e.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Itemized goal deductions */}
-                    {monthGoalDeductions.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">{t('dash.breakdownGoalDeductionHeader')}</p>
-                        <div className="space-y-1.5">
-                          {monthGoalDeductions.map(tx => (
-                            <div key={tx.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
-                              <span className="flex min-w-0 items-center gap-2 text-brand-text dark:text-white"><GoalAvatar goal={tx.goal} size={20} /><span className="truncate">{tx.goalName}</span></span>
-                              <span className="font-mono font-bold text-rose-600 dark:text-rose-400 shrink-0">-{formatCurrency(tx.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="overflow-y-auto space-y-2 -mx-1 px-1">
