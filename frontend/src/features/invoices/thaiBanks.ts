@@ -1,9 +1,16 @@
-// Thai banks offered in the issuer profile. Only names and short codes are used -- no logos or
-// brand colours, so nothing here depends on a bank's trademarked artwork.
+// Thai banks offered in the issuer profile. Each bank's own logo (from the open
+// casperstack/thai-banks-logo set, kept locally in public/banks/) identifies it in the picker and
+// on documents; a bank without a logo file falls back to its short code.
 export interface ThaiBank {
   name: string; // stored in issuer.bankName and printed on documents
-  code: string; // short code shown as a neutral chip
+  code: string; // short code, shown when there is no logo
 }
+
+const WITH_LOGO = new Set(['BBL', 'KBANK', 'KTB', 'SCB', 'TTB', 'BAY', 'UOB', 'CIMB', 'LHBANK', 'TISCO', 'KKP', 'ICBC', 'GSB', 'GHB', 'BAAC', 'ISBT']);
+
+/** Same-origin logo path for a bank, or null when there is no logo file. */
+export const thaiBankLogo = (bank: ThaiBank | undefined): string | null =>
+  bank && WITH_LOGO.has(bank.code) ? `/banks/${bank.code}.png` : null;
 
 export const THAI_BANKS: ThaiBank[] = [
   { name: 'ธนาคารกรุงเทพ', code: 'BBL' },

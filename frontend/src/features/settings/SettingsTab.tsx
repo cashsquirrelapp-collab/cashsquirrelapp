@@ -24,7 +24,8 @@ import { IconClose, IconCheck } from '../../components/ui/icons';
 import type { PublicProfile } from '../../../../shared/groups';
 import { BrandImageField } from '../invoices/InvoiceTab';
 import { DocumentPreview, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, MAX_LOGO_HEIGHT } from '../invoices/DocumentA4';
-import { THAI_BANKS, findThaiBank } from '../invoices/thaiBanks';
+import { findThaiBank } from '../invoices/thaiBanks';
+import { BankPicker } from './BankPicker';
 
 const MAX_AVATAR_DATA_URL_LENGTH = 450_000;
 
@@ -773,26 +774,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <Panel title="ช่องทางรับเงิน" desc="บัญชีที่ลูกค้าใช้โอนเงิน แสดงท้ายเอกสาร">
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="ชื่อธนาคาร">
-                <select
-                  value={findThaiBank(issuerProfile.bankName) ? issuerProfile.bankName : issuerProfile.bankName || bankOtherMode ? '__other' : ''}
-                  onChange={(e) => {
-                    if (e.target.value === '__other') {
+                <BankPicker
+                  value={issuerProfile.bankName}
+                  otherMode={bankOtherMode}
+                  onPick={(choice) => {
+                    if (choice === 'other') {
                       setBankOtherMode(true);
                       if (findThaiBank(issuerProfile.bankName)) setIssuerProfile({ ...issuerProfile, bankName: '' });
                     } else {
                       setBankOtherMode(false);
-                      setIssuerProfile({ ...issuerProfile, bankName: e.target.value });
+                      setIssuerProfile({ ...issuerProfile, bankName: choice.bankName });
                     }
                   }}
-                  aria-label="ธนาคาร"
-                  className={uiInput}
-                >
-                  <option value="">— เลือกธนาคาร —</option>
-                  {THAI_BANKS.map(bank => (
-                    <option key={bank.code} value={bank.name}>{bank.name} ({bank.code})</option>
-                  ))}
-                  <option value="__other">อื่น ๆ (พิมพ์ชื่อเอง)</option>
-                </select>
+                />
                 {!findThaiBank(issuerProfile.bankName) && (issuerProfile.bankName || bankOtherMode) && (
                   <input type="text" value={issuerProfile.bankName} onChange={(e) => setIssuerProfile({ ...issuerProfile, bankName: e.target.value })}
                     placeholder="พิมพ์ชื่อธนาคาร / ช่องทางรับเงิน เช่น พร้อมเพย์" aria-label="ชื่อธนาคารอื่น ๆ" className={`${uiInput} mt-2`} />
