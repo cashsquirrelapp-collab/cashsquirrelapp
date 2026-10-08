@@ -641,7 +641,7 @@ test('documents show the whole A4 page at once, without zoom controls',async({pa
  expect((await full.getByTestId('document-preview').boundingBox())!.width).toBeGreaterThan(p.width*1.3);
  await page.keyboard.press('Escape');
  await expect(full).toHaveCount(0);
- await page.getByRole('button',{name:'ขยายเอกสารเต็มจอ'}).click();
+ await page.getByRole('button',{name:'ขยายเต็มจอ',exact:true}).click(); // the button sits above the paper, not on it
  await page.getByRole('button',{name:'ปิดเต็มจอ'}).click();
  await expect(full).toHaveCount(0);
 });

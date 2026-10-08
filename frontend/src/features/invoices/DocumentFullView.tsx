@@ -1,14 +1,16 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { Maximize2, X } from 'lucide-react';
 import type { Invoice } from '../../../../shared/types';
 import { A4_HEIGHT_PX, A4_WIDTH_PX, DocumentPreview } from './DocumentA4';
 
 // The selected document, a whole A4 page at once: scaled to fit the space it has (width and
 // height), centred. A document with more pages scrolls down to the next ones. Clicking the paper
-// opens it full screen at a readable size; nothing is drawn over the paper.
+// or the ขยายเต็มจอ button above it opens it full screen at a readable size. Nothing is drawn over
+// the paper itself.
 
 const PAD = 20;
+const BAR = 40; // the row above the paper with ขยายเต็มจอ
 
 export function DocumentFullView({ invoice, className = '' }: { invoice: Invoice; className?: string }) {
   const ref = React.useRef<HTMLDivElement>(null);
@@ -25,15 +27,21 @@ export function DocumentFullView({ invoice, className = '' }: { invoice: Invoice
   React.useEffect(() => { ref.current?.scrollTo({ top: 0 }); }, [invoice.id]);
 
   const fitW = box.w ? (box.w - PAD * 2) / A4_WIDTH_PX : 0.6;
-  const fitH = box.h ? (box.h - PAD * 2) / A4_HEIGHT_PX : 0.6;
+  const fitH = box.h ? (box.h - PAD * 2 - BAR) / A4_HEIGHT_PX : 0.6;
   const scale = Math.max(0.3, Math.min(fitW, fitH, 1.1));
   const [expanded, setExpanded] = React.useState(false);
 
   return (
     <div ref={ref} tabIndex={0} role="region" aria-label={`เอกสาร ${invoice.documentNo}`} data-testid="document-view"
       className={`relative min-h-0 overflow-y-auto overscroll-contain rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B]/40 ${className}`}>
-      <div key={invoice.id} className="doc-view-enter flex justify-center" style={{ padding: PAD }}>
-        <button type="button" onClick={() => setExpanded(true)} aria-label="ขยายเอกสารเต็มจอ" title="กดเพื่อดูเต็มจอ"
+      <div className="flex justify-end px-5 pt-2" style={{ height: BAR }}>
+        <button type="button" onClick={() => setExpanded(true)}
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-brand-border bg-brand-white px-3 text-xs font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
+          <Maximize2 className="h-3.5 w-3.5" />ขยายเต็มจอ
+        </button>
+      </div>
+      <div key={invoice.id} className="doc-view-enter flex justify-center" style={{ padding: PAD, paddingTop: 4 }}>
+        <button type="button" onClick={() => setExpanded(true)} aria-label="ขยายเอกสารเต็มจอ" title="กดเพื่อดูเต็มจอ" tabIndex={-1}
           className="relative block cursor-zoom-in rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B]">
           <DocumentPreview invoice={invoice} scale={scale} />
         </button>
