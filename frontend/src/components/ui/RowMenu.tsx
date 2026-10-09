@@ -36,7 +36,7 @@ export function RowMenu({ label, items, vertical = false, width = 180 }: { label
       <button ref={btnRef} type="button" onClick={toggle} aria-label={label} aria-haspopup="menu" aria-expanded={Boolean(pos)}
         className="shrink-0 rounded-lg p-1.5 text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer">{vertical ? <MoreVertical className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}</button>
       {pos && createPortal(
-        <div ref={menuRef} role="menu" className="fixed z-[150] rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#1F2024]"
+        <div ref={menuRef} role="menu" className="fixed z-[250] rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#1F2024]"
           style={{ top: pos.top, left: pos.left, width, transform: pos.up ? 'translateY(-100%)' : undefined }}>
           {items.map(it => (
             <button key={it.label} type="button" role="menuitem" onClick={(e) => { e.stopPropagation(); setPos(null); it.run(); }}
@@ -50,4 +50,3 @@ export function RowMenu({ label, items, vertical = false, width = 180 }: { label
     </>
   );
 }
-

@@ -771,6 +771,45 @@ test('expense slips: attach a slip from the expense, then the vault ZIP sorts fi
  expect(zip).toMatch(new RegExp(`รายจ่าย/${today.getFullYear()+543}-${String(today.getMonth()+1).padStart(2,'0')} [^/]+/ค่าเช่าสตูดิโอ - slip-kbank.jpg`));
 });
 
+test('expense slip menu stays clickable above the detail drawer and deletes only that slip',async({page})=>{
+ const today=new Date();const date=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`;
+ const expense={id:'exp-delete-slip',name:'ค่าใช้จ่ายเดิม',category:'Other',amount:12000,date};
+ const removed='f0000000-0000-4000-8000-000000000401';
+ let files:any[]=[
+  {id:removed,kind:'expense',jobId:expense.id,jobName:expense.name,client:null,fileName:'slip-remove.jpg',mimeType:'image/jpeg',sizeBytes:223000,createdAt:'2026-10-06T00:00:00Z'},
+  {id:'f0000000-0000-4000-8000-000000000402',kind:'expense',jobId:expense.id,jobName:expense.name,client:null,fileName:'slip-keep.pdf',mimeType:'application/pdf',sizeBytes:10000,createdAt:'2026-10-05T00:00:00Z'},
+ ];
+ const deleted:string[]=[];
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,expenses:[expense]},versions:{...versions,cashflow_expenses:{[expense.id]:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.route('**/api/vault',route=>{
+  if(route.request().method()==='POST'){
+   const body=route.request().postDataJSON();
+   expect(body).toEqual({action:'delete',id:removed});
+   deleted.push(body.id);files=files.filter(file=>file.id!==body.id);
+   return route.fulfill({json:{ok:true}});
+  }
+  return route.fulfill({json:{files}});
+ });
+ await page.route('**/api/vault-file*',route=>route.fulfill({body:Buffer.from('file'),contentType:'application/octet-stream'}));
+ await page.goto('/');
+ await page.locator('aside').getByRole('button',{name:'รายจ่าย',exact:true}).click();
+ await page.locator('#main-content tr',{hasText:expense.name}).click();
+ const detail=page.getByRole('dialog',{name:expense.name});
+ await expect(detail.getByText('สลิป / ใบเสร็จ (2)')).toBeVisible();
+ await detail.getByRole('button',{name:'ตัวเลือกของ slip-remove.jpg'}).click();
+ const deleteItem=page.getByRole('menuitem',{name:'ลบไฟล์'});
+ await expect(deleteItem).toBeVisible();
+ await deleteItem.click(); // a normal click catches a menu rendered underneath the drawer
+ const confirm=page.getByRole('dialog',{name:'ลบไฟล์นี้?'});
+ await expect(confirm).toContainText('slip-remove.jpg');
+ await confirm.getByRole('button',{name:'ยืนยัน',exact:true}).click();
+ await expect.poll(()=>deleted).toEqual([removed]);
+ await expect(detail.getByText('slip-remove.jpg')).toHaveCount(0);
+ await expect(detail.getByText('slip-keep.pdf')).toBeVisible();
+ await expect(detail.getByText('สลิป / ใบเสร็จ (1)')).toBeVisible();
+});
+
 test('a job tapped on the timeline slides up as a card, and its edit button opens the edit form',async({page})=>{
  const now=new Date();const ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
  const job={id:'knife',name:'มีดโกนหนวด',value:2000,whtRate:3,whtAmount:60,received:0,pending:1940,client:'Brand A',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:30,note:'',postDate:`${ym}-01`,payDate:`${ym}-28`,isPosted:true};
