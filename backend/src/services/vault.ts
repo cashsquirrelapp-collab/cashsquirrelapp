@@ -32,13 +32,18 @@ export function ensureVaultBucket(): Promise<void> {
   return bucketReady;
 }
 
-/** Same rule as the app: within the 14-day trial, or an unexpired paid period. Fails closed. */
+/** Same rule as the app: active trial, admin grant, or unexpired paid period. Fails closed. */
 export async function hasProAccess(user: User): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin().from('subscriptions').select('status, plan, current_period_end').eq('user_id', user.id).maybeSingle();
+  if (error) throw error;
+  if (data?.plan === 'admin_revoked') return false;
+
   const trial = !!user.created_at && new Date(user.created_at).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
   if (trial) return true;
-  const { data, error } = await getSupabaseAdmin().from('subscriptions').select('status, current_period_end').eq('user_id', user.id).maybeSingle();
-  if (error) throw error;
-  return data?.status === 'active' && !!data.current_period_end && new Date(data.current_period_end).getTime() > Date.now();
+  return data?.status === 'active' && (
+    data.plan === 'admin_grant' ||
+    (!!data.current_period_end && new Date(data.current_period_end).getTime() > Date.now())
+  );
 }
 
 async function isGroupMember(userId: string, groupId: string): Promise<boolean> {

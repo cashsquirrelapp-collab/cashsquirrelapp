@@ -276,15 +276,17 @@ async function listAllAuthUsers(): Promise<Map<string, string>> {
 function isPro(
   userId: string,
   createdAtByUserId: Map<string, string>,
-  activeSubByUserId: Map<string, { current_period_end: string }>
+  subscriptionByUserId: Map<string, { status: string; plan: string | null; current_period_end: string | null }>
 ): boolean {
+  const sub = subscriptionByUserId.get(userId);
+  if (sub?.plan === 'admin_revoked') return false;
   const createdAt = createdAtByUserId.get(userId);
   const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
 
-  const sub = activeSubByUserId.get(userId);
-  const isPaidActive = !!sub && new Date(sub.current_period_end).getTime() > Date.now();
+  const isAdminGrant = sub?.status === 'active' && sub.plan === 'admin_grant';
+  const isPaidActive = sub?.status === 'active' && !!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now();
 
-  return isInFreeTrial || isPaidActive;
+  return isInFreeTrial || isAdminGrant || isPaidActive;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -303,14 +305,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const [{ data: rows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
       supabaseAdmin.from('cashflow_account_snapshot').select('user_id, email, jobs, goals, settings, expenses, notif_settings'),
-      supabaseAdmin.from('subscriptions').select('user_id, status, current_period_end').eq('status', 'active'),
+      supabaseAdmin.from('subscriptions').select('user_id, status, plan, current_period_end'),
       listAllAuthUsers(),
     ]);
 
     if (rowsErr) throw rowsErr;
     if (subsErr) throw subsErr;
 
-    const activeSubByUserId = new Map((subs || []).map((s) => [s.user_id, { current_period_end: s.current_period_end }]));
+    const subscriptionByUserId = new Map((subs || []).map((s) => [s.user_id, { status: s.status, plan: s.plan, current_period_end: s.current_period_end }] as const));
 
     let processed = 0;
     let sent = 0;
@@ -320,7 +322,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       processed += 1;
       const notifSettings: NotifSettingsRow = row.notif_settings || {};
 
-      if (!isPro(row.user_id, createdAtByUserId, activeSubByUserId)) {
+      if (!isPro(row.user_id, createdAtByUserId, subscriptionByUserId)) {
         skipped += 1;
         continue;
       }

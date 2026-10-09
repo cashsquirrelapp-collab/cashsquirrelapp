@@ -89,21 +89,24 @@ const paymentLink = () => process.env.VITE_PRO_PAYMENT_URL || `${process.env.APP
 export async function isProUser(userId: string): Promise<boolean> {
   const [{ data: authUser, error: authErr }, { data: sub, error: subErr }] = await Promise.all([
     supabaseAdmin.auth.admin.getUserById(userId),
-    supabaseAdmin.from('subscriptions').select('status, current_period_end').eq('user_id', userId).maybeSingle(),
+    supabaseAdmin.from('subscriptions').select('status, plan, current_period_end').eq('user_id', userId).maybeSingle(),
   ]);
-  // A real lookup failure is indistinguishable here from "actually expired" -- fail open (treat
-  // as Pro) rather than risk locking a paying user out of LINE chat over a transient DB hiccup.
+  // Fail closed when the subscription or auth lookup fails; do not grant Pro on an unknown state.
   if (authErr || subErr) {
     console.error('isProUser: lookup failed, denying access:', { authErr, subErr });
     return false;
   }
 
   const createdAt = authUser?.user?.created_at;
-  const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000 > Date.now();
+  const isAdminRevoked = sub?.plan === 'admin_revoked';
+  const isInFreeTrial = !isAdminRevoked && !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000 > Date.now();
 
-  const isPaidActive = sub?.status === 'active' && !!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now();
+  const isPaidActive = sub?.status === 'active' && (
+    sub.plan === 'admin_grant' ||
+    (!!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now())
+  );
 
-  return isInFreeTrial || isPaidActive;
+  return !isAdminRevoked && (isInFreeTrial || isPaidActive);
 }
 
 // Shown instead of processing anything once a user's trial/paid period has lapsed -- polite,

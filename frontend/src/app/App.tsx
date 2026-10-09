@@ -943,13 +943,14 @@ export default function App() {
     if (!createdAt || session?.isGuest) return null;
     return new Date(new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000);
   }, [session?.user?.created_at, session?.isGuest]);
-  const isInFreeTrial = !!trialEndsAt && trialEndsAt.getTime() > Date.now();
+  const isAdminProRevoked = subscription?.plan === 'admin_revoked';
+  const isInFreeTrial = !isAdminProRevoked && !!trialEndsAt && trialEndsAt.getTime() > Date.now();
 
-  // Paid access: an 'active' one-time payment that hasn't expired yet (renewed monthly by hand)
-  const isPaidActive =
-    subscription?.status === 'active' &&
-    !!subscription.currentPeriodEnd &&
-    new Date(subscription.currentPeriodEnd).getTime() > Date.now();
+  // Paid one-time access expires monthly; an admin grant stays active until revoked.
+  const isPaidActive = !isAdminProRevoked && subscription?.status === 'active' && (
+    subscription.plan === 'admin_grant' ||
+    (!!subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd).getTime() > Date.now())
+  );
 
   // Guest mode previews local Pro tools with sample data. Server-side Pro access
   // still requires a real account and is checked independently by the API.
