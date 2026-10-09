@@ -122,12 +122,7 @@ export function FinancialDetailsModal(props: Props) {
             <div className="mt-2 border-t border-brand-border pt-2.5">
               <Row label="กำไรสุทธิเดือนนี้" value={signed(profit, profit < 0 ? '-' : profit > 0 ? '+' : '')} tone={profit > 0 ? GREEN : profit < 0 ? RED : 'text-brand-text'} strong />
             </div>
-            {/* What's left of this month's money after expenses and the savings set aside. */}
             <Row label={`แบ่งออมเข้าเป้าหมาย (${savedCount} รายการ)`} value={signed(savedThisMonth, '-')} tone={savedThisMonth > 0 ? RED : 'text-brand-text'} />
-            <div className="mt-2 rounded-xl bg-brand-faint/70 px-3 py-2.5" data-testid="left-this-month">
-              <Row label="เงินที่เหลือเดือนนี้" value={signed(profit - savedThisMonth, profit - savedThisMonth < 0 ? '-' : '')} tone={profit - savedThisMonth < 0 ? RED : 'text-brand-text'} strong />
-              <p className="text-[12px] text-brand-muted">รับเงินจริง − รายจ่าย − เงินที่แบ่งออม ของเดือนนี้</p>
-            </div>
           </section>
 
           {/* 2. เงินจริงที่มีอยู่ตอนนี้ */}

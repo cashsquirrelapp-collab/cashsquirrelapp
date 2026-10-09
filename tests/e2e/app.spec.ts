@@ -163,7 +163,9 @@ test('login and all feature tabs render after separation without browser errors'
  const sidebar=page.locator('aside');
  await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
  await expect(page.getByText('วางแผนวันนี้ ให้เงินเติบโตทุกวัน')).toHaveCount(0);
- for(const action of ['รับเงินด่วน','เพิ่มรายรับ','เพิ่มรายจ่าย'])await expect(page.getByRole('button',{name:action})).toBeVisible();
+ const shortcuts=page.getByRole('region',{name:'ทางลัด'});
+ for(const action of ['รับเงินด่วน','เพิ่มรายจ่าย'])await expect(shortcuts.getByRole('button',{name:action})).toBeVisible();
+ await expect(shortcuts.getByRole('button',{name:'เพิ่มรายรับ'})).toHaveCount(0);
  const quickPay=page.getByRole('button',{name:'รับเงินด่วน'});
  await quickPay.click();
  await expect(page.getByRole('heading',{name:'บันทึกรับเงินด่วน'})).toBeVisible();
@@ -900,9 +902,13 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
  });
  await page.goto('/');
  await expect(page.getByRole('region',{name:'เงินที่มีตอนนี้'})).toHaveCount(0); // no extra card on the dashboard
- // what's left this month: received - expenses - savings set aside = 10,180 - 13,330 - 3,000
- await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('เงินที่เหลือ');
- await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('6,150');
+ await expect(page.getByText('มูลค่างานเดือนนี้',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'รายการล่าสุด'})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'ปฏิทินการเงิน'})).toHaveCount(0);
+ await expect(page.getByRole('combobox',{name:'ช่วงเวลา'})).toBeVisible();
+ await expect(page.getByRole('combobox',{name:'ความละเอียด'})).toHaveCount(0);
+ await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('3,150');
+ await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).not.toContainText('6,150');
  await page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first().click();
  const modal=page.getByRole('dialog',{name:'รายละเอียดการเงินเดือนนี้'});
  const summary=modal.getByRole('region',{name:'สรุปเดือนนี้'});
@@ -912,7 +918,7 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
  await expect(summary).toContainText('กำไรสุทธิเดือนนี้');
  await expect(summary).toContainText('−฿3,150');
  await expect(summary).toContainText('แบ่งออมเข้าเป้าหมาย (1 รายการ)');
- await expect(page.getByTestId('left-this-month')).toContainText('−฿6,150');
+ await expect(summary).not.toContainText('6,150');
  const cash=modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'});
  await expect(cash).toContainText('ยังคำนวณไม่ได้'); // no fake balance before it is set
  await cash.getByRole('button',{name:'ตั้งยอดเริ่มต้น'}).click();

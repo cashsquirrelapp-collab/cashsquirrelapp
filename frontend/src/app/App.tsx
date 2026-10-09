@@ -2678,7 +2678,6 @@ export default function App() {
                   selectedMonthKey={dashboardMonthKey}
                   onEditJob={handleEditJob}
                   onViewJob={handleViewJob}
-                  onOpenCalendar={(dateKey?: string) => { setCalendarFocusDate(dateKey ?? null); navigateTab('calendar'); }}
                   userEmail={session?.user?.email || 'user@example.com'}
                   notifSettings={notifSettings}
                   triggerAlert={triggerAlert}
