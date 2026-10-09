@@ -7,6 +7,7 @@ import { sendGmailEmail } from '../services/gmail.js';
 import { isValidPassword } from '../../../shared/passwordPolicy.js';
 export default withGuard(async(req,res)=>{
  if(req.method!=='POST')throw new HttpError(405,'Method not allowed');
+ const startedAt=Date.now();
  const input=z.object({email:z.email().max(254).transform(v=>v.toLowerCase()),step:z.enum(['request','verify']).default('request'),code:z.string().regex(/^\d{6}$/).optional(),newPassword:z.string().min(8).max(128).optional()}).safeParse(req.body);
  if(!input.success)throw new HttpError(400,'กรุณาตรวจสอบอีเมล รหัสยืนยัน และรหัสผ่านอย่างน้อย 8 ตัวอักษร');
  const {email,step,code,newPassword}=input.data;
@@ -15,8 +16,7 @@ export default withGuard(async(req,res)=>{
  const result=await admin.from('cashflow_account_snapshot').select('user_id').eq('email',email).maybeSingle();
  if(result.error)throw result.error; const row=result.data;
  if(step==='request') {
-  if(!row)throw new HttpError(404,'ไม่พบบัญชีที่สมัครด้วยอีเมลนี้ กรุณาตรวจสอบอีเมลหรือสมัครสมาชิกก่อน');
-  {
+  if(row) {
    const otp=String(randomInt(100000,1000000));
    const saved=await admin.from('cashflow_challenges').upsert({user_id:row.user_id,purpose:'reset',code_hash:challengeHash(otp),expires_at:new Date(Date.now()+300000).toISOString(),attempts:0});
    if(saved.error)throw saved.error;
@@ -75,6 +75,9 @@ export default withGuard(async(req,res)=>{
     </html>`);
    if(!delivered)await admin.from('cashflow_challenges').delete().eq('user_id',row.user_id).eq('purpose','reset');
   }
+  // The response must not reveal whether this address belongs to an account.
+  const remaining=2500-(Date.now()-startedAt);
+  if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
   res.json({ok:true});return;
  }
  if(!row||!code||!newPassword)throw new HttpError(400,'รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
