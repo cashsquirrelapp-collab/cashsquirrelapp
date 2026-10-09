@@ -6,9 +6,8 @@ import { LanguageProvider } from './i18n/LanguageContext';
 import './index.css';
 import { clearLegacyFinancialCache } from './services/privateCache';
 
-// Remove credentials persisted by the previous direct-Supabase frontend while keeping
-// the current user's short-lived snapshot used to render real data during a page reload.
-clearLegacyFinancialCache({ preserveReloadSnapshots: true });
+// Remove old financial browser caches before authentication finishes.
+clearLegacyFinancialCache();
 
 // Register PWA service worker
 if ('serviceWorker' in navigator && (import.meta as any).env?.PROD) {

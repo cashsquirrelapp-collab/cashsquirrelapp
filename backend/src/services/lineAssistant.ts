@@ -21,11 +21,11 @@ import {
 // No open-ended multi-turn chat wizard for adding a job/expense -- that flow was removed for
 // leaving people stuck mid-conversation answering the wrong follow-up question, with no way out.
 // What replaced it: the LIFF form (api/liff-submit.ts) for a proper multi-field UI, and --
-// natural-language add-job/add-expense (classifyMessage extracts everything from one message and
-// saves immediately). The one exception is a bounded "pending job draft" (see
+// natural-language add-job/add-expense (classifyMessage extracts a draft, then the user confirms
+// it before any financial write). A bounded "pending job draft" (see
 // PENDING_JOB_DRAFT_TTL_MS / saveJobDraft / clearJobDraft below): if a message is missing a
 // required field, what was captured is saved and the reply asks specifically for what's left, so
-// a short follow-up (just a number, just a name) completes it instead of making the user retype
+// a short follow-up (just a number, just a name) completes the draft instead of making the user retype
 // the whole thing -- but it expires on its own after PENDING_JOB_DRAFT_TTL_MS and is never
 // surfaced as "still waiting", so there's still no state a user can get permanently stuck in.
 // Everything else is either a fixed Quick Reply command (zero AI cost) or a Claude-answered
@@ -1225,6 +1225,32 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
     ? storedExpenseDraft.draft
     : undefined;
 
+  // A model may propose a financial write, but only this exact user action commits it.
+  // Confirmation is checked before asking the model again so it cannot manufacture approval.
+  if (trimmed === 'ยกเลิกบันทึก') {
+    if (storedDraft) await clearJobDraft(user);
+    if (storedExpenseDraft) await clearExpenseDraft(user);
+    return { type: 'text', text: 'ยกเลิกรายการที่รอยืนยันแล้วครับ' };
+  }
+  if (trimmed === 'ยืนยันบันทึกงาน') {
+    if (!pendingDraft?.name || !pendingDraft.value || !pendingDraft.paymentStatus) {
+      return { type: 'text', text: 'ไม่มีงานที่รอยืนยันหรือรายการหมดอายุแล้ว กรุณาส่งรายละเอียดใหม่ครับ' };
+    }
+    const job = buildJobFromDraft(pendingDraft);
+    if (!(await persistJob(user, job))) return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองยืนยันอีกครั้งนะครับ' };
+    await clearJobDraft(user);
+    return buildJobSavedMessage(job, computeMonthNetForUser(user, job));
+  }
+  if (trimmed === 'ยืนยันบันทึกรายจ่าย') {
+    if (!pendingExpenseDraft?.name || !pendingExpenseDraft.amount) {
+      return { type: 'text', text: 'ไม่มีรายจ่ายที่รอยืนยันหรือรายการหมดอายุแล้ว กรุณาส่งรายละเอียดใหม่ครับ' };
+    }
+    const expense = buildExpenseFromDraft(pendingExpenseDraft);
+    if (!(await persistExpense(user, expense))) return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองยืนยันอีกครั้งนะครับ' };
+    await clearExpenseDraft(user);
+    return buildExpenseSavedMessage(expense, computeMonthNetForUser(user, undefined, expense));
+  }
+
   const existingName = user.notif_settings?.userName?.trim() || undefined;
   const alreadyAskedName = !!user.notif_settings?.nameAskedAt;
 
@@ -1311,13 +1337,8 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
         receivedAmount: merged.receivedAmount,
         whtRate: merged.whtRate || 0,
       };
-      const job = buildJobFromDraft(draft);
-      const ok = await persistJob(user, job);
-      if (!ok) {
-        return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ' };
-      }
-      if (pendingDraft) await clearJobDraft(user);
-      return buildJobSavedMessage(job, computeMonthNetForUser(user, job));
+      await saveJobDraft(user, draft);
+      return { type: 'text', text: `ตรวจสอบก่อนบันทึกงาน: ${draft.name} มูลค่า ${formatCurrency(draft.value)} (${draft.paymentStatus})${draft.client ? ` ลูกค้า ${draft.client}` : ''}\nพิมพ์ “ยืนยันบันทึกงาน” ภายใน 15 นาทีเพื่อบันทึก หรือ “ยกเลิกบันทึก” เพื่อยกเลิก` };
     }
 
     // Still missing something -- keep what's been said so far and ask specifically for what's
@@ -1348,13 +1369,8 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
 
     if (missingLabels.length === 0) {
       const draft: ExpenseDraft = { name: merged.name!, category: merged.category, amount: merged.amount! };
-      const expense = buildExpenseFromDraft(draft);
-      const ok = await persistExpense(user, expense);
-      if (!ok) {
-        return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ' };
-      }
-      if (pendingExpenseDraft) await clearExpenseDraft(user);
-      return buildExpenseSavedMessage(expense, computeMonthNetForUser(user, undefined, expense));
+      await saveExpenseDraft(user, draft);
+      return { type: 'text', text: `ตรวจสอบก่อนบันทึกรายจ่าย: ${draft.name} จำนวน ${formatCurrency(draft.amount)}${draft.category ? ` หมวด ${draft.category}` : ''}\nพิมพ์ “ยืนยันบันทึกรายจ่าย” ภายใน 15 นาทีเพื่อบันทึก หรือ “ยกเลิกบันทึก” เพื่อยกเลิก` };
     }
 
     // Still missing something -- keep what's been said so far and ask specifically for what's

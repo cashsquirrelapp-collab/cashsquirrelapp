@@ -7,12 +7,12 @@ export const privateCache = {
   removeItem(key: string) { entries.delete(key); },
   clear() { entries.clear(); }
 };
-export function clearLegacyFinancialCache(options: { preserveReloadSnapshots?: boolean } = {}): void {
+export function clearLegacyFinancialCache(): void {
   const financial = /^cashflow_(jobs|goals|settings|statuses|job_types|expenses|notif_settings|user_avatar|invoices|issuer)(_|$)/;
   for (const storage of [localStorage, sessionStorage]) {
     for (const key of Object.keys(storage)) {
       const isReloadSnapshot = key.startsWith('cashflow_jobs_reload_');
-      if ((financial.test(key) && !(options.preserveReloadSnapshots && isReloadSnapshot)) || (key.startsWith('sb-') && key.includes('auth-token'))) {
+      if (financial.test(key) || isReloadSnapshot || (key.startsWith('sb-') && key.includes('auth-token'))) {
         storage.removeItem(key);
       }
     }

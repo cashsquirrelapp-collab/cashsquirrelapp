@@ -153,37 +153,6 @@ function hadSessionBefore(): boolean {
   try { return localStorage.getItem(SIGNED_IN_HINT) === '1'; } catch { return false; }
 }
 
-function reloadSnapshotKey(owner: string): string {
-  return `cashflow_jobs_reload_${owner}`;
-}
-
-function readReloadSnapshot(owner: string): any | null {
-  try {
-    const raw = sessionStorage.getItem(reloadSnapshotKey(owner));
-    if (!raw) return null;
-    const value = JSON.parse(raw);
-    if (!value || !Array.isArray(value.jobs) || !Array.isArray(value.expenses) || !Array.isArray(value.goals) || !value.settings || typeof value.settings !== 'object') return null;
-    return value;
-  } catch {
-    return null;
-  }
-}
-
-function writeReloadSnapshot(owner: string, value: any): void {
-  try {
-    sessionStorage.setItem(reloadSnapshotKey(owner), JSON.stringify({
-      jobs: value.jobs || [],
-      expenses: value.expenses || [],
-      goals: value.goals || [],
-      settings: value.settings || defaultSettings,
-      statuses: value.statuses || [],
-      job_types: value.job_types || value.jobTypes || [],
-    }));
-  } catch {
-    // Session storage may be unavailable or full; the cloud remains the source of truth.
-  }
-}
-
 function personalWorkspaceSlug(profile: Pick<PublicProfile, 'displayName' | 'publicId' | 'userId'>): string {
   return workspaceSlug(profile.displayName) || workspaceSlug(profile.publicId) || 'account';
 }
@@ -1118,23 +1087,11 @@ export default function App() {
     const owner=financeOwnerRef.current;
     const request=++loadRequestRef.current;
     cloudReadyRef.current = null;
-    const cached = readReloadSnapshot(owner);
-    if (cached) {
-      setJobs(cleanJobs(cached.jobs));
-      setExpenses(cached.expenses);
-      setGoals(cached.goals);
-      setSettings(financeGroupId
-        ? { ...cached.settings, profileSetupCompleted: true }
-        : normalizeProfileSetupSettings(cached.settings, user.created_at));
-      if (cached.statuses?.length) setStatuses(cleanStatuses(cached.statuses));
-      if (cached.job_types?.length) setJobTypes(cleanJobTypes(cached.job_types));
-    }
     setCloudSyncStatus('pending');
     try {
       const result = await readCloud(owner);
       if (sessionRef.current?.user?.id !== user.id || financeOwnerRef.current!==owner || request!==loadRequestRef.current) return false;
       const data = result.snapshot;
-      writeReloadSnapshot(owner, data);
       setJobs(cleanJobs(data.jobs || [])); setGoals(data.goals || []); setExpenses(data.expenses || []);
       const loadedSettings = data.settings || defaultSettings;
       setSettings(financeGroupId
@@ -1160,7 +1117,6 @@ export default function App() {
     if (!user || sessionRef.current?.isGuest || user.email !== email || financeOwnerRef.current!==owner || cloudReadyRef.current !== owner) return;
     try {
       await saveAppCloud(owner, payload);
-      writeReloadSnapshot(owner, payload);
       if (sessionRef.current?.user?.id === user.id && financeOwnerRef.current===owner) { setLastCloudError(null); setCloudSyncStatus('synced'); }
     } catch (error: any) {
       if (sessionRef.current?.user?.id !== user.id || financeOwnerRef.current!==owner) return;
@@ -2651,7 +2607,7 @@ export default function App() {
             triggerConfirm={triggerConfirm}
             triggerAlert={triggerAlert}
           >
-          {!session.isGuest && loadedFinanceOwner !== financeOwner && !readReloadSnapshot(financeOwner)
+          {!session.isGuest && loadedFinanceOwner !== financeOwner
             ? <ContentLoadingSkeleton page={activeTab} />
             : <Suspense fallback={<ContentLoadingSkeleton page={activeTab} />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>

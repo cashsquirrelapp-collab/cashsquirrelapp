@@ -215,6 +215,11 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     const user=await publicUser(data.user); storeSession(res,data.session); res.json({session:{user},user}); return;
   }
   if (action==='signup') {
+    const signupStartedAt=Date.now();
+    const finishGenericSignup=async()=>{
+      await new Promise(resolve=>setTimeout(resolve,Math.max(0,2500-(Date.now()-signupStartedAt))));
+      res.json({session:null,user:null,confirmationEmailSent:true,signupEmailSent:true});
+    };
     if (!isValidPassword(parsed.data.password)) throw new HttpError(400,'รหัสผ่านต้องยาว 8–128 ตัวอักษร และมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก ตัวเลข และสัญลักษณ์อย่างน้อยอย่างละ 1 ตัว');
     const {email,password,displayName}=parsed.data;
     const {data,error}=await auth.auth.signUp({email,password,options:{emailRedirectTo:`${appOrigin()}/api/auth`,data:{full_name:displayName}}});
@@ -229,25 +234,26 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       if(code==='captcha_failed')throw new HttpError(400,'ยืนยัน CAPTCHA ไม่สำเร็จ กรุณาติดต่อผู้ดูแลหากไม่มีช่องยืนยันบนหน้าเว็บ');
       throw new HttpError(400,'สมัครสมาชิกไม่สำเร็จ กรุณาติดต่อผู้ดูแล (รหัสอ้างอิง: '+code+')');
     }
-    // Supabase deliberately returns an obfuscated user with no identities when an email is
-    // already registered. Treating that response as a new signup misleads the user into trying
-    // the newly entered password even though the existing password was never changed.
+    // Supabase may return an obfuscated user for an existing address. Keep the
+    // public response identical to a signup awaiting email confirmation.
     if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0){
-      throw new HttpError(409,'อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบหรือใช้เมนูลืมรหัสผ่าน');
+      await finishGenericSignup(); return;
     }
     writeCookie(res,{storage:Object.fromEntries(Object.entries(storage).filter(([key])=>key.endsWith('-code-verifier'))),expires:Date.now()+86400000},'oauth',86400);
     if (data.session) storeSession(res,data.session);
-    const user=data.user ? await publicUser(data.user) : null;
+    const user=data.session&&data.user ? await publicUser(data.user) : null;
     let confirmationEmailSent=true;
     let signupEmailSent=true;
     if(data.user&&!data.session&&Array.isArray(data.user.identities)&&data.user.identities.length>0){
       await markSignupWelcomePending(data.user);
       confirmationEmailSent=await sendConfirmation(data.user.id,email,displayName);
+      if(!confirmationEmailSent)console.error('Signup confirmation email delivery failed');
     }
     if(data.user&&data.session&&Array.isArray(data.user.identities)&&data.user.identities.length>0){
       signupEmailSent=await sendSignupWelcomeEmail(email,displayName);
     }
-    res.json({session:data.session ? {user} : null,user,confirmationEmailSent,signupEmailSent}); return;
+    if(!data.session){await finishGenericSignup();return;}
+    res.json({session:{user},user,confirmationEmailSent,signupEmailSent}); return;
   }
   throw new HttpError(400,'Invalid action');
 },{csrf:true});

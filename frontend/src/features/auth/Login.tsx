@@ -455,8 +455,6 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           setSuccess(data?.signupEmailSent === false
             ? t('login.err.signupEmailFailed')
             : t('login.success.signUpWithSession'));
-        } else if (data?.confirmationEmailSent === false) {
-          setError(t('login.err.confirmationEmailFailed'));
         } else {
           // Email confirmation is on, so there's no session yet: hop to the sign-in tab with the
           // email already filled in, so the user can sign in as soon as they've clicked the link.
