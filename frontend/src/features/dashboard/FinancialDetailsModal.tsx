@@ -77,6 +77,7 @@ export function FinancialDetailsModal(props: Props) {
   const cash = opening ? currentCash(opening, jobs, expenses, goals) : null;
   const isCurrentMonth = monthKey === currentMonthKeyNow();
   const totalExpense = fixedExpense + variableExpense;
+  const afterGoalAllocation = profit - savedThisMonth;
   const topExpenses = [...variableExpenses].sort((a, b) => b.amount - a.amount).slice(0, 5);
 
   // Esc closes (unless the opening-balance form is on top); Tab stays inside the modal.
@@ -122,11 +123,16 @@ export function FinancialDetailsModal(props: Props) {
             <div className="mt-2 border-t border-brand-border pt-2.5">
               <Row label="กำไรสุทธิเดือนนี้" value={signed(profit, profit < 0 ? '-' : profit > 0 ? '+' : '')} tone={profit > 0 ? GREEN : profit < 0 ? RED : 'text-brand-text'} strong />
             </div>
-            {/* What's left of this month's money after expenses and the savings set aside. */}
+            {/* Keep this planning result separate from the real account balance below. */}
             <Row label={`แบ่งออมเข้าเป้าหมาย (${savedCount} รายการ)`} value={signed(savedThisMonth, '-')} tone={savedThisMonth > 0 ? RED : 'text-brand-text'} />
-            <div className="mt-2 rounded-xl bg-brand-faint/70 px-3 py-2.5" data-testid="left-this-month">
-              <Row label="เงินที่เหลือเดือนนี้" value={signed(profit - savedThisMonth, profit - savedThisMonth < 0 ? '-' : '')} tone={profit - savedThisMonth < 0 ? RED : 'text-brand-text'} strong />
-              <p className="text-[12px] text-brand-muted">รับเงินจริง − รายจ่าย − เงินที่แบ่งออม ของเดือนนี้</p>
+            <div className="mt-2 rounded-xl border border-[#E8A45F]/35 bg-[#FFF7ED] px-3 py-2.5 dark:bg-[#E8A45F]/10" data-testid="left-this-month">
+              <Row
+                label="ผลต่างหลังแบ่งเข้าเป้าหมาย"
+                value={afterGoalAllocation < 0 ? `ต่ำกว่า 0 ${formatCurrency(Math.abs(afterGoalAllocation))}` : afterGoalAllocation > 0 ? `เหลือ ${formatCurrency(afterGoalAllocation)}` : `พอดี ${formatCurrency(0)}`}
+                tone={afterGoalAllocation < 0 ? 'text-[#B05D00] dark:text-[#F5B36A]' : 'text-brand-text'}
+                strong
+              />
+              <p className="text-[12px] leading-relaxed text-brand-muted">กำไรสุทธิ − เงินที่แบ่งเข้าเป้าหมาย · ไม่ใช่ยอดเงินจริงในบัญชี</p>
             </div>
           </section>
 

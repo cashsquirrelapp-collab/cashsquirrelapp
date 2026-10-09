@@ -900,9 +900,10 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
  });
  await page.goto('/');
  await expect(page.getByRole('region',{name:'เงินที่มีตอนนี้'})).toHaveCount(0); // no extra card on the dashboard
- // what's left this month: received - expenses - savings set aside = 10,180 - 13,330 - 3,000
- await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('เงินที่เหลือ');
- await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('6,150');
+ // The summary card shows the allocation itself, not a second negative figure that looks like an account balance.
+ await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('แบ่งเข้าเป้าหมาย');
+ await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('3,000');
+ await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).not.toContainText('6,150');
  await page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first().click();
  const modal=page.getByRole('dialog',{name:'รายละเอียดการเงินเดือนนี้'});
  const summary=modal.getByRole('region',{name:'สรุปเดือนนี้'});
@@ -912,7 +913,8 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
  await expect(summary).toContainText('กำไรสุทธิเดือนนี้');
  await expect(summary).toContainText('−฿3,150');
  await expect(summary).toContainText('แบ่งออมเข้าเป้าหมาย (1 รายการ)');
- await expect(page.getByTestId('left-this-month')).toContainText('−฿6,150');
+ await expect(page.getByTestId('left-this-month')).toContainText('ต่ำกว่า 0 ฿6,150');
+ await expect(page.getByTestId('left-this-month')).toContainText('ไม่ใช่ยอดเงินจริงในบัญชี');
  const cash=modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'});
  await expect(cash).toContainText('ยังคำนวณไม่ได้'); // no fake balance before it is set
  await cash.getByRole('button',{name:'ตั้งยอดเริ่มต้น'}).click();

@@ -628,10 +628,6 @@ export default function DashboardTab({
   // fixed-expense budget line (that's what `profit` above is for) since fixed bills haven't
   // necessarily left the wallet yet.
   const receivedAfterVariableExpense = Math.max(0, totalReceived - totalCashOutThisMonth);
-  // เงินที่เหลือเดือนนี้: what's left of the month's money once its expenses are paid and the
-  // savings set aside from it (cash-funded goal deposits) are taken out. Can go below zero.
-  const leftThisMonth = profit - goalDeductionsThisMonth;
-
   // Month-over-month comparison for the hero card
   const prevMonthKey = React.useMemo(() => {
     const [y, m] = selectedMonthKey.split('-').map(Number);
@@ -817,9 +813,9 @@ export default function DashboardTab({
           onClick={() => setBreakdownFilter('profit')}
           className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
         >
-          <p className="text-xs text-brand-muted">กำไรสุทธิ</p>
+          <p className="text-xs text-brand-muted">กำไรสุทธิเดือนนี้</p>
           <p className={`mt-1 text-[22px] leading-7 font-bold font-mono ${profit >= 0 ? 'text-[#18A66A]' : 'text-rose-600'}`}>{formatCurrency(profit)}</p>
-          <p className="mt-1 text-[12px] text-brand-muted">เงินที่เหลือ <span className={`font-mono font-semibold ${leftThisMonth < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-brand-text'}`}>{formatCurrency(leftThisMonth)}</span></p>
+          <p className="mt-1 text-[12px] text-brand-muted">แบ่งเข้าเป้าหมาย <span className="font-mono font-semibold text-brand-text">{formatCurrency(goalDeductionsThisMonth)}</span></p>
           {profitChangePct !== null && (
             <p className={`mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium ${profitChangePct >= 0 ? 'text-[#18A66A]' : 'text-rose-500'}`}>
               {profitChangePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
