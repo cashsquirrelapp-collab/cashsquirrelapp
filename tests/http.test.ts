@@ -5,7 +5,7 @@ import { createApp } from '../backend/src/http/app.js';
 import { seal,unseal } from '../backend/src/security/cookies.js';
 import Stripe from 'stripe';
 import { ensurePrivateReportBucket } from '../backend/src/services/reportStorage.js';
-process.env.APP_URL='http://127.0.0.1:3000';process.env.SUPABASE_URL='https://project.supabase.co';process.env.SUPABASE_PUBLISHABLE_KEY='test-key';process.env.SUPABASE_SERVICE_ROLE_KEY='test-admin';process.env.SESSION_SECRET='test-only-secret-'.repeat(4);process.env.STRIPE_SECRET_KEY='sk_test_only';process.env.STRIPE_WEBHOOK_SECRET='whsec_test';process.env.STRIPE_PRO_PAYMENT_LINK_ID='plink_test';
+process.env.APP_URL='http://127.0.0.1:3000';process.env.SUPABASE_URL='https://project.supabase.co';process.env.SUPABASE_PUBLISHABLE_KEY='test-key';process.env.SUPABASE_SERVICE_ROLE_KEY='test-admin';process.env.SESSION_SECRET='test-only-secret-'.repeat(4);process.env.STRIPE_SECRET_KEY='sk_test_only';process.env.STRIPE_WEBHOOK_SECRET='whsec_test';process.env.STRIPE_PRO_PRICE_ID='price_test_pro';
 process.env.LINE_CHANNEL_ID='test-channel';
 process.env.LINE_CHANNEL_ACCESS_TOKEN='test-line-token';
 const user={id:'11111111-1111-4111-8111-111111111111',email:'a@example.com',user_metadata:{role:'admin'}};
@@ -19,6 +19,7 @@ let notifyLinked=false,linePushStatus=200,linePushes=0;
 let signupError={code:'email_address_not_authorized',msg:'private SMTP credentials should never appear'};
 let refreshed=0,lineVerifications=0,downloaded=0,bucketUpdates=0;
 let currentRole='user', groupError: {code:string;message:string} | null=null;
+const stripeSyncs:any[]=[];
 const groupCalls: {endpoint:string;body:any}[]=[];
 const revoked=new Set<string>();
 before(async()=>{
@@ -63,7 +64,7 @@ before(async()=>{
    if(init?.method==='PUT'){bucketUpdates++;const options=JSON.parse(String(init.body));assert.equal(options.public,false);assert.equal(options.file_size_limit,4194304);return json({message:'updated'});}
    return json({id:'monthly-reports',name:'monthly-reports',public:true});
   }
-  if(url.includes('/rpc/cashflow_process_payment'))return new Response(failure?JSON.stringify({message:'private DB details',code:'XX000'}):'null',{status:failure?500:200,headers:{'content-type':'application/json'}});
+  if(url.includes('/rpc/cashflow_sync_subscription')){stripeSyncs.push(JSON.parse(String(init?.body)));return new Response(failure?JSON.stringify({message:'private DB details',code:'XX000'}):'true',{status:failure?500:200,headers:{'content-type':'application/json'}});}
   throw new Error('Unexpected mock endpoint '+url);
  };
  server=await new Promise<Server>(resolve=>{const instance=createApp().listen(0,'127.0.0.1',()=>resolve(instance));});
@@ -152,11 +153,11 @@ test('signup translates provider errors without leaking messages or credentials'
  }
 });
 test('Stripe verifies raw bytes, returns 500 on DB failures and does not leak DB details',async()=>{
- const raw=JSON.stringify({id:'evt_test',object:'event',created:Math.floor(Date.now()/1000),type:'checkout.session.completed',data:{object:{id:'cs_test',object:'checkout.session',created:Math.floor(Date.now()/1000),payment_link:'plink_test',mode:'payment',currency:'thb',amount_total:14900,payment_status:'paid',client_reference_id:user.id,payment_intent:'pi_test'}}});
+ const raw=JSON.stringify({id:'evt_test',object:'event',created:Math.floor(Date.now()/1000),type:'customer.subscription.updated',data:{object:{id:'sub_test',object:'subscription',customer:'cus_test',status:'active',cancel_at_period_end:false,metadata:{app_user_id:user.id,workspace_type:'personal',workspace_id:user.id},items:{object:'list',data:[{id:'si_test',object:'subscription_item',current_period_end:Math.floor(Date.now()/1000)+2592000,price:{id:'price_test_pro',object:'price',currency:'thb',unit_amount:14900,recurring:{interval:'month',interval_count:1}}}],has_more:false,url:'/v1/subscription_items'}}}});
  const signature=Stripe.webhooks.generateTestHeaderString({payload:raw,secret:'whsec_test'});
  const request=()=>realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'content-type':'application/json','stripe-signature':signature},body:raw});
  failure=true;const failed=await request();assert.equal(failed.status,500);assert.ok(!(await failed.text()).includes('private DB'));
- failure=false;assert.equal((await request()).status,200);
+ failure=false;assert.equal((await request()).status,200);assert.equal(stripeSyncs.at(-1).p_subscription_id,'sub_test');assert.equal(stripeSyncs.at(-1).p_user_id,user.id);
  const tampered=await realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'stripe-signature':signature},body:raw+' '});assert.equal(tampered.status,400);
 });
 

@@ -39,7 +39,7 @@ export default withGuard(
       // does not pay for two cross-region round trips during initial loading.
       const subscriptionRequest = admin
         .from("subscriptions")
-        .select("status,plan,current_period_end")
+        .select("status,plan,current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id")
         .eq("user_id", user.id)
         .maybeSingle();
       const groupFinanceRequest = groupId
@@ -71,7 +71,15 @@ export default withGuard(
         delete finance.versions.cashflow_invoices;
         delete finance.versions.cashflow_documents?.issuer_profile;
       }
-      const result = { ...finance, subscription: subscription.data };
+      const row = subscription.data;
+      const publicSubscription = row ? {
+        status: row.status,
+        plan: row.plan,
+        current_period_end: row.current_period_end,
+        cancel_at_period_end: row.cancel_at_period_end,
+        managed: Boolean(row.stripe_customer_id && row.stripe_subscription_id),
+      } : null;
+      const result = { ...finance, subscription: publicSubscription };
       if (Buffer.byteLength(JSON.stringify(result)) > 4 * 1024 * 1024)
         throw new HttpError(
           413,

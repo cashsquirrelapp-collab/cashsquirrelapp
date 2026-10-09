@@ -92,9 +92,11 @@ interface SettingsTabProps {
   onUpdateUserAvatar: (newAvatar: string) => void;
   onReplaySetupWizard?: () => void;
   subscription?: {
-    status: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled';
+    status: 'free' | 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
     plan: string | null;
     currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+    managed: boolean;
   } | null;
   isPaidActive?: boolean;
   isInFreeTrial?: boolean;

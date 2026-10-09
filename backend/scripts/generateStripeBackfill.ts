@@ -5,7 +5,7 @@ import { getStripe } from '../src/config/stripe.js';
 import { required } from '../src/config/env.js';
 import { z } from 'zod';
 dotenv.config({path:['.env.local','.env']});
-const stripe=getStripe();const paymentLink=required('STRIPE_PRO_PAYMENT_LINK_ID');
+const stripe=getStripe();const paymentLink=required('STRIPE_LEGACY_PAYMENT_LINK_ID');
 const quote=(value:string)=>`'${value.replaceAll("'","''")}'`;
 const lines=['-- Generated from Stripe. Review before applying.','begin;'];
 for await(const session of stripe.checkout.sessions.list({limit:100,created:{gte:Math.floor(Date.now()/1000)-45*86400}})) {

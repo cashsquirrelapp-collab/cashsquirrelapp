@@ -88,9 +88,9 @@ npm audit
 
 ใช้ project root นี้เป็น root directory ตั้ง runtime Node 22 และ environment ฝั่ง server ตาม `.env.example` ตั้ง `APP_URL` เป็น HTTPS domain จริง `vercel.json` ระบุ build/output, rewrites, headers และ cron ไว้แล้ว API ทั้งหมดแชร์ `api/index.ts` หนึ่ง function เพื่อให้เส้นทางและ body parsing ตรงกับ Express
 
-Stripe webhook: `/api/stripe-webhook`; LINE webhook: `/api/line-webhook`; LIFF endpoint: `/liff-add.html` ต้องใส่ `STRIPE_PRO_PAYMENT_LINK_ID` ให้ตรงกับ `VITE_PRO_PAYMENT_URL` ระบบจะให้สิทธิ์เฉพาะ payment link ที่กำหนด ยอด 149 THB และ payment ที่ยืนยันว่าจ่ายแล้ว
+Stripe webhook: `/api/stripe-webhook`; LINE webhook: `/api/line-webhook`; LIFF endpoint: `/liff-add.html` ตั้ง `STRIPE_PRO_PRICE_ID` เป็นราคา recurring 149 THB/เดือนจาก mode เดียวกับ `STRIPE_SECRET_KEY` ระบบสร้าง Checkout จาก backend และเปิดสิทธิ์ตาม webhook ที่ตรวจลายเซ็นแล้วเท่านั้น รายละเอียด test/live และ event ที่ต้องเปิดดูใน `DEPLOYMENT.md`
 
-หากย้ายระบบที่มีสมาชิก Pro อยู่แล้ว ให้เตรียมประวัติด้วย `npm run billing:backfill` ทบทวน SQL ที่สร้าง แล้ว apply ก่อนเปิด webhooks คู่มือระบุการตรวจยอดและวันหมดอายุ
+หากย้ายระบบที่มีสมาชิก Pro แบบ Payment Link เดิม ให้ตั้ง `STRIPE_LEGACY_PAYMENT_LINK_ID` ชั่วคราวแล้วเตรียมประวัติด้วย `npm run billing:backfill` ทบทวน SQL ที่สร้าง แล้ว apply ก่อนเปิด webhooks คู่มือระบุการตรวจยอดและวันหมดอายุ
 
 ### Node server / container
 

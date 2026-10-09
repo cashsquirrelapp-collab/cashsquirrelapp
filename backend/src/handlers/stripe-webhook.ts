@@ -2,29 +2,86 @@ import type Stripe from 'stripe';
 import { stripe } from '../config/stripe.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { required } from '../config/env.js';
-import { withGuard,readRawBody,HttpError } from '../http/guard.js';
-export const config={api:{bodyParser:false}};
-export default withGuard(async(req,res)=>{
- if(req.method!=='POST')throw new HttpError(405,'Method not allowed');
- const signature=req.headers['stripe-signature'];if(typeof signature!=='string')throw new HttpError(400,'Missing signature');
- let event:Stripe.Event;
- try{event=stripe.webhooks.constructEvent(await readRawBody(req),signature,required('STRIPE_WEBHOOK_SECRET'));}catch{throw new HttpError(400,'Invalid webhook signature');}
- if(!['checkout.session.completed','checkout.session.async_payment_succeeded','charge.refunded'].includes(event.type)){res.json({received:true});return;}
- let session:Stripe.Checkout.Session; let refund=false;
- if(event.type==='charge.refunded') {
-  const charge=event.data.object as Stripe.Charge;
-  // A partial refund does not cancel a full month's entitlement.
-  if(!charge.refunded){res.json({received:true});return;}
-  const paymentIntent=typeof charge.payment_intent==='string'?charge.payment_intent:charge.payment_intent?.id;
-  if(!paymentIntent)throw new HttpError(400,'Missing payment reference');
-  const sessions=await stripe.checkout.sessions.list({payment_intent:paymentIntent,limit:1});session=sessions.data[0];refund=true;
- }else session=event.data.object as Stripe.Checkout.Session;
- const paymentLink=typeof session?.payment_link==='string'?session.payment_link:session?.payment_link?.id;
- if(!session || paymentLink!==required('STRIPE_PRO_PAYMENT_LINK_ID') || session.mode!=='payment' || session.currency!=='thb' || session.amount_total!==14900){res.json({received:true,ignored:true});return;}
- if(!refund && session.payment_status!=='paid'){res.json({received:true});return;}
- if(!session.client_reference_id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(session.client_reference_id))throw new HttpError(400,'Invalid account reference');
- const paymentId=typeof session.payment_intent==='string'?session.payment_intent:session.payment_intent?.id;
- if(!paymentId)throw new HttpError(400,'Missing payment reference');
- const saved=await getSupabaseAdmin().rpc('cashflow_process_payment',{p_event_id:event.id,p_payment_id:paymentId,p_user_id:session.client_reference_id,p_amount:session.amount_total,p_currency:session.currency,p_paid_at:new Date(session.created*1000).toISOString(),p_refund:refund});
- if(saved.error)throw saved.error;res.json({received:true});
+import { withGuard, readRawBody, HttpError } from '../http/guard.js';
+import { subscriptionIdFromInvoice, subscriptionRecord } from '../services/stripeSubscriptions.js';
+
+export const config = { api: { bodyParser: false } };
+const handled = new Set([
+  'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+  'customer.subscription.created',
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+  'invoice.paid',
+  'invoice.payment_failed',
+]);
+
+export default withGuard(async (req, res) => {
+  if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+  const signature = req.headers['stripe-signature'];
+  if (typeof signature !== 'string') throw new HttpError(400, 'Missing signature');
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(await readRawBody(req), signature, required('STRIPE_WEBHOOK_SECRET'));
+  } catch {
+    throw new HttpError(400, 'Invalid webhook signature');
+  }
+  if (!handled.has(event.type)) {
+    res.json({ received: true });
+    return;
+  }
+
+  let subscription: Stripe.Subscription | null = null;
+  let fallbackUserId: string | null = null;
+  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.mode !== 'subscription') {
+      res.json({ received: true, ignored: true });
+      return;
+    }
+    fallbackUserId = session.client_reference_id;
+    const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+    if (!subscriptionId) throw new HttpError(400, 'Missing subscription reference');
+    subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    if (!subscription.metadata.app_user_id && fallbackUserId) {
+      subscription = await stripe.subscriptions.update(subscription.id, {
+        metadata: {
+          ...subscription.metadata,
+          app_user_id: fallbackUserId,
+          workspace_type: 'personal',
+          workspace_id: fallbackUserId,
+        },
+      });
+    }
+  } else if (event.type.startsWith('customer.subscription.')) {
+    subscription = event.data.object as Stripe.Subscription;
+  } else {
+    const subscriptionId = subscriptionIdFromInvoice(event.data.object as Stripe.Invoice);
+    if (!subscriptionId) {
+      res.json({ received: true, ignored: true });
+      return;
+    }
+    subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  }
+
+  const record = subscriptionRecord(subscription, fallbackUserId);
+  if (!record) {
+    res.json({ received: true, ignored: true });
+    return;
+  }
+  const saved = await getSupabaseAdmin().rpc('cashflow_sync_subscription', {
+    p_event_id: event.id,
+    p_event_type: event.type,
+    p_object_id: subscription.id,
+    p_user_id: record.userId,
+    p_workspace_id: record.workspaceId,
+    p_customer_id: record.customerId,
+    p_subscription_id: record.subscriptionId,
+    p_price_id: record.priceId,
+    p_status: record.status,
+    p_period_end: record.currentPeriodEnd,
+    p_cancel_at_period_end: record.cancelAtPeriodEnd,
+  });
+  if (saved.error) throw saved.error;
+  res.json({ received: true });
 });

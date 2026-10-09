@@ -5,7 +5,7 @@
 ## Fresh install
 
 1. สำรอง/เลือก Supabase staging project และเปิด SQL editor ด้วยสิทธิ์ migration/postgres
-2. Apply `migrations/001_core.sql` แล้ว `002_import_legacy.sql`, `003_security_hardening.sql` และ `004_roles_groups.sql`; ถ้าไม่มีตารางเดิม import จะข้าม จากนั้นรัน `security-check.sql`
+2. Apply ไฟล์ใน `migrations` ตามลำดับเลขจนถึง `020_stripe_subscriptions.sql`; ถ้าไม่มีตารางเดิม import จะข้าม จากนั้นรัน `security-check.sql`
 3. ตั้ง environment ฝั่ง backend และ Auth callback ตาม root README
 4. ตรวจ login/load/save/logout/LINE reset ด้วยบัญชีทดสอบสองบัญชี ก่อนเปลี่ยน production
 
@@ -17,8 +17,8 @@
 4. Apply `001_core.sql`; ถ้าล้ม SQL transaction จะ rollback ตรวจ error ก่อนทำซ้ำ ห้าม apply หลัง commit ซ้ำเนื่องจากชื่อ constraint/policy/function มีอยู่แล้ว
 5. Apply `002_import_legacy.sql` ในช่วงที่ไม่มี writer เดิม SQL backfill jobs/expenses/goals ทีละแถว และแยก documents/private state/LINE mapping คง original table สำหรับเทียบข้อมูล ไม่เชื่อ email ใน row เดิม snapshot ใช้ email จาก auth.users
 6. รหัส reset/link รุ่นเดิมจะไม่ถูกย้าย ผู้ใช้ต้องขอรหัสใหม่ Original table ถูก revoke จาก browser และจำกัด service role ให้ select เท่านั้น
-7. สมาชิก Pro: ใช้ credentials Stripe ของ mode เดียวกับฐานข้อมูล รัน `npm run billing:backfill` ในเครื่องที่รักษา secret ได้ สคริปต์อ่าน Checkout/Charge และสร้าง `database/generated/stripe-backfill.sql` **ไม่เขียน DB** ทบทวน user IDs/payment IDs/วันหมดอายุแล้ว apply โดย migration role ถ้ามีบัญชีพิเศษหรือ trial ที่แก้มือ ให้เทียบกับ subscriptions เดิมก่อน apply
-8. เก็บผล preflight/backup แล้ว apply `003_security_hardening.sql` ซึ่งปิด public SECURITY DEFINER RPC จาก browser และบังคับ report bucket เป็น private พร้อม restrictive policy จากนั้น apply `004_roles_groups.sql`, `005_group_finance.sql` และรัน `security-check.sql` ให้ผ่าน RPC เก่าที่ browser เคยเรียกต้องย้ายผ่าน backend ก่อน deploy
+7. สมาชิก Pro แบบ Payment Link เดิม: ใช้ credentials Stripe ของ mode เดียวกับฐานข้อมูล ตั้ง `STRIPE_LEGACY_PAYMENT_LINK_ID` แล้วรัน `npm run billing:backfill` ในเครื่องที่รักษา secret ได้ สคริปต์อ่าน Checkout/Charge และสร้าง `database/generated/stripe-backfill.sql` **ไม่เขียน DB** ทบทวน user IDs/payment IDs/วันหมดอายุแล้ว apply โดย migration role ถ้ามีบัญชีพิเศษหรือ trial ที่แก้มือ ให้เทียบกับ subscriptions เดิมก่อน apply
+8. เก็บผล preflight/backup แล้ว apply migrations ที่เหลือตามลำดับจนถึง `020_stripe_subscriptions.sql` และรัน `security-check.sql` ให้ผ่าน RPC เก่าที่ browser เคยเรียกต้องย้ายผ่าน backend ก่อน deploy
 9. Deploy frontend/backend ใหม่และตั้ง env ควบคู่กัน เปิด Auth callback allowlist `<APP_URL>/api/auth` ใช้ Node 22+ และ HTTPS
 10. ตรวจ row counts ต่อบัญชี, settings, LINE mapping, invoices, Pro status/expiry แล้วเปิด provider webhooks และ cron
 

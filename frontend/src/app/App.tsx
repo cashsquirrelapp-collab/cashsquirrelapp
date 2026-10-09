@@ -930,10 +930,13 @@ export default function App() {
   const [isProPromoOpen, setIsProPromoOpen] = useState(false);
   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<{
-    status: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled';
+    status: 'free' | 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
     plan: string | null;
     currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+    managed: boolean;
   } | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
 
   // First 14 days after signup are free automatically, based on the account's real creation
   // date from Supabase Auth (not something the client can fake). No Stripe interaction needed.
@@ -946,8 +949,8 @@ export default function App() {
   const isAdminProRevoked = subscription?.plan === 'admin_revoked';
   const isInFreeTrial = !isAdminProRevoked && !!trialEndsAt && trialEndsAt.getTime() > Date.now();
 
-  // Paid one-time access expires monthly; an admin grant stays active until revoked.
-  const isPaidActive = !isAdminProRevoked && subscription?.status === 'active' && (
+  // Stripe subscription access follows verified webhook state; an admin grant stays active until revoked.
+  const isPaidActive = !isAdminProRevoked && !!subscription && ['active', 'trialing'].includes(subscription.status) && (
     subscription.plan === 'admin_grant' ||
     (!!subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd).getTime() > Date.now())
   );
@@ -1009,32 +1012,20 @@ export default function App() {
         setSubscription({
           status: data.status || 'free',
           plan: data.plan || null,
-          currentPeriodEnd: data.current_period_end || null
+          currentPeriodEnd: data.current_period_end || null,
+          cancelAtPeriodEnd: data.cancel_at_period_end === true,
+          managed: data.managed === true,
         });
       } else {
-        setSubscription({ status: 'free', plan: null, currentPeriodEnd: null });
+        setSubscription({ status: 'free', plan: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, managed: false });
       }
     } catch (err) {
       console.log('Catch subscription load error, defaulting to free:', err);
-      setSubscription({ status: 'free', plan: null, currentPeriodEnd: null });
+      setSubscription({ status: 'free', plan: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, managed: false });
     }
   };
 
-  // Stripe Payment Link for the Pro plan -- one-time ฿149 THB price (not a Stripe subscription),
-  // matching how stripe-webhook.ts actually grants access (checkout.session.completed with
-  // mode==='payment', extending current_period_end by 30 days). Card + PromptPay both enabled on
-  // this link. Appending client_reference_id lets the webhook know which app user just paid,
-  // without needing a server-created Checkout Session.
-  const PRO_PAYMENT_LINK = import.meta.env.VITE_PRO_PAYMENT_URL as string | undefined;
-
-  // The webhook extends access by setting current_period_end to (now + 30 days) rather than
-  // adding onto the existing period, since this is a manual monthly payment, not an auto-charging
-  // Stripe subscription. Paying again while still well within an active period would therefore
-  // just discard the remaining paid days instead of stacking them -- so only let people through to
-  // pay once they're close to (or past) their current expiry date.
-  const RENEWAL_GRACE_DAYS = 3;
-
-  const handleUpgrade = () => {
+  const handleUpgrade = async () => {
     const currentUser = session?.user;
     if (session?.isGuest) {
       void handleSignOut();
@@ -1045,23 +1036,26 @@ export default function App() {
       return;
     }
 
-    if (isPaidActive && subscription?.currentPeriodEnd) {
-      const periodEnd = new Date(subscription.currentPeriodEnd);
-      const daysRemaining = Math.ceil((periodEnd.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-      if (daysRemaining > RENEWAL_GRACE_DAYS) {
-        triggerAlert(
-          'ยังไม่ต้องต่ออายุตอนนี้ครับ',
-          `แพ็กเกจ Pro ของคุณยังใช้งานได้ถึงวันที่ ${periodEnd.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })} (เหลืออีก ${daysRemaining} วัน) เนื่องจากระบบต่ออายุแบบจ่ายเองรายเดือน การจ่ายซ้ำตอนนี้จะทำให้วันที่เหลืออยู่หายไปฟรีๆ ระบบจะเปิดให้ต่ออายุอีกครั้งเมื่อใกล้ครบกำหนด (ประมาณ ${RENEWAL_GRACE_DAYS} วันก่อนหมดอายุ) หรือหลังจากหมดอายุแล้วครับ`
-        );
-        return;
-      }
+    if (subscription?.plan === 'admin_grant') {
+      triggerAlert('บัญชีนี้เป็น Pro อยู่แล้ว', 'คุณได้รับสิทธิ์ Pro จากผู้ดูแล จึงยังไม่ต้องสมัครผ่าน Stripe');
+      return;
     }
-
-    if (!PRO_PAYMENT_LINK || !PRO_PAYMENT_LINK.startsWith('https://buy.stripe.com/')) { triggerAlert('ยังไม่พร้อมรับชำระเงิน', 'กรุณาติดต่อผู้ดูแลระบบ'); return; }
-    const url = new URL(PRO_PAYMENT_LINK);
-    url.searchParams.set('client_reference_id', currentUser.id);
-    if (currentUser.email) url.searchParams.set('prefilled_email', currentUser.email);
-    window.location.href = url.toString();
+    if (billingBusy) return;
+    setBillingBusy(true);
+    try {
+      const result = await apiJson<{ url: string }>('/api/billing', {
+        method: 'POST',
+        body: JSON.stringify({ action: isPaidActive && subscription?.managed ? 'portal' : 'checkout' }),
+      });
+      const target = new URL(result.url);
+      if (target.protocol !== 'https:' || (target.hostname !== 'stripe.com' && !target.hostname.endsWith('.stripe.com'))) {
+        throw new Error('ปลายทางชำระเงินไม่ถูกต้อง');
+      }
+      window.location.assign(target.toString());
+    } catch (error: any) {
+      setBillingBusy(false);
+      triggerAlert('เปิดหน้าชำระเงินไม่สำเร็จ', formatError(error));
+    }
   };
 
   // Handle redirect back from Stripe Checkout
@@ -1069,10 +1063,33 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const checkoutResult = params.get('checkout');
     if (checkoutResult && session?.user?.id) {
-      if (checkoutResult === 'success') {
-        loadSubscriptionData(session.user.id);
-        triggerAlert('สมัครสมาชิกสำเร็จ!', 'ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
-      }
+      if (checkoutResult === 'success') void (async () => {
+        let active = false;
+        for (let attempt = 0; attempt < 6; attempt++) {
+          try {
+            const result = await apiJson<any>('/api/billing');
+            const data = result.subscription;
+            if (data) setSubscription({
+              status: data.status || 'free',
+              plan: data.plan || null,
+              currentPeriodEnd: data.current_period_end || null,
+              cancelAtPeriodEnd: data.cancel_at_period_end === true,
+              managed: data.managed === true,
+            });
+            active = ['active', 'trialing'].includes(data?.status)
+              && data?.plan !== 'admin_revoked'
+              && !!data?.current_period_end
+              && new Date(data.current_period_end).getTime() > Date.now();
+            if (active) break;
+          } catch { /* A delayed webhook is retried below. */ }
+          await new Promise(resolve => window.setTimeout(resolve, 1000));
+        }
+        triggerAlert(
+          active ? 'สมัครสมาชิกสำเร็จ!' : 'รับข้อมูลการชำระเงินแล้ว',
+          active ? 'เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!' : 'Stripe กำลังยืนยันรายการ ระบบจะเปิด Pro อัตโนมัติเมื่อ webhook ยืนยันสำเร็จ',
+        );
+      })();
+      if (checkoutResult === 'cancel') triggerAlert('ยังไม่ได้สมัครสมาชิก', 'ยกเลิกหน้าชำระเงินแล้ว คุณกลับมาสมัครใหม่ได้ทุกเมื่อ');
       window.history.replaceState({}, '', window.location.pathname);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1103,7 +1120,7 @@ export default function App() {
       setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
       if(!financeGroupId)setUserAvatar(data.avatar_data_url || '');
       const sub = result.subscription;
-      setSubscription({ status: sub?.status || 'free', plan: sub?.plan || null, currentPeriodEnd: sub?.current_period_end || null });
+      setSubscription({ status: sub?.status || 'free', plan: sub?.plan || null, currentPeriodEnd: sub?.current_period_end || null, cancelAtPeriodEnd: sub?.cancel_at_period_end === true, managed: sub?.managed === true });
       cloudReadyRef.current = owner;
       financeConflictRef.current=false;setLoadedFinanceOwner(owner);
       setLastCloudError(null); setCloudSyncStatus('synced'); return true;
@@ -2882,6 +2899,7 @@ export default function App() {
                   trialEndsAt={trialEndsAt}
                   subscription={subscription}
                   onUpgrade={handleUpgrade}
+                  billingBusy={billingBusy}
                 />
               )}
 

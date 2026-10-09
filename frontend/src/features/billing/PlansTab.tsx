@@ -13,11 +13,14 @@ interface PlansTabProps {
   isInFreeTrial: boolean;
   trialEndsAt: Date | null;
   subscription: {
-    status: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled';
+    status: 'free' | 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
     plan: string | null;
     currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+    managed: boolean;
   } | null;
   onUpgrade: () => void;
+  billingBusy: boolean;
 }
 
 const FREE_FEATURE_KEYS = ['plans.free1', 'plans.free2', 'plans.free3', 'plans.free4', 'plans.free5'];
@@ -30,13 +33,19 @@ export const PlansTab: React.FC<PlansTabProps> = ({
   isInFreeTrial,
   trialEndsAt,
   subscription,
-  onUpgrade
+  onUpgrade,
+  billingBusy,
 }) => {
   const { t } = useLanguage();
+  const isAdminGrant = subscription?.plan === 'admin_grant';
   const statusText = isGuestPreview
     ? t('plans.guestPreviewStatus')
+    : isAdminGrant
+    ? t('plans.statusAdminGrant')
+    : isPaidActive && subscription?.cancelAtPeriodEnd && subscription.currentPeriodEnd
+    ? t('plans.statusCancelAt', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
     : isPaidActive && subscription?.currentPeriodEnd
-    ? t('plans.statusActive', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
+    ? t(subscription.managed ? 'plans.statusActive' : 'plans.statusLegacy', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
     : isInFreeTrial && trialEndsAt
     ? t('plans.statusTrial', { date: trialEndsAt.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
     : t('plans.statusNone');
@@ -110,13 +119,14 @@ export const PlansTab: React.FC<PlansTabProps> = ({
       {/* Status / CTA panel */}
       <div className={`${uiPanel} text-center space-y-3`}>
         <p className="text-xs text-brand-text dark:text-neutral-200 leading-relaxed max-w-md mx-auto">{statusText}</p>
-        <button
+        {!isAdminGrant && <button
           type="button"
           onClick={onUpgrade}
+          disabled={billingBusy}
           className={uiPrimaryButton}
         >
-          {isGuestPreview ? t('plans.guestCreateAccountCta') : isPaidActive ? t('plans.renewCta') : t('plans.subscribeCta')}
-        </button>
+          {billingBusy ? t('plans.loadingCta') : isGuestPreview ? t('plans.guestCreateAccountCta') : isPaidActive && subscription?.managed ? t('plans.renewCta') : t('plans.subscribeCta')}
+        </button>}
         {!isGuestPreview && <p className="text-[10px] text-brand-muted">{t('plans.paymentNote')}</p>}
       </div>
     </div>

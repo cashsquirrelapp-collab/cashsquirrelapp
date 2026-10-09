@@ -7,7 +7,7 @@ const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222
 before(async()=>{
  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
  create schema auth;grant usage on schema auth to anon,authenticated,service_role;
- create table auth.users(id uuid primary key,email text,created_at timestamptz default now(),email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}');
+ create table auth.users(id uuid primary key,email text,created_at timestamptz default now(),email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}',raw_app_meta_data jsonb default '{}');
  create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id));
  create table public.subscriptions(user_id uuid primary key references auth.users(id),stripe_customer_id text,stripe_subscription_id text,status text,plan text,current_period_end timestamptz,updated_at timestamptz default now());
  alter table public.subscriptions enable row level security;grant select on public.subscriptions to authenticated;
@@ -31,6 +31,14 @@ before(async()=>{
  await db.exec(await readFile('database/migrations/004_roles_groups.sql','utf8'));
  await db.exec(await readFile('database/migrations/005_group_finance.sql','utf8'));
  await db.exec(await readFile('database/migrations/006_public_profiles.sql','utf8'));
+ for (const migration of [
+  '007_account_pauses.sql','008_account_recovery.sql','009_login_lockout.sql',
+  '010_admin_account_recovery_links.sql','011_unbind_admin_recovery_links.sql',
+  '012_return_personal_save_conflicts.sql','013_usage_analytics.sql',
+  '014_usage_analytics_day_details.sql','015_user_presence.sql',
+  '016_recovery_link_status.sql','017_login_unlock_challenge.sql',
+  '018_document_vault.sql','019_vault_expense_slips.sql','020_stripe_subscriptions.sql',
+ ]) await db.exec(await readFile(`database/migrations/${migration}`,'utf8'));
 });
 after(()=>db.close());
 async function one(sql:string,params:any[]=[]){return (await db.query<any>(sql,params)).rows[0];}
@@ -77,7 +85,7 @@ test('hardening blocks legacy privileged RPCs and financial storage despite perm
 test('version conflicts roll back the entire batch, including earlier inserts',async()=>{
  await db.query('select cashflow_apply_changes($1,$2)',[a,JSON.stringify([{table:'cashflow_jobs',id:'cas',op:'set',version:null,data:{id:'cas',name:'v1'}}])]);
  await db.query('select cashflow_apply_changes($1,$2)',[a,JSON.stringify([{table:'cashflow_jobs',id:'cas',op:'set',version:1,data:{id:'cas',name:'v2'}}])]);
- await assert.rejects(db.query('select cashflow_apply_changes($1,$2)',[a,JSON.stringify([{table:'cashflow_jobs',id:'rollback',op:'set',version:null,data:{id:'rollback'}},{table:'cashflow_jobs',id:'cas',op:'delete',version:1}])]),/version_conflict/);
+ const stale=await one('select cashflow_apply_changes($1,$2) ok',[a,JSON.stringify([{table:'cashflow_jobs',id:'rollback',op:'set',version:null,data:{id:'rollback'}},{table:'cashflow_jobs',id:'cas',op:'delete',version:1}])]);assert.equal(stale.ok,false);
  assert.equal((await one("select count(*)::int n from cashflow_jobs where id='rollback'")).n,0);
  assert.equal((await one("select data->>'name' name from cashflow_jobs where id='cas'")).name,'v2');
 });
@@ -106,6 +114,18 @@ test('payment replay, multiple event IDs and refund-before-payment are idempoten
  await apply('evt-refund','pi-1',true);assert.equal((await one('select status from subscriptions where user_id=$1',[b])).status,'canceled');
  await apply('evt-pre-refund','pi-2',true);await apply('evt-late-payment','pi-2');
  assert.equal((await one('select status from subscriptions where user_id=$1',[b])).status,'canceled');
+});
+test('Stripe subscription sync is idempotent, personal-workspace bound and preserves an admin revocation',async()=>{
+ const period=new Date(Date.now()+30*86400000).toISOString();
+ const apply=(event:string,status='active')=>one('select cashflow_sync_subscription($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ok',[event,'customer.subscription.updated','sub-pro',b,b,'cus-pro','sub-pro','price-pro',status,period,false]);
+ assert.equal((await apply('evt-sub-1')).ok,true);
+ assert.equal((await apply('evt-sub-1')).ok,false);
+ let row=await one('select status,plan,workspace_type,workspace_id,stripe_customer_id,stripe_subscription_id,stripe_price_id,current_period_end from subscriptions where user_id=$1',[b]);
+ assert.equal(row.status,'active');assert.equal(row.plan,'pro_monthly');assert.equal(row.workspace_type,'personal');assert.equal(row.workspace_id,b);assert.equal(row.stripe_customer_id,'cus-pro');assert.equal(row.stripe_subscription_id,'sub-pro');assert.equal(row.stripe_price_id,'price-pro');assert.ok(row.current_period_end);
+ await db.query("update subscriptions set plan='admin_revoked' where user_id=$1",[b]);
+ await apply('evt-sub-2','canceled');
+ row=await one('select status,plan from subscriptions where user_id=$1',[b]);assert.equal(row.status,'canceled');assert.equal(row.plan,'admin_revoked');
+ await assert.rejects(one('select cashflow_sync_subscription($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ok',['evt-bad','customer.subscription.updated','sub-bad',b,a,'cus-bad','sub-bad','price-pro','active',period,false]),/invalid_workspace/);
 });
 test('session checks reject missing, revoked and different-owner sessions',async()=>{
  const sid='33333333-3333-4333-8333-333333333333';await db.query('insert into auth.sessions values($1,$2)',[sid,a]);
