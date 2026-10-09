@@ -1327,18 +1327,19 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
     ].filter((s): s is string => !!s);
 
     if (missingLabels.length === 0) {
+      const jobValue = merged.value!;
       const draft: JobDraft = {
         name: merged.name!,
         client: merged.client,
         type: merged.type,
-        value: merged.value!,
+        value: jobValue,
         creditTerm: merged.creditTerm || 0,
         paymentStatus: merged.paymentStatus,
         receivedAmount: merged.receivedAmount,
         whtRate: merged.whtRate || 0,
       };
       await saveJobDraft(user, draft);
-      return { type: 'text', text: `ตรวจสอบก่อนบันทึกงาน: ${draft.name} มูลค่า ${formatCurrency(draft.value)} (${draft.paymentStatus})${draft.client ? ` ลูกค้า ${draft.client}` : ''}\nพิมพ์ “ยืนยันบันทึกงาน” ภายใน 15 นาทีเพื่อบันทึก หรือ “ยกเลิกบันทึก” เพื่อยกเลิก` };
+      return { type: 'text', text: `ตรวจสอบก่อนบันทึกงาน: ${draft.name} มูลค่า ${formatCurrency(jobValue)} (${draft.paymentStatus})${draft.client ? ` ลูกค้า ${draft.client}` : ''}\nพิมพ์ “ยืนยันบันทึกงาน” ภายใน 15 นาทีเพื่อบันทึก หรือ “ยกเลิกบันทึก” เพื่อยกเลิก` };
     }
 
     // Still missing something -- keep what's been said so far and ask specifically for what's
@@ -1368,9 +1369,10 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
     const missingLabels = [!merged.name && 'ชื่อรายการ', !merged.amount && 'จำนวนเงิน'].filter((s): s is string => !!s);
 
     if (missingLabels.length === 0) {
-      const draft: ExpenseDraft = { name: merged.name!, category: merged.category, amount: merged.amount! };
+      const expenseAmount = merged.amount!;
+      const draft: ExpenseDraft = { name: merged.name!, category: merged.category, amount: expenseAmount };
       await saveExpenseDraft(user, draft);
-      return { type: 'text', text: `ตรวจสอบก่อนบันทึกรายจ่าย: ${draft.name} จำนวน ${formatCurrency(draft.amount)}${draft.category ? ` หมวด ${draft.category}` : ''}\nพิมพ์ “ยืนยันบันทึกรายจ่าย” ภายใน 15 นาทีเพื่อบันทึก หรือ “ยกเลิกบันทึก” เพื่อยกเลิก` };
+      return { type: 'text', text: `ตรวจสอบก่อนบันทึกรายจ่าย: ${draft.name} จำนวน ${formatCurrency(expenseAmount)}${draft.category ? ` หมวด ${draft.category}` : ''}\nพิมพ์ “ยืนยันบันทึกรายจ่าย” ภายใน 15 นาทีเพื่อบันทึก หรือ “ยกเลิกบันทึก” เพื่อยกเลิก` };
     }
 
     // Still missing something -- keep what's been said so far and ask specifically for what's
