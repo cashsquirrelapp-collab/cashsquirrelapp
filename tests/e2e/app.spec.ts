@@ -160,6 +160,7 @@ test('login and all feature tabs render after separation without browser errors'
  await page.locator('form button[type=submit]').first().click();
  await expect(page.locator('#dashboard-top')).toBeVisible();
  await expect(page.getByRole('heading',{name:'ภาพรวม',exact:true})).toBeVisible();
+ await expect(page.locator('#main-content').getByRole('button',{name:'เพิ่มงาน',exact:true})).toHaveCount(0);
  const sidebar=page.locator('aside');
  await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
  await expect(page.getByText('วางแผนวันนี้ ให้เงินเติบโตทุกวัน')).toHaveCount(0);
@@ -899,6 +900,7 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
   return route.fulfill({json:{snapshot:{...snapshot,jobs:[job,waiting],expenses,goals:[goal]},versions:{...versions,cashflow_jobs:{paid:1,wait:1},cashflow_expenses:{e1:1,e2:1,e3:1},cashflow_goals:{g1:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
  await page.goto('/');
+ await expect(page.locator('#main-content').getByRole('button',{name:'เพิ่มงาน',exact:true})).toHaveCount(0);
  await expect(page.getByRole('region',{name:'เงินที่มีตอนนี้'})).toHaveCount(0); // no extra card on the dashboard
  // what's left this month: received - expenses - savings set aside = 10,180 - 13,330 - 3,000
  await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('เงินที่เหลือ');

@@ -2643,13 +2643,6 @@ export default function App() {
                   >
                     {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setIsAddJobOpen(true); navigateTab('jobs'); }}
-                    className={uiPrimaryButton}
-                  >
-                    <Plus className="h-4 w-4 shrink-0" /> เพิ่มงาน
-                  </button>
                 </div>
               </div>
             </PageHeader>
