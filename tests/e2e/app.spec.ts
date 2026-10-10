@@ -887,16 +887,15 @@ test('a document with withholding tax highlights the net amount to transfer, and
  await expect(doc.getByText('หมายเหตุ')).toHaveCount(0);
 });
 
-test('กำไรสุทธิ opens the monthly statement with the money on hand, split into ready and set aside in goals',async({page})=>{
+test('กำไรสุทธิ opens the monthly statement without the current-cash setup',async({page})=>{
  const t=new Date();const ym=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;const today=`${ym}-${String(t.getDate()).padStart(2,'0')}`;
  const job={id:'paid',name:'งานรับแล้ว',value:10180,received:10180,pending:0,client:'A',type:'Sponsored Post',status:'done',paymentStatus:'paid',creditTerm:0,note:'',postDate:today,payDate:today,isPosted:true};
  const waiting={id:'wait',name:'งานรอรับ',value:4000,received:0,pending:4000,client:'B',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:0,note:'',postDate:today,payDate:today,isPosted:true};
  const expenses=[{id:'e1',name:'ค่าใช้จ่ายเดิม',category:'Other',amount:12000,date:today},{id:'e2',name:'ตัดต่อ อาร์ต 2 คลิป',category:'Other',amount:600,date:today},{id:'e3',name:'Claude AI',category:'Other',amount:730,date:today}];
  const goal={id:'g1',name:'ซื้อคอม',type:'buy',target:30000,current:3000,deadline:'2027-12-31',emoji:'',bg:'#FFF',acc:'#E65F2B',history:[{id:'h1',type:'deposit',amount:3000,date:today,reason:'ออม',deductedFromCash:true}]};
- const saved:any[]=[];
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',async route=>{
-  if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
+  if(route.request().method()==='POST') return route.fulfill({json:{ok:true}});
   return route.fulfill({json:{snapshot:{...snapshot,jobs:[job,waiting],expenses,goals:[goal]},versions:{...versions,cashflow_jobs:{paid:1,wait:1},cashflow_expenses:{e1:1,e2:1,e3:1},cashflow_goals:{g1:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
  await page.goto('/');
@@ -916,29 +915,8 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
  await expect(summary).toContainText('−฿3,150');
  await expect(summary).toContainText('แบ่งออมเข้าเป้าหมาย (1 รายการ)');
  await expect(page.getByTestId('left-this-month')).toContainText('−฿6,150');
- const cash=modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'});
- await expect(cash).toContainText('ยังคำนวณไม่ได้'); // no fake balance before it is set
- await cash.getByRole('button',{name:'ตั้งยอดเริ่มต้น'}).click();
- const form=page.getByRole('dialog',{name:'ตั้งยอดเงินตั้งต้น'});
- await form.getByLabel('ยอดเงินที่มีอยู่ตอนนี้').fill('5430');
- await expect(form).toContainText('฿8,580'); // the opening balance this implies
- await form.getByRole('button',{name:'บันทึกยอดตั้งต้น'}).click();
- await expect(page.getByTestId('current-cash')).toHaveText('฿5,430');
- await expect(cash).toContainText('ยอดตั้งต้น');
- await expect(cash).toContainText('+฿10,180'); // only money actually received, not the ฿4,000 still pending
- await expect(cash).toContainText('−฿13,330');
- await expect(cash.getByRole('button',{name:/พร้อมใช้ตอนนี้/})).toContainText('฿2,430');
- await expect(cash.getByRole('button',{name:/กันไว้ในเป้าหมาย/})).toContainText('฿3,000');
- await expect.poll(()=>saved.some(c=>c.id==='settings'&&c.data.cashOpening?.amount===8580)).toBe(true);
- // editing asks for confirmation when the balance changes
- await cash.getByRole('button',{name:'แก้ไขยอดตั้งต้น'}).click();
- await form.getByRole('radio',{name:'ยอดตั้งต้น'}).click();
- await expect(form.getByLabel('ยอดเงินตั้งต้น')).toHaveValue('8,580');
- await form.getByLabel('ยอดเงินตั้งต้น').fill('9000');
- await form.getByRole('button',{name:'บันทึกยอดตั้งต้น'}).click();
- await expect(form.getByRole('alert')).toContainText('฿5,850');
- await form.getByRole('button',{name:'ยืนยันเปลี่ยนยอด'}).click();
- await expect(page.getByTestId('current-cash')).toHaveText('฿5,850');
+ await expect(modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'})).toHaveCount(0);
+ await expect(modal.getByRole('button',{name:'ตั้งยอดเริ่มต้น'})).toHaveCount(0);
  // ดูทั้งหมด goes to รายจ่าย on this month
  await modal.getByRole('button',{name:/ดูทั้งหมด/}).click();
  await expect(page.getByRole('heading',{name:'รายจ่าย',exact:true,level:1})).toBeVisible();

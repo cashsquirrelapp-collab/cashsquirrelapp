@@ -41,7 +41,6 @@ interface DashboardTabProps {
   goals: Goal[];
   settings: AppSettings;
   expenses: Expense[];
-  onUpdateSettings?: (settings: AppSettings) => void;
   onSwitchTab: (tabId: string) => void;
   statuses?: StatusOption[];
   selectedMonthKey: string;
@@ -63,7 +62,6 @@ export default function DashboardTab({
   goals,
   settings,
   expenses,
-  onUpdateSettings,
   onSwitchTab,
   statuses = [],
   selectedMonthKey,
@@ -1225,13 +1223,7 @@ export default function DashboardTab({
           profit={profit}
           savedThisMonth={goalDeductionsThisMonth}
           savedCount={monthGoalDeductions.length}
-          jobs={jobs}
-          expenses={expenses}
-          goals={goals}
-          settings={settings}
-          onUpdateSettings={onUpdateSettings}
           onOpenExpenses={() => { setBreakdownFilter(null); if (onOpenExpenses) onOpenExpenses(selectedMonthKey); else onSwitchTab('incomeExpense'); }}
-          onOpenGoals={() => { setBreakdownFilter(null); onSwitchTab('split'); }}
           onClose={() => setBreakdownFilter(null)}
         />
       )}

@@ -2665,7 +2665,6 @@ export default function App() {
                   goals={goals}
                   settings={settings}
                   expenses={expenses}
-                  onUpdateSettings={handleUpdateSettings}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   statuses={statuses}
                   selectedMonthKey={dashboardMonthKey}
