@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 const db=new PGlite();
-const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
+const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222',c='44444444-4444-4444-8444-444444444444';
 before(async()=>{
  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
  create schema auth;grant usage on schema auth to anon,authenticated,service_role;
@@ -13,7 +13,7 @@ before(async()=>{
  alter table public.subscriptions enable row level security;grant select on public.subscriptions to authenticated;
  create policy unsafe_legacy_read on public.subscriptions for select to authenticated using(true);
  create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
- insert into auth.users(id,email)values('${a}','a@example.com'),('${b}','b@example.com');
+ insert into auth.users(id,email)values('${a}','a@example.com'),('${b}','b@example.com'),('${c}','c@example.com');
  create table public.user_cashflow_data(user_id uuid primary key,email text,jobs jsonb,expenses jsonb,goals jsonb,settings jsonb,statuses jsonb,job_types jsonb,avatar_data_url text,notif_settings jsonb);
  insert into public.user_cashflow_data values('${a}','spoofed@example.com','[{"id":"legacy-job","name":"Original","value":100}]','[]','[]','{}','[]','[]',null,'{"enabled":true,"lineUserId":"LINE-A","passwordResetCode":{"code":"123456"},"chatHistory":[],"dailyDigestEnabled":true}');`);
  await db.exec(`create schema storage;grant usage on schema storage to anon,authenticated,service_role;
@@ -115,17 +115,62 @@ test('payment replay, multiple event IDs and refund-before-payment are idempoten
  await apply('evt-pre-refund','pi-2',true);await apply('evt-late-payment','pi-2');
  assert.equal((await one('select status from subscriptions where user_id=$1',[b])).status,'canceled');
 });
-test('Stripe subscription sync is idempotent, personal-workspace bound and preserves an admin revocation',async()=>{
+test('Stripe subscription events are idempotent, paid-invoice gated, workspace bound and preserve an admin revocation',async()=>{
  const period=new Date(Date.now()+30*86400000).toISOString();
- const apply=(event:string,status='active')=>one('select cashflow_sync_subscription($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ok',[event,'customer.subscription.updated','sub-pro',b,b,'cus-pro','sub-pro','price-pro',status,period,false]);
- assert.equal((await apply('evt-sub-1')).ok,true);
- assert.equal((await apply('evt-sub-1')).ok,false);
+ const created=Math.floor(Date.now()/1000)-10;
+ await db.query("update subscriptions set stripe_customer_id='cus-pro',stripe_livemode=false where user_id=$1",[b]);
+ const apply=(event:string,status='active',kind='subscription',paid:string|null=null,workspace=b)=>one(
+  'select cashflow_apply_stripe_subscription_event($1,$2,$3,false,false,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false,$14,$15,$16,null) ok',
+  [event,kind==='invoice'?'invoice.paid':'customer.subscription.updated',created,kind,kind==='invoice'?'in-pro':'sub-pro',b,workspace,'cus-pro','sub-pro',created-100,'price-pro',status,period,paid,paid?'paid':null,Boolean(paid)],
+ );
+ assert.equal((await apply('evt-sub-1')).ok,'applied');
+ assert.equal((await apply('evt-sub-1')).ok,'duplicate');
+ assert.equal((await one('select current_period_end from subscriptions where user_id=$1',[b])).current_period_end,null);
+ assert.equal((await apply('evt-invoice-1','active','invoice',period)).ok,'applied');
  let row=await one('select status,plan,workspace_type,workspace_id,stripe_customer_id,stripe_subscription_id,stripe_price_id,current_period_end from subscriptions where user_id=$1',[b]);
  assert.equal(row.status,'active');assert.equal(row.plan,'pro_monthly');assert.equal(row.workspace_type,'personal');assert.equal(row.workspace_id,b);assert.equal(row.stripe_customer_id,'cus-pro');assert.equal(row.stripe_subscription_id,'sub-pro');assert.equal(row.stripe_price_id,'price-pro');assert.ok(row.current_period_end);
  await db.query("update subscriptions set plan='admin_revoked' where user_id=$1",[b]);
  await apply('evt-sub-2','canceled');
  row=await one('select status,plan from subscriptions where user_id=$1',[b]);assert.equal(row.status,'canceled');assert.equal(row.plan,'admin_revoked');
- await assert.rejects(one('select cashflow_sync_subscription($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ok',['evt-bad','customer.subscription.updated','sub-bad',b,a,'cus-bad','sub-bad','price-pro','active',period,false]),/invalid_workspace/);
+ await assert.rejects(apply('evt-bad','active','subscription',null,a),/invalid_workspace/);
+});
+test('Stripe checkout reservation prevents overlap and closure claim blocks webhook persistence',async()=>{
+ const pending=new Date(Date.now()+30*60_000).toISOString();
+ let result=(await one('select cashflow_reserve_subscription_checkout($1,$2,$3,false) result',[c,'reservation-1',pending])).result;
+ assert.equal(result.result,'reserved');assert.equal(result.intro_eligible,true);
+ assert.equal((await one('select cashflow_begin_billing_closure($1) ok',[c])).ok,false);
+ await db.query('select cashflow_release_subscription_checkout($1,$2)',[c,'reservation-1']);
+ await db.query("update subscriptions set stripe_entitled_until=now()+interval '5 days',stripe_subscription_id='sub-old',stripe_subscription_status='canceled' where user_id=$1",[c]);
+ result=(await one('select cashflow_reserve_subscription_checkout($1,$2,$3,false) result',[c,'reservation-2',pending])).result;
+ assert.equal(result.result,'recurring_access');
+ await db.query("update subscriptions set stripe_entitled_until=null,stripe_subscription_id=null,stripe_subscription_status=null where user_id=$1",[c]);
+ assert.equal((await one('select cashflow_begin_billing_closure($1) ok',[c])).ok,true);
+ const period=new Date(Date.now()+30*86400000).toISOString();
+ await assert.rejects(one(
+  'select cashflow_apply_stripe_subscription_event($1,$2,$3,false,false,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false,null,null,false,null)',
+  ['evt-closure','customer.subscription.created',Math.floor(Date.now()/1000),'subscription','sub-closure',c,c,'cus-closure','sub-closure',1,'price-pro','active',period],
+ ),/billing_closure_in_progress/);
+ assert.equal((await one("select count(*)::int n from cashflow_stripe_events where event_id='evt-closure'")).n,0);
+ await db.query('update subscriptions set billing_closure_pending_until=null where user_id=$1',[c]);
+});
+test('same-second Stripe events reconcile only through the latest serialized event token',async()=>{
+ const period=new Date(Date.now()+30*86400000).toISOString();
+ const created=Math.floor(Date.now()/1000);
+ await db.query("update subscriptions set stripe_customer_id='cus-cas',stripe_livemode=false where user_id=$1",[c]);
+ const apply=(event:string,status:string)=>one(
+  'select cashflow_apply_stripe_subscription_event($1,$2,$3,false,false,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false,null,null,false,null) result',
+  [event,'customer.subscription.updated',created,'subscription','sub-cas',c,c,'cus-cas','sub-cas',created-100,'price-pro',status,period],
+ );
+ assert.equal((await apply('evt-cas-old','active')).result,'applied');
+ assert.equal((await apply('evt-cas-new','canceled')).result,'stale');
+ const reconcile=(event:string,status:string)=>one(
+  'select cashflow_reconcile_stripe_subscription_state($1,$2,$3,$4,$5,$6,$7,false,$8,$9,false) result',
+  [event,c,c,'cus-cas','sub-cas',created-100,'price-pro',status,period],
+ );
+ assert.equal((await reconcile('evt-cas-new','canceled')).result,'reconciled');
+ assert.equal((await reconcile('evt-cas-old','active')).result,'superseded');
+ const row=await one('select stripe_subscription_status,stripe_subscription_reconcile_token from subscriptions where user_id=$1',[c]);
+ assert.equal(row.stripe_subscription_status,'canceled');assert.equal(row.stripe_subscription_reconcile_token,null);
 });
 test('session checks reject missing, revoked and different-owner sessions',async()=>{
  const sid='33333333-3333-4333-8333-333333333333';await db.query('insert into auth.sessions values($1,$2)',[sid,a]);
