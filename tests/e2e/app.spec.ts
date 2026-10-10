@@ -742,18 +742,17 @@ test('document vault: files are listed, uploaded to a job, and a paid job with w
  expect(uploads).toEqual([{kind:'wht50',jobId:'wht-job',jobName:'TikTok Campaign',client:'Brand A',fileName:'50Tawi_BrandA.pdf'}]);
  await page.getByRole('button',{name:'เสร็จสิ้น'}).click();
  await expect(page.locator('#main-content').getByRole('button',{name:/50 ทวิ/})).toBeVisible();
- // The tax page has no duplicate 50 ทวิ tab; the consolidated vault tracks it instead.
+ // The tax page has no duplicate 50 ทวิ tab; document management keeps its own page.
  await page.locator('aside').getByRole('button',{name:'ภาษี',exact:true}).click();
  await expect(page.getByRole('tab',{name:'50 ทวิ'})).toHaveCount(0);
  await page.locator('aside').getByRole('button',{name:'เอกสาร',exact:true}).click();
- await page.locator('aside').getByRole('button',{name:'คลังเอกสาร'}).click();
- await page.getByRole('tablist',{name:'มุมมองคลังเอกสาร'}).getByRole('tab',{name:'50 ทวิ',exact:true}).click();
- await expect(page.getByRole('heading',{name:'คลังเอกสาร',level:1})).toBeVisible();
+ await page.locator('aside').getByRole('button',{name:'ติดตามใบ 50 ทวิ'}).click();
+ await expect(page.getByRole('heading',{name:'ติดตามใบ 50 ทวิ',level:1})).toBeVisible();
  await expect(page.getByText('ได้รับแล้ว 1 จาก 1 งานที่ต้องมีใบ 50 ทวิ')).toBeVisible();
- // An old tax-page link lands on the consolidated vault's tracking view.
+ // An old tax-page link lands on the separate document-management page.
  await page.goto('/tax?view=wht50');
- await expect(page.getByRole('heading',{name:'คลังเอกสาร',level:1})).toBeVisible();
- await expect(page.getByRole('tablist',{name:'มุมมองคลังเอกสาร'}).getByRole('tab',{name:'50 ทวิ',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('heading',{name:'ติดตามใบ 50 ทวิ',level:1})).toBeVisible();
+ await expect(page.locator('aside').getByRole('button',{name:'ติดตามใบ 50 ทวิ'})).toHaveAttribute('aria-current','page');
 });
 
 test('document vault: files dropped on the page or the upload dialog are added without picking them',async({page})=>{

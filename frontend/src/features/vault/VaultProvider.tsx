@@ -10,7 +10,7 @@ import { Drawer } from '../../components/ui/Drawer';
 import { Modal } from '../../components/ui/Modal';
 import { RowMenu } from '../../components/ui/RowMenu';
 import { deleteVault, listVault, updateVault, uploadVault, vaultFileUrl, type VaultMeta } from '../../services/vault';
-import { wht50Files } from './vaultStatus';
+import { isWht50Trackable, wht50Files } from './vaultStatus';
 
 // The document vault for the finance workspace that is open: one list of files shared by the
 // Documents, Jobs and Tax pages, plus the dialogs those pages open (upload, the 50 ทวิ prompt
@@ -473,7 +473,7 @@ function JobFilesDrawer({ job, files, onAdd, onRemove, onClose }: { job: Job | n
       {job && (
         <div className="space-y-5">
           <div className="flex items-start gap-3">
-            <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${files.length ? 'bg-[#18A66A]' : 'bg-[#E95454]'}`} />
+            <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${files.length ? 'bg-[#18A66A]' : 'bg-[#E79A24]'}`} />
             <div className="min-w-0">
               <p className="truncate text-[16px] font-semibold text-brand-text">{job.client || job.name}</p>
               <p className="truncate text-[13px] text-brand-muted">{job.name}</p>
@@ -525,7 +525,7 @@ function JobFilesDrawer({ job, files, onAdd, onRemove, onClose }: { job: Job | n
 /** Small 50 ทวิ status under a job's payment badge; nothing for jobs without withholding tax. */
 export function Wht50Chip({ job }: { job: Job }) {
   const vault = useVault();
-  if (!vault.available || jobWhtAmount(job) <= 0 || !((job.received || 0) > 0)) return null;
+  if (!vault.available || !isWht50Trackable(job)) return null;
   const files = wht50Files(job, vault.files);
   return files.length ? (
     <button type="button" onClick={(e) => { e.stopPropagation(); vault.openJob(job); }}
@@ -534,7 +534,7 @@ export function Wht50Chip({ job }: { job: Job }) {
     </button>
   ) : (
     <button type="button" onClick={(e) => { e.stopPropagation(); vault.openUpload({ kind: 'wht50', job }); }}
-      className="inline-flex items-center gap-1 rounded-full border border-[#F0B8B8] px-2 py-0.5 text-[11px] font-medium text-[#C43A3A] hover:bg-[#FDEEEE] cursor-pointer dark:border-[#F19A9A]/40 dark:text-[#F19A9A] dark:hover:bg-[#F19A9A]/10">
+      className="inline-flex items-center gap-1 rounded-full border border-[#E8BE67] px-2 py-0.5 text-[11px] font-medium text-[#93620A] hover:bg-[#FFF4D8] cursor-pointer dark:border-[#F2B84B]/40 dark:text-[#F2C66D] dark:hover:bg-[#F2B84B]/10">
       <span className="h-1.5 w-1.5 rounded-full bg-current" />รอใบ 50 ทวิ
     </button>
   );

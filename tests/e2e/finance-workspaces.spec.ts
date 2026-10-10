@@ -298,6 +298,27 @@ test("invoices, issuer profiles and exports follow the selected group and reset 
   await page.screenshot({path:'artifacts/group-finance-mobile.png',fullPage:true});
 
 });
+test("switching finance workspaces closes vault overlays and cannot retain the old job link", async ({
+  page,
+}) => {
+  await setup(page);
+  const sidebar = page.locator("aside");
+  await sidebar.getByRole("button", { name: "เอกสาร", exact: true }).click();
+  await sidebar.getByRole("button", { name: "คลังเอกสาร" }).click();
+  await page.locator('[data-testid="vault-page"]').getByRole("button", { name: "เพิ่มเอกสาร" }).first().click();
+  await expect(page.getByRole("dialog", { name: "แนบใบ 50 ทวิ" })).toBeVisible();
+
+  // The shared provider must be remounted with the new finance scope. Otherwise this dialog can
+  // keep Personal's selected job while a later upload is sent with Design team's finance header.
+  await page.getByLabel("บัญชีการเงิน", { exact: true }).selectOption(group);
+  await expect(page.getByLabel("บัญชีการเงิน", { exact: true })).toHaveValue(group);
+  await expect(page.getByRole("dialog", { name: "แนบใบ 50 ทวิ" })).toHaveCount(0);
+
+  await page.locator('[data-testid="vault-page"]').getByRole("button", { name: "เพิ่มเอกสาร" }).first().click();
+  const teamDialog = page.getByRole("dialog", { name: "แนบใบ 50 ทวิ" });
+  await expect(teamDialog.getByRole("option", { name: /Team job/ })).toHaveCount(1);
+  await expect(teamDialog.getByRole("option", { name: /Personal job/ })).toHaveCount(0);
+});
 test("failed saves block switching and keep the selected workspace and unsaved data", async ({
   page,
 }) => {
