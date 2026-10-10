@@ -1,25 +1,45 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Goal } from '../shared/types';
-import { proportionalSplit } from '../frontend/src/features/goals/SplitTab';
+import { allocationsFitAvailable, percentageAllocationPool, proportionalSplit } from '../frontend/src/features/goals/SplitTab';
 
 const goal = (id: string, pct: number, current = 0, target = 100000): Goal =>
   ({ id, name: id, type: 'save', target, current, deadline: '', emoji: '🎯', bg: '#fff', acc: '#000', allocatedPercentage: pct } as Goal);
 
-// Pins today's behaviour (the preview on the page must match what the button does). Note each
-// goal's share is taken from what is still left after the goals before it, so the result is not
-// strictly proportional -- 30/50/10% of 9,000 gives 4,074 / 4,526 / 400, not 3,000 / 5,000 / 1,000.
-test('everything is placed among goals that have a percentage (current sequential rule)', () => {
-  const r = proportionalSplit([goal('save', 30), goal('invest', 50), goal('pc', 10)], 9000);
-  assert.deepEqual(r.allocations, { save: 4074, invest: 4526, pc: 400 });
-  assert.equal(r.remainder, 0);
+test('configured percentages are absolute and leave the unconfigured share available', () => {
+  const r = proportionalSplit([goal('save', 25), goal('invest', 15)], 5150);
+  assert.deepEqual(r.allocations, { save: 1288, invest: 772 });
+  assert.equal(Object.values(r.allocations).reduce((sum, amount) => sum + amount, 0), 2060);
+  assert.equal(r.remainder, 3090);
 });
 
-test('a goal is capped at its target and the overflow goes to the others', () => {
+test('a legacy accumulated remainder never duplicates the live unallocated share', () => {
+  const first = proportionalSplit([goal('save', 25), goal('invest', 15)], 5150);
+  assert.equal(first.remainder, 3090);
+  assert.equal(percentageAllocationPool(first.remainder, first.remainder), 3090);
+  assert.notEqual(percentageAllocationPool(first.remainder, first.remainder), 6180);
+});
+
+test('allocation is stable when goals are reordered', () => {
+  const forward = proportionalSplit([goal('save', 25), goal('invest', 15)], 5150);
+  const reverse = proportionalSplit([goal('invest', 15), goal('save', 25)], 5150);
+  assert.deepEqual(reverse, forward);
+});
+
+test('a goal is capped at its target without inflating another goal percentage', () => {
   const r = proportionalSplit([goal('almost', 50, 99000), goal('other', 50)], 4000);
   assert.equal(r.allocations.almost, 1000);
-  assert.equal(r.allocations.other, 3000);
-  assert.equal(r.remainder, 0);
+  assert.equal(r.allocations.other, 2000);
+  assert.equal(r.remainder, 1000);
+});
+
+test('legacy ratios over 100% are scaled and editable totals cannot exceed available cash', () => {
+  const scaled = proportionalSplit([goal('save', 60), goal('invest', 60)], 1_000);
+  assert.deepEqual(scaled.allocations, { save: 500, invest: 500 });
+  assert.equal(scaled.remainder, 0);
+  assert.equal(allocationsFitAvailable(scaled.allocations, 1_000), true);
+  assert.equal(allocationsFitAvailable({ save: 700, invest: 400 }, 1_000), false);
+  assert.equal(allocationsFitAvailable({ save: Number.NaN }, 1_000), false);
 });
 
 test('goals without a percentage or already full get nothing; what cannot be placed is returned', () => {

@@ -68,6 +68,7 @@ import { leafBus } from '../leafBus';
 import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
 import { BrandLockup } from '../components/brand/BrandLogo';
 import type { GroupSummary, PublicProfile, SystemRole } from '../../../shared/groups';
+import { applyGoalTransaction, applyGoalTransfer, hasLinkedGoalTransactions, undoGoalTransaction } from '../../../shared/goalLedger';
 
 import { 
   Home, 
@@ -1921,12 +1922,20 @@ export default function App() {
   };
 
   const handleDeleteGoal = (id: string) => {
+    if (hasLinkedGoalTransactions(goals, id)) {
+      triggerAlert(
+        'ยังลบเป้าหมายไม่ได้',
+        'เป้าหมายนี้ยังมีประวัติการโอนเชื่อมกับเป้าหมายอื่น กรุณาลบรายการโอนแบบทั้งสองขาก่อน เพื่อไม่ให้บัญชีเงินออมเหลือรายการข้างเดียว',
+      );
+      return false;
+    }
     setGoals(prev => prev.filter(g => g.id !== id));
+    return true;
   };
 
   const handleUpdateGoalProgress = (id: string, amount: number, reason?: string, date?: string, deductFromCash?: boolean) => {
     const g = goals.find(x => x.id === id);
-    if (!g) return;
+    if (!g) return false;
 
     const todayStr = date || new Date().toISOString().split('T')[0];
     const defaultReason = amount >= 0 ? 'โอนเงินเข้าฝากออมเพิ่ม' : 'ดึงเงินออก / หักค่าใช้จ่าย';
@@ -1935,8 +1944,7 @@ export default function App() {
     // Capping here silently discarded the excess, and then made handleDeleteGoalTransaction's
     // revert math wrong too: reverting a capped deposit subtracted the FULL original amount from
     // the capped current, which could wipe out money that was already in the goal before it.
-    const nextVal = Math.max(0, g.current + amount);
-    const newTx: GoalTransaction = {
+    const requestedTx: GoalTransaction = {
       id: crypto.randomUUID(),
       type: (amount >= 0 ? 'deposit' : 'withdraw') as 'deposit' | 'withdraw',
       amount: Math.abs(amount),
@@ -1949,6 +1957,13 @@ export default function App() {
       // totals read this flag directly off the goal's own history instead.
       ...(amount > 0 && deductFromCash ? { deductedFromCash: true } : {}),
     };
+    // SplitTab rejects an overdraw before it gets here. Keep the state transition defensive too:
+    // stale UI or another caller is clamped to the actual balance and the history stores exactly
+    // that applied amount, so deleting the entry can never add money that was not withdrawn.
+    const result = applyGoalTransaction(goals, id, requestedTx);
+    if (!result.ok) return false;
+    const newTx = result.transaction;
+    const nextVal = result.goalAfter.current;
 
     // Ticking "หักออกจากยอดรายรับ" (deductedFromCash, set on newTx above) is what makes this
     // deposit count toward SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร" -- that figure derives live
@@ -1968,11 +1983,8 @@ export default function App() {
     }
     notifyLineGoalEvent(newTx.type, { name: g.name, target: g.target, current: nextVal }, { amount: newTx.amount, reason: newTx.reason });
 
-    setGoals(prev => prev.map(goal => (
-      goal.id === id
-        ? { ...goal, current: nextVal, history: [newTx, ...(goal.history || [])] }
-        : goal
-    )));
+    setGoals(result.goals);
+    return true;
   };
 
   const handleDeleteGoalTransaction = (goalId: string, txId: string, revertBalance: boolean = true) => {
@@ -1981,27 +1993,26 @@ export default function App() {
     const targetTx = g.history.find(t => t.id === txId);
     if (!targetTx) return;
 
-    // setGoals's functional form always sees the true latest current/history, same reasoning as
-    // handleEditJob's oldJob/freshJobs capture -- and its eager-state computation runs
-    // synchronously, so nextCurrentForNotify is populated before it's read just below.
-    let nextCurrentForNotify = g.current;
-    setGoals(prev => prev.map(goal => {
-      if (goal.id !== goalId || !goal.history) return goal;
-      const newHistory = goal.history.filter(t => t.id !== txId);
-      let nextCurrent = goal.current;
-      if (revertBalance) {
-        // No target cap here either -- see the comment on handleUpdateGoalProgress's nextVal.
-        nextCurrent = targetTx.type === 'deposit'
-          ? Math.max(0, goal.current - targetTx.amount)
-          : goal.current + targetTx.amount;
-      }
-      nextCurrentForNotify = nextCurrent;
-      return { ...goal, current: nextCurrent, history: newHistory };
-    }));
+    const result = undoGoalTransaction(goals, goalId, txId, revertBalance);
+    if (!result.ok) {
+      const isTransfer = Boolean(targetTx.relatedGoalId || targetTx.transferId);
+      const message = result.reason === 'history-only-not-allowed'
+        ? 'รายการนี้มีผลกับยอดเงินจริง จึงลบเฉพาะประวัติไม่ได้ กรุณาใช้ "ลบรายการและคืนยอด" เพื่อให้ยอดเงินและประวัติตรงกัน'
+        : result.reason === 'ambiguous-legacy-withdrawal'
+        ? 'รายการถอนจากระบบรุ่นเก่าไม่มียอดที่ถูกตัดจริง ระบบจึงไม่คืนเงินอัตโนมัติ หากยอดปัจจุบันถูกต้องแล้ว ให้เลือก "ลบเฉพาะประวัติ"'
+        : result.reason === 'insufficient-balance'
+          ? isTransfer
+            ? 'เป้าหมายปลายทางมียอดคงเหลือไม่พอสำหรับย้อนรายการโอน กรุณาคืนเงินเข้าเป้าหมายนั้นก่อน'
+            : 'ยอดคงเหลือปัจจุบันน้อยกว่ายอดฝากที่จะย้อน จึงยังไม่ได้เปลี่ยนยอดเงิน'
+          : 'ไม่พบรายการโอนอีกขาที่ตรงกัน จึงยังไม่ได้เปลี่ยนยอดเงิน หากยอดปัจจุบันถูกต้องแล้ว ให้เลือก "ลบเฉพาะประวัติ"';
+      triggerAlert('ยังย้อนรายการไม่ได้', message);
+      return;
+    }
+    setGoals(result.goals);
 
     notifyLineGoalEvent(
       'transaction-deleted',
-      { name: g.name, target: g.target, current: nextCurrentForNotify },
+      { name: g.name, target: g.target, current: result.goalAfter.current },
       { amount: targetTx.amount, reason: targetTx.reason, type: targetTx.type }
     );
 
@@ -2011,62 +2022,30 @@ export default function App() {
   };
 
   const handleTransferBetweenGoals = (fromGoalId: string, toGoalId: string, amount: number, reason?: string, date?: string) => {
-    if (fromGoalId === toGoalId || amount <= 0) return;
-    const fromGoal = goals.find(g => g.id === fromGoalId);
-    const toGoal = goals.find(g => g.id === toGoalId);
-    if (!fromGoal || !toGoal) return;
-
-    const transferAmount = Math.min(amount, fromGoal.current);
-    if (transferAmount <= 0) return;
-
+    if (fromGoalId === toGoalId || amount <= 0) return false;
     const todayStr = date || new Date().toISOString().split('T')[0];
     const createdAt = new Date().toISOString();
     const finalReason = reason?.trim();
-
-    setGoals(prev => prev.map(g => {
-      if (g.id === fromGoalId) {
-        const newTx = {
-          id: crypto.randomUUID(),
-          type: 'withdraw' as const,
-          amount: transferAmount,
-          date: todayStr,
-          reason: finalReason || `โอนย้ายไปเป้าหมาย "${toGoal.name}"`,
-          relatedGoalId: toGoalId,
-          relatedGoalName: toGoal.name,
-          createdAt
-        };
-        return {
-          ...g,
-          current: Math.max(0, g.current - transferAmount),
-          history: [newTx, ...(g.history || [])]
-        };
-      }
-      if (g.id === toGoalId) {
-        const newTx = {
-          id: crypto.randomUUID(),
-          type: 'deposit' as const,
-          amount: transferAmount,
-          date: todayStr,
-          reason: finalReason || `โอนย้ายมาจากเป้าหมาย "${fromGoal.name}"`,
-          relatedGoalId: fromGoalId,
-          relatedGoalName: fromGoal.name,
-          createdAt
-        };
-        return {
-          ...g,
-          // No target cap -- see the comment on handleUpdateGoalProgress's nextVal.
-          current: g.current + transferAmount,
-          history: [newTx, ...(g.history || [])]
-        };
-      }
-      return g;
-    }));
+    const result = applyGoalTransfer(goals, {
+      fromGoalId,
+      toGoalId,
+      amount,
+      date: todayStr,
+      createdAt,
+      transferId: crypto.randomUUID(),
+      withdrawTransactionId: crypto.randomUUID(),
+      depositTransactionId: crypto.randomUUID(),
+      reason: finalReason,
+    });
+    if (!result.ok) return false;
+    setGoals(result.goals);
 
     leafBus.trigger({ count: 14, type: 'mixed', durationMs: 3000 });
     triggerAlert(
       'โอนย้ายเงินสำเร็จ!',
-      `โอนย้ายเงินจำนวน ${transferAmount.toLocaleString()} ฿ จากเป้าหมาย "${fromGoal.name}" ไปยัง "${toGoal.name}" เรียบร้อยแล้ว`
+      `โอนย้ายเงินจำนวน ${result.amount.toLocaleString()} ฿ จากเป้าหมาย "${result.fromGoal.name}" ไปยัง "${result.toGoal.name}" เรียบร้อยแล้ว`
     );
+    return true;
   };
 
   const handleUpdateGoal = (id: string, updatedFields: Partial<Goal>) => {
@@ -2202,14 +2181,18 @@ export default function App() {
   };
 
   const handleUpdateSettings = (newSettings: AppSettings) => {
-    setSettings(newSettings);
+    // Older snapshots may carry accumulatedRemainder, but that value mirrors money already
+    // included in the live net-profit calculation. Retire it on the next ordinary settings write
+    // so it can never become a second spendable balance again.
+    setSettings({ ...newSettings, accumulatedRemainder: 0 });
   };
 
   const handleProfileSetupSettings = async (newSettings: AppSettings) => {
     if (!session?.user?.id || session.isGuest || financeGroupId || cloudReadyRef.current !== financeOwner) return;
+    const normalizedSettings = { ...newSettings, accumulatedRemainder: 0 };
     try {
-      await saveCloud(financeOwner, { settings: newSettings });
-      setSettings(newSettings);
+      await saveCloud(financeOwner, { settings: normalizedSettings });
+      setSettings(normalizedSettings);
       setLastCloudError(null);
       setCloudSyncStatus('synced');
     } catch (error: any) {

@@ -18,6 +18,7 @@ import { VineDivider } from '../../components/mascot/VineDivider';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate, getOutstandingAmount } from '../../../../shared/installmentPayments';
 import { firstActivityMonth, fixedExpenseForMonth, workValueRowsForMonth } from '../../../../shared/monthlySummary';
+import { buildCalendarEvents, primaryCalendarEvent, type CalendarEventKind } from '../calendar/calendarEvents';
 import {
   TrendingUp,
   TrendingDown,
@@ -54,6 +55,14 @@ interface DashboardTabProps {
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   onQuickRecord?: (mode: 'income' | 'expense') => void;
 }
+
+const MINI_CALENDAR_EVENT_STYLES: Record<CalendarEventKind, { bg: string; color: string }> = {
+  post: { bg: '#E6F1FB', color: '#185FA5' },
+  creditTerm: { bg: '#FFF1E8', color: '#C24A16' },
+  dueSoon: { bg: '#FAEEDA', color: '#8A5A0B' },
+  paid: { bg: '#E9F8F1', color: '#18A66A' },
+  overdue: { bg: '#FFF0F0', color: '#C43A3A' },
+};
 
 export default function DashboardTab({
   jobs,
@@ -741,28 +750,15 @@ export default function DashboardTab({
     const [year, month] = (() => { const [y, m] = selectedMonthKey.split('-').map(Number); return [y, m - 1]; })();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstWeekday = new Date(year, month, 1).getDay();
-    // Real today (the month shown may be another one); "due soon" is within the next 7 days.
+    // Real today (the month shown may be another one). The full and mini calendars share the
+    // same payment-entry expansion, so deposits and installments land on their actual dates.
     const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const todayKey = dayKey(now);
-    const soonKey = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7));
-
-    const dayColor = new Map<string, { bg: string; color: string }>();
-    jobs.forEach(j => {
-      const dueDate = j.payDate || j.dueDate;
-      if (dueDate && j.isPosted !== false) {
-        const key = dueDate.slice(0, 10);
-        const isPaid = j.pending <= 0;
-        const isOverdue = !isPaid && key < todayKey;
-        const isDueSoon = !isPaid && !isOverdue && key <= soonKey;
-        dayColor.set(key, isPaid
-          ? { bg: '#E9F8F1', color: '#18A66A' }
-          : isOverdue
-          ? { bg: '#FFF0F0', color: '#C43A3A' }
-          : isDueSoon
-          ? { bg: '#FAEEDA', color: '#8A5A0B' }
-          : { bg: 'transparent', color: 'inherit' });
-      }
-    });
+    const eventsByDay = buildCalendarEvents(jobs, todayKey);
+    const dayColor = new Map(Array.from(eventsByDay, ([key, events]) => {
+      const primary = primaryCalendarEvent(events);
+      return [key, primary ? MINI_CALENDAR_EVENT_STYLES[primary.kind] : { bg: 'transparent', color: 'inherit' }];
+    }));
 
     const cells: { n: number | null; key?: string; bg: string; color: string }[] = [];
     for (let i = 0; i < firstWeekday; i++) cells.push({ n: null, bg: 'transparent', color: 'inherit' });

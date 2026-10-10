@@ -15,6 +15,7 @@ import {
   ExpenseDraft,
 } from '../services/lineAssistant.js';
 import { sendLineMessagePayload } from '../services/line.js';
+import { checkLinkedAccountWriteAccess } from '../services/linkedAccountAccess.js';
 
 // Verifies the ID token the LIFF page got from liff.getIDToken() against LINE's own endpoint --
 // never trust a userId sent directly by the client, since anyone could just type a different one
@@ -42,7 +43,43 @@ async function verifyLiffIdToken(idToken: string): Promise<string | null> {
   }
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export interface LiffSubmitDependencies {
+  verifyLiffIdToken: typeof verifyLiffIdToken;
+  findUserByLineId: typeof findUserByLineId;
+  checkLinkedAccountWriteAccess: typeof checkLinkedAccountWriteAccess;
+  rateLimit: typeof rateLimit;
+  isProUser: typeof isProUser;
+  buildJobFromDraft: typeof buildJobFromDraft;
+  persistJob: typeof persistJob;
+  buildJobSavedMessage: typeof buildJobSavedMessage;
+  buildExpenseFromDraft: typeof buildExpenseFromDraft;
+  persistExpense: typeof persistExpense;
+  buildExpenseSavedMessage: typeof buildExpenseSavedMessage;
+  computeMonthNetForUser: typeof computeMonthNetForUser;
+  sendLineMessagePayload: typeof sendLineMessagePayload;
+}
+
+const defaultDependencies: LiffSubmitDependencies = {
+  verifyLiffIdToken,
+  findUserByLineId,
+  checkLinkedAccountWriteAccess,
+  rateLimit,
+  isProUser,
+  buildJobFromDraft,
+  persistJob,
+  buildJobSavedMessage,
+  buildExpenseFromDraft,
+  persistExpense,
+  buildExpenseSavedMessage,
+  computeMonthNetForUser,
+  sendLineMessagePayload,
+};
+
+export async function handleLiffSubmit(
+  req: VercelRequest,
+  res: VercelResponse,
+  dependencies: LiffSubmitDependencies = defaultDependencies,
+) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -56,7 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const lineUserId = await verifyLiffIdToken(idToken);
+  const lineUserId = await dependencies.verifyLiffIdToken(idToken);
   if (!lineUserId) {
     res.status(401).json({ error: 'ยืนยันตัวตนไม่สำเร็จ กรุณาลองเปิดฟอร์มใหม่อีกครั้ง' });
     return;
@@ -64,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let user;
   try {
-    user = await findUserByLineId(lineUserId);
+    user = await dependencies.findUserByLineId(lineUserId);
   } catch (err) {
     console.error('liff-submit: findUserByLineId failed:', err);
     res.status(500).json({ error: 'ระบบมีปัญหาชั่วคราว ลองใหม่อีกครั้งครับ' });
@@ -76,11 +113,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const access = await dependencies.checkLinkedAccountWriteAccess(user.user_id);
+    if (!access.allowed) {
+      res.status(access.status).json({ error: access.error });
+      return;
+    }
+  } catch (err) {
+    console.error('liff-submit: account lifecycle lookup failed:', err);
+    res.status(503).json({ error: 'ไม่สามารถตรวจสอบสถานะบัญชีได้ กรุณาลองใหม่อีกครั้ง' });
+    return;
+  }
+
+  try {
     const requestId=z.uuid().safeParse(body.requestId);
     if(!requestId.success){res.status(400).json({error:'รหัสคำขอไม่ถูกต้อง กรุณาเปิดฟอร์มใหม่'});return;}
     user.operationId=requestId.data;
-    await rateLimit('liff-submit', user.user_id, 30, 60);
-    if (!await isProUser(user.user_id)) { res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro หรือช่วงทดลองใช้งาน' }); return; }
+    await dependencies.rateLimit('liff-submit', user.user_id, 30, 60);
+    if (!await dependencies.isProUser(user.user_id)) { res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro หรือช่วงทดลองใช้งาน' }); return; }
     if (!['job','expense'].includes(body.kind)) { res.status(400).json({ error: 'ประเภทข้อมูลไม่ถูกต้อง' }); return; }
     if (body.kind === 'expense') {
       const draft: ExpenseDraft = {
@@ -92,13 +141,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.status(400).json({ error: 'กรุณากรอกชื่อรายการและจำนวนเงินให้ครบถ้วน' });
         return;
       }
-      const expense = buildExpenseFromDraft(draft);
-      const ok = await persistExpense(user, expense);
+      const expense = dependencies.buildExpenseFromDraft(draft);
+      const ok = await dependencies.persistExpense(user, expense);
       if (!ok) {
         res.status(500).json({ error: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' });
         return;
       }
-      await sendLineMessagePayload(lineUserId, buildExpenseSavedMessage(expense, computeMonthNetForUser(user, undefined, expense)));
+      await dependencies.sendLineMessagePayload(lineUserId, dependencies.buildExpenseSavedMessage(expense, dependencies.computeMonthNetForUser(user, undefined, expense)));
       res.status(200).json({ ok: true });
       return;
     }
@@ -118,16 +167,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
     if (!Number.isInteger(draft.creditTerm) || (draft.creditTerm ?? 0) < 0 || (draft.creditTerm ?? 0) > 3650 || !Number.isFinite(draft.whtRate) || (draft.whtRate ?? 0) < 0 || (draft.whtRate ?? 0) > 100 || (draft.receivedAmount != null && (!Number.isFinite(draft.receivedAmount) || draft.receivedAmount < 0 || draft.receivedAmount > (draft.value ?? 0)))) {res.status(400).json({error:'จำนวนเงิน ภาษี หรือเครดิตเทอมไม่ถูกต้อง'});return;}
-    const job = buildJobFromDraft(draft);
-    const ok = await persistJob(user, job);
+    const job = dependencies.buildJobFromDraft(draft);
+    const ok = await dependencies.persistJob(user, job);
     if (!ok) {
       res.status(500).json({ error: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' });
       return;
     }
-    await sendLineMessagePayload(lineUserId, buildJobSavedMessage(job, computeMonthNetForUser(user, job)));
+    await dependencies.sendLineMessagePayload(lineUserId, dependencies.buildJobSavedMessage(job, dependencies.computeMonthNetForUser(user, job)));
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error('liff-submit handler error:', err);
     res.status(500).json({ error: 'เกิดข้อผิดพลาด ลองใหม่อีกครั้งครับ' });
   }
 }
+
+export function createLiffSubmitHandler(overrides: Partial<LiffSubmitDependencies> = {}) {
+  const dependencies: LiffSubmitDependencies = { ...defaultDependencies, ...overrides };
+  return (req: VercelRequest, res: VercelResponse) => handleLiffSubmit(req, res, dependencies);
+}
+
+export default createLiffSubmitHandler();

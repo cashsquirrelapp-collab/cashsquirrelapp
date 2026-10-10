@@ -3,10 +3,11 @@ import PageHeader from '../../components/ui/PageHeader';
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppSettings, Expense, Job } from '../../../../shared/types';
-import { formatCurrency, dateLocale } from '../../utils';
+import { dateLocale } from '../../utils';
 import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { TimelineView } from './TimelineView';
 import { MonthMoneySummary } from './MonthMoneySummary';
+import { buildCalendarEvents, type CalendarEventKind } from './calendarEvents';
 
 type PageView = 'calendar' | 'timeline';
 const VIEW_STORAGE_KEY = 'cashsquirrel_calendar_view';
@@ -37,21 +38,11 @@ interface CalendarTabProps {
   linkedView?: PageView | null;
 }
 
-type EventKind = 'post' | 'creditTerm' | 'dueSoon' | 'paid' | 'overdue';
 type CalendarView = 'month' | 'week';
-
-interface DayEvent {
-  jobId: string;
-  jobName: string;
-  client: string;
-  amount: number;
-  kind: EventKind;
-  label: string;
-}
 
 // Colors match the Draft 10 mockup source (Calendar.dc.html) exactly, not the brand accent
 // palette -- this legend is its own fixed 5-color system independent of light/dark theme.
-const EVENT_STYLES: Record<EventKind, { dot: string; text: string; bg: string }> = {
+const EVENT_STYLES: Record<CalendarEventKind, { dot: string; text: string; bg: string }> = {
   post: { dot: '#378ADD', text: '#185FA5', bg: '#E6F1FB' },
   creditTerm: { dot: '#F36A2D', text: '#C24A16', bg: '#FFF1E8' },
   dueSoon: { dot: '#F2A93B', text: '#8A5A0B', bg: '#FAEEDA' },
@@ -59,7 +50,7 @@ const EVENT_STYLES: Record<EventKind, { dot: string; text: string; bg: string }>
   overdue: { dot: '#E95454', text: '#C43A3A', bg: '#FFF0F0' },
 };
 
-const EVENT_LEGEND: { kind: EventKind; label: string }[] = [
+const EVENT_LEGEND: { kind: CalendarEventKind; label: string }[] = [
   { kind: 'post', label: 'งาน/นัดหมาย' },
   { kind: 'creditTerm', label: 'ครบกำหนดชำระ' },
   { kind: 'dueSoon', label: 'ใกล้ครบกำหนดชำระ' },
@@ -103,45 +94,8 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
   // The requested date is only a starting point; clear it so a later visit opens on today.
   React.useEffect(() => { if (initialDateKey) onInitialDateHandled?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
-
-  const eventsByDay = useMemo(() => {
-    const map = new Map<string, DayEvent[]>();
-    const push = (dateStr: string | null | undefined, event: DayEvent) => {
-      if (!dateStr) return;
-      const key = dateStr.slice(0, 10);
-      const list = map.get(key) || [];
-      list.push(event);
-      map.set(key, list);
-    };
-
-    const todayKey = toDateKey(new Date());
-    const dueSoonCutoff = toDateKey(new Date(Date.now() + 7 * 86400000));
-    jobs.forEach(job => {
-      if (job.postDate) {
-        push(job.postDate, {
-          jobId: job.id, jobName: job.name, client: job.client, amount: job.value,
-          kind: 'post', label: `ส่งงาน/นัดหมาย ${job.name}`,
-        });
-      }
-      const dueDate = job.payDate || job.dueDate;
-      if (dueDate && job.isPosted !== false) {
-        const key = dueDate.slice(0, 10);
-        const isPaid = job.pending <= 0;
-        const isOverdue = !isPaid && key < todayKey;
-        const isDueSoon = !isPaid && !isOverdue && key <= dueSoonCutoff;
-        const kind: EventKind = isPaid ? 'paid' : isOverdue ? 'overdue' : isDueSoon ? 'dueSoon' : 'creditTerm';
-        const label = isPaid
-          ? `รับเงิน ${job.client || job.name} ${formatCurrency(job.pending || job.value)}`
-          : isOverdue
-          ? `เกินกำหนดชำระ ${job.name}`
-          : isDueSoon
-          ? `ใกล้ครบกำหนดชำระ ${job.name}`
-          : `ครบกำหนดชำระ ${job.name}`;
-        push(dueDate, { jobId: job.id, jobName: job.name, client: job.client, amount: job.pending || job.value, kind, label });
-      }
-    });
-    return map;
-  }, [jobs]);
+  const todayKey = toDateKey(new Date());
+  const eventsByDay = useMemo(() => buildCalendarEvents(jobs, todayKey), [jobs, todayKey]);
 
   const gridDays = useMemo(() => {
     if (calendarView === 'week') {
@@ -173,7 +127,6 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
 
   const selectedEvents = eventsByDay.get(selectedKey) || [];
   const monthLabel = viewDate.toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
-  const todayKey = toDateKey(new Date());
   const selectedDateLabel = fromDateKey(selectedKey).toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
   const weekStart = startOfWeek(viewDate);
   const weekEnd = addDays(weekStart, 6);
@@ -313,9 +266,9 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
                     {date.getDate()}
                   </span>
                   <div className="flex w-full flex-col gap-0.5">
-                    {events.slice(0, visibleEventLimit).map((e, i) => (
+                    {events.slice(0, visibleEventLimit).map((e) => (
                       <span
-                        key={i}
+                        key={e.id}
                         className="block w-full truncate rounded px-1 py-0.5 text-[9px]"
                         style={{ background: EVENT_STYLES[e.kind].bg, color: EVENT_STYLES[e.kind].text }}
                       >
@@ -338,9 +291,9 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
           {selectedEvents.length === 0 ? (
             <p className="py-6 text-center text-xs text-brand-muted">ไม่มีรายการในวันนี้</p>
           ) : (
-            selectedEvents.map((e, i) => (
+            selectedEvents.map((e) => (
               <button
-                key={i}
+                key={e.id}
                 type="button"
                 onClick={() => onViewJob(e.jobId)}
                 className="flex w-full items-start gap-2 border-t border-brand-border py-2 text-left first:border-t-0 cursor-pointer"

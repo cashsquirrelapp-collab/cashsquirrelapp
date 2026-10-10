@@ -280,6 +280,39 @@ test('tax Excel export downloads after loading the spreadsheet writer on demand'
  expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
 });
 
+test('tax edits persist by year across switching years and reloading',async({page})=>{
+ let storedSettings:any={...snapshot.settings};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>{
+  if(route.request().method()==='POST'){
+   for(const change of route.request().postDataJSON().changes||[]){
+    if(change.table==='cashflow_documents'&&change.id==='settings')storedSettings=change.data;
+   }
+   return route.fulfill({json:{ok:true}});
+  }
+  return route.fulfill({json:{snapshot:{...snapshot,settings:storedSettings},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');
+ await page.locator('aside').getByRole('button',{name:'ภาษี',exact:true}).click();
+ const year=page.locator('#main-content select').first();
+ const otherIncome=()=>page.locator('#main-content input[inputmode="decimal"]').nth(1);
+
+ await year.selectOption('2026');
+ await otherIncome().fill('1234');
+ await expect.poll(()=>storedSettings.taxInputsByYear?.['2026']?.firstHalfOtherRevenue).toBe(1234);
+
+ await year.selectOption('2025');
+ await expect(otherIncome()).toHaveValue('');
+ await otherIncome().fill('567');
+ await expect.poll(()=>storedSettings.taxInputsByYear?.['2025']?.firstHalfOtherRevenue).toBe(567);
+
+ await year.selectOption('2026');
+ await expect(otherIncome()).toHaveValue('1,234');
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'ภาษี',exact:true,level:1})).toBeVisible();
+ await expect(otherIncome()).toHaveValue('1,234');
+});
+
 test('legacy invoice requires owner confirmation and is saved through versioned backend API',async({page})=>{
  const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'',bankName:'',bankAccount:'',bankAccountName:''};
  const legacy={id:'legacy-invoice',documentType:'invoice',documentNo:'INV-LEGACY-001',createdDate:'2026-09-17',issuer:profile,client:{name:'Test client',address:'Bangkok',phone:'',email:'',taxId:''},items:[{id:'item',description:'Consulting',quantity:1,price:100}],vatRate:0,whtRate:0};

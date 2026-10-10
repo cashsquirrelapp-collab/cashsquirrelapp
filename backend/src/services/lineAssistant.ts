@@ -206,6 +206,25 @@ interface DataSnapshot {
   totalPendingAllTime: number;
 }
 
+type MonthlySummaryWithMonth = DataSnapshot['thisMonth'];
+
+/**
+ * Keep the assistant's structured financial context faithful to the source calculation.
+ * A negative net flow is a real shortfall, not zero available cash, and must reach the model
+ * unchanged so it cannot give a falsely reassuring answer.
+ */
+export function formatAssistantMonthlySummary(summary: MonthlySummaryWithMonth) {
+  return {
+    เดือน: summary.monthKey,
+    รับแล้วจริง: formatCurrency(summary.received),
+    รายจ่ายที่บันทึกจริง: formatCurrency(summary.variableExpense),
+    เงินย้ายเข้ากระปุก: formatCurrency(summary.cashGoalDeductions),
+    งบประจำที่ตั้งไว้_ยังไม่ใช่รายการจ่ายจริง: formatCurrency(summary.fixedExpenseCalculated),
+    คงเหลือหลังรายการจริง: formatCurrency(summary.receivedAfterVariableExpense),
+    กระแสเงินสดสุทธิหลังเผื่องบประจำ: formatCurrency(summary.netFlow),
+  };
+}
+
 function addMonthsToKey(monthKey: string, n: number): string {
   const [y, m] = monthKey.split('-').map(Number);
   const d = new Date(Date.UTC(y, m - 1 + n, 1));
@@ -363,8 +382,8 @@ async function classifyMessage(
     งานที่ใกล้ครบกำหนด_ภายใน10วัน_เรียงใกล้สุดก่อน: snapshot.dueSoon.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} (${j.dueText})`),
     งานที่เข้าเดือนนี้: snapshot.thisMonthJobs.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)} ${j.isUnpaid ? `(ค้าง ${formatCurrency(j.pending)})` : j.isPosted === false ? '(ในสต็อก)' : '(จ่ายแล้ว)'}`),
     ยอดค้างรับทั้งหมดรวมทุกงาน: formatCurrency(snapshot.totalPendingAllTime),
-    สรุปเดือนนี้: { เดือน: snapshot.thisMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.thisMonth.received), รายจ่ายที่บันทึกจริง: formatCurrency(snapshot.thisMonth.variableExpense), เงินย้ายเข้ากระปุก: formatCurrency(snapshot.thisMonth.cashGoalDeductions), งบประจำที่ตั้งไว้_ยังไม่ใช่รายการจ่ายจริง: formatCurrency(snapshot.thisMonth.fixedExpenseCalculated), คงเหลือหลังรายการจริง: formatCurrency(snapshot.thisMonth.receivedAfterVariableExpense), คงเหลือหลังเผื่องบประจำ: formatCurrency(Math.max(0, snapshot.thisMonth.netFlow)) },
-    สรุปเดือนที่แล้ว: { เดือน: snapshot.lastMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.lastMonth.received), รายจ่ายที่บันทึกจริง: formatCurrency(snapshot.lastMonth.variableExpense), เงินย้ายเข้ากระปุก: formatCurrency(snapshot.lastMonth.cashGoalDeductions), งบประจำที่ตั้งไว้_ยังไม่ใช่รายการจ่ายจริง: formatCurrency(snapshot.lastMonth.fixedExpenseCalculated), คงเหลือหลังรายการจริง: formatCurrency(snapshot.lastMonth.receivedAfterVariableExpense), คงเหลือหลังเผื่องบประจำ: formatCurrency(Math.max(0, snapshot.lastMonth.netFlow)) },
+    สรุปเดือนนี้: formatAssistantMonthlySummary(snapshot.thisMonth),
+    สรุปเดือนที่แล้ว: formatAssistantMonthlySummary(snapshot.lastMonth),
     พยากรณ์รายรับเดือนถัดไป_3เดือน: snapshot.upcomingForecast.map((f) => `${formatMonthKey(f.monthKey)} (เดือน ${f.monthKey}): คาดว่าจะได้รับ ${formatCurrency(f.expectedIncome)} (รวมยอดที่รับแล้ว+ยอดค้างรับของงานที่ส่งมอบแล้วซึ่งมีกำหนดชำระในเดือนนี้ ไม่รวมงานสต็อกที่ยังไม่ส่งมอบเพราะยังไม่รู้วันชำระแน่นอน)`),
     เป้าหมายออม: snapshot.goals.map((g) => `${g.name} เป้าหมาย ${formatCurrency(g.target)} สะสมแล้ว ${formatCurrency(g.current)} (${g.target > 0 ? Math.round((g.current / g.target) * 100) : 0}%) กำหนดเสร็จ ${g.deadline}${g.allocatedPercentage ? ` แบ่งจากกำไรอัตโนมัติ ${g.allocatedPercentage}%` : ''}`),
   };
@@ -434,7 +453,7 @@ ${recentHistory.map((h) => `${h.role === 'user' ? 'ผู้ใช้' : 'คุ
 - ตอบเฉพาะสิ่งที่ถูกถามเท่านั้น ห้ามพ่วงข้อมูลอื่นที่ไม่ได้ถามเข้ามาเองแม้จะมีข้อมูลนั้นอยู่ในมือก็ตาม เช่น ถ้าถามแค่ "เพิ่มสต็อกได้ไหม" (คำถามใช่/ไม่ใช่ง่ายๆ) ให้ตอบแค่ว่าได้ครับ พร้อมวิธีทำถ้าจำเป็น ห้ามพ่วงรายการสต็อกที่มีอยู่ตอนนี้ทั้งหมดเข้ามาด้วยทั้งที่ไม่มีใครถามถึง ยิ่งข้อมูลเยอะยิ่งต้องเลือกเฉพาะส่วนที่ตอบคำถามจริงๆ ไม่ใช่โชว์ทุกอย่างที่มีอยู่ในมือ
 - ห้ามเขียนคำตอบเป็นพารากราฟยาวๆ ก้อนเดียวเหมือนบทความเด็ดขาด ให้เขียนสั้นๆ แบบคนจริงพิมพ์แชทหากัน (1-2 ประโยคสั้นๆ ต่อช่วง) ถ้ามีหลายเรื่องที่จะพูดจริงๆ ให้แยกแต่ละเรื่องด้วยการเว้นบรรทัดว่าง (เคาะ Enter สองครั้ง) แต่ละช่วงจะกลายเป็นข้อความแยกกันเหมือนพิมพ์ทีละข้อความจริงๆ (ระบบจะแยกส่งให้เองสูงสุด 3 ข้อความ) แต่ถ้าคำตอบสั้นพอเรื่องเดียวจบ ก็ไม่ต้องเว้นบรรทัดเลย
 - ถ้ารายการว่างเปล่า (ไม่มีงานในหมวดที่ถาม) ให้ตอบว่าไม่มีอย่างชัดเจน เป็นข่าวดีไม่ใช่ข้อผิดพลาด
-- "กระแสเงินสดสุทธิ" ในข้อมูลนี้ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- มันคือ (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้ในระบบเท่านั้น) และไม่ติดลบต่ำกว่า 0 ถ้าผู้ใช้ถามถึงกำไร ให้ตอบด้วยตัวเลขนี้ได้แต่ต้องบอกด้วยว่านี่คือกระแสเงินสดสุทธิจากรายการที่บันทึกไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ผู้ใช้ยังไม่ได้บันทึกเข้าระบบ (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน ต้นทุนอื่นๆ) ซึ่งจะไม่ถูกรวมในตัวเลขนี้
+- "กระแสเงินสดสุทธิหลังเผื่องบประจำ" ในข้อมูลนี้ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- คำนวณจาก (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้) ลบ (เงินที่ย้ายเข้ากระปุกและหักจากเงินสด) ลบ (งบประจำที่กันไว้ ซึ่งยังไม่ใช่เงินจ่ายจริงทั้งหมด) ตัวเลขนี้เป็นค่าติดลบได้และต้องแสดงค่าติดลบตามจริง ถ้าผู้ใช้ถามถึงกำไร ให้ตอบด้วยตัวเลขนี้ได้แต่ต้องบอกด้วยว่านี่คือกระแสเงินสดจากรายการที่บันทึกไว้และงบที่กันไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ผู้ใช้ยังไม่ได้บันทึกเข้าระบบ (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน ต้นทุนอื่นๆ) ซึ่งจะไม่ถูกรวมในตัวเลขนี้
 - ถ้าถามว่าตัวเลขใดตัวเลขหนึ่ง "รวมอะไรบ้าง" หรือครบถ้วนหรือไม่ ให้อธิบายตามจริงว่าเป็นผลรวมของอะไร (เช่น รายจ่ายรวม = ค่าใช้จ่ายคงที่ + ค่าใช้จ่ายผันแปรที่บันทึกไว้ในแอป) และบอกตรงๆ ว่าถ้ามีรายจ่ายอะไรที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
 - ถ้าคำถามเกี่ยวกับการเพิ่ม/แก้ไข/ลบข้อมูล ให้แนะนำให้กดปุ่ม "📝 ฟอร์มบันทึก" แทน เพราะที่นี่ตอบได้แค่คำถาม แก้ไขข้อมูลไม่ได้
 - ปุ่มลัดที่มีอยู่จริงในแชทมีแค่นี้เท่านั้น: "📝 ฟอร์มบันทึก", "📋 งานค้างจ่าย", "📊 สรุปเดือนนี้", "📅 งานเดือนนี้", "📦 กำลังดำเนินการ" ห้ามอ้างถึงหรือแนะนำปุ่มชื่ออื่นที่ไม่มีอยู่ในรายการนี้เด็ดขาด (เช่นห้ามพูดถึงปุ่ม "สรุปรายรับ" เพราะไม่มีจริง)
@@ -601,8 +620,7 @@ function buildUnpaidJobsMessage(snapshot: DataSnapshot): LineMessage {
   return buildReceiptCard(bodyContents, `งานค้างจ่ายทั้งหมด ${snapshot.unpaid.length} งาน • รวม ${formatCurrency(snapshot.totalPendingAllTime)}`);
 }
 
-function buildThisMonthSummaryMessage(snapshot: DataSnapshot): LineMessage {
-  const s = snapshot.thisMonth;
+export function buildMonthlySummaryMessage(s: MonthlySummaryWithMonth): LineMessage {
   const monthLabel = formatMonthKey(s.monthKey);
   const actualCashOut = s.variableExpense + s.cashGoalDeductions;
   const bodyContents: any[] = [
@@ -621,10 +639,14 @@ function buildThisMonthSummaryMessage(snapshot: DataSnapshot): LineMessage {
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
     buildSectionLabel('งบสำรอง', '#7A5C43'),
     buildStatementRow('งบประจำ', formatCurrency(s.fixedExpenseCalculated), { bold: false, color: '#7A5C43' }),
-    buildStatementRow('เหลือหลังกันงบ', formatCurrency(Math.max(0, s.netFlow)), { color: '#3D2314' }),
+    buildStatementRow('เหลือหลังกันงบ', formatCurrency(s.netFlow), { color: s.netFlow < 0 ? '#A63F1B' : '#3D2314' }),
     { type: 'text', text: 'งบประจำยังไม่ใช่เงินจ่ายจริง', size: 'xxs', color: '#A88A6E', wrap: true, margin: 'sm' },
   ];
   return buildReceiptCard(bodyContents, `สรุปเดือนนี้ (${monthLabel}) • รับจริง ${formatCurrency(s.received)} • ออกจริง ${formatCurrency(actualCashOut)} • คงเหลือ ${formatCurrency(s.receivedAfterVariableExpense)}`);
+}
+
+function buildThisMonthSummaryMessage(snapshot: DataSnapshot): LineMessage {
+  return buildMonthlySummaryMessage(snapshot.thisMonth);
 }
 
 function buildWipJobsMessage(snapshot: DataSnapshot): LineMessage {

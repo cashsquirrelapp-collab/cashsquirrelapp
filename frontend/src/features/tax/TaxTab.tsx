@@ -1,35 +1,34 @@
 import { uiSurface } from '../../components/ui/uiStyles';
 import PageHeader from '../../components/ui/PageHeader';
 import { uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Job, AppSettings, Expense } from '../../../../shared/types';
+import { Job, AppSettings, Expense, TaxAllowanceInput, TaxAllowanceKey, TaxYearInputs } from '../../../../shared/types';
 import { formatCurrency } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import {
-  Calculator,
-  FileText,
   Trash2,
   Plus,
   X,
   Download,
-  Info,
   Calendar,
   AlertTriangle,
   CheckSquare,
-  Square,
   RefreshCw,
   HelpCircle,
   FileCheck,
   Printer,
-  ChevronRight,
   TrendingUp,
-  DollarSign,
-  Briefcase,
   FileSpreadsheet
 } from 'lucide-react';
-import { Mascot } from '../../components/mascot/Mascot';
-import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
+import {
+  settleConfirmedTax,
+  taxExpenseSummaryForYear,
+  taxExportRowsForYear,
+  taxInputsForYear,
+  taxReceiptSummaryForYear,
+  withTaxInputsForYear,
+} from '../../../../shared/tax';
 
 interface TaxTabProps {
   jobs: Job[];
@@ -40,50 +39,31 @@ interface TaxTabProps {
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
 }
 
-interface AllowanceItem {
-  id: string;
-  key: 'life_insurance' | 'health_insurance' | 'rmf' | 'thai_esg' | 'social_security' | 'child' | 'parent';
-  label: string;
-  value: number;
-  quantity?: number;
-}
+const DEFAULT_CHECKLIST: Record<string, boolean> = {
+  wht50: false,
+  incomeSummary: false,
+  actualReceipts: false,
+  allowanceDocs: false,
+  idCard: false,
+  bankStatement: false,
+};
+
+const amountFromInput = (raw: string) => Math.max(0, Number(raw) || 0);
+const optionalAmountFromInput = (raw: string): number | undefined => raw.trim() === '' ? undefined : amountFromInput(raw);
 
 export default function TaxTab({
   jobs,
   expenses = [],
   settings,
   onUpdateSettings,
-  triggerAlert,
-  triggerConfirm
+  triggerAlert
 }: TaxTabProps) {
   const [taxYear, setTaxYear] = useState<number>(new Date().getFullYear());
-
-  const [firstHalfJobsRevenue, setFirstHalfJobsRevenue] = useState<number>(0);
-  const [firstHalfOtherRevenue, setFirstHalfOtherRevenue] = useState<number>(0);
-
-  const [secondHalfJobsRevenue, setSecondHalfJobsRevenue] = useState<number>(0);
-  const [secondHalfOtherRevenue, setSecondHalfOtherRevenue] = useState<number>(0);
-
-  const [deductionMethod, setDeductionMethod] = useState<'เหมา' | 'ตามจริง'>('เหมา');
-  const [firstHalfActualExpense, setFirstHalfActualExpense] = useState<number>(0);
-  const [secondHalfActualExpense, setSecondHalfActualExpense] = useState<number>(0);
-
-  const [addedAllowances, setAddedAllowances] = useState<AllowanceItem[]>([]);
   const [selectedAllowanceKey, setSelectedAllowanceKey] = useState<string>('');
-
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({
-    wht50: false,
-    incomeSummary: false,
-    actualReceipts: false,
-    allowanceDocs: false,
-    idCard: false,
-    bankStatement: false
-  });
-
   const [isShowingPrintModal, setIsShowingPrintModal] = useState(false);
   const [taxStep, setTaxStep] = useState<number>(1);
 
-  const allowanceOptions = [
+  const allowanceOptions: Array<{ key: TaxAllowanceKey; label: string; cap: number; type: 'input' | 'quantity'; multiplier?: number }> = [
     { key: 'life_insurance', label: 'ประกันชีวิต (ลดหย่อนได้ไม่เกิน 100,000 บาท)', cap: 100000, type: 'input' },
     { key: 'health_insurance', label: 'ประกันสุขภาพ (ลดหย่อนได้ไม่เกิน 25,000 บาท)', cap: 25000, type: 'input' },
     { key: 'rmf', label: 'กองทุน RMF (ไม่เกิน 30% ของเงินได้ สูงสุด 500,000 บาท)', cap: 500000, type: 'input' },
@@ -93,85 +73,37 @@ export default function TaxTab({
     { key: 'parent', label: 'ค่าเลี้ยงดูบิดามารดา (30,000 บาทต่อคน)', cap: Infinity, type: 'quantity', multiplier: 30000 }
   ];
 
-  const systemJobsForYear = useMemo(() => {
-    return jobs.filter(j => {
-      if (j.installments?.length) return getJobPaymentEntries(j).some((entry) => entry.date && new Date(`${entry.date}T00:00:00`).getFullYear() === taxYear);
-      const d = j.payDate || j.postDate || j.startDate;
-      if (!d) return false;
-      return new Date(d).getFullYear() === taxYear;
+  const receiptSummary = useMemo(() => taxReceiptSummaryForYear(jobs, taxYear), [jobs, taxYear]);
+  const expenseSummary = useMemo(() => taxExpenseSummaryForYear(expenses, taxYear), [expenses, taxYear]);
+  const taxInputs = taxInputsForYear(settings, taxYear);
+  const updateTaxInputs = (patch: Partial<TaxYearInputs>) => onUpdateSettings(withTaxInputsForYear(settings, taxYear, patch));
+
+  const firstHalfJobsRevenue = taxInputs.firstHalfJobsRevenueOverride ?? receiptSummary.firstHalf.gross;
+  const secondHalfJobsRevenue = taxInputs.secondHalfJobsRevenueOverride ?? receiptSummary.secondHalf.gross;
+  const firstHalfOtherRevenue = taxInputs.firstHalfOtherRevenue ?? 0;
+  const secondHalfOtherRevenue = taxInputs.secondHalfOtherRevenue ?? 0;
+  // Ledger expenses are only a reconciliation reference. Tax deductibility depends
+  // on the income category and evidence, so the calculator requires explicit,
+  // verified amounts instead of silently deducting every cash-flow expense.
+  const firstHalfActualExpense = taxInputs.firstHalfActualExpenseOverride;
+  const secondHalfActualExpense = taxInputs.secondHalfActualExpenseOverride;
+  const h1ExpenseReady = firstHalfActualExpense !== undefined;
+  const fullExpenseReady = h1ExpenseReady && secondHalfActualExpense !== undefined;
+  const h1Expense = firstHalfActualExpense ?? 0;
+  const fullExpense = h1Expense + (secondHalfActualExpense ?? 0);
+  const addedAllowances = taxInputs.allowances ?? [];
+  const checklist = { ...DEFAULT_CHECKLIST, ...taxInputs.checklist };
+
+  const handleAutoSync = () => {
+    updateTaxInputs({
+      firstHalfJobsRevenueOverride: undefined,
+      secondHalfJobsRevenueOverride: undefined,
     });
-  }, [jobs, taxYear]);
-
-  const handleAutoSync = (silent = false) => {
-    let firstHalfJobsSum = 0;
-    let secondHalfJobsSum = 0;
-
-    systemJobsForYear.forEach(j => {
-      if (j.installments?.length) {
-        getJobPaymentEntries(j).forEach((entry) => {
-          if (!entry.date) return;
-          const date = new Date(`${entry.date}T00:00:00`);
-          if (date.getFullYear() !== taxYear) return;
-          if (date.getMonth() <= 5) firstHalfJobsSum += entry.amount;
-          else secondHalfJobsSum += entry.amount;
-        });
-        return;
-      }
-      const dateStr = j.payDate || j.postDate || j.startDate;
-      if (!dateStr) return;
-      const date = new Date(dateStr);
-      const month = date.getMonth();
-      const isFirstHalf = month >= 0 && month <= 5;
-
-      const value = j.received || j.value || 0;
-
-      if (isFirstHalf) {
-        firstHalfJobsSum += value;
-      } else {
-        secondHalfJobsSum += value;
-      }
-    });
-
-    setFirstHalfJobsRevenue(firstHalfJobsSum);
-    setSecondHalfJobsRevenue(secondHalfJobsSum);
-
-    let firstHalfExpSum = 0;
-    let secondHalfExpSum = 0;
-
-    if (expenses && expenses.length > 0) {
-      expenses.forEach(e => {
-        if (!e.date) return;
-        const date = new Date(e.date);
-        if (date.getFullYear() === taxYear) {
-          const month = date.getMonth();
-          const isFirstHalf = month >= 0 && month <= 5;
-          if (isFirstHalf) {
-            firstHalfExpSum += e.amount || 0;
-          } else {
-            secondHalfExpSum += e.amount || 0;
-          }
-        }
-      });
-    }
-
-    setFirstHalfActualExpense(firstHalfExpSum);
-    setSecondHalfActualExpense(secondHalfExpSum);
-
-    if (!silent) {
-      triggerAlert(
-        'ซิงค์ข้อมูลสำเร็จ',
-        `ระบบทำการดึงข้อมูลรายรับและรายจ่ายปี ${taxYear} เฉพาะที่คุณบันทึกจริงเสร็จสิ้น ดึงยอดงานดีลครึ่งปีแรกได้ ${firstHalfJobsSum.toLocaleString()} บาท และครึ่งปีหลังได้ ${secondHalfJobsSum.toLocaleString()} บาท พร้อมทั้งดึงยอดรายจ่ายตามจริงเรียบร้อยแล้ว`
-      );
-    }
+    triggerAlert(
+      'ซิงค์ข้อมูลสำเร็จ',
+      `ดึงเฉพาะรายรับที่รับจริงในปี ${taxYear}: ครึ่งปีแรก ${receiptSummary.firstHalf.gross.toLocaleString()} บาท ครึ่งปีหลัง ${receiptSummary.secondHalf.gross.toLocaleString()} บาท รายจ่ายในบัญชีจะแสดงเพื่ออ้างอิงและจะไม่ถูกหักภาษีอัตโนมัติ`,
+    );
   };
-
-  // Auto-pull real job/expense data whenever the tax year changes (including first load),
-  // so the summary report is never blank — the manual sync button above still lets the user
-  // re-pull after editing the numbers by hand without it being silently overwritten mid-session.
-  useEffect(() => {
-    handleAutoSync(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taxYear]);
 
   const handleAddAllowance = () => {
     if (!selectedAllowanceKey) return;
@@ -184,58 +116,35 @@ export default function TaxTab({
     const opt = allowanceOptions.find(o => o.key === selectedAllowanceKey);
     if (!opt) return;
 
-    const newItem: AllowanceItem = {
-      id: crypto.randomUUID(),
-      key: opt.key as any,
-      label: opt.label.split(' (')[0],
+    const newItem: TaxAllowanceInput = {
+      key: opt.key,
       value: 0,
       quantity: opt.type === 'quantity' ? 1 : undefined
     };
 
-    setAddedAllowances([...addedAllowances, newItem]);
+    updateTaxInputs({ allowances: [...addedAllowances, newItem] });
     setSelectedAllowanceKey('');
   };
 
-  const handleUpdateAllowanceValue = (id: string, val: number) => {
-    setAddedAllowances(
-      addedAllowances.map(item => (item.id === id ? { ...item, value: val } : item))
-    );
+  const handleUpdateAllowanceValue = (key: TaxAllowanceKey, val: number) => {
+    updateTaxInputs({ allowances: addedAllowances.map(item => (item.key === key ? { ...item, value: val } : item)) });
   };
 
-  const handleUpdateAllowanceQuantity = (id: string, qty: number) => {
-    setAddedAllowances(
-      addedAllowances.map(item => (item.id === id ? { ...item, quantity: Math.max(1, qty) } : item))
-    );
+  const handleUpdateAllowanceQuantity = (key: TaxAllowanceKey, qty: number) => {
+    updateTaxInputs({ allowances: addedAllowances.map(item => (item.key === key ? { ...item, quantity: Math.max(1, qty) } : item)) });
   };
 
-  const handleRemoveAllowance = (id: string) => {
-    setAddedAllowances(addedAllowances.filter(item => item.id !== id));
+  const handleRemoveAllowance = (key: TaxAllowanceKey) => {
+    updateTaxInputs({ allowances: addedAllowances.filter(item => item.key !== key) });
   };
 
   const toggleChecklistItem = (key: string) => {
-    setChecklist({
-      ...checklist,
-      [key]: !checklist[key]
-    });
+    updateTaxInputs({ checklist: { ...checklist, [key]: !checklist[key] } });
   };
 
   const h1Revenue = useMemo(() => {
     return firstHalfJobsRevenue + firstHalfOtherRevenue;
   }, [firstHalfJobsRevenue, firstHalfOtherRevenue]);
-
-  const h1Expense = useMemo(() => {
-    if (deductionMethod === 'เหมา') {
-      let exp = 0;
-      if (h1Revenue <= 300000) {
-        exp = h1Revenue * 0.6;
-      } else {
-        exp = (300000 * 0.6) + ((h1Revenue - 300000) * 0.4);
-      }
-      return Math.min(exp, 600000);
-    } else {
-      return firstHalfActualExpense;
-    }
-  }, [deductionMethod, h1Revenue, firstHalfActualExpense]);
 
   const h1PersonalAllowance = 30000;
 
@@ -262,20 +171,6 @@ export default function TaxTab({
   const fullRevenue = useMemo(() => {
     return h1Revenue + h2Revenue;
   }, [h1Revenue, h2Revenue]);
-
-  const fullExpense = useMemo(() => {
-    if (deductionMethod === 'เหมา') {
-      let exp = 0;
-      if (fullRevenue <= 300000) {
-        exp = fullRevenue * 0.6;
-      } else {
-        exp = (300000 * 0.6) + ((fullRevenue - 300000) * 0.4);
-      }
-      return Math.min(exp, 600000);
-    } else {
-      return firstHalfActualExpense + secondHalfActualExpense;
-    }
-  }, [deductionMethod, fullRevenue, firstHalfActualExpense, secondHalfActualExpense]);
 
   const fullPersonalAllowance = 60000;
 
@@ -348,6 +243,29 @@ export default function TaxTab({
   const h1TaxDetails = useMemo(() => calculateProgressiveTax(h1NetIncome), [h1NetIncome]);
   const fullTaxDetails = useMemo(() => calculateProgressiveTax(fullNetIncome), [fullNetIncome]);
 
+  const derivedFirstHalfWhtCredit = receiptSummary.firstHalf.wht;
+  const derivedFullYearWhtCredit = receiptSummary.fullYear.wht;
+  const firstHalfWhtCredit = taxInputs.firstHalfWhtCreditOverride ?? derivedFirstHalfWhtCredit;
+  const fullYearWhtCredit = taxInputs.fullYearWhtCreditOverride ?? derivedFullYearWhtCredit;
+  const pnd93Paid = taxInputs.pnd93Paid ?? 0;
+  const pnd94Paid = taxInputs.pnd94Paid ?? 0;
+  const otherTaxCredits = taxInputs.otherTaxCredits ?? 0;
+  const firstHalfAssessedTax = taxInputs.firstHalfAssessedTaxOverride;
+  const fullYearAssessedTax = taxInputs.fullYearAssessedTaxOverride;
+  const h1Settlement = useMemo(
+    () => settleConfirmedTax(firstHalfAssessedTax, { whtCredit: firstHalfWhtCredit }),
+    [firstHalfAssessedTax, firstHalfWhtCredit],
+  );
+  const fullSettlement = useMemo(
+    () => settleConfirmedTax(fullYearAssessedTax, { whtCredit: fullYearWhtCredit, pnd93Paid, pnd94Paid, otherTaxCredits }),
+    [fullYearAssessedTax, fullYearWhtCredit, otherTaxCredits, pnd93Paid, pnd94Paid],
+  );
+
+  const taxResult = (settlement: typeof fullSettlement, key: 'assessedTax' | 'totalCredits' | 'due' | 'overpayment') =>
+    settlement ? settlement[key] : 'ยังไม่คำนวณ';
+  const formattedTaxResult = (settlement: typeof fullSettlement, key: 'assessedTax' | 'totalCredits' | 'due' | 'overpayment') =>
+    settlement ? formatCurrency(settlement[key]) : 'ยังไม่คำนวณ';
+
   const h1MaxRate = useMemo(() => {
     if (h1TaxDetails.breakdown.length === 0) return 0;
     return h1TaxDetails.breakdown[h1TaxDetails.breakdown.length - 1].rate * 100;
@@ -358,9 +276,6 @@ export default function TaxTab({
     return fullTaxDetails.breakdown[fullTaxDetails.breakdown.length - 1].rate * 100;
   }, [fullTaxDetails]);
 
-  const isH1FilingRequired = h1Revenue > 60000;
-  const isFullFilingRequired = fullRevenue > 60000;
-
   const handleDownloadCSV = () => {
     const csvRows = [
       ['\uFEFFสรุปการประเมินและวางแผนภาษี', 'ครึ่งปีแรก (ภ.ง.ด. 94)', 'ทั้งปี (ภ.ง.ด. 90)'],
@@ -368,13 +283,21 @@ export default function TaxTab({
       ['รายได้ดีลงานในระบบ', firstHalfJobsRevenue, firstHalfJobsRevenue + secondHalfJobsRevenue],
       ['รายได้เสริมอื่นๆ', firstHalfOtherRevenue, firstHalfOtherRevenue + secondHalfOtherRevenue],
       ['รายได้รวมทั้งหมด', h1Revenue, fullRevenue],
-      ['วิธีหักค่าใช้จ่าย', deductionMethod, deductionMethod],
-      ['หักค่าใช้จ่ายตามเกณฑ์', h1Expense, fullExpense],
+      ['ค่าใช้จ่ายในบัญชี (เพื่ออ้างอิง)', expenseSummary.firstHalf, expenseSummary.fullYear],
+      ['ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว', h1ExpenseReady ? h1Expense : 'ยังไม่กรอก', fullExpenseReady ? fullExpense : 'ยังไม่กรอก'],
       ['หักลดหย่อนส่วนตัว', h1PersonalAllowance, fullPersonalAllowance],
       ['หักลดหย่อนเพิ่มเติมอื่นๆ', h1OtherAllowances, fullOtherAllowances],
-      ['เงินได้สุทธิ', h1NetIncome, fullNetIncome],
-      ['อัตราภาษีสูงสุดที่เสีย (%)', `${h1MaxRate}%`, `${fullMaxRate}%`],
-      ['ประมาณการภาษีที่ต้องชำระ', h1TaxDetails.totalTax, fullTaxDetails.totalTax]
+      ['เงินได้สุทธิ', h1ExpenseReady ? h1NetIncome : 'ยังไม่คำนวณ', fullExpenseReady ? fullNetIncome : 'ยังไม่คำนวณ'],
+      ['อัตราภาษีสูงสุดที่เสีย (%)', h1ExpenseReady ? `${h1MaxRate}%` : 'ยังไม่คำนวณ', fullExpenseReady ? `${fullMaxRate}%` : 'ยังไม่คำนวณ'],
+      ['ภาษีตามอัตราก้าวหน้า (ข้อมูลประกอบ ไม่รวมภาษีขั้นต่ำ)', h1ExpenseReady ? h1TaxDetails.totalTax : 'ยังไม่คำนวณ', fullExpenseReady ? fullTaxDetails.totalTax : 'ยังไม่คำนวณ'],
+      ['ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ', taxResult(h1Settlement, 'assessedTax'), taxResult(fullSettlement, 'assessedTax')],
+      ['เครดิตภาษีหัก ณ ที่จ่าย', firstHalfWhtCredit, fullYearWhtCredit],
+      ['ภาษีที่ชำระไว้ตาม ภ.ง.ด.93', 0, pnd93Paid],
+      ['ภาษีที่ชำระไว้ตาม ภ.ง.ด.94', 0, pnd94Paid],
+      ['เครดิตภาษีอื่น', 0, otherTaxCredits],
+      ['รวมเครดิตภาษี', taxResult(h1Settlement, 'totalCredits'), taxResult(fullSettlement, 'totalCredits')],
+      ['คาดว่าต้องชำระเพิ่ม', taxResult(h1Settlement, 'due'), taxResult(fullSettlement, 'due')],
+      ['คาดว่าชำระไว้เกิน', taxResult(h1Settlement, 'overpayment'), taxResult(fullSettlement, 'overpayment')]
     ];
     
     const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -398,12 +321,17 @@ export default function TaxTab({
       triggerAlert('ดาวน์โหลด Excel ไม่สำเร็จ', 'โหลดเครื่องมือสร้างไฟล์ไม่สำเร็จ กรุณาลองอีกครั้ง');
       return;
     }
-    const bracketRows = (label: string, breakdown: { range: string; taxable: number; rate: number; tax: number }[]) => [
-      [`ขั้นบันไดภาษี — ${label}`, '', '', ''],
-      ['ช่วงเงินได้สุทธิ (บาท)', 'ฐานภาษีในช่วงนี้ (บาท)', 'อัตราภาษี (%)', 'ภาษีในช่วงนี้ (บาท)'],
-      ...breakdown.map((b) => [b.range, b.taxable, `${b.rate * 100}%`, b.tax]),
-      ['', '', '', '']
-    ];
+    const bracketRows = (label: string, breakdown: { range: string; taxable: number; rate: number; tax: number }[], ready: boolean) => ready
+      ? [
+          [`ขั้นบันไดภาษี — ${label} (ข้อมูลประกอบ ไม่รวมภาษีขั้นต่ำ)`, '', '', ''],
+          ['ช่วงเงินได้สุทธิ (บาท)', 'ฐานภาษีในช่วงนี้ (บาท)', 'อัตราภาษี (%)', 'ภาษีในช่วงนี้ (บาท)'],
+          ...breakdown.map((b) => [b.range, b.taxable, `${b.rate * 100}%`, b.tax]),
+          ['', '', '', ''],
+        ]
+      : [
+          [`ขั้นบันไดภาษี — ${label}`, 'ยังไม่คำนวณ: ต้องกรอกค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว', '', ''],
+          ['', '', '', ''],
+        ];
 
     const summaryRows: (string | number)[][] = [
       ['สรุปการประเมินและวางแผนภาษี', 'ครึ่งปีแรก (ภ.ง.ด. 94)', 'ทั้งปี (ภ.ง.ด. 90)'],
@@ -411,72 +339,52 @@ export default function TaxTab({
       ['รายได้ดีลงานในระบบ', firstHalfJobsRevenue, firstHalfJobsRevenue + secondHalfJobsRevenue],
       ['รายได้เสริมอื่นๆ', firstHalfOtherRevenue, firstHalfOtherRevenue + secondHalfOtherRevenue],
       ['รายได้รวมทั้งหมด', h1Revenue, fullRevenue],
-      ['วิธีหักค่าใช้จ่าย', deductionMethod, deductionMethod],
-      ['หักค่าใช้จ่ายตามเกณฑ์', h1Expense, fullExpense],
+      ['ค่าใช้จ่ายในบัญชี (เพื่ออ้างอิง)', expenseSummary.firstHalf, expenseSummary.fullYear],
+      ['ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว', h1ExpenseReady ? h1Expense : 'ยังไม่กรอก', fullExpenseReady ? fullExpense : 'ยังไม่กรอก'],
       ['หักลดหย่อนส่วนตัว', h1PersonalAllowance, fullPersonalAllowance],
       ['หักลดหย่อนเพิ่มเติมอื่นๆ', h1OtherAllowances, fullOtherAllowances],
-      ['เงินได้สุทธิ', h1NetIncome, fullNetIncome],
-      ['อัตราภาษีสูงสุดที่เสีย (%)', `${h1MaxRate}%`, `${fullMaxRate}%`],
-      ['ประมาณการภาษีที่ต้องชำระ', h1TaxDetails.totalTax, fullTaxDetails.totalTax],
+      ['เงินได้สุทธิ', h1ExpenseReady ? h1NetIncome : 'ยังไม่คำนวณ', fullExpenseReady ? fullNetIncome : 'ยังไม่คำนวณ'],
+      ['อัตราภาษีสูงสุดที่เสีย (%)', h1ExpenseReady ? `${h1MaxRate}%` : 'ยังไม่คำนวณ', fullExpenseReady ? `${fullMaxRate}%` : 'ยังไม่คำนวณ'],
+      ['ภาษีตามอัตราก้าวหน้า (ข้อมูลประกอบ ไม่รวมภาษีขั้นต่ำ)', h1ExpenseReady ? h1TaxDetails.totalTax : 'ยังไม่คำนวณ', fullExpenseReady ? fullTaxDetails.totalTax : 'ยังไม่คำนวณ'],
+      ['ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ', taxResult(h1Settlement, 'assessedTax'), taxResult(fullSettlement, 'assessedTax')],
+      ['เครดิตภาษีหัก ณ ที่จ่าย', firstHalfWhtCredit, fullYearWhtCredit],
+      ['ภาษีที่ชำระไว้ตาม ภ.ง.ด.93', 0, pnd93Paid],
+      ['ภาษีที่ชำระไว้ตาม ภ.ง.ด.94', 0, pnd94Paid],
+      ['เครดิตภาษีอื่น', 0, otherTaxCredits],
+      ['รวมเครดิตภาษี', taxResult(h1Settlement, 'totalCredits'), taxResult(fullSettlement, 'totalCredits')],
+      ['คาดว่าต้องชำระเพิ่ม', taxResult(h1Settlement, 'due'), taxResult(fullSettlement, 'due')],
+      ['คาดว่าชำระไว้เกิน', taxResult(h1Settlement, 'overpayment'), taxResult(fullSettlement, 'overpayment')],
       ['', '', ''],
-      ...bracketRows('ครึ่งปีแรก (ภ.ง.ด. 94)', h1TaxDetails.breakdown),
-      ...bracketRows('ทั้งปี (ภ.ง.ด. 90)', fullTaxDetails.breakdown)
+      ...bracketRows('ครึ่งปีแรก (ภ.ง.ด. 94)', h1TaxDetails.breakdown, h1ExpenseReady),
+      ...bracketRows('ทั้งปี (ภ.ง.ด. 90)', fullTaxDetails.breakdown, fullExpenseReady)
     ];
 
+    const selectedYearRows = taxExportRowsForYear(jobs, expenses, taxYear);
     const incomeHeaders = [
+      'วันรับเงินจริง',
       'ชื่อโปรเจกต์',
       'ประเภทงาน',
       'ลูกค้า',
-      'มูลค่ารวม (บาท)',
+      'งวดรับเงิน',
+      'รายได้ก่อนหัก ณ ที่จ่าย (บาท)',
       'หัก ณ ที่จ่าย (%)',
       'จำนวนภาษีหัก ณ ที่จ่าย (บาท)',
-      'ยอดได้รับแล้ว (บาท)',
-      'ยอดค้างชำระ (บาท)',
-      'สถานะโครงการ',
-      'เครดิตเทอม (วัน)',
-      'วันเริ่มงาน',
-      'วันดีล/วันเผยแพร่',
-      'กำหนดชำระเงิน',
-      'งวดชำระ',
-      'สถานะงวด',
-      'วันรับเงินจริง',
-      'หมายเหตุ'
+      'ยอดรับสุทธิ (บาท)'
     ];
-    const incomeRows = jobs.flatMap((j) => {
-      let statusText = j.status;
-      if (j.status === 'done') statusText = 'จ่ายแล้ว';
-      else if (j.status === 'partial' || j.status === 'installment') statusText = j.status === 'installment' ? 'แบ่งชำระเป็นงวด' : 'มัดจำ/จ่ายบางส่วน';
-      else if (j.status === 'pending') statusText = 'ยังไม่จ่าย';
-      const baseRow = (label: string, installmentStatus: string, paidAt: string, received: number, pending: number, contractValue: number, whtAmount: number, dueDate: string) => [
-        j.name,
-        j.type || 'ทั่วไป',
-        j.client || '-',
-        contractValue,
-        j.whtRate || 0,
-        whtAmount,
-        received,
-        pending,
-        statusText,
-        j.creditTerm || 0,
-        j.startDate || '-',
-        j.postDate || '-',
-        dueDate || '-',
-        label || '-',
-        installmentStatus || '-',
-        paidAt || '-',
-        j.note || ''
-      ];
-      if (!j.installments?.length) return [baseRow('', '', j.payDate || '', j.received || 0, j.pending || 0, j.value || 0, j.whtAmount || 0, j.payDate || '')];
-      const netTotal = Math.max(1, j.value - (j.whtAmount || 0));
-      return j.installments.map((row, index) => {
-        const previousAllocated = j.installments!.slice(0, index).reduce((sum, item) => sum + Math.round((j.whtAmount || 0) * (item.amount / netTotal)), 0);
-        const allocatedWht = index === j.installments!.length - 1 ? Math.max(0, (j.whtAmount || 0) - previousAllocated) : Math.round((j.whtAmount || 0) * (row.amount / netTotal));
-        return baseRow(row.label, row.status === 'paid' ? 'รับแล้ว' : 'รอชำระ', row.paidAt || '', row.status === 'paid' ? row.amount : 0, row.status === 'paid' ? 0 : row.amount, index === 0 ? j.value : 0, allocatedWht, row.dueDate || '');
-      });
-    });
+    const incomeRows = selectedYearRows.incomeRows.map(row => [
+      row.date,
+      row.jobName,
+      row.type || 'ทั่วไป',
+      row.client || '-',
+      row.label,
+      row.gross,
+      row.whtRate,
+      row.wht,
+      row.received,
+    ]);
 
     const expenseHeaders = ['ชื่อรายการ', 'หมวดหมู่', 'จำนวนเงิน (บาท)', 'วันที่', 'หมายเหตุ'];
-    const expenseRows = expenses.map((e) => [e.name, e.category, e.amount || 0, e.date || '-', e.note || '']);
+    const expenseRows = selectedYearRows.expenseRows.map((e) => [e.name, e.category, e.amount || 0, e.date || '-', e.note || '']);
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'สรุปภาษี');
@@ -484,7 +392,7 @@ export default function TaxTab({
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([expenseHeaders, ...expenseRows]), 'รายจ่าย');
 
     XLSX.writeFile(wb, `บัญชีภาษี_${taxYear}_กระรอกตุนเงิน.xlsx`);
-    triggerAlert('ดาวน์โหลด Excel สำเร็จ', 'ไฟล์บัญชีพร้อมยื่นภาษี (สรุปภาษี, รายรับ, รายจ่าย) ถูกดาวน์โหลดเรียบร้อยแล้ว ส่งให้นักบัญชีได้เลยครับ');
+    triggerAlert('ดาวน์โหลด Excel สำเร็จ', `ไฟล์สรุปปี ${taxYear} รวมเฉพาะรายรับที่รับจริงและรายจ่ายในปีที่เลือก กรุณาตรวจทานกับเอกสารก่อนใช้ยื่นภาษี`);
   };
 
   return (
@@ -535,19 +443,19 @@ export default function TaxTab({
       {/* KPI CARDS -- matches the mockup's 5-card row, all full-year figures */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
-          { label: 'รายได้สะสม', value: fullRevenue },
-          { label: 'ค่าใช้จ่ายที่ใช้ได้', value: fullExpense },
-          { label: 'ค่าลดหย่อน', value: fullPersonalAllowance + fullOtherAllowances },
-          { label: 'รายได้สุทธิประมาณการ', value: fullNetIncome },
+          { label: 'รายได้สะสม', value: formatCurrency(fullRevenue) },
+          { label: 'ค่าใช้จ่ายหักได้ที่ตรวจสอบ', value: fullExpenseReady ? formatCurrency(fullExpense) : 'รอกรอกยอด' },
+          { label: 'ค่าลดหย่อน', value: formatCurrency(fullPersonalAllowance + fullOtherAllowances) },
+          { label: 'รายได้สุทธิแบบก้าวหน้า', value: fullExpenseReady ? formatCurrency(fullNetIncome) : 'รอกรอกค่าใช้จ่าย' },
         ].map(kpi => (
           <div key={kpi.label} className={`${uiSurface} p-[14px]`}>
             <p className="text-[10px] text-brand-muted">{kpi.label}</p>
-            <p className="mt-1 text-sm font-semibold text-brand-text dark:text-white">{formatCurrency(kpi.value)}</p>
+            <p className="mt-1 text-sm font-semibold text-brand-text dark:text-white">{kpi.value}</p>
           </div>
         ))}
         <div className="rounded-[14px] border border-[#F0997B] bg-[#FFF1E8] dark:bg-[#3A2015] dark:border-[#8A3212] p-[14px]">
-          <p className="text-[10px] text-[#8A3212] dark:text-[#F0997B]">ภาษีประมาณการ</p>
-          <p className="mt-1 text-sm font-semibold text-[#C24A16] dark:text-[#F0997B]">{formatCurrency(fullTaxDetails.totalTax)}</p>
+          <p className="text-[10px] text-[#8A3212] dark:text-[#F0997B]">คาดว่าต้องชำระเพิ่ม</p>
+          <p className="mt-1 text-sm font-semibold text-[#C24A16] dark:text-[#F0997B]">{formattedTaxResult(fullSettlement, 'due')}</p>
         </div>
       </div>
 
@@ -599,7 +507,7 @@ export default function TaxTab({
 
           <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-1">{formatCurrency(fullRevenue)}</p>
           <p className="text-[11px] text-brand-muted mb-4 leading-relaxed">
-            รวมรายได้จากงานที่บันทึกไว้ในระบบอัตโนมัติ * ข้อมูลจะถูกดึงและรวบรวมเฉพาะจากรายการงานดีลและค่าใช้จ่ายจริงที่คุณได้ระบุหรือบันทึกไว้ในแอปพลิเคชันนี้เท่านั้น ไม่มีการสร้างข้อมูลสมมติขึ้นเอง
+            รวมรายได้ก่อนหัก ณ ที่จ่ายตามวันที่รับเงินจริง งานที่ยังไม่ได้รับเงิน งวดที่ยังรอชำระ และรายการรับเงินที่ไม่มีวันที่ใช้งานได้จะไม่ถูกนับ กรุณาตรวจวันที่ของรายการเก่าก่อนนำไปใช้
           </p>
 
           {/* Income Inputs */}
@@ -617,7 +525,7 @@ export default function TaxTab({
                       <NumberInput
                         value={firstHalfJobsRevenue || ''}
                         placeholder="0"
-                        onChange={(raw) => setFirstHalfJobsRevenue(Math.max(0, Number(raw)))}
+                        onChange={(raw) => updateTaxInputs({ firstHalfJobsRevenueOverride: optionalAmountFromInput(raw) })}
                         className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                       />
                     </div>
@@ -629,7 +537,7 @@ export default function TaxTab({
                       <NumberInput
                         value={firstHalfOtherRevenue || ''}
                         placeholder="0"
-                        onChange={(raw) => setFirstHalfOtherRevenue(Math.max(0, Number(raw)))}
+                        onChange={(raw) => updateTaxInputs({ firstHalfOtherRevenue: amountFromInput(raw) })}
                         className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                       />
                     </div>
@@ -650,7 +558,7 @@ export default function TaxTab({
                       <NumberInput
                         value={secondHalfJobsRevenue || ''}
                         placeholder="0"
-                        onChange={(raw) => setSecondHalfJobsRevenue(Math.max(0, Number(raw)))}
+                        onChange={(raw) => updateTaxInputs({ secondHalfJobsRevenueOverride: optionalAmountFromInput(raw) })}
                         className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                       />
                     </div>
@@ -662,7 +570,7 @@ export default function TaxTab({
                       <NumberInput
                         value={secondHalfOtherRevenue || ''}
                         placeholder="0"
-                        onChange={(raw) => setSecondHalfOtherRevenue(Math.max(0, Number(raw)))}
+                        onChange={(raw) => updateTaxInputs({ secondHalfOtherRevenue: amountFromInput(raw) })}
                         className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                       />
                     </div>
@@ -677,84 +585,39 @@ export default function TaxTab({
               <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
               ค่าใช้จ่าย
             </h3>
-            <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-4">{formatCurrency(fullExpense)}</p>
-            {/* Expense Deduction Method */}
+            <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-4">{fullExpenseReady ? formatCurrency(fullExpense) : 'รอกรอกยอดที่ตรวจสอบแล้ว'}</p>
             <div className="space-y-3.5 mb-6">
-              <div>
-                <label className="block text-xs font-extrabold text-brand-text dark:text-white mb-2">วิธีการหักค่าใช้จ่าย</label>
-                <div className="grid grid-cols-2 gap-2 bg-brand-faint dark:bg-neutral-850 p-1.5 rounded-2xl border border-brand-border/40 dark:border-neutral-800">
-                  <button
-                    type="button"
-                    onClick={() => setDeductionMethod('เหมา')}
-                    className={`py-2 text-xs font-extrabold rounded-xl transition-all select-none cursor-pointer ${deductionMethod === 'เหมา' ? 'bg-emerald-600 text-white shadow-sm' : 'text-brand-muted hover:text-brand-text'}`}
-                  >
-                    หักค่าใช้จ่ายแบบเหมา (60%)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeductionMethod('ตามจริง')}
-                    className={`py-2 text-xs font-extrabold rounded-xl transition-all select-none cursor-pointer ${deductionMethod === 'ตามจริง' ? 'bg-emerald-600 text-white shadow-sm' : 'text-brand-muted hover:text-brand-text'}`}
-                  >
-                    หักตามจริง (จากบัญชีรายจ่าย)
-                  </button>
+              <div className="rounded-2xl border border-brand-yellow-acc/30 bg-brand-yellow-bg/30 p-4 text-[11px] leading-relaxed text-brand-muted">
+                <p className="font-bold text-brand-text dark:text-white">กรอกเฉพาะค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว</p>
+                <p className="mt-1">ระบบไม่เลือกสูตรเหมาและไม่หักรายจ่ายทั้งหมดในบัญชีให้อัตโนมัติ เพราะสิทธิหักค่าใช้จ่ายขึ้นกับประเภทเงินได้ตามมาตรา 40 และหลักฐานของแต่ละรายการ</p>
+                <p className="mt-2">รายจ่ายในบัญชีเพื่ออ้างอิง: ครึ่งปีแรก {formatCurrency(expenseSummary.firstHalf)} • ครึ่งปีหลัง {formatCurrency(expenseSummary.secondHalf)} • ทั้งปี {formatCurrency(expenseSummary.fullYear)}</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 rounded-2xl border border-brand-border/20 bg-brand-faint/30 p-4 dark:border-neutral-800/40 dark:bg-neutral-800/30 sm:grid-cols-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-brand-muted mb-1">ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว — ครึ่งปีแรก</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
+                    <NumberInput
+                      value={firstHalfActualExpense}
+                      placeholder="กรอกจากแบบหรือยอดที่ตรวจสอบแล้ว"
+                      onChange={(raw) => updateTaxInputs({ firstHalfActualExpenseOverride: optionalAmountFromInput(raw) })}
+                      className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-brand-muted mb-1">ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว — ครึ่งปีหลัง</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
+                    <NumberInput
+                      value={secondHalfActualExpense}
+                      placeholder="กรอกจากแบบหรือยอดที่ตรวจสอบแล้ว"
+                      onChange={(raw) => updateTaxInputs({ secondHalfActualExpenseOverride: optionalAmountFromInput(raw) })}
+                      className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <AnimatePresence mode="wait">
-                {deductionMethod === 'เหมา' ? (
-                  <motion.div
-                    key="standard-exp"
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="p-3.5 bg-brand-green-bg border border-brand-green-acc/20 rounded-2xl text-[11px] text-brand-green-acc flex items-start gap-2.5 leading-relaxed"
-                  >
-                    <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <strong>สูตรหักแบบเหมา:</strong> หัก 60% ของรายได้สูงสุดไม่เกิน 300,000 บาทแรก และบวก 40% ของส่วนเกิน โดยมีเพดานสิทธิ์หักรวมสูงสุดไม่เกิน 600,000 บาท ตามเกณฑ์กลุ่มอาชีพฟรีแลนซ์ทั่วไป
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="custom-exp"
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="space-y-3 bg-brand-faint/30 dark:bg-neutral-800/30 p-4 rounded-2xl border border-brand-border/20 dark:border-neutral-800/40"
-                  >
-                    <p className="text-[11px] text-brand-muted leading-relaxed flex items-start gap-1.5">
-                      <AlertTriangle className="w-4 h-4 text-brand-yellow-acc shrink-0 mt-0.5" />
-                      กรณีหักค่าใช้จ่ายตามจริง คุณจำเป็นต้องจัดเตรียมใบเสร็จรับเงินหรือหลักฐานที่ถูกต้องตามกฎหมายเพื่อใช้เป็นหลักฐานแสดงต่อกรมสรรพากรหากมีการเรียกตรวจสอบภายหลัง
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-brand-muted mb-1">ค่าใช้จ่ายจริง ครึ่งปีแรก (ม.ค. - มิ.ย.)</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
-                          <NumberInput
-                            value={firstHalfActualExpense || ''}
-                            placeholder="ซิงค์จากระบบหรือกรอกเอง"
-                            onChange={(raw) => setFirstHalfActualExpense(Math.max(0, Number(raw)))}
-                            className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-brand-muted mb-1">ค่าใช้จ่ายจริง ครึ่งปีหลัง (ก.ค. - ธ.ค.)</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
-                          <NumberInput
-                            value={secondHalfActualExpense || ''}
-                            placeholder="ซิงค์จากระบบหรือกรอกเอง"
-                            onChange={(raw) => setSecondHalfActualExpense(Math.max(0, Number(raw)))}
-                            className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
         </>)}
 
@@ -796,11 +659,11 @@ export default function TaxTab({
                 {addedAllowances.map(item => {
                   const opt = allowanceOptions.find(o => o.key === item.key)!;
                   return (
-                    <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-brand-faint/30 dark:bg-neutral-800/30 border border-brand-border/20 dark:border-neutral-800/40 p-3 rounded-2xl">
+                    <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-brand-faint/30 dark:bg-neutral-800/30 border border-brand-border/20 dark:border-neutral-800/40 p-3 rounded-2xl">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" />
-                          <span className="text-xs font-black text-brand-text dark:text-white">{item.label}</span>
+                          <span className="text-xs font-black text-brand-text dark:text-white">{opt.label.split(' (')[0]}</span>
                         </div>
                         {opt.type === 'input' ? (
                           <span className="text-[10px] text-brand-muted font-semibold mt-0.5 block">
@@ -820,7 +683,7 @@ export default function TaxTab({
                             <NumberInput
                               value={item.value || ''}
                               placeholder="0"
-                              onChange={(raw) => handleUpdateAllowanceValue(item.id, Math.max(0, Number(raw)))}
+                              onChange={(raw) => handleUpdateAllowanceValue(item.key, amountFromInput(raw))}
                               className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-lg pl-6 pr-2 py-1 text-xs font-mono font-bold text-brand-text dark:text-white focus:outline-none"
                             />
                           </div>
@@ -831,7 +694,7 @@ export default function TaxTab({
                               type="number"
                               min="1"
                               value={item.quantity || 1}
-                              onChange={(e) => handleUpdateAllowanceQuantity(item.id, Number(e.target.value))}
+                              onChange={(e) => handleUpdateAllowanceQuantity(item.key, Number(e.target.value))}
                               className="w-10 bg-transparent text-center text-xs font-mono font-bold text-brand-text dark:text-white focus:outline-none"
                             />
                             <span className="text-[10px] font-bold text-brand-muted">คน</span>
@@ -840,7 +703,7 @@ export default function TaxTab({
 
                         <button
                           type="button"
-                          onClick={() => handleRemoveAllowance(item.id)}
+                          onClick={() => handleRemoveAllowance(item.key)}
                           className="p-1.5 bg-brand-white dark:bg-neutral-900 hover:bg-brand-faint dark:hover:bg-neutral-850 border border-brand-border/60 dark:border-neutral-800 hover:border-brand-pink-acc text-brand-muted hover:text-brand-pink-acc rounded-lg transition-all cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -862,63 +725,49 @@ export default function TaxTab({
         {taxStep === 4 && (<>
           <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-1">
             <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
-            ประมาณภาษีที่ต้องจ่าย
+            ผลหลังหักเครดิตจากภาษีที่ยืนยันแล้ว
           </h3>
-          <p className="text-[11px] text-brand-muted mb-4">คำนวณจากอัตราก้าวหน้า</p>
-          <p className="text-[26px] font-semibold text-[#C24A16] mb-5">{formatCurrency(fullTaxDetails.totalTax)}</p>
+          <p className="text-[11px] text-brand-muted mb-1">ระบบจะแสดงยอดชำระเพิ่มหรือชำระไว้เกิน เมื่อกรอกภาษีประเมินจากแบบปัจจุบันหรือผู้เชี่ยวชาญแล้วเท่านั้น</p>
+          <p className="text-[26px] font-semibold text-[#C24A16] mb-2">{formattedTaxResult(fullSettlement, 'due')}</p>
+          {fullSettlement && fullSettlement.overpayment > 0 && <p className="text-sm font-semibold text-emerald-600 mb-2">คาดว่าชำระไว้เกิน {formatCurrency(fullSettlement.overpayment)}</p>}
 
-          {/* TAX FORM STATUS CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className={`p-5 rounded-[14px] border ${isH1FilingRequired ? 'bg-brand-yellow-bg/30 border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-white dark:bg-neutral-900 border-brand-border/40 text-brand-text'} flex flex-col justify-between shadow-sm`}>
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div>
-                  <h4 className="text-sm font-extrabold text-brand-text dark:text-white flex items-center gap-1.5">
-                    <FileCheck className={`w-4 h-4 ${isH1FilingRequired ? 'text-brand-yellow-acc' : 'text-brand-muted'}`} />
-                    แบบภาษีครึ่งปีแรก (ภ.ง.ด. 94)
-                  </h4>
-                  <p className="text-[11px] text-brand-muted mt-1 leading-relaxed">
-                    ยื่นช่วง ก.ค. - ก.ย. ของปีภาษีปัจจุบัน โดยประเมินฐานรายได้รอบครึ่งปีแรกเพื่อสะสมสิทธิ์และชำระล่วงหน้าบางส่วน
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Mascot mood={isH1FilingRequired ? "alert" : "happy"} size={32} />
-                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border shrink-0 ${isH1FilingRequired ? 'bg-brand-yellow-bg border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-green-bg border-brand-green-acc/20 text-brand-green-acc'}`}>
-                    {isH1FilingRequired ? 'ต้องยื่นแบบภาษี' : 'ยังไม่ต้องยื่น'}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-4 pt-3 border-t border-brand-border/20 flex items-center justify-between text-[11px]">
-                <span className="text-brand-muted font-semibold">เกณฑ์ยื่นแบบ: รายได้สะสม ครึ่งปีแรกมากกว่า 60,000 บาท</span>
-                <span className={`font-bold ${isH1FilingRequired ? 'text-brand-yellow-acc' : 'text-brand-green-acc'}`}>
-                  {isH1FilingRequired ? 'แนะนำให้ยื่นภายในกำหนด' : 'รายได้ไม่ถึงเกณฑ์ยื่น'}
-                </span>
-              </div>
+          <div className="mb-6 rounded-[14px] border border-brand-yellow-acc/30 bg-brand-yellow-bg/30 p-4 text-[11px] leading-relaxed text-brand-muted">
+            <p className="font-bold text-brand-text dark:text-white">ยังไม่มีสูตรภาษีอัตโนมัติที่ใช้ยื่นได้</p>
+            <p className="mt-1">หน้าที่ยื่น ภ.ง.ด.94 วิธีหักค่าใช้จ่าย และภาษีขั้นต่ำทางเลือกขึ้นกับประเภทเงินได้ตามมาตรา 40 และสถานะผู้เสียภาษี แอปยังไม่รองรับการตัดสินเงื่อนไขเหล่านี้ จึงไม่นำยอดตามอัตราก้าวหน้าด้านล่างไปสรุปเป็นยอดชำระ</p>
+          </div>
+
+          <div className="mb-6 rounded-[14px] border border-brand-border/40 dark:border-neutral-800 p-5">
+            <h3 className="text-sm font-bold text-brand-text dark:text-white">ภาษีประเมินก่อนเครดิตที่ยืนยันแล้ว</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">คัดลอกยอดจากแบบ ภ.ง.ด.94 / ภ.ง.ด.90 ฉบับปัจจุบัน หรือยอดที่ผู้เชี่ยวชาญยืนยัน เว้นว่างไว้หากยังไม่ได้ตรวจสอบ ระบบจะไม่แทนค่าว่างด้วยศูนย์</p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="text-[10px] font-bold text-brand-muted">ภาษีประเมิน — ครึ่งปี (ภ.ง.ด.94)
+                <NumberInput value={firstHalfAssessedTax} placeholder="ยังไม่คำนวณ" onChange={(raw) => updateTaxInputs({ firstHalfAssessedTaxOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              </label>
+              <label className="text-[10px] font-bold text-brand-muted">ภาษีประเมิน — ทั้งปี (ภ.ง.ด.90)
+                <NumberInput value={fullYearAssessedTax} placeholder="ยังไม่คำนวณ" onChange={(raw) => updateTaxInputs({ fullYearAssessedTaxOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              </label>
             </div>
+          </div>
 
-            <div className={`p-5 rounded-[14px] border ${isFullFilingRequired ? 'bg-brand-yellow-bg/30 border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-white dark:bg-neutral-900 border-brand-border/40 text-brand-text'} flex flex-col justify-between shadow-sm`}>
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div>
-                  <h4 className="text-sm font-extrabold text-brand-text dark:text-white flex items-center gap-1.5">
-                    <FileCheck className={`w-4 h-4 ${isFullFilingRequired ? 'text-brand-yellow-acc' : 'text-brand-muted'}`} />
-                    แบบภาษีเงินได้สิ้นปี (ภ.ง.ด. 90)
-                  </h4>
-                  <p className="text-[11px] text-brand-muted mt-1 leading-relaxed">
-                    ยื่นช่วง ม.ค. - มี.ค. ของปีถัดไป เป็นการนำรายได้สะสมทั้งปีมาหักลดหย่อนเพื่อประมวลผลการคำนวณชำระสุทธิ
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Mascot mood={isFullFilingRequired ? "alert" : "happy"} size={32} />
-                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border shrink-0 ${isFullFilingRequired ? 'bg-brand-yellow-bg border-brand-yellow-acc/20 text-brand-yellow-acc' : 'bg-brand-green-bg border-brand-green-acc/20 text-brand-green-acc'}`}>
-                    {isFullFilingRequired ? 'ต้องยื่นแบบภาษี' : 'ยังไม่ต้องยื่น'}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-4 pt-3 border-t border-brand-border/20 flex items-center justify-between text-[11px]">
-                <span className="text-brand-muted font-semibold">เกณฑ์ยื่นแบบ: รายได้รวมทั้งปีมากกว่า 60,000 บาท</span>
-                <span className={`font-bold ${isFullFilingRequired ? 'text-brand-yellow-acc' : 'text-brand-green-acc'}`}>
-                  {isFullFilingRequired ? 'แนะนำให้ยื่นภายในกำหนด' : 'รายได้ไม่ถึงเกณฑ์ยื่น'}
-                </span>
-              </div>
+          <div className="mb-6 rounded-[14px] border border-brand-border/40 dark:border-neutral-800 p-5">
+            <h3 className="text-sm font-bold text-brand-text dark:text-white">เครดิตภาษีที่จ่ายไว้แล้ว</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">ยอดหัก ณ ที่จ่ายจากรายการรับเงินเป็นเพียงค่าประมาณ เพราะงานหนึ่งมียอดหักรวมเดียว เว้นว่างเพื่อใช้ค่าประมาณ หรือกรอกยอดจริงจากใบ 50 ทวิ</p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <label className="text-[10px] font-bold text-brand-muted">หัก ณ ที่จ่ายจริง — ครึ่งปี
+                <NumberInput value={taxInputs.firstHalfWhtCreditOverride} placeholder={`ประมาณ ${derivedFirstHalfWhtCredit.toLocaleString()}`} onChange={(raw) => updateTaxInputs({ firstHalfWhtCreditOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              </label>
+              <label className="text-[10px] font-bold text-brand-muted">หัก ณ ที่จ่ายจริง — ทั้งปี
+                <NumberInput value={taxInputs.fullYearWhtCreditOverride} placeholder={`ประมาณ ${derivedFullYearWhtCredit.toLocaleString()}`} onChange={(raw) => updateTaxInputs({ fullYearWhtCreditOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              </label>
+              <label className="text-[10px] font-bold text-brand-muted">ชำระไว้ตาม ภ.ง.ด.93
+                <NumberInput value={pnd93Paid || ''} placeholder="0" onChange={(raw) => updateTaxInputs({ pnd93Paid: amountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              </label>
+              <label className="text-[10px] font-bold text-brand-muted">ชำระไว้ตาม ภ.ง.ด.94
+                <NumberInput value={pnd94Paid || ''} placeholder="0" onChange={(raw) => updateTaxInputs({ pnd94Paid: amountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              </label>
+              <label className="text-[10px] font-bold text-brand-muted">เครดิตภาษีอื่นที่ยืนยันได้
+                <NumberInput value={otherTaxCredits || ''} placeholder="0" onChange={(raw) => updateTaxInputs({ otherTaxCredits: amountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              </label>
             </div>
           </div>
 
@@ -946,14 +795,14 @@ export default function TaxTab({
                     <td className="py-2 px-3 text-right font-mono font-bold text-brand-text dark:text-neutral-100">{formatCurrency(fullRevenue)}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10">
-                    <td className="py-2 px-3 font-semibold text-brand-muted">หัก ค่าใช้จ่ายสะสม</td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-pink-acc">-{formatCurrency(h1Expense)}</td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-pink-acc">-{formatCurrency(fullExpense)}</td>
+                    <td className="py-2 px-3 font-semibold text-brand-muted">หัก ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว</td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-pink-acc">{h1ExpenseReady ? `-${formatCurrency(h1Expense)}` : 'ยังไม่กรอก'}</td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-pink-acc">{fullExpenseReady ? `-${formatCurrency(fullExpense)}` : 'ยังไม่กรอก'}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10 bg-brand-faint/20 dark:bg-neutral-800/20 font-bold">
                     <td className="py-2 px-3 text-brand-text dark:text-neutral-100">เงินได้หลังหักใช้จ่าย</td>
-                    <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(Math.max(0, h1Revenue - h1Expense))}</td>
-                    <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(Math.max(0, fullRevenue - fullExpense))}</td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{h1ExpenseReady ? formatCurrency(Math.max(0, h1Revenue - h1Expense)) : 'ยังไม่คำนวณ'}</td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{fullExpenseReady ? formatCurrency(Math.max(0, fullRevenue - fullExpense)) : 'ยังไม่คำนวณ'}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10">
                     <td className="py-2 px-3 font-semibold text-brand-muted">หัก ลดหย่อนส่วนตัว</td>
@@ -970,30 +819,38 @@ export default function TaxTab({
                   </tr>
                   <tr className="hover:bg-brand-faint/10 bg-brand-faint/40 dark:bg-neutral-800/40 font-black border-t border-brand-border/40 dark:border-neutral-800">
                     <td className="py-3 px-3 text-brand-text dark:text-white text-xs">เงินได้สุทธิประเมิน</td>
-                    <td className="py-3 px-3 text-right font-mono text-brand-blue-acc dark:text-brand-blue-acc text-sm">{formatCurrency(h1NetIncome)}</td>
-                    <td className="py-3 px-3 text-right font-mono text-purple-600 dark:text-purple-400 text-sm">{formatCurrency(fullNetIncome)}</td>
+                    <td className="py-3 px-3 text-right font-mono text-brand-blue-acc dark:text-brand-blue-acc text-sm">{h1ExpenseReady ? formatCurrency(h1NetIncome) : 'ยังไม่คำนวณ'}</td>
+                    <td className="py-3 px-3 text-right font-mono text-purple-600 dark:text-purple-400 text-sm">{fullExpenseReady ? formatCurrency(fullNetIncome) : 'ยังไม่คำนวณ'}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10 text-brand-muted">
                     <td className="py-2 px-3">อัตราภาษีสูงสุด (%)</td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-text dark:text-neutral-200">{h1MaxRate}%</td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-text dark:text-neutral-200">{fullMaxRate}%</td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-text dark:text-neutral-200">{h1ExpenseReady ? `${h1MaxRate}%` : '—'}</td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-text dark:text-neutral-200">{fullExpenseReady ? `${fullMaxRate}%` : '—'}</td>
                   </tr>
-                  <tr className="bg-brand-faint/50 dark:bg-neutral-850 font-extrabold border-t-2 border-brand-border dark:border-neutral-800">
-                    <td className="py-3.5 px-3 text-emerald-600 dark:text-emerald-400 text-xs">ภาษีประเมินสุทธิ</td>
-                    <td className="py-3.5 px-3 text-right font-mono text-brand-text dark:text-white text-base">
-                      {h1TaxDetails.totalTax > 0 ? (
-                        <span className="text-brand-yellow-acc">{formatCurrency(h1TaxDetails.totalTax)}</span>
-                      ) : (
-                        <span className="text-emerald-600 dark:text-emerald-400">฿0.00</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-mono text-brand-text dark:text-white text-base">
-                      {fullTaxDetails.totalTax > 0 ? (
-                        <span className="text-brand-yellow-acc">{formatCurrency(fullTaxDetails.totalTax)}</span>
-                      ) : (
-                        <span className="text-emerald-600 dark:text-emerald-400">฿0.00</span>
-                      )}
-                    </td>
+                  <tr className="border-t-2 border-brand-border dark:border-neutral-800">
+                    <td className="py-2.5 px-3 font-semibold text-brand-text dark:text-white">ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-brand-yellow-acc">{formattedTaxResult(h1Settlement, 'assessedTax')}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-brand-yellow-acc">{formattedTaxResult(fullSettlement, 'assessedTax')}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 text-brand-muted">หัก เครดิตภาษีหัก ณ ที่จ่าย</td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-600">-{formatCurrency(firstHalfWhtCredit)}</td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-600">-{formatCurrency(fullYearWhtCredit)}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 text-brand-muted">หัก ภาษีที่ชำระไว้และเครดิตอื่น</td>
+                    <td className="py-2 px-3 text-right font-mono text-brand-muted">—</td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-600">-{formatCurrency(pnd93Paid + pnd94Paid + otherTaxCredits)}</td>
+                  </tr>
+                  <tr className="bg-brand-faint/50 dark:bg-neutral-850 font-extrabold">
+                    <td className="py-3.5 px-3 text-[#C24A16] dark:text-[#F0997B] text-xs">คาดว่าต้องชำระเพิ่ม</td>
+                    <td className="py-3.5 px-3 text-right font-mono text-[#C24A16] dark:text-[#F0997B] text-base">{formattedTaxResult(h1Settlement, 'due')}</td>
+                    <td className="py-3.5 px-3 text-right font-mono text-[#C24A16] dark:text-[#F0997B] text-base">{formattedTaxResult(fullSettlement, 'due')}</td>
+                  </tr>
+                  <tr className="bg-brand-green-bg/30 font-extrabold">
+                    <td className="py-3 px-3 text-emerald-700 dark:text-emerald-400 text-xs">คาดว่าชำระไว้เกิน</td>
+                    <td className="py-3 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400">{formattedTaxResult(h1Settlement, 'overpayment')}</td>
+                    <td className="py-3 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400">{formattedTaxResult(fullSettlement, 'overpayment')}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1001,9 +858,10 @@ export default function TaxTab({
 
             {/* Progressive brackets display */}
             <div className="mt-5 space-y-2 bg-brand-faint/30 dark:bg-neutral-850 p-4 rounded-2xl border border-brand-border/20 dark:border-neutral-800/40">
-              <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-brand-muted">รายละเอียดอัตราภาษีขั้นบันไดแบบสะสม (ทั้งปี)</h4>
+              <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-brand-muted">ข้อมูลประกอบ: อัตราภาษีก้าวหน้า (ยังไม่รวมภาษีขั้นต่ำทางเลือก)</h4>
+              {!fullExpenseReady && <p className="text-[10px] font-bold text-brand-yellow-acc">กรอกค่าใช้จ่ายหักได้ที่ตรวจสอบแล้วทั้งสองครึ่งปีก่อนดูตัวอย่างอัตราก้าวหน้า</p>}
               <div className="space-y-1.5 mt-2.5">
-                {fullTaxDetails.breakdown.map((b, idx) => (
+                {fullExpenseReady && fullTaxDetails.breakdown.map((b, idx) => (
                   <div key={idx} className="flex justify-between items-center text-[11px] font-mono">
                     <span className="text-brand-muted font-semibold">{b.range}</span>
                     <span className="text-brand-text dark:text-neutral-200 font-bold">
@@ -1011,7 +869,7 @@ export default function TaxTab({
                     </span>
                   </div>
                 ))}
-                {fullTaxDetails.breakdown.length === 0 && (
+                {fullExpenseReady && fullTaxDetails.breakdown.length === 0 && (
                   <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5 py-1">
                     <CheckSquare className="w-3.5 h-3.5 shrink-0" />
                     <span>เงินได้สุทธิอยู่ในเกณฑ์ยกเว้นภาษีทั้งหมด</span>
@@ -1186,12 +1044,12 @@ export default function TaxTab({
                   <div>
                     <h3 className="font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">ข้อมูลผู้ยื่นประเมิน</h3>
                     <p className="font-bold text-slate-800">ผู้ใช้งานแอปพลิเคชันหลัก</p>
-                    <p className="text-slate-500 mt-0.5">ประเภทการหักค่าใช้จ่าย: {deductionMethod === 'เหมา' ? 'หักแบบเหมา 60% ตามสิทธิมาตรฐาน' : 'หักตามความจำเป็นจริง'}</p>
+                    <p className="text-slate-500 mt-0.5">ค่าใช้จ่าย: กรอกยอดหักได้ที่ตรวจสอบแล้วเท่านั้น</p>
                   </div>
                   <div className="text-right">
                     <h3 className="font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">วันที่ออกเอกสาร</h3>
                     <p className="font-mono text-slate-800 font-semibold">{new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                    <p className="text-slate-500 mt-0.5">สถานะ: วางแผนเสร็จเรียบร้อย</p>
+                    <p className="text-slate-500 mt-0.5">สถานะ: เอกสารประกอบการตรวจสอบก่อนยื่น</p>
                   </div>
                 </div>
 
@@ -1249,9 +1107,9 @@ export default function TaxTab({
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">{formatCurrency(fullRevenue)}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-3 text-slate-500">หัก ค่าใช้จ่ายสิทธิ์กฎหมาย ({deductionMethod === 'เหมา' ? 'เหมา 60%' : 'ตามจริง'})</td>
-                        <td className="py-2 px-3 text-right font-mono text-red-600">-{formatCurrency(h1Expense)}</td>
-                        <td className="py-2 px-3 text-right font-mono text-red-600">-{formatCurrency(fullExpense)}</td>
+                        <td className="py-2 px-3 text-slate-500">หัก ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว</td>
+                        <td className="py-2 px-3 text-right font-mono text-red-600">{h1ExpenseReady ? `-${formatCurrency(h1Expense)}` : 'ยังไม่กรอก'}</td>
+                        <td className="py-2 px-3 text-right font-mono text-red-600">{fullExpenseReady ? `-${formatCurrency(fullExpense)}` : 'ยังไม่กรอก'}</td>
                       </tr>
                       <tr>
                         <td className="py-2 px-3 text-slate-500">หัก สิทธิ์ลดหย่อนส่วนตัว</td>
@@ -1265,18 +1123,33 @@ export default function TaxTab({
                       </tr>
                       <tr className="bg-slate-50 font-bold border-t border-slate-300">
                         <td className="py-2.5 px-3 text-slate-900 font-extrabold">เงินได้สุทธิประเมิน</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-blue-600 text-sm">{formatCurrency(h1NetIncome)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-violet-700 text-sm">{formatCurrency(fullNetIncome)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-blue-600 text-sm">{h1ExpenseReady ? formatCurrency(h1NetIncome) : 'ยังไม่คำนวณ'}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-violet-700 text-sm">{fullExpenseReady ? formatCurrency(fullNetIncome) : 'ยังไม่คำนวณ'}</td>
                       </tr>
                       <tr className="text-slate-500">
                         <td className="py-2 px-3">อัตราภาษีสูงสุดที่ถึง</td>
-                        <td className="py-2 px-3 text-right font-mono">{h1MaxRate}%</td>
-                        <td className="py-2 px-3 text-right font-mono">{fullMaxRate}%</td>
+                        <td className="py-2 px-3 text-right font-mono">{h1ExpenseReady ? `${h1MaxRate}%` : '—'}</td>
+                        <td className="py-2 px-3 text-right font-mono">{fullExpenseReady ? `${fullMaxRate}%` : '—'}</td>
+                      </tr>
+                      <tr className="border-t-2 border-slate-400">
+                        <td className="py-2 px-3 text-slate-700">ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ</td>
+                        <td className="py-2 px-3 text-right font-mono">{formattedTaxResult(h1Settlement, 'assessedTax')}</td>
+                        <td className="py-2 px-3 text-right font-mono">{formattedTaxResult(fullSettlement, 'assessedTax')}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-3 text-slate-500">หัก รวมเครดิตภาษี</td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-700">{h1Settlement ? `-${formatCurrency(h1Settlement.totalCredits)}` : 'ยังไม่คำนวณ'}</td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-700">{fullSettlement ? `-${formatCurrency(fullSettlement.totalCredits)}` : 'ยังไม่คำนวณ'}</td>
                       </tr>
                       <tr className="bg-slate-900 text-white font-extrabold border-t-2 border-slate-900">
-                        <td className="py-3 px-3 text-emerald-400">ประมาณการยอดภาษีที่ต้องชำระ</td>
-                        <td className="py-3 px-3 text-right font-mono text-emerald-400 text-base">{formatCurrency(h1TaxDetails.totalTax)}</td>
-                        <td className="py-3 px-3 text-right font-mono text-emerald-400 text-base">{formatCurrency(fullTaxDetails.totalTax)}</td>
+                        <td className="py-3 px-3 text-emerald-400">คาดว่าต้องชำระเพิ่ม</td>
+                        <td className="py-3 px-3 text-right font-mono text-emerald-400 text-base">{formattedTaxResult(h1Settlement, 'due')}</td>
+                        <td className="py-3 px-3 text-right font-mono text-emerald-400 text-base">{formattedTaxResult(fullSettlement, 'due')}</td>
+                      </tr>
+                      <tr className="bg-emerald-50 font-bold">
+                        <td className="py-2 px-3 text-emerald-800">คาดว่าชำระไว้เกิน</td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-800">{formattedTaxResult(h1Settlement, 'overpayment')}</td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-800">{formattedTaxResult(fullSettlement, 'overpayment')}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1285,8 +1158,10 @@ export default function TaxTab({
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-[10px] text-slate-500 leading-relaxed">
                   <p className="font-bold text-slate-800 text-xs mb-1">หมายเหตุประกอบการรายงาน:</p>
-                  1. การวิเคราะห์นี้อิงฐานอัตราการคำนวณขั้นบันไดบุคคลธรรมดาของประเทศไทย และกลุ่มประเภทสิทธิหักเหมาอาชีพอิสระ/งานฟรีแลนซ์ทั่วไปในระบบ<br />
-                  2. รายงานเล่มนี้จัดทำขึ้นและแสดงผลโดยเจตนาเพื่ออำนวยความสะดวกในการจัดหมวดหมู่และวางแผนเท่านั้น ไม่รับรองความถูกต้องสมบูรณ์แทนเอกสารของกรมสรรพากร
+                  1. รายงานนับรายได้ก่อนหัก ณ ที่จ่ายตามวันรับเงินจริง และหักเครดิตภาษีที่บันทึกไว้<br />
+                  2. รายจ่ายในบัญชีเป็นเพียงข้อมูลอ้างอิง ค่าใช้จ่ายหักได้ต้องกรอกเป็นยอดที่ตรวจสอบแล้ว<br />
+                  3. ตัวอย่างอัตราก้าวหน้าไม่รวมภาษีขั้นต่ำทางเลือก ยอดชำระ/ชำระไว้เกินจะแสดงเมื่อกรอกภาษีประเมินจากแบบปัจจุบันหรือผู้เชี่ยวชาญเท่านั้น<br />
+                  4. เอกสารนี้มีไว้วางแผนและตรวจสอบก่อนยื่น ไม่แทนแบบหรือคำแนะนำของกรมสรรพากร
                 </div>
 
                 <div className="flex justify-end gap-2.5 print:hidden pt-4 border-t border-slate-100">

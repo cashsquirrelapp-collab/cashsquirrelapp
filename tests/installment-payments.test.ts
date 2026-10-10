@@ -55,9 +55,9 @@ test('quick-pay outstanding amount ignores workflow labels and includes every un
   assert.equal(getOutstandingAmount(fullyPaid), 0);
 });
 
-test('legacy one-time jobs keep their aggregate behavior', () => {
+test('legacy one-time jobs keep the balance due while an undated partial receipt stays out of monthly cash', () => {
   const legacy: Job = { ...installmentJob, id: 'job-2', installments: undefined, received: 20_000, pending: 5_000, payDate: '2026-09-20' };
-  assert.equal(getReceivedForMonth(legacy, '2026-09'), 20_000);
+  assert.equal(getReceivedForMonth(legacy, '2026-09'), 0);
   assert.equal(getPendingForMonth(legacy, '2026-09'), 5_000);
 });
 
@@ -119,10 +119,22 @@ test('a deposit counts in the month it was received, not the remaining balance d
   assert.equal(computeMonthlySummary([paidLater], [], [], {}, '2026-10').received, 4_000);
 });
 
-test('jobs without a recorded deposit date keep the old single-date behavior', () => {
+test('a partial receipt without a recorded deposit date is not invented on the balance due date', () => {
   const legacyPartial: Job = { ...installmentJob, id: 'job-4', installments: undefined, received: 3_000, pending: 2_000, payDate: '2026-10-01' };
-  assert.equal(getReceivedForMonth(legacyPartial, '2026-10'), 3_000);
-  assert.equal(computeMonthlySummary([legacyPartial], [], [], {}, '2026-10').received, 3_000);
+  assert.equal(getReceivedForMonth(legacyPartial, '2026-10'), 0);
+  assert.equal(computeMonthlySummary([legacyPartial], [], [], {}, '2026-10').received, 0);
+  assert.equal(getJobPaymentEntries(legacyPartial)[0].date, null);
+});
+
+test('a paid installment without paidAt stays undated instead of falling back to the job due date', () => {
+  const undatedPaid: Job = {
+    ...installmentJob,
+    installments: [{ id: 'legacy-paid', label: 'งวดเก่า', amount: 3_000, dueDate: '2026-09-01', paidAt: null, status: 'paid' }],
+    received: 3_000,
+    pending: 0,
+  };
+  assert.equal(getJobPaymentEntries(undatedPaid)[0].date, null);
+  assert.equal(getReceivedForMonth(undatedPaid, '2026-09'), 0);
 });
 
 test('a logged bill that is also a fixed item counts once in its month', () => {

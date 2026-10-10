@@ -76,6 +76,8 @@ export interface GoalTransaction {
   reason: string; // สาเหตุ / หักค่าอะไร / หมายเหตุ
   note?: string; // หมายเหตุเพิ่มเติม
   createdAt?: string; // ISO string
+  balanceBefore?: number; // balance observed when a standalone withdrawal was applied; marks safely reversible post-fix rows
+  transferId?: string; // shared correlation id for the two legs of one goal-to-goal transfer
   relatedGoalId?: string; // if this transaction is one leg of a transfer between goals, the other goal's id
   relatedGoalName?: string; // snapshot of the other goal's name at the time of transfer (for display even if that goal is later renamed/deleted)
   deductedFromCash?: boolean; // set on a deposit funded from tracked income -- counted against cash-on-hand totals directly (never as a fake Expense, since a savings transfer isn't a real expense and would pollute tax/expense reports)
@@ -103,6 +105,36 @@ export interface FixedExpenseItem {
   amount: number;
 }
 
+export type TaxAllowanceKey = 'life_insurance' | 'health_insurance' | 'rmf' | 'thai_esg' | 'social_security' | 'child' | 'parent';
+
+export interface TaxAllowanceInput {
+  key: TaxAllowanceKey;
+  value: number;
+  quantity?: number;
+}
+
+/** User-entered tax-planning values. System receipts and expenses stay derived from their ledgers. */
+export interface TaxYearInputs {
+  firstHalfOtherRevenue?: number;
+  secondHalfOtherRevenue?: number;
+  deductionMethod?: 'เหมา' | 'ตามจริง';
+  firstHalfJobsRevenueOverride?: number;
+  secondHalfJobsRevenueOverride?: number;
+  firstHalfActualExpenseOverride?: number;
+  secondHalfActualExpenseOverride?: number;
+  allowances?: TaxAllowanceInput[];
+  checklist?: Record<string, boolean>;
+  firstHalfWhtCreditOverride?: number;
+  fullYearWhtCreditOverride?: number;
+  /** Assessed tax copied from the current official PND94 form or confirmed by a tax adviser. */
+  firstHalfAssessedTaxOverride?: number;
+  /** Assessed tax copied from the current official PND90 form or confirmed by a tax adviser. */
+  fullYearAssessedTaxOverride?: number;
+  pnd93Paid?: number;
+  pnd94Paid?: number;
+  otherTaxCredits?: number;
+}
+
 export interface AppSettings {
   monthlyExpense: number; // kept in sync as the sum of fixedExpenseItems whenever that list is edited
   fixedExpenseItems?: FixedExpenseItem[]; // itemized breakdown of the fixed monthly cost
@@ -118,7 +150,9 @@ export interface AppSettings {
     socialSecurity?: number;
     otherAllowances?: number;
   };
-  accumulatedRemainder?: number; // stores leftover Bahts from calculations
+  /** Tax-planning inputs keyed by Gregorian tax year, e.g. "2026". */
+  taxInputsByYear?: Record<string, TaxYearInputs>;
+  accumulatedRemainder?: number; // deprecated legacy mirror of live unallocated profit; cleared on the next settings/allocation write
   profileSetupCompleted?: boolean; // whether the first-time account setup wizard has been completed
   profileJobTypes?: string[]; // selected job type tags from the setup wizard (profile info only)
   profileJobTypeOther?: string; // free-text entry when 'other' job type is selected

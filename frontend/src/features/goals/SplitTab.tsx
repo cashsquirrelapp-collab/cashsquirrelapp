@@ -9,6 +9,7 @@ import { GOAL_ICONS, goalIconKey } from './goalIcons';
 import { stripEmoji, Drawer, GoalAvatar, ProgressBar, goalPct, pctText, field, label, primaryBtn, secondaryBtn } from './SplitParts';
 import { getReceivedForMonth } from '../../../../shared/installmentPayments';
 import { fixedExpenseForMonth } from '../../../../shared/monthlySummary';
+import { canDeleteGoalTransactionHistoryOnly } from '../../../../shared/goalLedger';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   PiggyBank, 
@@ -74,10 +75,10 @@ interface SplitTabProps {
   expenses: Expense[];
   settings: AppSettings;
   onAddGoal: (goal: Omit<Goal, 'id'>) => void;
-  onDeleteGoal: (id: string) => void;
-  onUpdateGoalProgress: (id: string, amount: number, reason?: string, date?: string, deductFromCash?: boolean) => void;
+  onDeleteGoal: (id: string) => boolean;
+  onUpdateGoalProgress: (id: string, amount: number, reason?: string, date?: string, deductFromCash?: boolean) => boolean;
   onDeleteGoalTransaction?: (goalId: string, txId: string, revertBalance?: boolean) => void;
-  onTransferBetweenGoals: (fromGoalId: string, toGoalId: string, amount: number, reason?: string, date?: string) => void;
+  onTransferBetweenGoals: (fromGoalId: string, toGoalId: string, amount: number, reason?: string, date?: string) => boolean;
   onUpdateGoal: (id: string, updatedFields: Partial<Goal>) => void;
   onAllocateSavingsToGoal: (goalId: string, amount: number) => void;
   onAllocateMultipleSavings: (allocations: Record<string, number>, settingsUpdate?: Partial<AppSettings>) => void;
@@ -103,53 +104,71 @@ interface SplitTabProps {
 }
 
 /**
- * The automatic split: share the money among goals that have a percentage and are not full yet,
- * in proportion to their percentages (relative to each other), capping each goal at its target
- * and passing the overflow on. Whatever cannot go anywhere is returned as the remainder.
+ * Allocate each configured percentage as an absolute share of the available money. The shares
+ * are rounded to whole baht with a deterministic largest-remainder pass, so e.g. 25% + 15% of
+ * ฿5,150 allocates exactly 40% (฿2,060), not the whole ฿5,150. A full goal never makes another
+ * goal exceed its configured share; money that is not allocated remains available.
  */
 export function proportionalSplit(goals: Goal[], totalToSplit: number): { allocations: Record<string, number>; remainder: number } {
-  const activeGoals = goals.filter(g => (g.allocatedPercentage || 0) > 0 && g.current < g.target);
-  let remainingToDistribute = totalToSplit;
-  const allocations: Record<string, number> = {};
-  goals.forEach(g => { allocations[g.id] = 0; });
+  const total = Number.isFinite(totalToSplit) ? Math.max(0, totalToSplit) : 0;
+  const allocations = Object.fromEntries(goals.map(g => [g.id, 0])) as Record<string, number>;
+  const candidates = goals.map(g => ({
+    goal: g,
+    pct: Math.min(100, Math.max(0, Number(g.allocatedPercentage) || 0)),
+    capacity: Math.max(0, Number(g.target) - Number(g.current)),
+  })).filter(row => row.pct > 0 && row.capacity > 0);
 
-  let changed = true;
-  while (changed && remainingToDistribute > 0) {
-    changed = false;
-    const nonCappedActiveGoals = activeGoals.filter(g => {
-      const currentAlloc = allocations[g.id] || 0;
-      return (g.current + currentAlloc) < g.target;
-    });
+  const configuredPct = candidates.reduce((sum, row) => sum + row.pct, 0);
+  if (total <= 0 || configuredPct <= 0) return { allocations, remainder: total };
 
-    if (nonCappedActiveGoals.length === 0) break;
+  // The editor prevents totals over 100%; the scale is a final safety net for imported legacy
+  // data so this helper can never allocate more money than is actually available.
+  const scale = configuredPct > 100 ? 100 / configuredPct : 1;
+  const plannedTotal = Math.floor((total * Math.min(100, configuredPct)) / 100 + Number.EPSILON);
+  const shares = candidates.map(row => {
+    const exact = total * ((row.pct * scale) / 100);
+    const floored = Math.floor(exact + Number.EPSILON);
+    return { ...row, exact, floored, fraction: exact - floored };
+  });
 
-    const activeTotalPct = nonCappedActiveGoals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
+  // First place each whole-baht quota. Target caps reduce that goal only; they do not silently
+  // inflate another goal beyond its configured percentage.
+  shares.forEach(row => {
+    allocations[row.goal.id] = Math.min(row.capacity, row.floored);
+  });
 
-    for (const g of nonCappedActiveGoals) {
-      if (remainingToDistribute <= 0) break;
-      const pct = g.allocatedPercentage || 0;
-      const share = pct / activeTotalPct;
-      const amountToGive = Math.min(
-        g.target - (g.current + allocations[g.id]),
-        Math.floor(remainingToDistribute * share)
-      );
-      if (amountToGive > 0) {
-        allocations[g.id] += amountToGive;
-        remainingToDistribute -= amountToGive;
-        changed = true;
-      }
-    }
-
-    if (!changed && remainingToDistribute > 0) {
-      for (const g of nonCappedActiveGoals) {
-        if (remainingToDistribute <= 0) break;
-        allocations[g.id] += 1;
-        remainingToDistribute -= 1;
-        changed = true;
-      }
+  // Whole-baht rounding can leave at most one baht per goal. Award those baht deterministically
+  // by fractional remainder, then percentage and id so reordering the goals cannot change money.
+  let roundingBaht = Math.max(0, plannedTotal - shares.reduce((sum, row) => sum + row.floored, 0));
+  const roundingOrder = [...shares].sort((a, b) =>
+    (b.fraction - a.fraction) || (b.pct - a.pct) || a.goal.id.localeCompare(b.goal.id)
+  );
+  for (const row of roundingOrder) {
+    if (roundingBaht <= 0) break;
+    if (row.fraction > 0 && row.capacity - allocations[row.goal.id] >= 1) {
+      allocations[row.goal.id] += 1;
+      roundingBaht -= 1;
     }
   }
-  return { allocations, remainder: remainingToDistribute };
+
+  const allocated = Object.values(allocations).reduce((sum, amount) => sum + amount, 0);
+  return { allocations, remainder: Math.max(0, total - allocated) };
+}
+
+/**
+ * `accumulatedRemainder` used to mirror money that is now already present in live net profit.
+ * Keep the legacy argument explicit so old snapshots are demonstrably ignored, not added twice.
+ */
+export function percentageAllocationPool(netProfit: number, _legacyAccumulatedRemainder = 0): number {
+  return Number.isFinite(netProfit) ? Math.max(0, netProfit) : 0;
+}
+
+/** Final guard for editable allocation inputs, including imported legacy ratios over 100%. */
+export function allocationsFitAvailable(allocations: Record<string, number>, available: number): boolean {
+  if (!Number.isFinite(available) || available < 0) return false;
+  const amounts = Object.values(allocations);
+  if (amounts.some(amount => !Number.isFinite(amount) || amount < 0)) return false;
+  return amounts.reduce((sum, amount) => sum + amount, 0) <= available + 0.001;
 }
 
 export default function SplitTab({
@@ -177,7 +196,7 @@ export default function SplitTab({
   onClearInitialGoalId,
   selectedMonthKey,
 }: SplitTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   // The page browses months on its own; App's selectedMonthKey is only the starting point.
   const [viewMonth, setViewMonth] = useState(selectedMonthKey);
   const currentMonthKey = viewMonth;
@@ -228,13 +247,7 @@ export default function SplitTab({
 
   // Initialize custom allocations map to automatically calculated amounts based on each goal's custom percentage quota!
   useEffect(() => {
-    const initial: Record<string, number> = {};
-    goals.forEach(g => {
-      const pct = g.allocatedPercentage || 0;
-      const autoAmt = Math.min(g.target - g.current, Math.floor(netProfit * (pct / 100)));
-      initial[g.id] = Math.max(0, autoAmt);
-    });
-    setCustomAllocations(initial);
+    setCustomAllocations(proportionalSplit(goals, netProfit).allocations);
   }, [goals, netProfit]);
 
   const totalCustomAllocated = useMemo(() => {
@@ -245,13 +258,7 @@ export default function SplitTab({
 
   const handleApplyPresetSplit = () => {
     // This is now "Auto Allocation based on custom goal percentages"
-    const next: Record<string, number> = {};
-    goals.forEach(g => {
-      const pct = g.allocatedPercentage || 0;
-      const autoAmt = Math.min(g.target - g.current, Math.floor(netProfit * (pct / 100)));
-      next[g.id] = Math.max(0, autoAmt);
-    });
-    setCustomAllocations(next);
+    setCustomAllocations(proportionalSplit(goals, netProfit).allocations);
   };
 
   const handleApplyEqualSplit = () => {
@@ -273,6 +280,15 @@ export default function SplitTab({
   };
 
   const handleConfirmAllocations = () => {
+    if (!allocationsFitAvailable(customAllocations, netProfit)) {
+      triggerAlert(
+        t('split.insufficientFundsTitle'),
+        language === 'en'
+          ? `The total allocation cannot exceed this month's available ${formatCurrency(netProfit)}.`
+          : `ยอดจัดสรรรวมต้องไม่เกินเงินพร้อมจัดสรรเดือนนี้ ${formatCurrency(netProfit)}`
+      );
+      return;
+    }
     let allocatedCount = 0;
     const currentAllocationsRecord: Record<string, number> = {};
     (Object.entries(customAllocations) as [string, number][]).forEach(([goalId, amount]) => {
@@ -286,7 +302,7 @@ export default function SplitTab({
       // netProfit above is derived live from deductedFromCash deposit history, so no separate
       // settings bookkeeping is needed here -- handleAllocateMultipleSavings marks the goal
       // transactions it creates as deductedFromCash itself.
-      onAllocateMultipleSavings(currentAllocationsRecord);
+      onAllocateMultipleSavings(currentAllocationsRecord, { accumulatedRemainder: 0 });
 
       triggerAlert(
         t('split.allocateSuccessTitle'),
@@ -299,8 +315,9 @@ export default function SplitTab({
   };
 
   const handleQuickProportionalAllocation = () => {
-    const accumulatedRemainder = settings.accumulatedRemainder || 0;
-    const totalToSplit = netProfit + accumulatedRemainder;
+    // A configured percentage applies only to this month's live remaining profit. The legacy
+    // accumulatedRemainder field mirrors that same cash, so percentageAllocationPool ignores it.
+    const totalToSplit = percentageAllocationPool(netProfit, settings.accumulatedRemainder);
 
     if (totalToSplit <= 0) {
       triggerAlert(
@@ -321,7 +338,7 @@ export default function SplitTab({
     }
 
     const { allocations, remainder: finalRemainder } = proportionalSplit(goals, totalToSplit);
-    const totalAllocatedToGoals = totalToSplit - finalRemainder;
+    const totalAllocatedToGoals = Object.values(allocations).reduce((sum, amount) => sum + amount, 0);
 
     if (totalAllocatedToGoals <= 0) {
       triggerAlert(
@@ -336,13 +353,9 @@ export default function SplitTab({
       .map(g => t('split.allocationListItem', { emoji: g.emoji || '🎯', name: g.name, amount: formatCurrency(allocations[g.id]), pct: g.allocatedPercentage ?? 0 }))
       .join('\n');
 
-    const messageHtml = t('split.quickAllocateConfirmMsg', {
-      total: formatCurrency(totalToSplit),
-      netProfit: formatCurrency(netProfit),
-      remainder: formatCurrency(accumulatedRemainder),
-      list: allocationsListText,
-      finalRemainder: formatCurrency(finalRemainder),
-    });
+    const messageHtml = language === 'en'
+      ? `You are about to allocate ${formatCurrency(totalAllocatedToGoals)} from this month's available ${formatCurrency(netProfit)}:\n\n${allocationsListText}\n\nThe unallocated ${formatCurrency(finalRemainder)} will remain available this month. Confirm this allocation?`
+      : `คุณกำลังจะจัดสรร ${formatCurrency(totalAllocatedToGoals)} จากเงินพร้อมจัดสรรเดือนนี้ ${formatCurrency(netProfit)}:\n\n${allocationsListText}\n\nเงินที่ยังไม่จัดสรร ${formatCurrency(finalRemainder)} จะยังคงอยู่ในยอดพร้อมจัดสรรเดือนนี้ ยืนยันการจัดสรรหรือไม่?`;
 
     triggerConfirm(
       t('split.quickAllocateConfirmTitle'),
@@ -351,55 +364,16 @@ export default function SplitTab({
         // netProfit above is derived live from deductedFromCash deposit history -- see the
         // comment on handleConfirmAllocations above for why no allocatedMonths bookkeeping
         // belongs here anymore.
-        onAllocateMultipleSavings(allocations, {
-          accumulatedRemainder: finalRemainder
-        });
+        // The unassigned share stays in netProfit, so persisting it as accumulatedRemainder would
+        // add the same cash a second time on the next render.
+        // Writing zero retires stale bookkeeping from older snapshots on the next allocation.
+        onAllocateMultipleSavings(allocations, { accumulatedRemainder: 0 });
 
         triggerAlert(
           t('split.deductSuccessTitle'),
-          t('split.deductSuccessMsg', { amount: formatCurrency(totalAllocatedToGoals), remainder: formatCurrency(finalRemainder) })
-        );
-      }
-    );
-  };
-
-  const handleAllocateRemainderToAnyGoal = () => {
-    const remainder = settings.accumulatedRemainder || 0;
-    if (remainder <= 0) return;
-
-    const nonFullGoals = goals.filter(g => g.current < g.target);
-    if (nonFullGoals.length === 0) {
-      triggerAlert(t('split.allGoalsFullErrorTitle'), t('split.allGoalsFullErrorMsg'));
-      return;
-    }
-
-    const optionsText = nonFullGoals
-      .map((g, idx) => t('split.optionLine', { idx: idx + 1, name: g.name, amount: formatCurrency(g.target - g.current) }))
-      .join('\n');
-
-    triggerPrompt(
-      t('split.dropRemainderPromptTitle', { amount: formatCurrency(remainder) }),
-      t('split.dropRemainderPromptMsg', { options: optionsText }),
-      '1',
-      t('split.typeNumberPlaceholder'),
-      'number',
-      (val) => {
-        const idx = parseInt(val) - 1;
-        if (isNaN(idx) || idx < 0 || idx >= nonFullGoals.length) {
-          triggerAlert(t('split.invalidDataTitle'), t('split.invalidDataMsg'));
-          return;
-        }
-
-        const selected = nonFullGoals[idx];
-        const nextAllocations = { [selected.id]: remainder };
-
-        onAllocateMultipleSavings(nextAllocations, {
-          accumulatedRemainder: 0
-        });
-
-        triggerAlert(
-          t('split.remainderDepositedTitle'),
-          t('split.remainderDepositedMsg', { amount: formatCurrency(remainder), name: selected.name })
+          language === 'en'
+            ? `${formatCurrency(totalAllocatedToGoals)} was added to your goals. ${formatCurrency(finalRemainder)} remains available this month.`
+            : `จัดสรร ${formatCurrency(totalAllocatedToGoals)} เข้าเป้าหมายแล้ว และยังเหลือเงินพร้อมจัดสรรเดือนนี้ ${formatCurrency(finalRemainder)}`
         );
       }
     );
@@ -480,6 +454,17 @@ export default function SplitTab({
       return;
     }
 
+    const latestGoal = goals.find(goal => goal.id === txGoal.id) || txGoal;
+    if (txType === 'withdraw' && amount > latestGoal.current) {
+      triggerAlert(
+        t('split.insufficientBalanceTitle'),
+        language === 'en'
+          ? `"${latestGoal.name}" only has ${formatCurrency(latestGoal.current)} available, so ${formatCurrency(amount)} cannot be withdrawn.`
+          : `เป้าหมาย "${latestGoal.name}" มียอดคงเหลือ ${formatCurrency(latestGoal.current)} จึงไม่สามารถถอน ${formatCurrency(amount)} ได้`
+      );
+      return;
+    }
+
     // "หักออกจากยอดรายรับ" says this money is coming out of income already received this month --
     // it can't exceed what's actually been received (minus whatever's already gone into a goal),
     // or the deposit would be funded by money that doesn't exist. Deliberately checked against
@@ -498,7 +483,8 @@ export default function SplitTab({
     const defaultReason = txType === 'deposit' ? t('split.depositDefaultReason') : t('split.withdrawDefaultReason');
     const finalReason = txReason.trim() || defaultReason;
 
-    onUpdateGoalProgress(txGoal.id, signedAmount, finalReason, txDate, txType === 'deposit' && txDeductFromCash);
+    const saved = onUpdateGoalProgress(txGoal.id, signedAmount, finalReason, txDate, txType === 'deposit' && txDeductFromCash);
+    if (!saved) return;
     setIsTxModalOpen(false);
 
     triggerAlert(
@@ -535,15 +521,21 @@ export default function SplitTab({
       return;
     }
 
-    if (amount > transferFromGoal.current) {
+    const latestFromGoal = goals.find(g => g.id === transferFromGoal.id);
+    if (!latestFromGoal) {
+      triggerAlert(t('split.invalidDataTitle'), t('split.invalidDataMsg'));
+      return;
+    }
+    if (amount > latestFromGoal.current) {
       triggerAlert(
         t('split.insufficientBalanceTitle'),
-        t('split.insufficientBalanceMsg', { name: transferFromGoal.name, balance: formatCurrency(transferFromGoal.current), amount: formatCurrency(amount) })
+        t('split.insufficientBalanceMsg', { name: latestFromGoal.name, balance: formatCurrency(latestFromGoal.current), amount: formatCurrency(amount) })
       );
       return;
     }
 
-    onTransferBetweenGoals(transferFromGoal.id, toGoal.id, amount, transferReason.trim() || undefined, transferDate);
+    const saved = onTransferBetweenGoals(latestFromGoal.id, toGoal.id, amount, transferReason.trim() || undefined, transferDate);
+    if (!saved) return;
     setIsTransferModalOpen(false);
   };
 
@@ -707,11 +699,10 @@ export default function SplitTab({
 
   // ---------- derived view data (display only; every number comes from the logic above) ----------
   const totalExpense = fixedExpenseThisMonth + variableExpenseThisMonth;
-  const carriedRemainder = settings.accumulatedRemainder || 0;
-  const totalToSplit = netProfit + carriedRemainder;
+  const totalToSplit = percentageAllocationPool(netProfit, settings.accumulatedRemainder);
   // The same split the "จัดสรร" button performs, so the preview always matches what it will do.
   const preview = isCurrentMonth && totalToSplit > 0 ? proportionalSplit(goals, totalToSplit) : null;
-  const previewAllocated = preview ? totalToSplit - preview.remainder : 0;
+  const previewAllocated = preview ? Object.values(preview.allocations).reduce((sum, amount) => sum + amount, 0) : 0;
   const unassignedPct = Math.max(0, 100 - totalAllocatedPct);
   const sortedGoals = useMemo(() => {
     const list = [...goals];
@@ -1187,6 +1178,14 @@ export default function SplitTab({
                                       setTxMenuId(null);
                                       triggerConfirm(t('split.deleteHistoryConfirmTitle'), t('split.deleteHistoryConfirmMsg', { reason: stripEmoji(tx.reason || ''), amount: formatCurrency(tx.amount) }), () => onDeleteGoalTransaction(g.id, tx.id, true));
                                     }} className="flex w-full rounded-lg px-3 py-2 text-left text-[13px] text-[#C43A3A] hover:bg-[#FDEEEE] cursor-pointer dark:text-[#F19A9A] dark:hover:bg-[#F19A9A]/10">ลบรายการและคืนยอด</button>
+                                    {canDeleteGoalTransactionHistoryOnly(goals, g.id, tx.id) && <button type="button" role="menuitem" onClick={() => {
+                                      setTxMenuId(null);
+                                      triggerConfirm(
+                                        'ลบเฉพาะประวัติ',
+                                        `ลบรายการ ${formatCurrency(tx.amount)} ออกจากประวัติโดยไม่เปลี่ยนยอดเงินปัจจุบันใช่หรือไม่?`,
+                                        () => onDeleteGoalTransaction(g.id, tx.id, false)
+                                      );
+                                    }} className="flex w-full rounded-lg px-3 py-2 text-left text-[13px] text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer">ลบเฉพาะประวัติ (ไม่คืนยอด)</button>}
                                   </div>
                                 )}
                               </div>
@@ -1199,7 +1198,7 @@ export default function SplitTab({
                 ))}
               </div>
 
-              <button type="button" onClick={() => triggerConfirm(t('split.deleteGoalConfirmTitle'), t('split.deleteGoalConfirmMsg', { name: g.name }), () => { onDeleteGoal(g.id); setSelectedGoal(null); })}
+              <button type="button" onClick={() => triggerConfirm(t('split.deleteGoalConfirmTitle'), t('split.deleteGoalConfirmMsg', { name: g.name }), () => { if (onDeleteGoal(g.id)) setSelectedGoal(null); })}
                 className="inline-flex items-center gap-1.5 text-[13px] text-brand-muted hover:text-[#C43A3A] cursor-pointer">
                 <Trash2 className="h-3.5 w-3.5" /> {t('split.deleteThisGoalBtn')}
               </button>
@@ -1260,12 +1259,6 @@ export default function SplitTab({
               </div>
             </div>
           )}
-          {carriedRemainder > 0 && (
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-brand-border pt-4 text-[13px]">
-              <span className="text-brand-muted">เงินเหลือสะสมจากรอบก่อน <span className="font-mono font-medium text-brand-text">{formatCurrency(carriedRemainder)}</span></span>
-              <button type="button" onClick={handleAllocateRemainderToAnyGoal} className="shrink-0 font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">ใส่เข้าเป้าหมาย</button>
-            </div>
-          )}
           <div className="mt-auto pt-5">
             <button type="button" onClick={() => setManualOpen(true)} disabled={goals.length === 0} className={`${secondaryBtn} w-full`}>
               <PlusCircle className="h-4 w-4" /> ฝากเงินเข้าเป้าหมายเอง
@@ -1314,8 +1307,8 @@ export default function SplitTab({
           <div className="mt-6 flex flex-col gap-3 border-t border-brand-border pt-4 sm:flex-row sm:items-center sm:justify-between">
             {preview && previewAllocated > 0 ? (
               <div className="text-[13px]">
-                <p className="text-brand-muted">พร้อมจัดสรร <span className="font-mono font-medium text-brand-text">{formatCurrency(totalToSplit)}</span>{carriedRemainder > 0 && <> (รวมเงินเหลือสะสม)</>}</p>
-                {preview.remainder > 0 && <p className="mt-0.5 text-brand-muted">เก็บไว้รอบหน้า {formatCurrency(preview.remainder)}</p>}
+                <p className="text-brand-muted">พร้อมจัดสรร <span className="font-mono font-medium text-brand-text">{formatCurrency(totalToSplit)}</span></p>
+                {preview.remainder > 0 && <p className="mt-0.5 text-brand-muted">ยังไม่จัดสรร {formatCurrency(preview.remainder)}</p>}
               </div>
             ) : (
               <p className="text-[13px] text-brand-muted">{!isCurrentMonth ? 'จัดสรรได้เฉพาะเดือนปัจจุบัน' : goals.some(g => (g.allocatedPercentage || 0) > 0) ? 'ตอนนี้ยังไม่มีเงินพร้อมจัดสรร' : 'ตั้งสัดส่วนให้เป้าหมายก่อน แล้วระบบจะแบ่งให้ตามนี้'}</p>

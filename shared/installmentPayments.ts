@@ -15,7 +15,10 @@ export interface JobPendingEntry extends JobPaymentEntry {
   dueDate: string | null;
 }
 
-const fallbackDate = (job: Job) => job.payDate || job.postDate || job.startDate || null;
+// `dueDate` is the legacy alias for `payDate`. Workflow dates are useful only as a last-resort
+// schedule for an outstanding balance; they are never evidence that cash was actually received.
+const dueFallbackDate = (job: Job) => job.payDate || job.dueDate || job.postDate || job.startDate || null;
+const settledReceiptDate = (job: Job) => job.pending <= 0 ? (job.payDate || job.dueDate || null) : null;
 
 export interface ReceivedPart {
   amount: number;
@@ -52,11 +55,13 @@ export const getJobPaymentEntries = (job: Job): JobPaymentEntry[] => {
         client: job.client || '',
         label: row.label,
         amount: row.amount,
-        date: row.paidAt || fallbackDate(job),
+        // A paid flag without paidAt does not establish the receipt date. Keeping this null makes
+        // every monthly/calendar/tax consumer omit the row instead of inventing a cash event.
+        date: row.paidAt || null,
         kind: 'installment' as const,
       }));
   }
-  return splitReceivedByDate(job.received, job.depositAmount, job.depositDate, fallbackDate(job)).map((part) => ({
+  return splitReceivedByDate(job.received, job.depositAmount, job.depositDate, settledReceiptDate(job)).map((part) => ({
     id: `${job.id}-${part.isDeposit ? 'deposit' : 'received'}`,
     jobId: job.id,
     jobName: job.name,
@@ -79,8 +84,8 @@ export const getJobPendingEntries = (job: Job): JobPendingEntry[] => {
         client: job.client || '',
         label: row.label,
         amount: row.amount,
-        date: row.dueDate || fallbackDate(job),
-        dueDate: row.dueDate || fallbackDate(job),
+        date: row.dueDate || dueFallbackDate(job),
+        dueDate: row.dueDate || dueFallbackDate(job),
         kind: 'installment' as const,
       }));
   }
@@ -91,8 +96,8 @@ export const getJobPendingEntries = (job: Job): JobPendingEntry[] => {
     client: job.client || '',
     label: 'ยอดค้างชำระ',
     amount: job.pending,
-    date: fallbackDate(job),
-    dueDate: fallbackDate(job),
+    date: dueFallbackDate(job),
+    dueDate: dueFallbackDate(job),
     kind: 'single',
   }] : [];
 };

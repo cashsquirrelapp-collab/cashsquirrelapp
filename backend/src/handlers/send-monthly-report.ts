@@ -38,8 +38,9 @@ function targetMonthKey(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
+export function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
   const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
+  const netFlowColor = s.netFlow < 0 ? '#B91C1C' : '#3730A3';
   return `
   <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#3D2314;">
     <span style="display:inline-block;background:#ECFDF5;color:#059669;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:6px;">MONTHLY FINANCIAL REPORT</span>
@@ -58,7 +59,7 @@ function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
     </table>
     <div style="margin-top:12px;padding:16px;background:#EEF2FF;border-radius:12px;text-align:center;">
       <div style="font-size:11px;color:#4338CA;font-weight:bold;">กระแสเงินสดสุทธิคงเหลือ (NET CASH FLOW)</div>
-      <div style="font-size:26px;color:#3730A3;font-weight:900;margin-top:4px;">${formatCurrency(Math.max(0, s.netFlow))}</div>
+      <div style="font-size:26px;color:${netFlowColor};font-weight:900;margin-top:4px;">${formatCurrency(s.netFlow)}</div>
     </div>
     <div style="margin-top:20px;padding:16px;background:#FDF6EC;border-radius:12px;">
       <div style="font-size:12px;font-weight:bold;color:#3D2314;margin-bottom:8px;">รายละเอียดการเงินแยกตามส่วน</div>
@@ -77,14 +78,14 @@ function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
 // Condensed plain-text version for LINE -- same numbers as the email. downloadUrl is null when
 // APP_URL isn't configured or the Storage upload failed, in which case this just points back to
 // the email instead of claiming a link exists.
-function buildReportLineText(monthLabel: string, s: MonthlySummary, downloadUrl: string | null): string {
+export function buildReportLineText(monthLabel: string, s: MonthlySummary, downloadUrl: string | null): string {
   const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
   return [
     `📊 สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
     '',
     `รายรับจริง: ${formatCurrency(s.received)}`,
     `รายจ่ายจริง: ${formatCurrency(totalExpense)}`,
-    `กระแสเงินสดสุทธิคงเหลือ: ${formatCurrency(Math.max(0, s.netFlow))}`,
+    `กระแสเงินสดสุทธิคงเหลือ: ${formatCurrency(s.netFlow)}`,
     '',
     'รายละเอียด:',
     `• มูลค่ารวมสัญญาดีลทั้งหมด: ${formatCurrency(s.income)}`,
@@ -102,7 +103,7 @@ function buildReportLineText(monthLabel: string, s: MonthlySummary, downloadUrl:
 // bare URL in a text bubble -- same cream "receipt" visual language as the rest of the app's LINE
 // cards (see api/_lineAssistant.ts's buildReceiptCard/buildStatementRow, not reused directly here
 // since this file has no other reason to depend on that module).
-function buildReportFlexMessage(monthLabel: string, s: MonthlySummary, downloadUrl: string | null): LineMessage {
+export function buildReportFlexMessage(monthLabel: string, s: MonthlySummary, downloadUrl: string | null): LineMessage {
   const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
   const row = (label: string, value: string, color: string) => ({
     type: 'box',
@@ -133,7 +134,7 @@ function buildReportFlexMessage(monthLabel: string, s: MonthlySummary, downloadU
         row('รายรับจริง', formatCurrency(s.received), '#0E9F6E'),
         row('รายจ่ายจริง', formatCurrency(totalExpense), '#A63F1B'),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
-        row('กระแสเงินสดสุทธิ', formatCurrency(Math.max(0, s.netFlow)), '#3D2314'),
+        row('กระแสเงินสดสุทธิ', formatCurrency(s.netFlow), s.netFlow < 0 ? '#A63F1B' : '#3D2314'),
       ],
     },
   };
@@ -183,14 +184,14 @@ async function uploadReportAndGetLink(userId: string, monthKey: string, excelBas
 
 // Same 3-sheet shape as the Tax tab's Excel export (src/components/TaxTab.tsx handleExportExcel),
 // scoped to just the target month instead of a whole tax year.
-function buildMonthlyExcelBase64(monthLabel: string, s: MonthlySummary, jobs: JobRow[], expenses: ExpenseRow[]): string {
+export function buildMonthlyExcelBase64(monthLabel: string, s: MonthlySummary, jobs: JobRow[], expenses: ExpenseRow[]): string {
   const summaryRows: (string | number)[][] = [
     [`สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`, ''],
     ['มูลค่ารวมสัญญาดีลทั้งหมด', s.income],
     ['ยอดโอนรับแล้วจริง', s.received],
     ['หัก ค่าใช้จ่ายคงที่รายเดือน', s.fixedExpenseCalculated],
     ['ค่าใช้จ่ายผันแปร', s.variableExpense],
-    ['กระแสเงินสดสุทธิคงเหลือ', Math.max(0, s.netFlow)],
+    ['กระแสเงินสดสุทธิคงเหลือ', s.netFlow],
     ['ยอดออมสะสมโดยประมาณ', s.actualSavings]
   ];
 

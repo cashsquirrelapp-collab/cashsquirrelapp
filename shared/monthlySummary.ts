@@ -216,10 +216,10 @@ export function computeMonthlySummary(
   let received = 0;
   let pending = 0;
   for (const j of jobs) {
-    const dateKey = j.payDate || j.postDate;
+    const dateKey = j.payDate || j.dueDate || j.postDate;
     if (j.installments?.length) {
       received += j.installments.reduce((sum, row) => (
-        row.status === 'paid' && dateKeyInMonth(row.paidAt || dateKey, monthKey)
+        row.status === 'paid' && dateKeyInMonth(row.paidAt, monthKey)
           ? sum + (row.amount || 0)
           : sum
       ), 0);
@@ -231,7 +231,10 @@ export function computeMonthlySummary(
         ), 0);
       }
     } else {
-      received += splitReceivedByDate(j.received || 0, j.depositAmount, j.depositDate, dateKey || null)
+      // For a partial legacy job, payDate is the remaining balance's date and cannot prove when
+      // the earlier cash arrived. A single receipt may fall back to pay/due only once settled.
+      const receiptDate = (j.pending || 0) <= 0 ? (j.payDate || j.dueDate || null) : null;
+      received += splitReceivedByDate(j.received || 0, j.depositAmount, j.depositDate, receiptDate)
         .reduce((sum, part) => (dateKeyInMonth(part.date, monthKey) ? sum + part.amount : sum), 0);
       if (j.isPosted !== false && dateKeyInMonth(dateKey, monthKey)) pending += j.pending || 0;
     }
