@@ -18,6 +18,7 @@ export const EXPENSE_CATEGORIES = [
   'ค่าบริการ/สาธารณูปโภค',
   'อื่นๆ',
 ];
+const OTHER_CATEGORY = 'อื่นๆ';
 
 // Records saved before the Thai category list stored English keys.
 const LEGACY_CATEGORY_LABELS: Record<string, string> = {
@@ -53,6 +54,7 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
   const [amount, setAmount] = React.useState('');
   const [date, setDate] = React.useState(toLocalDateKey());
   const [category, setCategory] = React.useState(EXPENSE_CATEGORIES[0]);
+  const [customCategory, setCustomCategory] = React.useState('');
   const [note, setNote] = React.useState('');
   const [recurring, setRecurring] = React.useState(false);
   const [errors, setErrors] = React.useState<{ name?: string; amount?: string; date?: string }>({});
@@ -66,7 +68,15 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
     setName(expense?.name ?? preset?.name ?? '');
     setAmount(expense ? String(expense.amount) : preset ? String(preset.amount) : '');
     setDate(expense?.date ?? toLocalDateKey());
-    setCategory(expense ? categoryLabel(expense.category) : EXPENSE_CATEGORIES[0]);
+    const savedCategory = expense ? categoryLabel(expense.category) : EXPENSE_CATEGORIES[0];
+    if (EXPENSE_CATEGORIES.includes(savedCategory)) {
+      setCategory(savedCategory);
+      setCustomCategory('');
+    } else {
+      // Custom categories are edited through "อื่นๆ" while preserving their real saved name.
+      setCategory(OTHER_CATEGORY);
+      setCustomCategory(savedCategory);
+    }
     setNote(expense?.note ?? '');
     // Pre-selected when this record's name already matches a fixed line in Settings.
     setRecurring(expense ? Boolean(findFixedItem(expense.name)) : Boolean(preset?.recurring));
@@ -88,7 +98,8 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
     setErrors(next);
     if (next.name || next.amount || next.date) return;
 
-    const payload = { name: name.trim(), amount: value, category, date, note };
+    const finalCategory = category === OTHER_CATEGORY ? customCategory.trim() || OTHER_CATEGORY : category;
+    const payload = { name: name.trim(), amount: value, category: finalCategory, date, note };
     if (expense) onEdit(expense.id, payload); else onAdd(payload);
 
     let fixedNote = '';
@@ -171,10 +182,24 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
               </div>
               <div>
                 <label htmlFor="expense-category" className={label}>หมวดหมู่ <span className="text-[#C43A3A]">*</span></label>
-                <select id="expense-category" value={category} onChange={(e) => setCategory(e.target.value)} className={`${input()} cursor-pointer`}>
-                  {/* A historical category that is no longer in the list stays selectable as-is. */}
-                  {[...EXPENSE_CATEGORIES, ...(EXPENSE_CATEGORIES.includes(category) ? [] : [category])].map(c => <option key={c} value={c}>{c}</option>)}
+                <select id="expense-category" value={category} onChange={(e) => { setCategory(e.target.value); if (e.target.value !== OTHER_CATEGORY) setCustomCategory(''); }} className={`${input()} cursor-pointer`}>
+                  {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
+                {category === OTHER_CATEGORY && (
+                  <div className="mt-2 rounded-[10px] bg-brand-faint/70 p-3">
+                    <label htmlFor="expense-custom-category" className={label}>ระบุหมวดหมู่เอง</label>
+                    <input
+                      id="expense-custom-category"
+                      type="text"
+                      autoFocus
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      placeholder="เช่น ค่าดูแลสัตว์เลี้ยง"
+                      className={input()}
+                    />
+                    <p className="mt-1 text-xs text-brand-muted">เว้นว่างได้ หากต้องการใช้หมวด “อื่นๆ”</p>
+                  </div>
+                )}
               </div>
               <fieldset>
                 <legend className={label}>ประเภท</legend>

@@ -240,6 +240,27 @@ test('add-job sheet stays in the viewport and success feedback appears at the to
  expect(toastBox!.y).toBeLessThan(220);
 });
 
+test('expense category อื่นๆ accepts and saves a custom category name',async({page})=>{
+ const saved:any[]=[];
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>{
+  if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
+  return route.fulfill({json:{snapshot,versions,subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');
+ await page.locator('aside').getByRole('button',{name:'รายจ่าย',exact:true}).click();
+ await page.locator('#main-content').getByRole('button',{name:'เพิ่มรายจ่าย',exact:true}).first().click();
+ const drawer=page.getByRole('dialog',{name:'เพิ่มรายจ่าย'});
+ await drawer.getByLabel('รายการ').fill('อาหารแมว');
+ await drawer.getByLabel('จำนวนเงิน').fill('850');
+ await drawer.getByLabel('หมวดหมู่').selectOption('อื่นๆ');
+ await expect(drawer.getByLabel('ระบุหมวดหมู่เอง')).toBeVisible();
+ await drawer.getByLabel('ระบุหมวดหมู่เอง').fill('ค่าดูแลสัตว์เลี้ยง');
+ await drawer.getByRole('button',{name:'บันทึกรายจ่าย'}).click();
+ await expect.poll(()=>saved.find(c=>c.table==='cashflow_expenses')?.data?.category).toBe('ค่าดูแลสัตว์เลี้ยง');
+ await expect(page.locator('#main-content')).toContainText('ค่าดูแลสัตว์เลี้ยง');
+});
+
 test('tax Excel export downloads after loading the spreadsheet writer on demand',async({page})=>{
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
