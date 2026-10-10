@@ -7,6 +7,7 @@ import { calculatePayDate, getRelativeDaysText, formatMonthKey, DEFAULT_JOB_TYPE
 import type { Expense, Goal } from '../../../shared/types.js';
 import type { LineMessage } from './line.js';
 import { appOrigin } from '../config/env.js';
+import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import {
   JobRow,
   ExpenseRow,
@@ -110,7 +111,10 @@ export async function isProUser(userId: string): Promise<boolean> {
 // in-character, and points to the authenticated app. Checkout must be created by the backend so
 // the account/workspace mapping cannot be supplied by an untrusted link parameter.
 function buildRenewalMessage(user: UserRow): LineMessage {
-  const url = new URL('/app', appOrigin());
+  // `/plans` is the app's authenticated upgrade route. When the LINE in-app browser is not
+  // signed in yet, App keeps this pathname while rendering Login, then canonicalizes it to the
+  // user's `/plans/<workspace>` route once the session and workspace profile are available.
+  const url = new URL('/plans', appOrigin());
   return {
     type: 'text',
     text: `แพ็กเกจ Pro ของคุณหมดอายุแล้วครับ 🥲 การคุยกับผมผ่าน LINE เป็นสิทธิ์ของสมาชิก Pro น่ะครับ\n\nต่ออายุง่ายๆ กดลิงก์นี้ได้เลย พอจ่ายเสร็จกลับมาคุยกับผมต่อได้ทันที: ${url.toString()}`,
@@ -1193,8 +1197,25 @@ function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'part
 // array (LINE's reply API takes one call with up to 5 message bubbles) -- a freeform text reply
 // may be split into a few short bubbles by textBubbles, everything else is just one. The Quick
 // Reply shortcuts are attached to the last bubble only, so they're always one tap away.
-export async function handleAssistantMessage(lineUserId: string, text: string, operationId?: string): Promise<LineMessage[] | null> {
-  const result = await handleAssistantMessageInner(lineUserId, text, operationId);
+export interface LineAssistantDependencies {
+  findUserByLineId: typeof findUserByLineId;
+  checkLinkedAccountWriteAccess: typeof checkLinkedAccountWriteAccess;
+  isProUser: typeof isProUser;
+}
+
+const defaultLineAssistantDependencies: LineAssistantDependencies = {
+  findUserByLineId,
+  checkLinkedAccountWriteAccess,
+  isProUser,
+};
+
+export async function handleAssistantMessage(
+  lineUserId: string,
+  text: string,
+  operationId?: string,
+  dependencies: LineAssistantDependencies = defaultLineAssistantDependencies,
+): Promise<LineMessage[] | null> {
+  const result = await handleAssistantMessageInner(lineUserId, text, operationId, dependencies);
   if (result === null) return null;
   const messages = Array.isArray(result) ? result : [result];
   if (messages.length === 0) return null;
@@ -1203,10 +1224,15 @@ export async function handleAssistantMessage(lineUserId: string, text: string, o
   return withQuick.slice(0, 5); // LINE's reply API accepts at most 5 messages per call
 }
 
-async function handleAssistantMessageInner(lineUserId: string, text: string, operationId?: string): Promise<LineMessage | LineMessage[] | null> {
+async function handleAssistantMessageInner(
+  lineUserId: string,
+  text: string,
+  operationId: string | undefined,
+  dependencies: LineAssistantDependencies,
+): Promise<LineMessage | LineMessage[] | null> {
   let user: UserRow | null;
   try {
-    user = await findUserByLineId(lineUserId);
+    user = await dependencies.findUserByLineId(lineUserId);
   } catch (err) {
     // A real query error, not "this LINE user isn't linked" -- must never fall through to the
     // link-code flow, since that would wrongly tell an already-linked user they aren't linked.
@@ -1214,15 +1240,24 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
     return { type: 'text', text: 'ขอโทษครับ ระบบมีปัญหาชั่วคราวตอนนี้ ลองพิมพ์คำถามใหม่อีกครั้งครับ' };
   }
   if (!user) return null;
-  const account = await supabaseAdmin.auth.admin.getUserById(user.user_id);
-  if (account.error || !account.data.user) return { type: 'text', text: 'ไม่สามารถตรวจสอบสถานะบัญชีได้ กรุณาลองอีกครั้ง' };
-  if (account.data.user.app_metadata?.account_paused === true) return { type: 'text', text: 'บัญชีนี้พักใช้งานอยู่ กรุณาเปิดใช้งานอีกครั้งในเว็บไซต์' };
+
+  // A LINE message has no app cookie, so lifecycle access must be checked from both Auth and
+  // the durable pause/deletion row. Do this immediately after resolving the linked user: a
+  // closed account or either lookup failing must not reach Pro checks, model calls, reads, or
+  // financial writes. Treat an unexpected dependency rejection as unavailable too.
+  try {
+    const access = await dependencies.checkLinkedAccountWriteAccess(user.user_id);
+    if (!access.allowed) return { type: 'text', text: access.error };
+  } catch (err) {
+    console.error('handleAssistantMessage: lifecycle lookup failed:', err);
+    return { type: 'text', text: 'ไม่สามารถตรวจสอบสถานะบัญชีได้ กรุณาลองใหม่อีกครั้ง' };
+  }
   user.operationId = operationId;
 
   // LINE chat is a Pro-only feature (per PlansTab's feature list) -- once the free trial and any
   // paid period have both lapsed, every message gets this renewal prompt instead of being
   // processed, so the bot never keeps working indefinitely for an expired account.
-  if (!(await isProUser(user.user_id))) {
+  if (!(await dependencies.isProUser(user.user_id))) {
     return buildRenewalMessage(user);
   }
 

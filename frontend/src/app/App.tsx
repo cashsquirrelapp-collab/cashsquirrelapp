@@ -109,6 +109,59 @@ import { motion, AnimatePresence } from 'motion/react';
 
 type TabKey = 'dashboard' | 'adminDashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'calendar' | 'receivables' | 'incomeExpense' | 'vault' | 'wht50';
 
+type BillingStatus = 'free' | 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+type StripeSubscriptionStatus = Exclude<BillingStatus, 'free'>;
+type BillingSubscription = {
+  status: BillingStatus;
+  plan: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  stripeStatus: StripeSubscriptionStatus | null;
+  hasSubscription: boolean;
+  introEligible: boolean;
+  managed: boolean;
+};
+
+const CHECKOUT_PENDING_OWNER_KEY = 'cashflow_checkout_pending_owner';
+
+function checkoutPendingOwner(): string | null {
+  try { return sessionStorage.getItem(CHECKOUT_PENDING_OWNER_KEY); }
+  catch { return null; }
+}
+
+function markCheckoutPending(userId: string): void {
+  try { sessionStorage.setItem(CHECKOUT_PENDING_OWNER_KEY, userId); }
+  catch { /* The live effect still polls; only reload recovery is unavailable. */ }
+}
+
+function clearCheckoutPending(userId?: string): void {
+  try {
+    if (!userId || sessionStorage.getItem(CHECKOUT_PENDING_OWNER_KEY) === userId) {
+      sessionStorage.removeItem(CHECKOUT_PENDING_OWNER_KEY);
+    }
+  } catch { /* Storage can be unavailable in a restricted browser context. */ }
+}
+
+function billingSubscription(data: any, introEligibleWhenMissing: boolean): BillingSubscription {
+  return {
+    status: data?.status || 'free',
+    plan: data?.plan || null,
+    currentPeriodEnd: data?.current_period_end || null,
+    cancelAtPeriodEnd: data?.cancel_at_period_end === true,
+    stripeStatus: data?.stripe_status || null,
+    hasSubscription: data?.has_subscription === true,
+    introEligible: data ? data.intro_eligible === true : introEligibleWhenMissing,
+    managed: data?.managed === true,
+  };
+}
+
+function isConfirmedCheckoutSubscription(subscription: BillingSubscription, now = Date.now()): boolean {
+  return ['active', 'trialing'].includes(subscription.status)
+    && subscription.plan !== 'admin_revoked'
+    && !!subscription.currentPeriodEnd
+    && new Date(subscription.currentPeriodEnd).getTime() > now;
+}
+
 const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'calendar', 'receivables', 'incomeExpense', 'vault', 'wht50'];
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
 // The ลูกค้า page was removed; its per-client numbers live in รายงาน › ลูกค้า (the insight alias).
@@ -930,17 +983,24 @@ export default function App() {
   const cloudSavePendingRef = useRef<{ email: string; payload: any } | null>(null);
   const [isProPromoOpen, setIsProPromoOpen] = useState(false);
   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
-  const [subscription, setSubscription] = useState<{
-    status: 'free' | 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-    plan: string | null;
-    currentPeriodEnd: string | null;
-    cancelAtPeriodEnd: boolean;
-    stripeStatus: 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused' | null;
-    hasSubscription: boolean;
-    introEligible: boolean;
-    managed: boolean;
-  } | null>(null);
+  const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
+  const billingUserId = session?.isGuest ? null : session?.user?.id || null;
+  const billingUserRef = useRef<string | null>(billingUserId);
+  const subscriptionOwnerRef = useRef<string | null>(null);
+  const billingRequestRef = useRef(0);
+  billingUserRef.current = billingUserId;
+
+  // Billing belongs to the authenticated person, not the selected finance workspace. Clear it
+  // before paint on an A -> B session switch so B never inherits A's plan or a disabled CTA.
+  useLayoutEffect(() => {
+    if (subscriptionOwnerRef.current === billingUserId) return;
+    subscriptionOwnerRef.current = billingUserId;
+    billingRequestRef.current += 1;
+    setSubscription(null);
+    setBillingBusy(false);
+    setIsProPromoOpen(false);
+  }, [billingUserId]);
 
   // First 14 days after signup are free automatically, based on the account's real creation
   // date from Supabase Auth (not something the client can fake). No Stripe interaction needed.
@@ -1010,32 +1070,6 @@ export default function App() {
     return err.message || JSON.stringify(err);
   };
 
-  const loadSubscriptionData = async (userId: string) => {
-    try {
-      const result = await apiJson<any>('/api/data', { headers: { 'X-Account-ID': userId } });
-      if (sessionRef.current?.user?.id !== userId) return;
-      const data = result.subscription;
-
-      if (data) {
-        setSubscription({
-          status: data.status || 'free',
-          plan: data.plan || null,
-          currentPeriodEnd: data.current_period_end || null,
-          cancelAtPeriodEnd: data.cancel_at_period_end === true,
-          stripeStatus: data.stripe_status || null,
-          hasSubscription: data.has_subscription === true,
-          introEligible: data.intro_eligible === true,
-          managed: data.managed === true,
-        });
-      } else {
-        setSubscription({ status: 'free', plan: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, stripeStatus: null, hasSubscription: false, introEligible: true, managed: false });
-      }
-    } catch (err) {
-      console.log('Catch subscription load error, defaulting to free:', err);
-      setSubscription({ status: 'free', plan: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, stripeStatus: null, hasSubscription: false, introEligible: false, managed: false });
-    }
-  };
-
   const handleUpgrade = async () => {
     const currentUser = session?.user;
     if (session?.isGuest) {
@@ -1053,19 +1087,29 @@ export default function App() {
     }
     if (billingBusy) return;
     setBillingBusy(true);
+    let markedCheckout = false;
     try {
-      const result = await apiJson<{ url: string }>('/api/billing', {
+      const userId = currentUser.id;
+      const result = await apiJson<{ url: string; destination?: 'checkout' | 'portal' }>('/api/billing', {
         method: 'POST',
+        headers: { 'X-Account-ID': userId },
         // Delinquent/nonterminal subscribers must be able to reach Portal even
         // when app entitlement or Checkout catalog validation is unavailable.
         body: JSON.stringify({ action: hasOpenStripeSubscription ? 'portal' : 'checkout' }),
       });
+      if (billingUserRef.current !== userId) return;
       const target = new URL(result.url);
       if (target.protocol !== 'https:' || (target.hostname !== 'stripe.com' && !target.hostname.endsWith('.stripe.com'))) {
         throw new Error('ปลายทางชำระเงินไม่ถูกต้อง');
       }
+      if (result.destination === 'checkout' || target.hostname === 'checkout.stripe.com') {
+        markCheckoutPending(userId);
+        markedCheckout = true;
+      }
       window.location.assign(target.toString());
     } catch (error: any) {
+      if (billingUserRef.current !== currentUser.id) return;
+      if (markedCheckout) clearCheckoutPending(currentUser.id);
       setBillingBusy(false);
       triggerAlert('เปิดหน้าชำระเงินไม่สำเร็จ', formatError(error));
     }
@@ -1073,43 +1117,99 @@ export default function App() {
 
   // Handle redirect back from Stripe Checkout
   useEffect(() => {
+    const userId = billingUserId;
+    if (!userId) return;
     const params = new URLSearchParams(window.location.search);
     const checkoutResult = params.get('checkout');
-    if (checkoutResult && session?.user?.id) {
-      if (checkoutResult === 'success') void (async () => {
-        let active = false;
-        for (let attempt = 0; attempt < 6; attempt++) {
-          try {
-            const result = await apiJson<any>('/api/billing');
-            const data = result.subscription;
-            if (data) setSubscription({
-              status: data.status || 'free',
-              plan: data.plan || null,
-              currentPeriodEnd: data.current_period_end || null,
-              cancelAtPeriodEnd: data.cancel_at_period_end === true,
-              stripeStatus: data.stripe_status || null,
-              hasSubscription: data.has_subscription === true,
-              introEligible: data.intro_eligible === true,
-              managed: data.managed === true,
-            });
-            active = ['active', 'trialing'].includes(data?.status)
-              && data?.plan !== 'admin_revoked'
-              && !!data?.current_period_end
-              && new Date(data.current_period_end).getTime() > Date.now();
-            if (active) break;
-          } catch { /* A delayed webhook is retried below. */ }
-          await new Promise(resolve => window.setTimeout(resolve, 1000));
-        }
-        triggerAlert(
-          active ? 'สมัครสมาชิกสำเร็จ!' : 'รับข้อมูลการชำระเงินแล้ว',
-          active ? 'เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!' : 'Stripe กำลังยืนยันรายการ ระบบจะเปิด Pro อัตโนมัติเมื่อ webhook ยืนยันสำเร็จ',
-        );
-      })();
-      if (checkoutResult === 'cancel') triggerAlert('ยังไม่ได้สมัครสมาชิก', 'ยกเลิกหน้าชำระเงินแล้ว หากระบบยังแจ้งว่ามี Checkout ที่ใช้งานอยู่ กรุณารอให้หน้าชำระเงินหมดอายุแล้วลองใหม่');
-      window.history.replaceState({}, '', window.location.pathname);
+    const updateCheckoutQuery = (removeResult: boolean) => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('session_id');
+      if (removeResult) url.searchParams.delete('checkout');
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    };
+
+    if (checkoutResult === 'cancel') {
+      clearCheckoutPending();
+      updateCheckoutQuery(true);
+      triggerAlert('ยังไม่ได้สมัครสมาชิก', 'ยกเลิกหน้าชำระเงินแล้ว หากระบบยังแจ้งว่ามี Checkout ที่ใช้งานอยู่ กรุณารอให้หน้าชำระเงินหมดอายุแล้วลองใหม่');
+      return;
     }
+    if (checkoutResult && checkoutResult !== 'success') {
+      updateCheckoutQuery(true);
+      return;
+    }
+
+    let pendingOwner = checkoutPendingOwner();
+    if (checkoutResult === 'success') {
+      // Keep the harmless success marker until webhook-backed state is confirmed. The Stripe
+      // session id itself is unnecessary in browser history after the redirect.
+      updateCheckoutQuery(false);
+      if (!pendingOwner) {
+        // Backward-compatible fallback for a Checkout opened before this marker shipped.
+        markCheckoutPending(userId);
+        pendingOwner = userId;
+      }
+    }
+    if (pendingOwner !== userId) return;
+
+    setBillingBusy(false);
+    const controller = new AbortController();
+    let cancelled = false;
+    let timeout: number | undefined;
+    let finishWait: (() => void) | null = null;
+    const wait = (delay: number) => new Promise<void>(resolve => {
+      finishWait = resolve;
+      timeout = window.setTimeout(() => {
+        timeout = undefined;
+        finishWait = null;
+        resolve();
+      }, delay);
+    });
+
+    void (async () => {
+      let attempt = 0;
+      let pendingAlertShown = false;
+      while (!cancelled && billingUserRef.current === userId) {
+        const request = ++billingRequestRef.current;
+        try {
+          const result = await apiJson<any>('/api/billing', {
+            signal: controller.signal,
+            headers: { 'X-Account-ID': userId },
+          });
+          if (cancelled || billingUserRef.current !== userId) return;
+          if (request === billingRequestRef.current) {
+            const nextSubscription = billingSubscription(result.subscription, true);
+            setSubscription(nextSubscription);
+            if (isConfirmedCheckoutSubscription(nextSubscription)) {
+              clearCheckoutPending(userId);
+              updateCheckoutQuery(true);
+              triggerAlert('สมัครสมาชิกสำเร็จ!', 'เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
+              return;
+            }
+          }
+        } catch (error: any) {
+          if (cancelled || error?.name === 'AbortError' || billingUserRef.current !== userId) return;
+          // Stripe retries failed webhook deliveries; keep polling at the bounded cadence below.
+        }
+
+        if (!pendingAlertShown && attempt >= 5 && billingUserRef.current === userId) {
+          pendingAlertShown = true;
+          triggerAlert('รับข้อมูลการชำระเงินแล้ว', 'Stripe กำลังยืนยันรายการ ระบบจะเปิด Pro อัตโนมัติเมื่อ webhook ยืนยันสำเร็จ');
+        }
+        const delay = attempt < 9 ? 1000 : attempt < 19 ? 5000 : 15000;
+        attempt += 1;
+        await wait(delay);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (timeout !== undefined) window.clearTimeout(timeout);
+      finishWait?.();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id, financeOwner]);
+  }, [billingUserId]);
 
   // Domain state stays in the UI; persistence is handled by the cloud service.
   const cloudReadyRef = useRef<string | null>(null);
@@ -1120,6 +1220,7 @@ export default function App() {
     if (!user || sessionRef.current?.isGuest) return false;
     const owner=financeOwnerRef.current;
     const request=++loadRequestRef.current;
+    const billingRequest=++billingRequestRef.current;
     cloudReadyRef.current = null;
     setCloudSyncStatus('pending');
     try {
@@ -1135,8 +1236,9 @@ export default function App() {
       setJobTypes(data.job_types ? cleanJobTypes(data.job_types) : DEFAULT_JOB_TYPES);
       setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
       if(!financeGroupId)setUserAvatar(data.avatar_data_url || '');
-      const sub = result.subscription;
-      setSubscription({ status: sub?.status || 'free', plan: sub?.plan || null, currentPeriodEnd: sub?.current_period_end || null, cancelAtPeriodEnd: sub?.cancel_at_period_end === true, stripeStatus: sub?.stripe_status || null, hasSubscription: sub?.has_subscription === true, introEligible: sub ? sub.intro_eligible === true : true, managed: sub?.managed === true });
+      if (billingUserRef.current === user.id && billingRequest === billingRequestRef.current) {
+        setSubscription(billingSubscription(result.subscription, true));
+      }
       cloudReadyRef.current = owner;
       financeConflictRef.current=false;setLoadedFinanceOwner(owner);
       setLastCloudError(null); setCloudSyncStatus('synced'); return true;
@@ -1340,7 +1442,7 @@ export default function App() {
   // (or just not acting on it) never brings it back again the same day.
   //
   // Gated on `subscription !== null`, not just isLoadedForUser: isPro depends on subscription
-  // state, which starts null and is only set once loadSubscriptionData's async fetch resolves.
+  // state, which starts null and is only set once the guarded cloud subscription fetch resolves.
   // isLoadedForUser can go true first, so without this, a real Pro user briefly reads as
   // isPro:false during that load window and gets shown this popup incorrectly (confirmed --
   // that stale false also leaked into every other isPro-gated UI element until a full reload).

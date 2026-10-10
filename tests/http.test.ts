@@ -2,10 +2,11 @@ import { before,after,test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
 import { createApp } from '../backend/src/http/app.js';
+import { stripe as stripeClient } from '../backend/src/config/stripe.js';
 import { seal,unseal } from '../backend/src/security/cookies.js';
 import Stripe from 'stripe';
 import { ensurePrivateReportBucket } from '../backend/src/services/reportStorage.js';
-process.env.APP_URL='http://127.0.0.1:3000';process.env.SUPABASE_URL='https://project.supabase.co';process.env.SUPABASE_PUBLISHABLE_KEY='test-key';process.env.SUPABASE_SERVICE_ROLE_KEY='test-admin';process.env.SESSION_SECRET='test-only-secret-'.repeat(4);process.env.STRIPE_SECRET_KEY='sk_test_only';process.env.STRIPE_MODE='test';process.env.STRIPE_WEBHOOK_SECRET='whsec_test';process.env.STRIPE_PRO_PRICE_ID='price_test_pro';process.env.STRIPE_PRO_INTRO_COUPON_ID='coupon_test_intro';process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID='bpc_test_safe';
+process.env.APP_URL='http://127.0.0.1:3000';process.env.SUPABASE_URL='https://project.supabase.co';process.env.SUPABASE_PUBLISHABLE_KEY='test-key';process.env.SUPABASE_SERVICE_ROLE_KEY='test-admin';process.env.SESSION_SECRET='test-only-secret-'.repeat(4);process.env.STRIPE_SECRET_KEY='sk_test_only';process.env.STRIPE_MODE='test';process.env.STRIPE_WEBHOOK_SECRET='whsec_test';process.env.STRIPE_PRO_PRICE_ID='price_test_pro';process.env.STRIPE_PRO_INTRO_COUPON_ID='coupon_test_intro';process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID='bpc_test_safe';process.env.STRIPE_LEGACY_PAYMENT_LINK_ID='plink_test';
 process.env.LINE_CHANNEL_ID='test-channel';
 process.env.LINE_CHANNEL_ACCESS_TOKEN='test-line-token';
 const user={id:'11111111-1111-4111-8111-111111111111',email:'a@example.com',user_metadata:{role:'admin'}};
@@ -14,7 +15,7 @@ const jwt=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:sessionId}))
 const expiredJwt=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:sessionId,exp:1})).toString('base64url')}.test`;
 const cookie=`cashflow-session=${seal({access_token:jwt,refresh_token:'private-refresh',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()})}`;
 const realFetch=globalThis.fetch;let server:Server;let origin:string;
-let failRevocation=false,providerSignoutFails=false,notifyFailure=false;
+let failRevocation=false,providerSignoutFails=false,notifyFailure=false,failStripePayment=false;
 let notifyLinked=false,linePushStatus=200,linePushes=0;
 let signupError={code:'email_address_not_authorized',msg:'private SMTP credentials should never appear'};
 let refreshed=0,lineVerifications=0,downloaded=0,bucketUpdates=0;
@@ -63,6 +64,7 @@ before(async()=>{
    if(init?.method==='PUT'){bucketUpdates++;const options=JSON.parse(String(init.body));assert.equal(options.public,false);assert.equal(options.file_size_limit,4194304);return json({message:'updated'});}
    return json({id:'monthly-reports',name:'monthly-reports',public:true});
   }
+  if(url.includes('/rpc/cashflow_process_payment'))return failStripePayment?json({message:'private DB details',code:'XX000'},500):json(null);
   throw new Error('Unexpected mock endpoint '+url);
  };
  server=await new Promise<Server>(resolve=>{const instance=createApp().listen(0,'127.0.0.1',()=>resolve(instance));});
@@ -159,6 +161,26 @@ test('Stripe verifies raw bytes and rejects events from the other mode',async()=
  const liveRaw=JSON.stringify({id:'evt_live',object:'event',created:Math.floor(Date.now()/1000),livemode:true,type:'ping',data:{object:{id:'noop'}}});
  const liveSignature=Stripe.webhooks.generateTestHeaderString({payload:liveRaw,secret:'whsec_test'});
  assert.equal((await realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'stripe-signature':liveSignature},body:liveRaw})).status,400);
+});
+
+test('Stripe returns 500 on DB failures without leaking database details',async()=>{
+ const checkout={id:'cs_test',object:'checkout.session',created:Math.floor(Date.now()/1000),livemode:false,payment_link:'plink_test',mode:'payment',currency:'thb',amount_total:14900,payment_status:'paid',client_reference_id:user.id,payment_intent:'pi_test'} as Stripe.Checkout.Session;
+ const sessions=stripeClient.checkout.sessions as any;
+ const retrieve=sessions.retrieve;
+ sessions.retrieve=async()=>checkout;
+ failStripePayment=true;
+ try {
+  const raw=JSON.stringify({id:'evt_db_failure',object:'event',created:Math.floor(Date.now()/1000),livemode:false,type:'checkout.session.completed',data:{object:{id:checkout.id}}});
+  const signature=Stripe.webhooks.generateTestHeaderString({payload:raw,secret:'whsec_test'});
+  const failed=await realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'content-type':'application/json','stripe-signature':signature},body:raw});
+  assert.equal(failed.status,500);
+  const body=await failed.text();
+  assert.ok(!body.includes('private DB details'));
+  assert.ok(!body.includes('XX000'));
+ } finally {
+  failStripePayment=false;
+  sessions.retrieve=retrieve;
+ }
 });
 
 test('OAuth stores PKCE only, exchanges code server-side, and never returns tokens to the browser',async()=>{
