@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type Stripe from 'stripe';
 import {
+  buildStripeSubscriptionCheckoutRequest,
+  clearStripeBillingCatalogCacheForTests,
+  getStripeBillingCatalog,
   isStripeCustomerOwnedByUser,
   paidThroughFromInvoiceLines,
   PRO_INTRO_TOTAL,
@@ -12,7 +15,7 @@ import {
   validateStripeBillingPortalConfiguration,
   type StripeBillingCatalog,
 } from '../backend/src/services/stripeSubscriptions.js';
-import { stripeLivemodeForKey } from '../backend/src/config/stripe.js';
+import { stripe, stripeLivemodeForKey } from '../backend/src/config/stripe.js';
 
 const userId = '11111111-1111-4111-8111-111111111111';
 const productId = 'prod_sandbox_pro';
@@ -23,6 +26,8 @@ const portalId = 'bpc_sandbox_safe';
 process.env.STRIPE_PRO_PRICE_ID = priceId;
 process.env.STRIPE_PRO_INTRO_COUPON_ID = couponId;
 process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID = portalId;
+process.env.STRIPE_SECRET_KEY = 'sk_test_unit';
+process.env.STRIPE_MODE = 'test';
 
 function price(overrides: Record<string, unknown> = {}): Stripe.Price {
   return {
@@ -131,6 +136,7 @@ test('Billing Portal is pinned to end-of-period cancellation with plan changes d
     features: {
       subscription_cancel: { enabled: true, mode: 'at_period_end', proration_behavior: 'none' },
       subscription_update: { enabled: false },
+      payment_method_update: { enabled: true, payment_method_configuration: null },
     },
   } as unknown as Stripe.BillingPortal.Configuration;
   assert.deepEqual(validateStripeBillingPortalConfiguration(configuration, false), { id: portalId, livemode: false });
@@ -142,6 +148,10 @@ test('Billing Portal is pinned to end-of-period cancellation with plan changes d
   assert.throws(() => validateStripeBillingPortalConfiguration({ ...configuration, features: {
     ...configuration.features,
     subscription_update: { ...configuration.features.subscription_update, enabled: true },
+  } }, false));
+  assert.throws(() => validateStripeBillingPortalConfiguration({ ...configuration, features: {
+    ...configuration.features,
+    payment_method_update: { enabled: false, payment_method_configuration: null },
   } }, false));
 });
 
@@ -159,7 +169,7 @@ test('stable Stripe Customer ownership requires exact mode and personal workspac
 test('subscription and paid invoices require the exact recurring catalog and configured intro coupon', () => {
   const now = Math.floor(Date.now() / 1000);
   const subscription = {
-    id: 'sub_pro', object: 'subscription', created: now - 10, livemode: false,
+    id: 'sub_pro', object: 'subscription', created: now - 10, start_date: now - 10, livemode: false,
     customer: 'cus_pro', status: 'active', cancel_at_period_end: false,
     metadata: { app_user_id: userId, workspace_type: 'personal', workspace_id: userId },
     items: { data: [{ quantity: 1, current_period_end: now + 2_592_000, price: price() }], has_more: false },
@@ -178,6 +188,76 @@ test('subscription and paid invoices require the exact recurring catalog and con
   assert.equal(validatePaidInvoicePrice(invoice(true), [recurringLine, line({ id: 'il_extra', subtotal: 1 })], catalog).paid, false);
   assert.equal(validatePaidInvoicePrice(invoice(true, { amount_shipping: 1 }), [recurringLine], catalog).paid, false);
   assert.equal(validatePaidInvoicePrice(invoice(true, { collection_method: 'send_invoice' }), [recurringLine], catalog).paid, false);
+  assert.equal(validatePaidInvoicePrice(invoice(true, { amount_paid_off_stripe: undefined }), [recurringLine], catalog).paid, false);
+  assert.equal(validatePaidInvoicePrice(invoice(true, { amount_paid_off_stripe: 1 }), [recurringLine], catalog).paid, false);
+  assert.equal(validatePaidInvoicePrice(invoice(true), [recurringLine, ...Array.from({ length: 100 }, (_, index) => line({ id: `il_zero_${index}`, subtotal: 0 }))], catalog).paid, false);
   assert.ok(paidThroughFromInvoiceLines([recurringLine], catalog, 'sub_pro'));
   assert.equal(paidThroughFromInvoiceLines([line({ parent: { type: 'subscription_item_details', subscription_item_details: { proration: true, subscription: 'sub_pro' } } })], catalog, 'sub_pro'), null);
+});
+
+test('catalog retrieval explicitly includes product scope and rejects hidden offer limits or trials', async () => {
+  const prices = stripe.prices;
+  const coupons = stripe.coupons;
+  const originalPriceRetrieve = prices.retrieve;
+  const originalCouponRetrieve = coupons.retrieve;
+  let couponParams: unknown;
+  prices.retrieve = (async () => price()) as unknown as typeof prices.retrieve;
+  coupons.retrieve = (async (_id: string, params?: unknown) => {
+    couponParams = params;
+    return coupon();
+  }) as unknown as typeof coupons.retrieve;
+  clearStripeBillingCatalogCacheForTests();
+  try {
+    assert.deepEqual(await getStripeBillingCatalog(), catalog);
+    assert.deepEqual(couponParams, { expand: ['applies_to'] });
+    assert.throws(() => validateStripeBillingCatalog(price({ recurring: {
+      interval: 'month', interval_count: 1, usage_type: 'licensed', trial_period_days: 7,
+    } }), coupon(), false));
+    assert.throws(() => validateStripeBillingCatalog(price(), coupon({ max_redemptions: 100 }), false));
+    assert.throws(() => validateStripeBillingCatalog(price(), coupon({ redeem_by: 2_000_000_000 }), false));
+  } finally {
+    prices.retrieve = originalPriceRetrieve;
+    coupons.retrieve = originalCouponRetrieve;
+    clearStripeBillingCatalogCacheForTests();
+  }
+});
+
+test('Checkout retry after a lost response reuses byte-equivalent parameters and one idempotency key', async () => {
+  const input = {
+    userId,
+    customerId: 'cus_stable',
+    reservationId: 'reservation-stable',
+    introEligible: true,
+    expiresAt: 2_000_002_700,
+    origin: 'https://cash-squirrel.example',
+    catalog,
+  };
+  const first = buildStripeSubscriptionCheckoutRequest(input);
+  // Model the normalized JSONB request returned by the prepare RPC on every
+  // attempt, including one that follows a server-side create + client timeout.
+  const persisted = JSON.parse(JSON.stringify(first)) as Stripe.Checkout.SessionCreateParams;
+  const remoteSessions = new Map<string, { fingerprint: string; session: { id: string } }>();
+  let loseFirstResponse = true;
+  const create = async (params: Stripe.Checkout.SessionCreateParams, idempotencyKey: string) => {
+    const fingerprint = JSON.stringify(params);
+    const existing = remoteSessions.get(idempotencyKey);
+    if (existing) {
+      assert.equal(existing.fingerprint, fingerprint);
+      return existing.session;
+    }
+    const session = { id: 'cs_one_remote_session' };
+    remoteSessions.set(idempotencyKey, { fingerprint, session });
+    if (loseFirstResponse) {
+      loseFirstResponse = false;
+      throw new Error('simulated timeout after Stripe committed');
+    }
+    return session;
+  };
+  const key = `cash-squirrel-pro-checkout:${input.reservationId}`;
+  await assert.rejects(create(persisted, key), /simulated timeout/);
+  const retriedCandidate = buildStripeSubscriptionCheckoutRequest(input);
+  assert.deepEqual(retriedCandidate, persisted);
+  const recovered = await create(persisted, key);
+  assert.equal(recovered.id, 'cs_one_remote_session');
+  assert.equal(remoteSessions.size, 1);
 });

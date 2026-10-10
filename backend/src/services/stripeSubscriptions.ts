@@ -33,6 +33,43 @@ export type StripeBillingPortalConfiguration = {
   livemode: boolean;
 };
 
+export type StripeSubscriptionCheckoutRequest = Stripe.Checkout.SessionCreateParams;
+
+export function buildStripeSubscriptionCheckoutRequest(input: {
+  userId: string;
+  customerId: string;
+  reservationId: string;
+  introEligible: boolean;
+  expiresAt: number;
+  origin: string;
+  catalog: StripeBillingCatalog;
+}): StripeSubscriptionCheckoutRequest {
+  const metadata = {
+    app_user_id: input.userId,
+    workspace_type: 'personal',
+    workspace_id: input.userId,
+    offer_version: input.introEligible ? PRO_OFFER_VERSION : PRO_STANDARD_OFFER_VERSION,
+    checkout_reservation_id: input.reservationId,
+  };
+  return {
+    mode: 'subscription',
+    customer: input.customerId,
+    line_items: [{ price: input.catalog.priceId, quantity: 1 }],
+    ...(input.introEligible ? { discounts: [{ coupon: input.catalog.couponId }] } : {}),
+    client_reference_id: input.userId,
+    metadata,
+    subscription_data: { metadata },
+    expires_at: input.expiresAt,
+    custom_text: {
+      submit: { message: input.introEligible
+        ? '3 เดือนแรก ฿199/เดือน จากนั้นต่ออายุอัตโนมัติ ฿249/เดือน ยกเลิกได้ โดยสิทธิ์ยังใช้ได้ถึงวันสิ้นรอบที่ชำระแล้ว'
+        : 'ต่ออายุอัตโนมัติ ฿249/เดือน ยกเลิกได้ โดยสิทธิ์ยังใช้ได้ถึงวันสิ้นรอบที่ชำระแล้ว' },
+    },
+    success_url: `${input.origin}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${input.origin}/app?checkout=cancel`,
+  };
+}
+
 export function isStripeCustomerOwnedByUser(
   customer: Stripe.Customer | Stripe.DeletedCustomer,
   userId: string,
@@ -67,6 +104,7 @@ export function validateStripeBillingCatalog(
     || price.recurring?.interval !== 'month'
     || price.recurring.interval_count !== 1
     || price.recurring.usage_type !== 'licensed'
+    || price.recurring.trial_period_days != null
     || !configuredProductId
     || !configuredProductActive
   ) throw new Error('Configured Stripe Pro Price is not an active THB 249 monthly price in this mode');
@@ -81,6 +119,8 @@ export function validateStripeBillingCatalog(
     || coupon.currency !== 'thb'
     || coupon.duration !== 'repeating'
     || coupon.duration_in_months !== PRO_INTRO_MONTHS
+    || coupon.max_redemptions != null
+    || coupon.redeem_by != null
     || scopedProducts.length !== 1
     || scopedProducts[0] !== configuredProductId
   ) throw new Error('Configured Stripe intro Coupon must be THB 50 off this product for 3 months');
@@ -95,8 +135,6 @@ export function validateStripeBillingCatalog(
 
 let cachedCatalog: { key: string; expiresAt: number; value: StripeBillingCatalog } | undefined;
 let pendingCatalog: { key: string; value: Promise<StripeBillingCatalog> } | undefined;
-let cachedPortal: { key: string; expiresAt: number; value: StripeBillingPortalConfiguration } | undefined;
-let pendingPortal: { key: string; value: Promise<StripeBillingPortalConfiguration> } | undefined;
 
 export async function getStripeBillingCatalog(): Promise<StripeBillingCatalog> {
   const priceId = required('STRIPE_PRO_PRICE_ID');
@@ -108,7 +146,9 @@ export async function getStripeBillingCatalog(): Promise<StripeBillingCatalog> {
 
   const value = Promise.all([
     stripe.prices.retrieve(priceId, { expand: ['product'] }),
-    stripe.coupons.retrieve(couponId),
+    // `applies_to` is includable in the current Stripe API and is absent unless
+    // explicitly requested. Product scoping is a required part of this offer.
+    stripe.coupons.retrieve(couponId, { expand: ['applies_to'] }),
   ]).then(([price, coupon]) => {
     const validated = validateStripeBillingCatalog(price, coupon, livemode);
     cachedCatalog = { key, value: validated, expiresAt: Date.now() + catalogCacheTtlMs };
@@ -123,8 +163,6 @@ export async function getStripeBillingCatalog(): Promise<StripeBillingCatalog> {
 export function clearStripeBillingCatalogCacheForTests(): void {
   cachedCatalog = undefined;
   pendingCatalog = undefined;
-  cachedPortal = undefined;
-  pendingPortal = undefined;
 }
 
 export function validateStripeBillingPortalConfiguration(
@@ -141,9 +179,10 @@ export function validateStripeBillingPortalConfiguration(
     || cancellation.mode !== 'at_period_end'
     || cancellation.proration_behavior !== 'none'
     || configuration.features.subscription_update.enabled
+    || !configuration.features.payment_method_update.enabled
   ) {
     throw new Error(
-      'Configured Stripe Billing Portal must be active in this mode, cancel at period end, and disable subscription updates',
+      'Configured Stripe Billing Portal must support payment-method recovery, cancel at period end, and disable subscription updates',
     );
   }
   return { id: configuration.id, livemode: configuration.livemode };
@@ -152,19 +191,12 @@ export function validateStripeBillingPortalConfiguration(
 export async function getStripeBillingPortalConfiguration(): Promise<StripeBillingPortalConfiguration> {
   const configurationId = required('STRIPE_BILLING_PORTAL_CONFIGURATION_ID');
   const livemode = configuredStripeLivemode();
-  const key = `${livemode ? 'live' : 'test'}:${configurationId}`;
-  if (cachedPortal?.key === key && cachedPortal.expiresAt > Date.now()) return cachedPortal.value;
-  if (pendingPortal?.key === key) return pendingPortal.value;
-
-  const value = stripe.billingPortal.configurations.retrieve(configurationId).then(configuration => {
-    const validated = validateStripeBillingPortalConfiguration(configuration, livemode);
-    cachedPortal = { key, value: validated, expiresAt: Date.now() + catalogCacheTtlMs };
-    return validated;
-  }).finally(() => {
-    if (pendingPortal?.key === key) pendingPortal = undefined;
-  });
-  pendingPortal = { key, value };
-  return value;
+  // Portal configurations are mutable. Revalidate immediately before every
+  // session so a recently loosened cancellation/update policy fails closed.
+  return validateStripeBillingPortalConfiguration(
+    await stripe.billingPortal.configurations.retrieve(configurationId),
+    livemode,
+  );
 }
 
 export type StripeSubscriptionRecord = {
@@ -173,6 +205,7 @@ export type StripeSubscriptionRecord = {
   customerId: string;
   subscriptionId: string;
   subscriptionCreated: number;
+  subscriptionStart: number;
   priceId: string;
   status: Stripe.Subscription.Status;
   billingPeriodEnd: string;
@@ -203,7 +236,9 @@ export function subscriptionRecord(
       && price.recurring.usage_type === 'licensed'
       && candidate.quantity === 1;
   });
-  if (!item || subscription.items.data.length !== 1 || subscription.items.has_more || subscription.livemode !== catalog.livemode) return null;
+  if (!item || subscription.items.data.length !== 1 || subscription.items.has_more
+    || subscription.livemode !== catalog.livemode
+    || !Number.isInteger(subscription.start_date) || subscription.start_date < 0) return null;
 
   const metadataUser = subscription.metadata.app_user_id;
   const userId = uuid.test(metadataUser || '') ? metadataUser : null;
@@ -220,11 +255,45 @@ export function subscriptionRecord(
     customerId,
     subscriptionId: subscription.id,
     subscriptionCreated: subscription.created,
+    subscriptionStart: subscription.start_date,
     priceId: item.price.id,
     status: subscription.status,
     billingPeriodEnd: new Date(item.current_period_end * 1000).toISOString(),
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
     hasIntroCoupon: subscription.discounts.some(discount => discountCouponId(discount) === catalog.couponId),
+  };
+}
+
+export type InvoiceIntroDiscount = {
+  applied: boolean;
+  start: string | null;
+  end: string | null;
+};
+
+export function invoiceIntroDiscount(
+  invoice: Stripe.Invoice,
+  catalog: StripeBillingCatalog,
+  subscriptionId: string,
+  subscriptionStart: number,
+): InvoiceIntroDiscount | null {
+  const discounts = invoice.discounts || [];
+  if (discounts.length === 0) return { applied: false, start: null, end: null };
+  if (discounts.length !== 1) return null;
+  const discount = discounts[0];
+  if (typeof discount === 'string' || ('deleted' in discount && discount.deleted)) return null;
+  if (discountCouponId(discount) !== catalog.couponId
+    || discount.promotion_code !== null
+    || discount.subscription !== subscriptionId
+    || discount.subscription_item !== null
+    || discount.invoice !== null
+    || discount.invoice_item !== null
+    || discount.start !== subscriptionStart
+    || discount.end === null
+    || discount.end <= discount.start) return null;
+  return {
+    applied: true,
+    start: new Date(discount.start * 1000).toISOString(),
+    end: new Date(discount.end * 1000).toISOString(),
   };
 }
 
@@ -239,6 +308,15 @@ export function paidThroughFromInvoiceLines(
   catalog: StripeBillingCatalog,
   subscriptionId: string,
 ): string | null {
+  return paidPeriodFromInvoiceLines(lines, catalog, subscriptionId)?.end || null;
+}
+
+export function paidPeriodFromInvoiceLines(
+  lines: Stripe.InvoiceLineItem[],
+  catalog: StripeBillingCatalog,
+  subscriptionId: string,
+): { start: string; end: string } | null {
+  let paidFrom = 0;
   let paidThrough = 0;
   for (const line of lines) {
     const parent = line.parent?.subscription_item_details;
@@ -255,9 +333,15 @@ export function paidThroughFromInvoiceLines(
       || line.quantity !== 1
       || line.subtotal !== PRO_MONTHLY_AMOUNT
     ) continue;
-    paidThrough = Math.max(paidThrough, line.period.end);
+    if (line.period.end > paidThrough) {
+      paidFrom = line.period.start;
+      paidThrough = line.period.end;
+    }
   }
-  return paidThrough > 0 ? new Date(paidThrough * 1000).toISOString() : null;
+  return paidThrough > 0 ? {
+    start: new Date(paidFrom * 1000).toISOString(),
+    end: new Date(paidThrough * 1000).toISOString(),
+  } : null;
 }
 
 export type InvoicePriceValidation = { paid: boolean; introDiscountApplied: boolean };
@@ -289,7 +373,10 @@ export function validatePaidInvoicePrice(
       && invoice.currency === 'thb'
       && invoice.amount_remaining === 0
       && invoice.amount_overpaid === 0
-      && (invoice.amount_paid_off_stripe ?? 0) === 0
+      // This is an includable Stripe field. Absence is not evidence of zero;
+      // callers must explicitly request it when retrieving the Invoice.
+      && typeof invoice.amount_paid_off_stripe === 'number'
+      && invoice.amount_paid_off_stripe === 0
       && invoice.amount_shipping === 0
       && (!invoice.shipping_cost || invoice.shipping_cost.amount_total === 0)
       && invoice.post_payment_credit_notes_amount === 0
@@ -305,6 +392,7 @@ export function validatePaidInvoicePrice(
       && invoice.total_excluding_tax === expectedTotal
       && invoice.amount_paid === expectedTotal
       && invoice.amount_due === expectedTotal
+      && lines.length <= 100
       && exactCatalogLine
       && (introDiscountApplied || standardPriceApplied),
     introDiscountApplied,

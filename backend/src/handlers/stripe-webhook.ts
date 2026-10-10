@@ -5,7 +5,8 @@ import { required } from '../config/env.js';
 import { withGuard, readRawBody, HttpError } from '../http/guard.js';
 import {
   getStripeBillingCatalog,
-  paidThroughFromInvoiceLines,
+  invoiceIntroDiscount,
+  paidPeriodFromInvoiceLines,
   PRO_OFFER_VERSION,
   PRO_STANDARD_OFFER_VERSION,
   subscriptionIdFromInvoice,
@@ -33,6 +34,12 @@ const handled = new Set([
 
 function id(value: string | { id: string } | null | undefined): string | null {
   return typeof value === 'string' ? value : value?.id || null;
+}
+
+function sessionHasOnlyCoupon(session: Stripe.Checkout.Session, couponId: string): boolean {
+  return session.discounts?.length === 1
+    && id(session.discounts[0].coupon) === couponId
+    && !session.discounts[0].promotion_code;
 }
 
 function configuredLegacyPaymentLink(): string | null {
@@ -70,6 +77,45 @@ async function applyLegacyPayment(
     p_refund: refund,
   });
   if (saved.error) throw saved.error;
+  if (!refund) {
+    // A delayed legacy Payment Link success can race an already-reserved
+    // recurring Checkout. Expire only a known, still-open Session; an
+    // unknown-outcome reservation must remain recoverable by idempotent retry.
+    const admin = getSupabaseAdmin();
+    const pending = await admin
+      .from('subscriptions')
+      .select('stripe_customer_id,stripe_checkout_reservation_id,stripe_checkout_session_id')
+      .eq('user_id', session.client_reference_id)
+      .maybeSingle();
+    if (pending.error) throw pending.error;
+    const row = pending.data as {
+      stripe_customer_id: string | null;
+      stripe_checkout_reservation_id: string | null;
+      stripe_checkout_session_id: string | null;
+    } | null;
+    if (row?.stripe_checkout_session_id && row.stripe_checkout_reservation_id) {
+      const recurring = await stripe.checkout.sessions.retrieve(row.stripe_checkout_session_id);
+      if (recurring.livemode !== configuredStripeLivemode()
+        || recurring.mode !== 'subscription'
+        || recurring.client_reference_id !== session.client_reference_id
+        || recurring.metadata?.app_user_id !== session.client_reference_id
+        || recurring.metadata?.checkout_reservation_id !== row.stripe_checkout_reservation_id
+        || id(recurring.customer) !== row.stripe_customer_id) {
+        throw new Error('Pending recurring Checkout failed ownership validation');
+      }
+      if (recurring.status === 'open') {
+        const expired = await stripe.checkout.sessions.expire(recurring.id);
+        if (expired.status !== 'expired') throw new Error('Could not expire overlapping recurring Checkout');
+      }
+      if (recurring.status === 'open' || recurring.status === 'expired') {
+        const released = await admin.rpc('cashflow_release_subscription_checkout', {
+          p_user_id: session.client_reference_id,
+          p_reservation_id: row.stripe_checkout_reservation_id,
+        });
+        if (released.error) throw released.error;
+      }
+    }
+  }
   return true;
 }
 
@@ -79,7 +125,10 @@ async function retrieveSubscription(subscriptionId: string): Promise<Stripe.Subs
 
 async function retrieveInvoiceLines(invoice: Stripe.Invoice): Promise<Stripe.InvoiceLineItem[]> {
   if (!invoice.lines.has_more) return invoice.lines.data;
-  return stripe.invoices.listLineItems(invoice.id, { limit: 100 }).autoPagingToArray({ limit: 100 });
+  const lines = await stripe.invoices.listLineItems(invoice.id, { limit: 100 })
+    .autoPagingToArray({ limit: 101 });
+  if (lines.length > 100) throw new Error('Stripe Invoice has too many lines to validate safely');
+  return lines;
 }
 
 function paymentStateForEvent(eventType: string): string | null {
@@ -184,7 +233,11 @@ export default withGuard(async (req, res) => {
     objectId = delivered.id;
   } else {
     const delivered = event.data.object as Stripe.Invoice;
-    invoice = await stripe.invoices.retrieve(delivered.id, { expand: ['discounts.source.coupon'] });
+    invoice = await stripe.invoices.retrieve(delivered.id, {
+      // Stripe marks amount_paid_off_stripe as includable. It must be present
+      // so an invoice manually marked paid outside Stripe cannot grant access.
+      expand: ['discounts.source.coupon', 'amount_paid_off_stripe'],
+    });
     if (invoice.livemode !== expectedLivemode) throw new HttpError(400, 'Stripe Invoice mode mismatch');
     const subscriptionId = subscriptionIdFromInvoice(invoice);
     if (!subscriptionId) {
@@ -216,7 +269,7 @@ export default withGuard(async (req, res) => {
       throw new Error('Stripe Checkout offer metadata is invalid');
     }
     const expectedIntro = offerVersion === PRO_OFFER_VERSION;
-    if (expectedIntro !== record.hasIntroCoupon) {
+    if (expectedIntro !== sessionHasOnlyCoupon(session, catalog.couponId)) {
       throw new Error('Stripe Checkout introductory discount does not match the reserved offer');
     }
   }
@@ -232,8 +285,22 @@ export default withGuard(async (req, res) => {
       throw new Error('Stripe Invoice subscription metadata is invalid');
     }
   }
+  const checkoutOffer = session?.metadata?.offer_version || null;
+  const invoiceOffer = invoice?.parent?.subscription_details?.metadata?.offer_version || null;
+  const objectOffer = checkoutOffer || invoiceOffer;
+  const invoiceDiscount = invoice
+    ? invoiceIntroDiscount(invoice, catalog, record.subscriptionId, record.subscriptionStart)
+    : null;
+  if (invoice && !invoiceDiscount) {
+    throw new Error('Stripe Invoice discount source or window is invalid');
+  }
+  if (invoiceOffer === PRO_STANDARD_OFFER_VERSION && invoiceDiscount?.applied) {
+    throw new Error('Standard Stripe offer unexpectedly has the introductory coupon');
+  }
 
   let paidThrough: string | null = null;
+  let invoicePeriodStart: string | null = null;
+  let invoicePeriodEnd: string | null = null;
   let paymentState = invoice ? paymentStateForEvent(event.type) : null;
   // Completing Checkout can still leave the first invoice unpaid/incomplete.
   // Consume the once-per-account offer only after a validated paid intro invoice.
@@ -242,13 +309,18 @@ export default withGuard(async (req, res) => {
   if (invoice?.status === 'paid') {
     const lines = await retrieveInvoiceLines(invoice);
     const pricing = validatePaidInvoicePrice(invoice, lines, catalog);
-    const invoiceOffer = invoice.parent?.subscription_details?.metadata?.offer_version;
-    paidThrough = paidThroughFromInvoiceLines(lines, catalog, record.subscriptionId);
-    if (!pricing.paid || !paidThrough) {
+    const paidPeriod = paidPeriodFromInvoiceLines(lines, catalog, record.subscriptionId);
+    paidThrough = paidPeriod?.end || null;
+    if (!pricing.paid || !paidPeriod || !paidThrough) {
       throw new Error('Paid Stripe Invoice does not match the Cash Squirrel recurring price');
     }
+    if (pricing.introDiscountApplied !== invoiceDiscount?.applied) {
+      throw new Error('Paid Stripe Invoice discount does not match its expanded Discount');
+    }
+    invoicePeriodStart = paidPeriod.start;
+    invoicePeriodEnd = paidPeriod.end;
     paymentState = 'paid';
-    if (pricing.introDiscountApplied && (!record.hasIntroCoupon || invoiceOffer !== PRO_OFFER_VERSION)) {
+    if (pricing.introDiscountApplied && invoiceOffer !== PRO_OFFER_VERSION) {
       throw new Error('Paid introductory invoice does not match its subscription discount');
     }
     if (invoice.billing_reason === 'subscription_create'
@@ -283,6 +355,16 @@ export default withGuard(async (req, res) => {
     p_payment_state: paymentState,
     p_intro_redeemed: introRedeemed,
     p_checkout_session_id: session?.id || null,
+    p_checkout_reservation_id: session?.metadata?.checkout_reservation_id || null,
+    p_invoice_period_start: invoicePeriodStart,
+    p_invoice_period_end: invoicePeriodEnd,
+    p_invoice_billing_reason: invoice?.billing_reason || null,
+    p_offer_version: objectOffer,
+    p_intro_discount_applied: session
+      ? sessionHasOnlyCoupon(session, catalog.couponId)
+      : invoiceDiscount?.applied || false,
+    p_intro_discount_start: invoiceDiscount?.start || null,
+    p_intro_discount_end: invoiceDiscount?.end || null,
   });
   if (saved.error) throw saved.error;
 
