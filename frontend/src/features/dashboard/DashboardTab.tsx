@@ -53,8 +53,6 @@ interface DashboardTabProps {
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   onQuickRecord?: (mode: 'income' | 'expense') => void;
-  /** Opens รายจ่าย on a given month (from the financial details). */
-  onOpenExpenses?: (monthKey: string) => void;
 }
 
 export default function DashboardTab({
@@ -73,7 +71,6 @@ export default function DashboardTab({
   triggerAlert,
   triggerConfirm,
   onQuickRecord,
-  onOpenExpenses,
 }: DashboardTabProps) {
   const { t } = useLanguage();
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
@@ -587,22 +584,28 @@ export default function DashboardTab({
   // already nets out WHT and excludes not-yet-posted WIP jobs from the pending side.
   const totalContractVal = totalReceived + totalPending;
 
-  // Ad-hoc variable expenses logged for the selected month (equipment, outsourcing, etc.)
-  // -- must be netted out here too, or this stat silently ignores anything logged through
-  // the variable-expense tracker and never moves when the user records a new one. Kept as the
-  // itemized list (not just the sum) so the "กำไรสุทธิ" breakdown popup can show exactly which
-  // records ate into the total, not just a number the user has to take on faith.
-  const monthVariableExpenses = React.useMemo(
+  const monthRecordedExpenses = React.useMemo(
     () => expenses.filter(e => getMonthKey(e.date) === selectedMonthKey),
     [expenses, selectedMonthKey],
   );
+  // A dated payment whose name matches a configured monthly cost is still a recurring expense.
+  // Previously the fixed budget line was correctly suppressed to avoid double counting, but the
+  // dated payment was then labelled "ทั่วไป" on the dashboard. Keep the actual payment in the
+  // recurring bucket and reserve the variable bucket for genuinely general spending.
+  const recurringExpenseNames = React.useMemo(
+    () => new Set((settings.fixedExpenseItems || []).map(item => item.name.trim().toLowerCase())),
+    [settings.fixedExpenseItems],
+  );
+  const monthRecurringExpenses = monthRecordedExpenses.filter(e => recurringExpenseNames.has(e.name.trim().toLowerCase()));
+  const monthVariableExpenses = monthRecordedExpenses.filter(e => !recurringExpenseNames.has(e.name.trim().toLowerCase()));
   const variableExpenseThisMonth = monthVariableExpenses.reduce((sum, e) => sum + e.amount, 0);
   // Fixed costs only from the account's first recorded month (or this month for a new account),
   // so browsing back past the start doesn't show rent as spent in months nothing existed.
   const fixedCostsFrom = React.useMemo(() => firstActivityMonth(jobs, expenses) ?? currentMonthKeyNow(), [jobs, expenses]);
   const fixedFor = (monthKey: string, expenseNames: string[]) =>
     monthKey >= fixedCostsFrom ? fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, expenseNames) : 0;
-  const fixedExpenseThisMonth = fixedFor(selectedMonthKey, monthVariableExpenses.map(e => e.name));
+  const fixedExpenseThisMonth = fixedFor(selectedMonthKey, monthRecordedExpenses.map(e => e.name))
+    + monthRecurringExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   // Money moved into savings goals this month via the deposit modal's "deduct from cash"
   // option. Tracked on the goal transaction itself, never as a fake Expense -- a savings
@@ -616,7 +619,7 @@ export default function DashboardTab({
   );
   const goalDeductionsThisMonth = monthGoalDeductions.reduce((sum, tx) => sum + tx.amount, 0);
 
-  const totalCashOutThisMonth = variableExpenseThisMonth + goalDeductionsThisMonth;
+  const totalCashOutThisMonth = monthRecordedExpenses.reduce((sum, e) => sum + e.amount, 0) + goalDeductionsThisMonth;
 
   // Savings-goal transfers are an allocation of what's left, not an expense, so they stay out of
   // profit (matching the 12-month chart and the Split tab) and only reduce cash-in-hand below.
@@ -645,10 +648,12 @@ export default function DashboardTab({
   // The trend line sits under "กำไรสุทธิ", so it compares profit (same formula as `profit`), not received.
   const prevMonthProfit = React.useMemo(() => {
     const prevExpenses = expenses.filter(e => getMonthKey(e.date) === prevMonthKey);
-    const prevVariable = prevExpenses.reduce((sum, e) => sum + e.amount, 0);
-    return prevMonthReceived - fixedFor(prevMonthKey, prevExpenses.map(e => e.name)) - prevVariable;
+    const prevRecurring = prevExpenses.filter(e => recurringExpenseNames.has(e.name.trim().toLowerCase()));
+    const prevVariable = prevExpenses.filter(e => !recurringExpenseNames.has(e.name.trim().toLowerCase())).reduce((sum, e) => sum + e.amount, 0);
+    const prevFixed = fixedFor(prevMonthKey, prevExpenses.map(e => e.name)) + prevRecurring.reduce((sum, e) => sum + e.amount, 0);
+    return prevMonthReceived - prevFixed - prevVariable;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expenses, prevMonthKey, prevMonthReceived, settings.monthlyExpense, settings.fixedExpenseItems, fixedCostsFrom]);
+  }, [expenses, prevMonthKey, prevMonthReceived, settings.monthlyExpense, settings.fixedExpenseItems, fixedCostsFrom, recurringExpenseNames]);
   const profitChangePct = prevMonthProfit > 0
     ? Math.round(((profit - prevMonthProfit) / prevMonthProfit) * 100)
     : null;
@@ -1219,11 +1224,10 @@ export default function DashboardTab({
           receivedCount={receivedEntriesForMonth.length}
           fixedExpense={fixedExpenseThisMonth}
           variableExpense={variableExpenseThisMonth}
-          variableExpenses={monthVariableExpenses}
+          variableExpenseCount={monthVariableExpenses.length}
           profit={profit}
           savedThisMonth={goalDeductionsThisMonth}
           savedCount={monthGoalDeductions.length}
-          onOpenExpenses={() => { setBreakdownFilter(null); if (onOpenExpenses) onOpenExpenses(selectedMonthKey); else onSwitchTab('incomeExpense'); }}
           onClose={() => setBreakdownFilter(null)}
         />
       )}
@@ -1238,7 +1242,7 @@ export default function DashboardTab({
             : breakdownFilter === 'pending'
             ? pendingEntriesForMonth.map((entry) => ({ id: entry.id, jobId: entry.jobId, name: entry.jobName, client: entry.client, detail: entry.kind === 'installment' ? entry.label : '', amount: entry.amount }))
             : breakdownJobs.map((job) => ({ id: job.id, jobId: job.id, name: job.name, client: job.client, detail: '', amount: job.value }));
-          const loggedExpenseNames = new Set(monthVariableExpenses.map(e => e.name.trim().toLowerCase()));
+          const loggedExpenseNames = new Set(monthRecordedExpenses.map(e => e.name.trim().toLowerCase()));
           const fixedRows = settings.fixedExpenseItems && settings.fixedExpenseItems.length > 0
             ? settings.fixedExpenseItems.map(item => ({ id: item.id, name: item.name, amount: item.amount, covered: loggedExpenseNames.has(item.name.trim().toLowerCase()) }))
             : settings.monthlyExpense > 0 ? [{ id: 'legacy-total', name: 'ค่าใช้จ่ายคงที่รายเดือน', amount: settings.monthlyExpense, covered: false }] : [];

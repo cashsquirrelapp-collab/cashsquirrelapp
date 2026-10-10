@@ -1353,7 +1353,6 @@ export default function App() {
   // many jobs they've recorded to find it themselves.
   const [scrollToJobId, setScrollToJobId] = useState<string | null>(null);
   const [editJobRequest, setEditJobRequest] = useState<string | null>(null);
-  const [expenseMonthRequest, setExpenseMonthRequest] = useState<string | null>(null);
   const [scrollToExpenseId, setScrollToExpenseId] = useState<string | null>(null);
   const [autoOpenAddExpense, setAutoOpenAddExpense] = useState(false);
 
@@ -2675,7 +2674,6 @@ export default function App() {
                   notifSettings={notifSettings}
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
-                  onOpenExpenses={(monthKey: string) => { setExpenseMonthRequest(monthKey); navigateTab('incomeExpense'); }}
                   onQuickRecord={(mode) => {
                     if (mode === 'income') {
                       setIsAddJobOpen(true);
@@ -2846,8 +2844,6 @@ export default function App() {
                   onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
                   scrollToExpenseId={scrollToExpenseId}
                   onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
-                  initialMonth={expenseMonthRequest}
-                  onInitialMonthHandled={() => setExpenseMonthRequest(null)}
                 />
               )}
               {activeTab === 'calendar' && (

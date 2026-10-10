@@ -1,15 +1,12 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, ClipboardList, Receipt, X } from 'lucide-react';
-import type { Expense } from '../../../../shared/types';
+import { ClipboardList, X } from 'lucide-react';
 import { formatCurrency } from '../../utils';
 import { getThaiMonthName } from '../../../../shared/calendar';
 
-// Dashboard › กำไรสุทธิ › รายละเอียดการเงินเดือนนี้: a statement, not a dashboard. Two parts:
-//  1. สรุปเดือนนี้ -- the selected month's received money, expenses and net profit (the same
-//     figures the dashboard cards use, passed in).
-//  2. รายละเอียดรายจ่ายเดือนนี้ -- the month's expense lines.
+// Dashboard › กำไรสุทธิ › รายละเอียดการเงินเดือนนี้: a compact statement using the same
+// selected-month figures as the dashboard cards.
 
 interface Props {
   monthKey: string;
@@ -17,12 +14,11 @@ interface Props {
   receivedCount: number;
   fixedExpense: number;
   variableExpense: number;
-  variableExpenses: Expense[];
+  variableExpenseCount: number;
   profit: number;
   /** Savings set aside this month from the month's money (cash-funded goal deposits). */
   savedThisMonth: number;
   savedCount: number;
-  onOpenExpenses: () => void;
   onClose: () => void;
 }
 
@@ -40,7 +36,7 @@ function Row({ label, value, tone = 'text-brand-text', strong = false }: { label
   );
 }
 
-function SectionHead({ icon: Icon, title, sub, action }: { icon: React.ComponentType<{ className?: string }>; title: string; sub: string; action?: React.ReactNode }) {
+function SectionHead({ icon: Icon, title, sub }: { icon: React.ComponentType<{ className?: string }>; title: string; sub: string }) {
   return (
     <div className="mb-3 flex items-start gap-3">
       <Icon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-[#E65F2B]" />
@@ -48,16 +44,13 @@ function SectionHead({ icon: Icon, title, sub, action }: { icon: React.Component
         <h3 className="text-[16px] font-semibold text-brand-text">{title}</h3>
         <p className="mt-0.5 text-[12.5px] leading-relaxed text-brand-muted">{sub}</p>
       </div>
-      {action}
     </div>
   );
 }
 
 export function FinancialDetailsModal(props: Props) {
-  const { monthKey, received, receivedCount, fixedExpense, variableExpense, variableExpenses, profit, savedThisMonth, savedCount, onOpenExpenses, onClose } = props;
+  const { monthKey, received, receivedCount, fixedExpense, variableExpense, variableExpenseCount, profit, savedThisMonth, savedCount, onClose } = props;
   const panelRef = React.useRef<HTMLDivElement>(null);
-  const totalExpense = fixedExpense + variableExpense;
-  const topExpenses = [...variableExpenses].sort((a, b) => b.amount - a.amount).slice(0, 5);
 
   // Esc closes; Tab stays inside the modal.
   React.useEffect(() => {
@@ -98,7 +91,7 @@ export function FinancialDetailsModal(props: Props) {
             <SectionHead icon={ClipboardList} title="สรุปเดือนนี้" sub="รายรับ รายจ่าย และกำไรสุทธิของเดือนนี้" />
             <Row label={`รับเงินจริงแล้ว (${receivedCount} รายการ)`} value={signed(received, '+')} tone={received > 0 ? GREEN : 'text-brand-text'} />
             <Row label="รายจ่ายประจำ" value={signed(fixedExpense, '-')} tone={fixedExpense > 0 ? RED : 'text-brand-text'} />
-            <Row label={`รายจ่ายทั่วไป (${variableExpenses.length} รายการ)`} value={signed(variableExpense, '-')} tone={variableExpense > 0 ? RED : 'text-brand-text'} />
+            <Row label={`รายจ่ายทั่วไป (${variableExpenseCount} รายการ)`} value={signed(variableExpense, '-')} tone={variableExpense > 0 ? RED : 'text-brand-text'} />
             <div className="mt-2 border-t border-brand-border pt-2.5">
               <Row label="กำไรสุทธิเดือนนี้" value={signed(profit, profit < 0 ? '-' : profit > 0 ? '+' : '')} tone={profit > 0 ? GREEN : profit < 0 ? RED : 'text-brand-text'} strong />
             </div>
@@ -110,18 +103,6 @@ export function FinancialDetailsModal(props: Props) {
             </div>
           </section>
 
-          {/* 2. รายละเอียดรายจ่ายเดือนนี้ */}
-          <section className="border-t border-brand-border pt-5" aria-label="รายละเอียดรายจ่ายเดือนนี้">
-            <SectionHead icon={Receipt} title="รายละเอียดรายจ่ายเดือนนี้" sub="รายการรายจ่ายทั้งหมดของเดือนนี้"
-              action={<button type="button" onClick={onOpenExpenses} className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-medium text-[#C24A16] hover:bg-[#FFF5EE] cursor-pointer dark:text-[#FF9A6B] dark:hover:bg-[#E65F2B]/10">ดูทั้งหมด <ArrowRight className="h-3.5 w-3.5" /></button>} />
-            {fixedExpense > 0 && <Row label="รายจ่ายประจำ" value={signed(fixedExpense, '-')} tone={RED} />}
-            {topExpenses.map(e => <Row key={e.id} label={<span className="block truncate">{e.name}</span>} value={signed(e.amount, '-')} tone={RED} />)}
-            {variableExpenses.length > topExpenses.length && <p className="py-1 text-[12px] text-brand-muted">และอีก {variableExpenses.length - topExpenses.length} รายการ</p>}
-            {totalExpense === 0 && <p className="py-2 text-[13px] text-brand-muted">ยังไม่มีรายจ่ายในเดือนนี้</p>}
-            <div className="mt-2 border-t border-brand-border pt-2.5">
-              <Row label="รวมรายจ่ายเดือนนี้" value={signed(totalExpense, '-')} tone={totalExpense > 0 ? RED : 'text-brand-text'} strong />
-            </div>
-          </section>
         </div>
       </motion.div>
     </div>,

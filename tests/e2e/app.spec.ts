@@ -896,7 +896,7 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',async route=>{
   if(route.request().method()==='POST') return route.fulfill({json:{ok:true}});
-  return route.fulfill({json:{snapshot:{...snapshot,jobs:[job,waiting],expenses,goals:[goal]},versions:{...versions,cashflow_jobs:{paid:1,wait:1},cashflow_expenses:{e1:1,e2:1,e3:1},cashflow_goals:{g1:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+  return route.fulfill({json:{snapshot:{...snapshot,jobs:[job,waiting],expenses,goals:[goal],settings:{...snapshot.settings,monthlyExpense:12000,fixedExpenseItems:[{id:'old-cost',name:'ค่าใช้จ่ายเดิม',amount:12000}]}},versions:{...versions,cashflow_jobs:{paid:1,wait:1},cashflow_expenses:{e1:1,e2:1,e3:1},cashflow_goals:{g1:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
  });
  await page.goto('/');
  await expect(page.locator('#main-content').getByRole('button',{name:'เพิ่มงาน',exact:true})).toHaveCount(0);
@@ -910,15 +910,14 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  const summary=modal.getByRole('region',{name:'สรุปเดือนนี้'});
  await expect(summary).toContainText('รับเงินจริงแล้ว (1 รายการ)');
  await expect(summary).toContainText('+฿10,180');
- await expect(summary).toContainText('−฿13,330');
+ await expect(summary.getByText('รายจ่ายประจำ').locator('..')).toContainText('−฿12,000');
+ await expect(summary.getByText('รายจ่ายทั่วไป (2 รายการ)').locator('..')).toContainText('−฿1,330');
  await expect(summary).toContainText('กำไรสุทธิเดือนนี้');
  await expect(summary).toContainText('−฿3,150');
  await expect(summary).toContainText('แบ่งออมเข้าเป้าหมาย (1 รายการ)');
  await expect(page.getByTestId('left-this-month')).toContainText('−฿6,150');
  await expect(modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'})).toHaveCount(0);
  await expect(modal.getByRole('button',{name:'ตั้งยอดเริ่มต้น'})).toHaveCount(0);
- // ดูทั้งหมด goes to รายจ่าย on this month
- await modal.getByRole('button',{name:/ดูทั้งหมด/}).click();
- await expect(page.getByRole('heading',{name:'รายจ่าย',exact:true,level:1})).toBeVisible();
- await expect(page.locator('#main-content')).toContainText('Claude AI');
+ await expect(modal.getByRole('region',{name:'รายละเอียดรายจ่ายเดือนนี้'})).toHaveCount(0);
+ await expect(modal.getByRole('button',{name:/ดูทั้งหมด/})).toHaveCount(0);
 });
