@@ -8,14 +8,18 @@ import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeF
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { IncomeExpenseChart } from './IncomeExpenseChart';
+import { MonthlyWorkValueBanner } from './MonthlyWorkValueBanner';
 import { FinancialDetailsModal } from './FinancialDetailsModal';
 import JobPaymentDialog from '../jobs/JobPaymentDialog';
 import { useQuickUndo } from '../jobs/useQuickUndo';
 import { Mascot } from '../../components/mascot/Mascot';
+import { IconArrowUpRight } from '../../components/ui/icons';
+import { VineDivider } from '../../components/mascot/VineDivider';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate, getOutstandingAmount } from '../../../../shared/installmentPayments';
-import { firstActivityMonth, fixedExpenseForMonth } from '../../../../shared/monthlySummary';
+import { firstActivityMonth, fixedExpenseForMonth, workValueRowsForMonth } from '../../../../shared/monthlySummary';
 import {
+  TrendingUp,
   TrendingDown,
   Coins,
   Clock, 
@@ -28,6 +32,8 @@ import {
   Bell,
   Mail,
   Send,
+  PiggyBank,
+  CalendarDays
 } from 'lucide-react';
 
 interface DashboardTabProps {
@@ -41,6 +47,8 @@ interface DashboardTabProps {
   selectedMonthKey: string;
   onEditJob?: (id: string, updated: Partial<Job>) => void;
   onViewJob?: (jobId: string) => void;
+  /** Opens the calendar page, optionally on a given YYYY-MM-DD. */
+  onOpenCalendar?: (dateKey?: string) => void;
   userEmail: string;
   notifSettings: NotifSettings;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
@@ -61,6 +69,7 @@ export default function DashboardTab({
   selectedMonthKey,
   onEditJob,
   onViewJob,
+  onOpenCalendar,
   userEmail,
   notifSettings,
   triggerAlert,
@@ -71,13 +80,29 @@ export default function DashboardTab({
   const { t } = useLanguage();
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
   // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.
-  const [breakdownFilter, setBreakdownFilter] = React.useState<'received' | 'pending' | 'profit' | 'expense' | null>(null);
+  const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | 'profit' | 'expense' | 'workValue' | null>(null);
   const [quickSearch, setQuickSearch] = React.useState('');
   // Job being paid from the quick-pay list (the shared Jobs-page payment dialog), with undo.
   const [payingJob, setPayingJob] = React.useState<Job | null>(null);
   const { apply: applyQuickChange, bar: undoBar } = useQuickUndo(onEditJob ?? (() => {}));
   const [isQuickPayExpanded, setIsQuickPayExpanded] = React.useState(false);
   const [isSendingSimulated, setIsSendingSimulated] = React.useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
+  const moreMenuRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!isMoreMenuOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!moreMenuRef.current?.contains(event.target as Node)) setIsMoreMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setIsMoreMenuOpen(false); };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isMoreMenuOpen]);
+
   // Credit Term Report for the 3-box dashboard
   const creditTermReport = React.useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -541,6 +566,11 @@ export default function DashboardTab({
     () => jobs.flatMap((job) => job.isPosted === false ? [] : getJobPendingEntries(job)).filter((entry) => getMonthKeyFromDate(entry.dueDate) === selectedMonthKey),
     [jobs, selectedMonthKey],
   );
+  const selectedMonthJobs = React.useMemo(
+    () => jobs.filter(j => getMonthKey(j.payDate || j.postDate) === selectedMonthKey || receivedEntriesForMonth.some((entry) => entry.jobId === j.id) || pendingEntriesForMonth.some((entry) => entry.jobId === j.id)),
+    [jobs, selectedMonthKey, receivedEntriesForMonth, pendingEntriesForMonth],
+  );
+  
   // Trust the recorded `received` field as-is -- never assume a "done" job's full value was
   // received when that field is still 0/unset, since that shows phantom income the user never
   // actually got and disagrees with the Timeline tab, which only counts received > 0.
@@ -553,6 +583,11 @@ export default function DashboardTab({
   // drifted out of sync, disagreeing with the Timeline tab (which never checks isPaid here) and
   // making dashboard money vanish from both totals at once.
   const totalPending = pendingEntriesForMonth.reduce((sum, entry) => sum + entry.amount, 0);
+
+  // Must equal totalReceived + totalPending, not a separately-derived sum -- otherwise it
+  // silently drifts from the rest of the app (e.g. the Timeline tab's monthly total), which
+  // already nets out WHT and excludes not-yet-posted WIP jobs from the pending side.
+  const totalContractVal = totalReceived + totalPending;
 
   // Ad-hoc variable expenses logged for the selected month (equipment, outsourcing, etc.)
   // -- must be netted out here too, or this stat silently ignores anything logged through
@@ -593,6 +628,33 @@ export default function DashboardTab({
   // fixed-expense budget line (that's what `profit` above is for) since fixed bills haven't
   // necessarily left the wallet yet.
   const receivedAfterVariableExpense = Math.max(0, totalReceived - totalCashOutThisMonth);
+  // เงินที่เหลือเดือนนี้: what's left of the month's money once its expenses are paid and the
+  // savings set aside from it (cash-funded goal deposits) are taken out. Can go below zero.
+  const leftThisMonth = profit - goalDeductionsThisMonth;
+
+  // Month-over-month comparison for the hero card
+  const prevMonthKey = React.useMemo(() => {
+    const [y, m] = selectedMonthKey.split('-').map(Number);
+    const d = new Date(y, m - 1 - 1, 1);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
+  }, [selectedMonthKey]);
+
+  const prevMonthReceived = React.useMemo(
+    () => jobs.flatMap(getJobPaymentEntries).reduce((sum, entry) => getMonthKeyFromDate(entry.date) === prevMonthKey ? sum + entry.amount : sum, 0),
+    [jobs, prevMonthKey],
+  );
+
+  // The trend line sits under "กำไรสุทธิ", so it compares profit (same formula as `profit`), not received.
+  const prevMonthProfit = React.useMemo(() => {
+    const prevExpenses = expenses.filter(e => getMonthKey(e.date) === prevMonthKey);
+    const prevVariable = prevExpenses.reduce((sum, e) => sum + e.amount, 0);
+    return prevMonthReceived - fixedFor(prevMonthKey, prevExpenses.map(e => e.name)) - prevVariable;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses, prevMonthKey, prevMonthReceived, settings.monthlyExpense, settings.fixedExpenseItems, fixedCostsFrom]);
+  const profitChangePct = prevMonthProfit > 0
+    ? Math.round(((profit - prevMonthProfit) / prevMonthProfit) * 100)
+    : null;
+
   const playHapticAndSound = () => {
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -650,12 +712,80 @@ export default function DashboardTab({
     })
     .slice(0, 4), [jobs]);
 
+  const recentActivity = React.useMemo(() => {
+    const paymentEvents = jobs.flatMap(j => getJobPaymentEntries(j).map(entry => ({
+      key: entry.id,
+      date: entry.date || '',
+      label: `รับเงิน ${entry.client || entry.jobName}`,
+      sub: 'เงินเข้า',
+      amount: `+${formatCurrency(entry.amount)}`,
+      isIncome: true,
+    })));
+    const expenseEvents = expenses.map(e => ({
+      key: e.id,
+      date: e.date,
+      label: e.name,
+      sub: 'รายจ่าย',
+      amount: `-${formatCurrency(e.amount)}`,
+      isIncome: false,
+    }));
+    return [...paymentEvents, ...expenseEvents]
+      .filter(ev => ev.date)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 5);
+  }, [jobs, expenses]);
+
+  const currentMonthKeyForCalendar = selectedMonthKey;
+
+  const miniCalendarDays = React.useMemo(() => {
+    const now = new Date();
+    const [year, month] = (() => { const [y, m] = selectedMonthKey.split('-').map(Number); return [y, m - 1]; })();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    // Real today (the month shown may be another one); "due soon" is within the next 7 days.
+    const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const todayKey = dayKey(now);
+    const soonKey = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7));
+
+    const dayColor = new Map<string, { bg: string; color: string }>();
+    jobs.forEach(j => {
+      const dueDate = j.payDate || j.dueDate;
+      if (dueDate && j.isPosted !== false) {
+        const key = dueDate.slice(0, 10);
+        const isPaid = j.pending <= 0;
+        const isOverdue = !isPaid && key < todayKey;
+        const isDueSoon = !isPaid && !isOverdue && key <= soonKey;
+        dayColor.set(key, isPaid
+          ? { bg: '#E9F8F1', color: '#18A66A' }
+          : isOverdue
+          ? { bg: '#FFF0F0', color: '#C43A3A' }
+          : isDueSoon
+          ? { bg: '#FAEEDA', color: '#8A5A0B' }
+          : { bg: 'transparent', color: 'inherit' });
+      }
+    });
+
+    const cells: { n: number | null; key?: string; bg: string; color: string }[] = [];
+    for (let i = 0; i < firstWeekday; i++) cells.push({ n: null, bg: 'transparent', color: 'inherit' });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isToday = key === todayKey;
+      const style = dayColor.get(key);
+      cells.push(isToday
+        ? { n: d, key, bg: '#E65F2B', color: '#ffffff' }
+        : { n: d, key, ...(style || { bg: 'transparent', color: 'inherit' }) });
+    }
+    return cells;
+  }, [jobs, selectedMonthKey]);
+
   return (
     <div id="dashboard-top" className="dashboard-shell flex flex-col scroll-mt-6 text-brand-text">
       
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
       <div className="order-1 flex flex-col gap-5">
+      <MonthlyWorkValueBanner jobs={jobs} monthKey={selectedMonthKey} onOpenDetails={() => setBreakdownFilter('workValue')} />
+
       <div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <button
@@ -689,8 +819,16 @@ export default function DashboardTab({
         >
           <p className="text-xs text-brand-muted">กำไรสุทธิ</p>
           <p className={`mt-1 text-[22px] leading-7 font-bold font-mono ${profit >= 0 ? 'text-[#18A66A]' : 'text-rose-600'}`}>{formatCurrency(profit)}</p>
+          <p className="mt-1 text-[12px] text-brand-muted">เงินที่เหลือ <span className={`font-mono font-semibold ${leftThisMonth < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-brand-text'}`}>{formatCurrency(leftThisMonth)}</span></p>
+          {profitChangePct !== null && (
+            <p className={`mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium ${profitChangePct >= 0 ? 'text-[#18A66A]' : 'text-rose-500'}`}>
+              {profitChangePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {profitChangePct >= 0 ? '↑ ' : '↓ '}{Math.abs(profitChangePct)}% จากเดือนก่อน
+            </p>
+          )}
         </button>
       </div>
+      <p className="mt-[10px] text-[11px] text-brand-muted">{jobs.length} งานทั้งหมด · {jobs.filter(j => j.pending > 0 && getRelativeDaysText(j.payDate || j.postDate).isOverdue).length} รายการเกินกำหนด</p>
       </div>
       </div>
 
@@ -700,17 +838,27 @@ export default function DashboardTab({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, delay: 0.1 }}
         aria-label="ทางลัด"
-        className="order-3 mt-5 grid grid-cols-2 gap-2.5"
+        className="order-3 relative mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4"
       >
         <button
           type="button"
-          onClick={() => setIsQuickPayExpanded(true)}
+          onClick={() => { setIsMoreMenuOpen(false); setIsQuickPayExpanded(true); }}
           className="flex items-center gap-2.5 rounded-xl border border-[#F8D6C2] bg-[#FFF1E8] px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
         >
           <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-white">
             <Coins className="h-4 w-4 text-[#E65F2B]" />
           </span>
           <span className="text-xs font-semibold text-[#E65F2B]">รับเงินด่วน</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onQuickRecord?.('income')}
+          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
+        >
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-[#E9F8F1]">
+            <TrendingUp className="h-4 w-4 text-[#4E9D78]" />
+          </span>
+          <span className="text-xs font-medium text-brand-text">เพิ่มรายรับ</span>
         </button>
         <button
           type="button"
@@ -722,6 +870,47 @@ export default function DashboardTab({
           </span>
           <span className="text-xs font-medium text-brand-text">เพิ่มรายจ่าย</span>
         </button>
+        {/* display:contents keeps the grid layout; the wrapper only scopes outside-click. */}
+        <div ref={moreMenuRef} className="contents">
+        <button
+          type="button"
+          onClick={() => setIsMoreMenuOpen(v => !v)}
+          aria-haspopup="menu"
+          aria-expanded={isMoreMenuOpen}
+          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
+        >
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-faint">
+            <span className="text-brand-muted">•••</span>
+          </span>
+          <span className="text-xs font-medium text-brand-text">เพิ่มเติม</span>
+        </button>
+
+        {isMoreMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            role="menu"
+            className="absolute right-0 top-[calc(100%+8px)] z-20 w-52 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900"
+          >
+            {[
+              { label: 'ออกเอกสาร', icon: IconArrowUpRight, action: () => onSwitchTab('invoice') },
+              { label: 'เป้าหมายออม', icon: PiggyBank, action: () => onSwitchTab('split') },
+              { label: 'ปฏิทิน', icon: CalendarDays, action: () => onSwitchTab('calendar') },
+            ].map(({ label, icon: Icon, action }) => (
+              <button
+                key={label}
+                type="button"
+                role="menuitem"
+                onClick={() => { action(); setIsMoreMenuOpen(false); }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
+              >
+                <Icon className="h-4 w-4 text-brand-muted" />
+                {label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+        </div>
       </motion.section>
 
       {/* Income/expense chart next to the receivables watchlist. */}
@@ -821,6 +1010,69 @@ export default function DashboardTab({
             })}
         </div>
       </motion.div>
+
+      {/* Recent activity + mini financial calendar, matching the mockup's second row below
+          the chart/watchlist row. */}
+      <div className="order-5 mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+        <div className={`${uiSurface} p-[18px]`}>
+          <div className="mb-1 flex items-center justify-between">
+            <h4 className="text-[13px] font-medium text-brand-text">รายการล่าสุด</h4>
+            <button type="button" onClick={() => onSwitchTab('incomeExpense')} className="text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">
+              ดูทั้งหมด →
+            </button>
+          </div>
+          {recentActivity.length === 0 ? (
+            <p className="py-6 text-center text-xs text-brand-muted">ยังไม่มีรายการล่าสุด</p>
+          ) : recentActivity.map(ev => (
+            <div key={ev.key} className="flex items-center justify-between border-t border-brand-border py-2">
+              <div>
+                <p className="text-xs text-brand-text">{ev.label}</p>
+                <p className="mt-0.5 text-[10px] text-brand-muted">{ev.sub}</p>
+              </div>
+              <p className={`text-xs font-medium ${ev.isIncome ? 'text-[#18A66A]' : 'text-brand-text'}`}>{ev.amount}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className={`${uiSurface} p-[18px]`}>
+          <div className="mb-0.5 flex items-center justify-between">
+            <h4 className="text-[13px] font-medium text-brand-text">ปฏิทินการเงิน</h4>
+            <button type="button" onClick={() => (onOpenCalendar ? onOpenCalendar() : onSwitchTab('calendar'))} className="inline-flex items-center gap-1 text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">
+              <CalendarDays className="h-3.5 w-3.5" /> ดูปฏิทิน →
+            </button>
+          </div>
+          <p className="mb-2.5 text-[11px] text-brand-muted">{formatMonthKey(currentMonthKeyForCalendar)}</p>
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-brand-muted">
+            {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(w => <div key={w}>{w}</div>)}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1 text-center text-[11px]">
+            {miniCalendarDays.map((cell, i) => cell.key ? (
+              // Each day opens the calendar page on that date, where its jobs are listed.
+              <button
+                key={i}
+                type="button"
+                onClick={() => (onOpenCalendar ? onOpenCalendar(cell.key) : onSwitchTab('calendar'))}
+                aria-label={`ดูปฏิทินวันที่ ${safeFormatThaiDate(cell.key, { day: 'numeric', month: 'long', year: 'numeric' })}`}
+                className="rounded-md py-1 transition-shadow hover:ring-1 hover:ring-[#F3B08C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B] cursor-pointer"
+                style={{ background: cell.bg, color: cell.color }}
+              >
+                {cell.n}
+              </button>
+            ) : (
+              <div key={i} />
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2.5 text-[9px] text-brand-muted">
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#378ADD]" />นัดหมาย</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#F36A2D]" />Credit Term</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#F2A93B]" />ใกล้ครบ</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#18A66A]" />เงินเข้า</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E95454]" />เกินกำหนด</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="order-8 mt-7"><VineDivider /></div>
 
       {/* Quick payment stays out of the overview until the shortcut is used. */}
       {isQuickPayExpanded && createPortal(
@@ -982,15 +1234,25 @@ export default function DashboardTab({
         />
       )}
       {breakdownFilter && breakdownFilter !== 'profit' && (() => {
+          const breakdownJobs =
+            breakdownFilter === 'contract' ? selectedMonthJobs :
+            breakdownFilter === 'received' ? selectedMonthJobs.filter(j => receivedEntriesForMonth.some((entry) => entry.jobId === j.id)) :
+            breakdownFilter === 'pending' ? selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0) :
+            [];
           const breakdownItems = breakdownFilter === 'received'
             ? receivedEntriesForMonth.map((entry) => ({ id: entry.id, jobId: entry.jobId, name: entry.jobName, client: entry.client, detail: entry.kind === 'installment' ? entry.label : '', amount: entry.amount }))
             : breakdownFilter === 'pending'
             ? pendingEntriesForMonth.map((entry) => ({ id: entry.id, jobId: entry.jobId, name: entry.jobName, client: entry.client, detail: entry.kind === 'installment' ? entry.label : '', amount: entry.amount }))
-            : [];
+            : breakdownJobs.map((job) => ({ id: job.id, jobId: job.id, name: job.name, client: job.client, detail: '', amount: job.value }));
           const loggedExpenseNames = new Set(monthVariableExpenses.map(e => e.name.trim().toLowerCase()));
           const fixedRows = settings.fixedExpenseItems && settings.fixedExpenseItems.length > 0
             ? settings.fixedExpenseItems.map(item => ({ id: item.id, name: item.name, amount: item.amount, covered: loggedExpenseNames.has(item.name.trim().toLowerCase()) }))
             : settings.monthlyExpense > 0 ? [{ id: 'legacy-total', name: 'ค่าใช้จ่ายคงที่รายเดือน', amount: settings.monthlyExpense, covered: false }] : [];
+          const workRows = breakdownFilter === 'workValue' ? workValueRowsForMonth(jobs, selectedMonthKey) : [];
+          const workTotals = workRows.reduce((acc, row) => ({
+            value: acc.value + row.value, received: acc.received + row.received, pending: acc.pending + row.pending,
+            otherMonths: acc.otherMonths + row.otherMonths, wht: acc.wht + row.wht, grossValue: acc.grossValue + row.grossValue,
+          }), { value: 0, received: 0, pending: 0, otherMonths: 0, wht: 0, grossValue: 0 });
           const summaryRow = (label: string, amount: number, tone = 'text-brand-text dark:text-white', sign = '') => (
             <div className="flex justify-between gap-3">
               <span className="text-brand-muted">{label}</span>
@@ -1016,15 +1278,21 @@ export default function DashboardTab({
 
                 <div>
                   <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
+                    {breakdownFilter === 'contract' && t('dash.breakdownAllJobsTitle', { month: formatMonthKey(selectedMonthKey) })}
                     {breakdownFilter === 'received' && t('dash.breakdownReceivedTitle')}
                     {breakdownFilter === 'pending' && t('dash.breakdownPendingTitle')}
                     {breakdownFilter === 'expense' && `${withMonth('รายจ่าย', selectedMonthKey)}มาจากอะไรบ้าง`}
+                    {breakdownFilter === 'workValue' && `${withMonth('มูลค่างาน', selectedMonthKey)}มาจากงานไหนบ้าง`}
                   </h3>
                   {breakdownFilter === 'expense' && (
                     <p className="text-xs text-brand-muted mt-0.5">{formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}</p>
                   )}
-                  {(breakdownFilter === 'received' || breakdownFilter === 'pending') && (
+                  {breakdownFilter === 'workValue' && (
+                    <p className="text-xs text-brand-muted mt-0.5">{formatCurrency(workTotals.value)} จาก {workRows.length} งาน (หลังหัก ณ ที่จ่าย)</p>
+                  )}
+                  {(breakdownFilter === 'contract' || breakdownFilter === 'received' || breakdownFilter === 'pending') && (
                     <p className="text-xs text-brand-muted mt-0.5">
+                      {breakdownFilter === 'contract' && formatCurrency(totalContractVal)}
                       {breakdownFilter === 'received' && formatCurrency(totalReceived)}
                       {breakdownFilter === 'pending' && formatCurrency(totalPending)}
                       {t('dash.breakdownTotalFrom', { count: breakdownItems.length })}
@@ -1077,6 +1345,50 @@ export default function DashboardTab({
                         </div>
                       ) : (
                         <p className="py-3 text-center text-xs text-brand-muted">{withMonth('ยังไม่มีรายจ่ายที่บันทึกใน', selectedMonthKey)}</p>
+                      )}
+                    </div>
+                  </div>
+                ) : breakdownFilter === 'workValue' ? (
+                  <div className="overflow-y-auto space-y-3 -mx-1 px-1">
+                    <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                      {summaryRow(withMonth('รับแล้ว', selectedMonthKey), workTotals.received)}
+                      {summaryRow(withMonth('รอรับ', selectedMonthKey), workTotals.pending, 'text-brand-text dark:text-white', '+ ')}
+                      {workTotals.otherMonths !== 0 && summaryRow('รับก่อนหน้า / ครบกำหนดเดือนอื่น', workTotals.otherMonths, 'text-brand-text dark:text-white', '+ ')}
+                      <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
+                      <div className="flex justify-between gap-3">
+                        <span className="font-bold text-brand-text dark:text-white">= {withMonth('มูลค่างาน', selectedMonthKey)}</span>
+                        <span className="font-mono font-black text-brand-text dark:text-white">{formatCurrency(workTotals.value)}</span>
+                      </div>
+                      {workTotals.wht > 0 && (
+                        <p className="pt-1 text-[11px] text-brand-muted">หัก ณ ที่จ่ายให้แล้ว {formatCurrency(workTotals.wht)} (ก่อนหัก {formatCurrency(workTotals.grossValue)})</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {workRows.map(row => {
+                        const parts = [
+                          row.received > 0 ? `รับแล้ว ${formatCurrency(row.received)}` : '',
+                          row.pending > 0 ? `รอรับ ${formatCurrency(row.pending)}` : '',
+                          row.otherMonths !== 0 ? `เดือนอื่น ${formatCurrency(row.otherMonths)}` : '',
+                          row.wht > 0 ? `หัก ณ ที่จ่าย ${formatCurrency(row.wht)}` : '',
+                        ].filter(Boolean).join(' · ');
+                        return (
+                          <button
+                            key={row.jobId}
+                            type="button"
+                            onClick={() => { setBreakdownFilter(null); onViewJob?.(row.jobId); }}
+                            className="w-full flex items-center justify-between gap-2 p-3 bg-brand-faint/60 hover:bg-brand-faint dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl text-left transition-all cursor-pointer"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-brand-text dark:text-white truncate">{row.name}</p>
+                              <p className="text-[10px] text-brand-muted truncate">{row.client || t('dash.noClientListed')}</p>
+                              {parts && <p className="text-[10px] text-brand-muted">{parts}</p>}
+                            </div>
+                            <span className="text-xs font-mono font-black text-brand-text dark:text-white shrink-0">{formatCurrency(row.value)}</span>
+                          </button>
+                        );
+                      })}
+                      {workRows.length === 0 && (
+                        <p className="text-xs text-brand-muted text-center py-6">{withMonth('ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดใน', selectedMonthKey)}</p>
                       )}
                     </div>
                   </div>

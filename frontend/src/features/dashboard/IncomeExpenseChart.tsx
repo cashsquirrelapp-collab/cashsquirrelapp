@@ -11,11 +11,13 @@ type Granularity = 'day' | 'week' | 'month';
 
 // Spans end at the dashboard's selected month (the header period picker), so the chart has no
 // month selector of its own: the selected month alone, or the 3 / 12 months up to it.
-const RANGES: { key: RangeKey; label: string; months: number; granularity: Granularity }[] = [
-  { key: '1m', label: 'ทั้งเดือน', months: 1, granularity: 'day' },
-  { key: '3m', label: '3 เดือน', months: 3, granularity: 'week' },
-  { key: '12m', label: '12 เดือน', months: 12, granularity: 'month' },
+const RANGES: { key: RangeKey; label: string; months: number; granularities: Granularity[] }[] = [
+  { key: '1m', label: 'ทั้งเดือน', months: 1, granularities: ['day', 'week'] },
+  { key: '3m', label: '3 เดือน', months: 3, granularities: ['week', 'month'] },
+  { key: '12m', label: '12 เดือน', months: 12, granularities: ['month'] },
 ];
+
+const GRANULARITY_LABELS: Record<Granularity, string> = { day: 'แบบวัน', week: 'แบบสัปดาห์', month: 'แบบเดือน' };
 
 const INCOME_COLOR = '#F7B584';
 const EXPENSE_COLOR = '#F2A59B';
@@ -132,8 +134,14 @@ function ChartSelect<T extends string>({ value, options, onChange, label }: {
 
 export function IncomeExpenseChart({ jobs, expenses, settings, monthKey }: { jobs: Job[]; expenses: Expense[]; settings: AppSettings; monthKey: string }) {
   const [range, setRange] = React.useState<RangeKey>('1m');
+  const [granularity, setGranularity] = React.useState<Granularity>('day');
   const rangeMeta = RANGES.find(r => r.key === range)!;
-  const granularity = rangeMeta.granularity;
+
+  const changeRange = (next: RangeKey) => {
+    setRange(next);
+    const allowed = RANGES.find(r => r.key === next)!.granularities;
+    if (!allowed.includes(granularity)) setGranularity(allowed[0]);
+  };
 
   const data = React.useMemo(
     () => buildBuckets(range, granularity, jobs, expenses, settings, monthKey),
@@ -156,7 +164,13 @@ export function IncomeExpenseChart({ jobs, expenses, settings, monthKey }: { job
             label="ช่วงเวลา"
             value={range}
             options={RANGES.map(r => ({ value: r.key, label: r.label }))}
-            onChange={setRange}
+            onChange={changeRange}
+          />
+          <ChartSelect
+            label="ความละเอียด"
+            value={granularity}
+            options={rangeMeta.granularities.map(g => ({ value: g, label: GRANULARITY_LABELS[g] }))}
+            onChange={setGranularity}
           />
         </div>
       </div>
