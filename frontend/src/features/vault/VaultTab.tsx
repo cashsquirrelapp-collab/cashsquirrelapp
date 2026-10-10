@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, ExternalLink, FolderOpen, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { Download, ExternalLink, FileCheck2, FolderOpen, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
 import type { Expense, Job } from '../../../../shared/types';
 import { VAULT_KIND_LABEL, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { safeFormatThaiDate } from '../../utils';
@@ -23,7 +23,11 @@ const FILTERS: { key: Filter; label: string }[] = [
 ];
 const thaiYear = (iso: string) => Number(iso.slice(0, 4)) + 543;
 
-export function VaultTab({ jobs, expenses }: { jobs: Job[]; expenses: Expense[] }) {
+export function VaultTab({ jobs, expenses, onOpenWht50 }: {
+  jobs: Job[];
+  expenses: Expense[];
+  onOpenWht50: () => void;
+}) {
   const vault = useVault();
   const [filter, setFilter] = React.useState<Filter>('all');
   const [query, setQuery] = React.useState('');
@@ -89,16 +93,20 @@ export function VaultTab({ jobs, expenses }: { jobs: Job[]; expenses: Expense[] 
         </div>
       )}
       <PageHeader page="vault">
-        <div className="flex items-center gap-2">
-        <button type="button" onClick={() => void downloadShown()} disabled={!shown.length || zipping}
-          title="ดาวน์โหลดทุกไฟล์ที่แสดงอยู่เป็นไฟล์ ZIP เดียว แยกโฟลเดอร์ตามงาน"
-          className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text hover:bg-brand-faint disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
-          <Download className="h-4 w-4" /><span className="hidden sm:inline">{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดทั้งหมด (${shown.length})`}</span><span className="sm:hidden">ZIP</span>
-        </button>
-        <button type="button" onClick={() => vault.openUpload({ kind: filter === 'all' ? 'wht50' : filter })}
-          className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-[13px] font-semibold text-white hover:bg-[#D35221] cursor-pointer">
-          <Plus className="h-4 w-4" />เพิ่มเอกสาร
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={onOpenWht50}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text hover:bg-brand-faint cursor-pointer">
+            <FileCheck2 className="h-4 w-4" />จัดการใบ 50 ทวิ
+          </button>
+          <button type="button" onClick={() => void downloadShown()} disabled={!shown.length || zipping}
+            title="ดาวน์โหลดทุกไฟล์ที่แสดงอยู่เป็นไฟล์ ZIP เดียว แยกโฟลเดอร์ตามงาน"
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text hover:bg-brand-faint disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
+            <Download className="h-4 w-4" /><span className="hidden sm:inline">{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดทั้งหมด (${shown.length})`}</span><span className="sm:hidden">ZIP</span>
+          </button>
+          <button type="button" onClick={() => vault.openUpload({ kind: filter === 'all' ? 'wht50' : filter })}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-[13px] font-semibold text-white hover:bg-[#D35221] cursor-pointer">
+            <Plus className="h-4 w-4" />เพิ่มเอกสาร
+          </button>
         </div>
       </PageHeader>
 

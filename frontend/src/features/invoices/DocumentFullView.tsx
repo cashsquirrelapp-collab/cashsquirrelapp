@@ -2,12 +2,12 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, X } from 'lucide-react';
 import type { Invoice } from '../../../../shared/types';
-import { A4_HEIGHT_PX, A4_WIDTH_PX, DocumentPreview } from './DocumentA4';
+import { A4_WIDTH_PX, DocumentPreview } from './DocumentA4';
 
-// The selected document, a whole A4 page at once: scaled to fit the space it has (width and
-// height), centred. A document with more pages scrolls down to the next ones. Clicking the paper
-// or the ขยายเต็มจอ button above it opens it full screen at a readable size. Nothing is drawn over
-// the paper itself.
+// The selected document fills the available width so its text stays readable. The preview keeps
+// its own vertical scroll for the rest of the A4 page (and any following pages), so a short browser
+// window no longer shrinks a wide preview down to a thumbnail. Clicking the paper or the
+// ขยายเต็มจอ button above it opens the same document full screen. Nothing is drawn over the paper.
 
 const PAD = 20;
 const BAR = 40; // the row above the paper with ขยายเต็มจอ
@@ -27,8 +27,7 @@ export function DocumentFullView({ invoice, className = '' }: { invoice: Invoice
   React.useEffect(() => { ref.current?.scrollTo({ top: 0 }); }, [invoice.id]);
 
   const fitW = box.w ? (box.w - PAD * 2) / A4_WIDTH_PX : 0.6;
-  const fitH = box.h ? (box.h - PAD * 2 - BAR) / A4_HEIGHT_PX : 0.6;
-  const scale = Math.max(0.3, Math.min(fitW, fitH, 1.1));
+  const scale = Math.max(0.3, Math.min(fitW, 1.1));
   const [expanded, setExpanded] = React.useState(false);
 
   return (

@@ -130,6 +130,15 @@ async function setup(page: Page) {
       },
     }),
   );
+  // VaultProvider is shared by every signed-in app page. This suite exercises finance
+  // workspace isolation, so keep the unrelated background vault request local instead of
+  // letting the credential-free E2E server answer 401 and expire the mocked session.
+  await page.route("**/api/vault", (route) =>
+    route.fulfill({ json: { files: [] } }),
+  );
+  await page.route("**/api/usage-analytics", (route) =>
+    route.fulfill({ json: { ok: true } }),
+  );
   await page.route("**/api/groups?*", (route) =>
     route.fulfill({
       json: {

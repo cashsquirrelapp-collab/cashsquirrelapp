@@ -2607,7 +2607,7 @@ export default function App() {
             triggerConfirm={triggerConfirm}
             triggerAlert={triggerAlert}
           >
-          {!session.isGuest && loadedFinanceOwner !== financeOwner
+          {!session.isGuest && loadedFinanceOwner !== financeOwner && cloudSyncStatus !== 'failed'
             ? <ContentLoadingSkeleton page={activeTab} />
             : <Suspense fallback={<ContentLoadingSkeleton page={activeTab} />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
@@ -2816,7 +2816,7 @@ export default function App() {
                       />
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}
-              {activeTab === 'vault' && <VaultPage jobs={jobs} expenses={expenses} />}
+              {activeTab === 'vault' && <VaultPage jobs={jobs} expenses={expenses} onOpenWht50={() => navigateTab('wht50')} />}
               {activeTab === 'wht50' && <Wht50Page jobs={jobs} triggerAlert={triggerAlert} />}
               {activeTab === 'receivables' && (
                 <ReceivablesTab

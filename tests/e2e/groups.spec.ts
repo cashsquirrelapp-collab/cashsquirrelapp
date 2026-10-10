@@ -55,6 +55,12 @@ const snapshot = {
   issuer_profile: null,
 };
 async function finance(page: Page) {
+  // VaultProvider is mounted for every signed-in app page. Keep its unrelated
+  // background request inside the mocked session so a real 401 cannot log the
+  // test account out while this suite exercises Groups.
+  await page.route('**/api/vault', (route) =>
+    route.fulfill({ json: { files: [] } }),
+  );
   await page.route('**/api/data*', (route) =>
     route.fulfill({
       json:

@@ -4,6 +4,13 @@ test.beforeEach(async({page})=>{
  await page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'user',groups:[],invitations:[],total:0,page:0}}));
  // The browser suite is isolated from Supabase; profile calls must be mocked too.
  await page.route('**/api/profile',route=>route.fulfill({json:{userId:'11111111-1111-4111-8111-111111111111',publicId:'SQ-1111111111',displayName:'Test user'}}));
+ // The shared vault provider mounts for every signed-in page. Keep its background request from
+ // expiring the mocked session; vault-specific tests replace this route with their own file list.
+ await page.route('**/api/vault',route=>route.fulfill({json:{files:[]}}));
+ await page.route('**/api/usage-analytics',route=>route.fulfill({json:{ok:true}}));
+ // Settings reads the recovery-email status as soon as it mounts. The suite's synthetic session
+ // has no backend cookie, so leaving this request unmocked would correctly expire that session.
+ await page.route('**/api/account',route=>route.fulfill({json:{backupEmail:null}}));
 });
 const user={id:'11111111-1111-4111-8111-111111111111',email:'test@example.com',role:'user',created_at:'2026-01-01T00:00:00Z',user_metadata:{}};
 const snapshot={jobs:[],expenses:[],goals:[],invoices:[],settings:{monthlyExpense:0,monthlyRevenueGoal:20000,savingsPercentage:40,profileSetupCompleted:true,userPersona:'freelance'},statuses:[{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}],job_types:['Sponsored Post'],notif_settings:{enabled:true,alertEmail:user.email,serviceType:'mailto',emailjsServiceId:'',emailjsTemplateId:'',emailjsPublicKey:'',pendingQueue:[],lineUserId:null},avatar_data_url:null,issuer_profile:null};
@@ -669,7 +676,7 @@ test('marking work as done previews the expected payment date with the same calc
  expect(preview).toBe(shown);
 });
 
-test('documents show the whole A4 page at once, without zoom controls',async({page})=>{
+test('documents use the available preview width and remain fullscreen expandable',async({page})=>{
  const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'1234567890123'};
  const quote={id:'qt-r',documentType:'quotation',documentNo:'QT-2569-009',createdDate:'2026-09-17',issuer:profile,client:{name:'Client R',address:'',phone:'',email:'',taxId:''},items:[{id:'i1',description:'Design',quantity:1,price:6790}],vatRate:0,whtRate:0};
  await page.setViewportSize({width:1280,height:720});
@@ -683,8 +690,11 @@ test('documents show the whole A4 page at once, without zoom controls',async({pa
  const paper=view.getByTestId('document-preview');
  const v=(await view.boundingBox())!, p=(await paper.boundingBox())!;
  expect(p.y).toBeGreaterThanOrEqual(v.y-1); // the whole page is inside the view
- expect(p.y+p.height).toBeLessThanOrEqual(v.y+v.height+1);
+ expect(p.width/v.width).toBeGreaterThan(.8); // use the pane instead of shrinking to its height
  expect(p.height/p.width).toBeCloseTo(297/210,1); // a real A4 shape, not cropped
+ expect(p.height).toBeGreaterThan(v.height); // short windows scroll the readable page vertically
+ expect(await view.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);
+ expect(await view.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
  // full screen for reading
  await paper.click();
  const full=page.getByTestId('document-fullscreen');

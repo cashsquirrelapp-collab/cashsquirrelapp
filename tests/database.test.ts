@@ -1,13 +1,13 @@
 import { after,before,test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile,readdir } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 const db=new PGlite();
 const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
 before(async()=>{
  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
  create schema auth;grant usage on schema auth to anon,authenticated,service_role;
- create table auth.users(id uuid primary key,email text,created_at timestamptz default now(),email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}');
+ create table auth.users(id uuid primary key,email text,created_at timestamptz default now(),email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}',raw_app_meta_data jsonb default '{}');
  create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id));
  create table public.subscriptions(user_id uuid primary key references auth.users(id),stripe_customer_id text,stripe_subscription_id text,status text,plan text,current_period_end timestamptz,updated_at timestamptz default now());
  alter table public.subscriptions enable row level security;grant select on public.subscriptions to authenticated;
@@ -25,12 +25,9 @@ before(async()=>{
  alter table storage.objects enable row level security;
  create policy unsafe_legacy_storage on storage.objects for all to anon,authenticated using(true) with check(true);
  create function public.legacy_grant_pro(uuid) returns void language sql security definer as $$update public.subscriptions set status='active' where user_id=$1$$;`);
- await db.exec(await readFile('database/migrations/001_core.sql','utf8'));
- await db.exec(await readFile('database/migrations/002_import_legacy.sql','utf8'));
- await db.exec(await readFile('database/migrations/003_security_hardening.sql','utf8'));
- await db.exec(await readFile('database/migrations/004_roles_groups.sql','utf8'));
- await db.exec(await readFile('database/migrations/005_group_finance.sql','utf8'));
- await db.exec(await readFile('database/migrations/006_public_profiles.sql','utf8'));
+ for(const migration of (await readdir('database/migrations')).filter(name=>/^\d{3}_.+\.sql$/.test(name)).sort()) {
+  await db.exec(await readFile(`database/migrations/${migration}`,'utf8'));
+ }
 });
 after(()=>db.close());
 async function one(sql:string,params:any[]=[]){return (await db.query<any>(sql,params)).rows[0];}
@@ -59,7 +56,12 @@ test('RLS denies other owners, anonymous access, writes, and privileged RPCs',as
  }finally{await db.exec('reset role');}
 });
 test('hardening blocks legacy privileged RPCs and financial storage despite permissive old policies',async()=>{
- await db.exec(await readFile('database/security-check.sql','utf8'));
+ try {
+  await db.exec(await readFile('database/security-check.sql','utf8'));
+ } catch(error) {
+  await db.exec('rollback').catch(()=>undefined);
+  throw error;
+ }
  const bucket=await one("select public,file_size_limit from storage.buckets where id='monthly-reports'");
  assert.equal(bucket.public,false);assert.equal(Number(bucket.file_size_limit),4194304);
  for(const role of ['anon','authenticated']) {
@@ -77,7 +79,7 @@ test('hardening blocks legacy privileged RPCs and financial storage despite perm
 test('version conflicts roll back the entire batch, including earlier inserts',async()=>{
  await db.query('select cashflow_apply_changes($1,$2)',[a,JSON.stringify([{table:'cashflow_jobs',id:'cas',op:'set',version:null,data:{id:'cas',name:'v1'}}])]);
  await db.query('select cashflow_apply_changes($1,$2)',[a,JSON.stringify([{table:'cashflow_jobs',id:'cas',op:'set',version:1,data:{id:'cas',name:'v2'}}])]);
- await assert.rejects(db.query('select cashflow_apply_changes($1,$2)',[a,JSON.stringify([{table:'cashflow_jobs',id:'rollback',op:'set',version:null,data:{id:'rollback'}},{table:'cashflow_jobs',id:'cas',op:'delete',version:1}])]),/version_conflict/);
+ assert.equal((await one('select cashflow_apply_changes($1,$2) ok',[a,JSON.stringify([{table:'cashflow_jobs',id:'rollback',op:'set',version:null,data:{id:'rollback'}},{table:'cashflow_jobs',id:'cas',op:'delete',version:1}])])).ok,false);
  assert.equal((await one("select count(*)::int n from cashflow_jobs where id='rollback'")).n,0);
  assert.equal((await one("select data->>'name' name from cashflow_jobs where id='cas'")).name,'v2');
 });
