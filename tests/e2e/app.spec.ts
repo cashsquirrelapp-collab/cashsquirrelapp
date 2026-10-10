@@ -349,6 +349,28 @@ test('invoice preview and print render the shared A4 document and the editor off
  await expect(page.getByPlaceholder('รายละเอียดเพิ่มเติม (ไม่บังคับ)')).toBeVisible();
 });
 
+test('document feature keeps its layout visible while document data loads',async({page})=>{
+ let releaseInvoices!:()=>void;
+ const invoiceGate=new Promise<void>(resolve=>{releaseInvoices=resolve;});
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()!=='GET')return route.fulfill({json:{ok:true}});
+  const isInitialAccountLoad=new URL(route.request().url()).searchParams.get('includeInvoices')==='0';
+  if(!isInitialAccountLoad)await invoiceGate;
+  await route.fulfill({json:{snapshot,versions,subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}});
+ });
+ await page.goto('/');
+ await expect(page.locator('#dashboard-top')).toBeVisible();
+ await page.locator('aside').getByRole('button',{name:'เอกสาร',exact:true}).click();
+ const loading=page.getByRole('status');
+ await expect(loading).toContainText('กำลังโหลดเนื้อหา');
+ await expect(loading.locator('.app-skeleton-block').first()).toBeVisible();
+ await expect(page.getByText('กำลังโหลดเอกสาร…')).toHaveCount(0);
+ releaseInvoices();
+ await expect(page.getByRole('heading',{name:'เอกสาร',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'รายการเอกสาร'})).toBeVisible();
+});
+
 test('document tabs stay on the chosen type even when it has no documents, and survive a refresh',async({page})=>{
  const profile={name:'Test issuer',address:'Bangkok',phone:'',email:'a@example.com',taxId:'1234567890123'};
  const quote={id:'qt-1',documentType:'quotation',documentNo:'QT-2569-001',createdDate:'2026-09-17',issuer:profile,client:{name:'Client A',address:'',phone:'',email:'',taxId:''},items:[{id:'i1',description:'Design',quantity:1,price:6790}],vatRate:0,whtRate:0};

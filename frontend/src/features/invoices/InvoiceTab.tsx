@@ -1,5 +1,5 @@
 import PageHeader from '../../components/ui/PageHeader';
-import { DocumentLoader } from '../../components/mascot/DocumentLoader';
+import { ContentLoadingSkeleton } from '../../components/ui/AppLoadingSkeleton';
 import { uiPrimaryButton, uiSurface } from '../../components/ui/uiStyles';
 import { privateCache } from '../../services/privateCache';
 import { imageFileToDataUrl } from '../../services/images';
@@ -660,7 +660,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   if (ownerId && !storageReady) return storageError
     ? <div className="rounded-2xl border border-brand-border bg-brand-white p-8 text-center" role="alert">{storageError}</div>
-    : <DocumentLoader />;
+    : <ContentLoadingSkeleton page="invoice" />;
   const importLegacy = () => triggerConfirm('นำเข้าเอกสารเดิมจากเครื่อง', 'เอกสารรุ่นเดิมไม่ได้ระบุเจ้าของบัญชี กรุณายืนยันว่าเอกสารทั้งหมดนี้เป็นของคุณ ก่อนนำเข้าบัญชีปัจจุบัน', async () => {
     try {
       const list = JSON.parse(localStorage.getItem('remix_invoices') || '[]');
