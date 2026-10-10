@@ -92,9 +92,14 @@ interface SettingsTabProps {
   onUpdateUserAvatar: (newAvatar: string) => void;
   onReplaySetupWizard?: () => void;
   subscription?: {
-    status: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled';
+    status: 'free' | 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
     plan: string | null;
     currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+    stripeStatus: 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused' | null;
+    hasSubscription: boolean;
+    introEligible: boolean;
+    managed: boolean;
   } | null;
   isPaidActive?: boolean;
   isInFreeTrial?: boolean;
@@ -150,6 +155,18 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [profile,setProfile]=useState<PublicProfile|null>(null);
   const [displayName,setDisplayName]=useState('');
   const [profileBusy,setProfileBusy]=useState(false);
+  const managedSubscriptionBlocksClosure = Boolean(
+    subscription?.hasSubscription
+    && !['canceled', 'incomplete_expired'].includes(subscription.stripeStatus ?? ''),
+  );
+
+  const showSubscriptionClosureGuard = () => triggerAlert(
+    'จัดการการสมัครสมาชิกก่อน',
+    subscription?.cancelAtPeriodEnd
+      ? 'Stripe บันทึกการยกเลิกเมื่อสิ้นรอบแล้ว แต่บัญชียังต้องเปิดไว้เพื่อให้เข้าหน้าจัดการสมาชิกได้ กรุณารอจนสิ้นรอบที่ชำระและสถานะเปลี่ยนเป็นยกเลิกแล้ว จึงค่อยพักหรือปิดบัญชี'
+      : 'บัญชีนี้ยังมีการสมัครสมาชิก Stripe ที่อาจต่ออายุ กรุณาไปที่แพ็กเกจของคุณ เปิดหน้าจัดการสมาชิก และยกเลิกก่อน จากนั้นรอจนสิ้นรอบที่ชำระและสถานะเปลี่ยนเป็นยกเลิกแล้ว จึงค่อยพักหรือปิดบัญชี',
+    () => onSwitchTab('plans'),
+  );
 
   // Settings opens on an overview of grouped rows; a row opens its detail page (or a small sheet).
   const [view, setView] = useState<SettingsView>('home');
@@ -208,20 +225,25 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     whtRate: 0
   };
 
-  const pauseAccount = () => triggerConfirm(
+  const pauseAccount = () => {
+    if (managedSubscriptionBlocksClosure) { showSubscriptionClosureGuard(); return; }
+    triggerConfirm(
     'ยืนยันพักบัญชี 30 วัน',
-    'กดตกลงเพื่อพักบัญชีและออกจากระบบทุกอุปกรณ์ คุณเปิดใช้บัญชีอีกครั้งได้ภายใน 30 วัน ระบบจะส่งอีเมลเตือนวันละหนึ่งฉบับใน 3 วันสุดท้ายก่อนครบกำหนด หากไม่กลับมา บัญชีและข้อมูลของคุณจะถูกลบถาวรในการประมวลผลรายวันและกู้คืนไม่ได้ ต้องมีหัวหน้ากลุ่มและ admin คนอื่นที่ยังใช้งานได้ก่อนพักบัญชี หากภายหลังเกิดเงื่อนไขที่ทำให้ลบไม่ได้ ระบบจะเลื่อนการลบและลองใหม่ในวันถัดไป',
+    'กดตกลงเพื่อพักบัญชีและออกจากระบบทุกอุปกรณ์ คุณเปิดใช้บัญชีอีกครั้งได้ภายใน 30 วัน ระบบจะส่งอีเมลเตือนวันละหนึ่งฉบับใน 3 วันสุดท้ายก่อนครบกำหนด หากไม่กลับมา บัญชีและข้อมูลของคุณจะถูกลบถาวรในการประมวลผลรายวันและกู้คืนไม่ได้ การสมัครสมาชิก Stripe ต้องสิ้นสุดแล้วก่อนพักบัญชี ต้องมีหัวหน้ากลุ่มและ admin คนอื่นที่ยังใช้งานได้ก่อนพักบัญชี หากภายหลังเกิดเงื่อนไขที่ทำให้ลบไม่ได้ ระบบจะเลื่อนการลบและลองใหม่ในวันถัดไป',
     async () => {
       setAccountBusy(true);
       const result = await authClient.auth.pauseAccount();
       setAccountBusy(false);
       if (result.error) triggerAlert('พักบัญชีไม่สำเร็จ', result.error.message);
     }
-  );
+    );
+  };
 
-  const requestDeletion = () => triggerConfirm(
+  const requestDeletion = () => {
+    if (managedSubscriptionBlocksClosure) { showSubscriptionClosureGuard(); return; }
+    triggerConfirm(
     'ยืนยันคำขอลบบัญชี',
-    'บัญชีจะปิดใช้งานทันที แต่ข้อมูลยังอยู่ 30 วัน ระบบจะไม่ส่งแจ้งเตือนการลบให้แอดมินโดยอัตโนมัติ หากต้องการกู้คืนก่อนครบกำหนด ให้ติดต่อแอดมินเพื่อขอลิงก์ แล้วรับรหัส 6 หลักทางอีเมลสำรองที่ยืนยันไว้ หลังครบ 30 วันข้อมูลจะถูกลบถาวร ขั้นต่อไปต้องกรอกรหัสจากอีเมลหลัก',
+    'บัญชีจะปิดใช้งานทันที แต่ข้อมูลยังอยู่ 30 วัน การสมัครสมาชิก Stripe ต้องสิ้นสุดแล้วก่อนปิดบัญชี ระบบจะไม่ส่งแจ้งเตือนการลบให้แอดมินโดยอัตโนมัติ หากต้องการกู้คืนก่อนครบกำหนด ให้ติดต่อแอดมินเพื่อขอลิงก์ แล้วรับรหัส 6 หลักทางอีเมลสำรองที่ยืนยันไว้ หลังครบ 30 วันข้อมูลจะถูกลบถาวร ขั้นต่อไปต้องกรอกรหัสจากอีเมลหลัก',
     async () => {
       setAccountBusy(true);
       const result = await authClient.auth.requestAccountDeletion();
@@ -229,9 +251,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       if (result.error) triggerAlert('ส่งรหัสไม่สำเร็จ', result.error.message);
       else { setDeletionCode(''); setDeletionRequested(true); triggerAlert('ส่งรหัสแล้ว', 'กรอกรหัส 6 หลักจากอีเมลภายใน 5 นาทีเพื่อยืนยันการลบบัญชี'); }
     }
-  );
+    );
+  };
 
   const deleteAccount = async () => {
+    if (managedSubscriptionBlocksClosure) { showSubscriptionClosureGuard(); return; }
     if (!/^\d{6}$/.test(deletionCode)) { triggerAlert('รหัสไม่ครบ', 'กรุณากรอกรหัสยืนยัน 6 หลัก'); return; }
     setAccountBusy(true);
     const result = await authClient.auth.deleteAccount(deletionCode);
@@ -639,7 +663,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </Panel>
           <Panel tone="danger" title="โซนอันตราย" desc="การกระทำในส่วนนี้มีผลกับบัญชีและข้อมูลทั้งหมด โปรดอ่านรายละเอียดก่อนยืนยันทุกครั้ง">
             {isAccount && (<>
-              <p className="text-xs leading-relaxed text-brand-muted">พักบัญชีหรือสั่งลบบัญชีได้ โดยข้อมูลจะถูกลบจริงหลัง 30 วัน ระบบไม่แจ้งแอดมินอัตโนมัติ หากสั่งลบถาวรและต้องการกู้คืน ให้ติดต่อแอดมินเพื่อขอลิงก์อายุ 1 ชั่วโมง แล้วรับรหัส 6 หลักทางอีเมลสำรองที่ยืนยันไว้</p>
+              <p className="text-xs leading-relaxed text-brand-muted">พักบัญชีหรือสั่งลบบัญชีได้ โดยข้อมูลจะถูกลบจริงหลัง 30 วัน ระบบไม่แจ้งแอดมินอัตโนมัติ หากมีการสมัครสมาชิก Stripe ต้องยกเลิกผ่านหน้าจัดการสมาชิกและรอให้สิ้นรอบที่ชำระก่อน เพื่อไม่ให้บัญชีถูกปิดขณะที่ยังอาจต่ออายุ หากสั่งลบถาวรและต้องการกู้คืน ให้ติดต่อแอดมินเพื่อขอลิงก์อายุ 1 ชั่วโมง แล้วรับรหัส 6 หลักทางอีเมลสำรองที่ยืนยันไว้</p>
+              {managedSubscriptionBlocksClosure && (
+                <button type="button" onClick={showSubscriptionClosureGuard}
+                  className={`${uiSecondaryButton} w-full justify-center px-4 text-[13px]`}>
+                  จัดการการสมัครสมาชิกก่อนพักหรือปิดบัญชี
+                </button>
+              )}
               <div className="grid gap-2 sm:grid-cols-2">
                 <button type="button" disabled={accountBusy} onClick={pauseAccount}
                   className="rounded-xl border border-[#E8C27A] px-3 py-2.5 text-[13px] font-medium text-[#8A5A00] transition-colors hover:bg-[#FFF6E0] disabled:opacity-50 cursor-pointer dark:border-[#E8B84A]/40 dark:text-[#F3D28A] dark:hover:bg-[#E8B84A]/10">
@@ -659,7 +689,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     className={uiInput} placeholder="รหัส 6 หลัก" />
                   <button type="button" disabled={accountBusy || deletionCode.length !== 6} onClick={() => triggerConfirm(
                     'ยืนยันปิดบัญชี',
-                    'กดตกลงเพื่อปิดการใช้งานบัญชีทันที ข้อมูลจะเก็บไว้ 30 วัน หากต้องการกู้คืนต้องขอลิงก์จากแอดมินภายในกำหนด ลิงก์มีอายุ 1 ชั่วโมงและต้องใช้อีเมลสำรองที่ยืนยันไว้ หลังครบกำหนดจะถูกลบถาวร',
+                    'กดตกลงเพื่อปิดการใช้งานบัญชีทันที ข้อมูลจะเก็บไว้ 30 วัน การสมัครสมาชิก Stripe ต้องสิ้นสุดแล้วก่อนดำเนินการ หากต้องการกู้คืนต้องขอลิงก์จากแอดมินภายในกำหนด ลิงก์มีอายุ 1 ชั่วโมงและต้องใช้อีเมลสำรองที่ยืนยันไว้ หลังครบกำหนดจะถูกลบถาวร',
                     () => { void deleteAccount(); }
                   )}
                     className="w-full rounded-xl bg-[#C43A3A] px-3 py-2.5 text-[13px] font-semibold text-white disabled:opacity-50 cursor-pointer">ยืนยันปิดบัญชี</button>

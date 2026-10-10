@@ -44,7 +44,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       deleted += 1;
     } catch (error) {
       // Keep the account paused and retry on the next run. In particular, never
-      // remove a sole group leader or the final system administrator.
+      // remove a sole group leader, the final system administrator, or an
+      // account whose Stripe subscription is not yet terminal.
       const released = await admin.from('cashflow_account_pauses').update({ state: 'paused', deletion_lease_until: null })
         .eq('user_id', row.user_id).eq('state', 'deleting');
       if (released.error) console.error('Account deletion lease release failed', { type: released.error.name });

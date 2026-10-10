@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile,readdir } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 const db=new PGlite();
-const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
+const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222',c='44444444-4444-4444-8444-444444444444',d='55555555-5555-4555-8555-555555555555';
 before(async()=>{
  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
  create schema auth;grant usage on schema auth to anon,authenticated,service_role;
@@ -13,7 +13,7 @@ before(async()=>{
  alter table public.subscriptions enable row level security;grant select on public.subscriptions to authenticated;
  create policy unsafe_legacy_read on public.subscriptions for select to authenticated using(true);
  create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
- insert into auth.users(id,email)values('${a}','a@example.com'),('${b}','b@example.com');
+ insert into auth.users(id,email)values('${a}','a@example.com'),('${b}','b@example.com'),('${c}','c@example.com'),('${d}','d@example.com');
  create table public.user_cashflow_data(user_id uuid primary key,email text,jobs jsonb,expenses jsonb,goals jsonb,settings jsonb,statuses jsonb,job_types jsonb,avatar_data_url text,notif_settings jsonb);
  insert into public.user_cashflow_data values('${a}','spoofed@example.com','[{"id":"legacy-job","name":"Original","value":100}]','[]','[]','{}','[]','[]',null,'{"enabled":true,"lineUserId":"LINE-A","passwordResetCode":{"code":"123456"},"chatHistory":[],"dailyDigestEnabled":true}');`);
  await db.exec(`create schema storage;grant usage on schema storage to anon,authenticated,service_role;
@@ -108,6 +108,125 @@ test('payment replay, multiple event IDs and refund-before-payment are idempoten
  await apply('evt-refund','pi-1',true);assert.equal((await one('select status from subscriptions where user_id=$1',[b])).status,'canceled');
  await apply('evt-pre-refund','pi-2',true);await apply('evt-late-payment','pi-2');
  assert.equal((await one('select status from subscriptions where user_id=$1',[b])).status,'canceled');
+});
+test('Stripe subscription events are idempotent, paid-invoice gated, workspace bound and preserve an admin revocation',async()=>{
+ const period=new Date(Date.now()+30*86400000).toISOString();
+ const periodStart=new Date(Date.now()).toISOString();
+ const discountEnd=new Date(Date.now()+90*86400000).toISOString();
+ const created=Math.floor(Date.now()/1000)-10;
+ await db.query("update subscriptions set stripe_customer_id='cus-pro',stripe_livemode=false where user_id=$1",[b]);
+ // This test targets event ordering/state, so seed the offer provenance that a
+ // validated Checkout event establishes in production.
+ await db.query("insert into cashflow_stripe_offer_windows(subscription_id,user_id,offer_version,discount_start,discount_end) values('sub-pro',$1,'pro_intro_199x3_then_249_v1',$2,$3)",[b,periodStart,discountEnd]);
+ const apply=(event:string,status='active',kind='subscription',paid:string|null=null,workspace=b)=>one(
+  'select cashflow_apply_stripe_subscription_event($1,$2,$3,false,false,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false,$14,$15,$16,null,null,$17,$18,$19,$20,$21,$22,$23) ok',
+  [event,kind==='invoice'?'invoice.paid':'customer.subscription.updated',created,kind,kind==='invoice'?'in-pro':'sub-pro',b,workspace,'cus-pro','sub-pro',created-100,'price-pro',status,period,paid,paid?'paid':null,Boolean(paid),paid?periodStart:null,paid?period:null,paid?'subscription_create':null,paid?'pro_intro_199x3_then_249_v1':null,Boolean(paid),paid?periodStart:null,paid?discountEnd:null],
+ );
+ assert.equal((await apply('evt-sub-1')).ok,'applied');
+ assert.equal((await apply('evt-sub-1')).ok,'duplicate');
+ assert.equal((await one('select current_period_end from subscriptions where user_id=$1',[b])).current_period_end,null);
+ assert.equal((await apply('evt-invoice-1','active','invoice',period)).ok,'applied');
+ let row=await one('select status,plan,workspace_type,workspace_id,stripe_customer_id,stripe_subscription_id,stripe_price_id,current_period_end from subscriptions where user_id=$1',[b]);
+ assert.equal(row.status,'active');assert.equal(row.plan,'pro_monthly');assert.equal(row.workspace_type,'personal');assert.equal(row.workspace_id,b);assert.equal(row.stripe_customer_id,'cus-pro');assert.equal(row.stripe_subscription_id,'sub-pro');assert.equal(row.stripe_price_id,'price-pro');assert.ok(row.current_period_end);
+ await db.query("update subscriptions set plan='admin_revoked' where user_id=$1",[b]);
+ await apply('evt-sub-2','canceled');
+ row=await one('select status,plan from subscriptions where user_id=$1',[b]);assert.equal(row.status,'canceled');assert.equal(row.plan,'admin_revoked');
+ await assert.rejects(apply('evt-bad','active','subscription',null,a),/invalid_workspace/);
+});
+test('intro offer pins its Stripe discount window across failed and out-of-order cycles',async()=>{
+ await db.query("insert into subscriptions(user_id,status,stripe_customer_id,stripe_livemode) values($1,'inactive','cus-intro',false)",[d]);
+ const starts=[0,31,59,90,120].map(days=>new Date(Date.UTC(2026,0,1)+days*86400000).toISOString());
+ const discountStart=starts[0],discountEnd=starts[3];
+ let created=1_800_000_000;
+ await db.query(`update subscriptions set
+   stripe_checkout_reservation_id='reservation-intro',stripe_checkout_session_id='cs-intro',
+   stripe_checkout_expires_at=now()+interval '45 minutes',stripe_checkout_pending_until=now()+interval '50 minutes',
+   stripe_checkout_intro_eligible=true,stripe_checkout_request='{}'::jsonb where user_id=$1`,[d]);
+ assert.equal((await one(
+  'select cashflow_apply_stripe_subscription_event($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28) result',
+  ['evt-intro-checkout','checkout.session.completed',created++,false,false,'checkout','cs-intro',d,d,'cus-intro','sub-intro',
+   1_700_000_000,'price-pro','active',starts[1],false,null,null,false,'cs-intro','reservation-intro',null,null,null,
+   'pro_intro_199x3_then_249_v1',true,null,null],
+ )).result,'applied');
+ const apply=(event:string,invoice:string,cycle:number,intro:boolean,reason:'subscription_create'|'subscription_cycle'='subscription_cycle',sub='sub-intro',offer='pro_intro_199x3_then_249_v1')=>one(
+  'select cashflow_apply_stripe_subscription_event($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28) result',
+  [event,'invoice.paid',created++,false,false,'invoice',invoice,d,d,'cus-intro',sub,1_700_000_000,
+   'price-pro','active',starts[cycle+1],false,starts[cycle+1],'paid',intro,null,null,starts[cycle],starts[cycle+1],
+   reason,offer,intro,intro?discountStart:null,intro?discountEnd:null],
+ );
+ assert.equal((await apply('evt-intro-1','in-intro-1',0,true,'subscription_create')).result,'applied');
+ await assert.rejects(apply('evt-intro-offer-mutation','in-intro-2-mutated',1,false,'subscription_cycle','sub-intro','standard_249_v1'),/subscription_offer_version_changed/);
+ await assert.rejects(apply('evt-intro-early-full','in-intro-2-bad',1,false),/unexpected_intro_discount_cycle/);
+ // A failed/unpaid second cycle does not shift Stripe's three-calendar-period
+ // coupon window. Cycle three still receives the intro price.
+ assert.equal((await apply('evt-intro-3','in-intro-3',2,true)).result,'applied');
+ // A late, out-of-order paid retry for cycle two remains valid inside the
+ // immutable original window and cannot change its bounds.
+ assert.equal((await apply('evt-intro-2','in-intro-2',1,true)).result,'applied');
+ await assert.rejects(apply('evt-intro-late-discount','in-intro-4-bad',3,true),/unexpected_intro_discount_cycle/);
+ assert.equal((await apply('evt-intro-4','in-intro-4',3,false)).result,'applied');
+ const window=await one("select offer_version,discount_start,discount_end from cashflow_stripe_offer_windows where subscription_id='sub-intro'");
+ assert.equal(window.offer_version,'pro_intro_199x3_then_249_v1');
+ assert.equal(new Date(window.discount_start).getTime(),new Date(discountStart).getTime());
+ assert.equal(new Date(window.discount_end).getTime(),new Date(discountEnd).getTime());
+ await db.query(`update subscriptions set
+   stripe_checkout_reservation_id='reservation-second',stripe_checkout_session_id='cs-second',
+   stripe_checkout_expires_at=now()+interval '45 minutes',stripe_checkout_pending_until=now()+interval '50 minutes',
+   stripe_checkout_intro_eligible=false,stripe_checkout_request='{}'::jsonb where user_id=$1`,[d]);
+ await assert.rejects(one(
+  'select cashflow_apply_stripe_subscription_event($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)',
+  ['evt-second-intro','checkout.session.completed',created++,false,false,'checkout','cs-second',d,d,'cus-intro',
+   'sub-second-intro',1_700_000_001,'price-pro','active',starts[1],false,null,null,false,'cs-second','reservation-second',
+   null,null,null,'pro_intro_199x3_then_249_v1',true,null,null],
+ ),/checkout_offer_reservation_mismatch/);
+});
+test('Stripe checkout reservation prevents overlap and closure claim blocks webhook persistence',async()=>{
+ const expires=new Date(Date.now()+45*60_000).toISOString();
+ const pending=new Date(Date.now()+50*60_000).toISOString();
+ let result=(await one('select cashflow_reserve_subscription_checkout($1,$2,$3,$4,false) result',[c,'reservation-1',expires,pending])).result;
+ assert.equal(result.result,'reserved');assert.equal(result.intro_eligible,true);
+ const firstRequest={mode:'subscription',customer:'cus-reserved',expires_at:Math.floor(new Date(expires).getTime()/1000)};
+ await db.query("update subscriptions set stripe_customer_id='cus-reserved' where user_id=$1",[c]);
+ assert.deepEqual((await one('select cashflow_prepare_subscription_checkout($1,$2,$3::jsonb) request',[c,'reservation-1',JSON.stringify(firstRequest)])).request,firstRequest);
+ const laterExpires=new Date(Date.now()+46*60_000).toISOString();
+ const laterPending=new Date(Date.now()+51*60_000).toISOString();
+ result=(await one('select cashflow_reserve_subscription_checkout($1,$2,$3,$4,false) result',[c,'reservation-2',laterExpires,laterPending])).result;
+ assert.equal(result.result,'resumed');assert.equal(result.reservation_id,'reservation-1');
+ assert.equal(new Date(result.expires_at).getTime(),new Date(expires).getTime());
+ assert.deepEqual((await one('select cashflow_prepare_subscription_checkout($1,$2,$3::jsonb) request',[c,'reservation-1',JSON.stringify({...firstRequest,mode:'payment'})])).request,firstRequest);
+ assert.equal((await one('select cashflow_begin_billing_closure($1) ok',[c])).ok,false);
+ await db.query('select cashflow_release_subscription_checkout($1,$2)',[c,'reservation-1']);
+ await db.query("update subscriptions set stripe_entitled_until=now()+interval '5 days',stripe_subscription_id='sub-old',stripe_subscription_status='canceled' where user_id=$1",[c]);
+ result=(await one('select cashflow_reserve_subscription_checkout($1,$2,$3,$4,false) result',[c,'reservation-2',expires,pending])).result;
+ assert.equal(result.result,'recurring_access');
+ await db.query("update subscriptions set stripe_entitled_until=null,stripe_subscription_id=null,stripe_subscription_status=null where user_id=$1",[c]);
+ assert.equal((await one('select cashflow_begin_billing_closure($1) ok',[c])).ok,true);
+ const period=new Date(Date.now()+30*86400000).toISOString();
+ await assert.rejects(one(
+  'select cashflow_apply_stripe_subscription_event($1,$2,$3,false,false,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false,null,null,false,null,null,null,null,null,null,false,null,null)',
+  ['evt-closure','customer.subscription.created',Math.floor(Date.now()/1000),'subscription','sub-closure',c,c,'cus-closure','sub-closure',1,'price-pro','active',period],
+ ),/billing_closure_in_progress/);
+ assert.equal((await one("select count(*)::int n from cashflow_stripe_events where event_id='evt-closure'")).n,0);
+ await db.query('update subscriptions set billing_closure_pending_until=null where user_id=$1',[c]);
+});
+test('same-second Stripe events reconcile only through the latest serialized event token',async()=>{
+ const period=new Date(Date.now()+30*86400000).toISOString();
+ const created=Math.floor(Date.now()/1000);
+ await db.query("update subscriptions set stripe_customer_id='cus-cas',stripe_livemode=false where user_id=$1",[c]);
+ const apply=(event:string,status:string)=>one(
+  'select cashflow_apply_stripe_subscription_event($1,$2,$3,false,false,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false,null,null,false,null,null,null,null,null,null,false,null,null) result',
+  [event,'customer.subscription.updated',created,'subscription','sub-cas',c,c,'cus-cas','sub-cas',created-100,'price-pro',status,period],
+ );
+ assert.equal((await apply('evt-cas-old','active')).result,'applied');
+ assert.equal((await apply('evt-cas-new','canceled')).result,'stale');
+ const reconcile=(event:string,status:string)=>one(
+  'select cashflow_reconcile_stripe_subscription_state($1,$2,$3,$4,$5,$6,$7,false,$8,$9,false) result',
+  [event,c,c,'cus-cas','sub-cas',created-100,'price-pro',status,period],
+ );
+ assert.equal((await reconcile('evt-cas-new','canceled')).result,'reconciled');
+ assert.equal((await reconcile('evt-cas-old','active')).result,'superseded');
+ const row=await one('select stripe_subscription_status,stripe_subscription_reconcile_token from subscriptions where user_id=$1',[c]);
+ assert.equal(row.stripe_subscription_status,'canceled');assert.equal(row.stripe_subscription_reconcile_token,null);
 });
 test('session checks reject missing, revoked and different-owner sessions',async()=>{
  const sid='33333333-3333-4333-8333-333333333333';await db.query('insert into auth.sessions values($1,$2)',[sid,a]);

@@ -8,6 +8,7 @@ import { challengeHash, rateLimit } from '../security/rateLimit.js';
 import { publicUser, requireUser } from '../security/session.js';
 import { sendGmailEmail } from '../services/gmail.js';
 import { ensureAccountCanBeDeleted } from '../services/accountDeletion.js';
+import { beginStripeBillingClosure } from '../services/subscriptionClosure.js';
 
 type DeleteChallenge = { userId: string; hash: string; expires: number };
 const inputSchema = z.object({ action: z.enum(['pause', 'reactivate', 'request-delete', 'delete', 'backup-request', 'backup-confirm']), code: z.string().regex(/^\d{6}$/).optional(), email: z.email().max(254).optional() });
@@ -68,6 +69,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   if (action === 'pause') {
     if (user.app_metadata?.account_paused === true) throw new HttpError(409, 'บัญชีพักใช้งานอยู่แล้ว');
     await ensureAccountCanBeDeleted(user.id);
+    await beginStripeBillingClosure(user.id);
     const pausedAt = new Date();
     const deleteAfter = new Date(pausedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
     const saved = await admin.from('cashflow_account_pauses').insert({ user_id: user.id, paused_at: pausedAt.toISOString(), delete_after: deleteAfter.toISOString(), closure_kind: 'pause' });
@@ -135,6 +137,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
   const backup = await admin.from('cashflow_backup_emails').select('verified_email').eq('user_id', user.id).maybeSingle();
   if (backup.error) throw backup.error;
   if (!backup.data?.verified_email) throw new HttpError(409, 'กรุณายืนยันอีเมลสำรองก่อนลบบัญชี');
+  await beginStripeBillingClosure(user.id);
   const closedAt = new Date();
   const deleteAfter = new Date(closedAt.getTime() + 30 * 86_400_000);
   const saved = await admin.from('cashflow_account_pauses').insert({ user_id: user.id, paused_at: closedAt.toISOString(), delete_after: deleteAfter.toISOString(), closure_kind: 'deletion' });

@@ -6,6 +6,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { calculatePayDate, getRelativeDaysText, formatMonthKey, DEFAULT_JOB_TYPES } from '../../../shared/calendar.js';
 import type { Expense, Goal } from '../../../shared/types.js';
 import type { LineMessage } from './line.js';
+import { appOrigin } from '../config/env.js';
 import {
   JobRow,
   ExpenseRow,
@@ -82,10 +83,6 @@ const CHAT_HISTORY_MAX_TURNS = 3;
 // send-monthly-report.ts) since there's no server/client-shared config module.
 const FREE_TRIAL_DAYS = 14;
 
-// Same one-time ฿149 THB Payment Link used by App.tsx's handleUpgrade -- client_reference_id is
-// appended per-user below so the Stripe webhook can attribute the payment correctly.
-const paymentLink = () => process.env.VITE_PRO_PAYMENT_URL || `${process.env.APP_URL || ''}/app`;
-
 export async function isProUser(userId: string): Promise<boolean> {
   const [{ data: authUser, error: authErr }, { data: sub, error: subErr }] = await Promise.all([
     supabaseAdmin.auth.admin.getUserById(userId),
@@ -110,12 +107,10 @@ export async function isProUser(userId: string): Promise<boolean> {
 }
 
 // Shown instead of processing anything once a user's trial/paid period has lapsed -- polite,
-// in-character, and points straight at checkout (client_reference_id pre-filled) rather than
-// making them find the upgrade button in the app themselves.
+// in-character, and points to the authenticated app. Checkout must be created by the backend so
+// the account/workspace mapping cannot be supplied by an untrusted link parameter.
 function buildRenewalMessage(user: UserRow): LineMessage {
-  const url = new URL(paymentLink());
-  url.searchParams.set('client_reference_id', user.user_id);
-  if (user.email) url.searchParams.set('prefilled_email', user.email);
+  const url = new URL('/app', appOrigin());
   return {
     type: 'text',
     text: `แพ็กเกจ Pro ของคุณหมดอายุแล้วครับ 🥲 การคุยกับผมผ่าน LINE เป็นสิทธิ์ของสมาชิก Pro น่ะครับ\n\nต่ออายุง่ายๆ กดลิงก์นี้ได้เลย พอจ่ายเสร็จกลับมาคุยกับผมต่อได้ทันที: ${url.toString()}`,

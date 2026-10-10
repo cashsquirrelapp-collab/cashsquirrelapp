@@ -694,8 +694,8 @@ export default function AdminDashboard({
                                   triggerConfirm(
                                     currentlyPro ? copy('ยกเลิก Pro', 'Revoke Pro access') : copy('ให้สิทธิ์ Pro', 'Grant Pro access'),
                                     currentlyPro
-                                      ? copy(`ปิดสิทธิ์ Pro ของ ${account.displayName} ทันที การดำเนินการนี้ไม่ได้ยกเลิกการเรียกเก็บเงินผ่าน Stripe`, `Immediately revoke Pro access for ${account.displayName}. This does not cancel Stripe billing.`)
-                                      : copy(`ให้ ${account.displayName} ใช้ Pro ได้จนกว่าแอดมินจะยกเลิก`, `Grant Pro to ${account.displayName} until an admin revokes it.`),
+                                      ? copy(`ปิดสิทธิ์ Pro ของ ${account.displayName} ทันที การดำเนินการนี้ไม่ยกเลิก Stripe และระบบจะปฏิเสธหากการสมัคร Stripe ยังไม่สิ้นสุด ผู้ใช้ต้องยกเลิกผ่าน Customer Portal ก่อน`, `Immediately revoke Pro access for ${account.displayName}. This does not cancel Stripe and will be blocked while a Stripe subscription remains open; the user must cancel through Customer Portal first.`)
+                                      : copy(`ให้ ${account.displayName} ใช้ Pro ได้จนกว่าแอดมินจะยกเลิก ระบบจะปฏิเสธหากมี Stripe Checkout หรือการสมัครสมาชิกที่ยังไม่สิ้นสุด`, `Grant Pro to ${account.displayName} until an admin revokes it. This will be blocked while Stripe Checkout or a subscription remains open.`),
                                     () => { void setProAccess(account.userId, !currentlyPro); },
                                   );
                                 }}

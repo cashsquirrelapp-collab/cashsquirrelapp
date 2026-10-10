@@ -10,6 +10,7 @@ import { systemRole } from '../repositories/roles.js';
 import { challengeHash, rateLimit } from '../security/rateLimit.js';
 import { groupDbError } from './groups.js';
 import { loadPresenceByUserId, ONLINE_WINDOW_MS } from '../repositories/presence.js';
+import { assertStripeBillingClosed, beginStripeBillingClosure } from '../services/subscriptionClosure.js';
 
 const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
 const FREE_TRIAL_DAYS = 14;
@@ -347,12 +348,14 @@ export default withGuard(
       const [target, existing] = await Promise.all([
         db.auth.admin.getUserById(userId),
         db.from('subscriptions')
-          .select('stripe_customer_id,stripe_subscription_id,current_period_end')
+          .select('stripe_customer_id,stripe_subscription_id,current_period_end,stripe_subscription_status,status,cancel_at_period_end,stripe_checkout_pending_until')
           .eq('user_id', userId).maybeSingle(),
       ]);
       if (target.error) throw target.error;
       if (!target.data.user) throw new HttpError(404, 'ไม่พบบัญชีผู้ใช้');
       if (existing.error) throw existing.error;
+      assertStripeBillingClosed(existing.data, 'admin-override');
+      await beginStripeBillingClosure(userId, 'admin-override');
       const saved = await db.from('subscriptions').upsert({
         user_id: userId,
         status: enabled ? 'active' : 'canceled',
