@@ -76,13 +76,27 @@ invoice.finalization_failed
 charge.refunded
 ```
 
-สร้าง Customer Portal Configuration แยกใน Stripe test mode โดยเปิดการยกเลิกแบบมีผลเมื่อสิ้นรอบ (`at_period_end`) ไม่ prorate และปิดการเปลี่ยนแพ็กเกจ แล้วใส่ ID ใน `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` โค้ดจะตรวจว่า configuration ยัง active, อยู่ mode เดียวกัน และมีนโยบายตรงตามนี้ก่อนเปิด Portal หากไม่ตรงจะปฏิเสธแบบ fail closed
+สร้าง Customer Portal Configuration แยกใน Stripe test mode โดยเปิดการอัปเดตวิธีชำระเงินเพื่อให้ผู้ใช้แก้ปัญหา `past_due` ได้ เปิดการยกเลิกแบบมีผลเมื่อสิ้นรอบ (`at_period_end`) โดยไม่ prorate และปิดการเปลี่ยนแพ็กเกจหรือราคา แล้วใส่ ID ใน `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` ก่อนเปิด Portal ต้องตรวจใน Dashboard ว่าการตั้งค่าเหล่านี้ยังเปิดอยู่ โค้ดจะตรวจว่า configuration ยัง active, อยู่ mode เดียวกัน และนโยบายการยกเลิก/เปลี่ยนแพ็กเกจตรงตามที่รองรับ หากไม่ตรงจะปฏิเสธแบบ fail closed
 
 จากนั้นทดสอบ Checkout ด้วยบัญชีทดสอบ ตรวจว่า webhook ตอบ 2xx และแถว `subscriptions` เปลี่ยนตามสถานะ Stripe จริง หน้า `?checkout=success` เป็นเพียงหน้ารอผลและต้องไม่ให้สิทธิ์ Pro เอง แพ็กเกจแบบชำระเงินเริ่มคิดเงินทันทีเมื่อ Checkout สำเร็จและไม่มี Stripe trial เพิ่มเติม (สิทธิ์ทดลองใช้แอปที่แสดงแยกต่างหากไม่เลื่อนวันเริ่มคิดเงิน)
 
 Vercel Preview/Test Stripe ต้องเชื่อมกับ Supabase staging ที่แยกจาก production เท่านั้น เพราะ mode และ Stripe Customer binding ถูกบันทึกถาวรต่อบัญชี ระบบตั้งใจปฏิเสธการสลับ test/live บนแถวบัญชีเดิม ห้ามใช้ฐานข้อมูล production ทดสอบ Checkout หรือ webhook
 
-เมื่อ test mode ผ่านครบแล้ว ให้สร้าง Product, ราคา ฿249, Coupon ลด ฿50 นาน 3 เดือน และ Portal Configuration ขึ้นใหม่ใน Stripe Live mode แล้วจึงตั้งค่าทั้งหกตัวใน Vercel Production โดยใช้ `STRIPE_MODE=live`, Live secret key, Live Price ID, Live Coupon ID, Live Portal Configuration ID และ signing secret ของ webhook endpoint ฝั่ง Live ห้ามผสมค่า test/live และห้ามนำ secret ใส่ตัวแปรที่ขึ้นต้น `VITE_`
+### ประตูอนุมัติก่อนเปิด Live
+
+- เจ้าของธุรกิจต้องยืนยันกติกาโปรโมชันว่าใช้ได้หนึ่งครั้งต่อ **บัญชี Cash Squirrel** ที่มีสิทธิ์ ไม่ใช่หนึ่งครั้งต่อบัตร อีเมล หรือ Stripe Customer หากยังไม่ยืนยันนิยามนี้ ห้ามเปิดแพ็กเกจ Live
+- ใช้ Stripe Test Clock กับ subscription ทดสอบและตรวจ Invoice จริงให้ครบ: รอบที่ 1–3 ยอดรวมรอบละ ฿199 และรอบที่ 4 ยอดรวม ฿249 โดยไม่มี trial หรือส่วนลดเกิน 3 รอบ ห้ามเปิด Live จากการตรวจ Checkout รอบแรกเพียงอย่างเดียว
+- ตรวจ migration ledger ของ production ว่าทุก migration ถูก apply ตามลำดับ และยืนยันการอัปเกรด ledger/migration 021 สำเร็จแล้ว หาก repo หรือฐานข้อมูลยังหยุดที่ 020 ห้ามเปิด recurring Live
+
+### Runbook ตัดระบบ Live จาก Payment Link เดิม
+
+1. ทำ inventory ของ Stripe Live ก่อนแก้ไข โดยบันทึก Product, Price, Payment Link, Checkout Session, Customer และ Subscription ที่เกี่ยวข้อง พร้อม mapping ไปยังบัญชีแอปที่ตรวจสอบได้
+2. แถว Customer/Subscription ราคา ฿39 ที่มีอยู่ใน Live ต้องมีคำตัดสินรายแถวที่ได้รับอนุมัติว่าจะ `adopt`, `cancel` หรือ `map` เข้าบัญชีแอปใด ห้ามตีตราเป็นสิทธิ์ legacy แบบจ่ายครั้งเดียว ห้ามย้ายหรือยกเลิกเงียบ ๆ และห้ามปล่อยให้แถวที่ยังต่ออายุได้ไม่มีเจ้าของ
+3. Archive/deactivate Payment Link ฿149 เดิมเพื่อหยุดการเปิด Checkout ใหม่ แต่เก็บ `STRIPE_LEGACY_PAYMENT_LINK_ID` ไว้ใน backend สำหรับตรวจสอบประวัติ คืนเงิน และกระทบยอด ห้ามลบประวัติการชำระเงินเดิม
+4. รอให้ Checkout Session เดิมที่ยัง `open` จบหรือหมดอายุตามขั้นตอนที่ได้รับอนุมัติ แล้วตรวจจาก Stripe ว่าไม่เหลือ session แบบ `open` ของ Payment Link เดิมก่อนเปิด recurring Checkout
+5. ทบทวนผล `npm run billing:backfill`, mapping, วันหมดอายุ และยอดเงินทั้งหมดก่อน apply SQL หรือเปิด Live webhook การ cutover นี้ต้องไม่เรียกเก็บเงิน ย้าย หรือยกเลิกลูกค้าเดิมโดยอัตโนมัติ
+
+เมื่อผ่านประตูอนุมัติและ runbook ครบแล้ว ให้สร้าง Product, ราคา ฿249, Coupon ลด ฿50 นาน 3 เดือน และ Portal Configuration ขึ้นใหม่ใน Stripe Live mode แล้วจึงตั้งค่าทั้งหกตัวใน Vercel Production โดยใช้ `STRIPE_MODE=live`, Live secret key, Live Price ID, Live Coupon ID, Live Portal Configuration ID และ signing secret ของ webhook endpoint ฝั่ง Live ห้ามผสมค่า test/live และห้ามนำ secret ใส่ตัวแปรที่ขึ้นต้น `VITE_`
 
 ## 4. ตั้ง Supabase Auth
 
@@ -122,9 +136,11 @@ NODE_ENV=production npm start
 - สมาชิกที่ถูกนำออกจากกลุ่มอ่านหรือแก้ข้อมูลการเงินกลุ่มไม่ได้
 - ไม่พบ `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, access token หรือ refresh token ใน HTML, JavaScript bundle, browser storage หรือ Git history
 - Checkout สร้างจาก backend ด้วยบัญชีที่ล็อกอินอยู่, webhook ที่ลายเซ็นไม่ถูกต้องถูกปฏิเสธ และ event เดิมไม่เพิ่มสิทธิ์ซ้ำ
-- invoice รอบที่ 1, 2 และ 3 มียอดรวม ฿199 ต่อรอบ และรอบที่ 4 มียอดรวม ฿249 โดยไม่มี trial หรือส่วนลดต่อหลังรอบที่ 3
+- Stripe Test Clock ยืนยันว่า invoice รอบที่ 1, 2 และ 3 มียอดรวม ฿199 ต่อรอบ และรอบที่ 4 มียอดรวม ฿249 โดยไม่มี trial หรือส่วนลดต่อหลังรอบที่ 3
 - renewal สำเร็จ/ล้มเหลว, `customer.subscription.created/updated/deleted` และ webhook ซ้ำเปลี่ยนสิทธิ์และยอด paid-through อย่างถูกต้องโดยไม่ประมวลผลซ้ำ
+- Customer Portal อัปเดตวิธีชำระเงินเพื่อกู้สถานะ `past_due` ได้ ปิดการเปลี่ยนแพ็กเกจ และยกเลิกแบบมีผลเมื่อสิ้นรอบโดยไม่ prorate
 - ยกเลิกผ่าน Customer Portal แล้วสิทธิ์ยังอยู่ถึงสิ้นรอบ จากนั้นถูกปิดตาม `customer.subscription.deleted`; การพัก/ปิดบัญชีและ admin grant/revoke ต้องถูกบล็อกจน Stripe ยืนยันสถานะปลายทางแล้ว
 - ผู้ใช้สิทธิ์ Pro แบบชำระครั้งเดียว ฿149 เดิมยังใช้ได้ถึงวันหมดอายุเดิม ไม่ถูกเปลี่ยนเป็นต่ออายุอัตโนมัติ และไม่เสียสิทธิ์จาก webhook ที่ไม่เกี่ยวข้อง
+- migration ledger ยืนยันการอัปเกรดถึง 021 แล้ว, Payment Link ฿149 ถูกปิด, ไม่เหลือ legacy Checkout Session แบบ `open` และรายการ ฿39 ทุกแถวมีคำตัดสินที่ตรวจสอบย้อนหลังได้
 
 Admin คนแรกยังไม่ได้กำหนด ให้สมัครและยืนยันบัญชีที่ต้องการก่อน แล้วใช้ `database/bootstrap-admin.sql` โดยใส่ UUID ของบัญชีนั้นและรันด้วย trusted migration role

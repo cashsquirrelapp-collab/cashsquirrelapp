@@ -90,7 +90,7 @@ npm audit
 
 Stripe webhook: `/api/stripe-webhook`; LINE webhook: `/api/line-webhook`; LIFF endpoint: `/liff-add.html` แพ็กเกจปัจจุบันใช้ราคา recurring ฿249/เดือนและ Coupon ลด ฿50 ใน 3 รอบบิลแรก บัญชีที่มีสิทธิ์จึงชำระ ฿199 ต่อเดือน 3 รอบแรกได้หนึ่งครั้งต่อบัญชี แล้วต่ออายุที่ ฿249/เดือนตั้งแต่รอบที่ 4 ไม่ต้องสร้างราคา ฿199 แยก ตั้ง `STRIPE_MODE`, `STRIPE_PRO_PRICE_ID`, `STRIPE_PRO_INTRO_COUPON_ID` และ `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` จาก mode เดียวกับ `STRIPE_SECRET_KEY` ระบบสร้าง Checkout จาก backend และเปิดสิทธิ์ตาม webhook ที่ตรวจลายเซ็นแล้วเท่านั้น รายละเอียด test/live, Portal และ event ที่ต้องเปิดดูใน `DEPLOYMENT.md`
 
-หากย้ายระบบที่มีสมาชิก Pro แบบ Payment Link เดิม ให้ตั้ง `STRIPE_LEGACY_PAYMENT_LINK_ID` ชั่วคราวแล้วเตรียมประวัติด้วย `npm run billing:backfill` ทบทวน SQL ที่สร้าง แล้ว apply ก่อนเปิด webhooks คู่มือระบุการตรวจยอดและวันหมดอายุ
+การตัดระบบ Live ต้อง archive/deactivate Payment Link ฿149 เดิม ตรวจว่าไม่เหลือ Checkout Session แบบ `open` และเก็บ `STRIPE_LEGACY_PAYMENT_LINK_ID` ไว้ใน backend สำหรับคืนเงินและกระทบยอดย้อนหลัง (ไม่ใช่ค่าชั่วคราว) เตรียมประวัติด้วย `npm run billing:backfill` แล้วทบทวน SQL, mapping, ยอดเงิน และวันหมดอายุก่อน apply รายการ Customer/Subscription ราคา ฿39 ที่มีอยู่ต้องมีคำตัดสินรายแถวที่ได้รับอนุมัติว่าจะ adopt, cancel หรือ map เข้าบัญชีใด และห้ามถูกจัดเป็น legacy โดยอัตโนมัติ ห้ามเปิด recurring Live จนเจ้าของธุรกิจยืนยันสิทธิ์โปรโมชันหนึ่งครั้งต่อบัญชีแอป, Stripe Test Clock ยืนยัน Invoice รอบ 1–4 และ migration ledger/021 ผ่านการตรวจสอบครบ ดู runbook และรายการตรวจทั้งหมดใน `DEPLOYMENT.md`
 
 ### Node server / container
 
