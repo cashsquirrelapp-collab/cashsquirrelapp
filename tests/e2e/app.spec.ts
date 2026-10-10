@@ -219,6 +219,13 @@ test('add-job sheet stays in the viewport and success feedback appears at the to
  await expect.poll(async()=>{const box=await sheet.boundingBox();return box ? Math.round(box.y) : 9999;}).toBeLessThan(900);
  await expect.poll(async()=>{const box=await sheet.boundingBox();return box ? Math.round(box.y+box.height) : 9999;}).toBeLessThanOrEqual(900);
  expect(await sheet.evaluate(el=>el.closest('.fixed')?.parentElement===document.body)).toBe(true);
+ const typeSelect=page.getByLabel('ประเภทงาน');
+ await expect(typeSelect).toBeVisible();
+ await expect(page.getByRole('button',{name:'จัดการประเภทงาน'})).toBeVisible();
+ const typeBox=await typeSelect.boundingBox();
+ const progressBox=await page.getByRole('heading',{name:'งานนี้ถึงไหนแล้ว?'}).boundingBox();
+ expect(typeBox).not.toBeNull();expect(progressBox).not.toBeNull();
+ expect(typeBox!.y).toBeLessThan(progressBox!.y);
 
  await page.getByRole('button',{name:'บันทึกงาน'}).click();
  await expect(page.getByText('กรุณาระบุชื่องาน')).toBeVisible();

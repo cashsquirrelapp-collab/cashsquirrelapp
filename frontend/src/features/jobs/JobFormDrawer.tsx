@@ -181,7 +181,6 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     const firstInvalid = (['name', 'value', 'postDate', 'received', 'installments', 'type', 'wht'] as FieldKey[]).find(key => next[key]);
     if (firstInvalid) {
       if (firstInvalid === 'wht') setAdvancedOpen(true);
-      if (firstInvalid === 'type') setAdvancedOpen(true);
       requestAnimationFrame(() => {
         const el = document.getElementById(`job-form-${firstInvalid}`);
         el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -355,6 +354,54 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                   />
                   {errorText('name')}
                 </div>
+
+                <div id="job-form-type">
+                  <div className="mb-1.5 flex items-center justify-between gap-3">
+                    <label htmlFor="job-form-type-select" className="block text-[13px] font-medium text-brand-text">ประเภทงาน</label>
+                    <button
+                      type="button"
+                      onClick={() => setTypeManagerOpen(true)}
+                      className="shrink-0 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-orange-300"
+                    >
+                      จัดการประเภทงาน
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <select
+                      id="job-form-type-select"
+                      value={type}
+                      onChange={(e) => { setType(e.target.value); clearError('type'); }}
+                      className={`${inputClass(errors.type)} appearance-none pr-9 cursor-pointer`}
+                    >
+                      {typeOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                      <option value={CUSTOM_TYPE}>+ สร้างประเภทเอง…</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+                  </div>
+                  {type === CUSTOM_TYPE && (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={customType}
+                        onChange={(e) => { setCustomType(e.target.value); clearError('type'); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveCustomType(); } }}
+                        placeholder="ชื่อประเภทงาน"
+                        className={inputClass(errors.type)}
+                      />
+                      <button
+                        type="button"
+                        onClick={saveCustomType}
+                        disabled={!customType.trim()}
+                        className="h-11 shrink-0 rounded-[10px] border border-brand-border px-4 text-[13px] font-medium text-brand-text hover:bg-brand-faint disabled:opacity-40 cursor-pointer"
+                      >
+                        เพิ่ม
+                      </button>
+                    </div>
+                  )}
+                  {errorText('type')}
+                </div>
+
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor="job-form-client" className={labelClass}>ลูกค้า / ผู้จ่าย</label>
@@ -557,13 +604,12 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                 </button>
                 {!advancedOpen && (() => {
                   const parts = [
-                    type !== 'ยังไม่ระบุ' && type !== CUSTOM_TYPE ? type : '',
                     effectiveWhtRate > 0 ? `หัก ณ ที่จ่าย ${effectiveWhtRate}%` : '',
                   ].filter(Boolean);
                   return (
                     <>
                       <p className="mt-0.5 text-xs text-brand-muted">
-                        {parts.length > 0 ? parts.join(' · ') : 'ประเภทงาน หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน'}
+                        {parts.length > 0 ? parts.join(' · ') : 'หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน'}
                       </p>
                       {note.trim() && (
                         <div className="mt-2.5 rounded-[10px] bg-brand-faint px-3 py-2">
@@ -576,51 +622,6 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                 })()}
                 {advancedOpen && (
                   <div className="mt-4 space-y-5">
-                    <div id="job-form-type">
-                      <label htmlFor="job-form-type-select" className={labelClass}>ประเภทงาน</label>
-                      <div className="relative">
-                        <select
-                          id="job-form-type-select"
-                          value={type}
-                          onChange={(e) => { setType(e.target.value); clearError('type'); }}
-                          className={`${inputClass(errors.type)} appearance-none pr-9 cursor-pointer`}
-                        >
-                          {typeOptions.map(option => <option key={option} value={option}>{option}</option>)}
-                          <option value={CUSTOM_TYPE}>+ สร้างประเภทเอง…</option>
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
-                      </div>
-                      {type === CUSTOM_TYPE && (
-                        <div className="mt-2 flex gap-2">
-                          <input
-                            type="text"
-                            autoFocus
-                            value={customType}
-                            onChange={(e) => { setCustomType(e.target.value); clearError('type'); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveCustomType(); } }}
-                            placeholder="ชื่อประเภทงาน"
-                            className={inputClass(errors.type)}
-                          />
-                          <button
-                            type="button"
-                            onClick={saveCustomType}
-                            disabled={!customType.trim()}
-                            className="h-11 shrink-0 rounded-[10px] border border-brand-border px-4 text-[13px] text-brand-text hover:bg-brand-faint disabled:opacity-40 cursor-pointer"
-                          >
-                            เพิ่ม
-                          </button>
-                        </div>
-                      )}
-                      {errorText('type')}
-                      <button
-                        type="button"
-                        onClick={() => setTypeManagerOpen(true)}
-                        className="mt-1.5 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-orange-300"
-                      >
-                        จัดการประเภทงาน
-                      </button>
-                    </div>
-
                     <div id="job-form-wht">
                       <p className={labelClass}>หัก ณ ที่จ่าย</p>
                       <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="อัตราหัก ณ ที่จ่าย">
