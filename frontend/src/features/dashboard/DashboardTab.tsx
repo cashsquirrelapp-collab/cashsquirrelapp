@@ -818,14 +818,16 @@ export default function DashboardTab({
           className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
         >
           <p className="text-xs text-brand-muted">กำไรสุทธิ</p>
-          <p className={`mt-1 text-[22px] leading-7 font-bold font-mono ${profit >= 0 ? 'text-[#18A66A]' : 'text-rose-600'}`}>{formatCurrency(profit)}</p>
+          <div data-testid="profit-primary-row" className="mt-1 flex w-full flex-wrap items-center gap-x-2.5 gap-y-1">
+            <p className={`text-[22px] leading-7 font-bold font-mono ${profit >= 0 ? 'text-[#18A66A]' : 'text-rose-600'}`}>{formatCurrency(profit)}</p>
+            {profitChangePct !== null && (
+              <p className={`inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium ${profitChangePct >= 0 ? 'text-[#18A66A]' : 'text-rose-500'}`}>
+                {profitChangePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                {profitChangePct >= 0 ? '↑ ' : '↓ '}{Math.abs(profitChangePct)}% จากเดือนก่อน
+              </p>
+            )}
+          </div>
           <p className="mt-1 text-[12px] text-brand-muted">เงินที่เหลือ <span className={`font-mono font-semibold ${leftThisMonth < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-brand-text'}`}>{formatCurrency(leftThisMonth)}</span></p>
-          {profitChangePct !== null && (
-            <p className={`mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium ${profitChangePct >= 0 ? 'text-[#18A66A]' : 'text-rose-500'}`}>
-              {profitChangePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {profitChangePct >= 0 ? '↑ ' : '↓ '}{Math.abs(profitChangePct)}% จากเดือนก่อน
-            </p>
-          )}
         </button>
       </div>
       <p className="mt-[10px] text-[11px] text-brand-muted">{jobs.length} งานทั้งหมด · {jobs.filter(j => j.pending > 0 && getRelativeDaysText(j.payDate || j.postDate).isOverdue).length} รายการเกินกำหนด</p>

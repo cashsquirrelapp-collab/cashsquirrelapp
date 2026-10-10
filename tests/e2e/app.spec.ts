@@ -905,6 +905,7 @@ test('กำไรสุทธิ opens the monthly statement with the money on 
  // what's left this month: received - expenses - savings set aside = 10,180 - 13,330 - 3,000
  await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('เงินที่เหลือ');
  await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('6,150');
+ await expect(page.getByTestId('profit-primary-row')).toContainText('3,150');
  await page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first().click();
  const modal=page.getByRole('dialog',{name:'รายละเอียดการเงินเดือนนี้'});
  const summary=modal.getByRole('region',{name:'สรุปเดือนนี้'});
