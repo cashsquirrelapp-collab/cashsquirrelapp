@@ -1,8 +1,8 @@
 import React from 'react';
-import { CheckCircle2, Download, FileText, Paperclip, Search } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Download, FileText, Paperclip, RefreshCw, Search } from 'lucide-react';
 import type { Job } from '../../../../shared/types';
 import { jobWhtAmount } from '../../../../shared/wht';
-import { formatCurrency } from '../../utils';
+import { formatCurrency, safeFormatThaiDate } from '../../utils';
 import { RowMenu } from '../../components/ui/RowMenu';
 import { uiSurface } from '../../components/ui/uiStyles';
 import { useVault } from './VaultProvider';
@@ -30,6 +30,7 @@ export function Wht50Panel({ jobs, triggerAlert }: { jobs: Job[]; triggerAlert: 
     .map(job => ({ job, files: wht50Files(job, vault.files), status: wht50StatusOf(job, vault.files) as 'have' | 'waiting' }));
   const have = rows.filter(r => r.status === 'have');
   const waiting = rows.filter(r => r.status === 'waiting');
+  const receivedFileCount = have.reduce((sum, r) => sum + r.files.length, 0);
   const withheld = rows.reduce((sum, r) => sum + jobWhtAmount(r.job), 0);
   const share = rows.length ? Math.round((have.length / rows.length) * 100) : 0;
   const q = query.trim().toLowerCase();
@@ -51,8 +52,8 @@ export function Wht50Panel({ jobs, triggerAlert }: { jobs: Job[]; triggerAlert: 
 
   const chip = (on: boolean) => `inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors cursor-pointer ${on ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`;
   const statusChip = (r: (typeof rows)[number]) => r.status === 'have'
-    ? <span className="inline-flex items-center gap-1 rounded-full bg-[#E9F7F0] px-2.5 py-1 text-xs font-medium text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]"><CheckCircle2 className="h-3.5 w-3.5" />มี 50 ทวิ ({r.files.length} ไฟล์)</span>
-    : <span className="inline-flex items-center gap-1 rounded-full bg-[#FDEEEE] px-2.5 py-1 text-xs font-medium text-[#C43A3A] dark:bg-[#F19A9A]/10 dark:text-[#F19A9A]"><span className="h-1.5 w-1.5 rounded-full bg-current" />รอใบ 50 ทวิ</span>;
+    ? <span className="inline-flex items-center gap-1 rounded-full bg-[#E9F7F0] px-2.5 py-1 text-xs font-medium text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]"><CheckCircle2 className="h-3.5 w-3.5" />ได้รับแล้ว · {r.files.length} ไฟล์</span>
+    : <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF4D8] px-2.5 py-1 text-xs font-medium text-[#93620A] dark:bg-[#F2B84B]/10 dark:text-[#F2C66D]"><span className="h-1.5 w-1.5 rounded-full bg-current" />รอรับ</span>;
   const fileCell = (r: (typeof rows)[number]) => r.status === 'have'
     ? <button type="button" onClick={() => vault.openJob(r.job)} className="inline-flex min-w-0 items-center gap-1.5 text-xs text-brand-muted hover:text-brand-text cursor-pointer"><FileText className="h-3.5 w-3.5 shrink-0 text-[#E5484D]" /><span className="truncate">{r.files[0].fileName}</span></button>
     : <button type="button" onClick={() => vault.openUpload({ kind: 'wht50', job: r.job })} className="inline-flex items-center gap-1 rounded-lg border border-[#F3B08C] px-2.5 py-1.5 text-xs font-medium text-[#C24A16] hover:bg-[#FFF5EE] cursor-pointer dark:text-[#FF9A6B] dark:hover:bg-[#E65F2B]/10"><Paperclip className="h-3.5 w-3.5" />แนบเอกสาร</button>;
@@ -67,6 +68,31 @@ export function Wht50Panel({ jobs, triggerAlert }: { jobs: Job[]; triggerAlert: 
     return <p className={`${uiSurface} p-6 text-[13px] text-brand-muted`}>คลังใบ 50 ทวิ ใช้ได้กับบัญชีจริง ออกจากโหมดทดลองแล้วเข้าสู่ระบบเพื่อใช้งาน</p>;
   }
 
+  if (vault.error) {
+    return (
+      <div role="alert" className={`${uiSurface} flex flex-col items-center px-6 py-12 text-center`}>
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FDEEEE] text-[#B83434] dark:bg-[#F19A9A]/10 dark:text-[#F19A9A]"><AlertCircle className="h-5 w-5" /></span>
+        <p className="mt-3 text-[15px] font-semibold text-brand-text">โหลดสถานะใบ 50 ทวิไม่สำเร็จ</p>
+        <p className="mt-1 max-w-md text-[13px] text-brand-muted">ยังไม่แสดงจำนวน “ได้รับแล้ว” หรือ “รอรับ” เพื่อป้องกันสถานะคลาดเคลื่อน กรุณาลองโหลดข้อมูลอีกครั้ง</p>
+        <p className="mt-2 max-w-md text-xs text-[#B83434] dark:text-[#F19A9A]">{vault.error}</p>
+        <button type="button" onClick={vault.refresh} className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border px-4 text-[13px] font-semibold text-brand-text hover:bg-brand-faint cursor-pointer"><RefreshCw className="h-4 w-4" />ลองอีกครั้ง</button>
+      </div>
+    );
+  }
+
+  if (!vault.ready) {
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="กำลังโหลดสถานะใบ 50 ทวิ">
+        <section className={`${uiSurface} space-y-5 p-5 sm:p-6`}>
+          <div className="flex items-center justify-between gap-3"><span className="h-5 w-56 animate-pulse rounded bg-brand-faint" /><span className="h-9 w-28 animate-pulse rounded-xl bg-brand-faint" /></div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3"><span className="col-span-2 h-16 animate-pulse rounded-xl bg-brand-faint sm:col-span-1" /><span className="h-16 animate-pulse rounded-xl bg-brand-faint" /><span className="h-16 animate-pulse rounded-xl bg-brand-faint" /></div>
+          <span className="block h-2 w-full animate-pulse rounded-full bg-brand-faint" />
+        </section>
+        <div className={`${uiSurface} space-y-3 p-5`}>{[0, 1, 2].map(i => <span key={i} className="block h-14 animate-pulse rounded-xl bg-brand-faint" />)}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <section className={`${uiSurface} space-y-5 p-5 sm:p-6`}>
@@ -76,13 +102,13 @@ export function Wht50Panel({ jobs, triggerAlert }: { jobs: Job[]; triggerAlert: 
             {years.map(y => <option key={y} value={y}>ปีภาษี {y + 543}</option>)}
           </select>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {[
-            { label: 'ภาษีถูกหักแล้ว', value: formatCurrency(withheld), tone: 'text-brand-text' },
-            { label: 'มีเอกสารแล้ว', value: `${have.length} ใบ`, tone: 'text-[#12804F] dark:text-[#6FD3A3]' },
-            { label: 'รอเอกสาร', value: `${waiting.length} ใบ`, tone: waiting.length ? 'text-[#C43A3A] dark:text-[#F19A9A]' : 'text-brand-text' },
+            { label: 'ยอดภาษีหัก ณ ที่จ่าย', value: formatCurrency(withheld), tone: 'text-brand-text', wide: true },
+            { label: 'ได้รับใบแล้ว', value: `${have.length} งาน`, tone: 'text-[#12804F] dark:text-[#6FD3A3]', wide: false },
+            { label: 'รอรับใบ', value: `${waiting.length} งาน`, tone: waiting.length ? 'text-[#93620A] dark:text-[#F2C66D]' : 'text-brand-text', wide: false },
           ].map(stat => (
-            <div key={stat.label} className="rounded-xl bg-brand-faint/70 px-4 py-3">
+            <div key={stat.label} className={`rounded-xl bg-brand-faint/70 px-4 py-3 ${stat.wide ? 'col-span-2 sm:col-span-1' : ''}`}>
               <p className="text-xs text-brand-muted">{stat.label}</p>
               <p className={`mt-0.5 font-mono text-[20px] font-semibold ${stat.tone}`}>{stat.value}</p>
             </div>
@@ -90,30 +116,30 @@ export function Wht50Panel({ jobs, triggerAlert }: { jobs: Job[]; triggerAlert: 
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <div className="min-w-[200px] flex-1">
-            <p className="mb-1.5 text-xs text-brand-muted">เอกสารพร้อม {have.length} จาก {rows.length} รายการ</p>
+            <p className="mb-1.5 text-xs text-brand-muted">ได้รับแล้ว {have.length} จาก {rows.length} งานที่ต้องมีใบ 50 ทวิ</p>
             <div className="h-2 overflow-hidden rounded-full bg-brand-faint"><div className="h-full rounded-full bg-[#18A66A] transition-[width] duration-500" style={{ width: `${share}%` }} /></div>
           </div>
           <span className="font-mono text-[13px] text-brand-muted">{share}%</span>
-          <button type="button" onClick={() => void downloadAll()} disabled={!have.length || zipping}
-            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-[13px] font-semibold text-white hover:bg-[#D35221] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
-            <Download className="h-4 w-4" />{zipping ? 'กำลังรวมไฟล์…' : 'ดาวน์โหลดทั้งหมด (ZIP)'}
+          <button type="button" onClick={() => void downloadAll()} disabled={!receivedFileCount || zipping}
+            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-[13px] font-semibold text-white hover:bg-[#D35221] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer sm:w-auto">
+            <Download className="h-4 w-4" />{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดใบที่ได้รับแล้ว (${receivedFileCount} ไฟล์)`}
           </button>
         </div>
       </section>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1.5" role="tablist" aria-label="สถานะเอกสาร">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="สถานะใบ 50 ทวิ">
           <button type="button" role="tab" aria-selected={filter === 'all'} onClick={() => setFilter('all')} className={chip(filter === 'all')}>ทั้งหมด <span className="text-xs opacity-70">{rows.length}</span></button>
-          <button type="button" role="tab" aria-selected={filter === 'have'} onClick={() => setFilter('have')} className={chip(filter === 'have')}>มีเอกสารแล้ว <span className="text-xs opacity-70">{have.length}</span></button>
-          <button type="button" role="tab" aria-selected={filter === 'waiting'} onClick={() => setFilter('waiting')} className={chip(filter === 'waiting')}>รอเอกสาร <span className="text-xs opacity-70">{waiting.length}</span></button>
+          <button type="button" role="tab" aria-selected={filter === 'have'} onClick={() => setFilter('have')} className={chip(filter === 'have')}>ได้รับแล้ว <span className="text-xs opacity-70">{have.length}</span></button>
+          <button type="button" role="tab" aria-selected={filter === 'waiting'} onClick={() => setFilter('waiting')} className={chip(filter === 'waiting')}>รอรับ <span className="text-xs opacity-70">{waiting.length}</span></button>
         </div>
-        <div className="ml-auto flex w-full gap-2 sm:w-auto">
+        <div className="flex w-full flex-col gap-2 sm:flex-row lg:ml-auto lg:w-auto">
           <div className="relative flex-1 sm:w-56 sm:flex-none">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
             <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="ค้นหาลูกค้า / ชื่องาน..." aria-label="ค้นหางาน"
               className="h-10 w-full rounded-xl border border-brand-border bg-brand-white pl-9 pr-3 text-[13px] text-brand-text outline-none placeholder:text-brand-muted focus:border-[#E65F2B]" />
           </div>
-          <select value={sort} onChange={e => setSort(e.target.value as 'waiting' | 'latest')} aria-label="เรียงตาม" className="h-10 rounded-xl border border-brand-border bg-brand-white px-3 text-[13px] text-brand-text outline-none cursor-pointer">
+          <select value={sort} onChange={e => setSort(e.target.value as 'waiting' | 'latest')} aria-label="เรียงตาม" className="h-10 w-full rounded-xl border border-brand-border bg-brand-white px-3 text-[13px] text-brand-text outline-none cursor-pointer sm:w-auto">
             <option value="waiting">เรียงตาม: รอนานที่สุด</option>
             <option value="latest">เรียงตาม: ล่าสุด</option>
           </select>
@@ -135,7 +161,7 @@ export function Wht50Panel({ jobs, triggerAlert }: { jobs: Job[]; triggerAlert: 
               <tbody className="divide-y divide-brand-border">
                 {shown.map(r => (
                   <tr key={r.job.id} className="transition-colors hover:bg-brand-faint/50">
-                    <td className="px-5 py-3.5"><button type="button" onClick={() => vault.openJob(r.job)} className="text-left cursor-pointer"><span className="block font-medium text-brand-text">{r.job.name}</span><span className="block text-xs text-brand-muted">{r.job.client || '—'}</span></button></td>
+                    <td className="px-5 py-3.5"><button type="button" onClick={() => vault.openJob(r.job)} className="text-left cursor-pointer"><span className="block font-medium text-brand-text">{r.job.name}</span><span className="block text-xs text-brand-muted">{r.job.client || '—'}{r.job.payDate ? ` · รับเงิน ${safeFormatThaiDate(r.job.payDate, { day: 'numeric', month: 'short', year: '2-digit' })}` : ''}</span></button></td>
                     <td className="px-3 py-3.5 text-right font-mono text-brand-text">{formatCurrency(r.job.value || 0)}</td>
                     <td className="px-3 py-3.5 text-right font-mono text-brand-text">{r.job.whtRate || 0}% <span className="text-brand-muted">({formatCurrency(jobWhtAmount(r.job))})</span></td>
                     <td className="px-3 py-3.5">{statusChip(r)}</td>
@@ -153,6 +179,7 @@ export function Wht50Panel({ jobs, triggerAlert }: { jobs: Job[]; triggerAlert: 
                 <button type="button" onClick={() => (r.files.length ? vault.openJob(r.job) : vault.openUpload({ kind: 'wht50', job: r.job }))} className="min-w-0 flex-1 text-left cursor-pointer">
                   <span className="block truncate text-[14px] font-medium text-brand-text">{r.job.name}</span>
                   <span className="block truncate text-xs text-brand-muted">{r.job.client || '—'} · หัก {r.job.whtRate || 0}% {formatCurrency(jobWhtAmount(r.job))}</span>
+                  {r.job.payDate && <span className="block truncate text-xs text-brand-muted">รับเงิน {safeFormatThaiDate(r.job.payDate, { day: 'numeric', month: 'short', year: '2-digit' })}</span>}
                   <span className="mt-1.5 block">{statusChip(r)}</span>
                 </button>
                 {menu(r)}

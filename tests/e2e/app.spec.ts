@@ -742,16 +742,18 @@ test('document vault: files are listed, uploaded to a job, and a paid job with w
  expect(uploads).toEqual([{kind:'wht50',jobId:'wht-job',jobName:'TikTok Campaign',client:'Brand A',fileName:'50Tawi_BrandA.pdf'}]);
  await page.getByRole('button',{name:'เสร็จสิ้น'}).click();
  await expect(page.locator('#main-content').getByRole('button',{name:/50 ทวิ/})).toBeVisible();
- // เอกสาร › ใบ 50 ทวิ counts it as on file; the tax page no longer has the tab
+ // The tax page has no duplicate 50 ทวิ tab; the consolidated vault tracks it instead.
  await page.locator('aside').getByRole('button',{name:'ภาษี',exact:true}).click();
  await expect(page.getByRole('tab',{name:'50 ทวิ'})).toHaveCount(0);
  await page.locator('aside').getByRole('button',{name:'เอกสาร',exact:true}).click();
- await page.locator('aside').getByRole('button',{name:'ใบ 50 ทวิ'}).click();
- await expect(page.getByRole('heading',{name:'ใบ 50 ทวิ',level:1})).toBeVisible();
- await expect(page.getByText('เอกสารพร้อม 1 จาก 1 รายการ')).toBeVisible();
- // an old link to the tax page's 50 ทวิ tab lands on the new page
+ await page.locator('aside').getByRole('button',{name:'คลังเอกสาร'}).click();
+ await page.getByRole('tablist',{name:'มุมมองคลังเอกสาร'}).getByRole('tab',{name:'50 ทวิ',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'คลังเอกสาร',level:1})).toBeVisible();
+ await expect(page.getByText('ได้รับแล้ว 1 จาก 1 งานที่ต้องมีใบ 50 ทวิ')).toBeVisible();
+ // An old tax-page link lands on the consolidated vault's tracking view.
  await page.goto('/tax?view=wht50');
- await expect(page.getByRole('heading',{name:'ใบ 50 ทวิ',level:1})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'คลังเอกสาร',level:1})).toBeVisible();
+ await expect(page.getByRole('tablist',{name:'มุมมองคลังเอกสาร'}).getByRole('tab',{name:'50 ทวิ',exact:true})).toHaveAttribute('aria-selected','true');
 });
 
 test('document vault: files dropped on the page or the upload dialog are added without picking them',async({page})=>{
@@ -826,7 +828,7 @@ test('expense slips: attach a slip from the expense, then the vault ZIP sorts fi
  await page.locator('aside').getByRole('button',{name:'เอกสาร',exact:true}).click();
  await page.locator('aside').getByRole('button',{name:'คลังเอกสาร'}).click();
  await expect(page.getByRole('tab',{name:/สลิปรายจ่าย/})).toContainText('1');
- const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/ดาวน์โหลดทั้งหมด/}).click()]);
+ const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:/ดาวน์โหลดไฟล์ที่แสดง/}).click()]);
  const zip=(await import('node:fs')).readFileSync((await download.path())!).toString('utf8');
  expect(zip).toContain('โปรเจคครีมกันแดดสีจันทร์/50Tawi.pdf');
  expect(zip).toMatch(new RegExp(`รายจ่าย/${today.getFullYear()+543}-${String(today.getMonth()+1).padStart(2,'0')} [^/]+/ค่าเช่าสตูดิโอ - slip-kbank.jpg`));

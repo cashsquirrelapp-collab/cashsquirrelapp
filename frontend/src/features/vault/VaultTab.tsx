@@ -1,10 +1,9 @@
 import React from 'react';
-import { Download, ExternalLink, FileCheck2, FolderOpen, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { Download, ExternalLink, FolderOpen, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
 import type { Expense, Job } from '../../../../shared/types';
 import { VAULT_KIND_LABEL, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { safeFormatThaiDate } from '../../utils';
 import { Drawer } from '../../components/ui/Drawer';
-import PageHeader from '../../components/ui/PageHeader';
 import { RowMenu } from '../../components/ui/RowMenu';
 import { vaultFileUrl } from '../../services/vault';
 import { FileThumb, useVault } from './VaultProvider';
@@ -15,18 +14,17 @@ import { downloadVaultZip } from './zip';
 
 type Filter = 'all' | VaultKind;
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'ทุกไฟล์' },
-  { key: 'wht50', label: '50 ทวิ' },
+  { key: 'all', label: 'ทุกประเภท' },
+  { key: 'wht50', label: 'ไฟล์ 50 ทวิ' },
   { key: 'contract', label: 'สัญญา / PO' },
   { key: 'expense', label: 'สลิปรายจ่าย' },
   { key: 'other', label: 'อื่น ๆ' },
 ];
 const thaiYear = (iso: string) => Number(iso.slice(0, 4)) + 543;
 
-export function VaultTab({ jobs, expenses, onOpenWht50 }: {
+export function VaultTab({ jobs, expenses }: {
   jobs: Job[];
   expenses: Expense[];
-  onOpenWht50: () => void;
 }) {
   const vault = useVault();
   const [filter, setFilter] = React.useState<Filter>('all');
@@ -70,14 +68,11 @@ export function VaultTab({ jobs, expenses, onOpenWht50 }: {
 
   if (!vault.available) {
     return (
-      <>
-      <PageHeader page="vault" />
       <div className="flex flex-col items-center px-6 py-16 text-center">
         <FolderOpen className="mb-3 h-10 w-10 text-brand-border" />
         <p className="text-[15px] font-medium text-brand-text">คลังเอกสารใช้ได้กับบัญชีจริง</p>
         <p className="mt-1 max-w-sm text-[13px] text-brand-muted">เก็บใบ 50 ทวิ สัญญา และ PO ไว้กับงาน ออกจากโหมดทดลองแล้วเข้าสู่ระบบเพื่อใช้งาน</p>
       </div>
-      </>
     );
   }
 
@@ -92,29 +87,29 @@ export function VaultTab({ jobs, expenses, onOpenWht50 }: {
           </div>
         </div>
       )}
-      <PageHeader page="vault">
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={onOpenWht50}
-            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text hover:bg-brand-faint cursor-pointer">
-            <FileCheck2 className="h-4 w-4" />จัดการใบ 50 ทวิ
-          </button>
+      <section className="flex flex-col gap-4 rounded-2xl border border-brand-border bg-brand-white p-4 shadow-sm dark:bg-[#1F2024] sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div>
+          <h2 className="text-[16px] font-semibold text-brand-text">ไฟล์ที่จัดเก็บ</h2>
+          <p className="mt-0.5 text-[13px] text-brand-muted">{vault.files.length ? `${vault.files.length} ไฟล์ในคลัง · เลือกประเภทหรือปีที่อัปโหลดเพื่อค้นหา` : 'ใบ 50 ทวิ สัญญา PO สลิป และเอกสารอื่นที่อัปโหลดไว้'}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <button type="button" onClick={() => void downloadShown()} disabled={!shown.length || zipping}
             title="ดาวน์โหลดทุกไฟล์ที่แสดงอยู่เป็นไฟล์ ZIP เดียว แยกโฟลเดอร์ตามงาน"
             className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text hover:bg-brand-faint disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
-            <Download className="h-4 w-4" /><span className="hidden sm:inline">{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดทั้งหมด (${shown.length})`}</span><span className="sm:hidden">ZIP</span>
+            <Download className="h-4 w-4" /><span className="hidden sm:inline">{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดไฟล์ที่แสดง (${shown.length})`}</span><span className="sm:hidden">ZIP ({shown.length})</span>
           </button>
           <button type="button" onClick={() => vault.openUpload({ kind: filter === 'all' ? 'wht50' : filter })}
             className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-[13px] font-semibold text-white hover:bg-[#D35221] cursor-pointer">
             <Plus className="h-4 w-4" />เพิ่มเอกสาร
           </button>
         </div>
-      </PageHeader>
+      </section>
 
-      <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="ประเภทไฟล์">
+      <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="ประเภทไฟล์ที่จัดเก็บ">
         {FILTERS.map(f => (
           <button key={f.key} type="button" role="tab" aria-selected={filter === f.key} onClick={() => setFilter(f.key)}
             className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors cursor-pointer ${filter === f.key ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`}>
-            {f.label}<span className="text-xs opacity-70">{count(f.key)}</span>
+            {f.label}<span className="text-xs opacity-70">{count(f.key)} ไฟล์</span>
           </button>
         ))}
       </div>
@@ -125,16 +120,19 @@ export function VaultTab({ jobs, expenses, onOpenWht50 }: {
           <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="ค้นหาชื่อไฟล์ งาน รายจ่าย หรือลูกค้า..." aria-label="ค้นหาเอกสาร"
             className="h-10 w-full rounded-xl border border-brand-border bg-brand-white pl-9 pr-3 text-[13px] text-brand-text outline-none placeholder:text-brand-muted focus:border-[#E65F2B]" />
         </div>
-        <select value={year} onChange={e => setYear(e.target.value === 'all' ? 'all' : Number(e.target.value))} aria-label="ปี"
+        <select value={year} onChange={e => setYear(e.target.value === 'all' ? 'all' : Number(e.target.value))} aria-label="ปีที่อัปโหลด"
           className="h-10 rounded-xl border border-brand-border bg-brand-white px-3 text-[13px] text-brand-text outline-none focus:border-[#E65F2B] sm:w-36 cursor-pointer">
-          <option value="all">ทุกปี</option>
-          {years.map(y => <option key={y} value={y}>ปี {y}</option>)}
+          <option value="all">ทุกปีที่อัปโหลด</option>
+          {years.map(y => <option key={y} value={y}>อัปโหลดปี {y}</option>)}
         </select>
       </div>
 
-      {vault.error && <p role="alert" className="rounded-xl bg-[#FDEEEE] px-4 py-3 text-[13px] text-[#B83434] dark:bg-[#F19A9A]/10 dark:text-[#F19A9A]">{vault.error}</p>}
-
-      {vault.loading && !vault.files.length ? (
+      {vault.error ? (
+        <div role="alert" className="flex flex-col items-start gap-3 rounded-2xl border border-[#F5C2C2] bg-[#FDEEEE] px-4 py-4 text-[13px] text-[#B83434] dark:border-[#F19A9A]/20 dark:bg-[#F19A9A]/10 dark:text-[#F19A9A] sm:flex-row sm:items-center sm:justify-between">
+          <span>โหลดคลังเอกสารไม่สำเร็จ: {vault.error}</span>
+          <button type="button" onClick={vault.refresh} className="h-9 rounded-xl border border-current/25 px-3 font-semibold hover:bg-white/40 cursor-pointer">ลองอีกครั้ง</button>
+        </div>
+      ) : !vault.ready ? (
         <ul className="space-y-3" aria-busy="true">{[0, 1, 2].map(i => <li key={i} className="flex items-center gap-4 py-2"><span className="h-14 w-11 animate-pulse rounded-lg bg-brand-faint" /><span className="flex-1 space-y-2"><span className="block h-3 w-48 animate-pulse rounded bg-brand-faint" /><span className="block h-2.5 w-32 animate-pulse rounded bg-brand-faint" /></span></li>)}</ul>
       ) : shown.length === 0 ? (
         <div className="flex flex-col items-center rounded-2xl border border-dashed border-brand-border px-6 py-14 text-center">

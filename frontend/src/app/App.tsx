@@ -22,13 +22,11 @@ const loadPlansTab = () => import('../features/billing/PlansTab').then(module =>
 const loadGroupsTab = () => import('../features/groups/GroupsTab');
 const loadReceivablesTab = () => import('../features/receivables/ReceivablesTab');
 const loadVaultPage = () => import('../features/vault/VaultPage');
-const loadWht50Page = () => import('../features/vault/Wht50Page');
 const loadIncomeExpenseTab = () => import('../features/incomeExpense/IncomeExpenseTab');
 const loadReportOverviewTab = () => import('../features/report/ReportTab');
 const loadCalendarTab = () => import('../features/calendar/CalendarTab');
 const ReceivablesTab = lazy(loadReceivablesTab);
 const VaultPage = lazy(loadVaultPage);
-const Wht50Page = lazy(loadWht50Page);
 const ReportOverviewTab = lazy(loadReportOverviewTab);
 const AdminDashboardTab = lazy(loadAdminDashboardTab);
 const SplitTab = lazy(loadSplitTab);
@@ -95,7 +93,6 @@ import {
   Leaf,
   FileText,
   FolderOpen,
-  FileCheck2,
   Smartphone,
   ChevronDown,
   CalendarDays,
@@ -179,7 +176,8 @@ const FEATURE_LOADERS: Partial<Record<TabKey, () => Promise<unknown>>> = {
   settings: loadSettingsTab,
   receivables: loadReceivablesTab,
   vault: loadVaultPage,
-  wht50: loadWht50Page,
+  // Legacy /wht50 links render the consolidated vault's 50 ทวิ view.
+  wht50: loadVaultPage,
   calendar: loadCalendarTab,
   incomeExpense: loadIncomeExpenseTab,
 };
@@ -207,7 +205,6 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
   // Kept files (50 ทวิ, contracts / POs) open as a sub-item under เอกสาร.
   { key: 'vault', labelKey: 'nav.vault', icon: FolderOpen, group: 'sub', parent: 'invoice' },
-  { key: 'wht50', labelKey: 'nav.wht50', icon: FileCheck2, group: 'sub', parent: 'invoice' },
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
   { key: 'plans', labelKey: 'nav.plans', icon: ShoppingBag, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
@@ -449,7 +446,8 @@ export default function App() {
     const Icon = item.icon;
     const firstPathSegment = pathname.split('/').filter(Boolean)[0];
     const routeHasExplicitTab = isTabKey(firstPathSegment) || !!(firstPathSegment && RETIRED_TAB_ALIASES[firstPathSegment]);
-    const navActiveTab = routeHasExplicitTab ? parseWorkspaceRoute(pathname).tab : activeTab;
+    const routeTab = routeHasExplicitTab ? parseWorkspaceRoute(pathname).tab : activeTab;
+    const navActiveTab = routeTab === 'wht50' ? 'vault' : routeTab;
     const isActive = navActiveTab === item.key;
     return (
       <button
@@ -487,7 +485,8 @@ export default function App() {
   const renderNavGroup = (group: 'core' | 'more', closeMobileOnClick: boolean) => navItems.filter(item => item.group === group).map(item => {
     const subs = navItems.filter(sub => sub.group === 'sub' && sub.parent === item.key);
     if (!subs.length) return renderNavButton(item, closeMobileOnClick);
-    const open = activeTab === item.key || subs.some(sub => sub.key === activeTab);
+    const navigationTab = activeTab === 'wht50' ? 'vault' : activeTab;
+    const open = navigationTab === item.key || subs.some(sub => sub.key === navigationTab);
     return (
       <React.Fragment key={item.key}>
         {renderNavButton(item, closeMobileOnClick, open)}
@@ -2816,8 +2815,15 @@ export default function App() {
                       />
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}
-              {activeTab === 'vault' && <VaultPage jobs={jobs} expenses={expenses} onOpenWht50={() => navigateTab('wht50')} />}
-              {activeTab === 'wht50' && <Wht50Page jobs={jobs} triggerAlert={triggerAlert} />}
+              {(activeTab === 'vault' || activeTab === 'wht50') && (
+                <VaultPage
+                  jobs={jobs}
+                  expenses={expenses}
+                  triggerAlert={triggerAlert}
+                  view={activeTab === 'wht50' ? 'wht50' : 'files'}
+                  onViewChange={view => navigateTab(view === 'wht50' ? 'wht50' : 'vault')}
+                />
+              )}
               {activeTab === 'receivables' && (
                 <ReceivablesTab
                   jobs={jobs}

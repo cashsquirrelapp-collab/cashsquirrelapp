@@ -31,6 +31,8 @@ interface VaultApi {
   isPro: boolean;
   files: VaultFile[];
   loading: boolean;
+  /** The current finance workspace's file list completed successfully. */
+  ready: boolean;
   error: string;
   refresh: () => void;
   openUpload: (request: UploadRequest) => void;
@@ -60,6 +62,7 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
 }) {
   const [files, setFiles] = React.useState<VaultFile[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [loadedFinanceKey, setLoadedFinanceKey] = React.useState('');
   const [error, setError] = React.useState('');
   const [revision, setRevision] = React.useState(0);
   const [upload, setUpload] = React.useState<UploadRequest | null>(null);
@@ -67,12 +70,12 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
   const [paidPrompt, setPaidPrompt] = React.useState<Job | null>(null);
 
   React.useEffect(() => {
-    setFiles([]); setError('');
+    setFiles([]); setError(''); setLoadedFinanceKey('');
     if (!available || !financeKey) return;
     let cancelled = false;
     setLoading(true);
     listVault(financeKey)
-      .then(list => { if (!cancelled) setFiles(list); })
+      .then(list => { if (!cancelled) { setFiles(list); setLoadedFinanceKey(financeKey); } })
       .catch(err => { if (!cancelled) setError((err as Error).message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -92,7 +95,7 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
   }, [financeKey]);
 
   const api: VaultApi = {
-    available, isPro, files, loading, error,
+    available, isPro, files, loading, ready: available && loadedFinanceKey === financeKey, error,
     refresh: () => setRevision(n => n + 1),
     openUpload: request => setUpload(request),
     openJob: job => setJobView(job),
@@ -509,7 +512,7 @@ function JobFilesDrawer({ job, files, onAdd, onRemove, onClose }: { job: Job | n
           </div>
           {latest && (
             <dl className="space-y-1.5 border-t border-brand-border pt-4 text-[13px]">
-              <div className="flex justify-between gap-3"><dt className="text-brand-muted">ได้รับเมื่อ</dt><dd className="text-brand-text">{safeFormatThaiDate(latest.createdAt.slice(0, 10))}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-brand-muted">แนบไฟล์เมื่อ</dt><dd className="text-brand-text">{safeFormatThaiDate(latest.createdAt.slice(0, 10))}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-brand-muted">ชื่อไฟล์</dt><dd className="truncate text-brand-text">{latest.fileName}</dd></div>
             </dl>
           )}
