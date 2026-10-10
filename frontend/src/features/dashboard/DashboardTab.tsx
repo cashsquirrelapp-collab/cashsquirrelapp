@@ -629,10 +629,6 @@ export default function DashboardTab({
   // fixed-expense budget line (that's what `profit` above is for) since fixed bills haven't
   // necessarily left the wallet yet.
   const receivedAfterVariableExpense = Math.max(0, totalReceived - totalCashOutThisMonth);
-  // เงินที่เหลือเดือนนี้: what's left of the month's money once its expenses are paid and the
-  // savings set aside from it (cash-funded goal deposits) are taken out. Can go below zero.
-  const leftThisMonth = profit - goalDeductionsThisMonth;
-
   // Month-over-month comparison for the hero card
   const prevMonthKey = React.useMemo(() => {
     const [y, m] = selectedMonthKey.split('-').map(Number);
@@ -830,7 +826,6 @@ export default function DashboardTab({
               </p>
             )}
           </div>
-          <p className="mt-1 text-[12px] text-brand-muted">เงินที่เหลือ <span className={`font-mono font-semibold ${leftThisMonth < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-brand-text'}`}>{formatCurrency(leftThisMonth)}</span></p>
         </button>
       </div>
       <p className="mt-[10px] text-[11px] text-brand-muted">{jobs.length} งานทั้งหมด · {jobs.filter(j => j.pending > 0 && getRelativeDaysText(j.payDate || j.postDate).isOverdue).length} รายการเกินกำหนด</p>

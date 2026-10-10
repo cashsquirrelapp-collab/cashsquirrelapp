@@ -51,6 +51,8 @@ function SectionHead({ icon: Icon, title, sub }: { icon: React.ComponentType<{ c
 export function FinancialDetailsModal(props: Props) {
   const { monthKey, received, receivedCount, fixedExpense, variableExpense, variableExpenseCount, profit, savedThisMonth, savedCount, onClose } = props;
   const panelRef = React.useRef<HTMLDivElement>(null);
+  const leftThisMonth = profit - savedThisMonth;
+  const spentBeyondThisMonth = leftThisMonth < 0;
 
   // Esc closes; Tab stays inside the modal.
   React.useEffect(() => {
@@ -97,9 +99,20 @@ export function FinancialDetailsModal(props: Props) {
             </div>
             {/* What's left of this month's money after expenses and the savings set aside. */}
             <Row label={`แบ่งออมเข้าเป้าหมาย (${savedCount} รายการ)`} value={signed(savedThisMonth, '-')} tone={savedThisMonth > 0 ? RED : 'text-brand-text'} />
-            <div className="mt-2 rounded-xl bg-brand-faint/70 px-3 py-2.5" data-testid="left-this-month">
-              <Row label="เงินที่เหลือเดือนนี้" value={signed(profit - savedThisMonth, profit - savedThisMonth < 0 ? '-' : '')} tone={profit - savedThisMonth < 0 ? RED : 'text-brand-text'} strong />
-              <p className="text-[12px] text-brand-muted">รับเงินจริง − รายจ่าย − เงินที่แบ่งออม ของเดือนนี้</p>
+            <div className={`mt-2 rounded-xl px-3 py-2.5 ${spentBeyondThisMonth ? 'bg-[#FFF7F1] dark:bg-orange-500/10' : 'bg-brand-faint/70'}`} data-testid="left-this-month">
+              <div className="flex items-baseline gap-3 py-1.5">
+                <span className="min-w-0 flex-1 text-[16px] font-semibold text-brand-text">
+                  {spentBeyondThisMonth ? 'ส่วนที่เกินเงินรับเดือนนี้' : 'เงินที่เหลือเดือนนี้'}
+                </span>
+                <span data-testid="left-this-month-amount" className={`shrink-0 whitespace-nowrap text-right font-mono text-[17px] font-semibold tabular-nums ${spentBeyondThisMonth ? 'text-[#E65F2B] dark:text-orange-300' : 'text-brand-text'}`}>
+                  {formatCurrency(Math.abs(leftThisMonth))}
+                </span>
+              </div>
+              <p className="text-[12px] text-brand-muted">
+                {spentBeyondThisMonth
+                  ? 'รายจ่ายและเงินที่แบ่งออม มากกว่าเงินรับของเดือนนี้'
+                  : 'รับเงินจริง − รายจ่าย − เงินที่แบ่งออม ของเดือนนี้'}
+              </p>
             </div>
           </section>
 

@@ -908,11 +908,11 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await page.goto('/');
  await expect(page.locator('#main-content').getByRole('button',{name:'เพิ่มงาน',exact:true})).toHaveCount(0);
  await expect(page.getByRole('region',{name:'เงินที่มีตอนนี้'})).toHaveCount(0); // no extra card on the dashboard
- // what's left this month: received - expenses - savings set aside = 10,180 - 13,330 - 3,000
- await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('เงินที่เหลือ');
- await expect(page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first()).toContainText('6,150');
+ const profitCard=page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first();
+ await expect(profitCard).not.toContainText('เงินที่เหลือ');
+ await expect(profitCard).not.toContainText('6,150');
  await expect(page.getByTestId('profit-primary-row')).toContainText('3,150');
- await page.locator('#main-content').getByRole('button',{name:/กำไรสุทธิ/}).first().click();
+ await profitCard.click();
  const modal=page.getByRole('dialog',{name:'รายละเอียดการเงินเดือนนี้'});
  const summary=modal.getByRole('region',{name:'สรุปเดือนนี้'});
  await expect(summary).toContainText('รับเงินจริงแล้ว (1 รายการ)');
@@ -922,7 +922,10 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await expect(summary).toContainText('กำไรสุทธิเดือนนี้');
  await expect(summary).toContainText('−฿3,150');
  await expect(summary).toContainText('แบ่งออมเข้าเป้าหมาย (1 รายการ)');
- await expect(page.getByTestId('left-this-month')).toContainText('−฿6,150');
+ await expect(page.getByTestId('left-this-month')).toContainText('ส่วนที่เกินเงินรับเดือนนี้');
+ await expect(page.getByTestId('left-this-month')).toContainText('รายจ่ายและเงินที่แบ่งออม มากกว่าเงินรับของเดือนนี้');
+ await expect(page.getByTestId('left-this-month-amount')).toHaveText('฿6,150');
+ await expect(page.getByTestId('left-this-month-amount')).toHaveClass(/text-\[#E65F2B\]/);
  await expect(modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'})).toHaveCount(0);
  await expect(modal.getByRole('button',{name:'ตั้งยอดเริ่มต้น'})).toHaveCount(0);
  await expect(modal.getByRole('region',{name:'รายละเอียดรายจ่ายเดือนนี้'})).toHaveCount(0);
