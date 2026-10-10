@@ -88,7 +88,7 @@ npm audit
 
 ใช้ project root นี้เป็น root directory ตั้ง runtime Node 22 และ environment ฝั่ง server ตาม `.env.example` ตั้ง `APP_URL` เป็น HTTPS domain จริง `vercel.json` ระบุ build/output, rewrites, headers และ cron ไว้แล้ว API ทั้งหมดแชร์ `api/index.ts` หนึ่ง function เพื่อให้เส้นทางและ body parsing ตรงกับ Express
 
-Stripe webhook: `/api/stripe-webhook`; LINE webhook: `/api/line-webhook`; LIFF endpoint: `/liff-add.html` ตั้ง `STRIPE_PRO_PRICE_ID` เป็นราคา recurring 149 THB/เดือนจาก mode เดียวกับ `STRIPE_SECRET_KEY` ระบบสร้าง Checkout จาก backend และเปิดสิทธิ์ตาม webhook ที่ตรวจลายเซ็นแล้วเท่านั้น รายละเอียด test/live และ event ที่ต้องเปิดดูใน `DEPLOYMENT.md`
+Stripe webhook: `/api/stripe-webhook`; LINE webhook: `/api/line-webhook`; LIFF endpoint: `/liff-add.html` แพ็กเกจปัจจุบันใช้ราคา recurring ฿249/เดือนและ Coupon ลด ฿50 ใน 3 รอบบิลแรก บัญชีที่มีสิทธิ์จึงชำระ ฿199 ต่อเดือน 3 รอบแรกได้หนึ่งครั้งต่อบัญชี แล้วต่ออายุที่ ฿249/เดือนตั้งแต่รอบที่ 4 ไม่ต้องสร้างราคา ฿199 แยก ตั้ง `STRIPE_MODE`, `STRIPE_PRO_PRICE_ID`, `STRIPE_PRO_INTRO_COUPON_ID` และ `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` จาก mode เดียวกับ `STRIPE_SECRET_KEY` ระบบสร้าง Checkout จาก backend และเปิดสิทธิ์ตาม webhook ที่ตรวจลายเซ็นแล้วเท่านั้น รายละเอียด test/live, Portal และ event ที่ต้องเปิดดูใน `DEPLOYMENT.md`
 
 หากย้ายระบบที่มีสมาชิก Pro แบบ Payment Link เดิม ให้ตั้ง `STRIPE_LEGACY_PAYMENT_LINK_ID` ชั่วคราวแล้วเตรียมประวัติด้วย `npm run billing:backfill` ทบทวน SQL ที่สร้าง แล้ว apply ก่อนเปิด webhooks คู่มือระบุการตรวจยอดและวันหมดอายุ
 

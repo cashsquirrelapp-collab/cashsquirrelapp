@@ -934,6 +934,9 @@ export default function App() {
     plan: string | null;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
+    stripeStatus: 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused' | null;
+    hasSubscription: boolean;
+    introEligible: boolean;
     managed: boolean;
   } | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
@@ -953,6 +956,10 @@ export default function App() {
   const isPaidActive = !isAdminProRevoked && !!subscription && ['active', 'trialing'].includes(subscription.status) && (
     subscription.plan === 'admin_grant' ||
     (!!subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd).getTime() > Date.now())
+  );
+  const hasOpenStripeSubscription = Boolean(
+    subscription?.hasSubscription
+    && !['canceled', 'incomplete_expired'].includes(subscription.stripeStatus ?? ''),
   );
 
   // Guest mode previews local Pro tools with sample data. Server-side Pro access
@@ -1014,14 +1021,17 @@ export default function App() {
           plan: data.plan || null,
           currentPeriodEnd: data.current_period_end || null,
           cancelAtPeriodEnd: data.cancel_at_period_end === true,
+          stripeStatus: data.stripe_status || null,
+          hasSubscription: data.has_subscription === true,
+          introEligible: data.intro_eligible === true,
           managed: data.managed === true,
         });
       } else {
-        setSubscription({ status: 'free', plan: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, managed: false });
+        setSubscription({ status: 'free', plan: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, stripeStatus: null, hasSubscription: false, introEligible: true, managed: false });
       }
     } catch (err) {
       console.log('Catch subscription load error, defaulting to free:', err);
-      setSubscription({ status: 'free', plan: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, managed: false });
+      setSubscription({ status: 'free', plan: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, stripeStatus: null, hasSubscription: false, introEligible: false, managed: false });
     }
   };
 
@@ -1045,7 +1055,9 @@ export default function App() {
     try {
       const result = await apiJson<{ url: string }>('/api/billing', {
         method: 'POST',
-        body: JSON.stringify({ action: isPaidActive && subscription?.managed ? 'portal' : 'checkout' }),
+        // Delinquent/nonterminal subscribers must be able to reach Portal even
+        // when app entitlement or Checkout catalog validation is unavailable.
+        body: JSON.stringify({ action: hasOpenStripeSubscription ? 'portal' : 'checkout' }),
       });
       const target = new URL(result.url);
       if (target.protocol !== 'https:' || (target.hostname !== 'stripe.com' && !target.hostname.endsWith('.stripe.com'))) {
@@ -1074,6 +1086,9 @@ export default function App() {
               plan: data.plan || null,
               currentPeriodEnd: data.current_period_end || null,
               cancelAtPeriodEnd: data.cancel_at_period_end === true,
+              stripeStatus: data.stripe_status || null,
+              hasSubscription: data.has_subscription === true,
+              introEligible: data.intro_eligible === true,
               managed: data.managed === true,
             });
             active = ['active', 'trialing'].includes(data?.status)
@@ -1089,7 +1104,7 @@ export default function App() {
           active ? 'เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!' : 'Stripe กำลังยืนยันรายการ ระบบจะเปิด Pro อัตโนมัติเมื่อ webhook ยืนยันสำเร็จ',
         );
       })();
-      if (checkoutResult === 'cancel') triggerAlert('ยังไม่ได้สมัครสมาชิก', 'ยกเลิกหน้าชำระเงินแล้ว คุณกลับมาสมัครใหม่ได้ทุกเมื่อ');
+      if (checkoutResult === 'cancel') triggerAlert('ยังไม่ได้สมัครสมาชิก', 'ยกเลิกหน้าชำระเงินแล้ว หากระบบยังแจ้งว่ามี Checkout ที่ใช้งานอยู่ กรุณารอให้หน้าชำระเงินหมดอายุแล้วลองใหม่');
       window.history.replaceState({}, '', window.location.pathname);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1120,7 +1135,7 @@ export default function App() {
       setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
       if(!financeGroupId)setUserAvatar(data.avatar_data_url || '');
       const sub = result.subscription;
-      setSubscription({ status: sub?.status || 'free', plan: sub?.plan || null, currentPeriodEnd: sub?.current_period_end || null, cancelAtPeriodEnd: sub?.cancel_at_period_end === true, managed: sub?.managed === true });
+      setSubscription({ status: sub?.status || 'free', plan: sub?.plan || null, currentPeriodEnd: sub?.current_period_end || null, cancelAtPeriodEnd: sub?.cancel_at_period_end === true, stripeStatus: sub?.stripe_status || null, hasSubscription: sub?.has_subscription === true, introEligible: sub ? sub.intro_eligible === true : true, managed: sub?.managed === true });
       cloudReadyRef.current = owner;
       financeConflictRef.current=false;setLoadedFinanceOwner(owner);
       setLastCloudError(null); setCloudSyncStatus('synced'); return true;
@@ -2779,6 +2794,8 @@ export default function App() {
                   <PremiumUpsell
                     feature={t('premium.taxFeature')}
                     description={t('premium.taxDesc')}
+                    introEligible={subscription?.introEligible === true}
+                    manageSubscription={hasOpenStripeSubscription}
                     onUpgrade={handleUpgrade}
                   />
                 )
@@ -2798,6 +2815,8 @@ export default function App() {
                     <PremiumUpsell
                       feature={t('premium.invoiceFeature')}
                       description={t('premium.invoiceDesc')}
+                      introEligible={subscription?.introEligible === true}
+                      manageSubscription={hasOpenStripeSubscription}
                       onUpgrade={handleUpgrade}
                     />
                   </div>
@@ -2954,6 +2973,8 @@ export default function App() {
         <AnimatePresence>
           {isProPromoOpen && (
             <Suspense fallback={null}><ProPromoModal
+              introEligible={subscription?.introEligible === true}
+              manageSubscription={hasOpenStripeSubscription}
               onUpgrade={() => {
                 setIsProPromoOpen(false);
                 handleUpgrade();

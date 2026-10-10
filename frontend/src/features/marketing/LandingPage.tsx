@@ -341,9 +341,16 @@ function Pricing({ onStart }: { onStart: () => void }) {
         </Reveal>
         <Reveal delay={0.1} className="mx-auto mt-[clamp(3rem,2rem+3vw,5rem)] max-w-md">
           <p className="text-[15px] font-medium text-[#1C1917]">Pro</p>
-          <p className="mt-3 font-mono text-[clamp(3rem,2rem+3vw,4.5rem)] font-semibold leading-none tracking-tight text-[#1C1917]">฿149<span className="ml-2 font-sans text-[17px] font-normal tracking-normal text-[#77716B]">/ เดือน</span></p>
+          <p className="mt-3 font-mono text-[clamp(3rem,2rem+3vw,4.5rem)] font-semibold leading-none tracking-tight text-[#1C1917]">฿199<span className="ml-2 font-sans text-[17px] font-normal tracking-normal text-[#77716B]">/ เดือน</span></p>
+          <p className="mt-3 text-[15px] font-semibold text-[#C24A16]">3 รอบบิลรายเดือนแรก</p>
+          <p className="mt-1 text-[14px] text-[#77716B]">รอบบิลที่ 4 เป็นต้นไป ฿249 / เดือน</p>
           <ul className="mx-auto mt-8 space-y-3 text-left text-[15px] text-[#57514B] sm:w-fit">
-            {['ทดลองใช้ฟรี 14 วัน', 'ไม่มีการตัดเงินอัตโนมัติ', 'ไม่ต่ออายุ ก็ใช้แบบฟรีต่อได้'].map(t => (
+            {[
+              'โปรโมชัน ฿199 ใช้ได้หนึ่งครั้งต่อบัญชีที่มีสิทธิ์',
+              'ต่ออายุอัตโนมัติทุกเดือนจนกว่าจะยกเลิก',
+              'แพ็กเกจที่ชำระเงินเริ่มคิดเงินทันทีเมื่อ Checkout สำเร็จ ไม่มีช่วงทดลองใช้ฟรีเพิ่ม',
+              'ยกเลิกผ่านหน้าจัดการสมาชิก และใช้ Pro ต่อได้จนจบรอบที่ชำระแล้ว',
+            ].map(t => (
               <li key={t} className="flex items-center gap-3"><Check className="h-4 w-4 shrink-0 text-[#18A66A]" />{t}</li>
             ))}
           </ul>

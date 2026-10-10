@@ -17,6 +17,9 @@ interface PlansTabProps {
     plan: string | null;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
+    stripeStatus: 'incomplete' | 'incomplete_expired' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused' | null;
+    hasSubscription: boolean;
+    introEligible: boolean;
     managed: boolean;
   } | null;
   onUpgrade: () => void;
@@ -38,14 +41,32 @@ export const PlansTab: React.FC<PlansTabProps> = ({
 }) => {
   const { t } = useLanguage();
   const isAdminGrant = subscription?.plan === 'admin_grant';
+  const hasOpenManagedSubscription = Boolean(
+    subscription?.hasSubscription
+    && !['canceled', 'incomplete_expired'].includes(subscription.stripeStatus ?? ''),
+  );
+  const hasTerminalManagedSubscription = Boolean(
+    subscription?.hasSubscription
+    && ['canceled', 'incomplete_expired'].includes(subscription.stripeStatus ?? ''),
+  );
+  const hasPreservedPaidAccess = Boolean(
+    isPaidActive && !hasOpenManagedSubscription && !isAdminGrant,
+  );
+  const introEligible = isGuestPreview || subscription?.introEligible === true;
   const statusText = isGuestPreview
     ? t('plans.guestPreviewStatus')
     : isAdminGrant
     ? t('plans.statusAdminGrant')
-    : isPaidActive && subscription?.cancelAtPeriodEnd && subscription.currentPeriodEnd
+    : isPaidActive && hasTerminalManagedSubscription && subscription?.currentPeriodEnd
+    ? t('plans.statusCanceledPaidThrough', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
+    : isPaidActive && hasOpenManagedSubscription && subscription?.cancelAtPeriodEnd && subscription.currentPeriodEnd
     ? t('plans.statusCancelAt', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
+    : isPaidActive && hasOpenManagedSubscription && subscription?.currentPeriodEnd
+    ? t('plans.statusActive', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
     : isPaidActive && subscription?.currentPeriodEnd
-    ? t(subscription.managed ? 'plans.statusActive' : 'plans.statusLegacy', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
+    ? t('plans.statusLegacy', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
+    : hasOpenManagedSubscription
+    ? t('plans.statusManageRequired')
     : isInFreeTrial && trialEndsAt
     ? t('plans.statusTrial', { date: trialEndsAt.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
     : t('plans.statusNone');
@@ -89,8 +110,14 @@ export const PlansTab: React.FC<PlansTabProps> = ({
               Pro
             </h3>
             <p className="text-2xl font-semibold font-mono text-[#E65F2B] dark:text-[#FFA473] mt-1">
-              ฿149<span className="text-xs text-brand-muted font-sans font-bold">{t('plans.perMonth')}</span>
+              {introEligible ? '฿199' : '฿249'}<span className="text-xs text-brand-muted font-sans font-bold">{t('plans.perMonth')}</span>
             </p>
+            {introEligible ? <>
+              <p className="mt-1 text-[11px] font-semibold text-[#C24A16] dark:text-[#FFA473]">{t('plans.introPriceNote')}</p>
+              <p className="mt-0.5 text-[10px] text-brand-muted">{t('plans.standardPrice')}</p>
+            </> : (
+              <p className="mt-1 text-[10px] text-brand-muted">{t('plans.standardOnlyNote')}</p>
+            )}
           </div>
           <ul className="space-y-2">
             {PRO_FEATURE_KEYS.map((key) => (
@@ -119,15 +146,15 @@ export const PlansTab: React.FC<PlansTabProps> = ({
       {/* Status / CTA panel */}
       <div className={`${uiPanel} text-center space-y-3`}>
         <p className="text-xs text-brand-text dark:text-neutral-200 leading-relaxed max-w-md mx-auto">{statusText}</p>
-        {!isAdminGrant && <button
+        {!isAdminGrant && !hasPreservedPaidAccess && <button
           type="button"
           onClick={onUpgrade}
           disabled={billingBusy}
           className={uiPrimaryButton}
         >
-          {billingBusy ? t('plans.loadingCta') : isGuestPreview ? t('plans.guestCreateAccountCta') : isPaidActive && subscription?.managed ? t('plans.renewCta') : t('plans.subscribeCta')}
+          {billingBusy ? t('plans.loadingCta') : isGuestPreview ? t('plans.guestCreateAccountCta') : hasOpenManagedSubscription ? t('plans.renewCta') : t(introEligible ? 'plans.subscribeCta' : 'plans.subscribeStandardCta')}
         </button>}
-        {!isGuestPreview && <p className="text-[10px] text-brand-muted">{t('plans.paymentNote')}</p>}
+        {!isGuestPreview && !hasPreservedPaidAccess && <p className="text-[10px] text-brand-muted">{t(introEligible ? 'plans.paymentNote' : 'plans.standardPaymentNote')}</p>}
       </div>
     </div>
   );

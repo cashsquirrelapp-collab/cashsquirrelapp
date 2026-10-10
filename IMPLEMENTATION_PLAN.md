@@ -50,7 +50,7 @@ Full CRUD + roles + 409 handling per coverage-audit.md §9-10. Depends on Phase 
 Real connect/link-code/assistant/LIFF/Rich-Menu/digest UI replacing the current 2-toggle placeholder. Full spec in coverage-audit.md §13.
 
 ## Phase 11 — Security / Settings / Plan / PWA — NOT STARTED
-Backup-email OTP, pause account, delete + 30-day recovery, reset-financial-data as distinct actions. Plans page copy verification (14-day trial / ฿149 / manual renewal — values confirmed correct in coverage-audit.md §15, just need the mockup copy double-checked against them).
+Backup-email OTP, pause account, delete + 30-day recovery, reset-financial-data as distinct actions. The separate 14-day app trial remains; the paid plan bills eligible accounts ฿199 for each of the first 3 monthly cycles, then renews automatically at ฿249/month from cycle 4 until canceled. The introductory promotion is available once per eligible account, adds no Stripe billing trial, and cancellation is managed through the Portal at period end.
 
 ---
 

@@ -5,11 +5,13 @@ import { IconCrown } from '../../components/ui/icons';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface ProPromoModalProps {
+  introEligible: boolean;
+  manageSubscription: boolean;
   onUpgrade: () => void;
   onClose: () => void;
 }
 
-export const ProPromoModal: React.FC<ProPromoModalProps> = ({ onUpgrade, onClose }) => {
+export const ProPromoModal: React.FC<ProPromoModalProps> = ({ introEligible, manageSubscription, onUpgrade, onClose }) => {
   const { t } = useLanguage();
 
   const FEATURES = [
@@ -59,9 +61,15 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ onUpgrade, onClose
               {t('login.brandName')} Pro <IconCrown className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473]" />
             </h3>
             <p className="inline-flex items-baseline gap-1 bg-[#E65F2B]/10 rounded-2xl px-3.5 py-1.5 mt-2.5">
-              <span className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473]">฿149</span>
+              <span className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473]">{introEligible ? '฿199' : '฿249'}</span>
               <span className="text-xs text-brand-muted font-sans font-bold">{t('promo.perMonth')}</span>
             </p>
+            {introEligible ? <>
+              <p className="mt-1.5 text-[10px] font-bold text-[#C24A16] dark:text-[#FFA473]">{t('plans.introPriceNote')}</p>
+              <p className="mt-0.5 text-[9px] text-brand-muted">{t('plans.standardPrice')}</p>
+            </> : (
+              <p className="mt-1.5 text-[9px] text-brand-muted">{t('plans.standardOnlyNote')}</p>
+            )}
           </div>
           <img src="/pro-promo-hero.png" alt="" className="w-32 sm:w-36 shrink-0" />
         </div>
@@ -86,7 +94,7 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ onUpgrade, onClose
             className="w-full py-3.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-2xl text-sm font-black cursor-pointer flex items-center justify-center gap-2"
           >
             <CreditCard className="w-4 h-4" />
-            {t('plans.subscribeCta')}
+            {t(manageSubscription ? 'plans.renewCta' : introEligible ? 'plans.subscribeCta' : 'plans.subscribeStandardCta')}
             <ArrowRight className="w-4 h-4" />
           </button>
           <button
@@ -100,6 +108,9 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ onUpgrade, onClose
             <span className="h-px w-7 bg-brand-border dark:bg-neutral-700" />
             {t('promo.footerTagline')}
             <span className="h-px w-7 bg-brand-border dark:bg-neutral-700" />
+          </p>
+          <p className="mx-auto mt-2 max-w-sm text-center text-[9px] leading-relaxed text-brand-muted">
+            {t(introEligible ? 'plans.paymentNote' : 'plans.standardPaymentNote')}
           </p>
         </div>
       </motion.div>
