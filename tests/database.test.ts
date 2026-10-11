@@ -1,7 +1,9 @@
 import { after,before,test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile,readdir } from 'node:fs/promises';
+import type { Server } from 'node:http';
 import { PGlite } from '@electric-sql/pglite';
+import Stripe from 'stripe';
 const db=new PGlite();
 const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222',c='44444444-4444-4444-8444-444444444444',d='55555555-5555-4555-8555-555555555555';
 before(async()=>{
@@ -247,6 +249,126 @@ test('PromptPay cycles share the account promotion ledger, stay idempotent, and 
  assert.equal((await apply('evt-qr-refund','qr-reservation-1','cs-qr-1','pi-qr-1',1,true)).result,'refunded');
  row=await one('select stripe_intro_paid_cycles,promptpay_entitled_until from subscriptions where user_id=$1',[user]);
  assert.equal(row.stripe_intro_paid_cycles,2);assert.ok(row.promptpay_entitled_until);
+});
+test('signed PromptPay webhook validates canonical Stripe data and grants one idempotent calendar month through the real RPC',async()=>{
+ const promptpayUser='77777777-7777-4777-8777-777777777777';
+ const reservation='integration-reservation';
+ const sessionId='cs_test_promptpay_integration';
+ const customerId='cus_promptpay_integration';
+ const paymentIntentId='pi_promptpay_integration';
+ const eventId='evt_promptpay_integration';
+ const created=Math.floor(Date.now()/1000);
+ process.env.APP_URL='http://127.0.0.1:3000';
+ process.env.SUPABASE_URL='https://promptpay-integration.supabase.co';
+ process.env.SUPABASE_PUBLISHABLE_KEY='test-publishable-key';
+ process.env.SUPABASE_SERVICE_ROLE_KEY='test-service-role-key';
+ process.env.SESSION_SECRET='test-only-session-secret-'.repeat(3);
+ process.env.STRIPE_SECRET_KEY='sk_test_only';
+ process.env.STRIPE_MODE='test';
+ process.env.STRIPE_WEBHOOK_SECRET='whsec_promptpay_integration';
+ process.env.STRIPE_PRO_PRICE_ID='price_test_pro';
+ process.env.STRIPE_PRO_INTRO_COUPON_ID='coupon_test_intro';
+ process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID='bpc_test_safe';
+ await db.query("insert into auth.users(id,email) values($1,'promptpay-integration@example.com')",[promptpayUser]);
+ const expires=new Date(Date.now()+30*60_000).toISOString();
+ const pending=new Date(Date.now()+35*60_000).toISOString();
+ assert.equal((await one(
+  'select cashflow_reserve_billing_checkout($1,$2,\'promptpay\',$3,$4,false) result',
+  [promptpayUser,reservation,expires,pending],
+ )).result.result,'reserved');
+ await db.query('update subscriptions set stripe_customer_id=$2 where user_id=$1',[promptpayUser,customerId]);
+ const { buildPromptPayCheckoutRequest,PRO_INTRO_TOTAL }=await import('../backend/src/services/stripeSubscriptions.js');
+ const request=buildPromptPayCheckoutRequest({
+  userId:promptpayUser,customerId,reservationId:reservation,introCycle:1,
+  expiresAt:Math.floor(new Date(expires).getTime()/1000),origin:'https://cash-squirrel.example',
+ });
+ await db.query('select cashflow_prepare_subscription_checkout($1,$2,$3::jsonb)',[promptpayUser,reservation,JSON.stringify(request)]);
+ assert.equal((await one(
+  'select cashflow_attach_billing_checkout($1,$2,$3,$4) ok',
+  [promptpayUser,reservation,sessionId,`https://checkout.stripe.com/c/pay/${sessionId}`],
+ )).ok,true);
+
+ const charge={
+  id:'ch_promptpay_integration',object:'charge',status:'succeeded',paid:true,refunded:false,
+  amount_refunded:0,amount:PRO_INTRO_TOTAL,currency:'thb',customer:customerId,
+  payment_intent:paymentIntentId,created,
+ } as unknown as Stripe.Charge;
+ const paymentIntent={
+  id:paymentIntentId,object:'payment_intent',livemode:false,status:'succeeded',customer:customerId,
+  currency:'thb',amount:PRO_INTRO_TOTAL,amount_received:PRO_INTRO_TOTAL,amount_capturable:0,
+  payment_method_types:['promptpay'],payment_method:{id:'pm_promptpay_integration',object:'payment_method',type:'promptpay'},
+  latest_charge:charge,metadata:request.payment_intent_data?.metadata,
+ } as unknown as Stripe.PaymentIntent;
+ const lineItem={
+  id:'li_promptpay_integration',object:'item',quantity:1,currency:'thb',
+  amount_subtotal:PRO_INTRO_TOTAL,amount_total:PRO_INTRO_TOTAL,
+  price:{active:true,type:'one_time',currency:'thb',unit_amount:PRO_INTRO_TOTAL,recurring:null},
+ } as unknown as Stripe.LineItem;
+ const session={
+  id:sessionId,object:'checkout.session',created,livemode:false,mode:'payment',status:'complete',
+  payment_status:'paid',client_reference_id:promptpayUser,customer:customerId,currency:'thb',
+  amount_total:PRO_INTRO_TOTAL,payment_intent:paymentIntent,metadata:request.metadata,
+  line_items:{object:'list',data:[lineItem],has_more:false,url:`/v1/checkout/sessions/${sessionId}/line_items`},
+ } as unknown as Stripe.Checkout.Session;
+
+ const realFetch=globalThis.fetch;
+ globalThis.fetch=async(input,init)=>{
+  const url=typeof input==='string'?input:input instanceof URL?input.href:input.url;
+  const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}});
+  if(!url.startsWith('https://promptpay-integration.supabase.co/')) return realFetch(input,init);
+  if(url.includes('/rpc/cashflow_rate_limit')) return json(true);
+  if(url.includes('/rpc/cashflow_apply_promptpay_event')) {
+   const body=JSON.parse(String(init?.body));
+   try {
+    const result=await one(
+     'select cashflow_apply_promptpay_event($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::smallint,$15) result',
+     [body.p_event_id,body.p_event_type,body.p_event_created,body.p_event_livemode,body.p_expected_livemode,
+      body.p_user_id,body.p_customer_id,body.p_reservation_id,body.p_session_id,body.p_payment_intent_id,
+      body.p_amount,body.p_currency,body.p_paid_at,body.p_intro_cycle,body.p_refund],
+    );
+    return json(result.result);
+   } catch(error) {
+    return json({message:error instanceof Error?error.message:'RPC failure',code:'P0001'},400);
+   }
+  }
+  throw new Error(`Unexpected integration endpoint: ${url}`);
+ };
+ let server:Server|undefined;
+ const { stripe:stripeClient }=await import('../backend/src/config/stripe.js');
+ const sessions=stripeClient.checkout.sessions as unknown as {retrieve:(id:string,options?:unknown)=>Promise<Stripe.Checkout.Session>};
+ const retrieve=sessions.retrieve;
+ sessions.retrieve=async(id)=>{assert.equal(id,sessionId);return session;};
+ try {
+  const { createApp }=await import('../backend/src/http/app.js');
+  server=await new Promise<Server>(resolve=>{const instance=createApp().listen(0,'127.0.0.1',()=>resolve(instance));});
+  const origin=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
+  const raw=JSON.stringify({
+   id:eventId,object:'event',created,livemode:false,type:'checkout.session.completed',
+   data:{object:{id:sessionId,object:'checkout.session'}},
+  });
+  const signature=Stripe.webhooks.generateTestHeaderString({payload:raw,secret:process.env.STRIPE_WEBHOOK_SECRET});
+  const deliver=()=>realFetch(`${origin}/api/stripe-webhook`,{
+   method:'POST',headers:{'content-type':'application/json','stripe-signature':signature},body:raw,
+  });
+  const applied=await deliver();assert.equal(applied.status,200);assert.equal((await applied.json() as {result:string}).result,'applied');
+  const duplicate=await deliver();assert.equal(duplicate.status,200);assert.equal((await duplicate.json() as {result:string}).result,'duplicate');
+  const subscription=await one(
+   `select s.status,s.stripe_intro_paid_cycles,s.promptpay_entitled_until,s.stripe_checkout_reservation_id,
+      p.entitled_until=p.paid_at+interval '1 month' calendar_month_ok
+    from subscriptions s join cashflow_promptpay_payments p on p.user_id=s.user_id where s.user_id=$1`,
+   [promptpayUser],
+  );
+  assert.equal(subscription.status,'active');assert.equal(subscription.stripe_intro_paid_cycles,1);
+  assert.equal(subscription.stripe_checkout_reservation_id,null);
+  assert.ok(subscription.promptpay_entitled_until);assert.equal(subscription.calendar_month_ok,true);
+  assert.equal((await one('select count(*)::int n from cashflow_promptpay_events where event_id=$1',[eventId])).n,1);
+  assert.equal((await one('select count(*)::int n from cashflow_promptpay_payments where payment_intent_id=$1',[paymentIntentId])).n,1);
+  assert.equal((await one("select count(*)::int n from cashflow_billing_paid_cycles where source_type='promptpay' and source_id=$1",[paymentIntentId])).n,1);
+ } finally {
+  sessions.retrieve=retrieve;
+  globalThis.fetch=realFetch;
+  if(server) await new Promise<void>((resolve,reject)=>server!.close(error=>error?reject(error):resolve()));
+ }
 });
 test('same-second Stripe events reconcile only through the latest serialized event token',async()=>{
  const period=new Date(Date.now()+30*86400000).toISOString();
