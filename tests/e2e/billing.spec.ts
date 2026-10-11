@@ -69,6 +69,7 @@ async function openPlans(
   subscription: SubscriptionFixture,
   stripeUrl: string,
   billingResponse: Record<string, unknown> = {},
+  packageEnabled = false,
 ): Promise<Request[]> {
   const billingRequests: Request[] = [];
 
@@ -83,7 +84,7 @@ async function openPlans(
   await page.route('**/api/usage-analytics', route => route.fulfill({ json: { ok: true } }));
   await page.route('**/api/account', route => route.fulfill({ json: { backupEmail: null } }));
   await page.route('**/api/data*', route => route.fulfill({
-    json: { snapshot, versions, subscription },
+    json: { snapshot, versions, subscription, package_features: {free_documents: packageEnabled} },
   }));
   await page.route('**/api/billing', async route => {
     billingRequests.push(route.request());
@@ -125,7 +126,7 @@ test('an intro-eligible free account chooses Stripe Checkout', async ({ page }) 
   await expect(plans.getByText('โปรเปิดตัว · ลด ฿50/รอบ', { exact: true })).toBeVisible();
   await expect(plans.getByText(/฿199\s*\/\s*เดือน/).first()).toBeVisible();
   await expect(plans.getByText('จากนั้น ฿249 / เดือน ตั้งแต่รอบบิลที่ 4', { exact: true })).toBeVisible();
-  await plans.getByRole('button', { name: 'สมัคร Pro — ฿199/เดือน 3 รอบแรก', exact: true }).click();
+  await plans.getByRole('button', { name: 'สมัคร Pro ฿199/เดือน 3 รอบแรก', exact: true }).click();
 
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0].method()).toBe('POST');
@@ -148,10 +149,17 @@ test('intro offer badge and both billing prices stay readable on mobile', async 
   }, 'https://checkout.stripe.com/c/pay/cs_test_mobile');
 
   const plans = page.locator('#main-content');
+  await expect(plans.getByRole('heading', { name: 'Free', exact: true })).toBeVisible();
+  await expect(plans.getByRole('heading', { name: 'Pro', exact: true })).toBeVisible();
   await expect(plans.getByText('โปรเปิดตัว · ลด ฿50/รอบ', { exact: true })).toBeVisible();
   await expect(plans.getByText('฿199 / เดือน เฉพาะ 3 รอบบิลรายเดือนแรก', { exact: true })).toBeVisible();
   await expect(plans.getByText('จากนั้น ฿249 / เดือน ตั้งแต่รอบบิลที่ 4', { exact: true })).toBeVisible();
-  await expect(plans.getByRole('button', { name: 'สมัคร Pro — ฿199/เดือน 3 รอบแรก', exact: true })).toBeVisible();
+  await expect(plans.getByRole('heading', { name: 'บัตรเครดิต / เดบิต', exact: true })).toBeVisible();
+  await expect(plans.getByRole('heading', { name: 'พร้อมเพย์ QR', exact: true })).toBeVisible();
+  await expect(plans.getByText(/ยังไม่รวมในสิทธิ์ปัจจุบัน/)).toBeVisible();
+  await expect(plans.getByText(/เป้าหมายคลัง 300 ไฟล์ต่อบัญชี/)).toBeVisible();
+  await expect(plans.getByText(/เป้าหมายคลัง 500 ไฟล์/)).toHaveCount(0);
+  await expect(plans.getByRole('button', { name: 'สมัคร Pro ฿199/เดือน 3 รอบแรก', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
@@ -173,9 +181,11 @@ test('PromptPay opens a server-expiring QR flow with countdown and manual-renewa
   });
 
   const plans = page.locator('#main-content');
-  await plans.getByRole('button', { name: 'จ่ายด้วย QR — ฿199 / สิทธิ์ 1 เดือน', exact: true }).click();
-  await expect.poll(() => requests.length).toBe(1);
-  expect(requests[0].postDataJSON()).toEqual({ action: 'promptpay_checkout' });
+  await plans.getByRole('button', { name: 'จ่ายด้วย QR ฿199 / สิทธิ์ 1 เดือน', exact: true }).click();
+  // Status GETs may already have polled by the time the click resolves on a busy host.
+  const checkoutRequests = () => requests.filter(request => request.method() === 'POST');
+  await expect.poll(() => checkoutRequests().length).toBe(1);
+  expect(checkoutRequests()[0].postDataJSON()).toEqual({ action: 'promptpay_checkout' });
   const dialog = page.getByRole('dialog', { name: 'ชำระด้วย QR พร้อมเพย์' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('QR พร้อมเพย์ ฿199', { exact: true })).toBeVisible();
@@ -205,6 +215,31 @@ test('a managed nonterminal subscription chooses the Stripe Billing Portal', asy
   expect(requests[0].headers()['x-csrf-protection']).toBe('1');
   expect(requests[0].postDataJSON()).toEqual({ action: 'portal' });
   await expect(page).toHaveURL(stripeUrl);
+});
+
+test('aligned plans retain the official mascot and return from tap to idle, respecting reduced motion',async({page})=>{
+  await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock');
+  const cards=page.locator('.plan-card');
+  const rows=await cards.evaluateAll(nodes=>nodes.map(node=>Array.from(node.querySelectorAll('.plan-features li')).map(li=>li.getBoundingClientRect().y)));
+  expect(rows[0]).toHaveLength(5); expect(rows[1]).toHaveLength(5);
+  for(let i=0;i<5;i++)expect(Math.abs(rows[0][i]-rows[1][i])).toBeLessThan(1);
+  const mascot=page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'});
+  await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','idle');
+  await mascot.click();
+  await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','tap');
+  await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','idle',{timeout:3000});
+  const palette=await mascot.locator('svg').evaluate(svg=>Array.from(svg.querySelectorAll('[fill]')).map(node=>node.getAttribute('fill')));
+  expect(palette).toContain('#C27A3F');
+  await page.emulateMedia({reducedMotion:'reduce'}); await page.reload();
+  await expect(page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'}).locator('[data-motion]')).toHaveAttribute('data-motion','reduced');
+});
+
+test('UI-only release keeps future quotas off even if a response advertises them',async({page})=>{
+  await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock',{},true);
+  await expect(page.getByText('เร็ว ๆ นี้: ออกเอกสารใหม่ 10 ฉบับ/เดือน',{exact:true})).toBeVisible();
+  await expect(page.getByText('ออกเอกสารใหม่ 10 ฉบับ/เดือน แก้ไขและดาวน์โหลดซ้ำไม่นับเพิ่ม',{exact:true})).toHaveCount(0);
+  await expect(page.getByText(/ยังไม่พร้อมใช้: อ่านบิล 100 หน้า/)).toBeVisible();
+  await expect(page.getByText(/เป้าหมายคลัง 300 ไฟล์ต่อบัญชี/)).toBeVisible();
 });
 
 test('checkout success keeps polling and keeps its marker until a delayed webhook becomes active', async ({ page }) => {

@@ -1,12 +1,15 @@
-import { uiPanel, uiPrimaryButton } from '../../components/ui/uiStyles';
+import { uiPrimaryButton } from '../../components/ui/uiStyles';
 import PageHeader from '../../components/ui/PageHeader';
 import React from 'react';
-import { Check } from 'lucide-react';
+import { CreditCard, QrCode } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
+import { PlanMascot } from './PlanMascot';
+import './plans.css';
 import { dateLocale } from '../../utils';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface PlansTabProps {
+  freeDocumentsAvailable?: boolean;
   isPro: boolean;
   isGuestPreview: boolean;
   isPaidActive: boolean;
@@ -27,7 +30,7 @@ interface PlansTabProps {
   billingBusy: boolean;
 }
 
-const FREE_FEATURE_KEYS = ['plans.free1', 'plans.free2', 'plans.free3', 'plans.free4', 'plans.free5'];
+const FREE_FEATURE_KEYS = ['plans.free1', 'plans.free2', 'plans.free3', 'plans.free4'];
 const PRO_FEATURE_KEYS = ['plans.pro1', 'plans.pro2', 'plans.pro3', 'plans.pro4', 'plans.pro5'];
 
 export const PlansTab: React.FC<PlansTabProps> = ({
@@ -40,6 +43,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
   onUpgrade,
   onPromptPay,
   billingBusy,
+  freeDocumentsAvailable = false,
 }) => {
   const { t } = useLanguage();
   const isAdminGrant = subscription?.plan === 'admin_grant';
@@ -74,106 +78,122 @@ export const PlansTab: React.FC<PlansTabProps> = ({
     : t('plans.statusNone');
 
   return (
-    <div className="page-content space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="page-content mx-auto max-w-5xl pb-16">
       <PageHeader page="plans">
-        <Mascot mood="proud" size={52} />
+        <Mascot mood="happy" size={52} />
       </PageHeader>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Free card */}
-        <div className={`${uiPanel} space-y-4`}>
-          <div>
-            <h3 className="font-display font-semibold text-base text-brand-text dark:text-white">Free</h3>
-            <p className="text-2xl font-semibold font-mono text-brand-text dark:text-white mt-1">฿0</p>
+      <section className="plan-comparison mt-7" aria-label={t('plans.compareLabel')}>
+        <article className="plan-card rounded-[28px] border-2 border-brand-border bg-brand-white p-6 dark:bg-[#202126] sm:p-8">
+          <div className="text-center">
+            <p className="text-xs text-brand-muted">{t('plans.freeEyebrow')}</p>
+            <h2 className="mt-1 text-3xl font-semibold">Free</h2>
           </div>
-          <ul className="space-y-2">
-            {FREE_FEATURE_KEYS.map((key) => (
-              <li key={key} className="flex items-start gap-1.5 text-[11px] text-brand-text dark:text-neutral-200 leading-relaxed">
-                <Check className="w-3.5 h-3.5 text-brand-muted shrink-0 mt-0.5" />
-                <span>{t(key)}</span>
-              </li>
-            ))}
+          <PlanMascot />
+          <div className="plan-price border-b border-brand-border pb-6">
+            <div className="flex items-end justify-center gap-2"><span className="font-mono text-5xl font-semibold">฿0</span></div>
+            <p className="mt-3 text-xs text-brand-muted">{t('plans.forever')}</p>
+          </div>
+          <ul className="plan-features" role="list">
+            {FREE_FEATURE_KEYS.map(key => <li key={key}>{t(key)}</li>)}
+            <li>{t(freeDocumentsAvailable ? 'plans.freeDocumentsAvailable' : 'plans.freeDocumentsForthcoming')}</li>
           </ul>
-          {!isPro && (
-            <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-brand-muted bg-brand-faint dark:bg-neutral-800 px-2.5 py-0.5 rounded-full">
-              {t('plans.currentPlan')}
-            </span>
-          )}
-        </div>
+          <div className="pt-6">
+            {!isPro && <p className="mb-3 text-xs font-semibold text-brand-muted">{t('plans.currentPlan')}</p>}
+            <p className="text-xs leading-relaxed text-brand-muted">{t('plans.freeSummary')}</p>
+          </div>
+        </article>
+        <article className="plan-card relative overflow-hidden rounded-[28px] border-2 border-[#E65F2B] bg-brand-white p-6 dark:bg-[#202126] sm:p-8">
+          <div className="text-center">
+            <p className="text-xs text-[#C24A16] dark:text-[#FFA473]">{t(introEligible ? 'plans.introBadge' : 'plans.proEyebrow')}</p>
+            <h2 className="mt-1 text-3xl font-semibold">Pro</h2>
+          </div>
+          <PlanMascot featured />
+          <div className="plan-price border-b border-brand-border pb-6">
+            <div className="flex items-end justify-center gap-2">
+              <span className="font-mono text-5xl font-semibold text-[#D95724] dark:text-[#FFA473]">{introEligible ? '฿199' : '฿249'}</span>
+              <span className="pb-1 text-xs text-brand-muted">{t('plans.perMonth')}</span>
+            </div>
+            {introEligible ? <div className="mt-3">
+              <p className="text-xs font-semibold text-[#A84319] dark:text-[#FFA473]">{t('plans.introPriceNote')}</p>
+              <p className="mt-1 text-xs text-brand-muted">{t('plans.standardPrice')}</p>
+            </div> : <p className="mt-3 text-xs text-brand-muted">{t('plans.standardOnlyNote')}</p>}
+          </div>
+          <ul className="plan-features" role="list">
+            {PRO_FEATURE_KEYS.map(key => <li key={key}>{t(key)}</li>)}
+          </ul>
 
-        {/* Pro card */}
-        <div
-          className={`${uiPanel} relative space-y-4 border-2 ${
-            isPro ? 'border-[#E65F2B] shadow-[0_8px_30px_-10px_rgba(230,95,43,0.35)]' : 'border-brand-border dark:border-neutral-800'
-          }`}
-        >
-          {introEligible && (
-            <span className="inline-flex w-fit items-center rounded-full bg-[#FDE8DD] px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]">
-              {t('plans.introBadge')}
-            </span>
-          )}
-          <div>
-            <h3 className="font-display font-semibold text-base text-brand-text dark:text-white flex items-center gap-1.5">
-              Pro
-            </h3>
-            <p className="text-2xl font-semibold font-mono text-[#E65F2B] dark:text-[#FFA473] mt-1">
-              {introEligible ? '฿199' : '฿249'}<span className="text-xs text-brand-muted font-sans font-bold">{t('plans.perMonth')}</span>
-            </p>
-            {introEligible ? <>
-              <p className="mt-1 text-[11px] font-semibold text-[#C24A16] dark:text-[#FFA473]">{t('plans.introPriceNote')}</p>
-              <p className="mt-0.5 text-[10px] text-brand-muted">{t('plans.standardPrice')}</p>
-            </> : (
-              <p className="mt-1 text-[10px] text-brand-muted">{t('plans.standardOnlyNote')}</p>
+          <div className="mt-auto border-t border-brand-border pt-6">
+            <div className="flex flex-wrap items-center gap-2">
+              {isGuestPreview ? (
+                <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300">{t('plans.guestPreviewBadge')}</span>
+              ) : isPaidActive ? (
+                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">{t('plans.currentPlan')}</span>
+              ) : isInFreeTrial ? (
+                <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300">{t('plans.freeTrialBadge')}</span>
+              ) : null}
+              <p className="text-[11px] leading-relaxed text-brand-muted">{statusText}</p>
+            </div>
+
+            {!isAdminGrant && !hasPreservedPaidAccess && (
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button type="button" onClick={onUpgrade} disabled={billingBusy} className={`${uiPrimaryButton} w-full`}>
+                  {billingBusy ? t('plans.loadingCta') : isGuestPreview ? t('plans.guestCreateAccountCta') : hasOpenManagedSubscription ? t('plans.renewCta') : t(introEligible ? 'plans.subscribeCta' : 'plans.subscribeStandardCta')}
+                </button>
+                {!isGuestPreview && !hasOpenManagedSubscription && (
+                  <button
+                    type="button"
+                    onClick={onPromptPay}
+                    disabled={billingBusy}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#E65F2B] px-4 py-2.5 text-xs font-semibold text-[#A84319] transition-colors hover:bg-[#FFF1E8] disabled:opacity-50 dark:text-[#FFA473] dark:hover:bg-[#E65F2B]/10"
+                  >
+                    {billingBusy ? t('plans.loadingCta') : t(introEligible ? 'plans.promptPayCta' : 'plans.promptPayStandardCta')}
+                  </button>
+                )}
+              </div>
             )}
           </div>
-          <ul className="space-y-2">
-            {PRO_FEATURE_KEYS.map((key) => (
-              <li key={key} className="flex items-start gap-1.5 text-[11px] text-brand-text dark:text-neutral-200 leading-relaxed">
-                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <span>{t(key)}</span>
-              </li>
-            ))}
-          </ul>
-          {isGuestPreview ? (
-            <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full">
-              {t('plans.guestPreviewBadge')}
-            </span>
-          ) : isPaidActive ? (
-            <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
-              {t('plans.currentPlan')}
-            </span>
-          ) : isInFreeTrial ? (
-            <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full">
-              {t('plans.freeTrialBadge')}
-            </span>
-          ) : null}
-        </div>
-      </div>
+        </article>
+      </section>
 
-      {/* Status / CTA panel */}
-      <div className={`${uiPanel} text-center space-y-3`}>
-        <p className="text-xs text-brand-text dark:text-neutral-200 leading-relaxed max-w-md mx-auto">{statusText}</p>
-        {!isAdminGrant && !hasPreservedPaidAccess && <div className="mx-auto flex w-full max-w-md flex-col gap-2 sm:flex-row sm:justify-center">
-          <button
-            type="button"
-            onClick={onUpgrade}
-            disabled={billingBusy}
-            className={`${uiPrimaryButton} flex-1`}
-          >
-            {billingBusy ? t('plans.loadingCta') : isGuestPreview ? t('plans.guestCreateAccountCta') : hasOpenManagedSubscription ? t('plans.renewCta') : t(introEligible ? 'plans.subscribeCta' : 'plans.subscribeStandardCta')}
-          </button>
-          {!isGuestPreview && !hasOpenManagedSubscription && <button
-            type="button"
-            onClick={onPromptPay}
-            disabled={billingBusy}
-            className="inline-flex flex-1 items-center justify-center rounded-xl border border-[#E65F2B] px-4 py-2.5 text-xs font-bold text-[#C24A16] transition-colors hover:bg-[#FDE8DD] disabled:opacity-50 dark:text-[#FFA473] dark:hover:bg-[#E65F2B]/10"
-          >
-            {billingBusy ? t('plans.loadingCta') : t(introEligible ? 'plans.promptPayCta' : 'plans.promptPayStandardCta')}
-          </button>}
-        </div>}
-        {!isGuestPreview && !hasPreservedPaidAccess && <p className="text-[10px] text-brand-muted">{t(introEligible ? 'plans.paymentNote' : 'plans.standardPaymentNote')}</p>}
-        {!isGuestPreview && !hasOpenManagedSubscription && !hasPreservedPaidAccess && <p className="text-[10px] text-brand-muted">{t('plans.promptPayNote')}</p>}
-      </div>
+      <section className="mt-6 border-y border-brand-border py-6" aria-labelledby="payment-methods-title">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+          <div className="lg:w-48 lg:shrink-0">
+            <h2 id="payment-methods-title" className="font-display text-base font-semibold text-brand-text dark:text-white">{t('plans.paymentMethodsTitle')}</h2>
+            <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">{t('plans.paymentMethodsSubtitle')}</p>
+          </div>
+          <div className="grid flex-1 grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-0">
+            <div className="flex gap-3 sm:pr-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-faint text-brand-text dark:bg-neutral-800 dark:text-white" aria-hidden>
+                <CreditCard className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="text-[13px] font-semibold text-brand-text dark:text-white">{t('plans.cardMethodTitle')}</h3>
+                <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">{t(introEligible ? 'plans.cardMethodIntro' : 'plans.cardMethodStandard')}</p>
+              </div>
+            </div>
+            <div className="flex gap-3 border-brand-border sm:border-l sm:pl-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/10 dark:text-[#FFA473]" aria-hidden>
+                <QrCode className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="text-[13px] font-semibold text-brand-text dark:text-white">{t('plans.qrMethodTitle')}</h3>
+                <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">{t(introEligible ? 'plans.qrMethodIntro' : 'plans.qrMethodStandard')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-5 rounded-2xl border border-brand-border p-5 text-xs leading-6" aria-label={t('plans.packageDetails')}>
+        <h2 className="font-semibold">{t('plans.packageDetails')}</h2>
+        <p>{t(freeDocumentsAvailable ? 'plans.localQuotasAvailable' : 'plans.localQuotasForthcoming')}</p>
+        <p className="text-brand-muted">{t('plans.mediaForthcoming')}</p>
+      </section>
+      <aside className="mt-5 flex items-start gap-3 px-1 text-[11px] leading-relaxed text-brand-muted" aria-label={t('plans.roadmapLabel')}>
+        <span className="mt-0.5 rounded-full bg-brand-faint px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-brand-muted dark:bg-neutral-800">{t('plans.roadmapLabel')}</span>
+        <p className="pt-0.5">{t('plans.roadmapCopy')}</p>
+      </aside>
     </div>
   );
 };

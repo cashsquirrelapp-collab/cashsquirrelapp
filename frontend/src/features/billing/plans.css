@@ -1,0 +1,13 @@
+.plan-comparison { display:grid; grid-template-columns:minmax(0,1fr); gap:24px; }
+.plan-card { display:grid; grid-template-rows:auto auto auto 1fr auto; min-width:0; }
+.plan-mascot-stage { display:flex; height:184px; align-items:center; justify-content:center; }
+.plan-price { min-height:132px; text-align:center; }
+.plan-features { display:grid; align-content:start; margin:16px 0 0; padding:0; list-style:none; }
+.plan-features li { min-width:0; min-height:44px; padding:10px 0; font-size:13px; line-height:24px; }
+.plan-features li::marker { content:""; }
+@media (min-width:1024px) {
+  .plan-comparison { grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:24px; row-gap:0; }
+  .plan-card { grid-row:span 9; grid-template-rows:subgrid; row-gap:0; }
+  .plan-features { grid-row:span 5; grid-template-rows:subgrid; row-gap:0; }
+  .plan-features li { min-height:48px; }
+}
