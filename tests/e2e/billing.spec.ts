@@ -121,14 +121,37 @@ test('an intro-eligible free account chooses Stripe Checkout', async ({ page }) 
   }, stripeUrl);
 
   const plans = page.locator('#main-content');
+  await expect(plans.getByText('โปรเปิดตัว · ลด ฿50/รอบ', { exact: true })).toBeVisible();
   await expect(plans.getByText(/฿199\s*\/\s*เดือน/).first()).toBeVisible();
-  await plans.getByRole('button', { name: 'ตรวจสิทธิ์และสมัคร Pro', exact: true }).click();
+  await expect(plans.getByText('จากนั้น ฿249 / เดือน ตั้งแต่รอบบิลที่ 4', { exact: true })).toBeVisible();
+  await plans.getByRole('button', { name: 'สมัคร Pro — ฿199/เดือน 3 รอบแรก', exact: true }).click();
 
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0].method()).toBe('POST');
   expect(requests[0].headers()['x-csrf-protection']).toBe('1');
   expect(requests[0].postDataJSON()).toEqual({ action: 'checkout' });
   await expect(page).toHaveURL(stripeUrl);
+});
+
+test('intro offer badge and both billing prices stay readable on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openPlans(page, {
+    status: 'free',
+    plan: null,
+    current_period_end: null,
+    cancel_at_period_end: false,
+    stripe_status: null,
+    has_subscription: false,
+    intro_eligible: true,
+    managed: false,
+  });
+
+  const plans = page.locator('#main-content');
+  await expect(plans.getByText('โปรเปิดตัว · ลด ฿50/รอบ', { exact: true })).toBeVisible();
+  await expect(plans.getByText('฿199 / เดือน เฉพาะ 3 รอบบิลรายเดือนแรก', { exact: true })).toBeVisible();
+  await expect(plans.getByText('จากนั้น ฿249 / เดือน ตั้งแต่รอบบิลที่ 4', { exact: true })).toBeVisible();
+  await expect(plans.getByRole('button', { name: 'สมัคร Pro — ฿199/เดือน 3 รอบแรก', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
 test('a managed nonterminal subscription chooses the Stripe Billing Portal', async ({ page }) => {

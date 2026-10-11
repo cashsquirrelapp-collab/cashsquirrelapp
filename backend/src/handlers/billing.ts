@@ -22,6 +22,7 @@ type BillingRow = {
   plan: string | null;
   current_period_end: string | null;
   legacy_current_period_end: string | null;
+  manual_current_period_end: string | null;
   cancel_at_period_end: boolean;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
@@ -115,7 +116,7 @@ export default withGuard(async (req, res) => {
   const admin = getSupabaseAdmin();
   const subscription = await admin
     .from('subscriptions')
-    .select('status,plan,current_period_end,legacy_current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,stripe_intro_redeemed_at,stripe_checkout_reservation_id,stripe_checkout_session_id,stripe_checkout_expires_at')
+    .select('status,plan,current_period_end,legacy_current_period_end,manual_current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,stripe_intro_redeemed_at,stripe_checkout_reservation_id,stripe_checkout_session_id,stripe_checkout_expires_at')
     .eq('user_id', user.id)
     .maybeSingle();
   if (subscription.error) throw subscription.error;
@@ -148,7 +149,8 @@ export default withGuard(async (req, res) => {
   if (action !== 'checkout') throw new HttpError(400, 'Invalid billing action');
   if (row?.plan === 'admin_revoked') throw new HttpError(403, 'บัญชีนี้ถูกระงับสิทธิ์ Pro กรุณาติดต่อผู้ดูแล');
   if (row?.plan === 'admin_grant') throw new HttpError(409, 'บัญชีนี้ได้รับสิทธิ์ Pro จากผู้ดูแลอยู่แล้ว');
-  if (row?.legacy_current_period_end && new Date(row.legacy_current_period_end).getTime() > Date.now()) {
+  if ([row?.legacy_current_period_end, row?.manual_current_period_end]
+    .some(end => end && new Date(end).getTime() > Date.now())) {
     throw new HttpError(409, 'สิทธิ์ Pro แบบเดิมยังใช้งานได้ กรุณาสมัครรายเดือนหลังสิทธิ์เดิมหมดอายุ');
   }
 

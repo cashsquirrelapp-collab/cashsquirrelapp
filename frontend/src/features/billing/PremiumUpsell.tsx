@@ -24,9 +24,14 @@ export const PremiumUpsell: React.FC<PremiumUpsellProps> = ({ feature, descripti
       <p className="text-xs text-brand-muted leading-relaxed mt-2 max-w-sm">
         {description}
       </p>
+      {introEligible && !manageSubscription && (
+        <span className="mt-4 inline-flex items-center rounded-full bg-[#FDE8DD] px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]">
+          {t('plans.introBadge')}
+        </span>
+      )}
       <button
         onClick={onUpgrade}
-        className="mt-6 px-6 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-xl text-xs font-black cursor-pointer"
+        className={`${introEligible && !manageSubscription ? 'mt-3' : 'mt-6'} px-6 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-xl text-xs font-black cursor-pointer`}
       >
         {t(manageSubscription ? 'plans.renewCta' : introEligible ? 'premium.subscribeIntro' : 'premium.subscribeStandard')}
       </button>

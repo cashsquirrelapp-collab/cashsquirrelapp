@@ -105,6 +105,11 @@ export const PlansTab: React.FC<PlansTabProps> = ({
             isPro ? 'border-[#E65F2B] shadow-[0_8px_30px_-10px_rgba(230,95,43,0.35)]' : 'border-brand-border dark:border-neutral-800'
           }`}
         >
+          {introEligible && (
+            <span className="inline-flex w-fit items-center rounded-full bg-[#FDE8DD] px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]">
+              {t('plans.introBadge')}
+            </span>
+          )}
           <div>
             <h3 className="font-display font-semibold text-base text-brand-text dark:text-white flex items-center gap-1.5">
               Pro

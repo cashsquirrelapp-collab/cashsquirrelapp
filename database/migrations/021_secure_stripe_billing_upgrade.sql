@@ -460,7 +460,7 @@ begin
     and stripe_checkout_reservation_id = p_reservation_id
     and stripe_checkout_pending_until > now()
     and stripe_checkout_request is not null
-    and not (legacy_current_period_end > now());
+    and (legacy_current_period_end is null or legacy_current_period_end <= now());
   get diagnostics changed = row_count;
   return changed = 1;
 end;

@@ -60,6 +60,11 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ introEligible, man
             <h3 className="font-display font-black text-xl sm:text-2xl text-brand-text dark:text-white flex items-center justify-center sm:justify-start gap-1.5 mt-1">
               {t('login.brandName')} Pro <IconCrown className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473]" />
             </h3>
+            {introEligible && (
+              <span className="mt-2 inline-flex items-center rounded-full bg-[#FDE8DD] px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]">
+                {t('plans.introBadge')}
+              </span>
+            )}
             <p className="inline-flex items-baseline gap-1 bg-[#E65F2B]/10 rounded-2xl px-3.5 py-1.5 mt-2.5">
               <span className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473]">{introEligible ? '฿199' : '฿249'}</span>
               <span className="text-xs text-brand-muted font-sans font-bold">{t('promo.perMonth')}</span>

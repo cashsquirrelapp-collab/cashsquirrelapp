@@ -117,3 +117,110 @@ test('021 refuses to guess the state of an old live Checkout reservation', async
     await db.close();
   }
 });
+
+test('021 attaches fresh Checkout with no legacy entitlement and rejects a late legacy payment', async () => {
+  const db = await old020Database(false);
+  try {
+    await db.exec(await readFile('database/migrations/021_secure_stripe_billing_upgrade.sql', 'utf8'));
+    const expiresAt = new Date(Date.now() + 45 * 60_000).toISOString();
+    const pendingUntil = new Date(Date.now() + 50 * 60_000).toISOString();
+    const reserve = async (reservationId: string) => (await db.query<{ result: { result: string } }>(
+      'select cashflow_reserve_subscription_checkout($1,$2,$3,$4,false) result',
+      [userId, reservationId, expiresAt, pendingUntil],
+    )).rows[0].result.result;
+    const prepare = (reservationId: string) => db.query(
+      'select cashflow_prepare_subscription_checkout($1,$2,$3::jsonb)',
+      [userId, reservationId, JSON.stringify({ mode: 'subscription', expires_at: Math.floor(Date.parse(expiresAt) / 1000) })],
+    );
+    const attach = async (reservationId: string, sessionId: string) => (await db.query<{ attached: boolean }>(
+      'select cashflow_attach_subscription_checkout($1,$2,$3) attached',
+      [userId, reservationId, sessionId],
+    )).rows[0].attached;
+
+    assert.deepEqual((await db.query<{ legacy_current_period_end: string | null; plan: string | null }>(
+      'select legacy_current_period_end,plan from subscriptions where user_id=$1', [userId],
+    )).rows[0], { legacy_current_period_end: null, plan: null });
+    assert.equal(await reserve('reservation-fresh'), 'reserved');
+    await prepare('reservation-fresh');
+    assert.equal(await attach('reservation-fresh', 'cs-fresh'), true);
+    assert.equal((await db.query<{ stripe_checkout_session_id: string }>(
+      'select stripe_checkout_session_id from subscriptions where user_id=$1', [userId],
+    )).rows[0].stripe_checkout_session_id, 'cs-fresh');
+
+    await db.query('select cashflow_release_subscription_checkout($1,$2)', [userId, 'reservation-fresh']);
+    assert.equal(await reserve('reservation-late-legacy'), 'reserved');
+    await prepare('reservation-late-legacy');
+    await db.query("update subscriptions set legacy_current_period_end=now()+interval '30 days' where user_id=$1", [userId]);
+    assert.equal(await attach('reservation-late-legacy', 'cs-overlap'), false);
+    assert.equal(await reserve('reservation-legacy-active'), 'legacy_active');
+  } finally {
+    await db.close();
+  }
+});
+
+test('022 repairs an already-applied NULL-rejecting attachment function without changing entitlements or access', async () => {
+  const db = await old020Database(false);
+  try {
+    const fixedPredicate = '(legacy_current_period_end is null or legacy_current_period_end <= now())';
+    const originalPredicate = 'not (legacy_current_period_end > now())';
+    const migration021 = await readFile('database/migrations/021_secure_stripe_billing_upgrade.sql', 'utf8');
+    assert.ok(migration021.includes(fixedPredicate));
+    // Reconstruct the original deployed 021 attachment function, not the
+    // corrected fresh-install definition, to exercise the forward-only path.
+    await db.exec(migration021.replace(fixedPredicate, originalPredicate));
+    await db.exec(`
+      insert into auth.users values
+        ('11111111-1111-4111-8111-111111111111'),
+        ('22222222-2222-4222-8222-222222222222'),
+        ('33333333-3333-4333-8333-333333333333'),
+        ('44444444-4444-4444-8444-444444444444'),
+        ('55555555-5555-4555-8555-555555555555'),
+        ('66666666-6666-4666-8666-666666666666');
+      insert into subscriptions(user_id,status,plan,current_period_end,legacy_current_period_end) values
+        ('11111111-1111-4111-8111-111111111111','active','admin_grant',null,null),
+        ('22222222-2222-4222-8222-222222222222','canceled','admin_revoked',null,null),
+        ('33333333-3333-4333-8333-333333333333','active','pro_manual','2027-09-23T00:00:00Z','2027-09-23T00:00:00Z'),
+        ('44444444-4444-4444-8444-444444444444','active','admin_grant',null,null),
+        ('55555555-5555-4555-8555-555555555555','active','pro_manual','2027-09-23T00:00:00Z','2027-09-23T00:00:00Z'),
+        ('66666666-6666-4666-8666-666666666666','active','pro_manual','2027-09-23T00:00:00Z','2027-09-23T00:00:00Z');
+    `);
+    const reserved = (await db.query<{ result: { result: string } }>(
+      "select cashflow_reserve_subscription_checkout($1,'reservation-upgrade',now()+interval '45 minutes',now()+interval '50 minutes',false) result",
+      [userId],
+    )).rows[0];
+    assert.equal(reserved.result.result, 'reserved');
+    await db.query("select cashflow_prepare_subscription_checkout($1,'reservation-upgrade','{}'::jsonb)", [userId]);
+    const attach = async () => (await db.query<{ attached: boolean }>(
+      "select cashflow_attach_subscription_checkout($1,'reservation-upgrade','cs-upgrade') attached", [userId],
+    )).rows[0].attached;
+    assert.equal(await attach(), false, 'original 021 rejects a fresh account because NOT(NULL) is NULL');
+    const before = (await db.query('select * from subscriptions order by user_id')).rows;
+
+    await db.exec(await readFile('database/migrations/022_fix_stripe_checkout_null_legacy.sql', 'utf8'));
+    assert.deepEqual((await db.query('select * from subscriptions order by user_id')).rows, before);
+    const security = (await db.query(`select
+      has_function_privilege('anon','cashflow_attach_subscription_checkout(uuid,text,text)','EXECUTE') anon_execute,
+      has_function_privilege('authenticated','cashflow_attach_subscription_checkout(uuid,text,text)','EXECUTE') authenticated_execute,
+      has_function_privilege('service_role','cashflow_attach_subscription_checkout(uuid,text,text)','EXECUTE') service_execute,
+      prosecdef security_definer,
+      proconfig function_config
+      from pg_proc where oid='cashflow_attach_subscription_checkout(uuid,text,text)'::regprocedure`)).rows[0];
+    assert.deepEqual(security, {
+      anon_execute: false, authenticated_execute: false, service_execute: true,
+      security_definer: true, function_config: ['search_path=""'],
+    });
+    assert.equal(await attach(), true, '022 permits the same unchanged fresh-account reservation');
+    await db.query('select cashflow_release_subscription_checkout($1,$2)', [userId, 'reservation-upgrade']);
+    await db.query("update subscriptions set legacy_current_period_end=now()-interval '1 day' where user_id=$1", [userId]);
+    await db.query(
+      "select cashflow_reserve_subscription_checkout($1,'reservation-upgrade',now()+interval '45 minutes',now()+interval '50 minutes',false)",
+      [userId],
+    );
+    await db.query("select cashflow_prepare_subscription_checkout($1,'reservation-upgrade','{}'::jsonb)", [userId]);
+    assert.equal(await attach(), true, 'expired legacy entitlement also permits attachment');
+    await db.query("update subscriptions set stripe_checkout_session_id=null,legacy_current_period_end=now()+interval '1 day' where user_id=$1", [userId]);
+    assert.equal(await attach(), false, 'a late legacy payment still blocks overlap after 022');
+  } finally {
+    await db.close();
+  }
+});

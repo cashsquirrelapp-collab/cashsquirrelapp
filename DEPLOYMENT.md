@@ -4,7 +4,7 @@
 
 ## 1. เตรียมฐานข้อมูล
 
-โปรเจค Supabase ต้อง apply ไฟล์ใน `database/migrations` ตามลำดับเลข ปัจจุบันถึง `020_stripe_subscriptions.sql` แล้วรัน `database/security-check.sql` และต้องขึ้น `Success` สำหรับฐานข้อมูลเดิมให้ apply เฉพาะไฟล์เลขที่ยังไม่เคยรัน ห้ามรัน migration เก่าซ้ำโดยเดาเอง
+โปรเจค Supabase ต้อง apply ไฟล์ใน `database/migrations` ตามลำดับเลข ปัจจุบันถึง `023_preserve_manual_subscription_entitlements.sql` แล้วรัน `database/security-check.sql` และต้องขึ้น `Success` สำหรับฐานข้อมูลเดิมให้ apply เฉพาะไฟล์เลขที่ยังไม่เคยรัน ห้ามรัน migration เก่าซ้ำโดยเดาเอง
 
 ## 2. สร้างโปรเจคบน Vercel
 
@@ -86,7 +86,7 @@ Vercel Preview/Test Stripe ต้องเชื่อมกับ Supabase stag
 
 - เจ้าของธุรกิจต้องยืนยันกติกาโปรโมชันว่าใช้ได้หนึ่งครั้งต่อ **บัญชี Cash Squirrel** ที่มีสิทธิ์ ไม่ใช่หนึ่งครั้งต่อบัตร อีเมล หรือ Stripe Customer หากยังไม่ยืนยันนิยามนี้ ห้ามเปิดแพ็กเกจ Live
 - ใช้ Stripe Test Clock กับ subscription ทดสอบและตรวจ Invoice จริงให้ครบ: รอบที่ 1–3 ยอดรวมรอบละ ฿199 และรอบที่ 4 ยอดรวม ฿249 โดยไม่มี trial หรือส่วนลดเกิน 3 รอบ ห้ามเปิด Live จากการตรวจ Checkout รอบแรกเพียงอย่างเดียว
-- ตรวจ migration ledger ของ production ว่าทุก migration ถูก apply ตามลำดับ และยืนยันการอัปเกรด ledger/migration 021 สำเร็จแล้ว หาก repo หรือฐานข้อมูลยังหยุดที่ 020 ห้ามเปิด recurring Live
+- ตรวจ migration ledger ของ production ว่าทุก migration ถูก apply ตามลำดับ และยืนยันการอัปเกรด ledger/migration 023 สำเร็จแล้ว หากฐานข้อมูลใช้ 020/021 แล้ว ให้ใช้ forward migration 022–023 เพื่อแก้ Checkout ของบัญชีที่ไม่มีสิทธิ์เดิม (ค่า NULL) 023 แยกสิทธิ์ pro_manual ออกจากยอดชำระ ฿149 เพื่อไม่ให้ webhook/refund เก่าลดสิทธิ์ที่ให้ไว้ ห้ามรัน migration เก่าซ้ำหรือเปิด recurring Live ก่อนตรวจครบ
 
 ### Runbook ตัดระบบ Live จาก Payment Link เดิม
 
@@ -141,6 +141,6 @@ NODE_ENV=production npm start
 - Customer Portal อัปเดตวิธีชำระเงินเพื่อกู้สถานะ `past_due` ได้ ปิดการเปลี่ยนแพ็กเกจ และยกเลิกแบบมีผลเมื่อสิ้นรอบโดยไม่ prorate
 - ยกเลิกผ่าน Customer Portal แล้วสิทธิ์ยังอยู่ถึงสิ้นรอบ จากนั้นถูกปิดตาม `customer.subscription.deleted`; การพัก/ปิดบัญชีและ admin grant/revoke ต้องถูกบล็อกจน Stripe ยืนยันสถานะปลายทางแล้ว
 - ผู้ใช้สิทธิ์ Pro แบบชำระครั้งเดียว ฿149 เดิมยังใช้ได้ถึงวันหมดอายุเดิม ไม่ถูกเปลี่ยนเป็นต่ออายุอัตโนมัติ และไม่เสียสิทธิ์จาก webhook ที่ไม่เกี่ยวข้อง
-- migration ledger ยืนยันการอัปเกรดถึง 021 แล้ว, Payment Link ฿149 ถูกปิด, ไม่เหลือ legacy Checkout Session แบบ `open` และรายการ ฿39 ทุกแถวมีคำตัดสินที่ตรวจสอบย้อนหลังได้
+- migration ledger ยืนยันการอัปเกรดถึง 023 แล้ว, Payment Link ฿149 ถูกปิด, ไม่เหลือ legacy Checkout Session แบบ `open` และรายการ ฿39 ทุกแถวมีคำตัดสินที่ตรวจสอบย้อนหลังได้
 
 Admin คนแรกยังไม่ได้กำหนด ให้สมัครและยืนยันบัญชีที่ต้องการก่อน แล้วใช้ `database/bootstrap-admin.sql` โดยใส่ UUID ของบัญชีนั้นและรันด้วย trusted migration role

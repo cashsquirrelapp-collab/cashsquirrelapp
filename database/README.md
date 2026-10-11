@@ -5,7 +5,7 @@
 ## Fresh install
 
 1. สำรอง/เลือก Supabase staging project และเปิด SQL editor ด้วยสิทธิ์ migration/postgres
-2. Apply ไฟล์ใน `migrations` ตามลำดับเลขจนถึง `020_stripe_subscriptions.sql`; ถ้าไม่มีตารางเดิม import จะข้าม จากนั้นรัน `security-check.sql`
+2. Apply ไฟล์ใน `migrations` ตามลำดับเลขจนถึง `023_preserve_manual_subscription_entitlements.sql`; ถ้าไม่มีตารางเดิม import จะข้าม จากนั้นรัน `security-check.sql`
 3. ตั้ง environment ฝั่ง backend และ Auth callback ตาม root README
 4. ตรวจ login/load/save/logout/LINE reset ด้วยบัญชีทดสอบสองบัญชี ก่อนเปลี่ยน production
 
@@ -18,7 +18,7 @@
 5. Apply `002_import_legacy.sql` ในช่วงที่ไม่มี writer เดิม SQL backfill jobs/expenses/goals ทีละแถว และแยก documents/private state/LINE mapping คง original table สำหรับเทียบข้อมูล ไม่เชื่อ email ใน row เดิม snapshot ใช้ email จาก auth.users
 6. รหัส reset/link รุ่นเดิมจะไม่ถูกย้าย ผู้ใช้ต้องขอรหัสใหม่ Original table ถูก revoke จาก browser และจำกัด service role ให้ select เท่านั้น
 7. สมาชิก Pro แบบ Payment Link เดิม: ใช้ credentials Stripe ของ mode เดียวกับฐานข้อมูล ตั้ง `STRIPE_LEGACY_PAYMENT_LINK_ID` แล้วรัน `npm run billing:backfill` ในเครื่องที่รักษา secret ได้ สคริปต์อ่าน Checkout/Charge และสร้าง `database/generated/stripe-backfill.sql` **ไม่เขียน DB** ทบทวน user IDs/payment IDs/วันหมดอายุแล้ว apply โดย migration role ถ้ามีบัญชีพิเศษหรือ trial ที่แก้มือ ให้เทียบกับ subscriptions เดิมก่อน apply
-8. เก็บผล preflight/backup แล้ว apply migrations ที่เหลือตามลำดับจนถึง `020_stripe_subscriptions.sql` และรัน `security-check.sql` ให้ผ่าน RPC เก่าที่ browser เคยเรียกต้องย้ายผ่าน backend ก่อน deploy
+8. เก็บผล preflight/backup แล้ว apply migrations ที่เหลือตามลำดับจนถึง `023_preserve_manual_subscription_entitlements.sql` และรัน `security-check.sql` ให้ผ่าน RPC เก่าที่ browser เคยเรียกต้องย้ายผ่าน backend ก่อน deploy
 9. Deploy frontend/backend ใหม่และตั้ง env ควบคู่กัน เปิด Auth callback allowlist `<APP_URL>/api/auth` ใช้ Node 22+ และ HTTPS
 10. ตรวจ row counts ต่อบัญชี, settings, LINE mapping, invoices, Pro status/expiry แล้วเปิด provider webhooks และ cron
 
@@ -112,3 +112,13 @@ PGlite tests ตรวจ SQL transaction/constraint/สิทธิ์ แต�
 ใช้ `migrations/005_group_finance.sql` หลัง 004 ไม่ต้องรัน migration เก่าซ้ำ แล้วรัน `security-check.sql` ใหม่ ตาราง `cashflow_group_finance` ใช้ primary key `(group_id, entity_table, id)` ข้อมูลส่วนตัวอยู่ตารางเดิม RPC snapshot/apply ตรวจสมาชิกจาก actor ที่ server ยืนยันทุกคำขอ ไม่ให้ admin ที่อยู่นอกกลุ่มอ่านข้อมูลการเงิน Lock group row ประสานกับการเตะ/ออก/โอนหัวหน้า สมาชิกทุกคนแก้ข้อมูลได้ ใช้ version และ transaction ทั้ง batch ป้องกันเขียนทับ การโอนหัวหน้าไม่ย้าย ownership การลบกลุ่มลบข้อมูลการเงินกลุ่มตามไปด้วย จึงควรสำรองก่อนลบ
 
 ตารางและ RPC เป็น service-only; authenticated/anon อ่านเขียนหรือเรียกตรงไม่ได้ บันทึกผู้แก้ไขล่าสุดใน `updated_by` และเวลาใน `updated_at` จำกัด 20,000 records และข้อมูล 4 MiB ต่อกลุ่ม API ตรวจ validation เดียวกับส่วนตัวและจำกัดขนาด response/request กลุ่มไม่เก็บ avatar หรือ LINE private state/ID ไม่ย้าย subscriptions หรือ privileges ของเจ้าของไปกลุ่ม
+
+## Stripe Checkout forward fix (022)
+
+`022_fix_stripe_checkout_null_legacy.sql` แก้การแนบ Checkout สำหรับบัญชีที่ไม่มีวันหมดอายุสิทธิ์เดิม (`legacy_current_period_end IS NULL`) โดยยังปฏิเสธสิทธิ์เดิมที่ใช้งานอยู่, admin grant/revoke และบัญชีที่กำลังปิด ใช้หลัง 021 และตรวจ migration ledger ก่อนเสมอ; หาก 020/021 ถูก apply แล้ว ให้ apply 022 แล้ว 023 ตามลำดับ ห้ามรัน migration เก่าซ้ำ การอัปเกรดนี้แทนที่ function เดิม ไม่แก้ไขแถวสิทธิ์สมาชิกหรือสร้างรายการเรียกเก็บเงิน
+
+## Separate manual entitlement (023)
+
+`023_preserve_manual_subscription_entitlements.sql` แยกวันหมดอายุของสิทธิ์ `pro_manual` เป็น `manual_current_period_end` และเก็บสิทธิ์จากยอดชำระ ฿149 แยกต่างหาก การคืนเงินจึงยังเพิกถอนสิทธิ์จากรายการนั้นได้โดยไม่ลบสิทธิ์ที่ให้เอง ฟังก์ชัน Checkout ปฏิเสธการสมัครซ้ำระหว่างสิทธิ์ manual ยังใช้งานอยู่ และคงความหมาย `admin_grant`/`admin_revoked` ตามเดิม ใช้หลัง 022 และตรวจสิทธิ์สมาชิกก่อน/หลังตาม migration ledger
+
+Migration นี้แยกต้นทางเฉพาะแถวที่ยังมี plan `pro_manual`; ไม่เดาว่าแถว `pro_monthly` เคยเป็นสิทธิ์ manual หรือไม่ หาก webhook เก่าลบข้อมูลต้นทางไปแล้ว ต้องกระทบยอดกับหลักฐานเดิมก่อนเปิดใช้งาน ห้ามกู้วันหมดอายุโดยเดา

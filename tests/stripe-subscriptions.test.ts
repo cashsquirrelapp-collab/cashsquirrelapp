@@ -195,6 +195,24 @@ test('subscription and paid invoices require the exact recurring catalog and con
   assert.equal(paidThroughFromInvoiceLines([line({ parent: { type: 'subscription_item_details', subscription_item_details: { proration: true, subscription: 'sub_pro' } } })], catalog, 'sub_pro'), null);
 });
 
+test('an unrelated 39 THB subscription is not adopted into the 249 THB catalog', () => {
+  const now = Math.floor(Date.now() / 1000);
+  const unrelated = {
+    id: 'sub_unrelated_39', object: 'subscription', created: now - 10, start_date: now - 10,
+    livemode: false, customer: 'cus_unrelated', status: 'past_due', cancel_at_period_end: false,
+    metadata: {}, discounts: [],
+    items: { data: [{ quantity: 1, current_period_end: now + 2_592_000,
+      price: price({ id: 'price_unrelated_39', unit_amount: 3_900 }) }], has_more: false },
+  } as unknown as Stripe.Subscription;
+  const before = structuredClone(unrelated);
+  assert.equal(subscriptionRecord(unrelated, catalog), null);
+  assert.deepEqual(unrelated, before);
+  // Even app-like metadata must not make an unrelated price valid.
+  assert.equal(subscriptionRecord({ ...unrelated,
+    metadata: { app_user_id: userId, workspace_type: 'personal', workspace_id: userId },
+  } as Stripe.Subscription, catalog), null);
+});
+
 test('catalog retrieval explicitly includes product scope and rejects hidden offer limits or trials', async () => {
   const prices = stripe.prices;
   const coupons = stripe.coupons;

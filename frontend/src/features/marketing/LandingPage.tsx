@@ -341,6 +341,9 @@ function Pricing({ onStart }: { onStart: () => void }) {
         </Reveal>
         <Reveal delay={0.1} className="mx-auto mt-[clamp(3rem,2rem+3vw,5rem)] max-w-md">
           <p className="text-[15px] font-medium text-[#1C1917]">Pro</p>
+          <span className="mt-3 inline-flex items-center rounded-full bg-[#FDE8DD] px-3 py-1 text-[11px] font-bold tracking-wide text-[#C24A16]">
+            โปรเปิดตัว · ลด ฿50/รอบ
+          </span>
           <p className="mt-3 font-mono text-[clamp(3rem,2rem+3vw,4.5rem)] font-semibold leading-none tracking-tight text-[#1C1917]">฿199<span className="ml-2 font-sans text-[17px] font-normal tracking-normal text-[#77716B]">/ เดือน</span></p>
           <p className="mt-3 text-[15px] font-semibold text-[#C24A16]">3 รอบบิลรายเดือนแรก</p>
           <p className="mt-1 text-[14px] text-[#77716B]">รอบบิลที่ 4 เป็นต้นไป ฿249 / เดือน</p>
