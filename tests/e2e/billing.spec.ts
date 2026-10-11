@@ -144,7 +144,7 @@ test('intro offer badge and both billing prices stay readable on mobile', async 
     has_subscription: false,
     intro_eligible: true,
     managed: false,
-  });
+  }, 'https://checkout.stripe.com/c/pay/cs_test_mobile');
 
   const plans = page.locator('#main-content');
   await expect(plans.getByText('โปรเปิดตัว · ลด ฿50/รอบ', { exact: true })).toBeVisible();
