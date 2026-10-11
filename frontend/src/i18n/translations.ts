@@ -9,7 +9,7 @@ export const translations: Record<Language, Record<string, string>> = {
     // Sidebar navigation
     'nav.dashboard': 'ภาพรวม',
     'nav.adminDashboard': 'แดชบอร์ดแอดมิน',
-    'admin.noAccess': 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น',
+    'admin.noAccess': 'หน้านี้เข้าถึงได้เฉพาะเจ้าของระบบเท่านั้น',
     'nav.groups': 'ทีม',
     'header.groups': 'ทีม',
     'nav.jobs': 'งาน',
@@ -709,7 +709,7 @@ export const translations: Record<Language, Record<string, string>> = {
   en: {
     'nav.dashboard': 'Overview',
     'nav.adminDashboard': 'Admin Dashboard',
-    'admin.noAccess': 'This page is available to administrators only.',
+    'admin.noAccess': 'This page is available to the system owner only.',
     'nav.groups': 'Team',
     'header.groups': 'Team',
     'nav.jobs': 'Jobs',

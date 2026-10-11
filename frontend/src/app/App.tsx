@@ -913,10 +913,14 @@ export default function App() {
 
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
+  const canViewAdminAnalytics = !session?.isGuest
+    && session?.user?.canViewAdminAnalytics === true
+    && routeContext?.userId === session?.user?.id
+    && routeContext?.systemRole === 'admin';
   const navItems = React.useMemo(() => {
     const base = NAV_ITEMS.filter(item =>
       (settings.goalsFeatureEnabled !== false || item.key !== 'split') &&
-      (item.key !== 'adminDashboard' || (!session?.isGuest && routeContext?.systemRole === 'admin'))
+      (item.key !== 'adminDashboard' || canViewAdminAnalytics)
     );
     const persona = settings.userPersona;
     if (!persona || persona === 'freelance') return base;
@@ -926,7 +930,7 @@ export default function App() {
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
     );
-  }, [settings.userPersona, settings.goalsFeatureEnabled, routeContext?.systemRole, session?.isGuest]);
+  }, [settings.userPersona, settings.goalsFeatureEnabled, canViewAdminAnalytics]);
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(() => {
     return {
       enabled: true,
@@ -2974,8 +2978,9 @@ export default function App() {
               {activeTab === 'adminDashboard' && (
                 !session.isGuest && (!routeContext || routeContext.userId !== session.user.id)
                   ? <ContentLoadingSkeleton page="adminDashboard" />
-                  : routeContext?.systemRole === 'admin'
+                  : canViewAdminAnalytics
                     ? <AdminDashboardTab
+                        key={session.user.id}
                         userId={session.user.id}
                         triggerConfirm={triggerConfirm}
                       />

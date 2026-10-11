@@ -5,6 +5,7 @@ import { HttpError } from '../http/guard.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { z } from 'zod';
 import { systemRole } from '../repositories/roles.js';
+import { canViewAdminAnalytics } from './adminAnalyticsAccess.js';
 export type PrivateSession = Pick<Session, 'access_token' | 'refresh_token' | 'expires_at'> & { issued_at: number };
 const identitySchema = z.object({ sub: z.uuid(), session_id: z.uuid() });
 const SESSION_LIFETIME = 8 * 60 * 60 * 1000;
@@ -24,7 +25,8 @@ export async function publicUser(user: User) {
     if (pause.error) throw pause.error;
     accountDeleteAfter = pause.data?.delete_after || null;
   }
-  return { id: user.id, email: user.email, role: await systemRole(user.id), accountPaused, accountDeleteAfter,
+  const role = await systemRole(user.id);
+  return { id: user.id, email: user.email, role, canViewAdminAnalytics: canViewAdminAnalytics(user, role), accountPaused, accountDeleteAfter,
     accountClosureKind: user.app_metadata?.account_closure_kind === 'deletion' ? 'deletion' : 'pause',
     created_at: user.created_at, user_metadata: { full_name: user.user_metadata?.full_name, avatar_url: user.user_metadata?.avatar_url } };
 }

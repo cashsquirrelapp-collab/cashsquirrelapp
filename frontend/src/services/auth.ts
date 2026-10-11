@@ -4,7 +4,7 @@ import { clearCloud } from './cloud';
 // Compatibility facade for the existing auth UI. Tokens never enter browser JavaScript.
 import { apiJson } from './api';
 import type { SystemRole } from '../../../shared/groups';
-type PublicSession = { user: { id: string; email: string; role: SystemRole; accountPaused?: boolean; accountClosureKind?: 'pause' | 'deletion'; accountDeleteAfter?: string | null; created_at: string; user_metadata: Record<string, string> } };
+type PublicSession = { user: { id: string; email: string; role: SystemRole; canViewAdminAnalytics?: boolean; accountPaused?: boolean; accountClosureKind?: 'pause' | 'deletion'; accountDeleteAfter?: string | null; created_at: string; user_metadata: Record<string, string> } };
 let current: PublicSession | null = null;
 let revision=0;
 const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('cashflow-auth');
@@ -51,9 +51,10 @@ async function getSession(): Promise<SessionCheck> {
       const previous = current?.user.id;
       const previousRole = current?.user.role;
       const previousPaused = current?.user.accountPaused;
+      const previousAnalyticsAccess = current?.user.canViewAdminAnalytics;
       updateSession(result.session);
       if (previous !== current?.user.id) { revision++; emit(current ? 'SIGNED_IN' : 'SIGNED_OUT', false); }
-      else if (previousRole !== current?.user.role || previousPaused !== current?.user.accountPaused) { revision++; emit('USER_UPDATED', false); }
+      else if (previousRole !== current?.user.role || previousPaused !== current?.user.accountPaused || previousAnalyticsAccess !== current?.user.canViewAdminAnalytics) { revision++; emit('USER_UPDATED', false); }
       return { data: result, error: null };
     } catch (error) {
       return { data: { session: current }, error: error as Error };
