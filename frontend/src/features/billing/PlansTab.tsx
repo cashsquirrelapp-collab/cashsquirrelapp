@@ -23,6 +23,7 @@ interface PlansTabProps {
     managed: boolean;
   } | null;
   onUpgrade: () => void;
+  onPromptPay: () => void;
   billingBusy: boolean;
 }
 
@@ -37,6 +38,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
   trialEndsAt,
   subscription,
   onUpgrade,
+  onPromptPay,
   billingBusy,
 }) => {
   const { t } = useLanguage();
@@ -151,15 +153,26 @@ export const PlansTab: React.FC<PlansTabProps> = ({
       {/* Status / CTA panel */}
       <div className={`${uiPanel} text-center space-y-3`}>
         <p className="text-xs text-brand-text dark:text-neutral-200 leading-relaxed max-w-md mx-auto">{statusText}</p>
-        {!isAdminGrant && !hasPreservedPaidAccess && <button
-          type="button"
-          onClick={onUpgrade}
-          disabled={billingBusy}
-          className={uiPrimaryButton}
-        >
-          {billingBusy ? t('plans.loadingCta') : isGuestPreview ? t('plans.guestCreateAccountCta') : hasOpenManagedSubscription ? t('plans.renewCta') : t(introEligible ? 'plans.subscribeCta' : 'plans.subscribeStandardCta')}
-        </button>}
+        {!isAdminGrant && !hasPreservedPaidAccess && <div className="mx-auto flex w-full max-w-md flex-col gap-2 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            onClick={onUpgrade}
+            disabled={billingBusy}
+            className={`${uiPrimaryButton} flex-1`}
+          >
+            {billingBusy ? t('plans.loadingCta') : isGuestPreview ? t('plans.guestCreateAccountCta') : hasOpenManagedSubscription ? t('plans.renewCta') : t(introEligible ? 'plans.subscribeCta' : 'plans.subscribeStandardCta')}
+          </button>
+          {!isGuestPreview && !hasOpenManagedSubscription && <button
+            type="button"
+            onClick={onPromptPay}
+            disabled={billingBusy}
+            className="inline-flex flex-1 items-center justify-center rounded-xl border border-[#E65F2B] px-4 py-2.5 text-xs font-bold text-[#C24A16] transition-colors hover:bg-[#FDE8DD] disabled:opacity-50 dark:text-[#FFA473] dark:hover:bg-[#E65F2B]/10"
+          >
+            {billingBusy ? t('plans.loadingCta') : t(introEligible ? 'plans.promptPayCta' : 'plans.promptPayStandardCta')}
+          </button>}
+        </div>}
         {!isGuestPreview && !hasPreservedPaidAccess && <p className="text-[10px] text-brand-muted">{t(introEligible ? 'plans.paymentNote' : 'plans.standardPaymentNote')}</p>}
+        {!isGuestPreview && !hasOpenManagedSubscription && !hasPreservedPaidAccess && <p className="text-[10px] text-brand-muted">{t('plans.promptPayNote')}</p>}
       </div>
     </div>
   );

@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type Stripe from 'stripe';
 import {
+  buildPromptPayCheckoutRequest,
   buildStripeSubscriptionCheckoutRequest,
   clearStripeBillingCatalogCacheForTests,
   getStripeBillingCatalog,
+  introCouponMonths,
   isStripeCustomerOwnedByUser,
   paidThroughFromInvoiceLines,
   PRO_INTRO_TOTAL,
@@ -15,6 +17,7 @@ import {
   validateStripeBillingPortalConfiguration,
   type StripeBillingCatalog,
 } from '../backend/src/services/stripeSubscriptions.js';
+import { promptPayCheckoutRecord, validatePromptPayLineItems } from '../backend/src/services/promptPay.js';
 import { stripe, stripeLivemodeForKey } from '../backend/src/config/stripe.js';
 
 const userId = '11111111-1111-4111-8111-111111111111';
@@ -67,7 +70,7 @@ function discount(id = couponId): Stripe.Discount {
   return {
     id: 'di_intro',
     object: 'discount',
-    source: { type: 'coupon', coupon: { id, object: 'coupon' } },
+    source: { type: 'coupon', coupon: coupon({ id }) },
   } as unknown as Stripe.Discount;
 }
 
@@ -278,4 +281,74 @@ test('Checkout retry after a lost response reuses byte-equivalent parameters and
   const recovered = await create(persisted, key);
   assert.equal(recovered.id, 'cs_one_remote_session');
   assert.equal(remoteSessions.size, 1);
+});
+
+test('remaining card promo cycles use a validated account-bound dynamic coupon', () => {
+  const twoMonth = coupon({
+    id: 'coupon_dynamic_2',
+    duration_in_months: 2,
+    max_redemptions: 1,
+    metadata: {
+      cash_squirrel_offer: 'pro_intro_199x3_then_249_v1',
+      cash_squirrel_intro_months: '2',
+      app_user_id: userId,
+    },
+  });
+  assert.equal(introCouponMonths(twoMonth, catalog, userId), 2);
+  assert.equal(introCouponMonths({ ...twoMonth, metadata: { ...twoMonth.metadata, app_user_id: '22222222-2222-4222-8222-222222222222' } } as Stripe.Coupon, catalog, userId), null);
+  const request = buildStripeSubscriptionCheckoutRequest({
+    userId,
+    customerId: 'cus_dynamic',
+    reservationId: 'reservation-dynamic',
+    introCyclesRemaining: 2,
+    introCouponId: twoMonth.id,
+    expiresAt: 2_000_002_700,
+    origin: 'https://cash-squirrel.example',
+    catalog,
+  });
+  assert.deepEqual(request.discounts, [{ coupon: twoMonth.id }]);
+  assert.equal(request.metadata?.intro_cycles_remaining, '2');
+});
+
+test('PromptPay Checkout is one-time, exact-price, calendar-month access metadata with canonical payment validation', () => {
+  const created = 2_000_000_000;
+  const request = buildPromptPayCheckoutRequest({
+    userId,
+    customerId: 'cus_promptpay',
+    reservationId: 'reservation-promptpay',
+    introCycle: 2,
+    expiresAt: created + 1_830,
+    origin: 'https://cash-squirrel.example',
+  });
+  assert.equal(request.mode, 'payment');
+  assert.deepEqual(request.payment_method_types, ['promptpay']);
+  assert.equal(request.line_items?.[0].price_data?.unit_amount, PRO_INTRO_TOTAL);
+  assert.equal(request.metadata?.intro_cycle, '2');
+  const charge = {
+    id: 'ch_promptpay', object: 'charge', status: 'succeeded', paid: true, refunded: false,
+    amount_refunded: 0, amount: PRO_INTRO_TOTAL, currency: 'thb', customer: 'cus_promptpay',
+    payment_intent: 'pi_promptpay', created,
+  } as unknown as Stripe.Charge;
+  const paymentMethod = { id: 'pm_promptpay', object: 'payment_method', type: 'promptpay' } as Stripe.PaymentMethod;
+  const paymentIntent = {
+    id: 'pi_promptpay', object: 'payment_intent', livemode: false, status: 'succeeded',
+    customer: 'cus_promptpay', currency: 'thb', amount: PRO_INTRO_TOTAL,
+    amount_received: PRO_INTRO_TOTAL, amount_capturable: 0,
+    payment_method_types: ['promptpay'], payment_method: paymentMethod, latest_charge: charge,
+    metadata: request.payment_intent_data?.metadata,
+  } as unknown as Stripe.PaymentIntent;
+  const session = {
+    id: 'cs_promptpay', object: 'checkout.session', created, livemode: false, mode: 'payment',
+    status: 'complete', payment_status: 'paid', client_reference_id: userId,
+    customer: 'cus_promptpay', currency: 'thb', amount_total: PRO_INTRO_TOTAL,
+    payment_intent: paymentIntent, metadata: request.metadata,
+  } as unknown as Stripe.Checkout.Session;
+  const lineItem = {
+    id: 'li_promptpay', object: 'item', quantity: 1, currency: 'thb',
+    amount_subtotal: PRO_INTRO_TOTAL, amount_total: PRO_INTRO_TOTAL,
+    price: { active: true, type: 'one_time', currency: 'thb', unit_amount: PRO_INTRO_TOTAL, recurring: null },
+  } as unknown as Stripe.LineItem;
+  assert.equal(promptPayCheckoutRecord(session, paymentIntent, false)?.introCycle, 2);
+  assert.equal(validatePromptPayLineItems(session, [lineItem]), true);
+  assert.equal(promptPayCheckoutRecord({ ...session, amount_total: PRO_MONTHLY_AMOUNT } as Stripe.Checkout.Session, paymentIntent, false), null);
 });

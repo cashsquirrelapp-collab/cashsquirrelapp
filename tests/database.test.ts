@@ -209,6 +209,45 @@ test('Stripe checkout reservation prevents overlap and closure claim blocks webh
  assert.equal((await one("select count(*)::int n from cashflow_stripe_events where event_id='evt-closure'")).n,0);
  await db.query('update subscriptions set billing_closure_pending_until=null where user_id=$1',[c]);
 });
+test('PromptPay cycles share the account promotion ledger, stay idempotent, and require manual renewal',async()=>{
+ const user='66666666-6666-4666-8666-666666666666';
+ await db.query("insert into auth.users(id,email) values($1,'promptpay@example.com')",[user]);
+ const reserve=async(id:string,method:'card'|'promptpay')=>one(
+  'select cashflow_reserve_billing_checkout($1,$2,$3,$4,$5,false) result',
+  [user,id,method,new Date(Date.now()+31*60_000).toISOString(),new Date(Date.now()+36*60_000).toISOString()],
+ );
+ const first=(await reserve('qr-reservation-1','promptpay')).result;
+ assert.equal(first.result,'reserved');assert.equal(first.method,'promptpay');assert.equal(first.intro_cycles_remaining,3);
+ await db.query("update subscriptions set stripe_customer_id='cus-qr' where user_id=$1",[user]);
+ await db.query('select cashflow_prepare_subscription_checkout($1,$2,$3::jsonb)',[user,'qr-reservation-1',JSON.stringify({mode:'payment'})]);
+ assert.equal((await one('select cashflow_attach_billing_checkout($1,$2,$3,$4) ok',[user,'qr-reservation-1','cs-qr-1','https://checkout.stripe.com/c/pay/cs-qr-1'])).ok,true);
+ // A monthly PromptPay purchase on January 31 clamps to the last valid day of
+ // February instead of silently becoming a fixed 30-day entitlement.
+ const paid='2028-01-31T12:00:00.000Z';
+ const apply=async(event:string,reservation:string,session:string,payment:string,cycle:number,refund=false)=>one(
+  'select cashflow_apply_promptpay_event($1,$2,$3,false,false,$4,$5,$6,$7,$8,$9,\'thb\',$10,$11,$12) result',
+  [event,refund?'charge.refunded':'checkout.session.completed',Math.floor(Date.now()/1000),user,'cus-qr',reservation,session,payment,cycle<=3?19900:24900,paid,cycle,refund],
+ );
+ assert.equal((await apply('evt-qr-1','qr-reservation-1','cs-qr-1','pi-qr-1',1)).result,'applied');
+ assert.equal((await apply('evt-qr-1','qr-reservation-1','cs-qr-1','pi-qr-1',1)).result,'duplicate');
+ let row=await one('select stripe_intro_paid_cycles,promptpay_entitled_until,status from subscriptions where user_id=$1',[user]);
+ assert.equal(row.stripe_intro_paid_cycles,1);assert.equal(row.status,'active');
+ assert.equal(new Date(row.promptpay_entitled_until).toISOString(),'2028-02-29T12:00:00.000Z');
+ assert.equal((await reserve('qr-too-soon','promptpay')).result.result,'recurring_access');
+ await db.query("update subscriptions set promptpay_entitled_until=now()-interval '1 minute' where user_id=$1",[user]);
+ const second=(await reserve('qr-reservation-2','promptpay')).result;
+ assert.equal(second.intro_cycles_remaining,2);
+ await db.query('select cashflow_prepare_subscription_checkout($1,$2,$3::jsonb)',[user,'qr-reservation-2',JSON.stringify({mode:'payment'})]);
+ await db.query('select cashflow_attach_billing_checkout($1,$2,$3,$4)',[user,'qr-reservation-2','cs-qr-2','https://checkout.stripe.com/c/pay/cs-qr-2']);
+ assert.equal((await apply('evt-qr-2','qr-reservation-2','cs-qr-2','pi-qr-2',2)).result,'applied');
+ await db.query("update subscriptions set promptpay_entitled_until=now()-interval '1 minute' where user_id=$1",[user]);
+ const card=(await reserve('card-after-qr','card')).result;
+ assert.equal(card.intro_cycles_remaining,1);assert.equal(card.method,'card');
+ await db.query('select cashflow_release_billing_checkout($1,$2)',[user,'card-after-qr']);
+ assert.equal((await apply('evt-qr-refund','qr-reservation-1','cs-qr-1','pi-qr-1',1,true)).result,'refunded');
+ row=await one('select stripe_intro_paid_cycles,promptpay_entitled_until from subscriptions where user_id=$1',[user]);
+ assert.equal(row.stripe_intro_paid_cycles,2);assert.ok(row.promptpay_entitled_until);
+});
 test('same-second Stripe events reconcile only through the latest serialized event token',async()=>{
  const period=new Date(Date.now()+30*86400000).toISOString();
  const created=Math.floor(Date.now()/1000);

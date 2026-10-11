@@ -5,7 +5,7 @@
 ## Fresh install
 
 1. สำรอง/เลือก Supabase staging project และเปิด SQL editor ด้วยสิทธิ์ migration/postgres
-2. Apply ไฟล์ใน `migrations` ตามลำดับเลขจนถึง `023_preserve_manual_subscription_entitlements.sql`; ถ้าไม่มีตารางเดิม import จะข้าม จากนั้นรัน `security-check.sql`
+2. Apply ไฟล์ใน `migrations` ตามลำดับเลขจนถึง `024_promptpay_qr_billing.sql`; ถ้าไม่มีตารางเดิม import จะข้าม จากนั้นรัน `security-check.sql`
 3. ตั้ง environment ฝั่ง backend และ Auth callback ตาม root README
 4. ตรวจ login/load/save/logout/LINE reset ด้วยบัญชีทดสอบสองบัญชี ก่อนเปลี่ยน production
 
@@ -18,7 +18,7 @@
 5. Apply `002_import_legacy.sql` ในช่วงที่ไม่มี writer เดิม SQL backfill jobs/expenses/goals ทีละแถว และแยก documents/private state/LINE mapping คง original table สำหรับเทียบข้อมูล ไม่เชื่อ email ใน row เดิม snapshot ใช้ email จาก auth.users
 6. รหัส reset/link รุ่นเดิมจะไม่ถูกย้าย ผู้ใช้ต้องขอรหัสใหม่ Original table ถูก revoke จาก browser และจำกัด service role ให้ select เท่านั้น
 7. สมาชิก Pro แบบ Payment Link เดิม: ใช้ credentials Stripe ของ mode เดียวกับฐานข้อมูล ตั้ง `STRIPE_LEGACY_PAYMENT_LINK_ID` แล้วรัน `npm run billing:backfill` ในเครื่องที่รักษา secret ได้ สคริปต์อ่าน Checkout/Charge และสร้าง `database/generated/stripe-backfill.sql` **ไม่เขียน DB** ทบทวน user IDs/payment IDs/วันหมดอายุแล้ว apply โดย migration role ถ้ามีบัญชีพิเศษหรือ trial ที่แก้มือ ให้เทียบกับ subscriptions เดิมก่อน apply
-8. เก็บผล preflight/backup แล้ว apply migrations ที่เหลือตามลำดับจนถึง `023_preserve_manual_subscription_entitlements.sql` และรัน `security-check.sql` ให้ผ่าน RPC เก่าที่ browser เคยเรียกต้องย้ายผ่าน backend ก่อน deploy
+8. เก็บผล preflight/backup แล้ว apply migrations ที่เหลือตามลำดับจนถึง `024_promptpay_qr_billing.sql` และรัน `security-check.sql` ให้ผ่าน RPC เก่าที่ browser เคยเรียกต้องย้ายผ่าน backend ก่อน deploy
 9. Deploy frontend/backend ใหม่และตั้ง env ควบคู่กัน เปิด Auth callback allowlist `<APP_URL>/api/auth` ใช้ Node 22+ และ HTTPS
 10. ตรวจ row counts ต่อบัญชี, settings, LINE mapping, invoices, Pro status/expiry แล้วเปิด provider webhooks และ cron
 
@@ -122,3 +122,9 @@ PGlite tests ตรวจ SQL transaction/constraint/สิทธิ์ แต�
 `023_preserve_manual_subscription_entitlements.sql` แยกวันหมดอายุของสิทธิ์ `pro_manual` เป็น `manual_current_period_end` และเก็บสิทธิ์จากยอดชำระ ฿149 แยกต่างหาก การคืนเงินจึงยังเพิกถอนสิทธิ์จากรายการนั้นได้โดยไม่ลบสิทธิ์ที่ให้เอง ฟังก์ชัน Checkout ปฏิเสธการสมัครซ้ำระหว่างสิทธิ์ manual ยังใช้งานอยู่ และคงความหมาย `admin_grant`/`admin_revoked` ตามเดิม ใช้หลัง 022 และตรวจสิทธิ์สมาชิกก่อน/หลังตาม migration ledger
 
 Migration นี้แยกต้นทางเฉพาะแถวที่ยังมี plan `pro_manual`; ไม่เดาว่าแถว `pro_monthly` เคยเป็นสิทธิ์ manual หรือไม่ หาก webhook เก่าลบข้อมูลต้นทางไปแล้ว ต้องกระทบยอดกับหลักฐานเดิมก่อนเปิดใช้งาน ห้ามกู้วันหมดอายุโดยเดา
+
+## PromptPay QR และรอบโปรโมชันร่วม (024)
+
+`024_promptpay_qr_billing.sql` เพิ่ม Checkout แบบ PromptPay ชำระครั้งเดียว สิทธิ์หนึ่งเดือนปฏิทิน และ ledger รอบโปรโมชันระดับบัญชีที่ใช้ร่วมกับ Invoice ของบัตร รอบที่ชำระสำเร็จสามรอบแรกคิด ฿199 แล้วเป็น ฿249 โดยการสลับวิธีจ่ายไม่เริ่มนับใหม่ วันสิ้นสิทธิ์คำนวณด้วย `paid_at + interval '1 month'` จึงคงวันที่เดิมเมื่อทำได้และใช้วันสุดท้ายของเดือนถัดไปเมื่อวันที่เดิมไม่มี QR ใช้ Checkout expiry ตามค่าที่ Stripe ส่งกลับและมี reservation เดียวต่อบัญชี จึงต้องปล่อย/หมดอายุ session เดิมก่อนสร้างใหม่ การคืนเงินเพิกถอนเฉพาะ entitlement จาก PromptPay แต่ไม่คืนรอบโปรโมชันเพื่อป้องกันการวนใช้ส่วนลดซ้ำ
+
+ตาราง event/payment/cycle ใหม่เปิด RLS และให้สิทธิ์เฉพาะ `service_role`; browser ห้ามเรียก RPC ใหม่โดยตรง ใช้ migration นี้หลัง 023 เท่านั้นและตรวจวันหมดอายุ manual/legacy/Stripe/PromptPay ก่อนและหลัง apply ห้ามทดสอบด้วยยอดเงินจริงหรือฐาน production ก่อน Checkout/webhook/refund ใน Stripe Sandbox ผ่านครบ

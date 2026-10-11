@@ -13,6 +13,7 @@ import {
   subscriptionRecord,
   validatePaidInvoicePrice,
 } from '../services/stripeSubscriptions.js';
+import { promptPayCheckoutRecord, validatePromptPayLineItems } from '../services/promptPay.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -34,12 +35,6 @@ const handled = new Set([
 
 function id(value: string | { id: string } | null | undefined): string | null {
   return typeof value === 'string' ? value : value?.id || null;
-}
-
-function sessionHasOnlyCoupon(session: Stripe.Checkout.Session, couponId: string): boolean {
-  return session.discounts?.length === 1
-    && id(session.discounts[0].coupon) === couponId
-    && !session.discounts[0].promotion_code;
 }
 
 function configuredLegacyPaymentLink(): string | null {
@@ -84,7 +79,7 @@ async function applyLegacyPayment(
     const admin = getSupabaseAdmin();
     const pending = await admin
       .from('subscriptions')
-      .select('stripe_customer_id,stripe_checkout_reservation_id,stripe_checkout_session_id')
+      .select('stripe_customer_id,stripe_checkout_reservation_id,stripe_checkout_session_id,stripe_checkout_method')
       .eq('user_id', session.client_reference_id)
       .maybeSingle();
     if (pending.error) throw pending.error;
@@ -92,11 +87,12 @@ async function applyLegacyPayment(
       stripe_customer_id: string | null;
       stripe_checkout_reservation_id: string | null;
       stripe_checkout_session_id: string | null;
+      stripe_checkout_method: 'card' | 'promptpay' | null;
     } | null;
     if (row?.stripe_checkout_session_id && row.stripe_checkout_reservation_id) {
       const recurring = await stripe.checkout.sessions.retrieve(row.stripe_checkout_session_id);
       if (recurring.livemode !== configuredStripeLivemode()
-        || recurring.mode !== 'subscription'
+        || recurring.mode !== (row.stripe_checkout_method === 'promptpay' ? 'payment' : 'subscription')
         || recurring.client_reference_id !== session.client_reference_id
         || recurring.metadata?.app_user_id !== session.client_reference_id
         || recurring.metadata?.checkout_reservation_id !== row.stripe_checkout_reservation_id
@@ -108,7 +104,7 @@ async function applyLegacyPayment(
         if (expired.status !== 'expired') throw new Error('Could not expire overlapping recurring Checkout');
       }
       if (recurring.status === 'open' || recurring.status === 'expired') {
-        const released = await admin.rpc('cashflow_release_subscription_checkout', {
+        const released = await admin.rpc('cashflow_release_billing_checkout', {
           p_user_id: session.client_reference_id,
           p_reservation_id: row.stripe_checkout_reservation_id,
         });
@@ -162,11 +158,57 @@ export default withGuard(async (req, res) => {
       return;
     }
     const paymentIntent = id(charge.payment_intent);
-    if (!paymentIntent || !configuredLegacyPaymentLink()) {
+    if (!paymentIntent) {
       res.json({ received: true, ignored: true });
       return;
     }
     const sessions = await stripe.checkout.sessions.list({ payment_intent: paymentIntent, limit: 100 });
+    const promptpay = sessions.data.find(candidate => candidate.mode === 'payment'
+      && candidate.metadata?.billing_method === 'promptpay');
+    if (promptpay) {
+      if (charge.amount_refunded !== charge.amount) {
+        res.json({ received: true, ignored: true });
+        return;
+      }
+      const cycle = Number(promptpay.metadata?.intro_cycle);
+      const userId = promptpay.metadata?.app_user_id;
+      const customerId = id(promptpay.customer);
+      const reservationId = promptpay.metadata?.checkout_reservation_id;
+      if (!userId || !uuid.test(userId) || !customerId || !reservationId
+        || !Number.isInteger(cycle) || cycle < 1 || cycle > 4
+        || promptpay.livemode !== expectedLivemode
+        || promptpay.client_reference_id !== userId
+        || promptpay.metadata?.workspace_type !== 'personal'
+        || promptpay.metadata?.workspace_id !== userId
+        || id(promptpay.payment_intent) !== paymentIntent
+        || id(charge.customer) !== customerId || charge.currency !== 'thb') {
+        throw new Error('Refunded PromptPay charge failed ownership validation');
+      }
+      const saved = await getSupabaseAdmin().rpc('cashflow_apply_promptpay_event', {
+        p_event_id: event.id,
+        p_event_type: event.type,
+        p_event_created: event.created,
+        p_event_livemode: event.livemode,
+        p_expected_livemode: expectedLivemode,
+        p_user_id: userId,
+        p_customer_id: customerId,
+        p_reservation_id: reservationId,
+        p_session_id: promptpay.id,
+        p_payment_intent_id: paymentIntent,
+        p_amount: charge.amount,
+        p_currency: charge.currency,
+        p_paid_at: new Date(charge.created * 1000).toISOString(),
+        p_intro_cycle: cycle,
+        p_refund: true,
+      });
+      if (saved.error) throw saved.error;
+      res.json({ received: true, result: saved.data });
+      return;
+    }
+    if (!configuredLegacyPaymentLink()) {
+      res.json({ received: true, ignored: true });
+      return;
+    }
     const legacy = sessions.data.find(isLegacySession);
     if (!legacy || !await applyLegacyPayment(event, legacy, true)) {
       res.json({ received: true, ignored: true });
@@ -179,9 +221,60 @@ export default withGuard(async (req, res) => {
   let session: Stripe.Checkout.Session | null = null;
   if (event.type.startsWith('checkout.session.')) {
     const delivered = event.data.object as Stripe.Checkout.Session;
-    session = await stripe.checkout.sessions.retrieve(delivered.id);
+    session = await stripe.checkout.sessions.retrieve(delivered.id, {
+      expand: ['payment_intent.payment_method', 'payment_intent.latest_charge', 'line_items'],
+    });
     if (session.livemode !== expectedLivemode) throw new HttpError(400, 'Stripe Checkout mode mismatch');
     if (session.mode === 'payment') {
+      if (session.metadata?.billing_method === 'promptpay') {
+        const sessionUserId = session.metadata.app_user_id;
+        const reservationId = session.metadata.checkout_reservation_id;
+        if (!sessionUserId || !uuid.test(sessionUserId) || !reservationId) {
+          throw new Error('PromptPay Checkout metadata is invalid');
+        }
+        if (event.type === 'checkout.session.async_payment_failed' || event.type === 'checkout.session.expired') {
+          const released = await getSupabaseAdmin().rpc('cashflow_release_billing_checkout', {
+            p_user_id: sessionUserId,
+            p_reservation_id: reservationId,
+          });
+          if (released.error) throw released.error;
+          res.json({ received: true });
+          return;
+        }
+        if (event.type === 'checkout.session.completed' && session.payment_status !== 'paid') {
+          res.json({ received: true, pending: true });
+          return;
+        }
+        const paymentIntent = session.payment_intent;
+        if (!paymentIntent || typeof paymentIntent === 'string') {
+          throw new Error('Paid PromptPay Checkout is missing its expanded PaymentIntent');
+        }
+        const lines = session.line_items?.data || [];
+        const record = promptPayCheckoutRecord(session, paymentIntent, expectedLivemode);
+        if (!record || !validatePromptPayLineItems(session, lines)) {
+          throw new Error('Paid PromptPay Checkout failed canonical validation');
+        }
+        const saved = await getSupabaseAdmin().rpc('cashflow_apply_promptpay_event', {
+          p_event_id: event.id,
+          p_event_type: event.type,
+          p_event_created: event.created,
+          p_event_livemode: event.livemode,
+          p_expected_livemode: expectedLivemode,
+          p_user_id: record.userId,
+          p_customer_id: record.customerId,
+          p_reservation_id: record.reservationId,
+          p_session_id: record.sessionId,
+          p_payment_intent_id: record.paymentIntentId,
+          p_amount: record.amount,
+          p_currency: record.currency,
+          p_paid_at: record.paidAt,
+          p_intro_cycle: record.introCycle,
+          p_refund: false,
+        });
+        if (saved.error) throw saved.error;
+        res.json({ received: true, result: saved.data });
+        return;
+      }
       if (event.type === 'checkout.session.async_payment_failed') {
         res.json({ received: true, ignored: true });
         return;
@@ -204,7 +297,7 @@ export default withGuard(async (req, res) => {
       return;
     }
     if (event.type === 'checkout.session.async_payment_failed' || event.type === 'checkout.session.expired') {
-      const released = await getSupabaseAdmin().rpc('cashflow_release_subscription_checkout', {
+      const released = await getSupabaseAdmin().rpc('cashflow_release_billing_checkout', {
         p_user_id: sessionUserId,
         p_reservation_id: reservationId,
       });
@@ -269,7 +362,10 @@ export default withGuard(async (req, res) => {
       throw new Error('Stripe Checkout offer metadata is invalid');
     }
     const expectedIntro = offerVersion === PRO_OFFER_VERSION;
-    if (expectedIntro !== sessionHasOnlyCoupon(session, catalog.couponId)) {
+    const checkoutIntroCycles = Number(session.metadata?.intro_cycles_remaining || '0');
+    if (!Number.isInteger(checkoutIntroCycles) || checkoutIntroCycles < 0 || checkoutIntroCycles > 3
+      || expectedIntro !== (checkoutIntroCycles > 0)
+      || record.introCouponMonths !== (checkoutIntroCycles || null)) {
       throw new Error('Stripe Checkout introductory discount does not match the reserved offer');
     }
   }
@@ -361,12 +457,21 @@ export default withGuard(async (req, res) => {
     p_invoice_billing_reason: invoice?.billing_reason || null,
     p_offer_version: objectOffer,
     p_intro_discount_applied: session
-      ? sessionHasOnlyCoupon(session, catalog.couponId)
+      ? record.introCouponMonths !== null
       : invoiceDiscount?.applied || false,
     p_intro_discount_start: invoiceDiscount?.start || null,
     p_intro_discount_end: invoiceDiscount?.end || null,
   });
   if (saved.error) throw saved.error;
+  if (invoice?.status === 'paid') {
+    const paidCycle = await getSupabaseAdmin().rpc('cashflow_record_subscription_paid_cycle', {
+      p_user_id: record.userId,
+      p_invoice_id: invoice.id,
+      p_paid_at: new Date((invoice.status_transitions?.paid_at || event.created) * 1000).toISOString(),
+      p_intro_discounted: introRedeemed,
+    });
+    if (paidCycle.error) throw paidCycle.error;
+  }
 
   // Stripe event timestamps have one-second precision and distinct events can
   // be delivered concurrently. Re-read after the event write, then reconcile

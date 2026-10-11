@@ -8,12 +8,18 @@ import { HttpError, withGuard } from '../http/guard.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
 import {
+  buildPromptPayCheckoutRequest,
   buildStripeSubscriptionCheckoutRequest,
   getStripeBillingCatalog,
   getStripeBillingPortalConfiguration,
+  getStripeIntroCoupon,
   isStripeCustomerOwnedByUser,
+  PRO_INTRO_MONTHS,
+  PRO_INTRO_TOTAL,
+  PRO_MONTHLY_AMOUNT,
   PRO_OFFER_VERSION,
   PRO_STANDARD_OFFER_VERSION,
+  PROMPTPAY_OFFER_VERSION,
   subscriptionRecord,
 } from '../services/stripeSubscriptions.js';
 
@@ -27,16 +33,23 @@ type BillingRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   stripe_subscription_status: string | null;
-  stripe_intro_redeemed_at: string | null;
+  stripe_intro_paid_cycles: number;
   stripe_checkout_reservation_id: string | null;
   stripe_checkout_session_id: string | null;
   stripe_checkout_expires_at: string | null;
+  stripe_checkout_pending_until: string | null;
+  stripe_checkout_method: 'card' | 'promptpay' | null;
+  stripe_checkout_url: string | null;
+  stripe_checkout_intro_cycles_remaining: number | null;
 };
 
 type Reservation = {
   result: 'reserved' | 'resumed' | 'pending' | 'managed' | 'legacy_active' | 'recurring_access' | 'account_closing' | 'mode_mismatch' | 'admin_grant' | 'admin_revoked';
   customer_id?: string | null;
   intro_eligible?: boolean;
+  intro_cycles_remaining?: number;
+  method?: 'card' | 'promptpay' | null;
+  url?: string | null;
   legacy_until?: string;
   reservation_id?: string;
   session_id?: string | null;
@@ -50,12 +63,6 @@ const nonterminalStripeStatuses = new Set<Stripe.Subscription.Status>([
 
 function id(value: string | { id: string } | null | undefined): string | null {
   return typeof value === 'string' ? value : value?.id || null;
-}
-
-function sessionHasOnlyCoupon(session: Stripe.Checkout.Session, couponId: string): boolean {
-  return session.discounts?.length === 1
-    && id(session.discounts[0].coupon) === couponId
-    && !session.discounts[0].promotion_code;
 }
 
 function assertManagedCustomer(
@@ -82,6 +89,22 @@ function assertPreparedCheckoutRequest(
   if (!request || typeof request !== 'object' || !isDeepStrictEqual(request, expected)) {
     throw new Error('Prepared Stripe Checkout request does not exactly match its reservation');
   }
+}
+
+function promptPaySessionAmount(session: Stripe.Checkout.Session): number {
+  const cycle = Number(session.metadata?.intro_cycle);
+  const amount = cycle <= PRO_INTRO_MONTHS ? PRO_INTRO_TOTAL : PRO_MONTHLY_AMOUNT;
+  const paymentMethods = session.payment_method_types || [];
+  if (session.metadata?.offer_version !== PROMPTPAY_OFFER_VERSION
+    || session.metadata?.billing_method !== 'promptpay'
+    || !Number.isInteger(cycle) || cycle < 1 || cycle > PRO_INTRO_MONTHS + 1
+    || session.currency !== 'thb'
+    || session.amount_total !== amount
+    || paymentMethods.length !== 1 || paymentMethods[0] !== 'promptpay'
+    || !Number.isInteger(session.expires_at) || session.expires_at <= 0) {
+    throw new Error('PromptPay Checkout amount, method, or offer metadata is invalid');
+  }
+  return amount;
 }
 
 async function createPortal(customerId: string, userId: string): Promise<string> {
@@ -116,7 +139,7 @@ export default withGuard(async (req, res) => {
   const admin = getSupabaseAdmin();
   const subscription = await admin
     .from('subscriptions')
-    .select('status,plan,current_period_end,legacy_current_period_end,manual_current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,stripe_intro_redeemed_at,stripe_checkout_reservation_id,stripe_checkout_session_id,stripe_checkout_expires_at')
+    .select('status,plan,current_period_end,legacy_current_period_end,manual_current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,stripe_intro_paid_cycles,stripe_checkout_reservation_id,stripe_checkout_session_id,stripe_checkout_expires_at,stripe_checkout_pending_until,stripe_checkout_method,stripe_checkout_url,stripe_checkout_intro_cycles_remaining')
     .eq('user_id', user.id)
     .maybeSingle();
   if (subscription.error) throw subscription.error;
@@ -130,8 +153,17 @@ export default withGuard(async (req, res) => {
       cancel_at_period_end: row.cancel_at_period_end,
       stripe_status: row.stripe_subscription_status,
       has_subscription: Boolean(row.stripe_subscription_id),
-      intro_eligible: row.stripe_intro_redeemed_at === null,
+      intro_eligible: row.stripe_intro_paid_cycles < PRO_INTRO_MONTHS,
+      intro_paid_cycles: row.stripe_intro_paid_cycles,
       managed: Boolean(row.stripe_customer_id),
+      promptpay_checkout: row.stripe_checkout_method === 'promptpay'
+        && row.stripe_checkout_session_id && row.stripe_checkout_url && row.stripe_checkout_expires_at
+        ? {
+          url: row.stripe_checkout_url,
+          expires_at: row.stripe_checkout_expires_at,
+          amount: (row.stripe_checkout_intro_cycles_remaining || 0) > 0 ? PRO_INTRO_TOTAL : PRO_MONTHLY_AMOUNT,
+          status: Date.parse(row.stripe_checkout_expires_at) > Date.now() ? 'open' : 'expired',
+        } : null,
     } : null });
     return;
   }
@@ -146,7 +178,8 @@ export default withGuard(async (req, res) => {
     res.json({ url: await createPortal(customerId, user.id), destination: 'portal' });
     return;
   }
-  if (action !== 'checkout') throw new HttpError(400, 'Invalid billing action');
+  if (!['checkout', 'promptpay_checkout'].includes(action)) throw new HttpError(400, 'Invalid billing action');
+  const checkoutMethod: 'card' | 'promptpay' = action === 'promptpay_checkout' ? 'promptpay' : 'card';
   if (row?.plan === 'admin_revoked') throw new HttpError(403, 'บัญชีนี้ถูกระงับสิทธิ์ Pro กรุณาติดต่อผู้ดูแล');
   if (row?.plan === 'admin_grant') throw new HttpError(409, 'บัญชีนี้ได้รับสิทธิ์ Pro จากผู้ดูแลอยู่แล้ว');
   if ([row?.legacy_current_period_end, row?.manual_current_period_end]
@@ -167,13 +200,16 @@ export default withGuard(async (req, res) => {
     });
     const record = subscriptionRecord(canonicalSubscription, catalog);
     const offerVersion = session.metadata?.offer_version;
+    const introCycles = Number(session.metadata?.intro_cycles_remaining || '0');
     if (!record
       || record.userId !== user.id
       || record.workspaceId !== user.id
       || record.customerId !== checkoutCustomerId
       || session.metadata?.workspace_type !== 'personal'
       || ![PRO_OFFER_VERSION, PRO_STANDARD_OFFER_VERSION].includes(offerVersion || '')
-      || (offerVersion === PRO_OFFER_VERSION) !== sessionHasOnlyCoupon(session, catalog.couponId)) {
+      || !Number.isInteger(introCycles) || introCycles < 0 || introCycles > PRO_INTRO_MONTHS
+      || (offerVersion === PRO_OFFER_VERSION) !== (introCycles > 0)
+      || record.introCouponMonths !== (introCycles || null)) {
       throw new Error('Completed Stripe Checkout Subscription failed canonical validation');
     }
     const recovered = await admin.rpc('cashflow_recover_completed_subscription_checkout', {
@@ -194,8 +230,10 @@ export default withGuard(async (req, res) => {
   };
   if (row?.stripe_checkout_session_id && row.stripe_checkout_reservation_id) {
     const existing = await stripe.checkout.sessions.retrieve(row.stripe_checkout_session_id);
+    const storedMethod = row.stripe_checkout_method || 'card';
+    const expectedMode = storedMethod === 'promptpay' ? 'payment' : 'subscription';
     if (existing.livemode !== configuredStripeLivemode()
-      || existing.mode !== 'subscription'
+      || existing.mode !== expectedMode
       || existing.client_reference_id !== user.id
       || existing.metadata?.app_user_id !== user.id
       || existing.metadata?.workspace_type !== 'personal'
@@ -208,28 +246,52 @@ export default withGuard(async (req, res) => {
       if (!customerId) throw new Error('Stored Stripe Checkout is missing its Customer');
       const customer = await stripe.customers.retrieve(customerId);
       assertManagedCustomer(customer, user.id, catalog.livemode);
-      if (await hasNonterminalStripeSubscription(customerId)) {
+      const locallyExpired = Boolean(row.stripe_checkout_expires_at
+        && Date.parse(row.stripe_checkout_expires_at) <= Date.now());
+      if (locallyExpired || await hasNonterminalStripeSubscription(customerId)) {
         const expired = await stripe.checkout.sessions.expire(existing.id);
         if (expired.status !== 'expired') throw new Error('Could not expire overlapping Stripe Checkout');
-        const released = await admin.rpc('cashflow_release_subscription_checkout', {
+        const released = await admin.rpc('cashflow_release_billing_checkout', {
           p_user_id: user.id,
           p_reservation_id: row.stripe_checkout_reservation_id,
         });
         if (released.error) throw released.error;
-        res.json({ url: await createPortal(customerId, user.id), destination: 'portal' });
+        if (!locallyExpired) {
+          res.json({ url: await createPortal(customerId, user.id), destination: 'portal' });
+          return;
+        }
+      } else if (storedMethod === 'promptpay') {
+        res.json({
+          url: existing.url,
+          destination: 'promptpay',
+          expiresAt: new Date(existing.expires_at * 1000).toISOString(),
+          amount: promptPaySessionAmount(existing),
+        });
+        return;
+      } else {
+        res.json({ url: existing.url, destination: 'checkout' });
         return;
       }
-      res.json({ url: existing.url, destination: 'checkout' });
-      return;
     }
     if (existing.status === 'complete') {
       if (!customerId) throw new Error('Completed Stripe Checkout is missing its Customer');
+      if (storedMethod === 'promptpay') {
+        const hostedUrl = existing.url || row.stripe_checkout_url;
+        if (!hostedUrl) throw new Error('Completed PromptPay Checkout is missing its hosted URL');
+        res.json({
+          url: hostedUrl,
+          destination: 'promptpay_pending',
+          expiresAt: new Date(existing.expires_at * 1000).toISOString(),
+          amount: promptPaySessionAmount(existing),
+        });
+        return;
+      }
       await recoverCompletedCheckout(existing, row.stripe_checkout_reservation_id, customerId);
       res.json({ url: await createPortal(customerId, user.id), destination: 'portal' });
       return;
     }
     if (existing.status === 'expired') {
-      const released = await admin.rpc('cashflow_release_subscription_checkout', {
+      const released = await admin.rpc('cashflow_release_billing_checkout', {
         p_user_id: user.id,
         p_reservation_id: row.stripe_checkout_reservation_id,
       });
@@ -238,14 +300,16 @@ export default withGuard(async (req, res) => {
   }
 
   let reservationId: string = randomUUID();
-  // Stripe requires at least 30 minutes remaining when Session creation
-  // reaches its API. Reserve 45 minutes so database/customer checks do not
-  // consume that minimum, then retain a five-minute webhook grace period.
-  let checkoutExpiresAt = Math.floor(Date.now() / 1000) + 45 * 60;
+  // PromptPay uses the Stripe minimum plus a small network allowance so the
+  // request still has a full 30 minutes when Stripe evaluates it. The visible
+  // countdown always uses Stripe's returned authoritative expires_at.
+  let checkoutExpiresAt = Math.floor(Date.now() / 1000)
+    + (checkoutMethod === 'promptpay' ? 30 * 60 + 30 : 45 * 60);
   let pendingUntil = new Date((checkoutExpiresAt + 5 * 60) * 1000).toISOString();
-  const reserved = await admin.rpc('cashflow_reserve_subscription_checkout', {
+  const reserved = await admin.rpc('cashflow_reserve_billing_checkout', {
     p_user_id: user.id,
     p_reservation_id: reservationId,
+    p_method: checkoutMethod,
     p_expires_at: new Date(checkoutExpiresAt * 1000).toISOString(),
     p_pending_until: pendingUntil,
     p_livemode: catalog.livemode,
@@ -264,17 +328,20 @@ export default withGuard(async (req, res) => {
   if (reservation.result === 'mode_mismatch') throw new Error('Stripe mode does not match the stored billing account');
   if (reservation.result === 'admin_revoked') throw new HttpError(403, 'บัญชีนี้ถูกระงับสิทธิ์ Pro กรุณาติดต่อผู้ดูแล');
   if (reservation.result === 'admin_grant') throw new HttpError(409, 'บัญชีนี้ได้รับสิทธิ์ Pro จากผู้ดูแลอยู่แล้ว');
+  let reservedMethod: 'card' | 'promptpay' = reservation.method || checkoutMethod;
   if (reservation.result === 'resumed') {
     if (!reservation.reservation_id || !reservation.expires_at || !reservation.pending_until) {
       throw new Error('Resumed Checkout reservation is incomplete');
     }
     reservationId = reservation.reservation_id;
+    reservedMethod = reservation.method || checkoutMethod;
     checkoutExpiresAt = unixSeconds(reservation.expires_at, 'expiry');
     pendingUntil = new Date(unixSeconds(reservation.pending_until, 'pending deadline') * 1000).toISOString();
     if (reservation.session_id) {
       const existing = await stripe.checkout.sessions.retrieve(reservation.session_id);
+      const expectedMode = reservedMethod === 'promptpay' ? 'payment' : 'subscription';
       if (existing.livemode !== catalog.livemode
-        || existing.mode !== 'subscription'
+        || existing.mode !== expectedMode
         || existing.client_reference_id !== user.id
         || existing.metadata?.app_user_id !== user.id
         || existing.metadata?.workspace_type !== 'personal'
@@ -290,7 +357,7 @@ export default withGuard(async (req, res) => {
         if (await hasNonterminalStripeSubscription(reservation.customer_id)) {
           const expired = await stripe.checkout.sessions.expire(existing.id);
           if (expired.status !== 'expired') throw new Error('Could not expire overlapping Stripe Checkout');
-          const released = await admin.rpc('cashflow_release_subscription_checkout', {
+          const released = await admin.rpc('cashflow_release_billing_checkout', {
             p_user_id: user.id,
             p_reservation_id: reservationId,
           });
@@ -298,17 +365,35 @@ export default withGuard(async (req, res) => {
           res.json({ url: await createPortal(reservation.customer_id, user.id), destination: 'portal' });
           return;
         }
-        res.json({ url: existing.url, destination: 'checkout' });
+        if (reservedMethod === 'promptpay') {
+          res.json({
+            url: existing.url,
+            destination: 'promptpay',
+            expiresAt: new Date(existing.expires_at * 1000).toISOString(),
+            amount: promptPaySessionAmount(existing),
+          });
+        } else res.json({ url: existing.url, destination: 'checkout' });
         return;
       }
       if (existing.status === 'complete') {
         if (!reservation.customer_id) throw new Error('Completed Stripe Checkout is missing its Customer');
+        if (reservedMethod === 'promptpay') {
+          const hostedUrl = existing.url || reservation.url;
+          if (!hostedUrl) throw new Error('Completed PromptPay Checkout is missing its hosted URL');
+          res.json({
+            url: hostedUrl,
+            destination: 'promptpay_pending',
+            expiresAt: new Date(existing.expires_at * 1000).toISOString(),
+            amount: promptPaySessionAmount(existing),
+          });
+          return;
+        }
         await recoverCompletedCheckout(existing, reservationId, reservation.customer_id);
         res.json({ url: await createPortal(reservation.customer_id, user.id), destination: 'portal' });
         return;
       }
       if (existing.status === 'expired') {
-        const released = await admin.rpc('cashflow_release_subscription_checkout', {
+        const released = await admin.rpc('cashflow_release_billing_checkout', {
           p_user_id: user.id,
           p_reservation_id: reservationId,
         });
@@ -348,7 +433,7 @@ export default withGuard(async (req, res) => {
     // subscription before a second recurring charge can be started.
     const hasNonterminalSubscription = await hasNonterminalStripeSubscription(stableCustomerId);
     if (hasNonterminalSubscription) {
-      const released = await admin.rpc('cashflow_release_subscription_checkout', {
+      const released = await admin.rpc('cashflow_release_billing_checkout', {
         p_user_id: user.id,
         p_reservation_id: reservationId,
       });
@@ -357,16 +442,35 @@ export default withGuard(async (req, res) => {
       return;
     }
 
-    const introEligible = reservation.intro_eligible === true;
-    const candidateRequest = buildStripeSubscriptionCheckoutRequest({
-      userId: user.id,
-      customerId: stableCustomerId,
-      reservationId,
-      introEligible,
-      expiresAt: checkoutExpiresAt,
-      origin: appOrigin(),
-      catalog,
-    });
+    const introCyclesRemaining = reservation.intro_cycles_remaining
+      ?? (reservation.intro_eligible ? PRO_INTRO_MONTHS : 0);
+    const introCycle = Math.min(PRO_INTRO_MONTHS + 1, PRO_INTRO_MONTHS - introCyclesRemaining + 1);
+    const introCouponId = reservedMethod === 'card'
+      ? await getStripeIntroCoupon({
+        userId: user.id,
+        reservationId,
+        months: introCyclesRemaining,
+        catalog,
+      }) : null;
+    const candidateRequest = reservedMethod === 'promptpay'
+      ? buildPromptPayCheckoutRequest({
+        userId: user.id,
+        customerId: stableCustomerId,
+        reservationId,
+        introCycle,
+        expiresAt: checkoutExpiresAt,
+        origin: appOrigin(),
+      })
+      : buildStripeSubscriptionCheckoutRequest({
+        userId: user.id,
+        customerId: stableCustomerId,
+        reservationId,
+        introCyclesRemaining,
+        introCouponId,
+        expiresAt: checkoutExpiresAt,
+        origin: appOrigin(),
+        catalog,
+      });
     const prepared = await admin.rpc('cashflow_prepare_subscription_checkout', {
       p_user_id: user.id,
       p_reservation_id: reservationId,
@@ -377,34 +481,48 @@ export default withGuard(async (req, res) => {
     checkoutCreateAttempted = true;
     checkout = await stripe.checkout.sessions.create(
       prepared.data,
-      { idempotencyKey: `cash-squirrel-pro-checkout:${reservationId}` },
+      { idempotencyKey: reservedMethod === 'card'
+        ? `cash-squirrel-pro-checkout:${reservationId}`
+        : `cash-squirrel-promptpay-checkout:${reservationId}` },
     );
     if (checkout.status === 'expired') {
       checkoutConfirmedExpired = true;
       throw new HttpError(409, 'หน้าชำระเงินหมดอายุแล้ว กรุณาลองใหม่');
     }
     if (checkout.status === 'complete') {
-      const attachedComplete = await admin.rpc('cashflow_attach_subscription_checkout', {
+      if (!checkout.url) throw new Error('Completed Stripe Checkout is missing its hosted URL');
+      const attachedComplete = await admin.rpc('cashflow_attach_billing_checkout', {
         p_user_id: user.id,
         p_reservation_id: reservationId,
         p_session_id: checkout.id,
+        p_url: checkout.url,
       });
       if (attachedComplete.error) throw attachedComplete.error;
       if (attachedComplete.data !== true) {
         throw new Error('Completed Checkout reservation changed before recovery');
       }
-      await recoverCompletedCheckout(checkout, reservationId, stableCustomerId);
-      res.json({ url: await createPortal(stableCustomerId, user.id), destination: 'portal' });
+      if (reservedMethod === 'promptpay') {
+        res.json({
+          url: checkout.url,
+          destination: 'promptpay_pending',
+          expiresAt: new Date(checkout.expires_at * 1000).toISOString(),
+          amount: promptPaySessionAmount(checkout),
+        });
+      } else {
+        await recoverCompletedCheckout(checkout, reservationId, stableCustomerId);
+        res.json({ url: await createPortal(stableCustomerId, user.id), destination: 'portal' });
+      }
       return;
     }
     if (checkout.status !== 'open' || !checkout.url) {
       throw new Error('Stripe Checkout did not return an open hosted Session');
     }
 
-    const attached = await admin.rpc('cashflow_attach_subscription_checkout', {
+    const attached = await admin.rpc('cashflow_attach_billing_checkout', {
       p_user_id: user.id,
       p_reservation_id: reservationId,
       p_session_id: checkout.id,
+      p_url: checkout.url,
     });
     if (attached.error) throw attached.error;
     if (attached.data !== true) {
@@ -412,7 +530,14 @@ export default withGuard(async (req, res) => {
       checkoutConfirmedExpired = expired.status === 'expired';
       throw new Error('Checkout reservation expired before the session was attached');
     }
-    res.json({ url: checkout.url, destination: 'checkout' });
+    if (reservedMethod === 'promptpay') {
+      res.json({
+        url: checkout.url,
+        destination: 'promptpay',
+        expiresAt: new Date(checkout.expires_at * 1000).toISOString(),
+        amount: promptPaySessionAmount(checkout),
+      });
+    } else res.json({ url: checkout.url, destination: 'checkout' });
   } catch (error) {
     // A network timeout can happen after Stripe committed the Session but
     // before this process received it. Never release that reservation: retry
@@ -430,7 +555,7 @@ export default withGuard(async (req, res) => {
       }
     }
     if (safeToRelease) {
-      const released = await admin.rpc('cashflow_release_subscription_checkout', {
+      const released = await admin.rpc('cashflow_release_billing_checkout', {
         p_user_id: user.id,
         p_reservation_id: reservationId,
       });

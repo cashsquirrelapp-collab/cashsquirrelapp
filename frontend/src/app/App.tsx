@@ -62,6 +62,7 @@ import { MascotToast } from '../components/mascot/MascotToast';
 const ProfileSetupWizard = lazy(() => import('../features/onboarding/ProfileSetupWizard').then(module => ({ default: module.ProfileSetupWizard })));
 import { normalizeProfileSetupSettings, shouldShowProfileSetup } from '../features/onboarding/profileSetupState';
 import { PremiumUpsell } from '../features/billing/PremiumUpsell';
+import { PromptPayCheckoutModal, type PromptPayCheckout } from '../features/billing/PromptPayCheckoutModal';
 const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
 import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
@@ -120,6 +121,8 @@ type BillingSubscription = {
   hasSubscription: boolean;
   introEligible: boolean;
   managed: boolean;
+  introPaidCycles: number;
+  promptPayCheckout: PromptPayCheckout | null;
 };
 
 const CHECKOUT_PENDING_OWNER_KEY = 'cashflow_checkout_pending_owner';
@@ -152,6 +155,13 @@ function billingSubscription(data: any, introEligibleWhenMissing: boolean): Bill
     hasSubscription: data?.has_subscription === true,
     introEligible: data ? data.intro_eligible === true : introEligibleWhenMissing,
     managed: data?.managed === true,
+    introPaidCycles: Number.isInteger(data?.intro_paid_cycles) ? data.intro_paid_cycles : 0,
+    promptPayCheckout: data?.promptpay_checkout ? {
+      url: data.promptpay_checkout.url,
+      expiresAt: data.promptpay_checkout.expires_at,
+      amount: data.promptpay_checkout.amount,
+      status: data.promptpay_checkout.status,
+    } : null,
   };
 }
 
@@ -985,6 +995,9 @@ export default function App() {
   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
+  const [promptPayCheckout, setPromptPayCheckout] = useState<PromptPayCheckout | null>(null);
+  const [promptPayModalOpen, setPromptPayModalOpen] = useState(false);
+  const [billingPollVersion, setBillingPollVersion] = useState(0);
   const billingUserId = session?.isGuest ? null : session?.user?.id || null;
   const billingUserRef = useRef<string | null>(billingUserId);
   const subscriptionOwnerRef = useRef<string | null>(null);
@@ -999,6 +1012,8 @@ export default function App() {
     billingRequestRef.current += 1;
     setSubscription(null);
     setBillingBusy(false);
+    setPromptPayCheckout(null);
+    setPromptPayModalOpen(false);
     setIsProPromoOpen(false);
   }, [billingUserId]);
 
@@ -1070,7 +1085,8 @@ export default function App() {
     return err.message || JSON.stringify(err);
   };
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (requestedMethod?: unknown) => {
+    const paymentMethod = requestedMethod === 'promptpay' ? 'promptpay' : 'card';
     const currentUser = session?.user;
     if (session?.isGuest) {
       void handleSignOut();
@@ -1090,17 +1106,38 @@ export default function App() {
     let markedCheckout = false;
     try {
       const userId = currentUser.id;
-      const result = await apiJson<{ url: string; destination?: 'checkout' | 'portal' }>('/api/billing', {
+      const result = await apiJson<{
+        url: string;
+        destination?: 'checkout' | 'portal' | 'promptpay' | 'promptpay_pending';
+        expiresAt?: string;
+        amount?: number;
+      }>('/api/billing', {
         method: 'POST',
         headers: { 'X-Account-ID': userId },
         // Delinquent/nonterminal subscribers must be able to reach Portal even
         // when app entitlement or Checkout catalog validation is unavailable.
-        body: JSON.stringify({ action: hasOpenStripeSubscription ? 'portal' : 'checkout' }),
+        body: JSON.stringify({ action: hasOpenStripeSubscription
+          ? 'portal'
+          : paymentMethod === 'promptpay' ? 'promptpay_checkout' : 'checkout' }),
       });
       if (billingUserRef.current !== userId) return;
       const target = new URL(result.url);
       if (target.protocol !== 'https:' || (target.hostname !== 'stripe.com' && !target.hostname.endsWith('.stripe.com'))) {
         throw new Error('ปลายทางชำระเงินไม่ถูกต้อง');
+      }
+      if (result.destination === 'promptpay' || result.destination === 'promptpay_pending') {
+        if (!result.expiresAt || !result.amount) throw new Error('ข้อมูล QR พร้อมเพย์ไม่ครบถ้วน');
+        markCheckoutPending(userId);
+        setBillingPollVersion(version => version + 1);
+        setPromptPayCheckout({
+          url: target.toString(),
+          expiresAt: result.expiresAt,
+          amount: result.amount,
+          status: result.destination === 'promptpay_pending' ? 'pending' : 'open',
+        });
+        setPromptPayModalOpen(true);
+        setBillingBusy(false);
+        return;
       }
       if (result.destination === 'checkout' || target.hostname === 'checkout.stripe.com') {
         markCheckoutPending(userId);
@@ -1134,13 +1171,16 @@ export default function App() {
       triggerAlert('ยังไม่ได้สมัครสมาชิก', 'ยกเลิกหน้าชำระเงินแล้ว หากระบบยังแจ้งว่ามี Checkout ที่ใช้งานอยู่ กรุณารอให้หน้าชำระเงินหมดอายุแล้วลองใหม่');
       return;
     }
-    if (checkoutResult && checkoutResult !== 'success') {
+    if (checkoutResult === 'promptpay-cancel') {
+      updateCheckoutQuery(true);
+      triggerAlert('ยังไม่ได้ชำระด้วยพร้อมเพย์', 'QR เดิมยังใช้ได้จนเวลาหมด คุณสามารถกลับมาเปิด QR เดิมจากหน้าแพ็กเกจได้');
+    } else if (checkoutResult && !['success', 'promptpay-success'].includes(checkoutResult)) {
       updateCheckoutQuery(true);
       return;
     }
 
     let pendingOwner = checkoutPendingOwner();
-    if (checkoutResult === 'success') {
+    if (checkoutResult === 'success' || checkoutResult === 'promptpay-success') {
       // Keep the harmless success marker until webhook-backed state is confirmed. The Stripe
       // session id itself is unnecessary in browser history after the redirect.
       updateCheckoutQuery(false);
@@ -1180,8 +1220,11 @@ export default function App() {
           if (request === billingRequestRef.current) {
             const nextSubscription = billingSubscription(result.subscription, true);
             setSubscription(nextSubscription);
+            if (nextSubscription.promptPayCheckout) setPromptPayCheckout(nextSubscription.promptPayCheckout);
             if (isConfirmedCheckoutSubscription(nextSubscription)) {
               clearCheckoutPending(userId);
+              setPromptPayCheckout(null);
+              setPromptPayModalOpen(false);
               updateCheckoutQuery(true);
               triggerAlert('สมัครสมาชิกสำเร็จ!', 'เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
               return;
@@ -1209,7 +1252,7 @@ export default function App() {
       finishWait?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billingUserId]);
+  }, [billingUserId, billingPollVersion]);
 
   // Domain state stays in the UI; persistence is handled by the cloud service.
   const cloudReadyRef = useRef<string | null>(null);
@@ -2999,6 +3042,7 @@ export default function App() {
                   trialEndsAt={trialEndsAt}
                   subscription={subscription}
                   onUpgrade={handleUpgrade}
+                  onPromptPay={() => void handleUpgrade('promptpay')}
                   billingBusy={billingBusy}
                 />
               )}
@@ -3048,6 +3092,15 @@ export default function App() {
         <CustomDialog
           dialog={dialog}
           onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        />
+        <PromptPayCheckoutModal
+          checkout={promptPayModalOpen ? promptPayCheckout : null}
+          busy={billingBusy}
+          onClose={() => setPromptPayModalOpen(false)}
+          onRegenerate={() => {
+            setPromptPayModalOpen(false);
+            void handleUpgrade('promptpay');
+          }}
         />
 
         {/* 🎉 Pro plan promo, shown once/day to non-Pro users */}

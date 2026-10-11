@@ -39,7 +39,7 @@ export default withGuard(
       // does not pay for two cross-region round trips during initial loading.
       const subscriptionRequest = admin
         .from("subscriptions")
-        .select("status,plan,current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,stripe_intro_redeemed_at")
+        .select("status,plan,current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,stripe_intro_paid_cycles")
         .eq("user_id", user.id)
         .maybeSingle();
       const groupFinanceRequest = groupId
@@ -79,7 +79,8 @@ export default withGuard(
         cancel_at_period_end: row.cancel_at_period_end,
         stripe_status: row.stripe_subscription_status,
         has_subscription: Boolean(row.stripe_subscription_id),
-        intro_eligible: row.stripe_intro_redeemed_at == null,
+        intro_eligible: row.stripe_intro_paid_cycles < 3,
+        intro_paid_cycles: row.stripe_intro_paid_cycles,
         managed: Boolean(row.stripe_customer_id && row.stripe_subscription_id),
       } : null;
       const result = { ...finance, subscription: publicSubscription };

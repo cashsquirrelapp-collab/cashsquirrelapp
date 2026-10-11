@@ -8,6 +8,7 @@ export const PRO_INTRO_MONTHS = 3;
 export const PRO_INTRO_TOTAL = PRO_MONTHLY_AMOUNT - PRO_INTRO_DISCOUNT;
 export const PRO_OFFER_VERSION = 'pro_intro_199x3_then_249_v1';
 export const PRO_STANDARD_OFFER_VERSION = 'standard_249_v1';
+export const PROMPTPAY_OFFER_VERSION = 'promptpay_manual_calendar_month_v1';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const catalogCacheTtlMs = 5 * 60_000;
@@ -35,38 +36,168 @@ export type StripeBillingPortalConfiguration = {
 
 export type StripeSubscriptionCheckoutRequest = Stripe.Checkout.SessionCreateParams;
 
+export function introCouponMonths(
+  coupon: Stripe.Coupon,
+  catalog: StripeBillingCatalog,
+  userId?: string,
+): number | null {
+  const scopedProducts = coupon.applies_to?.products || [];
+  if (coupon.id === catalog.couponId) {
+    return coupon.livemode === catalog.livemode
+      && coupon.valid
+      && coupon.duration === 'repeating'
+      && coupon.duration_in_months === PRO_INTRO_MONTHS
+      && coupon.amount_off === PRO_INTRO_DISCOUNT
+      && coupon.percent_off === null
+      && coupon.currency === 'thb'
+      && coupon.max_redemptions == null
+      && coupon.redeem_by == null
+      && scopedProducts.length === 1
+      && scopedProducts[0] === catalog.productId
+      ? PRO_INTRO_MONTHS : null;
+  }
+  const metadata = coupon.metadata || {};
+  const months = Number(metadata.cash_squirrel_intro_months);
+  return coupon.livemode === catalog.livemode
+    && coupon.valid
+    && metadata.cash_squirrel_offer === PRO_OFFER_VERSION
+    && (!userId || metadata.app_user_id === userId)
+    && Number.isInteger(months) && months >= 1 && months < PRO_INTRO_MONTHS
+    && coupon.duration === 'repeating'
+    && coupon.duration_in_months === months
+    && coupon.amount_off === PRO_INTRO_DISCOUNT
+    && coupon.percent_off === null
+    && coupon.currency === 'thb'
+    && coupon.max_redemptions === 1
+    && coupon.redeem_by == null
+    && scopedProducts.length === 1
+    && scopedProducts[0] === catalog.productId
+    ? months : null;
+}
+
+export async function getStripeIntroCoupon(input: {
+  userId: string;
+  reservationId: string;
+  months: number;
+  catalog: StripeBillingCatalog;
+}): Promise<string | null> {
+  if (input.months === 0) return null;
+  if (!Number.isInteger(input.months) || input.months < 0 || input.months > PRO_INTRO_MONTHS) {
+    throw new Error('Invalid remaining introductory billing cycles');
+  }
+  if (input.months === PRO_INTRO_MONTHS) return input.catalog.couponId;
+  const coupon = await stripe.coupons.create({
+    amount_off: PRO_INTRO_DISCOUNT,
+    currency: 'thb',
+    duration: 'repeating',
+    duration_in_months: input.months,
+    max_redemptions: 1,
+    applies_to: { products: [input.catalog.productId] },
+    name: `Cash Squirrel Pro — ลด ฿50 อีก ${input.months} รอบ`,
+    metadata: {
+      cash_squirrel_offer: PRO_OFFER_VERSION,
+      cash_squirrel_intro_months: String(input.months),
+      app_user_id: input.userId,
+      checkout_reservation_id: input.reservationId,
+    },
+    expand: ['applies_to'],
+  }, { idempotencyKey: `cash-squirrel-intro-coupon:${input.reservationId}:${input.months}` });
+  if (introCouponMonths(coupon, input.catalog, input.userId) !== input.months) {
+    throw new Error('Created Stripe intro Coupon failed canonical validation');
+  }
+  return coupon.id;
+}
+
 export function buildStripeSubscriptionCheckoutRequest(input: {
   userId: string;
   customerId: string;
   reservationId: string;
-  introEligible: boolean;
+  introEligible?: boolean;
+  introCyclesRemaining?: number;
+  introCouponId?: string | null;
   expiresAt: number;
   origin: string;
   catalog: StripeBillingCatalog;
 }): StripeSubscriptionCheckoutRequest {
+  const introCyclesRemaining = input.introCyclesRemaining
+    ?? (input.introEligible ? PRO_INTRO_MONTHS : 0);
+  const introEligible = introCyclesRemaining > 0;
+  const couponId = input.introCouponId === undefined
+    ? (introEligible ? input.catalog.couponId : null)
+    : input.introCouponId;
+  if (!Number.isInteger(introCyclesRemaining) || introCyclesRemaining < 0
+    || introCyclesRemaining > PRO_INTRO_MONTHS || introEligible !== Boolean(couponId)) {
+    throw new Error('Stripe Checkout intro coupon does not match remaining cycles');
+  }
   const metadata = {
     app_user_id: input.userId,
     workspace_type: 'personal',
     workspace_id: input.userId,
-    offer_version: input.introEligible ? PRO_OFFER_VERSION : PRO_STANDARD_OFFER_VERSION,
+    offer_version: introEligible ? PRO_OFFER_VERSION : PRO_STANDARD_OFFER_VERSION,
     checkout_reservation_id: input.reservationId,
+    intro_cycles_remaining: String(introCyclesRemaining),
   };
   return {
     mode: 'subscription',
     customer: input.customerId,
     line_items: [{ price: input.catalog.priceId, quantity: 1 }],
-    ...(input.introEligible ? { discounts: [{ coupon: input.catalog.couponId }] } : {}),
+    ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
     client_reference_id: input.userId,
     metadata,
     subscription_data: { metadata },
     expires_at: input.expiresAt,
     custom_text: {
-      submit: { message: input.introEligible
-        ? '3 เดือนแรก ฿199/เดือน จากนั้นต่ออายุอัตโนมัติ ฿249/เดือน ยกเลิกได้ โดยสิทธิ์ยังใช้ได้ถึงวันสิ้นรอบที่ชำระแล้ว'
+      submit: { message: introEligible
+        ? `อีก ${introCyclesRemaining} รอบ ฿199/เดือน จากนั้นต่ออายุอัตโนมัติ ฿249/เดือน ยกเลิกได้ โดยสิทธิ์ยังใช้ได้ถึงวันสิ้นรอบที่ชำระแล้ว`
         : 'ต่ออายุอัตโนมัติ ฿249/เดือน ยกเลิกได้ โดยสิทธิ์ยังใช้ได้ถึงวันสิ้นรอบที่ชำระแล้ว' },
     },
     success_url: `${input.origin}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${input.origin}/app?checkout=cancel`,
+  };
+}
+
+export function buildPromptPayCheckoutRequest(input: {
+  userId: string;
+  customerId: string;
+  reservationId: string;
+  introCycle: number;
+  expiresAt: number;
+  origin: string;
+}): Stripe.Checkout.SessionCreateParams {
+  if (!Number.isInteger(input.introCycle) || input.introCycle < 1 || input.introCycle > 4) {
+    throw new Error('Invalid PromptPay billing cycle');
+  }
+  const amount = input.introCycle <= PRO_INTRO_MONTHS ? PRO_INTRO_TOTAL : PRO_MONTHLY_AMOUNT;
+  const metadata = {
+    app_user_id: input.userId,
+    workspace_type: 'personal',
+    workspace_id: input.userId,
+    offer_version: PROMPTPAY_OFFER_VERSION,
+    checkout_reservation_id: input.reservationId,
+    billing_method: 'promptpay',
+    intro_cycle: String(input.introCycle),
+  };
+  return {
+    mode: 'payment',
+    customer: input.customerId,
+    payment_method_types: ['promptpay'],
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: 'thb',
+        unit_amount: amount,
+        product_data: { name: 'Cash Squirrel Pro — สิทธิ์ใช้งาน 1 เดือน' },
+      },
+    }],
+    client_reference_id: input.userId,
+    metadata,
+    payment_intent_data: { metadata },
+    expires_at: input.expiresAt,
+    custom_text: {
+      submit: { message: 'QR พร้อมเพย์ใช้ได้จนถึงเวลาที่ Stripe แสดงและไม่ต่ออายุอัตโนมัติ สิทธิ์ Pro เริ่มหลัง Stripe ยืนยันยอด และใช้ได้ 1 เดือนปฏิทิน' },
+    },
+    success_url: `${input.origin}/app?checkout=promptpay-success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${input.origin}/app?checkout=promptpay-cancel`,
   };
 }
 
@@ -211,13 +342,8 @@ export type StripeSubscriptionRecord = {
   billingPeriodEnd: string;
   cancelAtPeriodEnd: boolean;
   hasIntroCoupon: boolean;
+  introCouponMonths: number | null;
 };
-
-function discountCouponId(discount: string | Stripe.Discount | Stripe.DeletedDiscount): string | null {
-  if (typeof discount === 'string') return null;
-  if ('deleted' in discount && discount.deleted) return null;
-  return id(discount.source?.coupon);
-}
 
 export function subscriptionRecord(
   subscription: Stripe.Subscription,
@@ -249,6 +375,13 @@ export function subscriptionRecord(
   const customerId = id(subscription.customer);
   if (!customerId) return null;
 
+  const activeIntroMonths = subscription.discounts
+    .map(discount => {
+      if (typeof discount === 'string' || ('deleted' in discount && discount.deleted)) return null;
+      const coupon = discount.source?.coupon;
+      return typeof coupon === 'string' || !coupon ? null : introCouponMonths(coupon, catalog, userId);
+    })
+    .find((months): months is number => months !== null) ?? null;
   return {
     userId,
     workspaceId,
@@ -260,7 +393,8 @@ export function subscriptionRecord(
     status: subscription.status,
     billingPeriodEnd: new Date(item.current_period_end * 1000).toISOString(),
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    hasIntroCoupon: subscription.discounts.some(discount => discountCouponId(discount) === catalog.couponId),
+    hasIntroCoupon: activeIntroMonths !== null,
+    introCouponMonths: activeIntroMonths,
   };
 }
 
@@ -281,7 +415,9 @@ export function invoiceIntroDiscount(
   if (discounts.length !== 1) return null;
   const discount = discounts[0];
   if (typeof discount === 'string' || ('deleted' in discount && discount.deleted)) return null;
-  if (discountCouponId(discount) !== catalog.couponId
+  const coupon = discount.source?.coupon;
+  const invoiceUserId = invoice.parent?.subscription_details?.metadata?.app_user_id;
+  if (typeof coupon === 'string' || !coupon || introCouponMonths(coupon, catalog, invoiceUserId) === null
     || discount.promotion_code !== null
     || discount.subscription !== subscriptionId
     || discount.subscription_item !== null
@@ -353,14 +489,19 @@ export function validatePaidInvoicePrice(
 ): InvoicePriceValidation {
   const discount = (invoice.total_discount_amounts || []).reduce((sum, item) => sum + item.amount, 0);
   const totalBeforeTax = invoice.total_excluding_tax ?? invoice.total;
-  const couponIds = (invoice.discounts || []).map(discountCouponId).filter((value): value is string => Boolean(value));
+  const invoiceUserId = invoice.parent?.subscription_details?.metadata?.app_user_id;
+  const introCoupons = (invoice.discounts || []).map(discount => {
+    if (typeof discount === 'string' || ('deleted' in discount && discount.deleted)) return null;
+    const coupon = discount.source?.coupon;
+    return typeof coupon === 'string' || !coupon || introCouponMonths(coupon, catalog, invoiceUserId) === null
+      ? null : coupon.id;
+  }).filter((value): value is string => Boolean(value));
   const introDiscountApplied = discount === PRO_INTRO_DISCOUNT
     && totalBeforeTax === PRO_INTRO_TOTAL
-    && couponIds.length === 1
-    && couponIds[0] === catalog.couponId;
+    && introCoupons.length === 1;
   const standardPriceApplied = discount === 0
     && totalBeforeTax === PRO_MONTHLY_AMOUNT
-    && couponIds.length === 0;
+    && (invoice.discounts || []).length === 0;
   const expectedTotal = introDiscountApplied ? PRO_INTRO_TOTAL : PRO_MONTHLY_AMOUNT;
   const nonZeroLines = lines.filter(line => line.subtotal !== 0);
   const exactCatalogLine = nonZeroLines.length === 1

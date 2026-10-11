@@ -68,6 +68,7 @@ async function openPlans(
   page: Page,
   subscription: SubscriptionFixture,
   stripeUrl: string,
+  billingResponse: Record<string, unknown> = {},
 ): Promise<Request[]> {
   const billingRequests: Request[] = [];
 
@@ -86,7 +87,7 @@ async function openPlans(
   }));
   await page.route('**/api/billing', async route => {
     billingRequests.push(route.request());
-    await route.fulfill({ json: { url: stripeUrl } });
+    await route.fulfill({ json: { url: stripeUrl, ...billingResponse } });
   });
   await page.route('https://checkout.stripe.com/**', route => route.fulfill({
     contentType: 'text/html',
@@ -152,6 +153,36 @@ test('intro offer badge and both billing prices stay readable on mobile', async 
   await expect(plans.getByText('จากนั้น ฿249 / เดือน ตั้งแต่รอบบิลที่ 4', { exact: true })).toBeVisible();
   await expect(plans.getByRole('button', { name: 'สมัคร Pro — ฿199/เดือน 3 รอบแรก', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test('PromptPay opens a server-expiring QR flow with countdown and manual-renewal guidance', async ({ page }) => {
+  const stripeUrl = 'https://checkout.stripe.com/c/pay/cs_test_promptpay';
+  const requests = await openPlans(page, {
+    status: 'free',
+    plan: null,
+    current_period_end: null,
+    cancel_at_period_end: false,
+    stripe_status: null,
+    has_subscription: false,
+    intro_eligible: true,
+    managed: false,
+  }, stripeUrl, {
+    destination: 'promptpay',
+    expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+    amount: 19_900,
+  });
+
+  const plans = page.locator('#main-content');
+  await plans.getByRole('button', { name: 'จ่ายด้วย QR — ฿199 / สิทธิ์ 1 เดือน', exact: true }).click();
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0].postDataJSON()).toEqual({ action: 'promptpay_checkout' });
+  const dialog = page.getByRole('dialog', { name: 'ชำระด้วย QR พร้อมเพย์' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('QR พร้อมเพย์ ฿199', { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/ไม่ตัดเงินอัตโนมัติ/)).toBeVisible();
+  await expect(dialog.getByText(/บันทึกภาพ QR/)).toBeVisible();
+  await expect(dialog.getByRole('link', { name: /เปิด QR ใน Stripe/ })).toHaveAttribute('href', stripeUrl);
+  await expect(page).toHaveURL(/\/plans/);
 });
 
 test('a managed nonterminal subscription chooses the Stripe Billing Portal', async ({ page }) => {
