@@ -101,11 +101,12 @@ async function openPlans(
 
   await page.goto('/plans');
   await expect(page.getByRole('heading', { name: 'อัปเกรด', exact: true })).toBeVisible();
+  // These fresh non-Pro fixtures receive the lazy-loaded daily promo after data
+  // hydration. Wait for it instead of racing its arrival with an isVisible check.
   const promoClose = page.getByRole('button', { name: 'ปิด', exact: true });
-  if (await promoClose.isVisible()) {
-    await promoClose.click();
-    await expect(promoClose).toHaveCount(0);
-  }
+  await expect(promoClose).toBeVisible();
+  await promoClose.click();
+  await expect(promoClose).toHaveCount(0);
   return billingRequests;
 }
 
