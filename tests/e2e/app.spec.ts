@@ -1018,3 +1018,75 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await expect(modal.getByRole('region',{name:'รายละเอียดรายจ่ายเดือนนี้'})).toHaveCount(0);
  await expect(modal.getByRole('button',{name:/ดูทั้งหมด/})).toHaveCount(0);
 });
+
+test('landing: a scroll story made of real screenshots, with a hero that works at once and no watch-video gate',async({page})=>{
+ const api:string[]=[];
+ page.on('request',r=>{const u=new URL(r.url());if(u.pathname.startsWith('/api/'))api.push(`${r.method()} ${u.pathname}`);});
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
+ await page.goto('/');
+ const h1=page.getByRole('heading',{level:1});
+ await expect(h1).toContainText('Every project');
+ await expect(h1).toContainText('Every payment');
+ await expect(page.getByText('ไม่ต้องจำเองว่าเงินจะเข้าวันไหน')).toBeVisible();
+ await expect(page.getByRole('button',{name:'เริ่มใช้งานฟรี'}).first()).toBeInViewport(); // no intro to sit through
+ for(const name of [/ดูวิดีโอ/,/ดูการทำงาน/,/watch/i,/play/i])await expect(page.getByRole('button',{name})).toHaveCount(0);
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await expect(page.getByTestId('product-demo')).toHaveCount(0); // the HTML-drawn demo is gone from the public page
+ // English headings take no full stop; a line break does that job
+ const headings=await page.locator('h1,h2').allInnerTexts();
+ expect(headings.length).toBeGreaterThanOrEqual(5);
+ for(const text of headings)expect(text).not.toMatch(/[.。]/);
+ // every product picture is one of the captured app screenshots
+ const pictures=await page.locator('main img').evaluateAll(els=>els.map(el=>el.getAttribute('src')||''));
+ expect(pictures.length).toBeGreaterThan(12);
+ for(const src of pictures)expect(src).toMatch(/^\/landing\/[a-z0-9-]+\.webp$/);
+ // scrolling moves the story forward, and scrolling back undoes it
+ const travel=9*900;
+ await page.evaluate(y=>window.scrollTo(0,y),0.27*travel);
+ await expect(page.getByRole('heading',{name:'Know what’s due'})).toBeVisible();
+ await expect(h1).toBeHidden();
+ await page.evaluate(y=>window.scrollTo(0,y),0.75*travel);
+ await expect(page.getByRole('heading',{name:/Stay updated/})).toBeVisible();
+ await expect(page.getByText('ใช้ได้ในแพ็กเกจ Pro')).toBeVisible(); // LINE is labelled with its plan
+ await page.evaluate(()=>window.scrollTo(0,0));
+ await expect(h1).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Know what’s due'})).toBeHidden();
+ // plan facts follow the live app, not the stale ฿149 / 14-day wording
+ const plans=page.locator('#plans');
+ await expect(plans).toContainText('฿199');
+ await expect(plans).toContainText('฿249');
+ await expect(plans).not.toContainText('149');
+ await expect(plans).not.toContainText('14 วัน');
+ await expect(page.getByText('Group & Team')).toHaveCount(0); // nothing promoted that isn't available yet
+ expect(api.filter(a=>a!=='GET /api/auth')).toEqual([]); // the page reads no account data and writes nothing
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:'เริ่มใช้งานฟรี'}).first().click();
+ await expect(page).toHaveURL(/\/login$/);
+ await expect(page.locator('input[type=email]').first()).toBeVisible();
+});
+
+test('landing without motion: every chapter, caption and picture is on the page with nothing pinned',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
+ await page.goto('/');
+ await expect(page.locator('section[style*="svh"]')).toHaveCount(0); // no pinned stage
+ for(const name of [/Every project/,'Know what’s due',/Stay updated/,/Create and/,'Start free',/More time/])await expect(page.getByRole('heading',{name})).toBeVisible();
+ for(const text of ['กดดูงานตัดต่อวิดีโอ 6,000 บาท รับแล้ว 2,000 บาท ค้างรับ 4,000 บาท','แอปปรับยอดให้เอง เป็นรับแล้ว 3,000 บาท ค้างรับ 3,000 บาท','งานเครดิตเทอม 30 หรือ 45 วัน','ได้ไฟล์ PDF จากระบบ','รู้ว่างานไหนยังไม่ได้ใบ 50 ทวิ'])await expect(page.getByText(text,{exact:false}).first()).toBeVisible();
+ const pictures=page.locator('main img');
+ expect(await pictures.count()).toBeGreaterThan(12);
+ expect(await pictures.evaluateAll(els=>els.filter(el=>!el.getAttribute('alt')&&!el.closest('[role=img]')).length)).toBe(0); // each one is described
+ await expect(page.getByRole('button',{name:'เริ่มใช้งานฟรี'}).first()).toBeVisible();
+});
+
+test('landing on a phone: the story stays inside the screen from top to bottom',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await expect(page.getByRole('heading',{level:1})).toBeInViewport();
+ await expect(page.getByRole('button',{name:'เริ่มใช้งานฟรี'}).first()).toBeInViewport();
+ const total=await page.evaluate(()=>document.documentElement.scrollHeight);
+ for(let y=0;y<total;y+=Math.round(total/14)){
+  await page.evaluate(top=>window.scrollTo(0,top),y);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ }
+});

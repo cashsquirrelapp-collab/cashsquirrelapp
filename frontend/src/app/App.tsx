@@ -64,6 +64,8 @@ import { normalizeProfileSetupSettings, shouldShowProfileSetup } from '../featur
 import { PremiumUpsell } from '../features/billing/PremiumUpsell';
 import { PromptPayCheckoutModal, type PromptPayCheckout } from '../features/billing/PromptPayCheckoutModal';
 const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
+// Development only: the study of the landing reference's motion. Left out of production builds.
+const MotionStudy = import.meta.env.DEV ? lazy(() => import('../features/marketing/landing/study/MotionStudy')) : null;
 import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
 import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
@@ -2476,6 +2478,7 @@ export default function App() {
     }
   };
 
+  if (MotionStudy && pathname === '/motion-study') return <Suspense fallback={null}><MotionStudy /></Suspense>;
   if (loadingSession) {
     // A refresh by someone who was signed in: lay out the app's skeleton straight away (the page
     // they are on, with the sidebar) instead of a blank screen. First visits keep the loader.
