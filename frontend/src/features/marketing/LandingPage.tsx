@@ -3,9 +3,9 @@ import { motion, useMotionValueEvent, useReducedMotion, useScroll } from 'motion
 import { ArrowRight, Check, Play } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { BrandLockup } from '../../components/brand/BrandLogo';
-import { EASE, Eyebrow, Headline, LIGHT_VARS, Lead, Reveal, useSeen } from './landing/primitives';
+import { EASE, Eyebrow, Headline, LIGHT_VARS, Lead, Reveal } from './landing/primitives';
 import { DemoJobCard } from './landing/DemoJobCard';
-import { ProductTour } from './landing/ProductTour';
+import { ProductDemo } from './landing/demo/ProductDemo';
 import { CreditTermVisual, DashboardVisual, DocumentsVisual, ExpensesVisual, ReceivablesVisual } from './landing/ChapterVisuals';
 
 // Public landing page. One idea per section, the product as the visual, and motion only where
@@ -41,6 +41,8 @@ const STEPS = [
 ];
 
 const wrap = 'mx-auto w-full max-w-[1200px] px-5 sm:px-8 lg:px-12';
+/** English headings use the Latin cut of the brand font, with tighter tracking than Thai gets. */
+const EN: React.CSSProperties = { fontFamily: "'IBM Plex Sans', var(--font-sans)", letterSpacing: '-0.025em' };
 const section = 'py-[clamp(5.5rem,4rem+6vw,11rem)]';
 
 function PrimaryButton({ onClick, children, size = 'md' }: { onClick: () => void; children: React.ReactNode; size?: 'md' | 'lg' }) {
@@ -71,54 +73,52 @@ function Nav({ onStart, onLogin }: { onStart: () => void; onLogin: () => void })
         </nav>
         <div className="flex items-center gap-1 sm:gap-3">
           <button type="button" onClick={onLogin} className="h-10 px-3 text-[14px] font-medium text-[#1C1917] hover:text-[#C24A16] cursor-pointer">เข้าสู่ระบบ</button>
-          <button type="button" onClick={onStart} className="hidden h-10 items-center rounded-xl bg-[#1C1917] px-4 text-[14px] font-medium text-white transition-colors hover:bg-black sm:inline-flex cursor-pointer">เริ่มใช้งานฟรี</button>
+          <button type="button" onClick={onStart} className="hidden h-10 items-center rounded-xl bg-[#1C1917] px-4 text-[14px] font-medium text-white transition-colors hover:bg-black sm:inline-flex cursor-pointer">เริ่มต้นใช้งาน</button>
         </div>
       </div>
     </header>
   );
 }
 
+// English headline, Thai explanation: the page reads as an international product while the benefit
+// and the buttons stay in the reader's own language. The demo below is the hero's visual.
 function Hero({ onStart }: { onStart: () => void }) {
   const reduce = useReducedMotion();
-  const [restart, setRestart] = React.useState(0);
-  const theaterRef = React.useRef<HTMLDivElement>(null);
+  const [replay, setReplay] = React.useState(0);
+  const demoRef = React.useRef<HTMLDivElement>(null);
   const enter = (delay: number, y: number) => reduce ? {} : {
     initial: { opacity: 0, y }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.6, ease: EASE, delay },
   };
   const watch = () => {
-    setRestart(n => n + 1);
-    theaterRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    demoRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    setReplay(n => n + 1);
   };
   return (
-    <section className="relative overflow-hidden pb-[clamp(4rem,3rem+4vw,8rem)] pt-[clamp(3.5rem,2rem+5vw,7.5rem)]">
+    <section className="relative overflow-hidden pb-[clamp(4rem,3rem+4vw,8rem)] pt-[clamp(3rem,2rem+4vw,6.5rem)]">
       <div className={`${wrap} text-center`}>
-        <motion.p {...enter(0, 10)} className="text-[14px] font-medium text-[#C24A16] sm:text-[15px]">เลขาการเงินที่เกิดมาเพื่อคนรับงาน</motion.p>
-        {/* Exactly two lines at every width: the size follows the longer line's measure (~9.35em). */}
-        <motion.h1 {...enter(0.15, 22)} className="mx-auto mt-5 font-semibold leading-[1.1] tracking-[-0.015em] text-[#1C1917]"
-          style={{ fontSize: 'min(5.5rem, calc((100vw - 72px) / 9.5))' }}>
-          <span className="block whitespace-nowrap">เรื่องตามเงิน</span>
-          <span className="block whitespace-nowrap">ปล่อยให้กระรอกจัดการ</span>
+        <motion.p {...enter(0, 10)} className="text-[12.5px] font-semibold tracking-[0.2em] text-[#C24A16]">THE CASH SQUIRREL</motion.p>
+        <motion.h1 {...enter(0.1, 18)} className="mx-auto mt-5 max-w-[15em] text-[clamp(2.5rem,1.1rem+5.2vw,5.25rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-[#1C1917] [text-wrap:balance]"
+          style={{ fontFamily: "'IBM Plex Sans', var(--font-sans)" }}>
+          {/* Phones: one sentence per line. Wider: two lines. Never a line that ends mid-sentence. */}
+          <span className="block sm:inline">Your work.</span>{' '}<span className="block sm:inline">Your money.</span>{' '}<span className="block">All in one place.</span>
         </motion.h1>
-        <motion.div {...enter(0.45, 12)}>
-          <p className="mx-auto mt-7 max-w-[40rem] text-[clamp(1rem,0.9rem+0.4vw,1.2rem)] leading-[1.75] text-[#6B655F] [text-wrap:balance]">
-            {/* Phrases never split mid-way; lines break only between them. */}
-            {['ตั้งแต่รับงาน ออกบิล', 'กำหนด Credit Term', 'ตามเงินค้าง', 'จนรู้ว่าเหลือเงินจริงเท่าไหร่', 'กระรอกช่วยเก็บทุกอย่างไว้ในที่เดียว'].map((phrase, i) => (
-              <React.Fragment key={phrase}>{i === 3 && <br className="hidden md:block" />}<span className="whitespace-nowrap">{phrase}</span>{' '}</React.Fragment>
-            ))}
+        <motion.div {...enter(0.25, 12)}>
+          <p className="mx-auto mt-6 max-w-[34rem] text-[clamp(1.05rem,0.95rem+0.45vw,1.3rem)] leading-[1.7] text-[#57514B] [text-wrap:balance]">
+            <span className="whitespace-nowrap">จัดการงาน</span> <span className="whitespace-nowrap">ติดตามเงินค้างรับ</span> <span className="whitespace-nowrap">และเห็นภาพรวมการเงินในที่เดียว</span>
           </p>
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <PrimaryButton onClick={onStart} size="lg">เริ่มใช้งานฟรี</PrimaryButton>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <PrimaryButton onClick={onStart} size="lg">เริ่มต้นใช้งาน</PrimaryButton>
             <button type="button" onClick={watch}
-              className="group inline-flex h-[52px] items-center gap-2.5 rounded-xl px-5 text-[15px] font-medium text-[#1C1917] transition-colors hover:bg-[#F1ECE6] cursor-pointer">
+              className="group inline-flex h-[52px] items-center gap-2.5 rounded-xl px-5 text-[15px] font-medium text-[#1C1917] transition-colors hover:bg-[#F1ECE6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E65F2B] cursor-pointer">
               <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#DCD6CF] transition-colors group-hover:border-[#1C1917]"><Play className="ml-0.5 h-3 w-3 fill-current" /></span>
               ดูการทำงาน
             </button>
           </div>
         </motion.div>
       </div>
-      <motion.div ref={theaterRef} {...(reduce ? {} : { initial: { opacity: 0, y: 36, scale: 0.985 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { duration: 0.8, ease: EASE, delay: 0.75 } })}
-        className="mx-auto mt-[clamp(3rem,2rem+3vw,5rem)] w-full max-w-[1120px] px-4 sm:px-8">
-        <ProductTour restartKey={restart} />
+      <motion.div ref={demoRef} id="demo" {...(reduce ? {} : { initial: { opacity: 0, y: 28 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.8, ease: EASE, delay: 0.45 } })}
+        className="mx-auto mt-[clamp(3rem,2rem+3vw,5rem)] w-full max-w-[1120px] scroll-mt-24 px-4 sm:px-8">
+        <ProductDemo replayKey={replay} />
       </motion.div>
     </section>
   );
@@ -130,8 +130,8 @@ function Audience() {
     <section id="who" className={`bg-white ${section}`}>
       <div className={wrap}>
         <Reveal>
-          <Headline>รายได้ไม่ได้เข้าวันเดียวทุกเดือน?<br />กระรอกเกิดมาเพื่อคุณ</Headline>
-          <Lead className="mt-5 max-w-xl">ถ้าต้องจำว่าใครยังไม่จ่าย กระรอกช่วยได้</Lead>
+          <Headline><span style={EN}>Built for independent work.</span></Headline>
+          <Lead className="mt-5 max-w-xl">รายได้ไม่ได้เข้าวันเดียวทุกเดือน? ถ้าต้องจำว่าใครยังไม่จ่าย กระรอกช่วยได้</Lead>
         </Reveal>
         <ol className="mt-[clamp(3rem,2rem+3vw,5rem)] border-t border-[#ECE8E3]">
           {AUDIENCE.map((row, i) => (
@@ -211,8 +211,8 @@ function Difference() {
   );
 }
 
-function Chapter({ id, bg, eyebrow, title, copy, visual, flip = false, centered = false }: {
-  id?: string; bg: string; eyebrow: string; title: React.ReactNode; copy: string; visual: React.ReactNode; flip?: boolean; centered?: boolean;
+function Chapter({ id, bg, eyebrow, title, copy, visual, flip = false, centered = false, wrapTitle = false }: {
+  id?: string; bg: string; eyebrow: string; title: React.ReactNode; copy: string; visual: React.ReactNode; flip?: boolean; centered?: boolean; wrapTitle?: boolean;
 }) {
   if (centered) {
     return (
@@ -233,54 +233,10 @@ function Chapter({ id, bg, eyebrow, title, copy, visual, flip = false, centered 
       <div className={`${wrap} grid items-center gap-[clamp(2.5rem,1.5rem+3vw,6rem)] ${flip ? 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]' : 'lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]'}`}>
         <Reveal className={flip ? 'lg:order-2' : ''}>
           <Eyebrow>{eyebrow}</Eyebrow>
-          <Headline className="mt-4 xl:whitespace-nowrap">{title}</Headline>
+          <Headline className={`mt-4 ${wrapTitle ? '' : 'xl:whitespace-nowrap'}`}>{title}</Headline>
           <Lead className="mt-5 max-w-md">{copy}</Lead>
         </Reveal>
         <Reveal delay={0.1} className={flip ? 'lg:order-1' : ''}>{visual}</Reveal>
-      </div>
-    </section>
-  );
-}
-
-function TeamTeaser() {
-  const [ref, seen] = useSeen<HTMLDivElement>(0.4);
-  const reduce = useReducedMotion();
-  const members = [
-    { name: 'A', x: 16, y: 26 },
-    { name: 'B', x: 84, y: 26 },
-    { name: 'C', x: 50, y: 92 },
-  ];
-  return (
-    <section className={`bg-[#1C1B1F] ${section}`}>
-      <div className={`${wrap} grid items-center gap-[clamp(2.5rem,1.5rem+3vw,6rem)] lg:grid-cols-2`}>
-        <Reveal>
-          <span className="inline-flex rounded-full border border-[#3A3A40] px-3 py-1 text-[11px] font-semibold tracking-[0.14em] text-[#C9C3BC]">COMING SOON</span>
-          <Headline dark className="mt-5">Group &amp; Team กำลังมา</Headline>
-          <Lead dark className="mt-5 max-w-md">แชร์ Workspace และจัดการงานร่วมกันได้ง่ายขึ้น</Lead>
-        </Reveal>
-        <div ref={ref} className="relative mx-auto aspect-[10/8] w-full max-w-[460px]">
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
-            {members.map((m, i) => (
-              <motion.line key={m.name} x1={m.x} y1={m.y} x2={50} y2={52} stroke="#4A4A52" strokeWidth={0.35} vectorEffect="non-scaling-stroke"
-                initial={reduce ? false : { pathLength: 0, opacity: 0 }} animate={seen ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
-                transition={{ duration: 1.1, ease: EASE, delay: 0.6 + i * 0.7 }} />
-            ))}
-          </svg>
-          <motion.div initial={reduce ? false : { opacity: 0, scale: 0.96 }} animate={seen ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.96 }} transition={{ duration: 0.7, ease: EASE }}
-            className="absolute left-1/2 top-[52%] w-[54%] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[#3A3A40] bg-[#232328] p-4">
-            <p className="text-[12px] font-medium text-[#F5F2EE]">Workspace</p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {['งาน', 'เอกสาร', 'สถานะ'].map(t => <span key={t} className="rounded-md bg-[#2E2E34] px-2 py-1 text-[11px] text-[#C9C3BC]">{t}</span>)}
-            </div>
-          </motion.div>
-          {members.map((m, i) => (
-            <motion.span key={m.name} initial={reduce ? false : { opacity: 0 }} animate={seen ? { opacity: 1 } : { opacity: 0 }} transition={{ duration: 0.6, ease: EASE, delay: 0.4 + i * 0.7 }}
-              className="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#3A3A40] bg-[#232328] text-[13px] font-medium text-[#F5F2EE]"
-              style={{ left: `${m.x}%`, top: `${m.y}%` }}>
-              {m.name}
-            </motion.span>
-          ))}
-        </div>
       </div>
     </section>
   );
@@ -296,7 +252,8 @@ function HowItWorks() {
     <section id="how" className={`bg-white ${section}`}>
       <div className={wrap}>
         <Reveal className="max-w-2xl">
-          <Headline>คุณทำงาน<br />กระรอกช่วยจำเรื่องเงิน</Headline>
+          <Headline><span style={EN}>How it works.</span></Headline>
+          <Lead className="mt-5">คุณทำงาน กระรอกช่วยจำเรื่องเงิน</Lead>
         </Reveal>
         <div ref={ref} className="mt-[clamp(3rem,2rem+3vw,5rem)] grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-20">
           <ol className="relative">
@@ -414,9 +371,9 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
         <Hero onStart={goLogin} />
         <Audience />
         <Difference />
-        <Chapter id="features" bg="bg-[#FAF8F5]" eyebrow="เงินที่ยังไม่ได้รับ"
-          title={<>งานจบแล้ว<br />แต่เงินยังไม่เข้า<br /><span className="text-[#77716B]">กระรอกไม่ลืม</span></>}
-          copy="ยอดที่ยังไม่ได้รับอยู่ในที่เดียว เห็นทันทีว่าก้อนไหนเกินกำหนด ก้อนไหนใกล้ถึงวัน" visual={<ReceivablesVisual />} />
+        <Chapter id="features" bg="bg-[#FAF8F5]" eyebrow="เงินที่ยังไม่ได้รับ" wrapTitle
+          title={<span style={EN}>Know what’s paid.<br />Know what’s pending.</span>}
+          copy="งานจบแล้วแต่เงินยังไม่เข้า กระรอกไม่ลืม ยอดที่ยังไม่ได้รับอยู่ในที่เดียว เห็นทันทีว่าก้อนไหนเกินกำหนด ก้อนไหนใกล้ถึงวัน" visual={<ReceivablesVisual />} />
         <Chapter bg="bg-white" eyebrow="Credit Term" flip
           title={<>ลูกค้าบอก “อีก 30 วัน”<br /><span className="text-[#77716B]">กระรอกช่วยจำต่อให้</span></>}
           copy="ส่งงานวันไหน ใส่ Credit Term กี่วัน กระรอกนับให้ แล้ววางวันที่เงินควรเข้าไว้บนปฏิทิน" visual={<CreditTermVisual />} />
@@ -429,7 +386,6 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
         <Chapter bg="bg-[#FAF8F5]" eyebrow="เอกสาร" flip
           title={<>งานเดียว<br />เอกสารต่อได้เลย</>}
           copy="ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ดึงชื่อลูกค้า ยอดเงิน และภาษีจากงานเดิม ไม่ต้องกรอกซ้ำ" visual={<DocumentsVisual />} />
-        <TeamTeaser />
         <HowItWorks />
         <Pricing onStart={goLogin} />
         <FinalCta onStart={goLogin} />

@@ -29,6 +29,7 @@ const loadCalendarTab = () => import('../features/calendar/CalendarTab');
 const ReceivablesTab = lazy(loadReceivablesTab);
 const VaultPage = lazy(loadVaultPage);
 const Wht50Page = lazy(loadWht50Page);
+const DemoCapturePage = lazy(() => import('../features/marketing/DemoCapturePage'));
 const ReportOverviewTab = lazy(loadReportOverviewTab);
 const AdminDashboardTab = lazy(loadAdminDashboardTab);
 const SplitTab = lazy(loadSplitTab);
@@ -110,7 +111,7 @@ import { motion, AnimatePresence } from 'motion/react';
 type TabKey = 'dashboard' | 'adminDashboard' | 'jobs' | 'tax' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans' | 'groups' | 'calendar' | 'receivables' | 'incomeExpense' | 'vault' | 'wht50';
 
 const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'calendar', 'receivables', 'incomeExpense', 'vault', 'wht50'];
-const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api']);
+const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api', 'demo-capture']);
 // The ลูกค้า page was removed; its per-client numbers live in รายงาน › ลูกค้า (the insight alias).
 const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense', clients: 'insight' };
 
@@ -2294,6 +2295,9 @@ export default function App() {
       localStorage.removeItem('cashflow_expenses');
     }
   };
+
+  // The product demo on a fixed artboard, for screen recording. Sample data only, no session needed.
+  if (pathname === '/demo-capture') return <Suspense fallback={null}><DemoCapturePage /></Suspense>;
 
   if (loadingSession) {
     // A refresh by someone who was signed in: lay out the app's skeleton straight away (the page

@@ -4,7 +4,7 @@
 (function () {
   try {
     var path = location.pathname;
-    if (localStorage.getItem('cashflow_signed_in') !== '1' || /^\/(login|recover|privacy)/.test(path)) return;
+    if (localStorage.getItem('cashflow_signed_in') !== '1' || /^\/(login|recover|privacy|demo-capture)/.test(path)) return;
     var nav = '';
     for (var n = 0; n < 9; n++) nav += '<div style="display:flex;gap:12px;align-items:center;padding:10px 12px"><i style="width:20px;height:20px"></i><i style="width:' + [64, 40, 56, 56, 64, 56, 40, 56, 40][n] + 'px;height:14px"></i></div>';
     var stat = '<div class="card"><i style="width:60%;height:12px"></i><i style="width:45%;height:22px;margin-top:10px"></i></div>';

@@ -209,7 +209,7 @@ test('mobile login layout remains inside the viewport',async({page})=>{
  await page.setViewportSize({width:390,height:844});await page.goto('/');
  await expect(page.getByRole('button',{name:'เข้าสู่ระบบ',exact:true}).first()).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.getByRole('button',{name:'เริ่มใช้งานฟรี',exact:true}).first().click();
+ await page.getByRole('button',{name:'เริ่มต้นใช้งาน',exact:true}).first().click();
  await expect(page.locator('input[type=email]').first()).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'artifacts/mobile-login.png',fullPage:true});
@@ -1017,4 +1017,90 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await expect(modal.getByRole('button',{name:'ตั้งยอดเริ่มต้น'})).toHaveCount(0);
  await expect(modal.getByRole('region',{name:'รายละเอียดรายจ่ายเดือนนี้'})).toHaveCount(0);
  await expect(modal.getByRole('button',{name:/ดูทั้งหมด/})).toHaveCount(0);
+});
+
+test('landing hero: English headline, Thai explanation, working CTAs, and a product demo that replays cleanly',async({page})=>{
+ const api:string[]=[];
+ page.on('request',r=>{const u=new URL(r.url());if(u.pathname.startsWith('/api/'))api.push(`${r.method()} ${u.pathname}`);});
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
+ await page.goto('/');
+ await expect(page.getByRole('heading',{level:1})).toContainText('Your work. Your money.');
+ await expect(page.getByRole('heading',{level:1})).toContainText('All in one place.');
+ await expect(page.getByText('จัดการงาน ติดตามเงินค้างรับ')).toBeVisible();
+ await expect(page.getByText('Group & Team')).toHaveCount(0); // nothing promoted that isn't available yet
+ const demo=page.getByTestId('product-demo');
+ // "ดูการทำงาน" brings the demo into view and starts it from the top
+ await page.getByRole('button',{name:'ดูการทำงาน'}).click();
+ await expect(demo).toBeInViewport();
+ await expect(demo).toHaveAttribute('data-scene','0');
+ await expect(demo).toContainText('See the big picture.');
+ await expect(demo).toContainText('ข้อมูลตัวอย่าง');
+ await expect(page.getByTestId('demo-viewport')).toContainText('฿6,500'); // รับเงินจริง before the payment
+ // pause holds the frame
+ await page.getByTestId('demo-toggle').click();
+ await expect(page.getByTestId('demo-toggle')).toHaveAttribute('aria-label','เล่นตัวอย่างต่อ');
+ // jump to the last scene and let it finish: the payment is recorded and the totals follow
+ await page.getByRole('button',{name:/^ฉากที่ 4/}).click();
+ await expect(demo).toHaveAttribute('data-scene','3');
+ await expect(demo).toHaveAttribute('data-paid','1');
+ await expect(page.getByTestId('demo-viewport')).toContainText('฿7,500');
+ await expect(page.getByTestId('demo-viewport')).toContainText('฿6,000');
+ await expect(page.getByTestId('demo-viewport')).toContainText('฿13,500'); // the work value is unchanged
+ await expect(page.getByTestId('demo-toggle')).toHaveAttribute('aria-label','เล่นตัวอย่างอีกครั้ง',{timeout:9000}); // ends and holds, no loop
+ await expect(demo).toHaveAttribute('data-scene','3');
+ // replay, more than once: back to the unpaid figures every time, nothing adds up
+ for(let i=0;i<3;i++){
+  await page.getByTestId('demo-replay').click();
+  await expect(demo).toHaveAttribute('data-paid','0');
+  await expect(page.getByTestId('demo-viewport')).toContainText('฿6,500');
+  await expect(page.getByTestId('demo-viewport')).toContainText('฿7,000');
+ }
+ expect(api.filter(a=>a!=='GET /api/auth')).toEqual([]); // the demo reads and writes nothing
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ // the primary button goes to the real sign-up / sign-in page
+ await page.getByRole('button',{name:'เริ่มต้นใช้งาน'}).first().click();
+ await expect(page).toHaveURL(/\/login$/);
+ await expect(page.locator('input[type=email]').first()).toBeVisible();
+});
+
+test('landing demo without motion: still pictures of each scene, no autoplay',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
+ await page.goto('/');
+ const demo=page.getByTestId('product-demo');
+ await expect(page.getByTestId('demo-toggle')).toHaveCount(0);
+ await expect(demo).toHaveAttribute('data-scene','0');
+ await page.getByRole('button',{name:/^ฉากที่ 2/}).click();
+ await expect(demo).toContainText('Track every payment.');
+ await expect(demo).toContainText('฿4,000'); // คงเหลือ before the payment
+ await page.getByRole('button',{name:/^ฉากที่ 4/}).click();
+ await expect(page.getByTestId('demo-viewport')).toContainText('฿7,500');
+ await page.waitForTimeout(600);
+ await expect(demo).toHaveAttribute('data-scene','3'); // it stays where the reader put it
+});
+
+test('demo capture page: both artboards, keyboard control, and controls that hide for recording',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
+ await page.setViewportSize({width:1280,height:800});
+ await page.goto('/demo-capture');
+ const board=page.getByTestId('capture-board'),demo=page.getByTestId('product-demo');
+ await expect(board).toHaveAttribute('data-ratio','16x9');
+ await expect(demo).toHaveAttribute('data-layout','side');
+ await expect(demo).toHaveAttribute('data-scene','0'); // waits for you: nothing plays until asked
+ await page.waitForTimeout(500);await expect(demo).toHaveAttribute('data-scene','0');
+ await page.keyboard.press('4');
+ await expect(demo).toHaveAttribute('data-scene','3');
+ await page.keyboard.press('r');
+ await expect(demo).toHaveAttribute('data-scene','0');
+ await expect(demo).toHaveAttribute('data-paid','0');
+ await page.getByRole('button',{name:'9:16'}).click();
+ await expect(board).toHaveAttribute('data-ratio','9x16');
+ await expect(demo).toHaveAttribute('data-layout','tall');
+ const box=(await board.boundingBox())!;
+ expect(box.height/box.width).toBeCloseTo(16/9,1);
+ await page.keyboard.press('h');
+ await expect(page.getByTestId('capture-controls')).toHaveCount(0);
+ await page.keyboard.press('h');
+ await expect(page.getByTestId('capture-controls')).toBeVisible();
+ await expect(page.getByRole('button',{name:/download|mp4|ดาวน์โหลด/i})).toHaveCount(0); // no export it can't do
 });
