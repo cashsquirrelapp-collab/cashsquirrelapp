@@ -1103,3 +1103,68 @@ test('landing on a phone: the story stays inside the screen from top to bottom',
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  }
 });
+
+test('mobile shell: top bar, bottom bar with the squirrel add button, tools screen, instant theme switch',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true}}));
+ await page.addInitScript(()=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('cashflow_dark_mode','false');sessionStorage.setItem('seeded','1');}});
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const nav=page.getByRole('navigation',{name:'เมนูหลัก'});
+ await expect(nav.getByRole('button')).toHaveCount(5);
+ await expect(nav.getByRole('button',{name:'ภาพรวม',exact:true})).toHaveAttribute('aria-current','page');
+ await expect(page.getByRole('button',{name:'เปิดเมนู'})).toHaveCount(0); // the old hamburger drawer is gone on phones
+ // tabs
+ await nav.getByRole('button',{name:'งาน',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'งาน',exact:true})).toBeVisible();
+ await nav.getByRole('button',{name:'รอรับ',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'เงินค้างรับ'})).toBeVisible();
+ // tools screen: one group open at a time, every tool goes to its real page
+ await nav.getByRole('button',{name:'เมนู',exact:true}).click();
+ const tools=page.getByRole('region',{name:'เครื่องมือทั้งหมด'});
+ await expect(tools.getByRole('heading',{name:'เครื่องมือทั้งหมด'})).toBeVisible();
+ await tools.getByText('รายงานและภาษี').click();
+ await tools.getByText('การเงินและแผนงาน').click();
+ await expect(tools.locator('details[open]')).toHaveCount(1);
+ await tools.getByPlaceholder(/ค้นหา เช่น/).fill('50');
+ await tools.getByRole('button',{name:/ติดตาม 50 ทวิ/}).click();
+ await expect(page.getByRole('heading',{name:'ติดตามใบ 50 ทวิ'})).toBeVisible();
+ await expect(nav.getByRole('button',{name:'เมนู',exact:true})).toHaveAttribute('aria-current','page');
+ // the centre button opens the add-job form at once, and the job value formats itself
+ await nav.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ const value=page.locator('#job-form-value-input');
+ await expect(value).toBeVisible();
+ await expect(page.getByRole('menu')).toHaveCount(0); // no action chooser in between
+ await value.click();await page.keyboard.type('12500.509');
+ await expect(value).toHaveValue('12,500.50'); // commas while typing, satang at most, nothing but digits
+ await value.fill('');await page.keyboard.type('-1a000');
+ await expect(value).toHaveValue('1,000');
+ await page.keyboard.press('Escape');
+ // light / dark flips straight away, no dialog
+ await nav.getByRole('button',{name:'ภาพรวม',exact:true}).click();
+ const html=page.locator('html');
+ const startedDark=await html.evaluate(el=>el.classList.contains('dark')); // the app follows the time of day until told otherwise
+ const toggle=(toDark:boolean)=>page.getByRole('button',{name:toDark?'เปลี่ยนเป็นโหมดมืด':'เปลี่ยนเป็นโหมดสว่าง'});
+ await toggle(!startedDark).click();
+ await expect(html).toHaveClass(startedDark?/^(?!.*\bdark\b)/:/dark/);
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await toggle(startedDark).click();
+ await expect(html).toHaveClass(startedDark?/dark/:/^(?!.*\bdark\b)/);
+ // every phone width stays inside the screen
+ for(const width of [320,360,375,390,414,430]){
+  await page.setViewportSize({width,height:780});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`no sideways scroll at ${width}px`).toBe(true);
+  await expect(nav.getByRole('button',{name:'เพิ่มงาน',exact:true})).toBeInViewport();
+ }
+ expect(errors).toEqual([]);
+});
+
+test('desktop keeps its own layout: no mobile bars at 1365px',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/');
+ await expect(page.locator('aside.app-sidebar')).toBeVisible();
+ await expect(page.getByRole('navigation',{name:'เมนูหลัก'})).toHaveCount(0);
+ await expect(page.locator('.ksm-header')).toHaveCount(0);
+});

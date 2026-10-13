@@ -422,6 +422,8 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                         id="job-form-value-input"
                         value={value}
                         onChange={(raw) => { setValue(raw); clearError('value'); }}
+                        maxDecimals={2}
+                        allowNegative={false}
                         placeholder="0"
                         className={`${inputClass(errors.value)} pl-7 font-mono`}
                         aria-invalid={Boolean(errors.value)}

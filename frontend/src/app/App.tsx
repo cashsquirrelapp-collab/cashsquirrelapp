@@ -38,6 +38,8 @@ import { FullPageLoader } from '../components/ui/FullPageLoader';
 import { useDelayedLoader } from '../hooks/useDelayedLoader';
 import Login from '../features/auth/Login';
 import LandingPage from '../features/marketing/LandingPage';
+import { MobileBottomNav, MobileHeader, MobileMenuPage, type MobileTool, type MobileToolGroup } from '../features/mobile/MobileChrome';
+import type { KsIconName } from '../features/mobile/icons';
 const TaxTab = lazy(loadTaxTab);
 const SettingsTab = lazy(loadSettingsTab);
 const InvoiceTab = lazy(loadInvoiceTab);
@@ -460,6 +462,52 @@ export default function App() {
   }, [activeTab, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const profileMenuItem = 'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer';
+  // Tools screen of the mobile layout. Groups and wording follow the mobile design; an entry is listed
+  // only when the sidebar would list it too, and anything the design does not name lands in the last group.
+  const renderMobileMenu = () => {
+    const has = (key: TabKey) => navItems.some(item => item.key === key);
+    const go = (tab: TabKey, before?: () => void) => () => { before?.(); setIsMobileMenuOpen(false); navigateTab(tab); };
+    const calendarView = (view: 'calendar' | 'timeline') => () => { try { localStorage.setItem('cashsquirrel_calendar_view', view); } catch { /* the calendar falls back to its default view */ } };
+    const tool = (key: TabKey, title: string, description: string, icon: KsIconName, search = '', before?: () => void, id: string = key): MobileTool[] =>
+      has(key) ? [{ key: id, title, description, icon, search, onOpen: go(key, before) }] : [];
+    const groups: MobileToolGroup[] = [
+      { id: 'money', name: 'การเงินและแผนงาน', sub: 'รายจ่าย · เป้าหมาย · ปฏิทิน', icon: 'wallet', items: [
+        ...tool('incomeExpense', 'รายจ่าย', 'รายการจ่าย แผนประจำ และส่งออก', 'expense', 'ค่าใช้จ่าย บันทึก รายรับ'),
+        ...tool('split', 'เป้าหมายการเงิน', 'สร้างเป้าหมาย แบ่งเงิน ฝาก ถอน โอน', 'target', 'ออม สัดส่วน จัดสรร'),
+        ...tool('calendar', 'ปฏิทิน', 'ดูวันส่งงานและกำหนดรับเงิน', 'calendar', 'วัน นัดหมาย', calendarView('calendar')),
+        ...tool('calendar', 'ไทม์ไลน์', 'ดูลำดับงานและเงินตามเวลา', 'clock', 'เวลา กำหนด', calendarView('timeline'), 'timeline'),
+      ] },
+      { id: 'documents', name: 'เอกสารและไฟล์', sub: 'เสนอราคา · แจ้งหนี้ · 50 ทวิ', icon: 'document', items: [
+        ...tool('invoice', 'ออกและจัดการเอกสาร', 'เสนอราคา แจ้งหนี้ ใบเสร็จ กำกับภาษี', 'document', 'invoice quotation receipt pdf ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ใบกำกับภาษี'),
+        ...tool('vault', 'คลังไฟล์', 'สัญญา สลิป และหลักฐานแนบงาน', 'folder', 'อัปโหลด รูป กล้อง คลังเอกสาร'),
+        ...tool('wht50', 'ติดตาม 50 ทวิ', 'ใบรับรองหัก ณ ที่จ่ายของแต่ละงาน', 'receipt', '50ทวิ wht ใบรับรอง'),
+      ] },
+      { id: 'analysis', name: 'รายงานและภาษี', sub: 'รายรับ · ลูกค้า · ข้อมูลภาษี', icon: 'chart', items: [
+        ...tool('report', 'รายงาน', 'รายรับ ลูกค้า ประเภท และจังหวะรับเงิน', 'chart', 'วิเคราะห์ กราฟ CSV'),
+        ...tool('tax', 'ภาษี', 'รายได้ ค่าใช้จ่าย ลดหย่อน และสรุป', 'receipt', 'ปี แบบประเมิน'),
+      ] },
+      { id: 'account', name: 'บัญชีและการตั้งค่า', sub: 'การแสดงผล · สำรองข้อมูล · บริการ', icon: 'settings', items: [
+        ...tool('settings', 'ตั้งค่า', 'โปรไฟล์ ผู้ออกเอกสาร LINE และสำรองข้อมูล', 'settings', 'นำเข้า เป้ารายรับ มืด สว่าง แจ้งเตือน ภาษา ไลน์'),
+        ...tool('groups', 'ทีมและสมาชิก', 'กลุ่ม คำเชิญ และบทบาท', 'users', 'กลุ่ม ทีม'),
+        ...tool('plans', 'แพ็กเกจและบัญชี', 'Free / Pro และการชำระเงิน', 'shield', 'Pro สมัคร อัปเกรด'),
+        ...tool('adminDashboard', t('nav.adminDashboard'), 'ภาพรวมผู้ใช้สำหรับผู้ดูแล', 'chart', 'admin'),
+      ] },
+    ].filter(group => group.items.length > 0) as MobileToolGroup[];
+    const name = routeContext?.profile.displayName || session?.user?.email?.split('@')[0] || 'บัญชีของฉัน';
+    const plan = isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE';
+    return (
+      <MobileMenuPage
+        groups={groups}
+        account={{ name, detail: `โปรไฟล์ของฉัน · ${plan}`, avatarUrl: userAvatar || undefined, onOpen: go(has('settings') ? 'settings' : 'dashboard') }}
+        workspace={session && !session.isGuest ? <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/> : undefined}
+        onSignOut={() => {
+          setIsMobileMenuOpen(false);
+          triggerConfirm('ออกจากระบบ', 'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?', async () => { await handleSignOut(); });
+        }}
+      />
+    );
+  };
+
   const renderProfileMenu = (position: string) => (
     <AnimatePresence>
       {isProfileMenuOpen && (
@@ -2592,177 +2640,22 @@ export default function App() {
         </div>
       </aside>
 
-      {/* 📱 Mobile Sidebar Slide-out Drawer */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[999] lg:hidden"
-            />
-
-            {/* Sidebar content */}
-            <motion.aside
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed inset-y-0 left-0 w-72 bg-brand-white dark:bg-stone-900 border-r border-brand-border/40 dark:border-neutral-800 z-[1000] p-6 flex flex-col justify-between shadow-2xl lg:hidden select-none"
-            >
-              <div className="space-y-6">
-                {/* Drawer Header */}
-                <div className="flex items-center justify-between pb-4 border-b border-brand-border/20">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigateTab('dashboard');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2.5 cursor-pointer text-left"
-                    title={t("nav.backToDashboard")}
-                  >
-                    <BrandLockup size={32} />
-                  </button>
-                  <button
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-1.5 rounded-xl bg-brand-faint hover:bg-brand-border/30 text-brand-muted hover:text-brand-text transition-all cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Navigation Links inside Drawer */}
-                <nav className="space-y-1.5">
-                  {renderNavGroup('core', true)}
-
-                  {renderNavGroup('more', true)}
-
-                  {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
-                </nav>
-              </div>
-
-              <div className="space-y-4">
-                {/* User profile inside Drawer */}
-                <div className="p-3 rounded-2xl bg-brand-faint/40 dark:bg-neutral-800/20 border border-brand-border/20 dark:border-neutral-800/40 flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-blue-acc/15 dark:bg-[#FFA473]/15 flex items-center justify-center text-[#E65F2B] dark:text-[#FFA473] font-extrabold text-xs shrink-0 overflow-hidden">
-                      {userAvatar ? (
-                        <img src={userAvatar} className="w-full h-full object-cover" alt="User Avatar" />
-                      ) : (
-                        <User className="w-3.5 h-3.5" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] text-brand-muted truncate font-extrabold">
-                        {session?.user?.email}
-                      </p>
-                    </div>
-                  </div>
-
-                  {session && (
-                    <button
-                      type="button"
-                      onClick={() => { navigateTab('plans'); setIsMobileMenuOpen(false); }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40 hover:border-brand-border transition-colors cursor-pointer"
-                    >
-                      {isGuestProPreview ? (
-                        <>
-                          <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
-                          <span className="font-display font-black text-indigo-600 dark:text-indigo-400">{t('plans.guestPreviewBadge')}</span>
-                        </>
-                      ) : isPaidActive ? (
-                        <>
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                          <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO</span>
-                          {subscription?.currentPeriodEnd && (
-                            <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                              {t('sidebar.until', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
-                            </span>
-                          )}
-                        </>
-                      ) : isInFreeTrial ? (
-                        <>
-                          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">{t('plans.freeTrialBadge')}</span>
-                          {trialEndsAt && (
-                            <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                              {t('sidebar.until', { date: trialEndsAt.toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <span className="w-2 h-2 rounded-full bg-[#E65F2B] shrink-0" />
-                          <span className="text-brand-muted">FREE</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      triggerConfirm(
-                        'ออกจากระบบ',
-                        'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?',
-                        async () => {
-                          await handleSignOut();
-                        }
-                      );
-                    }}
-                    className="w-full py-1.5 px-3 bg-pink-bg hover:bg-pink-bg/80 text-pink-acc border border-pink-acc/10 rounded-xl text-[10px] font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    <LogOut className="w-3 h-3" />
-                    <span>ออกจากระบบ</span>
-                  </button>
-                </div>
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-
       {/* 📱 / 💻 Main Section: Handles responsive paddings & maximum constraints */}
-      <div className="flex-1 flex flex-col h-screen min-h-0 min-w-0 relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
+      <div className={`flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-brand-bg ${isDesktop ? 'h-screen pb-6' : 'h-[100dvh]'}`}>
         
-        {/* Floating menu + account controls for screens without the sidebar. */}
+        {/* Phones and tablets: the top bar from the mobile design. Account and workspace controls live on the tools screen. */}
         {!isDesktop && (
-        <div className={`pointer-events-none absolute inset-x-0 top-0 flex select-none items-start justify-between p-3 ${isProfileMenuOpen ? 'z-[110]' : 'z-40'}`}>
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-brand-border/60 bg-brand-white/90 text-brand-muted shadow-sm backdrop-blur-md transition-all hover:text-brand-text lg:hidden"
-            title={t('header.openMenu')}
-          >
-            <Menu className="h-4.5 w-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
-          </button>
-
-          <div className="group pointer-events-auto flex items-center justify-end gap-2">
-            {!session.isGuest && (
-              <div className={`overflow-hidden transition-all duration-300 ease-out ${isProfileMenuOpen ? 'max-w-[220px] translate-x-0 opacity-100' : 'max-w-0 translate-x-3 opacity-0 group-hover:max-w-[220px] group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:max-w-[220px] group-focus-within:translate-x-0 group-focus-within:opacity-100'}`}>
-                <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>
-              </div>
-            )}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsProfileMenuOpen(open => !open)}
-                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#E65F2B]/15 bg-[#E65F2B] text-white shadow-sm transition-all hover:shadow-md active:scale-95"
-                aria-label="เปิดเมนูโปรไฟล์"
-                aria-expanded={isProfileMenuOpen}
-              >
-                {userAvatar ? <img src={userAvatar} className="h-full w-full object-cover" alt="User Avatar" /> : <User className="h-4.5 w-4.5" />}
-              </button>
-              {renderProfileMenu('right-0 top-12 w-64')}
-            </div>
-          </div>
-        </div>
+          <MobileHeader
+            dark={darkMode}
+            onToggleTheme={() => setDarkMode(!darkMode)}
+            alerts={dueReminderJobs.length}
+            onOpenAlerts={() => { setIsMobileMenuOpen(false); navigateTab('receivables'); }}
+            onHome={() => { setIsMobileMenuOpen(false); navigateTab('dashboard'); }}
+          />
         )}
 
         {/* Scrollable Container with responsive max widths */}
-        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-16 pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
+        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 ${isDesktop ? 'pt-16' : 'pt-2'} pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
           {/* Document vault for the open finance workspace, shared by Documents, Jobs and Tax */}
           <VaultProvider
             key={financeOwner}
@@ -2786,6 +2679,8 @@ export default function App() {
                 <div className="order-last w-full sm:order-none sm:w-auto">
                   <DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} />
                 </div>
+                {/* On phones and tablets the top bar already has the bell and the light/dark switch. */}
+                {isDesktop && (
                 <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
@@ -2811,6 +2706,7 @@ export default function App() {
                     {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   </button>
                 </div>
+                )}
               </div>
             </PageHeader>
           )}
@@ -3095,6 +2991,19 @@ export default function App() {
           </Suspense>}
           </VaultProvider>
         </div>
+
+        {!isDesktop && isMobileMenuOpen && renderMobileMenu()}
+        {!isDesktop && (
+          <MobileBottomNav
+            current={isMobileMenuOpen ? 'menu' : activeTab === 'dashboard' || activeTab === 'jobs' || activeTab === 'receivables' ? activeTab : 'menu'}
+            onSelect={tab => {
+              if (tab === 'menu') { setIsMobileMenuOpen(true); return; }
+              setIsMobileMenuOpen(false);
+              navigateTab(tab);
+            }}
+            onAddJob={() => { setIsMobileMenuOpen(false); setIsAddJobOpen(true); navigateTab('jobs'); }}
+          />
+        )}
 
         {/* Custom Dialog overlay */}
         <CustomDialog

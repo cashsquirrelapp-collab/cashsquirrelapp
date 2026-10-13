@@ -1,0 +1,107 @@
+/* Mobile shell (screens narrower than 1024px). Sizes, spacing and colours follow the owner's
+   design file kraroktunngern-Numeric-Value.html as the browser renders it at 390px.
+   Everything is scoped to .ksm so the desktop layout is untouched. Colours come from the app's
+   own theme variables, which already hold the CI values for light and dark. */
+.ksm {
+  --ksm-page: var(--bg);
+  --ksm-surface: var(--white);
+  --ksm-text: var(--text);
+  --ksm-secondary: var(--muted);
+  --ksm-muted: var(--faint);
+  --ksm-border: var(--border);
+  --ksm-accent: #E65F2B;
+  --ksm-accent-text: #C24A16;
+  --ksm-selected: #FFF1E8;
+  --ksm-shadow-near: rgba(60, 40, 28, 0.07);
+  --ksm-shadow-far: rgba(60, 40, 28, 0.09);
+  font-family: "IBM Plex Sans", "IBM Plex Sans Thai", system-ui, sans-serif;
+}
+.dark .ksm {
+  --ksm-accent: #FFA473;
+  --ksm-accent-text: #FFA473;
+  --ksm-selected: var(--faint);
+}
+.ksm button { -webkit-tap-highlight-color: transparent; }
+.ksm :focus-visible { outline: 2px solid var(--ksm-accent-text); outline-offset: 2px; }
+
+/* Top bar */
+.ksm-header { flex-shrink: 0; padding: max(10px, env(safe-area-inset-top, 0px)) 16px 2px; background: var(--ksm-page); }
+.ksm-top { display: flex; align-items: center; gap: 3px; min-height: 46px; }
+.ksm-brand { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.ksm-wordmark { font-family: "Prompt", "IBM Plex Sans Thai", sans-serif; font-synthesis: none; font-size: 19px; font-weight: 600; line-height: 1.5; letter-spacing: -0.3px; color: var(--ksm-text); white-space: nowrap; }
+.ksm-wordmark > span { color: var(--ksm-accent); }
+.ksm-spacer { flex: 1; min-width: 0; }
+.ksm-iconbtn { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 40px; min-width: 40px; height: 44px; border-radius: 12px; color: var(--ksm-secondary); cursor: pointer; }
+.ksm-iconbtn:hover { background: var(--ksm-muted); }
+.ksm-iconbtn.is-notify { color: var(--ksm-text); }
+.ksm-dot { position: absolute; top: 9px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--ksm-accent); box-shadow: 0 0 0 2px var(--ksm-page); }
+
+/* Bottom bar */
+.ksm-nav { position: relative; z-index: 50; flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: calc(76px + env(safe-area-inset-bottom, 0px)); min-height: calc(76px + env(safe-area-inset-bottom, 0px)); padding: 4px 6px calc(7px + env(safe-area-inset-bottom, 0px)); overflow: visible; background: var(--ksm-surface); border-top: 1px solid var(--ksm-border); border-radius: 24px 24px 0 0; box-shadow: 0 -3px 16px var(--ksm-shadow-near); }
+.ksm-nav-item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; min-height: 60px; padding: 4px 0 0; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); cursor: pointer; }
+.ksm-nav-icon { display: grid; place-items: center; width: 44px; min-width: 44px; height: 30px; border-radius: 12px; }
+.ksm-nav-item[aria-current="page"] { color: var(--ksm-accent-text); font-weight: 600; }
+.ksm-nav-item[aria-current="page"] .ksm-nav-icon { background: var(--ksm-selected); }
+.ksm-nav-add { overflow: visible; z-index: 2; }
+.ksm-squirrel { position: absolute; top: -23px; width: 58px; height: 73px; color: #E65F2B; filter: drop-shadow(0 3px 5px var(--ksm-shadow-far)); transition: transform 120ms ease-out; }
+.ksm-squirrel svg { display: block; width: 100%; height: 100%; }
+.ksm-nav-add:hover .ksm-squirrel { color: #D35221; }
+.ksm-nav-add:active .ksm-squirrel { transform: scale(0.95); }
+.ksm-nav-add > span:last-child { margin-top: 44px; font-size: 11px; font-weight: 600; color: var(--ksm-accent-text); }
+
+/* The tools screen behind the "เมนู" tab */
+.ksm-layer { position: absolute; z-index: 40; left: 0; right: 0; top: calc(max(10px, env(safe-area-inset-top, 0px)) + 48px); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior-y: contain; padding: 10px 16px 38px; background: var(--ksm-page); color: var(--ksm-text); font-size: 15px; line-height: 1.5; }
+.ksm-page { animation: ksm-page-in 0.22s ease-out; }
+.ksm-page > * + * { margin-top: 12px; }
+@keyframes ksm-page-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+.ksm-title { min-height: 44px; margin-bottom: 8px; }
+.ksm-title h2 { font-size: 23px; font-weight: 600; line-height: 1.36; }
+.ksm-title p { max-width: 270px; margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-search { position: relative; }
+.ksm-search > svg { position: absolute; left: 13px; top: 11px; color: var(--ksm-secondary); }
+.ksm-search input { display: block; width: 100%; min-height: 44px; padding: 10px 40px 10px 42px; font-size: 14px; line-height: 1.5; color: var(--ksm-text); background: var(--ksm-surface); border: 1px solid var(--ksm-border); border-radius: 12px; }
+.ksm-search input::placeholder { color: var(--ksm-secondary); }
+.ksm-search-clear { position: absolute; right: 2px; top: 1px; width: 40px; height: 42px; display: inline-flex; align-items: center; justify-content: center; color: var(--ksm-secondary); border-radius: 12px; cursor: pointer; }
+.ksm-groups { display: grid; gap: 10px; }
+.ksm-group { overflow: hidden; background: var(--ksm-surface); border: 1px solid var(--ksm-border); border-radius: 16px; }
+.ksm-group > summary { display: flex; align-items: center; gap: 12px; min-height: 78px; padding: 16px 14px; list-style: none; cursor: pointer; }
+.ksm-group > summary::-webkit-details-marker { display: none; }
+.ksm-group > summary b { display: block; font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--ksm-text); }
+.ksm-group > summary small { display: block; margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-grow { flex: 1; min-width: 0; text-align: left; }
+.ksm-group-symbol { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 12px; background: var(--ksm-muted); color: var(--ksm-accent-text); }
+.ksm-group-chevron { display: grid; color: var(--ksm-secondary); transition: transform 150ms; }
+.ksm-group[open] > summary { background: var(--ksm-selected); }
+.ksm-group[open] > summary b { color: var(--ksm-accent-text); }
+.ksm-group[open] .ksm-group-chevron { transform: rotate(90deg); }
+.ksm-group-body { padding: 2px 8px 6px; }
+.ksm-row { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 64px; padding: 12px 6px; text-align: left; border-bottom: 1px solid var(--ksm-border); cursor: pointer; }
+.ksm-row:last-child { border-bottom: 0; }
+.ksm-row:hover { background: var(--ksm-muted); }
+.ksm-row-icon { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; color: var(--ksm-secondary); }
+.ksm-row b { display: block; font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--ksm-text); overflow-wrap: anywhere; }
+.ksm-row p { margin-top: 3px; font-size: 11px; line-height: 1.55; color: var(--ksm-secondary); overflow-wrap: anywhere; }
+.ksm-row > svg:last-child { flex-shrink: 0; color: var(--ksm-secondary); }
+.ksm-panel { background: var(--ksm-surface); border: 1px solid var(--ksm-border); border-radius: 16px; overflow: hidden; }
+.ksm-panel .ksm-row { padding: 14px; gap: 10px; }
+.ksm-count { margin: 0 0 9px; font-size: 12px; color: var(--ksm-secondary); }
+.ksm-account { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 16px; padding: 12px 14px; text-align: left; background: var(--ksm-surface); border: 1px solid var(--ksm-border); border-radius: 16px; cursor: pointer; }
+.ksm-avatar { display: grid; place-items: center; flex-shrink: 0; overflow: hidden; width: 34px; height: 34px; border-radius: 12px; background: var(--ksm-muted); color: var(--ksm-secondary); font-size: 12px; font-weight: 600; }
+.ksm-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ksm-account b { display: block; font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--ksm-text); }
+.ksm-account small { display: block; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-account > svg { color: var(--ksm-secondary); }
+.ksm-note { margin-top: 2px; text-align: center; font-size: 11px; line-height: 1.6; color: var(--ksm-secondary); }
+.ksm-workspace { margin-top: 12px; }
+.ksm-empty { padding: 22px 14px; text-align: center; font-size: 13px; color: var(--ksm-secondary); }
+
+@media (max-width: 360px) {
+  .ksm-header { padding-left: 12px; padding-right: 12px; }
+  .ksm-layer { padding-left: 12px; padding-right: 12px; }
+  .ksm-wordmark { font-size: 17px; }
+  .ksm-nav-item, .ksm-nav-add > span:last-child { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ksm-page { animation: none; }
+  .ksm-squirrel, .ksm-group-chevron { transition: none; }
+}
