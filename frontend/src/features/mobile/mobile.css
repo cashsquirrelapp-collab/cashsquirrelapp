@@ -1,4 +1,4 @@
-/* Mobile shell (screens narrower than 1024px). Sizes, spacing and colours follow the owner's
+/* Mobile design, phones only (see useMobileLayout.ts for the breakpoint). Sizes, spacing and colours follow the owner's
    design file kraroktunngern-Numeric-Value.html as the browser renders it at 390px.
    Everything is scoped to .ksm so the desktop layout is untouched. Colours come from the app's
    own theme variables, which already hold the CI values for light and dark. */
@@ -14,12 +14,20 @@
   --ksm-selected: #FFF1E8;
   --ksm-shadow-near: rgba(60, 40, 28, 0.07);
   --ksm-shadow-far: rgba(60, 40, 28, 0.09);
+  --ksm-error: #C43A3A;
+  --ksm-error-soft: #FDEEEE;
+  --ksm-warning: #C17817;
+  --ksm-success-soft: #E8F8F0;
   font-family: "IBM Plex Sans", "IBM Plex Sans Thai", system-ui, sans-serif;
 }
 .dark .ksm {
   --ksm-accent: #FFA473;
   --ksm-accent-text: #FFA473;
   --ksm-selected: var(--faint);
+  --ksm-error: #FA7E52;
+  --ksm-error-soft: var(--faint);
+  --ksm-warning: #F2B76B;
+  --ksm-success-soft: var(--faint);
 }
 .ksm button { -webkit-tap-highlight-color: transparent; }
 .ksm :focus-visible { outline: 2px solid var(--ksm-accent-text); outline-offset: 2px; }
@@ -262,3 +270,95 @@
   .ksm-jobmore > summary small { font-size: 10px; }
   .ksm-amount input { font-size: 26px; }
 }
+
+/* Page title row, tabs and cards shared by งาน and เงินรอรับ */
+.ksm-screen { animation: ksm-page-in 0.22s ease-out; font-size: 15px; line-height: 1.5; color: var(--ksm-text); }
+.ksm-pagetitle { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin-bottom: 8px; }
+.ksm-pagetitle h2 { font-size: 23px; font-weight: 600; line-height: 1.36; letter-spacing: -0.5px; color: var(--ksm-text); }
+.ksm-toolbtn { position: relative; display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border: 1px solid var(--ksm-border); border-radius: 12px; background: var(--ksm-surface); color: var(--ksm-secondary); cursor: pointer; }
+.ksm-toolbtn.is-active { border-color: #F3B08C; color: var(--ksm-accent-text); }
+.ksm-toolbtn > i { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--ksm-accent); }
+.ksm-screen > .ksm-search { margin-top: 12px; }
+.ksm-tabs { display: flex; gap: 2px; margin-top: 8px; border-bottom: 1px solid var(--ksm-border); }
+.ksm-tabs > button { position: relative; flex: 1; min-width: 0; min-height: 44px; padding: 10px 5px; border-radius: 12px 12px 0 0; font-size: 13px; line-height: 1.5; letter-spacing: -0.2px; color: var(--ksm-secondary); text-align: center; white-space: nowrap; cursor: pointer; }
+.ksm-tabs > button[aria-selected="true"] { background: var(--ksm-selected); color: var(--ksm-accent-text); font-weight: 600; }
+.ksm-tabs > button[aria-selected="true"]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 3px; border-radius: 2px; background: var(--ksm-accent); }
+.ksm-tabs .ksm-count { margin-left: 3px; font-size: 11px; font-weight: 600; }
+.ksm-filter-note { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 0 10px; border-radius: 12px; background: var(--ksm-selected); color: var(--ksm-accent-text); font-size: 12px; }
+.ksm-filter-note > button:first-child { flex: 1; min-width: 0; min-height: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; cursor: pointer; }
+.ksm-filter-note > .ksm-link { min-height: 40px; font-size: 12px; }
+.ksm-joblist { display: grid; gap: 9px; margin-top: 12px; }
+.ksm-jobcard { position: relative; min-width: 0; padding: 12px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); color: var(--ksm-text); text-align: left; cursor: pointer; }
+.ksm-jobcard.is-overdue { padding-left: 9px; border-color: var(--ksm-error); border-left-width: 4px; background: var(--ksm-error-soft); }
+.ksm-jobcard.is-due-soon { padding-left: 9px; border-left: 4px solid var(--ksm-warning); }
+.ksm-jobcard-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ksm-jobclient { margin-bottom: 3px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-jobtitle { font-size: 15px; font-weight: 600; line-height: 1.5; letter-spacing: -0.15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-jobmoney { flex: none; padding-left: 4px; text-align: right; }
+.ksm-jobmoney small { display: block; margin-bottom: 3px; font-size: 11px; line-height: 1.4; color: var(--ksm-secondary); }
+.ksm-jobmoney strong { font-size: 22px; font-weight: 600; line-height: 1.25; letter-spacing: -0.5px; color: var(--ksm-accent-text); font-variant-numeric: tabular-nums; }
+.ksm-jobcard.is-overdue .ksm-jobmoney strong { color: var(--ksm-error); }
+.ksm-jobcard.is-paid .ksm-jobmoney strong { font-size: 19px; font-weight: 500; color: var(--ksm-secondary); }
+.ksm-jobstatus { display: flex; align-items: center; gap: 8px; min-height: 24.5px; margin-top: 10px; font-size: 12px; }
+.ksm-workstate { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.5; color: var(--ksm-text); white-space: nowrap; }
+.ksm-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 12px; background: var(--ksm-muted); color: var(--ksm-secondary); font-size: 11px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
+.ksm-badge.is-emphasis { background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.ksm-jobcard.is-overdue .ksm-badge:not(.is-success):not(.is-emphasis) { background: rgba(255, 255, 255, 0.6); }
+.dark .ksm-jobcard.is-overdue .ksm-badge:not(.is-success):not(.is-emphasis) { background: rgba(255, 255, 255, 0.06); }
+.ksm-badge.is-success { background: var(--ksm-success-soft); color: var(--ksm-text); }
+.ksm-cardmenu { display: inline-flex; align-items: center; justify-content: flex-end; flex: none; width: 44px; height: 32px; margin: -4px 0; border-radius: 10px; color: var(--ksm-text); cursor: pointer; }
+.ksm-deadline { display: flex; align-items: center; gap: 5px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--ksm-border); font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-deadline > span { margin-left: auto; white-space: nowrap; }
+.ksm-deadline.is-urgent { border-top-color: color-mix(in srgb, var(--ksm-error) 22%, transparent); font-weight: 600; color: var(--ksm-error); }
+.ksm-deadline.is-soon { color: var(--ksm-warning); }
+.ksm-empty { padding: 32px 18px; border: 1px dashed var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); text-align: center; }
+.ksm-empty h3 { font-size: 14px; font-weight: 600; }
+.ksm-empty p { margin-top: 4px; font-size: 12px; color: var(--ksm-secondary); }
+
+/* เงินรอรับ */
+.ksm-screen > .ksm-month { margin-top: 12px; justify-content: flex-start; }
+.ksm-screen > .ksm-month > .ksm-month-pop { left: 0; right: auto; }
+.ksm-moneycard { margin-top: 12px; padding: 18px; border-radius: 16px; background: #A63F1B; color: #FFFFFF; }
+.ksm-moneycard > span { font-size: 14px; font-weight: 500; line-height: 1.5; }
+.ksm-moneycard > strong { display: block; margin-top: 5px; font-size: 36px; font-weight: 600; line-height: 1.2; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.ksm-moneycard > p { margin-top: 8px; font-size: 12px; line-height: 1.5; }
+.ksm-scope { display: flex; align-items: center; gap: 4px; margin-top: 12px; padding: 4px; border-radius: 12px; background: var(--ksm-muted); }
+.ksm-scope > button { flex: 1; min-width: 0; min-height: 44px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--ksm-secondary); text-align: center; cursor: pointer; }
+.ksm-scope > button[aria-selected="true"] { background: var(--ksm-surface); color: var(--ksm-accent-text); font-weight: 600; box-shadow: 0 1px 4px var(--ksm-shadow-near); }
+.ksm-scope > button > span { display: inline-block; min-width: 18px; height: 18px; margin-left: 4px; padding: 0 3px; border-radius: 5px; background: var(--ksm-error-soft); color: var(--ksm-error); font-size: 12px; font-weight: 500; line-height: 18px; }
+.ksm-duelist { display: grid; gap: 10px; margin-top: 12px; }
+.ksm-due { min-width: 0; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-due.is-overdue { border-left: 4px solid var(--ksm-error); background: var(--ksm-error-soft); }
+.ksm-due.is-soon { border-left: 4px solid var(--ksm-warning); }
+.ksm-due-body { display: flex; gap: 10px; width: 100%; padding: 12px; color: var(--ksm-text); text-align: left; cursor: pointer; }
+.ksm-due-body h3 { margin-top: 2px; font-size: 14px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-due-body .ksm-jobclient { margin-bottom: 0; }
+.ksm-due-part { font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-due-money { flex: none; text-align: right; }
+.ksm-due-money small { display: block; margin-bottom: 2px; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-due-money strong { display: block; font-size: 23px; font-weight: 600; line-height: 1.35; letter-spacing: -0.5px; color: var(--ksm-accent-text); font-variant-numeric: tabular-nums; }
+.ksm-due.is-overdue .ksm-due-money strong { color: var(--ksm-error); }
+.ksm-due-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 12px 12px; }
+.ksm-due-state { display: flex; align-items: flex-start; gap: 5px; font-size: 12px; line-height: 1.6; color: var(--ksm-secondary); }
+.ksm-due-state > svg { flex: none; margin-top: 2px; }
+.ksm-due.is-overdue .ksm-due-state { font-weight: 600; color: var(--ksm-error); }
+.ksm-due.is-soon .ksm-due-state { font-weight: 500; color: var(--ksm-text); }
+.ksm-due.is-soon .ksm-due-state > svg { color: var(--ksm-warning); }
+.ksm-due-date { display: block; font-size: 11px; line-height: 1.55; color: var(--ksm-secondary); }
+.ksm-remind { padding: 6px 0; margin: -6px 0; font-size: 11px; color: var(--ksm-secondary); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ksm-remind.is-set { color: var(--ksm-accent-text); }
+.ksm-remind-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px 12px; border-top: 1px solid var(--ksm-border); font-size: 11px; color: var(--ksm-secondary); }
+.ksm-remind-row > button { min-height: 32px; padding: 0 10px; border: 1px solid var(--ksm-border); border-radius: 10px; background: var(--ksm-surface); color: var(--ksm-text); font-size: 12px; cursor: pointer; }
+.ksm-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none; min-height: 44px; padding: 8px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; line-height: 1.5; white-space: nowrap; cursor: pointer; }
+.ksm-btn.is-primary { background: var(--ksm-accent); color: #1C1917; }
+.ksm-btn.is-soft { background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.ksm-group-title { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin-top: 12px; }
+.ksm-group-title h3 { font-size: 14px; font-weight: 600; }
+.ksm-group-title span { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ksm-micro { margin-top: 10px; font-size: 11px; line-height: 1.6; color: var(--ksm-secondary); text-align: center; }
+@media (max-width: 360px) {
+  .ksm-jobmoney strong, .ksm-due-money strong { font-size: 20px; }
+  .ksm-scope > button { font-size: 13px; }
+  .ksm-tabs > button { font-size: 12px; padding: 10px 2px; }
+}
+@media (prefers-reduced-motion: reduce) { .ksm-screen { animation: none; } }

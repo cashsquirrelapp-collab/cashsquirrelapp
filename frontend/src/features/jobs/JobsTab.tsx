@@ -9,6 +9,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 import JobFormDrawer from './JobFormDrawer';
+import { KsIcon } from '../mobile/icons';
+import { useMobileLayout } from '../mobile/useMobileLayout';
+import '../mobile/mobile.css';
 import JobPaymentDialog, { type PaymentMode } from './JobPaymentDialog';
 import { JobDeliveryDialog } from './JobDeliveryDialog';
 import { Wht50Chip } from '../vault/VaultProvider';
@@ -107,6 +110,7 @@ export default function JobsTab({
   onEditJobHandled,
 }: JobsTabProps) {
   const { t } = useLanguage();
+  const mobile = useMobileLayout();
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedJobId, setHighlightedJobId] = useState<string | null>(null);
 
@@ -256,13 +260,14 @@ export default function JobsTab({
       && (!query
         || j.name.toLowerCase().includes(query)
         || (j.client || '').toLowerCase().includes(query)
-        || (j.type || '').toLowerCase().includes(query))
+        || (j.type || '').toLowerCase().includes(query)
+        || (mobile && (j.note || '').toLowerCase().includes(query)))
       && (filters.stages.length === 0 || filters.stages.includes(stageOf(j)))
       && (filters.payments.length === 0 || filters.payments.includes(paymentOf(j)))
       && (filters.types.length === 0 || filters.types.includes(j.type || 'ยังไม่ระบุ')));
     return sortJobs(filtered, sortBy, subTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, statuses, searchTerm, subTab, period, filters, sortBy]);
+  }, [jobs, statuses, searchTerm, subTab, period, filters, sortBy, mobile]);
 
   const activeFilterCount = filters.stages.length + filters.payments.length + filters.types.length;
   const currentMonth = monthKeyOf();
@@ -565,9 +570,94 @@ export default function JobsTab({
 
   const typeLabel = (j: Job) => (j.type && j.type !== 'ยังไม่ระบุ' ? j.type : '');
 
+  const exportItems = [
+    { label: 'รายรับรายเดือน / ทั้งปี (Excel)', run: () => setIncomeExportOpen(true) },
+    { label: 'ข้อมูลงานทั้งหมด (CSV)', run: () => { if (!exportJobsToCSV(jobs)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีข้อมูลงานสำหรับส่งออก'); } },
+  ];
+
+  // Phones: the design's job card. Tapping it opens the job; the chevron opens the same actions as the table's ⋯.
+  const mobileJobCard = (j: Job) => {
+    const info = describeJob(j);
+    const owed = info.stage === 'closed' ? 0 : outstanding(j);
+    const urgent = info.dueTone === 'overdue';
+    const tone = info.stage === 'closed' ? 'is-paid'
+      : info.stage === 'awaiting' && urgent ? 'is-overdue'
+      : info.stage === 'awaiting' && info.dueTone !== 'normal' ? 'is-due-soon' : '';
+    const dateStr = info.stage === 'working' ? j.postDate : (j.payDate || j.postDate);
+    const shortDate = dateStr ? safeFormatThaiDate(dateStr, { day: 'numeric', month: 'short' }) : '';
+    const deadline = info.stage === 'closed' || !dateStr ? null
+      : info.stage === 'working' ? { icon: 'calendar' as const, text: urgent ? 'เลยกำหนดส่งงาน' : 'กำหนดส่งงาน', tone: urgent ? 'is-urgent' : '', right: shortDate }
+      : urgent ? { icon: 'alert' as const, text: info.dueText, tone: 'is-urgent', right: `ครบ ${shortDate}` }
+      : { icon: 'clock' as const, text: info.dueTone === 'today' ? 'ครบกำหนดวันนี้' : info.dueTone === 'soon' ? 'ใกล้ครบกำหนด' : 'กำหนดรับเงิน', tone: info.dueTone === 'normal' ? '' : 'is-soon', right: shortDate };
+    const paymentTone = info.payment === 'รับครบแล้ว' ? 'is-success' : info.payment === 'ยังไม่จ่าย' ? '' : 'is-emphasis';
+    return (
+      <div
+        key={j.id}
+        data-job-id={j.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => setEditingJob(j)}
+        onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setEditingJob(j); } }}
+        className={`ksm-jobcard ${tone} ${highlightedJobId === j.id ? 'job-spotlight' : ''}`}
+      >
+        <div className="ksm-jobcard-top">
+          <div className="ksm-grow">
+            <p className="ksm-jobclient">{j.client || 'ไม่ระบุลูกค้า'}{typeLabel(j) ? ` · ${typeLabel(j)}` : ''}</p>
+            <p className="ksm-jobtitle">{j.name}</p>
+          </div>
+          <div className="ksm-jobmoney">
+            <small>{owed > 0 ? 'รอรับสุทธิ' : 'รับแล้ว'}</small>
+            <strong>{formatCurrency(owed > 0 ? owed : (j.received || netReceivable(j)))}</strong>
+          </div>
+        </div>
+        <div className="ksm-jobstatus">
+          <span className="ksm-workstate">
+            <KsIcon name={info.stage === 'working' ? 'briefcase' : 'check'} size={17} />
+            {info.stage === 'working' ? 'กำลังทำ' : 'ส่งงานแล้ว'}
+          </span>
+          <span className={`ksm-badge ${paymentTone}`}>
+            {info.payment === 'รับครบแล้ว' && <KsIcon name="check" size={14} />}
+            {info.payment === 'ยังไม่จ่าย' ? 'ยังไม่รับเงิน' : info.payment}
+          </span>
+          <Wht50Chip job={j} />
+          <span className="ksm-spacer" />
+          <button
+            type="button"
+            className="ksm-cardmenu"
+            onClick={(event) => openActionMenu(event, j)}
+            aria-label={`ตัวเลือกของงาน ${j.name}`}
+            aria-haspopup="menu"
+            aria-expanded={actionMenu?.job.id === j.id}
+          >
+            <KsIcon name="chevron" size={17} />
+          </button>
+        </div>
+        {deadline && (
+          <div className={`ksm-deadline ${deadline.tone}`}><KsIcon name={deadline.icon} size={14} />{deadline.text}<span>{deadline.right}</span></div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="page-content">
+    <div className={mobile ? 'page-content ksm ksm-screen' : 'page-content'}>
       {/* Page header */}
+      {mobile ? (
+        <div className="ksm-pagetitle">
+          <h2>งานของฉัน</h2>
+          <button
+            type="button"
+            className={`ksm-toolbtn${activeFilterCount > 0 || sortBy !== 'recent' ? ' is-active' : ''}`}
+            onClick={(event) => openPanel(event, 'filter')}
+            aria-haspopup="dialog"
+            aria-expanded={panel?.kind === 'filter'}
+            aria-label="ตัวกรองและเครื่องมืองาน"
+          >
+            <KsIcon name="filter" />
+            {(activeFilterCount > 0 || sortBy !== 'recent') && <i aria-hidden="true" />}
+          </button>
+        </div>
+      ) : (
       <PageHeader page="jobs" className="mb-5">
         <div className="relative" ref={exportMenuRef}>
           <button type="button" onClick={() => setExportOpen(v => !v)} aria-haspopup="menu" aria-expanded={exportOpen} aria-label="ส่งออก" className={uiSecondaryButton}>
@@ -575,10 +665,7 @@ export default function JobsTab({
           </button>
           {exportOpen && (
             <div role="menu" className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#1F2024] sm:left-auto sm:right-0">
-              {[
-                { label: 'รายรับรายเดือน / ทั้งปี (Excel)', run: () => setIncomeExportOpen(true) },
-                { label: 'ข้อมูลงานทั้งหมด (CSV)', run: () => { if (!exportJobsToCSV(jobs)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีข้อมูลงานสำหรับส่งออก'); } },
-              ].map(item => (
+              {exportItems.map(item => (
                 <button key={item.label} type="button" role="menuitem" onClick={() => { setExportOpen(false); item.run(); }}
                   className="flex w-full rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint cursor-pointer">{item.label}</button>
               ))}
@@ -596,8 +683,32 @@ export default function JobsTab({
           <span className="sm:hidden">เพิ่ม</span>
         </button>
       </PageHeader>
+      )}
       <IncomeExportDialog open={incomeExportOpen} jobs={jobs} onClose={() => setIncomeExportOpen(false)} notify={triggerAlert} />
 
+      {mobile ? (
+        <>
+          <div className="ksm-search">
+            <KsIcon name="search" />
+            <input type="text" inputMode="search" placeholder="ค้นหางาน ลูกค้า หรือบันทึก" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} aria-label="ค้นหางาน" enterKeyHint="search" />
+          </div>
+          <div className="ksm-tabs" role="tablist" aria-label="สถานะงาน">
+            {tabs.map(tab => (
+              <button key={tab.key} type="button" role="tab" aria-selected={subTab === tab.key} onClick={() => setSubTab(tab.key)}>
+                {tab.key === 'waiting_payment' ? 'รอรับ' : tab.key === 'closed' ? 'ปิดงาน' : tab.label}<span className="ksm-count">{tab.count}</span>
+              </button>
+            ))}
+          </div>
+          {(period.kind !== 'all' || activeFilterCount > 0 || searchTerm.trim() !== '') && (
+            <div className="ksm-filter-note">
+              <button type="button" onClick={(event) => openPanel(event, 'month')} aria-haspopup="dialog" aria-expanded={panel?.kind === 'month'} aria-label={`ช่วงเวลา: ${periodLabel(period)}`}>
+                กรอง: {activeFilterCount > 0 ? `${activeFilterCount} ตัวกรอง` : 'ทุกประเภท'} · {period.kind === 'all' ? 'ทุกเดือน' : periodLabel(period)}
+              </button>
+              <button type="button" className="ksm-link" onClick={clearFilters}>ล้าง</button>
+            </div>
+          )}
+        </>
+      ) : (<>
       {/* Stage tabs */}
       <div className="no-scrollbar -mx-1 mb-4 flex gap-2 overflow-x-auto px-1" role="tablist" aria-label="สถานะงาน">
         {tabs.map(tab => {
@@ -688,6 +799,8 @@ export default function JobsTab({
         </div>
       </div>
 
+      </>)}
+
       {/* Jobs list: table from sm up, compact cards on phones */}
       <div>
       {jobs.length === 0 ? (
@@ -743,6 +856,7 @@ export default function JobsTab({
         </div>
       ) : (
         <>
+          {!mobile && (
           <div className="hidden overflow-clip rounded-[14px] border border-brand-border bg-brand-white sm:block">
             <table className="w-full table-fixed text-left text-[13px]">
               {/* Sticks while a long list scrolls (desktop shell only; the phone/tablet top bar would cover it). */}
@@ -805,7 +919,11 @@ export default function JobsTab({
               </tbody>
             </table>
           </div>
+          )}
 
+          {mobile ? (
+            <div className="ksm-joblist">{sortedJobs.map(mobileJobCard)}</div>
+          ) : (
           <div className="space-y-2 sm:hidden">
             {sortedJobs.map((j) => {
               const info = describeJob(j);
@@ -847,6 +965,7 @@ export default function JobsTab({
               );
             })}
           </div>
+          )}
         </>
       )}
       </div>
@@ -970,6 +1089,19 @@ export default function JobsTab({
                     </div>
                   </fieldset>
                 ))}
+                {mobile && (
+                  <fieldset>
+                    <legend className="mb-2 text-xs font-medium text-brand-muted">ส่งออก</legend>
+                    <div className="flex flex-wrap gap-1.5">
+                      {exportItems.map(item => (
+                        <button key={item.label} type="button" onClick={() => { setPanel(null); item.run(); }}
+                          className="inline-flex h-8 max-w-full items-center gap-1.5 truncate rounded-full border border-brand-border px-3 text-xs text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
+                          <KsIcon name="download" size={14} />{item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
                 <div className="flex gap-2 border-t border-brand-border pt-3">
                   <button
                     type="button"

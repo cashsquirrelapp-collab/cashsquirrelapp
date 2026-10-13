@@ -3,7 +3,7 @@ import { BrandLogo } from '../../components/brand/BrandLogo';
 import { KsIcon, SquirrelAdd, type KsIconName } from './icons';
 import './mobile.css';
 
-// The app's shell on phones and tablets (below 1024px): a top bar, a bottom bar with the squirrel
+// The app's shell on phones (see useMobileLayout): a top bar, a bottom bar with the squirrel
 // add button in the middle, and the tools screen behind "เมนู". Layout and styling follow the
 // owner's design file; every button calls the app's existing handlers, and the tools list is built
 // from the same permission-filtered list the desktop sidebar uses, so no feature is dropped.

@@ -4,7 +4,12 @@ import PageHeader from '../../components/ui/PageHeader';
 import React, { useMemo, useState } from 'react';
 import { Job } from '../../../../shared/types';
 import { jobNetReceivable } from '../../../../shared/wht';
-import { formatCurrency, getRelativeDaysText, safeFormatThaiDate, toLocalDateKey, isReminderDue } from '../../utils';
+import { formatCurrency, formatMonthKey, getRelativeDaysText, safeFormatThaiDate, toLocalDateKey, isReminderDue, currentMonthKeyNow } from '../../utils';
+import { getJobPendingEntries, type JobPendingEntry } from '../../../../shared/installmentPayments';
+import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
+import { KsIcon } from '../mobile/icons';
+import { useMobileLayout } from '../mobile/useMobileLayout';
+import '../mobile/mobile.css';
 import { Mascot } from '../../components/mascot/Mascot';
 
 interface ReceivablesTabProps {
@@ -67,6 +72,9 @@ export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerAler
   };
 
   const [reminderPickerFor, setReminderPickerFor] = useState<string | null>(null);
+  const mobile = useMobileLayout();
+  const [month, setMonth] = useState(() => currentMonthKeyNow());
+  const [scope, setScope] = useState<'month' | 'overdue'>('month');
 
   const setReminder = (j: Job, daysAhead: number | null) => {
     setReminderPickerFor(null);
@@ -80,6 +88,109 @@ export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerAler
     onEditJob(j.id, { remindAt });
     triggerAlert('ตั้งการแจ้งเตือนแล้ว', `แอปจะเตือนให้ตามเงินจาก "${j.client || j.name}" วันที่ ${safeFormatThaiDate(remindAt)}`);
   };
+
+  // Phones: the mobile design's month view. One card per outstanding amount (an instalment job
+  // shows each unpaid instalment), counted on its due date, with earlier months and undated
+  // amounts listed underneath. Recording money and reminders call the same handlers as below.
+  if (mobile) {
+    type Row = { job: Job; entry: JobPendingEntry; due: string };
+    const today = toLocalDateKey();
+    const soonCutoff = toLocalDateKey(new Date(Date.now() + 7 * 86400000));
+    const rows: Row[] = unpaidJobs.flatMap(job => getJobPendingEntries(job)
+      .filter(entry => entry.amount > 0)
+      .map(entry => ({ job, entry, due: entry.dueDate ? entry.dueDate.slice(0, 10) : '' })));
+    const byDue = (a: Row, b: Row) => a.due.localeCompare(b.due);
+    const current = rows.filter(row => row.due.slice(0, 7) === month).sort(byDue);
+    const overdue = current.filter(row => row.due < today);
+    const carry = rows.filter(row => row.due && row.due < `${month}-01`).sort(byDue);
+    const undated = rows.filter(row => !row.due);
+    const shown = scope === 'overdue' ? overdue : current;
+    const total = (list: Row[]) => list.reduce((sum, row) => sum + row.entry.amount, 0);
+    const jobCount = (list: Row[]) => new Set(list.map(row => row.job.id)).size;
+    const card = ({ job, entry, due }: Row) => {
+      const key = `${job.id}:${entry.id}`;
+      const late = Boolean(due) && due < today;
+      const soon = Boolean(due) && due >= today && due <= soonCutoff;
+      const daysLate = late ? Math.round((new Date(`${today}T00:00:00`).getTime() - new Date(`${due}T00:00:00`).getTime()) / 86400000) : 0;
+      const status = late ? `เลยกำหนดรับเงิน ${daysLate} วัน` : due === today ? 'ครบกำหนดรับเงินวันนี้' : due ? 'ยังไม่ถึงกำหนดรับเงิน' : 'ยังไม่กำหนดวันรับเงิน';
+      const reminderLabel = isReminderDue(job) ? 'ถึงเวลาตามแล้ว' : job.remindAt ? `เตือน ${safeFormatThaiDate(job.remindAt, { day: 'numeric', month: 'short' })}` : 'เตือนฉัน';
+      return (
+        <article key={key} className={`ksm-due ${late ? 'is-overdue' : soon ? 'is-soon' : ''}`}>
+          <button type="button" className="ksm-due-body" onClick={() => onViewJob(job.id)}>
+            <div className="ksm-grow">
+              <p className="ksm-jobclient">{job.client || 'ไม่ระบุลูกค้า'}</p>
+              <h3>{job.name}</h3>
+              {entry.kind === 'installment' && entry.label && <p className="ksm-due-part">{entry.label}</p>}
+            </div>
+            <div className="ksm-due-money"><small>ยอดค้างรับ</small><strong>{formatCurrency(entry.amount)}</strong></div>
+          </button>
+          <div className="ksm-due-foot">
+            <div className="ksm-grow">
+              <span className="ksm-due-state"><KsIcon name={late ? 'alert' : 'clock'} size={17} />{status}</span>
+              <small className="ksm-due-date">
+                {due ? `ครบกำหนดรับเงิน ${safeFormatThaiDate(due)}` : 'กำหนดวันรับเงินได้ในรายละเอียดงาน'}
+                {' · '}
+                <button
+                  type="button"
+                  className={`ksm-remind${job.remindAt ? ' is-set' : ''}`}
+                  onClick={() => setReminderPickerFor(prev => (prev === key ? null : key))}
+                  aria-expanded={reminderPickerFor === key}
+                >
+                  {reminderLabel}
+                </button>
+              </small>
+            </div>
+            <button type="button" className={`ksm-btn ${late ? 'is-primary' : 'is-soft'}`} onClick={() => markReceived(job)}>รับเงิน</button>
+          </div>
+          {reminderPickerFor === key && (
+            <div className="ksm-remind-row">
+              <span>{reminderLabel === 'เตือนฉัน' ? 'เตือนฉันอีกครั้ง' : reminderLabel}</span>
+              {[{ label: 'พรุ่งนี้', days: 1 }, { label: 'อีก 3 วัน', days: 3 }, { label: 'อีก 7 วัน', days: 7 }].map(option => (
+                <button key={option.days} type="button" onClick={() => setReminder(job, option.days)}>{option.label}</button>
+              ))}
+              {job.remindAt && <button type="button" onClick={() => setReminder(job, null)}>ยกเลิกการเตือน</button>}
+            </div>
+          )}
+        </article>
+      );
+    };
+    return (
+      <div className="page-content ksm ksm-screen">
+        <div className="ksm-pagetitle"><h2>เงินรอรับ</h2></div>
+        <DashboardPeriodPicker monthKey={month} onChange={setMonth} compact />
+        <div className="ksm-moneycard">
+          <span>{scope === 'overdue' ? 'งานที่เลยกำหนดรับเงิน' : 'เงินรอรับของเดือน'}</span>
+          <strong>{formatCurrency(total(shown))}</strong>
+          <p>{jobCount(shown)} งาน · กำหนดรับเงินใน {formatMonthKey(month)}</p>
+          {scope === 'overdue' && <p>ยอดนี้รวมอยู่ในเงินรอรับของเดือน {formatCurrency(total(current))} แล้ว</p>}
+        </div>
+        <div className="ksm-scope" role="tablist" aria-label="กรองเงินรอรับ">
+          <button type="button" role="tab" aria-selected={scope === 'month'} onClick={() => setScope('month')}>ของเดือนนี้</button>
+          <button type="button" role="tab" aria-selected={scope === 'overdue'} onClick={() => setScope('overdue')}>
+            เลยกำหนดรับเงิน{overdue.length > 0 && <span>{jobCount(overdue)}</span>}
+          </button>
+        </div>
+        <div className="ksm-duelist">
+          {shown.length > 0 ? shown.map(card) : (
+            <div className="ksm-empty"><h3>{scope === 'overdue' ? 'ไม่มีงานที่เลยกำหนดรับเงินในเดือนนี้' : 'เดือนนี้ไม่มีเงินรอรับ'}</h3></div>
+          )}
+        </div>
+        {carry.length > 0 && (
+          <>
+            <div className="ksm-group-title"><h3>ค้างรับจากเดือนก่อน</h3><span>{formatCurrency(total(carry))}</span></div>
+            <div className="ksm-duelist" style={{ marginTop: 0 }}>{carry.map(card)}</div>
+          </>
+        )}
+        {scope !== 'overdue' && undated.length > 0 && (
+          <>
+            <div className="ksm-group-title"><h3>ยังไม่กำหนดวันรับ</h3><span>{formatCurrency(total(undated))}</span></div>
+            <div className="ksm-duelist" style={{ marginTop: 0 }}>{undated.map(card)}</div>
+          </>
+        )}
+        <p className="ksm-micro">เงินที่ยังไม่ได้รับของงานส่งแล้ว · นับตามวันครบกำหนดรับเงิน ไม่ใช่วันส่งงาน</p>
+      </div>
+    );
+  }
 
   if (unpaidJobs.length === 0) {
     return (

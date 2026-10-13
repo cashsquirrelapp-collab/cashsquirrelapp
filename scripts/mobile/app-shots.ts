@@ -44,7 +44,18 @@ console.log('sheet rects', await page.evaluate(() => ['.ksm-sheet', '.ksm-sheet-
 await page.getByRole('button', { name: 'ปิดหน้าต่าง' }).click(); await page.waitForTimeout(300);
 await page.getByRole('button', { name: /ช่วงเวลาที่แสดง/ }).click(); await shot('home-month'); await page.keyboard.press('Escape');
 await tab('งาน').click(); await shot('jobs'); await overflow('jobs');
+console.log('jobs rects', await page.evaluate(() => ['.ksm-pagetitle', '.ksm-pagetitle h2', '.ksm-toolbtn', '.ksm-search', '.ksm-tabs', '.ksm-tabs > button', '.ksm-filter-note', '.ksm-joblist', '.ksm-jobcard', '.ksm-jobcard-top', '.ksm-jobstatus', '.ksm-deadline']
+  .map(sel => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${sel} [${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}]` : `${sel} (missing)`; }).join(' | ')));
+await page.getByRole('button', { name: 'ตัวกรองและเครื่องมืองาน' }).click(); await shot('jobs-tools');
+await page.getByRole('dialog', { name: 'ตัวกรอง' }).getByRole('button', { name: 'ปิด', exact: true }).click(); await page.waitForTimeout(250);
+await page.getByRole('button', { name: /^ตัวเลือกของงาน/ }).first().click(); await shot('jobs-menu'); await page.keyboard.press('Escape'); await page.waitForTimeout(250);
+await page.getByRole('button', { name: /^ช่วงเวลา:/ }).click(); await page.waitForTimeout(250);
+await page.getByRole('button', { name: 'เดือนทั้งหมด' }).click(); await shot('jobs-all');
 await tab('รอรับ').click(); await shot('receivables'); await overflow('receivables');
+console.log('due rects', await page.evaluate(() => ['.ksm-pagetitle', '.ksm-screen > .ksm-month', '.ksm-moneycard', '.ksm-scope', '.ksm-duelist', '.ksm-due', '.ksm-due-body', '.ksm-due-foot', '.ksm-btn']
+  .map(sel => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${sel} [${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}]` : `${sel} (missing)`; }).join(' | ')));
+await page.getByRole('button', { name: /^เตือนฉัน/ }).first().click(); await shot('receivables-remind');
+await page.getByRole('tab', { name: /เลยกำหนดรับเงิน/ }).click(); await shot('receivables-overdue');
 await tab('เมนู').click(); await shot('menu');
 await page.locator('.ksm-group > summary').first().click(); await shot('menu-open');
 await page.getByRole('button', { name: /^ปฏิทิน/ }).first().click(); await shot('tool-calendar'); await overflow('calendar');

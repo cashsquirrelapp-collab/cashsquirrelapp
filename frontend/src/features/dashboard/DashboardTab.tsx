@@ -55,7 +55,7 @@ interface DashboardTabProps {
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   onQuickRecord?: (mode: 'income' | 'expense') => void;
-  /** Phones and tablets: draw the overview as the mobile design does. Figures and handlers are the same. */
+  /** Phones: draw the overview as the mobile design does. Figures and handlers are the same. */
   mobile?: boolean;
   greetingName?: string;
   monthPicker?: React.ReactNode;

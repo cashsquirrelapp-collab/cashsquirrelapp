@@ -1117,9 +1117,9 @@ test('mobile shell: top bar, bottom bar with the squirrel add button, tools scre
  await expect(page.getByRole('button',{name:'เปิดเมนู'})).toHaveCount(0); // the old hamburger drawer is gone on phones
  // tabs
  await nav.getByRole('button',{name:'งาน',exact:true}).click();
- await expect(page.getByRole('heading',{name:'งาน',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'งานของฉัน'})).toBeVisible();
  await nav.getByRole('button',{name:'รอรับ',exact:true}).click();
- await expect(page.getByRole('heading',{name:'เงินค้างรับ'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'เงินรอรับ',exact:true})).toBeVisible();
  // tools screen: one group open at a time, every tool goes to its real page
  await nav.getByRole('button',{name:'เมนู',exact:true}).click();
  const tools=page.getByRole('region',{name:'เครื่องมือทั้งหมด'});
@@ -1198,7 +1198,7 @@ test('mobile overview and add-job sheet follow the design and stay wired to the 
  await expect(page.getByRole('region',{name:'เครื่องมือทั้งหมด'})).toBeVisible();
  await nav.getByRole('button',{name:'ภาพรวม',exact:true}).click();
  await page.getByRole('button',{name:/^เงินรอรับ/}).click();
- await expect(page.getByRole('heading',{name:'เงินค้างรับ'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'เงินรอรับ',exact:true})).toBeVisible();
  // add job: three fields first, the rest behind one disclosure with three tabs
  await nav.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
  const sheet=page.getByRole('dialog',{name:'เพิ่มงาน'});
@@ -1227,5 +1227,91 @@ test('mobile overview and add-job sheet follow the design and stay wired to the 
  await expect(page.getByText('งานทดสอบมือถือ').filter({visible:true}).first()).toBeVisible();
  // what is stored is a plain number, not the text with commas
  await expect.poll(()=>saved.some(body=>body.includes('งานทดสอบมือถือ')&&/"value":12500\.5[,}]/.test(body))).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+test('tablets keep the layout they had: drawer and floating menu, no mobile design (iPad portrait 768 and iPad mini 744)',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ for(const width of [744,768,1023]){
+  await page.setViewportSize({width,height:1024});
+  await page.goto('/');
+  await expect(page.getByRole('navigation',{name:'เมนูหลัก'})).toHaveCount(0);
+  await expect(page.locator('.ksm-header')).toHaveCount(0);
+  await expect(page.locator('.ksm-home')).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'ภาพรวม'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'เปิดเมนูโปรไฟล์'})).toBeVisible();
+ }
+ // the drawer still opens from the floating menu button and still leads to every page
+ await page.locator('button[title]').filter({has:page.locator('svg.lucide-menu')}).first().click();
+ await page.getByRole('button',{name:/^งาน/}).first().dispatchEvent('click'); // the drawer slides in on a spring; no need to wait for it to settle
+ await expect(page.getByRole('heading',{name:'งาน',exact:true})).toBeVisible();
+ await expect(page.locator('.ksm-jobcard')).toHaveCount(0);
+});
+
+test('mobile jobs and receivables follow the design; every job action is still reachable',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+  // sample jobs: one late, one due later this month, one still in progress, one closed (example clients only)
+ const day=(offset:number)=>{const d=new Date();d.setDate(d.getDate()+offset);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+ const job=(id:string,name:string,extra:Record<string,unknown>)=>({id,name,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',creditTerm:0,note:'',value:1000,received:0,pending:1000,status:'pending',paymentStatus:'unpaid',isPosted:true,postDate:day(-10),payDate:day(-3),...extra});
+ const jobs=[
+  job('late','งานเลยกำหนด',{value:12000,pending:12000}),
+  job('later','งานรอรับ',{value:4000,pending:4000,payDate:day(0)}),
+  job('wip','งานกำลังทำ',{value:6000,pending:6000,isPosted:false,postDate:day(5),payDate:null}),
+  job('closed','งานปิดแล้ว',{value:15000,received:15000,pending:0,status:'done',paymentStatus:'paid'}),
+ ];
+ await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot:{...snapshot,jobs},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true,versions}}));
+ // the app's own once-a-day overdue prompt is not what this test is about
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const nav=page.getByRole('navigation',{name:'เมนูหลัก'});
+ await nav.getByRole('button',{name:'งาน',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'งานของฉัน'})).toBeVisible();
+ const tabs=page.getByRole('tablist',{name:'สถานะงาน'}).getByRole('tab');
+ await expect(tabs).toHaveCount(4);
+ await expect(tabs.nth(2)).toContainText('รอรับ');
+ await expect(tabs.nth(3)).toContainText('ปิดงาน');
+ // the month filter is on by default in the app, so the design's filter note shows; clearing it lists every job
+ await page.getByRole('button',{name:'ล้าง',exact:true}).click();
+ const cards=page.locator('.ksm-jobcard');
+ await expect(cards.first()).toBeVisible();
+ await expect(cards).toHaveCount(4);
+ await expect(tabs.first()).toContainText('4');
+ await expect(page.locator('.ksm-jobcard.is-overdue')).toContainText('งานเลยกำหนด');
+ await expect(page.locator('.ksm-jobcard.is-paid')).toContainText('รับครบแล้ว');
+ // tools: sort, filters and export in one sheet
+ await page.getByRole('button',{name:'ตัวกรองและเครื่องมืองาน'}).click();
+ const tools=page.getByRole('dialog',{name:'ตัวกรอง'});
+ await expect(tools.getByText('เรียงตาม')).toBeVisible();
+ await expect(tools.getByRole('button',{name:/Excel/})).toBeVisible();
+ await expect(tools.getByRole('button',{name:/CSV/})).toBeVisible();
+ await tools.getByRole('button',{name:'ปิด',exact:true}).click();
+ // the chevron opens the job's actions; tapping the card opens the job itself
+ await page.getByRole('button',{name:/^ตัวเลือกของงาน/}).first().click();
+ const menu=page.getByRole('menu');
+ await expect(menu.getByRole('menuitem',{name:'ดูและแก้ไขรายละเอียด'})).toBeVisible();
+ await expect(menu.getByRole('menuitem',{name:'ลบงาน'})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await cards.first().locator('.ksm-jobtitle').click();
+ await expect(page.getByRole('dialog',{name:'แก้ไขงาน'})).toBeVisible();
+ await page.keyboard.press('Escape');
+ // receivables: month card, two scopes, one card per outstanding amount
+ await nav.getByRole('button',{name:'รอรับ',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'เงินรอรับ',exact:true})).toBeVisible();
+ await expect(page.getByRole('tablist',{name:'กรองเงินรอรับ'}).getByRole('tab')).toHaveCount(2);
+ await expect(page.getByText(/เงินรอรับของเดือน/)).toBeVisible();
+ await expect(page.locator('.ksm-due')).toHaveCount(2); // the two delivered, unpaid jobs; work in progress is not owed yet
+ // the reminder is still there, as a quiet link on the card
+ await page.locator('.ksm-due').first().getByRole('button',{name:'เตือนฉัน'}).click();
+ await expect(page.getByRole('button',{name:'อีก 3 วัน'})).toBeVisible();
+ // recording money goes through the same confirmation as before
+ await page.locator('.ksm-due.is-overdue').getByRole('button',{name:'รับเงิน',exact:true}).click();
+ await expect(page.getByText(/ยืนยันว่าได้รับเงิน/)).toBeVisible();
+ await page.getByRole('button',{name:'ยกเลิก',exact:true}).click();
+ await page.getByRole('tab',{name:/เลยกำหนดรับเงิน/}).click();
+ await expect(page.getByText('งานที่เลยกำหนดรับเงิน')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
  expect(errors).toEqual([]);
 });

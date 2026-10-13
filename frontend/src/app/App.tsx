@@ -40,6 +40,7 @@ import Login from '../features/auth/Login';
 import LandingPage from '../features/marketing/LandingPage';
 import { MobileBottomNav, MobileHeader, MobileMenuPage, type MobileTool, type MobileToolGroup } from '../features/mobile/MobileChrome';
 import type { KsIconName } from '../features/mobile/icons';
+import { useMobileLayout } from '../features/mobile/useMobileLayout';
 const TaxTab = lazy(loadTaxTab);
 const SettingsTab = lazy(loadSettingsTab);
 const InvoiceTab = lazy(loadInvoiceTab);
@@ -431,6 +432,8 @@ export default function App() {
   // The account corner lives in the desktop sidebar and in the floating top bar on smaller screens;
   // only one is rendered so there is a single profile menu and workspace picker on the page.
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
+  // Phones only get the mobile design; tablets and computers keep the layout they always had.
+  const isPhone = useMobileLayout();
   useEffect(() => {
     const query = window.matchMedia('(min-width: 1024px)');
     const update = () => setIsDesktop(query.matches);
@@ -2640,11 +2643,177 @@ export default function App() {
         </div>
       </aside>
 
+      {/* Tablets: the slide-out drawer, as before. Phones use the mobile design's tools screen instead. */}
+      <AnimatePresence>
+        {isMobileMenuOpen && !isPhone && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[999] lg:hidden"
+            />
+
+            {/* Sidebar content */}
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="fixed inset-y-0 left-0 w-72 bg-brand-white dark:bg-stone-900 border-r border-brand-border/40 dark:border-neutral-800 z-[1000] p-6 flex flex-col justify-between shadow-2xl lg:hidden select-none"
+            >
+              <div className="space-y-6">
+                {/* Drawer Header */}
+                <div className="flex items-center justify-between pb-4 border-b border-brand-border/20">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigateTab('dashboard');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2.5 cursor-pointer text-left"
+                    title={t("nav.backToDashboard")}
+                  >
+                    <BrandLockup size={32} />
+                  </button>
+                  <button
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="p-1.5 rounded-xl bg-brand-faint hover:bg-brand-border/30 text-brand-muted hover:text-brand-text transition-all cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Navigation Links inside Drawer */}
+                <nav className="space-y-1.5">
+                  {renderNavGroup('core', true)}
+
+                  {renderNavGroup('more', true)}
+
+                  {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
+                </nav>
+              </div>
+
+              <div className="space-y-4">
+                {/* User profile inside Drawer */}
+                <div className="p-3 rounded-2xl bg-brand-faint/40 dark:bg-neutral-800/20 border border-brand-border/20 dark:border-neutral-800/40 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-blue-acc/15 dark:bg-[#FFA473]/15 flex items-center justify-center text-[#E65F2B] dark:text-[#FFA473] font-extrabold text-xs shrink-0 overflow-hidden">
+                      {userAvatar ? (
+                        <img src={userAvatar} className="w-full h-full object-cover" alt="User Avatar" />
+                      ) : (
+                        <User className="w-3.5 h-3.5" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] text-brand-muted truncate font-extrabold">
+                        {session?.user?.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  {session && (
+                    <button
+                      type="button"
+                      onClick={() => { navigateTab('plans'); setIsMobileMenuOpen(false); }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40 hover:border-brand-border transition-colors cursor-pointer"
+                    >
+                      {isGuestProPreview ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                          <span className="font-display font-black text-indigo-600 dark:text-indigo-400">{t('plans.guestPreviewBadge')}</span>
+                        </>
+                      ) : isPaidActive ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                          <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO</span>
+                          {subscription?.currentPeriodEnd && (
+                            <span className="text-[9px] text-brand-muted ml-auto font-mono">
+                              {t('sidebar.until', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
+                            </span>
+                          )}
+                        </>
+                      ) : isInFreeTrial ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">{t('plans.freeTrialBadge')}</span>
+                          {trialEndsAt && (
+                            <span className="text-[9px] text-brand-muted ml-auto font-mono">
+                              {t('sidebar.until', { date: trialEndsAt.toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-[#E65F2B] shrink-0" />
+                          <span className="text-brand-muted">FREE</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      triggerConfirm(
+                        'ออกจากระบบ',
+                        'คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?',
+                        async () => {
+                          await handleSignOut();
+                        }
+                      );
+                    }}
+                    className="w-full py-1.5 px-3 bg-pink-bg hover:bg-pink-bg/80 text-pink-acc border border-pink-acc/10 rounded-xl text-[10px] font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <LogOut className="w-3 h-3" />
+                    <span>ออกจากระบบ</span>
+                  </button>
+                </div>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* 📱 / 💻 Main Section: Handles responsive paddings & maximum constraints */}
-      <div className={`flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-brand-bg ${isDesktop ? 'h-screen pb-6' : 'h-[100dvh]'}`}>
+      <div className={`flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-brand-bg ${isPhone ? 'h-[100dvh]' : 'h-screen pb-6 lg:pb-6'}`}>
         
-        {/* Phones and tablets: the top bar from the mobile design. Account and workspace controls live on the tools screen. */}
-        {!isDesktop && (
+        {/* Floating menu + account controls for screens without the sidebar. */}
+        {!isDesktop && !isPhone && (
+        <div className={`pointer-events-none absolute inset-x-0 top-0 flex select-none items-start justify-between p-3 ${isProfileMenuOpen ? 'z-[110]' : 'z-40'}`}>
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-brand-border/60 bg-brand-white/90 text-brand-muted shadow-sm backdrop-blur-md transition-all hover:text-brand-text lg:hidden"
+            title={t('header.openMenu')}
+          >
+            <Menu className="h-4.5 w-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
+          </button>
+
+          <div className="group pointer-events-auto flex items-center justify-end gap-2">
+            {!session.isGuest && (
+              <div className={`overflow-hidden transition-all duration-300 ease-out ${isProfileMenuOpen ? 'max-w-[220px] translate-x-0 opacity-100' : 'max-w-0 translate-x-3 opacity-0 group-hover:max-w-[220px] group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:max-w-[220px] group-focus-within:translate-x-0 group-focus-within:opacity-100'}`}>
+                <FinanceWorkspacePicker account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>
+              </div>
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsProfileMenuOpen(open => !open)}
+                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#E65F2B]/15 bg-[#E65F2B] text-white shadow-sm transition-all hover:shadow-md active:scale-95"
+                aria-label="เปิดเมนูโปรไฟล์"
+                aria-expanded={isProfileMenuOpen}
+              >
+                {userAvatar ? <img src={userAvatar} className="h-full w-full object-cover" alt="User Avatar" /> : <User className="h-4.5 w-4.5" />}
+              </button>
+              {renderProfileMenu('right-0 top-12 w-64')}
+            </div>
+          </div>
+        </div>
+        )}
+
+        {/* Phones: the top bar from the mobile design. Account and workspace controls live on the tools screen. */}
+        {isPhone && (
           <MobileHeader
             dark={darkMode}
             onToggleTheme={() => setDarkMode(!darkMode)}
@@ -2655,7 +2824,7 @@ export default function App() {
         )}
 
         {/* Scrollable Container with responsive max widths */}
-        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 ${isDesktop ? 'pt-16' : 'pt-[10px]'} pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
+        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 ${isPhone ? 'pt-[10px]' : 'pt-16'} pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
           {/* Document vault for the open finance workspace, shared by Documents, Jobs and Tax */}
           <VaultProvider
             key={financeOwner}
@@ -2672,8 +2841,8 @@ export default function App() {
             ? <ContentLoadingSkeleton page={activeTab} />
             : <Suspense fallback={<ContentLoadingSkeleton page={activeTab} />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
-          {/* Below 1024px the overview draws its own heading and month row (the mobile design). */}
-          {activeTab === 'dashboard' && isDesktop && (
+          {/* On phones the overview draws its own heading and month row (the mobile design). */}
+          {activeTab === 'dashboard' && !isPhone && (
             <PageHeader page="dashboard" id="dashboard-title" className="mb-4">
               <div className="contents sm:flex sm:items-center sm:justify-end sm:gap-2">
                 {/* Phones: its own full-width row under the title; wider screens: before the bell. */}
@@ -2745,7 +2914,7 @@ export default function App() {
                       navigateTab('incomeExpense');
                     }
                   }}
-                  mobile={!isDesktop}
+                  mobile={isPhone}
                   greetingName={routeContext?.profile.displayName || session.user.email?.split('@')[0]}
                   monthPicker={<DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} compact />}
                   onOpenTools={() => setIsMobileMenuOpen(true)}
@@ -2994,8 +3163,8 @@ export default function App() {
           </VaultProvider>
         </div>
 
-        {!isDesktop && isMobileMenuOpen && renderMobileMenu()}
-        {!isDesktop && (
+        {isPhone && isMobileMenuOpen && renderMobileMenu()}
+        {isPhone && (
           <MobileBottomNav
             current={isMobileMenuOpen ? 'menu' : activeTab === 'dashboard' || activeTab === 'jobs' || activeTab === 'receivables' ? activeTab : 'menu'}
             onSelect={tab => {

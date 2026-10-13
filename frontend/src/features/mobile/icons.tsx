@@ -38,6 +38,7 @@ const PATHS = {
   download: '<path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/>',
   upload: '<path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/>',
   trash: '<path d="M3 6h18M8 6V3h8v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',
+  filter: '<path d="M4 7h16M4 17h16"/><circle cx="8" cy="7" r="2" fill="var(--ksm-surface)"/><circle cx="16" cy="17" r="2" fill="var(--ksm-surface)"/>',
   logout: '<path d="M9 3H3v18h6M9 12h12m-5-5 5 5-5 5"/>',
 } as const;
 
