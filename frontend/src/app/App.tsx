@@ -59,7 +59,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 // down, computed from local machine time) -- importing the same name here would silently shadow
 // it, and calling the shadowed string as a function is exactly the "Je is not a function" bug
 // that made the LINE-notify balance figure fail (found via a decoded production sourcemap).
-import { computeMonthlySummary, currentMonthKey as getCurrentMonthKeyBkk, nowInBangkok } from '../../../shared/monthlySummary';
+import { nowInBangkok } from '../../../shared/monthlySummary';
 import { Mascot } from '../components/mascot/Mascot';
 import { MascotToast } from '../components/mascot/MascotToast';
 const ProfileSetupWizard = lazy(() => import('../features/onboarding/ProfileSetupWizard').then(module => ({ default: module.ProfileSetupWizard })));
@@ -1845,123 +1845,7 @@ export default function App() {
     });
   }, [session, isLoadedForUser, dueReminderJobs]);
 
-  // Best-effort push to LINE (if linked) whenever a job/expense is added straight through the
-  // web app -- mirrors the same "bank app" receipt the LINE bot/LIFF form already send, so
-  // recording something here pings LINE too instead of only when added from there. Never blocks
-  // or surfaces an error to the user; a failed/skipped push is silently fine.
-  const reportLineNotifyFailure = (err: unknown) => {
-    console.warn('LINE notification failed:', err);
-    fireMascot({ mood: 'alert', message: 'บันทึกข้อมูลแล้ว แต่ส่งแจ้งเตือน LINE ไม่สำเร็จ กรุณาตรวจการเชื่อมต่อในหน้าตั้งค่า' });
-  };
-
-  const notifyLineRecordAdded = (kind: 'job' | 'expense', record: Job | Expense, monthNet: number | undefined) => {
-    if (!session?.user?.email || session.isGuest || financeGroupId) return;
-    (async () => {
-      try {
-        await apiJson('/api/notify', {
-          method: 'POST',
-          headers: { 'X-Account-ID': session.user.id },
-          body: JSON.stringify({ event: 'record-added', kind, record, monthNet }),
-        });
-      } catch (err) {
-        reportLineNotifyFailure(err);
-      }
-    })();
-  };
-
-  // Job edits that aren't a full payment completion (that case reuses notifyLineRecordAdded's
-  // "รับเงิน" card via handleEditJob's wasCompleted branch) previously sent no LINE notification
-  // at all -- editing a job's name/client/value/status through JobsTab's edit form landed
-  // silently. This covers that gap with its own "แก้ไขงาน" card.
-  const notifyLineRecordEdited = (kind: 'job' | 'expense', record: Job | Expense, monthNet: number | undefined) => {
-    if (!session?.user?.email || session.isGuest || financeGroupId) return;
-    (async () => {
-      try {
-        await apiJson('/api/notify', {
-          method: 'POST',
-          headers: { 'X-Account-ID': session.user.id },
-          body: JSON.stringify({ event: 'record-edited', kind, record, monthNet }),
-        });
-      } catch (err) {
-        reportLineNotifyFailure(err);
-      }
-    })();
-  };
-
-  // LINE has no API to delete/unsend a previously-sent message, so deleting a job or expense
-  // here can't remove its old "บันทึกสำเร็จ" card from the chat -- this pushes a follow-up
-  // "ยกเลิก/ลบ" card instead, so the chat at least shows it was voided.
-  const notifyLineRecordDeleted = (kind: 'job' | 'expense', record: Job | Expense, monthNet: number | undefined) => {
-    if (!session?.user?.email || session.isGuest || financeGroupId) return;
-    (async () => {
-      try {
-        const body = kind === 'job'
-          ? { kind, record: { name: (record as Job).name, client: (record as Job).client, value: (record as Job).value, isPosted: (record as Job).isPosted }, monthNet }
-          : { kind, record: { name: (record as Expense).name, category: (record as Expense).category, amount: (record as Expense).amount }, monthNet };
-        await apiJson('/api/notify', {
-          method: 'POST',
-          headers: { 'X-Account-ID': session.user.id },
-          body: JSON.stringify({ event: 'record-deleted', ...body }),
-        });
-      } catch (err) {
-        reportLineNotifyFailure(err);
-      }
-    })();
-  };
-
-  // Same best-effort push pattern for savings-goal events -- creating a goal, or a deposit/
-  // withdraw transaction against one (mirrors handleAddGoal / handleUpdateGoalProgress).
-  const notifyLineGoalEvent = (
-    kind: 'created' | 'deposit' | 'withdraw' | 'transaction-deleted',
-    goal: { name: string; target: number; current: number; deadline?: string },
-    tx?: { amount: number; reason?: string; type?: 'deposit' | 'withdraw' }
-  ) => {
-    if (!session?.user?.email || session.isGuest || financeGroupId) return;
-    (async () => {
-      try {
-        const body = kind === 'created'
-          ? { kind, goal: { name: goal.name, target: goal.target, deadline: goal.deadline } }
-          : { kind, goal: { name: goal.name, target: goal.target, current: goal.current }, tx };
-        await apiJson('/api/notify', {
-          method: 'POST',
-          headers: { 'X-Account-ID': session.user.id },
-          body: JSON.stringify({ event: 'goal-event', ...body }),
-        });
-      } catch (err) {
-        reportLineNotifyFailure(err);
-      }
-    })();
-  };
-
-  // computeMonthlySummary is only for the LINE card's "คงเหลือเดือนนี้" line -- never let it (or
-  // anything else) block the notify call itself, since a thrown error here would silently
-  // swallow the whole notification before the fetch even happens. Uses receivedAfterVariableExpense
-  // (not netFlow) so this matches the Dashboard's "คงเหลือหลังหักรายจ่าย" figure the user actually
-  // watches -- netFlow also nets out the fixed-expense budget line, which isn't what "how much do
-  // I have left right now" means to them.
-  //
-  // Takes the jobs/expenses arrays explicitly rather than reading the `jobs`/`expenses` closures
-  // itself -- callers must pass the array returned from their own setJobs/setExpenses functional
-  // updater (see handleAddJob etc. below), not the plain state variable. Two edits fired back to
-  // back (e.g. marking two jobs paid in quick succession) can both run before React re-renders,
-  // so both would close over the same pre-edit `jobs`/`expenses` and each notification would show
-  // a running balance that doesn't account for the other edit -- the exact "balances swapped"
-  // report this was fixed for.
-  const monthNetSafe = (jobsList: Job[], expensesList: Expense[]): number | undefined => {
-    try {
-      return computeMonthlySummary(
-        jobsList,
-        expensesList,
-        goals,
-        settings,
-        getCurrentMonthKeyBkk()
-      ).receivedAfterVariableExpense;
-    } catch (err) {
-      console.warn('computeMonthlySummary failed for LINE notify:', err);
-      return undefined;
-    }
-  };
-
+  // Web edits acknowledge locally. LINE receipts are sent only by the LINE chat/LIFF flows.
   // Core functions
   const handleAddJob = (newJob: Omit<Job, 'id'>) => {
     const jobWithId: Job = {
@@ -1969,19 +1853,13 @@ export default function App() {
       id: crypto.randomUUID(),
       lastActivityAt: new Date().toISOString(),
     };
-    let freshJobs: Job[] = jobs;
-    setJobs(prev => {
-      freshJobs = [jobWithId, ...prev];
-      return freshJobs;
-    });
+    setJobs(prev => [jobWithId, ...prev]);
     fireMascot({
       mood: 'happy',
       message: `เพิ่มงานเรียบร้อย: ${newJob.name}`
     });
     // Trigger a celebratory green leaves shower!
     leafBus.trigger({ count: 16, type: 'green', durationMs: 3500 });
-
-    notifyLineRecordAdded('job', jobWithId, monthNetSafe(freshJobs, expenses));
   };
 
   // Jumps to the Jobs tab and scrolls straight to one job's card, briefly highlighted --
@@ -2006,46 +1884,21 @@ export default function App() {
   };
 
   const handleEditJob = (id: string, updated: Partial<Job>) => {
-    // Read oldJob and build the post-edit array from `prev` inside the functional updater, not
-    // from the `jobs` closure -- two edits fired back to back (e.g. marking two jobs paid within
-    // the same tick, before React re-renders between clicks) would otherwise both close over the
-    // same pre-edit `jobs`, so the second edit's LINE notification balance wouldn't account for
-    // the first edit at all. setJobs's functional form always sees the true latest pending state.
+    // Use the latest state for local save feedback and preserve the existing payment transitions.
     let oldJob: Job | undefined;
-    let freshJobs: Job[] = jobs;
-    // Stamp the edit so jobs on the same date list the most recently touched one first.
     const stamped = { ...updated, lastActivityAt: new Date().toISOString() };
     setJobs(prev => {
       oldJob = prev.find(j => j.id === id);
-      freshJobs = prev.map(j => j.id === id ? { ...j, ...stamped } : j);
-      return freshJobs;
+      return prev.map(j => j.id === id ? { ...j, ...stamped } : j);
     });
 
-    // If job was completed or fully paid, trigger a massive celebration! Checked three ways, not
-    // just the status/paymentStatus string fields -- those can drift out of sync with reality
-    // (e.g. a job still showing in Dashboard's "unpaid" quick-list, which is driven by
-    // pending > 0, while status already happens to read 'done' for an unrelated reason), which
-    // was silently swallowing both the celebration and the LINE notification. `pending` hitting
-    // exactly 0 is the one signal every other part of the app already treats as the source of
-    // truth for "fully paid", so it's included as its own, independent trigger here too.
     const wasCompleted = (updated.status === 'done' && oldJob?.status !== 'done') ||
                          (updated.paymentStatus === 'paid' && oldJob?.paymentStatus !== 'paid') ||
                          (updated.pending === 0 && (oldJob?.pending ?? 0) > 0);
 
-    // A WIP job flipping to isPosted (the "ส่งงานแล้ว รอรับเงิน" quick action, or the same toggle
-    // inside the full edit form) is its own distinct moment -- the deal is delivered, but no money
-    // has necessarily landed yet. Before this check existed, that save fell through to the generic
-    // "แก้ไขงาน" branch below and sent a plain "job edited" LINE card, which reads as a random field
-    // tweak rather than what actually happened. buildJobSavedMessage already renders the correct
-    // "ดีลงาน" vs "รับเงินแล้ว" badge for a posted job based on its payment status, so reusing the
-    // same notifyLineRecordAdded call here (like wasCompleted does) gives this its own accurate card.
+    // Keep in-app feedback distinct for delivery, deposits and full payment.
     const wasDelivered = !wasCompleted && updated.isPosted === true && oldJob?.isPosted === false;
 
-    // A deposit (the "ได้มัดจำ" quick action) used to send no LINE card at all -- per feedback, a
-    // partial payment landing is worth its own notification, distinct from a full payment (its own
-    // amber "ได้รับมัดจำ" badge in buildJobSavedMessage, not the green "รับเงินแล้ว" one).
-    // Only a deposit that is new or larger counts: the edit form re-sends status on every save, so
-    // editing any other field of a partially paid job must not announce another deposit.
     const wasPartialPayment = !wasCompleted && !wasDelivered && updated.status === 'partial'
       && (oldJob?.status !== 'partial' || (updated.received ?? 0) > (oldJob?.received ?? 0));
 
@@ -2061,44 +1914,23 @@ export default function App() {
       // A job with withholding tax: offer to attach its 50 ทวิ right away (the vault decides
       // whether the workspace can keep files).
       if (oldJob) window.dispatchEvent(new CustomEvent('cash-squirrel:wht-paid', { detail: { ...oldJob, ...updated } }));
-      // Same "รับเงิน" LINE card as a brand-new fully-paid job -- this is a payment landing on an
-      // existing project, so it should read the same way ("ได้รับยอดของโปรเจกต์นี้แล้ว เท่าไหร่").
-      if (oldJob) {
-        const mergedJob = { ...oldJob, ...updated };
-        notifyLineRecordAdded('job', mergedJob, monthNetSafe(freshJobs, expenses));
-      }
     } else if (wasDelivered) {
       fireMascot({
         mood: 'happy',
         message: `ส่งมอบงานเรียบร้อยแล้วค้าบ! เหลือแค่รอเงินโอนเข้าคลังกระรอกเท่านั้น!`
       });
-      if (oldJob) {
-        const mergedJob = { ...oldJob, ...updated };
-        notifyLineRecordAdded('job', mergedJob, monthNetSafe(freshJobs, expenses));
-      }
     } else if (wasPartialPayment) {
       fireMascot({
         mood: 'happy',
         message: `บันทึกมัดจำเรียบร้อยแล้วค้าบ! มีเงินเข้าคลังกระรอกมาบางส่วนแล้วนะ!`
       });
       leafBus.trigger({ count: 14, type: 'mixed', durationMs: 3000 });
-      if (oldJob) {
-        const mergedJob = { ...oldJob, ...updated };
-        notifyLineRecordAdded('job', mergedJob, monthNetSafe(freshJobs, expenses));
-      }
     } else {
       fireMascot({
         mood: 'happy',
         message: `อัปเดตข้อมูลดีลเรียบร้อยแล้วค้าบ! ข้อมูลถูกต้องแม่นยำร้อยเปอร์เซ็นต์!`
       });
-      // `updated.name` is only ever present on JobsTab's real edit-form save (see its onEditJob
-      // call) -- every other onEditJob caller (a lone isPosted toggle, etc.) only ever touches a
-      // couple of narrow fields and never `name`, so gating on it here is what keeps this from
-      // firing a LINE card on every one of those.
-      if (oldJob && updated.name !== undefined) {
-        const mergedJob = { ...oldJob, ...updated };
-        notifyLineRecordEdited('job', mergedJob, monthNetSafe(freshJobs, expenses));
-      }
+
     }
   };
 
@@ -2107,7 +1939,6 @@ export default function App() {
       'ยืนยันการลบงานดีล',
       'คุณแน่ใจหรือไม่ว่าต้องการลบดีลงานชิ้นนี้? ข้อมูลรายรับที่เกี่ยวข้องจะหายไปด้วย',
       () => {
-        const jobToDelete = jobs.find(j => j.id === id);
         deletedJobIdsRef.current.add(id);
         if (session?.user?.email) {
           markRecentlyDeleted(`cashflow_deleted_job_ids_${session.user.email}`, id);
@@ -2121,9 +1952,6 @@ export default function App() {
           mood: 'alert',
           message: `ลบดีลงานเรียบร้อยแล้วนะค้าบ หวังว่าดีลใหม่จะงอกเร็วๆ น้า!`
         });
-        if (jobToDelete) {
-          notifyLineRecordDeleted('job', jobToDelete, monthNetSafe(freshJobs, expenses));
-        }
         // Don't wait for the 1.5s debounced autosave -- a job the user just confirmed deleting
         // reappearing in the stock list (a real report) is exactly what happens if the tab closes
         // or the app backgrounds inside that window before the debounced save fires: the delete
@@ -2152,7 +1980,6 @@ export default function App() {
     };
     setGoals(prev => [...prev, goalWithId]);
     leafBus.trigger({ count: 12, type: 'mixed', durationMs: 3000 });
-    notifyLineGoalEvent('created', goalWithId);
   };
 
   const handleDeleteGoal = (id: string) => {
@@ -2196,12 +2023,11 @@ export default function App() {
     // that applied amount, so deleting the entry can never add money that was not withdrawn.
     const result = applyGoalTransaction(goals, id, requestedTx);
     if (!result.ok) return false;
-    const newTx = result.transaction;
     const nextVal = result.goalAfter.current;
 
-    // Ticking "หักออกจากยอดรายรับ" (deductedFromCash, set on newTx above) is what makes this
+    // Ticking "หักออกจากยอดรายรับ" (deductedFromCash, set on the transaction above) is what makes this
     // deposit count toward SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร" -- that figure derives live
-    // from deductedFromCash deposit history, so setting the flag on newTx is all that's needed;
+    // from deductedFromCash deposit history, so setting the flag on the transaction is all that's needed;
     // no separate settings bookkeeping here, and nothing to reverse on delete either.
 
     if (nextVal >= g.target && g.current < g.target) {
@@ -2215,7 +2041,6 @@ export default function App() {
       // Saving money, drop some green leaves!
       leafBus.trigger({ count: 10, type: 'green', durationMs: 2500 });
     }
-    notifyLineGoalEvent(newTx.type, { name: g.name, target: g.target, current: nextVal }, { amount: newTx.amount, reason: newTx.reason });
 
     setGoals(result.goals);
     return true;
@@ -2243,12 +2068,6 @@ export default function App() {
       return;
     }
     setGoals(result.goals);
-
-    notifyLineGoalEvent(
-      'transaction-deleted',
-      { name: g.name, target: g.target, current: result.goalAfter.current },
-      { amount: targetTx.amount, reason: targetTx.reason, type: targetTx.type }
-    );
 
     // No settings bookkeeping needed here -- SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร" derives
     // live from deductedFromCash deposits still present in goal history, so removing the
@@ -2361,31 +2180,14 @@ export default function App() {
       ...newExp,
       id: crypto.randomUUID()
     };
-    let freshExpenses: Expense[] = expenses;
-    setExpenses(prev => {
-      freshExpenses = [expWithId, ...prev];
-      return freshExpenses;
-    });
-
-    notifyLineRecordAdded('expense', expWithId, monthNetSafe(jobs, freshExpenses));
+    setExpenses(prev => [expWithId, ...prev]);
   };
 
   const handleEditExpense = (id: string, updated: Partial<Expense>) => {
-    let editedExpense: Expense | undefined;
-    let freshExpenses: Expense[] = expenses;
-    setExpenses(prev => {
-      freshExpenses = prev.map(e => {
-        if (e.id !== id) return e;
-        editedExpense = { ...e, ...updated };
-        return editedExpense;
-      });
-      return freshExpenses;
-    });
-    if (editedExpense) notifyLineRecordEdited('expense', editedExpense, monthNetSafe(jobs, freshExpenses));
+    setExpenses(prev => prev.map(e => e.id === id ? { ...e, ...updated } : e));
   };
 
   const handleDeleteExpense = (id: string) => {
-    const expenseToDelete = expenses.find(e => e.id === id);
     deletedExpenseIdsRef.current.add(id);
     if (session?.user?.email) {
       markRecentlyDeleted(`cashflow_deleted_expense_ids_${session.user.email}`, id);
@@ -2395,9 +2197,6 @@ export default function App() {
       freshExpenses = prev.filter(e => e.id !== id);
       return freshExpenses;
     });
-    if (expenseToDelete) {
-      notifyLineRecordDeleted('expense', expenseToDelete, monthNetSafe(jobs, freshExpenses));
-    }
     // Same immediate-flush reasoning as handleDeleteJob -- don't leave a delete sitting in the
     // 1.5s debounce window where closing/backgrounding the app can lose it and bring the
     // "deleted" expense right back on the next load.
