@@ -39,7 +39,7 @@ import { useDelayedLoader } from '../hooks/useDelayedLoader';
 import Login from '../features/auth/Login';
 import LandingPage from '../features/marketing/LandingPage';
 import { MobileBottomNav, MobileHeader, MobileMenuPage, type MobileTool, type MobileToolGroup } from '../features/mobile/MobileChrome';
-import type { KsIconName } from '../features/mobile/icons';
+import { KsIcon, type KsIconName } from '../features/mobile/icons';
 import { useMobileLayout } from '../features/mobile/useMobileLayout';
 const TaxTab = lazy(loadTaxTab);
 const SettingsTab = lazy(loadSettingsTab);
@@ -2841,6 +2841,12 @@ export default function App() {
             ? <ContentLoadingSkeleton page={activeTab} />
             : <Suspense fallback={<ContentLoadingSkeleton page={activeTab} />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
+          {/* Phones: tool pages open from the tools screen, so they lead back to it (the mobile design's back link). */}
+          {isPhone && !['dashboard', 'jobs', 'receivables'].includes(activeTab) && (
+            <button type="button" className="ksm ksm-back" onClick={() => setIsMobileMenuOpen(true)}>
+              <KsIcon name="left" size={17} /> เครื่องมือทั้งหมด
+            </button>
+          )}
           {/* On phones the overview draws its own heading and month row (the mobile design). */}
           {activeTab === 'dashboard' && !isPhone && (
             <PageHeader page="dashboard" id="dashboard-title" className="mb-4">

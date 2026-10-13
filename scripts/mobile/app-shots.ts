@@ -43,6 +43,10 @@ console.log('sheet rects', await page.evaluate(() => ['.ksm-sheet', '.ksm-sheet-
   .map(sel => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${sel} [${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}]` : `${sel} (missing)`; }).join(' | ')));
 await page.getByRole('button', { name: 'ปิดหน้าต่าง' }).click(); await page.waitForTimeout(300);
 await page.getByRole('button', { name: /ช่วงเวลาที่แสดง/ }).click(); await shot('home-month'); await page.keyboard.press('Escape');
+await page.getByRole('button', { name: 'รับเงินด่วน', exact: true }).click(); await shot('home-quickpay');
+await page.goto(BASE + '/', { waitUntil: 'load' }); await page.waitForTimeout(2000);
+await page.getByRole('button', { name: /^กำไรสุทธิ/ }).click(); await shot('home-profit');
+await page.goto(BASE + '/', { waitUntil: 'load' }); await page.waitForTimeout(2000);
 await tab('งาน').click(); await shot('jobs'); await overflow('jobs');
 console.log('jobs rects', await page.evaluate(() => ['.ksm-pagetitle', '.ksm-pagetitle h2', '.ksm-toolbtn', '.ksm-search', '.ksm-tabs', '.ksm-tabs > button', '.ksm-filter-note', '.ksm-joblist', '.ksm-jobcard', '.ksm-jobcard-top', '.ksm-jobstatus', '.ksm-deadline']
   .map(sel => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${sel} [${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}]` : `${sel} (missing)`; }).join(' | ')));
@@ -55,10 +59,26 @@ await tab('รอรับ').click(); await shot('receivables'); await overflow(
 console.log('due rects', await page.evaluate(() => ['.ksm-pagetitle', '.ksm-screen > .ksm-month', '.ksm-moneycard', '.ksm-scope', '.ksm-duelist', '.ksm-due', '.ksm-due-body', '.ksm-due-foot', '.ksm-btn']
   .map(sel => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${sel} [${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}]` : `${sel} (missing)`; }).join(' | ')));
 await page.getByRole('button', { name: /^เตือนฉัน/ }).first().click(); await shot('receivables-remind');
+// A fresh load first: after a long headless session the dialog's enter animation can stall at 0 opacity.
+await page.goto(BASE + '/', { waitUntil: 'load' }); await page.waitForTimeout(2000); await tab('รอรับ').click(); await page.waitForTimeout(400);
+await page.locator('.ksm-due .ksm-btn').first().click(); await page.waitForTimeout(500); await shot('receivables-confirm');
+await page.getByRole('button', { name: 'ยกเลิก', exact: true }).click(); await page.waitForTimeout(250);
 await page.getByRole('tab', { name: /เลยกำหนดรับเงิน/ }).click(); await shot('receivables-overdue');
 await tab('เมนู').click(); await shot('menu');
 await page.locator('.ksm-group > summary').first().click(); await shot('menu-open');
 await page.getByRole('button', { name: /^ปฏิทิน/ }).first().click(); await shot('tool-calendar'); await overflow('calendar');
+for (const [label, name] of [['รายจ่าย', 'tool-expenses'], ['เป้าหมาย', 'tool-goals'], ['ออกเอกสาร', 'tool-documents'], ['คลัง', 'tool-vault'], ['50 ทวิ', 'tool-wht'], ['รายงาน', 'tool-report'], ['ภาษี', 'tool-tax'], ['ตั้งค่า', 'tool-settings']] as const) {
+  // Each tool from a fresh load, so a prompt one page raises cannot block the next.
+  await page.goto(BASE + '/', { waitUntil: 'load' }); await page.waitForTimeout(1800);
+  await tab('เมนู').click(); await page.waitForTimeout(250);
+  await page.getByPlaceholder(/ค้นหา เช่น/).fill(label);
+  const hit = page.getByRole('region', { name: 'เครื่องมือทั้งหมด' }).locator('.ksm-row').first();
+  if (!(await hit.count())) { console.log('no tool for', label); continue; }
+  await hit.click(); await shot(name); await overflow(name);
+  const prompt = await page.locator('.ksm-modal [role=dialog]').first().getAttribute('aria-label').catch(() => null);
+  if (prompt) console.log(`${name}: the page opened a prompt: ${prompt}`);
+}
+await page.goto(BASE + '/', { waitUntil: 'load' }); await page.waitForTimeout(1800);
 await tab('เมนู').click();
 await page.getByPlaceholder(/ค้นหา เช่น/).fill('ภาษี'); await shot('menu-search');
 await tab('ภาพรวม').click();
@@ -70,9 +90,10 @@ await page.locator('#job-form-value-input').pressSequentially('12500.5'); await 
 await page.locator('.ksm-jobmore > summary').click(); await shot('add-job-more');
 await page.locator('#job-tab-payment').click(); await shot('add-job-payment');
 await page.locator('#job-tab-other').click(); await shot('add-job-other');
-await page.keyboard.press('Escape'); await page.waitForTimeout(400);
-await tab('ภาพรวม').click();
+await page.goto(BASE + '/', { waitUntil: 'load' }); await page.waitForTimeout(1800);
 await page.getByRole('button', { name: 'เปลี่ยนเป็นโหมดมืด' }).click(); await shot('home-dark');
+await tab('งาน').click(); await shot('jobs-dark');
+await tab('รอรับ').click(); await shot('receivables-dark');
 await tab('เมนู').click(); await shot('menu-dark');
 console.log('errors:', JSON.stringify([...new Set(errors)].slice(0, 4)));
 await browser.close();

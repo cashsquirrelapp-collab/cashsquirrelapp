@@ -362,3 +362,19 @@
   .ksm-tabs > button { font-size: 12px; padding: 10px 2px; }
 }
 @media (prefers-reduced-motion: reduce) { .ksm-screen { animation: none; } }
+
+/* Tool pages on phones: the design's back link and plain page title (shared PageHeader), and
+   dialogs that open centred on wider screens come up as bottom sheets. 743px = useMobileLayout. */
+.ksm-back { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; margin: -4px 0 12px; font-size: 12px; font-weight: 500; color: var(--ksm-secondary); cursor: pointer; }
+.ksm-actionsheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 150; padding: 0 18px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--ksm-border); border-radius: 24px 24px 0 0; background: var(--ksm-surface); color: var(--ksm-text); box-shadow: 0 12px 44px var(--ksm-shadow-far); animation: ksm-sheet-in 0.22s ease-out; }
+.ksm-actionsheet-title { padding: 10px 0 8px; font-size: 14px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-actionsheet > p:not(.ksm-actionsheet-title) { padding: 0 0 6px; font-size: 12px; color: var(--ksm-secondary); }
+.ksm-actionsheet > button { display: flex; align-items: center; width: 100%; min-height: 52px; padding: 0; border-top: 1px solid var(--ksm-border); border-radius: 0; font-size: 15px; text-align: left; }
+@media (max-width: 743px) {
+  .ui-page-header { align-items: center; gap: 8px; min-height: 44px; margin-bottom: 12px; padding-bottom: 0; border-bottom: 0; }
+  .ui-page-title { font-size: 23px; font-weight: 600; line-height: 1.36; letter-spacing: -0.5px; }
+  .ui-page-description { display: none; }
+  .ksm-modal { align-items: flex-end; padding: 0; background: rgba(28, 25, 23, 0.46); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+  .ksm-modal > :not(.absolute):not(.fixed) { width: 100%; max-width: none; max-height: calc(100dvh - 16px); margin: 0; border-radius: 24px 24px 0 0; border-bottom-width: 0; box-shadow: 0 12px 44px rgba(60, 40, 28, 0.09); animation: ksm-sheet-in 0.22s ease-out; }
+}
+@media (prefers-reduced-motion: reduce) { .ksm-actionsheet, .ksm-modal > :not(.absolute):not(.fixed) { animation: none; } }

@@ -62,7 +62,7 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
   // of on top, so confirming from inside another modal silently did nothing the user could see.
   return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-y-auto" role="presentation">
+      <div className="ksm-modal fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-y-auto" role="presentation">
         {/* Backdrop overlay */}
         <motion.div
           initial={{ opacity: 0 }}

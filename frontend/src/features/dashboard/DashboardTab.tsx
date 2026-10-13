@@ -1132,7 +1132,7 @@ export default function DashboardTab({
 
       {/* Quick payment stays out of the overview until the shortcut is used. */}
       {isQuickPayExpanded && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(33,29,26,0.35)] p-4" onClick={() => setIsQuickPayExpanded(false)}>
+        <div className="ksm-modal fixed inset-0 z-50 flex items-center justify-center bg-[rgba(33,29,26,0.35)] p-4" onClick={() => setIsQuickPayExpanded(false)}>
           <div
             role="dialog"
             aria-modal="true"
@@ -1309,7 +1309,7 @@ export default function DashboardTab({
             </div>
           );
           return createPortal(
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setBreakdownFilter(null)}>
+            <div className="ksm-modal fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setBreakdownFilter(null)}>
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}

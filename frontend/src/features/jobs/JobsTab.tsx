@@ -1126,13 +1126,21 @@ export default function JobsTab({
       )}
 
       {actionMenu && createPortal(
+        <>
+        {mobile && <div className="ksm-sheet-backdrop" style={{ zIndex: 149 }} aria-hidden="true" />}
         <div
           ref={actionMenuRef}
           role="menu"
           aria-label={actionMenu.kind === 'stage' ? `เปลี่ยนสถานะงาน ${actionMenu.job.name}` : actionMenu.kind === 'payment' ? `บันทึกการชำระ ${actionMenu.job.name}` : `ตัวเลือกของงาน ${actionMenu.job.name}`}
-          className={`fixed z-[150] ${actionMenu.kind === 'actions' ? 'w-56' : 'w-[200px]'} rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900`}
-          style={{ top: actionMenu.top, left: actionMenu.left, transform: actionMenu.up ? 'translateY(-100%)' : undefined }}
+          className={mobile ? 'ksm ksm-actionsheet' : `fixed z-[150] ${actionMenu.kind === 'actions' ? 'w-56' : 'w-[200px]'} rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900`}
+          style={mobile ? undefined : { top: actionMenu.top, left: actionMenu.left, transform: actionMenu.up ? 'translateY(-100%)' : undefined }}
         >
+          {mobile && (
+            <>
+              <div className="ksm-sheet-grip" aria-hidden="true" />
+              <p className="ksm-actionsheet-title">{actionMenu.job.name}</p>
+            </>
+          )}
           {actionMenu.kind !== 'actions' && (
             <p className="px-3 pb-1 pt-1.5 text-[11px] text-brand-muted">{actionMenu.kind === 'stage' ? 'เปลี่ยนสถานะงานเป็น' : 'บันทึกการรับเงิน'}</p>
           )}
@@ -1149,7 +1157,8 @@ export default function JobsTab({
               {action.label}
             </button>
           ))}
-        </div>,
+        </div>
+        </>,
         document.body
       )}
 
