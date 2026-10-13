@@ -1039,7 +1039,7 @@ test('landing: a scroll story made of real screenshots, with a hero that works a
  // every product picture is one of the captured app screenshots
  const pictures=await page.locator('main img').evaluateAll(els=>els.map(el=>el.getAttribute('src')||''));
  expect(pictures.length).toBeGreaterThan(12);
- for(const src of pictures)expect(src).toMatch(/^\/landing\/[a-z0-9-]+\.webp$/);
+ for(const src of pictures)expect(src).toMatch(/^\/(landing\/[a-z0-9-]+\.webp|line\/mascot-[a-z0-9-]+\.png)$/); // app screenshots, plus the art of the real LINE cards
  // scrolling moves the story forward, and scrolling back undoes it
  const travel=9*900;
  await page.evaluate(y=>window.scrollTo(0,y),0.27*travel);
@@ -1048,6 +1048,15 @@ test('landing: a scroll story made of real screenshots, with a hero that works a
  await page.evaluate(y=>window.scrollTo(0,y),0.75*travel);
  await expect(page.getByRole('heading',{name:/Stay updated/})).toBeVisible();
  await expect(page.getByText('ใช้ได้ในแพ็กเกจ Pro')).toBeVisible(); // LINE is labelled with its plan
+ // the chat starts empty; the cards only come in with their events (they are clipped until then)
+ const reply=page.getByText('ยอดรอรับทั้งหมด'),notice=page.getByText('ยอดที่ต้องติดตามทั้งหมด');
+ await expect(reply).not.toBeInViewport();
+ await page.evaluate(y=>window.scrollTo(0,y),0.8*travel); // after the tap on รอรับเงิน: the bot's card is in the chat
+ await expect(reply).toBeInViewport();
+ await expect(page.getByText('฿ 29,000',{exact:true})).toBeInViewport(); // the total after the instalment recorded earlier in the story
+ await expect(notice).not.toBeInViewport();
+ await page.evaluate(y=>window.scrollTo(0,y),0.96*travel); // later an overdue notice arrives by itself
+ await expect(notice).toBeInViewport();
  await page.evaluate(()=>window.scrollTo(0,0));
  await expect(h1).toBeVisible();
  await expect(page.getByRole('heading',{name:'Know what’s due'})).toBeHidden();
@@ -1070,8 +1079,12 @@ test('landing without motion: every chapter, caption and picture is on the page 
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.goto('/');
  await expect(page.locator('section[style*="svh"]')).toHaveCount(0); // no pinned stage
- for(const name of [/Every project/,'Know what’s due',/Stay updated/,/Create and/,'Start free',/More time/])await expect(page.getByRole('heading',{name})).toBeVisible();
- for(const text of ['กดดูงานตัดต่อวิดีโอ 6,000 บาท รับแล้ว 2,000 บาท ค้างรับ 4,000 บาท','แอปปรับยอดให้เอง เป็นรับแล้ว 3,000 บาท ค้างรับ 3,000 บาท','งานเครดิตเทอม 30 หรือ 45 วัน','ได้ไฟล์ PDF จากระบบ','รู้ว่างานไหนยังไม่ได้ใบ 50 ทวิ'])await expect(page.getByText(text,{exact:false}).first()).toBeVisible();
+ for(const name of [/Every project/,'Know what’s due',/Stay updated/,/Ready for/,/Ready when/,'Start free',/More time/])await expect(page.getByRole('heading',{name})).toBeVisible();
+ // one job runs through every chapter with the same amounts
+ for(const text of ['งานตัดต่อวิดีโอ 6,000 บาท ได้มัดจำแล้ว 2,000 ยังรออีก 4,000','ยอดที่เหลือปรับให้เอง เหลือรออีก 3,000','ทั้งงาน 6,000 บาท','เรียกเก็บงวดที่ 2 1,000 บาท','รับเงินงวดที่ 2 1,000 บาท','ทั้งสามใบเป็นของงานตัดต่อวิดีโองานเดียวกัน','เลือกปีที่อัปโหลด แล้วดาวน์โหลดไฟล์ที่แสดงเป็นชุดเดียว','ยังต้องตามใบ 50 ทวิ'])await expect(page.getByText(text,{exact:false}).first()).toBeVisible();
+ // the two LINE cards are the app's own messages and carry on from the same numbers
+ await expect(page.getByRole('img',{name:'รอรับเงิน 4 งาน · รวม ฿ 29,000'})).toBeVisible();
+ await expect(page.getByRole('img',{name:'แจ้งเตือนดีลค้างชำระเลยกำหนด 1 รายการ'})).toBeVisible();
  const pictures=page.locator('main img');
  expect(await pictures.count()).toBeGreaterThan(12);
  expect(await pictures.evaluateAll(els=>els.filter(el=>!el.getAttribute('alt')&&!el.closest('[role=img]')).length)).toBe(0); // each one is described

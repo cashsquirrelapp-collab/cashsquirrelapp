@@ -61,7 +61,7 @@ async function open(plan: 'free' | 'pro', width = 1440, height = 900, dpr = 2) {
     } catch { /* not a change set */ }
     return r.fulfill({ json: { ok: true } });
   });
-  return { page, errors, close: () => ctx.close(), dpr, account: plan === 'free' ? 'Free' as const : 'Pro' as const };
+  return { page, errors, close: () => ctx.close(), dpr, account: plan === 'free' ? 'Free' as const : 'Pro' as const, saved: () => jobs };
 }
 
 const settle = (page: Page, ms = 900) => page.waitForTimeout(ms);
@@ -187,6 +187,8 @@ const card = (page: Page, text: string) => page.locator('.ui-surface', { hasText
   await page.getByRole('button', { name: 'ยืนยันรับเงินงวดนี้' }).click();
   await settle(page, 7000); // let the app's own confirmation and undo notice finish
   await page.keyboard.press('Escape'); await settle(page, 500);
+  // What the app itself saved after that confirmation: the LINE scene is generated from this, not from a hand-edited copy.
+  fs.writeFileSync(path.join(ROOT, 'scripts/landing/jobs-after.gen.json'), JSON.stringify(s.saved(), null, 2) + '\n');
 
   // The same job after the app saved it. Client-side navigation, no reload.
   await nav(page, 'ปฏิทิน'); await settle(page, 900);
@@ -243,71 +245,67 @@ const card = (page: Page, text: string) => page.locator('.ui-surface', { hasText
 }
 
 // ---------------------------------------------------------------- Pro account: documents and vault
+/** Cuts a strip of the page around a piece of text: the row that text sits in. */
+async function rowAround(s: { page: Page; dpr: number; account: Shot['account'] }, name: string, text: string, box: { left: number; right: number; above: number; below: number }, meta: Meta) {
+  const at = await s.page.getByText(text, { exact: true }).first().boundingBox();
+  if (!at) throw new Error(`"${text}" is not on screen`);
+  const rect = { x: box.left, y: Math.round(at.y - box.above), w: box.right - box.left, h: box.above + box.below };
+  const png = path.join(TMP, `${name}.png`);
+  await s.page.screenshot({ path: png, clip: { x: rect.x, y: rect.y, width: rect.w, height: rect.h } });
+  shots[name] = { file: webp(png, name), w: rect.w, h: rect.h, dpr: s.dpr, account: s.account, ...meta };
+  console.log('row   ', name);
+}
+const DOCS = [
+  { type: 'quotation', name: 'doc-quotation', th: 'ใบเสนอราคา', no: 'QT-2569-001', says: 'ใบเสนอราคาของงานตัดต่อวิดีโอ มูลค่างานทั้งหมด 6,000 บาท' },
+  { type: 'invoice', name: 'doc-invoice', th: 'ใบแจ้งหนี้', no: 'INV-2569-002', says: 'ใบแจ้งหนี้งวดที่ 2 ของงานเดียวกัน 1,000 บาท อ้างอิง QT-2569-001' },
+  { type: 'receipt', name: 'doc-receipt', th: 'ใบเสร็จ', no: 'RC-2569-002', says: 'ใบเสร็จรับเงินงวดที่ 2 ของงานเดียวกัน 1,000 บาท อ้างอิง INV-2569-002' },
+] as const;
 {
   const s = await open('pro'); const { page } = s;
-  await go(page, '/invoice?type=quotation');
-  const paper = page.locator('section[aria-label="ตัวอย่างเอกสาร"] .da4-page').first();
-  await screen(s, 'quotation', {
-    source: 'เอกสาร → ใบเสนอราคา (/invoice?type=quotation)',
-    proves: 'พรีวิวใบเสนอราคาในแอป พร้อมปุ่มแก้ไข ดาวน์โหลด PDF และแชร์ให้ลูกค้า',
-    alt: 'หน้าเอกสาร: ใบเสนอราคา QT-2569-001 ของ Brand A มูลค่า 6,000 บาท พร้อมพรีวิวเอกสาร',
-  }, (await paper.count()) ? { paper } : {});
-  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 90000 }), page.getByRole('button', { name: 'ดาวน์โหลด PDF' }).click()]);
-  const pdf = path.join(TMP, 'quotation.pdf');
-  await download.saveAs(pdf);
-  // Page 1 of the file the app produced, turned into an image without changing it.
-  execFileSync('pdftoppm', ['-r', '150', '-f', '1', '-l', '1', '-png', '-singlefile', pdf, path.join(TMP, 'quotation-pdf')]);
-  const dims = execFileSync('python3', ['-c', `from PIL import Image; im=Image.open(${JSON.stringify(path.join(TMP, 'quotation-pdf.png'))}); print(im.size[0], im.size[1])`]).toString().trim().split(' ').map(Number);
-  shots['quotation-pdf'] = {
-    file: webp(path.join(TMP, 'quotation-pdf.png'), 'quotation-pdf'), w: dims[0] / 2, h: dims[1] / 2, dpr: 2, account: 'Pro',
-    source: `เอกสาร → ดาวน์โหลด PDF → ไฟล์ ${download.suggestedFilename()} หน้า 1 (แปลงเป็นภาพด้วย pdftoppm 150dpi)`,
-    proves: 'ไฟล์ PDF ที่ระบบสร้างจริงจากใบเสนอราคาเดียวกัน',
-    alt: 'ไฟล์ PDF ใบเสนอราคา QT-2569-001 ที่ระบบสร้าง: ตัดต่อวิดีโอโปรโมต 4,500 บาท ทำซับไตเติลและปรับสี 1,500 บาท',
-  };
-  console.log('pdf   ', download.suggestedFilename(), fs.statSync(pdf).size, dims);
+  for (const doc of DOCS) {
+    await go(page, `/invoice?type=${doc.type}`);
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 90000 }), page.getByRole('button', { name: 'ดาวน์โหลด PDF' }).click()]);
+    const pdf = path.join(TMP, `${doc.name}.pdf`);
+    await download.saveAs(pdf);
+    // Page 1 of the file the app produced, whole sheet, turned into an image without changing it.
+    execFileSync('pdftoppm', ['-r', '150', '-f', '1', '-l', '1', '-png', '-singlefile', pdf, path.join(TMP, doc.name)]);
+    const dims = execFileSync('python3', ['-c', `from PIL import Image; im=Image.open(${JSON.stringify(path.join(TMP, `${doc.name}.png`))}); print(im.size[0], im.size[1])`]).toString().trim().split(' ').map(Number);
+    shots[doc.name] = {
+      file: webp(path.join(TMP, `${doc.name}.png`), doc.name), w: dims[0] / 2, h: dims[1] / 2, dpr: 2, account: 'Pro',
+      source: `เอกสาร → ${doc.th} ${doc.no} → ดาวน์โหลด PDF → ไฟล์ ${download.suggestedFilename()} หน้า 1 เต็มแผ่น (แปลงเป็นภาพด้วย pdftoppm 150dpi)`,
+      proves: `ไฟล์ PDF ที่ระบบสร้างจริง: ${doc.says}`,
+      alt: `${doc.th} ${doc.no} เต็มแผ่น: ${doc.says}`,
+    };
+    console.log('pdf   ', download.suggestedFilename(), dims);
+    await settle(page, 600);
+  }
 
   await go(page, '/vault');
-  await screen(s, 'vault', {
-    source: 'เอกสาร → คลังเอกสาร (/vault)',
-    proves: 'คลังเอกสารเก็บใบ 50 ทวิ สัญญา/PO และสลิปรายจ่าย แยกประเภทและค้นหาได้',
-    alt: 'หน้าคลังเอกสาร: 4 ไฟล์ ได้แก่ ใบ 50 ทวิ สัญญา PO และสลิปรายจ่าย',
-  });
   const year = page.locator('select').last();
   await year.selectOption({ label: 'อัปโหลดปี 2569' });
+  await settle(page, 500);
   await screen(s, 'vault-year', {
-    source: 'คลังเอกสาร → ตัวกรองปี เลือก “อัปโหลดปี 2569”',
-    proves: 'ตัวกรองปีที่อัปโหลดมีจริง เลือกปี 2569 แล้วเหลือ 3 ไฟล์ของปีนั้น',
-    alt: 'หน้าคลังเอกสารเมื่อกรองปี 2569 เหลือ 3 ไฟล์',
-  }, { filter: year });
+    source: 'เอกสาร → คลังเอกสาร → ตัวกรอง “อัปโหลดปี 2569”',
+    proves: 'คลังเอกสารกรองตามปีที่อัปโหลด เลือกปี 2569 แล้วเหลือ 3 ไฟล์ และมีปุ่มดาวน์โหลดไฟล์ที่แสดง',
+    alt: 'หน้าคลังเอกสารเมื่อกรองปีที่อัปโหลด 2569 เหลือ 3 ไฟล์',
+  }, { filter: year, download: page.getByRole('button', { name: /ดาวน์โหลดไฟล์ที่แสดง/ }) });
+  const files = [['vault-file-wht', '50ทวิ_StudioE_ตค69.pdf', 'ใบ 50 ทวิของงานถ่ายภาพสินค้า (Studio E)'], ['vault-file-po', 'PO_AgencyC_แคมเปญ.pdf', 'สัญญา / PO ของงานแคมเปญเปิดตัวสินค้า (Agency C)'], ['vault-file-slip', 'ใบเสร็จ_โปรแกรมตัดต่อ.pdf', 'สลิปรายจ่ายค่าโปรแกรมตัดต่อ']] as const;
+  for (const [name, text, what] of files) {
+    await rowAround(s, name, text, { left: 280, right: 1400, above: 22, below: 62 }, { source: `คลังเอกสาร (ปีที่อัปโหลด 2569): แถวไฟล์ ${text}`, proves: `ไฟล์ที่เก็บในคลังพร้อมประเภทและงานที่ผูกไว้: ${what}`, alt: `ไฟล์ในคลังเอกสาร: ${text} · ${what}` });
+  }
+  await piece(s, 'vault-download', page.getByRole('button', { name: /ดาวน์โหลดไฟล์ที่แสดง/ }), { source: 'คลังเอกสาร: ปุ่ม “ดาวน์โหลดไฟล์ที่แสดง (3)”', proves: 'ดาวน์โหลดไฟล์ที่กรองไว้เป็นชุดเดียว (ZIP) ได้จากหน้าคลัง', alt: 'ปุ่มดาวน์โหลดไฟล์ที่แสดง 3 ไฟล์' });
+  await piece(s, 'vault-filter', year, { source: 'คลังเอกสาร: ตัวกรองปี เลือก “อัปโหลดปี 2569”', proves: 'ตัวกรองเป็นปีที่อัปโหลดไฟล์ ไม่ใช่ปีภาษีหรือปีของเอกสาร', alt: 'ตัวกรอง: อัปโหลดปี 2569' });
+
   await go(page, '/wht50');
-  await screen(s, 'wht50', {
-    source: 'เอกสาร → ติดตามใบ 50 ทวิ (/wht50)',
-    proves: 'ติดตามว่างานไหนได้รับใบ 50 ทวิจากผู้ว่าจ้างแล้ว และงานไหนยังรอ (แอปเก็บใบที่ได้รับ ไม่ได้ออกใบแทนผู้ว่าจ้าง)',
-    alt: 'หน้าติดตามใบ 50 ทวิ: ต้องมี 2 งาน ได้รับแล้ว 1 ยังรอ 1',
-  });
+  const whtTable = () => page.locator('.ui-surface', { hasText: 'งาน / ลูกค้า' }).last();
+  await piece(s, 'wht-waiting', whtTable(), { source: 'ติดตามใบ 50 ทวิ → แท็บ “ยังรอ”', proves: 'งานถ่ายวิดีโอสัมภาษณ์ รับเงินแล้วแต่ยังไม่ได้ใบ 50 ทวิ รอมา 19 วัน', alt: 'งานที่ยังรอใบ 50 ทวิ: ถ่ายวิดีโอสัมภาษณ์ Brand B หัก ณ ที่จ่าย 3% 300 บาท รอมา 19 วัน' });
+  await page.getByRole('tab', { name: /ได้รับแล้ว/ }).or(page.getByRole('button', { name: /^ได้รับแล้ว/ })).first().click(); await settle(page, 700);
+  await piece(s, 'wht-received', whtTable(), { source: 'ติดตามใบ 50 ทวิ → แท็บ “ได้รับแล้ว”', proves: 'งานถ่ายภาพสินค้า ได้รับใบ 50 ทวิและแนบไฟล์แล้ว', alt: 'งานที่ได้รับใบ 50 ทวิแล้ว: ถ่ายภาพสินค้า Studio E' });
   if (s.errors.length) console.log('pro errors', s.errors.slice(0, 3));
   await s.close();
 }
 
-// ---------------------------------------------------------------- LINE: the form the rich menu opens
-{
-  // LINE's own SDK is replaced with a stand-in so the page can open outside LINE. The form is the app's real page.
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 780 }, deviceScaleFactor: 3, locale: 'th-TH', timezoneId: 'Asia/Bangkok', colorScheme: 'light' });
-  const page = await ctx.newPage(); await page.clock.setFixedTime(new Date(CAPTURE_NOW));
-  await page.route('**/static.line-scdn.net/**', r => r.fulfill({ contentType: 'application/javascript', body: 'window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>"test",closeWindow(){},login(){}};' }));
-  await page.route('**/api/liff-config', r => r.fulfill({ json: { liffId: 'test' } }));
-  await page.goto(BASE + '/liff-add.html', { waitUntil: 'networkidle' }); await settle(page, 600);
-  await page.locator('#job-name, input[placeholder*="รับตัดต่อ"]').first().fill('งานตัดต่อวิดีโอ');
-  await page.locator('input[placeholder*="บริษัท"]').first().fill('Brand A');
-  await page.getByText('Video Production', { exact: true }).click(); await settle(page, 300);
-  const s = { page, dpr: 3, account: 'LINE' as const };
-  await screen(s, 'line-form', {
-    source: '/liff-add.html (ฟอร์มบันทึกรายรับ/รายจ่ายที่เปิดจากเมนู LINE) — เปิดนอก LINE โดยแทน SDK ของ LINE ด้วยตัวจำลอง ไฟล์นี้ตรงกับที่อยู่บนเว็บจริง ณ 13 ต.ค. 2569',
-    proves: 'ฟอร์มเพิ่มงาน/รายจ่ายผ่าน LINE เป็นหน้าจริงของระบบ (ยังไม่ใช่ภาพจากแอป LINE บนเครื่องจริง)',
-    alt: 'ฟอร์มเพิ่มงานใหม่ที่เปิดจากเมนู LINE: ขั้นตอน 1 จาก 3 กรอกชื่องานและเลือกประเภทงาน',
-  });
-  await ctx.close();
-}
+// ---------------------------------------------------------------- LINE: the menu as it shows today
 {
   // The menu as it shows in LINE today: cut from a phone screenshot the project owner sent on 13 Oct 2026.
   // Only the menu is kept (no chat messages). It is not the older frontend/public/richmenu-large.jpg.
@@ -361,25 +359,18 @@ const card = (page: Page, text: string) => page.locator('.ui-surface', { hasText
 }
 {
   const s = await open('pro', 430, 932, 3); const { page } = s;
-  await go(page, '/invoice?type=quotation');
-  await screen(s, 'narrow-quotation', {
-    source: 'เอกสาร → ใบเสนอราคา เปิดในหน้าต่างกว้าง 430px',
-    proves: 'ใช้บนหน้า Landing จอเล็ก: รายการใบเสนอราคาและพรีวิว',
-    alt: 'หน้าเอกสารในหน้าต่างแคบ: ใบเสนอราคา QT-2569-001',
-  });
   await go(page, '/vault');
-  await page.locator('select').last().selectOption({ label: 'อัปโหลดปี 2569' });
-  await screen(s, 'narrow-vault', {
-    source: 'คลังเอกสาร เปิดในหน้าต่างกว้าง 430px เลือกตัวกรอง “อัปโหลดปี 2569”',
-    proves: 'ใช้บนหน้า Landing จอเล็ก: คลังเอกสารและตัวกรองปี',
-    alt: 'คลังเอกสารในหน้าต่างแคบ เมื่อกรองปี 2569: รายการไฟล์ใบ 50 ทวิ สัญญา และสลิป',
-  });
+  await page.locator('select').last().selectOption({ label: 'อัปโหลดปี 2569' }); await settle(page, 500);
+  const files = [['nvault-file-wht', '50ทวิ_StudioE_ตค69.pdf'], ['nvault-file-po', 'PO_AgencyC_แคมเปญ.pdf'], ['nvault-file-slip', 'ใบเสร็จ_โปรแกรมตัดต่อ.pdf']] as const;
+  for (const [name, text] of files) {
+    await page.getByText(text, { exact: true }).first().scrollIntoViewIfNeeded();
+    await rowAround(s, name, text, { left: 14, right: 416, above: 16, below: 52 }, { source: `คลังเอกสาร (หน้าต่างแคบ): แถวไฟล์ ${text}`, proves: 'แถวไฟล์เดียวกัน สำหรับจอเล็ก', alt: '' });
+  }
   await go(page, '/wht50');
-  await screen(s, 'narrow-wht50', {
-    source: 'ติดตามใบ 50 ทวิ เปิดในหน้าต่างกว้าง 430px',
-    proves: 'ใช้บนหน้า Landing จอเล็ก: สถานะใบ 50 ทวิที่ได้รับแล้วและยังรอ',
-    alt: 'ติดตามใบ 50 ทวิในหน้าต่างแคบ: ได้รับแล้ว 1 ยังรอ 1',
-  });
+  const card = () => page.locator('.ui-surface', { hasText: 'ถ่าย' }).last();
+  await piece(s, 'nwht-waiting', card(), { source: 'ติดตามใบ 50 ทวิ (หน้าต่างแคบ) → “ยังรอ”', proves: 'การ์ดงานที่ยังรอใบ 50 ทวิ สำหรับจอเล็ก', alt: '' });
+  await page.getByRole('tab', { name: /ได้รับแล้ว/ }).or(page.getByRole('button', { name: /^ได้รับแล้ว/ })).first().click(); await settle(page, 700);
+  await piece(s, 'nwht-received', card(), { source: 'ติดตามใบ 50 ทวิ (หน้าต่างแคบ) → “ได้รับแล้ว”', proves: 'การ์ดงานที่ได้รับใบ 50 ทวิแล้ว สำหรับจอเล็ก', alt: '' });
   await s.close();
 }
 await browser.close();
@@ -401,10 +392,10 @@ fs.writeFileSync(DOC, `# Asset manifest — Landing Draft 2
 
 สร้างโดย \`scripts/landing/capture.ts\` · วันที่ถ่าย ${today} · build \`${BUILD}\`${DIRTY}
 
-> ภาพหน้าจอแอปชุดนี้ถ่ายจากโค้ดชุดเดียวกับที่เว็บจริงใช้ คือ branch \`codex/plans-ui-only\` (มีระบบชำระเงิน PromptPay/Stripe) บวกงาน Landing Draft 2 เทียบกับชุดที่เคยถ่ายจาก \`main\` แล้ว 36 จาก 42 ภาพเหมือนกันทุกพิกเซล ที่เหลือต่างกันไม่เกิน 0.01% (จุดกะพริบของมาสคอต) และไฟล์ PDF ที่สร้างใหม่ทุกครั้ง
-> ไม่ได้ถ่ายหน้าแพ็กเกจ ราคาและรายการสิทธิ์บนหน้า Landing ใช้ข้อความ \`plans.*\` ของแอป และข้อความราคาของหน้า Landing เดิมบน branch นี้
-> การออกเอกสารยังเป็นของ Pro: \`PlansTab\` ยังแสดง “เร็ว ๆ นี้: ออกเอกสารใหม่ 10 ฉบับ/เดือน” สำหรับ Free (\`freeDocumentsAvailable\` เป็น false) หน้า Landing จึงไม่พูดว่า Free ออกเอกสารได้
-> ไฟล์ \`liff-add.html\` และ \`liff-add.js\` ตรงกับเว็บจริงทุกไบต์ ภาพเมนู LINE มาจากภาพหน้าจอมือถือจริง
+> ภาพหน้าจอแอปชุดนี้ถ่ายจากซอร์สชุดเดียวกับที่อยู่บนเว็บจริง ณ 13 ต.ค. 2569 13:02 (Vercel deployment \`dpl_BT2AByCT93D7gB3PHNnmMetyPnh5\`) ตรวจแล้วว่าไฟล์ในเครื่องตรงกับ deployment นั้นทุกไฟล์ ก่อนแก้ Landing รอบนี้
+> ข้อมูลตัวอย่างเป็นชุดเดียวทั้งหน้า: งานตัดต่อวิดีโอ (Brand A) 6,000 บาท รับแล้ว 2,000 → บันทึกรับงวดที่ 2 อีก 1,000 → รับแล้ว 3,000 ค้างรับ 3,000 เอกสารสามใบเป็นของงานนี้ (ใบเสนอราคาทั้งงาน 6,000 / ใบแจ้งหนี้งวดที่ 2 1,000 / ใบเสร็จงวดที่ 2 1,000)
+> การ์ด LINE สองใบบนหน้า Landing ไม่ใช่ภาพถ่าย: สร้างจากตัวสร้างข้อความของระบบเอง (\`buildUnpaidJobsMessage\`, \`buildDigestFlexMessage\`) ด้วย \`scripts/landing/lineMessages.ts\` โดยใช้ข้อมูลงานที่แอปบันทึกไว้หลังรับเงินงวดที่ 2 แล้ววาดตามนิยาม Flex ของข้อความนั้น ส่วนกรอบหน้าแชต จุดกำลังพิมพ์ และแถบแจ้งเตือนเป็นการจำลองตามที่เจ้าของสั่ง เมนูด้านล่างครอปจากภาพหน้าจอ LINE จริง
+> การออกเอกสารและการอัปโหลดเข้าคลังยังเป็นของ Pro (\`freeDocumentsAvailable\` เป็น false, \`vault-upload\` ตรวจสิทธิ์ Pro) ตัวกรองในคลังคือ “ปีที่อัปโหลด”
 
 **วิธีถ่าย** เปิดแอปที่ build จากโค้ดชุดนี้บนเครื่อง (\`npm run build && npm start\`) ด้วย Playwright แล้วแทนคำตอบของ \`/api\` ด้วยบัญชีตัวอย่างใน \`scripts/landing/sampleData.ts\` ไม่ได้ล็อกอินบัญชีจริง ไม่ได้เขียนฐานข้อมูล ไม่ได้ส่ง LINE หรืออีเมล
 หน้าจอ ปุ่ม แผ่นรับเงิน ตัวเลข และวันครบกำหนดทุกจุดเป็นผลจากโค้ดของแอปเอง วันครบกำหนดของงานเครดิตเทอมมาจาก \`calculatePayDate\` ใน \`shared/calendar.ts\`
@@ -422,7 +413,8 @@ ${Object.entries(shots).map(([, v]) => `| \`frontend/public/landing/${v.file}\` 
 
 | สิ่งที่ขาด | เหตุผล | ต้องใช้อะไร |
 | --- | --- | --- |
-| ภาพหน้าจอแชต LINE จริง: การ์ดตอบกลับเมื่อกด “รอรับเงิน”, “สรุปเดือนนี้”, “งานเดือนนี้”, “กำลังดำเนินงาน” | ต้องถ่ายจากแอป LINE บนเครื่องจริงที่ผูกกับบัญชีทดสอบ เครื่องมือของผมเปิดแอป LINE ไม่ได้ และห้ามวาดแชตขึ้นเอง | ภาพหน้าจอจากมือถือ ด้วยบัญชีทดสอบ Pro ที่มีข้อมูลตัวอย่าง |
-| ภาพการแจ้งเตือน LINE (การ์ดเมื่อบันทึก/ลบงาน, สรุปงานค้างชำระรายวัน) | เหตุผลเดียวกัน และห้ามส่ง LINE ถึงผู้ใช้จริงเพื่อทดลอง | ภาพหน้าจอจากบัญชีทดสอบ |
+| คลิปหรือภาพหน้าจอ LINE จริงของสองเหตุการณ์ (แตะ “รอรับเงิน” แล้วได้การ์ด, แจ้งเตือนเลยกำหนดเด้งเข้า) | ตอนนี้ใช้หน้าแชตจำลองที่เล่นข้อความจริงของระบบ ถ้าต้องการภาพจากเครื่องจริงต้องถ่ายจากบัญชีทดสอบ | คลิปหรือภาพหน้าจอจากมือถือ |
+| ข้อความที่ขึ้นเป็นบับเบิลฝั่งผู้ใช้เมื่อแตะปุ่ม “รอรับเงิน” บนเมนู | โค้ดรับทั้งคำว่า “รอรับเงิน” และ “งานค้างจ่าย” แต่ค่าที่ตั้งไว้ในเมนูจริงอยู่ฝั่ง LINE ผมอ่านไม่ได้ จึงยังไม่แสดงบับเบิลนี้ | ภาพหน้าจอหลังแตะปุ่ม |
+| ไฟล์โมเดล CashSquirrel_V2_Plump(1).glb | ไม่ได้รับไฟล์ในแชตนี้และไม่อยู่ในโปรเจกต์ จึงยังไม่ได้ลองใส่ | ไฟล์ .glb |
 `);
 console.log(`\n${Object.keys(shots).length} shots → ${path.relative(ROOT, OUT)}`);

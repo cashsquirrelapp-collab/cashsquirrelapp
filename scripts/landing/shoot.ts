@@ -22,7 +22,7 @@ const B = BEAT;
 const money: [string, number][] = [
   ['01-hero', 0], ['02-gathering', 0.05], ['03-screen', B.seated + 0.02], ['04-zoom', B.zoomed + 0.02], ['05-card', B.card + 0.012],
   ['06-sheet', B.sheet + 0.01], ['07-saved', B.saved + 0.015], ['08-credit', B.credit + 0.03], ['09-to-line', (B.creditHeld + B.line) / 2],
-  ['10-line', B.line + 0.035], ['11-tiles', B.tiles + 0.005], ['12-form', B.form + 0.04],
+  ['10-line', B.line + 0.012], ['11-typing', B.tap + 0.025], ['12-reply', B.reply + 0.03], ['13-notice-coming', B.notice - 0.036], ['14-notice', B.notice + 0.02], ['15-notice-held', 0.97],
 ];
 
 const browser = await chromium.launch();
@@ -53,14 +53,13 @@ for (const [width, height] of sizes) {
     const travel = (SCREENS.money - 1) * height;
     for (const [name, at] of money) await snap(name, at * travel);
     const docsTop = await page.evaluate(() => { const el = document.querySelector('#documents section') as HTMLElement; return el.getBoundingClientRect().top + window.scrollY; });
-    await snap('13-docs-head', docsTop - height * 0.75);
     const docsTravel = (SCREENS.docs - 1) * height;
-    for (const [i, at] of [0.1, 0.25, 0.375, 0.5, 0.625, 0.875].entries()) await snap(`14-docs-${i}`, docsTop + at * docsTravel);
+    for (const [name, at] of [['20-doc-1', 0.04], ['21-doc-2', 0.2], ['22-doc-3', 0.3], ['23-docs-row', 0.38], ['24-vault-in', 0.5], ['25-vault', 0.58], ['26-vault-pick', 0.7], ['27-wht', 0.86], ['28-wht-held', 0.97]] as const) await snap(name, docsTop + at * docsTravel);
     const freeTop = await page.evaluate(() => (document.querySelector('#plans') as HTMLElement).getBoundingClientRect().top + window.scrollY);
-    for (const i of [0, 1, 2, 3, 4]) await snap(`15-free-${i}`, freeTop + i * height * 0.8 - height * 0.35);
+    for (const i of [0, 1, 2, 3, 4, 5]) await snap(`30-free-${i}`, freeTop + i * height * 0.8 - height * 0.35);
     const total = await page.evaluate(() => document.documentElement.scrollHeight);
-    await snap('16-closing-mid', total - height * 1.5);
-    await snap('17-closing', total - height);
+    await snap('40-closing-mid', total - height * 1.5);
+    await snap('41-closing', total - height);
   }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   console.log(`${width}x${height}`, 'horizontal overflow:', overflow, 'errors:', JSON.stringify([...new Set(errors)].slice(0, 4)));

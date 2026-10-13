@@ -1,8 +1,9 @@
 import React from 'react';
 import { ArrowDown } from 'lucide-react';
-import { CTA, DOCS, DUE, HERO, LINE, LINE_TILES } from './content';
+import { CTA, DOCS, DUE, HERO, LINE, VAULT, WHT } from './content';
+import { LINE_DIGEST, LINE_UNPAID } from './line.gen';
+import { LineCard } from './LineChat';
 import { SHOTS, type ShotName } from './shots.gen';
-import { Crop } from './stage';
 import { StartButton } from './MoneyAct';
 
 // Chapters 1 to 4 with nothing moving: the same words and the same real pictures, laid out in
@@ -73,24 +74,19 @@ export function StaticStory({ onStart }: { onStart: () => void }) {
       </section>
 
       <section id="line" className={`bg-[#1F1A16] text-[#FBF7F2] ${pad}`}>
-        <div className={`${wrap} grid items-center gap-10 md:grid-cols-2 md:gap-14`}>
-          <div>
-            <p className="inline-flex items-center rounded-full border border-[#E65F2B]/50 bg-[#E65F2B]/15 px-3 py-1 text-[13px] font-medium text-[#FFB48E]">{LINE.plan}</p>
-            <h2 className="mt-4 font-semibold" style={{ ...en, fontSize: 'clamp(2.2rem, 1.2rem + 4vw, 4.25rem)' }}>{LINE.en.join(' ')}</h2>
-            <p className="mt-4 font-semibold" style={{ fontSize: 'clamp(1.2rem, 1rem + 0.9vw, 1.7rem)', lineHeight: 1.45 }}>{LINE.th.join(' ')}</p>
-            <p className="mt-3 text-[16.5px] leading-[1.7] text-[#D9CFC5]">{LINE.support}</p>
-            <ul className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 text-[15px]">
-              {LINE_TILES.map(tile => <li key={tile.name}><span className="block font-semibold">{tile.name}</span><span className="text-[#D9CFC5]">{tile.does}</span></li>)}
-            </ul>
-            <ul className="mt-6 space-y-1 text-[14px] leading-relaxed text-[#B8AEA4]">{LINE.notes.map(note => <li key={note}>{note}</li>)}</ul>
+        <div className={wrap}>
+          <p className="inline-flex items-center rounded-full border border-[#E65F2B]/50 bg-[#E65F2B]/15 px-3 py-1 text-[13px] font-medium text-[#FFB48E]">{LINE.plan}</p>
+          <h2 className="mt-4 font-semibold" style={{ ...en, fontSize: 'clamp(2.2rem, 1.2rem + 4vw, 4.25rem)' }}>{LINE.en.join(' ')}</h2>
+          <p className="mt-4 font-semibold" style={{ fontSize: 'clamp(1.2rem, 1rem + 0.9vw, 1.7rem)', lineHeight: 1.45 }}>{LINE.th.join(' ')}</p>
+          <div className="mt-10 grid gap-10 md:grid-cols-2">
+            {[{ says: LINE.check, message: LINE_UNPAID }, { says: LINE.notice, message: LINE_DIGEST }].map(item => (
+              <figure key={item.says} className="flex flex-col items-center gap-4 md:items-start">
+                <figcaption className="text-[17px] leading-[1.6] text-[#F3EBE3]">{item.says}</figcaption>
+                <LineCard message={item.message} />
+              </figure>
+            ))}
           </div>
-          <div className="space-y-6">
-            <img src={SHOTS['line-menu'].file} alt={SHOTS['line-menu'].alt} width={924} height={623} loading="lazy" decoding="async" className="block h-auto w-full rounded-[20px]" />
-            <figure className="mx-auto max-w-[300px]">
-              <div className="rounded-[44px] bg-[#0E0C0B] p-2"><img src={SHOTS['line-form'].file} alt={SHOTS['line-form'].alt} width={390} height={780} loading="lazy" decoding="async" className="block h-auto w-full rounded-[36px]" /></div>
-              <figcaption className="mt-3 text-center text-[15px] text-[#FBF7F2]">{LINE.form}</figcaption>
-            </figure>
-          </div>
+          <ul className="mt-8 space-y-1 text-[14px] leading-relaxed text-[#B8AEA4]">{LINE.notes.map(note => <li key={note}>{note}</li>)}</ul>
         </div>
       </section>
 
@@ -99,17 +95,46 @@ export function StaticStory({ onStart }: { onStart: () => void }) {
           <p className="inline-flex items-center rounded-full border border-[#E65F2B]/40 bg-[#FFF1E8] px-3 py-1 text-[13px] font-medium text-[#C24A16]">{DOCS.plan}</p>
           <h2 className="mt-4 font-semibold text-[#1C1917]" style={{ ...en, fontSize: 'clamp(2.2rem, 1.2rem + 4vw, 4.25rem)' }}>{DOCS.en.join(' ')}</h2>
           <p className="mt-4 font-semibold text-[#1C1917]" style={{ fontSize: 'clamp(1.2rem, 1rem + 0.9vw, 1.7rem)', lineHeight: 1.45 }}>{DOCS.th.join(' ')}</p>
-          <ol className="mt-10 grid gap-10 md:grid-cols-2">
-            {DOCS.slides.map((slide, i) => (
-              <li key={slide.key}>
-                <Crop name={slide.wide.shot} view={slide.wide.view} alt={SHOTS[slide.wide.shot].alt} className="hidden w-full rounded-[22px] border border-[#E7E0D8] bg-[#EFE8DF] md:block" style={{ aspectRatio: '4 / 3' }} />
-                <Crop name={slide.narrow.shot} view={slide.narrow.view} alt={SHOTS[slide.narrow.shot].alt} className="w-full rounded-[22px] border border-[#E7E0D8] bg-[#EFE8DF] md:hidden" style={{ aspectRatio: `${slide.narrow.view.w} / ${slide.narrow.view.h}` }} />
-                <p className="mt-5 text-[14px] font-medium text-[#C24A16]"><span className="mr-2 font-mono text-[#1C1917]">{String(i + 1).padStart(2, '0')}</span>{slide.part}</p>
-                <h3 className="mt-1.5 text-[22px] font-semibold leading-snug text-[#1C1917]">{slide.title}</h3>
-                <p className="mt-2 text-[16.5px] leading-[1.7] text-[#57514B]">{slide.body}</p>
+          <ol className="mt-10 grid gap-8 md:grid-cols-3">
+            {DOCS.sheets.map(doc => (
+              <li key={doc.shot}>
+                <Pic wide={doc.shot} className="rounded-[3px]" />
+                <p className="mt-4 text-[17px] text-[#3A342F]"><span className="font-semibold text-[#1C1917]">{doc.name}</span> · {doc.says}</p>
               </li>
             ))}
           </ol>
+          <p className="mt-6 text-[15px] text-[#57514B]">{DOCS.note}</p>
+        </div>
+      </section>
+
+      <section className={`bg-white ${pad}`}>
+        <div className={`${wrap} grid gap-10 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:gap-14`}>
+          <div>
+            <p className="inline-flex items-center rounded-full border border-[#E65F2B]/40 bg-[#FFF1E8] px-3 py-1 text-[13px] font-medium text-[#C24A16]">{VAULT.plan}</p>
+            <h2 className="mt-4 font-semibold text-[#1C1917]" style={{ ...en, fontSize: 'clamp(2.2rem, 1.2rem + 4vw, 4.25rem)' }}>{VAULT.en.join(' ')}</h2>
+            <p className="mt-4 font-semibold text-[#1C1917]" style={{ fontSize: 'clamp(1.2rem, 1rem + 0.9vw, 1.7rem)', lineHeight: 1.45 }}>{VAULT.th.join(' ')}</p>
+            <p className="mt-3 text-[16.5px] leading-[1.7] text-[#57514B]">{VAULT.support}</p>
+            <p className="mt-2 text-[16.5px] leading-[1.7] text-[#57514B]">{VAULT.pick}</p>
+          </div>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3"><Pic wide="vault-download" className="!w-auto rounded-full" /><Pic wide="vault-filter" className="!w-auto rounded-full" /></div>
+            {VAULT.files.map(f => <Pic key={f.wide} wide={f.wide} narrow={f.narrow} />)}
+          </div>
+        </div>
+      </section>
+
+      <section className={pad}>
+        <div className={wrap}>
+          <h2 className="font-semibold text-[#1C1917]" style={{ fontSize: 'clamp(1.6rem, 1.2rem + 1.8vw, 2.5rem)', lineHeight: 1.35 }}>{WHT.th.map(line => <span key={line} className="block">{line}</span>)}</h2>
+          <div className="mt-8 space-y-6">
+            {[WHT.got, WHT.waiting].map(row => (
+              <figure key={row.label}>
+                <figcaption className="mb-2 text-[16px] font-semibold text-[#1C1917]">{row.label}</figcaption>
+                <Pic wide={row.wide} narrow={row.narrow} />
+              </figure>
+            ))}
+          </div>
+          <p className="mt-6 text-[15px] leading-relaxed text-[#57514B]">{WHT.note}</p>
         </div>
       </section>
     </>

@@ -2,10 +2,9 @@ import React from 'react';
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import { Check } from 'lucide-react';
 import { Reveal } from '../primitives';
-import { FREE, type BentoCard } from './content';
+import { CTA, FREE, type BentoCard } from './content';
 import { SHOTS } from './shots.gen';
 import { Crop } from './stage';
-import { StartButton } from './MoneyAct';
 
 // Chapter 5. What a Free account really gets, shown with screenshots taken from a Free account.
 // Each card arrives as an empty shell first, then its picture fills in. Documents and LINE are not
@@ -56,18 +55,43 @@ function Card({ card, index }: { card: BentoCard; index: number }) {
   );
 }
 
-function Plan({ name, badge, price, per, priceNote, items, terms, pro = false }: { name: string; badge?: string; price: string; per?: string; priceNote?: readonly string[]; items: readonly string[]; terms?: readonly string[]; pro?: boolean }) {
+function Plan({ name, badge, price, per, priceNote, items, terms, pro = false, onStart }: {
+  name: string; badge?: string; price: string; per?: string; priceNote?: readonly string[]; items: readonly string[]; terms?: readonly string[]; pro?: boolean; onStart: () => void;
+}) {
+  // Quiet hierarchy: plan name, then the price, then what you get. Pro stands out by a warm
+  // surface and one accent line, not by size.
   return (
-    <div className={`rounded-[28px] border p-6 text-left sm:p-8 ${pro ? 'border-[#E65F2B]/45 bg-[#FFF6EF]' : 'border-[#EBE3D9] bg-white'}`}>
-      <p className="text-[15px] font-semibold text-[#1C1917]" style={{ fontFamily: EN_FONT }}>{name}</p>
-      {badge && <p className="mt-2 inline-flex items-center rounded-full bg-[#FDE8DD] px-3 py-1 text-[12.5px] font-semibold text-[#C24A16]">{badge}</p>}
-      <p className="mt-2 font-mono text-[40px] font-semibold leading-none tracking-tight text-[#1C1917]">{price}{per && <span className="ml-2 font-sans text-[16px] font-normal tracking-normal text-[#6B645D]">{per}</span>}</p>
-      {priceNote && <p className="mt-2 text-[15px] leading-relaxed text-[#57514B]"><span className="block font-semibold text-[#C24A16]">{priceNote[0]}</span>{priceNote[1]}</p>}
-      <ul className="mt-6 space-y-3 text-[15.5px] leading-relaxed text-[#3A342F]">
-        {items.map(item => <li key={item} className="flex gap-3"><Check className="mt-1 h-4 w-4 shrink-0 text-[#18A66A]" aria-hidden="true" />{item}</li>)}
+    <div className={`relative flex h-full flex-col overflow-hidden rounded-[32px] p-7 text-left sm:p-10 ${pro
+      ? 'bg-[#FFF9F4] shadow-[0_0_0_1.5px_#F0C9B0,0_1px_2px_rgba(60,40,28,0.05),0_30px_60px_-34px_rgba(190,80,30,0.38)]'
+      : 'bg-white shadow-[0_0_0_1px_#EAE2D8,0_1px_2px_rgba(60,40,28,0.04),0_24px_50px_-36px_rgba(60,40,28,0.3)]'}`}>
+      {pro && <span aria-hidden="true" className="absolute inset-x-10 top-0 h-[3px] rounded-b-full bg-[#E65F2B]" />}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[19px] font-semibold tracking-[-0.01em] text-[#1C1917]" style={{ fontFamily: EN_FONT }}>{name}</p>
+        {badge && <p className="rounded-full bg-[#FDE8DD] px-3 py-1 text-[12.5px] font-semibold text-[#C24A16]">{badge}</p>}
+      </div>
+      <p className="mt-6 flex items-baseline gap-2 text-[#1C1917]">
+        <span className="font-mono text-[clamp(2.75rem,2.2rem+1.6vw,3.75rem)] font-semibold leading-none tracking-[-0.03em]">{price}</span>
+        {per && <span className="text-[16px] text-[#6B645D]">{per}</span>}
+      </p>
+      <p className="mt-3 min-h-[3rem] text-[15px] leading-relaxed text-[#57514B]">
+        {priceNote ? <><span className="block font-semibold text-[#C24A16]">{priceNote[0]}</span>{priceNote[1]}</> : 'ใช้งานได้ต่อเนื่อง ไม่มีค่าใช้จ่าย'}
+      </p>
+      <div className="mt-7"><PlanButton onClick={onStart} pro={pro} /></div>
+      <ul className="mt-8 space-y-3.5 border-t border-[#EFE6DC] pt-7 text-[15.5px] leading-relaxed text-[#2B2622]">
+        {items.map(item => <li key={item} className="flex gap-3"><Check className={`mt-[5px] h-4 w-4 shrink-0 ${pro ? 'text-[#E65F2B]' : 'text-[#1C1917]'}`} strokeWidth={2.4} aria-hidden="true" />{item}</li>)}
       </ul>
-      {terms && <ul className="mt-6 space-y-1.5 border-t border-[#F0D9C8] pt-5 text-[14.5px] leading-relaxed text-[#57514B]">{terms.map(term => <li key={term}>{term}</li>)}</ul>}
+      {terms && <ul className="mt-auto space-y-1.5 pt-8 text-[14px] leading-relaxed text-[#57514B]">{terms.map(term => <li key={term}>{term}</li>)}</ul>}
     </div>
+  );
+}
+
+function PlanButton({ onClick, pro }: { onClick: () => void; pro: boolean }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`inline-flex h-12 w-full items-center justify-center rounded-xl text-[15.5px] font-semibold transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917] cursor-pointer ${pro
+        ? 'bg-[#E65F2B] text-white hover:bg-[#D35221]' : 'bg-[#1C1917] text-white hover:bg-black'}`}>
+      {CTA}
+    </button>
   );
 }
 
@@ -87,14 +111,15 @@ export function FreeAct({ onStart }: { onStart: () => void }) {
           {FREE.cards.map((card, i) => <Card key={card.key} card={card} index={i} />)}
         </div>
 
-        <Reveal className="mt-[clamp(4rem,3rem+4vw,7rem)]">
-          <h3 className="text-center text-[clamp(1.5rem,1.2rem+1.4vw,2.25rem)] font-semibold leading-snug text-[#1C1917]">อะไรอยู่ใน Free อะไรอยู่ใน Pro</h3>
-          <div className="mx-auto mt-8 grid max-w-[940px] grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
-            <Plan name={free.name} price={free.price} items={free.items} />
-            <Plan name={pro.name} badge={pro.badge} price={pro.price} per={pro.per} priceNote={pro.priceNote} items={pro.items} terms={pro.terms} pro />
+        <div className="mt-[clamp(4.5rem,3rem+5vw,8rem)]">
+          <Reveal>
+            <h3 className="text-center text-[clamp(1.6rem,1.2rem+1.6vw,2.4rem)] font-semibold leading-snug tracking-[-0.01em] text-[#1C1917]">เริ่มที่ Free แล้วค่อยขยับเมื่อพร้อม</h3>
+          </Reveal>
+          <div className="mx-auto mt-10 grid max-w-[1000px] grid-cols-1 items-stretch gap-5 md:grid-cols-2 md:gap-6">
+            <Reveal className="h-full"><Plan name={free.name} price={free.price} items={free.items} onStart={onStart} /></Reveal>
+            <Reveal className="h-full" delay={0.12}><Plan name={pro.name} badge={pro.badge} price={pro.price} per={pro.per} priceNote={pro.priceNote} items={pro.items} terms={pro.terms} pro onStart={onStart} /></Reveal>
           </div>
-          <div className="mt-10 flex justify-center"><StartButton onClick={onStart} /></div>
-        </Reveal>
+        </div>
       </div>
     </section>
   );

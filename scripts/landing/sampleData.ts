@@ -52,11 +52,6 @@ export const sampleJobs: Job[] = [
     received: 4365, pending: 0, payDate: '2026-10-02', paymentStatus: 'paid',
   },
   {
-    ...base, id: 'job-reels', name: 'ตัดต่อ Reels 3 คลิป', type: 'Video Production', client: 'Brand A', value: 4500,
-    status: 'pending', creditTerm: 30, postDate: '2026-10-22', startDate: '2026-10-12', isPosted: false,
-    received: 0, pending: 4500, payDate: calculatePayDate('2026-10-22', 30, false), paymentStatus: 'unpaid',
-  },
-  {
     ...base, id: 'job-interview', name: 'ถ่ายวิดีโอสัมภาษณ์', type: 'Video Production', client: 'Brand B', value: 10000, whtRate: 3, whtAmount: 300,
     status: 'done', creditTerm: 0, postDate: '2026-09-18', startDate: '2026-09-12', isPosted: true,
     received: 9700, pending: 0, payDate: '2026-09-25', paymentStatus: 'paid',
@@ -70,15 +65,28 @@ export const sampleExpenses = [
 
 const issuer = { name: 'สตูดิโอตัวอย่าง', address: 'กรุงเทพมหานคร', phone: '', email: 'studio@example.com', taxId: '', bankName: '', bankAccount: '', bankAccountName: '' };
 
+const brandA = { name: 'Brand A', address: 'กรุงเทพมหานคร', phone: '', email: 'hello@brand-a.example.com', taxId: '' };
+
+// Three documents of the same job, งานตัดต่อวิดีโอ for Brand A (6,000 baht, paid in three instalments):
+// the quotation is for the whole job, the invoice bills instalment 2, the receipt is for that same instalment.
 export const sampleInvoices = [
   {
-    id: 'doc-qt-1', documentType: 'quotation', documentNo: 'QT-2569-001', createdDate: '2026-10-14', dueDate: '2026-10-28', issuer,
-    client: { name: 'Brand A', address: 'กรุงเทพมหานคร', phone: '', email: 'hello@brand-a.example.com', taxId: '' },
+    id: 'doc-qt-1', documentType: 'quotation', documentNo: 'QT-2569-001', createdDate: '2026-09-25', dueDate: '2026-10-09', issuer, client: brandA,
     items: [
-      { id: 'i1', description: 'ตัดต่อวิดีโอโปรโมต 1 คลิป (ความยาวไม่เกิน 3 นาที)', quantity: 1, price: 4500 },
-      { id: 'i2', description: 'ทำซับไตเติลและปรับสี', quantity: 1, price: 1500 },
+      { id: 'i1', description: 'งานตัดต่อวิดีโอ: ตัดต่อวิดีโอโปรโมต 1 คลิป (ความยาวไม่เกิน 3 นาที)', quantity: 1, price: 4500 },
+      { id: 'i2', description: 'งานตัดต่อวิดีโอ: ทำซับไตเติลและปรับสี', quantity: 1, price: 1500 },
     ],
-    vatRate: 0, whtRate: 0, note: 'แบ่งชำระ 3 งวด: มัดจำ 2,000 บาท / 1,000 บาท / 3,000 บาท',
+    vatRate: 0, whtRate: 0, note: 'มูลค่างานทั้งหมด 6,000 บาท แบ่งชำระ 3 งวด: มัดจำ 2,000 บาท / งวดที่ 2 1,000 บาท / งวดที่ 3 3,000 บาท',
+  },
+  {
+    id: 'doc-inv-1', documentType: 'invoice', documentNo: 'INV-2569-002', createdDate: '2026-10-09', dueDate: '2026-10-16', issuer, client: brandA, refNo: 'QT-2569-001',
+    items: [{ id: 'i1', description: 'งานตัดต่อวิดีโอ งวดที่ 2 (จากมูลค่างานทั้งหมด 6,000 บาท)', quantity: 1, price: 1000 }],
+    vatRate: 0, whtRate: 0, note: 'เรียกเก็บงวดที่ 2 จาก 3 งวด ตามใบเสนอราคา QT-2569-001',
+  },
+  {
+    id: 'doc-rc-1', documentType: 'receipt', documentNo: 'RC-2569-002', createdDate: '2026-10-14', dueDate: '2026-10-14', paidDate: '2026-10-14', issuer, client: brandA, refNo: 'INV-2569-002',
+    items: [{ id: 'i1', description: 'งานตัดต่อวิดีโอ งวดที่ 2 (จากมูลค่างานทั้งหมด 6,000 บาท)', quantity: 1, price: 1000 }],
+    vatRate: 0, whtRate: 0, note: 'รับเงินงวดที่ 2 ตามใบแจ้งหนี้ INV-2569-002',
   },
 ];
 

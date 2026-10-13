@@ -18,82 +18,66 @@ export const HERO = {
 
 export const DUE = {
   en: ['Know what’s due'],
-  th: ['รับแล้วเท่าไร เหลืออีกเท่าไร', 'และงวดต่อไปมีกำหนดรับวันไหน'],
+  th: ['งานเสร็จ ไม่ได้แปลว่าได้เงินครบ', 'ดูได้ว่างานไหนยังต้องตาม'],
+  // One short line per beat: what you get, not which button to press.
   steps: [
-    'งานที่แบ่งจ่าย เห็นทีละงวด พร้อมวันครบกำหนดของแต่ละงวด',
-    'กดดูงานตัดต่อวิดีโอ 6,000 บาท รับแล้ว 2,000 บาท ค้างรับ 4,000 บาท',
-    'ลูกค้าโอนงวดที่ 2 มา 1,000 บาท เลือกงวดนั้นแล้วกดยืนยัน',
-    'แอปปรับยอดให้เอง เป็นรับแล้ว 3,000 บาท ค้างรับ 3,000 บาท',
-    'งานเครดิตเทอม 30 หรือ 45 วัน แอปนับวันครบกำหนดจากวันส่งงานให้',
+    'งานเดียวรับเงินหลายงวด เห็นเลยว่างวดไหนครบเมื่อไร',
+    'งานตัดต่อวิดีโอ 6,000 บาท ได้มัดจำแล้ว 2,000 ยังรออีก 4,000',
+    'เงินงวดถัดไปเข้า บันทึกครั้งเดียว',
+    'ยอดที่เหลือปรับให้เอง เหลือรออีก 3,000',
+    'เครดิต 30 หรือ 45 วัน รู้เลยว่าครบวันไหน',
   ],
-  note: 'กำหนดรับเงินมาจากข้อมูลที่คุณบันทึกเอง แอปไม่ได้เชื่อมกับบัญชีธนาคาร',
+  note: 'กำหนดรับเงินคิดจากเงื่อนไขที่คุณบันทึกไว้ ไม่ได้รับประกันว่าลูกค้าจะโอนตรงวัน และไม่ได้เชื่อมกับบัญชีธนาคาร',
 } as const;
 
-/**
- * The six tiles of the LINE menu as it shows today. Names and descriptions are the words printed on
- * the menu itself. `box` is where the tile sits in the picture and `cover` is the share of the
- * picture dimmed until its turn, both as [left, top, right, bottom] fractions.
- */
-export const LINE_TILES = [
-  { name: 'เพิ่มรายการ', does: 'บันทึกรายรับ · รายจ่าย', box: [0.006, 0.011, 0.574, 0.655], cover: [0, 0, 0.58, 0.665] },
-  { name: 'รอรับเงิน', does: 'ดูยอดที่ยังรอรับ', box: [0.587, 0.011, 0.994, 0.323], cover: [0.58, 0, 1, 0.333] },
-  { name: 'สรุปเดือนนี้', does: 'ภาพรวมรายรับ · รายจ่าย', box: [0.587, 0.343, 0.994, 0.655], cover: [0.58, 0.333, 1, 0.665] },
-  { name: 'งานเดือนนี้', does: 'ดูรายการงาน', box: [0.006, 0.676, 0.327, 0.99], cover: [0, 0.665, 0.3335, 1] },
-  { name: 'กำลังดำเนินงาน', does: 'ติดตามงานที่ทำ', box: [0.34, 0.676, 0.66, 0.99], cover: [0.3335, 0.665, 0.6665, 1] },
-  { name: 'เปิดแอป', does: 'ไปที่กระรอกตุนเงิน', box: [0.673, 0.676, 0.994, 0.99], cover: [0.6665, 0.665, 1, 1] },
-] as const;
-/** The order the tiles light up: what you check first, then the big tile, which the phone then opens. */
-export const LINE_ORDER = [1, 2, 3, 4, 5, 0] as const;
+/** Where the “รอรับเงิน” tile sits in the real menu picture, as [left, top, right, bottom] fractions. */
+export const LINE_TAP = [0.587, 0.011, 0.994, 0.323] as const;
 
 export const LINE = {
   en: ['Stay updated', 'on LINE'],
   th: ['ไม่อยู่หน้าคอม', 'ก็เช็กงานกับเงินได้'],
-  support: 'ดูยอดที่ยังรอรับ เช็กสรุปเดือนนี้ และรับสรุปยอดค้างรายวันผ่าน LINE จากข้อมูลที่คุณบันทึกไว้ในแอป',
   plan: 'ใช้ได้ในแพ็กเกจ Pro',
-  form: 'กด “เพิ่มรายการ” เพื่อบันทึกรายรับหรือรายจ่ายได้จากแชต',
-  notes: ['สรุปส่งถึงคุณ ไม่ได้ส่งไปทวงลูกค้า', 'ยอดที่เห็นคือข้อมูลในแอป ไม่ใช่ยอดในบัญชีธนาคาร'],
+  // The two events the scene plays, each with the one thing it is good for.
+  check: 'แตะ “รอรับเงิน” เห็นทุกงานที่ยังรอ พร้อมยอดและกำหนดรับ',
+  notice: 'มีงานถึงกำหนดรับเงิน ก็ไม่ต้องคอยจำวันเอง',
+  notes: ['แจ้งเตือนส่งถึงคุณ ไม่ได้ส่งไปทวงลูกค้า', 'ยอดที่เห็นคือข้อมูลล่าสุดในแอป ไม่ใช่ยอดในบัญชีธนาคาร'],
+  title: 'กระรอกตุนเงิน',
 } as const;
 
 export type View = { x: number; y: number; w: number; h: number };
-export type DocSlide = {
-  key: string; part: string; title: string; body: string; note?: string;
-  wide: { shot: ShotName; view: View }; narrow: { shot: ShotName; view: View };
-  /** Something on the real screen worth pointing at, in the screenshot's own coordinates. */
-  mark?: { wide?: View; narrow?: View; label: string };
-};
 
+/** Three documents of one job (งานตัดต่อวิดีโอ, 6,000 baht in three instalments), each a page the app produced. */
 export const DOCS = {
-  en: ['Create and', 'keep it together'],
-  th: ['ออกเอกสารจากงาน', 'เก็บเอกสารให้เป็นที่'],
-  plan: 'ออกเอกสารและอัปโหลดเข้าคลังได้ในแพ็กเกจ Pro',
-  slides: [
-    {
-      key: 'quotation', part: 'ออกเอกสาร', title: 'ทำใบเสนอราคาในแอป',
-      body: 'ใส่รายการกับราคา แล้วดูหน้าตาเอกสารก่อนส่งให้ลูกค้า',
-      wide: { shot: 'quotation', view: { x: 628, y: 184, w: 800, h: 600 } },
-      narrow: { shot: 'narrow-quotation', view: { x: 0, y: 292, w: 430, h: 520 } },
-    },
-    {
-      key: 'pdf', part: 'ออกเอกสาร', title: 'ได้ไฟล์ PDF จากระบบ',
-      body: 'กดดาวน์โหลด PDF แล้วส่งต่อให้ลูกค้าเองได้เลย',
-      note: 'ภาพนี้คือหน้าแรกของไฟล์ QT-2569-001.pdf ที่แอปสร้าง',
-      wide: { shot: 'quotation-pdf', view: { x: 0, y: 0, w: 620.5, h: 460 } },
-      narrow: { shot: 'quotation-pdf', view: { x: 150, y: 60, w: 470, h: 568 } },
-    },
-    {
-      key: 'vault', part: 'เก็บเอกสาร', title: 'เก็บไฟล์ที่ได้รับไว้ในคลัง',
-      body: 'อัปโหลดใบ 50 ทวิ สัญญา และสลิปรายจ่ายเข้าคลังด้วยตัวเอง แล้วกรองดูตามปีที่อัปโหลด',
-      wide: { shot: 'vault-year', view: { x: 262, y: 108, w: 1160, h: 870 } },
-      narrow: { shot: 'narrow-vault', view: { x: 0, y: 186, w: 430, h: 520 } },
-      mark: { wide: { x: 1248, y: 271, w: 160, h: 56 }, narrow: { x: 16, y: 452, w: 398, h: 44 }, label: 'ตัวกรองปี' },
-    },
-    {
-      key: 'wht50', part: 'เก็บเอกสาร', title: 'รู้ว่างานไหนยังไม่ได้ใบ 50 ทวิ',
-      body: 'ใบ 50 ทวิเป็นเอกสารที่ผู้ว่าจ้างออกให้คุณ แอปช่วยเก็บใบที่ได้รับ และบอกว่างานไหนยังต้องตาม',
-      wide: { shot: 'wht50', view: { x: 262, y: 20, w: 1160, h: 870 } },
-      narrow: { shot: 'narrow-wht50', view: { x: 0, y: 214, w: 430, h: 520 } },
-    },
-  ] satisfies DocSlide[],
+  en: ['Ready for', 'your next client'],
+  th: ['ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ', 'พร้อมส่งให้ลูกค้า'],
+  plan: 'ออกเอกสารได้ในแพ็กเกจ Pro',
+  sheets: [
+    { shot: 'doc-quotation', name: 'ใบเสนอราคา', says: 'ทั้งงาน 6,000 บาท' },
+    { shot: 'doc-invoice', name: 'ใบแจ้งหนี้', says: 'เรียกเก็บงวดที่ 2 1,000 บาท' },
+    { shot: 'doc-receipt', name: 'ใบเสร็จ', says: 'รับเงินงวดที่ 2 1,000 บาท' },
+  ],
+  note: 'ทั้งสามใบเป็นของงานตัดต่อวิดีโองานเดียวกัน',
+} as const satisfies { sheets: readonly { shot: ShotName; name: string; says: string }[] } & Record<string, unknown>;
+
+export const VAULT = {
+  en: ['Ready when', 'you need it'],
+  th: ['สิ้นปี ไม่ต้องย้อนหาบิล', 'ทีละแชต'],
+  plan: 'อัปโหลดเข้าคลังได้ในแพ็กเกจ Pro',
+  support: 'ได้ใบ 50 ทวิ สัญญา หรือสลิปมาเมื่อไร อัปโหลดเก็บไว้กับงานนั้น',
+  files: [
+    { wide: 'vault-file-wht', narrow: 'nvault-file-wht' },
+    { wide: 'vault-file-po', narrow: 'nvault-file-po' },
+    { wide: 'vault-file-slip', narrow: 'nvault-file-slip' },
+  ],
+  // The filter on this page is the year a file was uploaded, so the copy says exactly that.
+  pick: 'เลือกปีที่อัปโหลด แล้วดาวน์โหลดไฟล์ที่แสดงเป็นชุดเดียว',
+} as const satisfies { files: readonly { wide: ShotName; narrow: ShotName }[] } & Record<string, unknown>;
+
+export const WHT = {
+  th: ['รู้ว่างานไหนยังขาดเอกสาร', 'จะได้ตามถูกงาน'],
+  got: { label: 'ได้ใบ 50 ทวิแล้ว', wide: 'wht-received', narrow: 'nwht-received' },
+  waiting: { label: 'ยังต้องตามใบ 50 ทวิ', wide: 'wht-waiting', narrow: 'nwht-waiting' },
+  note: 'รับเงินแล้ว ไม่ได้แปลว่าได้เอกสารครบ ใบ 50 ทวิเป็นเอกสารที่ผู้ว่าจ้างออกให้คุณ แอปช่วยเก็บและบอกว่างานไหนยังรอ',
 } as const;
 
 export type BentoCard = { key: string; title: string; span: 'wide' | 'tall' | 'small' | 'mid' | 'full'; wide: { shot: ShotName; view: View }; narrow?: { shot: ShotName; view: View } };
@@ -142,10 +126,11 @@ export const BEAT = {
   saved: 0.455,     // the card shows what the app worked out
   credit: 0.535,    // two credit-term jobs with their due dates
   creditHeld: 0.60,
-  line: 0.685,      // dark scene, the LINE menu is the picture
-  tiles: 0.81,      // all six tiles are lit
-  form: 0.895,      // the form the menu opens, on a phone
+  line: 0.685,      // dark scene, a phone with the LINE chat and its real menu
+  tap: 0.715,       // the "รอรับเงิน" tile is tapped
+  reply: 0.775,     // the bot's card with every job still waiting has arrived
+  notice: 0.89,     // an overdue notice has arrived on its own
 } as const;
 
 /** How many screens of scrolling each pinned act takes. */
-export const SCREENS = { money: 10, docs: 5 } as const;
+export const SCREENS = { money: 10, docs: 7 } as const;

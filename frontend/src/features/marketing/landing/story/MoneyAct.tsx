@@ -3,7 +3,9 @@ import { motion, type MotionValue } from 'motion/react';
 import { ArrowDown, ArrowRight } from 'lucide-react';
 import { EASE } from '../primitives';
 import { SHOTS } from './shots.gen';
-import { BEAT, CTA, DUE, HERO, LINE, LINE_ORDER, LINE_TILES, SCREENS } from './content';
+import { BEAT, CTA, DUE, HERO, LINE, SCREENS } from './content';
+import { LINE_DIGEST, LINE_UNPAID } from './line.gen';
+import { LineScreen } from './LineChat';
 import { Fade, Layer, Pinned, Shot, centred, mix, ramp, useDerived, window4, type Keys, type Pose, type Size } from './stage';
 
 // Chapters 1 to 3 on one stage, so nothing is cut between them: the loose job rows of the hero
@@ -78,25 +80,15 @@ function layout({ w: W, h: H }: Size) {
   const credit30: Keys = [[B.saved + 0.035, hidden(k30, H * 0.5)], [B.credit - 0.02, k30], [B.creditHeld, k30], [B.creditHeld + 0.05, hidden(k30, H * 0.2)]];
   const credit45: Keys = [[B.saved + 0.05, hidden(k45, H * 0.5)], [B.credit, k45], [B.creditHeld, k45], [B.creditHeld + 0.06, hidden(k45, H * 0.2)]];
 
-  // LINE: the real menu picture, then the form its first tile opens.
-  const menuShot = SHOTS['line-menu'];
-  const sM = wide ? Math.min(1.3, (W * 0.4) / menuShot.w, (H * 0.56) / menuShot.h) : Math.min(1, (W - 40) / menuShot.w);
-  const menuOpen = wide ? centred(W * 0.31, H * 0.51, sM, menuShot.w, menuShot.h) : centred(W / 2, H * 0.575, sM, menuShot.w, menuShot.h);
-  const menuAside = wide ? centred(W * 0.215, H * 0.53, sM * 0.8, menuShot.w, menuShot.h) : centred(W / 2, H * 0.405, sM * 0.55, menuShot.w, menuShot.h);
-  const menu: Keys = [[B.creditHeld + 0.03, { ...menuOpen, y: H * 1.05 }], [B.line, menuOpen], [B.tiles + 0.01, menuOpen], [B.form, menuAside], [1, menuAside]];
-  const step = (B.tiles - B.line) / 6.4;
-  const turn = (i: number) => LINE_ORDER.indexOf(i as 0);
-  const tiles = LINE_TILES.map((tile, i) => ({ ...tile, at: B.line - 0.004 + turn(i) * step, until: turn(i) === 5 ? B.tiles + 0.03 : B.line - 0.004 + (turn(i) + 1) * step }));
-  const caption = { x: menuOpen.x + (menuShot.w * sM) / 2, y: menuOpen.y + menuShot.h * sM + (wide ? 24 : 14) };
+  // LINE: one phone. It rises as the web screen steps back, and stays put while the chat plays inside it.
+  // Wide screens show it inside a phone. On a phone-sized screen the chat fills the width instead:
+  // the reader is already holding the phone, and the cards stay large enough to read.
+  const sP = wide ? Math.min(0.92, (H * 0.8) / 820) : Math.min(1.15, (W - 32) / 390);
+  const PHONE = wide ? { w: 410, h: 820 } : { w: 390, h: Math.round((H * 0.64) / sP) };
+  const phoneOpen = wide ? centred(W * 0.36, H * 0.535, sP, PHONE.w, PHONE.h) : centred(W / 2, H * 0.665, sP, PHONE.w, PHONE.h);
+  const phone: Keys = [[B.creditHeld + 0.03, { ...phoneOpen, y: H * 1.05 }], [B.line, phoneOpen], [1, phoneOpen]];
 
-  const PHONE = { w: 410, h: 800 };
-  const sP = wide ? Math.min(0.74, (H * 0.74) / PHONE.h) : Math.min(0.62, (H * 0.5) / PHONE.h);
-  const phoneOpen = wide ? centred(W * 0.475, H * 0.53, sP, PHONE.w, PHONE.h) : centred(W / 2, H * 0.835, sP, PHONE.w, PHONE.h);
-  const first = LINE_TILES[0].box;
-  const formTile = { x: menuOpen.x + ((first[0] + first[2]) / 2) * menuShot.w * sM, y: menuOpen.y + ((first[1] + first[3]) / 2) * menuShot.h * sM };
-  const phone: Keys = [[B.tiles + 0.015, centred(formTile.x, formTile.y, sP * 0.2, PHONE.w, PHONE.h, 0)], [B.form, phoneOpen], [1, phoneOpen]];
-
-  return { wide, W, H, screen, frame, pieces, ringBox, ring, job, card, sheet, sheetShot, credit, credit30, credit45, menuShot, menu, tiles, step, caption, PHONE, phone };
+  return { wide, W, H, screen, frame, pieces, ringBox, ring, job, card, sheet, sheetShot, credit, credit30, credit45, PHONE, phone };
 }
 
 const SHADOW = '0 0 0 1px #E7E0D8, 0 40px 90px -40px rgba(64, 40, 16, 0.35), 0 2px 8px rgba(64, 40, 16, 0.06)';
@@ -155,20 +147,9 @@ function Stage({ p, size, onStart }: { p: MotionValue<number>; size: Size; onSta
       </Layer>
       <Layer p={p} keys={L.sheet} w={L.sheetShot.w} h={L.sheetShot.h} radius={24} shadow={LIFT} z={9} className="overflow-hidden bg-white"><Shot name="instalment" radius={0} /></Layer>
 
-      {/* LINE */}
-      <Layer p={p} keys={L.menu} w={L.menuShot.w} h={L.menuShot.h} radius={20} shadow="0 40px 90px -30px rgba(0,0,0,0.6)" z={10} className="overflow-hidden">
-        <Shot name="line-menu" radius={0} />
-        {L.tiles.map(tile => <TileVeil key={tile.name} p={p} tile={tile} step={L.step} />)}
-      </Layer>
-      {/* One line under the menu, saying the words printed on the tile that has just lit up. */}
-      {L.tiles.map(tile => (
-        <Fade key={tile.name} p={p} show={v => window4(v, tile.at + L.step * 0.3, tile.at + L.step * 0.75, tile.until + L.step * 0.1, tile.until + L.step * 0.3)} shift={8}
-          className="pointer-events-none absolute text-center" style={{ zIndex: 11, left: L.caption.x - 200, width: 400, top: L.caption.y }}>
-          <p aria-hidden="true" className="text-[#FFF4EC]" style={{ fontSize: wide ? 17 : 15, lineHeight: 1.5 }}><span className="font-semibold">{tile.name}</span><span className="mx-2 text-[#8C8177]">·</span><span className="text-[#D9CFC5]">{tile.does}</span></p>
-        </Fade>
-      ))}
-      <Layer p={p} keys={L.phone} w={L.PHONE.w} h={L.PHONE.h} radius={54} shadow="0 50px 100px -30px rgba(0,0,0,0.7)" z={12} className="bg-[#0E0C0B] p-[10px]">
-        <div className="h-full w-full overflow-hidden rounded-[44px] bg-[#FBF1E4]"><Shot name="line-form" radius={0} /></div>
+      {/* LINE: a stand-in chat screen playing the app's real messages over the real menu */}
+      <Layer p={p} keys={L.phone} w={L.PHONE.w} h={L.PHONE.h} radius={wide ? 54 : 24} shadow="0 50px 100px -30px rgba(0,0,0,0.7)" z={12} className={wide ? 'bg-[#0E0C0B] p-[10px]' : 'bg-[#0E0C0B]'}>
+        <div className={`h-full w-full overflow-hidden ${wide ? 'rounded-[44px]' : 'rounded-[24px]'}`}><LineScreen p={p} /></div>
       </Layer>
 
       {/* Chapter 1 */}
@@ -201,7 +182,7 @@ function Stage({ p, size, onStart }: { p: MotionValue<number>; size: Size; onSta
             {DUE.th.map(line => <span key={line} className={`block ${wide ? 'whitespace-nowrap' : ''}`}>{line}</span>)}
           </p>
           <StepText p={p} wide={wide} />
-          {wide && <p className="mt-6 max-w-[26rem] text-[13.5px] leading-relaxed text-[#6B645D]">{DUE.note}</p>}
+          {wide && <p className="mt-5 max-w-[26rem] text-[13.5px] leading-relaxed text-[#6B645D]">{DUE.note}</p>}
         </div>
       </Fade>
 
@@ -216,71 +197,35 @@ function Stage({ p, size, onStart }: { p: MotionValue<number>; size: Size; onSta
           <p className="font-semibold text-[#FBF7F2]" style={{ fontSize: thSub, lineHeight: 1.45, marginTop: wide ? 18 : 10 }}>
             {wide ? LINE.th.map(line => <span key={line} className="block">{line}</span>) : LINE.th.join(' ')}
           </p>
-          <p className="text-[#D9CFC5] [text-wrap:pretty]" style={{ fontSize: body, lineHeight: 1.7, marginTop: wide ? 14 : 8 }}>{LINE.support}</p>
-          {wide && (
-            <>
-              <Fade p={p} show={v => ramp(v, B.tiles + 0.03, B.form - 0.02)} shift={10}>
-                <p className="mt-5 border-l-2 border-[#E65F2B] pl-3 text-[15.5px] leading-relaxed text-[#FBF7F2]">{LINE.form}</p>
-              </Fade>
-              <ul className="mt-5 space-y-1 text-[13.5px] leading-relaxed text-[#B8AEA4]">{LINE.notes.map(note => <li key={note}>{note}</li>)}</ul>
-            </>
-          )}
+          <div className="relative" style={{ marginTop: wide ? 18 : 8, minHeight: wide ? 92 : 46 }}>
+            <Fade p={p} show={v => window4(v, B.line - 0.01, B.line + 0.01, B.reply + 0.05, B.reply + 0.07)} shift={8} className="absolute inset-x-0 top-0">
+              <p className="text-[#F3EBE3] [text-wrap:pretty]" style={{ fontSize: wide ? 18 : 15.5, lineHeight: 1.6 }}>{LINE.check}</p>
+            </Fade>
+            <Fade p={p} show={v => ramp(v, B.reply + 0.07, B.reply + 0.09)} shift={8} className="absolute inset-x-0 top-0">
+              <p className="text-[#F3EBE3] [text-wrap:pretty]" style={{ fontSize: wide ? 18 : 15.5, lineHeight: 1.6 }}>{LINE.notice}</p>
+            </Fade>
+          </div>
+          {wide && <ul className="mt-5 space-y-1 text-[13.5px] leading-relaxed text-[#B8AEA4]">{LINE.notes.map(note => <li key={note}>{note}</li>)}</ul>}
         </div>
       </Fade>
-      {!wide && (
-        <Fade p={p} show={v => ramp(v, B.tiles + 0.03, B.form - 0.02)} shift={10} className="pointer-events-none absolute inset-x-5 text-center" style={{ zIndex: 20, top: H * 0.5 }}>
-          <p className="text-[14.5px] font-medium leading-snug text-[#FBF7F2]">{LINE.form}</p>
-        </Fade>
-      )}
 
-      {import.meta.env.DEV && wide && (
-        <Fade p={p} show={v => ramp(v, B.line, B.line + 0.02)} className="absolute bottom-4 right-4 max-w-[19rem] rounded-xl border border-dashed border-[#FFB48E]/60 p-3 text-[12px] leading-relaxed text-[#FFB48E]" style={{ zIndex: 30 }}>
-          DEV ONLY · ยังไม่มีภาพการ์ดตอบกลับและการแจ้งเตือนใน LINE จริง (รอรับเงิน, สรุปเดือนนี้, สรุปยอดค้างรายวัน) จึงยังไม่แสดงบนหน้าจริง ดู docs/landing-draft2/asset-manifest.md
-        </Fade>
-      )}
     </>
   );
 }
 
-type Tile = { at: number; box: readonly number[]; cover: readonly number[] };
-const place = ([l, t, r, b]: readonly number[]) => ({ left: `${l * 100}%`, top: `${t * 100}%`, width: `${(r - l) * 100}%`, height: `${(b - t) * 100}%` });
-
-/** Dims one tile of the menu picture until its turn, then outlines it for a moment. Nothing inside the picture changes. */
-function TileVeil({ p, tile, step }: { p: MotionValue<number>; tile: Tile; step: number }) {
-  const opacity = useDerived(p, v => 0.78 * (1 - ramp(v, tile.at, tile.at + step * 0.8)));
-  const ring = useDerived(p, v => window4(v, tile.at, tile.at + step * 0.5, tile.at + step, tile.at + step * 1.5));
-  return (
-    <>
-      <motion.div className="absolute bg-[#1F1A16]" style={{ ...place(tile.cover), opacity }} />
-      <motion.div className="absolute rounded-[14px] border-[3px] border-[#E65F2B]" style={{ ...place(tile.box), opacity: ring }} />
-    </>
-  );
-}
-
-/** The five things chapter 2 points out, one at a time, with a marker for where you are. */
+/** What chapter 2 is showing right now, one short line at a time. */
 function StepText({ p, wide }: { p: MotionValue<number>; wide: boolean }) {
   const edges = [B.zoomed - 0.03, B.card - 0.035, B.sheet - 0.04, B.saved - 0.04, B.credit - 0.05, B.creditHeld + 0.04];
   return (
-    <div style={{ marginTop: wide ? 26 : 12 }}>
-      <div aria-hidden="true" className={`flex gap-1.5 ${wide ? '' : 'justify-center'}`}>
-        {DUE.steps.map((_, i) => <StepDot key={i} p={p} from={edges[i]} to={edges[i + 1]} />)}
-      </div>
-      <div className="relative" style={{ marginTop: wide ? 14 : 8, minHeight: wide ? 96 : 50 }}>
-        {DUE.steps.map((text, i) => (
-          <Fade key={text} p={p} show={v => window4(v, edges[i], edges[i] + 0.016, edges[i + 1] - (i === 4 ? 0 : 0.016), edges[i + 1] + (i === 4 ? 0.02 : 0))} shift={8}
-            className="absolute inset-x-0 top-0">
-            <p className="text-[#3A342F] [text-wrap:pretty]" style={{ fontSize: wide ? 18 : 15.5, lineHeight: 1.6 }}>{text}</p>
-          </Fade>
-        ))}
-      </div>
+    <div className="relative" style={{ marginTop: wide ? 22 : 10, minHeight: wide ? 92 : 50 }}>
+      {DUE.steps.map((text, i) => (
+        <Fade key={text} p={p} show={v => window4(v, edges[i], edges[i] + 0.016, edges[i + 1] - (i === 4 ? 0 : 0.016), edges[i + 1] + (i === 4 ? 0.02 : 0))} shift={8}
+          className="absolute inset-x-0 top-0">
+          <p className="text-[#3A342F] [text-wrap:pretty]" style={{ fontSize: wide ? 18 : 15.5, lineHeight: 1.6 }}>{text}</p>
+        </Fade>
+      ))}
     </div>
   );
-}
-
-function StepDot({ p, from, to }: { p: MotionValue<number>; from: number; to: number }) {
-  const width = useDerived(p, v => (v >= from && v < to ? 28 : 8));
-  const background = useDerived(p, v => (v >= from && v < to ? '#E65F2B' : '#DDD5CC'));
-  return <motion.span className="h-1.5 rounded-full transition-[width,background-color] duration-300" style={{ width, background }} />;
 }
 
 export function StartButton({ onClick, dark = false }: { onClick: () => void; dark?: boolean }) {
@@ -300,7 +245,7 @@ function Described() {
       <p>{SHOTS.timeline.alt}</p>
       <p>{DUE.steps.join(' ')} {DUE.note}</p>
       <p>{SHOTS['credit-30'].alt} {SHOTS['credit-45'].alt}</p>
-      <p>{SHOTS['line-menu'].alt} {LINE.form} {LINE.notes.join(' ')}</p>
+      <p>{LINE.check} {LINE_UNPAID.altText} {LINE.notice} {LINE_DIGEST.altText} {LINE.notes.join(' ')}</p>
     </div>
   );
 }
