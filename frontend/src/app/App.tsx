@@ -1358,7 +1358,7 @@ export default function App() {
       if (sessionRef.current?.user?.id !== user.id || financeOwnerRef.current!==owner) return;
       if (error.status === 409) {cloudReadyRef.current = null;financeConflictRef.current=true;}
       setLastCloudError(formatError(error)); setCloudSyncStatus('failed');
-      fireMascot({ mood: 'alert', message: `บันทึกไม่สำเร็จ: ${formatError(error)} ข้อมูลยังอยู่ในหน้านี้ กรุณาสำรองก่อนโหลดใหม่หรือปิดหน้าเว็บ` });
+      fireMascot({ mood: 'alert', tone: 'error', title: 'บันทึกข้อมูลไม่สำเร็จ', message: `${formatError(error)} ข้อมูลยังอยู่ในหน้านี้ กรุณาสำรองข้อมูลก่อนโหลดหน้าใหม่หรือปิดหน้าเว็บ`, duration: 9000 });
     }
   };
 
@@ -1840,7 +1840,9 @@ export default function App() {
     const [first, ...rest] = dueReminderJobs;
     fireMascot({
       mood: 'alert',
-      message: `ถึงเวลาตามเงินแล้ว: ${first.client || first.name} ${formatCurrency(first.pending)}${rest.length ? ` และอีก ${rest.length} รายการ` : ''} ดูได้ที่หน้าเงินรอรับ`,
+      tone: 'warning',
+      title: 'ถึงกำหนดติดตามการชำระเงิน',
+      message: `${first.client || first.name} ${formatCurrency(first.pending)}${rest.length ? ` และอีก ${rest.length} รายการ` : ''} ตรวจสอบได้ที่หน้าเงินรอรับ`,
       duration: 9000,
     });
   }, [session, isLoadedForUser, dueReminderJobs]);
@@ -1856,7 +1858,8 @@ export default function App() {
     setJobs(prev => [jobWithId, ...prev]);
     fireMascot({
       mood: 'happy',
-      message: `เพิ่มงานเรียบร้อย: ${newJob.name}`
+      title: 'เพิ่มงานแล้ว',
+      message: newJob.name,
     });
     // Trigger a celebratory green leaves shower!
     leafBus.trigger({ count: 16, type: 'green', durationMs: 3500 });
@@ -1905,9 +1908,10 @@ export default function App() {
     if (wasCompleted) {
       fireMascot({
         mood: 'celebrate',
+        title: 'บันทึกการรับเงินแล้ว',
         message: (updated.isPosted ?? oldJob?.isPosted) === false
-          ? `ยินดีด้วยค้าบ! รับเงินงานนี้ครบแล้ว งานยังอยู่ในกำลังทำ ส่งงานเมื่อเสร็จได้เลย`
-          : `ยินดีด้วยค้าบ! งานนี้ปิดดีลรับเงินเข้าคลังกระรอกเรียบร้อยแล้ว! อู้ฟู่สุดๆ!`,
+          ? 'ได้รับเงินครบถ้วนแล้ว งานยังอยู่ในสถานะกำลังทำ'
+          : 'ได้รับเงินครบถ้วน งานนี้ปิดเรียบร้อยแล้ว',
         amount: oldJob?.pending || undefined
       });
       leafBus.trigger({ count: 28, type: 'mixed', durationMs: 5000 });
@@ -1917,18 +1921,21 @@ export default function App() {
     } else if (wasDelivered) {
       fireMascot({
         mood: 'happy',
-        message: `ส่งมอบงานเรียบร้อยแล้วค้าบ! เหลือแค่รอเงินโอนเข้าคลังกระรอกเท่านั้น!`
+        title: 'บันทึกการส่งงานแล้ว',
+        message: 'งานอยู่ในสถานะรอรับเงิน',
       });
     } else if (wasPartialPayment) {
       fireMascot({
         mood: 'happy',
-        message: `บันทึกมัดจำเรียบร้อยแล้วค้าบ! มีเงินเข้าคลังกระรอกมาบางส่วนแล้วนะ!`
+        title: 'บันทึกเงินมัดจำแล้ว',
+        message: 'ยอดคงเหลือยังอยู่ในรายการเงินรอรับ',
       });
       leafBus.trigger({ count: 14, type: 'mixed', durationMs: 3000 });
     } else {
       fireMascot({
         mood: 'happy',
-        message: `อัปเดตข้อมูลดีลเรียบร้อยแล้วค้าบ! ข้อมูลถูกต้องแม่นยำร้อยเปอร์เซ็นต์!`
+        title: 'บันทึกการแก้ไขแล้ว',
+        message: 'ข้อมูลงานได้รับการปรับปรุงเรียบร้อย',
       });
 
     }
@@ -1936,8 +1943,8 @@ export default function App() {
 
   const handleDeleteJob = (id: string) => {
     triggerConfirm(
-      'ยืนยันการลบงานดีล',
-      'คุณแน่ใจหรือไม่ว่าต้องการลบดีลงานชิ้นนี้? ข้อมูลรายรับที่เกี่ยวข้องจะหายไปด้วย',
+      'ยืนยันการลบงาน',
+      'ต้องการลบงานนี้ใช่หรือไม่ ข้อมูลรายรับที่เกี่ยวข้องจะถูกลบไปด้วย',
       () => {
         deletedJobIdsRef.current.add(id);
         if (session?.user?.email) {
@@ -1949,8 +1956,10 @@ export default function App() {
           return freshJobs;
         });
         fireMascot({
-          mood: 'alert',
-          message: `ลบดีลงานเรียบร้อยแล้วนะค้าบ หวังว่าดีลใหม่จะงอกเร็วๆ น้า!`
+          mood: 'happy',
+          tone: 'info',
+          title: 'ลบงานแล้ว',
+          message: 'รายการงานถูกนำออกจากระบบเรียบร้อย',
         });
         // Don't wait for the 1.5s debounced autosave -- a job the user just confirmed deleting
         // reappearing in the stock list (a real report) is exactly what happens if the tab closes
@@ -2034,7 +2043,8 @@ export default function App() {
       // Goal completed! Massive leaf party!
       fireMascot({
         mood: 'celebrate',
-        message: `ว้าววว! คุณทำเป้าหมายออมเงิน "${g.name}" สำเร็จครบ 100% แล้ว! ยอดเยี่ยมที่สุดเลยค้าบเจ้ากระรอก!`
+        title: 'บรรลุเป้าหมายการออม',
+        message: `เป้าหมาย "${g.name}" ครบ 100% แล้ว`,
       });
       leafBus.trigger({ count: 32, type: 'mixed', durationMs: 6500 });
     } else if (amount > 0) {
@@ -2231,7 +2241,7 @@ export default function App() {
     } catch (error: any) {
       setLastCloudError(formatError(error));
       setCloudSyncStatus('failed');
-      fireMascot({ mood: 'alert', message: `บันทึกสถานะแบบสอบถามไม่สำเร็จ: ${formatError(error)}` });
+      fireMascot({ mood: 'alert', tone: 'error', title: 'บันทึกข้อมูลไม่สำเร็จ', message: `ไม่สามารถบันทึกสถานะแบบสอบถามได้: ${formatError(error)}` });
       throw error;
     }
   };
@@ -2265,7 +2275,8 @@ export default function App() {
     URL.revokeObjectURL(url);
     fireMascot({
       mood: 'celebrate',
-      message: 'ส่งออกข้อมูลเสบียงเรียบร้อยแล้วค้าบ! เก็บไฟล์นี้ไว้อย่างดีน้า'
+      title: 'ส่งออกข้อมูลแล้ว',
+      message: 'ดาวน์โหลดไฟล์สำรองเรียบร้อย กรุณาเก็บรักษาไฟล์นี้ไว้',
     });
   };
 
@@ -2294,12 +2305,15 @@ export default function App() {
       
       fireMascot({
         mood: 'celebrate',
-        message: 'นำเข้าข้อมูลและคืนชีพคลังเสบียงกระรอกเรียบร้อยแล้วค้าบ!'
+        title: 'นำเข้าข้อมูลแล้ว',
+        message: 'ข้อมูลจากไฟล์สำรองถูกกู้คืนเรียบร้อย',
       });
     } catch (err) {
       fireMascot({
         mood: 'alert',
-        message: 'นำเข้าข้อมูลไม่สำเร็จค้าบ ไฟล์อาจเสียหายหรือรูปแบบผิดพลาด!'
+        tone: 'error',
+        title: 'นำเข้าข้อมูลไม่สำเร็จ',
+        message: 'ไฟล์อาจเสียหายหรือมีรูปแบบไม่ถูกต้อง กรุณาตรวจสอบแล้วลองอีกครั้ง',
       });
     }
   };

@@ -934,6 +934,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* Keep navigation feedback quick and avoid transforms here. A transformed ancestor changes the
    containing block for fixed overlays, which can strand a modal below the scroll viewport. */
+/* Notifications (MascotToast): the line along the bottom runs out as the notification is about to leave. */
+.app-toast-timer { animation: app-toast-timer linear forwards; opacity: 0.55; }
+@keyframes app-toast-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .app-toast-timer { animation: none; display: none; } }
+
 .app-tab-enter {
   animation: app-tab-arrive 150ms ease-out both;
 }
