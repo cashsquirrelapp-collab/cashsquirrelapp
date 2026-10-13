@@ -1312,6 +1312,25 @@ test('mobile jobs and receivables follow the design; every job action is still r
  await page.getByRole('button',{name:'ยกเลิก',exact:true}).click();
  await page.getByRole('tab',{name:/เลยกำหนดรับเงิน/}).click();
  await expect(page.getByText('งานที่เลยกำหนดรับเงิน')).toBeVisible();
+ // calendar and timeline: the design's month grid and dated rows, fed by the same events
+ await nav.getByRole('button',{name:'เมนู',exact:true}).click();
+ await page.getByPlaceholder(/ค้นหา เช่น/).fill('ปฏิทิน');
+ await page.getByRole('region',{name:'เครื่องมือทั้งหมด'}).getByRole('button',{name:/^ปฏิทิน/}).first().click();
+ await expect(page.getByRole('heading',{name:'ปฏิทิน',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'เครื่องมือทั้งหมด'})).toBeVisible(); // the way back to the tools screen
+ const today=new Date();
+ await expect(page.locator('.ksm-calgrid > button')).toHaveCount(new Date(today.getFullYear(),today.getMonth()+1,0).getDate());
+ await expect(page.locator('.ksm-calgrid > button.is-selected')).toHaveText(String(today.getDate())); // opens on today
+ await expect(page.locator('.ksm-eventlist')).toContainText('รอรับ ฿4,000'); // the job due today
+ await page.locator('.ksm-eventlist > button').first().click();
+ await expect(page.getByRole('heading',{name:'งานของฉัน'})).toBeVisible(); // a day's row opens that job, as before
+ await page.goBack();
+ await page.getByRole('button',{name:'ไทม์ไลน์',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'ไทม์ไลน์',exact:true})).toBeVisible();
+ await expect(page.locator('.ksm-timeline-row').first()).toBeVisible();
+ await expect(page.locator('.ksm-timeline-row.is-overdue')).toContainText('รอรับ ฿12,000');
+ await page.locator('.ksm-timeline-row.is-overdue').click();
+ await expect(page.getByRole('button',{name:/แก้ไข/}).first()).toBeVisible(); // the same job card the desktop timeline opens
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
  expect(errors).toEqual([]);
 });

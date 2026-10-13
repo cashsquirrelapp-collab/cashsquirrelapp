@@ -3,11 +3,16 @@ import PageHeader from '../../components/ui/PageHeader';
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppSettings, Expense, Job } from '../../../../shared/types';
-import { dateLocale } from '../../utils';
+import { dateLocale, formatCurrency } from '../../utils';
 import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { TimelineView } from './TimelineView';
 import { MonthMoneySummary } from './MonthMoneySummary';
-import { buildCalendarEvents, type CalendarEventKind } from './calendarEvents';
+import { buildCalendarEvents, type CalendarDayEvent, type CalendarEventKind } from './calendarEvents';
+import { JobPeekSheet } from './JobPeekSheet';
+import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
+import { KsIcon } from '../mobile/icons';
+import { useMobileLayout } from '../mobile/useMobileLayout';
+import '../mobile/mobile.css';
 
 type PageView = 'calendar' | 'timeline';
 const VIEW_STORAGE_KEY = 'cashsquirrel_calendar_view';
@@ -94,6 +99,9 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
   // The requested date is only a starting point; clear it so a later visit opens on today.
   React.useEffect(() => { if (initialDateKey) onInitialDateHandled?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
+  const mobile = useMobileLayout();
+  // Phones: the job a timeline row was tapped for (same peek card the desktop timeline opens).
+  const [peekId, setPeekId] = useState<string | null>(null);
   const todayKey = toDateKey(new Date());
   const eventsByDay = useMemo(() => buildCalendarEvents(jobs, todayKey), [jobs, todayKey]);
 
@@ -156,6 +164,137 @@ export default function CalendarTab({ jobs, expenses, settings, onSwitchTab, onV
     `flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-xs font-medium transition-colors cursor-pointer ${active
       ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-orange-300'
       : 'text-brand-muted hover:text-brand-text'}`;
+
+  // Phones: the mobile design's calendar and timeline. Both read the same events as the desktop
+  // views (buildCalendarEvents), so a date shows the same jobs and amounts everywhere.
+  if (mobile) {
+    const monthKey = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}`;
+    const setMonth = (key: string) => {
+      const [year, month] = key.split('-').map(Number);
+      const first = new Date(year, month - 1, 1);
+      setViewDate(first);
+      setSelectedKey(key === todayKey.slice(0, 7) ? todayKey : toDateKey(first));
+    };
+    const tone = (event: CalendarDayEvent) => (event.kind === 'paid' ? 'paid' : event.kind === 'overdue' ? 'overdue' : 'due');
+    const describe = (event: CalendarDayEvent) => event.kind === 'post'
+      ? { title: event.jobName, sub: 'กำหนดส่งงาน' }
+      : event.kind === 'paid'
+        ? { title: event.client || event.jobName, sub: `รับเงิน ${formatCurrency(event.amount)}` }
+        : { title: event.client || event.jobName, sub: `รอรับ ${formatCurrency(event.amount)}` };
+    const shortDate = (key: string) => fromDateKey(key).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
+    const monthShort = (key: string) => fromDateKey(key).toLocaleDateString(dateLocale(), { month: 'short' });
+    const offset = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay();
+    const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+    const monthEvents = Array.from(eventsByDay.entries())
+      .filter(([key]) => key.startsWith(monthKey))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .flatMap(([, list]) => list);
+    // Money that was due before this month and is still not in.
+    const carried = Array.from(eventsByDay.entries())
+      .filter(([key]) => key < `${monthKey}-01`)
+      .flatMap(([, list]) => list)
+      .filter(event => event.kind === 'overdue')
+      .reduce((sum, event) => sum + event.amount, 0);
+    const peekJob = peekId ? jobs.find(job => job.id === peekId) || null : null;
+    return (
+      <div className="page-content ksm ksm-screen">
+        <div className="ksm-pagetitle">
+          <div>
+            <h2>{pageView === 'timeline' ? 'ไทม์ไลน์' : 'ปฏิทิน'}</h2>
+            <p>{pageView === 'timeline' ? 'วันส่งงานและวันรับเงินจริง' : 'กำหนดงาน และวันรับเงิน'}</p>
+          </div>
+          <button type="button" className="ksm-btn-secondary" onClick={() => switchView(pageView === 'timeline' ? 'calendar' : 'timeline')}>
+            {pageView === 'timeline' ? 'ปฏิทิน' : 'ไทม์ไลน์'}
+          </button>
+        </div>
+
+        {pageView === 'calendar' ? (
+          <>
+            <div className="ksm-row-between">
+              <DashboardPeriodPicker monthKey={monthKey} onChange={setMonth} compact />
+              <button type="button" className="ksm-link" onClick={() => { setViewDate(new Date()); setSelectedKey(todayKey); }}>วันนี้</button>
+            </div>
+            <div className="ksm-calendar">
+              <div className="ksm-weekdays" aria-hidden="true">{['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'].map(day => <span key={day}>{day}</span>)}</div>
+              <div className="ksm-calgrid">
+                {Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}
+                {Array.from({ length: daysInMonth }, (_, i) => {
+                  const key = `${monthKey}-${String(i + 1).padStart(2, '0')}`;
+                  const events = eventsByDay.get(key) || [];
+                  const hasOverdue = events.some(event => event.kind === 'overdue');
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedKey(key)}
+                      aria-pressed={key === selectedKey}
+                      aria-label={`${shortDate(key)} ${events.length} รายการ${hasOverdue ? ' มีเงินเกินกำหนด' : ''}`}
+                      className={`${key === selectedKey ? 'is-selected' : ''} ${key === todayKey ? 'is-today' : ''} ${hasOverdue ? 'has-overdue' : ''}`}
+                    >
+                      {i + 1}
+                      <span className="ksm-daydots">{events.slice(0, 3).map(event => <i key={event.id} className={`is-${tone(event)}`} />)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="ksm-legend">
+              <span><i className="is-neutral" />งาน / กำหนดรับ</span>
+              <span><i className="is-overdue" />เกินกำหนด</span>
+              <span><i className="is-paid" />รับแล้ว</span>
+            </div>
+            <div className="ksm-daytitle"><h3>{shortDate(selectedKey)}</h3><small>{selectedEvents.length} รายการ</small></div>
+            {selectedEvents.length > 0 ? (
+              <div className="ksm-list ksm-eventlist">
+                {selectedEvents.map(event => {
+                  const text = describe(event);
+                  return (
+                    <button key={event.id} type="button" onClick={() => onViewJob(event.jobId)}>
+                      <i className={`ksm-eventbar is-${tone(event)}`} aria-hidden="true" />
+                      <span className="ksm-grow"><b>{text.title}</b><p>{text.sub}{event.kind === 'overdue' ? ' · เกินกำหนด' : ''}</p></span>
+                      <KsIcon name="chevron" size={16} />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="ksm-empty"><h3>วันนี้ไม่มีรายการ</h3><p>แตะวันที่ที่มีจุด เพื่อดูรายการ</p></div>
+            )}
+          </>
+        ) : (
+          <>
+            <DashboardPeriodPicker monthKey={monthKey} onChange={setMonth} compact />
+            {carried > 0 && (
+              <div className="ksm-info">
+                <span>ค้างจากเดือนก่อน {formatCurrency(carried)}</span>
+                <button type="button" className="ksm-btn is-soft" onClick={() => onSwitchTab('receivables')}>ดูรายการ</button>
+              </div>
+            )}
+            {monthEvents.length > 0 ? monthEvents.map(event => {
+              const text = describe(event);
+              return (
+                <button key={event.id} type="button" className={`ksm-timeline-row is-${tone(event)}`} onClick={() => setPeekId(event.jobId)}>
+                  <span className="ksm-date"><b>{Number(event.date.slice(8))}</b><small>{monthShort(event.date)}</small></span>
+                  <span className="ksm-grow"><b>{text.title}</b><p>{text.sub}</p></span>
+                  <i className="ksm-statusdot" aria-hidden="true" />
+                </button>
+              );
+            }) : (
+              <div className="ksm-empty" style={{ marginTop: 8 }}><h3>เดือนนี้ยังไม่มีรายการ</h3><p>ลองเลือกเดือนอื่น</p></div>
+            )}
+            <p className="ksm-caption">รายการค้างรับอาจเปลี่ยนเมื่อบันทึกรับเงินจริง</p>
+            <JobPeekSheet
+              job={peekJob}
+              onClose={() => setPeekId(null)}
+              onOpenInJobs={job => { setPeekId(null); onViewJob(job.id); }}
+              onEdit={job => { setPeekId(null); onEditJob(job.id); }}
+              onDelete={job => { setPeekId(null); onDeleteJob(job.id); }}
+            />
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="page-content space-y-4">

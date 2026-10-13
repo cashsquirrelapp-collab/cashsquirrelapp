@@ -378,3 +378,52 @@
   .ksm-modal > :not(.absolute):not(.fixed) { width: 100%; max-width: none; max-height: calc(100dvh - 16px); margin: 0; border-radius: 24px 24px 0 0; border-bottom-width: 0; box-shadow: 0 12px 44px rgba(60, 40, 28, 0.09); animation: ksm-sheet-in 0.22s ease-out; }
 }
 @media (prefers-reduced-motion: reduce) { .ksm-actionsheet, .ksm-modal > :not(.absolute):not(.fixed) { animation: none; } }
+
+/* ปฏิทิน and ไทม์ไลน์ */
+.ksm-pagetitle p { margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-btn-secondary { display: inline-flex; align-items: center; justify-content: center; flex: none; min-height: 40px; padding: 8px 12px; border: 1px solid var(--ksm-border); border-radius: 12px; background: var(--ksm-surface); color: var(--ksm-text); font-size: 12px; font-weight: 500; line-height: 1.5; cursor: pointer; }
+.ksm-row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.ksm-row-between > .ksm-month > .ksm-month-pop { left: 0; right: auto; }
+.ksm-calendar { margin-top: 12px; padding: 10px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-weekdays, .ksm-calgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; text-align: center; }
+.ksm-weekdays span { padding: 8px 0; font-size: 10px; line-height: 15px; color: var(--ksm-secondary); }
+.ksm-calgrid > button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 42px; border: 1px solid transparent; border-radius: 12px; font-size: 14px; line-height: 1.5; color: var(--ksm-text); cursor: pointer; }
+.ksm-calgrid > button.is-today { outline: 1px solid var(--ksm-accent); outline-offset: -2px; }
+.ksm-calgrid > button.has-overdue:not(.is-selected) { background: var(--ksm-error-soft); color: var(--ksm-error); font-weight: 600; }
+.ksm-calgrid > button.is-selected { border-color: #A63F1B; background: #A63F1B; color: #FFFFFF; font-weight: 600; outline: 0; }
+.ksm-daydots { display: flex; gap: 2px; height: 4px; }
+.ksm-daydots i { width: 4px; height: 4px; border-radius: 50%; background: var(--ksm-accent); }
+.ksm-daydots i.is-paid { background: #18A66A; }
+.ksm-daydots i.is-overdue { background: var(--ksm-error); }
+.ksm-calgrid > button.is-selected .ksm-daydots i { background: #FFFFFF; }
+.ksm-legend { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 10px; line-height: 15px; color: var(--ksm-secondary); }
+.ksm-legend span { display: flex; align-items: center; gap: 4px; }
+.ksm-legend i, .ksm-statusdot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #7A5C43; }
+.ksm-legend i.is-overdue, .ksm-timeline-row.is-overdue .ksm-statusdot { background: var(--ksm-error); }
+.ksm-legend i.is-paid, .ksm-timeline-row.is-paid .ksm-statusdot { background: #18A66A; }
+.dark .ksm-legend i.is-neutral, .dark .ksm-timeline-row.is-due .ksm-statusdot { background: #B89A82; }
+.ksm-daytitle { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 0; }
+.ksm-daytitle h3 { font-size: 18px; font-weight: 600; line-height: 1.45; color: var(--ksm-accent-text); }
+.ksm-daytitle small { font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-eventlist { margin-top: 12px; }
+.ksm-eventlist > button { min-height: 64px; }
+.ksm-eventbar { flex: none; align-self: stretch; width: 3px; min-height: 35px; border-radius: 4px; background: var(--ksm-accent); }
+.ksm-eventbar.is-paid { background: #18A66A; }
+.ksm-eventbar.is-overdue { background: var(--ksm-error); }
+.ksm-daytitle + .ksm-empty { margin-top: 12px; }
+.ksm-empty h3 { font-size: 16px; line-height: 1.45; }
+.ksm-empty p { margin-top: 6px; }
+.ksm-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 12px; border: 1px solid var(--ksm-border); border-radius: 12px; background: #FDF6EC; font-size: 12px; line-height: 1.65; color: var(--ksm-text); }
+.dark .ksm-info { background: var(--ksm-muted); }
+.ksm-info .ksm-btn { min-height: 36px; padding: 6px 12px; font-size: 12px; }
+.ksm-timeline-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; margin-top: 8px; padding: 14px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); color: var(--ksm-text); text-align: left; cursor: pointer; }
+.ksm-timeline-row .ksm-date { width: 45px; padding: 5px 10px; font-size: 15px; line-height: 1.5; }
+.ksm-timeline-row b { display: block; font-size: 14px; font-weight: 500; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-timeline-row .ksm-date b { font-size: 19px; font-weight: 600; line-height: 1.15; overflow: visible; }
+.ksm-timeline-row p { margin-top: 3px; font-size: 12px; line-height: 1.55; color: var(--ksm-secondary); }
+.ksm-timeline-row .ksm-statusdot { width: 6px; height: 6px; margin-right: 8px; }
+.ksm-timeline-row.is-paid .ksm-date { background: var(--ksm-muted); color: var(--ksm-secondary); }
+.ksm-timeline-row.is-paid p { color: var(--ksm-text); }
+.ksm-timeline-row.is-overdue { border-left: 4px solid var(--ksm-error); background: var(--ksm-error-soft); }
+.ksm-timeline-row.is-overdue p { color: var(--ksm-error); }
+.ksm-caption { margin-top: 12px; font-size: 11px; line-height: 1.65; color: var(--ksm-secondary); }
