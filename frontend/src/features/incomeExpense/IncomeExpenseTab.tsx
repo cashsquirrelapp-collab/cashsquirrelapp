@@ -1,4 +1,8 @@
 import PageHeader from '../../components/ui/PageHeader';
+import { KsIcon } from '../mobile/icons';
+import { MobileSheet } from '../mobile/MobileHome';
+import { useMobileLayout } from '../mobile/useMobileLayout';
+import '../mobile/mobile.css';
 import { uiInput, uiPrimaryButton, uiSecondaryButton, uiSurface } from '../../components/ui/uiStyles';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -95,6 +99,8 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   const [incomeExportOpen, setIncomeExportOpen] = React.useState(false);
   const [menu, setMenu] = React.useState<{ key: string; top: number; left: number; up: boolean; items: MenuItem[] } | null>(null);
   const [highlightId, setHighlightId] = React.useState<string | null>(null);
+  const mobile = useMobileLayout();
+  const [toolsOpen, setToolsOpen] = React.useState(false);
 
   const month = React.useMemo(
     () => buildExpenseMonth(jobs, expenses, settings, monthKey, currentMonth),
@@ -188,6 +194,164 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   );
   const dateText = (row: ExpenseRow, short = false) => row.date ? (short ? shortDate(row.date) : fullDate(row.date)) : 'ทุกเดือน';
 
+  const exportItems = [
+    { label: `รายรับ ${monthLabel} (Excel)`, run: () => setIncomeExportOpen(true) },
+    { label: `รายจ่าย ${monthLabel} (CSV)`, run: () => { if (!exportExpensesCSV(month.rows, monthKey)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีรายจ่ายในเดือนนี้'); } },
+    { label: 'ข้อมูลงานทั้งหมด (CSV)', run: () => { if (!exportJobsToCSV(jobs)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีข้อมูลงานสำหรับส่งออก'); else triggerAlert('ส่งออกสำเร็จ', 'ดาวน์โหลดไฟล์ CSV สำหรับ Excel และ Google Sheets แล้ว'); } },
+    { label: 'สำรองข้อมูลทั้งหมด (JSON)', run: props.onExportData },
+  ];
+
+  // Menus, panels and drawers shared by the desktop page and the phone page.
+  const overlays = (
+    <>
+      {menu && createPortal(
+        <>
+        {mobile && <div className="ksm-sheet-backdrop" style={{ zIndex: 149 }} aria-hidden="true" />}
+        <div role="menu" data-expense-menu className={mobile ? 'ksm ksm-actionsheet' : 'fixed z-[150] w-[210px] rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900'}
+          style={mobile ? undefined : { top: menu.top, left: menu.left, transform: menu.up ? 'translateY(-100%)' : undefined }}>
+          {mobile && (
+            <>
+              <div className="ksm-sheet-grip" aria-hidden="true" />
+              <p className="ksm-actionsheet-title">{month.rows.find(r => r.id === menu.key)?.name}</p>
+            </>
+          )}
+          {menu.items.map(item => (
+            <button key={item.label} type="button" role="menuitem" onClick={(e) => { e.stopPropagation(); setMenu(null); item.run(); }}
+              className={`flex w-full rounded-lg px-3 py-2 text-left text-[13px] transition-colors cursor-pointer ${item.danger ? 'text-[#C43A3A] hover:bg-[#FFF0F0] dark:text-rose-300 dark:hover:bg-rose-950/40' : 'text-brand-text hover:bg-brand-faint'}`}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+        </>,
+        document.body,
+      )}
+
+      {detail && (
+        <ExpenseDetail
+          row={detail}
+          expense={detail.fromSettings ? null : expenses.find(e => e.id === detail.id) || null}
+          onClose={() => setDetail(null)}
+          onEdit={() => { setDetail(null); openEdit(detail.id); }}
+          onDelete={() => { setDetail(null); confirmDelete(detail); }}
+          onRecordPaid={() => { setDetail(null); openAdd({ name: detail.name, amount: detail.amount, recurring: true }); }}
+          onManage={() => { setDetail(null); setManageOpen(true); }}
+        />
+      )}
+      {manageOpen && <RecurringManager settings={settings} onUpdateSettings={props.onUpdateSettings} onClose={() => setManageOpen(false)} />}
+      <ExpenseDrawer
+        open={drawer !== null}
+        expense={drawer?.expense ?? null}
+        preset={drawer?.preset ?? null}
+        settings={settings}
+        onUpdateSettings={props.onUpdateSettings}
+        onAdd={props.onAddExpense}
+        onEdit={props.onEditExpense}
+        onClose={() => setDrawer(null)}
+        triggerAlert={triggerAlert}
+      />
+    </>
+  );
+
+  // Phones: the mobile design's expenses page. Rows, totals and every action are the ones above;
+  // search, category, sorting, recurring costs and exports sit behind the one tools button.
+  if (mobile) {
+    const planned = month.rows.filter(r => r.fromSettings).reduce((sum, r) => sum + r.amount, 0);
+    const recorded = month.rows.filter(r => !r.fromSettings).reduce((sum, r) => sum + r.amount, 0);
+    const toolsActive = category !== 'all' || Boolean(query) || sort !== 'recent';
+    return (
+      <div className="page-content ksm ksm-screen">
+        <div className="ksm-pagetitle"><h2>รายจ่าย</h2></div>
+        <div className="ksm-row-between">
+          <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} compact />
+          <button type="button" className={`ksm-plainbtn${toolsActive ? ' is-active' : ''}`} onClick={() => setToolsOpen(true)} aria-haspopup="dialog" aria-label="เครื่องมือรายจ่าย">
+            <KsIcon name="more" />{toolsActive && <i aria-hidden="true" />}
+          </button>
+        </div>
+        <section className="ksm-strip" aria-label={`สรุปรายจ่าย ${monthLabel}`}>
+          <div>
+            <h3>รายจ่ายรวม</h3>
+            <strong>{formatCurrency(month.total)}</strong>
+            <p>บันทึกแล้ว {formatCurrency(recorded)} · ตั้งไว้ {formatCurrency(planned)}</p>
+          </div>
+          <span className="ksm-strip-icon"><KsIcon name="receipt" /></span>
+        </section>
+        <button type="button" className="ksm-primary is-compact" onClick={() => openAdd()}><KsIcon name="plus" size={19} />เพิ่มรายจ่าย</button>
+        <div className="ksm-chips" role="tablist" aria-label="ประเภทรายจ่าย">
+          {([['all', 'ทั้งหมด'], ['recurring', 'ประจำ'], ['general', 'ทั่วไป']] as const).map(([key, label]) => (
+            <button key={key} type="button" role="tab" aria-selected={typeFilter === key} onClick={() => setTypeFilter(key)}>{label}</button>
+          ))}
+        </div>
+        {rows.length > 0 ? (
+          <div className="ksm-list ksm-moneylist">
+            {rows.map(row => (
+              <button key={row.id} type="button" data-expense-id={row.id} aria-haspopup="menu" aria-label={`${row.name} ${formatCurrency(row.amount)}`}
+                className={highlightId === row.id ? 'is-highlight' : undefined}
+                onClick={() => setMenu({ key: row.id, items: rowMenu(row), up: false, left: 0, top: 0 })}>
+                <span className="ksm-list-icon is-neutral"><KsIcon name={row.fromSettings ? 'clock' : 'receipt'} /></span>
+                <span className="ksm-grow">
+                  <b>{row.name}{!row.fromSettings && <ExpenseSlipMark expenseId={row.id} />}</b>
+                  <p>{row.fromSettings ? 'ตั้งไว้ · ยังไม่บันทึกจ่าย' : dateText(row, true)} · {row.fromSettings ? 'ประจำ' : categoryLabel(row.category)}</p>
+                </span>
+                <strong>{formatCurrency(row.amount)}</strong>
+                <KsIcon name="chevron" size={16} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="ksm-empty" style={{ marginTop: 12 }}>
+            <h3>{month.rows.length === 0 ? 'ยังไม่มีรายจ่าย' : 'ไม่มีรายจ่ายที่ตรงกับตัวกรองนี้'}</h3>
+            {month.rows.length === 0
+              ? <p>เพิ่มรายการเมื่อมีค่าใช้จ่ายเกิดขึ้น</p>
+              : filtersActive && <button type="button" className="ksm-link" onClick={() => { setTypeFilter('all'); setCategory('all'); setSearch(''); }}>ล้างตัวกรอง</button>}
+          </div>
+        )}
+        <p className="ksm-caption">รายจ่ายชื่อเดียวกันที่บันทึกแล้วในเดือน จะใช้แทนยอดตั้งไว้ ไม่บวกซ้ำ</p>
+
+        {toolsOpen && (
+          <MobileSheet title="เครื่องมือรายจ่าย" onClose={() => setToolsOpen(false)}>
+            <div className="ksm-search" style={{ marginTop: 14 }}>
+              <KsIcon name="search" />
+              <input type="text" inputMode="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหารายจ่าย..." aria-label="ค้นหารายจ่าย" enterKeyHint="search" />
+            </div>
+            <div className="ksm-selects">
+              <label><span>หมวดหมู่</span>
+                <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                  <option value="all">ทั้งหมด</option>
+                  {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label><span>เรียงตาม</span>
+                <select value={sort} onChange={(e) => setSort(e.target.value as ExpenseSort)}>
+                  {SORTS.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="ksm-list" style={{ marginTop: 12 }}>
+              <button type="button" onClick={() => { setToolsOpen(false); setManageOpen(true); }}>
+                <span className="ksm-list-icon"><KsIcon name="clock" /></span>
+                <span className="ksm-grow"><b>จัดการรายจ่ายประจำ</b><p>ค่าใช้จ่ายที่ตั้งไว้ทุกเดือน</p></span>
+                <KsIcon name="chevron" size={16} />
+              </button>
+              <button type="button" onClick={() => { setToolsOpen(false); props.onSwitchTab('report'); }}>
+                <span className="ksm-list-icon"><KsIcon name="chart" /></span>
+                <span className="ksm-grow"><b>ดูรายงานรายจ่าย</b><p>สรุปตามเดือนและหมวดหมู่</p></span>
+                <KsIcon name="chevron" size={16} />
+              </button>
+              {exportItems.map(item => (
+                <button key={item.label} type="button" onClick={() => { setToolsOpen(false); item.run(); }}>
+                  <span className="ksm-list-icon"><KsIcon name="download" /></span>
+                  <span className="ksm-grow"><b>{item.label}</b></span>
+                </button>
+              ))}
+            </div>
+          </MobileSheet>
+        )}
+        <IncomeExportDialog open={incomeExportOpen} jobs={jobs} initialMonth={monthKey} onClose={() => setIncomeExportOpen(false)} notify={triggerAlert} />
+        {overlays}
+      </div>
+    );
+  }
+
   return (
     <div className="page-content space-y-4">
       {/* Header */}
@@ -200,12 +364,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
             </button>
             {exportOpen && (
               <div role="menu" className="absolute left-0 top-[calc(100%+6px)] z-30 w-60 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900 sm:left-auto sm:right-0">
-                {[
-                  { label: `รายรับ ${monthLabel} (Excel)`, run: () => setIncomeExportOpen(true) },
-                  { label: `รายจ่าย ${monthLabel} (CSV)`, run: () => { if (!exportExpensesCSV(month.rows, monthKey)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีรายจ่ายในเดือนนี้'); } },
-                  { label: 'ข้อมูลงานทั้งหมด (CSV)', run: () => { if (!exportJobsToCSV(jobs)) triggerAlert('ไม่พบข้อมูล', 'ยังไม่มีข้อมูลงานสำหรับส่งออก'); else triggerAlert('ส่งออกสำเร็จ', 'ดาวน์โหลดไฟล์ CSV สำหรับ Excel และ Google Sheets แล้ว'); } },
-                  { label: 'สำรองข้อมูลทั้งหมด (JSON)', run: props.onExportData },
-                ].map(item => (
+                {exportItems.map(item => (
                   <button key={item.label} type="button" role="menuitem" onClick={() => { setExportOpen(false); item.run(); }}
                     className="flex w-full rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint cursor-pointer">{item.label}</button>
                 ))}
@@ -337,42 +496,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
         ดูรายงานรายจ่าย <ChevronRight className="h-3.5 w-3.5" />
       </button>
 
-      {menu && createPortal(
-        <div role="menu" data-expense-menu className="fixed z-[150] w-[210px] rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-stone-900"
-          style={{ top: menu.top, left: menu.left, transform: menu.up ? 'translateY(-100%)' : undefined }}>
-          {menu.items.map(item => (
-            <button key={item.label} type="button" role="menuitem" onClick={(e) => { e.stopPropagation(); setMenu(null); item.run(); }}
-              className={`flex w-full rounded-lg px-3 py-2 text-left text-[13px] transition-colors cursor-pointer ${item.danger ? 'text-[#C43A3A] hover:bg-[#FFF0F0] dark:text-rose-300 dark:hover:bg-rose-950/40' : 'text-brand-text hover:bg-brand-faint'}`}>
-              {item.label}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-
-      {detail && (
-        <ExpenseDetail
-          row={detail}
-          expense={detail.fromSettings ? null : expenses.find(e => e.id === detail.id) || null}
-          onClose={() => setDetail(null)}
-          onEdit={() => { setDetail(null); openEdit(detail.id); }}
-          onDelete={() => { setDetail(null); confirmDelete(detail); }}
-          onRecordPaid={() => { setDetail(null); openAdd({ name: detail.name, amount: detail.amount, recurring: true }); }}
-          onManage={() => { setDetail(null); setManageOpen(true); }}
-        />
-      )}
-      {manageOpen && <RecurringManager settings={settings} onUpdateSettings={props.onUpdateSettings} onClose={() => setManageOpen(false)} />}
-      <ExpenseDrawer
-        open={drawer !== null}
-        expense={drawer?.expense ?? null}
-        preset={drawer?.preset ?? null}
-        settings={settings}
-        onUpdateSettings={props.onUpdateSettings}
-        onAdd={props.onAddExpense}
-        onEdit={props.onEditExpense}
-        onClose={() => setDrawer(null)}
-        triggerAlert={triggerAlert}
-      />
+      {overlays}
     </div>
   );
 }

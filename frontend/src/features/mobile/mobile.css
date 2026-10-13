@@ -427,3 +427,27 @@
 .ksm-timeline-row.is-overdue { border-left: 4px solid var(--ksm-error); background: var(--ksm-error-soft); }
 .ksm-timeline-row.is-overdue p { color: var(--ksm-error); }
 .ksm-caption { margin-top: 12px; font-size: 11px; line-height: 1.65; color: var(--ksm-secondary); }
+
+/* รายจ่าย */
+.ksm-plainbtn { position: relative; display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 12px; color: var(--ksm-text); cursor: pointer; }
+.ksm-plainbtn.is-active { color: var(--ksm-accent-text); }
+.ksm-plainbtn > i { position: absolute; top: 9px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--ksm-accent); }
+.ksm-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 16px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-selected); }
+.ksm-strip h3 { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--ksm-text); }
+.ksm-strip strong { display: block; margin-top: 4px; font-size: 32px; font-weight: 600; line-height: 40px; letter-spacing: -0.5px; color: var(--ksm-accent-text); font-variant-numeric: tabular-nums; }
+.ksm-strip p { margin-top: 5px; font-size: 12px; line-height: 1.6; color: var(--ksm-secondary); }
+.ksm-strip-icon { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 16px; color: var(--ksm-accent-text); }
+.ksm-primary.is-compact { min-height: 44px; margin-top: 12px; font-size: 14px; line-height: 1.5; }
+.ksm-chips { display: flex; gap: 6px; margin-top: 12px; padding: 3px 0; }
+.ksm-chips > button { min-height: 44px; padding: 8px 11px; border: 1px solid var(--ksm-border); border-radius: 12px; background: var(--ksm-surface); color: var(--ksm-secondary); font-size: 12px; line-height: 1.5; white-space: nowrap; cursor: pointer; }
+.ksm-chips > button[aria-selected="true"] { border-color: #F3B08C; background: var(--ksm-selected); color: var(--ksm-accent-text); font-weight: 600; }
+.dark .ksm-chips > button[aria-selected="true"] { border-color: #FFA473; }
+.ksm-moneylist { margin-top: 12px; }
+.ksm-moneylist > button { min-height: 64px; }
+.ksm-moneylist > button.is-highlight { background: var(--ksm-selected); }
+.ksm-moneylist b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-moneylist > button > strong { flex: none; font-size: 18px; font-weight: 600; line-height: 1.5; letter-spacing: -0.4px; font-variant-numeric: tabular-nums; }
+.ksm-list-icon.is-neutral { background: var(--ksm-muted); color: var(--ksm-secondary); }
+.ksm-selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.ksm-selects label > span { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 500; color: var(--ksm-secondary); }
+.ksm-selects select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--ksm-border); border-radius: 12px; background: var(--ksm-surface); color: var(--ksm-text); font-size: 15px; }

@@ -1331,6 +1331,19 @@ test('mobile jobs and receivables follow the design; every job action is still r
  await expect(page.locator('.ksm-timeline-row.is-overdue')).toContainText('รอรับ ฿12,000');
  await page.locator('.ksm-timeline-row.is-overdue').click();
  await expect(page.getByRole('button',{name:/แก้ไข/}).first()).toBeVisible(); // the same job card the desktop timeline opens
+ // expenses: the design's summary, add button and type chips; everything else behind one tools button
+ await page.goto('/incomeExpense');
+ await expect(page.getByRole('heading',{name:'รายจ่าย',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:/สรุปรายจ่าย/})).toContainText('รายจ่ายรวม');
+ await expect(page.getByRole('tablist',{name:'ประเภทรายจ่าย'}).getByRole('tab')).toHaveCount(3);
+ await page.getByRole('button',{name:'เครื่องมือรายจ่าย'}).click();
+ const expenseTools=page.getByRole('dialog',{name:'เครื่องมือรายจ่าย'});
+ await expect(expenseTools.getByRole('button',{name:/จัดการรายจ่ายประจำ/})).toBeVisible();
+ await expect(expenseTools.getByRole('button',{name:/CSV/}).first()).toBeVisible();
+ await expenseTools.getByRole('button',{name:'ปิดหน้าต่าง'}).click();
+ await page.getByRole('button',{name:'เพิ่มรายจ่าย',exact:true}).click();
+ await expect(page.getByRole('dialog').filter({hasText:'เพิ่มรายจ่าย'}).first()).toBeVisible(); // the app's own add-expense form
+ await page.keyboard.press('Escape');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
  expect(errors).toEqual([]);
 });
