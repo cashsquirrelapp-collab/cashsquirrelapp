@@ -45,14 +45,14 @@ export interface MobileHomeProps {
   /** Received minus expenses minus money moved to savings goals: the last line of the "ดูที่มา" statement. */
   balance: string;
   balanceNegative: boolean;
-  expenses: string;
-  expensesDetail: string;
+  /** Received minus expenses, before money moved to savings goals. */
+  profit: string;
+  profitDetail: string;
   hasPending: boolean;
   jobCount: number;
   next: MobileHomeNext | null;
   onNet: () => void;
   onReceived: () => void;
-  onExpenses: () => void;
   onWork: () => void;
   onReceivables: () => void;
   onQuickPay: () => void;
@@ -101,10 +101,10 @@ export function MobileHome(props: MobileHomeProps) {
           <button type="button" onClick={props.onReceived}><span>รับเงินจริง</span><b data-metric="received">{props.received}</b><KsIcon name="chevron" size={17} /></button>
           <button type="button" onClick={props.onNet}><span>ยอดเงินปัจจุบัน{props.balanceNegative ? ' · ติดลบ' : ''}</span><b data-metric="balance">{props.balance}</b><KsIcon name="chevron" size={17} /></button>
         </div>
-        <button type="button" className="ksm-work" onClick={props.onExpenses}>
-          <span className="ksm-work-icon"><KsIcon name="expense" size={17} /></span>
-          <span className="ksm-grow"><b>รายจ่ายรวม</b><small>{props.expensesDetail}</small></span>
-          <strong data-metric="expenses">{props.expenses}</strong>
+        <button type="button" className="ksm-work" onClick={props.onNet}>
+          <span className="ksm-work-icon"><KsIcon name="income" size={17} /></span>
+          <span className="ksm-grow"><b>กำไรสุทธิ</b><small>{props.profitDetail}</small></span>
+          <strong data-metric="profit">{props.profit}</strong>
           <KsIcon name="chevron" size={17} />
         </button>
       </section>

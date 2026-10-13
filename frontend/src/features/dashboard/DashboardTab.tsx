@@ -807,8 +807,8 @@ export default function DashboardTab({
         received={formatCurrency(totalReceived)}
         balance={balance < 0 ? `−${formatCurrency(-balance)}` : formatCurrency(balance)}
         balanceNegative={balance < 0}
-        expenses={formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}
-        expensesDetail={`ประจำ ${formatCurrency(fixedExpenseThisMonth)} · ทั่วไป ${formatCurrency(variableExpenseThisMonth)}`}
+        profit={profit < 0 ? `−${formatCurrency(-profit)}` : formatCurrency(profit)}
+        profitDetail={`เงินรับจริงหักรายจ่าย${trend(profitChangePct) ? ` · ${trend(profitChangePct)}` : ''}`}
         hasPending={hasPending}
         jobCount={jobs.length}
         next={nextEvent ? {
@@ -820,7 +820,6 @@ export default function DashboardTab({
         } : null}
         onNet={() => setBreakdownFilter('profit')}
         onReceived={() => setBreakdownFilter('received')}
-        onExpenses={() => setBreakdownFilter('expense')}
         onWork={() => setBreakdownFilter('workValue')}
         onReceivables={() => onSwitchTab('receivables')}
         onQuickPay={() => setIsQuickPayExpanded(true)}

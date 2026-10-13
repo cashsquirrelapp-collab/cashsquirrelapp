@@ -1182,12 +1182,12 @@ test('mobile overview and add-job sheet follow the design and stay wired to the 
  const nav=page.getByRole('navigation',{name:'เมนูหลัก'});
  // overview: one summary card, the receivables notice, four shortcuts
  const summary=page.getByRole('region',{name:'สรุปเงินของเดือน'});
- // the month's work value leads; received and the current balance sit side by side; expenses below
+ // the month's work value leads; received and the current balance sit side by side; net profit below; no expenses on the card
  await expect(summary.locator('.ksm-net')).toContainText('มูลค่างาน');
- await expect(summary.getByText('รับเงินจริง')).toBeVisible();
+ await expect(summary.getByText('รับเงินจริง',{exact:true})).toBeVisible();
  await expect(summary.getByText('ยอดเงินปัจจุบัน')).toBeVisible();
- await expect(summary.getByText('รายจ่ายรวม')).toBeVisible();
- await expect(summary.getByText('กำไรสุทธิ')).toHaveCount(0);
+ await expect(summary.locator('.ksm-work')).toContainText('กำไรสุทธิ');
+ await expect(summary.getByText('รายจ่ายรวม')).toHaveCount(0);
  await expect(page.getByRole('region',{name:'ทางลัดทำรายการ'}).getByRole('button')).toHaveCount(4);
  // the month row drives the same month state as before
  const month=page.getByRole('button',{name:/ช่วงเวลาที่แสดง/});
