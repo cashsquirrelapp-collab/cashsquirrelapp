@@ -42,9 +42,8 @@ export interface MobileHomeProps {
   workValue: string;
   workDetail: string;
   received: string;
-  /** Received minus expenses minus money moved to savings goals: the last line of the "ดูที่มา" statement. */
+  /** Received minus expenses recorded as paid and savings set aside; never negative. Closes the "ดูที่มา" statement. */
   balance: string;
-  balanceNegative: boolean;
   /** Received minus expenses, before money moved to savings goals. */
   profit: string;
   profitDetail: string;
@@ -99,7 +98,7 @@ export function MobileHome(props: MobileHomeProps) {
         </div>
         <div className="ksm-cash">
           <button type="button" onClick={props.onReceived}><span>รับเงินจริง</span><b data-metric="received">{props.received}</b><KsIcon name="chevron" size={17} /></button>
-          <button type="button" onClick={props.onNet}><span>ยอดเงินปัจจุบัน{props.balanceNegative ? ' · ติดลบ' : ''}</span><b data-metric="balance">{props.balance}</b><KsIcon name="chevron" size={17} /></button>
+          <button type="button" onClick={props.onNet}><span>ยอดเงินปัจจุบัน</span><b data-metric="balance">{props.balance}</b><KsIcon name="chevron" size={17} /></button>
         </div>
         <button type="button" className="ksm-work" onClick={props.onNet}>
           <span className="ksm-work-icon"><KsIcon name="income" size={17} /></span>

@@ -1012,10 +1012,11 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await expect(summary).toContainText('กำไรสุทธิเดือนนี้');
  await expect(summary).toContainText('−฿3,150');
  await expect(summary).toContainText('แบ่งออมเข้าเป้าหมาย (1 รายการ)');
+ // "ยอดเงินปัจจุบัน" never shows a minus: received 10,180 − paid 13,330 − saved 3,000 is below zero, so it is ฿0,
+ // and the shortfall of the whole month is said in a sentence underneath.
  await expect(page.getByTestId('left-this-month')).toContainText('ยอดเงินปัจจุบัน');
- await expect(page.getByTestId('left-this-month')).toContainText('รายจ่ายและเงินที่แบ่งออม มากกว่าเงินที่รับจริงในเดือนนี้');
- await expect(page.getByTestId('left-this-month-amount')).toHaveText('−฿6,150');
- await expect(page.getByTestId('left-this-month-amount')).toHaveClass(/text-\[#E65F2B\]/);
+ await expect(page.getByTestId('left-this-month-amount')).toHaveText('฿0');
+ await expect(page.getByTestId('over-this-month')).toContainText('มากกว่าเงินที่รับจริง ฿6,150');
  await expect(modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'})).toHaveCount(0);
  await expect(modal.getByRole('button',{name:'ตั้งยอดเริ่มต้น'})).toHaveCount(0);
  await expect(modal.getByRole('region',{name:'รายละเอียดรายจ่ายเดือนนี้'})).toHaveCount(0);
@@ -1370,4 +1371,24 @@ test('mobile jobs and receivables follow the design; every job action is still r
  await page.keyboard.press('Escape');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
  expect(errors).toEqual([]);
+});
+
+test('phone overview: ยอดเงินปัจจุบัน is money in hand and never negative, even when the month runs at a loss',async({page})=>{
+ const t=new Date();const ym=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;const today=`${ym}-${String(t.getDate()).padStart(2,'0')}`;
+ // 5,000 received today; a 12,000 monthly cost is set but not paid yet; 600 already paid
+ const job={id:'paid',name:'งานรับแล้ว',value:5000,received:5000,pending:0,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',status:'done',paymentStatus:'paid',creditTerm:0,note:'',postDate:today,payDate:today,isPosted:true};
+ const expenses=[{id:'e1',name:'ค่าเดินทาง',category:'Other',amount:600,date:today}];
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot:{...snapshot,jobs:[job],expenses,settings:{...snapshot.settings,monthlyExpense:12000,fixedExpenseItems:[{id:'rent',name:'ค่าห้อง',amount:12000}]}},versions:{...versions,cashflow_jobs:{paid:1},cashflow_expenses:{e1:1}},subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true,versions}}));
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const card=page.getByRole('region',{name:'สรุปเงินของเดือน'});
+ await expect(card.locator('[data-metric="received"]')).toHaveText('฿5,000');
+ await expect(card.locator('[data-metric="balance"]')).toHaveText('฿4,400'); // 5,000 received − 600 paid; the unpaid 12,000 is not taken off
+ await expect(card.locator('[data-metric="profit"]')).toHaveText('−฿7,600'); // net profit counts the whole month's costs
+ await card.getByRole('button',{name:/^ยอดเงินปัจจุบัน/}).click();
+ await expect(page.getByTestId('left-this-month')).toContainText('ยอดเงินปัจจุบัน');
+ await expect(page.getByTestId('left-this-month-amount')).toHaveText('฿4,400'); // the card and the statement agree
+ await expect(page.getByTestId('over-this-month')).toContainText('฿7,600');
 });

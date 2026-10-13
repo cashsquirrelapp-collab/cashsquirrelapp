@@ -19,6 +19,9 @@ interface Props {
   /** Savings set aside this month from the month's money (cash-funded goal deposits). */
   savedThisMonth: number;
   savedCount: number;
+  /** "ยอดเงินปัจจุบัน": money received this month minus expenses recorded as paid and savings set
+   * aside. Monthly costs that are only budgeted are not taken off yet, and it never goes below zero. */
+  cashLeft: number;
   onClose: () => void;
 }
 
@@ -49,7 +52,7 @@ function SectionHead({ icon: Icon, title, sub }: { icon: React.ComponentType<{ c
 }
 
 export function FinancialDetailsModal(props: Props) {
-  const { monthKey, received, receivedCount, fixedExpense, variableExpense, variableExpenseCount, profit, savedThisMonth, savedCount, onClose } = props;
+  const { monthKey, received, receivedCount, fixedExpense, variableExpense, variableExpenseCount, profit, savedThisMonth, savedCount, cashLeft, onClose } = props;
   const panelRef = React.useRef<HTMLDivElement>(null);
   const leftThisMonth = profit - savedThisMonth;
   const spentBeyondThisMonth = leftThisMonth < 0;
@@ -99,20 +102,21 @@ export function FinancialDetailsModal(props: Props) {
             </div>
             {/* What's left of this month's money after expenses and the savings set aside. */}
             <Row label={`แบ่งออมเข้าเป้าหมาย (${savedCount} รายการ)`} value={signed(savedThisMonth, '-')} tone={savedThisMonth > 0 ? RED : 'text-brand-text'} />
-            <div className={`mt-2 rounded-xl px-3 py-2.5 ${spentBeyondThisMonth ? 'bg-[#FFF7F1] dark:bg-orange-500/10' : 'bg-brand-faint/70'}`} data-testid="left-this-month">
+            <div className="mt-2 rounded-xl bg-brand-faint/70 px-3 py-2.5" data-testid="left-this-month">
               <div className="flex items-baseline gap-3 py-1.5">
                 <span className="min-w-0 flex-1 text-[16px] font-semibold text-brand-text">
                   ยอดเงินปัจจุบัน
                 </span>
-                <span data-testid="left-this-month-amount" className={`shrink-0 whitespace-nowrap text-right font-mono text-[17px] font-semibold tabular-nums ${spentBeyondThisMonth ? 'text-[#E65F2B] dark:text-orange-300' : 'text-brand-text'}`}>
-                  {spentBeyondThisMonth ? '−' : ''}{formatCurrency(Math.abs(leftThisMonth))}
+                <span data-testid="left-this-month-amount" className="shrink-0 whitespace-nowrap text-right font-mono text-[17px] font-semibold tabular-nums text-brand-text">
+                  {formatCurrency(cashLeft)}
                 </span>
               </div>
-              <p className="text-[12px] text-brand-muted">
-                {spentBeyondThisMonth
-                  ? 'ติดลบ: รายจ่ายและเงินที่แบ่งออม มากกว่าเงินที่รับจริงในเดือนนี้'
-                  : 'เงินที่รับจริง หักรายจ่ายและเงินที่แบ่งออมของเดือนนี้'}
-              </p>
+              <p className="text-[12px] text-brand-muted">เงินที่รับจริงเดือนนี้ หักรายจ่ายที่บันทึกจ่ายแล้วและเงินที่แบ่งออม</p>
+              {spentBeyondThisMonth && (
+                <p className="mt-1.5 text-[12px] text-[#C24A16] dark:text-orange-300" data-testid="over-this-month">
+                  เดือนนี้รายจ่ายทั้งหมดและเงินที่แบ่งออม มากกว่าเงินที่รับจริง {formatCurrency(Math.abs(leftThisMonth))}
+                </p>
+              )}
             </div>
           </section>
 

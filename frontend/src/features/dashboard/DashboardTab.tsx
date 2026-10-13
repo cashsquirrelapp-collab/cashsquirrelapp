@@ -788,8 +788,9 @@ export default function DashboardTab({
     const work = workValueForMonth(jobs, selectedMonthKey);
     const previousWork = workValueForMonth(jobs, prevMonthKey).value;
     const trend = (pct: number | null) => (pct === null ? null : `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}% จากเดือนก่อน`);
-    // "ยอดเงินปัจจุบัน": the same figure as the last line of the ดูที่มา statement (FinancialDetailsModal).
-    const balance = profit - goalDeductionsThisMonth;
+    // "ยอดเงินปัจจุบัน": received minus what was recorded as paid and what was set aside, never below
+    // zero (owner's choice, 2026-10-14). The same figure closes the ดูที่มา statement.
+    const balance = receivedAfterVariableExpense;
     const workTrend = trend(previousWork > 0 ? Math.round(((work.value - previousWork) / previousWork) * 100) : null);
     const todayKey = toLocalDateKey();
     const nextEvent = Array.from(buildCalendarEvents(jobs, todayKey).values()).flat()
@@ -805,8 +806,7 @@ export default function DashboardTab({
         workValue={formatCurrency(work.value)}
         workDetail={`${work.count} งานในเดือน${workTrend ? ` · ${workTrend}` : ''}`}
         received={formatCurrency(totalReceived)}
-        balance={balance < 0 ? `−${formatCurrency(-balance)}` : formatCurrency(balance)}
-        balanceNegative={balance < 0}
+        balance={formatCurrency(balance)}
         profit={profit < 0 ? `−${formatCurrency(-profit)}` : formatCurrency(profit)}
         profitDetail={`เงินรับจริงหักรายจ่าย${trend(profitChangePct) ? ` · ${trend(profitChangePct)}` : ''}`}
         hasPending={hasPending}
@@ -1279,6 +1279,7 @@ export default function DashboardTab({
           variableExpenseCount={monthVariableExpenses.length}
           profit={profit}
           savedThisMonth={goalDeductionsThisMonth}
+          cashLeft={receivedAfterVariableExpense}
           savedCount={monthGoalDeductions.length}
           onClose={() => setBreakdownFilter(null)}
         />
