@@ -2,7 +2,6 @@ import PageHeader from '../../components/ui/PageHeader';
 import { KsIcon } from '../mobile/icons';
 import { MobileSheet } from '../mobile/MobileHome';
 import { useMobileLayout } from '../mobile/useMobileLayout';
-import '../mobile/mobile.css';
 import { uiInput, uiPrimaryButton, uiSecondaryButton, uiSurface } from '../../components/ui/uiStyles';
 import React from 'react';
 import { createPortal } from 'react-dom';

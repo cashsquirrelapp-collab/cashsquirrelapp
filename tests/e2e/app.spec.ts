@@ -1261,7 +1261,7 @@ test('mobile jobs and receivables follow the design; every job action is still r
   job('wip','งานกำลังทำ',{value:6000,pending:6000,isPosted:false,postDate:day(5),payDate:null}),
   job('closed','งานปิดแล้ว',{value:15000,received:15000,pending:0,status:'done',paymentStatus:'paid'}),
  ];
- await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot:{...snapshot,jobs},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true,versions}}));
+ await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot:{...snapshot,jobs,goals:[{id:'goal-1',name:'กล้องตัวใหม่',type:'buy',target:50000,current:12000,deadline:'',emoji:'',icon:'target',bg:'#FFF1E8',acc:'#C24A16',allocatedPercentage:30,history:[]}]},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true,versions}}));
  // the app's own once-a-day overdue prompt is not what this test is about
  await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
  await page.setViewportSize({width:390,height:844});
@@ -1343,6 +1343,22 @@ test('mobile jobs and receivables follow the design; every job action is still r
  await expenseTools.getByRole('button',{name:'ปิดหน้าต่าง'}).click();
  await page.getByRole('button',{name:'เพิ่มรายจ่าย',exact:true}).click();
  await expect(page.getByRole('dialog').filter({hasText:'เพิ่มรายจ่าย'}).first()).toBeVisible(); // the app's own add-expense form
+ await page.keyboard.press('Escape');
+ // goals: the design's card with the amount saved, the bar, and deposit / withdraw / transfer one tap away
+ await page.goto('/split');
+ await expect(page.getByRole('heading',{name:'เป้าหมาย',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'เงินพร้อมจัดสรร'})).toBeVisible();
+ const goal=page.locator('.ksm-goal');
+ await expect(goal).toContainText('กล้องตัวใหม่');
+ await expect(goal.getByRole('progressbar')).toHaveAttribute('aria-valuenow','24');
+ await expect(goal.getByRole('button',{name:'ฝาก'})).toBeHidden();
+ await goal.getByText('จัดการเงินในเป้าหมาย').click();
+ await expect(goal.getByRole('button',{name:'ถอน'})).toBeVisible();
+ await page.getByRole('button',{name:/^จัดการ/}).first().click();
+ await expect(page.getByRole('dialog',{name:'จัดการเป้าหมาย'}).getByRole('button',{name:/ปรับสัดส่วน/})).toBeVisible();
+ await page.getByRole('button',{name:'ปิดหน้าต่าง'}).click();
+ await goal.getByRole('button',{name:'ฝาก'}).click();
+ await expect(page.getByRole('dialog').filter({hasText:'กล้องตัวใหม่'}).first()).toBeVisible(); // the app's own deposit form
  await page.keyboard.press('Escape');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
  expect(errors).toEqual([]);

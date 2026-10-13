@@ -1,5 +1,8 @@
 import { uiSurface } from '../../components/ui/uiStyles';
 import PageHeader from '../../components/ui/PageHeader';
+import { KsIcon } from '../mobile/icons';
+import { MobileSheet } from '../mobile/MobileHome';
+import { useMobileLayout } from '../mobile/useMobileLayout';
 import { imageFileToDataUrl } from '../../services/images';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Job, Goal, AppSettings, GoalTransaction, Expense } from '../../../../shared/types';
@@ -381,6 +384,8 @@ export default function SplitTab({
 
   // Page UI state (layout only)
   const [goalSort, setGoalSort] = useState<'ratio' | 'progress' | 'name'>('ratio');
+  const mobile = useMobileLayout();
+  const [manageSheetOpen, setManageSheetOpen] = useState(false);
   const [ratioEditorOpen, setRatioEditorOpen] = useState(false);
   const [ratioDraft, setRatioDraft] = useState<Record<string, number>>({});
   const [manualOpen, setManualOpen] = useState(false);
@@ -1215,6 +1220,113 @@ export default function SplitTab({
   };
 
 
+  const sidePanel = (
+    <>
+      {/* One side panel for the whole page. Opening something from inside it (deposit from a goal,
+          edit, transfer) swaps the panel's content, with a back arrow, instead of stacking panels. */}
+      <Drawer open={Boolean(activeSheet)} title={activeSheet?.title ?? ''} onClose={closeAllSheets} onBack={activeSheet?.back}
+        width={activeSheet?.width} footer={activeSheet?.footer} viewKey={activeSheet?.key}>
+        {activeSheet?.body}
+      </Drawer>
+    </>
+  );
+
+  // Phones: the mobile design's goals page. The amounts, the proportional split and every goal
+  // action are this page's own; ratios, manual split and sorting sit behind "จัดการ".
+  if (mobile) {
+    const canAllocate = Boolean(preview && previewAllocated > 0 && totalAllocatedPct <= 100);
+    return (
+      <div className="page-content ksm ksm-screen">
+        <div className="ksm-pagetitle">
+          <div><h2>เป้าหมาย</h2><p>ค่อย ๆ ตุน ให้ถึงสิ่งที่ตั้งใจ</p></div>
+          <button type="button" className="ksm-toolbtn" onClick={openAddGoal} aria-label="เพิ่มเป้าหมาย"><KsIcon name="plus" /></button>
+        </div>
+        <section className="ksm-strip" aria-label="เงินพร้อมจัดสรร">
+          <div>
+            <h3 className="ksm-strip-month">เงินพร้อมจัดสรร · <DashboardPeriodPicker monthKey={viewMonth} onChange={setViewMonth} compact labelOnly /></h3>
+            <strong>{formatCurrency(netProfit)}</strong>
+            <p>การแบ่งเข้ากล่องเป้าหมายไม่ใช่รายจ่าย</p>
+          </div>
+          <span className="ksm-strip-icon"><KsIcon name="target" /></span>
+        </section>
+        {netProfit <= 0 && (
+          <div className="ksm-info"><span><b>เดือนนี้ยังไม่มีเงินเหลือสำหรับจัดสรร</b><br />{emptyReason}</span></div>
+        )}
+        <button type="button" className="ksm-primary ksm-primary-wide" onClick={handleQuickProportionalAllocation} disabled={!canAllocate}>
+          <KsIcon name="coins" size={19} />{canAllocate ? `แบ่งเงินตามสัดส่วน ${formatCurrency(previewAllocated)}` : 'แบ่งเงินตามสัดส่วน'}
+        </button>
+        <div className="ksm-row-between">
+          <p className="ksm-caption" style={{ marginTop: 0 }}>
+            {totalAllocatedPct > 100 ? `สัดส่วนรวม ${totalAllocatedPct}% · เกิน 100% ลดสัดส่วนก่อนจัดสรร` : `สัดส่วนรวม ${totalAllocatedPct}% · ไม่เกิน 100%`}
+          </p>
+          <button type="button" className="ksm-link" onClick={() => setManageSheetOpen(true)} disabled={goals.length === 0}>จัดการ <KsIcon name="chevron" size={17} /></button>
+        </div>
+        {goals.length === 0 ? (
+          <div className="ksm-empty" style={{ marginTop: 12 }}>
+            <h3>เริ่มตุนเงินให้เป้าหมายแรก</h3>
+            <p>ตั้งชื่อ จำนวนเงิน และสัดส่วนที่อยากแบ่งให้</p>
+            <button type="button" className="ksm-btn is-primary" style={{ marginTop: 14 }} onClick={openAddGoal}>สร้างเป้าหมาย</button>
+          </div>
+        ) : sortedGoals.map(g => {
+          const pct = goalPct(g);
+          const done = g.current >= g.target && g.target > 0;
+          return (
+            <article key={g.id} className="ksm-goal">
+              <div className="ksm-goal-header">
+                <GoalAvatar goal={g} size={32} />
+                <div className="ksm-grow">
+                  <h3>{g.name}</h3>
+                  <p className={deadlinePassed(g) ? 'is-late' : undefined}>สัดส่วน {g.allocatedPercentage || 0}%{g.deadline ? ` · ${deadlinePassed(g) ? 'เลยกำหนด ' : ''}${deadlineText(g)}` : ''}</p>
+                </div>
+                <button type="button" className="ksm-plainbtn" onClick={() => setSelectedGoal(g)} aria-label={`รายละเอียดและแก้ไข ${g.name}`}><KsIcon name="more" /></button>
+              </div>
+              <p className="ksm-goal-amount">{formatCurrency(g.current)} <span>/ {formatCurrency(g.target)}</span></p>
+              <div className={`ksm-progress${done ? ' is-done' : ''}`} role="progressbar" aria-label={g.name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
+                <span style={{ width: `${pct}%` }} />
+              </div>
+              <div className="ksm-progress-label"><span>{done ? 'ถึงเป้าแล้ว' : 'ตุนแล้ว'}</span><span>{pctText(pct)}</span></div>
+              <details className="ksm-goal-more">
+                <summary><b>จัดการเงินในเป้าหมาย</b><KsIcon name="down" size={17} /></summary>
+                <div className="ksm-button-row">
+                  <button type="button" className="ksm-btn is-soft" onClick={() => openTxModal(g, 'deposit')}><KsIcon name="plus" size={17} />ฝาก</button>
+                  <button type="button" className="ksm-btn is-outline" onClick={() => openTxModal(g, 'withdraw')}><KsIcon name="receive" size={17} />ถอน</button>
+                  <button type="button" className="ksm-btn is-outline" onClick={() => openTransferModal(g)} disabled={goals.length < 2}><KsIcon name="transfer" size={17} />โอน</button>
+                </div>
+              </details>
+            </article>
+          );
+        })}
+
+        {manageSheetOpen && (
+          <MobileSheet title="จัดการเป้าหมาย" onClose={() => setManageSheetOpen(false)}>
+            <div className="ksm-list" style={{ marginTop: 14 }}>
+              <button type="button" onClick={() => { setManageSheetOpen(false); openRatioEditor(); }}>
+                <span className="ksm-list-icon"><KsIcon name="chart" /></span>
+                <span className="ksm-grow"><b>ปรับสัดส่วน</b><p>กำหนดว่าเงินเหลือจะแบ่งเข้าเป้าหมายไหนกี่เปอร์เซ็นต์</p></span>
+                <KsIcon name="chevron" size={16} />
+              </button>
+              <button type="button" onClick={() => { setManageSheetOpen(false); setManualOpen(true); }}>
+                <span className="ksm-list-icon"><KsIcon name="coins" /></span>
+                <span className="ksm-grow"><b>ฝากเงินเข้าเป้าหมายเอง</b><p>ใส่ยอดของแต่ละเป้าหมายด้วยตัวเอง</p></span>
+                <KsIcon name="chevron" size={16} />
+              </button>
+            </div>
+            <div className="ksm-selects" style={{ gridTemplateColumns: '1fr' }}>
+              <label><span>เรียงเป้าหมาย</span>
+                <select value={goalSort} onChange={(e) => setGoalSort(e.target.value as typeof goalSort)}>
+                  <option value="ratio">สัดส่วน</option>
+                  <option value="progress">ความคืบหน้า</option>
+                  <option value="name">ชื่อ</option>
+                </select>
+              </label>
+            </div>
+          </MobileSheet>
+        )}
+        {sidePanel}
+      </div>
+    );
+  }
+
   return (
     <div className="page-content space-y-6">
       <PageHeader page="split">
@@ -1383,12 +1495,7 @@ export default function SplitTab({
         )}
       </section>
 
-      {/* One side panel for the whole page. Opening something from inside it (deposit from a goal,
-          edit, transfer) swaps the panel's content, with a back arrow, instead of stacking panels. */}
-      <Drawer open={Boolean(activeSheet)} title={activeSheet?.title ?? ''} onClose={closeAllSheets} onBack={activeSheet?.back}
-        width={activeSheet?.width} footer={activeSheet?.footer} viewKey={activeSheet?.key}>
-        {activeSheet?.body}
-      </Drawer>
+      {sidePanel}
     </div>
   );
 }

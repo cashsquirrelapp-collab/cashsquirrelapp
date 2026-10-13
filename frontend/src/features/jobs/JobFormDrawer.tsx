@@ -9,7 +9,6 @@ import InstallmentPlanner from './InstallmentPlanner';
 import JobTypeManager from './JobTypeManager';
 import { KsIcon } from '../mobile/icons';
 import { useMobileLayout } from '../mobile/useMobileLayout';
-import '../mobile/mobile.css';
 import { WHT_PRESET_RATES, isValidWhtRate, whtAmountFor, roundMoney } from '../../../../shared/wht';
 
 type Payment = 'unpaid' | 'paid' | 'partial' | 'installment';

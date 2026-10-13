@@ -12,7 +12,6 @@ import { JobPeekSheet } from './JobPeekSheet';
 import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
 import { KsIcon } from '../mobile/icons';
 import { useMobileLayout } from '../mobile/useMobileLayout';
-import '../mobile/mobile.css';
 
 type PageView = 'calendar' | 'timeline';
 const VIEW_STORAGE_KEY = 'cashsquirrel_calendar_view';

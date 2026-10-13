@@ -9,7 +9,6 @@ import { getJobPendingEntries, type JobPendingEntry } from '../../../../shared/i
 import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
 import { KsIcon } from '../mobile/icons';
 import { useMobileLayout } from '../mobile/useMobileLayout';
-import '../mobile/mobile.css';
 import { Mascot } from '../../components/mascot/Mascot';
 
 interface ReceivablesTabProps {

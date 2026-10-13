@@ -21,13 +21,15 @@ interface DashboardPeriodPickerProps {
   onChange: (monthKey: string) => void;
   /** Phones: the plain ‹ month ⌄ › row of the mobile design. The month chooser behind it is the same. */
   compact?: boolean;
+  /** With `compact`: only the month label (no arrows), for a month named inside a sentence. */
+  labelOnly?: boolean;
 }
 
 /**
  * The dashboard's one period control: ‹ month › with a month/year picker behind the label.
  * Every month-based card and the chart follow it, so no card needs a selector of its own.
  */
-export function DashboardPeriodPicker({ monthKey, onChange, compact = false }: DashboardPeriodPickerProps) {
+export function DashboardPeriodPicker({ monthKey, onChange, compact = false, labelOnly = false }: DashboardPeriodPickerProps) {
   const [open, setOpen] = React.useState(false);
   const [viewYear, setViewYear] = React.useState(() => Number(monthKey.slice(0, 4)));
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -57,10 +59,10 @@ export function DashboardPeriodPicker({ monthKey, onChange, compact = false }: D
   const smallGhost = 'flex h-8 w-8 items-center justify-center rounded-lg text-brand-muted transition-colors hover:bg-[#FFF1E8] hover:text-[#C24A16] cursor-pointer dark:hover:bg-orange-500/10 dark:hover:text-orange-300';
 
   return (
-    <div ref={rootRef} className={compact ? 'ksm ksm-month' : 'relative'}>
+    <div ref={rootRef} className={compact ? `ksm ksm-month${labelOnly ? ' is-inline' : ''}` : 'relative'}>
       {compact ? (
         <>
-          <button type="button" onClick={() => onChange(shiftMonth(monthKey, -1))} aria-label="เดือนก่อนหน้า"><KsIcon name="left" size={17} /></button>
+          {!labelOnly && <button type="button" onClick={() => onChange(shiftMonth(monthKey, -1))} aria-label="เดือนก่อนหน้า"><KsIcon name="left" size={17} /></button>}
           <button
             type="button"
             onClick={() => setOpen(v => !v)}
@@ -71,7 +73,7 @@ export function DashboardPeriodPicker({ monthKey, onChange, compact = false }: D
           >
             {formatMonthKey(monthKey)}<KsIcon name="down" size={17} />
           </button>
-          <button type="button" onClick={() => onChange(shiftMonth(monthKey, 1))} aria-label="เดือนถัดไป"><KsIcon name="chevron" size={17} /></button>
+          {!labelOnly && <button type="button" onClick={() => onChange(shiftMonth(monthKey, 1))} aria-label="เดือนถัดไป"><KsIcon name="chevron" size={17} /></button>}
         </>
       ) : (
         <div className="flex items-center gap-1.5">

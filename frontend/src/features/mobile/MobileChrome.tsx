@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 import { KsIcon, SquirrelAdd, type KsIconName } from './icons';
+// The one place the mobile stylesheet is loaded (App imports this file), so page components that
+// unit tests import for their pure functions never pull a .css file into Node.
 import './mobile.css';
 
 // The app's shell on phones (see useMobileLayout): a top bar, a bottom bar with the squirrel

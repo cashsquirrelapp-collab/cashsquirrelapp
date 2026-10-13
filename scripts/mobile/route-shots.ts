@@ -30,7 +30,13 @@ for (const [name, route] of routes) {
   await page.route('**/api/profile', r => r.fulfill({ json: { userId: sampleUser.id, publicId: 'SQ-0000000001', displayName: 'สตูดิโอตัวอย่าง' } }));
   await page.route('**/api/vault', r => r.fulfill({ json: { files: sampleVaultFiles } }));
   await page.route('**/api/groups?*', r => r.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
-  await page.route('**/api/data*', r => r.request().method() === 'GET' ? r.fulfill({ json: { snapshot: snapshot(), versions: versions(), subscription: process.env.PRO ? SUBSCRIPTION.pro : SUBSCRIPTION.free } }) : r.fulfill({ json: { ok: true } }));
+  // GOALS=1 adds two sample savings goals (the landing sample account has none).
+  const data = snapshot() as ReturnType<typeof snapshot> & { goals: unknown[] };
+  if (process.env.GOALS) data.goals = [
+    { id: 'goal-camera', name: 'กล้องตัวใหม่', type: 'buy', target: 50000, current: 12000, deadline: '2027-03-31', emoji: '', icon: 'target', bg: '#FFF1E8', acc: '#C24A16', allocatedPercentage: 30, history: [] },
+    { id: 'goal-reserve', name: 'เงินสำรองฉุกเฉิน', type: 'emergency', target: 30000, current: 30000, deadline: '', emoji: '', icon: 'shield', bg: '#E9F8F1', acc: '#18A66A', allocatedPercentage: 20, history: [] },
+  ];
+  await page.route('**/api/data*', r => r.request().method() === 'GET' ? r.fulfill({ json: { snapshot: data, versions: versions(), subscription: process.env.PRO ? SUBSCRIPTION.pro : SUBSCRIPTION.free } }) : r.fulfill({ json: { ok: true } }));
   await page.goto(BASE + route, { waitUntil: 'load' }); await page.waitForTimeout(2200);
   await page.screenshot({ path: path.join(out, `${width}-${name}${process.env.DARK ? '-dark' : ''}.png`) });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

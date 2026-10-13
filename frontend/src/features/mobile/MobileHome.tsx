@@ -2,7 +2,6 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 import { KsIcon, type KsIconName } from './icons';
-import './mobile.css';
 
 // "ภาพรวม" on phones, laid out as in the owner's design file. It only draws: every figure and
 // every handler comes from DashboardTab, so the numbers are the same ones the desktop shows.

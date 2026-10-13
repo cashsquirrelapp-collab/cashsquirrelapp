@@ -11,7 +11,6 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import JobFormDrawer from './JobFormDrawer';
 import { KsIcon } from '../mobile/icons';
 import { useMobileLayout } from '../mobile/useMobileLayout';
-import '../mobile/mobile.css';
 import JobPaymentDialog, { type PaymentMode } from './JobPaymentDialog';
 import { JobDeliveryDialog } from './JobDeliveryDialog';
 import { Wht50Chip } from '../vault/VaultProvider';
