@@ -102,16 +102,16 @@ export function FinancialDetailsModal(props: Props) {
             <div className={`mt-2 rounded-xl px-3 py-2.5 ${spentBeyondThisMonth ? 'bg-[#FFF7F1] dark:bg-orange-500/10' : 'bg-brand-faint/70'}`} data-testid="left-this-month">
               <div className="flex items-baseline gap-3 py-1.5">
                 <span className="min-w-0 flex-1 text-[16px] font-semibold text-brand-text">
-                  {spentBeyondThisMonth ? 'ส่วนที่เกินเงินรับเดือนนี้' : 'เงินที่เหลือเดือนนี้'}
+                  ยอดเงินปัจจุบัน
                 </span>
                 <span data-testid="left-this-month-amount" className={`shrink-0 whitespace-nowrap text-right font-mono text-[17px] font-semibold tabular-nums ${spentBeyondThisMonth ? 'text-[#E65F2B] dark:text-orange-300' : 'text-brand-text'}`}>
-                  {formatCurrency(Math.abs(leftThisMonth))}
+                  {spentBeyondThisMonth ? '−' : ''}{formatCurrency(Math.abs(leftThisMonth))}
                 </span>
               </div>
               <p className="text-[12px] text-brand-muted">
                 {spentBeyondThisMonth
-                  ? 'รายจ่ายและเงินที่แบ่งออม มากกว่าเงินรับของเดือนนี้'
-                  : 'รับเงินจริง − รายจ่าย − เงินที่แบ่งออม ของเดือนนี้'}
+                  ? 'ติดลบ: รายจ่ายและเงินที่แบ่งออม มากกว่าเงินที่รับจริงในเดือนนี้'
+                  : 'เงินที่รับจริง หักรายจ่ายและเงินที่แบ่งออมของเดือนนี้'}
               </p>
             </div>
           </section>

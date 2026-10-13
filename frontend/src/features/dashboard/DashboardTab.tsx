@@ -788,6 +788,8 @@ export default function DashboardTab({
     const work = workValueForMonth(jobs, selectedMonthKey);
     const previousWork = workValueForMonth(jobs, prevMonthKey).value;
     const trend = (pct: number | null) => (pct === null ? null : `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}% จากเดือนก่อน`);
+    // "ยอดเงินปัจจุบัน": the same figure as the last line of the ดูที่มา statement (FinancialDetailsModal).
+    const balance = profit - goalDeductionsThisMonth;
     const workTrend = trend(previousWork > 0 ? Math.round(((work.value - previousWork) / previousWork) * 100) : null);
     const todayKey = toLocalDateKey();
     const nextEvent = Array.from(buildCalendarEvents(jobs, todayKey).values()).flat()
@@ -799,14 +801,14 @@ export default function DashboardTab({
       <MobileHome
         greeting={greetingName ? `สวัสดี ${greetingName}` : 'สวัสดี'}
         monthPicker={monthPicker}
-        net={profit < 0 ? `−${formatCurrency(-profit)}` : formatCurrency(profit)}
-        netNegative={profit < 0}
-        netTrend={trend(profitChangePct)}
-        received={formatCurrency(totalReceived)}
-        expenses={formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}
         workLabel={withMonth('มูลค่างาน', selectedMonthKey)}
         workValue={formatCurrency(work.value)}
         workDetail={`${work.count} งานในเดือน${workTrend ? ` · ${workTrend}` : ''}`}
+        received={formatCurrency(totalReceived)}
+        balance={balance < 0 ? `−${formatCurrency(-balance)}` : formatCurrency(balance)}
+        balanceNegative={balance < 0}
+        expenses={formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}
+        expensesDetail={`ประจำ ${formatCurrency(fixedExpenseThisMonth)} · ทั่วไป ${formatCurrency(variableExpenseThisMonth)}`}
         hasPending={hasPending}
         jobCount={jobs.length}
         next={nextEvent ? {

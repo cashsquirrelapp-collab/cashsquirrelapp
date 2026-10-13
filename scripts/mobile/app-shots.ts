@@ -45,7 +45,7 @@ await page.getByRole('button', { name: 'ปิดหน้าต่าง' }).cl
 await page.getByRole('button', { name: /ช่วงเวลาที่แสดง/ }).click(); await shot('home-month'); await page.keyboard.press('Escape');
 await page.getByRole('button', { name: 'รับเงินด่วน', exact: true }).click(); await shot('home-quickpay');
 await page.goto(BASE + '/', { waitUntil: 'load' }); await page.waitForTimeout(2000);
-await page.getByRole('button', { name: /^กำไรสุทธิ/ }).click(); await shot('home-profit');
+await page.getByRole('button', { name: /^ยอดเงินปัจจุบัน/ }).click(); await shot('home-profit');
 await page.goto(BASE + '/', { waitUntil: 'load' }); await page.waitForTimeout(2000);
 await tab('งาน').click(); await shot('jobs'); await overflow('jobs');
 console.log('jobs rects', await page.evaluate(() => ['.ksm-pagetitle', '.ksm-pagetitle h2', '.ksm-toolbtn', '.ksm-search', '.ksm-tabs', '.ksm-tabs > button', '.ksm-filter-note', '.ksm-joblist', '.ksm-jobcard', '.ksm-jobcard-top', '.ksm-jobstatus', '.ksm-deadline']

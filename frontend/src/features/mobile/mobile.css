@@ -503,3 +503,6 @@
 .ksm-badge.is-warning > svg { color: var(--ksm-warning); }
 .ksm-btn.is-small { min-height: 40px; padding: 8px 12px; font-size: 12px; }
 .ksm-list > button:disabled { opacity: 0.45; cursor: default; }
+
+/* Add-job sheet: the three sections are categories, said so above the control. */
+.ksm-segments-label { margin: 0 0 6px; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }

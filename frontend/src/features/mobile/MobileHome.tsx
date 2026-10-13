@@ -37,14 +37,16 @@ export type MobileHomeNext = { day: number; month: string; caption: string; titl
 export interface MobileHomeProps {
   greeting: string;
   monthPicker: React.ReactNode;
-  net: string;
-  netNegative: boolean;
-  netTrend: string | null;
-  received: string;
-  expenses: string;
+  /** The month's work value: the large figure at the top of the card. */
   workLabel: string;
   workValue: string;
   workDetail: string;
+  received: string;
+  /** Received minus expenses minus money moved to savings goals: the last line of the "ดูที่มา" statement. */
+  balance: string;
+  balanceNegative: boolean;
+  expenses: string;
+  expensesDetail: string;
   hasPending: boolean;
   jobCount: number;
   next: MobileHomeNext | null;
@@ -88,21 +90,21 @@ export function MobileHome(props: MobileHomeProps) {
         <div className="ksm-face">
           <div className="ksm-face-title"><span>สรุปเงินของคุณ</span></div>
           <span className="ksm-watermark" aria-hidden="true"><BrandLogo size={116} /></span>
-          <button type="button" className="ksm-net" onClick={props.onNet}>
-            <span className="ksm-net-label">กำไรสุทธิ{props.netNegative ? ' · ติดลบ' : ''}</span>
-            <strong data-metric="net">{props.net}</strong>
+          <button type="button" className="ksm-net" onClick={props.onWork}>
+            <span className="ksm-net-label">{props.workLabel}</span>
+            <strong data-metric="work">{props.workValue}</strong>
             <span className="ksm-net-detail">ดูที่มา <KsIcon name="chevron" size={17} /></span>
           </button>
-          {props.netTrend && <p className="ksm-trend">{props.netTrend}</p>}
+          <p className="ksm-trend">{props.workDetail}</p>
         </div>
         <div className="ksm-cash">
           <button type="button" onClick={props.onReceived}><span>รับเงินจริง</span><b data-metric="received">{props.received}</b><KsIcon name="chevron" size={17} /></button>
-          <button type="button" onClick={props.onExpenses}><span>รายจ่ายรวม</span><b data-metric="expenses">{props.expenses}</b><KsIcon name="chevron" size={17} /></button>
+          <button type="button" onClick={props.onNet}><span>ยอดเงินปัจจุบัน{props.balanceNegative ? ' · ติดลบ' : ''}</span><b data-metric="balance">{props.balance}</b><KsIcon name="chevron" size={17} /></button>
         </div>
-        <button type="button" className="ksm-work" onClick={props.onWork}>
-          <span className="ksm-work-icon"><KsIcon name="briefcase" size={17} /></span>
-          <span className="ksm-grow"><b>{props.workLabel}</b><small>{props.workDetail}</small></span>
-          <strong data-metric="work">{props.workValue}</strong>
+        <button type="button" className="ksm-work" onClick={props.onExpenses}>
+          <span className="ksm-work-icon"><KsIcon name="expense" size={17} /></span>
+          <span className="ksm-grow"><b>รายจ่ายรวม</b><small>{props.expensesDetail}</small></span>
+          <strong data-metric="expenses">{props.expenses}</strong>
           <KsIcon name="chevron" size={17} />
         </button>
       </section>

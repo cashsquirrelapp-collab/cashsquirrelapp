@@ -15,7 +15,7 @@ type Payment = 'unpaid' | 'paid' | 'partial' | 'installment';
 type FieldKey = 'name' | 'value' | 'postDate' | 'received' | 'installments' | 'type' | 'wht';
 // Phones: the tabs behind "รายละเอียดเพิ่มเติม", and the tab each validated field lives in.
 type ExtraTab = 'schedule' | 'payment' | 'other';
-const EXTRA_TABS: { key: ExtraTab; label: string }[] = [{ key: 'schedule', label: 'กำหนดงาน' }, { key: 'payment', label: 'รับเงิน' }, { key: 'other', label: 'ข้อมูลอื่น' }];
+const EXTRA_TABS: { key: ExtraTab; label: string }[] = [{ key: 'schedule', label: 'สถานะงาน' }, { key: 'payment', label: 'สถานะรับเงิน' }, { key: 'other', label: 'ข้อมูลเพิ่มเติม' }];
 const FIELD_TAB: Partial<Record<FieldKey, ExtraTab>> = { postDate: 'schedule', received: 'payment', installments: 'payment', type: 'other', wht: 'other' };
 
 const PAYMENT_OPTIONS: { key: Payment; label: string }[] = [
@@ -681,11 +681,12 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
         </div>
         <details className="ksm-jobmore" open={moreOpen} onToggle={(e) => setMoreOpen((e.currentTarget as HTMLDetailsElement).open)}>
           <summary>
-            <span><b>รายละเอียดเพิ่มเติม</b><small>กำหนดส่ง · เครดิตเทอม · รับเงิน · ภาษี</small></span>
+            <span><b>สถานะและรายละเอียดเพิ่มเติม</b><small>สถานะงาน: {isPosted ? 'ส่งงานแล้ว' : 'กำลังทำ'} · การรับเงิน: {PAYMENT_OPTIONS.find(option => option.key === payment)?.label}</small></span>
             <KsIcon name="down" size={17} />
           </summary>
           <div className="ksm-jobmore-body">
-            <div className="ksm-segments" role="tablist" aria-label="รายละเอียดเพิ่มเติมของงาน">
+            <p className="ksm-segments-label">เลือกหมวดที่ต้องการกรอก</p>
+            <div className="ksm-segments" role="tablist" aria-label="หมวดรายละเอียดของงาน">
               {EXTRA_TABS.map(tab => (
                 <button key={tab.key} type="button" role="tab" id={`job-tab-${tab.key}`} aria-controls={`job-panel-${tab.key}`} aria-selected={extraTab === tab.key} tabIndex={extraTab === tab.key ? 0 : -1} onClick={() => setExtraTab(tab.key)}>
                   {tab.label}
@@ -693,7 +694,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
               ))}
             </div>
             <div className="ksm-jobpanel" role="tabpanel" id={`job-panel-${extraTab}`} aria-labelledby={`job-tab-${extraTab}`}>
-              {extraTab === 'schedule' && <>{startDateField}{statusSection}</>}
+              {extraTab === 'schedule' && <>{statusSection}{startDateField}</>}
               {extraTab === 'payment' && paymentSection}
               {extraTab === 'other' && <>{typeField}{advancedFields}</>}
             </div>

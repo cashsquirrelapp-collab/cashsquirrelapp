@@ -236,6 +236,9 @@ test('add-job sheet stays in the viewport and success feedback appears at the to
 
  await page.getByRole('button',{name:'บันทึกงาน'}).click();
  await expect(page.getByText('กรุณาระบุชื่องาน')).toBeVisible();
+ // The form moves focus to the first problem on the next frame. Wait for that before typing:
+ // in a long headless run the frame can come late and steal focus mid-fill (the value then lands in the name).
+ await expect(page.getByLabel('ชื่องาน / โปรเจกต์')).toBeFocused();
  await page.getByLabel('ชื่องาน / โปรเจกต์').fill('Regression project');
  await page.getByLabel('มูลค่างาน').fill('1000');
  await page.getByRole('button',{name:'บันทึกงาน'}).click();
@@ -1009,9 +1012,9 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await expect(summary).toContainText('กำไรสุทธิเดือนนี้');
  await expect(summary).toContainText('−฿3,150');
  await expect(summary).toContainText('แบ่งออมเข้าเป้าหมาย (1 รายการ)');
- await expect(page.getByTestId('left-this-month')).toContainText('ส่วนที่เกินเงินรับเดือนนี้');
- await expect(page.getByTestId('left-this-month')).toContainText('รายจ่ายและเงินที่แบ่งออม มากกว่าเงินรับของเดือนนี้');
- await expect(page.getByTestId('left-this-month-amount')).toHaveText('฿6,150');
+ await expect(page.getByTestId('left-this-month')).toContainText('ยอดเงินปัจจุบัน');
+ await expect(page.getByTestId('left-this-month')).toContainText('รายจ่ายและเงินที่แบ่งออม มากกว่าเงินที่รับจริงในเดือนนี้');
+ await expect(page.getByTestId('left-this-month-amount')).toHaveText('−฿6,150');
  await expect(page.getByTestId('left-this-month-amount')).toHaveClass(/text-\[#E65F2B\]/);
  await expect(modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'})).toHaveCount(0);
  await expect(modal.getByRole('button',{name:'ตั้งยอดเริ่มต้น'})).toHaveCount(0);
@@ -1179,9 +1182,12 @@ test('mobile overview and add-job sheet follow the design and stay wired to the 
  const nav=page.getByRole('navigation',{name:'เมนูหลัก'});
  // overview: one summary card, the receivables notice, four shortcuts
  const summary=page.getByRole('region',{name:'สรุปเงินของเดือน'});
- await expect(summary.getByText('กำไรสุทธิ')).toBeVisible();
+ // the month's work value leads; received and the current balance sit side by side; expenses below
+ await expect(summary.locator('.ksm-net')).toContainText('มูลค่างาน');
  await expect(summary.getByText('รับเงินจริง')).toBeVisible();
+ await expect(summary.getByText('ยอดเงินปัจจุบัน')).toBeVisible();
  await expect(summary.getByText('รายจ่ายรวม')).toBeVisible();
+ await expect(summary.getByText('กำไรสุทธิ')).toHaveCount(0);
  await expect(page.getByRole('region',{name:'ทางลัดทำรายการ'}).getByRole('button')).toHaveCount(4);
  // the month row drives the same month state as before
  const month=page.getByRole('button',{name:/ช่วงเวลาที่แสดง/});
@@ -1205,11 +1211,13 @@ test('mobile overview and add-job sheet follow the design and stay wired to the 
  await expect(sheet.getByLabel(/^ชื่องาน/)).toBeVisible();
  await expect(sheet.getByLabel(/^ลูกค้า/)).toBeVisible();
  await expect(sheet.getByText('การรับเงิน',{exact:true})).toBeHidden();
- await sheet.getByText('รายละเอียดเพิ่มเติม').click();
+ await expect(sheet.getByText('สถานะงาน: กำลังทำ · การรับเงิน: ยังไม่จ่าย')).toBeVisible(); // the statuses are readable before opening
+ await sheet.getByText('สถานะและรายละเอียดเพิ่มเติม').click();
  await expect(sheet.getByRole('tab')).toHaveCount(3);
- await sheet.getByRole('tab',{name:'รับเงิน'}).click();
+ await expect(sheet.getByRole('tab').nth(0)).toHaveText('สถานะงาน');
+ await sheet.getByRole('tab',{name:'สถานะรับเงิน'}).click();
  await sheet.getByRole('radio',{name:'รับบางส่วน'}).click();
- await sheet.getByRole('tab',{name:'ข้อมูลอื่น'}).click();
+ await sheet.getByRole('tab',{name:'ข้อมูลเพิ่มเติม'}).click();
  await expect(sheet.getByText('หัก ณ ที่จ่าย',{exact:true})).toBeVisible();
  // a failed check opens the place the problem is in
  await sheet.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
@@ -1218,7 +1226,7 @@ test('mobile overview and add-job sheet follow the design and stay wired to the 
  await sheet.getByLabel(/^ชื่องาน/).fill('งานทดสอบมือถือ');
  await sheet.locator('#job-form-value-input').pressSequentially('12500.5');
  await sheet.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
- await expect(sheet.getByRole('tab',{name:'รับเงิน'})).toHaveAttribute('aria-selected','true');
+ await expect(sheet.getByRole('tab',{name:'สถานะรับเงิน'})).toHaveAttribute('aria-selected','true');
  await expect(sheet.getByText('กรุณาระบุยอดที่รับแล้ว')).toBeVisible();
  await expect(sheet.locator('#job-form-received-input')).toBeFocused();
  await sheet.getByRole('radio',{name:'ยังไม่จ่าย'}).click();
