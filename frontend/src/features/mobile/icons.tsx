@@ -27,6 +27,17 @@ const PATHS = {
   settings: '<path d="m10 2-1 3-3 1-3-1-1 4 2 2v3l-2 2 2 4 3-1 3 1 1 2 4-1 1-3 3-1 3 1 1-4-2-2V9l2-2-2-3-3 1-3-1-1-2Z"/><circle cx="12" cy="12" r="3"/>',
   edit: '<path d="m15 4 5 5M3 21l1-6L17 2l5 5L9 20ZM4 15l5 5"/>',
   globe: '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  left: '<path d="m15 5-7 7 7 7"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  check: '<path d="m5 12 4 4L19 6"/>',
+  alert: '<path d="m12 3 10 18H2ZM12 9v5m0 3v.5"/>',
+  receive: '<path d="M12 3v11m-5-5 5 5 5-5M4 14v6h16v-6"/>',
+  income: '<path d="M3 18 9 12l4 4 8-11M15 5h6v6"/>',
+  more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  download: '<path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/>',
+  upload: '<path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/>',
+  trash: '<path d="M3 6h18M8 6V3h8v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',
   logout: '<path d="M9 3H3v18h6M9 12h12m-5-5 5 5-5 5"/>',
 } as const;
 

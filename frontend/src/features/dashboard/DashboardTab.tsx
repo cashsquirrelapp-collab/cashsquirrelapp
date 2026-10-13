@@ -4,7 +4,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
 import { jobNetReceivable } from '../../../../shared/wht';
-import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate, withMonth, currentMonthKeyNow } from '../../utils';
+import { formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate, withMonth, currentMonthKeyNow, dateLocale, toLocalDateKey } from '../../utils';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { IncomeExpenseChart } from './IncomeExpenseChart';
@@ -17,7 +17,8 @@ import { IconArrowUpRight } from '../../components/ui/icons';
 import { VineDivider } from '../../components/mascot/VineDivider';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { getJobPaymentEntries, getJobPendingEntries, getMonthKeyFromDate, getOutstandingAmount } from '../../../../shared/installmentPayments';
-import { firstActivityMonth, fixedExpenseForMonth, workValueRowsForMonth } from '../../../../shared/monthlySummary';
+import { firstActivityMonth, fixedExpenseForMonth, workValueForMonth, workValueRowsForMonth } from '../../../../shared/monthlySummary';
+import { MobileHome } from '../mobile/MobileHome';
 import { buildCalendarEvents, primaryCalendarEvent, type CalendarEventKind } from '../calendar/calendarEvents';
 import {
   TrendingUp,
@@ -54,6 +55,11 @@ interface DashboardTabProps {
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   onQuickRecord?: (mode: 'income' | 'expense') => void;
+  /** Phones and tablets: draw the overview as the mobile design does. Figures and handlers are the same. */
+  mobile?: boolean;
+  greetingName?: string;
+  monthPicker?: React.ReactNode;
+  onOpenTools?: () => void;
 }
 
 const MINI_CALENDAR_EVENT_STYLES: Record<CalendarEventKind, { bg: string; color: string }> = {
@@ -80,6 +86,10 @@ export default function DashboardTab({
   triggerAlert,
   triggerConfirm,
   onQuickRecord,
+  mobile = false,
+  greetingName,
+  monthPicker,
+  onOpenTools,
 }: DashboardTabProps) {
   const { t } = useLanguage();
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
@@ -773,9 +783,58 @@ export default function DashboardTab({
     return cells;
   }, [jobs, selectedMonthKey]);
 
+  // The mobile overview shows the same month figures as the cards below, arranged as in the mobile design.
+  const mobileHome = mobile ? (() => {
+    const work = workValueForMonth(jobs, selectedMonthKey);
+    const previousWork = workValueForMonth(jobs, prevMonthKey).value;
+    const trend = (pct: number | null) => (pct === null ? null : `${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}% จากเดือนก่อน`);
+    const workTrend = trend(previousWork > 0 ? Math.round(((work.value - previousWork) / previousWork) * 100) : null);
+    const todayKey = toLocalDateKey();
+    const nextEvent = Array.from(buildCalendarEvents(jobs, todayKey).values()).flat()
+      .filter(event => event.date.startsWith(selectedMonthKey) && event.date >= todayKey && event.kind !== 'paid')
+      .sort((a, b) => a.date.localeCompare(b.date))[0];
+    const hasPending = jobs.some(job => job.isPosted !== false && getJobPendingEntries(job)
+      .some(entry => entry.amount > 0 && (!entry.dueDate || getMonthKeyFromDate(entry.dueDate) <= selectedMonthKey)));
+    return (
+      <MobileHome
+        greeting={greetingName ? `สวัสดี ${greetingName}` : 'สวัสดี'}
+        monthPicker={monthPicker}
+        net={profit < 0 ? `−${formatCurrency(-profit)}` : formatCurrency(profit)}
+        netNegative={profit < 0}
+        netTrend={trend(profitChangePct)}
+        received={formatCurrency(totalReceived)}
+        expenses={formatCurrency(fixedExpenseThisMonth + variableExpenseThisMonth)}
+        workLabel={withMonth('มูลค่างาน', selectedMonthKey)}
+        workValue={formatCurrency(work.value)}
+        workDetail={`${work.count} งานในเดือน${workTrend ? ` · ${workTrend}` : ''}`}
+        hasPending={hasPending}
+        jobCount={jobs.length}
+        next={nextEvent ? {
+          day: Number(nextEvent.date.slice(8)),
+          month: new Date(Number(nextEvent.date.slice(0, 4)), Number(nextEvent.date.slice(5, 7)) - 1, 1).toLocaleDateString(dateLocale(), { month: 'short' }),
+          caption: nextEvent.kind === 'post' ? 'กำหนดส่งงาน' : `รอรับ ${formatCurrency(nextEvent.amount)}`,
+          title: nextEvent.kind === 'post' ? nextEvent.jobName : nextEvent.client || nextEvent.jobName,
+          onOpen: () => onViewJob?.(nextEvent.jobId),
+        } : null}
+        onNet={() => setBreakdownFilter('profit')}
+        onReceived={() => setBreakdownFilter('received')}
+        onExpenses={() => setBreakdownFilter('expense')}
+        onWork={() => setBreakdownFilter('workValue')}
+        onReceivables={() => onSwitchTab('receivables')}
+        onQuickPay={() => setIsQuickPayExpanded(true)}
+        onAddIncome={() => onQuickRecord?.('income')}
+        onAddExpense={() => onQuickRecord?.('expense')}
+        onDocuments={() => onSwitchTab('invoice')}
+        onGoals={() => onSwitchTab('split')}
+        onCalendar={() => (onOpenCalendar ? onOpenCalendar() : onSwitchTab('calendar'))}
+        onTools={() => onOpenTools?.()}
+      />
+    );
+  })() : null;
+
   return (
     <div id="dashboard-top" className="dashboard-shell flex flex-col scroll-mt-6 text-brand-text">
-      
+      {mobileHome ?? (<>
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
       <div className="order-1 flex flex-col gap-5">
@@ -1069,6 +1128,7 @@ export default function DashboardTab({
       </div>
 
       <div className="order-8 mt-7"><VineDivider /></div>
+      </>)}
 
       {/* Quick payment stays out of the overview until the shortcut is used. */}
       {isQuickPayExpanded && createPortal(

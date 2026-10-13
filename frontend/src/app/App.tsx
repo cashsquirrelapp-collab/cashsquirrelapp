@@ -2655,7 +2655,7 @@ export default function App() {
         )}
 
         {/* Scrollable Container with responsive max widths */}
-        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 ${isDesktop ? 'pt-16' : 'pt-2'} pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
+        <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 xl:px-10 ${isDesktop ? 'pt-16' : 'pt-[10px]'} pb-6 lg:pb-8 no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}`}>
           {/* Document vault for the open finance workspace, shared by Documents, Jobs and Tax */}
           <VaultProvider
             key={financeOwner}
@@ -2672,15 +2672,14 @@ export default function App() {
             ? <ContentLoadingSkeleton page={activeTab} />
             : <Suspense fallback={<ContentLoadingSkeleton page={activeTab} />}>
           <div key={`${financeOwner}:${activeTab}`} className={activeTab === 'invoice' ? undefined : 'app-tab-enter'}>
-          {activeTab === 'dashboard' && (
+          {/* Below 1024px the overview draws its own heading and month row (the mobile design). */}
+          {activeTab === 'dashboard' && isDesktop && (
             <PageHeader page="dashboard" id="dashboard-title" className="mb-4">
               <div className="contents sm:flex sm:items-center sm:justify-end sm:gap-2">
                 {/* Phones: its own full-width row under the title; wider screens: before the bell. */}
                 <div className="order-last w-full sm:order-none sm:w-auto">
                   <DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} />
                 </div>
-                {/* On phones and tablets the top bar already has the bell and the light/dark switch. */}
-                {isDesktop && (
                 <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
@@ -2706,7 +2705,6 @@ export default function App() {
                     {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   </button>
                 </div>
-                )}
               </div>
             </PageHeader>
           )}
@@ -2747,6 +2745,10 @@ export default function App() {
                       navigateTab('incomeExpense');
                     }
                   }}
+                  mobile={!isDesktop}
+                  greetingName={routeContext?.profile.displayName || session.user.email?.split('@')[0]}
+                  monthPicker={<DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} compact />}
+                  onOpenTools={() => setIsMobileMenuOpen(true)}
                 />
               )}
 

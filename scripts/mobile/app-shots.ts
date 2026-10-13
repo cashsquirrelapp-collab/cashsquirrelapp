@@ -34,8 +34,15 @@ const shot = async (name: string) => { await page.waitForTimeout(700); await pag
 const tab = (label: string) => page.locator('nav[aria-label="เมนูหลัก"]').getByRole('button', { name: label, exact: true });
 const overflow = async (where: string) => { const px = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); if (px > 0) console.log(`horizontal overflow on ${where}: ${px}px`); };
 
-await page.goto(BASE + '/', { waitUntil: 'networkidle' }); await page.waitForTimeout(900);
+await page.goto(BASE + '/', { waitUntil: 'load' }); await page.waitForTimeout(2500);
 await shot('home'); await overflow('home');
+console.log('home rects', await page.evaluate(() => ['.ksm-heading', '.ksm-heading h2', '.ksm-month', '.ksm-summary', '.ksm-face', '.ksm-net strong', '.ksm-cash', '.ksm-work', '.ksm-notice', '.ksm-actions', '.ksm-quick-icon', '.ksm-counts', '.ksm-section-title', '.ksm-agenda', '.ksm-date', '.ksm-tools-entry']
+  .map(sel => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${sel} [${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}]` : `${sel} (missing)`; }).join(' | ')));
+await page.getByRole('button', { name: 'เพิ่มเติม', exact: true }).click(); await shot('home-more');
+console.log('sheet rects', await page.evaluate(() => ['.ksm-sheet', '.ksm-sheet-header', '.ksm-sheet-header h2', '.ksm-sheet-intro', '.ksm-list', '.ksm-list > button', '.ksm-sheet-all', '.ksm-hint']
+  .map(sel => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${sel} [${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}]` : `${sel} (missing)`; }).join(' | ')));
+await page.getByRole('button', { name: 'ปิดหน้าต่าง' }).click(); await page.waitForTimeout(300);
+await page.getByRole('button', { name: /ช่วงเวลาที่แสดง/ }).click(); await shot('home-month'); await page.keyboard.press('Escape');
 await tab('งาน').click(); await shot('jobs'); await overflow('jobs');
 await tab('รอรับ').click(); await shot('receivables'); await overflow('receivables');
 await tab('เมนู').click(); await shot('menu');
@@ -45,6 +52,13 @@ await tab('เมนู').click();
 await page.getByPlaceholder(/ค้นหา เช่น/).fill('ภาษี'); await shot('menu-search');
 await tab('ภาพรวม').click();
 await page.getByRole('button', { name: 'เพิ่มงาน', exact: true }).first().click(); await shot('add-job');
+console.log('job rects', await page.evaluate(() => ['.ksm-jobsheet', '.ksm-jobsheet .ksm-sheet-header', '.ksm-jobform-intro', '#job-form-name', '.ksm-amount', '#job-form-value-input', '#job-form-client', '.ksm-jobmore', '.ksm-jobmore > summary', '.ksm-jobform-footer', '.ksm-primary']
+  .map(sel => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${sel} [${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}]` : `${sel} (missing)`; }).join(' | ')));
+await page.locator('#job-form-name').fill('ตัดต่อคลิปเปิดตัวสินค้า');
+await page.locator('#job-form-value-input').pressSequentially('12500.5'); await shot('add-job-value');
+await page.locator('.ksm-jobmore > summary').click(); await shot('add-job-more');
+await page.locator('#job-tab-payment').click(); await shot('add-job-payment');
+await page.locator('#job-tab-other').click(); await shot('add-job-other');
 await page.keyboard.press('Escape'); await page.waitForTimeout(400);
 await tab('ภาพรวม').click();
 await page.getByRole('button', { name: 'เปลี่ยนเป็นโหมดมืด' }).click(); await shot('home-dark');

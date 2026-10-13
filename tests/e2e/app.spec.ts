@@ -1168,3 +1168,64 @@ test('desktop keeps its own layout: no mobile bars at 1365px',async({page})=>{
  await expect(page.getByRole('navigation',{name:'เมนูหลัก'})).toHaveCount(0);
  await expect(page.locator('.ksm-header')).toHaveCount(0);
 });
+
+test('mobile overview and add-job sheet follow the design and stay wired to the real handlers',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ const saved:string[]=[];
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>{if(route.request().method()==='GET')return route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});saved.push(route.request().postData()||'');return route.fulfill({json:{ok:true,versions}});});
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const nav=page.getByRole('navigation',{name:'เมนูหลัก'});
+ // overview: one summary card, the receivables notice, four shortcuts
+ const summary=page.getByRole('region',{name:'สรุปเงินของเดือน'});
+ await expect(summary.getByText('กำไรสุทธิ')).toBeVisible();
+ await expect(summary.getByText('รับเงินจริง')).toBeVisible();
+ await expect(summary.getByText('รายจ่ายรวม')).toBeVisible();
+ await expect(page.getByRole('region',{name:'ทางลัดทำรายการ'}).getByRole('button')).toHaveCount(4);
+ // the month row drives the same month state as before
+ const month=page.getByRole('button',{name:/ช่วงเวลาที่แสดง/});
+ const shown=await month.innerText();
+ await page.getByRole('button',{name:'เดือนถัดไป'}).click();
+ await expect(month).not.toHaveText(shown);
+ await page.getByRole('button',{name:'เดือนก่อนหน้า'}).click();
+ await expect(month).toHaveText(shown);
+ // "เพิ่มเติม" is a sheet with three destinations and the way to every tool
+ await page.getByRole('button',{name:'เพิ่มเติม',exact:true}).click();
+ const more=page.getByRole('dialog',{name:'ทำรายการเพิ่มเติม'});
+ await expect(more.getByRole('button',{name:/ออกเอกสาร|เป้าหมายออม|ปฏิทิน/})).toHaveCount(3);
+ await more.getByRole('button',{name:'เครื่องมือทั้งหมด'}).click();
+ await expect(page.getByRole('region',{name:'เครื่องมือทั้งหมด'})).toBeVisible();
+ await nav.getByRole('button',{name:'ภาพรวม',exact:true}).click();
+ await page.getByRole('button',{name:/^เงินรอรับ/}).click();
+ await expect(page.getByRole('heading',{name:'เงินค้างรับ'})).toBeVisible();
+ // add job: three fields first, the rest behind one disclosure with three tabs
+ await nav.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ const sheet=page.getByRole('dialog',{name:'เพิ่มงาน'});
+ await expect(sheet.getByLabel(/^ชื่องาน/)).toBeVisible();
+ await expect(sheet.getByLabel(/^ลูกค้า/)).toBeVisible();
+ await expect(sheet.getByText('การรับเงิน',{exact:true})).toBeHidden();
+ await sheet.getByText('รายละเอียดเพิ่มเติม').click();
+ await expect(sheet.getByRole('tab')).toHaveCount(3);
+ await sheet.getByRole('tab',{name:'รับเงิน'}).click();
+ await sheet.getByRole('radio',{name:'รับบางส่วน'}).click();
+ await sheet.getByRole('tab',{name:'ข้อมูลอื่น'}).click();
+ await expect(sheet.getByText('หัก ณ ที่จ่าย',{exact:true})).toBeVisible();
+ // a failed check opens the place the problem is in
+ await sheet.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ await expect(sheet.getByText('กรุณาระบุชื่องาน')).toBeVisible();
+ await expect(sheet.getByLabel(/^ชื่องาน/)).toBeFocused(); // the form moves to the first problem by itself
+ await sheet.getByLabel(/^ชื่องาน/).fill('งานทดสอบมือถือ');
+ await sheet.locator('#job-form-value-input').pressSequentially('12500.5');
+ await sheet.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ await expect(sheet.getByRole('tab',{name:'รับเงิน'})).toHaveAttribute('aria-selected','true');
+ await expect(sheet.getByText('กรุณาระบุยอดที่รับแล้ว')).toBeVisible();
+ await expect(sheet.locator('#job-form-received-input')).toBeFocused();
+ await sheet.getByRole('radio',{name:'ยังไม่จ่าย'}).click();
+ await sheet.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ await expect(sheet).toBeHidden();
+ await expect(page.getByText('งานทดสอบมือถือ').filter({visible:true}).first()).toBeVisible();
+ // what is stored is a plain number, not the text with commas
+ await expect.poll(()=>saved.some(body=>body.includes('งานทดสอบมือถือ')&&/"value":12500\.5[,}]/.test(body))).toBe(true);
+ expect(errors).toEqual([]);
+});
