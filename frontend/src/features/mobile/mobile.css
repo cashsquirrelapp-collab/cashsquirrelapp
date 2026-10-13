@@ -482,3 +482,24 @@
 .ksm-button-row > * { flex: 1; min-width: 0; padding-left: 8px; padding-right: 8px; }
 .ksm-btn.is-outline { border: 1px solid var(--ksm-border); background: var(--ksm-surface); color: var(--ksm-text); }
 .ksm-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* 50 ทวิ */
+.ksm-yearselect { max-width: 150px; padding-right: 8px; }
+.ksm-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.ksm-metric { padding: 13px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-metric.is-warning { border-color: #F3B08C; background: var(--ksm-selected); }
+.dark .ksm-metric.is-warning { border-color: #FFA473; }
+.ksm-metric > small { font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-metric > b { display: block; margin-top: 5px; font-size: 26px; font-weight: 500; line-height: 39px; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.ksm-metric > b > small { font-size: 11px; font-weight: 500; line-height: 1; color: var(--ksm-secondary); }
+.ksm-row-between > .ksm-chips { margin-top: 0; min-width: 0; overflow-x: auto; }
+.ksm-metrics + .ksm-row-between { margin-top: 12px; }
+.ksm-whtcard { margin-top: 12px; padding: 14px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-whtcard h3 { font-size: 15px; font-weight: 600; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-whtcard > p { margin-top: 2px; font-size: 11px; line-height: 1.65; color: var(--ksm-secondary); }
+.ksm-whtcard-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.ksm-badge.is-warning { background: #FDF6EC; color: var(--ksm-text); }
+.dark .ksm-badge.is-warning { background: var(--ksm-muted); }
+.ksm-badge.is-warning > svg { color: var(--ksm-warning); }
+.ksm-btn.is-small { min-height: 40px; padding: 8px 12px; font-size: 12px; }
+.ksm-list > button:disabled { opacity: 0.45; cursor: default; }

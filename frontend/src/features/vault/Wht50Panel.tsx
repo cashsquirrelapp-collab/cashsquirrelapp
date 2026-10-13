@@ -8,6 +8,9 @@ import { Mascot } from '../../components/mascot/Mascot';
 import { RowMenu } from '../../components/ui/RowMenu';
 import { uiSurface } from '../../components/ui/uiStyles';
 import { useVault } from './VaultProvider';
+import { KsIcon } from '../mobile/icons';
+import { MobileSheet } from '../mobile/MobileHome';
+import { useMobileLayout } from '../mobile/useMobileLayout';
 import {
   isWht50Trackable,
   paidYearOf,
@@ -50,6 +53,8 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState<Sort>('waiting');
   const [zipping, setZipping] = React.useState(false);
+  const mobile = useMobileLayout();
+  const [toolsOpen, setToolsOpen] = React.useState(false);
 
   const rows = React.useMemo<TrackingRow[]>(() => jobs
     .filter(isWht50Trackable)
@@ -186,6 +191,85 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
     if (filter === 'have') return { title: 'ยังไม่มีใบ 50 ทวิที่ได้รับ', copy: 'เมื่อแนบเอกสารจากงาน รายการจะปรากฏตรงนี้' };
     return { title: 'ไม่พบรายการ', copy: 'ลองเปลี่ยนตัวกรองหรือคำค้นหา' };
   })();
+
+  // Phones: the mobile design's 50 ทวิ list. Same rows, filters and vault actions as below; search,
+  // sorting and the zip download sit behind the ⋯ button.
+  if (mobile) {
+    const toolsActive = Boolean(q) || sort !== 'waiting';
+    return (
+      <div>
+        <section aria-label="สรุปการติดตามใบ 50 ทวิ" aria-live="polite" className="ksm-metrics">
+          <div className={`ksm-metric${waiting.length > 0 ? ' is-warning' : ''}`}><small>ยังรอใบรับรอง</small><b>{waiting.length} <small>งาน</small></b></div>
+          <div className="ksm-metric"><small>มีใบรับรองแล้ว</small><b>{have.length} <small>งาน</small></b></div>
+        </section>
+        <div className="ksm-row-between">
+          <div className="ksm-chips" role="tablist" aria-label="สถานะใบ 50 ทวิ">
+            {filterOrder.map(option => {
+              const label = option === 'waiting' ? 'ยังรอ' : option === 'have' ? 'ได้รับแล้ว' : 'ทั้งหมด';
+              const count = option === 'waiting' ? waiting.length : option === 'have' ? have.length : rows.length;
+              return (
+                <button key={option} id={`wht50-tab-${option}`} type="button" role="tab" aria-selected={filter === option} aria-controls="wht50-tabpanel"
+                  tabIndex={filter === option ? 0 : -1} onClick={() => setFilter(option)} onKeyDown={event => moveFilterFocus(event, option)}>
+                  {label} {count}
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" className={`ksm-plainbtn${toolsActive ? ' is-active' : ''}`} onClick={() => setToolsOpen(true)} aria-haspopup="dialog" aria-label="เครื่องมือ 50 ทวิ">
+            <KsIcon name="more" />{toolsActive && <i aria-hidden="true" />}
+          </button>
+        </div>
+        <section id="wht50-tabpanel" role="tabpanel" aria-labelledby={`wht50-tab-${filter}`}>
+          {shown.length === 0 ? (
+            <div className="ksm-empty" style={{ marginTop: 12 }}><h3>{emptyState.title}</h3><p>{emptyState.copy}</p></div>
+          ) : shown.map(row => (
+            <article key={row.job.id} className="ksm-whtcard">
+              <h3>{row.job.client || row.job.name}</h3>
+              <p>{row.job.name} · หัก ณ ที่จ่าย {formatCurrency(jobWhtAmount(row.job))}</p>
+              <div className="ksm-whtcard-foot">
+                <span className={`ksm-badge ${row.status === 'have' ? 'is-success' : 'is-warning'}`}>
+                  <KsIcon name={row.status === 'have' ? 'check' : 'clock'} size={14} />
+                  {row.status === 'have'
+                    ? `ได้รับไฟล์แล้ว · ${row.files.length} ไฟล์`
+                    : `ยังรอเอกสาร${row.waitingDays === null ? '' : row.waitingDays === 0 ? ' · วันนี้' : ` · ${row.waitingDays} วัน`}`}
+                </span>
+                <button type="button" className="ksm-btn is-soft is-small"
+                  aria-label={row.status === 'have' ? `ดูเอกสารของ ${row.job.name}` : `แนบใบ 50 ทวิสำหรับ ${row.job.name}`}
+                  onClick={() => (row.status === 'have' ? vault.openJob(row.job) : vault.openUpload({ kind: 'wht50', job: row.job }))}>
+                  <KsIcon name="upload" size={17} />แนบ / จัดการ
+                </button>
+              </div>
+            </article>
+          ))}
+        </section>
+        <p className="ksm-caption">สถานะมีใบรับรองอ้างอิงไฟล์ที่แนบ ไม่ใช่สถานะการรับเงิน</p>
+        {toolsOpen && (
+          <MobileSheet title="เครื่องมือ 50 ทวิ" onClose={() => setToolsOpen(false)}>
+            <div className="ksm-search" style={{ marginTop: 14 }}>
+              <KsIcon name="search" />
+              <input type="text" inputMode="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="ค้นหางาน / ลูกค้า..." aria-label="ค้นหางานหรือลูกค้า" enterKeyHint="search" />
+            </div>
+            <div className="ksm-selects" style={{ gridTemplateColumns: '1fr' }}>
+              <label><span>เรียงตาม</span>
+                <select value={sort} onChange={event => setSort(event.target.value as Sort)}>
+                  <option value="waiting">รอนานที่สุด</option>
+                  <option value="latest">ล่าสุด</option>
+                  <option value="wht">WHT สูงสุด</option>
+                  <option value="value">ยอดงานสูงสุด</option>
+                </select>
+              </label>
+            </div>
+            <div className="ksm-list" style={{ marginTop: 12 }}>
+              <button type="button" disabled={!receivedFileCount || zipping} onClick={() => { setToolsOpen(false); void downloadAll(); }}>
+                <span className="ksm-list-icon"><KsIcon name="download" /></span>
+                <span className="ksm-grow"><b>{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดใบที่ได้รับแล้ว (${receivedFileCount} ไฟล์)`}</b><p>ได้รับแล้ว {have.length} จาก {rows.length} งาน · {share}%</p></span>
+              </button>
+            </div>
+          </MobileSheet>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">

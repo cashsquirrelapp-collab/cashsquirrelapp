@@ -5,6 +5,7 @@ import { nowInBangkok } from '../../../../shared/monthlySummary';
 import PageHeader from '../../components/ui/PageHeader';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { Wht50Panel } from './Wht50Panel';
+import { useMobileLayout } from '../mobile/useMobileLayout';
 import { isWht50Trackable, paidYearOf, type Wht50TaxYear } from './vaultStatus';
 
 // เอกสาร › ติดตามใบ 50 ทวิ: a dedicated follow-up page under เอกสาร.
@@ -23,10 +24,38 @@ export default function Wht50Page({ jobs, triggerAlert, onOpenDocuments, onOpenV
   ])].sort((a, b) => b - a), [trackable, currentYear]);
   const unknownYearCount = React.useMemo(() => trackable.filter(job => paidYearOf(job) === null).length, [trackable]);
   const [year, setYear] = React.useState<Wht50TaxYear>(currentYear);
+  const mobile = useMobileLayout();
 
   React.useEffect(() => {
     if (year === 'unknown' && unknownYearCount === 0) setYear(currentYear);
   }, [currentYear, unknownYearCount, year]);
+
+  // Phones: the mobile design's heading and the three document sections as chips.
+  if (mobile) {
+    return (
+      <div className="page-content ksm ksm-screen">
+        <div className="ksm-pagetitle">
+          <div><h2>{t('nav.wht50')}</h2><p>ใบรับรองหัก ณ ที่จ่ายของงานที่รับเงินแล้ว</p></div>
+          <select value={String(year)} onChange={event => setYear(event.target.value === 'unknown' ? 'unknown' : Number(event.target.value))} aria-label="ปีภาษี" className="ksm-btn-secondary ksm-yearselect">
+            {years.map(option => <option key={option} value={option}>ปีภาษี {option + 543}</option>)}
+            {unknownYearCount > 0 && <option value="unknown">ไม่ระบุปีภาษี ({unknownYearCount} งาน)</option>}
+          </select>
+        </div>
+        <div className="ksm-chips" role="tablist" aria-label="หมวดเอกสาร">
+          <button type="button" role="tab" aria-selected={false} onClick={onOpenDocuments}>เอกสาร</button>
+          <button type="button" role="tab" aria-selected={false} onClick={onOpenVault}>คลังไฟล์</button>
+          <button type="button" role="tab" aria-selected>50 ทวิ</button>
+        </div>
+        {unknownYearCount > 0 && year !== 'unknown' && (
+          <div className="ksm-info">
+            <span>{unknownYearCount} งานไม่พบวันที่รับเงินจริง</span>
+            <button type="button" className="ksm-btn is-soft" onClick={() => setYear('unknown')}>ดูรายการ</button>
+          </div>
+        )}
+        <Wht50Panel jobs={jobs} triggerAlert={triggerAlert} year={year} onOpenVault={onOpenVault} />
+      </div>
+    );
+  }
 
   return (
     <div className="page-content space-y-4">

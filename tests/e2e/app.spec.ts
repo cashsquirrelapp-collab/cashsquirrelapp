@@ -1129,7 +1129,7 @@ test('mobile shell: top bar, bottom bar with the squirrel add button, tools scre
  await expect(tools.locator('details[open]')).toHaveCount(1);
  await tools.getByPlaceholder(/ค้นหา เช่น/).fill('50');
  await tools.getByRole('button',{name:/ติดตาม 50 ทวิ/}).click();
- await expect(page.getByRole('heading',{name:'ติดตามใบ 50 ทวิ'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'ติดตามใบ 50 ทวิ',exact:true})).toBeVisible();
  await expect(nav.getByRole('button',{name:'เมนู',exact:true})).toHaveAttribute('aria-current','page');
  // the centre button opens the add-job form at once, and the job value formats itself
  await nav.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
