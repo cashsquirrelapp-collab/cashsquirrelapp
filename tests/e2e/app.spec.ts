@@ -1395,3 +1395,35 @@ test('phone overview: ยอดเงินปัจจุบัน is money in 
  // 4,400 in hand − the unpaid 12,000 = −7,600: the line makes the statement add up
  await expect(page.getByTestId('unpaid-fixed')).toContainText('รายจ่ายประจำที่ยังไม่บันทึกจ่าย ฿12,000');
 });
+
+test('saving says it once: a reminder is told in the toast, the saved row lights up, the toast leaves the header buttons free',async({page})=>{
+ const day=(offset:number)=>{const d=new Date();d.setDate(d.getDate()+offset);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+ const job=(id:string,name:string)=>({id,name,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',creditTerm:0,note:'',value:1000,received:0,pending:1000,status:'pending',paymentStatus:'unpaid',isPosted:true,postDate:day(0),payDate:day(2)});
+ const jobs=[job('a','งานตัวอย่าง ก'),job('b','งานตัวอย่าง ข'),job('c','งานตัวอย่าง ค')];
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot:{...snapshot,jobs},versions:{...versions,cashflow_jobs:{a:1,b:1,c:1}},subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true,versions}}));
+ // phone: setting a reminder shows one toast that names the date, and no dialog to dismiss
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/receivables');
+ await page.getByRole('button',{name:'เตือนฉัน',exact:true}).first().click();
+ await page.getByRole('button',{name:'อีก 3 วัน',exact:true}).click();
+ const toast=page.locator('.app-toast').first();
+ await expect(toast).toContainText('ตั้งการแจ้งเตือนแล้ว');
+ await expect(toast).toContainText('แอปจะเตือนให้ตามเงินจาก "ลูกค้าตัวอย่าง" วันที่');
+ await expect(page.locator('.app-toast')).toHaveCount(1);
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ // desktop: saving a job from the form lights its row, and the toast sits below เพิ่มงาน
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/jobs');
+ const row=page.locator('tr[data-job-id="b"]');
+ await row.click();
+ await page.getByRole('button',{name:/^บันทึก/}).last().click();
+ await expect(row).toHaveClass(/job-spotlight/);
+ const saved=page.locator('.app-toast').filter({hasText:'บันทึกการแก้ไขแล้ว'});
+ await expect(saved).toBeVisible();
+ const add=await page.locator('#main-content').getByRole('button',{name:'เพิ่มงาน',exact:true}).first().boundingBox();
+ const box=await saved.boundingBox();
+ expect(box!.y).toBeGreaterThanOrEqual(add!.y+add!.height);
+});

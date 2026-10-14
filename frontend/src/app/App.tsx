@@ -1849,7 +1849,8 @@ export default function App() {
 
   // Web edits acknowledge locally. LINE receipts are sent only by the LINE chat/LIFF flows.
   // Core functions
-  const handleAddJob = (newJob: Omit<Job, 'id'>) => {
+  /** Returns the new job's id so the Jobs list can light up the row just saved. */
+  const handleAddJob = (newJob: Omit<Job, 'id'>): string => {
     const jobWithId: Job = {
       ...newJob,
       id: crypto.randomUUID(),
@@ -1863,6 +1864,7 @@ export default function App() {
     });
     // Trigger a celebratory green leaves shower!
     leafBus.trigger({ count: 16, type: 'green', durationMs: 3500 });
+    return jobWithId.id;
   };
 
   // Jumps to the Jobs tab and scrolls straight to one job's card, briefly highlighted --
@@ -1886,7 +1888,9 @@ export default function App() {
     navigateTab('jobs');
   };
 
-  const handleEditJob = (id: string, updated: Partial<Job>) => {
+  /** `notice` replaces the generic "saved" toast when the caller knows better what happened
+   * (e.g. a reminder was set), so one toast says it instead of a toast plus a dialog. */
+  const handleEditJob = (id: string, updated: Partial<Job>, notice?: { title: string; message: string }) => {
     // Use the latest state for local save feedback and preserve the existing payment transitions.
     let oldJob: Job | undefined;
     const stamped = { ...updated, lastActivityAt: new Date().toISOString() };
@@ -1934,8 +1938,9 @@ export default function App() {
     } else {
       fireMascot({
         mood: 'happy',
-        title: 'บันทึกการแก้ไขแล้ว',
-        message: 'ข้อมูลงานได้รับการปรับปรุงเรียบร้อย',
+        title: notice?.title ?? 'บันทึกการแก้ไขแล้ว',
+        message: notice?.message ?? 'ข้อมูลงานได้รับการปรับปรุงเรียบร้อย',
+        duration: notice ? 6000 : undefined,
       });
 
     }

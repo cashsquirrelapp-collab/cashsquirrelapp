@@ -55,7 +55,8 @@ const SORT_OPTIONS: { key: JobSort; label: string; waitingLabel?: string }[] = [
 
 interface JobsTabProps {
   jobs: Job[];
-  onAddJob: (job: Omit<Job, 'id'>) => void;
+  /** May return the new job's id, so the row can be lit up once it is saved. */
+  onAddJob: (job: Omit<Job, 'id'>) => string | void;
   onEditJob: (id: string, updated: Partial<Job>) => void;
   onDeleteJob: (id: string) => void;
   isAddJobOpen: boolean;
@@ -287,6 +288,9 @@ export default function JobsTab({
   // Arriving for one job (from the calendar, dashboard, timeline…): make sure it is in the list --
   // whatever month / tab / search was on -- then scroll to it and spotlight it so it stands out.
   const [spotlightTarget, setSpotlightTarget] = useState<string | null>(null);
+  // A row just saved from the form is usually on screen already: only scroll if it is not.
+  const spotlightNearest = React.useRef(false);
+  const spotlightSaved = (id: string) => { spotlightNearest.current = true; setSpotlightTarget(id); };
   React.useEffect(() => {
     if (!scrollToJobId) return;
     if (jobs.some(j => j.id === scrollToJobId) && !sortedJobs.some(j => j.id === scrollToJobId)) clearFilters();
@@ -300,7 +304,8 @@ export default function JobsTab({
     const find = () => {
       const el = Array.from(document.querySelectorAll<HTMLElement>(`[data-job-id="${CSS.escape(spotlightTarget)}"]`)).find(node => node.offsetParent !== null);
       if (!el) { if (++tries < 40) frame = requestAnimationFrame(find); else setSpotlightTarget(null); return; }
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.scrollIntoView({ behavior: 'smooth', block: spotlightNearest.current ? 'nearest' : 'center' });
+      spotlightNearest.current = false;
       setHighlightedJobId(spotlightTarget);
       setSpotlightTarget(null);
     };
@@ -1250,8 +1255,8 @@ export default function JobsTab({
         jobs={jobs}
         onRenameJobType={onRenameJobType}
         onClose={closeJobForm}
-        onAdd={onAddJob}
-        onEdit={onEditJob}
+        onAdd={job => { const id = onAddJob(job); if (id && !mobile) spotlightSaved(id); }}
+        onEdit={(id, updated) => { onEditJob(id, updated); if (!mobile) spotlightSaved(id); }}
       />
 
       {/* Delivery-date / credit-term prompt for marking a WIP job as delivered when it has no

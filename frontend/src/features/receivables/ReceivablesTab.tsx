@@ -13,7 +13,7 @@ import { Mascot } from '../../components/mascot/Mascot';
 
 interface ReceivablesTabProps {
   jobs: Job[];
-  onEditJob: (id: string, updated: Partial<Job>) => void;
+  onEditJob: (id: string, updated: Partial<Job>, notice?: { title: string; message: string }) => void;
   onViewJob: (id: string) => void;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
@@ -30,7 +30,7 @@ const GROUP_META: Record<GroupKey, { label: string; dot: string; badgeBg: string
 
 const GROUP_ORDER: GroupKey[] = ['overdue', 'dueToday', 'dueSoon', 'normal'];
 
-export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerAlert, triggerConfirm }: ReceivablesTabProps) {
+export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerConfirm }: ReceivablesTabProps) {
   const unpaidJobs = useMemo(() => jobs.filter(j => j.pending > 0 && j.isPosted !== false), [jobs]);
 
   const groups = useMemo(() => {
@@ -84,8 +84,11 @@ export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerAler
     const at = new Date();
     at.setDate(at.getDate() + daysAhead);
     const remindAt = toLocalDateKey(at);
-    onEditJob(j.id, { remindAt });
-    triggerAlert('ตั้งการแจ้งเตือนแล้ว', `แอปจะเตือนให้ตามเงินจาก "${j.client || j.name}" วันที่ ${safeFormatThaiDate(remindAt)}`);
+    // Said in the save toast; a dialog on top of it repeated the news and had to be dismissed.
+    onEditJob(j.id, { remindAt }, {
+      title: 'ตั้งการแจ้งเตือนแล้ว',
+      message: `แอปจะเตือนให้ตามเงินจาก "${j.client || j.name}" วันที่ ${safeFormatThaiDate(remindAt)}`,
+    });
   };
 
   // Phones: the mobile design's month view. One card per outstanding amount (an instalment job
