@@ -31,6 +31,9 @@ interface PlansTabProps {
 }
 
 const FREE_FEATURE_KEYS = ['plans.free1', 'plans.free2', 'plans.free3', 'plans.free4'];
+// 6-month and yearly Pro are priced (owner, 2026-10-15) but checkout only sells monthly so far,
+// so they are shown as coming soon and cannot be bought.
+const LONG_PERIODS = ['halfYear', 'year'] as const;
 const PRO_FEATURE_KEYS = ['plans.pro1', 'plans.pro2', 'plans.pro3', 'plans.pro4', 'plans.pro5'];
 
 export const PlansTab: React.FC<PlansTabProps> = ({
@@ -91,7 +94,12 @@ export const PlansTab: React.FC<PlansTabProps> = ({
           </div>
           <PlanMascot />
           <div className="plan-price border-b border-brand-border pb-6">
-            <div className="flex items-end justify-center gap-2"><span className="font-mono text-5xl font-semibold">฿0</span></div>
+            {/* Side by side, ฿0 lines up with Pro's price under its "รายเดือน" row: an empty copy of that row. */}
+            <div aria-hidden="true" className="invisible hidden items-center justify-center gap-2 lg:flex">
+              <span className="text-xs font-semibold">&nbsp;</span>
+              <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold">&nbsp;</span>
+            </div>
+            <div className="flex items-end justify-center gap-2 lg:mt-2"><span className="font-mono text-5xl font-semibold">฿0</span></div>
             <p className="mt-3 text-xs text-brand-muted">{t('plans.forever')}</p>
           </div>
           <ul className="plan-features" role="list">
@@ -109,8 +117,13 @@ export const PlansTab: React.FC<PlansTabProps> = ({
             <h2 className="mt-1 text-3xl font-semibold">Pro</h2>
           </div>
           <PlanMascot featured />
-          <div className="plan-price border-b border-brand-border pb-6">
-            <div className="flex items-end justify-center gap-2">
+          <div className="plan-price border-b border-brand-border pb-6" data-testid="pro-periods">
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-xs font-semibold text-brand-text">{t('plans.monthlyLabel')}</span>
+              {introEligible && <span className="rounded-full bg-[#FDE8DD] px-2.5 py-0.5 text-[11px] font-semibold text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]">{t('plans.monthlyDiscountBadge')}</span>}
+            </div>
+            <div className="mt-2 flex items-end justify-center gap-2">
+              {introEligible && <s className="pb-1.5 font-mono text-xl text-brand-muted decoration-[1.5px]"><span className="sr-only">{t('plans.regularPrice')} </span>฿249</s>}
               <span className="font-mono text-5xl font-semibold text-[#D95724] dark:text-[#FFA473]">{introEligible ? '฿199' : '฿249'}</span>
               <span className="pb-1 text-xs text-brand-muted">{t('plans.perMonth')}</span>
             </div>
@@ -118,6 +131,23 @@ export const PlansTab: React.FC<PlansTabProps> = ({
               <p className="text-xs font-semibold text-[#A84319] dark:text-[#FFA473]">{t('plans.introPriceNote')}</p>
               <p className="mt-1 text-xs text-brand-muted">{t('plans.standardPrice')}</p>
             </div> : <p className="mt-3 text-xs text-brand-muted">{t('plans.standardOnlyNote')}</p>}
+            <ul aria-label={t('plans.longPeriodsLabel')} className="mt-5 divide-y divide-brand-border rounded-2xl border border-brand-border text-left">
+              {LONG_PERIODS.map(period => (
+                <li key={period} className="flex items-center justify-between gap-3 px-4 py-3" data-period={period}>
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-brand-text">
+                      {t(`plans.${period}Label`)}
+                      <span className="rounded-full bg-[#FDE8DD] px-2 py-0.5 text-[10.5px] font-semibold text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]">{t(`plans.${period}Badge`)}</span>
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-brand-muted">{t(`plans.${period}Average`)}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-mono text-[15px] font-semibold text-brand-text">{t(`plans.${period}Price`)}<span className="font-sans text-[11px] font-normal text-brand-muted">{t(`plans.${period}Per`)}</span></p>
+                    <span className="mt-1 inline-block rounded-full bg-brand-faint px-2 py-0.5 text-[10.5px] font-semibold text-brand-muted dark:bg-neutral-800">{t('plans.periodComingSoon')}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
           <ul className="plan-features" role="list">
             {PRO_FEATURE_KEYS.map(key => <li key={key}>{t(key)}</li>)}

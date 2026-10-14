@@ -55,8 +55,11 @@ function Card({ card, index }: { card: BentoCard; index: number }) {
   );
 }
 
-function Plan({ name, badge, price, per, priceNote, items, terms, pro = false, onStart }: {
-  name: string; badge?: string; price: string; per?: string; priceNote?: readonly string[]; items: readonly string[]; terms?: readonly string[]; pro?: boolean; onStart: () => void;
+type LongPeriod = { name: string; price: string; per: string; average: string; badge: string };
+
+function Plan({ name, badge, regularPrice, price, per, priceNote, longPeriods, items, terms, pro = false, onStart }: {
+  name: string; badge?: string; regularPrice?: string; price: string; per?: string; priceNote?: readonly string[]; longPeriods?: readonly LongPeriod[];
+  items: readonly string[]; terms?: readonly string[]; pro?: boolean; onStart: () => void;
 }) {
   // Quiet hierarchy: plan name, then the price, then what you get. Pro stands out by a warm
   // surface and one accent line, not by size.
@@ -70,6 +73,7 @@ function Plan({ name, badge, price, per, priceNote, items, terms, pro = false, o
         {badge && <p className="rounded-full bg-[#FDE8DD] px-3 py-1 text-[12.5px] font-semibold text-[#C24A16]">{badge}</p>}
       </div>
       <p className="mt-6 flex items-baseline gap-2 text-[#1C1917]">
+        {regularPrice && <s className="font-mono text-[22px] text-[#8A8178] decoration-[1.5px]"><span className="sr-only">ราคาปกติ </span>{regularPrice}</s>}
         <span className="font-mono text-[clamp(2.75rem,2.2rem+1.6vw,3.75rem)] font-semibold leading-none tracking-[-0.03em]">{price}</span>
         {per && <span className="text-[16px] text-[#6B645D]">{per}</span>}
       </p>
@@ -77,6 +81,25 @@ function Plan({ name, badge, price, per, priceNote, items, terms, pro = false, o
         {priceNote ? <><span className="block font-semibold text-[#C24A16]">{priceNote[0]}</span>{priceNote[1]}</> : 'ใช้งานได้ต่อเนื่อง ไม่มีค่าใช้จ่าย'}
       </p>
       <div className="mt-7"><PlanButton onClick={onStart} pro={pro} /></div>
+      {longPeriods && (
+        <ul aria-label="แพ็กเกจระยะยาว" className="mt-4 divide-y divide-[#EFE6DC] rounded-2xl border border-[#EFE6DC] bg-white/70">
+          {longPeriods.map(period => (
+            <li key={period.name} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-1.5 text-[14.5px] font-semibold text-[#1C1917]">
+                  {period.name}
+                  <span className="rounded-full bg-[#FDE8DD] px-2 py-0.5 text-[12px] font-semibold text-[#C24A16]">{period.badge}</span>
+                </p>
+                <p className="mt-0.5 text-[13px] text-[#6B645D]">{period.average}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="font-mono text-[16px] font-semibold text-[#1C1917]">{period.price}<span className="font-sans text-[13px] font-normal text-[#6B645D]"> {period.per}</span></p>
+                <span className="mt-1 inline-block rounded-full bg-[#F1ECE6] px-2 py-0.5 text-[12px] font-semibold text-[#6B645D]">เร็ว ๆ นี้</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       <ul className="mt-8 space-y-3.5 border-t border-[#EFE6DC] pt-7 text-[15.5px] leading-relaxed text-[#2B2622]">
         {items.map(item => <li key={item} className="flex gap-3"><Check className={`mt-[5px] h-4 w-4 shrink-0 ${pro ? 'text-[#E65F2B]' : 'text-[#1C1917]'}`} strokeWidth={2.4} aria-hidden="true" />{item}</li>)}
       </ul>
@@ -117,7 +140,7 @@ export function FreeAct({ onStart }: { onStart: () => void }) {
           </Reveal>
           <div className="mx-auto mt-10 grid max-w-[1000px] grid-cols-1 items-stretch gap-5 md:grid-cols-2 md:gap-6">
             <Reveal className="h-full"><Plan name={free.name} price={free.price} items={free.items} onStart={onStart} /></Reveal>
-            <Reveal className="h-full" delay={0.12}><Plan name={pro.name} badge={pro.badge} price={pro.price} per={pro.per} priceNote={pro.priceNote} items={pro.items} terms={pro.terms} pro onStart={onStart} /></Reveal>
+            <Reveal className="h-full" delay={0.12}><Plan name={pro.name} badge={pro.badge} regularPrice={pro.regularPrice} price={pro.price} per={pro.per} priceNote={pro.priceNote} longPeriods={pro.longPeriods} items={pro.items} terms={pro.terms} pro onStart={onStart} /></Reveal>
           </div>
         </div>
       </div>

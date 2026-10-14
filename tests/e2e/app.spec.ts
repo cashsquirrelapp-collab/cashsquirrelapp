@@ -1069,7 +1069,10 @@ test('landing: a scroll story made of real screenshots, with a hero that works a
  const plans=page.locator('#plans');
  await expect(plans).toContainText('฿199');
  await expect(plans).toContainText('฿249');
- await expect(plans).not.toContainText('149');
+ // 149 appears once: the yearly plan's average (coming soon), never a ฿149 monthly price
+ expect((await plans.innerText()).match(/149/g)?.length).toBe(1);
+ await expect(plans).toContainText('เฉลี่ย ฿149/เดือน');
+ await expect(plans.getByRole('list',{name:'แพ็กเกจระยะยาว'})).toContainText('เร็ว ๆ นี้');
  await expect(plans).not.toContainText('14 วัน');
  await expect(page.getByText('Group & Team')).toHaveCount(0); // nothing promoted that isn't available yet
  expect(api.filter(a=>a!=='GET /api/auth')).toEqual([]); // the page reads no account data and writes nothing

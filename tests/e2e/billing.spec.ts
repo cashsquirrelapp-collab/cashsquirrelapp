@@ -235,6 +235,37 @@ test('aligned plans retain the official mascot and return from tap to idle, resp
   await expect(page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'}).locator('[data-motion]')).toHaveAttribute('data-motion','reduced');
 });
 
+test('plans page: monthly ฿249 struck to ฿199 with "ลดไป 20%"; 6-month and yearly priced but coming soon, not for sale',async({page})=>{
+  await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock');
+  const prices=page.getByTestId('pro-periods');
+  await expect(prices.getByText('ลดไป 20%',{exact:true})).toBeVisible();
+  await expect(prices.locator('s')).toHaveText(/฿249/);
+  await expect(prices.getByText('฿199',{exact:true})).toBeVisible();
+  await expect(prices.getByText('฿199 / เดือน เฉพาะ 3 รอบบิลรายเดือนแรก',{exact:true})).toBeVisible();
+  const halfYear=prices.locator('[data-period="halfYear"]');
+  await expect(halfYear).toContainText('ราย 6 เดือน');
+  await expect(halfYear).toContainText('฿990 / 6 เดือน');
+  await expect(halfYear).toContainText('เฉลี่ย ฿165/เดือน');
+  await expect(halfYear).toContainText('คุ้มกว่า');
+  await expect(halfYear).toContainText('เร็ว ๆ นี้');
+  const year=prices.locator('[data-period="year"]');
+  await expect(year).toContainText('รายปี');
+  await expect(year).toContainText('฿1,790 / ปี');
+  await expect(year).toContainText('เฉลี่ย ฿149/เดือน');
+  await expect(year).toContainText('ประหยัดที่สุด');
+  await expect(year).toContainText('เร็ว ๆ นี้');
+  await expect(prices.getByRole('button')).toHaveCount(0); // nothing to buy for the long plans yet
+});
+
+test('plans page: an account past its 3 promo cycles sees ฿249 without the strike or the 20% badge',async({page})=>{
+  await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false},'https://checkout.stripe.com/c/pay/mock');
+  const prices=page.getByTestId('pro-periods');
+  await expect(prices.getByText('฿249',{exact:true})).toBeVisible();
+  await expect(prices.locator('s')).toHaveCount(0);
+  await expect(prices.getByText('ลดไป 20%',{exact:true})).toHaveCount(0);
+  await expect(prices.locator('[data-period]')).toHaveCount(2);
+});
+
 test('plans page: Free documents quota is live, LINE and media quotas stay marked as not ready',async({page})=>{
   await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock',{},true);
   // Since 2026-10-15 the API counts and enforces 10 new documents a month for Free accounts.
