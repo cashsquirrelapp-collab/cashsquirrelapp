@@ -1454,7 +1454,7 @@ test('Free plan documents: a 10-a-month counter, a credit line on every page, an
  const counter=page.getByTestId('document-quota');
  await expect(counter).toContainText('โควตาออกเอกสารฟรีเดือนนี้: 9/10 ฉบับ');
  await expect(counter).toContainText('เหลือ 1 ฉบับ');
- await expect(page.getByTestId('document-view').getByTestId('document-watermark').first()).toHaveText('สร้างและบริหารเครดิตเทอมโดย Kraroktunngern.com');
+ await expect(page.getByTestId('document-view').getByTestId('document-watermark').first()).toHaveText('Kraroktunngern.com');
  // the 10th document (a copy) is allowed and counted by the server
  await page.getByRole('button',{name:'ตัวเลือกของ INV-2569-001'}).click();
  await page.getByRole('menuitem',{name:'ทำสำเนา'}).click();

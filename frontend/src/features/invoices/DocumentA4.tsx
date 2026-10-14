@@ -252,8 +252,8 @@ const Ico: React.FC<{ name: IconName }> = ({ name }) => (
 );
 
 /** Small credit line at the foot of every page of a Free account's documents. */
-// The brand in its romanised form with the .com domain the owner is buying (2026-10-15).
-export const FREE_DOCUMENT_WATERMARK = 'สร้างและบริหารเครดิตเทอมโดย Kraroktunngern.com';
+// Just the romanised brand and the .com domain the owner is buying (2026-10-15).
+export const FREE_DOCUMENT_WATERMARK = 'Kraroktunngern.com';
 
 interface DocumentA4Props {
   invoice: Invoice;
