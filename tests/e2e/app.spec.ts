@@ -1017,6 +1017,7 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await expect(page.getByTestId('left-this-month')).toContainText('ยอดเงินปัจจุบัน');
  await expect(page.getByTestId('left-this-month-amount')).toHaveText('฿0');
  await expect(page.getByTestId('over-this-month')).toContainText('มากกว่าเงินที่รับจริง ฿6,150');
+ await expect(page.getByTestId('unpaid-fixed')).toHaveCount(0); // the monthly cost is recorded as paid
  await expect(modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'})).toHaveCount(0);
  await expect(modal.getByRole('button',{name:'ตั้งยอดเริ่มต้น'})).toHaveCount(0);
  await expect(modal.getByRole('region',{name:'รายละเอียดรายจ่ายเดือนนี้'})).toHaveCount(0);
@@ -1391,4 +1392,6 @@ test('phone overview: ยอดเงินปัจจุบัน is money in 
  await expect(page.getByTestId('left-this-month')).toContainText('ยอดเงินปัจจุบัน');
  await expect(page.getByTestId('left-this-month-amount')).toHaveText('฿4,400'); // the card and the statement agree
  await expect(page.getByTestId('over-this-month')).toContainText('฿7,600');
+ // 4,400 in hand − the unpaid 12,000 = −7,600: the line makes the statement add up
+ await expect(page.getByTestId('unpaid-fixed')).toContainText('รายจ่ายประจำที่ยังไม่บันทึกจ่าย ฿12,000');
 });

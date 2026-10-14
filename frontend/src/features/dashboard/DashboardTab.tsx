@@ -623,7 +623,10 @@ export default function DashboardTab({
   const fixedCostsFrom = React.useMemo(() => firstActivityMonth(jobs, expenses) ?? currentMonthKeyNow(), [jobs, expenses]);
   const fixedFor = (monthKey: string, expenseNames: string[]) =>
     monthKey >= fixedCostsFrom ? fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, expenseNames) : 0;
-  const fixedExpenseThisMonth = fixedFor(selectedMonthKey, monthRecordedExpenses.map(e => e.name))
+  // The budgeted monthly costs with no payment recorded yet: counted in profit, not yet taken off
+  // the money in hand.
+  const unpaidFixedThisMonth = fixedFor(selectedMonthKey, monthRecordedExpenses.map(e => e.name));
+  const fixedExpenseThisMonth = unpaidFixedThisMonth
     + monthRecurringExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   // Money moved into savings goals this month via the deposit modal's "deduct from cash"
@@ -1280,6 +1283,7 @@ export default function DashboardTab({
           profit={profit}
           savedThisMonth={goalDeductionsThisMonth}
           cashLeft={receivedAfterVariableExpense}
+          unpaidFixed={unpaidFixedThisMonth}
           savedCount={monthGoalDeductions.length}
           onClose={() => setBreakdownFilter(null)}
         />

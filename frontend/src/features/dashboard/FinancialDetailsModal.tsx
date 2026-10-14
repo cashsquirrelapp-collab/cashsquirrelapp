@@ -22,6 +22,8 @@ interface Props {
   /** "ยอดเงินปัจจุบัน": money received this month minus expenses recorded as paid and savings set
    * aside. Monthly costs that are only budgeted are not taken off yet, and it never goes below zero. */
   cashLeft: number;
+  /** Monthly costs budgeted but not yet recorded as paid: in the fixed-cost row, not in cashLeft. */
+  unpaidFixed: number;
   onClose: () => void;
 }
 
@@ -52,7 +54,7 @@ function SectionHead({ icon: Icon, title, sub }: { icon: React.ComponentType<{ c
 }
 
 export function FinancialDetailsModal(props: Props) {
-  const { monthKey, received, receivedCount, fixedExpense, variableExpense, variableExpenseCount, profit, savedThisMonth, savedCount, cashLeft, onClose } = props;
+  const { monthKey, received, receivedCount, fixedExpense, variableExpense, variableExpenseCount, profit, savedThisMonth, savedCount, cashLeft, unpaidFixed, onClose } = props;
   const panelRef = React.useRef<HTMLDivElement>(null);
   const leftThisMonth = profit - savedThisMonth;
   const spentBeyondThisMonth = leftThisMonth < 0;
@@ -112,6 +114,12 @@ export function FinancialDetailsModal(props: Props) {
                 </span>
               </div>
               <p className="text-[12px] text-brand-muted">เงินที่รับจริงเดือนนี้ หักรายจ่ายที่บันทึกจ่ายแล้วและเงินที่แบ่งออม</p>
+              {/* Without this the rows above (which count every monthly cost) do not add up to the figure. */}
+              {unpaidFixed > 0 && (
+                <p className="mt-1.5 text-[12px] text-brand-text/90" data-testid="unpaid-fixed">
+                  รายจ่ายประจำที่ยังไม่บันทึกจ่าย {formatCurrency(unpaidFixed)} ยังไม่ได้หักจากยอดนี้
+                </p>
+              )}
               {spentBeyondThisMonth && (
                 <p className="mt-1.5 text-[12px] text-[#C24A16] dark:text-orange-300" data-testid="over-this-month">
                   เดือนนี้รายจ่ายทั้งหมดและเงินที่แบ่งออม มากกว่าเงินที่รับจริง {formatCurrency(Math.abs(leftThisMonth))}
