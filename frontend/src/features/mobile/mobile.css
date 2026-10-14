@@ -289,6 +289,8 @@
 .ksm-filter-note > .ksm-link { min-height: 40px; font-size: 12px; }
 .ksm-joblist { display: grid; gap: 9px; margin-top: 12px; }
 .ksm-jobcard { position: relative; min-width: 0; padding: 12px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); color: var(--ksm-text); text-align: left; cursor: pointer; }
+/* A card scrolled to after a save stays clear of the top bar and the bottom bar. */
+.ksm-jobcard { scroll-margin: 76px 0 112px; }
 .ksm-jobcard.is-overdue { padding-left: 9px; border-color: var(--ksm-error); border-left-width: 4px; background: var(--ksm-error-soft); }
 .ksm-jobcard.is-due-soon { padding-left: 9px; border-left: 4px solid var(--ksm-warning); }
 .ksm-jobcard-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }

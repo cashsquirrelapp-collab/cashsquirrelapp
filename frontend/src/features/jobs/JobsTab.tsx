@@ -1255,8 +1255,8 @@ export default function JobsTab({
         jobs={jobs}
         onRenameJobType={onRenameJobType}
         onClose={closeJobForm}
-        onAdd={job => { const id = onAddJob(job); if (id && !mobile) spotlightSaved(id); }}
-        onEdit={(id, updated) => { onEditJob(id, updated); if (!mobile) spotlightSaved(id); }}
+        onAdd={job => { const id = onAddJob(job); if (id) spotlightSaved(id); }}
+        onEdit={(id, updated) => { onEditJob(id, updated); spotlightSaved(id); }}
       />
 
       {/* Delivery-date / credit-term prompt for marking a WIP job as delivered when it has no

@@ -1396,7 +1396,7 @@ test('phone overview: ยอดเงินปัจจุบัน is money in 
  await expect(page.getByTestId('unpaid-fixed')).toContainText('รายจ่ายประจำที่ยังไม่บันทึกจ่าย ฿12,000');
 });
 
-test('saving says it once: a reminder is told in the toast, the saved row lights up, the toast leaves the header buttons free',async({page})=>{
+test('saving says it once: a reminder is told in the toast, the saved job lights up on phone and desktop, the toast leaves the header buttons free',async({page})=>{
  const day=(offset:number)=>{const d=new Date();d.setDate(d.getDate()+offset);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
  const job=(id:string,name:string)=>({id,name,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',creditTerm:0,note:'',value:1000,received:0,pending:1000,status:'pending',paymentStatus:'unpaid',isPosted:true,postDate:day(0),payDate:day(2)});
  const jobs=[job('a','งานตัวอย่าง ก'),job('b','งานตัวอย่าง ข'),job('c','งานตัวอย่าง ค')];
@@ -1414,6 +1414,12 @@ test('saving says it once: a reminder is told in the toast, the saved row lights
  await expect(page.locator('.app-toast')).toHaveCount(1);
  await expect(page.getByRole('dialog')).toHaveCount(0);
  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ // phone: saving a job from the sheet lights its card too
+ await page.goto('/jobs');
+ const card=page.locator('.ksm-jobcard[data-job-id="c"]');
+ await card.click();
+ await page.getByRole('button',{name:'บันทึกงาน',exact:true}).click();
+ await expect(card).toHaveClass(/job-spotlight/);
  // desktop: saving a job from the form lights its row, and the toast sits below เพิ่มงาน
  await page.setViewportSize({width:1440,height:900});
  await page.goto('/jobs');
