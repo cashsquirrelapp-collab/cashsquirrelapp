@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { Mascot } from '../../components/mascot/Mascot';
+import { Mascot, type MascotAction, type MascotMood } from '../../components/mascot/Mascot';
 
-/** Animate the official happy-palette character; never redraw or recolor it. */
-export function PlanMascot({ featured = false }: { featured?: boolean }) {
+/** Animate the official happy-palette character; never redraw or recolor it. Only its mood,
+ * action and size change between plans. */
+export function PlanMascot({ featured = false, label, mood = 'happy', action, size, stageClassName }: {
+  featured?: boolean; label?: string; mood?: MascotMood; action?: MascotAction; size?: number; stageClassName?: string;
+}) {
   const reduceMotion = useReducedMotion();
   const [playing, setPlaying] = useState(false);
-  return <div className="plan-mascot-stage">
-    <button type="button" aria-label={featured ? 'ทักทายน้องกระรอก Pro' : 'ทักทายน้องกระรอก Free'}
+  return <div className={stageClassName ? `flex items-center justify-center ${stageClassName}` : 'plan-mascot-stage'}>
+    <button type="button" aria-label={label ?? (featured ? 'ทักทายน้องกระรอก Pro' : 'ทักทายน้องกระรอก Free')}
       className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E65F2B]"
       onClick={() => { if (!reduceMotion) setPlaying(true); }}>
       <motion.span className="inline-flex" data-motion={reduceMotion ? 'reduced' : playing ? 'tap' : 'idle'}
@@ -18,7 +21,7 @@ export function PlanMascot({ featured = false }: { featured?: boolean }) {
           ? { duration: 0.72, ease: 'easeOut' }
           : { duration: featured ? 4.6 : 5.2, ease: 'easeInOut', repeat: Infinity }}
         onAnimationComplete={() => { if (playing) setPlaying(false); }}>
-        <Mascot mood="happy" action={featured ? 'hold-baht' : 'idle'} animated={!reduceMotion} size={featured ? 176 : 152} />
+        <Mascot mood={mood} action={action ?? (featured ? 'hold-baht' : 'idle')} animated={!reduceMotion} size={size ?? (featured ? 176 : 152)} />
       </motion.span>
     </button>
   </div>;
