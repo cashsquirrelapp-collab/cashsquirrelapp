@@ -12,6 +12,8 @@ import {
   financeHeaders,
   workspaceEpoch,
 } from "./financeWorkspace";
+/** A Free account's new documents this month (null for Pro and trial accounts). */
+export interface DocumentQuota { used: number; limit: number; month: string }
 const baselines = new Map<string, Baseline>();
 const queues = new Map<string, Promise<unknown>>();
 const reads = new Map<string, number>();
@@ -87,14 +89,16 @@ export function saveCloud(
         } else immutable.notif_settings = prefs;
       }
       const changes = diffSnapshot(baseline, immutable);
-      if (!changes.length) return;
-      await apiJson("/api/data", {
+      if (!changes.length) return undefined;
+      // The reply may carry a Free account's updated document quota.
+      const reply = await apiJson<{ document_quota?: DocumentQuota | null }>("/api/data", {
         method: "POST",
         headers: financeHeaders(userId),
         body: JSON.stringify({ changes }),
       });
       assertFinanceWorkspace(userId, epoch);
       if (baselines.get(userId) === baseline) commitChanges(baseline, changes);
+      return reply;
     });
   queues.set(userId, save);
   return save;
@@ -142,7 +146,7 @@ export async function readInvoices(userId: string) {
       data: result.snapshot.issuer_profile,
       version,
     };
-  return result.snapshot;
+  return { ...result.snapshot, documentQuota: (result.document_quota ?? null) as DocumentQuota | null };
 }
 export async function exportCloud(userId: string) {
   const epoch = workspaceEpoch();

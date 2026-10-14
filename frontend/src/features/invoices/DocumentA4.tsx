@@ -212,6 +212,7 @@ export const DOCUMENT_CSS = `
 .da4-sig .area.box{border:1px dashed #8C857D;border-radius:0;height:62px}
 .da4-sig .under{margin-top:4px;min-height:14px;font-size:9.5px}
 .da4-pageno{text-align:center;font-size:9px;margin-top:6px}
+.da4-watermark{position:absolute;left:10mm;right:10mm;bottom:14px;text-align:center;font-size:8.5px;line-height:1.2;color:#9C9289;letter-spacing:.01em}
 .da4-sheet{display:flex;flex-direction:column;gap:16px}
 .da4-sheet .da4-page{box-shadow:0 6px 24px rgba(28,25,23,.16);border-radius:2px}
 .da4-print-root .da4-page{box-shadow:none;border-radius:0}
@@ -250,13 +251,18 @@ const Ico: React.FC<{ name: IconName }> = ({ name }) => (
   <svg className="da4-ico" viewBox="0 0 24 24" aria-hidden="true">{ICON_PATHS[name]}</svg>
 );
 
+/** Small credit line at the foot of every page of a Free account's documents. */
+export const FREE_DOCUMENT_WATERMARK = 'สร้างและบริหารเครดิตเทอมโดย กระรอกตุนเงิน (kraroktunngern.vercel.app)';
+
 interface DocumentA4Props {
   invoice: Invoice;
   // Print window: no on-screen shadow/gap
   print?: boolean;
+  /** Free plan: the credit line sits in the page's bottom margin, so pagination does not change. */
+  watermark?: boolean;
 }
 
-export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
+export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print, watermark }) => {
   const meta = getDocumentMeta(invoice.documentType);
   const totals = calculateDocumentTotals(invoice.items, invoice.vatRate, invoice.whtRate);
   const pages = paginateItems(invoice);
@@ -492,6 +498,7 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
             ) : null}
 
             <div className="da4-pageno">หน้า {pageIndex + 1} / {totalPages}</div>
+            {watermark ? <div className="da4-watermark" data-testid="document-watermark">{FREE_DOCUMENT_WATERMARK}</div> : null}
           </section>
         ))}
       </div>
@@ -506,7 +513,7 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
 // `crop` shows only the top N px of the first page (used for the live header preview);
 // `maxScale` caps how large the paper is drawn; `scale` draws it at exactly that size instead of
 // fitting the width (the document workspace's zoom / fit-page controls set it).
-export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxScale?: number; scale?: number }> = ({ invoice, crop, maxScale = 1, scale: fixedScale }) => {
+export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxScale?: number; scale?: number; watermark?: boolean }> = ({ invoice, crop, maxScale = 1, scale: fixedScale, watermark }) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const [fitScale, setScale] = useState(1);
   const scale = fixedScale ?? fitScale;
@@ -540,7 +547,7 @@ export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxSca
       <style>{DOCUMENT_CSS}</style>
       <div style={{ height: sheetHeight, width: A4_WIDTH_PX * scale, margin: '0 auto', overflow: 'hidden' }}>
         <div style={{ width: A4_WIDTH_PX, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          <DocumentA4 invoice={invoice} />
+          <DocumentA4 invoice={invoice} watermark={watermark} />
         </div>
       </div>
     </div>
@@ -560,7 +567,7 @@ const printShell = (invoice: Invoice): string => {
 };
 
 // Returns false when the browser blocked the popup
-export const printDocument = (invoice: Invoice): boolean => {
+export const printDocument = (invoice: Invoice, watermark = false): boolean => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return false;
   printWindow.document.write(printShell(invoice));
@@ -568,7 +575,7 @@ export const printDocument = (invoice: Invoice): boolean => {
   // React renders the same <DocumentA4/> straight into the print window (it escapes every text
   // node, so user-entered names/notes stay inert there too).
   const root = createRoot(printWindow.document.getElementById('root')!);
-  flushSync(() => root.render(<DocumentA4 invoice={invoice} print />));
+  flushSync(() => root.render(<DocumentA4 invoice={invoice} print watermark={watermark} />));
   const printNow = () => printWindow.setTimeout(() => printWindow.print(), 150);
   void printWindow.document.fonts.ready.then(printNow);
   return true;

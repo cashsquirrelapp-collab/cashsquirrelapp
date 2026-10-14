@@ -93,13 +93,12 @@ export const FREE = {
     { key: 'calendar', title: 'ปฏิทินวันส่งงานและวันครบกำหนดรับเงิน', span: 'mid', wide: { shot: 'calendar', view: { x: 272, y: 196, w: 600, h: 330 } }, narrow: { shot: 'calendar', view: { x: 272, y: 190, w: 560, h: 380 } } },
     { key: 'dashboard', title: 'ภาพรวมรายรับ รายจ่าย และกำไรของเดือน', span: 'full', wide: { shot: 'dashboard', view: { x: 262, y: 100, w: 1160, h: 370 } }, narrow: { shot: 'dashboard', view: { x: 268, y: 244, w: 580, h: 210 } } },
   ] satisfies BentoCard[],
-  // Lists follow the app's own plan cards (i18n plans.free1-5, plans.pro1-5). Price and terms are the
-  // statements the previous landing made on this billing branch, kept word for word.
-  // Not offered here on purpose: "Free can issue 10 documents a month". PlansTab still shows it as
-  // "coming soon" (freeDocumentsAvailable is false), so documents are Pro only today. The app's 14-day
-  // trial for new accounts is not advertised either, as on the previous landing.
+  // Lists follow the app's own plan cards (i18n plans.free1-5 + plans.freeDocumentsAvailable, plans.pro1-5).
+  // Price and terms are the statements the previous landing made on this billing branch, kept word for word.
+  // Free's 10 documents a month is live since 2026-10-15 (counted and enforced by the API). The app's 14-day
+  // trial for new accounts is not advertised, as on the previous landing.
   plans: {
-    free: { name: 'Free', price: '฿0', items: ['บันทึกงาน รายรับ รายจ่าย และติดตามเครดิตเทอม', 'ดูแดชบอร์ดกระแสเงินสดและภาพรวมรายเดือน', 'จัดสรรเงินและตั้งเป้าหมายออม', 'ใช้ปฏิทินงาน รายการลูกหนี้ และรายงานภาพรวม', 'สำรองและกู้คืนข้อมูลออฟไลน์'] },
+    free: { name: 'Free', price: '฿0', items: ['บันทึกงาน รายรับ รายจ่าย และติดตามเครดิตเทอม', 'ดูแดชบอร์ดกระแสเงินสดและภาพรวมรายเดือน', 'จัดสรรเงินและตั้งเป้าหมายออม', 'ใช้ปฏิทินงาน รายการลูกหนี้ และรายงานภาพรวม', 'สำรองและกู้คืนข้อมูลออฟไลน์', 'ออกเอกสารใหม่ 10 ฉบับ/เดือน แก้ไขและดาวน์โหลดซ้ำไม่นับเพิ่ม'] },
     pro: {
       name: 'Pro', badge: 'โปรเปิดตัว · ลด ฿50/รอบ', price: '฿199', per: '/ เดือน', priceNote: ['3 รอบบิลรายเดือนแรก', 'รอบบิลที่ 4 เป็นต้นไป ฿249 / เดือน'],
       items: ['ทุกอย่างใน Free', 'ออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จ พร้อมดาวน์โหลด PDF ได้ไม่จำกัด', 'เชื่อม LINE รับสรุปยอดค้างรายวัน และสรุปรายรับ-รายจ่ายรายเดือน', 'ผู้ช่วยภาษีบุคคลธรรมดา พร้อมจัดการข้อมูลหัก ณ ที่จ่าย', 'วิเคราะห์รายได้เชิงลึก เลือกช่วงเวลา ลูกค้า และประเภทงานได้'],

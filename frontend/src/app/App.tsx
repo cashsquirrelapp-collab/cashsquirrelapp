@@ -1049,6 +1049,9 @@ export default function App() {
   const cloudSaveInFlightRef = useRef(false);
   const cloudSavePendingRef = useRef<{ email: string; payload: any } | null>(null);
   const [isProPromoOpen, setIsProPromoOpen] = useState(false);
+  // Why the upgrade dialog opened, when a feature asked for it (e.g. the month's free documents are used).
+  const [proPromoNotice, setProPromoNotice] = useState<string | null>(null);
+  const openProPromo = React.useCallback((notice: string) => { setProPromoNotice(notice); setIsProPromoOpen(true); }, []);
   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
@@ -2818,26 +2821,18 @@ export default function App() {
                 )
               )}
 
+              {/* Free accounts issue up to 10 new documents a month (counted and enforced by the API)
+                  with a credit line on the page; Pro and trial accounts have neither. */}
               {activeTab === 'invoice' && (
-                isPro ? (
-                  <InvoiceTab
-                    key={financeOwner || 'guest'}
-                    ownerId={session?.isGuest ? undefined : financeOwner}
-                    jobs={jobs}
-                    triggerAlert={triggerAlert}
-                    triggerConfirm={triggerConfirm}
-                  />
-                ) : (
-                  <div className="app-tab-enter">
-                    <PremiumUpsell
-                      feature={t('premium.invoiceFeature')}
-                      description={t('premium.invoiceDesc')}
-                      introEligible={subscription?.introEligible === true}
-                      manageSubscription={hasOpenStripeSubscription}
-                      onUpgrade={handleUpgrade}
-                    />
-                  </div>
-                )
+                <InvoiceTab
+                  key={financeOwner || 'guest'}
+                  ownerId={session?.isGuest ? undefined : financeOwner}
+                  jobs={jobs}
+                  triggerAlert={triggerAlert}
+                  triggerConfirm={triggerConfirm}
+                  freePlan={!isPro}
+                  onUpgradePrompt={openProPromo}
+                />
               )}
 
               {/* วิเคราะห์รายได้ now lives inside รายงาน; old /insight links open that view. */}
@@ -2943,6 +2938,7 @@ export default function App() {
                   onUpgrade={handleUpgrade}
                   onPromptPay={() => void handleUpgrade('promptpay')}
                   billingBusy={billingBusy}
+                  freeDocumentsAvailable
                 />
               )}
 
@@ -3021,11 +3017,13 @@ export default function App() {
             <Suspense fallback={null}><ProPromoModal
               introEligible={subscription?.introEligible === true}
               manageSubscription={hasOpenStripeSubscription}
+              notice={proPromoNotice ?? undefined}
               onUpgrade={() => {
                 setIsProPromoOpen(false);
+                setProPromoNotice(null);
                 handleUpgrade();
               }}
-              onClose={() => setIsProPromoOpen(false)}
+              onClose={() => { setIsProPromoOpen(false); setProPromoNotice(null); }}
             /></Suspense>
           )}
         </AnimatePresence>

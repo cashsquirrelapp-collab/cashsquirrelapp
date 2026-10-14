@@ -3,7 +3,7 @@ import { ContentLoadingSkeleton } from '../../components/ui/AppLoadingSkeleton';
 import { uiPrimaryButton, uiSurface } from '../../components/ui/uiStyles';
 import { privateCache } from '../../services/privateCache';
 import { imageFileToDataUrl } from '../../services/images';
-import { readInvoices, saveCloud } from '../../services/cloud';
+import { readInvoices, saveCloud, type DocumentQuota } from '../../services/cloud';
 import { validateChanges } from '../../../../shared/validation';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -167,14 +167,31 @@ interface InvoiceTabProps {
   ownerId?: string;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
+  /** Free plan: 10 new documents a month (counted by the server) and a credit line on every page. */
+  freePlan?: boolean;
+  /** Opens the upgrade dialog, with the reason shown in it. */
+  onUpgradePrompt?: (notice: string) => void;
 }
 
 export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   jobs,
   ownerId,
   triggerAlert,
-  triggerConfirm
+  triggerConfirm,
+  freePlan = false,
+  onUpgradePrompt,
 }) => {
+  const [quota, setQuota] = useState<DocumentQuota | null>(null);
+  const quotaLeft = freePlan && quota ? Math.max(0, quota.limit - quota.used) : Infinity;
+  // New documents (create, duplicate, import) stop here on a Free plan once the month's quota is
+  // used; the server refuses them too, so this only spares the user a form they cannot save.
+  const allowNewDocuments = (count = 1) => {
+    if (count <= quotaLeft) return true;
+    onUpgradePrompt?.(quotaLeft === 0
+      ? `ใช้โควตาออกเอกสารฟรีของเดือนนี้ครบ ${quota!.limit} ฉบับแล้ว อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด`
+      : `โควตาออกเอกสารฟรีของเดือนนี้เหลือ ${quotaLeft} ฉบับ แต่รายการนี้ต้องใช้ ${count} ฉบับ อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด`);
+    return false;
+  };
   const [storageReady, setStorageReady] = useState(!ownerId);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -255,6 +272,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       readInvoices(ownerId).then(data => {
         if (cancelled) return;
         setInvoices(data.invoices || []);
+        setQuota(data.documentQuota);
         privateCache.setItem(invoiceKey,JSON.stringify(data.invoices || []));
         if (data.issuer_profile) {setIssuerProfile(data.issuer_profile);privateCache.setItem(issuerKey,JSON.stringify(data.issuer_profile));}
         setStorageReady(true);
@@ -317,11 +335,24 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   // Save invoices to local storage
   const saveInvoicesToStorage = (updatedList: Invoice[]) => {
+    const previousList = invoices;
     setInvoices(updatedList);
     privateCache.setItem(invoiceKey, JSON.stringify(updatedList));
     if (ownerId && storageReady) {
       setSaving(true);
-      saveCloud(ownerId, { invoices: updatedList }).then(() => setStorageError(null)).catch(error => {
+      saveCloud(ownerId, { invoices: updatedList }).then(reply => {
+        setStorageError(null);
+        if (reply?.document_quota) setQuota(reply.document_quota);
+      }).catch(error => {
+        if (error?.code === 'document_quota_exceeded') {
+          // The server refused the new documents (the quota was used up elsewhere): take them off again.
+          setInvoices(previousList);
+          privateCache.setItem(invoiceKey, JSON.stringify(previousList));
+          setSelectedInvoice(current => current && previousList.some(inv => inv.id === current.id) ? current : null);
+          setQuota(current => current && { ...current, used: current.limit });
+          onUpgradePrompt?.(error.message);
+          return;
+        }
         setStorageError(error.message); triggerAlert('บันทึกเอกสารไม่สำเร็จ', error.message);
       }).finally(() => setSaving(false));
     }
@@ -438,6 +469,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       triggerAlert('ป้อนข้อมูลไม่ครบ', 'กรุณาระบุชื่อลูกค้าหรือบริษัทผู้รับบริการ');
       return;
     }
+    if (!editingInvoiceId && !allowNewDocuments()) return;
 
     const newInvoice: Invoice = { ...buildDraftInvoice(), id: editingInvoiceId || crypto.randomUUID() };
 
@@ -476,6 +508,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   // Open editor with empty form for creating new invoice
   const handleOpenCreateForm = (type: DocumentType = docTypeFilter) => {
+    if (!allowNewDocuments()) return;
     setEditingInvoiceId(null);
     setSelectedJobId('');
     setDocType(type);
@@ -599,6 +632,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   // Copy details of an invoice to make a new one
   const handleDuplicateInvoice = (inv: Invoice, event?: React.MouseEvent) => {
     event?.stopPropagation();
+    if (!allowNewDocuments()) return;
     const thaiYear = new Date().getFullYear() + 543;
     const serial = String(invoices.length + 1).padStart(3, '0');
     const duplicated: Invoice = {
@@ -617,7 +651,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   const handlePrintDocument = () => {
     if (!selectedInvoice) return;
-    if (!printDocument(withCurrentBranding(selectedInvoice))) {
+    if (!printDocument(withCurrentBranding(selectedInvoice), freePlan)) {
       triggerAlert(
         'ป็อปอัปถูกบล็อก',
         'เบราว์เซอร์ของคุณบล็อกป็อปอัป กรุณาอนุญาตการแสดงป็อปอัปสำหรับเว็บไซต์นี้เพื่อให้สามารถพิมพ์หรือบันทึก PDF ในหน้าต่างใหม่ได้'
@@ -627,7 +661,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   // A real PDF file of the open document, prepared in the background for sharing and download.
   const shownInvoice = selectedInvoice && getWorkspaceTab(selectedInvoice.documentType) === docTypeFilter ? withCurrentBranding(selectedInvoice) : null;
-  const pdf = usePdfFile(shownInvoice);
+  const pdf = usePdfFile(shownInvoice, freePlan);
   const [pdfBusy, setPdfBusy] = useState(false);
   const handleDownloadPdf = async () => {
     if (!shownInvoice) return;
@@ -666,6 +700,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       const list = JSON.parse(localStorage.getItem('remix_invoices') || '[]');
       const profile = JSON.parse(localStorage.getItem('remix_issuer_profile') || 'null');
       validateChanges(list.map((row: Invoice) => ({table:'cashflow_invoices',id:row.id,op:'set',version:null,data:row})));
+      if (!allowNewDocuments(list.length)) return;
       await saveCloud(ownerId!, {invoices:list, ...(profile ? {issuer_profile:profile} : {})});
       setInvoices(list); if (profile) setIssuerProfile(profile);
       localStorage.removeItem('remix_invoices'); localStorage.removeItem('remix_issuer_profile');
@@ -699,6 +734,19 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       <PageHeader page="invoice" className="no-print">
         <NewDocumentButton types={creatableTypes} onPick={handleOpenCreateForm} />
       </PageHeader>
+
+      {freePlan && quota && (
+        <div data-testid="document-quota" role="status"
+          className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl px-4 py-2.5 text-[13px] no-print ${quotaLeft === 0 ? 'bg-[#FFF1E8] text-[#9A3A12] dark:bg-[#E65F2B]/15 dark:text-[#FFB08A]' : 'bg-brand-faint text-brand-text'}`}>
+          <span>
+            โควตาออกเอกสารฟรีเดือนนี้: <b className="font-semibold tabular-nums">{Math.min(quota.used, quota.limit)}/{quota.limit}</b> ฉบับ
+            <span className="text-brand-muted">{quotaLeft === 0 ? ' · ครบแล้ว' : ` · เหลือ ${quotaLeft} ฉบับ`}</span>
+          </span>
+          {quotaLeft === 0 && (
+            <button type="button" onClick={() => allowNewDocuments()} className="font-semibold text-[#C24A16] dark:text-[#FF9A6B] cursor-pointer">อัปเกรดเป็น Pro</button>
+          )}
+        </div>
+      )}
 
 
       {activeSubTab === 'list' && (
@@ -810,7 +858,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     ]} />
                   </div>
                 </div>
-                <DocumentFullView invoice={withCurrentBranding(selectedInvoice)} className="h-[72vh] min-h-[440px] lg:h-auto lg:flex-1" />
+                <DocumentFullView invoice={withCurrentBranding(selectedInvoice)} watermark={freePlan} className="h-[72vh] min-h-[440px] lg:h-auto lg:flex-1" />
               </div>
             ) : (
               <div className="flex min-h-[420px] flex-col items-center justify-center p-12 text-center lg:h-[calc(100vh-232px)]">
@@ -1096,7 +1144,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
         {/* Live preview: beside the form on wide screens, a full-screen sheet on phones */}
         <aside className="hidden xl:sticky xl:top-4 xl:block xl:h-[calc(100vh-2rem)]" aria-label="ตัวอย่างเอกสาร">
-          <PreviewCanvas invoice={withCurrentBranding(buildDraftInvoice())} className="h-full" />
+          <PreviewCanvas invoice={withCurrentBranding(buildDraftInvoice())} watermark={freePlan} className="h-full" />
         </aside>
         </div>
         {/* Portalled: the page wrapper animates with a transform, which would trap a fixed overlay inside it. */}
@@ -1106,7 +1154,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               <p className="text-[15px] font-semibold text-brand-text">ตัวอย่าง{getDocumentMeta(docType).th}</p>
               <button type="button" onClick={() => setMobilePreviewOpen(false)} className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-[#C24A16] hover:bg-brand-faint cursor-pointer">กลับไปแก้ไข</button>
             </div>
-            <PreviewCanvas invoice={withCurrentBranding(buildDraftInvoice())} className="m-3 flex-1 rounded-xl" />
+            <PreviewCanvas invoice={withCurrentBranding(buildDraftInvoice())} watermark={freePlan} className="m-3 flex-1 rounded-xl" />
           </div>,
           document.body,
         )}

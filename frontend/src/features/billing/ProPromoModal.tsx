@@ -7,11 +7,13 @@ import { useLanguage } from '../../i18n/LanguageContext';
 interface ProPromoModalProps {
   introEligible: boolean;
   manageSubscription: boolean;
+  /** Why the dialog opened, when a feature asked for it (e.g. the month's free documents are used up). */
+  notice?: string;
   onUpgrade: () => void;
   onClose: () => void;
 }
 
-export const ProPromoModal: React.FC<ProPromoModalProps> = ({ introEligible, manageSubscription, onUpgrade, onClose }) => {
+export const ProPromoModal: React.FC<ProPromoModalProps> = ({ introEligible, manageSubscription, notice, onUpgrade, onClose }) => {
   const { t } = useLanguage();
 
   const FEATURES = [
@@ -78,6 +80,12 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ introEligible, man
           </div>
           <img src="/pro-promo-hero.png" alt="" className="w-32 sm:w-36 shrink-0" />
         </div>
+
+        {notice && (
+          <p role="alert" data-testid="pro-promo-notice" className="mx-5 mb-4 rounded-xl bg-[#FFF1E8] px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-[#9A3A12] dark:bg-[#E65F2B]/15 dark:text-[#FFB08A]">
+            {notice}
+          </p>
+        )}
 
         {/* Features */}
         <div className="grid grid-cols-3 gap-2.5 px-5 py-5 border-t border-brand-border/60 dark:border-neutral-800">

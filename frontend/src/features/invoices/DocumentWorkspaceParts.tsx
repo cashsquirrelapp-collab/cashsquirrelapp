@@ -15,7 +15,7 @@ const PAGE_GAP = 16; // .da4-sheet gap between pages
  * The A4 preview, sized to show the whole page by default ("พอดีหน้า"). Zooming past that
  * scrolls inside the canvas, never the whole app page.
  */
-export function PreviewCanvas({ invoice, className = '' }: { invoice: Invoice; className?: string }) {
+export function PreviewCanvas({ invoice, className = '', watermark = false }: { invoice: Invoice; className?: string; watermark?: boolean }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const [box, setBox] = React.useState({ w: 0, h: 0 });
   const [zoom, setZoom] = React.useState<number | null>(null); // null = fit page
@@ -58,7 +58,7 @@ export function PreviewCanvas({ invoice, className = '' }: { invoice: Invoice; c
     <div className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border border-brand-border bg-[#F1EFEC] dark:bg-[#141518] ${className}`}>
       <div ref={ref} onScroll={onScroll} data-testid="document-preview-canvas" className="min-h-0 flex-1 overflow-auto" style={{ padding: pad }}>
         <div className="mx-auto w-max">
-          <DocumentPreview invoice={invoice} scale={scale} />
+          <DocumentPreview invoice={invoice} scale={scale} watermark={watermark} />
         </div>
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-brand-border bg-brand-white px-2 py-1.5 dark:bg-[#1B1C20]">

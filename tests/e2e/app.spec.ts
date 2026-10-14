@@ -1433,3 +1433,51 @@ test('saving says it once: a reminder is told in the toast, the saved job lights
  const box=await saved.boundingBox();
  expect(box!.y).toBeGreaterThanOrEqual(add!.y+add!.height);
 });
+
+test('Free plan documents: a 10-a-month counter, a credit line on every page, and the upgrade dialog at the 11th',async({page})=>{
+ const profile={name:'ร้านตัวอย่าง',address:'Bangkok',phone:'',email:'shop@example.com',taxId:'',bankName:'',bankAccount:'',bankAccountName:''};
+ const invoice={id:'inv-free',documentType:'invoice',documentNo:'INV-2569-001',createdDate:'2026-10-15',issuer:profile,client:{name:'ลูกค้าตัวอย่าง',address:'Bangkok',phone:'',email:'',taxId:''},items:[{id:'i1',description:'งานตัวอย่าง',quantity:1,price:1000}],vatRate:0,whtRate:0};
+ const quota={used:9,limit:10,month:'2026-10'};
+ const posts:any[]=[];
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];localStorage.setItem(`cashflow_promo_last_shown_${email}`,d);localStorage.setItem(`cashflow_pro_banner_last_shown_${email}`,String(Date.now()));sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()==='POST'){
+   const changes=route.request().postDataJSON().changes;posts.push(changes);
+   quota.used+=changes.filter((c:any)=>c.table==='cashflow_invoices'&&c.version===null).length;
+   return route.fulfill({json:{ok:true,document_quota:quota}});
+  }
+  // No subscription and an account past its trial: the Free plan.
+  return route.fulfill({json:{snapshot:{...snapshot,invoices:[invoice]},versions:{...versions,cashflow_invoices:{'inv-free':1}},subscription:null,document_quota:{...quota}}});
+ });
+ await page.goto('/invoice?type=invoice');
+ const counter=page.getByTestId('document-quota');
+ await expect(counter).toContainText('โควตาออกเอกสารฟรีเดือนนี้: 9/10 ฉบับ');
+ await expect(counter).toContainText('เหลือ 1 ฉบับ');
+ await expect(page.getByTestId('document-view').getByTestId('document-watermark').first()).toHaveText('สร้างและบริหารเครดิตเทอมโดย กระรอกตุนเงิน (kraroktunngern.vercel.app)');
+ // the 10th document (a copy) is allowed and counted by the server
+ await page.getByRole('button',{name:'ตัวเลือกของ INV-2569-001'}).click();
+ await page.getByRole('menuitem',{name:'ทำสำเนา'}).click();
+ await page.getByRole('button',{name:'ตกลง'}).click();
+ await expect(counter).toContainText('10/10 ฉบับ');
+ await expect(counter).toContainText('ครบแล้ว');
+ expect(posts.length).toBe(1);
+ // the 11th: no editor, the upgrade dialog with the reason, and nothing sent
+ await page.getByRole('button',{name:'ออกเอกสารใหม่'}).click();
+ await page.getByRole('menuitem').first().click();
+ await expect(page.getByTestId('pro-promo-notice')).toContainText('ครบ 10 ฉบับ');
+ await expect(page.getByRole('button',{name:'บันทึกและสร้างเอกสาร'})).toHaveCount(0);
+ expect(posts.length).toBe(1);
+});
+
+test('Pro documents carry no credit line and no counter',async({page})=>{
+ const profile={name:'ร้านตัวอย่าง',address:'Bangkok',phone:'',email:'shop@example.com',taxId:'',bankName:'',bankAccount:'',bankAccountName:''};
+ const invoice={id:'inv-pro',documentType:'invoice',documentNo:'INV-2569-002',createdDate:'2026-10-15',issuer:profile,client:{name:'ลูกค้าตัวอย่าง',address:'Bangkok',phone:'',email:'',taxId:''},items:[{id:'i1',description:'งานตัวอย่าง',quantity:1,price:1000}],vatRate:0,whtRate:0};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,invoices:[invoice]},versions:{...versions,cashflow_invoices:{'inv-pro':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'},document_quota:null}}));
+ await page.goto('/invoice?type=invoice');
+ await expect(page.getByTestId('document-view')).toBeVisible();
+ await expect(page.getByTestId('document-view').locator('.da4-page').first()).toBeVisible();
+ await expect(page.getByTestId('document-watermark')).toHaveCount(0);
+ await expect(page.getByTestId('document-quota')).toHaveCount(0);
+});

@@ -12,7 +12,7 @@ import { A4_WIDTH_PX, DocumentPreview } from './DocumentA4';
 const PAD = 20;
 const BAR = 40; // the row above the paper with ขยายเต็มจอ
 
-export function DocumentFullView({ invoice, className = '' }: { invoice: Invoice; className?: string }) {
+export function DocumentFullView({ invoice, className = '', watermark = false }: { invoice: Invoice; className?: string; watermark?: boolean }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const [box, setBox] = React.useState({ w: 0, h: 0 });
   React.useLayoutEffect(() => {
@@ -42,10 +42,10 @@ export function DocumentFullView({ invoice, className = '' }: { invoice: Invoice
       <div key={invoice.id} className="doc-view-enter flex justify-center" style={{ padding: PAD, paddingTop: 4 }}>
         <button type="button" onClick={() => setExpanded(true)} aria-label="ขยายเอกสารเต็มจอ" title="กดเพื่อดูเต็มจอ" tabIndex={-1}
           className="relative block cursor-zoom-in rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B]">
-          <DocumentPreview invoice={invoice} scale={scale} />
+          <DocumentPreview invoice={invoice} scale={scale} watermark={watermark} />
         </button>
       </div>
-      {expanded && <FullScreenDocument invoice={invoice} onClose={() => setExpanded(false)} />}
+      {expanded && <FullScreenDocument invoice={invoice} watermark={watermark} onClose={() => setExpanded(false)} />}
       <style>{`
         @keyframes docViewEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
         .doc-view-enter { animation: docViewEnter 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -56,7 +56,7 @@ export function DocumentFullView({ invoice, className = '' }: { invoice: Invoice
 }
 
 /** The document over the whole screen, as wide as reads comfortably; scroll for the rest. */
-function FullScreenDocument({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
+function FullScreenDocument({ invoice, onClose, watermark }: { invoice: Invoice; onClose: () => void; watermark: boolean }) {
   const [w, setW] = React.useState(() => window.innerWidth);
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -77,7 +77,7 @@ function FullScreenDocument({ invoice, onClose }: { invoice: Invoice; onClose: (
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25 cursor-pointer"><X className="h-5 w-5" /></button>
       </div>
       <div className="flex justify-center px-3 pb-10 sm:px-12" onClick={e => e.stopPropagation()}>
-        <DocumentPreview invoice={invoice} scale={scale} />
+        <DocumentPreview invoice={invoice} scale={scale} watermark={watermark} />
       </div>
       <style>{`
         @keyframes docFullEnter { from { opacity: 0; } to { opacity: 1; } }

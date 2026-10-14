@@ -235,10 +235,13 @@ test('aligned plans retain the official mascot and return from tap to idle, resp
   await expect(page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'}).locator('[data-motion]')).toHaveAttribute('data-motion','reduced');
 });
 
-test('UI-only release keeps future quotas off even if a response advertises them',async({page})=>{
+test('plans page: Free documents quota is live, LINE and media quotas stay marked as not ready',async({page})=>{
   await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock',{},true);
-  await expect(page.getByText('เร็ว ๆ นี้: ออกเอกสารใหม่ 10 ฉบับ/เดือน',{exact:true})).toBeVisible();
-  await expect(page.getByText('ออกเอกสารใหม่ 10 ฉบับ/เดือน แก้ไขและดาวน์โหลดซ้ำไม่นับเพิ่ม',{exact:true})).toHaveCount(0);
+  // Since 2026-10-15 the API counts and enforces 10 new documents a month for Free accounts.
+  await expect(page.getByText('ออกเอกสารใหม่ 10 ฉบับ/เดือน แก้ไขและดาวน์โหลดซ้ำไม่นับเพิ่ม',{exact:true})).toBeVisible();
+  await expect(page.getByText('เร็ว ๆ นี้: ออกเอกสารใหม่ 10 ฉบับ/เดือน',{exact:true})).toHaveCount(0);
+  await expect(page.getByText(/ลบเอกสารแล้วไม่คืนโควตา/)).toBeVisible();
+  await expect(page.getByText(/โควตา LINE ของ Pro .* ยังไม่เปิดใช้/)).toBeVisible();
   await expect(page.getByText(/ยังไม่พร้อมใช้: อ่านบิล 100 หน้า/)).toBeVisible();
   await expect(page.getByText(/เป้าหมายคลัง 300 ไฟล์ต่อบัญชี/)).toBeVisible();
 });
