@@ -221,13 +221,28 @@ test('a managed nonterminal subscription chooses the Stripe Billing Portal', asy
 test('aligned plans retain the official mascot and return from tap to idle, respecting reduced motion',async({page})=>{
   await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock');
   await expect(page.getByRole('radio',{name:'รายเดือน'})).toHaveAttribute('aria-checked','true'); // monthly by default
+  // Free sits beside Pro for comparison; both feature lists start at the same height
+  const free=page.getByTestId('free-card');
+  await expect(free.getByRole('heading',{name:'Free',exact:true})).toBeVisible();
+  await expect(free.getByText('฿0',{exact:true})).toBeVisible();
+  await expect(free.getByText('แพ็กเกจปัจจุบัน',{exact:true})).toBeVisible();
+  const tops=await page.evaluate(()=>['free-card','pro-card'].map(id=>document.querySelector(`[data-testid="${id}"] ul`)!.getBoundingClientRect().top));
+  expect(Math.abs(tops[0]-tops[1])).toBeLessThan(1);
   const mascot=page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'});
   await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','idle');
   await mascot.click();
   await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','tap');
   await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','idle',{timeout:3000});
-  const palette=await mascot.locator('svg').evaluate(svg=>Array.from(svg.querySelectorAll('[fill]')).map(node=>node.getAttribute('fill')));
+  const palette=await mascot.locator('[data-motion] svg').evaluate(svg=>Array.from(svg.querySelectorAll('[fill]')).map(node=>node.getAttribute('fill')));
   expect(palette).toContain('#C27A3F');
+  // rubbing it (the cursor moving across) is petting: it leans in, then settles when left alone
+  const box=(await mascot.boundingBox())!;
+  for(let i=0;i<=6;i++)await page.mouse.move(box.x+box.width*(0.3+i*0.07),box.y+box.height*0.45);
+  await expect(mascot).toHaveAttribute('data-reaction','pet');
+  await page.mouse.move(box.x-120,box.y-120);
+  await expect(mascot).toHaveAttribute('data-reaction','idle');
+  const pettedPalette=await mascot.locator('[data-motion] svg').evaluate(svg=>Array.from(svg.querySelectorAll('[fill]')).map(node=>node.getAttribute('fill')));
+  expect(pettedPalette).toContain('#C27A3F'); // the same character and colours
   await page.emulateMedia({reducedMotion:'reduce'}); await page.reload();
   await expect(page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'}).locator('[data-motion]')).toHaveAttribute('data-motion','reduced');
 });
@@ -268,7 +283,8 @@ test('plans page: the billing switch changes the Pro card; 6-month and yearly ar
   await expect(card.getByRole('button',{name:'จ่ายด้วย QR ฿1,790 / สิทธิ์ 1 ปี',exact:true})).toBeDisabled();
   // the feature list stays the same whichever period; AI quick entry is marked as not live
   const features=card.getByRole('list',{name:'ทุกรอบชำระได้ Pro ครบเท่ากัน'}).getByRole('listitem');
-  await expect(features).toHaveCount(5);
+  await expect(features).toHaveCount(6);
+  await expect(features.first()).toHaveText('ทุกอย่างใน Free');
   await expect(features.filter({hasText:'Quick Entry'})).toContainText('เร็ว ๆ นี้');
   await expect(features.filter({hasText:'ใบเสนอราคา'})).not.toContainText('เร็ว ๆ นี้');
 });

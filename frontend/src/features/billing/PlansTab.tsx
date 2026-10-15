@@ -47,6 +47,7 @@ function withBold(text: string): React.ReactNode {
 }
 
 const PRO_CARD_FEATURES: { key: string; soon?: boolean }[] = [
+  { key: 'plans.pro1' },
   { key: 'plans.cardFeatureDocuments' },
   { key: 'plans.cardFeatureAiEntry', soon: true },
   { key: 'plans.cardFeatureLine' },
@@ -162,8 +163,36 @@ export const PlansTab: React.FC<PlansTabProps> = ({
           </div>
         </div>
 
+        {/* Free beside Pro so the two can be compared; the switch only changes Pro. On a
+            phone Pro comes first. */}
+        <div className="plan-compare mt-6">
+        <article data-testid="free-card" className="compare-card order-2 rounded-3xl border border-brand-border bg-brand-white p-6 dark:bg-[#202126] sm:p-8 lg:order-1">
+          <div>
+            <div className="flex min-h-[26px] justify-center">
+              {!isPro && <span className="rounded-full bg-brand-faint px-2.5 py-0.5 text-[11.5px] font-semibold text-brand-text dark:bg-neutral-800">{t('plans.currentPlan')}</span>}
+            </div>
+            <PlanMascot label="ทักทายน้องกระรอก Free" size={140} />
+            <div className="text-center">
+              <h3 className="text-lg font-semibold">Free</h3>
+              <div className="mt-1 flex items-end justify-center gap-2.5">
+                <span className={priceFigure}>฿0</span>
+                <span className="pb-1.5 text-sm text-brand-muted">{t('plans.forever')}</span>
+              </div>
+              <p className="mt-3 text-xs text-brand-muted">{t('plans.freeSummary')}</p>
+            </div>
+          </div>
+          <ul className="mt-7 grid content-start gap-3 border-t border-brand-border pt-6" role="list" aria-label={t('plans.freeFeaturesTitle')}>
+            {[...FREE_FEATURE_KEYS, freeDocumentsAvailable ? 'plans.freeDocumentsAvailable' : 'plans.freeDocumentsForthcoming'].map(key => (
+              <li key={key} className="flex items-start gap-3 text-[14px] leading-6 text-brand-text">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-faint text-brand-muted dark:bg-neutral-800" aria-hidden><Check className="h-3.5 w-3.5" strokeWidth={2.6} /></span>
+                <span className="min-w-0">{t(key)}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+
         <article data-testid="pro-card" data-period={period}
-          className="relative mx-auto mt-6 max-w-[560px] rounded-3xl border-2 border-[#E65F2B] bg-brand-white p-6 shadow-[0_22px_48px_-34px_rgba(230,95,43,0.6)] dark:bg-[#202126] sm:p-8">
+          className="compare-card relative order-1 rounded-3xl border-2 border-[#E65F2B] bg-brand-white p-6 shadow-[0_22px_48px_-34px_rgba(230,95,43,0.6)] dark:bg-[#202126] sm:p-8 lg:order-2">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={period}
               initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
@@ -216,7 +245,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
             </motion.div>
           </AnimatePresence>
 
-          <ul className="mt-7 grid gap-3 border-t border-brand-border pt-6" role="list" aria-label={t('plans.proFeaturesTitle')}>
+          <ul className="mt-7 grid content-start gap-3 border-t border-brand-border pt-6" role="list" aria-label={t('plans.proFeaturesTitle')}>
             {PRO_CARD_FEATURES.map(({ key, soon }) => (
               <li key={key} className="flex items-start gap-3 text-[14px] leading-6 text-brand-text">
                 <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]" aria-hidden><Check className="h-3.5 w-3.5" strokeWidth={2.6} /></span>
@@ -225,24 +254,6 @@ export const PlansTab: React.FC<PlansTabProps> = ({
             ))}
           </ul>
         </article>
-      </section>
-
-      {/* Free, the plan everyone starts on. */}
-      <section className="mt-5 flex flex-col gap-4 rounded-[24px] border border-brand-border p-6 sm:flex-row sm:items-center sm:gap-6 sm:p-7" aria-labelledby="free-plan-title">
-        <PlanMascot label="ทักทายน้องกระรอก Free" size={88} stageClassName="h-[104px] shrink-0 self-center" />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 id="free-plan-title" className="text-xl font-semibold">Free</h2>
-            <span className="font-mono text-2xl font-semibold text-brand-text">฿0</span>
-            <span className="text-xs text-brand-muted">{t('plans.forever')}</span>
-            {!isPro && <span className="rounded-full bg-brand-faint px-2.5 py-0.5 text-[11px] font-semibold text-brand-text dark:bg-neutral-800">{t('plans.currentPlan')}</span>}
-          </div>
-          <p className="mt-1 text-xs text-brand-muted">{t('plans.freeSummary')}</p>
-          <ul className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 text-[13px] leading-6 text-brand-text sm:grid-cols-2" role="list">
-            {[...FREE_FEATURE_KEYS, freeDocumentsAvailable ? 'plans.freeDocumentsAvailable' : 'plans.freeDocumentsForthcoming'].map(key => (
-              <li key={key} className="flex items-start gap-2"><Check className="mt-[5px] h-3.5 w-3.5 shrink-0 text-brand-muted" aria-hidden />{t(key)}</li>
-            ))}
-          </ul>
         </div>
       </section>
 

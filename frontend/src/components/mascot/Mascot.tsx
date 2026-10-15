@@ -14,7 +14,9 @@ export type MascotMood =
   | 'received-money'
   | 'checking'
   | 'waiting'
-  | 'error';
+  | 'error'
+  /** Being petted: the happy colours with the closed "^ ^" eyes celebrate already uses. */
+  | 'blissful';
 
 export type MascotAction =
   | 'idle'
@@ -361,7 +363,7 @@ export function Mascot({
           </>
         )}
 
-        {mood === 'celebrate' && (
+        {(mood === 'celebrate' || mood === 'blissful') && (
           <>
             {/* Excited "^" "^" eyes */}
             <path
@@ -481,7 +483,7 @@ export function Mascot({
         <polygon points="48,51 52,51 50,53.5" fill={colors.eyes} />
 
         {/* Mouth based on mood */}
-        {(mood === 'happy' || mood === 'wave' || mood === 'proud' || mood === 'relieved' || mood === 'received-money') && (
+        {(mood === 'happy' || mood === 'wave' || mood === 'proud' || mood === 'relieved' || mood === 'received-money' || mood === 'blissful') && (
           <path
             d="M47 55C48 57 52 57 53 55"
             stroke={colors.eyes}
