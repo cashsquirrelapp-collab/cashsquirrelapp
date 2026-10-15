@@ -1446,7 +1446,9 @@ test('Free plan documents: a 10-a-month counter, a credit line on every page, an
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',async route=>{
   if(route.request().method()==='POST'){
-   const changes=route.request().postDataJSON().changes;posts.push(changes);
+   const changes=route.request().postDataJSON().changes;
+   // only saves that create documents; the app's own autosave of settings may post at any time
+   if(changes.some((c:any)=>c.table==='cashflow_invoices'&&c.version===null))posts.push(changes);
    quota.used+=changes.filter((c:any)=>c.table==='cashflow_invoices'&&c.version===null).length;
    return route.fulfill({json:{ok:true,document_quota:quota}});
   }

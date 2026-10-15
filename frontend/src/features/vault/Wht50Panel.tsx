@@ -26,6 +26,7 @@ import { downloadVaultZip } from './zip';
 // stays in the shared document vault; this page only derives its received/waiting status.
 
 type Filter = 'waiting' | 'have' | 'all';
+const WHT_CREDIT_NOTE = 'ภาษีที่ถูกหักไว้ นำไปหักกับภาษีที่ต้องจ่ายตอนยื่นแบบ ส่วนที่เกินขอคืนได้ ต้องมีใบ 50 ทวิเป็นหลักฐาน ได้คืนจริงเท่าไรขึ้นกับภาษีทั้งปีของคุณ';
 type Sort = 'waiting' | 'latest' | 'wht' | 'value';
 type TrackingRow = {
   job: Job;
@@ -33,6 +34,13 @@ type TrackingRow = {
   status: 'have' | 'waiting';
   paidDate: string | null;
   waitingDays: number | null;
+};
+
+/** Baht with satang when there are any: these totals are what goes on the tax return. */
+const exactBaht = (amount: number) => {
+  const cents = Math.round(amount * 100);
+  return cents % 100 === 0 ? formatCurrency(cents / 100)
+    : new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100).replace('THB', '฿');
 };
 
 const compareKnownDates = (a: string | null, b: string | null, newestFirst = false) => {
@@ -73,6 +81,12 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
   const have = rows.filter(row => row.status === 'have');
   const waiting = rows.filter(row => row.status === 'waiting');
   const receivedFileCount = have.reduce((sum, row) => sum + row.files.length, 0);
+  // Tax withheld on these jobs. With a 50 ทวิ it can be credited against the year's tax (any
+  // excess is refunded); without one it cannot be used yet. Same amounts as the rows show.
+  const withheld = (list: TrackingRow[]) => list.reduce((sum, row) => sum + jobWhtAmount(row.job), 0);
+  const whtTotal = withheld(rows);
+  const whtHave = withheld(have);
+  const whtWaiting = withheld(waiting);
   const share = rows.length ? Math.round((have.length / rows.length) * 100) : 0;
   const q = query.trim().toLocaleLowerCase();
   const shown = rows
@@ -199,9 +213,11 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
     return (
       <div>
         <section aria-label="สรุปการติดตามใบ 50 ทวิ" aria-live="polite" className="ksm-metrics">
-          <div className={`ksm-metric${waiting.length > 0 ? ' is-warning' : ''}`}><small>ยังรอใบรับรอง</small><b>{waiting.length} <small>งาน</small></b></div>
-          <div className="ksm-metric"><small>มีใบรับรองแล้ว</small><b>{have.length} <small>งาน</small></b></div>
+          <div className="ksm-metric is-wide"><small>ภาษีหัก ณ ที่จ่ายรวม · {rows.length} งาน</small><b data-testid="wht-total">{exactBaht(whtTotal)}</b></div>
+          <div className={`ksm-metric${waiting.length > 0 ? ' is-warning' : ''}`}><small>ยังไม่มีเอกสาร · {waiting.length} งาน</small><b data-testid="wht-waiting">{exactBaht(whtWaiting)}</b></div>
+          <div className="ksm-metric"><small>มีเอกสารรองรับ · {have.length} งาน</small><b data-testid="wht-have">{exactBaht(whtHave)}</b></div>
         </section>
+        <p className="ksm-hint">{WHT_CREDIT_NOTE}</p>
         <div className="ksm-row-between">
           <div className="ksm-chips" role="tablist" aria-label="สถานะใบ 50 ทวิ">
             {filterOrder.map(option => {
@@ -276,22 +292,19 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
       <section aria-label="สรุปการติดตามใบ 50 ทวิ" className={`${uiSurface} overflow-hidden`}>
         <div aria-live="polite" className="grid grid-cols-2 sm:grid-cols-3">
           <div className="col-span-2 min-w-0 border-b border-brand-border px-4 py-3 sm:col-span-1 sm:border-b-0 sm:border-r sm:px-5 sm:py-5">
-            <p className="leading-5">
-              <span className="font-mono text-[22px] font-semibold text-brand-text">{rows.length}</span>{' '}
-              <span className="text-[11px] text-brand-muted sm:text-xs">งานที่ต้องมีใบ 50 ทวิ</span>
-            </p>
+            <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs">ภาษีหัก ณ ที่จ่ายรวม</p>
+            <p className="mt-1 font-mono text-[24px] font-semibold leading-8 text-brand-text tabular-nums" data-testid="wht-total">{exactBaht(whtTotal)}</p>
+            <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">{rows.length} งานที่ต้องมีใบ 50 ทวิ</p>
           </div>
           <div className="min-w-0 border-r border-brand-border px-4 py-3 sm:px-5 sm:py-5">
-            <p className="inline-flex items-baseline gap-1.5 leading-5">
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-[#18A66A]" />ได้รับแล้ว</span>{' '}
-              <span className="font-mono text-[22px] font-semibold text-[#12804F] dark:text-[#6FD3A3]">{have.length}</span>
-            </p>
+            <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-[#18A66A]" />มีเอกสารรองรับ</p>
+            <p className="mt-1 font-mono text-[24px] font-semibold leading-8 text-[#12804F] tabular-nums dark:text-[#6FD3A3]" data-testid="wht-have">{exactBaht(whtHave)}</p>
+            <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">ได้รับแล้ว {have.length} งาน · ใช้เครดิตหรือขอคืนภาษีได้</p>
           </div>
           <div className="min-w-0 px-4 py-3 sm:px-5 sm:py-5">
-            <p className="inline-flex items-baseline gap-1.5 leading-5">
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-[#E79A24]" />ยังรอ</span>{' '}
-              <span className="font-mono text-[22px] font-semibold text-[#A9650B] dark:text-[#F2C66D]">{waiting.length}</span>
-            </p>
+            <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-[#E79A24]" />ยังไม่มีเอกสาร</p>
+            <p className="mt-1 font-mono text-[24px] font-semibold leading-8 text-[#A9650B] tabular-nums dark:text-[#F2C66D]" data-testid="wht-waiting">{exactBaht(whtWaiting)}</p>
+            <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">ยังรอ {waiting.length} งาน · ต้องได้ใบ 50 ทวิก่อนจึงใช้ได้</p>
           </div>
         </div>
         <div className="flex flex-col gap-3 border-t border-brand-border px-4 py-4 sm:px-5 lg:flex-row lg:items-center">
@@ -307,6 +320,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
             <Download className="h-4 w-4" />{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดใบที่ได้รับแล้ว (${receivedFileCount} ไฟล์)`}
           </button>
         </div>
+        <p className="border-t border-brand-border px-4 py-3 text-[11.5px] leading-relaxed text-brand-muted sm:px-5">{WHT_CREDIT_NOTE}</p>
       </section>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">

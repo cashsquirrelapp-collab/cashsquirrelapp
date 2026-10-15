@@ -136,6 +136,11 @@ test('the vault opens the separate 50 ทวิ page without conflating job and 
   await expect(summary).toContainText('ได้รับแล้ว 2');
   await expect(summary).toContainText('ยังรอ 6');
   await expect(summary).toContainText('25%');
+  // withheld tax: all of it, the part a 50 ทวิ backs (creditable / refundable), and the rest
+  await expect(summary.getByTestId('wht-total')).toHaveText('฿3,849');
+  await expect(summary.getByTestId('wht-have')).toHaveText('฿609');
+  await expect(summary.getByTestId('wht-waiting')).toHaveText('฿3,240');
+  await expect(summary).toContainText('ใช้เครดิตหรือขอคืนภาษีได้');
   await expect(page.getByText('ยอดภาษีหัก ณ ที่จ่าย', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Not Paid Yet')).toHaveCount(0);
   await expect(page.getByText('No WHT')).toHaveCount(0);

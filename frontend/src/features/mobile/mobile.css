@@ -490,6 +490,7 @@
 .ksm-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .ksm-metric { padding: 13px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
 .ksm-metric.is-warning { border-color: #F3B08C; background: var(--ksm-selected); }
+.ksm-metric.is-wide { grid-column: 1 / -1; }
 .dark .ksm-metric.is-warning { border-color: #FFA473; }
 .ksm-metric > small { font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
 .ksm-metric > b { display: block; margin-top: 5px; font-size: 26px; font-weight: 500; line-height: 39px; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
