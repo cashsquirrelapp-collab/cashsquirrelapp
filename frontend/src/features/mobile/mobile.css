@@ -18,6 +18,12 @@
   --ksm-error-soft: #FDEEEE;
   --ksm-warning: #C17817;
   --ksm-success-soft: #E8F8F0;
+  /* The overview hero: the brand's deep rust, cream accent (both from the mascot's palette). */
+  --ksm-hero: #8C3414;
+  --ksm-hero-deep: #6A250C;
+  --ksm-hero-glow: rgba(230, 95, 43, 0.55);
+  --ksm-hero-accent: #FDF6EC;
+  --ksm-hero-accent-text: #8C3414;
   font-family: "IBM Plex Sans", "IBM Plex Sans Thai", system-ui, sans-serif;
 }
 .dark .ksm {
@@ -28,6 +34,9 @@
   --ksm-error-soft: var(--faint);
   --ksm-warning: #F2B76B;
   --ksm-success-soft: var(--faint);
+  --ksm-hero: #5A220D;
+  --ksm-hero-deep: #401807;
+  --ksm-hero-glow: rgba(230, 95, 43, 0.32);
 }
 .ksm button { -webkit-tap-highlight-color: transparent; }
 .ksm :focus-visible { outline: 2px solid var(--ksm-accent-text); outline-offset: 2px; }
@@ -43,6 +52,18 @@
 .ksm-iconbtn:hover { background: var(--ksm-muted); }
 .ksm-iconbtn.is-notify { color: var(--ksm-text); }
 .ksm-dot { position: absolute; top: 9px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--ksm-accent); box-shadow: 0 0 0 2px var(--ksm-page); }
+/* On the overview the bar is the top of the hero: same colour, greeting instead of the logo. */
+.ksm-header.is-hero { padding-bottom: 6px; background: var(--ksm-hero); color: #FFFFFF; }
+.ksm-header.is-hero .ksm-iconbtn { color: #FFFFFF; }
+.ksm-header.is-hero .ksm-iconbtn:hover { background: rgba(255, 255, 255, 0.1); }
+.ksm-header.is-hero .ksm-iconbtn.is-notify { width: 42px; min-width: 42px; height: 42px; margin-left: 4px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+.ksm-header.is-hero .ksm-dot { top: 9px; right: 10px; background: #FF9A62; box-shadow: 0 0 0 2px var(--ksm-hero); }
+.ksm-hello { display: flex; align-items: center; gap: 11px; min-width: 0; min-height: 48px; text-align: left; color: #FFFFFF; cursor: pointer; }
+.ksm-hello-avatar { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: var(--ksm-hero-accent); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 0 5px rgba(255, 255, 255, 0.12); }
+.ksm-hello-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ksm-hello-text { min-width: 0; }
+.ksm-hello-text small { display: block; font-size: 12px; line-height: 1.4; color: rgba(255, 255, 255, 0.74); }
+.ksm-hello-text b { display: block; font-size: 18px; font-weight: 600; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Bottom bar */
 .ksm-nav { position: relative; z-index: 50; flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: calc(76px + env(safe-area-inset-bottom, 0px)); min-height: calc(76px + env(safe-area-inset-bottom, 0px)); padding: 4px 6px calc(7px + env(safe-area-inset-bottom, 0px)); overflow: visible; background: var(--ksm-surface); border-top: 1px solid var(--ksm-border); border-radius: 24px 24px 0 0; box-shadow: 0 -3px 16px var(--ksm-shadow-near); }
@@ -116,9 +137,6 @@
 
 /* ภาพรวม (home) */
 .ksm-home { animation: ksm-page-in 0.22s ease-out; font-size: 15px; line-height: 1.5; color: var(--ksm-text); }
-.ksm-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ksm-heading h2 { font-size: 22px; font-weight: 600; line-height: 1.2; color: var(--ksm-text); }
-.ksm-heading p { margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
 .ksm-month { position: relative; display: flex; align-items: center; flex-shrink: 0; }
 .ksm-month > button { display: flex; align-items: center; justify-content: center; min-width: 28px; height: 44px; border-radius: 12px; color: var(--ksm-text); cursor: pointer; }
 .ksm-month > .ksm-month-label { gap: 2px; padding: 0 4px; font-size: 12px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
@@ -126,16 +144,42 @@
 .ksm-month > button:hover { background: var(--ksm-muted); }
 .ksm-month-pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; width: 272px; max-width: calc(100vw - 32px); padding: 12px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); box-shadow: 0 8px 24px var(--ksm-shadow-far); }
 
-.ksm-summary { margin-top: 12px; border: 1px solid var(--ksm-border); border-radius: 24px; background: var(--ksm-surface); box-shadow: 0 3px 8px var(--ksm-shadow-near), 0 8px 18px var(--ksm-shadow-far); overflow: hidden; }
-.ksm-face { position: relative; padding: 13px 16px 14px; background: #A63F1B; color: #FFFFFF; overflow: hidden; }
-.ksm-face-title { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 19.5px; font-size: 11px; line-height: 1.5; }
-.ksm-watermark { position: absolute; right: 3px; bottom: -5px; width: 116px; height: 116px; opacity: 0.12; filter: brightness(0) invert(1); pointer-events: none; }
-.ksm-net { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1px 8px; width: 100%; margin-top: 11px; color: #FFFFFF; text-align: left; cursor: pointer; }
-.ksm-net-label { grid-column: 1 / -1; min-height: 22.5px; font-size: 13px; line-height: 1.5; }
-.ksm-net strong { min-width: 0; font-size: 36px; font-weight: 600; line-height: 1.18; letter-spacing: -0.8px; padding-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ksm-net-detail { display: flex; align-items: center; gap: 2px; font-size: 11px; line-height: 1.5; white-space: nowrap; }
-.ksm-trend { position: relative; margin-top: 3px; font-size: 10px; line-height: 1.5; color: #FFFFFF; }
-.ksm-cash { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 11px 16px 10px; }
+.ksm-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* The hero: full width under the top bar, rounded at the bottom. Its top colour equals the bar's, and
+   the glows stay clear of the top edge, so bar and hero read as one panel. */
+.ksm-hero { position: relative; margin: -10px -16px 0; padding: 2px 16px 22px; border-radius: 0 0 28px 28px; color: #FFFFFF; text-align: center;
+  background:
+    radial-gradient(260px 200px at 88% 60%, var(--ksm-hero-glow), rgba(230, 95, 43, 0) 72%),
+    radial-gradient(240px 170px at 6% 100%, rgba(61, 35, 20, 0.5), rgba(61, 35, 20, 0) 70%),
+    linear-gradient(180deg, var(--ksm-hero) 0%, var(--ksm-hero-deep) 100%);
+  box-shadow: 0 10px 24px rgba(106, 37, 12, 0.18); }
+.ksm-hero-month { position: relative; z-index: 2; display: flex; justify-content: center; }
+.ksm-hero .ksm-month > button { color: #FFFFFF; }
+.ksm-hero .ksm-month > button:hover { background: rgba(255, 255, 255, 0.1); }
+.ksm-hero .ksm-month > .ksm-month-label.is-other { color: #FFD3B8; }
+.ksm-hero .ksm-month-pop { left: 50%; right: auto; transform: translateX(-50%); color: var(--ksm-text); text-align: left; }
+.ksm-hero-label { position: relative; display: flex; align-items: center; justify-content: center; gap: 2px; margin-top: 4px; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.78); }
+.ksm-eye { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: rgba(255, 255, 255, 0.85); cursor: pointer; }
+.ksm-eye:hover { background: rgba(255, 255, 255, 0.1); }
+.ksm-net { position: relative; display: block; width: 100%; color: #FFFFFF; text-align: center; cursor: pointer; }
+.ksm-net strong { display: block; font-size: 40px; font-weight: 600; line-height: 1.2; letter-spacing: -1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ksm-hero-pills { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; }
+.ksm-pill { display: inline-flex; align-items: center; gap: 2px; min-height: 30px; padding: 3px 12px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 999px; background: rgba(255, 255, 255, 0.12); color: #FFFFFF; font-size: 12px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
+button.ksm-pill { cursor: pointer; }
+button.ksm-pill:hover { background: rgba(255, 255, 255, 0.18); }
+.ksm-pill.is-accent { border-color: transparent; background: var(--ksm-hero-accent); color: var(--ksm-hero-accent-text); font-weight: 600; }
+/* Four round shortcuts; the first one is the solid accent, as in the reference. */
+.ksm-actions { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 20px; }
+.ksm-quick { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 7px; font-size: 12px; font-weight: 500; line-height: 1.5; color: #FFFFFF; text-align: center; cursor: pointer; }
+.ksm-quick-icon { display: grid; place-items: center; width: 54px; height: 54px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #FFFFFF; transition: background 0.15s, transform 0.15s; }
+.ksm-quick:hover .ksm-quick-icon { background: rgba(255, 255, 255, 0.2); transform: translateY(-1px); }
+.ksm-quick:active .ksm-quick-icon { transform: scale(0.96); }
+.ksm-quick.is-primary { font-weight: 600; }
+.ksm-quick.is-primary .ksm-quick-icon { border-color: transparent; background: var(--ksm-hero-accent); color: var(--ksm-hero-accent-text); box-shadow: 0 6px 14px rgba(40, 14, 4, 0.28); }
+.ksm-quick.is-primary:hover .ksm-quick-icon { background: #FFFFFF; }
+/* Received, current balance and net profit, on a white card under the hero. */
+.ksm-sumcard { margin-top: 16px; border: 1px solid var(--ksm-border); border-radius: 20px; background: var(--ksm-surface); box-shadow: 0 3px 8px var(--ksm-shadow-near), 0 8px 18px var(--ksm-shadow-far); overflow: hidden; }
+.ksm-cash { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px 16px 12px; }
 .ksm-cash > button { display: grid; min-height: 47px; grid-template-columns: minmax(0, 1fr) 12px; align-items: center; gap: 0 2px; min-width: 0; text-align: left; color: var(--ksm-text); cursor: pointer; }
 .ksm-cash > button > span { grid-column: 1 / -1; min-height: 18.75px; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
 .ksm-cash > button > b { min-width: 0; font-size: 20px; font-weight: 600; line-height: 26px; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -157,14 +201,7 @@
 .ksm-notice.is-empty, .dark .ksm-notice.is-empty { border-color: var(--ksm-border); background: var(--ksm-surface); }
 .ksm-notice.is-empty .ksm-notice-status, .ksm-notice.is-empty > svg { color: var(--ksm-secondary); }
 
-.ksm-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 12px; padding-top: 3px; }
-.ksm-quick { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; min-height: 79px; font-size: 11px; font-weight: 500; line-height: 1.5; color: var(--ksm-text); text-align: center; cursor: pointer; }
-.ksm-quick-icon { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid transparent; border-radius: 16px; background: var(--ksm-selected); color: var(--ksm-accent-text); transition: background 0.15s, transform 0.15s; }
-.ksm-quick:hover .ksm-quick-icon { border-color: #F3B08C; transform: translateY(-1px); }
-.ksm-quick.is-primary { font-weight: 600; color: var(--ksm-accent-text); }
-.ksm-quick.is-primary .ksm-quick-icon { background: var(--ksm-accent); color: #1C1917; box-shadow: 0 4px 10px var(--ksm-shadow-near); }
-.ksm-quick.is-tertiary .ksm-quick-icon { background: var(--ksm-muted); color: var(--ksm-secondary); }
-.ksm-counts { font-size: 10px; line-height: 15px; color: var(--ksm-secondary); text-align: center; }
+.ksm-counts { margin-top: 8px; font-size: 10px; line-height: 15px; color: var(--ksm-secondary); text-align: center; }
 
 .ksm-section-title { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin-top: 12px; }
 .ksm-section-title h3 { font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--ksm-text); }
@@ -204,20 +241,20 @@
 @keyframes ksm-sheet-in { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 360px) {
-  .ksm-heading h2 { font-size: 21px; }
   .ksm-month > .ksm-month-label { font-size: 11px; }
   .ksm-month > button { min-width: 25px; }
-  .ksm-face { padding: 12px 14px; }
-  .ksm-net strong { font-size: 33px; }
-  .ksm-net-detail { font-size: 10px; }
+  .ksm-hero { padding-left: 12px; padding-right: 12px; }
+  .ksm-net strong { font-size: 34px; }
+  .ksm-hello-text b { font-size: 16px; }
+  .ksm-hello-avatar { width: 40px; height: 40px; }
   .ksm-cash { gap: 8px; padding: 10px 14px; }
   .ksm-cash > button > b { font-size: 18px; }
   .ksm-cash > button + button { padding-left: 10px; }
   .ksm-work { gap: 5px; width: calc(100% - 28px); margin: 0 14px; }
   .ksm-work-icon { display: none; }
   .ksm-work strong { font-size: 16px; }
-  .ksm-quick { font-size: 10px; }
-  .ksm-quick-icon { width: 44px; height: 44px; }
+  .ksm-quick { font-size: 11px; }
+  .ksm-quick-icon { width: 48px; height: 48px; }
   .ksm-notice { gap: 6px; padding: 10px; }
   .ksm-tools-entry > small { max-width: 130px; }
 }

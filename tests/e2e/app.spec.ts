@@ -1188,7 +1188,15 @@ test('mobile overview and add-job sheet follow the design and stay wired to the 
  // overview: one summary card, the receivables notice, four shortcuts
  const summary=page.getByRole('region',{name:'สรุปเงินของเดือน'});
  // the month's work value leads; received and the current balance sit side by side; net profit below; no expenses on the card
- await expect(summary.locator('.ksm-net')).toContainText('มูลค่างาน');
+ await expect(summary.locator('.ksm-hero')).toContainText('มูลค่างาน');
+ // the top bar joins the hero: a greeting instead of the logo, on the overview only
+ await expect(page.locator('.ksm-header.is-hero')).toContainText('สวัสดี');
+ // the eye hides every figure on the card and brings them back
+ const work=await summary.locator('[data-metric="work"]').innerText();
+ await summary.getByRole('button',{name:'ซ่อนตัวเลข'}).click();
+ await expect(summary.locator('[data-metric]').filter({hasText:/\d/})).toHaveCount(0);
+ await summary.getByRole('button',{name:'แสดงตัวเลข'}).click();
+ await expect(summary.locator('[data-metric="work"]')).toHaveText(work);
  await expect(summary.getByText('รับเงินจริง',{exact:true})).toBeVisible();
  await expect(summary.getByText('ยอดเงินปัจจุบัน')).toBeVisible();
  await expect(summary.locator('.ksm-work')).toContainText('กำไรสุทธิ');
@@ -1210,6 +1218,8 @@ test('mobile overview and add-job sheet follow the design and stay wired to the 
  await nav.getByRole('button',{name:'ภาพรวม',exact:true}).click();
  await page.getByRole('button',{name:/^เงินรอรับ/}).click();
  await expect(page.getByRole('heading',{name:'เงินรอรับ',exact:true})).toBeVisible();
+ await expect(page.locator('.ksm-header.is-hero')).toHaveCount(0); // other pages keep the logo bar
+ await expect(page.locator('.ksm-header .ksm-wordmark')).toBeVisible();
  // add job: three fields first, the rest behind one disclosure with three tabs
  await nav.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
  const sheet=page.getByRole('dialog',{name:'เพิ่มงาน'});

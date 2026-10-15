@@ -57,7 +57,6 @@ interface DashboardTabProps {
   onQuickRecord?: (mode: 'income' | 'expense') => void;
   /** Phones: draw the overview as the mobile design does. Figures and handlers are the same. */
   mobile?: boolean;
-  greetingName?: string;
   monthPicker?: React.ReactNode;
   onOpenTools?: () => void;
 }
@@ -87,7 +86,6 @@ export default function DashboardTab({
   triggerConfirm,
   onQuickRecord,
   mobile = false,
-  greetingName,
   monthPicker,
   onOpenTools,
 }: DashboardTabProps) {
@@ -803,7 +801,6 @@ export default function DashboardTab({
       .some(entry => entry.amount > 0 && (!entry.dueDate || getMonthKeyFromDate(entry.dueDate) <= selectedMonthKey)));
     return (
       <MobileHome
-        greeting={greetingName ? `สวัสดี ${greetingName}` : 'สวัสดี'}
         monthPicker={monthPicker}
         workLabel={withMonth('มูลค่างาน', selectedMonthKey)}
         workValue={formatCurrency(work.value)}

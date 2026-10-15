@@ -1,10 +1,15 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { BrandLogo } from '../../components/brand/BrandLogo';
 import { KsIcon, type KsIconName } from './icons';
 
-// "ภาพรวม" on phones, laid out as in the owner's design file. It only draws: every figure and
-// every handler comes from DashboardTab, so the numbers are the same ones the desktop shows.
+// "ภาพรวม" on phones. It only draws: every figure and every handler comes from DashboardTab, so the
+// numbers are the same ones the desktop shows. The top half is a full-width hero in the brand's deep
+// rust (the owner's reference, 2026-10-15): month, the month's work value, its trend and the four
+// shortcuts; the greeting and bell sit in the top bar above it (MobileHeader's hero variant).
+
+const HIDE_KEY = 'ksm_hide_amounts';
+// Hiding the figures is a per-device convenience, so browser storage is enough; it may be unavailable.
+const readHidden = () => { try { return localStorage.getItem(HIDE_KEY) === '1'; } catch { return false; } };
 
 /** The design's bottom sheet: grip, title, close button, scrolling content. */
 export function MobileSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -35,7 +40,6 @@ export function MobileSheet({ title, onClose, children }: { title: string; onClo
 export type MobileHomeNext = { day: number; month: string; caption: string; title: string; onOpen: () => void };
 
 export interface MobileHomeProps {
-  greeting: string;
   monthPicker: React.ReactNode;
   /** The month's work value: the large figure at the top of the card. */
   workLabel: string;
@@ -65,6 +69,12 @@ export interface MobileHomeProps {
 
 export function MobileHome(props: MobileHomeProps) {
   const [moreOpen, setMoreOpen] = React.useState(false);
+  const [hidden, setHidden] = React.useState(readHidden);
+  const toggleHidden = () => setHidden(current => {
+    try { localStorage.setItem(HIDE_KEY, current ? '0' : '1'); } catch { /* still hides for this visit */ }
+    return !current;
+  });
+  const money = (value: string) => (hidden ? '฿••••••' : value);
   const closeMore = React.useCallback(() => setMoreOpen(false), []);
   const pendingStatus = props.hasPending ? 'มีรายการรอรับ' : 'ไม่มีรายการรอรับ';
   const quick: { label: string; icon: KsIconName; level: 'primary' | 'secondary' | 'tertiary'; run: () => void }[] = [
@@ -80,32 +90,46 @@ export function MobileHome(props: MobileHomeProps) {
   ];
   return (
     <div className="ksm ksm-home">
-      <div className="ksm-heading">
-        <div><h2 id="dashboard-title">ภาพรวม</h2><p>{props.greeting}</p></div>
-        {props.monthPicker}
-      </div>
+      <h2 id="dashboard-title" className="ksm-sr-only">ภาพรวม</h2>
 
       <section className="ksm-summary" aria-label="สรุปเงินของเดือน">
-        <div className="ksm-face">
-          <div className="ksm-face-title"><span>สรุปเงินของคุณ</span></div>
-          <span className="ksm-watermark" aria-hidden="true"><BrandLogo size={116} /></span>
-          <button type="button" className="ksm-net" onClick={props.onWork}>
-            <span className="ksm-net-label">{props.workLabel}</span>
-            <strong data-metric="work">{props.workValue}</strong>
-            <span className="ksm-net-detail">ดูที่มา <KsIcon name="chevron" size={17} /></span>
+        <div className="ksm-hero">
+          <div className="ksm-hero-month">{props.monthPicker}</div>
+          <div className="ksm-hero-label">
+            <span>{props.workLabel}</span>
+            <button type="button" className="ksm-eye" onClick={toggleHidden} aria-pressed={hidden}
+              aria-label={hidden ? 'แสดงตัวเลข' : 'ซ่อนตัวเลข'} title={hidden ? 'แสดงตัวเลข' : 'ซ่อนตัวเลข'}>
+              <KsIcon name={hidden ? 'eyeOff' : 'eye'} size={17} />
+            </button>
+          </div>
+          <button type="button" className="ksm-net" onClick={props.onWork} aria-label={`${props.workLabel} ${money(props.workValue)} · ดูที่มา`}>
+            <strong data-metric="work">{money(props.workValue)}</strong>
           </button>
-          <p className="ksm-trend">{props.workDetail}</p>
+          <div className="ksm-hero-pills">
+            <span className="ksm-pill is-accent">{props.workDetail}</span>
+            <button type="button" className="ksm-pill" onClick={props.onWork}>ดูที่มา <KsIcon name="chevron" size={14} /></button>
+          </div>
+          <section className="ksm-actions" aria-label="ทางลัดทำรายการ">
+            {quick.map(action => (
+              <button key={action.label} type="button" className={`ksm-quick is-${action.level}`} onClick={action.run}>
+                <span className="ksm-quick-icon"><KsIcon name={action.icon} size={22} /></span>
+                <span>{action.label}</span>
+              </button>
+            ))}
+          </section>
         </div>
-        <div className="ksm-cash">
-          <button type="button" onClick={props.onReceived}><span>รับเงินจริง</span><b data-metric="received">{props.received}</b><KsIcon name="chevron" size={17} /></button>
-          <button type="button" onClick={props.onNet}><span>ยอดเงินปัจจุบัน</span><b data-metric="balance">{props.balance}</b><KsIcon name="chevron" size={17} /></button>
+        <div className="ksm-sumcard">
+          <div className="ksm-cash">
+            <button type="button" onClick={props.onReceived}><span>รับเงินจริง</span><b data-metric="received">{money(props.received)}</b><KsIcon name="chevron" size={17} /></button>
+            <button type="button" onClick={props.onNet}><span>ยอดเงินปัจจุบัน</span><b data-metric="balance">{money(props.balance)}</b><KsIcon name="chevron" size={17} /></button>
+          </div>
+          <button type="button" className="ksm-work" onClick={props.onNet}>
+            <span className="ksm-work-icon"><KsIcon name="income" size={17} /></span>
+            <span className="ksm-grow"><b>กำไรสุทธิ</b><small>{props.profitDetail}</small></span>
+            <strong data-metric="profit">{money(props.profit)}</strong>
+            <KsIcon name="chevron" size={17} />
+          </button>
         </div>
-        <button type="button" className="ksm-work" onClick={props.onNet}>
-          <span className="ksm-work-icon"><KsIcon name="income" size={17} /></span>
-          <span className="ksm-grow"><b>กำไรสุทธิ</b><small>{props.profitDetail}</small></span>
-          <strong data-metric="profit">{props.profit}</strong>
-          <KsIcon name="chevron" size={17} />
-        </button>
       </section>
 
       <button type="button" className={`ksm-notice ${props.hasPending ? 'has-pending' : 'is-empty'}`} onClick={props.onReceivables}
@@ -114,15 +138,6 @@ export function MobileHome(props: MobileHomeProps) {
         <span className="ksm-notice-status">{props.hasPending && <i aria-hidden="true" />}<span>{pendingStatus}</span></span>
         <KsIcon name="chevron" size={17} />
       </button>
-
-      <section className="ksm-actions" aria-label="ทางลัดทำรายการ">
-        {quick.map(action => (
-          <button key={action.label} type="button" className={`ksm-quick is-${action.level}`} onClick={action.run}>
-            <span className="ksm-quick-icon"><KsIcon name={action.icon} size={23} /></span>
-            <span>{action.label}</span>
-          </button>
-        ))}
-      </section>
       <p className="ksm-counts">{props.jobCount} งานทั้งหมด</p>
 
       {props.next && (

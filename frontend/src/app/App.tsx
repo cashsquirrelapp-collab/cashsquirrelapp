@@ -2641,6 +2641,12 @@ export default function App() {
             alerts={dueReminderJobs.length}
             onOpenAlerts={() => { setIsMobileMenuOpen(false); navigateTab('receivables'); }}
             onHome={() => { setIsMobileMenuOpen(false); navigateTab('dashboard'); }}
+            // On the overview the bar joins the hero below it: greeting and avatar instead of the logo.
+            greeting={activeTab === 'dashboard' && !isMobileMenuOpen ? {
+              name: routeContext?.profile.displayName || session?.user?.email?.split('@')[0] || 'บัญชีของฉัน',
+              avatarUrl: userAvatar || undefined,
+              onOpen: () => (navItems.some(item => item.key === 'settings') ? navigateTab('settings') : setIsMobileMenuOpen(true)),
+            } : undefined}
           />
         )}
 
@@ -2742,7 +2748,6 @@ export default function App() {
                     }
                   }}
                   mobile={isPhone}
-                  greetingName={routeContext?.profile.displayName || session.user.email?.split('@')[0]}
                   monthPicker={<DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} compact />}
                   onOpenTools={() => setIsMobileMenuOpen(true)}
                 />

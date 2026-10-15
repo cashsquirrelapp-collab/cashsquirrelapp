@@ -12,17 +12,28 @@ import './mobile.css';
 
 export type MobileTab = 'dashboard' | 'jobs' | 'receivables' | 'menu';
 
-export function MobileHeader({ dark, onToggleTheme, alerts, onOpenAlerts, onHome }: {
+export type MobileGreeting = { name: string; avatarUrl?: string; onOpen: () => void };
+
+export function MobileHeader({ dark, onToggleTheme, alerts, onOpenAlerts, onHome, greeting }: {
   dark: boolean; onToggleTheme: () => void; alerts: number; onOpenAlerts: () => void; onHome: () => void;
+  /** The overview: the bar takes the hero's colour and greets the user instead of showing the logo. */
+  greeting?: MobileGreeting;
 }) {
   const themeLabel = dark ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด';
   return (
-    <header className="ksm ksm-header">
+    <header className={`ksm ksm-header${greeting ? ' is-hero' : ''}`}>
       <div className="ksm-top">
-        <button type="button" className="ksm-brand" onClick={onHome} aria-label="กระรอกตุนเงิน ไปหน้าภาพรวม">
-          <BrandLogo size={36} />
-          <span className="ksm-wordmark" aria-hidden="true">กระรอก<span>ตุนเงิน</span></span>
-        </button>
+        {greeting ? (
+          <button type="button" className="ksm-hello" onClick={greeting.onOpen} aria-label={`โปรไฟล์ของ ${greeting.name}`}>
+            <span className="ksm-hello-avatar">{greeting.avatarUrl ? <img src={greeting.avatarUrl} alt="" /> : <BrandLogo size={34} />}</span>
+            <span className="ksm-hello-text"><small>ยินดีต้อนรับกลับมา</small><b>สวัสดี {greeting.name}</b></span>
+          </button>
+        ) : (
+          <button type="button" className="ksm-brand" onClick={onHome} aria-label="กระรอกตุนเงิน ไปหน้าภาพรวม">
+            <BrandLogo size={36} />
+            <span className="ksm-wordmark" aria-hidden="true">กระรอก<span>ตุนเงิน</span></span>
+          </button>
+        )}
         <span className="ksm-spacer" />
         <button type="button" className="ksm-iconbtn" onClick={onToggleTheme} aria-label={themeLabel} title={themeLabel} aria-pressed={dark}>
           <KsIcon name={dark ? 'moon' : 'sun'} />
