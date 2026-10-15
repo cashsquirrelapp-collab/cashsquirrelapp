@@ -1,9 +1,1 @@
 .plan-mascot-stage { display:flex; height:168px; align-items:center; justify-content:center; }
-/* Three Pro periods. Side by side, the cards share rows (badges, name, mascot, price, button),
-   so prices and buttons line up whatever each card says. */
-.plan-periods { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; }
-.period-card { display:grid; grid-template-rows:auto auto auto auto 1fr; min-width:0; }
-@media (min-width:1024px) {
-  .plan-periods { grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .period-card { grid-row:span 5; grid-template-rows:subgrid; row-gap:0; }
-}

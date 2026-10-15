@@ -1,7 +1,8 @@
 import { uiPrimaryButton } from '../../components/ui/uiStyles';
 import PageHeader from '../../components/ui/PageHeader';
 import React from 'react';
-import { BarChart3, Calculator, Check, CheckCircle2, CreditCard, FileText, MessageCircle, QrCode } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Check, CreditCard, QrCode } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { PlanMascot } from './PlanMascot';
 import './plans.css';
@@ -28,15 +29,29 @@ interface PlansTabProps {
   onUpgrade: () => void;
   onPromptPay: () => void;
   billingBusy: boolean;
+  /** Checkout for the 6-month and yearly periods. Not wired yet (owner, 2026-10-15): while it is
+   * absent their buttons stay disabled, because the monthly checkout would charge the wrong amount. */
+  onSubscribePeriod?: (period: LongPeriod, method: 'card' | 'promptpay') => void;
 }
 
+type BillingPeriod = 'month' | 'halfYear' | 'year';
+type LongPeriod = Exclude<BillingPeriod, 'month'>;
+const BILLING_PERIODS: BillingPeriod[] = ['month', 'halfYear', 'year'];
+
 const FREE_FEATURE_KEYS = ['plans.free1', 'plans.free2', 'plans.free3', 'plans.free4'];
-const PRO_FEATURES = [
-  { key: 'plans.pro1', icon: CheckCircle2 },
-  { key: 'plans.pro2', icon: Calculator },
-  { key: 'plans.pro3', icon: FileText },
-  { key: 'plans.pro4', icon: BarChart3 },
-  { key: 'plans.pro5', icon: MessageCircle },
+// The Pro card's list. `soon` marks what is not live yet (the owner's rule: never sell beyond
+// what works): AI quick entry has no API key on production and no monthly count yet.
+/** Feature lines mark their key words as **bold** in the translation text. */
+function withBold(text: string): React.ReactNode {
+  return text.split(/\*\*(.+?)\*\*/g).map((part, i) => i % 2 ? <strong key={i} className="font-semibold">{part}</strong> : part);
+}
+
+const PRO_CARD_FEATURES: { key: string; soon?: boolean }[] = [
+  { key: 'plans.cardFeatureDocuments' },
+  { key: 'plans.cardFeatureAiEntry', soon: true },
+  { key: 'plans.cardFeatureLine' },
+  { key: 'plans.cardFeatureTax' },
+  { key: 'plans.cardFeatureReports' },
 ];
 
 export const PlansTab: React.FC<PlansTabProps> = ({
@@ -50,8 +65,21 @@ export const PlansTab: React.FC<PlansTabProps> = ({
   onPromptPay,
   billingBusy,
   freeDocumentsAvailable = false,
+  onSubscribePeriod,
 }) => {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
+  const [period, setPeriod] = React.useState<BillingPeriod>('month');
+  const periodButtons = React.useRef<Record<BillingPeriod, HTMLButtonElement | null>>({ month: null, halfYear: null, year: null });
+  // Arrow keys move between the three periods, as in any radio group.
+  const onPeriodKey = (event: React.KeyboardEvent) => {
+    const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const next = BILLING_PERIODS[(BILLING_PERIODS.indexOf(period) + step + BILLING_PERIODS.length) % BILLING_PERIODS.length];
+    setPeriod(next);
+    periodButtons.current[next]?.focus();
+  };
   const isAdminGrant = subscription?.plan === 'admin_grant';
   const hasOpenManagedSubscription = Boolean(
     subscription?.hasSubscription
@@ -88,11 +116,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
   const badge = 'rounded-full bg-[#FDE8DD] px-2.5 py-0.5 text-[11.5px] font-semibold text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]';
   const accent = 'text-[13px] font-semibold text-[#C24A16] dark:text-[#FFA473]';
   const priceFigure = 'font-mono text-5xl font-semibold tracking-[-0.02em] text-brand-text';
-  const comingSoon = (
-    <button type="button" disabled aria-disabled="true" className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-xl border border-dashed border-brand-muted/50 px-4 py-2.5 text-xs font-semibold text-brand-muted">
-      {t('plans.periodComingSoon')}
-    </button>
-  );
+  const qrButton = 'inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#E65F2B] bg-brand-white px-4 py-2.5 text-xs font-semibold text-[#A84319] transition-colors hover:bg-[#FFF1E8] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-transparent dark:text-[#FFA473] dark:hover:bg-[#E65F2B]/10';
 
   return (
     <div className="page-content mx-auto max-w-5xl pb-16">
@@ -107,101 +131,100 @@ export const PlansTab: React.FC<PlansTabProps> = ({
         <p className="text-[12px] leading-relaxed text-brand-muted">{statusText}</p>
       </div>
 
-      {/* Pro by billing period, three cards. Only monthly can be bought today; 6-month and yearly
-          are priced (owner, 2026-10-15) and wait for checkout support, so their button is disabled. */}
+      {/* Pro, one card. The switch above it picks the billing period; price, lines and buttons
+          follow. Only monthly can be paid today; the others wait for onSubscribePeriod. */}
       <section className="mt-9" aria-labelledby="pro-plans-title">
         <div className="text-center">
           <h2 id="pro-plans-title" className="text-3xl font-semibold">Pro</h2>
           <p className="mt-1 text-sm text-brand-muted">{t('plans.periodsSubtitle')}</p>
         </div>
-        <div className="plan-periods mt-7" data-testid="pro-periods">
-          <article data-period="month" className="period-card rounded-[28px] border border-brand-border bg-brand-white p-6 dark:bg-[#202126] sm:p-7">
-            <div className="flex min-h-[26px] flex-wrap items-center gap-2">
-              {introEligible && <span className={badge}>{t('plans.monthlyDiscountBadge')}</span>}
-            </div>
-            <div className="pt-3">
-              <h3 className="text-2xl font-semibold">{t('plans.monthlyLabel')}</h3>
-              <p className="mt-1 text-[13px] text-brand-muted">{t(introEligible ? 'plans.introBadge' : 'plans.monthlySubtitle')}</p>
-            </div>
-            <PlanMascot featured label="ทักทายน้องกระรอก Pro" size={132} />
-            <div className="pb-1">
-              <div className="flex items-end gap-2">
-                {introEligible && <s className="pb-1.5 font-mono text-xl text-brand-muted decoration-[1.5px]"><span className="sr-only">{t('plans.regularPrice')} </span>฿249</s>}
-                <span className={priceFigure}>{introEligible ? '฿199' : '฿249'}</span>
-              </div>
-              <p className="mt-1.5 text-[13px] text-brand-muted">{t('plans.monthPer')}</p>
-              {introEligible ? <>
-                <p className={`mt-2 ${accent}`}>{t('plans.introPriceNote')}</p>
-                <p className="mt-0.5 text-xs text-brand-muted">{t('plans.standardPrice')}</p>
-              </> : <p className="mt-2 text-xs text-brand-muted">{t('plans.standardOnlyNote')}</p>}
-            </div>
-            <div className="grid content-end gap-2 pt-6">
-              {canBuy ? <>
-                <button type="button" onClick={onUpgrade} disabled={billingBusy} className={`${uiPrimaryButton} w-full`}>
-                  {billingBusy ? t('plans.loadingCta') : isGuestPreview ? t('plans.guestCreateAccountCta') : hasOpenManagedSubscription ? t('plans.renewCta') : t(introEligible ? 'plans.subscribeCta' : 'plans.subscribeStandardCta')}
+
+        <div className="mt-6 flex justify-center">
+          <div role="radiogroup" aria-label={t('plans.periodSwitchLabel')} onKeyDown={onPeriodKey} data-testid="period-switch"
+            className="relative grid w-full max-w-[460px] grid-cols-3 gap-1 rounded-full border border-brand-border bg-brand-faint p-1 dark:bg-neutral-800/70">
+            {BILLING_PERIODS.map(option => {
+              const active = option === period;
+              return (
+                <button key={option} type="button" role="radio" aria-checked={active} tabIndex={active ? 0 : -1}
+                  ref={node => { periodButtons.current[option] = node; }}
+                  onClick={() => setPeriod(option)} data-period-option={option}
+                  className={`relative flex min-h-11 items-center justify-center gap-1.5 rounded-full px-2 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E65F2B] ${active ? 'text-brand-text' : 'text-brand-muted hover:text-brand-text'}`}>
+                  {active && (
+                    <motion.span layoutId={reduceMotion ? undefined : 'period-pill'} aria-hidden="true"
+                      className="absolute inset-0 rounded-full bg-brand-white shadow-[0_2px_8px_rgba(33,29,26,0.10)] dark:bg-[#2C2D32]"
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }} />
+                  )}
+                  <span className="relative">{t(`plans.${option}SwitchLabel`)}</span>
+                  {option === 'year' && <span className="relative rounded-full bg-[#E65F2B] px-1.5 py-px text-[10px] font-semibold text-white">{t('plans.yearSwitchChip')}</span>}
                 </button>
-                {!isGuestPreview && !hasOpenManagedSubscription && (
-                  <button
-                    type="button"
-                    onClick={onPromptPay}
-                    disabled={billingBusy}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#E65F2B] px-4 py-2.5 text-xs font-semibold text-[#A84319] transition-colors hover:bg-[#FFF1E8] disabled:opacity-50 dark:text-[#FFA473] dark:hover:bg-[#E65F2B]/10"
-                  >
-                    {billingBusy ? t('plans.loadingCta') : t(introEligible ? 'plans.promptPayCta' : 'plans.promptPayStandardCta')}
-                  </button>
-                )}
-              </> : (
-                <span className="rounded-full bg-emerald-500/10 px-3 py-1.5 text-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">{t('plans.currentPlan')}</span>
-              )}
-            </div>
-          </article>
-
-          <article data-period="halfYear" className="period-card rounded-[28px] border border-brand-border bg-brand-white p-6 dark:bg-[#202126] sm:p-7">
-            <div className="flex min-h-[26px] flex-wrap items-center gap-2"><span className={badge}>{t('plans.halfYearBadge')}</span></div>
-            <div className="pt-3">
-              <h3 className="text-2xl font-semibold">{t('plans.halfYearLabel')}</h3>
-              <p className="mt-1 text-[13px] text-brand-muted">{t('plans.halfYearSubtitle')}</p>
-            </div>
-            <PlanMascot label="ทักทายน้องกระรอก ราย 6 เดือน" action="hold-calendar" size={132} />
-            <div className="pb-1">
-              <div className="flex items-end gap-2"><span className={priceFigure}>{t('plans.halfYearPrice')}</span></div>
-              <p className="mt-1.5 text-[13px] text-brand-muted">{t('plans.halfYearPer')}</p>
-              <p className={`mt-2 ${accent}`}>{t('plans.halfYearAverage')}</p>
-            </div>
-            <div className="grid content-end gap-2 pt-6">{comingSoon}</div>
-          </article>
-
-          <article data-period="year" data-recommended="true" className="period-card relative rounded-[28px] border-2 border-[#E65F2B] bg-brand-white p-6 shadow-[0_18px_40px_-28px_rgba(230,95,43,0.55)] dark:bg-[#202126] sm:p-7">
-            <div className="flex min-h-[26px] flex-wrap items-center gap-2">
-              <span className="rounded-full bg-[#E65F2B] px-2.5 py-0.5 text-[11.5px] font-semibold text-white">{t('plans.recommendedBadge')}</span>
-              <span className={badge}>{t('plans.yearBadge')}</span>
-            </div>
-            <div className="pt-3">
-              <h3 className="text-2xl font-semibold">{t('plans.yearLabel')}</h3>
-              <p className="mt-1 text-[13px] text-brand-muted">{t('plans.yearSubtitle')}</p>
-            </div>
-            <PlanMascot label="ทักทายน้องกระรอก รายปี" mood="wave" action="wave" size={132} />
-            <div className="pb-1">
-              <div className="flex items-end gap-2"><span className={priceFigure}>{t('plans.yearPrice')}</span></div>
-              <p className="mt-1.5 text-[13px] text-brand-muted">{t('plans.yearPer')}</p>
-              <p className={`mt-2 ${accent}`}>{t('plans.yearAverage')}</p>
-            </div>
-            <div className="grid content-end gap-2 pt-6">{comingSoon}</div>
-          </article>
+              );
+            })}
+          </div>
         </div>
-      </section>
 
-      {/* The same Pro features whichever period is chosen, listed once. */}
-      <section className="mt-6 rounded-[24px] border border-brand-border bg-brand-white p-6 dark:bg-[#202126] sm:p-7" aria-labelledby="pro-features-title">
-        <h2 id="pro-features-title" className="text-[15px] font-semibold">{t('plans.proFeaturesTitle')}</h2>
-        <ul className="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2" role="list">
-          {PRO_FEATURES.map(({ key, icon: Icon }) => (
-            <li key={key} className="flex items-start gap-3 text-[13.5px] leading-6 text-brand-text">
-              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]" aria-hidden><Icon className="h-3.5 w-3.5" /></span>
-              {t(key)}
-            </li>
-          ))}
-        </ul>
+        <article data-testid="pro-card" data-period={period}
+          className="relative mx-auto mt-6 max-w-[560px] rounded-3xl border-2 border-[#E65F2B] bg-brand-white p-6 shadow-[0_22px_48px_-34px_rgba(230,95,43,0.6)] dark:bg-[#202126] sm:p-8">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={period}
+              initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
+              transition={{ duration: reduceMotion ? 0 : 0.18, ease: 'easeOut' }}>
+              <div className="flex min-h-[26px] justify-center">
+                {(period !== 'month' || introEligible) && <span className={badge}>{t(`plans.${period}CardBadge`)}</span>}
+              </div>
+              {period === 'month'
+                ? <PlanMascot featured label="ทักทายน้องกระรอก Pro" size={140} />
+                : period === 'halfYear'
+                  ? <PlanMascot label="ทักทายน้องกระรอก ราย 6 เดือน" action="hold-calendar" size={140} />
+                  : <PlanMascot label="ทักทายน้องกระรอก รายปี" mood="wave" action="wave" size={140} />}
+              <div className="text-center" data-testid="pro-price">
+                <div className="flex items-end justify-center gap-2.5">
+                  {(period !== 'month' || introEligible) && (
+                    <s className="pb-1.5 font-mono text-xl text-brand-muted decoration-[1.5px]"><span className="sr-only">{t('plans.regularPrice')} </span>{t(`plans.${period}RegularPrice`)}</s>
+                  )}
+                  <span className={priceFigure}>{period === 'month' ? (introEligible ? '฿199' : '฿249') : t(`plans.${period}Price`)}</span>
+                  <span className="pb-1.5 text-sm text-brand-muted">{t(`plans.${period}PerShort`)}</span>
+                </div>
+                {period === 'month' ? (introEligible ? <>
+                  <p className={`mt-3 ${accent}`}>{t('plans.introPriceNote')}</p>
+                  <p className="mt-0.5 text-xs text-brand-muted">{t('plans.standardPrice')}</p>
+                </> : <p className="mt-3 text-xs text-brand-muted">{t('plans.standardOnlyNote')}</p>)
+                  : <p className={`mt-3 ${accent}`}>{t(`plans.${period}Saving`)}</p>}
+              </div>
+
+              <div className="mt-6 grid gap-2">
+                {!canBuy ? (
+                  <span className="rounded-full bg-emerald-500/10 px-3 py-2 text-center text-[12px] font-semibold text-emerald-700 dark:text-emerald-300">{t('plans.currentPlan')}</span>
+                ) : period === 'month' ? <>
+                  <button type="button" onClick={onUpgrade} disabled={billingBusy} className={`${uiPrimaryButton} w-full`}>
+                    {billingBusy ? t('plans.loadingCta') : isGuestPreview ? t('plans.guestCreateAccountCta') : hasOpenManagedSubscription ? t('plans.renewCta') : t(introEligible ? 'plans.subscribeCta' : 'plans.subscribeStandardCta')}
+                  </button>
+                  {!isGuestPreview && !hasOpenManagedSubscription && (
+                    <button type="button" onClick={onPromptPay} disabled={billingBusy} className={qrButton}>
+                      {billingBusy ? t('plans.loadingCta') : t(introEligible ? 'plans.promptPayCta' : 'plans.promptPayStandardCta')}
+                    </button>
+                  )}
+                </> : <>
+                  <button type="button" disabled={!onSubscribePeriod || billingBusy} onClick={() => onSubscribePeriod?.(period, 'card')} className={`${uiPrimaryButton} w-full`}>
+                    {t(`plans.${period}SubscribeCta`)}
+                  </button>
+                  <button type="button" disabled={!onSubscribePeriod || billingBusy} onClick={() => onSubscribePeriod?.(period, 'promptpay')} className={qrButton}>
+                    {t(`plans.${period}PromptPayCta`)}
+                  </button>
+                  {!onSubscribePeriod && <p className="text-center text-[12px] text-brand-muted" data-testid="period-not-open">{t('plans.periodNotOpen')}</p>}
+                </>}
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          <ul className="mt-7 grid gap-3 border-t border-brand-border pt-6" role="list" aria-label={t('plans.proFeaturesTitle')}>
+            {PRO_CARD_FEATURES.map(({ key, soon }) => (
+              <li key={key} className="flex items-start gap-3 text-[14px] leading-6 text-brand-text">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]" aria-hidden><Check className="h-3.5 w-3.5" strokeWidth={2.6} /></span>
+                <span className="min-w-0">{withBold(t(key))}{soon && <span className="ml-2 inline-block rounded-full bg-brand-faint px-2 py-px align-[2px] text-[11px] font-semibold text-brand-muted dark:bg-neutral-800">{t('plans.periodComingSoon')}</span>}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
       </section>
 
       {/* Free, the plan everyone starts on. */}

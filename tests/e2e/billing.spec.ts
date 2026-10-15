@@ -124,7 +124,7 @@ test('an intro-eligible free account chooses Stripe Checkout', async ({ page }) 
   }, stripeUrl);
 
   const plans = page.locator('#main-content');
-  await expect(plans.getByText('โปรเปิดตัว · ลด ฿50/รอบ', { exact: true })).toBeVisible();
+  await expect(plans.getByText('ลดไป 20% · โปรเปิดตัว', { exact: true })).toBeVisible();
   await expect(plans.getByText(/฿199\s*\/\s*เดือน/).first()).toBeVisible();
   await expect(plans.getByText('จากนั้น ฿249 / เดือน ตั้งแต่รอบบิลที่ 4', { exact: true })).toBeVisible();
   await plans.getByRole('button', { name: 'สมัคร Pro ฿199/เดือน 3 รอบแรก', exact: true }).click();
@@ -152,7 +152,7 @@ test('intro offer badge and both billing prices stay readable on mobile', async 
   const plans = page.locator('#main-content');
   await expect(plans.getByRole('heading', { name: 'Free', exact: true })).toBeVisible();
   await expect(plans.getByRole('heading', { name: 'Pro', exact: true })).toBeVisible();
-  await expect(plans.getByText('โปรเปิดตัว · ลด ฿50/รอบ', { exact: true })).toBeVisible();
+  await expect(plans.getByText('ลดไป 20% · โปรเปิดตัว', { exact: true })).toBeVisible();
   await expect(plans.getByText('฿199 / เดือน เฉพาะ 3 รอบบิลรายเดือนแรก', { exact: true })).toBeVisible();
   await expect(plans.getByText('จากนั้น ฿249 / เดือน ตั้งแต่รอบบิลที่ 4', { exact: true })).toBeVisible();
   await expect(plans.getByRole('heading', { name: 'บัตรเครดิต / เดบิต', exact: true })).toBeVisible();
@@ -220,11 +220,7 @@ test('a managed nonterminal subscription chooses the Stripe Billing Portal', asy
 
 test('aligned plans retain the official mascot and return from tap to idle, respecting reduced motion',async({page})=>{
   await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock');
-  // Side by side, the three period cards share rows: prices and buttons line up.
-  const cards=page.locator('.period-card');
-  await expect(cards).toHaveCount(3);
-  const rows=await cards.evaluateAll(nodes=>nodes.map(node=>({price:node.querySelector('.text-5xl')!.getBoundingClientRect().top,button:node.lastElementChild!.getBoundingClientRect().top})));
-  for(const row of rows.slice(1)){expect(Math.abs(row.price-rows[0].price)).toBeLessThan(1);expect(Math.abs(row.button-rows[0].button)).toBeLessThan(1);}
+  await expect(page.getByRole('radio',{name:'รายเดือน'})).toHaveAttribute('aria-checked','true'); // monthly by default
   const mascot=page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'});
   await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','idle');
   await mascot.click();
@@ -236,42 +232,54 @@ test('aligned plans retain the official mascot and return from tap to idle, resp
   await expect(page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'}).locator('[data-motion]')).toHaveAttribute('data-motion','reduced');
 });
 
-test('plans page: three Pro cards; monthly ฿249 struck to ฿199 with "ลดไป 20%", 6-month and yearly (recommended) priced but not for sale yet',async({page})=>{
+test('plans page: the billing switch changes the Pro card; 6-month and yearly are priced but cannot be paid yet',async({page})=>{
   await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock');
-  const month=page.locator('[data-period="month"]');
-  await expect(month.getByText('ลดไป 20%',{exact:true})).toBeVisible();
-  await expect(month.locator('s')).toHaveText(/฿249/);
-  await expect(month.getByText('฿199',{exact:true})).toBeVisible();
-  await expect(month.getByText('฿199 / เดือน เฉพาะ 3 รอบบิลรายเดือนแรก',{exact:true})).toBeVisible();
-  await expect(month.getByRole('button',{name:'สมัคร Pro ฿199/เดือน 3 รอบแรก',exact:true})).toBeEnabled();
-  const halfYear=page.locator('[data-period="halfYear"]');
-  await expect(halfYear.getByRole('heading',{name:'ราย 6 เดือน'})).toBeVisible();
-  await expect(halfYear).toContainText('฿990');
-  await expect(halfYear).toContainText('ต่อ 6 เดือน');
-  await expect(halfYear).toContainText('เฉลี่ย ฿165/เดือน');
-  await expect(halfYear).toContainText('คุ้มกว่า');
-  const year=page.locator('[data-period="year"]');
-  await expect(year).toHaveAttribute('data-recommended','true');
-  await expect(year).toContainText('แนะนำ');
-  await expect(year.getByRole('heading',{name:'รายปี'})).toBeVisible();
-  await expect(year).toContainText('฿1,790');
-  await expect(year).toContainText('ต่อปี');
-  await expect(year).toContainText('เฉลี่ย ฿149/เดือน');
-  await expect(year).toContainText('ประหยัดที่สุด');
-  // nothing to buy for the long plans yet: one disabled "เร็ว ๆ นี้" each
-  for(const card of [halfYear,year]){
-    await expect(card.getByRole('button',{name:'เร็ว ๆ นี้'})).toBeDisabled();
-    await expect(card.getByRole('button',{name:/สมัคร|จ่าย|QR/})).toHaveCount(0);
-  }
+  const card=page.getByTestId('pro-card');
+  const price=page.getByTestId('pro-price');
+  // monthly, the default and the only period on sale
+  await expect(card).toHaveAttribute('data-period','month');
+  await expect(card.getByText('ลดไป 20% · โปรเปิดตัว',{exact:true})).toBeVisible();
+  await expect(price.locator('s')).toHaveText(/฿249/);
+  await expect(price.getByText('฿199',{exact:true})).toBeVisible();
+  await expect(price.getByText('฿199 / เดือน เฉพาะ 3 รอบบิลรายเดือนแรก',{exact:true})).toBeVisible();
+  await expect(price.getByText('จากนั้น ฿249 / เดือน ตั้งแต่รอบบิลที่ 4',{exact:true})).toBeVisible();
+  await expect(card.getByRole('button',{name:'สมัคร Pro ฿199/เดือน 3 รอบแรก',exact:true})).toBeEnabled();
+  await expect(card.getByRole('button',{name:'จ่ายด้วย QR ฿199 / สิทธิ์ 1 เดือน',exact:true})).toBeEnabled();
+  // 6 months
+  await page.getByRole('radio',{name:'ราย 6 เดือน'}).click();
+  await expect(card).toHaveAttribute('data-period','halfYear');
+  await expect(card.getByText('คุ้มกว่า · ประหยัดกว่ารายเดือน',{exact:true})).toBeVisible();
+  await expect(price.locator('s')).toHaveText(/฿1,494/);
+  await expect(price.getByText('฿990',{exact:true})).toBeVisible();
+  await expect(price.getByText('เฉลี่ยเพียง ฿165 / เดือน (ประหยัดไป ฿504)',{exact:true})).toBeVisible();
+  await expect(card.getByRole('button',{name:'สมัคร Pro ราย 6 เดือน ฿990',exact:true})).toBeDisabled();
+  await expect(card.getByRole('button',{name:'จ่ายด้วย QR ฿990 / สิทธิ์ 6 เดือน',exact:true})).toBeDisabled();
+  await expect(card.getByTestId('period-not-open')).toBeVisible();
+  // yearly, reached with the arrow key as in any radio group
+  await page.getByRole('radio',{name:'ราย 6 เดือน'}).press('ArrowRight');
+  await expect(page.getByRole('radio',{name:/รายปี/})).toHaveAttribute('aria-checked','true');
+  await expect(page.getByRole('radio',{name:/รายปี/})).toContainText('฿149/ด.');
+  await expect(card).toHaveAttribute('data-period','year');
+  await expect(card.getByText('แนะนำ · ประหยัดที่สุด',{exact:true})).toBeVisible();
+  await expect(price.locator('s')).toHaveText(/฿2,988/);
+  await expect(price.getByText('฿1,790',{exact:true})).toBeVisible();
+  await expect(price.getByText('เฉลี่ยเพียง ฿149 / เดือน (ราคาต่อเดือนต่ำที่สุด ประหยัดไป ฿1,198)',{exact:true})).toBeVisible();
+  await expect(card.getByRole('button',{name:'สมัคร Pro รายปี ฿1,790',exact:true})).toBeDisabled();
+  await expect(card.getByRole('button',{name:'จ่ายด้วย QR ฿1,790 / สิทธิ์ 1 ปี',exact:true})).toBeDisabled();
+  // the feature list stays the same whichever period; AI quick entry is marked as not live
+  const features=card.getByRole('list',{name:'ทุกรอบชำระได้ Pro ครบเท่ากัน'}).getByRole('listitem');
+  await expect(features).toHaveCount(5);
+  await expect(features.filter({hasText:'Quick Entry'})).toContainText('เร็ว ๆ นี้');
+  await expect(features.filter({hasText:'ใบเสนอราคา'})).not.toContainText('เร็ว ๆ นี้');
 });
 
-test('plans page: an account past its 3 promo cycles sees ฿249 without the strike or the 20% badge',async({page})=>{
+test('plans page: an account past its 3 promo cycles sees ฿249 monthly without the strike or the 20% badge',async({page})=>{
   await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false},'https://checkout.stripe.com/c/pay/mock');
-  const month=page.locator('[data-period="month"]');
-  await expect(month.getByText('฿249',{exact:true})).toBeVisible();
-  await expect(month.locator('s')).toHaveCount(0);
-  await expect(month.getByText('ลดไป 20%',{exact:true})).toHaveCount(0);
-  await expect(page.getByTestId('pro-periods').locator('[data-period]')).toHaveCount(3);
+  const price=page.getByTestId('pro-price');
+  await expect(price.getByText('฿249',{exact:true})).toBeVisible();
+  await expect(price.locator('s')).toHaveCount(0);
+  await expect(page.getByTestId('pro-card').getByText('ลดไป 20% · โปรเปิดตัว',{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('radio')).toHaveCount(3);
 });
 
 test('plans page: Free documents quota is live, LINE and media quotas stay marked as not ready',async({page})=>{
