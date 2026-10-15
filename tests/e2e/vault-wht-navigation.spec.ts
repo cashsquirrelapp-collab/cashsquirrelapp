@@ -332,3 +332,29 @@ test('50 ทวิ shows a truthful empty state when the selected year has no el
   await expect(page.getByText('ยังไม่มีงานที่ต้องติดตามใบ 50 ทวิ')).toBeVisible();
   await expect(page.getByRole('table')).toHaveCount(0);
 });
+
+test('a 1% job is e-WHT: counted as backed, never waited on, and a file can still be attached', async ({ page }) => {
+  const eWhtJob = { ...paidJob(13), id: 'ewht-job', name: 'Bank e-WHT Campaign', value: 20_000, whtRate: 1, whtAmount: 200, received: 19_800 };
+  await setup(page, undefined, { ...snapshot, jobs: [...jobs, eWhtJob] });
+  await page.goto('/wht50');
+
+  const summary = page.getByLabel('สรุปการติดตามใบ 50 ทวิ');
+  await expect(summary).toContainText('8 งานที่ต้องมีใบ 50 ทวิ · e-WHT 1 งาน');
+  await expect(summary.getByTestId('wht-total')).toHaveText('฿4,049');
+  await expect(summary.getByTestId('wht-have')).toHaveText('฿809');
+  await expect(summary.getByTestId('wht-waiting')).toHaveText('฿3,240');
+  await expect(summary).toContainText('ได้รับแล้ว 2 จาก 8 งานที่ต้องมีใบ 50 ทวิ');
+  await expect(summary).toContainText('25%');
+  await expect(page.getByTestId('ewht-note')).toContainText('ผู้จ่ายไม่ต้องออกใบ 50 ทวิ');
+
+  const statuses = page.getByRole('tablist', { name: 'สถานะใบ 50 ทวิ' });
+  const statusNames = (await statuses.getByRole('tab').allTextContents()).map(text => text.replace(/\s+/g, ' ').trim());
+  expect(statusNames).toEqual(['ยังรอ 6', 'ได้รับแล้ว 3', 'ทั้งหมด 9']);
+  await expect(page.getByRole('table').getByText('Bank e-WHT Campaign')).toHaveCount(0);
+
+  await statuses.getByRole('tab', { name: /^ได้รับแล้ว/ }).click();
+  const row = page.getByRole('table').locator('tbody tr').filter({ hasText: 'Bank e-WHT Campaign' });
+  await expect(row).toContainText('e-WHTไม่ต้องรอใบ 50 ทวิ');
+  await row.getByRole('button', { name: 'แนบเอกสารของ Bank e-WHT Campaign (ถ้ามี)' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+});

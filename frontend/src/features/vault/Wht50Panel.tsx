@@ -24,14 +24,17 @@ import { downloadVaultZip } from './zip';
 
 // เอกสาร › ติดตามใบ 50 ทวิ: one follow-up row per qualifying paid job. The attachment itself
 // stays in the shared document vault; this page only derives its received/waiting status.
+// 1% jobs are e-WHT (see isEWhtJob): their evidence is in the Revenue Department's system, so
+// they count as backed and are never waited on; a certificate the payer issues anyway can be attached.
 
 type Filter = 'waiting' | 'have' | 'all';
-const WHT_CREDIT_NOTE = 'ภาษีที่ถูกหักไว้ นำไปหักกับภาษีที่ต้องจ่ายตอนยื่นแบบ ส่วนที่เกินขอคืนได้ ต้องมีใบ 50 ทวิเป็นหลักฐาน ได้คืนจริงเท่าไรขึ้นกับภาษีทั้งปีของคุณ';
+const WHT_CREDIT_NOTE = 'ภาษีที่ถูกหักไว้ นำไปหักกับภาษีที่ต้องจ่ายตอนยื่นแบบ ส่วนที่เกินขอคืนได้ หลักฐานคือใบ 50 ทวิ หรือข้อมูล e-WHT ในระบบกรมสรรพากร ได้คืนจริงเท่าไรขึ้นกับภาษีทั้งปีของคุณ';
+const E_WHT_NOTE = 'งานที่หัก 1% นับเป็นการหักผ่าน e-Withholding Tax ผู้จ่ายไม่ต้องออกใบ 50 ทวิ ธนาคารส่งข้อมูลให้กรมสรรพากร ตรวจสอบได้ในระบบของกรมสรรพากร หากผู้จ่ายออกใบให้ (เช่น ค่าขนส่งที่หัก 1%) แนบไว้กับงานได้';
 type Sort = 'waiting' | 'latest' | 'wht' | 'value';
 type TrackingRow = {
   job: Job;
   files: VaultFile[];
-  status: 'have' | 'waiting';
+  status: 'have' | 'eWht' | 'waiting';
   paidDate: string | null;
   waitingDays: number | null;
 };
@@ -69,28 +72,33 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
     .filter(job => year === 'unknown' ? paidYearOf(job) === null : paidYearOf(job) === year)
     .map(job => {
       const files = wht50Files(job, vault.files);
+      const status = wht50StatusOf(job, vault.files);
       return {
         job,
         files,
-        status: wht50StatusOf(job, vault.files) === 'have' ? 'have' : 'waiting',
+        status: status === 'have' || status === 'eWht' ? status : 'waiting',
         paidDate: receivedPaymentDateOf(job),
         waitingDays: wht50WaitingDays(job),
       };
     }), [jobs, vault.files, year]);
 
   const have = rows.filter(row => row.status === 'have');
+  const eWht = rows.filter(row => row.status === 'eWht');
   const waiting = rows.filter(row => row.status === 'waiting');
+  const needCertificate = have.length + waiting.length;
   const receivedFileCount = have.reduce((sum, row) => sum + row.files.length, 0);
-  // Tax withheld on these jobs. With a 50 ทวิ it can be credited against the year's tax (any
-  // excess is refunded); without one it cannot be used yet. Same amounts as the rows show.
+  // Tax withheld on these jobs. With a 50 ทวิ, or e-WHT data at the Revenue Department, it can be
+  // credited against the year's tax (any excess is refunded); without either it cannot be used yet.
+  // Same amounts as the rows show.
   const withheld = (list: TrackingRow[]) => list.reduce((sum, row) => sum + jobWhtAmount(row.job), 0);
   const whtTotal = withheld(rows);
-  const whtHave = withheld(have);
+  const whtHave = withheld(have) + withheld(eWht);
   const whtWaiting = withheld(waiting);
-  const share = rows.length ? Math.round((have.length / rows.length) * 100) : 0;
+  const share = needCertificate ? Math.round((have.length / needCertificate) * 100) : 0;
+  const eWhtPart = eWht.length ? ` · e-WHT ${eWht.length} งาน` : '';
   const q = query.trim().toLocaleLowerCase();
   const shown = rows
-    .filter(row => filter === 'all' || row.status === filter)
+    .filter(row => filter === 'all' || row.status === filter || (filter === 'have' && row.status === 'eWht'))
     .filter(row => !q || [row.job.name, row.job.client, ...row.files.map(file => file.fileName)]
       .some(value => value?.toLocaleLowerCase().includes(q)))
     .sort((a, b) => {
@@ -128,7 +136,12 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
   };
   const statusChip = (row: TrackingRow) => row.status === 'have'
     ? <span className="inline-flex items-center gap-1 rounded-full bg-[#E9F7F0] px-2.5 py-1 text-xs font-medium text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]"><CheckCircle2 className="h-3.5 w-3.5" />ได้รับแล้ว · {row.files.length} ไฟล์</span>
-    : <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF4D8] px-2.5 py-1 text-xs font-medium text-[#93620A] dark:bg-[#F2B84B]/10 dark:text-[#F2C66D]"><span className="h-1.5 w-1.5 rounded-full bg-current" />รอใบ 50 ทวิ</span>;
+    : row.status === 'eWht'
+      ? <span className="block space-y-0.5">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-brand-faint px-2.5 py-1 text-xs font-medium text-brand-text"><CheckCircle2 className="h-3.5 w-3.5 text-[#18A66A] dark:text-[#6FD3A3]" />e-WHT</span>
+          <span className="block text-[11px] text-brand-muted">ไม่ต้องรอใบ 50 ทวิ</span>
+        </span>
+      : <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF4D8] px-2.5 py-1 text-xs font-medium text-[#93620A] dark:bg-[#F2B84B]/10 dark:text-[#F2C66D]"><span className="h-1.5 w-1.5 rounded-full bg-current" />รอใบ 50 ทวิ</span>;
   const waitingCell = (row: TrackingRow) => (
     <div className="space-y-0.5">
       <span className="block font-mono text-[13px] font-semibold text-[#A9650B] dark:text-[#F2C66D]">
@@ -142,6 +155,11 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
       className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-brand-border px-3 text-xs font-medium text-brand-text hover:bg-brand-faint cursor-pointer ${wide ? 'w-full' : ''}`}>
         <FileText className="h-3.5 w-3.5" />ดูเอกสาร
       </button>
+    : row.status === 'eWht'
+      ? <button type="button" aria-label={`แนบเอกสารของ ${row.job.name} (ถ้ามี)`} onClick={() => vault.openUpload({ kind: 'wht50', job: row.job })}
+        className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-brand-border px-3 text-xs font-medium text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer ${wide ? 'w-full' : ''}`}>
+          <Paperclip className="h-3.5 w-3.5" />แนบ (ถ้ามี)
+        </button>
     : <button type="button" aria-label={`แนบใบ 50 ทวิสำหรับ ${row.job.name}`} onClick={() => vault.openUpload({ kind: 'wht50', job: row.job })}
       className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#F3B08C] px-3 text-xs font-semibold text-[#C24A16] hover:bg-[#FFF5EE] dark:border-[#E65F2B]/40 dark:text-[#FF9A6B] dark:hover:bg-[#E65F2B]/10 cursor-pointer ${wide ? 'w-full' : ''}`}>
         <Paperclip className="h-3.5 w-3.5" />แนบใบ 50 ทวิ
@@ -190,13 +208,13 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
   const sectionTitle = filter === 'waiting'
     ? `งานที่ยังรอเอกสาร (${waiting.length})`
     : filter === 'have'
-      ? `งานที่ได้รับเอกสารแล้ว (${have.length})`
-      : `งานทั้งหมดที่ต้องมีใบ 50 ทวิ (${rows.length})`;
+      ? `งานที่มีหลักฐานแล้ว (${have.length + eWht.length})`
+      : eWht.length ? `งานทั้งหมดที่หัก ณ ที่จ่าย (${rows.length})` : `งานทั้งหมดที่ต้องมีใบ 50 ทวิ (${rows.length})`;
   const sectionHelper = filter === 'waiting'
     ? 'ควรติดตามตามลำดับจากงานที่รอนานที่สุด'
     : filter === 'have'
-      ? 'เปิดดูหรือจัดการไฟล์ที่ได้รับแล้ว'
-      : 'รวมงานที่ยังรอและงานที่ได้รับเอกสารแล้ว';
+      ? eWht.length ? 'ใบ 50 ทวิที่แนบไว้ และงานที่หัก 1% ผ่าน e-WHT' : 'เปิดดูหรือจัดการไฟล์ที่ได้รับแล้ว'
+      : eWht.length ? 'รวมงานที่ยังรอ งานที่ได้รับเอกสารแล้ว และงานที่หักผ่าน e-WHT' : 'รวมงานที่ยังรอและงานที่ได้รับเอกสารแล้ว';
 
   const emptyState = (() => {
     if (q) return { title: 'ไม่พบงานที่ตรงกับคำค้นหา', copy: 'ลองค้นหาด้วยชื่องานหรือลูกค้าอื่น' };
@@ -215,14 +233,15 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
         <section aria-label="สรุปการติดตามใบ 50 ทวิ" aria-live="polite" className="ksm-metrics">
           <div className="ksm-metric is-wide"><small>ภาษีหัก ณ ที่จ่ายรวม · {rows.length} งาน</small><b data-testid="wht-total">{exactBaht(whtTotal)}</b></div>
           <div className={`ksm-metric${waiting.length > 0 ? ' is-warning' : ''}`}><small>ยังไม่มีเอกสาร · {waiting.length} งาน</small><b data-testid="wht-waiting">{exactBaht(whtWaiting)}</b></div>
-          <div className="ksm-metric"><small>มีเอกสารรองรับ · {have.length} งาน</small><b data-testid="wht-have">{exactBaht(whtHave)}</b></div>
+          <div className="ksm-metric"><small>มีหลักฐานรองรับ · {have.length + eWht.length} งาน</small><b data-testid="wht-have">{exactBaht(whtHave)}</b></div>
         </section>
         <p className="ksm-hint">{WHT_CREDIT_NOTE}</p>
+        {eWht.length > 0 && <p className="ksm-hint" data-testid="ewht-note">{E_WHT_NOTE}</p>}
         <div className="ksm-row-between">
           <div className="ksm-chips" role="tablist" aria-label="สถานะใบ 50 ทวิ">
             {filterOrder.map(option => {
               const label = option === 'waiting' ? 'ยังรอ' : option === 'have' ? 'ได้รับแล้ว' : 'ทั้งหมด';
-              const count = option === 'waiting' ? waiting.length : option === 'have' ? have.length : rows.length;
+              const count = option === 'waiting' ? waiting.length : option === 'have' ? have.length + eWht.length : rows.length;
               return (
                 <button key={option} id={`wht50-tab-${option}`} type="button" role="tab" aria-selected={filter === option} aria-controls="wht50-tabpanel"
                   tabIndex={filter === option ? 0 : -1} onClick={() => setFilter(option)} onKeyDown={event => moveFilterFocus(event, option)}>
@@ -243,11 +262,13 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
               <h3>{row.job.client || row.job.name}</h3>
               <p>{row.job.name} · หัก ณ ที่จ่าย {formatCurrency(jobWhtAmount(row.job))}</p>
               <div className="ksm-whtcard-foot">
-                <span className={`ksm-badge ${row.status === 'have' ? 'is-success' : 'is-warning'}`}>
-                  <KsIcon name={row.status === 'have' ? 'check' : 'clock'} size={14} />
+                <span className={`ksm-badge ${row.status === 'waiting' ? 'is-warning' : 'is-success'}`}>
+                  <KsIcon name={row.status === 'waiting' ? 'clock' : 'check'} size={14} />
                   {row.status === 'have'
                     ? `ได้รับไฟล์แล้ว · ${row.files.length} ไฟล์`
-                    : `ยังรอเอกสาร${row.waitingDays === null ? '' : row.waitingDays === 0 ? ' · วันนี้' : ` · ${row.waitingDays} วัน`}`}
+                    : row.status === 'eWht'
+                      ? 'หักผ่าน e-WHT · ไม่ต้องรอใบ'
+                      : `ยังรอเอกสาร${row.waitingDays === null ? '' : row.waitingDays === 0 ? ' · วันนี้' : ` · ${row.waitingDays} วัน`}`}
                 </span>
                 <button type="button" className="ksm-btn is-soft is-small"
                   aria-label={row.status === 'have' ? `ดูเอกสารของ ${row.job.name}` : `แนบใบ 50 ทวิสำหรับ ${row.job.name}`}
@@ -278,7 +299,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
             <div className="ksm-list" style={{ marginTop: 12 }}>
               <button type="button" disabled={!receivedFileCount || zipping} onClick={() => { setToolsOpen(false); void downloadAll(); }}>
                 <span className="ksm-list-icon"><KsIcon name="download" /></span>
-                <span className="ksm-grow"><b>{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดใบที่ได้รับแล้ว (${receivedFileCount} ไฟล์)`}</b><p>ได้รับแล้ว {have.length} จาก {rows.length} งาน · {share}%</p></span>
+                <span className="ksm-grow"><b>{zipping ? 'กำลังรวมไฟล์…' : `ดาวน์โหลดใบที่ได้รับแล้ว (${receivedFileCount} ไฟล์)`}</b><p>ได้รับแล้ว {have.length} จาก {needCertificate} งานที่ต้องมีใบ · {share}%</p></span>
               </button>
             </div>
           </MobileSheet>
@@ -294,12 +315,12 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
           <div className="col-span-2 min-w-0 border-b border-brand-border px-4 py-3 sm:col-span-1 sm:border-b-0 sm:border-r sm:px-5 sm:py-5">
             <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs">ภาษีหัก ณ ที่จ่ายรวม</p>
             <p className="mt-1 font-mono text-[24px] font-semibold leading-8 text-brand-text tabular-nums" data-testid="wht-total">{exactBaht(whtTotal)}</p>
-            <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">{rows.length} งานที่ต้องมีใบ 50 ทวิ</p>
+            <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">{needCertificate} งานที่ต้องมีใบ 50 ทวิ{eWhtPart}</p>
           </div>
           <div className="min-w-0 border-r border-brand-border px-4 py-3 sm:px-5 sm:py-5">
-            <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-[#18A66A]" />มีเอกสารรองรับ</p>
+            <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-[#18A66A]" />มีหลักฐานรองรับ</p>
             <p className="mt-1 font-mono text-[24px] font-semibold leading-8 text-[#12804F] tabular-nums dark:text-[#6FD3A3]" data-testid="wht-have">{exactBaht(whtHave)}</p>
-            <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">ได้รับแล้ว {have.length} งาน · ใช้เครดิตหรือขอคืนภาษีได้</p>
+            <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">ได้รับแล้ว {have.length} งาน{eWhtPart} · ใช้เครดิตหรือขอคืนภาษีได้</p>
           </div>
           <div className="min-w-0 px-4 py-3 sm:px-5 sm:py-5">
             <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-[#E79A24]" />ยังไม่มีเอกสาร</p>
@@ -310,10 +331,10 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
         <div className="flex flex-col gap-3 border-t border-brand-border px-4 py-4 sm:px-5 lg:flex-row lg:items-center">
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-brand-muted">
-              <span>ได้รับแล้ว {have.length} จาก {rows.length} งานที่ต้องมีใบ 50 ทวิ</span>
+              <span>ได้รับแล้ว {have.length} จาก {needCertificate} งานที่ต้องมีใบ 50 ทวิ</span>
               <span className="shrink-0 font-mono font-semibold text-brand-text">{share}%</span>
             </div>
-            <div role="progressbar" aria-label="ความคืบหน้าการได้รับใบ 50 ทวิ" aria-valuemin={0} aria-valuemax={100} aria-valuenow={share} aria-valuetext={`ได้รับแล้ว ${have.length} จาก ${rows.length} งาน`} className="h-2 overflow-hidden rounded-full bg-brand-faint"><div className="h-full rounded-full bg-[#18A66A] transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${share}%` }} /></div>
+            <div role="progressbar" aria-label="ความคืบหน้าการได้รับใบ 50 ทวิ" aria-valuemin={0} aria-valuemax={100} aria-valuenow={share} aria-valuetext={`ได้รับแล้ว ${have.length} จาก ${needCertificate} งาน`} className="h-2 overflow-hidden rounded-full bg-brand-faint"><div className="h-full rounded-full bg-[#18A66A] transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${share}%` }} /></div>
           </div>
           <button type="button" onClick={() => void downloadAll()} disabled={!receivedFileCount || zipping}
             className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-4 text-[13px] font-medium text-brand-text hover:bg-brand-faint disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#1F2024] cursor-pointer lg:w-auto">
@@ -321,13 +342,14 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
           </button>
         </div>
         <p className="border-t border-brand-border px-4 py-3 text-[11.5px] leading-relaxed text-brand-muted sm:px-5">{WHT_CREDIT_NOTE}</p>
+        {eWht.length > 0 && <p className="-mt-1.5 px-4 pb-3 text-[11.5px] leading-relaxed text-brand-muted sm:px-5" data-testid="ewht-note">{E_WHT_NOTE}</p>}
       </section>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="สถานะใบ 50 ทวิ">
           {filterOrder.map(option => {
             const label = option === 'waiting' ? 'ยังรอ' : option === 'have' ? 'ได้รับแล้ว' : 'ทั้งหมด';
-            const count = option === 'waiting' ? waiting.length : option === 'have' ? have.length : rows.length;
+            const count = option === 'waiting' ? waiting.length : option === 'have' ? have.length + eWht.length : rows.length;
             return <button key={option} id={`wht50-tab-${option}`} type="button" role="tab" aria-selected={filter === option} aria-controls="wht50-tabpanel" tabIndex={filter === option ? 0 : -1} onKeyDown={event => moveFilterFocus(event, option)} onClick={() => setFilter(option)} className={chip(filter === option)}>{label} <span className="text-xs opacity-70">{count}</span></button>;
           })}
         </div>
@@ -408,7 +430,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
                   <div className="flex items-center justify-between gap-3 border-t border-brand-border/70 pt-3">
                     <div className="min-w-0">
                       {row.status === 'waiting' ? waitingCell(row) : statusChip(row)}
-                      {row.status === 'have' && row.paidDate && <span className="mt-1 block text-[11px] text-brand-muted">รับเงินจริง {safeFormatThaiDate(row.paidDate, { day: 'numeric', month: 'short', year: '2-digit' })}</span>}
+                      {row.status !== 'waiting' && row.paidDate && <span className="mt-1 block text-[11px] text-brand-muted">รับเงินจริง {safeFormatThaiDate(row.paidDate, { day: 'numeric', month: 'short', year: '2-digit' })}</span>}
                     </div>
                   </div>
                   {action(row, true)}

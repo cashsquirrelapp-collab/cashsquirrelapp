@@ -1,14 +1,16 @@
 import type { Job } from '../../../../shared/types';
 import type { VaultFile } from '../../../../shared/vault';
-import { jobNetReceivable, jobWhtAmount } from '../../../../shared/wht';
+import { isEWhtJob, jobNetReceivable, jobWhtAmount } from '../../../../shared/wht';
 import { nowInBangkok } from '../../../../shared/monthlySummary';
 
 // Where a job stands on its 50 ทวิ (withholding tax certificate).
 //  none     – no withholding tax on this job
 //  notYet   – tax will be withheld, but no money has been received yet
 //  waiting  – money received, certificate not attached yet
+//  eWht     – withheld at 1% through e-Withholding Tax: no certificate to wait for, the
+//             evidence is in the Revenue Department's system (see isEWhtJob)
 //  have     – at least one certificate file attached
-export type Wht50Status = 'none' | 'notYet' | 'waiting' | 'have';
+export type Wht50Status = 'none' | 'notYet' | 'waiting' | 'eWht' | 'have';
 export type Wht50TaxYear = number | 'unknown';
 
 const actualDateKey = (value: string | null | undefined): string | null => {
@@ -42,6 +44,7 @@ export function expenseFiles(expense: { id: string }, files: VaultFile[]): Vault
 export function wht50StatusOf(job: Job, files: VaultFile[]): Wht50Status {
   if (jobWhtAmount(job) <= 0) return 'none';
   if (wht50Files(job, files).length > 0) return 'have';
+  if (isEWhtJob(job)) return 'eWht';
   return isWht50Trackable(job) ? 'waiting' : 'notYet';
 }
 

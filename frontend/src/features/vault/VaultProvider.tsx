@@ -4,13 +4,13 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Camera, CheckCircle2, Download, ExternalLink, FileText, Plus, Trash2, Upload, X } from 'lucide-react';
 import type { Expense, Job } from '../../../../shared/types';
 import { VAULT_ACCEPT, VAULT_KIND_LABEL, VAULT_MAX_BYTES, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
-import { jobWhtAmount, jobNetReceivable } from '../../../../shared/wht';
+import { isEWhtJob, jobWhtAmount, jobNetReceivable } from '../../../../shared/wht';
 import { formatCurrency, safeFormatThaiDate } from '../../utils';
 import { Drawer } from '../../components/ui/Drawer';
 import { Modal } from '../../components/ui/Modal';
 import { RowMenu } from '../../components/ui/RowMenu';
 import { deleteVault, listVault, updateVault, uploadVault, vaultFileUrl, type VaultMeta } from '../../services/vault';
-import { isWht50Trackable, wht50Files } from './vaultStatus';
+import { isWht50Trackable, wht50Files, wht50StatusOf } from './vaultStatus';
 
 // The document vault for the finance workspace that is open: one list of files shared by the
 // Documents, Jobs and Tax pages, plus the dialogs those pages open (upload, the 50 ทวิ prompt
@@ -100,7 +100,8 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
     openUpload: request => setUpload(request),
     openJob: job => setJobView(job),
     // Only worth asking when the workspace can actually keep the file.
-    promptAfterPayment: job => { if (available && isPro && jobWhtAmount(job) > 0) setPaidPrompt(job); },
+    // 1% is e-WHT: there is no certificate to ask for (see isEWhtJob).
+    promptAfterPayment: job => { if (available && isPro && jobWhtAmount(job) > 0 && !isEWhtJob(job)) setPaidPrompt(job); },
     remove, update,
   };
   // App announces a job that just got fully paid; ask for its 50 ทวิ when tax was withheld.
@@ -522,10 +523,10 @@ function JobFilesDrawer({ job, files, onAdd, onRemove, onClose }: { job: Job | n
   );
 }
 
-/** Small 50 ทวิ status under a job's payment badge; nothing for jobs without withholding tax. */
+/** Small 50 ทวิ status under a job's payment badge; nothing for jobs without withholding tax, or 1% (e-WHT) jobs without a file. */
 export function Wht50Chip({ job }: { job: Job }) {
   const vault = useVault();
-  if (!vault.available || !isWht50Trackable(job)) return null;
+  if (!vault.available || !isWht50Trackable(job) || wht50StatusOf(job, vault.files) === 'eWht') return null;
   const files = wht50Files(job, vault.files);
   return files.length ? (
     <button type="button" onClick={(e) => { e.stopPropagation(); vault.openJob(job); }}

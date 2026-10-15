@@ -9,7 +9,7 @@ import InstallmentPlanner from './InstallmentPlanner';
 import JobTypeManager from './JobTypeManager';
 import { KsIcon } from '../mobile/icons';
 import { useMobileLayout } from '../mobile/useMobileLayout';
-import { WHT_PRESET_RATES, isValidWhtRate, whtAmountFor, roundMoney } from '../../../../shared/wht';
+import { WHT_PRESET_RATES, isEWhtJob, isValidWhtRate, whtAmountFor, roundMoney } from '../../../../shared/wht';
 
 type Payment = 'unpaid' | 'paid' | 'partial' | 'installment';
 type FieldKey = 'name' | 'value' | 'postDate' | 'received' | 'installments' | 'type' | 'wht';
@@ -600,6 +600,13 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
             <div className="flex justify-between"><dt className="text-brand-muted">หัก ณ ที่จ่าย {effectiveWhtRate}%</dt><dd className="font-mono">-{formatMoney(whtAmount)}</dd></div>
             <div className="flex justify-between border-t border-brand-border pt-1 font-semibold"><dt>รับสุทธิ</dt><dd className="font-mono">{formatMoney(net)}</dd></div>
           </dl>
+        )}
+        {effectiveWhtRate > 0 && (
+          <p className="mt-1.5 text-xs text-brand-muted" data-testid="wht-certificate-hint">
+            {isEWhtJob({ whtRate: effectiveWhtRate })
+              ? '1% คือการหักผ่าน e-Withholding Tax ไม่ต้องรอใบ 50 ทวิ ตรวจหลักฐานได้ในระบบกรมสรรพากร'
+              : 'ขอใบ 50 ทวิจากผู้จ่ายเงิน เพื่อใช้เครดิตหรือขอคืนภาษีตอนยื่นแบบ'}
+          </p>
         )}
       </div>
 
