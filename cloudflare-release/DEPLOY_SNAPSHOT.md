@@ -1,80 +1,36 @@
-# Cash Squirrel Cloudflare source snapshot — landing restore v3
+# Phase-one release - production deployment
 
-This immutable snapshot restores the previous Editorial/Motion landing page in
-`cloudflare-production-release`. The source inventory is exactly the same 521-file
-allowlist as the reviewed v2 snapshot. Only
-`frontend/src/features/marketing/LandingPage.tsx` differs: its lazy import now
-loads `./editorial/Landing` instead of `./kinetic/KineticLanding`.
+Prepared 2026-10-19. Feedback schema applied to production project rcllghixkclvkxhvttaw before this release upload. Cloudflare build/live verification must be checked after the commit.
 
-The previous landing components, styles, screenshots and LINE demonstration
-assets were already included. Their existing files are unchanged. This release
-does not change backend code, authentication, payments, provider configuration,
-application features, dependencies or scheduled-job code.
+## Source integrity
 
-## Upload scope
+- Files: 538
+- Source bytes: 19507996
+- Archive SHA256: `f2d4cf313a5639f027637ec1b0b6986d0aa92e4cfe7f8d32480b398af556a408`
+- Manifest SHA256: `cd9e3679386325dd2b0edad9bccda6b6615cc3941da03a0c983eb0afb27daa83`
+- Base: 521 reviewed v3 files plus 17 explicitly reviewed additions. No secrets, dependency directories, generated build output, or symlinks are included.
+- Verify: `node prepare-release.mjs --verify-only`
 
-Replace only these four files together under `cloudflare-release/` on the
-reviewed `cloudflare-production-20261018` branch:
+## Changes
 
-- `source.tar.gz`
-- `source-manifest.json`
-- `prepare-release.mjs`
-- `DEPLOY_SNAPSHOT.md`
+Reversible ordinary-user navigation exposes Overview, Income/Expenses, Jobs, Calendar, invoice/receipt/tax invoice documents, and Feedback. Same-account trusted admins retain all prior features. Hidden data and deferred feature code remain intact. Legacy document import is additive. Public landing and billing copy match phase one; prior editorial components remain available behind a flag.
 
-Do not upload or replace `wrangler.jsonc`. The live root configuration already
-contains the approved scheduling handoff: `CRON_ENABLED="true"` and the two
-production triggers `0 1 * * *` and `0 2 * * *`. Preserve that configuration.
-The archived `wrangler.production.jsonc` remains the reviewed pre-cutover
-configuration (`CRON_ENABLED="false"`, no registered triggers) because this
-release changes only the landing wrapper. The CI deploy command explicitly
-uses the root `wrangler.jsonc`; the archived preflight does not establish the
-live cron state.
+Feedback adds simple user threads and an independent admin inbox with replies/status. API session/ownership/admin/CSRF checks, atomic SQL, RLS and service-only privileges protect private conversations.
 
-`package.json`, `package-lock.json` and `.gitignore` are unchanged and do not
-need to be uploaded. Never upload `.env` files, local credentials or generated
-build directories.
+## Required deployment order
 
-## Standard Cloudflare Git build settings
+1. Authenticated browser access restored. Correct Supabase business project and existing GitHub release branch verified.
+2. Applied `database/feedback_phase_one.sql` once to `rcllghixkclvkxhvttaw`. Verified two RLS-enabled tables, no anon/authenticated table privileges, and three service-only SECURITY INVOKER functions with empty search_path. Service-role create/reply/status/detail/admin-list smoke test passed in a transaction whose test writes were rolled back. Do not reapply.
+3. Upload only `source.tar.gz`, `source-manifest.json`, `prepare-release.mjs`, and this `DEPLOY_SNAPSHOT.md` to repository `cashsquirrelapp-collab/cashsquirrelapp`, branch `cloudflare-production-20261018`, directory `cloudflare-release`.
+4. Keep the existing ROOT `wrangler.jsonc`, 15 encrypted Secrets and both cron triggers unchanged. This candidate intentionally omits root Wrangler config.
+5. Verify Cloudflare Ready/active version and normal/admin desktop/mobile flows plus isolated feedback create/reply/status. Current production remains v3 commit `5fbffe60ae2020fb1b8a3eed0d21e08e1f5ff7fb`, active version prefix `302cce6d`.
 
-- Repository directory: `cloudflare-release`
-- Build command: `node prepare-release.mjs`
-- Deploy command: `npx --yes wrangler@4.151.0 deploy --config wrangler.jsonc`
-- Node.js: 22.12 or newer
-- Target Worker: `kraroktunngern`
-- Account: `7cb26b23e102b0d36824da093b2a267c`
+## Validation and limitations
 
-The bootstrap verifies fixed SHA256 digests for the archive and manifest,
-checks every member against the manifest, rejects unsafe paths and non-regular
-entries, and extracts into a new `app/` directory. It then installs locked
-dependencies, runs the Cloudflare checks and build, and runs configuration
-preflight. Deployment remains a separate CI step.
-
-## Snapshot integrity
-
-- Source file count: 521
-- Total source bytes: 19,370,612
-- Archive bytes: 15,003,238
-- Archive SHA256: `80d3551eabe6948fc51c1ed4219bdba1b50efc4755dc5f0f6691e1256c69ee8d`
-- Manifest SHA256: `dbf6f521bacac37d5cbc56e77fa809c3f09f1b5147db4163e6519044b61248bc`
-- Landing wrapper SHA256: `d87d2d82a179bc3ba6455b705b5394d3d9fe07acf42ee028bbde9118694880d2`
-- Exactly one source hash differs from v2; the other 520 files are unchanged.
-- USTAR entries are regular files only, ordered by path, with fixed mode 0644,
-  zero timestamps/owners, and empty owner/group names. Gzip metadata is fixed.
-- The exact v2 allowlist excludes dependencies, generated output, local deploy
-  state, `.env*`, private-key/database/log files, internal Markdown and `docs/`.
-
-The archived source remains an intermediate migration package. Future
-maintenance should move the unpacked source into an ordinary reviewed Git
-branch rather than repeatedly update binary archives.
-
-## Offline verification
-
-```sh
-node prepare-release.mjs --verify-only
-```
-
-This checks all source bytes without extraction, dependency installation,
-network access or deployment. `--extract-only` performs the same verification
-and extracts into a new `app/`, refusing to overwrite an existing directory.
-Local snapshot verification is not evidence of a successful remote build or
-production deployment; those checks must be recorded after CI completes.
+- Final TypeScript, Cloudflare check (16 tests) and Cloudflare build passed.
+- 29 targeted phase-one/document/feedback tests passed, including PGlite permissions, ownership and atomic rollback.
+- Static normal/admin desktop/mobile/settings and Thai/English feedback markup checks passed.
+- Four isolated Playwright scenarios typecheck and are discovered; they have NOT run. CUA was disconnected during implementation; the browser connection is now restored for live verification. Standalone Chromium launch was blocked by OS sandbox permissions. No visual verification claimed at package preparation.
+- Full unit run: 263/268 passed; all five failures reproduce identically in untouched v3. They concern pre-existing notification status and monthly-report calculations/format expectations. Relevant files unchanged.
+- Existing authenticated APIs and previously enabled LINE notifications remain; existing users retain opt-out/disconnect controls.
+- Rollback: redeploy v3 source if needed, retaining the additive feedback tables/data. Do not drop customer feedback.
