@@ -1,0 +1,14 @@
+{
+  "name": "cashsquirrel-cloudflare-release-snapshot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Verified immutable application source for the Cloudflare production migration.",
+  "scripts": {
+    "build": "node prepare-release.mjs",
+    "verify": "node prepare-release.mjs --verify-only"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

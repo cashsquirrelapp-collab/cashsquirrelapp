@@ -1,0 +1,38 @@
+{
+  "name": "kraroktunngern",
+  "main": "./app/cloudflare/worker.ts",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "enable_nodejs_http_server_modules"
+  ],
+  "account_id": "7cb26b23e102b0d36824da093b2a267c",
+  "workers_dev": true,
+  "preview_urls": false,
+  "triggers": {
+    "crons": [
+      "0 1 * * *",
+      "0 1 1 * *",
+      "0 2 * * *"
+    ]
+  },
+  "assets": {
+    "directory": "./app/build/frontend",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api",
+      "/api/*"
+    ]
+  },
+  "vars": {
+    "NODE_ENV": "production",
+    "APP_URL": "https://kraroktunngern.cashsquirrelapp.workers.dev",
+    "SUPABASE_URL": "https://rcllghixkclvkxhvttaw.supabase.co",
+    "STRIPE_MODE": "live",
+    "CRON_ENABLED": "false"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
