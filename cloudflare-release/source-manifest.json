@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Phase one feature visibility and feedback - 2026-10-19 - not deployed",
+  "source_label": "Phase one feature visibility and feedback - 2026-10-19 - document copy follow-up",
   "archive": "source.tar.gz",
-  "archive_sha256": "f2d4cf313a5639f027637ec1b0b6986d0aa92e4cfe7f8d32480b398af556a408",
+  "archive_sha256": "b6003439345565fa7a2eae25a98d73e46e2d59fbdcdc72a602dfd28eda085de4",
   "file_count": 538,
-  "total_source_bytes": 19507996,
+  "total_source_bytes": 19509525,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1448,8 +1448,8 @@
     },
     {
       "path": "frontend/src/components/ui/PageHeader.tsx",
-      "size": 854,
-      "sha256": "1095b658c7c5c5b11b48009f80724a7e8bc3b66012eccec0d55d5a24ad66f6d1"
+      "size": 906,
+      "sha256": "a8347454a1a9996f63266b878e255be0452a6fdf5d2ffe2234f91ecc13c9175f"
     },
     {
       "path": "frontend/src/components/ui/RowMenu.tsx",
@@ -1668,8 +1668,8 @@
     },
     {
       "path": "frontend/src/features/invoices/InvoiceTab.tsx",
-      "size": 75760,
-      "sha256": "ff26e2427dd4e51959c9ab6d8f5357659f96b758c248959b137289d916d563a8"
+      "size": 75932,
+      "sha256": "27244bc6bb467e7eb72ba9984564ebdae20fc5b9716924f39ec0614e2a2bc3b2"
     },
     {
       "path": "frontend/src/features/invoices/documentAvailability.ts",
@@ -2068,8 +2068,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 145627,
-      "sha256": "430585085f4978c3883e73c11b2003cf3d5e57bfe1e23626c67ba7cc38b3e3dd"
+      "size": 145869,
+      "sha256": "53e0714615395188e6bc3cd883709823708b68ce23ea6c0e6ee66440ec5fcb43"
     },
     {
       "path": "frontend/src/index.css",
@@ -2528,8 +2528,8 @@
     },
     {
       "path": "tests/e2e/phase-one-feedback.spec.ts",
-      "size": 16861,
-      "sha256": "397be17b1dd008bc23fb210f61b2f2ed2d71656d781784b327c2b99649d044c7"
+      "size": 17924,
+      "sha256": "4477e63c074e5ad79bd7efc7b1006359b3958f1250831c3a8a1c6a41c6308153"
     },
     {
       "path": "tests/e2e/vault-wht-navigation.spec.ts",
