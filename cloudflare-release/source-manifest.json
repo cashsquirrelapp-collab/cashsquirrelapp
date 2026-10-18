@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "cloudflare-production-release-two-trigger-scheduler-v2",
+  "source_label": "cloudflare-production-release-editorial-landing-restore-v3",
   "archive": "source.tar.gz",
-  "archive_sha256": "7d87782d516d5b2dfd99103eb0f8fac4ef7ae30f55e0dd39545e9fa1868be729",
+  "archive_sha256": "80d3551eabe6948fc51c1ed4219bdba1b50efc4755dc5f0f6691e1256c69ee8d",
   "file_count": 521,
-  "total_source_bytes": 19370668,
+  "total_source_bytes": 19370612,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1147,6 +1147,51 @@
       "sha256": "d62193e4b194d51a15c15dbad6326a4b4e538c81c98634d76a89406390b167b8"
     },
     {
+      "path": "frontend/public/line-source/draft-expense-complete.webp",
+      "size": 95338,
+      "sha256": "408bf3fc2d457f54e2e15a22e97608469040279377339702e5048862b1ce2db4"
+    },
+    {
+      "path": "frontend/public/line-source/entry-help.png",
+      "size": 155272,
+      "sha256": "7b23adb2e99a927ce7cffb930f54640db8516faa0310b989fb10174d1fe316a6"
+    },
+    {
+      "path": "frontend/public/line-source/reminder-combined.webp",
+      "size": 89668,
+      "sha256": "16fc51cfc067b5ba0d5f1d7182f21a68a96ccc722a175853aeeae7ae30ab49e1"
+    },
+    {
+      "path": "frontend/public/line-source/report-month-jobs.webp",
+      "size": 119920,
+      "sha256": "7e2b888e098b71c136363414af23bc810f0339b815abf894909c16803620e9cb"
+    },
+    {
+      "path": "frontend/public/line-source/report-monthly.png",
+      "size": 213704,
+      "sha256": "be385bef4aa652cc675d02f878dc4090086e74935c380c4ea4bd324297748eb1"
+    },
+    {
+      "path": "frontend/public/line-source/report-unpaid.png",
+      "size": 210548,
+      "sha256": "24a199b06586688a2e080481d8d344b2d3358d95a549f7fc98b86bcc10b40816"
+    },
+    {
+      "path": "frontend/public/line-source/report-wip.png",
+      "size": 184471,
+      "sha256": "475a37722fcca2807ed1c0fbf90a9c7885381dab346a9b415a08936475a9bd5c"
+    },
+    {
+      "path": "frontend/public/line-source/rich-menu.webp",
+      "size": 135706,
+      "sha256": "0dfb3a41b72cbea69c017a57ace594b3ffdbf83c605e665ae889fde296ead9ea"
+    },
+    {
+      "path": "frontend/public/line-source/saved-expense.webp",
+      "size": 90290,
+      "sha256": "c92937b4ff7840d98c5597a2624d22dac73548c62efef976853225ad2a418e6b"
+    },
+    {
       "path": "frontend/public/line/mascot-ci-cancelled-v4.png",
       "size": 197635,
       "sha256": "d403bef9f4e927aae8e93ac7ab42612aac188d17e6494f0c23370f1a50ad6ef5"
@@ -1245,51 +1290,6 @@
       "path": "frontend/public/line/secretary-richmenu.jpg",
       "size": 267684,
       "sha256": "f740d9b6eba0b4343b24146a05ed856d568d4d1b16daa2142ad64b9937607f74"
-    },
-    {
-      "path": "frontend/public/line-source/draft-expense-complete.webp",
-      "size": 95338,
-      "sha256": "408bf3fc2d457f54e2e15a22e97608469040279377339702e5048862b1ce2db4"
-    },
-    {
-      "path": "frontend/public/line-source/entry-help.png",
-      "size": 155272,
-      "sha256": "7b23adb2e99a927ce7cffb930f54640db8516faa0310b989fb10174d1fe316a6"
-    },
-    {
-      "path": "frontend/public/line-source/reminder-combined.webp",
-      "size": 89668,
-      "sha256": "16fc51cfc067b5ba0d5f1d7182f21a68a96ccc722a175853aeeae7ae30ab49e1"
-    },
-    {
-      "path": "frontend/public/line-source/report-month-jobs.webp",
-      "size": 119920,
-      "sha256": "7e2b888e098b71c136363414af23bc810f0339b815abf894909c16803620e9cb"
-    },
-    {
-      "path": "frontend/public/line-source/report-monthly.png",
-      "size": 213704,
-      "sha256": "be385bef4aa652cc675d02f878dc4090086e74935c380c4ea4bd324297748eb1"
-    },
-    {
-      "path": "frontend/public/line-source/report-unpaid.png",
-      "size": 210548,
-      "sha256": "24a199b06586688a2e080481d8d344b2d3358d95a549f7fc98b86bcc10b40816"
-    },
-    {
-      "path": "frontend/public/line-source/report-wip.png",
-      "size": 184471,
-      "sha256": "475a37722fcca2807ed1c0fbf90a9c7885381dab346a9b415a08936475a9bd5c"
-    },
-    {
-      "path": "frontend/public/line-source/rich-menu.webp",
-      "size": 135706,
-      "sha256": "0dfb3a41b72cbea69c017a57ace594b3ffdbf83c605e665ae889fde296ead9ea"
-    },
-    {
-      "path": "frontend/public/line-source/saved-expense.webp",
-      "size": 90290,
-      "sha256": "c92937b4ff7840d98c5597a2624d22dac73548c62efef976853225ad2a418e6b"
     },
     {
       "path": "frontend/public/manifest.json",
@@ -1698,8 +1698,8 @@
     },
     {
       "path": "frontend/src/features/marketing/LandingPage.tsx",
-      "size": 442,
-      "sha256": "2c191fef840684dede15e0f0ffee0f69e34aa6b20558df4fe8628dad9bd2bbea"
+      "size": 386,
+      "sha256": "d87d2d82a179bc3ba6455b705b5394d3d9fe07acf42ee028bbde9118694880d2"
     },
     {
       "path": "frontend/src/features/marketing/editorial/ApprovedDocuments.tsx",
