@@ -10,11 +10,9 @@
   "workers_dev": true,
   "preview_urls": false,
   "triggers": {
-    "crons": [
-      "0 1 * * *",
-      "0 1 1 * *",
-      "0 2 * * *"
-    ]
+    // No schedules before cutover: keep CRON_ENABLED=false and avoid consuming cron quota.
+    // Restore the three production schedules only during the verified scheduling handoff.
+    "crons": []
   },
   "assets": {
     "directory": "./app/build/frontend",
