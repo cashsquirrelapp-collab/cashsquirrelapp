@@ -10,9 +10,9 @@
   "workers_dev": true,
   "preview_urls": false,
   "triggers": {
-    // No schedules before cutover: keep CRON_ENABLED=false and avoid consuming cron quota.
-    // At handoff install ["0 1 * * *", "0 2 * * *"]; the first-day daily event also runs monthly jobs.
-    "crons": []
+    // Vercel scheduling is disabled before this Cloudflare handoff.
+    // The 01:00 daily event also runs monthly jobs on the first day.
+    "crons": ["0 1 * * *", "0 2 * * *"]
   },
   "assets": {
     "directory": "./app/build/frontend",
@@ -28,7 +28,7 @@
     "APP_URL": "https://kraroktunngern.cashsquirrelapp.workers.dev",
     "SUPABASE_URL": "https://rcllghixkclvkxhvttaw.supabase.co",
     "STRIPE_MODE": "live",
-    "CRON_ENABLED": "false"
+    "CRON_ENABLED": "true"
   },
   "observability": {
     "enabled": true
