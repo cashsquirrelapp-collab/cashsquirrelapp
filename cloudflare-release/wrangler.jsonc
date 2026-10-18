@@ -11,7 +11,7 @@
   "preview_urls": false,
   "triggers": {
     // No schedules before cutover: keep CRON_ENABLED=false and avoid consuming cron quota.
-    // Restore the three production schedules only during the verified scheduling handoff.
+    // At handoff install ["0 1 * * *", "0 2 * * *"]; the first-day daily event also runs monthly jobs.
     "crons": []
   },
   "assets": {

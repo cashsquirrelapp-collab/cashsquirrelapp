@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "cloudflare-production-release-2026-10-18",
+  "source_label": "cloudflare-production-release-two-trigger-scheduler-v2",
   "archive": "source.tar.gz",
-  "archive_sha256": "5f45630d2c8fccd0ce1c840afcd3f2dcf9c40710e544f14689f90a27db698934",
+  "archive_sha256": "7d87782d516d5b2dfd99103eb0f8fac4ef7ae30f55e0dd39545e9fa1868be729",
   "file_count": 521,
-  "total_source_bytes": 19368359,
+  "total_source_bytes": 19370668,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -428,13 +428,13 @@
     },
     {
       "path": "cloudflare/schedule.ts",
-      "size": 686,
-      "sha256": "84c67505135f3045b3d85ffb2bd4814debcd0a547c79918e15d19013207d8bae"
+      "size": 1035,
+      "sha256": "1a0a3b5cb7507aa1625dd700054cb8a4b618a0194f98c75b493db1e2d00e93ec"
     },
     {
       "path": "cloudflare/worker.ts",
-      "size": 3963,
-      "sha256": "01f4a1276e6fa0041ebdc8416f792a790c68544b4dc9055941efccd3ccd1277e"
+      "size": 3989,
+      "sha256": "f80b8f66710c7655de4d62c4f670269a72db4fc9387937dff9ff7f6e2dfe383f"
     },
     {
       "path": "database/bootstrap-admin.sql",
@@ -2178,8 +2178,8 @@
     },
     {
       "path": "scripts/cloudflare-preflight.mjs",
-      "size": 2824,
-      "sha256": "98ce91a920bbdcf5da72ffb0a81d9fdd33239e03fdc483d24050d94423973329"
+      "size": 3265,
+      "sha256": "d941a99949ba08fba58f2499e41a96a784b27a12e7dc21a37f8714bc40a7aa2e"
     },
     {
       "path": "scripts/landing/capture.ts",
@@ -2418,8 +2418,8 @@
     },
     {
       "path": "tests/cloudflare-scheduled.test.ts",
-      "size": 1793,
-      "sha256": "e02b4b9ae89e3eac0133a5f365f76d9420f341306703dc94e4d4165f5c909525"
+      "size": 3150,
+      "sha256": "bbdadd270f2d4614af36c881917fe0278945c4f75bafe174a425e29e1c7b70d2"
     },
     {
       "path": "tests/database.test.ts",
@@ -2608,8 +2608,8 @@
     },
     {
       "path": "wrangler.production.jsonc",
-      "size": 1865,
-      "sha256": "ef12b5e87d67b510b9e21c37e20b8430fec90916d42f5bd4941a2dc89e0cce05"
+      "size": 2001,
+      "sha256": "a40ab7fb648dbe409af66890b809d2ea130dfd4316cc66ff4ccdc838be245f50"
     }
   ]
 }

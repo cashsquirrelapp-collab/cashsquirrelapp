@@ -1,8 +1,8 @@
 # Cash Squirrel Cloudflare source snapshot
 
 This directory holds an immutable source snapshot of the reviewed local
-`cloudflare-production-release` from 18 October 2026. GitHub `main` was older
-than this release. The archive keeps this deployment independent of stale
+`cloudflare-production-release`, revised for the two-trigger production
+scheduler. GitHub `main` was older than the original release. The archive keeps this deployment independent of stale
 source on `main` and allows review of the exact file inventory and hashes in
 `source-manifest.json`.
 
@@ -19,8 +19,9 @@ updating binary archives.
 - Target Worker: `kraroktunngern`
 - Account: `7cb26b23e102b0d36824da093b2a267c`
 
-Upload the seven files in this directory together on the reviewed migration
-branch. Do not select an unrelated branch or publish any `.env` file.
+Replace all seven release files together in `cloudflare-release/` on the reviewed
+`cloudflare-production-20261018` branch. Keep the existing `.gitignore`. Do not
+select an unrelated branch or publish any `.env` file.
 
 The bootstrap has no dependencies. It verifies fixed SHA256 digests for both
 the source archive and its manifest, checks every member against the
@@ -37,9 +38,9 @@ deploy step uploads the built frontend and the Worker together.
 
 ## Contents and safety
 
-- 521 source files; 19,368,359 source bytes.
-- Archive SHA256: `5f45630d2c8fccd0ce1c840afcd3f2dcf9c40710e544f14689f90a27db698934`
-- Manifest SHA256: `4df7e446f41eb615bb1224c3c755c29ea717d9ae4d1826a91dfc815f1906f1dc`
+- 521 source files; 19,370,668 source bytes.
+- Archive SHA256: `7d87782d516d5b2dfd99103eb0f8fac4ef7ae30f55e0dd39545e9fa1868be729`
+- Manifest SHA256: `af82654e34160a0881bcce90a42b98bda6d224eb46683d05eb28960fca8c5c1a`
 - The deterministic archive contains regular files only; timestamps, owners,
   ordering and file modes are fixed.
 - Excludes dependencies, generated build output, test output, `.git`, local
@@ -51,7 +52,28 @@ deploy step uploads the built frontend and the Worker together.
 Production secrets must be installed through Cloudflare's supported secret
 settings. They are not present in this snapshot. Preserve the existing
 production session secret, Supabase project, LINE identifiers and live
-Stripe catalog. `CRON_ENABLED` remains `false` until the scheduling handoff.
+Stripe catalog. Both the root and archived production configurations have
+`triggers.crons=[]` and `CRON_ENABLED=false`; this revision does not activate
+scheduled jobs. At the verified scheduling handoff, register only `0 1 * * *`
+and `0 2 * * *` and enable the flag. The 01:00 UTC event runs the daily digest
+and additionally the monthly report and WHT reminder when the event
+timestamp falls on UTC day 1. The 02:00 UTC event handles account expiry.
+These retain 08:00/09:00 Bangkok timings and use two production cron slots.
+
+## Changes from the original snapshot
+
+The archive inventory is unchanged. Only these five source files differ:
+
+- `cloudflare/schedule.ts`: two-trigger routing uses the scheduled event timestamp for monthly jobs.
+- `cloudflare/worker.ts`: forwards `controller.scheduledTime`.
+- `tests/cloudflare-scheduled.test.ts`: calendar boundaries, delayed events and independent delivery failures.
+- `wrangler.production.jsonc`: schedules remain unregistered before cutover.
+- `scripts/cloudflare-preflight.mjs`: enabled scheduling requires the two supported triggers.
+
+The revised local source passed both TypeScript checks, all 16 tests in
+`cloudflare:check`, and the local configuration preflight. This is not a
+claim that this revised snapshot has been remotely built or deployed.
+Staging code/configuration, dependencies and application features are unchanged.
 
 ## Offline verification
 
@@ -67,7 +89,3 @@ live login flows, webhook cutover and scheduled jobs remain separate checks.
 For an isolated local build check using already available dependencies,
 `--extract-only` verifies the same archive and extracts `app/` without running
 installation or build commands. It refuses to overwrite an existing `app/`.
-
-## Connected build configuration
-
-The Cloudflare Worker is connected to production branch `cloudflare-production-20261018` with the build settings above. Preview builds are disabled. The build token is restricted to Workers Scripts edit and the account/user read permissions needed for deployment. Runtime secret transfer and provider cutover are separate from this source publication; scheduled jobs stay disabled until that handoff.
