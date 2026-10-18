@@ -67,3 +67,7 @@ live login flows, webhook cutover and scheduled jobs remain separate checks.
 For an isolated local build check using already available dependencies,
 `--extract-only` verifies the same archive and extracts `app/` without running
 installation or build commands. It refuses to overwrite an existing `app/`.
+
+## Connected build configuration
+
+The Cloudflare Worker is connected to production branch `cloudflare-production-20261018` with the build settings above. Preview builds are disabled. The build token is restricted to Workers Scripts edit and the account/user read permissions needed for deployment. Runtime secret transfer and provider cutover are separate from this source publication; scheduled jobs stay disabled until that handoff.
