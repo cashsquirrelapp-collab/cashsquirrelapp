@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Sign-in method chooser (Google, Facebook, LINE, email) - 2026-10-20",
+  "source_label": "Clean English sign-in card (Google, Facebook, LINE, email) - 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "21dbecb012387b9e72fe5b60aca0b5c198ab1c9832b366d6894cb36c5e008d57",
+  "archive_sha256": "199ad7695d24e8e678d144c0e94b852a45eae75ee2131d520bf9d1bf0f41d7ee",
   "file_count": 541,
-  "total_source_bytes": 19528104,
+  "total_source_bytes": 19525397,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1383,8 +1383,8 @@
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
-      "size": 1525,
-      "sha256": "25127a5ac2a774085a841378dbb25204f533fc393708ce987346907bd59f38e9"
+      "size": 1654,
+      "sha256": "80f80e5df98031e46b29500fdb29a930883ff9eebe4926e6da461048ab8ad57d"
     },
     {
       "path": "frontend/src/components/mascot/LoadingMascot.tsx",
@@ -1478,8 +1478,8 @@
     },
     {
       "path": "frontend/src/features/auth/Login.tsx",
-      "size": 73826,
-      "sha256": "babbb9aa507c85cb94df3ef49d4ab229a8b019abffca4fbed2199594e326854c"
+      "size": 69735,
+      "sha256": "2388706873d2518d04af3ac4f7b07cafbdf0d5805c8ee3172695cca645bdff22"
     },
     {
       "path": "frontend/src/features/billing/PlanMascot.tsx",
@@ -2078,8 +2078,8 @@
     },
     {
       "path": "frontend/src/index.css",
-      "size": 37447,
-      "sha256": "5034f562ac2b91c46f33a9d3cf810b550f919221446c4bb8e275de06aae94c04"
+      "size": 38746,
+      "sha256": "de7a1993e59490a554262db53e94df95ca3e28c184fc475dea7abb54fbbb56fc"
     },
     {
       "path": "frontend/src/kinetic-preview.tsx",
@@ -2513,8 +2513,8 @@
     },
     {
       "path": "tests/e2e/app.spec.ts",
-      "size": 129009,
-      "sha256": "8e43321d36deaed9c9f768feb32d634b4a375f57de78c6a1df3a4b2d63308ef5"
+      "size": 128965,
+      "sha256": "475137c316473744c3c8bafefc131aef2d73d225b4fdd0854a7b7b867854d088"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
