@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "LINE webhook early answer - 2026-10-19 - on top of phase one document copy follow-up",
+  "source_label": "LINE reads run in parallel - 2026-10-19 - on top of the LINE webhook early answer",
   "archive": "source.tar.gz",
-  "archive_sha256": "4aaacb35e71d62f10b660a599788efd722983d66460c6bade6f76cdcd76f79a5",
-  "file_count": 540,
-  "total_source_bytes": 19513646,
+  "archive_sha256": "ec63fc5b621d05c8571d6ee0c7d54828e8dcbddceff8476bc410c18850c1724e",
+  "file_count": 541,
+  "total_source_bytes": 19520317,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -123,8 +123,8 @@
     },
     {
       "path": "backend/src/handlers/line-webhook.ts",
-      "size": 7647,
-      "sha256": "c33d0717519ad64889b95381c85b6792358a516efdafe6067caa5bb85ea380fe"
+      "size": 8003,
+      "sha256": "3372eb38aca03bd59e38cdab9be6483ff65c576ab0821c7aa9cf9e50169d91c7"
     },
     {
       "path": "backend/src/handlers/notify.ts",
@@ -318,8 +318,8 @@
     },
     {
       "path": "backend/src/services/lineAssistant.ts",
-      "size": 111080,
-      "sha256": "fc4705b927e1703394c48057023c35de6401c6e95539ee72fe63b00b7fdc7f6b"
+      "size": 112939,
+      "sha256": "fbcf6f546425b41e186058be2d51392e41725a9490a5f8c0ce02918a926cb813"
     },
     {
       "path": "backend/src/services/lineCards.ts",
@@ -2615,6 +2615,11 @@
       "path": "tests/line-assistant-lifecycle.test.ts",
       "size": 5095,
       "sha256": "e0190d8ffe8146356e8998570860b542cde1b9f66156678976c77fa86f2f70f5"
+    },
+    {
+      "path": "tests/line-assistant-prefetch.test.ts",
+      "size": 4456,
+      "sha256": "ea12e3b28157708b68706995c03eee545fe65d14054b24e9fb2fd1873e3bbca0"
     },
     {
       "path": "tests/monthly-report-negative.test.ts",
