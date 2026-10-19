@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Clean English sign-in card (Google, Facebook, LINE, email) - 2026-10-20",
+  "source_label": "Phone overview (Bold header, collapsing card) and simpler phone menu - 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "199ad7695d24e8e678d144c0e94b852a45eae75ee2131d520bf9d1bf0f41d7ee",
-  "file_count": 541,
-  "total_source_bytes": 19525397,
+  "archive_sha256": "e26db947c9e7d5dbb42254db43f8fbdf9e036856b62162f8b07a94fa6850fd20",
+  "file_count": 543,
+  "total_source_bytes": 19555189,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1378,8 +1378,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 172607,
-      "sha256": "350055f492b15ad856169c8409844b095d1a521082c7ddacb2928254d8e887d8"
+      "size": 175055,
+      "sha256": "d86a4dadf8e3875ec2bec6f66fc0a79f58801df04aaa7c878b15384c6763279c"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1548,8 +1548,8 @@
     },
     {
       "path": "frontend/src/features/dashboard/DashboardTab.tsx",
-      "size": 87652,
-      "sha256": "6e75e2a6546241440090dbde463df9d125710bfafbfaba6e688d681f63d60bfb"
+      "size": 87676,
+      "sha256": "966d857558b244e69b8c4632eca6d40f91a07d360d9b0ce9372cd6551bf54f7c"
     },
     {
       "path": "frontend/src/features/dashboard/FinancialDetailsModal.tsx",
@@ -1903,23 +1903,33 @@
     },
     {
       "path": "frontend/src/features/mobile/MobileChrome.tsx",
-      "size": 9402,
-      "sha256": "22a2e1e4366551d1661ef76f58cca8fc9f8383bb9b051f921b3b437f635e0f6a"
+      "size": 10757,
+      "sha256": "b955762c000c7811d2fc5210e6f8593a66e70126a42e55f2e48902324280161c"
     },
     {
       "path": "frontend/src/features/mobile/MobileHome.tsx",
-      "size": 11522,
-      "sha256": "9479b6bb713cfec1948c3bf619420daa4846f648bfc90c4a200c30f7aed3ac33"
+      "size": 16070,
+      "sha256": "389c89e2af37ab9f7a99b0d12030bb641caba131c214bb0c2358873aae3d0715"
     },
     {
       "path": "frontend/src/features/mobile/icons.tsx",
-      "size": 4854,
-      "sha256": "c0ec0ac720fd2118d097439751d9541c9c51f8542ff8ad5ac71ca46006339723"
+      "size": 5161,
+      "sha256": "042eb066b392c388819f400b13d7a93cdc29cd30c5b374bc2fb9626554b2af39"
     },
     {
       "path": "frontend/src/features/mobile/mobile.css",
-      "size": 54533,
-      "sha256": "799cfa77915faea8b238160032017014d77786b03de622845711ca29a2d00dd7"
+      "size": 60691,
+      "sha256": "0311a9894f71cb60bbeea934334c6f509c7e721e668916ad8870b80852f5a391"
+    },
+    {
+      "path": "frontend/src/features/mobile/mobileNavigation.ts",
+      "size": 4795,
+      "sha256": "5be18ba395869ffd6f0c67aae0cf1c07b52714e057e13a13c0631cbd28196730"
+    },
+    {
+      "path": "frontend/src/features/mobile/useCollapsingCard.ts",
+      "size": 9464,
+      "sha256": "2b456e8d04cefa6b2cff1c88d4a396aa62215a923762b7aaa93260c9975444e2"
     },
     {
       "path": "frontend/src/features/mobile/useMobileLayout.ts",
@@ -1998,8 +2008,8 @@
     },
     {
       "path": "frontend/src/features/settings/SettingsTab.tsx",
-      "size": 87588,
-      "sha256": "d521d8128d44bafa61ce8f553d56b6c9b7de44a7530304e9c7719a46b70d79da"
+      "size": 87752,
+      "sha256": "ecb3da457ad1100ce05246147ad74fa17aff8bcb17e00c569ce4615d64bd8d8f"
     },
     {
       "path": "frontend/src/features/tax/TaxTab.tsx",
@@ -2513,8 +2523,8 @@
     },
     {
       "path": "tests/e2e/app.spec.ts",
-      "size": 128965,
-      "sha256": "475137c316473744c3c8bafefc131aef2d73d225b4fdd0854a7b7b867854d088"
+      "size": 129494,
+      "sha256": "fa0a8027d76065ea03fddbd8328e61e4222d2c5b161d700dd7d220c88639ca7d"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
