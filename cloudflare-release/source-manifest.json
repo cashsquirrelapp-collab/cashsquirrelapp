@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "LINE reads run in parallel - 2026-10-19 - on top of the LINE webhook early answer",
+  "source_label": "Sign-in method chooser (Google, Facebook, LINE, email) - 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "ec63fc5b621d05c8571d6ee0c7d54828e8dcbddceff8476bc410c18850c1724e",
+  "archive_sha256": "21dbecb012387b9e72fe5b60aca0b5c198ab1c9832b366d6894cb36c5e008d57",
   "file_count": 541,
-  "total_source_bytes": 19520317,
+  "total_source_bytes": 19528104,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -63,8 +63,8 @@
     },
     {
       "path": "backend/src/handlers/auth.ts",
-      "size": 21855,
-      "sha256": "daeaef850fe03cb64bdec46fd6b01ef15ead323ba0099de2a80f2f98095b840c"
+      "size": 23995,
+      "sha256": "362e8cd6f68f45184433de6c6a20a1079731c5d68f0421ece27ce6d2ce381d17"
     },
     {
       "path": "backend/src/handlers/billing.ts",
@@ -1478,8 +1478,8 @@
     },
     {
       "path": "frontend/src/features/auth/Login.tsx",
-      "size": 70372,
-      "sha256": "1f913020971a4743fc6d23854bc2dc47b7dfbfe1c2d9125b129de3de8cfed5af"
+      "size": 73826,
+      "sha256": "babbb9aa507c85cb94df3ef49d4ab229a8b019abffca4fbed2199594e326854c"
     },
     {
       "path": "frontend/src/features/billing/PlanMascot.tsx",
@@ -2078,8 +2078,8 @@
     },
     {
       "path": "frontend/src/index.css",
-      "size": 35774,
-      "sha256": "4167da34e8a9af3d547ee2a6696b4060fd396ed38e3481d1a4f3ff88f622006f"
+      "size": 37447,
+      "sha256": "5034f562ac2b91c46f33a9d3cf810b550f919221446c4bb8e275de06aae94c04"
     },
     {
       "path": "frontend/src/kinetic-preview.tsx",
@@ -2118,8 +2118,8 @@
     },
     {
       "path": "frontend/src/services/auth.ts",
-      "size": 5564,
-      "sha256": "ffb970b2d08972172246ba45bb137eaa180a651b01da8dd3854579e1eb593d0d"
+      "size": 5640,
+      "sha256": "dae5bd3666d7119548f8cd6820ba98df80a78b5d8bb0675923e2e6e4f81b650c"
     },
     {
       "path": "frontend/src/services/cloud.ts",
@@ -2513,13 +2513,13 @@
     },
     {
       "path": "tests/e2e/app.spec.ts",
-      "size": 128655,
-      "sha256": "9e8182b274a1a4f2563deee51e822a72663c87fec0454aa4cba1a682a3a31e09"
+      "size": 129009,
+      "sha256": "8e43321d36deaed9c9f768feb32d634b4a375f57de78c6a1df3a4b2d63308ef5"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
-      "size": 1461,
-      "sha256": "dc6c71d296db8b9f4bf14c72df4ef0e6056669e1a0ccfae32e80f7e9e78040fc"
+      "size": 1551,
+      "sha256": "4e4da4c9e24fb007f559666a235427de339f83d3e809505799b344bb088776cd"
     },
     {
       "path": "tests/e2e/billing.spec.ts",
