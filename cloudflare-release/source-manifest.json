@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Phase one feature visibility and feedback - 2026-10-19 - document copy follow-up",
+  "source_label": "LINE webhook early answer - 2026-10-19 - on top of phase one document copy follow-up",
   "archive": "source.tar.gz",
-  "archive_sha256": "b6003439345565fa7a2eae25a98d73e46e2d59fbdcdc72a602dfd28eda085de4",
-  "file_count": 538,
-  "total_source_bytes": 19509525,
+  "archive_sha256": "4aaacb35e71d62f10b660a599788efd722983d66460c6bade6f76cdcd76f79a5",
+  "file_count": 540,
+  "total_source_bytes": 19513646,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -432,14 +432,19 @@
       "sha256": "0b345092d92a26383da094a2ab89d0abd07f723ea1f28d04fa92a4307ecab338"
     },
     {
+      "path": "cloudflare/deferred.ts",
+      "size": 1484,
+      "sha256": "c6821fcfc39fbe20d6d9d0a3a3401bceca8b949952bf42ea96df72788d631472"
+    },
+    {
       "path": "cloudflare/schedule.ts",
       "size": 1035,
       "sha256": "1a0a3b5cb7507aa1625dd700054cb8a4b618a0194f98c75b493db1e2d00e93ec"
     },
     {
       "path": "cloudflare/worker.ts",
-      "size": 3989,
-      "sha256": "f80b8f66710c7655de4d62c4f670269a72db4fc9387937dff9ff7f6e2dfe383f"
+      "size": 4752,
+      "sha256": "8cedefb6c4278d2920aab5781c5c71ad49cf88aaddc2198b4e6054163d092410"
     },
     {
       "path": "database/bootstrap-admin.sql",
@@ -2475,6 +2480,11 @@
       "path": "tests/cash-timeline.test.ts",
       "size": 4134,
       "sha256": "2768435e09dd7a409e73710b79d47f16afc3c93e0f59616ae338a514c5d9dafa"
+    },
+    {
+      "path": "tests/cloudflare-deferred.test.ts",
+      "size": 1874,
+      "sha256": "d8ec9e8b3ddbe57ab98c0371bc82c9e1982fb88565951e2da27f13b17e779970"
     },
     {
       "path": "tests/cloudflare-scheduled.test.ts",
