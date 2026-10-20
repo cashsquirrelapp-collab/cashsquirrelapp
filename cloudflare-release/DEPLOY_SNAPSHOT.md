@@ -336,3 +336,11 @@ User requested matching the website CI and removing the save-card checkbox. Stri
 - No prices, database migration, key permissions, secrets, consent defaults or daily schedules changed. Readable source delta: card-checkout-loading.patch.
 - Final live UI verification: the package/amount preparation dialog was visible in the immediate post-click snapshot, and real Stripe fields subsequently loaded with the pay action ready and auto-renew unchecked. Evidence: krarok-checkout-immediate-loading.png and krarok-checkout-speed-ready.png in the thread's visualization folder.
 - Residual provider variance: a later final-version checkout measured 7,633 ms server time, with authentication alone accounting for 4,324 ms; other tail samples were 3,881 and 2,948 ms. Authentication/revocation checks were intentionally retained, so this release does not promise every checkout opens fully in 1–3 seconds. The 1,094/2,648 ms earlier samples must not be presented as a universal upper bound. No matched pre-release latency baseline was recorded.
+
+## Google Pay domain registration — 2026-10-21
+
+Reported symptom: Google Pay selected in the custom Payment Element, no card input fields, and the app's generic confirmation-exception message. Missing inline card fields are expected for a wallet; the Google wallet sheet handles card selection. The old catch-all message alone does not prove the precise error.
+
+Stripe live account Vispark (acct_1TeotMC4uZ5mcDl1) initially listed only js.stripe.com, checkout.stripe.com and buy.stripe.com as payment-method domains. Registered the actual payment-page domain kraroktunngern.cashsquirrelapp.workers.dev via the Stripe Dashboard after the connector write repeatedly returned an authentication retry. Readback confirmed pmd_1USiUjC4uZ5mcDl1cwy08BKg, enabled=true, google_pay.status=active. No permissions, keys, source code, prices, subscriptions or charges changed.
+
+This fixes a documented wallet setup prerequisite. A successful live Google Pay authorization/charge was not attempted; the customer must retry in their browser to confirm the complete payment flow. Do not claim the previously observed confirmation error has been fully reproduced or its only cause proven.
