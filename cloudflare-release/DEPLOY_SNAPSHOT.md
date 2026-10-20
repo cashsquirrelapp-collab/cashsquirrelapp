@@ -250,3 +250,34 @@ Operational instructions and the setup/audit script are documented in `PREPAID_B
 - Stripe verified: monthly `pi_3USgZOC4uZ5mcDl11OnHYbo1` THB159 canceled/unpaid when switched; six-month `pi_3USgc3C4uZ5mcDl10bOCj61K` THB849 canceled/unpaid when switched; annual `pi_3USgcWC4uZ5mcDl11qGRRbQi` THB1490 requires_action/unpaid, months12. All `amount_received=0`. No scan, card details or real charge performed.
 - Validation: 49 targeted unit/HTTP/SQL/payment/admin tests (48 combined before polling-budget addition; 19 HTTP tests including the new regression rerun after), 16 Cloudflare/security checks, 21 billing/admin E2E tests, typecheck, production build and archive verification. Payment settlement/refund evidence is simulated in automated tests, not a live end-to-end charge.
 - Proof screenshots retained locally: `krarok-direct-qr-159.png`, `krarok-direct-qr-849.png`, `krarok-direct-qr-1490.png`, `qr-webhook-ready.png` under the task visualization folder.
+
+
+## Phones in one terracotta mood; a ticket-style Pro card - 2026-10-21
+
+Built on top of 4ac218f (prepaid Pro, admin Pro controls, embedded checkout, direct PromptPay QR). Those files are unchanged here; only the files listed below differ.
+
+**Phones (below 744px; computers and iPads are unchanged except the Pro card).**
+- Every page has the overview's terracotta header in one piece with the top bar: งาน, ปฏิทิน/ไทม์ไลน์, เมนู, and each page the menu opens (เงินรอรับ, รายจ่าย, เอกสาร, แพ็กเกจ Pro, ตั้งค่า and its pages, บอกเรา, เป้าหมาย, 50 ทวิ).
+- On scroll, the title and the way back fade out and the page's summary box closes into a bar pinned under the top bar (`MobilePageHero`, built on the overview's `useCollapsingCard`).
+- งาน gets a summary card (still to receive, by stage) and a receive button on each card.
+- The bottom bar's fourth slot is ปฏิทิน. เงินรอรับ moved to the menu, and the menu is reordered (01 เงินรอรับ … 05 บัญชีและการตั้งค่า). Reminders sit in 04 LINE AI Pro, and the LINE logo marks that section.
+- Timeline: date rail and event cards. The month card shows only เงินรอรับ.
+- Expense rows say ประจำ or ทั่วไป.
+- Orange buttons carry white type.
+- Confirmations are a centred card with the mascot (a new held accessory, `hold-cross`, on the existing raised arm; the character is not redrawn).
+- The job sheet from the timeline is a calm statement-style sheet.
+- The 50 ทวิ reminder is hidden until that feature launches, except for full-access accounts and accounts that already turned it on.
+
+**Pro card (all screens).**
+- Terracotta period switch and badge.
+- A ticket look: a dashed tear line with notches.
+- Benefits centred vertically.
+- Payment logic from 4ac218f is untouched.
+
+Changed against 4ac218f: frontend/src/app/App.tsx, frontend/src/components/mascot/Mascot.tsx, frontend/src/components/ui/CustomDialog.tsx, frontend/src/features/billing/plans.css, frontend/src/features/calendar/CalendarTab.tsx, frontend/src/features/calendar/JobPeekSheet.tsx, frontend/src/features/feedback/feedbackChat.css, frontend/src/features/goals/SplitTab.tsx, frontend/src/features/incomeExpense/IncomeExpenseTab.tsx, frontend/src/features/jobs/JobsTab.tsx, frontend/src/features/mobile/MobileChrome.tsx, frontend/src/features/mobile/MobilePageHero.tsx, frontend/src/features/mobile/mobile.css, frontend/src/features/mobile/mobileNavigation.ts, frontend/src/features/mobile/useCollapsingCard.ts, frontend/src/features/mobile/useFitFigures.ts, frontend/src/features/receivables/ReceivablesTab.tsx, frontend/src/features/settings/SettingsParts.tsx, frontend/src/features/settings/SettingsTab.tsx, frontend/src/features/vault/Wht50Page.tsx, tests/e2e/app.spec.ts, tests/e2e/billing.spec.ts, tests/e2e/mobile-phone.spec.ts.
+- Archive SHA256 `650ce1ac91e1a9205378a8b48ea400bfa8bb99e0f8eceee8a9f077b0d7790513`; manifest SHA256 `e1d65912d6d452a1f7774f8d9e51328b2e862dafd7723422e9885c4fef0c68bc`.
+- Checked:
+  - Lint, the Cloudflare build and preflight on the extracted package.
+  - Unit suite: 325 of 330 pass, with the same 5 known failures.
+  - Full e2e compared against the 4ac218f source (see the release note in chat).
+- Rollback: restore the three release files of 4ac218f.
