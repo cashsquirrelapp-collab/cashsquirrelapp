@@ -212,3 +212,17 @@ Validation:
 - Canceled all six QA sessions through the app. Stripe confirmed all six `expired` and `unpaid`. No card details were entered, QR payment submitted/scanned, or money charged. A real paid transaction and real paid webhook fulfillment have not been exercised.
 
 Operational instructions and the setup/audit script are documented in `PREPAID_BILLING.md`. `prepaid-billing.patch` is the readable source diff against the previously packaged production release.
+
+## Separate admin Pro revoke and ban — 2026-10-20
+
+- Production Worker version `0aca6044-2692-4364-bda6-785be60a2ce5`, 100% traffic.
+- The user management panel offers Grant Pro, Revoke Pro, Ban Pro and Unban Pro. Revoke permits repurchase; ban blocks both payment methods until an explicit unban. Unban does not restore past Pro access. These actions do not refund payments or ban account sign-in.
+- Existing revocations from the old two-state UI are converted to repurchasable Free accounts. Admin grants are preserved.
+- The service-only transactional RPC shares the billing advisory lock, checks the current admin role and blocks changes during pending/unknown payment outcomes, ongoing recurring billing or account closure. The API retains CSRF and account-binding checks.
+- Entitlement reset time prevents old payments/refunds and legacy entitlement sources from restoring revoked access or extending a later package. A new paid order restores access normally.
+- Audit table has RLS, no browser access, and nullable identity references on account deletion so audit history does not block normal deletion.
+- `20261020155537_admin_pro_controls.sql` applied via the production SQL editor. It is not recorded by the CLI migration history. Do not reapply its legacy-state conversion after new explicit bans are created.
+- Final archive: 578 files / 20,614,964 bytes; SHA256 `74b232ec514e4e7146f7f2c7d6bcd02a392d05c55810cb2b5736f6d58e61a5d0`.
+- Validation: 29 targeted payment/admin HTTP and database tests (28 combined plus the added account-deletion audit test), 17 browser tests, 16 Cloudflare/security checks, lint and build. Database actions also tested under `service_role`. Browser admin mutations use simulated accounts; no real customer was granted or banned for testing.
+- The global signup trial policy remains unchanged pending clarification of the user's statement about no trial/test account. Revoking or banning an individual account suppresses its initial trial.
+- Readable source delta: `admin-pro-controls.patch`; operations: `ADMIN_PRO_CONTROLS.md`.

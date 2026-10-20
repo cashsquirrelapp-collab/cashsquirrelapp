@@ -2,9 +2,9 @@
   "schema_version": 1,
   "source_label": "Prepaid Pro: locked 159/849/1490 THB card and PromptPay for 1/6/12 calendar months — 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "31439c67d3d514895dbb223670541a15bfb294a7d554801d29b266a2efe8375c",
-  "file_count": 573,
-  "total_source_bytes": 20579566,
+  "archive_sha256": "74b232ec514e4e7146f7f2c7d6bcd02a392d05c55810cb2b5736f6d58e61a5d0",
+  "file_count": 578,
+  "total_source_bytes": 20614964,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -58,13 +58,13 @@
     },
     {
       "path": "backend/src/handlers/admin-analytics.ts",
-      "size": 14788,
-      "sha256": "ecdfaff3ee58466784eea17addeac4532b2cfae54c5d662d4e08d3236d4a5176"
+      "size": 14819,
+      "sha256": "8413bfcf8b9131151f162db976d607cbbd2f341a0a8adb1ba4f98aec50252fe5"
     },
     {
       "path": "backend/src/handlers/admin-users.ts",
-      "size": 21393,
-      "sha256": "cb0f63eb5a7b778cdd13fb3f94d83761d70a80a36fd17787079f747157086c25"
+      "size": 21746,
+      "sha256": "3d20dc91ee12050c82def9549ed0fed3d6ea32f01171a5a1dc11a40c38ee1368"
     },
     {
       "path": "backend/src/handlers/auth.ts",
@@ -73,8 +73,8 @@
     },
     {
       "path": "backend/src/handlers/billing.ts",
-      "size": 4405,
-      "sha256": "d2b1c84b6b75890406357da2c7838cb041e3c356bd9dc48aa4d527051dcf8aea"
+      "size": 4650,
+      "sha256": "7b061db4e96a6c270db1a0a6cfb499cc190117b97bbc221054658344632b3375"
     },
     {
       "path": "backend/src/handlers/close-expired-accounts.ts",
@@ -98,8 +98,8 @@
     },
     {
       "path": "backend/src/handlers/feedback.ts",
-      "size": 8060,
-      "sha256": "f25d7c6aa3f161982ecedffc97f643f6942f2f7e76c44b63480bca34b28ea9cb"
+      "size": 8091,
+      "sha256": "1c3c6b985d2203e9d9e5da5dd4076ba9390742bf184d3c7563ddd905449474d9"
     },
     {
       "path": "backend/src/handlers/groups.ts",
@@ -153,13 +153,13 @@
     },
     {
       "path": "backend/src/handlers/send-monthly-report.ts",
-      "size": 21316,
-      "sha256": "6ae18295900c21c0525b0bb4848bf9cef0462eaf9d041656eeec33c49dcf4be5"
+      "size": 21347,
+      "sha256": "014ce22b6ade919b521be545a2de323e48039d58b2fb6df3310bc20bfdf04528"
     },
     {
       "path": "backend/src/handlers/send-overdue-digest.ts",
-      "size": 14310,
-      "sha256": "99a0c6e1f56caf7f1dfe130292ee31a5acf43d80058c204edc989226782eb9f3"
+      "size": 14341,
+      "sha256": "065fff7f1e5fb71d30d320ae4060eedae7d08d601d99e099818f387cb503e5f9"
     },
     {
       "path": "backend/src/handlers/send-wht50-reminder.ts",
@@ -323,8 +323,8 @@
     },
     {
       "path": "backend/src/services/lineAssistant.ts",
-      "size": 112939,
-      "sha256": "fbcf6f546425b41e186058be2d51392e41725a9490a5f8c0ce02918a926cb813"
+      "size": 112970,
+      "sha256": "0294e110e699d7edf0526dd73f868c4bbc14a991de66febe42b93eed4966fa21"
     },
     {
       "path": "backend/src/services/lineCards.ts",
@@ -408,8 +408,8 @@
     },
     {
       "path": "backend/src/services/prepaidBilling.ts",
-      "size": 12972,
-      "sha256": "902f01c59ea1688bd4b6900f328a67345207bede653fd6cd07b8ece12f8fc1ba"
+      "size": 13128,
+      "sha256": "d71a22300cd57dba9a9f67e24f79504e051eaa67c954356c9e8fb18dc85cd66b"
     },
     {
       "path": "backend/src/services/prepaidPlans.ts",
@@ -605,6 +605,11 @@
       "path": "database/security-check.sql",
       "size": 3521,
       "sha256": "c8ee2232b187a90d05fff8709a078e0e66f48acd383435e8fbe6277beb1ea407"
+    },
+    {
+      "path": "docs/ADMIN_PRO_CONTROLS.md",
+      "size": 2162,
+      "sha256": "f6cb54c2bd50d9cba91a1e0fb476dd1f463f488fa4bf4c77719cb05f75e89503"
     },
     {
       "path": "docs/PREPAID_BILLING.md",
@@ -1448,8 +1453,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 179317,
-      "sha256": "56105834d45a09544ed842e0376fdc92d18f85243f5948766bfb365af13399a3"
+      "size": 179380,
+      "sha256": "90f6dab7f6e763be62f60fed2bfa043ccd0d46b3e3ff381fcad776107c14713d"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1558,8 +1563,8 @@
     },
     {
       "path": "frontend/src/features/billing/PlansTab.tsx",
-      "size": 18539,
-      "sha256": "14a8dde6961b5eecf706994c5dd58704bc6c837acbc9d385e0bbe87c49db7f11"
+      "size": 18765,
+      "sha256": "b11a3ea0a3b4fe72c6f25f6fef3d5e7ac4c9ba3246a887fe51a0f42922e63e85"
     },
     {
       "path": "frontend/src/features/billing/PremiumUpsell.tsx",
@@ -1698,8 +1703,8 @@
     },
     {
       "path": "frontend/src/features/groups/AdminUsersPanel.tsx",
-      "size": 24684,
-      "sha256": "dfe2871463bab4f91b161b15a611e3fdca2dfc6562306cf7cbe89d518db1a7ac"
+      "size": 26496,
+      "sha256": "00aa65acc7a25577e43b835a744ab18a1e0cf877e8ef8de74cc1ba9a84d2bab3"
     },
     {
       "path": "frontend/src/features/groups/FinanceWorkspacePicker.tsx",
@@ -2188,8 +2193,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 150225,
-      "sha256": "fba4d60ac62521c65ae91a78360cf3b964a829205d54ca87e9e29d75fc1b26fc"
+      "size": 150539,
+      "sha256": "3ae17e5bf967906395451860dd2f7d3f855e813cc2bcaca2ef60c2f2529a822d"
     },
     {
       "path": "frontend/src/index.css",
@@ -2253,8 +2258,8 @@
     },
     {
       "path": "frontend/src/services/groups.ts",
-      "size": 3888,
-      "sha256": "adfc06a3565935c99dbf0ca1c4b4bdfde057f6bcb83ec426e485e532f823cc0e"
+      "size": 3921,
+      "sha256": "1e4911c1c14a96104753dcb5f9b7702f86bcfe9cf4a7ced49ea8edcff1540139"
     },
     {
       "path": "frontend/src/services/images.ts",
@@ -2508,8 +2513,8 @@
     },
     {
       "path": "shared/groups.ts",
-      "size": 4732,
-      "sha256": "0f01c62b86507b740fc814ba237cfe1bef27c37b24960179a950c3102d47df7f"
+      "size": 4743,
+      "sha256": "50b828971181f10304aeb9de7cc67011be56ff693eb4967576ef550a802b1973"
     },
     {
       "path": "shared/incomeExport.ts",
@@ -2582,6 +2587,11 @@
       "sha256": "c19ae38ec8f2b69496943c08325c1a86b1f48ae0839410f954c7db0ade16ae51"
     },
     {
+      "path": "supabase/migrations/20261020155537_admin_pro_controls.sql",
+      "size": 13482,
+      "sha256": "b84cbead9e5dcb0ba9e1977122ecb035366c90eecf42862993fcef9727e01d43"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 6391,
       "sha256": "1deb6d15eb4da8bee6944386aa124c3225c20a7dbce5eeaedea37b76a5805d59"
@@ -2590,6 +2600,16 @@
       "path": "tests/admin-analytics-payments.test.ts",
       "size": 2716,
       "sha256": "85efe16256e6db640fdf41623eb0679b955d83021b1dfddc2744f25b3e819d01"
+    },
+    {
+      "path": "tests/admin-pro-database.test.ts",
+      "size": 7414,
+      "sha256": "1cd271fc66c51e7a791124d51d23328515f826e82e70f201a708e6d65d2b2d96"
+    },
+    {
+      "path": "tests/admin-pro-http.test.ts",
+      "size": 3352,
+      "sha256": "36e5a26e88eb787e59c41f062b1d55ec2119607f62546c89758968374448e4c7"
     },
     {
       "path": "tests/calendar-events.test.ts",
@@ -2642,6 +2662,11 @@
       "sha256": "8000a17410aaa1cf0666b2176d10665a15026740c1d04fad2d06852151f720e5"
     },
     {
+      "path": "tests/e2e/admin-pro.spec.ts",
+      "size": 4366,
+      "sha256": "c2108a557aa9e3e76b65d5f01ebbd108591fe3096670ac1ed038f15747937eb5"
+    },
+    {
       "path": "tests/e2e/app.spec.ts",
       "size": 129549,
       "sha256": "3557a65c905526c2496579d03ede54cf5f375aaca07c7209613ce788ce6f578e"
@@ -2653,8 +2678,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 30723,
-      "sha256": "ec86d2051bfe5e03eccd6a701a980d3cb55c8a087bdd8104d343eb56d9383f9b"
+      "size": 31451,
+      "sha256": "610d938fa457f69796ae3622004aa352584c5f0858a2e65db9a9230035121834"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -2783,8 +2808,8 @@
     },
     {
       "path": "tests/prepaid-http.test.ts",
-      "size": 10904,
-      "sha256": "92c8abd450c87018ac5a089a5b32071a98cd166a330b46aac976ac1382e36b18"
+      "size": 11430,
+      "sha256": "3ce38f2ad5bb898129603dddef099d8a38eaa7450506fe7d7b0fc8efa81ac5b1"
     },
     {
       "path": "tests/prepaid-plans.test.ts",

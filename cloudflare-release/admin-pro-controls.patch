@@ -1,0 +1,808 @@
+--- a/backend/src/handlers/admin-analytics.ts
++++ b/backend/src/handlers/admin-analytics.ts
+@@ -70,7 +70,7 @@
+ function planStatusOf(profile: ProfileRow, subscription: SubscriptionRow | undefined, now: number): AccountPlanStatus {
+   if (subscription?.status === 'active' && subscription.plan === 'admin_grant') return 'admin';
+   if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) return 'pro';
+-  if (subscription && (subscription.plan === 'admin_revoked' || subscription.current_period_end)) return 'expired';
++  if (subscription && (['admin_revoked', 'admin_removed'].includes(subscription.plan || '') || subscription.current_period_end)) return 'expired';
+   if (new Date(profile.created_at).getTime() + TRIAL_DAYS * DAY_MS > now) return 'trial';
+   return 'free';
+ }
+--- a/backend/src/handlers/admin-users.ts
++++ b/backend/src/handlers/admin-users.ts
+@@ -10,7 +10,6 @@
+ import { challengeHash, rateLimit } from '../security/rateLimit.js';
+ import { groupDbError } from './groups.js';
+ import { loadPresenceByUserId, ONLINE_WINDOW_MS } from '../repositories/presence.js';
+-import { assertStripeBillingClosed, beginStripeBillingClosure } from '../services/subscriptionClosure.js';
+ 
+ const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
+ const FREE_TRIAL_DAYS = 14;
+@@ -18,7 +17,7 @@
+ const setProAccessSchema = z.object({
+   action: z.literal('set-pro-access'),
+   userId: z.uuid(),
+-  enabled: z.boolean(),
++  operation: z.enum(['grant', 'revoke', 'ban', 'unban']),
+ }).strict();
+ const dashboardDetailsQuerySchema = z.object({
+   action: z.literal('dashboard-details'),
+@@ -208,8 +207,9 @@
+           const profile = profilesById.get(row.user_id);
+           const subscription = section === 'pro' ? row : subscriptionsById.get(row.user_id);
+           const lastSeenAt = presenceById.get(row.user_id) || null;
+-          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'none' = 'none';
+-          if (subscription?.plan === 'admin_revoked') proStatus = 'revoked';
++          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'banned' | 'none' = 'none';
++          if (subscription?.plan === 'admin_revoked') proStatus = 'banned';
++          else if (subscription?.plan === 'admin_removed') proStatus = 'revoked';
+           else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
+           else if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > Date.now()) proStatus = 'paid';
+           else if (profile?.created_at && new Date(profile.created_at).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now()) proStatus = 'trial';
+@@ -320,8 +320,9 @@
+         users: (accounts.users || []).map(account => {
+           const subscription = subscriptions.get(account.userId);
+           const lastSeenAt = presenceById.get(account.userId) || null;
+-          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'none' = 'none';
+-          if (subscription?.plan === 'admin_revoked') proStatus = 'revoked';
++          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'banned' | 'none' = 'none';
++          if (subscription?.plan === 'admin_revoked') proStatus = 'banned';
++          else if (subscription?.plan === 'admin_removed') proStatus = 'revoked';
+           else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
+           else if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) proStatus = 'paid';
+           else if (new Date(account.createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > now) proStatus = 'trial';
+@@ -344,28 +345,16 @@
+     if (req.body?.action === 'set-pro-access') {
+       const parsed = setProAccessSchema.safeParse(req.body);
+       if (!parsed.success) throw new HttpError(400, 'ข้อมูลแพ็กเกจ Pro ไม่ถูกต้อง');
+-      const { userId, enabled } = parsed.data;
+-      const [target, existing] = await Promise.all([
+-        db.auth.admin.getUserById(userId),
+-        db.from('subscriptions')
+-          .select('stripe_customer_id,stripe_subscription_id,current_period_end,stripe_subscription_status,status,cancel_at_period_end,stripe_checkout_pending_until')
+-          .eq('user_id', userId).maybeSingle(),
+-      ]);
+-      if (target.error) throw target.error;
+-      if (!target.data.user) throw new HttpError(404, 'ไม่พบบัญชีผู้ใช้');
+-      if (existing.error) throw existing.error;
+-      assertStripeBillingClosed(existing.data, 'admin-override');
+-      await beginStripeBillingClosure(userId, 'admin-override');
+-      const saved = await db.from('subscriptions').upsert({
+-        user_id: userId,
+-        status: enabled ? 'active' : 'canceled',
+-        plan: enabled ? 'admin_grant' : 'admin_revoked',
+-        current_period_end: existing.data?.current_period_end || null,
+-        stripe_customer_id: existing.data?.stripe_customer_id || null,
+-        stripe_subscription_id: existing.data?.stripe_subscription_id || null,
+-        updated_at: new Date().toISOString(),
+-      });
++      const { userId, operation } = parsed.data;
++      const saved = await db.rpc('cashflow_admin_pro_action', { p_actor: user.id, p_user_id: userId, p_operation: operation });
+       if (saved.error) throw saved.error;
++      const messages: Record<string, string> = {
++        banned: 'บัญชีนี้ถูกแบน Pro กรุณาปลดแบนก่อนให้สิทธิ์หรือเปลี่ยนแพ็กเกจ',
++        checkout_pending: 'มีรายการชำระเงินค้างอยู่ ให้ผู้ใช้ยกเลิกรายการที่ยังไม่ชำระหรือรอการยืนยันก่อนเปลี่ยนสิทธิ์',
++        subscription_open: 'ยังมีการสมัครสมาชิกที่ตัดเงินต่อเนื่อง ให้ผู้ใช้ยกเลิกผ่าน Stripe และรอให้การสมัครสิ้นสุดก่อนเปลี่ยนสิทธิ์',
++        account_closing: 'บัญชีอยู่ระหว่างพักหรือปิด จึงยังเปลี่ยนสิทธิ์ Pro ไม่ได้',
++      };
++      if (!['ok','unchanged'].includes(saved.data?.result)) throw new HttpError(409, messages[saved.data?.result] || 'เปลี่ยนสิทธิ์ Pro ไม่สำเร็จ');
+       res.json({ ok: true });
+       return;
+     }
+--- a/backend/src/handlers/billing.ts
++++ b/backend/src/handlers/billing.ts
+@@ -33,7 +33,7 @@
+           status: Date.parse(query.data.expires_at) > Date.now() ? 'open' : 'expired' };
+       }
+     }
+-    res.json({ checkout_ready: prepaidEnabled(), pending_checkout: pendingCheckout, subscription: row ? {
++    res.json({ checkout_ready: prepaidEnabled() && row?.plan !== 'admin_revoked', pending_checkout: pendingCheckout, subscription: row ? {
+       status: row.status, plan: row.plan, current_period_end: row.current_period_end,
+       cancel_at_period_end: row.cancel_at_period_end, stripe_status: row.stripe_subscription_status,
+       has_subscription: Boolean(row.stripe_subscription_id), managed: Boolean(row.stripe_customer_id),
+@@ -66,5 +66,6 @@
+   // No client-supplied amount, duration, Stripe Price, account or URL is trusted.
+   const allowed = new Set(['action','period']);
+   if (Object.keys(req.body).some(key => !allowed.has(key))) throw new HttpError(400, 'Invalid checkout fields');
++  if (row?.plan === 'admin_revoked') throw new HttpError(403, 'บัญชีนี้ถูกแบน Pro กรุณาติดต่อแอดมินเพื่อปลดแบน', 'PRO_BANNED');
+   res.json(await startPrepaidCheckout(user, req.body.period, req.body.action === 'promptpay_checkout' ? 'promptpay' : 'card'));
+ }, { csrf: true });
+--- a/backend/src/handlers/feedback.ts
++++ b/backend/src/handlers/feedback.ts
+@@ -29,7 +29,7 @@
+ type SubscriptionRow = { user_id: string; status: string | null; plan: string | null; current_period_end: string | null };
+ /** The same plan rule as the admin accounts list (handlers/admin-users.ts). */
+ function ownerPlan(subscription: SubscriptionRow | undefined, createdAt: string | null | undefined, now: number): FeedbackOwnerPlan {
+-  if (subscription?.plan === 'admin_revoked') return 'revoked';
++  if (['admin_revoked', 'admin_removed'].includes(subscription?.plan || '')) return 'revoked';
+   if (subscription?.status === 'active' && subscription.plan === 'admin_grant') return 'admin';
+   if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) return 'paid';
+   if (createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > now) return 'trial';
+--- a/backend/src/handlers/send-monthly-report.ts
++++ b/backend/src/handlers/send-monthly-report.ts
+@@ -238,7 +238,7 @@
+   subscriptionByUserId: Map<string, { status: string; plan: string | null; current_period_end: string | null }>
+ ): boolean {
+   const sub = subscriptionByUserId.get(userId);
+-  if (sub?.plan === 'admin_revoked') return false;
++  if (['admin_revoked', 'admin_removed'].includes(sub?.plan || '')) return false;
+   const createdAt = createdAtByUserId.get(userId);
+   const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
+ 
+--- a/backend/src/handlers/send-overdue-digest.ts
++++ b/backend/src/handlers/send-overdue-digest.ts
+@@ -123,7 +123,7 @@
+   subscriptionByUserId: Map<string, { status: string; plan: string | null; current_period_end: string | null }>
+ ): boolean {
+   const sub = subscriptionByUserId.get(userId);
+-  if (sub?.plan === 'admin_revoked') return false;
++  if (['admin_revoked', 'admin_removed'].includes(sub?.plan || '')) return false;
+   const createdAt = createdAtByUserId.get(userId);
+   const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
+ 
+--- a/backend/src/services/lineAssistant.ts
++++ b/backend/src/services/lineAssistant.ts
+@@ -102,7 +102,7 @@
+   }
+ 
+   const createdAt = authUser?.user?.created_at;
+-  const isAdminRevoked = sub?.plan === 'admin_revoked';
++  const isAdminRevoked = ['admin_revoked', 'admin_removed'].includes(sub?.plan || '');
+   const isInFreeTrial = !isAdminRevoked && !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000 > Date.now();
+ 
+   const isPaidActive = sub?.status === 'active' && (
+--- a/backend/src/services/prepaidBilling.ts
++++ b/backend/src/services/prepaidBilling.ts
+@@ -134,6 +134,7 @@
+       period_mismatch: 'มีรายการชำระเงินแพ็กเกจอื่นค้างอยู่ กรุณาดำเนินการหรือรอให้หมดอายุก่อนเปลี่ยนแพ็กเกจ',
+       prepaid_active: 'สิทธิ์ Pro ที่ชำระแล้วยังใช้งานได้ กรุณาต่ออายุเมื่อสิทธิ์หมด',
+       managed: 'มีการสมัครสมาชิกอยู่แล้ว กรุณาเปิดจัดการการสมัครสมาชิก',
++      admin_revoked: 'บัญชีนี้ถูกแบน Pro กรุณาติดต่อแอดมินเพื่อปลดแบน',
+       pending: 'มีรายการชำระเงินค้างอยู่ กรุณารอการยืนยันก่อนสร้างรายการใหม่',
+     };
+     throw new HttpError(409, messages[reservation.result] || 'บัญชีนี้ยังไม่สามารถเริ่มรายการชำระเงินใหม่ได้');
+--- /dev/null
++++ b/docs/ADMIN_PRO_CONTROLS.md
+@@ -0,0 +1,18 @@
++# Admin Pro controls
++
++The admin user management panel now distinguishes four actions:
++
++- Grant Pro: unlimited admin-granted access until revoked. A banned account must first be unbanned explicitly.
++- Revoke Pro: removes current access, including the initial trial for this account, but allows a new paid package immediately.
++- Ban Pro: removes current access and blocks purchase until an admin unbans it. Account sign-in is not banned.
++- Unban Pro: permits repurchase without restoring old access. Admins can separately grant Pro afterward.
++
++None of these actions refunds payments. Pending checkout, unresolved Stripe outcomes, an ongoing recurring subscription, or an account closure block the mutation with a clear error. The new RPC shares the checkout advisory lock and records the authenticated admin and action in a service-only RLS audit table.
++
++The old UI only offered revoke. The migration converts old `admin_revoked` records to `admin_removed`: they remain Free but may repurchase. New explicit bans use `admin_revoked`. `pro_access_reset_at` prevents old payments, refund replay, and old entitlement sources from restoring removed access or extending a later purchase. New purchases are recognized by server-created order time; payment timestamps may be second-granularity.
++
++Migration: `supabase/migrations/20261020155537_admin_pro_controls.sql`. Apply once before using the new admin actions. Do not rerun this migration after explicit bans have been created: its conversion is only for the legacy state.
++
++The global 14-day signup trial policy is unchanged; removing trials globally was not assumed from the ambiguous statement about no test account. Revoked/banned accounts cannot regain an initial trial.
++
++Validation uses simulated accounts and local PostgreSQL execution, not production customer bans. Browser tests exercise revoke → grant → ban → unban, explanatory confirmations, and blocked purchase controls. HTTP tests cover admin role, CSRF, account binding, strict payloads and ban enforcement. SQL tests cover purchase after revoke/unban, ban enforcement, payment replay/refund behavior, payment races and service-role permissions.
+--- a/frontend/src/app/App.tsx
++++ b/frontend/src/app/App.tsx
+@@ -183,7 +183,7 @@
+ 
+ function isConfirmedCheckoutSubscription(subscription: BillingSubscription, now = Date.now()): boolean {
+   return ['active', 'trialing'].includes(subscription.status)
+-    && subscription.plan !== 'admin_revoked'
++    && !['admin_revoked', 'admin_removed'].includes(subscription.plan || '')
+     && !!subscription.currentPeriodEnd
+     && new Date(subscription.currentPeriodEnd).getTime() > now;
+ }
+@@ -1173,7 +1173,7 @@
+     if (!createdAt || session?.isGuest) return null;
+     return new Date(new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000);
+   }, [session?.user?.created_at, session?.isGuest]);
+-  const isAdminProRevoked = subscription?.plan === 'admin_revoked';
++  const isAdminProRevoked = ['admin_revoked', 'admin_removed'].includes(subscription?.plan || '');
+   const isInFreeTrial = !isAdminProRevoked && !!trialEndsAt && trialEndsAt.getTime() > Date.now();
+ 
+   // Stripe subscription access follows verified webhook state; an admin grant stays active until revoked.
+--- a/frontend/src/features/billing/PlansTab.tsx
++++ b/frontend/src/features/billing/PlansTab.tsx
+@@ -86,6 +86,7 @@
+     periodButtons.current[next]?.focus();
+   };
+ 
++  const isProBanned = subscription?.plan === 'admin_revoked';
+   const isAdminGrant = subscription?.plan === 'admin_grant';
+   const hasOpenManagedSubscription = Boolean(
+     subscription?.hasSubscription
+@@ -143,6 +144,7 @@
+   };
+ 
+   const actionsOf = (option: BillingPeriod) => {
++    if (isProBanned) return <p role="status" className="rounded-xl border border-red-300/30 p-3 text-sm text-red-600 dark:text-red-300">{t('plans.proBanned')}</p>;
+     if (!canBuy) return <span className="rounded-full bg-emerald-500/10 px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-700 dark:text-emerald-300">{t('plans.currentPlan')}</span>;
+     // These never charge anything: an existing subscription opens the Stripe portal, a guest signs up.
+     if (hasOpenManagedSubscription) return <button type="button" onClick={onUpgrade} disabled={billingBusy} className={primary}>{billingBusy ? t('plans.loadingCta') : t('plans.renewCta')}</button>;
+--- a/frontend/src/features/groups/AdminUsersPanel.tsx
++++ b/frontend/src/features/groups/AdminUsersPanel.tsx
+@@ -154,13 +154,13 @@
+       if (mounted.current) setBusy(false);
+     }
+   };
+-  const setProAccess = async (target: string, enabled: boolean) => {
++  const setProAccess = async (target: string, operation: 'grant' | 'revoke' | 'ban' | 'unban') => {
+     if (!mounted.current || writing.current || getCurrentAccount() !== userId) return;
+     writing.current = true;
+     setBusy(true);
+     setError('');
+     try {
+-      await groupApi.setProAccess(userId, target, enabled);
++      await groupApi.setProAccess(userId, target, operation);
+       if (!mounted.current || getCurrentAccount() !== userId) return;
+       setRevision(value => value + 1);
+       await onRoleChanged();
+@@ -221,8 +221,8 @@
+           </h2>
+           <p className="text-xs text-brand-muted mt-1">
+             {copy(
+-              'ค้นหาบัญชี จัดการ Pro และถอดสิทธิ์ Admin ที่มีอยู่ได้',
+-              'Search accounts, manage Pro access, and remove existing admin access.',
++              'ปลด Pro: สมัครใหม่ได้ · แบน Pro: ต้องให้แอดมินปลดแบนก่อนสมัครใหม่',
++              'Revoke Pro allows repurchase. A Pro ban blocks purchases until an admin lifts it.',
+             )}
+           </p>
+         </div>
+@@ -386,35 +386,49 @@
+               </p>
+             </div>
+             <div className="flex flex-wrap items-center justify-end gap-2">
+-              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${user.proStatus === 'admin' || user.proStatus === 'paid' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : user.proStatus === 'trial' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : user.proStatus === 'revoked' ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-brand-faint text-brand-muted'}`}>
++              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${user.proStatus === 'admin' || user.proStatus === 'paid' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : user.proStatus === 'trial' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : user.proStatus === 'banned' ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-brand-faint text-brand-muted'}`}>
+                 {user.proStatus === 'admin'
+                   ? copy('Pro · แอดมินให้', 'Pro · Admin grant')
+                   : user.proStatus === 'paid'
+                     ? copy('Pro · ชำระแล้ว', 'Pro · Paid')
+                     : user.proStatus === 'trial'
+                       ? copy('Pro · ทดลองใช้', 'Pro · Trial')
++                      : user.proStatus === 'banned'
++                        ? copy('แบน Pro', 'Pro banned')
+                       : user.proStatus === 'revoked'
+-                        ? copy('ปิด Pro โดยแอดมิน', 'Pro disabled by admin')
++                        ? copy('ปลด Pro · สมัครใหม่ได้', 'Pro revoked · Can subscribe')
+                         : copy('Free', 'Free')}
+               </span>
+-              <button
++              {user.proStatus !== 'banned' && <button
+                 type="button"
+-                className={user.proStatus === 'admin' || user.proStatus === 'paid' || user.proStatus === 'trial' ? secondary : primary}
++                className={['admin', 'paid', 'trial'].includes(user.proStatus || '') ? secondary : primary}
+                 disabled={busy}
+                 onClick={() => {
+                   const enable = !['admin', 'paid', 'trial'].includes(user.proStatus || 'none');
+                   triggerConfirm(
+-                    enable ? copy('ให้สิทธิ์ Pro', 'Grant Pro access') : copy('ยกเลิก Pro', 'Cancel Pro access'),
++                    enable ? copy('ให้สิทธิ์ Pro', 'Grant Pro access') : copy('ปลด Pro', 'Revoke Pro'),
+                     enable
+-                      ? copy(`ให้ ${user.displayName} ใช้ Pro ได้จนกว่าแอดมินจะยกเลิก`, `Grant Pro to ${user.displayName} until an admin cancels it.`)
+-                      : copy(`ยกเลิกสิทธิ์ Pro ของ ${user.displayName} ทันที`, `Revoke Pro access for ${user.displayName} immediately.`),
+-                    () => { void setProAccess(user.userId, enable); },
++                      ? copy(`ให้ ${user.displayName} ใช้ Pro ได้จนกว่าแอดมินจะปลดสิทธิ์`, `Grant Pro to ${user.displayName} until an admin revokes it.`)
++                      : copy(`ปลดสิทธิ์ Pro ปัจจุบันของ ${user.displayName} ทันที ผู้ใช้สมัครและชำระแพ็กเกจใหม่ได้ การปลดสิทธิ์ไม่คืนเงิน`, `Remove current Pro access for ${user.displayName}. They can purchase a new package. This does not refund a payment.`),
++                    () => { void setProAccess(user.userId, enable ? 'grant' : 'revoke'); },
+                   );
+                 }}
+               >
+                 {['admin', 'paid', 'trial'].includes(user.proStatus || 'none')
+-                  ? copy('ยกเลิก Pro', 'Cancel Pro')
+-                  : copy('ให้ Pro', 'Grant Pro')}
++                  ? copy('ปลด Pro', 'Revoke Pro') : copy('ให้ Pro', 'Grant Pro')}
++              </button>}
++              <button type="button" className={secondary} disabled={busy}
++                onClick={() => {
++                  const banned = user.proStatus === 'banned';
++                  triggerConfirm(
++                    banned ? copy('ปลดแบน Pro', 'Unban Pro') : copy('แบน Pro', 'Ban Pro'),
++                    banned
++                      ? copy(`ให้ ${user.displayName} สมัคร Pro ได้อีกครั้ง โดยไม่คืนสิทธิ์ Pro เดิมให้อัตโนมัติ`, `Allow ${user.displayName} to subscribe again without restoring previous Pro access.`)
++                      : copy(`ปิด Pro ของ ${user.displayName} และห้ามสมัครใหม่จนกว่าแอดมินจะปลดแบน ยังเข้าสู่บัญชีได้ การแบนไม่คืนเงิน`, `Remove Pro for ${user.displayName} and block new purchases until an admin lifts the ban. Account sign-in remains available. This does not refund payments.`),
++                    () => { void setProAccess(user.userId, banned ? 'unban' : 'ban'); },
++                  );
++                }}>
++                {user.proStatus === 'banned' ? copy('ปลดแบน Pro', 'Unban Pro') : copy('แบน Pro', 'Ban Pro')}
+               </button>
+               {user.role === 'admin' && (
+                 <button
+--- a/frontend/src/i18n/translations.ts
++++ b/frontend/src/i18n/translations.ts
+@@ -592,6 +592,7 @@
+     'plans.roadmapLabel': 'กำลังพัฒนา',
+     'plans.roadmapCopy': 'ภาษีสำหรับ Free และความสามารถที่ระบุว่ายังไม่พร้อมใช้ข้างต้น ยังไม่รวมในสิทธิ์ปัจจุบัน จะแจ้งอีกครั้งเมื่อพร้อมเปิดใช้',
+     'plans.currentPlan': 'แพ็กเกจปัจจุบัน',
++    'plans.proBanned': 'บัญชีนี้ถูกแบน Pro กรุณาติดต่อแอดมินเพื่อปลดแบนก่อนสมัครใหม่',
+     'plans.freeTrialBadge': 'ทดลองใช้ฟรี',
+     'plans.guestPreviewBadge': 'ทดลอง Pro',
+     'plans.guestPreviewStatus': 'โหมดทดลองเปิดให้ลองเครื่องมือ Pro ด้วยข้อมูลตัวอย่างในเบราว์เซอร์ ฟีเจอร์ที่ส่งอีเมลหรือเชื่อม LINE ต้องใช้บัญชีจริง',
+@@ -1366,6 +1367,7 @@
+     'plans.roadmapLabel': 'In development',
+     'plans.roadmapCopy': 'Free tax and the features marked unavailable above are not part of the current benefits. We will announce them when ready.',
+     'plans.currentPlan': 'Current Plan',
++    'plans.proBanned': 'Pro is banned for this account. Contact an admin to lift the ban before subscribing again.',
+     'plans.freeTrialBadge': 'Free Trial',
+     'plans.guestPreviewBadge': 'Pro Preview',
+     'plans.guestPreviewStatus': 'Guest mode lets you preview Pro tools with sample data in this browser. Email delivery and LINE connection require a real account.',
+--- a/frontend/src/services/groups.ts
++++ b/frontend/src/services/groups.ts
+@@ -110,11 +110,11 @@
+       body: JSON.stringify({ userId, role }),
+     });
+   },
+-  setProAccess(account: string, userId: string, enabled: boolean) {
++  setProAccess(account: string, userId: string, operation: 'grant' | 'revoke' | 'ban' | 'unban') {
+     return apiJson<{ ok: true }>('/api/admin-users', {
+       method: 'POST',
+       headers: { 'X-Account-ID': account },
+-      body: JSON.stringify({ action: 'set-pro-access', userId, enabled }),
++      body: JSON.stringify({ action: 'set-pro-access', userId, operation }),
+     });
+   },
+ };
+--- a/shared/groups.ts
++++ b/shared/groups.ts
+@@ -161,7 +161,7 @@
+   total: number;
+   page: number;
+ }
+-export type AdminProStatus = 'admin' | 'paid' | 'trial' | 'revoked' | 'none';
++export type AdminProStatus = 'admin' | 'paid' | 'trial' | 'revoked' | 'banned' | 'none';
+ export interface AdminDeletionRequest {
+   userId: string;
+   email: string;
+--- /dev/null
++++ b/supabase/migrations/20261020155537_admin_pro_controls.sql
+@@ -0,0 +1,204 @@
++begin;
++alter table public.subscriptions add column if not exists pro_access_reset_at timestamptz;
++create table public.cashflow_admin_pro_audit (
++  id bigint generated always as identity primary key,
++  actor_id uuid references auth.users(id) on delete set null, user_id uuid references auth.users(id) on delete set null,
++  operation text not null check(operation in ('grant','revoke','ban','unban')),
++  previous_plan text,created_at timestamptz not null default now()
++);
++alter table public.cashflow_admin_pro_audit enable row level security;
++revoke all on public.cashflow_admin_pro_audit from public,anon,authenticated;
++grant select,insert on public.cashflow_admin_pro_audit to service_role;
++grant usage,select on sequence public.cashflow_admin_pro_audit_id_seq to service_role;
++-- The old UI only offered revoke, not a separate ban. Preserve that intent:
++-- prior revoked users remain Free but may buy a new package.
++update public.subscriptions set plan='admin_removed',status='canceled',pro_access_reset_at=now(),
++  current_period_end=null,prepaid_entitled_until=null,billing_closure_pending_until=null
++where plan='admin_revoked';
++create or replace function public.cashflow_reserve_billing_checkout(
++  p_user_id uuid,
++  p_reservation_id text,
++  p_method text,
++  p_expires_at timestamptz,
++  p_pending_until timestamptz,
++  p_livemode boolean
++) returns jsonb language plpgsql security definer set search_path = '' as $$
++declare target public.subscriptions; remaining smallint;
++begin
++  if p_user_id is null or p_reservation_id is null
++    or length(p_reservation_id) not between 1 and 255
++    or p_method not in ('card','promptpay')
++    or p_expires_at < now() + interval '29 minutes'
++    or p_expires_at > now() + interval '55 minutes'
++    or p_pending_until <= p_expires_at
++    or p_pending_until > p_expires_at + interval '10 minutes'
++    or p_pending_until > now() + interval '65 minutes' then
++    raise exception 'invalid_checkout_reservation';
++  end if;
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  if exists(select 1 from public.cashflow_account_pauses where user_id=p_user_id) then
++    return jsonb_build_object('result','account_closing');
++  end if;
++  insert into public.subscriptions(user_id,workspace_type,workspace_id,status,updated_at)
++    values(p_user_id,'personal',p_user_id,'inactive',now()) on conflict(user_id) do nothing;
++  select * into target from public.subscriptions where user_id=p_user_id for update;
++  if target.billing_closure_pending_until > now() then return jsonb_build_object('result','account_closing'); end if;
++  if target.stripe_livemode is not null and target.stripe_livemode <> p_livemode then return jsonb_build_object('result','mode_mismatch'); end if;
++  if target.plan='admin_revoked' then return jsonb_build_object('result','admin_revoked'); end if;
++  if target.plan='admin_grant' then return jsonb_build_object('result','admin_grant'); end if;
++  if target.pro_access_reset_at is null and greatest(target.legacy_current_period_end,target.manual_current_period_end) > now() then
++    return jsonb_build_object('result','legacy_active','legacy_until',greatest(target.legacy_current_period_end,target.manual_current_period_end));
++  end if;
++  if target.stripe_subscription_id is not null and target.stripe_subscription_status in
++    ('incomplete','trialing','active','past_due','unpaid','paused') then
++    return jsonb_build_object('result','managed','customer_id',target.stripe_customer_id);
++  end if;
++  if target.pro_access_reset_at is null and greatest(target.stripe_entitled_until,target.promptpay_entitled_until) > now() then
++    return jsonb_build_object('result','recurring_access','entitled_until',greatest(target.stripe_entitled_until,target.promptpay_entitled_until));
++  end if;
++  if target.stripe_checkout_reservation_id is not null
++    and (target.stripe_checkout_session_id is not null or target.stripe_checkout_pending_until > now()) then
++    if target.stripe_checkout_expires_at is null or target.stripe_checkout_intro_eligible is null then
++      return jsonb_build_object('result','pending');
++    end if;
++    return jsonb_build_object(
++      'result','resumed','reservation_id',target.stripe_checkout_reservation_id,
++      'session_id',target.stripe_checkout_session_id,'expires_at',target.stripe_checkout_expires_at,
++      'pending_until',target.stripe_checkout_pending_until,'customer_id',target.stripe_customer_id,
++      'intro_eligible',target.stripe_checkout_intro_eligible,
++      'intro_cycles_remaining',target.stripe_checkout_intro_cycles_remaining,
++      'method',target.stripe_checkout_method,'url',target.stripe_checkout_url
++    );
++  end if;
++  remaining := greatest(0,3-target.stripe_intro_paid_cycles);
++  update public.subscriptions set
++    stripe_livemode=coalesce(stripe_livemode,p_livemode),
++    stripe_checkout_reservation_id=p_reservation_id,
++    stripe_checkout_session_id=null,
++    stripe_checkout_expires_at=p_expires_at,
++    stripe_checkout_pending_until=p_pending_until,
++    stripe_checkout_intro_eligible=remaining>0,
++    stripe_checkout_intro_cycles_remaining=remaining,
++    stripe_checkout_method=p_method,
++    stripe_checkout_url=null,
++    stripe_checkout_request=null,
++    -- This legacy marker is not the canonical promo counter. Clearing it while
++    -- cycles remain lets the existing offer-window RPC accept a resumed card
++    -- promotion after a canceled subscription or PromptPay month.
++    stripe_intro_redeemed_at=case when remaining>0 then null else stripe_intro_redeemed_at end,
++    billing_closure_pending_until=null,
++    updated_at=now()
++  where user_id=p_user_id;
++  return jsonb_build_object('result','reserved','customer_id',target.stripe_customer_id,
++    'intro_eligible',remaining>0,'intro_cycles_remaining',remaining,'method',p_method);
++end;
++$$;
++
++create or replace function public.cashflow_reserve_prepaid_checkout(
++  p_user_id uuid,p_order_id text,p_period text,p_method text,p_price_id text,p_livemode boolean
++) returns jsonb language plpgsql security invoker set search_path='' as $$
++declare r jsonb; o public.cashflow_prepaid_orders; m smallint; a bigint; expiry timestamptz := now()+interval '45 minutes';
++begin
++  if p_period is null or p_method is null or p_price_id is null or p_livemode is null
++    or p_order_id is null or p_user_id is null or p_method not in ('card','promptpay') then raise exception 'invalid_plan'; end if;
++  select months,amount into m,a from (values ('month',1,15900),('halfYear',6,84900),('year',12,149000)) as plans(period,months,amount) where period=p_period;
++  if not found then raise exception 'invalid_plan'; end if;
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  if exists(select 1 from public.subscriptions where user_id=p_user_id and plan='admin_revoked') then
++    return jsonb_build_object('result','admin_revoked'); end if;
++  if exists(select 1 from public.subscriptions where user_id=p_user_id and prepaid_entitled_until>now()) then
++    return jsonb_build_object('result','prepaid_active'); end if;
++  select * into o from public.cashflow_prepaid_orders where user_id=p_user_id
++    and status in ('reserved','open') and request is not null order by created_at limit 1 for update;
++  if found then
++    if o.period<>p_period or o.method<>p_method then return jsonb_build_object('result','period_mismatch'); end if;
++    return jsonb_build_object('result','resumed','order_id',o.id);
++  end if;
++  r := public.cashflow_reserve_billing_checkout(p_user_id,p_order_id,p_method,expiry,expiry+interval '5 minutes',p_livemode);
++  if r->>'result'='reserved' then
++    insert into public.cashflow_prepaid_orders(id,user_id,period,months,amount,method,price_id,livemode,customer_id,expires_at)
++      values(p_order_id,p_user_id,p_period,m,a,p_method,p_price_id,p_livemode,r->>'customer_id',expiry);
++    return jsonb_build_object('result','reserved','order_id',p_order_id);
++  elsif r->>'result'='resumed' then
++    select * into o from public.cashflow_prepaid_orders where id=r->>'reservation_id' and user_id=p_user_id;
++    if not found then return jsonb_build_object('result','pending'); end if;
++    if o.period<>p_period or o.method<>p_method then return jsonb_build_object('result','period_mismatch'); end if;
++    return jsonb_build_object('result','resumed','order_id',o.id);
++  end if;
++  return r;
++end; $$;
++
++create or replace function public.cashflow_refresh_effective_subscription(p_user_id uuid)
++returns void language plpgsql security invoker set search_path='' as $$
++declare s public.subscriptions; effective_end timestamptz; prepaid_end timestamptz;
++begin
++  select * into s from public.subscriptions where user_id=p_user_id for update;
++  if not found then return; end if;
++  if s.pro_access_reset_at is not null then
++    -- Old payment replays/refunds must never restore a revoked entitlement.
++    select max(entitled_until) into prepaid_end from public.cashflow_prepaid_orders
++      where user_id=p_user_id and status='paid' and created_at>s.pro_access_reset_at;
++    effective_end := prepaid_end;
++  else
++    prepaid_end := s.prepaid_entitled_until;
++    effective_end := greatest(s.manual_current_period_end,s.legacy_current_period_end,s.stripe_entitled_until,s.promptpay_entitled_until,prepaid_end);
++  end if;
++  update public.subscriptions set
++    prepaid_entitled_until=prepaid_end,
++    current_period_end=case when s.plan='admin_revoked' then null else effective_end end,
++    plan=case
++      when s.plan in ('admin_grant','admin_revoked') then s.plan
++      when prepaid_end>now() then 'pro_prepaid'
++      when s.pro_access_reset_at is not null then 'admin_removed'
++      when s.manual_current_period_end>now() then 'pro_manual'
++      when effective_end is not null or s.stripe_subscription_id is not null then 'pro_monthly'
++      else s.plan end,
++    status=case
++      when s.plan='admin_revoked' then 'canceled'
++      when s.plan='admin_grant' then 'active'
++      when effective_end>now() then 'active'
++      when s.pro_access_reset_at is not null then 'canceled'
++      when s.stripe_subscription_status is not null then s.stripe_subscription_status
++      when effective_end is not null or s.plan in ('pro_monthly','pro_prepaid') then 'canceled'
++      else coalesce(s.status,'inactive') end,
++    updated_at=now() where user_id=p_user_id;
++end; $$;
++create function public.cashflow_admin_pro_action(p_actor uuid,p_user_id uuid,p_operation text)
++returns jsonb language plpgsql security invoker set search_path='' as $$
++declare s public.subscriptions; stamp timestamptz:=clock_timestamp();
++begin
++  if not exists(select 1 from public.cashflow_user_roles where user_id=p_actor and role='admin') then
++    raise exception 'admin_required' using errcode='42501'; end if;
++  if p_operation is null or p_operation not in ('grant','revoke','ban','unban') then raise exception 'invalid_pro_operation'; end if;
++  if not exists(select 1 from public.cashflow_user_roles where user_id=p_user_id) then raise exception 'user_not_found'; end if;
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  insert into public.subscriptions(user_id,workspace_type,workspace_id,status,updated_at)
++    values(p_user_id,'personal',p_user_id,'inactive',now()) on conflict(user_id) do nothing;
++  select * into s from public.subscriptions where user_id=p_user_id for update;
++  if p_operation='unban' and s.plan is distinct from 'admin_revoked' then return jsonb_build_object('result','unchanged'); end if;
++  if p_operation in ('grant','revoke') and s.plan='admin_revoked' then return jsonb_build_object('result','banned'); end if;
++  if p_operation='ban' and s.plan='admin_revoked' then return jsonb_build_object('result','unchanged'); end if;
++  -- Share the checkout advisory lock: no check-then-write window and no 15-minute closure marker.
++  if s.stripe_checkout_session_id is not null or s.stripe_checkout_pending_until>now()
++    or exists(select 1 from public.cashflow_prepaid_orders where user_id=p_user_id and status in ('reserved','open') and request is not null) then
++    return jsonb_build_object('result','checkout_pending'); end if;
++  if s.stripe_subscription_id is not null and coalesce(s.stripe_subscription_status,'') not in ('canceled','incomplete_expired') then
++    return jsonb_build_object('result','subscription_open'); end if;
++  if exists(select 1 from public.cashflow_account_pauses where user_id=p_user_id) then
++    return jsonb_build_object('result','account_closing'); end if;
++  update public.subscriptions set
++    plan=case p_operation when 'grant' then 'admin_grant' when 'ban' then 'admin_revoked' else 'admin_removed' end,
++    status=case when p_operation='grant' then 'active' else 'canceled' end,
++    pro_access_reset_at=case when p_operation in ('revoke','ban') then stamp else pro_access_reset_at end,
++    prepaid_entitled_until=case when p_operation in ('revoke','ban') then null else prepaid_entitled_until end,
++    current_period_end=case when p_operation in ('revoke','ban','unban') then null else current_period_end end,
++    billing_closure_pending_until=null,updated_at=now() where user_id=p_user_id;
++  perform public.cashflow_refresh_effective_subscription(p_user_id);
++  insert into public.cashflow_admin_pro_audit(actor_id,user_id,operation,previous_plan,created_at)
++    values(p_actor,p_user_id,p_operation,s.plan,stamp);
++  return jsonb_build_object('result','ok');
++end; $$;
++revoke all on function public.cashflow_admin_pro_action(uuid,uuid,text) from public,anon,authenticated;
++grant execute on function public.cashflow_admin_pro_action(uuid,uuid,text) to service_role;
++
++commit;
+--- /dev/null
++++ b/tests/admin-pro-database.test.ts
+@@ -0,0 +1,98 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { readFile } from 'node:fs/promises';
++import { PGlite } from '@electric-sql/pglite';
++const uid='11111111-1111-4111-8111-111111111111';
++const actor='22222222-2222-4222-8222-222222222222';
++async function database(legacy=false) {
++  const db=new PGlite();
++  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
++    create schema auth; create table auth.users(id uuid primary key); insert into auth.users values('${uid}'),('${actor}');
++    create table cashflow_user_roles(user_id uuid primary key,role text); insert into cashflow_user_roles values('${uid}','user'),('${actor}','admin');
++    create table subscriptions(user_id uuid primary key,stripe_customer_id text,stripe_subscription_id text,status text,plan text,current_period_end timestamptz,updated_at timestamptz default now());
++    create table cashflow_account_pauses(user_id uuid primary key);
++    create table cashflow_payment_events(event_id text primary key,created_at timestamptz);
++    create table cashflow_payments(payment_id text primary key,user_id uuid,amount bigint,currency text,paid_at timestamptz,refunded boolean);`);
++  for(const name of ['020_stripe_subscriptions.sql','021_secure_stripe_billing_upgrade.sql','022_fix_stripe_checkout_null_legacy.sql','023_preserve_manual_subscription_entitlements.sql','024_promptpay_qr_billing.sql'])
++    await db.exec(await readFile(`database/migrations/${name}`,'utf8'));
++  await db.exec(await readFile('supabase/migrations/20261020144448_krarok_prepaid_plans.sql','utf8'));
++  if(legacy) await db.exec(`insert into subscriptions(user_id,status,plan) values('${uid}','canceled','admin_revoked')`);
++  await db.exec(await readFile('supabase/migrations/20261020155537_admin_pro_controls.sql','utf8'));
++  await db.exec('grant usage on schema public to service_role; grant select on cashflow_user_roles,cashflow_account_pauses to service_role; grant select,insert,update on subscriptions to service_role;');
++  return db;
++}
++async function action(db:PGlite,op:string,by=actor) {
++  return (await db.query<any>('select cashflow_admin_pro_action($1,$2,$3) r',[by,uid,op])).rows[0].r.result;
++}
++async function reserve(db:PGlite,id:string) {
++  return (await db.query<any>(`select cashflow_reserve_prepaid_checkout($1,$2,'month','card','price1',false) r`,[uid,id])).rows[0].r;
++}
++async function prepare(db:PGlite,id:string) {
++  assert.equal((await reserve(db,id)).result,'reserved');
++  await db.query(`select cashflow_bind_stripe_customer($1,$2,'cus1',false)`,[uid,id]);
++  await db.query(`select cashflow_prepare_prepaid_checkout($1,$2,'cus1',$3)`,[id,uid,JSON.stringify({mode:'payment',customer:'cus1',client_reference_id:uid,
++    metadata:{period:'month',months:'1',checkout_reservation_id:id},line_items:[{price:'price1',quantity:1}]})]);
++}
++async function pay(db:PGlite,id:string,paid:string,refund=false) {
++  return db.query(`select cashflow_fulfill_prepaid($1,$2,$3,'cus1',$4,false,15900,'thb','month',1::smallint,$5,$6)`,[id,uid,`cs_${id}`,`pi_${id}`,paid,refund]);
++}
++const state=async(db:PGlite)=>(await db.query<any>('select * from subscriptions where user_id=$1',[uid])).rows[0];
++test('revoke permits repurchase; ban requires explicit unban; unban does not grant Pro',async()=>{
++ const db=await database();try{
++  await db.exec('set role service_role');
++  assert.equal(await action(db,'grant'),'ok');assert.equal((await state(db)).status,'active');
++  assert.equal(await action(db,'revoke'),'ok');assert.equal((await state(db)).plan,'admin_removed');
++  assert.equal((await reserve(db,'new')).result,'reserved');
++  await db.query('select cashflow_release_billing_checkout($1,$2)',[uid,'new']);
++  assert.equal(await action(db,'ban'),'ok');
++  assert.equal((await reserve(db,'blocked')).result,'admin_revoked');
++  assert.equal(await action(db,'grant'),'banned');assert.equal(await action(db,'revoke'),'banned');
++  assert.equal(await action(db,'unban'),'ok');assert.equal((await state(db)).status,'canceled');
++  assert.equal((await reserve(db,'allowed')).result,'reserved');
++  assert.equal((await db.query<any>('select count(*)::int n from cashflow_admin_pro_audit')).rows[0].n,4);
++ }finally{await db.close();}
++});
++test('old paid/refund events cannot restore revoked access or extend a subsequent package',async()=>{
++ const db=await database();try{
++  await prepare(db,'old');const oldPaid=new Date().toISOString();await pay(db,'old',oldPaid);
++  assert.equal((await state(db)).status,'active');
++  await action(db,'revoke');await pay(db,'old',oldPaid);await db.query('select cashflow_refresh_effective_subscription($1)',[uid]);
++  assert.equal((await state(db)).status,'canceled');assert.equal((await state(db)).prepaid_entitled_until,null);
++  await prepare(db,'new');const newPaid=new Date().toISOString();await pay(db,'new',newPaid);
++  assert.equal((await state(db)).plan,'pro_prepaid');assert.equal((await state(db)).status,'active');
++  const end=(await state(db)).current_period_end.toISOString();
++  await pay(db,'old',oldPaid,true);assert.equal((await state(db)).current_period_end.toISOString(),end);
++  await pay(db,'new',newPaid,true);assert.equal((await state(db)).status,'canceled');
++ }finally{await db.close();}
++});
++test('pending checkout, unknown outcomes and ongoing recurring billing block destructive admin changes',async()=>{
++ const db=await database();try{
++  await prepare(db,'pending');
++  assert.equal(await action(db,'ban'),'checkout_pending');assert.equal(await action(db,'revoke'),'checkout_pending');
++  await db.exec("update subscriptions set stripe_checkout_pending_until=now()-interval '1 minute',stripe_checkout_expires_at=now()-interval '6 minutes',stripe_checkout_session_id=null");
++  assert.equal(await action(db,'ban'),'checkout_pending');
++  await db.query(`select cashflow_finish_prepaid_checkout('pending',$1,'cs_pending','expired')`,[uid]);
++  await db.exec("update subscriptions set stripe_subscription_id='sub1',stripe_subscription_status='active'");
++  assert.equal(await action(db,'ban'),'subscription_open');
++  await db.exec("update subscriptions set stripe_subscription_status='canceled'");
++  assert.equal(await action(db,'ban'),'ok');
++ }finally{await db.close();}
++});
++test('only admins may mutate; browser roles cannot execute actions or access audit; old revocations become repurchasable',async()=>{
++ const db=await database(true);try{
++  assert.equal((await state(db)).plan,'admin_removed');assert.equal((await reserve(db,'new')).result,'reserved');
++  await assert.rejects(action(db,'ban',uid),/admin_required/);
++  const row=(await db.query<any>(`select has_function_privilege('authenticated','cashflow_admin_pro_action(uuid,uuid,text)','EXECUTE') execute,
++    has_table_privilege('anon','cashflow_admin_pro_audit','SELECT') read,
++    has_table_privilege('authenticated','cashflow_admin_pro_audit','INSERT') write,
++    (select relrowsecurity from pg_class where relname='cashflow_admin_pro_audit') rls`)).rows[0];
++  assert.deepEqual(row,{execute:false,read:false,write:false,rls:true});
++ }finally{await db.close();}
++});
++
++test('audit history does not prevent an account from being deleted',async()=>{
++ const db=await database();try{
++  await action(db,'grant');await db.query('delete from auth.users where id=$1',[actor]);
++  assert.equal((await db.query<any>('select actor_id from cashflow_admin_pro_audit')).rows[0].actor_id,null);
++ }finally{await db.close();}
++});
+--- /dev/null
++++ b/tests/admin-pro-http.test.ts
+@@ -0,0 +1,45 @@
++import { before, after, test } from 'node:test';
++import assert from 'node:assert/strict';
++import type { Server } from 'node:http';
++import { createApp } from '../backend/src/http/app.js';
++import { seal } from '../backend/src/security/cookies.js';
++Object.assign(process.env,{APP_URL:'http://127.0.0.1:3000',SUPABASE_URL:'https://admin-pro.supabase.co',SUPABASE_PUBLISHABLE_KEY:'test',SUPABASE_SERVICE_ROLE_KEY:'test-admin',SESSION_SECRET:'test-secret-'.repeat(5)});
++const user={id:'11111111-1111-4111-8111-111111111111',created_at:'2026-01-01T00:00:00Z'};
++const target='22222222-2222-4222-8222-222222222222';
++const jwt=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:target})).toString('base64url')}.test`;
++const cookie=`cashflow-session=${seal({access_token:jwt,refresh_token:'test',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()})}`;
++const realFetch=globalThis.fetch;
++let server:Server,origin:string,role='admin',result='ok',calls:any[]=[];
++before(async()=>{
++ globalThis.fetch=async(input,init)=>{
++  const url=new URL(String(input));if(url.origin!==process.env.SUPABASE_URL)return realFetch(input,init);
++  const json=(data:any)=>new Response(JSON.stringify(data),{headers:{'content-type':'application/json'}});
++  if(url.pathname==='/auth/v1/user')return json(user);
++  if(/cashflow_(session_active|rate_limit)$/.test(url.pathname))return json(true);
++  if(url.pathname.endsWith('/cashflow_user_roles'))return json({role});
++  if(url.pathname.endsWith('/cashflow_admin_pro_action')){calls.push(JSON.parse(String(init?.body)));return json({result});}
++  throw new Error('Unexpected '+url.pathname);
++ };
++ server=await new Promise<Server>(resolve=>{const s=createApp().listen(0,'127.0.0.1',()=>resolve(s));});
++ origin=`http://127.0.0.1:${(server.address() as any).port}`;
++});
++after(async()=>{globalThis.fetch=realFetch;await new Promise<void>(resolve=>server.close(()=>resolve()));});
++const headers={cookie,'x-account-id':user.id,'x-csrf-protection':'1','content-type':'application/json',origin:process.env.APP_URL!};
++const post=(body:any,custom=headers)=>realFetch(origin+'/api/admin-users',{method:'POST',headers:custom,body:JSON.stringify(body)});
++test('admin mutation requires current admin, same account, CSRF and explicit allowed operation',async()=>{
++ const body={action:'set-pro-access',userId:target,operation:'ban'};
++ role='user';assert.equal((await post(body)).status,403);role='admin';
++ assert.equal((await post(body,{...headers,'x-account-id':target})).status,401);
++ assert.equal((await post(body,{...headers,origin:'https://evil.test'})).status,403);
++ for(const b of [{...body,operation:'delete'},{action:'set-pro-access',userId:target,enabled:false},{...body,p_actor:target}])assert.equal((await post(b)).status,400);
++ assert.equal(calls.length,0);
++});
++test('all four actions use the authenticated actor and preserve conflict errors',async()=>{
++ for(const operation of ['grant','revoke','ban','unban']){
++  result='ok';assert.equal((await post({action:'set-pro-access',userId:target,operation})).status,200);
++  assert.deepEqual(calls.at(-1),{p_actor:user.id,p_user_id:target,p_operation:operation});
++ }
++ for(const blocked of ['banned','checkout_pending','subscription_open','account_closing']){
++  result=blocked;assert.equal((await post({action:'set-pro-access',userId:target,operation:'revoke'})).status,409);
++ }
++});
+--- /dev/null
++++ b/tests/e2e/admin-pro.spec.ts
+@@ -0,0 +1,46 @@
++import {expect,test} from '@playwright/test';
++const user={id:'11111111-1111-4111-8111-111111111111',email:'admin@example.test',role:'admin',created_at:'2026-01-01T00:00:00Z',user_metadata:{}};
++const target={userId:'22222222-2222-4222-8222-222222222222',publicId:'SQ-0000000002',displayName:'บัญชีทดสอบ Pro',role:'user',createdAt:'2026-01-01T00:00:00Z',proStatus:'paid'};
++test('admin separates revoke, grant, ban and explicit unban with explanatory confirmations',async({page})=>{
++ let status='paid';const writes:any[]=[];
++ await page.emulateMedia({reducedMotion:'reduce'});
++ await page.route('**/api/auth',r=>r.fulfill({json:{session:{user}}}));
++ await page.route('**/api/profile',r=>r.fulfill({json:{userId:user.id,publicId:'SQ-0000000001',displayName:'Admin'}}));
++ await page.route('**/api/data*',r=>r.fulfill({json:{snapshot:{jobs:[],expenses:[],goals:[],invoices:[],settings:{profileSetupCompleted:true,userPersona:'freelance'},statuses:[],job_types:[],notif_settings:{enabled:false,pendingQueue:[]}},versions:{cashflow_jobs:{},cashflow_expenses:{},cashflow_goals:{},cashflow_invoices:{},cashflow_documents:{}},subscription:{status:'active',plan:'admin_grant',current_period_end:null}}}));
++ await page.route('**/api/groups?*',r=>r.fulfill({json:{systemRole:'admin',groups:[],invitations:[],total:0,page:0}}));
++ await page.route('**/api/vault',r=>r.fulfill({json:{files:[]}}));
++ await page.route('**/api/account',r=>r.fulfill({json:{backupEmail:null}}));
++ await page.route('**/api/usage-analytics',r=>r.fulfill({json:{ok:true}}));
++ await page.route('**/api/billing',r=>r.fulfill({json:{checkout_ready:true,subscription:{status:'active',plan:'admin_grant'}}}));
++ await page.route('**/api/admin-users**',async r=>{
++  const req=r.request(),url=new URL(req.url());
++  if(req.method()==='POST'){
++   const body=req.postDataJSON();writes.push(body);status=({revoke:'revoked',grant:'admin',ban:'banned',unban:'revoked'} as any)[body.operation];await r.fulfill({json:{ok:true}});return;
++  }
++  if(url.searchParams.get('action')==='recovery-links'){await r.fulfill({json:{links:[]}});return;}
++  if(url.searchParams.get('action')==='deletion-requests'){await r.fulfill({json:{requests:[]}});return;}
++  await r.fulfill({json:{users:[{...target,proStatus:status}],total:1,page:0}});
++ });
++ await page.goto('/groups/admin');
++ await page.getByRole('tab',{name:'จัดการผู้ใช้',exact:true}).click();
++ await expect(page.getByRole('button',{name:'ปลด Pro',exact:true})).toBeVisible();
++ await page.getByRole('button',{name:'ปลด Pro',exact:true}).click();
++ await expect(page.getByText(/ผู้ใช้สมัครและชำระแพ็กเกจใหม่ได้/)).toBeVisible();
++ await page.getByRole('button',{name:'ยืนยัน',exact:true}).click();
++ await expect(page.getByText('ปลด Pro · สมัครใหม่ได้',{exact:true})).toBeVisible();
++ await page.getByRole('button',{name:'ให้ Pro',exact:true}).click();
++ await page.getByRole('button',{name:'ยืนยัน',exact:true}).click();
++ await expect(page.getByText('Pro · แอดมินให้',{exact:true})).toBeVisible();
++ await page.getByRole('button',{name:'แบน Pro',exact:true}).click();
++ await expect(page.getByText(/ห้ามสมัครใหม่จนกว่าแอดมินจะปลดแบน/)).toBeVisible();
++ await page.getByRole('button',{name:'ยืนยัน',exact:true}).click();
++ await expect(page.getByRole('button',{name:'ปลดแบน Pro',exact:true})).toBeVisible();
++ await expect(page.getByRole('button',{name:'ให้ Pro',exact:true})).toHaveCount(0);
++ if(process.env.ADMIN_PRO_SCREENSHOT)await page.screenshot({path:process.env.ADMIN_PRO_SCREENSHOT,fullPage:true});
++ await page.getByRole('button',{name:'ปลดแบน Pro',exact:true}).click();
++ await expect(page.getByText(/โดยไม่คืนสิทธิ์ Pro เดิมให้อัตโนมัติ/)).toBeVisible();
++ await page.getByRole('button',{name:'ยืนยัน',exact:true}).click();
++ await expect(page.getByRole('button',{name:'ให้ Pro',exact:true})).toBeVisible();
++ expect(writes.map(x=>x.operation)).toEqual(['revoke','grant','ban','unban']);
++ expect(writes.every(x=>x.userId===target.userId && x.action==='set-pro-access')).toBeTruthy();
++});
+--- a/tests/e2e/billing.spec.ts
++++ b/tests/e2e/billing.spec.ts
+@@ -521,3 +521,10 @@
+     });
+   }
+ }
++
++test('banned Pro explains admin unlock and offers no purchase button', async ({page}) => {
++  const requests=await openPlans(page,{status:'canceled',plan:'admin_revoked',current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false},'https://checkout.stripe.com/blocked',{},false,false);
++  await expect(page.getByText('บัญชีนี้ถูกแบน Pro กรุณาติดต่อแอดมินเพื่อปลดแบนก่อนสมัครใหม่')).toBeVisible();
++  await expect(page.getByRole('button',{name:/จ่ายด้วย QR|สมัคร Pro/})).toHaveCount(0);
++  expect(requests).toHaveLength(0);
++});
+--- a/tests/prepaid-http.test.ts
++++ b/tests/prepaid-http.test.ts
+@@ -19,6 +19,7 @@
+ const cookie=`cashflow-session=${seal({access_token:token,refresh_token:'test-refresh',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()})}`;
+ const realFetch=globalThis.fetch;
+ let server:Server, origin:string, order:any, session:any, creates=0, fulfilled:any[]=[], finished:any[]=[], expires=0, expirationFails=false;
++let banned=false;
+ const rateKeys: Array<{p_key:string;p_limit:number}>=[];
+ before(async()=>{
+   globalThis.fetch=async(input,init)=>{
+@@ -29,7 +30,7 @@
+     if(url.includes('/cashflow_rate_limit')) {rateKeys.push(JSON.parse(String(init?.body)));return json(true);}
+     if(url.includes('/cashflow_session_active')) return json(true);
+     if(url.includes('/cashflow_user_roles')) return json({role:'user'});
+-    if(url.includes('/subscriptions')) return json(null);
++    if(url.includes('/subscriptions')) return json(banned?{plan:'admin_revoked',status:'canceled'}:null);
+     if(url.includes('/rest/v1/cashflow_prepaid_orders')) return json(url.includes('select=session_id')?[]:order);
+     const args=JSON.parse(String(init?.body||'{}'));
+     if(url.includes('/cashflow_reserve_prepaid_checkout')) {
+@@ -164,3 +165,13 @@
+   assert.equal(expires,expiredCalls);
+   assert.equal(fulfilled.length,0);
+ });
++
++test('banned Pro cannot create either payment method and readiness is closed',async()=>{
++  banned=true;const before=creates;
++  try {
++    const status=await realFetch(origin+'/api/billing',{headers});
++    assert.equal((await status.json() as any).checkout_ready,false);
++    for(const action of ['checkout','promptpay_checkout'])assert.equal((await checkout({action,period:'month'})).status,403);
++    assert.equal(creates,before);
++  }finally{banned=false;}
++});
