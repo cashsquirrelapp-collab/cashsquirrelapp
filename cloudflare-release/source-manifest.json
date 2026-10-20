@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Phase one: four features for every account, new landing, linked documents, the บอกเรา chat and the admin inbox - 2026-10-20",
+  "source_label": "Phone fixes and the Pro plans page at ฿159 / ฿849 / ฿1,490 (checkout closed until Stripe charges them) - 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "0bb3e866b02b5e801ee90271a78dbc93c048a2c58241ec545a525b16b753c8fc",
-  "file_count": 561,
-  "total_source_bytes": 20501318,
+  "archive_sha256": "bfa5594eb7f2412df5f7eb11d348f784ec0687dacd8bb9c9078a730dfedd621e",
+  "file_count": 565,
+  "total_source_bytes": 20521712,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1428,8 +1428,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 175976,
-      "sha256": "a7df60b62792545a9ca3dcd3d071daa6b86015523073394ab16dee56a85e31dd"
+      "size": 176489,
+      "sha256": "1af08db46173420abfd66934809d4ec85911f1acce95554ea92e26cf82b513f6"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1533,13 +1533,13 @@
     },
     {
       "path": "frontend/src/features/billing/PlanMascot.tsx",
-      "size": 5577,
-      "sha256": "684e2c7275687268456cf0e3084f367a5a2a647ae9b03704ae935c55919c5f2f"
+      "size": 5569,
+      "sha256": "e4b1051459bd6b34acdce230448efe8f615d81182991f96a1f76feeddade93e8"
     },
     {
       "path": "frontend/src/features/billing/PlansTab.tsx",
-      "size": 21349,
-      "sha256": "bd59603f957faaf473eb6111cab3c3970c9d2752f724c2db05fbaf3405869b69"
+      "size": 16983,
+      "sha256": "7521e53a9dba4f2edb555766ef61f0fba595d99f09b118950c7285356cd639f4"
     },
     {
       "path": "frontend/src/features/billing/PremiumUpsell.tsx",
@@ -1548,8 +1548,8 @@
     },
     {
       "path": "frontend/src/features/billing/ProPromoModal.tsx",
-      "size": 6471,
-      "sha256": "ae9e50779eed745fc5b7d301b10956aa8819fd701cb05de362aa4b1e6fb816f4"
+      "size": 6410,
+      "sha256": "d1a256aa7e42259350f148dbb77d260595a00488412e58041e30c6f008ec982a"
     },
     {
       "path": "frontend/src/features/billing/PromptPayCheckoutModal.tsx",
@@ -1558,8 +1558,8 @@
     },
     {
       "path": "frontend/src/features/billing/plans.css",
-      "size": 571,
-      "sha256": "35fe3faad41d5c722fa108ed1c2b29be5877db469267676178355913b6e0fe30"
+      "size": 1949,
+      "sha256": "acc8c42dd3c41913614000fef2b71a8180c3d658582c1e2d2eb8df9f4e3e301b"
     },
     {
       "path": "frontend/src/features/calendar/CalendarTab.tsx",
@@ -1608,8 +1608,8 @@
     },
     {
       "path": "frontend/src/features/dashboard/IncomeExpenseChart.tsx",
-      "size": 11760,
-      "sha256": "37ae124273cf42216578c8ac1b927584c181cad732c35a77817fb22eeeab638c"
+      "size": 11768,
+      "sha256": "e0a23f964b266a7d6937f191e5a14ba1d065891b69584d0adf273b887e2d30d4"
     },
     {
       "path": "frontend/src/features/dashboard/MonthlyWorkValueBanner.tsx",
@@ -1973,8 +1973,8 @@
     },
     {
       "path": "frontend/src/features/marketing/saas/SaasLanding.tsx",
-      "size": 28660,
-      "sha256": "26cac0f338e00103b6738f239f3dd2c81108657e484d328fc2f076173a7bbfd3"
+      "size": 28767,
+      "sha256": "6deee2ad06ec0e576a9363d17a8d6070fb650db36feceb8120d3a97412fa9f46"
     },
     {
       "path": "frontend/src/features/marketing/saas/saas.css",
@@ -1988,8 +1988,8 @@
     },
     {
       "path": "frontend/src/features/mobile/MobileHome.tsx",
-      "size": 16300,
-      "sha256": "a7c9d5fb677a2013381dce3dc55d922b0868e3de658c1fb5610369ff724db0b3"
+      "size": 16680,
+      "sha256": "b7765bcabdea4af59c84f7bd86d271b92c34560117bb499872fd139e6251dc63"
     },
     {
       "path": "frontend/src/features/mobile/icons.tsx",
@@ -1998,18 +1998,23 @@
     },
     {
       "path": "frontend/src/features/mobile/mobile.css",
-      "size": 60691,
-      "sha256": "0311a9894f71cb60bbeea934334c6f509c7e721e668916ad8870b80852f5a391"
+      "size": 61428,
+      "sha256": "a600b296026500414ad8add17951170044ba3fcd41ff59200c9d788f826fd2b7"
     },
     {
       "path": "frontend/src/features/mobile/mobileNavigation.ts",
-      "size": 4795,
-      "sha256": "5be18ba395869ffd6f0c67aae0cf1c07b52714e057e13a13c0631cbd28196730"
+      "size": 4809,
+      "sha256": "c08bc0b8c76c47407099c36ee5f03d05ccad7f81a468415478c745bd37f4d040"
     },
     {
       "path": "frontend/src/features/mobile/useCollapsingCard.ts",
       "size": 9464,
       "sha256": "2b456e8d04cefa6b2cff1c88d4a396aa62215a923762b7aaa93260c9975444e2"
+    },
+    {
+      "path": "frontend/src/features/mobile/useFitFigures.ts",
+      "size": 3634,
+      "sha256": "2ee1f78a3b0bd46c81d9447bb0a185699bd9999836670856bad7c17d77ea9bd2"
     },
     {
       "path": "frontend/src/features/mobile/useMobileLayout.ts",
@@ -2163,8 +2168,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 145869,
-      "sha256": "53e0714615395188e6bc3cd883709823708b68ce23ea6c0e6ee66440ec5fcb43"
+      "size": 149855,
+      "sha256": "d6432f20bef37bcb237920009f17080176b3669125752007ad595c55cc33ab1e"
     },
     {
       "path": "frontend/src/index.css",
@@ -2512,6 +2517,11 @@
       "sha256": "2f478c643aa6e9e3e68db60bc5ddfb112e46fa14e98b63680f125c85dceea105"
     },
     {
+      "path": "shared/proPricing.ts",
+      "size": 2070,
+      "sha256": "604dea99bfa917b11f907839587eb274e909c978b499dd59129c51bb9f23b7e6"
+    },
+    {
       "path": "shared/tax.ts",
       "size": 4456,
       "sha256": "f3a96146f9c09fef23f6490a8388053c03323581918b5abcda0e70d68e0013d5"
@@ -2618,8 +2628,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 24037,
-      "sha256": "ebe4f2a93ec555c41ab711e1b0c1bc03b9b293fa344d988f9501b5655211779b"
+      "size": 26047,
+      "sha256": "eec5e76ce258d159c8b406301bed5787c04fff63d5626b58420b63dcb8d15d8a"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -2630,6 +2640,11 @@
       "path": "tests/e2e/groups.spec.ts",
       "size": 16850,
       "sha256": "0a5e8ca8e58bcf1ba04ef447fa56b5445b1a2fb6f86168daacc47b32a131242c"
+    },
+    {
+      "path": "tests/e2e/mobile-phone.spec.ts",
+      "size": 8104,
+      "sha256": "288f182aeccf7e0168288f290fb79a73381c2173274095f5ed8cb5a586aac70d"
     },
     {
       "path": "tests/e2e/phase-one-feedback.spec.ts",
@@ -2735,6 +2750,11 @@
       "path": "tests/phase-one-documents.test.ts",
       "size": 4361,
       "sha256": "8e2fd3e4410345a7fdf1d4423d2d98bc8ae7d9e80f576b606ef6af65f528c20f"
+    },
+    {
+      "path": "tests/pro-pricing.test.ts",
+      "size": 1888,
+      "sha256": "f1ed6ad8bcf24ac2df9aa6e451eb96d251ec0467e2702bdac94b97a63de62b1e"
     },
     {
       "path": "tests/report-data.test.ts",

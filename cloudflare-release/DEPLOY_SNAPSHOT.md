@@ -109,3 +109,33 @@ Approved by the owner ("ดีพอย") after the preview (kraroktunngern-prev
 - Archive SHA256 `0bb3e866b02b5e801ee90271a78dbc93c048a2c58241ec545a525b16b753c8fc`; manifest SHA256 `6d6644e998088460d8c2c005515ab34a6c636e26a6c0acbf422f689e6581d2a2`.
 - Checked on the extracted package: lint, `tsc -p tsconfig.cloudflare.json`, Cloudflare build, preflight, Cloudflare/feedback/document tests (46 pass). Work source: unit suite 283 pass with the same 5 known failures; feedback e2e 6/6. Full e2e: 46 pass / 42 fail, against 39 pass / 47 fail for 2bf22fd on the same machine; no test fails that passes on 2bf22fd (the two landing tests now look for the sign-in links).
 - Rollback: restore the three release files of 2bf22fd.
+
+
+## Phone fixes and the Pro plans page at the owner's prices - 2026-10-20
+
+The owner approved after the preview ("deploy"; chose "ทุกอย่างตามพรีวิว" knowing that new Pro purchases stay closed until Stripe charges the new prices).
+
+**Phone overview**
+- Pulling down no longer separates the terracotta bar from the card (`overscroll-behavior-y: none`; the backdrop carries on upward).
+- Large amounts keep the card's layout and show every digit, only smaller (`useFitFigures.ts`).
+- The overview chart's axis uses short labels (฿180M).
+- The phone menu section "LINE AI Pro" also opens the Pro package page.
+
+**Plans page**
+- One Pro card: a large official mascot, the price as the main figure, the 4 launch benefits (the LINE AI chat is marked เร็ว ๆ นี้), then the button. The Free card is gone from this page only; the Free tier is unchanged.
+- Prices come from `shared/proPricing.ts`, which the plans page, ProPromoModal and the landing read:
+  - ฿159 per month.
+  - ฿849 for 6 months: average ฿141.50, saves ฿105 (11%) against paying monthly.
+  - ฿1,490 for 1 year: average ฿124.17, saves ฿418 (22%), "คุ้มที่สุด".
+- **Checkout is closed (`PRO_CHECKOUT_OPEN` all false).** The billing API still charges the earlier monthly offer (฿199 for 3 cycles, then ฿249; it refuses any other Stripe Price), and there is no 6-month or yearly price. Every buy button reads "เปิดรับชำระเร็ว ๆ นี้", disabled.
+- These still work and charge nothing new: existing subscribers' "จัดการการสมัครสมาชิก" (Stripe portal) and the guest sign-up.
+- No change to Stripe, webhooks, entitlements, the Free tier, crons or Secrets.
+
+Changed against de31a95: frontend/src/app/App.tsx, frontend/src/features/billing/PlanMascot.tsx, frontend/src/features/billing/PlansTab.tsx, frontend/src/features/billing/ProPromoModal.tsx, frontend/src/features/billing/plans.css, frontend/src/features/dashboard/IncomeExpenseChart.tsx, frontend/src/features/marketing/saas/SaasLanding.tsx, frontend/src/features/mobile/MobileHome.tsx, frontend/src/features/mobile/mobile.css, frontend/src/features/mobile/mobileNavigation.ts, frontend/src/i18n/translations.ts, tests/e2e/billing.spec.ts; new: frontend/src/features/mobile/useFitFigures.ts, tests/e2e/mobile-phone.spec.ts, shared/proPricing.ts, tests/pro-pricing.test.ts.
+- Archive SHA256 `bfa5594eb7f2412df5f7eb11d348f784ec0687dacd8bb9c9078a730dfedd621e`; manifest SHA256 `9d3bae4eda0174c9fe0006d53ae557e96ab2e8a76ec18cf71698e7274057e5e1`.
+- Checked:
+  - Lint, Cloudflare build and preflight on the extracted package.
+  - Unit suite 285 pass with the same 5 known failures (`pro-pricing` guards that checkout cannot open while the API charges another amount).
+  - billing e2e 8 pass, 2 deferred until checkout opens.
+  - Phone, feedback and mobile e2e pass.
+- Rollback: restore the three release files of de31a95.
