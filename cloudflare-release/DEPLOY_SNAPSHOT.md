@@ -358,3 +358,13 @@ Archive SHA256: 372d3144301077d07de513ef06f374097395906a35c4a0ce3a6ced5573ea33b1
 Published production version: 3348512c-b81e-422e-8416-b47164c61d42. Existing daily schedules retained.
 
 Live verification: refreshed the production plans page and observed real Stripe card fields plus the native black “ชำระด้วย G Pay” button, with renewal unchecked. No duplicate Google Pay tab remains. In the in-app QA browser, clicking the wallet button did not produce an observable Google wallet sheet or a console error; real Google wallet authorization is therefore still unverified. Asked the customer to test only opening the native wallet sheet in their Chrome, without confirming payment. Evidence: krarok-google-pay-native-button.png in the thread visualization folder. Do not report end-to-end payment success from the mocked tests or rendered button.
+
+## Logo01 symbol with the original Thai wordmark — 2026-10-21
+
+The requested result is the new tail symbol beside **กระรอกตุนเงิน**, retaining the original Thai type treatment and colours. The character remains a mascot. Shared app logos, standalone LINE form, account email header, legal pages, favicons/PWA icons and public product screenshots were updated. The separate about.krarok.com public-information site uses the same symbol and Thai name. See BRAND_LOGO01.md and logo01-branding.patch.
+
+Final app version: 0bb0d541-69c8-4dc8-b3d0-64d308e69840. Public-info version: d6276517-3c91-48ec-92fd-097b1f9c7e41. Archive: 608 files, 18,920,974 bytes; SHA256 32d822e00cf00193677aa43bfadbf433fbf763a4894bb98a712d10b38239c700.
+
+An initial deployment used the kit's English horizontal wordmark; the owner corrected this during the turn. That intermediate release was superseded by the versions above and is not the requested final state. Live browser verification confirms the original Thai name with the new symbol on the app dashboard and the public-information site. The authenticated QA session initially stayed in its loading skeleton before completing; no new runtime exception was observed. No payment, permission, database or schedule changes.
+
+Validation: TypeScript, Cloudflare checks, 16 security/scheduled tests, production build and packaged-source verification passed. Fixture screenshots reviewed for desktop/mobile and light/dark themes, with no observed page errors or horizontal overflow. Live proof: krarok-thai-logo-live.png in the task visualization folder.
