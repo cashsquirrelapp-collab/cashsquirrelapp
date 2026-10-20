@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Phone overview (Bold header, collapsing card) and simpler phone menu - 2026-10-20",
+  "source_label": "Phase one: four features for every account, new landing, linked documents, the บอกเรา chat and the admin inbox - 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "e26db947c9e7d5dbb42254db43f8fbdf9e036856b62162f8b07a94fa6850fd20",
-  "file_count": 543,
-  "total_source_bytes": 19555189,
+  "archive_sha256": "0bb3e866b02b5e801ee90271a78dbc93c048a2c58241ec545a525b16b753c8fc",
+  "file_count": 561,
+  "total_source_bytes": 20501318,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -93,8 +93,8 @@
     },
     {
       "path": "backend/src/handlers/feedback.ts",
-      "size": 4836,
-      "sha256": "d88635f5820eb88c9f0f82dbeba0417b8fb7ee6bbdba7d3fcadc638c5817aeb0"
+      "size": 8060,
+      "sha256": "f25d7c6aa3f161982ecedffc97f643f6942f2f7e76c44b63480bca34b28ea9cb"
     },
     {
       "path": "backend/src/handlers/groups.ts",
@@ -450,6 +450,11 @@
       "path": "database/bootstrap-admin.sql",
       "size": 1281,
       "sha256": "a271ab298adf304387d571cf41b8f652b38978f84050342605e4a28001df1737"
+    },
+    {
+      "path": "database/feedback_admin_inbox.sql",
+      "size": 4462,
+      "sha256": "f750593076a946679a486638e06e88dc31ba8d4a9c81dc94553f192f0aa2a7d2"
     },
     {
       "path": "database/feedback_phase_one.sql",
@@ -910,6 +915,51 @@
       "path": "frontend/public/icons/badge-trash.png",
       "size": 2788,
       "sha256": "b11775c614f0c866b328bce6bc4f40213fdae781724fa297d4d7e0c982eb76c1"
+    },
+    {
+      "path": "frontend/public/landing-v3/desktop-calendar.webp",
+      "size": 94382,
+      "sha256": "dacd1cc81a997a604622e2d18400cb699caec053f555bbbf91c8a57873bc7b13"
+    },
+    {
+      "path": "frontend/public/landing-v3/desktop-documents.webp",
+      "size": 101386,
+      "sha256": "2ef625c4e356f635f03b984c770ddfbeef530cd2cc5fe03ecc58799e13f7bc4a"
+    },
+    {
+      "path": "frontend/public/landing-v3/desktop-expenses.webp",
+      "size": 78554,
+      "sha256": "97cc02477664b58502d8573543dda1c4c935ff3dc7d7815fcf2d18afef960934"
+    },
+    {
+      "path": "frontend/public/landing-v3/desktop-jobs.webp",
+      "size": 106570,
+      "sha256": "5cae0e2492d195c7e7d305732a5129327d660559cc777beeeba5d1c11bd8d4c4"
+    },
+    {
+      "path": "frontend/public/landing-v3/desktop-overview.webp",
+      "size": 121232,
+      "sha256": "ed34290dd81aab1cdb463cb7b5e249c77a00dd81dfd70607717e86c5833c7f07"
+    },
+    {
+      "path": "frontend/public/landing-v3/desktop-receivables.webp",
+      "size": 66894,
+      "sha256": "0d0626da9bf38dd53edf6184e460f20c78cdd28b815dc468a845e3415a214280"
+    },
+    {
+      "path": "frontend/public/landing-v3/line-phone-draft.webp",
+      "size": 33920,
+      "sha256": "3b1289c8a9140179de5ae2e6f23b5802b4f43a3a9fc197981f0d63e870a67db9"
+    },
+    {
+      "path": "frontend/public/landing-v3/line-phone-reminder.webp",
+      "size": 48266,
+      "sha256": "542cdaae1527d356cd81e474b32f72e4acb1e76d3390b46cde6c78589124bf1a"
+    },
+    {
+      "path": "frontend/public/landing-v3/phone-overview.webp",
+      "size": 114506,
+      "sha256": "2523523c33a2990898021892d9d80717f3cb7989024e866d33d75b0805e2eb3e"
     },
     {
       "path": "frontend/public/landing/calendar.webp",
@@ -1378,8 +1428,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 175055,
-      "sha256": "d86a4dadf8e3875ec2bec6f66fc0a79f58801df04aaa7c878b15384c6763279c"
+      "size": 175976,
+      "sha256": "a7df60b62792545a9ca3dcd3d071daa6b86015523073394ab16dee56a85e31dd"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1513,8 +1563,8 @@
     },
     {
       "path": "frontend/src/features/calendar/CalendarTab.tsx",
-      "size": 24922,
-      "sha256": "7d3328aad1b62613357c449dd31dcabfd5dd8484ac73b3ca16d5a899ad38cbc8"
+      "size": 25078,
+      "sha256": "e4604207996e5aceae4203b75a04eedfd84b74f4aeeb942145710e6396d56cb4"
     },
     {
       "path": "frontend/src/features/calendar/JobPeekSheet.tsx",
@@ -1548,8 +1598,8 @@
     },
     {
       "path": "frontend/src/features/dashboard/DashboardTab.tsx",
-      "size": 87676,
-      "sha256": "966d857558b244e69b8c4632eca6d40f91a07d360d9b0ce9372cd6551bf54f7c"
+      "size": 88084,
+      "sha256": "79dcc49e2edaae69fdf5a2eb33e5d9768de182efa427a944545e3017427f961b"
     },
     {
       "path": "frontend/src/features/dashboard/FinancialDetailsModal.tsx",
@@ -1563,13 +1613,18 @@
     },
     {
       "path": "frontend/src/features/dashboard/MonthlyWorkValueBanner.tsx",
-      "size": 7895,
-      "sha256": "44f31280f4163c873b8656e26192dd8afceec242d3375aadd569899b23d1dcec"
+      "size": 8931,
+      "sha256": "d8ba528caaaa0a36bcc8fb68eac9493e2481d20c571434c4e9490cce09532ad1"
     },
     {
       "path": "frontend/src/features/feedback/AdminFeedbackInbox.tsx",
-      "size": 188,
-      "sha256": "4bb728e02e575b213d63bf642ebd3bded8f8283e88cae73a2ae76dd1713c791e"
+      "size": 34200,
+      "sha256": "c3155766914cd87b096dc71edb5f48c6c79c2b35fe899f465b4e9b8d58ddec5a"
+    },
+    {
+      "path": "frontend/src/features/feedback/FeedbackChat.tsx",
+      "size": 26725,
+      "sha256": "493582b7ecbf1a242d5be2b06442e16a8ec372709387a4c9692676d87a6be2e9"
     },
     {
       "path": "frontend/src/features/feedback/FeedbackConversation.tsx",
@@ -1583,8 +1638,18 @@
     },
     {
       "path": "frontend/src/features/feedback/FeedbackPage.tsx",
-      "size": 8462,
-      "sha256": "3f55471cb43667ba6397dc04636bef7ae2f3efacf584686d8fa753bf38018f47"
+      "size": 2656,
+      "sha256": "6b8692a89bbae0abed1b8fe6a2742e991a0c8073b35a05b74590e3d594d43f3a"
+    },
+    {
+      "path": "frontend/src/features/feedback/adminInbox.css",
+      "size": 10827,
+      "sha256": "6fdb70d63149692db7e75d494a15c47398c4c13c4ca7408491c3a01f2bffd7cb"
+    },
+    {
+      "path": "frontend/src/features/feedback/feedbackChat.css",
+      "size": 9239,
+      "sha256": "fe4a17bd99be8877a5b2188c1a8317a5ec9e809a5c8d846f4669960a7d226ba1"
     },
     {
       "path": "frontend/src/features/feedback/feedbackUi.tsx",
@@ -1668,18 +1733,23 @@
     },
     {
       "path": "frontend/src/features/invoices/DocumentWorkspaceParts.tsx",
-      "size": 13162,
-      "sha256": "dcecb89c4ca75b9b8233c87ef1199dc23ac05d8e5edcaab6970f684bc143e08d"
+      "size": 13643,
+      "sha256": "9c1fae2a9d0d4e24ea061f80605cb12c9d4986df0f161dd382628c730084ea6d"
     },
     {
       "path": "frontend/src/features/invoices/InvoiceTab.tsx",
-      "size": 75932,
-      "sha256": "27244bc6bb467e7eb72ba9984564ebdae20fc5b9716924f39ec0614e2a2bc3b2"
+      "size": 83794,
+      "sha256": "c41c7aeacefd9d82ad8b50900636b8d616a824ac8efea7d1c5304a8730a73734"
     },
     {
       "path": "frontend/src/features/invoices/documentAvailability.ts",
       "size": 2935,
       "sha256": "c7b44e68953d2e17e62b49b86c6d876429893421539e0b308a713b0d89921c9f"
+    },
+    {
+      "path": "frontend/src/features/invoices/documentLinks.ts",
+      "size": 3401,
+      "sha256": "7a1ace3132696f5597f8f2b26bda69dc2d1613ca44836d272f52193b55dc5379"
     },
     {
       "path": "frontend/src/features/invoices/documentMath.ts",
@@ -1743,8 +1813,8 @@
     },
     {
       "path": "frontend/src/features/marketing/LandingPage.tsx",
-      "size": 386,
-      "sha256": "d87d2d82a179bc3ba6455b705b5394d3d9fe07acf42ee028bbde9118694880d2"
+      "size": 495,
+      "sha256": "b42d7a1d4b3092fc5ed166ec7118036a4a63866d9f7ffc10c7fad526a1400eaa"
     },
     {
       "path": "frontend/src/features/marketing/editorial/ApprovedDocuments.tsx",
@@ -1902,14 +1972,24 @@
       "sha256": "388917fffca4655272da0f18b5ec5a3eda760a5d45d7920a4ee5bda168c98176"
     },
     {
+      "path": "frontend/src/features/marketing/saas/SaasLanding.tsx",
+      "size": 28660,
+      "sha256": "26cac0f338e00103b6738f239f3dd2c81108657e484d328fc2f076173a7bbfd3"
+    },
+    {
+      "path": "frontend/src/features/marketing/saas/saas.css",
+      "size": 24293,
+      "sha256": "e8384c7ac55f26812ada168dcd1aabb7ba73abfc7c6c8ebc9017c21b405053f1"
+    },
+    {
       "path": "frontend/src/features/mobile/MobileChrome.tsx",
-      "size": 10757,
-      "sha256": "b955762c000c7811d2fc5210e6f8593a66e70126a42e55f2e48902324280161c"
+      "size": 10788,
+      "sha256": "faefc3e332b6e430cf3872467aca407aed1d9d3b48f875528aa10192ddfa7952"
     },
     {
       "path": "frontend/src/features/mobile/MobileHome.tsx",
-      "size": 16070,
-      "sha256": "389c89e2af37ab9f7a99b0d12030bb641caba131c214bb0c2358873aae3d0715"
+      "size": 16300,
+      "sha256": "a7c9d5fb677a2013381dce3dc55d922b0868e3de658c1fb5610369ff724db0b3"
     },
     {
       "path": "frontend/src/features/mobile/icons.tsx",
@@ -2008,8 +2088,8 @@
     },
     {
       "path": "frontend/src/features/settings/SettingsTab.tsx",
-      "size": 87752,
-      "sha256": "ecb3da457ad1100ce05246147ad74fa17aff8bcb17e00c569ce4615d64bd8d8f"
+      "size": 88091,
+      "sha256": "c423391362a12fb9beae36ec2a02f459c40c8b99f9351ba0930f837bcf5c5d00"
     },
     {
       "path": "frontend/src/features/tax/TaxTab.tsx",
@@ -2138,8 +2218,8 @@
     },
     {
       "path": "frontend/src/services/feedback.ts",
-      "size": 1718,
-      "sha256": "705be090bf7cc563aa2b52b09a9fdc509dce33a0d4d79997a8c4cf45756d6d0b"
+      "size": 2214,
+      "sha256": "86f0c8b953a5ac26809d0719f4a27e3d0e9cc996eea960110545fcf0dcb696f9"
     },
     {
       "path": "frontend/src/services/financeWorkspace.ts",
@@ -2388,13 +2468,13 @@
     },
     {
       "path": "shared/featureAvailability.ts",
-      "size": 1046,
-      "sha256": "12296b4ebec24125f2fc1485fa9733cc4c4793691c280041257cd0d0ab4f1ee4"
+      "size": 1297,
+      "sha256": "fc8c0b8afc8a51a94ee48fc1291b9cd7db44303f6eb72c8a652e781cd8147a2a"
     },
     {
       "path": "shared/feedback.ts",
-      "size": 2121,
-      "sha256": "74a80a0948952ded1f91274107b0a9a6a13fa8ebb47e33f3dfd1b64cf1b36bca"
+      "size": 3509,
+      "sha256": "4d5a783b37b6be88e65a89595090d3c48919267963fd8a81b21ad7c8b9a96b11"
     },
     {
       "path": "shared/goalLedger.ts",
@@ -2438,8 +2518,8 @@
     },
     {
       "path": "shared/types.ts",
-      "size": 13208,
-      "sha256": "c620a3c66923ca036186183abbfe8f6022046405e983be913e0c190f187fcc7d"
+      "size": 13336,
+      "sha256": "54df11aa1ace48caba8401e0237b53780c657af039a2b83068dec19d1184e38b"
     },
     {
       "path": "shared/usageAnalytics.ts",
@@ -2507,6 +2587,11 @@
       "sha256": "9c24ba28d4a3e1c833ad265a3e0b3120fed1071fe3cf53b6158e4300ed95d16c"
     },
     {
+      "path": "tests/document-links.test.ts",
+      "size": 4216,
+      "sha256": "02605c00c60ac02af162e59c9f1341814c2ab37299272f7cb84eea9a7475f9d9"
+    },
+    {
       "path": "tests/document-math.test.ts",
       "size": 3229,
       "sha256": "e3dc2301bb62c9dcfaeeb20cba8fbdb0c80ab8412245a14842e055f3ae21768d"
@@ -2523,8 +2608,8 @@
     },
     {
       "path": "tests/e2e/app.spec.ts",
-      "size": 129494,
-      "sha256": "fa0a8027d76065ea03fddbd8328e61e4222d2c5b161d700dd7d220c88639ca7d"
+      "size": 129549,
+      "sha256": "3557a65c905526c2496579d03ede54cf5f375aaca07c7209613ce788ce6f578e"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
@@ -2548,8 +2633,8 @@
     },
     {
       "path": "tests/e2e/phase-one-feedback.spec.ts",
-      "size": 17924,
-      "sha256": "4477e63c074e5ad79bd7efc7b1006359b3958f1250831c3a8a1c6a41c6308153"
+      "size": 28623,
+      "sha256": "79c08d894364ec0988399b4239bc07e4d4d15d0f02cebd719d99d392faa0bfb0"
     },
     {
       "path": "tests/e2e/vault-wht-navigation.spec.ts",
@@ -2563,8 +2648,13 @@
     },
     {
       "path": "tests/feature-availability.test.ts",
-      "size": 1798,
-      "sha256": "1e8b50b94850c0ed930f7848f83be19381518f48c8c6d36753bd4986eb1a6306"
+      "size": 1916,
+      "sha256": "c8225b700c79d99b72610d9603bd6c0650324ceca2d54d061e15f3519b8410b6"
+    },
+    {
+      "path": "tests/feedback-admin-inbox-database.test.ts",
+      "size": 9351,
+      "sha256": "dd712133bb9367c859945b608a2ca3052b4b59efcf84bfab56912909b123b43b"
     },
     {
       "path": "tests/feedback-database.test.ts",
@@ -2573,8 +2663,8 @@
     },
     {
       "path": "tests/feedback-http.test.ts",
-      "size": 12168,
-      "sha256": "ecbc4491cc646fff449f80dbde6b9b8c15b85239bf94d60a6c383768c04f9909"
+      "size": 15281,
+      "sha256": "b0bb6d80857d52c28d17989e37a9b754e4d98e1bb689c0c15ac22a90b7ee9a98"
     },
     {
       "path": "tests/first-activity-month.test.ts",
@@ -2643,8 +2733,8 @@
     },
     {
       "path": "tests/phase-one-documents.test.ts",
-      "size": 4367,
-      "sha256": "4bafe6b2db3b6a68ee53b17f60e20361b98337fbab3fceddeead6d1e8498eab1"
+      "size": 4361,
+      "sha256": "8e2fd3e4410345a7fdf1d4423d2d98bc8ae7d9e80f576b606ef6af65f528c20f"
     },
     {
       "path": "tests/report-data.test.ts",
