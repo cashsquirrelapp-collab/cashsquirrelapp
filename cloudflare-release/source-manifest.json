@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Plans page: premium Pro card with ฿249 struck, one screen on computers and iPads, \"คุ้มที่สุด\" in the corner on phones; login without the Facebook Soon badge and the LINE entry - 2026-10-20",
+  "source_label": "Prepaid Pro: locked 159/849/1490 THB card and PromptPay for 1/6/12 calendar months — 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "fa9345b32f2766b17cc6d71741eed392fafa2da7840110e0d2fd342ce928fea8",
-  "file_count": 565,
-  "total_source_bytes": 20527774,
+  "archive_sha256": "31439c67d3d514895dbb223670541a15bfb294a7d554801d29b266a2efe8375c",
+  "file_count": 573,
+  "total_source_bytes": 20579566,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -30,6 +30,11 @@
       "path": "backend/scripts/generateStripeBackfill.ts",
       "size": 1733,
       "sha256": "d7ceabfa53cece29d1657277568233043b18ca99fe06bf054702f78fc8e32e2a"
+    },
+    {
+      "path": "backend/scripts/setupPrepaidBilling.ts",
+      "size": 5280,
+      "sha256": "f289813e0a1b55396aba8da57668e8591dd3e7578cef4ba20aba14f4b9f8a67d"
     },
     {
       "path": "backend/src/config/env.ts",
@@ -68,8 +73,8 @@
     },
     {
       "path": "backend/src/handlers/billing.ts",
-      "size": 27429,
-      "sha256": "700a8f219a9557adaad72cc8f4249cf185b94f52ef3301364fc28a2da7c56270"
+      "size": 4405,
+      "sha256": "d2b1c84b6b75890406357da2c7838cb041e3c356bd9dc48aa4d527051dcf8aea"
     },
     {
       "path": "backend/src/handlers/close-expired-accounts.ts",
@@ -168,8 +173,8 @@
     },
     {
       "path": "backend/src/handlers/stripe-webhook.ts",
-      "size": 22344,
-      "sha256": "c503bfa09ac1ba8900c855439933e0bf1a8bfe5e9bcc66a1f9e2563ba54031e7"
+      "size": 23793,
+      "sha256": "6881100c6c73e164eda2d99d753d1f76de6450aeedfc1f03065b4e10f261e15a"
     },
     {
       "path": "backend/src/handlers/usage-analytics.ts",
@@ -402,6 +407,16 @@
       "sha256": "620de02264371eecd36c56ec3edd5fb297e56afe0667d4731001ab0ccc925228"
     },
     {
+      "path": "backend/src/services/prepaidBilling.ts",
+      "size": 12972,
+      "sha256": "902f01c59ea1688bd4b6900f328a67345207bede653fd6cd07b8ece12f8fc1ba"
+    },
+    {
+      "path": "backend/src/services/prepaidPlans.ts",
+      "size": 6244,
+      "sha256": "0f42c153341ca883681ece676ed50114874c7cd031f5796785bb588333ca3e74"
+    },
+    {
       "path": "backend/src/services/promptPay.ts",
       "size": 4207,
       "sha256": "37ed77b462ff53fbb4312d0d00f4e0407bb97ff938c34f49253e1fb1451e38ab"
@@ -590,6 +605,11 @@
       "path": "database/security-check.sql",
       "size": 3521,
       "sha256": "c8ee2232b187a90d05fff8709a078e0e66f48acd383435e8fbe6277beb1ea407"
+    },
+    {
+      "path": "docs/PREPAID_BILLING.md",
+      "size": 5423,
+      "sha256": "2d76bb9c47389c0e1258a984e41e646a353aa6bf634f0532ba3c39c327e8c1e8"
     },
     {
       "path": "frontend/index.html",
@@ -1428,8 +1448,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 176489,
-      "sha256": "1af08db46173420abfd66934809d4ec85911f1acce95554ea92e26cf82b513f6"
+      "size": 179317,
+      "sha256": "56105834d45a09544ed842e0376fdc92d18f85243f5948766bfb365af13399a3"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1538,8 +1558,8 @@
     },
     {
       "path": "frontend/src/features/billing/PlansTab.tsx",
-      "size": 17499,
-      "sha256": "08c23d19d4f4c732ebb1402b9d5fe140070198b3d4c1d1612760884694f99e1f"
+      "size": 18539,
+      "sha256": "14a8dde6961b5eecf706994c5dd58704bc6c837acbc9d385e0bbe87c49db7f11"
     },
     {
       "path": "frontend/src/features/billing/PremiumUpsell.tsx",
@@ -1548,13 +1568,13 @@
     },
     {
       "path": "frontend/src/features/billing/ProPromoModal.tsx",
-      "size": 6611,
-      "sha256": "3ebd240d6ef44517b7428f6de72f0768410c2ac048ee52e847a9798bb571b58e"
+      "size": 6451,
+      "sha256": "e0b0019a9ab770764a706e4e42d21c10417a80d9fd7ff849acedac093befb84f"
     },
     {
       "path": "frontend/src/features/billing/PromptPayCheckoutModal.tsx",
-      "size": 5157,
-      "sha256": "65cf0a16243dadd50f4d53a8c9fb43fa756656c796ed5ca1a4e6d585c6f60c5f"
+      "size": 5283,
+      "sha256": "d67849a2a9bd46becc726098bc9fa769e84195f3aa0ed4ac498256ce2ce99e05"
     },
     {
       "path": "frontend/src/features/billing/plans.css",
@@ -1973,8 +1993,8 @@
     },
     {
       "path": "frontend/src/features/marketing/saas/SaasLanding.tsx",
-      "size": 28910,
-      "sha256": "bce1f8c3ddaa42af54780f3fff1927e4a1cd80ead45bfe775fc67fc334b70e28"
+      "size": 29083,
+      "sha256": "01b4b22bde3999ef0f2c20873f9babde9d6d1b6bc6b8a3627c774a854058101e"
     },
     {
       "path": "frontend/src/features/marketing/saas/saas.css",
@@ -2168,8 +2188,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 149000,
-      "sha256": "a12d38dd31016df0a22359a1f08c2fcceb1f50544d9aff6bebf4abd9ca194ca1"
+      "size": 150225,
+      "sha256": "fba4d60ac62521c65ae91a78360cf3b964a829205d54ca87e9e29d75fc1b26fc"
     },
     {
       "path": "frontend/src/index.css",
@@ -2313,8 +2333,8 @@
     },
     {
       "path": "package.json",
-      "size": 2632,
-      "sha256": "4ef9cbe54604d9adddcb7bc433b1114f3d7c505c1485820a08a20a5ebaf99930"
+      "size": 2713,
+      "sha256": "15e811136da46520b1389fb03d725a333e3d6aa0526d66b9f268052988f133cd"
     },
     {
       "path": "playwright.config.ts",
@@ -2518,8 +2538,8 @@
     },
     {
       "path": "shared/proPricing.ts",
-      "size": 2394,
-      "sha256": "4787133efbbcc7c119bed0ee7e044558e43d492885baf8a6572dfbdd266b0145"
+      "size": 2099,
+      "sha256": "0a3c63f4b5b38728fc62b7d9dccdb04b4ddf89f7f0b8bb294c21239a98a2ab33"
     },
     {
       "path": "shared/tax.ts",
@@ -2555,6 +2575,11 @@
       "path": "shared/wht.ts",
       "size": 1866,
       "sha256": "1f51daa9c494d06e3be313bb3750f7c56dca33b29d7f702c1555d400ca74199c"
+    },
+    {
+      "path": "supabase/migrations/20261020144448_krarok_prepaid_plans.sql",
+      "size": 13009,
+      "sha256": "c19ae38ec8f2b69496943c08325c1a86b1f48ae0839410f954c7db0ade16ae51"
     },
     {
       "path": "tests/admin-analytics-access.test.ts",
@@ -2628,8 +2653,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 27362,
-      "sha256": "b6d4ccde45e688b049e89f803245fe391984533d06c8ff3faf77912862026f7e"
+      "size": 30723,
+      "sha256": "ec86d2051bfe5e03eccd6a701a980d3cb55c8a087bdd8104d343eb56d9383f9b"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -2752,9 +2777,24 @@
       "sha256": "8e2fd3e4410345a7fdf1d4423d2d98bc8ae7d9e80f576b606ef6af65f528c20f"
     },
     {
+      "path": "tests/prepaid-database.test.ts",
+      "size": 6986,
+      "sha256": "de68a85933281c059f223bc3f240f2a6d98ec512486efa76938cab47dba1350a"
+    },
+    {
+      "path": "tests/prepaid-http.test.ts",
+      "size": 10904,
+      "sha256": "92c8abd450c87018ac5a089a5b32071a98cd166a330b46aac976ac1382e36b18"
+    },
+    {
+      "path": "tests/prepaid-plans.test.ts",
+      "size": 4503,
+      "sha256": "f2c385b621c3d765429adbc0505c5bc9672a3b080b1f545f1cf06317c3b61385"
+    },
+    {
       "path": "tests/pro-pricing.test.ts",
-      "size": 1935,
-      "sha256": "cc700b32f8afbc78bbe3a2e06a0240d3e4e6b39f2e595be04286a3f779e8f82c"
+      "size": 1602,
+      "sha256": "d87c8b0ac19b6b1c26c4b14483376c273547cfaea508729a20afd5f8d0d9fea2"
     },
     {
       "path": "tests/report-data.test.ts",

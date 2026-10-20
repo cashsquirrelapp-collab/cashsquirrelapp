@@ -178,3 +178,37 @@ Changed against ea8e4aa: frontend/src/features/auth/Login.tsx, frontend/src/feat
   - Billing and phone e2e: 11 pass, 2 deferred.
   - Full e2e: 55 pass. 34 fail, and the same 34 fail on the pkg10 source.
 - Rollback: restore the three release files of f674b11.
+
+## Live prepaid card and PromptPay — 2026-10-20
+
+Checkout is now enabled on the production Worker. This supersedes the closed-checkout notes above.
+
+| One-time total (THB) | Pro entitlement | Methods |
+| --- | --- | --- |
+| 159 | 1 calendar month | Card, PromptPay |
+| 849 | 6 calendar months | Card, PromptPay |
+| 1,490 | 12 calendar months | Card, PromptPay |
+
+- Live Stripe account: Vispark (`acct_1TeotMC4uZ5mcDl1`), explicitly confirmed by the owner.
+- Production version: `e85104c0-a1a8-4db1-aa48-c1298ea24e7a`, deployed at 100%.
+- Origin: `https://kraroktunngern.cashsquirrelapp.workers.dev`.
+- Source archive: 573 files, 20,579,566 bytes; SHA256 `31439c67d3d514895dbb223670541a15bfb294a7d554801d29b266a2efe8375c`.
+- Server-controlled prices, quantities and durations; authenticated owner binding; canonical Stripe validation before entitlement fulfillment; replay-safe fulfillment and checkout creation.
+- No automatic renewal for these offers. Existing recurring subscribers keep the existing portal flow.
+- Unpaid pending checkouts can be canceled to change the package or method. A paid/cancellation race is reconciled against Stripe before releasing an order.
+- Polling and payment mutations use separate rate-limit buckets. Payment-confirmation notices appear only after a completed-checkout redirect.
+- The prepaid database migration was applied and its RLS/RPC permissions verified in the production SQL editor. Do not reapply it blindly; reconcile migration history as described in PREPAID_BILLING.md.
+- Card and PromptPay are enabled in the live payment-method configuration. The owner authorized and completed Stripe verification for Payment Method Configurations Read on the existing restricted key.
+- Webhook refund/dispute handling is included. OAuth, domain access, cron schedules and secret values were not changed by this release.
+
+Validation:
+
+- 21 focused payment/HTTP/database tests passed, including tampered requests, duplicate fulfillment, owner isolation, cancellation races and calendar-month boundaries.
+- 15 billing browser tests passed, including all six plan/method combinations and pending-order cancellation.
+- Lint, TypeScript/Cloudflare checks, production build and packaged-source verification passed.
+- The wider unit suite retains five pre-existing notification/monthly-report failures; this release does not claim a completely green unrelated suite.
+- Created all six real live Checkout combinations through the app. Stripe API confirmed each exact THB amount, month metadata, `mode=payment`, and the intended sole payment method (`card` or `promptpay`).
+- Visually inspected hosted card checkout at all three prices and hosted PromptPay at THB849, plus the app's QR modal for each period.
+- Canceled all six QA sessions through the app. Stripe confirmed all six `expired` and `unpaid`. No card details were entered, QR payment submitted/scanned, or money charged. A real paid transaction and real paid webhook fulfillment have not been exercised.
+
+Operational instructions and the setup/audit script are documented in `PREPAID_BILLING.md`. `prepaid-billing.patch` is the readable source diff against the previously packaged production release.

@@ -28,6 +28,7 @@
     "APP_URL": "https://kraroktunngern.cashsquirrelapp.workers.dev",
     "SUPABASE_URL": "https://rcllghixkclvkxhvttaw.supabase.co",
     "STRIPE_MODE": "live",
+    "KRAROK_PREPAID_ENABLED": "true",
     "CRON_ENABLED": "true"
   },
   "observability": {

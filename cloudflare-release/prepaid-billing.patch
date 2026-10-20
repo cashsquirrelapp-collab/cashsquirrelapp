@@ -1,0 +1,2128 @@
+--- /dev/null
++++ b/backend/scripts/setupPrepaidBilling.ts
+@@ -0,0 +1,80 @@
++/**
++ * Dry-run by default. Set STRIPE_SECRET_KEY and STRIPE_MODE in the process environment.
++ * npm run billing:setup -- --apply creates/annotates this offer only; never charges anyone.
++ * Live operations are restricted to the owner's approved Vispark account.
++ */
++import Stripe from 'stripe';
++import { PRO_PERIODS, PRO_PRICING } from '../../shared/proPricing.js';
++import { PREPAID_OFFER, prepaidLookup, validPrepaidPrice } from '../src/services/prepaidPlans.js';
++import { stripeLivemodeForKey } from '../src/config/stripe.js';
++
++const key = process.env.STRIPE_SECRET_KEY;
++if (!key) throw new Error('Set STRIPE_SECRET_KEY in the environment; never paste it into source code.');
++const live = stripeLivemodeForKey(key);
++if (process.env.STRIPE_MODE !== (live ? 'live' : 'test')) throw new Error('STRIPE_MODE must match the key.');
++const apply = process.argv.includes('--apply');
++const stripe = new Stripe(key, { maxNetworkRetries: 2 });
++const account = await stripe.rawRequest('GET', '/v1/account');
++if (live && account.id !== 'acct_1TeotMC4uZ5mcDl1') throw new Error('Wrong live account. Expected approved Vispark account.');
++console.log(JSON.stringify({ account: account.id, mode: live ? 'live' : 'test', apply }));
++
++let productId: string | undefined;
++const report: Record<string, unknown>[] = [];
++let ready = true;
++for (const period of PRO_PERIODS) {
++  const plan = PRO_PRICING[period];
++  const lookup = prepaidLookup(period);
++  const metadata = { offer_version: PREPAID_OFFER, period, months: String(plan.months) };
++  const matches = await stripe.prices.list({ lookup_keys: [lookup], limit: 2 });
++  if (matches.data.length > 1) throw new Error(`Ambiguous price ${lookup}`);
++  let price = matches.data[0];
++  if (price) {
++    // Metadata may be filled after Dashboard creation; economic terms must already match.
++    if (!validPrepaidPrice({ ...price, metadata }, period, live)) throw new Error(`Mismatched price ${price.id}; refusing to replace it.`);
++    if (apply && !validPrepaidPrice(price, period, live)) {
++      price = await stripe.prices.update(price.id, { metadata });
++    }
++  } else if (apply) {
++    if (!productId) {
++      const products = await stripe.products.list({ active: true, limit: 100 }).autoPagingToArray({ limit: 1000 });
++      const ours = products.filter(p => p.metadata.offer_version === PREPAID_OFFER);
++      if (ours.length > 1) throw new Error('Duplicate products for this offer.');
++      productId = ours[0]?.id || (await stripe.products.create({
++        name: 'krarok.com Pro',
++        description: 'Pro จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ',
++        metadata: { offer_version: PREPAID_OFFER, app: 'krarok.com' },
++      }, { idempotencyKey: `${PREPAID_OFFER}:product` })).id;
++    }
++    price = await stripe.prices.create({
++      product: productId, currency: 'thb', unit_amount: plan.total * 100,
++      lookup_key: lookup, metadata,
++      nickname: `Pro ${plan.months} เดือน ฿${plan.total} จ่ายครั้งเดียว`,
++    }, { idempotencyKey: `${lookup}:price` });
++  }
++  const valid = Boolean(price && validPrepaidPrice(price, period, live));
++  ready &&= valid;
++  report.push({ period, months: plan.months, thb: plan.total, price: price?.id ?? null, valid });
++}
++console.table(report);
++const configurations = await stripe.paymentMethodConfigurations.list({ limit: 100 });
++const config = configurations.data.find(c => c.id === process.env.KRAROK_PAYMENT_CONFIGURATION)
++  || configurations.data.find(c => !process.env.KRAROK_PAYMENT_CONFIGURATION && c.is_default);
++const methodsReady = Boolean(config?.active && config.livemode === live
++  && config.card?.available && config.card.display_preference.value === 'on'
++  && config.promptpay?.available && config.promptpay.display_preference.value === 'on');
++const extraMethods = Object.entries(config || {}).filter(([name, value]) =>
++  value && typeof value === 'object' && 'display_preference' in value
++  && !['card','promptpay','apple_pay','google_pay'].includes(name)
++  && (value as {display_preference?: {value?: string}}).display_preference?.value === 'on').map(([name]) => name);
++const requiredEvents = ['checkout.session.completed','checkout.session.async_payment_succeeded',
++  'checkout.session.async_payment_failed','checkout.session.expired','charge.refunded',
++  'charge.dispute.created','charge.dispute.closed'];
++const url = process.env.KRAROK_WEBHOOK_URL || 'https://kraroktunngern.cashsquirrelapp.workers.dev/api/stripe-webhook';
++const endpoints = await stripe.webhookEndpoints.list({ limit: 100 });
++const endpoint = endpoints.data.find(e => e.url === url && e.status === 'enabled' && e.livemode === live);
++const missing = endpoint?.enabled_events.includes('*') ? [] : requiredEvents.filter(e => !endpoint?.enabled_events.includes(e as never));
++console.log(JSON.stringify({ configuration: config?.id, methodsReady, extraMethods,
++  webhook: endpoint?.id, missingEvents: missing,
++  next: 'Apply the reviewed SQL migration, verify signed test webhooks, then set KRAROK_PREPAID_ENABLED=true.' }, null, 2));
++// This script never changes webhook secrets, endpoint destinations, or payment configuration.
++if (!ready || !methodsReady || extraMethods.length || !endpoint || missing.length) process.exitCode = 2;
+--- a/backend/src/handlers/billing.ts
++++ b/backend/src/handlers/billing.ts
+@@ -1,566 +1,70 @@
+-import { randomUUID } from 'node:crypto';
+-import { isDeepStrictEqual } from 'node:util';
+-import type Stripe from 'stripe';
+ import { appOrigin } from '../config/env.js';
+ import { configuredStripeLivemode, stripe } from '../config/stripe.js';
+ import { getSupabaseAdmin } from '../config/supabase.js';
+ import { HttpError, withGuard } from '../http/guard.js';
+ import { rateLimit } from '../security/rateLimit.js';
+ import { requireUser } from '../security/session.js';
+-import {
+-  buildPromptPayCheckoutRequest,
+-  buildStripeSubscriptionCheckoutRequest,
+-  getStripeBillingCatalog,
+-  getStripeBillingPortalConfiguration,
+-  getStripeIntroCoupon,
+-  isStripeCustomerOwnedByUser,
+-  PRO_INTRO_MONTHS,
+-  PRO_INTRO_TOTAL,
+-  PRO_MONTHLY_AMOUNT,
+-  PRO_OFFER_VERSION,
+-  PRO_STANDARD_OFFER_VERSION,
+-  PROMPTPAY_OFFER_VERSION,
+-  subscriptionRecord,
+-} from '../services/stripeSubscriptions.js';
+-
+-type BillingRow = {
+-  status: string;
+-  plan: string | null;
+-  current_period_end: string | null;
+-  legacy_current_period_end: string | null;
+-  manual_current_period_end: string | null;
+-  cancel_at_period_end: boolean;
+-  stripe_customer_id: string | null;
+-  stripe_subscription_id: string | null;
+-  stripe_subscription_status: string | null;
+-  stripe_intro_paid_cycles: number;
+-  stripe_checkout_reservation_id: string | null;
+-  stripe_checkout_session_id: string | null;
+-  stripe_checkout_expires_at: string | null;
+-  stripe_checkout_pending_until: string | null;
+-  stripe_checkout_method: 'card' | 'promptpay' | null;
+-  stripe_checkout_url: string | null;
+-  stripe_checkout_intro_cycles_remaining: number | null;
+-};
+-
+-type Reservation = {
+-  result: 'reserved' | 'resumed' | 'pending' | 'managed' | 'legacy_active' | 'recurring_access' | 'account_closing' | 'mode_mismatch' | 'admin_grant' | 'admin_revoked';
+-  customer_id?: string | null;
+-  intro_eligible?: boolean;
+-  intro_cycles_remaining?: number;
+-  method?: 'card' | 'promptpay' | null;
+-  url?: string | null;
+-  legacy_until?: string;
+-  reservation_id?: string;
+-  session_id?: string | null;
+-  expires_at?: string;
+-  pending_until?: string;
+-};
+-
+-const nonterminalStripeStatuses = new Set<Stripe.Subscription.Status>([
+-  'incomplete', 'trialing', 'active', 'past_due', 'unpaid', 'paused',
+-]);
+-
+-function id(value: string | { id: string } | null | undefined): string | null {
+-  return typeof value === 'string' ? value : value?.id || null;
+-}
+-
+-function assertManagedCustomer(
+-  customer: Stripe.Customer | Stripe.DeletedCustomer,
+-  userId: string,
+-  livemode: boolean,
+-): asserts customer is Stripe.Customer {
+-  if ('deleted' in customer && customer.deleted) throw new HttpError(409, 'บัญชีลูกค้า Stripe นี้ถูกลบแล้ว กรุณาติดต่อผู้ดูแล');
+-  if (!isStripeCustomerOwnedByUser(customer, userId, livemode)) {
+-    throw new Error('Stored Stripe Customer ownership metadata or mode is invalid');
+-  }
+-}
+-
+-function unixSeconds(value: string | undefined, field: string): number {
+-  const parsed = value ? Date.parse(value) : Number.NaN;
+-  if (!Number.isFinite(parsed)) throw new Error(`Checkout reservation has an invalid ${field}`);
+-  return Math.floor(parsed / 1000);
+-}
+-
+-function assertPreparedCheckoutRequest(
+-  request: unknown,
+-  expected: Stripe.Checkout.SessionCreateParams,
+-): asserts request is Stripe.Checkout.SessionCreateParams {
+-  if (!request || typeof request !== 'object' || !isDeepStrictEqual(request, expected)) {
+-    throw new Error('Prepared Stripe Checkout request does not exactly match its reservation');
+-  }
+-}
+-
+-function promptPaySessionAmount(session: Stripe.Checkout.Session): number {
+-  const cycle = Number(session.metadata?.intro_cycle);
+-  const amount = cycle <= PRO_INTRO_MONTHS ? PRO_INTRO_TOTAL : PRO_MONTHLY_AMOUNT;
+-  const paymentMethods = session.payment_method_types || [];
+-  if (session.metadata?.offer_version !== PROMPTPAY_OFFER_VERSION
+-    || session.metadata?.billing_method !== 'promptpay'
+-    || !Number.isInteger(cycle) || cycle < 1 || cycle > PRO_INTRO_MONTHS + 1
+-    || session.currency !== 'thb'
+-    || session.amount_total !== amount
+-    || paymentMethods.length !== 1 || paymentMethods[0] !== 'promptpay'
+-    || !Number.isInteger(session.expires_at) || session.expires_at <= 0) {
+-    throw new Error('PromptPay Checkout amount, method, or offer metadata is invalid');
+-  }
+-  return amount;
+-}
+-
+-async function createPortal(customerId: string, userId: string): Promise<string> {
+-  const livemode = configuredStripeLivemode();
+-  const [customer, configuration] = await Promise.all([
+-    stripe.customers.retrieve(customerId),
+-    getStripeBillingPortalConfiguration(),
+-  ]);
+-  assertManagedCustomer(customer, userId, livemode);
+-  const portal = await stripe.billingPortal.sessions.create({
+-    customer: customer.id,
+-    configuration: configuration.id,
+-    return_url: `${appOrigin()}/app`,
+-  });
+-  return portal.url;
+-}
+-
+-async function hasNonterminalStripeSubscription(customerId: string): Promise<boolean> {
+-  let found = false;
+-  await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 100 })
+-    .autoPagingEach(item => {
+-      if (!nonterminalStripeStatuses.has(item.status)) return true;
+-      found = true;
+-      return false;
+-    });
+-  return found;
+-}
++import { getStripeBillingPortalConfiguration, isStripeCustomerOwnedByUser } from '../services/stripeSubscriptions.js';
++import { cancelPrepaidCheckout, prepaidEnabled, startPrepaidCheckout } from '../services/prepaidBilling.js';
+ 
+ export default withGuard(async (req, res) => {
+   const user = await requireUser(req, res);
+-  await rateLimit('billing', user.id, req.method === 'POST' ? 12 : 60, 60);
++  // Status polling must not exhaust the separate mutation budget.
++  await rateLimit(req.method === 'POST' ? 'billing-write' : 'billing-read', user.id, req.method === 'POST' ? 12 : 60, 60);
+   const admin = getSupabaseAdmin();
+-  const subscription = await admin
+-    .from('subscriptions')
+-    .select('status,plan,current_period_end,legacy_current_period_end,manual_current_period_end,cancel_at_period_end,stripe_customer_id,stripe_subscription_id,stripe_subscription_status,stripe_intro_paid_cycles,stripe_checkout_reservation_id,stripe_checkout_session_id,stripe_checkout_expires_at,stripe_checkout_pending_until,stripe_checkout_method,stripe_checkout_url,stripe_checkout_intro_cycles_remaining')
+-    .eq('user_id', user.id)
+-    .maybeSingle();
+-  if (subscription.error) throw subscription.error;
+-  const row = subscription.data as BillingRow | null;
+-
++  const result = await admin.from('subscriptions').select('*').eq('user_id', user.id).maybeSingle();
++  if (result.error) throw result.error;
++  const row = result.data;
+   if (req.method === 'GET') {
+-    res.json({ subscription: row ? {
+-      status: row.status,
+-      plan: row.plan,
+-      current_period_end: row.current_period_end,
+-      cancel_at_period_end: row.cancel_at_period_end,
+-      stripe_status: row.stripe_subscription_status,
+-      has_subscription: Boolean(row.stripe_subscription_id),
+-      intro_eligible: row.stripe_intro_paid_cycles < PRO_INTRO_MONTHS,
+-      intro_paid_cycles: row.stripe_intro_paid_cycles,
+-      managed: Boolean(row.stripe_customer_id),
+-      promptpay_checkout: row.stripe_checkout_method === 'promptpay'
+-        && row.stripe_checkout_session_id && row.stripe_checkout_url && row.stripe_checkout_expires_at
+-        ? {
+-          url: row.stripe_checkout_url,
+-          expires_at: row.stripe_checkout_expires_at,
+-          amount: (row.stripe_checkout_intro_cycles_remaining || 0) > 0 ? PRO_INTRO_TOTAL : PRO_MONTHLY_AMOUNT,
+-          status: Date.parse(row.stripe_checkout_expires_at) > Date.now() ? 'open' : 'expired',
+-        } : null,
++    // Read only authoritative database state; a success query string never grants access.
++    let pending = null;
++    let pendingCheckout = null;
++    if (prepaidEnabled() && row?.stripe_checkout_reservation_id) {
++      const query = await admin.from('cashflow_prepaid_orders')
++        .select('id,session_id,period,months,amount,method,checkout_url,expires_at,status')
++        .eq('id', row.stripe_checkout_reservation_id).eq('user_id', user.id).maybeSingle();
++      if (query.error) throw query.error;
++      if (query.data?.session_id && ['reserved','open'].includes(query.data.status)) {
++        pendingCheckout = { id: query.data.id, months: query.data.months, amount: query.data.amount };
++      }
++      if (query.data?.method === 'promptpay' && query.data.checkout_url && ['reserved','open'].includes(query.data.status)) {
++        pending = { url: query.data.checkout_url, expires_at: query.data.expires_at,
++          amount: query.data.amount, months: query.data.months, period: query.data.period,
++          status: Date.parse(query.data.expires_at) > Date.now() ? 'open' : 'expired' };
++      }
++    }
++    res.json({ checkout_ready: prepaidEnabled(), pending_checkout: pendingCheckout, subscription: row ? {
++      status: row.status, plan: row.plan, current_period_end: row.current_period_end,
++      cancel_at_period_end: row.cancel_at_period_end, stripe_status: row.stripe_subscription_status,
++      has_subscription: Boolean(row.stripe_subscription_id), managed: Boolean(row.stripe_customer_id),
++      intro_eligible: false, intro_paid_cycles: row.stripe_intro_paid_cycles || 0,
++      promptpay_checkout: pending,
+     } : null });
+     return;
+   }
+   if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+-
+-  const action = req.body?.action;
+-  const customerId = row?.stripe_customer_id || null;
+-  // A Stripe Customer can still need invoice/payment-method access while an
+-  // administrator grant or revocation controls app entitlement.
+-  if (action === 'portal') {
+-    if (!customerId) throw new HttpError(409, 'ยังไม่มีบัญชีลูกค้า Stripe สำหรับบัญชีนี้');
+-    res.json({ url: await createPortal(customerId, user.id), destination: 'portal' });
++  if (req.body?.action === 'cancel_checkout') {
++    if (typeof req.body.order_id !== 'string' || !/^[a-f0-9-]{36}$/i.test(req.body.order_id)
++      || Object.keys(req.body).some(key => !['action','order_id'].includes(key))) {
++      throw new HttpError(400, 'Invalid cancellation fields');
++    }
++    res.json(await cancelPrepaidCheckout(user.id, req.body.order_id));
+     return;
+   }
+-  if (!['checkout', 'promptpay_checkout'].includes(action)) throw new HttpError(400, 'Invalid billing action');
+-  const checkoutMethod: 'card' | 'promptpay' = action === 'promptpay_checkout' ? 'promptpay' : 'card';
+-  if (row?.plan === 'admin_revoked') throw new HttpError(403, 'บัญชีนี้ถูกระงับสิทธิ์ Pro กรุณาติดต่อผู้ดูแล');
+-  if (row?.plan === 'admin_grant') throw new HttpError(409, 'บัญชีนี้ได้รับสิทธิ์ Pro จากผู้ดูแลอยู่แล้ว');
+-  if ([row?.legacy_current_period_end, row?.manual_current_period_end]
+-    .some(end => end && new Date(end).getTime() > Date.now())) {
+-    throw new HttpError(409, 'สิทธิ์ Pro แบบเดิมยังใช้งานได้ กรุณาสมัครรายเดือนหลังสิทธิ์เดิมหมดอายุ');
+-  }
+-
+-  const catalog = await getStripeBillingCatalog();
+-  const recoverCompletedCheckout = async (
+-    session: Stripe.Checkout.Session,
+-    checkoutReservationId: string,
+-    checkoutCustomerId: string,
+-  ): Promise<void> => {
+-    const subscriptionId = id(session.subscription);
+-    if (!subscriptionId) throw new Error('Completed Stripe Checkout is missing its Subscription');
+-    const canonicalSubscription = await stripe.subscriptions.retrieve(subscriptionId, {
+-      expand: ['discounts.source.coupon.applies_to'],
+-    });
+-    const record = subscriptionRecord(canonicalSubscription, catalog);
+-    const offerVersion = session.metadata?.offer_version;
+-    const introCycles = Number(session.metadata?.intro_cycles_remaining || '0');
+-    if (!record
+-      || record.userId !== user.id
+-      || record.workspaceId !== user.id
+-      || record.customerId !== checkoutCustomerId
+-      || session.metadata?.workspace_type !== 'personal'
+-      || ![PRO_OFFER_VERSION, PRO_STANDARD_OFFER_VERSION].includes(offerVersion || '')
+-      || !Number.isInteger(introCycles) || introCycles < 0 || introCycles > PRO_INTRO_MONTHS
+-      || (offerVersion === PRO_OFFER_VERSION) !== (introCycles > 0)
+-      || record.introCouponMonths !== (introCycles || null)) {
+-      throw new Error('Completed Stripe Checkout Subscription failed canonical validation');
+-    }
+-    const recovered = await admin.rpc('cashflow_recover_completed_subscription_checkout', {
+-      p_user_id: user.id,
+-      p_reservation_id: checkoutReservationId,
+-      p_session_id: session.id,
+-      p_customer_id: record.customerId,
+-      p_subscription_id: record.subscriptionId,
+-      p_subscription_created: record.subscriptionCreated,
+-      p_price_id: record.priceId,
+-      p_livemode: catalog.livemode,
+-      p_status: record.status,
+-      p_billing_period_end: record.billingPeriodEnd,
+-      p_cancel_at_period_end: record.cancelAtPeriodEnd,
+-    });
+-    if (recovered.error) throw recovered.error;
+-    if (recovered.data !== true) throw new Error('Completed Checkout reservation changed during recovery');
+-  };
+-  if (row?.stripe_checkout_session_id && row.stripe_checkout_reservation_id) {
+-    const existing = await stripe.checkout.sessions.retrieve(row.stripe_checkout_session_id);
+-    const storedMethod = row.stripe_checkout_method || 'card';
+-    const expectedMode = storedMethod === 'promptpay' ? 'payment' : 'subscription';
+-    if (existing.livemode !== configuredStripeLivemode()
+-      || existing.mode !== expectedMode
+-      || existing.client_reference_id !== user.id
+-      || existing.metadata?.app_user_id !== user.id
+-      || existing.metadata?.workspace_type !== 'personal'
+-      || existing.metadata?.workspace_id !== user.id
+-      || existing.metadata?.checkout_reservation_id !== row.stripe_checkout_reservation_id
+-      || id(existing.customer) !== customerId) {
+-      throw new Error('Stored Stripe Checkout ownership or mode is invalid');
+-    }
+-    if (existing.status === 'open' && existing.url) {
+-      if (!customerId) throw new Error('Stored Stripe Checkout is missing its Customer');
+-      const customer = await stripe.customers.retrieve(customerId);
+-      assertManagedCustomer(customer, user.id, catalog.livemode);
+-      const locallyExpired = Boolean(row.stripe_checkout_expires_at
+-        && Date.parse(row.stripe_checkout_expires_at) <= Date.now());
+-      if (locallyExpired || await hasNonterminalStripeSubscription(customerId)) {
+-        const expired = await stripe.checkout.sessions.expire(existing.id);
+-        if (expired.status !== 'expired') throw new Error('Could not expire overlapping Stripe Checkout');
+-        const released = await admin.rpc('cashflow_release_billing_checkout', {
+-          p_user_id: user.id,
+-          p_reservation_id: row.stripe_checkout_reservation_id,
+-        });
+-        if (released.error) throw released.error;
+-        if (!locallyExpired) {
+-          res.json({ url: await createPortal(customerId, user.id), destination: 'portal' });
+-          return;
+-        }
+-      } else if (storedMethod === 'promptpay') {
+-        res.json({
+-          url: existing.url,
+-          destination: 'promptpay',
+-          expiresAt: new Date(existing.expires_at * 1000).toISOString(),
+-          amount: promptPaySessionAmount(existing),
+-        });
+-        return;
+-      } else {
+-        res.json({ url: existing.url, destination: 'checkout' });
+-        return;
+-      }
+-    }
+-    if (existing.status === 'complete') {
+-      if (!customerId) throw new Error('Completed Stripe Checkout is missing its Customer');
+-      if (storedMethod === 'promptpay') {
+-        const hostedUrl = existing.url || row.stripe_checkout_url;
+-        if (!hostedUrl) throw new Error('Completed PromptPay Checkout is missing its hosted URL');
+-        res.json({
+-          url: hostedUrl,
+-          destination: 'promptpay_pending',
+-          expiresAt: new Date(existing.expires_at * 1000).toISOString(),
+-          amount: promptPaySessionAmount(existing),
+-        });
+-        return;
+-      }
+-      await recoverCompletedCheckout(existing, row.stripe_checkout_reservation_id, customerId);
+-      res.json({ url: await createPortal(customerId, user.id), destination: 'portal' });
+-      return;
+-    }
+-    if (existing.status === 'expired') {
+-      const released = await admin.rpc('cashflow_release_billing_checkout', {
+-        p_user_id: user.id,
+-        p_reservation_id: row.stripe_checkout_reservation_id,
+-      });
+-      if (released.error) throw released.error;
+-    }
+-  }
+-
+-  let reservationId: string = randomUUID();
+-  // PromptPay uses the Stripe minimum plus a small network allowance so the
+-  // request still has a full 30 minutes when Stripe evaluates it. The visible
+-  // countdown always uses Stripe's returned authoritative expires_at.
+-  let checkoutExpiresAt = Math.floor(Date.now() / 1000)
+-    + (checkoutMethod === 'promptpay' ? 30 * 60 + 30 : 45 * 60);
+-  let pendingUntil = new Date((checkoutExpiresAt + 5 * 60) * 1000).toISOString();
+-  const reserved = await admin.rpc('cashflow_reserve_billing_checkout', {
+-    p_user_id: user.id,
+-    p_reservation_id: reservationId,
+-    p_method: checkoutMethod,
+-    p_expires_at: new Date(checkoutExpiresAt * 1000).toISOString(),
+-    p_pending_until: pendingUntil,
+-    p_livemode: catalog.livemode,
+-  });
+-  if (reserved.error) throw reserved.error;
+-  const reservation = reserved.data as Reservation;
+-  if (reservation.result === 'managed') {
+-    if (!reservation.customer_id) throw new Error('Managed subscription is missing its Stripe Customer');
+-    res.json({ url: await createPortal(reservation.customer_id, user.id), destination: 'portal' });
++  if (req.body?.action === 'portal') {
++    if (!row?.stripe_customer_id) throw new HttpError(409, 'ยังไม่มีบัญชีลูกค้า Stripe');
++    const [customer, configuration] = await Promise.all([
++      stripe.customers.retrieve(row.stripe_customer_id), getStripeBillingPortalConfiguration(),
++    ]);
++    if (!isStripeCustomerOwnedByUser(customer, user.id, configuredStripeLivemode())) throw new Error('Invalid Stripe Customer');
++    const portal = await stripe.billingPortal.sessions.create({ customer: customer.id, configuration: configuration.id,
++      return_url: `${appOrigin()}/app` });
++    res.json({ url: portal.url, destination: 'portal' });
+     return;
+   }
+-  if (reservation.result === 'legacy_active') throw new HttpError(409, 'สิทธิ์ Pro แบบเดิมยังใช้งานได้ กรุณาสมัครรายเดือนหลังสิทธิ์เดิมหมดอายุ');
+-  if (reservation.result === 'recurring_access') throw new HttpError(409, 'สิทธิ์รายเดือนที่ชำระแล้วยังใช้งานได้ กรุณาสมัครใหม่หลังสิทธิ์หมดอายุ');
+-  if (reservation.result === 'pending') throw new HttpError(409, 'มีหน้าชำระเงินที่กำลังใช้งานอยู่ กรุณาดำเนินการหรือรอให้หมดอายุ');
+-  if (reservation.result === 'account_closing') throw new HttpError(409, 'ไม่สามารถเริ่มสมัครสมาชิกระหว่างพักหรือปิดบัญชี');
+-  if (reservation.result === 'mode_mismatch') throw new Error('Stripe mode does not match the stored billing account');
+-  if (reservation.result === 'admin_revoked') throw new HttpError(403, 'บัญชีนี้ถูกระงับสิทธิ์ Pro กรุณาติดต่อผู้ดูแล');
+-  if (reservation.result === 'admin_grant') throw new HttpError(409, 'บัญชีนี้ได้รับสิทธิ์ Pro จากผู้ดูแลอยู่แล้ว');
+-  let reservedMethod: 'card' | 'promptpay' = reservation.method || checkoutMethod;
+-  if (reservation.result === 'resumed') {
+-    if (!reservation.reservation_id || !reservation.expires_at || !reservation.pending_until) {
+-      throw new Error('Resumed Checkout reservation is incomplete');
+-    }
+-    reservationId = reservation.reservation_id;
+-    reservedMethod = reservation.method || checkoutMethod;
+-    checkoutExpiresAt = unixSeconds(reservation.expires_at, 'expiry');
+-    pendingUntil = new Date(unixSeconds(reservation.pending_until, 'pending deadline') * 1000).toISOString();
+-    if (reservation.session_id) {
+-      const existing = await stripe.checkout.sessions.retrieve(reservation.session_id);
+-      const expectedMode = reservedMethod === 'promptpay' ? 'payment' : 'subscription';
+-      if (existing.livemode !== catalog.livemode
+-        || existing.mode !== expectedMode
+-        || existing.client_reference_id !== user.id
+-        || existing.metadata?.app_user_id !== user.id
+-        || existing.metadata?.workspace_type !== 'personal'
+-        || existing.metadata?.workspace_id !== user.id
+-        || existing.metadata?.checkout_reservation_id !== reservationId
+-        || id(existing.customer) !== reservation.customer_id) {
+-        throw new Error('Resumed Stripe Checkout ownership or mode is invalid');
+-      }
+-      if (existing.status === 'open' && existing.url) {
+-        if (!reservation.customer_id) throw new Error('Resumed Stripe Checkout is missing its Customer');
+-        const customer = await stripe.customers.retrieve(reservation.customer_id);
+-        assertManagedCustomer(customer, user.id, catalog.livemode);
+-        if (await hasNonterminalStripeSubscription(reservation.customer_id)) {
+-          const expired = await stripe.checkout.sessions.expire(existing.id);
+-          if (expired.status !== 'expired') throw new Error('Could not expire overlapping Stripe Checkout');
+-          const released = await admin.rpc('cashflow_release_billing_checkout', {
+-            p_user_id: user.id,
+-            p_reservation_id: reservationId,
+-          });
+-          if (released.error) throw released.error;
+-          res.json({ url: await createPortal(reservation.customer_id, user.id), destination: 'portal' });
+-          return;
+-        }
+-        if (reservedMethod === 'promptpay') {
+-          res.json({
+-            url: existing.url,
+-            destination: 'promptpay',
+-            expiresAt: new Date(existing.expires_at * 1000).toISOString(),
+-            amount: promptPaySessionAmount(existing),
+-          });
+-        } else res.json({ url: existing.url, destination: 'checkout' });
+-        return;
+-      }
+-      if (existing.status === 'complete') {
+-        if (!reservation.customer_id) throw new Error('Completed Stripe Checkout is missing its Customer');
+-        if (reservedMethod === 'promptpay') {
+-          const hostedUrl = existing.url || reservation.url;
+-          if (!hostedUrl) throw new Error('Completed PromptPay Checkout is missing its hosted URL');
+-          res.json({
+-            url: hostedUrl,
+-            destination: 'promptpay_pending',
+-            expiresAt: new Date(existing.expires_at * 1000).toISOString(),
+-            amount: promptPaySessionAmount(existing),
+-          });
+-          return;
+-        }
+-        await recoverCompletedCheckout(existing, reservationId, reservation.customer_id);
+-        res.json({ url: await createPortal(reservation.customer_id, user.id), destination: 'portal' });
+-        return;
+-      }
+-      if (existing.status === 'expired') {
+-        const released = await admin.rpc('cashflow_release_billing_checkout', {
+-          p_user_id: user.id,
+-          p_reservation_id: reservationId,
+-        });
+-        if (released.error) throw released.error;
+-        throw new HttpError(409, 'หน้าชำระเงินหมดอายุแล้ว กรุณาลองใหม่');
+-      }
+-    }
+-  } else if (reservation.result !== 'reserved') {
+-    throw new Error('Unexpected checkout reservation result');
+-  }
+-
+-  let checkout: Stripe.Checkout.Session | undefined;
+-  let checkoutCreateAttempted = false;
+-  let checkoutConfirmedExpired = false;
+-  try {
+-    let stableCustomerId = reservation.customer_id || null;
+-    if (stableCustomerId) {
+-      const customer = await stripe.customers.retrieve(stableCustomerId);
+-      assertManagedCustomer(customer, user.id, catalog.livemode);
+-    } else {
+-      const customer = await stripe.customers.create({
+-        email: user.email,
+-        metadata: { app_user_id: user.id, workspace_type: 'personal', workspace_id: user.id },
+-      }, { idempotencyKey: `cash-squirrel-customer:${catalog.livemode ? 'live' : 'test'}:${user.id}` });
+-      const bound = await admin.rpc('cashflow_bind_stripe_customer', {
+-        p_user_id: user.id,
+-        p_reservation_id: reservationId,
+-        p_customer_id: customer.id,
+-        p_livemode: catalog.livemode,
+-      });
+-      if (bound.error) throw bound.error;
+-      stableCustomerId = bound.data as string;
+-    }
+-
+-    // The database reservation serializes app requests, while this Stripe-side
+-    // check catches a delayed/missed webhook or an externally-created managed
+-    // subscription before a second recurring charge can be started.
+-    const hasNonterminalSubscription = await hasNonterminalStripeSubscription(stableCustomerId);
+-    if (hasNonterminalSubscription) {
+-      const released = await admin.rpc('cashflow_release_billing_checkout', {
+-        p_user_id: user.id,
+-        p_reservation_id: reservationId,
+-      });
+-      if (released.error) throw released.error;
+-      res.json({ url: await createPortal(stableCustomerId, user.id), destination: 'portal' });
+-      return;
+-    }
+-
+-    const introCyclesRemaining = reservation.intro_cycles_remaining
+-      ?? (reservation.intro_eligible ? PRO_INTRO_MONTHS : 0);
+-    const introCycle = Math.min(PRO_INTRO_MONTHS + 1, PRO_INTRO_MONTHS - introCyclesRemaining + 1);
+-    const introCouponId = reservedMethod === 'card'
+-      ? await getStripeIntroCoupon({
+-        userId: user.id,
+-        reservationId,
+-        months: introCyclesRemaining,
+-        catalog,
+-      }) : null;
+-    const candidateRequest = reservedMethod === 'promptpay'
+-      ? buildPromptPayCheckoutRequest({
+-        userId: user.id,
+-        customerId: stableCustomerId,
+-        reservationId,
+-        introCycle,
+-        expiresAt: checkoutExpiresAt,
+-        origin: appOrigin(),
+-      })
+-      : buildStripeSubscriptionCheckoutRequest({
+-        userId: user.id,
+-        customerId: stableCustomerId,
+-        reservationId,
+-        introCyclesRemaining,
+-        introCouponId,
+-        expiresAt: checkoutExpiresAt,
+-        origin: appOrigin(),
+-        catalog,
+-      });
+-    const prepared = await admin.rpc('cashflow_prepare_subscription_checkout', {
+-      p_user_id: user.id,
+-      p_reservation_id: reservationId,
+-      p_request: candidateRequest,
+-    });
+-    if (prepared.error) throw prepared.error;
+-    assertPreparedCheckoutRequest(prepared.data, candidateRequest);
+-    checkoutCreateAttempted = true;
+-    checkout = await stripe.checkout.sessions.create(
+-      prepared.data,
+-      { idempotencyKey: reservedMethod === 'card'
+-        ? `cash-squirrel-pro-checkout:${reservationId}`
+-        : `cash-squirrel-promptpay-checkout:${reservationId}` },
+-    );
+-    if (checkout.status === 'expired') {
+-      checkoutConfirmedExpired = true;
+-      throw new HttpError(409, 'หน้าชำระเงินหมดอายุแล้ว กรุณาลองใหม่');
+-    }
+-    if (checkout.status === 'complete') {
+-      if (!checkout.url) throw new Error('Completed Stripe Checkout is missing its hosted URL');
+-      const attachedComplete = await admin.rpc('cashflow_attach_billing_checkout', {
+-        p_user_id: user.id,
+-        p_reservation_id: reservationId,
+-        p_session_id: checkout.id,
+-        p_url: checkout.url,
+-      });
+-      if (attachedComplete.error) throw attachedComplete.error;
+-      if (attachedComplete.data !== true) {
+-        throw new Error('Completed Checkout reservation changed before recovery');
+-      }
+-      if (reservedMethod === 'promptpay') {
+-        res.json({
+-          url: checkout.url,
+-          destination: 'promptpay_pending',
+-          expiresAt: new Date(checkout.expires_at * 1000).toISOString(),
+-          amount: promptPaySessionAmount(checkout),
+-        });
+-      } else {
+-        await recoverCompletedCheckout(checkout, reservationId, stableCustomerId);
+-        res.json({ url: await createPortal(stableCustomerId, user.id), destination: 'portal' });
+-      }
+-      return;
+-    }
+-    if (checkout.status !== 'open' || !checkout.url) {
+-      throw new Error('Stripe Checkout did not return an open hosted Session');
+-    }
+-
+-    const attached = await admin.rpc('cashflow_attach_billing_checkout', {
+-      p_user_id: user.id,
+-      p_reservation_id: reservationId,
+-      p_session_id: checkout.id,
+-      p_url: checkout.url,
+-    });
+-    if (attached.error) throw attached.error;
+-    if (attached.data !== true) {
+-      const expired = await stripe.checkout.sessions.expire(checkout.id);
+-      checkoutConfirmedExpired = expired.status === 'expired';
+-      throw new Error('Checkout reservation expired before the session was attached');
+-    }
+-    if (reservedMethod === 'promptpay') {
+-      res.json({
+-        url: checkout.url,
+-        destination: 'promptpay',
+-        expiresAt: new Date(checkout.expires_at * 1000).toISOString(),
+-        amount: promptPaySessionAmount(checkout),
+-      });
+-    } else res.json({ url: checkout.url, destination: 'checkout' });
+-  } catch (error) {
+-    // A network timeout can happen after Stripe committed the Session but
+-    // before this process received it. Never release that reservation: retry
+-    // must replay the persisted request with the same idempotency key.
+-    let safeToRelease = checkoutConfirmedExpired
+-      || (!checkoutCreateAttempted && reservation.result === 'reserved');
+-    if (checkout?.id && checkout.status === 'open') {
+-      try {
+-        const expired = await stripe.checkout.sessions.expire(checkout.id);
+-        safeToRelease = expired.status === 'expired';
+-      } catch {
+-        // Keep the reservation when Stripe did not confirm expiration: an open
+-        // hosted session must never become an untracked second subscription.
+-        safeToRelease = false;
+-      }
+-    }
+-    if (safeToRelease) {
+-      const released = await admin.rpc('cashflow_release_billing_checkout', {
+-        p_user_id: user.id,
+-        p_reservation_id: reservationId,
+-      });
+-      if (released.error) throw released.error;
+-    }
+-    throw error;
+-  }
++  if (!['checkout','promptpay_checkout'].includes(req.body?.action)) throw new HttpError(400, 'Invalid billing action');
++  // No client-supplied amount, duration, Stripe Price, account or URL is trusted.
++  const allowed = new Set(['action','period']);
++  if (Object.keys(req.body).some(key => !allowed.has(key))) throw new HttpError(400, 'Invalid checkout fields');
++  res.json(await startPrepaidCheckout(user, req.body.period, req.body.action === 'promptpay_checkout' ? 'promptpay' : 'card'));
+ }, { csrf: true });
+--- a/backend/src/handlers/stripe-webhook.ts
++++ b/backend/src/handlers/stripe-webhook.ts
+@@ -15,6 +15,9 @@
+ } from '../services/stripeSubscriptions.js';
+ import { promptPayCheckoutRecord, validatePromptPayLineItems } from '../services/promptPay.js';
+ 
++import { applyPrepaidSession, retrieveAndApplyPrepaid } from '../services/prepaidBilling.js';
++import { PREPAID_OFFER } from '../services/prepaidPlans.js';
++
+ export const config = { api: { bodyParser: false } };
+ 
+ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+@@ -31,6 +34,8 @@
+   'invoice.payment_action_required',
+   'invoice.finalization_failed',
+   'charge.refunded',
++  'charge.dispute.created',
++  'charge.dispute.closed',
+ ]);
+ 
+ function id(value: string | { id: string } | null | undefined): string | null {
+@@ -92,7 +97,7 @@
+     if (row?.stripe_checkout_session_id && row.stripe_checkout_reservation_id) {
+       const recurring = await stripe.checkout.sessions.retrieve(row.stripe_checkout_session_id);
+       if (recurring.livemode !== configuredStripeLivemode()
+-        || recurring.mode !== (row.stripe_checkout_method === 'promptpay' ? 'payment' : 'subscription')
++        || recurring.mode !== (recurring.metadata?.offer_version === PREPAID_OFFER || row.stripe_checkout_method === 'promptpay' ? 'payment' : 'subscription')
+         || recurring.client_reference_id !== session.client_reference_id
+         || recurring.metadata?.app_user_id !== session.client_reference_id
+         || recurring.metadata?.checkout_reservation_id !== row.stripe_checkout_reservation_id
+@@ -104,6 +109,9 @@
+         if (expired.status !== 'expired') throw new Error('Could not expire overlapping recurring Checkout');
+       }
+       if (recurring.status === 'open' || recurring.status === 'expired') {
++        if (recurring.metadata?.offer_version === PREPAID_OFFER) {
++          await retrieveAndApplyPrepaid(recurring.id);
++        }
+         const released = await admin.rpc('cashflow_release_billing_checkout', {
+           p_user_id: session.client_reference_id,
+           p_reservation_id: row.stripe_checkout_reservation_id,
+@@ -152,9 +160,23 @@
+     return;
+   }
+ 
++  if (event.type.startsWith('charge.dispute.')) {
++    const dispute = event.data.object as Stripe.Dispute;
++    const chargeId = id(dispute.charge);
++    if (!chargeId) throw new Error('Missing disputed charge');
++    const charge = await stripe.charges.retrieve(chargeId);
++    const pi = id(charge.payment_intent);
++    if (pi) {
++      const sessions = await stripe.checkout.sessions.list({ payment_intent: pi, limit: 100 });
++      for (const candidate of sessions.data.filter(s => s.metadata?.offer_version === PREPAID_OFFER)) {
++        await retrieveAndApplyPrepaid(candidate.id);
++      }
++    }
++    res.json({ received: true }); return;
++  }
+   if (event.type === 'charge.refunded') {
+     const charge = event.data.object as Stripe.Charge;
+-    if (!charge.refunded) {
++    if (!charge.payment_intent) {
+       res.json({ received: true, ignored: true });
+       return;
+     }
+@@ -164,6 +186,12 @@
+       return;
+     }
+     const sessions = await stripe.checkout.sessions.list({ payment_intent: paymentIntent, limit: 100 });
++    const prepaid = sessions.data.find(candidate => candidate.metadata?.offer_version === PREPAID_OFFER);
++    if (prepaid) {
++      await retrieveAndApplyPrepaid(prepaid.id);
++      res.json({ received: true }); return;
++    }
++    if (!charge.refunded) { res.json({ received: true, ignored: true }); return; }
+     const promptpay = sessions.data.find(candidate => candidate.mode === 'payment'
+       && candidate.metadata?.billing_method === 'promptpay');
+     if (promptpay) {
+@@ -226,6 +254,7 @@
+       expand: ['payment_intent.payment_method', 'payment_intent.latest_charge', 'line_items'],
+     });
+     if (session.livemode !== expectedLivemode) throw new HttpError(400, 'Stripe Checkout mode mismatch');
++    if (await applyPrepaidSession(session, event.type)) { res.json({ received: true }); return; }
+     if (session.mode === 'payment') {
+       if (session.metadata?.billing_method === 'promptpay') {
+         const sessionUserId = session.metadata.app_user_id;
+--- /dev/null
++++ b/backend/src/services/prepaidBilling.ts
+@@ -0,0 +1,184 @@
++import { randomUUID } from 'node:crypto';
++import { isDeepStrictEqual } from 'node:util';
++import type { User } from '@supabase/supabase-js';
++import type Stripe from 'stripe';
++import { appOrigin } from '../config/env.js';
++import { stripe, configuredStripeLivemode } from '../config/stripe.js';
++import { getSupabaseAdmin } from '../config/supabase.js';
++import { HttpError } from '../http/guard.js';
++import { isStripeCustomerOwnedByUser } from './stripeSubscriptions.js';
++import { PRO_PRICING, type ProPeriod } from '../../../shared/proPricing.js';
++import { assertPrepaidSession, buildPrepaidCheckout, isProPeriod, prepaidLookup, PREPAID_OFFER,
++  stripeId, validatedPrepaidPayment, validPrepaidPrice, type PaymentMethod, type PrepaidOrder } from './prepaidPlans.js';
++
++export const prepaidEnabled = () => process.env.KRAROK_PREPAID_ENABLED === 'true';
++async function rpc(name: string, args: Record<string, unknown>) {
++  const result = await getSupabaseAdmin().rpc(name, args);
++  if (result.error) throw result.error;
++  return result.data;
++}
++async function orderById(id: string): Promise<PrepaidOrder> {
++  const result = await getSupabaseAdmin().from('cashflow_prepaid_orders').select('*').eq('id', id).single();
++  if (result.error) throw result.error;
++  return result.data as PrepaidOrder;
++}
++async function checkoutConfiguration(livemode: boolean): Promise<string> {
++  const configurations = await stripe.paymentMethodConfigurations.list({ limit: 100 });
++  const configuration = configurations.data.find(c => c.id === process.env.KRAROK_PAYMENT_CONFIGURATION)
++    || configurations.data.find(c => !process.env.KRAROK_PAYMENT_CONFIGURATION && c.is_default);
++  if (!configuration?.active || configuration.livemode !== livemode
++    || !configuration.card?.available || configuration.card.display_preference.value !== 'on'
++    || !configuration.promptpay?.available || configuration.promptpay.display_preference.value !== 'on') {
++    throw new HttpError(503, 'ยังไม่ได้เปิดช่องทางบัตรและ PromptPay ใน Stripe');
++  }
++  // Do not silently accept a newly enabled payment type without a fulfillment validator.
++  for (const [key, value] of Object.entries(configuration)) {
++    if (value && typeof value === 'object' && 'display_preference' in value
++      && !['card', 'promptpay', 'apple_pay', 'google_pay'].includes(key)
++      && (value as {display_preference?: {value?: string}}).display_preference?.value === 'on') {
++      throw new HttpError(503, 'กรุณาตรวจการตั้งค่าช่องทางชำระเงิน');
++    }
++  }
++  return configuration.id;
++}
++async function ensureCustomer(user: User, order: PrepaidOrder): Promise<PrepaidOrder> {
++  const customer = order.customer_id ? await stripe.customers.retrieve(order.customer_id)
++    : await stripe.customers.create({ email: user.email,
++      metadata: { app_user_id: user.id, workspace_type: 'personal', workspace_id: user.id } },
++      { idempotencyKey: `cash-squirrel-customer:${order.livemode ? 'live' : 'test'}:${user.id}` });
++  if ('deleted' in customer && customer.deleted || !isStripeCustomerOwnedByUser(customer, user.id, order.livemode)) {
++    throw new Error('Invalid Stripe Customer ownership');
++  }
++  if (order.request) return order;
++  await rpc('cashflow_bind_stripe_customer', { p_user_id: user.id, p_reservation_id: order.id,
++    p_customer_id: customer.id, p_livemode: order.livemode });
++  return { ...order, customer_id: customer.id };
++}
++const expanded = ['payment_intent.payment_method', 'payment_intent.latest_charge', 'line_items'];
++/** Handles new payments first; legacy subscriptions retain their existing webhook pipeline. */
++export async function applyPrepaidSession(session: Stripe.Checkout.Session, eventType?: string): Promise<boolean> {
++  if (session.metadata?.offer_version !== PREPAID_OFFER) return false;
++  const order = await orderById(session.metadata.checkout_reservation_id || '');
++  if (order.livemode !== configuredStripeLivemode()) throw new Error('Prepaid mode mismatch');
++  // A webhook can arrive before the create response was attached. The persisted request
++  // and server-owned reservation already bind the customer, price and duration.
++  assertPrepaidSession(session, order);
++  if (session.status === 'expired' || (eventType === 'checkout.session.async_payment_failed' && session.status === 'complete' && session.payment_status === 'unpaid')) {
++    await rpc('cashflow_finish_prepaid_checkout', { p_order_id: order.id, p_user_id: order.user_id,
++      p_session_id: session.id, p_state: 'expired' });
++    return true;
++  }
++  if (session.payment_status !== 'paid') return true;
++  const payment = validatedPrepaidPayment(session, order);
++  await rpc('cashflow_fulfill_prepaid', { p_order_id: order.id, p_user_id: order.user_id,
++    p_session_id: session.id, p_customer_id: order.customer_id, p_payment_id: payment.paymentIntentId,
++    p_livemode: session.livemode, p_amount: session.amount_total, p_currency: session.currency,
++    p_period: order.period, p_months: order.months, p_paid_at: payment.paidAt, p_refunded: payment.refunded });
++  return true;
++}
++export async function retrieveAndApplyPrepaid(sessionId: string) {
++  const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: expanded });
++  await applyPrepaidSession(session);
++  return session;
++}
++/** Expire only this owner's exact unpaid session; a racing payment must still be fulfilled. */
++export async function cancelPrepaidCheckout(userId: string, orderId: string) {
++  const result = await getSupabaseAdmin().from('cashflow_prepaid_orders').select('*')
++    .eq('id', orderId).eq('user_id', userId).maybeSingle();
++  if (result.error) throw result.error;
++  const order = result.data as PrepaidOrder | null;
++  if (!order || order.user_id !== userId) throw new HttpError(404, 'ไม่พบรายการชำระเงิน');
++  if (!order.session_id) throw new HttpError(409, 'รายการกำลังสร้าง กรุณาลองใหม่อีกครั้ง');
++  if (order.livemode !== configuredStripeLivemode()) throw new Error('Prepaid mode mismatch');
++  let session = await stripe.checkout.sessions.retrieve(order.session_id, { expand: expanded });
++  assertPrepaidSession(session, order);
++  if (session.status === 'open' && session.payment_status === 'unpaid') {
++    try {
++      await stripe.checkout.sessions.expire(session.id);
++    } catch {
++      // A payment may complete between retrieval and expiration. Canonical retrieval
++      // below decides; never release an unknown or already-paid session locally.
++    }
++    session = await stripe.checkout.sessions.retrieve(order.session_id, { expand: expanded });
++    assertPrepaidSession(session, order);
++  }
++  await applyPrepaidSession(session);
++  if (session.status !== 'expired') throw new HttpError(409, 'รายการนี้ชำระแล้วหรือกำลังยืนยัน จึงยกเลิกไม่ได้');
++  return { canceled: true };
++}
++export async function startPrepaidCheckout(user: User, periodValue: unknown, method: PaymentMethod) {
++  if (!prepaidEnabled()) throw new HttpError(503, 'ระบบชำระเงินกำลังเตรียมเปิดให้บริการ');
++  if (!isProPeriod(periodValue)) throw new HttpError(400, 'กรุณาเลือกแพ็กเกจ 1 เดือน, 6 เดือน หรือ 1 ปี');
++  const period: ProPeriod = periodValue;
++  const livemode = configuredStripeLivemode();
++  const [prices, configuration] = await Promise.all([
++    stripe.prices.list({ lookup_keys: [prepaidLookup(period)], active: true, limit: 2 }),
++    checkoutConfiguration(livemode),
++  ]);
++  const price = prices.data[0];
++  if (prices.data.length !== 1 || !validPrepaidPrice(price, period, livemode)) {
++    throw new HttpError(503, 'ราคายังไม่พร้อมรับชำระ กรุณาลองใหม่ภายหลัง');
++  }
++  const pending = await getSupabaseAdmin().from('cashflow_prepaid_orders').select('session_id,expires_at')
++    .eq('user_id', user.id).in('status', ['reserved','open']).not('session_id','is',null);
++  if (pending.error) throw pending.error;
++  for (const order of pending.data || []) {
++    if (Date.parse(order.expires_at) <= Date.now()) await retrieveAndApplyPrepaid(order.session_id!);
++  }
++  const reservation = await rpc('cashflow_reserve_prepaid_checkout', {
++    p_user_id: user.id, p_order_id: randomUUID(), p_period: period, p_method: method,
++    p_price_id: price.id, p_livemode: livemode,
++  });
++  if (!['reserved', 'resumed'].includes(reservation.result)) {
++    const messages: Record<string, string> = {
++      period_mismatch: 'มีรายการชำระเงินแพ็กเกจอื่นค้างอยู่ กรุณาดำเนินการหรือรอให้หมดอายุก่อนเปลี่ยนแพ็กเกจ',
++      prepaid_active: 'สิทธิ์ Pro ที่ชำระแล้วยังใช้งานได้ กรุณาต่ออายุเมื่อสิทธิ์หมด',
++      managed: 'มีการสมัครสมาชิกอยู่แล้ว กรุณาเปิดจัดการการสมัครสมาชิก',
++      pending: 'มีรายการชำระเงินค้างอยู่ กรุณารอการยืนยันก่อนสร้างรายการใหม่',
++    };
++    throw new HttpError(409, messages[reservation.result] || 'บัญชีนี้ยังไม่สามารถเริ่มรายการชำระเงินใหม่ได้');
++  }
++  let order = await orderById(reservation.order_id);
++  if (order.user_id !== user.id || order.period !== period || order.method !== method) throw new Error('Invalid checkout reservation');
++  const response = (session: Stripe.Checkout.Session) => ({
++    url: session.url || order.checkout_url || `${appOrigin()}/app?checkout=success`,
++    destination: session.status === 'complete' ? 'paid_pending' : method === 'promptpay' ? 'promptpay' : 'checkout',
++    amount: order.amount, months: order.months, period: order.period,
++    expiresAt: new Date(session.expires_at * 1000).toISOString(),
++  });
++  if (order.session_id) {
++    const session = await retrieveAndApplyPrepaid(order.session_id);
++    assertPrepaidSession(session, order);
++    if (session.status === 'expired') throw new HttpError(409, 'รายการเดิมหมดอายุแล้ว กดชำระอีกครั้งเพื่อสร้างรายการใหม่');
++    return response(session);
++  }
++  if (Date.parse(order.expires_at) <= Date.now() + 30 * 60 * 1000 && !order.request) {
++    // No external call has been prepared, so releasing cannot orphan a payment.
++    await rpc('cashflow_release_billing_checkout', { p_user_id: user.id, p_reservation_id: order.id });
++    throw new HttpError(409, 'กรุณาลองสร้างรายการใหม่');
++  }
++  order = await ensureCustomer(user, order);
++  const subscriptions = await stripe.subscriptions.list({ customer: order.customer_id!, status: 'all', limit: 100 })
++    .autoPagingToArray({limit: 101});
++  if (subscriptions.length > 100 || subscriptions.some(s => !['canceled', 'incomplete_expired'].includes(s.status))) {
++    throw new HttpError(409, 'มีการสมัครสมาชิกอยู่แล้ว กรุณาจัดการการสมัครเดิมก่อน');
++  }
++  let request = order.request;
++  if (!request) {
++    request = buildPrepaidCheckout(order, appOrigin(), configuration);
++    const stored = await rpc('cashflow_prepare_prepaid_checkout', { p_order_id: order.id,
++      p_user_id: user.id, p_customer_id: order.customer_id, p_request: request });
++    if (!isDeepStrictEqual(stored, request)) throw new Error('Prepared checkout changed');
++  }
++  // Never release an unknown-outcome request after a timeout: replay the same body/key.
++  // Stripe retains keys for >=24h; the session is at most 45m. Do not replay after 23h.
++  if (Date.now() - Date.parse(order.expires_at) > 22 * 60 * 60 * 1000) {
++    throw new HttpError(409, 'รายการเก่าต้องตรวจสอบกับผู้ดูแลก่อนเริ่มใหม่');
++  }
++  const session = await stripe.checkout.sessions.create(request, { idempotencyKey: `krarok-prepaid:${order.id}` });
++  assertPrepaidSession(session, order);
++  await rpc('cashflow_attach_prepaid_checkout', { p_order_id: order.id, p_user_id: user.id,
++    p_session_id: session.id, p_url: session.url, p_expires_at: new Date(session.expires_at * 1000).toISOString() });
++  if (session.status !== 'open') await retrieveAndApplyPrepaid(session.id);
++  return response(session);
++}
+--- /dev/null
++++ b/backend/src/services/prepaidPlans.ts
+@@ -0,0 +1,88 @@
++import type Stripe from 'stripe';
++import { PRO_PRICING, PRO_PERIODS, type ProPeriod } from '../../../shared/proPricing.js';
++
++export const PREPAID_OFFER = 'krarok_prepaid_20261020';
++export type PaymentMethod = 'card' | 'promptpay';
++export type PrepaidOrder = {
++  id: string; user_id: string; period: ProPeriod; months: number; amount: number;
++  method: PaymentMethod; price_id: string; livemode: boolean; expires_at: string;
++  customer_id: string | null; session_id: string | null; checkout_url: string | null;
++  request: Stripe.Checkout.SessionCreateParams | null; status: string;
++};
++export const stripeId = (value: string | { id: string } | null | undefined): string | null =>
++  typeof value === 'string' ? value : value?.id || null;
++export const isProPeriod = (value: unknown): value is ProPeriod => typeof value === 'string' && PRO_PERIODS.includes(value as ProPeriod);
++export const prepaidLookup = (period: ProPeriod) => `${PREPAID_OFFER}_${period}`;
++export function validPrepaidPrice(price: Stripe.Price, period: ProPeriod, livemode: boolean): boolean {
++  const plan = PRO_PRICING[period];
++  return price.active && price.livemode === livemode && price.type === 'one_time'
++    && price.recurring === null && price.currency === 'thb' && price.unit_amount === plan.total * 100
++    && !price.custom_unit_amount && !price.transform_quantity && price.billing_scheme === 'per_unit'
++    && price.lookup_key === prepaidLookup(period) && price.metadata.offer_version === PREPAID_OFFER
++    && price.metadata.period === period && price.metadata.months === String(plan.months);
++}
++export function prepaidMetadata(order: PrepaidOrder): Record<string, string> {
++  return { app_user_id: order.user_id, workspace_type: 'personal', workspace_id: order.user_id,
++    checkout_reservation_id: order.id, offer_version: PREPAID_OFFER,
++    billing_method: order.method, period: order.period, months: String(order.months) };
++}
++export function buildPrepaidCheckout(order: PrepaidOrder, origin: string, configuration: string): Stripe.Checkout.SessionCreateParams {
++  const plan = PRO_PRICING[order.period];
++  if (!order.customer_id || order.amount !== plan.total * 100 || order.months !== plan.months
++    || !configuration.startsWith('pmc_')) throw new Error('Invalid prepaid checkout configuration');
++  return {
++    mode: 'payment', customer: order.customer_id, client_reference_id: order.user_id,
++    payment_method_configuration: configuration,
++    excluded_payment_method_types: [order.method === 'card' ? 'promptpay' : 'card'],
++    line_items: [{ price: order.price_id, quantity: 1 }],
++    allow_promotion_codes: false,
++    metadata: prepaidMetadata(order), payment_intent_data: { metadata: prepaidMetadata(order) },
++    expires_at: Math.floor(Date.parse(order.expires_at) / 1000),
++    success_url: `${origin}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
++    cancel_url: `${origin}/app?checkout=cancel`,
++    custom_text: { submit: { message: `Pro ${order.months} เดือน • ฿${plan.total.toLocaleString('en-US')} จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ` } },
++    // Stable per integration; persisted request + reservation id provide retry safety.
++    integration_identifier: 'krarok-prepaid-qnvxkzpa',
++  };
++}
++export function assertPrepaidSession(session: Stripe.Checkout.Session, order: PrepaidOrder): void {
++  if (session.mode !== 'payment' || session.livemode !== order.livemode
++    || session.client_reference_id !== order.user_id || stripeId(session.customer) !== order.customer_id
++    || (order.session_id && order.session_id !== session.id)
++    || session.currency !== 'thb' || session.amount_total !== order.amount
++    || session.amount_subtotal !== order.amount
++    || Object.entries(prepaidMetadata(order)).some(([k,v]) => session.metadata?.[k] !== v)) {
++    throw new Error('Checkout does not match the reserved account, price and duration');
++  }
++}
++/** Canonical Stripe retrieval, never the redirect query, authorizes fulfillment. */
++export function validatedPrepaidPayment(session: Stripe.Checkout.Session, order: PrepaidOrder) {
++  assertPrepaidSession(session, order);
++  const pi = session.payment_intent;
++  if (session.status !== 'complete' || session.payment_status !== 'paid' || !pi || typeof pi === 'string') throw new Error('Payment not confirmed');
++  const charge = pi.latest_charge;
++  const method = pi.payment_method;
++  const lines = session.line_items;
++  if (pi.status !== 'succeeded' || pi.livemode !== order.livemode || pi.amount !== order.amount
++    || pi.amount_received !== order.amount || pi.amount_capturable !== 0 || pi.currency !== 'thb'
++    || stripeId(pi.customer) !== order.customer_id
++    || Object.entries(prepaidMetadata(order)).some(([k,v]) => pi.metadata[k] !== v)
++    || !method || typeof method === 'string' || method.type !== order.method
++    || !charge || typeof charge === 'string' || charge.status !== 'succeeded' || !charge.paid
++    || charge.livemode !== order.livemode || charge.amount !== order.amount || charge.currency !== 'thb'
++    || stripeId(charge.customer) !== order.customer_id || stripeId(charge.payment_intent) !== pi.id
++    || charge.payment_method_details?.type !== order.method
++    || !Number.isSafeInteger(charge.created) || charge.created <= 0
++    || !lines || lines.has_more || lines.data.length !== 1) throw new Error('Invalid prepaid payment evidence');
++  const line = lines.data[0];
++  if (line.quantity !== 1 || line.price?.id !== order.price_id || line.price.unit_amount !== order.amount
++    || line.price.currency !== 'thb' || line.price.type !== 'one_time' || line.price.recurring !== null
++    || line.amount_total !== order.amount || line.amount_subtotal !== order.amount
++    || line.currency !== 'thb' || (session.total_details?.amount_discount || 0) !== 0
++    || (session.total_details?.amount_tax || 0) !== 0 || (session.total_details?.amount_shipping || 0) !== 0) {
++    throw new Error('Paid line items do not match the locked plan');
++  }
++  return { paymentIntentId: pi.id, paidAt: new Date(charge.created * 1000).toISOString(),
++    // Any refund/dispute suspends this purchase for review, preserving other paid rights.
++    refunded: charge.amount_refunded > 0 || charge.refunded || charge.disputed };
++}
+--- /dev/null
++++ b/docs/PREPAID_BILLING.md
+@@ -0,0 +1,55 @@
++# krarok.com prepaid Pro — 20 October 2026
++
++The app sells three one-time purchases by card or PromptPay. It does not save card details or create a recurring subscription for these offers.
++
++| Period | Charged once (THB) | Access | Live Stripe Price |
++|---|---:|---:|---|
++| `month` | 159 | 1 calendar month | `price_1USeQzC4uZ5mcDl1xjJxXBRG` |
++| `halfYear` | 849 | 6 calendar months | `price_1USeQzC4uZ5mcDl1f9H2ikao` |
++| `year` | 1,490 | 12 calendar months | `price_1USeQzC4uZ5mcDl1PlsA7eHC` |
++
++Approved account: Vispark, `acct_1TeotMC4uZ5mcDl1`. Product: `prod_VTbexQEI6jrH8r`.
++Amounts in the API/database are satang. Calendar arithmetic uses Asia/Bangkok and clamps month ends (31 January + 1 month = 28 February). Access begins at the confirmed Stripe charge time. Early renewal while existing prepaid access is active is blocked.
++
++## Code and safeguards
++
++- `shared/proPricing.ts` is the displayed/server catalog. SQL independently enforces the three amount/month combinations.
++- `POST /api/billing` accepts only `action` and `period`; authentication, account binding, CSRF and rate limits apply. The server chooses Stripe Price and payment configuration.
++- Checkout uses Stripe-hosted fields, exact quantity 1, no promotion codes and a locked payment method. Card/PromptPay are enabled in the existing default configuration. Unexpected extra methods fail closed.
++- A persisted request and per-order Stripe idempotency key protect retries and unknown network outcomes. A pending order blocks switching methods/periods until it is conclusively expired/failed. The UI displays this conflict and offers cancellation of an attached unpaid checkout. Cancellation verifies ownership, expires that exact Stripe session and re-fetches canonical state before releasing the reservation; a racing payment is fulfilled, never discarded.
++- Access requires a signed webhook plus canonical Stripe retrieval: correct account, customer, owner, price, quantity, amount, currency, duration, paid PaymentIntent and successful charge. A browser redirect cannot grant access.
++- Duplicate events do not extend access. Any partial/full refund or dispute suspends that purchase, preserving other independent rights. A dispute resolved in the merchant's favor requires manual review to restore access; no automatic restoration is implemented.
++- Legacy recurring subscriptions continue through the existing webhook and Billing Portal. These new offers do not modify previous subscriptions or prices.
++- The new table has RLS and no anon/authenticated privileges. Only service-role RPCs can fulfill orders.
++
++## Setup and audit
++
++The runtime restricted key needs Payment Method Configurations Read in addition to its existing billing permissions. The owner approved this read permission and completed Stripe identity verification during live checkout QA.
++
++Environment-only credentials: `STRIPE_SECRET_KEY`, matching `STRIPE_MODE`. Never put credentials in source or command arguments.
++
++```sh
++npm run billing:setup
++npm run billing:setup -- --apply
++```
++
++The first command audits. `--apply` only creates missing offer prices or completes their metadata after validating their amounts. It refuses other live accounts, duplicate lookups, inactive or mismatched prices. It never charges a customer, changes webhook secrets, changes destinations, or modifies old prices.
++
++Apply `supabase/migrations/20261020144448_krarok_prepaid_plans.sql` to the approved Supabase project `rcllghixkclvkxhvttaw`. This migration was applied through the project's authenticated SQL Editor on 20 October 2026 (the connector lacked permission). Do not run it a second time. It does not delete existing data.
++
++The existing production endpoint `we_1UP5I6C4uZ5mcDl1mXqFpy32` remains at:
++`https://kraroktunngern.cashsquirrelapp.workers.dev/api/stripe-webhook`.
++All 12 existing events remain enabled; `charge.dispute.created` and `charge.dispute.closed` were added. Existing signing secret is retained.
++
++Keep `KRAROK_PREPAID_ENABLED` unset/false until prices, schema and webhook are installed. Set it to `true` to open checkout. Optional `KRAROK_PAYMENT_CONFIGURATION` pins a specific validated configuration; otherwise the active default is used. `APP_URL` remains the existing production origin.
++
++## Verification and operation
++
++- 21 new payment tests cover all six period/method combinations, authenticated HTTP, signed/forged/unpaid webhooks, immutable amounts, retries, SQL fulfillment, refunds, leap dates and privileges.
++- 15 billing browser tests cover all purchase choices, displayed duration, server-readiness gating, account switches, pending confirmation and mobile layout.
++- TypeScript and Cloudflare checks/build pass. The full existing test suite has five unrelated baseline failures in notification delivery and monthly finance reports.
++- Browser/HTTP payment tests use mocks; no real card/QR payment was submitted.
++
++To stop new purchases, set `KRAROK_PREPAID_ENABLED=false` and keep this webhook code running for already-issued checkouts. Do not roll back the webhook to the old implementation while payments are outstanding.
++
++An unknown Stripe create outcome older than the safe idempotency window is held for manual review. Search Checkout Sessions in Stripe by the stored customer/reservation metadata, retrieve canonical state, then process through `retrieveAndApplyPrepaid`; never clear a pending reservation based only on a browser timeout or cancel redirect.
+--- a/frontend/src/app/App.tsx
++++ b/frontend/src/app/App.tsx
+@@ -1,3 +1,4 @@
++import type { ProPeriod } from '../../../shared/proPricing';
+ import PageHeader from '../components/ui/PageHeader';
+ import { uiPrimaryButton } from '../components/ui/uiStyles';
+ import { privateCache } from '../services/privateCache';
+@@ -173,6 +174,8 @@
+       url: data.promptpay_checkout.url,
+       expiresAt: data.promptpay_checkout.expires_at,
+       amount: data.promptpay_checkout.amount,
++      months: data.promptpay_checkout.months,
++      period: data.promptpay_checkout.period,
+       status: data.promptpay_checkout.status,
+     } : null,
+   };
+@@ -1124,6 +1127,21 @@
+   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
+   const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
+   const [billingBusy, setBillingBusy] = useState(false);
++  const [checkoutReady, setCheckoutReady] = useState(false);
++  const [pendingCheckout, setPendingCheckout] = useState<{id: string; months: number; amount: number} | null>(null);
++  useEffect(() => {
++    setCheckoutReady(false);
++    setPendingCheckout(null);
++    if (!session?.user || session.isGuest || activeTab !== 'plans' || billingBusy) return;
++    const controller = new AbortController();
++    void apiJson<any>('/api/billing', { signal: controller.signal, headers: { 'X-Account-ID': session.user.id } })
++      .then(result => { if (!controller.signal.aborted) {
++        setCheckoutReady(result.checkout_ready === true);
++        setPendingCheckout(result.pending_checkout || null);
++      } })
++      .catch(() => { /* Checkout remains closed when readiness cannot be checked. */ });
++    return () => controller.abort();
++  }, [session?.user?.id, session?.isGuest, activeTab, billingBusy]);
+   const [promptPayCheckout, setPromptPayCheckout] = useState<PromptPayCheckout | null>(null);
+   const [promptPayModalOpen, setPromptPayModalOpen] = useState(false);
+   const [billingPollVersion, setBillingPollVersion] = useState(0);
+@@ -1141,6 +1159,7 @@
+     billingRequestRef.current += 1;
+     setSubscription(null);
+     setBillingBusy(false);
++    setPendingCheckout(null);
+     setPromptPayCheckout(null);
+     setPromptPayModalOpen(false);
+     setIsProPromoOpen(false);
+@@ -1214,7 +1233,7 @@
+     return err.message || JSON.stringify(err);
+   };
+ 
+-  const handleUpgrade = async (requestedMethod?: unknown) => {
++  const handleUpgrade = async (requestedMethod?: unknown, period: ProPeriod = 'month') => {
+     const paymentMethod = requestedMethod === 'promptpay' ? 'promptpay' : 'card';
+     const currentUser = session?.user;
+     if (session?.isGuest) {
+@@ -1237,9 +1256,11 @@
+       const userId = currentUser.id;
+       const result = await apiJson<{
+         url: string;
+-        destination?: 'checkout' | 'portal' | 'promptpay' | 'promptpay_pending';
++        destination?: 'checkout' | 'portal' | 'promptpay' | 'promptpay_pending' | 'paid_pending';
+         expiresAt?: string;
+         amount?: number;
++        months?: number;
++        period?: ProPeriod;
+       }>('/api/billing', {
+         method: 'POST',
+         headers: { 'X-Account-ID': userId },
+@@ -1247,9 +1268,15 @@
+         // when app entitlement or Checkout catalog validation is unavailable.
+         body: JSON.stringify({ action: hasOpenStripeSubscription
+           ? 'portal'
+-          : paymentMethod === 'promptpay' ? 'promptpay_checkout' : 'checkout' }),
++          : paymentMethod === 'promptpay' ? 'promptpay_checkout' : 'checkout', ...(hasOpenStripeSubscription ? {} : { period }) }),
+       });
+       if (billingUserRef.current !== userId) return;
++      if (result.destination === 'paid_pending') {
++        markCheckoutPending(userId);
++        setBillingPollVersion(version => version + 1);
++        setBillingBusy(false);
++        return;
++      }
+       const target = new URL(result.url);
+       if (target.protocol !== 'https:' || (target.hostname !== 'stripe.com' && !target.hostname.endsWith('.stripe.com'))) {
+         throw new Error('ปลายทางชำระเงินไม่ถูกต้อง');
+@@ -1262,6 +1289,8 @@
+           url: target.toString(),
+           expiresAt: result.expiresAt,
+           amount: result.amount,
++          months: result.months,
++          period: result.period,
+           status: result.destination === 'promptpay_pending' ? 'pending' : 'open',
+         });
+         setPromptPayModalOpen(true);
+@@ -1281,6 +1310,29 @@
+     }
+   };
+ 
++  const handleCancelCheckout = async () => {
++    const userId = billingUserRef.current;
++    if (!userId || !pendingCheckout || billingBusy) return;
++    const orderId = pendingCheckout.id;
++    setBillingBusy(true);
++    try {
++      await apiJson('/api/billing', { method: 'POST', headers: { 'X-Account-ID': userId },
++        body: JSON.stringify({ action: 'cancel_checkout', order_id: orderId }) });
++      if (billingUserRef.current !== userId) return;
++      clearCheckoutPending(userId);
++      setPendingCheckout(null);
++      setPromptPayCheckout(null);
++      setPromptPayModalOpen(false);
++    } catch (error) {
++      if (billingUserRef.current === userId) triggerAlert('ยกเลิกรายการไม่ได้', formatError(error));
++    } finally {
++      if (billingUserRef.current === userId) {
++        setBillingBusy(false);
++        setBillingPollVersion(version => version + 1);
++      }
++    }
++  };
++
+   // Handle redirect back from Stripe Checkout
+   useEffect(() => {
+     const userId = billingUserId;
+@@ -1297,7 +1349,7 @@
+     if (checkoutResult === 'cancel') {
+       clearCheckoutPending();
+       updateCheckoutQuery(true);
+-      triggerAlert('ยังไม่ได้สมัครสมาชิก', 'ยกเลิกหน้าชำระเงินแล้ว หากระบบยังแจ้งว่ามี Checkout ที่ใช้งานอยู่ กรุณารอให้หน้าชำระเงินหมดอายุแล้วลองใหม่');
++      triggerAlert('ยังไม่ได้สมัครสมาชิก', 'ออกจากหน้าชำระเงินแล้ว คุณกลับมาชำระรายการเดิม หรือกดยกเลิกรายการที่ยังไม่ชำระในหน้าแพ็กเกจเพื่อเปลี่ยนวิธีจ่ายได้');
+       return;
+     }
+     if (checkoutResult === 'promptpay-cancel') {
+@@ -1364,7 +1416,8 @@
+           // Stripe retries failed webhook deliveries; keep polling at the bounded cadence below.
+         }
+ 
+-        if (!pendingAlertShown && attempt >= 5 && billingUserRef.current === userId) {
++        if (!pendingAlertShown && ['success', 'promptpay-success'].includes(checkoutResult || '')
++          && attempt >= 5 && billingUserRef.current === userId) {
+           pendingAlertShown = true;
+           triggerAlert('รับข้อมูลการชำระเงินแล้ว', 'Stripe กำลังยืนยันรายการ ระบบจะเปิด Pro อัตโนมัติเมื่อ webhook ยืนยันสำเร็จ');
+         }
+@@ -3053,6 +3106,10 @@
+                   subscription={subscription}
+                   onUpgrade={handleUpgrade}
+                   onPromptPay={() => void handleUpgrade('promptpay')}
++                  onSubscribePeriod={(period, method) => void handleUpgrade(method, period)}
++                  checkoutReady={checkoutReady}
++                  pendingCheckout={pendingCheckout}
++                  onCancelCheckout={() => void handleCancelCheckout()}
+                   billingBusy={billingBusy}
+                   freeDocumentsAvailable
+                 />
+@@ -3126,7 +3183,7 @@
+           onClose={() => setPromptPayModalOpen(false)}
+           onRegenerate={() => {
+             setPromptPayModalOpen(false);
+-            void handleUpgrade('promptpay');
++            void handleUpgrade('promptpay', promptPayCheckout?.period ?? 'month');
+           }}
+         />
+ 
+--- a/frontend/src/features/billing/PlansTab.tsx
++++ b/frontend/src/features/billing/PlansTab.tsx
+@@ -35,6 +35,9 @@
+   onUpgrade: () => void;
+   onPromptPay: () => void;
+   billingBusy: boolean;
++  checkoutReady?: boolean;
++  pendingCheckout?: { months: number; amount: number } | null;
++  onCancelCheckout?: () => void;
+   /** Checkout for 6 months and 1 year, once it exists. A period can be paid only when this is wired
+    * and PRO_CHECKOUT_OPEN says checkout charges the price shown. */
+   onSubscribePeriod?: (period: LongPeriod, method: 'card' | 'promptpay') => void;
+@@ -64,6 +67,9 @@
+   onUpgrade,
+   onPromptPay,
+   billingBusy,
++  checkoutReady = false,
++  pendingCheckout = null,
++  onCancelCheckout,
+   onSubscribePeriod,
+ }) => {
+   const { t } = useLanguage();
+@@ -142,7 +148,7 @@
+     if (hasOpenManagedSubscription) return <button type="button" onClick={onUpgrade} disabled={billingBusy} className={primary}>{billingBusy ? t('plans.loadingCta') : t('plans.renewCta')}</button>;
+     if (isGuestPreview) return <button type="button" onClick={onUpgrade} disabled={billingBusy} className={primary}>{t('plans.guestCreateAccountCta')}</button>;
+     const price = formatBaht(proPriceDetails(option).total);
+-    const open = PRO_CHECKOUT_OPEN[option] && (option === 'month' || Boolean(onSubscribePeriod));
++    const open = checkoutReady && PRO_CHECKOUT_OPEN[option] && (option === 'month' || Boolean(onSubscribePeriod));
+     // Never a payment button that would charge an amount other than the one shown.
+     if (!open) return <>
+       <button type="button" disabled className="plan-cta-closed"><Clock3 className="h-4 w-4" strokeWidth={1.75} aria-hidden />{t('plans.periodOpensSoon')}</button>
+@@ -150,6 +156,7 @@
+     </>;
+     const pay = (method: 'card' | 'promptpay') => option === 'month' ? (method === 'card' ? onUpgrade() : onPromptPay()) : onSubscribePeriod?.(option, method);
+     return <>
++      <p className="text-center text-xs text-brand-muted">{t('plans.prepaidSummary', { price, months: String(proPriceDetails(option).months) })}</p>
+       <button type="button" disabled={billingBusy} onClick={() => pay('card')} className={primary}>{billingBusy ? t('plans.loadingCta') : t('plans.periodSubscribeCta', { length: t(`plans.${option}SwitchLabel`), price })}</button>
+       <button type="button" disabled={billingBusy} onClick={() => pay('promptpay')} className={qrButton}>{billingBusy ? t('plans.loadingCta') : t('plans.periodPromptPayCta', { price })}</button>
+     </>;
+@@ -237,20 +244,29 @@
+           </div>
+         </article>
+ 
++        {pendingCheckout && onCancelCheckout && (
++          <div className="mx-auto mt-4 flex max-w-[820px] flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-faint px-4 py-3 text-sm dark:bg-neutral-800" role="status">
++            <span>{t('plans.pendingPrepaid', { months: pendingCheckout.months, amount: formatBaht(pendingCheckout.amount / 100) })}</span>
++            <button type="button" disabled={billingBusy} onClick={onCancelCheckout}
++              className="rounded-lg border border-brand-border px-3 py-2 font-semibold disabled:opacity-50">
++              {t('plans.cancelUnpaidCheckout')}
++            </button>
++          </div>
++        )}
+         <section className="plan-pay mx-auto mt-4 grid max-w-[820px] gap-4 sm:grid-cols-2 sm:gap-6" aria-labelledby="payment-methods-title">
+           <h2 id="payment-methods-title" className="sr-only">{t('plans.paymentMethodsTitle')}</h2>
+           <div className="flex gap-3">
+             <span className="plan-pay-icon" aria-hidden><CreditCard className="h-4 w-4" strokeWidth={1.75} /></span>
+             <div>
+               <h3 className="text-[13px] font-semibold text-brand-text dark:text-white">{t('plans.cardMethodTitle')}</h3>
+-              <p className="mt-1 text-[12px] leading-relaxed text-brand-muted">{t('plans.cardMethodGeneric')}</p>
++              <p className="mt-1 text-[12px] leading-relaxed text-brand-muted">{t('plans.prepaidMethodDescription')}</p>
+             </div>
+           </div>
+           <div className="flex gap-3">
+             <span className="plan-pay-icon" aria-hidden><QrCode className="h-4 w-4" strokeWidth={1.75} /></span>
+             <div>
+               <h3 className="text-[13px] font-semibold text-brand-text dark:text-white">{t('plans.qrMethodTitle')}</h3>
+-              <p className="mt-1 text-[12px] leading-relaxed text-brand-muted">{t('plans.qrMethodGeneric')}</p>
++              <p className="mt-1 text-[12px] leading-relaxed text-brand-muted">{t('plans.prepaidMethodDescription')}</p>
+             </div>
+           </div>
+         </section>
+--- a/frontend/src/features/billing/ProPromoModal.tsx
++++ b/frontend/src/features/billing/ProPromoModal.tsx
+@@ -99,11 +99,11 @@
+         <div className="px-5 pb-5">
+           <button
+             type="button"
+-            onClick={manageSubscription || PRO_CHECKOUT_OPEN.month ? onUpgrade : onViewPlans}
++            onClick={manageSubscription ? onUpgrade : onViewPlans}
+             className="w-full py-3.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-2xl text-sm font-black cursor-pointer flex items-center justify-center gap-2"
+           >
+             <CreditCard className="w-4 h-4" />
+-            {t(manageSubscription ? 'plans.renewCta' : PRO_CHECKOUT_OPEN.month ? 'plans.periodSubscribeCta' : 'promo.viewPlans', { length: t('plans.monthSwitchLabel'), price: formatBaht(PRO_PRICING.month.total) })}
++            {t(manageSubscription ? 'plans.renewCta' : 'promo.viewPlans')}
+             <ArrowRight className="w-4 h-4" />
+           </button>
+           <button
+@@ -119,7 +119,7 @@
+             <span className="h-px w-7 bg-brand-border dark:bg-neutral-700" />
+           </p>
+           <p className="mx-auto mt-2 max-w-sm text-center text-[9px] leading-relaxed text-brand-muted">
+-            {t('plans.cardMethodGeneric')}
++            {t('plans.prepaidMethodDescription')}
+           </p>
+         </div>
+       </motion.div>
+--- a/frontend/src/features/billing/PromptPayCheckoutModal.tsx
++++ b/frontend/src/features/billing/PromptPayCheckoutModal.tsx
+@@ -1,4 +1,5 @@
+ import React from 'react';
++import type { ProPeriod } from '../../../../shared/proPricing';
+ import { ExternalLink, QrCode, RefreshCw } from 'lucide-react';
+ import { Modal } from '../../components/ui/Modal';
+ import { uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles';
+@@ -7,6 +8,8 @@
+   url: string;
+   expiresAt: string;
+   amount: number;
++  months?: number;
++  period?: ProPeriod;
+   status?: 'open' | 'expired' | 'pending';
+ };
+ 
+@@ -50,7 +53,7 @@
+         <div>
+           <h2 className="font-display text-lg font-bold text-brand-text dark:text-white">QR พร้อมเพย์ ฿{(checkout.amount / 100).toLocaleString('th-TH')}</h2>
+           <p className="mt-1 text-xs leading-relaxed text-brand-muted">
+-            ชำระครั้งเดียวสำหรับสิทธิ์ Pro 1 เดือนปฏิทิน ไม่ตัดเงินอัตโนมัติ และต้องต่ออายุเองเมื่อสิทธิ์หมด
++            ชำระครั้งเดียวสำหรับสิทธิ์ Pro {checkout.months ?? 1} เดือนปฏิทิน ไม่ตัดเงินอัตโนมัติ และต้องต่ออายุเองเมื่อสิทธิ์หมด
+           </p>
+         </div>
+ 
+--- a/frontend/src/features/marketing/saas/SaasLanding.tsx
++++ b/frontend/src/features/marketing/saas/SaasLanding.tsx
+@@ -301,7 +301,8 @@
+                 <p className="sl-plan-name">PRO</p>
+                 <p className="sl-plan-price"><s className="sl-plan-was"><span className="sr-only">ราคาปกติ </span>{formatBaht(PRO_REGULAR_MONTHLY)}</s><strong>{formatBaht(PRO_PRICING.month.total)}</strong><span>/ เดือน</span></p>
+                 <ul>{PRO.map(item => <li key={item.text} className={item.soon ? 'is-soon' : ''}>{item.text}{item.soon && <em>{SOON}</em>}</li>)}</ul>
+-                <button type="button" className="sl-btn is-primary is-block" disabled aria-disabled="true">สมัคร Pro · {SOON}</button>
++                <p>จ่ายครั้งเดียว · 6 เดือน {formatBaht(PRO_PRICING.halfYear.total)} · 1 ปี {formatBaht(PRO_PRICING.year.total)}</p>
++                <a className="sl-btn is-primary is-block" href="/plans">เลือกแพ็กเกจ Pro <ArrowRight size={16} /></a>
+               </article>
+             </div>
+           </div>
+--- a/frontend/src/i18n/translations.ts
++++ b/frontend/src/i18n/translations.ts
+@@ -621,6 +621,10 @@
+     'plans.promoLabel': 'ราคาโปรโมชัน',
+     'plans.savingPerMonth': 'ประหยัด {amount} ทุกเดือน ({pct}%)',
+     'plans.checkoutNotOpen': 'ราคาใหม่จะเปิดให้ชำระเมื่อระบบชำระเงินพร้อม',
++  'plans.prepaidSummary': 'ชำระ {price} ครั้งเดียว ได้ Pro {months} เดือนปฏิทิน ไม่ต่ออายุอัตโนมัติ',
++  'plans.prepaidMethodDescription': 'จ่ายครั้งเดียวตามแพ็กเกจที่เลือก ต่ออายุเองเมื่อสิทธิ์หมด',
++  'plans.pendingPrepaid': 'มีรายการ {months} เดือน {amount} ที่ยังไม่ชำระ หากต้องการเปลี่ยนแพ็กเกจหรือวิธีจ่าย ให้ยกเลิกรายการนี้ก่อน',
++  'plans.cancelUnpaidCheckout': 'ยกเลิกรายการที่ยังไม่ชำระ',
+     'plans.cardMethodGeneric': 'ต่ออายุอัตโนมัติทุกรอบ ยกเลิกได้ และใช้สิทธิ์ต่อถึงสิ้นรอบที่ชำระแล้ว',
+     'plans.qrMethodGeneric': 'จ่ายครั้งเดียวต่อรอบ ไม่ตัดเงินอัตโนมัติ',
+     'promo.viewPlans': 'ดูแพ็กเกจ Pro',
+@@ -1391,6 +1395,10 @@
+     'plans.promoLabel': 'Promotion price',
+     'plans.savingPerMonth': 'save {amount} every month ({pct}%)',
+     'plans.checkoutNotOpen': 'The new prices open for payment once checkout is ready',
++  'plans.prepaidSummary': 'Pay {price} once for {months} calendar months. No automatic renewal.',
++  'plans.prepaidMethodDescription': 'One payment for your selected period. Renew when your access expires.',
++  'plans.pendingPrepaid': 'An unpaid {months}-month checkout for {amount} is open. Cancel it before changing your plan or payment method.',
++  'plans.cancelUnpaidCheckout': 'Cancel unpaid checkout',
+     'plans.cardMethodGeneric': 'Renews automatically each period; cancel anytime and keep access through the paid period',
+     'plans.qrMethodGeneric': 'Pay once per period; never charged automatically',
+     'promo.viewPlans': 'See Pro plans',
+--- a/package.json
++++ b/package.json
+@@ -17,7 +17,8 @@
+     "cloudflare:deploy": "npm run cloudflare:check && npm run cloudflare:build && node scripts/cloudflare-preflight.mjs && npx --yes wrangler@4.151.0 deploy --config wrangler.production.jsonc",
+     "audit:production": "npm audit --omit=dev --audit-level=moderate",
+     "test:e2e": "playwright test",
+-    "billing:backfill": "node --import tsx backend/scripts/generateStripeBackfill.ts"
++    "billing:backfill": "node --import tsx backend/scripts/generateStripeBackfill.ts",
++    "billing:setup": "node --import tsx backend/scripts/setupPrepaidBilling.ts"
+   },
+   "dependencies": {
+     "@anthropic-ai/sdk": "^0.124.0",
+--- a/shared/proPricing.ts
++++ b/shared/proPricing.ts
+@@ -15,14 +15,9 @@
+   year: { months: 12, total: 1490, bestValue: true },
+ };
+ 
+-/**
+- * Whether checkout charges exactly the price above. Stripe still holds the earlier monthly offer
+- * (฿199 for 3 cycles, then ฿249; backend/src/services/stripeSubscriptions.ts refuses any other
+- * configured price) and has no 6-month or 1-year price. So every period stays closed: no button may
+- * charge an amount the page does not show. Open a period only after its Stripe price exists and the
+- * billing API, PromptPay and the webhook checks use these amounts.
+- */
+-export const PRO_CHECKOUT_OPEN: Record<ProPeriod, boolean> = { month: false, halfYear: false, year: false };
++/** Implemented periods. The billing API additionally requires KRAROK_PREPAID_ENABLED and
++ * validates the Stripe catalog; the UI waits for checkout_ready before accepting payment. */
++export const PRO_CHECKOUT_OPEN: Record<ProPeriod, boolean> = { month: true, halfYear: true, year: true };
+ 
+ export interface ProPriceDetails {
+   months: number;
+--- /dev/null
++++ b/supabase/migrations/20261020144448_krarok_prepaid_plans.sql
+@@ -0,0 +1,188 @@
++begin;
++alter table public.subscriptions add column if not exists prepaid_entitled_until timestamptz;
++create table public.cashflow_prepaid_orders (
++  id text primary key, user_id uuid not null references auth.users(id) on delete cascade,
++  period text not null, months smallint not null, amount bigint not null,
++  method text not null check(method in ('card','promptpay')),
++  price_id text not null, livemode boolean not null,
++  customer_id text, session_id text unique, checkout_url text, request jsonb,
++  expires_at timestamptz not null, created_at timestamptz not null default now(),
++  status text not null default 'reserved' check(status in ('reserved','open','expired','paid','refunded')),
++  payment_id text unique, paid_at timestamptz, entitled_until timestamptz,
++  check ((period='month' and months=1 and amount=15900)
++    or (period='halfYear' and months=6 and amount=84900)
++    or (period='year' and months=12 and amount=149000)),
++  check ((paid_at is null and entitled_until is null) or (paid_at is not null and entitled_until is not null))
++);
++create index cashflow_prepaid_orders_user on public.cashflow_prepaid_orders(user_id,created_at desc);
++alter table public.cashflow_prepaid_orders enable row level security;
++revoke all on public.cashflow_prepaid_orders from public, anon, authenticated;
++grant select,insert,update,delete on public.cashflow_prepaid_orders to service_role;
++
++create function public.cashflow_reserve_prepaid_checkout(
++  p_user_id uuid,p_order_id text,p_period text,p_method text,p_price_id text,p_livemode boolean
++) returns jsonb language plpgsql security invoker set search_path='' as $$
++declare r jsonb; o public.cashflow_prepaid_orders; m smallint; a bigint; expiry timestamptz := now()+interval '45 minutes';
++begin
++  if p_period is null or p_method is null or p_price_id is null or p_livemode is null
++    or p_order_id is null or p_user_id is null or p_method not in ('card','promptpay') then raise exception 'invalid_plan'; end if;
++  select months,amount into m,a from (values ('month',1,15900),('halfYear',6,84900),('year',12,149000)) as plans(period,months,amount) where period=p_period;
++  if not found then raise exception 'invalid_plan'; end if;
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  if exists(select 1 from public.subscriptions where user_id=p_user_id and prepaid_entitled_until>now()) then
++    return jsonb_build_object('result','prepaid_active'); end if;
++  select * into o from public.cashflow_prepaid_orders where user_id=p_user_id
++    and status in ('reserved','open') and request is not null order by created_at limit 1 for update;
++  if found then
++    if o.period<>p_period or o.method<>p_method then return jsonb_build_object('result','period_mismatch'); end if;
++    return jsonb_build_object('result','resumed','order_id',o.id);
++  end if;
++  r := public.cashflow_reserve_billing_checkout(p_user_id,p_order_id,p_method,expiry,expiry+interval '5 minutes',p_livemode);
++  if r->>'result'='reserved' then
++    insert into public.cashflow_prepaid_orders(id,user_id,period,months,amount,method,price_id,livemode,customer_id,expires_at)
++      values(p_order_id,p_user_id,p_period,m,a,p_method,p_price_id,p_livemode,r->>'customer_id',expiry);
++    return jsonb_build_object('result','reserved','order_id',p_order_id);
++  elsif r->>'result'='resumed' then
++    select * into o from public.cashflow_prepaid_orders where id=r->>'reservation_id' and user_id=p_user_id;
++    if not found then return jsonb_build_object('result','pending'); end if;
++    if o.period<>p_period or o.method<>p_method then return jsonb_build_object('result','period_mismatch'); end if;
++    return jsonb_build_object('result','resumed','order_id',o.id);
++  end if;
++  return r;
++end; $$;
++
++create function public.cashflow_prepare_prepaid_checkout(p_order_id text,p_user_id uuid,p_customer_id text,p_request jsonb)
++returns jsonb language plpgsql security invoker set search_path='' as $$
++declare o public.cashflow_prepaid_orders; s public.subscriptions;
++begin
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  select * into o from public.cashflow_prepaid_orders where id=p_order_id and user_id=p_user_id for update;
++  if not found then raise exception 'missing_order'; end if;
++  select * into s from public.subscriptions where user_id=p_user_id for update;
++  if s.stripe_checkout_reservation_id is distinct from p_order_id or s.stripe_customer_id is distinct from p_customer_id
++    or p_customer_id is null or s.stripe_livemode is distinct from o.livemode then raise exception 'order_owner_mismatch'; end if;
++  if o.request is not null then return o.request; end if;
++  if o.expires_at<=now() or o.status<>'reserved' or p_request is null
++    or p_request->>'mode' is distinct from 'payment'
++    or p_request->>'customer' is distinct from p_customer_id
++    or p_request->>'client_reference_id' is distinct from p_user_id::text
++    or p_request#>>'{metadata,period}' is distinct from o.period
++    or p_request#>>'{metadata,months}' is distinct from o.months::text
++    or p_request#>>'{metadata,checkout_reservation_id}' is distinct from o.id
++    or p_request#>>'{line_items,0,price}' is distinct from o.price_id
++    or p_request#>>'{line_items,0,quantity}' is distinct from '1'
++    or jsonb_array_length(p_request->'line_items')<>1 then raise exception 'order_request_mismatch'; end if;
++  update public.cashflow_prepaid_orders set customer_id=p_customer_id,request=p_request where id=p_order_id;
++  update public.subscriptions set stripe_checkout_request=p_request where user_id=p_user_id;
++  return p_request;
++end; $$;
++
++create function public.cashflow_attach_prepaid_checkout(p_order_id text,p_user_id uuid,p_session_id text,p_url text,p_expires_at timestamptz)
++returns void language plpgsql security invoker set search_path='' as $$
++declare o public.cashflow_prepaid_orders;
++begin
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  select * into o from public.cashflow_prepaid_orders where id=p_order_id and user_id=p_user_id for update;
++  if not found or o.request is null or p_session_id is null
++    or (o.session_id is not null and o.session_id<>p_session_id)
++    or abs(extract(epoch from o.expires_at-p_expires_at))>1
++    or (p_url is not null and p_url not like 'https://checkout.stripe.com/%') then raise exception 'order_session_mismatch'; end if;
++  update public.cashflow_prepaid_orders set session_id=p_session_id,checkout_url=coalesce(p_url,checkout_url),
++    status=case when status='reserved' then 'open' else status end where id=p_order_id;
++  update public.subscriptions set stripe_checkout_session_id=p_session_id,stripe_checkout_url=p_url
++    where user_id=p_user_id and stripe_checkout_reservation_id=p_order_id;
++end; $$;
++
++create function public.cashflow_finish_prepaid_checkout(p_order_id text,p_user_id uuid,p_session_id text,p_state text)
++returns void language plpgsql security invoker set search_path='' as $$
++declare o public.cashflow_prepaid_orders;
++begin
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  select * into o from public.cashflow_prepaid_orders where id=p_order_id and user_id=p_user_id for update;
++  if not found or p_state is distinct from 'expired' or p_session_id is null
++    or (o.session_id is not null and o.session_id<>p_session_id) then raise exception 'order_session_mismatch'; end if;
++  if o.status in ('paid','refunded') then return; end if;
++  update public.cashflow_prepaid_orders set status='expired',session_id=p_session_id where id=p_order_id;
++  perform public.cashflow_release_billing_checkout(p_user_id,p_order_id);
++end; $$;
++
++create function public.cashflow_fulfill_prepaid(
++  p_order_id text,p_user_id uuid,p_session_id text,p_customer_id text,p_payment_id text,
++  p_livemode boolean,p_amount bigint,p_currency text,p_period text,p_months smallint,p_paid_at timestamptz,p_refunded boolean
++) returns text language plpgsql security invoker set search_path='' as $$
++declare o public.cashflow_prepaid_orders; s public.subscriptions; next_end timestamptz;
++begin
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  select * into s from public.subscriptions where user_id=p_user_id for update;
++  if not found then raise exception 'missing_subscription'; end if;
++  select * into o from public.cashflow_prepaid_orders where id=p_order_id and user_id=p_user_id for update;
++  if not found or o.request is null or p_payment_id is null or p_session_id is null
++    or p_paid_at is null or not isfinite(p_paid_at) or p_paid_at>now()+interval '5 minutes'
++    or p_paid_at<o.created_at-interval '5 minutes' or p_refunded is null
++    or o.customer_id is distinct from p_customer_id or s.stripe_customer_id is distinct from p_customer_id
++    or o.livemode is distinct from p_livemode or s.stripe_livemode is distinct from p_livemode
++    or p_currency is distinct from 'thb' or o.amount is distinct from p_amount
++    or o.period is distinct from p_period or o.months is distinct from p_months
++    or (o.session_id is not null and o.session_id<>p_session_id)
++    or (o.payment_id is not null and o.payment_id<>p_payment_id)
++    or (o.paid_at is not null and o.paid_at<>p_paid_at) then raise exception 'prepaid_evidence_mismatch'; end if;
++  -- A refund is terminal: duplicate or delayed success must not restore access.
++  if o.status='refunded' or (o.status='paid' and not p_refunded) then return 'duplicate'; end if;
++  -- Calendar months in Bangkok, clamp month-end and leap years. No 30/180/365-day shortcuts.
++  next_end := ((p_paid_at at time zone 'Asia/Bangkok') + make_interval(months=>o.months)) at time zone 'Asia/Bangkok';
++  update public.cashflow_prepaid_orders set session_id=p_session_id,payment_id=p_payment_id,paid_at=p_paid_at,
++    entitled_until=next_end,status=case when p_refunded then 'refunded' else 'paid' end where id=p_order_id;
++  select max(entitled_until) into next_end from public.cashflow_prepaid_orders where user_id=p_user_id and status='paid';
++  update public.subscriptions set prepaid_entitled_until=next_end where user_id=p_user_id;
++  perform public.cashflow_release_billing_checkout(p_user_id,p_order_id);
++  perform public.cashflow_refresh_effective_subscription(p_user_id);
++  return case when p_refunded then 'refunded' else 'paid' end;
++end; $$;
++
++revoke all on function public.cashflow_reserve_prepaid_checkout(uuid,text,text,text,text,boolean) from public,anon,authenticated;
++revoke all on function public.cashflow_prepare_prepaid_checkout(text,uuid,text,jsonb) from public,anon,authenticated;
++revoke all on function public.cashflow_attach_prepaid_checkout(text,uuid,text,text,timestamptz) from public,anon,authenticated;
++revoke all on function public.cashflow_finish_prepaid_checkout(text,uuid,text,text) from public,anon,authenticated;
++revoke all on function public.cashflow_fulfill_prepaid(text,uuid,text,text,text,boolean,bigint,text,text,smallint,timestamptz,boolean) from public,anon,authenticated;
++grant execute on function public.cashflow_reserve_prepaid_checkout(uuid,text,text,text,text,boolean) to service_role;
++grant execute on function public.cashflow_prepare_prepaid_checkout(text,uuid,text,jsonb) to service_role;
++grant execute on function public.cashflow_attach_prepaid_checkout(text,uuid,text,text,timestamptz) to service_role;
++grant execute on function public.cashflow_finish_prepaid_checkout(text,uuid,text,text) to service_role;
++grant execute on function public.cashflow_fulfill_prepaid(text,uuid,text,text,text,boolean,bigint,text,text,smallint,timestamptz,boolean) to service_role;
++
++create or replace function public.cashflow_refresh_effective_subscription(p_user_id uuid)
++returns void language plpgsql security definer set search_path = '' as $$
++declare target public.subscriptions; effective_end timestamptz;
++begin
++  select * into target from public.subscriptions where user_id = p_user_id for update;
++  if not found then return; end if;
++  effective_end := greatest(
++    target.manual_current_period_end,
++    target.legacy_current_period_end,
++    target.stripe_entitled_until,
++    target.promptpay_entitled_until,
++    target.prepaid_entitled_until
++  );
++  update public.subscriptions set
++    current_period_end = effective_end,
++    plan = case
++      when target.plan in ('admin_grant','admin_revoked') then target.plan
++      when target.prepaid_entitled_until > now() then 'pro_prepaid'
++      when target.manual_current_period_end > now() then 'pro_manual'
++      when effective_end is not null or target.stripe_subscription_id is not null then 'pro_monthly'
++      else target.plan end,
++    status = case
++      when target.plan = 'admin_revoked' then 'canceled'
++      when target.plan = 'admin_grant' then 'active'
++      when effective_end > now() then 'active'
++      when target.stripe_subscription_status is not null then target.stripe_subscription_status
++      when effective_end is not null then 'canceled'
++      when target.plan in ('pro_monthly','pro_prepaid') then 'canceled'
++      else coalesce(target.status,'inactive') end,
++    updated_at = now()
++  where user_id = p_user_id;
++end;
++$$;
++
++
++commit;
+--- a/tests/e2e/billing.spec.ts
++++ b/tests/e2e/billing.spec.ts
+@@ -71,6 +71,7 @@
+   stripeUrl: string,
+   billingResponse: Record<string, unknown> = {},
+   packageEnabled = false,
++  checkoutReady = true,
+ ): Promise<Request[]> {
+   const billingRequests: Request[] = [];
+ 
+@@ -88,6 +89,10 @@
+     json: { snapshot, versions, subscription, package_features: {free_documents: packageEnabled} },
+   }));
+   await page.route('**/api/billing', async route => {
++    if (route.request().method() === 'GET') {
++      await route.fulfill({json: {checkout_ready: checkoutReady, subscription}});
++      return;
++    }
+     billingRequests.push(route.request());
+     await route.fulfill({ json: { url: stripeUrl, ...billingResponse } });
+   });
+@@ -111,8 +116,33 @@
+   return billingRequests;
+ }
+ 
++test('an unpaid checkout can be canceled before switching payment method or period', async ({page}) => {
++  const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,
++    cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false},
++    'https://checkout.stripe.com/c/pay/cs_test_cancel');
++  const pending={id:'44444444-4444-4444-8444-444444444444',months:1,amount:15900};
++  let canceled=false;
++  await page.route('**/api/billing',async route=>{
++    if(route.request().method()==='GET') {
++      await route.fulfill({json:{checkout_ready:true,pending_checkout:canceled?null:pending,subscription:null}});
++      return;
++    }
++    requests.push(route.request());
++    expect(route.request().postDataJSON()).toEqual({action:'cancel_checkout',order_id:pending.id});
++    canceled=true;
++    await route.fulfill({json:{canceled:true}});
++  });
++  await page.reload();
++  const cancel=page.getByRole('button',{name:'ยกเลิกรายการที่ยังไม่ชำระ',exact:true});
++  await expect(cancel).toBeVisible();
++  await cancel.click();
++  await expect(cancel).toHaveCount(0);
++  await expect(page.getByTestId('pro-card').getByRole('button',{name:'จ่ายด้วย QR ฿159',exact:true})).toBeEnabled();
++  expect(canceled).toBe(true);
++});
++
+ test('a free account chooses Stripe Checkout for the monthly price', async ({ page }) => {
+-  // Checkout still charges the earlier offer (฿199 / ฿249), so the page keeps it closed for now.
++  // The UI submits the selected period; the server fixes price and duration.
+   test.fixme(!PRO_CHECKOUT_OPEN.month, 'monthly checkout opens once Stripe and the billing API charge ฿159 (shared/proPricing.ts)');
+   const stripeUrl = 'https://checkout.stripe.com/c/pay/cs_test_intro';
+   const requests = await openPlans(page, {
+@@ -132,7 +162,7 @@
+   await expect.poll(() => requests.length).toBe(1);
+   expect(requests[0].method()).toBe('POST');
+   expect(requests[0].headers()['x-csrf-protection']).toBe('1');
+-  expect(requests[0].postDataJSON()).toEqual({ action: 'checkout' });
++  expect(requests[0].postDataJSON()).toEqual({ action: 'checkout', period: 'month' });
+   await expect(page).toHaveURL(stripeUrl);
+ });
+ 
+@@ -200,7 +230,7 @@
+   // Status GETs may already have polled by the time the click resolves on a busy host.
+   const checkoutRequests = () => requests.filter(request => request.method() === 'POST');
+   await expect.poll(() => checkoutRequests().length).toBe(1);
+-  expect(checkoutRequests()[0].postDataJSON()).toEqual({ action: 'promptpay_checkout' });
++  expect(checkoutRequests()[0].postDataJSON()).toEqual({ action: 'promptpay_checkout', period: 'month' });
+   const dialog = page.getByRole('dialog', { name: 'ชำระด้วย QR พร้อมเพย์' });
+   await expect(dialog).toBeVisible();
+   await expect(dialog.getByText('QR พร้อมเพย์ ฿159', { exact: true })).toBeVisible();
+@@ -264,7 +294,7 @@
+ });
+ 
+ test('plans page: Pro only at the owner\'s prices; squirrel and price lead; nothing can be paid at another amount',async({page})=>{
+-  const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock');
++  const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock',{},false,false);
+   const card=page.getByTestId('pro-card');
+   const price=page.getByTestId('pro-price');
+   // the Free card and the Free-versus-Pro lines are gone from this page
+@@ -454,7 +484,7 @@
+ 
+   await page.goto('/plans?checkout=success&session_id=cs_test_account_a');
+   await expect(page.getByText('Account A', { exact: true }).first()).toBeVisible();
+-  await expect.poll(() => billingAccounts.length).toBe(1);
++  await expect.poll(() => billingAccounts.length).toBeGreaterThanOrEqual(1);
+ 
+   currentUser = accountB;
+   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+@@ -465,8 +495,29 @@
+   releaseOldBilling();
+   await page.waitForTimeout(250);
+   await expect(page.getByText('FREE', { exact: true })).toBeVisible();
+-  expect(billingAccounts).toEqual([accountA.id]);
++  expect(billingAccounts.filter(id => id === accountA.id).length).toBeGreaterThanOrEqual(1);
+ 
+   releaseAccountB();
+   await expect(page.getByText('FREE', { exact: true })).toBeVisible();
+ });
++
++for(const plan of [{period:'halfYear',label:'6 เดือน',months:6,amount:849},{period:'year',label:'1 ปี',months:12,amount:1490}]) {
++  for(const method of ['card','promptpay']) {
++    test(`prepaid ${plan.period} ${method} sends only the chosen period and shows its duration`,async({page})=>{
++      const stripeUrl=`https://checkout.stripe.com/c/pay/cs_test_${plan.period}_${method}`;
++      const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},stripeUrl,{destination:method==='promptpay'?'promptpay':'checkout',months:plan.months,period:plan.period,amount:plan.amount*100,expiresAt:new Date(Date.now()+30*60_000).toISOString()});
++      await page.getByRole('radio',{name:plan.label,exact:true}).click();
++      const card=page.getByTestId('pro-card');
++      await expect(card.getByText(new RegExp(`ได้ Pro ${plan.months} เดือน`))).toBeVisible();
++      await card.getByRole('button',{name:method==='card'?/สมัคร Pro/:/จ่ายด้วย QR/}).click();
++      await expect.poll(()=>requests.length).toBe(1);
++      expect(requests[0].postDataJSON()).toEqual({action:method==='card'?'checkout':'promptpay_checkout',period:plan.period});
++      if(method==='card') await expect(page).toHaveURL(stripeUrl);
++      else {
++        const dialog=page.getByRole('dialog',{name:'ชำระด้วย QR พร้อมเพย์'});
++        await expect(dialog.getByText(new RegExp(`สิทธิ์ Pro ${plan.months} เดือน`))).toBeVisible();
++        await expect(dialog.getByRole('link',{name:/เปิด QR ใน Stripe/})).toHaveAttribute('href',stripeUrl);
++      }
++    });
++  }
++}
+--- /dev/null
++++ b/tests/prepaid-database.test.ts
+@@ -0,0 +1,88 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { readFile } from 'node:fs/promises';
++import { PGlite } from '@electric-sql/pglite';
++const uid='11111111-1111-4111-8111-111111111111';
++const other='22222222-2222-4222-8222-222222222222';
++async function database() {
++  const db=new PGlite();
++  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
++    create schema auth; create table auth.users(id uuid primary key); insert into auth.users values('${uid}'),('${other}');
++    create table subscriptions(user_id uuid primary key,stripe_customer_id text,stripe_subscription_id text,
++      status text,plan text,current_period_end timestamptz,updated_at timestamptz default now());
++    create table cashflow_account_pauses(user_id uuid primary key);
++    create table cashflow_payment_events(event_id text primary key,created_at timestamptz);
++    create table cashflow_payments(payment_id text primary key,user_id uuid,amount bigint,currency text,paid_at timestamptz,refunded boolean);`);
++  for (const name of ['020_stripe_subscriptions.sql','021_secure_stripe_billing_upgrade.sql','022_fix_stripe_checkout_null_legacy.sql','023_preserve_manual_subscription_entitlements.sql','024_promptpay_qr_billing.sql'])
++    await db.exec(await readFile(`database/migrations/${name}`,'utf8'));
++  await db.exec(await readFile('supabase/migrations/20261020144448_krarok_prepaid_plans.sql','utf8'));
++  await db.exec('grant usage on schema public to service_role; grant select,insert,update on subscriptions to service_role;');
++  return db;
++}
++async function prepare(db:PGlite,period='month',method='card') {
++  const r=await db.query<any>(`select cashflow_reserve_prepaid_checkout($1,'ord',$2,$3,'price1',false) r`,[uid,period,method]);
++  assert.equal(r.rows[0].r.result,'reserved');
++  await db.query(`select cashflow_bind_stripe_customer($1,'ord','cus1',false)`,[uid]);
++  const o=(await db.query<any>("select * from cashflow_prepaid_orders where id='ord'")).rows[0];
++  await db.query(`select cashflow_prepare_prepaid_checkout('ord',$1,'cus1',$2)`,[uid,JSON.stringify({mode:'payment',customer:'cus1',client_reference_id:uid,
++    metadata:{period,months:String(o.months),checkout_reservation_id:'ord'},line_items:[{price:'price1',quantity:1}]})]);
++  return o;
++}
++async function pay(db:PGlite,o:any,changes:Record<string,unknown>={}) {
++  const a={user:uid,session:'cs1',customer:'cus1',payment:'pi1',mode:false,amount:Number(o.amount),currency:'thb',period:o.period,months:o.months,paid:new Date().toISOString(),refunded:false,...changes};
++  return db.query<any>(`select cashflow_fulfill_prepaid('ord',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) r`,Object.values(a));
++}
++test('SQL enforces amount+duration; duplicate delivery and refund-before-success are idempotent',async()=>{
++  const db=await database();try {
++    const o=await prepare(db,'halfYear','promptpay');
++    for(const change of [{amount:15900},{months:12},{period:'year'},{user:other},{customer:'other'},{mode:true},{currency:'usd'}]) {
++      await assert.rejects(pay(db,o,change));
++      assert.equal((await db.query<any>("select status from cashflow_prepaid_orders where id='ord'")).rows[0].status,'reserved');
++    }
++    const paid=new Date().toISOString();
++    assert.equal((await pay(db,o,{paid})).rows[0].r,'paid');
++    assert.equal((await pay(db,o,{paid})).rows[0].r,'duplicate');
++    assert.equal((await db.query<any>('select status from subscriptions')).rows[0].status,'active');
++    assert.equal((await pay(db,o,{paid,refunded:true})).rows[0].r,'refunded');
++    assert.equal((await pay(db,o,{paid})).rows[0].r,'duplicate');
++    assert.equal((await db.query<any>('select prepaid_entitled_until from subscriptions')).rows[0].prepaid_entitled_until,null);
++    assert.equal((await db.query<any>('select status from subscriptions')).rows[0].status,'canceled');
++  }finally{await db.close();}
++});
++test('calendar months clamp Jan31 and leap day; prepaid access survives legacy refresh',async()=>{
++  const db=await database();try {
++    const o=await prepare(db,'year');
++    await db.exec("update cashflow_prepaid_orders set created_at='2024-02-29T03:00:00Z'");
++    await pay(db,o,{paid:'2024-02-29T03:00:00Z'});
++    const end=(await db.query<any>('select entitled_until from cashflow_prepaid_orders')).rows[0].entitled_until;
++    assert.equal(new Date(end).toISOString(),'2025-02-28T03:00:00.000Z');
++    assert.equal((await db.query<any>("select (('2026-01-31T03:00:00Z'::timestamptz at time zone 'Asia/Bangkok')+make_interval(months=>1)) at time zone 'Asia/Bangkok' e")).rows[0].e.toISOString(),'2026-02-28T03:00:00.000Z');
++    await db.exec("update subscriptions set prepaid_entitled_until=now()+interval '6 months',manual_current_period_end=now()+interval '9 months'");
++    await db.query('select cashflow_refresh_effective_subscription($1)',[uid]);
++    assert.equal((await db.query<any>('select current_period_end=manual_current_period_end ok from subscriptions')).rows[0].ok,true);
++  }finally{await db.close();}
++});
++test('unknown Stripe outcome is resumed after reservation timeout, never replaced; changing period cannot reuse wrong price',async()=>{
++  const db=await database();try {
++    await prepare(db);
++    await db.exec("update subscriptions set stripe_checkout_expires_at=now()-interval '6 minutes',stripe_checkout_pending_until=now()-interval '1 minute'");
++    const r=(await db.query<any>(`select cashflow_reserve_prepaid_checkout($1,'new','month','card','price1',false) r`,[uid])).rows[0].r;
++    assert.equal(r.result,'resumed');assert.equal(r.order_id,'ord');
++    assert.equal((await db.query<any>(`select cashflow_reserve_prepaid_checkout($1,'new','year','card','price1',false) r`,[uid])).rows[0].r.result,'period_mismatch');
++    await db.query(`select cashflow_finish_prepaid_checkout('ord',$1,'cs1','expired')`,[uid]);
++    assert.equal((await db.query<any>(`select cashflow_reserve_prepaid_checkout($1,'new','year','card','price2',false) r`,[uid])).rows[0].r.result,'reserved');
++  }finally{await db.close();}
++});
++test('webhook before attach is valid; refunded first stays refunded; SQL denies browser roles',async()=>{
++  const db=await database();try {
++    const o=await prepare(db);const paid=new Date().toISOString();
++    await pay(db,o,{paid,refunded:true});await pay(db,o,{paid});
++    assert.equal((await db.query<any>('select status from cashflow_prepaid_orders')).rows[0].status,'refunded');
++    const permission=await db.query<any>(`select
++      has_table_privilege('anon','cashflow_prepaid_orders','SELECT') a,
++      has_table_privilege('authenticated','cashflow_prepaid_orders','UPDATE') b,
++      has_function_privilege('authenticated','cashflow_fulfill_prepaid(text,uuid,text,text,text,boolean,bigint,text,text,smallint,timestamptz,boolean)','EXECUTE') c,
++      (select relrowsecurity from pg_class where relname='cashflow_prepaid_orders') rls`);
++    assert.deepEqual(permission.rows[0],{a:false,b:false,c:false,rls:true});
++  }finally{await db.close();}
++});
+--- /dev/null
++++ b/tests/prepaid-http.test.ts
+@@ -0,0 +1,166 @@
++import { before, after, test } from 'node:test';
++import assert from 'node:assert/strict';
++import type { Server } from 'node:http';
++import Stripe from 'stripe';
++import { createApp } from '../backend/src/http/app.js';
++import { stripe } from '../backend/src/config/stripe.js';
++import { seal } from '../backend/src/security/cookies.js';
++import { PREPAID_OFFER, prepaidLookup, prepaidMetadata } from '../backend/src/services/prepaidPlans.js';
++import { PRO_PERIODS, PRO_PRICING } from '../shared/proPricing.js';
++
++Object.assign(process.env, {
++  APP_URL:'http://127.0.0.1:3000', SUPABASE_URL:'https://prepaid.supabase.co',
++  SUPABASE_PUBLISHABLE_KEY:'test-key', SUPABASE_SERVICE_ROLE_KEY:'test-admin',
++  SESSION_SECRET:'test-only-secret-'.repeat(4), STRIPE_SECRET_KEY:'sk_test_only',
++  STRIPE_MODE:'test', STRIPE_WEBHOOK_SECRET:'whsec_test', KRAROK_PREPAID_ENABLED:'true',
++});
++const user={id:'11111111-1111-4111-8111-111111111111',email:'billing@example.test'};
++const token=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:'33333333-3333-4333-8333-333333333333'})).toString('base64url')}.test`;
++const cookie=`cashflow-session=${seal({access_token:token,refresh_token:'test-refresh',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()})}`;
++const realFetch=globalThis.fetch;
++let server:Server, origin:string, order:any, session:any, creates=0, fulfilled:any[]=[], finished:any[]=[], expires=0, expirationFails=false;
++const rateKeys: Array<{p_key:string;p_limit:number}>=[];
++before(async()=>{
++  globalThis.fetch=async(input,init)=>{
++    const url=String(input);
++    if(!url.startsWith('https://prepaid.supabase.co/')) return realFetch(input,init);
++    const json=(body:any)=>new Response(JSON.stringify(body),{headers:{'content-type':'application/json'}});
++    if(url.includes('/auth/v1/user')) return json(user);
++    if(url.includes('/cashflow_rate_limit')) {rateKeys.push(JSON.parse(String(init?.body)));return json(true);}
++    if(url.includes('/cashflow_session_active')) return json(true);
++    if(url.includes('/cashflow_user_roles')) return json({role:'user'});
++    if(url.includes('/subscriptions')) return json(null);
++    if(url.includes('/rest/v1/cashflow_prepaid_orders')) return json(url.includes('select=session_id')?[]:order);
++    const args=JSON.parse(String(init?.body||'{}'));
++    if(url.includes('/cashflow_reserve_prepaid_checkout')) {
++      if(!order) order={id:args.p_order_id,user_id:user.id,period:args.p_period,
++        months:PRO_PRICING[args.p_period as keyof typeof PRO_PRICING].months,
++        amount:PRO_PRICING[args.p_period as keyof typeof PRO_PRICING].total*100,
++        method:args.p_method,price_id:args.p_price_id,livemode:false,customer_id:'cus_prepaid',
++        session_id:null,request:null,checkout_url:null,status:'reserved',expires_at:new Date(Date.now()+45*60_000).toISOString()};
++      return json({result:'reserved',order_id:order.id});
++    }
++    if(url.includes('/cashflow_bind_stripe_customer')) return json(true);
++    if(url.includes('/cashflow_prepare_prepaid_checkout')) {
++      order.request=args.p_request;return json(args.p_request);
++    }
++    if(url.includes('/cashflow_attach_prepaid_checkout')) {
++      order.session_id=args.p_session_id;order.checkout_url=args.p_url;return json(null);
++    }
++    if(url.includes('/cashflow_fulfill_prepaid')) {fulfilled.push(args);return json('paid');}
++    if(url.includes('/cashflow_finish_prepaid_checkout')) {finished.push(args);return json(null);}
++    throw new Error(`Unexpected mock endpoint ${new URL(url).pathname}`);
++  };
++  stripe.prices.list=(async(params:any)=>{
++    const period=PRO_PERIODS.find(p=>prepaidLookup(p)===params.lookup_keys[0])!;
++    return {data:[{id:`price_${period}`,active:true,livemode:false,type:'one_time',recurring:null,
++      billing_scheme:'per_unit',currency:'thb',unit_amount:PRO_PRICING[period].total*100,
++      lookup_key:prepaidLookup(period),metadata:{offer_version:PREPAID_OFFER,period,months:String(PRO_PRICING[period].months)}}]};
++  }) as any;
++  stripe.paymentMethodConfigurations.list=(async()=>({data:[{id:'pmc_prepaid',active:true,is_default:true,livemode:false,
++    card:{available:true,display_preference:{value:'on'}},promptpay:{available:true,display_preference:{value:'on'}}}]})) as any;
++  stripe.customers.retrieve=(async()=>({id:'cus_prepaid',livemode:false,metadata:{app_user_id:user.id,workspace_type:'personal',workspace_id:user.id}})) as any;
++  stripe.subscriptions.list=(()=>({autoPagingToArray:async()=>[]})) as any;
++  stripe.checkout.sessions.create=(async(request:any,options:any)=>{
++    creates++;assert.equal(options.idempotencyKey,`krarok-prepaid:${order.id}`);
++    assert.deepEqual(request.line_items,[{price:order.price_id,quantity:1}]);
++    const metadata=prepaidMetadata(order);
++    session={id:'cs_prepaid',mode:'payment',status:'open',payment_status:'unpaid',livemode:false,
++      customer:order.customer_id,client_reference_id:user.id,metadata,currency:'thb',
++      amount_total:order.amount,amount_subtotal:order.amount,expires_at:request.expires_at,
++      url:'https://checkout.stripe.com/c/pay/cs_prepaid'};
++    return session;
++  }) as any;
++  stripe.checkout.sessions.retrieve=(async()=>session) as any;
++  stripe.checkout.sessions.expire=(async()=>{
++    expires++;
++    if(expirationFails) throw new Error('Network timeout');
++    session={...session,status:'expired'};
++    return session;
++  }) as any;
++  server=await new Promise<Server>(resolve=>{const s=createApp().listen(0,'127.0.0.1',()=>resolve(s));});
++  origin=`http://127.0.0.1:${(server.address() as any).port}`;
++});
++after(async()=>{
++  globalThis.fetch=realFetch;
++  await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));
++});
++const headers={cookie,'x-account-id':user.id,'content-type':'application/json',
++  'x-csrf-protection':'1',origin:process.env.APP_URL!};
++const checkout=(body:unknown)=>realFetch(origin+'/api/billing',{method:'POST',headers,body:JSON.stringify(body)});
++const webhook=async(tamper=false)=>{
++  const raw=JSON.stringify({id:'evt_prepaid',type:'checkout.session.completed',livemode:false,data:{object:{id:session.id}}});
++  const signature=Stripe.webhooks.generateTestHeaderString({payload:raw,secret:'whsec_test'});
++  return realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'stripe-signature':signature,'content-type':'application/json'},body:raw+(tamper?' ':'')});
++};
++test('checkout requires authentication, CSRF and an allowed period; injected amount or identity cannot reach Stripe',async()=>{
++  const before=creates;
++  await realFetch(origin+'/api/billing',{headers});
++  const readKey=[...rateKeys].reverse().find(key=>key.p_limit===60)?.p_key;
++  await checkout({action:'checkout',period:'invalid'});
++  const writeKey=[...rateKeys].reverse().find(key=>key.p_limit===12)?.p_key;
++  assert.ok(readKey && writeKey);
++  assert.notEqual(readKey,writeKey,'status polling cannot exhaust the mutation budget');
++  assert.equal((await realFetch(origin+'/api/billing',{method:'POST',headers:{'content-type':'application/json','x-csrf-protection':'1',origin:process.env.APP_URL!},body:'{}'})).status,401);
++  assert.equal((await realFetch(origin+'/api/billing',{method:'POST',headers:{...headers,origin:'https://evil.test'},body:'{}'})).status,403);
++  for(const body of [{action:'checkout',period:'year',amount:15900},{action:'checkout',period:'year',months:1},
++    {action:'checkout',period:'year',user_id:'other'},{action:'checkout',period:'invalid'}]) {
++    assert.equal((await checkout(body)).status,400);
++  }
++  assert.equal(creates,before);
++});
++for(const period of PRO_PERIODS) for(const method of ['card','promptpay']) {
++  test(`HTTP ${period}/${method}: checkout, retry and signed webhook retain exact ownership/amount/months`,async()=>{
++    order=null;session=null;fulfilled=[];
++    const before=creates;
++    const body={action:method==='card'?'checkout':'promptpay_checkout',period};
++    const response=await checkout(body);
++    assert.equal(response.status,200,await response.clone().text());
++    const result:any=await response.json();
++    assert.equal(result.amount,PRO_PRICING[period].total*100);assert.equal(result.months,PRO_PRICING[period].months);
++    assert.equal((await checkout(body)).status,200);assert.equal(creates,before+1);
++    assert.equal((await webhook(true)).status,400);assert.equal(fulfilled.length,0);
++    // A signed event alone cannot grant access while canonical Stripe state is unpaid.
++    assert.equal((await webhook()).status,200);assert.equal(fulfilled.length,0);
++    session={...session,status:'complete',payment_status:'paid',
++      line_items:{has_more:false,data:[{quantity:1,currency:'thb',amount_total:order.amount,amount_subtotal:order.amount,
++        price:{id:order.price_id,unit_amount:order.amount,currency:'thb',type:'one_time',recurring:null}}]},
++      payment_intent:{id:'pi_prepaid',status:'succeeded',livemode:false,customer:order.customer_id,
++        amount:order.amount,amount_received:order.amount,amount_capturable:0,currency:'thb',
++        metadata:prepaidMetadata(order),payment_method:{type:method},
++        latest_charge:{id:'ch_prepaid',payment_intent:'pi_prepaid',customer:order.customer_id,status:'succeeded',
++          paid:true,livemode:false,amount:order.amount,currency:'thb',created:Math.floor(Date.now()/1000),
++          payment_method_details:{type:method},amount_refunded:0,refunded:false,disputed:false}}};
++    assert.equal((await webhook()).status,200);
++    assert.equal(fulfilled.length,1);assert.equal(fulfilled[0].p_user_id,user.id);
++    assert.equal(fulfilled[0].p_amount,PRO_PRICING[period].total*100);
++    assert.equal(fulfilled[0].p_months,PRO_PRICING[period].months);
++  });
++}
++test('cancel only the exact owned unpaid checkout; unknown expiration and racing payments never release it',async()=>{
++  order=null;session=null;finished=[];fulfilled=[];expirationFails=false;
++  assert.equal((await checkout({action:'checkout',period:'month'})).status,200);
++  const body={action:'cancel_checkout',order_id:order.id};
++  const before=expires;
++  order.user_id='22222222-2222-4222-8222-222222222222';
++  assert.equal((await checkout(body)).status,404);
++  assert.equal(expires,before);
++  order.user_id=user.id;
++  expirationFails=true;
++  assert.equal((await checkout(body)).status,409);
++  assert.equal(finished.length,0);
++  // A completed asynchronous payment is not safe to cancel even before it is paid.
++  session.status='complete';
++  assert.equal((await checkout(body)).status,409);
++  assert.equal(finished.length,0);
++  session.status='open';expirationFails=false;
++  assert.equal((await checkout(body)).status,200);
++  assert.equal(finished.length,1);
++  assert.equal(finished[0].p_order_id,order.id);
++  assert.equal(finished[0].p_user_id,user.id);
++  assert.equal(finished[0].p_state,'expired');
++  const expiredCalls=expires;
++  assert.equal((await checkout(body)).status,200);
++  assert.equal(expires,expiredCalls);
++  assert.equal(fulfilled.length,0);
++});
+--- /dev/null
++++ b/tests/prepaid-plans.test.ts
+@@ -0,0 +1,57 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import type Stripe from 'stripe';
++import { PRO_PERIODS, PRO_PRICING } from '../shared/proPricing.js';
++import { buildPrepaidCheckout, prepaidMetadata, validatedPrepaidPayment, validPrepaidPrice,
++  prepaidLookup, PREPAID_OFFER, type PrepaidOrder } from '../backend/src/services/prepaidPlans.js';
++const order = (period: PrepaidOrder['period']='month', method: PrepaidOrder['method']='card'): PrepaidOrder => ({
++  id:'order1',user_id:'11111111-1111-4111-8111-111111111111',period,method,
++  months:PRO_PRICING[period].months,amount:PRO_PRICING[period].total*100,price_id:'price1',livemode:false,
++  customer_id:'cus1',session_id:'cs1',checkout_url:null,request:null,status:'open',expires_at:'2026-10-20T16:00:00Z',
++});
++function evidence(o: PrepaidOrder): Stripe.Checkout.Session {
++  const metadata=prepaidMetadata(o);
++  return { id:'cs1',mode:'payment',livemode:false,status:'complete',payment_status:'paid',
++    client_reference_id:o.user_id,customer:'cus1',currency:'thb',amount_total:o.amount,amount_subtotal:o.amount,metadata,
++    total_details:{amount_discount:0,amount_tax:0,amount_shipping:0},
++    line_items:{has_more:false,data:[{quantity:1,currency:'thb',amount_total:o.amount,amount_subtotal:o.amount,
++      price:{id:'price1',unit_amount:o.amount,currency:'thb',type:'one_time',recurring:null}}]},
++    payment_intent:{id:'pi1',customer:'cus1',status:'succeeded',livemode:false,currency:'thb',amount:o.amount,
++      amount_received:o.amount,amount_capturable:0,metadata,payment_method:{type:o.method},
++      latest_charge:{id:'ch1',customer:'cus1',payment_intent:'pi1',status:'succeeded',paid:true,livemode:false,
++        currency:'thb',amount:o.amount,created:1792506400,refunded:false,amount_refunded:0,disputed:false,payment_method_details:{type:o.method}}},
++  } as unknown as Stripe.Checkout.Session;
++}
++for(const period of PRO_PERIODS) for(const method of ['card','promptpay'] as const) {
++  test(`${period}/${method}: exact price and period survive checkout and fulfillment`,()=>{
++    const o=order(period,method);const request=buildPrepaidCheckout(o,'https://krarok.com','pmc_test');
++    assert.equal(request.mode,'payment');assert.equal(request.metadata?.months,String(o.months));
++    assert.deepEqual(request.line_items,[{price:'price1',quantity:1}]);
++    assert.equal(request.subscription_data,undefined);assert.equal(request.payment_method_types,undefined);
++    assert.deepEqual(request.excluded_payment_method_types,[method==='card'?'promptpay':'card']);
++    assert.equal(validatedPrepaidPayment(evidence(o),o).refunded,false);
++  });
++}
++test('rejects tampered identity, duration, amount, currency, payment method, quantity, price and unpaid events',()=>{
++  const o=order('year','promptpay');
++  const mutations: Array<(s:any)=>void> = [s=>s.metadata.period='month',s=>s.metadata.months='1',s=>s.amount_total=15900,
++    s=>s.customer='other',s=>s.client_reference_id='other',s=>s.currency='usd',s=>s.livemode=true,
++    s=>s.payment_status='unpaid',s=>s.payment_intent.status='processing',s=>s.payment_intent.amount_received=1,
++    s=>s.payment_intent.payment_method.type='card',s=>s.payment_intent.latest_charge.paid=false,
++    s=>s.line_items.data[0].quantity=2,s=>s.line_items.data[0].price.id='wrong',s=>s.line_items.has_more=true,
++    s=>s.total_details.amount_discount=1];
++  for(const mutate of mutations){const s=evidence(o);mutate(s);assert.throws(()=>validatedPrepaidPayment(s,o));}
++});
++test('refunds and disputes are returned as revoked evidence, not a fresh grant',()=>{
++  const o=order(); const s:any=evidence(o);s.payment_intent.latest_charge.amount_refunded=1;
++  assert.equal(validatedPrepaidPayment(s,o).refunded,true);
++  s.payment_intent.latest_charge.amount_refunded=0;s.payment_intent.latest_charge.disputed=true;
++  assert.equal(validatedPrepaidPayment(s,o).refunded,true);
++});
++test('configured price must be fixed one-time and match the server catalog',()=>{
++  const price:any={active:true,livemode:false,type:'one_time',recurring:null,currency:'thb',unit_amount:84900,
++    billing_scheme:'per_unit',lookup_key:prepaidLookup('halfYear'),metadata:{offer_version:PREPAID_OFFER,period:'halfYear',months:'6'}};
++  assert.equal(validPrepaidPrice(price,'halfYear',false),true);
++  for(const patch of [{unit_amount:15900},{recurring:{interval:'month'}},{custom_unit_amount:{enabled:true}},{livemode:true},{lookup_key:'old'}])
++    assert.equal(validPrepaidPrice({...price,...patch},'halfYear',false),false);
++});
+--- a/tests/pro-pricing.test.ts
++++ b/tests/pro-pricing.test.ts
+@@ -19,11 +19,7 @@
+   assert.equal(formatBaht(year.total), '฿1,490');
+ });
+ 
+-test('a period opens for payment only when checkout charges the price shown', () => {
+-  // The billing API charges PRO_MONTHLY_AMOUNT (satang) for a month; it must equal the page's price first.
+-  if (PRO_CHECKOUT_OPEN.month) assert.equal(PRO_MONTHLY_AMOUNT, PRO_PRICING.month.total * 100);
+-  else assert.notEqual(PRO_MONTHLY_AMOUNT, PRO_PRICING.month.total * 100, 'checkout now charges ฿159: open the month in shared/proPricing.ts');
+-  // There is no 6-month or 1-year checkout in the billing API yet.
+-  assert.equal(PRO_CHECKOUT_OPEN.halfYear, false);
+-  assert.equal(PRO_CHECKOUT_OPEN.year, false);
++test('all supported periods use the same server and display amounts', () => {
++  assert.deepEqual(PRO_CHECKOUT_OPEN, {month:true,halfYear:true,year:true});
++  assert.deepEqual(Object.values(PRO_PRICING).map(p=>[p.months,p.total*100]), [[1,15900],[6,84900],[12,149000]]);
+ });
