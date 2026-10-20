@@ -2,9 +2,9 @@
   "schema_version": 1,
   "source_label": "Prepaid Pro: locked 159/849/1490 THB card and PromptPay for 1/6/12 calendar months — 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "74b232ec514e4e7146f7f2c7d6bcd02a392d05c55810cb2b5736f6d58e61a5d0",
-  "file_count": 578,
-  "total_source_bytes": 20614964,
+  "archive_sha256": "db1f977d7431bf28ecb6633a555499e332898ff1db03fc7a1035813e37c6dfcb",
+  "file_count": 580,
+  "total_source_bytes": 20625844,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -73,8 +73,8 @@
     },
     {
       "path": "backend/src/handlers/billing.ts",
-      "size": 4650,
-      "sha256": "7b061db4e96a6c270db1a0a6cfb499cc190117b97bbc221054658344632b3375"
+      "size": 3596,
+      "sha256": "91490424921eb346ffaaf8035d937d262fe3ba531ba74ca1a24151a378c21d5b"
     },
     {
       "path": "backend/src/handlers/close-expired-accounts.ts",
@@ -213,8 +213,8 @@
     },
     {
       "path": "backend/src/http/securityHeaders.ts",
-      "size": 1276,
-      "sha256": "0e093774e49e95f6654f87d02cfb35a7f70aac5d2190314c86d821bf1f9c40af"
+      "size": 1532,
+      "sha256": "37da9aa6ad69e6b8646cba11be8fbdae14783e0b8e63d37b93147f1e989c9d84"
     },
     {
       "path": "backend/src/http/types.ts",
@@ -408,13 +408,13 @@
     },
     {
       "path": "backend/src/services/prepaidBilling.ts",
-      "size": 13128,
-      "sha256": "d71a22300cd57dba9a9f67e24f79504e051eaa67c954356c9e8fb18dc85cd66b"
+      "size": 14822,
+      "sha256": "392276bf444f6cdd1f0509dacfa168800f1a7c394a5bb27a217e266dc200bcce"
     },
     {
       "path": "backend/src/services/prepaidPlans.ts",
-      "size": 6244,
-      "sha256": "0f42c153341ca883681ece676ed50114874c7cd031f5796785bb588333ca3e74"
+      "size": 6267,
+      "sha256": "eade7cd35df0657ad0394698b9645b3128e8bf080757f6418d912da927cdcfb6"
     },
     {
       "path": "backend/src/services/promptPay.ts",
@@ -433,8 +433,8 @@
     },
     {
       "path": "backend/src/services/stripeSubscriptions.ts",
-      "size": 22026,
-      "sha256": "6f54fa77c08474edbf717706a204c3957d9b51396b22a2da3a2a30d0cfc4ea0d"
+      "size": 22030,
+      "sha256": "43f04e2157ebc4ef33c1aa40320a5cb472363cab0476f7ac64aed45655e676f9"
     },
     {
       "path": "backend/src/services/subscriptionClosure.ts",
@@ -458,8 +458,8 @@
     },
     {
       "path": "cloudflare/worker.ts",
-      "size": 4752,
-      "sha256": "8cedefb6c4278d2920aab5781c5c71ad49cf88aaddc2198b4e6054163d092410"
+      "size": 5008,
+      "sha256": "08f82fbdad2a40c7f91187738dfcdba5bce243e932cdc57ceb1d272c8539b3fd"
     },
     {
       "path": "database/bootstrap-admin.sql",
@@ -612,6 +612,11 @@
       "sha256": "f6cb54c2bd50d9cba91a1e0fb476dd1f463f488fa4bf4c77719cb05f75e89503"
     },
     {
+      "path": "docs/INLINE_CHECKOUT.md",
+      "size": 2494,
+      "sha256": "e885968ad3ec3c7601f385e27b6a00c45418117ff7ea105a7fac3ae34f3c5e46"
+    },
+    {
       "path": "docs/PREPAID_BILLING.md",
       "size": 5423,
       "sha256": "2d76bb9c47389c0e1258a984e41e646a353aa6bf634f0532ba3c39c327e8c1e8"
@@ -628,8 +633,8 @@
     },
     {
       "path": "frontend/public/_headers",
-      "size": 993,
-      "sha256": "ced052af1f7c547c0f874fe2115d5bc0af1cfd7330a9a6c6c46eee229d3e4632"
+      "size": 1249,
+      "sha256": "ed8a6dc51f3b202e884c8e5850f37c724203b697b4ff9259a7f2edaa021ca3ad"
     },
     {
       "path": "frontend/public/apple-touch-icon-v2.png",
@@ -1453,8 +1458,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 179380,
-      "sha256": "90f6dab7f6e763be62f60fed2bfa043ccd0d46b3e3ff381fcad776107c14713d"
+      "size": 176240,
+      "sha256": "a9e10da344c281df99dd87bc73e19c21c5f1c864178781c22fd7cc31f088d84b"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1557,14 +1562,19 @@
       "sha256": "23f50ac80561c2cdaa4323654d7bef6c044bc083195e5dab811b7d72c91bcd94"
     },
     {
+      "path": "frontend/src/features/billing/EmbeddedPaymentModal.tsx",
+      "size": 4612,
+      "sha256": "8b25f1034fcc4722c1ca6c2fd3ac600ee3cdb9aaa87ede00a05c20f6795bd27b"
+    },
+    {
       "path": "frontend/src/features/billing/PlanMascot.tsx",
       "size": 5569,
       "sha256": "e4b1051459bd6b34acdce230448efe8f615d81182991f96a1f76feeddade93e8"
     },
     {
       "path": "frontend/src/features/billing/PlansTab.tsx",
-      "size": 18765,
-      "sha256": "b11a3ea0a3b4fe72c6f25f6fef3d5e7ac4c9ba3246a887fe51a0f42922e63e85"
+      "size": 17959,
+      "sha256": "c0ff3bbec0dca99d6ac98030140176d06793b14254f91211d01a56c136640571"
     },
     {
       "path": "frontend/src/features/billing/PremiumUpsell.tsx",
@@ -2333,13 +2343,13 @@
     },
     {
       "path": "package-lock.json",
-      "size": 175918,
-      "sha256": "df59c1f9181c7ed3450ae65f2035e9b67d858b094ec1d99891e9b70e0bb4beff"
+      "size": 176316,
+      "sha256": "4b088fb7c3b2f7fc1f9b9e5f2f72baf9e985261cec23acb7de148e79fa6c1957"
     },
     {
       "path": "package.json",
-      "size": 2713,
-      "sha256": "15e811136da46520b1389fb03d725a333e3d6aa0526d66b9f268052988f133cd"
+      "size": 2749,
+      "sha256": "5f463ef42b976a5a8bf120d9876d6e23e20d515ed57c04007329156a92912535"
     },
     {
       "path": "playwright.config.ts",
@@ -2678,8 +2688,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 31451,
-      "sha256": "610d938fa457f69796ae3622004aa352584c5f0858a2e65db9a9230035121834"
+      "size": 33604,
+      "sha256": "28723c4152d57a02b76ff9d08adad211c9f2ea1e05e9c11dc358739da589993e"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -2808,13 +2818,13 @@
     },
     {
       "path": "tests/prepaid-http.test.ts",
-      "size": 11430,
-      "sha256": "3ce38f2ad5bb898129603dddef099d8a38eaa7450506fe7d7b0fc8efa81ac5b1"
+      "size": 14667,
+      "sha256": "74bcd16e0529de2ff7c5edea8ea6298d9c7530544e1aeed8947de6d16fa28eb1"
     },
     {
       "path": "tests/prepaid-plans.test.ts",
-      "size": 4503,
-      "sha256": "f2c385b621c3d765429adbc0505c5bc9672a3b080b1f545f1cf06317c3b61385"
+      "size": 4704,
+      "sha256": "443bc24f4f94f3b423ec770aa8f523a27daf2ac50a44907c58b00a03f7513c25"
     },
     {
       "path": "tests/pro-pricing.test.ts",
@@ -2843,8 +2853,8 @@
     },
     {
       "path": "tests/stripe-subscriptions.test.ts",
-      "size": 16920,
-      "sha256": "c89a3ccac20ad818d4d1a3d75c0a64bfbc4007ce88c62a615077848b5a22f9cb"
+      "size": 16924,
+      "sha256": "ee8662bd44c9c5d5d19c322944d510718443bd6681fe030fa0f8ad8217c2e2e3"
     },
     {
       "path": "tests/subscription-lifecycle.test.ts",
@@ -2888,8 +2898,8 @@
     },
     {
       "path": "vercel.json",
-      "size": 2946,
-      "sha256": "c0ad3be470333295d9c4bb76dc2653a602b8141f287f90726d82bb4211d0d68b"
+      "size": 3202,
+      "sha256": "fd19d7dbdca453c592e92994f8cd643e6dc9125ccc8ae3519c15c3efc9c589f7"
     },
     {
       "path": "wrangler.production.jsonc",

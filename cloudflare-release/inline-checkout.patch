@@ -1,0 +1,905 @@
+--- a/backend/src/handlers/billing.ts
++++ b/backend/src/handlers/billing.ts
+@@ -17,28 +17,12 @@
+   const row = result.data;
+   if (req.method === 'GET') {
+     // Read only authoritative database state; a success query string never grants access.
+-    let pending = null;
+-    let pendingCheckout = null;
+-    if (prepaidEnabled() && row?.stripe_checkout_reservation_id) {
+-      const query = await admin.from('cashflow_prepaid_orders')
+-        .select('id,session_id,period,months,amount,method,checkout_url,expires_at,status')
+-        .eq('id', row.stripe_checkout_reservation_id).eq('user_id', user.id).maybeSingle();
+-      if (query.error) throw query.error;
+-      if (query.data?.session_id && ['reserved','open'].includes(query.data.status)) {
+-        pendingCheckout = { id: query.data.id, months: query.data.months, amount: query.data.amount };
+-      }
+-      if (query.data?.method === 'promptpay' && query.data.checkout_url && ['reserved','open'].includes(query.data.status)) {
+-        pending = { url: query.data.checkout_url, expires_at: query.data.expires_at,
+-          amount: query.data.amount, months: query.data.months, period: query.data.period,
+-          status: Date.parse(query.data.expires_at) > Date.now() ? 'open' : 'expired' };
+-      }
+-    }
+-    res.json({ checkout_ready: prepaidEnabled() && row?.plan !== 'admin_revoked', pending_checkout: pendingCheckout, subscription: row ? {
++    res.json({ checkout_ready: prepaidEnabled() && row?.plan !== 'admin_revoked', subscription: row ? {
+       status: row.status, plan: row.plan, current_period_end: row.current_period_end,
+       cancel_at_period_end: row.cancel_at_period_end, stripe_status: row.stripe_subscription_status,
+       has_subscription: Boolean(row.stripe_subscription_id), managed: Boolean(row.stripe_customer_id),
+       intro_eligible: false, intro_paid_cycles: row.stripe_intro_paid_cycles || 0,
+-      promptpay_checkout: pending,
++      promptpay_checkout: null,
+     } : null });
+     return;
+   }
+--- a/backend/src/http/securityHeaders.ts
++++ b/backend/src/http/securityHeaders.ts
+@@ -1,5 +1,5 @@
+ import type { VercelResponse } from './types.js';
+-export const productionCsp="default-src 'self'; script-src 'self' https://static.line-scdn.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests";
++export const productionCsp="default-src 'self'; script-src 'self' https://static.line-scdn.net https://js.stripe.com https://checkout.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.stripe.com https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://merchant-ui-api.stripe.com https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://*.js.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests";
+ export function securityHeaders(res:VercelResponse,production:boolean) {
+  res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');
+  res.setHeader('Referrer-Policy','no-referrer');
+--- a/backend/src/services/prepaidBilling.ts
++++ b/backend/src/services/prepaidBilling.ts
+@@ -111,6 +111,8 @@
+   if (!isProPeriod(periodValue)) throw new HttpError(400, 'กรุณาเลือกแพ็กเกจ 1 เดือน, 6 เดือน หรือ 1 ปี');
+   const period: ProPeriod = periodValue;
+   const livemode = configuredStripeLivemode();
++  const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || '';
++  if (!publishableKey.startsWith(livemode ? 'pk_live_' : 'pk_test_')) throw new HttpError(503, 'หน้าชำระเงินยังไม่พร้อม กรุณาลองใหม่ภายหลัง');
+   const [prices, configuration] = await Promise.all([
+     stripe.prices.list({ lookup_keys: [prepaidLookup(period)], active: true, limit: 2 }),
+     checkoutConfiguration(livemode),
+@@ -119,11 +121,30 @@
+   if (prices.data.length !== 1 || !validPrepaidPrice(price, period, livemode)) {
+     throw new HttpError(503, 'ราคายังไม่พร้อมรับชำระ กรุณาลองใหม่ภายหลัง');
+   }
+-  const pending = await getSupabaseAdmin().from('cashflow_prepaid_orders').select('session_id,expires_at')
+-    .eq('user_id', user.id).in('status', ['reserved','open']).not('session_id','is',null);
++  // Abandoned attempts are managed here, never as a task for the customer. Preserve
++  // the same session on retries; expire a different/legacy session before replacement.
++  const pending = await getSupabaseAdmin().from('cashflow_prepaid_orders').select('*')
++    .eq('user_id', user.id).in('status', ['reserved','open']);
+   if (pending.error) throw pending.error;
+-  for (const order of pending.data || []) {
+-    if (Date.parse(order.expires_at) <= Date.now()) await retrieveAndApplyPrepaid(order.session_id!);
++  for (const old of (pending.data || []) as PrepaidOrder[]) {
++    if (old.user_id !== user.id || old.livemode !== livemode) throw new Error('Invalid pending checkout owner');
++    const replace = old.period !== period || old.method !== method
++      || (old.request && old.request.ui_mode !== 'embedded_page')
++      || Date.parse(old.expires_at) <= Date.now();
++    if (!replace) continue;
++    if (!old.session_id && old.request) {
++      // Recover an unknown create outcome with its original body/key before expiring.
++      if (Date.now() - Date.parse(old.expires_at) > 22 * 60 * 60 * 1000)
++        throw new HttpError(409, 'กำลังตรวจสอบรายการก่อนหน้า กรุณาติดต่อผู้ดูแล');
++      const recovered = await stripe.checkout.sessions.create(old.request,
++        { idempotencyKey: `krarok-prepaid:${old.id}` });
++      assertPrepaidSession(recovered, old);
++      await rpc('cashflow_attach_prepaid_checkout', { p_order_id: old.id, p_user_id: user.id,
++        p_session_id: recovered.id, p_url: recovered.url, p_expires_at: new Date(recovered.expires_at * 1000).toISOString() });
++      old.session_id = recovered.id;
++    }
++    if (old.session_id) await cancelPrepaidCheckout(user.id, old.id);
++    else await rpc('cashflow_release_billing_checkout', { p_user_id: user.id, p_reservation_id: old.id });
+   }
+   const reservation = await rpc('cashflow_reserve_prepaid_checkout', {
+     p_user_id: user.id, p_order_id: randomUUID(), p_period: period, p_method: method,
+@@ -131,7 +152,7 @@
+   });
+   if (!['reserved', 'resumed'].includes(reservation.result)) {
+     const messages: Record<string, string> = {
+-      period_mismatch: 'มีรายการชำระเงินแพ็กเกจอื่นค้างอยู่ กรุณาดำเนินการหรือรอให้หมดอายุก่อนเปลี่ยนแพ็กเกจ',
++      period_mismatch: 'กำลังเปลี่ยนแพ็กเกจ กรุณาลองอีกครั้ง',
+       prepaid_active: 'สิทธิ์ Pro ที่ชำระแล้วยังใช้งานได้ กรุณาต่ออายุเมื่อสิทธิ์หมด',
+       managed: 'มีการสมัครสมาชิกอยู่แล้ว กรุณาเปิดจัดการการสมัครสมาชิก',
+       admin_revoked: 'บัญชีนี้ถูกแบน Pro กรุณาติดต่อแอดมินเพื่อปลดแบน',
+@@ -141,12 +162,14 @@
+   }
+   let order = await orderById(reservation.order_id);
+   if (order.user_id !== user.id || order.period !== period || order.method !== method) throw new Error('Invalid checkout reservation');
+-  const response = (session: Stripe.Checkout.Session) => ({
+-    url: session.url || order.checkout_url || `${appOrigin()}/app?checkout=success`,
+-    destination: session.status === 'complete' ? 'paid_pending' : method === 'promptpay' ? 'promptpay' : 'checkout',
+-    amount: order.amount, months: order.months, period: order.period,
+-    expiresAt: new Date(session.expires_at * 1000).toISOString(),
+-  });
++  const response = (session: Stripe.Checkout.Session) => {
++    if (session.status === 'open' && (session.ui_mode !== 'embedded_page' || !session.client_secret))
++      throw new Error('Invalid embedded checkout response');
++    return { clientSecret: session.status === 'open' ? session.client_secret : null, publishableKey,
++      orderId: order.id, destination: session.status === 'complete' ? 'paid_pending' : 'embedded',
++      method: order.method, amount: order.amount, months: order.months, period: order.period,
++      expiresAt: new Date(session.expires_at * 1000).toISOString() };
++  };
+   if (order.session_id) {
+     const session = await retrieveAndApplyPrepaid(order.session_id);
+     assertPrepaidSession(session, order);
+--- a/backend/src/services/prepaidPlans.ts
++++ b/backend/src/services/prepaidPlans.ts
+@@ -38,8 +38,9 @@
+     allow_promotion_codes: false,
+     metadata: prepaidMetadata(order), payment_intent_data: { metadata: prepaidMetadata(order) },
+     expires_at: Math.floor(Date.parse(order.expires_at) / 1000),
+-    success_url: `${origin}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+-    cancel_url: `${origin}/app?checkout=cancel`,
++    ui_mode: 'embedded_page',
++    redirect_on_completion: 'if_required',
++    return_url: `${origin}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+     custom_text: { submit: { message: `Pro ${order.months} เดือน • ฿${plan.total.toLocaleString('en-US')} จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ` } },
+     // Stable per integration; persisted request + reservation id provide retry safety.
+     integration_identifier: 'krarok-prepaid-qnvxkzpa',
+--- a/backend/src/services/stripeSubscriptions.ts
++++ b/backend/src/services/stripeSubscriptions.ts
+@@ -180,7 +180,7 @@
+   return {
+     mode: 'payment',
+     customer: input.customerId,
+-    payment_method_types: ['promptpay'],
++    excluded_payment_method_types: ['card'],
+     line_items: [{
+       quantity: 1,
+       price_data: {
+--- a/cloudflare/worker.ts
++++ b/cloudflare/worker.ts
+@@ -26,7 +26,7 @@
+   'Referrer-Policy': 'no-referrer',
+   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+-  'Content-Security-Policy': "default-src 'self'; script-src 'self' https://static.line-scdn.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
++  'Content-Security-Policy': "default-src 'self'; script-src 'self' https://static.line-scdn.net https://js.stripe.com https://checkout.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.stripe.com https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://merchant-ui-api.stripe.com https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://*.js.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+   'Cross-Origin-Resource-Policy': 'same-origin',
+ };
+ const NO_STORE = /^\/(api\/|recover$|login$)/;
+--- /dev/null
++++ b/docs/INLINE_CHECKOUT.md
+@@ -0,0 +1,13 @@
++# Inline card and PromptPay checkout
++
++Supersedes the hosted Checkout UX in PREPAID_BILLING.md. Uses Stripe Checkout Sessions `ui_mode=embedded_page`, official Stripe.js `createEmbeddedCheckoutPage`, and `redirect_on_completion=if_required`. Cards and PromptPay are restricted by the same server-validated configuration/exclusions. The QR is generated/displayed by Stripe's secure frame inside the application's dialog. Issuer authentication may still require a bank flow.
++
++Amounts/rights remain THB159/1 calendar month, THB849/6 months, THB1490/12 months, single payment, no auto-renewal. Fulfillment remains canonical Stripe evidence + service-only idempotent DB RPCs; browser callbacks only poll authoritative subscription state. No migrations or webhook endpoint changes required.
++
++The pending unpaid-order banner and cancellation button are removed. On the next purchase attempt, an open matching embedded session is resumed; a different package/method or legacy hosted session is expired and reconciled before replacement. Unknown create outcomes replay the original persisted request and idempotency key before expiration. Unknown expiration, completed/processing or paid sessions cannot be released as unpaid. Records remain internally for reconciliation and audit; an abandoned purchase never grants Pro.
++
++The authenticated billing POST returns its owner's session client secret (never logged or stored in browser storage), public key and exact summary. No hosted payment URL is returned. The production public key is the Vispark publishable key, configured as STRIPE_PUBLISHABLE_KEY; existing restricted secret and webhook secret are unchanged. Stripe SDK 23.0.0 uses API 2026-09-30.endive; Stripe.js is loaded from Stripe on demand. CSP permits documented Stripe script/frame/connect/image origins, retaining account auth, CSRF and other policies.
++
++Closing or switching accounts destroys the embedded frame; late initialization is serialized and discarded. Paid confirmation shows only after database-confirmed entitlement. Existing recurring customers retain their billing portal for managing old subscriptions. Admin revoke/ban/unban behavior is preserved.
++
++Validation uses local fake Stripe responses for all amounts/methods, signed webhook tests, database transactions and a browser SDK stub. These do not constitute a real charge. A separate production browser check must confirm the actual Stripe form and QR render in our origin without entering card data or making a payment.
+--- a/frontend/public/_headers
++++ b/frontend/public/_headers
+@@ -5,7 +5,7 @@
+   Referrer-Policy: no-referrer
+   Strict-Transport-Security: max-age=31536000; includeSubDomains
+   Permissions-Policy: camera=(), microphone=(), geolocation=()
+-  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.line-scdn.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
++  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.line-scdn.net https://js.stripe.com https://checkout.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.stripe.com https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://merchant-ui-api.stripe.com https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://*.js.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+   Cross-Origin-Resource-Policy: same-origin
+ 
+ /recover
+--- a/frontend/src/app/App.tsx
++++ b/frontend/src/app/App.tsx
+@@ -73,7 +73,7 @@
+ const ProfileSetupWizard = lazy(() => import('../features/onboarding/ProfileSetupWizard').then(module => ({ default: module.ProfileSetupWizard })));
+ import { normalizeProfileSetupSettings, shouldShowProfileSetup } from '../features/onboarding/profileSetupState';
+ import { PremiumUpsell } from '../features/billing/PremiumUpsell';
+-import { PromptPayCheckoutModal, type PromptPayCheckout } from '../features/billing/PromptPayCheckoutModal';
++import { EmbeddedPaymentModal, type EmbeddedPayment } from '../features/billing/EmbeddedPaymentModal';
+ const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
+ // Development only: the study of the landing reference's motion. Left out of production builds.
+ const MotionStudy = import.meta.env.DEV ? lazy(() => import('../features/marketing/landing/study/MotionStudy')) : null;
+@@ -136,7 +136,6 @@
+   introEligible: boolean;
+   managed: boolean;
+   introPaidCycles: number;
+-  promptPayCheckout: PromptPayCheckout | null;
+ };
+ 
+ const CHECKOUT_PENDING_OWNER_KEY = 'cashflow_checkout_pending_owner';
+@@ -170,14 +169,6 @@
+     introEligible: data ? data.intro_eligible === true : introEligibleWhenMissing,
+     managed: data?.managed === true,
+     introPaidCycles: Number.isInteger(data?.intro_paid_cycles) ? data.intro_paid_cycles : 0,
+-    promptPayCheckout: data?.promptpay_checkout ? {
+-      url: data.promptpay_checkout.url,
+-      expiresAt: data.promptpay_checkout.expires_at,
+-      amount: data.promptpay_checkout.amount,
+-      months: data.promptpay_checkout.months,
+-      period: data.promptpay_checkout.period,
+-      status: data.promptpay_checkout.status,
+-    } : null,
+   };
+ }
+ 
+@@ -1128,22 +1119,19 @@
+   const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
+   const [billingBusy, setBillingBusy] = useState(false);
+   const [checkoutReady, setCheckoutReady] = useState(false);
+-  const [pendingCheckout, setPendingCheckout] = useState<{id: string; months: number; amount: number} | null>(null);
+   useEffect(() => {
++    if (billingBusy) return;
+     setCheckoutReady(false);
+-    setPendingCheckout(null);
+-    if (!session?.user || session.isGuest || activeTab !== 'plans' || billingBusy) return;
++    if (!session?.user || session.isGuest || activeTab !== 'plans') return;
+     const controller = new AbortController();
+     void apiJson<any>('/api/billing', { signal: controller.signal, headers: { 'X-Account-ID': session.user.id } })
+       .then(result => { if (!controller.signal.aborted) {
+         setCheckoutReady(result.checkout_ready === true);
+-        setPendingCheckout(result.pending_checkout || null);
+       } })
+       .catch(() => { /* Checkout remains closed when readiness cannot be checked. */ });
+     return () => controller.abort();
+   }, [session?.user?.id, session?.isGuest, activeTab, billingBusy]);
+-  const [promptPayCheckout, setPromptPayCheckout] = useState<PromptPayCheckout | null>(null);
+-  const [promptPayModalOpen, setPromptPayModalOpen] = useState(false);
++  const [embeddedPayment, setEmbeddedPayment] = useState<EmbeddedPayment | null>(null);
+   const [billingPollVersion, setBillingPollVersion] = useState(0);
+   const billingUserId = session?.isGuest ? null : session?.user?.id || null;
+   const billingUserRef = useRef<string | null>(billingUserId);
+@@ -1159,9 +1147,7 @@
+     billingRequestRef.current += 1;
+     setSubscription(null);
+     setBillingBusy(false);
+-    setPendingCheckout(null);
+-    setPromptPayCheckout(null);
+-    setPromptPayModalOpen(false);
++    setEmbeddedPayment(null);
+     setIsProPromoOpen(false);
+   }, [billingUserId]);
+ 
+@@ -1251,17 +1237,9 @@
+     }
+     if (billingBusy) return;
+     setBillingBusy(true);
+-    let markedCheckout = false;
+     try {
+       const userId = currentUser.id;
+-      const result = await apiJson<{
+-        url: string;
+-        destination?: 'checkout' | 'portal' | 'promptpay' | 'promptpay_pending' | 'paid_pending';
+-        expiresAt?: string;
+-        amount?: number;
+-        months?: number;
+-        period?: ProPeriod;
+-      }>('/api/billing', {
++      const result = await apiJson<EmbeddedPayment & { url?: string; destination: 'embedded' | 'paid_pending' | 'portal' }>('/api/billing', {
+         method: 'POST',
+         headers: { 'X-Account-ID': userId },
+         // Delinquent/nonterminal subscribers must be able to reach Portal even
+@@ -1277,61 +1255,32 @@
+         setBillingBusy(false);
+         return;
+       }
+-      const target = new URL(result.url);
+-      if (target.protocol !== 'https:' || (target.hostname !== 'stripe.com' && !target.hostname.endsWith('.stripe.com'))) {
+-        throw new Error('ปลายทางชำระเงินไม่ถูกต้อง');
+-      }
+-      if (result.destination === 'promptpay' || result.destination === 'promptpay_pending') {
+-        if (!result.expiresAt || !result.amount) throw new Error('ข้อมูล QR พร้อมเพย์ไม่ครบถ้วน');
++      if (result.destination === 'embedded') {
++        if (!result.clientSecret || !result.publishableKey || !result.expiresAt || !result.amount)
++          throw new Error('ข้อมูลการชำระเงินไม่ครบถ้วน');
+         markCheckoutPending(userId);
+         setBillingPollVersion(version => version + 1);
+-        setPromptPayCheckout({
+-          url: target.toString(),
+-          expiresAt: result.expiresAt,
+-          amount: result.amount,
+-          months: result.months,
+-          period: result.period,
+-          status: result.destination === 'promptpay_pending' ? 'pending' : 'open',
+-        });
+-        setPromptPayModalOpen(true);
++        setEmbeddedPayment(result);
+         setBillingBusy(false);
+         return;
+       }
+-      if (result.destination === 'checkout' || target.hostname === 'checkout.stripe.com') {
+-        markCheckoutPending(userId);
+-        markedCheckout = true;
+-      }
++      const target = new URL(result.url || '');
++      if (result.destination !== 'portal' || target.protocol !== 'https:' || !target.hostname.endsWith('.stripe.com'))
++        throw new Error('ปลายทางจัดการสมาชิกไม่ถูกต้อง');
+       window.location.assign(target.toString());
+     } catch (error: any) {
+       if (billingUserRef.current !== currentUser.id) return;
+-      if (markedCheckout) clearCheckoutPending(currentUser.id);
+       setBillingBusy(false);
+       triggerAlert('เปิดหน้าชำระเงินไม่สำเร็จ', formatError(error));
+     }
+   };
+ 
+-  const handleCancelCheckout = async () => {
++  const handleEmbeddedComplete = React.useCallback(() => {
+     const userId = billingUserRef.current;
+-    if (!userId || !pendingCheckout || billingBusy) return;
+-    const orderId = pendingCheckout.id;
+-    setBillingBusy(true);
+-    try {
+-      await apiJson('/api/billing', { method: 'POST', headers: { 'X-Account-ID': userId },
+-        body: JSON.stringify({ action: 'cancel_checkout', order_id: orderId }) });
+-      if (billingUserRef.current !== userId) return;
+-      clearCheckoutPending(userId);
+-      setPendingCheckout(null);
+-      setPromptPayCheckout(null);
+-      setPromptPayModalOpen(false);
+-    } catch (error) {
+-      if (billingUserRef.current === userId) triggerAlert('ยกเลิกรายการไม่ได้', formatError(error));
+-    } finally {
+-      if (billingUserRef.current === userId) {
+-        setBillingBusy(false);
+-        setBillingPollVersion(version => version + 1);
+-      }
+-    }
+-  };
++    if (!userId) return;
++    markCheckoutPending(userId);
++    setBillingPollVersion(version => version + 1);
++  }, []);
+ 
+   // Handle redirect back from Stripe Checkout
+   useEffect(() => {
+@@ -1346,16 +1295,12 @@
+       window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+     };
+ 
+-    if (checkoutResult === 'cancel') {
++    if (checkoutResult === 'cancel' || checkoutResult === 'promptpay-cancel') {
+       clearCheckoutPending();
+       updateCheckoutQuery(true);
+-      triggerAlert('ยังไม่ได้สมัครสมาชิก', 'ออกจากหน้าชำระเงินแล้ว คุณกลับมาชำระรายการเดิม หรือกดยกเลิกรายการที่ยังไม่ชำระในหน้าแพ็กเกจเพื่อเปลี่ยนวิธีจ่ายได้');
+       return;
+     }
+-    if (checkoutResult === 'promptpay-cancel') {
+-      updateCheckoutQuery(true);
+-      triggerAlert('ยังไม่ได้ชำระด้วยพร้อมเพย์', 'QR เดิมยังใช้ได้จนเวลาหมด คุณสามารถกลับมาเปิด QR เดิมจากหน้าแพ็กเกจได้');
+-    } else if (checkoutResult && !['success', 'promptpay-success'].includes(checkoutResult)) {
++    if (checkoutResult && !['success', 'promptpay-success'].includes(checkoutResult)) {
+       updateCheckoutQuery(true);
+       return;
+     }
+@@ -1401,12 +1346,10 @@
+           if (request === billingRequestRef.current) {
+             const nextSubscription = billingSubscription(result.subscription, true);
+             setSubscription(nextSubscription);
+-            if (nextSubscription.promptPayCheckout) setPromptPayCheckout(nextSubscription.promptPayCheckout);
+             if (isConfirmedCheckoutSubscription(nextSubscription)) {
+               clearCheckoutPending(userId);
+-              setPromptPayCheckout(null);
+-              setPromptPayModalOpen(false);
+-              updateCheckoutQuery(true);
++              setEmbeddedPayment(null);
++                        updateCheckoutQuery(true);
+               triggerAlert('สมัครสมาชิกสำเร็จ!', 'เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
+               return;
+             }
+@@ -1419,7 +1362,7 @@
+         if (!pendingAlertShown && ['success', 'promptpay-success'].includes(checkoutResult || '')
+           && attempt >= 5 && billingUserRef.current === userId) {
+           pendingAlertShown = true;
+-          triggerAlert('รับข้อมูลการชำระเงินแล้ว', 'Stripe กำลังยืนยันรายการ ระบบจะเปิด Pro อัตโนมัติเมื่อ webhook ยืนยันสำเร็จ');
++          triggerAlert('รับข้อมูลการชำระเงินแล้ว', 'กำลังตรวจสอบยอดชำระ ระบบจะเปิด Pro ให้อัตโนมัติเมื่อยืนยันสำเร็จ');
+         }
+         const delay = attempt < 9 ? 1000 : attempt < 19 ? 5000 : 15000;
+         attempt += 1;
+@@ -3108,8 +3051,6 @@
+                   onPromptPay={() => void handleUpgrade('promptpay')}
+                   onSubscribePeriod={(period, method) => void handleUpgrade(method, period)}
+                   checkoutReady={checkoutReady}
+-                  pendingCheckout={pendingCheckout}
+-                  onCancelCheckout={() => void handleCancelCheckout()}
+                   billingBusy={billingBusy}
+                   freeDocumentsAvailable
+                 />
+@@ -3177,15 +3118,16 @@
+           dialog={dialog}
+           onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+         />
+-        <PromptPayCheckoutModal
+-          checkout={promptPayModalOpen ? promptPayCheckout : null}
+-          busy={billingBusy}
+-          onClose={() => setPromptPayModalOpen(false)}
+-          onRegenerate={() => {
+-            setPromptPayModalOpen(false);
+-            void handleUpgrade('promptpay', promptPayCheckout?.period ?? 'month');
++        {embeddedPayment && <EmbeddedPaymentModal
++          checkout={embeddedPayment}
++          onClose={() => setEmbeddedPayment(null)}
++          onComplete={handleEmbeddedComplete}
++          onRetry={() => {
++            const previous = embeddedPayment;
++            setEmbeddedPayment(null);
++            void handleUpgrade(previous.method, previous.period);
+           }}
+-        />
++        />}
+ 
+         {/* 🎉 Pro plan promo, shown once/day to non-Pro users */}
+         <AnimatePresence>
+--- /dev/null
++++ b/frontend/src/features/billing/EmbeddedPaymentModal.tsx
+@@ -0,0 +1,65 @@
++import React from 'react';
++import { loadStripe } from '@stripe/stripe-js/pure';
++import type { StripeEmbeddedCheckout } from '@stripe/stripe-js';
++import type { ProPeriod } from '../../../../shared/proPricing';
++import { Modal } from '../../components/ui/Modal';
++import { uiPrimaryButton } from '../../components/ui/uiStyles';
++
++export type EmbeddedPayment = {
++  clientSecret: string; publishableKey: string; orderId: string;
++  amount: number; months: number; period: ProPeriod; method: 'card' | 'promptpay'; expiresAt: string;
++};
++// Stripe permits one embedded instance at a time. Serialize initialization so a
++// closed dialog/StrictMode cleanup cannot leave a late iframe in the next dialog.
++let initialization = Promise.resolve();
++export function EmbeddedPaymentModal({ checkout, onClose, onComplete, onRetry }: {
++  checkout: EmbeddedPayment; onClose: () => void; onComplete: () => void; onRetry: () => void;
++}) {
++  const mount = React.useRef<HTMLDivElement>(null);
++  const completeRef = React.useRef(onComplete);
++  completeRef.current = onComplete;
++  const [ready, setReady] = React.useState(false);
++  const [error, setError] = React.useState(false);
++  const [completed, setCompleted] = React.useState(false);
++  const [expired, setExpired] = React.useState(Date.parse(checkout.expiresAt) <= Date.now());
++  React.useEffect(() => {
++    const timer = window.setInterval(() => setExpired(Date.parse(checkout.expiresAt) <= Date.now()), 1000);
++    return () => window.clearInterval(timer);
++  }, [checkout.expiresAt]);
++  React.useEffect(() => {
++    if (expired) return;
++    let canceled = false;
++    let embedded: StripeEmbeddedCheckout | undefined;
++    setReady(false); setError(false);
++    initialization = initialization.catch(() => {}).then(async () => {
++      const stripe = await loadStripe(checkout.publishableKey, { locale: 'th' });
++      if (canceled) return;
++      if (!stripe) throw new Error('Stripe unavailable');
++      embedded = await stripe.createEmbeddedCheckoutPage({
++        clientSecret: checkout.clientSecret,
++        onComplete: () => {
++          if (canceled) return;
++          setCompleted(true);
++          completeRef.current(); // Poll authoritative state; never grant access in the browser.
++        },
++      });
++      if (canceled) { embedded.destroy(); return; }
++      if (mount.current) embedded.mount(mount.current);
++      setReady(true);
++    }).catch(() => { if (!canceled) setError(true); });
++    return () => { canceled = true; embedded?.destroy(); };
++  }, [checkout.clientSecret, checkout.publishableKey, expired]);
++  return <Modal open onClose={onClose} label={checkout.method === 'card' ? 'ชำระด้วยบัตร' : 'ชำระด้วย QR พร้อมเพย์'} width={760}>
++    <div className="overflow-y-auto p-4 pt-10 sm:p-6 sm:pt-10">
++      <h2 className="text-xl font-bold text-brand-text dark:text-white">{checkout.method === 'card' ? 'ชำระด้วยบัตร' : 'ชำระด้วย QR พร้อมเพย์'}</h2>
++      <p className="mb-4 mt-1 text-sm text-brand-muted">Pro {checkout.months === 12 ? '1 ปี' : `${checkout.months} เดือน`} · ฿{(checkout.amount / 100).toLocaleString('th-TH')} จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ</p>
++      {completed ? <p role="status" className="py-8 text-center text-brand-muted">กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ</p>
++        : expired || error ? <div className="space-y-4 py-8 text-center">
++          <p role="alert" className="text-brand-muted">{expired ? 'หน้าชำระนี้หมดเวลาแล้ว กดเปิดใหม่เพื่อชำระต่อได้เลย' : 'โหลดหน้าชำระไม่สำเร็จ กรุณาลองอีกครั้ง'}</p>
++          <button type="button" onClick={onRetry} className={uiPrimaryButton}>เปิดหน้าชำระใหม่</button>
++        </div> : !ready && <p role="status" className="py-8 text-center text-brand-muted">กำลังเปิดหน้าชำระ…</p>}
++      <div ref={mount} data-testid="embedded-payment" className={completed || expired || error ? 'hidden' : 'overflow-hidden rounded-xl bg-white'} />
++      <p className="mt-4 text-center text-xs text-brand-muted">ชำระเงินอย่างปลอดภัยผ่าน Stripe · ข้อมูลบัตรส่งตรงถึง Stripe</p>
++    </div>
++  </Modal>;
++}
+--- a/frontend/src/features/billing/PlansTab.tsx
++++ b/frontend/src/features/billing/PlansTab.tsx
+@@ -36,8 +36,6 @@
+   onPromptPay: () => void;
+   billingBusy: boolean;
+   checkoutReady?: boolean;
+-  pendingCheckout?: { months: number; amount: number } | null;
+-  onCancelCheckout?: () => void;
+   /** Checkout for 6 months and 1 year, once it exists. A period can be paid only when this is wired
+    * and PRO_CHECKOUT_OPEN says checkout charges the price shown. */
+   onSubscribePeriod?: (period: LongPeriod, method: 'card' | 'promptpay') => void;
+@@ -68,8 +66,6 @@
+   onPromptPay,
+   billingBusy,
+   checkoutReady = false,
+-  pendingCheckout = null,
+-  onCancelCheckout,
+   onSubscribePeriod,
+ }) => {
+   const { t } = useLanguage();
+@@ -246,15 +242,6 @@
+           </div>
+         </article>
+ 
+-        {pendingCheckout && onCancelCheckout && (
+-          <div className="mx-auto mt-4 flex max-w-[820px] flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-faint px-4 py-3 text-sm dark:bg-neutral-800" role="status">
+-            <span>{t('plans.pendingPrepaid', { months: pendingCheckout.months, amount: formatBaht(pendingCheckout.amount / 100) })}</span>
+-            <button type="button" disabled={billingBusy} onClick={onCancelCheckout}
+-              className="rounded-lg border border-brand-border px-3 py-2 font-semibold disabled:opacity-50">
+-              {t('plans.cancelUnpaidCheckout')}
+-            </button>
+-          </div>
+-        )}
+         <section className="plan-pay mx-auto mt-4 grid max-w-[820px] gap-4 sm:grid-cols-2 sm:gap-6" aria-labelledby="payment-methods-title">
+           <h2 id="payment-methods-title" className="sr-only">{t('plans.paymentMethodsTitle')}</h2>
+           <div className="flex gap-3">
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -9,6 +9,7 @@
+       "version": "1.0.0",
+       "dependencies": {
+         "@anthropic-ai/sdk": "^0.124.0",
++        "@stripe/stripe-js": "^10.1.0",
+         "@supabase/supabase-js": "^2.108.2",
+         "dotenv": "^17.2.3",
+         "express": "^5.1.0",
+@@ -20,7 +21,7 @@
+         "react": "^19.0.1",
+         "react-dom": "^19.0.1",
+         "recharts": "^3.9.0",
+-        "stripe": "^22.3.2",
++        "stripe": "^23.0.0",
+         "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+         "zod": "^4.1.0"
+       },
+@@ -1351,6 +1352,15 @@
+       "resolved": "https://registry.npmjs.org/@standard-schema/utils/-/utils-0.3.0.tgz",
+       "integrity": "sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==",
+       "license": "MIT"
++    },
++    "node_modules/@stripe/stripe-js": {
++      "version": "10.1.0",
++      "resolved": "https://registry.npmjs.org/@stripe/stripe-js/-/stripe-js-10.1.0.tgz",
++      "integrity": "sha512-sLRPukMKMxvRVrgV3Za8LM0Yd2azrixQjfaiuzS8Fivlu/Gt7VbBuRiRZJIvfL3XxAw+FdfdmhHSvjAfLG3lkA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=12.16"
++      }
+     },
+     "node_modules/@supabase/auth-js": {
+       "version": "2.108.2",
+@@ -4241,15 +4251,15 @@
+       }
+     },
+     "node_modules/stripe": {
+-      "version": "22.3.2",
+-      "resolved": "https://registry.npmjs.org/stripe/-/stripe-22.3.2.tgz",
+-      "integrity": "sha512-O13QOvgEIQvDlTy6Ubb5kB980wpbhmoZNsgCXKILjCMZS67f+bW+6w99k3gnSi/N1lkryoj1WYdpGT5Wc5edjg==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=18"
++      "version": "23.0.0",
++      "resolved": "https://registry.npmjs.org/stripe/-/stripe-23.0.0.tgz",
++      "integrity": "sha512-MDE2A5ZVVluYURORaZEVghSmnLJc3w6aHAlZSxDQMsOjOb3V0O6ro/CiaeFlJS4N7uIVmsg98ocRsPmUK6YfyA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=20"
+       },
+       "peerDependencies": {
+-        "@types/node": ">=18"
++        "@types/node": ">=20"
+       },
+       "peerDependenciesMeta": {
+         "@types/node": {
+--- a/package.json
++++ b/package.json
+@@ -22,6 +22,7 @@
+   },
+   "dependencies": {
+     "@anthropic-ai/sdk": "^0.124.0",
++    "@stripe/stripe-js": "^10.1.0",
+     "@supabase/supabase-js": "^2.108.2",
+     "dotenv": "^17.2.3",
+     "express": "^5.1.0",
+@@ -33,7 +34,7 @@
+     "react": "^19.0.1",
+     "react-dom": "^19.0.1",
+     "recharts": "^3.9.0",
+-    "stripe": "^22.3.2",
++    "stripe": "^23.0.0",
+     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+     "zod": "^4.1.0"
+   },
+--- a/tests/e2e/billing.spec.ts
++++ b/tests/e2e/billing.spec.ts
+@@ -94,7 +94,14 @@
+       return;
+     }
+     billingRequests.push(route.request());
+-    await route.fulfill({ json: { url: stripeUrl, ...billingResponse } });
++    const body = route.request().postDataJSON();
++    const plan = body.period === 'year' ? {amount:149000,months:12} : body.period === 'halfYear' ? {amount:84900,months:6} : {amount:15900,months:1};
++    await route.fulfill({ json: body.action === 'portal' ? {url:stripeUrl,destination:'portal'} : {
++      ...billingResponse, ...plan, destination:'embedded',period:body.period,
++      method:body.action==='promptpay_checkout'?'promptpay':'card',
++      orderId:'order-test',clientSecret:'cs_inline_secret_test',publishableKey:'pk_test_inline',
++      expiresAt:new Date(Date.now()+30*60_000).toISOString(),
++    } });
+   });
+   await page.route('https://checkout.stripe.com/**', route => route.fulfill({
+     contentType: 'text/html',
+@@ -105,6 +112,13 @@
+     body: '<title>Stripe Billing Portal test destination</title>',
+   }));
+ 
++  await page.route('https://js.stripe.com/**', route => route.fulfill({contentType:'application/javascript',body:`
++    window.Stripe = function() { return {createEmbeddedCheckoutPage: async function(options) {
++      let root;
++      return { mount: function(el) { root=el; el.innerHTML='<p>Secure payment form</p><button type="button">Mock payment complete</button>'; el.querySelector('button').onclick=options.onComplete; },
++        destroy:function(){if(root)root.innerHTML='';} };
++    }};};
++  `}));
+   await page.goto('/plans');
+   await expect(page.getByRole('heading', { name: 'อัปเกรด', exact: true })).toBeVisible();
+   // A fresh non-Pro account may get the daily Pro promo after data loads; close it when it comes.
+@@ -116,32 +130,21 @@
+   return billingRequests;
+ }
+ 
+-test('an unpaid checkout can be canceled before switching payment method or period', async ({page}) => {
+-  const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,
+-    cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false},
+-    'https://checkout.stripe.com/c/pay/cs_test_cancel');
+-  const pending={id:'44444444-4444-4444-8444-444444444444',months:1,amount:15900};
+-  let canceled=false;
+-  await page.route('**/api/billing',async route=>{
+-    if(route.request().method()==='GET') {
+-      await route.fulfill({json:{checkout_ready:true,pending_checkout:canceled?null:pending,subscription:null}});
+-      return;
+-    }
+-    requests.push(route.request());
+-    expect(route.request().postDataJSON()).toEqual({action:'cancel_checkout',order_id:pending.id});
+-    canceled=true;
+-    await route.fulfill({json:{canceled:true}});
+-  });
+-  await page.reload();
+-  const cancel=page.getByRole('button',{name:'ยกเลิกรายการที่ยังไม่ชำระ',exact:true});
+-  await expect(cancel).toBeVisible();
+-  await cancel.click();
+-  await expect(cancel).toHaveCount(0);
+-  await expect(page.getByTestId('pro-card').getByRole('button',{name:'จ่ายด้วย QR ฿159',exact:true})).toBeEnabled();
+-  expect(canceled).toBe(true);
+-});
+-
+-test('a free account chooses Stripe Checkout for the monthly price', async ({ page }) => {
++test('abandoned orders never show a cancel banner and a closed form allows another choice',async({page})=>{
++  const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false},'');
++  await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
++  await expect(page.getByText('Secure payment form')).toBeVisible();
++  await page.getByRole('dialog').getByRole('button',{name:'ปิด',exact:true}).click();
++  await expect(page.getByRole('button',{name:'ยกเลิกรายการที่ยังไม่ชำระ',exact:true})).toHaveCount(0);
++  await page.getByRole('radio',{name:'6 เดือน',exact:true}).click();
++  await page.getByTestId('pro-card').getByRole('button',{name:/จ่ายด้วย QR/}).click();
++  await expect(page.getByRole('dialog',{name:'ชำระด้วย QR พร้อมเพย์'})).toBeVisible();
++  await expect(page.getByText('Secure payment form')).toBeVisible();
++  expect(requests.map(r=>r.postDataJSON())).toEqual([{action:'checkout',period:'month'},{action:'promptpay_checkout',period:'halfYear'}]);
++  await expect(page).toHaveURL(/\/plans/);
++});
++
++test('a free account opens an inline card form for the monthly price', async ({ page }) => {
+   // The UI submits the selected period; the server fixes price and duration.
+   test.fixme(!PRO_CHECKOUT_OPEN.month, 'monthly checkout opens once Stripe and the billing API charge ฿159 (shared/proPricing.ts)');
+   const stripeUrl = 'https://checkout.stripe.com/c/pay/cs_test_intro';
+@@ -163,7 +166,9 @@
+   expect(requests[0].method()).toBe('POST');
+   expect(requests[0].headers()['x-csrf-protection']).toBe('1');
+   expect(requests[0].postDataJSON()).toEqual({ action: 'checkout', period: 'month' });
+-  await expect(page).toHaveURL(stripeUrl);
++  await expect(page.getByRole('dialog',{name:'ชำระด้วยบัตร'})).toBeVisible();
++  await expect(page.getByText('Secure payment form')).toBeVisible();
++  await expect(page).toHaveURL(/\/plans/);
+ });
+ 
+ test('the Pro card and its prices stay readable on mobile', async ({ page }) => {
+@@ -207,7 +212,7 @@
+   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+ });
+ 
+-test('PromptPay opens a server-expiring QR flow with countdown and manual-renewal guidance', async ({ page }) => {
++test('PromptPay opens inside the site with its exact price and one-time payment guidance', async ({ page }) => {
+   test.fixme(!PRO_CHECKOUT_OPEN.month, 'PromptPay opens once the billing API charges ฿159 (shared/proPricing.ts)');
+   const stripeUrl = 'https://checkout.stripe.com/c/pay/cs_test_promptpay';
+   const requests = await openPlans(page, {
+@@ -233,10 +238,9 @@
+   expect(checkoutRequests()[0].postDataJSON()).toEqual({ action: 'promptpay_checkout', period: 'month' });
+   const dialog = page.getByRole('dialog', { name: 'ชำระด้วย QR พร้อมเพย์' });
+   await expect(dialog).toBeVisible();
+-  await expect(dialog.getByText('QR พร้อมเพย์ ฿159', { exact: true })).toBeVisible();
+-  await expect(dialog.getByText(/ไม่ตัดเงินอัตโนมัติ/)).toBeVisible();
+-  await expect(dialog.getByText(/บันทึกภาพ QR/)).toBeVisible();
+-  await expect(dialog.getByRole('link', { name: /เปิด QR ใน Stripe/ })).toHaveAttribute('href', stripeUrl);
++  await expect(dialog.getByText(/Pro 1 เดือน · ฿159/)).toBeVisible();
++  await expect(dialog.getByText('Secure payment form')).toBeVisible();
++  await expect(dialog.getByRole('link',{name:/เปิด QR ใน Stripe/})).toHaveCount(0);
+   await expect(page).toHaveURL(/\/plans/);
+ });
+ 
+@@ -512,12 +516,10 @@
+       await card.getByRole('button',{name:method==='card'?/สมัคร Pro/:/จ่ายด้วย QR/}).click();
+       await expect.poll(()=>requests.length).toBe(1);
+       expect(requests[0].postDataJSON()).toEqual({action:method==='card'?'checkout':'promptpay_checkout',period:plan.period});
+-      if(method==='card') await expect(page).toHaveURL(stripeUrl);
+-      else {
+-        const dialog=page.getByRole('dialog',{name:'ชำระด้วย QR พร้อมเพย์'});
+-        await expect(dialog.getByText(new RegExp(`สิทธิ์ Pro ${plan.months} เดือน`))).toBeVisible();
+-        await expect(dialog.getByRole('link',{name:/เปิด QR ใน Stripe/})).toHaveAttribute('href',stripeUrl);
+-      }
++      const dialog=page.getByRole('dialog',{name:method==='card'?'ชำระด้วยบัตร':'ชำระด้วย QR พร้อมเพย์'});
++      await expect(dialog.getByText(/จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ/)).toBeVisible();
++      await expect(dialog.getByText('Secure payment form')).toBeVisible();
++      await expect(page).toHaveURL(/\/plans/);
+     });
+   }
+ }
+@@ -528,3 +530,14 @@
+   await expect(page.getByRole('button',{name:/จ่ายด้วย QR|สมัคร Pro/})).toHaveCount(0);
+   expect(requests).toHaveLength(0);
+ });
++
++test('embedded completion waits for authoritative payment before showing Pro',async({page})=>{
++ const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
++ await openPlans(page,free,'');
++ await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
++ await page.getByRole('button',{name:'Mock payment complete'}).click();
++ await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toBeVisible();
++ await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toHaveCount(0);
++ await page.route('**/api/billing',route=>route.fulfill({json:{checkout_ready:true,subscription:{...free,status:'active',plan:'pro_prepaid',current_period_end:'2099-01-01T00:00:00Z'}}}));
++ await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toBeVisible({timeout:10000});
++});
+--- a/tests/prepaid-http.test.ts
++++ b/tests/prepaid-http.test.ts
+@@ -1,4 +1,4 @@
+-import { before, after, test } from 'node:test';
++import { before, beforeEach, after, test } from 'node:test';
+ import assert from 'node:assert/strict';
+ import type { Server } from 'node:http';
+ import Stripe from 'stripe';
+@@ -9,10 +9,10 @@
+ import { PRO_PERIODS, PRO_PRICING } from '../shared/proPricing.js';
+ 
+ Object.assign(process.env, {
+-  APP_URL:'http://127.0.0.1:3000', SUPABASE_URL:'https://prepaid.supabase.co',
++  VERCEL:'1', APP_URL:'http://127.0.0.1:3000', SUPABASE_URL:'https://prepaid.supabase.co',
+   SUPABASE_PUBLISHABLE_KEY:'test-key', SUPABASE_SERVICE_ROLE_KEY:'test-admin',
+   SESSION_SECRET:'test-only-secret-'.repeat(4), STRIPE_SECRET_KEY:'sk_test_only',
+-  STRIPE_MODE:'test', STRIPE_WEBHOOK_SECRET:'whsec_test', KRAROK_PREPAID_ENABLED:'true',
++  STRIPE_MODE:'test', STRIPE_PUBLISHABLE_KEY:'pk_test_inline', STRIPE_WEBHOOK_SECRET:'whsec_test', KRAROK_PREPAID_ENABLED:'true',
+ });
+ const user={id:'11111111-1111-4111-8111-111111111111',email:'billing@example.test'};
+ const token=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:'33333333-3333-4333-8333-333333333333'})).toString('base64url')}.test`;
+@@ -31,10 +31,10 @@
+     if(url.includes('/cashflow_session_active')) return json(true);
+     if(url.includes('/cashflow_user_roles')) return json({role:'user'});
+     if(url.includes('/subscriptions')) return json(banned?{plan:'admin_revoked',status:'canceled'}:null);
+-    if(url.includes('/rest/v1/cashflow_prepaid_orders')) return json(url.includes('select=session_id')?[]:order);
++    if(url.includes('/rest/v1/cashflow_prepaid_orders')) return json(url.includes('status=in.')?(order && ['reserved','open'].includes(order.status)?[order]:[]):order);
+     const args=JSON.parse(String(init?.body||'{}'));
+     if(url.includes('/cashflow_reserve_prepaid_checkout')) {
+-      if(!order) order={id:args.p_order_id,user_id:user.id,period:args.p_period,
++      if(!order || order.status==='expired') order={id:args.p_order_id,user_id:user.id,period:args.p_period,
+         months:PRO_PRICING[args.p_period as keyof typeof PRO_PRICING].months,
+         amount:PRO_PRICING[args.p_period as keyof typeof PRO_PRICING].total*100,
+         method:args.p_method,price_id:args.p_price_id,livemode:false,customer_id:'cus_prepaid',
+@@ -49,7 +49,7 @@
+       order.session_id=args.p_session_id;order.checkout_url=args.p_url;return json(null);
+     }
+     if(url.includes('/cashflow_fulfill_prepaid')) {fulfilled.push(args);return json('paid');}
+-    if(url.includes('/cashflow_finish_prepaid_checkout')) {finished.push(args);return json(null);}
++    if(url.includes('/cashflow_finish_prepaid_checkout')) {finished.push(args);order.status='expired';return json(null);}
+     throw new Error(`Unexpected mock endpoint ${new URL(url).pathname}`);
+   };
+   stripe.prices.list=(async(params:any)=>{
+@@ -69,7 +69,7 @@
+     session={id:'cs_prepaid',mode:'payment',status:'open',payment_status:'unpaid',livemode:false,
+       customer:order.customer_id,client_reference_id:user.id,metadata,currency:'thb',
+       amount_total:order.amount,amount_subtotal:order.amount,expires_at:request.expires_at,
+-      url:'https://checkout.stripe.com/c/pay/cs_prepaid'};
++      url:null, ui_mode:request.ui_mode, client_secret:'cs_prepaid_secret_test'};
+     return session;
+   }) as any;
+   stripe.checkout.sessions.retrieve=(async()=>session) as any;
+@@ -86,8 +86,9 @@
+   globalThis.fetch=realFetch;
+   await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));
+ });
+-const headers={cookie,'x-account-id':user.id,'content-type':'application/json',
++const headers={cookie,'x-vercel-forwarded-for':'192.0.2.1','x-account-id':user.id,'content-type':'application/json',
+   'x-csrf-protection':'1',origin:process.env.APP_URL!};
++let testIp=1;beforeEach(()=>{headers['x-vercel-forwarded-for']=`192.0.2.${++testIp}`;});
+ const checkout=(body:unknown)=>realFetch(origin+'/api/billing',{method:'POST',headers,body:JSON.stringify(body)});
+ const webhook=async(tamper=false)=>{
+   const raw=JSON.stringify({id:'evt_prepaid',type:'checkout.session.completed',livemode:false,data:{object:{id:session.id}}});
+@@ -118,6 +119,7 @@
+     const response=await checkout(body);
+     assert.equal(response.status,200,await response.clone().text());
+     const result:any=await response.json();
++    assert.equal(result.destination,'embedded');assert.equal(result.clientSecret,'cs_prepaid_secret_test');assert.equal(result.publishableKey,'pk_test_inline');assert.equal(result.url,undefined);
+     assert.equal(result.amount,PRO_PRICING[period].total*100);assert.equal(result.months,PRO_PRICING[period].months);
+     assert.equal((await checkout(body)).status,200);assert.equal(creates,before+1);
+     assert.equal((await webhook(true)).status,400);assert.equal(fulfilled.length,0);
+@@ -175,3 +177,48 @@
+     assert.equal(creates,before);
+   }finally{banned=false;}
+ });
++
++test('switching plan/method automatically expires the old unpaid session; same choice resumes',async()=>{
++  order=null;session=null;expirationFails=false;
++  await checkout({action:'checkout',period:'month'});
++  const before=expires;const oldId=order.id;
++  const response=await checkout({action:'promptpay_checkout',period:'year'});
++  assert.equal(response.status,200,await response.clone().text());
++  assert.equal(expires,before+1);assert.notEqual(order.id,oldId);
++  assert.equal(order.months,12);assert.equal(order.amount,149000);
++  const count=creates;assert.equal((await checkout({action:'promptpay_checkout',period:'year'})).status,200);
++  assert.equal(creates,count);assert.equal(expires,before+1);
++});
++test('legacy hosted sessions are recovered and expired before creating an inline session',async()=>{
++  order=null;session=null;expirationFails=false;
++  await checkout({action:'checkout',period:'month'});
++  order.request={...order.request,ui_mode:undefined};session.ui_mode='hosted_page';
++  const before=expires;
++  const response=await checkout({action:'checkout',period:'month'});
++  assert.equal(response.status,200,await response.clone().text());assert.equal(expires,before+1);
++  assert.equal(order.request.ui_mode,'embedded_page');
++});
++test('a failed expiration cannot create a replacement or expose another payment secret',async()=>{
++  order=null;session=null;expirationFails=false;
++  await checkout({action:'checkout',period:'month'});
++  expirationFails=true;const before=creates;
++  const response=await checkout({action:'promptpay_checkout',period:'halfYear'});
++  assert.equal(response.status,409);assert.equal(creates,before);expirationFails=false;
++});
++test('unknown hosted creation is replayed unchanged before replacement; cannot orphan an unpaid charge',async()=>{
++  order=null;session=null;expirationFails=false;
++  assert.equal((await checkout({action:'checkout',period:'month'})).status,200);
++  order.request={...order.request,ui_mode:'hosted_page'};order.session_id=null;
++  const stored=JSON.stringify(order.request);const oldId=order.id;const before=creates;
++  const create=stripe.checkout.sessions.create;
++  let recovered=false;
++  stripe.checkout.sessions.create=(async(request:any,options:any)=>{
++    if(options.idempotencyKey===`krarok-prepaid:${oldId}`){assert.equal(JSON.stringify(request),stored);recovered=true;}
++    return create(request,options);
++  }) as any;
++  try {
++    const response=await checkout({action:'promptpay_checkout',period:'year'});
++    assert.equal(response.status,200,await response.clone().text());assert.equal(recovered,true);
++    assert.equal(creates,before+2);assert.equal(order.request.ui_mode,'embedded_page');
++  }finally{stripe.checkout.sessions.create=create;}
++});
+--- a/tests/prepaid-plans.test.ts
++++ b/tests/prepaid-plans.test.ts
+@@ -25,9 +25,9 @@
+ for(const period of PRO_PERIODS) for(const method of ['card','promptpay'] as const) {
+   test(`${period}/${method}: exact price and period survive checkout and fulfillment`,()=>{
+     const o=order(period,method);const request=buildPrepaidCheckout(o,'https://krarok.com','pmc_test');
+-    assert.equal(request.mode,'payment');assert.equal(request.metadata?.months,String(o.months));
++    assert.equal(request.mode,'payment');assert.equal(request.ui_mode,'embedded_page');assert.equal(request.redirect_on_completion,'if_required');assert.equal(request.success_url,undefined);assert.equal(request.cancel_url,undefined);assert.equal(request.metadata?.months,String(o.months));
+     assert.deepEqual(request.line_items,[{price:'price1',quantity:1}]);
+-    assert.equal(request.subscription_data,undefined);assert.equal(request.payment_method_types,undefined);
++    assert.equal(request.subscription_data,undefined);assert.equal((request as any).payment_method_types,undefined);
+     assert.deepEqual(request.excluded_payment_method_types,[method==='card'?'promptpay':'card']);
+     assert.equal(validatedPrepaidPayment(evidence(o),o).refunded,false);
+   });
+--- a/tests/stripe-subscriptions.test.ts
++++ b/tests/stripe-subscriptions.test.ts
+@@ -321,7 +321,7 @@
+     origin: 'https://cash-squirrel.example',
+   });
+   assert.equal(request.mode, 'payment');
+-  assert.deepEqual(request.payment_method_types, ['promptpay']);
++  assert.deepEqual(request.excluded_payment_method_types, ['card']);
+   assert.equal(request.line_items?.[0].price_data?.unit_amount, PRO_INTRO_TOTAL);
+   assert.equal(request.metadata?.intro_cycle, '2');
+   const charge = {
+--- a/vercel.json
++++ b/vercel.json
+@@ -83,7 +83,7 @@
+         },
+         {
+           "key": "Content-Security-Policy",
+-          "value": "default-src 'self'; script-src 'self' https://static.line-scdn.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
++          "value": "default-src 'self'; script-src 'self' https://static.line-scdn.net https://js.stripe.com https://checkout.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.stripe.com https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://merchant-ui-api.stripe.com https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://*.js.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+         },
+         {
+           "key": "Cross-Origin-Resource-Policy",
