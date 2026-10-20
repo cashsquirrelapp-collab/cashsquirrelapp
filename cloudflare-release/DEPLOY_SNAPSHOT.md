@@ -250,3 +250,15 @@ Operational instructions and the setup/audit script are documented in `PREPAID_B
 - Stripe verified: monthly `pi_3USgZOC4uZ5mcDl11OnHYbo1` THB159 canceled/unpaid when switched; six-month `pi_3USgc3C4uZ5mcDl10bOCj61K` THB849 canceled/unpaid when switched; annual `pi_3USgcWC4uZ5mcDl11qGRRbQi` THB1490 requires_action/unpaid, months12. All `amount_received=0`. No scan, card details or real charge performed.
 - Validation: 49 targeted unit/HTTP/SQL/payment/admin tests (48 combined before polling-budget addition; 19 HTTP tests including the new regression rerun after), 16 Cloudflare/security checks, 21 billing/admin E2E tests, typecheck, production build and archive verification. Payment settlement/refund evidence is simulated in automated tests, not a live end-to-end charge.
 - Proof screenshots retained locally: `krarok-direct-qr-159.png`, `krarok-direct-qr-849.png`, `krarok-direct-qr-1490.png`, `qr-webhook-ready.png` under the task visualization folder.
+
+## 2026-10-21 — custom card and explicit optional renewal
+
+Production version 69f87583-dcbe-4a83-8978-3fbd8c214718 follows initial custom-card version 8e538d3a-4257-4149-9ba5-00d65bcec4c7. KRAROK_CUSTOM_CARD_ENABLED=true; direct QR stays enabled. Existing encrypted secrets and two daily cron schedules are unchanged.
+
+Own themed card modal uses secure Stripe Elements, separate save-card and unchecked renewal consent, exact three package prices/cadences and native Stripe Billing. Paid invoice evidence grants only the verified period; failed renewal never extends access. Stop-renewal preserves paid time, immediately stopping retrying delinquent subscriptions.
+
+Migration 20261020172734_custom_card_renewals.sql applied once and RLS/service-only access verified. User approved Subscriptions write on the existing runtime restricted key, saved and read back. Three new recurring prices were created on the same product; no subscriptions or charges were created by QA.
+
+All three actual card UI amounts and default unchecked renewal were inspected. Stripe readback verified unpaid payment-mode and subscription-mode Elements Checkouts at 159/849/1490 THB, subscription=null; replaced sessions expired. During QA, stalled requests motivated explicit Stripe fetch transport and a 20-second timeout. After that change the remaining plan switches succeeded. 27 targeted payment/SQL/HTTP tests and 16 Cloudflare/security checks rerun and passed; typecheck/build passed. 23 distinct billing UI scenarios passed across runs. No real payment, stored-card reuse or full native billing settlement was tested.
+
+Detailed operations and evidence: CUSTOM_CARD_RENEWALS.md. Readable source delta: custom-card-renewals.patch.

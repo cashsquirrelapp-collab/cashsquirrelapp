@@ -2,9 +2,9 @@
   "schema_version": 1,
   "source_label": "Prepaid Pro: locked 159/849/1490 THB card and PromptPay for 1/6/12 calendar months — 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "c3970983d2bc4b61f77eeca5840b6ea5f0620b337d7ff06c0283042006721e38",
-  "file_count": 584,
-  "total_source_bytes": 20669496,
+  "archive_sha256": "527ce7c7050af3523b3be94e74205692c2deaae254ed163c578e315d2b164746",
+  "file_count": 592,
+  "total_source_bytes": 20740807,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -43,8 +43,8 @@
     },
     {
       "path": "backend/src/config/stripe.ts",
-      "size": 1320,
-      "sha256": "b6a32826b970bbd8a37ba3cddd9787fc3fffb70d79971655b13a84fce6d280c9"
+      "size": 1471,
+      "sha256": "40c8b1f17d0f977587f199fdeb2a07c3ce591ddce6b7d5ab85339a74f2628e16"
     },
     {
       "path": "backend/src/config/supabase.ts",
@@ -73,8 +73,8 @@
     },
     {
       "path": "backend/src/handlers/billing.ts",
-      "size": 3943,
-      "sha256": "c71f11261d1459023bb17a910e3b670a954003406918de78f03111723fee754f"
+      "size": 5132,
+      "sha256": "71ec8e9ef16d5fe3e34e75799f73118702fe1c94508de324951908080289c43b"
     },
     {
       "path": "backend/src/handlers/close-expired-accounts.ts",
@@ -173,8 +173,8 @@
     },
     {
       "path": "backend/src/handlers/stripe-webhook.ts",
-      "size": 24327,
-      "sha256": "976418c02d2f3445c7758d9a67242fa474e6c4e4745209a9fca7d80b9633a576"
+      "size": 24874,
+      "sha256": "7e979a24937ac1a16da9a4725c8f8d8b8321852f3ce374c7d479a2800eeb5c0d"
     },
     {
       "path": "backend/src/handlers/usage-analytics.ts",
@@ -302,6 +302,16 @@
       "sha256": "fad3311d9dcfbf2f3dbfe85f133e272d0d11bc910831d3743f330ba1dbc36b4e"
     },
     {
+      "path": "backend/src/services/cardPlans.ts",
+      "size": 2623,
+      "sha256": "dfe0a0b5092650c33dfff3058ff7462cf234845f150c74f6d0c8d9ae172b09f0"
+    },
+    {
+      "path": "backend/src/services/cardRenewals.ts",
+      "size": 10533,
+      "sha256": "038239b9e0750e2fc97b4d0f8ecdf019e8860f849be7a380136d364247c2fdb4"
+    },
+    {
       "path": "backend/src/services/directPromptPay.ts",
       "size": 8419,
       "sha256": "19924630a0c2e6b9013a532ab80c1f6187b959bfdd605b42ffec06cc1b3bf921"
@@ -413,13 +423,13 @@
     },
     {
       "path": "backend/src/services/prepaidBilling.ts",
-      "size": 15426,
-      "sha256": "f15aaf03718af2bfa306067f5dc7f42215ee39584383da6a9691c28b8e172adc"
+      "size": 16627,
+      "sha256": "7df9d8d7ee100896526a2c1706336b4e8c829cdc62a85fedf3e9973430535c90"
     },
     {
       "path": "backend/src/services/prepaidPlans.ts",
-      "size": 6331,
-      "sha256": "a23f425f8aa0b0c6b9dbe33ad3edbf28ef45bf1b152a1f7bdf3f3575ab622368"
+      "size": 6499,
+      "sha256": "b13216f9c2a14053fcc241c869afe444f164d2d0bb5ab96b57d0944a1300541e"
     },
     {
       "path": "backend/src/services/promptPay.ts",
@@ -615,6 +625,11 @@
       "path": "docs/ADMIN_PRO_CONTROLS.md",
       "size": 2162,
       "sha256": "f6cb54c2bd50d9cba91a1e0fb476dd1f463f488fa4bf4c77719cb05f75e89503"
+    },
+    {
+      "path": "docs/CUSTOM_CARD_RENEWALS.md",
+      "size": 6702,
+      "sha256": "ca0647d3396b2a216305cf17999540bc48bfd90b6fe94c5c9e97a7d916ab8770"
     },
     {
       "path": "docs/DIRECT_PROMPTPAY.md",
@@ -1468,8 +1483,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 179335,
-      "sha256": "76808a3dca91905dd0c375f2e93123daa2eebfba5c1ada54152c75bef24cfeca"
+      "size": 181190,
+      "sha256": "79fe0b3d7c4c981460ba9018498ce39e1b9eb414e16a734826ced4b00f27c85d"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1572,14 +1587,19 @@
       "sha256": "23f50ac80561c2cdaa4323654d7bef6c044bc083195e5dab811b7d72c91bcd94"
     },
     {
+      "path": "frontend/src/features/billing/CardPaymentModal.tsx",
+      "size": 8618,
+      "sha256": "c8c4b26c7046a14d1d2347ca77fc0c7ae4bfab08428bc4a5fddc9a32d13dfcf6"
+    },
+    {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
       "size": 4190,
       "sha256": "c933e0df359ca771caa263bec8656c109e5b4e6d2c174f27ebcae5ccab81169b"
     },
     {
       "path": "frontend/src/features/billing/EmbeddedPaymentModal.tsx",
-      "size": 4612,
-      "sha256": "8b25f1034fcc4722c1ca6c2fd3ac600ee3cdb9aaa87ede00a05c20f6795bd27b"
+      "size": 4677,
+      "sha256": "ce13121a9724f5c860a4ef5327dde2ec65ebd4a69e82138e0613db95fa0c3e96"
     },
     {
       "path": "frontend/src/features/billing/PlanMascot.tsx",
@@ -1588,8 +1608,8 @@
     },
     {
       "path": "frontend/src/features/billing/PlansTab.tsx",
-      "size": 17959,
-      "sha256": "c0ff3bbec0dca99d6ac98030140176d06793b14254f91211d01a56c136640571"
+      "size": 18673,
+      "sha256": "5ca4c7c312acde1ff6bea8318fdcd12ee803348840a44a979eda758ab8acd8ac"
     },
     {
       "path": "frontend/src/features/billing/PremiumUpsell.tsx",
@@ -2218,8 +2238,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 150553,
-      "sha256": "94fd74440f399c1f2736f6a4c862c9790513f7f5c8bc8de04fe62420d710fbb3"
+      "size": 150911,
+      "sha256": "793827cc61cd1d886221759c9cde6a5329ee857643b1e8c3cf87c6ff30d49986"
     },
     {
       "path": "frontend/src/index.css",
@@ -2507,6 +2527,11 @@
       "sha256": "2792f959155ceb10a1be4d227d94e9de3cb0cf216779b11f88936a776a8b7859"
     },
     {
+      "path": "shared/cardConsent.ts",
+      "size": 812,
+      "sha256": "9e86ec6ff22476206bcebac46bf52a8c0c5ff2b00a06eca14297722c683d66b8"
+    },
+    {
       "path": "shared/cashBalance.ts",
       "size": 2550,
       "sha256": "5cfcb7dbc642bfe94369a8e679b8969762a56e8c457ae5c92948e00b0a839c24"
@@ -2622,6 +2647,11 @@
       "sha256": "b2fff97dde941a0d2f23e3914f4f0eda4b56e954bc60cb9a73bc02e4f4ea7449"
     },
     {
+      "path": "supabase/migrations/20261020172734_custom_card_renewals.sql",
+      "size": 13049,
+      "sha256": "29441c1cb4e8de1e2f61d55b3c3827396143badfab8e4133366fb89f47d93ce5"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 6391,
       "sha256": "1deb6d15eb4da8bee6944386aa124c3225c20a7dbce5eeaedea37b76a5805d59"
@@ -2645,6 +2675,16 @@
       "path": "tests/calendar-events.test.ts",
       "size": 4941,
       "sha256": "004acee3c5a1baaa5fe98476620511c1749331c66742ee752a8aa012bcd653be"
+    },
+    {
+      "path": "tests/card-renewals-database.test.ts",
+      "size": 6521,
+      "sha256": "460abc410a75efb45b0647fccd6b192115fb779852dd0dc12b3f7bd92fcf31c0"
+    },
+    {
+      "path": "tests/card-renewals.test.ts",
+      "size": 4148,
+      "sha256": "307fb656f41b0a2674b97c78892d682074a850a1af9c2901e347e1dcd33fb413"
     },
     {
       "path": "tests/cash-balance.test.ts",
@@ -2708,8 +2748,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 36850,
-      "sha256": "57728df72460305cdf984ae84ac4e8a6aee685b472c5722d83319f10a0e9f26c"
+      "size": 41035,
+      "sha256": "3c3ee1a8cf94bdeeb4ebcdf90c3aa0bff23948c4eaf329ea5b42b6162e979175"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -2838,8 +2878,8 @@
     },
     {
       "path": "tests/prepaid-http.test.ts",
-      "size": 21230,
-      "sha256": "2be34e18992d0899c4f14913935c7ca3939a02578a9faff4b224c64b8d757284"
+      "size": 29102,
+      "sha256": "76c9d42a3f2d98a371f49d63e40ba18a2ef0d3d8e81868cae6bec7e47310e6be"
     },
     {
       "path": "tests/prepaid-plans.test.ts",
