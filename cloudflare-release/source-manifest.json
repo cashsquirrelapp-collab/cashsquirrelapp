@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Parallel checkout preparation and immediate card loading UI — 2026-10-21",
+  "source_label": "Computer and iPad parity, a tidy card payment dialog with its font, on the new logo — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "32d822e00cf00193677aa43bfadbf433fbf763a4894bb98a712d10b38239c700",
-  "file_count": 608,
-  "total_source_bytes": 18920974,
+  "archive_sha256": "585ee4a6af30fc3824dda67301e81cfbd04bbf581748c8101abca983709fb866",
+  "file_count": 609,
+  "total_source_bytes": 18935872,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -213,8 +213,8 @@
     },
     {
       "path": "backend/src/http/securityHeaders.ts",
-      "size": 1532,
-      "sha256": "37da9aa6ad69e6b8646cba11be8fbdae14783e0b8e63d37b93147f1e989c9d84"
+      "size": 1561,
+      "sha256": "10cd76a8ff1e3410516452f9238e05da7c0b3af3d80ad5fe5b70c6110250ada2"
     },
     {
       "path": "backend/src/http/types.ts",
@@ -473,8 +473,8 @@
     },
     {
       "path": "cloudflare/worker.ts",
-      "size": 5008,
-      "sha256": "08f82fbdad2a40c7f91187738dfcdba5bce243e932cdc57ceb1d272c8539b3fd"
+      "size": 5037,
+      "sha256": "66a8e0d372bb72507a2f8e7377de23d48432824a636dbe75dbb884ad8bb76de3"
     },
     {
       "path": "database/bootstrap-admin.sql",
@@ -658,8 +658,8 @@
     },
     {
       "path": "frontend/public/_headers",
-      "size": 1249,
-      "sha256": "ed8a6dc51f3b202e884c8e5850f37c724203b697b4ff9259a7f2edaa021ca3ad"
+      "size": 1278,
+      "sha256": "69e8093a84638522ad17afbb18fc8d9889a55641ad45e2e3b886531a0f4564a4"
     },
     {
       "path": "frontend/public/apple-touch-icon-v2.png",
@@ -1583,8 +1583,8 @@
     },
     {
       "path": "frontend/src/components/ui/CustomDialog.tsx",
-      "size": 8679,
-      "sha256": "59435a04eb7030936e576a42859ec1f0b9640f65081cfcbd5ad46c8a8174f2ec"
+      "size": 8456,
+      "sha256": "43af3450a00ce42bc78f127b1252b0049bd2eccd7d41ae07b90600b099a5e37a"
     },
     {
       "path": "frontend/src/components/ui/Drawer.tsx",
@@ -1648,8 +1648,8 @@
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
-      "size": 16783,
-      "sha256": "d909555e919048b42e87a76eca8f1044600b0f16bfcdd31649e8de5a63be9455"
+      "size": 18134,
+      "sha256": "062ef6b55e34cefe9ecf0100426c559e429fc93d83452429882938036175dbe0"
     },
     {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
@@ -1698,8 +1698,8 @@
     },
     {
       "path": "frontend/src/features/calendar/JobPeekSheet.tsx",
-      "size": 13396,
-      "sha256": "1bcf1e18e815839e4236294d723b2104f5e1da5ca5928485fab367fa5f0cff5e"
+      "size": 13771,
+      "sha256": "9c1758d78a931e67003b3f680606d25dde0432cb87b4e24d6160d601d0aba3b2"
     },
     {
       "path": "frontend/src/features/calendar/MonthMoneySummary.tsx",
@@ -1928,8 +1928,8 @@
     },
     {
       "path": "frontend/src/features/jobs/JobsTab.tsx",
-      "size": 80409,
-      "sha256": "ceb05f4a8cf3c0b70923c68111aa41ac34487c9423ab44635f1de93dea93e33e"
+      "size": 82428,
+      "sha256": "cd78a9fa250b23439cae230f3c130f85c44cd8fe34b8c4a39c8296194bda70e0"
     },
     {
       "path": "frontend/src/features/jobs/jobSort.ts",
@@ -2228,8 +2228,8 @@
     },
     {
       "path": "frontend/src/features/settings/SettingsTab.tsx",
-      "size": 89271,
-      "sha256": "6190a3657d8c9f1f0c32bd5085281f94c6063b8683fba719b64cf97f8c100b76"
+      "size": 89648,
+      "sha256": "ec070c31171e49bf6980f79d4e2402029b75210c435fc68dff6a22c587cf7789"
     },
     {
       "path": "frontend/src/features/tax/TaxTab.tsx",
@@ -2308,8 +2308,8 @@
     },
     {
       "path": "frontend/src/index.css",
-      "size": 38746,
-      "sha256": "de7a1993e59490a554262db53e94df95ca3e28c184fc475dea7abb54fbbb56fc"
+      "size": 38950,
+      "sha256": "edb4394992f968e5ebbdbb3613e06b9d6cf2a982ff08d144ad3b60675c58e744"
     },
     {
       "path": "frontend/src/kinetic-preview.tsx",
@@ -2832,6 +2832,11 @@
       "sha256": "647ce42d78c1b7c0592cf83512241ee710b84c66df3ebd9e15db8168c35475c9"
     },
     {
+      "path": "tests/e2e/desktop-parity.spec.ts",
+      "size": 10679,
+      "sha256": "c771f2ffd1796fd81b9964cfec9f6aab7ead395e155f246a0c520c9dcb71e790"
+    },
+    {
       "path": "tests/e2e/finance-workspaces.spec.ts",
       "size": 16386,
       "sha256": "1a6230d1fc8c9c766169f4dab9f4d84cbdbba4fa33d366a707a41a98bd6e9186"
@@ -3038,8 +3043,8 @@
     },
     {
       "path": "vercel.json",
-      "size": 3202,
-      "sha256": "fd19d7dbdca453c592e92994f8cd643e6dc9125ccc8ae3519c15c3efc9c589f7"
+      "size": 3231,
+      "sha256": "bbdf82c3122bdae074c819a323a743c1283fd01bb2eebc7effbffd8409f5108f"
     },
     {
       "path": "wrangler.production.jsonc",

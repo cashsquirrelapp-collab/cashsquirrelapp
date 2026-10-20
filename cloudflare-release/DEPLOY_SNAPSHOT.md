@@ -368,3 +368,32 @@ Final app version: 0bb0d541-69c8-4dc8-b3d0-64d308e69840. Public-info version: d6
 An initial deployment used the kit's English horizontal wordmark; the owner corrected this during the turn. That intermediate release was superseded by the versions above and is not the requested final state. Live browser verification confirms the original Thai name with the new symbol on the app dashboard and the public-information site. The authenticated QA session initially stayed in its loading skeleton before completing; no new runtime exception was observed. No payment, permission, database or schedule changes.
 
 Validation: TypeScript, Cloudflare checks, 16 security/scheduled tests, production build and packaged-source verification passed. Fixture screenshots reviewed for desktop/mobile and light/dark themes, with no observed page errors or horizontal overflow. Live proof: krarok-thai-logo-live.png in the task visualization folder.
+
+
+## Computer and iPad parity; a tidy card payment dialog with its font - 2026-10-21
+
+Built on top of 94de852 (new tail symbol, Thai wordmark kept). Those files are unchanged here; only the files listed below differ.
+
+**Computers and iPads (744px and up), designed for the wide layout rather than copied from phones.**
+- Jobs table:
+  - A receive button sits beside ⋯ on every unpaid job, labelled รับมัดจำ or รับเงิน from 768px. The full action is in the tooltip.
+  - Client and payment columns show from 1280px. Below that, the client sits under the job name and the payment chip under the status.
+- Settings: notifications moved into "LINE AI Pro · การแจ้งเตือน" beside LINE.
+- Confirm dialogs: the official mascot sits beside the message (same poses as on phones, the character is not redrawn).
+- A job opened from the timeline is a centred panel: value, received and owed with a bar, facts in two columns, actions on the right.
+- Dark mode primary buttons: white type on #E65F2B.
+
+**Card payment dialog (all screens).**
+- One type scale. The amount sits in a summary box with the next-round note. A divider separates card fields from wallets.
+- Stripe field labels are regular weight.
+- Consent text, disclosure, button labels, test ids and payment logic are unchanged.
+
+**CSP:** `connect-src` gains `https://fonts.googleapis.com`. Stripe.js fetches the font stylesheet from the host page, and the old policy blocked it, so the card fields fell back to a system font. Same change in `_headers`, `cloudflare/worker.ts`, `backend/src/http/securityHeaders.ts` and `vercel.json`.
+
+Changed against 94de852: backend/src/http/securityHeaders.ts, cloudflare/worker.ts, frontend/public/_headers, frontend/src/components/ui/CustomDialog.tsx, frontend/src/features/billing/CardPaymentModal.tsx, frontend/src/features/calendar/JobPeekSheet.tsx, frontend/src/features/jobs/JobsTab.tsx, frontend/src/features/settings/SettingsTab.tsx, frontend/src/index.css, tests/e2e/desktop-parity.spec.ts (new), vercel.json.
+- Archive SHA256 `585ee4a6af30fc3824dda67301e81cfbd04bbf581748c8101abca983709fb866`; manifest SHA256 `25674e85d9b987659b8f3d374faf65cb68373ec3d09cfc0b374b7393cece3bf7`.
+- Checked:
+  - cloudflare:check (lint, typecheck, 16 tests), the Cloudflare build and preflight on the extracted package.
+  - Unit suite: 335 of 340 pass, with the same 5 known failures.
+  - Billing and computer/iPad e2e: 41/41.
+  - App e2e: no new failures against the 94de852 source.
