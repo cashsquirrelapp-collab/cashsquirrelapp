@@ -324,3 +324,13 @@ User requested matching the website CI and removing the save-card checkbox. Stri
 - Checkbox updates locally without waiting for the server. A 350 ms debounce coalesces changes. Updates serialize; older responses cannot overwrite the displayed latest choice. Payment stays blocked until Checkout mode and ready fields match the latest selection. Errors retain the selection and require retry/reconciliation. Late responses do not reopen a dismissed custom card dialog.
 - Validation: typecheck, production build, 16 Cloudflare/security checks and 4 focused browser tests pass. Deliberately held responses confirm checkbox changes within a 250 ms assertion budget while the request remains unresolved, no parallel writes, and only the final matching session can be confirmed. Failed preparation and retry also pass. This assertion is local test evidence, not a universal latency guarantee.
 - No backend payment, database, price, permission, consent default, secret or cron changes. No actual card or bank payment submitted. Source delta: card-responsive-selection.patch.
+
+## Checkout loading and parallel preparation — 2026-10-21
+
+- Production version: e1276fcf-5775-48b8-a606-b7f92fe61b8d.
+- Archive SHA256: f0fb886cc59976d41cb80374323b37b77da8bc69db795c7d2686e8b98fb84fea; 593 source files.
+- Independent rate/eligibility, catalog/pending and existing-customer/subscription reads run concurrently. Successful expiration uses Stripe's canonical response; unknown/failed outcomes retain retrieval and payment-race handling. Unpaid resume avoids duplicate order retrieval.
+- Stripe SDK preloads during server preparation. Fields and confirmation actions load concurrently, but payment remains disabled until both are ready. Immediate package/amount dialog can be dismissed safely without a late response reopening it.
+- Sanitized live server timings: unpaid resume 1,094 ms; replace monthly with 6-month session 2,648 ms. These are individual server samples, not whole-page timing guarantees or before/after comparisons.
+- Validation: TypeScript, production build, 16 Cloudflare/security checks, 29 payment/SQL/HTTP cases across targeted runs, 6 browser scenarios including delayed API/actions, early dismissal, renewal rapid changes/retry, CI/disclosures and stop-renewal. No real card details or payments submitted.
+- No prices, database migration, key permissions, secrets, consent defaults or daily schedules changed. Readable source delta: card-checkout-loading.patch.

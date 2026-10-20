@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Responsive renewal selection with serialized latest-choice reconciliation — 2026-10-21",
+  "source_label": "Parallel checkout preparation and immediate card loading UI — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "74df26e67c7943f8cdc06007e9c7b7fc9df4d34d91edb30196d09e5ef968c32e",
+  "archive_sha256": "f0fb886cc59976d41cb80374323b37b77da8bc69db795c7d2686e8b98fb84fea",
   "file_count": 593,
-  "total_source_bytes": 20835519,
+  "total_source_bytes": 20848294,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -73,8 +73,8 @@
     },
     {
       "path": "backend/src/handlers/billing.ts",
-      "size": 5132,
-      "sha256": "71ec8e9ef16d5fe3e34e75799f73118702fe1c94508de324951908080289c43b"
+      "size": 5616,
+      "sha256": "6edd0603531bbcfe674eec211582ec74368efa31a9929d4f756e4f9a0d04dfcc"
     },
     {
       "path": "backend/src/handlers/close-expired-accounts.ts",
@@ -423,8 +423,8 @@
     },
     {
       "path": "backend/src/services/prepaidBilling.ts",
-      "size": 16810,
-      "sha256": "1bc122e6112a8810c833e873acbcdd11246b3fc4fe7b01ee763f990a955fb66c"
+      "size": 18925,
+      "sha256": "8c26fd147aa574ed94ea54ce1c5da3efa919d4f2cf0304b802d4a08e018480fc"
     },
     {
       "path": "backend/src/services/prepaidPlans.ts",
@@ -628,8 +628,8 @@
     },
     {
       "path": "docs/CUSTOM_CARD_RENEWALS.md",
-      "size": 8706,
-      "sha256": "4f3f381860d247e4fe6a619f18a8ddb12d7efd0802e8944ba4bc8c04183f1641"
+      "size": 10850,
+      "sha256": "31092beca17db3b6482513b5d03fb41b94d49a2b72e69f6c99dc6bf7e5b3dc20"
     },
     {
       "path": "docs/DIRECT_PROMPTPAY.md",
@@ -1483,8 +1483,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 183416,
-      "sha256": "22876b3b8cc7f50be612fafb1184c0aa98e9417f1369eb87523302781d794be3"
+      "size": 184087,
+      "sha256": "c6554ce9b6d1ed7ddc7daedfeecf8b3583be31f280815d9fe80a31e00e01a6a7"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1588,8 +1588,8 @@
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
-      "size": 11753,
-      "sha256": "6d6ae903f4889ebf0bb874559ca91cdc96782b8c4d44e6e92da81c083b2b66db"
+      "size": 13292,
+      "sha256": "9e23d952d289d817ae08cd281df0668cef421d9bb091ae39c2faa96985cb8929"
     },
     {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
@@ -2753,8 +2753,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 47450,
-      "sha256": "c04c3a11d40a5bc011375dcf2a53a2e9f9eb940bf24b04e3fac41218532d53be"
+      "size": 51254,
+      "sha256": "6bd14be51dd06a4ba3a08892f06a5ded2e905ea064c7341ae6cdd43e778d3247"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -2883,8 +2883,8 @@
     },
     {
       "path": "tests/prepaid-http.test.ts",
-      "size": 29102,
-      "sha256": "76c9d42a3f2d98a371f49d63e40ba18a2ef0d3d8e81868cae6bec7e47310e6be"
+      "size": 31120,
+      "sha256": "6832ab8446945dcaed42bef6314c587fe405a45bd7feaae1a33328ff17e4ce45"
     },
     {
       "path": "tests/prepaid-plans.test.ts",
