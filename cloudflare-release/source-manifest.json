@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Custom card payments with explicit optional renewal, preserving terracotta phone UI — 2026-10-21",
+  "source_label": "CI-aligned card form, button-based save disclosure, separate opt-in renewal — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "c41a4e1db30d88612f6cfffd5dea0a22cee5f1b7bc78e3cd6fc612c27b9c54c5",
+  "archive_sha256": "3b6f0a0b1244478adb263bb457d1702aa226777f06c2f94012d3424e74b73572",
   "file_count": 593,
-  "total_source_bytes": 20822876,
+  "total_source_bytes": 20825971,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -303,8 +303,8 @@
     },
     {
       "path": "backend/src/services/cardPlans.ts",
-      "size": 2623,
-      "sha256": "dfe0a0b5092650c33dfff3058ff7462cf234845f150c74f6d0c8d9ae172b09f0"
+      "size": 2811,
+      "sha256": "19b236202c8e61747db514520f00d1d1e5ecd1aafc4b58bed7412ef0e91a41a0"
     },
     {
       "path": "backend/src/services/cardRenewals.ts",
@@ -423,8 +423,8 @@
     },
     {
       "path": "backend/src/services/prepaidBilling.ts",
-      "size": 16627,
-      "sha256": "7df9d8d7ee100896526a2c1706336b4e8c829cdc62a85fedf3e9973430535c90"
+      "size": 16810,
+      "sha256": "1bc122e6112a8810c833e873acbcdd11246b3fc4fe7b01ee763f990a955fb66c"
     },
     {
       "path": "backend/src/services/prepaidPlans.ts",
@@ -628,8 +628,8 @@
     },
     {
       "path": "docs/CUSTOM_CARD_RENEWALS.md",
-      "size": 6702,
-      "sha256": "ca0647d3396b2a216305cf17999540bc48bfd90b6fe94c5c9e97a7d916ab8770"
+      "size": 7740,
+      "sha256": "5719b35c685d0b67084221653d939c81f3dbbf87a56b9616b904796fb93b366c"
     },
     {
       "path": "docs/DIRECT_PROMPTPAY.md",
@@ -1588,8 +1588,8 @@
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
-      "size": 8618,
-      "sha256": "c8c4b26c7046a14d1d2347ca77fc0c7ae4bfab08428bc4a5fddc9a32d13dfcf6"
+      "size": 8994,
+      "sha256": "b2c8f0c82aead81ea65e6974e810b06c46d23d91a7edbc803d68b4df65b1f4aa"
     },
     {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
@@ -2533,8 +2533,8 @@
     },
     {
       "path": "shared/cardConsent.ts",
-      "size": 812,
-      "sha256": "9e86ec6ff22476206bcebac46bf52a8c0c5ff2b00a06eca14297722c683d66b8"
+      "size": 1262,
+      "sha256": "bf855e1f5899f40a8a9814189a5a9bc3d90a913d4f557855f69fb5449f4202db"
     },
     {
       "path": "shared/cashBalance.ts",
@@ -2688,8 +2688,8 @@
     },
     {
       "path": "tests/card-renewals.test.ts",
-      "size": 4148,
-      "sha256": "307fb656f41b0a2674b97c78892d682074a850a1af9c2901e347e1dcd33fb413"
+      "size": 4359,
+      "sha256": "d580a5f507de89ee121e6fdbc9b3cac5eb5a235708ac032ae9b5f03723420b2d"
     },
     {
       "path": "tests/cash-balance.test.ts",
@@ -2753,8 +2753,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 41177,
-      "sha256": "2113e8efd4ac928746159eec55f3c3a10b43e2591a9f7ab942725a8462d34e36"
+      "size": 41826,
+      "sha256": "27a72d8ea33bc63c370b489fe2e4eab35ceddbbbc461d3e8e16bde922c5e5f5d"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",

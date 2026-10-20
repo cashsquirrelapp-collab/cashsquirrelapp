@@ -60,3 +60,10 @@ Merged remote commit 6690dde (terracotta mobile UI and ticket-style Pro card) wi
 - Combined source passed typechecking, 16 Cloudflare/security checks, production build, archive verification and 4 focused browser tests: mobile Pro readability, all package prices, separate save/renewal consent, and cancellation preserving the paid end date.
 - Daily triggers, encrypted secrets, payment catalog and already-applied database migration remain unchanged. No actual card payment was submitted.
 - custom-card-renewals.patch now describes the card payment changes relative to 6690dde, preserving its mobile UI.
+
+
+## 2026-10-21 — CI font and save-card consent revision
+
+This replaces the earlier save-card checkbox presentation. The app now loads its existing IBM Plex Sans Thai / IBM Plex Sans stylesheet inside Stripe Elements and uses the app color tokens. There is no separate save-card checkbox. New card flows still request saveCard=true, but card saving occurs only when the customer presses the explicitly labeled “ยืนยันชำระ … และบันทึกบัตร” button beside the save-purpose disclosure. Merely typing does not save a card. The renewal checkbox remains separately unchecked; saving alone never creates recurring billing.
+
+The versioned save-purpose disclosure is included in immutable Checkout request metadata. An unpaid legacy request with an older disclosure is expired/replaced before reuse. Metadata records the offered disclosure; an unpaid session is not evidence of agreement or payment. Successful customer confirmation is required. No migration, price, tax or permission changes.

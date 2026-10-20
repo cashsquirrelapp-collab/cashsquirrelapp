@@ -304,3 +304,14 @@ Merged remote commit 6690dde (terracotta mobile UI and ticket-style Pro card) wi
 - Combined source passed typechecking, 16 Cloudflare/security checks, production build, archive verification and 4 focused browser tests: mobile Pro readability, all package prices, separate save/renewal consent, and cancellation preserving the paid end date.
 - Daily triggers, encrypted secrets, payment catalog and already-applied database migration remain unchanged. No actual card payment was submitted.
 - custom-card-renewals.patch now describes the card payment changes relative to 6690dde, preserving its mobile UI.
+
+
+## CI card fonts and button-based save consent — 2026-10-21
+
+User requested matching the website CI and removing the save-card checkbox. Stripe Elements now loads the same IBM Plex font families as the app and reads its color tokens. The save checkbox is removed; the confirm button explicitly states payment plus card saving, with adjacent purpose disclosure. Saving occurs only upon customer confirmation. Renewal remains separately unchecked; no existing customer was opted into recurring charges.
+
+- Production version: 57898943-29a0-4a55-a1a2-54c62aadf340.
+- Archive SHA256: 3b6f0a0b1244478adb263bb457d1702aa226777f06c2f94012d3424e74b73572 (593 files).
+- Saved-card disclosure version/text are carried in immutable request metadata. Old unpaid requests without this version are replaced before reuse; unpaid metadata is not proof of consent.
+- Validation: typecheck and production build; 16 Cloudflare/security checks; 27 payment/SQL/HTTP tests; 3 focused UI tests covering mobile readability, no save checkbox and explicit button consent, and stop-renewal preserving paid time. No actual card data or real payment used.
+- No database migration, Stripe permission, price, tax, secret or cron change. Source delta: card-ci-save-consent.patch.

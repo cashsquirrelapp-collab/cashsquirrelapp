@@ -1,0 +1,209 @@
+--- a/backend/src/services/cardPlans.ts
++++ b/backend/src/services/cardPlans.ts
+@@ -1,6 +1,6 @@
+ import type Stripe from 'stripe';
+ import { PRO_PRICING, type ProPeriod } from '../../../shared/proPricing.js';
+-import { CARD_CONSENT_VERSION, renewalConsentText, type CardOptions } from '../../../shared/cardConsent.js';
++import { CARD_CONSENT_VERSION, CARD_SAVE_DISCLOSURE, CARD_SAVE_DISCLOSURE_VERSION, renewalConsentText, type CardOptions } from '../../../shared/cardConsent.js';
+ import { prepaidMetadata, type PrepaidOrder } from './prepaidPlans.js';
+ 
+ export const recurringProductId = () => process.env.KRAROK_PRO_PRODUCT_ID || 'prod_VTbexQEI6jrH8r';
+@@ -24,6 +24,7 @@
+   const metadata = { ...prepaidMetadata(order), payment_flow: 'custom_card',
+     auto_renew: String(options.autoRenew), save_card: String(options.saveCard),
+     consent_version: CARD_CONSENT_VERSION, consent_at: new Date().toISOString(),
++    ...(options.saveCard ? { save_disclosure_version: CARD_SAVE_DISCLOSURE_VERSION, save_disclosure_text: CARD_SAVE_DISCLOSURE } : {}),
+     ...(options.autoRenew ? { consent_text: renewalConsentText(order.period) } : {}) };
+   const request: Stripe.Checkout.SessionCreateParams = {
+     ...base, ui_mode: 'elements', mode: options.autoRenew ? 'subscription' : 'payment',
+--- a/backend/src/services/prepaidBilling.ts
++++ b/backend/src/services/prepaidBilling.ts
+@@ -1,6 +1,6 @@
+ import { customCardCheckout, isAutoOrder, recurringLookup, validRecurringPrice } from './cardPlans.js';
+ import { applyAutoSession } from './cardRenewals.js';
+-import type { CardOptions } from '../../../shared/cardConsent.js';
++import { CARD_SAVE_DISCLOSURE_VERSION, type CardOptions } from '../../../shared/cardConsent.js';
+ import { isDirectQr, startDirectQr, cancelDirectQr } from './directPromptPay.js';
+ import { randomUUID } from 'node:crypto';
+ import { isDeepStrictEqual } from 'node:util';
+@@ -141,6 +141,7 @@
+     const replace = old.period !== period || old.method !== method
+       || (old.request && (isDirectQr(old) !== directQr || (!isDirectQr(old) && (old.request as Stripe.Checkout.SessionCreateParams).ui_mode !== (customCard ? 'elements' : 'embedded_page'))))
+       || (old.request && (isAutoOrder(old) !== autoRenew || (customCard && old.request.metadata?.save_card !== String(cardOptions?.saveCard === true))))
++      || (old.request && customCard && cardOptions?.saveCard === true && old.request.metadata?.save_disclosure_version !== CARD_SAVE_DISCLOSURE_VERSION)
+       || Date.parse(old.expires_at) <= Date.now();
+     if (!replace) continue;
+     if (isDirectQr(old)) { await cancelDirectQr(old); continue; }
+--- a/docs/CUSTOM_CARD_RENEWALS.md
++++ b/docs/CUSTOM_CARD_RENEWALS.md
+@@ -49,3 +49,10 @@
+ - Annual payment: cs_live_a1NOp6zSrfZKLv0l9xOXioQBqh4JL48mBRMcbdBIH9VGRa2LYxqu2Qf9Vg; annual subscription-mode: cs_live_a1ZzqSNhjldixWn4U9EPY0x3bVLtR1u2tdS1Z2FpR3EJceEzcYWtlZOwAG.
+ 
+ No test entered card data, confirmed payment or created a native subscription. Automated fixtures verify paid access, expiry and cancellation; actual bank settlement and saved-card reuse have not been exercised. Local proof images: krarok-card-custom-159.png, krarok-card-custom-849.png, krarok-card-auto-1490.png, krarok-card-auto-849.png, stripe-subscriptions-write-saved.png.
++
++
++## 2026-10-21 — CI font and save-card consent revision
++
++This replaces the earlier save-card checkbox presentation. The app now loads its existing IBM Plex Sans Thai / IBM Plex Sans stylesheet inside Stripe Elements and uses the app color tokens. There is no separate save-card checkbox. New card flows still request saveCard=true, but card saving occurs only when the customer presses the explicitly labeled “ยืนยันชำระ … และบันทึกบัตร” button beside the save-purpose disclosure. Merely typing does not save a card. The renewal checkbox remains separately unchecked; saving alone never creates recurring billing.
++
++The versioned save-purpose disclosure is included in immutable Checkout request metadata. An unpaid legacy request with an older disclosure is expired/replaced before reuse. Metadata records the offered disclosure; an unpaid session is not evidence of agreement or payment. Successful customer confirmation is required. No migration, price, tax or permission changes.
+--- a/frontend/src/features/billing/CardPaymentModal.tsx
++++ b/frontend/src/features/billing/CardPaymentModal.tsx
+@@ -4,7 +4,7 @@
+ import { CreditCard, LockKeyhole } from 'lucide-react';
+ import { Modal } from '../../components/ui/Modal';
+ import { uiPrimaryButton } from '../../components/ui/uiStyles';
+-import { renewalConsentText, type CardOptions } from '../../../../shared/cardConsent';
++import { CARD_SAVE_DISCLOSURE, renewalConsentText, type CardOptions } from '../../../../shared/cardConsent';
+ import type { EmbeddedPayment } from './EmbeddedPaymentModal';
+ 
+ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplete }: {
+@@ -31,15 +31,22 @@
+       if (canceled) return;
+       if (!stripe) throw new Error('โหลดช่องกรอกบัตรไม่สำเร็จ');
+       const dark = document.documentElement.classList.contains('dark');
++      const styles = getComputedStyle(document.documentElement);
++      const token = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
+       const sdk = stripe.initCheckoutElementsSdk({
+         clientSecret: checkout.clientSecret,
+         elementsOptions: {
++          // Stripe fields live in an iframe: the site's CSS fonts must be loaded there too.
++          fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap' }],
+           savedPaymentMethod: { enableSave: 'never', enableRedisplay: 'auto' },
+           appearance: {
+             theme: dark ? 'night' : 'stripe',
+-            variables: { colorPrimary: '#ffa66b', colorBackground: dark ? '#202124' : '#ffffff',
+-              colorText: dark ? '#f3f1ef' : '#292524', colorDanger: '#ef4444',
+-              borderRadius: '12px', fontFamily: 'system-ui, sans-serif', spacingUnit: '4px' },
++            variables: { colorPrimary: token('--blue-acc', '#E65F2B'), colorBackground: token('--white', '#ffffff'),
++              colorText: token('--text', '#1C1917'), colorTextSecondary: token('--muted', '#7D7772'), colorDanger: '#ef4444',
++              borderRadius: '12px', fontFamily: '"IBM Plex Sans Thai", "IBM Plex Sans", sans-serif',
++              fontSizeBase: '16px', fontWeightNormal: '400', fontWeightMedium: '500', fontWeightBold: '600', spacingUnit: '4px' },
++            rules: { '.Input': { boxShadow: 'none', borderColor: token('--border', '#E5E3DF') },
++              '.Label': { fontWeight: '500' }, '.Tab': { boxShadow: 'none' } },
+           },
+         },
+       });
+@@ -69,12 +76,12 @@
+     } catch { setError('การเชื่อมต่อขัดข้อง กรุณารอสักครู่แล้วลองใหม่'); }
+     finally { setPaying(false); }
+   };
+-  const changeOptions = (autoRenew: boolean, saveCard: boolean) => {
++  const changeOptions = (autoRenew: boolean) => {
+     if (busy || paying) return;
+-    setChanged(true); onOptions({ autoRenew, saveCard });
++    setChanged(true); onOptions({ autoRenew, saveCard: true });
+   };
+   return <Modal open onClose={paying ? () => {} : onClose} label="ชำระด้วยบัตร" width={520}>
+-    <div className="overflow-y-auto p-5 pt-10 sm:p-7 sm:pt-10">
++    <div className="overflow-y-auto p-5 pt-10 font-sans sm:p-7 sm:pt-10">
+       <div className="mb-5 flex items-center gap-3">
+         <div className="rounded-xl bg-orange-500/10 p-3 text-orange-400"><CreditCard size={24}/></div>
+         <div><h2 className="text-xl font-bold text-brand-text dark:text-white">ชำระด้วยบัตร</h2>
+@@ -87,15 +94,9 @@
+         {!ready && !error && <p role="status" className="mb-4 text-sm text-brand-muted">กำลังเตรียมช่องกรอกบัตร…</p>}
+         <div ref={mount} data-testid="custom-card-fields" className={busy ? 'pointer-events-none opacity-40' : ''}/>
+         <fieldset disabled={busy || paying} className="mt-5 space-y-4 disabled:opacity-50">
+-          <label className="flex cursor-pointer items-start gap-3 text-sm text-brand-text dark:text-white">
+-            <input type="checkbox" className="mt-1 h-4 w-4 accent-orange-400" checked={checkout.saveCard === true}
+-              disabled={checkout.autoRenew === true}
+-              onChange={e => changeOptions(false, e.target.checked)}/>
+-            <span>จำบัตรไว้ใช้ครั้งหน้า<span className="mt-1 block text-xs text-brand-muted">บัตรเก็บอย่างปลอดภัยกับ Stripe การจำบัตรอย่างเดียวจะไม่ตัดเงินอัตโนมัติ</span></span>
+-          </label>
+           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-orange-400/25 p-3 text-sm text-brand-text dark:text-white">
+             <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-orange-400" checked={checkout.autoRenew === true}
+-              onChange={e => changeOptions(e.target.checked, checkout.saveCard === true || e.target.checked)}/>
++              onChange={e => changeOptions(e.target.checked)}/>
+             <span>{renewalConsentText(checkout.period)}</span>
+           </label>
+         </fieldset>
+@@ -104,9 +105,11 @@
+           : `จ่ายครั้งเดียว ใช้ Pro ${duration} · ไม่ตัดเงินรอบถัดไป`}</p>
+         {changed && <p className="mt-2 text-xs text-brand-muted">เมื่อเปลี่ยนตัวเลือก ระบบจะเตรียมรายการใหม่ กรุณาตรวจข้อมูลบัตรก่อนชำระ</p>}
+         {error && <p role="alert" className="mt-3 text-sm text-red-500">{error}</p>}
++        {checkout.saveCard && <p id="card-save-disclosure" className="mt-4 text-xs leading-relaxed text-brand-muted">{CARD_SAVE_DISCLOSURE}</p>}
+         <button type="button" disabled={!ready || busy || paying} onClick={() => void confirm()}
++          aria-describedby={checkout.saveCard ? 'card-save-disclosure' : undefined}
+           className={`${uiPrimaryButton} mt-5 w-full disabled:opacity-50`}>
+-          {busy ? 'กำลังปรับรายการ…' : paying ? 'กำลังยืนยันการชำระ…' : `ยืนยันชำระ ฿${amount}`}
++          {busy ? 'กำลังปรับรายการ…' : paying ? 'กำลังยืนยันการชำระ…' : `ยืนยันชำระ ฿${amount}${checkout.saveCard ? ' และบันทึกบัตร' : ''}`}
+         </button>
+       </>}
+       <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-brand-muted"><LockKeyhole size={13}/> ชำระอย่างปลอดภัยผ่าน Stripe</p>
+--- a/shared/cardConsent.ts
++++ b/shared/cardConsent.ts
+@@ -1,6 +1,8 @@
+ import { PRO_PRICING, type ProPeriod } from './proPricing';
+ 
+ export const CARD_CONSENT_VERSION = 'krarok-card-20261021-v1';
++export const CARD_SAVE_DISCLOSURE_VERSION = 'krarok-card-save-20261021-v2';
++export const CARD_SAVE_DISCLOSURE = 'เมื่อกดยืนยันชำระ คุณยินยอมให้ Stripe บันทึกบัตรเพื่อใช้ชำระครั้งถัดไป การบันทึกบัตรไม่ใช่การยินยอมให้ตัดเงินอัตโนมัติ';
+ export function renewalConsentText(period: ProPeriod): string {
+   const plan = PRO_PRICING[period];
+   const cadence = plan.months === 12 ? 'ปี' : plan.months === 1 ? 'เดือน' : ' 6 เดือน';
+--- a/tests/card-renewals.test.ts
++++ b/tests/card-renewals.test.ts
+@@ -3,7 +3,7 @@
+ import { customCardCheckout, recurringLookup, RECURRING_OFFER, validRecurringPrice } from '../backend/src/services/cardPlans.js';
+ import { assertAutoSubscription, validateAutoInvoice } from '../backend/src/services/cardRenewals.js';
+ import { buildPrepaidCheckout, type PrepaidOrder } from '../backend/src/services/prepaidPlans.js';
+-import { CARD_CONSENT_VERSION } from '../shared/cardConsent.js';
++import { CARD_CONSENT_VERSION, CARD_SAVE_DISCLOSURE, CARD_SAVE_DISCLOSURE_VERSION } from '../shared/cardConsent.js';
+ import { PRO_PERIODS, PRO_PRICING } from '../shared/proPricing.js';
+ Object.assign(process.env, { STRIPE_MODE: 'test', STRIPE_SECRET_KEY: 'sk_test_only' });
+ for (const period of PRO_PERIODS) {
+@@ -16,6 +16,8 @@
+   const once=customCardCheckout(order,base,{autoRenew:false,saveCard:true,consentVersion:CARD_CONSENT_VERSION});
+   assert.equal(once.mode,'payment'); assert.equal(once.subscription_data,undefined);
+   assert.equal(once.metadata?.auto_renew,'false');assert.equal(once.metadata?.save_card,'true');
++  assert.equal(once.metadata?.save_disclosure_version,CARD_SAVE_DISCLOSURE_VERSION);
++  assert.equal(once.metadata?.save_disclosure_text,CARD_SAVE_DISCLOSURE);
+   assert.equal(once.ui_mode,'elements'); assert.equal('payment_method_types' in once,false);
+   assert.throws(()=>customCardCheckout(order,base,{autoRenew:true,saveCard:false,consentVersion:CARD_CONSENT_VERSION}));
+   assert.throws(()=>customCardCheckout(order,base,{autoRenew:true,saveCard:true,consentVersion:'old'}));
+--- a/tests/e2e/billing.spec.ts
++++ b/tests/e2e/billing.spec.ts
+@@ -577,12 +577,12 @@
+  });
+ }
+ 
+-test('custom card has our payment button and separate unchecked renewal consent; saving alone never subscribes',async({page})=>{
++test('custom card uses CI fonts and disclosed button consent without a save checkbox; renewal stays opt-in',async({page})=>{
+  const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
+  const requests=await openPlans(page,free,'');
+  await page.route('https://js.stripe.com/**',route=>route.fulfill({contentType:'application/javascript',body:`
+-  window.Stripe=function(){return {initCheckoutElementsSdk:function(){let el; return {
+-   loadActions:async()=>({type:'success',actions:{confirm:async()=>({type:'success'})}}),
++  window.Stripe=function(){return {initCheckoutElementsSdk:function(options){window.__cardAppearance=options.elementsOptions;let el; return {
++   loadActions:async()=>({type:'success',actions:{confirm:async(options)=>{window.__cardConfirm=options;return {type:'success'}}}}),
+    createPaymentElement:()=>({on:(event,cb)=>{if(event==='ready')setTimeout(cb,10)},mount:root=>{el=root;root.innerHTML='<p>Secure card fields</p>'},destroy:()=>{if(el)el.innerHTML=''}})
+   }}}};
+  `}));
+@@ -595,15 +595,22 @@
+  });
+  await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
+  await expect(page.getByText('Secure card fields')).toBeVisible();
+- const auto=page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/});const save=page.getByRole('checkbox',{name:/จำบัตรไว้ใช้ครั้งหน้า/});
+- await expect(auto).not.toBeChecked();await expect(save).toBeChecked();
++ const auto=page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/});
++ await expect(auto).not.toBeChecked();
++ await expect(page.getByRole('checkbox',{name:/จำบัตรไว้ใช้ครั้งหน้า/})).toHaveCount(0);
++ await expect(page.getByText(/เมื่อกดยืนยันชำระ คุณยินยอมให้ Stripe บันทึกบัตร/)).toBeVisible();
++ const appearance=await page.evaluate(()=> (window as any).__cardAppearance);
++ expect(appearance.appearance.variables.fontFamily).toContain('IBM Plex Sans Thai');
++ expect(appearance.fonts[0].cssSrc).toContain('IBM+Plex+Sans+Thai');
++ expect(await page.evaluate(()=> (window as any).__cardConfirm)).toBeUndefined();
+  expect(requests.at(-1)?.postDataJSON()).toMatchObject({autoRenew:false,saveCard:true});
+- await auto.click();await expect(auto).toBeChecked();await expect(save).toBeDisabled();
++ await auto.click();await expect(auto).toBeChecked();
+  expect(requests.at(-1)?.postDataJSON()).toMatchObject({autoRenew:true,saveCard:true,consentVersion:CARD_CONSENT_VERSION});
+- await auto.click();await expect(auto).not.toBeChecked();await expect(save).toBeEnabled();
++ await auto.click();await expect(auto).not.toBeChecked();
+  expect(requests.at(-1)?.postDataJSON()).toMatchObject({autoRenew:false,saveCard:true});
+- await page.getByRole('button',{name:'ยืนยันชำระ ฿159',exact:true}).click();
++ await page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true}).click();
+  await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toBeVisible();
++ expect(await page.evaluate(()=> (window as any).__cardConfirm)).toMatchObject({savePaymentMethod:true});
+  await expect(page).toHaveURL(/\/plans/);
+ });
+ 
