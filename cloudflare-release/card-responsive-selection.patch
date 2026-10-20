@@ -1,0 +1,271 @@
+--- a/docs/CUSTOM_CARD_RENEWALS.md
++++ b/docs/CUSTOM_CARD_RENEWALS.md
+@@ -56,3 +56,10 @@
+ This replaces the earlier save-card checkbox presentation. The app now loads its existing IBM Plex Sans Thai / IBM Plex Sans stylesheet inside Stripe Elements and uses the app color tokens. There is no separate save-card checkbox. New card flows still request saveCard=true, but card saving occurs only when the customer presses the explicitly labeled “ยืนยันชำระ … และบันทึกบัตร” button beside the save-purpose disclosure. Merely typing does not save a card. The renewal checkbox remains separately unchecked; saving alone never creates recurring billing.
+ 
+ The versioned save-purpose disclosure is included in immutable Checkout request metadata. An unpaid legacy request with an older disclosure is expired/replaced before reuse. Metadata records the offered disclosure; an unpaid session is not evidence of agreement or payment. Successful customer confirmation is required. No migration, price, tax or permission changes.
++
++
++## 2026-10-21 — Responsive renewal selection
++
++Renewal selection now changes in local React state immediately. A 350 ms debounce coalesces quick changes, and only one option update can run at a time. A response for an earlier choice never replaces the currently displayed selection. The latest choice is reconciled after the outstanding request finishes. Payment is blocked while the choice or Stripe fields are stale, while reconciliation is pending, and after an unknown/failed outcome. Retry preserves the selection. Closed dialogs are not reopened by late Checkout responses.
++
++Stripe still requires a different Checkout for payment versus subscription mode. Creating that Checkout and loading its secure fields remains asynchronous. This revision removes waiting from the checkbox interaction; it does not claim zero-latency payment preparation. Card details may need re-entry after a mode change. No payment confirmation is initiated by selecting an option.
+--- a/frontend/src/app/App.tsx
++++ b/frontend/src/app/App.tsx
+@@ -1249,7 +1249,7 @@
+     finally { if (billingUserRef.current === userId) setBillingBusy(false); }
+   };
+ 
+-  const handleUpgrade = async (requestedMethod?: unknown, period: ProPeriod = 'month', options: Pick<CardOptions, 'autoRenew' | 'saveCard'> = { autoRenew: false, saveCard: true }) => {
++  const handleUpgrade = async (requestedMethod?: unknown, period: ProPeriod = 'month', options: Pick<CardOptions, 'autoRenew' | 'saveCard'> = { autoRenew: false, saveCard: true }, quietError = false) => {
+     const paymentMethod = requestedMethod === 'promptpay' ? 'promptpay' : 'card';
+     const currentUser = session?.user;
+     if (session?.isGuest) {
+@@ -1281,6 +1281,7 @@
+           : paymentMethod === 'promptpay' ? 'promptpay_checkout' : 'checkout', ...(hasOpenStripeSubscription ? {} : { period, ...(paymentMethod === 'card' ? { ...options, consentVersion: CARD_CONSENT_VERSION } : {}) }) }),
+       });
+       if (billingUserRef.current !== userId) return;
++      if (qrAttempt.current !== attempt) { setBillingBusy(false); return false; }
+       if (result.destination === 'qr') {
+         const expected = PRO_PRICING[period];
+         const image = new URL(result.qrImage);
+@@ -1305,7 +1306,7 @@
+         setBillingPollVersion(version => version + 1);
+         setEmbeddedPayment(result);
+         setBillingBusy(false);
+-        return;
++        return true;
+       }
+       const target = new URL(result.url || '');
+       if (result.destination !== 'portal' || target.protocol !== 'https:' || !target.hostname.endsWith('.stripe.com'))
+@@ -1316,7 +1317,8 @@
+       setBillingBusy(false);
+       if (paymentMethod === 'promptpay') {
+         if (qrAttempt.current === attempt) setQrPayment({ period, checkout: null, status: 'loading', error: formatError(error) });
+-      } else triggerAlert('เปิดหน้าชำระเงินไม่สำเร็จ', formatError(error));
++      } else if (!quietError && qrAttempt.current === attempt) triggerAlert('เปิดหน้าชำระเงินไม่สำเร็จ', formatError(error));
++      return false;
+     }
+   };
+ 
+@@ -3198,8 +3200,8 @@
+           onClose={() => { qrAttempt.current++; setQrPayment(null); }}
+           onRetry={() => { void handleUpgrade('promptpay', qrPayment.period); }} />}
+         {embeddedPayment?.customCard && <CardPaymentModal checkout={embeddedPayment} busy={billingBusy}
+-          onOptions={options => { void handleUpgrade('card', embeddedPayment.period, options); }}
+-          onClose={() => setEmbeddedPayment(null)} onComplete={handleEmbeddedComplete}/>}
++          onOptions={options => handleUpgrade('card', embeddedPayment.period, options, true)}
++          onClose={() => { qrAttempt.current++; setEmbeddedPayment(null); }} onComplete={handleEmbeddedComplete}/>}
+         {embeddedPayment && !embeddedPayment.customCard && <EmbeddedPaymentModal
+           checkout={embeddedPayment}
+           onClose={() => setEmbeddedPayment(null)}
+--- a/frontend/src/features/billing/CardPaymentModal.tsx
++++ b/frontend/src/features/billing/CardPaymentModal.tsx
+@@ -9,23 +9,57 @@
+ 
+ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplete }: {
+   checkout: EmbeddedPayment; busy: boolean;
+-  onOptions: (options: Pick<CardOptions, 'autoRenew' | 'saveCard'>) => void;
++  onOptions: (options: Pick<CardOptions, 'autoRenew' | 'saveCard'>) => Promise<boolean | undefined>;
+   onClose: () => void; onComplete: () => void;
+ }) {
+   const mount = React.useRef<HTMLDivElement>(null);
+   const actions = React.useRef<StripeCheckoutLoadActionsSuccess | null>(null);
+-  const [ready, setReady] = React.useState(false);
++  const [readySecret, setReadySecret] = React.useState<string | null>(null);
+   const [paying, setPaying] = React.useState(false);
+   const [completed, setCompleted] = React.useState(false);
+   const [error, setError] = React.useState('');
+   const [changed, setChanged] = React.useState(false);
++  const [autoRenew, setAutoRenew] = React.useState(checkout.autoRenew === true);
++  const [syncing, setSyncing] = React.useState(false);
++  const [syncError, setSyncError] = React.useState('');
++  const [retry, setRetry] = React.useState(0);
++  const syncLock = React.useRef(false);
++  const needsReconcile = React.useRef(false);
++  const mounted = React.useRef(false);
++  const optionsCallback = React.useRef(onOptions);
++  optionsCallback.current = onOptions;
++  const ready = readySecret === checkout.clientSecret;
++  const optionsPending = syncing || busy || autoRenew !== (checkout.autoRenew === true) || needsReconcile.current;
++  React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
++  React.useEffect(() => {
++    if (syncLock.current || busy || syncError || completed
++      || (autoRenew === (checkout.autoRenew === true) && !needsReconcile.current)) return;
++    // Respond locally on every click. Coalesce quick changes and serialize server writes:
++    // an older response can never reset the customer's latest selection.
++    const timer = window.setTimeout(() => {
++      syncLock.current = true; setSyncing(true);
++      void optionsCallback.current({ autoRenew, saveCard: true }).then(ok => {
++        if (!mounted.current) return;
++        needsReconcile.current = ok !== true;
++        if (!ok) setSyncError('ยังเตรียมรายการไม่สำเร็จ ตัวเลือกของคุณยังอยู่ กรุณาลองอีกครั้ง');
++      }).catch(() => {
++        if (!mounted.current) return;
++        needsReconcile.current = true;
++        setSyncError('การเชื่อมต่อขัดข้อง ตัวเลือกของคุณยังอยู่ กรุณาลองอีกครั้ง');
++      }).finally(() => {
++        syncLock.current = false;
++        if (mounted.current) setSyncing(false);
++      });
++    }, 350);
++    return () => window.clearTimeout(timer);
++  }, [autoRenew, checkout.autoRenew, checkout.clientSecret, busy, syncing, syncError, retry, completed]);
+   const amount = (checkout.amount / 100).toLocaleString('th-TH');
+   const duration = checkout.months === 12 ? '1 ปี' : `${checkout.months} เดือน`;
+   React.useEffect(() => {
+     let canceled = false;
+     let payment: StripePaymentElement | undefined;
+     actions.current = null;
+-    setReady(false); setError('');
++    setReadySecret(null); setError('');
+     void (async () => {
+       const stripe = await loadStripe(checkout.publishableKey, { locale: 'th' });
+       if (canceled) return;
+@@ -55,14 +89,14 @@
+       if (loaded.type !== 'success') throw new Error('โหลดหน้าชำระไม่สำเร็จ กรุณาลองใหม่');
+       actions.current = loaded.actions;
+       payment = sdk.createPaymentElement({ layout: 'tabs' });
+-      payment.on('ready', () => { if (!canceled) setReady(true); });
++      payment.on('ready', () => { if (!canceled) setReadySecret(checkout.clientSecret); });
+       payment.on('loaderror', () => { if (!canceled) setError('โหลดช่องกรอกบัตรไม่สำเร็จ กรุณาเปิดหน้านี้อีกครั้ง'); });
+       if (mount.current) payment.mount(mount.current);
+     })().catch(e => { if (!canceled) setError(e.message || 'โหลดหน้าชำระไม่สำเร็จ'); });
+     return () => { canceled = true; actions.current = null; payment?.destroy(); };
+   }, [checkout.clientSecret, checkout.publishableKey]);
+   const confirm = async () => {
+-    if (!actions.current || !ready || busy || paying || completed) return;
++    if (!actions.current || !ready || optionsPending || syncError || paying || completed) return;
+     if (Date.parse(checkout.expiresAt) <= Date.now()) { setError('รายการหมดเวลาแล้ว กรุณาปิดและเปิดชำระใหม่'); return; }
+     setPaying(true); setError('');
+     try {
+@@ -77,8 +111,8 @@
+     finally { setPaying(false); }
+   };
+   const changeOptions = (autoRenew: boolean) => {
+-    if (busy || paying) return;
+-    setChanged(true); onOptions({ autoRenew, saveCard: true });
++    if (paying || completed) return;
++    setChanged(true); setAutoRenew(autoRenew); setSyncError('');
+   };
+   return <Modal open onClose={paying ? () => {} : onClose} label="ชำระด้วยบัตร" width={520}>
+     <div className="overflow-y-auto p-5 pt-10 font-sans sm:p-7 sm:pt-10">
+@@ -92,24 +126,27 @@
+       </div>
+       {completed ? <p role="status" className="py-8 text-center">กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ</p> : <>
+         {!ready && !error && <p role="status" className="mb-4 text-sm text-brand-muted">กำลังเตรียมช่องกรอกบัตร…</p>}
+-        <div ref={mount} data-testid="custom-card-fields" className={busy ? 'pointer-events-none opacity-40' : ''}/>
+-        <fieldset disabled={busy || paying} className="mt-5 space-y-4 disabled:opacity-50">
++        <div ref={mount} data-testid="custom-card-fields" inert={optionsPending || !!syncError} className={optionsPending ? 'opacity-40' : ''}/>
++        <fieldset disabled={paying} className="mt-5 space-y-4 disabled:opacity-50">
+           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-orange-400/25 p-3 text-sm text-brand-text dark:text-white">
+-            <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-orange-400" checked={checkout.autoRenew === true}
++            <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-orange-400" checked={autoRenew}
+               onChange={e => changeOptions(e.target.checked)}/>
+             <span>{renewalConsentText(checkout.period)}</span>
+           </label>
+         </fieldset>
+-        <p className="mt-3 text-xs text-brand-muted">{checkout.autoRenew
++        <p className="mt-3 text-xs text-brand-muted">{autoRenew
+           ? `รอบถัดไป ฿${amount} ทุก${checkout.months === 12 ? 'ปี' : checkout.months === 1 ? 'เดือน' : ' 6 เดือน'} · ปิดการต่ออายุได้`
+           : `จ่ายครั้งเดียว ใช้ Pro ${duration} · ไม่ตัดเงินรอบถัดไป`}</p>
+-        {changed && <p className="mt-2 text-xs text-brand-muted">เมื่อเปลี่ยนตัวเลือก ระบบจะเตรียมรายการใหม่ กรุณาตรวจข้อมูลบัตรก่อนชำระ</p>}
++        {optionsPending && !syncError && <p role="status" className="mt-2 text-xs text-brand-muted">กำลังเตรียมรายการตามตัวเลือกของคุณ…</p>}
++        {changed && !optionsPending && !syncError && <p className="mt-2 text-xs text-brand-muted">อัปเดตตัวเลือกแล้ว กรุณาตรวจข้อมูลบัตรก่อนชำระ</p>}
++        {syncError && <div className="mt-3 text-sm"><p role="alert" className="text-red-500">{syncError}</p>
++          <button type="button" onClick={() => { setSyncError(''); setRetry(n => n + 1); }} className="mt-2 underline">ลองเตรียมรายการอีกครั้ง</button></div>}
+         {error && <p role="alert" className="mt-3 text-sm text-red-500">{error}</p>}
+         {checkout.saveCard && <p id="card-save-disclosure" className="mt-4 text-xs leading-relaxed text-brand-muted">{CARD_SAVE_DISCLOSURE}</p>}
+-        <button type="button" disabled={!ready || busy || paying} onClick={() => void confirm()}
++        <button type="button" disabled={!ready || optionsPending || !!syncError || paying} onClick={() => void confirm()}
+           aria-describedby={checkout.saveCard ? 'card-save-disclosure' : undefined}
+           className={`${uiPrimaryButton} mt-5 w-full disabled:opacity-50`}>
+-          {busy ? 'กำลังปรับรายการ…' : paying ? 'กำลังยืนยันการชำระ…' : `ยืนยันชำระ ฿${amount}${checkout.saveCard ? ' และบันทึกบัตร' : ''}`}
++          {optionsPending && !syncError ? 'กำลังเตรียมรายการ…' : paying ? 'กำลังยืนยันการชำระ…' : `ยืนยันชำระ ฿${amount}${checkout.saveCard ? ' และบันทึกบัตร' : ''}`}
+         </button>
+       </>}
+       <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-brand-muted"><LockKeyhole size={13}/> ชำระอย่างปลอดภัยผ่าน Stripe</p>
+--- a/tests/e2e/billing.spec.ts
++++ b/tests/e2e/billing.spec.ts
+@@ -605,9 +605,10 @@
+  expect(await page.evaluate(()=> (window as any).__cardConfirm)).toBeUndefined();
+  expect(requests.at(-1)?.postDataJSON()).toMatchObject({autoRenew:false,saveCard:true});
+  await auto.click();await expect(auto).toBeChecked();
+- expect(requests.at(-1)?.postDataJSON()).toMatchObject({autoRenew:true,saveCard:true,consentVersion:CARD_CONSENT_VERSION});
++ await expect.poll(()=>requests.at(-1)?.postDataJSON()).toMatchObject({autoRenew:true,saveCard:true,consentVersion:CARD_CONSENT_VERSION});
++ await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true})).toBeEnabled();
+  await auto.click();await expect(auto).not.toBeChecked();
+- expect(requests.at(-1)?.postDataJSON()).toMatchObject({autoRenew:false,saveCard:true});
++ await expect.poll(()=>requests.at(-1)?.postDataJSON()).toMatchObject({autoRenew:false,saveCard:true});
+  await page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true}).click();
+  await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toBeVisible();
+  expect(await page.evaluate(()=> (window as any).__cardConfirm)).toMatchObject({savePaymentMethod:true});
+@@ -627,3 +628,67 @@
+  expect(writes).toEqual([{action:'stop_auto_renewal'}]);
+  expect(subscription.current_period_end).toBe('2099-01-01T00:00:00Z');
+ });
++
++
++test('slow renewal changes remain instant, serialize writes and confirm only the latest choice',async({page})=>{
++ const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
++ await openPlans(page,free,'');
++ await page.route('https://js.stripe.com/**',route=>route.fulfill({contentType:'application/javascript',body:`
++ window.Stripe=function(){return {initCheckoutElementsSdk:function(options){let el;return {
++ loadActions:async()=>({type:'success',actions:{confirm:async()=>{window.__confirmedSession=options.clientSecret;return {type:'success'}}}}),
++ createPaymentElement:()=>({on:(event,cb)=>{if(event==='ready')setTimeout(cb,10)},mount:root=>{el=root;root.innerHTML='<p>Secure card fields</p>'},destroy:()=>{if(el)el.innerHTML=''}})
++ }}}};` }));
++ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve});const writes:any[]=[];
++ await page.route('**/api/billing',async route=>{
++  if(route.request().method()==='GET')return route.fulfill({json:{checkout_ready:true,subscription:free}});
++  const body=route.request().postDataJSON();writes.push(body);const attempt=writes.length;
++  if(attempt===2)await gate;
++  return route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:body.autoRenew,saveCard:true,period:'month',amount:15900,months:1,method:'card',orderId:'slow-'+attempt,clientSecret:'cs_slow_'+attempt,publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
++ });
++ await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
++ await expect(page.getByText('Secure card fields')).toBeVisible();
++ const auto=page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/});
++ await auto.check();await expect(auto).toBeChecked({timeout:250});
++ await expect.poll(()=>writes.length).toBe(2);
++ await expect(auto).toBeEnabled();
++ await auto.uncheck();await expect(auto).not.toBeChecked({timeout:250});
++ await auto.check();await expect(auto).toBeChecked({timeout:250});
++ await auto.uncheck();await expect(auto).not.toBeChecked({timeout:250});
++ expect(writes.length).toBe(2);
++ await expect(page.getByRole('button',{name:'กำลังเตรียมรายการ…',exact:true})).toBeDisabled();
++ expect(await page.evaluate(()=>(window as any).__confirmedSession)).toBeUndefined();
++ release();
++ await expect.poll(()=>writes.length).toBe(3);
++ expect(writes.map(w=>w.autoRenew)).toEqual([false,true,false]);
++ await expect(auto).not.toBeChecked();
++ const pay=page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true});
++ await expect(pay).toBeEnabled();await pay.click();
++ await expect.poll(()=>page.evaluate(()=>(window as any).__confirmedSession)).toBe('cs_slow_3');
++});
++
++test('failed renewal preparation keeps the choice, blocks payment and reconciles before retry',async({page})=>{
++ const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
++ await openPlans(page,free,'');
++ await page.route('https://js.stripe.com/**',route=>route.fulfill({contentType:'application/javascript',body:`
++ window.Stripe=function(){return {initCheckoutElementsSdk:function(){let el;return {
++ loadActions:async()=>({type:'success',actions:{confirm:async()=>({type:'success'})}}),
++ createPaymentElement:()=>({on:(event,cb)=>{if(event==='ready')setTimeout(cb,10)},mount:root=>{el=root;root.innerHTML='<p>Secure card fields</p>'},destroy:()=>{if(el)el.innerHTML=''}})
++ }}}};` }));
++ const writes:any[]=[];
++ await page.route('**/api/billing',route=>{
++  if(route.request().method()==='GET')return route.fulfill({json:{checkout_ready:true,subscription:free}});
++  const body=route.request().postDataJSON();writes.push(body);const attempt=writes.length;
++  if(attempt===2)return route.fulfill({status:503,json:{error:'Temporary outage'}});
++  return route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:body.autoRenew,saveCard:true,period:'month',amount:15900,months:1,method:'card',orderId:'retry-'+attempt,clientSecret:'cs_retry_'+attempt,publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
++ });
++ await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
++ await expect(page.getByText('Secure card fields')).toBeVisible();
++ const auto=page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/});await auto.check();
++ await expect(page.getByRole('alert')).toContainText('ตัวเลือกของคุณยังอยู่');
++ await expect(auto).toBeChecked();await expect(auto).toBeEnabled();
++ await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true})).toBeDisabled();
++ await page.getByRole('button',{name:'ลองเตรียมรายการอีกครั้ง',exact:true}).click();
++ await expect.poll(()=>writes.length).toBe(3);expect(writes[2].autoRenew).toBe(true);
++ await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true})).toBeEnabled();
++ await expect(auto).toBeChecked();
++});

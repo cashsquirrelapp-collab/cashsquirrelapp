@@ -315,3 +315,12 @@ User requested matching the website CI and removing the save-card checkbox. Stri
 - Saved-card disclosure version/text are carried in immutable request metadata. Old unpaid requests without this version are replaced before reuse; unpaid metadata is not proof of consent.
 - Validation: typecheck and production build; 16 Cloudflare/security checks; 27 payment/SQL/HTTP tests; 3 focused UI tests covering mobile readability, no save checkbox and explicit button consent, and stop-renewal preserving paid time. No actual card data or real payment used.
 - No database migration, Stripe permission, price, tax, secret or cron change. Source delta: card-ci-save-consent.patch.
+
+
+## Responsive renewal selection — 2026-10-21
+
+- Production version: 10f87540-49ba-442e-aaf6-79f0ba7adb8f.
+- Archive SHA256: 74df26e67c7943f8cdc06007e9c7b7fc9df4d34d91edb30196d09e5ef968c32e; 593 source files.
+- Checkbox updates locally without waiting for the server. A 350 ms debounce coalesces changes. Updates serialize; older responses cannot overwrite the displayed latest choice. Payment stays blocked until Checkout mode and ready fields match the latest selection. Errors retain the selection and require retry/reconciliation. Late responses do not reopen a dismissed custom card dialog.
+- Validation: typecheck, production build, 16 Cloudflare/security checks and 4 focused browser tests pass. Deliberately held responses confirm checkbox changes within a 250 ms assertion budget while the request remains unresolved, no parallel writes, and only the final matching session can be confirmed. Failed preparation and retry also pass. This assertion is local test evidence, not a universal latency guarantee.
+- No backend payment, database, price, permission, consent default, secret or cron changes. No actual card or bank payment submitted. Source delta: card-responsive-selection.patch.

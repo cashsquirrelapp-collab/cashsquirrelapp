@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "CI-aligned card form, button-based save disclosure, separate opt-in renewal — 2026-10-21",
+  "source_label": "Responsive renewal selection with serialized latest-choice reconciliation — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "3b6f0a0b1244478adb263bb457d1702aa226777f06c2f94012d3424e74b73572",
+  "archive_sha256": "74df26e67c7943f8cdc06007e9c7b7fc9df4d34d91edb30196d09e5ef968c32e",
   "file_count": 593,
-  "total_source_bytes": 20825971,
+  "total_source_bytes": 20835519,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -628,8 +628,8 @@
     },
     {
       "path": "docs/CUSTOM_CARD_RENEWALS.md",
-      "size": 7740,
-      "sha256": "5719b35c685d0b67084221653d939c81f3dbbf87a56b9616b904796fb93b366c"
+      "size": 8706,
+      "sha256": "4f3f381860d247e4fe6a619f18a8ddb12d7efd0802e8944ba4bc8c04183f1641"
     },
     {
       "path": "docs/DIRECT_PROMPTPAY.md",
@@ -1483,8 +1483,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 183217,
-      "sha256": "f4193b13428488e09a6c378e5257ee1a020f8f3057d3e197fb7df5be3602c6f5"
+      "size": 183416,
+      "sha256": "22876b3b8cc7f50be612fafb1184c0aa98e9417f1369eb87523302781d794be3"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1588,8 +1588,8 @@
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
-      "size": 8994,
-      "sha256": "b2c8f0c82aead81ea65e6974e810b06c46d23d91a7edbc803d68b4df65b1f4aa"
+      "size": 11753,
+      "sha256": "6d6ae903f4889ebf0bb874559ca91cdc96782b8c4d44e6e92da81c083b2b66db"
     },
     {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
@@ -2753,8 +2753,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 41826,
-      "sha256": "27a72d8ea33bc63c370b489fe2e4eab35ceddbbbc461d3e8e16bde922c5e5f5d"
+      "size": 47450,
+      "sha256": "c04c3a11d40a5bc011375dcf2a53a2e9f9eb940bf24b04e3fac41218532d53be"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",

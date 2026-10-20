@@ -67,3 +67,10 @@ Merged remote commit 6690dde (terracotta mobile UI and ticket-style Pro card) wi
 This replaces the earlier save-card checkbox presentation. The app now loads its existing IBM Plex Sans Thai / IBM Plex Sans stylesheet inside Stripe Elements and uses the app color tokens. There is no separate save-card checkbox. New card flows still request saveCard=true, but card saving occurs only when the customer presses the explicitly labeled “ยืนยันชำระ … และบันทึกบัตร” button beside the save-purpose disclosure. Merely typing does not save a card. The renewal checkbox remains separately unchecked; saving alone never creates recurring billing.
 
 The versioned save-purpose disclosure is included in immutable Checkout request metadata. An unpaid legacy request with an older disclosure is expired/replaced before reuse. Metadata records the offered disclosure; an unpaid session is not evidence of agreement or payment. Successful customer confirmation is required. No migration, price, tax or permission changes.
+
+
+## 2026-10-21 — Responsive renewal selection
+
+Renewal selection now changes in local React state immediately. A 350 ms debounce coalesces quick changes, and only one option update can run at a time. A response for an earlier choice never replaces the currently displayed selection. The latest choice is reconciled after the outstanding request finishes. Payment is blocked while the choice or Stripe fields are stale, while reconciliation is pending, and after an unknown/failed outcome. Retry preserves the selection. Closed dialogs are not reopened by late Checkout responses.
+
+Stripe still requires a different Checkout for payment versus subscription mode. Creating that Checkout and loading its secure fields remains asynchronous. This revision removes waiting from the checkbox interaction; it does not claim zero-latency payment preparation. Card details may need re-entry after a mode change. No payment confirmation is initiated by selecting an option.
