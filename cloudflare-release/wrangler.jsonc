@@ -30,6 +30,7 @@
     "STRIPE_MODE": "live",
     "STRIPE_PUBLISHABLE_KEY": "pk_live_51TeotMC4uZ5mcDl1yFqhID6MuHQWeOvuhICamm39Dxm1NfIocYEQr4jTfwGM1smFrVDt3VSHOczX4M9HJdPfzrnL008rqkBAVe",
     "KRAROK_PREPAID_ENABLED": "true",
+    "KRAROK_DIRECT_QR_ENABLED": "true",
     "CRON_ENABLED": "true"
   },
   "observability": {

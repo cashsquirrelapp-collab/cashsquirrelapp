@@ -1,0 +1,822 @@
+--- a/backend/src/handlers/billing.ts
++++ b/backend/src/handlers/billing.ts
+@@ -1,3 +1,4 @@
++import { directQrStatus } from '../services/directPromptPay.js';
+ import { appOrigin } from '../config/env.js';
+ import { configuredStripeLivemode, stripe } from '../config/stripe.js';
+ import { getSupabaseAdmin } from '../config/supabase.js';
+@@ -11,6 +12,10 @@
+   const user = await requireUser(req, res);
+   // Status polling must not exhaust the separate mutation budget.
+   await rateLimit(req.method === 'POST' ? 'billing-write' : 'billing-read', user.id, req.method === 'POST' ? 12 : 60, 60);
++  if (req.method === 'GET' && req.query.order_id !== undefined) {
++    if (typeof req.query.order_id !== 'string' || !/^[a-f0-9-]{36}$/i.test(req.query.order_id)) throw new HttpError(400, 'Invalid order');
++    res.json(await directQrStatus(user.id, req.query.order_id)); return;
++  }
+   const admin = getSupabaseAdmin();
+   const result = await admin.from('subscriptions').select('*').eq('user_id', user.id).maybeSingle();
+   if (result.error) throw result.error;
+--- a/backend/src/handlers/stripe-webhook.ts
++++ b/backend/src/handlers/stripe-webhook.ts
+@@ -16,12 +16,16 @@
+ import { promptPayCheckoutRecord, validatePromptPayLineItems } from '../services/promptPay.js';
+ 
+ import { applyPrepaidSession, retrieveAndApplyPrepaid } from '../services/prepaidBilling.js';
++import { retrieveAndApplyDirectQr } from '../services/directPromptPay.js';
+ import { PREPAID_OFFER } from '../services/prepaidPlans.js';
+ 
+ export const config = { api: { bodyParser: false } };
+ 
+ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ const handled = new Set([
++  'payment_intent.succeeded',
++  'payment_intent.payment_failed',
++  'payment_intent.canceled',
+   'checkout.session.completed',
+   'checkout.session.async_payment_succeeded',
+   'checkout.session.async_payment_failed',
+@@ -160,6 +164,10 @@
+     return;
+   }
+ 
++  if (event.type.startsWith('payment_intent.')) {
++    await retrieveAndApplyDirectQr((event.data.object as Stripe.PaymentIntent).id);
++    res.json({ received: true }); return;
++  }
+   if (event.type.startsWith('charge.dispute.')) {
+     const dispute = event.data.object as Stripe.Dispute;
+     const chargeId = id(dispute.charge);
+@@ -167,6 +175,7 @@
+     const charge = await stripe.charges.retrieve(chargeId);
+     const pi = id(charge.payment_intent);
+     if (pi) {
++      if (await retrieveAndApplyDirectQr(pi)) { res.json({ received: true }); return; }
+       const sessions = await stripe.checkout.sessions.list({ payment_intent: pi, limit: 100 });
+       for (const candidate of sessions.data.filter(s => s.metadata?.offer_version === PREPAID_OFFER)) {
+         await retrieveAndApplyPrepaid(candidate.id);
+@@ -185,6 +194,7 @@
+       res.json({ received: true, ignored: true });
+       return;
+     }
++    if (await retrieveAndApplyDirectQr(paymentIntent)) { res.json({ received: true }); return; }
+     const sessions = await stripe.checkout.sessions.list({ payment_intent: paymentIntent, limit: 100 });
+     const prepaid = sessions.data.find(candidate => candidate.metadata?.offer_version === PREPAID_OFFER);
+     if (prepaid) {
+--- a/backend/src/security/ingress.ts
++++ b/backend/src/security/ingress.ts
+@@ -47,7 +47,10 @@
+   'line-webhook': { group: 'line-webhook', limit: 300 }
+ };
+ export async function ingressLimit(req: VercelRequest, route: string): Promise<void> {
+-  const policy = policies[route] || { group: 'api', limit: 240 };
++  // Payment status polling must not consume the budget for creating a payment.
++  const policy = route === 'billing' && ['GET','HEAD'].includes(req.method || '')
++    ? { group: 'billing-read', limit: 60 }
++    : policies[route] || { group: 'api', limit: 240 };
+   const identity = clientIp(req);
+   limiter.take('global', 3000, 60);
+   limiter.take(`${policy.group}:${identity}`, policy.limit, 60);
+--- /dev/null
++++ b/backend/src/services/directPromptPay.ts
+@@ -0,0 +1,124 @@
++import { isDeepStrictEqual } from 'node:util';
++import type { User } from '@supabase/supabase-js';
++import type Stripe from 'stripe';
++import { stripe, configuredStripeLivemode } from '../config/stripe.js';
++import { getSupabaseAdmin } from '../config/supabase.js';
++import { HttpError } from '../http/guard.js';
++import { prepaidMetadata, PREPAID_OFFER, stripeId, type PrepaidOrder } from './prepaidPlans.js';
++import { rpc, orderById } from './prepaidBilling.js';
++import { PRO_PRICING } from '../../../shared/proPricing.js';
++
++const FLOW = 'direct_promptpay';
++export const isDirectQr = (order: PrepaidOrder) => order.request?.metadata?.payment_flow === FLOW;
++const metadata = (order: PrepaidOrder) => ({ ...prepaidMetadata(order), payment_flow: FLOW, price_id: order.price_id });
++const expand = ['latest_charge', 'payment_method'];
++export function buildDirectQr(order: PrepaidOrder, email: string): Stripe.PaymentIntentCreateParams {
++  const plan = PRO_PRICING[order.period];
++  if (!order.customer_id || order.method !== 'promptpay' || order.amount !== plan.total * 100
++    || order.months !== plan.months || !email) throw new Error('Invalid QR reservation');
++  return { amount: order.amount, currency: 'thb', customer: order.customer_id,
++    allowed_payment_method_types: ['promptpay'],
++    payment_method_data: { type: 'promptpay', billing_details: { email } },
++    confirm: true, metadata: metadata(order),
++    description: `krarok.com Pro ${order.months} months · one-time`, expand };
++}
++export function assertDirectQr(pi: Stripe.PaymentIntent, order: PrepaidOrder) {
++  if (!isDirectQr(order) || order.method !== 'promptpay' || order.session_id
++    || pi.livemode !== order.livemode || pi.amount !== order.amount || pi.currency !== 'thb'
++    || stripeId(pi.customer) !== order.customer_id || (order.intent_id && pi.id !== order.intent_id)
++    || Object.entries(metadata(order)).some(([k,v]) => pi.metadata[k] !== v))
++    throw new Error('QR payment does not match the reserved owner, amount and duration');
++}
++export function validatedDirectQr(pi: Stripe.PaymentIntent, order: PrepaidOrder) {
++  assertDirectQr(pi, order);
++  const c = pi.latest_charge, m = pi.payment_method;
++  if (pi.status !== 'succeeded' || pi.amount_received !== order.amount || pi.amount_capturable !== 0
++    || !m || typeof m === 'string' || m.type !== 'promptpay'
++    || !c || typeof c === 'string' || c.status !== 'succeeded' || !c.paid
++    || c.livemode !== order.livemode || c.amount !== order.amount || c.currency !== 'thb'
++    || stripeId(c.customer) !== order.customer_id || stripeId(c.payment_intent) !== pi.id
++    || c.payment_method_details?.type !== 'promptpay' || !Number.isSafeInteger(c.created) || c.created <= 0)
++    throw new Error('QR payment is not verified');
++  return { paidAt: new Date(c.created * 1000).toISOString(), refunded: c.refunded || c.disputed || c.amount_refunded > 0 };
++}
++async function apply(pi: Stripe.PaymentIntent, order: PrepaidOrder) {
++  if (order.livemode !== configuredStripeLivemode()) throw new Error('QR mode mismatch');
++  assertDirectQr(pi, order);
++  // A signed webhook can race the create response. Bind the canonical ID first.
++  await rpc('cashflow_attach_direct_qr', { p_order_id: order.id, p_user_id: order.user_id, p_intent_id: pi.id });
++  if (pi.status === 'canceled') {
++    await rpc('cashflow_finish_direct_qr', { p_order_id: order.id, p_user_id: order.user_id, p_intent_id: pi.id });
++  } else if (pi.status === 'succeeded') {
++    const payment = validatedDirectQr(pi, order);
++    await rpc('cashflow_fulfill_prepaid', { p_order_id: order.id, p_user_id: order.user_id,
++      p_session_id: null, p_customer_id: order.customer_id, p_payment_id: pi.id,
++      p_livemode: pi.livemode, p_amount: pi.amount, p_currency: pi.currency,
++      p_period: order.period, p_months: order.months, p_paid_at: payment.paidAt, p_refunded: payment.refunded });
++  }
++}
++export async function retrieveAndApplyDirectQr(intentId: string): Promise<boolean> {
++  const pi = await stripe.paymentIntents.retrieve(intentId, { expand });
++  if (pi.metadata.offer_version !== PREPAID_OFFER || pi.metadata.payment_flow !== FLOW) return false;
++  const order = await orderById(pi.metadata.checkout_reservation_id || '');
++  await apply(pi, order);
++  return true;
++}
++async function recover(order: PrepaidOrder): Promise<Stripe.PaymentIntent> {
++  if (order.intent_id) return stripe.paymentIntents.retrieve(order.intent_id, { expand });
++  if (!isDirectQr(order) || !order.request) throw new Error('Missing prepared QR request');
++  // Do not risk re-creating after Stripe can prune the idempotency key.
++  if (Date.now() - Date.parse(order.expires_at) > 22 * 60 * 60_000)
++    throw new HttpError(409, 'กำลังตรวจสอบรายการก่อนหน้า กรุณาติดต่อผู้ดูแล');
++  return stripe.paymentIntents.create(order.request as Stripe.PaymentIntentCreateParams,
++    { idempotencyKey: `krarok-qr:${order.id}` });
++}
++export async function cancelDirectQr(order: PrepaidOrder) {
++  let pi = await recover(order);
++  assertDirectQr(pi, order);
++  // Only canonical cancellation releases the order. A racing success is fulfilled.
++  if (['requires_action','requires_payment_method','requires_confirmation'].includes(pi.status)) {
++    try { await stripe.paymentIntents.cancel(pi.id); } catch { /* retrieve decides */ }
++    pi = await stripe.paymentIntents.retrieve(pi.id, { expand });
++  }
++  await apply(pi, order);
++  if (pi.status !== 'canceled') throw new HttpError(409, 'กำลังยืนยันยอดชำระ กรุณารอสักครู่');
++  return { canceled: true };
++}
++export async function startDirectQr(user: User, order: PrepaidOrder) {
++  if (!order.request) {
++    if (!user.email) throw new HttpError(400, 'บัญชีต้องมีอีเมลสำหรับรับข้อมูลการชำระเงิน');
++    const request = buildDirectQr(order, user.email);
++    const stored = await rpc('cashflow_prepare_direct_qr', { p_order_id: order.id, p_user_id: user.id,
++      p_customer_id: order.customer_id, p_request: request });
++    if (!isDeepStrictEqual(stored, request)) throw new Error('Prepared QR changed');
++    order = { ...order, request };
++  }
++  const pi = await recover(order);
++  if (pi.status === 'requires_payment_method' || pi.status === 'canceled') {
++    await cancelDirectQr(order);
++    throw new HttpError(409, 'รายการเดิมสิ้นสุดแล้ว กดสร้าง QR ใหม่ได้เลย');
++  }
++  await apply(pi, order);
++  const common = { orderId: order.id, method: 'promptpay', amount: order.amount, months: order.months,
++    period: order.period, expiresAt: order.expires_at };
++  if (['succeeded','processing'].includes(pi.status)) return { ...common, destination: 'paid_pending' };
++  const qr = pi.next_action?.promptpay_display_qr_code;
++  if (pi.status !== 'requires_action' || pi.next_action?.type !== 'promptpay_display_qr_code' || !qr?.image_url_png)
++    throw new HttpError(409, 'ยังสร้าง QR ไม่สำเร็จ กรุณาลองใหม่');
++  const image = new URL(qr.image_url_png);
++  if (image.protocol !== 'https:' || !image.hostname.endsWith('.stripe.com')) throw new Error('Invalid QR image host');
++  return { ...common, destination: 'qr', qrImage: qr.image_url_png };
++}
++/** Authenticated owner-only status. Also repairs a delayed webhook using identical evidence. */
++export async function directQrStatus(userId: string, orderId: string) {
++  const found = await getSupabaseAdmin().from('cashflow_prepaid_orders').select('*').eq('id', orderId).eq('user_id', userId).maybeSingle();
++  if (found.error) throw found.error;
++  const order = found.data as PrepaidOrder | null;
++  if (!order || order.user_id !== userId || !isDirectQr(order)) throw new HttpError(404, 'ไม่พบรายการชำระเงิน');
++  if (!order.intent_id) return { paymentStatus: 'pending' };
++  const pi = await stripe.paymentIntents.retrieve(order.intent_id, { expand });
++  await apply(pi, order);
++  const charge = pi.latest_charge;
++  const revoked = charge && typeof charge !== 'string' && (charge.refunded || charge.disputed || charge.amount_refunded > 0);
++  return { paymentStatus: revoked || ['canceled','requires_payment_method'].includes(pi.status) ? 'expired' : pi.status === 'succeeded' ? 'paid' : 'pending' };
++}
+--- a/backend/src/services/prepaidBilling.ts
++++ b/backend/src/services/prepaidBilling.ts
+@@ -1,3 +1,4 @@
++import { isDirectQr, startDirectQr, cancelDirectQr } from './directPromptPay.js';
+ import { randomUUID } from 'node:crypto';
+ import { isDeepStrictEqual } from 'node:util';
+ import type { User } from '@supabase/supabase-js';
+@@ -12,12 +13,12 @@
+   stripeId, validatedPrepaidPayment, validPrepaidPrice, type PaymentMethod, type PrepaidOrder } from './prepaidPlans.js';
+ 
+ export const prepaidEnabled = () => process.env.KRAROK_PREPAID_ENABLED === 'true';
+-async function rpc(name: string, args: Record<string, unknown>) {
++export async function rpc(name: string, args: Record<string, unknown>) {
+   const result = await getSupabaseAdmin().rpc(name, args);
+   if (result.error) throw result.error;
+   return result.data;
+ }
+-async function orderById(id: string): Promise<PrepaidOrder> {
++export async function orderById(id: string): Promise<PrepaidOrder> {
+   const result = await getSupabaseAdmin().from('cashflow_prepaid_orders').select('*').eq('id', id).single();
+   if (result.error) throw result.error;
+   return result.data as PrepaidOrder;
+@@ -88,6 +89,7 @@
+   if (result.error) throw result.error;
+   const order = result.data as PrepaidOrder | null;
+   if (!order || order.user_id !== userId) throw new HttpError(404, 'ไม่พบรายการชำระเงิน');
++  if (isDirectQr(order)) return cancelDirectQr(order);
+   if (!order.session_id) throw new HttpError(409, 'รายการกำลังสร้าง กรุณาลองใหม่อีกครั้ง');
+   if (order.livemode !== configuredStripeLivemode()) throw new Error('Prepaid mode mismatch');
+   let session = await stripe.checkout.sessions.retrieve(order.session_id, { expand: expanded });
+@@ -110,6 +112,7 @@
+   if (!prepaidEnabled()) throw new HttpError(503, 'ระบบชำระเงินกำลังเตรียมเปิดให้บริการ');
+   if (!isProPeriod(periodValue)) throw new HttpError(400, 'กรุณาเลือกแพ็กเกจ 1 เดือน, 6 เดือน หรือ 1 ปี');
+   const period: ProPeriod = periodValue;
++  const directQr = method === 'promptpay' && process.env.KRAROK_DIRECT_QR_ENABLED === 'true';
+   const livemode = configuredStripeLivemode();
+   const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || '';
+   if (!publishableKey.startsWith(livemode ? 'pk_live_' : 'pk_test_')) throw new HttpError(503, 'หน้าชำระเงินยังไม่พร้อม กรุณาลองใหม่ภายหลัง');
+@@ -129,14 +132,15 @@
+   for (const old of (pending.data || []) as PrepaidOrder[]) {
+     if (old.user_id !== user.id || old.livemode !== livemode) throw new Error('Invalid pending checkout owner');
+     const replace = old.period !== period || old.method !== method
+-      || (old.request && old.request.ui_mode !== 'embedded_page')
++      || (old.request && (isDirectQr(old) !== directQr || (!isDirectQr(old) && (old.request as Stripe.Checkout.SessionCreateParams).ui_mode !== 'embedded_page')))
+       || Date.parse(old.expires_at) <= Date.now();
+     if (!replace) continue;
++    if (isDirectQr(old)) { await cancelDirectQr(old); continue; }
+     if (!old.session_id && old.request) {
+       // Recover an unknown create outcome with its original body/key before expiring.
+       if (Date.now() - Date.parse(old.expires_at) > 22 * 60 * 60 * 1000)
+         throw new HttpError(409, 'กำลังตรวจสอบรายการก่อนหน้า กรุณาติดต่อผู้ดูแล');
+-      const recovered = await stripe.checkout.sessions.create(old.request,
++      const recovered = await stripe.checkout.sessions.create(old.request as Stripe.Checkout.SessionCreateParams,
+         { idempotencyKey: `krarok-prepaid:${old.id}` });
+       assertPrepaidSession(recovered, old);
+       await rpc('cashflow_attach_prepaid_checkout', { p_order_id: old.id, p_user_id: user.id,
+@@ -170,6 +174,7 @@
+       method: order.method, amount: order.amount, months: order.months, period: order.period,
+       expiresAt: new Date(session.expires_at * 1000).toISOString() };
+   };
++  if (isDirectQr(order)) return startDirectQr(user, order);
+   if (order.session_id) {
+     const session = await retrieveAndApplyPrepaid(order.session_id);
+     assertPrepaidSession(session, order);
+@@ -187,7 +192,8 @@
+   if (subscriptions.length > 100 || subscriptions.some(s => !['canceled', 'incomplete_expired'].includes(s.status))) {
+     throw new HttpError(409, 'มีการสมัครสมาชิกอยู่แล้ว กรุณาจัดการการสมัครเดิมก่อน');
+   }
+-  let request = order.request;
++  if (directQr) return startDirectQr(user, order);
++  let request = order.request as Stripe.Checkout.SessionCreateParams | null;
+   if (!request) {
+     request = buildPrepaidCheckout(order, appOrigin(), configuration);
+     const stored = await rpc('cashflow_prepare_prepaid_checkout', { p_order_id: order.id,
+--- a/backend/src/services/prepaidPlans.ts
++++ b/backend/src/services/prepaidPlans.ts
+@@ -7,7 +7,8 @@
+   id: string; user_id: string; period: ProPeriod; months: number; amount: number;
+   method: PaymentMethod; price_id: string; livemode: boolean; expires_at: string;
+   customer_id: string | null; session_id: string | null; checkout_url: string | null;
+-  request: Stripe.Checkout.SessionCreateParams | null; status: string;
++  intent_id?: string | null;
++  request: Stripe.Checkout.SessionCreateParams | Stripe.PaymentIntentCreateParams | null; status: string;
+ };
+ export const stripeId = (value: string | { id: string } | null | undefined): string | null =>
+   typeof value === 'string' ? value : value?.id || null;
+--- /dev/null
++++ b/docs/DIRECT_PROMPTPAY.md
+@@ -0,0 +1,15 @@
++# Direct PromptPay QR
++
++Replaces only the PromptPay portion of INLINE_CHECKOUT.md. With `KRAROK_DIRECT_QR_ENABLED=true`, the customer clicks QR and sees the application's own scan dialog immediately. The server creates and confirms a PromptPay-only PaymentIntent using the authenticated account email; it returns the canonical Stripe QR image, amount, duration and order ID. No Stripe checkout form, extra Continue button, hosted payment page or client secret is sent for this flow. Card payments retain embedded Checkout. Prices remain THB159/1 calendar month, THB849/6 months and THB1490/12 months, single payment without auto-renewal.
++
++The existing server-only order/reservation lock, exact catalog verification, immutable request persistence and idempotency model are shared with card Checkout. Direct QR has a real `intent_id`, never a fabricated Checkout session ID. Same-plan retries reuse the payment. Changing plan/method cancels and canonically retrieves the unpaid PaymentIntent before releasing the lock; a racing success is fulfilled instead. Unknown creates replay the persisted body/key only within the safe retention window. A failed/unknown cancellation cannot release or replace the order. Closing the dialog does not cancel or grant Pro, and no abandoned-order banner is shown. The 45-minute reservation controls reuse; this is not advertised as a bank/QR expiry time. Canonical cancellation is required before replacement.
++
++Signed PaymentIntent success/failure/cancellation events are received on the existing webhook. Canonical retrieval checks mode, customer, account, reserved price metadata, amount received, currency, method and successful Charge before the existing idempotent fulfillment transaction. Owner-scoped polling uses the same evidence to repair delayed webhooks. Refunds/disputes invalidate the affected order. Calendar-month entitlement, administrator revoke/ban/unban and reset boundaries are preserved; an unresolved direct payment blocks account deletion and destructive admin changes. Browser callbacks never grant access.
++
++Migration `20261020165518_direct_promptpay.sql` is additive and updates fulfillment to explicitly distinguish Checkout vs direct QR. Applied through the production SQL editor on 2026-10-21 (Bangkok); not recorded by CLI migration history. Do not reapply. Live verification confirmed intent column and RLS, browser-role denial, service-role execution and SECURITY INVOKER.
++
++Stripe account Vispark `acct_1TeotMC4uZ5mcDl1`: existing restricted key `mk_1URyxTC4uZ5mcDl1rQv2Em4R` has user-approved Payment Intents/Payment Methods write permissions. The owner completed Stripe verification and the saved settings were re-read. No key rotation or secret disclosure. Existing webhook `we_1UP5I6C4uZ5mcDl1mXqFpy32` now has 17 events: original 14 plus `payment_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.canceled`. URL, signing secret and endpoint API version unchanged.
++
++Validation: 49 targeted payment/admin/SQL tests, 16 security/Cloudflare tests, 21 billing/admin browser tests, typecheck and production builds. New tests cover all three direct QR prices, immediate image without iframe/Continue, retry/cancellation races, immutable unknown-outcome recovery, signed webhook and owner checks, wrong evidence, refunds, idempotency, calendar expiry, admin bans and browser DB privileges. Ingress GET/HEAD status polling has a separate bounded 60/minute budget; payment mutations retain their existing 30/minute ingress and 12/minute authenticated budget. A regression test exercises 35 status reads followed by a purchase. Automated payment evidence is simulated; no automated test charges money. Production visual verification and release identifiers are recorded in DEPLOY_SNAPSHOT.md.
++
++Official API reference: https://docs.stripe.com/api/payment_intents/create and https://docs.stripe.com/payments/promptpay/accept-a-payment?payment-ui=direct-api . SDK23.0.0/API2026-09-30.endive uses `allowed_payment_method_types`, never the deprecated explicit `payment_method_types` input.
+--- a/frontend/src/app/App.tsx
++++ b/frontend/src/app/App.tsx
+@@ -1,4 +1,4 @@
+-import type { ProPeriod } from '../../../shared/proPricing';
++import { PRO_PRICING, type ProPeriod } from '../../../shared/proPricing';
+ import PageHeader from '../components/ui/PageHeader';
+ import { uiPrimaryButton } from '../components/ui/uiStyles';
+ import { privateCache } from '../services/privateCache';
+@@ -73,6 +73,7 @@
+ const ProfileSetupWizard = lazy(() => import('../features/onboarding/ProfileSetupWizard').then(module => ({ default: module.ProfileSetupWizard })));
+ import { normalizeProfileSetupSettings, shouldShowProfileSetup } from '../features/onboarding/profileSetupState';
+ import { PremiumUpsell } from '../features/billing/PremiumUpsell';
++import { DirectQrModal, type DirectQrPayment } from '../features/billing/DirectQrModal';
+ import { EmbeddedPaymentModal, type EmbeddedPayment } from '../features/billing/EmbeddedPaymentModal';
+ const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
+ // Development only: the study of the landing reference's motion. Left out of production builds.
+@@ -1131,6 +1132,8 @@
+       .catch(() => { /* Checkout remains closed when readiness cannot be checked. */ });
+     return () => controller.abort();
+   }, [session?.user?.id, session?.isGuest, activeTab, billingBusy]);
++  const [qrPayment, setQrPayment] = useState<{ period: ProPeriod; checkout: DirectQrPayment | null; status: 'loading' | 'pending' | 'paid' | 'expired'; error?: string } | null>(null);
++  const qrAttempt = React.useRef(0);
+   const [embeddedPayment, setEmbeddedPayment] = useState<EmbeddedPayment | null>(null);
+   const [billingPollVersion, setBillingPollVersion] = useState(0);
+   const billingUserId = session?.isGuest ? null : session?.user?.id || null;
+@@ -1148,6 +1151,7 @@
+     setSubscription(null);
+     setBillingBusy(false);
+     setEmbeddedPayment(null);
++    setQrPayment(null); qrAttempt.current++;
+     setIsProPromoOpen(false);
+   }, [billingUserId]);
+ 
+@@ -1237,9 +1241,11 @@
+     }
+     if (billingBusy) return;
+     setBillingBusy(true);
++    const attempt = ++qrAttempt.current;
++    if (paymentMethod === 'promptpay' && !hasOpenStripeSubscription) setQrPayment({ period, checkout: null, status: 'loading' });
+     try {
+       const userId = currentUser.id;
+-      const result = await apiJson<EmbeddedPayment & { url?: string; destination: 'embedded' | 'paid_pending' | 'portal' }>('/api/billing', {
++      const result = await apiJson<EmbeddedPayment & DirectQrPayment & { url?: string; destination: 'qr' | 'embedded' | 'paid_pending' | 'portal' }>('/api/billing', {
+         method: 'POST',
+         headers: { 'X-Account-ID': userId },
+         // Delinquent/nonterminal subscribers must be able to reach Portal even
+@@ -1249,13 +1255,24 @@
+           : paymentMethod === 'promptpay' ? 'promptpay_checkout' : 'checkout', ...(hasOpenStripeSubscription ? {} : { period }) }),
+       });
+       if (billingUserRef.current !== userId) return;
++      if (result.destination === 'qr') {
++        const expected = PRO_PRICING[period];
++        const image = new URL(result.qrImage);
++        if (result.period !== period || result.amount !== expected.total * 100 || result.months !== expected.months
++          || !result.orderId || image.protocol !== 'https:' || !image.hostname.endsWith('.stripe.com')) throw new Error('ข้อมูล QR ไม่ตรงกับแพ็กเกจที่เลือก');
++        markCheckoutPending(userId); setBillingPollVersion(version => version + 1);
++        if (qrAttempt.current === attempt) setQrPayment({ period, checkout: result, status: 'pending' });
++        setBillingBusy(false); return;
++      }
+       if (result.destination === 'paid_pending') {
++        if (qrAttempt.current === attempt) setQrPayment(null);
+         markCheckoutPending(userId);
+         setBillingPollVersion(version => version + 1);
+         setBillingBusy(false);
+         return;
+       }
+       if (result.destination === 'embedded') {
++        if (qrAttempt.current === attempt) setQrPayment(null);
+         if (!result.clientSecret || !result.publishableKey || !result.expiresAt || !result.amount)
+           throw new Error('ข้อมูลการชำระเงินไม่ครบถ้วน');
+         markCheckoutPending(userId);
+@@ -1271,9 +1288,31 @@
+     } catch (error: any) {
+       if (billingUserRef.current !== currentUser.id) return;
+       setBillingBusy(false);
+-      triggerAlert('เปิดหน้าชำระเงินไม่สำเร็จ', formatError(error));
+-    }
+-  };
++      if (paymentMethod === 'promptpay') {
++        if (qrAttempt.current === attempt) setQrPayment({ period, checkout: null, status: 'loading', error: formatError(error) });
++      } else triggerAlert('เปิดหน้าชำระเงินไม่สำเร็จ', formatError(error));
++    }
++  };
++
++  // The QR dialog never grants Pro. It polls this owner's canonical payment and
++  // the existing subscription poller waits for the server's verified entitlement.
++  const qrOrderId = qrPayment?.checkout?.orderId;
++  useEffect(() => {
++    if (!qrOrderId || !billingUserId) return;
++    let canceled = false; let timer: number | undefined;
++    const poll = async () => {
++      try {
++        const result = await apiJson<{paymentStatus: 'pending' | 'paid' | 'expired'}>(`/api/billing?order_id=${encodeURIComponent(qrOrderId)}`, { headers: { 'X-Account-ID': billingUserId } });
++        if (canceled) return;
++        setQrPayment(previous => previous?.checkout?.orderId === qrOrderId ? { ...previous, status: result.paymentStatus } : previous);
++        if (result.paymentStatus === 'paid') { setBillingPollVersion(v => v + 1); return; }
++        if (result.paymentStatus === 'expired') return;
++      } catch { /* Temporary connection failures must not imply a successful payment. */ }
++      if (!canceled) timer = window.setTimeout(poll, 5000);
++    };
++    void poll();
++    return () => { canceled = true; window.clearTimeout(timer); };
++  }, [qrOrderId, billingUserId]);
+ 
+   const handleEmbeddedComplete = React.useCallback(() => {
+     const userId = billingUserRef.current;
+@@ -1349,7 +1388,8 @@
+             if (isConfirmedCheckoutSubscription(nextSubscription)) {
+               clearCheckoutPending(userId);
+               setEmbeddedPayment(null);
+-                        updateCheckoutQuery(true);
++              setQrPayment(null); qrAttempt.current++;
++              updateCheckoutQuery(true);
+               triggerAlert('สมัครสมาชิกสำเร็จ!', 'เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
+               return;
+             }
+@@ -3118,6 +3158,10 @@
+           dialog={dialog}
+           onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+         />
++        {qrPayment && <DirectQrModal period={qrPayment.period} checkout={qrPayment.checkout}
++          status={qrPayment.status} error={qrPayment.error}
++          onClose={() => { qrAttempt.current++; setQrPayment(null); }}
++          onRetry={() => { void handleUpgrade('promptpay', qrPayment.period); }} />}
+         {embeddedPayment && <EmbeddedPaymentModal
+           checkout={embeddedPayment}
+           onClose={() => setEmbeddedPayment(null)}
+--- /dev/null
++++ b/frontend/src/features/billing/DirectQrModal.tsx
+@@ -0,0 +1,39 @@
++import React from 'react';
++import { LoaderCircle, ShieldCheck, QrCode } from 'lucide-react';
++import { Modal } from '../../components/ui/Modal';
++import { uiPrimaryButton } from '../../components/ui/uiStyles';
++import { PRO_PRICING, type ProPeriod } from '../../../../shared/proPricing';
++export type DirectQrPayment = {
++  orderId: string; qrImage: string; amount: number; months: number; period: ProPeriod; expiresAt: string;
++};
++export function DirectQrModal({ period, checkout, status, error, onClose, onRetry }: {
++  period: ProPeriod; checkout: DirectQrPayment | null; status: 'loading' | 'pending' | 'paid' | 'expired';
++  error?: string; onClose: () => void; onRetry: () => void;
++}) {
++  const plan = PRO_PRICING[period];
++  const [imageFailed, setImageFailed] = React.useState(false);
++  React.useEffect(() => setImageFailed(false), [checkout?.qrImage]);
++  return <Modal open onClose={onClose} label="สแกนเพื่อชำระเงิน" width={440}>
++    <div className="overflow-y-auto px-5 pb-4 pt-10 sm:px-7 sm:pb-5">
++      <h2 className="text-xl font-bold text-brand-text dark:text-white">สแกนเพื่อชำระเงิน</h2>
++      <p className="mt-1 text-sm text-brand-muted">แพ็กเกจ Pro · {plan.months === 12 ? '1 ปี' : `${plan.months} เดือน`}</p>
++      <div className="my-4 flex min-h-60 items-center justify-center rounded-2xl border border-brand-border p-4 dark:border-white/10">
++        {error || imageFailed || status === 'expired' ? <div className="space-y-4 py-7 text-center">
++          <QrCode className="mx-auto text-brand-muted" size={40} />
++          <p role="alert" className="text-sm text-brand-muted">{error || (imageFailed ? 'โหลด QR ไม่สำเร็จ กรุณาลองอีกครั้ง' : 'กดสร้าง QR ใหม่เพื่อชำระต่อได้เลย')}</p>
++          <button type="button" className={uiPrimaryButton} onClick={onRetry}>สร้าง QR ใหม่</button>
++        </div> : status === 'paid' ? <p role="status" className="text-center text-brand-muted">รับชำระแล้ว กำลังเปิดสิทธิ์ Pro…</p>
++          : checkout ? <img src={checkout.qrImage} alt="QR พร้อมเพย์สำหรับชำระแพ็กเกจ Pro" onError={() => setImageFailed(true)} referrerPolicy="no-referrer" className="aspect-square w-full max-w-64 bg-white p-2" />
++          : <div role="status" className="space-y-3 text-center text-brand-muted"><LoaderCircle className="mx-auto animate-spin" size={32} /><p>กำลังสร้าง QR พร้อมสแกน…</p></div>}
++      </div>
++      <div className="space-y-2 rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">
++        <div className="flex justify-between gap-3"><span className="text-brand-muted">สิทธิ์ Pro</span><span>{plan.months === 12 ? '1 ปี' : `${plan.months} เดือน`}</span></div>
++        <div className="flex justify-between gap-3"><span className="text-brand-muted">ชำระครั้งเดียว</span><strong className="text-lg text-brand-primary">฿{plan.total.toLocaleString('th-TH')}</strong></div>
++      </div>
++      {!error && status === 'pending' && <p role="status" className="mt-4 flex items-center justify-center gap-2 text-xs text-brand-muted"><LoaderCircle size={15} className="shrink-0 animate-spin" />รอรับชำระ · เปิดแอปธนาคารแล้วสแกน QR</p>}
++      <p className="mt-3 text-center text-xs text-brand-muted">ชำระสำเร็จแล้ว Pro เปิดอัตโนมัติ · ไม่ต่ออายุอัตโนมัติ</p>
++      <button type="button" onClick={onClose} className="mt-4 w-full rounded-xl border border-brand-border px-4 py-3 text-sm dark:border-white/10">ปิดหน้าต่าง</button>
++      <p className="mt-4 flex items-center justify-center gap-1 text-xs text-brand-muted"><ShieldCheck size={14} />รับชำระเงินอย่างปลอดภัยผ่าน Stripe</p>
++    </div>
++  </Modal>;
++}
+--- a/frontend/src/i18n/translations.ts
++++ b/frontend/src/i18n/translations.ts
+@@ -670,7 +670,7 @@
+     'plans.promptPayStandardCta': 'จ่ายด้วย QR ฿249 / สิทธิ์ 1 เดือน',
+     'plans.promptPayNote': 'QR พร้อมเพย์เป็นการชำระครั้งเดียว ไม่ต่ออายุอัตโนมัติ เวลาหมดอายุจะแสดงตาม Stripe และต้องสร้างใหม่เมื่อหมดเวลา สิทธิ์มีอายุ 1 เดือนปฏิทินนับจากเวลาที่ยืนยันยอด โดยวันสิ้นเดือนจะสิ้นสุดในวันสุดท้ายที่มีของเดือนถัดไป โปรโมชัน 3 รอบแรกนับร่วมกับการชำระผ่านบัตร',
+     'plans.subscribeStandardCta': 'สมัคร Pro ฿249/เดือน',
+-    'plans.loadingCta': 'กำลังเปิด Stripe…',
++    'plans.loadingCta': 'กำลังเตรียมชำระ…',
+     'plans.paymentNote': 'บัญชีที่มีสิทธิ์จ่าย ฿199 ต่อเดือนใน 3 รอบบิลแรก (โปรโมชันหนึ่งครั้งต่อบัญชี) จากนั้น ฿249 ต่อเดือนตั้งแต่รอบบิลที่ 4 และต่ออายุอัตโนมัติจนกว่าจะยกเลิก แพ็กเกจที่ชำระเงินไม่มีช่วงทดลองใช้ฟรีเพิ่ม ยกเลิกผ่านหน้าจัดการสมาชิกได้ โดยสิทธิ์ยังอยู่ถึงสิ้นรอบที่ชำระแล้ว',
+     'plans.standardPaymentNote': 'คิด ฿249 ต่อเดือนและต่ออายุอัตโนมัติจนกว่าจะยกเลิก แพ็กเกจที่ชำระเงินไม่มีช่วงทดลองใช้ฟรีเพิ่ม ยกเลิกผ่านหน้าจัดการสมาชิกได้ โดยสิทธิ์ยังอยู่ถึงสิ้นรอบที่ชำระแล้ว',
+     'common.cancel': 'ยกเลิก',
+@@ -1445,7 +1445,7 @@
+     'plans.promptPayStandardCta': 'Pay by QR ฿249 / one month',
+     'plans.promptPayNote': 'PromptPay QR is a one-time payment with no automatic renewal. Its expiry is shown from Stripe and it must be regenerated after expiry. Access lasts one calendar month from payment confirmation; end-of-month purchases end on the last valid day of the following month. The first-three-cycle offer is shared with card payments.',
+     'plans.subscribeStandardCta': 'Subscribe to Pro ฿249/month',
+-    'plans.loadingCta': 'Opening Stripe…',
++    'plans.loadingCta': 'Preparing payment…',
+     'plans.paymentNote': 'Eligible accounts pay ฿199/month for the first 3 billing cycles (one promotion per account), then ฿249/month from cycle 4. Renews automatically until canceled. The paid plan adds no free billing trial. Cancel in the subscription portal; access continues through the paid period.',
+     'plans.standardPaymentNote': '฿249/month, renewing automatically until canceled. The paid plan adds no free billing trial. Cancel in the subscription portal; access continues through the paid period.',
+     'common.cancel': 'Cancel',
+--- /dev/null
++++ b/supabase/migrations/20261020165518_direct_promptpay.sql
+@@ -0,0 +1,125 @@
++begin;
++alter table public.cashflow_prepaid_orders add column intent_id text unique;
++alter table public.cashflow_prepaid_orders add constraint prepaid_one_provider check (intent_id is null or session_id is null);
++
++create function public.cashflow_prepare_direct_qr(p_order_id text,p_user_id uuid,p_customer_id text,p_request jsonb)
++returns jsonb language plpgsql security invoker set search_path='' as $$
++declare o public.cashflow_prepaid_orders; s public.subscriptions;
++begin
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  select * into o from public.cashflow_prepaid_orders where id=p_order_id and user_id=p_user_id for update;
++  if not found then raise exception 'missing_order'; end if;
++  select * into s from public.subscriptions where user_id=p_user_id for update;
++  if s.stripe_checkout_reservation_id is distinct from p_order_id or s.stripe_customer_id is distinct from p_customer_id
++    or p_customer_id is null or s.stripe_livemode is distinct from o.livemode then raise exception 'order_owner_mismatch'; end if;
++  if o.request is not null then return o.request; end if;
++  if o.method<>'promptpay' or o.expires_at<=now() or o.status<>'reserved' or p_request is null
++    or p_request->>'customer' is distinct from p_customer_id
++    or p_request->>'amount' is distinct from o.amount::text or p_request->>'currency' is distinct from 'thb'
++    or p_request->>'confirm' is distinct from 'true'
++    or p_request->'allowed_payment_method_types' is distinct from '["promptpay"]'::jsonb
++    or p_request#>>'{payment_method_data,type}' is distinct from 'promptpay'
++    or nullif(p_request#>>'{payment_method_data,billing_details,email}','') is null
++    or p_request#>>'{metadata,app_user_id}' is distinct from p_user_id::text
++    or p_request#>>'{metadata,payment_flow}' is distinct from 'direct_promptpay'
++    or p_request#>>'{metadata,offer_version}' is distinct from 'krarok_prepaid_20261020'
++    or p_request#>>'{metadata,price_id}' is distinct from o.price_id
++    or p_request#>>'{metadata,period}' is distinct from o.period
++    or p_request#>>'{metadata,months}' is distinct from o.months::text
++    or p_request#>>'{metadata,checkout_reservation_id}' is distinct from o.id
++    then raise exception 'order_request_mismatch'; end if;
++  update public.cashflow_prepaid_orders set customer_id=p_customer_id,request=p_request where id=p_order_id;
++  -- No Checkout Session ID is invented. The order's immutable request holds the lock,
++  -- including after a timeout, and prevents admin actions while payment is possible.
++  return p_request;
++end; $$;
++
++create function public.cashflow_attach_direct_qr(p_order_id text,p_user_id uuid,p_intent_id text)
++returns void language plpgsql security invoker set search_path='' as $$
++declare o public.cashflow_prepaid_orders;
++begin
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  select * into o from public.cashflow_prepaid_orders where id=p_order_id and user_id=p_user_id for update;
++  if not found or o.request#>>'{metadata,payment_flow}' is distinct from 'direct_promptpay'
++    or p_intent_id is null or p_intent_id not like 'pi_%' or o.session_id is not null
++    or (o.intent_id is not null and o.intent_id<>p_intent_id) then raise exception 'order_intent_mismatch'; end if;
++  update public.cashflow_prepaid_orders set intent_id=p_intent_id,
++    status=case when status='reserved' then 'open' else status end where id=p_order_id;
++end; $$;
++
++create function public.cashflow_finish_direct_qr(p_order_id text,p_user_id uuid,p_intent_id text)
++returns void language plpgsql security invoker set search_path='' as $$
++declare o public.cashflow_prepaid_orders;
++begin
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  select * into o from public.cashflow_prepaid_orders where id=p_order_id and user_id=p_user_id for update;
++  if not found or o.request#>>'{metadata,payment_flow}' is distinct from 'direct_promptpay'
++    or o.intent_id is distinct from p_intent_id or p_intent_id is null then raise exception 'order_intent_mismatch'; end if;
++  if o.status in ('paid','refunded') then return; end if;
++  update public.cashflow_prepaid_orders set status='expired' where id=p_order_id;
++  perform public.cashflow_release_billing_checkout(p_user_id,p_order_id);
++end; $$;
++
++create or replace function public.cashflow_fulfill_prepaid(
++  p_order_id text,p_user_id uuid,p_session_id text,p_customer_id text,p_payment_id text,
++  p_livemode boolean,p_amount bigint,p_currency text,p_period text,p_months smallint,p_paid_at timestamptz,p_refunded boolean
++) returns text language plpgsql security invoker set search_path='' as $$
++declare o public.cashflow_prepaid_orders; s public.subscriptions; next_end timestamptz;
++begin
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text,0));
++  select * into s from public.subscriptions where user_id=p_user_id for update;
++  if not found then raise exception 'missing_subscription'; end if;
++  select * into o from public.cashflow_prepaid_orders where id=p_order_id and user_id=p_user_id for update;
++  if not found or o.request is null or p_payment_id is null or (case when o.request#>>'{metadata,payment_flow}'='direct_promptpay'
++      then p_session_id is not null or o.intent_id is distinct from p_payment_id
++      else p_session_id is null or o.intent_id is not null end)
++    or p_paid_at is null or not isfinite(p_paid_at) or p_paid_at>now()+interval '5 minutes'
++    or p_paid_at<o.created_at-interval '5 minutes' or p_refunded is null
++    or o.customer_id is distinct from p_customer_id or s.stripe_customer_id is distinct from p_customer_id
++    or o.livemode is distinct from p_livemode or s.stripe_livemode is distinct from p_livemode
++    or p_currency is distinct from 'thb' or o.amount is distinct from p_amount
++    or o.period is distinct from p_period or o.months is distinct from p_months
++    or (o.session_id is not null and o.session_id<>p_session_id)
++    or (o.payment_id is not null and o.payment_id<>p_payment_id)
++    or (o.paid_at is not null and o.paid_at<>p_paid_at) then raise exception 'prepaid_evidence_mismatch'; end if;
++  -- A refund is terminal: duplicate or delayed success must not restore access.
++  if o.status='refunded' or (o.status='paid' and not p_refunded) then return 'duplicate'; end if;
++  -- Calendar months in Bangkok, clamp month-end and leap years. No 30/180/365-day shortcuts.
++  next_end := ((p_paid_at at time zone 'Asia/Bangkok') + make_interval(months=>o.months)) at time zone 'Asia/Bangkok';
++  update public.cashflow_prepaid_orders set session_id=p_session_id,payment_id=p_payment_id,paid_at=p_paid_at,
++    entitled_until=next_end,status=case when p_refunded then 'refunded' else 'paid' end where id=p_order_id;
++  select max(entitled_until) into next_end from public.cashflow_prepaid_orders where user_id=p_user_id and status='paid';
++  update public.subscriptions set prepaid_entitled_until=next_end where user_id=p_user_id;
++  perform public.cashflow_release_billing_checkout(p_user_id,p_order_id);
++  perform public.cashflow_refresh_effective_subscription(p_user_id);
++  return case when p_refunded then 'refunded' else 'paid' end;
++end; $$;
++
++
++revoke all on function public.cashflow_prepare_direct_qr(text,uuid,text,jsonb) from public,anon,authenticated;
++revoke all on function public.cashflow_attach_direct_qr(text,uuid,text) from public,anon,authenticated;
++revoke all on function public.cashflow_finish_direct_qr(text,uuid,text) from public,anon,authenticated;
++grant execute on function public.cashflow_prepare_direct_qr(text,uuid,text,jsonb) to service_role;
++grant execute on function public.cashflow_attach_direct_qr(text,uuid,text) to service_role;
++grant execute on function public.cashflow_finish_direct_qr(text,uuid,text) to service_role;
++create or replace function public.cashflow_begin_billing_closure(p_user_id uuid)
++returns boolean
++language plpgsql
++security invoker
++set search_path = ''
++as $$
++declare target public.subscriptions;
++begin
++  if p_user_id is null then raise exception 'missing_user'; end if;
++  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text, 0));
++  insert into public.subscriptions(user_id,workspace_type,workspace_id,status,updated_at)
++    values(p_user_id,'personal',p_user_id,'inactive',now()) on conflict(user_id) do nothing;
++  select * into target from public.subscriptions where user_id = p_user_id for update;
++  if target.stripe_checkout_session_id is not null or target.stripe_checkout_pending_until > now()
++    or exists(select 1 from public.cashflow_prepaid_orders where user_id=p_user_id and status in ('reserved','open') and request is not null) then return false; end if;
++  update public.subscriptions set billing_closure_pending_until = now() + interval '15 minutes', updated_at = now()
++    where user_id = p_user_id;
++  return true;
++end;
++$$;
++commit;
+--- a/tests/admin-pro-database.test.ts
++++ b/tests/admin-pro-database.test.ts
+@@ -18,6 +18,7 @@
+   await db.exec(await readFile('supabase/migrations/20261020144448_krarok_prepaid_plans.sql','utf8'));
+   if(legacy) await db.exec(`insert into subscriptions(user_id,status,plan) values('${uid}','canceled','admin_revoked')`);
+   await db.exec(await readFile('supabase/migrations/20261020155537_admin_pro_controls.sql','utf8'));
++  await db.exec(await readFile('supabase/migrations/20261020165518_direct_promptpay.sql','utf8'));
+   await db.exec('grant usage on schema public to service_role; grant select on cashflow_user_roles,cashflow_account_pauses to service_role; grant select,insert,update on subscriptions to service_role;');
+   return db;
+ }
+@@ -96,3 +97,34 @@
+   assert.equal((await db.query<any>('select actor_id from cashflow_admin_pro_audit')).rows[0].actor_id,null);
+  }finally{await db.close();}
+ });
++
++test('direct QR fulfillment locks owner/amount/duration and stays compatible with revoke/ban and refunds',async()=>{
++ const db=await database();try{
++  await db.exec('set role service_role');
++  const r=await db.query<any>(`select cashflow_reserve_prepaid_checkout($1,'qr','halfYear','promptpay','price_qr',false) r`,[uid]);
++  assert.equal(r.rows[0].r.result,'reserved');
++  await db.query(`select cashflow_bind_stripe_customer($1,'qr','cus1',false)`,[uid]);
++  const request={amount:84900,currency:'thb',customer:'cus1',confirm:true,allowed_payment_method_types:['promptpay'],payment_method_data:{type:'promptpay',billing_details:{email:'test@example.test'}},metadata:{app_user_id:uid,payment_flow:'direct_promptpay',offer_version:'krarok_prepaid_20261020',price_id:'price_qr',period:'halfYear',months:'6',checkout_reservation_id:'qr'}};
++  await assert.rejects(db.query(`select cashflow_prepare_direct_qr('qr',$1,'cus1',$2)`,[uid,JSON.stringify({...request,amount:15900})]));
++  await db.query(`select cashflow_prepare_direct_qr('qr',$1,'cus1',$2)`,[uid,JSON.stringify(request)]);
++  await db.exec("update subscriptions set stripe_checkout_pending_until=now()-interval '1 hour',stripe_checkout_expires_at=now()-interval '65 minutes'");
++  assert.equal(await action(db,'ban'),'checkout_pending');
++  assert.equal((await db.query<any>('select cashflow_begin_billing_closure($1) ok',[uid])).rows[0].ok,false);
++  assert.equal((await reserve(db,'card')).result,'period_mismatch');
++  await db.query(`select cashflow_attach_direct_qr('qr',$1,'pi_qr')`,[uid]);
++  const paid=new Date().toISOString();
++  const fulfill=(session:string|null=null,pi='pi_qr',amount=84900,months=6,refunded=false)=>db.query<any>(`select cashflow_fulfill_prepaid('qr',$1,$2,'cus1',$3,false,$4,'thb','halfYear',$5::smallint,$6,$7) r`,[uid,session,pi,amount,months,paid,refunded]);
++  await assert.rejects(fulfill('cs_fake'));await assert.rejects(fulfill(null,'pi_other'));await assert.rejects(fulfill(null,'pi_qr',15900));await assert.rejects(fulfill(null,'pi_qr',84900,1));
++  assert.equal((await fulfill()).rows[0].r,'paid');assert.equal((await fulfill()).rows[0].r,'duplicate');
++  const order=(await db.query<any>("select * from cashflow_prepaid_orders where id='qr'")).rows[0];
++  assert.equal(order.session_id,null);assert.equal(order.intent_id,'pi_qr');assert.equal((await state(db)).status,'active');
++  const expected=(await db.query<any>("select (($1::timestamptz at time zone 'Asia/Bangkok')+interval '6 months') at time zone 'Asia/Bangkok' e",[paid])).rows[0].e;
++  assert.equal(order.entitled_until.toISOString(),expected.toISOString());
++  assert.equal(await action(db,'revoke'),'ok');await fulfill();assert.equal((await state(db)).plan,'admin_removed');
++  assert.equal((await fulfill(null,'pi_qr',84900,6,true)).rows[0].r,'refunded');
++  await fulfill();assert.equal((await state(db)).status,'canceled');
++  assert.equal(await action(db,'ban'),'ok');assert.equal((await reserve(db,'blocked')).result,'admin_revoked');
++  const permissions=(await db.query<any>(`select has_function_privilege('authenticated','cashflow_prepare_direct_qr(text,uuid,text,jsonb)','EXECUTE') prepare,has_function_privilege('anon','cashflow_finish_direct_qr(text,uuid,text)','EXECUTE') finish`)).rows[0];
++  assert.deepEqual(permissions,{prepare:false,finish:false});
++ }finally{await db.close();}
++});
+--- a/tests/e2e/billing.spec.ts
++++ b/tests/e2e/billing.spec.ts
+@@ -541,3 +541,35 @@
+  await page.route('**/api/billing',route=>route.fulfill({json:{checkout_ready:true,subscription:{...free,status:'active',plan:'pro_prepaid',current_period_end:'2099-01-01T00:00:00Z'}}}));
+  await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toBeVisible({timeout:10000});
+ });
++
++for (const plan of [{period:'month',label:'รายเดือน',months:1,amount:15900},{period:'halfYear',label:'6 เดือน',months:6,amount:84900},{period:'year',label:'1 ปี',months:12,amount:149000}]) {
++ test(`direct QR ${plan.period} displays immediately in our modal without a Stripe form or Continue button`,async({page})=>{
++  const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
++  await openPlans(page,free,'');
++  let posted:any;let paymentStatus='pending';let paid=false;
++  await page.route('https://qr.stripe.com/test.png',route=>route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5xkAAAAASUVORK5CYII=','base64')}));
++  await page.route('**/api/billing?order_id=*',route=>route.fulfill({json:{paymentStatus}}));
++  await page.route('**/api/billing',route=>{
++    if(route.request().method()==='POST'){posted=route.request().postDataJSON();return route.fulfill({json:{destination:'qr',qrImage:'https://qr.stripe.com/test.png',orderId:'qr-test',period:plan.period,amount:plan.amount,months:plan.months,expiresAt:new Date(Date.now()+45*60_000).toISOString()}});}
++    return route.fulfill({json:{checkout_ready:true,subscription:paid?{...free,status:'active',plan:'pro_prepaid',current_period_end:'2099-01-01T00:00:00Z'}:free}});
++  });
++  await page.getByRole('radio',{name:plan.label,exact:true}).click();
++  await page.getByTestId('pro-card').getByRole('button',{name:/จ่ายด้วย QR/}).click();
++  const dialog=page.getByRole('dialog',{name:'สแกนเพื่อชำระเงิน'});
++  await expect(dialog.getByRole('img',{name:'QR พร้อมเพย์สำหรับชำระแพ็กเกจ Pro'})).toBeVisible();
++  await expect(dialog.getByText(`฿${(plan.amount/100).toLocaleString('th-TH')}`,{exact:true})).toBeVisible();
++  await expect(dialog.locator('iframe')).toHaveCount(0);await expect(dialog.getByText('Secure payment form')).toHaveCount(0);
++  await expect(dialog.getByRole('button',{name:/ดำเนินการต่อ|Continue/})).toHaveCount(0);
++  expect(posted).toEqual({action:'promptpay_checkout',period:plan.period});
++  await expect(page).toHaveURL(/\/plans/);await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toHaveCount(0);
++  if(plan.period==='month'){
++    paymentStatus='paid';await expect(dialog.getByText('รับชำระแล้ว กำลังเปิดสิทธิ์ Pro…')).toBeVisible({timeout:8000});
++    await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toHaveCount(0);
++    paid=true;await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toBeVisible({timeout:12000});
++  }else{
++    await dialog.getByRole('button',{name:'ปิดหน้าต่าง',exact:true}).click();
++    await expect(dialog).toHaveCount(0);
++    await expect(page.getByRole('button',{name:'ยกเลิกรายการที่ยังไม่ชำระ',exact:true})).toHaveCount(0);
++  }
++ });
++}
+--- a/tests/prepaid-database.test.ts
++++ b/tests/prepaid-database.test.ts
+@@ -16,6 +16,7 @@
+   for (const name of ['020_stripe_subscriptions.sql','021_secure_stripe_billing_upgrade.sql','022_fix_stripe_checkout_null_legacy.sql','023_preserve_manual_subscription_entitlements.sql','024_promptpay_qr_billing.sql'])
+     await db.exec(await readFile(`database/migrations/${name}`,'utf8'));
+   await db.exec(await readFile('supabase/migrations/20261020144448_krarok_prepaid_plans.sql','utf8'));
++  await db.exec(await readFile('supabase/migrations/20261020165518_direct_promptpay.sql','utf8'));
+   await db.exec('grant usage on schema public to service_role; grant select,insert,update on subscriptions to service_role;');
+   return db;
+ }
+--- a/tests/prepaid-http.test.ts
++++ b/tests/prepaid-http.test.ts
+@@ -19,7 +19,7 @@
+ const cookie=`cashflow-session=${seal({access_token:token,refresh_token:'test-refresh',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()})}`;
+ const realFetch=globalThis.fetch;
+ let server:Server, origin:string, order:any, session:any, creates=0, fulfilled:any[]=[], finished:any[]=[], expires=0, expirationFails=false;
+-let banned=false;
++let banned=false; let intent:any=null, intentCreates=0, qrCancelFails=false; let unknownQr=false; let qrBodies:any[]=[];
+ const rateKeys: Array<{p_key:string;p_limit:number}>=[];
+ before(async()=>{
+   globalThis.fetch=async(input,init)=>{
+@@ -41,6 +41,9 @@
+         session_id:null,request:null,checkout_url:null,status:'reserved',expires_at:new Date(Date.now()+45*60_000).toISOString()};
+       return json({result:'reserved',order_id:order.id});
+     }
++    if(url.includes('/cashflow_prepare_direct_qr')) { order.request=args.p_request;return json(args.p_request); }
++    if(url.includes('/cashflow_attach_direct_qr')) { order.intent_id=args.p_intent_id;return json(null); }
++    if(url.includes('/cashflow_finish_direct_qr')) { finished.push(args);order.status='expired';return json(null); }
+     if(url.includes('/cashflow_bind_stripe_customer')) return json(true);
+     if(url.includes('/cashflow_prepare_prepaid_checkout')) {
+       order.request=args.p_request;return json(args.p_request);
+@@ -52,6 +55,21 @@
+     if(url.includes('/cashflow_finish_prepaid_checkout')) {finished.push(args);order.status='expired';return json(null);}
+     throw new Error(`Unexpected mock endpoint ${new URL(url).pathname}`);
+   };
++  stripe.paymentIntents.create=(async(request:any,options:any)=>{
++    intentCreates++; qrBodies.push(structuredClone(request));
++    assert.equal(options.idempotencyKey,`krarok-qr:${order.id}`);
++    assert.deepEqual(order.request,request,'request persisted before creating payment');
++    assert.deepEqual(request.allowed_payment_method_types,['promptpay']);
++    assert.equal(request.payment_method_types,undefined);
++    intent={id:'pi_direct',status:'requires_action',livemode:false,amount:request.amount,amount_received:0,
++      amount_capturable:0,currency:'thb',customer:request.customer,metadata:request.metadata,
++      payment_method:{id:'pm_direct',type:'promptpay'},next_action:{type:'promptpay_display_qr_code',
++        promptpay_display_qr_code:{data:'test-payload',image_url_png:'https://qr.stripe.com/direct-test.png'}}};
++    if(unknownQr) throw new Error('Create timeout');
++    return intent;
++  }) as any;
++  stripe.paymentIntents.retrieve=(async()=>intent || {metadata:{}}) as any;
++  stripe.paymentIntents.cancel=(async()=>{if(qrCancelFails)throw new Error('Cancel timeout');intent.status='canceled';return intent;}) as any;
+   stripe.prices.list=(async(params:any)=>{
+     const period=PRO_PERIODS.find(p=>prepaidLookup(p)===params.lookup_keys[0])!;
+     return {data:[{id:`price_${period}`,active:true,livemode:false,type:'one_time',recurring:null,
+@@ -222,3 +240,59 @@
+     assert.equal(creates,before+2);assert.equal(order.request.ui_mode,'embedded_page');
+   }finally{stripe.checkout.sessions.create=create;}
+ });
++
++const directStart=(period='month')=>checkout({action:'promptpay_checkout',period});
++const resetQr=()=>{process.env.KRAROK_DIRECT_QR_ENABLED='true'; order=null; intent=null; banned=false; intentCreates=0; qrBodies=[]; qrCancelFails=false; unknownQr=false;fulfilled=[];finished=[];};
++const payQr=()=>{intent.status='succeeded';intent.amount_received=order.amount;intent.latest_charge={id:'ch_qr',status:'succeeded',paid:true,livemode:false,amount:order.amount,currency:'thb',customer:order.customer_id,payment_intent:intent.id,payment_method_details:{type:'promptpay'},created:Math.floor(Date.now()/1000),amount_refunded:0,refunded:false,disputed:false};};
++const qrEvent=async(type='payment_intent.succeeded',tamper=false)=>{
++ const raw=JSON.stringify({id:'evt_direct',type,livemode:false,data:{object:{id:intent.id}}});
++ const signature=Stripe.webhooks.generateTestHeaderString({payload:raw,secret:'whsec_test'});
++ return realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'stripe-signature':signature,'content-type':'application/json'},body:raw+(tamper?' ':'')});
++};
++test('direct QR returns an immediate image for all locked prices with no Checkout Session or client secret',async()=>{
++ resetQr();const before=creates;
++ for(const period of PRO_PERIODS){
++  const response=await directStart(period);assert.equal(response.status,200);const data=await response.json();
++  assert.equal(data.destination,'qr');assert.equal(data.qrImage,'https://qr.stripe.com/direct-test.png');
++  assert.equal(data.amount,PRO_PRICING[period].total*100);assert.equal(data.months,PRO_PRICING[period].months);
++  assert.equal(data.clientSecret,undefined);assert.equal(data.url,undefined);assert.equal(order.session_id,null);
++  assert.equal(fulfilled.length,0);
++ }
++ assert.equal(creates,before);assert.equal(intentCreates,3);
++});
++test('QR retry reuses its PaymentIntent; changing to card cancels it first',async()=>{
++ resetQr();await directStart();await directStart();assert.equal(intentCreates,1);
++ const response=await checkout({action:'checkout',period:'year'});assert.equal(response.status,200);
++ assert.equal(intent.status,'canceled');assert.equal((await response.json()).destination,'embedded');
++});
++test('unknown QR creation replays immutable body; failed cancellation blocks replacement; racing paid QR is fulfilled',async()=>{
++ resetQr();unknownQr=true;assert.equal((await directStart()).status,500);
++ unknownQr=false;assert.equal((await directStart()).status,200);assert.deepEqual(qrBodies[0],qrBodies[1]);
++ qrCancelFails=true;assert.equal((await directStart('year')).status,409);assert.equal(intentCreates,2);
++ payQr();assert.equal((await directStart('year')).status,409);assert.equal(fulfilled.length,1);assert.equal(fulfilled[0].p_session_id,null);
++});
++test('direct QR signed webhook and owner polling require exact successful evidence before Pro; wrong identity and amount fail',async()=>{
++ resetQr();await directStart();
++ assert.equal((await qrEvent()).status,200);assert.equal(fulfilled.length,0);
++ assert.equal((await qrEvent('payment_intent.succeeded',true)).status,400);
++ payQr();intent.amount_received=100;assert.equal((await qrEvent()).status,500);assert.equal(fulfilled.length,0);
++ intent.amount_received=order.amount;intent.metadata.app_user_id='other';assert.equal((await qrEvent()).status,500);
++ intent.metadata.app_user_id=user.id;assert.equal((await qrEvent()).status,200);assert.equal(fulfilled[0].p_months,1);
++ const status=await realFetch(origin+'/api/billing?order_id='+order.id,{headers});assert.equal(status.status,200);assert.equal((await status.json()).paymentStatus,'paid');
++ order.user_id='other';assert.equal((await realFetch(origin+'/api/billing?order_id='+order.id,{headers})).status,404);
++});
++test('direct QR refund webhook revokes the exact order and cancellation never grants access',async()=>{
++ resetQr();await directStart();payQr();intent.latest_charge.amount_refunded=100;
++ const raw=JSON.stringify({id:'evt_qr_refund',type:'charge.refunded',livemode:false,data:{object:{payment_intent:intent.id}}});
++ const signature=Stripe.webhooks.generateTestHeaderString({payload:raw,secret:'whsec_test'});
++ const res=await realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'stripe-signature':signature,'content-type':'application/json'},body:raw});
++ assert.equal(res.status,200);assert.equal(fulfilled[0].p_refunded,true);
++ resetQr();await directStart();intent.status='canceled';assert.equal((await qrEvent('payment_intent.canceled')).status,200);assert.equal(finished.length,1);assert.equal(fulfilled.length,0);
++ delete process.env.KRAROK_DIRECT_QR_ENABLED;
++});
++
++test('ingress status polling cannot exhaust the independent purchase budget',async()=>{
++ delete process.env.KRAROK_DIRECT_QR_ENABLED;order=null;banned=false;headers['x-vercel-forwarded-for']='192.0.2.240';
++ for(let i=0;i<35;i++) assert.equal((await realFetch(origin+'/api/billing',{headers})).status,200);
++ assert.equal((await checkout({action:'checkout',period:'month'})).status,200);
++});

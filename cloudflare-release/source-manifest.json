@@ -2,9 +2,9 @@
   "schema_version": 1,
   "source_label": "Prepaid Pro: locked 159/849/1490 THB card and PromptPay for 1/6/12 calendar months — 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "db1f977d7431bf28ecb6633a555499e332898ff1db03fc7a1035813e37c6dfcb",
-  "file_count": 580,
-  "total_source_bytes": 20625844,
+  "archive_sha256": "c3970983d2bc4b61f77eeca5840b6ea5f0620b337d7ff06c0283042006721e38",
+  "file_count": 584,
+  "total_source_bytes": 20669496,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -73,8 +73,8 @@
     },
     {
       "path": "backend/src/handlers/billing.ts",
-      "size": 3596,
-      "sha256": "91490424921eb346ffaaf8035d937d262fe3ba531ba74ca1a24151a378c21d5b"
+      "size": 3943,
+      "sha256": "c71f11261d1459023bb17a910e3b670a954003406918de78f03111723fee754f"
     },
     {
       "path": "backend/src/handlers/close-expired-accounts.ts",
@@ -173,8 +173,8 @@
     },
     {
       "path": "backend/src/handlers/stripe-webhook.ts",
-      "size": 23793,
-      "sha256": "6881100c6c73e164eda2d99d753d1f76de6450aeedfc1f03065b4e10f261e15a"
+      "size": 24327,
+      "sha256": "976418c02d2f3445c7758d9a67242fa474e6c4e4745209a9fca7d80b9633a576"
     },
     {
       "path": "backend/src/handlers/usage-analytics.ts",
@@ -253,8 +253,8 @@
     },
     {
       "path": "backend/src/security/ingress.ts",
-      "size": 3316,
-      "sha256": "40e0bf8808aaba626b13fdbdf3f8ba8cac81fc2361a40cfd6c3c3ff984f3676c"
+      "size": 3510,
+      "sha256": "0a0157f7e730edd1ef71cb4678f4ad0c9f6fb247f829b84907bbf3e729683815"
     },
     {
       "path": "backend/src/security/lineIdentity.ts",
@@ -300,6 +300,11 @@
       "path": "backend/src/services/adminAnalyticsPayments.ts",
       "size": 3489,
       "sha256": "fad3311d9dcfbf2f3dbfe85f133e272d0d11bc910831d3743f330ba1dbc36b4e"
+    },
+    {
+      "path": "backend/src/services/directPromptPay.ts",
+      "size": 8419,
+      "sha256": "19924630a0c2e6b9013a532ab80c1f6187b959bfdd605b42ffec06cc1b3bf921"
     },
     {
       "path": "backend/src/services/documentQuota.ts",
@@ -408,13 +413,13 @@
     },
     {
       "path": "backend/src/services/prepaidBilling.ts",
-      "size": 14822,
-      "sha256": "392276bf444f6cdd1f0509dacfa168800f1a7c394a5bb27a217e266dc200bcce"
+      "size": 15426,
+      "sha256": "f15aaf03718af2bfa306067f5dc7f42215ee39584383da6a9691c28b8e172adc"
     },
     {
       "path": "backend/src/services/prepaidPlans.ts",
-      "size": 6267,
-      "sha256": "eade7cd35df0657ad0394698b9645b3128e8bf080757f6418d912da927cdcfb6"
+      "size": 6331,
+      "sha256": "a23f425f8aa0b0c6b9dbe33ad3edbf28ef45bf1b152a1f7bdf3f3575ab622368"
     },
     {
       "path": "backend/src/services/promptPay.ts",
@@ -610,6 +615,11 @@
       "path": "docs/ADMIN_PRO_CONTROLS.md",
       "size": 2162,
       "sha256": "f6cb54c2bd50d9cba91a1e0fb476dd1f463f488fa4bf4c77719cb05f75e89503"
+    },
+    {
+      "path": "docs/DIRECT_PROMPTPAY.md",
+      "size": 4061,
+      "sha256": "7b7c70ec9c725ac72d0b4ee474c7fb7e5292edf527786d3bdc6183ae9863d690"
     },
     {
       "path": "docs/INLINE_CHECKOUT.md",
@@ -1458,8 +1468,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 176240,
-      "sha256": "a9e10da344c281df99dd87bc73e19c21c5f1c864178781c22fd7cc31f088d84b"
+      "size": 179335,
+      "sha256": "76808a3dca91905dd0c375f2e93123daa2eebfba5c1ada54152c75bef24cfeca"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1560,6 +1570,11 @@
       "path": "frontend/src/features/auth/Login.tsx",
       "size": 67872,
       "sha256": "23f50ac80561c2cdaa4323654d7bef6c044bc083195e5dab811b7d72c91bcd94"
+    },
+    {
+      "path": "frontend/src/features/billing/DirectQrModal.tsx",
+      "size": 4190,
+      "sha256": "c933e0df359ca771caa263bec8656c109e5b4e6d2c174f27ebcae5ccab81169b"
     },
     {
       "path": "frontend/src/features/billing/EmbeddedPaymentModal.tsx",
@@ -2203,8 +2218,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 150539,
-      "sha256": "3ae17e5bf967906395451860dd2f7d3f855e813cc2bcaca2ef60c2f2529a822d"
+      "size": 150553,
+      "sha256": "94fd74440f399c1f2736f6a4c862c9790513f7f5c8bc8de04fe62420d710fbb3"
     },
     {
       "path": "frontend/src/index.css",
@@ -2602,6 +2617,11 @@
       "sha256": "b84cbead9e5dcb0ba9e1977122ecb035366c90eecf42862993fcef9727e01d43"
     },
     {
+      "path": "supabase/migrations/20261020165518_direct_promptpay.sql",
+      "size": 8781,
+      "sha256": "b2fff97dde941a0d2f23e3914f4f0eda4b56e954bc60cb9a73bc02e4f4ea7449"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 6391,
       "sha256": "1deb6d15eb4da8bee6944386aa124c3225c20a7dbce5eeaedea37b76a5805d59"
@@ -2613,8 +2633,8 @@
     },
     {
       "path": "tests/admin-pro-database.test.ts",
-      "size": 7414,
-      "sha256": "1cd271fc66c51e7a791124d51d23328515f826e82e70f201a708e6d65d2b2d96"
+      "size": 10855,
+      "sha256": "e611ad438f1958049cf00308e07714feb766d3b22b0b113caf8ca36cfed0750c"
     },
     {
       "path": "tests/admin-pro-http.test.ts",
@@ -2688,8 +2708,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 33604,
-      "sha256": "28723c4152d57a02b76ff9d08adad211c9f2ea1e05e9c11dc358739da589993e"
+      "size": 36850,
+      "sha256": "57728df72460305cdf984ae84ac4e8a6aee685b472c5722d83319f10a0e9f26c"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -2813,13 +2833,13 @@
     },
     {
       "path": "tests/prepaid-database.test.ts",
-      "size": 6986,
-      "sha256": "de68a85933281c059f223bc3f240f2a6d98ec512486efa76938cab47dba1350a"
+      "size": 7085,
+      "sha256": "e18da56b8ca559e34f285685fb5d8585efbdf0a992e112fff1dd2061ba9ed565"
     },
     {
       "path": "tests/prepaid-http.test.ts",
-      "size": 14667,
-      "sha256": "74bcd16e0529de2ff7c5edea8ea6298d9c7530544e1aeed8947de6d16fa28eb1"
+      "size": 21230,
+      "sha256": "2be34e18992d0899c4f14913935c7ca3939a02578a9faff4b224c64b8d757284"
     },
     {
       "path": "tests/prepaid-plans.test.ts",
