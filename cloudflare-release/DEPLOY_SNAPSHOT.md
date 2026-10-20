@@ -251,6 +251,37 @@ Operational instructions and the setup/audit script are documented in `PREPAID_B
 - Validation: 49 targeted unit/HTTP/SQL/payment/admin tests (48 combined before polling-budget addition; 19 HTTP tests including the new regression rerun after), 16 Cloudflare/security checks, 21 billing/admin E2E tests, typecheck, production build and archive verification. Payment settlement/refund evidence is simulated in automated tests, not a live end-to-end charge.
 - Proof screenshots retained locally: `krarok-direct-qr-159.png`, `krarok-direct-qr-849.png`, `krarok-direct-qr-1490.png`, `qr-webhook-ready.png` under the task visualization folder.
 
+
+## Phones in one terracotta mood; a ticket-style Pro card - 2026-10-21
+
+Built on top of 4ac218f (prepaid Pro, admin Pro controls, embedded checkout, direct PromptPay QR). Those files are unchanged here; only the files listed below differ.
+
+**Phones (below 744px; computers and iPads are unchanged except the Pro card).**
+- Every page has the overview's terracotta header in one piece with the top bar: งาน, ปฏิทิน/ไทม์ไลน์, เมนู, and each page the menu opens (เงินรอรับ, รายจ่าย, เอกสาร, แพ็กเกจ Pro, ตั้งค่า and its pages, บอกเรา, เป้าหมาย, 50 ทวิ).
+- On scroll, the title and the way back fade out and the page's summary box closes into a bar pinned under the top bar (`MobilePageHero`, built on the overview's `useCollapsingCard`).
+- งาน gets a summary card (still to receive, by stage) and a receive button on each card.
+- The bottom bar's fourth slot is ปฏิทิน. เงินรอรับ moved to the menu, and the menu is reordered (01 เงินรอรับ … 05 บัญชีและการตั้งค่า). Reminders sit in 04 LINE AI Pro, and the LINE logo marks that section.
+- Timeline: date rail and event cards. The month card shows only เงินรอรับ.
+- Expense rows say ประจำ or ทั่วไป.
+- Orange buttons carry white type.
+- Confirmations are a centred card with the mascot (a new held accessory, `hold-cross`, on the existing raised arm; the character is not redrawn).
+- The job sheet from the timeline is a calm statement-style sheet.
+- The 50 ทวิ reminder is hidden until that feature launches, except for full-access accounts and accounts that already turned it on.
+
+**Pro card (all screens).**
+- Terracotta period switch and badge.
+- A ticket look: a dashed tear line with notches.
+- Benefits centred vertically.
+- Payment logic from 4ac218f is untouched.
+
+Changed against 4ac218f: frontend/src/app/App.tsx, frontend/src/components/mascot/Mascot.tsx, frontend/src/components/ui/CustomDialog.tsx, frontend/src/features/billing/plans.css, frontend/src/features/calendar/CalendarTab.tsx, frontend/src/features/calendar/JobPeekSheet.tsx, frontend/src/features/feedback/feedbackChat.css, frontend/src/features/goals/SplitTab.tsx, frontend/src/features/incomeExpense/IncomeExpenseTab.tsx, frontend/src/features/jobs/JobsTab.tsx, frontend/src/features/mobile/MobileChrome.tsx, frontend/src/features/mobile/MobilePageHero.tsx, frontend/src/features/mobile/mobile.css, frontend/src/features/mobile/mobileNavigation.ts, frontend/src/features/mobile/useCollapsingCard.ts, frontend/src/features/mobile/useFitFigures.ts, frontend/src/features/receivables/ReceivablesTab.tsx, frontend/src/features/settings/SettingsParts.tsx, frontend/src/features/settings/SettingsTab.tsx, frontend/src/features/vault/Wht50Page.tsx, tests/e2e/app.spec.ts, tests/e2e/billing.spec.ts, tests/e2e/mobile-phone.spec.ts.
+- Archive SHA256 `650ce1ac91e1a9205378a8b48ea400bfa8bb99e0f8eceee8a9f077b0d7790513`; manifest SHA256 `e1d65912d6d452a1f7774f8d9e51328b2e862dafd7723422e9885c4fef0c68bc`.
+- Checked:
+  - Lint, the Cloudflare build and preflight on the extracted package.
+  - Unit suite: 325 of 330 pass, with the same 5 known failures.
+  - Full e2e compared against the 4ac218f source (see the release note in chat).
+- Rollback: restore the three release files of 4ac218f.
+
 ## 2026-10-21 — custom card and explicit optional renewal
 
 Production version 69f87583-dcbe-4a83-8978-3fbd8c214718 follows initial custom-card version 8e538d3a-4257-4149-9ba5-00d65bcec4c7. KRAROK_CUSTOM_CARD_ENABLED=true; direct QR stays enabled. Existing encrypted secrets and two daily cron schedules are unchanged.
@@ -262,3 +293,14 @@ Migration 20261020172734_custom_card_renewals.sql applied once and RLS/service-o
 All three actual card UI amounts and default unchecked renewal were inspected. Stripe readback verified unpaid payment-mode and subscription-mode Elements Checkouts at 159/849/1490 THB, subscription=null; replaced sessions expired. During QA, stalled requests motivated explicit Stripe fetch transport and a 20-second timeout. After that change the remaining plan switches succeeded. 27 targeted payment/SQL/HTTP tests and 16 Cloudflare/security checks rerun and passed; typecheck/build passed. 23 distinct billing UI scenarios passed across runs. No real payment, stored-card reuse or full native billing settlement was tested.
 
 Detailed operations and evidence: CUSTOM_CARD_RENEWALS.md. Readable source delta: custom-card-renewals.patch.
+
+
+## Combined release preserving concurrent mobile UI — 2026-10-21
+
+Merged remote commit 6690dde (terracotta mobile UI and ticket-style Pro card) with card-payment commit 9ba60dc using a three-way merge of the actual archived source. No source conflicts remained. Incoming changes contain no backend payment changes. User explicitly approved publishing the combined version after automatic deployment review requested confirmation.
+
+- Production runtime: 89f6b73d-4129-4d0e-9cc1-90fe4e181167.
+- Archive SHA256: c41a4e1db30d88612f6cfffd5dea0a22cee5f1b7bc78e3cd6fc612c27b9c54c5 (593 source files).
+- Combined source passed typechecking, 16 Cloudflare/security checks, production build, archive verification and 4 focused browser tests: mobile Pro readability, all package prices, separate save/renewal consent, and cancellation preserving the paid end date.
+- Daily triggers, encrypted secrets, payment catalog and already-applied database migration remain unchanged. No actual card payment was submitted.
+- custom-card-renewals.patch now describes the card payment changes relative to 6690dde, preserving its mobile UI.

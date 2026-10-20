@@ -49,3 +49,14 @@ Verified unpaid Checkout sessions on the existing QA customer, with correct curr
 - Annual payment: cs_live_a1NOp6zSrfZKLv0l9xOXioQBqh4JL48mBRMcbdBIH9VGRa2LYxqu2Qf9Vg; annual subscription-mode: cs_live_a1ZzqSNhjldixWn4U9EPY0x3bVLtR1u2tdS1Z2FpR3EJceEzcYWtlZOwAG.
 
 No test entered card data, confirmed payment or created a native subscription. Automated fixtures verify paid access, expiry and cancellation; actual bank settlement and saved-card reuse have not been exercised. Local proof images: krarok-card-custom-159.png, krarok-card-custom-849.png, krarok-card-auto-1490.png, krarok-card-auto-849.png, stripe-subscriptions-write-saved.png.
+
+
+## Combined release preserving concurrent mobile UI — 2026-10-21
+
+Merged remote commit 6690dde (terracotta mobile UI and ticket-style Pro card) with card-payment commit 9ba60dc using a three-way merge of the actual archived source. No source conflicts remained. Incoming changes contain no backend payment changes. User explicitly approved publishing the combined version after automatic deployment review requested confirmation.
+
+- Production runtime: 89f6b73d-4129-4d0e-9cc1-90fe4e181167.
+- Archive SHA256: c41a4e1db30d88612f6cfffd5dea0a22cee5f1b7bc78e3cd6fc612c27b9c54c5 (593 source files).
+- Combined source passed typechecking, 16 Cloudflare/security checks, production build, archive verification and 4 focused browser tests: mobile Pro readability, all package prices, separate save/renewal consent, and cancellation preserving the paid end date.
+- Daily triggers, encrypted secrets, payment catalog and already-applied database migration remain unchanged. No actual card payment was submitted.
+- custom-card-renewals.patch now describes the card payment changes relative to 6690dde, preserving its mobile UI.

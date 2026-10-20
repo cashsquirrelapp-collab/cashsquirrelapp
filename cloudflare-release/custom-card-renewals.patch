@@ -467,7 +467,7 @@
  import { PRO_PRICING, type ProPeriod } from '../../../shared/proPricing';
  import PageHeader from '../components/ui/PageHeader';
  import { uiPrimaryButton } from '../components/ui/uiStyles';
-@@ -134,6 +136,7 @@
+@@ -136,6 +138,7 @@
    cancelAtPeriodEnd: boolean;
    stripeStatus: StripeSubscriptionStatus | null;
    hasSubscription: boolean;
@@ -475,7 +475,7 @@
    introEligible: boolean;
    managed: boolean;
    introPaidCycles: number;
-@@ -167,6 +170,7 @@
+@@ -169,6 +172,7 @@
      cancelAtPeriodEnd: data?.cancel_at_period_end === true,
      stripeStatus: data?.stripe_status || null,
      hasSubscription: data?.has_subscription === true,
@@ -483,7 +483,7 @@
      introEligible: data ? data.intro_eligible === true : introEligibleWhenMissing,
      managed: data?.managed === true,
      introPaidCycles: Number.isInteger(data?.intro_paid_cycles) ? data.intro_paid_cycles : 0,
-@@ -1223,7 +1227,21 @@
+@@ -1231,7 +1235,21 @@
      return err.message || JSON.stringify(err);
    };
  
@@ -506,7 +506,7 @@
      const paymentMethod = requestedMethod === 'promptpay' ? 'promptpay' : 'card';
      const currentUser = session?.user;
      if (session?.isGuest) {
-@@ -1252,7 +1270,7 @@
+@@ -1260,7 +1278,7 @@
          // when app entitlement or Checkout catalog validation is unavailable.
          body: JSON.stringify({ action: hasOpenStripeSubscription
            ? 'portal'
@@ -515,7 +515,7 @@
        });
        if (billingUserRef.current !== userId) return;
        if (result.destination === 'qr') {
-@@ -3089,6 +3107,7 @@
+@@ -3102,6 +3120,7 @@
                    subscription={subscription}
                    onUpgrade={handleUpgrade}
                    onPromptPay={() => void handleUpgrade('promptpay')}
@@ -523,7 +523,7 @@
                    onSubscribePeriod={(period, method) => void handleUpgrade(method, period)}
                    checkoutReady={checkoutReady}
                    billingBusy={billingBusy}
-@@ -3162,7 +3181,10 @@
+@@ -3178,7 +3197,10 @@
            status={qrPayment.status} error={qrPayment.error}
            onClose={() => { qrAttempt.current++; setQrPayment(null); }}
            onRetry={() => { void handleUpgrade('promptpay', qrPayment.period); }} />}
@@ -1053,7 +1053,7 @@
  };
  
  async function openPlans(
-@@ -140,7 +142,7 @@
+@@ -141,7 +143,7 @@
    await page.getByTestId('pro-card').getByRole('button',{name:/จ่ายด้วย QR/}).click();
    await expect(page.getByRole('dialog',{name:'ชำระด้วย QR พร้อมเพย์'})).toBeVisible();
    await expect(page.getByText('Secure payment form')).toBeVisible();
@@ -1062,7 +1062,7 @@
    await expect(page).toHaveURL(/\/plans/);
  });
  
-@@ -165,7 +167,7 @@
+@@ -166,7 +168,7 @@
    await expect.poll(() => requests.length).toBe(1);
    expect(requests[0].method()).toBe('POST');
    expect(requests[0].headers()['x-csrf-protection']).toBe('1');
@@ -1071,7 +1071,7 @@
    await expect(page.getByRole('dialog',{name:'ชำระด้วยบัตร'})).toBeVisible();
    await expect(page.getByText('Secure payment form')).toBeVisible();
    await expect(page).toHaveURL(/\/plans/);
-@@ -515,7 +517,7 @@
+@@ -516,7 +518,7 @@
        await expect(card.getByText(new RegExp(`ได้ Pro ${plan.months} เดือน`))).toBeVisible();
        await card.getByRole('button',{name:method==='card'?/สมัคร Pro/:/จ่ายด้วย QR/}).click();
        await expect.poll(()=>requests.length).toBe(1);
@@ -1080,7 +1080,7 @@
        const dialog=page.getByRole('dialog',{name:method==='card'?'ชำระด้วยบัตร':'ชำระด้วย QR พร้อมเพย์'});
        await expect(dialog.getByText(/จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ/)).toBeVisible();
        await expect(dialog.getByText('Secure payment form')).toBeVisible();
-@@ -573,3 +575,47 @@
+@@ -574,3 +576,47 @@
    }
   });
  }
