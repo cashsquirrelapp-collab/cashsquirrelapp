@@ -5,8 +5,8 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 
-const ARCHIVE_SHA256 = 'bfa5594eb7f2412df5f7eb11d348f784ec0687dacd8bb9c9078a730dfedd621e';
-const MANIFEST_SHA256 = '9d3bae4eda0174c9fe0006d53ae557e96ab2e8a76ec18cf71698e7274057e5e1';
+const ARCHIVE_SHA256 = 'fa9345b32f2766b17cc6d71741eed392fafa2da7840110e0d2fd342ce928fea8';
+const MANIFEST_SHA256 = '50d3fefe82a541396c27d8b7af3d5a96bc0f6fd1c0f4596e5edae86565c96ed8';
 const baseDir = dirname(fileURLToPath(import.meta.url));
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 const fail = (message) => { throw new Error(message); };
@@ -94,29 +94,7 @@ if (!verifyOnly) {
   if (existsSync(appDir)) fail('app/ already exists. Run the build from a clean checkout.');
   const stagingDir = mkdtempSync(join(baseDir, '.prepared-app-'));
   try {
-    for (const entry of entries) {
-      const { name } = entry;
-      let { data } = entry;
-      // Remove the transient Facebook availability badge from the verified snapshot.
-      // Provider checks and the disabled state remain unchanged.
-      if (name === 'frontend/src/features/auth/Login.tsx') {
-        const source = data.toString('utf8');
-        const badge = '                  {!providers.facebook && <span className="auth-pill-soon">Soon</span>}\n';
-        if (source.split(badge).length !== 2) fail('Expected exactly one Facebook availability badge.');
-        let updated = source.replace(badge, '');
-        // Remove only the login chooser's LINE entry and its unused config request.
-        // Existing LINE account linking and notifications stay available in the app.
-        const lineFragments = [
-          "  const [liffId, setLiffId] = useState<string | null>(null);\n",
-          "    fetch('/api/liff-config', { credentials: 'same-origin' }).then(r => (r.ok ? r.json() : null)).then(body => {\n      if (!cancelled && typeof body?.liffId === 'string' && /^[A-Za-z0-9-]+$/.test(body.liffId)) setLiffId(body.liffId);\n    }).catch(() => { /* LINE entry stays hidden */ });\n",
-          "                {liffId && (\n                  <a href={`https://liff.line.me/${liffId}?openPath=%2Fapp`} className=\"auth-pill\" data-testid=\"auth-line\">\n                    <svg className=\"h-5 w-5\" viewBox=\"0 0 24 24\" aria-hidden=\"true\" fill=\"currentColor\"><path d=\"M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314\"/></svg>\n                    Continue with LINE\n                  </a>\n                )}\n"
-];
-        for (const fragment of lineFragments) {
-          if (updated.split(fragment).length !== 2) fail('Expected exactly one LINE login fragment.');
-          updated = updated.replace(fragment, '');
-        }
-        data = Buffer.from(updated, 'utf8');
-      }
+    for (const { name, data } of entries) {
       const destination = resolve(stagingDir, name);
       if (!destination.startsWith(stagingDir + sep)) fail('Extraction path escaped its target.');
       mkdirSync(dirname(destination), { recursive: true });

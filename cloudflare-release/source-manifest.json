@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Phone fixes and the Pro plans page at ฿159 / ฿849 / ฿1,490 (checkout closed until Stripe charges them) - 2026-10-20",
+  "source_label": "Plans page: premium Pro card with ฿249 struck, one screen on computers and iPads, \"คุ้มที่สุด\" in the corner on phones; login without the Facebook Soon badge and the LINE entry - 2026-10-20",
   "archive": "source.tar.gz",
-  "archive_sha256": "bfa5594eb7f2412df5f7eb11d348f784ec0687dacd8bb9c9078a730dfedd621e",
+  "archive_sha256": "fa9345b32f2766b17cc6d71741eed392fafa2da7840110e0d2fd342ce928fea8",
   "file_count": 565,
-  "total_source_bytes": 20521712,
+  "total_source_bytes": 20527774,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1528,8 +1528,8 @@
     },
     {
       "path": "frontend/src/features/auth/Login.tsx",
-      "size": 69735,
-      "sha256": "2388706873d2518d04af3ac4f7b07cafbdf0d5805c8ee3172695cca645bdff22"
+      "size": 67872,
+      "sha256": "23f50ac80561c2cdaa4323654d7bef6c044bc083195e5dab811b7d72c91bcd94"
     },
     {
       "path": "frontend/src/features/billing/PlanMascot.tsx",
@@ -1538,8 +1538,8 @@
     },
     {
       "path": "frontend/src/features/billing/PlansTab.tsx",
-      "size": 16983,
-      "sha256": "7521e53a9dba4f2edb555766ef61f0fba595d99f09b118950c7285356cd639f4"
+      "size": 17499,
+      "sha256": "08c23d19d4f4c732ebb1402b9d5fe140070198b3d4c1d1612760884694f99e1f"
     },
     {
       "path": "frontend/src/features/billing/PremiumUpsell.tsx",
@@ -1548,8 +1548,8 @@
     },
     {
       "path": "frontend/src/features/billing/ProPromoModal.tsx",
-      "size": 6410,
-      "sha256": "d1a256aa7e42259350f148dbb77d260595a00488412e58041e30c6f008ec982a"
+      "size": 6611,
+      "sha256": "3ebd240d6ef44517b7428f6de72f0768410c2ac048ee52e847a9798bb571b58e"
     },
     {
       "path": "frontend/src/features/billing/PromptPayCheckoutModal.tsx",
@@ -1558,8 +1558,8 @@
     },
     {
       "path": "frontend/src/features/billing/plans.css",
-      "size": 1949,
-      "sha256": "acc8c42dd3c41913614000fef2b71a8180c3d658582c1e2d2eb8df9f4e3e301b"
+      "size": 7980,
+      "sha256": "1c84990df44ef9c8295cd6ad4e20a1cea3328d6ff1d7c417567f7ea94d548d21"
     },
     {
       "path": "frontend/src/features/calendar/CalendarTab.tsx",
@@ -1973,13 +1973,13 @@
     },
     {
       "path": "frontend/src/features/marketing/saas/SaasLanding.tsx",
-      "size": 28767,
-      "sha256": "6deee2ad06ec0e576a9363d17a8d6070fb650db36feceb8120d3a97412fa9f46"
+      "size": 28910,
+      "sha256": "bce1f8c3ddaa42af54780f3fff1927e4a1cd80ead45bfe775fc67fc334b70e28"
     },
     {
       "path": "frontend/src/features/marketing/saas/saas.css",
-      "size": 24293,
-      "sha256": "e8384c7ac55f26812ada168dcd1aabb7ba73abfc7c6c8ebc9017c21b405053f1"
+      "size": 24496,
+      "sha256": "a08f3adac26008fbfb0dea35440aca1cbeb32e5db41eef949a5aa0ef9aaba249"
     },
     {
       "path": "frontend/src/features/mobile/MobileChrome.tsx",
@@ -2168,8 +2168,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 149855,
-      "sha256": "d6432f20bef37bcb237920009f17080176b3669125752007ad595c55cc33ab1e"
+      "size": 149000,
+      "sha256": "a12d38dd31016df0a22359a1f08c2fcceb1f50544d9aff6bebf4abd9ca194ca1"
     },
     {
       "path": "frontend/src/index.css",
@@ -2518,8 +2518,8 @@
     },
     {
       "path": "shared/proPricing.ts",
-      "size": 2070,
-      "sha256": "604dea99bfa917b11f907839587eb274e909c978b499dd59129c51bb9f23b7e6"
+      "size": 2394,
+      "sha256": "4787133efbbcc7c119bed0ee7e044558e43d492885baf8a6572dfbdd266b0145"
     },
     {
       "path": "shared/tax.ts",
@@ -2628,8 +2628,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 26047,
-      "sha256": "eec5e76ce258d159c8b406301bed5787c04fff63d5626b58420b63dcb8d15d8a"
+      "size": 27362,
+      "sha256": "b6d4ccde45e688b049e89f803245fe391984533d06c8ff3faf77912862026f7e"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -2753,8 +2753,8 @@
     },
     {
       "path": "tests/pro-pricing.test.ts",
-      "size": 1888,
-      "sha256": "f1ed6ad8bcf24ac2df9aa6e451eb96d251ec0467e2702bdac94b97a63de62b1e"
+      "size": 1935,
+      "sha256": "cc700b32f8afbc78bbe3a2e06a0240d3e4e6b39f2e595be04286a3f779e8f82c"
     },
     {
       "path": "tests/report-data.test.ts",

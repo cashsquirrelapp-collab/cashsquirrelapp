@@ -139,3 +139,42 @@ Changed against de31a95: frontend/src/app/App.tsx, frontend/src/features/billing
   - billing e2e 8 pass, 2 deferred until checkout opens.
   - Phone, feedback and mobile e2e pass.
 - Rollback: restore the three release files of de31a95.
+
+
+## Plans page: premium Pro card, ฿249 struck, "คุ้มที่สุด" in the corner - 2026-10-20
+
+**Prices.** The owner set the regular price at ฿249 a month (`PRO_REGULAR_MONTHLY` in `shared/proPricing.ts`). Every period shows its promotion against it:
+- ฿249 → ฿159: saves ฿90 every month (36%).
+- ฿1,494 → ฿849: average ฿141.50, saves ฿645 (43%).
+- ฿2,988 → ฿1,490: average ฿124.17, saves ฿1,498 (50%), "คุ้มที่สุด".
+
+The landing page and the Pro promo dialog strike ฿249 too.
+
+**Card.**
+- On a computer or an iPad, the price and button sit beside the benefits. The whole card fits on one screen (measured from 1000×630 up, and on iPad). Phones keep one column.
+- "คุ้มที่สุด" sits in the card's top-right corner on every screen. It is slightly larger (13px), so the price line stays at the same height for every period, phones included (owner's request).
+- Premium styling:
+  - Warm hairlines and a single soft shadow.
+  - A fine terracotta line on the top edge, and a faint warm panel behind the price.
+  - A soft glow behind the official mascot.
+  - The price is set like a tag, with a small raised ฿ and the regular price struck beside it.
+  - Thin outline icons and a black selector pill.
+  - A quiet, inactive "เปิดรับชำระเร็ว ๆ นี้" button.
+- Unused old price strings were removed from the translations (one of them said ฿149).
+
+**Releases 4f756d3 and f674b11 are kept.** They changed the login page by patching `Login.tsx` inside `prepare-release.mjs`:
+- They removed the Facebook "Soon" badge.
+- They removed the LINE sign-in entry and its `/api/liff-config` request.
+
+The same lines are now removed in the source itself, so this `prepare-release.mjs` needs no patch. The login page is the same as f674b11. LINE linking, the LIFF form and notifications are unchanged.
+
+**Checkout is still closed** (`PRO_CHECKOUT_OPEN` all false). Stripe, billing, entitlements and the Free tier are unchanged.
+
+Changed against ea8e4aa: frontend/src/features/auth/Login.tsx, frontend/src/features/billing/PlansTab.tsx, frontend/src/features/billing/ProPromoModal.tsx, frontend/src/features/billing/plans.css, frontend/src/features/marketing/saas/SaasLanding.tsx, frontend/src/features/marketing/saas/saas.css, frontend/src/i18n/translations.ts, shared/proPricing.ts, tests/e2e/billing.spec.ts, tests/pro-pricing.test.ts.
+- Archive SHA256 `fa9345b32f2766b17cc6d71741eed392fafa2da7840110e0d2fd342ce928fea8`; manifest SHA256 `50d3fefe82a541396c27d8b7af3d5a96bc0f6fd1c0f4596e5edae86565c96ed8`.
+- Checked:
+  - Lint, the Cloudflare build and preflight on the extracted package.
+  - Unit suite: 285 pass, with the same 5 known failures.
+  - Billing and phone e2e: 11 pass, 2 deferred.
+  - Full e2e: 55 pass. 34 fail, and the same 34 fail on the pkg10 source.
+- Rollback: restore the three release files of f674b11.
