@@ -344,3 +344,17 @@ Reported symptom: Google Pay selected in the custom Payment Element, no card inp
 Stripe live account Vispark (acct_1TeotMC4uZ5mcDl1) initially listed only js.stripe.com, checkout.stripe.com and buy.stripe.com as payment-method domains. Registered the actual payment-page domain kraroktunngern.cashsquirrelapp.workers.dev via the Stripe Dashboard after the connector write repeatedly returned an authentication retry. Readback confirmed pmd_1USiUjC4uZ5mcDl1cwy08BKg, enabled=true, google_pay.status=active. No permissions, keys, source code, prices, subscriptions or charges changed.
 
 This fixes a documented wallet setup prerequisite. A successful live Google Pay authorization/charge was not attempted; the customer must retry in their browser to confirm the complete payment flow. Do not claim the previously observed confirmation error has been fully reproduced or its only cause proven.
+
+## Native Google Pay confirmation path — 2026-10-21
+
+The customer reproduced the generic confirmation exception after domain registration. Its original exception was swallowed, so domain registration alone was not a verified fix. Replaced the wallet tab flow with Stripe Express Checkout Element mounted from the same Checkout Session SDK as the card form. Google Pay/Apple Pay use the provider's native wallet button and pass expressCheckoutConfirmEvent to actions.confirm; the traditional card button remains separate. Wallets are disabled in the traditional Payment Element to prevent an empty duplicate tab. Unavailable wallets show an explanation while retaining card payment.
+
+Both paths retain the selected session, explicit card-saving disclosure, unchecked renewal default, preparation/reconciliation gates and expiry checks. A synchronous lock prevents duplicate confirms; stale wallet events are rejected. Failure releases controls without showing provider payloads or secrets. Entitlements remain server/webhook-driven; no backend, price, permissions, CSP, database, secrets or cron changes.
+
+Validation: TypeScript and 16 Cloudflare/security tests, production build, archive verification, and 14 browser scenarios passed. Wallet boundary simulations cover every 159/849/1490 THB package with renewal off/on, correct native event, duplicate confirmation, thrown-error retry, unavailable wallets, existing card/renewal/latency behavior. Initial test run overlapped a build and included stale/deleted assets; the complete rerun after build passed. These simulations do not prove real Google wallet authorization or settlement. No actual payment or card-saving action performed.
+
+Archive SHA256: 372d3144301077d07de513ef06f374097395906a35c4a0ce3a6ced5573ea33b1 (593 files). Readable source delta: google-pay-confirmation.patch.
+
+Published production version: 3348512c-b81e-422e-8416-b47164c61d42. Existing daily schedules retained.
+
+Live verification: refreshed the production plans page and observed real Stripe card fields plus the native black “ชำระด้วย G Pay” button, with renewal unchecked. No duplicate Google Pay tab remains. In the in-app QA browser, clicking the wallet button did not produce an observable Google wallet sheet or a console error; real Google wallet authorization is therefore still unverified. Asked the customer to test only opening the native wallet sheet in their Chrome, without confirming payment. Evidence: krarok-google-pay-native-button.png in the thread visualization folder. Do not report end-to-end payment success from the mocked tests or rendered button.

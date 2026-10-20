@@ -2,9 +2,9 @@
   "schema_version": 1,
   "source_label": "Parallel checkout preparation and immediate card loading UI — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "f0fb886cc59976d41cb80374323b37b77da8bc69db795c7d2686e8b98fb84fea",
+  "archive_sha256": "372d3144301077d07de513ef06f374097395906a35c4a0ce3a6ced5573ea33b1",
   "file_count": 593,
-  "total_source_bytes": 20848294,
+  "total_source_bytes": 20857642,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1588,8 +1588,8 @@
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
-      "size": 13292,
-      "sha256": "9e23d952d289d817ae08cd281df0668cef421d9bb091ae39c2faa96985cb8929"
+      "size": 16783,
+      "sha256": "d909555e919048b42e87a76eca8f1044600b0f16bfcdd31649e8de5a63be9455"
     },
     {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
@@ -2753,8 +2753,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 51254,
-      "sha256": "6bd14be51dd06a4ba3a08892f06a5ded2e905ea064c7341ae6cdd43e778d3247"
+      "size": 57111,
+      "sha256": "647ce42d78c1b7c0592cf83512241ee710b84c66df3ebd9e15db8168c35475c9"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",

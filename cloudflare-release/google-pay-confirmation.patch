@@ -1,0 +1,201 @@
+--- a/frontend/src/features/billing/CardPaymentModal.tsx
++++ b/frontend/src/features/billing/CardPaymentModal.tsx
+@@ -1,6 +1,6 @@
+ import React from 'react';
+ import { loadStripe } from '@stripe/stripe-js/pure';
+-import type { StripeCheckoutLoadActionsSuccess, StripePaymentElement } from '@stripe/stripe-js';
++import type { StripeCheckoutLoadActionsSuccess, StripePaymentElement, StripeCheckoutExpressCheckoutElement, StripeExpressCheckoutElementConfirmEvent } from '@stripe/stripe-js';
+ import { CreditCard, LockKeyhole } from 'lucide-react';
+ import { Modal } from '../../components/ui/Modal';
+ import { uiPrimaryButton } from '../../components/ui/uiStyles';
+@@ -29,6 +29,10 @@
+   onClose: () => void; onComplete: () => void;
+ }) {
+   const mount = React.useRef<HTMLDivElement>(null);
++  const walletMount = React.useRef<HTMLDivElement>(null);
++  const [walletStatus, setWalletStatus] = React.useState<'loading' | 'available' | 'unavailable'>('loading');
++  const confirmationLock = React.useRef(false);
++  const walletConfirm = React.useRef<(event: StripeExpressCheckoutElementConfirmEvent, secret: string) => void>(() => {});
+   const actions = React.useRef<StripeCheckoutLoadActionsSuccess | null>(null);
+   const [readySecret, setReadySecret] = React.useState<string | null>(null);
+   const [paying, setPaying] = React.useState(false);
+@@ -74,8 +78,9 @@
+   React.useEffect(() => {
+     let canceled = false;
+     let payment: StripePaymentElement | undefined;
++    let wallet: StripeCheckoutExpressCheckoutElement | undefined;
+     actions.current = null;
+-    setReadySecret(null); setError('');
++    setReadySecret(null); setError(''); setWalletStatus('loading');
+     void (async () => {
+       const stripe = await loadStripe(checkout.publishableKey, { locale: 'th' });
+       if (canceled) return;
+@@ -103,33 +108,57 @@
+       let fieldsReady = false;
+       const markReady = () => { if (!canceled && fieldsReady && actions.current) setReadySecret(checkout.clientSecret); };
+       const loadingActions = sdk.loadActions();
+-      payment = sdk.createPaymentElement({ layout: 'tabs' });
++      // Wallets need their native confirmation event, separately from card-form submission.
++      payment = sdk.createPaymentElement({ layout: 'tabs', wallets: { googlePay: 'never', applePay: 'never' } });
+       payment.on('ready', () => { fieldsReady = true; markReady(); });
+       payment.on('loaderror', () => { if (!canceled) setError('โหลดช่องกรอกบัตรไม่สำเร็จ กรุณาเปิดหน้านี้อีกครั้ง'); });
+       if (mount.current) payment.mount(mount.current);
++      // A wallet failure must not prevent the standard card form from loading.
++      try {
++        wallet = sdk.createExpressCheckoutElement();
++        wallet.on('ready', event => {
++          if (!canceled) setWalletStatus(event.availablePaymentMethods && Object.values(event.availablePaymentMethods).some(Boolean) ? 'available' : 'unavailable');
++        });
++        wallet.on('loaderror', () => { if (!canceled) setWalletStatus('unavailable'); });
++        wallet.on('confirm', event => {
++          if (canceled) { event.paymentFailed({ reason: 'fail' }); return; }
++          walletConfirm.current(event, checkout.clientSecret);
++        });
++        if (walletMount.current) wallet.mount(walletMount.current);
++      } catch { if (!canceled) setWalletStatus('unavailable'); }
+       const loaded = await loadingActions;
+       if (canceled) return;
+       if (loaded.type !== 'success') throw new Error('โหลดหน้าชำระไม่สำเร็จ กรุณาลองใหม่');
+       actions.current = loaded.actions;
+       markReady();
+     })().catch(e => { if (!canceled) setError(e.message || 'โหลดหน้าชำระไม่สำเร็จ'); });
+-    return () => { canceled = true; actions.current = null; payment?.destroy(); };
++    return () => { canceled = true; actions.current = null; payment?.destroy(); wallet?.destroy(); };
+   }, [checkout.clientSecret, checkout.publishableKey]);
+-  const confirm = async () => {
+-    if (!actions.current || !ready || optionsPending || syncError || paying || completed) return;
+-    if (Date.parse(checkout.expiresAt) <= Date.now()) { setError('รายการหมดเวลาแล้ว กรุณาปิดและเปิดชำระใหม่'); return; }
+-    setPaying(true); setError('');
++  const confirm = async (walletEvent?: StripeExpressCheckoutElementConfirmEvent, secret = checkout.clientSecret) => {
++    if (!actions.current || !ready || optionsPending || syncError || confirmationLock.current || completed || secret !== checkout.clientSecret) {
++      walletEvent?.paymentFailed({ reason: 'fail' }); return;
++    }
++    if (Date.parse(checkout.expiresAt) <= Date.now()) { setError('รายการหมดเวลาแล้ว กรุณาปิดและเปิดชำระใหม่'); walletEvent?.paymentFailed({ reason: 'fail' }); return; }
++    confirmationLock.current = true; setPaying(true); setError('');
+     try {
+       const result = await actions.current.confirm({
+         redirect: 'if_required', savePaymentMethod: checkout.saveCard === true,
++        ...(walletEvent ? { expressCheckoutConfirmEvent: walletEvent } : {}),
+         returnUrl: `${window.location.origin}/app?checkout=success`,
+       });
+-      if (result.type === 'error') { setError(result.error.message || 'ชำระไม่สำเร็จ กรุณาตรวจข้อมูลบัตร'); return; }
++      if (result.type === 'error') { walletEvent?.paymentFailed({ reason: 'fail' }); setError(result.error.message || 'ชำระไม่สำเร็จ กรุณาตรวจข้อมูลบัตร'); return; }
+       setCompleted(true);
+       onComplete(); // The server, never this callback, grants Pro.
+-    } catch { setError('การเชื่อมต่อขัดข้อง กรุณารอสักครู่แล้วลองใหม่'); }
+-    finally { setPaying(false); }
++    } catch (cause) {
++      walletEvent?.paymentFailed({ reason: 'fail' });
++      // Never log provider payloads, card details, or Checkout secrets.
++      const category = cause instanceof Error && cause.name === 'IntegrationError' ? 'integration' : 'confirmation';
++      console.warn('checkout_confirmation_failed', { method: walletEvent ? 'wallet' : 'card', category });
++      setError(walletEvent ? 'ยืนยันผ่านกระเป๋าเงินไม่สำเร็จ กรุณาลองอีกครั้ง หรือเลือกชำระด้วยบัตร' : 'ยืนยันการชำระไม่สำเร็จ กรุณาตรวจข้อมูลแล้วลองอีกครั้ง');
++    }
++    finally { confirmationLock.current = false; setPaying(false); }
+   };
++  walletConfirm.current = (event, secret) => { void confirm(event, secret); };
+   const changeOptions = (autoRenew: boolean) => {
+     if (paying || completed) return;
+     setChanged(true); setAutoRenew(autoRenew); setSyncError('');
+@@ -146,7 +175,7 @@
+       </div>
+       {completed ? <p role="status" className="py-8 text-center">กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ</p> : <>
+         {!ready && !error && <p role="status" className="mb-4 text-sm text-brand-muted">กำลังเตรียมช่องกรอกบัตร…</p>}
+-        <div ref={mount} data-testid="custom-card-fields" inert={optionsPending || !!syncError} className={optionsPending ? 'opacity-40' : ''}/>
++        <div ref={mount} data-testid="custom-card-fields" inert={optionsPending || !!syncError || paying} className={optionsPending ? 'opacity-40' : ''}/>
+         <fieldset disabled={paying} className="mt-5 space-y-4 disabled:opacity-50">
+           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-orange-400/25 p-3 text-sm text-brand-text dark:text-white">
+             <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-orange-400" checked={autoRenew}
+@@ -163,6 +192,13 @@
+           <button type="button" onClick={() => { setSyncError(''); setRetry(n => n + 1); }} className="mt-2 underline">ลองเตรียมรายการอีกครั้ง</button></div>}
+         {error && <p role="alert" className="mt-3 text-sm text-red-500">{error}</p>}
+         {checkout.saveCard && <p id="card-save-disclosure" className="mt-4 text-xs leading-relaxed text-brand-muted">{CARD_SAVE_DISCLOSURE}</p>}
++        <section className="mt-4" aria-label="ชำระผ่านกระเป๋าเงิน">
++          {walletStatus === 'available' && <p className="mb-2 text-sm text-brand-muted">ชำระผ่านกระเป๋าเงิน — เลือกบัตรในหน้าต่างที่เปิดขึ้น</p>}
++          <div ref={walletMount} data-testid="wallet-buttons" hidden={walletStatus === 'unavailable'}
++            inert={!ready || optionsPending || !!syncError || paying}
++            className={!ready || optionsPending || paying ? 'opacity-40' : ''}/>
++          {walletStatus === 'unavailable' && <p className="text-xs text-brand-muted">Google Pay / Apple Pay ยังไม่พร้อมในเบราว์เซอร์นี้ ใช้ช่องกรอกบัตรด้านบนได้</p>}
++        </section>
+         <button type="button" disabled={!ready || optionsPending || !!syncError || paying} onClick={() => void confirm()}
+           aria-describedby={checkout.saveCard ? 'card-save-disclosure' : undefined}
+           className={`${uiPrimaryButton} mt-5 w-full disabled:opacity-50`}>
+--- a/tests/e2e/billing.spec.ts
++++ b/tests/e2e/billing.spec.ts
+@@ -743,3 +743,76 @@
+  await expect(page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true})).toBeEnabled();
+  await expect(dialog).toHaveCount(0);
+ });
++
++// Provider boundary simulation: the wallet supplies its own authorization event;
++// blank traditional card fields must not be used to confirm this payment.
++async function openWalletCheckout(page: Page, period='month') {
++ const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
++ await openPlans(page,free,'');
++ const writes:any[]=[];
++ await page.route('**/api/billing',route=>{
++  if(route.request().method()==='GET')return route.fulfill({json:{checkout_ready:true,subscription:free}});
++  const body=route.request().postDataJSON();writes.push(body);
++  const plan=body.period==='year'?{amount:149000,months:12}:body.period==='halfYear'?{amount:84900,months:6}:{amount:15900,months:1};
++  return route.fulfill({json:{...plan,destination:'embedded',customCard:true,autoRenew:body.autoRenew,saveCard:true,period:body.period,method:'card',orderId:'wallet-'+writes.length,clientSecret:'cs_wallet_'+writes.length,publishableKey:'pk_test_wallet',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
++ });
++ await page.route('https://js.stripe.com/**',route=>route.fulfill({contentType:'application/javascript',body:`
++ window.__walletCalls=[];window.__walletFailures=0;window.__walletMode='success';
++ window.Stripe=function(){return {initCheckoutElementsSdk:function(options){return {
++  loadActions:async()=>({type:'success',actions:{confirm:async(args)=>{
++   if(args.expressCheckoutConfirmEvent!==window.__walletEvent)throw Error('Wallet authorization event missing');
++   window.__walletCalls.push({secret:options.clientSecret,save:args.savePaymentMethod});
++   if(window.__walletMode==='throw')throw Error('Provider error with confidential data: cs_hidden_secret');
++   await new Promise(resolve=>setTimeout(resolve,30));return {type:'success'};
++  }}}),
++  createPaymentElement:()=>{let root,ready;return {on:(e,cb)=>{if(e==='ready')ready=cb},mount:el=>{root=el;el.innerHTML='<p>Blank card form</p>';ready()},destroy:()=>{if(root)root.innerHTML=''}}},
++  createExpressCheckoutElement:()=>{let root;const handlers={};return {on:(e,cb)=>{handlers[e]=cb},mount:el=>{
++   root=el;el.innerHTML='<button type="button">Google Pay test</button>';
++   el.querySelector('button').onclick=()=>{
++    const event={expressPaymentType:'google_pay',paymentFailed:()=>{window.__walletFailures++}};
++    window.__walletEvent=event;handlers.confirm(event);handlers.confirm(event);
++   };
++   handlers.ready({availablePaymentMethods:{googlePay:!window.__walletUnavailable}});
++  },destroy:()=>{if(root)root.innerHTML=''}}}
++ }}}};`}));
++ if(period!=='month')await page.getByRole('radio',{name:period==='year'?'1 ปี':'6 เดือน',exact:true}).click();
++ await page.getByTestId('pro-card').getByRole('button',{name:/สมัคร Pro/}).click();
++ await expect(page.getByText('Blank card form')).toBeVisible();
++ return writes;
++}
++for(const period of ['month','halfYear','year'])for(const renewal of [false,true]) {
++ test(`wallet uses native authorization exactly once for ${period}, renewal ${renewal}`,async({page})=>{
++  const writes=await openWalletCheckout(page,period);
++  const consent=page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/});
++  await expect(consent).not.toBeChecked();
++  if(renewal) {
++   await consent.check();
++   await expect(page.getByTestId('wallet-buttons')).toHaveAttribute('inert','');
++   await expect.poll(()=>writes.length).toBe(2);
++  }
++  await expect(page.getByTestId('wallet-buttons')).not.toHaveAttribute('inert','');
++  await page.getByRole('button',{name:'Google Pay test',exact:true}).click();
++  await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toBeVisible();
++  expect(await page.evaluate(()=>(window as any).__walletCalls)).toEqual([{secret:renewal?'cs_wallet_2':'cs_wallet_1',save:true}]);
++  expect(writes.at(-1)).toMatchObject({period,autoRenew:renewal,saveCard:true});
++ });
++}
++test('wallet thrown failure releases the payment control, hides confidential errors and allows retry',async({page})=>{
++ await openWalletCheckout(page);
++ await page.evaluate(()=>{(window as any).__walletMode='throw'});
++ await page.getByRole('button',{name:'Google Pay test',exact:true}).click();
++ await expect(page.getByRole('alert')).toContainText('ยืนยันผ่านกระเป๋าเงินไม่สำเร็จ');
++ await expect(page.getByRole('alert')).not.toContainText('cs_hidden_secret');
++ await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toHaveCount(0);
++ await expect(page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/})).toBeEnabled();
++ await page.evaluate(()=>{(window as any).__walletMode='success'});
++ await page.getByRole('button',{name:'Google Pay test',exact:true}).click();
++ await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toBeVisible();
++});
++test('wallet unavailable never presents a blank Google Pay tab and leaves the card path usable',async({page})=>{
++ await page.addInitScript(()=>{(window as any).__walletUnavailable=true});
++ await openWalletCheckout(page);
++ await expect(page.getByTestId('wallet-buttons')).toBeHidden();
++ await expect(page.getByText('Google Pay / Apple Pay ยังไม่พร้อมในเบราว์เซอร์นี้ ใช้ช่องกรอกบัตรด้านบนได้')).toBeVisible();
++ await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true})).toBeEnabled();
++});
