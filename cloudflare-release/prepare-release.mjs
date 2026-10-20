@@ -94,7 +94,17 @@ if (!verifyOnly) {
   if (existsSync(appDir)) fail('app/ already exists. Run the build from a clean checkout.');
   const stagingDir = mkdtempSync(join(baseDir, '.prepared-app-'));
   try {
-    for (const { name, data } of entries) {
+    for (const entry of entries) {
+      const { name } = entry;
+      let { data } = entry;
+      // Remove the transient Facebook availability badge from the verified snapshot.
+      // Provider checks and the disabled state remain unchanged.
+      if (name === 'frontend/src/features/auth/Login.tsx') {
+        const source = data.toString('utf8');
+        const badge = '                  {!providers.facebook && <span className="auth-pill-soon">Soon</span>}\n';
+        if (source.split(badge).length !== 2) fail('Expected exactly one Facebook availability badge.');
+        data = Buffer.from(source.replace(badge, ''), 'utf8');
+      }
       const destination = resolve(stagingDir, name);
       if (!destination.startsWith(stagingDir + sep)) fail('Extraction path escaped its target.');
       mkdirSync(dirname(destination), { recursive: true });
