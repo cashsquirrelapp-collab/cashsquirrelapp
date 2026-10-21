@@ -479,3 +479,27 @@ Changed against 4e1bf16: backend/src/services/cardRenewals.ts, backend/src/servi
   - 27 payment unit/HTTP tests, including v1 renewals still valid, an unknown version refused, and the exact wording per period.
   - Billing and card e2e: 34/34.
   - Unit suite: 349/354 with the same 5 known failures.
+
+
+## Goals page "Liquid Amber" on computers and iPads (admin-only) - 2026-10-21
+
+Built on top of 677c47d. Owner approved ("ดีพอย").
+
+- Goals stay unreleased. Only accounts with the admin system role see them: a Pro subscription is not enough, and 'split' remains outside PHASE_ONE_FEATURES. They open to everyone only when the owner launches them.
+- Redesign of SplitTab's non-phone branch (744px and up) after the owner's reference, kept to the CI:
+  - Vault card in a #A63F1B → #E65F2B → #F3B08C gradient with slow glossy waves (reduced motion respected).
+  - The tail symbol is solid CI in a white circle. The Thai title is "คลังเงินพร้อมจัดสรร".
+  - Frosted-glass plan panel; white pill actions.
+  - Status card with the official mascot (pose only).
+  - Wider goal rows.
+- Every figure, action and handler is the existing one; copy follows the real manual allocation.
+- Styles live in `frontend/src/features/goals/goalsAmber.css`, `ga-*` classes only, loaded from App.tsx (unit tests import SplitTab).
+- The phone branch is untouched. Screens at 390/375 in light and dark are pixel-identical to 677c47d.
+
+Changed against 677c47d: frontend/src/app/App.tsx, frontend/src/features/goals/SplitTab.tsx, frontend/src/features/goals/goalsAmber.css (new), tests/e2e/goals-desktop.spec.ts (new).
+- Archive SHA256 `e7fdf73c59d0933de55cc909e1d2db5055d918b1bc3ea991fa7d8435b6bf5038`; manifest SHA256 `67629e5e8df17b856dea008dd5cb92bb5b0b7d857fbf32af83c803979e28b48b`.
+- Checked:
+  - cloudflare:check (16 tests), the Cloudflare build and preflight on the extracted package.
+  - goal-split unit tests 7/7.
+  - goals-desktop e2e 6/6: 1440/1280/768 actions, the empty month, phone actions, and regular/Pro accounts see no goals.
+  - Full e2e: no new failures against the live source.

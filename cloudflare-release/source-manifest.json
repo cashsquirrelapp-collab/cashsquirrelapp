@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Owner's renewal consent wording (v2, v1 renewals kept) — 2026-10-21",
+  "source_label": "Goals page Liquid Amber on computers and iPads (admin-only) — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "da388e48a4101ff8a3f2d9b7fef4424b0b942ebc70e5e811144d6400fc033128",
-  "file_count": 620,
-  "total_source_bytes": 19040330,
+  "archive_sha256": "e7fdf73c59d0933de55cc909e1d2db5055d918b1bc3ea991fa7d8435b6bf5038",
+  "file_count": 622,
+  "total_source_bytes": 19062650,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1563,8 +1563,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 185422,
-      "sha256": "38c30140e152ae1b53ad0f6a38e292b1030ff48c47f69b1b1277429d3a97d433"
+      "size": 185578,
+      "sha256": "a5d1739d4aeda7b36117ed92d2a9b7f80e7f482687a0c94a74bc90c604b8f754"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1818,13 +1818,18 @@
     },
     {
       "path": "frontend/src/features/goals/SplitTab.tsx",
-      "size": 91109,
-      "sha256": "73d70a9df38ca65855581b70945252b7eb6adc92729aad2c7bbc8564e161f287"
+      "size": 96047,
+      "sha256": "ff0770ff8245dad414c5a87eefce03c1e5fe2400ff7c68bf6812d2b3d8a54ac8"
     },
     {
       "path": "frontend/src/features/goals/goalIcons.ts",
       "size": 2986,
       "sha256": "c2e4d05c9a3c62363e7c88106aaa4f9de77655f7f24910bc762cecfe384a573f"
+    },
+    {
+      "path": "frontend/src/features/goals/goalsAmber.css",
+      "size": 6749,
+      "sha256": "ed36baf3493373037eab82b24e49b0e35a1e18794835380335b4973fd35bc171"
     },
     {
       "path": "frontend/src/features/groups/AdminDashboard.tsx",
@@ -2875,6 +2880,11 @@
       "path": "tests/e2e/goal-image-shrink.spec.ts",
       "size": 3742,
       "sha256": "d4554cac4bd88e574fcc362af5b7788d80693299c3fa65c2b9838d6234473372"
+    },
+    {
+      "path": "tests/e2e/goals-desktop.spec.ts",
+      "size": 10477,
+      "sha256": "3fb8c6c3bb650a3d362a205084dfc27f62c5423877afc48811db5b12353a1542"
     },
     {
       "path": "tests/e2e/groups.spec.ts",
