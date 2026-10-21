@@ -503,3 +503,32 @@ Changed against 677c47d: frontend/src/app/App.tsx, frontend/src/features/goals/S
   - goal-split unit tests 7/7.
   - goals-desktop e2e 6/6: 1440/1280/768 actions, the empty month, phone actions, and regular/Pro accounts see no goals.
   - Full e2e: no new failures against the live source.
+
+
+## Account switcher; steady Facebook button - 2026-10-21
+
+Built on top of 0270ef7. Owner approved ("ดีพอย").
+
+**Switch sign-in accounts like Google/Facebook (computer and iPad account menu; phones unchanged).**
+- Sessions on this browser:
+  - The active session stays in `cashflow-session`.
+  - Up to three other signed-in sessions wait in sealed `cashflow-acct-2..4` cookies (`__Secure-`, Path=/api/auth, HttpOnly, SameSite=Lax). Ordinary API calls never carry them.
+  - A sealed `cashflow-known` cookie (30 days) lists id, email and name, so an account whose 8-hour session ended still shows and only needs its password.
+- New sign-ins go through `adoptSession` (password, unlock, signup, OAuth callback). It keeps the current account aside; a fifth account replaces and revokes the oldest waiting one.
+- `GET /api/auth?accounts=1` reads cookies only. POST `switch-account` / `forget-account` sit behind the existing CSRF guard and check the account id.
+- Switching re-checks `cashflow_session_active`; a revoked session is dropped with 409 `account_signin_required`.
+- Logout revokes every waiting session as well.
+- UI:
+  - "สลับบัญชี" in the profile menu opens `AccountSwitcher`: switch and reload, re-sign-in with the email filled in, remove from this browser, or "เพิ่มบัญชีอื่น".
+  - "เพิ่มบัญชีอื่น" shows sign-in with a back arrow while the current account stays signed in.
+
+**Login:** the provider buttons start from the last answer saved in localStorage, and `.auth-pill` fades opacity. Facebook no longer draws faded and pops in on refresh. The server still refuses a disabled provider.
+
+Changed against 0270ef7: backend/src/handlers/auth.ts, backend/src/security/deviceAccounts.ts (new), backend/src/security/session.ts, frontend/src/app/App.tsx, frontend/src/components/account/AccountSwitcher.tsx (new), frontend/src/features/auth/Login.tsx, frontend/src/index.css, frontend/src/services/auth.ts, tests/device-accounts.test.ts (new), tests/e2e/account-switcher.spec.ts (new), tests/e2e/login-providers.spec.ts (new).
+- Archive SHA256 `1b6d6b328dc8cd941855c970309a05d055fb58da2fd41e04ad02a75a86ccd75b`; manifest SHA256 `733441c768b762451c3a276cfc4e10dfc5507864b77934033bb560e3d0cbec63`.
+- Checked:
+  - cloudflare:check (16), the Cloudflare build and preflight on the extracted package.
+  - 11 auth tests, including a forged-origin switch refused with 403.
+  - Switcher e2e 4/4 and login-provider e2e 2/2.
+  - Unit suite: 357/362 with the same 5 known failures.
+  - Phone login, overview and jobs at 390/375 in both themes are pixel-identical to 0270ef7.

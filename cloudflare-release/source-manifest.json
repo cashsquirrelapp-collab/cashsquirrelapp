@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Goals page Liquid Amber on computers and iPads (admin-only) — 2026-10-21",
+  "source_label": "Account switcher and steady Facebook button — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "e7fdf73c59d0933de55cc909e1d2db5055d918b1bc3ea991fa7d8435b6bf5038",
-  "file_count": 622,
-  "total_source_bytes": 19062650,
+  "archive_sha256": "1b6d6b328dc8cd941855c970309a05d055fb58da2fd41e04ad02a75a86ccd75b",
+  "file_count": 627,
+  "total_source_bytes": 19104992,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -73,8 +73,8 @@
     },
     {
       "path": "backend/src/handlers/auth.ts",
-      "size": 24011,
-      "sha256": "54320608bcc7ea74cdfa06b54f0f73b2e0f7de12450f8d129de6273b330fc609"
+      "size": 25715,
+      "sha256": "e192b88364ba1e9b98857df971b53ac13f5de983632cc78a3cfa2219fd54bdf7"
     },
     {
       "path": "backend/src/handlers/billing.ts",
@@ -257,6 +257,11 @@
       "sha256": "1cb6cd28e3aa102da1e264252eaef2f130d50709bd5c79da9989cc1cb8e2a4e8"
     },
     {
+      "path": "backend/src/security/deviceAccounts.ts",
+      "size": 9678,
+      "sha256": "15d03835b092145fe3462b17f34e12de862580ef1a3d5092b3d3717d774d8113"
+    },
+    {
       "path": "backend/src/security/ingress.ts",
       "size": 3510,
       "sha256": "0a0157f7e730edd1ef71cb4678f4ad0c9f6fb247f829b84907bbf3e729683815"
@@ -278,8 +283,8 @@
     },
     {
       "path": "backend/src/security/session.ts",
-      "size": 7313,
-      "sha256": "6d72553fabc899a7a0e5ce221784e2d650d880dc0ee979aa1dd155c788afda97"
+      "size": 7905,
+      "sha256": "ec0a9a418a7bc8dd98a99628a727ed562a15b0cf95bfd7541441c5a065243fd6"
     },
     {
       "path": "backend/src/security/staging.ts",
@@ -1563,8 +1568,13 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 185578,
-      "sha256": "a5d1739d4aeda7b36117ed92d2a9b7f80e7f482687a0c94a74bc90c604b8f754"
+      "size": 187146,
+      "sha256": "bffdd37a730bae202ebac588cbda1121007191819e3d032a659aab6018a660d1"
+    },
+    {
+      "path": "frontend/src/components/account/AccountSwitcher.tsx",
+      "size": 7442,
+      "sha256": "9c72d0231f5df3266c4173e980380e155837ffd18e1c8578b00bc1a57ad04ab1"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1668,8 +1678,8 @@
     },
     {
       "path": "frontend/src/features/auth/Login.tsx",
-      "size": 67841,
-      "sha256": "6e5a9b50325868ff7d50893ddc6bab4b0a23d77eb48d0c7922eadfd05adb7d57"
+      "size": 69043,
+      "sha256": "1ac8fcecd34e4d78bd4534db3f00c94439f9111bb682d8e8663bfd42f8d022a6"
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
@@ -2338,8 +2348,8 @@
     },
     {
       "path": "frontend/src/index.css",
-      "size": 38950,
-      "sha256": "edb4394992f968e5ebbdbb3613e06b9d6cf2a982ff08d144ad3b60675c58e744"
+      "size": 38986,
+      "sha256": "9b8e8dcaead86ae26e3db5aca6002d21760434ba6e314f539f2617d3f54da1be"
     },
     {
       "path": "frontend/src/kinetic-preview.tsx",
@@ -2378,8 +2388,8 @@
     },
     {
       "path": "frontend/src/services/auth.ts",
-      "size": 6247,
-      "sha256": "1d4cb9246b3368bf0132464ce160e932febee8ece4526504496226cd5566e2e8"
+      "size": 7193,
+      "sha256": "bca01cfdab4fec5a90fb7e1c555bd970e016752de251afc6eaf23825ba299b28"
     },
     {
       "path": "frontend/src/services/cloud.ts",
@@ -2822,6 +2832,11 @@
       "sha256": "9c24ba28d4a3e1c833ad265a3e0b3120fed1071fe3cf53b6158e4300ed95d16c"
     },
     {
+      "path": "tests/device-accounts.test.ts",
+      "size": 10166,
+      "sha256": "5a9544a5a7d1475bfcf81c65596d4a0828d2ed42455911d7d5e5f51934e54e01"
+    },
+    {
       "path": "tests/document-links.test.ts",
       "size": 4216,
       "sha256": "02605c00c60ac02af162e59c9f1341814c2ab37299272f7cb84eea9a7475f9d9"
@@ -2835,6 +2850,11 @@
       "path": "tests/document-quota.test.ts",
       "size": 8847,
       "sha256": "3f011ecfbb7f58c2bfd238018afe27be61526350978a5f54944a46af3d1a4f90"
+    },
+    {
+      "path": "tests/e2e/account-switcher.spec.ts",
+      "size": 7092,
+      "sha256": "32ac913a5883300a2b60fa779165f9e7aba2f17398c54184955383fd2712d606"
     },
     {
       "path": "tests/e2e/admin-analytics.spec.ts",
@@ -2890,6 +2910,11 @@
       "path": "tests/e2e/groups.spec.ts",
       "size": 16850,
       "sha256": "0a5e8ca8e58bcf1ba04ef447fa56b5445b1a2fb6f86168daacc47b32a131242c"
+    },
+    {
+      "path": "tests/e2e/login-providers.spec.ts",
+      "size": 1916,
+      "sha256": "346876a592a0ae641464c97e4879d34a92cf6d2a9b4c3a86353327912bae09c0"
     },
     {
       "path": "tests/e2e/mobile-phone.spec.ts",
