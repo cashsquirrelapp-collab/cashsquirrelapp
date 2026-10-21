@@ -439,3 +439,20 @@ Changed against d717a19: backend/src/config/supabase.ts, backend/src/config/supa
   - Unit suite: 348/353 with the same 5 known failures.
   - Billing and card e2e: 34/34.
   - No new app/phone e2e failures against the live source.
+
+
+## Smaller goal pictures - 2026-10-21
+
+Built on top of 0e14635. Owner approved shrinking existing pictures and the release ("ดีพอย").
+
+- Goal pictures are shown at 60px at most, yet one account stored 1,126 kB + 195 kB + 55 kB of them, downloaded on every visit.
+- New uploads keep 256px: `imageFileToDataUrl(file, { maxSide: 256 })`. Document logos keep 960px.
+- Existing pictures over 100 kB are re-encoded once to 256px webp (`shrinkImageDataUrl`) after the person's own data loads, then saved through the normal sync. Group workspaces are skipped. Goals and other data are never deleted.
+
+Changed against 0e14635: frontend/src/app/App.tsx, frontend/src/features/goals/SplitTab.tsx, frontend/src/services/images.ts, tests/e2e/goal-image-shrink.spec.ts (new).
+- Archive SHA256 `6bc7036cd106fd10993349cb1ab627729cc3ef28c3f091f78166e7d44807da07`; manifest SHA256 `3ad209cd33dbd7f1f0e5046afc8e2fca6a0e2cf203e4ec994550a86c633c9131`.
+- Checked:
+  - cloudflare:check (16 tests), the Cloudflare build and preflight on the extracted package.
+  - Unit suite: 348/353 with the same 5 known failures.
+  - The new e2e test passes.
+  - No new e2e failures against the live source.

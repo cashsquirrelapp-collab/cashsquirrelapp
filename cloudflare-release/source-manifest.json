@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Supabase timeouts, easier passwords, renewal-only card dialog, clear tab icon — 2026-10-21",
+  "source_label": "Smaller goal pictures — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "8793a94e5275daa2c67bdb77738dc5c81f58900774d1e2329c4e96aff0acf813",
-  "file_count": 619,
-  "total_source_bytes": 19031576,
+  "archive_sha256": "6bc7036cd106fd10993349cb1ab627729cc3ef28c3f091f78166e7d44807da07",
+  "file_count": 620,
+  "total_source_bytes": 19038010,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1563,8 +1563,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 184086,
-      "sha256": "43b72fe027696e78f521df62f2539fa88eba028ccbebdda88379b51ed8f0f44f"
+      "size": 185422,
+      "sha256": "38c30140e152ae1b53ad0f6a38e292b1030ff48c47f69b1b1277429d3a97d433"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1818,8 +1818,8 @@
     },
     {
       "path": "frontend/src/features/goals/SplitTab.tsx",
-      "size": 91091,
-      "sha256": "38e40018ae0c16d3842ad06685ff52e02faaf38d3af06449a663c09226d93308"
+      "size": 91109,
+      "sha256": "73d70a9df38ca65855581b70945252b7eb6adc92729aad2c7bbc8564e161f287"
     },
     {
       "path": "frontend/src/features/goals/goalIcons.ts",
@@ -2398,8 +2398,8 @@
     },
     {
       "path": "frontend/src/services/images.ts",
-      "size": 1182,
-      "sha256": "69aba48e8c18ecc8e90f122e72f92848b407e111d499b70ac703f2583a30b279"
+      "size": 2520,
+      "sha256": "d0ce3029015aa99280ae76db69e3d19641f3cf72e28152888ad7bab6a372921b"
     },
     {
       "path": "frontend/src/services/privateCache.ts",
@@ -2870,6 +2870,11 @@
       "path": "tests/e2e/finance-workspaces.spec.ts",
       "size": 16386,
       "sha256": "1a6230d1fc8c9c766169f4dab9f4d84cbdbba4fa33d366a707a41a98bd6e9186"
+    },
+    {
+      "path": "tests/e2e/goal-image-shrink.spec.ts",
+      "size": 3742,
+      "sha256": "d4554cac4bd88e574fcc362af5b7788d80693299c3fa65c2b9838d6234473372"
     },
     {
       "path": "tests/e2e/groups.spec.ts",
