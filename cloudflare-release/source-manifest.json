@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg26: formal LINE cards, LINE connect welcome and disconnect notice, card consent v2 database fix",
+  "source_label": "pkg27: home screen icon and English name; LINE card amounts and rows tidied",
   "archive": "source.tar.gz",
-  "archive_sha256": "55913fe73308d5cec56c17ab18ad64aaa311b521d5bad0142c649f9868885c55",
-  "file_count": 662,
-  "total_source_bytes": 19380838,
+  "archive_sha256": "b5f4071b6b7b3a7f7da570da63cc54fef54bc712e98c7b6ac54cf36aa2f38bc7",
+  "file_count": 667,
+  "total_source_bytes": 19671290,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -368,13 +368,13 @@
     },
     {
       "path": "backend/src/services/lineCards.ts",
-      "size": 13701,
-      "sha256": "f2ddbd365479c64881785012980ab153ad715f3524295aac36835b9b4bf698c6"
+      "size": 14370,
+      "sha256": "8016d20dda7b103d3a588352a4fe78ad2a1a4945f54086846bda492e3b353181"
     },
     {
       "path": "backend/src/services/lineCashSummary.ts",
-      "size": 2806,
-      "sha256": "bb574c8c06bff2004ab1705172fba8f3e721b15034a2272a1059ec92400e360b"
+      "size": 2675,
+      "sha256": "c6eafc365931eb61dcdb33d76c6ac2c2c9238a6531466adcd79bd89a4b5c6e8d"
     },
     {
       "path": "backend/src/services/lineDocumentIntake.ts",
@@ -683,8 +683,8 @@
     },
     {
       "path": "frontend/index.html",
-      "size": 6311,
-      "sha256": "66c05f1eb3768626603d5f215e31c814cbb6a86b1fa33129a8da22b36efd6a3c"
+      "size": 6372,
+      "sha256": "fe5a081130c55eefa7c077fa1c65a79b7efc9615df6ffd87859a2f913231df0a"
     },
     {
       "path": "frontend/kinetic-preview.html",
@@ -815,6 +815,31 @@
       "path": "frontend/public/boot-skeleton.js",
       "size": 6182,
       "sha256": "7489a491247bbbcbec185b96abffbf0531796ed0bef819e2c0ac2c88ed3a2899"
+    },
+    {
+      "path": "frontend/public/brand/home-v1/home-icon-180.png",
+      "size": 23076,
+      "sha256": "6f33a3e1e34aecab0e759591026ed96e2ce460d996ed421763a2e79b9afc980c"
+    },
+    {
+      "path": "frontend/public/brand/home-v1/home-icon-192.png",
+      "size": 25082,
+      "sha256": "9eefc8a0d226dbba2106946a1cc5f9d7123c965a7068b343bbea3d379628b1d7"
+    },
+    {
+      "path": "frontend/public/brand/home-v1/home-icon-512.png",
+      "size": 119311,
+      "sha256": "f52d271c408dd2cd20527fbd03ab35b3459c45ed8697210500ead1801bc39cf8"
+    },
+    {
+      "path": "frontend/public/brand/home-v1/home-icon.svg",
+      "size": 2261,
+      "sha256": "cfbfe1332d8cfaf99aed005cd12b8a3ef464703ab0fda439f34a784ca7416923"
+    },
+    {
+      "path": "frontend/public/brand/home-v1/home-maskable-512.png",
+      "size": 120156,
+      "sha256": "ebb011b613a0561de332f2a83415a56b63a26f1a2fc499ed6587d2b291738f5f"
     },
     {
       "path": "frontend/public/brand/logo01-v1/apple-touch-icon.png",
@@ -1573,8 +1598,8 @@
     },
     {
       "path": "frontend/public/manifest.json",
-      "size": 1202,
-      "sha256": "3b54280f2600d4ea3a88f95aee9e77977bc7d3b1889429b8087e6c395de3f7fc"
+      "size": 1088,
+      "sha256": "3ff660d3a14f4bd28c8b191ad9f0ff97016f90affda2665ee0a3b8248a2cd797"
     },
     {
       "path": "frontend/public/mascots/character-full.svg",
@@ -2718,8 +2743,8 @@
     },
     {
       "path": "scripts/tutorial/line/clip/flex.tsx",
-      "size": 5314,
-      "sha256": "f309d465f1969bbb95875694923a98a92e1d4dba8811e8e704706083a16e4f7f"
+      "size": 5395,
+      "sha256": "2e6d801f5d66d8a37df82b1b882d18655b4fba19d3138f89f9195f3a392068a2"
     },
     {
       "path": "scripts/tutorial/line/clip/main.tsx",
