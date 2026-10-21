@@ -592,3 +592,60 @@ Changed against 6a72896: frontend/src/features/groups/AdminStripeFinance.tsx, fr
   - Unit suite 380/385 with the same 5 known failures.
   - Admin, feedback and phone browser tests 15/15.
   - Phone admin overview and revenue, 32 screens, pixel-identical to 3412a3a.
+
+
+## Live revenue; phone admin design; phone opening logo; scheduled jobs on Cloudflare - 2026-10-22
+
+Built on top of 28b0983. The owner asked for revenue to update in real time on computers, iPads and phones ("เอาใส่ทั้งในมือถือด้วยก็ดี"), and approved deploying everything ("deploy ส่วนที่เหลือทั้งหมด").
+
+- **Pulse:** `GET /api/admin-analytics?pulse=1`.
+  - Same owner-only gate as the analytics, with its own rate limit (20/min).
+  - Makes eight count-only requests over the live payment sources: prepaid orders paid/refunded, invoice.paid events, refunded card cycles, PromptPay and legacy payments with refunds.
+  - Returns only a signature made of counts. No payment rows, names or amounts.
+- **Snapshot:** the full analytics response carries `liveSignature`, taken before its data is read, so a payment landing mid-read is caught by the next pulse.
+- **Page:**
+  - While the admin page is open and on screen, it asks every 15 seconds. A hidden tab does not ask, and returning to it asks at once.
+  - On a change, the numbers reload quietly with no skeleton, and the shared toast reads "มีการชำระเงินใหม่" with the payer's name, Public ID and amount. Refunds update the numbers without a toast.
+  - The Stripe finance panel refreshes quietly too.
+  - 401 or 403 on the pulse triggers a full reload, which clears the money shown.
+- **Indicator:** "● อัปเดตอัตโนมัติ" on computers and iPads, beside อัปเดต; on phones "● สด" in the admin header.
+- Payments, the database and Secrets are untouched. The Wrangler config and crons change as described below.
+
+**Admin dashboard on phones, in the phone design** (owner: "อิงตามแบบมือถือ ... ไม่ต้องเอาเหมือนในคอม"):
+- `AdminDashboardPhone.tsx` is chosen by the app's phone layout (`useMobileLayout`, under 744px).
+- Layout:
+  - The terracotta `MobilePageHero` carries the period's revenue; the box collapses on scroll.
+  - Below it: a 7/30/90 switch, metric cards, a daily-users chart, the latest payments and a list of admin tools.
+  - Each tool opens as its own page with a back link: revenue + all payments, accounts (search, plan chips, persona filter, detail bottom sheet), feature usage, inbox, users, teams.
+  - Tips and personas are on the main page; tapping a persona opens the accounts filtered to it.
+- When the figures fail, the error shows and the inbox, users and teams still open.
+- The phone has no Stripe finance panel and makes no request for it.
+- Labels moved to `adminLabels.ts`.
+- Computers and iPads are unchanged: 18 screens at 1440, 1024 and 768 in both themes are pixel-identical to the live-revenue build.
+- The phone header box is drawn from the first render and never swaps element types, because `useCollapsingCard` measures once.
+
+**Opening logo on phones** (owner: no grey skeleton when the app opens; the logo with an animation):
+- Who sees it: when the screen is phone width and the visitor signed in before (or opened the installed app), `boot-skeleton.js` draws `#app-splash` outside `#root`, not on /login, /recover or /privacy.
+- What it shows: the official symbol (inline SVG, not redrawn) turns in with a glow and two ripples. The wordmark appears once its Prompt subset loads, and dots pulse while loading.
+- How it closes: App calls `hideSplash()` once the session is known and the account's data has loaded or failed.
+- It waits at least 1.1s and until no `#root [aria-busy]` placeholder is left (at most 2.5s), fades and scales out, and is removed after 15s at the latest. ErrorBoundary also hides it.
+- Reduced motion gets a plain fade. Computers keep the skeleton.
+
+**Scheduled jobs now run on Cloudflare** (owner approved in chat 2026-10-22: "อนุมัติตามเวลาเลย"):
+- Why: the Vercel deployment that ran them is paused (DEPLOYMENT_PAUSED) and the Worker had `crons: []` and `CRON_ENABLED: "false"`, so no scheduled job ran anywhere.
+- `wrangler.production.jsonc` now has crons `0 1 * * *` and `0 2 * * *`, and `CRON_ENABLED: "true"`. `CRON_SECRET` was already a Worker secret.
+- `0 1 * * *` is the 08:00 Bangkok credit-term and overdue digest, plus the monthly report on the 1st. The monthly report goes only to accounts that turned it on.
+- `0 2 * * *` is the 09:00 closing of paused accounts past their deletion date (permanent, at most 50 a run). The owner ran the read-only backlog query in Supabase first and reported "Success".
+- The 50 ทวิ reminder is hidden (owner: feature not launched yet). `cloudflare/schedule.ts` no longer lists it; its handler stays. A test asserts it is never scheduled. Bringing it back is one line.
+
+Changed against 28b0983: cloudflare/schedule.ts, wrangler.production.jsonc, tests/cloudflare-scheduled.test.ts, backend/src/handlers/admin-analytics.ts, backend/src/services/adminPaymentPulse.ts (new), frontend/index.html, frontend/public/boot-skeleton.js, frontend/src/app/App.tsx, frontend/src/app/splash.ts (new), frontend/src/components/ui/ErrorBoundary.tsx, frontend/src/features/groups/AdminDashboard.tsx, frontend/src/features/groups/AdminDashboardPhone.tsx (new), frontend/src/features/groups/AdminStripeFinance.tsx, frontend/src/features/groups/adminLabels.ts (new), frontend/src/features/mobile/mobile.css, frontend/src/services/adminAnalytics.ts, shared/adminAnalytics.ts, tests/admin-analytics-access.test.ts, tests/e2e/admin-analytics.spec.ts, tests/e2e/admin-stripe-finance-phone.spec.ts, tests/e2e/admin-live-revenue.spec.ts (new), tests/e2e/admin-phone.spec.ts (new), tests/e2e/phone-splash.spec.ts (new).
+- Archive SHA256 `06ea69197c26a41163acaef4ff841cad01ad28bedbb0d112eec88922558c3cef`; manifest SHA256 `25bfd98353074078d73b4bb8fb95a3297ee638e3f2f5fa6cd07732e3f31be0d6`.
+- Checked:
+  - cloudflare:check (16), the Cloudflare build and preflight ("Cron is enabled") on the extracted package.
+  - Schedule tests 4/4, including the hidden 50 ทวิ reminder.
+  - Admin access tests 10/10, including the pulse gate and that it reads counts only.
+  - Unit suite 381/386 with the same 5 known failures.
+  - Live revenue e2e 3/3 (computer, hidden tab and access loss, phone), stable over 3 runs.
+  - Phone admin e2e 5/5 and opening logo e2e 4/4.
+  - Full e2e: 135 passed, the 34 known failures and none new.
+  - Other phone pages (overview, jobs, sign-in at 390/375, both themes): 12 screens pixel-identical to the previous build.

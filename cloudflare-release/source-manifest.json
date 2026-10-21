@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg20: Stripe finance hides parts it cannot read (built on 6a72896)",
+  "source_label": "pkg22: live revenue, phone admin design, phone opening logo, scheduled jobs on Cloudflare (50 ทวิ hidden) — built on 28b0983",
   "archive": "source.tar.gz",
-  "archive_sha256": "83088ca5a75d6aee4c5a2d50edad4fc317d2e7dd7a802f30a8da08552e6a2ec0",
-  "file_count": 635,
-  "total_source_bytes": 19195865,
+  "archive_sha256": "06ea69197c26a41163acaef4ff841cad01ad28bedbb0d112eec88922558c3cef",
+  "file_count": 642,
+  "total_source_bytes": 19280273,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -63,8 +63,8 @@
     },
     {
       "path": "backend/src/handlers/admin-analytics.ts",
-      "size": 15626,
-      "sha256": "c2e732444f8ff0075ddd1ee0e404ea24cde5b520b9554ab0ecd332d7e243852e"
+      "size": 16217,
+      "sha256": "8c98b13b551cd9a906645d8e5db671e335c34aa49239b6afef0314be472c1d9c"
     },
     {
       "path": "backend/src/handlers/admin-stripe-finance.ts",
@@ -317,6 +317,11 @@
       "sha256": "a575dcf612b7d0751e73c634519ceae164a20b52720c52cf1212435604376117"
     },
     {
+      "path": "backend/src/services/adminPaymentPulse.ts",
+      "size": 1637,
+      "sha256": "b05c4f8febd6bdb86ad5fdbcddfdc55a7f219e4dc143032652b4d7e4985b3ff2"
+    },
+    {
       "path": "backend/src/services/adminStripeFinance.ts",
       "size": 16686,
       "sha256": "9579ad3f1a4a5fe9732414d018018a4ebe1c50526641231dae1ece068cd44ec1"
@@ -488,8 +493,8 @@
     },
     {
       "path": "cloudflare/schedule.ts",
-      "size": 1035,
-      "sha256": "1a0a3b5cb7507aa1625dd700054cb8a4b618a0194f98c75b493db1e2d00e93ec"
+      "size": 1194,
+      "sha256": "4e36d36b860740bc8259cb122633955b0a7bc36ef9c5017daa031a29993b01c0"
     },
     {
       "path": "cloudflare/worker.ts",
@@ -668,8 +673,8 @@
     },
     {
       "path": "frontend/index.html",
-      "size": 3037,
-      "sha256": "b6097df90a73e592d01ad41dda7805b30291b448471faa2f9c3ef5def08b4e47"
+      "size": 6311,
+      "sha256": "66c05f1eb3768626603d5f215e31c814cbb6a86b1fa33129a8da22b36efd6a3c"
     },
     {
       "path": "frontend/kinetic-preview.html",
@@ -798,8 +803,8 @@
     },
     {
       "path": "frontend/public/boot-skeleton.js",
-      "size": 1833,
-      "sha256": "e635b5c62ae943b3aa2ea1b6b4812b39ba44a21872999745bd953464f37c7c3d"
+      "size": 6182,
+      "sha256": "7489a491247bbbcbec185b96abffbf0531796ed0bef819e2c0ac2c88ed3a2899"
     },
     {
       "path": "frontend/public/brand/logo01-v1/apple-touch-icon.png",
@@ -1578,8 +1583,13 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 187146,
-      "sha256": "bffdd37a730bae202ebac588cbda1121007191819e3d032a659aab6018a660d1"
+      "size": 187860,
+      "sha256": "80c7a5e2eb08702aa27bef3cfe45cf0869f53264d06ce8d972a8129e309b03c1"
+    },
+    {
+      "path": "frontend/src/app/splash.ts",
+      "size": 1258,
+      "sha256": "b427dbe38aa5c344808a82e36db1ff58b5fb346814ce3bb29c3409d4d87a9c3d"
     },
     {
       "path": "frontend/src/components/account/AccountSwitcher.tsx",
@@ -1638,8 +1648,8 @@
     },
     {
       "path": "frontend/src/components/ui/ErrorBoundary.tsx",
-      "size": 798,
-      "sha256": "9fd3599b0d8513d377d31c0a7c47a21cfc266e97d556cd019d43d7465796ffab"
+      "size": 932,
+      "sha256": "1ac1746f0e523547e80468d589ce7cb57583ea90f78015d761df7b30949d231e"
     },
     {
       "path": "frontend/src/components/ui/FullPageLoader.tsx",
@@ -1853,13 +1863,18 @@
     },
     {
       "path": "frontend/src/features/groups/AdminDashboard.tsx",
-      "size": 45468,
-      "sha256": "33844215acbbbeed9e753624e85f28c07e2dc4ec9c3f9c04192ed7679e3fd93a"
+      "size": 46865,
+      "sha256": "d2504ef0d0a107acdc6284e054b05c40847f4768807e6413bc51e7846005532b"
+    },
+    {
+      "path": "frontend/src/features/groups/AdminDashboardPhone.tsx",
+      "size": 31330,
+      "sha256": "90634727db25a67db84b8e36ca19ea24353729a3a6b5df13c9b16e4ab875cd47"
     },
     {
       "path": "frontend/src/features/groups/AdminStripeFinance.tsx",
-      "size": 23088,
-      "sha256": "afe57e6dadf14077180cb4918dc065a6a97e847c8db4676ea29ad11d04821be4"
+      "size": 23737,
+      "sha256": "b161e1b7d2b887dcd97ecbc44a73b5aeccfd7bc5285cad216d5b8b9e24d33933"
     },
     {
       "path": "frontend/src/features/groups/AdminUsersPanel.tsx",
@@ -1875,6 +1890,11 @@
       "path": "frontend/src/features/groups/GroupsTab.tsx",
       "size": 59769,
       "sha256": "db60a7e4dc009902bb326a35b63066af3c9d77f50608b9ef6b6756465078d1ea"
+    },
+    {
+      "path": "frontend/src/features/groups/adminLabels.ts",
+      "size": 2156,
+      "sha256": "9cf51e0aca0c1e117ecab7009c228e8cd4a43238672687fbc8bba4bc3c3fbb53"
     },
     {
       "path": "frontend/src/features/groups/groupUi.tsx",
@@ -2188,8 +2208,8 @@
     },
     {
       "path": "frontend/src/features/mobile/mobile.css",
-      "size": 80785,
-      "sha256": "eafedbe47a06ce7df2d20dea4721569af59b369ac627b16d9e3c15ebf1810f85"
+      "size": 86527,
+      "sha256": "049dfe91de63d7c6d096e1d57fabb2abe85ea70c237d49600c08de52d174e97d"
     },
     {
       "path": "frontend/src/features/mobile/mobileNavigation.ts",
@@ -2393,8 +2413,8 @@
     },
     {
       "path": "frontend/src/services/adminAnalytics.ts",
-      "size": 394,
-      "sha256": "3bc337dbbfc6a49b9f70cba864338676fceb8a31f6c5036dc1783da18e79f04b"
+      "size": 694,
+      "sha256": "90e17de5c8bf210ff8f1fbb2c74204b86298d3609045332099a1d056e947d1e4"
     },
     {
       "path": "frontend/src/services/adminStripeFinance.ts",
@@ -2658,8 +2678,8 @@
     },
     {
       "path": "shared/adminAnalytics.ts",
-      "size": 1997,
-      "sha256": "69072b35566bad57ca475df9b147c83b168f7ae14f9cb0fbe502b1a1a3076db8"
+      "size": 2126,
+      "sha256": "e30d3525be6ce8139954deed1a91deb1619963fd738c254bd89e84eb6423f3fa"
     },
     {
       "path": "shared/adminStripeFinance.ts",
@@ -2798,8 +2818,8 @@
     },
     {
       "path": "tests/admin-analytics-access.test.ts",
-      "size": 9506,
-      "sha256": "13603f8467f1b2f782fc3af5b6bb2dc2cbbbb781195a46925863006109493030"
+      "size": 11339,
+      "sha256": "583a3c1fb6e00fa71e874483838698567f700a3ce7851ce682363e625836e833"
     },
     {
       "path": "tests/admin-analytics-payments.test.ts",
@@ -2858,8 +2878,8 @@
     },
     {
       "path": "tests/cloudflare-scheduled.test.ts",
-      "size": 3150,
-      "sha256": "bbdadd270f2d4614af36c881917fe0278945c4f75bafe174a425e29e1c7b70d2"
+      "size": 3395,
+      "sha256": "4eb018cae3d19dabdcf6c385a61f1f0b22ecd6cca17ca43d9b1f6837607bcf4b"
     },
     {
       "path": "tests/database.test.ts",
@@ -2893,8 +2913,18 @@
     },
     {
       "path": "tests/e2e/admin-analytics.spec.ts",
-      "size": 15806,
-      "sha256": "537400f648917008e214deb89fe1e31d294eb4afc04fa26e11f056e602a4e561"
+      "size": 16152,
+      "sha256": "ecad943a76b1333f3970d2825792570c66638d1bf048ffbfa216888a6f91cf08"
+    },
+    {
+      "path": "tests/e2e/admin-live-revenue.spec.ts",
+      "size": 8732,
+      "sha256": "f3b866ebb90da216003fd6d7548d99d02f1c7f657564a69c378832fb290270aa"
+    },
+    {
+      "path": "tests/e2e/admin-phone.spec.ts",
+      "size": 14888,
+      "sha256": "cadfa58344580e13895c07445e50cac6cff128cceb1093b6624b7a07cc408793"
     },
     {
       "path": "tests/e2e/admin-pro.spec.ts",
@@ -2903,8 +2933,8 @@
     },
     {
       "path": "tests/e2e/admin-stripe-finance-phone.spec.ts",
-      "size": 7323,
-      "sha256": "b5a13110f840f477712123577f719f2b5a2343eeb76ff551d9fca263b4af35f9"
+      "size": 7186,
+      "sha256": "486e0151d8120f0fb4343e1205407f9f34d8f601f7d5c7a98645804c40892928"
     },
     {
       "path": "tests/e2e/app.spec.ts",
@@ -2965,6 +2995,11 @@
       "path": "tests/e2e/phase-one-feedback.spec.ts",
       "size": 28771,
       "sha256": "e846b7ec893732f4225a27aa996f4509d166304fa431b1ce83d85daee6d1811c"
+    },
+    {
+      "path": "tests/e2e/phone-splash.spec.ts",
+      "size": 4518,
+      "sha256": "22b152b5a7b5ecdc7ffc8315d0dcc54389d62d71ea1132c4d554fd775ca492ec"
     },
     {
       "path": "tests/e2e/session-retry.spec.ts",
@@ -3178,8 +3213,8 @@
     },
     {
       "path": "wrangler.production.jsonc",
-      "size": 2001,
-      "sha256": "a40ab7fb648dbe409af66890b809d2ea130dfd4316cc66ff4ccdc838be245f50"
+      "size": 2165,
+      "sha256": "73c3aeb5d242d8c23052bfd0270a4c202aa692bcbef311c5ed0227698e980cb2"
     }
   ]
 }
