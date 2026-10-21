@@ -544,3 +544,30 @@ Built on `3412a3a`, preserving all 627 original source members and all deferred 
 - Verification: 31 focused backend tests; 16 required Cloudflare security/scheduling tests; TypeScript/Cloudflare checks, production build and preflight; in-app browser desktop/mobile checks including errors/permission denial. Standalone Playwright browser launch is blocked by macOS sandbox, so its seven scenarios are not claimed as passed.
 - Runtime setup is still pending action-time confirmation: add Read for Balance, Charges and Refunds, Payouts to the existing restricted key. Production owner sign-in is awaiting account confirmation after automatic review blocked selecting an unspecified Google account. No key permission or credential changes have been made.
 - Archive SHA256 `3477a479e8107ef954ae8e37fb54c2733d0584daf3e04338df24ddf32058fe8f`; manifest SHA256 `23e3db94f584a4964b82d6919fb87fc0edacfe8dffc12ba7bbe22a48c9ccbdff`.
+
+
+## Stripe finance: bank date per payment; phone admin page as before - 2026-10-22
+
+Built on top of ac85bb8 (Codex's owner Stripe finance dashboard), keeping all of it. Owner chose this over replacing it, and approved ("ดีพอย").
+
+- **Phones:** the admin dashboard on phones is back to exactly how it was before ac85bb8:
+  - No Stripe finance panel and no `/api/admin-stripe-finance` request.
+  - Whole-baht amounts.
+  - The original card labels: รายได้, ผู้ใช้ที่ใช้งาน, อัตราเปลี่ยนเป็น Pro, ยอดชำระสำเร็จ, and the chart title รายได้รายวัน.
+  - The rule is that phone UI stays untouched (owner, 2026-10-21). Computers and iPads keep Codex's version unchanged.
+- **Bank date per payment** (owner asked when each payment reaches the bank):
+  - After the existing reads, the six most recent automatic payouts (pending, in transit or paid) are listed with `balanceTransactions.list({ payout })`.
+  - Each payment whose balance transaction one of them carried gets `payout { id, arrivalDate, status }`.
+  - The panel shows "จะเข้าธนาคารประมาณ …" or "โอนเข้าธนาคารแล้ว …" on the latest payment and in the payment list.
+  - Not found, or any read failure (for example no Balance read), shows no bank date. Nothing is guessed, and the existing "พร้อมใช้ใน Stripe" date stays.
+- Read-only. Payment processing, webhooks, entitlements, the database, Wrangler config, Secrets and crons are untouched.
+- Runtime access is still pending from ac85bb8: the owner adds Read for Balance, Charges and Refunds, and Payouts to the restricted key. Until then those sections show as unavailable.
+
+Changed against ac85bb8: backend/src/services/adminStripeFinance.ts, frontend/src/features/groups/AdminDashboard.tsx, frontend/src/features/groups/AdminStripeFinance.tsx, shared/adminStripeFinance.ts, tests/admin-stripe-finance.test.ts, tests/e2e/phase-one-feedback.spec.ts (mocks the finance endpoint), tests/e2e/admin-stripe-finance-phone.spec.ts (new).
+- Archive SHA256 `ca24d198a1ac29d323c77e369e1165651ce761d57753723419ad37568afe1d20`; manifest SHA256 `b5106b37ad8b977940d11963276a0a367ce721e4c64c636b4bc53616e34d84bd`.
+- Checked:
+  - cloudflare:check (16), the Cloudflare build and preflight on the extracted package.
+  - Stripe finance and admin tests 32/32, including the new bank-date test.
+  - Unit suite 380/385 with the same 5 known failures.
+  - Admin, feedback and new phone/bank-date browser tests 15/15.
+  - Phone admin overview and revenue at 390/375, both themes, scrolled through (32 screens), pixel-identical to 3412a3a. The same check on ac85bb8 differed on all 32.
