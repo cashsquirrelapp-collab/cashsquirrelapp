@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Smaller goal pictures — 2026-10-21",
+  "source_label": "Owner's renewal consent wording (v2, v1 renewals kept) — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "6bc7036cd106fd10993349cb1ab627729cc3ef28c3f091f78166e7d44807da07",
+  "archive_sha256": "da388e48a4101ff8a3f2d9b7fef4424b0b942ebc70e5e811144d6400fc033128",
   "file_count": 620,
-  "total_source_bytes": 19038010,
+  "total_source_bytes": 19040330,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -313,8 +313,8 @@
     },
     {
       "path": "backend/src/services/cardRenewals.ts",
-      "size": 10533,
-      "sha256": "038239b9e0750e2fc97b4d0f8ecdf019e8860f849be7a380136d364247c2fdb4"
+      "size": 10593,
+      "sha256": "5fda6bd541315047f3301a19195084d11ec0ae9b768362737be7e9fb8634bdf7"
     },
     {
       "path": "backend/src/services/directPromptPay.ts",
@@ -428,8 +428,8 @@
     },
     {
       "path": "backend/src/services/prepaidBilling.ts",
-      "size": 18925,
-      "sha256": "8c26fd147aa574ed94ea54ce1c5da3efa919d4f2cf0304b802d4a08e018480fc"
+      "size": 19192,
+      "sha256": "44d95763e12795b5f70291a14af7739137109c2e9ba1b092d93556f5ff702373"
     },
     {
       "path": "backend/src/services/prepaidPlans.ts",
@@ -2633,8 +2633,8 @@
     },
     {
       "path": "shared/cardConsent.ts",
-      "size": 1262,
-      "sha256": "bf855e1f5899f40a8a9814189a5a9bc3d90a913d4f557855f69fb5449f4202db"
+      "size": 1504,
+      "sha256": "9f15863abc086ad2b405336adbee482cd4a936cf7425d59f2861ee1287e2c94b"
     },
     {
       "path": "shared/cashBalance.ts",
@@ -2788,8 +2788,8 @@
     },
     {
       "path": "tests/card-renewals.test.ts",
-      "size": 4359,
-      "sha256": "d580a5f507de89ee121e6fdbc9b3cac5eb5a235708ac032ae9b5f03723420b2d"
+      "size": 6209,
+      "sha256": "dfa60f956803fc2cea10008b9a0790de2dbbbcef791cbe9e5893229f8df7e76c"
     },
     {
       "path": "tests/cash-balance.test.ts",
@@ -2853,13 +2853,13 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 56960,
-      "sha256": "680df708f02037be61e01cac40890299edc06084ebdeef1c4cc5833491e349c5"
+      "size": 56888,
+      "sha256": "76b7825d3a7ba5413ab21c181823df07f4810d05a8c09a5689f6f2d7e4389af3"
     },
     {
       "path": "tests/e2e/card-choice.spec.ts",
-      "size": 6634,
-      "sha256": "b9ff1662365ab7bfc39cc0a960829c8474a33327d54459a60c984fdb8f5a5f1d"
+      "size": 6607,
+      "sha256": "d76227984e4a65530a77b0d14744434bae128a38ee3f11a60fbf17155da6855c"
     },
     {
       "path": "tests/e2e/desktop-parity.spec.ts",

@@ -456,3 +456,26 @@ Changed against 0e14635: frontend/src/app/App.tsx, frontend/src/features/goals/S
   - Unit suite: 348/353 with the same 5 known failures.
   - The new e2e test passes.
   - No new e2e failures against the live source.
+
+
+## Owner's renewal consent wording (consent v2) - 2026-10-21
+
+Built on top of 4e1bf16. Owner supplied the sentence and approved the release ("ดีพอย").
+
+- New wording, in `shared/cardConsent.ts`:
+  - Monthly: "ยินยอมต่ออายุ Pro อัตโนมัติ ฿159/เดือน จนกว่าจะยกเลิก โดยสามารถยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก".
+  - 6 months: ฿849/6 เดือน. 1 year: ฿1,490/ปี.
+- Versions:
+  - `CARD_CONSENT_VERSION` is now `krarok-card-20261021-v2`. New checkouts record v2 with the exact text in `consent_text`.
+  - `ACCEPTED_CARD_CONSENT_VERSIONS` keeps v1, so `assertAutoSubscription` keeps renewing subscriptions that agreed to the earlier wording. A subscription's consent version must equal its own order's.
+  - Requests still accept only the current version.
+- An open renewal order prepared under an older consent version is replaced (prepaidBilling), so payment always follows the wording on screen.
+- Prices, Stripe objects, Secrets and crons are unchanged.
+
+Changed against 4e1bf16: backend/src/services/cardRenewals.ts, backend/src/services/prepaidBilling.ts, shared/cardConsent.ts, tests/card-renewals.test.ts, tests/e2e/billing.spec.ts, tests/e2e/card-choice.spec.ts.
+- Archive SHA256 `da388e48a4101ff8a3f2d9b7fef4424b0b942ebc70e5e811144d6400fc033128`; manifest SHA256 `d75bc46db2f8bbba9f969454252dccd298e0b5d162d855306345eaec41dbea6e`.
+- Checked:
+  - cloudflare:check (16 tests), the Cloudflare build and preflight on the extracted package.
+  - 27 payment unit/HTTP tests, including v1 renewals still valid, an unknown version refused, and the exact wording per period.
+  - Billing and card e2e: 34/34.
+  - Unit suite: 349/354 with the same 5 known failures.
