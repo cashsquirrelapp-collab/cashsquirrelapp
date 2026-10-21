@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Account switcher and steady Facebook button — 2026-10-21",
+  "source_label": "Owner Stripe finance dashboard and prepaid revenue repair — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "1b6d6b328dc8cd941855c970309a05d055fb58da2fd41e04ad02a75a86ccd75b",
-  "file_count": 627,
-  "total_source_bytes": 19104992,
+  "archive_sha256": "3477a479e8107ef954ae8e37fb54c2733d0584daf3e04338df24ddf32058fe8f",
+  "file_count": 634,
+  "total_source_bytes": 19179305,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -63,8 +63,13 @@
     },
     {
       "path": "backend/src/handlers/admin-analytics.ts",
-      "size": 14819,
-      "sha256": "8413bfcf8b9131151f162db976d607cbbd2f341a0a8adb1ba4f98aec50252fe5"
+      "size": 15626,
+      "sha256": "c2e732444f8ff0075ddd1ee0e404ea24cde5b520b9554ab0ecd332d7e243852e"
+    },
+    {
+      "path": "backend/src/handlers/admin-stripe-finance.ts",
+      "size": 1715,
+      "sha256": "90ef4f7272782871c1650d308ceec3a2283e8db7616489b38b729bcb6176feb6"
     },
     {
       "path": "backend/src/handlers/admin-users.ts",
@@ -213,8 +218,8 @@
     },
     {
       "path": "backend/src/http/router.ts",
-      "size": 3735,
-      "sha256": "1f57701fdad97be8a92c93ee22291e1dd3d56a1a73aae545c76037f35e0b08e1"
+      "size": 3881,
+      "sha256": "0b7d7de4c32b64a3684f5b75aa39053b24696fbec06ee81182f060d005f57e30"
     },
     {
       "path": "backend/src/http/securityHeaders.ts",
@@ -308,8 +313,13 @@
     },
     {
       "path": "backend/src/services/adminAnalyticsPayments.ts",
-      "size": 3489,
-      "sha256": "fad3311d9dcfbf2f3dbfe85f133e272d0d11bc910831d3743f330ba1dbc36b4e"
+      "size": 5858,
+      "sha256": "a575dcf612b7d0751e73c634519ceae164a20b52720c52cf1212435604376117"
+    },
+    {
+      "path": "backend/src/services/adminStripeFinance.ts",
+      "size": 14482,
+      "sha256": "c0a3721fca0eb656ba8b02bc50ca4016c0dd7bf7305f9d90e7d822a0751f5152"
     },
     {
       "path": "backend/src/services/cardPlans.ts",
@@ -1843,8 +1853,13 @@
     },
     {
       "path": "frontend/src/features/groups/AdminDashboard.tsx",
-      "size": 43569,
-      "sha256": "ed20d5487b828b8c6ada8da6e0e2c8566bb7b61531209f744bb4f1fec04cae9e"
+      "size": 44104,
+      "sha256": "654924da71a761c934b6c69b178c186f017d8df22ed0d3947bca500d22dea52d"
+    },
+    {
+      "path": "frontend/src/features/groups/AdminStripeFinance.tsx",
+      "size": 21013,
+      "sha256": "827f75eebf702e3854ab236e7abc646016f009cb48dc6c8fb0435792d767b132"
     },
     {
       "path": "frontend/src/features/groups/AdminUsersPanel.tsx",
@@ -2382,6 +2397,11 @@
       "sha256": "3bc337dbbfc6a49b9f70cba864338676fceb8a31f6c5036dc1783da18e79f04b"
     },
     {
+      "path": "frontend/src/services/adminStripeFinance.ts",
+      "size": 485,
+      "sha256": "eb59470e09f58ab77fd3b88f09c4b304b965c6a09af472df7a7a5c5ef4797f4f"
+    },
+    {
       "path": "frontend/src/services/api.ts",
       "size": 2068,
       "sha256": "e0bf38318edb4c2b6d16349c83d4dac5f73080e5f7aafe78a0f22dcdba2c59ba"
@@ -2642,6 +2662,11 @@
       "sha256": "69072b35566bad57ca475df9b147c83b168f7ae14f9cb0fbe502b1a1a3076db8"
     },
     {
+      "path": "shared/adminStripeFinance.ts",
+      "size": 2229,
+      "sha256": "882dca5e3cafbf8b287b88846b906ce5ccfdea70db51f6df5cd3663ce2c96199"
+    },
+    {
       "path": "shared/calendar.ts",
       "size": 8191,
       "sha256": "2792f959155ceb10a1be4d227d94e9de3cb0cf216779b11f88936a776a8b7859"
@@ -2773,13 +2798,13 @@
     },
     {
       "path": "tests/admin-analytics-access.test.ts",
-      "size": 6391,
-      "sha256": "1deb6d15eb4da8bee6944386aa124c3225c20a7dbce5eeaedea37b76a5805d59"
+      "size": 9506,
+      "sha256": "13603f8467f1b2f782fc3af5b6bb2dc2cbbbb781195a46925863006109493030"
     },
     {
       "path": "tests/admin-analytics-payments.test.ts",
-      "size": 2716,
-      "sha256": "85efe16256e6db640fdf41623eb0679b955d83021b1dfddc2744f25b3e819d01"
+      "size": 6719,
+      "sha256": "b5fefb5e56e00a0c4b61d9ef1d9c9b59d82982e03e2a43618bfc07e5d9ad98b1"
     },
     {
       "path": "tests/admin-pro-database.test.ts",
@@ -2790,6 +2815,16 @@
       "path": "tests/admin-pro-http.test.ts",
       "size": 3352,
       "sha256": "36e5a26e88eb787e59c41f062b1d55ec2119607f62546c89758968374448e4c7"
+    },
+    {
+      "path": "tests/admin-stripe-finance-access.test.ts",
+      "size": 5798,
+      "sha256": "a32799cd9921b37e266c0fb519f232a57154a1ee773eb15692ff76b6e5e1a389"
+    },
+    {
+      "path": "tests/admin-stripe-finance.test.ts",
+      "size": 11653,
+      "sha256": "aa30f860588df73fa1118f4578795b2d83b66f66e6ce5739aa86f690675b35e4"
     },
     {
       "path": "tests/calendar-events.test.ts",
@@ -2858,8 +2893,8 @@
     },
     {
       "path": "tests/e2e/admin-analytics.spec.ts",
-      "size": 9015,
-      "sha256": "8000a17410aaa1cf0666b2176d10665a15026740c1d04fad2d06852151f720e5"
+      "size": 14978,
+      "sha256": "e656c21c2c3d57a5b45ab8fda1af5a965d3034c699075de82015cc36537ba7c7"
     },
     {
       "path": "tests/e2e/admin-pro.spec.ts",

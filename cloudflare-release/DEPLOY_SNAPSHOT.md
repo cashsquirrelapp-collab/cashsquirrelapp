@@ -532,3 +532,15 @@ Changed against 0270ef7: backend/src/handlers/auth.ts, backend/src/security/devi
   - Switcher e2e 4/4 and login-provider e2e 2/2.
   - Unit suite: 357/362 with the same 5 known failures.
   - Phone login, overview and jobs at 390/375 in both themes are pixel-identical to 0270ef7.
+
+## Owner Stripe finance and missing prepaid revenue — 2026-10-21
+
+Built on `3412a3a`, preserving all 627 original source members and all deferred features; seven new source members, no removals. Full explanation and runtime access checklist: `ADMIN_STRIPE_FINANCE.md`. Reviewable delta: `admin-stripe-finance.patch`.
+
+- Existing owner analytics now includes live completed prepaid orders and recurring card cycles, deduplicates payment identities, retains refund exclusions, uses Bangkok signup dates and refuses silently truncated database totals.
+- A separate owner-only read endpoint displays actual Stripe payment/refund/fee totals, current pending/available balances, original payment settlement, upcoming bank arrival estimates and payout history. No predicted bank arrival is invented for unscheduled payouts. All provider reads are bounded and independent; unavailable access is never shown as zero.
+- Registrations, new users, paid Pro and granted Pro counts remain visible. The original app ledger and actual Stripe finances are explicitly distinguished.
+- No changes to payment processing, entitlements, webhooks, database schema/data, Wrangler configuration, encrypted secrets or cron schedules.
+- Verification: 31 focused backend tests; 16 required Cloudflare security/scheduling tests; TypeScript/Cloudflare checks, production build and preflight; in-app browser desktop/mobile checks including errors/permission denial. Standalone Playwright browser launch is blocked by macOS sandbox, so its seven scenarios are not claimed as passed.
+- Runtime setup is still pending action-time confirmation: add Read for Balance, Charges and Refunds, Payouts to the existing restricted key. Production owner sign-in is awaiting account confirmation after automatic review blocked selecting an unspecified Google account. No key permission or credential changes have been made.
+- Archive SHA256 `3477a479e8107ef954ae8e37fb54c2733d0584daf3e04338df24ddf32058fe8f`; manifest SHA256 `23e3db94f584a4964b82d6919fb87fc0edacfe8dffc12ba7bbe22a48c9ccbdff`.
