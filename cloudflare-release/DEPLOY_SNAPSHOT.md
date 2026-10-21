@@ -800,3 +800,12 @@ Built on top of 56994fe. Owner asked for a new home screen icon: the red gradien
   - LINE and card tests 28/28 on the extracted package; unit suite 411/416 with the same 5 known failures.
   - The local server serves the five icons and the new tags.
 - Preview: `artifacts/home-icon/home-icon-preview.png`.
+
+## Home screen name "Krarok" - 2026-10-22
+
+Built on top of fb4a45b. After pkg27 the owner chose the short name: "Krarok เอาอันนี้". This came with the same deploy approval ("ดีพอย").
+- `manifest.json` short_name and the `apple-mobile-web-app-title` are now "Krarok". iOS cut "Krarok Tunngern" to "Krarok Tunn…".
+- `name` stays "Krarok Tunngern"; Android shows it in the install prompt.
+- Nothing else changed.
+- Archive SHA256 `fca2953c7ffb6a6fc3ac83828fb668e99c34040179588437725ef90588b9c483`; manifest SHA256 `24e6e95c3b0b09c57e1ba8c27b5fc3fb47529a4fea7706c1ec262ee468cf02f1`.
+- Checked: cloudflare:check (16), the build and preflight on the extracted package.

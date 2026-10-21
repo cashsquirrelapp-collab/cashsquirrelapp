@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg27: home screen icon and English name; LINE card amounts and rows tidied",
+  "source_label": "pkg28: home screen name Krarok",
   "archive": "source.tar.gz",
-  "archive_sha256": "b5f4071b6b7b3a7f7da570da63cc54fef54bc712e98c7b6ac54cf36aa2f38bc7",
+  "archive_sha256": "fca2953c7ffb6a6fc3ac83828fb668e99c34040179588437725ef90588b9c483",
   "file_count": 667,
-  "total_source_bytes": 19671290,
+  "total_source_bytes": 19671272,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -683,8 +683,8 @@
     },
     {
       "path": "frontend/index.html",
-      "size": 6372,
-      "sha256": "fe5a081130c55eefa7c077fa1c65a79b7efc9615df6ffd87859a2f913231df0a"
+      "size": 6363,
+      "sha256": "a052a36be598c07dbf10ffcd838bb0446c81f1745d8d6fc160e5e68d6ff3b468"
     },
     {
       "path": "frontend/kinetic-preview.html",
@@ -1598,8 +1598,8 @@
     },
     {
       "path": "frontend/public/manifest.json",
-      "size": 1088,
-      "sha256": "3ff660d3a14f4bd28c8b191ad9f0ff97016f90affda2665ee0a3b8248a2cd797"
+      "size": 1079,
+      "sha256": "4b600e31e969027eda37901ca666b9846ae6fd60ef8b2f698a2e122e6e2214c9"
     },
     {
       "path": "frontend/public/mascots/character-full.svg",
