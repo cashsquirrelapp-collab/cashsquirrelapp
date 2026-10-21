@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "Computer and iPad parity, a tidy card payment dialog with its font, on the new logo — 2026-10-21",
+  "source_label": "Supabase timeouts, easier passwords, renewal-only card dialog, clear tab icon — 2026-10-21",
   "archive": "source.tar.gz",
-  "archive_sha256": "585ee4a6af30fc3824dda67301e81cfbd04bbf581748c8101abca983709fb866",
-  "file_count": 609,
-  "total_source_bytes": 18935872,
+  "archive_sha256": "8793a94e5275daa2c67bdb77738dc5c81f58900774d1e2329c4e96aff0acf813",
+  "file_count": 619,
+  "total_source_bytes": 19031576,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -48,8 +48,13 @@
     },
     {
       "path": "backend/src/config/supabase.ts",
-      "size": 942,
-      "sha256": "d8d62881999975e04db26349dc1083875deeba19975821749b3038cae817b6a2"
+      "size": 1062,
+      "sha256": "9f1128d49845d0ace1a37a94602a927b603624bd41f70747b68e1dafb91413ce"
+    },
+    {
+      "path": "backend/src/config/supabaseFetch.ts",
+      "size": 4672,
+      "sha256": "6bfdde81d56571049f3f4fbf9ddf70f77921f5b47290c2a7cc629ec7f66e5443"
     },
     {
       "path": "backend/src/handlers/account.ts",
@@ -68,8 +73,8 @@
     },
     {
       "path": "backend/src/handlers/auth.ts",
-      "size": 23995,
-      "sha256": "362e8cd6f68f45184433de6c6a20a1079731c5d68f0421ece27ce6d2ce381d17"
+      "size": 24011,
+      "sha256": "54320608bcc7ea74cdfa06b54f0f73b2e0f7de12450f8d129de6273b330fc609"
     },
     {
       "path": "backend/src/handlers/billing.ts",
@@ -138,8 +143,8 @@
     },
     {
       "path": "backend/src/handlers/password-reset-line.ts",
-      "size": 8210,
-      "sha256": "f0a0f34616e4970890d91bfa2a5247961575266df70aa2475cbad2494466e80b"
+      "size": 8132,
+      "sha256": "713b478164de35c0637905928d51becc47745c8e833118295c582d657ffeeb2a"
     },
     {
       "path": "backend/src/handlers/profile.ts",
@@ -273,8 +278,8 @@
     },
     {
       "path": "backend/src/security/session.ts",
-      "size": 6764,
-      "sha256": "712734530d35cbe9e2d1c8f861746bc8de96da72d5eb7835f832dd2e0297708b"
+      "size": 7313,
+      "sha256": "6d72553fabc899a7a0e5ce221784e2d650d880dc0ee979aa1dd155c788afda97"
     },
     {
       "path": "backend/src/security/staging.ts",
@@ -648,8 +653,8 @@
     },
     {
       "path": "frontend/index.html",
-      "size": 2822,
-      "sha256": "5f268ef4afffa2630c546112eb7226af2c99453eb0f76be1ba7241abac3d4bd8"
+      "size": 3037,
+      "sha256": "b6097df90a73e592d01ad41dda7805b30291b448471faa2f9c3ef5def08b4e47"
     },
     {
       "path": "frontend/kinetic-preview.html",
@@ -787,6 +792,26 @@
       "sha256": "259b0a60cb0b9209887bada64c716e0a6c824c72256567d06c65ccf8b6ce1a67"
     },
     {
+      "path": "frontend/public/brand/logo01-v1/favicon-clear-192.png",
+      "size": 13298,
+      "sha256": "1a7ef1b3ef4b90281bd479f73b02755cca6fae93aa6ce6ed1cb09e3806132ec3"
+    },
+    {
+      "path": "frontend/public/brand/logo01-v1/favicon-clear-32.png",
+      "size": 1855,
+      "sha256": "4035376f3e3cb587a6d2af3d3cfea617d98b803b721112c65c1b28bec8b29fad"
+    },
+    {
+      "path": "frontend/public/brand/logo01-v1/favicon-clear.ico",
+      "size": 36765,
+      "sha256": "12666d0d2849edadbc392add7287aeabf63db762d5da51171e2f6a81f96047ce"
+    },
+    {
+      "path": "frontend/public/brand/logo01-v1/favicon-clear.svg",
+      "size": 2074,
+      "sha256": "6022cd3d88aeef3df515b0b5ba5b22d24f45368a8a302da0bb0e49c8bd9f75a7"
+    },
+    {
       "path": "frontend/public/brand/logo01-v1/favicon.ico",
       "size": 21632,
       "sha256": "ef565ea0436e01047a15e10d5c28ddc74fac6f2dc4e94cda0a7d1649f49fa72f"
@@ -883,8 +908,8 @@
     },
     {
       "path": "frontend/public/favicon.ico",
-      "size": 21632,
-      "sha256": "ef565ea0436e01047a15e10d5c28ddc74fac6f2dc4e94cda0a7d1649f49fa72f"
+      "size": 36765,
+      "sha256": "12666d0d2849edadbc392add7287aeabf63db762d5da51171e2f6a81f96047ce"
     },
     {
       "path": "frontend/public/favicon.svg",
@@ -1308,8 +1333,8 @@
     },
     {
       "path": "frontend/public/liff-add.html",
-      "size": 20957,
-      "sha256": "90675e47b0b01cf990b1e1971196883d4e382a1584ead95283f1e2972ade912f"
+      "size": 21059,
+      "sha256": "5e1a6552bd023abd2de285c00802c25e1e50073701b8fa10aa3e1a3278334ca7"
     },
     {
       "path": "frontend/public/liff-add.js",
@@ -1498,8 +1523,8 @@
     },
     {
       "path": "frontend/public/privacy.html",
-      "size": 10222,
-      "sha256": "3d100b0ff4598bc364652bac52b73170ec8471b3924ee417993db2d61fd4d450"
+      "size": 10324,
+      "sha256": "44b8b8fd6a929eceed276162c3d41092669741293ff5a7d13cd111ee709a2e2e"
     },
     {
       "path": "frontend/public/pro-promo-hero.png",
@@ -1533,13 +1558,13 @@
     },
     {
       "path": "frontend/public/terms.html",
-      "size": 10482,
-      "sha256": "72ec88076636bffc97058ba32a6a2e81fba48287d485b24edd4260d7bc82fea8"
+      "size": 10584,
+      "sha256": "8c9fd2775c7832b413ecebd0d2c339316391c21f725634c3eb5f9b473640758e"
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 184087,
-      "sha256": "c6554ce9b6d1ed7ddc7daedfeecf8b3583be31f280815d9fe80a31e00e01a6a7"
+      "size": 184086,
+      "sha256": "43b72fe027696e78f521df62f2539fa88eba028ccbebdda88379b51ed8f0f44f"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1643,13 +1668,13 @@
     },
     {
       "path": "frontend/src/features/auth/Login.tsx",
-      "size": 67857,
-      "sha256": "1ec41096609dd3e9a22bdc3bb258a336ff9af72d07e1f5c6b5413d5dc0ad4e70"
+      "size": 67841,
+      "sha256": "6e5a9b50325868ff7d50893ddc6bab4b0a23d77eb48d0c7922eadfd05adb7d57"
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
-      "size": 18134,
-      "sha256": "062ef6b55e34cefe9ecf0100426c559e429fc93d83452429882938036175dbe0"
+      "size": 18166,
+      "sha256": "debdc3dce047c0ff102450effa6322381343c7ab6e69590dabcba7b321d5c06d"
     },
     {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
@@ -1728,8 +1753,8 @@
     },
     {
       "path": "frontend/src/features/dashboard/DashboardTab.tsx",
-      "size": 88084,
-      "sha256": "79dcc49e2edaae69fdf5a2eb33e5d9768de182efa427a944545e3017427f961b"
+      "size": 88075,
+      "sha256": "266802157e4d076c3c60124148b7133cb4dbb20a2ffe31c5351e0ad42453f45e"
     },
     {
       "path": "frontend/src/features/dashboard/FinancialDetailsModal.tsx",
@@ -2198,8 +2223,8 @@
     },
     {
       "path": "frontend/src/features/receivables/ReceivablesTab.tsx",
-      "size": 19275,
-      "sha256": "f69562e345a2ab9211fb53691624a982e3aeb35470f6dc991a81f14527ab6ceb"
+      "size": 19381,
+      "sha256": "15bfec01414e7873f8b06c7ff81c5a0cec65d92565973150c4092af34a5f5ff4"
     },
     {
       "path": "frontend/src/features/report/IncomeExport.tsx",
@@ -2303,8 +2328,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 150911,
-      "sha256": "793827cc61cd1d886221759c9cde6a5329ee857643b1e8c3cf87c6ff30d49986"
+      "size": 150579,
+      "sha256": "87cc0c123a744f82f61c565f5a373e68deb164e9aaa9a61486a80ce168b18f74"
     },
     {
       "path": "frontend/src/index.css",
@@ -2348,8 +2373,8 @@
     },
     {
       "path": "frontend/src/services/auth.ts",
-      "size": 5640,
-      "sha256": "dae5bd3666d7119548f8cd6820ba98df80a78b5d8bb0675923e2e6e4f81b650c"
+      "size": 6247,
+      "sha256": "1d4cb9246b3368bf0132464ce160e932febee8ece4526504496226cd5566e2e8"
     },
     {
       "path": "frontend/src/services/cloud.ts",
@@ -2668,8 +2693,8 @@
     },
     {
       "path": "shared/passwordPolicy.ts",
-      "size": 577,
-      "sha256": "2f478c643aa6e9e3e68db60bc5ddfb112e46fa14e98b63680f125c85dceea105"
+      "size": 703,
+      "sha256": "927e82e65df41818a7c56bfd5539faba0c511c059d11327067249e1730b1cf8e"
     },
     {
       "path": "shared/proPricing.ts",
@@ -2828,8 +2853,13 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 57111,
-      "sha256": "647ce42d78c1b7c0592cf83512241ee710b84c66df3ebd9e15db8168c35475c9"
+      "size": 56960,
+      "sha256": "680df708f02037be61e01cac40890299edc06084ebdeef1c4cc5833491e349c5"
+    },
+    {
+      "path": "tests/e2e/card-choice.spec.ts",
+      "size": 6634,
+      "sha256": "b9ff1662365ab7bfc39cc0a960829c8474a33327d54459a60c984fdb8f5a5f1d"
     },
     {
       "path": "tests/e2e/desktop-parity.spec.ts",
@@ -2855,6 +2885,11 @@
       "path": "tests/e2e/phase-one-feedback.spec.ts",
       "size": 28623,
       "sha256": "79c08d894364ec0988399b4239bc07e4d4d15d0f02cebd719d99d392faa0bfb0"
+    },
+    {
+      "path": "tests/e2e/session-retry.spec.ts",
+      "size": 3220,
+      "sha256": "298987086f2ecd04f3c44d7d9ea24989ec3e3fcb461bc8b212d0533de61f7566"
     },
     {
       "path": "tests/e2e/vault-wht-navigation.spec.ts",
@@ -2952,6 +2987,11 @@
       "sha256": "48ae61077bff5282433173a213ff275b9c3a77d1f57a15aaa8c53cdedf8f0646"
     },
     {
+      "path": "tests/password-policy.test.ts",
+      "size": 947,
+      "sha256": "e656526a923a85272843ee2277eb72285cbdc778f31cccfa4c859ac9b78fe1f2"
+    },
+    {
       "path": "tests/phase-one-documents.test.ts",
       "size": 4361,
       "sha256": "8e2fd3e4410345a7fdf1d4423d2d98bc8ae7d9e80f576b606ef6af65f528c20f"
@@ -3005,6 +3045,16 @@
       "path": "tests/subscription-lifecycle.test.ts",
       "size": 2927,
       "sha256": "d274bf1cb0ebf500a85831b157503401afdf09895d4a138a5a9112c5f08d7301"
+    },
+    {
+      "path": "tests/supabase-fetch.test.ts",
+      "size": 5671,
+      "sha256": "70eba85e388199db78b653be74c6cb87c769b9a64a9b749b316c6f7df7ee87c7"
+    },
+    {
+      "path": "tests/supabase-slow-session.test.ts",
+      "size": 3945,
+      "sha256": "9947d687d92851dd2fe4dd31e0d0f581a7391965136a491a7492988c316da271"
     },
     {
       "path": "tests/tax.test.ts",

@@ -397,3 +397,45 @@ Changed against 94de852: backend/src/http/securityHeaders.ts, cloudflare/worker.
   - Unit suite: 335 of 340 pass, with the same 5 known failures.
   - Billing and computer/iPad e2e: 41/41.
   - App e2e: no new failures against the 94de852 source.
+
+
+## Supabase timeouts; easier passwords; renewal-only card dialog; clear tab icon - 2026-10-21
+
+Built on top of d717a19. Owner approved ("ดีพอย").
+
+**Slow loading (owner reported long skeleton screens).**
+- Findings:
+  - The database is 19 MB of 500 MB.
+  - In pg_stat_statements no statement exceeds 2.8s.
+  - Yet Worker requests sometimes waited 10–60s on Supabase with almost no CPU.
+- New `backend/src/config/supabaseFetch.ts`:
+  - It is the `global.fetch` of every supabase-js client, including the inline auth client.
+  - Each request gets a deadline for response headers: read-only RPCs 3s, GET/HEAD 6s, storage GET 20s, writes 25s, storage writes 60s.
+  - Reads are sent once more after a timeout or a dropped connection. The read set is GET/HEAD plus `cashflow_rate_limit`, `cashflow_session_active`, `cashflow_groups_snapshot`, `cashflow_profile_get` and `cashflow_group_detail`.
+  - Writes, auth token calls and `cashflow_login_lock_status` are never repeated.
+  - Logs carry only the method and a coarse route.
+- `requireUser`: an `AuthRetryableFetchError` (a Supabase Auth timeout or 5xx) now answers 503 and keeps the session cookie. Before, it signed the person out.
+- The browser's session check retries /api/auth twice on 5xx or network errors.
+
+**Passwords (owner: the rules were too strict).**
+- `shared/passwordPolicy.ts` now requires 8–128 characters with at least one letter (Thai or English) and one digit.
+- Checklist and server messages updated.
+- "Other sign-in options" is now translated.
+- Note: Supabase Auth's own Password Requirements setting must not be stricter, or signup returns `weak_password`.
+
+**Card dialog (owner: ticking consent reset the card fields).**
+- One-time purchases are PromptPay QR, so card checkout opens as the renewal: `handleUpgrade` defaults to `autoRenew: true`.
+- The consent checkbox is unticked by default and only gates payment (button, Google Pay, confirm). Ticking it no longer swaps the Stripe session, so typed card data stays. Verified with Stripe's real test-mode fields.
+- Prices and consent text are unchanged, and recurring prices exist for all three periods. billing.spec was updated for this flow.
+
+**Look.**
+- The tab icon is a transparent PNG/ICO/SVG of the existing tail symbol, tightly framed. The old favicon.ico had an opaque white square. New file names avoid cached icons. The root /favicon.ico is replaced too.
+- The mascot tiles are removed on the empty receivables page and the overview's follow-up card.
+
+Changed against d717a19: backend/src/config/supabase.ts, backend/src/config/supabaseFetch.ts (new), backend/src/handlers/auth.ts, backend/src/handlers/password-reset-line.ts, backend/src/security/session.ts, frontend/index.html, frontend/public/brand/logo01-v1/favicon-clear{.ico,-32.png,-192.png,.svg} (new), frontend/public/favicon.ico, frontend/public/{liff-add,privacy,terms}.html, frontend/src/app/App.tsx, frontend/src/features/auth/Login.tsx, frontend/src/features/billing/CardPaymentModal.tsx, frontend/src/features/dashboard/DashboardTab.tsx, frontend/src/features/receivables/ReceivablesTab.tsx, frontend/src/i18n/translations.ts, frontend/src/services/auth.ts, shared/passwordPolicy.ts, tests (billing.spec, card-choice.spec, session-retry.spec, password-policy, supabase-fetch, supabase-slow-session).
+- Archive SHA256 `8793a94e5275daa2c67bdb77738dc5c81f58900774d1e2329c4e96aff0acf813`; manifest SHA256 `dbab069a08ea06eaa4fd2290985a675f9af6464005c35b013c9d47cdcb3a546a`.
+- Checked:
+  - cloudflare:check (lint, typecheck, 16 tests), the Cloudflare build and preflight on the extracted package.
+  - Unit suite: 348/353 with the same 5 known failures.
+  - Billing and card e2e: 34/34.
+  - No new app/phone e2e failures against the live source.
