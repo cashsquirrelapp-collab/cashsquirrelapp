@@ -681,3 +681,28 @@ Changed against de1ccf7: frontend/src/app/App.tsx, frontend/src/features/mobile/
   - Payment button tests 9/9.
   - Unit suite 390/395 with the same 5 known failures.
   - Rendered preview of the card and the replies: `artifacts/line-due/line-due-preview.png`.
+
+## New versions open without an error page or a new sign-in - 2026-10-22
+
+Built on top of 9370b1c. Owner asked: "วัตถุประสงค์กูก็คือแค่ให้แอปฟีเจอร์ใหม่มันเข้ามาเลยอ่ะโดยที่ไม่ต้องกดล็อกอินใหม่หรือเออร์เลอร์อ่ะ". Approved ("ดีพอย").
+
+Causes found on the live site:
+1. A tab opened before a deploy asks for code files of its own build. They are gone after the deploy, and the server answers 200 text/html, so the import fails and the orange "โหลดหน้านี้ไม่สำเร็จ" page appeared.
+2. A sign-in ended 8 hours after signing in, however actively the app was used (a refresh kept the original time), so "โหลดหน้าใหม่" often landed on the login page.
+3. While the deploy switched over, a failed session check at startup was taken as "signed out".
+
+What changed:
+- `frontend/src/app/appUpdate.ts` (new) compares the running build with the one "/" names when the app comes back on screen and every 5 minutes. With a newer one waiting, the next page switch opens that page as a fresh page load (the sign-in cookie stays), and returning after more than 30 s away opens it at once.
+- A page whose code is gone reloads into the new build by itself, once, showing "กำลังเปิดเวอร์ชันใหม่…" instead of the error (`ErrorBoundary`). A missing file found while preloading (hovering a menu item) only marks the new build as ready; nothing reloads under the pointer.
+- Nothing reloads while a save is still on its way (it waits up to 5 s). A second failure within 20 s shows the error page as before, so an outage cannot loop.
+- Sign-in (`backend/src/security/session.ts`): `SESSION_LIFETIME` is 30 days, and each token refresh (about hourly while in use) starts it again. 30 days without use signs out. Revocation checks are unchanged. Parked accounts in the switcher follow the same rule.
+- Startup (`App.tsx`): for someone signed in on this browser before, a failed session check is asked again every 2 s (up to 10 times) behind the loading screen instead of showing the login page.
+
+Changed against 9370b1c: backend/src/security/session.ts, backend/src/security/deviceAccounts.ts (comment), frontend/src/app/appUpdate.ts (new), frontend/src/app/App.tsx, frontend/src/components/ui/ErrorBoundary.tsx, frontend/src/main.tsx, tests/app-update.test.ts (new), tests/e2e/app-update.spec.ts (new), tests/http.test.ts, tests/device-accounts.test.ts.
+- Archive SHA256 `83e5b039f2127a2fe327868dbacf1369ba06d302136baf44acf5dc1f468427b4`; manifest SHA256 `8240236521ec1df616f40244ea3b2e9af129a9c927e21bbc16b4d208bc785a16`.
+- Checked:
+  - cloudflare:check (16), the build and preflight ("Cron is enabled") on the extracted package.
+  - Unit suite 390/395 with the same 5 known failures, plus 4 new update tests.
+  - New browser tests 6/6, acting out a deploy on an open tab on computer and phone.
+  - Full browser suite: 141 passed; the 34 failures are the known list, no new ones.
+- Limit: tabs still running the build before this one do not have the new code. This deploy can still show them the old error once; it applies from the next deploy on.

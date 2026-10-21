@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg24: payment buttons in the 08:00 LINE reminder; smooth phone page switches (built on de1ccf7)",
+  "source_label": "pkg25: new versions open without an error page or a new sign-in",
   "archive": "source.tar.gz",
-  "archive_sha256": "cf9b5b28d7b80dff6d64335f787f9d6f15f6f1f39249305a0333bbb7d05fbd36",
-  "file_count": 644,
-  "total_source_bytes": 19313093,
+  "archive_sha256": "83e5b039f2127a2fe327868dbacf1369ba06d302136baf44acf5dc1f468427b4",
+  "file_count": 647,
+  "total_source_bytes": 19335837,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -263,8 +263,8 @@
     },
     {
       "path": "backend/src/security/deviceAccounts.ts",
-      "size": 9678,
-      "sha256": "15d03835b092145fe3462b17f34e12de862580ef1a3d5092b3d3717d774d8113"
+      "size": 9718,
+      "sha256": "efdd76eeb015473f3758322be1b29c018b0798af12460c67c8133e61ab0dd852"
     },
     {
       "path": "backend/src/security/ingress.ts",
@@ -288,8 +288,8 @@
     },
     {
       "path": "backend/src/security/session.ts",
-      "size": 7905,
-      "sha256": "ec0a9a418a7bc8dd98a99628a727ed562a15b0cf95bfd7541441c5a065243fd6"
+      "size": 8298,
+      "sha256": "ae17c8cedf9f12cb1a45c6526ed6aacaf75d40905ae8bc143af1ed87b87f732e"
     },
     {
       "path": "backend/src/security/staging.ts",
@@ -1588,8 +1588,13 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 187989,
-      "sha256": "550edf574faa5949ed023531f7b787528a443bcd288849b44e9fdc63f6161926"
+      "size": 189168,
+      "sha256": "d4cc9c09530e88bab4dac08fb013cb61ec05abcdb84c59c00afca8a79e8991e2"
+    },
+    {
+      "path": "frontend/src/app/appUpdate.ts",
+      "size": 5805,
+      "sha256": "fa00f094c39c0947d6481497a21efc5fe4a02fd4fa4649900463afcfcdca3bcc"
     },
     {
       "path": "frontend/src/app/splash.ts",
@@ -1653,8 +1658,8 @@
     },
     {
       "path": "frontend/src/components/ui/ErrorBoundary.tsx",
-      "size": 932,
-      "sha256": "1ac1746f0e523547e80468d589ce7cb57583ea90f78015d761df7b30949d231e"
+      "size": 1595,
+      "sha256": "10973d8d24abbd3633c4885a29a4cb4a74a12f8010df249e9944f9b15cc9bd76"
     },
     {
       "path": "frontend/src/components/ui/FullPageLoader.tsx",
@@ -2403,8 +2408,8 @@
     },
     {
       "path": "frontend/src/main.tsx",
-      "size": 1018,
-      "sha256": "99fe80e60567d94d9e8719c8b4d6271faea4b0397d4f4e30d9bc4fe65b760be6"
+      "size": 1222,
+      "sha256": "92440097a7149657cb5ca51480a5ad1979b94ba31231dd62578680d4f06ead64"
     },
     {
       "path": "frontend/src/mascotBus.ts",
@@ -2852,6 +2857,11 @@
       "sha256": "d252d976989fba5ee36aa3efb15416a70c0b96849e65f026e79d3d04c3d924b5"
     },
     {
+      "path": "tests/app-update.test.ts",
+      "size": 4621,
+      "sha256": "bf928a729ab90172d3d67fbf253dc1813544d0809b3a1e8c90b69115a0583805"
+    },
+    {
       "path": "tests/calendar-events.test.ts",
       "size": 4941,
       "sha256": "004acee3c5a1baaa5fe98476620511c1749331c66742ee752a8aa012bcd653be"
@@ -2893,8 +2903,8 @@
     },
     {
       "path": "tests/device-accounts.test.ts",
-      "size": 10166,
-      "sha256": "5a9544a5a7d1475bfcf81c65596d4a0828d2ed42455911d7d5e5f51934e54e01"
+      "size": 10182,
+      "sha256": "f4515480b9e1b03b37c79428daf44d393108da2c1495af972f51b2a533265f9e"
     },
     {
       "path": "tests/document-links.test.ts",
@@ -2940,6 +2950,11 @@
       "path": "tests/e2e/admin-stripe-finance-phone.spec.ts",
       "size": 7186,
       "sha256": "486e0151d8120f0fb4343e1205407f9f34d8f601f7d5c7a98645804c40892928"
+    },
+    {
+      "path": "tests/e2e/app-update.spec.ts",
+      "size": 9094,
+      "sha256": "c76dbcefc2b81aa036683726888e32f37aa191b798054185661b8310070a6cfd"
     },
     {
       "path": "tests/e2e/app.spec.ts",
@@ -3063,8 +3078,8 @@
     },
     {
       "path": "tests/http.test.ts",
-      "size": 24100,
-      "sha256": "9e6b7f12efbc357a68905256257b5ffb555da85163aa6240dd9e6c24c45b2b89"
+      "size": 24829,
+      "sha256": "7b2cb61ed0df4e749e95e33a1e5b36ad3ed40b054c640f302e5f81d67e41bce9"
     },
     {
       "path": "tests/income-export.test.ts",
