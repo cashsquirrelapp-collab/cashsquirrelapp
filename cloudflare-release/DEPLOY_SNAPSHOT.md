@@ -571,3 +571,24 @@ Changed against ac85bb8: backend/src/services/adminStripeFinance.ts, frontend/sr
   - Unit suite 380/385 with the same 5 known failures.
   - Admin, feedback and new phone/bank-date browser tests 15/15.
   - Phone admin overview and revenue at 390/375, both themes, scrolled through (32 screens), pixel-identical to 3412a3a. The same check on ac85bb8 differed on all 32.
+
+
+## Stripe finance hides what it cannot read - 2026-10-22
+
+Built on top of 6a72896. Owner asked: "ถ้าตรงนี้มันไม่สามารถอ่านได้เอาออกเลยก็ได้" (if this cannot be read, just take it out). Approved ("ดีพอย").
+
+- Unreadable parts are left out (computers and iPads). A Stripe finance part that comes back unavailable is not drawn and has no explanation box: totals, balance, next payout, payment list or payout history.
+- A part that is only incomplete (period too long) still shows its "choose a shorter period" note.
+- With nothing readable, the request refused, or the request failed, the panel is not shown at all.
+- No loading skeleton until the panel has had something to show, so it does not flash and vanish. Refreshing a shown panel keeps its skeleton.
+- The panel appears by itself once the owner adds Read for Balance, Charges and Refunds, and Payouts to the restricted key.
+- Phones unchanged: there is still no panel and no request, and the phone admin page stays pixel-identical to 3412a3a.
+- Read-only. Payments, the database, Wrangler config, Secrets and crons are untouched.
+
+Changed against 6a72896: frontend/src/features/groups/AdminStripeFinance.tsx, frontend/src/features/groups/AdminDashboard.tsx (Suspense fallback is now null), tests/e2e/admin-analytics.spec.ts.
+- Archive SHA256 `83088ca5a75d6aee4c5a2d50edad4fc317d2e7dd7a802f30a8da08552e6a2ec0`; manifest SHA256 `dbeefc05ac0613b24bc45450777f1a90aa3c7da67e2000b37c6c1e7c9e9bb003`.
+- Checked:
+  - cloudflare:check (16), the Cloudflare build and preflight on the extracted package.
+  - Unit suite 380/385 with the same 5 known failures.
+  - Admin, feedback and phone browser tests 15/15.
+  - Phone admin overview and revenue, 32 screens, pixel-identical to 3412a3a.

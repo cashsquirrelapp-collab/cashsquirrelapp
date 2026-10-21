@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg19: Stripe finance with per-payment bank dates; phone admin page as before (built on ac85bb8)",
+  "source_label": "pkg20: Stripe finance hides parts it cannot read (built on 6a72896)",
   "archive": "source.tar.gz",
-  "archive_sha256": "ca24d198a1ac29d323c77e369e1165651ce761d57753723419ad37568afe1d20",
+  "archive_sha256": "83088ca5a75d6aee4c5a2d50edad4fc317d2e7dd7a802f30a8da08552e6a2ec0",
   "file_count": 635,
-  "total_source_bytes": 19193739,
+  "total_source_bytes": 19195865,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1853,13 +1853,13 @@
     },
     {
       "path": "frontend/src/features/groups/AdminDashboard.tsx",
-      "size": 45485,
-      "sha256": "67a60ffd0d42b1cc958917276d62c9303dc241cc7d9ea84984e0d5f2a851af80"
+      "size": 45468,
+      "sha256": "33844215acbbbeed9e753624e85f28c07e2dc4ec9c3f9c04192ed7679e3fd93a"
     },
     {
       "path": "frontend/src/features/groups/AdminStripeFinance.tsx",
-      "size": 21773,
-      "sha256": "16f5262a76af69e94135f23e8c5d01962fc3fc85ec8f3ff91139b3763b9ba7c7"
+      "size": 23088,
+      "sha256": "afe57e6dadf14077180cb4918dc065a6a97e847c8db4676ea29ad11d04821be4"
     },
     {
       "path": "frontend/src/features/groups/AdminUsersPanel.tsx",
@@ -2893,8 +2893,8 @@
     },
     {
       "path": "tests/e2e/admin-analytics.spec.ts",
-      "size": 14978,
-      "sha256": "e656c21c2c3d57a5b45ab8fda1af5a965d3034c699075de82015cc36537ba7c7"
+      "size": 15806,
+      "sha256": "537400f648917008e214deb89fe1e31d294eb4afc04fa26e11f056e602a4e561"
     },
     {
       "path": "tests/e2e/admin-pro.spec.ts",
