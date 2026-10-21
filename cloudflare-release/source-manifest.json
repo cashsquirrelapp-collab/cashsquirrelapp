@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg25: new versions open without an error page or a new sign-in",
+  "source_label": "pkg26: formal LINE cards, LINE connect welcome and disconnect notice, card consent v2 database fix",
   "archive": "source.tar.gz",
-  "archive_sha256": "83e5b039f2127a2fe327868dbacf1369ba06d302136baf44acf5dc1f468427b4",
-  "file_count": 647,
-  "total_source_bytes": 19335837,
+  "archive_sha256": "55913fe73308d5cec56c17ab18ad64aaa311b521d5bad0142c649f9868885c55",
+  "file_count": 662,
+  "total_source_bytes": 19380838,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -128,8 +128,8 @@
     },
     {
       "path": "backend/src/handlers/line-link-code.ts",
-      "size": 1540,
-      "sha256": "f807e147d975d836fb44c0899db4b5be76953917bfb048c9e78a35ebda793ad0"
+      "size": 2310,
+      "sha256": "614b8a392e7dbe0467f556349c4be88e3daa2b8eab153af7f0b0942efb45ac1c"
     },
     {
       "path": "backend/src/handlers/line-session.ts",
@@ -138,13 +138,13 @@
     },
     {
       "path": "backend/src/handlers/line-webhook.ts",
-      "size": 8187,
-      "sha256": "fce027fbc9dbf5715082d02f7915866c9b3692ae889bc0e79cf469be9704499f"
+      "size": 8825,
+      "sha256": "6d9ed47164a521cf40d38c386cf5cbf285aaccc962d599a02f41b02a2812b2e2"
     },
     {
       "path": "backend/src/handlers/notify.ts",
-      "size": 3818,
-      "sha256": "faf1fff369f2e6390e631251b4c7aea7a3865ac924bffe8428e56c3ceec0f9e7"
+      "size": 3549,
+      "sha256": "3942a78af05079f8b7cb211f494198bbd2e9bb6a9f1eb41062b6112430d6f3d1"
     },
     {
       "path": "backend/src/handlers/password-reset-line.ts",
@@ -363,18 +363,18 @@
     },
     {
       "path": "backend/src/services/lineAssistant.ts",
-      "size": 113672,
-      "sha256": "9e9f2d3c65e7f466538085b4a29c8d899d25c1b9507dfc8745a424fd314c0a0a"
+      "size": 113671,
+      "sha256": "154b8a6b65a2fba7a1b4f74ef65406897aebe5c5cb3493c4fac817a3567f6bad"
     },
     {
       "path": "backend/src/services/lineCards.ts",
-      "size": 8915,
-      "sha256": "05b1ab15bb29f55ad9a69cf1613252418fc9a09d298146fc480ad2b405b8ecf2"
+      "size": 13701,
+      "sha256": "f2ddbd365479c64881785012980ab153ad715f3524295aac36835b9b4bf698c6"
     },
     {
       "path": "backend/src/services/lineCashSummary.ts",
-      "size": 3266,
-      "sha256": "21740f2ee7c42b9769215ab6ac7c4b6fed002166ebeb9b30704655322919cb23"
+      "size": 2806,
+      "sha256": "bb574c8c06bff2004ab1705172fba8f3e721b15034a2272a1059ec92400e360b"
     },
     {
       "path": "backend/src/services/lineDocumentIntake.ts",
@@ -388,8 +388,8 @@
     },
     {
       "path": "backend/src/services/lineDraftReview.ts",
-      "size": 5469,
-      "sha256": "b6662445824c5c455b9d00d9a633ccf1b7d81a4c910787a9ae55ee62c907c756"
+      "size": 5499,
+      "sha256": "f4a038140a3826cc6afc10d979004dd4a8113a7da40d5389c68b169bfe18c7c9"
     },
     {
       "path": "backend/src/services/lineDraftState.ts",
@@ -403,13 +403,18 @@
     },
     {
       "path": "backend/src/services/lineEntryRouting.ts",
-      "size": 1658,
-      "sha256": "bf00ddbc29de47926919f77845d6035658de0f9cfecf705fd9212063a6a0d6ae"
+      "size": 3661,
+      "sha256": "2030651bb40e11006451df51412a70d078a357fcb347f9b477791028f375b6cb"
     },
     {
       "path": "backend/src/services/lineFeatureShortcuts.ts",
       "size": 10247,
       "sha256": "b9e3135db151de31eb925da4371739e2724dbb8771f308fb601ae51e744de371"
+    },
+    {
+      "path": "backend/src/services/lineLinkCards.ts",
+      "size": 4090,
+      "sha256": "fd9e00fafe69d3417e3a2c902525ef030925f0dcc2e65d0268148424762bedc0"
     },
     {
       "path": "backend/src/services/lineQuickDraft.ts",
@@ -418,8 +423,8 @@
     },
     {
       "path": "backend/src/services/lineReminders.ts",
-      "size": 10635,
-      "sha256": "dca9f63ea87152bc8ba519a12c64e94bcef9823ae0cb719b43577ba7e9b9c8a0"
+      "size": 10776,
+      "sha256": "68496af8c06201831524807434f8070b9e7adc0a3c4f7e23e7421970c5e229d5"
     },
     {
       "path": "backend/src/services/lineSession.ts",
@@ -428,8 +433,8 @@
     },
     {
       "path": "backend/src/services/lineVaultChat.ts",
-      "size": 10094,
-      "sha256": "752820412a9722083652bec9e27ac29a9eaaff219f3e558118071e73521f177d"
+      "size": 10158,
+      "sha256": "db27bcaeeb9f42c869abb93adb530aeea4db7a06d3b4760dc5d6220c5ad47cf3"
     },
     {
       "path": "backend/src/services/lineWht50Reminders.ts",
@@ -1410,6 +1415,61 @@
       "path": "frontend/public/line-source/saved-expense.webp",
       "size": 90290,
       "sha256": "c92937b4ff7840d98c5597a2624d22dac73548c62efef976853225ad2a418e6b"
+    },
+    {
+      "path": "frontend/public/line/icons/cancelled.png",
+      "size": 1544,
+      "sha256": "29e2c5a3603a26a347937d3edab14f4b8bc52428b9f6942b47e3ffefcaf07f30"
+    },
+    {
+      "path": "frontend/public/line/icons/document.png",
+      "size": 1125,
+      "sha256": "535cca0c82ac3928128e8e096bf0be475b264605cb30657c2c0a03dca1fc6323"
+    },
+    {
+      "path": "frontend/public/line/icons/guide.png",
+      "size": 1730,
+      "sha256": "f8a99f3086da77fab5479b7c6e1fc3eb7a175e595fc5d51ca13cf04aa49c17ce"
+    },
+    {
+      "path": "frontend/public/line/icons/received.png",
+      "size": 614,
+      "sha256": "1969d438fa45c7d43099574e46db18ba2d5d44cbda83847c35ab866f9736c673"
+    },
+    {
+      "path": "frontend/public/line/icons/reminder.png",
+      "size": 1407,
+      "sha256": "18f43a463658c8c55f5371401f39b9b63331901a3375a1a4c7d1ad9beb7dce46"
+    },
+    {
+      "path": "frontend/public/line/icons/report.png",
+      "size": 658,
+      "sha256": "6c1472bb31618fa8e8635383ed19270a48022cc95dfbda13fdbf0142e7b1067b"
+    },
+    {
+      "path": "frontend/public/line/icons/review.png",
+      "size": 1197,
+      "sha256": "52bd1057bfd03fa9a7fb3461f55617d8a358ce0f2c0ea9c45774cc3d386bc191"
+    },
+    {
+      "path": "frontend/public/line/icons/saving.png",
+      "size": 2508,
+      "sha256": "ea1ce68cc4c1a94aeb7088ff24c7a8913c8f22a0dbc4fd6e1b7e8defbb69c56c"
+    },
+    {
+      "path": "frontend/public/line/icons/spent.png",
+      "size": 618,
+      "sha256": "825164eeda94ca9704e43e87fd7118f0fb0cafd9120a2b9d5b4598624fe19264"
+    },
+    {
+      "path": "frontend/public/line/icons/urgent.png",
+      "size": 1843,
+      "sha256": "57de806e7b751c61d99171256750d0222012514323355a2a7bc6d0ce29818296"
+    },
+    {
+      "path": "frontend/public/line/icons/working.png",
+      "size": 844,
+      "sha256": "79f7b7b8334f632fb01f76ffceb997ebbce54643bf3e8d61a4234758bf7969cb"
     },
     {
       "path": "frontend/public/line/mascot-ci-cancelled-v4.png",
@@ -2658,8 +2718,8 @@
     },
     {
       "path": "scripts/tutorial/line/clip/flex.tsx",
-      "size": 5060,
-      "sha256": "9d6aa7e0a602db5a32de2798a63132fa017b9c9621bb29f2878acf704320f761"
+      "size": 5314,
+      "sha256": "f309d465f1969bbb95875694923a98a92e1d4dba8811e8e704706083a16e4f7f"
     },
     {
       "path": "scripts/tutorial/line/clip/main.tsx",
@@ -2827,6 +2887,11 @@
       "sha256": "29441c1cb4e8de1e2f61d55b3c3827396143badfab8e4133366fb89f47d93ce5"
     },
     {
+      "path": "supabase/migrations/20261022040000_card_consent_v2.sql",
+      "size": 6884,
+      "sha256": "9d1050065b63791d44ed0a1d030e282f643a0906b5b7b425f24717191dbada70"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 11339,
       "sha256": "583a3c1fb6e00fa71e874483838698567f700a3ce7851ce682363e625836e833"
@@ -2868,8 +2933,8 @@
     },
     {
       "path": "tests/card-renewals-database.test.ts",
-      "size": 6521,
-      "sha256": "460abc410a75efb45b0647fccd6b192115fb779852dd0dc12b3f7bd92fcf31c0"
+      "size": 7691,
+      "sha256": "dedb0b302e70a53925629ebbc437742e3570c53a9123ff6d085abc3ba7c9899f"
     },
     {
       "path": "tests/card-renewals.test.ts",
@@ -3078,8 +3143,8 @@
     },
     {
       "path": "tests/http.test.ts",
-      "size": 24829,
-      "sha256": "7b2cb61ed0df4e749e95e33a1e5b36ad3ed40b054c640f302e5f81d67e41bce9"
+      "size": 26443,
+      "sha256": "9c0ad4a9f97479493b1e107b409163f09ccad362f1a1318f2218de5d937a79a8"
     },
     {
       "path": "tests/income-export.test.ts",
@@ -3112,9 +3177,19 @@
       "sha256": "ea12e3b28157708b68706995c03eee545fe65d14054b24e9fb2fd1873e3bbca0"
     },
     {
+      "path": "tests/line-cards-formal.test.ts",
+      "size": 4800,
+      "sha256": "ed0f58a3e22d0acda7c0baba2fc392f192c33d0d67747a4e14334505c59e86c2"
+    },
+    {
       "path": "tests/line-due-payments.test.ts",
       "size": 13480,
       "sha256": "2ae10b6fa4eafc69398475b3286de02d372ae6099f654b35a65b31719d90f164"
+    },
+    {
+      "path": "tests/line-entry-help.test.ts",
+      "size": 4399,
+      "sha256": "881e65f16625c75457dc3d9e8ef6031389e368c1492f6e70cceb295fd8a35bfd"
     },
     {
       "path": "tests/monthly-report-negative.test.ts",

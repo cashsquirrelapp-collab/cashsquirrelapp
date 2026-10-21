@@ -706,3 +706,62 @@ Changed against 9370b1c: backend/src/security/session.ts, backend/src/security/d
   - New browser tests 6/6, acting out a deploy on an open tab on computer and phone.
   - Full browser suite: 141 passed; the 34 failures are the known list, no new ones.
 - Limit: tabs still running the build before this one do not have the new code. This deploy can still show them the old error once; it applies from the next deploy on.
+
+## Formal LINE cards, LINE welcome and disconnect notice, card consent v2 database rule - 2026-10-22
+
+Built on top of 6e759e8. Approved ("ดีพอย").
+
+**Owner requests, in order:**
+- "ดูน่ารักเกินไป ... ทางการ ... worldwide ... clean"
+- "เพิ่มลิควิดการ์ด ... เกรเดียนต์ ... สีสันแบบทางการ"
+- "รายจ่ายควรเป็นสีแดง ... เป็นสัญลักษณ์"
+- "มาสคอต ... ใช้ให้มันดูแบบคิวท์ทางการ"
+- "ไม่ต้องเพิ่มกรอบ ... อยากได้เหมือน Apple"
+- "ของเรามันเอาไว้จดงาน"
+- the LINE disconnect notice and connect welcome
+
+**LINE cards** (`backend/src/services/lineCards.ts`; every card uses it):
+- **Header:** a CI gradient band with a light sheen.
+  - The colour follows the event (`LINE_CARD_THEMES`): brand rust-orange, green for money in, crimson red for expenses and goal withdrawals, deep red for overdue, graphite for cancelled.
+  - On the band: the official white brand symbol, a category chip with a Lucide icon (11 new PNGs in `frontend/public/line/icons`), a white title, a full-width hairline, and the key amount.
+- **Mascot:** the official pose for the event (`/line/mascot-v6-*.png`, never redrawn) stands on the band with no frame. It is 92px beside an amount and 76px beside a title.
+- **Body:** white label/value statement rows. Colours come from one palette (`lineTone()` folds any other colour into text).
+- The 08:00 total and the monthly net profit moved onto the band. The reminder groups are dotted headings instead of tinted boxes.
+
+**Examples are jobs, not coffee:**
+- `LINE_JOB_EXAMPLES` holds เพิ่มงาน ออกแบบโลโก้ 5000 / เพิ่มงาน ถ่ายภาพ ให้ร้านดอกไม้ 12000 / เพิ่มงาน ตัดต่อวิดีโอ 8000 รอรับเงิน.
+- Each one is checked to parse as a job draft. They are used on the help card and in the greeting text.
+
+**Unrecognised messages:** `buildLineEntryHelp(text)` answers a hello with "สวัสดีครับ · มีอะไรให้เลขากระรอกช่วยไหมครับ" and anything else with "เลขายังไม่เข้าใจครับ" plus the examples.
+
+**Connecting** (`line-webhook.ts` → `welcomeAfterLink`, `lineLinkCards.ts`):
+- The reply is a welcome card in the secretary's voice.
+- Pro accounts (trial included) get quick replies and an add-job button.
+- Other accounts are told the LINE features are Pro and get a /plans button.
+- If the plan lookup fails, the account gets the version that promises nothing extra.
+
+**Disconnecting** (`line-link-code.ts`):
+- Reads the linked LINE chat, removes the link and its challenge, then pushes "ยกเลิกการเชื่อมต่อแล้ว". The card says alerts have stopped, nothing in the app was deleted, and how to reconnect.
+- The push is best effort (`lineNotified` in the response) and counts toward the LINE monthly message quota.
+- Before this, nothing was sent.
+
+**Card consent v2 database rule:** `supabase/migrations/20261022040000_card_consent_v2.sql`.
+- The owner already ran it in Supabase on 2026-10-22, with Success.
+- Verified live afterwards: POST /api/billing returned 200 and reached the create and attach stages.
+- `tests/card-renewals-database.test.ts` now covers every accepted consent version.
+
+Changed against 6e759e8:
+- line-link-code.ts, line-webhook.ts, notify.ts
+- lineAssistant.ts, lineCards.ts, lineCashSummary.ts, lineDraftReview.ts, lineEntryRouting.ts, lineLinkCards.ts (new), lineReminders.ts, lineVaultChat.ts
+- 11 icons (new)
+- scripts/tutorial/line/clip/flex.tsx (preview renderer)
+- the migration (new)
+- tests: card-renewals-database, http, line-cards-formal (new), line-entry-help (new)
+
+The web app bundle is unchanged (entry index-D053UY1J.js).
+- Archive SHA256 `55913fe73308d5cec56c17ab18ad64aaa311b521d5bad0142c649f9868885c55`; manifest SHA256 `774bef28d9e7c6324effa5aa46b9b23aa075f61f3655cbfd33de98e44efc6cf0`.
+- Checked:
+  - cloudflare:check (16), build and preflight ("Cron is enabled") on the extracted package.
+  - LINE and card tests 28/28, plus the disconnect HTTP test, on the extracted package.
+  - Unit suite 411/416 with the same 5 known failures. The two notification tests fail identically on 6e759e8.
+  - Before/after previews: `artifacts/line-formal/*.png`.
