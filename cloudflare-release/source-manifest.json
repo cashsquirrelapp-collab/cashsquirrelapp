@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg22: live revenue, phone admin design, phone opening logo, scheduled jobs on Cloudflare (50 ทวิ hidden) — built on 28b0983",
+  "source_label": "pkg24: payment buttons in the 08:00 LINE reminder; smooth phone page switches (built on de1ccf7)",
   "archive": "source.tar.gz",
-  "archive_sha256": "06ea69197c26a41163acaef4ff841cad01ad28bedbb0d112eec88922558c3cef",
-  "file_count": 642,
-  "total_source_bytes": 19280273,
+  "archive_sha256": "cf9b5b28d7b80dff6d64335f787f9d6f15f6f1f39249305a0333bbb7d05fbd36",
+  "file_count": 644,
+  "total_source_bytes": 19313093,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -138,8 +138,8 @@
     },
     {
       "path": "backend/src/handlers/line-webhook.ts",
-      "size": 8003,
-      "sha256": "3372eb38aca03bd59e38cdab9be6483ff65c576ab0821c7aa9cf9e50169d91c7"
+      "size": 8187,
+      "sha256": "fce027fbc9dbf5715082d02f7915866c9b3692ae889bc0e79cf469be9704499f"
     },
     {
       "path": "backend/src/handlers/notify.ts",
@@ -168,8 +168,8 @@
     },
     {
       "path": "backend/src/handlers/send-overdue-digest.ts",
-      "size": 14341,
-      "sha256": "065fff7f1e5fb71d30d320ae4060eedae7d08d601d99e099818f387cb503e5f9"
+      "size": 14848,
+      "sha256": "ff8cd0d8512fd1d6e86afa6c44e15e53d8b023fba8755f6d6e62e165fa84ffbe"
     },
     {
       "path": "backend/src/handlers/send-wht50-reminder.ts",
@@ -363,8 +363,8 @@
     },
     {
       "path": "backend/src/services/lineAssistant.ts",
-      "size": 112970,
-      "sha256": "0294e110e699d7edf0526dd73f868c4bbc14a991de66febe42b93eed4966fa21"
+      "size": 113672,
+      "sha256": "9e9f2d3c65e7f466538085b4a29c8d899d25c1b9507dfc8745a424fd314c0a0a"
     },
     {
       "path": "backend/src/services/lineCards.ts",
@@ -397,6 +397,11 @@
       "sha256": "2bb2b86bc1d754aa5b8d2450dffc8286197259ad281327dc4757c5e9a3b23e86"
     },
     {
+      "path": "backend/src/services/lineDuePayments.ts",
+      "size": 14451,
+      "sha256": "896ec5d92eb646b93a46b7066f5f4773835f509359cd195d49f1f45729afff84"
+    },
+    {
       "path": "backend/src/services/lineEntryRouting.ts",
       "size": 1658,
       "sha256": "bf00ddbc29de47926919f77845d6035658de0f9cfecf705fd9212063a6a0d6ae"
@@ -413,8 +418,8 @@
     },
     {
       "path": "backend/src/services/lineReminders.ts",
-      "size": 8296,
-      "sha256": "610256137b8e34136205c355a43d3e080e2a240e5b0f067a0b730ef17e283083"
+      "size": 10635,
+      "sha256": "dca9f63ea87152bc8ba519a12c64e94bcef9823ae0cb719b43577ba7e9b9c8a0"
     },
     {
       "path": "backend/src/services/lineSession.ts",
@@ -1583,8 +1588,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 187860,
-      "sha256": "80c7a5e2eb08702aa27bef3cfe45cf0869f53264d06ce8d972a8129e309b03c1"
+      "size": 187989,
+      "sha256": "550edf574faa5949ed023531f7b787528a443bcd288849b44e9fdc63f6161926"
     },
     {
       "path": "frontend/src/app/splash.ts",
@@ -2208,8 +2213,8 @@
     },
     {
       "path": "frontend/src/features/mobile/mobile.css",
-      "size": 86527,
-      "sha256": "049dfe91de63d7c6d096e1d57fabb2abe85ea70c237d49600c08de52d174e97d"
+      "size": 87555,
+      "sha256": "e46db6ee050c3ee2b5c1bcbed16d38ac7f926802548fb5b42418484b35b8c3e2"
     },
     {
       "path": "frontend/src/features/mobile/mobileNavigation.ts",
@@ -3090,6 +3095,11 @@
       "path": "tests/line-assistant-prefetch.test.ts",
       "size": 4456,
       "sha256": "ea12e3b28157708b68706995c03eee545fe65d14054b24e9fb2fd1873e3bbca0"
+    },
+    {
+      "path": "tests/line-due-payments.test.ts",
+      "size": 13480,
+      "sha256": "2ae10b6fa4eafc69398475b3286de02d372ae6099f654b35a65b31719d90f164"
     },
     {
       "path": "tests/monthly-report-negative.test.ts",

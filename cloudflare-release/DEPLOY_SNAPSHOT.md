@@ -649,3 +649,35 @@ Changed against 28b0983: cloudflare/schedule.ts, wrangler.production.jsonc, test
   - Phone admin e2e 5/5 and opening logo e2e 4/4.
   - Full e2e: 135 passed, the 34 known failures and none new.
   - Other phone pages (overview, jobs, sign-in at 390/375, both themes): 12 screens pixel-identical to the previous build.
+
+
+## Payment buttons in the 08:00 LINE reminder; smooth phone page switches - 2026-10-22
+
+Built on top of de1ccf7. Owner asked: "ทำปุ่มได้รับแล้วในแจ้งเตือน 08:00 ต่อเลย". Approved ("ดีพอย").
+
+- The same single 08:00 reminder card (`buildDigestFlexMessage`) now has pill buttons under each overdue or due-today job: ได้รับแล้ว / ยังไม่ได้ / ได้ไม่ครบ. Instalments get the first two. Jobs due later have none. No new message is sent.
+- **ได้รับแล้ว:**
+  - Records what the app's payment dialogs record. For a plain job: status done, received = net after WHT, pending 0, paid, pay date today (Bangkok). For an instalment: that row is paid today, then totals and the next due date are recomputed (Jobs page logic).
+  - Saved through `cashflow_apply_changes` with the row's version, retried once on a conflict, so an edit made elsewhere is never overwritten.
+  - The bot replies with a "บันทึกรับเงินแล้ว" card. Pressing again says it is already recorded.
+- **ยังไม่ได้:** saves nothing; the bot replies that it will remind again tomorrow at 08:00.
+- **ได้ไม่ครบ:**
+  - The postback opens the keyboard with "รับเงินบางส่วน #XXXXXX ยอด " filled in. The typed amount is matched by that short code among the user's unpaid jobs. It records a first deposit, or full payment if the amount covers the rest.
+  - A second partial payment, or one on an instalment, is sent to the app, as in the app.
+- Postbacks `due:(paid|later|partial):<jobId>[:<installmentId>]` reach the assistant after the usual linked-account, lifecycle and Pro checks, and are handled without the model.
+- Safety: if LINE refuses the card with buttons, the 08:00 job immediately resends it without buttons. The settings test alert shows the buttons on sample jobs; they only reply with a sample notice.
+
+**Phone page switches no longer flicker** (owner: "กระพริบ ... ให้มันสมูท"):
+- Before, every switch faded the whole page in from nothing (`app-tab-enter`), then the phone page (`ksm-screen` / `ksm-home`), then the header's summary box (`ksm-hero-in`). The area under the top bar went white (249,249,246 measured) and took about 0.2s to turn terracotta again.
+- Now phones skip `app-tab-enter`. In `mobile.css`, the terracotta header, its box and figures and the overview greeting have no entrance animation; only what sits under the header fades in (160ms, opacity only).
+- Recorded frames show the header area terracotta in every frame.
+- Settled screens are unchanged: at most 2 of 255 colour levels on header text, from the removed animation layer.
+- Computers and iPads are untouched.
+
+Changed against de1ccf7: frontend/src/app/App.tsx, frontend/src/features/mobile/mobile.css, backend/src/services/lineDuePayments.ts (new), backend/src/services/lineReminders.ts, backend/src/handlers/line-webhook.ts, backend/src/services/lineAssistant.ts, backend/src/handlers/send-overdue-digest.ts, tests/line-due-payments.test.ts (new).
+- Archive SHA256 `cf9b5b28d7b80dff6d64335f787f9d6f15f6f1f39249305a0333bbb7d05fbd36`; manifest SHA256 `bcb49a1de0a284265fcff0841ec6580cf7d4788eaea9cd7878914517bab399bd`.
+- Checked:
+  - cloudflare:check (16), the build and preflight ("Cron is enabled") on the extracted package.
+  - Payment button tests 9/9.
+  - Unit suite 390/395 with the same 5 known failures.
+  - Rendered preview of the card and the replies: `artifacts/line-due/line-due-preview.png`.
