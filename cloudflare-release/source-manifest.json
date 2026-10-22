@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg29: home screen icon with a larger tail on a brighter rust",
+  "source_label": "pkg30: no reply for unrecognised LINE messages (fallback card removed)",
   "archive": "source.tar.gz",
-  "archive_sha256": "ae8e6cc13ead7e1c348f193d9757bf39c257e9a4067b01fc69eae56bd5288151",
+  "archive_sha256": "f420a6ce4eb1f37c66d59c8b0f177601e5d7c2721ea4edbd7f071891b160a94c",
   "file_count": 672,
-  "total_source_bytes": 19982797,
+  "total_source_bytes": 19979971,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -138,8 +138,8 @@
     },
     {
       "path": "backend/src/handlers/line-webhook.ts",
-      "size": 8825,
-      "sha256": "6d9ed47164a521cf40d38c386cf5cbf285aaccc962d599a02f41b02a2812b2e2"
+      "size": 8948,
+      "sha256": "acd0613aa3b387e6ffbc2db92965619bd196773aa03e27955502e06c1d005330"
     },
     {
       "path": "backend/src/handlers/notify.ts",
@@ -363,8 +363,8 @@
     },
     {
       "path": "backend/src/services/lineAssistant.ts",
-      "size": 113671,
-      "sha256": "154b8a6b65a2fba7a1b4f74ef65406897aebe5c5cb3493c4fac817a3567f6bad"
+      "size": 113970,
+      "sha256": "322d6066308cbb3e320de4e0b9c6dc188336e6d9c5739adbd4186c46cd16f72a"
     },
     {
       "path": "backend/src/services/lineCards.ts",
@@ -403,8 +403,8 @@
     },
     {
       "path": "backend/src/services/lineEntryRouting.ts",
-      "size": 3661,
-      "sha256": "2030651bb40e11006451df51412a70d078a357fcb347f9b477791028f375b6cb"
+      "size": 1026,
+      "sha256": "1c6a45a47c87f9eedc5929a9cef80676ec573c61cc83e0d6e55936c9e19fcd3a"
     },
     {
       "path": "backend/src/services/lineFeatureShortcuts.ts",
@@ -3223,8 +3223,8 @@
     },
     {
       "path": "tests/line-assistant-prefetch.test.ts",
-      "size": 4456,
-      "sha256": "ea12e3b28157708b68706995c03eee545fe65d14054b24e9fb2fd1873e3bbca0"
+      "size": 4962,
+      "sha256": "28cb7cd5257ff6538ae98a797ad0e5e9cae846f878cdc1b4eca20e6ac57df3a5"
     },
     {
       "path": "tests/line-cards-formal.test.ts",
@@ -3238,8 +3238,8 @@
     },
     {
       "path": "tests/line-entry-help.test.ts",
-      "size": 4399,
-      "sha256": "881e65f16625c75457dc3d9e8ef6031389e368c1492f6e70cceb295fd8a35bfd"
+      "size": 3280,
+      "sha256": "1895feb0244d939b41e2b5505e83b68f789c40eaff1bfb570cc37623625b08bf"
     },
     {
       "path": "tests/monthly-report-negative.test.ts",

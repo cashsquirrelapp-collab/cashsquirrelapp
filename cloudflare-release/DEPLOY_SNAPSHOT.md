@@ -821,3 +821,24 @@ Built on top of 460bcd2. The owner said: "หางกระรอกมัน�
 - Archive SHA256 `ae8e6cc13ead7e1c348f193d9757bf39c257e9a4067b01fc69eae56bd5288151`; manifest SHA256 `1e17d91a126b3281c45b44a1cdacbe586b02aa3d41d94ba9a5b117bacaeb8612`.
 - Checked: cloudflare:check (16), the build and preflight on the extracted package.
 - Preview: `artifacts/home-icon/home-icon-preview.png`. Generator: `artifacts/home-icon/make.mjs bright`.
+
+## No reply for unrecognised LINE messages - 2026-10-22
+
+Built on top of 320a65a. The owner asked to remove the "เลขายังไม่เข้าใจครับ" card and the rule that sent it: "ไม่สำคัญขนาดนั้นเอาออกเลย". Approved ("ดีพอย").
+
+- When a linked user's message is not a command the bot knows and no draft is open, the bot now sends nothing.
+  - Before, it sent the "เลขายังไม่เข้าใจครับ" / "สวัสดีครับ" help card.
+  - `buildLineEntryHelp` and `isLineGreeting` are gone.
+- The assistant now returns an empty list for "handled, nothing to send". `null` still means "not linked".
+  - The webhook skips the reply call and marks the event done.
+  - So a linked user is never answered with the link-code "ไม่พบรหัสเชื่อมต่อ" text.
+- **Unchanged:**
+  - the commands, the job examples (welcome card, greeting text), "ถาม AI", the open-draft hints, the welcome and disconnect cards
+  - expense and job recording
+- If LINE Official Account Manager has its own auto-response turned on, LINE may answer by itself. That is a console setting, not this code.
+- Archive SHA256 `f420a6ce4eb1f37c66d59c8b0f177601e5d7c2721ea4edbd7f071891b160a94c`; manifest SHA256 `dc0d4dfa76019d4a225a86110ef5955c8f19ddd33f465f1ee66f42914066817b`.
+- Checked:
+  - cloudflare:check (16), the build and preflight on the extracted package.
+  - LINE assistant tests on the extracted package.
+  - Unit suite 411/416 with the same 5 known failures.
+  - New test: a linked user's unrecognised message returns [] and an unlinked one still returns null.
