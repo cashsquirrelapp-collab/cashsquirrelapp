@@ -968,3 +968,61 @@ That gave 27 jobs worth ฿473,740 instead of 6 jobs worth ฿199,300. Expenses 
   - cloudflare:check (16), the build and preflight on the extracted package.
   - `tests/sheet-import.test.ts` (31: the earlier layouts plus the whole workbook, unmatched payments, invoice-only lists, Google Sheets budget, Thai bank statement, month/day dates, the app's own CSV export).
   - Unit suite 445/450, with the same 5 known failures as the live code.
+
+## Smart import: guesses wait for the person, rows keep their source, updates, reconciliation, safe CSV - 2026-10-22
+
+Built on top of 9e0f2e9. Approved ("ดีพอย").
+
+**Why.** The owner tested two fictional workbooks: a personal-finance workbook and a solo-freelancer bookkeeping file whose tabs link by code (P001, C001, E001).
+- pkg33 (8450f73) read the solo file as ฿168,000 received instead of ฿84,000. The 4 ledger payments were added on top of the 4 invoices, and the Dashboard figures became jobs.
+- The live import (9e0f2e9) gives ฿84,000 received, but 16 jobs worth ฿334,000 and 60 expenses worth ฿78,764, because the projects, invoices and expense register are each counted twice.
+- A re-imported CSV export took 1 Oct 2026 from its file name.
+- The CSV export wrote the due date as "วันรับเงินจริง" for unpaid jobs.
+
+**Changes**
+- **Codes**
+  - Code columns are never amounts or dates. That covers "Expense ID", "Reference ID", "รหัส", "เลขที่", and any column whose values are nearly all codes.
+  - Clients and Projects tabs name the codes used in other tabs. A Clients tab is a lookup tab: left out of the import, with a note.
+- **One count per transaction**
+  - A project list with values only is folded with the invoices that add up to it.
+  - Ledger payments are folded into their invoice.
+  - The same expense in a ledger and a register is imported once.
+  - Transfers are never income or expense.
+  - Money comparisons are exact to the satang; there is no ±฿1 tolerance any more.
+- **Guesses wait for the person**
+  - A column read from its values alone must be confirmed before the review.
+  - Rows are left out until ticked when they involve a guess (unreadable or month-only date, paid date taken from the job date, negative amount), a possible double count (same name in another tab, repeated row), an update, or a non-baht amount.
+  - Ticking works one row at a time or "ยืนยันทั้ง N แถว" per reason.
+- **Source and re-import**
+  - Each saved row keeps `importSource`: file name, SHA-256 fingerprint, tab, row and its own code.
+  - Re-importing the same file adds nothing, even after edits.
+  - A newer version of a file offers updates to the rows it changes (same code or same job, payment changed), shown before and after.
+  - Updated rows keep `importUpdate.before`, so undo restores them.
+  - Rows made or edited in the app are flagged before they are updated.
+- **Review screen**
+  - Counts: read / new / update / duplicate / waiting / to check / left out.
+  - Value, received and outstanding; expenses split business / personal, with a toggle for personal expenses.
+  - Reconciliation against each tab's total row and against the Dashboard figures (received, outstanding, invoiced, business and personal expenses, transfers, project count), with the unreconciled difference.
+  - Each row opens to show the file's cells, the field each went to, and why.
+- **Saving:** the done screen waits for the server. A failed save shows the error with "ลองบันทึกอีกครั้ง" and undo.
+- **Files**
+  - The file's real type is checked from its first bytes.
+  - Only cached cell values are read: no formulas, no macros, a row limit per tab.
+  - Every CSV export (jobs, expenses, report) writes formula-like text as text.
+  - The jobs export writes the real received date.
+- **Headers:** a data row with numbers or dates is no longer taken as the header.
+- **Unchanged:** database schema and migrations, backend, payments, Wrangler config, Secrets and crons. The phone layout is unchanged; the import is computer/iPad only.
+
+**Result**
+- Solo file: 8 jobs, ฿167,000 / ฿84,000 / ฿83,000; 30 expenses ฿39,382 (business ฿31,742 + personal ฿7,640); ฿15,000 transfers not counted. All 7 Dashboard figures match.
+- Personal-finance file: 6 jobs, ฿199,300 / ฿137,300 / ฿62,000; 27 expenses ฿63,440; ฿14,000 transfers. All Dashboard figures and total rows match.
+
+**Hashes:** archive SHA256 `c6b2d6eb4f95a48b17b4db035771884654bfad9337ec9326eef18388d81e7905`; manifest SHA256 `733991bede0dda5907244e6423effe56f531a302f03d2e6e057330d12f346f1c`.
+
+**Checked**
+- cloudflare:check (16), the build and preflight on the extracted package.
+- Import tests on the package: 47.
+- Unit suite 461/466, with the same 5 known failures.
+- Database tests 17, including import batches across accounts.
+- e2e excel-import and English 43/43.
+- Full e2e: 184 passed; the 34 failures are the same as the live baseline.

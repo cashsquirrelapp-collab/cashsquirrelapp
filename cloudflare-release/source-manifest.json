@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg35: import reads whole workbooks; tidy English wordmark and sign-in legal lines",
+  "source_label": "pkg36 smart import: confirm guesses, source links, updates, reconciliation, safe CSV",
   "archive": "source.tar.gz",
-  "archive_sha256": "5562efd46293b66a372d57efbefbfdcf73098c79b3508c7f6d811ab54c6bb226",
-  "file_count": 710,
-  "total_source_bytes": 20529905,
+  "archive_sha256": "c6b2d6eb4f95a48b17b4db035771884654bfad9337ec9326eef18388d81e7905",
+  "file_count": 713,
+  "total_source_bytes": 20675135,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1708,8 +1708,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 193738,
-      "sha256": "a74822258d00d0eb6322ab75b70165335a6f74c683a79ca0db81065fe9535a1a"
+      "size": 196371,
+      "sha256": "92314d95765c0f911c66a9ba544ed196af11e2019d3b57bf96bfca4d5f6d1944"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -2038,13 +2038,13 @@
     },
     {
       "path": "frontend/src/features/import/ImportWizard.tsx",
-      "size": 42815,
-      "sha256": "f450a800b8b874adc235b8a9fb637deb43faed23f3f2978f3bf21acdc0b7e0d2"
+      "size": 70938,
+      "sha256": "6a34cd97bff348bb37e7df8e04515c61f1e4cc4829b09bc41293ebc6931be2d2"
     },
     {
       "path": "frontend/src/features/import/importBatches.ts",
-      "size": 1487,
-      "sha256": "cdabaed4de4c0670184642215682a1c30adf2f945da8653ca64f3f60ef79eb93"
+      "size": 3256,
+      "sha256": "3d08143292fe4f27037b5d9f1ca333ffe6ba844ed2044bcb52ec09ac05b4579b"
     },
     {
       "path": "frontend/src/features/import/importTemplate.ts",
@@ -2053,13 +2053,13 @@
     },
     {
       "path": "frontend/src/features/import/readWorkbook.ts",
-      "size": 2909,
-      "sha256": "e672fe0f7a852918b78071e965e821e9d9c11bdfb333f5c8a1fc3537015ce6b4"
+      "size": 4373,
+      "sha256": "d70d36e000fbdc3af9acd922887253560097d2bec84d6fb2d630a87f589d863f"
     },
     {
       "path": "frontend/src/features/import/sheetImport.ts",
-      "size": 66385,
-      "sha256": "8e5ffe5e20b1993f6bcf9b8da35c06ec11088bf2be8e7367d170edd21e22ba60"
+      "size": 97471,
+      "sha256": "94f4d144a0028ae2b447b87cc0a31b69d9778f00d54a5b360ef67b9df54d40b0"
     },
     {
       "path": "frontend/src/features/incomeExpense/ExpenseDrawer.tsx",
@@ -2068,8 +2068,8 @@
     },
     {
       "path": "frontend/src/features/incomeExpense/IncomeExpenseTab.tsx",
-      "size": 45206,
-      "sha256": "e870426978022709507f70c404b7832d418f524c98fa56383a59d04b9bcfa7df"
+      "size": 45086,
+      "sha256": "6034164c2a01df91d4b717ca002628fcece22e250181deb1d364fb47e9e37262"
     },
     {
       "path": "frontend/src/features/incomeExpense/expenseMonth.ts",
@@ -2438,8 +2438,8 @@
     },
     {
       "path": "frontend/src/features/report/ReportTab.tsx",
-      "size": 31783,
-      "sha256": "98e81871c226534b1c0b4b465887f3eb10d10dc63838a37f3050f78d66803291"
+      "size": 31693,
+      "sha256": "6a8724fbfc91c777067e36f4793e32293e7325e9024be3dfdab5374f16ec23a3"
     },
     {
       "path": "frontend/src/features/report/reportData.ts",
@@ -2458,8 +2458,8 @@
     },
     {
       "path": "frontend/src/features/settings/SettingsTab.tsx",
-      "size": 93131,
-      "sha256": "da8fe572e85457119a42f819ad4a0700680b4872b212270caf726d54aae83a5a"
+      "size": 93220,
+      "sha256": "a0bed1238081bca91843b7e1fe567260bd64fc8b3adbe43122f22a32bd04db7f"
     },
     {
       "path": "frontend/src/features/tax/TaxTab.tsx",
@@ -2593,8 +2593,8 @@
     },
     {
       "path": "frontend/src/i18n/en/importing.ts",
-      "size": 16382,
-      "sha256": "32ee1570cc66a6f28d32ce7173cb965e326c491cd038abec4de3b3657e0e0f04"
+      "size": 26683,
+      "sha256": "4f0e04a73ce0e055b68734cd412cfb24bfcb17f8d953b77fd8810787c014142a"
     },
     {
       "path": "frontend/src/i18n/en/index.ts",
@@ -2763,8 +2763,8 @@
     },
     {
       "path": "frontend/src/utils.ts",
-      "size": 12863,
-      "sha256": "acef3cc2196b6de9796a7b1b3c97d2294351fe0d6701ae5ce97e16fcbc9a4978"
+      "size": 13977,
+      "sha256": "dd1e501b9f9a683cf22fa627134f2a4989ff3958a49aab3393dd3692366ecd08"
     },
     {
       "path": "frontend/vite.config.ts",
@@ -3183,8 +3183,8 @@
     },
     {
       "path": "tests/database.test.ts",
-      "size": 35405,
-      "sha256": "9c24ba28d4a3e1c833ad265a3e0b3120fed1071fe3cf53b6158e4300ed95d16c"
+      "size": 37067,
+      "sha256": "fc2d25c022e9a59e8b23d7a34bdface3b4857ce0144f3603f4fd52bad22a890e"
     },
     {
       "path": "tests/device-accounts.test.ts",
@@ -3268,8 +3268,8 @@
     },
     {
       "path": "tests/e2e/excel-import.spec.ts",
-      "size": 9821,
-      "sha256": "19d9f5bd08fb713dcbc1395d2459613c16007ec0cb6150dec6e5548fe14f830e"
+      "size": 16318,
+      "sha256": "ba0f055aef48e13c5d932d0af6b3d2995eb05c251ebb21c5e8e9e3c46ef43c7b"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -3357,6 +3357,16 @@
       "sha256": "ab9fc6ebfc9aa248cc5f64de48be224752a04a05506f50b6032362d52b22109f"
     },
     {
+      "path": "tests/fixtures/import/personal_finance_september_2026.xlsx",
+      "size": 19295,
+      "sha256": "005e3a8860ccb674576e20ec6be7eddaf1433a75e5d29749c061c62c7a5d5d1f"
+    },
+    {
+      "path": "tests/fixtures/import/solo_freelancer_september_2026.xlsx",
+      "size": 14987,
+      "sha256": "61da7c777271463b7681ae4c26b2f293914237671422201ca983b837844330bf"
+    },
+    {
       "path": "tests/goal-ledger.test.ts",
       "size": 8368,
       "sha256": "767400d484050f8afb55c5204535efee7f1940a8a1d8c6832df822e88de38a39"
@@ -3380,6 +3390,11 @@
       "path": "tests/i18n-coverage.test.ts",
       "size": 3788,
       "sha256": "65f205428eb953aea908046d7ccffcf520246397201e1eb4fefab98f31d60a19"
+    },
+    {
+      "path": "tests/import-pipeline.test.ts",
+      "size": 20293,
+      "sha256": "650a346a34430b226bb860e33295c3f20f03ed22355a9dbfbd05e83254fa9ab5"
     },
     {
       "path": "tests/income-export.test.ts",
@@ -3478,8 +3493,8 @@
     },
     {
       "path": "tests/sheet-import.test.ts",
-      "size": 35247,
-      "sha256": "965fbf9a8edc54b0c331a3ebde3b4316d401e06109de5bcc30b2c2ad19eaef36"
+      "size": 41374,
+      "sha256": "230680fc3737759e974019bfad2146d7e4527f7a1a5dad57c88b13ef59c83fed"
     },
     {
       "path": "tests/stripe-legacy-preservation.test.ts",
