@@ -5,8 +5,8 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 
-const ARCHIVE_SHA256 = '6ad4c39056e333a39a9bdddde392ae7bed335b23cebaa2e78303bacf2e19b4d9';
-const MANIFEST_SHA256 = '0540acc4a1c5751e304fef326bfdc2c709e4e498c76d4e42e740db8529cc3f69';
+const ARCHIVE_SHA256 = '0736b8298063770df69f1181982ddbe8860ae5995d3855692af4a1f9a79eb3a1';
+const MANIFEST_SHA256 = 'bcc170b3ef3ee7ef84e86def60c14569af9ffee93ae3599bb8fab7f6d35683a2';
 const baseDir = dirname(fileURLToPath(import.meta.url));
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 const fail = (message) => { throw new Error(message); };

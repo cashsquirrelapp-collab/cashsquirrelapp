@@ -869,3 +869,14 @@ Built on top of 472cf95. The owner asked for complete English and Thai in every 
   - cloudflare:check (16), the build and preflight on the extracted package.
   - Unit suite 414/419, with the same 5 known failures as the live code. New `tests/i18n-coverage.test.ts`: every translated text has English and the placeholders match.
   - New `tests/e2e/i18n-english.spec.ts` (37 tests): every page and the main dialogs in English, on a computer and a phone, show no Thai.
+
+## Business contact email in the privacy policy and terms - 2026-10-22
+
+Built on top of a507705. The owner asked to replace his personal email in the policies with the business account email used for Cloudflare and Supabase. Approved ("ดีพอย").
+
+- `privacy.html` and `terms.html` now give cashsquirrelapp@gmail.com as the contact address, in Thai and English.
+- **Unchanged:**
+  - The owner account that the backend recognises for admin analytics and staging is still the owner's own login.
+  - The app bundle, backend, payments, Wrangler config, Secrets and crons.
+- Archive SHA256 `0736b8298063770df69f1181982ddbe8860ae5995d3855692af4a1f9a79eb3a1`; manifest SHA256 `bcc170b3ef3ee7ef84e86def60c14569af9ffee93ae3599bb8fab7f6d35683a2`.
+- **Checked:** cloudflare:check (16), the build and preflight on the extracted package. The built pages contain the new address.

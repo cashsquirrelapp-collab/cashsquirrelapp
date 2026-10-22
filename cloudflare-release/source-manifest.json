@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg31: English and Thai in every feature, rewritten privacy policy and terms",
+  "source_label": "pkg32: business contact email in the privacy policy and terms",
   "archive": "source.tar.gz",
-  "archive_sha256": "6ad4c39056e333a39a9bdddde392ae7bed335b23cebaa2e78303bacf2e19b4d9",
+  "archive_sha256": "0736b8298063770df69f1181982ddbe8860ae5995d3855692af4a1f9a79eb3a1",
   "file_count": 702,
-  "total_source_bytes": 20344242,
+  "total_source_bytes": 20344266,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1668,8 +1668,8 @@
     },
     {
       "path": "frontend/public/privacy.html",
-      "size": 25534,
-      "sha256": "4f7bed9044376fd3cee2ead0f672c2abcd67d6a948cb2b70dff499337b8f9901"
+      "size": 25546,
+      "sha256": "c7671bf3a72c8f93f9eed7e746c4763e2c1ad26a7723eb2f7a018444d3354dde"
     },
     {
       "path": "frontend/public/pro-promo-hero.png",
@@ -1703,8 +1703,8 @@
     },
     {
       "path": "frontend/public/terms.html",
-      "size": 22279,
-      "sha256": "bd46951b8e0764641c086a4778e93142dffc40bf1049890ac1bb92bf9bdcdc85"
+      "size": 22291,
+      "sha256": "73fbc4460409b417fc6e08133ef20f9cde8f9292b3fcd3b195d8295b2e204b97"
     },
     {
       "path": "frontend/src/app/App.tsx",
