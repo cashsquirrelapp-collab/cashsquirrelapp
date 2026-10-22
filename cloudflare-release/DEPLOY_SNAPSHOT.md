@@ -809,3 +809,15 @@ Built on top of fb4a45b. After pkg27 the owner chose the short name: "Krarok เ
 - Nothing else changed.
 - Archive SHA256 `fca2953c7ffb6a6fc3ac83828fb668e99c34040179588437725ef90588b9c483`; manifest SHA256 `24e6e95c3b0b09c57e1ba8c27b5fc3fb47529a4fea7706c1ec262ee468cf02f1`.
 - Checked: cloudflare:check (16), the build and preflight on the extracted package.
+
+## Home screen icon: larger tail, brighter rust - 2026-10-22
+
+Built on top of 460bcd2. The owner said: "หางกระรอกมันแอบเล็กไป ... ขยายออกมาให้มันเท่าเดิมเหมือนของอันก่อน ... สีแดงอิฐ ... ทึบไป ทำให้มันสว่างขึ้นอีกนิดนึง ... ให้ดูเด่น". Approved ("ดีพอย").
+
+- **Tail size:** the tail now fills 64–66% of the icon, measured to match the previous icon (it was 49–50%). The Android round version fills 52%, inside the safe circle.
+- **Colour:** the same rust, a step brighter: 165deg #B8481D → #C9531F → #DD6530. It keeps the LINE-card sheen.
+- **Files:** in `frontend/public/brand/home-v2/` (a new folder, so no cache serves the earlier files under the same names). `manifest.json` and the apple-touch-icon point there.
+- **Unchanged:** the name "Krarok", the home-v1 files, and everything else.
+- Archive SHA256 `ae8e6cc13ead7e1c348f193d9757bf39c257e9a4067b01fc69eae56bd5288151`; manifest SHA256 `1e17d91a126b3281c45b44a1cdacbe586b02aa3d41d94ba9a5b117bacaeb8612`.
+- Checked: cloudflare:check (16), the build and preflight on the extracted package.
+- Preview: `artifacts/home-icon/home-icon-preview.png`. Generator: `artifacts/home-icon/make.mjs bright`.

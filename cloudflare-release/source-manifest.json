@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg28: home screen name Krarok",
+  "source_label": "pkg29: home screen icon with a larger tail on a brighter rust",
   "archive": "source.tar.gz",
-  "archive_sha256": "fca2953c7ffb6a6fc3ac83828fb668e99c34040179588437725ef90588b9c483",
-  "file_count": 667,
-  "total_source_bytes": 19671272,
+  "archive_sha256": "ae8e6cc13ead7e1c348f193d9757bf39c257e9a4067b01fc69eae56bd5288151",
+  "file_count": 672,
+  "total_source_bytes": 19982797,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -683,8 +683,8 @@
     },
     {
       "path": "frontend/index.html",
-      "size": 6363,
-      "sha256": "a052a36be598c07dbf10ffcd838bb0446c81f1745d8d6fc160e5e68d6ff3b468"
+      "size": 6389,
+      "sha256": "8ad52f9a1d23925d5a5a76dd3760f8a9fd909f5739a46d565ad1bc60d01aab0f"
     },
     {
       "path": "frontend/kinetic-preview.html",
@@ -840,6 +840,31 @@
       "path": "frontend/public/brand/home-v1/home-maskable-512.png",
       "size": 120156,
       "sha256": "ebb011b613a0561de332f2a83415a56b63a26f1a2fc499ed6587d2b291738f5f"
+    },
+    {
+      "path": "frontend/public/brand/home-v2/home-icon-180.png",
+      "size": 23108,
+      "sha256": "a9d55f0142562a8b7957fe6e8956fd3ab1b414090474e866349cd7789332e44e"
+    },
+    {
+      "path": "frontend/public/brand/home-v2/home-icon-192.png",
+      "size": 25704,
+      "sha256": "728fbf0001d94990523f483274e0771aac83c31388bb62a349089b183136d6ee"
+    },
+    {
+      "path": "frontend/public/brand/home-v2/home-icon-512.png",
+      "size": 127555,
+      "sha256": "058f9d985e93f00bdcb7a7492beb1c983385de7c64664c50e55b4c877554d8e2"
+    },
+    {
+      "path": "frontend/public/brand/home-v2/home-icon.svg",
+      "size": 2264,
+      "sha256": "482f7333632e26388692e531331154f7acd348c01dbb20e1f24dd32704a30088"
+    },
+    {
+      "path": "frontend/public/brand/home-v2/home-maskable-512.png",
+      "size": 132868,
+      "sha256": "f6a57c55269cf8e415cd182bc5c1a678565155bb312723fae10b942c9024624d"
     },
     {
       "path": "frontend/public/brand/logo01-v1/apple-touch-icon.png",
@@ -1599,7 +1624,7 @@
     {
       "path": "frontend/public/manifest.json",
       "size": 1079,
-      "sha256": "4b600e31e969027eda37901ca666b9846ae6fd60ef8b2f698a2e122e6e2214c9"
+      "sha256": "9fca9e25d06d60d6748ae950a2e3295b194e66695fdb02ea57ec7bdef77fdb7a"
     },
     {
       "path": "frontend/public/mascots/character-full.svg",
