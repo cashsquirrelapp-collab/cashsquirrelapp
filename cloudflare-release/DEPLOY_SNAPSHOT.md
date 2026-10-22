@@ -919,3 +919,52 @@ Built on top of 5389d7f. The owner asked how people who already keep their jobs 
   - New `tests/sheet-import.test.ts` (24 tests: 20 sheet layouts, the template in both languages, and form validation).
   - New `tests/e2e/excel-import.spec.ts` (4 tests: match, review, save with batch tag and undo; Settings entry; no button on phones; English).
   - Unit suite 438/443, with the same 5 known failures as the live code.
+
+## Import reads whole workbooks; tidy English wordmark and sign-in legal lines - 2026-10-22
+
+Built on top of 8450f73. This replaces the unpublished pkg34 and includes its changes. Approved ("ดีพอย").
+
+**The owner's test workbook.** The owner made a sample personal-finance workbook in Numbers with these tabs: export summary, Dashboard, Transactions, Projects, Invoices and Read Me. He imported it and exported the result. The live import counted:
+- the Dashboard's category table as jobs;
+- each project three times (ledger payments, the project list, the unpaid invoices);
+- savings and tax transfers as income.
+
+That gave 27 jobs worth ฿473,740 instead of 6 jobs worth ฿199,300. Expenses (27, ฿63,440) were already right.
+
+- **Summary tabs**
+  - Dashboards, summaries, read-me pages and Numbers' export notes are recognised by tab name, or by having no date and nothing naming a job, client or project.
+  - They are left unticked, with a note; the person can still tick them.
+- **Transfers**
+  - Transfer rows (savings, tax pot, transfers between the person's own accounts) are neither income nor expense.
+  - They are shown but not imported unless ticked.
+- **New column types**
+  - "Project / Area" is its own column type: money in is named after its project, and expenses keep it in the note.
+  - With a header row, an unknown text column (payment method, account) is no longer guessed as the client.
+- **One job per project**
+  - When ledger payments add up to the project list's received amount, or unpaid invoices add up to its outstanding amount, they are folded into that one job: deposit date, installments for several payments, due dates and invoice notes.
+  - The folded rows are left out, each marked "รวมเข้ากับ Projects 3".
+  - Rows with the same name that don't add up are flagged for a check.
+- **Totals check:** each tab's own total row is compared with the rows read from that tab, instead of the whole import with one total.
+- **More layouts**
+  - Google Sheets' side-by-side expense and income tables are split into two tables.
+  - Bank statements (ถอน/ฝาก, withdrawal/deposit) are read as money out and in.
+  - A single +/− amount column means money in and out.
+  - Income-only lists are read as received on their date.
+  - A month-only date becomes the 1st, flagged.
+  - A day number in a monthly tab gets that month.
+  - ✅ ❌ ⏳ ใช่ ไม่ are read as statuses.
+  - $ amounts are read.
+  - Placeholders ("-", "ไม่ระบุ") count as empty.
+  - "สถานะโครงการ" is read as the status.
+  - A paid date guessed from the job's own date is flagged.
+- **Re-importing the app's own CSV export** gives back the same jobs, with installment rows grouped into one job.
+- **Result on the owner's workbook:** 6 jobs worth ฿199,300 (received ฿137,300, outstanding ฿62,000) and 27 expenses worth ฿63,440, all matching the workbook's own Dashboard. Every tab's total row matches.
+- **From pkg34**
+  - Sign-in legal text on two even lines.
+  - English logo name a step smaller and tighter; Thai unchanged.
+- **Unchanged:** backend, payments, Wrangler config, Secrets and crons.
+- Archive SHA256 `5562efd46293b66a372d57efbefbfdcf73098c79b3508c7f6d811ab54c6bb226`; manifest SHA256 `750d1154d58a3da4976d0979fcea7b8595f2763989059b78ffa492f6a223d7a7`.
+- **Checked:**
+  - cloudflare:check (16), the build and preflight on the extracted package.
+  - `tests/sheet-import.test.ts` (31: the earlier layouts plus the whole workbook, unmatched payments, invoice-only lists, Google Sheets budget, Thai bank statement, month/day dates, the app's own CSV export).
+  - Unit suite 445/450, with the same 5 known failures as the live code.

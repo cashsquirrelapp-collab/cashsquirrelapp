@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg33: import from Excel and CSV",
+  "source_label": "pkg35: import reads whole workbooks; tidy English wordmark and sign-in legal lines",
   "archive": "source.tar.gz",
-  "archive_sha256": "48f25502bbd72236de5156d517c14b50ce769c0ddb9febaf92a56110ef93ac44",
+  "archive_sha256": "5562efd46293b66a372d57efbefbfdcf73098c79b3508c7f6d811ab54c6bb226",
   "file_count": 710,
-  "total_source_bytes": 20493280,
+  "total_source_bytes": 20529905,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1728,8 +1728,8 @@
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
-      "size": 1391,
-      "sha256": "f7d0bc60cdff3429f2a25b0e04096e7c5b0012e7509dc7c3fd9700fe49e8194d"
+      "size": 1815,
+      "sha256": "a81daa06ab13d440f53e1b4c3bb7f24095d632497cf32edd71b79aea14888928"
     },
     {
       "path": "frontend/src/components/brand/brand.css",
@@ -1828,8 +1828,8 @@
     },
     {
       "path": "frontend/src/features/auth/Login.tsx",
-      "size": 69970,
-      "sha256": "64e5a15abbd0fa801ee44b7d7eaf6d29569727d24d840183ced02ea907957202"
+      "size": 70015,
+      "sha256": "92d91b1e296fa7540206f58cc0cb3f94675bde72680df0119f31878d93e490f1"
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
@@ -2038,8 +2038,8 @@
     },
     {
       "path": "frontend/src/features/import/ImportWizard.tsx",
-      "size": 40871,
-      "sha256": "78703cb9bc4a53e6fdd47db8e338b9a632afc2f8774fc9d997648deeb167a441"
+      "size": 42815,
+      "sha256": "f450a800b8b874adc235b8a9fb637deb43faed23f3f2978f3bf21acdc0b7e0d2"
     },
     {
       "path": "frontend/src/features/import/importBatches.ts",
@@ -2058,8 +2058,8 @@
     },
     {
       "path": "frontend/src/features/import/sheetImport.ts",
-      "size": 47328,
-      "sha256": "4357fcda1584142b94f8227f6c809bd3da8548fa79ee0650eea5bb780789613f"
+      "size": 66385,
+      "sha256": "8e5ffe5e20b1993f6bcf9b8da35c06ec11088bf2be8e7367d170edd21e22ba60"
     },
     {
       "path": "frontend/src/features/incomeExpense/ExpenseDrawer.tsx",
@@ -2363,8 +2363,8 @@
     },
     {
       "path": "frontend/src/features/mobile/mobile.css",
-      "size": 87555,
-      "sha256": "e46db6ee050c3ee2b5c1bcbed16d38ac7f926802548fb5b42418484b35b8c3e2"
+      "size": 87875,
+      "sha256": "08cd129e1eecaf01fa361f460f89c3f286e8c606b7c2c2cba3d6ba65dbec8477"
     },
     {
       "path": "frontend/src/features/mobile/mobileNavigation.ts",
@@ -2543,8 +2543,8 @@
     },
     {
       "path": "frontend/src/i18n/en/auth.ts",
-      "size": 4297,
-      "sha256": "5faeecee1ba593610966215bbf893461fdeea25077b37644057430c4df5a88b7"
+      "size": 4238,
+      "sha256": "340f8f679b208bf04a4272924671cb19c5a9802b39cd8ec9d62bdacb494b7674"
     },
     {
       "path": "frontend/src/i18n/en/billing.ts",
@@ -2558,8 +2558,8 @@
     },
     {
       "path": "frontend/src/i18n/en/common.ts",
-      "size": 6872,
-      "sha256": "3319a7be5c61f9b602662e80d54ab3c83c2c07b880ede03dee8d5b5bf35f575a"
+      "size": 6871,
+      "sha256": "1fe212ba8fb6a9a0ca044fbe2e130594eb977bb1a5211ce3767dba991381a5d5"
     },
     {
       "path": "frontend/src/i18n/en/components.ts",
@@ -2593,8 +2593,8 @@
     },
     {
       "path": "frontend/src/i18n/en/importing.ts",
-      "size": 14686,
-      "sha256": "91b42f96ae9bcd08bbf35793b35d8c98ba518cdd5c19abca4cc3b4567c6f0724"
+      "size": 16382,
+      "sha256": "32ee1570cc66a6f28d32ce7173cb965e326c491cd038abec4de3b3657e0e0f04"
     },
     {
       "path": "frontend/src/i18n/en/index.ts",
@@ -2673,8 +2673,8 @@
     },
     {
       "path": "frontend/src/index.css",
-      "size": 38986,
-      "sha256": "9b8e8dcaead86ae26e3db5aca6002d21760434ba6e314f539f2617d3f54da1be"
+      "size": 39006,
+      "sha256": "b3a158bee9087f4c7898e4e9ed67f8cd20b901643affb76fa634ffd3a31a4690"
     },
     {
       "path": "frontend/src/kinetic-preview.tsx",
@@ -3268,8 +3268,8 @@
     },
     {
       "path": "tests/e2e/excel-import.spec.ts",
-      "size": 9804,
-      "sha256": "4fb4294980cc56ad9c5a27871ed796f2596b9b3ffa0468ad668d689d2e60aebe"
+      "size": 9821,
+      "sha256": "19d9f5bd08fb713dcbc1395d2459613c16007ec0cb6150dec6e5548fe14f830e"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
@@ -3478,8 +3478,8 @@
     },
     {
       "path": "tests/sheet-import.test.ts",
-      "size": 22085,
-      "sha256": "9b22f8c5e29fb8af162d042da77f003ff0650ea32ffbfc87901814834655c46c"
+      "size": 35247,
+      "sha256": "965fbf9a8edc54b0c331a3ebde3b4316d401e06109de5bcc30b2c2ad19eaef36"
     },
     {
       "path": "tests/stripe-legacy-preservation.test.ts",
