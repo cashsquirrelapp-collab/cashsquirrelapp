@@ -1044,3 +1044,16 @@ Built on top of 56aad7c. Approved ("ดีพอย").
   - cloudflare:check (16), the build and preflight on the extracted package.
   - Unit suite 462/467, with the same 5 known failures.
   - e2e excel-import (6, now also checking the .json path on a computer and the unchanged phone card) and English (37).
+
+## English brand name in the browser tab - 2026-10-23
+
+Built on top of e8ddcfc. Approved ("ดีพอย").
+
+- The app's tab title is "Krarok Tunngern" in both languages, as in the manifest and the English wordmark. It was "กระรอกตุนเงิน" (owner, 2026-10-23).
+- The privacy, terms and LINE entry pages end their titles with the same name. Their page text is unchanged.
+- **Note:** e8ddcfc (pkg37) was deployed directly with `npm run cloudflare:deploy` (Version 383fabc7). GitHub did not trigger Workers Builds during its incident, and the owner approved the direct deploy.
+- **Unchanged:** app code and bundle (same entry `index-Cobj-Mwp.js`), backend, payments, Wrangler config, Secrets and crons.
+- Archive SHA256 `3d824b77b43864fa0ec027c8cd1cb2fb87e5a67f099bcf3e8f26d489c32bb590`; manifest SHA256 `27ed848cdee11e9bbebb2dc08ef7eb7c2190c23015f7cd36f440e284bbf606b8`.
+- **Checked:**
+  - cloudflare:check (16), the build and preflight on the extracted package.
+  - e2e excel-import (now checks the tab title) and English (43/43).

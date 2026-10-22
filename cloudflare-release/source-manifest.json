@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg37 one import card on computers: Excel, CSV and .json backup",
+  "source_label": "pkg38 English brand name in browser tab titles",
   "archive": "source.tar.gz",
-  "archive_sha256": "db8cfac11696f2afe5c3996b0da05ded9aaa1c3320b57854f176bcff0df15a79",
+  "archive_sha256": "3d824b77b43864fa0ec027c8cd1cb2fb87e5a67f099bcf3e8f26d489c32bb590",
   "file_count": 713,
-  "total_source_bytes": 20678717,
+  "total_source_bytes": 20678862,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -683,8 +683,8 @@
     },
     {
       "path": "frontend/index.html",
-      "size": 6389,
-      "sha256": "8ad52f9a1d23925d5a5a76dd3760f8a9fd909f5739a46d565ad1bc60d01aab0f"
+      "size": 6470,
+      "sha256": "05fab24d72e87c846baabdf341cad625ce31bf94d26baa51bffe180956f6aa8a"
     },
     {
       "path": "frontend/kinetic-preview.html",
@@ -1423,8 +1423,8 @@
     },
     {
       "path": "frontend/public/liff-add.html",
-      "size": 21059,
-      "sha256": "5e1a6552bd023abd2de285c00802c25e1e50073701b8fa10aa3e1a3278334ca7"
+      "size": 21035,
+      "sha256": "783acf12fe032ac7c48a6f63deed1dd9c80d374ea327d800fb606dc4afe6bea5"
     },
     {
       "path": "frontend/public/liff-add.js",
@@ -1668,8 +1668,8 @@
     },
     {
       "path": "frontend/public/privacy.html",
-      "size": 25546,
-      "sha256": "c7671bf3a72c8f93f9eed7e746c4763e2c1ad26a7723eb2f7a018444d3354dde"
+      "size": 25522,
+      "sha256": "fff67a67db7babc27311d9f45940ccfb09ef42a00b63a4987dc5624782e8d24e"
     },
     {
       "path": "frontend/public/pro-promo-hero.png",
@@ -1703,8 +1703,8 @@
     },
     {
       "path": "frontend/public/terms.html",
-      "size": 22291,
-      "sha256": "73fbc4460409b417fc6e08133ef20f9cde8f9292b3fcd3b195d8295b2e204b97"
+      "size": 22267,
+      "sha256": "2413fc76f994b370590d32ff83e90d77a965545da3e342632fb2022a4d5af871"
     },
     {
       "path": "frontend/src/app/App.tsx",
@@ -3268,8 +3268,8 @@
     },
     {
       "path": "tests/e2e/excel-import.spec.ts",
-      "size": 17253,
-      "sha256": "bd1a3e734eba59f22adfd3dc43e3c406daf51ee8e652a7021e07cb4d6021b142"
+      "size": 17389,
+      "sha256": "d17937cf80109bc72d71abe6f8df95dc12e21bbb833e1d7b1117b3ff6d0ac695"
     },
     {
       "path": "tests/e2e/finance-workspaces.spec.ts",
