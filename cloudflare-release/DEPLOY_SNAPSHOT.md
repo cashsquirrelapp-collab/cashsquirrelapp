@@ -1026,3 +1026,21 @@ Built on top of 9e0f2e9. Approved ("ดีพอย").
 - Database tests 17, including import batches across accounts.
 - e2e excel-import and English 43/43.
 - Full e2e: 184 passed; the 34 failures are the same as the live baseline.
+
+## One import card on computers and iPads: Excel, CSV and the .json backup - 2026-10-23
+
+Built on top of 56aad7c. Approved ("ดีพอย").
+
+**Why.** The owner saw two import cards on Settings › สำรอง & นำเข้าข้อมูล ("นำเข้าจาก Excel / CSV" and "นำเข้าข้อมูล" for the .json backup) and asked to remove the duplicate. The .json card restores a whole backup, which the Excel import cannot do, so the two are merged rather than one being dropped.
+
+- **Computers and iPads**
+  - One card, "นำเข้าข้อมูล", with one button that opens the import window. The window takes Excel, CSV, .ods and the app's own .json backup.
+  - A .json file closes the window and goes to the existing restore, after the same confirmation ("นำเข้าข้อมูลจากไฟล์สำรอง", replaces the same sections).
+  - Recent imports and undo stay on the card.
+- **Phone:** unchanged. The phone has no Excel import, so its .json restore card stays exactly as it was.
+- **Unchanged:** backend, payments, Wrangler config, Secrets and crons.
+- Archive SHA256 `db8cfac11696f2afe5c3996b0da05ded9aaa1c3320b57854f176bcff0df15a79`; manifest SHA256 `324e757b425c2efd8847e75b1fe5d67ee228109b6562c3acd58e89d13c622c4c`.
+- **Checked:**
+  - cloudflare:check (16), the build and preflight on the extracted package.
+  - Unit suite 462/467, with the same 5 known failures.
+  - e2e excel-import (6, now also checking the .json path on a computer and the unchanged phone card) and English (37).
