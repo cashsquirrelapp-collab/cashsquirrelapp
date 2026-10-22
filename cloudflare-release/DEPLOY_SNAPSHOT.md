@@ -842,3 +842,30 @@ Built on top of 320a65a. The owner asked to remove the "เลขายังไ
   - LINE assistant tests on the extracted package.
   - Unit suite 411/416 with the same 5 known failures.
   - New test: a linked user's unrecognised message returns [] and an unlinked one still returns null.
+
+## English and Thai in every feature; rewritten privacy policy and terms - 2026-10-22
+
+Built on top of 472cf95. The owner asked for complete English and Thai in every feature with no Thai showing in English, and for the privacy policy and terms linked before sign-in to be rewritten as a real business would. Approved ("ดีพอย").
+
+- **Languages**
+  - Every screen, dialog, menu, toast, export file (CSV/Excel/ZIP names and headings) and server error message now has English.
+    - About 2,400 entries in `frontend/src/i18n/en/`, looked up by the Thai text with `tr()` (`frontend/src/i18n/tr.ts`).
+  - Thai screens are unchanged: the visible text and labels of every page were compared line by line with the previous build.
+    - The one deliberate change is the sign-in chooser, which was English-only and now reads in Thai in Thai mode.
+  - Saved data stays Thai and is translated only where it is shown, so LINE and existing accounts read the same data:
+    - default statuses, job types and installment names ("งวดที่ N")
+    - expense categories, goal history notes and bank names
+  - Admin quick replies to users stay Thai. LINE messages are not translated.
+- **English formatting**
+  - Dates use the English calendar (2026), and documents spell amounts in English words.
+  - A4 titles stay bilingual, as Thai tax documents need.
+- **Legal pages**
+  - `privacy.html` and `terms.html` rewritten in Thai and English. They follow the app language, and the button on each page switches language.
+  - New `legal.css` and `legal.js`.
+  - Facts checked against the code: 14-day trial, 10 free documents a month, data deleted 30 days after pausing or closing, current Pro prices.
+- **Unchanged:** backend, payments, Stripe, Wrangler config, Secrets and crons.
+- Archive SHA256 `6ad4c39056e333a39a9bdddde392ae7bed335b23cebaa2e78303bacf2e19b4d9`; manifest SHA256 `0540acc4a1c5751e304fef326bfdc2c709e4e498c76d4e42e740db8529cc3f69`.
+- **Checked:**
+  - cloudflare:check (16), the build and preflight on the extracted package.
+  - Unit suite 414/419, with the same 5 known failures as the live code. New `tests/i18n-coverage.test.ts`: every translated text has English and the placeholders match.
+  - New `tests/e2e/i18n-english.spec.ts` (37 tests): every page and the main dialogs in English, on a computer and a phone, show no Thai.
