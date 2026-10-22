@@ -880,3 +880,42 @@ Built on top of a507705. The owner asked to replace his personal email in the po
   - The app bundle, backend, payments, Wrangler config, Secrets and crons.
 - Archive SHA256 `0736b8298063770df69f1181982ddbe8860ae5995d3855692af4a1f9a79eb3a1`; manifest SHA256 `bcc170b3ef3ee7ef84e86def60c14569af9ffee93ae3599bb8fab7f6d35683a2`.
 - **Checked:** cloudflare:check (16), the build and preflight on the extracted package. The built pages contain the new address.
+
+## Import from Excel and CSV - 2026-10-22
+
+Built on top of 5389d7f. The owner asked how people who already keep their jobs in Excel can bring them in without typing them again. The proposal was accepted, and the import is free for every account ("ให้ฟรีทุกกรณีทุกฟีเจอร์"). Approved ("ดีพอย").
+
+- **Where:** "นำเข้าจาก Excel", on the Jobs page header and in Settings > สำรอง & นำเข้าข้อมูล. Computers and iPads only; the phone layout is unchanged.
+- **Reading the file**
+  - .xlsx, .xls, .ods and CSV, including CSV saved by Thai Excel (Windows-874).
+  - Read in the browser with the SheetJS library already in the app. Nothing is sent until the person presses Import.
+- **Matching columns**
+  - The header row is found even under a title or blank rows.
+  - Each column is matched by Thai and English header words and by its values (dates, amounts, rates, status words). The person can change any match, choose another header row, or set the tab to jobs, expenses or mixed.
+  - Columns that match nothing are kept in the note with their header.
+  - Mappings are remembered on that device.
+- **Reading values**
+  - Buddhist or Western dates, day-first or month-first, Thai and English month names, and Excel date cells.
+  - Amounts such as ฿12,000, 12,000.- or (500).
+  - Withholding tax as a rate or an amount, with an option for amounts already after withholding.
+  - Credit terms and payment/delivery status words, including TRUE/FALSE ticks.
+  - Monthly tabs give the month to rows without a date.
+  - Total rows and repeated headers are skipped.
+  - A summary with months across the columns is recognised and not imported.
+- **Review table**
+  - Every row is marked ready, check or not imported, with the reason. Name, amount and date can be edited.
+  - Totals are compared with the file's own total row.
+  - Duplicates of existing jobs are left out unless ticked.
+- **Saving**
+  - Jobs and expenses are built exactly as the job and expense forms build them, and pass the same validation.
+  - Saved data stays Thai, as with the other forms.
+  - Each row carries `importBatchId` and `importedAt`. The whole import can be undone for 7 days, from the done screen or from Settings.
+  - At most 2,000 rows per import.
+- A downloadable template (Thai or English headers, job examples) imports with no column matching.
+- **Unchanged:** backend, payments, Wrangler config, Secrets and crons.
+- Archive SHA256 `48f25502bbd72236de5156d517c14b50ce769c0ddb9febaf92a56110ef93ac44`; manifest SHA256 `28f0184222e0940e5158c789f48e7343ea32bf5755fbff31d3597e1c6bc3e74b`.
+- **Checked:**
+  - cloudflare:check (16), the build and preflight on the extracted package.
+  - New `tests/sheet-import.test.ts` (24 tests: 20 sheet layouts, the template in both languages, and form validation).
+  - New `tests/e2e/excel-import.spec.ts` (4 tests: match, review, save with batch tag and undo; Settings entry; no button on phones; English).
+  - Unit suite 438/443, with the same 5 known failures as the live code.

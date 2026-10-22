@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg32: business contact email in the privacy policy and terms",
+  "source_label": "pkg33: import from Excel and CSV",
   "archive": "source.tar.gz",
-  "archive_sha256": "0736b8298063770df69f1181982ddbe8860ae5995d3855692af4a1f9a79eb3a1",
-  "file_count": 702,
-  "total_source_bytes": 20344266,
+  "archive_sha256": "48f25502bbd72236de5156d517c14b50ce769c0ddb9febaf92a56110ef93ac44",
+  "file_count": 710,
+  "total_source_bytes": 20493280,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1708,8 +1708,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 190007,
-      "sha256": "48d62ed7e3900570ba75a3c87e16eca03eeb32bf9e83d70eabdf224d94670d85"
+      "size": 193738,
+      "sha256": "a74822258d00d0eb6322ab75b70165335a6f74c683a79ca0db81065fe9535a1a"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -2037,6 +2037,31 @@
       "sha256": "3bb03e87dd4d6c81fc928f1767d96da5078179fbd7f8c31ac796b8e46180f947"
     },
     {
+      "path": "frontend/src/features/import/ImportWizard.tsx",
+      "size": 40871,
+      "sha256": "78703cb9bc4a53e6fdd47db8e338b9a632afc2f8774fc9d997648deeb167a441"
+    },
+    {
+      "path": "frontend/src/features/import/importBatches.ts",
+      "size": 1487,
+      "sha256": "cdabaed4de4c0670184642215682a1c30adf2f945da8653ca64f3f60ef79eb93"
+    },
+    {
+      "path": "frontend/src/features/import/importTemplate.ts",
+      "size": 3686,
+      "sha256": "290a524c8c7b51f77917889f6ffdfbd4ed963665a573668152cda523b04540b9"
+    },
+    {
+      "path": "frontend/src/features/import/readWorkbook.ts",
+      "size": 2909,
+      "sha256": "e672fe0f7a852918b78071e965e821e9d9c11bdfb333f5c8a1fc3537015ce6b4"
+    },
+    {
+      "path": "frontend/src/features/import/sheetImport.ts",
+      "size": 47328,
+      "sha256": "4357fcda1584142b94f8227f6c809bd3da8548fa79ee0650eea5bb780789613f"
+    },
+    {
       "path": "frontend/src/features/incomeExpense/ExpenseDrawer.tsx",
       "size": 15974,
       "sha256": "3a4def4c6a1488463e72615206790ef13853be60a795bd81ea81251bdd60091c"
@@ -2133,8 +2158,8 @@
     },
     {
       "path": "frontend/src/features/jobs/JobsTab.tsx",
-      "size": 83258,
-      "sha256": "fad9d431612ae511b0f2906dbf0f2f00043e3d399e9f5b80489e326916a3916f"
+      "size": 83670,
+      "sha256": "8184e68a89fe8854832354042f755a33327b21b8135cf23a68a1feb77092eaf9"
     },
     {
       "path": "frontend/src/features/jobs/jobSort.ts",
@@ -2433,8 +2458,8 @@
     },
     {
       "path": "frontend/src/features/settings/SettingsTab.tsx",
-      "size": 91173,
-      "sha256": "0c232fdd835d068dba8b354c05b80a70de218ef4aa913f1058c29e1293e2c3eb"
+      "size": 93131,
+      "sha256": "da8fe572e85457119a42f819ad4a0700680b4872b212270caf726d54aae83a5a"
     },
     {
       "path": "frontend/src/features/tax/TaxTab.tsx",
@@ -2567,9 +2592,14 @@
       "sha256": "ba8fc9ccbceb96db4a12322543afb2a0aaa86526a83b6dd4859e26fec7db8893"
     },
     {
+      "path": "frontend/src/i18n/en/importing.ts",
+      "size": 14686,
+      "sha256": "91b42f96ae9bcd08bbf35793b35d8c98ba518cdd5c19abca4cc3b4567c6f0724"
+    },
+    {
       "path": "frontend/src/i18n/en/index.ts",
-      "size": 1579,
-      "sha256": "80aea8c996a99f90a50621f35cc79f3a079a66ee66e983ac5df3e0474801f44b"
+      "size": 1636,
+      "sha256": "71f2de0368cd18225ad9da043d7c70fe1dbe52a1ddb488dd31f784453cf2c7be"
     },
     {
       "path": "frontend/src/i18n/en/invoices.ts",
@@ -3237,6 +3267,11 @@
       "sha256": "c771f2ffd1796fd81b9964cfec9f6aab7ead395e155f246a0c520c9dcb71e790"
     },
     {
+      "path": "tests/e2e/excel-import.spec.ts",
+      "size": 9804,
+      "sha256": "4fb4294980cc56ad9c5a27871ed796f2596b9b3ffa0468ad668d689d2e60aebe"
+    },
+    {
       "path": "tests/e2e/finance-workspaces.spec.ts",
       "size": 16386,
       "sha256": "1a6230d1fc8c9c766169f4dab9f4d84cbdbba4fa33d366a707a41a98bd6e9186"
@@ -3440,6 +3475,11 @@
       "path": "tests/security.test.ts",
       "size": 5678,
       "sha256": "9aec8bbde95f6c2fe7ef8db46775f4b85c80be8dbfccccea0aa710391ea9cc0d"
+    },
+    {
+      "path": "tests/sheet-import.test.ts",
+      "size": 22085,
+      "sha256": "9b22f8c5e29fb8af162d042da77f003ff0650ea32ffbfc87901814834655c46c"
     },
     {
       "path": "tests/stripe-legacy-preservation.test.ts",
