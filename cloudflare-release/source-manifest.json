@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg39 DOMPurify 3.4.17, Vite 6.4.5 and a full dependency audit before every release",
+  "source_label": "pkg40 Liquid Glass and iOS look, phone account sheet, and the เลขากระรอก chat preview",
   "archive": "source.tar.gz",
-  "archive_sha256": "2f34383d08b8e2dc3053f5448c58ddfbb0115ccd146b04fa6afc00cd5bd24c53",
-  "file_count": 713,
-  "total_source_bytes": 20680327,
+  "archive_sha256": "3841b78d3a060b7b4a8e250f8ee3a27d6c16584a6c21693f2cd6063bfcaa2cdc",
+  "file_count": 726,
+  "total_source_bytes": 20899328,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1708,8 +1708,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 196871,
-      "sha256": "f8a42cacaf9de2520eef89c7f763846dbc704d4c80f3811b5d4ff9774a66c5b8"
+      "size": 201642,
+      "sha256": "bffd92a41c16984ce9b5fd11595b4e6b673d77e02bb5078c8dafeded4955f2da"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -1723,8 +1723,8 @@
     },
     {
       "path": "frontend/src/components/account/AccountSwitcher.tsx",
-      "size": 7579,
-      "sha256": "1c62fa16ba8e2f7d77d46d62fbc6c244a5f83716487dc4efb081a2de2e319930"
+      "size": 8019,
+      "sha256": "eba1caf9d487586d635463c0d24bfdfc5b347982789221f16365f1c42fce8d65"
     },
     {
       "path": "frontend/src/components/brand/BrandLogo.tsx",
@@ -1753,8 +1753,8 @@
     },
     {
       "path": "frontend/src/components/mascot/MascotToast.tsx",
-      "size": 5040,
-      "sha256": "5ffdd60379d86c202f4a7b720f90891d0daa970378ab6e77e87dc22febe03637"
+      "size": 5032,
+      "sha256": "d7c5326cfad74e9e9c7b637333b25a3fa51e12d1751da322b4afa6b428d4bb73"
     },
     {
       "path": "frontend/src/components/mascot/VineDivider.tsx",
@@ -1793,8 +1793,13 @@
     },
     {
       "path": "frontend/src/components/ui/Modal.tsx",
-      "size": 2002,
-      "sha256": "948646753e6625d008e2b8d3d50fd90603abd8955ae931685c01d73c59b87bd8"
+      "size": 2177,
+      "sha256": "bd49e44f9dc6185542378f45e34a5b74b423db771f9b0ac764ff39eb2eb80ef4"
+    },
+    {
+      "path": "frontend/src/components/ui/NavGlyph.tsx",
+      "size": 5351,
+      "sha256": "af9a618f11084ac709bb0d9b4c9f81612325350a1510effa45d5b52386d3c36d"
     },
     {
       "path": "frontend/src/components/ui/NumberInput.tsx",
@@ -1808,8 +1813,8 @@
     },
     {
       "path": "frontend/src/components/ui/RowMenu.tsx",
-      "size": 3467,
-      "sha256": "42d48d4c0ea97a4fa3966d737a645be8d97705204e2ffa34c7f7f0df6a375524"
+      "size": 3792,
+      "sha256": "9f59eb32b804efdda855cef048dd3c3f8e48b38d646fc45a28ba8dc905e5dbc7"
     },
     {
       "path": "frontend/src/components/ui/icons.tsx",
@@ -1825,6 +1830,51 @@
       "path": "frontend/src/env.d.ts",
       "size": 38,
       "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5"
+    },
+    {
+      "path": "frontend/src/features/assistant/AssistantChat.tsx",
+      "size": 47005,
+      "sha256": "4606e5368f42e04fa933a2a9929fe4becdd1f7f819e8475a8a64107e36bc74fc"
+    },
+    {
+      "path": "frontend/src/features/assistant/ChatCards.tsx",
+      "size": 5552,
+      "sha256": "4d7ad735091907c596e859ca3574adb06cf20f6a8bd4cb4662b1198f696c642b"
+    },
+    {
+      "path": "frontend/src/features/assistant/LineCard.tsx",
+      "size": 5457,
+      "sha256": "9255837a27a3fbadec5ee5e986bcc8916b0a3158e8d63e071ea342ad45968632"
+    },
+    {
+      "path": "frontend/src/features/assistant/Markdown.tsx",
+      "size": 4185,
+      "sha256": "a945b8e17e9e0b0873d467930f40b87cb336f0da90128af21333dec52b6eefc6"
+    },
+    {
+      "path": "frontend/src/features/assistant/MascotSlot.tsx",
+      "size": 2053,
+      "sha256": "dc9fe2f2c08e6c67a4065391959fded16e907faabd4c52629318af35784c0a50"
+    },
+    {
+      "path": "frontend/src/features/assistant/assistant.css",
+      "size": 43086,
+      "sha256": "df14979f7a230cdb724a1cddeee7769f2a3f7b1549e7786ef47b5eab761ef1c0"
+    },
+    {
+      "path": "frontend/src/features/assistant/assistantApi.ts",
+      "size": 3789,
+      "sha256": "ba6e02675cf4b050c3e2e7ff9476f3f8efa19b207380933af88681c3b76d8923"
+    },
+    {
+      "path": "frontend/src/features/assistant/assistantMock.ts",
+      "size": 12570,
+      "sha256": "3f336bdd5596bf0da7924d9bf3e076c60e6d08939748cdd116fc3b6b09c9e695"
+    },
+    {
+      "path": "frontend/src/features/assistant/lineMock.ts",
+      "size": 15283,
+      "sha256": "9e06c5b482bd7a70f73ec645e3b64946e4f2a42c1f2267b855b7fdfa47a4169e"
     },
     {
       "path": "frontend/src/features/auth/Login.tsx",
@@ -1878,8 +1928,8 @@
     },
     {
       "path": "frontend/src/features/calendar/CalendarTab.tsx",
-      "size": 27303,
-      "sha256": "2ad9a88bb9c644686948b5fbd662acdbf428c56214474fc69a9815eeee17efeb"
+      "size": 26730,
+      "sha256": "8648faef70bb05f8302a3b8e8c02a374caba10d3c35af921950f83f28ab1082f"
     },
     {
       "path": "frontend/src/features/calendar/JobPeekSheet.tsx",
@@ -1913,8 +1963,8 @@
     },
     {
       "path": "frontend/src/features/dashboard/DashboardTab.tsx",
-      "size": 88742,
-      "sha256": "e281a7aca19f755eeac7814397b3edc964676b7f5da982ca63baf11a80666f24"
+      "size": 88693,
+      "sha256": "648db06cd9f97272b92a6549af08f17d3c6d0096318b67b82ebcd1f241cdf532"
     },
     {
       "path": "frontend/src/features/dashboard/FinancialDetailsModal.tsx",
@@ -1963,8 +2013,8 @@
     },
     {
       "path": "frontend/src/features/feedback/feedbackChat.css",
-      "size": 9453,
-      "sha256": "e3bc1315f6fa71b1e503c5f1e4676000f51a69cdbd1908b6363f7547bdce33e0"
+      "size": 9827,
+      "sha256": "f0fa55b6b5b4ce354d449253e03c1da0ae53a872a79037e9ee6acda6a0a93320"
     },
     {
       "path": "frontend/src/features/feedback/feedbackUi.tsx",
@@ -1978,8 +2028,8 @@
     },
     {
       "path": "frontend/src/features/goals/SplitTab.tsx",
-      "size": 97163,
-      "sha256": "286466d28ed6cf64eb37616d8caefa74be5ffe2980c213ceca7c28a3c1769215"
+      "size": 97114,
+      "sha256": "38747b69acd2acae6a8e31b0d3b7a857da34b17c17632c538c2fa00747deaa01"
     },
     {
       "path": "frontend/src/features/goals/goalIcons.ts",
@@ -2018,8 +2068,8 @@
     },
     {
       "path": "frontend/src/features/groups/GroupsTab.tsx",
-      "size": 59809,
-      "sha256": "83ad6b6db9f41d93e39aecb03d67f7c13612c08e9e06ca12fb79c3a0a39496ca"
+      "size": 59711,
+      "sha256": "2ac954f050850662f4ef03e8ac320877babe97b8a30804ecfa2b6c3416f89144"
     },
     {
       "path": "frontend/src/features/groups/adminLabels.ts",
@@ -2068,8 +2118,8 @@
     },
     {
       "path": "frontend/src/features/incomeExpense/IncomeExpenseTab.tsx",
-      "size": 45086,
-      "sha256": "6034164c2a01df91d4b717ca002628fcece22e250181deb1d364fb47e9e37262"
+      "size": 44754,
+      "sha256": "e6d775554285400f59208e29e1fa581fb9ffda5fdbceba66df0e02d97e51392e"
     },
     {
       "path": "frontend/src/features/incomeExpense/expenseMonth.ts",
@@ -2093,13 +2143,13 @@
     },
     {
       "path": "frontend/src/features/invoices/DocumentWorkspaceParts.tsx",
-      "size": 13820,
-      "sha256": "dc1ce69bfd3b4167233ca281ac4a49b3252e8289bf9bc5afbc84e1892bfac565"
+      "size": 13721,
+      "sha256": "e92ce65a682c460b2d528423b47265ff8ef8929be3d3004fe68cd9ec794bf88f"
     },
     {
       "path": "frontend/src/features/invoices/InvoiceTab.tsx",
-      "size": 85148,
-      "sha256": "6f079196b7864c4ab6b8b477bb0520cee06249cff3b5f659c0ac5e3bb1f40896"
+      "size": 84778,
+      "sha256": "d05d198e1ab766de9f72069c784ea1b5feb6f0dee9dc0d63e32f01e3a680e626"
     },
     {
       "path": "frontend/src/features/invoices/documentAvailability.ts",
@@ -2158,8 +2208,8 @@
     },
     {
       "path": "frontend/src/features/jobs/JobsTab.tsx",
-      "size": 83670,
-      "sha256": "8184e68a89fe8854832354042f755a33327b21b8135cf23a68a1feb77092eaf9"
+      "size": 83797,
+      "sha256": "d1b7a4dd6214b6943360f272fbb6a9eae9f1a31c223491441ff3650a90012674"
     },
     {
       "path": "frontend/src/features/jobs/jobSort.ts",
@@ -2343,8 +2393,8 @@
     },
     {
       "path": "frontend/src/features/mobile/MobileChrome.tsx",
-      "size": 12152,
-      "sha256": "832a17d74dde0a376ea094e2e081cf18c60971bc61e3cd5d892e296cfe5977be"
+      "size": 12977,
+      "sha256": "aa5b65c793cafd0d65e0499fea658ce4475395d6cc7958cc726c31d49dacdee1"
     },
     {
       "path": "frontend/src/features/mobile/MobileHome.tsx",
@@ -2358,13 +2408,13 @@
     },
     {
       "path": "frontend/src/features/mobile/icons.tsx",
-      "size": 5161,
-      "sha256": "042eb066b392c388819f400b13d7a93cdc29cd30c5b374bc2fb9626554b2af39"
+      "size": 6493,
+      "sha256": "09b75830b2ec4d2a7a9e83e6796f898489563888fc8cd0b9126d745e24ea2c65"
     },
     {
       "path": "frontend/src/features/mobile/mobile.css",
-      "size": 87875,
-      "sha256": "08cd129e1eecaf01fa361f460f89c3f286e8c606b7c2c2cba3d6ba65dbec8477"
+      "size": 90236,
+      "sha256": "26295c2f7eb0f919a5919b6f8eb277b01fbbd1dac10cf8f4404336f8fd43efd9"
     },
     {
       "path": "frontend/src/features/mobile/mobileNavigation.ts",
@@ -2438,8 +2488,8 @@
     },
     {
       "path": "frontend/src/features/report/ReportTab.tsx",
-      "size": 31693,
-      "sha256": "6a8724fbfc91c777067e36f4793e32293e7325e9024be3dfdab5374f16ec23a3"
+      "size": 31644,
+      "sha256": "cd5de29cb3dfa5724cdcdcf26922a594acae4880f550b5147e5b8b46f0585c22"
     },
     {
       "path": "frontend/src/features/report/reportData.ts",
@@ -2453,13 +2503,13 @@
     },
     {
       "path": "frontend/src/features/settings/SettingsParts.tsx",
-      "size": 6901,
-      "sha256": "d3cc3f51f20171dd8ee3b940e80fca5dbc38eb3da6cd61a973fb8c4da60b8d20"
+      "size": 7646,
+      "sha256": "7da33c3b5698ca506563336a113e9193ea06d7b193a4618d1a61a242176c660d"
     },
     {
       "path": "frontend/src/features/settings/SettingsTab.tsx",
       "size": 93411,
-      "sha256": "560e866580014abd4bf7accec0d3d81abdbf58db47d203f4f72d09a09e5548bb"
+      "sha256": "b59a5e43e57de0287113515f1fd0e8708e7cb010c0769c2e7476efaa0cdd7e0d"
     },
     {
       "path": "frontend/src/features/tax/TaxTab.tsx",
@@ -2542,6 +2592,11 @@
       "sha256": "f976fa509ec483fd6cb9f77fab5c48f9dc7a1b53a3cd2a0312e801e71c39f496"
     },
     {
+      "path": "frontend/src/i18n/en/assistant.ts",
+      "size": 18709,
+      "sha256": "ca2e543fdf4a350ec7a86043e7b4e07287690ae3325d4ff5bb1d03ab3e3fe028"
+    },
+    {
       "path": "frontend/src/i18n/en/auth.ts",
       "size": 4238,
       "sha256": "340f8f679b208bf04a4272924671cb19c5a9802b39cd8ec9d62bdacb494b7674"
@@ -2598,8 +2653,8 @@
     },
     {
       "path": "frontend/src/i18n/en/index.ts",
-      "size": 1636,
-      "sha256": "71f2de0368cd18225ad9da043d7c70fe1dbe52a1ddb488dd31f784453cf2c7be"
+      "size": 1693,
+      "sha256": "86b17a4a38838c7499474f70e6a281fba0fa924a64a619ef378495318993ddc8"
     },
     {
       "path": "frontend/src/i18n/en/invoices.ts",
@@ -2623,8 +2678,8 @@
     },
     {
       "path": "frontend/src/i18n/en/mobile.ts",
-      "size": 5235,
-      "sha256": "b7b648eec1ad1105f6d315e8db1f0b89e1e87c59ef294fc1751945a8badab07d"
+      "size": 5337,
+      "sha256": "9767a057bf75da601e0f55ec66855d2f274f2efef00209dade1ad9e2509ee6c8"
     },
     {
       "path": "frontend/src/i18n/en/onboarding.ts",
@@ -2668,13 +2723,13 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 150579,
-      "sha256": "87cc0c123a744f82f61c565f5a373e68deb164e9aaa9a61486a80ce168b18f74"
+      "size": 150675,
+      "sha256": "6e8482e6c5f06b2fc0a8d056ad207508c488c533a38cc174aa0f859c43aca019"
     },
     {
       "path": "frontend/src/index.css",
-      "size": 39006,
-      "sha256": "b3a158bee9087f4c7898e4e9ed67f8cd20b901643affb76fa634ffd3a31a4690"
+      "size": 44434,
+      "sha256": "5f231753b7a1eb393aa1d6b316379ac83d05237ccd38a589d43412f7366a50d5"
     },
     {
       "path": "frontend/src/kinetic-preview.tsx",
@@ -3208,8 +3263,8 @@
     },
     {
       "path": "tests/e2e/account-switcher.spec.ts",
-      "size": 7092,
-      "sha256": "32ac913a5883300a2b60fa779165f9e7aba2f17398c54184955383fd2712d606"
+      "size": 8458,
+      "sha256": "4f1316e27761f12688fca18f15c2df2d714ef9b98634fdac75f39df20bc73760"
     },
     {
       "path": "tests/e2e/admin-analytics.spec.ts",
@@ -3245,6 +3300,11 @@
       "path": "tests/e2e/app.spec.ts",
       "size": 129975,
       "sha256": "6e4872fb5bfccfa04b66d73b17210e115d435ae8f0bc7ddd20351de9e69fce15"
+    },
+    {
+      "path": "tests/e2e/assistant-chat.spec.ts",
+      "size": 33304,
+      "sha256": "86a1e7bffa1d39a19e7b465d007c612419e58aa860325d8bffe6179e32e944a8"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
@@ -3303,8 +3363,8 @@
     },
     {
       "path": "tests/e2e/mobile-phone.spec.ts",
-      "size": 31196,
-      "sha256": "db1e81693a303dd832c3ef6b3da371da1a680a6f22d5e043df2efc913d550ea5"
+      "size": 31628,
+      "sha256": "d60468e8f95257a7072e995bedc3080fcab0c6db6b695dca1f6529d4d80464b0"
     },
     {
       "path": "tests/e2e/phase-one-feedback.spec.ts",
@@ -3320,6 +3380,11 @@
       "path": "tests/e2e/session-retry.spec.ts",
       "size": 3220,
       "sha256": "298987086f2ecd04f3c44d7d9ea24989ec3e3fcb461bc8b212d0533de61f7566"
+    },
+    {
+      "path": "tests/e2e/textOverlap.ts",
+      "size": 5328,
+      "sha256": "1ed4c524be9b29bb192bd68bc886a49cb50749915d1111746b9cb67f08971db8"
     },
     {
       "path": "tests/e2e/vault-wht-navigation.spec.ts",

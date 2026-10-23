@@ -1082,3 +1082,111 @@ Built on top of 95f1cb2. Approved ("ดีพอย").
   - Unit suite 463/468, with the same 5 known failures.
   - An invoice PDF downloaded in the browser with the new DOMPurify (valid %PDF).
   - Full e2e with the Vite 6.4.5 build: 184 passed; the 34 failures are the same as the live baseline.
+
+
+## Liquid Glass and iOS look, phone account sheet, and the เลขากระรอก chat preview - 2026-10-23
+
+Built on top of bdc473e.
+
+**Why.** The owner approved the Liquid Glass canvas and said "ทำในแอปจริงได้เลย". They asked for:
+- glass only on notifications, a few tappable buttons and the bottom bar;
+- the glass sidebar on computers;
+- iOS-like icons everywhere;
+- an easy way to switch account or log out on phones;
+- no text that overlaps.
+
+They then asked for an in-app chat with the squirrel, screen only, as a Pro feature that they will wire to an AI API later, named เลขากระรอก. Their brief "KRAROK — AI SECRETARY CHAT UI BRIEF" asks for a ChatGPT/Dot-style workspace, frontend only. A typography brief followed: lighter, natural Thai text on the chat page only. Then the owner chose option ข.: on computers the app's sidebar folds away inside the chat, with a way back, and the suggested questions become a tidy 2 × 2 grid. Last, the owner asked for a glam, Gen Z dark mode ("ดึกดำบรรพ์" before) and for notifications "เหมือน LINE": LINE's templates, its UI, everything, inside the chat.
+
+**Glass, kept to the places the owner named**
+- Computers and iPads (1024px+):
+  - The sidebar floats as a glass panel over a warm wash.
+  - The open page has a pill with a filled icon (`NavGlyph`).
+- The overview's bell and theme buttons are round glass.
+- Notifications are frosted glass with the strong fill, so the page never reads through.
+- Pop-up menus are glass with the strong fill and open under their buttons: row ⋯, jobs, expenses, exports, ออกต่อเป็น / แชร์, and the profile menu.
+- Phones:
+  - The bottom bar is a floating glass capsule with filled icons for the open tab. Pages scroll under it.
+  - An iOS-style fade, with a clear patch under the squirrel's ears, keeps text from showing half-covered behind it.
+  - The action sheet floats over an 8px blur.
+- The บอกเรา message box is a glass capsule.
+
+**iOS look**
+- Segmented controls on jobs, calendar, expenses and documents, on computers and phones.
+- Grey filled search fields.
+- Coloured rounded-square tiles in Settings and on the phone เมนู screen. The LINE rows keep the real LINE logo.
+- Grey round ⋯ and close buttons.
+- Lucide icons at stroke 1.7.
+
+**Phone account sheet.** Signed-in accounts open it by tapping the profile box on เมนู. It is the existing account switcher, titled บัญชีของฉัน, with โปรไฟล์ and ออกจากระบบ rows under the accounts. Guests keep the old profile link.
+
+**เลขากระรอก chat (`/assistant`, `features/assistant`)**
+- Who can open it: admins only, because it is not in the launch list. Members land on the overview. It carries a Pro badge.
+- Layout:
+  - A history sidebar (new chat, search, Today / Yesterday / Previous 7 days). It sits beside the chat from 940px and is a drawer below that.
+  - A slim glass header with the official mascot, the name, status, a token ring and a ⋯ menu.
+  - The conversation renders answers as safe Markdown (tables, lists, links into the app).
+  - A floating glass message box. Attach and microphone are marked "เร็ว ๆ นี้".
+  - A welcome with four suggested questions as equal cards in a 2 × 2 grid, each with an icon. A short label sits on the card, and tapping it asks the full question.
+- LINE inside the chat (screen only, labelled sample data; nothing is sent to LINE and no data changes):
+  - A pinned "แจ้งเตือนอัตโนมัติ" thread at the top of the history, with an unread badge, a header bell on computers and iPads, and a dot on phones.
+  - The automatic notifications the app really sends to LINE, drawn with the same template as `lineCards.ts`: the 08:00 เตือนรับเงิน, บันทึกรับเงินแล้ว and สรุปการเงินประจำเดือน.
+    - Same band colours, category chip, official mascot poses (`/line/mascot-v6-*.png`), rows, buttons and wording (`lineMock.ts`, `LineCard.tsx`).
+  - LINE's chat look: date chips, and อ่านแล้ว with the time beside the bubble.
+  - The reminder's buttons answer as LINE does:
+    - ได้รับแล้ว shows the receipt card;
+    - ยังไม่ได้ shows the real "พรุ่งนี้ 08:00" reply;
+    - ได้ไม่ครบ fills in "รับเงินบางส่วน #… ยอด".
+  - Quick replies รอรับเงิน, สรุปเดือนนี้ and กำลังดำเนินการ get LINE's own answer cards. A rich menu was tried and then taken out at the owner's request.
+  - A LINE-style push banner, previewed from the ⋯ menu.
+- Dark mode, chat only (light unchanged). After the owner's "แอบลายตา" it is toned down:
+  - a near-black stage with one soft warm glow at the top and a faint rose glow low down, drifting slowly (no motion with reduced motion);
+  - deeper glass with a lit edge;
+  - a gentle gradient on the welcome line;
+  - quieter accents.
+  - LINE cards stay light, as LINE shows them.
+- The top of the chat has no glass bar any more (owner: it blocked the view). Round glass buttons sit at the sides and only the squirrel is in the middle; the name and status remain for screen readers. The squirrel is bigger (80px on computers, 64px on phones), with a halo and a shadow. The owner plans outfits and colours for it later. It hangs a little below the row, but only over the strip where the conversation has already faded out, so it never covers text.
+- Focus mode on computers (1024px+):
+  - Opening the chat slides the app's sidebar away to the left (0.34s; none with reduced motion). While folded it is inert and hidden from screen readers, so only the chat's history sidebar is on screen.
+  - The chat sits 12px from the window edges.
+  - "‹ กลับ" at the top of the history sidebar, or the arrow in the header when the history is hidden, returns to the page you came from, and the sidebar slides back.
+  - iPad and phones keep their own way back; other pages are unchanged.
+- Sample result cards: project, document, money summary, and a confirmation card (confirm / cancel / failed / retry). Every one is labelled "ข้อมูลตัวอย่าง".
+- Every UI state from the brief can be previewed from the ⋯ menu: low or empty tokens, trial ended, Pro required, connection failed (retry), action failed (retry).
+- The squirrel uses existing moods and actions only (the mascot stays locked): greets, naps, listens, thinks (with a bulb accessory), types and looks proud. `MascotSlot` is the interface for later animation.
+- Where the AI connects later: `assistantApi.ts` (`AssistantTransport`: send / conversations / balance / confirm). Today it is a sample transport. Nothing calls an AI, billing or the backend, and the tests check for no such requests.
+- Typography (chat page only):
+  - The app's own IBM Plex Sans Thai, using real font files only (`font-synthesis: none`), drawn the light macOS/iOS way (`-webkit-font-smoothing: antialiased`).
+  - Weights: 400 for reading, 500 for buttons and light emphasis, 600 for titles only. No 700.
+  - Reading text is 15px at line height 1.65–1.7, and nothing is under 11px.
+  - Layout, colours, glass, icons and the mascot are unchanged.
+
+**Also**
+- A job menu that opens while the page is still settling from a scroll no longer closes at once.
+- Usage counters skip the chat preview.
+
+**Unchanged:** backend, payments, Stripe, Wrangler config, Secrets, crons and stored data.
+
+**Tests**
+- New `tests/e2e/assistant-chat.spec.ts` (15 tests):
+  - phone, iPad, computer and wide computer;
+  - every UI state; sleeping; members; dark mode;
+  - phone full screen and drawer;
+  - the sidebar icon and focus mode (the slide is sampled frame by frame; the way back from both places);
+  - the 2 × 2 question grid on computer and phone;
+  - LINE: the thread and its cards, the buttons' replies, quick replies, the push banner, no rich menu and no top bar, phones and the dark stage;
+  - typography (font, weights 400/500/600, Thai line height, no text under 11px, no text shadow).
+- New `tests/e2e/textOverlap.ts`: the owner's no-overlap rule, measured on real letter shapes. It runs in the chat tests.
+- Phone account sheet test added to `account-switcher.spec.ts`. `mobile-phone.spec.ts` was updated for the profile box opening the sheet.
+
+**Package**
+- Archive SHA256 `3841b78d3a060b7b4a8e250f8ee3a27d6c16584a6c21693f2cd6063bfcaa2cdc`; manifest SHA256 `4145b64702c8756d829ef1cb6fe3bac6ccee88453adb7ad9a0dcf752d202ee4d`.
+- 726 files, 39 changed or new.
+- New entry `assets/index-D5WUKphW.js`.
+
+**Checked**
+- On the extracted package with a clean `npm ci`: cloudflare:check (17/17, including the audit, 0 vulnerabilities), the build and preflight.
+- Unit suite 463/468, with the same 5 known failures.
+- Full e2e on the LINE version: 200 passed; the 34 failures are exactly the live baseline. After the last changes (rich menu out, no top bar, calmer dark, bigger squirrel), the chat, account-switcher and phone specs pass 36/36.
+- In the browser at 375, 390, 820, 1024, 1280 and 1440px, light and dark: the overlap checker is clean.
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-23.
