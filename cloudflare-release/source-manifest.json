@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg43: เลขากระรอก follows Pro on every page (corner squirrel, docked panel), Pro เลขา outfit, formal arrival after paying; ฿159 popup and setup questions removed",
+  "source_label": "pkg44: smoother เลขากระรอก arrival (fade out of the doorway, soft words, one curved flight, the pill opening out); jobs list keeps its order after a row action",
   "archive": "source.tar.gz",
-  "archive_sha256": "0b4b0a5e95f4e028fb9577f56639fb0dcc680f61fa54b7207a7a0619f8cecb60",
-  "file_count": 730,
-  "total_source_bytes": 21017932,
+  "archive_sha256": "3adcf2166a7a7d9167fae765bddd9c5510874b94048a568a78574b4f41ca1ab9",
+  "file_count": 731,
+  "total_source_bytes": 21028453,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1708,8 +1708,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 202756,
-      "sha256": "15b0e29038febbf44306ef2ac10665065e9b5428ca7b145569febab9773d970c"
+      "size": 202759,
+      "sha256": "672c4d00aeaf6bd96fc35476cc4b5a51a8d5c176eab58dac5b8ae5c8cc7f82dd"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -1838,13 +1838,13 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantBirth.tsx",
-      "size": 10347,
-      "sha256": "149ac2e15857eb1988d248ee368e16a45bfe0a2acb5e0941715dbe5befef774c"
+      "size": 11666,
+      "sha256": "4780ded99736b812d59d9261597c266f7cf6785555b037fe3ef3a8cb3baec901"
     },
     {
       "path": "frontend/src/features/assistant/AssistantBuddy.tsx",
-      "size": 18398,
-      "sha256": "e8a1f6818ac5aae79b06abd9b6a2acf9e5ec6931885554022f306ccce0528eb7"
+      "size": 20090,
+      "sha256": "8e11b214324a2c2ab5b4857b9e61c7a6ebf526ee5c973488b82bdbd3fe083bad"
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
@@ -1873,8 +1873,8 @@
     },
     {
       "path": "frontend/src/features/assistant/assistant.css",
-      "size": 66477,
-      "sha256": "d3427eef4a9212520e03c6eeac28e968c2f59d8f55c8b33ff83d0bb3b0989805"
+      "size": 66655,
+      "sha256": "2f29580d52f86f1edf75734dee46b3621c798a4f966b7d6c6d95f87e0b67a8d3"
     },
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
@@ -2223,8 +2223,8 @@
     },
     {
       "path": "frontend/src/features/jobs/JobsTab.tsx",
-      "size": 83797,
-      "sha256": "d1b7a4dd6214b6943360f272fbb6a9eae9f1a31c223491441ff3650a90012674"
+      "size": 85221,
+      "sha256": "2e098a97297c64e6f519608e4a0a45370065e05332bb97505575575788edf696"
     },
     {
       "path": "frontend/src/features/jobs/jobSort.ts",
@@ -3318,8 +3318,8 @@
     },
     {
       "path": "tests/e2e/assistant-buddy.spec.ts",
-      "size": 19231,
-      "sha256": "890153ce34f777b28763a00141a59082de5d00ea89541d52ab491fa78acee1fa"
+      "size": 19930,
+      "sha256": "f02f001154785012f5f7fd11414c5be4aab3030d4e05311fec368b4ba6a7bfe5"
     },
     {
       "path": "tests/e2e/assistant-chat.spec.ts",
@@ -3375,6 +3375,11 @@
       "path": "tests/e2e/i18n-english.spec.ts",
       "size": 12448,
       "sha256": "ec902a50ce2d18df8a9abb60343514950dc63eda35d9fd3c2e50927554cdbcd8"
+    },
+    {
+      "path": "tests/e2e/jobs-hold-order.spec.ts",
+      "size": 5206,
+      "sha256": "8c1b23673918201d75b108ce9c4d749e1b38f7e70f5f3cfa8a2199b0b81c51e4"
     },
     {
       "path": "tests/e2e/login-providers.spec.ts",

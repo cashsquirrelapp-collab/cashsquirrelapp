@@ -1339,3 +1339,41 @@ Built on top of 1e6dd06.
 - Full e2e before the last animation change: 211 passed. The 33 failures are all among the 34 of the live baseline; the 34th was the onboarding test this package replaces. The chat and corner-squirrel specs pass on the final code.
 
 **Approved** by the owner in chat ("ดีพอยทั้งหมดเลยชอบมาก"), 2026-10-23.
+
+
+## A smoother เลขากระรอก arrival, and the jobs list keeps its order after a row action - 2026-10-24
+
+Built on top of c5d48a4.
+
+**Why.** The owner asked for two things:
+- The arrival after paying should run as one continuous movement ("ค่อย ๆ เฟด ... ให้มันคอนติเนียกัน ... มูฟลงไปแล้วก็ค่อยขยายออก ... สมูท").
+- On the jobs list: "เวลากดรับเงินทำไมมันเด้งขึ้นด้านบน แก้ด้วย".
+
+**The arrival (AssistantBirth.tsx, AssistantBuddy.tsx)**
+- **Walk-in:** the squirrel fades in out of the doorway's light while it walks, over a second, and its glow settles over 1.3 s. It used to appear in 0.4 s.
+- **Words:** they come in softer (0.6 s, with a blur that clears; the line under the greeting over 0.8 s). They leave in a new "leave" phase half a second before the glass opens, so they never sit over the page.
+- **Flight:** it is one curved movement instead of a spring. It drops first, then glides across (1.15 s), aimed at the corner squirrel's own picture.
+  - It starts while the glass opens.
+  - On phones the distance is divided by the scene's 0.86 scale, so it lands within a pixel on both computer and phone.
+- **Corner pill:** while the scene plays, the computer pill waits folded into a round bubble around the squirrel. After the landing it opens out to "ถามเลขากระรอก ⌘K" over 0.75 s, its words fading in on their own. The tip "แตะผมได้ทุกหน้า" then fades in. Phones keep the round button.
+
+**The jobs list (JobsTab.tsx)**
+- **The bug:** recording money, delivering or changing a stage from a row re-sorted the list at once. A paid job is dated the day the money arrived, so under "ล่าสุด" it jumped to the top. Focus then went back to its button and scrolled the page up.
+- **The fix:** after a row action the list keeps the order it had, until the view changes (search, tab, month, filters, sort) or the page is opened again. Undo keeps the row in place too.
+
+**Unchanged:** backend, API permissions, payments, Stripe, Wrangler config, Secrets, crons and stored data.
+
+**Tests**
+- `tests/e2e/assistant-buddy.spec.ts`: the arrival test now checks that the pill waits folded and opens out with its words after the landing.
+- `tests/e2e/jobs-hold-order.spec.ts` (new): receiving money from the last row keeps the row, its height on screen and the page scroll; changing the view sorts the list again.
+
+**Package**
+- Archive SHA256 `3adcf2166a7a7d9167fae765bddd9c5510874b94048a568a78574b4f41ca1ab9`; manifest SHA256 `1867dce1020fa85a0fb0f5e8a1ad394ab17c651b730cbdb1d81507e3e50f22e9`.
+- 731 files, 7 changed (1 new).
+- New entry `assets/index-DyRXHdgi.js`.
+
+**Checked**
+- On the extracted package with a clean `npm ci`: cloudflare:check (17/17, including the audit, 0 vulnerabilities), the build and preflight.
+- Full e2e on this code: 212 passed; the 33 failures are all in the live baseline (the onboarding test of the baseline was replaced in pkg43). The new jobs-hold-order test passes.
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
