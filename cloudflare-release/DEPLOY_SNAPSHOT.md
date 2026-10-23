@@ -1190,3 +1190,37 @@ They then asked for an in-app chat with the squirrel, screen only, as a Pro feat
 - In the browser at 375, 390, 820, 1024, 1280 and 1440px, light and dark: the overlap checker is clean.
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-23.
+
+
+## The เลขากระรอก chat opened to every member - 2026-10-23
+
+Built on top of ad55025.
+
+**Why.** The owner asked: "เปิดให้สมาชิกทั่วไปเห็นหน้าแชตด้วย".
+
+**What changed**
+- `shared/featureAvailability.ts`: `assistant` joins the launch list. Members now see เลขากระรอก:
+  - in the sidebar on computers and iPads;
+  - in the LINE AI Pro section of เมนู on phones;
+  - at `/assistant`.
+- What members see is the same as what admins already had:
+  - It is still a labelled screen preview with sample answers. The message box says "ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI".
+  - It stays behind the Pro gate. Accounts without Pro or the trial see the Pro notice and cannot send.
+  - Nothing calls an AI, LINE or billing, and no stored data changes.
+- The team's preview tools in the chat's ⋯ menu ("ดูตัวอย่างสถานะ", "จำลองแจ้งเตือนเข้า") stay with admins (`previewTools`). This way members never see, for example, a "trial ended" notice that is not true for them.
+
+**Unchanged:** backend, API permissions, payments, Stripe, Wrangler config, Secrets, crons and stored data.
+
+**Tests**
+- `tests/e2e/assistant-chat.spec.ts` (15 tests): the old "members do not see the chat" test is now "members see the chat in the sidebar and the phone menu, without the team preview tools".
+
+**Package**
+- Archive SHA256 `ab0f01c5665c02199f8f88b5572a65ba77faa07f85a97d528c1282942460a18f`; manifest SHA256 `bffc1ca317971a1eb1f4581805db1242f83436029f2c3a4330d66f749138556b`.
+- 726 files, 4 changed.
+- New entry `assets/index-CqjhHoEt.js`.
+
+**Checked**
+- On the extracted package with a clean `npm ci`: cloudflare:check (17/17, including the audit, 0 vulnerabilities), the build and preflight.
+- The chat spec passes 15/15.
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-23.

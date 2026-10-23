@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg40 Liquid Glass and iOS look, phone account sheet, and the เลขากระรอก chat preview",
+  "source_label": "pkg41 the เลขากระรอก chat opened to every member",
   "archive": "source.tar.gz",
-  "archive_sha256": "3841b78d3a060b7b4a8e250f8ee3a27d6c16584a6c21693f2cd6063bfcaa2cdc",
+  "archive_sha256": "ab0f01c5665c02199f8f88b5572a65ba77faa07f85a97d528c1282942460a18f",
   "file_count": 726,
-  "total_source_bytes": 20899328,
+  "total_source_bytes": 20902357,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1708,8 +1708,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 201642,
-      "sha256": "bffd92a41c16984ce9b5fd11595b4e6b673d77e02bb5078c8dafeded4955f2da"
+      "size": 201675,
+      "sha256": "e6e3014f39a505a5cf611ee28730f74734a895a23e3bd3413b4faa4173018dce"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -1833,8 +1833,8 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
-      "size": 47005,
-      "sha256": "4606e5368f42e04fa933a2a9929fe4becdd1f7f819e8475a8a64107e36bc74fc"
+      "size": 47461,
+      "sha256": "5bf957812b3e353466a2c879d18edd208b3459b44de24a7abb0383381f3ee063"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
@@ -3058,8 +3058,8 @@
     },
     {
       "path": "shared/featureAvailability.ts",
-      "size": 1297,
-      "sha256": "fc8c0b8afc8a51a94ee48fc1291b9cd7db44303f6eb72c8a652e781cd8147a2a"
+      "size": 1614,
+      "sha256": "4e079084ed96dbf83acbc47db7175ec9aa9311b1bc029d9291611a22ab56b24e"
     },
     {
       "path": "shared/feedback.ts",
@@ -3303,8 +3303,8 @@
     },
     {
       "path": "tests/e2e/assistant-chat.spec.ts",
-      "size": 33304,
-      "sha256": "86a1e7bffa1d39a19e7b465d007c612419e58aa860325d8bffe6179e32e944a8"
+      "size": 35527,
+      "sha256": "2c681911347e95b4523a9bed889193524f8c260a48ed6455334ddb2c7da9f9ae"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
