@@ -1,0 +1,122 @@
+{
+  "regions": [
+    "sin1"
+  ],
+  "cleanUrls": false,
+  "crons": [
+    {
+      "path": "/api/close-expired-accounts",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/send-overdue-digest",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/send-monthly-report",
+      "schedule": "0 1 1 * *"
+    },
+    {
+      "path": "/api/send-wht50-reminder",
+      "schedule": "0 1 1 * *"
+    }
+  ],
+  "buildCommand": "npm run build && node scripts/release-line-menu.mjs",
+  "outputDirectory": "build/frontend",
+  "rewrites": [
+    {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index?route=:path*"
+    },
+    {
+      "source": "/app",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/recover",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:page/:workspace",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:slug",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://static.line-scdn.net https://js.stripe.com https://checkout.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.stripe.com https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://fonts.googleapis.com https://api.stripe.com https://checkout.stripe.com https://merchant-ui-api.stripe.com https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://*.js.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+        },
+        {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "same-origin"
+        }
+      ]
+    },
+    {
+      "source": "/api/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/recover",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/login",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
+  ]
+}

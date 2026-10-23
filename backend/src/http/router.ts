@@ -1,0 +1,56 @@
+import type { Handler,VercelRequest,VercelResponse } from './types.js';
+import { HttpError,withGuard,readRawBody } from './guard.js';
+import { ingressLimit } from '../security/ingress.js';
+import auth from '../handlers/auth.js';
+import data from '../handlers/data.js';
+import groups from '../handlers/groups.js';
+import adminUsers from '../handlers/admin-users.js';
+import adminAnalytics from '../handlers/admin-analytics.js';
+import adminStripeFinance from '../handlers/admin-stripe-finance.js';
+import download from '../handlers/download-report.js';
+import lineSession from '../handlers/line-session.js';
+import liffConfig from '../handlers/liff-config.js';
+import liffSubmit from '../handlers/liff-submit.js';
+import lineLink from '../handlers/line-link-code.js';
+import lineWebhook from '../handlers/line-webhook.js';
+import notify from '../handlers/notify.js';
+import reset from '../handlers/password-reset-line.js';
+import report from '../handlers/send-monthly-report.js';
+import digest from '../handlers/send-overdue-digest.js';
+import wht50Reminder from '../handlers/send-wht50-reminder.js';
+import setup from '../handlers/setup-line-richmenu.js';
+import stripe from '../handlers/stripe-webhook.js';
+import billing from '../handlers/billing.js';
+import profile from '../handlers/profile.js';
+import account from '../handlers/account.js';
+import closeExpiredAccounts from '../handlers/close-expired-accounts.js';
+import recoverAccount from '../handlers/recover-account.js';
+import confirmEmail from '../handlers/confirm-email.js';
+import usageAnalytics from '../handlers/usage-analytics.js';
+import vault from '../handlers/vault.js';
+import vaultUpload from '../handlers/vault-upload.js';
+import vaultFile from '../handlers/vault-file.js';
+import feedback from '../handlers/feedback.js';
+const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'setup-line-richmenu':setup,'stripe-webhook':stripe};
+const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
+routes.feedback = feedback;
+routes['admin-stripe-finance'] = adminStripeFinance;
+routes['send-wht50-reminder'] = wht50Reminder;
+export function routeHandler(route:string):Handler {
+ return withGuard(async(req,res)=>{
+  const handler=Object.hasOwn(routes,route)?routes[route]:undefined;if(!handler)throw new HttpError(404,'API not found');
+  await ingressLimit(req,route);
+  if(!rawRoutes.has(route)&&!['GET','HEAD'].includes(req.method||'')) {
+   const contentType=req.headers['content-type']||'';
+   if(!contentType.startsWith('application/json'))throw new HttpError(415,'Expected application/json');
+   const raw=await readRawBody(req,route==='data'?4*1024*1024:route==='notify'?128*1024:16*1024);
+   try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
+  }
+  await handler(req,res);
+ },{csrf:['line-session','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback'].includes(route)});
+}
+export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
+ const route=req.query.route;
+ if(typeof route!=='string')throw new HttpError(404,'API not found');
+ await routeHandler(route)(req,res);
+});

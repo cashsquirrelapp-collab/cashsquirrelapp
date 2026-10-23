@@ -1,0 +1,40 @@
+import { T } from '../../i18n/tr';
+// Thai banks offered in the issuer profile. Each bank's own logo (from the open
+// casperstack/thai-banks-logo set, plus SCBT / EXIM / SME D supplied by the owner, kept locally in
+// public/banks/) identifies it in the picker and
+// on documents; a bank without a logo file falls back to its short code.
+export interface ThaiBank {
+  name: string; // stored in issuer.bankName and printed on documents
+  code: string; // short code, shown when there is no logo
+}
+
+const WITH_LOGO = new Set(['BBL', 'KBANK', 'KTB', 'SCB', 'TTB', 'BAY', 'UOB', 'CIMB', 'LHBANK', 'TISCO', 'KKP', 'ICBC', 'GSB', 'GHB', 'BAAC', 'ISBT', 'SCBT', 'EXIM', 'SME D']);
+
+/** Same-origin logo path for a bank, or null when there is no logo file. */
+export const thaiBankLogo = (bank: ThaiBank | undefined): string | null =>
+  bank && WITH_LOGO.has(bank.code) ? `/banks/${bank.code.replace(/\s/g, '')}.png` : null;
+
+export const THAI_BANKS: ThaiBank[] = [
+  { name: T("ธนาคารกรุงเทพ"), code: 'BBL' },
+  { name: T("ธนาคารกสิกรไทย"), code: 'KBANK' },
+  { name: T("ธนาคารกรุงไทย"), code: 'KTB' },
+  { name: T("ธนาคารไทยพาณิชย์"), code: 'SCB' },
+  { name: T("ธนาคารทหารไทยธนชาต"), code: 'TTB' },
+  { name: T("ธนาคารกรุงศรีอยุธยา"), code: 'BAY' },
+  { name: T("ธนาคารยูโอบี"), code: 'UOB' },
+  { name: T("ธนาคารซีไอเอ็มบี ไทย"), code: 'CIMB' },
+  { name: T("ธนาคารแลนด์ แอนด์ เฮ้าส์"), code: 'LHBANK' },
+  { name: T("ธนาคารทิสโก้"), code: 'TISCO' },
+  { name: T("ธนาคารเกียรตินาคินภัทร"), code: 'KKP' },
+  { name: T("ธนาคารไอซีบีซี (ไทย)"), code: 'ICBC' },
+  { name: T("ธนาคารสแตนดาร์ดชาร์เตอร์ด (ไทย)"), code: 'SCBT' },
+  { name: T("ธนาคารออมสิน"), code: 'GSB' },
+  { name: T("ธนาคารอาคารสงเคราะห์"), code: 'GHB' },
+  { name: T("ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร (ธ.ก.ส.)"), code: 'BAAC' },
+  { name: T("ธนาคารเพื่อการส่งออกและนำเข้าแห่งประเทศไทย"), code: 'EXIM' },
+  { name: T("ธนาคารพัฒนาวิสาหกิจขนาดกลางและขนาดย่อมแห่งประเทศไทย"), code: 'SME D' },
+  { name: T("ธนาคารอิสลามแห่งประเทศไทย"), code: 'ISBT' }
+];
+
+export const findThaiBank = (name: string | undefined): ThaiBank | undefined =>
+  name ? THAI_BANKS.find(bank => bank.name === name) : undefined;

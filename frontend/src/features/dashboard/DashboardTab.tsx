@@ -1,0 +1,1505 @@
+import { uiSurface } from '../../components/ui/uiStyles';
+import { GoalAvatar } from '../goals/SplitParts';
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../../../../shared/types';
+import { jobNetReceivable } from '../../../../shared/wht';
+import { installmentLabel, formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate, withMonth, currentMonthKeyNow, dateLocale, toLocalDateKey } from '../../utils';
+import { motion } from 'motion/react';
+import { X } from 'lucide-react';
+import { IncomeExpenseChart } from './IncomeExpenseChart';
+import { MonthlyWorkValueBanner } from './MonthlyWorkValueBanner';
+import { FinancialDetailsModal } from './FinancialDetailsModal';
+import JobPaymentDialog from '../jobs/JobPaymentDialog';
+import { useQuickUndo } from '../jobs/useQuickUndo';
+import { Mascot } from '../../components/mascot/Mascot';
+import { IconArrowUpRight } from '../../components/ui/icons';
+import { VineDivider } from '../../components/mascot/VineDivider';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { getJobPaymentEntries, getJobPendingEntries, getJobScheduledPendingEntries, getMonthKeyFromDate, getOutstandingAmount } from '../../../../shared/installmentPayments';
+import { computeMonthlySummary, firstActivityMonth, fixedExpenseForMonth, monthlyProfitSummary, workValueForMonth, workValueRowsForMonth } from '../../../../shared/monthlySummary';
+import { MobileHome } from '../mobile/MobileHome';
+import { buildCalendarEvents, primaryCalendarEvent, type CalendarEventKind } from '../calendar/calendarEvents';
+import {
+  TrendingUp,
+  TrendingDown,
+  Coins,
+  Clock, 
+  ChevronRight, 
+  Search,
+  Check,
+  Copy,
+  MessageSquare,
+  Flame,
+  Bell,
+  Mail,
+  Send,
+  PiggyBank,
+  CalendarDays
+} from 'lucide-react';
+
+import { tr, T } from '../../i18n/tr';
+interface DashboardTabProps {
+  jobs: Job[];
+  goals: Goal[];
+  settings: AppSettings;
+  expenses: Expense[];
+  onSwitchTab: (tabId: string) => void;
+  statuses?: StatusOption[];
+  selectedMonthKey: string;
+  onEditJob?: (id: string, updated: Partial<Job>) => void;
+  onViewJob?: (jobId: string) => void;
+  /** Opens the calendar page, optionally on a given YYYY-MM-DD. */
+  onOpenCalendar?: (dateKey?: string) => void;
+  userEmail: string;
+  notifSettings: NotifSettings;
+  triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
+  triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
+  onQuickRecord?: (mode: 'income' | 'expense') => void;
+  /** Phones: draw the overview as the mobile design does. Figures and handlers are the same. */
+  mobile?: boolean;
+  monthPicker?: React.ReactNode;
+  onOpenTools?: () => void;
+  fullFeatureAccess?: boolean;
+  /** Money owed and recording payments (pending figures, quick pay, the receivables watchlist). Defaults to fullFeatureAccess. */
+  receivablesAccess?: boolean;
+  /** Quotations can be issued (phone overview wording). Defaults to fullFeatureAccess. */
+  quotationAccess?: boolean;
+}
+
+const MINI_CALENDAR_EVENT_STYLES: Record<CalendarEventKind, { bg: string; color: string }> = {
+  post: { bg: '#E6F1FB', color: '#185FA5' },
+  creditTerm: { bg: '#FFF1E8', color: '#C24A16' },
+  dueSoon: { bg: '#FAEEDA', color: '#8A5A0B' },
+  paid: { bg: '#E9F8F1', color: '#18A66A' },
+  overdue: { bg: '#FFF0F0', color: '#C43A3A' },
+};
+
+export default function DashboardTab({
+  jobs,
+  goals,
+  settings,
+  expenses,
+  onSwitchTab,
+  statuses = [],
+  selectedMonthKey,
+  onEditJob,
+  onViewJob,
+  onOpenCalendar,
+  userEmail,
+  notifSettings,
+  triggerAlert,
+  triggerConfirm,
+  onQuickRecord,
+  mobile = false,
+  monthPicker,
+  onOpenTools,
+  fullFeatureAccess = false,
+  receivablesAccess = fullFeatureAccess,
+  quotationAccess = fullFeatureAccess,
+}: DashboardTabProps) {
+  const { t, language } = useLanguage();
+  // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
+  // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.
+  const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | 'profit' | 'expense' | 'workValue' | null>(null);
+  const [quickSearch, setQuickSearch] = React.useState('');
+  // Job being paid from the quick-pay list (the shared Jobs-page payment dialog), with undo.
+  const [payingJob, setPayingJob] = React.useState<Job | null>(null);
+  const { apply: applyQuickChange, bar: undoBar } = useQuickUndo(onEditJob ?? (() => {}));
+  const [isQuickPayExpanded, setIsQuickPayExpanded] = React.useState(false);
+  const [isSendingSimulated, setIsSendingSimulated] = React.useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
+  const moreMenuRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (receivablesAccess) return;
+    setIsQuickPayExpanded(false);
+    setPayingJob(null);
+    setBreakdownFilter(current => current === 'pending' ? null : current);
+  }, [receivablesAccess]);
+  React.useEffect(() => {
+    if (!isMoreMenuOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!moreMenuRef.current?.contains(event.target as Node)) setIsMoreMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setIsMoreMenuOpen(false); };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isMoreMenuOpen]);
+
+  // Credit Term Report for the 3-box dashboard
+  const creditTermReport = React.useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const today = new Date(todayStr + 'T00:00:00');
+
+    const dueToday: Job[] = [];
+    const overdue: Job[] = [];
+    const upcoming: Job[] = [];
+
+    jobs.forEach(j => {
+      if (j.pending > 0 && j.payDate) {
+        const payDate = new Date(j.payDate + 'T00:00:00');
+        const diffTime = payDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+          dueToday.push(j);
+        } else if (diffDays < 0) {
+          overdue.push(j);
+        } else if (diffDays > 0 && diffDays <= 14) {
+          upcoming.push(j);
+        }
+      }
+    });
+
+    // Sort overdue by oldest first, upcoming by earliest first
+    overdue.sort((a, b) => (a.payDate || '').localeCompare(b.payDate || ''));
+    upcoming.sort((a, b) => (a.payDate || '').localeCompare(b.payDate || ''));
+
+    return {
+      dueToday,
+      overdue,
+      upcoming,
+      totalPendingCount: dueToday.length + overdue.length + upcoming.length,
+      totalPendingValue: [...dueToday, ...overdue, ...upcoming].reduce((sum, j) => sum + j.pending, 0)
+    };
+  }, [jobs]);
+
+  // Send alert to self via email about unpaid money
+  const handleAlertSelfEmail = (job: Job) => {
+    const days = getRelativeDaysText(job.payDate);
+    let alertStatusText = '';
+
+    if (days.isOverdue) {
+      alertStatusText = `เกินกำหนดชำระแล้ว ${Math.abs(days.daysCount)} วัน 🚨`;
+    } else if (days.daysCount === 0) {
+      alertStatusText = `ครบกำหนดชำระวันนี้! ⏰`;
+    } else {
+      alertStatusText = `กำลังจะครบกำหนดในอีก ${days.daysCount} วัน 📅`;
+    }
+
+    const recipient = notifSettings.alertEmail || userEmail;
+    const subjectText = `[แจ้งเตือนกระแสเงินสด] ยอดเงินยังไม่เข้า! ${alertStatusText} - งาน ${job.name}`;
+
+    let bodyText = `แจ้งเตือนความจำถึงตัวเอง (Personal Cashflow Alert):\n`;
+    bodyText += `ระบบตรวจพบว่างานนี้ "เงินยังไม่เข้า" หรือยอดชำระยังค้างอยู่!\n\n`;
+    bodyText += `-----------------------------------------\n`;
+    bodyText += `📌 รายละเอียดงานที่ผิดนัดชำระ/ค้างชำระ:\n`;
+    bodyText += `• ชื่องาน/ดีล: ${job.name}\n`;
+    bodyText += `• ลูกค้า/ผู้จ้าง: ${job.client}\n`;
+    bodyText += `• สถานะเครดิตเทอม: ${alertStatusText}\n`;
+    bodyText += `• วันครบกำหนดชำระเงิน: ${job.payDate || 'ไม่ระบุ'}\n`;
+    bodyText += `• มูลค่างานทั้งหมด: ${formatCurrency(job.value)}\n`;
+    bodyText += `• ยอดคงเหลือค้างจ่าย (Pending): ${formatCurrency(job.pending)}\n`;
+    bodyText += `• ยอดที่จ่ายมาแล้ว: ${formatCurrency(job.received)}\n`;
+    bodyText += `-----------------------------------------\n\n`;
+    bodyText += `💡 คำแนะนำในการดำเนินการต่อไป:\n`;
+    bodyText += `1. ตรวจสอบแอปพลิเคชันธนาคาร/รายการเดินบัญชี เพื่อยืนยันว่าไม่มีเงินโอนเข้าจากคุณ "${job.client || 'ลูกค้า'}" จริงๆ\n`;
+    bodyText += `2. หากยังไม่ได้รับเงิน ให้จัดทำและส่งใบเตือนยอดหนี้ค้างชำระ หรือโทร/ทักแชตไปสอบถามสถานะกับทางฝั่งลูกค้าทันที\n`;
+    bodyText += `3. หากได้รับเงินครบถ้วนแล้ว อย่าลืมกดแก้ไขงานนี้ในหน้า "ดีลงานทั้งหมด" หรือ "ไทม์ไลน์" และเปลี่ยนสถานะเป็น "จ่ายเงินครบแล้ว" เพื่อลบการแจ้งเตือนนี้ออก\n\n`;
+    bodyText += `ส่งจากระบบรายงานและติดตามเครดิตเทอม กระรอกตุนเงิน\n`;
+    bodyText += `ผู้ใช้: ${userEmail}`;
+
+    const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
+
+    triggerConfirm(
+      tr("แจ้งเตือนเงินค้างชำระเข้าเมลตัวเอง"),
+      tr("คุณต้องการส่งร่างอีเมลแจ้งเตือนถึงตัวเอง เพื่อติดตามงาน \"{0}\" ที่{1} หรือไม่? ระบบจะส่งอีเมลหาตัวคุณเองที่ {2}", job.name, alertStatusText, recipient),
+      () => {
+        if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsPublicKey) {
+          setIsSendingSimulated(true);
+          fetch('https://api.emailjs.com/api/v1.0/email/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              service_id: notifSettings.emailjsServiceId,
+              template_id: notifSettings.emailjsTemplateId,
+              user_id: notifSettings.emailjsPublicKey,
+              template_params: {
+                to_email: recipient,
+                subject: subjectText,
+                message: bodyText,
+              }
+            })
+          })
+          .then(res => {
+            setIsSendingSimulated(false);
+            if (res.ok) {
+              triggerAlert(tr("ส่งอีเมลแจ้งเตือนสำเร็จ!"), tr("ระบบส่งอีเมลตรวจสอบรายการค้างชำระไปที่ {0} เรียบร้อยแล้ว", recipient));
+            } else {
+              res.text().then(errText => {
+                triggerAlert(tr("ส่งอัตโนมัติไม่สำเร็จ"), tr("EmailJS แจ้งข้อผิดพลาด: {0}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ", errText), () => {
+                  window.location.href = mailtoUrl;
+                });
+              });
+            }
+          })
+          .catch(err => {
+            setIsSendingSimulated(false);
+            triggerAlert(tr("ส่งอัตโนมัติไม่สำเร็จ"), tr("เชื่อมต่อ EmailJS ผิดพลาด: {0}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ", err.message), () => {
+              window.location.href = mailtoUrl;
+            });
+          });
+        } else {
+          window.location.href = mailtoUrl;
+        }
+      }
+    );
+  };
+
+  // Helper to trigger email client and display animated/active feedback
+  const handleSendEmailReport = () => {
+    const todayThaiStr = new Date().toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const recipient = notifSettings.alertEmail || userEmail;
+    const subjectText = `[รายงานสรุป] ยอดหนี้เครดิตเทอมและเงินค้างชำระ - ข้อมูล ณ วันที่ ${todayThaiStr}`;
+
+    let bodyText = `เรียนผู้ใช้งาน กระรอกตุนเงิน (คุณ ${userEmail})\n\n`;
+    bodyText += `ระบบสรุปสถานะเครดิตเทอมของดิวดังต่อไปนี้ ประจำวันที่ ${todayThaiStr}:\n\n`;
+    bodyText += `=========================================\n`;
+    bodyText += `📊 สรุปภาพรวมยอดค้างชำระทั้งหมด: ${formatCurrency(creditTermReport.totalPendingValue)}\n`;
+    bodyText += `=========================================\n\n`;
+
+    if (creditTermReport.dueToday.length > 0) {
+      bodyText += `🔴 [ครบกำหนดชำระวันนี้ - วันที่ ${todayThaiStr}]\n`;
+      creditTermReport.dueToday.forEach((j, i) => {
+        bodyText += `${i + 1}. ชื่องาน: ${j.name} | ลูกค้า: ${j.client} | ยอดค้าง: ${formatCurrency(j.pending)} (มูลค่างาน: ${formatCurrency(j.value)})\n`;
+      });
+      bodyText += `\n`;
+    }
+
+    if (creditTermReport.overdue.length > 0) {
+      bodyText += `⚠️ [เกินกำหนดชำระแล้ว - OVERDUE]\n`;
+      creditTermReport.overdue.forEach((j, i) => {
+        const days = getRelativeDaysText(j.payDate);
+        bodyText += `${i + 1}. ชื่องาน: ${j.name} | ลูกค้า: ${j.client} | ยอดค้าง: ${formatCurrency(j.pending)} (${days.text})\n`;
+      });
+      bodyText += `\n`;
+    }
+
+    if (creditTermReport.upcoming.length > 0) {
+      bodyText += `📅 [กำลังจะครบกำหนดใน 14 วัน - UPCOMING]\n`;
+      creditTermReport.upcoming.forEach((j, i) => {
+        const days = getRelativeDaysText(j.payDate);
+        bodyText += `${i + 1}. ชื่องาน: ${j.name} | ลูกค้า: ${j.client} | ยอดค้าง: ${formatCurrency(j.pending)} (${days.text})\n`;
+      });
+      bodyText += `\n`;
+    }
+
+    bodyText += `-----------------------------------------\n`;
+    bodyText += `💡 คำแนะนำ:\n`;
+    bodyText += `• กรุณาตรวจสอบกระแสเงินสดและทวงถามกับฝ่ายบัญชีของลูกค้าตามรายการด้านบน\n`;
+    bodyText += `• สามารถคัดลอกร่างข้อความทวงเงินอัจฉริยะ (1-Click Templates) ได้ในแถบเมนูของแอปพลิเคชัน\n\n`;
+    bodyText += `ขอแสดงความนับถือ\n`;
+    bodyText += `ระบบติดตามเครดิตเทอมอัตโนมัติ กระรอกตุนเงิน`;
+
+    const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
+
+    triggerConfirm(
+      tr("ส่งอีเมลรายงานสรุปยอดค้างจ่าย"),
+      tr("ระบบจะทำการสร้างร่างรายงานสรุปยอดค้างจ่ายทั้งหมดจำนวน {0} และเปิดช่องทางจัดส่งไปที่เมล {1} ของคุณ เพื่อช่วยเก็บประวัติ", formatCurrency(creditTermReport.totalPendingValue), recipient),
+      () => {
+        if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsPublicKey) {
+          setIsSendingSimulated(true);
+          
+          // Show quick simulation flow
+          triggerAlert(tr("กำลังส่งรายงานผ่าน EmailJS..."), tr("กรุณารอระบบประมวลผลสักครู่เดียวครับ"));
+          
+          fetch('https://api.emailjs.com/api/v1.0/email/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              service_id: notifSettings.emailjsServiceId,
+              template_id: notifSettings.emailjsTemplateId,
+              user_id: notifSettings.emailjsPublicKey,
+              template_params: {
+                to_email: recipient,
+                subject: subjectText,
+                message: bodyText,
+              }
+            })
+          })
+          .then(res => {
+            setIsSendingSimulated(false);
+            if (res.ok) {
+              triggerAlert(
+                tr("ส่งอีเมลรายงานสำเร็จ!"),
+                tr("ระบบได้ส่งรายงานวิเคราะห์ยอดค้างรับไปยังอีเมล {0} เรียบร้อยแล้วครับ", recipient)
+              );
+            } else {
+              res.text().then(errText => {
+                triggerAlert(
+                  tr("ส่งผ่าน EmailJS ไม่สำเร็จ"),
+                  tr("ตรวจพบข้อผิดพลาด: {0}\n\nระบบจะสลับไปทำงานผ่านระบบเมลสำรอง (Mailto Link) แทนเพื่อเปิดแอปพลิเคชันอีเมลของคุณ", errText),
+                  () => {
+                    window.location.href = mailtoUrl;
+                  }
+                );
+              });
+            }
+          })
+          .catch(err => {
+            setIsSendingSimulated(false);
+            triggerAlert(
+              tr("เกิดข้อผิดพลาดในการเชื่อมต่อ"),
+              tr("ไม่สามารถเชื่อมต่ออีเมลเซิร์ฟเวอร์ได้: {0}\n\nระบบจะเปลี่ยนไปส่งผ่านเมลสำรองของคุณแทนครับ", err.message),
+              () => {
+                window.location.href = mailtoUrl;
+              }
+            );
+          });
+        } else {
+          // Fallback to mailto link immediately
+          setIsSendingSimulated(true);
+          setTimeout(() => {
+            setIsSendingSimulated(false);
+            window.location.href = mailtoUrl;
+            
+            setTimeout(() => {
+              triggerAlert(
+                tr("เปิดระบบเมลสำเร็จ!"),
+                tr("รายงานจะถูกร่างและเปิดขึ้นบนระบบของคุณเรียบร้อยแล้ว ปลายทางคือ {0}", recipient)
+              );
+            }, 1000);
+          }
+          , 2000);
+        }
+      }
+    );
+  };
+
+  // Credit term dashboard states
+  const [creditFilter, setCreditFilter] = React.useState<'all' | 'overdue' | 'dueSoon' | 'onTrack'>('all');
+  const [expandedJobId, setExpandedJobId] = React.useState<string | null>(null);
+  const [copiedJobId, setCopiedJobId] = React.useState<string | null>(null);
+  const [followUpStyle, setFollowUpStyle] = React.useState<'polite' | 'cute' | 'urgent'>('polite');
+
+  const unpaidJobs = React.useMemo<Job[]>(() => {
+    return jobs.flatMap((job) => {
+      const pendingEntries = getJobPendingEntries(job);
+      const outstandingAmount = getOutstandingAmount(job);
+      if (outstandingAmount <= 0) return [];
+
+      // A workflow status can be edited independently from the money received. The quick-pay
+      // list therefore follows the real outstanding entries, including installments in future
+      // months, and only uses the nearest unpaid due date for sorting/display.
+      const nextDueDate = pendingEntries
+        .map((entry) => entry.dueDate)
+        .filter((date): date is string => Boolean(date))
+        .sort()[0];
+
+      return [{
+        ...job,
+        pending: outstandingAmount,
+        payDate: nextDueDate || job.payDate,
+      }];
+    });
+  }, [jobs]);
+
+  // Undelivered work with no delivery date has no due date yet; the pending-entry fallback
+  // (its start date) would otherwise read as "เลยกำหนด".
+  const withDueInfo = (j: Job) => {
+    if (j.isPosted === false && !j.postDate) {
+      return { ...j, daysText: tr("ยังไม่ส่งงาน"), isOverdue: false, daysCount: Number.MAX_SAFE_INTEGER, noDueDate: true };
+    }
+    const rel = getRelativeDaysText(j.payDate || j.postDate);
+    return { ...j, daysText: rel.text, isOverdue: rel.isOverdue, daysCount: rel.daysCount, noDueDate: !(j.payDate || j.postDate) };
+  };
+
+  const filteredUnpaidJobs = React.useMemo(() => {
+    const q = quickSearch.trim().toLowerCase();
+    if (!q) {
+      return unpaidJobs
+        .map(withDueInfo)
+        .sort((a, b) => {
+          if (a.isOverdue && !b.isOverdue) return -1;
+          if (!a.isOverdue && b.isOverdue) return 1;
+          return a.daysCount - b.daysCount;
+        });
+    }
+    return unpaidJobs
+      .filter(j => 
+        j.name.toLowerCase().includes(q) || 
+        (j.client && j.client.toLowerCase().includes(q))
+      )
+      .map(withDueInfo);
+  }, [unpaidJobs, quickSearch]);
+
+  // Calculations for Credit Term tracking dashboard
+  const creditStats = React.useMemo(() => {
+    let totalUnpaid = 0;
+    let totalOverdue = 0;
+    let totalDueSoon = 0;
+    let totalOnTrack = 0;
+
+    let overdueCount = 0;
+    let dueSoonCount = 0;
+    let onTrackCount = 0;
+
+    const mapped = unpaidJobs.map(j => {
+      const rel = getRelativeDaysText(j.payDate || j.postDate);
+      const isOverdue = rel.isOverdue;
+      const isDueSoon = !isOverdue && rel.daysCount >= 0 && rel.daysCount <= 7;
+      const isOnTrack = !isOverdue && !isDueSoon;
+
+      totalUnpaid += j.pending;
+      if (isOverdue) {
+        totalOverdue += j.pending;
+        overdueCount++;
+      } else if (isDueSoon) {
+        totalDueSoon += j.pending;
+        dueSoonCount++;
+      } else {
+        totalOnTrack += j.pending;
+        onTrackCount++;
+      }
+
+      return {
+        ...j,
+        daysText: rel.text,
+        isOverdue,
+        isDueSoon,
+        isOnTrack,
+        daysCount: rel.daysCount
+      };
+    });
+
+    return {
+      mapped,
+      totalUnpaid,
+      totalOverdue,
+      totalDueSoon,
+      totalOnTrack,
+      overdueCount,
+      dueSoonCount,
+      onTrackCount,
+      totalCount: mapped.length
+    };
+  }, [unpaidJobs, language]);
+
+  const filteredUnpaidJobsByTabAndSearch = React.useMemo(() => {
+    const q = quickSearch.trim().toLowerCase();
+    
+    // First apply search
+    let list = creditStats.mapped;
+    if (q) {
+      list = list.filter(j => 
+        j.name.toLowerCase().includes(q) || 
+        (j.client && j.client.toLowerCase().includes(q))
+      );
+    }
+
+    // Then apply credit term status tab filter
+    if (creditFilter === 'overdue') {
+      list = list.filter(j => j.isOverdue);
+    } else if (creditFilter === 'dueSoon') {
+      list = list.filter(j => j.isDueSoon);
+    } else if (creditFilter === 'onTrack') {
+      list = list.filter(j => j.isOnTrack);
+    }
+
+    // Sort: overdue first, then by daysCount ascending
+    return list.sort((a, b) => {
+      if (a.isOverdue && !b.isOverdue) return -1;
+      if (!a.isOverdue && b.isOverdue) return 1;
+      return a.daysCount - b.daysCount;
+    });
+  }, [creditStats, quickSearch, creditFilter]);
+
+  const generateFollowUpMessage = (j: any, style: 'polite' | 'cute' | 'urgent') => {
+    const clientName = j.client || 'คุณลูกค้า';
+    const projectName = j.name;
+    const valueStr = formatCurrency(j.pending);
+    const dateStr = safeFormatThaiDate(j.payDate || j.postDate);
+    const creditStr = j.creditTerm ? `${j.creditTerm} วัน` : 'ไม่ระบุ';
+
+    if (style === 'polite') {
+      return `เรียน คุณลูกค้า/ผู้ติดต่อจากแบรนด์ ${clientName}\n\n` +
+             `ขออนุญาตติดตามสถานะและการดำเนินการตั้งเบิกสำหรับโปรเจกต์ "${projectName}" ` +
+             `ซึ่งมียอดค้างชำระจำนวน ${valueStr} บาท (กำหนดชำระเมื่อวันที่ ${dateStr} ตามเงื่อนไขเครดิตเทอม ${creditStr} ครับ)\n\n` +
+             `หากท่านได้ทำการโอนชำระเงินเข้ามาแล้ว หรือหากต้องการเอกสาร/ใบเสร็จเพิ่มเติมประการใด ` +
+             `สามารถแจ้งกระผมทราบได้ทันทีนะครับ ขอบพระคุณสำหรับความร่วมมือและขออภัยที่ส่งข้อความมาติดตามครับ 🙏💼\n\n` +
+             `ขอแสดงความนับถือ,\n[ชื่อของคุณ]`;
+    } else if (style === 'cute') {
+      return `สวัสดีค่าแบรนด์ ${clientName} ที่น่ารัก 🐿️💖\n\n` +
+             `วันนี้นัททิเจ้ากระรอกน้อย ขออนุญาตแวะมาสะกิดติดตามเรื่องคลังเสบียงของโปรเจกต์ "${projectName}" น้าค้า ` +
+             `มียอดค้างโอนอยู่จำนวน ${valueStr} บาท (เลยกำหนดกำหนดส่งมอบและเครดิตเทอมวันที่ ${dateStr} แย้วงับ 🥺)\n\n` +
+             `คุณลูกค้าโอนเข้าโพรงไม้เรียบร้อยแล้วแจ้งนัททิได้น้า หรือถ้าติดขั้นตอนตรงไหนปรึกษาบอกได้เลยงับ! ` +
+             `ขอขอบพระคุณที่น่ารักและคอยดูแลนัททิตลอดมาน้าค้า รักเลยยยย 🥜✨`;
+    } else {
+      return `⚠️ [ติดตามด่วน - ยอดเลยกำหนดชำระเครดิตเทอม]\n\n` +
+             `เรียน ฝ่ายบัญชี/ผู้ดูแลแบรนด์ ${clientName}\n\n` +
+             `อ้างอิงถึงการส่งมอบงานโครงการ "${projectName}" ยอดเงินค้างชำระคงเหลือสุทธิจำนวน ${valueStr} บาท ซึ่งครบกำหนดรับเงินตั้งแต่วันที่ ${dateStr} แล้วนั้น\n\n` +
+             `เนื่องจากยอดนี้เลยดีลการชำระเงินตามสัญญามาแล้ว รบกวนช่วยเร่งตรวจสอบกับทางฝ่ายที่เกี่ยวข้อง ` +
+             `และขอความกรุณาช่วยแจ้งวันที่ยอดเงินจะเข้าบัญชี หรือส่งหลักฐานการโอนกลับมาที่ช่องทางนี้โดยด่วนที่สุดครับ\n\n` +
+             `หากต้องการให้จัดส่งเอกสารใบเสร็จ/ใบกำกับภาษีเพิ่มเติม กรุณาแจ้งให้ทราบทันทีครับ\n\n` +
+             `ขอบคุณครับ,\n[ชื่อของคุณ]`;
+    }
+  };
+
+  const handleCopyMessage = (j: any) => {
+    const text = generateFollowUpMessage(j, followUpStyle);
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setCopiedJobId(j.id);
+        setTimeout(() => setCopiedJobId(null), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
+  };
+
+  const handleMarkFollowUp = (j: any) => {
+    if (onEditJob) {
+      onEditJob(j.id, {
+        followUpCount: (j.followUpCount || 0) + 1,
+        lastFollowUpDate: new Date().toISOString().split('T')[0]
+      });
+      
+      // Play sound effect
+      try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, now);
+          osc.frequency.exponentialRampToValueAtTime(1000, now + 0.1);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        }
+      } catch (e) {}
+    }
+  };
+
+  const selectedMonthSummary = React.useMemo(
+    () => computeMonthlySummary(jobs, expenses, goals, settings, selectedMonthKey),
+    [jobs, expenses, goals, settings, selectedMonthKey],
+  );
+  const monthlyProfit = monthlyProfitSummary(selectedMonthSummary);
+  const receivedEntriesForMonth = React.useMemo(
+    () => jobs.flatMap(getJobPaymentEntries).filter((entry) => getMonthKeyFromDate(entry.date) === selectedMonthKey),
+    [jobs, selectedMonthKey],
+  );
+  const pendingEntriesForMonth = React.useMemo(
+    () => jobs.flatMap(getJobScheduledPendingEntries).filter((entry) => getMonthKeyFromDate(entry.dueDate) === selectedMonthKey),
+    [jobs, selectedMonthKey],
+  );
+  const selectedMonthJobs = React.useMemo(
+    () => jobs.filter(j => getMonthKey(j.payDate || j.postDate) === selectedMonthKey || receivedEntriesForMonth.some((entry) => entry.jobId === j.id) || pendingEntriesForMonth.some((entry) => entry.jobId === j.id)),
+    [jobs, selectedMonthKey, receivedEntriesForMonth, pendingEntriesForMonth],
+  );
+  
+  // Trust the recorded `received` field as-is -- never assume a "done" job's full value was
+  // received when that field is still 0/unset, since that shows phantom income the user never
+  // actually got and disagrees with the Timeline tab, which only counts received > 0.
+  const totalReceived = monthlyProfit.received;
+
+  // Trust the recorded `pending` field as-is, the same way totalReceived trusts `received` --
+  // don't also gate on isPaid. A properly-saved "done" job already has pending forced to 0
+  // (see JobsTab's save/quick-collect handlers), so this isPaid check was always redundant for
+  // well-formed data and actively hid money for any job whose paid flag and pending amount had
+  // drifted out of sync, disagreeing with the Timeline tab (which never checks isPaid here) and
+  // making dashboard money vanish from both totals at once.
+  const totalPending = pendingEntriesForMonth.reduce((sum, entry) => sum + entry.amount, 0);
+
+  // Must equal totalReceived + totalPending, not a separately-derived sum -- otherwise it
+  // silently drifts from the rest of the app (e.g. the Timeline tab's monthly total), which
+  // already nets out WHT and includes scheduled work even before delivery.
+  const totalContractVal = totalReceived + totalPending;
+
+  const monthRecordedExpenses = React.useMemo(
+    () => expenses.filter(e => getMonthKey(e.date) === selectedMonthKey),
+    [expenses, selectedMonthKey],
+  );
+  // A dated payment whose name matches a configured monthly cost is still a recurring expense.
+  // Previously the fixed budget line was correctly suppressed to avoid double counting, but the
+  // dated payment was then labelled "ทั่วไป" on the dashboard. Keep the actual payment in the
+  // recurring bucket and reserve the variable bucket for genuinely general spending.
+  const recurringExpenseNames = React.useMemo(
+    () => new Set((settings.fixedExpenseItems || []).map(item => item.name.trim().toLowerCase())),
+    [settings.fixedExpenseItems],
+  );
+  const monthRecurringExpenses = monthRecordedExpenses.filter(e => recurringExpenseNames.has(e.name.trim().toLowerCase()));
+  const monthVariableExpenses = monthRecordedExpenses.filter(e => !recurringExpenseNames.has(e.name.trim().toLowerCase()));
+  const variableExpenseThisMonth = monthVariableExpenses.reduce((sum, e) => sum + e.amount, 0);
+  // Fixed costs only from the account's first recorded month (or this month for a new account),
+  // so browsing back past the start doesn't show rent as spent in months nothing existed.
+  const fixedCostsFrom = React.useMemo(() => firstActivityMonth(jobs, expenses) ?? currentMonthKeyNow(), [jobs, expenses]);
+  const fixedFor = (monthKey: string, expenseNames: string[]) =>
+    monthKey >= fixedCostsFrom ? fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, expenseNames) : 0;
+  // The budgeted monthly costs with no payment recorded yet: counted in profit, not yet taken off
+  // the money in hand.
+  const unpaidFixedThisMonth = selectedMonthSummary.fixedExpenseCalculated;
+  const fixedExpenseThisMonth = unpaidFixedThisMonth
+    + monthRecurringExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // Money moved into savings goals this month via the deposit modal's "deduct from cash"
+  // option. Tracked on the goal transaction itself, never as a fake Expense -- a savings
+  // transfer isn't a real expense and would wrongly show up in tax/expense reports otherwise.
+  const monthGoalDeductions = React.useMemo(
+    () => goals.flatMap(g => (g.history || [])
+      .filter(tx => tx.type === 'deposit' && tx.deductedFromCash && getMonthKey(tx.date) === selectedMonthKey)
+      .map(tx => ({ ...tx, goalName: g.name, goal: g }))
+    ),
+    [goals, selectedMonthKey],
+  );
+  const goalDeductionsThisMonth = monthGoalDeductions.reduce((sum, tx) => sum + tx.amount, 0);
+
+  const totalCashOutThisMonth = monthRecordedExpenses.reduce((sum, e) => sum + e.amount, 0) + goalDeductionsThisMonth;
+
+  // Savings-goal transfers are an allocation of what's left, not an expense, so they stay out of
+  // profit (matching the 12-month chart and the Split tab) and only reduce cash-in-hand below.
+  const profit = monthlyProfit.netProfit;
+  // What's actually left in hand right now: money already received minus money already spent
+  // on logged variable expenses and cash-funded goal deposits. Deliberately excludes the
+  // fixed-expense budget line (that's what `profit` above is for) since fixed bills haven't
+  // necessarily left the wallet yet.
+  const receivedAfterVariableExpense = Math.max(0, totalReceived - totalCashOutThisMonth);
+  // Month-over-month comparison for the hero card
+  const prevMonthKey = React.useMemo(() => {
+    const [y, m] = selectedMonthKey.split('-').map(Number);
+    const d = new Date(y, m - 1 - 1, 1);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
+  }, [selectedMonthKey]);
+
+  const prevMonthReceived = React.useMemo(
+    () => jobs.flatMap(getJobPaymentEntries).reduce((sum, entry) => getMonthKeyFromDate(entry.date) === prevMonthKey ? sum + entry.amount : sum, 0),
+    [jobs, prevMonthKey],
+  );
+
+  // The trend line sits under "กำไรสุทธิ", so it compares profit (same formula as `profit`), not received.
+  const prevMonthProfit = React.useMemo(() => {
+    const prevExpenses = expenses.filter(e => getMonthKey(e.date) === prevMonthKey);
+    const prevRecurring = prevExpenses.filter(e => recurringExpenseNames.has(e.name.trim().toLowerCase()));
+    const prevVariable = prevExpenses.filter(e => !recurringExpenseNames.has(e.name.trim().toLowerCase())).reduce((sum, e) => sum + e.amount, 0);
+    const prevFixed = fixedFor(prevMonthKey, prevExpenses.map(e => e.name)) + prevRecurring.reduce((sum, e) => sum + e.amount, 0);
+    return prevMonthReceived - prevFixed - prevVariable;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses, prevMonthKey, prevMonthReceived, settings.monthlyExpense, settings.fixedExpenseItems, fixedCostsFrom, recurringExpenseNames]);
+  const profitChangePct = prevMonthProfit > 0
+    ? Math.round(((profit - prevMonthProfit) / prevMonthProfit) * 100)
+    : null;
+
+  const playHapticAndSound = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContext) {
+        const ctx = new AudioContext();
+        const now = ctx.currentTime;
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(523.25, now);
+        osc1.frequency.exponentialRampToValueAtTime(783.99, now + 0.15);
+        
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(329.63, now);
+        osc2.frequency.exponentialRampToValueAtTime(523.25, now + 0.15);
+        
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.25);
+        osc2.stop(now + 0.25);
+      }
+    } catch (e) {
+      console.log("Audio feedback error", e);
+    }
+    if (navigator.vibrate) {
+      navigator.vibrate([40, 30, 40]);
+    }
+  };
+
+
+  const upcomingPayments = React.useMemo(() => jobs
+    .filter(j => j.pending > 0 && j.isPosted !== false)
+    .map(j => {
+      const rel = getRelativeDaysText(j.payDate || j.postDate);
+      return {
+        ...j,
+        daysText: rel.text,
+        isOverdue: rel.isOverdue,
+        daysCount: rel.daysCount,
+      };
+    })
+    .sort((a, b) => {
+      if (a.isOverdue && !b.isOverdue) return -1;
+      if (!a.isOverdue && b.isOverdue) return 1;
+      return a.daysCount - b.daysCount;
+    })
+    .slice(0, 4), [jobs, language]);
+
+  const recentActivity = React.useMemo(() => {
+    const paymentEvents = jobs.flatMap(j => getJobPaymentEntries(j).map(entry => ({
+      key: entry.id,
+      date: entry.date || '',
+      label: tr("รับเงิน {0}", entry.client || entry.jobName),
+      sub: tr("เงินเข้า"),
+      amount: `+${formatCurrency(entry.amount)}`,
+      isIncome: true,
+    })));
+    const expenseEvents = expenses.map(e => ({
+      key: e.id,
+      date: e.date,
+      label: e.name,
+      sub: tr("รายจ่าย"),
+      amount: `-${formatCurrency(e.amount)}`,
+      isIncome: false,
+    }));
+    return [...paymentEvents, ...expenseEvents]
+      .filter(ev => ev.date)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 5);
+  }, [jobs, expenses, language]);
+
+  const currentMonthKeyForCalendar = selectedMonthKey;
+
+  const miniCalendarDays = React.useMemo(() => {
+    const now = new Date();
+    const [year, month] = (() => { const [y, m] = selectedMonthKey.split('-').map(Number); return [y, m - 1]; })();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    // Real today (the month shown may be another one). The full and mini calendars share the
+    // same payment-entry expansion, so deposits and installments land on their actual dates.
+    const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const todayKey = dayKey(now);
+    const eventsByDay = buildCalendarEvents(jobs, todayKey);
+    const dayColor = new Map(Array.from(eventsByDay, ([key, events]) => {
+      const primary = primaryCalendarEvent(receivablesAccess ? events : events.filter(event => event.kind === 'post' || event.kind === 'paid'));
+      return [key, primary ? MINI_CALENDAR_EVENT_STYLES[primary.kind] : { bg: 'transparent', color: 'inherit' }];
+    }));
+
+    const cells: { n: number | null; key?: string; bg: string; color: string }[] = [];
+    for (let i = 0; i < firstWeekday; i++) cells.push({ n: null, bg: 'transparent', color: 'inherit' });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isToday = key === todayKey;
+      const style = dayColor.get(key);
+      cells.push(isToday
+        ? { n: d, key, bg: '#E65F2B', color: '#ffffff' }
+        : { n: d, key, ...(style || { bg: 'transparent', color: 'inherit' }) });
+    }
+    return cells;
+  }, [jobs, selectedMonthKey, receivablesAccess]);
+
+  // The mobile overview shows the same month figures as the cards below, arranged as in the mobile design.
+  const mobileHome = mobile ? (() => {
+    const work = workValueForMonth(jobs, selectedMonthKey);
+    const previousWork = workValueForMonth(jobs, prevMonthKey).value;
+    const change = (pct: number | null) => (pct === null ? null : { text: tr("{0}{1}% จากเดือนก่อน", pct >= 0 ? '+' : '−', Math.abs(pct)), up: pct >= 0 });
+    // "ยอดเงินปัจจุบัน" is no longer on the phone overview (owner's Bold-header brief, 2026-10-20); it
+    // still closes the statement that tapping net profit opens.
+    const todayKey = toLocalDateKey();
+    const nextEvent = Array.from(buildCalendarEvents(jobs, todayKey).values()).flat()
+      .filter(event => event.date.startsWith(selectedMonthKey) && event.date >= todayKey && event.kind !== 'paid' && (receivablesAccess || event.kind === 'post'))
+      .sort((a, b) => a.date.localeCompare(b.date))[0];
+    const hasPending = jobs.some(job => job.isPosted !== false && getJobPendingEntries(job)
+      .some(entry => entry.amount > 0 && (!entry.dueDate || getMonthKeyFromDate(entry.dueDate) <= selectedMonthKey)));
+    return (
+      <MobileHome
+        fullFeatureAccess={fullFeatureAccess}
+        receivablesAccess={receivablesAccess}
+        quotationAccess={quotationAccess}
+        monthPicker={monthPicker}
+        profit={profit < 0 ? `−${formatCurrency(-profit)}` : formatCurrency(profit)}
+        profitTrend={change(profitChangePct)}
+        workTrend={change(previousWork > 0 ? Math.round(((work.value - previousWork) / previousWork) * 100) : null)}
+        received={formatCurrency(totalReceived)}
+        expense={formatCurrency(monthlyProfit.totalExpense)}
+        workLabel={withMonth(T("มูลค่างาน"), selectedMonthKey)}
+        workValue={formatCurrency(work.value)}
+        workDetail={tr("{0} งานในเดือน", work.count)}
+        hasPending={hasPending}
+        recent={recentActivity.map(item => ({ ...item, date: safeFormatThaiDate(item.date, { day: 'numeric', month: 'short' }) }))}
+        next={nextEvent ? {
+          day: Number(nextEvent.date.slice(8)),
+          month: new Date(Number(nextEvent.date.slice(0, 4)), Number(nextEvent.date.slice(5, 7)) - 1, 1).toLocaleDateString(dateLocale(), { month: 'short' }),
+          caption: nextEvent.kind === 'post' ? tr("กำหนดส่งงาน") : tr("รอรับ {0}", formatCurrency(nextEvent.amount)),
+          title: nextEvent.kind === 'post' ? nextEvent.jobName : nextEvent.client || nextEvent.jobName,
+          onOpen: () => onViewJob?.(nextEvent.jobId),
+        } : null}
+        onNet={() => setBreakdownFilter('profit')}
+        onReceived={() => setBreakdownFilter('received')}
+        onExpense={() => setBreakdownFilter('expense')}
+        onWork={() => setBreakdownFilter('workValue')}
+        onAllActivity={() => onSwitchTab('incomeExpense')}
+        onReceivables={() => onSwitchTab('receivables')}
+        onQuickPay={() => setIsQuickPayExpanded(true)}
+        onAddIncome={() => onQuickRecord?.('income')}
+        onAddExpense={() => onQuickRecord?.('expense')}
+        onDocuments={() => onSwitchTab('invoice')}
+        onGoals={() => onSwitchTab('split')}
+        onFeedback={() => onSwitchTab('feedback')}
+        onCalendar={() => (onOpenCalendar ? onOpenCalendar() : onSwitchTab('calendar'))}
+        onTools={() => onOpenTools?.()}
+      />
+    );
+  })() : null;
+
+  return (
+    <div id="dashboard-top" className="dashboard-shell flex flex-col scroll-mt-6 text-brand-text">
+      {mobileHome ?? (<>
+      {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
+          pre-existing Alert Zone below, which already owns order-2. */}
+      <div className="order-1 flex flex-col gap-5">
+      <MonthlyWorkValueBanner receivablesAccess={receivablesAccess} jobs={jobs} monthKey={selectedMonthKey} onOpenDetails={() => setBreakdownFilter('workValue')} />
+
+      <div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => setBreakdownFilter('received')}
+          className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
+        >
+          <p className="text-xs text-brand-muted">{withMonth(T("รับเงินจริง"), selectedMonthKey)}</p>
+          <p className="mt-1 text-xl leading-7 font-semibold font-mono text-brand-text">{formatCurrency(totalReceived)}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => receivablesAccess ? setBreakdownFilter('pending') : onSwitchTab('jobs')}
+          className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
+        >
+          <p className="text-xs text-brand-muted">{receivablesAccess ? (selectedMonthKey === currentMonthKeyNow() ? tr("รอรับเงิน") : tr("รอรับ {0}", formatMonthKey(selectedMonthKey))) : tr("งานทั้งหมด")}</p>
+          <p className="mt-1 text-xl leading-7 font-semibold font-mono text-[#E65F2B]">{receivablesAccess ? formatCurrency(totalPending) : tr("{0} งาน", jobs.length)}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setBreakdownFilter('expense')}
+          className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
+        >
+          <p className="text-xs text-brand-muted">{withMonth(T("รายจ่าย"), selectedMonthKey)}</p>
+          <p className="mt-1 text-xl leading-7 font-semibold font-mono text-brand-text">{formatCurrency(monthlyProfit.totalExpense)}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setBreakdownFilter('profit')}
+          className={`${uiSurface} flex flex-col items-start justify-start p-[18px] text-left cursor-pointer`}
+        >
+          <p className="text-xs text-brand-muted">{tr("กำไรสุทธิ")}</p>
+          <div data-testid="profit-primary-row" className="mt-1 flex w-full flex-wrap items-center gap-x-2.5 gap-y-1">
+            <p className={`text-[22px] leading-7 font-bold font-mono ${profit >= 0 ? 'text-[#18A66A]' : 'text-rose-600'}`}>{formatCurrency(profit)}</p>
+            {profitChangePct !== null && (
+              <p className={`inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium ${profitChangePct >= 0 ? 'text-[#18A66A]' : 'text-rose-500'}`}>
+                {profitChangePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                {tr("{0}{1}% จากเดือนก่อน", profitChangePct >= 0 ? '↑ ' : '↓ ', Math.abs(profitChangePct))}</p>
+            )}
+          </div>
+        </button>
+      </div>
+      <p className="mt-[10px] text-[11px] text-brand-muted">{tr("{0} งานทั้งหมด", jobs.length)}{receivablesAccess && <> {tr("· {0} รายการเกินกำหนด", jobs.filter(j => j.pending > 0 && getRelativeDaysText(j.payDate || j.postDate).isOverdue).length)}</>}</p>
+      </div>
+      </div>
+
+      {/* Shortcuts deliberately reuse existing routes/record modes; no separate state or API. */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32, delay: 0.1 }}
+        aria-label={tr("ทางลัด")}
+        className="order-3 relative mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4"
+      >
+        <button
+          type="button"
+          onClick={() => { setIsMoreMenuOpen(false); if (receivablesAccess) setIsQuickPayExpanded(true); else onSwitchTab('invoice'); }}
+          className="flex items-center gap-2.5 rounded-xl border border-[#F8D6C2] bg-[#FFF1E8] px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
+        >
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-white">
+            {receivablesAccess ? <Coins className="h-4 w-4 text-[#E65F2B]" /> : <IconArrowUpRight className="h-4 w-4 text-[#E65F2B]" />}
+          </span>
+          <span className="text-xs font-semibold text-[#E65F2B]">{receivablesAccess ? tr("รับเงินด่วน") : tr("ออกเอกสาร")}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onQuickRecord?.('income')}
+          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
+        >
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-[#E9F8F1]">
+            <TrendingUp className="h-4 w-4 text-[#4E9D78]" />
+          </span>
+          <span className="text-xs font-medium text-brand-text">{tr("เพิ่มรายรับ")}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onQuickRecord?.('expense')}
+          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
+        >
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-[#FFF0F0]">
+            <TrendingDown className="h-4 w-4 text-[#C43A3A]" />
+          </span>
+          <span className="text-xs font-medium text-brand-text">{tr("เพิ่มรายจ่าย")}</span>
+        </button>
+        {/* display:contents keeps the grid layout; the wrapper only scopes outside-click. */}
+        <div ref={moreMenuRef} className="contents">
+        <button
+          type="button"
+          onClick={() => setIsMoreMenuOpen(v => !v)}
+          aria-haspopup="menu"
+          aria-expanded={isMoreMenuOpen}
+          className="flex items-center gap-2.5 rounded-xl border border-brand-border bg-brand-white px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
+        >
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-faint">
+            <span className="text-brand-muted">•••</span>
+          </span>
+          <span className="text-xs font-medium text-brand-text">{tr("เพิ่มเติม")}</span>
+        </button>
+
+        {isMoreMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            role="menu"
+            className="lg-glass is-menu absolute right-0 top-[calc(100%+8px)] z-20 w-52 rounded-[20px] p-1.5"
+          >
+            {[
+              { label: tr("ออกเอกสาร"), icon: IconArrowUpRight, action: () => onSwitchTab('invoice') },
+              fullFeatureAccess
+                ? { label: tr("เป้าหมายออม"), icon: PiggyBank, action: () => onSwitchTab('split') }
+                : { label: tr("บอกเรา"), icon: MessageSquare, action: () => onSwitchTab('feedback') },
+              { label: tr("ปฏิทิน"), icon: CalendarDays, action: () => onSwitchTab('calendar') },
+            ].map(({ label, icon: Icon, action }) => (
+              <button
+                key={label}
+                type="button"
+                role="menuitem"
+                onClick={() => { action(); setIsMoreMenuOpen(false); }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint transition-colors cursor-pointer"
+              >
+                <Icon className="h-4 w-4 text-brand-muted" />
+                {label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+        </div>
+      </motion.section>
+
+      {/* Income/expense chart next to the receivables watchlist. */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32, delay: 0.12 }}
+        className={`order-4 mt-6 grid grid-cols-1 gap-4${receivablesAccess ? ' lg:grid-cols-[1fr_320px]' : ''}`}
+      >
+        <IncomeExpenseChart jobs={jobs} expenses={expenses} settings={settings} monthKey={selectedMonthKey} />
+
+        {receivablesAccess && <div className={`${uiSurface} flex flex-col p-[18px]`}>
+            <div className="mb-2.5 flex items-center gap-2.5">
+              <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center" aria-hidden="true">
+                <Mascot mood="thinking" size={34} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-[13px] font-medium text-brand-text">{tr("เงินที่ต้องติดตาม")}</h4>
+                  {/* Always today's receivables, whatever month the dashboard is showing. */}
+                  <span className="rounded-md bg-brand-faint px-1.5 py-px text-[10px] text-brand-muted" title={tr("แสดงข้อมูล ณ วันนี้ ไม่ขึ้นกับเดือนที่เลือก")}>{tr("สถานะปัจจุบัน")}</span>
+                </div>
+                <p className="text-[11px] text-brand-muted">{tr("เรียงจากเร่งด่วนที่สุดก่อน")}</p>
+              </div>
+              {upcomingPayments.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onSwitchTab('jobs')}
+                  className="shrink-0 text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer"
+                >
+                  {tr("ดูทั้งหมด")}</button>
+              )}
+            </div>
+            {upcomingPayments.length === 0 && (
+              <div className="flex flex-1 flex-col border-t border-brand-border pt-3">
+                {/* Ghost rows: what a waiting payment will look like here. */}
+                <div aria-hidden className="space-y-2">
+                  {[0, 1].map(i => (
+                    <div key={i} className="rounded-[10px] border border-dashed border-brand-border py-2.5 pl-3 pr-2.5" style={{ opacity: 1 - i * 0.4 }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="h-2.5 w-24 rounded-full bg-brand-faint" />
+                        <span className="h-2.5 w-12 rounded-full bg-brand-faint" />
+                      </div>
+                      <span className="mt-2 block h-2 w-16 rounded-full bg-brand-faint" />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-start gap-2.5">
+                  <Mascot mood="happy" size={36} className="shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-brand-text">{tr("ยังไม่มีเงินที่ต้องตาม")}</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-brand-muted">{tr("ส่งงานแล้วยังไม่ได้เงินเมื่อไหร่ งานนั้นจะขึ้นที่นี่ เรียงจากใกล้ครบกำหนดที่สุด")}</p>
+                  </div>
+                </div>
+                <div className="mt-auto pt-4">
+                  <button
+                    type="button"
+                    onClick={() => onQuickRecord ? onQuickRecord('income') : onSwitchTab('jobs')}
+                    className="flex h-9 w-full items-center justify-center rounded-xl border border-brand-border text-xs font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer"
+                  >
+                    {tr("+ บันทึกงาน")}</button>
+                </div>
+              </div>
+            )}
+            {upcomingPayments.map(payment => {
+              const badge = payment.isOverdue
+                ? { bg: '#FFF0F0', text: '#C43A3A', strip: '#E95454', label: tr("เกินกำหนด {0} วัน", Math.abs(payment.daysCount)) }
+                : payment.daysCount === 0
+                ? { bg: '#FAEEDA', text: '#8A5A0B', strip: '#F2A93B', label: tr("ครบกำหนดวันนี้") }
+                : payment.daysCount <= 7
+                ? { bg: '#FFF1E8', text: '#C24A16', strip: '#E65F2B', label: tr("อีก {0} วัน", payment.daysCount) }
+                : { bg: '#F2F3F5', text: '#7D7772', strip: '#D8D4CE', label: tr("รอรับปกติ") };
+              return (
+                <div key={payment.id} className="border-t border-brand-border py-2.5 pl-2.5 first:pt-2.5" style={{ borderLeft: `3px solid ${badge.strip}` }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-brand-text truncate">{payment.name}</p>
+                      <p className="mt-0.5 text-[11px] text-brand-muted truncate">
+                        {payment.client || tr("ไม่ระบุลูกค้า")} · {payment.daysText}
+                      </p>
+                    </div>
+                    <p className="shrink-0 whitespace-nowrap text-xs font-medium text-brand-text">
+                      {formatCurrency(payment.pending)}
+                    </p>
+                  </div>
+                  <span
+                    className="mt-1.5 inline-block rounded-md px-2 py-[3px] text-[10px]"
+                    style={{ background: badge.bg, color: badge.text }}
+                  >
+                    {badge.label}
+                  </span>
+                </div>
+              );
+            })}
+        </div>}
+      </motion.div>
+
+      {/* Recent activity + mini financial calendar, matching the mockup's second row below
+          the chart/watchlist row. */}
+      <div className="order-5 mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+        <div className={`${uiSurface} p-[18px]`}>
+          <div className="mb-1 flex items-center justify-between">
+            <h4 className="text-[13px] font-medium text-brand-text">{tr("รายการล่าสุด")}</h4>
+            <button type="button" onClick={() => onSwitchTab('incomeExpense')} className="text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">
+              {tr("ดูทั้งหมด →")}</button>
+          </div>
+          {recentActivity.length === 0 ? (
+            <p className="py-6 text-center text-xs text-brand-muted">{tr("ยังไม่มีรายการล่าสุด")}</p>
+          ) : recentActivity.map(ev => (
+            <div key={ev.key} className="flex items-center justify-between border-t border-brand-border py-2">
+              <div>
+                <p className="text-xs text-brand-text">{ev.label}</p>
+                <p className="mt-0.5 text-[10px] text-brand-muted">{ev.sub}</p>
+              </div>
+              <p className={`text-xs font-medium ${ev.isIncome ? 'text-[#18A66A]' : 'text-brand-text'}`}>{ev.amount}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className={`${uiSurface} p-[18px]`}>
+          <div className="mb-0.5 flex items-center justify-between">
+            <h4 className="text-[13px] font-medium text-brand-text">{tr("ปฏิทินการเงิน")}</h4>
+            <button type="button" onClick={() => (onOpenCalendar ? onOpenCalendar() : onSwitchTab('calendar'))} className="inline-flex items-center gap-1 text-[11px] text-brand-muted hover:text-[#E65F2B] cursor-pointer">
+              <CalendarDays className="h-3.5 w-3.5" /> {tr("ดูปฏิทิน →")}</button>
+          </div>
+          <p className="mb-2.5 text-[11px] text-brand-muted">{formatMonthKey(currentMonthKeyForCalendar)}</p>
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-brand-muted">
+            {[tr("อา"), tr("จ"), tr("อ"), tr("พ"), tr("พฤ"), tr("ศ"), tr("ส")].map(w => <div key={w}>{w}</div>)}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1 text-center text-[11px]">
+            {miniCalendarDays.map((cell, i) => cell.key ? (
+              // Each day opens the calendar page on that date, where its jobs are listed.
+              <button
+                key={i}
+                type="button"
+                onClick={() => (onOpenCalendar ? onOpenCalendar(cell.key) : onSwitchTab('calendar'))}
+                aria-label={tr("ดูปฏิทินวันที่ {0}", safeFormatThaiDate(cell.key, { day: 'numeric', month: 'long', year: 'numeric' }))}
+                className="rounded-md py-1 transition-shadow hover:ring-1 hover:ring-[#F3B08C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B] cursor-pointer"
+                style={{ background: cell.bg, color: cell.color }}
+              >
+                {cell.n}
+              </button>
+            ) : (
+              <div key={i} />
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2.5 text-[9px] text-brand-muted">
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#378ADD]" />{tr("นัดหมาย")}</span>
+            {receivablesAccess && <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#F36A2D]" />Credit Term</span>}
+            {receivablesAccess && <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#F2A93B]" />{tr("ใกล้ครบ")}</span>}
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#18A66A]" />{tr("เงินเข้า")}</span>
+            {receivablesAccess && <span className="inline-flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E95454]" />{tr("เกินกำหนด")}</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className="order-8 mt-7"><VineDivider /></div>
+      </>)}
+
+      {/* Quick payment stays out of the overview until the shortcut is used. */}
+      {receivablesAccess && isQuickPayExpanded && createPortal(
+        <div className="ksm-modal fixed inset-0 z-50 flex items-center justify-center bg-[rgba(33,29,26,0.35)] p-4" onClick={() => setIsQuickPayExpanded(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-pay-title"
+            className="flex w-full max-w-md max-h-[85vh] flex-col rounded-2xl border border-brand-border bg-brand-white p-[22px] shadow-[0_12px_32px_rgba(33,29,26,0.18)] dark:bg-stone-900"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="mb-3.5 flex items-start justify-between gap-3">
+              <div>
+                <h4 id="quick-pay-title" className="text-[15px] font-semibold text-brand-text">{t('dash.quickPayTitle')}</h4>
+                <p className="mt-0.5 text-xs text-brand-muted">{t('dash.quickPaySubtitle')}</p>
+              </div>
+              <button type="button" onClick={() => setIsQuickPayExpanded(false)} aria-label={tr("ปิดหน้าต่างรับเงินด่วน")} className="rounded-md p-1 text-brand-muted hover:text-brand-text cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+              <input
+                type="text"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                className="w-full rounded-[10px] border border-brand-border bg-brand-white py-2.5 pl-9 pr-14 text-[13px] text-brand-text placeholder:text-brand-muted outline-none transition-colors focus:border-[#E65F2B] dark:bg-neutral-950"
+                placeholder={t('dash.searchPlaceholder')}
+              />
+              {quickSearch && (
+                <button
+                  type="button"
+                  onClick={() => setQuickSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-brand-muted hover:text-brand-text cursor-pointer"
+                >
+                  {t('dash.clear')}
+                </button>
+              )}
+            </div>
+
+            {creditTermReport.overdue.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  playHapticAndSound();
+                  setIsQuickPayExpanded(false);
+                  onSwitchTab('receivables');
+                }}
+                className="mb-3 flex w-full items-center gap-2.5 rounded-[10px] bg-[#FFF0F0] px-3 py-2 text-left text-xs text-[#C43A3A] transition-colors hover:bg-[#FFE6E6] dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60 cursor-pointer"
+              >
+                <Mascot mood="alert" size={24} />
+                <span className="flex-1">{t('dash.overdueAlert')}</span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+              </button>
+            )}
+
+            <p className="mb-2 text-xs text-brand-muted">
+              {tr("รับเงินจากงานไหน? · ค้างรับ {0} งาน {1}", unpaidJobs.length, formatCurrency(unpaidJobs.reduce((sum, j) => sum + (j.pending || 0), 0)))}</p>
+            {/* Rows follow the Jobs page: thin left accent only when a payment needs attention,
+                due text coloured by urgency, one quiet action per row. */}
+            <div className="-mx-1 flex-1 overflow-y-auto px-1">
+              {filteredUnpaidJobs.length > 0 && (
+                <ul className="divide-y divide-brand-border overflow-hidden rounded-[10px] border border-brand-border">
+                  {filteredUnpaidJobs.map((j: any) => {
+                    const tone = j.noDueDate ? 'normal'
+                      : j.isOverdue ? 'overdue' : j.daysCount === 0 ? 'today' : j.daysCount <= 3 ? 'soon' : 'normal';
+                    const dueClass = tone === 'overdue' ? 'text-[#C43A3A] dark:text-rose-300'
+                      : tone === 'today' ? 'text-[#C24A16] dark:text-orange-300'
+                      : tone === 'soon' ? 'text-amber-700 dark:text-amber-300' : '';
+                    const accent = tone === 'overdue' ? 'shadow-[inset_3px_0_0_#E95454]' : tone === 'normal' ? '' : 'shadow-[inset_3px_0_0_#F08A4B]';
+                    const hasInstallments = Boolean(j.installments?.length);
+                    return (
+                      <li key={j.id} className={`flex items-center gap-3 px-3 py-2.5 ${accent}`}>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-medium text-brand-text">{j.name}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-brand-muted">
+                            {j.client || t('dash.noClientSpecified')}
+                            <span className={dueClass}> · {j.daysText || t('dash.noDateSpecified')}</span>
+                          </p>
+                        </div>
+                        <span className="shrink-0 font-mono text-[13px] font-semibold text-brand-text">{formatCurrency(j.pending)}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (hasInstallments) { onViewJob?.(j.id); return; }
+                            // Pay against the stored job; this row is a display copy with the
+                            // outstanding amount and next due date filled in.
+                            const stored = jobs.find(job => job.id === j.id);
+                            if (stored) setPayingJob(stored);
+                          }}
+                          className="h-8 shrink-0 rounded-lg border border-brand-border px-3 text-xs font-medium text-brand-text transition-colors hover:border-[#F3B08C] hover:bg-[#FFF1E8] hover:text-[#C24A16] cursor-pointer dark:hover:text-orange-300"
+                        >
+                          {hasInstallments ? tr("รับเงินงวด") : tr("รับเงิน")}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {filteredUnpaidJobs.length === 0 && (
+                <div className="flex flex-col items-center gap-1.5 rounded-[10px] border border-dashed border-brand-border py-8 text-xs text-brand-muted">
+                  <Mascot mood="happy" size={36} />
+                  <span>{quickSearch.trim() ? tr("ไม่พบงานที่ค้นหา") : t('dash.noUnpaidDeals')}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3.5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setIsQuickPayExpanded(false); onSwitchTab('jobs'); }}
+                className="inline-flex items-center gap-1 text-xs text-brand-muted transition-colors hover:text-[#E65F2B] cursor-pointer"
+              >
+                {t('dash.manageAllDeals')}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {receivablesAccess && <JobPaymentDialog
+        job={payingJob}
+        initialMode="full"
+        allowPartial={Boolean(payingJob && !(payingJob.received > 0) && !payingJob.installments?.length)}
+        onClose={() => setPayingJob(null)}
+        onConfirm={(updated, message) => {
+          if (payingJob) applyQuickChange(payingJob, updated, message);
+          setPayingJob(null);
+        }}
+      />}
+      {receivablesAccess && undoBar}
+
+      {/* Breakdown popup: which jobs (or, for "กำไรสุทธิ", which deductions) make up the clicked
+          hero-card figure */}
+      {breakdownFilter === 'profit' && (
+        <FinancialDetailsModal
+          fullFeatureAccess={fullFeatureAccess}
+          monthKey={selectedMonthKey}
+          received={totalReceived}
+          receivedCount={receivedEntriesForMonth.length}
+          fixedExpense={fixedExpenseThisMonth}
+          variableExpense={variableExpenseThisMonth}
+          variableExpenseCount={monthVariableExpenses.length}
+          profit={profit}
+          savedThisMonth={goalDeductionsThisMonth}
+          cashLeft={receivedAfterVariableExpense}
+          unpaidFixed={unpaidFixedThisMonth}
+          savedCount={monthGoalDeductions.length}
+          onClose={() => setBreakdownFilter(null)}
+        />
+      )}
+      {breakdownFilter && breakdownFilter !== 'profit' && (receivablesAccess || breakdownFilter !== 'pending') && (() => {
+          const breakdownJobs =
+            breakdownFilter === 'contract' ? selectedMonthJobs :
+            breakdownFilter === 'received' ? selectedMonthJobs.filter(j => receivedEntriesForMonth.some((entry) => entry.jobId === j.id)) :
+            breakdownFilter === 'pending' ? selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0) :
+            [];
+          const breakdownItems = breakdownFilter === 'received'
+            ? receivedEntriesForMonth.map((entry) => ({ id: entry.id, jobId: entry.jobId, name: entry.jobName, client: entry.client, detail: entry.kind === 'installment' ? installmentLabel(entry.label) : '', amount: entry.amount }))
+            : breakdownFilter === 'pending'
+            ? pendingEntriesForMonth.map((entry) => ({ id: entry.id, jobId: entry.jobId, name: entry.jobName, client: entry.client, detail: entry.kind === 'installment' ? installmentLabel(entry.label) : '', amount: entry.amount }))
+            : breakdownJobs.map((job) => ({ id: job.id, jobId: job.id, name: job.name, client: job.client, detail: '', amount: job.value }));
+          const loggedExpenseNames = new Set(monthRecordedExpenses.map(e => e.name.trim().toLowerCase()));
+          const fixedRows = settings.fixedExpenseItems && settings.fixedExpenseItems.length > 0
+            ? settings.fixedExpenseItems.map(item => ({ id: item.id, name: item.name, amount: item.amount, covered: loggedExpenseNames.has(item.name.trim().toLowerCase()) }))
+            : settings.monthlyExpense > 0 ? [{ id: 'legacy-total', name: tr("ค่าใช้จ่ายคงที่รายเดือน"), amount: settings.monthlyExpense, covered: false }] : [];
+          const workRows = breakdownFilter === 'workValue' ? workValueRowsForMonth(jobs, selectedMonthKey) : [];
+          const workTotals = workRows.reduce((acc, row) => ({
+            value: acc.value + row.value, received: acc.received + row.received, pending: acc.pending + row.pending,
+            otherMonths: acc.otherMonths + row.otherMonths, wht: acc.wht + row.wht, grossValue: acc.grossValue + row.grossValue,
+          }), { value: 0, received: 0, pending: 0, otherMonths: 0, wht: 0, grossValue: 0 });
+          const summaryRow = (label: string, amount: number, tone = 'text-brand-text dark:text-white', sign = '') => (
+            <div className="flex justify-between gap-3">
+              <span className="text-brand-muted">{label}</span>
+              <span className={`font-mono font-bold ${tone}`}>{sign}{formatCurrency(amount)}</span>
+            </div>
+          );
+          return createPortal(
+            <div className="ksm-modal fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setBreakdownFilter(null)}>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-brand-white dark:bg-stone-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 w-full max-w-md shadow-xl space-y-4 relative max-h-[80vh] flex flex-col"
+              >
+                <button
+                  type="button"
+                  onClick={() => setBreakdownFilter(null)}
+                  className="absolute top-4 right-4 p-1.5 bg-brand-faint hover:bg-brand-border/40 dark:bg-stone-800 rounded-lg text-brand-muted hover:text-brand-text transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                <div>
+                  <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
+                    {breakdownFilter === 'contract' && t('dash.breakdownAllJobsTitle', { month: formatMonthKey(selectedMonthKey) })}
+                    {breakdownFilter === 'received' && t('dash.breakdownReceivedTitle')}
+                    {breakdownFilter === 'pending' && t('dash.breakdownPendingTitle')}
+                    {breakdownFilter === 'expense' && tr("{0}มาจากอะไรบ้าง", withMonth(T("รายจ่าย"), selectedMonthKey))}
+                    {breakdownFilter === 'workValue' && tr("{0}มาจากงานไหนบ้าง", withMonth(T("มูลค่างาน"), selectedMonthKey))}
+                  </h3>
+                  {breakdownFilter === 'expense' && (
+                    <p className="text-xs text-brand-muted mt-0.5">{formatCurrency(monthlyProfit.totalExpense)}</p>
+                  )}
+                  {breakdownFilter === 'workValue' && (
+                    <p className="text-xs text-brand-muted mt-0.5">{tr("{0} จาก {1} งาน (หลังหัก ณ ที่จ่าย)", formatCurrency(workTotals.value), workRows.length)}</p>
+                  )}
+                  {(breakdownFilter === 'contract' || breakdownFilter === 'received' || breakdownFilter === 'pending') && (
+                    <p className="text-xs text-brand-muted mt-0.5">
+                      {breakdownFilter === 'contract' && formatCurrency(totalContractVal)}
+                      {breakdownFilter === 'received' && formatCurrency(totalReceived)}
+                      {breakdownFilter === 'pending' && formatCurrency(totalPending)}
+                      {t('dash.breakdownTotalFrom', { count: breakdownItems.length })}
+                    </p>
+                  )}
+                </div>
+
+                {breakdownFilter === 'expense' ? (
+                  <div className="overflow-y-auto space-y-3 -mx-1 px-1">
+                    <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                      {summaryRow(tr("ค่าใช้จ่ายคงที่รายเดือน"), fixedExpenseThisMonth)}
+                      {summaryRow(tr("รายจ่ายที่บันทึก ({0} รายการ)", monthVariableExpenses.length), variableExpenseThisMonth, 'text-brand-text dark:text-white', '+ ')}
+                      <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
+                      <div className="flex justify-between gap-3">
+                        <span className="font-bold text-brand-text dark:text-white">= {withMonth(T("รายจ่าย"), selectedMonthKey)}</span>
+                        <span className="font-mono font-black text-brand-text dark:text-white">{formatCurrency(monthlyProfit.totalExpense)}</span>
+                      </div>
+                    </div>
+
+                    {fixedRows.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">{tr("ค่าใช้จ่ายคงที่")}</p>
+                        <div className="space-y-1.5">
+                          {fixedRows.map(item => (
+                            <div key={item.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                              <div className="min-w-0">
+                                <p className={`truncate ${item.covered ? 'text-brand-muted' : 'text-brand-text dark:text-white'}`}>{item.name}</p>
+                                {item.covered && <p className="text-[10px] text-brand-muted">{tr("บันทึกจ่ายแล้วในเดือนนี้ นับจากรายการที่บันทึกด้านล่าง")}</p>}
+                              </div>
+                              <span className={`font-mono font-bold shrink-0 ${item.covered ? 'text-brand-muted line-through' : 'text-brand-text dark:text-white'}`}>{formatCurrency(item.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">{withMonth(T("รายจ่ายที่บันทึก"), selectedMonthKey)}</p>
+                      {monthVariableExpenses.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {monthVariableExpenses.map(e => (
+                            <div key={e.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                              <div className="min-w-0">
+                                <p className="text-brand-text dark:text-white truncate">{e.name}</p>
+                                <p className="text-[10px] text-brand-muted">{safeFormatThaiDate(e.date)}</p>
+                              </div>
+                              <span className="font-mono font-bold text-brand-text dark:text-white shrink-0">{formatCurrency(e.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="py-3 text-center text-xs text-brand-muted">{withMonth(T("ยังไม่มีรายจ่ายที่บันทึกใน"), selectedMonthKey)}</p>
+                      )}
+                    </div>
+                  </div>
+                ) : breakdownFilter === 'workValue' ? (
+                  <div className="overflow-y-auto space-y-3 -mx-1 px-1">
+                    <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                      {receivablesAccess && <>
+                        {summaryRow(withMonth(T("รับแล้ว"), selectedMonthKey), workTotals.received)}
+                        {summaryRow(withMonth(T("รอรับ"), selectedMonthKey), workTotals.pending, 'text-brand-text dark:text-white', '+ ')}
+                        {workTotals.otherMonths !== 0 && summaryRow(tr("รับก่อนหน้า / ครบกำหนดเดือนอื่น"), workTotals.otherMonths, 'text-brand-text dark:text-white', '+ ')}
+                        <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
+                      </>}
+                      <div className="flex justify-between gap-3">
+                        <span className="font-bold text-brand-text dark:text-white">{receivablesAccess ? '= ' : ''}{withMonth(T("มูลค่างาน"), selectedMonthKey)}</span>
+                        <span className="font-mono font-black text-brand-text dark:text-white">{formatCurrency(workTotals.value)}</span>
+                      </div>
+                      {workTotals.wht > 0 && (
+                        <p className="pt-1 text-[11px] text-brand-muted">{tr("หัก ณ ที่จ่ายให้แล้ว {0} (ก่อนหัก {1})", formatCurrency(workTotals.wht), formatCurrency(workTotals.grossValue))}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {workRows.map(row => {
+                        const parts = [
+                          row.received > 0 ? tr("รับแล้ว {0}", formatCurrency(row.received)) : '',
+                          receivablesAccess && row.pending > 0 ? tr("รอรับ {0}", formatCurrency(row.pending)) : '',
+                          receivablesAccess && row.otherMonths !== 0 ? tr("เดือนอื่น {0}", formatCurrency(row.otherMonths)) : '',
+                          row.wht > 0 ? tr("หัก ณ ที่จ่าย {0}", formatCurrency(row.wht)) : '',
+                        ].filter(Boolean).join(' · ');
+                        return (
+                          <button
+                            key={row.jobId}
+                            type="button"
+                            onClick={() => { setBreakdownFilter(null); onViewJob?.(row.jobId); }}
+                            className="w-full flex items-center justify-between gap-2 p-3 bg-brand-faint/60 hover:bg-brand-faint dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl text-left transition-all cursor-pointer"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-brand-text dark:text-white truncate">{row.name}</p>
+                              <p className="text-[10px] text-brand-muted truncate">{row.client || t('dash.noClientListed')}</p>
+                              {parts && <p className="text-[10px] text-brand-muted">{parts}</p>}
+                            </div>
+                            <span className="text-xs font-mono font-black text-brand-text dark:text-white shrink-0">{formatCurrency(row.value)}</span>
+                          </button>
+                        );
+                      })}
+                      {workRows.length === 0 && (
+                        <p className="text-xs text-brand-muted text-center py-6">{withMonth(T("ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดใน"), selectedMonthKey)}</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-y-auto space-y-2 -mx-1 px-1">
+                    {breakdownItems.map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          setBreakdownFilter(null);
+                          onViewJob?.(item.jobId);
+                        }}
+                        className="w-full flex items-center justify-between gap-2 p-3 bg-brand-faint/60 hover:bg-brand-faint dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl text-left transition-all cursor-pointer"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-brand-text dark:text-white truncate">{item.name}</p>
+                          <p className="text-[10px] text-brand-muted truncate">{item.detail ? `${item.detail} • ` : ''}{item.client || t('dash.noClientListed')}</p>
+                        </div>
+                        <span className="text-xs font-mono font-black text-brand-text dark:text-white shrink-0">
+                          {formatCurrency(item.amount)}
+                        </span>
+                      </button>
+                    ))}
+
+                    {breakdownItems.length === 0 && (
+                      <p className="text-xs text-brand-muted text-center py-6">{t('dash.noJobsThisCategory')}</p>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            </div>,
+            document.body
+          );
+        })()}
+
+    </div>
+  );
+}

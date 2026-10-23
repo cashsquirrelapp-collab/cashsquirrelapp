@@ -1,0 +1,14 @@
+.git/
+.vercel/
+node_modules/
+build/
+dist/
+.env
+.env.*
+test-results/
+playwright-report/
+coverage/
+artifacts/
+tests/
+database/generated/
+.claude/

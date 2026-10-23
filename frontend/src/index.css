@@ -1,0 +1,1209 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+/* Logo wordmark only: Prompt 600 subset to the letters of กระรอกตุนเงิน (a few KB). */
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@600&text=%E0%B8%81%E0%B8%A3%E0%B8%B0%E0%B8%A3%E0%B8%AD%E0%B8%81%E0%B8%95%E0%B8%B8%E0%B8%99%E0%B9%80%E0%B8%87%E0%B8%B4%E0%B8%99&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Thai glyphs need a font that actually ships them -- Inter/Outfit fell back to whatever
+     Thai font the OS happened to have, so headings and body text rendered in two unrelated
+     typefaces side by side. IBM Plex Sans Thai + IBM Plex Sans share weights/metrics, so
+     Thai and Latin/numerals (บาท amounts) sit consistently in the same paragraph. */
+  --font-sans: 'IBM Plex Sans Thai', 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'IBM Plex Sans Thai', 'IBM Plex Sans', sans-serif;
+  /* Neutral sans figures match modern accounting UIs without a dotted zero. */
+  --font-mono: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-bg: var(--bg);
+  --color-brand-white: var(--white);
+  --color-brand-text: var(--text);
+  --color-brand-muted: var(--muted);
+  --color-brand-faint: var(--faint);
+  --color-brand-border: var(--border);
+  --color-brand-green-bg: var(--green-bg);
+  --color-brand-green-acc: var(--green-acc);
+  --color-brand-blue-bg: var(--blue-bg);
+  --color-brand-blue-acc: var(--blue-acc);
+  --color-brand-pink-bg: var(--pink-bg);
+  --color-brand-pink-acc: var(--pink-acc);
+  --color-brand-yellow-bg: var(--yellow-bg);
+  --color-brand-yellow-acc: var(--yellow-acc);
+  --color-brand-purple-bg: var(--purple-bg);
+  --color-brand-purple-acc: var(--purple-acc);
+
+  /* Overwrite default emerald/amber/rose Tailwind colors for status coherence with the Natural Tones theme */
+  --color-emerald-50: var(--green-bg);
+  --color-emerald-100: var(--green-bg);
+  --color-emerald-500: var(--green-acc);
+  --color-emerald-600: var(--green-acc);
+  --color-emerald-700: var(--green-acc);
+
+  --color-amber-50: var(--yellow-bg);
+  --color-amber-100: var(--yellow-bg);
+  --color-amber-200: var(--yellow-bg);
+  --color-amber-300: var(--yellow-acc);
+  --color-amber-400: var(--yellow-acc);
+  --color-amber-500: var(--yellow-acc);
+  --color-amber-600: var(--yellow-acc);
+  --color-amber-700: var(--yellow-acc);
+  --color-amber-800: var(--yellow-acc);
+  --color-amber-900: var(--yellow-acc);
+  --color-amber-950: var(--yellow-acc);
+
+  --color-rose-50: var(--pink-bg);
+  --color-rose-100: var(--pink-bg);
+  --color-rose-200: var(--pink-bg);
+  --color-rose-300: var(--pink-acc);
+  --color-rose-500: var(--pink-acc);
+  --color-rose-600: var(--pink-acc);
+  --color-rose-700: var(--pink-acc);
+  --color-rose-800: var(--pink-acc);
+  --color-rose-900: var(--pink-acc);
+  --color-rose-950: var(--pink-acc);
+
+  --color-purple-50: var(--purple-bg);
+  --color-purple-300: var(--purple-acc);
+  --color-purple-400: var(--purple-acc);
+  --color-purple-500: var(--purple-acc);
+  --color-purple-600: var(--purple-acc);
+
+  --color-blue-50: var(--blue-bg);
+  --color-blue-100: var(--blue-bg);
+  --color-blue-300: var(--blue-acc);
+  --color-blue-400: var(--blue-acc);
+  --color-blue-500: var(--blue-acc);
+  --color-blue-600: var(--blue-acc);
+  --color-blue-700: var(--blue-acc);
+  --color-blue-900: var(--blue-acc);
+}
+
+:root {
+  /* The app manages its own light/dark theme via the .dark class below, never the browser's
+     native one -- without declaring color-scheme, a browser/OS set to dark can still apply its
+     own auto-dark heuristic to sparse, mostly-empty screens (like the full-page loader) even
+     though everything is correctly styled light, producing a mismatched dark flash the rest of
+     the (content-dense) app doesn't get. */
+  color-scheme: light;
+
+  /* Reskin toward the clean white-canvas look of modern SaaS dashboards (Paypers, ป้านวล):
+     near-white page bg instead of a saturated cinnamon tint, neutral warm-gray text/border
+     instead of cocoa/hazelnut/clay, so the orange CI accent reads as the one accent color
+     instead of competing with a tinted background everywhere. */
+  --bg: #FAFAF9; /* Near-white page canvas */
+  --white: #FFFFFF;
+  --text: #1C1917; /* Neutral near-black, warm undertone kept subtle */
+  --muted: #7D7772; /* Neutral warm-gray for supporting text -- matches Draft 10 source exactly */
+  --faint: #F3F2F0; /* Very light neutral for subtle fills */
+  --border: #E5E3DF; /* Soft neutral hairline border */
+  
+  --green-bg: #E8F8F0; /* Soft mint */
+  --green-acc: #18A66A; /* Draft 10 real green for success/positive states */
+  
+  --blue-bg: #FAECE8; /* Cozy soft orange/peach background */
+  --blue-acc: #E65F2B; /* Vibrant brand acorn orange */
+  
+  --pink-bg: #FAECE8; /* Soft terracotta cream background */
+  --pink-acc: #A63F1B; /* Deep rust/clay crimson warnings */
+  
+  --yellow-bg: #FDF6EC; /* Soft warm amber background */
+  --yellow-acc: #C17817; /* Caramel orange secondary/warning */
+  
+  --purple-bg: #F5EFE6;
+  --purple-acc: #7A5C43;
+
+  /* Actual green/red for the income-vs-savings chart specifically -- --green-acc is a warm
+     brown brand token everywhere else, not a real green, so it can't be reused for a chart
+     that needs to visually read as green (income) vs red (savings). */
+  --chart-income-met: #125442;
+  --chart-savings-met: #C96B5A;
+
+  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  /* Two layers: a tight contact shadow so the card edge reads, and a soft lift underneath. */
+  --shadow-card: 0 1px 3px rgba(60, 40, 28, 0.07), 0 8px 22px rgba(60, 40, 28, 0.09);
+  --shadow-card-hover: 0 2px 4px rgba(60, 40, 28, 0.07), 0 12px 30px rgba(60, 40, 28, 0.13);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dark {
+  color-scheme: dark;
+  /* Warm brown shadows vanish on charcoal; dark mode needs deeper, neutral ones. */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 22px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.4), 0 14px 32px rgba(0, 0, 0, 0.4);
+
+  /* Draft 6 dark mode: charcoal/dark-gray surfaces with the orange CI accent, matching the
+     light-mode "Reskin phase 1" neutral direction instead of the old brown cinnamon/cocoa dark UI. */
+  --bg: #17181B; /* Charcoal page canvas */
+  --white: #212226; /* Dark gray card surface */
+  --text: #F2F0ED; /* Warm off-white text */
+  --muted: #9A968F; /* Neutral warm-gray for supporting text */
+  --faint: #2A2B2F; /* Subtle dark fill */
+  --border: #34353A; /* Subtle neutral border */
+  
+  --green-bg: #14251C;
+  --green-acc: #4ADE80; /* Real green for success/positive states, dark mode */
+  
+  --blue-bg: #2E2117; 
+  --blue-acc: #FFA473; /* Vibrant warm peach/orange */
+  
+  --pink-bg: #351C15; 
+  --pink-acc: #FA7E52; /* Terracotta rose alert */
+  
+  --yellow-bg: #352115; 
+  --yellow-acc: #F2B76B; /* Soft light golden caramel secondary/warning */
+  
+  --purple-bg: #2E1E16;
+  --purple-acc: #D2C0B0;
+
+  --chart-income-met: #49CCA9;
+  --chart-savings-met: #F4AE91;
+}
+
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle at 18% 0%, rgba(230, 192, 140, .14), transparent 30%), radial-gradient(circle at 100% 92%, rgba(196, 142, 93, .08), transparent 24%);
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+button, a, input, select, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.font-mono {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--blue-acc) 48%, transparent);
+  outline-offset: 2px;
+}
+
+.app-shell {
+  background: radial-gradient(circle at 12% 0%, rgba(229, 170, 103, .12), transparent 25%), var(--bg);
+}
+
+/* Liquid Glass (owner, 2026-10-23): frosted glass only where the owner asked for it -- the floating
+   sidebar on computers and iPads, the phone's bottom bar, notifications, pop-up menus and a few
+   round buttons. Cards and pages keep the flat look. Menus use the stronger fill so text behind a
+   menu never shows through it. */
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-side: rgba(255, 255, 255, 0.68);
+  --glass-strong: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-highlight: rgba(255, 255, 255, 1);
+  --glass-shadow: 0 18px 44px rgba(28, 25, 23, 0.12), 0 0 0 0.5px rgba(28, 25, 23, 0.06);
+  --glass-shadow-menu: 0 22px 54px rgba(28, 25, 23, 0.22), 0 0 0 0.5px rgba(28, 25, 23, 0.06);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 48%);
+  --glass-blur: 22px;
+  --glass-active: rgba(230, 95, 43, 0.13);
+}
+.dark {
+  --glass-bg: rgba(33, 34, 38, 0.62);
+  --glass-side: rgba(33, 34, 38, 0.7);
+  --glass-strong: rgba(38, 39, 44, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 18px 44px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+  --glass-shadow-menu: 0 22px 54px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 48%);
+  --glass-active: rgba(255, 164, 115, 0.15);
+}
+@layer components {
+  .lg-glass {
+    position: relative;
+    isolation: isolate;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  }
+  .lg-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: var(--glass-sheen);
+  }
+  .lg-glass.is-menu { background: var(--glass-strong); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow-menu); }
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .lg-glass, .app-sidebar { background: var(--glass-strong) !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .lg-glass, .app-sidebar { background: var(--white) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .lg-glass::before { display: none; }
+}
+
+/* Computers and iPads with the sidebar: it floats as a glass panel over a warm wash. */
+@media (min-width: 1024px) {
+  .app-shell {
+    background: radial-gradient(520px 420px at 0% 0%, rgba(230, 95, 43, 0.1), transparent 70%), radial-gradient(480px 380px at 0% 100%, rgba(193, 120, 23, 0.08), transparent 70%), var(--bg);
+  }
+  .dark .app-shell {
+    background: radial-gradient(520px 420px at 0% 0%, rgba(255, 164, 115, 0.08), transparent 70%), radial-gradient(480px 380px at 0% 100%, rgba(242, 183, 107, 0.05), transparent 70%), var(--bg);
+  }
+}
+.app-sidebar {
+  background: var(--glass-side);
+}
+/* เลขากระรอก on computers (owner, 2026-10-23): the sidebar slides away to the left while the chat is open
+   and slides back on the way out. Its width never changes, so nothing inside rewraps mid-motion. Kept out of
+   any layer so it wins over the margin utilities on the element. */
+@media (min-width: 1024px) {
+  .app-sidebar { transition: margin-left 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.24s ease, visibility 0s linear 0s; }
+  .app-sidebar.is-folded { margin-left: -15rem; opacity: 0; visibility: hidden; pointer-events: none; transition: margin-left 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, visibility 0s linear 0.34s; }
+}
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+  .app-sidebar, .app-sidebar.is-folded { transition: none; }
+}
+/* iOS-like line weight for icons everywhere (owner, 2026-10-23): a little lighter than lucide's 2.
+   Icons that set their own weight keep it. */
+svg.lucide[stroke-width="2"] { stroke-width: 1.7; }
+
+/* iOS segmented control and search field (owner, 2026-10-23): a grey track with a white pill on the
+   chosen option, and a grey filled search box. The chosen option is the button with
+   aria-selected="true" or aria-pressed="true". */
+@layer components {
+  .ios-seg { display: inline-flex; align-items: stretch; gap: 2px; padding: 2px; border-radius: 999px; background: rgba(118, 118, 128, 0.12); }
+  .ios-seg-item { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 14px; border-radius: 999px; font-weight: 500; line-height: 1.4; color: color-mix(in srgb, var(--text) 78%, transparent); white-space: nowrap; cursor: pointer; transition: background-color 0.15s, box-shadow 0.15s, color 0.15s; }
+  .ios-seg-item:hover { color: var(--text); }
+  .ios-seg-item[aria-selected="true"], .ios-seg-item[aria-pressed="true"] { background: var(--white); color: var(--text); font-weight: 600; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); }
+  .ios-search { border-color: transparent; background: rgba(118, 118, 128, 0.12); }
+}
+.dark .ios-seg { background: rgba(118, 118, 128, 0.24); }
+.dark .ios-seg-item[aria-selected="true"], .dark .ios-seg-item[aria-pressed="true"] { background: #48494F; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); }
+.dark .ios-search { background: rgba(118, 118, 128, 0.24); }
+
+.app-topbar {
+  background: color-mix(in srgb, var(--white) 94%, var(--bg));
+  backdrop-filter: blur(12px);
+}
+
+/* Feature dialogs live inside the scrollable content area. Keep the global header visually and
+   interactively inside the same modal backdrop, even for dialogs rendered by lazy-loaded tabs. */
+.app-shell:has(.app-content-panel .fixed.inset-0) .app-topbar {
+  pointer-events: none;
+}
+
+.app-shell:has(.app-content-panel .fixed.inset-0) .app-topbar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.app-content-panel {
+  background-image: radial-gradient(circle at 92% 4%, rgba(230, 192, 140, .10), transparent 22%);
+}
+
+/* Shared workspace primitives; utilities remain available for each page's layout. */
+@layer components {
+  .ui-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: .75rem 1rem;
+    padding-bottom: .875rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .ui-page-title {
+    color: var(--text);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .ui-page-description {
+    margin-top: .25rem;
+    max-width: 48rem;
+    color: var(--muted);
+    font-size: .8125rem;
+    line-height: 1.65;
+  }
+  .ui-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    max-width: 100%;
+  }
+  .ui-surface, .ui-panel {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--white);
+    box-shadow: var(--shadow-card);
+  }
+  .ui-panel { padding: 1.25rem; }
+  .ui-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.625rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    padding: .625rem .875rem;
+    color: var(--text);
+    font-size: .8125rem;
+    line-height: 1.5;
+  }
+  .ui-input::placeholder { color: var(--muted); }
+  .ui-button {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: .625rem 1rem;
+    font-size: .8125rem;
+    font-weight: 600;
+    line-height: 1.5;
+    cursor: pointer;
+    transition: background-color 150ms, border-color 150ms;
+  }
+  .ui-button-primary { background: var(--blue-acc); color: #fff; }
+  .ui-button-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--blue-acc) 88%, #000); }
+  /* White type on the brand orange in both themes (owner, 2026-10-21: dark type on orange was hard to read). */
+  .dark .ui-button-primary { background: #E65F2B; color: #fff; }
+  .dark .ui-button-primary:hover:not(:disabled) { background: #D35221; }
+  .ui-button-secondary { border-color: var(--border); background: var(--white); color: var(--text); }
+  .ui-button-secondary:hover:not(:disabled) { background: var(--faint); }
+  .ui-button:disabled { cursor: not-allowed; opacity: .5; }
+  @media (min-width: 640px) { .ui-panel { padding: 1.5rem; } }
+  @media (min-width: 1024px) { .ui-page-title { font-size: 1.625rem; } }
+  @media (max-width: 639px) { .ui-page-actions { width: 100%; } }
+}
+
+/* Skeletons use the same surfaces as their pages. Keep base shapes in the component
+   layer so each placeholder can match the real control's radius and dimensions. */
+@layer components {
+  .app-skeleton-content {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+  }
+
+  .app-skeleton-block {
+    max-width: 100%;
+    border-radius: .375rem;
+    /* A soft highlight sweeps across every placeholder, so loading reads as loading. */
+    --skeleton-base: color-mix(in srgb, var(--muted) 13%, var(--faint));
+    --skeleton-shine: color-mix(in srgb, var(--white) 70%, var(--skeleton-base));
+    background: linear-gradient(100deg, var(--skeleton-base) 30%, var(--skeleton-shine) 50%, var(--skeleton-base) 70%) var(--skeleton-base);
+    background-size: 220% 100%;
+    background-attachment: fixed;
+    animation: app-skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+  @keyframes app-skeleton-shimmer {
+    from { background-position: 110% 0; }
+    to { background-position: -110% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .app-skeleton-block { animation: none; background: var(--skeleton-base); }
+  }
+}
+
+/* A consistent, understated elevation language for the many existing feature cards. Individual
+   cards still opt into hover effects where they are interactive. */
+.page-content > :is(.bg-brand-white, .bg-brand-faint) {
+  box-shadow: var(--shadow-card);
+}
+/* Every outer white card in the app gets the same lift, however deep it sits in a page: a white,
+   bordered, rounded block that is not inside another card (rows inside a card stay flat) and has
+   no shadow of its own. Small controls (inputs, links, chips, small buttons) stay flat; large
+   rounded tiles that are buttons (quick actions) are cards too. */
+#main-content :is(div, section, article, aside, ul, li, form, button:is([class*="rounded-2xl"], [class*="rounded-3xl"], [class*="rounded-[1"], [class*="rounded-[2"])).bg-brand-white.border:is([class*="rounded-xl"], [class*="rounded-2xl"], [class*="rounded-3xl"], [class*="rounded-[1"], [class*="rounded-[2"]):not([class*="shadow"]):not(.bg-brand-white .bg-brand-white, .ui-surface .bg-brand-white, .ui-panel .bg-brand-white, [role="dialog"] .bg-brand-white, [role="menu"] .bg-brand-white) {
+  box-shadow: var(--shadow-card);
+}
+
+/* Authentication is deliberately a separate composition from the app shell: it can feel more
+   welcoming without adding motion or illustrations to the financial workspace. */
+.auth-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  max-width: 72rem;
+  width: 100%;
+  margin: 0 auto;
+}
+@media (min-width: 1024px) {
+  .auth-layout { flex-direction: row; align-items: center; text-align: left; }
+}
+
+.auth-form-column {
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.auth-brand-panel {
+  display: none;
+  max-width: 28rem;
+}
+@media (min-width: 1024px) {
+  .auth-brand-panel { display: block; }
+}
+
+.auth-form-card {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* The card remounts after the welcome screen closes, so the form arrives in a calm sequence. */
+.auth-form-card > * { animation: auth-form-arrive .42s both var(--ease-soft); }
+.auth-form-card > *:nth-child(2) { animation-delay: .05s; }
+.auth-form-card > *:nth-child(3) { animation-delay: .1s; }
+.auth-form-card > *:nth-child(4) { animation-delay: .15s; }
+.auth-form-card form > * { animation: auth-form-arrive .42s both var(--ease-soft); }
+.auth-form-card form > *:nth-child(1) { animation-delay: .10s; }
+.auth-form-card form > *:nth-child(2) { animation-delay: .16s; }
+.auth-form-card form > *:nth-child(3) { animation-delay: .22s; }
+.auth-form-card form > *:nth-child(4) { animation-delay: .28s; }
+@keyframes auth-form-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+/* The first visit starts with the product story, then hands visitors into the familiar auth form. */
+.auth-welcome {
+  position: relative;
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  overflow: hidden;
+  padding: 0;
+  background:
+    radial-gradient(circle at 7% 18%, rgba(255, 211, 153, .5), transparent 25rem),
+    radial-gradient(circle at 94% 82%, rgba(238, 181, 104, .25), transparent 28rem),
+    #fbf2e4;
+}
+
+.auth-welcome-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  min-height: 100svh;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto;
+}
+
+.auth-welcome-copy {
+  display: flex;
+  min-height: 46svh;
+  flex-direction: column;
+  justify-content: center;
+  grid-column: 1;
+  grid-row: 1;
+  z-index: 1;
+  width: min(calc(100% - 3rem), 34rem);
+  margin: auto;
+  padding: 2rem;
+}
+.auth-welcome-copy h1 { color: #3d2314; }
+.auth-welcome-copy > p:first-of-type { color: #a65f32; }
+.auth-welcome-copy > p:nth-of-type(2) { color: #806958; }
+.auth-welcome-brand {
+  display: inline-flex;
+  border: 1px solid rgba(111, 65, 37, .18);
+  border-radius: 999px;
+  padding: 8px 13px;
+  color: #7b4c32;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+.auth-welcome-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 15px;
+  padding: 14px 18px;
+  background: #e65f2b;
+  box-shadow: 0 12px 24px rgba(194, 77, 27, .22);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 900;
+  transition: transform .2s var(--ease-soft), box-shadow .2s var(--ease-soft), background .2s var(--ease-soft);
+}
+.auth-welcome-cta:hover { transform: translateY(-2px); background: #d85221; box-shadow: 0 16px 28px rgba(194, 77, 27, .28); }
+.auth-welcome-cta:focus-visible { outline: 3px solid rgba(230, 95, 43, .35); outline-offset: 4px; }
+.auth-welcome-mobile-feature { display: none; }
+
+.auth-welcome-showcase {
+  position: relative;
+  display: flex;
+  min-height: 54svh;
+  flex-direction: column;
+  grid-column: 1;
+  grid-row: 2;
+  overflow: hidden;
+  border: 1px solid rgba(65, 39, 23, .22);
+  border-radius: 30px 30px 0 0;
+  padding: clamp(1.5rem, 5vw, 5rem);
+  background: linear-gradient(145deg, #3d2314 0%, #573521 50%, #814b29 120%);
+  box-shadow: 0 24px 60px rgba(72, 47, 29, .18);
+}
+.auth-welcome-glow {
+  position: absolute;
+  top: -14rem;
+  right: -10rem;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 212, 165, .23), transparent 67%);
+}
+.auth-welcome-visual { position: relative; display: grid; flex: 1; min-height: 260px; place-items: center; }
+.auth-welcome-image {
+  width: min(100%, 30rem);
+  max-height: 32rem;
+  height: auto;
+  border-radius: 28px;
+  object-fit: cover;
+  opacity: 1;
+  box-shadow: 0 22px 42px rgba(19, 10, 5, .25);
+  animation: auth-welcome-image-enter .7s both var(--ease-soft);
+}
+.auth-welcome-orbit {
+  position: absolute;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.26);
+  border-radius: 50%;
+  background: rgba(255, 238, 210, .13);
+  color: #ffe1bb;
+  font-size: 18px;
+  font-weight: 900;
+  backdrop-filter: blur(6px);
+  animation: auth-welcome-float 5.8s ease-in-out infinite;
+}
+.auth-welcome-orbit-one { top: 19%; left: 14%; }
+.auth-welcome-orbit-two { right: 14%; bottom: 16%; animation-delay: -2s; }
+.auth-welcome-ambient { position: absolute; border-radius: 50%; filter: blur(3px); pointer-events: none; }
+.auth-welcome-ambient-one { top: -12rem; left: -12rem; width: 30rem; height: 30rem; background: rgba(250, 191, 105, .13); }
+.auth-welcome-ambient-two { right: -16rem; bottom: -18rem; width: 38rem; height: 38rem; background: rgba(231, 151, 72, .13); }
+@keyframes auth-welcome-float { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-10px) rotate(2deg); } }
+@keyframes auth-welcome-image-enter { from { opacity: 0; transform: scale(.96) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+@media (max-width: 799px) {
+  /* Mobile uses one immersive canvas with a floating action sheet. Keeping the art and copy in
+     the same layer avoids the awkward two-panel split created by mobile browser chrome. */
+  .auth-welcome,
+  .auth-welcome-inner {
+    height: 100svh;
+    min-height: 100svh;
+    overflow: hidden;
+  }
+  .auth-welcome {
+    display: block;
+    padding: 0;
+    background: #3f2417;
+  }
+  .auth-welcome-inner {
+    position: relative;
+    display: block;
+  }
+  .auth-welcome-copy {
+    position: absolute;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 12px;
+    z-index: 5;
+    min-height: auto;
+    width: auto;
+    margin: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: clamp(1.35rem, 5.5vw, 2rem);
+    border: 1px solid rgba(116, 72, 43, .13);
+    border-radius: 30px;
+    background: rgba(255, 249, 239, .96);
+    box-shadow: 0 24px 70px rgba(28, 13, 5, .32);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .auth-welcome-copy::after {
+    content: '';
+    position: absolute;
+    top: 9px;
+    left: 50%;
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(103, 66, 43, .16);
+    transform: translateX(-50%);
+  }
+  .auth-welcome-copy .auth-welcome-brand {
+    align-self: center;
+    width: auto;
+    padding: 6px 13px;
+    font-size: 8px;
+    background: rgba(255, 255, 255, .58);
+  }
+  .auth-welcome-copy > p:first-of-type {
+    margin-top: .85rem;
+    font-size: .72rem;
+  }
+  .auth-welcome-copy h1 {
+    margin-top: .3rem;
+    font-size: clamp(2rem, 9.5vw, 2.8rem);
+    line-height: 1.04;
+  }
+  .auth-welcome-copy > p:nth-of-type(2) {
+    max-width: 24rem;
+    margin-top: .55rem;
+    font-size: clamp(.82rem, 3.7vw, .95rem);
+    line-height: 1.5;
+  }
+  .auth-welcome-copy .auth-welcome-cta {
+    width: min(100%, 24rem);
+    justify-content: center;
+    margin-top: 1rem;
+    padding: 13px 14px;
+    border-radius: 16px;
+  }
+  .auth-welcome-showcase {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    min-height: 100svh;
+    height: 100svh;
+    border-radius: 0;
+    border: 0;
+    padding: 0;
+    background: #4c2b1b;
+    box-shadow: none;
+  }
+  .auth-welcome-showcase::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(30, 14, 7, .08) 0%, rgba(30, 14, 7, 0) 42%, rgba(30, 14, 7, .5) 72%, rgba(30, 14, 7, .72) 100%);
+  }
+  .auth-welcome-slide-header,
+  .auth-welcome-slide-copy { display: none; }
+  .auth-welcome-mobile-feature {
+    display: flex;
+    width: min(100%, 24rem);
+    align-items: center;
+    gap: 11px;
+    margin-top: .9rem;
+    padding: 10px 12px;
+    border: 1px solid rgba(174, 101, 54, .13);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(246, 229, 208, .72), rgba(255, 248, 237, .92));
+    text-align: left;
+  }
+  .auth-welcome-mobile-feature-icon {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    place-items: center;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 6px 16px rgba(101, 60, 34, .09);
+    font-size: 1rem;
+  }
+  .auth-welcome-mobile-feature-text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .auth-welcome-mobile-feature-text strong {
+    color: #4a2a18;
+    font-size: .84rem;
+    line-height: 1.3;
+  }
+  .auth-welcome-mobile-feature-text small {
+    overflow: hidden;
+    color: #8b715f;
+    font-size: .69rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .auth-welcome-visual {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    height: 100%;
+  }
+  .auth-welcome-visual > div { width: 100%; height: 100%; }
+  .auth-welcome-image {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    object-fit: cover;
+    object-position: center 24%;
+    box-shadow: none;
+  }
+  .auth-welcome-slide-dots {
+    position: absolute;
+    top: max(1rem, env(safe-area-inset-top));
+    left: 50%;
+    z-index: 4;
+    justify-content: center;
+    margin: 0;
+    padding: 9px 12px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 999px;
+    background: rgba(48, 24, 12, .28);
+    backdrop-filter: blur(10px);
+    transform: translateX(-50%);
+  }
+  .auth-welcome-orbit { display: none; }
+  .auth-welcome-showcase .auth-story-dot { width: 6px; height: 6px; background: rgba(255,255,255,.48); }
+  .auth-welcome-showcase .auth-story-dot.is-active { width: 22px; background: #ffe0b8; }
+
+  @media (max-height: 700px) {
+    .auth-welcome-copy { padding: 1.1rem 1.2rem; border-radius: 24px; }
+    .auth-welcome-copy .auth-welcome-brand { display: none; }
+    .auth-welcome-copy > p:first-of-type { margin-top: 0; }
+    .auth-welcome-copy h1 { font-size: 1.9rem; }
+    .auth-welcome-copy > p:nth-of-type(2) { font-size: .8rem; }
+    .auth-welcome-copy .auth-welcome-cta { margin-top: .8rem; padding: 11px 13px; }
+    .auth-welcome-mobile-feature { margin-top: .65rem; padding: 8px 10px; }
+    .auth-welcome-mobile-feature-icon { width: 30px; height: 30px; flex-basis: 30px; }
+  }
+}
+
+@media (min-width: 800px) {
+  .auth-welcome { padding: clamp(1rem, 2vw, 1.75rem); }
+  .auth-welcome-inner {
+    max-width: 92rem;
+    min-height: calc(100svh - clamp(2rem, 4vw, 3.5rem));
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    grid-template-rows: 1fr;
+    overflow: hidden;
+    border: 1px solid rgba(104, 68, 43, .14);
+    border-radius: 34px;
+    background: #fdf6ec;
+    box-shadow: 0 24px 70px rgba(72, 47, 29, .13);
+  }
+  .auth-welcome-copy {
+    min-height: 0;
+    grid-column: 1;
+    grid-row: 1;
+    margin: auto;
+    padding: clamp(2.75rem, 5.5vw, 6.5rem);
+  }
+  .auth-welcome-showcase {
+    min-height: 0;
+    grid-column: 2;
+    grid-row: 1;
+    border: 0;
+    border-radius: 0;
+    padding: clamp(2rem, 4vw, 4rem);
+  }
+  .auth-welcome-image { width: min(100%, 30rem); max-height: 54svh; }
+}
+
+.auth-story-panel {
+  position: relative;
+  min-height: 235px;
+  overflow: hidden;
+  border: 1px solid rgba(85, 60, 46, .12);
+  border-radius: 26px;
+  padding: 20px;
+  color: white;
+  background: linear-gradient(138deg, #3d2314 0%, #5a3828 54%, #8b552a 145%);
+  box-shadow: 0 18px 46px rgba(70, 49, 36, .17);
+}
+
+.auth-story-glow {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  filter: blur(3px);
+}
+
+.auth-story-glow-one {
+  width: 18rem;
+  height: 18rem;
+  right: -7rem;
+  top: -8rem;
+  background: radial-gradient(circle, rgba(255, 213, 165, .24), transparent 66%);
+}
+
+.auth-story-glow-two {
+  width: 15rem;
+  height: 15rem;
+  bottom: -8rem;
+  left: -6rem;
+  background: radial-gradient(circle, rgba(255, 180, 103, .18), transparent 68%);
+}
+
+.auth-story-visual {
+  position: relative;
+  display: grid;
+  flex: 1;
+  min-height: 92px;
+  place-items: center;
+}
+
+.auth-story-mascot { width: 112px !important; height: 112px !important; animation: auth-float 5.5s ease-in-out infinite; }
+.auth-story-coin {
+  position: absolute;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 50%;
+  background: rgba(255, 235, 201, .15);
+  color: #ffe2bd;
+  font-size: 13px;
+  font-weight: 900;
+  backdrop-filter: blur(5px);
+}
+.auth-story-coin-one { top: 4%; left: 17%; animation: auth-float 4.6s ease-in-out infinite; }
+.auth-story-coin-two { right: 16%; bottom: 2%; animation: auth-float 6.2s ease-in-out infinite reverse; }
+
+.auth-story-dot {
+  width: 7px;
+  height: 7px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,.32);
+  cursor: pointer;
+  transition: width 200ms var(--ease-soft), background 200ms var(--ease-soft);
+}
+.auth-story-dot.is-active { width: 24px; background: #ffd4a7; }
+.auth-story-dot:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+
+@keyframes auth-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@media (min-width: 1024px) {
+  .auth-form-column { margin: auto; }
+  .auth-story-panel { min-height: 620px; padding: 36px; }
+  .auth-story-visual { min-height: 300px; }
+  .auth-story-mascot { width: 190px !important; height: 190px !important; }
+  .auth-story-coin-one { top: 24%; }
+  .auth-story-coin-two { bottom: 20%; }
+}
+
+/* Dashboard: a small layer of product-specific polish built on the existing brand tokens.
+   These are intentionally scoped so reports, forms and admin screens retain their own layout. */
+.dashboard-shell {
+  isolation: isolate;
+}
+
+.dashboard-balance-card {
+  background: linear-gradient(135deg, #fff3e8 0%, #fde4ce 100%);
+}
+
+.dashboard-balance-orb {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(4px);
+  opacity: .65;
+}
+
+.dashboard-balance-orb-one {
+  width: 13rem;
+  height: 13rem;
+  right: -4.5rem;
+  bottom: -7rem;
+  background: radial-gradient(circle, rgba(255, 201, 139, .34), rgba(255, 201, 139, 0) 70%);
+}
+
+.dashboard-balance-orb-two {
+  width: 8rem;
+  height: 8rem;
+  right: 18%;
+  top: -5rem;
+  background: radial-gradient(circle, rgba(255, 255, 255, .12), rgba(255, 255, 255, 0) 72%);
+}
+
+.dashboard-mascot-float {
+  animation: dashboard-float 5s ease-in-out infinite;
+}
+
+.dashboard-quick-action {
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  background: color-mix(in srgb, var(--white) 94%, transparent);
+  box-shadow: 0 8px 24px rgba(71, 49, 37, .055);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background 200ms ease;
+}
+
+.dashboard-quick-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(71, 49, 37, .10);
+}
+
+.dashboard-quick-action:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--blue-acc) 50%, transparent);
+  outline-offset: 3px;
+}
+
+.dashboard-quick-action {
+  min-height: 60px;
+  border-radius: 16px;
+  padding: 9px 11px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-quick-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  transition: transform 200ms ease;
+}
+
+.dashboard-quick-action:hover .dashboard-quick-icon { transform: scale(1.06); }
+.dashboard-quick-icon { width: 34px; height: 34px; flex: 0 0 auto; }
+.quick-income .dashboard-quick-icon { background: #eaf5ee; color: #287449; }
+.quick-expense .dashboard-quick-icon { background: #fceeee; color: #be5353; }
+.quick-pay .dashboard-quick-icon { background: #fff0e8; color: #d85b2a; }
+.quick-goal .dashboard-quick-icon { background: #fff4e2; color: #b16d1d; }
+.quick-list .dashboard-quick-icon { background: var(--faint); color: var(--muted); }
+
+@keyframes dashboard-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-mascot-float { animation: none; }
+  .auth-welcome-image,
+  .auth-welcome-orbit { animation: none; }
+  .auth-form-card > *,
+  .auth-form-card form > * { animation: none; }
+  .auth-story-mascot,
+  .auth-story-coin { animation: none; }
+  .dashboard-quick-action,
+  .dashboard-quick-icon { transition: none; }
+}
+
+/* Custom scrollbar behavior for goals scroll and list boxes */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Base custom interactive states */
+.active-tab-indicator {
+  view-transition-name: active-tab;
+}
+
+/* Keep navigation feedback quick and avoid transforms here. A transformed ancestor changes the
+   containing block for fixed overlays, which can strand a modal below the scroll viewport. */
+/* Notifications (MascotToast): the line along the bottom runs out as the notification is about to leave. */
+.app-toast-timer { animation: app-toast-timer linear forwards; opacity: 0.55; }
+@keyframes app-toast-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .app-toast-timer { animation: none; display: none; } }
+
+.app-tab-enter {
+  animation: app-tab-arrive 150ms ease-out both;
+}
+
+.app-subtab-enter {
+  animation: app-subtab-arrive 240ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+@keyframes app-tab-arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes app-subtab-arrive {
+  from { opacity: 0; transform: translate3d(12px, 0, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-tab-enter, .app-subtab-enter { animation: none; }
+}
+
+@media print {
+  body {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    font-size: 12pt;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Hide everything except the element with class .print-area, its ancestor chain, and its
+     descendants. Uses display:none (removes from flow) rather than visibility:hidden --
+     visibility:hidden leaves hidden elements occupying their normal layout height, which made
+     the print job paginate against the full (invisible) app height and stranded the real content
+     several blank pages in. :has() finds the correct elements to hide at any nesting depth
+     without needing to know the exact DOM structure (none of this app's print targets are
+     portaled to a direct child of body). */
+  #root *:not(:has(.print-area)):not(.print-area):not(.print-area *) {
+    display: none !important;
+  }
+
+  /* Any ancestor of the print target (the modal overlay etc.) may be position:fixed/absolute
+     with a capped height for on-screen use -- reset those so the target renders in plain normal
+     flow, which paginates predictably instead of being pinned to a viewport position that print
+     handles inconsistently across pages. */
+  #root *:has(.print-area) {
+    position: static !important;
+    inset: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .print-area {
+    display: block !important;
+    position: static;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Force color print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* The tax report modal is sized/spaced for an on-screen dialog (generous padding, space-y
+     gaps, larger headings) -- left as-is it overflows onto several pages. Compact it down to fit
+     one A4 page by shrinking spacing/padding/headings, scoped to this modal only so the invoice
+     print view (which already fits) is untouched. */
+  #printable-tax-report-modal {
+    padding: 10px !important;
+  }
+  #printable-tax-report-modal h1 {
+    font-size: 15px !important;
+  }
+  #printable-tax-report-modal .space-y-6 > * + * {
+    margin-top: 6px !important;
+  }
+  #printable-tax-report-modal .space-y-4 > * + * {
+    margin-top: 4px !important;
+  }
+  #printable-tax-report-modal table th,
+  #printable-tax-report-modal table td {
+    padding: 2px 6px !important;
+  }
+  #printable-tax-report-modal .pb-5 {
+    padding-bottom: 6px !important;
+  }
+  #printable-tax-report-modal .pb-4 {
+    padding-bottom: 6px !important;
+  }
+  #printable-tax-report-modal .pb-1 {
+    padding-bottom: 2px !important;
+  }
+  #printable-tax-report-modal .p-4 {
+    padding: 6px !important;
+  }
+  #printable-tax-report-modal .gap-6 {
+    gap: 8px !important;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+/* Recharts makes the chart focusable; hide the ring after a mouse click but keep it for keyboard focus. */
+.recharts-wrapper:focus:not(:focus-visible),
+.recharts-surface:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* A job opened from elsewhere (calendar, dashboard, timeline): an orange frame and warm tint
+   that blink slowly three times, then stay lit until the spotlight ends. Outline works on table
+   rows too. */
+.job-spotlight {
+  position: relative;
+  background-color: #FFF1E8;
+  outline: 2px solid #E65F2B;
+  outline-offset: -2px;
+  animation: job-spotlight-blink 1.6s ease-in-out 3;
+}
+.dark .job-spotlight { background-color: rgba(230, 95, 43, .16); outline-color: #FF9A6B; }
+@keyframes job-spotlight-blink {
+  0%, 100% { outline-color: #E65F2B; background-color: #FFF1E8; }
+  50% { outline-color: transparent; background-color: transparent; }
+}
+.dark .job-spotlight { animation-name: job-spotlight-blink-dark; }
+@keyframes job-spotlight-blink-dark {
+  0%, 100% { outline-color: #FF9A6B; background-color: rgba(230, 95, 43, .16); }
+  50% { outline-color: transparent; background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .job-spotlight { animation: none; } }
+
+/* Sign-in method chooser: tonal pill buttons, one per provider. */
+.auth-pill { position: relative; display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center; gap: 10px; padding: 0 18px; border-radius: 999px; background: rgb(84 84 84 / 0.10); color: var(--text); font-size: 16px; font-weight: 500; line-height: 1.2; cursor: pointer; text-decoration: none; transition: background-color .18s ease, opacity .25s ease, color .25s ease, transform .18s cubic-bezier(.16,1,.3,1); }
+.auth-pill:hover:not(:disabled) { background: rgb(84 84 84 / 0.14); }
+.auth-pill:active:not(:disabled) { transform: scale(0.985); }
+.auth-pill:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
+.auth-pill:disabled { cursor: not-allowed; opacity: .55; }
+.auth-pill-soon { flex-shrink: 0; padding: 2px 8px; border-radius: 999px; background: #FFF1E8; color: #C24A16; font-size: 11px; font-weight: 700; }
+.dark .auth-pill { background: rgb(255 255 255 / 0.08); }
+.dark .auth-pill:hover:not(:disabled) { background: rgb(255 255 255 / 0.14); }
+.dark .auth-pill-soon { background: rgb(255 164 115 / 0.14); color: #FFA473; }
+@media (max-width: 360px) { .auth-pill { font-size: 14px; gap: 8px; padding: 0 12px; } }
+@media (prefers-reduced-motion: reduce) { .auth-pill { transition: none; } }
+
+/* Clean sign-in (Fastwork-style): one white card on an off-white page, soft two-layer shadow. */
+.auth-page.is-clean .auth-form-column { max-width: 25rem; }
+.auth-page.is-clean .auth-form-card { box-shadow: 0 2px 4px rgb(0 0 0 / .05), 0 4px 12px rgb(0 0 0 / .10), inset 0 0 0 1px rgb(0 0 0 / .03); }
+.dark .auth-page.is-clean .auth-form-card { box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+
+/* Sign-in top row: back · logo · language/theme, all on one line and centred on the logo. */
+.auth-topbar { position: absolute; inset: 0 0 auto; z-index: 30; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 76px; padding: 0 16px; }
+.auth-topbar-side { display: flex; align-items: center; gap: 4px; }
+.auth-topbar-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; height: 44px; padding: 0 10px; border-radius: 999px; color: var(--muted); cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.auth-topbar-btn:hover { background: rgb(84 84 84 / .08); color: var(--text); }
+.auth-topbar-btn:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
+.auth-legal { margin-top: 20px; text-align: center; font-size: 13px; line-height: 1.55; color: var(--muted); text-wrap: balance; }
+.auth-legal a { color: var(--text); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.auth-page.is-clean .auth-form-column { max-width: 25rem; }
+
+.auth-title { font-size: 26px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; color: var(--text); white-space: nowrap; }
+@media (max-width: 420px) { .auth-title { font-size: 22px; } }
+@media (max-width: 340px) { .auth-title { font-size: 19px; } }
