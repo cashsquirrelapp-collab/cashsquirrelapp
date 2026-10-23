@@ -1377,3 +1377,52 @@ Built on top of c5d48a4.
 - Full e2e on this code: 212 passed; the 33 failures are all in the live baseline (the onboarding test of the baseline was replaced in pkg43). The new jobs-hold-order test passes.
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
+
+
+## เลขากระรอก answers for real (admins only), voice and files, a 3-day trial for new accounts, and zod 4.6.6 - 2026-10-24
+
+Built on top of 75b625e.
+
+**Why.** The owner asked to connect the AI (brief "KRAROK AI SECRETARY — AI TRAINING & BACKEND IMPLEMENTATION BRIEF"): "ทำต่อเลย ปุ่มยืนยันกับระบบโทเคน", then "ทำข้อ 2 เลย" (connect the chat screen). Gemini only for now ("ใช้ Gemini อย่างเดียวไปก่อน"); Pro tokens reset on the renewal day ("รีเซ็ตตามวันต่ออายุ Pro"); 1,000 tokens a month ("เอา 1,000 ตามเดิม"); the prompt may live in the public repo ("เอา ก. ปล่อยไปตามนี้").
+
+**What it does**
+- `/api/assistant` (new): GET returns whether เลขา is on, the plan and the tokens left. POST sends a message, or confirms or cancels a card.
+- The AI is Gemini 3.5 Flash-Lite, called from the backend. The key is the Worker secret `GEMINI_API_KEY`, which the owner set; it never reaches the browser.
+- The AI reads the account through the same calculations as the overview. It never writes. Each change comes back as a confirmation card, and ยืนยัน saves it through `cashflow_apply_changes` with the job version the AI read: a job changed since gives 409, and a double tap saves once.
+- **Krarok Tokens:** 1 token = $0.001 of real cost.
+  - Pro: 1,000 a month, reset on the renewal day.
+  - Trial: 25 tokens for the whole trial (owner: about 10 ordinary messages, counted by real work).
+  - System admins: no cap.
+  - A failed answer costs nothing. The whole app stops for the day at $5.
+- Tables: `cashflow_ai_proposals`, `cashflow_ai_usage` and `cashflow_ai_memories` (`database/ai_secretary.sql`). The owner ran it in Supabase on 2026-10-24 and confirmed the 3 tables.
+- **The chat screen and the floating squirrel:** same layout, same cards. When `/api/assistant` says on, they use the live transport. Sample labels give way to plain ones ("บันทึกแล้ว", "เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง"), and the data reloads after a save. Only accounts that can see เลขา ask.
+- **Switch:** `AI_ENABLED=true` with `AI_ADMINS_ONLY=true` in wrangler.production.jsonc, so only system admins get the real เลขา. Everyone else keeps the sample chat until AI_ADMINS_ONLY is "false".
+- **Voice and files (owner: "ฝากทำฟังก์ชันกดเสียงแล้วก็พูดออกได้ด้วย ... เพิ่มภาพเพิ่มไฟล์ด้วย"), full chat screen**
+  - The mic turns speech into text in the message box with the browser's own recognition (no tokens; Chrome sends the sound to Google, Safari to Apple). Browsers without it show the button as not available.
+  - A speaker button beside each answer's time reads it aloud with the device's voice.
+  - The paperclip, live only, attaches a picture or a PDF up to 4 MB. Pictures are redrawn at most 1600px as JPEG, which drops their location data.
+  - The backend checks the file's real first bytes, allows 10 files per 10 minutes, and sends the file to Gemini with that one message without storing it.
+  - The prompt tells the model to read slips and quotations as data and to propose record_payment or add_job.
+- **Free trial: 3 days for accounts created from 25 Oct 2569 00:00 Bangkok** (owner: option ก). Older accounts keep their 14 days. One rule in `shared/trial.ts` replaces the 10 separate 14-day constants (app, LINE, vault, reports, admin lists, feedback, เลขา). terms.html (Thai and English) says the same.
+- **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high). The audit gate found it on the clean install. Only zod changed in the lockfile.
+
+**Unchanged:** payments, Stripe, crons, LINE, and all stored data.
+
+**Tests**
+- tests/ai-gateway.test.ts (16), tests/ai-service.test.ts (11) and tests/trial-length.test.ts (3).
+- tests/e2e/assistant-live.spec.ts (11): live answers, cards, tokens, files, mic, read aloud, and computer and phone layout with the text-overlap check.
+- assistant-chat.spec.ts now expects a working mic.
+- phase-one-feedback.spec.ts now mocks `/api/assistant`.
+- Live Gemini runs of the Thai test set: 40 cases, about $0.0016 per reply.
+
+**Package**
+- Archive SHA256 `39beb0ec580a33aa42d2cf6662613f2ba5c2633793aa32bd3c83fe2e599a3df9`; manifest SHA256 `631190b004e84de3f7fdabd7816d644a0cb54be512e39c265b67144aa1228d36`.
+- 753 files, 46 changed (22 new).
+- New entry `assets/index-BokDseeu.js`.
+
+**Checked**
+- On the extracted package with a clean `npm ci`: cloudflare:check (17/17, audit 0 vulnerabilities), the build and preflight.
+- Unit tests 493/498 (the 5 known failures).
+- Full e2e on the final code: 219 passed, 37 failed. 33 of those are the live baseline; the other 4 were assistant-chat still expecting a "coming soon" mic, now updated (assistant-chat and assistant-live: 29/29).
+
+**Approved** by the owner in chat ("ดีพอบ"), 2026-10-24.
