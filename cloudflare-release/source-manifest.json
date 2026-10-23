@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg45b body-parser 2.4.0 (GHSA-27r3-jxmh-p828)",
+  "source_label": "pkg46 microphone allowed for the mic button",
   "archive": "source.tar.gz",
-  "archive_sha256": "875568280cd6c31667b7b5e853be948c6c1623c9abb9d4192c9840f06d6864f0",
-  "file_count": 753,
-  "total_source_bytes": 21227092,
+  "archive_sha256": "d6470edde1459df50da6e73fb9ed62dcc91207f8b68f2251603629ccc8a052a7",
+  "file_count": 754,
+  "total_source_bytes": 21228460,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -298,8 +298,8 @@
     },
     {
       "path": "backend/src/http/securityHeaders.ts",
-      "size": 1561,
-      "sha256": "10cd76a8ff1e3410516452f9238e05da7c0b3af3d80ad5fe5b70c6110250ada2"
+      "size": 1565,
+      "sha256": "6847806b509e7730f698b25a701b55acb04709dc065c227f0edd91acfd8b8a9b"
     },
     {
       "path": "backend/src/http/types.ts",
@@ -583,8 +583,8 @@
     },
     {
       "path": "cloudflare/worker.ts",
-      "size": 5037,
-      "sha256": "66a8e0d372bb72507a2f8e7377de23d48432824a636dbe75dbb884ad8bb76de3"
+      "size": 5041,
+      "sha256": "df5a098cced1176ede33fb3a7f189f83d487093c607a6de536298700c4188597"
     },
     {
       "path": "database/ai_secretary.sql",
@@ -773,8 +773,8 @@
     },
     {
       "path": "frontend/public/_headers",
-      "size": 1278,
-      "sha256": "69e8093a84638522ad17afbb18fc8d9889a55641ad45e2e3b886531a0f4564a4"
+      "size": 1282,
+      "sha256": "f793a6bdb1e7fb39b83dfdcaa6e092e2b111df2732d71167b49f2e6c11a31b91"
     },
     {
       "path": "frontend/public/apple-touch-icon-v2.png",
@@ -3428,8 +3428,8 @@
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
-      "size": 15784,
-      "sha256": "991765744c0c4a2c9a3f4018be21ee5c102631e1b567a269cb1b3cc0108a989e"
+      "size": 16004,
+      "sha256": "e1ead377601647d8ab49c609bad3aed8b41a1bbc0ab9f5db78c9a56e50f88995"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
@@ -3652,6 +3652,11 @@
       "sha256": "e656526a923a85272843ee2277eb72285cbdc778f31cccfa4c859ac9b78fe1f2"
     },
     {
+      "path": "tests/permissions-policy.test.ts",
+      "size": 1132,
+      "sha256": "f53b6a47a068e679afd7977921154a464eddebe07f3e4f1d0b2b2c837a652bdb"
+    },
+    {
       "path": "tests/phase-one-documents.test.ts",
       "size": 4361,
       "sha256": "8e2fd3e4410345a7fdf1d4423d2d98bc8ae7d9e80f576b606ef6af65f528c20f"
@@ -3763,8 +3768,8 @@
     },
     {
       "path": "vercel.json",
-      "size": 3231,
-      "sha256": "bbdf82c3122bdae074c819a323a743c1283fd01bb2eebc7effbffd8409f5108f"
+      "size": 3235,
+      "sha256": "d7a5d27da20e086d41d652f47931269c2eebba290dc33957ef1f33933623539c"
     },
     {
       "path": "wrangler.production.jsonc",

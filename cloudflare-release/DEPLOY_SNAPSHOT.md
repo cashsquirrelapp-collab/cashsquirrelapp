@@ -1453,3 +1453,34 @@ Built on top of 2a2aac3.
 - e2e assistant-live, app and billing: the only failures are in the baseline.
 
 **Approved.** This is part of the pkg45 deploy the owner approved ("ดีพอบ") and asked to fix ("มันขึ้น error ดูให้หน่อย"), 2026-10-24.
+
+
+## The mic button works: the page allows the microphone - 2026-10-24
+
+Built on top of 78d6ee2.
+
+**Why.** The owner reported: "ฟังก์ชันเสียงยังใช้ไม่ได้นะทำให้มันใช้ได้เลย".
+- **Cause:** every page was served with `Permissions-Policy: camera=(), microphone=(), geolocation=()`. That stops the browser from opening the microphone for the page, so speech-to-text was refused.
+- **Why tests missed it:** the e2e tests use a stand-in for the browser's speech tools, so they never saw the rule.
+
+**Change**
+- `microphone=(self)` in all four places that send the rule: cloudflare/worker.ts, backend/src/http/securityHeaders.ts, frontend/public/_headers and vercel.json.
+- Only this site may ask for the microphone; other sites and frames still may not.
+- Camera and location stay off.
+- The browser still asks the person once before the mic turns on.
+
+**Tests**
+- tests/permissions-policy.test.ts (new): all four places agree and allow only `microphone=(self)`.
+- assistant-live.spec.ts: also checks the header on the chat page.
+
+**Package**
+- Archive SHA256 `d6470edde1459df50da6e73fb9ed62dcc91207f8b68f2251603629ccc8a052a7`; manifest SHA256 `8ed07bc12642e6a9ed1b4afbcb35eee0046a863185b5ce667ca6e8e508714a7d`.
+- 754 files, 6 changed (1 new).
+- The entry stays `assets/index-BokDseeu.js`.
+
+**Checked**
+- On the extracted package with a clean `npm ci`: cloudflare:check (17/17, audit 0 vulnerabilities), the build and preflight.
+- Unit tests 494/499 (the 5 known failures).
+- assistant-live and assistant-chat e2e: 29/29.
+
+**Approved.** The owner asked for the fix in chat ("ทำให้มันใช้ได้เลย"), 2026-10-24, and runs the deploy.
