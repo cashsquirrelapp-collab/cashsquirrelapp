@@ -1274,3 +1274,68 @@ Built on top of 56e2927.
 - The chat spec passes 18/18. Full e2e: 202 passed; 35 failed = the 34 of the live baseline plus "marking work as done previews the expected payment date…", which then passed 5 runs in a row on its own (a timing flake; nothing in this package touches jobs).
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-23.
+
+
+## เลขากระรอก follows Pro on every page, wears its Pro outfit, and arrives after paying; the ฿159 popup and the setup questions are removed - 2026-10-23
+
+Built on top of 1e6dd06.
+
+**Why.** The owner asked for several things:
+- เลขากระรอก should follow Pro members to every page ("ให้น้องตามไปทุกที่ทุกฟีเจอร์สำหรับคนที่ใช้โปร ... คล้าย Cowork").
+- After a video of an AI dashboard, a docked assistant panel and an arrival moment. The owner first wanted it to feel like a game, then turned that down: it should be formal, like OpenAI's launch for dots ("ต้องดูเหมือนนักบัญชี หรือเลขาที่พร้อมเข้ามาช่วย UI จะต้องทางการ"). In it the squirrel walks out of a door on its own legs, jumps and waves.
+- The arrival plays only right after paying ("ถ้าขึ้นทุกครั้งมันจะดูน่ารำคาญ").
+- A Pro form of the squirrel: the owner chose option ก. Pro เลขา.
+- Remove the ฿159 advert that opened by itself and all the new-member questions ("เราจะรื้อแล้วเราจะทำใหม่").
+
+**The squirrel at the corner (Pro and the trial only, every page but the chat)**
+- On computers, an "ถามเลขากระรอก ⌘K" pill; on phones, a round squirrel above the bottom bar. ⌘K / Ctrl+K opens and closes it.
+- The panel knows the page: a greeting, questions for that page and a reply about the page. It can prepare an action to confirm, for example a new job, which is a labelled sample that changes nothing. "เปิดแชตเต็ม" opens /assistant.
+- Where the panel opens:
+  - Very wide screens (1720px+): docked at the right, with the page making room beside it.
+  - Other computers: a side sheet over a dimmed, blurred page. Pushing the page narrower had broken tables that size themselves by the screen width.
+  - Phones: a sheet from the bottom.
+- After landing it shows "แตะผมได้ทุกหน้า" for a few seconds, with a tap icon.
+- Like the full chat, this is a screen preview: the sample transport answers and nothing is saved.
+
+**Pro เลขา outfit**
+- `components/mascot/MascotProGear.tsx` and `Mascot gear="pro"`: a headset with a microphone and a green light, an aura with a slowly turning ring, a star pin and sparkles. Under 40px only the headset is drawn.
+- These are accessories drawn over the official artwork; the squirrel itself is unchanged.
+- It appears everywhere in เลขากระรอก: the corner squirrel, the panel, the top of the chat, the welcome screen, the small avatars, the try-mode card, the sidebar icon and the arrival. Squirrels elsewhere in the app are unchanged.
+- New actions `walk` (the feet take turns stepping, the body shifts its weight, the paws swing) and `jump` (crouch, push off, feet tucked, land). They move the mascot's existing shapes; nothing is redrawn.
+
+**The arrival after paying (AssistantBirth.tsx)**
+- It plays when a payment is confirmed (the "สมัครสมาชิกสำเร็จ!" message), right after that message is closed. It never plays on ordinary visits, for the trial or on renewals.
+- The page goes behind frosted glass, and a doorway of soft light rises from a glowing horizon with soft orbs around it.
+- The Pro squirrel walks out of the light on its own feet, jumps, then waves with twinkles by its paw.
+- "สวัสดีครับ คุณ…" types itself out letter by letter, keeping Thai marks whole, followed by "เลขากระรอกพร้อมช่วยดูแลงาน เอกสาร และการเงินของคุณแล้ว".
+- The glass then opens from the squirrel outward and it flies to its corner.
+- It can be skipped at any moment. With reduced motion it is a still hello.
+- The team can replay it from the chat's ⋯ menu ("ดูตอนน้องเกิดอีกครั้ง", which uses `?hello=krarok`).
+
+**Removed**
+- The Pro advert (฿159) that opened by itself, daily and after 7 days.
+- The new-member setup questions (ProfileSetupWizard) and the "replay" button in ตั้งค่า. The wizard file is kept but unused.
+- Still there: the Pro dialog at a Free account's 11th document of the month.
+
+**Unchanged:** backend, API permissions, payments, prices, Stripe, Wrangler config, Secrets, crons and stored data. Checkout stays as it is.
+
+**Tests**
+- `tests/e2e/assistant-buddy.spec.ts` (new, 10 tests) covers:
+  - the corner squirrel and its panel on computers, very wide screens and phones;
+  - no squirrel without Pro;
+  - the arrival only after a confirmed payment and never on a visit;
+  - typing that keeps Thai marks whole;
+  - skip and reduced motion;
+  - no automatic promo.
+- `tests/e2e/app.spec.ts`: the three onboarding tests are replaced by "new accounts are no longer asked the setup questions".
+
+**Package**
+- Archive SHA256 `0b4b0a5e95f4e028fb9577f56639fb0dcc680f61fa54b7207a7a0619f8cecb60`; manifest SHA256 `f88519823e75189ac184261d1ba773b736e6c49871fb85b3dfa32ab0752c411d`.
+- 730 files, 16 changed (4 new).
+- New entry `assets/index-DgIz5G8t.js`.
+
+**Checked**
+- On the extracted package with a clean `npm ci`: cloudflare:check (17/17, including the audit, 0 vulnerabilities), the build and preflight.
+- Full e2e before the last animation change: 211 passed. The 33 failures are all among the 34 of the live baseline; the 34th was the onboarding test this package replaces. The chat and corner-squirrel specs pass on the final code.
+
+**Approved** by the owner in chat ("ดีพอยทั้งหมดเลยชอบมาก"), 2026-10-23.

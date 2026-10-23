@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg42 chat history menu with delete and undo, and a Pro try mode in เลขากระรอก",
+  "source_label": "pkg43: เลขากระรอก follows Pro on every page (corner squirrel, docked panel), Pro เลขา outfit, formal arrival after paying; ฿159 popup and setup questions removed",
   "archive": "source.tar.gz",
-  "archive_sha256": "acb248ae2106cdaa465d4b76ba1cf3c9f28373d055ff6ee3b379b2069c9513cd",
-  "file_count": 726,
-  "total_source_bytes": 20934304,
+  "archive_sha256": "0b4b0a5e95f4e028fb9577f56639fb0dcc680f61fa54b7207a7a0619f8cecb60",
+  "file_count": 730,
+  "total_source_bytes": 21017932,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1708,8 +1708,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 201675,
-      "sha256": "e6e3014f39a505a5cf611ee28730f74734a895a23e3bd3413b4faa4173018dce"
+      "size": 202756,
+      "sha256": "15b0e29038febbf44306ef2ac10665065e9b5428ca7b145569febab9773d970c"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -1743,13 +1743,18 @@
     },
     {
       "path": "frontend/src/components/mascot/Mascot.tsx",
-      "size": 30920,
-      "sha256": "7d357eb7ded22dbd5d39af9f5342de279e1c05dfb0af8d59aa8dc8be51cc73cc"
+      "size": 36893,
+      "sha256": "47a9c4d294d18bc248c15600de2f566b8edd2b14a286b1e9074a4748f7fb78f2"
     },
     {
       "path": "frontend/src/components/mascot/MascotPeek.tsx",
       "size": 2955,
       "sha256": "566ba5de973e02b41682b8c6d2d663a66f7811e96f4760083b80cab2b54d8e8d"
+    },
+    {
+      "path": "frontend/src/components/mascot/MascotProGear.tsx",
+      "size": 5226,
+      "sha256": "5990a288c6426886da949ea556ca24c6c1abc0c7781962c965ec9600542f7897"
     },
     {
       "path": "frontend/src/components/mascot/MascotToast.tsx",
@@ -1798,8 +1803,8 @@
     },
     {
       "path": "frontend/src/components/ui/NavGlyph.tsx",
-      "size": 5351,
-      "sha256": "af9a618f11084ac709bb0d9b4c9f81612325350a1510effa45d5b52386d3c36d"
+      "size": 5362,
+      "sha256": "c055b7352c9fabee3e4341cbb059585cae5cbada600bd395a2497977f34c08fa"
     },
     {
       "path": "frontend/src/components/ui/NumberInput.tsx",
@@ -1832,9 +1837,19 @@
       "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5"
     },
     {
+      "path": "frontend/src/features/assistant/AssistantBirth.tsx",
+      "size": 10347,
+      "sha256": "149ac2e15857eb1988d248ee368e16a45bfe0a2acb5e0941715dbe5befef774c"
+    },
+    {
+      "path": "frontend/src/features/assistant/AssistantBuddy.tsx",
+      "size": 18398,
+      "sha256": "e8a1f6818ac5aae79b06abd9b6a2acf9e5ec6931885554022f306ccce0528eb7"
+    },
+    {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
-      "size": 61180,
-      "sha256": "b05114b7cb9a346aea40a33f31070d76c40eb3a49a071a29ec64f3e41ba594fa"
+      "size": 61625,
+      "sha256": "f5cddad4d4d1ae81d3528b10817f9fbaa9676ec766e84ee71cec514195248750"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
@@ -1853,23 +1868,23 @@
     },
     {
       "path": "frontend/src/features/assistant/MascotSlot.tsx",
-      "size": 2053,
-      "sha256": "dc9fe2f2c08e6c67a4065391959fded16e907faabd4c52629318af35784c0a50"
+      "size": 2064,
+      "sha256": "fc996f6641d483c5d3a8e4a6a0820ee8a5e31f2d23a4aef5775a6829237af5a8"
     },
     {
       "path": "frontend/src/features/assistant/assistant.css",
-      "size": 47575,
-      "sha256": "528f671580140146059f283a751480ed01e821b0e23fb04ed35037ab5233c541"
+      "size": 66477,
+      "sha256": "d3427eef4a9212520e03c6eeac28e968c2f59d8f55c8b33ff83d0bb3b0989805"
     },
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
-      "size": 4421,
-      "sha256": "3538de00116c5cbf8f44dffdd0656353c8d303ad80c024d88606639d1d5dd024"
+      "size": 4778,
+      "sha256": "522ee133da465ce96839e7997840b14c0f51bd944f4a8c356e22949b1ebc8ff2"
     },
     {
       "path": "frontend/src/features/assistant/assistantMock.ts",
-      "size": 12608,
-      "sha256": "fd16e4acd37a3c14a93ccc32baec5640c0446580c6aadb1fb4f29fd5502ca83c"
+      "size": 16663,
+      "sha256": "c6e6fd546af447885e1599780087cfb0629139a96628b750aa403507e71292c2"
     },
     {
       "path": "frontend/src/features/assistant/lineMock.ts",
@@ -2508,8 +2523,8 @@
     },
     {
       "path": "frontend/src/features/settings/SettingsTab.tsx",
-      "size": 93411,
-      "sha256": "b59a5e43e57de0287113515f1fd0e8708e7cb010c0769c2e7476efaa0cdd7e0d"
+      "size": 92947,
+      "sha256": "cc4f1ae6896c30cb4f1fc6295e1e9cc356e580ad36fdc08e39573d0962d94595"
     },
     {
       "path": "frontend/src/features/tax/TaxTab.tsx",
@@ -2593,8 +2608,8 @@
     },
     {
       "path": "frontend/src/i18n/en/assistant.ts",
-      "size": 20647,
-      "sha256": "cb6483d729ea36cbf06051211e8a40bdd42e8846308538c12ed3379f0aa9ab09"
+      "size": 23591,
+      "sha256": "708757f250a2534bda0c1cd822f1ce3e1871d83f01e7b560c04f353e792e4c9a"
     },
     {
       "path": "frontend/src/i18n/en/auth.ts",
@@ -3298,8 +3313,13 @@
     },
     {
       "path": "tests/e2e/app.spec.ts",
-      "size": 129975,
-      "sha256": "6e4872fb5bfccfa04b66d73b17210e115d435ae8f0bc7ddd20351de9e69fce15"
+      "size": 127052,
+      "sha256": "9f02211aa5455808545a625042f9c1b22164cbad33050cea60b8cb4a1e6cf65e"
+    },
+    {
+      "path": "tests/e2e/assistant-buddy.spec.ts",
+      "size": 19231,
+      "sha256": "890153ce34f777b28763a00141a59082de5d00ea89541d52ab491fa78acee1fa"
     },
     {
       "path": "tests/e2e/assistant-chat.spec.ts",
@@ -3383,8 +3403,8 @@
     },
     {
       "path": "tests/e2e/textOverlap.ts",
-      "size": 5391,
-      "sha256": "57e3027ab610e2f421d0b72faf92c53f3fed18c02f0806b7b487abfc2d9c271b"
+      "size": 5425,
+      "sha256": "5f7480080be461db474801a8be5aa5bca22a2fb9ebf3b8d353fc605c3397209a"
     },
     {
       "path": "tests/e2e/vault-wht-navigation.spec.ts",
