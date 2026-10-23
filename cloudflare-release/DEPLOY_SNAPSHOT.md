@@ -1057,3 +1057,28 @@ Built on top of e8ddcfc. Approved ("ดีพอย").
 - **Checked:**
   - cloudflare:check (16), the build and preflight on the extracted package.
   - e2e excel-import (now checks the tab title) and English (43/43).
+
+## DOMPurify 3.4.17, Vite 6.4.5 and a full dependency audit before every release - 2026-10-23
+
+Built on top of 95f1cb2. Approved ("ดีพอย").
+
+**Why.** The owner asked for care after news of sites being taken over through PHP, then asked for the safest setting ("ให้มันปลอดภัยที่สุด"). This app has no PHP, and the read-only check found no committed secrets. Security headers, private vault storage with byte sniffing and sandboxed serving, and RLS were all in place. `npm audit` did report:
+- one critical advisory in DOMPurify 3.4.16, which jsPDF pulls in (GHSA-cg2g-xh64-v4q7 and related). The app only uses jsPDF's `addImage`, so that code was not reached.
+- one high advisory in Vite 6.4.3, the build tool's local dev server (GHSA-9jrq-w75r-8gcw and related). Production never runs the dev server.
+
+- **DOMPurify 3.4.16 → 3.4.17 and Vite 6.4.3 → 6.4.5 (`^6.4.5`)**
+  - Only those lockfile entries change. Stripe stays 23.0.0 and @stripe/stripe-js 10.1.0.
+  - A plain `npm update` in the work tree tried to move Stripe to 22 by reading the outer repo's package.json. That change was discarded. The update was made in an isolated folder and checked with a clean `npm ci`.
+  - The production bundle is the same with the new Vite (same entry `index-4iRRFO3a.js`).
+- **Dependency audit before every release**
+  - New script `security:audit` = `npm audit --audit-level=high`. It covers every package, shipped or used to build and test.
+  - `cloudflare:check` starts with it. So the CI release step (`npm ci` → `cloudflare:check`) and `cloudflare:deploy` stop on any known high or critical advisory.
+  - Checked: it fails on the old lockfile (exit 1) and passes on this one (0 vulnerabilities in all packages).
+- **Test:** `tests/security.test.ts` keeps the audit at the start of the release check, DOMPurify ≥3.4.17, Vite ≥6.4.5, and Stripe unmoved.
+- **Unchanged:** app code, backend, payments, Wrangler config, Secrets and crons.
+- Archive SHA256 `2f34383d08b8e2dc3053f5448c58ddfbb0115ccd146b04fa6afc00cd5bd24c53`; manifest SHA256 `2f8220f1bffcff8e443fa9f5c9136ead92f261bb28be8e7a8f16766acaa1e311`.
+- **Checked:**
+  - On the extracted package with a clean `npm ci`: cloudflare:check (17, including the audit), the build and preflight.
+  - Unit suite 463/468, with the same 5 known failures.
+  - An invoice PDF downloaded in the browser with the new DOMPurify (valid %PDF).
+  - Full e2e with the Vite 6.4.5 build: 184 passed; the 34 failures are the same as the live baseline.
