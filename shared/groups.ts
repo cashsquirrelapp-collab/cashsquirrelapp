@@ -161,7 +161,7 @@ export interface AdminAccounts {
   total: number;
   page: number;
 }
-export type AdminProStatus = 'admin' | 'paid' | 'trial' | 'revoked' | 'none';
+export type AdminProStatus = 'admin' | 'paid' | 'trial' | 'revoked' | 'banned' | 'none';
 export interface AdminDeletionRequest {
   userId: string;
   email: string;

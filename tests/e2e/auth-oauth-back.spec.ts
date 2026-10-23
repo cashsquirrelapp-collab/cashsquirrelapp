@@ -13,7 +13,8 @@ test('a login page restored after leaving for Google sign-in is usable again', a
   });
 
   await page.goto('/login');
-  const google = page.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google' });
+  // The first screen is the sign-in method chooser; Google is the first option.
+  const google = page.locator('.auth-pill').first(); // its label turns into the spinner text, so find it by position
   await google.click();
   await expect(google).toBeDisabled();
   await expect(page.getByText('กำลังดำเนินการ...')).toBeVisible();

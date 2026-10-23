@@ -1,4 +1,5 @@
 import type { AppSettings, Expense, Job } from '../../../../shared/types';
+import { T } from '../../i18n/tr';
 import { firstActivityMonth, fixedExpenseForMonth } from '../../../../shared/monthlySummary';
 
 // One month of the รายจ่าย page: recorded expenses plus the fixed monthly lines from Settings that
@@ -30,7 +31,7 @@ export interface ExpenseMonth {
 export type ExpenseSort = 'recent' | 'oldest' | 'amountDesc' | 'amountAsc';
 
 /** Name the old single lump-sum fixed cost takes once it becomes an item (same as Settings). */
-export const LEGACY_FIXED_NAME = 'ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)';
+export const LEGACY_FIXED_NAME = T("ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)"); // shown with tr()
 
 const inMonth = (date: string | null | undefined, monthKey: string) => Boolean(date && date.slice(0, 7) === monthKey);
 const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();

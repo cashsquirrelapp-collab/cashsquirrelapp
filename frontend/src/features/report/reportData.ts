@@ -1,5 +1,6 @@
 import type { Job } from '../../../../shared/types';
 import { getJobPaymentEntries, getJobPendingEntries } from '../../../../shared/installmentPayments';
+import { T } from '../../i18n/tr';
 
 // Everything the รายงาน page shows, computed from jobs only. Income means money actually received
 // (payment entries), counted in the month it arrived -- the same rule the in-depth analysis used.
@@ -35,8 +36,8 @@ export interface Report {
   unnamedClientJobs: number;
 }
 
-export const UNNAMED_CLIENT = 'ไม่ระบุลูกค้า';
-export const UNTYPED = 'ยังไม่ระบุ';
+export const UNNAMED_CLIENT = T("ไม่ระบุลูกค้า");
+export const UNTYPED = T("ยังไม่ระบุ");
 export const clientKey = (job: Job) => (job.client || '').trim() || UNNAMED_CLIENT;
 export const typeKey = (job: Job) => (job.type || '').trim() || UNTYPED;
 
@@ -153,13 +154,13 @@ export function jobsInBucket(jobs: Job[], period: ReportPeriod, dimension: 'clie
 export type AgingKey = 'overdue' | 'today' | 'within7' | 'within14' | 'within30' | 'later' | 'undated';
 
 export const AGING_LABELS: Record<AgingKey, string> = {
-  overdue: 'เกินกำหนด',
-  today: 'ครบกำหนดวันนี้',
-  within7: 'ภายใน 7 วัน',
-  within14: 'ภายใน 14 วัน',
-  within30: 'ภายใน 30 วัน',
-  later: 'มากกว่า 30 วัน',
-  undated: 'ยังไม่ระบุวันรับเงิน',
+  overdue: T("เกินกำหนด"),
+  today: T("ครบกำหนดวันนี้"),
+  within7: T("ภายใน 7 วัน"),
+  within14: T("ภายใน 14 วัน"),
+  within30: T("ภายใน 30 วัน"),
+  later: T("มากกว่า 30 วัน"),
+  undated: T("ยังไม่ระบุวันรับเงิน"),
 };
 
 export interface AgingBucket { key: AgingKey; amount: number; count: number }

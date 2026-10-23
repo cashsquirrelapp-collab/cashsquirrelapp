@@ -1,5 +1,6 @@
 import type { GroupDetail, GroupSnapshot, PublicProfile } from '../../../../shared/groups';
 
+import { tr } from '../../i18n/tr';
 // Team is a future feature for small businesses. Until it launches, everyone except system admins
 // sees this sample team so the page can be designed and tried without touching real groups: the
 // signed-in user appears with their real name and photo, everyone else is made up, and nothing on
@@ -20,12 +21,12 @@ export const PREVIEW_GROUP_ID = 'preview-team';
 export function buildPreviewTeam(me: { userId: string; displayName: string; publicId?: string; avatarUrl?: string; email?: string }): { snapshot: GroupSnapshot; detail: GroupDetail } {
   const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString();
   const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
-  const name = 'บริษัท ปาร์ค จำกัด';
+  const name = tr("บริษัท ปาร์ค จำกัด");
   // Sample people use example.com addresses and illustrated pictures, never real ones.
   const detail: GroupDetail = {
     id: PREVIEW_GROUP_ID,
     name,
-    description: 'ทีมตัวอย่างสำหรับดูหน้าตาฟีเจอร์ทีม',
+    description: tr("ทีมตัวอย่างสำหรับดูหน้าตาฟีเจอร์ทีม"),
     createdAt: daysAgo(30),
     myRole: 'leader',
     memberCount: 3,

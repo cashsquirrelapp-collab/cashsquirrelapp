@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isValidWhtRate, whtAmountFor, jobWhtAmount, jobNetReceivable } from '../shared/wht';
+import { isEWhtJob, isValidWhtRate, whtAmountFor, jobWhtAmount, jobNetReceivable } from '../shared/wht';
 import { validateChanges } from '../shared/validation';
 
 test('custom WHT rates allow up to two decimals within 0–100%', () => {
@@ -29,4 +29,9 @@ test('job saves accept custom rates and reject more than two decimals', () => {
   assert.doesNotThrow(() => validateChanges(job(1.5)));
   assert.throws(() => validateChanges(job(1.555)));
   assert.throws(() => validateChanges(job(101)));
+});
+
+test('only the 1% rate is treated as e-Withholding Tax', () => {
+  assert.equal(isEWhtJob({ whtRate: 1 }), true);
+  for (const whtRate of [undefined, 0, 1.5, 2, 3, 5]) assert.equal(isEWhtJob({ whtRate }), false, String(whtRate));
 });

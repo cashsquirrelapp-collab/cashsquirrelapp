@@ -189,6 +189,7 @@ export interface NotifSettings {
   emailjsPublicKey: string;
   pendingQueue?: PendingReminder[];
   dailyDigestEnabled?: boolean; // Pro feature: opt-in to a daily email digest of overdue jobs, sent server-side by api/send-overdue-digest
+  wht50ReminderEnabled?: boolean; // Pro: opt-in weekly LINE summary of received payments still missing a 50 ทวิ file
   lastDigestSentDate?: string; // YYYY-MM-DD (Asia/Bangkok), dedupe guard so the digest cron never double-sends the same day
   monthlyReportEnabled?: boolean; // Pro feature: opt-in to an automated monthly financial summary email, sent server-side by api/send-monthly-report
   lastMonthlyReportSentMonth?: string; // YYYY-MM, dedupe guard so the monthly report cron never double-sends the same month
@@ -275,5 +276,6 @@ export interface Invoice {
   paidDate?: string; // YYYY-MM-DD, วันที่รับชำระ (ใบเสร็จ)
   paymentMethod?: string; // วิธีชำระเงิน (ใบเสร็จ)
   paidAmount?: number; // จำนวนเงินที่ได้รับจริง (ใบเสร็จ) -- ว่าง = เท่ากับยอดสุทธิ
+  linkedFromId?: string; // the document this one was issued from, when the user kept them linked (ออกต่อจาก)
 }
 

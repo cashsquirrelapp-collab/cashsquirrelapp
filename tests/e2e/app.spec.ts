@@ -26,76 +26,20 @@ test('refresh shows the branded skeleton until the account session is ready',asy
  await page.goto('/',{waitUntil:'domcontentloaded'});
  await expect(page.getByRole('status')).toContainText('กำลังโหลดข้อมูล กรุณารอสักครู่');
  releaseAuth();
- await expect(page.getByRole('button',{name:'เข้าสู่ระบบ',exact:true}).first()).toBeVisible();
+ // the SaaS landing (2026-10-20) signs in with links to /login
+ await expect(page.getByRole('link',{name:'เข้าสู่ระบบ',exact:true}).first()).toBeVisible();
 });
 
-test('new-account onboarding is persisted when dismissed and does not return after reload',async({page})=>{
- const newUser={...user,created_at:'2026-09-24T00:00:00Z'};
- let storedSettings={...snapshot.settings,profileSetupCompleted:false};
- let settingsVersion=1;
+// The new-member questionnaire was removed on 2026-10-23 (owner: "เอาออกให้หมดเพราะเราจะรื้อแล้วเราจะทำใหม่").
+test('new accounts are no longer asked the setup questions, and settings has no replay for them',async({page})=>{
+ const newUser={...user,created_at:'2026-10-23T00:00:00Z'};
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user:newUser}}}));
- await page.route('**/api/data*',async route=>{
-  if(route.request().method()==='POST'){
-   const body=route.request().postDataJSON();
-   for(const change of body.changes||[])if(change.table==='cashflow_documents'&&change.id==='settings'){
-    storedSettings=change.data;settingsVersion+=1;
-   }
-   return route.fulfill({json:{ok:true}});
-  }
-  return route.fulfill({json:{
-   snapshot:{...snapshot,settings:storedSettings,notif_settings:{...snapshot.notif_settings,alertEmail:newUser.email}},
-   versions:{...versions,cashflow_documents:{...versions.cashflow_documents,settings:settingsVersion}},
-   subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'},
-  }});
- });
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,settings:{...snapshot.settings,profileSetupCompleted:false}},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');
- await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toBeVisible();
- await page.getByRole('button',{name:'ปิดแบบสอบถาม'}).click();
- await expect.poll(()=>storedSettings.profileSetupCompleted).toBe(true);
- await page.reload();
- await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
  await expect(page.locator('#dashboard-top')).toBeVisible();
-});
-
-test('skipping onboarding once persists the handled state for a new session',async({page})=>{
- const newUser={...user,created_at:'2026-09-24T00:00:00Z'};
- let storedSettings={...snapshot.settings,profileSetupCompleted:false};
- await page.route('**/api/auth',route=>route.fulfill({json:{session:{user:newUser}}}));
- await page.route('**/api/data*',route=>{
-  if(route.request().method()==='POST'){
-   const body=route.request().postDataJSON();
-   for(const change of body.changes||[])if(change.table==='cashflow_documents'&&change.id==='settings')storedSettings=change.data;
-   return route.fulfill({json:{ok:true}});
-  }
-  return route.fulfill({json:{snapshot:{...snapshot,settings:storedSettings},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
- });
- await page.goto('/');
- await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toBeVisible();
- await page.getByRole('button',{name:'ข้าม',exact:true}).click();
- await expect.poll(()=>storedSettings.profileSetupCompleted).toBe(true);
  await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
- await page.reload();
- await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
-});
-
-test('completing onboarding persists and never repeats',async({page})=>{
- const newUser={...user,created_at:'2026-09-24T00:00:00Z'};
- let storedSettings={...snapshot.settings,profileSetupCompleted:false};
- await page.route('**/api/auth',route=>route.fulfill({json:{session:{user:newUser}}}));
- await page.route('**/api/data*',route=>{
-  if(route.request().method()==='POST'){
-   const body=route.request().postDataJSON();
-   for(const change of body.changes||[])if(change.table==='cashflow_documents'&&change.id==='settings')storedSettings=change.data;
-   return route.fulfill({json:{ok:true}});
-  }
-  return route.fulfill({json:{snapshot:{...snapshot,settings:storedSettings},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});
- });
- await page.goto('/');
- for(let step=0;step<3;step++)await page.getByRole('button',{name:'ถัดไป',exact:true}).click();
- await page.getByRole('button',{name:'เริ่มใช้งานเลย!'}).click();
- await expect.poll(()=>storedSettings.profileSetupCompleted).toBe(true);
- await page.reload();
- await expect(page.getByRole('heading',{name:'คุณคือใคร?'})).toHaveCount(0);
+ await page.goto('/settings');
+ await expect(page.getByRole('button',{name:'ดูหน้าตั้งค่าบัญชีเริ่มต้นอีกครั้ง'})).toHaveCount(0);
 });
 
 test('accounts created before rollout are never prompted retroactively',async({page})=>{
@@ -207,9 +151,15 @@ test('LIFF form loads under production CSP without inline handlers',async({page}
 test('mobile login layout remains inside the viewport',async({page})=>{
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.setViewportSize({width:390,height:844});await page.goto('/');
- await expect(page.getByRole('button',{name:'เข้าสู่ระบบ',exact:true}).first()).toBeVisible();
+ // the SaaS landing (2026-10-20): its sign-up links go to /login
+ const start=page.getByRole('link',{name:/^เริ่มใช้งานฟรี/}).first();
+ await expect(start).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.getByRole('button',{name:'เริ่มต้นใช้งาน',exact:true}).first().click();
+ await start.click();
+ // first the method chooser (no form), then the email form one step behind it
+ await expect(page.getByTestId('auth-method-chooser')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:'ดำเนินการต่อด้วยอีเมล'}).click();
  await expect(page.locator('input[type=email]').first()).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'artifacts/mobile-login.png',fullPage:true});
@@ -236,6 +186,9 @@ test('add-job sheet stays in the viewport and success feedback appears at the to
 
  await page.getByRole('button',{name:'บันทึกงาน'}).click();
  await expect(page.getByText('กรุณาระบุชื่องาน')).toBeVisible();
+ // The form moves focus to the first problem on the next frame. Wait for that before typing:
+ // in a long headless run the frame can come late and steal focus mid-fill (the value then lands in the name).
+ await expect(page.getByLabel('ชื่องาน / โปรเจกต์')).toBeFocused();
  await page.getByLabel('ชื่องาน / โปรเจกต์').fill('Regression project');
  await page.getByLabel('มูลค่างาน').fill('1000');
  await page.getByRole('button',{name:'บันทึกงาน'}).click();
@@ -538,7 +491,7 @@ test('expired authentication hides private views and never leaves financial brow
  await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,jobs:[privateJob]},versions:{...versions,cashflow_jobs:{'private-job':1}},subscription:null}}));
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
  expired=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
- await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
+ await expect(page.getByTestId('auth-method-chooser')).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
  const storage=await page.evaluate(()=>({...localStorage,...sessionStorage}));
  for(const key of Object.keys(storage))expect(key).not.toMatch(/^cashflow_(jobs|goals|settings|statuses|job_types|expenses|notif_settings|user_avatar|invoices|issuer)(_|$)/);
  expect(JSON.stringify(storage)).not.toContain('Private account record');
@@ -568,7 +521,7 @@ test('a protected API 401 immediately removes private views without waiting for 
  await page.route('**/api/data*',route=>denied?route.fulfill({status:401,json:{error:'Session expired'}}):route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
  await page.goto('/');await expect(page.locator('#dashboard-top')).toBeVisible();
  denied=true;const sidebar=page.locator('aside');
- await expect(page.locator('input[type=email]').first()).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
+ await expect(page.getByTestId('auth-method-chooser')).toBeVisible();await expect(page.locator('#main-content')).toHaveCount(0);
 });
 
 test('settings overview shows current values and opens each setting on its own page',async({page})=>{
@@ -1009,98 +962,497 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await expect(summary).toContainText('กำไรสุทธิเดือนนี้');
  await expect(summary).toContainText('−฿3,150');
  await expect(summary).toContainText('แบ่งออมเข้าเป้าหมาย (1 รายการ)');
- await expect(page.getByTestId('left-this-month')).toContainText('ส่วนที่เกินเงินรับเดือนนี้');
- await expect(page.getByTestId('left-this-month')).toContainText('รายจ่ายและเงินที่แบ่งออม มากกว่าเงินรับของเดือนนี้');
- await expect(page.getByTestId('left-this-month-amount')).toHaveText('฿6,150');
- await expect(page.getByTestId('left-this-month-amount')).toHaveClass(/text-\[#E65F2B\]/);
+ // "ยอดเงินปัจจุบัน" never shows a minus: received 10,180 − paid 13,330 − saved 3,000 is below zero, so it is ฿0,
+ // and the shortfall of the whole month is said in a sentence underneath.
+ await expect(page.getByTestId('left-this-month')).toContainText('ยอดเงินปัจจุบัน');
+ await expect(page.getByTestId('left-this-month-amount')).toHaveText('฿0');
+ await expect(page.getByTestId('over-this-month')).toContainText('มากกว่าเงินที่รับจริง ฿6,150');
+ await expect(page.getByTestId('unpaid-fixed')).toHaveCount(0); // the monthly cost is recorded as paid
  await expect(modal.getByRole('region',{name:'เงินจริงที่มีอยู่ตอนนี้'})).toHaveCount(0);
  await expect(modal.getByRole('button',{name:'ตั้งยอดเริ่มต้น'})).toHaveCount(0);
  await expect(modal.getByRole('region',{name:'รายละเอียดรายจ่ายเดือนนี้'})).toHaveCount(0);
  await expect(modal.getByRole('button',{name:/ดูทั้งหมด/})).toHaveCount(0);
 });
 
-test('landing hero: English headline, Thai explanation, working CTAs, and a product demo that replays cleanly',async({page})=>{
+test('landing: a scroll story made of real screenshots, with a hero that works at once and no watch-video gate',async({page})=>{
  const api:string[]=[];
  page.on('request',r=>{const u=new URL(r.url());if(u.pathname.startsWith('/api/'))api.push(`${r.method()} ${u.pathname}`);});
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.goto('/');
- await expect(page.getByRole('heading',{level:1})).toContainText('Your work. Your money.');
- await expect(page.getByRole('heading',{level:1})).toContainText('All in one place.');
- await expect(page.getByText('จัดการงาน ติดตามเงินค้างรับ')).toBeVisible();
+ const h1=page.getByRole('heading',{level:1});
+ await expect(h1).toContainText('Every project');
+ await expect(h1).toContainText('Every payment');
+ await expect(page.getByText('ไม่ต้องจำเองว่าเงินจะเข้าวันไหน')).toBeVisible();
+ await expect(page.getByRole('button',{name:'เริ่มใช้งานฟรี'}).first()).toBeInViewport(); // no intro to sit through
+ for(const name of [/ดูวิดีโอ/,/ดูการทำงาน/,/watch/i,/play/i])await expect(page.getByRole('button',{name})).toHaveCount(0);
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await expect(page.getByTestId('product-demo')).toHaveCount(0); // the HTML-drawn demo is gone from the public page
+ // English headings take no full stop; a line break does that job
+ const headings=await page.locator('h1,h2').allInnerTexts();
+ expect(headings.length).toBeGreaterThanOrEqual(5);
+ for(const text of headings)expect(text).not.toMatch(/[.。]/);
+ // every product picture is one of the captured app screenshots
+ const pictures=await page.locator('main img').evaluateAll(els=>els.map(el=>el.getAttribute('src')||''));
+ expect(pictures.length).toBeGreaterThan(12);
+ for(const src of pictures)expect(src).toMatch(/^\/(landing\/[a-z0-9-]+\.webp|line\/mascot-[a-z0-9-]+\.png)$/); // app screenshots, plus the art of the real LINE cards
+ // scrolling moves the story forward, and scrolling back undoes it
+ const travel=9*900;
+ await page.evaluate(y=>window.scrollTo(0,y),0.27*travel);
+ await expect(page.getByRole('heading',{name:'Know what’s due'})).toBeVisible();
+ await expect(h1).toBeHidden();
+ await page.evaluate(y=>window.scrollTo(0,y),0.75*travel);
+ await expect(page.getByRole('heading',{name:/Stay updated/})).toBeVisible();
+ await expect(page.getByText('ใช้ได้ในแพ็กเกจ Pro')).toBeVisible(); // LINE is labelled with its plan
+ // the chat starts empty; the cards only come in with their events (they are clipped until then)
+ const reply=page.getByText('ยอดรอรับทั้งหมด'),notice=page.getByText('ยอดที่ต้องติดตามทั้งหมด');
+ await expect(reply).not.toBeInViewport();
+ await page.evaluate(y=>window.scrollTo(0,y),0.8*travel); // after the tap on รอรับเงิน: the bot's card is in the chat
+ await expect(reply).toBeInViewport();
+ await expect(page.getByText('฿ 29,000',{exact:true})).toBeInViewport(); // the total after the instalment recorded earlier in the story
+ await expect(notice).not.toBeInViewport();
+ await page.evaluate(y=>window.scrollTo(0,y),0.96*travel); // later an overdue notice arrives by itself
+ await expect(notice).toBeInViewport();
+ await page.evaluate(()=>window.scrollTo(0,0));
+ await expect(h1).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Know what’s due'})).toBeHidden();
+ // plan facts follow the live app, not the stale ฿149 / 14-day wording
+ const plans=page.locator('#plans');
+ await expect(plans).toContainText('฿199');
+ await expect(plans).toContainText('฿249');
+ // 149 appears once: the yearly plan's average (coming soon), never a ฿149 monthly price
+ expect((await plans.innerText()).match(/149/g)?.length).toBe(1);
+ await expect(plans).toContainText('เฉลี่ย ฿149/เดือน');
+ await expect(plans.getByRole('list',{name:'แพ็กเกจระยะยาว'})).toContainText('เร็ว ๆ นี้');
+ await expect(plans).not.toContainText('14 วัน');
  await expect(page.getByText('Group & Team')).toHaveCount(0); // nothing promoted that isn't available yet
- const demo=page.getByTestId('product-demo');
- // "ดูการทำงาน" brings the demo into view and starts it from the top
- await page.getByRole('button',{name:'ดูการทำงาน'}).click();
- await expect(demo).toBeInViewport();
- await expect(demo).toHaveAttribute('data-scene','0');
- await expect(demo).toContainText('See the big picture.');
- await expect(demo).toContainText('ข้อมูลตัวอย่าง');
- await expect(page.getByTestId('demo-viewport')).toContainText('฿6,500'); // รับเงินจริง before the payment
- // pause holds the frame
- await page.getByTestId('demo-toggle').click();
- await expect(page.getByTestId('demo-toggle')).toHaveAttribute('aria-label','เล่นตัวอย่างต่อ');
- // jump to the last scene and let it finish: the payment is recorded and the totals follow
- await page.getByRole('button',{name:/^ฉากที่ 4/}).click();
- await expect(demo).toHaveAttribute('data-scene','3');
- await expect(demo).toHaveAttribute('data-paid','1');
- await expect(page.getByTestId('demo-viewport')).toContainText('฿7,500');
- await expect(page.getByTestId('demo-viewport')).toContainText('฿6,000');
- await expect(page.getByTestId('demo-viewport')).toContainText('฿13,500'); // the work value is unchanged
- await expect(page.getByTestId('demo-toggle')).toHaveAttribute('aria-label','เล่นตัวอย่างอีกครั้ง',{timeout:9000}); // ends and holds, no loop
- await expect(demo).toHaveAttribute('data-scene','3');
- // replay, more than once: back to the unpaid figures every time, nothing adds up
- for(let i=0;i<3;i++){
-  await page.getByTestId('demo-replay').click();
-  await expect(demo).toHaveAttribute('data-paid','0');
-  await expect(page.getByTestId('demo-viewport')).toContainText('฿6,500');
-  await expect(page.getByTestId('demo-viewport')).toContainText('฿7,000');
- }
- expect(api.filter(a=>a!=='GET /api/auth')).toEqual([]); // the demo reads and writes nothing
+ expect(api.filter(a=>a!=='GET /api/auth')).toEqual([]); // the page reads no account data and writes nothing
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- // the primary button goes to the real sign-up / sign-in page
- await page.getByRole('button',{name:'เริ่มต้นใช้งาน'}).first().click();
+ await page.getByRole('button',{name:'เริ่มใช้งานฟรี'}).first().click();
  await expect(page).toHaveURL(/\/login$/);
  await expect(page.locator('input[type=email]').first()).toBeVisible();
 });
 
-test('landing demo without motion: still pictures of each scene, no autoplay',async({page})=>{
+test('landing without motion: every chapter, caption and picture is on the page with nothing pinned',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.goto('/');
- const demo=page.getByTestId('product-demo');
- await expect(page.getByTestId('demo-toggle')).toHaveCount(0);
- await expect(demo).toHaveAttribute('data-scene','0');
- await page.getByRole('button',{name:/^ฉากที่ 2/}).click();
- await expect(demo).toContainText('Track every payment.');
- await expect(demo).toContainText('฿4,000'); // คงเหลือ before the payment
- await page.getByRole('button',{name:/^ฉากที่ 4/}).click();
- await expect(page.getByTestId('demo-viewport')).toContainText('฿7,500');
- await page.waitForTimeout(600);
- await expect(demo).toHaveAttribute('data-scene','3'); // it stays where the reader put it
+ await expect(page.locator('section[style*="svh"]')).toHaveCount(0); // no pinned stage
+ for(const name of [/Every project/,'Know what’s due',/Stay updated/,/Ready for/,/Ready when/,'Start free',/More time/])await expect(page.getByRole('heading',{name})).toBeVisible();
+ // one job runs through every chapter with the same amounts
+ for(const text of ['งานตัดต่อวิดีโอ 6,000 บาท ได้มัดจำแล้ว 2,000 ยังรออีก 4,000','ยอดที่เหลือปรับให้เอง เหลือรออีก 3,000','ทั้งงาน 6,000 บาท','เรียกเก็บงวดที่ 2 1,000 บาท','รับเงินงวดที่ 2 1,000 บาท','ทั้งสามใบเป็นของงานตัดต่อวิดีโองานเดียวกัน','เลือกปีที่อัปโหลด แล้วดาวน์โหลดไฟล์ที่แสดงเป็นชุดเดียว','ยังต้องตามใบ 50 ทวิ'])await expect(page.getByText(text,{exact:false}).first()).toBeVisible();
+ // the two LINE cards are the app's own messages and carry on from the same numbers
+ await expect(page.getByRole('img',{name:'รอรับเงิน 4 งาน · รวม ฿ 29,000'})).toBeVisible();
+ await expect(page.getByRole('img',{name:'แจ้งเตือนดีลค้างชำระเลยกำหนด 1 รายการ'})).toBeVisible();
+ const pictures=page.locator('main img');
+ expect(await pictures.count()).toBeGreaterThan(12);
+ expect(await pictures.evaluateAll(els=>els.filter(el=>!el.getAttribute('alt')&&!el.closest('[role=img]')).length)).toBe(0); // each one is described
+ await expect(page.getByRole('button',{name:'เริ่มใช้งานฟรี'}).first()).toBeVisible();
 });
 
-test('demo capture page: both artboards, keyboard control, and controls that hide for recording',async({page})=>{
+test('landing on a phone: the story stays inside the screen from top to bottom',async({page})=>{
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
- await page.setViewportSize({width:1280,height:800});
- await page.goto('/demo-capture');
- const board=page.getByTestId('capture-board'),demo=page.getByTestId('product-demo');
- await expect(board).toHaveAttribute('data-ratio','16x9');
- await expect(demo).toHaveAttribute('data-layout','side');
- await expect(demo).toHaveAttribute('data-scene','0'); // waits for you: nothing plays until asked
- await page.waitForTimeout(500);await expect(demo).toHaveAttribute('data-scene','0');
- await page.keyboard.press('4');
- await expect(demo).toHaveAttribute('data-scene','3');
- await page.keyboard.press('r');
- await expect(demo).toHaveAttribute('data-scene','0');
- await expect(demo).toHaveAttribute('data-paid','0');
- await page.getByRole('button',{name:'9:16'}).click();
- await expect(board).toHaveAttribute('data-ratio','9x16');
- await expect(demo).toHaveAttribute('data-layout','tall');
- const box=(await board.boundingBox())!;
- expect(box.height/box.width).toBeCloseTo(16/9,1);
- await page.keyboard.press('h');
- await expect(page.getByTestId('capture-controls')).toHaveCount(0);
- await page.keyboard.press('h');
- await expect(page.getByTestId('capture-controls')).toBeVisible();
- await expect(page.getByRole('button',{name:/download|mp4|ดาวน์โหลด/i})).toHaveCount(0); // no export it can't do
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await expect(page.getByRole('heading',{level:1})).toBeInViewport();
+ await expect(page.getByRole('button',{name:'เริ่มใช้งานฟรี'}).first()).toBeInViewport();
+ const total=await page.evaluate(()=>document.documentElement.scrollHeight);
+ for(let y=0;y<total;y+=Math.round(total/14)){
+  await page.evaluate(top=>window.scrollTo(0,top),y);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ }
+});
+
+test('mobile shell: top bar, bottom bar with the squirrel add button, tools screen, instant theme switch',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true}}));
+ await page.addInitScript(()=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('cashflow_dark_mode','false');sessionStorage.setItem('seeded','1');}});
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const nav=page.getByRole('navigation',{name:'เมนูหลัก'});
+ await expect(nav.getByRole('button')).toHaveCount(5);
+ await expect(nav.getByRole('button',{name:'ภาพรวม',exact:true})).toHaveAttribute('aria-current','page');
+ await expect(page.getByRole('button',{name:'เปิดเมนู'})).toHaveCount(0); // the old hamburger drawer is gone on phones
+ // tabs
+ await nav.getByRole('button',{name:'งาน',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'งานของฉัน'})).toBeVisible();
+ // the fourth slot is the calendar (owner, 2026-10-20); เงินรอรับ opens from the overview's card and the menu
+ await nav.getByRole('button',{name:'ปฏิทิน',exact:true}).click();
+ await expect(nav.getByRole('button',{name:'ปฏิทิน',exact:true})).toHaveAttribute('aria-current','page');
+ await expect(nav.getByRole('button',{name:'รอรับ',exact:true})).toHaveCount(0);
+ // tools screen: one group open at a time, every tool goes to its real page
+ await nav.getByRole('button',{name:'เมนู',exact:true}).click();
+ const tools=page.getByRole('region',{name:'เครื่องมือทั้งหมด'});
+ await expect(tools.getByRole('heading',{name:'เครื่องมือทั้งหมด'})).toBeVisible();
+ await tools.getByText('รายงานและภาษี').click();
+ await tools.getByText('การเงินและแผนงาน').click();
+ await expect(tools.locator('details[open]')).toHaveCount(1);
+ await tools.getByPlaceholder(/ค้นหา เช่น/).fill('50');
+ await tools.getByRole('button',{name:/ติดตาม 50 ทวิ/}).click();
+ await expect(page.getByRole('heading',{name:'ติดตามใบ 50 ทวิ',exact:true})).toBeVisible();
+ await expect(nav.getByRole('button',{name:'เมนู',exact:true})).toHaveAttribute('aria-current','page');
+ // the centre button opens the add-job form at once, and the job value formats itself
+ await nav.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ const value=page.locator('#job-form-value-input');
+ await expect(value).toBeVisible();
+ await expect(page.getByRole('menu')).toHaveCount(0); // no action chooser in between
+ await value.click();await page.keyboard.type('12500.509');
+ await expect(value).toHaveValue('12,500.50'); // commas while typing, satang at most, nothing but digits
+ await value.fill('');await page.keyboard.type('-1a000');
+ await expect(value).toHaveValue('1,000');
+ await page.keyboard.press('Escape');
+ // light / dark flips straight away, no dialog
+ await nav.getByRole('button',{name:'ภาพรวม',exact:true}).click();
+ const html=page.locator('html');
+ const startedDark=await html.evaluate(el=>el.classList.contains('dark')); // the app follows the time of day until told otherwise
+ const toggle=(toDark:boolean)=>page.getByRole('button',{name:toDark?'เปลี่ยนเป็นโหมดมืด':'เปลี่ยนเป็นโหมดสว่าง'});
+ await toggle(!startedDark).click();
+ await expect(html).toHaveClass(startedDark?/^(?!.*\bdark\b)/:/dark/);
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await toggle(startedDark).click();
+ await expect(html).toHaveClass(startedDark?/dark/:/^(?!.*\bdark\b)/);
+ // every phone width stays inside the screen
+ for(const width of [320,360,375,390,414,430]){
+  await page.setViewportSize({width,height:780});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`no sideways scroll at ${width}px`).toBe(true);
+  await expect(nav.getByRole('button',{name:'เพิ่มงาน',exact:true})).toBeInViewport();
+ }
+ expect(errors).toEqual([]);
+});
+
+test('desktop keeps its own layout: no mobile bars at 1365px',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ await page.goto('/');
+ await expect(page.locator('aside.app-sidebar')).toBeVisible();
+ await expect(page.getByRole('navigation',{name:'เมนูหลัก'})).toHaveCount(0);
+ await expect(page.locator('.ksm-header')).toHaveCount(0);
+});
+
+test('mobile overview and add-job sheet follow the design and stay wired to the real handlers',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ const saved:string[]=[];
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>{if(route.request().method()==='GET')return route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}});saved.push(route.request().postData()||'');return route.fulfill({json:{ok:true,versions}});});
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const nav=page.getByRole('navigation',{name:'เมนูหลัก'});
+ // overview: one summary card, the receivables notice, four shortcuts
+ const summary=page.getByRole('region',{name:'สรุปเงินของเดือน'});
+ // the Bold-header layout: net profit leads; received, all expenses and work value in three columns under it
+ await expect(summary.locator('.ksm-hero')).toContainText('กำไรสุทธิ');
+ // the top bar joins the header: logo and a greeting, on the overview only
+ await expect(page.locator('.ksm-header.is-hero')).toContainText('สวัสดี');
+ await expect(page.locator('.ksm-header.is-hero .ksm-wordmark')).toBeVisible();
+ // the eye hides every figure on the card and brings them back
+ const work=await summary.locator('[data-metric="work"]').innerText();
+ await summary.getByRole('button',{name:'ซ่อนตัวเลข'}).click();
+ await expect(summary.locator('[data-metric]').filter({hasText:/\d/})).toHaveCount(0);
+ await summary.getByRole('button',{name:'แสดงตัวเลข'}).click();
+ await expect(summary.locator('[data-metric="work"]')).toHaveText(work);
+ await expect(summary.locator('.ksm-hero-metrics > button')).toHaveCount(3);
+ await expect(summary.getByText('รับเงินจริง',{exact:true})).toBeVisible();
+ await expect(summary.getByText('รายจ่ายรวม',{exact:true})).toBeVisible();
+ await expect(summary.getByText(/^มูลค่างาน/)).toBeVisible();
+ await expect(summary.getByText('ยอดเงินปัจจุบัน')).toHaveCount(0); // it closes the statement net profit opens
+ await expect(page.getByRole('heading',{name:'รายการล่าสุด'})).toBeVisible();
+ await expect(page.getByRole('region',{name:'ทางลัดทำรายการ'}).getByRole('button')).toHaveCount(4);
+ // the month pill opens the month chooser, which drives the same month state as before
+ const month=page.getByRole('button',{name:/ช่วงเวลาที่แสดง/});
+ const shown=await month.innerText();
+ await month.click();
+ const chooser=page.getByRole('dialog',{name:'เลือกเดือน'});
+ await chooser.getByRole('button',{name:'ปีถัดไป'}).click();
+ await chooser.getByRole('button',{name:/^มกราคม/}).click();
+ await expect(month).not.toHaveText(shown);
+ await month.click();
+ await chooser.getByRole('button',{name:'กลับมาเดือนนี้'}).click();
+ await expect(month).toHaveText(shown);
+ // "เพิ่มเติม" is a sheet with three destinations and the way to every tool
+ await page.getByRole('button',{name:'เพิ่มเติม',exact:true}).click();
+ const more=page.getByRole('dialog',{name:'ทำรายการเพิ่มเติม'});
+ await expect(more.getByRole('button',{name:/ออกเอกสาร|เป้าหมายออม|ปฏิทิน/})).toHaveCount(3);
+ await more.getByRole('button',{name:'เครื่องมือทั้งหมด'}).click();
+ await expect(page.getByRole('region',{name:'เครื่องมือทั้งหมด'})).toBeVisible();
+ await nav.getByRole('button',{name:'ภาพรวม',exact:true}).click();
+ await page.getByRole('button',{name:/^เงินรอรับ/}).click();
+ await expect(page.getByRole('heading',{name:'เงินรอรับ',exact:true})).toBeVisible();
+ await expect(page.locator('.ksm-header.is-hero')).toHaveCount(0); // other pages keep the logo bar
+ await expect(page.locator('.ksm-header .ksm-wordmark')).toBeVisible();
+ // add job: three fields first, the rest behind one disclosure with three tabs
+ await nav.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ const sheet=page.getByRole('dialog',{name:'เพิ่มงาน'});
+ await expect(sheet.getByLabel(/^ชื่องาน/)).toBeVisible();
+ await expect(sheet.getByLabel(/^ลูกค้า/)).toBeVisible();
+ await expect(sheet.getByText('การรับเงิน',{exact:true})).toBeHidden();
+ await expect(sheet.getByText('สถานะงาน: กำลังทำ · การรับเงิน: ยังไม่จ่าย')).toBeVisible(); // the statuses are readable before opening
+ await sheet.getByText('สถานะและรายละเอียดเพิ่มเติม').click();
+ await expect(sheet.getByRole('tab')).toHaveCount(3);
+ await expect(sheet.getByRole('tab').nth(0)).toHaveText('สถานะงาน');
+ await sheet.getByRole('tab',{name:'สถานะรับเงิน'}).click();
+ await sheet.getByRole('radio',{name:'รับบางส่วน'}).click();
+ await sheet.getByRole('tab',{name:'ข้อมูลเพิ่มเติม'}).click();
+ await expect(sheet.getByText('หัก ณ ที่จ่าย',{exact:true})).toBeVisible();
+ // a failed check opens the place the problem is in
+ await sheet.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ await expect(sheet.getByText('กรุณาระบุชื่องาน')).toBeVisible();
+ await expect(sheet.getByLabel(/^ชื่องาน/)).toBeFocused(); // the form moves to the first problem by itself
+ await sheet.getByLabel(/^ชื่องาน/).fill('งานทดสอบมือถือ');
+ await sheet.locator('#job-form-value-input').pressSequentially('12500.5');
+ await sheet.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ await expect(sheet.getByRole('tab',{name:'สถานะรับเงิน'})).toHaveAttribute('aria-selected','true');
+ await expect(sheet.getByText('กรุณาระบุยอดที่รับแล้ว')).toBeVisible();
+ await expect(sheet.locator('#job-form-received-input')).toBeFocused();
+ await sheet.getByRole('radio',{name:'ยังไม่จ่าย'}).click();
+ await sheet.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
+ await expect(sheet).toBeHidden();
+ await expect(page.getByText('งานทดสอบมือถือ').filter({visible:true}).first()).toBeVisible();
+ // what is stored is a plain number, not the text with commas
+ await expect.poll(()=>saved.some(body=>body.includes('งานทดสอบมือถือ')&&/"value":12500\.5[,}]/.test(body))).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+test('tablets keep the layout they had: drawer and floating menu, no mobile design (iPad portrait 768 and iPad mini 744)',async({page})=>{
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ for(const width of [744,768,1023]){
+  await page.setViewportSize({width,height:1024});
+  await page.goto('/');
+  await expect(page.getByRole('navigation',{name:'เมนูหลัก'})).toHaveCount(0);
+  await expect(page.locator('.ksm-header')).toHaveCount(0);
+  await expect(page.locator('.ksm-home')).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'ภาพรวม'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'เปิดเมนูโปรไฟล์'})).toBeVisible();
+ }
+ // the drawer still opens from the floating menu button and still leads to every page
+ await page.locator('button[title]').filter({has:page.locator('svg.lucide-menu')}).first().click();
+ await page.getByRole('button',{name:/^งาน/}).first().dispatchEvent('click'); // the drawer slides in on a spring; no need to wait for it to settle
+ await expect(page.getByRole('heading',{name:'งาน',exact:true})).toBeVisible();
+ await expect(page.locator('.ksm-jobcard')).toHaveCount(0);
+});
+
+test('mobile jobs and receivables follow the design; every job action is still reachable',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+  // sample jobs: one late, one due later this month, one still in progress, one closed (example clients only)
+ const day=(offset:number)=>{const d=new Date();d.setDate(d.getDate()+offset);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+ const job=(id:string,name:string,extra:Record<string,unknown>)=>({id,name,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',creditTerm:0,note:'',value:1000,received:0,pending:1000,status:'pending',paymentStatus:'unpaid',isPosted:true,postDate:day(-10),payDate:day(-3),...extra});
+ const jobs=[
+  job('late','งานเลยกำหนด',{value:12000,pending:12000}),
+  job('later','งานรอรับ',{value:4000,pending:4000,payDate:day(0)}),
+  job('wip','งานกำลังทำ',{value:6000,pending:6000,isPosted:false,postDate:day(5),payDate:null}),
+  job('closed','งานปิดแล้ว',{value:15000,received:15000,pending:0,status:'done',paymentStatus:'paid'}),
+ ];
+ await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot:{...snapshot,jobs,goals:[{id:'goal-1',name:'กล้องตัวใหม่',type:'buy',target:50000,current:12000,deadline:'',emoji:'',icon:'target',bg:'#FFF1E8',acc:'#C24A16',allocatedPercentage:30,history:[]}]},versions,subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true,versions}}));
+ // the app's own once-a-day overdue prompt is not what this test is about
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const nav=page.getByRole('navigation',{name:'เมนูหลัก'});
+ await nav.getByRole('button',{name:'งาน',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'งานของฉัน'})).toBeVisible();
+ const tabs=page.getByRole('tablist',{name:'สถานะงาน'}).getByRole('tab');
+ await expect(tabs).toHaveCount(4);
+ await expect(tabs.nth(2)).toContainText('รอรับ');
+ await expect(tabs.nth(3)).toContainText('ปิดงาน');
+ // the month filter is on by default in the app; the summary card's period pill switches it to every month
+ await page.getByRole('button',{name:'ช่วงเวลา: เดือนนี้',exact:true}).click();
+ await page.getByRole('dialog',{name:'เลือกช่วงเวลา'}).getByRole('button',{name:'เดือนทั้งหมด',exact:true}).click();
+ const cards=page.locator('.ksm-jobcard');
+ await expect(cards.first()).toBeVisible();
+ await expect(cards).toHaveCount(4);
+ await expect(tabs.first()).toContainText('4');
+ await expect(page.locator('.ksm-jobcard.is-overdue')).toContainText('งานเลยกำหนด');
+ await expect(page.locator('.ksm-jobcard.is-paid')).toContainText('รับครบแล้ว');
+ // tools: sort, filters and export in one sheet
+ await page.getByRole('button',{name:'ตัวกรองและเครื่องมืองาน'}).click();
+ const tools=page.getByRole('dialog',{name:'ตัวกรอง'});
+ await expect(tools.getByText('เรียงตาม')).toBeVisible();
+ await expect(tools.getByRole('button',{name:/Excel/})).toBeVisible();
+ await expect(tools.getByRole('button',{name:/CSV/})).toBeVisible();
+ await tools.getByRole('button',{name:'ปิด',exact:true}).click();
+ // the chevron opens the job's actions; tapping the card opens the job itself
+ await page.getByRole('button',{name:/^ตัวเลือกของงาน/}).first().click();
+ const menu=page.getByRole('menu');
+ await expect(menu.getByRole('menuitem',{name:'ดูและแก้ไขรายละเอียด'})).toBeVisible();
+ await expect(menu.getByRole('menuitem',{name:'ลบงาน'})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await cards.first().locator('.ksm-jobtitle').click();
+ await expect(page.getByRole('dialog',{name:'แก้ไขงาน'})).toBeVisible();
+ await page.keyboard.press('Escape');
+ // receivables: month card, two scopes, one card per outstanding amount (opened from the overview's card)
+ await nav.getByRole('button',{name:'ภาพรวม',exact:true}).click();
+ await page.getByRole('button',{name:/^เงินรอรับ/}).click();
+ await expect(page.getByRole('heading',{name:'เงินรอรับ',exact:true})).toBeVisible();
+ await expect(page.getByRole('tablist',{name:'กรองเงินรอรับ'}).getByRole('tab')).toHaveCount(2);
+ await expect(page.getByText(/เงินรอรับของเดือน/)).toBeVisible();
+ await expect(page.locator('.ksm-due')).toHaveCount(2); // the two delivered, unpaid jobs; work in progress is not owed yet
+ // the reminder is still there, as a quiet link on the card
+ await page.locator('.ksm-due').first().getByRole('button',{name:'เตือนฉัน'}).click();
+ await expect(page.getByRole('button',{name:'อีก 3 วัน'})).toBeVisible();
+ // recording money goes through the same confirmation as before
+ await page.locator('.ksm-due.is-overdue').getByRole('button',{name:'รับเงิน',exact:true}).click();
+ await expect(page.getByText(/ยืนยันว่าได้รับเงิน/)).toBeVisible();
+ await page.getByRole('button',{name:'ยกเลิก',exact:true}).click();
+ await page.getByRole('tab',{name:/เลยกำหนดรับเงิน/}).click();
+ await expect(page.getByText('งานที่เลยกำหนดรับเงิน')).toBeVisible();
+ // calendar and timeline: the design's month grid and dated rows, fed by the same events
+ // ปฏิทิน is on the bottom bar, no longer in the menu (owner, 2026-10-20)
+ await nav.getByRole('button',{name:'ปฏิทิน',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'ปฏิทิน',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'เครื่องมือทั้งหมด'})).toHaveCount(0); // ปฏิทิน is on the bottom bar now (owner, 2026-10-20)
+ const today=new Date();
+ await expect(page.locator('.ksm-calgrid > button')).toHaveCount(new Date(today.getFullYear(),today.getMonth()+1,0).getDate());
+ await expect(page.locator('.ksm-calgrid > button.is-selected')).toHaveText(String(today.getDate())); // opens on today
+ await expect(page.locator('.ksm-daylist')).toContainText('฿4,000'); // the job due today
+ await page.locator('.ksm-daylist > button').first().click();
+ await expect(page.getByRole('heading',{name:'งานของฉัน'})).toBeVisible(); // a day's row opens that job, as before
+ await page.goBack();
+ await page.getByRole('button',{name:'ไทม์ไลน์',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'ไทม์ไลน์',exact:true})).toBeVisible();
+ await expect(page.locator('.ksm-tl-event').first()).toBeVisible();
+ await expect(page.locator('.ksm-tl-event.is-overdue')).toContainText('฿12,000');
+ await page.locator('.ksm-tl-event.is-overdue').click();
+ await expect(page.getByRole('button',{name:/แก้ไข/}).first()).toBeVisible(); // the same job card the desktop timeline opens
+ // expenses: the design's summary, add button and type chips; everything else behind one tools button
+ await page.goto('/incomeExpense');
+ await expect(page.getByRole('heading',{name:'รายจ่าย',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:/สรุปรายจ่าย/})).toContainText('รายจ่ายรวม');
+ await expect(page.getByRole('tablist',{name:'ประเภทรายจ่าย'}).getByRole('tab')).toHaveCount(3);
+ await page.getByRole('button',{name:'เครื่องมือรายจ่าย'}).click();
+ const expenseTools=page.getByRole('dialog',{name:'เครื่องมือรายจ่าย'});
+ await expect(expenseTools.getByRole('button',{name:/จัดการรายจ่ายประจำ/})).toBeVisible();
+ await expect(expenseTools.getByRole('button',{name:/CSV/}).first()).toBeVisible();
+ await expenseTools.getByRole('button',{name:'ปิดหน้าต่าง'}).click();
+ await page.getByRole('button',{name:'เพิ่มรายจ่าย',exact:true}).click();
+ await expect(page.getByRole('dialog').filter({hasText:'เพิ่มรายจ่าย'}).first()).toBeVisible(); // the app's own add-expense form
+ await page.keyboard.press('Escape');
+ // goals: the design's card with the amount saved, the bar, and deposit / withdraw / transfer one tap away
+ await page.goto('/split');
+ await expect(page.getByRole('heading',{name:'เป้าหมาย',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'เงินพร้อมจัดสรร'})).toBeVisible();
+ const goal=page.locator('.ksm-goal');
+ await expect(goal).toContainText('กล้องตัวใหม่');
+ await expect(goal.getByRole('progressbar')).toHaveAttribute('aria-valuenow','24');
+ await expect(goal.getByRole('button',{name:'ฝาก'})).toBeHidden();
+ await goal.getByText('จัดการเงินในเป้าหมาย').click();
+ await expect(goal.getByRole('button',{name:'ถอน'})).toBeVisible();
+ await page.getByRole('button',{name:/^จัดการ/}).first().click();
+ await expect(page.getByRole('dialog',{name:'จัดการเป้าหมาย'}).getByRole('button',{name:/ปรับสัดส่วน/})).toBeVisible();
+ await page.getByRole('button',{name:'ปิดหน้าต่าง'}).click();
+ await goal.getByRole('button',{name:'ฝาก'}).click();
+ await expect(page.getByRole('dialog').filter({hasText:'กล้องตัวใหม่'}).first()).toBeVisible(); // the app's own deposit form
+ await page.keyboard.press('Escape');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+ expect(errors).toEqual([]);
+});
+
+test('phone overview: the header figures match the statements, and ยอดเงินปัจจุบัน stays money in hand even when the month runs at a loss',async({page})=>{
+ const t=new Date();const ym=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;const today=`${ym}-${String(t.getDate()).padStart(2,'0')}`;
+ // 5,000 received today; a 12,000 monthly cost is set but not paid yet; 600 already paid
+ const job={id:'paid',name:'งานรับแล้ว',value:5000,received:5000,pending:0,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',status:'done',paymentStatus:'paid',creditTerm:0,note:'',postDate:today,payDate:today,isPosted:true};
+ const expenses=[{id:'e1',name:'ค่าเดินทาง',category:'Other',amount:600,date:today}];
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot:{...snapshot,jobs:[job],expenses,settings:{...snapshot.settings,monthlyExpense:12000,fixedExpenseItems:[{id:'rent',name:'ค่าห้อง',amount:12000}]}},versions:{...versions,cashflow_jobs:{paid:1},cashflow_expenses:{e1:1}},subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true,versions}}));
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const card=page.getByRole('region',{name:'สรุปเงินของเดือน'});
+ await expect(card.locator('[data-metric="received"]')).toHaveText('฿5,000');
+ await expect(card.locator('[data-metric="expense"]')).toHaveText('฿12,600'); // the 600 paid and the 12,000 monthly cost
+ await expect(card.locator('[data-metric="profit"]')).toHaveText('−฿7,600'); // net profit counts the whole month's costs
+ await card.getByRole('button',{name:/^กำไรสุทธิ/}).click();
+ await expect(page.getByTestId('left-this-month')).toContainText('ยอดเงินปัจจุบัน');
+ await expect(page.getByTestId('left-this-month-amount')).toHaveText('฿4,400'); // 5,000 received − 600 paid; the unpaid 12,000 is not taken off
+ await expect(page.getByTestId('over-this-month')).toContainText('฿7,600');
+ // 4,400 in hand − the unpaid 12,000 = −7,600: the line makes the statement add up
+ await expect(page.getByTestId('unpaid-fixed')).toContainText('รายจ่ายประจำที่ยังไม่บันทึกจ่าย ฿12,000');
+});
+
+test('saving says it once: a reminder is told in the toast, the saved job lights up on phone and desktop, the toast leaves the header buttons free',async({page})=>{
+ const day=(offset:number)=>{const d=new Date();d.setDate(d.getDate()+offset);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+ const job=(id:string,name:string)=>({id,name,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',creditTerm:0,note:'',value:1000,received:0,pending:1000,status:'pending',paymentStatus:'unpaid',isPosted:true,postDate:day(0),payDate:day(2)});
+ const jobs=[job('a','งานตัวอย่าง ก'),job('b','งานตัวอย่าง ข'),job('c','งานตัวอย่าง ค')];
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.request().method()==='GET'?route.fulfill({json:{snapshot:{...snapshot,jobs},versions:{...versions,cashflow_jobs:{a:1,b:1,c:1}},subscription:{status:'active',plan:'pro_monthly',current_period_end:'2027-01-01T00:00:00Z'}}}):route.fulfill({json:{ok:true,versions}}));
+ // phone: setting a reminder shows one toast that names the date, and no dialog to dismiss
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/receivables');
+ await page.getByRole('button',{name:'เตือนฉัน',exact:true}).first().click();
+ await page.getByRole('button',{name:'อีก 3 วัน',exact:true}).click();
+ const toast=page.locator('.app-toast').first();
+ await expect(toast).toContainText('ตั้งการแจ้งเตือนแล้ว');
+ await expect(toast).toContainText('แอปจะเตือนให้ตามเงินจาก "ลูกค้าตัวอย่าง" วันที่');
+ await expect(page.locator('.app-toast')).toHaveCount(1);
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ // phone: saving a job from the sheet lights its card too
+ await page.goto('/jobs');
+ const card=page.locator('.ksm-jobcard[data-job-id="c"]');
+ await card.click();
+ await page.getByRole('button',{name:'บันทึกงาน',exact:true}).click();
+ await expect(card).toHaveClass(/job-spotlight/);
+ // desktop: saving a job from the form lights its row, and the toast sits below เพิ่มงาน
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/jobs');
+ const row=page.locator('tr[data-job-id="b"]');
+ await row.click();
+ await page.getByRole('button',{name:/^บันทึก/}).last().click();
+ await expect(row).toHaveClass(/job-spotlight/);
+ const saved=page.locator('.app-toast').filter({hasText:'บันทึกการแก้ไขแล้ว'});
+ await expect(saved).toBeVisible();
+ const add=await page.locator('#main-content').getByRole('button',{name:'เพิ่มงาน',exact:true}).first().boundingBox();
+ const box=await saved.boundingBox();
+ expect(box!.y).toBeGreaterThanOrEqual(add!.y+add!.height);
+});
+
+test('Free plan documents: a 10-a-month counter, a credit line on every page, and the upgrade dialog at the 11th',async({page})=>{
+ const profile={name:'ร้านตัวอย่าง',address:'Bangkok',phone:'',email:'shop@example.com',taxId:'',bankName:'',bankAccount:'',bankAccountName:''};
+ const invoice={id:'inv-free',documentType:'invoice',documentNo:'INV-2569-001',createdDate:'2026-10-15',issuer:profile,client:{name:'ลูกค้าตัวอย่าง',address:'Bangkok',phone:'',email:'',taxId:''},items:[{id:'i1',description:'งานตัวอย่าง',quantity:1,price:1000}],vatRate:0,whtRate:0};
+ const quota={used:9,limit:10,month:'2026-10'};
+ const posts:any[]=[];
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];localStorage.setItem(`cashflow_promo_last_shown_${email}`,d);localStorage.setItem(`cashflow_pro_banner_last_shown_${email}`,String(Date.now()));sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',async route=>{
+  if(route.request().method()==='POST'){
+   const changes=route.request().postDataJSON().changes;
+   // only saves that create documents; the app's own autosave of settings may post at any time
+   if(changes.some((c:any)=>c.table==='cashflow_invoices'&&c.version===null))posts.push(changes);
+   quota.used+=changes.filter((c:any)=>c.table==='cashflow_invoices'&&c.version===null).length;
+   return route.fulfill({json:{ok:true,document_quota:quota}});
+  }
+  // No subscription and an account past its trial: the Free plan.
+  return route.fulfill({json:{snapshot:{...snapshot,invoices:[invoice]},versions:{...versions,cashflow_invoices:{'inv-free':1}},subscription:null,document_quota:{...quota}}});
+ });
+ await page.goto('/invoice?type=invoice');
+ const counter=page.getByTestId('document-quota');
+ await expect(counter).toContainText('โควตาออกเอกสารฟรีเดือนนี้: 9/10 ฉบับ');
+ await expect(counter).toContainText('เหลือ 1 ฉบับ');
+ await expect(page.getByTestId('document-view').getByTestId('document-watermark').first()).toHaveText('Kraroktunngern.com');
+ // the 10th document (a copy) is allowed and counted by the server
+ await page.getByRole('button',{name:'ตัวเลือกของ INV-2569-001'}).click();
+ await page.getByRole('menuitem',{name:'ทำสำเนา'}).click();
+ await page.getByRole('button',{name:'ตกลง'}).click();
+ await expect(counter).toContainText('10/10 ฉบับ');
+ await expect(counter).toContainText('ครบแล้ว');
+ expect(posts.length).toBe(1);
+ // the 11th: no editor, the upgrade dialog with the reason, and nothing sent
+ await page.getByRole('button',{name:'ออกเอกสารใหม่'}).click();
+ await page.getByRole('menuitem').first().click();
+ await expect(page.getByTestId('pro-promo-notice')).toContainText('ครบ 10 ฉบับ');
+ await expect(page.getByRole('button',{name:'บันทึกและสร้างเอกสาร'})).toHaveCount(0);
+ expect(posts.length).toBe(1);
+});
+
+test('Pro documents carry no credit line and no counter',async({page})=>{
+ const profile={name:'ร้านตัวอย่าง',address:'Bangkok',phone:'',email:'shop@example.com',taxId:'',bankName:'',bankAccount:'',bankAccountName:''};
+ const invoice={id:'inv-pro',documentType:'invoice',documentNo:'INV-2569-002',createdDate:'2026-10-15',issuer:profile,client:{name:'ลูกค้าตัวอย่าง',address:'Bangkok',phone:'',email:'',taxId:''},items:[{id:'i1',description:'งานตัวอย่าง',quantity:1,price:1000}],vatRate:0,whtRate:0};
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot:{...snapshot,invoices:[invoice]},versions:{...versions,cashflow_invoices:{'inv-pro':1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'},document_quota:null}}));
+ await page.goto('/invoice?type=invoice');
+ await expect(page.getByTestId('document-view')).toBeVisible();
+ await expect(page.getByTestId('document-view').locator('.da4-page').first()).toBeVisible();
+ await expect(page.getByTestId('document-watermark')).toHaveCount(0);
+ await expect(page.getByTestId('document-quota')).toHaveCount(0);
 });

@@ -28,7 +28,7 @@ const imagesReady = (root: HTMLElement) => Promise.all(
 export const documentPdfName = (invoice: Invoice) =>
   `${(invoice.documentNo || 'document').replace(/[<>&"'/\\:*?|]/g, '').trim() || 'document'}.pdf`;
 
-export async function renderDocumentPdf(invoice: Invoice): Promise<Blob> {
+export async function renderDocumentPdf(invoice: Invoice, watermark = false): Promise<Blob> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas-pro'), import('jspdf')]);
   ensureDocumentFont();
 
@@ -39,7 +39,7 @@ export async function renderDocumentPdf(invoice: Invoice): Promise<Blob> {
   document.body.appendChild(host);
   const root = createRoot(host);
   try {
-    flushSync(() => root.render(<><style>{DOCUMENT_CSS}</style><DocumentA4 invoice={invoice} print /></>));
+    flushSync(() => root.render(<><style>{DOCUMENT_CSS}</style><DocumentA4 invoice={invoice} print watermark={watermark} /></>));
     await document.fonts.ready;
     await imagesReady(host);
 
@@ -82,8 +82,8 @@ export interface PdfFileState {
  * Keeps a PDF of the open document ready in the background. Sharing a file has to happen right
  * after a tap, so the file must already exist when the share button is pressed.
  */
-export function usePdfFile(invoice: Invoice | null): PdfFileState {
-  const key = invoice ? JSON.stringify(invoice) : '';
+export function usePdfFile(invoice: Invoice | null, watermark = false): PdfFileState {
+  const key = invoice ? `${watermark ? 'w' : ''}${JSON.stringify(invoice)}` : '';
   const [state, setState] = React.useState<{ key: string; file?: File; failed?: boolean }>({ key: '' });
   const pending = React.useRef<{ key: string; promise: Promise<File> } | null>(null);
   const latest = React.useRef(invoice);
@@ -93,7 +93,7 @@ export function usePdfFile(invoice: Invoice | null): PdfFileState {
     const doc = latest.current;
     if (!doc) return Promise.reject(new Error('no document'));
     if (pending.current?.key === key) return pending.current.promise;
-    const promise = renderDocumentPdf(doc)
+    const promise = renderDocumentPdf(doc, watermark)
       .then(blob => new File([blob], documentPdfName(doc), { type: 'application/pdf' }))
       .then(file => { setState({ key, file }); return file; }) // ignored once the content changes (key check below)
       .catch(error => { setState({ key, failed: true }); if (pending.current?.key === key) pending.current = null; throw error; });

@@ -4,30 +4,31 @@ import {
 } from 'lucide-react';
 import type { Goal } from '../../../../shared/types';
 
+import { T } from '../../i18n/tr';
 // Goal pictures are line icons (or the user's own photo) -- no emoji. Goals saved before icons
 // existed only have an emoji, so known emoji map to the matching icon and anything else falls
 // back to an icon for the goal's type. Nothing in the stored data needs to change.
 
 export const GOAL_ICONS: { key: string; label: string; Icon: LucideIcon }[] = [
-  { key: 'target', label: 'เป้าหมาย', Icon: Target },
-  { key: 'piggy', label: 'เงินออม', Icon: PiggyBank },
-  { key: 'wallet', label: 'กระเป๋าเงิน', Icon: Wallet },
-  { key: 'invest', label: 'ลงทุน', Icon: TrendingUp },
-  { key: 'emergency', label: 'เงินสำรอง', Icon: LifeBuoy },
-  { key: 'home', label: 'บ้าน', Icon: Home },
-  { key: 'car', label: 'รถ', Icon: Car },
-  { key: 'travel', label: 'ท่องเที่ยว', Icon: Plane },
-  { key: 'camp', label: 'แคมป์', Icon: Tent },
-  { key: 'laptop', label: 'คอมพิวเตอร์', Icon: Laptop },
-  { key: 'phone', label: 'มือถือ', Icon: Smartphone },
-  { key: 'camera', label: 'กล้อง', Icon: Camera },
-  { key: 'study', label: 'การศึกษา', Icon: GraduationCap },
-  { key: 'music', label: 'ดนตรี', Icon: Guitar },
-  { key: 'shopping', label: 'ซื้อของ', Icon: ShoppingBag },
-  { key: 'gift', label: 'ของขวัญ', Icon: Gift },
-  { key: 'wedding', label: 'แต่งงาน', Icon: Gem },
-  { key: 'family', label: 'ครอบครัว', Icon: Baby },
-  { key: 'health', label: 'สุขภาพ', Icon: Heart },
+  { key: 'target', label: T("เป้าหมาย"), Icon: Target },
+  { key: 'piggy', label: T("เงินออม"), Icon: PiggyBank },
+  { key: 'wallet', label: T("กระเป๋าเงิน"), Icon: Wallet },
+  { key: 'invest', label: T("ลงทุน"), Icon: TrendingUp },
+  { key: 'emergency', label: T("เงินสำรอง"), Icon: LifeBuoy },
+  { key: 'home', label: T("บ้าน"), Icon: Home },
+  { key: 'car', label: T("รถ"), Icon: Car },
+  { key: 'travel', label: T("ท่องเที่ยว"), Icon: Plane },
+  { key: 'camp', label: T("แคมป์"), Icon: Tent },
+  { key: 'laptop', label: T("คอมพิวเตอร์"), Icon: Laptop },
+  { key: 'phone', label: T("มือถือ"), Icon: Smartphone },
+  { key: 'camera', label: T("กล้อง"), Icon: Camera },
+  { key: 'study', label: T("การศึกษา"), Icon: GraduationCap },
+  { key: 'music', label: T("ดนตรี"), Icon: Guitar },
+  { key: 'shopping', label: T("ซื้อของ"), Icon: ShoppingBag },
+  { key: 'gift', label: T("ของขวัญ"), Icon: Gift },
+  { key: 'wedding', label: T("แต่งงาน"), Icon: Gem },
+  { key: 'family', label: T("ครอบครัว"), Icon: Baby },
+  { key: 'health', label: T("สุขภาพ"), Icon: Heart },
 ];
 
 const BY_KEY = new Map(GOAL_ICONS.map(i => [i.key, i]));

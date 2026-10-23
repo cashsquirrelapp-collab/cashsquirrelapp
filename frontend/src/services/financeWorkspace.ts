@@ -1,5 +1,6 @@
 import { getCurrentAccount } from "./api";
 
+import { tr } from '../i18n/tr';
 let current: string | undefined;
 let epoch = 0;
 export function financeKey(account: string, groupId?: string) {
@@ -22,7 +23,7 @@ export function assertFinanceWorkspace(key: string, generation = epoch) {
     generation !== epoch
   )
     throw Object.assign(
-      new Error("บัญชีการเงินเปลี่ยนแล้ว กรุณาลองใหม่ในบัญชีที่เลือก"),
+      new Error(tr("บัญชีการเงินเปลี่ยนแล้ว กรุณาลองใหม่ในบัญชีที่เลือก")),
       { status: 409 },
     );
 }

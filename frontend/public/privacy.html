@@ -3,86 +3,193 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<title>นโยบายความเป็นส่วนตัว - กระรอกตุนเงิน</title>
-<meta name="description" content="นโยบายความเป็นส่วนตัวของกระรอกตุนเงิน: ข้อมูลที่เก็บ วิธีจัดเก็บ และสิทธิ์ของผู้ใช้" />
-<style>
-  :root {
-    --bg: #FBF2E4; --white: #FFFFFF; --text: #3D2314; --muted: #7A5C43; --border: #E8DFD3; --acc: #E65F2B;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #1C130B; --white: #261810; --text: #F7EFEA; --muted: #A89689; --border: #422E22; --acc: #FFA473; }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: 'Inter', -apple-system, system-ui, sans-serif;
-    line-height: 1.7;
-  }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
-  a { color: var(--acc); }
-  .back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; text-decoration: none; margin-bottom: 24px; }
-  header { margin-bottom: 32px; }
-  h1 { font-size: 28px; font-weight: 800; margin: 0 0 6px; }
-  .updated { color: var(--muted); font-size: 13px; margin: 0; }
-  .card { background: var(--white); border: 1px solid var(--border); border-radius: 20px; padding: 28px 24px; }
-  h2 { font-size: 16px; font-weight: 800; margin: 28px 0 10px; }
-  h2:first-child { margin-top: 0; }
-  p, li { font-size: 14px; color: var(--text); }
-  ul { padding-left: 20px; margin: 8px 0; }
-  .muted { color: var(--muted); font-size: 13px; }
-  footer { text-align: center; margin-top: 32px; color: var(--muted); font-size: 12px; }
-</style>
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/logo01-v1/favicon-clear-32.png" />
+<link rel="icon" type="image/svg+xml" href="/brand/logo01-v1/favicon-clear.svg" />
+<title>นโยบายความเป็นส่วนตัว | Privacy Policy - Krarok Tunngern</title>
+<meta name="description" content="นโยบายความเป็นส่วนตัวของกระรอกตุนเงิน: ข้อมูลที่เก็บ วัตถุประสงค์ ผู้ให้บริการที่เกี่ยวข้อง ระยะเวลาเก็บ ความปลอดภัย และสิทธิ์ของคุณตาม PDPA" />
+<link rel="stylesheet" href="/legal.css" />
 </head>
 <body>
-  <div class="wrap">
-    <a class="back" href="/">&larr; กลับหน้าแรก</a>
-    <header>
-      <h1>นโยบายความเป็นส่วนตัว</h1>
-      <p class="updated">ปรับปรุงล่าสุด: 9 ตุลาคม 2569 (2026-10-09)</p>
-    </header>
+<div class="wrap">
+  <nav class="top">
+    <a class="back" href="/"><span lang="th">&larr; กลับหน้าแรก</span><span lang="en">&larr; Back to home</span></a>
+    <button type="button" class="lang-toggle" id="lang-toggle" aria-label="Switch language / เปลี่ยนภาษา">EN</button>
+  </nav>
+  <header>
+    <a class="brand" href="/"><img src="/brand/logo01-v1/symbol-ci.svg" width="28" height="28" alt="" /><span lang="th">กระรอกตุนเงิน</span><span lang="en">Krarok Tunngern</span></a>
+    <h1><span lang="th">นโยบายความเป็นส่วนตัว</span><span lang="en">Privacy Policy</span></h1>
+    <p class="updated"><span lang="th">มีผลบังคับใช้: 22 ตุลาคม 2569</span><span lang="en">Effective: 22 October 2026</span></p>
+  </header>
 
-    <div class="card">
-      <h2>1. ข้อมูลที่เราเก็บ</h2>
-      <p>เมื่อสมัครสมาชิกและใช้งานกระรอกตุนเงิน เราเก็บข้อมูลต่อไปนี้เท่าที่จำเป็นต่อการให้บริการ:</p>
-      <ul>
-        <li>อีเมลและรหัสผ่าน (จัดการผ่านระบบยืนยันตัวตนของ Supabase) หรือข้อมูลบัญชี Google หากเลือกเข้าสู่ระบบด้วย Google</li>
-        <li>ข้อมูลที่คุณกรอกเองในแอป เช่น รายการงาน/ดีล รายรับ รายจ่าย เป้าหมายการออม ใบแจ้งหนี้ และการตั้งค่าบัญชี</li>
-        <li>ข้อมูลการชำระเงินสำหรับแพ็กเกจ Pro ซึ่งประมวลผลโดย Stripe โดยตรง เราไม่เก็บเลขบัตรเครดิตของคุณไว้ในระบบของเรา</li>
-      </ul>
+  <!-- ================= THAI ================= -->
+  <article class="card" lang="th">
+    <p class="lead">กระรอกตุนเงิน ("เรา" หรือ "บริการ") ให้ความสำคัญกับความเป็นส่วนตัวของผู้ใช้ นโยบายนี้อธิบายว่าเราเก็บข้อมูลส่วนบุคคลใด ใช้เพื่ออะไร เปิดเผยให้ใคร เก็บไว้นานเท่าใด และคุณมีสิทธิ์อย่างไร ตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)</p>
 
-      <h2>2. วิธีจัดเก็บและดูแลข้อมูล</h2>
-      <p>ข้อมูลของคุณถูกเก็บไว้ในฐานข้อมูลของ Supabase และผูกไว้กับบัญชีของคุณโดยเฉพาะ ผ่านระบบ Row Level Security (RLS) ซึ่งกำหนดให้เฉพาะเจ้าของบัญชีเท่านั้นที่อ่านหรือแก้ไขข้อมูลของตัวเองได้ ทีมงานไม่เข้าถึงข้อมูลการเงินของคุณโดยตรง เว้นแต่จำเป็นต้องแก้ปัญหาระบบและได้รับความยินยอมจากคุณ</p>
-      <p>สำเนาข้อมูลการเงินที่ใช้งานอยู่เก็บชั่วคราวในหน่วยความจำของหน้าเว็บ ไม่เขียนเป็น cache ลง localStorage หรือ sessionStorage เมื่อ session หมดอายุหรือเปลี่ยนบัญชี ระบบล้างสำเนาชั่วคราว การตั้งค่าหน้าตา ภาษา และสถานะโหมดทดลองบางส่วนอาจเก็บในเบราว์เซอร์ เอกสารจากแอปรุ่นเก่าต้องยืนยันเจ้าของก่อนนำเข้า และถูกลบจากที่เก็บเดิมเมื่อนำเข้าสำเร็จ</p>
-      <p>โหมด "ทดลองใช้งานฟรี" (guest) ไม่ผูกกับบัญชีจริงและไม่ส่งข้อมูลการเงินขึ้นฐานข้อมูลกลาง ข้อมูลทดลองที่แก้ไขจะหายไปเมื่อรีโหลดหรือปิดหน้าเว็บ</p>
+    <h2>1. ผู้ควบคุมข้อมูลส่วนบุคคล</h2>
+    <p>ผู้ให้บริการกระรอกตุนเงินเป็นผู้ควบคุมข้อมูลส่วนบุคคลที่เก็บผ่านเว็บไซต์ แอป และบัญชี LINE Official ของกระรอกตุนเงิน ติดต่อเรื่องข้อมูลส่วนบุคคลได้ตามช่องทางในข้อ 11</p>
 
-      <h2>3. ผู้ให้บริการภายนอกที่เกี่ยวข้อง</h2>
-      <ul>
-        <li><strong>Supabase</strong> — ระบบยืนยันตัวตนและฐานข้อมูลหลัก</li>
-        <li><strong>Stripe</strong> — ประมวลผลการชำระเงินสำหรับแพ็กเกจ Pro</li>
-        <li><strong>Google</strong> — ตัวเลือกเข้าสู่ระบบผ่านบัญชี Google (OAuth)</li>
-        <li><strong>LINE</strong> — ส่งการแจ้งเตือนและรับข้อความเมื่อคุณเชื่อมบัญชี LINE</li>
-        <li><strong>Anthropic</strong> — เมื่อใช้ผู้ช่วยสนทนาผ่าน LINE ระบบส่งข้อความและข้อมูลการเงินในบัญชีที่ผู้ช่วยใช้ตอบคำถาม เช่น รายการงาน ลูกค้า รายจ่าย เป้าหมาย และยอดเงิน เพื่อประมวลผลคำตอบหรือจัดเตรียมรายการ ผู้ใช้ต้องยืนยันก่อนบันทึกรายการที่ผู้ช่วยแยกข้อมูลให้</li>
-        <li><strong>EmailJS</strong> — ส่งรายงานทางอีเมลเฉพาะเมื่อคุณเลือกตั้งค่า EmailJS เอง โดยข้อมูลรายงานจะถูกส่งจากเบราว์เซอร์ไปยัง EmailJS</li>
-      </ul>
-      <p class="muted">เราไม่ขายหรือแชร์ข้อมูลส่วนตัวของคุณให้บุคคลที่สามเพื่อวัตถุประสงค์ทางการตลาดหรือโฆษณา</p>
+    <h2>2. ข้อมูลที่เราเก็บ</h2>
+    <ul>
+      <li><strong>ข้อมูลบัญชี:</strong> อีเมล ชื่อที่แสดง และรหัสผ่าน (เก็บในรูปที่เข้ารหัสแบบทางเดียวโดยระบบยืนยันตัวตน) หรือชื่อ อีเมล และรูปโปรไฟล์จากบัญชี Google หากคุณเลือกเข้าสู่ระบบด้วย Google รวมถึงอีเมลสำรองที่คุณยืนยันไว้</li>
+      <li><strong>ข้อมูลที่คุณบันทึกในบริการ:</strong> งานและดีล ลูกค้าและข้อมูลติดต่อของลูกค้า มูลค่างาน การรับเงิน งวดชำระ หัก ณ ที่จ่าย รายจ่าย เป้าหมายการออม ข้อมูลผู้ออกเอกสาร (เช่น ชื่อ ที่อยู่ เลขประจำตัวผู้เสียภาษี) และเอกสารที่ออกจากบริการ เช่น ใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จ</li>
+      <li><strong>ไฟล์ที่คุณอัปโหลด:</strong> เช่น ใบ 50 ทวิ สัญญา ใบสั่งซื้อ บิลและสลิป ที่ส่งผ่านแอปหรือผ่านแชต LINE</li>
+      <li><strong>ข้อมูล LINE:</strong> เมื่อคุณเชื่อมบัญชี LINE เราเก็บรหัสผู้ใช้ LINE ของคุณ และประมวลผลข้อความ คำสั่ง และไฟล์ที่คุณส่งถึงบัญชี LINE Official ของเรา</li>
+      <li><strong>ข้อมูลการชำระเงิน:</strong> รายการสั่งซื้อ แพ็กเกจ ยอดเงิน สถานะการชำระ และรหัสอ้างอิงจาก Stripe ข้อมูลบัตรชำระเงินถูกเก็บและประมวลผลโดย Stripe โดยตรง เราไม่เก็บเลขบัตรของคุณ</li>
+      <li><strong>ข้อมูลการใช้งานและข้อมูลทางเทคนิค:</strong> จำนวนครั้งที่ใช้แต่ละฟีเจอร์ ซึ่งผูกกับรหัสแฝงที่ย้อนกลับเป็นตัวตนไม่ได้ ข้อมูลความปลอดภัย เช่น การพยายามเข้าสู่ระบบ และบันทึกการเชื่อมต่อของผู้ให้บริการโครงสร้างพื้นฐาน เช่น หมายเลข IP และประเภทเบราว์เซอร์</li>
+    </ul>
 
-      <h2>4. สิทธิ์ของคุณ</h2>
-      <p>คุณสามารถขอลบบัญชีและข้อมูลทั้งหมดที่เกี่ยวข้องได้ทุกเมื่อ โดยติดต่อเราตามอีเมลด้านล่าง เราจะดำเนินการลบข้อมูลออกจากฐานข้อมูลภายในเวลาอันสมควร</p>
+    <h2>3. วัตถุประสงค์และฐานทางกฎหมาย</h2>
+    <ul>
+      <li><strong>ให้บริการตามสัญญา:</strong> สร้างและดูแลบัญชี บันทึกและแสดงข้อมูลของคุณ ออกเอกสาร ส่งการแจ้งเตือนและรายงาน และประมวลผลการชำระเงิน</li>
+      <li><strong>ความยินยอม:</strong> การเชื่อมบัญชี LINE การบันทึกบัตรเพื่อต่ออายุอัตโนมัติ และการใช้ผู้ช่วย AI เมื่อเปิดให้บริการ คุณถอนความยินยอมได้ทุกเมื่อตามข้อ 8</li>
+      <li><strong>ประโยชน์โดยชอบด้วยกฎหมาย:</strong> รักษาความปลอดภัยของระบบ ป้องกันการเข้าถึงโดยไม่ได้รับอนุญาตและการทุจริต และปรับปรุงบริการจากสถิติการใช้งานแบบแฝงตัวตน</li>
+      <li><strong>หน้าที่ตามกฎหมาย:</strong> เก็บหลักฐานการชำระเงินและปฏิบัติตามคำสั่งของหน่วยงานที่มีอำนาจตามกฎหมาย</li>
+    </ul>
+    <p>เราไม่ขายข้อมูลส่วนบุคคล และไม่ใช้ข้อมูลการเงินของคุณเพื่อการโฆษณา</p>
 
-      <h2>5. ความปลอดภัย</h2>
-      <p>การเชื่อมต่อทั้งหมดเข้ารหัสผ่าน HTTPS การยืนยันตัวตนและควบคุมสิทธิ์การเข้าถึงข้อมูลดำเนินการผ่านระบบมาตรฐานของ Supabase อย่างไรก็ตาม ไม่มีระบบใดปลอดภัย 100% กรุณาตั้งรหัสผ่านที่คาดเดายากและไม่ใช้ซ้ำกับบริการอื่น</p>
+    <h2>4. ผู้ให้บริการภายนอกที่ประมวลผลข้อมูลแทนเรา</h2>
+    <p>เราใช้ผู้ให้บริการต่อไปนี้ โดยเปิดเผยข้อมูลเท่าที่จำเป็นต่อหน้าที่ของแต่ละราย</p>
+    <ul>
+      <li><strong>Supabase:</strong> ระบบยืนยันตัวตน ฐานข้อมูล และที่เก็บไฟล์</li>
+      <li><strong>Cloudflare:</strong> โฮสต์เว็บไซต์และเซิร์ฟเวอร์ของบริการ และป้องกันการโจมตี</li>
+      <li><strong>Stripe:</strong> รับชำระเงินด้วยบัตรและพร้อมเพย์ และเก็บบัตรสำหรับการต่ออายุอัตโนมัติเมื่อคุณยินยอม</li>
+      <li><strong>Google:</strong> การเข้าสู่ระบบด้วยบัญชี Google การส่งอีเมลของระบบผ่าน Gmail และแบบอักษรบนเว็บ (Google Fonts)</li>
+      <li><strong>LINE:</strong> รับส่งข้อความ การแจ้งเตือน และไฟล์ เมื่อคุณเชื่อมบัญชี LINE</li>
+      <li><strong>EmailJS:</strong> ส่งรายงานทางอีเมล เฉพาะเมื่อคุณตั้งค่าบริการนี้เองในหน้าตั้งค่า</li>
+      <li><strong>Anthropic:</strong> ประมวลผลคำสั่งที่คุณส่งถึงผู้ช่วย AI ใน LINE เมื่อเปิดให้บริการ โดยส่งเฉพาะข้อความและข้อมูลในบัญชีที่จำเป็นต่อการตอบ</li>
+    </ul>
+    <p>ผู้ให้บริการบางรายจัดเก็บหรือประมวลผลข้อมูลนอกประเทศไทย เราเลือกใช้ผู้ให้บริการที่มีมาตรการคุ้มครองข้อมูลตามมาตรฐานสากล และเปิดเผยข้อมูลเท่าที่จำเป็นเท่านั้น</p>
 
-      <h2>6. การเปลี่ยนแปลงนโยบาย</h2>
-      <p>เราอาจปรับปรุงนโยบายนี้เป็นครั้งคราว หากมีการเปลี่ยนแปลงสำคัญจะแจ้งให้ทราบผ่านหน้านี้</p>
+    <h2>5. ระยะเวลาการเก็บรักษา</h2>
+    <ul>
+      <li>เราเก็บข้อมูลบัญชีและข้อมูลที่คุณบันทึกตลอดระยะเวลาที่บัญชียังใช้งานอยู่</li>
+      <li>เมื่อคุณพักบัญชีหรือขอลบบัญชี บัญชีจะถูกปิดการใช้งานทันที และข้อมูลจะถูกลบถาวรเมื่อครบ 30 วัน เว้นแต่คุณกลับมาเปิดใช้งานบัญชีที่พักไว้ภายในระยะเวลานั้น</li>
+      <li>หลักฐานการชำระเงินที่ผู้ให้บริการรับชำระเงินเก็บไว้ เป็นไปตามระยะเวลาที่กฎหมายกำหนดและนโยบายของผู้ให้บริการนั้น</li>
+    </ul>
 
-      <h2>7. ติดต่อเรา</h2>
-      <p>หากมีคำถามเกี่ยวกับความเป็นส่วนตัวหรือต้องการขอลบข้อมูล ติดต่อได้ที่ <a href="mailto:heidnsko1234@gmail.com">heidnsko1234@gmail.com</a></p>
-    </div>
+    <h2>6. ความปลอดภัยของข้อมูล</h2>
+    <ul>
+      <li>การเชื่อมต่อทั้งหมดเข้ารหัสผ่าน HTTPS</li>
+      <li>การเข้าสู่ระบบใช้คุกกี้ที่เข้ารหัสและอ่านจากสคริปต์บนหน้าเว็บไม่ได้ พร้อมการป้องกันคำขอปลอมแปลงข้ามเว็บไซต์</li>
+      <li>เซิร์ฟเวอร์ตรวจสอบสิทธิ์ทุกคำขอ ผู้ใช้เข้าถึงได้เฉพาะข้อมูลของบัญชีตนเองหรือทีมที่ได้รับเชิญ</li>
+      <li>ไฟล์ที่อัปโหลดเก็บในพื้นที่ส่วนตัว เปิดได้ผ่านลิงก์ชั่วคราวหลังตรวจสิทธิ์แล้วเท่านั้น</li>
+      <li>มีการจำกัดจำนวนครั้งในการเข้าสู่ระบบ และการลบบัญชีต้องยืนยันด้วยรหัส 6 หลักทางอีเมล</li>
+      <li>เข้าสู่ระบบค้างไว้ได้ไม่เกิน 30 วันนับจากการใช้งานครั้งล่าสุด และคุณออกจากระบบได้ทุกเมื่อ</li>
+    </ul>
+    <p>แม้เราใช้มาตรการที่เหมาะสม แต่ไม่มีระบบใดปลอดภัยสมบูรณ์ หากเกิดเหตุละเมิดข้อมูลส่วนบุคคลที่มีความเสี่ยงต่อคุณ เราจะแจ้งคุณและหน่วยงานที่เกี่ยวข้องตามที่กฎหมายกำหนด</p>
 
-    <footer>
-      <p><a href="/terms">เงื่อนไขการใช้งาน</a> &middot; กระรอกตุนเงิน</p>
-    </footer>
-  </div>
+    <h2>7. คุกกี้และข้อมูลในเบราว์เซอร์</h2>
+    <p>เราใช้เฉพาะคุกกี้ที่จำเป็นต่อการเข้าสู่ระบบและความปลอดภัย และเก็บการตั้งค่าบางอย่างไว้ในเบราว์เซอร์ เช่น ภาษา ธีม และการเลือกบัญชี เราไม่ใช้คุกกี้เพื่อการโฆษณาหรือติดตามข้ามเว็บไซต์ ข้อมูลการเงินที่แสดงบนหน้าจอไม่ถูกบันทึกเป็นแคชในเบราว์เซอร์</p>
+
+    <h2>8. สิทธิ์ของคุณ</h2>
+    <p>ตาม PDPA คุณมีสิทธิ์ดังนี้</p>
+    <ul>
+      <li>ขอเข้าถึงและขอรับสำเนาข้อมูลส่วนบุคคลของคุณ รวมถึงส่งออกข้อมูลเป็นไฟล์ Excel จากในแอป</li>
+      <li>ขอแก้ไขข้อมูลให้ถูกต้อง ซึ่งส่วนใหญ่แก้ได้เองในแอป</li>
+      <li>ขอลบข้อมูล ซึ่งทำได้เองที่หน้าตั้งค่า หรือแจ้งเรา</li>
+      <li>ขอระงับการใช้ หรือคัดค้านการประมวลผลข้อมูล</li>
+      <li>ถอนความยินยอม เช่น ยกเลิกการเชื่อมต่อ LINE หรือปิดการต่ออายุอัตโนมัติ โดยไม่กระทบการประมวลผลที่ทำไปก่อนหน้า</li>
+      <li>ร้องเรียนต่อสำนักงานคณะกรรมการคุ้มครองข้อมูลส่วนบุคคล</li>
+    </ul>
+    <p>เราจะตอบคำขอภายใน 30 วันนับจากวันที่ได้รับคำขอ และอาจขอข้อมูลเพื่อยืนยันตัวตนก่อนดำเนินการ</p>
+
+    <h2>9. ผู้เยาว์</h2>
+    <p>บริการนี้ออกแบบสำหรับผู้ประกอบอาชีพอิสระและผู้ทำธุรกิจ ผู้ใช้ที่ยังไม่บรรลุนิติภาวะควรใช้บริการภายใต้ความยินยอมของผู้ใช้อำนาจปกครอง</p>
+
+    <h2>10. การเปลี่ยนแปลงนโยบาย</h2>
+    <p>เราอาจปรับปรุงนโยบายนี้เป็นครั้งคราว หากมีการเปลี่ยนแปลงที่สำคัญ เราจะแจ้งผ่านแอปหรืออีเมลก่อนมีผลบังคับใช้ วันที่มีผลบังคับใช้ล่าสุดแสดงอยู่ด้านบนของหน้านี้</p>
+
+    <h2 id="contact">11. ติดต่อเรา</h2>
+    <p>สอบถามเรื่องความเป็นส่วนตัวหรือใช้สิทธิ์ตามนโยบายนี้ได้ที่ <a href="mailto:cashsquirrelapp@gmail.com">cashsquirrelapp@gmail.com</a></p>
+  </article>
+
+  <!-- ================= ENGLISH ================= -->
+  <article class="card" lang="en">
+    <p class="lead">Krarok Tunngern ("we" or "the Service") respects your privacy. This policy explains what personal data we collect, why we use it, who we share it with, how long we keep it, and your rights under Thailand's Personal Data Protection Act B.E. 2562 (PDPA).</p>
+
+    <h2>1. Data controller</h2>
+    <p>The operator of Krarok Tunngern is the data controller for personal data collected through the Krarok Tunngern website, app and LINE Official Account. See section 11 for how to contact us.</p>
+
+    <h2>2. Data we collect</h2>
+    <ul>
+      <li><strong>Account data:</strong> your email, display name and password (stored one-way hashed by our authentication system), or your name, email and profile picture from Google if you sign in with Google, and any backup email you verify.</li>
+      <li><strong>Data you record:</strong> jobs and deals, clients and their contact details, job values, payments received, installments, withholding tax, expenses, savings goals, issuer details (such as name, address and tax ID) and documents issued through the Service, such as quotations, invoices and receipts.</li>
+      <li><strong>Files you upload:</strong> such as withholding tax certificates (50 Tawi), contracts, purchase orders, bills and payment slips, sent through the app or a LINE chat.</li>
+      <li><strong>LINE data:</strong> when you link LINE, we store your LINE user ID and process the messages, commands and files you send to our LINE Official Account.</li>
+      <li><strong>Payment data:</strong> orders, plans, amounts, payment status and Stripe reference IDs. Card details are stored and processed by Stripe directly; we never store your card number.</li>
+      <li><strong>Usage and technical data:</strong> how often each feature is used, tied to a pseudonymous ID that cannot be traced back to you; security data such as sign-in attempts; and connection logs kept by our infrastructure providers, such as IP address and browser type.</li>
+    </ul>
+
+    <h2>3. Purposes and legal bases</h2>
+    <ul>
+      <li><strong>Performing our contract with you:</strong> creating and maintaining your account, storing and showing your data, issuing documents, sending reminders and reports, and processing payments.</li>
+      <li><strong>Consent:</strong> linking LINE, saving a card for automatic renewal, and using the AI assistant once it is offered. You can withdraw consent at any time (section 8).</li>
+      <li><strong>Legitimate interests:</strong> keeping the Service secure, preventing unauthorised access and fraud, and improving the Service from pseudonymous usage statistics.</li>
+      <li><strong>Legal obligations:</strong> keeping payment records and complying with lawful requests from authorities.</li>
+    </ul>
+    <p>We do not sell personal data, and we do not use your financial data for advertising.</p>
+
+    <h2>4. Service providers that process data for us</h2>
+    <p>We use the following providers and share only what each needs for its role.</p>
+    <ul>
+      <li><strong>Supabase:</strong> authentication, database and file storage.</li>
+      <li><strong>Cloudflare:</strong> hosting of the website and servers, and attack protection.</li>
+      <li><strong>Stripe:</strong> card and PromptPay payments, and storing your card for automatic renewal when you consent.</li>
+      <li><strong>Google:</strong> Sign in with Google, system emails sent through Gmail, and web fonts (Google Fonts).</li>
+      <li><strong>LINE:</strong> messages, reminders and files when you link LINE.</li>
+      <li><strong>EmailJS:</strong> emailed reports, only if you set this service up yourself in Settings.</li>
+      <li><strong>Anthropic:</strong> processing your requests to the AI assistant in LINE once it is offered, sending only the messages and account data needed for the answer.</li>
+    </ul>
+    <p>Some providers store or process data outside Thailand. We choose providers with internationally recognised data protection safeguards and share only what is necessary.</p>
+
+    <h2>5. How long we keep data</h2>
+    <ul>
+      <li>We keep your account and the data you record for as long as your account is active.</li>
+      <li>When you pause your account or ask to delete it, the account is disabled at once and its data is permanently deleted after 30 days, unless you reactivate a paused account within that time.</li>
+      <li>Payment records held by our payment provider are kept for the periods required by law and that provider's policies.</li>
+    </ul>
+
+    <h2>6. Security</h2>
+    <ul>
+      <li>All connections are encrypted with HTTPS.</li>
+      <li>Sign-in uses encrypted cookies that page scripts cannot read, with protection against cross-site request forgery.</li>
+      <li>Our servers check permissions on every request; you can access only your own account's data or a team you were invited to.</li>
+      <li>Uploaded files are kept in private storage and open only through short-lived links after a permission check.</li>
+      <li>Sign-in attempts are rate limited, and deleting an account requires a 6-digit code sent by email.</li>
+      <li>You stay signed in for at most 30 days after your last use, and you can sign out at any time.</li>
+    </ul>
+    <p>No system is perfectly secure. If a personal data breach poses a risk to you, we will notify you and the relevant authority as required by law.</p>
+
+    <h2>7. Cookies and browser storage</h2>
+    <p>We use only cookies needed for sign-in and security, and we keep some preferences in your browser, such as language, theme and account selection. We do not use advertising or cross-site tracking cookies. Financial data shown on screen is not cached in your browser.</p>
+
+    <h2>8. Your rights</h2>
+    <p>Under the PDPA you have the right to:</p>
+    <ul>
+      <li>access and receive a copy of your personal data, including exporting your data to Excel in the app;</li>
+      <li>have inaccurate data corrected, most of which you can do yourself in the app;</li>
+      <li>have your data deleted, which you can do yourself in Settings or by contacting us;</li>
+      <li>restrict or object to processing;</li>
+      <li>withdraw consent, for example by disconnecting LINE or turning off automatic renewal, without affecting processing that took place before;</li>
+      <li>complain to the Personal Data Protection Committee of Thailand.</li>
+    </ul>
+    <p>We respond to requests within 30 days of receiving them and may ask you to verify your identity first.</p>
+
+    <h2>9. Minors</h2>
+    <p>The Service is designed for freelancers and business owners. Users who are not yet legally of age should use it with the consent of a parent or guardian.</p>
+
+    <h2>10. Changes to this policy</h2>
+    <p>We may update this policy from time to time. We will tell you about material changes through the app or by email before they take effect. The current effective date is shown at the top of this page.</p>
+
+    <h2 id="contact-en">11. Contact us</h2>
+    <p>For privacy questions or to exercise your rights, email <a href="mailto:cashsquirrelapp@gmail.com">cashsquirrelapp@gmail.com</a>.</p>
+  </article>
+
+  <footer>
+    <a href="/terms"><span lang="th">ข้อกำหนดการใช้บริการ</span><span lang="en">Terms of Service</span></a>
+    · <span lang="th">กระรอกตุนเงิน</span><span lang="en">Krarok Tunngern</span>
+  </footer>
+</div>
+<script src="/legal.js"></script>
 </body>
 </html>

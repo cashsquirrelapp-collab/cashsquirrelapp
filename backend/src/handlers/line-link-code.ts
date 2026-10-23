@@ -3,14 +3,25 @@ import { withGuard,HttpError } from '../http/guard.js';
 import { requireUser } from '../security/session.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { rateLimit,challengeHash } from '../security/rateLimit.js';
+import { sendLineMessagePayload } from '../services/line.js';
+import { buildLineDisconnected } from '../services/lineLinkCards.js';
 export default withGuard(async(req,res)=>{
  if(req.method!=='POST')throw new HttpError(405,'Method not allowed');
  const user=await requireUser(req,res);
  if(req.headers['x-account-id']!==user.id)throw new HttpError(401,'Account mismatch'); const admin=getSupabaseAdmin();
  if(req.body?.action==='disconnect') {
+  // Read which LINE chat was linked before removing it, so that chat can be told it is no longer
+  // connected (owner, 2026-10-22). The removal never waits on LINE and never fails because of it.
+  const link=await admin.from('cashflow_line_links').select('line_user_id').eq('user_id',user.id).maybeSingle();if(link.error)throw link.error;
   const result=await admin.from('cashflow_line_links').delete().eq('user_id',user.id);if(result.error)throw result.error;
   const challenge=await admin.from('cashflow_challenges').delete().eq('user_id',user.id).eq('purpose','link');if(challenge.error)throw challenge.error;
-  res.json({ok:true});return;
+  let lineNotified=false;
+  const lineUserId=link.data?.line_user_id;
+  if(typeof lineUserId==='string'&&lineUserId){
+   try{lineNotified=await sendLineMessagePayload(lineUserId,buildLineDisconnected());}
+   catch{console.error('line-link-code: disconnect notice was not sent');}
+  }
+  res.json({ok:true,lineNotified});return;
  }
  await rateLimit('line-link',user.id,5,900);
  // A link code is a short-lived proof that the signed-in web account controls the

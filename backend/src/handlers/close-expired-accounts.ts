@@ -1,3 +1,4 @@
+import { isStaging } from '../security/staging.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { HttpError } from '../http/guard.js';
 import { required } from '../config/env.js';
@@ -20,6 +21,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   ]);
   if (paused.error) throw paused.error;
   if (abandoned.error) throw abandoned.error;
+  // The migration rehearsal is read-only here: no lease, deletion or reminder claims.
+  if (isStaging()) {
+    res.json({ dryRun: true, due: (paused.data?.length || 0) + (abandoned.data?.length || 0), deleted: 0, deferred: 0, reminded: 0, reminderFailed: 0 });
+    return;
+  }
 
   let deleted = 0;
   let deferred = 0;
@@ -44,7 +50,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       deleted += 1;
     } catch (error) {
       // Keep the account paused and retry on the next run. In particular, never
-      // remove a sole group leader or the final system administrator.
+      // remove a sole group leader, the final system administrator, or an
+      // account whose Stripe subscription is not yet terminal.
       const released = await admin.from('cashflow_account_pauses').update({ state: 'paused', deletion_lease_until: null })
         .eq('user_id', row.user_id).eq('state', 'deleting');
       if (released.error) console.error('Account deletion lease release failed', { type: released.error.name });

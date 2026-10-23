@@ -24,12 +24,15 @@ function formatDisplay(raw: string): string {
 // Keeps at most one leading minus and one decimal point, strips everything else (including the
 // commas formatDisplay adds) back out -- this is what callers' existing parseFloat/setState
 // logic actually receives.
-function stripToRaw(display: string): string {
-  const negative = display.trim().startsWith('-');
+function stripToRaw(display: string, maxDecimals?: number, allowNegative = true): string {
+  const negative = allowNegative && display.trim().startsWith('-');
   let s = display.replace(/[^\d.]/g, '');
   const firstDot = s.indexOf('.');
   if (firstDot !== -1) {
-    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+    let decimals = s.slice(firstDot + 1).replace(/\./g, '');
+    // Money fields stop at satang: a third decimal is simply not taken.
+    if (maxDecimals !== undefined) decimals = decimals.slice(0, maxDecimals);
+    s = s.slice(0, firstDot + 1) + decimals;
   }
   return (negative ? '-' : '') + s;
 }
@@ -37,9 +40,13 @@ function stripToRaw(display: string): string {
 interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> {
   value: string | number | undefined;
   onChange: (raw: string) => void;
+  /** Most digits accepted after the decimal point; unlimited when left out. */
+  maxDecimals?: number;
+  /** Set to false for amounts that can never be negative. */
+  allowNegative?: boolean;
 }
 
-export default function NumberInput({ value, onChange, ...rest }: NumberInputProps) {
+export default function NumberInput({ value, onChange, maxDecimals, allowNegative = true, ...rest }: NumberInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingCursorDigits = useRef<number | null>(null);
 
@@ -74,7 +81,7 @@ export default function NumberInput({ value, onChange, ...rest }: NumberInputPro
     const el = e.target;
     const cursor = el.selectionStart ?? el.value.length;
     pendingCursorDigits.current = el.value.slice(0, cursor).replace(/[^\d.]/g, '').length;
-    onChange(stripToRaw(el.value));
+    onChange(stripToRaw(el.value, maxDecimals, allowNegative));
   };
 
   return (

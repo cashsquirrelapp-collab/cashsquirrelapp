@@ -4,7 +4,7 @@ import { uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job, AppSettings, Expense, TaxAllowanceInput, TaxAllowanceKey, TaxYearInputs } from '../../../../shared/types';
-import { formatCurrency } from '../../utils';
+import { dateLocale, installmentLabel, formatCurrency } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import {
   Trash2,
@@ -30,6 +30,7 @@ import {
   withTaxInputsForYear,
 } from '../../../../shared/tax';
 
+import { tr } from '../../i18n/tr';
 interface TaxTabProps {
   jobs: Job[];
   expenses?: Expense[];
@@ -64,13 +65,13 @@ export default function TaxTab({
   const [taxStep, setTaxStep] = useState<number>(1);
 
   const allowanceOptions: Array<{ key: TaxAllowanceKey; label: string; cap: number; type: 'input' | 'quantity'; multiplier?: number }> = [
-    { key: 'life_insurance', label: 'ประกันชีวิต (ลดหย่อนได้ไม่เกิน 100,000 บาท)', cap: 100000, type: 'input' },
-    { key: 'health_insurance', label: 'ประกันสุขภาพ (ลดหย่อนได้ไม่เกิน 25,000 บาท)', cap: 25000, type: 'input' },
-    { key: 'rmf', label: 'กองทุน RMF (ไม่เกิน 30% ของเงินได้ สูงสุด 500,000 บาท)', cap: 500000, type: 'input' },
-    { key: 'thai_esg', label: 'กองทุน ThaiESG (ไม่เกิน 30% ของเงินได้ สูงสุด 300,000 บาท)', cap: 300000, type: 'input' },
-    { key: 'social_security', label: 'ประกันสังคม (ไม่เกิน 9,000 บาทต่อปี)', cap: 9000, type: 'input' },
-    { key: 'child', label: 'ค่าเลี้ยงดูบุตร (30,000 บาทต่อคน)', cap: Infinity, type: 'quantity', multiplier: 30000 },
-    { key: 'parent', label: 'ค่าเลี้ยงดูบิดามารดา (30,000 บาทต่อคน)', cap: Infinity, type: 'quantity', multiplier: 30000 }
+    { key: 'life_insurance', label: tr("ประกันชีวิต (ลดหย่อนได้ไม่เกิน 100,000 บาท)"), cap: 100000, type: 'input' },
+    { key: 'health_insurance', label: tr("ประกันสุขภาพ (ลดหย่อนได้ไม่เกิน 25,000 บาท)"), cap: 25000, type: 'input' },
+    { key: 'rmf', label: tr("กองทุน RMF (ไม่เกิน 30% ของเงินได้ สูงสุด 500,000 บาท)"), cap: 500000, type: 'input' },
+    { key: 'thai_esg', label: tr("กองทุน ThaiESG (ไม่เกิน 30% ของเงินได้ สูงสุด 300,000 บาท)"), cap: 300000, type: 'input' },
+    { key: 'social_security', label: tr("ประกันสังคม (ไม่เกิน 9,000 บาทต่อปี)"), cap: 9000, type: 'input' },
+    { key: 'child', label: tr("ค่าเลี้ยงดูบุตร (30,000 บาทต่อคน)"), cap: Infinity, type: 'quantity', multiplier: 30000 },
+    { key: 'parent', label: tr("ค่าเลี้ยงดูบิดามารดา (30,000 บาทต่อคน)"), cap: Infinity, type: 'quantity', multiplier: 30000 }
   ];
 
   const receiptSummary = useMemo(() => taxReceiptSummaryForYear(jobs, taxYear), [jobs, taxYear]);
@@ -100,8 +101,8 @@ export default function TaxTab({
       secondHalfJobsRevenueOverride: undefined,
     });
     triggerAlert(
-      'ซิงค์ข้อมูลสำเร็จ',
-      `ดึงเฉพาะรายรับที่รับจริงในปี ${taxYear}: ครึ่งปีแรก ${receiptSummary.firstHalf.gross.toLocaleString()} บาท ครึ่งปีหลัง ${receiptSummary.secondHalf.gross.toLocaleString()} บาท รายจ่ายในบัญชีจะแสดงเพื่ออ้างอิงและจะไม่ถูกหักภาษีอัตโนมัติ`,
+      tr("ซิงค์ข้อมูลสำเร็จ"),
+      tr("ดึงเฉพาะรายรับที่รับจริงในปี {0}: ครึ่งปีแรก {1} บาท ครึ่งปีหลัง {2} บาท รายจ่ายในบัญชีจะแสดงเพื่ออ้างอิงและจะไม่ถูกหักภาษีอัตโนมัติ", taxYear, receiptSummary.firstHalf.gross.toLocaleString(), receiptSummary.secondHalf.gross.toLocaleString()),
     );
   };
 
@@ -109,7 +110,7 @@ export default function TaxTab({
     if (!selectedAllowanceKey) return;
     
     if (addedAllowances.some(item => item.key === selectedAllowanceKey)) {
-      triggerAlert('รายการซ้ำ', 'คุณได้เพิ่มหัวข้อค่าลดหย่อนนี้ไปแล้ว สามารถแก้ไขจำนวนเงินหรือจำนวนสิทธิ์ในรายการด้านล่างได้ทันที');
+      triggerAlert(tr("รายการซ้ำ"), tr("คุณได้เพิ่มหัวข้อค่าลดหย่อนนี้ไปแล้ว สามารถแก้ไขจำนวนเงินหรือจำนวนสิทธิ์ในรายการด้านล่างได้ทันที"));
       return;
     }
 
@@ -213,7 +214,7 @@ export default function TaxTab({
       { size: 250000, rate: 0.20, label: '750,001 - 1,000,000' },
       { size: 1000000, rate: 0.25, label: '1,000,001 - 2,000,000' },
       { size: 3000000, rate: 0.30, label: '2,000,001 - 5,000,000' },
-      { size: Infinity, rate: 0.35, label: 'มากกว่า 5,000,000' }
+      { size: Infinity, rate: 0.35, label: tr("มากกว่า 5,000,000") }
     ];
 
     let remaining = netIncome;
@@ -262,9 +263,9 @@ export default function TaxTab({
   );
 
   const taxResult = (settlement: typeof fullSettlement, key: 'assessedTax' | 'totalCredits' | 'due' | 'overpayment') =>
-    settlement ? settlement[key] : 'ยังไม่คำนวณ';
+    settlement ? settlement[key] : tr("ยังไม่คำนวณ");
   const formattedTaxResult = (settlement: typeof fullSettlement, key: 'assessedTax' | 'totalCredits' | 'due' | 'overpayment') =>
-    settlement ? formatCurrency(settlement[key]) : 'ยังไม่คำนวณ';
+    settlement ? formatCurrency(settlement[key]) : tr("ยังไม่คำนวณ");
 
   const h1MaxRate = useMemo(() => {
     if (h1TaxDetails.breakdown.length === 0) return 0;
@@ -278,26 +279,26 @@ export default function TaxTab({
 
   const handleDownloadCSV = () => {
     const csvRows = [
-      ['\uFEFFสรุปการประเมินและวางแผนภาษี', 'ครึ่งปีแรก (ภ.ง.ด. 94)', 'ทั้งปี (ภ.ง.ด. 90)'],
-      ['ปีภาษี', taxYear, taxYear],
-      ['รายได้ดีลงานในระบบ', firstHalfJobsRevenue, firstHalfJobsRevenue + secondHalfJobsRevenue],
-      ['รายได้เสริมอื่นๆ', firstHalfOtherRevenue, firstHalfOtherRevenue + secondHalfOtherRevenue],
-      ['รายได้รวมทั้งหมด', h1Revenue, fullRevenue],
-      ['ค่าใช้จ่ายในบัญชี (เพื่ออ้างอิง)', expenseSummary.firstHalf, expenseSummary.fullYear],
-      ['ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว', h1ExpenseReady ? h1Expense : 'ยังไม่กรอก', fullExpenseReady ? fullExpense : 'ยังไม่กรอก'],
-      ['หักลดหย่อนส่วนตัว', h1PersonalAllowance, fullPersonalAllowance],
-      ['หักลดหย่อนเพิ่มเติมอื่นๆ', h1OtherAllowances, fullOtherAllowances],
-      ['เงินได้สุทธิ', h1ExpenseReady ? h1NetIncome : 'ยังไม่คำนวณ', fullExpenseReady ? fullNetIncome : 'ยังไม่คำนวณ'],
-      ['อัตราภาษีสูงสุดที่เสีย (%)', h1ExpenseReady ? `${h1MaxRate}%` : 'ยังไม่คำนวณ', fullExpenseReady ? `${fullMaxRate}%` : 'ยังไม่คำนวณ'],
-      ['ภาษีตามอัตราก้าวหน้า (ข้อมูลประกอบ ไม่รวมภาษีขั้นต่ำ)', h1ExpenseReady ? h1TaxDetails.totalTax : 'ยังไม่คำนวณ', fullExpenseReady ? fullTaxDetails.totalTax : 'ยังไม่คำนวณ'],
-      ['ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ', taxResult(h1Settlement, 'assessedTax'), taxResult(fullSettlement, 'assessedTax')],
-      ['เครดิตภาษีหัก ณ ที่จ่าย', firstHalfWhtCredit, fullYearWhtCredit],
-      ['ภาษีที่ชำระไว้ตาม ภ.ง.ด.93', 0, pnd93Paid],
-      ['ภาษีที่ชำระไว้ตาม ภ.ง.ด.94', 0, pnd94Paid],
-      ['เครดิตภาษีอื่น', 0, otherTaxCredits],
-      ['รวมเครดิตภาษี', taxResult(h1Settlement, 'totalCredits'), taxResult(fullSettlement, 'totalCredits')],
-      ['คาดว่าต้องชำระเพิ่ม', taxResult(h1Settlement, 'due'), taxResult(fullSettlement, 'due')],
-      ['คาดว่าชำระไว้เกิน', taxResult(h1Settlement, 'overpayment'), taxResult(fullSettlement, 'overpayment')]
+      ['\uFEFF' + tr("สรุปการประเมินและวางแผนภาษี"), tr("ครึ่งปีแรก (ภ.ง.ด. 94)"), tr("ทั้งปี (ภ.ง.ด. 90)")],
+      [tr("ปีภาษี"), taxYear, taxYear],
+      [tr("รายได้ดีลงานในระบบ"), firstHalfJobsRevenue, firstHalfJobsRevenue + secondHalfJobsRevenue],
+      [tr("รายได้เสริมอื่นๆ"), firstHalfOtherRevenue, firstHalfOtherRevenue + secondHalfOtherRevenue],
+      [tr("รายได้รวมทั้งหมด"), h1Revenue, fullRevenue],
+      [tr("ค่าใช้จ่ายในบัญชี (เพื่ออ้างอิง)"), expenseSummary.firstHalf, expenseSummary.fullYear],
+      [tr("ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว"), h1ExpenseReady ? h1Expense : tr("ยังไม่กรอก"), fullExpenseReady ? fullExpense : tr("ยังไม่กรอก")],
+      [tr("หักลดหย่อนส่วนตัว"), h1PersonalAllowance, fullPersonalAllowance],
+      [tr("หักลดหย่อนเพิ่มเติมอื่นๆ"), h1OtherAllowances, fullOtherAllowances],
+      [tr("เงินได้สุทธิ"), h1ExpenseReady ? h1NetIncome : tr("ยังไม่คำนวณ"), fullExpenseReady ? fullNetIncome : tr("ยังไม่คำนวณ")],
+      [tr("อัตราภาษีสูงสุดที่เสีย (%)"), h1ExpenseReady ? `${h1MaxRate}%` : tr("ยังไม่คำนวณ"), fullExpenseReady ? `${fullMaxRate}%` : tr("ยังไม่คำนวณ")],
+      [tr("ภาษีตามอัตราก้าวหน้า (ข้อมูลประกอบ ไม่รวมภาษีขั้นต่ำ)"), h1ExpenseReady ? h1TaxDetails.totalTax : tr("ยังไม่คำนวณ"), fullExpenseReady ? fullTaxDetails.totalTax : tr("ยังไม่คำนวณ")],
+      [tr("ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ"), taxResult(h1Settlement, 'assessedTax'), taxResult(fullSettlement, 'assessedTax')],
+      [tr("เครดิตภาษีหัก ณ ที่จ่าย"), firstHalfWhtCredit, fullYearWhtCredit],
+      [tr("ภาษีที่ชำระไว้ตาม ภ.ง.ด.93"), 0, pnd93Paid],
+      [tr("ภาษีที่ชำระไว้ตาม ภ.ง.ด.94"), 0, pnd94Paid],
+      [tr("เครดิตภาษีอื่น"), 0, otherTaxCredits],
+      [tr("รวมเครดิตภาษี"), taxResult(h1Settlement, 'totalCredits'), taxResult(fullSettlement, 'totalCredits')],
+      [tr("คาดว่าต้องชำระเพิ่ม"), taxResult(h1Settlement, 'due'), taxResult(fullSettlement, 'due')],
+      [tr("คาดว่าชำระไว้เกิน"), taxResult(h1Settlement, 'overpayment'), taxResult(fullSettlement, 'overpayment')]
     ];
     
     const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -305,11 +306,11 @@ export default function TaxTab({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `ผู้ช่วยภาษี_${taxYear}_รายงานสรุป.csv`);
+    link.setAttribute("download", tr("ผู้ช่วยภาษี_{0}_รายงานสรุป.csv", taxYear));
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    triggerAlert('ดาวน์โหลด CSV สำเร็จ', 'จัดส่งและดาวน์โหลดไฟล์รายงานสรุปเรียบร้อยแล้ว');
+    triggerAlert(tr("ดาวน์โหลด CSV สำเร็จ"), tr("จัดส่งและดาวน์โหลดไฟล์รายงานสรุปเรียบร้อยแล้ว"));
   };
 
   const handleExportExcel = async () => {
@@ -318,81 +319,81 @@ export default function TaxTab({
     try {
       XLSX = await import('xlsx');
     } catch {
-      triggerAlert('ดาวน์โหลด Excel ไม่สำเร็จ', 'โหลดเครื่องมือสร้างไฟล์ไม่สำเร็จ กรุณาลองอีกครั้ง');
+      triggerAlert(tr("ดาวน์โหลด Excel ไม่สำเร็จ"), tr("โหลดเครื่องมือสร้างไฟล์ไม่สำเร็จ กรุณาลองอีกครั้ง"));
       return;
     }
     const bracketRows = (label: string, breakdown: { range: string; taxable: number; rate: number; tax: number }[], ready: boolean) => ready
       ? [
-          [`ขั้นบันไดภาษี — ${label} (ข้อมูลประกอบ ไม่รวมภาษีขั้นต่ำ)`, '', '', ''],
-          ['ช่วงเงินได้สุทธิ (บาท)', 'ฐานภาษีในช่วงนี้ (บาท)', 'อัตราภาษี (%)', 'ภาษีในช่วงนี้ (บาท)'],
+          [tr("ขั้นบันไดภาษี — {0} (ข้อมูลประกอบ ไม่รวมภาษีขั้นต่ำ)", label), '', '', ''],
+          [tr("ช่วงเงินได้สุทธิ (บาท)"), tr("ฐานภาษีในช่วงนี้ (บาท)"), tr("อัตราภาษี (%)"), tr("ภาษีในช่วงนี้ (บาท)")],
           ...breakdown.map((b) => [b.range, b.taxable, `${b.rate * 100}%`, b.tax]),
           ['', '', '', ''],
         ]
       : [
-          [`ขั้นบันไดภาษี — ${label}`, 'ยังไม่คำนวณ: ต้องกรอกค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว', '', ''],
+          [tr("ขั้นบันไดภาษี — {0}", label), tr("ยังไม่คำนวณ: ต้องกรอกค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว"), '', ''],
           ['', '', '', ''],
         ];
 
     const summaryRows: (string | number)[][] = [
-      ['สรุปการประเมินและวางแผนภาษี', 'ครึ่งปีแรก (ภ.ง.ด. 94)', 'ทั้งปี (ภ.ง.ด. 90)'],
-      ['ปีภาษี', taxYear, taxYear],
-      ['รายได้ดีลงานในระบบ', firstHalfJobsRevenue, firstHalfJobsRevenue + secondHalfJobsRevenue],
-      ['รายได้เสริมอื่นๆ', firstHalfOtherRevenue, firstHalfOtherRevenue + secondHalfOtherRevenue],
-      ['รายได้รวมทั้งหมด', h1Revenue, fullRevenue],
-      ['ค่าใช้จ่ายในบัญชี (เพื่ออ้างอิง)', expenseSummary.firstHalf, expenseSummary.fullYear],
-      ['ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว', h1ExpenseReady ? h1Expense : 'ยังไม่กรอก', fullExpenseReady ? fullExpense : 'ยังไม่กรอก'],
-      ['หักลดหย่อนส่วนตัว', h1PersonalAllowance, fullPersonalAllowance],
-      ['หักลดหย่อนเพิ่มเติมอื่นๆ', h1OtherAllowances, fullOtherAllowances],
-      ['เงินได้สุทธิ', h1ExpenseReady ? h1NetIncome : 'ยังไม่คำนวณ', fullExpenseReady ? fullNetIncome : 'ยังไม่คำนวณ'],
-      ['อัตราภาษีสูงสุดที่เสีย (%)', h1ExpenseReady ? `${h1MaxRate}%` : 'ยังไม่คำนวณ', fullExpenseReady ? `${fullMaxRate}%` : 'ยังไม่คำนวณ'],
-      ['ภาษีตามอัตราก้าวหน้า (ข้อมูลประกอบ ไม่รวมภาษีขั้นต่ำ)', h1ExpenseReady ? h1TaxDetails.totalTax : 'ยังไม่คำนวณ', fullExpenseReady ? fullTaxDetails.totalTax : 'ยังไม่คำนวณ'],
-      ['ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ', taxResult(h1Settlement, 'assessedTax'), taxResult(fullSettlement, 'assessedTax')],
-      ['เครดิตภาษีหัก ณ ที่จ่าย', firstHalfWhtCredit, fullYearWhtCredit],
-      ['ภาษีที่ชำระไว้ตาม ภ.ง.ด.93', 0, pnd93Paid],
-      ['ภาษีที่ชำระไว้ตาม ภ.ง.ด.94', 0, pnd94Paid],
-      ['เครดิตภาษีอื่น', 0, otherTaxCredits],
-      ['รวมเครดิตภาษี', taxResult(h1Settlement, 'totalCredits'), taxResult(fullSettlement, 'totalCredits')],
-      ['คาดว่าต้องชำระเพิ่ม', taxResult(h1Settlement, 'due'), taxResult(fullSettlement, 'due')],
-      ['คาดว่าชำระไว้เกิน', taxResult(h1Settlement, 'overpayment'), taxResult(fullSettlement, 'overpayment')],
+      [tr("สรุปการประเมินและวางแผนภาษี"), tr("ครึ่งปีแรก (ภ.ง.ด. 94)"), tr("ทั้งปี (ภ.ง.ด. 90)")],
+      [tr("ปีภาษี"), taxYear, taxYear],
+      [tr("รายได้ดีลงานในระบบ"), firstHalfJobsRevenue, firstHalfJobsRevenue + secondHalfJobsRevenue],
+      [tr("รายได้เสริมอื่นๆ"), firstHalfOtherRevenue, firstHalfOtherRevenue + secondHalfOtherRevenue],
+      [tr("รายได้รวมทั้งหมด"), h1Revenue, fullRevenue],
+      [tr("ค่าใช้จ่ายในบัญชี (เพื่ออ้างอิง)"), expenseSummary.firstHalf, expenseSummary.fullYear],
+      [tr("ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว"), h1ExpenseReady ? h1Expense : tr("ยังไม่กรอก"), fullExpenseReady ? fullExpense : tr("ยังไม่กรอก")],
+      [tr("หักลดหย่อนส่วนตัว"), h1PersonalAllowance, fullPersonalAllowance],
+      [tr("หักลดหย่อนเพิ่มเติมอื่นๆ"), h1OtherAllowances, fullOtherAllowances],
+      [tr("เงินได้สุทธิ"), h1ExpenseReady ? h1NetIncome : tr("ยังไม่คำนวณ"), fullExpenseReady ? fullNetIncome : tr("ยังไม่คำนวณ")],
+      [tr("อัตราภาษีสูงสุดที่เสีย (%)"), h1ExpenseReady ? `${h1MaxRate}%` : tr("ยังไม่คำนวณ"), fullExpenseReady ? `${fullMaxRate}%` : tr("ยังไม่คำนวณ")],
+      [tr("ภาษีตามอัตราก้าวหน้า (ข้อมูลประกอบ ไม่รวมภาษีขั้นต่ำ)"), h1ExpenseReady ? h1TaxDetails.totalTax : tr("ยังไม่คำนวณ"), fullExpenseReady ? fullTaxDetails.totalTax : tr("ยังไม่คำนวณ")],
+      [tr("ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ"), taxResult(h1Settlement, 'assessedTax'), taxResult(fullSettlement, 'assessedTax')],
+      [tr("เครดิตภาษีหัก ณ ที่จ่าย"), firstHalfWhtCredit, fullYearWhtCredit],
+      [tr("ภาษีที่ชำระไว้ตาม ภ.ง.ด.93"), 0, pnd93Paid],
+      [tr("ภาษีที่ชำระไว้ตาม ภ.ง.ด.94"), 0, pnd94Paid],
+      [tr("เครดิตภาษีอื่น"), 0, otherTaxCredits],
+      [tr("รวมเครดิตภาษี"), taxResult(h1Settlement, 'totalCredits'), taxResult(fullSettlement, 'totalCredits')],
+      [tr("คาดว่าต้องชำระเพิ่ม"), taxResult(h1Settlement, 'due'), taxResult(fullSettlement, 'due')],
+      [tr("คาดว่าชำระไว้เกิน"), taxResult(h1Settlement, 'overpayment'), taxResult(fullSettlement, 'overpayment')],
       ['', '', ''],
-      ...bracketRows('ครึ่งปีแรก (ภ.ง.ด. 94)', h1TaxDetails.breakdown, h1ExpenseReady),
-      ...bracketRows('ทั้งปี (ภ.ง.ด. 90)', fullTaxDetails.breakdown, fullExpenseReady)
+      ...bracketRows(tr("ครึ่งปีแรก (ภ.ง.ด. 94)"), h1TaxDetails.breakdown, h1ExpenseReady),
+      ...bracketRows(tr("ทั้งปี (ภ.ง.ด. 90)"), fullTaxDetails.breakdown, fullExpenseReady)
     ];
 
     const selectedYearRows = taxExportRowsForYear(jobs, expenses, taxYear);
     const incomeHeaders = [
-      'วันรับเงินจริง',
-      'ชื่อโปรเจกต์',
-      'ประเภทงาน',
-      'ลูกค้า',
-      'งวดรับเงิน',
-      'รายได้ก่อนหัก ณ ที่จ่าย (บาท)',
-      'หัก ณ ที่จ่าย (%)',
-      'จำนวนภาษีหัก ณ ที่จ่าย (บาท)',
-      'ยอดรับสุทธิ (บาท)'
+      tr("วันรับเงินจริง"),
+      tr("ชื่อโปรเจกต์"),
+      tr("ประเภทงาน"),
+      tr("ลูกค้า"),
+      tr("งวดรับเงิน"),
+      tr("รายได้ก่อนหัก ณ ที่จ่าย (บาท)"),
+      tr("หัก ณ ที่จ่าย (%)"),
+      tr("จำนวนภาษีหัก ณ ที่จ่าย (บาท)"),
+      tr("ยอดรับสุทธิ (บาท)")
     ];
     const incomeRows = selectedYearRows.incomeRows.map(row => [
       row.date,
       row.jobName,
-      row.type || 'ทั่วไป',
+      row.type || tr("ทั่วไป"),
       row.client || '-',
-      row.label,
+      installmentLabel(row.label),
       row.gross,
       row.whtRate,
       row.wht,
       row.received,
     ]);
 
-    const expenseHeaders = ['ชื่อรายการ', 'หมวดหมู่', 'จำนวนเงิน (บาท)', 'วันที่', 'หมายเหตุ'];
-    const expenseRows = selectedYearRows.expenseRows.map((e) => [e.name, e.category, e.amount || 0, e.date || '-', e.note || '']);
+    const expenseHeaders = [tr("ชื่อรายการ"), tr("หมวดหมู่"), tr("จำนวนเงิน (บาท)"), tr("วันที่"), tr("หมายเหตุ")];
+    const expenseRows = selectedYearRows.expenseRows.map((e) => [e.name, tr(e.category), e.amount || 0, e.date || '-', e.note || '']);
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'สรุปภาษี');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([incomeHeaders, ...incomeRows]), 'รายรับ');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([expenseHeaders, ...expenseRows]), 'รายจ่าย');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), tr("สรุปภาษี"));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([incomeHeaders, ...incomeRows]), tr("รายรับ"));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([expenseHeaders, ...expenseRows]), tr("รายจ่าย"));
 
-    XLSX.writeFile(wb, `บัญชีภาษี_${taxYear}_กระรอกตุนเงิน.xlsx`);
-    triggerAlert('ดาวน์โหลด Excel สำเร็จ', `ไฟล์สรุปปี ${taxYear} รวมเฉพาะรายรับที่รับจริงและรายจ่ายในปีที่เลือก กรุณาตรวจทานกับเอกสารก่อนใช้ยื่นภาษี`);
+    XLSX.writeFile(wb, tr("บัญชีภาษี_{0}_กระรอกตุนเงิน.xlsx", taxYear));
+    triggerAlert(tr("ดาวน์โหลด Excel สำเร็จ"), tr("ไฟล์สรุปปี {0} รวมเฉพาะรายรับที่รับจริงและรายจ่ายในปีที่เลือก กรุณาตรวจทานกับเอกสารก่อนใช้ยื่นภาษี", taxYear));
   };
 
   return (
@@ -401,7 +402,7 @@ export default function TaxTab({
       <PageHeader page="tax">
             {(<>
             <div className="flex items-center gap-1.5 bg-brand-faint dark:bg-neutral-800 p-1 rounded-2xl border border-brand-border/20 dark:border-neutral-850">
-              <span className="text-xs font-bold text-brand-muted px-3">ปีภาษี:</span>
+              <span className="text-xs font-bold text-brand-muted px-3">{tr("ปีภาษี:")}</span>
               <select
                 value={taxYear}
                 onChange={(e) => setTaxYear(Number(e.target.value))}
@@ -418,7 +419,7 @@ export default function TaxTab({
               className={uiSecondaryButton}
             >
               <Printer className="w-4 h-4 text-brand-muted" />
-              <span>พิมพ์รายงานสรุป</span>
+              <span>{tr("พิมพ์รายงานสรุป")}</span>
             </button>
 
             <button
@@ -426,7 +427,7 @@ export default function TaxTab({
               className={uiSecondaryButton}
             >
               <Download className="w-4 h-4" />
-              <span>ดาวน์โหลด CSV</span>
+              <span>{tr("ดาวน์โหลด CSV")}</span>
             </button>
 
             <button
@@ -434,7 +435,7 @@ export default function TaxTab({
               className={uiPrimaryButton}
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>ดาวน์โหลด Excel (.xlsx)</span>
+              <span>{tr("ดาวน์โหลด Excel (.xlsx)")}</span>
             </button>
             </>)}
       </PageHeader>
@@ -443,10 +444,10 @@ export default function TaxTab({
       {/* KPI CARDS -- matches the mockup's 5-card row, all full-year figures */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
-          { label: 'รายได้สะสม', value: formatCurrency(fullRevenue) },
-          { label: 'ค่าใช้จ่ายหักได้ที่ตรวจสอบ', value: fullExpenseReady ? formatCurrency(fullExpense) : 'รอกรอกยอด' },
-          { label: 'ค่าลดหย่อน', value: formatCurrency(fullPersonalAllowance + fullOtherAllowances) },
-          { label: 'รายได้สุทธิแบบก้าวหน้า', value: fullExpenseReady ? formatCurrency(fullNetIncome) : 'รอกรอกค่าใช้จ่าย' },
+          { label: tr("รายได้สะสม"), value: formatCurrency(fullRevenue) },
+          { label: tr("ค่าใช้จ่ายหักได้ที่ตรวจสอบ"), value: fullExpenseReady ? formatCurrency(fullExpense) : tr("รอกรอกยอด") },
+          { label: tr("ค่าลดหย่อน"), value: formatCurrency(fullPersonalAllowance + fullOtherAllowances) },
+          { label: tr("รายได้สุทธิแบบก้าวหน้า"), value: fullExpenseReady ? formatCurrency(fullNetIncome) : tr("รอกรอกค่าใช้จ่าย") },
         ].map(kpi => (
           <div key={kpi.label} className={`${uiSurface} p-[14px]`}>
             <p className="text-[10px] text-brand-muted">{kpi.label}</p>
@@ -454,14 +455,14 @@ export default function TaxTab({
           </div>
         ))}
         <div className="rounded-[14px] border border-[#F0997B] bg-[#FFF1E8] dark:bg-[#3A2015] dark:border-[#8A3212] p-[14px]">
-          <p className="text-[10px] text-[#8A3212] dark:text-[#F0997B]">คาดว่าต้องชำระเพิ่ม</p>
+          <p className="text-[10px] text-[#8A3212] dark:text-[#F0997B]">{tr("คาดว่าต้องชำระเพิ่ม")}</p>
           <p className="mt-1 text-sm font-semibold text-[#C24A16] dark:text-[#F0997B]">{formattedTaxResult(fullSettlement, 'due')}</p>
         </div>
       </div>
 
       {/* STEP NAVIGATOR -- matches the mockup's circular numbered steps */}
       <div className="flex items-center">
-        {(['รายได้', 'ค่าใช้จ่าย', 'ลดหย่อน', 'ประมาณภาษี'] as const).map((label, i) => {
+        {([tr("รายได้"), tr("ค่าใช้จ่าย"), tr("ลดหย่อน"), tr("ประมาณภาษี")] as const).map((label, i) => {
           const n = i + 1;
           const active = n === taxStep;
           const done = n < taxStep;
@@ -493,35 +494,32 @@ export default function TaxTab({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2">
               <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
-              รายได้ทั้งปี
-            </h3>
+              {tr("รายได้ทั้งปี")}</h3>
 
             <button
               onClick={() => handleAutoSync()}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-faint dark:bg-neutral-800 hover:bg-brand-border/40 dark:hover:bg-neutral-700 border border-brand-border/40 dark:border-neutral-800 rounded-xl text-xs font-black text-emerald-600 dark:text-emerald-400 transition-all select-none cursor-pointer active:scale-95"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>ดึงข้อมูลรายรับรายจ่ายในระบบ</span>
+              <span>{tr("ดึงข้อมูลรายรับรายจ่ายในระบบ")}</span>
             </button>
           </div>
 
           <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-1">{formatCurrency(fullRevenue)}</p>
           <p className="text-[11px] text-brand-muted mb-4 leading-relaxed">
-            รวมรายได้ก่อนหัก ณ ที่จ่ายตามวันที่รับเงินจริง งานที่ยังไม่ได้รับเงิน งวดที่ยังรอชำระ และรายการรับเงินที่ไม่มีวันที่ใช้งานได้จะไม่ถูกนับ กรุณาตรวจวันที่ของรายการเก่าก่อนนำไปใช้
-          </p>
+            {tr("รวมรายได้ก่อนหัก ณ ที่จ่ายตามวันที่รับเงินจริง งานที่ยังไม่ได้รับเงิน งวดที่ยังรอชำระ และรายการรับเงินที่ไม่มีวันที่ใช้งานได้จะไม่ถูกนับ กรุณาตรวจวันที่ของรายการเก่าก่อนนำไปใช้")}</p>
 
           {/* Income Inputs */}
             <div className="space-y-4 mb-6">
               <div className="bg-brand-faint/30 dark:bg-neutral-800/30 p-4 rounded-2xl border border-brand-border/20 dark:border-neutral-800/40">
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-brand-text dark:text-neutral-200 mb-3 flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  รายรับครึ่งปีแรก (ม.ค. - มิ.ย.)
-                </h4>
+                  {tr("รายรับครึ่งปีแรก (ม.ค. - มิ.ย.)")}</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-black text-brand-muted mb-1">รายได้งานดีลในระบบ (Auto-sync)</label>
+                    <label className="block text-[10px] font-black text-brand-muted mb-1">{tr("รายได้งานดีลในระบบ (Auto-sync)")}</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
+                      <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">{tr("฿")}</span>
                       <NumberInput
                         value={firstHalfJobsRevenue || ''}
                         placeholder="0"
@@ -531,9 +529,9 @@ export default function TaxTab({
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-brand-muted mb-1">รายได้เสริมอื่นภายนอก</label>
+                    <label className="block text-[10px] font-black text-brand-muted mb-1">{tr("รายได้เสริมอื่นภายนอก")}</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
+                      <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">{tr("฿")}</span>
                       <NumberInput
                         value={firstHalfOtherRevenue || ''}
                         placeholder="0"
@@ -548,13 +546,12 @@ export default function TaxTab({
               <div className="bg-brand-faint/30 dark:bg-neutral-800/30 p-4 rounded-2xl border border-brand-border/20 dark:border-neutral-800/40">
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-brand-text dark:text-neutral-200 mb-3 flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  รายรับครึ่งปีหลัง (ก.ค. - ธ.ค.)
-                </h4>
+                  {tr("รายรับครึ่งปีหลัง (ก.ค. - ธ.ค.)")}</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-black text-brand-muted mb-1">รายได้งานดีลในระบบ (Auto-sync)</label>
+                    <label className="block text-[10px] font-black text-brand-muted mb-1">{tr("รายได้งานดีลในระบบ (Auto-sync)")}</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
+                      <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">{tr("฿")}</span>
                       <NumberInput
                         value={secondHalfJobsRevenue || ''}
                         placeholder="0"
@@ -564,9 +561,9 @@ export default function TaxTab({
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-brand-muted mb-1">รายได้เสริมอื่นภายนอก</label>
+                    <label className="block text-[10px] font-black text-brand-muted mb-1">{tr("รายได้เสริมอื่นภายนอก")}</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
+                      <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">{tr("฿")}</span>
                       <NumberInput
                         value={secondHalfOtherRevenue || ''}
                         placeholder="0"
@@ -583,35 +580,34 @@ export default function TaxTab({
         {taxStep === 2 && (<>
             <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-5">
               <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
-              ค่าใช้จ่าย
-            </h3>
-            <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-4">{fullExpenseReady ? formatCurrency(fullExpense) : 'รอกรอกยอดที่ตรวจสอบแล้ว'}</p>
+              {tr("ค่าใช้จ่าย")}</h3>
+            <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-4">{fullExpenseReady ? formatCurrency(fullExpense) : tr("รอกรอกยอดที่ตรวจสอบแล้ว")}</p>
             <div className="space-y-3.5 mb-6">
               <div className="rounded-2xl border border-brand-yellow-acc/30 bg-brand-yellow-bg/30 p-4 text-[11px] leading-relaxed text-brand-muted">
-                <p className="font-bold text-brand-text dark:text-white">กรอกเฉพาะค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว</p>
-                <p className="mt-1">ระบบไม่เลือกสูตรเหมาและไม่หักรายจ่ายทั้งหมดในบัญชีให้อัตโนมัติ เพราะสิทธิหักค่าใช้จ่ายขึ้นกับประเภทเงินได้ตามมาตรา 40 และหลักฐานของแต่ละรายการ</p>
-                <p className="mt-2">รายจ่ายในบัญชีเพื่ออ้างอิง: ครึ่งปีแรก {formatCurrency(expenseSummary.firstHalf)} • ครึ่งปีหลัง {formatCurrency(expenseSummary.secondHalf)} • ทั้งปี {formatCurrency(expenseSummary.fullYear)}</p>
+                <p className="font-bold text-brand-text dark:text-white">{tr("กรอกเฉพาะค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว")}</p>
+                <p className="mt-1">{tr("ระบบไม่เลือกสูตรเหมาและไม่หักรายจ่ายทั้งหมดในบัญชีให้อัตโนมัติ เพราะสิทธิหักค่าใช้จ่ายขึ้นกับประเภทเงินได้ตามมาตรา 40 และหลักฐานของแต่ละรายการ")}</p>
+                <p className="mt-2">{tr("รายจ่ายในบัญชีเพื่ออ้างอิง: ครึ่งปีแรก {0} • ครึ่งปีหลัง {1} • ทั้งปี {2}", formatCurrency(expenseSummary.firstHalf), formatCurrency(expenseSummary.secondHalf), formatCurrency(expenseSummary.fullYear))}</p>
               </div>
               <div className="grid grid-cols-1 gap-3 rounded-2xl border border-brand-border/20 bg-brand-faint/30 p-4 dark:border-neutral-800/40 dark:bg-neutral-800/30 sm:grid-cols-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-brand-muted mb-1">ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว — ครึ่งปีแรก</label>
+                  <label className="block text-[10px] font-bold text-brand-muted mb-1">{tr("ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว — ครึ่งปีแรก")}</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
+                    <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">{tr("฿")}</span>
                     <NumberInput
                       value={firstHalfActualExpense}
-                      placeholder="กรอกจากแบบหรือยอดที่ตรวจสอบแล้ว"
+                      placeholder={tr("กรอกจากแบบหรือยอดที่ตรวจสอบแล้ว")}
                       onChange={(raw) => updateTaxInputs({ firstHalfActualExpenseOverride: optionalAmountFromInput(raw) })}
                       className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-brand-muted mb-1">ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว — ครึ่งปีหลัง</label>
+                  <label className="block text-[10px] font-bold text-brand-muted mb-1">{tr("ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว — ครึ่งปีหลัง")}</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
+                    <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">{tr("฿")}</span>
                     <NumberInput
                       value={secondHalfActualExpense}
-                      placeholder="กรอกจากแบบหรือยอดที่ตรวจสอบแล้ว"
+                      placeholder={tr("กรอกจากแบบหรือยอดที่ตรวจสอบแล้ว")}
                       onChange={(raw) => updateTaxInputs({ secondHalfActualExpenseOverride: optionalAmountFromInput(raw) })}
                       className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                     />
@@ -624,19 +620,18 @@ export default function TaxTab({
         {taxStep === 3 && (<>
             <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-5">
               <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
-              ค่าลดหย่อน
-            </h3>
+              {tr("ค่าลดหย่อน")}</h3>
             <p className="text-[22px] font-semibold text-brand-text dark:text-white mb-4">{formatCurrency(fullPersonalAllowance + fullOtherAllowances)}</p>
             {/* Dynamic Allowances Section */}
             <div className="pt-0 border-t-0">
-              <label className="block text-xs font-extrabold text-brand-text dark:text-white mb-2">สิทธิ์ลดหย่อนเพิ่มเติมอื่นๆ</label>
+              <label className="block text-xs font-extrabold text-brand-text dark:text-white mb-2">{tr("สิทธิ์ลดหย่อนเพิ่มเติมอื่นๆ")}</label>
               <div className="flex gap-2 mb-4">
                 <select
                   value={selectedAllowanceKey}
                   onChange={(e) => setSelectedAllowanceKey(e.target.value)}
                   className="flex-1 bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs font-semibold text-brand-text dark:text-slate-200 focus:outline-none cursor-pointer"
                 >
-                  <option value="">-- เลือกสิทธิ์ลดหย่อนภาษีเพื่อเพิ่ม --</option>
+                  <option value="">{tr("-- เลือกสิทธิ์ลดหย่อนภาษีเพื่อเพิ่ม --")}</option>
                   {allowanceOptions.map(opt => (
                     <option key={opt.key} value={opt.key} disabled={addedAllowances.some(item => item.key === opt.key)}>
                       {opt.label}
@@ -650,7 +645,7 @@ export default function TaxTab({
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-brand-faint disabled:text-brand-muted disabled:border-transparent border border-transparent text-white font-black rounded-xl text-xs flex items-center gap-1 transition-all cursor-pointer select-none"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>เพิ่ม</span>
+                  <span>{tr("เพิ่ม")}</span>
                 </button>
               </div>
 
@@ -667,19 +662,17 @@ export default function TaxTab({
                         </div>
                         {opt.type === 'input' ? (
                           <span className="text-[10px] text-brand-muted font-semibold mt-0.5 block">
-                            สิทธิ์ลดหย่อนสูงสุดไม่เกิน {opt.cap.toLocaleString()} บาท
-                          </span>
+                            {tr("สิทธิ์ลดหย่อนสูงสุดไม่เกิน {0} บาท", opt.cap.toLocaleString())}</span>
                         ) : (
                           <span className="text-[10px] text-brand-muted font-semibold mt-0.5 block">
-                            ลดหย่อน {opt.multiplier?.toLocaleString()} บาท ต่อหน่วยคน
-                          </span>
+                            {tr("ลดหย่อน")}{' '}{opt.multiplier?.toLocaleString()}{' '}{tr("บาท ต่อหน่วยคน")}</span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-2 self-end sm:self-auto">
                         {opt.type === 'input' ? (
                           <div className="relative w-36">
-                            <span className="absolute left-2.5 top-1.5 text-xs font-bold text-brand-muted">฿</span>
+                            <span className="absolute left-2.5 top-1.5 text-xs font-bold text-brand-muted">{tr("฿")}</span>
                             <NumberInput
                               value={item.value || ''}
                               placeholder="0"
@@ -689,7 +682,7 @@ export default function TaxTab({
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 px-2 py-1 rounded-lg">
-                            <span className="text-[10px] font-bold text-brand-muted">จำนวน:</span>
+                            <span className="text-[10px] font-bold text-brand-muted">{tr("จำนวน:")}</span>
                             <input
                               type="number"
                               min="1"
@@ -697,7 +690,7 @@ export default function TaxTab({
                               onChange={(e) => handleUpdateAllowanceQuantity(item.key, Number(e.target.value))}
                               className="w-10 bg-transparent text-center text-xs font-mono font-bold text-brand-text dark:text-white focus:outline-none"
                             />
-                            <span className="text-[10px] font-bold text-brand-muted">คน</span>
+                            <span className="text-[10px] font-bold text-brand-muted">{tr("คน")}</span>
                           </div>
                         )}
 
@@ -715,8 +708,7 @@ export default function TaxTab({
 
                 {addedAllowances.length === 0 && (
                   <div className="text-center py-6 text-brand-muted text-xs border border-dashed border-brand-border/60 dark:border-neutral-800 rounded-2xl font-bold bg-brand-faint/20">
-                    ยังไม่มีการเพิ่มลดหย่อนอื่น (คิดเฉพาะสิทธิ์ลดหย่อนส่วนตัวครึ่งปี 30,000 บาท และเต็มปี 60,000 บาท เป็นฐานหลัก)
-                  </div>
+                    {tr("ยังไม่มีการเพิ่มลดหย่อนอื่น (คิดเฉพาะสิทธิ์ลดหย่อนส่วนตัวครึ่งปี 30,000 บาท และเต็มปี 60,000 บาท เป็นฐานหลัก)")}</div>
                 )}
               </div>
             </div>
@@ -725,48 +717,40 @@ export default function TaxTab({
         {taxStep === 4 && (<>
           <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-1">
             <span className="w-1.5 h-4 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
-            ผลหลังหักเครดิตจากภาษีที่ยืนยันแล้ว
-          </h3>
-          <p className="text-[11px] text-brand-muted mb-1">ระบบจะแสดงยอดชำระเพิ่มหรือชำระไว้เกิน เมื่อกรอกภาษีประเมินจากแบบปัจจุบันหรือผู้เชี่ยวชาญแล้วเท่านั้น</p>
+            {tr("ผลหลังหักเครดิตจากภาษีที่ยืนยันแล้ว")}</h3>
+          <p className="text-[11px] text-brand-muted mb-1">{tr("ระบบจะแสดงยอดชำระเพิ่มหรือชำระไว้เกิน เมื่อกรอกภาษีประเมินจากแบบปัจจุบันหรือผู้เชี่ยวชาญแล้วเท่านั้น")}</p>
           <p className="text-[26px] font-semibold text-[#C24A16] mb-2">{formattedTaxResult(fullSettlement, 'due')}</p>
-          {fullSettlement && fullSettlement.overpayment > 0 && <p className="text-sm font-semibold text-emerald-600 mb-2">คาดว่าชำระไว้เกิน {formatCurrency(fullSettlement.overpayment)}</p>}
+          {fullSettlement && fullSettlement.overpayment > 0 && <p className="text-sm font-semibold text-emerald-600 mb-2">{tr("คาดว่าชำระไว้เกิน {0}", formatCurrency(fullSettlement.overpayment))}</p>}
 
           <div className="mb-6 rounded-[14px] border border-brand-yellow-acc/30 bg-brand-yellow-bg/30 p-4 text-[11px] leading-relaxed text-brand-muted">
-            <p className="font-bold text-brand-text dark:text-white">ยังไม่มีสูตรภาษีอัตโนมัติที่ใช้ยื่นได้</p>
-            <p className="mt-1">หน้าที่ยื่น ภ.ง.ด.94 วิธีหักค่าใช้จ่าย และภาษีขั้นต่ำทางเลือกขึ้นกับประเภทเงินได้ตามมาตรา 40 และสถานะผู้เสียภาษี แอปยังไม่รองรับการตัดสินเงื่อนไขเหล่านี้ จึงไม่นำยอดตามอัตราก้าวหน้าด้านล่างไปสรุปเป็นยอดชำระ</p>
+            <p className="font-bold text-brand-text dark:text-white">{tr("ยังไม่มีสูตรภาษีอัตโนมัติที่ใช้ยื่นได้")}</p>
+            <p className="mt-1">{tr("หน้าที่ยื่น ภ.ง.ด.94 วิธีหักค่าใช้จ่าย และภาษีขั้นต่ำทางเลือกขึ้นกับประเภทเงินได้ตามมาตรา 40 และสถานะผู้เสียภาษี แอปยังไม่รองรับการตัดสินเงื่อนไขเหล่านี้ จึงไม่นำยอดตามอัตราก้าวหน้าด้านล่างไปสรุปเป็นยอดชำระ")}</p>
           </div>
 
           <div className="mb-6 rounded-[14px] border border-brand-border/40 dark:border-neutral-800 p-5">
-            <h3 className="text-sm font-bold text-brand-text dark:text-white">ภาษีประเมินก่อนเครดิตที่ยืนยันแล้ว</h3>
-            <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">คัดลอกยอดจากแบบ ภ.ง.ด.94 / ภ.ง.ด.90 ฉบับปัจจุบัน หรือยอดที่ผู้เชี่ยวชาญยืนยัน เว้นว่างไว้หากยังไม่ได้ตรวจสอบ ระบบจะไม่แทนค่าว่างด้วยศูนย์</p>
+            <h3 className="text-sm font-bold text-brand-text dark:text-white">{tr("ภาษีประเมินก่อนเครดิตที่ยืนยันแล้ว")}</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">{tr("คัดลอกยอดจากแบบ ภ.ง.ด.94 / ภ.ง.ด.90 ฉบับปัจจุบัน หรือยอดที่ผู้เชี่ยวชาญยืนยัน เว้นว่างไว้หากยังไม่ได้ตรวจสอบ ระบบจะไม่แทนค่าว่างด้วยศูนย์")}</p>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="text-[10px] font-bold text-brand-muted">ภาษีประเมิน — ครึ่งปี (ภ.ง.ด.94)
-                <NumberInput value={firstHalfAssessedTax} placeholder="ยังไม่คำนวณ" onChange={(raw) => updateTaxInputs({ firstHalfAssessedTaxOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              <label className="text-[10px] font-bold text-brand-muted">{tr("ภาษีประเมิน — ครึ่งปี (ภ.ง.ด.94)")}<NumberInput value={firstHalfAssessedTax} placeholder={tr("ยังไม่คำนวณ")} onChange={(raw) => updateTaxInputs({ firstHalfAssessedTaxOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
               </label>
-              <label className="text-[10px] font-bold text-brand-muted">ภาษีประเมิน — ทั้งปี (ภ.ง.ด.90)
-                <NumberInput value={fullYearAssessedTax} placeholder="ยังไม่คำนวณ" onChange={(raw) => updateTaxInputs({ fullYearAssessedTaxOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              <label className="text-[10px] font-bold text-brand-muted">{tr("ภาษีประเมิน — ทั้งปี (ภ.ง.ด.90)")}<NumberInput value={fullYearAssessedTax} placeholder={tr("ยังไม่คำนวณ")} onChange={(raw) => updateTaxInputs({ fullYearAssessedTaxOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
               </label>
             </div>
           </div>
 
           <div className="mb-6 rounded-[14px] border border-brand-border/40 dark:border-neutral-800 p-5">
-            <h3 className="text-sm font-bold text-brand-text dark:text-white">เครดิตภาษีที่จ่ายไว้แล้ว</h3>
-            <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">ยอดหัก ณ ที่จ่ายจากรายการรับเงินเป็นเพียงค่าประมาณ เพราะงานหนึ่งมียอดหักรวมเดียว เว้นว่างเพื่อใช้ค่าประมาณ หรือกรอกยอดจริงจากใบ 50 ทวิ</p>
+            <h3 className="text-sm font-bold text-brand-text dark:text-white">{tr("เครดิตภาษีที่จ่ายไว้แล้ว")}</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">{tr("ยอดหัก ณ ที่จ่ายจากรายการรับเงินเป็นเพียงค่าประมาณ เพราะงานหนึ่งมียอดหักรวมเดียว เว้นว่างเพื่อใช้ค่าประมาณ หรือกรอกยอดจริงจากใบ 50 ทวิ")}</p>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <label className="text-[10px] font-bold text-brand-muted">หัก ณ ที่จ่ายจริง — ครึ่งปี
-                <NumberInput value={taxInputs.firstHalfWhtCreditOverride} placeholder={`ประมาณ ${derivedFirstHalfWhtCredit.toLocaleString()}`} onChange={(raw) => updateTaxInputs({ firstHalfWhtCreditOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              <label className="text-[10px] font-bold text-brand-muted">{tr("หัก ณ ที่จ่ายจริง — ครึ่งปี")}<NumberInput value={taxInputs.firstHalfWhtCreditOverride} placeholder={tr("ประมาณ {0}", derivedFirstHalfWhtCredit.toLocaleString())} onChange={(raw) => updateTaxInputs({ firstHalfWhtCreditOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
               </label>
-              <label className="text-[10px] font-bold text-brand-muted">หัก ณ ที่จ่ายจริง — ทั้งปี
-                <NumberInput value={taxInputs.fullYearWhtCreditOverride} placeholder={`ประมาณ ${derivedFullYearWhtCredit.toLocaleString()}`} onChange={(raw) => updateTaxInputs({ fullYearWhtCreditOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              <label className="text-[10px] font-bold text-brand-muted">{tr("หัก ณ ที่จ่ายจริง — ทั้งปี")}<NumberInput value={taxInputs.fullYearWhtCreditOverride} placeholder={tr("ประมาณ {0}", derivedFullYearWhtCredit.toLocaleString())} onChange={(raw) => updateTaxInputs({ fullYearWhtCreditOverride: optionalAmountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
               </label>
-              <label className="text-[10px] font-bold text-brand-muted">ชำระไว้ตาม ภ.ง.ด.93
-                <NumberInput value={pnd93Paid || ''} placeholder="0" onChange={(raw) => updateTaxInputs({ pnd93Paid: amountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              <label className="text-[10px] font-bold text-brand-muted">{tr("ชำระไว้ตาม ภ.ง.ด.93")}<NumberInput value={pnd93Paid || ''} placeholder="0" onChange={(raw) => updateTaxInputs({ pnd93Paid: amountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
               </label>
-              <label className="text-[10px] font-bold text-brand-muted">ชำระไว้ตาม ภ.ง.ด.94
-                <NumberInput value={pnd94Paid || ''} placeholder="0" onChange={(raw) => updateTaxInputs({ pnd94Paid: amountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              <label className="text-[10px] font-bold text-brand-muted">{tr("ชำระไว้ตาม ภ.ง.ด.94")}<NumberInput value={pnd94Paid || ''} placeholder="0" onChange={(raw) => updateTaxInputs({ pnd94Paid: amountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
               </label>
-              <label className="text-[10px] font-bold text-brand-muted">เครดิตภาษีอื่นที่ยืนยันได้
-                <NumberInput value={otherTaxCredits || ''} placeholder="0" onChange={(raw) => updateTaxInputs({ otherTaxCredits: amountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
+              <label className="text-[10px] font-bold text-brand-muted">{tr("เครดิตภาษีอื่นที่ยืนยันได้")}<NumberInput value={otherTaxCredits || ''} placeholder="0" onChange={(raw) => updateTaxInputs({ otherTaxCredits: amountFromInput(raw) })} className="mt-1.5 w-full rounded-xl border border-brand-border/60 bg-brand-white px-3 py-2 text-xs font-mono font-bold text-brand-text focus:outline-none dark:bg-neutral-900" />
               </label>
             </div>
           </div>
@@ -775,80 +759,78 @@ export default function TaxTab({
             <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-600/5 rounded-full blur-xl pointer-events-none" />
             <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-4">
               <TrendingUp className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
-              สรุปตารางประเมินผลภาษีบุคคลธรรมดา
-            </h3>
+              {tr("สรุปตารางประเมินผลภาษีบุคคลธรรมดา")}</h3>
 
             {/* Side-by-side Table */}
             <div className="overflow-x-auto rounded-2xl border border-brand-border/30 dark:border-neutral-800">
               <table className="w-full text-xs text-left text-brand-muted">
                 <thead>
                   <tr className="bg-brand-faint dark:bg-neutral-800 text-[10px] uppercase font-extrabold tracking-wider text-brand-text dark:text-white border-b border-brand-border/30 dark:border-neutral-850">
-                    <th className="py-2.5 px-3">หัวข้อหลัก</th>
-                    <th className="py-2.5 px-3 text-right">ภ.ง.ด. 94 (ครึ่งปี)</th>
-                    <th className="py-2.5 px-3 text-right">ภ.ง.ด. 90 (เต็มปี)</th>
+                    <th className="py-2.5 px-3">{tr("หัวข้อหลัก")}</th>
+                    <th className="py-2.5 px-3 text-right">{tr("ภ.ง.ด. 94 (ครึ่งปี)")}</th>
+                    <th className="py-2.5 px-3 text-right">{tr("ภ.ง.ด. 90 (เต็มปี)")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-border/20 dark:divide-neutral-800/60">
                   <tr className="hover:bg-brand-faint/10">
-                    <td className="py-2 px-3 font-semibold text-brand-text dark:text-neutral-200">1. รายรับรวม</td>
+                    <td className="py-2 px-3 font-semibold text-brand-text dark:text-neutral-200">{tr("1. รายรับรวม")}</td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-brand-text dark:text-neutral-100">{formatCurrency(h1Revenue)}</td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-brand-text dark:text-neutral-100">{formatCurrency(fullRevenue)}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10">
-                    <td className="py-2 px-3 font-semibold text-brand-muted">หัก ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว</td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-pink-acc">{h1ExpenseReady ? `-${formatCurrency(h1Expense)}` : 'ยังไม่กรอก'}</td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-pink-acc">{fullExpenseReady ? `-${formatCurrency(fullExpense)}` : 'ยังไม่กรอก'}</td>
+                    <td className="py-2 px-3 font-semibold text-brand-muted">{tr("หัก ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว")}</td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-pink-acc">{h1ExpenseReady ? `-${formatCurrency(h1Expense)}` : tr("ยังไม่กรอก")}</td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-pink-acc">{fullExpenseReady ? `-${formatCurrency(fullExpense)}` : tr("ยังไม่กรอก")}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10 bg-brand-faint/20 dark:bg-neutral-800/20 font-bold">
-                    <td className="py-2 px-3 text-brand-text dark:text-neutral-100">เงินได้หลังหักใช้จ่าย</td>
-                    <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{h1ExpenseReady ? formatCurrency(Math.max(0, h1Revenue - h1Expense)) : 'ยังไม่คำนวณ'}</td>
-                    <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{fullExpenseReady ? formatCurrency(Math.max(0, fullRevenue - fullExpense)) : 'ยังไม่คำนวณ'}</td>
+                    <td className="py-2 px-3 text-brand-text dark:text-neutral-100">{tr("เงินได้หลังหักใช้จ่าย")}</td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{h1ExpenseReady ? formatCurrency(Math.max(0, h1Revenue - h1Expense)) : tr("ยังไม่คำนวณ")}</td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{fullExpenseReady ? formatCurrency(Math.max(0, fullRevenue - fullExpense)) : tr("ยังไม่คำนวณ")}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10">
-                    <td className="py-2 px-3 font-semibold text-brand-muted">หัก ลดหย่อนส่วนตัว</td>
+                    <td className="py-2 px-3 font-semibold text-brand-muted">{tr("หัก ลดหย่อนส่วนตัว")}</td>
                     <td className="py-2 px-3 text-right font-mono text-brand-pink-acc">-{formatCurrency(h1PersonalAllowance)}</td>
                     <td className="py-2 px-3 text-right font-mono text-brand-pink-acc">-{formatCurrency(fullPersonalAllowance)}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10">
                     <td className="py-2 px-3 font-semibold text-brand-muted flex items-center gap-1">
-                      หัก ลดหย่อนเพิ่มเติม
-                      <span title="ตามรายการลดหย่อนที่คุณกำหนดไว้"><HelpCircle className="w-3 h-3 text-brand-muted cursor-help" /></span>
+                      {tr("หัก ลดหย่อนเพิ่มเติม")}<span title={tr("ตามรายการลดหย่อนที่คุณกำหนดไว้")}><HelpCircle className="w-3 h-3 text-brand-muted cursor-help" /></span>
                     </td>
                     <td className="py-2 px-3 text-right font-mono text-brand-pink-acc">-{formatCurrency(h1OtherAllowances)}</td>
                     <td className="py-2 px-3 text-right font-mono text-brand-pink-acc">-{formatCurrency(fullOtherAllowances)}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10 bg-brand-faint/40 dark:bg-neutral-800/40 font-black border-t border-brand-border/40 dark:border-neutral-800">
-                    <td className="py-3 px-3 text-brand-text dark:text-white text-xs">เงินได้สุทธิประเมิน</td>
-                    <td className="py-3 px-3 text-right font-mono text-brand-blue-acc dark:text-brand-blue-acc text-sm">{h1ExpenseReady ? formatCurrency(h1NetIncome) : 'ยังไม่คำนวณ'}</td>
-                    <td className="py-3 px-3 text-right font-mono text-purple-600 dark:text-purple-400 text-sm">{fullExpenseReady ? formatCurrency(fullNetIncome) : 'ยังไม่คำนวณ'}</td>
+                    <td className="py-3 px-3 text-brand-text dark:text-white text-xs">{tr("เงินได้สุทธิประเมิน")}</td>
+                    <td className="py-3 px-3 text-right font-mono text-brand-blue-acc dark:text-brand-blue-acc text-sm">{h1ExpenseReady ? formatCurrency(h1NetIncome) : tr("ยังไม่คำนวณ")}</td>
+                    <td className="py-3 px-3 text-right font-mono text-purple-600 dark:text-purple-400 text-sm">{fullExpenseReady ? formatCurrency(fullNetIncome) : tr("ยังไม่คำนวณ")}</td>
                   </tr>
                   <tr className="hover:bg-brand-faint/10 text-brand-muted">
-                    <td className="py-2 px-3">อัตราภาษีสูงสุด (%)</td>
+                    <td className="py-2 px-3">{tr("อัตราภาษีสูงสุด (%)")}</td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-brand-text dark:text-neutral-200">{h1ExpenseReady ? `${h1MaxRate}%` : '—'}</td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-brand-text dark:text-neutral-200">{fullExpenseReady ? `${fullMaxRate}%` : '—'}</td>
                   </tr>
                   <tr className="border-t-2 border-brand-border dark:border-neutral-800">
-                    <td className="py-2.5 px-3 font-semibold text-brand-text dark:text-white">ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ</td>
+                    <td className="py-2.5 px-3 font-semibold text-brand-text dark:text-white">{tr("ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ")}</td>
                     <td className="py-2.5 px-3 text-right font-mono font-bold text-brand-yellow-acc">{formattedTaxResult(h1Settlement, 'assessedTax')}</td>
                     <td className="py-2.5 px-3 text-right font-mono font-bold text-brand-yellow-acc">{formattedTaxResult(fullSettlement, 'assessedTax')}</td>
                   </tr>
                   <tr>
-                    <td className="py-2 px-3 text-brand-muted">หัก เครดิตภาษีหัก ณ ที่จ่าย</td>
+                    <td className="py-2 px-3 text-brand-muted">{tr("หัก เครดิตภาษีหัก ณ ที่จ่าย")}</td>
                     <td className="py-2 px-3 text-right font-mono text-emerald-600">-{formatCurrency(firstHalfWhtCredit)}</td>
                     <td className="py-2 px-3 text-right font-mono text-emerald-600">-{formatCurrency(fullYearWhtCredit)}</td>
                   </tr>
                   <tr>
-                    <td className="py-2 px-3 text-brand-muted">หัก ภาษีที่ชำระไว้และเครดิตอื่น</td>
+                    <td className="py-2 px-3 text-brand-muted">{tr("หัก ภาษีที่ชำระไว้และเครดิตอื่น")}</td>
                     <td className="py-2 px-3 text-right font-mono text-brand-muted">—</td>
                     <td className="py-2 px-3 text-right font-mono text-emerald-600">-{formatCurrency(pnd93Paid + pnd94Paid + otherTaxCredits)}</td>
                   </tr>
                   <tr className="bg-brand-faint/50 dark:bg-neutral-850 font-extrabold">
-                    <td className="py-3.5 px-3 text-[#C24A16] dark:text-[#F0997B] text-xs">คาดว่าต้องชำระเพิ่ม</td>
+                    <td className="py-3.5 px-3 text-[#C24A16] dark:text-[#F0997B] text-xs">{tr("คาดว่าต้องชำระเพิ่ม")}</td>
                     <td className="py-3.5 px-3 text-right font-mono text-[#C24A16] dark:text-[#F0997B] text-base">{formattedTaxResult(h1Settlement, 'due')}</td>
                     <td className="py-3.5 px-3 text-right font-mono text-[#C24A16] dark:text-[#F0997B] text-base">{formattedTaxResult(fullSettlement, 'due')}</td>
                   </tr>
                   <tr className="bg-brand-green-bg/30 font-extrabold">
-                    <td className="py-3 px-3 text-emerald-700 dark:text-emerald-400 text-xs">คาดว่าชำระไว้เกิน</td>
+                    <td className="py-3 px-3 text-emerald-700 dark:text-emerald-400 text-xs">{tr("คาดว่าชำระไว้เกิน")}</td>
                     <td className="py-3 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400">{formattedTaxResult(h1Settlement, 'overpayment')}</td>
                     <td className="py-3 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400">{formattedTaxResult(fullSettlement, 'overpayment')}</td>
                   </tr>
@@ -858,8 +840,8 @@ export default function TaxTab({
 
             {/* Progressive brackets display */}
             <div className="mt-5 space-y-2 bg-brand-faint/30 dark:bg-neutral-850 p-4 rounded-2xl border border-brand-border/20 dark:border-neutral-800/40">
-              <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-brand-muted">ข้อมูลประกอบ: อัตราภาษีก้าวหน้า (ยังไม่รวมภาษีขั้นต่ำทางเลือก)</h4>
-              {!fullExpenseReady && <p className="text-[10px] font-bold text-brand-yellow-acc">กรอกค่าใช้จ่ายหักได้ที่ตรวจสอบแล้วทั้งสองครึ่งปีก่อนดูตัวอย่างอัตราก้าวหน้า</p>}
+              <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-brand-muted">{tr("ข้อมูลประกอบ: อัตราภาษีก้าวหน้า (ยังไม่รวมภาษีขั้นต่ำทางเลือก)")}</h4>
+              {!fullExpenseReady && <p className="text-[10px] font-bold text-brand-yellow-acc">{tr("กรอกค่าใช้จ่ายหักได้ที่ตรวจสอบแล้วทั้งสองครึ่งปีก่อนดูตัวอย่างอัตราก้าวหน้า")}</p>}
               <div className="space-y-1.5 mt-2.5">
                 {fullExpenseReady && fullTaxDetails.breakdown.map((b, idx) => (
                   <div key={idx} className="flex justify-between items-center text-[11px] font-mono">
@@ -872,7 +854,7 @@ export default function TaxTab({
                 {fullExpenseReady && fullTaxDetails.breakdown.length === 0 && (
                   <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5 py-1">
                     <CheckSquare className="w-3.5 h-3.5 shrink-0" />
-                    <span>เงินได้สุทธิอยู่ในเกณฑ์ยกเว้นภาษีทั้งหมด</span>
+                    <span>{tr("เงินได้สุทธิอยู่ในเกณฑ์ยกเว้นภาษีทั้งหมด")}</span>
                   </div>
                 )}
               </div>
@@ -883,11 +865,9 @@ export default function TaxTab({
           <div className="mt-6 rounded-[14px] border border-brand-border/40 dark:border-neutral-800 p-5 sm:p-6">
             <h3 className="font-display font-black text-sm text-brand-text dark:text-white flex items-center gap-2 mb-4">
               <FileCheck className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
-              เช็คลิสต์เตรียมเอกสารที่สำคัญ
-            </h3>
+              {tr("เช็คลิสต์เตรียมเอกสารที่สำคัญ")}</h3>
             <p className="text-[11px] text-brand-muted leading-relaxed mb-4">
-              การเตรียมเอกสารเหล่านี้ไว้ล่วงหน้า จะช่วยให้คุณยื่นแบบภาษีได้อย่างสะดวกรวดเร็วและไม่มีข้อผิดพลาด
-            </p>
+              {tr("การเตรียมเอกสารเหล่านี้ไว้ล่วงหน้า จะช่วยให้คุณยื่นแบบภาษีได้อย่างสะดวกรวดเร็วและไม่มีข้อผิดพลาด")}</p>
 
             <div className="space-y-3">
               <button
@@ -906,11 +886,9 @@ export default function TaxTab({
                 </div>
                 <div>
                   <h4 className={`text-xs font-bold leading-tight ${checklist.wht50 ? 'line-through text-brand-muted' : 'text-brand-text dark:text-white'}`}>
-                    หนังสือรับรองการหักภาษี ณ ที่จ่าย (ใบ 50 ทวิ)
-                  </h4>
+                    {tr("หนังสือรับรองการหักภาษี ณ ที่จ่าย (ใบ 50 ทวิ)")}</h4>
                   <p className="text-[10px] text-brand-muted mt-0.5">
-                    ได้รับจากลูกค้าหรือเอเจนซี่เมื่อได้รับเงิน เป็นเอกสารสำคัญในการเครดิตลดภาษีสะสม
-                  </p>
+                    {tr("ได้รับจากลูกค้าหรือเอเจนซี่เมื่อได้รับเงิน เป็นเอกสารสำคัญในการเครดิตลดภาษีสะสม งานที่หัก 1% ผ่าน e-WHT ไม่มีใบนี้ ใช้ข้อมูลในระบบกรมสรรพากรแทน")}</p>
                 </div>
               </button>
 
@@ -930,11 +908,9 @@ export default function TaxTab({
                 </div>
                 <div>
                   <h4 className={`text-xs font-bold leading-tight ${checklist.incomeSummary ? 'line-through text-brand-muted' : 'text-brand-text dark:text-white'}`}>
-                    รายงานสรุปรายรับจากบัญชีการดีลและงานจริง
-                  </h4>
+                    {tr("รายงานสรุปรายรับจากบัญชีการดีลและงานจริง")}</h4>
                   <p className="text-[10px] text-brand-muted mt-0.5">
-                    ประวัติการรับเงินจริงเพื่อใช้คำนวณฐานรายได้สะสมตลอดทั้งปี
-                  </p>
+                    {tr("ประวัติการรับเงินจริงเพื่อใช้คำนวณฐานรายได้สะสมตลอดทั้งปี")}</p>
                 </div>
               </button>
 
@@ -954,11 +930,9 @@ export default function TaxTab({
                 </div>
                 <div>
                   <h4 className={`text-xs font-bold leading-tight ${checklist.actualReceipts ? 'line-through text-brand-muted' : 'text-brand-text dark:text-white'}`}>
-                    หลักฐานค่าใช้จ่ายจริงในการทำธุรกิจ
-                  </h4>
+                    {tr("หลักฐานค่าใช้จ่ายจริงในการทำธุรกิจ")}</h4>
                   <p className="text-[10px] text-brand-muted mt-0.5">
-                    ใบกำกับภาษีหรือใบเสร็จรับเงินต่างๆ กรณีเลือกคำนวณหักตามความจำเป็นและสมควรตามจริง
-                  </p>
+                    {tr("ใบกำกับภาษีหรือใบเสร็จรับเงินต่างๆ กรณีเลือกคำนวณหักตามความจำเป็นและสมควรตามจริง")}</p>
                 </div>
               </button>
 
@@ -978,11 +952,9 @@ export default function TaxTab({
                 </div>
                 <div>
                   <h4 className={`text-xs font-bold leading-tight ${checklist.allowanceDocs ? 'line-through text-brand-muted' : 'text-brand-text dark:text-white'}`}>
-                    เอกสารรับรองสิทธิ์ลดหย่อนเพิ่มเติม
-                  </h4>
+                    {tr("เอกสารรับรองสิทธิ์ลดหย่อนเพิ่มเติม")}</h4>
                   <p className="text-[10px] text-brand-muted mt-0.5">
-                    เช่น ใบรับรองสิทธิ์การลดหย่อนประกันชีวิต ประกันสังคม หรือหลักฐานสิทธิการเลี้ยงดูและกองทุนต่างๆ
-                  </p>
+                    {tr("เช่น ใบรับรองสิทธิ์การลดหย่อนประกันชีวิต ประกันสังคม หรือหลักฐานสิทธิการเลี้ยงดูและกองทุนต่างๆ")}</p>
                 </div>
               </button>
             </div>
@@ -998,16 +970,14 @@ export default function TaxTab({
           disabled={taxStep === 1}
           className="rounded-xl bg-brand-faint dark:bg-neutral-800 px-[18px] py-2.5 text-[13px] text-brand-muted transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
         >
-          ย้อนกลับ
-        </button>
+          {tr("ย้อนกลับ")}</button>
         <button
           type="button"
           onClick={() => setTaxStep(s => Math.min(4, s + 1))}
           disabled={taxStep === 4}
           className="rounded-xl bg-[#F36A2D] px-[18px] py-2.5 text-[13px] font-medium text-white transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
         >
-          ถัดไป
-        </button>
+          {tr("ถัดไป")}</button>
       </div>
 
       {/* PRINT PREVIEW / DETAILED PDF MODAL OVERLAY */}
@@ -1031,55 +1001,53 @@ export default function TaxTab({
 
               <div className="space-y-6 select-text">
                 <div className="border-b-2 border-slate-900 pb-5 text-center">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 print:text-emerald-700">เอกสารประเมินประกอบการวางแผนจัดการแบบไม่เป็นทางการ</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 print:text-emerald-700">{tr("เอกสารประเมินประกอบการวางแผนจัดการแบบไม่เป็นทางการ")}</span>
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
-                    รายงานสรุปและประเมินภาษีบุคคลธรรมดา
-                  </h1>
+                    {tr("รายงานสรุปและประเมินภาษีบุคคลธรรมดา")}</h1>
                   <p className="text-xs text-slate-500 mt-1">
-                    จัดทำผ่านแบบระบบผู้ช่วยส่วนบุคคล • รอบปีภาษี {taxYear} (พ.ศ. {taxYear + 543})
-                  </p>
+                    {tr("จัดทำผ่านแบบระบบผู้ช่วยส่วนบุคคล • รอบปีภาษี {0} (พ.ศ. {1})", taxYear, taxYear + 543)}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 text-xs border-b border-slate-100 pb-4">
                   <div>
-                    <h3 className="font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">ข้อมูลผู้ยื่นประเมิน</h3>
-                    <p className="font-bold text-slate-800">ผู้ใช้งานแอปพลิเคชันหลัก</p>
-                    <p className="text-slate-500 mt-0.5">ค่าใช้จ่าย: กรอกยอดหักได้ที่ตรวจสอบแล้วเท่านั้น</p>
+                    <h3 className="font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">{tr("ข้อมูลผู้ยื่นประเมิน")}</h3>
+                    <p className="font-bold text-slate-800">{tr("ผู้ใช้งานแอปพลิเคชันหลัก")}</p>
+                    <p className="text-slate-500 mt-0.5">{tr("ค่าใช้จ่าย: กรอกยอดหักได้ที่ตรวจสอบแล้วเท่านั้น")}</p>
                   </div>
                   <div className="text-right">
-                    <h3 className="font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">วันที่ออกเอกสาร</h3>
-                    <p className="font-mono text-slate-800 font-semibold">{new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                    <p className="text-slate-500 mt-0.5">สถานะ: เอกสารประกอบการตรวจสอบก่อนยื่น</p>
+                    <h3 className="font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">{tr("วันที่ออกเอกสาร")}</h3>
+                    <p className="font-mono text-slate-800 font-semibold">{new Date().toLocaleDateString(dateLocale(), { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="text-slate-500 mt-0.5">{tr("สถานะ: เอกสารประกอบการตรวจสอบก่อนยื่น")}</p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1">1. สรุปรายละเอียดรายได้หลัก</h3>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1">{tr("1. สรุปรายละเอียดรายได้หลัก")}</h3>
                   <div className="overflow-x-auto">
                   <table className="w-full min-w-[480px] text-xs text-left text-slate-700 border-collapse">
                     <thead>
                       <tr className="bg-slate-100 text-[10px] font-extrabold text-slate-600 border-b border-slate-300">
-                        <th className="py-2 px-3">หมวดหมู่รายได้</th>
-                        <th className="py-2 px-3 text-right">ครึ่งปีแรก (ภ.ง.ด. 94)</th>
-                        <th className="py-2 px-3 text-right">ครึ่งปีหลัง</th>
-                        <th className="py-2 px-3 text-right">รวมตลอดทั้งปี (ภ.ง.ด. 90)</th>
+                        <th className="py-2 px-3">{tr("หมวดหมู่รายได้")}</th>
+                        <th className="py-2 px-3 text-right">{tr("ครึ่งปีแรก (ภ.ง.ด. 94)")}</th>
+                        <th className="py-2 px-3 text-right">{tr("ครึ่งปีหลัง")}</th>
+                        <th className="py-2 px-3 text-right">{tr("รวมตลอดทั้งปี (ภ.ง.ด. 90)")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 border-b border-slate-200">
                       <tr>
-                        <td className="py-2 px-3 font-semibold text-slate-800">รายได้งานดีลในระบบ</td>
+                        <td className="py-2 px-3 font-semibold text-slate-800">{tr("รายได้งานดีลในระบบ")}</td>
                         <td className="py-2 px-3 text-right font-mono text-slate-700">{formatCurrency(firstHalfJobsRevenue)}</td>
                         <td className="py-2 px-3 text-right font-mono text-slate-700">{formatCurrency(secondHalfJobsRevenue)}</td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">{formatCurrency(firstHalfJobsRevenue + secondHalfJobsRevenue)}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-3 font-semibold text-slate-800">รายได้เสริมอื่นภายนอก</td>
+                        <td className="py-2 px-3 font-semibold text-slate-800">{tr("รายได้เสริมอื่นภายนอก")}</td>
                         <td className="py-2 px-3 text-right font-mono text-slate-700">{formatCurrency(firstHalfOtherRevenue)}</td>
                         <td className="py-2 px-3 text-right font-mono text-slate-700">{formatCurrency(secondHalfOtherRevenue)}</td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">{formatCurrency(firstHalfOtherRevenue + secondHalfOtherRevenue)}</td>
                       </tr>
                       <tr className="bg-slate-50 font-bold">
-                        <td className="py-2.5 px-3 text-slate-900 font-extrabold">รายได้รวมทั้งหมด</td>
+                        <td className="py-2.5 px-3 text-slate-900 font-extrabold">{tr("รายได้รวมทั้งหมด")}</td>
                         <td className="py-2.5 px-3 text-right font-mono text-emerald-600">{formatCurrency(h1Revenue)}</td>
                         <td className="py-2.5 px-3 text-right font-mono text-emerald-600">{formatCurrency(h2Revenue)}</td>
                         <td className="py-2.5 px-3 text-right font-mono text-indigo-700 text-sm">{formatCurrency(fullRevenue)}</td>
@@ -1090,64 +1058,64 @@ export default function TaxTab({
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1">2. ตารางสรุปการประเมินภาษีแบบขั้นบันได</h3>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1">{tr("2. ตารางสรุปการประเมินภาษีแบบขั้นบันได")}</h3>
                   <div className="overflow-x-auto">
                   <table className="w-full min-w-[480px] text-xs text-left text-slate-700 border-collapse">
                     <thead>
                       <tr className="bg-slate-100 text-[10px] font-extrabold text-slate-600 border-b border-slate-300">
-                        <th className="py-2 px-3">รายการการเงิน</th>
-                        <th className="py-2 px-3 text-right">ครึ่งปีแรก (ภ.ง.ด. 94)</th>
-                        <th className="py-2 px-3 text-right">ยอดรวมตลอดทั้งปี (ภ.ง.ด. 90)</th>
+                        <th className="py-2 px-3">{tr("รายการการเงิน")}</th>
+                        <th className="py-2 px-3 text-right">{tr("ครึ่งปีแรก (ภ.ง.ด. 94)")}</th>
+                        <th className="py-2 px-3 text-right">{tr("ยอดรวมตลอดทั้งปี (ภ.ง.ด. 90)")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       <tr>
-                        <td className="py-2 px-3 text-slate-800">รายได้รวมสะสมประเมิน</td>
+                        <td className="py-2 px-3 text-slate-800">{tr("รายได้รวมสะสมประเมิน")}</td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">{formatCurrency(h1Revenue)}</td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">{formatCurrency(fullRevenue)}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-3 text-slate-500">หัก ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว</td>
-                        <td className="py-2 px-3 text-right font-mono text-red-600">{h1ExpenseReady ? `-${formatCurrency(h1Expense)}` : 'ยังไม่กรอก'}</td>
-                        <td className="py-2 px-3 text-right font-mono text-red-600">{fullExpenseReady ? `-${formatCurrency(fullExpense)}` : 'ยังไม่กรอก'}</td>
+                        <td className="py-2 px-3 text-slate-500">{tr("หัก ค่าใช้จ่ายหักได้ที่ตรวจสอบแล้ว")}</td>
+                        <td className="py-2 px-3 text-right font-mono text-red-600">{h1ExpenseReady ? `-${formatCurrency(h1Expense)}` : tr("ยังไม่กรอก")}</td>
+                        <td className="py-2 px-3 text-right font-mono text-red-600">{fullExpenseReady ? `-${formatCurrency(fullExpense)}` : tr("ยังไม่กรอก")}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-3 text-slate-500">หัก สิทธิ์ลดหย่อนส่วนตัว</td>
+                        <td className="py-2 px-3 text-slate-500">{tr("หัก สิทธิ์ลดหย่อนส่วนตัว")}</td>
                         <td className="py-2 px-3 text-right font-mono text-red-600">-{formatCurrency(h1PersonalAllowance)}</td>
                         <td className="py-2 px-3 text-right font-mono text-red-600">-{formatCurrency(fullPersonalAllowance)}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-3 text-slate-500">หัก สิทธิ์ลดหย่อนเพิ่มเติมอื่นๆ</td>
+                        <td className="py-2 px-3 text-slate-500">{tr("หัก สิทธิ์ลดหย่อนเพิ่มเติมอื่นๆ")}</td>
                         <td className="py-2 px-3 text-right font-mono text-red-600">-{formatCurrency(h1OtherAllowances)}</td>
                         <td className="py-2 px-3 text-right font-mono text-red-600">-{formatCurrency(fullOtherAllowances)}</td>
                       </tr>
                       <tr className="bg-slate-50 font-bold border-t border-slate-300">
-                        <td className="py-2.5 px-3 text-slate-900 font-extrabold">เงินได้สุทธิประเมิน</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-blue-600 text-sm">{h1ExpenseReady ? formatCurrency(h1NetIncome) : 'ยังไม่คำนวณ'}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-violet-700 text-sm">{fullExpenseReady ? formatCurrency(fullNetIncome) : 'ยังไม่คำนวณ'}</td>
+                        <td className="py-2.5 px-3 text-slate-900 font-extrabold">{tr("เงินได้สุทธิประเมิน")}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-blue-600 text-sm">{h1ExpenseReady ? formatCurrency(h1NetIncome) : tr("ยังไม่คำนวณ")}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-violet-700 text-sm">{fullExpenseReady ? formatCurrency(fullNetIncome) : tr("ยังไม่คำนวณ")}</td>
                       </tr>
                       <tr className="text-slate-500">
-                        <td className="py-2 px-3">อัตราภาษีสูงสุดที่ถึง</td>
+                        <td className="py-2 px-3">{tr("อัตราภาษีสูงสุดที่ถึง")}</td>
                         <td className="py-2 px-3 text-right font-mono">{h1ExpenseReady ? `${h1MaxRate}%` : '—'}</td>
                         <td className="py-2 px-3 text-right font-mono">{fullExpenseReady ? `${fullMaxRate}%` : '—'}</td>
                       </tr>
                       <tr className="border-t-2 border-slate-400">
-                        <td className="py-2 px-3 text-slate-700">ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ</td>
+                        <td className="py-2 px-3 text-slate-700">{tr("ภาษีประเมินที่ยืนยันจากแบบ/ผู้เชี่ยวชาญ")}</td>
                         <td className="py-2 px-3 text-right font-mono">{formattedTaxResult(h1Settlement, 'assessedTax')}</td>
                         <td className="py-2 px-3 text-right font-mono">{formattedTaxResult(fullSettlement, 'assessedTax')}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-3 text-slate-500">หัก รวมเครดิตภาษี</td>
-                        <td className="py-2 px-3 text-right font-mono text-emerald-700">{h1Settlement ? `-${formatCurrency(h1Settlement.totalCredits)}` : 'ยังไม่คำนวณ'}</td>
-                        <td className="py-2 px-3 text-right font-mono text-emerald-700">{fullSettlement ? `-${formatCurrency(fullSettlement.totalCredits)}` : 'ยังไม่คำนวณ'}</td>
+                        <td className="py-2 px-3 text-slate-500">{tr("หัก รวมเครดิตภาษี")}</td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-700">{h1Settlement ? `-${formatCurrency(h1Settlement.totalCredits)}` : tr("ยังไม่คำนวณ")}</td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-700">{fullSettlement ? `-${formatCurrency(fullSettlement.totalCredits)}` : tr("ยังไม่คำนวณ")}</td>
                       </tr>
                       <tr className="bg-slate-900 text-white font-extrabold border-t-2 border-slate-900">
-                        <td className="py-3 px-3 text-emerald-400">คาดว่าต้องชำระเพิ่ม</td>
+                        <td className="py-3 px-3 text-emerald-400">{tr("คาดว่าต้องชำระเพิ่ม")}</td>
                         <td className="py-3 px-3 text-right font-mono text-emerald-400 text-base">{formattedTaxResult(h1Settlement, 'due')}</td>
                         <td className="py-3 px-3 text-right font-mono text-emerald-400 text-base">{formattedTaxResult(fullSettlement, 'due')}</td>
                       </tr>
                       <tr className="bg-emerald-50 font-bold">
-                        <td className="py-2 px-3 text-emerald-800">คาดว่าชำระไว้เกิน</td>
+                        <td className="py-2 px-3 text-emerald-800">{tr("คาดว่าชำระไว้เกิน")}</td>
                         <td className="py-2 px-3 text-right font-mono text-emerald-800">{formattedTaxResult(h1Settlement, 'overpayment')}</td>
                         <td className="py-2 px-3 text-right font-mono text-emerald-800">{formattedTaxResult(fullSettlement, 'overpayment')}</td>
                       </tr>
@@ -1157,26 +1125,24 @@ export default function TaxTab({
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-[10px] text-slate-500 leading-relaxed">
-                  <p className="font-bold text-slate-800 text-xs mb-1">หมายเหตุประกอบการรายงาน:</p>
-                  1. รายงานนับรายได้ก่อนหัก ณ ที่จ่ายตามวันรับเงินจริง และหักเครดิตภาษีที่บันทึกไว้<br />
-                  2. รายจ่ายในบัญชีเป็นเพียงข้อมูลอ้างอิง ค่าใช้จ่ายหักได้ต้องกรอกเป็นยอดที่ตรวจสอบแล้ว<br />
-                  3. ตัวอย่างอัตราก้าวหน้าไม่รวมภาษีขั้นต่ำทางเลือก ยอดชำระ/ชำระไว้เกินจะแสดงเมื่อกรอกภาษีประเมินจากแบบปัจจุบันหรือผู้เชี่ยวชาญเท่านั้น<br />
-                  4. เอกสารนี้มีไว้วางแผนและตรวจสอบก่อนยื่น ไม่แทนแบบหรือคำแนะนำของกรมสรรพากร
-                </div>
+                  <p className="font-bold text-slate-800 text-xs mb-1">{tr("หมายเหตุประกอบการรายงาน:")}</p>
+                  {tr("1. รายงานนับรายได้ก่อนหัก ณ ที่จ่ายตามวันรับเงินจริง และหักเครดิตภาษีที่บันทึกไว้")}<br />
+                  {tr("2. รายจ่ายในบัญชีเป็นเพียงข้อมูลอ้างอิง ค่าใช้จ่ายหักได้ต้องกรอกเป็นยอดที่ตรวจสอบแล้ว")}<br />
+                  {tr("3. ตัวอย่างอัตราก้าวหน้าไม่รวมภาษีขั้นต่ำทางเลือก ยอดชำระ/ชำระไว้เกินจะแสดงเมื่อกรอกภาษีประเมินจากแบบปัจจุบันหรือผู้เชี่ยวชาญเท่านั้น")}<br />
+                  {tr("4. เอกสารนี้มีไว้วางแผนและตรวจสอบก่อนยื่น ไม่แทนแบบหรือคำแนะนำของกรมสรรพากร")}</div>
 
                 <div className="flex justify-end gap-2.5 print:hidden pt-4 border-t border-slate-100">
                   <button
                     onClick={() => setIsShowingPrintModal(false)}
                     className="px-5 py-2.5 border border-slate-300 rounded-xl text-xs font-extrabold text-slate-700 hover:bg-slate-50 cursor-pointer"
                   >
-                    ปิดหน้าต่าง
-                  </button>
+                    {tr("ปิดหน้าต่าง")}</button>
                   <button
                     onClick={() => window.print()}
                     className="flex items-center gap-1.5 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs shadow cursor-pointer"
                   >
                     <Printer className="w-4 h-4" />
-                    <span>พิมพ์รายงานสรุป / บันทึก PDF</span>
+                    <span>{tr("พิมพ์รายงานสรุป / บันทึก PDF")}</span>
                   </button>
                 </div>
               </div>

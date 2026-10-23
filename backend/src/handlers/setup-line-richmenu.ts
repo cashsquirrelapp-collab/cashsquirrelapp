@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../http/types.js';
 
 // One-time (re-runnable) admin setup: creates the LINE Official Account's Rich Menu -- the
 // persistent 2x3 button grid shown under the chat input for every user of this OA -- uploads the
-// generated image (public/richmenu-large.jpg, 2500x1686, matching the app's cream/orange theme),
+// generated image (public/line/secretary-richmenu.jpg, 2500x1686, matching the app's cream/orange theme),
 // and sets it as the default for all users. Not called by any user-facing flow; hit manually with
 // CRON_SECRET the same way the digest/report crons are triggered for testing. Safe to re-run: it
 // always creates a fresh rich menu and re-points the "default for all users" pointer at it, so
@@ -14,12 +14,81 @@ import type { VercelRequest, VercelResponse } from '../http/types.js';
 // Areas match the 2x3 CSS grid the image was rendered from (2500x1686, 3 cols x 2 rows, tiles
 // roughly 833x843 each) -- keep this in sync with public/richmenu-large.png if the image changes.
 const AREAS: { bounds: { x: number; y: number; width: number; height: number }; action: { type: string; text?: string; uri?: string; label?: string } }[] = [
-  { bounds: { x: 0, y: 0, width: 833, height: 843 }, action: { type: 'uri', label: 'ฟอร์มบันทึก' } }, // uri filled in below once LIFF_ID is known
-  { bounds: { x: 833, y: 0, width: 834, height: 843 }, action: { type: 'message', label: 'งานค้างจ่าย', text: 'งานค้างจ่าย' } },
-  { bounds: { x: 1667, y: 0, width: 833, height: 843 }, action: { type: 'message', label: 'สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
-  { bounds: { x: 0, y: 843, width: 833, height: 843 }, action: { type: 'message', label: 'งานเดือนนี้', text: 'งานเดือนนี้' } },
-  { bounds: { x: 833, y: 843, width: 834, height: 843 }, action: { type: 'message', label: 'กำลังดำเนินการ', text: 'กำลังดำเนินการ' } },
-  { bounds: { x: 1667, y: 843, width: 833, height: 843 }, action: { type: 'uri', label: 'เปิดแอป' } }, // uri filled in below once APP_URL is known
+  {
+    "bounds": {
+      "x": 0,
+      "y": 0,
+      "width": 1450,
+      "height": 1120
+    },
+    "action": {
+      "type": "uri",
+      "label": "เพิ่มงาน"
+    }
+  },
+  {
+    "bounds": {
+      "x": 1450,
+      "y": 0,
+      "width": 1050,
+      "height": 560
+    },
+    "action": {
+      "type": "message",
+      "label": "รอรับเงิน",
+      "text": "รอรับเงิน"
+    }
+  },
+  {
+    "bounds": {
+      "x": 1450,
+      "y": 560,
+      "width": 1050,
+      "height": 560
+    },
+    "action": {
+      "type": "message",
+      "label": "สรุปเดือนนี้",
+      "text": "สรุปเดือนนี้"
+    }
+  },
+  {
+    "bounds": {
+      "x": 0,
+      "y": 1120,
+      "width": 833,
+      "height": 566
+    },
+    "action": {
+      "type": "uri",
+      "label": "แนบเอกสาร"
+    }
+  },
+  {
+    "bounds": {
+      "x": 833,
+      "y": 1120,
+      "width": 834,
+      "height": 566
+    },
+    "action": {
+      "type": "message",
+      "label": "กำลังดำเนินงาน",
+      "text": "กำลังดำเนินการ"
+    }
+  },
+  {
+    "bounds": {
+      "x": 1667,
+      "y": 1120,
+      "width": 833,
+      "height": 566
+    },
+    "action": {
+      "type": "uri",
+      "label": "เปิดแอป"
+    }
+  }
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -44,11 +113,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const areas = AREAS.map((a) => {
-    if (a.action.type === 'uri' && a.action.label === 'ฟอร์มบันทึก') {
-      return { ...a, action: { ...a.action, uri: `https://liff.line.me/${liffId}` } };
+    if (a.action.type === 'uri' && a.action.label === 'เพิ่มงาน') {
+      return { ...a, action: { ...a.action, uri: `https://liff.line.me/${liffId}?openPath=%2Fjobs%3FopenAddJob%3D1` } };
+    }
+    if (a.action.type === 'uri' && a.action.label === 'แนบเอกสาร') {
+      return { ...a, action: { ...a.action, uri: `https://liff.line.me/${liffId}?openPath=%2Fline-documents` } };
     }
     if (a.action.type === 'uri' && a.action.label === 'เปิดแอป') {
-      return { ...a, action: { ...a.action, uri: appUrl.replace(/\/$/, '') } };
+      return { ...a, action: { ...a.action, uri: `https://liff.line.me/${liffId}?openPath=%2Fapp` } };
     }
     return a;
   });
@@ -61,23 +133,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify({
         size: { width: 2500, height: 1686 },
         selected: true,
-        name: 'กระรอกตุนเงิน main menu',
-        chatBarText: 'เมนู',
+        name: 'กระรอกตุนเงิน เลขาการเงิน',
+        chatBarText: 'เลขาการเงิน',
         areas,
       }),
     });
-    const createJson = await createRes.json();
+    const createJson = await createRes.json() as { richMenuId?: unknown } | null;
     if (!createRes.ok) {
       res.status(500).json({ error: 'Failed to create rich menu', detail: createJson });
       return;
     }
-    const richMenuId = createJson.richMenuId as string;
+    const richMenuId = createJson?.richMenuId;
+    if (typeof richMenuId !== 'string' || !richMenuId) {
+      res.status(502).json({ error: 'Invalid rich menu response' });
+      return;
+    }
 
     // 2. Upload the image (fetched from this deployment's own public/ folder rather than bundled
     // directly, so editing the PNG and redeploying is enough to pick up a new design next run).
-    const imageRes = await fetch(`${appUrl.replace(/\/$/, '')}/richmenu-large.jpg`);
+    const imageRes = await fetch(`${appUrl.replace(/\/$/, '')}/line/secretary-richmenu.jpg`);
     if (!imageRes.ok) {
-      res.status(500).json({ error: 'Failed to fetch richmenu-large.jpg from public/' });
+      res.status(500).json({ error: 'Failed to fetch line/secretary-richmenu.jpg from public/' });
       return;
     }
     const imageBuffer = await imageRes.arrayBuffer();

@@ -7,7 +7,13 @@ import { Language } from './translations.js';
 // functions with ERR_MODULE_NOT_FOUND, since that file (and its React import) doesn't resolve
 // in that build. On the backend nothing ever calls setCurrentLanguage, so this just stays 'th',
 // which is correct today since LINE/email messages built server-side aren't translated (yet).
-export let currentLanguage: Language = 'th';
+// In a browser it starts from the saved choice, so text drawn before the provider (an error screen)
+// is already in the right language; on the server it stays Thai.
+function initialLanguage(): Language {
+  try { return typeof localStorage !== 'undefined' && localStorage.getItem('cashflow_language') === 'en' ? 'en' : 'th'; }
+  catch { return 'th'; }
+}
+export let currentLanguage: Language = initialLanguage();
 
 export function setCurrentLanguage(lang: Language): void {
   currentLanguage = lang;

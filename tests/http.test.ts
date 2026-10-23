@@ -2,10 +2,11 @@ import { before,after,test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
 import { createApp } from '../backend/src/http/app.js';
+import { stripe as stripeClient } from '../backend/src/config/stripe.js';
 import { seal,unseal } from '../backend/src/security/cookies.js';
 import Stripe from 'stripe';
 import { ensurePrivateReportBucket } from '../backend/src/services/reportStorage.js';
-process.env.APP_URL='http://127.0.0.1:3000';process.env.SUPABASE_URL='https://project.supabase.co';process.env.SUPABASE_PUBLISHABLE_KEY='test-key';process.env.SUPABASE_SERVICE_ROLE_KEY='test-admin';process.env.SESSION_SECRET='test-only-secret-'.repeat(4);process.env.STRIPE_SECRET_KEY='sk_test_only';process.env.STRIPE_WEBHOOK_SECRET='whsec_test';process.env.STRIPE_PRO_PAYMENT_LINK_ID='plink_test';
+process.env.APP_URL='http://127.0.0.1:3000';process.env.SUPABASE_URL='https://project.supabase.co';process.env.SUPABASE_PUBLISHABLE_KEY='test-key';process.env.SUPABASE_SERVICE_ROLE_KEY='test-admin';process.env.SESSION_SECRET='test-only-secret-'.repeat(4);process.env.STRIPE_SECRET_KEY='sk_test_only';process.env.STRIPE_MODE='test';process.env.STRIPE_WEBHOOK_SECRET='whsec_test';process.env.STRIPE_PRO_PRICE_ID='price_test_pro';process.env.STRIPE_PRO_INTRO_COUPON_ID='coupon_test_intro';process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID='bpc_test_safe';process.env.STRIPE_LEGACY_PAYMENT_LINK_ID='plink_test';
 process.env.LINE_CHANNEL_ID='test-channel';
 process.env.LINE_CHANNEL_ACCESS_TOKEN='test-line-token';
 const user={id:'11111111-1111-4111-8111-111111111111',email:'a@example.com',user_metadata:{role:'admin'}};
@@ -13,9 +14,10 @@ const sessionId='33333333-3333-4333-8333-333333333333';
 const jwt=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:sessionId})).toString('base64url')}.test`;
 const expiredJwt=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:sessionId,exp:1})).toString('base64url')}.test`;
 const cookie=`cashflow-session=${seal({access_token:jwt,refresh_token:'private-refresh',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()})}`;
-const realFetch=globalThis.fetch;let failure=false;let server:Server;let origin:string;
-let failRevocation=false,providerSignoutFails=false,notifyFailure=false;
+const realFetch=globalThis.fetch;let server:Server;let origin:string;
+let failRevocation=false,providerSignoutFails=false,notifyFailure=false,failStripePayment=false;
 let notifyLinked=false,linePushStatus=200,linePushes=0;
+let lastLinePush:any=null;const lineLinkCalls:string[]=[];
 let signupError={code:'email_address_not_authorized',msg:'private SMTP credentials should never appear'};
 let refreshed=0,lineVerifications=0,downloaded=0,bucketUpdates=0;
 let currentRole='user', groupError: {code:string;message:string} | null=null;
@@ -27,7 +29,7 @@ before(async()=>{
   const json=(body:any,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}});
   if(url==='https://api.line.me/oauth2/v2.1/verify'){lineVerifications++;return json({error:'invalid_token'},401);}
   if(url==='https://api.line.me/v2/bot/message/push'){
-   linePushes++;return json(linePushStatus===200?{}:{message:'provider rejected'},linePushStatus);
+   linePushes++;lastLinePush=JSON.parse(String(init?.body));lineLinkCalls.push('push');return json(linePushStatus===200?{}:{message:'provider rejected'},linePushStatus);
   }
   if(!url.startsWith('https://project.supabase.co/'))return realFetch(input,init);
   if(url.includes('/auth/v1/signup'))return json({...signupError,error_code:signupError.code},422);
@@ -50,6 +52,11 @@ before(async()=>{
    if(url.includes('admin_accounts'))return json({users:[],total:0,page:0});
    return json({systemRole:currentRole,groups:[],invitations:[],total:0,page:0});
   }
+  if(url.includes('/cashflow_line_links')){
+   const method=init?.method||'GET';lineLinkCalls.push(`links:${method}`);
+   return method==='DELETE'?new Response(null,{status:204}):json({line_user_id:'U-linked-chat'});
+  }
+  if(url.includes('/cashflow_challenges')&&init?.method==='DELETE'){lineLinkCalls.push('challenges:DELETE');return new Response(null,{status:204});}
   if(url.includes('/cashflow_revoked_sessions')){
    if(failRevocation)return json({message:'private revocation DB details',code:'XX000'},500);
    const record=JSON.parse(String(init?.body));assert.equal(record.user_id,user.id);revoked.add(record.session_id);return json(null);
@@ -63,7 +70,7 @@ before(async()=>{
    if(init?.method==='PUT'){bucketUpdates++;const options=JSON.parse(String(init.body));assert.equal(options.public,false);assert.equal(options.file_size_limit,4194304);return json({message:'updated'});}
    return json({id:'monthly-reports',name:'monthly-reports',public:true});
   }
-  if(url.includes('/rpc/cashflow_process_payment'))return new Response(failure?JSON.stringify({message:'private DB details',code:'XX000'}):'null',{status:failure?500:200,headers:{'content-type':'application/json'}});
+  if(url.includes('/rpc/cashflow_process_payment'))return failStripePayment?json({message:'private DB details',code:'XX000'},500):json(null);
   throw new Error('Unexpected mock endpoint '+url);
  };
  server=await new Promise<Server>(resolve=>{const instance=createApp().listen(0,'127.0.0.1',()=>resolve(instance));});
@@ -151,13 +158,35 @@ test('signup translates provider errors without leaking messages or credentials'
   assert.equal(r.status,status);const body=await r.text();assert.ok(body.includes(String(message)));assert.ok(!body.includes('private SMTP'));
  }
 });
-test('Stripe verifies raw bytes, returns 500 on DB failures and does not leak DB details',async()=>{
- const raw=JSON.stringify({id:'evt_test',object:'event',created:Math.floor(Date.now()/1000),type:'checkout.session.completed',data:{object:{id:'cs_test',object:'checkout.session',created:Math.floor(Date.now()/1000),payment_link:'plink_test',mode:'payment',currency:'thb',amount_total:14900,payment_status:'paid',client_reference_id:user.id,payment_intent:'pi_test'}}});
+test('Stripe verifies raw bytes and rejects events from the other mode',async()=>{
+ const raw=JSON.stringify({id:'evt_test',object:'event',created:Math.floor(Date.now()/1000),livemode:false,type:'ping',data:{object:{id:'noop'}}});
  const signature=Stripe.webhooks.generateTestHeaderString({payload:raw,secret:'whsec_test'});
  const request=()=>realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'content-type':'application/json','stripe-signature':signature},body:raw});
- failure=true;const failed=await request();assert.equal(failed.status,500);assert.ok(!(await failed.text()).includes('private DB'));
- failure=false;assert.equal((await request()).status,200);
+ assert.equal((await request()).status,200);
  const tampered=await realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'stripe-signature':signature},body:raw+' '});assert.equal(tampered.status,400);
+ const liveRaw=JSON.stringify({id:'evt_live',object:'event',created:Math.floor(Date.now()/1000),livemode:true,type:'ping',data:{object:{id:'noop'}}});
+ const liveSignature=Stripe.webhooks.generateTestHeaderString({payload:liveRaw,secret:'whsec_test'});
+ assert.equal((await realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'stripe-signature':liveSignature},body:liveRaw})).status,400);
+});
+
+test('Stripe returns 500 on DB failures without leaking database details',async()=>{
+ const checkout={id:'cs_test',object:'checkout.session',created:Math.floor(Date.now()/1000),livemode:false,payment_link:'plink_test',mode:'payment',currency:'thb',amount_total:14900,payment_status:'paid',client_reference_id:user.id,payment_intent:'pi_test'} as Stripe.Checkout.Session;
+ const sessions=stripeClient.checkout.sessions as any;
+ const retrieve=sessions.retrieve;
+ sessions.retrieve=async()=>checkout;
+ failStripePayment=true;
+ try {
+  const raw=JSON.stringify({id:'evt_db_failure',object:'event',created:Math.floor(Date.now()/1000),livemode:false,type:'checkout.session.completed',data:{object:{id:checkout.id}}});
+  const signature=Stripe.webhooks.generateTestHeaderString({payload:raw,secret:'whsec_test'});
+  const failed=await realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'content-type':'application/json','stripe-signature':signature},body:raw});
+  assert.equal(failed.status,500);
+  const body=await failed.text();
+  assert.ok(!body.includes('private DB details'));
+  assert.ok(!body.includes('XX000'));
+ } finally {
+  failStripePayment=false;
+  sessions.retrieve=retrieve;
+ }
 });
 
 test('OAuth stores PKCE only, exchanges code server-side, and never returns tokens to the browser',async()=>{
@@ -209,14 +238,23 @@ test('logout fails closed on revocation DB failure and cannot revoke a different
  const wrongOwner=await realFetch(origin+'/api/auth',{method:'POST',headers:{cookie,'x-account-id':'22222222-2222-4222-8222-222222222222',origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"action":"logout"}'});
  assert.equal(wrongOwner.status,401);assert.equal(revoked.size,0);
 });
-test('refresh preserves the absolute lifetime and an eight-hour session is revoked',async()=>{
- const issuedAt=Date.now()-3600000;
+test('a refresh in use restarts the 30-day window; a session unused for 30 days is revoked',async()=>{
+ const issuedAt=Date.now()-20*24*3600000;
  const expiredCookie=`cashflow-session=${seal({access_token:expiredJwt,refresh_token:'private-refresh',expires_at:1,issued_at:issuedAt})}`;
+ const before=Date.now();
  const refreshedSession=await realFetch(origin+'/api/auth',{headers:{cookie:expiredCookie}});
  assert.equal((await refreshedSession.json() as any).session.user.id,user.id);
- const renewedCookie=refreshedSession.headers.getSetCookie().find(value=>value.startsWith('cashflow-session='))!.split(';')[0];
- assert.equal(unseal<any>(renewedCookie.slice(renewedCookie.indexOf('=')+1)).issued_at,issuedAt);
- const tooOld=`cashflow-session=${seal({access_token:jwt,refresh_token:'private-refresh',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()-9*3600000})}`;
+ const setCookie=refreshedSession.headers.getSetCookie().find(value=>value.startsWith('cashflow-session='))!;
+ const renewedCookie=setCookie.split(';')[0];
+ const renewedAt=unseal<any>(renewedCookie.slice(renewedCookie.indexOf('=')+1)).issued_at;
+ assert.ok(renewedAt>=before&&renewedAt<=Date.now(),'the window starts again at the refresh');
+ const maxAge=Number(/Max-Age=(\d+)/i.exec(setCookie)?.[1]);
+ assert.ok(maxAge>29*24*3600&&maxAge<=30*24*3600,`cookie lives about 30 days (got ${maxAge}s)`);
+ // Signed in nine hours ago (the old cap) and still in use: no new sign-in.
+ const nineHours=`cashflow-session=${seal({access_token:jwt,refresh_token:'private-refresh',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()-9*3600000})}`;
+ assert.equal(((await (await realFetch(origin+'/api/auth',{headers:{cookie:nineHours}})).json()) as any).session.user.id,user.id);
+ assert.equal(revoked.size,0);
+ const tooOld=`cashflow-session=${seal({access_token:jwt,refresh_token:'private-refresh',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()-31*24*3600000})}`;
  try { const expired=await realFetch(origin+'/api/auth',{headers:{cookie:tooOld}});assert.deepEqual(await expired.json(),{session:null});assert.ok(revoked.has(sessionId)); }
  finally{revoked.clear();}
 });
@@ -232,18 +270,33 @@ test('reports require login, reject other owners and arbitrary URLs, and downloa
 test('existing public report buckets are explicitly converted to private with size limits',async()=>{
  await ensurePrivateReportBucket();assert.equal(bucketUpdates,1);
 });
-test('notification failures never expose internal DB errors',async()=>{
+test('LINE notification failures never expose internal DB errors',async()=>{
  notifyFailure=true;
  try {
-  const response=await realFetch(origin+'/api/notify',{method:'POST',headers:{cookie,'x-account-id':user.id,origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"event":"record-added"}'});
+  const response=await realFetch(origin+'/api/notify',{method:'POST',headers:{cookie,'x-account-id':user.id,origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"event":"line-disconnected"}'});
   assert.equal(response.status,500);assert.ok(!(await response.text()).includes('private notification'));
  }finally{notifyFailure=false;}
 });
-test('notification endpoint reports LINE delivery rejection instead of silently succeeding',async()=>{
+test('disconnecting LINE removes the link first, then tells that chat; a failed notice never blocks it',async()=>{
+ const disconnect=()=>realFetch(origin+'/api/line-link-code',{method:'POST',headers:{cookie,'x-account-id':user.id,origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"action":"disconnect"}'});
+ lineLinkCalls.length=0;linePushStatus=200;
+ const ok=await disconnect();
+ assert.equal(ok.status,200);assert.deepEqual(await ok.json(),{ok:true,lineNotified:true});
+ assert.deepEqual(lineLinkCalls,['links:GET','links:DELETE','challenges:DELETE','push']);
+ assert.equal(lastLinePush.to,'U-linked-chat');
+ assert.ok(JSON.stringify(lastLinePush.messages).includes('ยกเลิกการเชื่อมต่อแล้ว'));
+ try {
+  linePushStatus=500;lineLinkCalls.length=0;
+  const rejected=await disconnect();
+  assert.equal(rejected.status,200);assert.deepEqual(await rejected.json(),{ok:true,lineNotified:false});
+  assert.deepEqual(lineLinkCalls.slice(0,3),['links:GET','links:DELETE','challenges:DELETE']);
+ } finally { linePushStatus=200; }
+});
+test('LINE notification endpoint reports delivery rejection instead of silently succeeding',async()=>{
  notifyLinked=true;linePushStatus=401;
  try {
   const before=linePushes;
-  const response=await realFetch(origin+'/api/notify',{method:'POST',headers:{cookie,'x-account-id':user.id,origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"event":"record-added","kind":"expense","record":{"id":"expense-1","name":"test","category":"other","amount":100,"date":"2026-09-26"}}'});
+  const response=await realFetch(origin+'/api/notify',{method:'POST',headers:{cookie,'x-account-id':user.id,origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"event":"line-disconnected"}'});
   assert.equal(response.status,502);assert.equal(linePushes,before+1);assert.ok(!(await response.text()).includes('provider rejected'));
  }finally{notifyLinked=false;linePushStatus=200;}
 });

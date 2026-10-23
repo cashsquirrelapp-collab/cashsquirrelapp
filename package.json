@@ -11,12 +11,19 @@
     "lint": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "check": "npm run lint && npm test && npm run build",
+    "security:audit": "npm audit --audit-level=high",
+    "cloudflare:check": "npm run security:audit && npm run lint && tsc --noEmit -p tsconfig.cloudflare.json && node --import tsx --test tests/cloudflare-scheduled.test.ts tests/security.test.ts migration/staging-policy.test.ts",
+    "cloudflare:build": "vite build --config frontend/vite.config.ts --configLoader runner && tsc --noEmit -p tsconfig.cloudflare.json",
+    "cloudflare:dry-run": "npm run cloudflare:build && node scripts/cloudflare-preflight.mjs && npx --yes wrangler@4.151.0 deploy --dry-run --config wrangler.production.jsonc --outdir build/cloudflare-dry-run",
+    "cloudflare:deploy": "npm run cloudflare:check && npm run cloudflare:build && node scripts/cloudflare-preflight.mjs && npx --yes wrangler@4.151.0 deploy --config wrangler.production.jsonc",
     "audit:production": "npm audit --omit=dev --audit-level=moderate",
     "test:e2e": "playwright test",
-    "billing:backfill": "node --import tsx backend/scripts/generateStripeBackfill.ts"
+    "billing:backfill": "node --import tsx backend/scripts/generateStripeBackfill.ts",
+    "billing:setup": "node --import tsx backend/scripts/setupPrepaidBilling.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
+    "@stripe/stripe-js": "^10.1.0",
     "@supabase/supabase-js": "^2.108.2",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
@@ -28,7 +35,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "recharts": "^3.9.0",
-    "stripe": "^22.3.2",
+    "stripe": "^23.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.1.0"
   },
@@ -47,7 +54,7 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.4.5"
   },
   "engines": {
     "node": ">=22.12"

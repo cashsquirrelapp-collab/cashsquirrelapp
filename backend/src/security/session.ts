@@ -1,13 +1,25 @@
-import type { Session, User } from '@supabase/supabase-js';
+import { isAuthRetryableFetchError, type Session, type User } from '@supabase/supabase-js';
 import { readCookie, writeCookie } from './cookies.js';
 import { createAuthClient, getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { z } from 'zod';
 import { systemRole } from '../repositories/roles.js';
+import { canViewAdminAnalytics } from './adminAnalyticsAccess.js';
 export type PrivateSession = Pick<Session, 'access_token' | 'refresh_token' | 'expires_at'> & { issued_at: number };
 const identitySchema = z.object({ sub: z.uuid(), session_id: z.uuid() });
-const SESSION_LIFETIME = 8 * 60 * 60 * 1000;
+// A sign-in lasts while it is used (owner, 2026-10-22: no new sign-in after every update). Each token
+// refresh, about hourly while the app is in use, starts the window again; 30 days without use signs
+// out. Before, it ended 8 hours after signing in however actively the app was used.
+export const SESSION_LIFETIME = 30 * 24 * 60 * 60 * 1000;
+/** Whether a stored session is still within its window (deviceAccounts keeps several). */
+export function sessionAlive(session: Pick<PrivateSession, 'issued_at'> | null | undefined): boolean {
+  return Boolean(session) && Number.isFinite(session!.issued_at) && session!.issued_at <= Date.now() && session!.issued_at + SESSION_LIFETIME > Date.now();
+}
+/** Seconds a stored session's cookie may live. */
+export function sessionMaxAge(session: Pick<PrivateSession, 'issued_at'>): number {
+  return Math.max(0, Math.floor((session.issued_at + SESSION_LIFETIME - Date.now()) / 1000));
+}
 // Only call with a provider-verified token or a token read from an authenticated,
 // encrypted server cookie. Decoding a caller-supplied JWT does not authenticate it.
 export function sealedSessionIdentity(token: string) {
@@ -24,7 +36,8 @@ export async function publicUser(user: User) {
     if (pause.error) throw pause.error;
     accountDeleteAfter = pause.data?.delete_after || null;
   }
-  return { id: user.id, email: user.email, role: await systemRole(user.id), accountPaused, accountDeleteAfter,
+  const role = await systemRole(user.id);
+  return { id: user.id, email: user.email, role, canViewAdminAnalytics: canViewAdminAnalytics(user, role), accountPaused, accountDeleteAfter,
     accountClosureKind: user.app_metadata?.account_closure_kind === 'deletion' ? 'deletion' : 'pause',
     created_at: user.created_at, user_metadata: { full_name: user.user_metadata?.full_name, avatar_url: user.user_metadata?.avatar_url } };
 }
@@ -44,6 +57,9 @@ export async function revokeSession(session: Pick<PrivateSession, 'access_token'
   const signedOut = await admin.auth.admin.signOut(session.access_token, 'local');
   if (signedOut.error) console.error('Provider signout failed after session revocation', { type: signedOut.error.name });
 }
+// Supabase Auth did not answer (a timeout or its own 5xx): the session may be perfectly valid, so the
+// person is not signed out; the request fails as temporarily unavailable and the browser tries again.
+const authUnavailable = () => new HttpError(503, 'ระบบตอบช้าชั่วคราว กรุณาลองใหม่อีกครั้ง');
 export async function requireUser(req: VercelRequest, res: VercelResponse, checkAccount = true, allowPaused = false): Promise<User> {
   let session = readCookie<PrivateSession>(req);
   if (!session?.access_token || !session.refresh_token) throw new HttpError(401, 'กรุณาเข้าสู่ระบบ');
@@ -68,13 +84,16 @@ export async function requireUser(req: VercelRequest, res: VercelResponse, check
   }
   if (needsRefresh) {
     const refreshed = await auth.auth.refreshSession({ refresh_token: session.refresh_token });
+    if (isAuthRetryableFetchError(refreshed.error)) throw authUnavailable();
     if (refreshed.error || !refreshed.data.session) { writeCookie(res, null); throw new HttpError(401, 'Session expired'); }
     const identity = sealedSessionIdentity(refreshed.data.session.access_token);
     if (identity.sub !== original.sub || identity.session_id !== original.session_id) throw new HttpError(401, 'Session invalid');
-    const issuedAt = session.issued_at;
+    // In use: the window starts again from now (revocation was checked above and is checked again below).
+    const issuedAt = Date.now();
     session = { ...refreshed.data.session, issued_at: issuedAt }; storeSession(res, refreshed.data.session, issuedAt);
   }
   const { data, error } = initialUser || await auth.auth.getUser(session.access_token);
+  if (isAuthRetryableFetchError(error)) throw authUnavailable();
   if (error || !data.user) { writeCookie(res, null); throw new HttpError(401, 'Session expired'); }
   if (data.user.id !== original.sub) throw new HttpError(401, 'Session invalid');
   if (checkAccount && req.headers['x-account-id'] && req.headers['x-account-id'] !== data.user.id) throw new HttpError(401, 'บัญชีผู้ใช้เปลี่ยนแล้ว กรุณาโหลดหน้าใหม่');

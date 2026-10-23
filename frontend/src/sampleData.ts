@@ -1,5 +1,6 @@
 import { Job, Goal, Expense, AppSettings } from '../../shared/types';
 
+import { tr } from './i18n/tr';
 export const defaultSettings: AppSettings = {
   monthlyExpense: 12000,
   monthlyRevenueGoal: 35000,
@@ -31,9 +32,9 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
   const jobs: Job[] = [
     {
       id: 'demo-job-1',
-      name: 'ถ่ายรีวิวสินค้า - ครีมกันแดด',
+      name: tr("ถ่ายรีวิวสินค้า - ครีมกันแดด"),
       type: 'Sponsored Post',
-      client: 'บริษัท เนเจอร์กลาส จำกัด',
+      client: tr("บริษัท เนเจอร์กลาส จำกัด"),
       value: 15000,
       received: 15000,
       pending: 0,
@@ -45,13 +46,13 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
       payDate: toISODate(addDays(today, -7)),
       dueDate: toISODate(addDays(today, -7)),
       paymentStatus: 'paid',
-      note: 'จ่ายผ่านโอนธนาคารครบแล้ว ลูกค้าประจำ',
+      note: tr("จ่ายผ่านโอนธนาคารครบแล้ว ลูกค้าประจำ"),
     },
     {
       id: 'demo-job-2',
-      name: 'ผลิตคลิปโฆษณาวิดีโอสั้น',
+      name: tr("ผลิตคลิปโฆษณาวิดีโอสั้น"),
       type: 'Video Production',
-      client: 'ร้านกาแฟ Brew Days',
+      client: tr("ร้านกาแฟ Brew Days"),
       value: 8000,
       received: 4000,
       pending: 4000,
@@ -65,13 +66,13 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
       paymentStatus: 'partial',
       depositDate: toISODate(addDays(today, -5)),
       depositAmount: 4000,
-      note: 'มัดจำมาแล้วครึ่งหนึ่ง ที่เหลือรอตัดจบ',
+      note: tr("มัดจำมาแล้วครึ่งหนึ่ง ที่เหลือรอตัดจบ"),
     },
     {
       id: 'demo-job-3',
-      name: 'ที่ปรึกษาการตลาดออนไลน์',
+      name: tr("ที่ปรึกษาการตลาดออนไลน์"),
       type: 'Consulting / Advisory',
-      client: 'ห้างหุ้นส่วน ผ้าไหมไทยแลนด์',
+      client: tr("ห้างหุ้นส่วน ผ้าไหมไทยแลนด์"),
       value: 12000,
       received: 0,
       pending: 12000,
@@ -83,13 +84,13 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
       payDate: toISODate(addDays(today, -2)),
       dueDate: toISODate(addDays(today, -2)),
       paymentStatus: 'unpaid',
-      note: 'เลยกำหนดชำระแล้ว รอติดตามทวงถาม',
+      note: tr("เลยกำหนดชำระแล้ว รอติดตามทวงถาม"),
     },
     {
       id: 'demo-job-4',
-      name: 'ถ่ายภาพสินค้าสำหรับลง e-commerce',
+      name: tr("ถ่ายภาพสินค้าสำหรับลง e-commerce"),
       type: 'Sponsored Post',
-      client: 'ร้าน Cozy Home Decor',
+      client: tr("ร้าน Cozy Home Decor"),
       value: 6000,
       received: 0,
       pending: 6000,
@@ -100,14 +101,14 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
       payDate: null,
       dueDate: null,
       paymentStatus: 'unpaid',
-      note: 'อยู่ระหว่างเตรียมงาน ยังไม่ส่งมอบ',
+      note: tr("อยู่ระหว่างเตรียมงาน ยังไม่ส่งมอบ"),
     },
   ];
 
   const goals: Goal[] = [
     {
       id: 'demo-goal-1',
-      name: 'กองทุนฉุกเฉิน',
+      name: tr("กองทุนฉุกเฉิน"),
       type: 'emergency',
       target: 50000,
       current: 12000,
@@ -119,7 +120,7 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
     },
     {
       id: 'demo-goal-2',
-      name: 'อัปเกรดกล้องทำงาน',
+      name: tr("อัปเกรดกล้องทำงาน"),
       type: 'buy',
       target: 30000,
       current: 8000,
@@ -134,15 +135,15 @@ export function buildSampleData(): { jobs: Job[]; goals: Goal[]; expenses: Expen
   const expenses: Expense[] = [
     {
       id: 'demo-expense-1',
-      name: 'ค่าเช่าซอฟต์แวร์ตัดต่อวิดีโอ',
+      name: tr("ค่าเช่าซอฟต์แวร์ตัดต่อวิดีโอ"),
       category: 'ค่าอุปกรณ์/ซอฟต์แวร์',
       amount: 1500,
       date: toISODate(addDays(today, -6)),
-      note: 'โปรแกรมตัดต่อวิดีโอ รายเดือน',
+      note: tr("โปรแกรมตัดต่อวิดีโอ รายเดือน"),
     },
     {
       id: 'demo-expense-2',
-      name: 'ค่าเดินทางไปถ่ายงานลูกค้า',
+      name: tr("ค่าเดินทางไปถ่ายงานลูกค้า"),
       category: 'ค่าเดินทาง/น้ำมัน',
       amount: 350,
       date: toISODate(addDays(today, -3)),
