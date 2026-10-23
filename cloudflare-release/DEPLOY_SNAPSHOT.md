@@ -1426,3 +1426,30 @@ Built on top of 75b625e.
 - Full e2e on the final code: 219 passed, 37 failed. 33 of those are the live baseline; the other 4 were assistant-chat still expecting a "coming soon" mic, now updated (assistant-chat and assistant-live: 29/29).
 
 **Approved** by the owner in chat ("ดีพอบ"), 2026-10-24.
+
+
+## body-parser 2.4.0 (pkg45 could not deploy) - 2026-10-24
+
+Built on top of 2a2aac3.
+
+**Why.** The owner ran `npm run cloudflare:deploy` for pkg45. Its audit gate stopped the deploy on a new high advisory:
+- **Advisory:** body-parser 2.0.0–2.3.0, GHSA-27r3-jxmh-p828 (denial of service via trailing bytes after a compressed body).
+- **Timing:** it was published after pkg45 had passed the same audit.
+- **Effect:** nothing was deployed; the live Worker stayed on 75b625e.
+
+**Change.** `npm update body-parser` changed one file, package-lock.json:
+- body-parser 2.3.0 → 2.4.0, through express 5.2.1.
+- qs 6.16.0 → 6.16.1, which body-parser 2.4.0 needs.
+- No other file and no other package changed.
+
+**Package**
+- Archive SHA256 `875568280cd6c31667b7b5e853be948c6c1623c9abb9d4192c9840f06d6864f0`; manifest SHA256 `ccf366d66bd9bdf6ba38a9f31a1192776911335bf7ce796de437510a2d711317`.
+- 753 files, 1 changed.
+- The entry stays `assets/index-BokDseeu.js`.
+
+**Checked**
+- On the extracted package with a clean `npm ci`: cloudflare:check (17/17, audit 0 vulnerabilities), the build and preflight.
+- Unit tests 493/498 (the 5 known failures).
+- e2e assistant-live, app and billing: the only failures are in the baseline.
+
+**Approved.** This is part of the pkg45 deploy the owner approved ("ดีพอบ") and asked to fix ("มันขึ้น error ดูให้หน่อย"), 2026-10-24.

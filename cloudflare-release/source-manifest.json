@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "source_label": "pkg45 เลขากระรอก AI (admins only), voice and files, 3-day trial",
+  "source_label": "pkg45b body-parser 2.4.0 (GHSA-27r3-jxmh-p828)",
   "archive": "source.tar.gz",
-  "archive_sha256": "39beb0ec580a33aa42d2cf6662613f2ba5c2633793aa32bd3c83fe2e599a3df9",
+  "archive_sha256": "875568280cd6c31667b7b5e853be948c6c1623c9abb9d4192c9840f06d6864f0",
   "file_count": 753,
   "total_source_bytes": 21227092,
   "files": [
@@ -2969,7 +2969,7 @@
     {
       "path": "package-lock.json",
       "size": 176316,
-      "sha256": "6a28ec8881fd1ffc4de29a19e04bf738fe7d47f263ca4a50eac20fa0f3a00345"
+      "sha256": "65a711a39fee9ca21c1abeb1d027e81305df6a85171528e0e0c0c6ad079751b3"
     },
     {
       "path": "package.json",
