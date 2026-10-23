@@ -1224,3 +1224,53 @@ Built on top of ad55025.
 - The chat spec passes 15/15.
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-23.
+
+
+## เลขากระรอก: chat history menu, delete with undo, and a try mode without Pro - 2026-10-23
+
+Built on top of 56e2927.
+
+**Why.** The owner asked for three things:
+- Chat history that can be deleted, so it does not fill up and slow down.
+- The row menu ChatGPT has ("ทำแบบนี้").
+- For accounts without Pro: let them try the chat with its preset questions, and ask them to get Pro when they type their own.
+
+**History**
+- Each row has a ⋯ menu. Computers show a pin button and the ⋯ on hover; phones and touch screens always show the ⋯. The menu has:
+  - เปลี่ยนชื่อ: inline. Enter saves, Escape cancels.
+  - ปักหมุด / เลิกปักหมุด: pinned chats move under แชตที่ปักหมุด, after the notifications thread.
+  - แชร์: marked "เร็ว ๆ นี้", because sharing needs a backend.
+  - เก็บถาวร: the chat moves into a folded "เก็บถาวร · n" section and can be taken out again.
+  - ลบ: in red.
+- The chat's own ⋯ menu also has ลบประวัติแชตทั้งหมด. The pinned notifications thread is never deleted.
+- After a delete, "ลบแชตแล้ว · เลิกทำ" stays for 6 seconds. Only after that does the chat go for good.
+- `AssistantTransport` gains the optional `remove(ids)` and `update(id, {title, pinned, archived})` for the real backend later. Today the history lives in the browser only.
+
+**Try mode without Pro**
+- Shown to accounts without Pro or the trial, and in the "trial ended" and "Pro required" previews.
+- The suggested questions, quick replies and LINE card buttons answer with labelled sample answers.
+- A typed question is not sent. A card appears instead: "พิมพ์ถามเองได้เมื่อเป็นสมาชิก Pro". It offers the sample questions, ดูแพ็กเกจ Pro and ไว้ทีหลัง, and the typed text stays in the box.
+- A small notice says "โหมดทดลอง · กดคำถามตัวอย่างได้ พิมพ์ถามเองต้องใช้ Pro". The token counter is hidden, because tokens do not apply.
+
+**Also**
+- The conversation now keeps following new messages while the message area grows. Only the reader scrolling up stops it, and the area is measured in the same frame.
+- The overlap checker treats the open history drawer as a layer, like the phone's เมนู screen.
+
+**Unchanged:** backend, API permissions, payments, Stripe, Wrangler config, Secrets, crons and stored data.
+
+**Tests**
+- `tests/e2e/assistant-chat.spec.ts` (18 tests). New tests:
+  - history: delete one chat, delete all, undo;
+  - rename, pin and archive from the row menu;
+  - the try mode on computer and phone.
+
+**Package**
+- Archive SHA256 `acb248ae2106cdaa465d4b76ba1cf3c9f28373d055ff6ee3b379b2069c9513cd`; manifest SHA256 `18bb83268bbed7f16aebf0422a205ba1d5f2b887acf18099c89eeb2c9ce77815`.
+- 726 files, 7 changed.
+- New entry `assets/index-DOJZpp3h.js`.
+
+**Checked**
+- On the extracted package with a clean `npm ci`: cloudflare:check (17/17, including the audit, 0 vulnerabilities), the build and preflight.
+- The chat spec passes 18/18. Full e2e: 202 passed; 35 failed = the 34 of the live baseline plus "marking work as done previews the expected payment date…", which then passed 5 runs in a row on its own (a timing flake; nothing in this package touches jobs).
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-23.

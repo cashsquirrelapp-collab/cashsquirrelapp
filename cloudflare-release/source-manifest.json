@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg41 the เลขากระรอก chat opened to every member",
+  "source_label": "pkg42 chat history menu with delete and undo, and a Pro try mode in เลขากระรอก",
   "archive": "source.tar.gz",
-  "archive_sha256": "ab0f01c5665c02199f8f88b5572a65ba77faa07f85a97d528c1282942460a18f",
+  "archive_sha256": "acb248ae2106cdaa465d4b76ba1cf3c9f28373d055ff6ee3b379b2069c9513cd",
   "file_count": 726,
-  "total_source_bytes": 20902357,
+  "total_source_bytes": 20934304,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1833,8 +1833,8 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
-      "size": 47461,
-      "sha256": "5bf957812b3e353466a2c879d18edd208b3459b44de24a7abb0383381f3ee063"
+      "size": 61180,
+      "sha256": "b05114b7cb9a346aea40a33f31070d76c40eb3a49a071a29ec64f3e41ba594fa"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
@@ -1858,18 +1858,18 @@
     },
     {
       "path": "frontend/src/features/assistant/assistant.css",
-      "size": 43086,
-      "sha256": "df14979f7a230cdb724a1cddeee7769f2a3f7b1549e7786ef47b5eab761ef1c0"
+      "size": 47575,
+      "sha256": "528f671580140146059f283a751480ed01e821b0e23fb04ed35037ab5233c541"
     },
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
-      "size": 3789,
-      "sha256": "ba6e02675cf4b050c3e2e7ff9476f3f8efa19b207380933af88681c3b76d8923"
+      "size": 4421,
+      "sha256": "3538de00116c5cbf8f44dffdd0656353c8d303ad80c024d88606639d1d5dd024"
     },
     {
       "path": "frontend/src/features/assistant/assistantMock.ts",
-      "size": 12570,
-      "sha256": "3f336bdd5596bf0da7924d9bf3e076c60e6d08939748cdd116fc3b6b09c9e695"
+      "size": 12608,
+      "sha256": "fd16e4acd37a3c14a93ccc32baec5640c0446580c6aadb1fb4f29fd5502ca83c"
     },
     {
       "path": "frontend/src/features/assistant/lineMock.ts",
@@ -2593,8 +2593,8 @@
     },
     {
       "path": "frontend/src/i18n/en/assistant.ts",
-      "size": 18709,
-      "sha256": "ca2e543fdf4a350ec7a86043e7b4e07287690ae3325d4ff5bb1d03ab3e3fe028"
+      "size": 20647,
+      "sha256": "cb6483d729ea36cbf06051211e8a40bdd42e8846308538c12ed3379f0aa9ab09"
     },
     {
       "path": "frontend/src/i18n/en/auth.ts",
@@ -3303,8 +3303,8 @@
     },
     {
       "path": "tests/e2e/assistant-chat.spec.ts",
-      "size": 35527,
-      "sha256": "2c681911347e95b4523a9bed889193524f8c260a48ed6455334ddb2c7da9f9ae"
+      "size": 46595,
+      "sha256": "09bef42f9fc6446bb2f4b2bdc5465fa671c4d9bfd37aa226f683eb5180dc60ce"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
@@ -3383,8 +3383,8 @@
     },
     {
       "path": "tests/e2e/textOverlap.ts",
-      "size": 5328,
-      "sha256": "1ed4c524be9b29bb192bd68bc886a49cb50749915d1111746b9cb67f08971db8"
+      "size": 5391,
+      "sha256": "57e3027ab610e2f421d0b72faf92c53f3fed18c02f0806b7b487abfc2d9c271b"
     },
     {
       "path": "tests/e2e/vault-wht-navigation.spec.ts",
