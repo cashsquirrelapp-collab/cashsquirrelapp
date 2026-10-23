@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { Job } from '../../../../shared/types';
 import { DEFAULT_JOB_TYPES } from '../../utils';
 
+import { tr } from '../../i18n/tr';
 const UNSPECIFIED = 'ยังไม่ระบุ';
 
 interface JobTypeManagerProps {
@@ -59,7 +60,7 @@ export default function JobTypeManager({ open, onClose, jobTypes, setJobTypes, j
     if (hiddenMatch) {
       setJobTypes(prev => [...prev, hiddenMatch]);
     } else if (taken(name)) {
-      setError(`มีประเภท "${name}" อยู่แล้ว`);
+      setError(tr("มีประเภท \"{0}\" อยู่แล้ว", name));
       return;
     } else {
       setJobTypes(prev => [...prev, name]);
@@ -71,8 +72,8 @@ export default function JobTypeManager({ open, onClose, jobTypes, setJobTypes, j
   const saveRename = () => {
     if (!editing) return;
     const to = editing.to.trim();
-    if (!to) { setError('กรุณาใส่ชื่อประเภทงาน'); return; }
-    if (to !== editing.from && taken(to, editing.from)) { setError(`มีประเภท "${to}" อยู่แล้ว`); return; }
+    if (!to) { setError(tr("กรุณาใส่ชื่อประเภทงาน")); return; }
+    if (to !== editing.from && taken(to, editing.from)) { setError(tr("มีประเภท \"{0}\" อยู่แล้ว", to)); return; }
     if (to !== editing.from) {
       setJobTypes(prev => prev.map(type => type === editing.from ? to : type));
       if (usage.get(editing.from)) onRename(editing.from, to);
@@ -100,10 +101,10 @@ export default function JobTypeManager({ open, onClose, jobTypes, setJobTypes, j
       >
         <div className="flex items-start justify-between gap-3 border-b border-brand-border px-5 py-4">
           <div>
-            <h3 id="job-type-manager-title" className="text-base font-semibold text-brand-text">จัดการประเภทงาน</h3>
-            <p className="mt-0.5 text-xs text-brand-muted">ประเภทที่มีงานใช้อยู่ลบไม่ได้ แต่ซ่อนจากรายการได้ งานเดิมยังแสดงชื่อเดิม</p>
+            <h3 id="job-type-manager-title" className="text-base font-semibold text-brand-text">{tr("จัดการประเภทงาน")}</h3>
+            <p className="mt-0.5 text-xs text-brand-muted">{tr("ประเภทที่มีงานใช้อยู่ลบไม่ได้ แต่ซ่อนจากรายการได้ งานเดิมยังแสดงชื่อเดิม")}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="ปิด" className="rounded-lg p-1.5 text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer">
+          <button type="button" onClick={onClose} aria-label={tr("ปิด")} className="rounded-lg p-1.5 text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -116,8 +117,8 @@ export default function JobTypeManager({ open, onClose, jobTypes, setJobTypes, j
                 value={newName}
                 onChange={(e) => { setNewName(e.target.value); setError(''); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
-                placeholder="เพิ่มประเภทงานใหม่"
-                aria-label="ชื่อประเภทงานใหม่"
+                placeholder={tr("เพิ่มประเภทงานใหม่")}
+                aria-label={tr("ชื่อประเภทงานใหม่")}
                 className={inputClass}
               />
               <button
@@ -126,16 +127,15 @@ export default function JobTypeManager({ open, onClose, jobTypes, setJobTypes, j
                 disabled={!newName.trim()}
                 className="h-10 shrink-0 rounded-[10px] bg-[#E65F2B] px-4 text-[13px] font-semibold text-white hover:bg-[#D85723] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
               >
-                เพิ่ม
-              </button>
+                {tr("เพิ่ม")}</button>
             </div>
             {error && <p role="alert" className="mt-1.5 text-xs text-[#C43A3A] dark:text-rose-300">{error}</p>}
           </div>
 
           <section>
-            <h4 className="mb-2 text-xs font-medium text-brand-muted">ประเภทที่สร้างเอง</h4>
+            <h4 className="mb-2 text-xs font-medium text-brand-muted">{tr("ประเภทที่สร้างเอง")}</h4>
             {active.length === 0 ? (
-              <p className="rounded-[10px] bg-brand-faint px-3 py-2.5 text-[13px] text-brand-muted">ยังไม่มีประเภทที่สร้างเอง</p>
+              <p className="rounded-[10px] bg-brand-faint px-3 py-2.5 text-[13px] text-brand-muted">{tr("ยังไม่มีประเภทที่สร้างเอง")}</p>
             ) : (
               <ul className="divide-y divide-brand-border rounded-[10px] border border-brand-border">
                 {active.map(type => {
@@ -151,23 +151,23 @@ export default function JobTypeManager({ open, onClose, jobTypes, setJobTypes, j
                             value={editing.to}
                             onChange={(e) => { setEditing({ from: type, to: e.target.value }); setError(''); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveRename(); } }}
-                            aria-label={`ชื่อใหม่ของประเภท ${type}`}
+                            aria-label={tr("ชื่อใหม่ของประเภท {0}", type)}
                             className={inputClass}
                           />
-                          <button type="button" onClick={saveRename} className={`${rowButton} font-medium text-[#C24A16] hover:bg-[#FFF1E8] dark:text-orange-300`}>บันทึก</button>
-                          <button type="button" onClick={() => { setEditing(null); setError(''); }} className={`${rowButton} text-brand-muted hover:bg-brand-faint`}>ยกเลิก</button>
+                          <button type="button" onClick={saveRename} className={`${rowButton} font-medium text-[#C24A16] hover:bg-[#FFF1E8] dark:text-orange-300`}>{tr("บันทึก")}</button>
+                          <button type="button" onClick={() => { setEditing(null); setError(''); }} className={`${rowButton} text-brand-muted hover:bg-brand-faint`}>{tr("ยกเลิก")}</button>
                         </>
                       ) : (
                         <>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] text-brand-text">{type}</p>
-                            <p className="text-[11px] text-brand-muted">{count > 0 ? `ใช้ใน ${count} งาน` : 'ยังไม่มีงานใช้'}</p>
+                            <p className="truncate text-[13px] text-brand-text">{tr(type)}</p>
+                            <p className="text-[11px] text-brand-muted">{count > 0 ? tr("ใช้ใน {0} งาน", count) : tr("ยังไม่มีงานใช้")}</p>
                           </div>
-                          <button type="button" onClick={() => { setEditing({ from: type, to: type }); setError(''); }} className={`${rowButton} text-brand-text hover:bg-brand-faint`}>แก้ชื่อ</button>
+                          <button type="button" onClick={() => { setEditing({ from: type, to: type }); setError(''); }} className={`${rowButton} text-brand-text hover:bg-brand-faint`}>{tr("แก้ชื่อ")}</button>
                           {count > 0 ? (
-                            <button type="button" onClick={() => remove(type)} className={`${rowButton} text-brand-muted hover:bg-brand-faint hover:text-brand-text`}>ซ่อน</button>
+                            <button type="button" onClick={() => remove(type)} className={`${rowButton} text-brand-muted hover:bg-brand-faint hover:text-brand-text`}>{tr("ซ่อน")}</button>
                           ) : (
-                            <button type="button" onClick={() => remove(type)} className={`${rowButton} text-[#C43A3A] hover:bg-[#FFF0F0] dark:text-rose-300 dark:hover:bg-rose-950/40`}>ลบ</button>
+                            <button type="button" onClick={() => remove(type)} className={`${rowButton} text-[#C43A3A] hover:bg-[#FFF0F0] dark:text-rose-300 dark:hover:bg-rose-950/40`}>{tr("ลบ")}</button>
                           )}
                         </>
                       )}
@@ -180,15 +180,15 @@ export default function JobTypeManager({ open, onClose, jobTypes, setJobTypes, j
 
           {hidden.length > 0 && (
             <section>
-              <h4 className="mb-2 text-xs font-medium text-brand-muted">ซ่อนอยู่ · ไม่แสดงตอนเลือกประเภทงาน</h4>
+              <h4 className="mb-2 text-xs font-medium text-brand-muted">{tr("ซ่อนอยู่ · ไม่แสดงตอนเลือกประเภทงาน")}</h4>
               <ul className="divide-y divide-brand-border rounded-[10px] border border-brand-border">
                 {hidden.map(type => (
                   <li key={type} className="flex items-center gap-2 px-3 py-2">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] text-brand-muted">{type}</p>
-                      <p className="text-[11px] text-brand-muted">ใช้ใน {usage.get(type)} งาน</p>
+                      <p className="truncate text-[13px] text-brand-muted">{tr(type)}</p>
+                      <p className="text-[11px] text-brand-muted">{tr("ใช้ใน")}{' '}{usage.get(type)}{' '}{tr("งาน")}</p>
                     </div>
-                    <button type="button" onClick={() => restore(type)} className={`${rowButton} text-brand-text hover:bg-brand-faint`}>แสดงอีกครั้ง</button>
+                    <button type="button" onClick={() => restore(type)} className={`${rowButton} text-brand-text hover:bg-brand-faint`}>{tr("แสดงอีกครั้ง")}</button>
                   </li>
                 ))}
               </ul>
@@ -196,8 +196,7 @@ export default function JobTypeManager({ open, onClose, jobTypes, setJobTypes, j
           )}
 
           <p className="text-[11px] leading-relaxed text-brand-muted">
-            ประเภทเริ่มต้น (แก้ไขไม่ได้): {DEFAULT_JOB_TYPES.join(', ')}
-          </p>
+            {tr("ประเภทเริ่มต้น (แก้ไขไม่ได้): {0}", DEFAULT_JOB_TYPES.join(', '))}</p>
         </div>
       </div>
     </div>,

@@ -21,7 +21,7 @@ export async function sendAccountPauseReminder(email: string, deleteAfter: Date,
     <!doctype html>
     <html lang="th"><body style="margin:0;padding:30px 12px;background:#f8f1e7;font-family:Arial,'Noto Sans Thai',sans-serif;color:#382519">
       <div style="max-width:560px;margin:auto;background:#fff;border:1px solid #e8d8c7;border-radius:18px;overflow:hidden">
-        <div style="padding:20px 28px;background:#3a2418;color:#fff;font-size:18px;font-weight:700">🐿️ กระรอกตุนเงิน</div>
+        <div style="padding:20px 28px;background:#3a2418;color:#fff;font-size:18px;font-weight:700"><img src="${appOrigin()}/brand/logo01-v1/symbol-white.png" alt="" width="32" height="32" style="vertical-align:middle;margin-right:8px;border:0" />กระรอกตุนเงิน</div>
         <div style="padding:30px 28px">
           <p style="margin:0;color:#b45b2b;font-weight:700">แจ้งเตือนการพักบัญชี</p>
           <h1 style="font-size:23px;line-height:1.4;margin:10px 0">เหลือ ${daysLeft} วันก่อนลบบัญชีถาวร</h1>

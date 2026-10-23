@@ -14,7 +14,9 @@ export type MascotMood =
   | 'received-money'
   | 'checking'
   | 'waiting'
-  | 'error';
+  | 'error'
+  /** Being petted: the happy colours with the closed "^ ^" eyes celebrate already uses. */
+  | 'blissful';
 
 export type MascotAction =
   | 'idle'
@@ -27,7 +29,9 @@ export type MascotAction =
   | 'celebrate'
   | 'sleep'
   /** Both paws tapping a little keyboard, a document filling in beside it (loading documents). */
-  | 'typing';
+  | 'typing'
+  /** The hold-baht arm raising a round red sign with a white cross (confirming a deletion). */
+  | 'hold-cross';
 
 export type MascotProp = 'none' | 'coin' | 'calendar' | 'document' | 'phone' | 'clipboard' | 'chart' | 'warning';
 
@@ -361,7 +365,7 @@ export function Mascot({
           </>
         )}
 
-        {mood === 'celebrate' && (
+        {(mood === 'celebrate' || mood === 'blissful') && (
           <>
             {/* Excited "^" "^" eyes */}
             <path
@@ -481,7 +485,7 @@ export function Mascot({
         <polygon points="48,51 52,51 50,53.5" fill={colors.eyes} />
 
         {/* Mouth based on mood */}
-        {(mood === 'happy' || mood === 'wave' || mood === 'proud' || mood === 'relieved' || mood === 'received-money') && (
+        {(mood === 'happy' || mood === 'wave' || mood === 'proud' || mood === 'relieved' || mood === 'received-money' || mood === 'blissful') && (
           <path
             d="M47 55C48 57 52 57 53 55"
             stroke={colors.eyes}
@@ -592,6 +596,14 @@ export function Mascot({
               strokeLinecap="round"
               strokeLinejoin="round"
             />
+            <circle cx="70" cy="44" r="4" fill={colors.body} />
+          </>
+        ) : action === 'hold-cross' ? (
+          <>
+            {/* The same raised arm as hold-baht, holding up a round "no" sign: red with a white cross. */}
+            <path d="M64 60C68 55 70 50 70 46" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
+            <circle cx="75.5" cy="40" r="8.5" fill="#E95454" stroke="#B83434" strokeWidth="1.2" />
+            <path d="M72.4 36.9l6.2 6.2M78.6 36.9l-6.2 6.2" stroke="#FFFFFF" strokeWidth="2.1" strokeLinecap="round" />
             <circle cx="70" cy="44" r="4" fill={colors.body} />
           </>
         ) : isHoldAction ? (

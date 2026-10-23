@@ -3,8 +3,9 @@ import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { DocumentType, Invoice, InvoiceItem } from '../../../../shared/types';
 import { findThaiBank, thaiBankLogo } from './thaiBanks';
-import { calculateDocumentTotals, formatDocDate, formatMoney, thaiBahtText } from './documentMath';
+import { amountInWords, calculateDocumentTotals, formatDocDate, formatMoney, thaiBahtText } from './documentMath';
 
+import { tr, T } from '../../i18n/tr';
 export { calculateDocumentTotals, formatDocDate, formatMoney, thaiBahtText };
 
 // One A4 base template for every accounting document (quotation, invoice, receipt, tax invoice,
@@ -33,29 +34,29 @@ interface DocumentMeta {
 
 export const DOCUMENT_META: Record<DocumentType, DocumentMeta> = {
   quotation: {
-    th: 'ใบเสนอราคา', en: 'QUOTATION', dateLabel: 'วันที่เสนอราคา', dueLabel: 'ยืนราคาถึงวันที่',
+    th: T("ใบเสนอราคา"), en: 'QUOTATION', dateLabel: T("วันที่เสนอราคา"), dueLabel: T("ยืนราคาถึงวันที่"),
     isReceipt: false, isQuotation: true, isTax: false, prefix: 'QT',
-    signatures: ['ผู้เสนอราคา', 'ผู้อนุมัติเอกสาร', 'ผู้สั่งซื้อ', 'ตราประทับ']
+    signatures: [T("ผู้เสนอราคา"), T("ผู้อนุมัติเอกสาร"), T("ผู้สั่งซื้อ"), T("ตราประทับ")]
   },
   invoice: {
-    th: 'ใบแจ้งหนี้', en: 'INVOICE', dateLabel: 'วันที่ออกเอกสาร', dueLabel: 'ครบกำหนดชำระ',
+    th: T("ใบแจ้งหนี้"), en: 'INVOICE', dateLabel: T("วันที่ออกเอกสาร"), dueLabel: T("ครบกำหนดชำระ"),
     isReceipt: false, isQuotation: false, isTax: false, prefix: 'INV',
-    signatures: ['ผู้ออกเอกสาร', 'ผู้อนุมัติเอกสาร', 'ผู้รับเอกสาร', 'ตราประทับ']
+    signatures: [T("ผู้ออกเอกสาร"), T("ผู้อนุมัติเอกสาร"), T("ผู้รับเอกสาร"), T("ตราประทับ")]
   },
   receipt: {
-    th: 'ใบเสร็จรับเงิน', en: 'RECEIPT', dateLabel: 'วันที่ออกเอกสาร', dueLabel: 'วันที่รับเงิน',
+    th: T("ใบเสร็จรับเงิน"), en: 'RECEIPT', dateLabel: T("วันที่ออกเอกสาร"), dueLabel: T("วันที่รับเงิน"),
     isReceipt: true, isQuotation: false, isTax: false, prefix: 'REC',
-    signatures: ['ผู้รับเงิน', 'ผู้อนุมัติเอกสาร', 'ผู้จ่ายเงิน', 'ตราประทับ']
+    signatures: [T("ผู้รับเงิน"), T("ผู้อนุมัติเอกสาร"), T("ผู้จ่ายเงิน"), T("ตราประทับ")]
   },
   taxInvoice: {
-    th: 'ใบกำกับภาษี', en: 'TAX INVOICE', dateLabel: 'วันที่ออกเอกสาร', dueLabel: 'ครบกำหนดชำระ',
+    th: T("ใบกำกับภาษี"), en: 'TAX INVOICE', dateLabel: T("วันที่ออกเอกสาร"), dueLabel: T("ครบกำหนดชำระ"),
     isReceipt: false, isQuotation: false, isTax: true, prefix: 'TAX',
-    signatures: ['ผู้ออกใบกำกับภาษี', 'ผู้อนุมัติเอกสาร', 'ผู้รับเอกสาร', 'ตราประทับ']
+    signatures: [T("ผู้ออกใบกำกับภาษี"), T("ผู้อนุมัติเอกสาร"), T("ผู้รับเอกสาร"), T("ตราประทับ")]
   },
   receiptTaxInvoice: {
-    th: 'ใบเสร็จรับเงิน/ใบกำกับภาษี', en: 'RECEIPT / TAX INVOICE', dateLabel: 'วันที่ออกเอกสาร', dueLabel: 'วันที่รับเงิน',
+    th: T("ใบเสร็จรับเงิน/ใบกำกับภาษี"), en: 'RECEIPT / TAX INVOICE', dateLabel: T("วันที่ออกเอกสาร"), dueLabel: T("วันที่รับเงิน"),
     isReceipt: true, isQuotation: false, isTax: true, prefix: 'RTX',
-    signatures: ['ผู้รับเงิน', 'ผู้อนุมัติเอกสาร', 'ผู้จ่ายเงิน', 'ตราประทับ']
+    signatures: [T("ผู้รับเงิน"), T("ผู้อนุมัติเอกสาร"), T("ผู้จ่ายเงิน"), T("ตราประทับ")]
   }
 };
 
@@ -212,6 +213,7 @@ export const DOCUMENT_CSS = `
 .da4-sig .area.box{border:1px dashed #8C857D;border-radius:0;height:62px}
 .da4-sig .under{margin-top:4px;min-height:14px;font-size:9.5px}
 .da4-pageno{text-align:center;font-size:9px;margin-top:6px}
+.da4-watermark{position:absolute;left:10mm;right:10mm;bottom:14px;text-align:center;font-size:8.5px;line-height:1.2;color:#9C9289;letter-spacing:.01em}
 .da4-sheet{display:flex;flex-direction:column;gap:16px}
 .da4-sheet .da4-page{box-shadow:0 6px 24px rgba(28,25,23,.16);border-radius:2px}
 .da4-print-root .da4-page{box-shadow:none;border-radius:0}
@@ -250,13 +252,19 @@ const Ico: React.FC<{ name: IconName }> = ({ name }) => (
   <svg className="da4-ico" viewBox="0 0 24 24" aria-hidden="true">{ICON_PATHS[name]}</svg>
 );
 
+/** Small credit line at the foot of every page of a Free account's documents. */
+// Just the romanised brand and the .com domain the owner is buying (2026-10-15).
+export const FREE_DOCUMENT_WATERMARK = 'Kraroktunngern.com';
+
 interface DocumentA4Props {
   invoice: Invoice;
   // Print window: no on-screen shadow/gap
   print?: boolean;
+  /** Free plan: the credit line sits in the page's bottom margin, so pagination does not change. */
+  watermark?: boolean;
 }
 
-export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
+export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print, watermark }) => {
   const meta = getDocumentMeta(invoice.documentType);
   const totals = calculateDocumentTotals(invoice.items, invoice.vatRate, invoice.whtRate);
   const pages = paginateItems(invoice);
@@ -289,7 +297,7 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                     {issuer.logoUrl ? <img className="da4-logo" style={{ maxHeight: logoHeightOf(issuer) }} src={issuer.logoUrl} alt="" /> : null}
                   </div>
                   <div className="da4-titlebox">
-                    {meta.isTax ? <div className="orig">ORIGINAL (ต้นฉบับ)</div> : null}
+                    {meta.isTax ? <div className="orig">{tr("ORIGINAL (ต้นฉบับ)")}</div> : null}
                     {/* English title for a professional look; the Thai name stays underneath (a tax invoice must carry it). */}
                     <h1>{meta.en}</h1>
                     <div className="th">{meta.th}</div>
@@ -300,9 +308,9 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                   <div>
                     <div className="da4-party">
                       <dl className="da4-kv" style={{ margin: 0 }}>
-                        <span className="k">ผู้ขาย :</span><span className="v name">{issuer.name || '-'}</span>
-                        <span className="k">ที่อยู่ :</span><span className="v">{issuer.address || '-'}</span>
-                        <span className="k">เลขที่ภาษี :</span><span className="v">{issuer.taxId || '-'}</span>
+                        <span className="k">{tr("ผู้ขาย :")}</span><span className="v name">{issuer.name || '-'}</span>
+                        <span className="k">{tr("ที่อยู่ :")}</span><span className="v">{issuer.address || '-'}</span>
+                        <span className="k">{tr("เลขที่ภาษี :")}</span><span className="v">{issuer.taxId || '-'}</span>
                       </dl>
                       <div className="da4-contact">
                         <div><Ico name="phone" /><span>{issuer.phone || '-'}</span></div>
@@ -312,10 +320,10 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                     </div>
                     <div className="da4-party">
                       <dl className="da4-kv" style={{ margin: 0 }}>
-                        <span className="k">ลูกค้า :</span><span className="v name">{clientTitle}</span>
-                        <span className="k">ที่อยู่ :</span><span className="v">{client.address || '-'}</span>
-                        <span className="k">เลขที่ภาษี :</span><span className="v">{client.taxId || '-'}</span>
-                        <span className="k">เรียน :</span><span className="v">{client.contactName || '-'}</span>
+                        <span className="k">{tr("ลูกค้า :")}</span><span className="v name">{clientTitle}</span>
+                        <span className="k">{tr("ที่อยู่ :")}</span><span className="v">{client.address || '-'}</span>
+                        <span className="k">{tr("เลขที่ภาษี :")}</span><span className="v">{client.taxId || '-'}</span>
+                        <span className="k">{tr("เรียน :")}</span><span className="v">{client.contactName || '-'}</span>
                       </dl>
                       <div className="da4-contact">
                         <div><Ico name="phone" /><span>{client.phone || '-'}</span></div>
@@ -325,20 +333,20 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                   </div>
                   <div>
                     <div className="da4-meta">
-                      <div><span className="k">เลขที่เอกสาร :</span><span>{invoice.documentNo || '-'}</span></div>
-                      <div><span className="k">วันที่ออก :</span><span>{formatDocDate(invoice.createdDate) || '-'}</span></div>
-                      {!meta.isReceipt && invoice.dueDate ? <div><span className="k">{meta.dueLabel} :</span><span>{formatDocDate(invoice.dueDate)}</span></div> : null}
-                      {meta.isQuotation && invoice.responseDate ? <div><span className="k">วันที่ตอบรับ :</span><span>{formatDocDate(invoice.responseDate)}</span></div> : null}
-                      <div><span className="k">อ้างอิง :</span><span>{invoice.refNo || ''}</span></div>
+                      <div><span className="k">{tr("เลขที่เอกสาร :")}</span><span>{invoice.documentNo || '-'}</span></div>
+                      <div><span className="k">{tr("วันที่ออก :")}</span><span>{formatDocDate(invoice.createdDate) || '-'}</span></div>
+                      {!meta.isReceipt && invoice.dueDate ? <div><span className="k">{tr(meta.dueLabel)} :</span><span>{formatDocDate(invoice.dueDate)}</span></div> : null}
+                      {meta.isQuotation && invoice.responseDate ? <div><span className="k">{tr("วันที่ตอบรับ :")}</span><span>{formatDocDate(invoice.responseDate)}</span></div> : null}
+                      <div><span className="k">{tr("อ้างอิง :")}</span><span>{invoice.refNo || ''}</span></div>
                     </div>
-                    <div className="da4-callback">ติดต่อกลับที่ :</div>
+                    <div className="da4-callback">{tr("ติดต่อกลับที่ :")}</div>
                   </div>
                 </div>
               </>
             ) : (
               <div className="da4-cont">
-                <strong>{meta.th}</strong>
-                <span>เลขที่ {invoice.documentNo || '-'} · {client.name}</span>
+                <strong>{tr(meta.th)}</strong>
+                <span>{tr("เลขที่ {0} · {1}", invoice.documentNo || '-', client.name)}</span>
               </div>
             )}
 
@@ -354,12 +362,12 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>คำอธิบาย</th>
-                    <th>จำนวน</th>
-                    <th>ราคา</th>
-                    <th>ส่วนลด</th>
+                    <th>{tr("คำอธิบาย")}</th>
+                    <th>{tr("จำนวน")}</th>
+                    <th>{tr("ราคา")}</th>
+                    <th>{tr("ส่วนลด")}</th>
                     <th>VAT</th>
-                    <th>มูลค่าก่อนภาษี</th>
+                    <th>{tr("มูลค่าก่อนภาษี")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -385,34 +393,34 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
             {isLastPage(pageIndex) ? (
               <div className="da4-foot">
                 <div className="da4-sec">
-                  <div className="lab"><Ico name="clipboard" />สรุป</div>
+                  <div className="lab"><Ico name="clipboard" />{tr("สรุป")}</div>
                   <div className="da4-sum">
                     <div className="da4-sumrows">
-                      <span className="l">{invoice.vatRate > 0 ? `มูลค่าที่คำนวณภาษี ${invoice.vatRate}%` : 'มูลค่าก่อนภาษี'}</span>
-                      <span className="r">{formatMoney(totals.subtotal)} บาท</span>
+                      <span className="l">{invoice.vatRate > 0 ? tr("มูลค่าที่คำนวณภาษี {0}%", invoice.vatRate) : tr("มูลค่าก่อนภาษี")}</span>
+                      <span className="r">{tr("{0} บาท", formatMoney(totals.subtotal))}</span>
                       {invoice.vatRate > 0 ? (
                         <>
-                          <span className="l">ภาษีมูลค่าเพิ่ม {invoice.vatRate}%</span>
-                          <span className="r">{formatMoney(totals.vatAmount)} บาท</span>
+                          <span className="l">{tr("ภาษีมูลค่าเพิ่ม {0}%", invoice.vatRate)}</span>
+                          <span className="r">{tr("{0} บาท", formatMoney(totals.vatAmount))}</span>
                         </>
                       ) : null}
-                      <span className="l">{withheld ? 'ยอดชำระสุทธิ' : 'จำนวนเงินทั้งสิ้น'}</span>
-                      <span className="r txt">{thaiBahtText(withheld ? totals.payable : totals.total)}</span>
+                      <span className="l">{withheld ? tr("ยอดชำระสุทธิ") : tr("จำนวนเงินทั้งสิ้น")}</span>
+                      <span className="r txt">{amountInWords(withheld ? totals.payable : totals.total)}</span>
                     </div>
                     <div>
                       {/* With withholding tax the client transfers the net amount, so that is the
                           figure that stands out; the full amount and the deduction sit above it. */}
                       {withheld ? (
                         <div className="da4-minirows da4-pre">
-                          <span className="l">จำนวนเงินทั้งสิ้น</span>
-                          <span className="r">{formatMoney(totals.total)} บาท</span>
-                          <span className="l">หัก ณ ที่จ่าย {invoice.whtRate}%</span>
-                          <span className="r">−{formatMoney(totals.whtAmount)} บาท</span>
+                          <span className="l">{tr("จำนวนเงินทั้งสิ้น")}</span>
+                          <span className="r">{tr("{0} บาท", formatMoney(totals.total))}</span>
+                          <span className="l">{tr("หัก ณ ที่จ่าย {0}%", invoice.whtRate)}</span>
+                          <span className="r">{tr("−{0} บาท", formatMoney(totals.whtAmount))}</span>
                         </div>
                       ) : null}
                       <div className="da4-totalbox">
-                        <span>{withheld ? 'ยอดชำระสุทธิ' : 'จำนวนเงินทั้งสิ้น'}</span>
-                        <span className="amt">{formatMoney(withheld ? totals.payable : totals.total)} <small>บาท</small></span>
+                        <span>{withheld ? tr("ยอดชำระสุทธิ") : tr("จำนวนเงินทั้งสิ้น")}</span>
+                        <span className="amt">{formatMoney(withheld ? totals.payable : totals.total)} <small>{tr("บาท")}</small></span>
                       </div>
                     </div>
                   </div>
@@ -420,12 +428,12 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
 
                 {showPayment ? (
                   <div className="da4-sec">
-                    <div className="lab"><Ico name="banknote" />ชำระเงิน</div>
+                    <div className="lab"><Ico name="banknote" />{tr("ชำระเงิน")}</div>
                     <div className="da4-pay">
                       <div className="kv2">
                         {/* A quotation's date is how long the price holds (shown in the header), not a due date. */}
-                        {!meta.isQuotation && <><span className="k">กำหนดชำระ :</span><span>{formatDocDate(invoice.dueDate) || '-'}</span></>}
-                        <span className="k">จำนวนเงินรวม :</span><span>{formatMoney(totals.payable)} บาท</span>
+                        {!meta.isQuotation && <><span className="k">{tr("กำหนดชำระ :")}</span><span>{formatDocDate(invoice.dueDate) || '-'}</span></>}
+                        <span className="k">{tr("จำนวนเงินรวม :")}</span><span>{tr("{0} บาท", formatMoney(totals.payable))}</span>
                       </div>
                       <div>
                         {issuer.bankAccount ? (
@@ -439,9 +447,9 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
                               <div className="da4-bankline">
                                 <span>
                                   {!thaiBankLogo(findThaiBank(issuer.bankName)) && findThaiBank(issuer.bankName) ? <span className="da4-chip">{findThaiBank(issuer.bankName)!.code}</span> : null}
-                                  {issuer.bankName}
+                                  {tr(issuer.bankName)}
                                 </span>
-                                <span className="b">เลขที่บัญชี {issuer.bankAccount}</span>
+                                <span className="b">{tr("เลขที่บัญชี {0}", issuer.bankAccount)}</span>
                               </div>
                               <div className="da4-bankname">{issuer.bankAccountName || issuer.name}</div>
                             </div>
@@ -455,35 +463,35 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
 
                 {invoice.note?.trim() ? (
                   <div className="da4-sec">
-                    <div className="lab"><Ico name="message" />หมายเหตุ</div>
+                    <div className="lab"><Ico name="message" />{tr("หมายเหตุ")}</div>
                     <div className="da4-remark">{invoice.note}</div>
                   </div>
                 ) : null}
 
                 <div className="da4-sec">
-                  <div className="lab"><Ico name="pen" />รับรอง</div>
+                  <div className="lab"><Ico name="pen" />{tr("รับรอง")}</div>
                   <div className="da4-sig">
                     <div>
-                      <div className="role">{meta.signatures[0]} (ผู้ขาย)</div>
+                      <div className="role">{tr("{0} (ผู้ขาย)", tr(meta.signatures[0]))}</div>
                       <div className="area">{issuer.signatureUrl ? <img src={issuer.signatureUrl} alt="" /> : null}</div>
                       <div className="under">{formatDocDate(invoice.createdDate)}</div>
                     </div>
                     <div>
-                      <div className="role">{meta.signatures[1]} (ผู้ขาย)</div>
+                      <div className="role">{tr("{0} (ผู้ขาย)", tr(meta.signatures[1]))}</div>
                       <div className="area" />
                       <div className="under">{formatDocDate(invoice.createdDate)}</div>
                     </div>
                     <div>
-                      <div className="role">ตราประทับ (ผู้ขาย)</div>
+                      <div className="role">{tr("ตราประทับ (ผู้ขาย)")}</div>
                       <div className="area noline">{issuer.logoUrl ? <img src={issuer.logoUrl} alt="" /> : null}</div>
                     </div>
                     <div>
-                      <div className="role">{meta.signatures[2]} (ลูกค้า)</div>
+                      <div className="role">{tr("{0} (ลูกค้า)", tr(meta.signatures[2]))}</div>
                       <div className="area" />
                       <div className="under b">{client.name}</div>
                     </div>
                     <div>
-                      <div className="role">ตราประทับ (ลูกค้า)</div>
+                      <div className="role">{tr("ตราประทับ (ลูกค้า)")}</div>
                       <div className="area box" />
                     </div>
                   </div>
@@ -491,7 +499,8 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
               </div>
             ) : null}
 
-            <div className="da4-pageno">หน้า {pageIndex + 1} / {totalPages}</div>
+            <div className="da4-pageno">{tr("หน้า {0} / {1}", pageIndex + 1, totalPages)}</div>
+            {watermark ? <div className="da4-watermark" data-testid="document-watermark">{FREE_DOCUMENT_WATERMARK}</div> : null}
           </section>
         ))}
       </div>
@@ -506,7 +515,7 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print }) => {
 // `crop` shows only the top N px of the first page (used for the live header preview);
 // `maxScale` caps how large the paper is drawn; `scale` draws it at exactly that size instead of
 // fitting the width (the document workspace's zoom / fit-page controls set it).
-export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxScale?: number; scale?: number }> = ({ invoice, crop, maxScale = 1, scale: fixedScale }) => {
+export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxScale?: number; scale?: number; watermark?: boolean }> = ({ invoice, crop, maxScale = 1, scale: fixedScale, watermark }) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const [fitScale, setScale] = useState(1);
   const scale = fixedScale ?? fitScale;
@@ -540,7 +549,7 @@ export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxSca
       <style>{DOCUMENT_CSS}</style>
       <div style={{ height: sheetHeight, width: A4_WIDTH_PX * scale, margin: '0 auto', overflow: 'hidden' }}>
         <div style={{ width: A4_WIDTH_PX, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          <DocumentA4 invoice={invoice} />
+          <DocumentA4 invoice={invoice} watermark={watermark} />
         </div>
       </div>
     </div>
@@ -554,13 +563,13 @@ export const DocumentPreview: React.FC<{ invoice: Invoice; crop?: number; maxSca
 const printShell = (invoice: Invoice): string => {
   const meta = getDocumentMeta(invoice.documentType);
   // The print window's title is what "Save as PDF" suggests as the file name, e.g. QT-2569-002.pdf
-  const title = (invoice.documentNo || meta.th).replace(/[<>&"'\/\\:*?|]/g, '');
+  const title = (invoice.documentNo || tr(meta.th)).replace(/[<>&"'\/\\:*?|]/g, '');
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>` +
     `<link href="${DOCUMENT_FONT_URL}" rel="stylesheet"><style>${PRINT_PAGE_CSS}${DOCUMENT_CSS}</style></head><body><div id="root"></div></body></html>`;
 };
 
 // Returns false when the browser blocked the popup
-export const printDocument = (invoice: Invoice): boolean => {
+export const printDocument = (invoice: Invoice, watermark = false): boolean => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return false;
   printWindow.document.write(printShell(invoice));
@@ -568,7 +577,7 @@ export const printDocument = (invoice: Invoice): boolean => {
   // React renders the same <DocumentA4/> straight into the print window (it escapes every text
   // node, so user-entered names/notes stay inert there too).
   const root = createRoot(printWindow.document.getElementById('root')!);
-  flushSync(() => root.render(<DocumentA4 invoice={invoice} print />));
+  flushSync(() => root.render(<DocumentA4 invoice={invoice} print watermark={watermark} />));
   const printNow = () => printWindow.setTimeout(() => printWindow.print(), 150);
   void printWindow.document.fonts.ready.then(printNow);
   return true;

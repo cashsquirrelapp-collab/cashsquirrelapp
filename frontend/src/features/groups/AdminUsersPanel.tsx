@@ -154,13 +154,13 @@ export default function AdminUsersPanel({
       if (mounted.current) setBusy(false);
     }
   };
-  const setProAccess = async (target: string, enabled: boolean) => {
+  const setProAccess = async (target: string, operation: 'grant' | 'revoke' | 'ban' | 'unban') => {
     if (!mounted.current || writing.current || getCurrentAccount() !== userId) return;
     writing.current = true;
     setBusy(true);
     setError('');
     try {
-      await groupApi.setProAccess(userId, target, enabled);
+      await groupApi.setProAccess(userId, target, operation);
       if (!mounted.current || getCurrentAccount() !== userId) return;
       setRevision(value => value + 1);
       await onRoleChanged();
@@ -221,8 +221,8 @@ export default function AdminUsersPanel({
           </h2>
           <p className="text-xs text-brand-muted mt-1">
             {copy(
-              'ค้นหาบัญชี จัดการ Pro และถอดสิทธิ์ Admin ที่มีอยู่ได้',
-              'Search accounts, manage Pro access, and remove existing admin access.',
+              'ปลด Pro: สมัครใหม่ได้ · แบน Pro: ต้องให้แอดมินปลดแบนก่อนสมัครใหม่',
+              'Revoke Pro allows repurchase. A Pro ban blocks purchases until an admin lifts it.',
             )}
           </p>
         </div>
@@ -386,35 +386,49 @@ export default function AdminUsersPanel({
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${user.proStatus === 'admin' || user.proStatus === 'paid' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : user.proStatus === 'trial' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : user.proStatus === 'revoked' ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-brand-faint text-brand-muted'}`}>
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${user.proStatus === 'admin' || user.proStatus === 'paid' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : user.proStatus === 'trial' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : user.proStatus === 'banned' ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-brand-faint text-brand-muted'}`}>
                 {user.proStatus === 'admin'
                   ? copy('Pro · แอดมินให้', 'Pro · Admin grant')
                   : user.proStatus === 'paid'
                     ? copy('Pro · ชำระแล้ว', 'Pro · Paid')
                     : user.proStatus === 'trial'
                       ? copy('Pro · ทดลองใช้', 'Pro · Trial')
+                      : user.proStatus === 'banned'
+                        ? copy('แบน Pro', 'Pro banned')
                       : user.proStatus === 'revoked'
-                        ? copy('ปิด Pro โดยแอดมิน', 'Pro disabled by admin')
+                        ? copy('ปลด Pro · สมัครใหม่ได้', 'Pro revoked · Can subscribe')
                         : copy('Free', 'Free')}
               </span>
-              <button
+              {user.proStatus !== 'banned' && <button
                 type="button"
-                className={user.proStatus === 'admin' || user.proStatus === 'paid' || user.proStatus === 'trial' ? secondary : primary}
+                className={['admin', 'paid', 'trial'].includes(user.proStatus || '') ? secondary : primary}
                 disabled={busy}
                 onClick={() => {
                   const enable = !['admin', 'paid', 'trial'].includes(user.proStatus || 'none');
                   triggerConfirm(
-                    enable ? copy('ให้สิทธิ์ Pro', 'Grant Pro access') : copy('ยกเลิก Pro', 'Cancel Pro access'),
+                    enable ? copy('ให้สิทธิ์ Pro', 'Grant Pro access') : copy('ปลด Pro', 'Revoke Pro'),
                     enable
-                      ? copy(`ให้ ${user.displayName} ใช้ Pro ได้จนกว่าแอดมินจะยกเลิก`, `Grant Pro to ${user.displayName} until an admin cancels it.`)
-                      : copy(`ยกเลิกสิทธิ์ Pro ของ ${user.displayName} ทันที`, `Revoke Pro access for ${user.displayName} immediately.`),
-                    () => { void setProAccess(user.userId, enable); },
+                      ? copy(`ให้ ${user.displayName} ใช้ Pro ได้จนกว่าแอดมินจะปลดสิทธิ์`, `Grant Pro to ${user.displayName} until an admin revokes it.`)
+                      : copy(`ปลดสิทธิ์ Pro ปัจจุบันของ ${user.displayName} ทันที ผู้ใช้สมัครและชำระแพ็กเกจใหม่ได้ การปลดสิทธิ์ไม่คืนเงิน`, `Remove current Pro access for ${user.displayName}. They can purchase a new package. This does not refund a payment.`),
+                    () => { void setProAccess(user.userId, enable ? 'grant' : 'revoke'); },
                   );
                 }}
               >
                 {['admin', 'paid', 'trial'].includes(user.proStatus || 'none')
-                  ? copy('ยกเลิก Pro', 'Cancel Pro')
-                  : copy('ให้ Pro', 'Grant Pro')}
+                  ? copy('ปลด Pro', 'Revoke Pro') : copy('ให้ Pro', 'Grant Pro')}
+              </button>}
+              <button type="button" className={secondary} disabled={busy}
+                onClick={() => {
+                  const banned = user.proStatus === 'banned';
+                  triggerConfirm(
+                    banned ? copy('ปลดแบน Pro', 'Unban Pro') : copy('แบน Pro', 'Ban Pro'),
+                    banned
+                      ? copy(`ให้ ${user.displayName} สมัคร Pro ได้อีกครั้ง โดยไม่คืนสิทธิ์ Pro เดิมให้อัตโนมัติ`, `Allow ${user.displayName} to subscribe again without restoring previous Pro access.`)
+                      : copy(`ปิด Pro ของ ${user.displayName} และห้ามสมัครใหม่จนกว่าแอดมินจะปลดแบน ยังเข้าสู่บัญชีได้ การแบนไม่คืนเงิน`, `Remove Pro for ${user.displayName} and block new purchases until an admin lifts the ban. Account sign-in remains available. This does not refund payments.`),
+                    () => { void setProAccess(user.userId, banned ? 'unban' : 'ban'); },
+                  );
+                }}>
+                {user.proStatus === 'banned' ? copy('ปลดแบน Pro', 'Unban Pro') : copy('แบน Pro', 'Ban Pro')}
               </button>
               {user.role === 'admin' && (
                 <button

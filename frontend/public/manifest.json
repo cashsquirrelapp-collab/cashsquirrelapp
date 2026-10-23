@@ -1,6 +1,6 @@
 {
-  "name": "กระรอกตุนเงิน - ระบบวางแผนรายรับฟรีแลนซ์",
-  "short_name": "กระรอกตุนเงิน",
+  "name": "Krarok Tunngern",
+  "short_name": "Krarok",
   "description": "ระบบติดตามเครดิตเทอม บันทึกรับเงิน และวางแผนการเงินสำหรับฟรีแลนซ์มืออาชีพ",
   "start_url": "/?pwa=true",
   "display": "standalone",
@@ -8,22 +8,28 @@
   "theme_color": "#E65F2B",
   "icons": [
     {
-      "src": "/icons/app-icon-v2.svg",
+      "src": "/brand/home-v2/home-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/icons/app-icon-192-v2.png",
+      "src": "/brand/home-v2/home-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icons/app-icon-512-v2.png",
+      "src": "/brand/home-v2/home-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/home-v2/home-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "orientation": "portrait-primary",

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://cash-squirrel.vercel.app/sitemap.xml
+Sitemap: https://kraroktunngern.cashsquirrelapp.workers.dev/sitemap.xml

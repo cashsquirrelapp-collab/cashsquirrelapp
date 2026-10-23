@@ -22,3 +22,12 @@ export const jobWhtAmount = (job: WhtJob): number =>
 /** What the client actually transfers: job value minus withholding tax. */
 export const jobNetReceivable = (job: WhtJob): number =>
   Math.max(0, roundMoney((job.value || 0) - jobWhtAmount(job)));
+
+// e-Withholding Tax: paid through a bank's e-WHT service, the payer withholds 1% (the 5%, 3% and
+// 2% rates are cut to 1% from 1 Jan 2569 to 31 Dec 2570) and issues no 50 ทวิ; the bank sends the
+// evidence to the Revenue Department, where the payee can check it. The app treats every 1% job
+// as e-WHT and never waits for a paper certificate on it. A payer that does issue one (1% on
+// transport is withheld outside e-WHT) can still have it attached. Every other rate needs a 50 ทวิ.
+export const E_WHT_RATE = 1;
+
+export const isEWhtJob = (job: { whtRate?: number }): boolean => job.whtRate === E_WHT_RATE;

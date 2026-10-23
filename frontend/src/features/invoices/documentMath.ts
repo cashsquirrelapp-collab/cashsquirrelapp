@@ -1,4 +1,5 @@
 import type { InvoiceItem } from '../../../../shared/types';
+import { currentLanguage } from '../../i18n/currentLanguage';
 
 // Pure helpers for the accounting documents (kept free of React so they can be unit-tested).
 
@@ -59,6 +60,43 @@ export const thaiBahtText = (num: number): string => {
   } catch {
     return '';
   }
+};
+
+// The amount in words on the document, in the app language: Thai reading ("หนึ่งพันบาทถ้วน") or
+// English ("One Thousand Baht Only").
+export const amountInWords = (num: number): string => (currentLanguage === 'en' ? englishBahtText(num) : thaiBahtText(num));
+
+const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+const SCALES = ['', 'Thousand', 'Million', 'Billion', 'Trillion'];
+
+const belowThousand = (n: number): string => {
+  const out: string[] = [];
+  if (n >= 100) { out.push(ONES[Math.floor(n / 100)], 'Hundred'); n %= 100; }
+  if (n >= 20) out.push(TENS[Math.floor(n / 10)] + (n % 10 ? '-' + ONES[n % 10] : ''));
+  else if (n > 0) out.push(ONES[n]);
+  return out.join(' ');
+};
+
+const englishWords = (n: number): string => {
+  const parts: string[] = [];
+  for (let scale = 0; n > 0; scale++, n = Math.floor(n / 1000)) {
+    const chunk = n % 1000;
+    if (chunk) parts.unshift(belowThousand(chunk) + (SCALES[scale] ? ' ' + SCALES[scale] : ''));
+  }
+  return parts.join(' ');
+};
+
+export const englishBahtText = (num: number): string => {
+  if (!Number.isFinite(num)) return '';
+  const [integerPart, decimalPart] = Math.abs(num).toFixed(2).split('.');
+  const baht = Number(integerPart);
+  const satang = Number(decimalPart);
+  if (!baht && !satang) return 'Zero Baht Only';
+  const bahtText = baht ? `${englishWords(baht)} Baht` : '';
+  if (!satang) return `${bahtText} Only`;
+  return `${bahtText ? bahtText + ' and ' : ''}${englishWords(satang)} Satang`;
 };
 
 export interface DocumentTotals {

@@ -1,13 +1,16 @@
+import { isStaging } from '../security/staging.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { removeVaultFolder } from './vault.js';
 import { HttpError } from '../http/guard.js';
 import { REPORTS_BUCKET } from './reportStorage.js';
+import { beginStripeBillingClosure, ensureStripeBillingClosed } from './subscriptionClosure.js';
 
 export async function ensureAccountCanBeDeleted(userId: string) {
   const admin = getSupabaseAdmin();
   const [memberships, ownRole] = await Promise.all([
     admin.from('cashflow_group_members').select('group_id').eq('user_id', userId).eq('role', 'leader'),
     admin.from('cashflow_user_roles').select('role').eq('user_id', userId).maybeSingle(),
+    ensureStripeBillingClosed(userId),
   ]);
   if (memberships.error) throw memberships.error;
   if (ownRole.error) throw ownRole.error;
@@ -51,8 +54,14 @@ async function removeStoredReports(userId: string) {
 }
 
 export async function deleteAccountPermanently(userId: string) {
+  if (isStaging()) throw new HttpError(403, 'Account deletion is disabled in staging');
   const admin = getSupabaseAdmin();
   await ensureAccountCanBeDeleted(userId);
+  // Refresh the short billing-closure claim immediately before destructive
+  // storage/auth mutations. Paused accounts already reject new Checkout, but
+  // the shared advisory lock also protects this final transition from a stale
+  // reservation or concurrent webhook update.
+  await beginStripeBillingClosure(userId);
   await removeStoredReports(userId);
   await removeVaultFolder('user', userId);
   const deleted = await admin.auth.admin.deleteUser(userId);

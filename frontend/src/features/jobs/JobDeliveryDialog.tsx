@@ -5,6 +5,7 @@ import { CalendarCheck, X } from 'lucide-react';
 import type { Job } from '../../../../shared/types';
 import { calculatePayDate, safeFormatThaiDate } from '../../utils';
 
+import { tr } from '../../i18n/tr';
 // "บันทึกว่างานเสร็จแล้ว": delivery date + Credit Term, with the expected payment date shown
 // before saving. The preview calls the same calculatePayDate the save uses (weekend and Thai
 // holiday skipping included), so what the user sees is what gets stored.
@@ -49,8 +50,8 @@ export function JobDeliveryDialog({ job, defaultDate, paidInFull, onClose, onSav
 
   // Older jobs may carry a term outside the presets; keep showing it instead of silently changing it.
   const terms = creditTerm != null && !CREDIT_TERM_PRESETS.includes(creditTerm) ? [...CREDIT_TERM_PRESETS, creditTerm].sort((a, b) => a - b) : CREDIT_TERM_PRESETS;
-  const dateError = !postDate ? 'กรุณาเลือกวันที่ส่งงาน / ให้บริการ' : !isValidDate(postDate) ? 'วันที่ไม่ถูกต้อง' : '';
-  const termError = !paidInFull && creditTerm == null ? 'กรุณาเลือก Credit Term' : '';
+  const dateError = !postDate ? tr("กรุณาเลือกวันที่ส่งงาน / ให้บริการ") : !isValidDate(postDate) ? tr("วันที่ไม่ถูกต้อง") : '';
+  const termError = !paidInFull && creditTerm == null ? tr("กรุณาเลือก Credit Term") : '';
   const expected = !dateError && creditTerm != null ? calculatePayDate(postDate, creditTerm, creditTerm > 0 && excludeHolidays) : null;
 
   const save = (event: React.FormEvent) => {
@@ -79,20 +80,20 @@ export function JobDeliveryDialog({ job, defaultDate, paidInFull, onClose, onSav
           >
             <div className="flex items-start justify-between gap-4 px-5 pb-1 pt-5 sm:px-6 sm:pt-6">
               <div className="min-w-0">
-                <h3 id="job-delivery-title" className="text-[17px] font-semibold text-brand-text">บันทึกว่างานเสร็จแล้ว</h3>
+                <h3 id="job-delivery-title" className="text-[17px] font-semibold text-brand-text">{tr("บันทึกว่างานเสร็จแล้ว")}</h3>
                 <p className="mt-1 text-[13px] leading-relaxed text-brand-muted">
-                  {paidInFull ? 'กำหนดวันที่ส่งงาน งานนี้รับเงินครบแล้ว' : 'กำหนดวันที่ส่งงานและระยะเวลารับเงิน เพื่อคำนวณวันที่คาดว่าจะได้รับเงิน'}
+                  {paidInFull ? tr("กำหนดวันที่ส่งงาน งานนี้รับเงินครบแล้ว") : tr("กำหนดวันที่ส่งงานและระยะเวลารับเงิน เพื่อคำนวณวันที่คาดว่าจะได้รับเงิน")}
                 </p>
                 <p className="mt-1 truncate text-xs text-brand-muted">{job.name}{job.client ? ` · ${job.client}` : ''}</p>
               </div>
-              <button type="button" onClick={onClose} aria-label="ปิด" className="-mr-1.5 rounded-lg p-1.5 text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer">
+              <button type="button" onClick={onClose} aria-label={tr("ปิด")} className="-mr-1.5 rounded-lg p-1.5 text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
               <div>
-                <label htmlFor="job-delivery-date" className="mb-1.5 block text-[13px] font-medium text-brand-text">วันที่ส่งงาน / ให้บริการ</label>
+                <label htmlFor="job-delivery-date" className="mb-1.5 block text-[13px] font-medium text-brand-text">{tr("วันที่ส่งงาน / ให้บริการ")}</label>
                 <input
                   id="job-delivery-date" type="date" value={postDate}
                   onChange={(e) => { setPostDate(e.target.value); setTouched(true); }}
@@ -104,15 +105,15 @@ export function JobDeliveryDialog({ job, defaultDate, paidInFull, onClose, onSav
               </div>
 
               {paidInFull ? (
-                <p className="rounded-xl bg-[#E9F7F0] px-4 py-3 text-[13px] text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]">งานนี้รับเงินครบแล้ว บันทึกแล้วจะย้ายไปปิดงานทันที</p>
+                <p className="rounded-xl bg-[#E9F7F0] px-4 py-3 text-[13px] text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]">{tr("งานนี้รับเงินครบแล้ว บันทึกแล้วจะย้ายไปปิดงานทันที")}</p>
               ) : (<>
                 <div>
                   <p className="text-[13px] font-medium text-brand-text">Credit Term</p>
-                  <p className="mt-0.5 text-xs text-brand-muted">ลูกค้าจะชำระหลังส่งงานกี่วัน</p>
+                  <p className="mt-0.5 text-xs text-brand-muted">{tr("ลูกค้าจะชำระหลังส่งงานกี่วัน")}</p>
                   <div className={`mt-3 grid gap-2 grid-cols-3 ${terms.length > 5 ? 'sm:grid-cols-6' : 'sm:grid-cols-5'}`} role="radiogroup" aria-label="Credit Term">
                     {terms.map(days => (
                       <button key={days} type="button" role="radio" aria-checked={creditTerm === days} onClick={() => setCreditTerm(days)} className={chip(creditTerm === days)}>
-                        {days === 0 ? 'ทันที' : `${days} วัน`}
+                        {days === 0 ? tr("ทันที") : tr("{0} วัน", days)}
                       </button>
                     ))}
                   </div>
@@ -120,15 +121,14 @@ export function JobDeliveryDialog({ job, defaultDate, paidInFull, onClose, onSav
                   {creditTerm != null && creditTerm > 0 && (
                     <label className="mt-3 flex cursor-pointer select-none items-center gap-2.5 text-[13px] text-brand-text">
                       <input type="checkbox" checked={excludeHolidays} onChange={(e) => setExcludeHolidays(e.target.checked)} className="h-4 w-4 cursor-pointer rounded accent-[#E65F2B]" />
-                      นับเฉพาะวันทำการ (ไม่นับเสาร์-อาทิตย์และวันหยุดราชการ)
-                    </label>
+                      {tr("นับเฉพาะวันทำการ (ไม่นับเสาร์-อาทิตย์และวันหยุดราชการ)")}</label>
                   )}
                 </div>
 
                 <div className="flex gap-3.5 rounded-2xl border border-[#F6D9C6] bg-[#FFF8F2] p-4 dark:border-[#E65F2B]/30 dark:bg-[#232428]" aria-live="polite">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFE9DA] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]"><CalendarCheck className="h-5 w-5" /></span>
                   <div className="min-w-0">
-                    <p className="text-xs text-brand-muted">คาดว่าจะได้รับเงิน</p>
+                    <p className="text-xs text-brand-muted">{tr("คาดว่าจะได้รับเงิน")}</p>
                     <AnimatePresence mode="wait" initial={false}>
                       <motion.p key={expected || 'none'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}
                         data-testid="expected-pay-date" className="mt-0.5 text-[22px] font-semibold leading-tight text-brand-text">
@@ -136,9 +136,9 @@ export function JobDeliveryDialog({ job, defaultDate, paidInFull, onClose, onSav
                       </motion.p>
                     </AnimatePresence>
                     <p className="mt-1 text-xs text-brand-muted">
-                      {creditTerm == null ? 'เลือก Credit Term เพื่อดูวันที่'
-                        : creditTerm === 0 ? 'ชำระทันที (วันเดียวกับวันที่ส่งงาน)'
-                        : `Credit Term ${creditTerm} ${excludeHolidays ? 'วันทำการ' : 'วัน'} (นับจากวันที่ส่งงาน)`}
+                      {creditTerm == null ? tr("เลือก Credit Term เพื่อดูวันที่")
+                        : creditTerm === 0 ? tr("ชำระทันที (วันเดียวกับวันที่ส่งงาน)")
+                        : tr("Credit Term {0} {1} (นับจากวันที่ส่งงาน)", creditTerm, excludeHolidays ? tr("วันทำการ") : tr("วัน"))}
                     </p>
                   </div>
                 </div>
@@ -146,11 +146,10 @@ export function JobDeliveryDialog({ job, defaultDate, paidInFull, onClose, onSav
             </div>
 
             <div className="flex gap-2 border-t border-brand-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-4">
-              <button type="button" onClick={onClose} className="h-11 flex-1 rounded-xl border border-brand-border text-sm font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">ยกเลิก</button>
+              <button type="button" onClick={onClose} className="h-11 flex-1 rounded-xl border border-brand-border text-sm font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">{tr("ยกเลิก")}</button>
               <button type="submit" disabled={Boolean(dateError || termError)}
                 className="h-11 flex-[1.6] rounded-xl bg-[#E65F2B] text-sm font-semibold text-white transition-colors hover:bg-[#D35221] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
-                บันทึกงานเสร็จแล้ว
-              </button>
+                {tr("บันทึกงานเสร็จแล้ว")}</button>
             </div>
           </motion.form>
         </motion.div>

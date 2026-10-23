@@ -73,7 +73,7 @@ export const getJobPaymentEntries = (job: Job): JobPaymentEntry[] => {
   }));
 };
 
-export const getJobPendingEntries = (job: Job): JobPendingEntry[] => {
+const pendingEntriesWithDate = (job: Job, fallback: string | null): JobPendingEntry[] => {
   if (job.installments?.length) {
     return job.installments
       .filter((row) => row.status !== 'paid' && row.amount > 0)
@@ -84,8 +84,8 @@ export const getJobPendingEntries = (job: Job): JobPendingEntry[] => {
         client: job.client || '',
         label: row.label,
         amount: row.amount,
-        date: row.dueDate || dueFallbackDate(job),
-        dueDate: row.dueDate || dueFallbackDate(job),
+        date: row.dueDate || fallback,
+        dueDate: row.dueDate || fallback,
         kind: 'installment' as const,
       }));
   }
@@ -96,11 +96,21 @@ export const getJobPendingEntries = (job: Job): JobPendingEntry[] => {
     client: job.client || '',
     label: 'ยอดค้างชำระ',
     amount: job.pending,
-    date: dueFallbackDate(job),
-    dueDate: dueFallbackDate(job),
+    date: fallback,
+    dueDate: fallback,
     kind: 'single',
   }] : [];
 };
+
+export const getJobPendingEntries = (job: Job): JobPendingEntry[] =>
+  pendingEntriesWithDate(job, dueFallbackDate(job));
+
+/** A scheduled balance belongs to its payment month even while work is in progress.
+ * Delivery is the fallback when no payment date exists; starting work alone sets no due date.
+ * Installment dates take precedence over the job-level schedule.
+ */
+export const getJobScheduledPendingEntries = (job: Job): JobPendingEntry[] =>
+  pendingEntriesWithDate(job, job.payDate || job.dueDate || job.postDate || null);
 
 /** Outstanding money is financial state, so it must not depend on a workflow/status label. */
 export const getOutstandingAmount = (job: Job): number =>

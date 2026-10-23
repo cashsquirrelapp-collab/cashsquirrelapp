@@ -1,5 +1,6 @@
 import { Job, FixedExpenseItem } from '../../shared/types';
 import { currentLanguage } from './i18n/currentLanguage.js';
+import { tr, trc } from './i18n/tr';
 import { getOutstandingAmount } from '../../shared/installmentPayments';
 
 // The built-in job type chips every account starts with. Anything a user adds via
@@ -129,8 +130,22 @@ export const currentMonthKeyNow = (): string => toLocalDateKey().slice(0, 7);
  * Appends the month to a label: "รายจ่ายเดือนนี้" for the current month, "รายจ่าย ส.ค. 2569"
  * for any other, so dashboard labels stay true while viewing a past or future month.
  */
+/**
+ * An installment or payment label for display. Default labels are saved in Thai ("งวดที่ 2",
+ * "รับมัดจำ") so data reads the same everywhere, LINE included; this shows them in the app language.
+ * Anything the user typed is shown as typed.
+ */
+export const installmentLabel = (label: string): string => {
+  const numbered = /^งวดที่\s*(\d+)$/.exec(label.trim());
+  // "รับเงิน" / "รับมัดจำ" name a payment here ("Payment", "Deposit"), not the buttons of the same words.
+  return numbered ? tr("งวดที่ {0}", numbered[1]) : trc("entry", label);
+};
+
+/** A Gregorian year as people read it: Buddhist Era in Thai (2569), Gregorian in English (2026). */
+export const displayYear = (year: number): number => (currentLanguage === 'en' ? year : year + 543);
+
 export const withMonth = (base: string, monthKey: string): string =>
-  monthKey === currentMonthKeyNow() ? `${base}เดือนนี้` : `${base} ${formatMonthKey(monthKey)}`;
+  monthKey === currentMonthKeyNow() ? tr("{0}เดือนนี้", tr(base)) : `${tr(base)} ${formatMonthKey(monthKey)}`;
 
 export const formatMonthKey = (key: string): string => {
   const [yearStr, monthStr] = key.split('-');
@@ -163,46 +178,73 @@ export const safeFormatThaiDate = (dateStr: string | undefined | null, options: 
   }
 };
 
+/**
+ * One CSV cell. Text that starts like a formula (=, +, -, @, tab) gets a leading ' so spreadsheet
+ * apps show it as text instead of running it: an imported job named "=HYPERLINK(...)" stays harmless
+ * when exported again. Plain numbers and a lone "-" are written as they are.
+ */
+export const csvCell = (value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '';
+  let text = String(value);
+  if (/^[=+\-@\t\r]/.test(text) && !/^-$|^-?\d[\d,]*(\.\d+)?$/.test(text)) text = `'${text}`;
+  text = text.replace(/"/g, '""');
+  return /[",\n\r]/.test(text) ? `"${text}"` : text;
+};
+
 // Download all jobs as a CSV file (UTF-8 BOM so Excel/Google Sheets read Thai text correctly).
 // Returns false if there was nothing to export.
 export const exportJobsToCSV = (jobs: Job[]): boolean => {
   if (!jobs || jobs.length === 0) return false;
+  const csvContent = jobsCsvText(jobs);
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
 
+  const dateStr = new Date().toISOString().split('T')[0];
+  link.setAttribute('href', url);
+  link.setAttribute('download', tr("โปรเจกต์รายรับ_กระรอกตุนเสบียง_{0}.csv", dateStr));
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  return true;
+};
+
+/** The jobs CSV as text: one row per job, or per installment for jobs paid in parts. */
+export const jobsCsvText = (jobs: Job[]): string => {
   const headers = [
-    'ชื่อโปรเจกต์',
-    'ประเภทงาน',
-    'ลูกค้า',
-    'มูลค่ารวม (บาท)',
-    'หัก ณ ที่จ่าย (%)',
-    'จำนวนภาษีหัก ณ ที่จ่าย (บาท)',
-    'ยอดได้รับแล้ว (บาท)',
-    'ยอดค้างชำระ (บาท)',
-    'สถานะโครงการ',
-    'เครดิตเทอม (วัน)',
-    'วันเริ่มงาน',
-    'วันดีล/วันเผยแพร่',
-    'กำหนดชำระเงิน',
-    'งวดชำระ',
-    'สถานะงวด',
-    'วันรับเงินจริง',
-    'หมายเหตุ'
+    tr("ชื่อโปรเจกต์"),
+    tr("ประเภทงาน"),
+    tr("ลูกค้า"),
+    tr("มูลค่ารวม (บาท)"),
+    tr("หัก ณ ที่จ่าย (%)"),
+    tr("จำนวนภาษีหัก ณ ที่จ่าย (บาท)"),
+    tr("ยอดได้รับแล้ว (บาท)"),
+    tr("ยอดค้างชำระ (บาท)"),
+    tr("สถานะโครงการ"),
+    tr("เครดิตเทอม (วัน)"),
+    tr("วันเริ่มงาน"),
+    tr("วันดีล/วันเผยแพร่"),
+    tr("กำหนดชำระเงิน"),
+    tr("งวดชำระ"),
+    tr("สถานะงวด"),
+    tr("วันรับเงินจริง"),
+    tr("หมายเหตุ")
   ];
 
-  const escapeCSV = (val: any) => {
-    if (val === null || val === undefined) return '';
-    const str = String(val).replace(/"/g, '""');
-    return str.includes(',') || str.includes('\n') || str.includes('"') ? `"${str}"` : str;
-  };
+  const escapeCSV = csvCell;
 
   const rows = jobs.flatMap(j => {
     let statusText = j.status;
-    if (j.status === 'done') statusText = 'จ่ายแล้ว';
-    else if (j.status === 'partial' || j.status === 'installment') statusText = j.status === 'installment' ? 'แบ่งชำระเป็นงวด' : 'มัดจำ/จ่ายบางส่วน';
-    else if (j.status === 'pending') statusText = 'ยังไม่จ่าย';
+    if (j.status === 'done') statusText = tr("จ่ายแล้ว");
+    else if (j.status === 'partial' || j.status === 'installment') statusText = j.status === 'installment' ? tr("แบ่งชำระเป็นงวด") : tr("มัดจำ/จ่ายบางส่วน");
+    else if (j.status === 'pending') statusText = tr("ยังไม่จ่าย");
 
     const base = (installmentLabel: string, installmentStatus: string, paidAt: string, received: number, pending: number, contractValue: number, whtAmount: number, dueDate: string) => [
       escapeCSV(j.name),
-      escapeCSV(j.type || 'ทั่วไป'),
+      escapeCSV(tr(j.type || 'ทั่วไป')),
       escapeCSV(j.client || '-'),
       contractValue,
       j.whtRate || 0,
@@ -219,29 +261,19 @@ export const exportJobsToCSV = (jobs: Job[]): boolean => {
       escapeCSV(paidAt || '-'),
       escapeCSV(j.note || '')
     ];
-    if (!j.installments?.length) return [base('', '', j.payDate || '', j.received || 0, j.pending || 0, j.value || 0, j.whtAmount || 0, j.payDate || '')];
+    // "วันรับเงินจริง" is when money actually came in: the pay date of a paid job, the deposit date of
+    // a part-paid one, nothing for an unpaid one (it used to repeat the due date, which read as paid).
+    const paidInFull = j.status === 'done' || j.paymentStatus === 'paid' || ((j.pending || 0) <= 0 && (j.received || 0) > 0);
+    const paidOn = paidInFull ? j.payDate || '' : (j.received || 0) > 0 ? j.depositDate || '' : '';
+    if (!j.installments?.length) return [base('', '', paidOn, j.received || 0, j.pending || 0, j.value || 0, j.whtAmount || 0, j.payDate || '')];
     const netTotal = Math.max(1, j.value - (j.whtAmount || 0));
     return j.installments.map((row, index) => {
       const allocatedWht = index === j.installments!.length - 1
         ? Math.max(0, (j.whtAmount || 0) - j.installments!.slice(0, -1).reduce((sum, item) => sum + Math.round((j.whtAmount || 0) * (item.amount / netTotal)), 0))
         : Math.round((j.whtAmount || 0) * (row.amount / netTotal));
-      return base(row.label, row.status === 'paid' ? 'รับแล้ว' : 'รอชำระ', row.paidAt || '', row.status === 'paid' ? row.amount : 0, row.status === 'paid' ? 0 : row.amount, index === 0 ? j.value : 0, allocatedWht, row.dueDate || '');
+      return base(installmentLabel(row.label), row.status === 'paid' ? tr("รับแล้ว") : tr("รอชำระ"), row.paidAt || '', row.status === 'paid' ? row.amount : 0, row.status === 'paid' ? 0 : row.amount, index === 0 ? j.value : 0, allocatedWht, row.dueDate || '');
     });
   });
 
-  const csvContent = '﻿' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-
-  const dateStr = new Date().toISOString().split('T')[0];
-  link.setAttribute('href', url);
-  link.setAttribute('download', `โปรเจกต์รายรับ_กระรอกตุนเสบียง_${dateStr}.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-
-  return true;
+  return '﻿' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
 };

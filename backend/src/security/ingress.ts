@@ -2,6 +2,7 @@ import { isIP } from 'node:net';
 import type { VercelRequest } from '../http/types.js';
 import { HttpError } from '../http/guard.js';
 import { rateLimit } from './rateLimit.js';
+import { cloudflareClientIp } from './requestContext.js';
 
 // A bounded first layer avoids body/provider/DB work during a local flood.
 // Durable counters below share limits across workers and serverless instances.
@@ -23,6 +24,8 @@ export class RequestLimiter {
   }
 }
 export function clientIp(req: VercelRequest): string {
+  const edgeIp = cloudflareClientIp();
+  if (edgeIp !== undefined) return edgeIp;
   // Trust only a header supplied/overwritten by the actual Vercel platform.
   // Standalone Express deliberately ignores all caller-supplied proxy headers.
   const supplied = process.env.VERCEL === '1' ? req.headers['x-vercel-forwarded-for'] : undefined;
@@ -36,13 +39,18 @@ const policies: Record<string, { group: string; limit: number }> = {
   'password-reset-email': { group: 'reset', limit: 10 },
   'password-reset-line': { group: 'reset', limit: 10 },
   'recover-account': { group: 'reset', limit: 10 },
+  'line-session': { group: 'line-session', limit: 20 },
   'liff-submit': { group: 'liff', limit: 20 },
   'download-report': { group: 'download', limit: 20 },
   'stripe-webhook': { group: 'stripe-webhook', limit: 300 },
+  billing: { group: 'billing', limit: 30 },
   'line-webhook': { group: 'line-webhook', limit: 300 }
 };
 export async function ingressLimit(req: VercelRequest, route: string): Promise<void> {
-  const policy = policies[route] || { group: 'api', limit: 240 };
+  // Payment status polling must not consume the budget for creating a payment.
+  const policy = route === 'billing' && ['GET','HEAD'].includes(req.method || '')
+    ? { group: 'billing-read', limit: 60 }
+    : policies[route] || { group: 'api', limit: 240 };
   const identity = clientIp(req);
   limiter.take('global', 3000, 60);
   limiter.take(`${policy.group}:${identity}`, policy.limit, 60);

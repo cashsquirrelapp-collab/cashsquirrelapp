@@ -17,7 +17,7 @@ const createRecoveryLinkSchema = z.object({ action: z.literal('create-recovery-l
 const setProAccessSchema = z.object({
   action: z.literal('set-pro-access'),
   userId: z.uuid(),
-  enabled: z.boolean(),
+  operation: z.enum(['grant', 'revoke', 'ban', 'unban']),
 }).strict();
 const dashboardDetailsQuerySchema = z.object({
   action: z.literal('dashboard-details'),
@@ -207,8 +207,9 @@ export default withGuard(
           const profile = profilesById.get(row.user_id);
           const subscription = section === 'pro' ? row : subscriptionsById.get(row.user_id);
           const lastSeenAt = presenceById.get(row.user_id) || null;
-          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'none' = 'none';
-          if (subscription?.plan === 'admin_revoked') proStatus = 'revoked';
+          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'banned' | 'none' = 'none';
+          if (subscription?.plan === 'admin_revoked') proStatus = 'banned';
+          else if (subscription?.plan === 'admin_removed') proStatus = 'revoked';
           else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
           else if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > Date.now()) proStatus = 'paid';
           else if (profile?.created_at && new Date(profile.created_at).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now()) proStatus = 'trial';
@@ -319,8 +320,9 @@ export default withGuard(
         users: (accounts.users || []).map(account => {
           const subscription = subscriptions.get(account.userId);
           const lastSeenAt = presenceById.get(account.userId) || null;
-          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'none' = 'none';
-          if (subscription?.plan === 'admin_revoked') proStatus = 'revoked';
+          let proStatus: 'admin' | 'paid' | 'trial' | 'revoked' | 'banned' | 'none' = 'none';
+          if (subscription?.plan === 'admin_revoked') proStatus = 'banned';
+          else if (subscription?.plan === 'admin_removed') proStatus = 'revoked';
           else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
           else if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) proStatus = 'paid';
           else if (new Date(account.createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > now) proStatus = 'trial';
@@ -343,26 +345,16 @@ export default withGuard(
     if (req.body?.action === 'set-pro-access') {
       const parsed = setProAccessSchema.safeParse(req.body);
       if (!parsed.success) throw new HttpError(400, 'ข้อมูลแพ็กเกจ Pro ไม่ถูกต้อง');
-      const { userId, enabled } = parsed.data;
-      const [target, existing] = await Promise.all([
-        db.auth.admin.getUserById(userId),
-        db.from('subscriptions')
-          .select('stripe_customer_id,stripe_subscription_id,current_period_end')
-          .eq('user_id', userId).maybeSingle(),
-      ]);
-      if (target.error) throw target.error;
-      if (!target.data.user) throw new HttpError(404, 'ไม่พบบัญชีผู้ใช้');
-      if (existing.error) throw existing.error;
-      const saved = await db.from('subscriptions').upsert({
-        user_id: userId,
-        status: enabled ? 'active' : 'canceled',
-        plan: enabled ? 'admin_grant' : 'admin_revoked',
-        current_period_end: existing.data?.current_period_end || null,
-        stripe_customer_id: existing.data?.stripe_customer_id || null,
-        stripe_subscription_id: existing.data?.stripe_subscription_id || null,
-        updated_at: new Date().toISOString(),
-      });
+      const { userId, operation } = parsed.data;
+      const saved = await db.rpc('cashflow_admin_pro_action', { p_actor: user.id, p_user_id: userId, p_operation: operation });
       if (saved.error) throw saved.error;
+      const messages: Record<string, string> = {
+        banned: 'บัญชีนี้ถูกแบน Pro กรุณาปลดแบนก่อนให้สิทธิ์หรือเปลี่ยนแพ็กเกจ',
+        checkout_pending: 'มีรายการชำระเงินค้างอยู่ ให้ผู้ใช้ยกเลิกรายการที่ยังไม่ชำระหรือรอการยืนยันก่อนเปลี่ยนสิทธิ์',
+        subscription_open: 'ยังมีการสมัครสมาชิกที่ตัดเงินต่อเนื่อง ให้ผู้ใช้ยกเลิกผ่าน Stripe และรอให้การสมัครสิ้นสุดก่อนเปลี่ยนสิทธิ์',
+        account_closing: 'บัญชีอยู่ระหว่างพักหรือปิด จึงยังเปลี่ยนสิทธิ์ Pro ไม่ได้',
+      };
+      if (!['ok','unchanged'].includes(saved.data?.result)) throw new HttpError(409, messages[saved.data?.result] || 'เปลี่ยนสิทธิ์ Pro ไม่สำเร็จ');
       res.json({ ok: true });
       return;
     }

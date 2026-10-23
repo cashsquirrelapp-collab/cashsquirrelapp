@@ -1,7 +1,8 @@
 import type { Job } from '../../../../shared/types';
 import { getJobPaymentEntries, getJobPendingEntries } from '../../../../shared/installmentPayments';
-import { formatCurrency } from '../../utils';
+import { installmentLabel, formatCurrency } from '../../utils';
 
+import { tr } from '../../i18n/tr';
 export type CalendarEventKind = 'post' | 'creditTerm' | 'dueSoon' | 'paid' | 'overdue';
 
 export interface CalendarDayEvent {
@@ -36,18 +37,18 @@ const addDays = (key: string, days: number): string => {
 
 const paymentLabel = (label: string, kind: 'installment' | 'single', who: string, amount: number) => {
   const action = label === 'รับมัดจำ'
-    ? 'รับมัดจำ'
+    ? tr("รับมัดจำ")
     : kind === 'installment' && label
-      ? `รับเงิน ${label}`
-      : 'รับเงิน';
+      ? tr("รับเงิน {0}", installmentLabel(label))
+      : tr("รับเงิน");
   return `${action} ${who} ${formatCurrency(amount)}`;
 };
 
 const dueLabel = (kind: Exclude<CalendarEventKind, 'post' | 'paid'>, jobName: string, part: string) => {
   const subject = part ? `${jobName} · ${part}` : jobName;
-  if (kind === 'overdue') return `เกินกำหนดชำระ ${subject}`;
-  if (kind === 'dueSoon') return `ใกล้ครบกำหนดชำระ ${subject}`;
-  return `ครบกำหนดชำระ ${subject}`;
+  if (kind === 'overdue') return tr("เกินกำหนดชำระ {0}", subject);
+  if (kind === 'dueSoon') return tr("ใกล้ครบกำหนดชำระ {0}", subject);
+  return tr("ครบกำหนดชำระ {0}", subject);
 };
 
 /**
@@ -76,7 +77,7 @@ export function buildCalendarEvents(jobs: Job[], todayKey: string): Map<string, 
         client: job.client || '',
         amount: job.value,
         kind: 'post',
-        label: `ส่งงาน/นัดหมาย ${job.name}`,
+        label: tr("ส่งงาน/นัดหมาย {0}", job.name),
       });
     }
 
@@ -106,7 +107,7 @@ export function buildCalendarEvents(jobs: Job[], todayKey: string): Map<string, 
         : dueDate <= dueSoonCutoff
           ? 'dueSoon'
           : 'creditTerm';
-      const part = entry.kind === 'installment' ? entry.label : '';
+      const part = entry.kind === 'installment' ? installmentLabel(entry.label) : '';
       push({
         id: `due:${job.id}:${entry.id}`,
         date: dueDate,

@@ -1,12 +1,18 @@
+import { stagingRecipientAllowed } from '../security/staging.js';
+import { randomUUID } from 'node:crypto';
 import { ensurePrivateReportBucket, REPORTS_BUCKET } from '../services/reportStorage.js';
 import { claimDelivery, releaseDelivery } from '../repositories/deliveries.js';
 import { patchPrivate } from '../repositories/accounts.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import * as XLSX from 'xlsx';
 import { supabaseAdmin } from '../config/supabase.js';
-import { sendGmailEmail } from '../services/gmail.js';
-import { sendLineMessageToEmail } from '../services/line.js';
+import { sendGmailEmailOutcome } from '../services/gmail.js';
+import { sendLineMessageToEmailOutcome } from '../services/line.js';
+import { attemptDelivery, notificationOutcomeCounts, recordChannelOutcome, type DeliveryOutcome } from '../services/notificationOutcome.js';
 import type { LineMessage } from '../services/line.js';
+import { lineAppLink } from '../services/lineCards.js';
+import { buildLineCashSummary, formatMonthlyMoney } from '../services/lineCashSummary.js';
+import { monthlyProfitSummary } from '../../../shared/monthlySummary.js';
 import { formatMonthKey } from '../../../shared/calendar.js';
 import {
   JobRow,
@@ -52,7 +58,7 @@ export function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
           <div style="font-size:22px;color:#047857;font-weight:900;margin-top:4px;">${formatCurrency(s.received)}</div>
         </td>
         <td style="width:50%;padding:16px;background:#FEF2F2;border-radius:0 12px 12px 0;text-align:center;">
-          <div style="font-size:11px;color:#DC2626;font-weight:bold;">รายจ่ายจริง (EXPENSES)</div>
+          <div style="font-size:11px;color:#DC2626;font-weight:bold;">รายจ่ายและงบประจำ</div>
           <div style="font-size:22px;color:#B91C1C;font-weight:900;margin-top:4px;">${formatCurrency(totalExpense)}</div>
         </td>
       </tr>
@@ -75,82 +81,34 @@ export function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
   </div>`;
 }
 
-// Condensed plain-text version for LINE -- same numbers as the email. downloadUrl is null when
+// Same income, total expenses and profit as the dashboard. downloadUrl is null when
 // APP_URL isn't configured or the Storage upload failed, in which case this just points back to
 // the email instead of claiming a link exists.
-export function buildReportLineText(monthLabel: string, s: MonthlySummary, downloadUrl: string | null): string {
-  const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
+export function buildReportLineText(monthLabel: string, s: MonthlySummary, downloadUrl: string | null, emailAccepted = true): string {
+  const monthly = monthlyProfitSummary(s);
   return [
-    `📊 สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
+    `สรุปการเงิน ${monthLabel}`,
     '',
-    `รายรับจริง: ${formatCurrency(s.received)}`,
-    `รายจ่ายจริง: ${formatCurrency(totalExpense)}`,
-    `กระแสเงินสดสุทธิคงเหลือ: ${formatCurrency(s.netFlow)}`,
+    `รายรับ: ${formatMonthlyMoney(s.received)}`,
+    `รายจ่ายรวม: ${formatMonthlyMoney(monthly.totalExpense)}`,
+    `กำไรสุทธิ: ${formatMonthlyMoney(monthly.netProfit)}`,
     '',
-    'รายละเอียด:',
-    `• มูลค่ารวมสัญญาดีลทั้งหมด: ${formatCurrency(s.income)}`,
-    `• ยอดโอนรับแล้วจริง: ${formatCurrency(s.received)}`,
-    `• หัก ค่าใช้จ่ายคงที่รายเดือน: ${formatCurrency(s.fixedExpenseCalculated)}`,
-    `• ค่าใช้จ่ายผันแปร: ${formatCurrency(s.variableExpense)}`,
-    '',
-    downloadUrl
-      ? `ดาวน์โหลดไฟล์ Excel ฉบับเต็ม: ${downloadUrl}`
-      : 'ไฟล์ Excel ฉบับเต็มส่งไปในอีเมลแล้ว',
+    'รวมรายจ่ายประจำและรายจ่ายทั่วไป · กำไรก่อนแบ่งออม',
+    downloadUrl ? `ดาวน์โหลดไฟล์ Excel ฉบับเต็ม: ${downloadUrl}` : emailAccepted ? 'ไฟล์ Excel ฉบับเต็มส่งไปในอีเมลแล้ว' : 'เปิดหน้ารายงานในแอปเพื่อดูรายละเอียด',
   ].join('\n');
 }
 
-// LINE's Flex bubble version of the same card, with a real tappable download button instead of a
-// bare URL in a text bubble -- same cream "receipt" visual language as the rest of the app's LINE
-// cards (see api/_lineAssistant.ts's buildReceiptCard/buildStatementRow, not reused directly here
-// since this file has no other reason to depend on that module).
+// Keep the scheduled LINE report and the chat shortcut on the same three-number summary.
 export function buildReportFlexMessage(monthLabel: string, s: MonthlySummary, downloadUrl: string | null): LineMessage {
-  const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
-  const row = (label: string, value: string, color: string) => ({
-    type: 'box',
-    layout: 'horizontal',
-    margin: 'sm',
-    spacing: 'md',
-    contents: [
-      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 3, wrap: true, maxLines: 2 },
-      { type: 'text', text: value, size: 'sm', color, weight: 'bold', flex: 2, align: 'end', gravity: 'center', wrap: false },
-    ],
-  });
-
-  const contents: any = {
-    type: 'bubble',
-    size: 'kilo',
-    body: {
-      type: 'box',
-      layout: 'vertical',
-      backgroundColor: '#FFF9F0',
-      borderWidth: '1px',
-      borderColor: '#D8CBB8',
-      cornerRadius: '14px',
-      paddingAll: '18px',
-      spacing: 'md',
-      contents: [
-        { type: 'text', text: `สรุปงบเดือน ${monthLabel}`, weight: 'bold', size: 'md', color: '#4338CA' },
-        { type: 'separator', margin: 'md', color: '#E8DFD3' },
-        row('รายรับจริง', formatCurrency(s.received), '#0E9F6E'),
-        row('รายจ่ายจริง', formatCurrency(totalExpense), '#A63F1B'),
-        { type: 'separator', margin: 'md', color: '#E8DFD3' },
-        row('กระแสเงินสดสุทธิ', formatCurrency(s.netFlow), s.netFlow < 0 ? '#A63F1B' : '#3D2314'),
-      ],
-    },
-  };
-
+  let footer = lineAppLink('/report', 'ดูรายงานในแอป');
   if (downloadUrl) {
-    contents.footer = {
-      type: 'box',
-      layout: 'vertical',
-      paddingAll: '12px',
-      contents: [
-        { type: 'button', style: 'primary', color: '#4338CA', action: { type: 'uri', label: '📥 ดาวน์โหลดไฟล์ Excel', uri: downloadUrl } },
-      ],
-    };
+    try {
+      if (new URL(downloadUrl).protocol === 'https:') footer = { label: 'ดาวน์โหลดไฟล์ Excel', uri: downloadUrl };
+    } catch { /* An invalid report URL must not turn the entire LINE message invalid. */ }
   }
-
-  return { type: 'flex', altText: `สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`, contents };
+  return buildLineCashSummary({
+    title: 'สรุปการเงินประจำเดือน', monthLabel, summary: s, footer,
+  });
 }
 
 
@@ -176,8 +134,8 @@ async function uploadReportAndGetLink(userId: string, monthKey: string, excelBas
     if (uploadErr) throw uploadErr;
 
     return `${appUrl.replace(/\/$/, '')}/api/download-report?month=${encodeURIComponent(monthKey)}&account=${encodeURIComponent(userId)}`;
-  } catch (err) {
-    console.error(`uploadReportAndGetLink failed for user ${userId}:`, err);
+  } catch {
+    console.error('Monthly report storage upload failed');
     return null;
   }
 }
@@ -243,8 +201,8 @@ async function sendReportEmail(
   monthLabel: string,
   summary: MonthlySummary,
   excelBase64: string
-): Promise<boolean> {
-  return sendGmailEmail(
+): Promise<DeliveryOutcome> {
+  return sendGmailEmailOutcome(
     to,
     `[กระรอกตุนเงิน] สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
     buildReportHtml(monthLabel, summary),
@@ -280,7 +238,7 @@ function isPro(
   subscriptionByUserId: Map<string, { status: string; plan: string | null; current_period_end: string | null }>
 ): boolean {
   const sub = subscriptionByUserId.get(userId);
-  if (sub?.plan === 'admin_revoked') return false;
+  if (['admin_revoked', 'admin_removed'].includes(sub?.plan || '')) return false;
   const createdAt = createdAtByUserId.get(userId);
   const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
 
@@ -318,10 +276,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let processed = 0;
     let sent = 0;
     let skipped = 0;
+    const outcomes = notificationOutcomeCounts();
 
     for (const row of rows || []) {
       processed += 1;
       const notifSettings: NotifSettingsRow = row.notif_settings || {};
+      if (!stagingRecipientAllowed(notifSettings.alertEmail || row.email, notifSettings.lineUserId)) { skipped += 1; continue; }
 
       if (!isPro(row.user_id, createdAtByUserId, subscriptionByUserId)) {
         skipped += 1;
@@ -336,6 +296,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         continue;
       }
 
+      const deliveryKey = `report:${row.user_id}:${monthKey}`;
+      let claimed = false;
+      let accepted = false;
+      let uncertain = false;
+      let failureCounted = false;
+      let marking = false;
+      const record = (channel: 'email' | 'line', outcome: DeliveryOutcome) => {
+        recordChannelOutcome(outcomes, channel, outcome);
+        if (outcome === 'accepted' && !accepted) { accepted = true; sent += 1; }
+        if (outcome === 'unknown' && !uncertain) { uncertain = true; outcomes.uncertain += 1; }
+        if (outcome === 'rejected' && !failureCounted) { failureCounted = true; outcomes.failed += 1; }
+      };
       try {
         const account = await supabaseAdmin.auth.admin.getUserById(row.user_id);
         if (account.error) throw account.error;
@@ -352,20 +324,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        const deliveryKey = `report:${row.user_id}:${monthKey}`;
-        if (!await claimDelivery(deliveryKey)) { skipped += 1; continue; }
         const recipient = notifSettings.alertEmail || row.email;
         if (!recipient) {
           skipped += 1;
           continue;
         }
+        claimed = await claimDelivery(deliveryKey);
+        if (!claimed) { skipped += 1; continue; }
 
         const monthJobs = jobsInMonth(jobs, monthKey);
         const monthExpenses = expensesInMonth(expenses, monthKey);
 
         const excelBase64 = buildMonthlyExcelBase64(monthLabel, summary, monthJobs, monthExpenses);
 
-        const emailOk = await sendReportEmail(recipient, monthLabel, summary, excelBase64);
+        const emailOutcome = await attemptDelivery(() => sendReportEmail(recipient, monthLabel, summary, excelBase64));
+        record('email', emailOutcome);
 
         // Independent of the email outcome above -- LINE and email are separate channels, and
         // Gmail has repeatedly been the unreliable one in this app's history. Gating this behind
@@ -375,39 +348,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // promise (no `await`, just `.catch()`) has no guarantee of finishing before this
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
-        let lineOk = false;
+        let lineOutcome: DeliveryOutcome = 'skipped';
         if (row.email) {
           const downloadUrl = await uploadReportAndGetLink(row.user_id, monthKey, excelBase64);
           const lineMessage = downloadUrl
             ? buildReportFlexMessage(monthLabel, summary, downloadUrl)
-            : { type: 'text' as const, text: buildReportLineText(monthLabel, summary, null) };
-          lineOk = await sendLineMessageToEmail(row.email, lineMessage, notifSettings.lineUserId).catch((err) => {
-            console.error(`send-monthly-report: LINE send failed for ${row.email}:`, err);
-            return false;
-          });
+            : { type: 'text' as const, text: buildReportLineText(monthLabel, summary, null, emailOutcome === 'accepted') };
+          lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, lineMessage, notifSettings.lineUserId, randomUUID()));
         }
+        record('line', lineOutcome);
 
         // Only skip the lastMonthlyReportSentMonth update when BOTH channels failed -- gating on
         // emailOk alone (as it used to be) meant an account relying only on LINE never got this
         // tracked, even on a month LINE delivered fine.
-        if (!emailOk && !lineOk) {
-          await releaseDelivery(deliveryKey);
-          skipped += 1;
+        if (!accepted) {
+          // Retain the claim when acceptance is unknown; a retry could send twice.
+          if (!uncertain) { await releaseDelivery(deliveryKey); claimed = false; }
+          if (emailOutcome === 'skipped' && lineOutcome === 'skipped') skipped += 1;
           continue;
         }
 
+        marking = true;
         await patchPrivate(row.user_id, { lastMonthlyReportSentMonth: monthKey });
-
-        sent += 1;
-      } catch (perUserErr: any) {
-        console.error(`send-monthly-report: failed for user ${row.user_id}:`, perUserErr);
-        skipped += 1;
+      } catch {
+        if (marking) outcomes.markerFailed += 1;
+        else if (!failureCounted) outcomes.failed += 1;
+        // Before any possible acceptance a failed preparation can safely be retried.
+        if (claimed && !accepted && !uncertain) {
+          try { await releaseDelivery(deliveryKey); } catch { console.error('Monthly report claim release failed'); }
+        }
+        console.error('Monthly report account processing failed', { accepted, uncertain });
       }
     }
 
-    res.status(200).json({ processed, sent, skipped, monthKey });
-  } catch (err: any) {
-    console.error('send-monthly-report handler error:', err);
+    res.status(200).json({ processed, sent, skipped, monthKey, ...outcomes });
+  } catch {
+    console.error('Monthly report account listing failed');
     res.status(500).json({ error: 'Monthly report job failed' });
   }
 }

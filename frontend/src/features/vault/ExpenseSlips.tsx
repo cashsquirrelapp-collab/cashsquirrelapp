@@ -4,6 +4,7 @@ import type { Expense } from '../../../../shared/types';
 import { FileRow, useVault } from './VaultProvider';
 import { expenseFiles } from './vaultStatus';
 
+import { tr } from '../../i18n/tr';
 // Slips and receipts kept with an expense, shown in the expense's detail panel. Files can be
 // picked or dropped straight onto the section; they go to the document vault as kind 'expense'.
 
@@ -27,21 +28,20 @@ export function ExpenseSlips({ expense }: { expense: Expense }) {
     },
   };
   return (
-    <section aria-label="สลิป / ใบเสร็จ" className="relative mt-6" {...drop} data-testid="expense-slips">
+    <section aria-label={tr("สลิป / ใบเสร็จ")} className="relative mt-6" {...drop} data-testid="expense-slips">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-[14px] font-semibold text-brand-text">สลิป / ใบเสร็จ{files.length ? ` (${files.length})` : ''}</p>
+        <p className="text-[14px] font-semibold text-brand-text">{tr("สลิป / ใบเสร็จ{0}", files.length ? ` (${files.length})` : '')}</p>
         {files.length > 0 && (
           <button type="button" onClick={() => attach()} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-medium text-[#C24A16] hover:bg-[#FFF5EE] cursor-pointer dark:text-[#FF9A6B] dark:hover:bg-[#E65F2B]/10">
-            <Paperclip className="h-4 w-4" />แนบเพิ่ม
-          </button>
+            <Paperclip className="h-4 w-4" />{tr("แนบเพิ่ม")}</button>
         )}
       </div>
       {files.length === 0 ? (
         <button type="button" onClick={() => attach()}
           className={`flex w-full flex-col items-center gap-1.5 rounded-2xl border border-dashed px-4 py-7 text-center transition-colors cursor-pointer ${dragging ? 'border-[#E65F2B] bg-[#FFF5EE] dark:bg-[#E65F2B]/10' : 'border-brand-border hover:bg-brand-faint'}`}>
           <Upload className={`h-5 w-5 ${dragging ? 'text-[#C24A16] dark:text-[#FF9A6B]' : 'text-brand-muted'}`} />
-          <span className="text-[13px] font-medium text-brand-text">{dragging ? 'วางไฟล์ที่นี่' : 'แนบสลิปโอนเงินหรือใบเสร็จ'}</span>
-          <span className="text-xs text-brand-muted">ลากไฟล์มาวาง หรือกดเพื่อเลือกไฟล์ / ถ่ายรูป</span>
+          <span className="text-[13px] font-medium text-brand-text">{dragging ? tr("วางไฟล์ที่นี่") : tr("แนบสลิปโอนเงินหรือใบเสร็จ")}</span>
+          <span className="text-xs text-brand-muted">{tr("ลากไฟล์มาวาง หรือกดเพื่อเลือกไฟล์ / ถ่ายรูป")}</span>
         </button>
       ) : (
         <div className={`rounded-2xl border px-3 transition-colors ${dragging ? 'border-dashed border-[#E65F2B] bg-[#FFF5EE] dark:bg-[#E65F2B]/10' : 'border-brand-border'}`}>
@@ -58,7 +58,7 @@ export function ExpenseSlipMark({ expenseId }: { expenseId: string }) {
   const count = vault.available ? expenseFiles({ id: expenseId }, vault.files).length : 0;
   if (!count) return null;
   return (
-    <span className="ml-1.5 inline-flex shrink-0 items-center gap-0.5 align-middle text-[11px] font-medium text-brand-muted" title={`มีสลิป / ใบเสร็จ ${count} ไฟล์`} aria-label={`มีสลิป ${count} ไฟล์`}>
+    <span className="ml-1.5 inline-flex shrink-0 items-center gap-0.5 align-middle text-[11px] font-medium text-brand-muted" title={tr("มีสลิป / ใบเสร็จ {0} ไฟล์", count)} aria-label={tr("มีสลิป {0} ไฟล์", count)}>
       <Paperclip className="h-3 w-3" />{count > 1 ? count : ''}
     </span>
   );

@@ -7,6 +7,7 @@ import { Mascot } from '../../components/mascot/Mascot';
 import { JobPeekSheet } from './JobPeekSheet';
 import { buildCashTimeline, shiftMonthKey, type TimelineItem, type TimelineStatus } from './cashTimeline';
 
+import { tr, T } from '../../i18n/tr';
 // Same status colours as the calendar legend (CalendarTab EVENT_STYLES): one language for both views.
 const STATUS: Record<TimelineStatus, { dot: string; text: string; bg: string }> = {
   expected: { dot: '#F36A2D', text: '#C24A16', bg: '#FFF1E8' },
@@ -17,23 +18,23 @@ const STATUS: Record<TimelineStatus, { dot: string; text: string; bg: string }> 
 
 type Filter = 'all' | 'pending' | 'received' | 'overdue';
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'ทั้งหมด' },
-  { key: 'pending', label: 'รอรับเงิน' },
-  { key: 'received', label: 'รับแล้ว' },
-  { key: 'overdue', label: 'เกินกำหนดชำระ' },
+  { key: 'all', label: T("ทั้งหมด") },
+  { key: 'pending', label: T("รอรับเงิน") },
+  { key: 'received', label: T("รับแล้ว") },
+  { key: 'overdue', label: T("เกินกำหนดชำระ") },
 ];
 const matches = (item: TimelineItem, filter: Filter) =>
   filter === 'all' || (filter === 'received' ? item.status === 'received' : filter === 'overdue' ? item.status === 'overdue' : item.status !== 'received');
 
 const DEFAULT_MONTHS = 4; // current month + next 3: this is a forecast first
-const ESTIMATE_NOTE = 'ประมาณจากวันส่งงาน/ให้บริการ และ Credit Term ของแต่ละงาน';
+const ESTIMATE_NOTE = T("ประมาณจากวันส่งงาน/ให้บริการ และ Credit Term ของแต่ละงาน");
 
 const statusText = (item: TimelineItem) =>
-  item.status === 'received' ? `รับแล้ว ✓ ${safeFormatThaiDate(item.date, { day: 'numeric', month: 'short' })}`
-    : item.status === 'overdue' ? `เกินกำหนดชำระ ${-item.days} วัน`
-    : item.days === 0 ? 'ครบกำหนดชำระวันนี้'
-    : item.days === 1 ? 'ครบกำหนดชำระพรุ่งนี้'
-    : `ครบกำหนดชำระอีก ${item.days} วัน`;
+  item.status === 'received' ? tr("รับแล้ว ✓ {0}", safeFormatThaiDate(item.date, { day: 'numeric', month: 'short' }))
+    : item.status === 'overdue' ? tr("เกินกำหนดชำระ {0} วัน", -item.days)
+    : item.days === 0 ? tr("ครบกำหนดชำระวันนี้")
+    : item.days === 1 ? tr("ครบกำหนดชำระพรุ่งนี้")
+    : tr("ครบกำหนดชำระอีก {0} วัน", item.days);
 
 interface TimelineViewProps {
   jobs: Job[];
@@ -75,7 +76,7 @@ export function TimelineView({ jobs, expenses, settings, onViewJob, onEditJob, o
   };
 
   const hasAnyMoney = jobs.some(j => j.pending > 0 || j.received > 0);
-  const rangeLabel = `${formatMonthKey(fromMonth)} เป็นต้นไป`;
+  const rangeLabel = tr("{0} เป็นต้นไป", formatMonthKey(fromMonth));
   const navButton = 'flex h-9 w-9 items-center justify-center rounded-xl text-brand-muted transition-colors hover:bg-[#FFF1E8] hover:text-[#C24A16] cursor-pointer dark:hover:bg-orange-500/10 dark:hover:text-orange-300';
 
   return (
@@ -83,23 +84,22 @@ export function TimelineView({ jobs, expenses, settings, onViewJob, onEditJob, o
       {/* Controls: period + one compact filter (calendar's month/week toggle doesn't apply here). */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <button type="button" onClick={() => setFromMonth(m => shiftMonthKey(m, -1))} aria-label="เดือนก่อนหน้า" className={navButton}><ChevronLeft className="h-4 w-4" /></button>
+          <button type="button" onClick={() => setFromMonth(m => shiftMonthKey(m, -1))} aria-label={tr("เดือนก่อนหน้า")} className={navButton}><ChevronLeft className="h-4 w-4" /></button>
           <span className="min-w-[150px] text-center text-[13px] font-medium text-brand-text">{rangeLabel}</span>
-          <button type="button" onClick={() => setFromMonth(m => shiftMonthKey(m, 1))} aria-label="เดือนถัดไป" className={navButton}><ChevronRight className="h-4 w-4" /></button>
+          <button type="button" onClick={() => setFromMonth(m => shiftMonthKey(m, 1))} aria-label={tr("เดือนถัดไป")} className={navButton}><ChevronRight className="h-4 w-4" /></button>
           {fromMonth !== currentMonth && (
             <button type="button" onClick={() => { setFromMonth(currentMonth); setMonthCount(DEFAULT_MONTHS); }} className="ml-1 rounded-lg border border-brand-border px-2.5 py-1.5 text-[11px] font-medium text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer">
-              เดือนนี้
-            </button>
+              {tr("เดือนนี้")}</button>
           )}
         </div>
         <div className="relative">
           <select
-            aria-label="กรองรายการในไทม์ไลน์"
+            aria-label={tr("กรองรายการในไทม์ไลน์")}
             value={filter}
             onChange={(e) => setFilter(e.target.value as Filter)}
             className="h-9 appearance-none rounded-xl border border-brand-border bg-brand-white pl-3 pr-8 text-xs text-brand-text outline-none transition-colors hover:bg-brand-faint focus:border-[#E65F2B] cursor-pointer"
           >
-            {FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+            {FILTERS.map(f => <option key={f.key} value={f.key}>{tr(f.label)}</option>)}
           </select>
           <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
         </div>
@@ -109,19 +109,18 @@ export function TimelineView({ jobs, expenses, settings, onViewJob, onEditJob, o
       <div className="flex items-center gap-3 rounded-[14px] border border-brand-border bg-brand-white px-4 py-3">
         <span className="shrink-0"><Mascot mood="waiting" size={40} animated={false} /></span>
         <div className="min-w-0">
-          <p className="text-[13px] text-brand-text">ไทม์ไลน์นี้ประเมินเงินที่คาดว่าจะได้รับ จากกำหนดส่งงานและ Credit Term เพื่อช่วยให้เห็นว่าเงินจะเข้าช่วงไหน</p>
-          <p className="mt-0.5 text-[11px] text-brand-muted">ใช้สำหรับวางแผนกระแสเงินล่วงหน้า</p>
+          <p className="text-[13px] text-brand-text">{tr("ไทม์ไลน์นี้ประเมินเงินที่คาดว่าจะได้รับ จากกำหนดส่งงานและ Credit Term เพื่อช่วยให้เห็นว่าเงินจะเข้าช่วงไหน")}</p>
+          <p className="mt-0.5 text-[11px] text-brand-muted">{tr("ใช้สำหรับวางแผนกระแสเงินล่วงหน้า")}</p>
         </div>
       </div>
 
       {!hasAnyMoney ? (
         <div className="flex flex-col items-center gap-2 rounded-[14px] border border-brand-border bg-brand-white px-6 py-10 text-center">
           <Mascot mood="sleepy" size={72} />
-          <p className="mt-1 text-sm font-semibold text-brand-text">ยังไม่มีรายการในไทม์ไลน์</p>
-          <p className="max-w-sm text-xs text-brand-muted">เพิ่มงานพร้อมกำหนดส่งหรือ Credit Term แล้วกระรอกจะช่วยคาดการณ์ช่วงรับเงินให้</p>
+          <p className="mt-1 text-sm font-semibold text-brand-text">{tr("ยังไม่มีรายการในไทม์ไลน์")}</p>
+          <p className="max-w-sm text-xs text-brand-muted">{tr("เพิ่มงานพร้อมกำหนดส่งหรือ Credit Term แล้วกระรอกจะช่วยคาดการณ์ช่วงรับเงินให้")}</p>
           <button type="button" onClick={onAddJob} className="mt-2 flex h-10 items-center gap-1.5 rounded-xl bg-[#E65F2B] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#D85723] cursor-pointer">
-            <Plus className="h-4 w-4" /> เพิ่มงาน
-          </button>
+            <Plus className="h-4 w-4" /> {tr("เพิ่มงาน")}</button>
         </div>
       ) : (
         <div className="relative mx-auto max-w-[1000px] pl-9 sm:pl-12">
@@ -145,51 +144,51 @@ export function TimelineView({ jobs, expenses, settings, onViewJob, onEditJob, o
                 />
                 <h3 className={`text-[22px] font-semibold leading-tight sm:text-2xl ${isPast ? 'text-brand-muted' : 'text-brand-text'}`}>
                   {formatMonthKey(month.monthKey)}
-                  {isCurrent && <span className="ml-2 align-middle text-xs font-medium text-[#C24A16] dark:text-orange-300">เดือนนี้</span>}
+                  {isCurrent && <span className="ml-2 align-middle text-xs font-medium text-[#C24A16] dark:text-orange-300">{tr("เดือนนี้")}</span>}
                 </h3>
 
                 {month.items.length === 0 ? (
-                  <p className="mt-1.5 text-xs text-brand-muted">ยังไม่มีเงินที่คาดว่าจะเข้า</p>
+                  <p className="mt-1.5 text-xs text-brand-muted">{tr("ยังไม่มีเงินที่คาดว่าจะเข้า")}</p>
                 ) : (
                   <div className="mt-3 space-y-2">
                     {/* Monthly summary */}
                     <div className="flex flex-wrap items-end justify-between gap-3 rounded-[14px] border border-brand-border bg-brand-white px-4 py-3">
                       <div>
                         <p className="flex items-center gap-1 text-xs text-brand-muted">
-                          {isPast ? 'เงินเข้า' : `เงินคาดว่าจะเข้า${isCurrent ? 'เดือนนี้' : ''}`}
-                          <span title={ESTIMATE_NOTE} aria-label={ESTIMATE_NOTE}><Info className="h-3 w-3" /></span>
+                          {isPast ? tr("เงินเข้า") : tr("เงินคาดว่าจะเข้า{0}", isCurrent ? tr("เดือนนี้") : '')}
+                          <span title={tr(ESTIMATE_NOTE)} aria-label={tr(ESTIMATE_NOTE)}><Info className="h-3 w-3" /></span>
                         </p>
                         <p className="mt-0.5 font-mono text-xl font-semibold text-brand-text">{formatCurrency(month.total)}</p>
-                        <p className="text-[11px] text-brand-muted">{month.items.length} รายการ</p>
+                        <p className="text-[11px] text-brand-muted">{tr("{0} รายการ", month.items.length)}</p>
                       </div>
                       <div className="text-right text-xs text-brand-muted">
-                        <p>รับแล้ว <span className="font-mono text-brand-text">{formatCurrency(month.received)}</span></p>
-                        <p className="mt-0.5">รอรับ <span className="font-mono text-brand-text">{formatCurrency(month.expected)}</span></p>
+                        <p>{tr("รับแล้ว")}{' '}<span className="font-mono text-brand-text">{formatCurrency(month.received)}</span></p>
+                        <p className="mt-0.5">{tr("รอรับ")}{' '}<span className="font-mono text-brand-text">{formatCurrency(month.expected)}</span></p>
                       </div>
                     </div>
 
-                    {carried.length > 0 && <p className="px-1 pt-1 text-[11px] font-medium text-[#C43A3A] dark:text-rose-300">ค้างชำระจากเดือนก่อน</p>}
+                    {carried.length > 0 && <p className="px-1 pt-1 text-[11px] font-medium text-[#C43A3A] dark:text-rose-300">{tr("ค้างชำระจากเดือนก่อน")}</p>}
                     {[...carried, ...(carried.length > 0 && inMonth.length > 0 ? [null] : []), ...inMonth].map((item, index) =>
                       item === null
-                        ? <p key="in-month" className="px-1 pt-1 text-[11px] font-medium text-brand-muted">ครบกำหนดชำระเดือนนี้</p>
+                        ? <p key="in-month" className="px-1 pt-1 text-[11px] font-medium text-brand-muted">{tr("ครบกำหนดชำระเดือนนี้")}</p>
                         : <TimelineRow key={`${item.id}-${index}`} item={item} onOpen={() => setPeekId(item.jobId)} />
                     )}
-                    {items.length === 0 && <p className="px-1 text-xs text-brand-muted">ไม่มีรายการตามตัวกรองนี้</p>}
+                    {items.length === 0 && <p className="px-1 text-xs text-brand-muted">{tr("ไม่มีรายการตามตัวกรองนี้")}</p>}
 
                     {/* Cash position: only when there is real expense data for the month */}
                     {planned > 0 && (
                       <dl className="rounded-[14px] bg-brand-faint px-4 py-3 text-[13px]">
-                        <div className="flex justify-between"><dt className="text-brand-muted">คาดว่าจะเข้า</dt><dd className="font-mono text-brand-text">{formatCurrency(month.total)}</dd></div>
+                        <div className="flex justify-between"><dt className="text-brand-muted">{tr("คาดว่าจะเข้า")}</dt><dd className="font-mono text-brand-text">{formatCurrency(month.total)}</dd></div>
                         <div className="mt-0.5 flex justify-between">
-                          <dt className="text-brand-muted" title="ค่าใช้จ่ายคงที่ที่ตั้งไว้ รวมกับรายจ่ายที่บันทึกในเดือนนี้">รายจ่ายที่วางไว้</dt>
+                          <dt className="text-brand-muted" title={tr("ค่าใช้จ่ายคงที่ที่ตั้งไว้ รวมกับรายจ่ายที่บันทึกในเดือนนี้")}>{tr("รายจ่ายที่วางไว้")}</dt>
                           <dd className="font-mono text-brand-text">{formatCurrency(planned)}</dd>
                         </div>
                         <div className="mt-1.5 flex justify-between border-t border-brand-border pt-1.5">
-                          <dt className="text-brand-muted">ส่วนต่าง</dt>
+                          <dt className="text-brand-muted">{tr("ส่วนต่าง")}</dt>
                           <dd className={`font-mono font-semibold ${balance < 0 ? 'text-[#C43A3A] dark:text-rose-300' : 'text-[#18A66A]'}`}>{balance < 0 ? '-' : ''}{formatCurrency(Math.abs(balance))}</dd>
                         </div>
                         <p className={`mt-1 text-[11px] ${balance < 0 ? 'text-[#C43A3A]/80 dark:text-rose-300/80' : 'text-[#18A66A]'}`}>
-                          {balance < 0 ? `ขาดอีก ${formatCurrency(-balance)} ถึงจะคุ้มทุน` : `เหลือประมาณ ${formatCurrency(balance)}`}
+                          {balance < 0 ? tr("ขาดอีก {0} ถึงจะคุ้มทุน", formatCurrency(-balance)) : tr("เหลือประมาณ {0}", formatCurrency(balance))}
                         </p>
                       </dl>
                     )}
@@ -201,12 +200,10 @@ export function TimelineView({ jobs, expenses, settings, onViewJob, onEditJob, o
 
           <div className="relative flex flex-wrap items-center gap-3 pb-2">
             <button type="button" onClick={() => setMonthCount(n => n + 3)} className="rounded-xl border border-brand-border bg-brand-white px-4 py-2 text-xs font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
-              ดูเพิ่มเติม 3 เดือน
-            </button>
+              {tr("ดูเพิ่มเติม 3 เดือน")}</button>
             {timeline.undated.count > 0 && (
               <p className="text-[11px] text-brand-muted">
-                อีก {timeline.undated.count} รายการ ({formatCurrency(timeline.undated.amount)}) ยังไม่มีวันส่งงาน จึงยังไม่อยู่ในไทม์ไลน์
-              </p>
+                {tr("อีก {0} รายการ ({1}) ยังไม่มีวันส่งงาน จึงยังไม่อยู่ในไทม์ไลน์", timeline.undated.count, formatCurrency(timeline.undated.amount))}</p>
             )}
           </div>
         </div>
@@ -240,7 +237,7 @@ function TimelineRow({ item, onOpen }: { item: TimelineItem; onOpen: () => void 
           {item.part && <span className="ml-1.5 text-[11px] font-normal text-brand-muted">· {item.part}</span>}
         </span>
         <span className="mt-0.5 block truncate text-[11px] text-brand-muted">
-          {[item.client || '—', safeFormatThaiDate(item.date, { day: 'numeric', month: 'short', year: 'numeric' }), !received && item.creditTerm > 0 ? `Credit ${item.creditTerm} วัน` : '']
+          {[item.client || '—', safeFormatThaiDate(item.date, { day: 'numeric', month: 'short', year: 'numeric' }), !received && item.creditTerm > 0 ? tr("Credit {0} วัน", item.creditTerm) : '']
             .filter(Boolean).join(' · ')}
         </span>
       </span>
