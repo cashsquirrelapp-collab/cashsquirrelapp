@@ -8,7 +8,7 @@ export const notificationPreferences=z.object({
  enabled:z.boolean().optional(), alertEmail:z.union([z.email().max(254),z.literal('')]).optional(),
  serviceType:z.enum(['mailto','emailjs']).optional(),emailjsServiceId:text.optional(),emailjsTemplateId:text.optional(),emailjsPublicKey:text.optional(),
  pendingQueue:z.array(z.object({id,jobId:id,jobName:text,client:text,pendingAmount:money,dueDate:text,detectedDate:text,status:z.enum(['pending','sent','skipped']),sentDate:text.optional()})).max(10000).optional(),
- dailyDigestEnabled:z.boolean().optional(),monthlyReportEnabled:z.boolean().optional()
+ dailyDigestEnabled:z.boolean().optional(),monthlyReportEnabled:z.boolean().optional(),wht50ReminderEnabled:z.boolean().optional()
 });
 const installment=z.object({id:text,label:z.string().min(1).max(100),amount:money,dueDate:z.string().nullable(),paidAt:z.string().nullable(),status:z.enum(['pending','paid'])});
 const job=z.object({id,name:z.string().min(1).max(500),value:money,received:money,pending:money,client:text,type:text,status:text,creditTerm:z.number().int().min(0).max(3650),note:text,payDate:z.string().nullable(),hoursSpent:money.optional(),whtRate:z.number().min(0).max(100).refine(isValidWhtRate,'WHT rate allows at most 2 decimals').optional(),whtAmount:money.optional(),followUpCount:z.number().int().min(0).optional(),depositDate:z.string().max(10).nullable().optional(),depositAmount:money.optional(),remindAt:z.string().max(10).nullable().optional(),installments:z.array(installment).max(100).optional()}).passthrough();

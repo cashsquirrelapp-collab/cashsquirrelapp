@@ -3,78 +3,169 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<title>เงื่อนไขการใช้งาน - กระรอกตุนเงิน</title>
-<meta name="description" content="เงื่อนไขการใช้งานบริการกระรอกตุนเงิน" />
-<style>
-  :root {
-    --bg: #FBF2E4; --white: #FFFFFF; --text: #3D2314; --muted: #7A5C43; --border: #E8DFD3; --acc: #E65F2B;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #1C130B; --white: #261810; --text: #F7EFEA; --muted: #A89689; --border: #422E22; --acc: #FFA473; }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: 'Inter', -apple-system, system-ui, sans-serif;
-    line-height: 1.7;
-  }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
-  a { color: var(--acc); }
-  .back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; text-decoration: none; margin-bottom: 24px; }
-  header { margin-bottom: 32px; }
-  h1 { font-size: 28px; font-weight: 800; margin: 0 0 6px; }
-  .updated { color: var(--muted); font-size: 13px; margin: 0; }
-  .card { background: var(--white); border: 1px solid var(--border); border-radius: 20px; padding: 28px 24px; }
-  h2 { font-size: 16px; font-weight: 800; margin: 28px 0 10px; }
-  h2:first-child { margin-top: 0; }
-  p, li { font-size: 14px; color: var(--text); }
-  ul { padding-left: 20px; margin: 8px 0; }
-  .muted { color: var(--muted); font-size: 13px; }
-  footer { text-align: center; margin-top: 32px; color: var(--muted); font-size: 12px; }
-</style>
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/logo01-v1/favicon-clear-32.png" />
+<link rel="icon" type="image/svg+xml" href="/brand/logo01-v1/favicon-clear.svg" />
+<title>ข้อกำหนดการใช้บริการ | Terms of Service - Krarok Tunngern</title>
+<meta name="description" content="ข้อกำหนดการใช้บริการกระรอกตุนเงิน: บัญชีผู้ใช้ แพ็กเกจและการชำระเงิน การต่ออายุอัตโนมัติ การใช้งานที่เหมาะสม และการปิดบัญชี" />
+<link rel="stylesheet" href="/legal.css" />
 </head>
 <body>
-  <div class="wrap">
-    <a class="back" href="/">&larr; กลับหน้าแรก</a>
-    <header>
-      <h1>เงื่อนไขการใช้งาน</h1>
-      <p class="updated">มีผลบังคับใช้ตั้งแต่: 31 กรกฎาคม 2569 (2026-07-31)</p>
-    </header>
+<div class="wrap">
+  <nav class="top">
+    <a class="back" href="/"><span lang="th">&larr; กลับหน้าแรก</span><span lang="en">&larr; Back to home</span></a>
+    <button type="button" class="lang-toggle" id="lang-toggle" aria-label="Switch language / เปลี่ยนภาษา">EN</button>
+  </nav>
+  <header>
+    <a class="brand" href="/"><img src="/brand/logo01-v1/symbol-ci.svg" width="28" height="28" alt="" /><span lang="th">กระรอกตุนเงิน</span><span lang="en">Krarok Tunngern</span></a>
+    <h1><span lang="th">ข้อกำหนดการใช้บริการ</span><span lang="en">Terms of Service</span></h1>
+    <p class="updated"><span lang="th">มีผลบังคับใช้: 22 ตุลาคม 2569</span><span lang="en">Effective: 22 October 2026</span></p>
+  </header>
 
-    <div class="card">
-      <h2>1. การยอมรับเงื่อนไข</h2>
-      <p>การสมัครสมาชิกหรือใช้งานกระรอกตุนเงิน ("บริการ") ถือว่าคุณยอมรับเงื่อนไขการใช้งานฉบับนี้และนโยบายความเป็นส่วนตัวของเรา หากไม่ยอมรับ กรุณาหยุดใช้งานบริการ</p>
+  <!-- ================= THAI ================= -->
+  <article class="card" lang="th">
+    <p class="lead">ข้อกำหนดนี้เป็นข้อตกลงระหว่างคุณกับผู้ให้บริการกระรอกตุนเงิน ("เรา") ในการใช้เว็บไซต์ แอป และบัญชี LINE Official ของกระรอกตุนเงิน ("บริการ") โปรดอ่านร่วมกับ<a href="/privacy">นโยบายความเป็นส่วนตัว</a></p>
 
-      <h2>2. คำอธิบายบริการ</h2>
-      <p>กระรอกตุนเงินเป็นเครื่องมือช่วยบันทึกและติดตามกระแสเงินสด งาน รายรับ รายจ่าย เครดิตเทอม และเอกสารสำหรับฟรีแลนซ์ <strong>บริการนี้เป็นเพียงเครื่องมือช่วยบันทึกข้อมูล ไม่ใช่คำแนะนำด้านภาษีหรือการเงิน</strong> ตัวเลขและการคำนวณในแอปมีไว้เพื่อการอ้างอิงเบื้องต้นเท่านั้น กรุณาตรวจสอบความถูกต้องกับผู้เชี่ยวชาญก่อนใช้ยื่นภาษีหรือทำธุรกรรมจริง</p>
+    <h2>1. การยอมรับข้อกำหนด</h2>
+    <p>เมื่อสมัครสมาชิกหรือใช้บริการ ถือว่าคุณได้อ่านและยอมรับข้อกำหนดนี้ หากคุณใช้บริการในนามธุรกิจ คุณรับรองว่ามีอำนาจทำข้อตกลงนี้แทนธุรกิจนั้น หากไม่ยอมรับ กรุณาหยุดใช้บริการ</p>
 
-      <h2>3. บัญชีผู้ใช้</h2>
-      <ul>
-        <li>คุณต้องให้ข้อมูลที่ถูกต้องในการสมัครสมาชิก และรับผิดชอบต่อความปลอดภัยของรหัสผ่านบัญชีตนเอง</li>
-        <li>ห้ามใช้บัญชีของผู้อื่นโดยไม่ได้รับอนุญาต หรือพยายามเข้าถึงข้อมูลของผู้ใช้รายอื่น</li>
-        <li>คุณสามารถลบบัญชีและขอให้ลบข้อมูลได้ทุกเมื่อตามที่ระบุในนโยบายความเป็นส่วนตัว</li>
-      </ul>
+    <h2>2. ลักษณะของบริการ</h2>
+    <p>กระรอกตุนเงินเป็นเครื่องมือสำหรับผู้ประกอบอาชีพอิสระและธุรกิจขนาดเล็ก ใช้บันทึกงานและรายรับ ติดตามเงินค้างรับและเครดิตเทอม บันทึกรายจ่าย ออกเอกสาร เช่น ใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จ เก็บไฟล์เอกสาร และรับการแจ้งเตือนผ่าน LINE</p>
+    <ul>
+      <li>ตัวเลข สรุป และการคำนวณในบริการ รวมถึงภาษีและหัก ณ ที่จ่าย มีไว้เพื่อช่วยบริหารงานของคุณเท่านั้น ไม่ใช่คำแนะนำทางภาษี กฎหมาย บัญชี หรือการลงทุน</li>
+      <li>คุณเป็นผู้รับผิดชอบความถูกต้องของข้อมูลที่บันทึกและเอกสารที่ออกจากบริการ รวมถึงการปฏิบัติตามกฎหมายภาษีที่เกี่ยวข้อง</li>
+      <li>บริการไม่ได้ยื่นภาษีหรือนำส่งเอกสารต่อหน่วยงานรัฐแทนคุณ</li>
+    </ul>
 
-      <h2>4. แพ็กเกจ Pro และการชำระเงิน</h2>
-      <p>แพ็กเกจ Pro เป็นการชำระเงินแบบรายเดือน ชำระผ่าน Stripe และไม่ใช่การสมัครสมาชิกแบบตัดบัตรอัตโนมัติ คุณต้องชำระใหม่ทุกเดือนด้วยตนเองเพื่อต่ออายุสิทธิ์การใช้งาน หากไม่ชำระ สิทธิ์ Pro จะหมดอายุลงเมื่อครบกำหนดโดยไม่มีการตัดเงินเพิ่มเติม เราขอสงวนสิทธิ์ในการปรับราคาหรือรูปแบบแพ็กเกจโดยจะแจ้งให้ทราบล่วงหน้าตามสมควร</p>
+    <h2>3. บัญชีผู้ใช้</h2>
+    <ul>
+      <li>คุณต้องให้ข้อมูลที่ถูกต้องและเป็นปัจจุบัน และดูแลรหัสผ่านและอุปกรณ์ที่ใช้เข้าสู่ระบบให้ปลอดภัย</li>
+      <li>คุณรับผิดชอบการใช้งานที่เกิดขึ้นภายใต้บัญชีของคุณ หากสงสัยว่ามีผู้อื่นเข้าถึงบัญชี กรุณาเปลี่ยนรหัสผ่านและแจ้งเราโดยเร็ว</li>
+      <li>ห้ามใช้บัญชีของผู้อื่นโดยไม่ได้รับอนุญาต หรือพยายามเข้าถึงข้อมูลของผู้ใช้รายอื่น</li>
+    </ul>
 
-      <h2>5. ข้อจำกัดความรับผิด</h2>
-      <p>บริการนี้ให้บริการ "ตามสภาพที่เป็นอยู่" (as-is) เราพยายามอย่างเต็มที่ให้ระบบทำงานถูกต้องและมีเสถียรภาพ แต่ไม่รับประกันว่าจะปราศจากข้อผิดพลาดหรือหยุดชะงักตลอดเวลา เราไม่รับผิดชอบต่อความเสียหายทางการเงินที่เกิดจากการตัดสินใจโดยอ้างอิงตัวเลขจากแอปเพียงอย่างเดียว</p>
+    <h2>4. แพ็กเกจและการชำระเงิน</h2>
+    <ul>
+      <li><strong>แพ็กเกจฟรี:</strong> ใช้ฟีเจอร์หลักได้ภายในขีดจำกัดที่แสดงในบริการ เช่น สร้างเอกสารใหม่ได้ 10 ฉบับต่อเดือน</li>
+      <li><strong>ทดลองใช้ Pro:</strong> บัญชีใหม่ได้สิทธิ์ Pro 14 วันนับจากวันสมัคร โดยไม่มีการเรียกเก็บเงิน</li>
+      <li><strong>แพ็กเกจ Pro:</strong> ราคาเป็นไปตามที่แสดงในหน้าแพ็กเกจ ณ เวลาที่ชำระ ปัจจุบันคือ ฿159 ต่อ 1 เดือน ฿849 ต่อ 6 เดือน และ ฿1,490 ต่อ 1 ปี</li>
+      <li><strong>ชำระด้วยบัตร:</strong> เป็นการสมัครแบบต่ออายุอัตโนมัติ เมื่อคุณยืนยันความยินยอม Stripe จะบันทึกบัตรไว้ และเรียกเก็บค่าบริการรอบถัดไปเมื่อครบแต่ละรอบ จนกว่าคุณจะยกเลิก</li>
+      <li><strong>ชำระด้วยพร้อมเพย์:</strong> เป็นการชำระครั้งเดียวตามระยะเวลาที่เลือก ไม่มีการต่ออายุอัตโนมัติ</li>
+      <li><strong>การยกเลิกการต่ออายุ:</strong> ยกเลิกได้ทุกเมื่อที่หน้าสมาชิกในแอป ก่อนวันเรียกเก็บรอบถัดไป คุณยังใช้สิทธิ์ Pro ได้จนสิ้นสุดรอบที่ชำระแล้ว</li>
+      <li>สิทธิ์ Pro เริ่มเมื่อระบบได้รับการยืนยันการชำระเงินจากผู้ให้บริการรับชำระเงิน หากการชำระไม่สำเร็จ สิทธิ์ Pro อาจถูกจำกัด</li>
+      <li>หากพบการเรียกเก็บเงินที่ไม่ถูกต้อง กรุณาติดต่อเราตามข้อ 12 เพื่อตรวจสอบ</li>
+      <li>สมาชิกที่สมัครหรือชำระตามเงื่อนไขเดิมก่อนวันที่ข้อกำหนดนี้มีผล ยังได้รับสิทธิ์ตามเงื่อนไขเดิมจนสิ้นสุดรอบหรือวันหมดอายุเดิม</li>
+      <li>เราอาจปรับราคาหรือรูปแบบแพ็กเกจ โดยจะแจ้งล่วงหน้าก่อนมีผลกับรอบต่ออายุถัดไปของคุณ</li>
+    </ul>
 
-      <h2>6. การระงับหรือยกเลิกบัญชี</h2>
-      <p>เราขอสงวนสิทธิ์ระงับหรือยกเลิกบัญชีที่ใช้งานผิดวัตถุประสงค์ ละเมิดเงื่อนไขนี้ หรือพยายามเข้าถึงระบบโดยไม่ได้รับอนุญาต</p>
+    <h2>5. ข้อมูลและเนื้อหาของคุณ</h2>
+    <p>ข้อมูล เอกสาร และไฟล์ที่คุณบันทึกหรืออัปโหลดเป็นของคุณ คุณอนุญาตให้เราจัดเก็บและประมวลผลเท่าที่จำเป็นต่อการให้บริการตามนโยบายความเป็นส่วนตัว คุณรับรองว่ามีสิทธิ์ในเนื้อหาที่อัปโหลด และส่งออกข้อมูลของคุณได้จากในแอป</p>
 
-      <h2>7. กฎหมายที่ใช้บังคับ</h2>
-      <p>เงื่อนไขฉบับนี้อยู่ภายใต้กฎหมายไทย</p>
+    <h2>6. การใช้งานที่ไม่อนุญาต</h2>
+    <ul>
+      <li>ใช้บริการเพื่อกระทำผิดกฎหมาย ออกเอกสารเท็จ หรือหลีกเลี่ยงภาษี</li>
+      <li>อัปโหลดไฟล์ที่ละเมิดสิทธิ์ของผู้อื่น หรือมีโปรแกรมที่เป็นอันตราย</li>
+      <li>เจาะระบบ ทดสอบช่องโหว่ หรือพยายามหลบเลี่ยงการจำกัดสิทธิ์โดยไม่ได้รับอนุญาต</li>
+      <li>ดึงข้อมูลจากบริการด้วยโปรแกรมอัตโนมัติ หรือใช้งานในลักษณะที่ทำให้ระบบทำงานหนักผิดปกติ</li>
+    </ul>
 
-      <h2>8. ติดต่อเรา</h2>
-      <p>หากมีคำถามเกี่ยวกับเงื่อนไขการใช้งาน ติดต่อได้ที่ <a href="mailto:heidnsko1234@gmail.com">heidnsko1234@gmail.com</a></p>
-    </div>
+    <h2>7. LINE และบริการของผู้ให้บริการภายนอก</h2>
+    <p>ฟีเจอร์บางส่วนทำงานร่วมกับบริการภายนอก เช่น LINE, Google และ Stripe การใช้บริการเหล่านั้นอยู่ภายใต้ข้อกำหนดของผู้ให้บริการแต่ละราย การเชื่อมต่อ LINE เป็นทางเลือก และยกเลิกได้ทุกเมื่อที่หน้าตั้งค่า</p>
 
-    <footer>
-      <p><a href="/privacy">นโยบายความเป็นส่วนตัว</a> &middot; กระรอกตุนเงิน</p>
-    </footer>
-  </div>
+    <h2>8. ผู้ช่วยอัตโนมัติ</h2>
+    <p>รายการที่ผู้ช่วยใน LINE แยกจากข้อความของคุณจะแสดงเป็นร่างให้ตรวจสอบก่อนบันทึก คุณควรตรวจความถูกต้องทุกครั้งก่อนยืนยัน เมื่อเปิดให้บริการผู้ช่วย AI คำตอบที่สร้างโดย AI อาจไม่ถูกต้องครบถ้วน</p>
+
+    <h2>9. การพัก การลบ และการระงับบัญชี</h2>
+    <ul>
+      <li>คุณพักบัญชีหรือขอลบบัญชีได้ที่หน้าตั้งค่า บัญชีจะถูกปิดการใช้งานทันที และข้อมูลจะถูกลบถาวรเมื่อครบ 30 วัน บัญชีที่พักไว้เปิดใช้งานต่อได้ภายในระยะเวลานั้น</li>
+      <li>หากมีการสมัครแบบต่ออายุอัตโนมัติ ต้องยกเลิกการต่ออายุและรอให้รอบที่ชำระแล้วสิ้นสุดก่อน จึงจะพักหรือปิดบัญชีได้ เพื่อไม่ให้มีการเรียกเก็บเงินหลังปิดบัญชี</li>
+      <li>เราอาจระงับหรือยกเลิกบัญชีที่ละเมิดข้อกำหนดนี้ หรือมีความเสี่ยงต่อความปลอดภัยของระบบหรือผู้ใช้รายอื่น โดยจะแจ้งเหตุผลเมื่อทำได้</li>
+    </ul>
+
+    <h2>10. ความพร้อมใช้งานและข้อจำกัดความรับผิด</h2>
+    <p>เราพยายามให้บริการทำงานต่อเนื่องและถูกต้อง แต่บริการให้ "ตามสภาพที่เป็นอยู่" และอาจมีการหยุดชั่วคราวเพื่อปรับปรุงหรือจากเหตุที่อยู่นอกการควบคุม เท่าที่กฎหมายอนุญาต เราไม่รับผิดต่อความเสียหายทางอ้อม การสูญเสียรายได้ หรือความเสียหายจากการตัดสินใจที่อ้างอิงข้อมูลในบริการเพียงอย่างเดียว ข้อนี้ไม่จำกัดความรับผิดที่กฎหมายไม่อนุญาตให้จำกัด</p>
+
+    <h2>11. การเปลี่ยนแปลงบริการและข้อกำหนด</h2>
+    <p>เราอาจปรับปรุงบริการและข้อกำหนดนี้เป็นครั้งคราว หากมีการเปลี่ยนแปลงที่สำคัญ เราจะแจ้งผ่านแอปหรืออีเมลก่อนมีผล การใช้บริการต่อหลังจากนั้นถือว่าคุณยอมรับข้อกำหนดฉบับใหม่ ข้อกำหนดนี้อยู่ภายใต้กฎหมายไทย</p>
+
+    <h2 id="contact">12. ติดต่อเรา</h2>
+    <p>สอบถามเกี่ยวกับข้อกำหนดนี้หรือการชำระเงินได้ที่ <a href="mailto:cashsquirrelapp@gmail.com">cashsquirrelapp@gmail.com</a></p>
+  </article>
+
+  <!-- ================= ENGLISH ================= -->
+  <article class="card" lang="en">
+    <p class="lead">These terms are an agreement between you and the operator of Krarok Tunngern ("we") for your use of the Krarok Tunngern website, app and LINE Official Account (the "Service"). Please read them together with our <a href="/privacy">Privacy Policy</a>.</p>
+
+    <h2>1. Accepting these terms</h2>
+    <p>By signing up for or using the Service, you confirm that you have read and accept these terms. If you use the Service on behalf of a business, you confirm that you have the authority to accept them for that business. If you do not accept them, please stop using the Service.</p>
+
+    <h2>2. What the Service is</h2>
+    <p>Krarok Tunngern is a tool for freelancers and small businesses to record jobs and income, track receivables and credit terms, record expenses, issue documents such as quotations, invoices and receipts, store files, and receive reminders through LINE.</p>
+    <ul>
+      <li>Figures, summaries and calculations in the Service, including tax and withholding tax, are there to help you run your work. They are not tax, legal, accounting or investment advice.</li>
+      <li>You are responsible for the accuracy of the data you record and the documents you issue through the Service, and for complying with the tax laws that apply to you.</li>
+      <li>The Service does not file taxes or submit documents to government agencies on your behalf.</li>
+    </ul>
+
+    <h2>3. Your account</h2>
+    <ul>
+      <li>You must give accurate, up-to-date information and keep your password and signed-in devices secure.</li>
+      <li>You are responsible for activity under your account. If you suspect someone else has access, change your password and tell us promptly.</li>
+      <li>Do not use another person's account without permission or try to access other users' data.</li>
+    </ul>
+
+    <h2>4. Plans and payment</h2>
+    <ul>
+      <li><strong>Free plan:</strong> core features within the limits shown in the Service, such as 10 new documents per month.</li>
+      <li><strong>Pro trial:</strong> new accounts get Pro access for 14 days from sign-up, free of charge.</li>
+      <li><strong>Pro plan:</strong> priced as shown on the plans page at the time of payment, currently ฿159 for 1 month, ฿849 for 6 months and ฿1,490 for 1 year.</li>
+      <li><strong>Paying by card:</strong> an automatically renewing plan. When you give consent, Stripe saves your card and charges each next period when the current one ends, until you cancel.</li>
+      <li><strong>Paying by PromptPay:</strong> a one-off payment for the period you choose, with no automatic renewal.</li>
+      <li><strong>Cancelling renewal:</strong> you can cancel at any time on the membership page in the app, before the next charge date. You keep Pro until the end of the period you have paid for.</li>
+      <li>Pro starts once our payment provider confirms your payment. If a payment fails, Pro access may be limited.</li>
+      <li>If you believe you were charged incorrectly, contact us (section 12) so we can check it.</li>
+      <li>Members who signed up or paid under earlier terms before these terms took effect keep those terms until their current period or original expiry date ends.</li>
+      <li>We may change prices or plans and will give notice before a change applies to your next renewal.</li>
+    </ul>
+
+    <h2>5. Your data and content</h2>
+    <p>The data, documents and files you record or upload belong to you. You allow us to store and process them as needed to provide the Service, as described in our Privacy Policy. You confirm that you have the right to the content you upload, and you can export your data from the app.</p>
+
+    <h2>6. Prohibited use</h2>
+    <ul>
+      <li>Using the Service for unlawful purposes, issuing false documents or evading tax.</li>
+      <li>Uploading files that infringe others' rights or contain malicious software.</li>
+      <li>Hacking, vulnerability testing or bypassing access limits without permission.</li>
+      <li>Scraping the Service with automated tools or using it in a way that puts abnormal load on the system.</li>
+    </ul>
+
+    <h2>7. LINE and third-party services</h2>
+    <p>Some features work with third-party services such as LINE, Google and Stripe, which are governed by their own terms. Linking LINE is optional, and you can disconnect it at any time in Settings.</p>
+
+    <h2>8. Automated assistant</h2>
+    <p>Items the LINE assistant reads from your messages are shown as drafts for you to check before they are saved. Always check them before confirming. Once the AI assistant is offered, AI-generated answers may be inaccurate or incomplete.</p>
+
+    <h2>9. Pausing, deleting and suspending accounts</h2>
+    <ul>
+      <li>You can pause your account or ask to delete it in Settings. The account is disabled at once and its data is permanently deleted after 30 days. A paused account can be reactivated within that time.</li>
+      <li>If you have an auto-renewing subscription, cancel the renewal and wait for the paid period to end before pausing or closing the account, so that nothing is charged after the account is closed.</li>
+      <li>We may suspend or close accounts that breach these terms or put the system or other users at risk, and will give our reasons where we can.</li>
+    </ul>
+
+    <h2>10. Availability and limitation of liability</h2>
+    <p>We work to keep the Service running and accurate, but it is provided "as is" and may be interrupted for maintenance or by events outside our control. To the extent permitted by law, we are not liable for indirect damage, lost income, or damage from decisions based solely on information in the Service. This does not limit any liability that cannot be limited by law.</p>
+
+    <h2>11. Changes to the Service and these terms</h2>
+    <p>We may update the Service and these terms from time to time. We will tell you about material changes through the app or by email before they take effect; continuing to use the Service afterwards means you accept the updated terms. These terms are governed by the laws of Thailand.</p>
+
+    <h2 id="contact-en">12. Contact us</h2>
+    <p>For questions about these terms or payments, email <a href="mailto:cashsquirrelapp@gmail.com">cashsquirrelapp@gmail.com</a>.</p>
+  </article>
+
+  <footer>
+    <a href="/privacy"><span lang="th">นโยบายความเป็นส่วนตัว</span><span lang="en">Privacy Policy</span></a>
+    · <span lang="th">กระรอกตุนเงิน</span><span lang="en">Krarok Tunngern</span>
+  </footer>
+</div>
+<script src="/legal.js"></script>
 </body>
 </html>

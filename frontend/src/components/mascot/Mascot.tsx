@@ -1,4 +1,5 @@
 import React from 'react';
+import { PRO_GEAR_CSS, ProGearBack, ProGearDefs, ProGearFront } from './MascotProGear';
 
 export type MascotMood =
   | 'happy'
@@ -14,7 +15,9 @@ export type MascotMood =
   | 'received-money'
   | 'checking'
   | 'waiting'
-  | 'error';
+  | 'error'
+  /** Being petted: the happy colours with the closed "^ ^" eyes celebrate already uses. */
+  | 'blissful';
 
 export type MascotAction =
   | 'idle'
@@ -27,7 +30,14 @@ export type MascotAction =
   | 'celebrate'
   | 'sleep'
   /** Both paws tapping a little keyboard, a document filling in beside it (loading documents). */
-  | 'typing';
+  | 'typing'
+  /** The hold-baht arm raising a round red sign with a white cross (confirming a deletion). */
+  | 'hold-cross'
+  /** Walking toward you: the feet take turns stepping, the body shifts its weight and the paws swing (owner,
+   *  2026-10-23: legs that really walk, like a person). Only the existing shapes move. */
+  | 'walk'
+  /** One real jump: crouch, push off, feet tucked in the air, feet out to land, a small squash. */
+  | 'jump';
 
 export type MascotProp = 'none' | 'coin' | 'calendar' | 'document' | 'phone' | 'clipboard' | 'chart' | 'warning';
 
@@ -40,6 +50,8 @@ interface MascotProps {
   size?: number | 'sm' | 'md' | 'lg';
   /** Crop of the 100x100 artwork (e.g. a tighter square for icons). The drawing never changes. */
   viewBox?: string;
+  /** An outfit drawn over the unchanged squirrel: 'pro' is เลขากระรอก's headset, aura and star (MascotProGear). */
+  gear?: 'none' | 'pro';
 }
 
 const SIZE_PRESETS: Record<'sm' | 'md' | 'lg', number> = { sm: 48, md: 88, lg: 140 };
@@ -52,8 +64,13 @@ export function Mascot({
   className = '',
   size = 120,
   viewBox = '0 0 100 100',
+  gear = 'none',
 }: MascotProps) {
   const resolvedSize = typeof size === 'number' ? size : SIZE_PRESETS[size];
+  // Each drawing gets its own gradient ids, so a hidden copy never breaks another one's colours.
+  const gearUid = `mpg${React.useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const hasGear = gear === 'pro';
+  const fullGear = resolvedSize >= 40;
 
   // Color presets based on mood. New moods reuse an existing base palette (character lock:
   // body/head/ear/tail/belly shapes never change across moods, only color + face + pose do)
@@ -199,6 +216,10 @@ export function Mascot({
   const isCelebrateAction = action === 'celebrate';
   const isHoldAction = action === 'hold-coin' || action === 'hold-baht' || action === 'hold-calendar' || action === 'hold-document' || action === 'hold-phone';
   const isTypingAction = action === 'typing';
+  // Walking and jumping move the existing shapes in groups: the body (with the tail, face, arms and outfit),
+  // each foot, each paw and the shadow. Nothing is redrawn.
+  const rig = animated && (action === 'walk' || action === 'jump') ? action : null;
+  const rigClass = (part: string) => (rig ? `squirrel-${rig}-${part}` : undefined);
   // Holding the ฿ coin (the logo pose) fills the paw, so the mood's floating accessory is dropped.
   const showMoodAccessory = action !== 'hold-baht' && !isTypingAction;
 
@@ -268,6 +289,63 @@ export function Mascot({
         .squirrel-type-r { animation: typeTap 0.42s ease-in-out infinite; animation-delay: 0.21s; }
         .squirrel-key { animation: keyGlow 0.84s ease-in-out infinite; }
         .squirrel-doc { animation: docFloat 2.6s ease-in-out infinite; transform-origin: 80px 46px; }
+        /* Walk cycle (0.56 s, two steps): lift-and-place each foot in turn; the body dips at each contact, rises
+           over the planted foot and leans toward it; the paws swing opposite the feet. */
+        @keyframes walkBody {
+          0%, 50%, 100% { transform: translate(0px, 1px) rotate(0deg); }
+          25% { transform: translate(1.8px, -2.6px) rotate(3deg); }
+          75% { transform: translate(-1.8px, -2.6px) rotate(-3deg); }
+        }
+        /* The lifted foot also comes a little toward you (it grows), as a step does when walking to the camera. */
+        @keyframes walkFootL {
+          0%, 50%, 100% { transform: translate(0px, 0px) rotate(0deg) scale(1); }
+          25% { transform: translate(-1.2px, -8.5px) rotate(-14deg) scale(1.14); }
+        }
+        @keyframes walkFootR {
+          0%, 50%, 100% { transform: translate(0px, 0px) rotate(0deg) scale(1); }
+          75% { transform: translate(1.2px, -8.5px) rotate(14deg) scale(1.14); }
+        }
+        @keyframes walkArmL { 0%, 50%, 100% { transform: translateY(0px); } 25% { transform: translateY(1.8px); } 75% { transform: translateY(-3px); } }
+        @keyframes walkArmR { 0%, 50%, 100% { transform: translateY(0px); } 25% { transform: translateY(-3px); } 75% { transform: translateY(1.8px); } }
+        @keyframes walkShadow { 0%, 50%, 100% { transform: scaleX(1); } 25%, 75% { transform: scaleX(0.92); } }
+        .squirrel-walk-body { animation: walkBody 0.56s ease-in-out infinite; transform-origin: 50px 86px; }
+        .squirrel-walk-foot-l { animation: walkFootL 0.56s ease-in-out infinite; transform-origin: 40px 85px; }
+        .squirrel-walk-foot-r { animation: walkFootR 0.56s ease-in-out infinite; transform-origin: 60px 85px; }
+        .squirrel-walk-arm-l { animation: walkArmL 0.56s ease-in-out infinite; }
+        .squirrel-walk-arm-r { animation: walkArmR 0.56s ease-in-out infinite; }
+        .squirrel-walk-shadow { animation: walkShadow 0.56s ease-in-out infinite; transform-origin: 50px 90px; }
+        /* One jump (0.65 s): crouch with bent knees, stretch to push off, feet tucked at the top, feet reaching
+           down before landing, a squash on landing, then standing again. */
+        @keyframes jumpBody {
+          0% { transform: translateY(0px) scale(1, 1); }
+          22% { transform: translateY(4px) scale(1.07, 0.86); }
+          36% { transform: translateY(-6px) scale(0.94, 1.1); }
+          58% { transform: translateY(-28px) scale(1, 1); }
+          78% { transform: translateY(-8px) scale(0.97, 1.05); }
+          88% { transform: translateY(3px) scale(1.08, 0.88); }
+          100% { transform: translateY(0px) scale(1, 1); }
+        }
+        @keyframes jumpFeet {
+          0% { transform: translate(0px, 0px); }
+          22% { transform: translate(var(--squirrel-spread, 0px), 0px); }
+          36% { transform: translate(0px, -3px); }
+          58% { transform: translate(0px, -23px); }
+          78% { transform: translate(0px, -5px); }
+          88%, 100% { transform: translate(0px, 0px); }
+        }
+        @keyframes jumpArms {
+          0% { transform: translateY(0px); }
+          22% { transform: translateY(2.5px); }
+          45%, 62% { transform: translateY(-7px); }
+          88% { transform: translateY(1px); }
+          100% { transform: translateY(0px); }
+        }
+        @keyframes jumpShadow { 0%, 100% { transform: scale(1); opacity: 1; } 22% { transform: scale(1.08); } 58% { transform: scale(0.55); opacity: 0.45; } 88% { transform: scale(1.1); opacity: 1; } }
+        .squirrel-jump-body { animation: jumpBody 0.65s ease-in-out both; transform-origin: 50px 86px; }
+        .squirrel-jump-foot-l { --squirrel-spread: -1.5px; animation: jumpFeet 0.65s ease-in-out both; }
+        .squirrel-jump-foot-r { --squirrel-spread: 1.5px; animation: jumpFeet 0.65s ease-in-out both; }
+        .squirrel-jump-arm-l, .squirrel-jump-arm-r { animation: jumpArms 0.65s ease-in-out both; }
+        .squirrel-jump-shadow { animation: jumpShadow 0.65s ease-in-out both; transform-origin: 50px 90px; }
         .squirrel-doc-line { stroke-dasharray: 9; animation: docLine 2.6s ease-out infinite; }
         @media (prefers-reduced-motion: reduce) {
           .squirrel-tail-wag,
@@ -279,20 +357,27 @@ export function Mascot({
           .squirrel-type-r,
           .squirrel-key,
           .squirrel-doc,
-          .squirrel-doc-line {
+          .squirrel-doc-line,
+          [class^="squirrel-walk-"],
+          [class^="squirrel-jump-"] {
             animation: none !important;
           }
         }
       `}</style>
+      {hasGear && <style>{PRO_GEAR_CSS}</style>}
 
       <svg
         viewBox={viewBox}
-        className="w-full h-full"
+        className={`w-full h-full${hasGear && !animated ? ' mpg-still' : ''}`}
+        style={rig ? { overflow: 'visible' } : undefined}
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
+        {hasGear && <><ProGearDefs uid={gearUid} /><g className={rigClass('body')}><ProGearBack uid={gearUid} full={fullGear} /></g></>}
         {/* Shadow */}
-        <ellipse cx="50" cy="90" rx="25" ry="5" fill="black" fillOpacity="0.08" />
+        <ellipse cx="50" cy="90" rx="25" ry="5" fill="black" fillOpacity="0.08" className={rigClass('shadow')} />
+
+        <g className={rigClass('body')}>
 
         {/* Tail */}
         <g className={tailAnimationClass}>
@@ -361,7 +446,7 @@ export function Mascot({
           </>
         )}
 
-        {mood === 'celebrate' && (
+        {(mood === 'celebrate' || mood === 'blissful') && (
           <>
             {/* Excited "^" "^" eyes */}
             <path
@@ -481,7 +566,7 @@ export function Mascot({
         <polygon points="48,51 52,51 50,53.5" fill={colors.eyes} />
 
         {/* Mouth based on mood */}
-        {(mood === 'happy' || mood === 'wave' || mood === 'proud' || mood === 'relieved' || mood === 'received-money') && (
+        {(mood === 'happy' || mood === 'wave' || mood === 'proud' || mood === 'relieved' || mood === 'received-money' || mood === 'blissful') && (
           <path
             d="M47 55C48 57 52 57 53 55"
             stroke={colors.eyes}
@@ -546,6 +631,7 @@ export function Mascot({
 
         {/* Paws */}
         {/* Left arm */}
+        <g className={rigClass('arm-l')}>
         {isTypingAction ? (
           <g className={animated ? 'squirrel-type-l' : ''}>
             <path d="M36 61C37 65 39 68 41 70" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
@@ -561,8 +647,10 @@ export function Mascot({
         ) : (
           <circle cx="34" cy="64" r="3.5" fill={colors.body} />
         )}
+        </g>
 
         {/* Right arm */}
+        <g className={rigClass('arm-r')}>
         {isTypingAction ? (
           <g className={animated ? 'squirrel-type-r' : ''}>
             <path d="M64 61C63 65 61 68 59 70" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
@@ -594,6 +682,14 @@ export function Mascot({
             />
             <circle cx="70" cy="44" r="4" fill={colors.body} />
           </>
+        ) : action === 'hold-cross' ? (
+          <>
+            {/* The same raised arm as hold-baht, holding up a round "no" sign: red with a white cross. */}
+            <path d="M64 60C68 55 70 50 70 46" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
+            <circle cx="75.5" cy="40" r="8.5" fill="#E95454" stroke="#B83434" strokeWidth="1.2" />
+            <path d="M72.4 36.9l6.2 6.2M78.6 36.9l-6.2 6.2" stroke="#FFFFFF" strokeWidth="2.1" strokeLinecap="round" />
+            <circle cx="70" cy="44" r="4" fill={colors.body} />
+          </>
         ) : isHoldAction ? (
           <>
             <path d="M64 60C68 55 70 50 70 46" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
@@ -622,10 +718,14 @@ export function Mascot({
         ) : (
           <circle cx="66" cy="64" r="3.5" fill={colors.body} />
         )}
+        </g>
+        </g>
 
         {/* Feet */}
-        <ellipse cx="40" cy="85" rx="5" ry="3" fill={colors.body} />
-        <ellipse cx="60" cy="85" rx="5" ry="3" fill={colors.body} />
+        <g className={rigClass('foot-l')}><ellipse cx="40" cy="85" rx="5" ry="3" fill={colors.body} /></g>
+        <g className={rigClass('foot-r')}><ellipse cx="60" cy="85" rx="5" ry="3" fill={colors.body} /></g>
+
+        <g className={rigClass('body')}>
 
         {/* Prop overlay takes priority over the mood's default floating accessory, so a caller
             asking for a specific prop always sees it; omitting prop preserves the exact old
@@ -765,6 +865,8 @@ export function Mascot({
             )}
           </>
         )}
+        {hasGear && <ProGearFront uid={gearUid} full={fullGear} />}
+        </g>
       </svg>
     </div>
   );

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, X } from 'lucide-react';
 
+import { tr } from '../../i18n/tr';
 /**
  * Right-side drawer (full-screen sheet on phones). The page keeps a single one: changing
  * `viewKey` swaps its content in place (with `onBack` for a back arrow) rather than opening a
@@ -29,10 +30,10 @@ export function Drawer({ open, title, onClose, onBack, children, footer, width =
             style={{ maxWidth: width }}>
             <div className="flex items-center justify-between gap-3 border-b border-brand-border px-5 py-4 sm:px-6">
               <div className="flex min-w-0 items-center gap-1.5">
-                {onBack && <button type="button" onClick={onBack} aria-label="กลับ" className="-ml-1.5 rounded-lg p-1.5 text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer"><ArrowLeft className="h-5 w-5" /></button>}
+                {onBack && <button type="button" onClick={onBack} aria-label={tr("กลับ")} className="-ml-1.5 rounded-lg p-1.5 text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer"><ArrowLeft className="h-5 w-5" /></button>}
                 <h2 className="truncate text-base font-semibold text-brand-text">{title}</h2>
               </div>
-              <button type="button" onClick={onClose} aria-label="ปิด" className="rounded-lg p-1.5 text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer"><X className="h-5 w-5" /></button>
+              <button type="button" onClick={onClose} aria-label={tr("ปิด")} className="rounded-lg p-1.5 text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer"><X className="h-5 w-5" /></button>
             </div>
             <motion.div key={viewKey} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
               className="flex min-h-0 flex-1 flex-col">

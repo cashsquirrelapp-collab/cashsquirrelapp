@@ -1,5 +1,5 @@
-import type { Expense, Goal, Job } from './types';
-import { roundMoney } from './wht';
+import type { Expense, Goal, Job } from './types.js';
+import { roundMoney } from './wht.js';
 
 // เงินจริงที่มีอยู่ตอนนี้ -- the money the user actually holds now, which is not the same as the
 // month's profit:

@@ -1,0 +1,120 @@
+/* Goals page, computers and iPads only (744px and up), "Liquid Amber" (owner, 2026-10-21).
+   The phone branch of SplitTab never renders a ga-* class, and every rule here is scoped to them,
+   so phones are untouched. Colours stay on the CI: #E65F2B with the overview hero's terracotta
+   (#A63F1B / #C24A16) and its peach (#F3B08C); the tail symbol itself stays solid #E65F2B.
+   Loaded from App, not from SplitTab, because unit tests import SplitTab and Node cannot load CSS. */
+
+.ga-vault {
+  --ga-ink: #1F1A17;
+  --ga-muted: #7D7772;
+  --ga-track: rgba(31, 26, 23, 0.09);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  container-type: inline-size;
+  border-radius: 28px;
+  color: #FFFFFF;
+  background:
+    radial-gradient(60% 75% at 88% 6%, rgba(255, 228, 200, 0.5) 0%, rgba(255, 228, 200, 0) 62%),
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 46%),
+    linear-gradient(128deg, #A63F1B 0%, #C24A16 22%, #E65F2B 50%, #EF7A3D 74%, #F3B08C 100%);
+  box-shadow: 0 34px 64px -38px rgba(166, 63, 27, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+/* The amount and the plan sit side by side only when the card itself is wide enough. */
+.ga-vault-grid { display: grid; gap: 24px; }
+@container (min-width: 620px) { .ga-vault-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); } }
+.dark .ga-vault {
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 46%),
+    linear-gradient(128deg, #6E270E 0%, #8E3313 20%, #A63F1B 42%, #C24A16 64%, #D9632F 84%, #E89566 100%);
+  box-shadow: 0 34px 64px -38px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+/* The liquid: soft glossy waves drifting slowly behind the content. Decorative only. */
+.ga-liquid { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.ga-liquid svg { position: absolute; width: 140%; height: 140%; left: -20%; top: -20%; }
+.ga-liquid .ga-wave-a { animation: ga-drift-a 22s ease-in-out infinite alternate; transform-origin: 30% 40%; }
+.ga-liquid .ga-wave-b { animation: ga-drift-b 28s ease-in-out infinite alternate; transform-origin: 70% 60%; }
+.ga-liquid .ga-shine { animation: ga-shine 9s ease-in-out infinite; }
+@keyframes ga-drift-a { from { transform: translate3d(-2%, 0, 0) rotate(-2deg); } to { transform: translate3d(3%, -2%, 0) rotate(2deg); } }
+@keyframes ga-drift-b { from { transform: translate3d(2%, 1%, 0) rotate(1deg); } to { transform: translate3d(-3%, -1%, 0) rotate(-2deg); } }
+@keyframes ga-shine { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
+
+.ga-mark {
+  display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0;
+  border-radius: 999px; background: #FFFFFF; box-shadow: 0 10px 24px -14px rgba(60, 20, 6, 0.8);
+}
+.ga-mark img { width: 28px; height: 28px; object-fit: contain; }
+
+.ga-amount {
+  font-size: clamp(2.6rem, 10cqi, 4.25rem);
+  line-height: 1; letter-spacing: -0.03em; font-weight: 600;
+  text-shadow: 0 6px 22px rgba(90, 28, 6, 0.28);
+  white-space: nowrap;
+}
+.ga-amount.is-long { font-size: clamp(2.1rem, 7cqi, 3.25rem); }
+.ga-breakdown { border-left: 2px solid rgba(255, 255, 255, 0.45); padding-left: 12px; }
+
+/* The plan, on frosted glass over the liquid. Its own colours, because the app's text tokens
+   turn light in dark mode while the glass stays light. */
+.ga-glass {
+  color: var(--ga-ink);
+  background: rgba(255, 255, 255, 0.84);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 22px;
+  box-shadow: 0 22px 44px -28px rgba(90, 28, 6, 0.7);
+}
+.dark .ga-glass {
+  --ga-ink: #F7EFE9; --ga-muted: #C9B8AD; --ga-track: rgba(255, 255, 255, 0.14);
+  background: rgba(36, 24, 18, 0.72);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.ga-glass .ga-muted { color: var(--ga-muted); }
+.ga-track { height: 6px; overflow: hidden; border-radius: 999px; background: var(--ga-track); }
+.ga-track > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #E65F2B, #F08A4B); }
+.ga-track > span.is-unset { background: var(--ga-track); }
+.ga-plan-row { border-radius: 14px; transition: background-color 0.18s ease; }
+.ga-plan-row:hover { background: rgba(230, 95, 43, 0.08); }
+.dark .ga-plan-row:hover { background: rgba(255, 255, 255, 0.06); }
+.ga-icon-btn { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--ga-muted); transition: background-color 0.18s ease, color 0.18s ease; }
+.ga-icon-btn:hover:not(:disabled) { background: rgba(230, 95, 43, 0.1); color: #C24A16; }
+.ga-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Actions on the card: white pills, the allocation in charcoal when there is money to split. */
+.ga-pill {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 48px; padding: 0 20px; border-radius: 999px;
+  background: #FFFFFF; color: var(--ga-ink); font-size: 14px; font-weight: 600;
+  box-shadow: 0 12px 26px -18px rgba(70, 22, 6, 0.85);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  cursor: pointer; white-space: nowrap;
+}
+.ga-pill:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 16px 30px -18px rgba(70, 22, 6, 0.95); }
+.ga-pill:focus-visible { outline: 2px solid #FFFFFF; outline-offset: 3px; }
+.ga-pill:disabled { opacity: 0.55; cursor: not-allowed; }
+.ga-pill.is-accent { color: #C24A16; }
+.ga-pill.is-strong { background: #1F1A17; color: #FFFFFF; }
+.dark .ga-pill { color: #1F1A17; }
+.dark .ga-pill.is-strong { color: #FFFFFF; }
+
+/* The status card beside the vault. */
+.ga-status { border-radius: 28px; container-type: inline-size; }
+.ga-status-body { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0; text-align: center; }
+/* Full width under the vault (below 1440px): the mascot beside the words instead of above them. */
+@container (min-width: 560px) {
+  .ga-status-body { flex-direction: row; justify-content: flex-start; gap: 24px; padding: 8px 4px; text-align: left; }
+  .ga-status-body > div { align-items: flex-start; }
+}
+.ga-note { border-radius: 16px; background: #FFF4EC; color: #8A3A14; }
+.dark .ga-note { background: rgba(230, 95, 43, 0.12); color: #F7C7A9; }
+
+/* The goal list rows on wide screens. */
+.ga-goal-row { transition: background-color 0.18s ease; }
+.ga-goal-row:hover { background: color-mix(in srgb, #E65F2B 5%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ga-liquid .ga-wave-a, .ga-liquid .ga-wave-b, .ga-liquid .ga-shine { animation: none; }
+  .ga-pill, .ga-pill:hover:not(:disabled) { transition: none; transform: none; }
+}

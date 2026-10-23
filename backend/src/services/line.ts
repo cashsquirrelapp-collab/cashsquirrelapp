@@ -1,3 +1,5 @@
+import { stagingLineAllowed } from '../security/staging.js';
+import type { DeliveryOutcome } from './notificationOutcome.js';
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 
 export interface LineQuickReply {
@@ -32,8 +34,13 @@ function getLineRecipients(): Record<string, string> {
 // Pushes any message (text or Flex) to a known LINE user ID directly -- use this once an account
 // has self-service linked via api/line-webhook.ts (notifSettings.lineUserId).
 export async function sendLineMessagePayload(lineUserId: string, message: LineMessage): Promise<boolean> {
+  return await sendLineMessagePayloadOutcome(lineUserId, message) === 'accepted';
+}
+
+export async function sendLineMessagePayloadOutcome(lineUserId: string, message: LineMessage, retryKey?: string): Promise<DeliveryOutcome> {
+  if (!stagingLineAllowed(lineUserId)) return 'skipped';
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  if (!token) return false;
+  if (!token) return 'rejected';
 
   try {
     const res = await fetch(LINE_PUSH_URL, {
@@ -41,18 +48,21 @@ export async function sendLineMessagePayload(lineUserId: string, message: LineMe
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
+        ...(retryKey ? { 'X-Line-Retry-Key': retryKey } : {}),
       },
       signal: AbortSignal.timeout(10000),
       body: JSON.stringify({ to: lineUserId, messages: [message] }),
     });
-    if (!res.ok) {
-      console.error(`sendLineMessagePayload: LINE API error for ${lineUserId}:`, await res.text());
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error(`sendLineMessagePayload: failed to send to ${lineUserId}:`, err);
-    return false;
+    const accepted = res.ok || (res.status === 409 && res.headers.has('x-line-accepted-request-id'));
+    // The status already establishes acceptance/rejection; a body-read error cannot change it.
+    await res.body?.cancel().catch(() => {});
+    if (accepted) return 'accepted';
+    const outcome = res.status >= 400 && res.status < 500 ? 'rejected' : 'unknown';
+    console.error('LINE delivery did not confirm acceptance', { outcome, status: res.status });
+    return outcome;
+  } catch {
+    console.error('LINE delivery acceptance is unknown');
+    return 'unknown';
   }
 }
 
@@ -67,7 +77,11 @@ export async function sendLineMessage(lineUserId: string, text: string): Promise
 // LineMessage (not just plain text) so callers can push a styled Flex card, same as the direct
 // sendLineMessagePayload path.
 export async function sendLineMessageToEmail(email: string, message: LineMessage, linkedLineUserId?: string | null): Promise<boolean> {
+  return await sendLineMessageToEmailOutcome(email, message, linkedLineUserId) === 'accepted';
+}
+
+export async function sendLineMessageToEmailOutcome(email: string, message: LineMessage, linkedLineUserId?: string | null, retryKey?: string): Promise<DeliveryOutcome> {
   const lineUserId = linkedLineUserId || getLineRecipients()[email.toLowerCase()];
-  if (!lineUserId) return false;
-  return sendLineMessagePayload(lineUserId, message);
+  if (!lineUserId) return 'skipped';
+  return sendLineMessagePayloadOutcome(lineUserId, message, retryKey);
 }

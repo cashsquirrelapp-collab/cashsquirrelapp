@@ -1,11 +1,27 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { insertRecord, patchPrivate } from '../repositories/accounts.js';
 import { validateChanges } from '../../../shared/validation.js';
+import { whtAmountFor, roundMoney } from '../../../shared/wht.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from '../config/supabase.js';
 import { calculatePayDate, getRelativeDaysText, formatMonthKey, DEFAULT_JOB_TYPES } from '../../../shared/calendar.js';
 import type { Expense, Goal } from '../../../shared/types.js';
 import type { LineMessage } from './line.js';
+import { appOrigin } from '../config/env.js';
+import { parseLineQuickDraft } from './lineQuickDraft.js';
+import { getLineAiPolicy, compactLineAiContext } from './lineAiPolicy.js';
+import { listVaultFiles } from './vault.js';
+import { lineDraftKey, lineDraftOperationId, buildLineDraftReview } from './lineDraftReview.js';
+import { explicitLineAiText, LINE_JOB_EXAMPLES } from './lineEntryRouting.js';
+import { isActiveLineDraft, lineDraftResolution } from './lineDraftState.js';
+import { buildLineFeatureShortcut, isLineWhtShortcut } from './lineFeatureShortcuts.js';
+import { parseLineDocumentRequest, findLineDocuments, buildLineDocumentMessages } from './lineDocuments.js';
+import { buildLineCashSummary, lineCashPosition, type LineCashPosition } from './lineCashSummary.js';
+import { monthlyProfitSummary } from '../../../shared/monthlySummary.js';
+import type { CashOpening } from '../../../shared/cashBalance.js';
+import { type LineCardCharacter, lineCard, lineJobItem, lineValueRow, lineSection, lineDivider, lineAppLink, LINE_CARD_COLORS as C, MAX_LINE_ITEMS } from './lineCards.js';
+import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
+import { decodeDueAction, handleDueAction, handleDuePartialText } from './lineDuePayments.js';
 import {
   JobRow,
   ExpenseRow,
@@ -23,12 +39,12 @@ import {
 // What replaced it: the LIFF form (api/liff-submit.ts) for a proper multi-field UI, and --
 // natural-language add-job/add-expense (classifyMessage extracts a draft, then the user confirms
 // it before any financial write). A bounded "pending job draft" (see
-// PENDING_JOB_DRAFT_TTL_MS / saveJobDraft / clearJobDraft below): if a message is missing a
+// lineDraftState / saveJobDraft / clearJobDraft below): if a message is missing a
 // required field, what was captured is saved and the reply asks specifically for what's left, so
 // a short follow-up (just a number, just a name) completes the draft instead of making the user retype
-// the whole thing -- but it expires on its own after PENDING_JOB_DRAFT_TTL_MS and is never
+// the whole thing -- but it expires on its own after 15 minutes and is never
 // surfaced as "still waiting", so there's still no state a user can get permanently stuck in.
-// Everything else is either a fixed Quick Reply command (zero AI cost) or a Claude-answered
+// Ordinary text uses fixed commands and draft forms (zero AI calls). Only "ถาม AI ..." is a Claude-answered
 // question grounded in the user's real data -- with a static fallback (HELP_TEXT) if Claude is
 // unconfigured or errors (e.g. rate limited), so a Claude outage degrades to "here are the
 // buttons" instead of a raw error or a stuck conversation.
@@ -48,21 +64,14 @@ interface NotifSettingsRow {
   lineUserId?: string;
   lineLinkCode?: string;
   lineLinkCodeExpiresAt?: string;
-  pendingJobDraft?: { draft: JobDraft; createdAt: string };
-  pendingExpenseDraft?: { draft: ExpenseDraft; createdAt: string };
+  pendingJobDraft?: { draft: JobDraft; createdAt: string; operationKey?: string };
+  pendingExpenseDraft?: { draft: ExpenseDraft; createdAt: string; operationKey?: string };
   userName?: string;
   nameAskedAt?: string;
   chatHistory?: ChatHistoryEntry[];
   chatHistoryUpdatedAt?: string;
   [key: string]: unknown;
 }
-
-// How long a partial "add job" draft stays available to be completed by a follow-up message.
-// Short enough that a user who never comes back isn't left with a stale draft resurfacing days
-// later and getting silently merged into an unrelated message; long enough to actually type a
-// reply. Expired drafts are just dropped, never surfaced as "your draft expired" -- the whole
-// point is nothing ever leaves the user stuck, per the note on handleAssistantMessageInner.
-const PENDING_JOB_DRAFT_TTL_MS = 15 * 60 * 1000;
 
 // Short-term memory for follow-up questions ("แล้วเดือนที่แล้วล่ะ", "อันนั้นด้วย") within one
 // sitting -- NOT a permanent chat log. Capped at a few turns and expires after a gap of
@@ -82,10 +91,6 @@ const CHAT_HISTORY_MAX_TURNS = 3;
 // send-monthly-report.ts) since there's no server/client-shared config module.
 const FREE_TRIAL_DAYS = 14;
 
-// Same one-time ฿149 THB Payment Link used by App.tsx's handleUpgrade -- client_reference_id is
-// appended per-user below so the Stripe webhook can attribute the payment correctly.
-const paymentLink = () => process.env.VITE_PRO_PAYMENT_URL || `${process.env.APP_URL || ''}/app`;
-
 export async function isProUser(userId: string): Promise<boolean> {
   const [{ data: authUser, error: authErr }, { data: sub, error: subErr }] = await Promise.all([
     supabaseAdmin.auth.admin.getUserById(userId),
@@ -98,7 +103,7 @@ export async function isProUser(userId: string): Promise<boolean> {
   }
 
   const createdAt = authUser?.user?.created_at;
-  const isAdminRevoked = sub?.plan === 'admin_revoked';
+  const isAdminRevoked = ['admin_revoked', 'admin_removed'].includes(sub?.plan || '');
   const isInFreeTrial = !isAdminRevoked && !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000 > Date.now();
 
   const isPaidActive = sub?.status === 'active' && (
@@ -110,12 +115,13 @@ export async function isProUser(userId: string): Promise<boolean> {
 }
 
 // Shown instead of processing anything once a user's trial/paid period has lapsed -- polite,
-// in-character, and points straight at checkout (client_reference_id pre-filled) rather than
-// making them find the upgrade button in the app themselves.
+// in-character, and points to the authenticated app. Checkout must be created by the backend so
+// the account/workspace mapping cannot be supplied by an untrusted link parameter.
 function buildRenewalMessage(user: UserRow): LineMessage {
-  const url = new URL(paymentLink());
-  url.searchParams.set('client_reference_id', user.user_id);
-  if (user.email) url.searchParams.set('prefilled_email', user.email);
+  // `/plans` is the app's authenticated upgrade route. When the LINE in-app browser is not
+  // signed in yet, App keeps this pathname while rendering Login, then canonicalizes it to the
+  // user's `/plans/<workspace>` route once the session and workspace profile are available.
+  const url = new URL('/plans', appOrigin());
   return {
     type: 'text',
     text: `แพ็กเกจ Pro ของคุณหมดอายุแล้วครับ 🥲 การคุยกับผมผ่าน LINE เป็นสิทธิ์ของสมาชิก Pro น่ะครับ\n\nต่ออายุง่ายๆ กดลิงก์นี้ได้เลย พอจ่ายเสร็จกลับมาคุยกับผมต่อได้ทันที: ${url.toString()}`,
@@ -125,10 +131,11 @@ function buildRenewalMessage(user: UserRow): LineMessage {
 export interface UserRow {
   user_id: string;
   operationId?: string;
+  lastWriteWasDuplicate?: boolean;
   email?: string;
   jobs?: JobRow[];
   goals?: Goal[];
-  settings?: SettingsRow;
+  settings?: SettingsRow & { cashOpening?: CashOpening };
   expenses?: ExpenseRow[];
   statuses?: StatusRow[];
   notif_settings?: NotifSettingsRow;
@@ -193,6 +200,7 @@ async function callWithRetry<T>(fn: () => Promise<T>, attempt = 0): Promise<T> {
 }
 
 interface DataSnapshot {
+  cash: LineCashPosition;
   wip: { name: string; client: string; value: number }[];
   unpaid: { name: string; client: string; pending: number; dueDate: string | null; dueText: string }[];
   overdue: { name: string; client: string; pending: number; overdueText: string }[];
@@ -214,13 +222,16 @@ type MonthlySummaryWithMonth = DataSnapshot['thisMonth'];
  * unchanged so it cannot give a falsely reassuring answer.
  */
 export function formatAssistantMonthlySummary(summary: MonthlySummaryWithMonth) {
+  const profit = monthlyProfitSummary(summary);
   return {
     เดือน: summary.monthKey,
     รับแล้วจริง: formatCurrency(summary.received),
+    รายจ่ายรวมตามแอป_รวมประจำและทั่วไป: formatCurrency(profit.totalExpense),
+    กำไรสุทธิเดือนนี้_ก่อนแบ่งออม: formatCurrency(profit.netProfit),
+    เงินรับหักเฉพาะรายจ่ายที่จ่ายแล้ว_ไม่ใช่กำไร: formatCurrency(summary.received - summary.variableExpense),
     รายจ่ายที่บันทึกจริง: formatCurrency(summary.variableExpense),
     เงินย้ายเข้ากระปุก: formatCurrency(summary.cashGoalDeductions),
     งบประจำที่ตั้งไว้_ยังไม่ใช่รายการจ่ายจริง: formatCurrency(summary.fixedExpenseCalculated),
-    คงเหลือหลังรายการจริง: formatCurrency(summary.receivedAfterVariableExpense),
     กระแสเงินสดสุทธิหลังเผื่องบประจำ: formatCurrency(summary.netFlow),
   };
 }
@@ -285,8 +296,7 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
   const thisMonth = { ...computeMonthlySummary(jobs, user.expenses || [], user.goals || [], user.settings || {}, thisMonthKey), monthKey: thisMonthKey };
   const lastMonth = { ...computeMonthlySummary(jobs, user.expenses || [], user.goals || [], user.settings || {}, lastMonthKey), monthKey: lastMonthKey };
 
-  // Scoped by payDate||postDate falling in this month -- same job set computeMonthlySummary
-  // itself sums for thisMonth's income/received, just kept as a list instead of a total.
+  // Use the same dated payments and scheduled balances as the dashboard, including WIP.
   const thisMonthJobs = jobsInMonth(jobs, thisMonthKey).map((j) => ({
     name: j.name,
     client: j.client || '',
@@ -323,7 +333,7 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
     allocatedPercentage: g.allocatedPercentage,
   }));
 
-  return { wip, unpaid, overdue, dueToday, dueSoon, thisMonth, lastMonth, thisMonthJobs, upcomingForecast, goals, totalPendingAllTime };
+  return { cash: lineCashPosition(user), wip, unpaid, overdue, dueToday, dueSoon, thisMonth, lastMonth, thisMonthJobs, upcomingForecast, goals, totalPendingAllTime };
 }
 
 // LINE's chat UI renders plain text only -- markdown shows up as literal asterisks/hashes, which
@@ -371,10 +381,13 @@ async function classifyMessage(
   recentHistory?: ChatHistoryEntry[],
   pendingExpenseDraft?: ExpenseDraft
 ): Promise<ClassifyResult | null> {
+  const policy = getLineAiPolicy();
+  if (!policy.enabled) return null;
   const ai = getClaudeClient();
   if (!ai) return null;
 
   const formatted = {
+    เงินสะสมตามรายการในแอป: { ยอดทั้งหมดรวมกระปุก: formatCurrency(snapshot.cash.balance), พร้อมใช้หลังแยกกระปุก: formatCurrency(snapshot.cash.readyToSpend), ในกระปุก: formatCurrency(snapshot.cash.inGoals), มีเงินตั้งต้น: snapshot.cash.hasOpening },
     งานที่ยังไม่โพสต์_สต็อกงาน: snapshot.wip.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)}`),
     งานที่ยังไม่จ่ายเงิน: snapshot.unpaid.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} กำหนดชำระ ${j.dueText}${j.dueDate ? ` (วันที่ ${j.dueDate}, เดือน ${j.dueDate.slice(0, 7)})` : ''}`),
     งานที่เลยกำหนดชำระแล้ว: snapshot.overdue.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} (${j.overdueText})`),
@@ -391,12 +404,12 @@ async function classifyMessage(
   try {
     const response = await callWithRetry(() =>
       ai.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: policy.model,
         // Was 1024 -- too tight once the tool call's "answer" field carries a real Thai
         // explanation (e.g. "what's included in this number") alongside the JSON scaffolding;
         // hitting the cap mid-answer truncates the tool_use JSON, which then fails to parse
         // and silently returns null below with nothing logged. 4096 gives real headroom.
-        max_tokens: 4096,
+        max_tokens: policy.maxOutputTokens,
         tool_choice: { type: 'tool', name: 'extract_result' },
         tools: [
           {
@@ -453,10 +466,12 @@ ${recentHistory.map((h) => `${h.role === 'user' ? 'ผู้ใช้' : 'คุ
 - ตอบเฉพาะสิ่งที่ถูกถามเท่านั้น ห้ามพ่วงข้อมูลอื่นที่ไม่ได้ถามเข้ามาเองแม้จะมีข้อมูลนั้นอยู่ในมือก็ตาม เช่น ถ้าถามแค่ "เพิ่มสต็อกได้ไหม" (คำถามใช่/ไม่ใช่ง่ายๆ) ให้ตอบแค่ว่าได้ครับ พร้อมวิธีทำถ้าจำเป็น ห้ามพ่วงรายการสต็อกที่มีอยู่ตอนนี้ทั้งหมดเข้ามาด้วยทั้งที่ไม่มีใครถามถึง ยิ่งข้อมูลเยอะยิ่งต้องเลือกเฉพาะส่วนที่ตอบคำถามจริงๆ ไม่ใช่โชว์ทุกอย่างที่มีอยู่ในมือ
 - ห้ามเขียนคำตอบเป็นพารากราฟยาวๆ ก้อนเดียวเหมือนบทความเด็ดขาด ให้เขียนสั้นๆ แบบคนจริงพิมพ์แชทหากัน (1-2 ประโยคสั้นๆ ต่อช่วง) ถ้ามีหลายเรื่องที่จะพูดจริงๆ ให้แยกแต่ละเรื่องด้วยการเว้นบรรทัดว่าง (เคาะ Enter สองครั้ง) แต่ละช่วงจะกลายเป็นข้อความแยกกันเหมือนพิมพ์ทีละข้อความจริงๆ (ระบบจะแยกส่งให้เองสูงสุด 3 ข้อความ) แต่ถ้าคำตอบสั้นพอเรื่องเดียวจบ ก็ไม่ต้องเว้นบรรทัดเลย
 - ถ้ารายการว่างเปล่า (ไม่มีงานในหมวดที่ถาม) ให้ตอบว่าไม่มีอย่างชัดเจน เป็นข่าวดีไม่ใช่ข้อผิดพลาด
-- "กระแสเงินสดสุทธิหลังเผื่องบประจำ" ในข้อมูลนี้ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- คำนวณจาก (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้) ลบ (เงินที่ย้ายเข้ากระปุกและหักจากเงินสด) ลบ (งบประจำที่กันไว้ ซึ่งยังไม่ใช่เงินจ่ายจริงทั้งหมด) ตัวเลขนี้เป็นค่าติดลบได้และต้องแสดงค่าติดลบตามจริง ถ้าผู้ใช้ถามถึงกำไร ให้ตอบด้วยตัวเลขนี้ได้แต่ต้องบอกด้วยว่านี่คือกระแสเงินสดจากรายการที่บันทึกไว้และงบที่กันไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ผู้ใช้ยังไม่ได้บันทึกเข้าระบบ (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน ต้นทุนอื่นๆ) ซึ่งจะไม่ถูกรวมในตัวเลขนี้
-- ถ้าถามว่าตัวเลขใดตัวเลขหนึ่ง "รวมอะไรบ้าง" หรือครบถ้วนหรือไม่ ให้อธิบายตามจริงว่าเป็นผลรวมของอะไร (เช่น รายจ่ายรวม = ค่าใช้จ่ายคงที่ + ค่าใช้จ่ายผันแปรที่บันทึกไว้ในแอป) และบอกตรงๆ ว่าถ้ามีรายจ่ายอะไรที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
-- ถ้าคำถามเกี่ยวกับการเพิ่ม/แก้ไข/ลบข้อมูล ให้แนะนำให้กดปุ่ม "📝 ฟอร์มบันทึก" แทน เพราะที่นี่ตอบได้แค่คำถาม แก้ไขข้อมูลไม่ได้
-- ปุ่มลัดที่มีอยู่จริงในแชทมีแค่นี้เท่านั้น: "📝 ฟอร์มบันทึก", "📋 งานค้างจ่าย", "📊 สรุปเดือนนี้", "📅 งานเดือนนี้", "📦 กำลังดำเนินการ" ห้ามอ้างถึงหรือแนะนำปุ่มชื่ออื่นที่ไม่มีอยู่ในรายการนี้เด็ดขาด (เช่นห้ามพูดถึงปุ่ม "สรุปรายรับ" เพราะไม่มีจริง)
+- ถ้าถามยอดเงินคงเหลือตอนนี้ ให้ใช้ "เงินสะสมตามรายการในแอป": ยอดทั้งหมดรวมเงินในกระปุก และพร้อมใช้คือยอดหลังแยกกระปุกแล้ว ยอดนี้มาจากเงินตั้งต้นและรายการทั้งหมด ไม่ใช่ยอดธนาคารที่เชื่อมแบบเรียลไทม์ หากยังไม่มีเงินตั้งต้นให้บอกว่าคิดจากรายการที่บันทึกเท่านั้น
+- รายจ่ายรวมหมายถึงรายจ่ายที่บันทึกว่าจ่ายจริงเท่านั้น เงินย้ายเข้ากระปุกยังเป็นเงินของผู้ใช้ ไม่ใช่รายจ่าย ส่วนงบประจำที่ตั้งไว้เป็นแผน ห้ามรวมเป็นรายจ่ายจริงหรือหักจากยอดเงินสะสม หากถามกำไรให้ใช้รายรับหักรายจ่ายของช่วงเวลาที่ถาม พร้อมระบุว่าเป็นรายการที่บันทึก ไม่ใช่กำไรทางบัญชีที่ตรวจครบแล้ว
+- "กระแสเงินสดสุทธิหลังเผื่องบประจำ" ใช้เฉพาะคำถามเรื่องแผนงบประมาณ ไม่ใช่เงินคงเหลือหรือกำไร ยอดติดลบให้เรียกว่าเงินที่ยังขาดตามแผน ห้ามตอบว่ายอดเงินที่มีติดลบเพราะการกันงบ ถ้ารายจ่ายจริงเกินรายรับให้ระบุว่า "จ่ายมากกว่ารับ" พร้อมจำนวนที่เกิน ไม่ปิดบังส่วนขาด
+- ถ้าถามว่าตัวเลขรวมอะไรบ้าง ให้อธิบายช่วงเวลาและรายการที่ใช้คำนวณ รายการที่ยังไม่ได้บันทึกจะไม่รวมในยอด
+- ถ้าคำถามเกี่ยวกับการเพิ่ม/แก้ไข/ลบข้อมูล ให้แนะนำให้กดปุ่ม "สั่งงานเลขา" แทน เพราะที่นี่ตอบได้แค่คำถาม แก้ไขข้อมูลไม่ได้
+- ปุ่มลัดที่มีอยู่จริงในแชทมีแค่นี้เท่านั้น: "สั่งงานเลขา", "รอรับเงิน", "สรุปเดือนนี้", "งานเดือนนี้", "กำลังดำเนินงาน" ห้ามอ้างถึงหรือแนะนำปุ่มชื่ออื่นที่ไม่มีอยู่ในรายการนี้เด็ดขาด (เช่นห้ามพูดถึงปุ่ม "สรุปรายรับ" เพราะไม่มีจริง)
 - ถ้าคำถามถามถึงอนาคต (เดือนหน้า เดือนถัดไป หรือเดือนที่ระบุชื่อ) ให้เช็คจาก "พยากรณ์รายรับเดือนถัดไป_3เดือน" และ "งานที่ยังไม่จ่ายเงิน" (ที่มีระบุเดือนกำกับไว้) ก่อนเสมอ ห้ามบอกว่าไม่มีข้อมูลทั้งที่จริงมีอยู่ในสองส่วนนี้
 - ถ้าคำถามใช้คำว่า "เร็วๆ นี้"/"ใกล้ครบกำหนด"/"อีกไม่นาน" หรือถามแบบไม่ระบุช่วงเวลาชัดเจนว่างานไหนใกล้ถึงกำหนดชำระ ให้ตอบจาก "งานที่ใกล้ครบกำหนด_ภายใน10วัน_เรียงใกล้สุดก่อน" เท่านั้น (ที่คัดมาแล้วว่าใกล้จริงๆ ภายใน 10 วัน) ห้ามเอารายการทั้งหมดจาก "งานที่ยังไม่จ่ายเงิน" มาตอบเพราะจะเยอะเกินไปจนไม่เห็นภาพว่าอันไหนด่วนจริง ถ้ารายการนี้ว่างเปล่าให้บอกว่าไม่มีงานไหนใกล้ครบกำหนดในเร็วๆ นี้
 
@@ -474,7 +489,7 @@ ${recentHistory.map((h) => `${h.role === 'user' ? 'ผู้ใช้' : 'คุ
   - expenseAmount (บังคับ): จำนวนเงินเป็นตัวเลขล้วน ห้ามเดาถ้าไม่ได้ระบุชัดเจน
   - expenseCategory: เลือกจากนี้เท่านั้น "${EXPENSE_CATEGORIES.join('", "')}" ถ้าไม่แน่ใจใช้ "อื่นๆ"
 - ถ้าข้อความเป็นคำถาม/สอบถามข้อมูล ให้ intent = "question" แล้วตอบใส่ช่อง answer ตามกฎด้านบนทั้งหมด
-- ถ้า intent = "add_job" แต่ไม่มี jobName หรือ jobValue หรือ intent = "add_expense" แต่ไม่มี expenseName หรือ expenseAmount ให้ยังคง intent นั้นไว้ แต่ใส่คำตอบในช่อง answer บอกสิ่งที่ขาดไปแบบเป็นมิตร ชวนพิมพ์มาใหม่พร้อมข้อมูลที่ขาด หรือกดปุ่ม "📝 ฟอร์มบันทึก" แทนก็ได้
+- ถ้า intent = "add_job" แต่ไม่มี jobName หรือ jobValue หรือ intent = "add_expense" แต่ไม่มี expenseName หรือ expenseAmount ให้ยังคง intent นั้นไว้ แต่ใส่คำตอบในช่อง answer บอกสิ่งที่ขาดไปแบบเป็นมิตร ชวนพิมพ์มาใหม่พร้อมข้อมูลที่ขาด หรือกดปุ่ม "สั่งงานเลขา" แทนก็ได้
 - ถ้าข้อความไม่เข้าเงื่อนไขไหนเลย (เช่นทักทายเฉยๆ, บอกชื่อตัวเองเฉยๆ, พูดคุยทั่วไป) ให้ intent = "other" และถ้าเป็นการทักทาย/แนะนำตัว/พูดคุยเล็กๆ น้อยๆ ที่พอตอบกลับได้แบบมีคาแรคเตอร์ ให้ใส่คำตอบสั้นๆ อบอุ่นในช่อง answer ด้วย (ไม่ต้องใส่ก็ได้ถ้าข้อความไม่มีความหมายจับต้องได้เลย)
 - ไม่ว่า intent จะเป็นอะไรก็ตาม: ถ้าข้อความนี้มีการบอกชื่อของผู้ใช้เอง ให้ใส่เฉพาะชื่อเรียก (ไม่ใส่คำนำหน้า/คำอื่น) ลงในฟิลด์ userName เสมอ ไม่มีการบอกชื่อก็ไม่ต้องใส่ฟิลด์นี้
 ${pendingJobDraft ? `
@@ -485,13 +500,15 @@ ${pendingExpenseDraft ? `
 ถ้าข้อความใหม่นี้ดูเหมือนเป็นคำตอบที่เติมข้อมูลที่ขาดไปของรายจ่ายนี้ (เช่น พิมพ์มาแค่ชื่อรายการ หรือแค่จำนวนเงิน โดยไม่มีบริบทอื่น) ให้ตีความว่า intent = "add_expense" แล้วใส่ค่ากลับเข้าไปในฟิลด์ expense* ให้ครบทุกฟิลด์ที่มีอยู่แล้วข้างต้นด้วย (ไม่ใช่ใส่แค่ฟิลด์ที่เพิ่งพิมพ์มาใหม่) รวมกับฟิลด์ใหม่ที่เพิ่งได้จากข้อความนี้ แต่ถ้าข้อความนี้ชัดเจนว่าเป็นเรื่องอื่นที่ไม่เกี่ยวกับการเติมรายจ่ายนี้เลย ให้ตีความตามความหมายจริงของมันตามปกติ ไม่ต้องฝืนตีความเป็น add_expense` : ''}
 
 ข้อมูลบัญชีจริง (JSON):
-${JSON.stringify(formatted, null, 2)}
+${JSON.stringify(compactLineAiContext(formatted, text, !!(pendingJobDraft || pendingExpenseDraft)))}
+ถ้า _lineContext.hasOmissions เป็นจริง รายการที่ให้เป็นเพียงบางส่วน ห้ามสรุปว่าไม่มีงานจากการไม่พบในรายการนี้ ให้แนะนำเปิดรายงานในแอปเมื่อข้อมูลไม่พอ ยอดรวมยังเป็นยอดเต็มจากระบบ
 
 ข้อความจากผู้ใช้: "${text}"`,
           },
         ],
       })
     );
+    console.info('line_ai_usage', { model: policy.model, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens });
     const toolUse = response.content.find((block): block is Anthropic.ToolUseBlock => block.type === 'tool_use');
     // Before this, a missing tool_use block or a missing `intent` fell straight through to
     // `return null` with zero logging -- indistinguishable in Vercel Logs from "Claude decided
@@ -526,23 +543,20 @@ ${JSON.stringify(formatted, null, 2)}
 }
 
 // Tappable shortcuts (LINE Quick Reply) -- every one of these is answered deterministically,
-// zero AI calls involved anywhere in this flow. The form button only appears once LIFF_ID is
-// configured (api/liff-submit.ts). It deliberately opens a LIFF page rather than deep-linking
-// into the web app's own Supabase-session-based UI: a LIFF page verifies identity from the LINE
-// session itself (via an ID token, checked server-side), so it always saves to the account this
-// LINE user is linked to -- no separate login, and no risk of landing in whatever account
-// happens to be logged into the browser on that device.
-function getQuickReply(): import('./line.js').LineQuickReply {
-  const liffId = process.env.LIFF_ID;
+// zero AI calls involved anywhere in this flow. The add button exchanges a verified LINE
+// identity for the linked owner's session, then opens the real in-app add-job form.
+export function getQuickReply(): import('./line.js').LineQuickReply {
   const items: import('./line.js').LineQuickReply['items'] = [];
-  if (liffId) {
-    items.push({ type: 'action', action: { type: 'uri', label: '📝 ฟอร์มบันทึก', uri: `https://liff.line.me/${liffId}` } });
+  const addJob = lineAppLink('/jobs?openAddJob=1', 'เพิ่มงาน');
+  if (addJob) {
+    items.push({ type: 'action', action: { type: 'uri', ...addJob } });
   }
   items.push(
-    { type: 'action', action: { type: 'message', label: '📋 งานค้างจ่าย', text: 'งานค้างจ่าย' } },
-    { type: 'action', action: { type: 'message', label: '📊 สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
-    { type: 'action', action: { type: 'message', label: '📅 งานเดือนนี้', text: 'งานเดือนนี้' } },
-    { type: 'action', action: { type: 'message', label: '📦 กำลังดำเนินการ', text: 'กำลังดำเนินการ' } }
+    { type: 'action', action: { type: 'message', label: 'รอรับเงิน', text: 'รอรับเงิน' } },
+    { type: 'action', action: { type: 'message', label: 'สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
+    { type: 'action', action: { type: 'message', label: 'งานเดือนนี้', text: 'งานเดือนนี้' } },
+    { type: 'action', action: { type: 'message', label: 'กำลังดำเนินงาน', text: 'กำลังดำเนินการ' } },
+    { type: 'action', action: { type: 'message', label: 'เมนูเพิ่มเติม', text: 'เมนูเพิ่มเติม' } }
   );
   return { items: items.slice(0, 13) };
 }
@@ -563,163 +577,90 @@ function textBubbles(text: string): LineMessage[] {
   return splitIntoBubbles(text).map((t) => ({ type: 'text', text: t }));
 }
 
-function buildSectionLabel(text: string, color: string) {
-  return {
-    type: 'box',
-    layout: 'horizontal',
-    backgroundColor: '#F3E8D8',
-    cornerRadius: '8px',
-    paddingAll: '8px',
-    margin: 'lg',
-    contents: [{ type: 'text', text, size: 'xs', weight: 'bold', color, wrap: true }],
-  };
+// Notifications and reports share one hierarchy: title, key amount, supporting details.
+function buildReceiptCard(bodyContents: any[], altText: string, character: LineCardCharacter): LineMessage {
+  const [heading, first, ...rest] = bodyContents;
+  const hasMetric = first?.contents?.[1]?.size === 'xl';
+  return lineCard({
+    title: heading?.text || 'กระรอกตุนเงิน', altText, character, compact: true,
+    ...(hasMetric ? { metric: { label: first.contents[0].text, value: first.contents[1].text, color: first.contents[1].color } } : {}),
+    body: hasMetric ? rest : bodyContents.slice(1),
+  });
 }
 
-// Shared cream "bank statement" bubble shell every Quick Reply report below is built on.
-function buildReceiptCard(bodyContents: any[], altText: string): LineMessage {
-  const contents = {
-    type: 'bubble',
-    size: 'kilo',
-    body: { type: 'box', layout: 'vertical', backgroundColor: '#FFF9F0', borderWidth: '1px', borderColor: '#E6D8C7', cornerRadius: '14px', paddingAll: '18px', spacing: 'sm', contents: bodyContents },
-  };
-  return { type: 'flex', altText, contents };
-}
-
-function buildJobRow(name: string, client: string, amount: number, color: string) {
-  return {
-    type: 'box',
-    layout: 'horizontal',
-    margin: 'md',
-    spacing: 'md',
-    contents: [
-      {
-        type: 'box', layout: 'vertical', flex: 3, spacing: 'xs',
-        contents: [
-          { type: 'text', text: name, size: 'sm', weight: 'bold', color: '#3D2314', wrap: true, maxLines: 2 },
-          ...(client ? [{ type: 'text', text: client, size: 'xxs', color: '#A88A6E', wrap: true, maxLines: 1 }] : []),
-        ],
-      },
-      { type: 'text', text: formatCurrency(amount), size: 'sm', weight: 'bold', color, flex: 2, align: 'end', gravity: 'center', wrap: false },
-    ],
-  };
-}
-
-function buildUnpaidJobsMessage(snapshot: DataSnapshot): LineMessage {
-  if (snapshot.unpaid.length === 0) return { type: 'text', text: '🎉 ตอนนี้ไม่มีงานค้างจ่ายเลยครับ' };
-  const bodyContents: any[] = [
-    buildTypeBadge('deal', 'งานค้างจ่าย', '#A63F1B'),
-    buildStatementRow('รายการ', `${snapshot.unpaid.length} งาน`, { size: 'lg', color: '#3D2314' }),
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    ...snapshot.unpaid.flatMap((j) => [
-      buildJobRow(j.name, j.client, j.pending, '#A63F1B'),
-      { type: 'text', text: `กำหนดชำระ ${j.dueText}`, size: 'xxs', color: '#A88A6E', align: 'end' },
-    ]),
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildStatementRow('รวมค้างรับทั้งหมด', formatCurrency(snapshot.totalPendingAllTime), { color: '#A63F1B' }),
-  ];
-  return buildReceiptCard(bodyContents, `งานค้างจ่ายทั้งหมด ${snapshot.unpaid.length} งาน • รวม ${formatCurrency(snapshot.totalPendingAllTime)}`);
+export function buildUnpaidJobsMessage(snapshot: Pick<DataSnapshot, 'unpaid' | 'totalPendingAllTime'>): LineMessage {
+  const jobs = [...snapshot.unpaid].sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
+  const shown = jobs.slice(0, MAX_LINE_ITEMS);
+  return lineCard({
+    title: 'รอรับเงิน', subtitle: 'ติดตามยอดที่ยังไม่ได้รับจากลูกค้า', character: 'reminder',
+    metric: { label: 'ยอดรอรับทั้งหมด', value: formatCurrency(snapshot.totalPendingAllTime), note: `${jobs.length} งาน` },
+    body: shown.length ? shown.map(j => lineJobItem({ name: j.name, client: j.client, amount: formatCurrency(j.pending),
+      meta: j.dueDate ? `กำหนดรับ ${j.dueText}` : 'ยังไม่ระบุวันรับเงิน',
+      metaColor: (j.dueText.includes('เลยกำหนด') || j.dueText.includes('overdue')) ? C.negative : C.muted,
+    })) : [{ type: 'text', text: 'ไม่มีงานรอรับเงินในขณะนี้', size: 'sm', color: C.muted, wrap: true, margin: 'lg' }],
+    note: jobs.length > shown.length ? `แสดง ${shown.length} จาก ${jobs.length} งาน · อีก ${jobs.length - shown.length} งานดูได้ในแอป` : undefined,
+    footer: lineAppLink('/receivables', 'ดูงานรอรับเงินทั้งหมด'),
+    altText: `รอรับเงิน ${jobs.length} งาน · รวม ${formatCurrency(snapshot.totalPendingAllTime)}`,
+  });
 }
 
 export function buildMonthlySummaryMessage(s: MonthlySummaryWithMonth): LineMessage {
-  const monthLabel = formatMonthKey(s.monthKey);
-  const actualCashOut = s.variableExpense + s.cashGoalDeductions;
-  const bodyContents: any[] = [
-    buildTypeBadge('receipt', 'สรุปเงินเดือนนี้', '#E65F2B'),
-    buildStatementRow('เดือน', monthLabel, { size: 'lg', color: '#3D2314' }),
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildSectionLabel('เงินเข้า', '#0E9F6E'),
-    buildStatementRow('รับเงินจริง', `+${formatCurrency(s.received)}`, { color: '#0E9F6E' }),
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildSectionLabel('รายการที่เงินออกจริง', '#A63F1B'),
-    buildStatementRow('รายจ่ายที่บันทึก', `-${formatCurrency(s.variableExpense)}`, { bold: false, color: '#A63F1B' }),
-    buildStatementRow('ย้ายเข้ากระปุก', `-${formatCurrency(s.cashGoalDeductions)}`, { bold: false, color: '#B45309' }),
-    buildStatementRow('รวมออกจริง', `-${formatCurrency(actualCashOut)}`, { color: '#A63F1B' }),
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildStatementRow('เหลือจริง', formatCurrency(s.receivedAfterVariableExpense), { size: 'lg', color: '#0E9F6E' }),
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildSectionLabel('งบสำรอง', '#7A5C43'),
-    buildStatementRow('งบประจำ', formatCurrency(s.fixedExpenseCalculated), { bold: false, color: '#7A5C43' }),
-    buildStatementRow('เหลือหลังกันงบ', formatCurrency(s.netFlow), { color: s.netFlow < 0 ? '#A63F1B' : '#3D2314' }),
-    { type: 'text', text: 'งบประจำยังไม่ใช่เงินจ่ายจริง', size: 'xxs', color: '#A88A6E', wrap: true, margin: 'sm' },
-  ];
-  return buildReceiptCard(bodyContents, `สรุปเดือนนี้ (${monthLabel}) • รับจริง ${formatCurrency(s.received)} • ออกจริง ${formatCurrency(actualCashOut)} • คงเหลือ ${formatCurrency(s.receivedAfterVariableExpense)}`);
+  return buildLineCashSummary({
+    title: 'สรุปเดือนนี้', monthLabel: formatMonthKey(s.monthKey), summary: s,
+    footer: lineAppLink('/report', 'ดูรายงานฉบับเต็ม'),
+  });
 }
 
 function buildThisMonthSummaryMessage(snapshot: DataSnapshot): LineMessage {
   return buildMonthlySummaryMessage(snapshot.thisMonth);
 }
 
-function buildWipJobsMessage(snapshot: DataSnapshot): LineMessage {
-  if (snapshot.wip.length === 0) return { type: 'text', text: '📦 ตอนนี้ไม่มีงานที่กำลังดำเนินการครับ' };
-  const bodyContents: any[] = [
-    buildTypeBadge('package', 'กำลังดำเนินการ', '#4338CA'),
-    buildStatementRow('รายการ', `${snapshot.wip.length} งาน`, { size: 'lg', color: '#3D2314' }),
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    ...snapshot.wip.map((j) => buildJobRow(j.name, j.client, j.value, '#4338CA')),
-  ];
-  return buildReceiptCard(bodyContents, `กำลังดำเนินการ ${snapshot.wip.length} งาน`);
+export function buildWipJobsMessage(snapshot: Pick<DataSnapshot, 'wip'>): LineMessage {
+  return lineCard({
+    title: 'กำลังดำเนินงาน', subtitle: 'งานที่ยังอยู่ระหว่างดำเนินการ', character: 'working',
+    metric: { label: 'งานระหว่างดำเนินการ', value: `${snapshot.wip.length} งาน` },
+    body: snapshot.wip.length ? snapshot.wip.slice(0, MAX_LINE_ITEMS).map(j => lineJobItem({ name: j.name, client: j.client, amount: formatCurrency(j.value) }))
+      : [{ type: 'text', text: 'ไม่มีงานระหว่างดำเนินการในขณะนี้', size: 'sm', color: C.muted, wrap: true, margin: 'lg' }],
+    note: snapshot.wip.length > MAX_LINE_ITEMS ? `แสดง ${MAX_LINE_ITEMS} จาก ${snapshot.wip.length} งาน · ดูรายการที่เหลือในแอป` : undefined,
+    footer: lineAppLink('/jobs', 'ดูงานทั้งหมด'), altText: `กำลังดำเนินงาน ${snapshot.wip.length} งาน`,
+  });
 }
 
-// Flex "receipt" card version of the month's job list -- grouped into unpaid/paid/stock
-// sections so it reads as a clean report instead of a wall of plain-text lines.
-function buildThisMonthJobsMessage(snapshot: DataSnapshot): LineMessage {
+export function buildThisMonthJobsMessage(snapshot: Pick<DataSnapshot, 'thisMonth' | 'thisMonthJobs'>): LineMessage {
   const s = snapshot.thisMonth;
   const monthLabel = formatMonthKey(s.monthKey);
-
-  if (snapshot.thisMonthJobs.length === 0) {
-    return { type: 'text', text: `📅 เดือนนี้ (${monthLabel}) ยังไม่มีงานเข้าเลยครับ` };
+  const wip = snapshot.thisMonthJobs.filter(j => j.isPosted === false);
+  const invoiced = snapshot.thisMonthJobs.filter(j => j.isPosted !== false);
+  const unpaid = invoiced.filter(j => j.isUnpaid);
+  const paid = invoiced.filter(j => !j.isUnpaid);
+  const unpaidSum = Math.max(0, s.income - s.received);
+  const body: any[] = [];
+  let remaining = MAX_LINE_ITEMS;
+  for (const group of [{ label: 'รอรับเงิน', jobs: unpaid, pending: true }, { label: 'รับเงินครบแล้ว', jobs: paid, pending: false }, { label: 'กำลังดำเนินงาน', jobs: wip, pending: false }]) {
+    if (!group.jobs.length) continue;
+    const shown = group.jobs.slice(0, remaining);
+    if (shown.length) body.push(lineSection(`${group.label} · ${group.jobs.length} งาน`));
+    body.push(...shown.map(j => lineJobItem({ name: j.name, client: j.client, amount: formatCurrency(group.pending ? j.pending : j.value) })));
+    remaining -= shown.length;
   }
-
-  const wip = snapshot.thisMonthJobs.filter((j) => j.isPosted === false);
-  const invoiced = snapshot.thisMonthJobs.filter((j) => j.isPosted !== false);
-  const unpaid = invoiced.filter((j) => j.isUnpaid);
-  const paid = invoiced.filter((j) => !j.isUnpaid);
-  const unpaidSum = unpaid.reduce((sum, j) => sum + j.pending, 0);
-
-  const bodyContents: any[] = [
-    buildTypeBadge('receipt', 'งานเดือนนี้', '#E65F2B'),
-    buildStatementRow('เดือน', monthLabel, { size: 'lg', color: '#3D2314' }),
-    buildStatementRow('รวม', `${snapshot.thisMonthJobs.length} งาน`, { bold: false, color: '#7A5C43' }),
-  ];
-
-  if (unpaid.length > 0) {
-    bodyContents.push(
-      { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-      buildSectionLabel(`💸 ยังไม่จ่าย (${unpaid.length} • ค้างรวม ${formatCurrency(unpaidSum)})`, '#A63F1B'),
-      ...unpaid.map((j) => buildJobRow(j.name, j.client, j.pending, '#A63F1B'))
-    );
-  }
-  if (paid.length > 0) {
-    bodyContents.push(
-      { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-      buildSectionLabel(`✅ จ่ายแล้ว (${paid.length})`, '#0E9F6E'),
-      ...paid.map((j) => buildJobRow(j.name, j.client, j.value, '#0E9F6E'))
-    );
-  }
-  if (wip.length > 0) {
-    bodyContents.push(
-      { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-      buildSectionLabel(`📦 กำลังดำเนินการ (${wip.length})`, '#4338CA'),
-      ...wip.map((j) => buildJobRow(j.name, j.client, j.value, '#4338CA'))
-    );
-  }
-
-  bodyContents.push(
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    buildStatementRow('รวมมูลค่าทั้งหมด', formatCurrency(s.income), { color: '#3D2314' })
-  );
-
-  const altText = unpaid.length > 0
-    ? `งานเดือนนี้ (${monthLabel}) ${snapshot.thisMonthJobs.length} งาน • ยังไม่จ่าย ${unpaid.length} งาน ค้าง ${formatCurrency(unpaidSum)}`
-    : `งานเดือนนี้ (${monthLabel}) ${snapshot.thisMonthJobs.length} งาน`;
-  return buildReceiptCard(bodyContents, altText);
+  if (!snapshot.thisMonthJobs.length) body.push({ type: 'text', text: 'เดือนนี้ยังไม่มีงาน', size: 'sm', color: C.muted, margin: 'lg' });
+  if (unpaidSum > 0) body.push(lineDivider(), lineValueRow('ยอดรอรับเดือนนี้', formatCurrency(unpaidSum)));
+  return lineCard({
+    title: 'งานเดือนนี้', subtitle: monthLabel, character: 'report',
+    metric: { label: 'มูลค่างานเดือนนี้', value: formatCurrency(s.income), note: `${snapshot.thisMonthJobs.length} งาน · รอรับ ${unpaid.length} · รับครบ ${paid.length} · ดำเนินงาน ${wip.length}` },
+    body, note: snapshot.thisMonthJobs.length > MAX_LINE_ITEMS ? `แสดง ${MAX_LINE_ITEMS} จาก ${snapshot.thisMonthJobs.length} งาน · ดูรายการที่เหลือในแอป` : undefined,
+    footer: lineAppLink('/jobs', 'ดูงานทั้งหมด'),
+    altText: `งานเดือนนี้ (${monthLabel}) ${snapshot.thisMonthJobs.length} งาน · รอรับ ${formatCurrency(unpaidSum)}`,
+  });
 }
 
 const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => LineMessage> = {
+  รอรับเงิน: buildUnpaidJobsMessage,
   งานค้างจ่าย: buildUnpaidJobsMessage,
   สรุปเดือนนี้: buildThisMonthSummaryMessage,
   งานสต็อก: buildWipJobsMessage,
   กำลังดำเนินการ: buildWipJobsMessage,
+  กำลังดำเนินงาน: buildWipJobsMessage,
   งานเดือนนี้: buildThisMonthJobsMessage,
 };
 
@@ -733,7 +674,7 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => LineMessage> = {
 function buildHelpText(name?: string): string {
   return [
     `🐿️ สวัสดี${name ? `ครับคุณ${name}` : 'ครับ'}!`,
-    'พิมพ์เล่าเรื่องงาน/รายจ่ายมาได้เลย เดี๋ยวบันทึกให้ หรือถามอะไรเกี่ยวกับเงินๆ ทองๆ ก็ได้ครับ กดปุ่มด้านล่างก็ได้เหมือนกัน',
+    `บันทึกงานได้โดยพิมพ์ เช่น “${LINE_JOB_EXAMPLES[0]}” แล้วตรวจรายการก่อนยืนยันครับ หากต้องการคุยกับ AI ให้ขึ้นต้นด้วย “ถาม AI”`,
   ].join('\n\n');
 }
 
@@ -751,8 +692,8 @@ export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; clien
   // "received" for a fully-paid job is the NET amount after tax, matching what actually lands
   // in the bank -- not the gross contract value.
   const whtRate = draft.whtRate || 0;
-  const whtAmount = Math.round(valueNum * (whtRate / 100));
-  const netReceivable = valueNum - whtAmount;
+  const whtAmount = whtAmountFor(valueNum, whtRate);
+  const netReceivable = roundMoney(valueNum - whtAmount);
   let status: string = 'pending';
   let received = 0;
   if (draft.paymentStatus === 'paid') {
@@ -762,7 +703,7 @@ export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; clien
     status = 'partial';
     received = draft.receivedAmount || 0;
   }
-  const pending = Math.max(0, netReceivable - received);
+  const pending = Math.max(0, roundMoney(netReceivable - received));
   const payDate = calculatePayDate(today, creditTerm, false);
 
   return {
@@ -789,30 +730,39 @@ export async function persistJob(user: UserRow, job: ReturnType<typeof buildJobF
   try {
     if (user.operationId) job.id = createHash('sha256').update(`job:${user.user_id}:${user.operationId}`).digest('hex');
     validateChanges([{table:'cashflow_jobs',id:job.id,op:'set',version:null,data:job}]);
-    await insertRecord('cashflow_jobs',user.user_id,job,!!user.operationId); return true;
+    const saved = await insertRecord('cashflow_jobs',user.user_id,job,!!user.operationId);
+    user.lastWriteWasDuplicate = !saved.inserted;
+    for (const key of Object.keys(job)) if (!Object.hasOwn(saved.record,key)) delete (job as any)[key];
+    Object.assign(job,saved.record);
+    return true;
   } catch { console.error('persistJob: insert failed'); return false; }
 }
 
-// Persists (or clears) the in-progress "add job" draft so the next message can complete it
-// instead of starting over -- best-effort: a failed write here just means the next message
-// starts fresh rather than resuming, never a hard failure the user sees.
+// Persist a draft before offering confirmation. Resolving a draft marks its identity
+// instead of deleting the shared slot, which may already hold a newer concurrent draft.
 // Every notif_settings writer here mutates `user.notif_settings` locally right after a successful
 // write (instead of only writing to the DB) -- a single request can touch more than one of these
 // keys in a row (e.g. a message that both introduces a name AND leaves a job draft incomplete),
 // and each writer merges onto `user.notif_settings` as its base. Without updating that local
 // object in between, a later writer in the same request would merge onto the original stale
 // snapshot and silently drop whatever an earlier writer in this same request just saved.
-async function saveJobDraft(user: UserRow, draft: JobDraft): Promise<void> {
-  const notif_settings = { ...(user.notif_settings || {}), pendingJobDraft: { draft, createdAt: new Date().toISOString() } };
+async function saveJobDraft(user: UserRow, draft: JobDraft, fresh = false): Promise<void> {
+  const previous = user.notif_settings?.pendingJobDraft;
+  const stored = { draft, createdAt: new Date().toISOString(), operationKey: '' };
+  stored.operationKey = !fresh && previous && isActiveLineDraft('job', previous, user.notif_settings || {})
+    ? previous.operationKey || lineDraftKey('job', previous) : lineDraftKey('job', stored);
+  const notif_settings = { ...(user.notif_settings || {}), pendingJobDraft: stored };
   await patchPrivate(user.user_id, { pendingJobDraft: notif_settings.pendingJobDraft });
   user.notif_settings = notif_settings;
 }
 
-async function clearJobDraft(user: UserRow): Promise<void> {
+export async function clearJobDraft(user: UserRow): Promise<void> {
   if (!user.notif_settings?.pendingJobDraft) return;
-  const { pendingJobDraft: _omit, ...rest } = user.notif_settings;
-  await patchPrivate(user.user_id, {}, ['pendingJobDraft']);
-  user.notif_settings = rest;
+  const resolution = lineDraftResolution('job', user.notif_settings.pendingJobDraft, user.notif_settings);
+  await patchPrivate(user.user_id, resolution.patch, resolution.remove);
+  const next: NotifSettingsRow = { ...user.notif_settings, ...resolution.patch };
+  for (const key of resolution.remove) delete next[key];
+  user.notif_settings = next;
 }
 
 // Same shape as saveJobDraft/clearJobDraft, for an in-progress "add expense" that's missing a
@@ -820,17 +770,23 @@ async function clearJobDraft(user: UserRow): Promise<void> {
 // structured to complete -- it relied entirely on the model re-deriving the amount from chat
 // history text, and worse, a *stale* pendingJobDraft (from an earlier, abandoned job) could hijack
 // that short reply via the job-continuation prompt instruction below, misfiling it as a job.
-async function saveExpenseDraft(user: UserRow, draft: ExpenseDraft): Promise<void> {
-  const notif_settings = { ...(user.notif_settings || {}), pendingExpenseDraft: { draft, createdAt: new Date().toISOString() } };
+async function saveExpenseDraft(user: UserRow, draft: ExpenseDraft, fresh = false): Promise<void> {
+  const previous = user.notif_settings?.pendingExpenseDraft;
+  const stored = { draft, createdAt: new Date().toISOString(), operationKey: '' };
+  stored.operationKey = !fresh && previous && isActiveLineDraft('expense', previous, user.notif_settings || {})
+    ? previous.operationKey || lineDraftKey('expense', previous) : lineDraftKey('expense', stored);
+  const notif_settings = { ...(user.notif_settings || {}), pendingExpenseDraft: stored };
   await patchPrivate(user.user_id, { pendingExpenseDraft: notif_settings.pendingExpenseDraft });
   user.notif_settings = notif_settings;
 }
 
-async function clearExpenseDraft(user: UserRow): Promise<void> {
+export async function clearExpenseDraft(user: UserRow): Promise<void> {
   if (!user.notif_settings?.pendingExpenseDraft) return;
-  const { pendingExpenseDraft: _omit, ...rest } = user.notif_settings;
-  await patchPrivate(user.user_id, {}, ['pendingExpenseDraft']);
-  user.notif_settings = rest;
+  const resolution = lineDraftResolution('expense', user.notif_settings.pendingExpenseDraft, user.notif_settings);
+  await patchPrivate(user.user_id, resolution.patch, resolution.remove);
+  const next: NotifSettingsRow = { ...user.notif_settings, ...resolution.patch };
+  for (const key of resolution.remove) delete next[key];
+  user.notif_settings = next;
 }
 
 // Persists the name once extracted from a message -- kept forever (no TTL, unlike the job draft)
@@ -887,54 +843,13 @@ async function finishConversationalReply(
   return textBubbles(finalText);
 }
 
-// Bangkok "19:33" style short clock time -- shown next to the badge label so a card still reads
-// "when did this happen" on its own, without relying on LINE's own message timestamp (which
-// users don't reliably notice, per direct feedback on a live card).
-function formatTimeShort(): string {
-  const bkk = new Date(Date.now() + 7 * 60 * 60 * 1000);
-  const hh = String(bkk.getUTCHours()).padStart(2, '0');
-  const mm = String(bkk.getUTCMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
+// A plain heading keeps decorative icons and duplicate timestamps out of the report.
+function buildTypeBadge(_icon: string, label: string, _color: string) {
+  return { type: 'text', text: label, size: 'md', weight: 'bold', color: C.text, wrap: true };
 }
 
-// A small colored icon chip + label + time, meant as the very first row of a notification
-// card's bodyContents -- gives every card type (job saved, edited, deleted, expense added, goal
-// deposit, ...) its own glanceable symbol + color, instead of every card reading as the same
-// "cream statement card" shape with only a colored header word to tell them apart. `color`
-// doubles as the label color and (baked into the PNG itself) the badge circle's background at
-// ~15% opacity, matching the web app's own badge styling. icon is one of the basenames under
-// public/icons/badge-*.png (generated to match this app's own hand-drawn line-icon style -- see
-// icons.tsx). LINE Flex has no way to render inline SVG or an emoji-as-icon reliably across
-// devices, only a hosted image, so these are real PNGs served from this deployment.
-function buildTypeBadge(icon: string, label: string, color: string) {
-  const appUrl = process.env.APP_URL;
-  const iconUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/icons/badge-${icon}.png` : undefined;
-  return {
-    type: 'box',
-    layout: 'horizontal',
-    spacing: 'sm',
-    alignItems: 'center',
-    margin: 'md',
-    contents: [
-      ...(iconUrl ? [{ type: 'image', url: iconUrl, size: '26px', aspectRatio: '1:1', aspectMode: 'cover' as const, flex: 0 }] : []),
-      { type: 'text', text: label, size: 'sm', weight: 'bold', color, gravity: 'center', flex: 1, wrap: true },
-      { type: 'text', text: formatTimeShort(), size: 'xs', color: '#A88A6E', gravity: 'center', align: 'end', flex: 0 },
-    ],
-  };
-}
-
-// A simple label-left / value-right row, like a bank transfer receipt statement.
 function buildStatementRow(label: string, value: string, opts?: { size?: string; color?: string; bold?: boolean }) {
-  return {
-    type: 'box',
-    layout: 'horizontal',
-    margin: 'sm',
-    spacing: 'md',
-    contents: [
-      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 3, gravity: 'center', wrap: true, maxLines: 2 },
-      { type: 'text', text: value, size: opts?.size || 'sm', color: opts?.color || '#3D2314', weight: opts?.bold === false ? 'regular' : 'bold', flex: 2, align: 'end', gravity: 'center', wrap: false },
-    ],
-  };
+  return lineValueRow(label, value, opts);
 }
 
 // Minimal shape buildJobSavedMessage actually needs -- looser than buildJobFromDraft's return
@@ -973,23 +888,13 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
   // and "partial" shared the same green badge and headline, so a card for a job that had only
   // gotten a deposit looked identical to one that was fully settled.
   const headerLabel = isWip ? 'งานใหม่' : isDone ? 'รับเงิน' : isPartial ? 'รับมัดจำ' : 'มูลค่าดีล';
-  const headerColor = isWip ? '#4338CA' : isDone ? '#0E9F6E' : isPartial ? '#B45309' : '#0D9488';
+  const headerColor = isWip ? C.text : isDone ? C.positive : isPartial ? C.warning : C.text;
   // job.value is the full contract value, not what's actually landed -- for a partial payment
   // that's just the deposit, so show job.received (falling back to value if a caller doesn't send
   // it) instead of implying the whole contract amount arrived.
   const displayAmount = isPaidSome ? (job.received ?? job.value) : job.value;
 
-  const contents = {
-    type: 'bubble',
-    body: {
-      type: 'box',
-      layout: 'vertical',
-      backgroundColor: '#FBF2E4',
-      borderWidth: '1px',
-      borderColor: '#D8CBB8',
-      paddingAll: '20px',
-      spacing: 'md',
-      contents: [
+  return buildReceiptCard([
         isWip
           ? buildTypeBadge('package', 'กำลังดำเนินการ', headerColor)
           : isDone
@@ -998,18 +903,14 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
               ? buildTypeBadge('partial', 'ได้รับมัดจำ', headerColor)
               : buildTypeBadge('deal', 'ดีลงาน', headerColor),
         buildStatementRow(headerLabel, `${isPaidSome ? '+' : ''}${formatCurrency(displayAmount)}`, { size: 'xl', color: headerColor }),
-        { type: 'separator', margin: 'md', color: '#E8DFD3' },
+        { type: 'separator', margin: 'md', color: C.border },
         buildStatementRow('ชื่องาน', job.name, { bold: false }),
         ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
-        ...(job.whtRate ? [buildStatementRow(`หัก ณ ที่จ่าย ${job.whtRate}%`, `-${formatCurrency(job.whtAmount || 0)}`, { bold: false, color: '#C17817' })] : []),
+        ...(job.whtRate ? [buildStatementRow(`หัก ณ ที่จ่าย ${job.whtRate}%`, `-${formatCurrency(job.whtAmount || 0)}`, { bold: false, color: C.warning })] : []),
         buildStatementRow('สถานะ', statusLabel, { bold: false }),
-        ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
-        ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
-      ],
-    },
-  };
-
-  return { type: 'flex', altText: isWip ? `เพิ่มงาน "${job.name}" เป็นกำลังดำเนินการแล้วครับ` : `บันทึกงาน "${job.name}" สำเร็จแล้วครับ`, contents };
+        ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: C.warning })] : []),
+        ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: C.border }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: C.positive })] : []),
+  ], isWip ? `เพิ่มงาน \"${job.name}\" เป็นกำลังดำเนินการแล้วครับ` : `บันทึกงาน \"${job.name}\" สำเร็จแล้วครับ`, !isWip && isPaidSome && displayAmount > 0 ? 'received' : isWip ? 'working' : 'review');
 }
 
 // Builds a real Expense record the same way ExpenseRecordView.tsx's add-expense form does.
@@ -1033,7 +934,11 @@ export async function persistExpense(user: UserRow, expense: Expense): Promise<b
   try {
     if (user.operationId) expense.id = createHash('sha256').update(`expense:${user.user_id}:${user.operationId}`).digest('hex');
     validateChanges([{table:'cashflow_expenses',id:expense.id,op:'set',version:null,data:expense}]);
-    await insertRecord('cashflow_expenses',user.user_id,expense,!!user.operationId); return true;
+    const saved = await insertRecord('cashflow_expenses',user.user_id,expense,!!user.operationId);
+    user.lastWriteWasDuplicate = !saved.inserted;
+    for (const key of Object.keys(expense)) if (!Object.hasOwn(saved.record,key)) delete (expense as any)[key];
+    Object.assign(expense,saved.record);
+    return true;
   } catch { console.error('persistExpense: insert failed'); return false; }
 }
 
@@ -1058,28 +963,14 @@ export function computeMonthNetForUser(user: UserRow, extraJob?: JobRow, extraEx
 // at a glance. No specific-record deep link yet (only jobs support ?job=<id> in App.tsx), so the
 // card confirms the saved expense without adding a navigation button.
 export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): LineMessage {
-  const contents = {
-    type: 'bubble',
-    body: {
-      type: 'box',
-      layout: 'vertical',
-      backgroundColor: '#FBF2E4',
-      borderWidth: '1px',
-      borderColor: '#D8CBB8',
-      paddingAll: '20px',
-      spacing: 'md',
-      contents: [
-        buildTypeBadge('receipt', 'รายจ่ายใหม่', '#A63F1B'),
-        buildStatementRow('จ่ายเงิน', `-${formatCurrency(expense.amount)}`, { size: 'xl', color: '#A63F1B' }),
-        { type: 'separator', margin: 'md', color: '#E8DFD3' },
+  return buildReceiptCard([
+        buildTypeBadge('receipt', 'รายจ่ายใหม่', C.negative),
+        buildStatementRow('จ่ายเงิน', `-${formatCurrency(expense.amount)}`, { size: 'xl', color: C.negative }),
+        { type: 'separator', margin: 'md', color: C.border },
         buildStatementRow('รายการ', expense.name, { bold: false }),
         buildStatementRow('หมวด', expense.category, { bold: false }),
-        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
-      ],
-    },
-  };
-
-  return { type: 'flex', altText: `บันทึกรายจ่าย "${expense.name}" สำเร็จแล้วครับ`, contents };
+        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: C.border }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: C.positive })] : []),
+  ], `บันทึกรายจ่าย \"${expense.name}\" สำเร็จแล้วครับ`, 'spent');
 }
 
 // LINE can't delete/unsend a message the bot already pushed -- there's no such API. This sends
@@ -1088,16 +979,16 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
 export function buildJobDeletedMessage(job: { name: string; client?: string; value: number; isPosted?: boolean }, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
   const bodyContents = [
-    buildTypeBadge('trash', 'ยกเลิกงาน', '#78716C'),
-    buildStatementRow('ยกเลิกงาน', formatCurrency(job.value), { size: 'xl', color: '#78716C' }),
-    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildTypeBadge('trash', 'ยกเลิกงาน', C.muted),
+    buildStatementRow('ยกเลิกงาน', formatCurrency(job.value), { size: 'xl', color: C.muted }),
+    { type: 'separator', margin: 'md', color: C.border },
     buildStatementRow('ชื่องาน', job.name, { bold: false }),
     ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
-    ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
+    ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: C.border }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: C.positive })] : []),
   ];
   // No "เปิดแอป" button here -- the job is gone, there's nothing left in the app for this card
   // to open to.
-  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`);
+  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`, 'cancelled');
 }
 
 // Sent when a job is edited through JobsTab's edit form without that edit also being a full
@@ -1110,42 +1001,42 @@ export function buildJobEditedMessage(job: JobCardData, monthNet?: number): Line
   const isWip = job.isPosted === false;
   const statusLabel = isWip ? 'กำลังดำเนินการ' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'installment' ? 'แบ่งชำระเป็นงวด' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const bodyContents = [
-    buildTypeBadge('pencil', 'แก้ไขงาน', '#2563EB'),
-    buildStatementRow('แก้ไขงาน', formatCurrency(job.value), { size: 'xl', color: '#2563EB' }),
-    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildTypeBadge('pencil', 'แก้ไขงาน', C.text),
+    buildStatementRow('แก้ไขงาน', formatCurrency(job.value), { size: 'xl', color: C.text }),
+    { type: 'separator', margin: 'md', color: C.border },
     buildStatementRow('ชื่องาน', job.name, { bold: false }),
     ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
     buildStatementRow('สถานะ', statusLabel, { bold: false }),
-    ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ยอดค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
-    ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
+    ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ยอดค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: C.warning })] : []),
+    ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: C.border }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: C.positive })] : []),
   ];
-  return buildReceiptCard(bodyContents, `แก้ไขงาน "${job.name}" แล้วครับ`);
+  return buildReceiptCard(bodyContents, `แก้ไขงาน "${job.name}" แล้วครับ`, 'review');
 }
 
 // Same idea as buildJobDeletedMessage, for a deleted variable expense.
 export function buildExpenseDeletedMessage(expense: { name: string; category?: string; amount: number }, monthNet?: number): LineMessage {
   const bodyContents = [
-    buildTypeBadge('trash', 'ลบรายจ่าย', '#78716C'),
-    buildStatementRow('ลบรายจ่าย', formatCurrency(expense.amount), { size: 'xl', color: '#78716C' }),
-    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildTypeBadge('trash', 'ลบรายจ่าย', C.muted),
+    buildStatementRow('ลบรายจ่าย', formatCurrency(expense.amount), { size: 'xl', color: C.muted }),
+    { type: 'separator', margin: 'md', color: C.border },
     buildStatementRow('รายการ', expense.name, { bold: false }),
     ...(expense.category ? [buildStatementRow('หมวด', expense.category, { bold: false })] : []),
-    ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
+    ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: C.border }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: C.positive })] : []),
   ];
-  return buildReceiptCard(bodyContents, `ลบรายจ่าย "${expense.name}" แล้วครับ`);
+  return buildReceiptCard(bodyContents, `ลบรายจ่าย "${expense.name}" แล้วครับ`, 'cancelled');
 }
 
 export function buildGoalCreatedMessage(goal: { name: string; target: number; deadline?: string }): LineMessage {
   // Purple, not the job-edited card's blue -- goal creation gets its own color so the two never
   // read as the same type of event at a glance.
   const bodyContents = [
-    buildTypeBadge('target', 'เป้าหมายใหม่', '#7C3AED'),
-    buildStatementRow('เป้าหมายใหม่', goal.name, { size: 'xl', color: '#7C3AED' }),
-    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildTypeBadge('target', 'เป้าหมายใหม่', C.text),
+    buildStatementRow('เป้าหมายใหม่', goal.name, { size: 'xl', color: C.text }),
+    { type: 'separator', margin: 'md', color: C.border },
     buildStatementRow('ยอดเป้าหมาย', formatCurrency(goal.target), { bold: false }),
     ...(goal.deadline ? [buildStatementRow('กำหนดเสร็จ', goal.deadline, { bold: false })] : []),
   ];
-  return buildReceiptCard(bodyContents, `สร้างเป้าหมายใหม่ "${goal.name}" แล้วครับ`);
+  return buildReceiptCard(bodyContents, `สร้างเป้าหมายใหม่ "${goal.name}" แล้วครับ`, 'saving');
 }
 
 // Covers both deposit (ฝากเงินเพิ่ม) and withdraw (ดึงเงินออก) -- same card shape, colored and
@@ -1157,16 +1048,16 @@ export function buildGoalTransactionMessage(
 ): LineMessage {
   const isDeposit = tx.type === 'deposit';
   const headerLabel = isDeposit ? 'ฝากเข้าเป้าหมาย' : 'ถอนจากเป้าหมาย';
-  const headerColor = isDeposit ? '#0E9F6E' : '#A63F1B';
+  const headerColor = isDeposit ? C.positive : C.negative;
   const bodyContents = [
     isDeposit ? buildTypeBadge('acorn', headerLabel, headerColor) : buildTypeBadge('outbox', headerLabel, headerColor),
     buildStatementRow(headerLabel, `${isDeposit ? '+' : '-'}${formatCurrency(tx.amount)}`, { size: 'xl', color: headerColor }),
-    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    { type: 'separator', margin: 'md', color: C.border },
     buildStatementRow('เป้าหมาย', goal.name, { bold: false }),
     ...(tx.reason ? [buildStatementRow('เหตุผล', tx.reason, { bold: false })] : []),
     buildStatementRow('ยอดสะสมล่าสุด', `${formatCurrency(goal.current)} / ${formatCurrency(goal.target)}`, { bold: false }),
   ];
-  return buildReceiptCard(bodyContents, `${headerLabel} "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`);
+  return buildReceiptCard(bodyContents, `${headerLabel} "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`, isDeposit ? 'saving' : 'withdraw');
 }
 
 // Sent when a goal deposit/withdraw history entry is deleted (the trash icon on each row in the
@@ -1178,15 +1069,15 @@ export function buildGoalTransactionDeletedMessage(
 ): LineMessage {
   const wasDeposit = tx.type === 'deposit';
   const bodyContents = [
-    buildTypeBadge('trash', 'ลบรายการ', '#78716C'),
-    buildStatementRow('ลบรายการ', formatCurrency(tx.amount), { size: 'xl', color: '#78716C' }),
-    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildTypeBadge('trash', 'ลบรายการ', C.muted),
+    buildStatementRow('ลบรายการ', formatCurrency(tx.amount), { size: 'xl', color: C.muted }),
+    { type: 'separator', margin: 'md', color: C.border },
     buildStatementRow('เป้าหมาย', goal.name, { bold: false }),
     buildStatementRow('ประเภทที่ลบ', wasDeposit ? 'ฝากเข้า' : 'ดึงเงินออก', { bold: false }),
     ...(tx.reason ? [buildStatementRow('เหตุผลเดิม', tx.reason, { bold: false })] : []),
     buildStatementRow('ยอดสะสมล่าสุด', `${formatCurrency(goal.current)} / ${formatCurrency(goal.target)}`, { bold: false }),
   ];
-  return buildReceiptCard(bodyContents, `ลบรายการ "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`);
+  return buildReceiptCard(bodyContents, `ลบรายการ "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`, 'cancelled');
 }
 
 function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
@@ -1198,20 +1089,92 @@ function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'part
 // array (LINE's reply API takes one call with up to 5 message bubbles) -- a freeform text reply
 // may be split into a few short bubbles by textBubbles, everything else is just one. The Quick
 // Reply shortcuts are attached to the last bubble only, so they're always one tap away.
-export async function handleAssistantMessage(lineUserId: string, text: string, operationId?: string): Promise<LineMessage[] | null> {
-  const result = await handleAssistantMessageInner(lineUserId, text, operationId);
+export interface LineAssistantDependencies {
+  findUserByLineId: typeof findUserByLineId;
+  checkLinkedAccountWriteAccess: typeof checkLinkedAccountWriteAccess;
+  isProUser: typeof isProUser;
+  saveJobDraft?: typeof saveJobDraft;
+  saveExpenseDraft?: typeof saveExpenseDraft;
+  clearJobDraft?: typeof clearJobDraft;
+  clearExpenseDraft?: typeof clearExpenseDraft;
+  persistJob?: typeof persistJob;
+  persistExpense?: typeof persistExpense;
+  classifyMessage?: typeof classifyMessage;
+  listVaultFiles?: typeof listVaultFiles;
+  findLineDocuments?: typeof findLineDocuments;
+  handleDueAction?: typeof handleDueAction;
+  handleDuePartialText?: typeof handleDuePartialText;
+}
+
+const defaultLineAssistantDependencies: LineAssistantDependencies = {
+  findUserByLineId,
+  checkLinkedAccountWriteAccess,
+  isProUser,
+};
+
+/**
+ * The reads every assistant message starts with, done ahead of time. The webhook starts this at the same
+ * moment it claims the event and checks the rate limit, so the three groups wait on the network together
+ * instead of one after another (each round trip to the database is ~150-250 ms from a Worker). It only
+ * reads; handleAssistantMessage uses the answers exactly where it used to make the same calls, so an
+ * unlinked, closed or expired account is still stopped at the same step and a failed lookup still fails
+ * closed. Never rejects: each result carries its own outcome.
+ */
+export interface LinkedContext {
+  user: PromiseSettledResult<UserRow | null>;
+  access?: PromiseSettledResult<Awaited<ReturnType<typeof checkLinkedAccountWriteAccess>>>;
+  pro?: PromiseSettledResult<boolean>;
+}
+
+export function prefetchLinkedContext(
+  lineUserId: string,
+  dependencies: LineAssistantDependencies = defaultLineAssistantDependencies,
+): Promise<LinkedContext> {
+  return (async () => {
+    const [user] = await Promise.allSettled([(async () => dependencies.findUserByLineId(lineUserId))()]);
+    if (user.status === 'rejected' || !user.value) return { user };
+    const id = user.value.user_id;
+    const [access, pro] = await Promise.allSettled([
+      (async () => dependencies.checkLinkedAccountWriteAccess(id))(),
+      (async () => dependencies.isProUser(id))(),
+    ]);
+    return { user, access, pro };
+  })();
+}
+
+const settledValue = <T,>(result: PromiseSettledResult<T>): T => {
+  if (result.status === 'rejected') throw result.reason;
+  return result.value;
+};
+
+export async function handleAssistantMessage(
+  lineUserId: string,
+  text: string,
+  operationId?: string,
+  dependencies: LineAssistantDependencies = defaultLineAssistantDependencies,
+  prefetched?: Promise<LinkedContext>,
+): Promise<LineMessage[] | null> {
+  const result = await handleAssistantMessageInner(lineUserId, text, operationId, dependencies, prefetched);
   if (result === null) return null;
   const messages = Array.isArray(result) ? result : [result];
-  if (messages.length === 0) return null;
+  // Linked, handled, nothing to say: the webhook sends no reply (never the link-code answer).
+  if (messages.length === 0) return [];
   const lastIndex = messages.length - 1;
-  const withQuick = messages.map((m, i) => (i === lastIndex ? { ...m, quickReply: getQuickReply() } : m));
+  const withQuick = messages.map((m, i) => (i === lastIndex && !m.quickReply ? { ...m, quickReply: getQuickReply() } : m));
   return withQuick.slice(0, 5); // LINE's reply API accepts at most 5 messages per call
 }
 
-async function handleAssistantMessageInner(lineUserId: string, text: string, operationId?: string): Promise<LineMessage | LineMessage[] | null> {
+async function handleAssistantMessageInner(
+  lineUserId: string,
+  text: string,
+  operationId: string | undefined,
+  dependencies: LineAssistantDependencies,
+  prefetched?: Promise<LinkedContext>,
+): Promise<LineMessage | LineMessage[] | null> {
+  const linked = prefetched ? await prefetched : undefined;
   let user: UserRow | null;
   try {
-    user = await findUserByLineId(lineUserId);
+    user = linked ? settledValue(linked.user) : await dependencies.findUserByLineId(lineUserId);
   } catch (err) {
     // A real query error, not "this LINE user isn't linked" -- must never fall through to the
     // link-code flow, since that would wrongly tell an already-linked user they aren't linked.
@@ -1219,19 +1182,52 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
     return { type: 'text', text: 'ขอโทษครับ ระบบมีปัญหาชั่วคราวตอนนี้ ลองพิมพ์คำถามใหม่อีกครั้งครับ' };
   }
   if (!user) return null;
-  const account = await supabaseAdmin.auth.admin.getUserById(user.user_id);
-  if (account.error || !account.data.user) return { type: 'text', text: 'ไม่สามารถตรวจสอบสถานะบัญชีได้ กรุณาลองอีกครั้ง' };
-  if (account.data.user.app_metadata?.account_paused === true) return { type: 'text', text: 'บัญชีนี้พักใช้งานอยู่ กรุณาเปิดใช้งานอีกครั้งในเว็บไซต์' };
+
+  // A LINE message has no app cookie, so lifecycle access must be checked from both Auth and
+  // the durable pause/deletion row. Do this immediately after resolving the linked user: a
+  // closed account or either lookup failing must not reach Pro checks, model calls, reads, or
+  // financial writes. Treat an unexpected dependency rejection as unavailable too.
+  try {
+    const access = linked?.access ? settledValue(linked.access) : await dependencies.checkLinkedAccountWriteAccess(user.user_id);
+    if (!access.allowed) return { type: 'text', text: access.error };
+  } catch (err) {
+    console.error('handleAssistantMessage: lifecycle lookup failed:', err);
+    return { type: 'text', text: 'ไม่สามารถตรวจสอบสถานะบัญชีได้ กรุณาลองใหม่อีกครั้ง' };
+  }
   user.operationId = operationId;
 
   // LINE chat is a Pro-only feature (per PlansTab's feature list) -- once the free trial and any
   // paid period have both lapsed, every message gets this renewal prompt instead of being
   // processed, so the bot never keeps working indefinitely for an expired account.
-  if (!(await isProUser(user.user_id))) {
+  if (!(linked?.pro ? settledValue(linked.pro) : await dependencies.isProUser(user.user_id))) {
     return buildRenewalMessage(user);
   }
 
   const trimmed = text.trim();
+  // The 08:00 reminder's payment buttons, and the amount typed after "ได้ไม่ครบ" (owner, 2026-10-22).
+  // Deterministic: recorded without the model, after the same account and Pro checks as every message.
+  const dueAction = decodeDueAction(trimmed);
+  if (dueAction) return await (dependencies.handleDueAction ?? handleDueAction)(user, dueAction);
+  const duePartial = await (dependencies.handleDuePartialText ?? handleDuePartialText)(user, trimmed);
+  if (duePartial) return duePartial;
+  const documentRequest = parseLineDocumentRequest(trimmed);
+  if (documentRequest) {
+    if (documentRequest.query.length > 120) return buildLineDocumentMessages(documentRequest);
+    try {
+      const documents = await (dependencies.findLineDocuments ?? findLineDocuments)(user.user_id, documentRequest);
+      return buildLineDocumentMessages(documentRequest, documents);
+    } catch {
+      console.error('LINE document lookup unavailable');
+      return buildLineDocumentMessages(documentRequest);
+    }
+  }
+  let vaultFiles;
+  if (isLineWhtShortcut(trimmed)) {
+    try { vaultFiles = await (dependencies.listVaultFiles ?? listVaultFiles)({ kind: 'user', id: user.user_id }); }
+    catch { console.error('LINE WHT metadata unavailable'); }
+  }
+  const shortcut = buildLineFeatureShortcut(trimmed, user.jobs || [], new Date(), { vaultFiles });
+  if (shortcut) return shortcut;
 
   if (QUICK_ACTIONS[trimmed]) {
     return QUICK_ACTIONS[trimmed](buildDataSnapshot(user));
@@ -1241,38 +1237,61 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
   // than resumed, so a message sent long after an abandoned "add job" attempt is never
   // mysteriously merged into it.
   const storedDraft = user.notif_settings?.pendingJobDraft;
-  const pendingDraft = storedDraft && Date.now() - new Date(storedDraft.createdAt).getTime() < PENDING_JOB_DRAFT_TTL_MS
-    ? storedDraft.draft
+  const pendingDraft = isActiveLineDraft('job', storedDraft, user.notif_settings || {})
+    ? storedDraft?.draft
     : undefined;
 
   const storedExpenseDraft = user.notif_settings?.pendingExpenseDraft;
-  const pendingExpenseDraft = storedExpenseDraft && Date.now() - new Date(storedExpenseDraft.createdAt).getTime() < PENDING_JOB_DRAFT_TTL_MS
-    ? storedExpenseDraft.draft
+  const pendingExpenseDraft = isActiveLineDraft('expense', storedExpenseDraft, user.notif_settings || {})
+    ? storedExpenseDraft?.draft
     : undefined;
 
   // A model may propose a financial write, but only this exact user action commits it.
   // Confirmation is checked before asking the model again so it cannot manufacture approval.
-  if (trimmed === 'ยกเลิกบันทึก') {
-    if (storedDraft) await clearJobDraft(user);
-    if (storedExpenseDraft) await clearExpenseDraft(user);
-    return { type: 'text', text: 'ยกเลิกรายการที่รอยืนยันแล้วครับ' };
-  }
-  if (trimmed === 'ยืนยันบันทึกงาน') {
-    if (!pendingDraft?.name || !pendingDraft.value || !pendingDraft.paymentStatus) {
-      return { type: 'text', text: 'ไม่มีงานที่รอยืนยันหรือรายการหมดอายุแล้ว กรุณาส่งรายละเอียดใหม่ครับ' };
+  const cancellation = /^ยกเลิกบันทึก(?: (job|expense) ([a-f0-9]{16}))?$/.exec(trimmed);
+  if (cancellation) {
+    if (cancellation[1]) {
+      const kind = cancellation[1] as 'job' | 'expense';
+      const stored = kind === 'job' ? storedDraft : storedExpenseDraft;
+      const active = kind === 'job' ? pendingDraft : pendingExpenseDraft;
+      if (!stored || !active || lineDraftKey(kind, stored) !== cancellation[2]) return { type: 'text', text: 'รายการนี้ไม่ได้รอยืนยันแล้วครับ กรุณาใช้การ์ดล่าสุด' };
+      if (kind === 'job') await (dependencies.clearJobDraft ?? clearJobDraft)(user);
+      else await (dependencies.clearExpenseDraft ?? clearExpenseDraft)(user);
+    } else {
+      if (!pendingDraft && !pendingExpenseDraft) return { type: 'text', text: 'ไม่มีรายการที่รอยืนยันครับ' };
+      if (pendingDraft) await (dependencies.clearJobDraft ?? clearJobDraft)(user);
+      if (pendingExpenseDraft) await (dependencies.clearExpenseDraft ?? clearExpenseDraft)(user);
     }
-    const job = buildJobFromDraft(pendingDraft);
-    if (!(await persistJob(user, job))) return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองยืนยันอีกครั้งนะครับ' };
-    await clearJobDraft(user);
-    return buildJobSavedMessage(job, computeMonthNetForUser(user, job));
+    return lineCard({
+      title: 'ยกเลิกรายการแล้ว', character: 'cancelled', subtitle: 'รายการร่างนี้ไม่ได้ถูกบันทึก',
+      altText: 'ยกเลิกรายการที่รอยืนยันแล้วครับ ยังไม่ได้บันทึกเป็นรายรับหรือรายจ่าย',
+      body: [{ type: 'text', text: 'พิมพ์รายการใหม่ได้เลย เมื่อพร้อมบันทึกอีกครั้ง', size: 'sm', color: C.muted, wrap: true }],
+    });
   }
-  if (trimmed === 'ยืนยันบันทึกรายจ่าย') {
-    if (!pendingExpenseDraft?.name || !pendingExpenseDraft.amount) {
-      return { type: 'text', text: 'ไม่มีรายจ่ายที่รอยืนยันหรือรายการหมดอายุแล้ว กรุณาส่งรายละเอียดใหม่ครับ' };
+  const confirmation = /^ยืนยันบันทึก(งาน|รายจ่าย)(?: ([a-f0-9]{16}))?$/.exec(trimmed);
+  if (confirmation) {
+    const kind = confirmation[1] === 'งาน' ? 'job' : 'expense';
+    const stored = kind === 'job' ? storedDraft : storedExpenseDraft;
+    const draft = kind === 'job' ? pendingDraft : pendingExpenseDraft;
+    if (!stored || !draft || (confirmation[2] && lineDraftKey(kind, stored) !== confirmation[2])) {
+      return { type: 'text', text: 'รายการนี้หมดอายุหรือมีร่างใหม่แล้วครับ กรุณาใช้การ์ดล่าสุดหรือส่งรายละเอียดใหม่' };
     }
+    // The draft identity, not the delivery/message identity, prevents double-clicks
+    // from creating two records when separate confirmations arrive concurrently.
+    user.operationId = lineDraftOperationId(kind, stored);
+    if (kind === 'job') {
+      if (!pendingDraft?.name || !pendingDraft.value || !pendingDraft.paymentStatus) return { type: 'text', text: 'ข้อมูลงานยังไม่ครบครับ กรุณาเพิ่มข้อมูลที่ขาดก่อนยืนยัน' };
+      const job = buildJobFromDraft(pendingDraft);
+      if (!(await (dependencies.persistJob ?? persistJob)(user, job))) return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองยืนยันอีกครั้งนะครับ' };
+      try { await (dependencies.clearJobDraft ?? clearJobDraft)(user); }
+      catch { console.error('line-assistant: saved job draft resolution failed'); }
+      return buildJobSavedMessage(job, computeMonthNetForUser(user, job));
+    }
+    if (!pendingExpenseDraft?.name || !pendingExpenseDraft.amount) return { type: 'text', text: 'ข้อมูลรายจ่ายยังไม่ครบครับ กรุณาเพิ่มข้อมูลที่ขาดก่อนยืนยัน' };
     const expense = buildExpenseFromDraft(pendingExpenseDraft);
-    if (!(await persistExpense(user, expense))) return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองยืนยันอีกครั้งนะครับ' };
-    await clearExpenseDraft(user);
+    if (!(await (dependencies.persistExpense ?? persistExpense)(user, expense))) return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองยืนยันอีกครั้งนะครับ' };
+    try { await (dependencies.clearExpenseDraft ?? clearExpenseDraft)(user); }
+    catch { console.error('line-assistant: saved expense draft resolution failed'); }
     return buildExpenseSavedMessage(expense, computeMonthNetForUser(user, undefined, expense));
   }
 
@@ -1286,11 +1305,18 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
     ? user.notif_settings?.chatHistory
     : undefined;
 
-  // Anything else goes through one combined Claude call -- could be a question, or a natural-
-  // language "just add this job/expense" message. classifyMessage returns null whenever Claude
-  // is unconfigured or the call fails (including a 429 the retry couldn't clear), so an outage
-  // degrades to the same friendly greeting/buttons a brand-new user sees, instead of a raw error.
-  const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft, existingName, recentHistory, pendingExpenseDraft);
+  // Ordinary entries, incomplete inputs, typos, and edits never fall back to a model.
+  // Paid-language processing is a separate, explicitly requested "ถาม AI ..." path.
+  const quickDraft = parseLineQuickDraft(trimmed, { pendingJob: pendingDraft, pendingExpense: pendingExpenseDraft });
+  const aiText = explicitLineAiText(trimmed);
+  if (!quickDraft && !aiText) {
+    if (pendingDraft && storedDraft) return [{ type:'text', text:'ยังไม่ได้แก้ร่างจากข้อความนี้ครับ แตะ “แก้ไขรายการ” เพื่อปรับข้อมูลได้เลย' },buildLineDraftReview('job',storedDraft)];
+    if (pendingExpenseDraft && storedExpenseDraft) return [{ type:'text', text:'ยังไม่ได้แก้ร่างจากข้อความนี้ครับ แตะ “แก้ไขรายการ” เพื่อปรับข้อมูลได้เลย' },buildLineDraftReview('expense',storedExpenseDraft)];
+    // No reply for a message the bot does not recognise (owner, 2026-10-22: the "เลขายังไม่เข้าใจครับ"
+    // card is not needed). An empty list means handled with nothing to send; null still means not linked.
+    return [];
+  }
+  const result = quickDraft ?? await (dependencies.classifyMessage ?? classifyMessage)(aiText!, buildDataSnapshot(user), pendingDraft, existingName, recentHistory, pendingExpenseDraft);
   if (!result) {
     return finishConversationalReply(user, trimmed, !!existingName, alreadyAskedName, buildHelpText(existingName));
   }
@@ -1308,8 +1334,8 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
   // เป็นค่าใช้จ่ายนะ" tags intent=add_expense, but a stale pendingJobDraft would otherwise still
   // steer a LATER short reply (just a name, just a number) back into the abandoned job via the
   // continuation instruction in the prompt above.
-  if (result.intent === 'add_job' && pendingExpenseDraft) await clearExpenseDraft(user);
-  if (result.intent === 'add_expense' && pendingDraft) await clearJobDraft(user);
+  if (result.intent === 'add_job' && pendingExpenseDraft) await (dependencies.clearExpenseDraft ?? clearExpenseDraft)(user);
+  if (result.intent === 'add_expense' && pendingDraft) await (dependencies.clearJobDraft ?? clearJobDraft)(user);
 
   if (result.intent === 'add_job') {
     // Merge onto whatever was already captured from an earlier incomplete message -- a field
@@ -1317,7 +1343,7 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
     // keeps its earlier value instead of the whole draft being thrown away and the user having
     // to repeat everything they already said.
     const merged: JobDraft = {
-      ...pendingDraft,
+      ...(quickDraft?.freshDraft ? {} : pendingDraft),
       ...(result.jobName !== undefined && { name: result.jobName }),
       ...(result.jobClient !== undefined && { client: result.jobClient }),
       ...(result.jobType !== undefined && { type: result.jobType }),
@@ -1327,6 +1353,8 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
       ...(result.jobReceivedAmount !== undefined && { receivedAmount: result.jobReceivedAmount }),
       ...(result.jobWhtRate !== undefined && { whtRate: result.jobWhtRate }),
     };
+    // An explicit status change supersedes an earlier deposit amount.
+    if (result.jobPaymentStatus === 'pending' || result.jobPaymentStatus === 'paid') delete merged.receivedAmount;
 
     // Safety net on top of Claude's own extraction: "มัดจำ<number>" is a common enough pattern
     // that it's worth catching directly in code rather than trusting the model to follow the
@@ -1363,29 +1391,31 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
         receivedAmount: merged.receivedAmount,
         whtRate: merged.whtRate || 0,
       };
-      await saveJobDraft(user, draft);
-      return { type: 'text', text: `ตรวจสอบก่อนบันทึกงาน: ${draft.name} มูลค่า ${formatCurrency(jobValue)} (${draft.paymentStatus})${draft.client ? ` ลูกค้า ${draft.client}` : ''}\nพิมพ์ “ยืนยันบันทึกงาน” ภายใน 15 นาทีเพื่อบันทึก หรือ “ยกเลิกบันทึก” เพื่อยกเลิก` };
+      await (dependencies.saveJobDraft ?? saveJobDraft)(user, draft, quickDraft?.freshDraft || false);
+      return buildLineDraftReview('job', user.notif_settings!.pendingJobDraft!);
     }
 
     // Still missing something -- keep what's been said so far and ask specifically for what's
     // left, instead of discarding it all and making the user retype from scratch.
-    await saveJobDraft(user, merged);
+    await (dependencies.saveJobDraft ?? saveJobDraft)(user, merged, quickDraft?.freshDraft || false);
     const missingText = missingLabels.join(', ');
     const knownText = [merged.name, merged.value ? formatCurrency(merged.value) : null, merged.client].filter(Boolean).join(' ');
-    return finishConversationalReply(
-      user,
-      trimmed,
-      !!knownName,
-      alreadyAskedName,
-      `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`
-    );
+    if (quickDraft) {
+      const card = buildLineDraftReview('job', user.notif_settings!.pendingJobDraft!);
+      if (!merged.paymentStatus) card.quickReply = { items: [
+        { type: 'action', action: { type: 'message', label: 'ยังไม่ได้รับเงิน', text: 'ยังไม่ได้รับเงิน' } },
+        { type: 'action', action: { type: 'message', label: 'รับเงินครบแล้ว', text: 'รับเงินครบแล้ว' } },
+      ] };
+      return card;
+    }
+    return finishConversationalReply(user, trimmed, !!knownName, alreadyAskedName, `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`);
   }
 
   if (result.intent === 'add_expense') {
     // Same merge-onto-earlier-draft pattern as add_job above -- a field this message provides
     // always overrides the stored one, but a field it doesn't mention keeps its earlier value.
     const merged: ExpenseDraft = {
-      ...pendingExpenseDraft,
+      ...(quickDraft?.freshDraft ? {} : pendingExpenseDraft),
       ...(result.expenseName !== undefined && { name: result.expenseName }),
       ...(result.expenseCategory !== undefined && { category: result.expenseCategory }),
       ...(result.expenseAmount !== undefined && { amount: result.expenseAmount }),
@@ -1396,22 +1426,17 @@ async function handleAssistantMessageInner(lineUserId: string, text: string, ope
     if (missingLabels.length === 0) {
       const expenseAmount = merged.amount!;
       const draft: ExpenseDraft = { name: merged.name!, category: merged.category, amount: expenseAmount };
-      await saveExpenseDraft(user, draft);
-      return { type: 'text', text: `ตรวจสอบก่อนบันทึกรายจ่าย: ${draft.name} จำนวน ${formatCurrency(expenseAmount)}${draft.category ? ` หมวด ${draft.category}` : ''}\nพิมพ์ “ยืนยันบันทึกรายจ่าย” ภายใน 15 นาทีเพื่อบันทึก หรือ “ยกเลิกบันทึก” เพื่อยกเลิก` };
+      await (dependencies.saveExpenseDraft ?? saveExpenseDraft)(user, draft, quickDraft?.freshDraft || false);
+      return buildLineDraftReview('expense', user.notif_settings!.pendingExpenseDraft!);
     }
 
     // Still missing something -- keep what's been said so far and ask specifically for what's
     // left, same as the add_job flow, instead of discarding it all and asking from scratch.
-    await saveExpenseDraft(user, merged);
+    await (dependencies.saveExpenseDraft ?? saveExpenseDraft)(user, merged, quickDraft?.freshDraft || false);
     const missingText = missingLabels.join(', ');
     const knownText = [merged.name, merged.amount ? formatCurrency(merged.amount) : null].filter(Boolean).join(' ');
-    return finishConversationalReply(
-      user,
-      trimmed,
-      !!knownName,
-      alreadyAskedName,
-      `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`
-    );
+    if (quickDraft) return buildLineDraftReview('expense', user.notif_settings!.pendingExpenseDraft!);
+    return finishConversationalReply(user, trimmed, !!knownName, alreadyAskedName, `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`);
   }
 
   // Any intent's `answer` is usable here now, not just "question" -- lets a plain greeting or

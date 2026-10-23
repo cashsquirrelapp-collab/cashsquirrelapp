@@ -6,14 +6,15 @@ import { IconCamera, IconLaptop, IconGraduation, IconBag, IconPencil, IconClose 
 import { AppSettings, Goal, FixedExpenseItem } from '../../../../shared/types';
 import { formatCurrency, formatNumberWithCommas, stripNumberInput, sumFixedExpenseItems } from '../../utils';
 
+import { tr, T } from '../../i18n/tr';
 // Drives the default nav grouping in App.tsx (see PERSONA_CORE_KEYS there) -- picking one
 // here doesn't lock anything away, it just changes what shows up in the main menu by
 // default vs the remaining navigation items.
 const PERSONA_OPTIONS: { id: NonNullable<AppSettings['userPersona']>; label: string; description: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'school', label: 'นักเรียน', description: 'เก็บเงินค่าขนม บันทึกรายรับ-รายจ่ายง่ายๆ', icon: Backpack },
-  { id: 'university', label: 'นักศึกษา', description: 'มีรายได้พิเศษบ้าง อยากตั้งเป้าออมด้วย', icon: GraduationCap },
-  { id: 'freelance', label: 'ฟรีแลนซ์', description: 'รับงานเป็นชิ้น ต้องตามเครดิตเทอม ออกบิล', icon: Laptop },
-  { id: 'employee', label: 'วัยทำงาน', description: 'เงินเดือนประจำ อยากคุมรายจ่ายและออมเงิน', icon: Briefcase },
+  { id: 'school', label: T("นักเรียน"), description: T("เก็บเงินค่าขนม บันทึกรายรับ-รายจ่ายง่ายๆ"), icon: Backpack },
+  { id: 'university', label: T("นักศึกษา"), description: T("มีรายได้พิเศษบ้าง อยากตั้งเป้าออมด้วย"), icon: GraduationCap },
+  { id: 'freelance', label: T("ฟรีแลนซ์"), description: T("รับงานเป็นชิ้น ต้องตามเครดิตเทอม ออกบิล"), icon: Laptop },
+  { id: 'employee', label: T("วัยทำงาน"), description: T("เงินเดือนประจำ อยากคุมรายจ่ายและออมเงิน"), icon: Briefcase },
 ];
 
 interface ProfileSetupWizardProps {
@@ -26,31 +27,32 @@ interface ProfileSetupWizardProps {
   onDismiss: () => Promise<void>;
   /** True when reopened from Settings for a preview, rather than a real first-time signup. */
   isPreview?: boolean;
+  fullFeatureAccess?: boolean;
 }
 
 // jobTypeLabel is what actually gets added to the real "เลือกประเภทงาน" picker options —
 // answering this question needs to actually change what shows up there later, not just sit
 // unused as profile metadata.
 const JOB_TYPE_OPTIONS = [
-  { id: 'sponsor', label: 'รับงานสปอนเซอร์ / รีวิวคอนเทนต์', jobTypeLabel: 'Sponsored Post', icon: IconCamera },
-  { id: 'freelance', label: 'รับงานฟรีแลนซ์ทั่วไป (ออกแบบ/เขียน/ตัดต่อ ฯลฯ)', jobTypeLabel: 'งานฟรีแลนซ์ทั่วไป', icon: IconLaptop },
-  { id: 'consulting', label: 'รับงานที่ปรึกษา / สอนพิเศษ', jobTypeLabel: 'Consulting / Advisory', icon: IconGraduation },
-  { id: 'selling', label: 'ขายสินค้า / บริการส่วนตัว', jobTypeLabel: 'ขายสินค้า / บริการส่วนตัว', icon: IconBag },
-  { id: 'other', label: 'อื่นๆ', jobTypeLabel: null, icon: IconPencil },
+  { id: 'sponsor', label: T("รับงานสปอนเซอร์ / รีวิวคอนเทนต์"), jobTypeLabel: 'Sponsored Post', icon: IconCamera },
+  { id: 'freelance', label: T("รับงานฟรีแลนซ์ทั่วไป (ออกแบบ/เขียน/ตัดต่อ ฯลฯ)"), jobTypeLabel: 'งานฟรีแลนซ์ทั่วไป', icon: IconLaptop },
+  { id: 'consulting', label: T("รับงานที่ปรึกษา / สอนพิเศษ"), jobTypeLabel: 'Consulting / Advisory', icon: IconGraduation },
+  { id: 'selling', label: T("ขายสินค้า / บริการส่วนตัว"), jobTypeLabel: 'ขายสินค้า / บริการส่วนตัว', icon: IconBag },
+  { id: 'other', label: T("อื่นๆ"), jobTypeLabel: null, icon: IconPencil },
 ];
 
 const STEP_TITLES = [
-  'คุณคือใคร?',
-  'คุณรับงานแบบไหนบ้าง?',
-  'ค่าใช้จ่ายคงที่ต่อเดือนของคุณ',
-  'อยากตั้งเป้าหมายเก็บเงินไว้เลยไหม?',
+  T("คุณคือใคร?"),
+  T("คุณรับงานแบบไหนบ้าง?"),
+  T("ค่าใช้จ่ายคงที่ต่อเดือนของคุณ"),
+  T("อยากตั้งเป้าหมายเก็บเงินไว้เลยไหม?"),
 ];
 
 const STEP_DESCRIPTIONS = [
-  'ใช้จัดเมนูหลักให้เหมาะกับคุณ ไม่บังคับ เปลี่ยนทีหลังได้เสมอ',
-  'เลือกได้มากกว่า 1 ข้อ ใช้ทำโปรไฟล์ของคุณเท่านั้น',
-  'ระบบใช้ยอดนี้คำนวณกำไรสุทธิและแจ้งเตือนให้คุณทุกเดือน',
-  'ไม่บังคับ ตั้งเพิ่มทีหลังได้ในหน้าจัดสรรเงิน',
+  T("ใช้จัดเมนูหลักให้เหมาะกับคุณ ไม่บังคับ เปลี่ยนทีหลังได้เสมอ"),
+  T("เลือกได้มากกว่า 1 ข้อ ใช้ทำโปรไฟล์ของคุณเท่านั้น"),
+  T("ระบบใช้ยอดนี้คำนวณกำไรสุทธิและแจ้งเตือนให้คุณทุกเดือน"),
+  T("ไม่บังคับ ตั้งเพิ่มทีหลังได้ในหน้าจัดสรรเงิน"),
 ];
 
 export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
@@ -62,6 +64,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
   onComplete,
   onDismiss,
   isPreview = false,
+  fullFeatureAccess = false,
 }) => {
   const [step, setStep] = useState(0);
   const [persona, setPersona] = useState<AppSettings['userPersona']>(settings.userPersona);
@@ -84,9 +87,13 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  React.useEffect(() => {
+    if (!fullFeatureAccess) setStep(current => Math.min(current, 2));
+  }, [fullFeatureAccess]);
+
   if (!isOpen) return null;
 
-  const totalSteps = 4;
+  const totalSteps = fullFeatureAccess ? 4 : 3;
 
   const toggleJobType = (id: string) => {
     setJobTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
@@ -138,7 +145,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
       }
 
       const targetValue = parseFloat(goalTarget);
-      if (goalName.trim() && !isNaN(targetValue) && targetValue > 0) {
+      if (fullFeatureAccess && goalName.trim() && !isNaN(targetValue) && targetValue > 0) {
         onAddGoal({
           name: goalName.trim(),
           type: 'save',
@@ -183,7 +190,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
             type="button"
             onClick={() => void dismiss()}
             disabled={isSaving}
-            aria-label="ปิดแบบสอบถาม"
+            aria-label={tr("ปิดแบบสอบถาม")}
             className="absolute right-4 top-4 z-10 rounded-full p-2 text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text"
           >
             <IconClose className="h-4 w-4" />
@@ -211,10 +218,10 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
 
             <div className="space-y-1.5">
               <h3 className="font-display font-black text-lg text-brand-text dark:text-white tracking-tight">
-                {STEP_TITLES[step]}
+                {tr(STEP_TITLES[step])}
               </h3>
               <p className="text-xs leading-relaxed text-brand-muted max-w-[280px] mx-auto">
-                {STEP_DESCRIPTIONS[step]}
+                {!fullFeatureAccess && step === 0 ? tr("เลือกโปรไฟล์ให้เหมาะกับคุณ เปลี่ยนทีหลังได้เสมอ") : !fullFeatureAccess && step === 2 ? tr("ใช้คำนวณรายจ่ายประจำในภาพรวมของคุณ") : tr(STEP_DESCRIPTIONS[step])}
               </p>
             </div>
           </div>
@@ -251,8 +258,8 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                           <opt.icon className="w-4 h-4" />
                         </span>
                         <span className="flex-1">
-                          <span className="block">{opt.label}</span>
-                          <span className="block text-[10px] font-medium text-brand-muted mt-0.5">{opt.description}</span>
+                          <span className="block">{tr(opt.label)}</span>
+                          <span className="block text-[10px] font-medium text-brand-muted mt-0.5">{!fullFeatureAccess && opt.id === 'university' ? tr("บันทึกรายได้พิเศษและค่าใช้จ่ายในแต่ละวัน") : tr(opt.description)}</span>
                         </span>
                         <div className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
                           selected ? 'bg-[#E65F2B] border-[#E65F2B]' : 'border-brand-border/60'
@@ -293,7 +300,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                         }`}>
                           <opt.icon className="w-4 h-4" />
                         </span>
-                        <span className="flex-1">{opt.label}</span>
+                        <span className="flex-1">{tr(opt.label)}</span>
                         <div className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
                           selected ? 'bg-[#E65F2B] border-[#E65F2B]' : 'border-brand-border/60'
                         }`}>
@@ -307,7 +314,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                       type="text"
                       value={jobTypeOther}
                       onChange={(e) => setJobTypeOther(e.target.value)}
-                      placeholder="ระบุประเภทงานของคุณ..."
+                      placeholder={tr("ระบุประเภทงานของคุณ...")}
                       className="w-full bg-brand-faint text-xs text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-[#E65F2B]"
                     />
                   )}
@@ -325,8 +332,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                 >
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
-                      รวมค่าใช้จ่ายคงที่ต่อเดือน
-                    </span>
+                      {tr("รวมค่าใช้จ่ายคงที่ต่อเดือน")}</span>
                     <span className="text-3xl font-black font-mono text-[#E65F2B]">{formatCurrency(expenseTotal)}</span>
                   </div>
 
@@ -341,7 +347,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                               type="button"
                               onClick={() => handleRemoveExpenseItem(item.id)}
                               className="text-neutral-400 hover:text-rose-600 cursor-pointer transition-colors"
-                              title="ลบรายการนี้"
+                              title={tr("ลบรายการนี้")}
                             >
                               <IconClose className="w-3 h-3" />
                             </button>
@@ -357,7 +363,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                       value={newExpenseName}
                       onChange={(e) => setNewExpenseName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddExpenseItem(); } }}
-                      placeholder="เช่น ค่าห้อง, ค่ารถ, ค่าเน็ต"
+                      placeholder={tr("เช่น ค่าห้อง, ค่ารถ, ค่าเน็ต")}
                       className="flex-1 min-w-0 bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                     />
                     <input
@@ -366,24 +372,24 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                       value={formatNumberWithCommas(newExpenseAmount)}
                       onChange={(e) => setNewExpenseAmount(stripNumberInput(e.target.value))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddExpenseItem(); } }}
-                      placeholder="บาท"
+                      placeholder={tr("บาท")}
                       className="w-20 shrink-0 bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                     />
                     <button
                       type="button"
                       onClick={handleAddExpenseItem}
                       className="shrink-0 p-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white rounded-xl transition-all cursor-pointer"
-                      title="เพิ่มรายการ"
+                      title={tr("เพิ่มรายการ")}
                     >
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <p className="text-[10px] text-brand-muted text-center">ไม่มีค่าใช้จ่ายคงที่? ข้ามขั้นตอนนี้ไปได้เลย</p>
+                  <p className="text-[10px] text-brand-muted text-center">{tr("ไม่มีค่าใช้จ่ายคงที่? ข้ามขั้นตอนนี้ไปได้เลย")}</p>
                 </motion.div>
               )}
 
-              {step === 3 && (
+              {fullFeatureAccess && step === 3 && (
                 <motion.div
                   key="step2"
                   initial={{ opacity: 0, x: 12 }}
@@ -395,14 +401,13 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-[#E65F2B] shrink-0" />
                     <span className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
-                      เป้าหมายแรกของคุณ (ไม่บังคับ)
-                    </span>
+                      {tr("เป้าหมายแรกของคุณ (ไม่บังคับ)")}</span>
                   </div>
                   <input
                     type="text"
                     value={goalName}
                     onChange={(e) => setGoalName(e.target.value)}
-                    placeholder="เช่น กล้องตัวใหม่, เงินสำรองฉุกเฉิน"
+                    placeholder={tr("เช่น กล้องตัวใหม่, เงินสำรองฉุกเฉิน")}
                     className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-[#E65F2B]"
                   />
                   <input
@@ -410,7 +415,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                     inputMode="decimal"
                     value={formatNumberWithCommas(goalTarget)}
                     onChange={(e) => setGoalTarget(stripNumberInput(e.target.value))}
-                    placeholder="ยอดเป้าหมาย (฿) เช่น 50,000"
+                    placeholder={tr("ยอดเป้าหมาย (฿) เช่น 50,000")}
                     className="w-full bg-brand-white dark:bg-stone-800 text-xs font-mono text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-[#E65F2B]"
                   />
                 </motion.div>
@@ -427,7 +432,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                 className="px-3.5 py-2.5 hover:bg-brand-faint dark:hover:bg-neutral-800 text-brand-text border border-brand-border/60 dark:border-neutral-700 rounded-xl text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
-                <span>ย้อนกลับ</span>
+                <span>{tr("ย้อนกลับ")}</span>
               </motion.button>
             ) : <div />}
 
@@ -437,15 +442,14 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                 disabled={isSaving}
                 className="px-3.5 py-2.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-neutral-800 rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
               >
-                ข้าม
-              </button>
+                {tr("ข้าม")}</button>
               <motion.button
                 whileTap={{ scale: 0.96 }}
                 onClick={goNext}
                 disabled={isSaving}
                 className="px-6 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none"
               >
-                <span>{step === totalSteps - 1 ? 'เริ่มใช้งานเลย!' : 'ถัดไป'}</span>
+                <span>{step === totalSteps - 1 ? tr("เริ่มใช้งานเลย!") : tr("ถัดไป")}</span>
                 {step !== totalSteps - 1 && <ChevronRight className="w-3.5 h-3.5" />}
               </motion.button>
             </div>

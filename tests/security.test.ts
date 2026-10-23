@@ -68,3 +68,21 @@ test('raw webhook reader preserves bytes and rejects oversized requests',async()
  const raw=Buffer.from('{ "a": 1 }');assert.deepEqual(await readRawBody(Readable.from([raw]) as any),raw);
  await assert.rejects(readRawBody(Readable.from([Buffer.alloc(100)]) as any,10),/too large/);
 });
+
+test('every release check starts with a dependency audit, and DOMPurify and Vite stay on patched versions',async()=>{
+ // Owner, 2026-10-23 ("ให้มันปลอดภัยที่สุด"): stop a release when any package, shipped or used to
+ // build and test, has a known high or critical hole.
+ const { readFile } = await import('node:fs/promises');
+ const pkg = JSON.parse(await readFile('package.json','utf8'));
+ assert.equal(pkg.scripts['security:audit'],'npm audit --audit-level=high');
+ assert.match(pkg.scripts['cloudflare:check'],/^npm run security:audit && /);
+ assert.match(pkg.scripts['cloudflare:deploy'],/npm run cloudflare:check/);
+ const lock = JSON.parse(await readFile('package-lock.json','utf8'));
+ const [major, minor, patch] = lock.packages['node_modules/dompurify'].version.split('.').map(Number);
+ assert.ok(major > 3 || (major === 3 && (minor > 4 || (minor === 4 && patch >= 17))), 'DOMPurify 3.4.17 or later (GHSA-cg2g-xh64-v4q7)');
+ const vite = lock.packages['node_modules/vite'].version.split('.').map(Number);
+ assert.ok(vite[0] > 6 || (vite[0] === 6 && (vite[1] > 4 || (vite[1] === 4 && vite[2] >= 5))), 'Vite 6.4.5 or later (GHSA-9jrq-w75r-8gcw)');
+ // The payment packages are not moved by dependency maintenance.
+ assert.equal(pkg.dependencies.stripe,'^23.0.0');
+ assert.equal(lock.packages['node_modules/stripe'].version,'23.0.0');
+});

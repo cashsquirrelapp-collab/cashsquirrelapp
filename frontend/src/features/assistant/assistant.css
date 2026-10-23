@@ -1,0 +1,608 @@
+/* เลขากระรอก chat workspace (AssistantChat.tsx), per the owner's brief (2026-10-23): ChatGPT/Dot-style
+   conversation, Apple Liquid Glass only on the chat sidebar, the slim header, the floating composer and
+   the popovers. Thai text keeps line-height 1.45 or more, and text never sits behind the composer: the
+   conversation fades out where the floating composer covers it.
+   Type (owner's typography brief, 2026-10-23): the app's own IBM Plex Sans Thai, real font files only (no
+   synthetic bold), drawn the light macOS/iOS way. Weights: 400 for everything you read, 500 for buttons and
+   light emphasis, 600 for titles only, never 700. Reading text 15px at 1.65 to 1.7; nothing under 11px. */
+.asx, .asx-pop, .asx-buddy { font-family: var(--font-sans); font-synthesis: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.asx, .asx-pop {
+  --asx-accent: #E65F2B; --asx-accent-hover: #D35221; --asx-accent-text: #C24A16; --asx-cream: #FFF1E8;
+  --asx-income: #12804F; --asx-expense: #C43A3A; --asx-amber: #8A5A0B; --asx-amber-bg: #FDF6EC; --asx-red-bg: #FDEEEE;
+}
+.dark .asx, .dark .asx-pop {
+  --asx-accent: #F07440; --asx-accent-text: #FFA473; --asx-cream: rgba(255, 164, 115, 0.14);
+  --asx-income: #4ADE80; --asx-expense: #F19A9A; --asx-amber: #F2B76B; --asx-amber-bg: rgba(242, 183, 107, 0.12); --asx-red-bg: rgba(241, 154, 154, 0.12);
+}
+.asx { position: relative; display: flex; min-height: 0; color: var(--text); font-weight: 400; isolation: isolate; }
+.asx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Icon buttons, pills and tags */
+.asx-icon-btn { display: inline-grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; color: var(--muted); cursor: pointer; transition: background-color 0.15s, color 0.15s, transform 0.15s; }
+.asx-icon-btn:hover:not([aria-disabled="true"]) { background: rgba(118, 118, 128, 0.12); color: var(--text); }
+.asx-icon-btn:active:not([aria-disabled="true"]) { transform: scale(0.94); }
+.asx-icon-btn.is-soon { opacity: 0.4; cursor: not-allowed; }
+.asx-pro { padding: 1px 8px; border-radius: 999px; background: linear-gradient(135deg, #A63F1B, #E65F2B); color: #FFFFFF; font-size: 11px; font-weight: 600; line-height: 1.5; letter-spacing: 0.2px; }
+.asx-card-tag { flex: none; padding: 1px 8px; border-radius: 999px; background: rgba(118, 118, 128, 0.12); color: var(--muted); font-size: 11px; font-weight: 400; line-height: 1.5; white-space: nowrap; }
+.asx-pill-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--white); color: var(--text); font-size: 13.5px; font-weight: 500; line-height: 1.5; cursor: pointer; transition: background-color 0.15s, border-color 0.15s, transform 0.15s; }
+.asx-pill-btn:hover:not(:disabled) { background: var(--faint); }
+.asx-pill-btn:active:not(:disabled) { transform: scale(0.97); }
+.asx-pill-btn.is-primary { border-color: transparent; background: var(--asx-accent); color: #FFFFFF; }
+.asx-pill-btn.is-primary:hover:not(:disabled) { background: var(--asx-accent-hover); }
+.asx-pill-btn:disabled { opacity: 0.55; cursor: default; }
+.asx-pill-btn.is-block { width: 100%; margin-top: 12px; }
+.asx-link-btn { margin-left: 4px; color: inherit; font-weight: 500; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+
+/* The chat sidebar: history, new chat and search. Beside the chat where there is room, sliding over it otherwise. */
+.asx-side { display: flex; flex-direction: column; gap: 10px; flex: none; min-height: 0; overflow: hidden; border-radius: 26px; }
+.asx-side > * { flex-shrink: 0; }
+.asx.is-wide .asx-side { width: 0; margin-right: 0; opacity: 0; padding: 14px 0; transition: width 0.34s cubic-bezier(0.22, 1, 0.36, 1), margin 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s, padding 0.34s; }
+.asx.is-wide .asx-side.is-open { width: 268px; margin-right: 16px; opacity: 1; padding: 14px 12px; }
+.asx-side.is-overlay { position: absolute; z-index: 20; top: 8px; bottom: 8px; left: 8px; width: min(300px, calc(100% - 56px)); padding: 14px 12px; transform: translateX(calc(-100% - 20px)); transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1); }
+.asx-side.is-overlay.is-open { transform: translateX(0); }
+.asx-side.is-overlay.lg-glass { background: color-mix(in srgb, var(--white) 95%, transparent); }
+.asx-scrim { position: absolute; inset: 0; z-index: 19; background: rgba(28, 25, 23, 0.24); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); cursor: default; }
+.asx-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 236px; padding-left: 6px; }
+.asx-side-head b { font-size: 15px; font-weight: 600; line-height: 1.45; }
+/* Computers: the way out of the chat, where the app's own sidebar was. */
+.asx-back { display: inline-flex; align-items: center; gap: 2px; min-height: 36px; margin-left: -8px; padding: 0 12px 0 6px; border-radius: 18px; color: var(--text); font-size: 14px; font-weight: 500; line-height: 1.5; cursor: pointer; transition: background-color 0.15s, transform 0.15s; }
+.asx-back:hover { background: rgba(118, 118, 128, 0.12); }
+.asx-back:active { transform: scale(0.97); }
+.asx-new { display: flex; align-items: center; gap: 8px; min-width: 236px; min-height: 40px; padding: 0 12px; border-radius: 14px; background: var(--asx-cream); color: var(--asx-accent-text); font-size: 14px; font-weight: 500; line-height: 1.5; cursor: pointer; transition: filter 0.15s; }
+.asx-new:hover { filter: brightness(0.97); }
+.asx-side-search { position: relative; display: flex; align-items: center; min-width: 236px; }
+.asx-side-search > svg { position: absolute; left: 11px; color: var(--muted); pointer-events: none; }
+.asx-side-search input { width: 100%; min-height: 36px; padding: 6px 10px 6px 32px; border: 1px solid transparent; border-radius: 12px; background: rgba(118, 118, 128, 0.12); color: var(--text); font-size: 14px; font-weight: 400; line-height: 1.5; outline: none; }
+.asx-side-search input:focus { border-color: var(--asx-accent); background: var(--white); }
+.asx-side-list { flex: 1 1 auto; flex-shrink: 1; min-width: 236px; min-height: 0; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.asx-side-list section + section { margin-top: 10px; }
+.asx-side-list h3 { padding: 6px 8px 4px; font-size: 12.5px; font-weight: 500; line-height: 1.5; color: var(--muted); }
+.asx-side-list ul { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.asx-side-item { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 38px; padding: 6px 10px; border-radius: 12px; text-align: left; color: var(--text); cursor: pointer; transition: background-color 0.15s; }
+.asx-side-item:hover { background: rgba(118, 118, 128, 0.1); }
+.asx-side-item.is-active { background: var(--glass-active); color: var(--asx-accent-text); }
+.asx-side-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 400; line-height: 1.5; }
+.asx-side-item.is-active .asx-side-title { font-weight: 500; }
+.asx-side-tag { flex: none; padding: 0 6px; border-radius: 999px; background: rgba(118, 118, 128, 0.12); color: var(--muted); font-size: 11px; line-height: 1.55; }
+.asx-side-empty { padding: 18px 8px; font-size: 13.5px; line-height: 1.6; color: var(--muted); text-align: center; overflow-wrap: anywhere; }
+.asx-side-skeleton { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+.asx-side-skeleton i, .asx-skeleton i { display: block; height: 14px; border-radius: 7px; background: linear-gradient(90deg, rgba(118, 118, 128, 0.1) 25%, rgba(118, 118, 128, 0.2) 50%, rgba(118, 118, 128, 0.1) 75%); background-size: 200% 100%; animation: asx-shimmer 1.3s linear infinite; }
+.asx-side-skeleton i:nth-child(2) { width: 80%; } .asx-side-skeleton i:nth-child(3) { width: 60%; }
+.asx-side-note { min-width: 236px; padding: 0 8px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+@keyframes asx-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* The chat column */
+.asx-chat { position: relative; display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; background: radial-gradient(70% 180px at 50% 0, rgba(230, 95, 43, 0.08), transparent 75%); border-radius: 26px; }
+
+/* The top: no bar (owner, 2026-10-23: the glass bar blocked the view). Round glass buttons at the sides and
+   only the squirrel in the middle; the name and status are kept for screen readers. */
+.asx-bar { position: relative; z-index: 5; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; flex: none; width: 100%; max-width: 880px; min-height: 56px; margin: 12px auto 0; padding: 0 4px; }
+.asx-bar-side { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.asx-bar-side.is-end { justify-self: end; }
+.asx-bar-center { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.asx-bar-mascot { display: inline-block; line-height: 0; }
+/* The squirrel is the star of the top (owner, 2026-10-23: it will get outfits and colours later): bigger, with
+   a soft halo behind and a shadow under it, and it may hang a little below the row. It never sits on text:
+   the conversation fades out above that line (see .asx-scroll's mask) and the figure lets clicks through. */
+.asx-bar-mascot { position: relative; isolation: isolate; margin: -4px 0 -28px; pointer-events: none; filter: drop-shadow(0 10px 12px rgba(120, 60, 30, 0.2)); }
+.asx-bar-mascot::before { content: ""; position: absolute; inset: 2% -8% 14%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 190, 150, 0.6), rgba(255, 190, 150, 0)); }
+.dark .asx-bar-mascot { filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55)); }
+.dark .asx-bar-mascot::before { background: radial-gradient(closest-side, rgba(230, 95, 43, 0.26), rgba(230, 95, 43, 0)); }
+.asx-bar-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.asx-bar-title { display: flex; align-items: center; gap: 6px; }
+.asx-bar-title h1 { font-size: 16px; font-weight: 600; line-height: 1.45; white-space: nowrap; }
+.asx-bar-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; line-height: 1.5; color: var(--muted); white-space: nowrap; }
+.asx-bar-status i { width: 6px; height: 6px; border-radius: 50%; background: #18A66A; }
+.asx-bar-status.is-sleeping i { background: #9A968F; }
+.asx-bar-status.is-listening i, .asx-bar-status.is-working i { background: var(--asx-accent); }
+.asx-bar-status.is-thinking i { background: #C17817; }
+
+/* The official mascot in its slot (MascotSlot.tsx): existing poses plus a gentle motion per mode. */
+.asx-figure { position: relative; display: inline-block; line-height: 0; transform-origin: 50% 92%; animation: asx-bob 2.6s ease-in-out infinite; }
+.asx-figure-pose { display: inline-block; line-height: 0; }
+.asx-figure.is-sleeping { animation: asx-breathe 3.8s ease-in-out infinite; }
+.asx-figure.is-listening { animation: asx-lean 1.8s ease-in-out infinite; }
+.asx-figure.is-thinking { animation: asx-ponder 1.6s ease-in-out infinite; }
+.asx-figure.is-working { animation: asx-busy 0.5s ease-in-out infinite; }
+.asx-figure.is-done { animation: asx-hop 0.7s ease-out 1; }
+.asx-figure-btn { border-radius: 50%; cursor: pointer; }
+.asx-bulb { position: absolute; top: 0; right: -16px; z-index: 2; line-height: 0; filter: drop-shadow(0 0 6px rgba(255, 196, 64, 0.85)); animation: asx-glow 1.2s ease-in-out infinite; }
+@keyframes asx-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes asx-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03, 0.98); } }
+@keyframes asx-lean { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+@keyframes asx-ponder { 0%, 100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(3deg) translateY(-2px); } }
+@keyframes asx-busy { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes asx-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-10px); } 70% { transform: translateY(0); } 85% { transform: translateY(-3px); } 100% { transform: translateY(0); } }
+@keyframes asx-glow { 0%, 100% { opacity: 0.75; transform: scale(0.94); } 50% { opacity: 1; transform: scale(1.06); } }
+
+/* Token indicator and the two popovers */
+.asx-pop-anchor { position: relative; }
+.asx-token { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 12px 0 9px; border-radius: 19px; font-size: 13.5px; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; color: var(--text); cursor: pointer; }
+.asx-ring-track { stroke: rgba(118, 118, 128, 0.2); }
+.asx-ring-fill { stroke: var(--asx-accent); transition: stroke-dashoffset 0.4s ease; }
+.asx-ring.is-low .asx-ring-fill { stroke: #C17817; }
+.asx-ring.is-empty .asx-ring-fill { stroke: #D64545; }
+.asx-token.is-low { color: var(--asx-amber); }
+.asx-token.is-empty { color: #C43A3A; }
+.asx-pop { position: fixed; z-index: 300; width: 288px; max-width: calc(100vw - 16px); padding: 14px; border-radius: 22px; transform-origin: top right; color: var(--text); font-weight: 400; }
+/* Opened in a portal so their blur reaches the page; a near-solid fill keeps anything behind from reading through. */
+.asx-pop.lg-glass { background: color-mix(in srgb, var(--white) 94%, transparent); }
+/* iOS: the page softly blurs behind an open popover or menu, so nothing half-hidden reads beside it. */
+.asx-pop-scrim { position: fixed; inset: 0; z-index: 299; background: rgba(28, 25, 23, 0.08); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.dark .asx-pop-scrim { background: rgba(0, 0, 0, 0.25); }
+.asx-pop-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.asx-pop-head b { font-size: 15px; font-weight: 600; line-height: 1.45; }
+.asx-token-big { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin-top: 10px; }
+.asx-token-num { font-size: 30px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.asx-token-of { font-size: 13px; line-height: 1.5; color: var(--muted); }
+.asx-meter { height: 8px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: rgba(118, 118, 128, 0.16); }
+.asx-meter i { display: block; height: 100%; border-radius: 4px; background: var(--asx-accent); transition: width 0.4s ease; }
+.asx-meter.is-low i { background: #C17817; }
+.asx-meter.is-empty i { background: #D64545; }
+.asx-token-state { margin-top: 8px; font-size: 13.5px; font-weight: 500; line-height: 1.5; }
+.asx-token-state.is-low { color: var(--asx-amber); }
+.asx-token-state.is-empty { color: #C43A3A; }
+.asx-token-refill { font-size: 13px; line-height: 1.5; color: var(--muted); }
+.asx-pop-note { margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font-size: 12px; line-height: 1.55; color: var(--muted); }
+.asx-pop.is-menu-list { width: 252px; padding: 6px; }
+.asx-pop.is-menu-list > button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 40px; padding: 0 12px; border-radius: 14px; font-size: 14px; font-weight: 400; line-height: 1.5; text-align: left; color: var(--text); cursor: pointer; }
+.asx-pop.is-menu-list > button:hover { background: rgba(118, 118, 128, 0.1); }
+.asx-pop.is-menu-list > button.is-danger { color: #C43A3A; }
+.dark .asx-pop.is-menu-list > button.is-danger { color: #F19A9A; }
+.asx-menu-sep { height: 1px; margin: 4px 10px; background: color-mix(in srgb, var(--text) 9%, transparent); }
+.asx-menu-label { padding: 6px 12px 2px; font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--muted); }
+
+/* The conversation. It runs under the floating composer, faded out there so no text ever sits behind it. */
+.asx-scroll { --asx-top-fade: 26px; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 40px 16px calc(var(--asx-dock-h, 120px) + 18px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent var(--asx-top-fade), #000 calc(var(--asx-top-fade) + 18px), #000 calc(100% - var(--asx-dock-h, 120px) - 12px), transparent calc(100% - var(--asx-dock-h, 120px) + 14px));
+  mask-image: linear-gradient(to bottom, transparent 0, transparent var(--asx-top-fade), #000 calc(var(--asx-top-fade) + 18px), #000 calc(100% - var(--asx-dock-h, 120px) - 12px), transparent calc(100% - var(--asx-dock-h, 120px) + 14px)); }
+.asx-thread { display: flex; flex-direction: column; gap: 20px; max-width: 760px; margin: 0 auto; padding: 0; list-style: none; }
+.asx-sample-banner { align-self: center; padding: 3px 12px; border-radius: 999px; background: rgba(118, 118, 128, 0.12); color: var(--muted); font-size: 12.5px; line-height: 1.5; text-align: center; }
+.asx-msg { animation: asx-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes asx-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.asx-msg.is-me { align-self: flex-end; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: min(78%, 560px); }
+.asx-bubble { margin: 0; padding: 10px 15px; border-radius: 20px 20px 6px 20px; background: var(--asx-cream); color: #1F1A17; font-size: 15px; font-weight: 400; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dark .asx-bubble { color: #FFE7DA; }
+.asx-msg.is-bot { display: flex; align-items: flex-start; gap: 10px; }
+.asx-avatar { display: grid; place-items: center; flex: none; width: 32px; height: 32px; margin-top: 2px; overflow: hidden; border-radius: 50%; background: var(--asx-cream); }
+.asx-msg-body { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; flex: 1 1 auto; min-width: 0; }
+.asx-meta { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.asx-caret { display: inline-block; width: 2px; height: 1em; margin-top: -6px; background: var(--text); animation: asx-blink 0.9s steps(1) infinite; }
+@keyframes asx-blink { 50% { opacity: 0; } }
+.asx-typing { display: inline-flex; align-items: center; gap: 4px; padding: 12px 14px; border-radius: 18px; background: rgba(118, 118, 128, 0.1); color: var(--muted); }
+.asx-typing i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: asx-dot 1.1s ease-in-out infinite; }
+.asx-typing i:nth-child(2) { animation-delay: 0.15s; } .asx-typing i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes asx-dot { 0%, 80%, 100% { opacity: 0.3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+.asx-skeleton { display: flex; flex-direction: column; gap: 12px; padding: 4px 0 4px 42px; }
+.asx-skeleton i:nth-child(1) { width: 40%; margin-left: auto; height: 34px; border-radius: 18px; }
+.asx-skeleton i:nth-child(2) { width: 85%; } .asx-skeleton i:nth-child(3) { width: 70%; } .asx-skeleton i:nth-child(4) { width: 55%; }
+.asx-error { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 10px 12px; border: 1px solid rgba(214, 69, 69, 0.35); border-radius: 16px; background: var(--asx-red-bg); color: #B42318; font-size: 13.5px; line-height: 1.5; }
+.dark .asx-error { color: #F19A9A; }
+
+/* Answers in Markdown (Markdown.tsx) */
+.asx-md { max-width: 100%; font-size: 15px; font-weight: 400; line-height: 1.7; color: var(--text); overflow-wrap: anywhere; }
+.asx-md > * + * { margin-top: 10px; }
+.asx-md strong { font-weight: 500; }
+.asx-md a { color: var(--asx-accent-text); font-weight: 400; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.asx-md code { padding: 1px 6px; border-radius: 6px; background: rgba(118, 118, 128, 0.14); font-size: 0.92em; }
+.asx-md ol, .asx-md ul { padding-left: 22px; }
+.asx-md ol { list-style: decimal; } .asx-md ul { list-style: disc; }
+.asx-md li + li { margin-top: 4px; }
+.asx-md-heading { font-size: 16px; font-weight: 600; line-height: 1.6; }
+.asx-md-table { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; }
+.asx-md table { min-width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.55; font-variant-numeric: tabular-nums; }
+.asx-md th { padding: 8px 12px; background: rgba(118, 118, 128, 0.08); font-size: 12.5px; font-weight: 500; text-align: left; white-space: nowrap; color: var(--muted); }
+.asx-md td { padding: 8px 12px; border-top: 1px solid var(--border); vertical-align: top; }
+
+/* Result cards (ChatCards.tsx) */
+.asx-rcard { width: min(380px, 100%); overflow: hidden; border: 1px solid var(--border); border-radius: 18px; background: var(--white); box-shadow: 0 6px 18px rgba(60, 40, 28, 0.07); }
+.dark .asx-rcard { box-shadow: none; }
+.asx-rcard-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.asx-rcard-head b { flex: 1 1 auto; min-width: 0; font-size: 14.5px; font-weight: 600; line-height: 1.45; }
+.asx-rcard-icon { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 9px; background: var(--asx-cream); color: var(--asx-accent-text); }
+.asx-rcard-period { padding: 8px 12px 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.asx-rcard-rows { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 10px 12px; }
+.asx-rcard-rows > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.asx-rcard-rows dt { flex: none; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.asx-rcard-rows dd { min-width: 0; margin: 0; font-size: 14px; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.asx-rcard-rows dd.is-income { color: var(--asx-income); }
+.asx-rcard-rows dd.is-expense { color: var(--asx-expense); }
+.asx-rcard-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+.asx-rcard-result { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--border); font-size: 13.5px; font-weight: 500; line-height: 1.5; }
+.asx-rcard-result.is-done { color: var(--asx-income); }
+.asx-rcard-result.is-failed { color: var(--asx-expense); }
+.asx-rcard-result.is-cancelled { color: var(--muted); }
+
+/* Welcome: a short greeting, the squirrel and minimal suggestion pills. */
+.asx-welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 100%; padding: 12px 8px; text-align: center; }
+.asx-welcome .asx-figure { margin-bottom: 6px; }
+/* Large display text: its size already makes it the heading, so it stays at 500. */
+.asx-welcome h2 { font-size: 24px; font-weight: 500; line-height: 1.45; }
+.asx-welcome > p { font-size: 14.5px; line-height: 1.6; color: var(--muted); }
+/* Suggested questions: four equal cards in a 2 × 2 grid, icon and label aligned left. */
+.asx-prompts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 560px; margin-top: 20px; }
+.asx-prompts > button { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 58px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 18px; background: color-mix(in srgb, var(--white) 80%, transparent); color: var(--text); text-align: left; cursor: pointer; transition: border-color 0.15s, background-color 0.15s, transform 0.15s; }
+.asx-prompt-icon { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 10px; background: var(--asx-cream); color: var(--asx-accent-text); }
+.asx-prompt-label { min-width: 0; font-size: 14px; font-weight: 400; line-height: 1.45; overflow-wrap: anywhere; }
+.asx-prompts > button:hover { border-color: #F3B08C; background: var(--asx-cream); }
+.asx-prompts > button:active { transform: scale(0.97); }
+.asx-prompts > button:hover .asx-prompt-icon { background: var(--white); }
+
+/* The floating composer, notices and the Pro gate */
+.asx-newbelow { position: absolute; left: 50%; bottom: calc(var(--asx-dock-h, 120px) + 10px); z-index: 4; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 16px; font-size: 12.5px; font-weight: 500; line-height: 1.5; color: var(--text); transform: translateX(-50%); cursor: pointer; }
+.asx-dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; padding: 0 16px 12px; pointer-events: none; }
+.asx-dock > * { max-width: 780px; margin-left: auto; margin-right: auto; pointer-events: auto; }
+.asx-composer { display: flex; align-items: flex-end; gap: 2px; padding: 5px; border-radius: 26px; transition: box-shadow 0.2s; }
+.asx-composer:focus-within { box-shadow: 0 0 0 3px rgba(230, 95, 43, 0.16), var(--glass-shadow-menu); }
+.asx-composer textarea { flex: 1 1 auto; min-width: 0; min-height: 36px; max-height: 160px; padding: 7px 6px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; font-weight: 400; line-height: 1.5; resize: none; outline: none; }
+.asx-composer textarea::placeholder { color: var(--muted); font-weight: 400; }
+.asx-composer textarea:disabled { cursor: not-allowed; }
+.asx-composer .asx-icon-btn { width: 36px; height: 36px; }
+.asx-send { display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--asx-accent); color: #FFFFFF; cursor: pointer; transition: background-color 0.15s, transform 0.15s; }
+.asx-send:hover:not(:disabled) { background: var(--asx-accent-hover); }
+.asx-send:active:not(:disabled) { transform: scale(0.93); }
+.asx-send:disabled { background: #F3B08C; cursor: default; }
+.dark .asx-send:disabled { background: #5A3A2C; color: rgba(255, 255, 255, 0.6); }
+.asx-hint { margin-top: 6px; font-size: 12px; line-height: 1.5; color: var(--muted); text-align: center; }
+.asx-notice { display: flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; margin-bottom: 8px; padding: 5px 12px; border-radius: 14px; font-size: 13px; font-weight: 500; line-height: 1.5; }
+.asx-notice.is-low { background: var(--asx-amber-bg); color: var(--asx-amber); }
+.asx-notice.is-empty { background: var(--asx-red-bg); color: #B42318; }
+.dark .asx-notice.is-empty { color: #F19A9A; }
+
+/* LINE inside the chat (owner, 2026-10-23: "ให้มันเหมือน LINE"): date chips, อ่านแล้ว and the time beside the
+   bubble, the pinned notifications thread, quick replies, the rich menu and the push banner. */
+.asx-day { align-self: center; list-style: none; }
+.asx-day span { display: inline-block; padding: 3px 12px; border-radius: 999px; background: rgba(118, 118, 128, 0.13); color: var(--muted); font-size: 12px; line-height: 1.5; }
+.asx-me-row { display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px; min-width: 0; }
+.asx-me-row .asx-bubble { min-width: 0; }
+.asx-meta.is-side { display: flex; flex-direction: column; align-items: flex-end; flex: none; padding-bottom: 2px; font-size: 11.5px; line-height: 1.4; white-space: nowrap; }
+.asx-line-row { display: flex; align-items: flex-end; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.asx-line-row > :first-child { flex: 0 1 300px; min-width: min(244px, 100%); }
+/* Beside a card the label and time stack in a narrow column, so the card keeps its width. */
+.asx-line-row .asx-meta.is-side { align-items: flex-start; max-width: 64px; white-space: normal; }
+.asx-bubble.is-bot { flex: 0 1 auto; max-width: min(100%, 520px); border: 1px solid var(--border); border-radius: 20px 20px 20px 6px; background: var(--white); color: var(--text); white-space: normal; }
+.asx-bubble.is-bot .asx-md { font-size: 15px; line-height: 1.65; }
+.asx-bell { position: relative; }
+.asx-badge { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #E5484D; color: #FFFFFF; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px var(--white); }
+.asx-badge.is-inline { position: static; flex: none; box-shadow: none; }
+.asx-has-dot { position: relative; }
+.asx-dot { position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: #E5484D; box-shadow: 0 0 0 2px var(--white); }
+.asx-side-item.is-line { min-height: 54px; gap: 10px; }
+.asx-line-avatar { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #8F3416, #E2672F); }
+.asx-side-stack { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.asx-side-preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.asx-quick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.asx-quick > button { min-height: 34px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--asx-accent) 35%, transparent); border-radius: 999px; background: var(--white); color: var(--asx-accent-text); font-size: 13.5px; font-weight: 500; line-height: 1.5; cursor: pointer; box-shadow: 0 2px 8px rgba(60, 40, 28, 0.08); transition: background-color 0.15s, transform 0.15s; }
+.asx-quick > button:hover { background: var(--asx-cream); }
+.asx-quick > button:active { transform: scale(0.97); }
+.asx-push-wrap { position: absolute; left: 0; right: 0; top: 80px; z-index: 8; display: flex; justify-content: center; padding: 0 12px; pointer-events: none; }
+.asx-push { display: flex; align-items: center; gap: 12px; width: min(420px, 100%); padding: 10px 16px 10px 10px; border-radius: 22px; text-align: left; color: var(--text); cursor: pointer; pointer-events: auto; }
+.asx-push-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 11px; background: linear-gradient(135deg, #8F3416, #E2672F); }
+.asx-push-text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.asx-push-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.asx-push-app { font-size: 13px; font-weight: 600; color: var(--text); }
+.asx-push-body { font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
+
+/* The LINE Flex card (LineCard.tsx), drawn like lineCards.ts: LINE's own sizes, and always the light card
+   LINE shows, in dark mode too. */
+.lnc { container-type: inline-size; width: min(300px, 100%); overflow: hidden; border-radius: 18px; background: #FFFFFF; color: #1C1917; box-shadow: 0 6px 20px rgba(60, 40, 28, 0.10); text-align: left; }
+.lnc-band { position: relative; isolation: isolate; overflow: hidden; padding: 20px; color: #FFFFFF; }
+.lnc-band::before, .lnc-band::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.lnc-band::before { background: linear-gradient(150deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 45%); }
+.lnc-band::after { background: linear-gradient(0deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0) 55%); }
+.lnc-band.has-metric, .lnc-band:has(.lnc-figure) { padding-bottom: 0; }
+.lnc-brand { display: flex; align-items: center; gap: 6px; }
+.lnc-brand img { flex: none; }
+.lnc-brand-name { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 600; line-height: 1.45; }
+.lnc-chip { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 3px 9px 3px 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.18); font-size: 11px; font-weight: 600; line-height: 1.45; }
+.lnc-title { margin-top: 14px; font-size: 19px; font-weight: 600; line-height: 1.4; color: #FFFFFF; }
+.lnc-subtitle { margin-top: 2px; font-size: 13px; line-height: 1.45; color: rgba(255, 255, 255, 0.85); }
+.lnc-hairline { margin: 14px 0 0; border: 0; border-top: 1px solid rgba(255, 255, 255, 0.22); }
+.lnc-hero { display: flex; align-items: flex-end; gap: 8px; margin-top: 10px; }
+.lnc-hero.is-title { align-items: center; margin-top: 14px; }
+.lnc-hero.is-title .lnc-title { margin-top: 0; }
+.lnc-metric { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; padding-bottom: 20px; }
+.lnc-hero.is-title .lnc-metric { padding-bottom: 14px; }
+.lnc-metric-label { font-size: 13px; line-height: 1.45; color: rgba(255, 255, 255, 0.85); }
+.lnc-metric-value { font-weight: 600; line-height: 1.25; font-variant-numeric: tabular-nums; color: #FFFFFF; overflow-wrap: anywhere; }
+.lnc-metric-value.is-xxl { font-size: 29px; } .lnc-metric-value.is-xl { font-size: 22px; } .lnc-metric-value.is-lg { font-size: 19px; }
+/* A card narrowed by a phone screen keeps its amount on one line. */
+@container (max-width: 284px) { .lnc-metric-value.is-xxl { font-size: 25px; } .lnc-metric-value.is-xl { font-size: 20px; } .lnc-band { padding-left: 18px; padding-right: 18px; } .lnc-body { padding-left: 18px; padding-right: 18px; } .lnc-footer { padding-left: 18px; padding-right: 18px; } }
+.lnc-metric-note { font-size: 13px; line-height: 1.45; color: rgba(255, 255, 255, 0.7); }
+.lnc-figure { position: relative; flex: none; width: 80px; height: 68px; }
+.lnc-figure.is-small { width: 72px; height: 60px; }
+.lnc-figure img { position: absolute; top: 0; left: 0; width: 100%; height: auto; max-width: none; }
+.lnc-body { padding: 14px 20px 20px; }
+.lnc-section h4 { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; line-height: 1.45; }
+.lnc-section h4 i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.lnc-section h4.is-negative, .lnc-item-meta.is-negative, .lnc-row-value.is-negative { color: #B42318; }
+.lnc-section h4.is-warning, .lnc-item-meta.is-warning, .lnc-row-value.is-warning { color: #A15C07; }
+.lnc-section h4.is-muted, .lnc-item-meta.is-muted, .lnc-row-value.is-muted { color: #6B6560; }
+.lnc-row-value.is-positive { color: #1D7347; }
+.lnc-item { margin-top: 10px; }
+.lnc-items .lnc-item:first-child { margin-top: 0; }
+.lnc-item-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.lnc-item-name { min-width: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.lnc-item-amount { flex: none; font-size: 14px; font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums; }
+/* Thai marks above and below need room between these short lines (overlap rule). */
+.lnc-item-client, .lnc-item-meta { font-size: 13px; line-height: 1.62; color: #6B6560; }
+.lnc-item-meta { margin-top: 1px; }
+.lnc-due { display: flex; gap: 8px; margin-top: 10px; }
+.lnc-pill { flex: 1 1 0; min-width: 0; min-height: 38px; padding: 0 6px; border: 1px solid #E7E5E4; border-radius: 10px; background: #FFFFFF; color: #1C1917; font-size: 13.5px; font-weight: 600; line-height: 1.4; cursor: pointer; transition: background-color 0.15s, transform 0.15s; }
+.lnc-pill:hover { background: #F5F5F4; }
+.lnc-pill:active { transform: scale(0.97); }
+.lnc-pill.is-primary { border-color: #C24A16; background: #C24A16; color: #FFFFFF; }
+.lnc-pill.is-primary:hover { background: #A83F12; }
+.lnc-divider { margin: 14px 0; border: 0; border-top: 1px solid #E7E5E4; }
+.lnc-divider.is-note { margin-bottom: 10px; }
+.lnc-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.lnc-rows .lnc-row:first-child { margin-top: 0; }
+.lnc-row-label { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.5; color: #6B6560; }
+.lnc-row-label small { font-size: 11px; line-height: 1.45; }
+.lnc-row-value { max-width: 66%; font-size: 14px; line-height: 1.5; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; color: #1C1917; }
+.lnc-row-value.is-strong { font-size: 16px; font-weight: 600; }
+.lnc-note { font-size: 13px; line-height: 1.55; color: #6B6560; white-space: pre-line; }
+.lnc-footer { padding: 0 20px 20px; }
+.lnc-button { display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 12px; border-radius: 10px; background: #C24A16; color: #FFFFFF; font-size: 14px; font-weight: 600; line-height: 1.4; text-align: center; text-decoration: none; transition: background-color 0.15s; }
+.lnc-button:hover { background: #A83F12; }
+
+/* Dark mode, glam and Gen Z (owner, 2026-10-23: "ดึกดำบรรพ์ ... อยากให้มันแกรม แล้วก็เจนซี", then "แอบลายตา"): a
+   near-black stage with one soft warm glow at the top and a faint rose one low down, deeper glass with a lit
+   edge, a gentle gradient on the welcome line, quiet glows. Light mode is unchanged. */
+.asx-chat { z-index: 0; }
+.asx-aurora { display: none; }
+.dark .asx-chat { background: #0C0908; }
+.dark .asx-aurora { display: block; position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; background: #0C0908; }
+.dark .asx-aurora i { position: absolute; border-radius: 50%; filter: blur(90px); animation: asx-drift 40s ease-in-out infinite alternate; }
+.dark .asx-aurora i:nth-child(1) { left: 22%; top: -30%; width: 56%; height: 48%; background: #E65F2B; opacity: 0.16; }
+.dark .asx-aurora i:nth-child(2) { right: -12%; bottom: -24%; width: 42%; height: 42%; background: #C2387A; opacity: 0.07; animation-duration: 48s; animation-delay: -12s; }
+@keyframes asx-drift { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(4%, 5%, 0) scale(1.06); } }
+.dark .asx .lg-glass:not(.asx-push) { background: rgba(26, 19, 16, 0.52); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 32px rgba(0, 0, 0, 0.35); }
+.dark .asx-side.lg-glass { background: rgba(20, 14, 12, 0.62); }
+.dark .asx-side.is-overlay.lg-glass { background: rgba(20, 14, 12, 0.94); }
+.dark .asx-ring-fill { filter: drop-shadow(0 0 2px rgba(255, 122, 69, 0.55)); }
+.dark .asx-new { border: 1px solid rgba(255, 164, 115, 0.18); background: rgba(230, 95, 43, 0.14); color: #FFD3BE; }
+.dark .asx-side-item.is-active { background: rgba(230, 95, 43, 0.14); color: #FFD3BE; box-shadow: inset 0 0 0 1px rgba(255, 164, 115, 0.14); }
+.dark .asx-side-search input { background: rgba(255, 255, 255, 0.06); }
+.dark .asx-welcome h2 { background: linear-gradient(90deg, #FFF4EE, #FFD3BD); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.asx-spot { position: relative; display: inline-block; isolation: isolate; line-height: 0; }
+.dark .asx-spot::before { content: ""; position: absolute; inset: -30%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 138, 80, 0.2), transparent); pointer-events: none; }
+.dark .asx-prompts > button { border-color: rgba(255, 255, 255, 0.09); background: rgba(255, 255, 255, 0.045); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.dark .asx-prompts > button:hover { border-color: rgba(255, 164, 115, 0.32); background: rgba(255, 138, 80, 0.07); }
+.dark .asx-prompt-icon, .dark .asx-prompts > button:hover .asx-prompt-icon { background: rgba(230, 95, 43, 0.2); color: #FFB894; }
+.dark .asx-bubble { background: linear-gradient(135deg, #B9491C, #D0683A); color: #FFFFFF; }
+.dark .asx-bubble.is-bot { border-color: rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.06); color: var(--text); box-shadow: none; }
+.dark .asx-day span { background: rgba(255, 255, 255, 0.08); }
+.dark .asx-composer { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.07), 0 14px 36px rgba(0, 0, 0, 0.45); }
+.dark .asx-composer:focus-within { box-shadow: inset 0 0 0 1px rgba(255, 150, 100, 0.4), 0 0 0 3px rgba(230, 95, 43, 0.12); }
+.dark .asx-send:not(:disabled) { background: #E2642E; }
+.dark .asx-quick > button { border-color: rgba(255, 164, 115, 0.32); background: rgba(255, 255, 255, 0.06); color: #FFC2A6; box-shadow: none; }
+.dark .asx-quick > button:hover { background: rgba(255, 138, 80, 0.14); }
+.dark .asx-badge, .dark .asx-dot { box-shadow: 0 0 0 2px #0C0908; }
+.dark .lnc { box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45); }
+.dark .asx-push.lg-glass { background: rgba(32, 24, 21, 0.88); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 16px 40px rgba(0, 0, 0, 0.5); }
+
+/* History rows (owner, 2026-10-23, "ทำแบบนี้" with ChatGPT's list): on hover a pin and a ⋯ button that opens
+   เปลี่ยนชื่อ / ปักหมุด / แชร์ (เร็ว ๆ นี้) / เก็บถาวร / ลบ; phones and touch screens always show the ⋯. The
+   row's tag steps aside while the buttons show, so nothing sits on text. Deleting has a few seconds to undo. */
+.asx-side-row { position: relative; }
+.asx-side-actions { position: absolute; top: 50%; right: 4px; display: flex; align-items: center; gap: 2px; opacity: 0; transform: translateY(-50%); transition: opacity 0.15s; }
+.asx-side-row:hover .asx-side-actions, .asx-side-row:focus-within .asx-side-actions, .asx-side-row.is-menu-open .asx-side-actions, .asx.is-mobile .asx-side-actions { opacity: 1; }
+.asx-side-row:hover .asx-side-item, .asx-side-row:focus-within .asx-side-item, .asx-side-row.is-menu-open .asx-side-item { padding-right: 70px; }
+.asx-side-row:hover .asx-side-tag, .asx-side-row:focus-within .asx-side-tag, .asx-side-row.is-menu-open .asx-side-tag { display: none; }
+.asx.is-mobile .asx-side-row .asx-side-item { padding-right: 44px; }
+@media (hover: none) { .asx-side-actions { opacity: 1; } .asx-side-row .asx-side-item { padding-right: 44px; } .asx-side-act:first-child:not(:last-child) { display: none; } }
+.asx-side-act { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--muted); cursor: pointer; transition: background-color 0.15s, color 0.15s; }
+.asx-side-act:hover, .asx-side-row.is-menu-open .asx-side-act[aria-expanded="true"] { background: rgba(118, 118, 128, 0.14); color: var(--text); }
+.asx-side-rename { display: flex; min-height: 38px; padding: 3px 4px; }
+.asx-side-rename input { width: 100%; min-height: 32px; padding: 4px 8px; border: 1px solid var(--asx-accent); border-radius: 10px; background: var(--white); color: var(--text); font-size: 14px; line-height: 1.5; outline: none; box-shadow: 0 0 0 3px rgba(230, 95, 43, 0.14); }
+.asx-side-archive { margin-top: 10px; }
+.asx-side-archive-toggle { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 8px 4px; border-radius: 10px; color: var(--muted); font-size: 12.5px; font-weight: 500; line-height: 1.5; text-align: left; cursor: pointer; }
+.asx-side-archive-toggle:hover { color: var(--text); }
+.asx-side-archive-toggle svg:last-child { margin-left: auto; transition: transform 0.2s; }
+.asx-side-archive-toggle svg.is-open { transform: rotate(180deg); }
+.asx-pop.is-menu-list > button.is-soon { opacity: 0.5; cursor: not-allowed; }
+.asx-pop.is-menu-list > button.is-soon:hover { background: transparent; }
+.asx-undo-wrap { position: absolute; left: 0; right: 0; bottom: calc(var(--asx-dock-h, 120px) + 10px); z-index: 6; display: flex; justify-content: center; padding: 0 12px; pointer-events: none; }
+.asx-undo { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 42px; padding: 0 6px 0 14px; border-radius: 21px; color: var(--text); font-size: 13.5px; line-height: 1.5; pointer-events: auto; }
+.asx-undo > svg { flex: none; color: var(--muted); }
+.asx-undo-btn { flex: none; min-height: 32px; padding: 0 12px; border-radius: 16px; color: var(--asx-accent-text); font-size: 13.5px; font-weight: 600; line-height: 1.5; cursor: pointer; transition: background-color 0.15s; }
+.asx-undo-btn:hover { background: var(--asx-cream); }
+
+/* Try mode without Pro (owner, 2026-10-23): the sample questions and buttons answer; a typed question shows
+   this card instead of being sent. */
+.asx-notice.is-try { flex-wrap: wrap; background: var(--asx-cream); color: var(--asx-accent-text); }
+.asx-notice.is-try .asx-link-btn { margin-left: 2px; }
+.asx-upsell { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; padding: 14px; border-radius: 22px; }
+.asx-upsell-figure { display: grid; place-items: center; flex: none; width: 48px; height: 48px; overflow: hidden; border-radius: 50%; background: var(--asx-cream); }
+.asx-upsell-body { flex: 1 1 auto; min-width: 0; }
+.asx-upsell-body b { display: block; font-size: 15px; font-weight: 600; line-height: 1.45; }
+.asx-upsell-body p { margin-top: 2px; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+.asx-upsell-try { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.asx-upsell-try > button { min-height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--white); color: var(--text); font-size: 13px; line-height: 1.5; cursor: pointer; transition: background-color 0.15s, border-color 0.15s; }
+.asx-upsell-try > button:hover { border-color: #F3B08C; background: var(--asx-cream); }
+.asx-upsell-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.dark .asx-upsell-try > button { border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.06); }
+.dark .asx-notice.is-try { background: rgba(230, 95, 43, 0.14); color: #FFC2A6; }
+
+/* เลขากระรอกติดตัว (AssistantBuddy.tsx, owner 2026-10-23): for Pro accounts the squirrel waits at the corner of every
+   page; an "ถามเลขากระรอก ⌘K" pill on computers, a round squirrel above the bottom bar on phones. A patch of page
+   colour under it fades out whatever scrolls past (nothing peeks from under it), and the pages leave room for
+   it at the bottom. On computers its panel docks at the right and the page makes room for it. */
+.asx-buddy { position: fixed; right: 22px; bottom: 22px; z-index: 45; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.asx-buddy::before { content: ""; position: absolute; inset: -30px; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, var(--bg) 62%, color-mix(in srgb, var(--bg) 0%, transparent)); pointer-events: none; }
+.asx-buddy.is-pill::before { inset: auto -34px -28px -34px; height: calc(52px + 56px); border-radius: 60px; }
+/* While the "แตะผมได้ทุกหน้า" note shows, the patch grows to sit under it too. */
+.asx-buddy.has-tip::before, .asx-buddy.is-pill.has-tip::before { inset: -40px -44px -30px -44px; height: auto; border-radius: 48px; }
+.asx-buddy.is-mobile { right: 14px; bottom: calc(98px + env(safe-area-inset-bottom, 0px)); z-index: 50; }
+.asx-buddy.is-open, .asx-buddy.is-waiting { visibility: hidden; }
+.asx-buddy-btn { position: relative; display: grid; place-items: end center; width: 64px; height: 64px; padding-bottom: 3px; border-radius: 50%; overflow: visible; cursor: pointer; transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1); }
+.asx-buddy-btn:hover { transform: translateY(-2px) scale(1.03); }
+.asx-buddy-btn:active { transform: scale(0.96); }
+.asx-buddy.is-mobile .asx-buddy-btn { width: 54px; height: 54px; }
+.asx-buddy-avatar { line-height: 0; margin-top: -16px; }
+/* Computers: a glass pill with the squirrel, its name and the shortcut, inside a slowly turning ring of light. */
+.asx-buddy.is-pill .asx-buddy-btn { display: inline-flex; align-items: center; gap: 8px; width: auto; height: 52px; padding: 0 12px 0 6px; border-radius: 26px; }
+.asx-buddy.is-pill .asx-buddy-btn::after { content: ""; position: absolute; inset: -1.5px; padding: 1.5px; border-radius: inherit; pointer-events: none; background: conic-gradient(from var(--kb-spin), rgba(230, 95, 43, 0.9), rgba(255, 179, 71, 0.6), rgba(255, 111, 145, 0.8), rgba(161, 139, 255, 0.55), rgba(230, 95, 43, 0.9));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: kb-spin 6s linear infinite; }
+.asx-buddy.is-pill .asx-buddy-avatar { margin-top: -18px; }
+.asx-buddy-label { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--text); white-space: nowrap; }
+.asx-buddy-kbd, .asx-buddy-tip kbd { padding: 1px 7px; border-radius: 7px; background: rgba(118, 118, 128, 0.14); color: var(--muted); font-family: var(--font-sans); font-size: 11.5px; font-weight: 500; line-height: 1.5; }
+.asx-buddy-tip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 16px; color: var(--text); font-size: 13px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
+.asx-buddy-tip > svg { color: #E65F2B; }
+.asx-buddy-panel { right: 20px; bottom: 20px; display: flex; flex-direction: column; width: min(392px, calc(100vw - 32px)); max-width: none; height: min(640px, calc(100vh - 40px)); padding: 0; border-radius: 26px; overflow: hidden; transform-origin: bottom right; }
+.asx-buddy-panel.lg-glass { background: color-mix(in srgb, var(--white) 96%, transparent); }
+.dark .asx-buddy-panel.lg-glass { background: rgba(26, 20, 17, 0.96); }
+.asx-buddy-panel.is-docked { top: 12px; right: 12px; bottom: 12px; width: 400px; height: auto; border-radius: 28px; transform-origin: right center; }
+.asx-buddy-panel.is-sheet { left: 0; right: 0; bottom: auto; width: auto; border-radius: 26px 26px 0 0; transform-origin: bottom center; }
+.asx-buddy-scrim { z-index: 299; }
+/* Computers: the page makes room for the docked panel, so nothing sits under it. */
+/* The docked panel: beside the page on very wide screens (the page keeps 1,000px+, enough for tables sized by the
+   screen); on other computers a side sheet over the dimmed, blurred page, so no page text peeks out next to it. */
+.asx-panel-host { transition: padding-right 0.34s cubic-bezier(0.22, 1, 0.36, 1); }
+@media (min-width: 1720px) { .asx-panel-host.asx-has-panel { padding-right: 424px; } }
+@media (prefers-reduced-motion: reduce) { .asx-panel-host { transition: none; } }
+.asx-buddy-scrim.is-side { background: rgba(28, 25, 23, 0.12); }
+.dark .asx-buddy-scrim.is-side { background: rgba(0, 0, 0, 0.32); }
+.asx-buddy-panel.is-docked { box-shadow: 0 24px 60px rgba(60, 30, 15, 0.18), 0 2px 8px rgba(60, 30, 15, 0.08); }
+.dark .asx-buddy-panel.is-docked { box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3); }
+@media (prefers-reduced-motion: reduce) { .asx-buddy.is-pill .asx-buddy-btn::after { animation: none; } }
+.asx-buddy-grabber { align-self: center; flex: none; width: 40px; height: 5px; margin-top: 8px; border-radius: 3px; background: rgba(118, 118, 128, 0.3); }
+.asx-buddy-head { display: flex; align-items: center; gap: 8px; flex: none; padding: 12px 10px 10px 14px; border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+.asx-buddy-face { display: grid; place-items: center; flex: none; width: 34px; height: 34px; overflow: hidden; border-radius: 50%; background: var(--asx-cream); }
+.asx-buddy-title { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.asx-buddy-title b { font-size: 15px; font-weight: 600; line-height: 1.45; }
+.asx-buddy-title span { display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.asx-buddy-title span i { flex: none; width: 6px; height: 6px; border-radius: 50%; background: #18A66A; }
+.asx-buddy-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 14px; }
+.asx-buddy-hello { padding-top: 6px; text-align: center; }
+.asx-buddy-hero { position: relative; display: inline-block; isolation: isolate; line-height: 0; }
+.asx-buddy-hero::before { content: ""; position: absolute; inset: -30%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 170, 120, 0.45), rgba(255, 111, 145, 0.12) 62%, rgba(255, 111, 145, 0)); pointer-events: none; }
+.dark .asx-buddy-hero::before { background: radial-gradient(closest-side, rgba(230, 95, 43, 0.28), rgba(230, 95, 43, 0)); }
+.asx-buddy-hello h3 { margin-top: 10px; font-size: 20px; font-weight: 600; line-height: 1.45; }
+.asx-buddy-hello p { margin-top: 4px; font-size: 14.5px; line-height: 1.65; color: var(--muted); }
+.asx-buddy-prompts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 18px; text-align: left; }
+.asx-buddy-prompts > button { display: flex; align-items: flex-start; gap: 8px; min-width: 0; min-height: 54px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--white); color: var(--text); font-size: 13.5px; line-height: 1.45; text-align: left; cursor: pointer; transition: border-color 0.15s, background-color 0.15s, transform 0.15s; }
+.asx-buddy-prompts > button > svg { flex: none; margin-top: 2px; color: #E65F2B; }
+.asx-buddy-prompts > button > span { min-width: 0; overflow-wrap: anywhere; }
+.asx-buddy-prompts > button:hover { border-color: #F3B08C; background: var(--asx-cream); }
+.asx-buddy-prompts > button:active { transform: scale(0.98); }
+.dark .asx-buddy-prompts > button { border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); }
+.dark .asx-buddy-prompts > button > svg { color: #FFA473; }
+.asx-thread.is-buddy { gap: 14px; max-width: none; }
+.asx-thread.is-buddy .asx-msg.is-me { max-width: 88%; }
+.asx-buddy-composer { display: flex; align-items: flex-end; gap: 6px; flex: none; margin: 0 12px; padding: 5px 5px 5px 14px; border: 1px solid var(--border); border-radius: 22px; background: var(--white); transition: border-color 0.15s, box-shadow 0.15s; }
+.asx-buddy-composer:focus-within { border-color: var(--asx-accent); box-shadow: 0 0 0 3px rgba(230, 95, 43, 0.14); }
+.dark .asx-buddy-composer { border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); }
+.asx-buddy-composer textarea { flex: 1 1 auto; min-width: 0; min-height: 36px; max-height: 120px; padding: 7px 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; font-weight: 400; line-height: 1.5; resize: none; outline: none; }
+.asx-buddy-composer textarea::placeholder { color: var(--muted); }
+.asx-buddy-panel .asx-hint { flex: none; margin: 6px 12px 10px; }
+.asx-buddy-panel.is-sheet .asx-hint { margin-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+/* Computers and iPads: each page leaves room at its foot so its last lines can scroll clear of the squirrel. */
+#main-content.has-buddy { padding-bottom: 112px; }
+
+/* The squirrel's arrival (AssistantBirth.tsx), shown only right after a payment for Pro. Formal, after OpenAI's
+   launch for dots (owner 2026-10-23: "ไม่ใช่เกม ... เหมือนนักบัญชี หรือเลขาที่พร้อมเข้ามาช่วย"): frosted glass, a
+   doorway of soft light rising from a horizon with a glowing rim, soft orbs, the squirrel in its Pro outfit stepping
+   up from behind the horizon, then a greeting in soft gradient type. */
+@property --kb-hole { syntax: '<percentage>'; inherits: false; initial-value: -20%; } /* below 0: no page shows through until it opens */
+@property --kb-spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; } /* the corner pill's turning ring */
+@keyframes kb-spin { to { --kb-spin: 360deg; } }
+.kb-stage { --kb-land: rgba(251, 249, 252, 0.96); --kb-ink: #5B4BD8; position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; overflow: hidden; color: var(--text); font-family: var(--font-sans); font-synthesis: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.dark .kb-stage { --kb-land: #0D0C13; --kb-ink: #C9BFFF; }
+.kb-veil { position: absolute; inset: 0; background: radial-gradient(70% 60% at 50% 42%, rgba(250, 248, 255, 0.72), rgba(245, 243, 248, 0.95) 72%); -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%);
+  -webkit-mask-image: radial-gradient(circle at 50% 42%, transparent var(--kb-hole), #000 calc(var(--kb-hole) + 18%)); mask-image: radial-gradient(circle at 50% 42%, transparent var(--kb-hole), #000 calc(var(--kb-hole) + 18%));
+  animation: kb-fade-in 0.6s ease backwards; transition: --kb-hole 1.1s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.6s ease; }
+.dark .kb-veil { background: radial-gradient(70% 60% at 50% 40%, rgba(30, 26, 48, 0.72), rgba(9, 8, 14, 0.95) 72%); }
+.kb-stage.is-open .kb-veil, .kb-stage.is-fly .kb-veil { --kb-hole: 150%; transition-delay: 0.22s, 0s; }
+.kb-stage.is-fly .kb-veil { opacity: 0; }
+.kb-center { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(560px, calc(100vw - 32px)); padding: 24px 0; text-align: center; }
+.kb-scene { position: relative; width: 360px; height: 300px; flex: none; transition: opacity 0.5s ease; }
+.kb-stage.is-open .kb-door, .kb-stage.is-fly .kb-door, .kb-stage.is-open .kb-orbs, .kb-stage.is-fly .kb-orbs, .kb-stage.is-open .kb-hill, .kb-stage.is-fly .kb-hill { opacity: 0; transition: opacity 0.5s ease; }
+/* The doorway: a tall arch of soft light, rising from the horizon. */
+.kb-door { position: absolute; left: 50%; bottom: 38px; width: 168px; height: 236px; margin-left: -84px; border-radius: 84px 84px 14px 14px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #F5EFFF 44%, #FFE6D9 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8), 0 0 0 1px rgba(160, 140, 235, 0.22), 0 0 44px 8px rgba(186, 166, 255, 0.5), 0 0 120px 34px rgba(255, 168, 140, 0.26);
+  transform-origin: 50% 100%; animation: kb-door-in 1.15s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards; }
+.dark .kb-door { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85), 0 0 50px 10px rgba(170, 150, 255, 0.55), 0 0 140px 44px rgba(255, 150, 130, 0.28); }
+/* Soft orbs around the door, drifting slowly. */
+.kb-orbs { position: absolute; inset: 0; pointer-events: none; }
+.kb-orbs i { position: absolute; border-radius: 50%; opacity: 0; animation: kb-orb-in 1s ease both, kb-drift 7s ease-in-out infinite; }
+.kb-orbs i.is-1 { left: 18px; top: 40px; width: 62px; height: 62px; background: radial-gradient(circle at 34% 30%, #F4F2FF 0, #A9BCFF 30%, #7C6CF0 70%, #5A49D6 100%); box-shadow: 0 0 34px rgba(130, 118, 255, 0.5); animation-delay: 0.5s, 0.5s; }
+.kb-orbs i.is-2 { left: 74px; top: 170px; width: 24px; height: 24px; background: radial-gradient(circle at 34% 30%, #FFF4EE 0, #FFC0A6 36%, #F28C9E 100%); box-shadow: 0 0 18px rgba(255, 150, 150, 0.5); animation-delay: 0.75s, 1.6s; animation-duration: 1s, 8s; }
+.kb-orbs i.is-3 { right: 10px; top: 122px; width: 48px; height: 48px; background: radial-gradient(circle at 34% 30%, #F4FFF9 0, #B2F2D2 34%, #5FCB9E 100%); box-shadow: 0 0 28px rgba(110, 220, 170, 0.45); animation-delay: 0.9s, 0.9s; animation-duration: 1s, 9s; }
+.kb-orbs i.is-4 { right: 76px; top: 30px; width: 16px; height: 16px; background: radial-gradient(circle at 34% 30%, #FFF1F7 0, #FFB4D2 40%, #E57AAF 100%); box-shadow: 0 0 14px rgba(240, 130, 180, 0.5); animation-delay: 1.05s, 2.2s; animation-duration: 1s, 6.5s; }
+/* The squirrel rises from behind the horizon: its box is cut at the horizon line until it flies. */
+.kb-rise { position: absolute; left: -60px; right: -60px; top: -40px; bottom: 50px; overflow: hidden; }
+.kb-stage.is-fly .kb-rise { overflow: visible; }
+.kb-figure { position: absolute; left: 50%; top: 138px; width: 168px; height: 168px; margin-left: -84px; line-height: 0; will-change: transform; filter: drop-shadow(0 10px 18px rgba(80, 50, 120, 0.16)); }
+/* Coming out of the doorway: it grows from its feet as it walks toward you, so they stay on the ground. */
+.kb-walk { width: 100%; height: 100%; transform-origin: 50% 88%; }
+/* ติ๊ง ๆ ๆ: three twinkles pop one after another by the waving paw, twice. */
+.kb-tings { position: absolute; inset: 0; pointer-events: none; }
+.kb-tings svg { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; overflow: visible; opacity: 0; transform: scale(0); fill: #FFC65C; filter: drop-shadow(0 0 4px rgba(255, 200, 110, 0.95)); }
+.dark .kb-tings svg { fill: #FFE1A0; }
+.kb-tings svg.is-1 { left: 84%; top: 30%; }
+.kb-tings svg.is-2 { left: 93%; top: 47%; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; }
+.kb-tings svg.is-3 { left: 74%; top: 16%; width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px; }
+.kb-stage.is-ready .kb-tings svg { animation: kb-ting 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 2 both; }
+.kb-stage.is-ready .kb-tings svg.is-2 { animation-delay: 0.28s; }
+.kb-stage.is-ready .kb-tings svg.is-3 { animation-delay: 0.56s; }
+@keyframes kb-ting { 0% { opacity: 0; transform: scale(0) rotate(0deg); } 35% { opacity: 1; transform: scale(1.15) rotate(25deg); } 60% { opacity: 1; transform: scale(0.9) rotate(40deg); } 100% { opacity: 0; transform: scale(0) rotate(70deg); } }
+.kb-hill { position: absolute; left: 50%; bottom: -2px; width: 560px; height: 76px; margin-left: -280px; overflow: visible; pointer-events: none;
+  /* Soft at both ends and fading out below the rim, so the land has no edge. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent), linear-gradient(180deg, #000 52%, transparent); -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent), linear-gradient(180deg, #000 52%, transparent); mask-composite: intersect; }
+.kb-hill-land { fill: var(--kb-land); }
+.kb-hill-rim { fill: none; stroke: url(#kb-rim); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: kb-draw 1.3s cubic-bezier(0.45, 0, 0.25, 1) 0.45s forwards; }
+.kb-hill-rim.is-glow { stroke-width: 7; opacity: 0.85; }
+/* Words: soft gradient type, the greeting typing itself out. */
+.kb-hello { position: relative; z-index: 2; }
+.kb-hello h2 { font-size: 32px; font-weight: 600; line-height: 1.45; background: linear-gradient(90deg, #6E2A12, #C9542A 38%, #A63C74 68%, #5B4BD8); -webkit-background-clip: text; background-clip: text; color: transparent; overflow-wrap: anywhere; }
+.dark .kb-hello h2 { background: linear-gradient(90deg, #D4E9FF, #FFF1CC 35%, #FFCADF 66%, #D9CDFF); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 16px rgba(255, 190, 225, 0.3)); }
+.kb-untyped { visibility: hidden; }
+.kb-caret { position: relative; display: inline-block; width: 0; height: 1em; vertical-align: -0.12em; }
+.kb-caret::after { content: ""; position: absolute; left: 2px; top: 0.08em; bottom: -0.02em; width: 2px; border-radius: 2px; background: var(--kb-ink); opacity: 0.75; animation: kb-blink 1s steps(2, start) infinite; }
+.kb-caret.is-done::after { animation: kb-fade-out 0.4s ease 0.6s forwards; }
+.kb-hello p { margin-top: 4px; font-size: 16px; line-height: 1.7; color: var(--muted); text-wrap: balance; }
+.kb-skip { position: absolute; top: max(16px, env(safe-area-inset-top, 0px)); right: 16px; z-index: 3; min-height: 40px; padding: 0 18px; border-radius: 20px; color: var(--text); font-size: 14px; font-weight: 500; line-height: 1.5; cursor: pointer; transition: opacity 0.3s; }
+.kb-stage.is-fly .kb-skip { opacity: 0; pointer-events: none; }
+@keyframes kb-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kb-fade-out { to { opacity: 0; } }
+@keyframes kb-door-in { from { opacity: 0; transform: scaleY(0.05); filter: blur(6px); } 40% { opacity: 1; } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes kb-orb-in { from { opacity: 0; scale: 0.6; } to { opacity: 1; scale: 1; } }
+@keyframes kb-drift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes kb-draw { to { stroke-dashoffset: 0; } }
+@keyframes kb-blink { to { visibility: hidden; } }
+@media (max-width: 743px) { .kb-scene { transform: scale(0.86); margin-block: -21px; } .kb-hello h2 { font-size: 25px; } .kb-hello p { font-size: 15px; } }
+.kb-stage.is-calm .kb-veil, .kb-stage.is-calm .kb-door, .kb-stage.is-calm .kb-orbs i { animation: none; opacity: 1; }
+.kb-stage.is-calm .kb-hill-rim { animation: none; stroke-dashoffset: 0; }
+
+/* Phones: the chat takes the whole screen above the keyboard; the sidebar is a drawer. */
+.asx.is-mobile { z-index: 60; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); background: var(--bg); }
+/* Back to เมนู: the menu screen opens over the app, so the full-screen chat steps aside (and keeps its state). */
+body:has(.ksm-layer) .asx.is-mobile { visibility: hidden; }
+.asx.is-mobile .asx-chat { border-radius: 0; }
+.asx.is-mobile .asx-bar { width: auto; margin: 16px 10px 0; padding: 0; gap: 6px; }
+/* Phones: the token button is the ring alone, so the name in the middle never meets the buttons; the number is in its popover and label. */
+.asx.is-mobile .asx-token { justify-content: center; width: 38px; padding: 0; }
+.asx.is-mobile .asx-token span { display: none; }
+.asx.is-mobile .asx-scroll { --asx-top-fade: 28px; padding: 38px 12px calc(var(--asx-dock-h, 120px) + 14px); }
+.asx.is-mobile .asx-bar-mascot { margin: -2px 0 -26px; }
+.asx.is-mobile .asx-thread { gap: 16px; }
+.asx.is-mobile .asx-msg.is-me { max-width: 86%; }
+.asx.is-mobile .asx-dock { padding: 0 10px 10px; }
+.asx.is-mobile .asx-welcome h2 { font-size: 21px; }
+/* Phones: the icon sits above the label, so each half-width card gives its words the full width. */
+.asx.is-mobile .asx-prompts { gap: 8px; margin-top: 16px; }
+.asx.is-mobile .asx-prompts > button { flex-direction: column; align-items: flex-start; gap: 8px; min-height: 92px; padding: 12px; }
+.asx.is-mobile .asx-pop { width: min(288px, calc(100vw - 28px)); }
+.asx.is-mobile .asx-push-wrap { top: 84px; }
+.asx.is-mobile .asx-msg.is-line .asx-meta.is-side { font-size: 11px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .asx-figure, .asx-bulb, .asx-msg, .asx-typing i, .asx-caret, .asx-side-skeleton i, .asx-skeleton i, .asx-aurora i { animation: none !important; }
+  .asx-buddy-btn { transition: none; }
+  .asx-side, .asx-side.is-overlay, .asx-ring-fill, .asx-meter i { transition: none !important; }
+  .asx-pop-scrim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(28, 25, 23, 0.16); }
+}

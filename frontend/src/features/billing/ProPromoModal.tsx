@@ -3,13 +3,23 @@ import { motion } from 'motion/react';
 import { X, FileText, MessageCircle, CreditCard, ArrowRight } from 'lucide-react';
 import { IconCrown } from '../../components/ui/icons';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { PRO_CHECKOUT_OPEN, PRO_PRICING, PRO_REGULAR_MONTHLY, formatBaht } from '../../../../shared/proPricing';
 
 interface ProPromoModalProps {
+  /** Kept for the caller; the dialog shows the one monthly price from shared/proPricing.ts. */
+  introEligible: boolean;
+  manageSubscription: boolean;
+  /** Why the dialog opened, when a feature asked for it (e.g. the month's free documents are used up). */
+  notice?: string;
   onUpgrade: () => void;
+  /** Opens the plans page; used instead of checkout while checkout does not charge the price shown. */
+  onViewPlans: () => void;
   onClose: () => void;
 }
 
-export const ProPromoModal: React.FC<ProPromoModalProps> = ({ onUpgrade, onClose }) => {
+export const ProPromoModal: React.FC<ProPromoModalProps> = ({ manageSubscription, notice, onUpgrade, onViewPlans, onClose }) => {
+  // The monthly price from shared/proPricing.ts. Until checkout charges it, the button opens the plans
+  // page rather than a checkout at another amount; managing an existing subscription charges nothing.
   const { t } = useLanguage();
 
   const FEATURES = [
@@ -59,12 +69,19 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ onUpgrade, onClose
               {t('login.brandName')} Pro <IconCrown className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473]" />
             </h3>
             <p className="inline-flex items-baseline gap-1 bg-[#E65F2B]/10 rounded-2xl px-3.5 py-1.5 mt-2.5">
-              <span className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473]">฿149</span>
+              <s className="mr-1 text-sm font-semibold font-mono text-brand-muted"><span className="sr-only">{t('plans.regularPrice')} </span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>
+              <span className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473]">{formatBaht(PRO_PRICING.month.total)}</span>
               <span className="text-xs text-brand-muted font-sans font-bold">{t('promo.perMonth')}</span>
             </p>
           </div>
           <img src="/pro-promo-hero.png" alt="" className="w-32 sm:w-36 shrink-0" />
         </div>
+
+        {notice && (
+          <p role="alert" data-testid="pro-promo-notice" className="mx-5 mb-4 rounded-xl bg-[#FFF1E8] px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-[#9A3A12] dark:bg-[#E65F2B]/15 dark:text-[#FFB08A]">
+            {notice}
+          </p>
+        )}
 
         {/* Features */}
         <div className="grid grid-cols-3 gap-2.5 px-5 py-5 border-t border-brand-border/60 dark:border-neutral-800">
@@ -82,11 +99,11 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ onUpgrade, onClose
         <div className="px-5 pb-5">
           <button
             type="button"
-            onClick={onUpgrade}
+            onClick={manageSubscription ? onUpgrade : onViewPlans}
             className="w-full py-3.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-2xl text-sm font-black cursor-pointer flex items-center justify-center gap-2"
           >
             <CreditCard className="w-4 h-4" />
-            {t('plans.subscribeCta')}
+            {t(manageSubscription ? 'plans.renewCta' : 'promo.viewPlans')}
             <ArrowRight className="w-4 h-4" />
           </button>
           <button
@@ -100,6 +117,9 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ onUpgrade, onClose
             <span className="h-px w-7 bg-brand-border dark:bg-neutral-700" />
             {t('promo.footerTagline')}
             <span className="h-px w-7 bg-brand-border dark:bg-neutral-700" />
+          </p>
+          <p className="mx-auto mt-2 max-w-sm text-center text-[9px] leading-relaxed text-brand-muted">
+            {t('plans.prepaidMethodDescription')}
           </p>
         </div>
       </motion.div>

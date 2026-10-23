@@ -8,6 +8,8 @@ import { BrandLockup } from '../../components/brand/BrandLogo';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { isValidPassword, passwordRequirements, type PasswordRequirement } from '../../../../shared/passwordPolicy';
 
+import { tr, trc, trServer, T } from '../../i18n/tr';
+import { currentLanguage } from '../../i18n/currentLanguage';
 async function loginLockStorageKey(email: string): Promise<string> {
   const normalized = email.trim().toLowerCase();
   const bytes = new TextEncoder().encode(normalized);
@@ -20,14 +22,16 @@ interface LoginProps {
   darkMode: boolean;
   setDarkMode: (dark: boolean) => void;
   onGuestLogin: (email: string) => void;
+  /** Signing in to another account while the current one stays signed in (the account switcher). */
+  addAccount?: { email?: string; onCancel: () => void };
 }
 
 const AUTH_STORIES: { title: string; description: string; accent: string; mood: MascotMood; icon: string; image: string }[] = [
-  { title: 'เก็บทีละนิด', description: 'ทุกเป้าหมายใหญ่ เริ่มต้นจากเงินก้อนเล็ก', accent: 'จากเมล็ดเล็กสู่คลังใหญ่', mood: 'happy', icon: '🪙', image: '/onboarding/save-coins.jpg' },
-  { title: 'รู้ว่าเงินไปไหน', description: 'เห็นภาพรายรับรายจ่ายได้ง่ายขึ้นในที่เดียว', accent: 'จัดระเบียบให้เงินทำงาน', mood: 'proud', icon: '📈', image: '/onboarding/track-spending.jpg' },
-  { title: 'ไปถึงเป้าหมาย', description: 'วางแผนวันนี้ เพื่อสิ่งที่อยากได้ในวันข้างหน้า', accent: 'ค่อย ๆ ตุน เดี๋ยวก็ถึง', mood: 'wave', icon: '🌱', image: '/onboarding/grow-goals.jpg' },
-  { title: 'แชร์กับคนสำคัญ', description: 'วางแผนเงินของกลุ่มร่วมกันได้อย่างโปร่งใส', accent: 'ตุนไปด้วยกัน', mood: 'celebrate', icon: '🤝', image: '/onboarding/shared-finance.jpg' },
-  { title: 'พักได้เมื่อพร้อม', description: 'เงินที่เป็นระบบ ช่วยให้ทุกวันเบาใจขึ้น', accent: 'ค่อย ๆ ไปตามจังหวะ', mood: 'sleepy', icon: '🌙', image: '/onboarding/calm-planning.jpg' },
+  { title: T("เก็บทีละนิด"), description: T("ทุกเป้าหมายใหญ่ เริ่มต้นจากเงินก้อนเล็ก"), accent: T("จากเมล็ดเล็กสู่คลังใหญ่"), mood: 'happy', icon: '🪙', image: '/onboarding/save-coins.jpg' },
+  { title: T("รู้ว่าเงินไปไหน"), description: T("เห็นภาพรายรับรายจ่ายได้ง่ายขึ้นในที่เดียว"), accent: T("จัดระเบียบให้เงินทำงาน"), mood: 'proud', icon: '📈', image: '/onboarding/track-spending.jpg' },
+  { title: T("ไปถึงเป้าหมาย"), description: T("วางแผนวันนี้ เพื่อสิ่งที่อยากได้ในวันข้างหน้า"), accent: T("ค่อย ๆ ตุน เดี๋ยวก็ถึง"), mood: 'wave', icon: '🌱', image: '/onboarding/grow-goals.jpg' },
+  { title: T("แชร์กับคนสำคัญ"), description: T("วางแผนเงินของกลุ่มร่วมกันได้อย่างโปร่งใส"), accent: T("ตุนไปด้วยกัน"), mood: 'celebrate', icon: '🤝', image: '/onboarding/shared-finance.jpg' },
+  { title: T("พักได้เมื่อพร้อม"), description: T("เงินที่เป็นระบบ ช่วยให้ทุกวันเบาใจขึ้น"), accent: T("ค่อย ๆ ไปตามจังหวะ"), mood: 'sleepy', icon: '🌙', image: '/onboarding/calm-planning.jpg' },
 ];
 
 function AuthStorySlider() {
@@ -53,7 +57,7 @@ function AuthStorySlider() {
 
   return (
     <aside
-      aria-label="เรื่องเล่ากระรอกตุนเงิน"
+      aria-label={tr("เรื่องเล่ากระรอกตุนเงิน")}
       className="auth-story-panel"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -67,7 +71,7 @@ function AuthStorySlider() {
         </div>
 
         <div className="auth-story-visual" aria-hidden="true">
-          <span className="auth-story-coin auth-story-coin-one">฿</span>
+          <span className="auth-story-coin auth-story-coin-one">{tr("฿")}</span>
           <span className="auth-story-coin auth-story-coin-two">✦</span>
           <Mascot mood={story.mood} size={190} className="auth-story-mascot" />
         </div>
@@ -75,25 +79,25 @@ function AuthStorySlider() {
         <div>
           <AnimatePresence mode="wait">
             <motion.div
-              key={story.title}
+              key={tr(story.title)}
               initial={reducedMotion ? false : { opacity: 0, x: 12 }}
               animate={{ opacity: 1, x: 0 }}
               exit={reducedMotion ? undefined : { opacity: 0, x: -12 }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
-              <p className="text-xs font-bold text-[#FFD4A7]">{story.accent}</p>
-              <h2 className="mt-2 font-display text-3xl font-black tracking-tight text-white">{story.title}</h2>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-white/70">{story.description}</p>
+              <p className="text-xs font-bold text-[#FFD4A7]">{tr(story.accent)}</p>
+              <h2 className="mt-2 font-display text-3xl font-black tracking-tight text-white">{tr(story.title)}</h2>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-white/70">{tr(story.description)}</p>
             </motion.div>
           </AnimatePresence>
-          <div className="mt-6 flex items-center gap-2" role="tablist" aria-label="เลือกเรื่องเล่า">
+          <div className="mt-6 flex items-center gap-2" role="tablist" aria-label={tr("เลือกเรื่องเล่า")}>
             {AUTH_STORIES.map((item, index) => (
               <button
-                key={item.title}
+                key={tr(item.title)}
                 type="button"
                 role="tab"
                 aria-selected={index === activeIndex}
-                aria-label={`เรื่องเล่าที่ ${index + 1}: ${item.title}`}
+                aria-label={tr("เรื่องเล่าที่ {0}: {1}", index + 1, tr(item.title))}
                 onClick={() => setActiveIndex(index)}
                 className={`auth-story-dot ${index === activeIndex ? 'is-active' : ''}`}
               />
@@ -126,18 +130,18 @@ function AuthWelcome({ onContinue }: { onContinue: () => void }) {
   const story = AUTH_STORIES[activeIndex];
 
   return (
-    <section className="auth-welcome" aria-label="ยินดีต้อนรับสู่กระรอกตุนเงิน">
+    <section className="auth-welcome" aria-label={tr("ยินดีต้อนรับสู่กระรอกตุนเงิน")}>
       <div className="auth-welcome-ambient auth-welcome-ambient-one" aria-hidden="true" />
       <div className="auth-welcome-ambient auth-welcome-ambient-two" aria-hidden="true" />
       <div className="auth-welcome-inner">
         <div className="auth-welcome-copy">
           <span className="auth-welcome-brand">CASH SQUIRREL</span>
-          <p className="mt-7 text-sm font-bold text-[#A65F32]">วางแผนเงินอย่างสบายใจ</p>
-          <h1 className="mt-3 font-display text-4xl font-black tracking-tight text-brand-text sm:text-6xl">กระรอกตุนเงิน</h1>
-          <p className="mt-4 max-w-md text-base leading-7 text-brand-muted sm:text-lg">จัดรายรับ รายจ่าย เป้าหมาย และเงินของกลุ่มไว้ในที่เดียว</p>
+          <p className="mt-7 text-sm font-bold text-[#A65F32]">{tr("วางแผนเงินอย่างสบายใจ")}</p>
+          <h1 className="mt-3 font-display text-4xl font-black tracking-tight text-brand-text sm:text-6xl">{tr("กระรอกตุนเงิน")}</h1>
+          <p className="mt-4 max-w-md text-base leading-7 text-brand-muted sm:text-lg">{tr("จัดรายรับ รายจ่าย เป้าหมาย และเงินของกลุ่มไว้ในที่เดียว")}</p>
           <AnimatePresence mode="wait">
             <motion.div
-              key={`mobile-feature-${story.title}`}
+              key={`mobile-feature-${tr(story.title)}`}
               initial={reducedMotion ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
@@ -146,13 +150,13 @@ function AuthWelcome({ onContinue }: { onContinue: () => void }) {
             >
               <span className="auth-welcome-mobile-feature-icon" aria-hidden="true">{story.icon}</span>
               <span className="auth-welcome-mobile-feature-text">
-                <strong>{story.title}</strong>
-                <small>{story.description}</small>
+                <strong>{tr(story.title)}</strong>
+                <small>{tr(story.description)}</small>
               </span>
             </motion.div>
           </AnimatePresence>
           <button type="button" onClick={onContinue} className="auth-welcome-cta mt-8">
-            Go to Kraroktunngern <span aria-hidden="true">🐿️</span><ArrowRight className="h-4 w-4" />
+            {tr("Go to กระรอกตุนเงิน")}<ArrowRight className="h-4 w-4" />
           </button>
         </div>
 
@@ -163,23 +167,23 @@ function AuthWelcome({ onContinue }: { onContinue: () => void }) {
             <span className="text-xl" aria-hidden="true">{story.icon}</span>
           </div>
           <div className="auth-welcome-visual" aria-hidden="true">
-            <span className="auth-welcome-orbit auth-welcome-orbit-one">฿</span>
+            <span className="auth-welcome-orbit auth-welcome-orbit-one">{tr("฿")}</span>
             <span className="auth-welcome-orbit auth-welcome-orbit-two">✦</span>
             <AnimatePresence mode="wait">
-              <motion.div key={story.title} initial={reducedMotion ? false : { opacity: 0, scale: .92, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={reducedMotion ? undefined : { opacity: 0, scale: 1.06, y: -12 }} transition={{ duration: .42, ease: [0.22, 1, 0.36, 1] }}>
+              <motion.div key={tr(story.title)} initial={reducedMotion ? false : { opacity: 0, scale: .92, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={reducedMotion ? undefined : { opacity: 0, scale: 1.06, y: -12 }} transition={{ duration: .42, ease: [0.22, 1, 0.36, 1] }}>
                 <img src={story.image} alt="" className="auth-welcome-image" />
               </motion.div>
             </AnimatePresence>
           </div>
           <AnimatePresence mode="wait">
-            <motion.div key={story.title} initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={reducedMotion ? undefined : { opacity: 0, x: -18 }} transition={{ duration: .32 }} className="auth-welcome-slide-copy relative z-10">
-              <p className="text-sm font-bold text-[#FFD4A7]">{story.accent}</p>
-              <h2 className="mt-2 font-display text-3xl font-black text-white">{story.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-white/70">{story.description}</p>
+            <motion.div key={tr(story.title)} initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={reducedMotion ? undefined : { opacity: 0, x: -18 }} transition={{ duration: .32 }} className="auth-welcome-slide-copy relative z-10">
+              <p className="text-sm font-bold text-[#FFD4A7]">{tr(story.accent)}</p>
+              <h2 className="mt-2 font-display text-3xl font-black text-white">{tr(story.title)}</h2>
+              <p className="mt-2 text-sm leading-6 text-white/70">{tr(story.description)}</p>
             </motion.div>
           </AnimatePresence>
-          <div className="auth-welcome-slide-dots relative z-10 mt-6 flex gap-2" role="tablist" aria-label="เลือกเรื่องเล่า">
-            {AUTH_STORIES.map((item, index) => <button key={item.title} type="button" role="tab" aria-selected={index === activeIndex} aria-label={`เรื่องเล่าที่ ${index + 1}`} onClick={() => setActiveIndex(index)} className={`auth-story-dot ${index === activeIndex ? 'is-active' : ''}`} />)}
+          <div className="auth-welcome-slide-dots relative z-10 mt-6 flex gap-2" role="tablist" aria-label={tr("เลือกเรื่องเล่า")}>
+            {AUTH_STORIES.map((item, index) => <button key={tr(item.title)} type="button" role="tab" aria-selected={index === activeIndex} aria-label={tr("เรื่องเล่าที่ {0}", index + 1)} onClick={() => setActiveIndex(index)} className={`auth-story-dot ${index === activeIndex ? 'is-active' : ''}`} />)}
           </div>
         </div>
       </div>
@@ -191,7 +195,7 @@ function PasswordChecklist({ password, confirmation }: { password: string; confi
   const { t } = useLanguage();
   const requirements = passwordRequirements(password);
   const rules: { key: PasswordRequirement | 'match'; met: boolean }[] = [
-    ...(['length', 'uppercase', 'lowercase', 'number', 'symbol'] as const).map(key => ({ key, met: requirements[key] })),
+    ...(['length', 'letter', 'number'] as const).map(key => ({ key, met: requirements[key] })),
     { key: 'match', met: confirmation.length > 0 && password === confirmation },
   ];
   return (
@@ -211,7 +215,7 @@ function PasswordChecklist({ password, confirmation }: { password: string; confi
   );
 }
 
-export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
+export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount }: LoginProps) {
   const { t, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -227,7 +231,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [backupRecoveryCode, setBackupRecoveryCode] = useState('');
   const [backupRecoverySent, setBackupRecoverySent] = useState(false);
   const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(addAccount?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const signupPasswordValid = isValidPassword(password) && confirmPassword.length > 0 && password === confirmPassword;
@@ -259,6 +263,28 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
   const [showWelcome, setShowWelcome] = useState(() => window.location.pathname === '/' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && !new URLSearchParams(window.location.search).has('recover') && !new URLSearchParams(window.location.search).has('r') && window.location.hash !== '#login');
   const [authEntry, setAuthEntry] = useState(0);
+  // First screen of the card: choose how to sign in (no form). "Email" opens the existing form.
+  // Coming back from an email confirmation link goes straight to the form, where the password is needed.
+  const [authMethod, setAuthMethod] = useState<'choose' | 'email'>(() => addAccount?.email || new URLSearchParams(window.location.search).get('emailConfirmed') === '1' ? 'email' : 'choose');
+  // Start from the last answer this browser saw, so a refresh does not draw Facebook faded and then
+  // pop it in (owner, 2026-10-21). The server still refuses a provider that is switched off.
+  const [providers, setProviders] = useState<{ google: boolean; facebook: boolean }>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('cashflow_auth_providers') || 'null');
+      if (saved && typeof saved.facebook === 'boolean') return { google: saved.google !== false, facebook: saved.facebook };
+    } catch { /* no saved answer */ }
+    return { google: true, facebook: true };
+  });
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth?providers=1', { credentials: 'same-origin' }).then(r => (r.ok ? r.json() : null)).then(body => {
+      if (cancelled || !body?.providers) return;
+      const next = { google: body.providers.google !== false, facebook: body.providers.facebook === true };
+      setProviders(next);
+      try { localStorage.setItem('cashflow_auth_providers', JSON.stringify(next)); } catch { /* storage blocked */ }
+    }).catch(() => { /* keep the last known state */ });
+    return () => { cancelled = true; };
+  }, []);
 
   React.useEffect(() => {
     const normalized = email.trim().toLowerCase();
@@ -389,7 +415,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       }) });
       const body = await response.json();
       if (!response.ok) {
-        throw new Error(body.error || 'ทำรายการไม่สำเร็จ');
+        throw new Error(body.error ? trServer(body.error) : tr("ทำรายการไม่สำเร็จ"));
       }
       if (backupRecoverySent) {
         setSuccess(t('login.accountRecoverySuccess'));
@@ -516,7 +542,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         body: JSON.stringify({ step: 'request', email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || t('login.err.resetGeneric'));
+      if (!res.ok) throw new Error(data?.error ? trServer(data.error) : t('login.err.resetGeneric'));
       setSuccess(t('login.success.codeSent'));
       setOtpSecondsLeft(300);
       setRecoveryStep('verify');
@@ -548,7 +574,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         body: JSON.stringify({ step: 'verify', email, code: otpToken, newPassword: resetNewPassword }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || t('login.err.verifyGeneric'));
+      if (!res.ok) throw new Error(data?.error ? trServer(data.error) : t('login.err.verifyGeneric'));
       setSuccess(t('login.success.passwordReset'));
       setIsForgotPassword(false);
       setRecoveryStep('request');
@@ -574,7 +600,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         body: JSON.stringify({ step: 'request', email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || t('login.err.resetGeneric'));
+      if (!res.ok) throw new Error(data?.error ? trServer(data.error) : t('login.err.resetGeneric'));
       setOtpToken('');
       setOtpSecondsLeft(300);
       setSuccess(t('login.success.codeResent'));
@@ -585,17 +611,14 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const [pendingProvider, setPendingProvider] = useState<'google' | 'facebook' | null>(null);
+  const handleOAuthLogin = async (provider: 'google' | 'facebook') => {
+    setPendingProvider(provider);
     setLoading(true);
     setError(null);
     try {
-      const { error: googleErr } = await authClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-        }
-      });
-      if (googleErr) throw googleErr;
+      const { error: oauthErr } = await authClient.auth.signInWithOAuth({ provider });
+      if (oauthErr) throw oauthErr;
       // Normally the browser is already on its way to Google; if it is still here after a while
       // (blocked redirect, offline), give the buttons back.
       if (oauthTimerRef.current) window.clearTimeout(oauthTimerRef.current);
@@ -613,104 +636,85 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           <AuthWelcome onContinue={openLogin} />
         </motion.div>
       )}
-    <div className="auth-page min-h-screen bg-brand-bg flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden transition-colors duration-300">
-      {!isAccountRecovery && (
-        <button
-          type="button"
-          onClick={returnToWelcome}
-          className="auth-back-to-welcome absolute left-4 top-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-2xl border border-brand-border/50 bg-brand-white/90 px-4 py-2.5 text-xs font-extrabold text-brand-muted shadow-sm backdrop-blur transition-colors hover:text-brand-text sm:left-5 sm:top-5"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          {t('login.backToWelcome')}
-        </button>
-      )}
-
-      {/* Keep both controls above the form and large enough for touch screens. */}
-      <div className="absolute right-4 top-4 z-30 flex items-center gap-2 sm:right-6 sm:top-6">
-        <button
-          type="button"
-          onClick={toggleLanguage}
-          className="flex h-11 min-w-11 items-center justify-center rounded-2xl border border-brand-border/40 bg-brand-white px-3 text-xs font-black text-brand-text shadow-sm transition-colors hover:bg-brand-faint/60 cursor-pointer"
-          aria-label={t('login.languageSwitchLabel')}
-          title={t('login.languageSwitchLabel')}
-        >
-          {t('login.languageToggle')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setDarkMode(!darkMode)}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-brand-border/40 bg-brand-white text-brand-text shadow-sm transition-colors hover:bg-brand-faint/60 cursor-pointer"
-          aria-label={darkMode ? t('login.darkModeOff') : t('login.darkModeOn')}
-          title={darkMode ? t('login.darkModeOff') : t('login.darkModeOn')}
-        >
-          {darkMode ? (
-            <Sun className="w-5 h-5 text-amber-500 fill-amber-500/10" />
-          ) : (
-            <Moon className="w-5 h-5 text-orange-600 dark:text-orange-400 fill-orange-600/10" />
+    <div className="auth-page is-clean min-h-screen bg-[#F7F7F5] dark:bg-brand-bg flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden transition-colors duration-300">
+      <header className="auth-topbar">
+        <div className="auth-topbar-side">
+          {addAccount ? (
+            <button type="button" onClick={addAccount.onCancel} className="auth-topbar-btn" aria-label={tr("กลับไปบัญชีที่ใช้อยู่")} title={tr("กลับไปบัญชีที่ใช้อยู่")}>
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          ) : !isAccountRecovery && (
+            <button type="button" onClick={returnToWelcome} className="auth-topbar-btn auth-back-to-welcome" aria-label={t('login.backToWelcome')} title={t('login.backToWelcome')}>
+              <ChevronLeft className="h-5 w-5" />
+            </button>
           )}
-        </button>
-      </div>
+        </div>
+        <BrandLockup size={26} latin />
+        <div className="auth-topbar-side justify-end">
+          <button type="button" onClick={toggleLanguage} className="auth-topbar-btn text-xs font-bold" aria-label={t('login.languageSwitchLabel')} title={t('login.languageSwitchLabel')}>
+            {t('login.languageToggle')}
+          </button>
+          <button type="button" onClick={() => setDarkMode(!darkMode)} className="auth-topbar-btn"
+            aria-label={darkMode ? t('login.darkModeOff') : t('login.darkModeOn')} title={darkMode ? t('login.darkModeOff') : t('login.darkModeOn')}>
+            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
+        </div>
+      </header>
 
       <div className="auth-layout relative z-10 w-full">
-      <div className="auth-brand-panel">
-        <BrandLockup size={32} />
-        <h1 className="mt-9 text-[32px] font-bold leading-tight text-brand-text">
-          งานเยอะ เงินหลายทาง<br />จัดการให้เห็นภาพได้ง่ายขึ้น
-        </h1>
-        <div className="mt-6 flex flex-col gap-3">
-          {[
-            'รู้ว่าเงินไหนเข้าแล้ว และเงินไหนยังต้องตาม',
-            'เห็น Credit Term และวันครบกำหนด โดยไม่ต้องจำเอง',
-            'สรุปรายรับ รายจ่าย และกำไรจริงในที่เดียว',
-          ].map((benefit) => (
-            <div key={benefit} className="flex items-start gap-2.5">
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#18A66A]" strokeWidth={2.5} />
-              <span className="text-[13px] text-brand-text">{benefit}</span>
-            </div>
-          ))}
-        </div>
-        <div className="relative mt-9 h-32">
-          <div className="absolute left-0 top-2 w-44 rounded-2xl border border-brand-border bg-brand-white p-3.5 shadow-lg shadow-black/5">
-            <div className="text-[10px] text-brand-muted">รอรับเงิน</div>
-            <div className="mt-0.5 text-base font-bold text-[#F36A2D]">฿7,365</div>
-            <div className="mt-1.5 text-[10px] font-medium text-brand-text">สวนสุข เอสเตท</div>
-            <div className="text-[9px] text-brand-muted">Credit 30 วัน · อีก 3 วัน</div>
-          </div>
-          <div className="absolute right-0 top-14 w-44 rounded-2xl border border-brand-border bg-brand-white p-3.5 shadow-lg shadow-black/5">
-            <div className="text-[10px] text-brand-muted">กำไรสุทธิ</div>
-            <div className="mt-0.5 text-base font-bold text-[#18A66A]">฿25,970</div>
-            <div className="mt-1.5 text-[9px] font-medium text-[#18A66A]">↑ 18% จากเดือนก่อน</div>
-          </div>
-        </div>
-      </div>
       <div className="auth-form-column">
-        {/* Brand Header */}
-        <div className="text-center mb-6 sm:mb-7 lg:hidden">
-          <Mascot mood={mascotMood} size={100} className="mb-2" />
-          <h2 className="text-2xl font-display font-extrabold tracking-tight text-brand-text sm:text-3xl">
-            {t('login.brandName')}
-          </h2>
-          <p className="mt-1.5 text-xs font-bold text-[#E65F2B] dark:text-[#FFA473] uppercase tracking-wider">
-            {t('login.tagline')}
-          </p>
-        </div>
-
         {/* Form Card */}
         <motion.div
-          key={authEntry}
+          key={`${authEntry}-${authMethod}`}
           layout
-          initial={authEntry ? { opacity: 0, y: 26, scale: .98 } : false}
+          initial={authEntry || authMethod === 'email' ? { opacity: 0, y: 14, scale: .985 } : false}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: .48, ease: [0.22, 1, 0.36, 1] }}
-          className="auth-form-card bg-brand-white border border-brand-border/40 rounded-[24px] p-6 sm:p-8 shadow-xl shadow-brand-text/5 dark:shadow-none"
+          className="auth-form-card bg-brand-white rounded-[16px] p-6"
         >
+          {authMethod === 'choose' && !isForgotPassword && !isAccountRecovery ? (
+            <div data-testid="auth-method-chooser">
+              <h2 className="auth-title">{trc("login", "ยินดีต้อนรับสู่กระรอกตุนเงิน")}</h2>
+              <p className="mt-1.5 text-[13px] text-brand-muted">{tr("เข้าสู่ระบบหรือสร้างบัญชีเพื่อดำเนินการต่อ")}</p>
+              {error && (
+                <div role="alert" className="mt-4 p-3.5 rounded-2xl bg-pink-bg border border-pink-acc/10 text-pink-acc text-xs font-medium flex items-start gap-2.5">
+                  <AlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5" /><span>{error}</span>
+                </div>
+              )}
+              <div className="mt-5 space-y-3">
+                <button type="button" onClick={() => { void handleOAuthLogin('google'); }} disabled={loading} className="auth-pill">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg>
+                  {loading && pendingProvider === 'google' ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{t('login.processing')}</> : tr("ดำเนินการต่อด้วย Google")}
+                </button>
+                <button type="button" onClick={() => { if (providers.facebook) void handleOAuthLogin('facebook'); }}
+                  disabled={loading || !providers.facebook} aria-disabled={!providers.facebook} className="auth-pill">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M14.2 7.6h2.6V4.1a33 33 0 0 0-3.1-.16c-3.07 0-5.17 1.93-5.17 5.46v3.04H5.1v3.92h3.43V24h4.2v-7.64h3.36l.53-3.92h-3.89V9.78c0-1.13.3-2.18 1.47-2.18z"/></svg>
+                  {loading && pendingProvider === 'facebook' ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{t('login.processing')}</> : tr("ดำเนินการต่อด้วย Facebook")}
+                </button>
+                <button type="button" onClick={() => { setAuthMethod('email'); setError(null); }} className="auth-pill">
+                  <Mail className="h-5 w-5 text-brand-text" aria-hidden="true" />
+                  {tr("ดำเนินการต่อด้วยอีเมล")}
+                </button>
+              </div>
+              <p className="auth-legal">
+                {tr("เมื่อดำเนินการต่อ ถือว่าคุณยอมรับ")}<br />
+                <a href="/terms">{trc("login", "ข้อกำหนดการใช้งาน")}</a>{tr(" และ ")}<a href="/privacy">{trc("login", "นโยบายความเป็นส่วนตัว")}</a>{currentLanguage === 'en' ? '.' : null}
+              </p>
+            </div>
+          ) : (<>
+          {!isForgotPassword && !isAccountRecovery && (
+            <button type="button" onClick={() => { setAuthMethod('choose'); setError(null); setSuccess(null); }}
+              className="mb-4 inline-flex min-h-9 items-center gap-1 rounded-full px-2 text-xs font-bold text-brand-muted hover:text-brand-text cursor-pointer">
+              <ChevronLeft className="h-4 w-4" />{t('login.otherSignInOptions')}
+            </button>
+          )}
           {!isForgotPassword && !isAccountRecovery && (
             <div className="mb-5">
               <h2 className="font-display text-2xl font-extrabold text-brand-text">
-                {isSignUp ? 'สร้างบัญชีใหม่' : 'ยินดีต้อนรับกลับ'}
+                {isSignUp ? tr("สร้างบัญชีใหม่") : tr("ยินดีต้อนรับกลับ")}
               </h2>
               <p className="mt-1 text-xs font-medium text-brand-muted">
-                {isSignUp ? 'เริ่มจัดการงานและเงินของคุณวันนี้' : 'กลับมาดูงานและเงินของคุณต่อกัน'}
+                {isSignUp ? tr("เริ่มจัดการงานและเงินของคุณวันนี้") : tr("กลับมาดูงานและเงินของคุณต่อกัน")}
               </p>
             </div>
           )}
@@ -806,10 +810,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 <div className="flex items-start gap-2.5">
                   <AlertCircle className="mt-0.5 h-4.5 w-4.5 shrink-0 text-orange-600 dark:text-orange-300" />
                   <div className="text-xs font-semibold leading-relaxed">
-                    <p>กรอกรหัสผ่านผิดเกินจำนวนครั้งที่กำหนด โปรดลองเข้าสู่ระบบในอีก</p>
+                    <p>{tr("กรอกรหัสผ่านผิดเกินจำนวนครั้งที่กำหนด โปรดลองเข้าสู่ระบบในอีก")}</p>
                     <p className="mt-1 font-black tabular-nums text-orange-700 dark:text-orange-300">
-                      {Math.floor(loginLockSeconds / 60)}:{String(loginLockSeconds % 60).padStart(2, '0')} นาที
-                    </p>
+                      {tr("{0}:{1} นาที", Math.floor(loginLockSeconds / 60), String(loginLockSeconds % 60).padStart(2, '0'))}</p>
                     <p className="mt-1 text-brand-muted">{t('login.unlockExplanation')}</p>
                     {error && <p className="mt-2 text-red-600 dark:text-red-300">{error}</p>}
                   </div>
@@ -1116,7 +1119,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                     required
                     className="w-full pl-10 pr-11 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                   />
-                  <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 flex items-center px-3 text-brand-muted hover:text-brand-text transition-colors" aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
+                  <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 flex items-center px-3 text-brand-muted hover:text-brand-text transition-colors" aria-label={showPassword ? tr("ซ่อนรหัสผ่าน") : tr("แสดงรหัสผ่าน")}>
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
@@ -1171,7 +1174,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       required={isSignUp}
                       className="w-full pl-10 pr-11 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
-                    <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 flex items-center px-3 text-brand-muted hover:text-brand-text transition-colors" aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
+                    <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 flex items-center px-3 text-brand-muted hover:text-brand-text transition-colors" aria-label={showPassword ? tr("ซ่อนรหัสผ่าน") : tr("แสดงรหัสผ่าน")}>
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
@@ -1204,54 +1207,13 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
               </button>
             </form>
 
-            <div className="flex items-center gap-3 my-4">
-              <div className="flex-1 h-px bg-brand-border/40" />
-              <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">{t('login.or')}</span>
-              <div className="flex-1 h-px bg-brand-border/40" />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-brand-white hover:bg-brand-faint/60 text-brand-text font-extrabold rounded-2xl text-xs border border-brand-border/60 cursor-pointer flex items-center justify-center gap-2.5 select-none active:scale-[0.98] transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 48 48">
-                <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-                <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
-                <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-                <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-              </svg>
-              {t('login.googleSignIn')}
-            </button>
             </>
           )}
 
-          {!isAccountRecovery && (
-            <div className="mt-4 space-y-3">
-              <button
-                type="button"
-                onClick={() => {
-                  // Use the generic demo identity, never the email autofilled into the form.
-                  onGuestLogin('guest_demo@cashflow.com');
-                }}
-                className="w-full py-3.5 px-4 bg-orange-500/10 dark:bg-orange-500/5 hover:bg-orange-500/15 text-[#E65F2B] dark:text-[#FFA473] font-extrabold rounded-2xl text-xs border border-orange-500/20 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all shadow-sm"
-              >
-                {t('login.guestTrial')}
-              </button>
-            </div>
-          )}
+          </>)}
+
         </motion.div>
 
-        {/* Footer info */}
-        <p className="text-center mt-6 text-[10px] text-brand-muted leading-relaxed max-w-[280px] mx-auto">
-          {t('login.securityNote')}
-        </p>
-        <p className="text-center mt-2 text-[10px] text-brand-muted">
-          <a href="/privacy" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">{t('login.privacyPolicy')}</a>
-          <span className="mx-1.5">&middot;</span>
-          <a href="/terms" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">{t('login.termsOfUse')}</a>
-        </p>
       </div>
       </div>
     </div>

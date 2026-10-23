@@ -1,5 +1,5 @@
 import type { Job } from './types.js';
-import { getJobPaymentEntries, getJobPendingEntries, splitReceivedByDate } from './installmentPayments.js';
+import { getJobPaymentEntries, getJobScheduledPendingEntries } from './installmentPayments.js';
 import { jobWhtAmount, roundMoney } from './wht.js';
 
 export interface JobRow {
@@ -66,12 +66,21 @@ export interface SettingsRow {
 export interface MonthlySummary {
   income: number;
   received: number;
+  /** All dated expenses, including recurring bills already recorded as paid. */
   variableExpense: number;
   cashGoalDeductions: number;
+  /** Configured recurring costs not already covered by a dated payment; included in profit. */
   fixedExpenseCalculated: number;
+  /** Profit after subtracting cash-funded savings; not the net profit shown on the dashboard. */
   netFlow: number;
   receivedAfterVariableExpense: number;
   actualSavings: number;
+}
+
+/** The app's monthly profit includes recurring costs, but never savings allocations. */
+export function monthlyProfitSummary(s: Pick<MonthlySummary, 'received' | 'variableExpense' | 'fixedExpenseCalculated'>) {
+  const totalExpense = roundMoney(s.fixedExpenseCalculated + s.variableExpense);
+  return { received: roundMoney(s.received), totalExpense, netProfit: roundMoney(s.received - totalExpense) };
 }
 
 // Bangkok is UTC+7 with no DST; a fixed offset is enough to get "today" right locally.
@@ -142,7 +151,7 @@ export interface WorkValueBreakdown {
 
 // "มูลค่างานเดือนนี้": value after withholding tax of every job that has money received or a payment
 // due in the month -- the same entries the dashboard's received and pending cards count (pending
-// skips not-yet-delivered WIP jobs). An installment job counts at its full value in each month it
+// includes scheduled WIP jobs). An installment job counts at its full value in each month it
 // has a payment or due date in, not just that month's installment. value always equals
 // received + pending + otherMonths so the banner can show where the number comes from.
 export interface WorkValueRow {
@@ -161,9 +170,7 @@ export function workValueRowsForMonth(jobs: Job[], monthKey: string): WorkValueR
   const rows: WorkValueRow[] = [];
   for (const job of jobs) {
     const paidThisMonth = getJobPaymentEntries(job).filter((entry) => dateKeyInMonth(entry.date, monthKey));
-    const dueThisMonth = job.isPosted === false
-      ? []
-      : getJobPendingEntries(job).filter((entry) => dateKeyInMonth(entry.dueDate, monthKey));
+    const dueThisMonth = getJobScheduledPendingEntries(job).filter((entry) => dateKeyInMonth(entry.dueDate, monthKey));
     if (paidThisMonth.length === 0 && dueThisMonth.length === 0) continue;
     const grossValue = job.value || 0;
     const wht = jobWhtAmount(job);
@@ -188,10 +195,9 @@ export function workValueForMonth(jobs: Job[], monthKey: string): WorkValueBreak
 }
 
 export function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {
-  return jobs.filter((j) =>
-    dateKeyInMonth(j.payDate || j.postDate, monthKey)
-    || (!j.installments?.length && dateKeyInMonth(j.depositDate, monthKey))
-    || (j.installments || []).some((row) => dateKeyInMonth(row.paidAt || row.dueDate, monthKey))
+  return jobs.filter((job) =>
+    getJobPaymentEntries(job as Job).some(entry => dateKeyInMonth(entry.date, monthKey))
+    || getJobScheduledPendingEntries(job as Job).some(entry => dateKeyInMonth(entry.dueDate, monthKey))
   );
 }
 
@@ -199,10 +205,8 @@ export function expensesInMonth(expenses: ExpenseRow[], monthKey: string): Expen
   return expenses.filter((e) => dateKeyInMonth(e.date, monthKey));
 }
 
-// Mirrors MonthlyReportTab.tsx's monthlyData useMemo exactly, for one target month, with
-// includeFullYearFixed hardcoded to true (its default in the UI). Single source of truth for
-// this formula -- api/ imports this via api/_monthlySummary.ts (a thin re-export) and src/App.tsx
-// imports it directly, so both sides can never silently drift from the app's real numbers.
+// Shared by the dashboard and LINE. Income uses the same dated payment entries as the app;
+// recurring costs are included from the account's first active month and counted only once.
 export function computeMonthlySummary(
   jobs: JobRow[],
   expenses: ExpenseRow[],
@@ -213,32 +217,11 @@ export function computeMonthlySummary(
   const totalAllocatedPct = goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
   const savingsPct = totalAllocatedPct > 0 ? totalAllocatedPct : (settings.savingsPercentage || 40);
 
-  let received = 0;
-  let pending = 0;
-  for (const j of jobs) {
-    const dateKey = j.payDate || j.dueDate || j.postDate;
-    if (j.installments?.length) {
-      received += j.installments.reduce((sum, row) => (
-        row.status === 'paid' && dateKeyInMonth(row.paidAt, monthKey)
-          ? sum + (row.amount || 0)
-          : sum
-      ), 0);
-      if (j.isPosted !== false) {
-        pending += j.installments.reduce((sum, row) => (
-          row.status !== 'paid' && dateKeyInMonth(row.dueDate || dateKey, monthKey)
-            ? sum + (row.amount || 0)
-            : sum
-        ), 0);
-      }
-    } else {
-      // For a partial legacy job, payDate is the remaining balance's date and cannot prove when
-      // the earlier cash arrived. A single receipt may fall back to pay/due only once settled.
-      const receiptDate = (j.pending || 0) <= 0 ? (j.payDate || j.dueDate || null) : null;
-      received += splitReceivedByDate(j.received || 0, j.depositAmount, j.depositDate, receiptDate)
-        .reduce((sum, part) => (dateKeyInMonth(part.date, monthKey) ? sum + part.amount : sum), 0);
-      if (j.isPosted !== false && dateKeyInMonth(dateKey, monthKey)) pending += j.pending || 0;
-    }
-  }
+  const paymentJobs = jobs as Job[];
+  const received = paymentJobs.flatMap(getJobPaymentEntries)
+    .reduce((sum, entry) => dateKeyInMonth(entry.date, monthKey) ? sum + entry.amount : sum, 0);
+  const pending = paymentJobs.flatMap(getJobScheduledPendingEntries)
+    .reduce((sum, entry) => dateKeyInMonth(entry.dueDate, monthKey) ? sum + entry.amount : sum, 0);
   // This is the Dashboard's contract-value definition for the selected month. Using the gross
   // job value here drifted as soon as installment due/paid dates crossed month boundaries.
   const income = received + pending;
@@ -252,8 +235,12 @@ export function computeMonthlySummary(
       : goalSum
   ), 0), 0);
 
-  const fixedExpenseCalculated = fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, monthExpenses.map((e) => e.name));
-  const netFlow = received - fixedExpenseCalculated - variableExpense - cashGoalDeductions;
+  const fixedCostsFrom = firstActivityMonth(paymentJobs, expenses) ?? currentMonthKey();
+  const fixedExpenseCalculated = monthKey >= fixedCostsFrom
+    ? fixedExpenseForMonth(settings.monthlyExpense, settings.fixedExpenseItems, monthExpenses.map((e) => e.name))
+    : 0;
+  const { netProfit } = monthlyProfitSummary({ received, variableExpense, fixedExpenseCalculated });
+  const netFlow = roundMoney(netProfit - cashGoalDeductions);
   // Cash actually left in hand: money received minus money already spent on logged variable
   // expenses this month. fixedExpense is excluded here since it's a recurring budget line
   // (already reflected in netFlow's warning), not a dated transaction that's left the wallet yet.

@@ -5,6 +5,8 @@ import type { Expense } from '../../../../shared/types';
 import type { VaultFile } from '../../../../shared/vault';
 import { getThaiMonthName } from '../../../../shared/calendar';
 
+import { tr } from '../../i18n/tr';
+import { currentLanguage } from '../../i18n/currentLanguage';
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -81,7 +83,7 @@ export function vaultZipPaths(files: ZipFile[], expenses: Pick<Expense, 'id' | '
   const taken = new Set<string>();
   for (const file of files) {
     if (file.kind === 'expense' || !file.jobId || jobFolders.has(file.jobId)) continue;
-    const base = clean(file.jobName || 'งาน');
+    const base = clean(file.jobName || tr("งาน"));
     let folder = base;
     if (taken.has(folder.toLowerCase()) && file.client) folder = `${base} - ${clean(file.client)}`;
     for (let n = 2; taken.has(folder.toLowerCase()); n++) folder = `${base} (${n})`;
@@ -93,10 +95,12 @@ export function vaultZipPaths(files: ZipFile[], expenses: Pick<Expense, 'id' | '
     if (file.kind === 'expense') {
       const date = (file.jobId && expenseDate.get(file.jobId)) || file.createdAt.slice(0, 10);
       const month = Number(date.slice(5, 7));
-      const monthFolder = `${Number(date.slice(0, 4)) + 543}-${date.slice(5, 7)} ${getThaiMonthName(month - 1)}`;
-      return `รายจ่าย/${monthFolder}/${file.jobName ? `${clean(file.jobName)} - ` : ''}${file.fileName}`;
+      const monthFolder = currentLanguage === 'en'
+        ? `${date.slice(0, 4)}-${date.slice(5, 7)} ${new Date(2000, month - 1, 1).toLocaleDateString('en-US', { month: 'long' })}`
+        : `${Number(date.slice(0, 4)) + 543}-${date.slice(5, 7)} ${getThaiMonthName(month - 1)}`;
+      return `${tr("รายจ่าย")}/${monthFolder}/${file.jobName ? `${clean(file.jobName)} - ` : ''}${file.fileName}`;
     }
-    const folder = file.jobId ? jobFolders.get(file.jobId) : 'ไม่ได้ผูกกับงาน';
+    const folder = file.jobId ? jobFolders.get(file.jobId) : tr("ไม่ได้ผูกกับงาน");
     return `${folder}/${file.fileName}`;
   });
 }
@@ -109,7 +113,7 @@ export async function downloadVaultZip(files: ZipFile[], zipName: string, expens
   const entries = [];
   for (const [index, file] of files.entries()) {
     const response = await fetch(vaultFileUrl(file.id), { credentials: 'same-origin' });
-    if (!response.ok) throw new Error(`ดาวน์โหลด ${file.fileName} ไม่สำเร็จ`);
+    if (!response.ok) throw new Error(tr("ดาวน์โหลด {0} ไม่สำเร็จ", file.fileName));
     entries.push({ name: paths[index], data: new Uint8Array(await response.arrayBuffer()), date: new Date(file.createdAt) });
   }
   const url = URL.createObjectURL(buildZip(entries));

@@ -49,6 +49,17 @@ test('50 ทวิ status follows eligibility, payment, and linked certificate f
   assert.equal(wht50StatusOf(job(), [file('certificate')]), 'have');
 });
 
+test('1% is e-WHT: no certificate to wait for, every other rate still needs a 50 ทวิ', () => {
+  const eWht = job({ whtRate: 1, whtAmount: 100, received: 9_900 });
+  assert.equal(isWht50Trackable(eWht), true); // still counted in the year's withheld total
+  assert.equal(wht50StatusOf(eWht, []), 'eWht');
+  assert.equal(wht50StatusOf({ ...eWht, received: 0, pending: 9_900, paymentStatus: 'unpaid' }, []), 'eWht');
+  assert.equal(wht50StatusOf(eWht, [file('issued-anyway')]), 'have'); // e.g. 1% on transport, outside e-WHT
+  for (const whtRate of [2, 3, 5, 1.5, 10]) {
+    assert.equal(wht50StatusOf(job({ whtRate, whtAmount: 10_000 * whtRate / 100 }), []), 'waiting', String(whtRate));
+  }
+});
+
 test('only 50 ทวิ files linked to the exact job satisfy its tracking row', () => {
   const files = [
     file('one'),

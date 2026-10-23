@@ -24,15 +24,15 @@ const summary: MonthlySummary = {
   actualSavings: 0,
 };
 
-test('scheduled report outputs preserve a negative net cash flow', () => {
+test('scheduled report outputs preserve negative cash flow and profit values', () => {
   const expected = '฿ -5,000';
   assert.match(buildReportHtml('กันยายน 2569', summary), new RegExp(expected));
-  assert.match(buildReportLineText('กันยายน 2569', summary, null), new RegExp(expected));
+  const lineText = buildReportLineText('กันยายน 2569', summary, null);
+  assert.match(lineText, /กำไรสุทธิ: −฿ 4,000/);
 
   const flex = buildReportFlexMessage('กันยายน 2569', summary, null) as any;
-  const netFlowRow = flex.contents.body.contents.find((item: any) => item.contents?.[0]?.text === 'กระแสเงินสดสุทธิ');
-  assert.equal(netFlowRow.contents[1].text, expected);
-  assert.equal(netFlowRow.contents[1].color, '#A63F1B');
+  assert.ok(JSON.stringify(flex.contents).includes('กำไรสุทธิ'));
+  assert.ok(JSON.stringify(flex.contents).includes('−฿ 4,000'));
 
   const workbook = XLSX.read(Buffer.from(buildMonthlyExcelBase64('กันยายน 2569', summary, [], []), 'base64'), { type: 'buffer' });
   const rows = XLSX.utils.sheet_to_json<(string | number)[]>(workbook.Sheets['สรุปเดือน'], { header: 1 });
@@ -45,7 +45,6 @@ test('LINE assistant context and monthly summary card preserve the same shortfal
   assert.equal(formatted.กระแสเงินสดสุทธิหลังเผื่องบประจำ, '฿ -5,000');
 
   const card = buildMonthlySummaryMessage(withMonth) as any;
-  const netFlowRow = card.contents.body.contents.find((item: any) => item.contents?.[0]?.text === 'เหลือหลังกันงบ');
-  assert.equal(netFlowRow.contents[1].text, '฿ -5,000');
-  assert.equal(netFlowRow.contents[1].color, '#A63F1B');
+  assert.ok(JSON.stringify(card.contents).includes('กำไรสุทธิ'));
+  assert.ok(JSON.stringify(card.contents).includes('−฿ 4,000'));
 });

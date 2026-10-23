@@ -5,9 +5,13 @@ import App from './app/App.tsx';
 import { LanguageProvider } from './i18n/LanguageContext';
 import './index.css';
 import { clearLegacyFinancialCache } from './services/privateCache';
+import { startUpdateWatch } from './app/appUpdate';
 
 // Remove old financial browser caches before authentication finishes.
 clearLegacyFinancialCache();
+
+// New builds open without an error page or a new sign-in (app/appUpdate.ts). Production only.
+if ((import.meta as any).env?.PROD) startUpdateWatch();
 
 // Register PWA service worker
 if ('serviceWorker' in navigator && (import.meta as any).env?.PROD) {

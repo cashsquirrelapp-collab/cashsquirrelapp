@@ -2,6 +2,7 @@ import { apiFetch, apiJson } from './api';
 import { financeHeaders } from './financeWorkspace';
 import type { VaultFile, VaultKind } from '../../../shared/vault';
 
+import { tr, trServer } from '../i18n/tr';
 // Document vault API. Every call names the finance workspace (personal account or group) the
 // file belongs to; the server checks the signed-in user may use it.
 
@@ -30,7 +31,7 @@ export async function uploadVault(financeKey: string, file: File, meta: VaultMet
   let result: { file?: VaultFile; error?: string; code?: string } = {};
   try { result = await response.json(); } catch { /* handled below */ }
   if (!response.ok || !result.file) {
-    throw Object.assign(new Error(result.error || (response.status === 413 ? 'ไฟล์ใหญ่เกิน 10 MB' : 'อัปโหลดไม่สำเร็จ กรุณาลองใหม่')), { status: response.status, code: result.code });
+    throw Object.assign(new Error(result.error ? trServer(result.error) : (response.status === 413 ? tr("ไฟล์ใหญ่เกิน 10 MB") : tr("อัปโหลดไม่สำเร็จ กรุณาลองใหม่"))), { status: response.status, code: result.code });
   }
   return result.file;
 }
