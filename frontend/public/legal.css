@@ -1,0 +1,41 @@
+/* Privacy Policy and Terms of Service pages (static). Both languages are in the page; the one not
+   chosen is hidden by the lang attribute on <html>, set by legal.js (Thai when scripts are off). */
+:root {
+  --bg: #FAF8F5; --paper: #FFFFFF; --text: #1C1917; --muted: #6B6560; --border: #E7E5E4; --accent: #C24A16;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14100D; --paper: #1E1814; --text: #F5F1EC; --muted: #A89F97; --border: #3A322C; --accent: #FF9B6A; }
+}
+* { box-sizing: border-box; }
+html[lang="th"] [lang="en"], html[lang="en"] [lang="th"] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.75;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Sukhumvit Set", "Noto Sans Thai", system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+.wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 72px; }
+a { color: var(--accent); }
+.top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+.back { font-size: 14px; font-weight: 600; text-decoration: none; }
+.lang-toggle {
+  border: 1px solid var(--border); background: var(--paper); color: var(--text); border-radius: 999px;
+  padding: 6px 14px; font: 600 13px/1 inherit; cursor: pointer;
+}
+.lang-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+header { margin-bottom: 24px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 700; margin-bottom: 18px; }
+h1 { font-size: 30px; line-height: 1.3; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.01em; }
+.updated { color: var(--muted); font-size: 14px; margin: 0; }
+.card { background: var(--paper); border: 1px solid var(--border); border-radius: 18px; padding: 32px 28px; }
+.lead { font-size: 15px; margin: 0 0 8px; }
+h2 { font-size: 17px; font-weight: 700; margin: 30px 0 8px; scroll-margin-top: 16px; }
+p, li { font-size: 15px; }
+p { margin: 8px 0; }
+ul { padding-left: 22px; margin: 8px 0; }
+li { margin: 6px 0; }
+footer { text-align: center; margin-top: 28px; color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) {
+  .wrap { padding: 20px 16px 56px; }
+  .card { padding: 24px 18px; border-radius: 16px; }
+  h1 { font-size: 25px; }
+}

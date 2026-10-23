@@ -7,16 +7,23 @@ import { calculatePayDate, formatCurrency, safeFormatThaiDate, DEFAULT_JOB_TYPES
 import NumberInput from '../../components/ui/NumberInput';
 import InstallmentPlanner from './InstallmentPlanner';
 import JobTypeManager from './JobTypeManager';
-import { WHT_PRESET_RATES, isValidWhtRate, whtAmountFor, roundMoney } from '../../../../shared/wht';
+import { KsIcon } from '../mobile/icons';
+import { useMobileLayout } from '../mobile/useMobileLayout';
+import { WHT_PRESET_RATES, isEWhtJob, isValidWhtRate, whtAmountFor, roundMoney } from '../../../../shared/wht';
 
+import { tr, T } from '../../i18n/tr';
 type Payment = 'unpaid' | 'paid' | 'partial' | 'installment';
 type FieldKey = 'name' | 'value' | 'postDate' | 'received' | 'installments' | 'type' | 'wht';
+// Phones: the tabs behind "รายละเอียดเพิ่มเติม", and the tab each validated field lives in.
+type ExtraTab = 'schedule' | 'payment' | 'other';
+const EXTRA_TABS: { key: ExtraTab; label: string }[] = [{ key: 'schedule', label: T("สถานะงาน") }, { key: 'payment', label: T("สถานะรับเงิน") }, { key: 'other', label: T("ข้อมูลเพิ่มเติม") }];
+const FIELD_TAB: Partial<Record<FieldKey, ExtraTab>> = { postDate: 'schedule', received: 'payment', installments: 'payment', type: 'other', wht: 'other' };
 
 const PAYMENT_OPTIONS: { key: Payment; label: string }[] = [
-  { key: 'unpaid', label: 'ยังไม่จ่าย' },
-  { key: 'paid', label: 'รับครบแล้ว' },
-  { key: 'partial', label: 'รับบางส่วน' },
-  { key: 'installment', label: 'แบ่งงวด' },
+  { key: 'unpaid', label: T("ยังไม่จ่าย") },
+  { key: 'paid', label: T("รับครบแล้ว") },
+  { key: 'partial', label: T("รับบางส่วน") },
+  { key: 'installment', label: T("แบ่งงวด") },
 ];
 const CREDIT_TERMS = [0, 30, 45, 60, 90];
 const CUSTOM_TYPE = '__custom__';
@@ -92,6 +99,10 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [creditOptionsOpen, setCreditOptionsOpen] = React.useState(false);
   const [errors, setErrors] = React.useState<Partial<Record<FieldKey, string>>>({});
+  const mobile = useMobileLayout();
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const [extraTab, setExtraTab] = React.useState<ExtraTab>('schedule');
+  const sheetRef = React.useRef<HTMLFormElement>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -120,6 +131,8 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     setNote(job?.note ?? '');
     setErrors({});
     setAdvancedOpen(false);
+    setMoreOpen(false);
+    setExtraTab('schedule');
     setCreditOptionsOpen(Boolean(job?.excludeHolidays));
   }, [open, job, statuses]);
 
@@ -129,6 +142,22 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose, typeManagerOpen]);
+
+  // Phones: keep the sheet inside what is left of the screen when the keyboard is up.
+  React.useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!open || !mobile || !viewport) return;
+    const fit = () => {
+      const sheet = sheetRef.current;
+      if (!sheet) return;
+      sheet.style.setProperty('--ksm-keyboard-lift', `${Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)}px`);
+      sheet.style.setProperty('--ksm-visible-height', `${viewport.height}px`);
+    };
+    fit();
+    viewport.addEventListener('resize', fit);
+    viewport.addEventListener('scroll', fit);
+    return () => { viewport.removeEventListener('resize', fit); viewport.removeEventListener('scroll', fit); };
+  }, [open, mobile]);
 
   const gross = Math.max(0, parseFloat(value) || 0);
   const customRate = whtCustom === null ? null : whtCustom.trim() === '' ? NaN : Number(whtCustom);
@@ -164,23 +193,25 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const next: Partial<Record<FieldKey, string>> = {};
-    if (!name.trim()) next.name = 'กรุณาระบุชื่องาน';
-    if (!value.trim() || Number.isNaN(parseFloat(value)) || parseFloat(value) < 0) next.value = 'กรุณาระบุมูลค่างาน';
-    if (isPosted && !postDate) next.postDate = 'กรุณาเลือกวันที่ส่งงาน';
-    if (payment === 'partial' && (receivedNum <= 0 || receivedNum > net)) next.received = receivedNum <= 0 ? 'กรุณาระบุยอดที่รับแล้ว' : 'ยอดที่รับแล้วต้องไม่เกินยอดรับสุทธิ';
+    if (!name.trim()) next.name = tr("กรุณาระบุชื่องาน");
+    if (!value.trim() || Number.isNaN(parseFloat(value)) || parseFloat(value) < 0) next.value = tr("กรุณาระบุมูลค่างาน");
+    if (isPosted && !postDate) next.postDate = tr("กรุณาเลือกวันที่ส่งงาน");
+    if (payment === 'partial' && (receivedNum <= 0 || receivedNum > net)) next.received = receivedNum <= 0 ? tr("กรุณาระบุยอดที่รับแล้ว") : tr("ยอดที่รับแล้วต้องไม่เกินยอดรับสุทธิ");
     if (payment === 'installment' && !installmentsMatch) {
       const diff = net - installmentTotal;
       next.installments = installments.length === 0 || installments.some(row => !(Number(row.amount) > 0))
-        ? 'เลือกจำนวนงวด และทุกงวดต้องมียอดมากกว่า 0 บาท'
-        : diff > 0 ? `ยอดรวมทุกงวดยังขาด ${formatCurrency(diff)}` : `ยอดรวมทุกงวดเกิน ${formatCurrency(Math.abs(diff))}`;
+        ? tr("เลือกจำนวนงวด และทุกงวดต้องมียอดมากกว่า 0 บาท")
+        : diff > 0 ? tr("ยอดรวมทุกงวดยังขาด {0}", formatCurrency(diff)) : tr("ยอดรวมทุกงวดเกิน {0}", formatCurrency(Math.abs(diff)));
     }
     const finalType = type === CUSTOM_TYPE ? customType.trim() : type;
-    if (type === CUSTOM_TYPE && !finalType) next.type = 'กรุณาระบุชื่อประเภทงาน';
-    if (whtCustom !== null && !customRateValid) next.wht = 'ใส่อัตรา 0–100% ทศนิยมไม่เกิน 2 ตำแหน่ง';
+    if (type === CUSTOM_TYPE && !finalType) next.type = tr("กรุณาระบุชื่อประเภทงาน");
+    if (whtCustom !== null && !customRateValid) next.wht = tr("ใส่อัตรา 0–100% ทศนิยมไม่เกิน 2 ตำแหน่ง");
     setErrors(next);
     const firstInvalid = (['name', 'value', 'postDate', 'received', 'installments', 'type', 'wht'] as FieldKey[]).find(key => next[key]);
     if (firstInvalid) {
       if (firstInvalid === 'wht') setAdvancedOpen(true);
+      const tab = FIELD_TAB[firstInvalid];
+      if (tab) { setMoreOpen(true); setExtraTab(tab); }
       requestAnimationFrame(() => {
         const el = document.getElementById(`job-form-${firstInvalid}`);
         el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -273,35 +304,420 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
 
   const creditTermBlock = (
     <div className="space-y-2">
-      <p className="text-[13px] font-medium text-brand-text">{payment === 'partial' ? 'ระยะเวลารับเงิน ของยอดคงเหลือ' : 'ระยะเวลารับเงิน'}</p>
+      <p className="text-[13px] font-medium text-brand-text">{payment === 'partial' ? tr("ระยะเวลารับเงิน ของยอดคงเหลือ") : tr("ระยะเวลารับเงิน")}</p>
       <div className="grid grid-cols-5 gap-1.5">
         {CREDIT_TERMS.map(days => (
           <button key={days} type="button" onClick={() => setCreditTerm(days)} className={segment(creditTerm === days)}>
-            {days === 0 ? '0 วัน' : days}
+            {days === 0 ? tr("0 วัน") : days}
           </button>
         ))}
       </div>
       <div className="rounded-[10px] bg-[#FFF7F1] px-3 py-2 text-[13px] dark:bg-orange-500/10">
         {expectedPayDate
-          ? <span className="text-brand-text">คาดว่าจะได้รับเงิน <strong className="font-semibold">{safeFormatThaiDate(expectedPayDate)}</strong></span>
-          : <span className="text-brand-muted">ใส่วันส่งงานด้านบน แล้วจะคำนวณวันที่ได้รับเงินให้</span>}
+          ? <span className="text-brand-text">{tr("คาดว่าจะได้รับเงิน")}{' '}<strong className="font-semibold">{safeFormatThaiDate(expectedPayDate)}</strong></span>
+          : <span className="text-brand-muted">{tr("ใส่วันส่งงานด้านบน แล้วจะคำนวณวันที่ได้รับเงินให้")}</span>}
       </div>
       {creditTerm > 0 && (
         <div>
           <button type="button" onClick={() => setCreditOptionsOpen(v => !v)} className="inline-flex items-center gap-1 text-xs text-brand-muted hover:text-brand-text cursor-pointer" aria-expanded={creditOptionsOpen}>
             {creditOptionsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-            ตัวเลือกระยะเวลารับเงิน
-          </button>
+            {tr("ตัวเลือกระยะเวลารับเงิน")}</button>
           {creditOptionsOpen && (
             <label className="mt-2 flex cursor-pointer items-center gap-2 text-[13px] text-brand-text">
               <input type="checkbox" checked={excludeHolidays} onChange={(e) => setExcludeHolidays(e.target.checked)} className="h-4 w-4 accent-[#E65F2B]" />
-              ไม่นับวันเสาร์–อาทิตย์และวันหยุด
-            </label>
+              {tr("ไม่นับวันเสาร์–อาทิตย์และวันหยุด")}</label>
           )}
         </div>
       )}
     </div>
   );
+
+  // The blocks below are shared by the desktop drawer and the phone sheet: same fields, same state.
+  const typeField = (
+    <div id="job-form-type">
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <label htmlFor="job-form-type-select" className="block text-[13px] font-medium text-brand-text">{tr("ประเภทงาน")}</label>
+        <button
+          type="button"
+          onClick={() => setTypeManagerOpen(true)}
+          className="shrink-0 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-orange-300"
+        >
+          {tr("จัดการประเภทงาน")}</button>
+      </div>
+      <div className="relative">
+        <select
+          id="job-form-type-select"
+          value={type}
+          onChange={(e) => { setType(e.target.value); clearError('type'); }}
+          className={`${inputClass(errors.type)} appearance-none pr-9 cursor-pointer`}
+        >
+          {typeOptions.map(option => <option key={option} value={option}>{tr(option)}</option>)}
+          <option value={CUSTOM_TYPE}>{tr("+ สร้างประเภทเอง…")}</option>
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
+      </div>
+      {type === CUSTOM_TYPE && (
+        <div className="mt-2 flex gap-2">
+          <input
+            type="text"
+            autoFocus
+            value={customType}
+            onChange={(e) => { setCustomType(e.target.value); clearError('type'); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveCustomType(); } }}
+            placeholder={tr("ชื่อประเภทงาน")}
+            className={inputClass(errors.type)}
+          />
+          <button
+            type="button"
+            onClick={saveCustomType}
+            disabled={!customType.trim()}
+            className="h-11 shrink-0 rounded-[10px] border border-brand-border px-4 text-[13px] font-medium text-brand-text hover:bg-brand-faint disabled:opacity-40 cursor-pointer"
+          >
+            {tr("เพิ่ม")}</button>
+        </div>
+      )}
+      {errorText('type')}
+    </div>
+  );
+
+  const statusSection = (
+    <section className="space-y-4" aria-label={tr("สถานะงาน")}>
+      <div>
+        <h3 className="text-[15px] font-semibold text-brand-text">{tr("งานนี้ถึงไหนแล้ว?")}</h3>
+        <p className="mt-0.5 text-xs text-brand-muted">{tr("ใช้คำนวณว่าจะได้รับเงินวันไหน")}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={tr("สถานะงาน")}>
+        {[
+          { posted: false, title: tr("กำลังทำ"), hint: tr("ยังไม่ได้ส่งงาน") },
+          { posted: true, title: tr("ส่งงานแล้ว"), hint: tr("ส่งงาน / ให้บริการเสร็จแล้ว") },
+        ].map(option => {
+          const active = isPosted === option.posted;
+          return (
+            <button
+              key={tr(option.title)}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => {
+                setIsPosted(option.posted);
+                clearError('postDate');
+                // Delivered work almost always went out today; saves a trip to the date picker.
+                if (option.posted && !postDate) setPostDate(todayStr());
+              }}
+              className={`rounded-[10px] border px-3 py-2.5 text-left transition-colors cursor-pointer ${active
+                ? 'border-[#F3B08C] bg-[#FFF1E8] dark:border-orange-400/40 dark:bg-orange-500/10'
+                : 'border-brand-border bg-brand-white hover:bg-brand-faint'}`}
+            >
+              <span className={`block text-[13px] ${active ? 'font-semibold text-[#C24A16] dark:text-orange-300' : 'font-medium text-brand-text'}`}>{tr(option.title)}</span>
+              <span className="mt-0.5 block text-[11px] text-brand-muted">{tr(option.hint)}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div id="job-form-postDate">
+        <label htmlFor="job-form-postDate-input" className={labelClass}>
+          {isPosted
+            ? <>{tr("ส่งงานวันไหน?")}{' '}<span className="text-[#C43A3A]">*</span></>
+            : <>{tr("จะส่งงานวันไหน?")}{' '}<span className="font-normal text-brand-muted">{tr("(ไม่บังคับ)")}</span></>}
+        </label>
+        {dateInput('job-form-postDate-input', postDate, (v) => { setPostDate(v); clearError('postDate'); }, errors.postDate)}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {(isPosted
+            ? [{ label: tr("วันนี้"), date: todayStr() }, { label: tr("เมื่อวาน"), date: todayStr(-1) }]
+            : [{ label: tr("วันนี้"), date: todayStr() }, { label: tr("พรุ่งนี้"), date: todayStr(1) }, { label: tr("อีก 7 วัน"), date: todayStr(7) }]
+          ).map(chip => (
+            <button
+              key={tr(chip.label)}
+              type="button"
+              onClick={() => { setPostDate(chip.date); clearError('postDate'); }}
+              className={`h-8 rounded-full border px-3 text-xs transition-colors cursor-pointer ${postDate === chip.date
+                ? 'border-[#F3B08C] bg-[#FFF1E8] font-medium text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
+                : 'border-brand-border text-brand-text hover:bg-brand-faint'}`}
+            >
+              {tr(chip.label)}
+            </button>
+          ))}
+          {!isPosted && postDate && (
+            <button type="button" onClick={() => setPostDate('')} className="h-8 px-2 text-xs text-brand-muted hover:text-brand-text cursor-pointer">
+              {tr("ยังไม่กำหนด")}</button>
+          )}
+        </div>
+        {errorText('postDate')}
+        {!errors.postDate && (
+          <p className="mt-1.5 text-xs text-brand-muted">
+            {isPosted
+              ? tr("ระยะเวลารับเงิน จะเริ่มนับจากวันส่งงาน")
+              : postDate ? tr("ถ้าส่งงานจริงคนละวัน ค่อยมาแก้ตอนส่งงานได้") : tr("ยังไม่รู้ก็เว้นไว้ได้ ค่อยใส่ตอนส่งงาน")}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+
+  const paymentSection = (
+    <section className="space-y-4" aria-label={tr("การรับเงิน")}>
+      <div>
+        <h3 className="text-[15px] font-semibold text-brand-text">{tr("การรับเงิน")}</h3>
+        <p className="mt-0.5 text-xs text-brand-muted">{tr("ตอนนี้ลูกค้าจ่ายถึงไหนแล้ว?")}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4" role="radiogroup" aria-label={tr("สถานะการรับเงิน")}>
+        {PAYMENT_OPTIONS.map(option => (
+          <button
+            key={option.key}
+            type="button"
+            role="radio"
+            aria-checked={payment === option.key}
+            onClick={() => { setPayment(option.key); clearError('received'); clearError('installments'); }}
+            className={segment(payment === option.key)}
+          >
+            {tr(option.label)}
+          </button>
+        ))}
+      </div>
+
+      {payment === 'unpaid' && creditTermBlock}
+
+      {payment === 'paid' && (
+        <div className="space-y-3">
+          <div>
+            <label htmlFor="job-form-paidDate" className={labelClass}>{tr("วันที่รับเงิน")}</label>
+            {dateInput('job-form-paidDate', paidDate, setPaidDate)}
+          </div>
+          {gross > 0 && (
+            <p className="text-[13px] text-brand-muted">{tr("ยอดรับสุทธิ")}{' '}<span className="font-mono font-semibold text-brand-text">{formatCurrency(net)}</span></p>
+          )}
+        </div>
+      )}
+
+      {payment === 'partial' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div id="job-form-received">
+              <label htmlFor="job-form-received-input" className={labelClass}>{tr("รับแล้ว")}</label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">{tr("฿")}</span>
+                <NumberInput
+                  id="job-form-received-input"
+                  value={received}
+                  onChange={(raw) => { setReceived(raw); clearError('received'); }}
+                  placeholder="0"
+                  className={`${inputClass(errors.received)} pl-7 font-mono`}
+                  aria-invalid={Boolean(errors.received)}
+                />
+              </div>
+              {errorText('received')}
+            </div>
+            <div>
+              <label htmlFor="job-form-depositDate" className={labelClass}>{tr("วันที่รับ")}</label>
+              {dateInput('job-form-depositDate', depositDate, setDepositDate)}
+            </div>
+          </div>
+          {creditTermBlock}
+        </div>
+      )}
+
+      {payment === 'installment' && (
+        <div id="job-form-installments" className="space-y-2">
+          <InstallmentPlanner
+            installments={installments}
+            onChange={(rows) => { setInstallments(rows); clearError('installments'); }}
+            targetAmount={net}
+          />
+          {errorText('installments')}
+        </div>
+      )}
+
+      {effectiveWhtRate > 0 && gross > 0 && (
+        <p className="text-xs text-brand-muted">{tr("หัก ณ ที่จ่าย {0}% ({1}) · รับสุทธิ {2}", effectiveWhtRate, formatMoney(whtAmount), formatMoney(net))}</p>
+      )}
+    </section>
+  );
+
+  const startDateField = (
+    <div>
+      <label htmlFor="job-form-startDate" className={labelClass}>{tr("วันที่เริ่มงาน")}</label>
+      {dateInput('job-form-startDate', startDate, setStartDate)}
+    </div>
+  );
+
+  const advancedFields = (
+    <div className={mobile ? 'space-y-5' : 'mt-4 space-y-5'}>
+      <div id="job-form-wht">
+        <p className={labelClass}>{tr("หัก ณ ที่จ่าย")}</p>
+        <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label={tr("อัตราหัก ณ ที่จ่าย")}>
+          {WHT_PRESET_RATES.map(rate => {
+            const active = whtCustom === null && whtRate === rate;
+            return (
+              <button key={rate} type="button" role="radio" aria-checked={active} onClick={() => { setWhtRate(rate); setWhtCustom(null); clearError('wht'); }} className={`${segment(active)} px-1`}>
+                {rate}%
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={whtCustom !== null}
+            onClick={() => { if (whtCustom === null) setWhtCustom(''); }}
+            className={`${segment(whtCustom !== null)} px-1`}
+          >
+            {tr("กำหนดเอง")}</button>
+        </div>
+        {whtCustom !== null && (
+          <div className="mt-2">
+            <label htmlFor="job-form-wht-input" className="mb-1 block text-xs text-brand-muted">{tr("อัตราหัก ณ ที่จ่าย (%)")}</label>
+            <div className="relative">
+              <input
+                id="job-form-wht-input"
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                value={whtCustom}
+                onChange={(e) => {
+                  // Digits and one dot, at most 2 decimals.
+                  const raw = e.target.value.replace(/[^\d.]/g, '');
+                  if (/^\d{0,3}(\.\d{0,2})?$/.test(raw)) { setWhtCustom(raw); clearError('wht'); }
+                }}
+                placeholder={tr("เช่น 1.5")}
+                aria-invalid={Boolean(errors.wht)}
+                className={`${inputClass(errors.wht)} pr-9 font-mono`}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">%</span>
+            </div>
+            {errors.wht
+              ? errorText('wht')
+              : whtCustom.trim() !== '' && !customRateValid && <p className="mt-1 text-xs text-[#C43A3A] dark:text-rose-300">{tr("ใส่ได้ 0–100% ทศนิยมไม่เกิน 2 ตำแหน่ง")}</p>}
+          </div>
+        )}
+        {effectiveWhtRate > 0 && gross > 0 && (
+          <dl className="mt-2 space-y-1 rounded-[10px] bg-brand-faint px-3 py-2.5 text-[13px]">
+            <div className="flex justify-between"><dt className="text-brand-muted">{tr("มูลค่างาน (ก่อนหัก)")}</dt><dd className="font-mono">{formatMoney(gross)}</dd></div>
+            <div className="flex justify-between"><dt className="text-brand-muted">{tr("หัก ณ ที่จ่าย {0}%", effectiveWhtRate)}</dt><dd className="font-mono">-{formatMoney(whtAmount)}</dd></div>
+            <div className="flex justify-between border-t border-brand-border pt-1 font-semibold"><dt>{tr("รับสุทธิ")}</dt><dd className="font-mono">{formatMoney(net)}</dd></div>
+          </dl>
+        )}
+        {effectiveWhtRate > 0 && (
+          <p className="mt-1.5 text-xs text-brand-muted" data-testid="wht-certificate-hint">
+            {isEWhtJob({ whtRate: effectiveWhtRate })
+              ? tr("1% คือการหักผ่าน e-Withholding Tax ไม่ต้องรอใบ 50 ทวิ ตรวจหลักฐานได้ในระบบกรมสรรพากร")
+              : tr("ขอใบ 50 ทวิจากผู้จ่ายเงิน เพื่อใช้เครดิตหรือขอคืนภาษีตอนยื่นแบบ")}
+          </p>
+        )}
+      </div>
+
+      {!mobile && startDateField}
+
+      <div>
+        <label htmlFor="job-form-note" className={labelClass}>{tr("หมายเหตุภายใน")}</label>
+        <textarea
+          id="job-form-note"
+          rows={3}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={tr("รายละเอียดเพิ่มเติม ลิงก์ หรือเงื่อนไขของงาน...")}
+          aria-describedby="job-form-note-help"
+          className="w-full rounded-[10px] border border-brand-border bg-brand-white px-3 py-2.5 text-sm text-brand-text placeholder:text-brand-muted outline-none focus:border-[#E65F2B] dark:bg-neutral-950"
+        />
+        <p id="job-form-note-help" className="mt-1 text-xs text-brand-muted">{tr("แสดงเฉพาะในรายละเอียดงาน ไม่ถูกนำไปใส่ในเอกสารลูกค้า")}</p>
+      </div>
+    </div>
+  );
+
+  // Phones: the design's bottom sheet. Name, value and client first; everything else behind one disclosure.
+  const mobileSheet = mobile ? (
+    <motion.form
+      ref={sheetRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="job-form-title"
+      onSubmit={submit}
+      noValidate
+      initial={{ opacity: 0, y: 22 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 22 }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
+      className="ksm ksm-sheet ksm-jobsheet"
+    >
+      <div className="ksm-sheet-grip" aria-hidden="true" />
+      <header className="ksm-sheet-header">
+        <h2 id="job-form-title">{isEdit ? tr("แก้ไขงาน") : tr("เพิ่มงาน")}</h2>
+        <button type="button" className="ksm-sheet-close" onClick={onClose} aria-label={tr("ปิด")}><KsIcon name="close" /></button>
+      </header>
+      <div className="ksm-jobform-scroll">
+        <p className="ksm-jobform-intro">{isEdit ? tr("ปรับข้อมูลงานนี้ แล้วกดบันทึก") : tr("กรอกชื่องานและมูลค่า ก็เริ่มได้เลย")}</p>
+        <div className="ksm-field">
+          <label htmlFor="job-form-name"><span>{tr("ชื่องาน")}{' '}<span className="ksm-required">*</span></span></label>
+          <input
+            id="job-form-name"
+            type="text"
+            value={name}
+            onChange={(e) => { setName(e.target.value); clearError('name'); }}
+            placeholder={tr("เช่น ตัดต่อคลิปเปิดตัวสินค้า")}
+            enterKeyHint="next"
+            aria-invalid={Boolean(errors.name)}
+            className={errors.name ? 'is-invalid' : undefined}
+          />
+          {errorText('name')}
+        </div>
+        <div className="ksm-field" id="job-form-value">
+          <label htmlFor="job-form-value-input"><span>{tr("มูลค่างาน")}{' '}<span className="ksm-required">*</span></span><small>{tr("ก่อนหัก ณ ที่จ่าย")}</small></label>
+          <div className={`ksm-amount${errors.value ? ' is-invalid' : ''}`}>
+            <span aria-hidden="true">{tr("฿")}</span>
+            <NumberInput
+              id="job-form-value-input"
+              value={value}
+              onChange={(raw) => { setValue(raw); clearError('value'); }}
+              maxDecimals={2}
+              allowNegative={false}
+              placeholder="0.00"
+              enterKeyHint="next"
+              autoComplete="off"
+              aria-invalid={Boolean(errors.value)}
+            />
+          </div>
+          {errorText('value')}
+        </div>
+        <div className="ksm-field">
+          <label htmlFor="job-form-client"><span>{tr("ลูกค้า")}</span><small>{tr("ไม่บังคับ")}</small></label>
+          <input id="job-form-client" type="text" value={client} onChange={(e) => setClient(e.target.value)} placeholder={tr("ชื่อผู้ว่าจ้างหรือแบรนด์")} enterKeyHint="done" />
+        </div>
+        <details className="ksm-jobmore" open={moreOpen} onToggle={(e) => setMoreOpen((e.currentTarget as HTMLDetailsElement).open)}>
+          <summary>
+            <span><b>{tr("สถานะและรายละเอียดเพิ่มเติม")}</b><small>{tr("สถานะงาน:")}{' '}{isPosted ? tr("ส่งงานแล้ว") : tr("กำลังทำ")}{' '}{tr("· การรับเงิน:")}{' '}{tr(PAYMENT_OPTIONS.find(option => option.key === payment)?.label ?? '')}</small></span>
+            <KsIcon name="down" size={17} />
+          </summary>
+          <div className="ksm-jobmore-body">
+            <p className="ksm-segments-label">{tr("เลือกหมวดที่ต้องการกรอก")}</p>
+            <div className="ksm-segments" role="tablist" aria-label={tr("หมวดรายละเอียดของงาน")}>
+              {EXTRA_TABS.map(tab => (
+                <button key={tab.key} type="button" role="tab" id={`job-tab-${tab.key}`} aria-controls={`job-panel-${tab.key}`} aria-selected={extraTab === tab.key} tabIndex={extraTab === tab.key ? 0 : -1} onClick={() => setExtraTab(tab.key)}>
+                  {tr(tab.label)}
+                </button>
+              ))}
+            </div>
+            <div className="ksm-jobpanel" role="tabpanel" id={`job-panel-${extraTab}`} aria-labelledby={`job-tab-${extraTab}`}>
+              {extraTab === 'schedule' && <>{statusSection}{startDateField}</>}
+              {extraTab === 'payment' && paymentSection}
+              {extraTab === 'other' && <>{typeField}{advancedFields}</>}
+            </div>
+          </div>
+        </details>
+        {effectiveWhtRate > 0 && gross > 0 && (
+          <div className="ksm-net-review"><span>{tr("หลังหัก ณ ที่จ่าย {0}%", effectiveWhtRate)}</span><b>{formatMoney(net)}</b></div>
+        )}
+      </div>
+      <div className="ksm-jobform-footer">
+        {showSummary && (
+          <dl className="mb-3 grid grid-cols-3 gap-2 text-center">
+            <div><dt className="text-[11px] text-brand-muted">{tr("มูลค่างาน")}</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(gross)}</dd></div>
+            <div><dt className="text-[11px] text-brand-muted">{tr("รับแล้ว")}</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(summaryReceived)}</dd></div>
+            <div><dt className="text-[11px] text-brand-muted">{tr("รอรับ")}</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(roundMoney(Math.max(0, net - summaryReceived)))}</dd></div>
+          </dl>
+        )}
+        <button type="submit" className="ksm-primary">{isEdit ? tr("บันทึกงาน") : tr("เพิ่มงาน")}</button>
+      </div>
+    </motion.form>
+  ) : null;
 
   return createPortal(
     <AnimatePresence>
@@ -312,8 +728,9 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-[rgba(33,29,26,0.35)]"
+            className={mobile ? 'ksm-sheet-backdrop' : 'absolute inset-0 bg-[rgba(33,29,26,0.35)]'}
           />
+          {mobileSheet ?? (
           <motion.form
             role="dialog"
             aria-modal="true"
@@ -328,100 +745,57 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
           >
             <div className="flex items-start justify-between gap-3 border-b border-brand-border px-6 py-5">
               <div>
-                <h2 id="job-form-title" className="text-lg font-semibold text-brand-text">{isEdit ? 'แก้ไขงาน' : 'เพิ่มงาน'}</h2>
+                <h2 id="job-form-title" className="text-lg font-semibold text-brand-text">{isEdit ? tr("แก้ไขงาน") : tr("เพิ่มงาน")}</h2>
                 <p className="mt-0.5 text-[13px] text-brand-muted">
-                  {isEdit ? 'ปรับข้อมูลงานนี้ แล้วกดบันทึก' : 'กรอกข้อมูลหลักก่อน รายละเอียดอื่นเพิ่มภายหลังได้'}
+                  {isEdit ? tr("ปรับข้อมูลงานนี้ แล้วกดบันทึก") : tr("กรอกข้อมูลหลักก่อน รายละเอียดอื่นเพิ่มภายหลังได้")}
                 </p>
               </div>
-              <button type="button" onClick={onClose} aria-label="ปิด" className="rounded-lg p-1.5 text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer">
+              <button type="button" onClick={onClose} aria-label={tr("ปิด")} className="rounded-lg p-1.5 text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="flex-1 space-y-7 overflow-y-auto px-6 py-6">
               {/* A. ข้อมูลงาน */}
-              <section className="space-y-4" aria-label="ข้อมูลงาน">
+              <section className="space-y-4" aria-label={tr("ข้อมูลงาน")}>
                 <div>
-                  <label htmlFor="job-form-name" className={labelClass}>ชื่องาน / โปรเจกต์ <span className="text-[#C43A3A]">*</span></label>
+                  <label htmlFor="job-form-name" className={labelClass}>{tr("ชื่องาน / โปรเจกต์")}{' '}<span className="text-[#C43A3A]">*</span></label>
                   <input
                     id="job-form-name"
                     type="text"
                     value={name}
                     onChange={(e) => { setName(e.target.value); clearError('name'); }}
-                    placeholder="เช่น รีวิวสกินแคร์ / ออกแบบเว็บไซต์ / สอนขับรถ"
+                    placeholder={tr("เช่น รีวิวสกินแคร์ / ออกแบบเว็บไซต์ / สอนขับรถ")}
                     className={inputClass(errors.name)}
                     aria-invalid={Boolean(errors.name)}
                   />
                   {errorText('name')}
                 </div>
 
-                <div id="job-form-type">
-                  <div className="mb-1.5 flex items-center justify-between gap-3">
-                    <label htmlFor="job-form-type-select" className="block text-[13px] font-medium text-brand-text">ประเภทงาน</label>
-                    <button
-                      type="button"
-                      onClick={() => setTypeManagerOpen(true)}
-                      className="shrink-0 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-orange-300"
-                    >
-                      จัดการประเภทงาน
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <select
-                      id="job-form-type-select"
-                      value={type}
-                      onChange={(e) => { setType(e.target.value); clearError('type'); }}
-                      className={`${inputClass(errors.type)} appearance-none pr-9 cursor-pointer`}
-                    >
-                      {typeOptions.map(option => <option key={option} value={option}>{option}</option>)}
-                      <option value={CUSTOM_TYPE}>+ สร้างประเภทเอง…</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
-                  </div>
-                  {type === CUSTOM_TYPE && (
-                    <div className="mt-2 flex gap-2">
-                      <input
-                        type="text"
-                        autoFocus
-                        value={customType}
-                        onChange={(e) => { setCustomType(e.target.value); clearError('type'); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveCustomType(); } }}
-                        placeholder="ชื่อประเภทงาน"
-                        className={inputClass(errors.type)}
-                      />
-                      <button
-                        type="button"
-                        onClick={saveCustomType}
-                        disabled={!customType.trim()}
-                        className="h-11 shrink-0 rounded-[10px] border border-brand-border px-4 text-[13px] font-medium text-brand-text hover:bg-brand-faint disabled:opacity-40 cursor-pointer"
-                      >
-                        เพิ่ม
-                      </button>
-                    </div>
-                  )}
-                  {errorText('type')}
-                </div>
+                {typeField}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label htmlFor="job-form-client" className={labelClass}>ลูกค้า / ผู้จ่าย</label>
+                    <label htmlFor="job-form-client" className={labelClass}>{tr("ลูกค้า / ผู้จ่าย")}</label>
                     <input
                       id="job-form-client"
                       type="text"
                       value={client}
                       onChange={(e) => setClient(e.target.value)}
-                      placeholder="เช่น ใสใส สกินแคร์"
+                      placeholder={tr("เช่น ใสใส สกินแคร์")}
                       className={inputClass()}
                     />
                   </div>
                   <div id="job-form-value">
-                    <label htmlFor="job-form-value-input" className={labelClass}>มูลค่างาน <span className="text-[#C43A3A]">*</span></label>
+                    <label htmlFor="job-form-value-input" className={labelClass}>{tr("มูลค่างาน")}{' '}<span className="text-[#C43A3A]">*</span></label>
                     <div className="relative">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">{tr("฿")}</span>
                       <NumberInput
                         id="job-form-value-input"
                         value={value}
                         onChange={(raw) => { setValue(raw); clearError('value'); }}
+                        maxDecimals={2}
+                        allowNegative={false}
                         placeholder="0"
                         className={`${inputClass(errors.value)} pl-7 font-mono`}
                         aria-invalid={Boolean(errors.value)}
@@ -435,185 +809,38 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
               <div className="border-t border-brand-border" />
 
               {/* B. สถานะงาน + วันส่งงาน -- asked together so the date always has one clear meaning */}
-              <section className="space-y-4" aria-label="สถานะงาน">
-                <div>
-                  <h3 className="text-[15px] font-semibold text-brand-text">งานนี้ถึงไหนแล้ว?</h3>
-                  <p className="mt-0.5 text-xs text-brand-muted">ใช้คำนวณว่าจะได้รับเงินวันไหน</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="สถานะงาน">
-                  {[
-                    { posted: false, title: 'กำลังทำ', hint: 'ยังไม่ได้ส่งงาน' },
-                    { posted: true, title: 'ส่งงานแล้ว', hint: 'ส่งงาน / ให้บริการเสร็จแล้ว' },
-                  ].map(option => {
-                    const active = isPosted === option.posted;
-                    return (
-                      <button
-                        key={option.title}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        onClick={() => {
-                          setIsPosted(option.posted);
-                          clearError('postDate');
-                          // Delivered work almost always went out today; saves a trip to the date picker.
-                          if (option.posted && !postDate) setPostDate(todayStr());
-                        }}
-                        className={`rounded-[10px] border px-3 py-2.5 text-left transition-colors cursor-pointer ${active
-                          ? 'border-[#F3B08C] bg-[#FFF1E8] dark:border-orange-400/40 dark:bg-orange-500/10'
-                          : 'border-brand-border bg-brand-white hover:bg-brand-faint'}`}
-                      >
-                        <span className={`block text-[13px] ${active ? 'font-semibold text-[#C24A16] dark:text-orange-300' : 'font-medium text-brand-text'}`}>{option.title}</span>
-                        <span className="mt-0.5 block text-[11px] text-brand-muted">{option.hint}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div id="job-form-postDate">
-                  <label htmlFor="job-form-postDate-input" className={labelClass}>
-                    {isPosted
-                      ? <>ส่งงานวันไหน? <span className="text-[#C43A3A]">*</span></>
-                      : <>จะส่งงานวันไหน? <span className="font-normal text-brand-muted">(ไม่บังคับ)</span></>}
-                  </label>
-                  {dateInput('job-form-postDate-input', postDate, (v) => { setPostDate(v); clearError('postDate'); }, errors.postDate)}
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {(isPosted
-                      ? [{ label: 'วันนี้', date: todayStr() }, { label: 'เมื่อวาน', date: todayStr(-1) }]
-                      : [{ label: 'วันนี้', date: todayStr() }, { label: 'พรุ่งนี้', date: todayStr(1) }, { label: 'อีก 7 วัน', date: todayStr(7) }]
-                    ).map(chip => (
-                      <button
-                        key={chip.label}
-                        type="button"
-                        onClick={() => { setPostDate(chip.date); clearError('postDate'); }}
-                        className={`h-8 rounded-full border px-3 text-xs transition-colors cursor-pointer ${postDate === chip.date
-                          ? 'border-[#F3B08C] bg-[#FFF1E8] font-medium text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
-                          : 'border-brand-border text-brand-text hover:bg-brand-faint'}`}
-                      >
-                        {chip.label}
-                      </button>
-                    ))}
-                    {!isPosted && postDate && (
-                      <button type="button" onClick={() => setPostDate('')} className="h-8 px-2 text-xs text-brand-muted hover:text-brand-text cursor-pointer">
-                        ยังไม่กำหนด
-                      </button>
-                    )}
-                  </div>
-                  {errorText('postDate')}
-                  {!errors.postDate && (
-                    <p className="mt-1.5 text-xs text-brand-muted">
-                      {isPosted
-                        ? 'ระยะเวลารับเงิน จะเริ่มนับจากวันส่งงาน'
-                        : postDate ? 'ถ้าส่งงานจริงคนละวัน ค่อยมาแก้ตอนส่งงานได้' : 'ยังไม่รู้ก็เว้นไว้ได้ ค่อยใส่ตอนส่งงาน'}
-                    </p>
-                  )}
-                </div>
-              </section>
+              {statusSection}
 
               <div className="border-t border-brand-border" />
 
               {/* C. การรับเงิน */}
-              <section className="space-y-4" aria-label="การรับเงิน">
-                <div>
-                  <h3 className="text-[15px] font-semibold text-brand-text">การรับเงิน</h3>
-                  <p className="mt-0.5 text-xs text-brand-muted">ตอนนี้ลูกค้าจ่ายถึงไหนแล้ว?</p>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4" role="radiogroup" aria-label="สถานะการรับเงิน">
-                  {PAYMENT_OPTIONS.map(option => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      role="radio"
-                      aria-checked={payment === option.key}
-                      onClick={() => { setPayment(option.key); clearError('received'); clearError('installments'); }}
-                      className={segment(payment === option.key)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-
-                {payment === 'unpaid' && creditTermBlock}
-
-                {payment === 'paid' && (
-                  <div className="space-y-3">
-                    <div>
-                      <label htmlFor="job-form-paidDate" className={labelClass}>วันที่รับเงิน</label>
-                      {dateInput('job-form-paidDate', paidDate, setPaidDate)}
-                    </div>
-                    {gross > 0 && (
-                      <p className="text-[13px] text-brand-muted">ยอดรับสุทธิ <span className="font-mono font-semibold text-brand-text">{formatCurrency(net)}</span></p>
-                    )}
-                  </div>
-                )}
-
-                {payment === 'partial' && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div id="job-form-received">
-                        <label htmlFor="job-form-received-input" className={labelClass}>รับแล้ว</label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
-                          <NumberInput
-                            id="job-form-received-input"
-                            value={received}
-                            onChange={(raw) => { setReceived(raw); clearError('received'); }}
-                            placeholder="0"
-                            className={`${inputClass(errors.received)} pl-7 font-mono`}
-                            aria-invalid={Boolean(errors.received)}
-                          />
-                        </div>
-                        {errorText('received')}
-                      </div>
-                      <div>
-                        <label htmlFor="job-form-depositDate" className={labelClass}>วันที่รับ</label>
-                        {dateInput('job-form-depositDate', depositDate, setDepositDate)}
-                      </div>
-                    </div>
-                    {creditTermBlock}
-                  </div>
-                )}
-
-                {payment === 'installment' && (
-                  <div id="job-form-installments" className="space-y-2">
-                    <InstallmentPlanner
-                      installments={installments}
-                      onChange={(rows) => { setInstallments(rows); clearError('installments'); }}
-                      targetAmount={net}
-                    />
-                    {errorText('installments')}
-                  </div>
-                )}
-
-                {effectiveWhtRate > 0 && gross > 0 && (
-                  <p className="text-xs text-brand-muted">หัก ณ ที่จ่าย {effectiveWhtRate}% ({formatMoney(whtAmount)}) · รับสุทธิ {formatMoney(net)}</p>
-                )}
-              </section>
+              {paymentSection}
 
               <div className="border-t border-brand-border" />
 
               {/* D. รายละเอียดเพิ่มเติม */}
-              <section aria-label="รายละเอียดเพิ่มเติม">
+              <section aria-label={tr("รายละเอียดเพิ่มเติม")}>
                 <button
                   type="button"
                   onClick={() => setAdvancedOpen(v => !v)}
                   aria-expanded={advancedOpen}
                   className="flex w-full items-center justify-between text-left cursor-pointer"
                 >
-                  <span className="text-[15px] font-semibold text-brand-text">รายละเอียดเพิ่มเติม</span>
+                  <span className="text-[15px] font-semibold text-brand-text">{tr("รายละเอียดเพิ่มเติม")}</span>
                   <ChevronDown className={`h-4 w-4 text-brand-muted transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {!advancedOpen && (() => {
                   const parts = [
-                    effectiveWhtRate > 0 ? `หัก ณ ที่จ่าย ${effectiveWhtRate}%` : '',
+                    effectiveWhtRate > 0 ? tr("หัก ณ ที่จ่าย {0}%", effectiveWhtRate) : '',
                   ].filter(Boolean);
                   return (
                     <>
                       <p className="mt-0.5 text-xs text-brand-muted">
-                        {parts.length > 0 ? parts.join(' · ') : 'หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน'}
+                        {parts.length > 0 ? parts.join(' · ') : tr("หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน")}
                       </p>
                       {note.trim() && (
                         <div className="mt-2.5 rounded-[10px] bg-brand-faint px-3 py-2">
-                          <p className="text-[11px] font-medium text-brand-muted">หมายเหตุภายใน</p>
+                          <p className="text-[11px] font-medium text-brand-muted">{tr("หมายเหตุภายใน")}</p>
                           <p className="mt-0.5 line-clamp-3 whitespace-pre-line text-[13px] text-brand-text">{note.trim()}</p>
                         </div>
                       )}
@@ -621,82 +848,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                   );
                 })()}
                 {advancedOpen && (
-                  <div className="mt-4 space-y-5">
-                    <div id="job-form-wht">
-                      <p className={labelClass}>หัก ณ ที่จ่าย</p>
-                      <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="อัตราหัก ณ ที่จ่าย">
-                        {WHT_PRESET_RATES.map(rate => {
-                          const active = whtCustom === null && whtRate === rate;
-                          return (
-                            <button key={rate} type="button" role="radio" aria-checked={active} onClick={() => { setWhtRate(rate); setWhtCustom(null); clearError('wht'); }} className={`${segment(active)} px-1`}>
-                              {rate}%
-                            </button>
-                          );
-                        })}
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={whtCustom !== null}
-                          onClick={() => { if (whtCustom === null) setWhtCustom(''); }}
-                          className={`${segment(whtCustom !== null)} px-1`}
-                        >
-                          กำหนดเอง
-                        </button>
-                      </div>
-                      {whtCustom !== null && (
-                        <div className="mt-2">
-                          <label htmlFor="job-form-wht-input" className="mb-1 block text-xs text-brand-muted">อัตราหัก ณ ที่จ่าย (%)</label>
-                          <div className="relative">
-                            <input
-                              id="job-form-wht-input"
-                              type="text"
-                              inputMode="decimal"
-                              autoFocus
-                              value={whtCustom}
-                              onChange={(e) => {
-                                // Digits and one dot, at most 2 decimals.
-                                const raw = e.target.value.replace(/[^\d.]/g, '');
-                                if (/^\d{0,3}(\.\d{0,2})?$/.test(raw)) { setWhtCustom(raw); clearError('wht'); }
-                              }}
-                              placeholder="เช่น 1.5"
-                              aria-invalid={Boolean(errors.wht)}
-                              className={`${inputClass(errors.wht)} pr-9 font-mono`}
-                            />
-                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">%</span>
-                          </div>
-                          {errors.wht
-                            ? errorText('wht')
-                            : whtCustom.trim() !== '' && !customRateValid && <p className="mt-1 text-xs text-[#C43A3A] dark:text-rose-300">ใส่ได้ 0–100% ทศนิยมไม่เกิน 2 ตำแหน่ง</p>}
-                        </div>
-                      )}
-                      {effectiveWhtRate > 0 && gross > 0 && (
-                        <dl className="mt-2 space-y-1 rounded-[10px] bg-brand-faint px-3 py-2.5 text-[13px]">
-                          <div className="flex justify-between"><dt className="text-brand-muted">มูลค่างาน (ก่อนหัก)</dt><dd className="font-mono">{formatMoney(gross)}</dd></div>
-                          <div className="flex justify-between"><dt className="text-brand-muted">หัก ณ ที่จ่าย {effectiveWhtRate}%</dt><dd className="font-mono">-{formatMoney(whtAmount)}</dd></div>
-                          <div className="flex justify-between border-t border-brand-border pt-1 font-semibold"><dt>รับสุทธิ</dt><dd className="font-mono">{formatMoney(net)}</dd></div>
-                        </dl>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="job-form-startDate" className={labelClass}>วันที่เริ่มงาน</label>
-                      {dateInput('job-form-startDate', startDate, setStartDate)}
-                    </div>
-
-                    <div>
-                      <label htmlFor="job-form-note" className={labelClass}>หมายเหตุภายใน</label>
-                      <textarea
-                        id="job-form-note"
-                        rows={3}
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder="รายละเอียดเพิ่มเติม ลิงก์ หรือเงื่อนไขของงาน..."
-                        aria-describedby="job-form-note-help"
-                        className="w-full rounded-[10px] border border-brand-border bg-brand-white px-3 py-2.5 text-sm text-brand-text placeholder:text-brand-muted outline-none focus:border-[#E65F2B] dark:bg-neutral-950"
-                      />
-                      <p id="job-form-note-help" className="mt-1 text-xs text-brand-muted">แสดงเฉพาะในรายละเอียดงาน ไม่ถูกนำไปใส่ในเอกสารลูกค้า</p>
-                    </div>
-                  </div>
+                  advancedFields
                 )}
               </section>
             </div>
@@ -704,21 +856,20 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
             <div className="border-t border-brand-border px-6 py-4">
               {showSummary && (
                 <dl className="mb-3 grid grid-cols-3 gap-2 text-center">
-                  <div><dt className="text-[11px] text-brand-muted">มูลค่างาน</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(gross)}</dd></div>
-                  <div><dt className="text-[11px] text-brand-muted">รับแล้ว</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(summaryReceived)}</dd></div>
-                  <div><dt className="text-[11px] text-brand-muted">รอรับ</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(roundMoney(Math.max(0, net - summaryReceived)))}</dd></div>
+                  <div><dt className="text-[11px] text-brand-muted">{tr("มูลค่างาน")}</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(gross)}</dd></div>
+                  <div><dt className="text-[11px] text-brand-muted">{tr("รับแล้ว")}</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(summaryReceived)}</dd></div>
+                  <div><dt className="text-[11px] text-brand-muted">{tr("รอรับ")}</dt><dd className="font-mono text-[13px] font-semibold text-brand-text">{formatMoney(roundMoney(Math.max(0, net - summaryReceived)))}</dd></div>
                 </dl>
               )}
               <div className="flex gap-3">
                 <button type="button" onClick={onClose} className="h-12 rounded-xl border border-brand-border px-5 text-sm text-brand-text hover:bg-brand-faint cursor-pointer">
-                  ยกเลิก
-                </button>
+                  {tr("ยกเลิก")}</button>
                 <button type="submit" className="h-12 flex-1 rounded-xl bg-[#E65F2B] text-sm font-semibold text-white hover:bg-[#D85723] cursor-pointer">
-                  บันทึกงาน
-                </button>
+                  {tr("บันทึกงาน")}</button>
               </div>
             </div>
           </motion.form>
+          )}
           <JobTypeManager
             open={typeManagerOpen}
             onClose={() => setTypeManagerOpen(false)}

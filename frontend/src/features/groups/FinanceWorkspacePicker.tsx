@@ -3,6 +3,7 @@ import { ChevronDown, ChevronsUpDown, Users, Wallet } from "lucide-react";
 import type { GroupSummary } from "../../../../shared/groups";
 import { groupApi } from "../../services/groups";
 
+import { tr } from '../../i18n/tr';
 export default function FinanceWorkspacePicker({
   account,
   groupId,
@@ -61,40 +62,39 @@ export default function FinanceWorkspacePicker({
     };
   }, [account, revision]);
   const Icon = groupId ? Users : Wallet;
-  const currentLabel = groupId ? groups.find((group) => group.id === groupId)?.name || "กลุ่มที่เลือก" : "ส่วนตัว";
+  const currentLabel = groupId ? groups.find((group) => group.id === groupId)?.name || tr("กลุ่มที่เลือก") : tr("ส่วนตัว");
   const select = (className: string) => (
     <select
       id="finance-workspace"
       value={groupId || ""}
       disabled={busy}
-      title={groupId ? "บัญชีการเงินของกลุ่ม" : "บัญชีการเงินส่วนตัว"}
+      title={groupId ? tr("บัญชีการเงินของกลุ่ม") : tr("บัญชีการเงินส่วนตัว")}
       onChange={(e) => {
         const id = e.target.value || undefined;
         void onChange(id, groups.find((group) => group.id === id)?.name);
       }}
       className={`min-w-0 appearance-none cursor-pointer border-0 bg-transparent text-brand-text outline-none disabled:cursor-wait ${className}`}
     >
-      <option value="">ส่วนตัว</option>
+      <option value="">{tr("ส่วนตัว")}</option>
       {groupId && !groups.some((group) => group.id === groupId) && (
-        <option value={groupId}>กลุ่มที่เลือก — กดรีเฟรชรายชื่อ</option>
+        <option value={groupId}>{tr("กลุ่มที่เลือก — กดรีเฟรชรายชื่อ")}</option>
       )}
       {groups.map((group) => (
         <option key={group.id} value={group.id}>
-          กลุ่ม: {group.name}
-        </option>
+          {tr("กลุ่ม: {0}", group.name)}</option>
       ))}
     </select>
   );
   return (
     <div className="relative flex min-w-0 items-center">
-      <label htmlFor="finance-workspace" className="sr-only">บัญชีการเงิน</label>
+      <label htmlFor="finance-workspace" className="sr-only">{tr("บัญชีการเงิน")}</label>
       {variant === "row" ? (
         <div className="group relative flex w-full min-w-0 items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-brand-faint">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]" aria-hidden="true">
             <Icon size={16} strokeWidth={2} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[10.5px] leading-tight text-brand-muted" aria-hidden="true">บัญชีการเงิน</span>
+            <span className="block text-[10.5px] leading-tight text-brand-muted" aria-hidden="true">{tr("บัญชีการเงิน")}</span>
             <span className="block truncate pr-6 text-[13px] font-semibold leading-tight text-brand-text" aria-hidden="true">{currentLabel}</span>
           </span>
           <ChevronsUpDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
@@ -112,8 +112,7 @@ export default function FinanceWorkspacePicker({
       )}
       {error && (
         <p role="alert" className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-red-200 bg-red-50 p-2 text-xs text-red-700 shadow-lg">
-          โหลดรายชื่อกลุ่มไม่สำเร็จ: {error}
-        </p>
+          {tr("โหลดรายชื่อกลุ่มไม่สำเร็จ: {0}", error)}</p>
       )}
     </div>
   );

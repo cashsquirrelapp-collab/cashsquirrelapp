@@ -1,5 +1,7 @@
 import type { Job } from '../../../../shared/types';
-import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
+import { getJobPaymentEntries, getJobScheduledPendingEntries } from '../../../../shared/installmentPayments';
+import { installmentLabel } from '../../utils';
+import { tr } from '../../i18n/tr';
 
 // Cash timeline: when money from jobs is expected to arrive, month by month. Built on the same
 // payment entries as the dashboard (installments split per row, deposits split from the
@@ -55,17 +57,11 @@ export const shiftMonthKey = (monthKey: string, delta: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
-// Outstanding entries with an honest expected date. Unlike the shared pending entries, this
-// never falls back to a job's start date: in-progress work without a delivery date has no
-// expected payment date yet.
+// Use the same schedule as dashboard/LINE, including WIP with a payment or delivery date.
 function outstandingEntries(job: Job): { id: string; part: string; amount: number; date: string | null }[] {
-  const jobDate = job.isPosted === false && !job.postDate ? null : (job.payDate || job.postDate || null);
-  if (job.installments?.length) {
-    return job.installments
-      .filter(row => row.status !== 'paid' && row.amount > 0)
-      .map(row => ({ id: row.id, part: row.label, amount: row.amount, date: row.dueDate || jobDate }));
-  }
-  return job.pending > 0 ? [{ id: `${job.id}-pending`, part: '', amount: job.pending, date: jobDate }] : [];
+  return getJobScheduledPendingEntries(job).map(entry => ({
+    id: entry.id, part: entry.kind === 'installment' ? installmentLabel(entry.label) : '', amount: entry.amount, date: entry.dueDate,
+  }));
 }
 
 export function buildCashTimeline(jobs: Job[], opts: { todayKey: string; fromMonth: string; months: number }): CashTimeline {
@@ -98,7 +94,7 @@ export function buildCashTimeline(jobs: Job[], opts: { todayKey: string; fromMon
       const bucket = buckets.get(date.slice(0, 7));
       if (!bucket) continue;
       bucket.push({
-        ...base, id: `${entry.id}-received`, part: entry.kind === 'installment' ? entry.label : entry.label === 'รับมัดจำ' ? 'มัดจำ' : '',
+        ...base, id: `${entry.id}-received`, part: entry.kind === 'installment' ? installmentLabel(entry.label) : entry.label === 'รับมัดจำ' ? tr("มัดจำ") : '',
         amount: entry.amount, date, days: dayNumber(date) - today, carriedOver: false, status: 'received',
       });
     }

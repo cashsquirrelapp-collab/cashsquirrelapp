@@ -12,6 +12,9 @@ import {
   financeHeaders,
   workspaceEpoch,
 } from "./financeWorkspace";
+import { tr } from '../i18n/tr';
+/** A Free account's new documents this month (null for Pro and trial accounts). */
+export interface DocumentQuota { used: number; limit: number; month: string }
 const baselines = new Map<string, Baseline>();
 const queues = new Map<string, Promise<unknown>>();
 const reads = new Map<string, number>();
@@ -29,7 +32,7 @@ export async function readCloud(userId: string) {
   assertFinanceWorkspace(userId, epoch);
   const baseline: Baseline = {};
   if (reads.get(userId) !== request)
-    throw Object.assign(new Error("ข้อมูลถูกโหลดใหม่แล้ว"), { status: 409 });
+    throw Object.assign(new Error(tr("ข้อมูลถูกโหลดใหม่แล้ว")), { status: 409 });
   for (const [field, table] of Object.entries(fieldTables))
     baseline[table] = Object.fromEntries(
       (result.snapshot[field] || []).map((row: any) => [
@@ -69,10 +72,10 @@ export function saveCloud(
     .then(async () => {
       assertFinanceWorkspace(userId, epoch);
       const baseline = baselines.get(userId);
-      if (!baseline) throw new Error("กรุณารอให้ข้อมูลโหลดเสร็จก่อนบันทึก");
+      if (!baseline) throw new Error(tr("กรุณารอให้ข้อมูลโหลดเสร็จก่อนบันทึก"));
       if (baseline !== generation)
         throw Object.assign(
-          new Error("ข้อมูลถูกโหลดใหม่ กรุณาตรวจสอบก่อนบันทึก"),
+          new Error(tr("ข้อมูลถูกโหลดใหม่ กรุณาตรวจสอบก่อนบันทึก")),
           { status: 409 },
         );
       if (immutable.notif_settings) {
@@ -82,19 +85,21 @@ export function saveCloud(
         if (notificationMode === "patch")
           immutable.notif_settings = { ...existing, ...prefs };
         else if (notificationMode === "autosave") {
-          const { dailyDigestEnabled, monthlyReportEnabled, ...rest } = prefs;
+          const { dailyDigestEnabled, monthlyReportEnabled, wht50ReminderEnabled, ...rest } = prefs;
           immutable.notif_settings = { ...existing, ...rest };
         } else immutable.notif_settings = prefs;
       }
       const changes = diffSnapshot(baseline, immutable);
-      if (!changes.length) return;
-      await apiJson("/api/data", {
+      if (!changes.length) return undefined;
+      // The reply may carry a Free account's updated document quota.
+      const reply = await apiJson<{ document_quota?: DocumentQuota | null }>("/api/data", {
         method: "POST",
         headers: financeHeaders(userId),
         body: JSON.stringify({ changes }),
       });
       assertFinanceWorkspace(userId, epoch);
       if (baselines.get(userId) === baseline) commitChanges(baseline, changes);
+      return reply;
     });
   queues.set(userId, save);
   return save;
@@ -129,7 +134,7 @@ export async function readInvoices(userId: string) {
   });
   assertFinanceWorkspace(userId, epoch);
   const baseline = baselines.get(userId);
-  if (!baseline) throw new Error("กรุณารอให้ข้อมูลบัญชีโหลดเสร็จ");
+  if (!baseline) throw new Error(tr("กรุณารอให้ข้อมูลบัญชีโหลดเสร็จ"));
   baseline.cashflow_invoices = Object.fromEntries(
     (result.snapshot.invoices || []).map((row: any) => [
       row.id,
@@ -142,7 +147,7 @@ export async function readInvoices(userId: string) {
       data: result.snapshot.issuer_profile,
       version,
     };
-  return result.snapshot;
+  return { ...result.snapshot, documentQuota: (result.document_quota ?? null) as DocumentQuota | null };
 }
 export async function exportCloud(userId: string) {
   const epoch = workspaceEpoch();
@@ -155,7 +160,7 @@ export async function exportCloud(userId: string) {
       await apiJson<any>("/api/data", { headers: financeHeaders(userId) })
     ).snapshot;
   } catch {
-    if (!baseline) throw new Error("ยังไม่มีข้อมูลบัญชีให้สำรอง");
+    if (!baseline) throw new Error(tr("ยังไม่มีข้อมูลบัญชีให้สำรอง"));
     snapshot = {
       invoices: Object.values(baseline.cashflow_invoices || {}).map(
         (row) => row.data,

@@ -4,7 +4,7 @@ import { sessionSecret, appOrigin } from '../config/env.js';
 function key(): Buffer { const secret = sessionSecret(); return createHash('sha256').update(secret).digest(); }
 export function seal(value: unknown): string {
   const iv = randomBytes(12); const cipher = createCipheriv('aes-256-gcm', key(), iv);
-  const data = Buffer.concat([cipher.update(JSON.stringify(value)), cipher.final()]);
+  const data = Buffer.concat([cipher.update(Buffer.from(JSON.stringify(value), 'utf8')), cipher.final()]);
   return Buffer.concat([iv, cipher.getAuthTag(), data]).toString('base64url');
 }
 export function unseal<T>(value: string): T | null {

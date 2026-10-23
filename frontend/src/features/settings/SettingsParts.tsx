@@ -1,7 +1,8 @@
 import React from 'react';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Bell, Building2, CalendarClock, ChevronRight, FileJson, Globe, Link2, Mail, Moon, PiggyBank, ShieldCheck, Sun, Target, User } from 'lucide-react';
 import { uiSurface } from '../../components/ui/uiStyles';
 
+import { tr } from '../../i18n/tr';
 // Building blocks for the Settings overview (grouped rows) and its detail pages. Kept at module
 // level so inputs inside them keep focus while typing.
 
@@ -22,12 +23,11 @@ export function Switch({ on, onClick, label, disabled }: { on: boolean; onClick:
   );
 }
 
-export function Section({ icon: Icon, title, children, id }: { icon: IconType; title: string; children: React.ReactNode; id: string }) {
+// iOS Settings look (owner, 2026-10-23): a small grey heading over each group of rows.
+export function Section({ title, children, id }: { icon?: IconType; title: string; children: React.ReactNode; id: string }) {
   return (
-    <section aria-labelledby={id} className="space-y-3">
-      <h2 id={id} className="flex items-center gap-2.5 text-[17px] font-semibold text-brand-text">
-        <Icon className="h-5 w-5 text-[#E65F2B]" />{title}
-      </h2>
+    <section aria-labelledby={id} className="space-y-2">
+      <h2 id={id} className="px-4 text-[13px] font-medium leading-5 text-brand-muted">{title}</h2>
       <div className={`${uiSurface} divide-y divide-brand-border overflow-hidden`}>{children}</div>
     </section>
   );
@@ -42,7 +42,18 @@ export function RowText({ title, desc, descId }: { title: React.ReactNode; desc?
   );
 }
 
-export const RowIcon = ({ icon: Icon }: { icon: IconType }) => <Icon className="h-5 w-5 shrink-0 text-brand-muted" />;
+// iOS Settings-style tile: a white symbol on a coloured rounded square, one colour per kind of setting.
+const TILES = new Map<IconType, string>([
+  [User, '#E65F2B'], [ShieldCheck, '#18A66A'], [Globe, '#C17817'], [Moon, '#57524D'], [Sun, '#57524D'],
+  [Building2, '#A63F1B'], [CalendarClock, '#D64545'], [Target, '#18A66A'], [Bell, '#E65F2B'],
+  [Mail, '#C17817'], [Link2, '#18A66A'], [PiggyBank, '#E65F2B'], [FileJson, '#8E8A85'],
+]);
+export const RowIcon = ({ icon: Icon }: { icon: IconType }) => (
+  <span className="ui-row-icon is-tile inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-white"
+    style={{ '--tile': TILES.get(Icon) || '#8E8A85', background: 'var(--tile)' } as React.CSSProperties}>
+    <Icon className="h-[18px] w-[18px] shrink-0" />
+  </span>
+);
 
 export function NavRow({ icon, lead, title, desc, value, onClick }: {
   icon?: IconType; lead?: React.ReactNode; title: string; desc?: React.ReactNode; value?: React.ReactNode; onClick: () => void;
@@ -59,12 +70,24 @@ export function NavRow({ icon, lead, title, desc, value, onClick }: {
   );
 }
 
+export type SettingsHead = { title: string; subtitle?: string; onBack: () => void };
+/** Phones: the settings page draws its header on the terracotta; a detail page hands it its title. */
+export const SettingsHeadContext = React.createContext<((head: SettingsHead | null) => void) | null>(null);
+
 export function DetailHeader({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack: () => void }) {
+  const setHead = React.useContext(SettingsHeadContext);
+  const back = React.useRef(onBack);
+  back.current = onBack;
+  React.useLayoutEffect(() => {
+    if (!setHead) return;
+    setHead({ title, subtitle, onBack: () => back.current() });
+    return () => setHead(null);
+  }, [setHead, title, subtitle]);
+  if (setHead) return null;
   return (
     <div className="space-y-3">
       <button type="button" onClick={onBack} className="-ml-1.5 inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-[13px] font-medium text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer">
-        <ArrowLeft className="h-4 w-4" />ตั้งค่า
-      </button>
+        <ArrowLeft className="h-4 w-4" />{tr("ตั้งค่า")}</button>
       <div>
         <h1 className="text-[22px] font-semibold text-brand-text sm:text-[24px]">{title}</h1>
         {subtitle && <p className="mt-1 text-[13px] text-brand-muted">{subtitle}</p>}

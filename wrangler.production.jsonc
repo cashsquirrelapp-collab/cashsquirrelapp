@@ -1,0 +1,38 @@
+// Production Worker (the real site) on Cloudflare Workers Free. Not deployed until cutover.
+// Secrets are never written here: the owner sets them with `wrangler secret put <NAME> -c wrangler.production.jsonc`
+// (SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY, SESSION_SECRET, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+//  STRIPE_PRO_PRICE_ID, STRIPE_PRO_INTRO_COUPON_ID, STRIPE_BILLING_PORTAL_CONFIGURATION_ID, LINE_CHANNEL_ID,
+//  LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN, LIFF_ID, GMAIL_USER, GMAIL_APP_PASSWORD, CRON_SECRET).
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kraroktunngern",
+  "main": "cloudflare/worker.ts",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat", "enable_nodejs_http_server_modules"],
+  "account_id": "7cb26b23e102b0d36824da093b2a267c",
+  "workers_dev": true,
+  "preview_urls": false,
+  // Set at cutover. On the domain day, add "routes": [{ "pattern": "<domain>", "custom_domain": true }].
+  // Scheduled jobs run here since 2026-10-22 (owner approved): the Vercel deployment that ran them is
+  // paused. 01:00 UTC = 08:00 Bangkok digest (and the monthly report on the 1st); 02:00 UTC = 09:00
+  // closing of accounts past their deletion date. The 50 ทวิ reminder is hidden (cloudflare/schedule.ts).
+  "triggers": { "crons": ["0 1 * * *", "0 2 * * *"] },
+  "assets": {
+    "directory": "./build/frontend",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Only the API runs the Worker; pages and files are served straight from the asset store
+    // (free and not counted against the Workers Free daily request limit).
+    "run_worker_first": ["/api", "/api/*"]
+  },
+  "vars": {
+    "NODE_ENV": "production",
+    // Change to https://<domain> at cutover; until then the workers.dev address.
+    "APP_URL": "https://kraroktunngern.cashsquirrelapp.workers.dev",
+    "SUPABASE_URL": "https://rcllghixkclvkxhvttaw.supabase.co",
+    "STRIPE_MODE": "live",
+    // On since 2026-10-22 (owner approved): Vercel's deployment, which ran the crons, is paused.
+    "CRON_ENABLED": "true"
+  },
+  "observability": { "enabled": true }
+}

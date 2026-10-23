@@ -4,20 +4,21 @@ import { ChevronDown } from 'lucide-react';
 import { AppSettings, Expense, Job } from '../../../../shared/types';
 import { getJobPaymentEntries } from '../../../../shared/installmentPayments';
 import { firstActivityMonth, fixedExpenseForMonth } from '../../../../shared/monthlySummary';
-import { dateLocale, formatCurrency, toLocalDateKey } from '../../utils';
+import { dateLocale, formatAxisBaht, formatCurrency, toLocalDateKey } from '../../utils';
 
+import { tr, T } from '../../i18n/tr';
 type RangeKey = '1m' | '3m' | '12m';
 type Granularity = 'day' | 'week' | 'month';
 
 // Spans end at the dashboard's selected month (the header period picker), so the chart has no
 // month selector of its own: the selected month alone, or the 3 / 12 months up to it.
 const RANGES: { key: RangeKey; label: string; months: number; granularities: Granularity[] }[] = [
-  { key: '1m', label: 'ทั้งเดือน', months: 1, granularities: ['day', 'week'] },
-  { key: '3m', label: '3 เดือน', months: 3, granularities: ['week', 'month'] },
-  { key: '12m', label: '12 เดือน', months: 12, granularities: ['month'] },
+  { key: '1m', label: T("ทั้งเดือน"), months: 1, granularities: ['day', 'week'] },
+  { key: '3m', label: T("3 เดือน"), months: 3, granularities: ['week', 'month'] },
+  { key: '12m', label: T("12 เดือน"), months: 12, granularities: ['month'] },
 ];
 
-const GRANULARITY_LABELS: Record<Granularity, string> = { day: 'แบบวัน', week: 'แบบสัปดาห์', month: 'แบบเดือน' };
+const GRANULARITY_LABELS: Record<Granularity, string> = { day: T("แบบวัน"), week: T("แบบสัปดาห์"), month: T("แบบเดือน") };
 
 const INCOME_COLOR = '#F7B584';
 const EXPENSE_COLOR = '#F2A59B';
@@ -125,7 +126,7 @@ function ChartSelect<T extends string>({ value, options, onChange, label }: {
         onChange={(e) => onChange(e.target.value as T)}
         className="appearance-none rounded-[10px] border border-brand-border bg-brand-white py-1.5 pl-3 pr-8 text-xs text-brand-text outline-none transition-colors hover:bg-brand-faint focus-visible:border-[#E65F2B] disabled:cursor-default disabled:hover:bg-brand-white cursor-pointer"
       >
-        {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+        {options.map(option => <option key={option.value} value={option.value}>{tr(option.label)}</option>)}
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
     </div>
@@ -156,20 +157,20 @@ export function IncomeExpenseChart({ jobs, expenses, settings, monthKey }: { job
     <div className="bg-brand-white border border-brand-border rounded-[14px] p-[18px]">
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2.5">
         <div>
-          <h4 className="text-[15px] font-semibold text-brand-text">รายรับ-รายจ่าย</h4>
+          <h4 className="text-[15px] font-semibold text-brand-text">{tr("รายรับ-รายจ่าย")}</h4>
           <p className="mt-0.5 text-[11px] text-brand-muted">{periodText}</p>
         </div>
         <div className="flex items-center gap-2">
           <ChartSelect
-            label="ช่วงเวลา"
+            label={tr("ช่วงเวลา")}
             value={range}
-            options={RANGES.map(r => ({ value: r.key, label: r.label }))}
+            options={RANGES.map(r => ({ value: r.key, label: tr(r.label) }))}
             onChange={changeRange}
           />
           <ChartSelect
-            label="ความละเอียด"
+            label={tr("ความละเอียด")}
             value={granularity}
-            options={rangeMeta.granularities.map(g => ({ value: g, label: GRANULARITY_LABELS[g] }))}
+            options={rangeMeta.granularities.map(g => ({ value: g, label: tr(GRANULARITY_LABELS[g]) }))}
             onChange={setGranularity}
           />
         </div>
@@ -180,7 +181,7 @@ export function IncomeExpenseChart({ jobs, expenses, settings, monthKey }: { job
           <ComposedChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }} barGap={3}>
             <CartesianGrid stroke="#dfd9cd" strokeOpacity={0.45} />
             <XAxis dataKey="label" stroke="#7D7772" fontSize={10} tickLine={false} axisLine={false} dy={8} interval="preserveStartEnd" minTickGap={8} />
-            <YAxis stroke="#7D7772" fontSize={10} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => Number(v).toLocaleString('th-TH')} />
+            <YAxis stroke="#7D7772" fontSize={10} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => formatAxisBaht(Number(v))} />
             <Tooltip
               cursor={{ fill: 'rgba(230, 95, 43, 0.05)' }}
               content={({ active, payload }) => {
@@ -188,11 +189,11 @@ export function IncomeExpenseChart({ jobs, expenses, settings, monthKey }: { job
                 const d = payload[0].payload as Bucket;
                 return (
                   <div className="min-w-[170px] space-y-1.5 rounded-xl border border-brand-border bg-brand-white p-3 shadow-lg dark:bg-stone-900">
-                    <p className="border-b border-brand-border/50 pb-1 text-xs font-semibold text-brand-text">{d.label}</p>
+                    <p className="border-b border-brand-border/50 pb-1 text-xs font-semibold text-brand-text">{tr(d.label)}</p>
                     {[
-                      { name: 'รายรับ', value: d.income, color: INCOME_COLOR },
-                      { name: 'รายจ่าย', value: d.expense, color: EXPENSE_COLOR },
-                      { name: 'ยอดสุทธิ', value: d.net, color: NET_COLOR },
+                      { name: tr("รายรับ"), value: d.income, color: INCOME_COLOR },
+                      { name: tr("รายจ่าย"), value: d.expense, color: EXPENSE_COLOR },
+                      { name: tr("ยอดสุทธิ"), value: d.net, color: NET_COLOR },
                     ].map(row => (
                       <div key={row.name} className="flex items-center justify-between gap-4 text-[11px]">
                         <span className="inline-flex items-center gap-1.5 text-brand-muted">
@@ -206,22 +207,21 @@ export function IncomeExpenseChart({ jobs, expenses, settings, monthKey }: { job
                 );
               }}
             />
-            <Bar dataKey="income" name="รายรับ" fill={INCOME_COLOR} radius={[4, 4, 0, 0]} maxBarSize={22} />
-            <Bar dataKey="expense" name="รายจ่าย" fill={EXPENSE_COLOR} radius={[4, 4, 0, 0]} maxBarSize={22} />
-            <Line type="linear" dataKey="net" name="ยอดสุทธิ" stroke={NET_COLOR} strokeWidth={2.5} dot={{ r: 4, fill: NET_COLOR, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+            <Bar dataKey="income" name={tr("รายรับ")} fill={INCOME_COLOR} radius={[4, 4, 0, 0]} maxBarSize={22} />
+            <Bar dataKey="expense" name={tr("รายจ่าย")} fill={EXPENSE_COLOR} radius={[4, 4, 0, 0]} maxBarSize={22} />
+            <Line type="linear" dataKey="net" name={tr("ยอดสุทธิ")} stroke={NET_COLOR} strokeWidth={2.5} dot={{ r: 4, fill: NET_COLOR, strokeWidth: 0 }} activeDot={{ r: 5 }} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-brand-muted">
-        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: INCOME_COLOR }} />รายรับ</span>
-        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: EXPENSE_COLOR }} />รายจ่าย</span>
-        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-0.5 w-3.5 rounded-full" style={{ background: NET_COLOR }} />ยอดสุทธิ</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: INCOME_COLOR }} />{tr("รายรับ")}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: EXPENSE_COLOR }} />{tr("รายจ่าย")}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-0.5 w-3.5 rounded-full" style={{ background: NET_COLOR }} />{tr("ยอดสุทธิ")}</span>
       </div>
       {granularity !== 'month' && (
         <p className="mt-2 text-[10px] text-brand-muted">
-          แบบวัน/สัปดาห์นับเฉพาะรายจ่ายที่บันทึกไว้ ค่าใช้จ่ายคงที่รายเดือนจะรวมอยู่ในมุมมองแบบเดือน
-        </p>
+          {tr("แบบวัน/สัปดาห์นับเฉพาะรายจ่ายที่บันทึกไว้ ค่าใช้จ่ายคงที่รายเดือนจะรวมอยู่ในมุมมองแบบเดือน")}</p>
       )}
     </div>
   );

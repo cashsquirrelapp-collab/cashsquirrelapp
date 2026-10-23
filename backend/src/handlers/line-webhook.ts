@@ -1,10 +1,15 @@
+import { stagingLineAllowed } from '../security/staging.js';
 import { readRawBody } from '../http/guard.js';
 import { rateLimit, challengeHash } from '../security/rateLimit.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import crypto from 'crypto';
 import { supabaseAdmin } from '../config/supabase.js';
-import { handleAssistantMessage } from '../services/lineAssistant.js';
+import { findUserByLineId, getQuickReply, handleAssistantMessage, isProUser, prefetchLinkedContext } from '../services/lineAssistant.js';
+import { buildLineWelcome } from '../services/lineLinkCards.js';
 import type { LineMessage } from '../services/line.js';
+import { decodeLineDraftAction } from '../services/lineDraftReview.js';
+import { decodeVaultAction, handleLineFile, handleLineVaultAction } from '../services/lineVaultChat.js';
+import { decodeDueAction } from '../services/lineDuePayments.js';
 
 export const config = {
   api: {
@@ -15,12 +20,26 @@ export const config = {
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 
 
-interface LineEvent {
+export interface LineEvent {
   type: string;
   webhookEventId?: string;
   replyToken?: string;
   source?: { type: string; userId?: string };
-  message?: { type: string; text?: string };
+  message?: { type: string; text?: string; id?: string; fileName?: string; fileSize?: number };
+  postback?: { data?: string };
+}
+
+export function lineEventCommand(event: LineEvent): string | null {
+  if (event.source?.type !== 'user' || !event.source.userId) return null;
+  if (event.type === 'postback') {
+    const data = event.postback?.data || '';
+    // Payment buttons in the 08:00 reminder pass through as-is; the assistant records them.
+    return decodeVaultAction(data) || decodeDueAction(data) ? data : decodeLineDraftAction(data);
+  }
+  if (event.type !== 'message') return null;
+  if (event.message?.type === 'text') return (event.message.text || '').slice(0, 5000);
+  if (event.message?.type === 'image' || event.message?.type === 'file') return 'ส่งเอกสาร';
+  return null;
 }
 
 async function reply(accessToken: string, replyToken: string, messages: LineMessage[]): Promise<void> {
@@ -41,6 +60,7 @@ async function reply(accessToken: string, replyToken: string, messages: LineMess
   // arrives, with nothing in the logs to say why. Log it so that failure mode is visible.
   if (!res.ok) {
     console.error(`line-webhook: LINE reply API returned ${res.status}:`, await res.text());
+    throw new Error(`LINE reply failed (${res.status})`);
   }
 }
 
@@ -60,6 +80,18 @@ async function tryLinkAccount(userId: string, messageText: string): Promise<bool
   const result = await supabaseAdmin.rpc('cashflow_claim_line', { p_hash: challengeHash(code), p_line_user_id: userId });
   if (result.error) throw result.error;
   return !!result.data;
+}
+
+/** The card sent right after a LINE chat is linked: the Pro or the plain welcome for that account. */
+export async function welcomeAfterLink(lineUserId: string, deps = { findUserByLineId, isProUser, getQuickReply }): Promise<LineMessage> {
+  let pro = false;
+  try {
+    const user = await deps.findUserByLineId(lineUserId);
+    pro = !!user && await deps.isProUser(user.user_id);
+  } catch {
+    console.error('line-webhook: plan lookup for the welcome failed');
+  }
+  return buildLineWelcome({ pro, quickReply: pro ? deps.getQuickReply() : undefined });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -89,12 +121,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await Promise.all(
       events.map(async (event) => {
-        if (event.type !== 'message' || event.message?.type !== 'text' || !event.replyToken) return;
+        const messageText = lineEventCommand(event);
+        if (messageText === null || !event.replyToken) return;
         const lineUserId = event.source?.userId;
-        if (event.source?.type !== 'user' || !lineUserId) return;
+        if (event.source?.type !== 'user' || !lineUserId || !stagingLineAllowed(lineUserId)) return;
 
-        const messageText = (event.message.text || '').slice(0, 5000);
         if (!event.webhookEventId) throw new Error('LINE event is missing its ID');
+        const vaultAction = event.type === 'postback' ? decodeVaultAction(event.postback?.data || '') : null;
+        const vaultFile = event.type === 'message' && (event.message?.type === 'image' || event.message?.type === 'file')
+          ? event.message : null;
+        // Start the assistant's reads now (they only read) so they overlap the claim and rate-limit round
+        // trips below instead of following them. A duplicate delivery just ignores the result.
+        const linkedContext = vaultAction || vaultFile ? undefined : prefetchLinkedContext(lineUserId);
         const claim = await supabaseAdmin.rpc('cashflow_claim_webhook', { p_key: event.webhookEventId });
         if (claim.error) throw claim.error;
         if (claim.data === 'done') return;
@@ -108,17 +146,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Already-linked accounts go through the AI assistant (add job / query / report).
         // handleAssistantMessage returns null when this LINE user isn't linked to anything
         // yet, in which case we fall back to matching the message against a pending link code.
-        const assistantReply = await handleAssistantMessage(lineUserId, messageText, event.webhookEventId);
+        if (vaultAction || vaultFile) {
+          const card = vaultAction
+            ? await handleLineVaultAction(lineUserId, vaultAction)
+            : await handleLineFile(lineUserId, vaultFile!, accessToken);
+          await reply(accessToken, event.replyToken, [card]);
+          await complete();
+          return;
+        }
+        const assistantReply = await handleAssistantMessage(lineUserId, messageText, event.webhookEventId, undefined, linkedContext);
         if (assistantReply !== null) {
-          await reply(accessToken, event.replyToken, assistantReply);
+          // An empty answer is a linked message that needs no reply (an unrecognised message).
+          if (assistantReply.length) await reply(accessToken, event.replyToken, assistantReply);
           await complete();
           return;
         }
 
         const linked = await tryLinkAccount(lineUserId, messageText);
-        const replyText = linked
-          ? '✅ เชื่อมต่อบัญชีสำเร็จแล้วครับ!\nตอนนี้คุณจะได้รับแจ้งเตือนจากกระรอกตุนเงินผ่าน LINE นี้ รวมถึงพิมพ์เพิ่มงานหรือถามข้อมูลได้เลยครับ'
-          : 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ';
+        if (linked) {
+          // The welcome says only what this account can use; if the plan cannot be read right now it
+          // takes the version that promises nothing extra (the Pro features are named, not offered).
+          await reply(accessToken, event.replyToken, [await welcomeAfterLink(lineUserId)]);
+          await complete();
+          return;
+        }
+        const replyText = 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ';
 
         await reply(accessToken, event.replyToken, [{ type: 'text', text: replyText }]);
         await complete();

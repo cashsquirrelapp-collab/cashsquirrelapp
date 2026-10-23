@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Job } from '../../../../shared/types';
 
+import { tr } from '../../i18n/tr';
 /**
  * Applies a quick status/payment change to a job and offers to take it back: a bar at the
  * bottom of the screen for 8 seconds (paused while hovered) whose "เลิกทำ" restores exactly
@@ -42,9 +43,8 @@ export function useQuickUndo(onEditJob: (id: string, updated: Partial<Job>) => v
     >
       <span className="min-w-0 flex-1 truncate">{undo.message}</span>
       <button type="button" onClick={revert} className="h-8 shrink-0 rounded-lg px-3 font-semibold text-[#FFA473] transition-colors hover:bg-white/10 cursor-pointer">
-        เลิกทำ
-      </button>
-      <button type="button" onClick={dismiss} aria-label="ปิด" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white cursor-pointer">
+        {tr("เลิกทำ")}</button>
+      <button type="button" onClick={dismiss} aria-label={tr("ปิด")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white cursor-pointer">
         ×
       </button>
     </div>,

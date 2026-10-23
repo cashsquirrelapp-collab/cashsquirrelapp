@@ -2,8 +2,9 @@ import React from 'react';
 import { CalendarDays, Check, Plus, Trash2 } from 'lucide-react';
 import { JobInstallment } from '../../../../shared/types';
 import NumberInput from '../../components/ui/NumberInput';
-import { formatCurrency } from '../../utils';
+import { installmentLabel, formatCurrency } from '../../utils';
 
+import { tr } from '../../i18n/tr';
 interface Props {
   installments: JobInstallment[];
   onChange: (value: JobInstallment[]) => void;
@@ -47,7 +48,7 @@ export default function InstallmentPlanner({ installments, onChange, targetAmoun
   const addRow = () => {
     onChange([...installments, {
       id: `installment-${Date.now()}-${installments.length}`,
-      label: `งวดที่ ${installments.length + 1}`,
+      label: `งวดที่ ${installments.length + 1}`, // saved in Thai; shown with installmentLabel
       amount: Math.max(0, remaining),
       dueDate: null,
       paidAt: null,
@@ -81,7 +82,7 @@ export default function InstallmentPlanner({ installments, onChange, targetAmoun
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-1.5 text-[13px] font-medium text-brand-text">แบ่งกี่งวด?</p>
+        <p className="mb-1.5 text-[13px] font-medium text-brand-text">{tr("แบ่งกี่งวด?")}</p>
         <div className="grid grid-cols-4 gap-1.5">
           {QUICK_COUNTS.map((count) => (
             <button
@@ -92,16 +93,15 @@ export default function InstallmentPlanner({ installments, onChange, targetAmoun
               aria-pressed={installments.length === count}
               className={segment(installments.length === count)}
             >
-              {count} งวด
-            </button>
+              {tr("{0} งวด", count)}</button>
           ))}
         </div>
         <p className="mt-1.5 text-xs text-brand-muted">
           {targetAmount <= 0
-            ? 'ใส่มูลค่างานด้านบนก่อน แล้วเลือกจำนวนงวด'
+            ? tr("ใส่มูลค่างานด้านบนก่อน แล้วเลือกจำนวนงวด")
             : hasPaid
-            ? 'มีงวดที่รับเงินแล้ว จึงแบ่งใหม่ไม่ได้ แต่ยังแก้ยอดงวดที่รอรับได้'
-            : 'แบ่งยอดเท่ากันให้ เศษที่ไม่ลงตัวรวมไว้ในงวดสุดท้าย'}
+            ? tr("มีงวดที่รับเงินแล้ว จึงแบ่งใหม่ไม่ได้ แต่ยังแก้ยอดงวดที่รอรับได้")
+            : tr("แบ่งยอดเท่ากันให้ เศษที่ไม่ลงตัวรวมไว้ในงวดสุดท้าย")}
         </p>
       </div>
 
@@ -113,9 +113,9 @@ export default function InstallmentPlanner({ installments, onChange, targetAmoun
               <div key={row.id} className="rounded-[10px] border border-brand-border p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <input
-                    value={row.label}
+                    value={installmentLabel(row.label)}
                     onChange={(e) => update(row.id, { label: e.target.value })}
-                    aria-label={`ชื่องวดที่ ${index + 1}`}
+                    aria-label={tr("ชื่องวดที่ {0}", index + 1)}
                     className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-brand-text outline-none"
                   />
                   <button
@@ -127,12 +127,12 @@ export default function InstallmentPlanner({ installments, onChange, targetAmoun
                       : 'border-brand-border text-brand-muted hover:bg-brand-faint hover:text-brand-text'}`}
                   >
                     {isPaid && <Check className="h-3 w-3" />}
-                    {isPaid ? 'รับเงินแล้ว' : 'ยังไม่รับ'}
+                    {isPaid ? tr("รับเงินแล้ว") : tr("ยังไม่รับ")}
                   </button>
                   <button
                     type="button"
                     onClick={() => onChange(installments.filter((item) => item.id !== row.id))}
-                    aria-label={`ลบงวดที่ ${index + 1}`}
+                    aria-label={tr("ลบงวดที่ {0}", index + 1)}
                     className="rounded-lg p-1.5 text-brand-muted transition-colors hover:bg-[#FFF0F0] hover:text-[#C43A3A] cursor-pointer dark:hover:bg-rose-950/40"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -140,27 +140,27 @@ export default function InstallmentPlanner({ installments, onChange, targetAmoun
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block">
-                    <span className="mb-1 block text-xs text-brand-muted">ยอด</span>
+                    <span className="mb-1 block text-xs text-brand-muted">{tr("ยอด")}</span>
                     <span className="relative block">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">฿</span>
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">{tr("฿")}</span>
                       <NumberInput
                         value={String(row.amount || '')}
                         onChange={(value) => update(row.id, { amount: Number(value) || 0 })}
                         placeholder="0"
-                        aria-label={`ยอดงวดที่ ${index + 1}`}
+                        aria-label={tr("ยอดงวดที่ {0}", index + 1)}
                         className={`${inputClass} pl-7 font-mono`}
                       />
                     </span>
                   </label>
                   <label className="block">
-                    <span className="mb-1 block text-xs text-brand-muted">{isPaid ? 'วันที่รับเงิน' : 'ครบกำหนด'}</span>
+                    <span className="mb-1 block text-xs text-brand-muted">{isPaid ? tr("วันที่รับเงิน") : tr("ครบกำหนด")}</span>
                     <span className="relative block">
                       <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
                       <input
                         type="date"
                         value={(isPaid ? row.paidAt : row.dueDate) || ''}
                         onChange={(e) => update(row.id, isPaid ? { paidAt: e.target.value || null } : { dueDate: e.target.value || null })}
-                        aria-label={`${isPaid ? 'วันที่รับเงิน' : 'วันครบกำหนด'}งวดที่ ${index + 1}`}
+                        aria-label={tr("{0}งวดที่ {1}", isPaid ? tr("วันที่รับเงิน") : tr("วันครบกำหนด"), index + 1)}
                         className={`${inputClass} pl-9 text-[13px]`}
                       />
                     </span>
@@ -179,23 +179,21 @@ export default function InstallmentPlanner({ installments, onChange, targetAmoun
           className="inline-flex items-center gap-1 text-xs font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-orange-300"
         >
           <Plus className="h-3.5 w-3.5" />
-          {installments.length === 0 ? 'กำหนดงวดเอง' : remaining > 0 ? `เพิ่มงวด (ยอดที่เหลือ ${formatCurrency(remaining)})` : 'เพิ่มงวด'}
+          {installments.length === 0 ? tr("กำหนดงวดเอง") : remaining > 0 ? tr("เพิ่มงวด (ยอดที่เหลือ {0})", formatCurrency(remaining)) : tr("เพิ่มงวด")}
         </button>
         {canFillMonthly && (
           <button type="button" onClick={fillMonthly} className="text-xs text-brand-muted hover:text-brand-text hover:underline cursor-pointer">
-            ครบกำหนดทุกเดือน ตามวันของงวดแรก
-          </button>
+            {tr("ครบกำหนดทุกเดือน ตามวันของงวดแรก")}</button>
         )}
       </div>
 
       {installments.length > 0 && targetAmount > 0 && (
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-[10px] bg-brand-faint px-3 py-2.5 text-[13px]">
           <span className="text-brand-muted">
-            รวม {installments.length} งวด <span className="font-mono font-semibold text-brand-text">{formatCurrency(total)}</span> จาก {formatCurrency(targetAmount)}
-            {paid > 0 && <> · รับแล้ว <span className="font-mono text-emerald-700 dark:text-emerald-300">{formatCurrency(paid)}</span></>}
+            {tr("รวม {0} งวด", installments.length)}{' '}<span className="font-mono font-semibold text-brand-text">{formatCurrency(total)}</span> {tr("จาก {0}", formatCurrency(targetAmount))}{paid > 0 && <> {tr("· รับแล้ว")}{' '}<span className="font-mono text-emerald-700 dark:text-emerald-300">{formatCurrency(paid)}</span></>}
           </span>
           <span className={remaining === 0 ? 'font-medium text-emerald-700 dark:text-emerald-300' : remaining > 0 ? 'font-medium text-amber-700 dark:text-amber-300' : 'font-medium text-[#C43A3A] dark:text-rose-300'}>
-            {remaining === 0 ? 'ยอดตรงแล้ว' : remaining > 0 ? `ยังขาด ${formatCurrency(remaining)}` : `เกิน ${formatCurrency(Math.abs(remaining))}`}
+            {remaining === 0 ? tr("ยอดตรงแล้ว") : remaining > 0 ? tr("ยังขาด {0}", formatCurrency(remaining)) : tr("เกิน {0}", formatCurrency(Math.abs(remaining)))}
           </span>
         </div>
       )}

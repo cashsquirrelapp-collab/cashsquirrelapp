@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "allowJs": true, "checkJs": false },
+  "include": ["cloudflare", "migration/worker-configuration.d.ts", "backend/src", "shared"],
+  "exclude": ["node_modules", "build"]
+}

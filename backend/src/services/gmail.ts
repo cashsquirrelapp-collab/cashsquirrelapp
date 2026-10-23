@@ -1,5 +1,8 @@
+import { isStaging, stagingEmailAllowed } from '../security/staging.js';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { connect as connectTls, type TLSSocket } from 'node:tls';
+import type { DeliveryOutcome } from './notificationOutcome.js';
 
 // Sends automated emails through a real Gmail account instead of a third-party transactional
 // service, since Resend's free sandbox domain (onboarding@resend.dev) can only deliver to the
@@ -7,6 +10,28 @@ import type { Transporter } from 'nodemailer';
 // such restriction once authenticated with an App Password.
 
 let transporter: Transporter | null = null;
+
+// Workers resolves the hostname at its socket proxy. Nodemailer's pre-resolved
+// IP can fail there, so keep the Gmail hostname and verified TLS end to end.
+// Used on every Cloudflare Worker (staging and production); Node keeps nodemailer's own socket.
+const onCloudflareWorkers = typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers';
+function workersGmailSocket(_options: unknown, callback: (error: Error | null, result?: { connection: TLSSocket; secured: true }) => void): void {
+  const socket = connectTls({ host: 'smtp.gmail.com', port: 465, servername: 'smtp.gmail.com', rejectUnauthorized: true });
+  let settled = false;
+  const deadline = setTimeout(() => socket.destroy(new Error('Gmail TLS connection timed out')), 10000);
+  socket.once('error', (error) => {
+    clearTimeout(deadline);
+    if (settled) return;
+    settled = true;
+    callback(error);
+  });
+  socket.once('secureConnect', () => {
+    clearTimeout(deadline);
+    if (settled) return;
+    settled = true;
+    callback(null, { connection: socket, secured: true });
+  });
+}
 
 function getTransporter(): Transporter {
   const gmailUser = process.env.GMAIL_USER;
@@ -19,6 +44,7 @@ function getTransporter(): Transporter {
       service: 'gmail',
       connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 30000,
       auth: { user: gmailUser, pass: gmailAppPassword },
+      ...(onCloudflareWorkers ? { getSocket: workersGmailSocket } : {}),
     });
   }
   return transporter;
@@ -30,11 +56,24 @@ export async function sendGmailEmail(
   html: string,
   attachments?: { filename: string; content: string }[] // content is base64
 ): Promise<boolean> {
+  return await sendGmailEmailOutcome(to, subject, html, attachments) === 'accepted';
+}
+
+export async function sendGmailEmailOutcome(
+  to: string,
+  subject: string,
+  html: string,
+  attachments?: { filename: string; content: string }[],
+): Promise<DeliveryOutcome> {
+  if (!stagingEmailAllowed(to)) return 'skipped';
+  let sender: Transporter;
+  try { sender = getTransporter(); }
+  catch { console.error('Email transport configuration failed'); return 'rejected'; }
   try {
-    await getTransporter().sendMail({
+    const result = await sender.sendMail({
       from: `กระรอกตุนเงิน <${process.env.GMAIL_USER}>`,
       to,
-      subject,
+      subject: isStaging() ? `[STAGING] ${subject}` : subject,
       html,
       attachments: attachments?.map((a) => ({
         filename: a.filename,
@@ -42,10 +81,13 @@ export async function sendGmailEmail(
         encoding: 'base64',
       })),
     });
-    return true;
+    return Array.isArray(result.accepted) && result.accepted.length === 0 ? 'rejected' : 'accepted';
   } catch (err) {
-    console.error(`sendGmailEmail: failed to send to ${to}:`, err);
-    return false;
+    // An explicit SMTP rejection proves non-acceptance. A timeout/disconnect does not.
+    const status = Number((err as { responseCode?: unknown })?.responseCode);
+    const outcome = status >= 400 && status < 600 ? 'rejected' : 'unknown';
+    console.error('Email delivery did not confirm acceptance', { outcome, ...(Number.isFinite(status) ? { smtpStatus: status } : {}) });
+    return outcome;
   }
 }
 

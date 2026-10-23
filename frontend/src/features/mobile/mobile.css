@@ -1,0 +1,890 @@
+/* Mobile design, phones only (see useMobileLayout.ts for the breakpoint). Sizes, spacing and colours follow the owner's
+   design file kraroktunngern-Numeric-Value.html as the browser renders it at 390px.
+   Everything is scoped to .ksm so the desktop layout is untouched. Colours come from the app's
+   own theme variables, which already hold the CI values for light and dark. */
+.ksm {
+  --ksm-page: var(--bg);
+  --ksm-surface: var(--white);
+  --ksm-text: var(--text);
+  --ksm-secondary: var(--muted);
+  --ksm-muted: var(--faint);
+  --ksm-border: var(--border);
+  --ksm-accent: #E65F2B;
+  --ksm-accent-text: #C24A16;
+  --ksm-selected: #FFF1E8;
+  --ksm-shadow-near: rgba(60, 40, 28, 0.07);
+  --ksm-shadow-far: rgba(60, 40, 28, 0.09);
+  --ksm-error: #C43A3A;
+  --ksm-error-soft: #FDEEEE;
+  --ksm-warning: #C17817;
+  --ksm-success-soft: #E8F8F0;
+  /* The overview header: Deep Terracotta at the top, Primary Orange at the bottom (CI, both themes). */
+  --ksm-hero: #A63F1B;
+  --ksm-hero-mid: #C24A16;
+  --ksm-hero-end: #E65F2B;
+  --ksm-success: #18A66A;
+  font-family: "IBM Plex Sans", "IBM Plex Sans Thai", system-ui, sans-serif;
+}
+.dark .ksm {
+  --ksm-accent: #FFA473;
+  --ksm-accent-text: #FFA473;
+  --ksm-selected: var(--faint);
+  --ksm-error: #FA7E52;
+  --ksm-error-soft: var(--faint);
+  --ksm-warning: #F2B76B;
+  --ksm-success-soft: var(--faint);
+  --ksm-success: #3CC287;
+}
+.ksm button { -webkit-tap-highlight-color: transparent; }
+.ksm :focus-visible { outline: 2px solid var(--ksm-accent-text); outline-offset: 2px; }
+
+/* Top bar */
+.ksm-header { flex-shrink: 0; padding: max(10px, env(safe-area-inset-top, 0px)) 16px 2px; background: var(--ksm-page); }
+.ksm-top { display: flex; align-items: center; gap: 3px; min-height: 46px; }
+.ksm-brand { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.ksm-wordmark { font-family: "Prompt", "IBM Plex Sans Thai", sans-serif; font-synthesis: none; font-size: 19px; font-weight: 600; line-height: 1.5; letter-spacing: -0.3px; color: var(--ksm-text); white-space: nowrap; }
+.ksm-wordmark > span { color: var(--ksm-accent); }
+/* English name (owner, 2026-10-22): a step smaller and tighter than the Thai, narrow gap between the words. */
+html[lang="en"] .ksm-wordmark { font-size: 16px; letter-spacing: -0.2px; }
+html[lang="en"] .ksm-wordmark > span { margin-left: 0.22em; }
+html[lang="en"] .ksm-header.is-hero .ksm-wordmark { font-size: 15px; }
+.ksm-spacer { flex: 1; min-width: 0; }
+.ksm-iconbtn { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 40px; min-width: 40px; height: 44px; border-radius: 12px; color: var(--ksm-secondary); cursor: pointer; }
+.ksm-iconbtn:hover { background: var(--ksm-muted); }
+.ksm-iconbtn.is-notify { color: var(--ksm-text); }
+.ksm-dot { position: absolute; top: 9px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--ksm-accent); box-shadow: 0 0 0 2px var(--ksm-page); }
+/* On the overview the bar is the top of the terracotta header (owner's reference, 2026-10-20): logo
+   and name, bell and theme as plain white icons, then "สวัสดีอีกครั้ง / Hello, name" with the
+   avatar on the right and the mascot faint behind. It stays terracotta in dark mode too. */
+.ksm-header.is-hero { position: relative; overflow: hidden; padding-bottom: 6px; background: var(--ksm-hero); color: #FFFFFF; }
+.ksm-header.is-hero > :not(.ksm-header-mascot) { position: relative; animation: ksm-hero-in 0.34s ease-out both; }
+.ksm-header-mascot { position: absolute; right: 70px; bottom: 0; opacity: 0.1; filter: brightness(0) invert(1); pointer-events: none; }
+.ksm-header-mascot svg { display: block; }
+.ksm-header.is-hero .ksm-brand { gap: 8px; }
+/* The mark as drawn (no disc behind it); on terracotta "ตุนเงิน" takes the CI peach, since the orange would vanish. */
+.ksm-header.is-hero .ksm-brand-mark { display: inline-flex; }
+.ksm-header.is-hero .ksm-wordmark { font-size: 17px; color: #FFFFFF; }
+.ksm-header.is-hero .ksm-wordmark > span { color: #F3B08C; }
+.ksm-header.is-hero .ksm-iconbtn { width: 42px; min-width: 42px; height: 44px; color: #FFFFFF; }
+.ksm-header.is-hero .ksm-iconbtn:hover { background: rgba(255, 255, 255, 0.12); }
+.ksm-header.is-hero .ksm-dot { top: 10px; right: 10px; background: #FFFFFF; box-shadow: 0 0 0 2px var(--ksm-hero); }
+.ksm-hello { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; margin-top: 8px; text-align: left; color: #FFFFFF; cursor: pointer; }
+.ksm-hello-text { min-width: 0; }
+.ksm-hello-text small { display: block; font-size: 14px; line-height: 1.4; color: rgba(255, 255, 255, 0.82); }
+.ksm-hello-text b { display: block; font-size: 30px; font-weight: 700; line-height: 1.25; letter-spacing: -0.6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-hello-avatar { display: grid; place-items: center; flex-shrink: 0; width: 58px; height: 58px; overflow: hidden; border-radius: 50%; background: #FFF1E8; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 6px 14px rgba(80, 26, 8, 0.25); }
+.ksm-hello-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Bottom bar */
+.ksm-nav { position: relative; z-index: 50; flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; height: 68px; min-height: 68px; margin: calc(-84px - env(safe-area-inset-bottom, 0px)) 12px calc(16px + env(safe-area-inset-bottom, 0px)); padding: 0 6px; overflow: visible; border-radius: 34px; }
+/* The bar floats as a glass capsule over the page (owner, 2026-10-23); pages scroll under it, so
+   the page scrollers below leave room for it at the bottom. The open tab is a soft pill with a filled icon. */
+.ksm-nav-item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 54px; margin: 0 2px; border-radius: 27px; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); cursor: pointer; }
+.ksm-nav-icon { display: grid; place-items: center; width: 44px; min-width: 44px; height: 26px; }
+.ksm-nav-item[aria-current="page"] { background: var(--glass-active); color: var(--ksm-accent-text); font-weight: 600; }
+/* iOS-style edge: the page fades out under the floating bar, so text never sits half-visible behind it. */
+.ksm-nav-fade { position: fixed; left: 0; right: 0; bottom: 0; z-index: 49; height: calc(150px + env(safe-area-inset-bottom, 0px)); pointer-events: none; background: radial-gradient(64px 46px at 50% calc(100% - 98px - env(safe-area-inset-bottom, 0px)), var(--ksm-page) 58%, color-mix(in srgb, var(--ksm-page) 0%, transparent) 100%), linear-gradient(to bottom, color-mix(in srgb, var(--ksm-page) 0%, transparent) 0%, color-mix(in srgb, var(--ksm-page) 80%, transparent) 20%, color-mix(in srgb, var(--ksm-page) 97%, transparent) 38%, var(--ksm-page) 60%); }
+/* (the soft round patch under the squirrel's ears keeps any text out from behind them) */
+/* Chats draw their own panel down to the bar (บอกเรา, น้องกระรอก AI): no fade over their message box. */
+body:has(.fbc.is-mobile, .asx.is-mobile) .ksm-nav-fade { display: none; }
+.ksm-nav-add { height: 68px; margin: 0; border-radius: 0; justify-content: flex-end; overflow: visible; z-index: 2; }
+.ksm-squirrel { position: absolute; top: -31px; width: 58px; height: 73px; color: #E65F2B; filter: drop-shadow(0 4px 8px rgba(230, 95, 43, 0.3)); transition: transform 120ms ease-out; }
+.ksm-squirrel svg { display: block; width: 100%; height: 100%; }
+.ksm-nav-add:hover .ksm-squirrel { color: #D35221; }
+.ksm-nav-add:active .ksm-squirrel { transform: scale(0.95); }
+.ksm-nav-add > span:last-child { margin: 0 0 6px; font-size: 11px; font-weight: 600; color: var(--ksm-accent-text); }
+
+/* The tools screen behind the "เมนู" tab */
+.ksm-layer { position: absolute; z-index: 40; left: 0; right: 0; top: calc(max(10px, env(safe-area-inset-top, 0px)) + 48px); bottom: 0; overflow-y: auto; overscroll-behavior-y: contain; padding: 10px 16px calc(140px + env(safe-area-inset-bottom, 0px)); background: var(--ksm-page); color: var(--ksm-text); font-size: 15px; line-height: 1.5; }
+.ksm-page { animation: ksm-page-in 0.22s ease-out; }
+.ksm-page > * + * { margin-top: 12px; }
+@keyframes ksm-page-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+.ksm-title { min-height: 44px; margin-bottom: 8px; }
+.ksm-title h2 { font-size: 23px; font-weight: 600; line-height: 1.36; }
+.ksm-title p { max-width: 270px; margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-search { position: relative; }
+.ksm-search > svg { position: absolute; left: 13px; top: 11px; color: var(--ksm-secondary); }
+.ksm-search input { display: block; width: 100%; min-height: 44px; padding: 10px 40px 10px 42px; font-size: 14px; line-height: 1.5; color: var(--ksm-text); background: rgba(118, 118, 128, 0.12); border: 1px solid transparent; border-radius: 12px; }
+.ksm-search input:focus { background: var(--ksm-surface); border-color: var(--ksm-accent); }
+.dark .ksm-search input { background: rgba(118, 118, 128, 0.24); }
+.ksm-search input::placeholder { color: var(--ksm-secondary); }
+.ksm-search-clear { position: absolute; right: 2px; top: 1px; width: 40px; height: 42px; display: inline-flex; align-items: center; justify-content: center; color: var(--ksm-secondary); border-radius: 12px; cursor: pointer; }
+.ksm-groups { display: grid; gap: 10px; }
+.ksm-group { overflow: hidden; background: var(--ksm-surface); border: 1px solid var(--ksm-border); border-radius: 16px; box-shadow: 0 2px 10px var(--ksm-shadow-near); }
+.ksm-group > summary { display: flex; align-items: center; gap: 12px; min-height: 78px; padding: 16px 14px; list-style: none; cursor: pointer; }
+.ksm-group > summary::-webkit-details-marker { display: none; }
+.ksm-group > summary b { display: block; font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--ksm-text); }
+.ksm-group > summary small { display: block; margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-grow { flex: 1; min-width: 0; text-align: left; }
+.ksm-group-symbol { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 14px; background: var(--ksm-selected); color: var(--ksm-accent-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ksm-accent) 14%, transparent); }
+.ksm-group-chevron { display: grid; color: var(--ksm-secondary); transition: transform 150ms; }
+.ksm-group[open] > summary { background: var(--ksm-selected); }
+.ksm-group[open] > summary b { color: var(--ksm-accent-text); }
+.ksm-group[open] .ksm-group-symbol { background: var(--ksm-surface); }
+.ksm-group[open] .ksm-group-chevron { transform: rotate(90deg); }
+.ksm-group-body { padding: 2px 8px 6px; }
+/* The menu's numbered sections (mobileNavigation.ts). One-entry sections are a single tappable row. */
+.ksm-group-number { display: block; font-style: normal; font-size: 11px; font-weight: 600; line-height: 1.4; letter-spacing: 0.4px; color: var(--ksm-accent-text); font-variant-numeric: tabular-nums; }
+.ksm-group-direct { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 78px; padding: 16px 14px; text-align: left; color: var(--ksm-text); cursor: pointer; }
+.ksm-group-direct b { display: block; font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--ksm-text); }
+.ksm-group-direct small { display: block; margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-group-direct:hover { background: var(--ksm-muted); }
+.ksm-soon { flex-shrink: 0; padding: 3px 9px; border-radius: 999px; background: var(--ksm-muted); color: var(--ksm-secondary); font-size: 11px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
+.ksm-group-direct.is-soon, .ksm-row.is-soon { cursor: default; }
+.ksm-group-direct.is-soon:hover, .ksm-row.is-soon:hover { background: none; }
+.ksm-group-direct.is-soon .ksm-group-symbol, .ksm-row.is-soon .ksm-row-icon { opacity: 0.55; }
+.ksm-row-value { flex-shrink: 0; max-width: 40%; font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--ksm-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-page > .ksm-account { margin-top: 4px; }
+.ksm-row { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 64px; padding: 12px 6px; text-align: left; border-bottom: 1px solid var(--ksm-border); cursor: pointer; }
+.ksm-row:last-child { border-bottom: 0; }
+.ksm-row:hover { background: var(--ksm-muted); }
+.ksm-row-icon { display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 11px; background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.ksm-row b { display: block; font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--ksm-text); overflow-wrap: anywhere; }
+.ksm-row p { margin-top: 3px; font-size: 11px; line-height: 1.55; color: var(--ksm-secondary); overflow-wrap: anywhere; }
+.ksm-row > svg:last-child { flex-shrink: 0; color: var(--ksm-secondary); }
+.ksm-panel { background: var(--ksm-surface); border: 1px solid var(--ksm-border); border-radius: 16px; overflow: hidden; }
+.ksm-panel .ksm-row { padding: 14px; gap: 10px; }
+.ksm-count { margin: 0 0 9px; font-size: 12px; color: var(--ksm-secondary); }
+.ksm-account { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 16px; padding: 12px 14px; text-align: left; background: var(--ksm-surface); border: 1px solid var(--ksm-border); border-radius: 16px; cursor: pointer; }
+.ksm-avatar { display: grid; place-items: center; flex-shrink: 0; overflow: hidden; width: 34px; height: 34px; border-radius: 12px; background: var(--ksm-muted); color: var(--ksm-secondary); font-size: 12px; font-weight: 600; }
+.ksm-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ksm-account b { display: block; font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--ksm-text); }
+.ksm-account small { display: block; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-account > svg { color: var(--ksm-secondary); }
+.ksm-note { margin-top: 2px; text-align: center; font-size: 11px; line-height: 1.6; color: var(--ksm-secondary); }
+.ksm-workspace { margin-top: 12px; }
+.ksm-empty { padding: 22px 14px; text-align: center; font-size: 13px; color: var(--ksm-secondary); }
+
+@media (max-width: 360px) {
+  .ksm-header { padding-left: 12px; padding-right: 12px; }
+  .ksm-layer { padding-left: 12px; padding-right: 12px; }
+  .ksm-wordmark { font-size: 17px; }
+  .ksm-nav-item, .ksm-nav-add > span:last-child { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ksm-page { animation: none; }
+  .ksm-squirrel, .ksm-group-chevron { transition: none; }
+}
+
+/* ภาพรวม (home) */
+.ksm-home { animation: ksm-page-in 0.22s ease-out; font-size: 15px; line-height: 1.5; color: var(--ksm-text); }
+.ksm-month { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+.ksm-month > button { display: flex; align-items: center; justify-content: center; min-width: 28px; height: 44px; border-radius: 12px; color: var(--ksm-text); cursor: pointer; }
+.ksm-month > .ksm-month-label { gap: 2px; padding: 0 4px; font-size: 12px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
+.ksm-month > .ksm-month-label.is-other { color: var(--ksm-accent-text); }
+.ksm-month > button:hover { background: var(--ksm-muted); }
+.ksm-month-pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; width: 272px; max-width: calc(100vw - 32px); padding: 12px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); box-shadow: 0 8px 24px var(--ksm-shadow-far); }
+
+.ksm-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* The summary card. The terracotta of the bar runs on behind its upper part (::before, rounded at
+   the bottom) and stops partway down, so the card sits half on the header and half on the page. */
+/* The net-profit card (useCollapsingCard): pinned under the top bar and always as tall as the open
+   card in the layout, so resizing it never moves the page. Three layers: the terracotta backdrop, the
+   card whose clip shrinks to a 64px bar, and the month pill outside the clip. The box itself lets
+   touches through to the page scrolling under it. */
+.ksm-summary { position: sticky; top: -10px; z-index: 20; margin: -10px -16px 0; pointer-events: none; }
+.ksm-hero-backdrop { position: absolute; left: 0; right: 0; top: 0; border-radius: 0 0 30px 30px;
+  background: linear-gradient(180deg, var(--ksm-hero) 0%, var(--ksm-hero-mid) 100%); }
+/* One terracotta layer with the top bar (owner, 2026-10-20): the backdrop carries on upward, hidden
+   above the scroll area, so a pull past the top on iOS shows more terracotta, never a light gap
+   between the bar and the card. The pull itself is switched off on the overview (.ksm-home-scroller). */
+.ksm-hero-backdrop::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 100vh; background: var(--ksm-hero); }
+.ksm-home-scroller { overscroll-behavior-y: none; }
+/* Room under the last card for the floating bottom bar (68px + 16px gap + a little air). */
+#main-content.ksm-home-scroller { padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+.ksm-hero { position: absolute; top: 8px; left: 16px; right: 16px; color: #FFFFFF; text-align: left; pointer-events: auto; animation: ksm-hero-in 0.34s ease-out 40ms both;
+  /* Normal sizes; useFitFigures sets --ksm-figure-size / --ksm-metric-size when a large amount needs less. */
+  --ksm-figure-base: 42px; --ksm-metric-base: 19px; --ksm-metric-pad: 10px; }
+.ksm-hero-clip { position: relative; overflow: hidden; border-radius: 22px;
+  background:
+    radial-gradient(220px 140px at 100% 0%, rgba(230, 95, 43, 0.35), rgba(230, 95, 43, 0) 70%),
+    linear-gradient(165deg, #9C3A17 0%, #A63F1B 55%, #B4471D 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 14px 30px rgba(120, 40, 12, 0.26); transform: translateZ(0); }
+.ksm-hero-inner { position: relative; padding: 13px 15px 14px; }
+@keyframes ksm-hero-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.ksm-hero-row { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; }
+.ksm-hero-label { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 15px; font-weight: 500; line-height: 1.5; color: rgba(255, 255, 255, 0.92); }
+.ksm-hero-label > svg { flex-shrink: 0; }
+.ksm-eye { display: inline-grid; place-items: center; width: 34px; height: 34px; margin-left: -4px; border-radius: 50%; color: rgba(255, 255, 255, 0.9); cursor: pointer; }
+.ksm-eye:hover { background: rgba(255, 255, 255, 0.12); }
+.ksm-hero-month { position: absolute; z-index: 3; top: 15px; right: 15px; }
+.ksm-hero .ksm-month { height: 36px; padding: 0 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+.ksm-hero .ksm-month > button { height: 36px; border-radius: 999px; color: #FFFFFF; }
+.ksm-hero .ksm-month > .ksm-month-label { gap: 4px; padding: 0 8px 0 10px; font-size: 13px; }
+.ksm-hero .ksm-month > button:hover { background: rgba(255, 255, 255, 0.1); }
+.ksm-hero .ksm-month > .ksm-month-label.is-other { color: #FFE0CC; }
+.ksm-hero .ksm-month-pop { color: var(--ksm-text); text-align: left; }
+.ksm-hero-figure { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.ksm-net { display: block; min-width: 0; color: #FFFFFF; text-align: left; cursor: pointer; will-change: transform; }
+.ksm-net strong { display: block; font-size: var(--ksm-figure-size, var(--ksm-figure-base)); font-weight: 700; line-height: 1.2; letter-spacing: -1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; animation: ksm-figure-in 0.24s ease-out; }
+@keyframes ksm-figure-in { from { opacity: 0.35; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.ksm-trend { flex-shrink: 0; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ksm-trend.is-up { background: rgba(24, 166, 106, 0.3); color: #EFFFF6; }
+.ksm-trend.is-down { background: rgba(196, 58, 58, 0.36); color: #FFF1F1; }
+.ksm-trend.is-plain { background: rgba(255, 255, 255, 0.14); color: #FFFFFF; }
+/* Received, all expenses and work value: three equal columns split by thin light lines. */
+.ksm-hero-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 12px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.16); }
+/* Top-aligned (a button centres its content by default), so the three labels and figures share a line
+   even when one column has the change from last month under it. */
+.ksm-hero-metrics > button { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; min-width: 0; min-height: 48px; padding: 0 var(--ksm-metric-pad); color: #FFFFFF; text-align: left; cursor: pointer; }
+.ksm-hero-metrics > button:first-child { padding-left: 0; }
+.ksm-hero-metrics > button + button { border-left: 1px solid rgba(255, 255, 255, 0.18); }
+.ksm-hero-metrics span { display: block; font-size: 12px; line-height: 1.5; color: rgba(255, 255, 255, 0.86); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-hero-metrics b { display: block; margin-top: 3px; font-size: var(--ksm-metric-size, var(--ksm-metric-base)); font-weight: 600; line-height: 1.35; letter-spacing: -0.4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; animation: ksm-figure-in 0.24s ease-out; }
+.ksm-hero-metrics small { display: block; margin-top: 1px; font-size: 11px; line-height: 1.5; color: rgba(255, 255, 255, 0.68); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-hero-metrics > button:active, .ksm-net:active { opacity: 0.8; }
+
+/* Four round shortcuts; the first is solid orange, the rest soft orange with orange icons. */
+.ksm-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
+.ksm-quick { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; font-size: 13px; font-weight: 500; line-height: 1.5; color: var(--ksm-text); text-align: center; cursor: pointer; }
+.ksm-quick-icon { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; background: var(--ksm-selected); color: #E65F2B; transition: background 0.14s ease-out, transform 0.14s ease-out; }
+.dark .ksm-quick-icon { color: #FFA473; }
+.ksm-quick:hover .ksm-quick-icon { transform: translateY(-1px); }
+.ksm-quick:active .ksm-quick-icon { transform: scale(0.94); }
+.ksm-quick.is-primary .ksm-quick-icon { background: #E65F2B; color: #FFFFFF; box-shadow: 0 8px 18px rgba(230, 95, 43, 0.32); }
+.ksm-quick.is-primary:hover .ksm-quick-icon { background: #D35221; }
+
+/* Cards below: money owed, the next date, the latest money in and out. */
+.ksm-notice, .ksm-agenda, .ksm-activity, .ksm-quiet { animation: ksm-card-in 0.26s ease-out both; }
+@keyframes ksm-card-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ksm-notice { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 72px; margin-top: 18px; padding: 12px 14px; border: 1px solid var(--ksm-border); border-radius: 18px; background: var(--ksm-surface); color: var(--ksm-text); text-align: left; box-shadow: 0 4px 14px var(--ksm-shadow-near); cursor: pointer; }
+.ksm-notice-icon { display: grid; place-items: center; flex-shrink: 0; width: 46px; height: 46px; border-radius: 14px; background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.ksm-notice-label { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; line-height: 1.45; }
+.ksm-notice-label > i { width: 8px; height: 8px; border-radius: 50%; background: var(--ksm-accent); }
+.ksm-notice-status { display: block; margin-top: 1px; font-size: 13px; font-weight: 500; line-height: 1.5; color: var(--ksm-accent-text); }
+.ksm-notice > svg { flex-shrink: 0; color: var(--ksm-secondary); }
+.ksm-notice.is-empty .ksm-notice-status { color: var(--ksm-secondary); }
+.ksm-notice.is-empty .ksm-notice-icon { background: var(--ksm-muted); color: var(--ksm-secondary); }
+
+.ksm-section-title { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin-top: 14px; }
+.ksm-section-title h3 { font-size: 17px; font-weight: 600; line-height: 1.45; color: var(--ksm-text); }
+.ksm-link { display: inline-flex; align-items: center; gap: 3px; min-height: 44px; font-size: 13px; font-weight: 500; color: var(--ksm-accent-text); cursor: pointer; }
+/* The date and the event as two tiles side by side, as in the reference. */
+.ksm-agenda { display: flex; align-items: stretch; gap: 6px; width: 100%; margin-top: 2px; color: var(--ksm-text); text-align: left; cursor: pointer; }
+.ksm-date { display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; width: 72px; min-height: 74px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); color: var(--ksm-accent-text); text-align: center; box-shadow: 0 4px 14px var(--ksm-shadow-near); }
+.ksm-date b { display: block; font-size: 24px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.ksm-date small { font-size: 12px; line-height: 1.5; }
+.ksm-agenda-body { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 12px 14px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); box-shadow: 0 4px 14px var(--ksm-shadow-near); }
+.ksm-agenda-body small { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 12px; line-height: 1.4; color: var(--ksm-secondary); }
+.ksm-agenda-body small > i { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--ksm-accent); }
+.ksm-agenda-body b { display: block; font-size: 15px; font-weight: 500; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-agenda-body > svg { flex-shrink: 0; color: var(--ksm-secondary); }
+.ksm-quiet { margin-top: 2px; padding: 16px 14px; border: 1px dashed var(--ksm-border); border-radius: 16px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); text-align: center; }
+.ksm-activity { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 2px; list-style: none; }
+.ksm-activity > li { display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 10px 14px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); box-shadow: 0 4px 14px var(--ksm-shadow-near); }
+.ksm-activity-icon { display: grid; place-items: center; flex-shrink: 0; width: 46px; height: 46px; border-radius: 14px; background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.ksm-activity > li.is-in .ksm-activity-icon { background: var(--ksm-success-soft); color: var(--ksm-success); }
+.ksm-activity b { display: block; font-size: 15px; font-weight: 600; line-height: 1.45; color: var(--ksm-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-activity small { display: block; margin-top: 1px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-activity strong { flex-shrink: 0; font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--ksm-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ksm-activity > li.is-in strong { color: var(--ksm-success); }
+.ksm-tools-entry { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; max-width: 100%; margin-top: 10px; padding: 7px 0; font-size: 12px; color: var(--ksm-text); text-align: left; cursor: pointer; }
+.ksm-tools-entry > span { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
+.ksm-tools-entry > small { font-size: 10px; line-height: 15px; color: var(--ksm-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-tools-entry > svg { flex-shrink: 0; color: var(--ksm-secondary); }
+
+/* Bottom sheet */
+/* iOS: the page blurs behind a sheet (owner, 2026-10-23), so nothing behind it reads through. */
+.ksm-sheet-backdrop { position: fixed; inset: 0; z-index: 90; background: rgba(28, 25, 23, 0.32); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.ksm-sheet { font-size: 15px; line-height: 1.5; position: fixed; left: 0; right: 0; bottom: 0; z-index: 91; display: flex; flex-direction: column; max-height: calc(100dvh - 16px); margin: 0 auto; border-top: 1px solid var(--ksm-border); border-radius: 24px 24px 0 0; background: var(--ksm-surface); color: var(--ksm-text); box-shadow: 0 12px 44px var(--ksm-shadow-far); overflow: hidden; animation: ksm-sheet-in 0.22s ease-out; }
+.ksm-sheet-grip { flex: none; width: 34px; height: 4px; margin: 9px auto 1px; border-radius: 4px; background: var(--ksm-border); }
+.ksm-sheet-header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 18px 13px; border-bottom: 1px solid var(--ksm-border); }
+.ksm-sheet-header h2 { min-width: 0; font-size: 22px; font-weight: 600; line-height: 1.36; outline: none; }
+.ksm-sheet-close { display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 12px; color: var(--ksm-text); cursor: pointer; }
+.ksm-sheet-close:hover { background: var(--ksm-muted); }
+.ksm-sheet-content { min-height: 0; padding: 0 18px calc(18px + env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; }
+.ksm-sheet-intro { margin: 15px 0 12px; font-size: 12px; line-height: 1.7; color: var(--ksm-secondary); }
+.ksm-list { border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); overflow: hidden; }
+.ksm-list > button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 77px; padding: 14px; border-bottom: 1px solid var(--ksm-border); color: var(--ksm-text); text-align: left; cursor: pointer; }
+.ksm-list > button:last-child { border-bottom: 0; }
+.ksm-list > button:hover { background: var(--ksm-muted); }
+.ksm-list-icon { display: grid; place-items: center; flex: none; width: 35px; height: 35px; border-radius: 12px; background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.ksm-list b { display: block; font-size: 14px; font-weight: 500; line-height: 1.5; }
+.ksm-list p { margin-top: 3px; font-size: 12px; line-height: 1.55; color: var(--ksm-secondary); }
+.ksm-list > button > svg { flex: none; color: var(--ksm-secondary); }
+.ksm-sheet-all { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 48px; margin-top: 12px; font-size: 13px; font-weight: 500; color: var(--ksm-accent-text); cursor: pointer; }
+.ksm-hint { margin-top: 8px; font-size: 12px; line-height: 1.7; color: var(--ksm-secondary); }
+@keyframes ksm-sheet-in { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 360px) {
+  .ksm-month > .ksm-month-label { font-size: 11px; }
+  .ksm-month > button { min-width: 25px; }
+  .ksm-hero { left: 12px; right: 12px; }
+  .ksm-hero-inner { padding: 13px 11px 12px; }
+  .ksm-hero-month { right: 12px; }
+  .ksm-hero { --ksm-figure-base: 36px; --ksm-metric-base: 16px; --ksm-metric-pad: 7px; }
+  .ksm-trend { padding: 4px 9px; font-size: 11px; }
+  .ksm-hello-text b { font-size: 26px; }
+  .ksm-hello-avatar { width: 52px; height: 52px; }
+  .ksm-hero-metrics span { font-size: 11px; }
+  .ksm-quick { font-size: 12px; }
+  .ksm-quick-icon { width: 54px; height: 54px; }
+  .ksm-notice { gap: 12px; padding: 10px 12px; }
+  .ksm-date { width: 64px; }
+  .ksm-tools-entry > small { max-width: 130px; }
+}
+/* Short screens (iPhone SE and the like): a smaller greeting and card, so the part that scrolls keeps room. */
+@media (max-height: 740px) {
+  .ksm-hello { min-height: 52px; margin-top: 2px; }
+  .ksm-hello-text small { font-size: 12px; }
+  .ksm-hello-text b { font-size: 24px; }
+  .ksm-hello-avatar { width: 46px; height: 46px; }
+  .ksm-hero-inner { padding-bottom: 10px; }
+  .ksm-hero { --ksm-figure-base: 34px; --ksm-metric-base: 17px; }
+  .ksm-hero-metrics { margin-top: 8px; padding-top: 10px; }
+}
+@media (max-width: 340px) {
+  .ksm-header.is-hero .ksm-wordmark { font-size: 16px; }
+  .ksm-hero { --ksm-figure-base: 32px; --ksm-metric-base: 15px; }
+  .ksm-hero-metrics span, .ksm-hero-metrics small { font-size: 10px; }
+  .ksm-hero-metrics b { letter-spacing: -0.5px; }
+  .ksm-quick-icon { width: 50px; height: 50px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ksm-home, .ksm-sheet, .ksm-header.is-hero > *, .ksm-hero, .ksm-net strong, .ksm-hero-metrics b,
+  .ksm-notice, .ksm-agenda, .ksm-activity, .ksm-quiet { animation: none; }
+  .ksm-quick-icon { transition: none; }
+}
+
+/* Add / edit job sheet */
+.ksm-jobsheet { bottom: var(--ksm-keyboard-lift, 0px); max-height: calc(var(--ksm-visible-height, 100dvh) - 16px); }
+.ksm-jobsheet .ksm-sheet-header { min-height: 55px; padding: 7px 20px 4px; border-bottom: 0; }
+.ksm-jobsheet .ksm-sheet-header h2 { letter-spacing: -0.5px; line-height: 1.4; }
+.ksm-jobform-scroll { flex: 1; min-height: 0; padding: 0 20px 4px; overflow-y: auto; overscroll-behavior: contain; }
+.ksm-jobform-intro { margin: 0 0 14px; font-size: 12px; line-height: 1.65; color: var(--ksm-secondary); }
+.ksm-field + .ksm-field { margin-top: 14px; }
+.ksm-field > label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--ksm-text); }
+.ksm-field > label small { margin-top: 5px; font-size: 11px; font-weight: 400; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-required { font-size: 12px; color: #C43A3A; }
+.ksm-field > input { display: block; width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--ksm-border); border-radius: 12px; background: var(--ksm-surface); color: var(--ksm-text); font-size: 16px; line-height: 24px; outline: 0; }
+.ksm-field > input::placeholder, .ksm-amount input::placeholder { color: var(--ksm-secondary); opacity: 0.75; }
+.ksm-amount input:focus-visible { outline: 0; }
+.ksm-field > input:focus-visible { outline: 0; border-color: var(--ksm-accent-text); box-shadow: 0 0 0 1px var(--ksm-accent-text); }
+.ksm-field > input.is-invalid, .ksm-amount.is-invalid { border-color: #C43A3A; }
+.ksm-amount { display: flex; align-items: center; gap: 8px; height: 58px; padding: 0 12px; border: 1px solid #F3B08C; border-radius: 12px; background: var(--ksm-selected); }
+.dark .ksm-amount { border-color: var(--ksm-border); }
+.ksm-amount:focus-within, .dark .ksm-amount:focus-within { border-color: var(--ksm-accent-text); box-shadow: 0 0 0 1px var(--ksm-accent-text); }
+.ksm-amount > span { font-size: 22px; font-weight: 500; line-height: 1; color: var(--ksm-accent-text); }
+.ksm-amount input { flex: 1; min-width: 0; min-height: 56px; padding: 8px 0; border: 0; background: transparent; color: var(--ksm-text); font-size: 30px; font-weight: 600; line-height: 39px; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; outline: 0; }
+.ksm-jobmore { margin-top: 20px; border-top: 1px solid var(--ksm-border); }
+.ksm-jobmore > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 62px; padding: 12px 0; list-style: none; cursor: pointer; }
+.ksm-jobmore > summary::-webkit-details-marker { display: none; }
+.ksm-jobmore > summary b { display: block; font-size: 14px; font-weight: 500; line-height: 1.5; }
+.ksm-jobmore > summary small { display: block; margin-top: 3px; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-jobmore > summary > svg { flex: none; color: var(--ksm-accent-text); transition: transform 0.15s; }
+.ksm-jobmore[open] > summary > svg { transform: rotate(180deg); }
+.ksm-jobmore-body { padding: 0 0 12px; }
+.ksm-segments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-bottom: 14px; padding: 4px; border-radius: 12px; background: var(--ksm-muted); }
+.ksm-segments > button { min-height: 40px; padding: 8px 3px; border-radius: 8px; font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--ksm-secondary); text-align: center; cursor: pointer; }
+.ksm-segments > button[aria-selected="true"] { background: var(--ksm-surface); color: var(--ksm-accent-text); box-shadow: 0 1px 3px var(--ksm-shadow-near); }
+.ksm-jobpanel > * + * { margin-top: 16px; }
+.ksm-net-review { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; padding: 10px 12px; border-radius: 12px; background: var(--ksm-muted); font-size: 12px; }
+.ksm-net-review b { font-size: 15px; font-weight: 600; white-space: nowrap; color: var(--ksm-accent-text); }
+.ksm-jobform-footer { flex: none; padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--ksm-border); background: var(--ksm-surface); }
+.ksm-primary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 48px; padding: 10px 15px; border-radius: 12px; background: var(--ksm-accent); color: #1C1917; font-size: 16px; font-weight: 600; line-height: 24px; cursor: pointer; }
+.ksm-primary:hover { background: #D35221; }
+.dark .ksm-primary:hover { background: #FFA473; filter: brightness(1.05); }
+@media (max-width: 359px) {
+  .ksm-jobform-scroll, .ksm-jobform-footer { padding-left: 16px; padding-right: 16px; }
+  .ksm-jobsheet .ksm-sheet-header { padding-left: 16px; padding-right: 16px; }
+  .ksm-jobmore > summary small { font-size: 10px; }
+  .ksm-amount input { font-size: 26px; }
+}
+
+/* Page title row, tabs and cards shared by งาน and เงินรอรับ */
+.ksm-screen { animation: ksm-page-in 0.22s ease-out; font-size: 15px; line-height: 1.5; color: var(--ksm-text); }
+.ksm-pagetitle { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin-bottom: 8px; }
+.ksm-pagetitle h2 { font-size: 23px; font-weight: 600; line-height: 1.36; letter-spacing: -0.5px; color: var(--ksm-text); }
+.ksm-toolbtn { position: relative; display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border: 1px solid var(--ksm-border); border-radius: 12px; background: var(--ksm-surface); color: var(--ksm-secondary); cursor: pointer; }
+.ksm-toolbtn.is-active { border-color: #F3B08C; color: var(--ksm-accent-text); }
+.ksm-toolbtn > i { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--ksm-accent); }
+.ksm-screen > .ksm-search { margin-top: 12px; }
+/* iOS segmented control (owner, 2026-10-23): grey track, white pill on the chosen status. */
+.ksm-tabs { display: flex; gap: 2px; margin-top: 10px; padding: 2px; border-radius: 999px; background: rgba(118, 118, 128, 0.12); }
+.ksm-tabs > button { position: relative; flex: 1; min-width: 0; min-height: 36px; padding: 6px 4px; border-radius: 999px; font-size: 13px; line-height: 1.5; letter-spacing: -0.2px; color: color-mix(in srgb, var(--ksm-text) 78%, transparent); text-align: center; white-space: nowrap; cursor: pointer; }
+.ksm-tabs > button[aria-selected="true"] { background: var(--ksm-surface); color: var(--ksm-text); font-weight: 600; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); }
+.dark .ksm-tabs { background: rgba(118, 118, 128, 0.24); }
+.dark .ksm-tabs > button[aria-selected="true"] { background: #48494F; }
+.ksm-tabs .ksm-count { margin-left: 3px; font-size: 11px; font-weight: 600; }
+.ksm-filter-note { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 0 10px; border-radius: 12px; background: var(--ksm-selected); color: var(--ksm-accent-text); font-size: 12px; }
+.ksm-filter-note > button:first-child { flex: 1; min-width: 0; min-height: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; cursor: pointer; }
+.ksm-filter-note > .ksm-link { min-height: 40px; font-size: 12px; }
+.ksm-joblist { display: grid; gap: 9px; margin-top: 12px; }
+.ksm-jobcard { position: relative; min-width: 0; padding: 12px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); color: var(--ksm-text); text-align: left; cursor: pointer; }
+/* A card scrolled to after a save stays clear of the top bar and the bottom bar. */
+.ksm-jobcard { scroll-margin: 76px 0 112px; }
+.ksm-jobcard.is-overdue { padding-left: 9px; border-color: var(--ksm-error); border-left-width: 4px; background: var(--ksm-error-soft); }
+.ksm-jobcard.is-due-soon { padding-left: 9px; border-left: 4px solid var(--ksm-warning); }
+.ksm-jobcard-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ksm-jobclient { margin-bottom: 3px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-jobtitle { font-size: 15px; font-weight: 600; line-height: 1.5; letter-spacing: -0.15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-jobmoney { flex: none; padding-left: 4px; text-align: right; }
+.ksm-jobmoney small { display: block; margin-bottom: 3px; font-size: 11px; line-height: 1.4; color: var(--ksm-secondary); }
+.ksm-jobmoney strong { font-size: 22px; font-weight: 600; line-height: 1.25; letter-spacing: -0.5px; color: var(--ksm-accent-text); font-variant-numeric: tabular-nums; }
+.ksm-jobcard.is-overdue .ksm-jobmoney strong { color: var(--ksm-error); }
+.ksm-jobcard.is-paid .ksm-jobmoney strong { font-size: 19px; font-weight: 500; color: var(--ksm-secondary); }
+.ksm-jobstatus { display: flex; align-items: center; gap: 8px; min-height: 24.5px; margin-top: 10px; font-size: 12px; }
+.ksm-workstate { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.5; color: var(--ksm-text); white-space: nowrap; }
+.ksm-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 12px; background: var(--ksm-muted); color: var(--ksm-secondary); font-size: 11px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
+.ksm-badge.is-emphasis { background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.ksm-jobcard.is-overdue .ksm-badge:not(.is-success):not(.is-emphasis) { background: rgba(255, 255, 255, 0.6); }
+.dark .ksm-jobcard.is-overdue .ksm-badge:not(.is-success):not(.is-emphasis) { background: rgba(255, 255, 255, 0.06); }
+.ksm-badge.is-success { background: var(--ksm-success-soft); color: var(--ksm-text); }
+/* iOS-style grey round ⋯ button (owner, 2026-10-23). */
+.ksm-cardmenu { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; margin: -4px 0 -4px 12px; border-radius: 50%; background: rgba(118, 118, 128, 0.14); color: var(--ksm-text); cursor: pointer; }
+.dark .ksm-cardmenu { background: rgba(118, 118, 128, 0.26); }
+.ksm-deadline { display: flex; align-items: center; gap: 5px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--ksm-border); font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-deadline > span:last-child { margin-left: auto; white-space: nowrap; }
+/* The card's last line: the due date, and the receive button when there is money to come (owner, 2026-10-20). */
+.ksm-jobfoot { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--ksm-border); }
+.ksm-jobfoot.is-urgent { border-top-color: color-mix(in srgb, var(--ksm-error) 22%, transparent); }
+.ksm-jobfoot > .ksm-deadline { flex: 1; min-width: 0; margin-top: 0; padding-top: 0; border-top: 0; }
+.ksm-jobfoot > .ksm-deadline > span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-jobfoot:has(.ksm-receive) > .ksm-deadline { flex-wrap: wrap; column-gap: 5px; row-gap: 0; }
+.ksm-jobfoot:has(.ksm-receive) > .ksm-deadline > span:last-child { margin-left: 0; }
+.ksm-receive { min-height: 40px; padding: 6px 14px; font-size: 13px; }
+.ksm-deadline.is-urgent { border-top-color: color-mix(in srgb, var(--ksm-error) 22%, transparent); font-weight: 600; color: var(--ksm-error); }
+.ksm-deadline.is-soon { color: var(--ksm-warning); }
+.ksm-empty { padding: 32px 18px; border: 1px dashed var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); text-align: center; }
+.ksm-empty h3 { font-size: 14px; font-weight: 600; }
+.ksm-empty p { margin-top: 4px; font-size: 12px; color: var(--ksm-secondary); }
+
+/* เงินรอรับ */
+.ksm-screen > .ksm-month { margin-top: 12px; justify-content: flex-start; }
+.ksm-screen > .ksm-month > .ksm-month-pop { left: 0; right: auto; }
+.ksm-moneycard { margin-top: 12px; padding: 18px; border-radius: 16px; background: #A63F1B; color: #FFFFFF; }
+.ksm-moneycard > span { font-size: 14px; font-weight: 500; line-height: 1.5; }
+.ksm-moneycard > strong { display: block; margin-top: 5px; font-size: 36px; font-weight: 600; line-height: 1.2; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.ksm-moneycard > p { margin-top: 8px; font-size: 12px; line-height: 1.5; }
+.ksm-scope { display: flex; align-items: center; gap: 4px; margin-top: 12px; padding: 4px; border-radius: 12px; background: var(--ksm-muted); }
+.ksm-scope > button { flex: 1; min-width: 0; min-height: 44px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--ksm-secondary); text-align: center; cursor: pointer; }
+.ksm-scope > button[aria-selected="true"] { background: var(--ksm-surface); color: var(--ksm-accent-text); font-weight: 600; box-shadow: 0 1px 4px var(--ksm-shadow-near); }
+.ksm-scope > button > span { display: inline-block; min-width: 18px; height: 18px; margin-left: 4px; padding: 0 3px; border-radius: 5px; background: var(--ksm-error-soft); color: var(--ksm-error); font-size: 12px; font-weight: 500; line-height: 18px; }
+.ksm-duelist { display: grid; gap: 10px; margin-top: 12px; }
+.ksm-due { min-width: 0; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-due.is-overdue { border-left: 4px solid var(--ksm-error); background: var(--ksm-error-soft); }
+.ksm-due.is-soon { border-left: 4px solid var(--ksm-warning); }
+.ksm-due-body { display: flex; gap: 10px; width: 100%; padding: 12px; color: var(--ksm-text); text-align: left; cursor: pointer; }
+.ksm-due-body h3 { margin-top: 2px; font-size: 14px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-due-body .ksm-jobclient { margin-bottom: 0; }
+.ksm-due-part { font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-due-money { flex: none; text-align: right; }
+.ksm-due-money small { display: block; margin-bottom: 2px; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-due-money strong { display: block; font-size: 23px; font-weight: 600; line-height: 1.35; letter-spacing: -0.5px; color: var(--ksm-accent-text); font-variant-numeric: tabular-nums; }
+.ksm-due.is-overdue .ksm-due-money strong { color: var(--ksm-error); }
+.ksm-due-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 12px 12px; }
+.ksm-due-state { display: flex; align-items: flex-start; gap: 5px; font-size: 12px; line-height: 1.6; color: var(--ksm-secondary); }
+.ksm-due-state > svg { flex: none; margin-top: 2px; }
+.ksm-due.is-overdue .ksm-due-state { font-weight: 600; color: var(--ksm-error); }
+.ksm-due.is-soon .ksm-due-state { font-weight: 500; color: var(--ksm-text); }
+.ksm-due.is-soon .ksm-due-state > svg { color: var(--ksm-warning); }
+.ksm-due-date { display: block; font-size: 11px; line-height: 1.55; color: var(--ksm-secondary); }
+.ksm-remind { padding: 6px 0; margin: -6px 0; font-size: 11px; color: var(--ksm-secondary); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ksm-remind.is-set { color: var(--ksm-accent-text); }
+.ksm-remind-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px 12px; border-top: 1px solid var(--ksm-border); font-size: 11px; color: var(--ksm-secondary); }
+.ksm-remind-row > button { min-height: 32px; padding: 0 10px; border: 1px solid var(--ksm-border); border-radius: 10px; background: var(--ksm-surface); color: var(--ksm-text); font-size: 12px; cursor: pointer; }
+.ksm-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none; min-height: 44px; padding: 8px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; line-height: 1.5; white-space: nowrap; cursor: pointer; }
+.ksm-btn.is-primary { background: var(--ksm-accent); color: #1C1917; }
+.ksm-btn.is-soft { background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.ksm-group-title { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin-top: 12px; }
+.ksm-group-title h3 { font-size: 14px; font-weight: 600; }
+.ksm-group-title span { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ksm-micro { margin-top: 10px; font-size: 11px; line-height: 1.6; color: var(--ksm-secondary); text-align: center; }
+@media (max-width: 360px) {
+  .ksm-jobmoney strong, .ksm-due-money strong { font-size: 20px; }
+  .ksm-scope > button { font-size: 13px; }
+  .ksm-tabs > button { font-size: 12px; padding: 6px 2px; }
+}
+@media (prefers-reduced-motion: reduce) { .ksm-screen { animation: none; } }
+
+/* งาน: layered like the overview (owner, 2026-10-20: "มีเลเยอร์เหมือนหน้าภาพรวม", then "สไลด์ลงเหมือนกัน").
+   The same pinned box as the overview's card (.ksm-summary, useCollapsingCard), with the page title
+   above the card: the title scrolls away first, then the card closes into a bar. The bar's terracotta
+   runs on behind both; search, tabs and the job cards scroll under it on the page. */
+.ksm-pagehero-title { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 46px; padding: 2px 16px 0; color: #FFFFFF; pointer-events: auto; }
+.ksm-pagehero-title h2 { font-size: 28px; font-weight: 700; line-height: 1.36; letter-spacing: -0.6px; color: #FFFFFF; }
+/* Clipped to the title row, so none of it shows between the bar and the card once the title has scrolled away. */
+.ksm-pagehero-mascot { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.ksm-pagehero-mascot > * { position: absolute; right: 76px; bottom: 0; opacity: 0.1; filter: brightness(0) invert(1); }
+.ksm-pagehero-mascot svg { display: block; }
+.ksm-pagehero-title .ksm-toolbtn { position: relative; border-color: rgba(255, 255, 255, 0.24); background: rgba(255, 255, 255, 0.12); color: #FFFFFF; }
+.ksm-pagehero-title .ksm-toolbtn.is-active { border-color: #F3B08C; background: rgba(255, 255, 255, 0.2); color: #FFFFFF; }
+.ksm-pagehero-title .ksm-toolbtn > i { background: #FFFFFF; box-shadow: 0 0 0 2px var(--ksm-hero); }
+.ksm-pagehero .ksm-net { cursor: default; }
+.ksm-hero-pill { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 1; min-width: 0; max-width: 62%; height: 36px; padding: 0 9px 0 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: #FFFFFF; font-size: 13px; font-weight: 500; line-height: 1.5; white-space: nowrap; cursor: pointer; }
+.ksm-hero-pill > span { overflow: hidden; text-overflow: ellipsis; }
+.ksm-hero-pill > svg { flex-shrink: 0; }
+.ksm-hero-pill:hover { background: rgba(255, 255, 255, 0.2); }
+/* The stage whose tab is open: its label in cream with a small dot. */
+.ksm-pagehero .ksm-hero-metrics > button[aria-pressed="true"] span { color: #FFE0CC; font-weight: 600; }
+.ksm-pagehero .ksm-hero-metrics > button[aria-pressed="true"] span::before { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 5px 2px 0; border-radius: 50%; background: #F3B08C; vertical-align: middle; }
+.ksm-screen > .ksm-pagehero + .ksm-search { margin-top: 4px; }
+.ksm-screen > .ksm-pagehero + .ksm-row-between { margin-top: 2px; }
+.ksm-minisum { position: relative; margin: 8px 16px 0; overflow: hidden; border-radius: 20px; color: #FFFFFF;
+  background:
+    radial-gradient(200px 120px at 100% 0%, rgba(230, 95, 43, 0.35), rgba(230, 95, 43, 0) 70%),
+    linear-gradient(165deg, #9C3A17 0%, #A63F1B 55%, #B4471D 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 12px 26px rgba(120, 40, 12, 0.24);
+  animation: ksm-hero-in 0.34s ease-out 40ms both; --ksm-figure-base: 26px; }
+.ksm-minisum > .ksm-hero-inner { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 68px; padding: 11px 12px 11px 15px; color: #FFFFFF; text-align: left; cursor: pointer; }
+.ksm-minisum > .ksm-hero-inner:active { opacity: 0.85; }
+.ksm-minisum-label { display: flex; align-items: center; gap: 9px; flex: none; }
+.ksm-minisum-label > svg { flex: none; opacity: 0.9; }
+.ksm-minisum-label b { display: block; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.ksm-minisum-label small { display: block; font-size: 12px; line-height: 1.4; color: rgba(255, 255, 255, 0.8); }
+.ksm-minisum strong { min-width: 0; margin-left: auto; font-size: var(--ksm-figure-size, var(--ksm-figure-base)); font-weight: 700; line-height: 1.25; letter-spacing: -0.6px; white-space: nowrap; font-variant-numeric: tabular-nums; animation: ksm-figure-in 0.24s ease-out; }
+.ksm-minisum-go { display: inline-flex; flex: none; opacity: 0.8; }
+/* เมนู: the profile as the box on the terracotta: the photo (or the mascot) in a cream ring, the plan as a pill. */
+.ksm-menuhero .ksm-pagehero-title { min-height: 44px; }
+.ksm-minisum > .ksm-account { gap: 12px; margin: 0; min-height: 72px; padding: 12px 14px; border: 0; border-radius: 0; background: none; }
+.ksm-minisum .ksm-avatar { width: 46px; height: 46px; border-radius: 50%; background: #FFF1E8; color: #A63F1B; font-size: 14px; font-weight: 700; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 6px 14px rgba(80, 26, 8, 0.25); }
+.ksm-minisum .ksm-account b { font-size: 16px; color: #FFFFFF; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-minisum .ksm-account small { font-size: 12px; color: rgba(255, 255, 255, 0.8); }
+.ksm-minisum .ksm-account > svg { flex: none; color: rgba(255, 255, 255, 0.85); }
+.ksm-plan-pill { flex: none; padding: 3px 10px; border-radius: 999px; background: #FFF1E8; color: #A63F1B; font-size: 11px; font-weight: 700; line-height: 1.5; letter-spacing: 0.4px; white-space: nowrap; }
+
+/* Every tool page opened from the menu (MobilePageHero): the way back, the title with the page's own
+   buttons, and its summary box, all on the terracotta (owner, 2026-10-20: one mood, in order). */
+.ksm-hero-back { display: inline-flex; align-items: center; gap: 4px; min-height: 34px; margin: 0 0 -6px 10px; padding: 0 9px 0 4px; border-radius: 10px; color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 500; line-height: 1.5; cursor: pointer; }
+.ksm-hero-back:hover { background: rgba(255, 255, 255, 0.12); }
+.ksm-pagehero-lead { position: relative; pointer-events: auto; }
+.ksm-toolhero .ksm-pagehero-title { align-items: center; min-height: 52px; }
+.ksm-toolhero .ksm-hero { --ksm-figure-base: 36px; }
+.ksm-hero-detail { position: relative; }
+.ksm-hero-detail p { margin-top: 4px; font-size: 12px; line-height: 1.55; color: rgba(255, 255, 255, 0.82); }
+.ksm-hero-open { display: block; width: 100%; color: #FFFFFF; text-align: left; cursor: pointer; }
+.ksm-hero-open:active { opacity: 0.9; }
+.ksm-hero-go { position: absolute; right: 13px; top: 50%; margin-top: -9px; display: inline-flex; color: rgba(255, 255, 255, 0.85); }
+.ksm-toolhero .ksm-pagehero-title p { margin-top: 1px; font-size: 12px; line-height: 1.5; color: rgba(255, 255, 255, 0.8); }
+/* รายจ่าย: ประจำ or ทั่วไป on every row (owner, 2026-10-20). */
+.ksm-typepill { display: inline-flex; align-items: center; margin-right: 6px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; line-height: 17px; vertical-align: 1px; }
+.ksm-typepill.is-recurring { background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.ksm-typepill.is-general { background: var(--ksm-muted); color: var(--ksm-secondary); }
+.ksm-list-icon.is-recurring { background: var(--ksm-selected); color: var(--ksm-accent-text); }
+/* Orange buttons carry white type on a deeper orange (owner, 2026-10-21: black type on the orange could
+   not be read), in both themes, on every phone page. */
+.ksm-primary, .ksm-btn.is-primary, .dark .ksm-primary, .dark .ksm-btn.is-primary { background: linear-gradient(180deg, #E8672F 0%, #CF5420 100%); color: #FFFFFF; box-shadow: 0 8px 16px -10px rgba(194, 74, 22, 0.75); }
+.ksm-primary:hover, .dark .ksm-primary:hover { background: linear-gradient(180deg, #DE5D27 0%, #C24A16 100%); filter: none; }
+@media (max-width: 743px) {
+  .ui-button-primary, .dark .ui-button-primary { background: linear-gradient(180deg, #E8672F 0%, #CF5420 100%); color: #FFFFFF; box-shadow: 0 8px 16px -10px rgba(194, 74, 22, 0.75); }
+  .ui-button-primary:hover:not(:disabled), .dark .ui-button-primary:hover:not(:disabled) { background: linear-gradient(180deg, #DE5D27 0%, #C24A16 100%); }
+  /* Cards and rows on the pages behind the menu, in the phone pages' own look. */
+  .ui-surface, .ui-panel { border-radius: 16px; box-shadow: 0 2px 10px rgba(60, 40, 28, 0.07); }
+  .dark .ui-surface, .dark .ui-panel { box-shadow: none; }
+  /* iOS Settings-style tiles (owner, 2026-10-23), a little larger on phones. */
+  .ui-row-icon.is-tile { width: 32px; height: 32px; border-radius: 9px; }
+}
+.ksm-group-symbol.is-mark, .ksm-row-icon.is-mark { background: none; box-shadow: none; }
+.ksm-group-symbol.is-tile, .ksm-row-icon.is-tile, .ksm-group[open] .ksm-group-symbol.is-tile { background: var(--tile); color: #FFFFFF; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18); }
+.ksm-group-symbol.is-tile, .ksm-group-symbol.is-mark { width: 36px; height: 36px; border-radius: 10px; }
+.ksm-row-icon.is-tile, .ksm-row-icon.is-mark { width: 30px; height: 30px; border-radius: 8px; }
+/* Confirmations on phones (owner, 2026-10-21): a centred card with the mascot in a square tile, never a
+   bottom sheet; a deletion shows it holding up a red "no" sign. */
+.ksm-modal.ksm-confirm { align-items: center; padding: 20px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.ksm-modal.ksm-confirm > div.ksm-confirm-card { position: relative; display: flex; flex-direction: column; align-items: center; width: min(100%, 340px); max-width: 340px; max-height: calc(100dvh - 40px); margin: 0; padding: 26px 22px 20px; overflow-y: auto; border: 1px solid var(--ksm-border); border-radius: 26px; background: var(--ksm-surface); color: var(--ksm-text); text-align: center; box-shadow: 0 24px 60px rgba(48, 32, 24, 0.28); animation: none; }
+.ksm-confirm-mascot { display: grid; place-items: center; margin-top: -4px; }
+.ksm-confirm-mascot svg { display: block; }
+.ksm-confirm-title { margin-top: 16px; font-size: 18px; font-weight: 700; line-height: 1.4; letter-spacing: -0.2px; color: var(--ksm-text); }
+.ksm-confirm-message { margin-top: 6px; font-size: 13.5px; line-height: 1.6; color: var(--ksm-secondary); white-space: pre-line; }
+.ksm-confirm-form { display: grid; gap: 12px; width: 100%; margin-top: 18px; }
+.ksm-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ksm-confirm-actions.is-single { grid-template-columns: 1fr; }
+.ksm-confirm-actions > .ui-button { min-height: 46px; border-radius: 14px; font-size: 14.5px; }
+/* A job opened from the timeline, on phones (JobPeekSheet): a plain sheet set like a statement. */
+.ksm-peek { position: relative; max-height: 86vh; overflow-y: auto; padding: 8px 20px max(18px, env(safe-area-inset-bottom, 0px)); border-radius: 26px 26px 0 0; background: var(--ksm-surface); color: var(--ksm-text); box-shadow: 0 -12px 40px rgba(48, 32, 24, 0.18); }
+.ksm-peek-grip { display: block; width: 40px; height: 4px; margin: 0 auto 14px; border-radius: 999px; background: var(--ksm-border); }
+.ksm-peek-meta { font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-peek-titlerow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 2px; }
+.ksm-peek-title { min-width: 0; font-size: 19px; font-weight: 700; line-height: 1.35; letter-spacing: -0.2px; overflow-wrap: anywhere; }
+.ksm-peek-status { flex: none; margin-top: 2px; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; line-height: 1.6; }
+.ksm-peek-status.is-done { background: var(--ksm-success-soft); color: var(--ksm-success); }
+.ksm-peek-status.is-partial { background: #FFF4E0; color: #A65F00; }
+.ksm-peek-status.is-pending { background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.dark .ksm-peek-status.is-partial { background: var(--ksm-muted); color: #F4C66B; }
+/* Calm by design (owner, 2026-10-21: "ยังแอบลายตา"): one soft panel and no outlines, the money bold and large. */
+.ksm-peek-sum { margin-top: 16px; padding: 16px 16px 14px; border-radius: 20px; background: var(--ksm-page); }
+.ksm-peek-value small { display: block; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-peek-value strong { display: block; margin-top: 2px; font-size: 34px; font-weight: 700; line-height: 1.15; letter-spacing: -0.9px; color: var(--ksm-text); font-variant-numeric: tabular-nums; }
+.ksm-peek-bar { height: 5px; margin-top: 14px; overflow: hidden; border-radius: 999px; background: var(--ksm-border); }
+.ksm-peek-bar > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #18A66A, #3CC287); }
+.ksm-peek-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.ksm-peek-split > div + div { text-align: right; }
+.ksm-peek-split small { display: block; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-peek-split b { display: block; margin-top: 1px; font-size: 19px; font-weight: 700; line-height: 1.3; letter-spacing: -0.3px; color: var(--ksm-text); font-variant-numeric: tabular-nums; }
+.ksm-peek-split b.is-received { color: var(--ksm-success); }
+.ksm-peek-split b.is-owed { color: var(--ksm-accent-text); }
+.ksm-peek-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 16px; padding: 0 4px; }
+.ksm-peek-facts > div { min-width: 0; }
+.ksm-peek-facts > div:nth-child(even) { text-align: right; }
+.ksm-peek-facts dt { font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-peek-facts dd { display: inline-flex; align-items: center; gap: 5px; margin-top: 1px; font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--ksm-text); }
+.ksm-peek-facts dd.is-soon { color: var(--ksm-accent-text); }
+.ksm-peek-facts dd.is-late { color: var(--ksm-error); }
+.ksm-peek-note { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--ksm-muted); font-size: 12.5px; line-height: 1.6; color: var(--ksm-secondary); }
+.ksm-peek-actions { display: grid; gap: 8px; margin-top: 20px; }
+.ksm-peek-actions > .ksm-primary { min-height: 48px; font-size: 15px; }
+.ksm-peek-more { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ksm-peek-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; border-radius: 12px; background: var(--ksm-muted); font-size: 14px; font-weight: 600; color: var(--ksm-text); cursor: pointer; }
+.ksm-peek-btn.is-danger { background: var(--ksm-error-soft); color: var(--ksm-error); }
+.ksm-toolhero .ksm-yearselect { border-color: rgba(255, 255, 255, 0.6); }
+.ksm-toolhero + * { margin-top: 12px; }
+
+@media (prefers-reduced-motion: reduce) { .ksm-minisum, .ksm-minisum strong { animation: none; } }
+
+/* ปฏิทิน / ไทม์ไลน์ (owner, 2026-10-20: "สวยๆเหมือนภาพรวมกับของงาน"): the view switch on the terracotta,
+   and every event as a card that says what it is, for whom, and how much. */
+.ksm-viewswitch { display: inline-flex; flex: none; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.ksm-viewswitch > button { min-height: 36px; padding: 0 13px; border-radius: 999px; font-size: 13px; font-weight: 500; line-height: 1.5; color: rgba(255, 255, 255, 0.88); white-space: nowrap; cursor: pointer; transition: background-color 0.2s, color 0.2s; }
+.ksm-viewswitch > button[aria-pressed="true"] { background: #FFF1E8; color: #A63F1B; font-weight: 600; box-shadow: 0 2px 6px rgba(80, 26, 8, 0.25); }
+.ksm-tl-events { display: grid; gap: 8px; min-width: 0; }
+.ksm-daylist { margin-top: 12px; }
+.ksm-tl-event { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 64px; padding: 11px 13px 11px 14px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); color: var(--ksm-text); text-align: left; box-shadow: 0 2px 10px var(--ksm-shadow-near); cursor: pointer; }
+.ksm-tl-event:active { transform: scale(0.99); }
+.ksm-tl-event b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-tl-event p { margin-top: 1px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-tl-kind { display: flex; align-items: center; gap: 5px; margin-bottom: 1px; font-size: 11px; font-weight: 600; line-height: 1.5; color: #7A5C43; }
+.ksm-tl-kind > i { flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.dark .ksm-tl-event.is-post .ksm-tl-kind { color: #B89A82; }
+.ksm-tl-event.is-creditTerm .ksm-tl-kind { color: var(--ksm-accent-text); }
+.ksm-tl-event.is-dueSoon .ksm-tl-kind { color: var(--ksm-warning); }
+.ksm-tl-event.is-paid .ksm-tl-kind { color: var(--ksm-success); }
+.ksm-tl-event.is-overdue { padding-left: 11px; border-color: color-mix(in srgb, var(--ksm-error) 30%, transparent); border-left: 4px solid var(--ksm-error); background: var(--ksm-error-soft); }
+.ksm-tl-event.is-overdue .ksm-tl-kind { color: var(--ksm-error); }
+.ksm-tl-amount { flex: none; font-size: 17px; font-weight: 700; line-height: 1.3; letter-spacing: -0.3px; color: var(--ksm-accent-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ksm-tl-event.is-paid .ksm-tl-amount { color: var(--ksm-success); }
+.ksm-tl-event.is-overdue .ksm-tl-amount { color: var(--ksm-error); }
+.ksm-tl-event > svg { flex: none; color: var(--ksm-secondary); }
+/* The timeline: one row per day on a thin rail, the date tile on the rail and that day's events beside it. */
+.ksm-tl { position: relative; display: grid; gap: 14px; margin-top: 6px; padding: 0; list-style: none; }
+.ksm-tl::before { content: ''; position: absolute; left: 25px; top: 24px; bottom: 24px; width: 2px; border-radius: 2px; background: var(--ksm-border); }
+.ksm-tl-day { position: relative; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; align-items: start; }
+.ksm-tl-date { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 52px; height: 56px; margin-top: 4px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); color: var(--ksm-accent-text); box-shadow: 0 4px 12px var(--ksm-shadow-near); }
+.ksm-tl-date b { font-size: 20px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ksm-tl-date small { font-size: 11px; line-height: 1.4; }
+.ksm-tl-day.is-past .ksm-tl-date { background: var(--ksm-muted); color: var(--ksm-secondary); box-shadow: none; }
+.ksm-tl-now { position: relative; display: flex; align-items: center; gap: 8px; min-height: 28px; padding-left: 20px; font-size: 12px; font-weight: 600; color: var(--ksm-accent-text); }
+.ksm-tl-now::before { content: ''; position: relative; z-index: 1; flex: none; width: 12px; height: 12px; border: 3px solid var(--ksm-page); border-radius: 50%; background: var(--ksm-accent); box-shadow: 0 0 0 1px var(--ksm-accent); }
+.ksm-tl-now::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--ksm-accent) 45%, transparent), transparent); }
+.ksm-tl-now > span { flex: none; }
+.ksm-tl-day.is-today .ksm-tl-date { border-color: #A63F1B; background: linear-gradient(165deg, #9C3A17 0%, #B4471D 100%); color: #FFFFFF; box-shadow: 0 8px 18px rgba(120, 40, 12, 0.28); }
+@media (max-width: 360px) {
+  .ksm-viewswitch > button { padding: 0 10px; font-size: 12px; }
+  .ksm-tl-day { grid-template-columns: 46px minmax(0, 1fr); gap: 8px; }
+  .ksm-tl-date { width: 46px; }
+  .ksm-tl::before { left: 22px; }
+  .ksm-tl-now { padding-left: 17px; }
+  .ksm-tl-amount { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) { .ksm-tl-event:active { transform: none; } .ksm-viewswitch > button { transition: none; } }
+@media (max-width: 360px) {
+  /* In line with the job cards under it. */
+  .ksm-pagehero .ksm-hero { left: 16px; right: 16px; }
+  .ksm-pagehero-title h2 { font-size: 25px; }
+}
+
+/* Tool pages on phones: the design's back link and plain page title (shared PageHeader), and
+   dialogs that open centred on wider screens come up as bottom sheets. 743px = useMobileLayout. */
+.ksm-back { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; margin: -4px 0 12px; font-size: 12px; font-weight: 500; color: var(--ksm-secondary); cursor: pointer; }
+.ksm-actionsheet { position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 150; padding: 0 18px 10px; border: 1px solid var(--glass-border); border-radius: 28px; background: var(--glass-strong); color: var(--ksm-text); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow-menu); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%); backdrop-filter: blur(var(--glass-blur)) saturate(180%); animation: ksm-sheet-in 0.22s ease-out; }
+.ksm-actionsheet-title { padding: 10px 0 8px; font-size: 14px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-actionsheet > p:not(.ksm-actionsheet-title) { padding: 0 0 6px; font-size: 12px; color: var(--ksm-secondary); }
+.ksm-actionsheet > button { display: flex; align-items: center; width: 100%; min-height: 52px; padding: 0; border-top: 1px solid color-mix(in srgb, var(--ksm-text) 9%, transparent); border-radius: 0; font-size: 15px; text-align: left; }
+@media (max-width: 743px) {
+  .ui-page-header { align-items: center; gap: 8px; min-height: 44px; margin-bottom: 12px; padding-bottom: 0; border-bottom: 0; }
+  .ui-page-title { font-size: 23px; font-weight: 600; line-height: 1.36; letter-spacing: -0.5px; }
+  .ui-page-description { display: none; }
+  /* The page's name is on the terracotta header above (MobilePageHero); its buttons stay. */
+  .ui-page-header > .min-w-0 { display: none; }
+  .ui-page-header:not(:has(.ui-page-actions)) { display: none; }
+  .ksm-modal { align-items: flex-end; padding: 0; background: rgba(28, 25, 23, 0.46); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+  .ksm-modal > :not(.absolute):not(.fixed) { width: 100%; max-width: none; max-height: calc(100dvh - 16px); margin: 0; border-radius: 24px 24px 0 0; border-bottom-width: 0; box-shadow: 0 12px 44px rgba(60, 40, 28, 0.09); animation: ksm-sheet-in 0.22s ease-out; }
+}
+@media (prefers-reduced-motion: reduce) { .ksm-actionsheet, .ksm-modal > :not(.absolute):not(.fixed) { animation: none; } }
+
+/* ปฏิทิน and ไทม์ไลน์ */
+.ksm-pagetitle p { margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-btn-secondary { display: inline-flex; align-items: center; justify-content: center; flex: none; min-height: 40px; padding: 8px 12px; border: 1px solid var(--ksm-border); border-radius: 12px; background: var(--ksm-surface); color: var(--ksm-text); font-size: 12px; font-weight: 500; line-height: 1.5; cursor: pointer; }
+.ksm-row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.ksm-row-between > .ksm-month > .ksm-month-pop { left: 0; right: auto; }
+.ksm-calendar { margin-top: 12px; padding: 10px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-weekdays, .ksm-calgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; text-align: center; }
+.ksm-weekdays span { padding: 8px 0; font-size: 10px; line-height: 15px; color: var(--ksm-secondary); }
+.ksm-calgrid > button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 42px; border: 1px solid transparent; border-radius: 12px; font-size: 14px; line-height: 1.5; color: var(--ksm-text); cursor: pointer; }
+.ksm-calgrid > button.is-today { outline: 1px solid var(--ksm-accent); outline-offset: -2px; }
+.ksm-calgrid > button.has-overdue:not(.is-selected) { background: var(--ksm-error-soft); color: var(--ksm-error); font-weight: 600; }
+.ksm-calgrid > button.is-selected { border-color: #A63F1B; background: #A63F1B; color: #FFFFFF; font-weight: 600; outline: 0; }
+.ksm-daydots { display: flex; gap: 2px; height: 4px; }
+.ksm-daydots i { width: 4px; height: 4px; border-radius: 50%; background: var(--ksm-accent); }
+.ksm-daydots i.is-paid { background: #18A66A; }
+.ksm-daydots i.is-overdue { background: var(--ksm-error); }
+.ksm-calgrid > button.is-selected .ksm-daydots i { background: #FFFFFF; }
+.ksm-legend { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 10px; line-height: 15px; color: var(--ksm-secondary); }
+.ksm-legend span { display: flex; align-items: center; gap: 4px; }
+.ksm-legend i { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #7A5C43; }
+.ksm-legend i.is-overdue { background: var(--ksm-error); }
+.ksm-legend i.is-paid { background: #18A66A; }
+.dark .ksm-legend i.is-neutral { background: #B89A82; }
+.ksm-daytitle { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 0; }
+.ksm-daytitle h3 { font-size: 18px; font-weight: 600; line-height: 1.45; color: var(--ksm-accent-text); }
+.ksm-daytitle small { font-size: 12px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-daytitle + .ksm-empty { margin-top: 12px; }
+.ksm-empty h3 { font-size: 16px; line-height: 1.45; }
+.ksm-empty p { margin-top: 6px; }
+.ksm-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 12px; border: 1px solid var(--ksm-border); border-radius: 12px; background: #FDF6EC; font-size: 12px; line-height: 1.65; color: var(--ksm-text); }
+.dark .ksm-info { background: var(--ksm-muted); }
+.ksm-info .ksm-btn { min-height: 36px; padding: 6px 12px; font-size: 12px; }
+.ksm-caption { margin-top: 12px; font-size: 11px; line-height: 1.65; color: var(--ksm-secondary); }
+
+/* รายจ่าย */
+.ksm-plainbtn { position: relative; display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 12px; color: var(--ksm-text); cursor: pointer; }
+.ksm-plainbtn.is-active { color: var(--ksm-accent-text); }
+.ksm-plainbtn > i { position: absolute; top: 9px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--ksm-accent); }
+.ksm-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 16px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-selected); }
+.ksm-strip h3 { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--ksm-text); }
+.ksm-strip strong { display: block; margin-top: 4px; font-size: 32px; font-weight: 600; line-height: 40px; letter-spacing: -0.5px; color: var(--ksm-accent-text); font-variant-numeric: tabular-nums; }
+.ksm-strip p { margin-top: 5px; font-size: 12px; line-height: 1.6; color: var(--ksm-secondary); }
+.ksm-strip-icon { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 16px; color: var(--ksm-accent-text); }
+.ksm-primary.is-compact { min-height: 44px; margin-top: 12px; font-size: 14px; line-height: 1.5; }
+.ksm-chips { display: flex; width: fit-content; max-width: 100%; gap: 2px; margin-top: 12px; padding: 2px; border-radius: 999px; background: rgba(118, 118, 128, 0.12); }
+.ksm-chips > button { min-height: 36px; padding: 6px 14px; border-radius: 999px; color: color-mix(in srgb, var(--ksm-text) 78%, transparent); font-size: 13px; line-height: 1.5; white-space: nowrap; cursor: pointer; }
+.ksm-chips > button[aria-selected="true"] { background: var(--ksm-surface); color: var(--ksm-text); font-weight: 600; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); }
+.dark .ksm-chips { background: rgba(118, 118, 128, 0.24); }
+.dark .ksm-chips > button[aria-selected="true"] { background: #48494F; }
+.ksm-moneylist { margin-top: 12px; }
+.ksm-moneylist > button { min-height: 64px; }
+.ksm-moneylist > button.is-highlight { background: var(--ksm-selected); }
+.ksm-moneylist b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-moneylist > button > strong { flex: none; font-size: 18px; font-weight: 600; line-height: 1.5; letter-spacing: -0.4px; font-variant-numeric: tabular-nums; }
+.ksm-list-icon.is-neutral { background: var(--ksm-muted); color: var(--ksm-secondary); }
+.ksm-selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.ksm-selects label > span { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 500; color: var(--ksm-secondary); }
+.ksm-selects select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--ksm-border); border-radius: 12px; background: var(--ksm-surface); color: var(--ksm-text); font-size: 15px; }
+
+/* เป้าหมาย */
+.ksm-month.is-inline { display: inline-flex; vertical-align: baseline; }
+.ksm-month.is-inline > .ksm-month-label { min-width: 0; height: auto; padding: 0; font-size: inherit; font-weight: inherit; line-height: inherit; color: inherit; }
+.ksm-month.is-inline > .ksm-month-label:hover { background: transparent; }
+.ksm-month.is-inline > .ksm-month-pop { left: 0; right: auto; top: calc(100% + 8px); font-weight: 400; }
+.ksm-strip-month { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ksm-primary-wide { margin-top: 12px; font-size: 15px; line-height: 1.5; }
+.ksm-primary:disabled { opacity: 0.45; cursor: default; }
+.ksm-link:disabled { opacity: 0.45; cursor: default; }
+.ksm-goal { margin-top: 12px; padding: 14px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-goal-header { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-bottom: 13px; }
+.ksm-goal-header h3 { font-size: 15px; font-weight: 600; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-goal-header p { font-size: 11px; line-height: 1.65; color: var(--ksm-secondary); }
+.ksm-goal-header p.is-late { color: var(--ksm-error); }
+.ksm-goal-amount { font-size: 25px; font-weight: 600; line-height: 1.5; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.ksm-goal-amount span { font-size: 14px; font-weight: 400; color: var(--ksm-secondary); }
+.ksm-progress { height: 6px; margin-top: 10px; border-radius: 6px; background: var(--ksm-muted); overflow: hidden; }
+.ksm-progress span { display: block; height: 100%; border-radius: 6px; background: var(--ksm-accent); }
+.ksm-progress.is-done span { background: #18A66A; }
+.ksm-progress-label { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-goal-more { margin-top: 9px; border-top: 1px solid var(--ksm-border); }
+.ksm-goal-more > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 8px 0; list-style: none; cursor: pointer; }
+.ksm-goal-more > summary::-webkit-details-marker { display: none; }
+.ksm-goal-more > summary b { font-size: 14px; font-weight: 500; line-height: 1.5; }
+.ksm-goal-more > summary > svg { color: var(--ksm-secondary); transition: transform 0.15s; }
+.ksm-goal-more[open] > summary > svg { transform: rotate(180deg); }
+.ksm-button-row { display: flex; gap: 8px; margin-top: 5px; padding-bottom: 2px; }
+.ksm-button-row > * { flex: 1; min-width: 0; padding-left: 8px; padding-right: 8px; }
+.ksm-btn.is-outline { border: 1px solid var(--ksm-border); background: var(--ksm-surface); color: var(--ksm-text); }
+.ksm-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* 50 ทวิ */
+.ksm-yearselect { max-width: 150px; padding-right: 8px; }
+.ksm-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.ksm-metric { padding: 13px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-metric.is-warning { border-color: #F3B08C; background: var(--ksm-selected); }
+.ksm-metric.is-wide { grid-column: 1 / -1; }
+.dark .ksm-metric.is-warning { border-color: #FFA473; }
+.ksm-metric > small { font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-metric > b { display: block; margin-top: 5px; font-size: 26px; font-weight: 500; line-height: 39px; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.ksm-metric > b > small { font-size: 11px; font-weight: 500; line-height: 1; color: var(--ksm-secondary); }
+.ksm-row-between > .ksm-chips { margin-top: 0; min-width: 0; overflow-x: auto; }
+.ksm-metrics + .ksm-row-between { margin-top: 12px; }
+.ksm-whtcard { margin-top: 12px; padding: 14px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-whtcard h3 { font-size: 15px; font-weight: 600; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-whtcard > p { margin-top: 2px; font-size: 11px; line-height: 1.65; color: var(--ksm-secondary); }
+.ksm-whtcard-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.ksm-badge.is-warning { background: #FDF6EC; color: var(--ksm-text); }
+.dark .ksm-badge.is-warning { background: var(--ksm-muted); }
+.ksm-badge.is-warning > svg { color: var(--ksm-warning); }
+.ksm-btn.is-small { min-height: 40px; padding: 8px 12px; font-size: 12px; }
+.ksm-list > button:disabled { opacity: 0.45; cursor: default; }
+
+/* Add-job sheet: the three sections are categories, said so above the control. */
+.ksm-segments-label { margin: 0 0 6px; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+
+/* Admin dashboard on phones (owner, 2026-10-22): the phone app's own parts, nothing from the desktop
+   layout. Revenue in the header, figures in metric cards, every other part a page opened from a list. */
+.ksm-admin-live { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: #FFFFFF; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.ksm-admin-live > i { width: 7px; height: 7px; border-radius: 50%; background: #7BE0AE; box-shadow: 0 0 0 3px rgba(123, 224, 174, 0.22); }
+.ksm-pagehero-title .ksm-toolbtn:disabled { opacity: 0.6; cursor: default; }
+.ksm-admin .ksm-metric > b { font-size: 24px; line-height: 34px; }
+.ksm-admin .ksm-metric > p { margin-top: 2px; font-size: 11px; line-height: 1.5; color: var(--ksm-secondary); }
+.ksm-admin-card { margin-top: 12px; padding: 14px 14px 12px; }
+.ksm-admin-cardhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ksm-admin-cardhead b { font-size: 14px; font-weight: 600; }
+.ksm-admin-cardhead small { font-size: 11px; color: var(--ksm-secondary); white-space: nowrap; }
+.ksm-admin-bars { display: flex; align-items: flex-end; gap: 3px; height: 92px; margin-top: 12px; }
+.ksm-admin-bars > i { flex: 1; min-width: 2px; border-radius: 4px 4px 2px 2px; background: var(--ksm-muted); }
+.ksm-admin-bars > i.is-on { background: var(--ksm-accent); opacity: 0.85; }
+.ksm-admin .ksm-moneylist > button > strong.ksm-admin-paid { color: var(--ksm-success); font-size: 16px; }
+.ksm-admin .ksm-moneylist > button > strong.ksm-admin-refunded,
+.ksm-admin-tops .ksm-admin-refunded { color: var(--ksm-secondary); text-decoration: line-through; }
+.ksm-admin-tops .ksm-admin-paid { color: var(--ksm-success); font-weight: 600; }
+.ksm-admin .ksm-moneylist p { margin-top: 2px; font-size: 12px; color: var(--ksm-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ksm-admin-initial { font-size: 15px; font-weight: 600; }
+.ksm-admin-side { display: flex; flex-direction: column; align-items: flex-end; flex: none; gap: 1px; text-align: right; }
+.ksm-admin-side > strong { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ksm-admin-side > small { font-size: 11px; color: var(--ksm-secondary); white-space: nowrap; }
+.ksm-admin-chips { overflow-x: auto; margin-right: -16px; padding-right: 16px; scrollbar-width: none; }
+.ksm-admin-chips::-webkit-scrollbar { display: none; }
+.ksm-admin-count { margin: 12px 0 8px; }
+.ksm-admin-features { margin-top: 12px; }
+.ksm-admin-feature { padding: 13px 14px; border-bottom: 1px solid var(--ksm-border); }
+.ksm-admin-feature:last-child { border-bottom: 0; }
+.ksm-admin-feature-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ksm-admin-feature-top b { min-width: 0; font-size: 14px; font-weight: 600; }
+.ksm-admin-feature-top strong { flex: none; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ksm-admin-feature-top strong small { font-size: 11px; font-weight: 500; color: var(--ksm-secondary); }
+.ksm-admin-split { display: flex; height: 6px; margin-top: 9px; overflow: hidden; border-radius: 999px; background: var(--ksm-muted); }
+.ksm-admin-split > i:first-child { background: var(--ksm-border); }
+.ksm-admin-split > i:last-child { background: var(--ksm-accent); }
+.ksm-admin-feature > p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; font-size: 11px; color: var(--ksm-secondary); }
+.ksm-admin-tips { padding: 4px 14px; }
+.ksm-admin-tips > p { padding: 10px 0; border-bottom: 1px solid var(--ksm-border); font-size: 12px; line-height: 1.6; color: var(--ksm-secondary); }
+.ksm-admin-tips > p:last-child { border-bottom: 0; }
+.ksm-admin-tips > p > b { display: block; font-size: 13px; font-weight: 600; color: var(--ksm-text); }
+.ksm-admin-personas > button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 60px; padding: 10px 14px; border-bottom: 1px solid var(--ksm-border); color: var(--ksm-text); text-align: left; cursor: pointer; }
+.ksm-admin-personas > button:last-child { border-bottom: 0; }
+.ksm-admin-personas > button > svg { flex: none; color: var(--ksm-secondary); }
+.ksm-admin-personas b { display: block; font-size: 14px; font-weight: 600; }
+.ksm-admin-personas .ksm-grow > small { font-size: 11px; color: var(--ksm-secondary); }
+.ksm-admin-embed { margin-top: 12px; }
+.ksm-admin-error { margin-top: 12px; }
+.ksm-admin-sheethead { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 6px; }
+.ksm-admin-sheethead > small { margin-left: auto; font-size: 11px; color: var(--ksm-secondary); font-variant-numeric: tabular-nums; }
+.ksm-admin-facts { margin-top: 12px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); }
+.ksm-admin-facts > div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--ksm-border); font-size: 13px; }
+.ksm-admin-facts > div:last-child { border-bottom: 0; }
+.ksm-admin-facts dt { color: var(--ksm-secondary); }
+.ksm-admin-facts dd { min-width: 0; font-weight: 500; text-align: right; }
+.ksm-admin-tops { padding: 2px 14px; }
+.ksm-admin-tops > p { display: flex; align-items: center; gap: 10px; min-height: 42px; border-bottom: 1px solid var(--ksm-border); font-size: 13px; font-variant-numeric: tabular-nums; }
+.ksm-admin-tops > p:last-child { border-bottom: 0; }
+.ksm-admin-tops > p > i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: var(--ksm-selected); color: var(--ksm-accent-text); font-size: 11px; font-style: normal; font-weight: 600; }
+
+/* Switching pages on phones (owner, 2026-10-22: "มันกระพริบ ... ให้มันสมูท"). Before, every switch faded the
+   whole page in from nothing and then the terracotta header and its summary box again, so the screen went
+   blank for a moment. Now the header and its box stay solid from one page to the next, as in a native tab
+   bar; only what sits under them fades in, briefly and without moving. */
+.ksm-home, .ksm-screen, .ksm-page { animation: none; }
+.ksm-header.is-hero > :not(.ksm-header-mascot), .ksm-hero, .ksm-minisum { animation: none; }
+.ksm-net strong, .ksm-minisum strong { animation: none; }
+.ksm-home > :not(.ksm-summary), .ksm-screen > :not(.ksm-summary), .ksm-page > :not(.ksm-summary) { animation: ksm-content-in 160ms ease-out both; }
+@keyframes ksm-content-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .ksm-home > :not(.ksm-summary), .ksm-screen > :not(.ksm-summary), .ksm-page > :not(.ksm-summary) { animation: none; }
+}

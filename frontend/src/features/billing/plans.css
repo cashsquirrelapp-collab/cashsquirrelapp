@@ -1,0 +1,129 @@
+/* The Pro card (PlansTab.tsx). Premium through restraint: warm hairlines instead of heavy borders, one
+   soft shadow, a quiet glow behind the squirrel, the price set like a price tag (a small raised ฿ and the
+   regular price struck beside it), thin outline icons. Phones stack hero, benefits and button; a computer
+   or an iPad puts the benefits beside the price so the card fits on one screen. */
+.plan-page {
+  --plan-line: #ECE3DB;
+  --plan-tint: #FFF8F3;
+  --plan-glow: rgba(255, 220, 200, 0.6);
+  --plan-accent: #C24A16;
+}
+.dark .plan-page { --plan-line: #34353A; --plan-tint: rgba(230, 95, 43, 0.06); --plan-glow: rgba(230, 95, 43, 0.18); --plan-accent: #FFA473; }
+
+/* The period switch: a quiet warm track, a terracotta pill that slides (owner, 2026-10-21: the black pill
+   did not belong to the app's colours). */
+.plan-switch { border: 1px solid var(--plan-line); background: var(--white); box-shadow: 0 1px 2px rgba(60, 40, 28, 0.04); }
+.dark .plan-switch { background: #1D1E22; }
+.plan-switch-pill { background: linear-gradient(165deg, #A63F1B 0%, #C24A16 100%); box-shadow: 0 6px 14px -8px rgba(166, 63, 27, 0.8); }
+.plan-switch [aria-checked="true"] { color: #FFFFFF !important; }
+.dark .plan-switch-pill { background: linear-gradient(165deg, #A63F1B 0%, #C24A16 100%); }
+.dark .plan-switch [aria-checked="true"] { color: #FFFFFF !important; }
+
+.plan-card {
+  position: relative;
+  overflow: hidden;
+  container-type: inline-size;
+  border: 1px solid var(--plan-line);
+  border-radius: 28px;
+  background: var(--white);
+  padding: 28px 22px 26px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 28px 60px -42px rgba(90, 45, 18, 0.35);
+}
+@media (min-width: 640px) { .plan-card { padding: 18px 30px; } }
+.dark .plan-card { background: #202126; box-shadow: none; }
+/* A fine terracotta line along the top edge: the one accent on the card. */
+.plan-card::after { content: ''; position: absolute; top: 0; left: 28px; right: 28px; height: 2px; border-radius: 0 0 2px 2px; background: linear-gradient(90deg, transparent, #E65F2B 18%, #E65F2B 82%, transparent); opacity: 0.8; }
+
+/* Phone: one column (owner, 2026-10-20: the phone layout stays as it is). */
+.plan-layout { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "hero" "benefits" "status" "actions"; }
+.plan-layout > * { z-index: 1; } /* above the warm panel; grid items stack without being positioned */
+.plan-hero { grid-area: hero; }
+.plan-benefits-wrap { position: relative; grid-area: benefits; margin-top: 30px; border-top: 2px dashed var(--plan-perf); padding-top: 26px; }
+/* Like a pass to upgrade (owner, 2026-10-21): a perforated tear line between the price and what it gives,
+   with a notch cut into each edge of the card where it meets the line. */
+.plan-page { --plan-perf: #EADBCF; }
+.dark .plan-page { --plan-perf: #3A3B40; }
+.plan-benefits-wrap::before { content: ''; position: absolute; top: -13px; left: -23px; right: -23px; height: 24px; pointer-events: none;
+  background:
+    radial-gradient(circle at 0 50%, var(--bg) 0 11px, var(--plan-line) 11px 12px, transparent 12.5px),
+    radial-gradient(circle at 100% 50%, var(--bg) 0 11px, var(--plan-line) 11px 12px, transparent 12.5px); }
+.plan-status { grid-area: status; margin: 20px auto 0; max-width: 460px; }
+.plan-actions { grid-area: actions; margin-top: 20px; }
+.plan-price { margin-top: 18px; }
+.plan-line-note { margin-top: 18px; justify-content: center; text-align: center; }
+.plan-badge.plan-best { position: absolute; z-index: 2; top: 0; right: 0; margin: 0; padding: 6px 14px; font-size: 13px; box-shadow: 0 8px 18px -10px rgba(28, 25, 23, 0.7); animation: plan-best-in 0.3s ease-out both; }
+/* "คุ้มที่สุด" sits in the card's top-right corner on every screen (owner, 2026-10-20), so the price
+   line is at the same height whichever period is chosen. */
+@keyframes plan-best-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* The squirrel on a soft glow; only the character is sized here, never the petting hearts.
+   !important beats the size the Mascot component sets inline. */
+.plan-mascot { position: relative; isolation: isolate; }
+.plan-mascot::before { content: ''; position: absolute; z-index: -1; left: 50%; top: 50%; width: 110%; aspect-ratio: 1; transform: translate(-50%, -48%); border-radius: 50%; background: radial-gradient(closest-side, var(--plan-glow), transparent); pointer-events: none; }
+.plan-mascot-figure { width: 144px !important; height: 144px !important; }
+/* The words after the squirrel paint above its glow. */
+.plan-name, .plan-tagline, .plan-price { position: relative; }
+.plan-name { font-size: 26px; letter-spacing: -0.01em; }
+.plan-tagline { font-size: 15.5px; }
+
+/* The price, set like a tag: the regular price struck, then the promotion with a small raised ฿. */
+.plan-price-row { display: flex; align-items: baseline; justify-content: center; gap: 0 10px; flex-wrap: wrap; }
+.plan-was { font-size: 17px; font-weight: 500; color: var(--muted); text-decoration-thickness: 1.5px; text-decoration-color: rgba(125, 119, 114, 0.8); font-variant-numeric: tabular-nums; }
+.plan-figure { font-size: 56px; font-weight: 700; line-height: 1.05; letter-spacing: -0.04em; color: var(--text); font-variant-numeric: tabular-nums; }
+.plan-currency { display: inline-block; margin-right: 0.04em; font-size: 0.5em; font-weight: 600; letter-spacing: 0; vertical-align: 0.62em; }
+.plan-per { font-size: 15px; font-weight: 500; color: var(--muted); }
+.plan-sub { margin-top: 6px; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.plan-promo { font-weight: 600; color: var(--plan-accent); }
+
+.plan-benefits { display: grid; gap: 18px; list-style: none; }
+.plan-benefit-icon { width: 38px; height: 38px; border: 1px solid #F1DFD2; background: #FFFBF8; color: var(--plan-accent); }
+.dark .plan-benefit-icon { border-color: rgba(255, 164, 115, 0.25); background: transparent; }
+.plan-benefit-title { font-size: 15.5px; line-height: 1.5; letter-spacing: -0.005em; }
+.plan-benefit-desc { font-size: 13.5px; }
+
+/* "Opens soon": an unmistakably inactive button, set quietly rather than as a washed-out orange. */
+.plan-cta-closed { display: inline-flex; width: 100%; min-height: 46px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--plan-line); border-radius: 14px; background: var(--bg); color: var(--muted); font-size: 14px; font-weight: 600; cursor: not-allowed; }
+.dark .plan-cta-closed { background: #1D1E22; }
+
+.plan-badge { display: inline-flex; border-radius: 999px; background: #FDE8DD; padding: 3px 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.01em; color: #C24A16; }
+.plan-badge.is-strong, .dark .plan-badge.is-strong { background: linear-gradient(165deg, #A63F1B 0%, #C24A16 100%); color: #FFFFFF; }
+
+.plan-pay { padding: 14px 4px 0; }
+.plan-pay-icon { display: flex; width: 34px; height: 34px; flex-shrink: 0; align-items: center; justify-content: center; border: 1px solid var(--plan-line); border-radius: 999px; color: var(--muted); }
+
+/* Computer and iPad: price and button on the left on a faint warm panel; benefits (and the member's
+   status) on the right; small enough that the whole card fits on one screen (owner, 2026-10-20). */
+@container (min-width: 600px) {
+  /* The benefits fill the whole right side and sit in its middle; the price, the buttons and a member's
+     status stack on the left stub. */
+  .plan-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-template-areas: "hero benefits" "actions benefits" "status benefits"; grid-template-rows: auto auto 1fr; column-gap: 36px; align-items: start; }
+  .plan-layout::before { content: ''; grid-column: 1; grid-row: 1 / -1; align-self: stretch; margin: -18px -18px -18px -30px; border-right: 2px dashed var(--plan-perf); border-radius: 27px 0 0 27px; background: var(--plan-tint); z-index: 0; }
+  /* The notches, top and bottom, where the tear line meets the card's edges. */
+  .plan-layout::after { content: ''; position: absolute; z-index: 2; top: -19px; bottom: -19px; left: calc((100% - 36px) / 2.1 + 18px - 12px); width: 24px; pointer-events: none;
+    background:
+      radial-gradient(circle at 50% 0, var(--bg) 0 11px, var(--plan-line) 11px 12px, transparent 12.5px),
+      radial-gradient(circle at 50% 100%, var(--bg) 0 11px, var(--plan-line) 11px 12px, transparent 12.5px); }
+  .plan-benefits-wrap { margin-top: 0; border-top: 0; padding: 2px 0 2px 4px; align-self: center; display: flex; flex-direction: column; justify-content: center; }
+  .plan-benefits-wrap::before { display: none; }
+  .plan-status { margin: 12px 6px 0; max-width: none; align-self: start; }
+  .plan-actions { margin-top: 14px; align-self: start; padding: 0 6px 4px; }
+  .plan-mascot-figure { width: 84px !important; height: 84px !important; }
+  .plan-name { font-size: 22px; }
+  .plan-tagline { font-size: 14.5px; }
+  .plan-price { margin-top: 10px; }
+  .plan-was { font-size: 16px; }
+  .plan-sub { font-size: 13px; }
+  .plan-benefits { gap: 12px; }
+  .plan-benefit-icon { width: 34px; height: 34px; }
+  .plan-benefit-title { font-size: 15px; line-height: 1.45; }
+  .plan-benefit-desc { font-size: 13px; line-height: 1.45; }
+  .plan-line-note { margin-top: 12px; justify-content: flex-start; text-align: left; }
+}
+
+/* A light press on the buttons. */
+.plan-press { transition: background-color 0.15s, border-color 0.15s, transform 0.12s; }
+.plan-press:active:not(:disabled) { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  .plan-best { animation: none; }
+  .plan-press, .plan-press:active:not(:disabled) { transition: none; transform: none; }
+}

@@ -4,6 +4,7 @@ import { Job } from '../../../../shared/types';
 import { jobNetReceivable, roundMoney } from '../../../../shared/wht';
 import { formatCurrency } from '../../utils';
 
+import { tr } from '../../i18n/tr';
 export type PaymentMode = 'full' | 'partial';
 
 const todayKey = () => {
@@ -61,9 +62,9 @@ export default function JobPaymentDialog({ job, initialMode, allowPartial, allow
   const received = job.received || 0;
   const remaining = roundMoney(Math.max(0, net - received));
   const partialAmount = parseFloat(amount.replace(/,/g, '')) || 0;
-  const error = !date ? 'กรุณาเลือกวันที่รับเงิน'
-    : mode === 'partial' && partialAmount <= 0 ? 'กรุณาใส่ยอดที่ได้รับ'
-    : mode === 'partial' && partialAmount >= net ? 'ยอดนี้เท่ากับหรือเกินยอดที่ต้องรับ ให้เลือก "รับเงินครบ" แทน'
+  const error = !date ? tr("กรุณาเลือกวันที่รับเงิน")
+    : mode === 'partial' && partialAmount <= 0 ? tr("กรุณาใส่ยอดที่ได้รับ")
+    : mode === 'partial' && partialAmount >= net ? tr("ยอดนี้เท่ากับหรือเกินยอดที่ต้องรับ ให้เลือก \"รับเงินครบ\" แทน")
     : '';
 
   const confirm = () => {
@@ -77,7 +78,7 @@ export default function JobPaymentDialog({ job, initialMode, allowPartial, allow
         payDate: date,
         // The work stage is left as it is: clients sometimes pay in full before delivery, and the
         // job stays "กำลังทำ" (already paid) until it is marked as delivered.
-      }, 'รับเงินครบแล้ว');
+      }, tr("รับเงินครบแล้ว"));
     } else {
       onConfirm({
         status: 'partial',
@@ -86,7 +87,7 @@ export default function JobPaymentDialog({ job, initialMode, allowPartial, allow
         paymentStatus: 'partial',
         depositDate: date,
         depositAmount: partialAmount,
-      }, `รับบางส่วน ${formatMoney(partialAmount)}`);
+      }, tr("รับบางส่วน {0}", formatMoney(partialAmount)));
     }
   };
 
@@ -106,33 +107,33 @@ export default function JobPaymentDialog({ job, initialMode, allowPartial, allow
         className="w-full space-y-4 rounded-t-2xl border border-brand-border bg-brand-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl dark:bg-stone-900 sm:max-w-sm sm:rounded-2xl sm:pb-5"
       >
         <div>
-          <h3 id="job-payment-title" className="text-base font-semibold text-brand-text">บันทึกรับเงิน</h3>
+          <h3 id="job-payment-title" className="text-base font-semibold text-brand-text">{tr("บันทึกรับเงิน")}</h3>
           <p className="mt-0.5 truncate text-xs text-brand-muted">{job.name}{job.client ? ` · ${job.client}` : ''}</p>
         </div>
 
         {allowPartial && allowFull && (
-          <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="รับเงินแบบไหน">
-            <button type="button" role="radio" aria-checked={mode === 'full'} onClick={() => setMode('full')} className={segment(mode === 'full')}>รับเงินครบ</button>
-            <button type="button" role="radio" aria-checked={mode === 'partial'} onClick={() => setMode('partial')} className={segment(mode === 'partial')}>รับมัดจำ / บางส่วน</button>
+          <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label={tr("รับเงินแบบไหน")}>
+            <button type="button" role="radio" aria-checked={mode === 'full'} onClick={() => setMode('full')} className={segment(mode === 'full')}>{tr("รับเงินครบ")}</button>
+            <button type="button" role="radio" aria-checked={mode === 'partial'} onClick={() => setMode('partial')} className={segment(mode === 'partial')}>{tr("รับมัดจำ / บางส่วน")}</button>
           </div>
         )}
 
         {mode === 'full' ? (
           <div className="rounded-[10px] bg-brand-faint px-3.5 py-3">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="text-xs text-brand-muted">{received > 0 ? 'ยอดที่รับครั้งนี้' : 'ยอดที่ได้รับ'}</span>
+              <span className="text-xs text-brand-muted">{received > 0 ? tr("ยอดที่รับครั้งนี้") : tr("ยอดที่ได้รับ")}</span>
               <span className="font-mono text-lg font-semibold text-brand-text">{formatMoney(remaining)}</span>
             </div>
             {received > 0 && (
-              <p className="mt-1 text-right text-[11px] text-brand-muted">รับไปแล้ว {formatMoney(received)} · รวม {formatMoney(net)}</p>
+              <p className="mt-1 text-right text-[11px] text-brand-muted">{tr("รับไปแล้ว {0} · รวม {1}", formatMoney(received), formatMoney(net))}</p>
             )}
             {net < job.value && (
-              <p className="mt-1 text-right text-[11px] text-brand-muted">มูลค่างาน {formatMoney(job.value)} หัก ณ ที่จ่าย {formatMoney(roundMoney(job.value - net))}</p>
+              <p className="mt-1 text-right text-[11px] text-brand-muted">{tr("มูลค่างาน {0} หัก ณ ที่จ่าย {1}", formatMoney(job.value), formatMoney(roundMoney(job.value - net)))}</p>
             )}
           </div>
         ) : (
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-brand-text">ยอดที่ได้รับ (บาท)</span>
+            <span className="mb-1.5 block text-xs font-medium text-brand-text">{tr("ยอดที่ได้รับ (บาท)")}</span>
             <input
               type="text"
               inputMode="decimal"
@@ -142,12 +143,12 @@ export default function JobPaymentDialog({ job, initialMode, allowPartial, allow
               placeholder="0"
               className="h-11 w-full rounded-[10px] border border-brand-border bg-brand-white px-3 font-mono text-sm text-brand-text outline-none focus:border-[#E65F2B] dark:bg-neutral-950"
             />
-            <span className="mt-1 block text-[11px] text-brand-muted">ยอดที่ต้องรับทั้งหมด {formatMoney(net)}</span>
+            <span className="mt-1 block text-[11px] text-brand-muted">{tr("ยอดที่ต้องรับทั้งหมด {0}", formatMoney(net))}</span>
           </label>
         )}
 
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-brand-text">วันที่รับเงิน</span>
+          <span className="mb-1.5 block text-xs font-medium text-brand-text">{tr("วันที่รับเงิน")}</span>
           <input
             type="date"
             value={date}
@@ -162,15 +163,13 @@ export default function JobPaymentDialog({ job, initialMode, allowPartial, allow
 
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose} className="h-11 flex-1 rounded-xl border border-brand-border text-sm text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
-            ยกเลิก
-          </button>
+            {tr("ยกเลิก")}</button>
           <button
             type="submit"
             disabled={Boolean(error)}
             className="h-11 flex-[2] rounded-xl bg-[#E65F2B] text-sm font-semibold text-white transition-colors hover:bg-[#D85723] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
           >
-            บันทึกรับเงิน
-          </button>
+            {tr("บันทึกรับเงิน")}</button>
         </div>
       </form>
     </div>,

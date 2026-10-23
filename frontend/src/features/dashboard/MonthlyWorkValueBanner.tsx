@@ -2,9 +2,11 @@ import React from 'react';
 import { Briefcase, Info } from 'lucide-react';
 import { Job } from '../../../../shared/types';
 import { workValueForMonth } from '../../../../shared/monthlySummary';
+import { Mascot } from '../../components/mascot/Mascot';
 import { dateLocale, formatCurrency, withMonth } from '../../utils';
 
-const TOOLTIP_TEXT = 'มูลค่างานหลังหัก ณ ที่จ่าย ของงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนที่เลือก ไม่ว่าจะได้รับเงินแล้วหรือยัง';
+import { tr, T } from '../../i18n/tr';
+const TOOLTIP_TEXT = T("มูลค่างานหลังหัก ณ ที่จ่าย ของงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนที่เลือก รวมงานที่กำลังทำ โดยใช้กำหนดส่งงานเมื่อยังไม่มีกำหนดรับเงิน");
 const TREND_MONTHS = 6;
 
 const shiftMonth = (monthKey: string, delta: number) => {
@@ -13,7 +15,7 @@ const shiftMonth = (monthKey: string, delta: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
-export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs: Job[]; monthKey: string; onOpenDetails: () => void }) {
+export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails, receivablesAccess = false }: { jobs: Job[]; monthKey: string; onOpenDetails: () => void; receivablesAccess?: boolean }) {
   const [tooltipOpen, setTooltipOpen] = React.useState(false);
   const tooltipId = React.useId();
 
@@ -33,28 +35,40 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
   const changePct = previous.value > 0 ? Math.round(((current.value - previous.value) / previous.value) * 100) : null;
   const maxValue = Math.max(...series.map(point => point.value), 1);
 
+  // On the terracotta card the change sits in a tinted pill, as on the phone overview.
   const comparison = changePct === null ? null : (
-    <p className={`text-xs font-medium ${changePct > 0 ? 'text-[#18A66A]' : 'text-brand-muted'}`}>
-      {changePct > 0 ? '↑' : changePct < 0 ? '↓' : '='} {Math.abs(changePct)}% <span className="font-normal text-brand-muted">จากเดือนก่อน</span>
-    </p>
+    <p className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium text-white ${changePct > 0 ? 'bg-[#18A66A]/30' : changePct < 0 ? 'bg-[#C43A3A]/35' : 'bg-white/15'}`}>
+      {tr("{0}{1}% จากเดือนก่อน", changePct > 0 ? '+' : changePct < 0 ? '−' : '', Math.abs(changePct))}</p>
   );
 
   return (
     <section
       aria-labelledby="work-value-label"
       onClick={onOpenDetails}
-      className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-brand-border bg-brand-white p-[18px] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6"
+      // The same terracotta card as the phone overview (owner, 2026-10-20), in light and dark mode alike.
+      className="relative flex cursor-pointer flex-col gap-3 rounded-2xl p-[18px] text-white sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6"
+      style={{
+        background: 'radial-gradient(420px 220px at 100% 0%, rgba(230, 95, 43, 0.45), rgba(230, 95, 43, 0) 70%), linear-gradient(165deg, #9C3A17 0%, #A63F1B 55%, #B4471D 100%)',
+        boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 14px 30px rgba(120, 40, 12, 0.18)',
+      }}
     >
-      <div className="flex items-center gap-4">
-        <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#FFF1E8] sm:flex" aria-hidden="true">
-          <Briefcase className="h-6 w-6 text-[#E65F2B]" strokeWidth={1.8} />
+      {/* The original mascot as a faint white shape on the right: decoration only. */}
+      {/* Clipped in its own layer so the tooltip above the label is not cut off. */}
+      <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden="true">
+        <span className="absolute -right-6 -top-4 opacity-[0.1] [filter:brightness(0)_invert(1)]">
+          <Mascot mood="happy" action="hold-baht" animated={false} size={150} />
+        </span>
+      </span>
+      <div className="relative flex items-center gap-4">
+        <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-white/15 sm:flex" aria-hidden="true">
+          <Briefcase className="h-6 w-6 text-white" strokeWidth={1.8} />
         </span>
         <div className="min-w-0">
           <div className="relative flex items-center gap-1.5">
-            <p id="work-value-label" className="text-sm font-medium text-brand-muted">{withMonth('มูลค่างาน', monthKey)}</p>
+            <p id="work-value-label" className="text-sm font-medium text-white/85">{withMonth(T("มูลค่างาน"), monthKey)}</p>
             <button
               type="button"
-              aria-label={`${withMonth('มูลค่างาน', monthKey)}คืออะไร`}
+              aria-label={tr("{0}คืออะไร", withMonth(T("มูลค่างาน"), monthKey))}
               aria-describedby={tooltipOpen ? tooltipId : undefined}
               aria-expanded={tooltipOpen}
               onClick={(e) => { e.stopPropagation(); setTooltipOpen(true); }}
@@ -63,7 +77,7 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
               onFocus={() => setTooltipOpen(true)}
               onBlur={() => setTooltipOpen(false)}
               onKeyDown={(e) => { if (e.key === 'Escape') setTooltipOpen(false); }}
-              className="rounded-full p-0.5 text-brand-muted hover:text-brand-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E65F2B] cursor-pointer"
+              className="rounded-full p-0.5 text-white/75 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer"
             >
               <Info className="h-3.5 w-3.5" />
             </button>
@@ -74,13 +88,13 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
                 onClick={(e) => e.stopPropagation()}
                 className="absolute bottom-full left-0 z-20 mb-1.5 w-72 rounded-lg border border-brand-border bg-brand-white px-3 py-2.5 text-xs leading-5 text-brand-text shadow-md"
               >
-                <p>{TOOLTIP_TEXT}</p>
-                {current.count > 0 && (
+                <p>{tr(TOOLTIP_TEXT)}</p>
+                {receivablesAccess && current.count > 0 && (
                   <dl className="mt-2 space-y-0.5 border-t border-brand-border pt-2">
                     {[
-                      { label: withMonth('รับแล้ว', monthKey), value: current.received },
-                      { label: withMonth('รอรับ', monthKey), value: current.pending },
-                      { label: 'รับก่อนหน้า / ครบกำหนดเดือนอื่น', value: current.otherMonths },
+                      { label: withMonth(T("รับแล้ว"), monthKey), value: current.received },
+                      { label: withMonth(T("รอรับ"), monthKey), value: current.pending },
+                      { label: tr("รับก่อนหน้า / ครบกำหนดเดือนอื่น"), value: current.otherMonths },
                     ].filter(row => row.value !== 0).map((row, i) => (
                       <div key={row.label} className="flex justify-between gap-3">
                         <dt className="text-brand-muted">{i > 0 ? '+ ' : ''}{row.label}</dt>
@@ -88,15 +102,14 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
                       </div>
                     ))}
                     <div className="flex justify-between gap-3 border-t border-brand-border pt-1 font-semibold">
-                      <dt>= {withMonth('มูลค่างาน', monthKey)}</dt>
+                      <dt>= {withMonth(T("มูลค่างาน"), monthKey)}</dt>
                       <dd className="font-mono">{formatCurrency(current.value)}</dd>
                     </div>
                   </dl>
                 )}
                 {current.count > 0 && current.wht > 0 && (
                   <p className="pt-1 text-[11px] text-brand-muted">
-                    หัก ณ ที่จ่ายให้แล้ว {formatCurrency(current.wht)} (ก่อนหัก {formatCurrency(current.grossValue)})
-                  </p>
+                    {tr("หัก ณ ที่จ่ายให้แล้ว {0} (ก่อนหัก {1})", formatCurrency(current.wht), formatCurrency(current.grossValue))}</p>
                 )}
               </div>
             )}
@@ -104,14 +117,14 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOpenDetails(); }}
-            aria-label={`ดูรายละเอียด${withMonth('มูลค่างาน', monthKey)} ${formatCurrency(current.value)}`}
-            className="mt-0.5 block rounded-md text-left font-mono text-[30px] font-semibold leading-9 text-brand-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E65F2B] cursor-pointer"
+            aria-label={tr("ดูรายละเอียด{0} {1}", withMonth(T("มูลค่างาน"), monthKey), formatCurrency(current.value))}
+            className="mt-0.5 block rounded-md text-left font-mono text-[30px] font-semibold leading-9 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer"
           >
             {formatCurrency(current.value)}
           </button>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <p className="text-sm text-brand-muted">
-              {current.count > 0 ? `${current.count} งาน` : withMonth('ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดใน', monthKey)}
+            <p className="text-sm text-white/75">
+              {current.count > 0 ? tr("{0} งาน", current.count) : withMonth(T("ยังไม่มีงานที่มีเงินเข้าหรือครบกำหนดใน"), monthKey)}
             </p>
             <div className="sm:hidden">{comparison}</div>
           </div>
@@ -119,7 +132,7 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
       </div>
 
       {(hasHistory || current.count > 0) && (
-        <div className="hidden shrink-0 items-end gap-4 sm:flex">
+        <div className="relative hidden shrink-0 items-end gap-4 sm:flex">
           <div className="flex h-12 items-end gap-1.5" aria-hidden="true">
             {series.map((point, i) => (
               <span
@@ -128,7 +141,7 @@ export function MonthlyWorkValueBanner({ jobs, monthKey, onOpenDetails }: { jobs
                 className="w-3 rounded-t-[3px]"
                 style={{
                   height: `${Math.max(4, Math.round((point.value / maxValue) * 48))}px`,
-                  background: i === series.length - 1 ? '#F7B584' : 'var(--color-brand-border, #EAE7E3)',
+                  background: i === series.length - 1 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.28)',
                 }}
               />
             ))}

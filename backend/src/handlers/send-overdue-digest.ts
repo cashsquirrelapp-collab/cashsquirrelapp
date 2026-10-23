@@ -1,33 +1,16 @@
+import { stagingRecipientAllowed } from '../security/staging.js';
+import { randomUUID } from 'node:crypto';
 import { claimDelivery, releaseDelivery } from '../repositories/deliveries.js';
 import { patchPrivate } from '../repositories/accounts.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { supabaseAdmin } from '../config/supabase.js';
-import { sendGmailEmail } from '../services/gmail.js';
-import { sendLineMessageToEmail } from '../services/line.js';
-import type { LineMessage } from '../services/line.js';
+import { sendGmailEmailOutcome } from '../services/gmail.js';
+import { sendLineMessageToEmailOutcome } from '../services/line.js';
+import { attemptDelivery, notificationOutcomeCounts, recordChannelOutcome, type DeliveryOutcome } from '../services/notificationOutcome.js';
+import { buildDigestFlexMessage, findJobsNeedingAttention, todayInBangkok, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
+export { buildDigestFlexMessage } from '../services/lineReminders.js';
 
 const FREE_TRIAL_DAYS = 14;
-
-interface JobRow {
-  id: string;
-  name: string;
-  client: string;
-  status: string;
-  pending: number;
-  paymentStatus?: string;
-  dueDate?: string | null;
-  payDate: string | null;
-  followUpCount?: number;
-  lastFollowUpDate?: string;
-  installments?: Array<{
-    id: string;
-    label: string;
-    amount: number;
-    dueDate: string | null;
-    paidAt: string | null;
-    status: 'pending' | 'paid';
-  }>;
-}
 
 interface NotifSettingsRow {
   enabled?: boolean;
@@ -36,60 +19,6 @@ interface NotifSettingsRow {
   lastDigestSentDate?: string;
   pendingQueue?: unknown[];
   lineUserId?: string;
-}
-
-// Bangkok is UTC+7 with no DST; a fixed offset is enough to get "today" right locally.
-function todayInBangkok(): string {
-  const now = new Date();
-  const bangkok = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  return bangkok.toISOString().split('T')[0];
-}
-
-// How many days until (positive) or since (negative) the job's due date. 0 = due today.
-function diffDaysFromToday(targetDateStr: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const targetDate = new Date(targetDateStr + 'T00:00:00');
-  return Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-interface JobWithDiff extends JobRow {
-  diffDays: number;
-}
-
-// Overdue jobs, jobs due today, and jobs due within the next 2 days -- catching it a day or two
-// early is far more useful than only finding out once it's already overdue.
-//
-// Trust the recorded `pending` field as-is, same as Dashboard/Summary/Timeline -- don't also gate
-// on status behavior or paymentStatus, or a job whose paid flag and pending amount have drifted
-// out of sync silently skips the digest instead of surfacing as money still owed.
-function findJobsNeedingAttention(jobs: JobRow[]): JobWithDiff[] {
-  return jobs
-    .flatMap((j) => {
-      if (j.installments?.length) {
-        return j.installments.flatMap((row) => {
-          if (row.status === 'paid' || row.amount <= 0 || !row.dueDate) return [];
-          const diffDays = diffDaysFromToday(row.dueDate);
-          if (diffDays > 2) return [];
-          return [{
-            ...j,
-            id: `${j.id}:${row.id}`,
-            name: `${j.name} • ${row.label}`,
-            pending: row.amount,
-            dueDate: row.dueDate,
-            payDate: row.dueDate,
-            diffDays,
-          }];
-        });
-      }
-      const targetDateStr = j.dueDate || j.payDate;
-      if (j.pending <= 0 || !targetDateStr) return [];
-
-      const diffDays = diffDaysFromToday(targetDateStr);
-      if (diffDays > 2) return [];
-      return [{ ...j, diffDays }];
-    })
-    .filter((j): j is JobWithDiff => !!j);
 }
 
 function dueLabel(diffDays: number): string {
@@ -159,89 +88,16 @@ function buildDigestHtml(jobs: JobWithDiff[]): string {
   </div>`;
 }
 
-// Flex "card" version for LINE, styled to match the email's own layout/colors (red OVERDUE
-// badge, orange header, per-section color coding, cream tip box) instead of a plain-text wall.
-function buildJobRowFlex(job: JobWithDiff, dateColor: string) {
-  return {
-    type: 'box',
-    layout: 'vertical',
-    spacing: 'xs',
-    margin: 'md',
-    contents: [
-      {
-        type: 'box',
-        layout: 'horizontal',
-        contents: [
-          { type: 'text', text: job.client || 'ไม่ระบุ', size: 'xs', weight: 'bold', color: '#3D2314', flex: 3, wrap: true },
-          { type: 'text', text: `฿${job.pending.toLocaleString('th-TH')}`, size: 'xs', weight: 'bold', color: '#3D2314', flex: 2, align: 'end' },
-        ],
-      },
-      {
-        type: 'box',
-        layout: 'horizontal',
-        contents: [
-          { type: 'text', text: job.name, size: 'xxs', color: '#7A5C43', flex: 3, wrap: true },
-          { type: 'text', text: dueLabel(job.diffDays), size: 'xxs', weight: 'bold', color: dateColor, flex: 2, align: 'end' },
-        ],
-      },
-    ],
-  };
-}
-
-function buildSectionFlex(title: string, badgeColor: string, jobs: JobWithDiff[], dateColor: string): any[] {
-  if (jobs.length === 0) return [];
-  return [
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    { type: 'text', text: `${title} (${jobs.length} รายการ)`, size: 'xs', weight: 'bold', color: badgeColor, margin: 'lg', wrap: true },
-    ...jobs.map((j) => buildJobRowFlex(j, dateColor)),
-  ];
-}
-
-function buildDigestFlexMessage(jobs: JobWithDiff[]): LineMessage {
-  const overdue = jobs.filter((j) => j.diffDays < 0);
-  const dueToday = jobs.filter((j) => j.diffDays === 0);
-  const dueSoon = jobs.filter((j) => j.diffDays > 0);
-
-  const bodyContents: any[] = [
-    { type: 'text', text: 'OVERDUE CREDIT ALERT', size: 'xxs', weight: 'bold', color: '#DC2626' },
-    { type: 'text', text: '🚨 สรุปดีลงานที่ต้องติดตามเครดิตเทอม', size: 'md', weight: 'bold', color: '#E65F2B', wrap: true, margin: 'sm' },
-    ...buildSectionFlex('⚠️ เกินกำหนดชำระเงินแล้ว', '#DC2626', overdue, '#DC2626'),
-    ...buildSectionFlex('⏰ ครบกำหนดวันนี้', '#B45309', dueToday, '#B45309'),
-    ...buildSectionFlex('📅 ใกล้ครบกำหนด (1-2 วัน)', '#4338CA', dueSoon, '#4338CA'),
-    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    { type: 'text', text: '💡 คำแนะนำในการดำเนินการทวงถาม', size: 'xs', weight: 'bold', color: '#3D2314', margin: 'lg' },
-    {
-      type: 'text',
-      text: '1. เช็คสเตทเมนต์ธนาคารว่ายังไม่มียอดเข้าจริง\n2. ทักไปทวงถามลูกค้าอย่างสุภาพ พร้อมแนบใบแจ้งหนี้\n3. บันทึกในแอปทันทีที่ได้รับเงิน',
-      size: 'xxs',
-      color: '#7A5C43',
-      wrap: true,
-      margin: 'sm',
-    },
-  ];
-
-  const contents: any = {
-    type: 'bubble',
-    size: 'kilo',
-    body: { type: 'box', layout: 'vertical', backgroundColor: '#FFF9F0', borderWidth: '1px', borderColor: '#E6D8C7', cornerRadius: '14px', paddingAll: '18px', spacing: 'sm', contents: bodyContents },
-  };
-
-  const altText = overdue.length > 0
-    ? `แจ้งเตือนดีลค้างชำระเลยกำหนด ${overdue.length} รายการ`
-    : `สรุปดีลใกล้ครบกำหนดชำระ ${jobs.length} รายการ`;
-  return { type: 'flex', altText, contents };
-}
-
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-async function sendDigestEmail(to: string, jobs: JobWithDiff[]): Promise<boolean> {
+async function sendDigestEmail(to: string, jobs: JobWithDiff[]): Promise<DeliveryOutcome> {
   const overdueCount = jobs.filter((j) => j.diffDays < 0).length;
   const subject = overdueCount > 0
     ? `สรุปงานค้างชำระเลยกำหนด ${overdueCount} รายการ - กระรอกตุนเงิน`
     : `สรุปดีลงานที่ใกล้ครบกำหนดชำระเงิน ${jobs.length} รายการ - กระรอกตุนเงิน`;
-  return sendGmailEmail(to, subject, buildDigestHtml(jobs));
+  return sendGmailEmailOutcome(to, subject, buildDigestHtml(jobs));
 }
 
 async function listAllAuthUsers(): Promise<Map<string, string>> {
@@ -267,7 +123,7 @@ function isPro(
   subscriptionByUserId: Map<string, { status: string; plan: string | null; current_period_end: string | null }>
 ): boolean {
   const sub = subscriptionByUserId.get(userId);
-  if (sub?.plan === 'admin_revoked') return false;
+  if (['admin_revoked', 'admin_removed'].includes(sub?.plan || '')) return false;
   const createdAt = createdAtByUserId.get(userId);
   const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
 
@@ -303,13 +159,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let processed = 0;
     let sent = 0;
     let skipped = 0;
+    const outcomes = notificationOutcomeCounts();
 
     for (const row of rows || []) {
       processed += 1;
       const notifSettings: NotifSettingsRow = row.notif_settings || {};
+      if (!stagingRecipientAllowed(notifSettings.alertEmail || row.email, notifSettings.lineUserId)) { skipped += 1; continue; }
 
       if (!isPro(row.user_id, createdAtByUserId, subscriptionByUserId)) {
-        console.log(`send-overdue-digest: skip ${row.email} -- not Pro`);
         skipped += 1;
         continue;
       }
@@ -318,16 +175,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // delivery without forcing them to re-enter notification settings.
       const digestEnabled = notifSettings.dailyDigestEnabled ?? notifSettings.enabled ?? false;
       if (!digestEnabled) {
-        console.log(`send-overdue-digest: skip ${row.email} -- dailyDigestEnabled is off`);
         skipped += 1;
         continue;
       }
       if (notifSettings.lastDigestSentDate === todayStr) {
-        console.log(`send-overdue-digest: skip ${row.email} -- already sent today (lastDigestSentDate=${notifSettings.lastDigestSentDate})`);
         skipped += 1;
         continue;
       }
 
+      const deliveryKey = `digest:${row.user_id}:${todayStr}`;
+      let claimed = false;
+      let accepted = false;
+      let uncertain = false;
+      let failureCounted = false;
+      let marking = false;
+      const record = (channel: 'email' | 'line', outcome: DeliveryOutcome) => {
+        recordChannelOutcome(outcomes, channel, outcome);
+        if (outcome === 'accepted' && !accepted) { accepted = true; sent += 1; }
+        if (outcome === 'unknown' && !uncertain) { uncertain = true; outcomes.uncertain += 1; }
+        if (outcome === 'rejected' && !failureCounted) { failureCounted = true; outcomes.failed += 1; }
+      };
       try {
         const account = await supabaseAdmin.auth.admin.getUserById(row.user_id);
         if (account.error) throw account.error;
@@ -336,16 +203,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const attentionJobs = findJobsNeedingAttention(jobs);
 
         if (attentionJobs.length === 0) {
-          console.log(`send-overdue-digest: skip ${row.email} -- no jobs needing attention`);
           skipped += 1;
           continue;
         }
 
-        const deliveryKey = `digest:${row.user_id}:${todayStr}`;
-        if (!await claimDelivery(deliveryKey)) { skipped += 1; continue; }
+        claimed = await claimDelivery(deliveryKey);
+        if (!claimed) { skipped += 1; continue; }
         const recipient = notifSettings.alertEmail || row.email;
-        console.log(`send-overdue-digest: processing ${row.email} -- ${attentionJobs.length} job(s), lineUserId=${notifSettings.lineUserId ? 'set' : 'MISSING'}`);
-        const emailOk = recipient ? await sendDigestEmail(recipient, attentionJobs) : false;
+        const emailOutcome: DeliveryOutcome = recipient ? await attemptDelivery(() => sendDigestEmail(recipient, attentionJobs)) : 'skipped';
+        record('email', emailOutcome);
 
         // Independent of the email outcome above -- LINE and email are separate channels, and
         // Gmail has repeatedly been the unreliable one in this app's history. Gating this behind
@@ -355,52 +221,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // promise (no `await`, just `.catch()`) has no guarantee of finishing before this
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
-        let lineOk = false;
+        let lineOutcome: DeliveryOutcome = 'skipped';
         if (row.email) {
-          lineOk = await sendLineMessageToEmail(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId).catch((err) => {
-            console.error(`send-overdue-digest: LINE send failed for ${row.email}:`, err);
-            return false;
-          });
-          console.log(`send-overdue-digest: LINE send to ${row.email} -- ${lineOk ? 'ok' : 'failed/skipped'}`);
+          lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId, randomUUID()));
+          // The payment buttons are new (2026-10-22): if LINE refuses that card, the reminder still
+          // goes out, as the card without buttons.
+          if (lineOutcome === 'rejected') {
+            console.error('LINE refused the reminder with payment buttons; sending it without them');
+            lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, buildDigestFlexMessage(attentionJobs, { buttons: false }), notifSettings.lineUserId, randomUUID()));
+          }
         }
+        record('line', lineOutcome);
 
         // Only skip the follow-up-count/lastDigestSentDate update when BOTH channels failed --
         // gating on emailOk alone (as it used to be) meant an account relying only on LINE (no
         // working email, or Gmail having one of its outages) never got its followUpCount tracked
         // and lastDigestSentDate never advanced, even though the notification the user actually
         // sees (LINE) went out fine every single day.
-        if (!emailOk && !lineOk) {
-          await releaseDelivery(deliveryKey);
-          skipped += 1;
+        if (!accepted) {
+          if (!uncertain) { await releaseDelivery(deliveryKey); claimed = false; }
+          if (emailOutcome === 'skipped' && lineOutcome === 'skipped') skipped += 1;
           continue;
         }
 
         // Only count genuinely overdue items as a "follow-up" -- a heads-up for something due
         // in 1-2 days isn't a follow-up attempt yet.
+        marking = true;
         const overdueIds = new Set(attentionJobs.filter((j) => j.diffDays < 0).map((j) => j.id));
-        const updatedJobs = jobs.map((j) =>
-          overdueIds.has(j.id)
-            ? { ...j, followUpCount: (j.followUpCount || 0) + 1, lastFollowUpDate: todayStr }
-            : j
-        );
-
         for (const id of overdueIds) {
           const result = await supabaseAdmin.rpc('cashflow_follow_up', { p_user_id: row.user_id, p_id: id, p_date: todayStr });
           if (result.error) throw result.error;
         }
         await patchPrivate(row.user_id, { lastDigestSentDate: todayStr });
 
-        sent += 1;
-      } catch (perUserErr: any) {
-        console.error(`send-overdue-digest: failed for user ${row.user_id}:`, perUserErr);
-        skipped += 1;
+      } catch {
+        if (marking) outcomes.markerFailed += 1;
+        else if (!failureCounted) outcomes.failed += 1;
+        if (claimed && !accepted && !uncertain) {
+          try { await releaseDelivery(deliveryKey); } catch { console.error('Digest claim release failed'); }
+        }
+        console.error('Digest account processing failed', { accepted, uncertain });
       }
     }
 
     console.log(`send-overdue-digest: processed=${processed} sent=${sent} skipped=${skipped}`);
-    res.status(200).json({ processed, sent, skipped });
-  } catch (err: any) {
-    console.error('send-overdue-digest handler error:', err);
+    res.status(200).json({ processed, sent, skipped, ...outcomes });
+  } catch {
+    console.error('Digest account listing failed');
     res.status(500).json({ error: 'Digest job failed' });
   }
 }

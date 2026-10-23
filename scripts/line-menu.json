@@ -1,0 +1,89 @@
+{
+  "size": {
+    "width": 2500,
+    "height": 1686
+  },
+  "selected": true,
+  "name": "กระรอกตุนเงิน เพิ่มงานและเอกสาร 2026-10-15",
+  "chatBarText": "เลขาการเงิน",
+  "areas": [
+    {
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1450,
+        "height": 1120
+      },
+      "action": {
+        "type": "uri",
+        "label": "เพิ่มงาน",
+        "uri": "https://liff.line.me/2011172706-NZvQQWDK?openPath=%2Fjobs%3FopenAddJob%3D1"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1450,
+        "y": 0,
+        "width": 1050,
+        "height": 560
+      },
+      "action": {
+        "type": "message",
+        "label": "รอรับเงิน",
+        "text": "รอรับเงิน"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1450,
+        "y": 560,
+        "width": 1050,
+        "height": 560
+      },
+      "action": {
+        "type": "message",
+        "label": "สรุปเดือนนี้",
+        "text": "สรุปเดือนนี้"
+      }
+    },
+    {
+      "bounds": {
+        "x": 0,
+        "y": 1120,
+        "width": 833,
+        "height": 566
+      },
+      "action": {
+        "type": "uri",
+        "label": "แนบเอกสาร",
+        "uri": "https://liff.line.me/2011172706-NZvQQWDK?openPath=%2Fline-documents"
+      }
+    },
+    {
+      "bounds": {
+        "x": 833,
+        "y": 1120,
+        "width": 834,
+        "height": 566
+      },
+      "action": {
+        "type": "message",
+        "label": "กำลังดำเนินงาน",
+        "text": "กำลังดำเนินการ"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1667,
+        "y": 1120,
+        "width": 833,
+        "height": 566
+      },
+      "action": {
+        "type": "uri",
+        "label": "เปิดแอป",
+        "uri": "https://liff.line.me/2011172706-NZvQQWDK?openPath=%2Fapp"
+      }
+    }
+  ]
+}

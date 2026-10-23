@@ -20,6 +20,7 @@ import AdminUsersPanel from './AdminUsersPanel';
 import { panel, Pagination, type Confirm } from './groupUi';
 import { PREVIEW_SEARCH_RESULTS, buildPreviewTeam } from './teamPreview';
 import { MascotPeek } from '../../components/mascot/MascotPeek';
+import { tr } from '../../i18n/tr';
 
 // Presence comes from the app's 20-second heartbeat (online = seen in the last minute, decided
 // on the server). The page refreshes it every 20 seconds while visible; if that refresh stops
@@ -92,7 +93,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
   }, []);
   const reload = useCallback(async () => {
     if (preview) {
-      const sample = buildPreviewTeam({ userId, displayName: me?.displayName || 'คุณ', publicId: me?.publicId, avatarUrl: me?.avatarUrl, email: me?.email });
+      const sample = buildPreviewTeam({ userId, displayName: me?.displayName || tr("คุณ"), publicId: me?.publicId, avatarUrl: me?.avatarUrl, email: me?.email });
       setSnapshot(sample.snapshot);
       setDetail(sample.detail);
       setSelected(sample.detail.id);
@@ -569,7 +570,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                             {detail ? <>{detail.memberCount} {copy('สมาชิก', 'members')}{presenceFresh && <> · <span className="text-[#12804F] dark:text-[#6FD3A3]">{detail.members.filter(isOnline).length} {copy('ออนไลน์', 'online')}</span></>}</> : copy('กำลังโหลดทีม…', 'Loading team…')}
                           </p>
                           {switcherOpen && (
-                            <div role="menu" aria-label={copy('เลือกทีม', 'Choose a team')} className="absolute left-0 top-full z-30 mt-1.5 w-72 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#1F2024]">
+                            <div role="menu" aria-label={copy('เลือกทีม', 'Choose a team')} className="absolute left-0 top-full z-30 mt-1.5 w-72 lg-glass is-menu rounded-[20px] p-1.5">
                               {snapshot.groups.map(g => (
                                 <button key={g.id} type="button" role="menuitem" onClick={() => pickGroup(g.id)}
                                   className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[13px] hover:bg-brand-faint cursor-pointer">
@@ -611,7 +612,7 @@ export default function GroupsTab({ userId, isGuest, triggerConfirm, initialScop
                                   <SlidersHorizontal size={16} />
                                 </button>
                                 {memberViewOpen && (
-                                  <div role="menu" className="absolute right-0 top-full z-30 mt-1.5 w-44 rounded-xl border border-brand-border bg-brand-white p-1.5 shadow-lg dark:bg-[#1F2024]">
+                                  <div role="menu" className="absolute right-0 top-full z-30 mt-1.5 w-44 lg-glass is-menu rounded-[20px] p-1.5">
                                     {([['all', copy('ทั้งหมด', 'Everyone')], ['online', copy('ออนไลน์อยู่', 'Online now')], ['leaders', roleLabel('leader')]] as const).map(([key, text]) => (
                                       <button key={key} type="button" role="menuitemradio" aria-checked={memberView === key} onClick={() => { setMemberView(key); setMemberViewOpen(false); }}
                                         className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] text-brand-text hover:bg-brand-faint cursor-pointer">
