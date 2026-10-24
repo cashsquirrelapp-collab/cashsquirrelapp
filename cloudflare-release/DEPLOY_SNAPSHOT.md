@@ -1865,3 +1865,90 @@ Built on 82ca6a5 (package 55).
 **Checked** on the extracted package with a clean `npm ci`: audit 0 vulnerabilities, cloudflare:check 17/17, the build, preflight, unit tests, and a wrangler dry run (AI_PRO_TOKENS_PER_CYCLE "2500", AI_MESSAGE_TOKEN_CAP "100").
 
 **Approved** by the owner in chat ("แก้ข้อยินยอม ดีพอย"), 2026-10-24.
+
+
+## เลขา thinks like a bookkeeper: slips, installments, tap-to-answer questions, editable cards; pictures, files and a looped font - 2026-10-24
+
+Built on 067651d (package 56).
+
+**Why.** The owner tested package 56 in production and found three problems:
+- The owner sent a quotation request, then their own address and tax ID. That reply went to Gemini, which came back empty, so the user saw "ตอนนี้ยังตอบไม่ได้".
+- "เพิ่มงานให้หน่อย ยายพึ่งให้เงินมา 3000 บาท" got four questions back. The owner: "มันจะมาถามตามแพทเทิร์นทำไม".
+- After a failed quotation tool call, เลขา said "เตรียมใบเสนอราคาให้แล้ว" although no card existed.
+- A slip paid to a shop was recorded as "บันทึกการโอน". The owner: "ดูชื่อดิว่าโอนให้ใคร".
+- An attached picture showed as a file name. The owner wanted previews "เหมือนที่ทำกับมึงเลย" (as in Claude).
+- The chat's loopless Thai was hard to read. The owner: "ฟอนต์ที่ไม่มีหัวแล้วมันทำให้อ่านยาก", like ChatGPT.
+- A job paid in 3 installments was recorded as a partial payment, although the app has installments.
+- Questions had to be answered by typing ("กูต้องมาตอบคำถามอีก 3 ข้อ"). The owner wants to tick the answers.
+- A card could not be changed before confirming ("แก้ไขยอดได้ในแชทเลย").
+
+**What changes**
+- **Follow-ups.** A reply to the smart model's own question stays with it: the previous user message needed Sonnet, and the answer asked something.
+- **Empty answers.** When the light model ends with no text and no card, Sonnet answers once more while time is left.
+- **Prompt secretary-v8: infer the obvious.** Every change goes through a card, so job entry fills what the message clearly implies and states the assumptions:
+  - who paid is the client;
+  - money received means paid today;
+  - no withholding mentioned means 0, and a private person never withholds;
+  - fully paid means delivered today;
+  - no name becomes "งานของ" + client.
+- **Prompt secretary-v8: ask less.** เลขา asks only for what is still unknown. An amount or a name is never invented.
+- **Prompt secretary-v8: honest status.**
+  - A failed proposal is never described as prepared.
+  - Issuer details given for a pending document go into that document, and saving them to the profile is offered.
+- **propose_add_job.** The description was changed to match.
+- **Transfer slips (prompt).** Work out the direction first:
+  - Money out (a bill paid, or the user as the sender): an expense named after who was paid ("SCB มณี SHOP (สมาน)" → "ร้านสมาน", never "บันทึกการโอน"). The date comes from the slip in พ.ศ. The category is the app's, or อื่นๆ. The note holds the reference number only, never account numbers.
+  - Money in, thought through step by step:
+    - The payer's core name (บจก./หจก./บมจ. expanded) plus the memo ("Kol bbg") pick the job.
+    - The amount is checked against what is owed after withholding. A full ฿3,000 on a job expecting ฿2,910 at 3% means the client did not withhold: ONE edit card with 0% and paid.
+    - Several fits are asked about. No fit offers a paid new job with the client written in full.
+    - Two-digit Thai years are พ.ศ.
+  - The account context carries the owner's own saved names (issuer, bank account holder, LINE name; never account numbers) so the slip's sides can be told apart.
+- **Payment card.** Paying the rest of a job with a deposit shows "รับครั้งนี้" (the slip) and "รับรวมทั้งงาน" apart. Before, it showed "ยอดรับ ฿29,100" for a ฿19,100 slip.
+- **Deposit guard.** A second partial payment is refused instead of overwriting the deposit already recorded.
+- **Pictures in the chat (computer, iPad and phone).**
+  - A picture can be dragged onto the chat or pasted, as well as picked with the paperclip.
+  - Before sending it shows as a thumbnail above the box, with a remove button.
+  - In the chat it shows whole (not cropped) in a 240 px square (200 px on phones) on a soft grey, and a tap opens it large.
+  - A picture sent alone shows no text bubble.
+  - A file dropped where attaching is off never opens in the tab.
+  - A PDF is a file card (icon, name, "PDF · size") before sending and in the chat.
+- **Installments.**
+  - propose_add_job takes installments, with the same rules as the app's job form: the installments together equal the amount after withholding, a received one is ticked with its date, an amount left out splits the rest equally, the status is installment, and the next due date becomes payDate.
+  - propose_record_payment on such a job ticks the installment with that amount, never a deposit.
+  - Prompt: งวด / ผ่อน / แบ่งจ่าย uses installments.
+- **Tap-to-answer questions.**
+  - New tool ask_user (up to 5 questions, each with up to 6 options, typed text where only the user knows) shows a card. Taps plus ส่งคำตอบ send all the answers as one message, and เลขา carries on.
+  - The questions stay in the history, so a reply to Sonnet stays with Sonnet.
+  - In LINE: the questions as lines, with quick replies for the first.
+  - Prompt: never type the questions as a list.
+- **Editable confirmation cards.**
+  - A card for a new job, a payment or an expense has แก้ไข. Its fields (name, client, value, withholding, dates; amount and date; expense fields) become inputs.
+  - ใช้ค่านี้ sends action "revise". The server prepares the card again from the original tool call with those fields, with every check and no model call or tokens. The old proposal is cancelled.
+  - Proposals now keep tool and args. **Run supabase/migrations/20261024120000_ai_proposal_args.sql in Supabase first.** Without it, proposals are saved as before (the insert retries without the columns) and editing answers "แก้ในการ์ดไม่ได้แล้ว".
+- **Chat font.** The chat (เลขา page, panel, buddy) uses IBM Plex Sans Thai Looped, the same family with heads on the letters. The rest of the app keeps IBM Plex Sans Thai. The typography test now expects the looped face.
+
+**Tested**
+- Real AI:
+  - "เพิ่มงานให้หน่อย ยายพึ่งให้เงินมา 3000 บาท" gave one card (งานของยาย · ลูกค้า ยาย · ฿3,000 · delivered and paid today · no withholding) with the assumptions listed, on Gemini, 6 tokens.
+  - An unpaid job asked only about delivery and the credit term.
+  - The quotation chat (synthetic address and tax ID): the reply went to Sonnet and asked for the missing name; the next message gave the quotation card with the issuer details.
+- Synthetic slips with real Sonnet:
+  - A ฿60 bill paid to "SCB มณี SHOP (ป้าแดง)" gave an expense card "ร้านป้าแดง · ฿60 · 24 ต.ค. 2569 · อื่นๆ", noting the reference only.
+  - A ฿19,100 transfer from the client was matched to its ฿19,100 balance, with "รับครั้งนี้ ฿19,100".
+  - A K BIZ ฿3,000 transfer from "บจก. ตัวอย่างมีเดีย" with the memo "Kol bbg":
+    - with a matching job: recorded in full;
+    - with the job at 3%: one edit card, 3% → 0% and paid ฿3,000, with the reason;
+    - with no job: a paid new job "Kol bbg" for "บริษัท ตัวอย่างมีเดีย จำกัด".
+- Unit tests 715/720 (the 5 known failures). New tests: tests/ai-installments-questions.test.ts (installments, ticking an installment, ask_user and LINE, revise).
+- Real Gemini:
+  - The owner's "ค่าเรียนขับรถ 500,000 ... 3 งวด" gave 200,000 received plus 150,000 due 1 Nov and 150,000 due 1 Dec.
+  - "เพิ่มงานออกแบบโลโก้ 4500" used ask_user (client, credit term).
+- e2e: assistant-live, assistant-chat and i18n-english all pass except the 2 known mic tests. New tests: picture preview, drag and drop, sent picture and viewer, PDF card, tap-to-answer questions and card editing at 1440 and 390 px, no overlapping text. billing e2e also passes.
+
+**Package**
+- Archive SHA256 `6991289c9b2f95d4aa8018da85980510bbb30a2a772cf7976b76ee051ff4b8fe`; manifest SHA256 `7722e0daf82e2087038400a5d76eeac4dd8652da1c3fb1485108fd711c71f0e9`.
+- 814 files, 23 changed, 3 new (2 tests, 1 migration).
+- New entry `assets/index-BvZWtjjS.js`.
+
+**Checked** on the extracted package with a clean `npm ci`: audit 0 vulnerabilities, cloudflare:check 17/17, the build, preflight, unit tests and a wrangler dry run.
