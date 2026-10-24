@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg50 scoped assistant knowledge and reviewed waveform dictation",
+  "source_label": "pkg51 AI allow-list for owner accounts",
   "archive": "source.tar.gz",
-  "archive_sha256": "6af03db4b9d4733ccdb6cec4d8b5ab8844bc01acf703e90343d1c9fe7b28f65c",
+  "archive_sha256": "0a9f2fcdab27c097eaa8097c4a8ce968221f380aa6ec5d543b8d8dda43ff3dec",
   "file_count": 776,
-  "total_source_bytes": 21541290,
+  "total_source_bytes": 21544345,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -48,8 +48,8 @@
     },
     {
       "path": "backend/src/ai/config.ts",
-      "size": 2440,
-      "sha256": "8529f1e8e7741e243af7af1de29fd9d720ad8d4a0e217a8aaf6672b43738be4d"
+      "size": 3515,
+      "sha256": "76b4b5dcba8cb4549b26d7dcc2b50250e593d230a88ff6f9a5bd4e930d95f6ad"
     },
     {
       "path": "backend/src/ai/cost.ts",
@@ -78,8 +78,8 @@
     },
     {
       "path": "backend/src/ai/lineBridge.ts",
-      "size": 4058,
-      "sha256": "b5e2fa6a81f1246f86f8527b660d6b49dd52a49b14d46cdd2de80c6103aa88ec"
+      "size": 4109,
+      "sha256": "3c084a05407945683fe3df8ac43bba6e1139fcc167bf96c09729d36a33806398"
     },
     {
       "path": "backend/src/ai/lineFormat.ts",
@@ -118,8 +118,8 @@
     },
     {
       "path": "backend/src/ai/supabaseDb.ts",
-      "size": 7627,
-      "sha256": "ef43fb94c295fff265ffc53e007046d218f65622495bda45d3cfef075e163e9b"
+      "size": 7701,
+      "sha256": "1f819185cb8d1526e256c6d76298eef739e3843f6d692bc4668e2c5aadb98171"
     },
     {
       "path": "backend/src/ai/tools.ts",
@@ -183,8 +183,8 @@
     },
     {
       "path": "backend/src/handlers/assistant.ts",
-      "size": 6418,
-      "sha256": "9d01db3dac9bd7f52d875fcd46375bb400dd825611ad91d80f5dbc5a9de94567"
+      "size": 6394,
+      "sha256": "177c8377b1c244a0fd1f079b24d1a200cff1ea2f95ceb584ad81d380361ae962"
     },
     {
       "path": "backend/src/handlers/auth.ts",
@@ -3373,8 +3373,8 @@
     },
     {
       "path": "tests/ai-gateway.test.ts",
-      "size": 29337,
-      "sha256": "0876e6fbd2159a3d8f765251105396efbeff10d49c02a190b5e629870d728007"
+      "size": 30253,
+      "sha256": "0af4b8c1cc3b74926d09b4c25def6f91c4d10b5de88dd17c5dcee5c971671771"
     },
     {
       "path": "tests/ai-knowledge-prompt.test.ts",
@@ -3393,8 +3393,8 @@
     },
     {
       "path": "tests/ai-transcription.test.ts",
-      "size": 14703,
-      "sha256": "0b413568a1abb15739d9a315e11f795010f387937fc47762d8c60ec32e4ca23d"
+      "size": 15489,
+      "sha256": "605f59b9da85ca30622ca974d430c89fa15ef6a97ee387d10c2cb63d21647c0d"
     },
     {
       "path": "tests/ai-vault-queries.test.ts",
@@ -3883,8 +3883,8 @@
     },
     {
       "path": "wrangler.production.jsonc",
-      "size": 2469,
-      "sha256": "be43dadbc0107676a98cc523ba515c4a565175d7d90e1a4cb2fb990b080e7aad"
+      "size": 2646,
+      "sha256": "4d3912ccfebd38ff750462cb8740c89769a27cd2f420d2771d038b82d0c20832"
     }
   ]
 }

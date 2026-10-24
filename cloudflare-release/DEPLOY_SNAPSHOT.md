@@ -1625,3 +1625,32 @@ Validation: 113 focused merged-release tests passed; TypeScript and Cloudflare b
 
 Archive SHA256: `6af03db4b9d4733ccdb6cec4d8b5ab8844bc01acf703e90343d1c9fe7b28f65c`
 Manifest SHA256: `71ee457126317af8f8ba59f85bdf6612a529c6ee792e6cf71b4b35d10009802f`
+
+
+## Accounts allowed into เลขากระรอก before customers - 2026-10-24
+
+Built on top of dc2f114 (package 50: waveform dictation and scoped assistant knowledge), keeping all of it.
+
+**Why.** The owner reported that typing in LINE gets no conversation, only the menu commands. AI_ADMINS_ONLY is on and the owner's own account is not a system admin, so both the app and LINE treated เลขา as switched off for it. The owner chose to let their own account in first ("เปิดให้บัญชีของฉันก่อน").
+
+**What changes**
+- **AI_ALLOWED_EMAILS** (ai/config.ts): a Worker secret with comma-separated account emails. It is never in the repository. While AI_ADMINS_ONLY is on, system admins and these accounts get the real เลขา. Everyone else stays as before.
+  - aiAllowedFor: the rule; case and spaces in the email do not matter.
+  - aiConfigFor: the settings for one account, used by /api/assistant (chat, voice, status) and the LINE bridge. If the account is let in, the admins-only check no longer applies to it, so voice transcription works too. If not, the AI is switched off for it.
+- **The LINE bridge** reads the account's email with its plan (assistantPlanForUserId).
+- **No change** to customers, prices, tokens, the trial or the database.
+
+**Tested**
+- tests/ai-gateway.test.ts: who is let in.
+- tests/ai-transcription.test.ts: an allowed account can dictate while admins-only; others get ai_disabled.
+- Unit tests 589/594 (the 5 known failures).
+- assistant-live and assistant-chat e2e: 31 passed. 2 mic tests from package 50 fail the same way on dc2f114 alone: "กำลังฟังอยู่" appears in both the header status and the voice box.
+
+**Package**
+- Archive SHA256 `0a9f2fcdab27c097eaa8097c4a8ce968221f380aa6ec5d543b8d8dda43ff3dec`; manifest SHA256 `a72b99eed9631fd00beee9132c41953de8ba7f8229393e9c0b1aaa5716ca2ba7`.
+- 776 files, 7 changed, none new.
+- The page entry stays `assets/index-CP0pYm7l.js`; the change is backend only.
+
+**Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight and unit tests.
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
