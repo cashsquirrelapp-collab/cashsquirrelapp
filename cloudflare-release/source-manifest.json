@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg65 learning package C: past work for a client",
+  "source_label": "pkg66 learning package D: knowledge signals and the owner report",
   "archive": "source.tar.gz",
-  "archive_sha256": "b86c20c79568bb5b780d674db9558ad0f2e85d54d5959268985bccd26c875d76",
-  "file_count": 830,
-  "total_source_bytes": 22433871,
+  "archive_sha256": "e9d75c1fe10076fbe89f334227a047c583f725e409fdf397796c75191bd6e137",
+  "file_count": 833,
+  "total_source_bytes": 22453252,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -83,8 +83,8 @@
     },
     {
       "path": "backend/src/ai/gateway.ts",
-      "size": 16697,
-      "sha256": "d2796f8d90b78be0371f9265935ba403345f60750cfb6024e4652bbafe61686a"
+      "size": 17318,
+      "sha256": "1dc84d2bf55acc063f5fad53d971c5fa1f8760ab2c451ec248a9957413592d4e"
     },
     {
       "path": "backend/src/ai/jobFinancialEdit.ts",
@@ -98,8 +98,8 @@
     },
     {
       "path": "backend/src/ai/knowledgeBase.ts",
-      "size": 48079,
-      "sha256": "b10e41c7092c075a06440f86969ed88cc558621a036ab6b8cca14efe832098ce"
+      "size": 48266,
+      "sha256": "b8bc12ed7e9553113173f541a4b4174cbf0af7e18469a6aa19e579823ce19868"
     },
     {
       "path": "backend/src/ai/learning.ts",
@@ -178,13 +178,18 @@
     },
     {
       "path": "backend/src/ai/service.ts",
-      "size": 22570,
-      "sha256": "a1d15b6f0c0f5d928ae614fdfd85a0c4519d94bda684020fd640dcff79efcd65"
+      "size": 23092,
+      "sha256": "07cd696d5c1b119e07edd18b5ae6e22666ba44508536f762c7015dd11b356ac8"
+    },
+    {
+      "path": "backend/src/ai/signals.ts",
+      "size": 4294,
+      "sha256": "b48cec71778a64db3147ce9333503afe39a394be28e15ba5c8add86d70953bcf"
     },
     {
       "path": "backend/src/ai/supabaseDb.ts",
-      "size": 14993,
-      "sha256": "4fc5a63fd7e4e2dbfef64bef070805ecfa3ce992ffb07c21985f7d32bf82ff74"
+      "size": 15442,
+      "sha256": "05d2b4d5b64788efbf6107a6e4b6911754c8beaf781a99bfd253e721a1057d25"
     },
     {
       "path": "backend/src/ai/tools.ts",
@@ -700,6 +705,11 @@
       "path": "database/ai_account_actions.sql",
       "size": 904,
       "sha256": "90b4016f34d02387dab868339de6995b2e6990145b77d1669c2b7b7025d82a6f"
+    },
+    {
+      "path": "database/ai_learning_report.sql",
+      "size": 4573,
+      "sha256": "c8ecbe9ba0323298963ca2713adb4b310e2529cc68b9bf24be2aa4c1ef87fd85"
     },
     {
       "path": "database/ai_secretary.sql",
@@ -1868,8 +1878,8 @@
     },
     {
       "path": "frontend/public/privacy.html",
-      "size": 33327,
-      "sha256": "21dc5a5d10c8539ba7c4a73a7e10128fec9277f5017dc7123f8fe8045be9fa20"
+      "size": 34841,
+      "sha256": "3c26cadedc1c552567ddb111158642fa663d6929aef484e1c80f0327f3a80ed1"
     },
     {
       "path": "frontend/public/pro-promo-hero.png",
@@ -3575,6 +3585,11 @@
       "path": "tests/ai-learning-database.test.ts",
       "size": 7645,
       "sha256": "894c99830058d592dbd0df3161de8ced6539aea3f44e250a37e7c9becd3c42a8"
+    },
+    {
+      "path": "tests/ai-learning-report.test.ts",
+      "size": 7221,
+      "sha256": "5e541aadafdc7b72bc06072d7b3199495b536e61b687690ee7a3c8f065124f2b"
     },
     {
       "path": "tests/ai-line-confirmation.test.ts",

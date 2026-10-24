@@ -2128,3 +2128,19 @@ Built on 52ae524 (package 64). No SQL.
 - Prompt secretary-v13: before a quotation, invoice or job for a client the account may know, call past_work with the other reads; start from its details, rates and wording; offer a past unit price as an option, never as a fact; say it comes from past work; ask only for what is still missing.
 
 **Checks.** Unit tests 753/758 (the same 5 fail as before); new tests/ai-past-work.test.ts (details, usual rates and terms, lines with the latest price, newest first, no payment fields, no other client, name matching, unknown client, refused arguments, the prompt rule). cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Not run against the real models.
+
+
+## เลขา notices what its feature knowledge misses, and a weekly report for the owner (learning package D) - 2026-10-25
+
+Built on 9554776 (package 65). No SQL (cashflow_ai_knowledge_signals and its 6-month sweep came with package 63).
+
+**Why.** The owner's learning plan, package D ("ทำชุด D ต่อ"): know what people could not find, asked for, or got a wrong menu answer about, and measure cost, cards and corrections, so a person decides what to change. Nothing changes the knowledge, prompt, rules or tools by itself.
+
+**What changes (server only; no screen changes)**
+- backend/src/ai/signals.ts (new): rules, no model call. Four kinds: not_found (an app question with no match in the knowledge), not_available (a feature that is not open yet), feature_request ("อยากให้มี…"), wrong_answer ("ผิด ไม่มีเมนูนี้" right after an app how-to answer; corrections while adding a job do not count). At most two per message. The question is kept without e-mail addresses or long numbers, at most 200 characters.
+- gateway.ts: signals from the message, plus feature_lookup searches that found nothing; service.ts saves them after the reply (best effort; never charges tokens, never blocks the reply); supabaseDb.ts writes them to cashflow_ai_knowledge_signals with the channel and prompt version.
+- database/ai_learning_report.sql (new, read only, not run by the app): one JSON for the owner to run in the Supabase SQL editor. Covers 7-day cost per message, route and model; 30-day cost per active account; cards prepared, confirmed and cancelled; corrections per 100 confirmed cards; expense category fixes per 100 new expenses; signals and the most common questions; wrong answers per prompt version; memory counts. No user ids leave it.
+- knowledgeBase.ts kb-2026-10-25.1: "ทวิ 50", "ทวิ50" and "ใบทวิ" now find the 50 ทวิ entry.
+- privacy.html (Thai and English): questions the secretary cannot answer yet, what is kept and why, kept 6 months.
+
+**Checks.** Unit tests 755/760 (the same 5 fail as before); new tests/ai-learning-report.test.ts (signal kinds, no signal for money questions or job corrections, redaction, report numbers on a test database, no user ids, read only). English privacy page test. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Not run against the real models; a local learning test set (18 cases) is ready for that.
