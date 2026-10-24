@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg67 model routing V2: policy matrix, Sonnet hold-back, routing log",
+  "source_label": "pkg68 cost fix: fair token accounting, cache choice, no cut-off answers, client match fix",
   "archive": "source.tar.gz",
-  "archive_sha256": "2ddade17253415477e614b8b8bf4d3bb623cf4b5d1a2f1d03d645bc625515c32",
-  "file_count": 836,
-  "total_source_bytes": 22524465,
+  "archive_sha256": "8ca4b197c1292c5c0f60517715dc49d63ecc17dfdd5f467af5cfe6a1dc425fc1",
+  "file_count": 838,
+  "total_source_bytes": 22586192,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -48,8 +48,8 @@
     },
     {
       "path": "backend/src/ai/config.ts",
-      "size": 5381,
-      "sha256": "2f7cf61a3a1c221b423526512f55908b4d2510437d0eb6e3de65937745c6203c"
+      "size": 5905,
+      "sha256": "0d83f19b4a7067a3de5f6259985f92fdc33529d38352486ce84b9fe6d5749cce"
     },
     {
       "path": "backend/src/ai/conversations.ts",
@@ -58,8 +58,8 @@
     },
     {
       "path": "backend/src/ai/cost.ts",
-      "size": 2250,
-      "sha256": "e0a02f0d9ac6fbf96cb14a34775df9a89f201cc43c4156506640733cf1b52599"
+      "size": 4186,
+      "sha256": "de86a023123a99d5f4c77a3a035ce8fcc74efdc2351ba942bf90798fbf1c7210"
     },
     {
       "path": "backend/src/ai/difficulty.ts",
@@ -83,8 +83,8 @@
     },
     {
       "path": "backend/src/ai/gateway.ts",
-      "size": 24076,
-      "sha256": "295308d8d5e86473de139e5f95be44759add73b650231539d6d8460c3b9feeae"
+      "size": 30583,
+      "sha256": "ba3cf5b4cf74357b20e1011ca0bf86471d4774952f718afeb873b416167fbfea"
     },
     {
       "path": "backend/src/ai/jobFinancialEdit.ts",
@@ -138,8 +138,8 @@
     },
     {
       "path": "backend/src/ai/pastWork.ts",
-      "size": 6377,
-      "sha256": "ec13f59edd439217c56f7677a8645ea2318aa3675ee25f9e6384b191e4ab4114"
+      "size": 7917,
+      "sha256": "0d71ce66868bae7517241b9c114b4a9e06733df5a274e122f7b7d790526e8025"
     },
     {
       "path": "backend/src/ai/prompt.ts",
@@ -153,18 +153,18 @@
     },
     {
       "path": "backend/src/ai/providers/anthropic.ts",
-      "size": 7276,
-      "sha256": "58ee60feffd449af09c9b241dd6efe5ad6a2821b98c036a8e0b6a6c4a10928e3"
+      "size": 8966,
+      "sha256": "75e9e1c33c090329b43e31a839c855b154f15ac5078d2ef3623a4ee6ee572d26"
     },
     {
       "path": "backend/src/ai/providers/gemini.ts",
-      "size": 6565,
-      "sha256": "061dc1bff9b6996c9b57f93c7d2bc26e73661a637f7c2499c7c295e416e52437"
+      "size": 6996,
+      "sha256": "144b8855d170e83b1b9b17cd8b79f617cc4e3a45c7f1a8190fa172d87e60a7e9"
     },
     {
       "path": "backend/src/ai/providers/openai.ts",
-      "size": 4742,
-      "sha256": "8543d76724657e78059d3eb66b37146280a586594873837a8b2b853488c30940"
+      "size": 5254,
+      "sha256": "aed4fe72197698eb07287f5a320c8d0943d5e65e175a78f6df83689c8e01fd3e"
     },
     {
       "path": "backend/src/ai/recordActions.ts",
@@ -178,13 +178,13 @@
     },
     {
       "path": "backend/src/ai/routingPolicy.ts",
-      "size": 22294,
-      "sha256": "090f7f96fcfc5cc2ad867e3f076c6d569cf9c56441d16dab708f0fc6976845d2"
+      "size": 22931,
+      "sha256": "1fb6032efa684db1e00a6ca755d2cab85e8ef08110e45c8cdca01ae8733b3bcf"
     },
     {
       "path": "backend/src/ai/service.ts",
-      "size": 23996,
-      "sha256": "19c89ddb9cd3945507b83887a26559d3b162317a761aea9c1af1d21bccb5fb6f"
+      "size": 27603,
+      "sha256": "9f75414955aebc406f49a0923f7eb1e6e554dfc43ffe7a1d708bb9c07ccf34be"
     },
     {
       "path": "backend/src/ai/signals.ts",
@@ -193,13 +193,13 @@
     },
     {
       "path": "backend/src/ai/supabaseDb.ts",
-      "size": 15892,
-      "sha256": "b8491b5797ef570865be6786cfb5d6a62a037fb5d6d03a89113ca93de1c508d9"
+      "size": 17355,
+      "sha256": "9323a463165481e5e584a6fb777a6a8c9a1767183c4de14a13cb7c9ff792ffe8"
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 71699,
-      "sha256": "4298238e280cabc6240162a1c99e9442d59f61153b4703ae76e1f3a01a3a8683"
+      "size": 71795,
+      "sha256": "ba68b85695ce9898f0e0a666d4777c693e4b7e09f2f013f1bdc0592effda5696"
     },
     {
       "path": "backend/src/ai/transcription.ts",
@@ -208,8 +208,8 @@
     },
     {
       "path": "backend/src/ai/types.ts",
-      "size": 6031,
-      "sha256": "8c9616ef84e9559cb719a6e426657edeb8d36c1593b24a5e6e513e6909eae38b"
+      "size": 7910,
+      "sha256": "dbbb266d1645e767b616ea94aa3217c98b1c62c49687af6247978a4b7ab22c40"
     },
     {
       "path": "backend/src/ai/vaultQueries.ts",
@@ -713,8 +713,8 @@
     },
     {
       "path": "database/ai_learning_report.sql",
-      "size": 9122,
-      "sha256": "c4b4846928ef1d7963fde83b5faad4c3a9f711c412fc2e55ff75e360c1bea1dc"
+      "size": 12522,
+      "sha256": "762da5f9e606fb95e7bc29ae367ef97e68c180b454a21fb78b669d5ab14b6cd6"
     },
     {
       "path": "database/ai_secretary.sql",
@@ -3487,6 +3487,11 @@
       "sha256": "121262f8d08b701cd00b1fa6c0b47db08247e9e319ea7b8deeb34d0382a6d88f"
     },
     {
+      "path": "supabase/migrations/20261025150000_ai_cost_accounting.sql",
+      "size": 4819,
+      "sha256": "acf9a024f8a75669af0603393b97bfe83bf71b127e2cf13084c9b78c33164e8a"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 11339,
       "sha256": "583a3c1fb6e00fa71e874483838698567f700a3ce7851ce682363e625836e833"
@@ -3547,6 +3552,11 @@
       "sha256": "206808dc80fd46aaaa76c7e486476e5bf7f38f112df3b502482412486f4fe2e5"
     },
     {
+      "path": "tests/ai-cost-accounting.test.ts",
+      "size": 24145,
+      "sha256": "0bf34850e797134f1d0b6d815bd85a13e143d133a17aa6cdf8e22efb040c6f13"
+    },
+    {
       "path": "tests/ai-document-actions.test.ts",
       "size": 14640,
       "sha256": "3b8d1bff1e86190c43e65e73ed9312e615e964dff2637524df0db2faa2759f24"
@@ -3598,8 +3608,8 @@
     },
     {
       "path": "tests/ai-learning-report.test.ts",
-      "size": 11301,
-      "sha256": "9697948a9ee4690813f0bce1b445a2a690007945053520e215ca4eb55c1da4f7"
+      "size": 14645,
+      "sha256": "53d3c8b626ade30f52faa2bbdd0b1fbfb762763fe27978677885fc33787da7b2"
     },
     {
       "path": "tests/ai-line-confirmation.test.ts",
@@ -3618,8 +3628,8 @@
     },
     {
       "path": "tests/ai-message-ceiling.test.ts",
-      "size": 5664,
-      "sha256": "18656a0ec1de85eef826b414fd76a0b7827edea3d300908bf9626b823abb13e1"
+      "size": 6154,
+      "sha256": "11be3951a85f2759c3adae7dc69aa6faaee34b49bf3591bec56faf582a09d6b4"
     },
     {
       "path": "tests/ai-money-chart.test.ts",
@@ -3633,8 +3643,8 @@
     },
     {
       "path": "tests/ai-past-work.test.ts",
-      "size": 6126,
-      "sha256": "22a3c90f9bce805046c3734efbb2a839b4f9dcbacc9f047edfdf39d2a46c151d"
+      "size": 8513,
+      "sha256": "a6ae37538b22b9d5a4dfd6b20ec0dcf4174ed82391b91e2011683b6497713545"
     },
     {
       "path": "tests/ai-proposals-database.test.ts",
@@ -3653,8 +3663,8 @@
     },
     {
       "path": "tests/ai-service.test.ts",
-      "size": 22381,
-      "sha256": "8dbe38237a00aed646dbd1851561e4f8e27370fbc9f1c7fa721c1adc995e5d68"
+      "size": 22630,
+      "sha256": "fb0e3c46fe9a17e3e0132dd8d07d22e0fcb60dacd9ba98b4e00b88136419ce8b"
     },
     {
       "path": "tests/ai-slip-payments.test.ts",
@@ -3683,8 +3693,8 @@
     },
     {
       "path": "tests/assistant-account-isolation.test.ts",
-      "size": 31704,
-      "sha256": "e1999dc7fe03077502a41cd8ec339d17e11e4240077f3068f56b389871fe16f5"
+      "size": 32030,
+      "sha256": "e5aafab06012f4d7777e600677a45b56bb1eb461ee8d60c58cb1caf590da5f18"
     },
     {
       "path": "tests/assistant-audio-recorder.test.ts",
@@ -3698,8 +3708,8 @@
     },
     {
       "path": "tests/assistant-pro-rollout.test.ts",
-      "size": 14434,
-      "sha256": "19dd5837c25eedae3e3c2da1526b43452b5f328576674ac80bf80c60aeff88ce"
+      "size": 14859,
+      "sha256": "9beef813e47c36a3b8a95b109d4549edd866e83946de4bef24c4a2031096dd81"
     },
     {
       "path": "tests/assistant-record-security.test.ts",
@@ -3973,8 +3983,8 @@
     },
     {
       "path": "tests/http.test.ts",
-      "size": 26573,
-      "sha256": "ea80b6bbd0925fc04a82a273408eb7c00fb23e1d643cd34033f13aa7adfb007e"
+      "size": 27068,
+      "sha256": "c589e1132122337b05d22afb8f38768af8ef9517ff43584efadf71f955ab2302"
     },
     {
       "path": "tests/i18n-coverage.test.ts",
@@ -3993,8 +4003,8 @@
     },
     {
       "path": "tests/installment-payments.test.ts",
-      "size": 9602,
-      "sha256": "7ad25dbc7db02dea1b224f85b95bbffe7e874d30b558069c7a2cea1cbc9974d5"
+      "size": 10076,
+      "sha256": "ed0ed29626b0a9a15f041b61e66f040675d6bf111df6f54e4988d0664ac2cb1a"
     },
     {
       "path": "tests/job-sort.test.ts",
@@ -4048,8 +4058,8 @@
     },
     {
       "path": "tests/monthly-report-negative.test.ts",
-      "size": 2498,
-      "sha256": "96b5654ff3d49d683ddac4f72a8d942012cc4395fbea424cfa9cbb1d0333a287"
+      "size": 2849,
+      "sha256": "152d9c9c759b80f216643b6788fcdc584bfe31a7973f28243ae70eab4acb0441"
     },
     {
       "path": "tests/onboarding.test.ts",
