@@ -1654,3 +1654,57 @@ Built on top of dc2f114 (package 50: waveform dictation and scoped assistant kno
 **Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight and unit tests.
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
+
+
+## เลขา speaks only about open areas; LINE replies for a phone; one token pool - 2026-10-24
+
+Built on top of 3f5cc81.
+
+**Why.** The owner tried เลขา in LINE after pkg51. Three problems:
+- Replies were long and the text ran together.
+- เลขา mentioned features not launched yet, such as 50 ทวิ. The owner asked to limit it to what an ordinary (non-admin) account sees on the website, and to know every corner of that.
+- Tokens must be one pool per account, capped, whether the account uses LINE or the app.
+
+**What changes**
+
+*Open areas only.* Everything follows the launch policy (shared/featureAvailability.ts), so an area comes back on its own the day it launches.
+- The catalog, lookup and catalog answers cover only open areas.
+- A question that names a hidden area (50 ทวิ, document vault, tax, reports, goals, teams) gets only "not available yet, suggest it in บอกเรา". A word inside an open area's term does not count: ใบกำกับภาษี is a document. The admin overview is never named.
+- The tools for hidden areas are off: search_vault, wht_tracking, tax_year_summary, and the goals domain of account_data.
+- The prompt (secretary-v5) adds an ONLY OPEN AREAS rule. It drops "a restricted menu can exist… do not call it absent".
+- Open areas are rewritten from a walk-through as an ordinary account (guest mode, 2026-10-24): real menu names (รายจ่าย, เงินค้างรับ), buttons, forms, filters, export menus, LINE menu buttons and the file attach in the chat. The full-year Excel export is on the jobs page.
+- LINE follows the website: the vault, 50 ทวิ and ส่งเอกสาร shortcuts and saving files sent in LINE stay for system admins (services/lineLaunch.ts). Ordinary accounts get "ส่วนนี้ยังไม่เปิดให้ใช้งานในตอนนี้ครับ".
+- Monthly summary cards no longer mention goals or link to the hidden reports page.
+
+*LINE readability.*
+- The prompt has LINE rules: short beats complete, answer first, at most 3 short lines, at most 5 items, at most 4 steps, blank lines between parts, no repeating the answer as steps.
+- markdownToLineText:
+  - A table row becomes "• name · amount" with the details on a second line.
+  - "1. … 2. …" written on one line is split one per line (only in order, so "15, 30)" stays whole).
+  - A long Thai paragraph is split one sentence per line.
+  - Lists show at most 5 items plus "…และอีก N รายการ ดูต่อในแอป".
+
+*One token pool.* The pool was already one per account (same user and cycle). Now:
+- LINE AI messages share the app's per-minute limit (MESSAGE_RATE, same key).
+- LINE shows a low balance (10% or less) under the answer.
+- "เช็กโทเคน" in LINE answers with the same number as the app's ring, without calling the AI.
+- Limits are unchanged:
+  - Pro: 1,000 tokens a month, at most $1 of AI cost per account.
+  - Trial: 25 tokens.
+  - $5 a day for the whole app.
+
+**Tested**
+- Unit tests 596/601 (the 5 known failures).
+  - New tests: the token pool shared by LINE and the app, the balance check, the shared rate limit, the low-balance note and refusal, the LINE text shaping, the LINE prompt rules, the LINE shortcut gate and the launch gate.
+  - Catalog and prompt tests rewritten for open areas only.
+- Real model, 8 LINE questions plus 2 reruns, $0.022: short answers, no hidden areas, "not available yet" for 50 ทวิ and goals, add-job questions one per line. One add-job run hit the 30 s timeout once; it answered in about 5 s on both reruns.
+- e2e: assistant-live, assistant-chat and i18n-english, 68 passed. The 2 mic tests from package 50 fail as on dc2f114.
+
+**Package**
+- Archive SHA256 `72a8bfd257a4768256985a40e8ca39b1d3861d25bef16263c086ea9c5f8448a7`; manifest SHA256 `286387abf8b495444937eaea3ed14b9434759c879eab82147449a8c7d27e5e84`.
+- 777 files, 21 changed (1 new).
+- New entry `assets/index-tmKs63dv.js`.
+
+**Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight and unit tests.
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
