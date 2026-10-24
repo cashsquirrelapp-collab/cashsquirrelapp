@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg63 learning package B: corrections",
+  "source_label": "pkg64 edit and answer in the floating panel; category list",
   "archive": "source.tar.gz",
-  "archive_sha256": "c6bab32cb3b45559259c7e86571f68fea92c3f7f888a797ec81d11f805750817",
+  "archive_sha256": "d25fb04f41ccaa2d8dba52f57d7a71642e38d7535d7c1416fdc44bb40c483265",
   "file_count": 828,
-  "total_source_bytes": 22411180,
+  "total_source_bytes": 22420507,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -183,8 +183,8 @@
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 70368,
-      "sha256": "d4f1006dccbcb3f73106f7521a73a2150673f7fc4d6658e0e2867959fbcf34e6"
+      "size": 71526,
+      "sha256": "67336f391d2c448ad481a727ee74561b4984606456d29545c1dc42cddc7bdc45"
     },
     {
       "path": "backend/src/ai/transcription.ts",
@@ -2038,8 +2038,8 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantBuddy.tsx",
-      "size": 24102,
-      "sha256": "589b23b9308e8170c4421956adbc0bacfe62a621bf2d76e179708eb89e74c6d5"
+      "size": 25064,
+      "sha256": "f6acc623a246fb1cf81168092ecded012b60de0c1b9b517d5df880202ed2be6e"
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
@@ -2048,8 +2048,8 @@
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
-      "size": 21043,
-      "sha256": "5372d4fe1b4792b956a83d9c0db535660aef6529796fd90cf961413e65609c0a"
+      "size": 21205,
+      "sha256": "fce3a784aac42d0b69123fdbf11513febbc603587f2c2614454fff95fdf9e48b"
     },
     {
       "path": "frontend/src/features/assistant/LineCard.tsx",
@@ -3518,8 +3518,8 @@
     },
     {
       "path": "tests/ai-correction-learning.test.ts",
-      "size": 12777,
-      "sha256": "2e9e62f9274a234fcd9f1ee0267a3fbc2ea4c36ec406051795fe267171e237f5"
+      "size": 14647,
+      "sha256": "206808dc80fd46aaaa76c7e486476e5bf7f38f112df3b502482412486f4fe2e5"
     },
     {
       "path": "tests/ai-document-actions.test.ts",
@@ -3783,8 +3783,8 @@
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
-      "size": 54265,
-      "sha256": "ebed6520212fbd6860f5939426897cc83e95e71468b5f469e622217193bbd312"
+      "size": 59440,
+      "sha256": "ba26b99c3cc5e80c11a75574accabdf85f824a9dfaa6e0cd5528689108396f72"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",

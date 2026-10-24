@@ -2100,3 +2100,17 @@ Built on 31fa17f (package 62). No SQL: cashflow_ai_corrections came with package
 - Privacy page (Thai and English): what is learned from corrections, its history, 12-month retention, and that it is per account and can be forgotten.
 
 **Checks.** Unit tests 749/754 (the same 5 fail as before); new tests/ai-correction-learning.test.ts (card edit → confirm → rule and history; used for the same shop or a slip, not otherwise; newer correction replaces; back-and-forth asks first; cancelled cards and a model's __learn teach nothing; phone numbers never a rule; edit cards; quotation client and wording). cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Not run against the real models.
+
+
+## The floating panel edits cards and answers questions; an expense card's category is picked from a list - 2026-10-25
+
+Built on de65b24 (package 63). No SQL.
+
+**Why.** The owner, on an expense card in the floating panel on the dashboard: "นิดนึง อยากให้กดแก้ไขได้". The panel (AssistantBuddy) drew cards without onRevise and onAnswer, so แก้ไข and tap-to-answer questions only worked on the full chat page.
+
+**What changes**
+- frontend/src/features/assistant/AssistantBuddy.tsx: cards get onRevise (the card is replaced by the revised one, as in the full chat) and onAnswer/answered for questions cards; a reply's file note is kept like the full chat's.
+- backend/src/ai/tools.ts: an expense card's หมวดหมู่ is a choice from the app's 8 categories (APP_EXPENSE_CATEGORIES, the same list as ExpenseDrawer's; a test compares them), then up to 6 of the account's own categories, and the current one.
+- frontend/src/features/assistant/ChatCards.tsx: only rate fields read as percentages (0% = ไม่หัก / ไม่มี VAT); other choices read as themselves.
+
+**Checks.** Unit tests 750/755 (the same 5 fail as before); new: the category list matches the expense form, the account's categories come along, the card offers them. Screen tests for the chat and the panel: 54 pass, the 2 microphone tests fail as before; new: in the panel on the dashboard a question is answered by tapping and an expense card is edited with the category picked from the list, no overlapping text. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
