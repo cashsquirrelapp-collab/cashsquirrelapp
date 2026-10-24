@@ -2013,3 +2013,32 @@ Built on 98de117 (package 58). No SQL: it uses the chat history tables from pack
 - **Privacy page (Thai and English).** Chat history includes what is tapped or typed in the notifications thread; each chat keeps its latest 400 messages (200 in the notifications thread), older ones are deleted automatically.
 
 **Checks.** Unit tests 720/725 (the 5 failing are the same as before). New: the thread is kept per account and B's history stays empty; B's thread id is refused from A's browser; the thread is not in the chat list; a chat keeps 400 and another account's chat is untouched; the thread id fits the table's check. Screen tests 46 pass, the 2 microphone tests fail as before; new: kept taps come back in time order, no overlapping text. A one-off run with the real Google font loaded (computer and phone) found no overlapping text. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+
+## Chat: Apple's Thonburi, no Share item, an iOS look on computers, and quotations that remember what a file showed - 2026-10-25
+
+Built on ce83a6f (package 59). No SQL.
+
+**Why.** The owner saw Noto Sans Thai Looped live and found it not pretty ("มันไม่สวยเลยไอ้ฟอนต์น่ะเปลี่ยน"); they want the Claude app's look, which is Apple's Thonburi.
+
+**What changes**
+- frontend/src/features/assistant/assistant.css: a 'Krarok Chat Thai' face made from the device's own Thonburi (local(), Thai letters only: regular for 300–500, bold for 600–900). The chat stack is 'Krarok Chat Thai', -apple-system, BlinkMacSystemFont, 'Noto Sans Thai Looped', then the app's font.
+  - Mac, iPhone and iPad: Thai in Thonburi, English in the system font, as in the Claude app; nothing is downloaded.
+  - Other devices (no Thonburi): Noto Sans Thai Looped as before.
+  - Chrome's own fallback would not pick Thonburi before Noto (checked with getPlatformFontsForNode), hence the local() face. Apple's Thonburi UI (without the small gap before โ/ใ) cannot be reached by a web page, so the gap shows as it does in the Claude app.
+- The rest of the app keeps its font.
+- **No Share item.** The owner: "เอาปุ่มแชร์ออก". The chat row menu (⋯) loses its disabled "แชร์ · เร็ว ๆ นี้" item; it now has เปลี่ยนชื่อ, ปักหมุด, เก็บถาวร and ลบ. The English entry goes too, and the history test checks there is no Share item.
+
+- **iOS-style chat on computers and iPads** (the owner: "หน้าตาอยากได้ทางการขึ้น เหมือนระบบ ios หน่อย อันนี้ดูเหมือนเด็กเล่นไป"). Only the 744px+ layout (`.asx:not(.is-mobile)`); phone screenshots before and after are pixel-identical apart from the clock.
+  - Start screen: a plain title (no gradient text), the squirrel at 72px without its glow, and the four questions as one iOS inset-grouped list under the section title คำถามแนะนำ: Settings-style orange icon squares, hairlines, chevrons.
+  - Dark: iOS black behind the chat instead of the orange and pink aurora; your own bubble is a solid colour instead of a gradient; no glow behind the top-bar squirrel.
+  - The welcome test now expects one column of four rows on computers and the 2 × 2 cards on phones.
+
+- **Quotations remember files** (the owner, after a quotation chat: the client in a picture was asked for again, shortened to "มูลนิธิ", the job was asked again, the price came as invented options and 1 × total).
+  - New tool note_from_file (both routes, only for a file in this message): the model writes down what the file shows in the same step as its other tools. The reply carries it as `memo`; the chat keeps it on เลขา's message (never drawn) and sends it with later messages as "[อ่านจากไฟล์ที่แนบ: …]" before that answer; a user turn with a file says "[แนบไฟล์: name]". Stored chats keep it as a hidden `memo` card. History turns may be 2,000 characters.
+  - The smart model stays on while the questions run: walking back through เลขา's question turns, a user turn that needed it or any file keeps it (continuesSmartWork replaces answersSmartQuestion). An answer that asked nothing ends the run.
+  - Prompt secretary-v9: never ask again for what the chat has (earlier words, answers, file notes; "ส่งไปแล้ว" means look back), all missing items in one ask_user call, options only from real data (no invented round prices), "งานตัดต่อ 5 คลิป" = quantity 5 unit คลิป with the price per clip, a client from a file in full with address/tax ID/phone.
+  - LINE sends no files to เลขา, so it is unchanged apart from the routing.
+- **Editing a card:** focusing one of its fields brings the whole card back above the message box (a field's own focus scroll could leave ใช้ค่านี้ / ไม่แก้แล้ว under it; a test caught it 1 in 8 runs, now 16/16).
+
+**Checks.** Unit tests 725/730 (the same 5 fail as before); new: tests/ai-file-memory.test.ts replays the owner's quotation chat with fake models, and the isolation suite checks the hidden note is stored and reopened per account. Screen tests that touch the chat: 47 pass, the 2 microphone tests fail as before; new: the next message carries the file's note, the file goes once, the note is never drawn. A run with real fonts on a Mac (computer and phone, dark): the chat draws Thonburi + SF, Noto is not downloaded, no overlapping text. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
