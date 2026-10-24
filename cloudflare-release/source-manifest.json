@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg66 learning package D: knowledge signals and the owner report",
+  "source_label": "pkg67 model routing V2: policy matrix, Sonnet hold-back, routing log",
   "archive": "source.tar.gz",
-  "archive_sha256": "e9d75c1fe10076fbe89f334227a047c583f725e409fdf397796c75191bd6e137",
-  "file_count": 833,
-  "total_source_bytes": 22453252,
+  "archive_sha256": "2ddade17253415477e614b8b8bf4d3bb623cf4b5d1a2f1d03d645bc625515c32",
+  "file_count": 836,
+  "total_source_bytes": 22524465,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -48,8 +48,8 @@
     },
     {
       "path": "backend/src/ai/config.ts",
-      "size": 4785,
-      "sha256": "e1f5963d1ee2b9cb9f54724dcbd6ee3488fca0d53eab831b06feffd969dcd381"
+      "size": 5381,
+      "sha256": "2f7cf61a3a1c221b423526512f55908b4d2510437d0eb6e3de65937745c6203c"
     },
     {
       "path": "backend/src/ai/conversations.ts",
@@ -63,8 +63,8 @@
     },
     {
       "path": "backend/src/ai/difficulty.ts",
-      "size": 4394,
-      "sha256": "6e6bde9e9b1c5df52607fe8325aab1dadfe92c64e0468f1b417000fd0722179e"
+      "size": 4552,
+      "sha256": "929bd2ebbfae49e07be114bc695eac091d84e7c7e9461ec12451dbbdbf81f7ab"
     },
     {
       "path": "backend/src/ai/documentActions.ts",
@@ -83,8 +83,8 @@
     },
     {
       "path": "backend/src/ai/gateway.ts",
-      "size": 17318,
-      "sha256": "1dc84d2bf55acc063f5fad53d971c5fa1f8760ab2c451ec248a9957413592d4e"
+      "size": 24076,
+      "sha256": "295308d8d5e86473de139e5f95be44759add73b650231539d6d8460c3b9feeae"
     },
     {
       "path": "backend/src/ai/jobFinancialEdit.ts",
@@ -133,8 +133,8 @@
     },
     {
       "path": "backend/src/ai/navigation.ts",
-      "size": 4741,
-      "sha256": "bcafb8387c6291ff136a0bb5fea063bab1719558c5fef2f354e409746ccbb796"
+      "size": 4748,
+      "sha256": "8e48c21c3c6296d502930752e4c722e55f1f1a1cbddb054b8e4c81928a120874"
     },
     {
       "path": "backend/src/ai/pastWork.ts",
@@ -158,8 +158,8 @@
     },
     {
       "path": "backend/src/ai/providers/gemini.ts",
-      "size": 6509,
-      "sha256": "7d647cd5eab69a3ff53794d88c83d45ab43247887faa299082488662247fd552"
+      "size": 6565,
+      "sha256": "061dc1bff9b6996c9b57f93c7d2bc26e73661a637f7c2499c7c295e416e52437"
     },
     {
       "path": "backend/src/ai/providers/openai.ts",
@@ -177,9 +177,14 @@
       "sha256": "c4a3a92912b85d53f31c445fa9f6d1be2838095116b52473765e3dedb9feacba"
     },
     {
+      "path": "backend/src/ai/routingPolicy.ts",
+      "size": 22294,
+      "sha256": "090f7f96fcfc5cc2ad867e3f076c6d569cf9c56441d16dab708f0fc6976845d2"
+    },
+    {
       "path": "backend/src/ai/service.ts",
-      "size": 23092,
-      "sha256": "07cd696d5c1b119e07edd18b5ae6e22666ba44508536f762c7015dd11b356ac8"
+      "size": 23996,
+      "sha256": "19c89ddb9cd3945507b83887a26559d3b162317a761aea9c1af1d21bccb5fb6f"
     },
     {
       "path": "backend/src/ai/signals.ts",
@@ -188,8 +193,8 @@
     },
     {
       "path": "backend/src/ai/supabaseDb.ts",
-      "size": 15442,
-      "sha256": "05d2b4d5b64788efbf6107a6e4b6911754c8beaf781a99bfd253e721a1057d25"
+      "size": 15892,
+      "sha256": "b8491b5797ef570865be6786cfb5d6a62a037fb5d6d03a89113ca93de1c508d9"
     },
     {
       "path": "backend/src/ai/tools.ts",
@@ -203,8 +208,8 @@
     },
     {
       "path": "backend/src/ai/types.ts",
-      "size": 5894,
-      "sha256": "90b1ae36240c87bcd35bc63c27b1049ac389b7e6a8e24fdb73aad615e6c45778"
+      "size": 6031,
+      "sha256": "8c9616ef84e9559cb719a6e426657edeb8d36c1593b24a5e6e513e6909eae38b"
     },
     {
       "path": "backend/src/ai/vaultQueries.ts",
@@ -708,8 +713,8 @@
     },
     {
       "path": "database/ai_learning_report.sql",
-      "size": 4573,
-      "sha256": "c8ecbe9ba0323298963ca2713adb4b310e2529cc68b9bf24be2aa4c1ef87fd85"
+      "size": 9122,
+      "sha256": "c4b4846928ef1d7963fde83b5faad4c3a9f711c412fc2e55ff75e360c1bea1dc"
     },
     {
       "path": "database/ai_secretary.sql",
@@ -3477,6 +3482,11 @@
       "sha256": "521f19432a7f9b3438e4a8a8e37360eed899759a03a02a9ab9577413799c60c3"
     },
     {
+      "path": "supabase/migrations/20261025130000_ai_routing_log.sql",
+      "size": 1150,
+      "sha256": "121262f8d08b701cd00b1fa6c0b47db08247e9e319ea7b8deeb34d0382a6d88f"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 11339,
       "sha256": "583a3c1fb6e00fa71e874483838698567f700a3ce7851ce682363e625836e833"
@@ -3558,8 +3568,8 @@
     },
     {
       "path": "tests/ai-gateway.test.ts",
-      "size": 40682,
-      "sha256": "31de27edf033f9c4e64e0f0f3d0f7585ba59d6dfb977b13902691df1ceac3a92"
+      "size": 40850,
+      "sha256": "3b239fc558b2f8b086b71dd74ad9d42691c92bfbd3d2d4a9abe9d73676fef227"
     },
     {
       "path": "tests/ai-installments-questions.test.ts",
@@ -3588,8 +3598,8 @@
     },
     {
       "path": "tests/ai-learning-report.test.ts",
-      "size": 7221,
-      "sha256": "5e541aadafdc7b72bc06072d7b3199495b536e61b687690ee7a3c8f065124f2b"
+      "size": 11301,
+      "sha256": "9697948a9ee4690813f0bce1b445a2a690007945053520e215ca4eb55c1da4f7"
     },
     {
       "path": "tests/ai-line-confirmation.test.ts",
@@ -3632,6 +3642,11 @@
       "sha256": "31b43e8feff4a1528f3b87cb5d8590c3a43148b2cb8ba8cc111858a50f830682"
     },
     {
+      "path": "tests/ai-routing-v2.test.ts",
+      "size": 29446,
+      "sha256": "8909cd01fe7f8f64e49f70c2253993fad315c6fd7c43e1ccdfc099381fb8f3cd"
+    },
+    {
       "path": "tests/ai-scoped-reads.test.ts",
       "size": 2595,
       "sha256": "4c47a6da6611b0cb5f12c99b40df56e76b8a831d71afbc4529de771581e97550"
@@ -3668,8 +3683,8 @@
     },
     {
       "path": "tests/assistant-account-isolation.test.ts",
-      "size": 31510,
-      "sha256": "9176b31f95b04d10d6ec7bbbaa59951c905e90062aa187f417209404ceffeb8e"
+      "size": 31704,
+      "sha256": "e1999dc7fe03077502a41cd8ec339d17e11e4240077f3068f56b389871fe16f5"
     },
     {
       "path": "tests/assistant-audio-recorder.test.ts",
@@ -4168,8 +4183,8 @@
     },
     {
       "path": "wrangler.production.jsonc",
-      "size": 3388,
-      "sha256": "93e92791f0d51966c49656d65286198e9601bbdf663050f548954f3b187d38fe"
+      "size": 3654,
+      "sha256": "411f840317ca47283f211eea2f3f71dcd2656e7aacea32b0acce83c84eb68612"
     }
   ]
 }

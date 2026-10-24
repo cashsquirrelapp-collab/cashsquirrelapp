@@ -2144,3 +2144,20 @@ Built on 9554776 (package 65). No SQL (cashflow_ai_knowledge_signals and its 6-m
 - privacy.html (Thai and English): questions the secretary cannot answer yet, what is kept and why, kept 6 months.
 
 **Checks.** Unit tests 755/760 (the same 5 fail as before); new tests/ai-learning-report.test.ts (signal kinds, no signal for money questions or job corrections, redaction, report numbers on a test database, no user ids, read only). English privacy page test. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Not run against the real models; a local learning test set (18 cases) is ready for that.
+
+
+## Model routing V2: Gemini or Sonnet by intent, complexity, risk and context, with a routing log - 2026-10-25
+
+Built on package 66 (published first; its manifest f6cc9952…). SQL: supabase/migrations/20261025130000_ai_routing_log.sql (additive, one column; the app works before it runs, the routing log is simply not saved until then).
+
+**Why.** The owner's brief "KRAROK AI — INTELLIGENT MODEL ROUTING V2": the cheap model for simple work, Sonnet where it is needed, risky work checked and confirmed, and every request traceable to the model chosen and why.
+
+**What changes (server only; no screen changes)**
+- backend/src/ai/routingPolicy.ts (new): each message is read on intent, complexity, risk and context with plain rules, no model call. Sonnet for documents (quotation, invoice, receipt), deletes, important edits (amount, tax, client, terms), complex additions (three or more conditions, installments), files, long texts and analysis. Gemini for talk, app questions, money and job lookups, summaries and charts, plain additions and payments. Clear changes go straight to the change tools (no hand-over round). Replies to Sonnet's own questions stay with Sonnet.
+- Answers without a model, 0 tokens: "<page> อยู่ตรงไหน" (only when the whole message is that question, only for pages open to everyone) with the page button, and "เรียกกูว่า …" / "ไม่ต้องใช้อีโมจิ" saved through the same memory checks.
+- gateway.ts: when Sonnet fails, Gemini still answers questions and analysis, but a document, delete, important edit or complex change is held back with a polite message and no charge (AI_LIGHT_FALLBACK_WRITES=true allows the take-over). At most one step up from Gemini to Sonnet per message, only when Gemini left nothing behind: an empty answer, stuck in tool calls, or a change failing the tool's checks three times; and when Gemini hands over a document, delete or important edit, the action model is Sonnet. No tool action is repeated on a model switch.
+- Routing log on the usage row (service.ts, supabaseDb.ts, best effort after the charge): version, intent, complexity, risk, context, tier and reason, tool set, hand-over, escalations, fallback, provider retries, each model call (provider, model, USD, tokens, rounds), tool names, time taken, outcome, card ids, channel. Never the user's words, figures or names. Failed requests are logged too.
+- database/ai_learning_report.sql: routing sections (Sonnet share, cost per provider, per tier with p50/p90 time, per intent, escalations, failed routing, confirmed cards by model, cost per confirmed card); runs before and after the SQL.
+- config.ts: AI_ROUTING_POLICY (v2 by default; v1 restores the 24 Oct rules exactly), AI_LIGHT_FALLBACK_WRITES. Gemini adapter reports its retries. Prompt and tools unchanged (secretary-v13); one personality and memory for both models as before.
+
+**Checks.** Unit tests 765/770 (the same 5 fail as before); new tests/ai-routing-v2.test.ts (the brief's table and extra cases, exact answers, Sonnet hold-back and allowed take-over, one-step escalation and no repeat after a saved proposal or memory, hand-over to Sonnet, prompt injection still a confirm card, two accounts at once, the log has no user words, v1 rollback, charge before the log, failures and timeouts logged); report tests with and without the column. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Not run against the real models.
