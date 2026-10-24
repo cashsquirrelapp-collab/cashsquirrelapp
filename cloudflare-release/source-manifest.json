@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg60 chat font, no Share, iOS look, quotations remember files",
+  "source_label": "pkg61 memory v2 (learning package A)",
   "archive": "source.tar.gz",
-  "archive_sha256": "fb1ca3941b45010ba4eea0b7a372d236db65b0b2fc957d32459a008e466e7785",
-  "file_count": 818,
-  "total_source_bytes": 22280143,
+  "archive_sha256": "d814b2ca82af276f952bcd9cf939497e76e3c9783ef76796733e1506fd4c0359",
+  "file_count": 822,
+  "total_source_bytes": 22336428,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -83,8 +83,8 @@
     },
     {
       "path": "backend/src/ai/gateway.ts",
-      "size": 15942,
-      "sha256": "f8107f56ca7ccf1f3017cbb7c9b66dbf6f5475cc61c58c3c3042e53cdf5a4621"
+      "size": 16518,
+      "sha256": "d9e1ee26b17ac9d077a6cc94e331461a6ee6c7894e14d02f57ccfeb875dffc8b"
     },
     {
       "path": "backend/src/ai/jobFinancialEdit.ts",
@@ -117,14 +117,19 @@
       "sha256": "c73fe378ed917fa1430cf43792cd69499ab3124834249aec34196d4951c888a3"
     },
     {
+      "path": "backend/src/ai/memory.ts",
+      "size": 11265,
+      "sha256": "e8227b1bca6389ae62b43fa0773092b2d316f237c1b317d91764f2836b6ccc16"
+    },
+    {
       "path": "backend/src/ai/navigation.ts",
       "size": 4741,
       "sha256": "bcafb8387c6291ff136a0bb5fea063bab1719558c5fef2f354e409746ccbb796"
     },
     {
       "path": "backend/src/ai/prompt.ts",
-      "size": 31250,
-      "sha256": "915065c0b99bd7453b1ba8136f04d5c8e4229abf5cbf4f468afddd52108056ca"
+      "size": 33187,
+      "sha256": "8ab586e15c40ea3e23fb8f1ccb4c007aae116ee068b57ededacb2cc993ed89e1"
     },
     {
       "path": "backend/src/ai/proposals.ts",
@@ -158,18 +163,18 @@
     },
     {
       "path": "backend/src/ai/service.ts",
-      "size": 18368,
-      "sha256": "fd389ab343ba44937252dff25d0fd59ecfffa701e022d657ed6490e2cc02fe6f"
+      "size": 20866,
+      "sha256": "47a4be1066830bcaab5cc6c4d4dcee628011fe2fb62199ec7e8bb5ea5d50b836"
     },
     {
       "path": "backend/src/ai/supabaseDb.ts",
-      "size": 10608,
-      "sha256": "6e986214fdb3eb39e384cefb3a6b205062985167fb165c044d3dd07d0deb4e63"
+      "size": 13894,
+      "sha256": "3678cb97f656ad88785d2fcdb93af9fac90f0789a649e90258f5363514ce4d5f"
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 60871,
-      "sha256": "e3b13d73cedc7601fb002682dd80f1cf02c98ae35584f7a78b7d47d135e3a7f7"
+      "size": 64909,
+      "sha256": "647c44bf17bfb2722406f4d02ec88cc924a90ff113969b11443d2ffb59e10994"
     },
     {
       "path": "backend/src/ai/transcription.ts",
@@ -243,8 +248,8 @@
     },
     {
       "path": "backend/src/handlers/close-expired-accounts.ts",
-      "size": 5845,
-      "sha256": "cf53bad3ea095d1521279fdb40093f2733064df4130541eac3d6a3c7304a1118"
+      "size": 6322,
+      "sha256": "10a5ffe40fc1b280f30873e8cbf5a55dfa95fcac96df30f3f4b7decd7e5ed49d"
     },
     {
       "path": "backend/src/handlers/confirm-email.ts",
@@ -1848,8 +1853,8 @@
     },
     {
       "path": "frontend/public/privacy.html",
-      "size": 28749,
-      "sha256": "1708d934b6bf8c95ebba22ab66523a3ea78c4d0dbb3a12c8a9e319030060afb3"
+      "size": 31623,
+      "sha256": "a1db4a60d18db445c1f77dbfb3c3b34e16abbc607107f5d78ac1bb65c2ed0b3d"
     },
     {
       "path": "frontend/public/pro-promo-hero.png",
@@ -3437,6 +3442,11 @@
       "sha256": "782bb68bd605c28302bfad03e4f3b791cdd868b44266033ba1275baf7a687ad5"
     },
     {
+      "path": "supabase/migrations/20261025090000_ai_learning.sql",
+      "size": 7290,
+      "sha256": "521f19432a7f9b3438e4a8a8e37360eed899759a03a02a9ab9577413799c60c3"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 11339,
       "sha256": "583a3c1fb6e00fa71e874483838698567f700a3ce7851ce682363e625836e833"
@@ -3498,8 +3508,8 @@
     },
     {
       "path": "tests/ai-file-memory.test.ts",
-      "size": 10636,
-      "sha256": "c989519ca432b0ad2541508b4ad1892e950679460c8f464c0291ceb357eea3da"
+      "size": 10673,
+      "sha256": "bc3d138283e5aa6f0006834f9071faba953a816e06587072dba8f79bc81b0cee"
     },
     {
       "path": "tests/ai-financial-queries.test.ts",
@@ -3532,6 +3542,11 @@
       "sha256": "d742204f7eaf0fea9c4e4456e29dbb8b15dbda30f64721a5182bd999b1ba2700"
     },
     {
+      "path": "tests/ai-learning-database.test.ts",
+      "size": 7645,
+      "sha256": "894c99830058d592dbd0df3161de8ced6539aea3f44e250a37e7c9becd3c42a8"
+    },
+    {
       "path": "tests/ai-line-confirmation.test.ts",
       "size": 6539,
       "sha256": "c9fd5847b0d5df3ffd8a5b3fda2224e08e7227352e1c039f1874535b2f81ad7c"
@@ -3540,6 +3555,11 @@
       "path": "tests/ai-line-destinations.test.ts",
       "size": 4971,
       "sha256": "9c25777f6043a9a42b00807075b39afe34039cbfe8cb5a15c02db17e1ee1e91e"
+    },
+    {
+      "path": "tests/ai-memory-engine.test.ts",
+      "size": 10459,
+      "sha256": "23f44fed68c960301ecde222005338848eb60c82e1a3b600ea8087abcb70b501"
     },
     {
       "path": "tests/ai-message-ceiling.test.ts",
@@ -3563,8 +3583,8 @@
     },
     {
       "path": "tests/ai-service.test.ts",
-      "size": 22247,
-      "sha256": "79a6a73729eaa1457e0a9f1bea8eab1b275903b5ca1f298f53ad2cd59e77971d"
+      "size": 22381,
+      "sha256": "8dbe38237a00aed646dbd1851561e4f8e27370fbc9f1c7fa721c1adc995e5d68"
     },
     {
       "path": "tests/ai-slip-payments.test.ts",
@@ -3593,8 +3613,8 @@
     },
     {
       "path": "tests/assistant-account-isolation.test.ts",
-      "size": 27741,
-      "sha256": "d023d8c1f14578d244f6169966ac2e6c6530175b1f3c76c12f79d89d9226bd79"
+      "size": 31510,
+      "sha256": "9176b31f95b04d10d6ec7bbbaa59951c905e90062aa187f417209404ceffeb8e"
     },
     {
       "path": "tests/assistant-audio-recorder.test.ts",

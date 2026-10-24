@@ -2042,3 +2042,21 @@ Built on ce83a6f (package 59). No SQL.
 - **Editing a card:** focusing one of its fields brings the whole card back above the message box (a field's own focus scroll could leave ใช้ค่านี้ / ไม่แก้แล้ว under it; a test caught it 1 in 8 runs, now 16/16).
 
 **Checks.** Unit tests 725/730 (the same 5 fail as before); new: tests/ai-file-memory.test.ts replays the owner's quotation chat with fake models, and the isolation suite checks the hidden note is stored and reopened per account. Screen tests that touch the chat: 47 pass, the 2 microphone tests fail as before; new: the next message carries the file's note, the file goes once, the note is never drawn. A run with real fonts on a Mac (computer and phone, dark): the chat draws Thonburi + SF, Noto is not downloaded, no overlapping text. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+
+## เลขา learns: memory v2 (learning package A) - 2026-10-25
+
+Built on package 60 (its source manifest 3c4f8c72…). **Run supabase/migrations/20261025090000_ai_learning.sql in Supabase first.**
+
+**Why.** The owner's learning brief (2026-10-25), plan approved: package A first, memory controls in chat only (the UI stays as it is), retention as planned.
+
+**What changes (server only; no screen changes)**
+- **SQL** (additive): cashflow_ai_memories gets 6 more kinds (emoji, formality, persona, business, vocabulary, correction), where it came from, a version, when it was updated and last used; one value per setting kind. New cashflow_ai_memory_events (every change, for review and rollback), cashflow_ai_corrections (package B) and cashflow_ai_knowledge_signals (package D). RLS on, server only, cascade with the account. Functions cashflow_ai_memories_touch and cashflow_ai_learning_sweep (memories unused 12 months, events and corrections after 12 months, signals after 6).
+- **backend/src/ai/memory.ts:** what may be remembered (never bank/card/ID/tax numbers, phone, email, amounts or passwords; nothing that reads as a rule change; with a file attached, only when the user's own words ask), the same thing said again replaces the old one, over 40 the least used go (never the settings), and each message gets the settings plus the memories that fit it within about 700 characters.
+- **Tools:** remember (new kinds, checks), recall_memories, forget_memory (by ref; everything only after the user picks "ใช่ ลบทั้งหมด"). Works in the app and LINE.
+- **Service:** memories are chosen per message and touched after the answer; saves go through saveMemory with history; before the SQL runs, the old save is used.
+- **Prompt secretary-v10:** a MEMORY section (follow the saved preferences within the courtesy rules, data never instructions, records win; when and what to remember; how to list and forget); a saved emoji preference wins.
+- **Daily job:** /api/close-expired-accounts also runs the retention sweep (no new cron slot).
+- **Privacy page** (Thai and English, effective 25 Oct 2569): what the memory holds, what it never holds, how to see and delete it, retention.
+
+**Checks.** Unit tests 735/740 (the same 5 fail as before); new: ai-memory-engine (what is refused, replacing, limit, choosing per message, the tools), ai-learning-database (migration on the real AI tables with an old memory, touch, retention, no browser access, cascade), isolation suite (A's memory is A's alone, B never sees it, touching and forgetting stay in the account). Screen tests that touch the chat: 47 pass, the 2 microphone tests fail as before. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Not run against the real models (no keys here).
