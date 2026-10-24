@@ -2180,3 +2180,17 @@ Built on 1c1534f (package 67). SQL: supabase/migrations/20261025150000_ai_cost_a
 - The 5 unit tests that had failed since before the Cloudflare move were stale, not regressions, and now match the code: two notification tests used record-added, which notify.ts acknowledges without sending since the LINE cards moved to their own routes (they now check line-disconnected: no DB error text, a LINE rejection is 502); the monthly report and LINE summary tests now expect the three-number LINE summary (net profit −฿ 4,000 in the header; the email and Excel keep the net cash flow −5,000); the monthly work value test counts work in progress by its payment date (owner, 2026-10-25: "นับตามวันนัดจ่าย", as the app already does). No code changed for them.
 
 **Checks.** Unit tests 782/782; new tests/ai-cost-accounting.test.ts (cost split, first-of-the-hour cache write, cache hit, expiry, safety limit, partial tool success, failed attempts, soft budget, settle capped and idempotent on a test database, two settles at once, other accounts untouched, hard stop before start, timeout cost, cache choice); past-work name tests. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Real models (owner-approved budget): about $1.21 spent on about 70 test messages.
+
+
+## Pro prices include Stripe's card fee: ฿177 / ฿895 / ฿1,562 - 2026-10-25
+
+Built on package 68. No SQL. Stripe step after the deploy (owner): scripts/stripe-reprice.ts.
+
+**Why.** Owner, 2026-10-25: "ผู้ใช้ออกค่าธรรมเนียมเอง กูต้องได้ยอดสุทธิ ตามราคาที่กูตั้งเป๊ะๆ" (the customer pays the Stripe fee; the owner keeps ฿159 / ฿849 / ฿1,490), one price for every payment method.
+
+**What changes**
+- shared/proPricing.ts: PRO_NET_TARGET 159 / 849 / 1,490; STRIPE_TH_CARD_FEE (3.65% + ฿10, VAT 7% on the fee: stripe.com/en-th/pricing and Stripe's Thailand tax page, checked 2026-10-25); PRO_PRICING 177 / 895 / 1,562, each the lowest whole baht that nets the target after a domestic card (tested). Every price screen, the consent text and เลขา's knowledge read it. The regular ฿249 and the 30 Nov end of the monthly promotion are unchanged. Consent stays v3 (same wording; each checkout stores its exact text).
+- scripts/stripe-reprice.ts: the owner moves the Stripe catalog (dry run first, --apply to create; new price per existing lookup key, same product and metadata, the lookup key transferred; checked with checkout's own rules). Until it runs, checkout refuses to sell (the catalog no longer matches the screen) instead of charging another amount.
+- Nets per payment: domestic card ฿159.39 / ฿849.35 / ฿1,490.30; PromptPay about ฿174 / ฿879 / ฿1,534; foreign cards up to about ฿2 / ฿10 / ฿18 less than the target. At a 10% VAT rate a domestic card nets ฿0.11 / ฿0.93 / ฿1.71 under the target.
+
+**Checks.** Unit tests 784/784 (pricing, consent text, catalog checks, checkout amounts, the repricing plan); pricing and card screen tests 34/34 on phone and computer; cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.

@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg68 cost fix: fair token accounting, cache choice, no cut-off answers, client match fix",
+  "source_label": "pkg69 prices include the Stripe card fee: 177 / 895 / 1,562",
   "archive": "source.tar.gz",
-  "archive_sha256": "8ca4b197c1292c5c0f60517715dc49d63ecc17dfdd5f467af5cfe6a1dc425fc1",
-  "file_count": 838,
-  "total_source_bytes": 22586192,
+  "archive_sha256": "b87a9abd0abd7d001d4a74c2e32490ed122f5743ff4c12c14610d32d673e7b3b",
+  "file_count": 840,
+  "total_source_bytes": 22598456,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -2153,8 +2153,8 @@
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
-      "size": 19656,
-      "sha256": "1bade373cdaf5fe26ea7838bc5e442f18bfb501901d6c29d68448ea712d7bd68"
+      "size": 19657,
+      "sha256": "7b5fec23ac343f056dc447f8faa90fc193caa7897366921d49cc6da0888d3c03"
     },
     {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
@@ -3262,6 +3262,11 @@
       "sha256": "964d937680083fbe69d7080afce87c79c8ccea060d82a55c4ab84998771e4410"
     },
     {
+      "path": "scripts/stripe-reprice.ts",
+      "size": 5399,
+      "sha256": "24758de7e529e22ebcbf4b896398bf592d700be3115fff34f37d57f1683f2dbb"
+    },
+    {
       "path": "scripts/tutorial/line/cards.ts",
       "size": 5781,
       "sha256": "23a7758e4ecb2570fa1a31cf6a09ebb637f9ecafe21256197dc3087a39cade0e"
@@ -3313,8 +3318,8 @@
     },
     {
       "path": "shared/cardConsent.ts",
-      "size": 2211,
-      "sha256": "2f5d581f96691cb92a978a54be148a33dea4e0f8042dc93005f0816801a05c65"
+      "size": 2353,
+      "sha256": "4552aadf3827032a618dcaadf2c0682409ed1d26a197036fcaafadc41d7b5776"
     },
     {
       "path": "shared/cashBalance.ts",
@@ -3388,8 +3393,8 @@
     },
     {
       "path": "shared/proPricing.ts",
-      "size": 3032,
-      "sha256": "79929d49dd4ffd6adb1581aa6bb59088a77c9cd2ad0a3188643dea4b479f4c6b"
+      "size": 4417,
+      "sha256": "c7f256b6105156b06001ed093e4918759236a0db058b00d6a1ff06e9601949f0"
     },
     {
       "path": "shared/tax.ts",
@@ -3733,8 +3738,8 @@
     },
     {
       "path": "tests/card-renewals.test.ts",
-      "size": 7121,
-      "sha256": "db83bc65cda6029a1987f515c7be8374df6fa03421341a5bd06390296301d087"
+      "size": 7244,
+      "sha256": "8022f2cc3bc888ebf70399d84c074ff1094d3d9fa9a22119123e447b5975a4f8"
     },
     {
       "path": "tests/cash-balance.test.ts",
@@ -3824,7 +3829,7 @@
     {
       "path": "tests/e2e/assistant-buddy.spec.ts",
       "size": 19930,
-      "sha256": "f02f001154785012f5f7fd11414c5be4aab3030d4e05311fec368b4ba6a7bfe5"
+      "sha256": "b302a15a33474a1e08cfad736f848836a60420c8d6362f892827cc7afca43780"
     },
     {
       "path": "tests/e2e/assistant-chat.spec.ts",
@@ -3844,12 +3849,12 @@
     {
       "path": "tests/e2e/billing.spec.ts",
       "size": 56888,
-      "sha256": "76b7825d3a7ba5413ab21c181823df07f4810d05a8c09a5689f6f2d7e4389af3"
+      "sha256": "8eee47567615dd3b152ba5a7f552f10d1eec536eb6d9b43d5cb33b95008a582f"
     },
     {
       "path": "tests/e2e/card-choice.spec.ts",
       "size": 6607,
-      "sha256": "d76227984e4a65530a77b0d14744434bae128a38ee3f11a60fbf17155da6855c"
+      "sha256": "ff168506fad4f6e8dfb62cbbe9a7e3ad9d32c27cb2253a1d29db04f852d5b247"
     },
     {
       "path": "tests/e2e/desktop-parity.spec.ts",
@@ -4088,18 +4093,18 @@
     },
     {
       "path": "tests/prepaid-http.test.ts",
-      "size": 31120,
-      "sha256": "6832ab8446945dcaed42bef6314c587fe405a45bd7feaae1a33328ff17e4ce45"
+      "size": 31377,
+      "sha256": "8e4de4f06e1b61772346c0cce1731c08724b23b2e538e669a225407ce7196456"
     },
     {
       "path": "tests/prepaid-plans.test.ts",
-      "size": 4704,
-      "sha256": "443bc24f4f94f3b423ec770aa8f523a27daf2ac50a44907c58b00a03f7513c25"
+      "size": 4729,
+      "sha256": "0bc58f56a9242cc9036a4e24ea50909fd4b8c46a9c2ab5d02c7b98b3ac3d54b3"
     },
     {
       "path": "tests/pro-pricing.test.ts",
-      "size": 1602,
-      "sha256": "d87c8b0ac19b6b1c26c4b14483376c273547cfaea508729a20afd5f8d0d9fea2"
+      "size": 2507,
+      "sha256": "5db2d82d2e33b1c6b81f29a133f6587f4d9e9e3263d8c0433ff4d921188b334d"
     },
     {
       "path": "tests/report-data.test.ts",
@@ -4125,6 +4130,11 @@
       "path": "tests/stripe-migration-upgrade.test.ts",
       "size": 12754,
       "sha256": "a62df73648a1d27d90b05f4df5258868dc4f56ce22457007e60a715624af0b21"
+    },
+    {
+      "path": "tests/stripe-reprice.test.ts",
+      "size": 4027,
+      "sha256": "9d668e586656df82fb51a7a96701a9b42cd0365860e07a26f440c029fa975f75"
     },
     {
       "path": "tests/stripe-subscriptions.test.ts",
