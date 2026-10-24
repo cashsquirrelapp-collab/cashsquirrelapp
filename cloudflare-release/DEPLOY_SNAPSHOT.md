@@ -2082,3 +2082,21 @@ Built on 6132dd9 (package 61). No SQL.
   - LINE: the same card as rows (totals, then the latest six months).
 
 **Checks.** Unit tests 744/749 (the same 5 fail as before); new tests/ai-money-chart.test.ts (exact figures and satang, totals equal the months, month in progress, future months left out, 12-month cap, empty period, formatting, text cleanup, LINE rows, the prompt contract) and tests/ai-document-card-edit.test.ts (fields, revised totals with VAT 7% and WHT 3%, same number, bad values refused, numbered labels, six lines → app). Screen tests that touch the chat: 53 pass, the 2 microphone tests fail as before; new: a quotation card edited on a computer and a phone, with the right 0% labels, the revise request, and no overlapping text; the money chart on a computer (light and dark) and a phone: totals, bars, legend, hover figures, table, no characters drawn, no overlap; the empty state. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+
+## เลขา learns from corrections (learning package B) - 2026-10-25
+
+Built on 31fa17f (package 62). No SQL: cashflow_ai_corrections came with package 61's migration.
+
+**Why.** The owner's learning plan, package B ("ทำชุด B ต่อ"): learn from what the user fixes, per account, verified, with history.
+
+**What changes (server only; no screen changes)**
+- backend/src/ai/learning.ts: lessons only from confirmed cards: a field the user changed on เลขา's card (expense category or name, a job's client, name or withholding, a quotation's client or line wording), or an edit card changing an expense's category or a job's client or withholding. Each lesson becomes this account's rule (memory kind correction, source correction), e.g. "ค่าใช้จ่าย 'ร้านสมาน' → หมวด ค่าอุปกรณ์/ซอฟต์แวร์", replacing the earlier rule for the same subject; three changes with different answers in 60 days mark it "เปลี่ยนบ่อย ถามผู้ใช้ก่อน". Amounts and dates are never lessons; a rule that names money or ID numbers, contacts or reads as an instruction is not kept. Every learned correction goes in cashflow_ai_corrections.
+- tools.ts: lessons ride on the card's saved call as __learn, written only by the server (reviseProposal's comparison, or the record's current values for edit cards); a model's own __learn is dropped. cardValue reads a field's value before the change.
+- service.ts: reviseProposal keeps เลขา's first value across several edits; confirmProposal learns after the card is applied (a failure never costs the confirmation); the app and LINE both learn (channel recorded).
+- supabaseDb.ts: claimProposal returns the card's call; saveCorrection, recentCorrections.
+- memory.ts: a rule comes with a message naming its shop, client or work, and with any file (a slip names them in the picture), within the budget; isRememberable shared with memory saving.
+- Prompt secretary-v12: how to use กฎจากการแก้ rules, follow the user when they now say otherwise, ask first when a rule is marked เปลี่ยนบ่อย, never call remember for them.
+- Privacy page (Thai and English): what is learned from corrections, its history, 12-month retention, and that it is per account and can be forgotten.
+
+**Checks.** Unit tests 749/754 (the same 5 fail as before); new tests/ai-correction-learning.test.ts (card edit → confirm → rule and history; used for the same shop or a slip, not otherwise; newer correction replaces; back-and-forth asks first; cancelled cards and a model's __learn teach nothing; phone numbers never a rule; edit cards; quotation client and wording). cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Not run against the real models.

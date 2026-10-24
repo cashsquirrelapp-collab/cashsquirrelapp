@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg62 document cards editable + money chart card",
+  "source_label": "pkg63 learning package B: corrections",
   "archive": "source.tar.gz",
-  "archive_sha256": "b32962afb5dc13c9b011a813ef617a756493146b9cb8415d3540a83f630bc2a8",
-  "file_count": 826,
-  "total_source_bytes": 22382393,
+  "archive_sha256": "c6bab32cb3b45559259c7e86571f68fea92c3f7f888a797ec81d11f805750817",
+  "file_count": 828,
+  "total_source_bytes": 22411180,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -102,9 +102,14 @@
       "sha256": "b10e41c7092c075a06440f86969ed88cc558621a036ab6b8cca14efe832098ce"
     },
     {
+      "path": "backend/src/ai/learning.ts",
+      "size": 8702,
+      "sha256": "4413c224b0e5160a45c1b4ec7e08f7c69b72c4390fbfa34f83b644bc66682bc2"
+    },
+    {
       "path": "backend/src/ai/lineBridge.ts",
-      "size": 7385,
-      "sha256": "bee7810b05de88e4c5383da6be319ab64c53886a37caf946c3d1c8eb3510dace"
+      "size": 7406,
+      "sha256": "6e8f27cd820223440689ee94c63765fe39378c3ecd21bc92af5ed60eb08407da"
     },
     {
       "path": "backend/src/ai/lineFormat.ts",
@@ -118,8 +123,8 @@
     },
     {
       "path": "backend/src/ai/memory.ts",
-      "size": 11265,
-      "sha256": "e8227b1bca6389ae62b43fa0773092b2d316f237c1b317d91764f2836b6ccc16"
+      "size": 12115,
+      "sha256": "1ffc142bde6cd47a5b12a14b41b432d7165f0f1724897c41ffeeeace533c051a"
     },
     {
       "path": "backend/src/ai/moneyChart.ts",
@@ -133,8 +138,8 @@
     },
     {
       "path": "backend/src/ai/prompt.ts",
-      "size": 33783,
-      "sha256": "5e30f7299c4400fdb5b177186f4d26b6f756580881b15367ad5de5210dd1aea1"
+      "size": 34433,
+      "sha256": "a7fd567f1777fa400d9eadcd30a4c37b6ec1260c978c4fe51d36999a0470bdef"
     },
     {
       "path": "backend/src/ai/proposals.ts",
@@ -168,18 +173,18 @@
     },
     {
       "path": "backend/src/ai/service.ts",
-      "size": 21108,
-      "sha256": "e9aafc351ad1fa8e47de977bb100e3ddcc7534f80396aafc903f9c7221133fb7"
+      "size": 22570,
+      "sha256": "a1d15b6f0c0f5d928ae614fdfd85a0c4519d94bda684020fd640dcff79efcd65"
     },
     {
       "path": "backend/src/ai/supabaseDb.ts",
-      "size": 13894,
-      "sha256": "3678cb97f656ad88785d2fcdb93af9fac90f0789a649e90258f5363514ce4d5f"
+      "size": 14993,
+      "sha256": "4fc5a63fd7e4e2dbfef64bef070805ecfa3ce992ffb07c21985f7d32bf82ff74"
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 68846,
-      "sha256": "13478ceca3002a3bb57513078632f38988325e71ef470819a7d2ee2f17840d38"
+      "size": 70368,
+      "sha256": "d4f1006dccbcb3f73106f7521a73a2150673f7fc4d6658e0e2867959fbcf34e6"
     },
     {
       "path": "backend/src/ai/transcription.ts",
@@ -1858,8 +1863,8 @@
     },
     {
       "path": "frontend/public/privacy.html",
-      "size": 31623,
-      "sha256": "a1db4a60d18db445c1f77dbfb3c3b34e16abbc607107f5d78ac1bb65c2ed0b3d"
+      "size": 33327,
+      "sha256": "21dc5a5d10c8539ba7c4a73a7e10128fec9277f5017dc7123f8fe8045be9fa20"
     },
     {
       "path": "frontend/public/pro-promo-hero.png",
@@ -3510,6 +3515,11 @@
       "path": "tests/ai-conversations-database.test.ts",
       "size": 4608,
       "sha256": "d06f7c604574dcf4029f1d03b868238f3ed614abcd95a92c33937974c1336d17"
+    },
+    {
+      "path": "tests/ai-correction-learning.test.ts",
+      "size": 12777,
+      "sha256": "2e9e62f9274a234fcd9f1ee0267a3fbc2ea4c36ec406051795fe267171e237f5"
     },
     {
       "path": "tests/ai-document-actions.test.ts",
