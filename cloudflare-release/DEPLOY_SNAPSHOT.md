@@ -1535,3 +1535,44 @@ Built on top of 95dcb3b.
 **Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full `npm audit` 0 vulnerabilities, the build and preflight.
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
+
+
+## LINE talks to เลขากระรอก (the same Gemini assistant as the app) - 2026-10-24
+
+Built on top of 95f2e90.
+
+**Why.** The owner asked to connect LINE ("ส่วนของ LINE AI ยังไม่เชื่อม ทำให้มันเชื่อมด้วย ... ทำ LINE ก่อน") and to use Gemini only.
+- **Before:** LINE answered with AI only after an "ถาม AI" prefix, through Claude Haiku, which has no key in production. Any other unknown message got no reply.
+
+**What changes in LINE (services/lineAssistant.ts)**
+- **Unchanged:** the account, lifecycle and Pro checks, the 08:00 payment buttons, documents, shortcuts, quick replies, and quick job/expense drafts. They stay deterministic, free and instant.
+- **New:** every other message goes to เลขากระรอก (ai/lineBridge.ts), with or without "ถาม AI". It uses the same rules, tools and Krarok Tokens as the app, in one pool per account. The 20-minute LINE chat history goes along with it.
+- **Claude:** the Claude path is no longer called.
+- **When the real เลขา is off for the account** (AI_ADMINS_ONLY, or AI off), the old behaviour stays: no reply to unknown text, and the help text after "ถาม AI".
+
+**Answers shaped for LINE (ai/lineFormat.ts)**
+- **Text:** no Markdown, no tables. The prompt has a LINE channel rule (count and total first, then short • lines). A table that slips through still becomes one line per row.
+- **Cards** become the formal LINE cards:
+  - The summary card becomes a report card with a link to the overview.
+  - A document card links to "เปิดเอกสาร / PDF".
+  - A confirmation card gets ยืนยัน / ยกเลิก postbacks (`ai:confirm|cancel:<proposal>`, decoded in line-webhook.ts). They go to the same confirmProposal as the app: saved once, refused if the job changed, expires after 30 minutes.
+- **Size:** at most two text bubbles plus three cards.
+
+**Formal fixed messages, no emoji**
+- Pro expired: "แพ็กเกจ Pro ของบัญชีนี้หมดอายุแล้วครับ …".
+- Greeting: "สวัสดีครับคุณ…".
+- Asking the user's name.
+
+**Tested**
+- tests/line-ai.test.ts (7): routing, quick drafts not sent to AI, AI off, failure text, postbacks to confirm, table flattening, cards and the five-message limit.
+- Two wording checks updated. Unit 504/509 (the 5 known failures).
+- Real Gemini in LINE mode (eval 202610241118, about $0.01): no tables, a summary card, document cards, and add-job asks first.
+
+**Package**
+- Archive SHA256 `a3370856cabfffc41ab185adca414fb7527a4df70f553cd591d1d4340c051b32`; manifest SHA256 `d91169d605daaae2d76bb0b1fb20443cfd71f56d4cdedaa714b4cad2d6694617`.
+- 757 files, 11 changed (3 new).
+- The entry stays `assets/index-BbsEFDSR.js`; no frontend change.
+
+**Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight and unit tests.
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
