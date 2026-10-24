@@ -1993,3 +1993,23 @@ Built on 4e2b97f (package 57).
 - New entry `assets/index-B-WATazB.js`.
 
 **Checked** on the extracted package with a clean `npm ci`: audit 0 vulnerabilities, cloudflare:check 17/17, the build, preflight, unit tests and a wrangler dry run.
+
+
+## The notifications thread keeps what was tapped and typed; each chat keeps its latest 400 messages; the chat font reads like Thonburi - 2026-10-24
+
+Built on 98de117 (package 58). No SQL: it uses the chat history tables from package 58.
+
+**Why.** The owner tapped สรุปเดือนนี้ in แจ้งเตือนอัตโนมัติ and it was gone after a reload ("แชทนี้ทำไมมันไม่จดจำ"). The thread's quick replies were answered in the browser and never kept. On space, the owner chose to tidy up quietly: no "storage full" message, nobody is stopped from chatting.
+
+**What changes**
+- **The notifications thread is kept** (backend/src/ai/conversations.ts, handlers/assistant.ts).
+  - One history per account. Its id is made on the server from the account id in a v5 uuid shape. Chats a browser starts must be v4 (crypto.randomUUID), so no browser can take another account's thread id.
+  - Kept: quick replies (new action line-quick; the server makes the card again from the account's own data), the payment buttons (line-due with the button's line as `shown`), typed partial amounts (line-partial), and messages to เลขา typed in the thread (message with thread: 'line').
+  - GET ?view=line returns `history` (its latest 200 messages). The app puts them among the notices in time order, and confirmation cards show what became of them.
+  - The thread is left out of the chat list and out of the 200-chat pruning.
+- **Space.** Each chat keeps its latest 400 messages (all the app shows); older ones are deleted after each new message, only in that account's chat. The notifications thread keeps 200. Measured: about 1.6 KB per message and answer.
+- **Chat font.** The owner found IBM Plex Sans Thai Looped dated and wants the look of Apple's Thonburi (as in the Claude app). The chat now uses Noto Sans Thai Looped (Google Fonts, looped, close to Thonburi, the same on every device); the IBM Plex Looped download is gone. The rest of the app keeps its font.
+- **Chat list.** The hidden pin / ⋯ buttons on a chat row take no clicks until they show, so the end of a long title opens the chat instead of pinning it.
+- **Privacy page (Thai and English).** Chat history includes what is tapped or typed in the notifications thread; each chat keeps its latest 400 messages (200 in the notifications thread), older ones are deleted automatically.
+
+**Checks.** Unit tests 720/725 (the 5 failing are the same as before). New: the thread is kept per account and B's history stays empty; B's thread id is refused from A's browser; the thread is not in the chat list; a chat keeps 400 and another account's chat is untouched; the thread id fits the table's check. Screen tests 46 pass, the 2 microphone tests fail as before; new: kept taps come back in time order, no overlapping text. A one-off run with the real Google font loaded (computer and phone) found no overlapping text. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.

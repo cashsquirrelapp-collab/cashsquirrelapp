@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg58: เลขา chat history kept per account; privacy page names the AI providers",
+  "source_label": "pkg59 notifications thread kept + chat tidy-up + Thonburi-like chat font",
   "archive": "source.tar.gz",
-  "archive_sha256": "483a518423d5f7c8a20c1e56a0232b469b05f60ded9756a0324879bbcaf208c4",
+  "archive_sha256": "842dc876617498ed86456d9f7badaa01a1e741d7019d65599a508058370a9c95",
   "file_count": 817,
-  "total_source_bytes": 22235783,
+  "total_source_bytes": 22253587,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -53,8 +53,8 @@
     },
     {
       "path": "backend/src/ai/conversations.ts",
-      "size": 6870,
-      "sha256": "ca2acc5a3b1c8bf277746f373dcba673baeda92cbcc974a290c1fbf51c1e7763"
+      "size": 9286,
+      "sha256": "215e0db1c5bf2f9a0f4bde6f8a37acf70f418881be825890e57eb64a2eb97a82"
     },
     {
       "path": "backend/src/ai/cost.ts",
@@ -228,8 +228,8 @@
     },
     {
       "path": "backend/src/handlers/assistant.ts",
-      "size": 10174,
-      "sha256": "0d6af1e5ec999689c0b0340f2bcbfe4bd4d0180e10b8986a047b438275749947"
+      "size": 12553,
+      "sha256": "c40540ff278bf5b3418db2f00ab87f73ab9dd5dd09c10005e6b5d25eb3438d5f"
     },
     {
       "path": "backend/src/handlers/auth.ts",
@@ -1848,8 +1848,8 @@
     },
     {
       "path": "frontend/public/privacy.html",
-      "size": 28094,
-      "sha256": "45560cda56ce764d3a0e5e168537ccbe44e5c928db6d83974d4803a0570201e2"
+      "size": 28749,
+      "sha256": "1708d934b6bf8c95ebba22ab66523a3ea78c4d0dbb3a12c8a9e319030060afb3"
     },
     {
       "path": "frontend/public/pro-promo-hero.png",
@@ -2028,8 +2028,8 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
-      "size": 88432,
-      "sha256": "084d86fc19f332de18f83d892560a82f8ef4a0eccb5cf9658ec69bbe09e6d67a"
+      "size": 90091,
+      "sha256": "3e15c3e6179f9fee55bde64773a9a3d205dae3d736d9ff05c2efb0a9748ff7b1"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
@@ -2063,13 +2063,13 @@
     },
     {
       "path": "frontend/src/features/assistant/assistant.css",
-      "size": 76892,
-      "sha256": "732f53165669fc4b9713861b2d6cd28b5ba3c36784a3790fb082d326da8d2505"
+      "size": 77174,
+      "sha256": "225c819db9b8cddc5373ffc782560ac069629e3f8e886f6e4596dae34fc8bc7f"
     },
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
-      "size": 15111,
-      "sha256": "261bc3c7da5e5b414d7965dacc76357228387807ac0a0247861906f038f89b28"
+      "size": 15204,
+      "sha256": "04a16b54153635871967ce908176212c84757d1acd43e6e47ceb9dd75c43c7ab"
     },
     {
       "path": "frontend/src/features/assistant/assistantCommands.ts",
@@ -2093,8 +2093,8 @@
     },
     {
       "path": "frontend/src/features/assistant/lineInbox.ts",
-      "size": 1603,
-      "sha256": "c5139b0789a304666027013c23a3f0160f1c72da632fb95756a340a3b9803d84"
+      "size": 2063,
+      "sha256": "a7ab4e6902c62448db58d6d77a8acd505163a43b0665ce7bb98da05710de715c"
     },
     {
       "path": "frontend/src/features/assistant/lineMock.ts",
@@ -2968,8 +2968,8 @@
     },
     {
       "path": "frontend/src/index.css",
-      "size": 44488,
-      "sha256": "e08dab2814d788445ca3d3fe9690d2cb099fa90a66714aca71979ab1e8c447ef"
+      "size": 44484,
+      "sha256": "502a71551e707c21759ff0fb11ed308a0074ed2da6f807918e325c61928726be"
     },
     {
       "path": "frontend/src/kinetic-preview.tsx",
@@ -3338,8 +3338,8 @@
     },
     {
       "path": "shared/lineInbox.ts",
-      "size": 2249,
-      "sha256": "90e4877aa518c650bb415e71d696c51f69c664b2faf2773c055914b5ec3b8ec5"
+      "size": 2688,
+      "sha256": "d631d3152fb1bf79865a4a919f91a8460538dd08a4d7cc0c831252bb4f9b50a8"
     },
     {
       "path": "shared/monthlySummary.ts",
@@ -3488,8 +3488,8 @@
     },
     {
       "path": "tests/ai-conversations-database.test.ts",
-      "size": 3670,
-      "sha256": "199be8e283f19d7ac0da92ca3cdc0fe0222153ccc4b6765db1e723fbe8af073e"
+      "size": 4608,
+      "sha256": "d06f7c604574dcf4029f1d03b868238f3ed614abcd95a92c33937974c1336d17"
     },
     {
       "path": "tests/ai-document-actions.test.ts",
@@ -3588,8 +3588,8 @@
     },
     {
       "path": "tests/assistant-account-isolation.test.ts",
-      "size": 19551,
-      "sha256": "ad491366d99c711d137475ab83c118ffaf4299df3f9b8f76a28d4d5605b40928"
+      "size": 25921,
+      "sha256": "a79dc5b7309deb587039fceb9c4f9296a53f2f397c0e5edaa5e388653de381f2"
     },
     {
       "path": "tests/assistant-audio-recorder.test.ts",
@@ -3723,13 +3723,13 @@
     },
     {
       "path": "tests/e2e/assistant-chat.spec.ts",
-      "size": 46777,
-      "sha256": "a528d1c802db03bc5fe70983642ca503f4c3b24a31c364231ab03a0b6a73d427"
+      "size": 46772,
+      "sha256": "40468296292744ed071081023d2b1e78d02ff10c7fc69240bf07c915aa50452d"
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
-      "size": 40548,
-      "sha256": "8dd4952c5bdf24f26492ca695220ca12e4c77e4b4a5e1ca9f0369d8819f37afc"
+      "size": 42670,
+      "sha256": "311dd39304fbd0058b1fd27314571a13b62fc6488deb62748e6b4609195c9b30"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
