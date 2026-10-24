@@ -1952,3 +1952,44 @@ Built on 067651d (package 56).
 - New entry `assets/index-BvZWtjjS.js`.
 
 **Checked** on the extracted package with a clean `npm ci`: audit 0 vulnerabilities, cloudflare:check 17/17, the build, preflight, unit tests and a wrangler dry run.
+
+
+## เลขา chat history kept per account; the privacy page names the AI providers - 2026-10-24
+
+Built on 4e2b97f (package 57).
+
+**Why.** The owner: "ทำให้บันทึกประวัติการคุยได้ สำหรับผู้ใช้นั้นๆ". Chats disappeared on reload ("ประวัติแชตจะหายเมื่อโหลดหน้าใหม่").
+
+**What changes**
+- **Storage.** supabase/migrations/20261024150000_ai_conversations.sql adds cashflow_ai_conversations and cashflow_ai_messages.
+  - Row level security is on with no policy, and anon/authenticated have no grants, so only the server reads them.
+  - The rows go with the account (on delete cascade from auth.users), at most 200 chats per account (the oldest unpinned ones go), 400 messages per chat read back.
+  - Pictures and files are not stored, only their name and kind.
+  - **Run it in Supabase first.** Before it runs, chat works as before and is not kept.
+- **Server** (backend/src/ai/conversations.ts).
+  - A message with a conversationId (c_ + uuid) is kept with its answer and cards after the answer succeeds. A history failure never costs the answer.
+  - GET ?view=conversations lists the account's chats. GET ?view=conversation&id= returns one chat, with each confirmation card's current state from its proposal (applied / cancelled / stale / expired).
+  - Actions conversation-update (rename, pin, archive) and conversations-delete.
+  - An edited card replaces the old one in the stored chat.
+  - Every read and write is scoped to the session's user id.
+- **App.**
+  - New chats get a c_ id.
+  - The list loads from the account, grouped today / yesterday / 7 days / earlier (new group ก่อนหน้านี้).
+  - A stored chat loads its messages when opened.
+  - Confirmed cards show บันทึกแล้ว. Expired ones show a new "หมดเวลายืนยัน" state.
+  - Pin, archive, rename and delete reach the server.
+  - The sidebar note reads "ประวัติแชตเก็บไว้ในบัญชีของคุณ".
+- **Privacy page (Thai and English, effective 24 Oct 2569).**
+  - Chat history is a kept data type: it can be deleted, attachments are not stored, and there is a 200-chat limit and deletion with the account.
+  - Google (Gemini) and Anthropic (Claude) process เลขา requests in the app and LINE. Before, it said Anthropic for LINE only and did not list Gemini.
+
+**Tested**
+- Unit tests 717/722 (the 5 known failures). New test: tests/ai-conversations-database.test.ts runs the migration in PGlite and checks the cascade, the constraints, RLS and that there are no browser grants.
+- e2e: a stored chat list, opening a chat with its card state, a follow-up kept in the same chat with its history, a new chat id. assistant-live, assistant-chat, i18n-english and billing pass except the 2 known mic tests.
+
+**Package**
+- Archive SHA256 `483a518423d5f7c8a20c1e56a0232b469b05f60ded9756a0324879bbcaf208c4`; manifest SHA256 `e2d682d59d1f546c4bed786bf2fc0e23b208ef84ad035afe0f71399d6ed86f5c`.
+- 817 files, 12 changed, 3 new.
+- New entry `assets/index-B-WATazB.js`.
+
+**Checked** on the extracted package with a clean `npm ci`: audit 0 vulnerabilities, cloudflare:check 17/17, the build, preflight, unit tests and a wrangler dry run.

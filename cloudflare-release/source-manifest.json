@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg57: bookkeeper thinking (jobs, slips, installments), tap-to-answer questions, editable cards, pictures and a looped font",
+  "source_label": "pkg58: เลขา chat history kept per account; privacy page names the AI providers",
   "archive": "source.tar.gz",
-  "archive_sha256": "6991289c9b2f95d4aa8018da85980510bbb30a2a772cf7976b76ee051ff4b8fe",
-  "file_count": 814,
-  "total_source_bytes": 22208718,
+  "archive_sha256": "483a518423d5f7c8a20c1e56a0232b469b05f60ded9756a0324879bbcaf208c4",
+  "file_count": 817,
+  "total_source_bytes": 22235783,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -50,6 +50,11 @@
       "path": "backend/src/ai/config.ts",
       "size": 4785,
       "sha256": "e1f5963d1ee2b9cb9f54724dcbd6ee3488fca0d53eab831b06feffd969dcd381"
+    },
+    {
+      "path": "backend/src/ai/conversations.ts",
+      "size": 6870,
+      "sha256": "ca2acc5a3b1c8bf277746f373dcba673baeda92cbcc974a290c1fbf51c1e7763"
     },
     {
       "path": "backend/src/ai/cost.ts",
@@ -173,8 +178,8 @@
     },
     {
       "path": "backend/src/ai/types.ts",
-      "size": 5413,
-      "sha256": "6c8bb8b2b1c46b985c71051ffe7c2481c749972c9e81baa1c09d071a6bc09dde"
+      "size": 5575,
+      "sha256": "9a41a2f91de2c7a2101a41c9ae8188b97cc97d5a1ab4cf5a650fbc95934d8fc7"
     },
     {
       "path": "backend/src/ai/vaultQueries.ts",
@@ -223,8 +228,8 @@
     },
     {
       "path": "backend/src/handlers/assistant.ts",
-      "size": 7414,
-      "sha256": "ba44d63138d1f97486c57410db7cb2dffac29dcbf4291060ac206ce982b5c116"
+      "size": 10174,
+      "sha256": "0d6af1e5ec999689c0b0340f2bcbfe4bd4d0180e10b8986a047b438275749947"
     },
     {
       "path": "backend/src/handlers/auth.ts",
@@ -1843,8 +1848,8 @@
     },
     {
       "path": "frontend/public/privacy.html",
-      "size": 25522,
-      "sha256": "fff67a67db7babc27311d9f45940ccfb09ef42a00b63a4987dc5624782e8d24e"
+      "size": 28094,
+      "sha256": "45560cda56ce764d3a0e5e168537ccbe44e5c928db6d83974d4803a0570201e2"
     },
     {
       "path": "frontend/public/pro-promo-hero.png",
@@ -2023,13 +2028,13 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
-      "size": 86731,
-      "sha256": "48b90676d44cf89a50f0be62d351eda66de594c7ed7313531c8d444c8006aea7"
+      "size": 88432,
+      "sha256": "084d86fc19f332de18f83d892560a82f8ef4a0eccb5cf9658ec69bbe09e6d67a"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
-      "size": 14346,
-      "sha256": "171bf3c799689c6d49a6bfffc57b7e550a420960909c0b50a342c78151e098f4"
+      "size": 14567,
+      "sha256": "b301b1c2cc733c52c41f5c101947a7a4a1226f4ff34747d72439e4e0a43b516c"
     },
     {
       "path": "frontend/src/features/assistant/LineCard.tsx",
@@ -2063,8 +2068,8 @@
     },
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
-      "size": 12809,
-      "sha256": "b278cb376d720e5dce126584fcba7eb509285349d54435b2c0c891d8a7b52537"
+      "size": 15111,
+      "sha256": "261bc3c7da5e5b414d7965dacc76357228387807ac0a0247861906f038f89b28"
     },
     {
       "path": "frontend/src/features/assistant/assistantCommands.ts",
@@ -2073,8 +2078,8 @@
     },
     {
       "path": "frontend/src/features/assistant/assistantMock.ts",
-      "size": 17480,
-      "sha256": "8d00b6b3c029d9bd0be5b8a891f64cd8c54f9a433b3cbdeecca1107a1ecc8026"
+      "size": 17734,
+      "sha256": "1c63fc6878cf88303960cf5a1977a35de9eb1d00fcdf32c2b4a244a5e73fd920"
     },
     {
       "path": "frontend/src/features/assistant/assistantNavigation.ts",
@@ -2828,8 +2833,8 @@
     },
     {
       "path": "frontend/src/i18n/en/assistant.ts",
-      "size": 32937,
-      "sha256": "09f53498a811257154fb1e0425e7fe0d72c70fc3a13dabd0830f2edcd825c786"
+      "size": 33527,
+      "sha256": "764fdf14d1980cd6e78765a5a46cb992f121124cf517c41e5bf6cdccdd4544f5"
     },
     {
       "path": "frontend/src/i18n/en/auth.ts",
@@ -3427,6 +3432,11 @@
       "sha256": "6a9bd2a3784d0ddf36fcfb95f4fbbc60ac2c3e9d2354f8b88c64725e8e595c3b"
     },
     {
+      "path": "supabase/migrations/20261024150000_ai_conversations.sql",
+      "size": 2231,
+      "sha256": "782bb68bd605c28302bfad03e4f3b791cdd868b44266033ba1275baf7a687ad5"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 11339,
       "sha256": "583a3c1fb6e00fa71e874483838698567f700a3ce7851ce682363e625836e833"
@@ -3475,6 +3485,11 @@
       "path": "tests/ai-compound-job-actions.test.ts",
       "size": 12196,
       "sha256": "816ef985049a9546cfbd0a19f303953cf68b8a33d87e4eb8f37346da9d9b5d26"
+    },
+    {
+      "path": "tests/ai-conversations-database.test.ts",
+      "size": 3670,
+      "sha256": "199be8e283f19d7ac0da92ca3cdc0fe0222153ccc4b6765db1e723fbe8af073e"
     },
     {
       "path": "tests/ai-document-actions.test.ts",
@@ -3713,8 +3728,8 @@
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
-      "size": 36816,
-      "sha256": "fe9d3a2998c6fc45301d2a7c431a79f91003afbe555c8551c9514c268d75189a"
+      "size": 40548,
+      "sha256": "8dd4952c5bdf24f26492ca695220ca12e4c77e4b4a5e1ca9f0369d8819f37afc"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
