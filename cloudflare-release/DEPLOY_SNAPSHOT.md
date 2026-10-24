@@ -1751,3 +1751,24 @@ Built on top of 019cf43.
 **Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight, unit tests and a wrangler dry run.
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
+
+
+## Package 53 — Pro account assistant actions and navigation (2026-10-24)
+
+Built on latest production commit (`a8ba732501377b638fa7bfa2ce83393b6910049c`) with its launched-feature policy, concise LINE replies, shared app/LINE token pool and rate limits preserved. Reviewed source commit: `7c93af73307c655f25ce22fe9783d1a612287e4f`. The owner explicitly requested deployment.
+
+The assistant prepares owner-scoped quotation/invoice drafts, expenses and selected account settings from chat. Writes require a complete confirmation card and a fresh version of the authenticated account's record. Confirmations cannot select another owner, replay a committed action, change signed documents, send documents or move money. Exact confirmation text for one pending action does not invoke the paid model again; multiple actions require choosing the card.
+
+Named page links and an optional automatic navigation mode open only launched pages in the current account's workspace while keeping the conversation open. Account changes clear the old conversation and discard delayed replies. Hidden goal/vault/tax tools remain unavailable for every plan. Existing waveform recording and editable transcription remain.
+
+Active Pro and existing eligible Pro-trial accounts can use the real assistant with current verified-plan eligibility, quotas and the global kill switch unchanged. The actual deployment wrapper sets `keep_vars: true` and `AI_ADMINS_ONLY: "false"`, preserving other remote variables, secrets and both cron schedules.
+
+Production prerequisite completed: applied the reviewed proposal-kind constraint expansion to project `rcllghixkclvkxhvttaw`; SQL results show all 18 action kinds, RLS enabled, and no anon/authenticated table privileges. No customer rows or grants changed. Private database evidence stays outside this repository.
+
+Validation: merged full unit run 666 tests; 658 initially passed, five known baseline notification/monthly-report failures remained, and three new failures were resolved (launch-policy expectations and missing English labels). Focused follow-up passed all 20 affected tests, plus 9 knowledge/prompt and 72 LINE/shared-pool checks. TypeScript and Cloudflare build/preflight passed. Earlier owner/replay/atomic database tests, navigation/account-switch browser checks and release security checks are retained; live two-account validation is still pending and is not inferred from mocks.
+
+Package: 802 files, 22,022,213 source bytes. Archive SHA256 `90981d3b8e68775befd5891de7fc83eebc56f71affa5bd22977981d660b2023b`; manifest SHA256 `9e678e390467948cfb221222791fad706f9c05c85829f5de4a19755ae252e745`. No private account evidence, credentials, dependency folders or symlinks included.
+
+Rollback: redeploy package 52 and preserve runtime variables; restore the prior admins-only launch setting if needed. Keep the additive schema and customer records.
+
+The later admin-only LINE attachment-menu release is also preserved; 33 menu/scheduler/LINE tests passed. The new disconnect endpoint is mocked in HTTP tests, and its focused disconnect regression passed without external LINE calls. Cloudflare dashboard currently deploys Git production from main; this release branch is published for provenance and the verified wrapper is deployed directly.

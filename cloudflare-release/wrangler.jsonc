@@ -1,5 +1,6 @@
 {
   "name": "kraroktunngern",
+  "keep_vars": true,
   "main": "./app/cloudflare/worker.ts",
   "compatibility_date": "2026-10-15",
   "compatibility_flags": [
@@ -24,6 +25,7 @@
     ]
   },
   "vars": {
+    "AI_ADMINS_ONLY": "false",
     "NODE_ENV": "production",
     "APP_URL": "https://kraroktunngern.cashsquirrelapp.workers.dev",
     "SUPABASE_URL": "https://rcllghixkclvkxhvttaw.supabase.co",
