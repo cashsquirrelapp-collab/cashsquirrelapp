@@ -2060,3 +2060,25 @@ Built on package 60 (its source manifest 3c4f8c72…). **Run supabase/migrations
 - **Privacy page** (Thai and English, effective 25 Oct 2569): what the memory holds, what it never holds, how to see and delete it, retention.
 
 **Checks.** Unit tests 735/740 (the same 5 fail as before); new: ai-memory-engine (what is refused, replacing, limit, choosing per message, the tools), ai-learning-database (migration on the real AI tables with an old memory, touch, retention, no browser access, cascade), isolation suite (A's memory is A's alone, B never sees it, touching and forgetting stay in the account). Screen tests that touch the chat: 47 pass, the 2 microphone tests fail as before. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Not run against the real models (no keys here).
+
+
+## Quotation and invoice cards can be edited; money over several months is a chart card - 2026-10-25
+
+Built on 6132dd9 (package 61). No SQL.
+
+**Why.** The owner, on a quotation card from เลขา: "ทำให้มันมีปุ่มแก้ไข". Job, payment and expense cards had แก้ไข; documents did not.
+
+**What changes**
+- backend/src/ai/tools.ts: propose_add_document cards carry edit fields: ลูกค้า, each line (รายการ, จำนวน, ราคาต่อหน่วย) for up to five lines (longer documents are changed in the app), VAT (0 / 7), หัก ณ ที่จ่าย (0 / 1 / 2 / 3 / 5) and วันที่เอกสาร. applyCardEdit puts a changed field back into the call that prepared the card (client.name, items[n], rates as numbers).
+- backend/src/ai/service.ts: reviseProposal uses applyCardEdit, and an edited quotation keeps its number (the old card is cancelled, so its number was never used). The tool checks everything again; a bad value answers 422 and the card stays.
+- frontend/src/features/assistant/ChatCards.tsx: a 0% choice reads "ไม่มี VAT" for VAT and "ไม่หัก" for withholding (English: No VAT / None). The edit form itself is the same one job cards use.
+- assistant.css: an editing card scrolls 48px (was 20px) above the message box, so the time line under it stays clear too.
+
+- **Money chart card** (the owner's brief "FINANCIAL RESPONSE RENDERING FIX": "2 เดือนที่ผ่านมารายได้กูเป็นไงบ้าง" came back as ASCII bars and a Markdown table). Cause: financial_summary returned exact monthly figures to the model only; no card drew them, and the prompt allowed Markdown tables, so the model drew its own.
+  - backend/src/ai/moneyChart.ts: moneyChartFrom builds a `money_chart` card (title, period, months [month, label, income = received, expense = actual_expenses, net = net_cash_flow, partial], totals from the tool's totals, omitted) from financial_summary's own result, checked with a zod schema; months not started are left out, the month in progress is marked, at most 12 months are drawn while totals cover the whole period. moneyChartDisplay gives the model the same figures written the same way. cleanAnswerText drops character-drawn bars always and a Markdown money table when a money card is shown (other tables stay); the gateway runs it on every answer, Gemini and Sonnet alike.
+  - shared/thb.ts: formatTHB = Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }) for the server and the app.
+  - Prompt secretary-v11: several months → financial_summary once; one or two lines about the card, amounts only from display; never character charts; tables only for lists of records.
+  - App (ChatCards.tsx, assistant.css): the card shows totals, grouped bars (income then expense, colours checked for colour-blind separation in light and dark, the month in progress hatched), a legend, a figures line for the picked month (hover, focus, tap; latest by default), a "ดูเป็นตาราง" table, an empty state and the 12-month note; an invalid card draws nothing. Month names follow the reader's language.
+  - LINE: the same card as rows (totals, then the latest six months).
+
+**Checks.** Unit tests 744/749 (the same 5 fail as before); new tests/ai-money-chart.test.ts (exact figures and satang, totals equal the months, month in progress, future months left out, 12-month cap, empty period, formatting, text cleanup, LINE rows, the prompt contract) and tests/ai-document-card-edit.test.ts (fields, revised totals with VAT 7% and WHT 3%, same number, bad values refused, numbered labels, six lines → app). Screen tests that touch the chat: 53 pass, the 2 microphone tests fail as before; new: a quotation card edited on a computer and a phone, with the right 0% labels, the revise request, and no overlapping text; the money chart on a computer (light and dark) and a phone: totals, bars, legend, hover figures, table, no characters drawn, no overlap; the empty state. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
