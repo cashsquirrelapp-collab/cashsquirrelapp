@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg46 microphone allowed for the mic button",
+  "source_label": "pkg47 เลขา asks before adding a job, tables, document cards; nodemailer 10.2.1",
   "archive": "source.tar.gz",
-  "archive_sha256": "d6470edde1459df50da6e73fb9ed62dcc91207f8b68f2251603629ccc8a052a7",
+  "archive_sha256": "a437c067aba7277ce5e6af77cb7e2a7e22f62505a79bb4e6d5d5276d4b023f90",
   "file_count": 754,
-  "total_source_bytes": 21228460,
+  "total_source_bytes": 21251727,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -68,18 +68,18 @@
     },
     {
       "path": "backend/src/ai/prompt.ts",
-      "size": 8217,
-      "sha256": "ad2e90c34509d945e65b464a3cb852fc4e72004233a13cfd02e13dd5eb885182"
+      "size": 10935,
+      "sha256": "8a509fd5e5840c13b38a86262b547e4dee33753ce11452a80148b869de93f151"
     },
     {
       "path": "backend/src/ai/providers/gemini.ts",
-      "size": 5251,
-      "sha256": "029532b7aa5e3fd1e07ccdfd91b01dedb47e0119cb37acabf9d85162313140ca"
+      "size": 5318,
+      "sha256": "8ed0613d2793ecaf9bbb2c488c7316b52b27277daf9548b159cbd9b1332fcbe6"
     },
     {
       "path": "backend/src/ai/providers/openai.ts",
-      "size": 4444,
-      "sha256": "971a2b01d0020f4fa0df0f77ebfe609e8fbc3eee2e69761654f0445df26988c1"
+      "size": 4511,
+      "sha256": "a1113d752296dee671785d204e19e8fdb88f4e5e1da7abe0a588f83e1955cfc8"
     },
     {
       "path": "backend/src/ai/router.ts",
@@ -98,13 +98,13 @@
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 19653,
-      "sha256": "1fc67c20ffc4778435b3566bfbffdfa736c4a12faa8e071adb2499b69e89d1dd"
+      "size": 30458,
+      "sha256": "14f4c0ab1bea60eb3253fa18175f4f3e154fe8ad6d0de35b1306d63b2969ab7d"
     },
     {
       "path": "backend/src/ai/types.ts",
-      "size": 3206,
-      "sha256": "02ba947381a5c3ea3e7e1759132d55f6c23fd065283431a71943596efaa97eb7"
+      "size": 3309,
+      "sha256": "9882256bccc7818475d59e79e4f9bb93ddd010ddb4d364c2559e6304654f0022"
     },
     {
       "path": "backend/src/config/env.ts",
@@ -1788,8 +1788,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 204539,
-      "sha256": "9a8388814f49d8d19bba26a268a6eebb83ee2206efa34fe869fbe144df2d4220"
+      "size": 205586,
+      "sha256": "604d5d1f8642d75aedade62ecbd19edb2305ec4290bbbf0d0fa245f6cfbd248a"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -1928,8 +1928,8 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
-      "size": 68677,
-      "sha256": "0debbee070d280723915a0d09f6f33dd7a910117778ca68f8780c84b737b678c"
+      "size": 69039,
+      "sha256": "8ed04294fcf38ca2dbbc77ec0642f5e9ceff08ba72e685ceacc11275d63e2962"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
@@ -1953,8 +1953,8 @@
     },
     {
       "path": "frontend/src/features/assistant/assistant.css",
-      "size": 68440,
-      "sha256": "d9a27dbdc7d8aef0843519cb517e543355f3561270dcbd8c3a07a144d8759a91"
+      "size": 68505,
+      "sha256": "4a2c92f87ab80dd5714829e6ccf7c47340a8492b69b2ee08d28451029ef85bf3"
     },
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
@@ -2693,8 +2693,8 @@
     },
     {
       "path": "frontend/src/i18n/en/assistant.ts",
-      "size": 25784,
-      "sha256": "7ce025ba0b162a2e145107e84a29c0a69e4453f88a41a2de595eea9b53653a94"
+      "size": 26725,
+      "sha256": "bb25ab2bf4d515508c5c3e67349ef2f7ec14b46c249b9140c0732363ad465007"
     },
     {
       "path": "frontend/src/i18n/en/auth.ts",
@@ -2968,8 +2968,8 @@
     },
     {
       "path": "package-lock.json",
-      "size": 176316,
-      "sha256": "65a711a39fee9ca21c1abeb1d027e81305df6a85171528e0e0c0c6ad079751b3"
+      "size": 176314,
+      "sha256": "d943f0d5d98d75ced19392801d9d451f35b585eaa057a8b713c87382361395d6"
     },
     {
       "path": "package.json",
@@ -3303,13 +3303,13 @@
     },
     {
       "path": "tests/ai-gateway.test.ts",
-      "size": 20180,
-      "sha256": "8ebd68da6d5e6c39be806686e2e1d76e5607ba511245dba457fb633d5a9e1e5e"
+      "size": 26309,
+      "sha256": "d672c76e8c31704a5ecbf60913257b55a39cc33dc2963f2749fb4ad8506d97af"
     },
     {
       "path": "tests/ai-service.test.ts",
-      "size": 15315,
-      "sha256": "c4e3541dd227082663e88e14942947ce7648b060cfee2cb7415f0256e1a2b145"
+      "size": 15476,
+      "sha256": "bd1eb99f7bd6bdb61ae9951cb7c937a27cafde3a82a015c6a8f631654a5dff7f"
     },
     {
       "path": "tests/app-update.test.ts",
@@ -3428,8 +3428,8 @@
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
-      "size": 16004,
-      "sha256": "e1ead377601647d8ab49c609bad3aed8b41a1bbc0ab9f5db78c9a56e50f88995"
+      "size": 16808,
+      "sha256": "fbde8b0f9f77b0f43991e55d2d2d510b9dc8530c16afb24a654c678d1f1c5e9b"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",

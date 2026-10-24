@@ -1484,3 +1484,54 @@ Built on top of 78d6ee2.
 - assistant-live and assistant-chat e2e: 29/29.
 
 **Approved.** The owner asked for the fix in chat ("ทำให้มันใช้ได้เลย"), 2026-10-24, and runs the deploy.
+
+
+## เลขากระรอก asks before adding a job, answers lists as tables, shows real document cards; nodemailer 10.2.1 - 2026-10-24
+
+Built on top of 95dcb3b.
+
+**Why.** The owner reported two problems:
+- A job was prepared from a name and an amount alone, without asking the due date or credit term, the payment status and so on ("ถ้ามันไม่มีข้อมูลวันที่วันกำหนดส่ง มันจะตามเครดิตเทอมยังไง ... ข้อมูลสำคัญ").
+- Summaries came back as long prose instead of a table ("แทนที่จะทำออกมาให้มันเป็นตาราง").
+
+**propose_add_job (ai/tools.ts) follows the app's job form (JobFormDrawer)**
+- **Asks before preparing.** It prepares no card until it has the client (or "ไม่ระบุ"), delivered or in progress (with the delivery day if delivered), the payment status (unpaid, partial with the amount, or paid) and withholding tax.
+- **Due date.** It also needs the credit term or a due date, unless the job is fully paid.
+- **What it answers when something is missing.** ok:false with the exact list. The model asks for all of it in one numbered message and never fills a value in itself.
+- **The job record.** It is built like the form: status from the account's statuses, payDate = delivery + credit term (or the date given), or the paid date when fully paid. An in-progress job keeps its term and has no due date yet.
+- **The card.** It now shows the job status, the payment, the due date with its credit term, and the WHT amount.
+
+**Other tools**
+- **search_jobs** takes `month` (this or last), using the app's jobsInMonth rule. It returns the count, total_value and total_pending of all matches, so the model never adds rows up.
+- **money_summary** comes with the chat's existing summary card (รายรับ, รายจ่าย, เงินคงเหลือ for the month), so the text stays to a line or two.
+
+**Documents and admin status**
+- **search_documents (new tool):** the account's quotations, invoices, receipts and tax invoices, by client, number or type, newest first, with the same total as the documents page. The top three come as the chat's existing document cards, whose เปิดในแอป button goes to /invoice?type=…&document=…. This answers the owner's example ("ใบเสนอราคาของบริษัท ตัวอย่าง อยู่ตรงไหน").
+- **Admin-only line under the chat:** says why the real เลขา is not on for the account (AI only for admins, server switch off, a group account, or the server's error). Members never see it.
+- **nodemailer 10.0.12 → 10.2.1:** fixes three moderate address-parser advisories (GHSA-8c8m-p3m8-cjg8, GHSA-m943-m63m-w62w, GHSA-85x2-q946-cp5h). Only nodemailer changed in the lockfile; the audit now shows 0 vulnerabilities.
+
+**Prompt secretary-v3**
+- Lists of three or more items are a Markdown table (at most 10 rows), with a bold count and total above it and the items needing action first.
+- "สรุป" answers are a headline, then a table or short bullets, then one line on what needs attention.
+- A table never changes the voice (friend style stays กู/มึง).
+- English answers translate status words and dates.
+
+**Tested on real Gemini 3.5 Flash-Lite** (artifacts/ai-secretary/eval 202610240604 and 202610240607; about $0.19 in all)
+- "เพิ่มงานออกแบบโลโก้ 5000" asks the 5 missing points in one numbered message, with no card.
+- With full details, it prepares a correct card: due 23 Nov, 30 days after delivery.
+- A follow-up answer after the questions prepares the card from the history.
+- Unpaid jobs and summaries come as tables. "งานเดือนนี้" now counts 4 jobs, ฿53,500, by the app's rule.
+
+**Other tests**
+- Unit: ai-gateway (19) and ai-service (11); all 497/502 (the 5 known failures).
+- e2e: assistant-live (12/12); with assistant-chat, assistant-buddy and i18n-english, 75 passed. The one failure was the switched-off test seeing the new admin line, now updated.
+- Real Gemini: docs-01, docs-02 and personality-03 open document cards, and how-to questions still get the menu answer.
+
+**Package**
+- Archive SHA256 `a437c067aba7277ce5e6af77cb7e2a7e22f62505a79bb4e6d5d5276d4b023f90`; manifest SHA256 `8606b756c363935950ac8b19d4e1606dfc5858129035f8940831772d9943ae0e`.
+- 754 files, 13 changed.
+- New entry `assets/index-BbsEFDSR.js`.
+
+**Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full `npm audit` 0 vulnerabilities, the build and preflight.
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
