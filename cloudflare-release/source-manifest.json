@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg64 edit and answer in the floating panel; category list",
+  "source_label": "pkg65 learning package C: past work for a client",
   "archive": "source.tar.gz",
-  "archive_sha256": "d25fb04f41ccaa2d8dba52f57d7a71642e38d7535d7c1416fdc44bb40c483265",
-  "file_count": 828,
-  "total_source_bytes": 22420507,
+  "archive_sha256": "b86c20c79568bb5b780d674db9558ad0f2e85d54d5959268985bccd26c875d76",
+  "file_count": 830,
+  "total_source_bytes": 22433871,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -137,9 +137,14 @@
       "sha256": "bcafb8387c6291ff136a0bb5fea063bab1719558c5fef2f354e409746ccbb796"
     },
     {
+      "path": "backend/src/ai/pastWork.ts",
+      "size": 6377,
+      "sha256": "ec13f59edd439217c56f7677a8645ea2318aa3675ee25f9e6384b191e4ab4114"
+    },
+    {
       "path": "backend/src/ai/prompt.ts",
-      "size": 34433,
-      "sha256": "a7fd567f1777fa400d9eadcd30a4c37b6ec1260c978c4fe51d36999a0470bdef"
+      "size": 35121,
+      "sha256": "811bfc7fe8b08d36573d1dbb23d3b0c585d006edd629a0ecb0779bd52b071d5f"
     },
     {
       "path": "backend/src/ai/proposals.ts",
@@ -183,8 +188,8 @@
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 71526,
-      "sha256": "67336f391d2c448ad481a727ee74561b4984606456d29545c1dc42cddc7bdc45"
+      "size": 71699,
+      "sha256": "4298238e280cabc6240162a1c99e9442d59f61153b4703ae76e1f3a01a3a8683"
     },
     {
       "path": "backend/src/ai/transcription.ts",
@@ -3600,6 +3605,11 @@
       "path": "tests/ai-navigation.test.ts",
       "size": 7604,
       "sha256": "3b3d31d7458f13483d09a05e8c73bf864190dfe68db979f677e6cbb9ad3ede94"
+    },
+    {
+      "path": "tests/ai-past-work.test.ts",
+      "size": 6126,
+      "sha256": "22a3c90f9bce805046c3734efbb2a839b4f9dcbacc9f047edfdf39d2a46c151d"
     },
     {
       "path": "tests/ai-proposals-database.test.ts",

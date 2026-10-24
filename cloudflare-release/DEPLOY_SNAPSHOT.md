@@ -2114,3 +2114,17 @@ Built on de65b24 (package 63). No SQL.
 - frontend/src/features/assistant/ChatCards.tsx: only rate fields read as percentages (0% = ไม่หัก / ไม่มี VAT); other choices read as themselves.
 
 **Checks.** Unit tests 750/755 (the same 5 fail as before); new: the category list matches the expense form, the account's categories come along, the card offers them. Screen tests for the chat and the panel: 54 pass, the 2 microphone tests fail as before; new: in the panel on the dashboard a question is answered by tapping and an expense card is edited with the category picked from the list, no overlapping text. cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+
+## เลขา starts from past work for the same client (learning package C) - 2026-10-25
+
+Built on 52ae524 (package 64). No SQL.
+
+**Why.** The owner's learning plan, package C ("ทำชุด C ต่อเลย"): remember how work for a regular client was done, offer it as the starting point, never treat past amounts as current.
+
+**What changes (server only; no screen changes)**
+- backend/src/ai/pastWork.ts: read tool past_work(client). From the account's own saved documents and jobs (work done without เลขา counts too; nothing new is stored): the names in the records, the client's saved details (from the newest document: full name, address, tax ID, branch, contact, phone), the usual VAT, withholding, credit term and payment term (most common), the usual lines (wording, unit, latest unit price, how often), the latest three documents and jobs. Payment status, amounts received and paid dates are never included. Names match by their core (บจก. / บริษัท … จำกัด / Co., Ltd., spaces and punctuation ignored); an unknown client says there is no earlier work.
+- tools.ts: past_work among the read tools in both routes; only the signed-in account's data.
+- Prompt secretary-v13: before a quotation, invoice or job for a client the account may know, call past_work with the other reads; start from its details, rates and wording; offer a past unit price as an option, never as a fact; say it comes from past work; ask only for what is still missing.
+
+**Checks.** Unit tests 753/758 (the same 5 fail as before); new tests/ai-past-work.test.ts (details, usual rates and terms, lines with the latest price, newest first, no payment fields, no other client, name matching, unknown client, refused arguments, the prompt rule). cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. Not run against the real models.
