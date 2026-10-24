@@ -1576,3 +1576,38 @@ Built on top of 95f2e90.
 **Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight and unit tests.
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
+
+
+## The notifications thread shows this account's real notices - 2026-10-24
+
+Built on top of 984b9b1.
+
+**Why.** The owner reported that the chat's "แจ้งเตือนอัตโนมัติ" thread was still a mock-up: "ทำให้มันแจ้งเตือนมันของ LINE ด้วยดิ ... ยังเป็นม็อกอัพอยู่ ... ต้องเอาเป็นของยูสเซอร์ account นั้น".
+
+**What changes**
+- **GET `/api/assistant?view=line`** (ai/lineInbox.ts) builds the thread from the signed-in account's own data. It uses the same rules and wording as LINE, and does not need the AI:
+  - The 08:00 reminder (findJobsNeedingAttention, the same grouping as buildDigestFlexMessage) with ได้รับแล้ว / ยังไม่ได้ / ได้ไม่ครบ on money already due.
+  - Last month's summary.
+  - The quick-reply answers: รอรับเงิน, สรุปเดือนนี้, กำลังดำเนินการ.
+- **POST `line-due` / `line-partial`** record money exactly as LINE's 08:00 buttons do. lineDuePayments now exposes dueActionOutcome and duePartialOutcome, which LINE also uses: reread, apply, save with its version, one retry.
+- **The chat** (AssistantChat) swaps the real notices into the thread, whichever loads last:
+  - No sample tag.
+  - A line saying so when LINE is not linked or the reminder is off.
+  - The buttons, quick replies and the typed partial amount work, and the app's data reloads after a payment.
+  - The labelled sample stays only if the server cannot answer.
+- **Types:** shared/lineInbox.ts holds the card types for both sides.
+
+**Tested**
+- tests/line-inbox.test.ts (4) and the LINE payment tests (unchanged, passing).
+- assistant-live e2e 13/13, three runs in a row. This fixed a race where the thread's sample came back after the live transport loaded.
+- Unit tests 508/513 (the 5 known failures).
+- Full e2e: 225 passed, 33 failed, all of them the live baseline.
+
+**Package**
+- Archive SHA256 `33cf6358ce9b05bd515ed482e803e195d9d3a9f64bbc44228b756ce8d8dd5b8f`; manifest SHA256 `ecff0fbc44dcbcbaf46284734229b5d3fd91ef33fd78757b3b45782005d46026`.
+- 761 files, 11 changed (4 new).
+- New entry `assets/index-BtXraGoo.js`.
+
+**Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight and unit tests.
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-24.

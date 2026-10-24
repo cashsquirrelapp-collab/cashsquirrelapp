@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg48 LINE talks to เลขากระรอก (Gemini)",
+  "source_label": "pkg49 real notifications thread",
   "archive": "source.tar.gz",
-  "archive_sha256": "a3370856cabfffc41ab185adca414fb7527a4df70f553cd591d1d4340c051b32",
-  "file_count": 757,
-  "total_source_bytes": 21274462,
+  "archive_sha256": "33cf6358ce9b05bd515ed482e803e195d9d3a9f64bbc44228b756ce8d8dd5b8f",
+  "file_count": 761,
+  "total_source_bytes": 21311698,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -75,6 +75,11 @@
       "path": "backend/src/ai/lineFormat.ts",
       "size": 6735,
       "sha256": "2db6db16b0b6c7b1fdd9182eef25f675fba6097be69be3293bf250775db0b9ac"
+    },
+    {
+      "path": "backend/src/ai/lineInbox.ts",
+      "size": 11364,
+      "sha256": "fdf7b0668ed0cf4eedd69c7604a8add13251e63457b2eebf16ab40327333347f"
     },
     {
       "path": "backend/src/ai/prompt.ts",
@@ -158,8 +163,8 @@
     },
     {
       "path": "backend/src/handlers/assistant.ts",
-      "size": 3809,
-      "sha256": "3f3bfb605ab11b6e4fc09275f185ae227d1fa3f2710cd804e1ce33bb2e4e4685"
+      "size": 5792,
+      "sha256": "6bb41f06b7e451a758e557caab55fae77c46727f2729a52147d2a04adbdc2559"
     },
     {
       "path": "backend/src/handlers/auth.ts",
@@ -483,8 +488,8 @@
     },
     {
       "path": "backend/src/services/lineDuePayments.ts",
-      "size": 14451,
-      "sha256": "896ec5d92eb646b93a46b7066f5f4773835f509359cd195d49f1f45729afff84"
+      "size": 15845,
+      "sha256": "4d18f76ba48e42868e15d4158cfa22077000d46826a68b36ac7308bb568949cb"
     },
     {
       "path": "backend/src/services/lineEntryRouting.ts",
@@ -1798,8 +1803,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 205586,
-      "sha256": "604d5d1f8642d75aedade62ecbd19edb2305ec4290bbbf0d0fa245f6cfbd248a"
+      "size": 206317,
+      "sha256": "e89aceb959162724b2e2198174ea54cc4b3a67e175d447743d31fcf793f7043d"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -1938,8 +1943,8 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
-      "size": 69039,
-      "sha256": "8ed04294fcf38ca2dbbc77ec0642f5e9ceff08ba72e685ceacc11275d63e2962"
+      "size": 75542,
+      "sha256": "075b632e74818e10ad7dd0a61ef0ae1a60cdb9a4d691c1b24c06220b6571a315"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
@@ -1977,9 +1982,14 @@
       "sha256": "d04df52ce33f3eef63bf226d29d077a0e99bfa10c53cdcb422716b87ee590d97"
     },
     {
+      "path": "frontend/src/features/assistant/lineInbox.ts",
+      "size": 1603,
+      "sha256": "c5139b0789a304666027013c23a3f0160f1c72da632fb95756a340a3b9803d84"
+    },
+    {
       "path": "frontend/src/features/assistant/lineMock.ts",
-      "size": 15283,
-      "sha256": "9e06c5b482bd7a70f73ec645e3b64946e4f2a42c1f2267b855b7fdfa47a4169e"
+      "size": 14382,
+      "sha256": "ea1a6021311ce13292e19f2dbfb87b8e69cf65f9e541f1318576b06fd2dbd3e9"
     },
     {
       "path": "frontend/src/features/assistant/voice.ts",
@@ -2703,8 +2713,8 @@
     },
     {
       "path": "frontend/src/i18n/en/assistant.ts",
-      "size": 26725,
-      "sha256": "bb25ab2bf4d515508c5c3e67349ef2f7ec14b46c249b9140c0732363ad465007"
+      "size": 28165,
+      "sha256": "7dced8b9421c43b7bff75f786f0a7c28540375788701f72e7bab0e75e60b85e6"
     },
     {
       "path": "frontend/src/i18n/en/auth.ts",
@@ -3202,6 +3212,11 @@
       "sha256": "c5106534aa25f7c42318d790f38e4c92105dd30305e5f62ad699f62ceefabded"
     },
     {
+      "path": "shared/lineInbox.ts",
+      "size": 2249,
+      "sha256": "90e4877aa518c650bb415e71d696c51f69c664b2faf2773c055914b5ec3b8ec5"
+    },
+    {
       "path": "shared/monthlySummary.ts",
       "size": 10930,
       "sha256": "2df7eb58a23ff221ff780a9f0130f5d6d7c2d7b2599051b2cbb08b07afc7ceb4"
@@ -3438,8 +3453,8 @@
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
-      "size": 16808,
-      "sha256": "fbde8b0f9f77b0f43991e55d2d2d510b9dc8530c16afb24a654c678d1f1c5e9b"
+      "size": 22176,
+      "sha256": "140ac52aa59c028b2a325fd76d6c195fd5aa09ec4a75e26c04aff475d5ec06b7"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
@@ -3650,6 +3665,11 @@
       "path": "tests/line-entry-help.test.ts",
       "size": 3280,
       "sha256": "1895feb0244d939b41e2b5505e83b68f789c40eaff1bfb570cc37623625b08bf"
+    },
+    {
+      "path": "tests/line-inbox.test.ts",
+      "size": 5502,
+      "sha256": "6e6f3bbb7f611191bddb412e3db511c0513b495abfef97ca7b3f0c1e1b13e7a4"
     },
     {
       "path": "tests/monthly-report-negative.test.ts",
