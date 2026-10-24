@@ -1708,3 +1708,46 @@ Built on top of 3f5cc81.
 **Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight and unit tests.
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
+
+
+## LINE menu: แนบเอกสาร only for admin accounts - 2026-10-24
+
+Built on top of 019cf43.
+
+**Why.** The owner: "ปุ่มแนบเอกสารใน Line อ่ะให้เห็นแค่ของบัญชีแอดมินนะนอกนั้นไม่สามารถเห็นได้". แนบเอกสาร opens the document vault (/line-documents), which only admins have on the website. Ordinary accounts got a page that keeps loading.
+
+**What changes**
+- **Two LINE menus** (services/lineRichMenus.ts):
+  - **Everyone:** a 5-tile default without แนบเอกสาร. Its picture is frontend/public/line/richmenu-everyone-2026-10-24.jpg, made from the live picture: the top half, the mascot tile included, is unchanged, and the bottom row has two wider tiles (กำลังดำเนินงาน, เปิดแอป).
+  - **Admins:** the live 6-tile menu with the same actions, attached to LINE chats linked to a system admin.
+  - Once the vault opens to everyone, the 6-tile menu becomes the default.
+- **The server publishes them itself**, so no one types a secret:
+  - Once per version and launch state, claimed through cashflow_claim_webhook so two Workers never publish at once. A failed picture upload removes the half-made menu.
+  - Later runs find the menus by name.
+  - The picture comes from the Worker's asset store. cloudflare/worker.ts shares env.ASSETS, and the content type is checked.
+- **When it runs:**
+  - The first LINE message after release publishes both menus and fixes that chat.
+  - Each chat is checked once per Worker.
+  - Linking a LINE account checks that chat right away.
+  - Disconnecting returns the chat to the default menu.
+  - Every day at 09:00 Bangkok, /api/setup-line-richmenu is added to the 0 2 cron and attaches the admin menu to admins' chats in bulk (and returns everyone else to the default). This covers role changes.
+- The old one-time setup endpoint now runs the same sync (CRON_SECRET, safe to repeat).
+
+**Tested**
+- tests/line-menus.test.ts (6):
+  - The admin menu equals the live one (scripts/line-menu.json areas).
+  - The everyone menu has 5 tiles and no แนบเอกสาร.
+  - The picture is a 2500x1686 JPEG under 1 MB.
+  - The menus are published once; a busy claim waits; a failed picture is cleaned up.
+  - Per-chat and daily bulk sync, and reset on disconnect.
+- cloudflare-scheduled test updated for the 09:00 job.
+- Unit tests 602/607 (the 5 known failures).
+
+**Package**
+- Archive SHA256 `ef5652793ebf72f096c0caba40d544b5fb3786a2b96eb24cb19e296730fe1ef5`; manifest SHA256 `dd14616611ffaed43d8745640fae84208ed3e0fa63e127741b89ba9366bf4b1a`.
+- 780 files, 9 changed (3 new).
+- The page entry stays `assets/index-tmKs63dv.js`.
+
+**Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight, unit tests and a wrangler dry run.
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-24.

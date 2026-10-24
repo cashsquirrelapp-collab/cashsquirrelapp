@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg52 open areas only, LINE readable replies, one token pool",
+  "source_label": "pkg53 LINE menu: แนบเอกสาร for admins only",
   "archive": "source.tar.gz",
-  "archive_sha256": "72a8bfd257a4768256985a40e8ca39b1d3861d25bef16263c086ea9c5f8448a7",
-  "file_count": 777,
-  "total_source_bytes": 21588006,
+  "archive_sha256": "ef5652793ebf72f096c0caba40d544b5fb3786a2b96eb24cb19e296730fe1ef5",
+  "file_count": 780,
+  "total_source_bytes": 21829277,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -238,8 +238,8 @@
     },
     {
       "path": "backend/src/handlers/line-link-code.ts",
-      "size": 2310,
-      "sha256": "614b8a392e7dbe0467f556349c4be88e3daa2b8eab153af7f0b0942efb45ac1c"
+      "size": 2520,
+      "sha256": "459d5ff4e994379aed3869507640ed9f18e69ee06dfe122ee1e0523f458c17bb"
     },
     {
       "path": "backend/src/handlers/line-session.ts",
@@ -248,8 +248,8 @@
     },
     {
       "path": "backend/src/handlers/line-webhook.ts",
-      "size": 9262,
-      "sha256": "329c0ecb73831492e94fe47c73e436073ea9de5bb6c2244bcb00ea60fdfae82a"
+      "size": 9907,
+      "sha256": "48088c926bbd41ad6aae718059872e94f30f550c82bd4f8fd52da48e9c66143a"
     },
     {
       "path": "backend/src/handlers/notify.ts",
@@ -288,8 +288,8 @@
     },
     {
       "path": "backend/src/handlers/setup-line-richmenu.ts",
-      "size": 6545,
-      "sha256": "84ddcbc3b547672bc7cdfcd5c28ed49a4ffe4873486f3680b686b9b1b70c7a24"
+      "size": 1327,
+      "sha256": "0ae65cf7fb6252068fabd920824152ac7fc43c8e5b321cccb91434aaa7a16894"
     },
     {
       "path": "backend/src/handlers/stripe-webhook.ts",
@@ -542,6 +542,11 @@
       "sha256": "68496af8c06201831524807434f8070b9e7adc0a3c4f7e23e7421970c5e229d5"
     },
     {
+      "path": "backend/src/services/lineRichMenus.ts",
+      "size": 12814,
+      "sha256": "9c777660b77a1a4e52c5847ccb409c880c35cb33fcb83b11d15e288aa94d8106"
+    },
+    {
       "path": "backend/src/services/lineSession.ts",
       "size": 3288,
       "sha256": "265f85ba97d9c49ccedeaf48b521ee29d98308c0e9c827a7dc5b1b64d094b4d2"
@@ -618,13 +623,13 @@
     },
     {
       "path": "cloudflare/schedule.ts",
-      "size": 1194,
-      "sha256": "4e36d36b860740bc8259cb122633955b0a7bc36ef9c5017daa031a29993b01c0"
+      "size": 1288,
+      "sha256": "8e529094c58ab8b2be6873adedb0935a17aa976450365997f26adc4182fe14e3"
     },
     {
       "path": "cloudflare/worker.ts",
-      "size": 5041,
-      "sha256": "df5a098cced1176ede33fb3a7f189f83d487093c607a6de536298700c4188597"
+      "size": 5291,
+      "sha256": "5b3cc56f51028bf391aaa7b58b30390b0374d341b37b2e6d586524807441b464"
     },
     {
       "path": "database/ai_secretary.sql",
@@ -1745,6 +1750,11 @@
       "path": "frontend/public/line/mascot-v6-working.png",
       "size": 550760,
       "sha256": "f1fff458476e0b04ce0eb3d2b5ed18adcc6211d77cea88172ad6673b9e0ed60c"
+    },
+    {
+      "path": "frontend/public/line/richmenu-everyone-2026-10-24.jpg",
+      "size": 224183,
+      "sha256": "ebde8ef2307f2da94d76e8dc67e5481d19a6e5ee715163b7916a71728088264a"
     },
     {
       "path": "frontend/public/line/secretary-richmenu.jpg",
@@ -3453,8 +3463,8 @@
     },
     {
       "path": "tests/cloudflare-scheduled.test.ts",
-      "size": 3395,
-      "sha256": "4eb018cae3d19dabdcf6c385a61f1f0b22ecd6cca17ca43d9b1f6837607bcf4b"
+      "size": 3451,
+      "sha256": "af3f0d750873564ce35e809bc0f3e788024092cc9cc832394ca397e59566120e"
     },
     {
       "path": "tests/database.test.ts",
@@ -3750,6 +3760,11 @@
       "path": "tests/line-inbox.test.ts",
       "size": 5502,
       "sha256": "6e6f3bbb7f611191bddb412e3db511c0513b495abfef97ca7b3f0c1e1b13e7a4"
+    },
+    {
+      "path": "tests/line-menus.test.ts",
+      "size": 8237,
+      "sha256": "b0a7e263622c3794b0c428c5e7fb5770699a588f83aa1de86c2ba533e7b99e94"
     },
     {
       "path": "tests/monthly-report-negative.test.ts",
