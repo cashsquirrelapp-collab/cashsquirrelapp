@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "merged Pro assistant actions, owner isolation, navigation and latest LINE updates",
+  "source_label": "compound job edits and final tool-step execution; preserves Pro assistant, owner isolation, waveform and LINE updates",
   "archive": "source.tar.gz",
-  "archive_sha256": "90981d3b8e68775befd5891de7fc83eebc56f71affa5bd22977981d660b2023b",
-  "file_count": 802,
-  "total_source_bytes": 22022213,
+  "archive_sha256": "00f3f1326f29410827b4f87710a236131d8c835bedbf08f0b45bec7cf1b25c3e",
+  "file_count": 805,
+  "total_source_bytes": 22071193,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -48,8 +48,8 @@
     },
     {
       "path": "backend/src/ai/config.ts",
-      "size": 3959,
-      "sha256": "77e16ceda4716acf8c6a683f399853e5a6a91eb7de476c4edf140bbcdcc76eab"
+      "size": 3971,
+      "sha256": "d5685b4b5ee71f0e5b29772a8bab534cabc518d3e1f596443249d7db2a34b53f"
     },
     {
       "path": "backend/src/ai/cost.ts",
@@ -73,8 +73,13 @@
     },
     {
       "path": "backend/src/ai/gateway.ts",
-      "size": 8840,
-      "sha256": "fdb9d41903620167f5293eadf4a1c124aa7823c3cbbc57f753acd6112a2c5ff3"
+      "size": 10053,
+      "sha256": "389a075587f74be1b48723ed804f79d9df07fdae154c274ee9d355f40dc62464"
+    },
+    {
+      "path": "backend/src/ai/jobFinancialEdit.ts",
+      "size": 14114,
+      "sha256": "136804bbd3c4f9b6643346785b2292e633e231bf75ed147c1abd6c4738bfce26"
     },
     {
       "path": "backend/src/ai/knowledge.ts",
@@ -108,8 +113,8 @@
     },
     {
       "path": "backend/src/ai/prompt.ts",
-      "size": 21266,
-      "sha256": "da3c28d8597ff4030de663837b5884be62f84a5454baef872b7cdebb0ff471d2"
+      "size": 22312,
+      "sha256": "1a39938cb5d718d15b3014c5ae759259b6da4bddce937d2f19d520c4c83d1f07"
     },
     {
       "path": "backend/src/ai/proposals.ts",
@@ -118,13 +123,13 @@
     },
     {
       "path": "backend/src/ai/providers/gemini.ts",
-      "size": 5318,
-      "sha256": "8ed0613d2793ecaf9bbb2c488c7316b52b27277daf9548b159cbd9b1332fcbe6"
+      "size": 5510,
+      "sha256": "dde72951c96ebb944bd289738174c02e72e4cdac3e509a5cad66a2e628a0b259"
     },
     {
       "path": "backend/src/ai/providers/openai.ts",
-      "size": 4511,
-      "sha256": "a1113d752296dee671785d204e19e8fdb88f4e5e1da7abe0a588f83e1955cfc8"
+      "size": 4681,
+      "sha256": "9e396a917b94a7b3af23a4a211d816ae981ca900ff798cb5069e02604782b41b"
     },
     {
       "path": "backend/src/ai/recordActions.ts",
@@ -148,8 +153,8 @@
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 43130,
-      "sha256": "6f5deec36468ec0a647dd6c50f16fc0c3dc5e8e1c3e37f246722bb48865135c6"
+      "size": 43947,
+      "sha256": "93f8e43659b2dec0edec875d12692cfcaddc33f429cd319a596603c74f1b732b"
     },
     {
       "path": "backend/src/ai/transcription.ts",
@@ -3437,6 +3442,11 @@
       "sha256": "893209493129f1719011fd419c3209662b0831f0682e3c3b274ec2423340f4a2"
     },
     {
+      "path": "tests/ai-compound-job-actions.test.ts",
+      "size": 12038,
+      "sha256": "3a5feba8018ad8d31dcfcd888d77d0d9aef61f4435ecd23333eb0ab439aef83c"
+    },
+    {
       "path": "tests/ai-document-actions.test.ts",
       "size": 14640,
       "sha256": "3b8d1bff1e86190c43e65e73ed9312e615e964dff2637524df0db2faa2759f24"
@@ -3448,13 +3458,18 @@
     },
     {
       "path": "tests/ai-gateway.test.ts",
-      "size": 30634,
-      "sha256": "e963f57d0caa09ca92117e25b60603405379bc454d77f72eaff535dc725e09f7"
+      "size": 37733,
+      "sha256": "5ffd46503bf5aa56456748871c8310aa65f9fc5be2919a8a9d3952f9015b0496"
     },
     {
       "path": "tests/ai-job-calendar-actions.test.ts",
-      "size": 2927,
-      "sha256": "893800e7cbf13f9a5f7643b5b1b694d18936b8572e1e779c37cbe19809e7289f"
+      "size": 3745,
+      "sha256": "3722ce4f8d8c637776b7c946f56c7ee22f58b11c1d51daaf19449cc9bb4275d0"
+    },
+    {
+      "path": "tests/ai-job-financial-edit.test.ts",
+      "size": 11461,
+      "sha256": "76321fe6034c531241fc3716578ccd74cc926642ec0ef08148d1a150c8c95005"
     },
     {
       "path": "tests/ai-knowledge-prompt.test.ts",

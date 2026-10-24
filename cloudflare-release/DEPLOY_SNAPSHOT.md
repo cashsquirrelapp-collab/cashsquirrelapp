@@ -1772,3 +1772,19 @@ Package: 802 files, 22,022,213 source bytes. Archive SHA256 `90981d3b8e68775befd
 Rollback: redeploy package 52 and preserve runtime variables; restore the prior admins-only launch setting if needed. Keep the additive schema and customer records.
 
 The later admin-only LINE attachment-menu release is also preserved; 33 menu/scheduler/LINE tests passed. The new disconnect endpoint is mocked in HTTP tests, and its focused disconnect regression passed without external LINE calls. Cloudflare dashboard currently deploys Git production from main; this release branch is published for provenance and the verified wrapper is deployed directly.
+
+
+## Compound job edits and final tool execution — pkg54, 2026-10-24
+
+The assistant can prepare withholding and payment changes to the same owned job in one confirmation. For example, no withholding plus fully received uses the new net amount and is saved atomically only after confirmation. Existing deposit dates/amounts and delivery state are preserved; ambiguous historical receipts ask for the specific missing date.
+
+Both model providers now execute tools returned by the final allowed model response. They do not add another paid model call just to describe a prepared card. A final-step job-edit validation failure is shown directly instead of a generic request to split the task.
+
+- Source commit: `513bc9e15b5377ffaef2ad939fb999c12ea9060b`. Production base: `9760e9650ef2fe39f6074cfbc32c7db4606b2678`.
+- Package: 805 files, 22071193 bytes. Eight existing files changed, three added; all other pkg53 files unchanged.
+- Archive SHA256: `00f3f1326f29410827b4f87710a236131d8c835bedbf08f0b45bec7cf1b25c3e`. Manifest SHA256: `ceddacfc0be3f4010817f58ceddfd8df77acd0715b1de4e9945d5bbddff7a9c9`.
+- Validation: 100 focused tests, 17 security/cron/policy tests, TypeScript, Cloudflare build/preflight, zero npm audit vulnerabilities. Two synthetic owner accounts, identical IDs, foreign confirmation, replay and stale-version rejection tested. No paid model evaluation or customer record update.
+- No schema/grant or dependency changes. Existing Pro rollout, microphone waveform, navigation and latest LINE changes retained. Wrapper variables/secrets and cron triggers retained with keep_vars.
+- Live production chat and confirmation with two real Pro accounts remain unverified; the controllable session is Free and native Chrome interaction is unreliable. Asset parity cannot establish conversational correctness.
+- Deployment: publish this package on cloudflare-production-20261018 and deploy its verified wrapper directly; Git build currently watches main. Record the resulting version separately after success.
+- Rollback: redeploy the pkg53 package from 9760e9650ef2fe39f6074cfbc32c7db4606b2678; retain existing database data.
