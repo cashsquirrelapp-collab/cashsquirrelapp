@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg49 real notifications thread",
+  "source_label": "pkg50 scoped assistant knowledge and reviewed waveform dictation",
   "archive": "source.tar.gz",
-  "archive_sha256": "33cf6358ce9b05bd515ed482e803e195d9d3a9f64bbc44228b756ce8d8dd5b8f",
-  "file_count": 761,
-  "total_source_bytes": 21311698,
+  "archive_sha256": "6af03db4b9d4733ccdb6cec4d8b5ab8844bc01acf703e90343d1c9fe7b28f65c",
+  "file_count": 776,
+  "total_source_bytes": 21541290,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -37,6 +37,11 @@
       "sha256": "f289813e0a1b55396aba8da57668e8591dd3e7578cef4ba20aba14f4b9f8a67d"
     },
     {
+      "path": "backend/src/ai/accountQueries.ts",
+      "size": 22696,
+      "sha256": "9508d1327d7525afad7c0f54dcfb733504a8e2550f6e601cbfd5ebd353df8e14"
+    },
+    {
       "path": "backend/src/ai/attachment.ts",
       "size": 2635,
       "sha256": "93c1917be59c9e188187f859b60904154a312b10dc4a40fa877958600e6018cc"
@@ -52,19 +57,24 @@
       "sha256": "036fe24b0282cc9216194d1ec7af0a250d3d3a0c9e6dc74972fbd3da448cd178"
     },
     {
+      "path": "backend/src/ai/financialQueries.ts",
+      "size": 26765,
+      "sha256": "976362a8e52e927b2578a1d86b697906e8272b30128a311af7d3256ed90daf4c"
+    },
+    {
       "path": "backend/src/ai/gateway.ts",
-      "size": 8105,
-      "sha256": "9c9b5c07859158e3e8df711ae4c477308aee8eb7ce447614cf6bf689d8841676"
+      "size": 8774,
+      "sha256": "8bc12a2773410805c471166a5ced993473eef1bc78fe6d117c085c9a955cdc8c"
     },
     {
       "path": "backend/src/ai/knowledge.ts",
-      "size": 3132,
-      "sha256": "1c03ab1c34f612fad3e023c51123cdf25bbf21a36d27eaac0ed1f898f3937c8b"
+      "size": 5816,
+      "sha256": "bde62d7482df68bdc6d40ad8010b07e8ae4ec8d355914eb367a990c364828b73"
     },
     {
       "path": "backend/src/ai/knowledgeBase.ts",
-      "size": 20457,
-      "sha256": "edf32b01501d4ac005f2647ead9b64f4e68dc4a8be7952949ba09676ef8a6015"
+      "size": 34917,
+      "sha256": "e42b2e1f1aa3f41418b30330d9c1d57a316b17cf675e8e87f732b086e5ed07f3"
     },
     {
       "path": "backend/src/ai/lineBridge.ts",
@@ -83,8 +93,8 @@
     },
     {
       "path": "backend/src/ai/prompt.ts",
-      "size": 11464,
-      "sha256": "d7db1384d9b9dbdb7c85df5392ada20db1fc37a76607281730b71fc7268ab8d4"
+      "size": 16240,
+      "sha256": "2eac5527e68b38faf46a5392717d470bc05dbfb8acc579935fb7b429f0a430bb"
     },
     {
       "path": "backend/src/ai/providers/gemini.ts",
@@ -103,23 +113,33 @@
     },
     {
       "path": "backend/src/ai/service.ts",
-      "size": 13971,
-      "sha256": "05ebc0e70ef2f55301a25fce74878baa1775ed564033ecf7f96b3b7a2dbc7b1e"
+      "size": 14607,
+      "sha256": "83e3761e3fdca3e879649112cd505c7a139018a79a2afb1310b5706b01b4c1fd"
     },
     {
       "path": "backend/src/ai/supabaseDb.ts",
-      "size": 7498,
-      "sha256": "3100706d46a80b2ae5aa993207815275759144be64942f1a20f079bfd6e5a427"
+      "size": 7627,
+      "sha256": "ef43fb94c295fff265ffc53e007046d218f65622495bda45d3cfef075e163e9b"
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 30458,
-      "sha256": "14f4c0ab1bea60eb3253fa18175f4f3e154fe8ad6d0de35b1306d63b2969ab7d"
+      "size": 36379,
+      "sha256": "727c8896d836aa24da48370648c78b8d252fe1f20652943334823f9d815ee323"
+    },
+    {
+      "path": "backend/src/ai/transcription.ts",
+      "size": 12385,
+      "sha256": "1ebd6257106d1795512ebfeca7f1f52dc0852b9e7046655d12ec9e22de1b637a"
     },
     {
       "path": "backend/src/ai/types.ts",
       "size": 3309,
       "sha256": "9882256bccc7818475d59e79e4f9bb93ddd010ddb4d364c2559e6304654f0022"
+    },
+    {
+      "path": "backend/src/ai/vaultQueries.ts",
+      "size": 6996,
+      "sha256": "ca386990d4ee9c7c5bc0758b236b9c5bdf45679f93f9391a1143ced1aef0be72"
     },
     {
       "path": "backend/src/config/env.ts",
@@ -163,8 +183,8 @@
     },
     {
       "path": "backend/src/handlers/assistant.ts",
-      "size": 5792,
-      "sha256": "6bb41f06b7e451a758e557caab55fae77c46727f2729a52147d2a04adbdc2559"
+      "size": 6418,
+      "sha256": "9d01db3dac9bd7f52d875fcd46375bb400dd825611ad91d80f5dbc5a9de94567"
     },
     {
       "path": "backend/src/handlers/auth.ts",
@@ -1943,8 +1963,8 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
-      "size": 75542,
-      "sha256": "075b632e74818e10ad7dd0a61ef0ae1a60cdb9a4d691c1b24c06220b6571a315"
+      "size": 77382,
+      "sha256": "e6e23e7dfe1d1086636106cc828e73eb8c3ae242588e6a02269c2e42f95ff1f8"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
@@ -1967,19 +1987,29 @@
       "sha256": "fc996f6641d483c5d3a8e4a6a0820ee8a5e31f2d23a4aef5775a6829237af5a8"
     },
     {
+      "path": "frontend/src/features/assistant/VoiceComposer.tsx",
+      "size": 3844,
+      "sha256": "96e25aaa1b369b51f872ea10113c054bb10d3a6e58b3f0b6414b49bf3c4c3926"
+    },
+    {
       "path": "frontend/src/features/assistant/assistant.css",
-      "size": 68505,
-      "sha256": "4a2c92f87ab80dd5714829e6ccf7c47340a8492b69b2ee08d28451029ef85bf3"
+      "size": 69240,
+      "sha256": "c669aeec3bf74e7befbdd07da83bf50fee0c212dd48958f1803cd8b589da49e3"
     },
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
-      "size": 9815,
-      "sha256": "55b0cbef2fadec3b2f3c5b0adb2f5c94089516e79b15680a6e88eb903c83e47c"
+      "size": 11117,
+      "sha256": "7f8d8641e771d091bad36cb276af33e748c33e57f253f9bd6ba1045eae6c1274"
     },
     {
       "path": "frontend/src/features/assistant/assistantMock.ts",
       "size": 16819,
       "sha256": "d04df52ce33f3eef63bf226d29d077a0e99bfa10c53cdcb422716b87ee590d97"
+    },
+    {
+      "path": "frontend/src/features/assistant/audioRecorder.ts",
+      "size": 13816,
+      "sha256": "d0780c9209d2e030cc4f0f9da95fec8e67d61802e7c3ebbd154883a89b232dc3"
     },
     {
       "path": "frontend/src/features/assistant/lineInbox.ts",
@@ -1992,9 +2022,14 @@
       "sha256": "ea1a6021311ce13292e19f2dbfb87b8e69cf65f9e541f1318576b06fd2dbd3e9"
     },
     {
+      "path": "frontend/src/features/assistant/useDictation.ts",
+      "size": 6628,
+      "sha256": "a395896269fec9a8e9f3dfa5ef630a4448b9f6efa4221bd0b91b22e05c03e6e6"
+    },
+    {
       "path": "frontend/src/features/assistant/voice.ts",
-      "size": 6843,
-      "sha256": "2266d7350086a69f2d98149aac0c2b079c4fc73a7e514cbd274280d3960527dd"
+      "size": 4112,
+      "sha256": "2dda01be821f0a63917b65a7780153e46b2a9f059f220b6aedc022676773bd03"
     },
     {
       "path": "frontend/src/features/auth/Login.tsx",
@@ -2713,8 +2748,8 @@
     },
     {
       "path": "frontend/src/i18n/en/assistant.ts",
-      "size": 28165,
-      "sha256": "7dced8b9421c43b7bff75f786f0a7c28540375788701f72e7bab0e75e60b85e6"
+      "size": 30816,
+      "sha256": "76acb6e4ba52682f6f7bc830df449b23c4e2a45d4c68441a0814029f0b28e077"
     },
     {
       "path": "frontend/src/i18n/en/auth.ts",
@@ -3327,19 +3362,59 @@
       "sha256": "d252d976989fba5ee36aa3efb15416a70c0b96849e65f026e79d3d04c3d924b5"
     },
     {
+      "path": "tests/ai-account-queries.test.ts",
+      "size": 18169,
+      "sha256": "d116b1d66e73fddf1266a710bb81e83439a61b6c486800d438012f440b2ed712"
+    },
+    {
+      "path": "tests/ai-financial-queries.test.ts",
+      "size": 18893,
+      "sha256": "7d0242e659458db172088721c19c9ef562d03628ef1d347e9c309b15a9c52f2e"
+    },
+    {
       "path": "tests/ai-gateway.test.ts",
-      "size": 26309,
-      "sha256": "d672c76e8c31704a5ecbf60913257b55a39cc33dc2963f2749fb4ad8506d97af"
+      "size": 29337,
+      "sha256": "0876e6fbd2159a3d8f765251105396efbeff10d49c02a190b5e629870d728007"
+    },
+    {
+      "path": "tests/ai-knowledge-prompt.test.ts",
+      "size": 8568,
+      "sha256": "7a7a7a62add58ac80d94981a636fb66a21c770ef79b329a0fce13d7cf1ecae57"
+    },
+    {
+      "path": "tests/ai-scoped-reads.test.ts",
+      "size": 2595,
+      "sha256": "4c47a6da6611b0cb5f12c99b40df56e76b8a831d71afbc4529de771581e97550"
     },
     {
       "path": "tests/ai-service.test.ts",
-      "size": 15476,
-      "sha256": "bd1eb99f7bd6bdb61ae9951cb7c937a27cafde3a82a015c6a8f631654a5dff7f"
+      "size": 16811,
+      "sha256": "821aaf9d1e14380e23a287ea3eb336b07e2087fb3e29839c50a0fd3dc8c29dbb"
+    },
+    {
+      "path": "tests/ai-transcription.test.ts",
+      "size": 14703,
+      "sha256": "0b413568a1abb15739d9a315e11f795010f387937fc47762d8c60ec32e4ca23d"
+    },
+    {
+      "path": "tests/ai-vault-queries.test.ts",
+      "size": 3587,
+      "sha256": "40cbaf9f05c45afa7c03d0aaf7fc8594fa72167c3704fecf1f1b45d1d8f54913"
     },
     {
       "path": "tests/app-update.test.ts",
       "size": 4621,
       "sha256": "bf928a729ab90172d3d67fbf253dc1813544d0809b3a1e8c90b69115a0583805"
+    },
+    {
+      "path": "tests/assistant-audio-recorder.test.ts",
+      "size": 14325,
+      "sha256": "8b4f9a17036415926bdc010b375350612e3b9da2bdc4bea5a6b7c4b39b491d05"
+    },
+    {
+      "path": "tests/assistant-voice-transport.test.ts",
+      "size": 10707,
+      "sha256": "43a8fcfb6f9e87e7cf340574ac544ff9de36921c9415707cd1bca4270a1f8776"
     },
     {
       "path": "tests/calendar-events.test.ts",
@@ -3448,13 +3523,13 @@
     },
     {
       "path": "tests/e2e/assistant-chat.spec.ts",
-      "size": 46651,
-      "sha256": "eca33c6d89965c4967ec53cf24123d67d90628577c484bf4ad8274135c2f8be2"
+      "size": 46646,
+      "sha256": "0213f3f1e21f58e85f1279e57d44b40d0939299d4cd47431e2c3e594eeab1537"
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
-      "size": 22176,
-      "sha256": "140ac52aa59c028b2a325fd76d6c195fd5aa09ec4a75e26c04aff475d5ec06b7"
+      "size": 29035,
+      "sha256": "df1802ed7dce56c1cb452723727d9c16e94f4f7e3d38e28ee267f9aa1576fba0"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",

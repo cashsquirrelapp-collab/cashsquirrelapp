@@ -1611,3 +1611,17 @@ Built on top of 984b9b1.
 **Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight and unit tests.
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
+
+
+## Package 50 — waveform dictation and personal assistant data (2026-10-24)
+
+Based on production package 49 (`ab39a1bb2fe909f4a51ad49b7f52b02c0721f828`), preserving its real notification thread and LINE payment behavior. Source commit: `70699799e3724b2c284df7f45d41affce5555c09`.
+
+The microphone displays live audio levels, stops capture before transcription, and places the transcript in an editable draft without automatically sending a chat message. Cancellation and silence do not upload audio. Backend transcription uses existing account authentication, CSRF, token accounting and request limits.
+
+The assistant can query calendar-year/month/range receipts, expenses, job installments, documents, goals, clients, settings and calendar events for the authenticated personal account. File tools return scoped metadata only. The current feature catalog and courteous response instructions replace obsolete preview and profanity-mirroring guidance.
+
+Validation: 113 focused merged-release tests passed; TypeScript and Cloudflare build/preflight passed; 17 release/security checks passed; npm audit reported zero vulnerabilities. No schema, billing, provider-secret or launch-access changes. A live voice transcription smoke check follows deployment.
+
+Archive SHA256: `6af03db4b9d4733ccdb6cec4d8b5ab8844bc01acf703e90343d1c9fe7b28f65c`
+Manifest SHA256: `71ee457126317af8f8ba59f85bdf6612a529c6ee792e6cf71b4b35d10009802f`
