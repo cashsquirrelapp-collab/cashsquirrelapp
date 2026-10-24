@@ -1824,3 +1824,44 @@ Built on top of 7fb59b7 (package 54: compound job edits and final tool execution
 **Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight, unit tests and a wrangler dry run (AI_ADMINS_ONLY "false" as live).
 
 **Approved** by the owner in chat ("ดีพอย"), 2026-10-24.
+
+
+## เลขา: Sonnet for thinking work, 2,500 tokens, 100-token ceiling; ฿159 until 30 Nov, consent v3 - 2026-10-24
+
+Built on 82ca6a5 (package 55).
+
+**Why.** The owner wanted Claude Sonnet 5.5 for hard requests and about 300–450 messages a Pro month. The owner asked "แก้ข้อยินยอม ดีพอย" for the move from ฿159 to ฿249 on 1 Dec 2569.
+
+**AI**
+- **Routing.** Claude Sonnet 5.5 (AI_SMART_MODEL) takes the work that needs thinking: analysis, advice, ranking, money targets, charts and statistics, writing, a picture or PDF, steps that build on each other, and texts of 600+ characters. Plain changes, even several at once, stay on Gemini 3.5 Flash-Lite. Gemini prepared those cards correctly in the real test.
+- **Fallback.** Sonnet stays off until the Worker secret ANTHROPIC_API_KEY exists. If Sonnet fails (no credit, wrong key, outage), the same request is answered by Gemini.
+- **Cache.** The shared rules (tools + system before USER) are cached for an hour. A 1-hour write is billed at 2×.
+- **Allowance.** Pro gets 2,500 Krarok Tokens a month (AI_PRO_TOKENS_PER_CYCLE). One message costs at most 100 (AI_MESSAGE_TOKEN_CAP): the loop stops before a round that would pass it, the cards prepared so far stay, and the charge is capped.
+- **Output cap.** Sonnet max_tokens is 4× the route cap (2,400 chat / 4,800 action), not 8,000.
+- **Hidden goals.** Goals (not launched) no longer reach the model through cash_position or the settings fields.
+- **Measured** on the sample account:
+  - Gemini: 1–8 tokens a message.
+  - Sonnet with the cache warm: 15–27.
+  - The first Sonnet request of an hour: 57–66.
+
+**Price notice and consent**
+- **Notice.** The plans page, the Pro dialog and the landing page say "ราคาพิเศษถึง 30 พ.ย. 2569 · ตั้งแต่ 1 ธ.ค. 2569 รายเดือน ฿249". The notice hides itself from 1 Dec (Bangkok time). เลขา knows the date.
+- **Prices.** Every price is unchanged: ฿159, ฿849, ฿1,490.
+- **Consent v3.** A monthly card renewal agreed while the promotion runs reads "ยินยอมต่ออายุ Pro อัตโนมัติ ฿159/เดือน ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿249/เดือน จนกว่าจะยกเลิก …".
+- **Next-charge line.** The card dialog's next-charge line matches it.
+- **Database first.** supabase/migrations/20261024090000_card_consent_v3.sql makes the database accept v1, v2 and v3. It must run in Supabase before this release, or new card renewals are refused (as on 2026-10-22).
+
+**Tested**
+- Unit tests 704/709 (the 5 known failures).
+- e2e: assistant-live, assistant-chat, billing, card-choice and i18n-english all pass, except the 2 known mic tests.
+- Real Gemini and Sonnet: 10 questions, $0.24.
+- The plans page was checked at 1280 and 375 px with no overlap.
+
+**Package**
+- Archive SHA256 `7144b18a94227bf336ceda723d5d608171e59265b4ac014e38b438744edb9719`; manifest SHA256 `49321d89bd4eeef5c955faba598bb95549e2d1458f8457d00836dca695a75322`.
+- 811 files, 34 changed, 6 new.
+- New entry `assets/index-C0UqKoq-.js`.
+
+**Checked** on the extracted package with a clean `npm ci`: audit 0 vulnerabilities, cloudflare:check 17/17, the build, preflight, unit tests, and a wrangler dry run (AI_PRO_TOKENS_PER_CYCLE "2500", AI_MESSAGE_TOKEN_CAP "100").
+
+**Approved** by the owner in chat ("แก้ข้อยินยอม ดีพอย"), 2026-10-24.

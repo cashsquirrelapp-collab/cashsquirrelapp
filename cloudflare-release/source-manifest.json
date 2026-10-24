@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg55 complex requests: 8 steps, long messages, stall retry, LINE carousels",
+  "source_label": "pkg56: Sonnet for thinking work, 2,500 tokens, 100-token ceiling, ฿159 ends 30 Nov, consent v3",
   "archive": "source.tar.gz",
-  "archive_sha256": "a10fd0e53bf3956cbdbea6d30086a62958db51e31193257478edfd39f1ee121a",
-  "file_count": 805,
-  "total_source_bytes": 22081235,
+  "archive_sha256": "7144b18a94227bf336ceda723d5d608171e59265b4ac014e38b438744edb9719",
+  "file_count": 811,
+  "total_source_bytes": 22134430,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -48,13 +48,18 @@
     },
     {
       "path": "backend/src/ai/config.ts",
-      "size": 4186,
-      "sha256": "ab1af3efa45258a0d42b3fa1c0a50806e90d64a0263d042592a5d5d71265cf7e"
+      "size": 4785,
+      "sha256": "e1f5963d1ee2b9cb9f54724dcbd6ee3488fca0d53eab831b06feffd969dcd381"
     },
     {
       "path": "backend/src/ai/cost.ts",
-      "size": 1656,
-      "sha256": "036fe24b0282cc9216194d1ec7af0a250d3d3a0c9e6dc74972fbd3da448cd178"
+      "size": 2250,
+      "sha256": "e0a02f0d9ac6fbf96cb14a34775df9a89f201cc43c4156506640733cf1b52599"
+    },
+    {
+      "path": "backend/src/ai/difficulty.ts",
+      "size": 4394,
+      "sha256": "6e6bde9e9b1c5df52607fe8325aab1dadfe92c64e0468f1b417000fd0722179e"
     },
     {
       "path": "backend/src/ai/documentActions.ts",
@@ -68,13 +73,13 @@
     },
     {
       "path": "backend/src/ai/financialQueries.ts",
-      "size": 26765,
-      "sha256": "976362a8e52e927b2578a1d86b697906e8272b30128a311af7d3256ed90daf4c"
+      "size": 27023,
+      "sha256": "df3fb9a6cda307380682cb70de4cd9ab6a09d06a50a9ccbda92e47ec6edcfcb5"
     },
     {
       "path": "backend/src/ai/gateway.ts",
-      "size": 10354,
-      "sha256": "2c14e46ddd2d9cc6b28450bb60e080cfc78fa5c5d46058cdffc1054bf57b5ac0"
+      "size": 13333,
+      "sha256": "ca380629d5ceee213bddc2eb4d19dd3adf79b3332738284085e65b80c5fac1d0"
     },
     {
       "path": "backend/src/ai/jobFinancialEdit.ts",
@@ -88,8 +93,8 @@
     },
     {
       "path": "backend/src/ai/knowledgeBase.ts",
-      "size": 47870,
-      "sha256": "5850d41b8f29d1cf2e1a5acafb5b4f28490b07532b1666d02efa63e0de487321"
+      "size": 48079,
+      "sha256": "b10e41c7092c075a06440f86969ed88cc558621a036ab6b8cca14efe832098ce"
     },
     {
       "path": "backend/src/ai/lineBridge.ts",
@@ -122,14 +127,19 @@
       "sha256": "f51cb7977b507184b56d6113eeca1d7a5efa8db26c8daee123df1e165c5a63a8"
     },
     {
+      "path": "backend/src/ai/providers/anthropic.ts",
+      "size": 7276,
+      "sha256": "58ee60feffd449af09c9b241dd6efe5ad6a2821b98c036a8e0b6a6c4a10928e3"
+    },
+    {
       "path": "backend/src/ai/providers/gemini.ts",
-      "size": 6448,
-      "sha256": "3eeaad1a30acbd6c04695f6d697fa2789cce02b8bd9ecfa2130c6eb8a5f77cfd"
+      "size": 6509,
+      "sha256": "7d647cd5eab69a3ff53794d88c83d45ab43247887faa299082488662247fd552"
     },
     {
       "path": "backend/src/ai/providers/openai.ts",
-      "size": 4681,
-      "sha256": "9e396a917b94a7b3af23a4a211d816ae981ca900ff798cb5069e02604782b41b"
+      "size": 4742,
+      "sha256": "8543d76724657e78059d3eb66b37146280a586594873837a8b2b853488c30940"
     },
     {
       "path": "backend/src/ai/recordActions.ts",
@@ -153,8 +163,8 @@
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 43947,
-      "sha256": "93f8e43659b2dec0edec875d12692cfcaddc33f429cd319a596603c74f1b732b"
+      "size": 44415,
+      "sha256": "304f90ad270ccaa97982401b4b20b1cf60a6b1d5a6f48753fea20cc9c964449b"
     },
     {
       "path": "backend/src/ai/transcription.ts",
@@ -163,8 +173,8 @@
     },
     {
       "path": "backend/src/ai/types.ts",
-      "size": 3505,
-      "sha256": "e658a4ea0b37701ec3d047cf73b0f1ed8c7b6ef7746901293e5d528d6e8bc5e2"
+      "size": 4859,
+      "sha256": "b6767f4052bd60b4104d1250f3a17609f5ed92006f2d9d008dc2747e81fa60a6"
     },
     {
       "path": "backend/src/ai/vaultQueries.ts",
@@ -2063,8 +2073,8 @@
     },
     {
       "path": "frontend/src/features/assistant/assistantMock.ts",
-      "size": 16897,
-      "sha256": "591ad0721601f848a9e54fa95100db0d29e796a78185bfaa8e2c6143e8cf54ec"
+      "size": 16898,
+      "sha256": "7c8c87edc2e5b2bcfa4fb832e61d2937308adc094277cb8469dabc6a555a0f05"
     },
     {
       "path": "frontend/src/features/assistant/assistantNavigation.ts",
@@ -2103,8 +2113,8 @@
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
-      "size": 18637,
-      "sha256": "8412b222a333b22ffe19f8e1ed86da7e3a1b53603c3315722e1e08ebf23c8784"
+      "size": 19656,
+      "sha256": "1bade373cdaf5fe26ea7838bc5e442f18bfb501901d6c29d68448ea712d7bd68"
     },
     {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
@@ -2123,8 +2133,8 @@
     },
     {
       "path": "frontend/src/features/billing/PlansTab.tsx",
-      "size": 18739,
-      "sha256": "dac0a1f757e583a16d424206a573839fac6472d81377b91dcca18430f7591014"
+      "size": 18898,
+      "sha256": "a31f63fa2bafee269f84396793fed0e3d0cb4cdbe86391e29ab7e9a95b387956"
     },
     {
       "path": "frontend/src/features/billing/PremiumUpsell.tsx",
@@ -2133,8 +2143,8 @@
     },
     {
       "path": "frontend/src/features/billing/ProPromoModal.tsx",
-      "size": 6451,
-      "sha256": "e0b0019a9ab770764a706e4e42d21c10417a80d9fd7ff849acedac093befb84f"
+      "size": 6618,
+      "sha256": "93cc49c43190fc1cd505db2c616fbf8944d9b8a5703d36deb940ff1b86d37c02"
     },
     {
       "path": "frontend/src/features/billing/PromptPayCheckoutModal.tsx",
@@ -2145,6 +2155,11 @@
       "path": "frontend/src/features/billing/plans.css",
       "size": 9693,
       "sha256": "ccfe4e2db5770fe46ac8e10955f72df9e4d80406119f764f98a2a3b4a0080b91"
+    },
+    {
+      "path": "frontend/src/features/billing/promoNotice.tsx",
+      "size": 1521,
+      "sha256": "3b5c2e1902e8502a88a9144e5d322b5372ebb871ac7d836960fb47f64d6dea22"
     },
     {
       "path": "frontend/src/features/calendar/CalendarTab.tsx",
@@ -2603,13 +2618,13 @@
     },
     {
       "path": "frontend/src/features/marketing/saas/SaasLanding.tsx",
-      "size": 30096,
-      "sha256": "0c105bb7f9804aea2db85d43c6fdc37794ee84e3a4a6ecc82dc330362ed3371a"
+      "size": 30220,
+      "sha256": "4ccd54878f73823eeccf9161a6daf872d026c05c250a5230e65f0130a7e18975"
     },
     {
       "path": "frontend/src/features/marketing/saas/saas.css",
-      "size": 24496,
-      "sha256": "a08f3adac26008fbfb0dea35440aca1cbeb32e5db41eef949a5aa0ef9aaba249"
+      "size": 24597,
+      "sha256": "3b2e6bce25eedf7449900876ee577f982a97511f4a668fd5be29de972187604d"
     },
     {
       "path": "frontend/src/features/mobile/MobileChrome.tsx",
@@ -2823,8 +2838,8 @@
     },
     {
       "path": "frontend/src/i18n/en/billing.ts",
-      "size": 6818,
-      "sha256": "d09ae2dbab3570401c72f537d93a6163d6c9bebbe904c92418d630d07e1b75bf"
+      "size": 6976,
+      "sha256": "482cd05af15a2d189a493facabb57a9367a3cb0e47e0a27029f75b7f108da916"
     },
     {
       "path": "frontend/src/i18n/en/calendar.ts",
@@ -2858,8 +2873,8 @@
     },
     {
       "path": "frontend/src/i18n/en/extra.ts",
-      "size": 36304,
-      "sha256": "ba2628e80ada77ee794fbb76e579275a528187d1f59d58b5daac8976339e5724"
+      "size": 36542,
+      "sha256": "22a9c6ed7370a57749e17da99af26cb99cd1db3aa5cff7e3d18744e016971183"
     },
     {
       "path": "frontend/src/i18n/en/goals.ts",
@@ -3258,8 +3273,8 @@
     },
     {
       "path": "shared/cardConsent.ts",
-      "size": 1504,
-      "sha256": "9f15863abc086ad2b405336adbee482cd4a936cf7425d59f2861ee1287e2c94b"
+      "size": 2211,
+      "sha256": "2f5d581f96691cb92a978a54be148a33dea4e0f8042dc93005f0816801a05c65"
     },
     {
       "path": "shared/cashBalance.ts",
@@ -3333,8 +3348,8 @@
     },
     {
       "path": "shared/proPricing.ts",
-      "size": 2099,
-      "sha256": "0a3c63f4b5b38728fc62b7d9dccdb04b4ddf89f7f0b8bb294c21239a98a2ab33"
+      "size": 3032,
+      "sha256": "79929d49dd4ffd6adb1581aa6bb59088a77c9cd2ad0a3188643dea4b479f4c6b"
     },
     {
       "path": "shared/tax.ts",
@@ -3402,6 +3417,11 @@
       "sha256": "9d1050065b63791d44ed0a1d030e282f643a0906b5b7b425f24717191dbada70"
     },
     {
+      "path": "supabase/migrations/20261024090000_card_consent_v3.sql",
+      "size": 6953,
+      "sha256": "d356034dca2b25c778d93df4684997ba9e10b15ff58d3236dde8b46396255fc3"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 11339,
       "sha256": "583a3c1fb6e00fa71e874483838698567f700a3ce7851ce682363e625836e833"
@@ -3442,9 +3462,14 @@
       "sha256": "893209493129f1719011fd419c3209662b0831f0682e3c3b274ec2423340f4a2"
     },
     {
+      "path": "tests/ai-anthropic.test.ts",
+      "size": 14592,
+      "sha256": "1d0f16cbe829783571d8a86e7b5cdaf6b955cadb0981b48b84d613e4ceb07084"
+    },
+    {
       "path": "tests/ai-compound-job-actions.test.ts",
-      "size": 12038,
-      "sha256": "3a5feba8018ad8d31dcfcd888d77d0d9aef61f4435ecd23333eb0ab439aef83c"
+      "size": 12196,
+      "sha256": "816ef985049a9546cfbd0a19f303953cf68b8a33d87e4eb8f37346da9d9b5d26"
     },
     {
       "path": "tests/ai-document-actions.test.ts",
@@ -3453,8 +3478,8 @@
     },
     {
       "path": "tests/ai-financial-queries.test.ts",
-      "size": 18893,
-      "sha256": "7d0242e659458db172088721c19c9ef562d03628ef1d347e9c309b15a9c52f2e"
+      "size": 19172,
+      "sha256": "ad12ec6c1a18d9dba7fff6387547f7cb399e27764ed0f7add4d3db7ee0c6b96b"
     },
     {
       "path": "tests/ai-gateway.test.ts",
@@ -3487,6 +3512,11 @@
       "sha256": "9c25777f6043a9a42b00807075b39afe34039cbfe8cb5a15c02db17e1ee1e91e"
     },
     {
+      "path": "tests/ai-message-ceiling.test.ts",
+      "size": 5664,
+      "sha256": "18656a0ec1de85eef826b414fd76a0b7827edea3d300908bf9626b823abb13e1"
+    },
+    {
       "path": "tests/ai-navigation.test.ts",
       "size": 7604,
       "sha256": "3b3d31d7458f13483d09a05e8c73bf864190dfe68db979f677e6cbb9ad3ede94"
@@ -3503,8 +3533,8 @@
     },
     {
       "path": "tests/ai-service.test.ts",
-      "size": 22056,
-      "sha256": "2f8d8e385b7be0ccd58af0fe7839fa6e68f116245efea23d2b5ec94f2e16e7db"
+      "size": 22247,
+      "sha256": "79a6a73729eaa1457e0a9f1bea8eab1b275903b5ca1f298f53ad2cd59e77971d"
     },
     {
       "path": "tests/ai-tool-declarations.test.ts",
@@ -3513,8 +3543,8 @@
     },
     {
       "path": "tests/ai-transcription.test.ts",
-      "size": 15489,
-      "sha256": "605f59b9da85ca30622ca974d430c89fa15ef6a97ee387d10c2cb63d21647c0d"
+      "size": 15647,
+      "sha256": "108930f0c3a68ef69c22170d07886cdc60928f7f289ffa51a33a72ea148cb9c6"
     },
     {
       "path": "tests/ai-vault-queries.test.ts",
@@ -3528,8 +3558,8 @@
     },
     {
       "path": "tests/assistant-account-isolation.test.ts",
-      "size": 19380,
-      "sha256": "d2a734eb72c0153ec2708b016829c03213af64c81ab32324b5875dbcc8769122"
+      "size": 19551,
+      "sha256": "ad491366d99c711d137475ab83c118ffaf4299df3f9b8f76a28d4d5605b40928"
     },
     {
       "path": "tests/assistant-audio-recorder.test.ts",
@@ -3563,13 +3593,13 @@
     },
     {
       "path": "tests/card-renewals-database.test.ts",
-      "size": 7691,
-      "sha256": "dedb0b302e70a53925629ebbc437742e3570c53a9123ff6d085abc3ba7c9899f"
+      "size": 7789,
+      "sha256": "f1513f5136e53478931ad5da2c1380a26db7e40f2fc8213face1ffb9c179cc6b"
     },
     {
       "path": "tests/card-renewals.test.ts",
-      "size": 6209,
-      "sha256": "dfa60f956803fc2cea10008b9a0790de2dbbbcef791cbe9e5893229f8df7e76c"
+      "size": 7121,
+      "sha256": "db83bc65cda6029a1987f515c7be8374df6fa03421341a5bd06390296301d087"
     },
     {
       "path": "tests/cash-balance.test.ts",
@@ -3663,8 +3693,8 @@
     },
     {
       "path": "tests/e2e/assistant-chat.spec.ts",
-      "size": 46646,
-      "sha256": "0213f3f1e21f58e85f1279e57d44b40d0939299d4cd47431e2c3e594eeab1537"
+      "size": 46647,
+      "sha256": "3f18dc0581063bb602ff5e795bc2c8f2b6ca0fe519d6cb5dbd65dbf75aec31d9"
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
@@ -4028,8 +4058,8 @@
     },
     {
       "path": "wrangler.production.jsonc",
-      "size": 2751,
-      "sha256": "d77bb9e670a91ef60dc318a78557d1429a019e51b1b7ba809ea6f9de47dbf9f4"
+      "size": 3388,
+      "sha256": "93e92791f0d51966c49656d65286198e9601bbdf663050f548954f3b187d38fe"
     }
   ]
 }
