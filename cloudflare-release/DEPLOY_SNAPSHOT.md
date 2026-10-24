@@ -1788,3 +1788,39 @@ Both model providers now execute tools returned by the final allowed model respo
 - Live production chat and confirmation with two real Pro accounts remain unverified; the controllable session is Free and native Chrome interaction is unreliable. Asset parity cannot establish conversational correctness.
 - Deployment: publish this package on cloudflare-production-20261018 and deploy its verified wrapper directly; Git build currently watches main. Record the resulting version separately after success.
 - Rollback: redeploy the pkg53 package from 9760e9650ef2fe39f6074cfbc32c7db4606b2678; retain existing database data.
+
+
+## เลขา finishes complex requests in one go - 2026-10-24
+
+Built on top of 7fb59b7 (package 54: compound job edits and final tool execution). All of it is kept, including its one-card withholding plus payment edit.
+
+**Why.** The owner: complex or detailed requests failed with "หลายขั้นตอนเกินไป บอกทีละขั้นตอน". The example: "บริษัท A paid the full price; change the job from 3% withholding to none and mark it paid". The owner asked whether a new API was needed. It was not. The limits were in our code.
+
+**What changes**
+- **8 tool steps by default** (AI_MAX_TOOL_STEPS, cap 12; was 4). That is enough to find, read, prepare one card per job and answer, also after the conversation model hands over. Every step is paid from the same token pool.
+- **Long messages:** the message being answered may be 6,000 characters in the app (chat box, API) and LINE. Earlier turns stay at 2,000.
+- **Gemini stalls:** a call that takes over 12 s, or answers 429/5xx, is tried once more while the request still has time. Two such stalls hit the 30 s timeout in about 25 test runs on 2026-10-24; the same calls normally take 1–3 s.
+- **Every LINE card shown:** several cards go out as swipeable carousels (12 bubbles and 48 KB each, within LINE's five messages), and each keeps its own buttons. Before, LINE dropped every card after the third.
+- **Wording:** the step-limit message no longer asks to split the request.
+- **Prompt secretary-v7:** when the user clearly means several jobs, or lists items, it prepares one card per job or item in the same turn. Long messages are worked through, and the steps are never sent back one at a time.
+- **wrangler.production.jsonc:** `keep_vars: true`, as the direct deploys of packages 53–54 did, so dashboard variables survive a deploy.
+
+**Tested**
+- Real Gemini 3.5 Flash-Lite on the merged code, five complex requests, $0.032. All gave correct cards in 3–7 s:
+  - The owner's example: one card, withholding 3% → 0%, the deposit kept, received ฿10,000 → ฿30,000, outstanding ฿0.
+  - Two jobs paid yesterday: 2 cards.
+  - Three new jobs pasted in one message: 3 complete cards.
+  - Rename plus new due date: 1 card.
+  - Delivered plus 15-day credit plus 3%: 1 card.
+- Unit tests 692/697 (the 5 known failures). Package 54's step-budget tests run at an explicit budget of 4.
+- New tests: the 8-step default, the stall and busy retry, the 6,000-character message, the carousels (14 and 40 cards, every message under 50 KB) and the prompt rules.
+- e2e: assistant-live, assistant-chat and i18n-english, 68 passed. The 2 known mic tests fail as before.
+
+**Package**
+- Archive SHA256 `a10fd0e53bf3956cbdbea6d30086a62958db51e31193257478edfd39f1ee121a`; manifest SHA256 `c4bffb027c6686499fa44d636160dc5827551b09362e759c25b292444eeb9ddf`.
+- 805 files, 14 changed, none new.
+- New entry `assets/index-D3x_NmWQ.js`.
+
+**Checked** on the extracted package with a clean `npm ci`: cloudflare:check (17/17), full audit 0 vulnerabilities, the build, preflight, unit tests and a wrangler dry run (AI_ADMINS_ONLY "false" as live).
+
+**Approved** by the owner in chat ("ดีพอย"), 2026-10-24.

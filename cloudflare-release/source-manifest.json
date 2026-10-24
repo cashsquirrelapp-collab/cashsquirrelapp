@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "compound job edits and final tool-step execution; preserves Pro assistant, owner isolation, waveform and LINE updates",
+  "source_label": "pkg55 complex requests: 8 steps, long messages, stall retry, LINE carousels",
   "archive": "source.tar.gz",
-  "archive_sha256": "00f3f1326f29410827b4f87710a236131d8c835bedbf08f0b45bec7cf1b25c3e",
+  "archive_sha256": "a10fd0e53bf3956cbdbea6d30086a62958db51e31193257478edfd39f1ee121a",
   "file_count": 805,
-  "total_source_bytes": 22071193,
+  "total_source_bytes": 22081235,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -48,8 +48,8 @@
     },
     {
       "path": "backend/src/ai/config.ts",
-      "size": 3971,
-      "sha256": "d5685b4b5ee71f0e5b29772a8bab534cabc518d3e1f596443249d7db2a34b53f"
+      "size": 4186,
+      "sha256": "ab1af3efa45258a0d42b3fa1c0a50806e90d64a0263d042592a5d5d71265cf7e"
     },
     {
       "path": "backend/src/ai/cost.ts",
@@ -73,8 +73,8 @@
     },
     {
       "path": "backend/src/ai/gateway.ts",
-      "size": 10053,
-      "sha256": "389a075587f74be1b48723ed804f79d9df07fdae154c274ee9d355f40dc62464"
+      "size": 10354,
+      "sha256": "2c14e46ddd2d9cc6b28450bb60e080cfc78fa5c5d46058cdffc1054bf57b5ac0"
     },
     {
       "path": "backend/src/ai/jobFinancialEdit.ts",
@@ -98,8 +98,8 @@
     },
     {
       "path": "backend/src/ai/lineFormat.ts",
-      "size": 13778,
-      "sha256": "89ff7f42e1547e4bff3b6f213d78cdb8efe77f5e2b3920b31c159cf7f4920f9b"
+      "size": 15738,
+      "sha256": "3fcc236d6856c7d4e85b19b3511e1237dfea191c38f02e4255fc568cff99f59e"
     },
     {
       "path": "backend/src/ai/lineInbox.ts",
@@ -113,8 +113,8 @@
     },
     {
       "path": "backend/src/ai/prompt.ts",
-      "size": 22312,
-      "sha256": "1a39938cb5d718d15b3014c5ae759259b6da4bddce937d2f19d520c4c83d1f07"
+      "size": 22789,
+      "sha256": "2ba69ed3a666887350f41bd484b31d488697f362f2303678d0b9dab30b626d02"
     },
     {
       "path": "backend/src/ai/proposals.ts",
@@ -123,8 +123,8 @@
     },
     {
       "path": "backend/src/ai/providers/gemini.ts",
-      "size": 5510,
-      "sha256": "dde72951c96ebb944bd289738174c02e72e4cdac3e509a5cad66a2e628a0b259"
+      "size": 6448,
+      "sha256": "3eeaad1a30acbd6c04695f6d697fa2789cce02b8bd9ecfa2130c6eb8a5f77cfd"
     },
     {
       "path": "backend/src/ai/providers/openai.ts",
@@ -163,8 +163,8 @@
     },
     {
       "path": "backend/src/ai/types.ts",
-      "size": 3384,
-      "sha256": "dcd4986e0a217b822967751a5a70980f156489e1c381a81f58f295e43f71ba7b"
+      "size": 3505,
+      "sha256": "e658a4ea0b37701ec3d047cf73b0f1ed8c7b6ef7746901293e5d528d6e8bc5e2"
     },
     {
       "path": "backend/src/ai/vaultQueries.ts",
@@ -214,7 +214,7 @@
     {
       "path": "backend/src/handlers/assistant.ts",
       "size": 6726,
-      "sha256": "dde93477ad4f6f3ec311d9507247387040138c5de82127049b09d3d62e6708b1"
+      "sha256": "c49391e67907c406159cbe7db420c98e6c8a1a05123c0a39c768f647edd8ce5f"
     },
     {
       "path": "backend/src/handlers/auth.ts",
@@ -2013,8 +2013,8 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
-      "size": 82254,
-      "sha256": "9afb436d4888576c761f7ea90d4ee3a0a0e3f5ae9c537604fd7d41b3f130b6f4"
+      "size": 82432,
+      "sha256": "79a69fc3578097ee0e18a41afd445a1dfcf7991626d143f240720081c8cf2739"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
@@ -2054,7 +2054,7 @@
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
       "size": 11854,
-      "sha256": "e62a124c49cab215cf1144fd28bed976ad809daabc9d5551fa2a4e1a9731d1a5"
+      "sha256": "6115bbc3e10af4f31b08663bb7a5e8845aade83e31c68db257e0ee47c358beb6"
     },
     {
       "path": "frontend/src/features/assistant/assistantCommands.ts",
@@ -2814,7 +2814,7 @@
     {
       "path": "frontend/src/i18n/en/assistant.ts",
       "size": 31915,
-      "sha256": "6044b26432e06a4bdd6f3ea43800745771ba6ad569daa0590a0c9d44795ec58b"
+      "sha256": "e94ac1c4d43733ca0a187867217f0e45b0a17fc9abeee888c8b4a5f354f26e2d"
     },
     {
       "path": "frontend/src/i18n/en/auth.ts",
@@ -3458,8 +3458,8 @@
     },
     {
       "path": "tests/ai-gateway.test.ts",
-      "size": 37733,
-      "sha256": "5ffd46503bf5aa56456748871c8310aa65f9fc5be2919a8a9d3952f9015b0496"
+      "size": 40658,
+      "sha256": "4ac42470965b34c82cacef4ce04d4b36a39a8b8c11ce998c83a9f20b656662f9"
     },
     {
       "path": "tests/ai-job-calendar-actions.test.ts",
@@ -3503,8 +3503,8 @@
     },
     {
       "path": "tests/ai-service.test.ts",
-      "size": 21909,
-      "sha256": "56ce2b8bf5805c0897275023da63832d38cdd8da5a5a8207906f14f4a3355bca"
+      "size": 22056,
+      "sha256": "2f8d8e385b7be0ccd58af0fe7839fa6e68f116245efea23d2b5ec94f2e16e7db"
     },
     {
       "path": "tests/ai-tool-declarations.test.ts",
@@ -3853,8 +3853,8 @@
     },
     {
       "path": "tests/line-ai.test.ts",
-      "size": 13120,
-      "sha256": "7def5d6ba5f0c6e638919a340510581f3646a0b2cbfa6a2f3ef6ed859c5b5836"
+      "size": 15750,
+      "sha256": "0045e3647e98811d32bd29a8c3f5e0f36bba6ddab1b35f4a5680671dcc3a3988"
     },
     {
       "path": "tests/line-assistant-lifecycle.test.ts",
@@ -4028,8 +4028,8 @@
     },
     {
       "path": "wrangler.production.jsonc",
-      "size": 2601,
-      "sha256": "f62f74c3288cc562d344275aa90a161a22f2c2f7f9982e8ad0e871361cf21ad1"
+      "size": 2751,
+      "sha256": "d77bb9e670a91ef60dc318a78557d1429a019e51b1b7ba809ea6f9de47dbf9f4"
     }
   ]
 }
