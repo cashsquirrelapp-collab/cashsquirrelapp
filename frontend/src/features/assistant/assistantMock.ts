@@ -8,8 +8,10 @@ import type { AskQuestion } from '../../../../shared/askQuestions';
 // Every conversation, card and token figure here is labelled sample data. A real AI replaces this file
 // through the AssistantTransport in assistantApi.ts; the screen stays the same.
 
-/** What the squirrel is doing (official mascot, existing moods and actions only). */
-export type AssistantMode = 'greeting' | 'awake' | 'sleeping' | 'listening' | 'thinking' | 'working' | 'done';
+/** What the squirrel is doing (official mascot, existing moods and actions only). An answer that has arrived
+ *  ('answered') is not a job done: 'awaiting' is an answer with a card still waiting for the user's yes, and
+ *  'done' (proud) only follows a confirmed save (owner's brief "LIVING AI MASCOT SYSTEM", 2026-10-26). */
+export type AssistantMode = 'greeting' | 'awake' | 'sleeping' | 'listening' | 'thinking' | 'working' | 'answered' | 'awaiting' | 'done' | 'failed';
 
 export type ProjectCard = { kind: 'project'; name: string; client: string; amount: string; status: string };
 export type DocumentCard = { kind: 'document'; docType: string; number: string; client: string; amount: string; path: string };
@@ -65,7 +67,9 @@ export function poseFor(mode: AssistantMode): { mood: MascotMood; action: Mascot
     case 'listening': return { mood: 'checking', action: 'idle' };
     case 'thinking': return { mood: 'thinking', action: 'idle' };
     case 'working': return { mood: 'happy', action: 'typing' };
+    case 'awaiting': return { mood: 'checking', action: 'hold-document' };
     case 'done': return { mood: 'proud', action: 'idle' };
+    case 'failed': return { mood: 'worried', action: 'idle' };
     default: return { mood: 'happy', action: 'idle' };
   }
 }
@@ -77,9 +81,22 @@ export function statusFor(mode: AssistantMode): string {
     case 'listening': return tr("กำลังฟังอยู่");
     case 'thinking': return tr("กำลังคิด");
     case 'working': return tr("กำลังพิมพ์คำตอบ");
-    case 'done': return tr("ตอบแล้ว");
+    case 'answered': return tr("ตอบแล้ว");
+    case 'awaiting': return tr("รอคุณยืนยัน");
+    case 'done': return tr("บันทึกเรียบร้อยแล้ว");
+    case 'failed': return tr("ยังไม่สำเร็จ");
     default: return tr("พร้อมช่วยแล้ว");
   }
+}
+
+/** A confirmation card that still waits for the user's yes (nothing saved, cancelled, failed or expired yet). */
+export function isPendingConfirm(card: ChatCard, state?: string): card is ConfirmCard {
+  return card.kind === 'confirm' && (!card.status || card.status === 'pending') && (!state || state === 'pending');
+}
+
+/** The squirrel's mode once an answer has arrived: waiting for a yes when the answer brought a card to confirm. */
+export function afterReply(cards?: ChatCard[]): AssistantMode {
+  return cards?.some(card => isPendingConfirm(card)) ? 'awaiting' : 'answered';
 }
 
 /** Welcome cards (2 × 2): a short label on the card; tapping it asks the full question. */
