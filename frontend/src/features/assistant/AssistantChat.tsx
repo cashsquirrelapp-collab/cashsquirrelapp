@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Image as ImageIcon, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Square, Trash2, Volume2, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { Modal } from '../../components/ui/Modal';
-import { tr } from '../../i18n/tr';
+import { tr, trc } from '../../i18n/tr';
 import { dateLocale } from '../../utils';
 import { AssistantRequestError, createSampleTransport, splitMemo, tokenLevel, type AssistantTransport } from './assistantApi';
 import { LINE_QUICK_REPLIES, arrivingNotice, dueDisplayText, laterReply, partialPrompt, receiptCard, type LineDueAction, type LineItem } from './lineMock';
@@ -872,7 +872,9 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
             )}
           </div>
           <div className="asx-bar-center">
-            {!welcome && <span className="asx-bar-mascot" aria-hidden="true"><MascotSlot mode={displayMode} size={mobile ? 64 : 80} /></span>}
+            {/* The squirrel lives up here on the welcome too (owner, 2026-10-26: "ย้ายน้องกระรอกขึ้นไปข้างบน"), so the
+                welcome below is only a line, a sentence and the questions. */}
+            <span className="asx-bar-mascot" aria-hidden="true"><MascotSlot mode={displayMode} size={mobile ? 64 : 80} /></span>
             <div className="asx-bar-text asx-sr">
               <span className="asx-bar-title"><h1 id="asx-title">{tr("เลขากระรอก")}</h1><span className="asx-pro">Pro</span></span>
               <span className={`asx-bar-status is-${displayMode}`} role="status" aria-live="polite"><i aria-hidden="true" />{voice.phase === 'transcribing' ? tr("กำลังถอดเสียงเป็นข้อความ…") : statusFor(displayMode)}</span>
@@ -964,7 +966,6 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         <div ref={listRef} className="asx-scroll" onScroll={onScroll} role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
           {welcome ? (
             <div className="asx-welcome">
-              <span className="asx-spot"><MascotSlot mode={displayMode} size={mobile ? 84 : 72} /></span>
               <h2>{tr("วันนี้อยากให้เลขากระรอกช่วยอะไร?")}</h2>
               <p>{tr("ถามเรื่องงาน เอกสาร หรือเงินที่ยังไม่ได้รับได้เลย")}</p>
               {/* Computer and iPad: one iOS-style grouped list with a section title (owner, 2026-10-24); phones keep their tiles. */}
@@ -973,7 +974,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 <div className="asx-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
                   {SUGGESTIONS.map(({ label, ask, icon }) => {
                     const Icon = SUGGESTION_ICONS[icon];
-                    return <button key={label} type="button" onClick={() => send(tr(ask), true)}><span className="asx-prompt-icon" aria-hidden="true"><Icon size={17} /></span><span className="asx-prompt-label">{tr(label)}</span>{!mobile && <ChevronRight className="asx-prompt-go" size={17} aria-hidden="true" />}</button>;
+                    return <button key={label} type="button" onClick={() => send(tr(ask), true)}><span className="asx-prompt-icon" aria-hidden="true"><Icon size={17} /></span><span className="asx-prompt-label">{mobile ? trc('prompt', label) : tr(label)}</span>{!mobile && <ChevronRight className="asx-prompt-go" size={17} aria-hidden="true" />}</button>;
                   })}
                 </div>
               )}

@@ -12,12 +12,12 @@ const user = { id: '11111111-1111-4111-8111-111111111111', email: 'assistant@exa
 const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance' }, statuses: [], job_types: [], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null };
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 
-async function open(page: Page, width: number, height: number, options: { role?: 'admin' | 'user'; dark?: boolean; path?: string; free?: boolean } = {}) {
+async function open(page: Page, width: number, height: number, options: { role?: 'admin' | 'user'; dark?: boolean; path?: string; free?: boolean; lang?: 'th' | 'en' } = {}) {
   const calls: string[] = [];
-  await page.addInitScript(isDark => {
-    localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', String(isDark));
+  await page.addInitScript(({ isDark, lang }) => {
+    localStorage.setItem('cashflow_language', lang); localStorage.setItem('cashflow_dark_mode', String(isDark));
     localStorage.setItem('cashflow_theme_auto_period', String(Math.floor((Date.now() + 7 * 3600e3 - 6 * 3600e3) / (12 * 3600e3))));
-  }, Boolean(options.dark));
+  }, { isDark: Boolean(options.dark), lang: options.lang ?? 'th' });
   await page.route('**/*', route => {
     const url = new URL(route.request().url());
     calls.push(url.hostname + url.pathname);
@@ -162,6 +162,59 @@ test('every UI state from the brief can be previewed and behaves', async ({ page
   await expect(page).toHaveURL(/\/jobs/);
 });
 
+// Owner, 2026-10-26 (an iPhone in English): the squirrel moves up into the top bar, the greeting and the sentence under
+// it are one line each and smaller, and the question tiles are compact; computers and iPads get the squirrel up top too.
+for (const lang of ['th', 'en'] as const) {
+  test(`phones (${lang}): a compact welcome with the squirrel in the top bar and one-line greeting`, async ({ page }) => {
+    await open(page, 390, 844, { lang });
+    const chat = chatOf(page);
+    for (const [width, height] of [[320, 640], [375, 812], [390, 844], [430, 932]] as const) {
+      await page.setViewportSize({ width, height });
+      await page.reload();
+      await expect(page.locator('#app-splash')).toHaveCount(0, { timeout: 8000 });
+      const welcome = chat.locator('.asx-welcome');
+      await expect(welcome.locator('h2')).toBeVisible();
+      await expect(chat.locator('.asx-bar-mascot .asx-figure')).toBeVisible();
+      await expect(welcome.locator('.asx-figure')).toHaveCount(0);
+      for (const part of ['.asx-welcome h2', '.asx-welcome > p']) {
+        const fit = await chat.locator(part).evaluate(el => ({ fits: el.scrollWidth <= el.clientWidth + 1, lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)) }));
+        expect(fit, `${lang} ${width}px ${part}`).toEqual({ fits: true, lines: 1 });
+      }
+      const tiles = welcome.locator('.asx-prompts > button');
+      await expect(tiles).toHaveCount(4);
+      for (let n = 0; n < 4; n++) expect((await tiles.nth(n).boundingBox())!.height, `${lang} ${width}px tile ${n}`).toBeLessThan(64);
+      // Every question on one line, whole (none cut short).
+      const labels = await welcome.locator('.asx-prompt-label').evaluateAll(list => list.map(el => ({ fits: el.scrollWidth <= el.clientWidth + 1, lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)) })));
+      expect(labels, `${lang} ${width}px`).toEqual(Array(4).fill({ fits: true, lines: 1 }));
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+      expect(await textOverlapIssues(page)).toEqual([]);
+      if (width === 390) await snap(page, `assistant-welcome-${lang}-390.png`);
+    }
+    if (lang === 'en') {
+      await expect(chat.locator('.asx-welcome h2')).toHaveText('How can Krarok Assistant help today?');
+      // Short English on the pills; tapping one still asks the full question.
+      await expect(chat.locator('.asx-prompt-label')).toHaveText(["Today's summary", 'Find a quotation', 'Add a project', 'Unpaid jobs']);
+      await chat.getByRole('button', { name: 'Find a quotation' }).click();
+      await expect(chat.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('Where is the quotation?');
+    }
+  });
+}
+
+test('computers and iPads: the squirrel sits in the top bar on the welcome too', async ({ page }) => {
+  await open(page, 1280, 820);
+  const chat = chatOf(page);
+  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
+  await expect(chat.locator('.asx-bar-mascot .asx-figure')).toBeVisible();
+  await expect(chat.locator('.asx-welcome .asx-figure')).toHaveCount(0);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await snap(page, 'assistant-welcome-1280.png');
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await page.reload();
+  await expect(chat.locator('.asx-bar-mascot .asx-figure')).toBeVisible();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await snap(page, 'assistant-welcome-820.png');
+});
+
 test('the squirrel naps after a while with nothing happening, and typing wakes it', async ({ page }) => {
   await page.clock.install();
   await open(page, 1280, 820);
@@ -170,7 +223,7 @@ test('the squirrel naps after a while with nothing happening, and typing wakes i
   await expect(status).toHaveText(/พร้อมช่วยแล้ว/);
   await page.clock.runFor(31_000);
   await expect(status).toHaveText(/งีบอยู่/);
-  await expect(chatOf(page).locator('.asx-welcome .asx-figure.is-sleeping')).toBeVisible();
+  await expect(chatOf(page).locator('.asx-bar-mascot .asx-figure.is-sleeping')).toBeVisible();
   await page.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).fill('สวัสดี');
   await expect(status).toHaveText(/กำลังฟังอยู่/);
 });
@@ -282,22 +335,23 @@ test('computer: the sidebar entry wears the squirrel; the chat folds the app sid
 
 // Owner, 2026-10-24: computers and iPads show the questions as one iOS-style list ("ทางการขึ้น เหมือนระบบ iOS");
 // phones keep their 2 × 2 cards.
-test('the welcome questions: one iOS-style list of four rows on computers, a 2 × 2 grid on phones', async ({ page }) => {
+test('the welcome questions: one iOS-style list of four rows on computers, one-line pills two to a row on phones', async ({ page }) => {
   for (const [width, height] of [[1280, 820], [390, 844]] as const) {
     await open(page, width, height);
     const cards = chatOf(page).getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button');
     await expect(cards).toHaveCount(4);
     const boxes = await cards.evaluateAll(list => list.map(el => { const r = el.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; }));
-    expect(new Set(boxes.map(b => b[2])).size).toBe(1); // equal widths
     if (width >= 744) {
+      expect(new Set(boxes.map(b => b[2])).size).toBe(1); // equal widths
       expect(new Set(boxes.map(b => b[0])).size).toBe(1); // one column
       for (let n = 1; n < 4; n++) expect(boxes[n][1]).toBe(boxes[n - 1][1] + boxes[n - 1][3]); // rows touch, split by hairlines
       await expect(chatOf(page).locator('.asx-prompts-head')).toHaveText('คำถามแนะนำ');
       await expect(chatOf(page).locator('.asx-prompt-go')).toHaveCount(4);
     } else {
-      expect(boxes[0][1]).toBe(boxes[1][1]); expect(boxes[2][1]).toBe(boxes[3][1]); // two rows
-      expect(boxes[0][0]).toBe(boxes[2][0]); expect(boxes[1][0]).toBe(boxes[3][0]); // two columns
+      // Pills that fit their words (owner: "เรียงให้มันสวยๆ อย่าเกินบรรทัด"): two rows of two, each row centred.
+      expect(boxes[0][1]).toBe(boxes[1][1]); expect(boxes[2][1]).toBe(boxes[3][1]);
       expect(boxes[2][1]).toBeGreaterThan(boxes[0][1]);
+      for (const [a, b] of [[0, 1], [2, 3]]) expect(Math.abs((boxes[a][0] + boxes[b][0] + boxes[b][2]) / 2 - width / 2)).toBeLessThan(3);
       await expect(chatOf(page).locator('.asx-prompts-head, .asx-prompt-go')).toHaveCount(0);
     }
     expect(await textOverlapIssues(page)).toEqual([]);

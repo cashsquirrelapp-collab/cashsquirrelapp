@@ -119,8 +119,8 @@ export const assistant: Record<string, string> = {
   "ตั้งค่าการแจ้งเตือน": "Notification settings",
   "ดูตัวอย่างสถานะ": "Preview a state",
   "บทสนทนากับเลขากระรอก": "Conversation with Krarok Assistant",
-  "วันนี้อยากให้เลขากระรอกช่วยอะไร?": "What can Krarok Assistant help with today?",
-  "ถามเรื่องงาน เอกสาร หรือเงินที่ยังไม่ได้รับได้เลย": "Ask about jobs, documents or money you haven't received yet",
+  "วันนี้อยากให้เลขากระรอกช่วยอะไร?": "How can Krarok Assistant help today?",
+  "ถามเรื่องงาน เอกสาร หรือเงินที่ยังไม่ได้รับได้เลย": "Ask about jobs, documents or unpaid money",
   "คำถามแนะนำ": "Suggested questions",
   "กำลังโหลดบทสนทนา": "Loading the conversation",
   "บทสนทนาตัวอย่าง · ข้อมูลทั้งหมดเป็นข้อมูลสมมติ": "Sample conversation · all data is made up",
@@ -153,6 +153,12 @@ export const assistant: Record<string, string> = {
   "ตอบแล้ว": "Answered",
   "พร้อมช่วยแล้ว": "Ready to help",
   "สรุปงานของวันนี้": "Summarise today's work",
+  // The phone's question pills are one line each, two to a row (owner, 2026-10-26), so their English is short; tapping
+  // one still asks the full question.
+  "prompt|สรุปงานของวันนี้": "Today's summary",
+  "prompt|ใบเสนอราคาอยู่ตรงไหน": "Find a quotation",
+  "prompt|วิธีเพิ่มโปรเจกต์": "Add a project",
+  "prompt|งานที่ยังไม่ได้รับเงิน": "Unpaid jobs",
   "ใบเสนอราคาอยู่ตรงไหน": "Where is the quotation?",
   "ช่วยอธิบายวิธีเพิ่มโปรเจกต์": "How do I add a project?",
   "วิธีเพิ่มโปรเจกต์": "How to add a project",
