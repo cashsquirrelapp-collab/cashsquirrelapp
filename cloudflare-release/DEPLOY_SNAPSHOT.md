@@ -2250,3 +2250,19 @@ Built on e42783b (package 72). SQL first: supabase/migrations/20261025190000_adm
 - database/profit_report_accounts.sql: read-only per-account view for the owner. database/ai_learning_report.sql: rows without routing are no longer counted as routed.
 
 **Checks.** Unit tests 819/819 (new: admin-profit-engine 15, admin-profit-database 3 on PGlite); cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## The monthly price from 1 Dec 2569: ฿249 shown, ฿271 charged; consent v4; promotion renewals step to ฿271 - 2026-10-25
+
+Built on be1396b (package 73). SQL first: supabase/migrations/20261025210000_pro_month_regular_price.sql (the app sends consent v4, which only this SQL accepts). Then, before 1 Dec, the owner runs scripts/stripe-reprice.ts (test, then live) to create the ฿271 monthly prices.
+
+**Why.** Owner, 2026-10-25: "บวกค่าธรรมเนียมตามปกติ ... แสดงผล 249 ... จ่ายจริง 271 แล้วก็แสดงให้ดูว่ามันคือค่าอะไร", and for monthly card renewals made during the promotion: "ขึ้นเป็น ฿271 เองตั้งแต่ ธ.ค.". The v3 consent said "จากนั้น ฿249/เดือน", not the amount that would be charged.
+
+**What changes**
+- shared/proPricing.ts: prices by date (proPricing / proNetTarget / proPriceParts / proPriceDetails take a moment); until 30 Nov 2569 ฿159 + ฿18 = ฿177, from 1 Dec 00:00 Bangkok ฿249 + ฿22 = ฿271 a month; 6 months and a year unchanged. PRO_PRICING and PRO_NET_TARGET constants removed so nothing keeps the old price. PRO_MONTH_RENEWAL_STEP, PRO_SOLD_AT month [159, 177, 271].
+- Checkout: lookup keys by date (the ฿271 monthly prices have their own keys, so both exist and checkout switches at midnight); one moment for the price looked up and checked; an order's amount is checked against the price when it was reserved; an unpaid order whose price changed is replaced.
+- Consent v4 (shared/cardConsent.ts): names the amount charged with its price and fee, and for a promotion month "฿177/เดือน (ราคา ฿159 + ค่าธรรมเนียมชำระเงิน ฿18) ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿271/เดือน (ราคา ฿249 + ค่าธรรมเนียมชำระเงิน ฿22)"; the order records renewal_step_from / renewal_step_amount.
+- /api/advance-card-renewals (09:00 daily): moves such a subscription to the ฿271 price once its next renewal is on or after 1 Dec, without proration; renewals of a period from 1 Dec are accepted at ฿271 (and still at ฿177 if the move was late). SQL: cashflow_pro_month_amount, amount rule with 27100, consent v4 accepted, the step checked on prepare and on recording a renewal.
+- Screens: from 1 Dec the plans page, promo dialog and landing page show ฿249 with "+ ค่าธรรมเนียมชำระเงิน ฿22 · ยอดชำระ ฿271" and no struck price; QR and card dialogs break down the amount they charge; เลขา's knowledge reads the price at the time.
+- scripts/stripe-reprice.ts plans both dates and creates the ฿271 monthly prices from the existing ones.
+
+**Checks.** Unit tests 828/828 in the extracted package (SQL on PGlite incl. the renewal ledger with the clock at 15 Dec); billing and card screen tests 37/37 incl. a December plans page and the v4 consent on a phone with the owner's overlap checker; cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run. All screen tests 277/277 (the 36 old failures came from admin-only areas, redesigned screens and duplicate status texts; the tests now sign in as admin where an area is admin-only and follow the current screens). Plans page: the " · " separator's spaces moved outside its span (same pixels; the overlap checker no longer flags it).
