@@ -224,14 +224,28 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   };
 
   // Approved V1 connection only: keep legacy knowledge and routing intact, but select public founder facts here.
+  // Normalise only the reference used for retrieval. The user's message and the existing router stay unchanged.
+  // Bound bare creator aliases to biographical questions: a creator of Facebook, a video or a client's job
+  // must not become Krarok's founder just because the same noun appears in the request.
+  const founderReference = (text: string) => text.normalize('NFC')
+    .replace(/แอปนี้|แอพนี้|เว็บไซต์นี้|เว็บนี้|ระบบนี้|โปรแกรมนี้|\b(?:this|the) app\b/gi, 'Krarok')
+    .replace(/(?:ผู้สร้าง|ผู้พัฒนา|คน(?:ที่)?(?:สร้าง|พัฒนา))\s*(?:ของ\s*)?(?:Krarok\b|กระรอก(?:ตุนเงิน)?|เลขา(?:กระรอก)?|มึง|คุณ|นาย|แก|เธอ|ตัวเอง)(?=\s|$|[?？!.,]|เป็น|คือ|มี|ชื่อ|เขา|เค้า|นิสัย|บุคลิก|เรียน|ทำ|คิด|มอง|อยาก|เกิด|ก่อตั้ง|รวย|รายได้|ทรัพย์สิน|ครอบครัว)/gi, 'ผู้ก่อตั้ง Krarok')
+    .replace(/(?:ผู้สร้าง|ผู้พัฒนา|คน(?:ที่)?(?:สร้าง|พัฒนา))(?=\s*(?:$|[?？!.,]|(?:ครับ|ค่ะ|คะ|คับ|หน่อย|มา)(?:$|[?？!.,])|เป็น(?:คน|ใคร)|คือใคร|ชื่อ(?:อะไร|ใคร|ว่า|จริง)|นิสัย|บุคลิก|เรียน(?:อะไร|จบ|ที่ไหน|ด้าน|สาย)|(?:เขา|เค้า)(?:เป็น|มี|คิด|มอง|อยาก|เรียน)|มี(?:นิสัย|บุคลิก|พื้นฐาน|ประวัติ|รายได้|ทรัพย์สิน|เป้าหมาย|วิสัยทัศน์|ทีม|พนักงาน|แฟน|ครอบครัว|เงิน|ทัศนคติ)|ทำไม|คิด(?:อะไร|ยังไง|อย่างไร)|มอง(?:อะไร|ยังไง|อย่างไร)|อยาก(?:ให้|ทำ|เป็น)|รายได้|ทรัพย์สิน|ครอบครัว|ก่อตั้ง|เกิด(?:วัน|เมื่อ|ปี)|ทำอะไร|ทำงาน|อยู่(?:ที่ไหน|ไหน)|(?:จน|รวย)(?:ไหม|มั้ย)))/g, 'ผู้ก่อตั้ง Krarok')
+    .replace(/ใคร(?:คือ|เป็น)\s*ผู้ก่อตั้ง\s*Krarok/gi, 'ใครสร้าง Krarok')
+    .replace(/เล่า(?:เรื่อง|ของ)?\s*ผู้ก่อตั้ง/g, 'เล่าประวัติผู้ก่อตั้ง')
+    .replace(/(?:เป็น|คือ)คน(?:ยังไง|อย่างไร|แบบไหน)/g, 'มีบุคลิกอย่างไร')
+    .replace(/คิดอะไรอยู่/g, 'มีแนวคิดการสร้างอย่างไร')
+    .replace(/\byour\s+(?:creator|developer|maker)\b|\b(?:the\s+)?creator of Krarok\b|\bthe creator(?=\s*(?:$|[?？!.,]|like\b))/gi, 'Krarok founder')
+    .replace(/\bwhat is (?:the )?Krarok founder like\b/gi, 'Krarok founder personality');
   // Look at the immediately previous user turn, not assistant text or an older founder conversation.
-  const previousUserQuestion = request.history?.filter(turn => turn.role === 'user').at(-1)?.text;
+  const previousUserText = request.history?.filter(turn => turn.role === 'user').at(-1)?.text;
+  const previousUserQuestion = previousUserText ? founderReference(previousUserText) : undefined;
   const founderLanguage = /[ก-๙]/.test(request.text) ? 'th' : 'en';
   // Select clauses separately so a founder question plus an account-income read does not become a request for
   // the founder's private income. Mixed requests still go through the existing model/tool flow.
   const founderClauses = request.text.split(/\n+|[;；]|\s+(?:and|also|then)\s+|(?:แล้ว|และ)(?:ก็)?|พร้อม(?:กับ)?|นอกจากนี้|\s+ช่วย(?=สรุป|เปิด|ดู|เพิ่ม|แก้ไข|ลบ|ค้นหา)/i).map(text => text.trim()).filter(Boolean);
   const selectFounder = (text: string) => {
-    const question = text.replace(/แอปนี้|แอพนี้|เว็บไซต์นี้|เว็บนี้|\b(?:this|the) app\b/gi, 'Krarok');
+    const question = founderReference(text);
     const selected = selectFounderIdentityV1(question, { previousUserQuestion, language: founderLanguage });
     if (selected) return selected;
     if (founderTopic(text) === 'team' && /krarok|กระรอก/i.test(question)) {
@@ -248,9 +262,16 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // privacy match can come from a separate account-income clause and must not replace the clause selections.
   const completeFounderQuestion = founderClauses.length > 1 ? selectFounder(request.text) : undefined;
   if (completeFounderQuestion?.kind === 'context') founderSelections.push(completeFounderQuestion);
+  // Topic entries may say only "Park". Always ground factual founder answers in the existing full identity,
+  // including when a preceding model answer invented a different name. Do not load biography for private queries.
+  const founderIdentity = founderSelections.some(selection => selection.kind === 'context')
+    ? FOUNDER_ENTRIES_V1.find(entry => entry.id === 'identity') : undefined;
   // Deduplicate shared guidance and repeated facts across the selected clauses. No metadata enters the prompt.
   const founder = founderSelections.length
-    ? [...new Set(founderSelections.flatMap(selection => selection.text.split('\n\n')))].join('\n\n')
+    ? [...new Set([
+      ...(founderIdentity ? [founderLanguage === 'th' ? founderIdentity.text_th : founderIdentity.text_en] : []),
+      ...founderSelections.flatMap(selection => selection.text.split('\n\n')),
+    ])].join('\n\n')
     : undefined;
 
   // Exact questions need no model (brief, phase 2): where a page is, a plain "call me …" / "no emoji", who made
