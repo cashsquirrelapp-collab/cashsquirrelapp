@@ -2440,3 +2440,45 @@ Built on package 79. SQL first: supabase/migrations/20261025230000_admin_ai_cred
   - the schedule test.
 - Screen tests 19/19 there, and 114/114 admin, secretary and English screen tests in the work tree.
 - cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## Monthly only for now, 1,650 tokens a month - 2026-10-25
+
+Built on package 80. No SQL.
+
+**Why.** Owner, 2026-10-25, for the first phase:
+- Sell only the month, and hide 6 months and a year without removing them: "เอาให้เติมแค่รายเดือนก่อน ... มึงไม่ต้องลบหรอกแต่แค่มึงซ่อนไว้".
+- Every member gets 1,650 tokens a month.
+- In the worst case, profit is at least 54% in the November promotion ("กูยอมกำไรแค่ 54% ก็ได้") and 70.6% from 1 December at ฿249.
+- Long-plan buyers never get fewer tokens than a month.
+
+**What changes**
+- shared/proPricing.ts
+  - PRO_CHECKOUT_OPEN is { month: true, halfYear: false, year: false }, and PRO_PERIODS_ON_SALE lists the open periods.
+  - Prices, Stripe catalog checks, renewals and fulfilment for 6 months and a year are unchanged, so reopening them is one line.
+- services/prepaidBilling.ts
+  - startPrepaidCheckout refuses a closed period with 409 period_closed, "ตอนนี้เปิดรับเฉพาะแพ็กเกจรายเดือน".
+  - The refusal covers card, PromptPay and card auto-renewal, before any order or Stripe call.
+  - Orders already paid and webhooks are unchanged.
+- Pages
+  - The plans page shows only the open periods, with no switch when only one is open.
+  - The landing page hides the "6 เดือน · 1 ปี" line.
+  - The terms page's Pro line says monthly only, that 6 months and a year are closed for now and kept by those who bought them, and that AI tokens are as the plans page shows.
+  - เลขา's knowledge (kb-2026-10-25.3) gives the monthly price, fee and 1,650 tokens, and says the long plans are closed for now.
+- shared/proTokens.ts
+  - Every paid plan gets 1,650 tokens a month.
+  - A period paid before 27 Oct 2569 00:00 Bangkok (PRO_TOKENS_FROM) keeps 2,500 until it ends.
+  - The plan comes from the one-time order or card renewal cycle that covers now.
+  - Pro granted by the owner and older Stripe subscriptions keep the default (AI_PRO_TOKENS_PER_CYCLE 2500). If the orders cannot be read, the member also gets the default and is never refused.
+- Plans page AI row: "1,650 โทเคนต่อเดือน สำหรับเลขา AI ใช้ร่วมกันในแอปและ LINE". It replaces the outdated "เร็ว ๆ นี้" mark.
+- Admin
+  - Quota share, tokens left and "used up" use each account's allowance.
+  - The credit page's worst case adds each paid plan's tokens.
+
+**Checks.**
+- Unit tests 870/870 in the extracted package, including:
+  - tests/pro-tokens.test.ts, which pins the worst-case margins: ฿249 ≥70%, ฿159 ≥54%;
+  - the closed-period refusal in tests/prepaid-http.test.ts;
+  - the paid-plan case in tests/assistant-pro-rollout.test.ts.
+- Screen tests 61 passed there, and 8 long-plan purchase tests skipped while those plans are hidden.
+- In the work tree: 128/128 landing, English, admin, secretary and flex screen tests, and the plans page overlap check on phone and computer, light and dark.
+- cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.

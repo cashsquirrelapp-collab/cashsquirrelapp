@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg80 AI credit and reserve: days left, top-up, LINE warnings (on pkg79)",
+  "source_label": "pkg81 Monthly only (6 months and a year hidden), 1,650 tokens a month, 2,500 kept for periods paid before 27 Oct (on pkg80)",
   "archive": "source.tar.gz",
-  "archive_sha256": "c66b5965d6b54c353211ecb40624be48ea0de63a752dc84d8d80683be0ebc43c",
-  "file_count": 890,
-  "total_source_bytes": 23143588,
+  "archive_sha256": "acd50d38cbc8babf2fcfd81e8da6fa4c56b8936829ab62170684520efdb3f3cb",
+  "file_count": 893,
+  "total_source_bytes": 23179263,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -118,8 +118,8 @@
     },
     {
       "path": "backend/src/ai/knowledgeBase.ts",
-      "size": 49397,
-      "sha256": "80279ecc52df081fd1b20c0e894d28538fcbde560bc7b303e3829e069b2e4e5f"
+      "size": 50436,
+      "sha256": "f59183e072200362c96049051e318fed6df9df7d745d7deb26784a7c5d2ebdb3"
     },
     {
       "path": "backend/src/ai/learning.ts",
@@ -128,8 +128,8 @@
     },
     {
       "path": "backend/src/ai/lineBridge.ts",
-      "size": 7768,
-      "sha256": "79f0877385b375751b82f194a5a45f42c8348c161a9e7985be128d5f546ef060"
+      "size": 7783,
+      "sha256": "1cded84483d3e7c63536118573f14d7cbe5d231daf8603a6d7a96ad1f2e67802"
     },
     {
       "path": "backend/src/ai/lineFormat.ts",
@@ -203,8 +203,8 @@
     },
     {
       "path": "backend/src/ai/service.ts",
-      "size": 32257,
-      "sha256": "2bcb54e29d9a3cf608393a2ebbfd1751446b7b80e127763ab961fb9399a296af"
+      "size": 32450,
+      "sha256": "2ae1c0030facb58a788ace5855c04424d92474f8a32ae13bf4aca410b9f59f8a"
     },
     {
       "path": "backend/src/ai/signals.ts",
@@ -213,8 +213,8 @@
     },
     {
       "path": "backend/src/ai/supabaseDb.ts",
-      "size": 19153,
-      "sha256": "8b926b3db8f02ec8489f88342f2a1aeb5ef6ae19547c663c22c83388dc1c834f"
+      "size": 20117,
+      "sha256": "61bf74524da2ce21245f569eb1b96c31b7529e170bebf8de6f189ed6e64ca7ca"
     },
     {
       "path": "backend/src/ai/tools.ts",
@@ -263,8 +263,8 @@
     },
     {
       "path": "backend/src/handlers/admin-ai-credit.ts",
-      "size": 3295,
-      "sha256": "c0d660e4cc8bd03e00c1e83ca5e327c83abfb80885890bd23f493b317ea0e9ee"
+      "size": 3728,
+      "sha256": "04ae20e8a88ce879c0f5a98548b4acc3721221cea0544e2c789cfa1e00e4e91f"
     },
     {
       "path": "backend/src/handlers/admin-analytics.ts",
@@ -553,13 +553,13 @@
     },
     {
       "path": "backend/src/services/adminProfitReport.ts",
-      "size": 38877,
-      "sha256": "ab877c856affe8b24e835529786bd3b7a3296e42a8daf6136cb94a74742d06cf"
+      "size": 39540,
+      "sha256": "03190246d9b6cf5d9fa57e54e95273d0521d03d5bd67fa65a2abd47f7d5f9d46"
     },
     {
       "path": "backend/src/services/adminProfitReportRun.ts",
-      "size": 24398,
-      "sha256": "939baa9ef99e959de5731856e1598a2f74ccc8e18b7b1b45a0cab2b619b4c26e"
+      "size": 24770,
+      "sha256": "654bd2b4738ba246444ee2656e7ca54c06184284c409c547dad35d571228919a"
     },
     {
       "path": "backend/src/services/adminStripeFinance.ts",
@@ -718,13 +718,18 @@
     },
     {
       "path": "backend/src/services/prepaidBilling.ts",
-      "size": 19500,
-      "sha256": "545db3eda429eb0227f42f91f4c58d0c8c6a6f4702e8f279c8768c345b4571af"
+      "size": 19820,
+      "sha256": "bcee35e8e5821bc1dbb68ceab30ee5cb86552e788be42e3d41c0c3be9751c8cf"
     },
     {
       "path": "backend/src/services/prepaidPlans.ts",
       "size": 7447,
       "sha256": "4f197b1e264844e772f221458785dd41d5b52f8b8b01c827847ca7e22d29417e"
+    },
+    {
+      "path": "backend/src/services/proTokens.ts",
+      "size": 3584,
+      "sha256": "2edd12c0a931e9719a1484f628a2ba1ed7e2f388e3148f48c328d9693290405e"
     },
     {
       "path": "backend/src/services/promptPay.ts",
@@ -1993,8 +1998,8 @@
     },
     {
       "path": "frontend/public/terms.html",
-      "size": 22521,
-      "sha256": "cdeb594d39fd8e348d130479b43cfffeadfacc4f2dea40d037468e7df87ee61c"
+      "size": 23407,
+      "sha256": "5459e5682c6bf44e7a93db9a1bfe5bb98493930dbf8ebf0c301dca9d053665e2"
     },
     {
       "path": "frontend/src/app/App.tsx",
@@ -2253,8 +2258,8 @@
     },
     {
       "path": "frontend/src/features/billing/PlansTab.tsx",
-      "size": 19586,
-      "sha256": "149bff3740c9166e05b169fc5fe85abab7b16409fb0d277e45781466ec8d23cc"
+      "size": 20247,
+      "sha256": "59389f08a3852fd04b4ab98abc7a79fb970c68cb8b44f9365cda7692108521cf"
     },
     {
       "path": "frontend/src/features/billing/PremiumUpsell.tsx",
@@ -2413,8 +2418,8 @@
     },
     {
       "path": "frontend/src/features/groups/AdminAiCredit.tsx",
-      "size": 15295,
-      "sha256": "4965d7f2584b7714239cd810c6077dc2eb7ec40dee1db87e721d36cd794c0c8f"
+      "size": 15579,
+      "sha256": "fa93281418ac7735518a9be68e31af364d5de8b84b15031a4b537f6dc7c2e469"
     },
     {
       "path": "frontend/src/features/groups/AdminDashboard.tsx",
@@ -2768,8 +2773,8 @@
     },
     {
       "path": "frontend/src/features/marketing/saas/SaasLanding.tsx",
-      "size": 30593,
-      "sha256": "1521a575dd2da2d036f4855a44aaed37b93d4a338cbe1880e361b3a5014052b1"
+      "size": 30794,
+      "sha256": "78ed27a48aff637066554b016c3b7c4b77abf46e2bbd1ffbc38d23768d822de5"
     },
     {
       "path": "frontend/src/features/marketing/saas/saas.css",
@@ -3093,8 +3098,8 @@
     },
     {
       "path": "frontend/src/i18n/en/server.ts",
-      "size": 32993,
-      "sha256": "864681c74d25dd96250a90baa304eb2fb3741e7f801dc6cafd9593f71d09b4d7"
+      "size": 33142,
+      "sha256": "3c2b1f5acc48e25ab4c612fb96593743520abbb789bad9776401367cb0d43369"
     },
     {
       "path": "frontend/src/i18n/en/settings.ts",
@@ -3118,8 +3123,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 150911,
-      "sha256": "3460e43e94498b6e311c22848842a2441dffca92396c75e84ad3dc130df52f9d"
+      "size": 151243,
+      "sha256": "46ee6f2a6875c240b69b26c87564eedea7badb626ed5db3c9080ae64f4aa3e37"
     },
     {
       "path": "frontend/src/index.css",
@@ -3453,8 +3458,8 @@
     },
     {
       "path": "shared/aiCredit.ts",
-      "size": 1945,
-      "sha256": "e62a2305edbceaf2ad51c3a90b90c816ae16ee2725efb19794f583bd502e9ecc"
+      "size": 2140,
+      "sha256": "ee26a0d1ec50813bf161e91d87f8ef8c79d775a480ec35ade26735dab6f60ecc"
     },
     {
       "path": "shared/briefing.ts",
@@ -3553,8 +3558,13 @@
     },
     {
       "path": "shared/proPricing.ts",
-      "size": 9075,
-      "sha256": "4ecac09abbb87efbc3d831e043fcbb46e0190a9bfb2bcd5cd873fe05e9043c93"
+      "size": 9648,
+      "sha256": "e3ed83d01a238e486704e4c83b54e7052797593b9254496276203296a3497d36"
+    },
+    {
+      "path": "shared/proTokens.ts",
+      "size": 3865,
+      "sha256": "c42aec3d56a53f4c13abdfd88938b418df3ac20c9e5cc7feae96a4c812d6538b"
     },
     {
       "path": "shared/tax.ts",
@@ -3678,8 +3688,8 @@
     },
     {
       "path": "tests/admin-ai-credit.test.ts",
-      "size": 6381,
-      "sha256": "f29d67681399f4bb3cdd6e6bf756792cc10ab4aa42f7614e00685d7f82684c0b"
+      "size": 7495,
+      "sha256": "46cc509aa06d30c074e6a516702f32d8e7d58ca023259a7ac96c37fcddcbbbf8"
     },
     {
       "path": "tests/admin-analytics-access.test.ts",
@@ -3928,8 +3938,8 @@
     },
     {
       "path": "tests/assistant-pro-rollout.test.ts",
-      "size": 15115,
-      "sha256": "ddf3fc5e0d25b0c1136d0e4a4df2d8687103708f74556d257fd0de91feb80cd0"
+      "size": 16979,
+      "sha256": "5119bb36b34fa05685ec753ac6a9d7a45b757e032efca55d7e1c35df98703b2d"
     },
     {
       "path": "tests/assistant-record-security.test.ts",
@@ -4073,8 +4083,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 67114,
-      "sha256": "da5f7d729817b2cd97fbb5f7f8319902d10a598fae6e1cd9c8ce0b58dd13c8ca"
+      "size": 70351,
+      "sha256": "e791bd63e00c921623c45a4802a4fff00874141e6e6d097edfc66f718b0c2328"
     },
     {
       "path": "tests/e2e/briefing.spec.ts",
@@ -4338,8 +4348,8 @@
     },
     {
       "path": "tests/prepaid-http.test.ts",
-      "size": 32066,
-      "sha256": "0979c1a3cdc326c8b9f05bb84e012071463bef5e31b899037eab995ada5d4f10"
+      "size": 33570,
+      "sha256": "3e402ca851c7e19cd5aecba6d1037578e71ff1f063b46e64c1c85eef28b10961"
     },
     {
       "path": "tests/prepaid-plans.test.ts",
@@ -4353,8 +4363,13 @@
     },
     {
       "path": "tests/pro-pricing.test.ts",
-      "size": 5426,
-      "sha256": "b5b57b55b8ca95d9916f5ac6d4590dbc3909072fdbf96df1ef6148a090b25cea"
+      "size": 5615,
+      "sha256": "1c795963ea3d28116780276f6f08e36f2195b0376006d3b09ff1f4690dfe4498"
+    },
+    {
+      "path": "tests/pro-tokens.test.ts",
+      "size": 13038,
+      "sha256": "fd2fc86e79ce481abe2ea4f291a0a03455f2a778748f94383171bbae8dd671aa"
     },
     {
       "path": "tests/report-data.test.ts",
