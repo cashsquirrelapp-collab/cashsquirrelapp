@@ -2224,3 +2224,17 @@ Built on 46fe663 (package 70). No SQL. No Stripe, price, quota, model, prompt or
 - Tests: ai-cross-channel.test.ts (11), an account-isolation test on the real database layer, and the Pro-rollout fake answers the new read.
 
 **Checks.** Unit tests 796/796; cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## Pro orders at the prices with the payment fee; earlier auto-renewals keep their price - 2026-10-25
+
+Built on 7742ecb (package 71). SQL first: supabase/migrations/20261025170000_pro_amounts_with_fee.sql (the owner runs it in the Supabase SQL editor). No Stripe change, no price change.
+
+**Why.** Found during the audit for the owner's profit-report brief: package 69 moved the app and the Stripe catalog to ฿177 / ฿895 / ฿1,562 but the database still reserved new orders at ฿159 / ฿849 / ฿1,490 (cashflow_reserve_prepaid_checkout and the amount rule on cashflow_prepaid_orders), so buildDirectQr / buildPrepaidCheckout refused every new order. Card auto-renewals bought at ฿159 were also checked against today's ฿177 and the lookup key Stripe moved to the new price, so their Stripe events would be refused.
+
+**What changes**
+- SQL: the amount rule allows the amount each period has been sold at (15900 or 17700, 84900 or 89500, 149000 or 156200 satang); new orders are reserved at 17700 / 89500 / 156200. No existing row is changed. Safe to run twice.
+- shared/proPricing.ts PRO_SOLD_AT; cardPlans.validReservedRecurringPrice: an existing auto-renewal is checked against the price and amount on its own order (the amount the customer agreed to), never today's lookup key. New checkouts still sell only today's price.
+- database/profit_report_check.sql: read-only system check for the profit report (no ids).
+- Tests: pro-amounts-database.test.ts runs the SQL on PGlite after every earlier billing migration (old amounts before, new orders at the new amounts after, earlier paid orders unchanged, a ฿177 card order goes to paid, ฿159 no longer pays a new order, a drift check against PRO_PRICING); card-renewals.test.ts: a ฿159 renewal keeps renewing at ฿159 and nothing else passes.
+
+**Checks.** Unit tests 801/801; cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.

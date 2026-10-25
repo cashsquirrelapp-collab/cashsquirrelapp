@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg71 cross-channel continuation (on 46fe663)",
+  "source_label": "pkg72 Pro order amounts with the payment fee (on 7742ecb)",
   "archive": "source.tar.gz",
-  "archive_sha256": "6bbae4ab2fc9644e67fe8ec2e36c78799ae1f1a96e69cc27ec1e03f2460c1fa4",
-  "file_count": 842,
-  "total_source_bytes": 22653362,
+  "archive_sha256": "2f039cddeb98c3a24a5c6460023c46956caef0c39254d6808b3234225ecc982f",
+  "file_count": 845,
+  "total_source_bytes": 22675046,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -518,13 +518,13 @@
     },
     {
       "path": "backend/src/services/cardPlans.ts",
-      "size": 2811,
-      "sha256": "19b236202c8e61747db514520f00d1d1e5ecd1aafc4b58bed7412ef0e91a41a0"
+      "size": 4085,
+      "sha256": "46a2ebb01dbd1d7f220c21636cf8bbede56b7a5eb53d5769a7edc04b60b90308"
     },
     {
       "path": "backend/src/services/cardRenewals.ts",
-      "size": 10593,
-      "sha256": "5fda6bd541315047f3301a19195084d11ec0ae9b768362737be7e9fb8634bdf7"
+      "size": 10565,
+      "sha256": "e4483e399f7adcaee51327bdc47028cb661ba435e704e10d0ba4d450ec71763b"
     },
     {
       "path": "backend/src/services/directPromptPay.ts",
@@ -865,6 +865,11 @@
       "path": "database/preflight.sql",
       "size": 1188,
       "sha256": "4965b255e94d269b09655f0c994db8e8b972a820f8cee6ae588a1f7341076a7e"
+    },
+    {
+      "path": "database/profit_report_check.sql",
+      "size": 4837,
+      "sha256": "d4eff45fbf38298fea783b9c72f999c15ed2cff91da7adf0e1c9cf17c3846fbb"
     },
     {
       "path": "database/security-check.sql",
@@ -3398,8 +3403,8 @@
     },
     {
       "path": "shared/proPricing.ts",
-      "size": 5818,
-      "sha256": "be3a8f32222e27b6c611a9a667bb330cf91b9c0d68d659ab94d2315cddc2e175"
+      "size": 6460,
+      "sha256": "3ba58381b129cfcca6accb35812093c3b208104bd831c3bbfcadbf6fd987ab9a"
     },
     {
       "path": "shared/tax.ts",
@@ -3500,6 +3505,11 @@
       "path": "supabase/migrations/20261025150000_ai_cost_accounting.sql",
       "size": 4819,
       "sha256": "acf9a024f8a75669af0603393b97bfe83bf71b127e2cf13084c9b78c33164e8a"
+    },
+    {
+      "path": "supabase/migrations/20261025170000_pro_amounts_with_fee.sql",
+      "size": 3993,
+      "sha256": "76793672b73eafda7441782b1b445754a45408680572a6819c8d1575168ce3d5"
     },
     {
       "path": "tests/admin-analytics-access.test.ts",
@@ -3748,8 +3758,8 @@
     },
     {
       "path": "tests/card-renewals.test.ts",
-      "size": 7244,
-      "sha256": "8022f2cc3bc888ebf70399d84c074ff1094d3d9fa9a22119123e447b5975a4f8"
+      "size": 10446,
+      "sha256": "8c9311941c8bd0ff544171885e6e90c7909fdf083a8b83ddd69b1f7cf08d6840"
     },
     {
       "path": "tests/cash-balance.test.ts",
@@ -4110,6 +4120,11 @@
       "path": "tests/prepaid-plans.test.ts",
       "size": 4729,
       "sha256": "0bc58f56a9242cc9036a4e24ea50909fd4b8c46a9c2ab5d02c7b98b3ac3d54b3"
+    },
+    {
+      "path": "tests/pro-amounts-database.test.ts",
+      "size": 7764,
+      "sha256": "a1bd453394e85312f34cd8bf948739ffc0a01e66ade6a814fac4a2504db8170d"
     },
     {
       "path": "tests/pro-pricing.test.ts",
