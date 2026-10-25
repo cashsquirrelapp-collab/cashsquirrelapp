@@ -2208,3 +2208,19 @@ Built on ce049ea (package 69). No SQL. No Stripe change: the catalog keeps ฿17
 - tests/e2e/billing.spec.ts: the fee line for each period, the QR and card breakdowns, and a no-overlap test of the price block on a phone and a computer, light and dark (runs the owner's text-overlap checker where it is present).
 
 **Checks.** Unit tests 784/784; plans and card screen tests 35/35 (the 3 landing story tests that expect an older English headline fail as before); cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## เลขา continues a task across the app and LINE (learning package E) - 2026-10-25
+
+Built on 46fe663 (package 70). No SQL. No Stripe, price, quota, model, prompt or screen change.
+
+**Why.** Owner, 2026-10-25: "ทำเลย" to package E of the AI learning plan: start something in the app (for example a quotation) and answer เลขา's questions in LINE, or the other way round, without telling it again.
+
+**What changes**
+- backend/src/ai/crossChannel.ts (new): when the account's latest exchange was in the other channel within 2 hours, newer than this channel's own, and เลขา's last word there asked a question or left a card still waiting, its last 4 turns (600 characters each) join this message's history, marked "(ต่อจากที่คุยในแอป เมื่อ N นาทีก่อน)" / "(ใน LINE)". Polite closers ("มีอะไรให้ช่วยเพิ่มเติมไหมครับ") and confirmed or expired cards do not count. A file note stays first, as the gateway reads it.
+- service.ts: the app's turns are read for the signed-in account only (newest chat, never the notifications thread), alongside the account load; the card list is read only for a typed go-ahead or when the other channel ended on a card. A typed "ยืนยัน" / "ตกลง" / "ได้เลย" with cards waiting (30 minutes) shows those same cards again, still editable, with no model call and 0 tokens; not when เลขา's last word was a question ("ใช่" then answers it). Nothing is saved until the card's own button. The routing log gains continued_from (app / line) and reason waiting_cards; never words.
+- lineBridge.ts: LINE's short history keeps เลขา's questions as "- question" lines and a card as "[การ์ดรอยืนยัน: title]", as the app writes them.
+- supabaseDb.ts: recentAppTurns and pendingProposals, both filtered by user_id. tools.ts: cardForStoredProposal (a stored proposal as its card, with its edit fields).
+- privacy.html (Thai and English): one sentence on reading the other channel's latest messages (at most 4, within 2 hours); nothing more stored.
+- Tests: ai-cross-channel.test.ts (11), an account-isolation test on the real database layer, and the Pro-rollout fake answers the new read.
+
+**Checks.** Unit tests 796/796; cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.

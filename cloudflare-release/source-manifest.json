@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg70 show the price and the payment fee before paying: 159 + 18 = 177",
+  "source_label": "pkg71 cross-channel continuation (on 46fe663)",
   "archive": "source.tar.gz",
-  "archive_sha256": "1cbc3e4c6bf9541e3e8ac2a7f95e676b4b5b5c7e1c504ffff68b7954ab69afe7",
-  "file_count": 840,
-  "total_source_bytes": 22609171,
+  "archive_sha256": "6bbae4ab2fc9644e67fe8ec2e36c78799ae1f1a96e69cc27ec1e03f2460c1fa4",
+  "file_count": 842,
+  "total_source_bytes": 22653362,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -62,6 +62,11 @@
       "sha256": "de86a023123a99d5f4c77a3a035ce8fcc74efdc2351ba942bf90798fbf1c7210"
     },
     {
+      "path": "backend/src/ai/crossChannel.ts",
+      "size": 8321,
+      "sha256": "3f367f2d31e81a1719bb212dfff589ffbec3b7785d6fbe3b5357a81495887a3d"
+    },
+    {
       "path": "backend/src/ai/difficulty.ts",
       "size": 4552,
       "sha256": "929bd2ebbfae49e07be114bc695eac091d84e7c7e9461ec12451dbbdbf81f7ab"
@@ -108,8 +113,8 @@
     },
     {
       "path": "backend/src/ai/lineBridge.ts",
-      "size": 7406,
-      "sha256": "6e8f27cd820223440689ee94c63765fe39378c3ecd21bc92af5ed60eb08407da"
+      "size": 7647,
+      "sha256": "c18e2bfed4f0202d4da336645336acd28ad20300875e50af0893bec8e4658f6b"
     },
     {
       "path": "backend/src/ai/lineFormat.ts",
@@ -178,13 +183,13 @@
     },
     {
       "path": "backend/src/ai/routingPolicy.ts",
-      "size": 22931,
-      "sha256": "1fb6032efa684db1e00a6ca755d2cab85e8ef08110e45c8cdca01ae8733b3bcf"
+      "size": 23059,
+      "sha256": "f9026200a267dd056f7baaf2ea7fdeea6f7641f9a707095234df2189c64306e1"
     },
     {
       "path": "backend/src/ai/service.ts",
-      "size": 27603,
-      "sha256": "9f75414955aebc406f49a0923f7eb1e6e554dfc43ffe7a1d708bb9c07ccf34be"
+      "size": 31308,
+      "sha256": "853bcae5b96447624e9b760ef93b9ca0a526c11965baacb17d42250bca81ead1"
     },
     {
       "path": "backend/src/ai/signals.ts",
@@ -193,13 +198,13 @@
     },
     {
       "path": "backend/src/ai/supabaseDb.ts",
-      "size": 17355,
-      "sha256": "9323a463165481e5e584a6fb777a6a8c9a1767183c4de14a13cb7c9ff792ffe8"
+      "size": 19153,
+      "sha256": "8b926b3db8f02ec8489f88342f2a1aeb5ef6ae19547c663c22c83388dc1c834f"
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 71795,
-      "sha256": "ba68b85695ce9898f0e0a666d4777c693e4b7e09f2f013f1bdc0592effda5696"
+      "size": 72452,
+      "sha256": "35f50b145e7aac5a551c83ddb7d2b7b4f7f65f8be9558fa84f007ab7753f4550"
     },
     {
       "path": "backend/src/ai/transcription.ts",
@@ -1883,8 +1888,8 @@
     },
     {
       "path": "frontend/public/privacy.html",
-      "size": 34841,
-      "sha256": "3c26cadedc1c552567ddb111158642fa663d6929aef484e1c80f0327f3a80ed1"
+      "size": 35738,
+      "sha256": "d9f36e99ec3486f94f64cc6ab34b3bf65a0e11f958d4cbc77819da6d74332a39"
     },
     {
       "path": "frontend/public/pro-promo-hero.png",
@@ -3562,6 +3567,11 @@
       "sha256": "0bf34850e797134f1d0b6d815bd85a13e143d133a17aa6cdf8e22efb040c6f13"
     },
     {
+      "path": "tests/ai-cross-channel.test.ts",
+      "size": 26298,
+      "sha256": "5ef43d3b035c9746f9f7c31d38c640aee390482fc8c0d4560596da9db06d90e2"
+    },
+    {
       "path": "tests/ai-document-actions.test.ts",
       "size": 14640,
       "sha256": "3b8d1bff1e86190c43e65e73ed9312e615e964dff2637524df0db2faa2759f24"
@@ -3698,8 +3708,8 @@
     },
     {
       "path": "tests/assistant-account-isolation.test.ts",
-      "size": 32030,
-      "sha256": "e5aafab06012f4d7777e600677a45b56bb1eb461ee8d60c58cb1caf590da5f18"
+      "size": 33920,
+      "sha256": "0fa4bfeb4f4e2b6b43e254025a412c25f0a30e13155617e968b5516ffb608e99"
     },
     {
       "path": "tests/assistant-audio-recorder.test.ts",
@@ -3713,8 +3723,8 @@
     },
     {
       "path": "tests/assistant-pro-rollout.test.ts",
-      "size": 14859,
-      "sha256": "9beef813e47c36a3b8a95b109d4549edd866e83946de4bef24c4a2031096dd81"
+      "size": 15115,
+      "sha256": "ddf3fc5e0d25b0c1136d0e4a4df2d8687103708f74556d257fd0de91feb80cd0"
     },
     {
       "path": "tests/assistant-record-security.test.ts",
