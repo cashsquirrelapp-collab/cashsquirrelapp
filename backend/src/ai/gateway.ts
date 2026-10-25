@@ -5,7 +5,9 @@ import { costSplit, costUsd, krarokTokens } from './cost.js';
 import { cleanAnswerText } from './moneyChart.js';
 import { guardReply, type GuardHit } from './confidentiality.js';
 import { billingIssueOf, type BillingIssue } from './billing.js';
-import { confidentialAnswer, founderAnswer, founderBlock, founderTopic, mentionsFounder, techQuestion } from './founderKnowledge.js';
+import { confidentialAnswer, founderAnswer, founderTopic, techQuestion } from './founderKnowledge.js';
+import { FOUNDER_ENTRIES_V1, FOUNDER_QA_V1 } from './knowledgeAdditions/founderIdentityV1.js';
+import { selectFounderIdentityV1 } from './knowledgeAdditions/founderIdentityV1Context.js';
 import { detectSignals, lookupSignal, type KnowledgeSignal } from './signals.js';
 import { knowledgeSnippets, lookupKnowledge } from './knowledge.js';
 import { PROMPT_VERSION, bangkokNow, buildSystemPrompt, type PromptSlots } from './prompt.js';
@@ -221,12 +223,59 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     };
   };
 
+  // Approved V1 connection only: keep legacy knowledge and routing intact, but select public founder facts here.
+  // Look at the immediately previous user turn, not assistant text or an older founder conversation.
+  const previousUserQuestion = request.history?.filter(turn => turn.role === 'user').at(-1)?.text;
+  const founderLanguage = /[ก-๙]/.test(request.text) ? 'th' : 'en';
+  // Select clauses separately so a founder question plus an account-income read does not become a request for
+  // the founder's private income. Mixed requests still go through the existing model/tool flow.
+  const founderClauses = request.text.split(/\n+|[;；]|\s+(?:and|also|then)\s+|(?:แล้ว|และ)(?:ก็)?|พร้อม(?:กับ)?|นอกจากนี้|\s+ช่วย(?=สรุป|เปิด|ดู|เพิ่ม|แก้ไข|ลบ|ค้นหา)/i).map(text => text.trim()).filter(Boolean);
+  const selectFounder = (text: string) => {
+    const question = text.replace(/แอปนี้|แอพนี้|เว็บไซต์นี้|เว็บนี้|\b(?:this|the) app\b/gi, 'Krarok');
+    const selected = selectFounderIdentityV1(question, { previousUserQuestion, language: founderLanguage });
+    if (selected) return selected;
+    if (founderTopic(text) === 'team' && /krarok|กระรอก/i.test(question)) {
+      return selectFounderIdentityV1('ผู้ก่อตั้ง Krarok มีทีมกี่คน', { language: founderLanguage });
+    }
+    // The legacy recogniser also supports unambiguous ownership wording such as "Who owns Krarok?".
+    // Map only that wording to the V1 identity; never fall back to the broad legacy owner/job match.
+    return /^(?:who owns (?:krarok|this app)|(?:krarok|กระรอก(?:ตุนเงิน)?|แอปนี้|เว็บนี้)(?:เป็น)?ของใคร)/i.test(text)
+      ? selectFounderIdentityV1(founderLanguage === 'th' ? 'ใครสร้าง Krarok' : 'Who created Krarok?', { language: founderLanguage })
+      : undefined;
+  };
+  const founderSelections = founderClauses.map(selectFounder).filter(selection => selection !== undefined);
+  // Preserve the shared subject in "Who created Krarok and why?". Only merge factual context; a full-message
+  // privacy match can come from a separate account-income clause and must not replace the clause selections.
+  const completeFounderQuestion = founderClauses.length > 1 ? selectFounder(request.text) : undefined;
+  if (completeFounderQuestion?.kind === 'context') founderSelections.push(completeFounderQuestion);
+  // Deduplicate shared guidance and repeated facts across the selected clauses. No metadata enters the prompt.
+  const founder = founderSelections.length
+    ? [...new Set(founderSelections.flatMap(selection => selection.text.split('\n\n')))].join('\n\n')
+    : undefined;
+
   // Exact questions need no model (brief, phase 2): where a page is, a plain "call me …" / "no emoji", who made
   // Krarok and why, and what AI is behind เลขา. Anything the rule cannot answer goes on to the model as usual.
   const answerDirectly = async (kind: Direct): Promise<{ text: string; cards: AssistantCard[] } | undefined> => {
     if (kind === 'founder') {
+      // A direct candidate is a suggestion from the unchanged router, not permission to drop another request.
+      if (founderClauses.length !== 1 || firstRoute !== 'chat' || /[.!。].*\S|[?？].*\S/.test(request.text.trim().replace(/[?？.!。]+$/, ''))) return undefined;
+      // Account reads can also use the chat tools; they must not disappear behind a founder-only answer.
+      if (/รายรับ|รายจ่าย|เงินคงเหลือ|ลูกค้า|ยอด(?:เงิน|รวม)|ใบ(?:เสนอราคา|แจ้งหนี้)|งานล่าสุด|\b(?:income|expenses?|invoices?|balance|payments?|jobs?|clients?)\b/i.test(request.text)) return undefined;
+      const selected = founderSelections[0];
       const topic = founderTopic(request.text);
-      return topic ? { text: founderAnswer(topic, request.text), cards: [] } : undefined;
+      if (selected?.kind === 'restricted') return undefined;
+      // Contact and assistant-origin answers remain available from the unchanged public legacy source.
+      if (topic === 'contact' || topic === 'secretary') return { text: founderAnswer(topic, request.text), cards: [] };
+      if (selected?.kind !== 'context' || selected.entryIds.length !== 1) return undefined;
+      const entryId = selected.entryIds[0];
+      const qaId = ({ identity: 'who', background: 'background', origin: 'why', vision: 'vision' } as Record<string, string>)[entryId];
+      if (!qaId) return undefined;
+      const qa = FOUNDER_QA_V1.find(item => item.id === `${qaId}-${founderLanguage}`);
+      const entry = FOUNDER_ENTRIES_V1.find(item => item.id === entryId)!;
+      // English background QA starts with "No" for one particular question; use the qualified biography for variants.
+      const text = founderLanguage === 'en' && entryId === 'background' ? entry.text_en
+        : qa?.answer ?? (founderLanguage === 'th' ? entry.text_th : entry.text_en);
+      return { text: styleReply(text, { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])] }), cards: [] };
     }
     if (kind === 'confidential') {
       const asked = techQuestion(request.text);
@@ -254,8 +303,6 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   }
 
   const knowledge = knowledgeSnippets(lookupKnowledge(request.text, 3));
-  // The founder's approved text, only for a message about the founder (or a follow-up to one), never every message.
-  const founder = [request.text, ...(request.history ?? []).slice(-2).map(turn => turn.text)].some(mentionsFounder) ? founderBlock() : undefined;
   const context = accountContext(request.user, deps.now, request.access);
   const turns: ChatTurn[] = [...trimHistory(request.history), { role: 'user', text: request.text.slice(0, MAX_MESSAGE_CHARS), ...(request.attachment ? { attachment: request.attachment } : {}) }];
 
