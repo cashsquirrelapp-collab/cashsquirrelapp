@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg78 showcase mode and Story pictures, admins first (on pkg77)",
+  "source_label": "pkg79 live profit, AI cost and usage by account on the admin page (on pkg78)",
   "archive": "source.tar.gz",
-  "archive_sha256": "f1a46f4f7264ea8904feac4c3d457c63dfe4515681312ceee03b2cfd738e9991",
-  "file_count": 870,
-  "total_source_bytes": 23005141,
+  "archive_sha256": "f1ca21eafa1ec04d9711ba6d8048526153e60c3cd97c71e542f52db5fee0559b",
+  "file_count": 879,
+  "total_source_bytes": 23071312,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -262,6 +262,11 @@
       "sha256": "7885a1cd96a93d558c31aeb311776908be6955a0578b8ae83c88e85d832180ef"
     },
     {
+      "path": "backend/src/handlers/admin-profit-live.ts",
+      "size": 3803,
+      "sha256": "8bf64ad9b485e7a9896784b0d2a130594f2ad555a54facd9b7d0a98fe19e71b2"
+    },
+    {
       "path": "backend/src/handlers/admin-stripe-finance.ts",
       "size": 1715,
       "sha256": "90ef4f7272782871c1650d308ceec3a2283e8db7616489b38b729bcb6176feb6"
@@ -428,8 +433,8 @@
     },
     {
       "path": "backend/src/http/router.ts",
-      "size": 4239,
-      "sha256": "831670c540e5ed9e53d7d0d80598e34ecb83d44452551acdc96c76c9bf74435c"
+      "size": 4370,
+      "sha256": "87c176ed874b966234685b9d9c6af3f557fabd5375668f0f3655cdf4b2942a60"
     },
     {
       "path": "backend/src/http/securityHeaders.ts",
@@ -533,8 +538,8 @@
     },
     {
       "path": "backend/src/services/adminProfitReport.ts",
-      "size": 43805,
-      "sha256": "c60cca3f7db9d3ff099e6b2465c9f7bc05054ed4a34fc1e2fbfecd23c88cd644"
+      "size": 38877,
+      "sha256": "ab877c856affe8b24e835529786bd3b7a3296e42a8daf6136cb94a74742d06cf"
     },
     {
       "path": "backend/src/services/adminProfitReportRun.ts",
@@ -2383,8 +2388,8 @@
     },
     {
       "path": "frontend/src/features/groups/AdminDashboard.tsx",
-      "size": 46945,
-      "sha256": "40a5ed58cf139004d5ee8b1fd72472ad4c27ba790d29e23718fd917ab67b6278"
+      "size": 47390,
+      "sha256": "f2bcd1bb16d58d1fcf537fd8f4c59280811becbfa6c27d4afd6390bd57c88267"
     },
     {
       "path": "frontend/src/features/groups/AdminDashboardPhone.tsx",
@@ -2392,9 +2397,19 @@
       "sha256": "90634727db25a67db84b8e36ca19ea24353729a3a6b5df13c9b16e4ab875cd47"
     },
     {
+      "path": "frontend/src/features/groups/AdminProfitLive.tsx",
+      "size": 20199,
+      "sha256": "7864aa98e51aac0be70cdb94dca5a34e915f90a70a4bec6dd8c8192efe2005e5"
+    },
+    {
       "path": "frontend/src/features/groups/AdminStripeFinance.tsx",
       "size": 23737,
       "sha256": "b161e1b7d2b887dcd97ecbc44a73b5aeccfd7bc5285cad216d5b8b9e24d33933"
+    },
+    {
+      "path": "frontend/src/features/groups/AdminUsageTable.tsx",
+      "size": 11610,
+      "sha256": "692af40a0282a2e2a8f558e47456112bc2b4bac1f3b5b1097212dbc306de2bc5"
     },
     {
       "path": "frontend/src/features/groups/AdminUsersPanel.tsx",
@@ -3112,6 +3127,11 @@
       "sha256": "90e17de5c8bf210ff8f1fbb2c74204b86298d3609045332099a1d056e947d1e4"
     },
     {
+      "path": "frontend/src/services/adminProfitLive.ts",
+      "size": 361,
+      "sha256": "306685fcc1f9ca46899f83de0b0bc039062f210405429f57baa6abab09f07b76"
+    },
+    {
       "path": "frontend/src/services/adminStripeFinance.ts",
       "size": 485,
       "sha256": "eb59470e09f58ab77fd3b88f09c4b304b965c6a09af472df7a7a5c5ef4797f4f"
@@ -3382,9 +3402,19 @@
       "sha256": "e30d3525be6ce8139954deed1a91deb1619963fd738c254bd89e84eb6423f3fa"
     },
     {
+      "path": "shared/adminProfit.ts",
+      "size": 6129,
+      "sha256": "288ab8ee8d8d965dc4d5a288f4fbe2805440928ab96326504af6d979d72f0142"
+    },
+    {
       "path": "shared/adminStripeFinance.ts",
       "size": 2510,
       "sha256": "19571e729e200e483e01dc831f36f1f6be4da57e76359469a1beb1c672440277"
+    },
+    {
+      "path": "shared/adminUsage.ts",
+      "size": 3960,
+      "sha256": "db551f6e68672133dd2de0ba50fcb95d10b17a9634744c263e178c8597c8806a"
     },
     {
       "path": "shared/briefing.ts",
@@ -3632,6 +3662,11 @@
       "sha256": "490de2e55138797497d3a23bbb79b7c160032923360a623fd3ce8958e2e9153a"
     },
     {
+      "path": "tests/admin-profit-live.test.ts",
+      "size": 8461,
+      "sha256": "2eec5683dd0809c01536f131b734df84587ffa3a5ffcb27dbc2606ac2fa339c0"
+    },
+    {
       "path": "tests/admin-stripe-finance-access.test.ts",
       "size": 5798,
       "sha256": "a32799cd9921b37e266c0fb519f232a57154a1ee773eb15692ff76b6e5e1a389"
@@ -3640,6 +3675,11 @@
       "path": "tests/admin-stripe-finance.test.ts",
       "size": 13990,
       "sha256": "d252d976989fba5ee36aa3efb15416a70c0b96849e65f026e79d3d04c3d924b5"
+    },
+    {
+      "path": "tests/admin-usage.test.ts",
+      "size": 3841,
+      "sha256": "8990fd2b3d8365e10dd076c338390081838afded3406d5c041df3b85259fdf23"
     },
     {
       "path": "tests/ai-account-queries.test.ts",
@@ -3935,6 +3975,11 @@
       "path": "tests/e2e/admin-pro.spec.ts",
       "size": 4366,
       "sha256": "c2108a557aa9e3e76b65d5f01ebbd108591fe3096670ac1ed038f15747937eb5"
+    },
+    {
+      "path": "tests/e2e/admin-profit-live.spec.ts",
+      "size": 12159,
+      "sha256": "fc76e298117aa8cbe51734d90351983a1889fd5c8e995a37b5d1d1e5b5fdc3ac"
     },
     {
       "path": "tests/e2e/admin-stripe-finance-phone.spec.ts",

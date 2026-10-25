@@ -2370,3 +2370,38 @@ Built on package 77. No SQL. Computers and iPads only. Admins only until the own
   - Story: five templates, hidden by default, a saved PNG of 1080 × 1920;
   - the overlap checker.
 - cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## Live profit, AI cost and usage by account on the admin page - 2026-10-25
+
+Built on package 78. No SQL. Owner-only (the same access check as the Stripe finance panel). Computers and iPads. The phone admin page is unchanged.
+
+**Why.** Owner, 2026-10-25: "คำนวณต้นทุน AI ... แบบเรียลไทม์ขึ้นมาเหมือนของ Stripe ... ทำให้มันเสร็จเอาเฟสนี้ก่อน" and "ดูผู้ใช้แต่ละคนได้ไหมว่าคนไหนใช้เยอะใช้น้อย ... เอามาทำ data".
+
+**What changes**
+- GET /api/admin-profit-live?month=YYYY-MM (default this Bangkok month).
+  - Owner-only, read-only, no-store, rate-limited.
+  - Runs the monthly report engine (buildReport) for that month on request, without the AI note: no AI cost, nothing saved or sent.
+  - Also returns today's AI spend against the daily cap, from the usage rows.
+  - Future or bad months are refused before anything is read.
+- shared/adminProfit.ts: the report's figure types, moved out of adminProfitReport.ts unchanged, so the server and the page use one definition.
+- Admin dashboard tab "กำไรและต้นทุน AI":
+  - payments, Stripe fees, AI cost (THB and USD), contribution and estimated profit, each against last month, with margin and break-even;
+  - today's AI spend against the cap;
+  - AI cost in parts (Gemini, Claude, shared cache, failed attempts) with the per-request, per-member, max, median and P90 figures;
+  - members: Pro now, new, ended, cancelling, trials, granted, all accounts, sign-ups and failed payments;
+  - fixed costs, with costs not known yet named as such;
+  - quality and reliability;
+  - usage by account (shared/adminUsage.ts, AdminUsageTable.tsx), covering every account. It joins the dashboard's own account list (app active days, pages, last seen) with the report's figures (AI requests split Gemini/Claude, quota used, AI cost, paid, contribution) and shows:
+    - an AI usage level: heavy at 80%+ of the cycle's tokens, medium at 30–79%, light below; accounts without an allowance are judged by requests;
+    - a summary line, including the top 10%'s share of AI cost and paying Pro accounts with no AI use;
+    - filters (all, heavy, light, no AI, Pro without AI) and four sort orders;
+    - a CSV download for analysis (UTF-8 with BOM; names that look like formulas are neutralised);
+  - the report's notes.
+- Updates: every minute while the page is open and on screen, at once on return, and when a payment arrives. Past months can be chosen.
+
+**Checks.**
+- Unit tests 852/852 in the extracted package:
+  - 3 for the endpoint: the owner gets figures, others get nothing and no data is read, bad or future months are refused, nothing is written, no AI call;
+  - 3 for the usage levels, the joined rows and the CSV.
+- Screen tests 57/57 there: the new tab with the minute refresh, every account, filters, the CSV and an iPad width, plus the admin analytics, live revenue, phone admin, Pro and English suites.
+- cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
