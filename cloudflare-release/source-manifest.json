@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg75 founder knowledge and confidentiality guard (on 2791c70)",
+  "source_label": "pkg76 profit report: every account, failed payments, costs not known yet, filtered answers (on pkg75)",
   "archive": "source.tar.gz",
-  "archive_sha256": "7aff13f504007aaf0941ab883815102073decd096ceb9eb7b3bb6d7ed671c683",
+  "archive_sha256": "397e05c220e183f1ee64f251ce973689b4988164adfd842029f3ff54931fc560",
   "file_count": 857,
-  "total_source_bytes": 22896571,
+  "total_source_bytes": 22906883,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -533,13 +533,13 @@
     },
     {
       "path": "backend/src/services/adminProfitReport.ts",
-      "size": 40417,
-      "sha256": "6d11bdc989dd4741a274e65259d1db683d98d2f99127774c69c6ad5fd8c1965f"
+      "size": 43805,
+      "sha256": "c60cca3f7db9d3ff099e6b2465c9f7bc05054ed4a34fc1e2fbfecd23c88cd644"
     },
     {
       "path": "backend/src/services/adminProfitReportRun.ts",
-      "size": 23354,
-      "sha256": "5b527fc7257e0223bb22b8c28c6264fb4f6ccee88266b208fdf894d6befbb04e"
+      "size": 24398,
+      "sha256": "939baa9ef99e959de5731856e1598a2f74ccc8e18b7b1b45a0cab2b619b4c26e"
     },
     {
       "path": "backend/src/services/adminStripeFinance.ts",
@@ -3583,8 +3583,8 @@
     },
     {
       "path": "tests/admin-profit-engine.test.ts",
-      "size": 30396,
-      "sha256": "cb72a0cdc6a50a761a6a59031b778fcceca256da85a6725b1ba358648247c328"
+      "size": 36276,
+      "sha256": "490de2e55138797497d3a23bbb79b7c160032923360a623fd3ce8958e2e9153a"
     },
     {
       "path": "tests/admin-stripe-finance-access.test.ts",

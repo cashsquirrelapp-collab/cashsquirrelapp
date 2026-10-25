@@ -2294,3 +2294,22 @@ Built on 2791c70 (package 74). No SQL. No screen changes.
 **Checks.**
 - Unit tests 836/836 in the extracted package, including 8 new ones: founder questions, technology questions, routing, the reply check, app and LINE chat with fake models, the prompt, and memory.
 - cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## Monthly profit report: every account, failed payments, costs not known yet, filtered answers - 2026-10-25
+
+Built on package 75. No SQL. No screen changes. Only the owner's LINE report text changes.
+
+**Why.** Owner's Master Product Backlog, Part 4–5 (2026-10-25): "ค่าใช้จ่ายที่ยังไม่มีข้อมูลจริงต้องแสดงว่าไม่ทราบ ไม่ให้ระบบเติมเป็นศูนย์". The brief also asks for the total member count and failed payments.
+
+**What changes**
+- Members: every account at report time, plus the accounts that signed up in the month.
+- Failed card charges in the month (count and baht), read from Stripe. The key needs Charges Read. When Stripe cannot be read, this shows as "ยังไม่ทราบ".
+- EXPECTED_COSTS: Cloudflare, Supabase, LINE OA and storage.
+  - Each one with no row in cashflow_admin_cost_settings is named as not known yet.
+  - The profit is said to be before these costs, and the profit section shows PARTIAL.
+  - An amount of 0 counts as known.
+- The number of answers the confidentiality check changed in the month, from routing.guard. It is a head count only and shows as unknown when it cannot be read.
+
+**Checks.**
+- Unit tests 838/838 in the extracted package, including 2 new report tests.
+- cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
