@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg72 Pro order amounts with the payment fee (on 7742ecb)",
+  "source_label": "pkg73 monthly profit report for the owner (on e42783b)",
   "archive": "source.tar.gz",
-  "archive_sha256": "2f039cddeb98c3a24a5c6460023c46956caef0c39254d6808b3234225ecc982f",
-  "file_count": 845,
-  "total_source_bytes": 22675046,
+  "archive_sha256": "0aff74acc24614266eab91c9f995653014b4b1b938ff343d0f8fa22f48115672",
+  "file_count": 852,
+  "total_source_bytes": 22801864,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -352,6 +352,11 @@
       "sha256": "ddff1a85da49ee736de4fc02ac5d2ec8b7682f02dcda52dd35b78baaec69c1a9"
     },
     {
+      "path": "backend/src/handlers/send-admin-profit-report.ts",
+      "size": 3412,
+      "sha256": "6ae9cdc1839da4c927c73489e019c94014cf84c6bf5613c33ee371d23334f95f"
+    },
+    {
       "path": "backend/src/handlers/send-monthly-report.ts",
       "size": 21881,
       "sha256": "5d59609aae1da1777af4c7f00c81812ea034242c02e870223aa5856a2f566dc3"
@@ -408,8 +413,8 @@
     },
     {
       "path": "backend/src/http/router.ts",
-      "size": 4005,
-      "sha256": "18aa884084564ae9b9fda8f22c6f71f4d0c51130b7db66d5ff16515e183ad727"
+      "size": 4123,
+      "sha256": "529bd4fa31e45be56c8e933ab122ad902bc5531d333830eaa66bc3457ff34199"
     },
     {
       "path": "backend/src/http/securityHeaders.ts",
@@ -510,6 +515,16 @@
       "path": "backend/src/services/adminPaymentPulse.ts",
       "size": 1637,
       "sha256": "b05c4f8febd6bdb86ad5fdbcddfdc55a7f219e4dc143032652b4d7e4985b3ff2"
+    },
+    {
+      "path": "backend/src/services/adminProfitReport.ts",
+      "size": 40417,
+      "sha256": "6d11bdc989dd4741a274e65259d1db683d98d2f99127774c69c6ad5fd8c1965f"
+    },
+    {
+      "path": "backend/src/services/adminProfitReportRun.ts",
+      "size": 23354,
+      "sha256": "5b527fc7257e0223bb22b8c28c6264fb4f6ccee88266b208fdf894d6befbb04e"
     },
     {
       "path": "backend/src/services/adminStripeFinance.ts",
@@ -703,8 +718,8 @@
     },
     {
       "path": "cloudflare/schedule.ts",
-      "size": 1288,
-      "sha256": "8e529094c58ab8b2be6873adedb0935a17aa976450365997f26adc4182fe14e3"
+      "size": 1559,
+      "sha256": "e23bd424d5e1fd835d7cc106b9ebbf59129d4abedf3f228e8dea9af6eb284115"
     },
     {
       "path": "cloudflare/worker.ts",
@@ -718,8 +733,8 @@
     },
     {
       "path": "database/ai_learning_report.sql",
-      "size": 12522,
-      "sha256": "762da5f9e606fb95e7bc29ae367ef97e68c180b454a21fb78b669d5ab14b6cd6"
+      "size": 12535,
+      "sha256": "cc414693fa394bfe0b6a3c3440f48f751fd37185e2f151c0dc07b3dacfe2f664"
     },
     {
       "path": "database/ai_secretary.sql",
@@ -865,6 +880,11 @@
       "path": "database/preflight.sql",
       "size": 1188,
       "sha256": "4965b255e94d269b09655f0c994db8e8b972a820f8cee6ae588a1f7341076a7e"
+    },
+    {
+      "path": "database/profit_report_accounts.sql",
+      "size": 1938,
+      "sha256": "613b30ed9e11b9c972cb433fc3f98a7f90a898ba322021acf41e87fe78ca8af8"
     },
     {
       "path": "database/profit_report_check.sql",
@@ -3512,6 +3532,11 @@
       "sha256": "76793672b73eafda7441782b1b445754a45408680572a6819c8d1575168ce3d5"
     },
     {
+      "path": "supabase/migrations/20261025190000_admin_profit_report.sql",
+      "size": 13818,
+      "sha256": "e4a815465a75a0f29d8672af9a5742d565ef7bf6d04562c8268e21c36fa6ee6e"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 11339,
       "sha256": "583a3c1fb6e00fa71e874483838698567f700a3ce7851ce682363e625836e833"
@@ -3530,6 +3555,16 @@
       "path": "tests/admin-pro-http.test.ts",
       "size": 3352,
       "sha256": "36e5a26e88eb787e59c41f062b1d55ec2119607f62546c89758968374448e4c7"
+    },
+    {
+      "path": "tests/admin-profit-database.test.ts",
+      "size": 12669,
+      "sha256": "772d2bd24314c0f19ea271a17b40bad7198d6817d58151cb10af41509215ce58"
+    },
+    {
+      "path": "tests/admin-profit-engine.test.ts",
+      "size": 30396,
+      "sha256": "cb72a0cdc6a50a761a6a59031b778fcceca256da85a6725b1ba358648247c328"
     },
     {
       "path": "tests/admin-stripe-finance-access.test.ts",
@@ -3778,8 +3813,8 @@
     },
     {
       "path": "tests/cloudflare-scheduled.test.ts",
-      "size": 3451,
-      "sha256": "af3f0d750873564ce35e809bc0f3e788024092cc9cc832394ca397e59566120e"
+      "size": 3863,
+      "sha256": "fe7ec92348aaaf73f98e3d34fc274e9249f5afd7c7f08edc153079b5fcfda71d"
     },
     {
       "path": "tests/database.test.ts",

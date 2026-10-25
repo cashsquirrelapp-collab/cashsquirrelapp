@@ -2238,3 +2238,15 @@ Built on 7742ecb (package 71). SQL first: supabase/migrations/20261025170000_pro
 - Tests: pro-amounts-database.test.ts runs the SQL on PGlite after every earlier billing migration (old amounts before, new orders at the new amounts after, earlier paid orders unchanged, a ฿177 card order goes to paid, ฿159 no longer pays a new order, a drift check against PRO_PRICING); card-renewals.test.ts: a ฿159 renewal keeps renewing at ฿159 and nothing else passes.
 
 **Checks.** Unit tests 801/801; cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## Monthly profit report for the owner (brief "KRAROK AI PROFIT INTELLIGENCE") - 2026-10-25
+
+Built on e42783b (package 72). SQL first: supabase/migrations/20261025190000_admin_profit_report.sql (additive; the owner runs it in the Supabase SQL editor). No screen, price, quota, routing or Stripe change.
+
+**What changes**
+- SQL: cashflow_admin_cost_settings (fixed costs and the dollar rate the owner edits; seeded with domain ฿350/yr, coding tool ฿750/mo, ฿33.5/$), cashflow_admin_reports (one row per month with its delivery state, kept when accounts are deleted later), cashflow_admin_ai_month (read-only AI cost per account for one Bangkok month). Service role only.
+- adminProfitReport.ts: the figures by code in satang and millionths of a dollar: revenue (Stripe balance transactions, per payment fees from Stripe charges, refunds), members (from paid periods), AI cost split into each account's own use and the platform's share (shared cache, failed attempts, the report's own note), per-account contribution (cash basis and service period), fixed costs, operating profit estimate, break-even members, month-over-month without dividing by zero, and COMPLETE / PARTIAL / UNRECONCILED / FAILED per section; unknown stays unknown, never ฿0.
+- adminProfitReportRun.ts + /api/send-admin-profit-report (CRON_SECRET): at 08:00 Bangkok on the 1st it saves last month and sends the totals by LINE to system admins who linked LINE (optional ADMIN_REPORT_EMAILS narrows it); quota checked first; one try a day, retried on the 2nd and 3rd; never sent twice; a stable LINE retry key. The 1–3 sentence note is Gemini's from the computed facts only (any number not in the facts → the code's note), its cost recorded as platform overhead.
+- database/profit_report_accounts.sql: read-only per-account view for the owner. database/ai_learning_report.sql: rows without routing are no longer counted as routed.
+
+**Checks.** Unit tests 819/819 (new: admin-profit-engine 15, admin-profit-database 3 on PGlite); cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
