@@ -8,7 +8,11 @@ import { createApp } from '../backend/src/http/app.js';
 import { stripe } from '../backend/src/config/stripe.js';
 import { seal } from '../backend/src/security/cookies.js';
 import { PREPAID_OFFER, prepaidLookup, prepaidMetadata } from '../backend/src/services/prepaidPlans.js';
-import { PRO_PERIODS, PRO_PRICING } from '../shared/proPricing.js';
+import { PRO_CHECKOUT_OPEN, PRO_PERIODS, proPricing } from '../shared/proPricing.js';
+const PRO_PRICING = proPricing();
+// Plan amounts in satang from the price file (2026-10-25: the card fee moved onto the price, ฿895 and ฿1,562).
+const HALF_YEAR = PRO_PRICING.halfYear.total * 100;
+const YEAR = PRO_PRICING.year.total * 100;
 
 Object.assign(process.env, {
   VERCEL:'1', APP_URL:'http://127.0.0.1:3000', SUPABASE_URL:'https://prepaid.supabase.co',
@@ -24,7 +28,11 @@ let server:Server, origin:string, order:any, session:any, creates=0, fulfilled:a
 let banned=false; let intent:any=null, intentCreates=0, qrCancelFails=false; let unknownQr=false; let qrBodies:any[]=[];
 let cardCycles:any[]=[], cardStates:any[]=[], cardSubscription:any=null;
 const rateKeys: Array<{p_key:string;p_limit:number}>=[];
+// Owner, 2026-10-25: only the month is on sale for now. These tests check the 6-month and yearly flows for when they
+// reopen (and for orders already made), so they open every period; the closed-period test closes them again.
+const SOLD_NOW={...PRO_CHECKOUT_OPEN};
 before(async()=>{
+  Object.assign(PRO_CHECKOUT_OPEN,{month:true,halfYear:true,year:true});
   globalThis.fetch=async(input,init)=>{
     const url=String(input);
     if(!url.startsWith('https://prepaid.supabase.co/')) return realFetch(input,init);
@@ -109,6 +117,7 @@ before(async()=>{
   origin=`http://127.0.0.1:${(server.address() as any).port}`;
 });
 after(async()=>{
+  Object.assign(PRO_CHECKOUT_OPEN, SOLD_NOW);
   globalThis.fetch=realFetch;
   await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));
 });
@@ -211,9 +220,20 @@ test('switching plan/method automatically expires the old unpaid session; same c
   const response=await checkout({action:'promptpay_checkout',period:'year'});
   assert.equal(response.status,200,await response.clone().text());
   assert.equal(expires,before+1);assert.notEqual(order.id,oldId);
-  assert.equal(order.months,12);assert.equal(order.amount,149000);
+  assert.equal(order.months,12);assert.equal(order.amount,YEAR);
   const count=creates;assert.equal((await checkout({action:'promptpay_checkout',period:'year'})).status,200);
   assert.equal(creates,count);assert.equal(expires,before+1);
+});
+test('an unpaid order made at a price that has since changed (1 Dec 2569 at midnight) is replaced, not stuck',async()=>{
+  order=null;session=null;expirationFails=false;
+  await checkout({action:'checkout',period:'month'});
+  const before=expires;const oldId=order.id;
+  order.price_id='price_month_until_30_nov'; // the order was reserved at the promotion's price
+  const response=await checkout({action:'checkout',period:'month'});
+  assert.equal(response.status,200,await response.clone().text());
+  assert.equal(expires,before+1,'the old unpaid session is expired');
+  assert.notEqual(order.id,oldId);
+  assert.equal(order.price_id,'price_month');
 });
 test('legacy hosted sessions are recovered and expired before creating an inline session',async()=>{
   order=null;session=null;expirationFails=false;
@@ -329,24 +349,24 @@ test('signed recurring invoice checks card payment evidence; failed renewal neve
  try {
   const r=await checkout({action:'checkout',period:'halfYear',autoRenew:true,saveCard:true,consentVersion:CARD_CONSENT_VERSION});assert.equal(r.status,200,await r.clone().text());
   const start=Math.floor(Date.now()/1000),end=start+183*86400;
-  const price:any={id:order.price_id,product:'prod_VTbexQEI6jrH8r',active:true,livemode:false,currency:'thb',unit_amount:84900,type:'recurring',billing_scheme:'per_unit',lookup_key:recurringLookup('halfYear'),recurring:{interval:'month',interval_count:6,usage_type:'licensed'}};
+  const price:any={id:order.price_id,product:'prod_VTbexQEI6jrH8r',active:true,livemode:false,currency:'thb',unit_amount:HALF_YEAR,type:'recurring',billing_scheme:'per_unit',lookup_key:recurringLookup('halfYear'),recurring:{interval:'month',interval_count:6,usage_type:'licensed'}};
   cardSubscription={id:'sub_card',livemode:false,customer:order.customer_id,collection_method:'charge_automatically',discounts:[],status:'active',created:start,cancel_at_period_end:false,metadata:order.request.subscription_data.metadata,items:{has_more:false,data:[{price,quantity:1,current_period_end:end}]}};
   session={...session,status:'complete',subscription:'sub_card'};
-  const invoice:any={id:'in_card',livemode:false,customer:order.customer_id,currency:'thb',status:'open',collection_method:'charge_automatically',billing_reason:'subscription_cycle',parent:{subscription_details:{subscription:'sub_card',metadata:cardSubscription.metadata}},total:84900,amount_due:84900,amount_paid:0,amount_paid_off_stripe:0,amount_remaining:84900,discounts:[],lines:{has_more:false,data:[{quantity:1,amount:84900,currency:'thb',pricing:{price_details:{price:order.price_id}},parent:{subscription_item_details:{subscription:'sub_card',proration:false}},period:{start,end}}]}};
-  const pi:any={id:'pi_card',livemode:false,status:'succeeded',amount:84900,amount_received:84900,amount_capturable:0,currency:'thb',customer:order.customer_id,metadata:{},payment_method:{type:'card'},latest_charge:{id:'ch_card',payment_intent:'pi_card',paid:true,status:'succeeded',livemode:false,amount:84900,currency:'thb',customer:order.customer_id,payment_method_details:{type:'card'},amount_refunded:0,refunded:false,disputed:false}};
+  const invoice:any={id:'in_card',livemode:false,customer:order.customer_id,currency:'thb',status:'open',collection_method:'charge_automatically',billing_reason:'subscription_cycle',parent:{subscription_details:{subscription:'sub_card',metadata:cardSubscription.metadata}},total:HALF_YEAR,amount_due:HALF_YEAR,amount_paid:0,amount_paid_off_stripe:0,amount_remaining:HALF_YEAR,discounts:[],lines:{has_more:false,data:[{quantity:1,amount:HALF_YEAR,currency:'thb',pricing:{price_details:{price:order.price_id}},parent:{subscription_item_details:{subscription:'sub_card',proration:false}},period:{start,end}}]}};
+  const pi:any={id:'pi_card',livemode:false,status:'succeeded',amount:HALF_YEAR,amount_received:HALF_YEAR,amount_capturable:0,currency:'thb',customer:order.customer_id,metadata:{},payment_method:{type:'card'},latest_charge:{id:'ch_card',payment_intent:'pi_card',paid:true,status:'succeeded',livemode:false,amount:HALF_YEAR,currency:'thb',customer:order.customer_id,payment_method_details:{type:'card'},amount_refunded:0,refunded:false,disputed:false}};
   stripe.subscriptions.retrieve=(async()=>cardSubscription) as any;
   stripe.invoices.retrieve=(async()=>invoice) as any;
-  stripe.invoicePayments.list=(async()=>({has_more:false,data:[{livemode:false,currency:'thb',amount_paid:84900,invoice:'in_card',payment:{type:'payment_intent',payment_intent:'pi_card'}}]})) as any;
+  stripe.invoicePayments.list=(async()=>({has_more:false,data:[{livemode:false,currency:'thb',amount_paid:HALF_YEAR,invoice:'in_card',payment:{type:'payment_intent',payment_intent:'pi_card'}}]})) as any;
   stripe.paymentIntents.retrieve=(async()=>pi) as any;
   const send=async(type:string,object:any)=>{
    const raw=JSON.stringify({id:'evt_card',type,livemode:false,data:{object}});
    return realFetch(origin+'/api/stripe-webhook',{method:'POST',headers:{'stripe-signature':Stripe.webhooks.generateTestHeaderString({payload:raw,secret:'whsec_test'}),'content-type':'application/json'},body:raw});
   };
   assert.equal((await send('invoice.payment_failed',{id:'in_card'})).status,200);assert.equal(cardCycles.length,0);
-  invoice.status='paid';invoice.amount_paid=84900;invoice.amount_remaining=0;
+  invoice.status='paid';invoice.amount_paid=HALF_YEAR;invoice.amount_remaining=0;
   pi.amount_received=15900;assert.equal((await send('invoice.paid',{id:'in_card'})).status,500);assert.equal(cardCycles.length,0);
-  pi.amount_received=84900;assert.equal((await send('invoice.paid',{id:'in_card'})).status,200);
-  assert.equal(cardCycles[0].p_user_id,user.id);assert.equal(cardCycles[0].p_amount,84900);assert.equal(cardCycles[0].p_end,new Date(end*1000).toISOString());
+  pi.amount_received=HALF_YEAR;assert.equal((await send('invoice.paid',{id:'in_card'})).status,200);
+  assert.equal(cardCycles[0].p_user_id,user.id);assert.equal(cardCycles[0].p_amount,HALF_YEAR);assert.equal(cardCycles[0].p_end,new Date(end*1000).toISOString());
   pi.latest_charge.amount_refunded=1;
   assert.equal((await send('charge.refunded',{payment_intent:'pi_card'})).status,200);assert.equal(cardCycles.at(-1).p_refunded,true);
   let updates=0;stripe.subscriptions.update=(async(id:string,args:any)=>{assert.equal(id,'sub_card');assert.deepEqual(args,{cancel_at_period_end:true});updates++;cardSubscription.cancel_at_period_end=true;return cardSubscription;}) as any;
@@ -391,4 +411,22 @@ test('successful canonical expiration needs no second Stripe read and never fulf
     assert.equal((await checkout({action:'cancel_checkout',order_id:order.id})).status,200);
     assert.equal(reads,1);assert.equal(order.status,'expired');assert.equal(fulfilled.length,0);
   } finally {stripe.checkout.sessions.retrieve=retrieve;}
+});
+
+test('while only the month is on sale, 6 months and a year are refused before any order or payment is made',async()=>{
+  Object.assign(PRO_CHECKOUT_OPEN,SOLD_NOW);
+  try{
+    assert.deepEqual(PRO_CHECKOUT_OPEN,{month:true,halfYear:false,year:false});
+    order=null;session=null;intent=null;
+    const before={creates,intentCreates};
+    for(const period of ['halfYear','year'] as const){
+      for(const body of [{action:'checkout',period},{action:'promptpay_checkout',period},{action:'checkout',period,autoRenew:true,saveCard:true,consentVersion:CARD_CONSENT_VERSION}]){
+        const response=await checkout(body);
+        assert.equal(response.status,409,`${period} ${body.action}`);
+        assert.equal(((await response.json()) as any).error,'ตอนนี้เปิดรับเฉพาะแพ็กเกจรายเดือน');
+      }
+    }
+    assert.deepEqual({creates,intentCreates},before,'no Stripe session or PaymentIntent');
+    assert.equal(order,null,'no order reserved');
+  } finally { Object.assign(PRO_CHECKOUT_OPEN,{month:true,halfYear:true,year:true}); }
 });

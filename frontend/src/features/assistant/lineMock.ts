@@ -18,7 +18,8 @@ export const LINE_THEMES = {
 export type LineTheme = keyof typeof LINE_THEMES;
 
 /** One category per card: chip label, band and the official mascot pose (/line/mascot-v6-*.png). */
-export type LineCategory = 'reminder' | 'urgent' | 'received' | 'report' | 'working';
+export type { LineBlock, LineCardData, LineCategory, LineItem, LineRow, LineTone } from '../../../../shared/lineInbox';
+import type { LineCardData, LineCategory, LineItem } from '../../../../shared/lineInbox';
 export const LINE_CATEGORIES: Record<LineCategory, { label: string; theme: LineTheme; icon: string; pose: string }> = {
   reminder: { label: T("แจ้งเตือน"), theme: 'brand', icon: 'reminder', pose: 'reminder' },
   urgent: { label: T("แจ้งเตือน"), theme: 'alert', icon: 'urgent', pose: 'urgent' },
@@ -27,26 +28,6 @@ export const LINE_CATEGORIES: Record<LineCategory, { label: string; theme: LineT
   working: { label: T("งาน"), theme: 'brand', icon: 'working', pose: 'working' },
 };
 
-export type LineTone = 'text' | 'muted' | 'positive' | 'negative' | 'warning';
-export type LineRow = { label: string; value: string; tone?: LineTone; caption?: string; strong?: boolean };
-/** A job in a reminder or list card; `due` buttons are the real ได้รับแล้ว / ยังไม่ได้ / ได้ไม่ครบ. */
-export type LineItem = { id: string; name: string; client: string; amount: string; meta?: string; metaTone?: LineTone; due?: boolean };
-export type LineBlock =
-  | { kind: 'section'; title: string; tone: LineTone; items: LineItem[] }
-  | { kind: 'items'; items: LineItem[] }
-  | { kind: 'rows'; rows: LineRow[] }
-  | { kind: 'divider' };
-export type LineCardData = {
-  category: LineCategory;
-  title: string;
-  subtitle?: string;
-  metric?: { label: string; value: string; note?: string };
-  blocks: LineBlock[];
-  note?: string;
-  footer?: { label: string; path: string };
-  /** The line LINE shows in its push banner and chat list (the card's altText). */
-  alt: string;
-};
 export type LineDueAction = 'paid' | 'later' | 'partial';
 
 const DAY = 86_400_000;

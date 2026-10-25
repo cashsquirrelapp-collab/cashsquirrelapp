@@ -193,6 +193,10 @@
 .sl-plan-price { display: flex; align-items: baseline; gap: 6px; margin: 10px 0 22px; }
 .sl-plan-price strong { font-size: 44px; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .sl-plan-price span { color: var(--sl-muted); }
+.sl-plan-ends { margin: -14px 0 22px; font-size: 13.5px; line-height: 1.5; color: var(--sl-muted); }
+/* The payment fee under the price (owner, 2026-10-25); the promotion notice sits 4px under it, or the list 22px. */
+.sl-plan-fee { margin: -14px 0 22px; font-size: 13.5px; line-height: 1.5; color: var(--sl-muted); }
+.sl-plan-fee + .sl-plan-ends { margin-top: -18px; }
 .sl-plan ul { display: grid; gap: 12px; margin-bottom: 28px; flex: 1; }
 .sl-plan li { position: relative; padding-left: 26px; font-size: 15px; line-height: 1.5; }
 .sl-plan li::before { content: ""; position: absolute; left: 0; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--sl-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4.5 8.2 2.2 2.2 4.8-4.8' fill='none' stroke='%23C24A16' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat; }

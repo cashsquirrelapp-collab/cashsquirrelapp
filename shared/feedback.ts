@@ -68,7 +68,7 @@ export const feedbackBoxSchema = z.enum(['waiting', 'replied', 'resolved']);
 export const feedbackKindSchema = z.enum(['bug', 'idea', 'general']);
 export type FeedbackBox = z.infer<typeof feedbackBoxSchema>;
 export type FeedbackKind = z.infer<typeof feedbackKindSchema>;
-/** Same rule as the admin accounts list: admin grant, paid until a date, 14-day trial, revoked or none. */
+/** Same rule as the admin accounts list: admin grant, paid until a date, free trial (shared/trial.ts), revoked or none. */
 export type FeedbackOwnerPlan = 'admin' | 'paid' | 'trial' | 'revoked' | 'none';
 
 export interface FeedbackAdminThread extends FeedbackThread {

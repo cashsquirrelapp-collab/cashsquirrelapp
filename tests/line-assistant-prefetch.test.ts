@@ -67,7 +67,7 @@ test('a paused account is stopped before Pro is considered, with the same messag
 test('an expired account gets the renewal prompt, not the data', async () => {
   const deps = dependencies([], { pro: false });
   const reply = await handleAssistantMessage('Uline', 'สรุปเดือนนี้', 'op-4', deps, prefetchLinkedContext('Uline', deps));
-  assert.match(text(reply), /Pro ของคุณหมดอายุ/);
+  assert.match(text(reply), /Pro ของบัญชีนี้หมดอายุ/);
 });
 
 test('a failed user lookup is reported as a temporary problem, never as "not linked"', async () => {

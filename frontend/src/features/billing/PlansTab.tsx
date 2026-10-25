@@ -7,7 +7,9 @@ import { PlanMascot } from './PlanMascot';
 import './plans.css';
 import { dateLocale } from '../../utils';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { PRO_CHECKOUT_OPEN, PRO_PERIODS, formatBaht, proPriceDetails, type ProPeriod } from '../../../../shared/proPricing';
+import { PRO_CHECKOUT_OPEN, PRO_PERIODS_ON_SALE, formatBaht, proPriceDetails, type ProPeriod } from '../../../../shared/proPricing';
+import { proTokensOnSale } from '../../../../shared/proTokens';
+import { MonthPromoNotice } from './promoNotice';
 
 import { tr } from '../../i18n/tr';
 // The membership page (owner's briefs, 2026-10-20): Pro only, one card, three billing periods at the
@@ -46,14 +48,16 @@ interface PlansTabProps {
 
 type BillingPeriod = ProPeriod;
 type LongPeriod = Exclude<BillingPeriod, 'month'>;
-const BILLING_PERIODS = PRO_PERIODS;
+// Only the periods on sale (owner, 2026-10-25: monthly only for now); with one, there is no switch.
+const BILLING_PERIODS = PRO_PERIODS_ON_SALE;
 
 // What Pro adds that works today; checked on 2026-10-20 against production: the LINE chat records
 // jobs and its menu shows money owed, work in progress and the month's summary (Pro or trial, with a
 // linked LINE account); the daily 08:00 digest of money due goes by email and LINE; documents are
 // unlimited for Pro. The AI chat has no API key on production yet, so it is marked "เร็ว ๆ นี้".
-const PRO_BENEFITS: { key: string; icon: LucideIcon; soon?: string }[] = [
-  { key: 'Line', icon: MessageCircle, soon: 'plans.benefitLineSoon' },
+// The AI row shows the selected plan's tokens a month (shared/proTokens.ts, owner 2026-10-25), before any payment button.
+const PRO_BENEFITS: { key: string; icon: LucideIcon; soon?: string; tokens?: boolean }[] = [
+  { key: 'Line', icon: MessageCircle, tokens: true },
   { key: 'Alerts', icon: BellRing },
   { key: 'Documents', icon: FileText },
   { key: 'Summary', icon: BarChart3 },
@@ -124,21 +128,25 @@ export const PlansTab: React.FC<PlansTabProps> = ({
 
   // The promotion price is the largest figure on the card, with the regular price (฿249 a month, times
   // the months) struck beside it. Under it: the saving, and for 6 months and a year the monthly average,
-  // so a long period never reads as a monthly charge.
+  // so a long period never reads as a monthly charge; then the payment fee and the amount to pay, before any
+  // payment button (owner, 2026-10-25: "ราคาตั้ง 159 แต่จ่ายจริงแค่บอกค่าธรรมเนียม แจ้งรายละเอียดก่อนจ่าย").
   const priceOf = (option: BillingPeriod) => {
     const price = proPriceDetails(option);
     return (
       <div className="text-center">
         <p className="plan-price-row">
-          <s className="plan-was"><span className="sr-only">{t('plans.regularPrice')} </span>{formatBaht(price.regular)}</s>
-          <span className="plan-figure font-mono"><span className="plan-currency">{tr("฿")}</span>{price.total.toLocaleString('en-US')}</span>
+          {price.saving > 0 && <s className="plan-was"><span className="sr-only">{t('plans.regularPrice')} </span>{formatBaht(price.regular)}</s>}
+          <span className="plan-figure font-mono"><span className="plan-currency">{tr("฿")}</span>{price.price.toLocaleString('en-US')}</span>
           <span className="plan-per">{t(`plans.${option}PerShort`)}</span>
         </p>
-        <p className="plan-sub">
+        {/* From 1 Dec 2569 a month is the regular price: no promotion line, no struck price. */}
+        {price.saving > 0 && <p className="plan-sub">
           {option === 'month'
             ? <><span className="plan-promo">{t('plans.promoLabel')}</span><span aria-hidden="true"> · </span>{t('plans.savingPerMonth', { amount: formatBaht(price.saving), pct: String(price.savingPct) })}</>
             : <><span className="plan-promo">{t('plans.averagePerMonthShort', { price: formatBaht(price.average, 2) })}</span><span aria-hidden="true"> · </span>{t('plans.savingText', { amount: formatBaht(price.saving), pct: String(price.savingPct) })}</>}
-        </p>
+        </p>}
+        <p className="plan-sub plan-fee" data-testid="plan-fee">{t('plans.feeAdded', { fee: formatBaht(price.fee) })}{' '}<span aria-hidden="true">·</span>{' '}<span className="plan-fee-total">{t('plans.payTotal', { total: formatBaht(price.total) })}</span></p>
+        {option === 'month' && <MonthPromoNotice className="plan-sub plan-ends" testId="plan-promo-ends" />}
       </div>
     );
   };
@@ -173,7 +181,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
       <PageHeader page="plans" />
 
       <section className="plan-page mx-auto mt-6 max-w-[820px] lg:mt-4" aria-labelledby="pro-plan-title">
-        <div className="flex justify-center">
+        {BILLING_PERIODS.length > 1 && <div className="flex justify-center">
           <div role="radiogroup" aria-label={t('plans.periodSwitchLabel')} onKeyDown={onPeriodKey} data-testid="period-switch"
             className="plan-switch relative grid w-full max-w-[400px] grid-cols-3 gap-1 rounded-full p-1">
             {BILLING_PERIODS.map(option => {
@@ -193,7 +201,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
               );
             })}
           </div>
-        </div>
+        </div>}
 
         {/* Seen in this order: the squirrel, the price, what Pro does, the button. On a phone the three
             parts stack; on a computer or iPad the benefits sit beside the price and the button, so the
@@ -223,13 +231,14 @@ export const PlansTab: React.FC<PlansTabProps> = ({
 
             <div className="plan-benefits-wrap">
               <ul className="plan-benefits" role="list" aria-label={t('plans.proFeaturesTitle')}>
-                {PRO_BENEFITS.map(({ key, icon: Icon, soon }) => (
+                {PRO_BENEFITS.map(({ key, icon: Icon, soon, tokens }) => (
                   <li key={key} className="flex items-start gap-3.5">
                     <span className="plan-benefit-icon flex shrink-0 items-center justify-center rounded-full" aria-hidden><Icon className="h-[18px] w-[18px]" strokeWidth={1.75} /></span>
                     <span className="min-w-0">
                       <span className="plan-benefit-title block font-semibold text-brand-text">{t(`plans.benefit${key}Title`)}</span>
                       <span className="plan-benefit-desc mt-0.5 block leading-relaxed text-brand-muted">{t(`plans.benefit${key}Desc`)}</span>
                       {soon && <span className="mt-1 inline-flex flex-wrap items-center gap-1.5 text-[13px] text-brand-muted"><span className="rounded-full bg-brand-faint px-2 py-px text-[11.5px] font-semibold dark:bg-neutral-800">{t('plans.periodComingSoon')}</span>{t(soon)}</span>}
+                      {tokens && <span className="plan-benefit-desc mt-1 block leading-relaxed text-brand-muted" data-testid="plan-ai-tokens"><b className="font-semibold text-brand-text">{t('plans.aiTokensChip', { tokens: proTokensOnSale(period).toLocaleString('en-US') })}</b>{' '}{t('plans.aiTokensNote')}</span>}
                     </span>
                   </li>
                 ))}

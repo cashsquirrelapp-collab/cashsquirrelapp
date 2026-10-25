@@ -250,6 +250,8 @@ export type DocumentType = 'quotation' | 'invoice' | 'receipt' | 'taxInvoice' | 
 
 export interface Invoice {
   id: string;
+  /** Assistant-prepared documents stay unsigned, including when current profile branding is applied. */
+  assistantDraft?: boolean;
   documentType: DocumentType;
   documentNo: string;
   createdDate: string; // YYYY-MM-DD

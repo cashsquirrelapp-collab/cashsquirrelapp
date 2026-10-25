@@ -39,11 +39,11 @@ async function openCard(page: Page) {
     if (route.request().method() === 'GET') return route.fulfill({ json: { checkout_ready: true, subscription: free } });
     const body = route.request().postDataJSON(); posts.push(body); attempt++;
     return route.fulfill({ json: { destination: 'embedded', customCard: true, autoRenew: body.autoRenew, saveCard: body.saveCard, period: body.period,
-      amount: 15900, months: 1, method: 'card', orderId: `order-${attempt}`, clientSecret: `cs_choice_${attempt}`, publishableKey: 'pk_test_choice', expiresAt: new Date(Date.now() + 45 * 60_000).toISOString() } });
+      amount: 17700, months: 1, method: 'card', orderId: `order-${attempt}`, clientSecret: `cs_choice_${attempt}`, publishableKey: 'pk_test_choice', expiresAt: new Date(Date.now() + 45 * 60_000).toISOString() } });
   });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/plans');
-  await page.getByTestId('pro-card').getByRole('button', { name: 'สมัคร Pro รายเดือน ฿159', exact: true }).click();
+  await page.getByTestId('pro-card').getByRole('button', { name: 'สมัคร Pro รายเดือน ฿177', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'ชำระด้วยบัตร' });
   await expect(dialog.getByLabel('หมายเลขบัตรทดสอบ')).toBeVisible();
   return { dialog, posts };

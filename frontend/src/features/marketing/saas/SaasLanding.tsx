@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import './saas.css';
-import { PRO_PRICING, PRO_REGULAR_MONTHLY, formatBaht } from '../../../../../shared/proPricing';
+import { PRO_CHECKOUT_OPEN, PRO_REGULAR_MONTHLY, formatBaht, proMonthPromoRunning, proPriceParts } from '../../../../../shared/proPricing';
+import { MonthPromoNotice } from '../../billing/promoNotice';
 
 import { tr, trc, T } from '../../../i18n/tr';
 // Landing page after the owner's reference (2026-10-20): split hero with the real desktop and phone
@@ -300,9 +301,12 @@ export default function SaasLanding() {
               </article>
               <article className="sl-plan is-pro">
                 <p className="sl-plan-name">PRO</p>
-                <p className="sl-plan-price"><s className="sl-plan-was"><span className="sr-only">{tr("ราคาปกติ")}{' '}</span>{formatBaht(PRO_REGULAR_MONTHLY)}</s><strong>{formatBaht(PRO_PRICING.month.total)}</strong><span>{tr("/ เดือน")}</span></p>
+                <p className="sl-plan-price">{proMonthPromoRunning() && <s className="sl-plan-was"><span className="sr-only">{tr("ราคาปกติ")}{' '}</span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>}<strong>{formatBaht(proPriceParts('month').price)}</strong><span>{tr("/ เดือน")}</span></p>
+                <p className="sl-plan-fee">{tr("+ ค่าธรรมเนียมชำระเงิน {0} · ยอดชำระ {1}", formatBaht(proPriceParts('month').fee), formatBaht(proPriceParts('month').total))}</p>
+                <MonthPromoNotice className="sl-plan-ends" />
                 <ul>{PRO.map(item => <li key={item.text} className={item.soon ? 'is-soon' : ''}>{tr(item.text)}{item.soon && <em>{tr(SOON)}</em>}</li>)}</ul>
-                <p>{tr("จ่ายครั้งเดียว · 6 เดือน {0} · 1 ปี {1}", formatBaht(PRO_PRICING.halfYear.total), formatBaht(PRO_PRICING.year.total))}</p>
+                {/* 6 months and a year are not on sale for now (owner, 2026-10-25); the line comes back when they are. */}
+                {PRO_CHECKOUT_OPEN.halfYear && PRO_CHECKOUT_OPEN.year && <p>{tr("จ่ายครั้งเดียว · 6 เดือน {0} · 1 ปี {1} · บวกค่าธรรมเนียมชำระเงิน", formatBaht(proPriceParts('halfYear').price), formatBaht(proPriceParts('year').price))}</p>}
                 <a className="sl-btn is-primary is-block" href="/plans">{tr("เลือกแพ็กเกจ Pro")}{' '}<ArrowRight size={16} /></a>
               </article>
             </div>

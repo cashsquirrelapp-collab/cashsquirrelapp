@@ -1,3 +1,5 @@
+import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
+import { inFreeTrial } from '../../../shared/trial.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { insertRecord, patchPrivate } from '../repositories/accounts.js';
 import { validateChanges } from '../../../shared/validation.js';
@@ -14,7 +16,8 @@ import { listVaultFiles } from './vault.js';
 import { lineDraftKey, lineDraftOperationId, buildLineDraftReview } from './lineDraftReview.js';
 import { explicitLineAiText, LINE_JOB_EXAMPLES } from './lineEntryRouting.js';
 import { isActiveLineDraft, lineDraftResolution } from './lineDraftState.js';
-import { buildLineFeatureShortcut, isLineWhtShortcut } from './lineFeatureShortcuts.js';
+import { buildLineFeatureShortcut, isLineWhtShortcut, lineShortcutArea } from './lineFeatureShortcuts.js';
+import { lineAreaOpen, NOT_OPEN_TEXT } from './lineLaunch.js';
 import { parseLineDocumentRequest, findLineDocuments, buildLineDocumentMessages } from './lineDocuments.js';
 import { buildLineCashSummary, lineCashPosition, type LineCashPosition } from './lineCashSummary.js';
 import { monthlyProfitSummary } from '../../../shared/monthlySummary.js';
@@ -83,13 +86,11 @@ interface NotifSettingsRow {
 const CHAT_HISTORY_TTL_MS = 20 * 60 * 1000;
 const CHAT_HISTORY_MAX_TURNS = 3;
 
-// Same trial length and Pro-check shape as api/send-overdue-digest.ts's isPro -- LINE chat is a
+// Same trial rule (shared/trial.ts) and Pro-check shape as api/send-overdue-digest.ts's isPro -- LINE chat is a
 // Pro-only feature (per PlansTab's feature list), so once neither the free trial nor a paid
 // period covers this user anymore, handleAssistantMessageInner short-circuits to a renewal
-// prompt instead of processing the message. Duplicated rather than shared: this codebase already
-// keeps FREE_TRIAL_DAYS as an independent constant per file (App.tsx, send-overdue-digest.ts,
-// send-monthly-report.ts) since there's no server/client-shared config module.
-const FREE_TRIAL_DAYS = 14;
+// prompt instead of processing the message. The trial length comes from shared/trial.ts, the one rule
+// every check uses.
 
 export async function isProUser(userId: string): Promise<boolean> {
   const [{ data: authUser, error: authErr }, { data: sub, error: subErr }] = await Promise.all([
@@ -104,7 +105,7 @@ export async function isProUser(userId: string): Promise<boolean> {
 
   const createdAt = authUser?.user?.created_at;
   const isAdminRevoked = ['admin_revoked', 'admin_removed'].includes(sub?.plan || '');
-  const isInFreeTrial = !isAdminRevoked && !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000 > Date.now();
+  const isInFreeTrial = !isAdminRevoked && inFreeTrial(createdAt);
 
   const isPaidActive = sub?.status === 'active' && (
     sub.plan === 'admin_grant' ||
@@ -124,7 +125,7 @@ function buildRenewalMessage(user: UserRow): LineMessage {
   const url = new URL('/plans', appOrigin());
   return {
     type: 'text',
-    text: `แพ็กเกจ Pro ของคุณหมดอายุแล้วครับ 🥲 การคุยกับผมผ่าน LINE เป็นสิทธิ์ของสมาชิก Pro น่ะครับ\n\nต่ออายุง่ายๆ กดลิงก์นี้ได้เลย พอจ่ายเสร็จกลับมาคุยกับผมต่อได้ทันที: ${url.toString()}`,
+    text: `แพ็กเกจ Pro ของบัญชีนี้หมดอายุแล้วครับ การใช้งานเลขาผ่าน LINE เป็นสิทธิ์ของสมาชิก Pro\n\nต่ออายุได้ที่ลิงก์นี้ เมื่อชำระเงินแล้วกลับมาใช้งานต่อได้ทันที: ${url.toString()}`,
   };
 }
 
@@ -199,7 +200,7 @@ async function callWithRetry<T>(fn: () => Promise<T>, attempt = 0): Promise<T> {
   }
 }
 
-interface DataSnapshot {
+export interface DataSnapshot {
   cash: LineCashPosition;
   wip: { name: string; client: string; value: number }[];
   unpaid: { name: string; client: string; pending: number; dueDate: string | null; dueText: string }[];
@@ -244,7 +245,7 @@ function addMonthsToKey(monthKey: string, n: number): string {
 
 // All the deterministic math lives here in plain JS -- matches the app's own formulas exactly
 // (via computeMonthlySummary), so answers can't drift from what the app itself shows.
-function buildDataSnapshot(user: UserRow): DataSnapshot {
+export function buildDataSnapshot(user: UserRow): DataSnapshot {
   const jobs = user.jobs || [];
   const statuses = user.statuses || [];
   const isUnpaidBehavior = (statusId: string) => statusBehavior(statuses, statusId) !== 'done';
@@ -607,7 +608,8 @@ export function buildUnpaidJobsMessage(snapshot: Pick<DataSnapshot, 'unpaid' | '
 export function buildMonthlySummaryMessage(s: MonthlySummaryWithMonth): LineMessage {
   return buildLineCashSummary({
     title: 'สรุปเดือนนี้', monthLabel: formatMonthKey(s.monthKey), summary: s,
-    footer: lineAppLink('/report', 'ดูรายงานฉบับเต็ม'),
+    // The reports page is not open to every account yet; until it is, the full figures are on the overview.
+    footer: isPhaseOneFeatureAvailable('report', false) ? lineAppLink('/report', 'ดูรายงานฉบับเต็ม') : lineAppLink('/dashboard', 'ดูภาพรวมในแอป'),
   });
 }
 
@@ -673,7 +675,7 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => LineMessage> = {
 // up below every reply) and made this the longest, most wall-of-text-looking message in the bot.
 function buildHelpText(name?: string): string {
   return [
-    `🐿️ สวัสดี${name ? `ครับคุณ${name}` : 'ครับ'}!`,
+    `สวัสดี${name ? `ครับคุณ${name}` : 'ครับ'}`,
     `บันทึกงานได้โดยพิมพ์ เช่น “${LINE_JOB_EXAMPLES[0]}” แล้วตรวจรายการก่อนยืนยันครับ หากต้องการคุยกับ AI ให้ขึ้นต้นด้วย “ถาม AI”`,
   ].join('\n\n');
 }
@@ -811,7 +813,7 @@ async function markNameAsked(user: UserRow): Promise<void> {
 async function appendNameAskIfNeeded(user: UserRow, knowsName: boolean, alreadyAsked: boolean, replyText: string): Promise<string> {
   if (knowsName || alreadyAsked) return replyText;
   await markNameAsked(user);
-  return `${replyText}\n\nป.ล. เรียกคุณว่าอะไรดีครับ พิมพ์ชื่อมาบอกได้เลย จะได้จำไว้เรียกทุกครั้งเลยครับ 🐿️`;
+  return `${replyText}\n\nขอทราบชื่อที่ให้เรียกได้ไหมครับ พิมพ์ชื่อมาได้เลย ครั้งต่อไปจะเรียกตามนั้นครับ`;
 }
 
 // Best-effort, same mutate-local-on-success pattern as the other notif_settings writers above --
@@ -1104,7 +1106,19 @@ export interface LineAssistantDependencies {
   findLineDocuments?: typeof findLineDocuments;
   handleDueAction?: typeof handleDueAction;
   handleDuePartialText?: typeof handleDuePartialText;
+  /** Whether a not-yet-launched area (document vault, 50 ทวิ) is open to this account in LINE; tests replace it. */
+  lineAreaOpen?: typeof lineAreaOpen;
+  /** เลขากระรอก (ai/lineBridge.ts); tests replace it. null = the real เลขา is not on for this account. */
+  assistantAnswer?: (user: UserRow, text: string, history: { role: 'user' | 'assistant'; text: string }[]) => Promise<{ messages: LineMessage[]; text: string } | null>;
+  assistantCommand?: (user: UserRow, command: { action: 'confirm' | 'cancel'; proposalId: string }) => Promise<LineMessage[]>;
 }
+
+// Loaded when first needed: the AI modules import this file (buildDataSnapshot), so a static import would be circular.
+const lineAssistantAnswer: NonNullable<LineAssistantDependencies['assistantAnswer']> = async (user, text, history) =>
+  (await import('../ai/lineBridge.js')).lineAssistantAnswer(user, text, history);
+const lineAssistantCommand: NonNullable<LineAssistantDependencies['assistantCommand']> = async (user, command) =>
+  (await import('../ai/lineBridge.js')).lineAssistantCommand(user, command);
+const LINE_AI_COMMAND = /^(ยืนยัน|ยกเลิก)รายการเลขา (p_[0-9a-f-]{36})$/;
 
 const defaultLineAssistantDependencies: LineAssistantDependencies = {
   findUserByLineId,
@@ -1204,6 +1218,16 @@ async function handleAssistantMessageInner(
   }
 
   const trimmed = text.trim();
+  // ยืนยัน / ยกเลิก on a เลขากระรอก confirmation card (the postback ai:confirm|cancel:<id>).
+  const aiCommand = LINE_AI_COMMAND.exec(trimmed);
+  if (aiCommand) {
+    try {
+      return await (dependencies.assistantCommand ?? lineAssistantCommand)(user, { action: aiCommand[1] === 'ยืนยัน' ? 'confirm' : 'cancel', proposalId: aiCommand[2] });
+    } catch {
+      console.error('line-assistant: confirming an AI proposal failed');
+      return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองกดยืนยันอีกครั้งนะครับ' };
+    }
+  }
   // The 08:00 reminder's payment buttons, and the amount typed after "ได้ไม่ครบ" (owner, 2026-10-22).
   // Deterministic: recorded without the model, after the same account and Pro checks as every message.
   const dueAction = decodeDueAction(trimmed);
@@ -1221,12 +1245,16 @@ async function handleAssistantMessageInner(
       return buildLineDocumentMessages(documentRequest);
     }
   }
+  // The document vault and 50 ทวิ are not on the website for ordinary accounts yet: LINE does not offer them either.
+  const shortcutArea = lineShortcutArea(trimmed);
+  const vaultOpen = shortcutArea ? await (dependencies.lineAreaOpen ?? lineAreaOpen)(shortcutArea === 'wht50' ? 'wht50' : 'vault', user.user_id) : undefined;
+  if (vaultOpen === false && shortcutArea !== 'extras') return { type: 'text', text: NOT_OPEN_TEXT };
   let vaultFiles;
   if (isLineWhtShortcut(trimmed)) {
     try { vaultFiles = await (dependencies.listVaultFiles ?? listVaultFiles)({ kind: 'user', id: user.user_id }); }
     catch { console.error('LINE WHT metadata unavailable'); }
   }
-  const shortcut = buildLineFeatureShortcut(trimmed, user.jobs || [], new Date(), { vaultFiles });
+  const shortcut = buildLineFeatureShortcut(trimmed, user.jobs || [], new Date(), { vaultFiles, vaultOpen });
   if (shortcut) return shortcut;
 
   if (QUICK_ACTIONS[trimmed]) {
@@ -1305,21 +1333,32 @@ async function handleAssistantMessageInner(
     ? user.notif_settings?.chatHistory
     : undefined;
 
-  // Ordinary entries, incomplete inputs, typos, and edits never fall back to a model.
-  // Paid-language processing is a separate, explicitly requested "ถาม AI ..." path.
+  // Quick entries ("เพิ่มงาน …", answers to a draft) stay on the deterministic path: free, instant, no tokens.
+  // Everything else goes to เลขากระรอก, the same Gemini assistant as the app (owner, 2026-10-24), with or without
+  // the old "ถาม AI" prefix. The earlier Claude path is no longer called (owner: Gemini only).
   const quickDraft = parseLineQuickDraft(trimmed, { pendingJob: pendingDraft, pendingExpense: pendingExpenseDraft });
-  const aiText = explicitLineAiText(trimmed);
-  if (!quickDraft && !aiText) {
+  if (!quickDraft) {
+    const question = explicitLineAiText(trimmed) ?? trimmed;
+    try {
+      const answered = await (dependencies.assistantAnswer ?? lineAssistantAnswer)(user, question, (recentHistory || []).map(entry => ({ role: entry.role, text: entry.text })));
+      if (answered) {
+        try { await saveChatHistory(user, question, answered.text.slice(0, 1000)); }
+        catch { console.error('line-assistant: chat history not saved'); }
+        return answered.messages;
+      }
+    } catch {
+      console.error('line-assistant: AI answer failed');
+      return { type: 'text', text: 'ขออภัยครับ เลขาตอบไม่ทันในตอนนี้ ลองพิมพ์ใหม่อีกครั้งนะครับ' };
+    }
+    // The real เลขา is not on for this account yet: the earlier behaviour.
     if (pendingDraft && storedDraft) return [{ type:'text', text:'ยังไม่ได้แก้ร่างจากข้อความนี้ครับ แตะ “แก้ไขรายการ” เพื่อปรับข้อมูลได้เลย' },buildLineDraftReview('job',storedDraft)];
     if (pendingExpenseDraft && storedExpenseDraft) return [{ type:'text', text:'ยังไม่ได้แก้ร่างจากข้อความนี้ครับ แตะ “แก้ไขรายการ” เพื่อปรับข้อมูลได้เลย' },buildLineDraftReview('expense',storedExpenseDraft)];
+    if (explicitLineAiText(trimmed)) return finishConversationalReply(user, trimmed, !!existingName, alreadyAskedName, buildHelpText(existingName));
     // No reply for a message the bot does not recognise (owner, 2026-10-22: the "เลขายังไม่เข้าใจครับ"
     // card is not needed). An empty list means handled with nothing to send; null still means not linked.
     return [];
   }
-  const result = quickDraft ?? await (dependencies.classifyMessage ?? classifyMessage)(aiText!, buildDataSnapshot(user), pendingDraft, existingName, recentHistory, pendingExpenseDraft);
-  if (!result) {
-    return finishConversationalReply(user, trimmed, !!existingName, alreadyAskedName, buildHelpText(existingName));
-  }
+  const result = quickDraft;
 
   // A message can introduce the user's own name alongside anything else it's doing -- save it
   // right away and fold it into the in-memory `user` snapshot so it's already known name-wise for

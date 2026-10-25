@@ -26,6 +26,10 @@ async function database(legacy=false) {
   await db.exec(await readFile('supabase/migrations/20261020165518_direct_promptpay.sql','utf8'));
   await db.exec(await readFile('supabase/migrations/20261020172734_custom_card_renewals.sql','utf8'));
   await db.exec(await readFile('supabase/migrations/20261022040000_card_consent_v2.sql','utf8'));
+  await db.exec(await readFile('supabase/migrations/20261024090000_card_consent_v3.sql','utf8'));
+  // The live database since 25 Oct 2026: the prices with the payment fee, then consent v4 and the December price.
+  await db.exec(await readFile('supabase/migrations/20261025170000_pro_amounts_with_fee.sql','utf8'));
+  await db.exec(await readFile('supabase/migrations/20261025210000_pro_month_regular_price.sql','utf8'));
   await db.exec('grant usage on schema public to service_role; grant select on cashflow_user_roles,cashflow_account_pauses to service_role; grant select,insert,update on subscriptions to service_role;');
   return db;
 }
@@ -38,7 +42,7 @@ async function prepared(db:PGlite,auto=true,consentVersion=CARD_CONSENT_VERSION)
 }
 const sync=(db:PGlite,status='active',cancel=false)=>db.query(`select cashflow_sync_card_subscription('order',$1,'sub_card','cus1',false,$2,extract(epoch from now())::bigint,$3,now()+interval '12 months')`,[uid,status,cancel]);
 async function cycle(db:PGlite,refund=false,changes:Record<string,any>={}) {
- const a={user:uid,sub:'sub_card',invoice:'in_card',payment:'pi_card',amount:149000,currency:'thb',mode:false,start:paidStart,end:paidEnd,refund,...changes};
+ const a={user:uid,sub:'sub_card',invoice:'in_card',payment:'pi_card',amount:156200,currency:'thb',mode:false,start:paidStart,end:paidEnd,refund,...changes};
  return db.query(`select cashflow_record_card_cycle('order',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,Object.values(a));
 }
 const state=async(db:PGlite)=>(await db.query<any>('select * from subscriptions where user_id=$1',[uid])).rows[0];

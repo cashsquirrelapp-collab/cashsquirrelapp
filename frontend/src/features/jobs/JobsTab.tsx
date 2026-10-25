@@ -274,6 +274,13 @@ export default function JobsTab({
     && (filters.payments.length === 0 || filters.payments.includes(paymentOf(j)))
     && (filters.types.length === 0 || filters.types.includes(j.type || 'ยังไม่ระบุ'));
 
+  // Acting on a row (receiving money, delivering, changing its stage) keeps the list in the order it was in. Re-sorting
+  // at once moved the row away from under the pointer -- a paid job is dated today, so it jumped to the top as the
+  // newest -- and the page scrolled up after it (owner, 2026-10-24: "เวลากดรับเงินทำไมมันเด้งขึ้นด้านบน"). The list
+  // sorts itself again when the view changes (search, tab, month, filters, sort) or the page is opened again.
+  const [heldOrder, setHeldOrder] = useState<string[] | null>(null);
+  React.useEffect(() => { setHeldOrder(null); }, [searchTerm, subTab, period, filters, sortBy]);
+
   // filter -> sort pipeline, recomputed only when an input changes.
   const sortedJobs = React.useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -282,9 +289,18 @@ export default function JobsTab({
       || (subTab === 'waiting_payment' && isAwaitingPayment(j))
       || (subTab === 'closed' && isClosed(j));
     const filtered = jobs.filter(j => inTab(j) && matchesPeriod(j, period, subTab) && matchesSearchAndFilters(j, query));
-    return sortJobs(filtered, sortBy, subTab);
+    const sorted = sortJobs(filtered, sortBy, subTab);
+    if (!heldOrder) return sorted;
+    // Rows the list already showed keep their place; a row that was not there yet goes after them, in sorted order.
+    const place = new Map(heldOrder.map((id, index) => [id, index]));
+    return sorted
+      .map((job, index) => ({ job, key: place.get(job.id) ?? heldOrder.length + index }))
+      .sort((a, b) => a.key - b.key)
+      .map(row => row.job);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, statuses, searchTerm, subTab, period, filters, sortBy, mobile]);
+  }, [jobs, statuses, searchTerm, subTab, period, filters, sortBy, mobile, heldOrder]);
+  const sortedJobsRef = React.useRef(sortedJobs);
+  sortedJobsRef.current = sortedJobs;
 
   const activeFilterCount = filters.stages.length + filters.payments.length + filters.types.length;
   const currentMonth = monthKeyOf();
@@ -418,7 +434,11 @@ export default function JobsTab({
 
   // Quick status changes (badges, ⋯ menu, delivery/payment prompts) go through here so each one
   // can be taken back from the undo bar: it restores exactly the fields the change touched.
-  const { apply: applyQuickChange, bar: undoBar } = useQuickUndo(onEditJob);
+  const { apply: applyQuickChangeNow, bar: undoBar } = useQuickUndo(onEditJob);
+  const applyQuickChange: typeof applyQuickChangeNow = (...args) => {
+    setHeldOrder(order => order ?? sortedJobsRef.current.map(j => j.id)); // the row stays where it is
+    return applyQuickChangeNow(...args);
+  };
 
   // Net amount the client actually pays (value minus withholding tax).
   const netReceivable = (j: Job) => jobNetReceivable(j);

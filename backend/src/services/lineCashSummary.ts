@@ -1,3 +1,4 @@
+import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { currentCash, type CashOpening } from '../../../shared/cashBalance.js';
 import type { MonthlySummary, JobRow, ExpenseRow } from './monthlySummary.js';
 import { monthlyProfitSummary } from '../../../shared/monthlySummary.js';
@@ -44,7 +45,8 @@ export function buildLineCashSummary(options: {
     // Net profit is the headline, on the coloured band; income and expenses are the rows under it.
     metric: { label: 'กำไรสุทธิ', value: formatMonthlyMoney(monthly.netProfit), note: 'รายรับ − รายจ่าย' },
     body,
-    note: 'กำไรของเดือนนี้ ก่อนแบ่งออมเข้าเป้าหมาย',
+    // Goals are not open to every account yet, so the note mentions them only once they launch.
+    note: isPhaseOneFeatureAvailable('split', false) ? 'กำไรของเดือนนี้ ก่อนแบ่งออมเข้าเป้าหมาย' : 'รายรับที่ได้จริง หักรายจ่ายของเดือนนี้',
     footer: options.footer,
     altText: `${options.title} (${monthLabel}) · รายรับ ${formatMonthlyMoney(monthly.received)} · รายจ่ายรวม ${formatMonthlyMoney(monthly.totalExpense)} · กำไรสุทธิ ${formatMonthlyMoney(monthly.netProfit)}`,
   });

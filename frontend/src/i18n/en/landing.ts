@@ -16,6 +16,8 @@ export const landing: Record<string, string> = {
   "จดรายจ่ายตามหมวด": "Record expenses by category",
   "จัดการงาน": "Manage jobs",
   "จ่ายครั้งเดียว · 6 เดือน {0} · 1 ปี {1}": "Pay once · 6 months {0} · 1 year {1}",
+  'จ่ายครั้งเดียว · 6 เดือน {0} · 1 ปี {1} · บวกค่าธรรมเนียมชำระเงิน': 'One payment · 6 months {0} · 1 year {1} · plus the payment fee',
+  '+ ค่าธรรมเนียมชำระเงิน {0} · ยอดชำระ {1}': '+ {0} payment fee · {1} in total',
   "ดูงาน รายรับ รายจ่าย": "See jobs, income and expenses",
   "ดูงานค้างจ่ายและสรุปเดือนนี้ใน LINE": "See unpaid jobs and this month's summary in LINE",
   "ดูรายจ่ายทั้งเดือน รวมรายการประจำ": "See the whole month's expenses, including fixed ones",

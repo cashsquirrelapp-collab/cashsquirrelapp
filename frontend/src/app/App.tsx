@@ -1,6 +1,10 @@
+import { trialEndsAt as trialEndsOn } from '../../../shared/trial';
 import { CardPaymentModal, PreparingCardModal } from '../features/billing/CardPaymentModal';
+import type { AssistantTransport } from '../features/assistant/assistantApi';
+import { safeAssistantPath } from '../features/assistant/assistantNavigation';
+import type { LineInboxApi } from '../features/assistant/lineInbox';
 import { CARD_CONSENT_VERSION, type CardOptions } from '../../../shared/cardConsent';
-import { PRO_PRICING, type ProPeriod } from '../../../shared/proPricing';
+import { proPricePartsForCharge, proPricing, type ProPeriod } from '../../../shared/proPricing';
 import PageHeader from '../components/ui/PageHeader';
 import { uiPrimaryButton } from '../components/ui/uiStyles';
 import { shrinkImageDataUrl } from '../services/images';
@@ -13,7 +17,7 @@ import { validateChanges, notificationPreferences } from '../../../shared/valida
 import { safeDocumentReturnPath } from '../../../shared/documentReturnPath';
 import { hasFullFeatureAccess, isPhaseOneFeatureAvailable, resolvePhaseOneTab } from '../../../shared/featureAvailability';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, startTransition } from 'react';
-import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense, GoalTransaction } from '../../../shared/types';
+import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense, GoalTransaction, type Invoice } from '../../../shared/types';
 import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from '../sampleData';
 import { getMonthKey, DEFAULT_JOB_TYPES, dateLocale, formatCurrency, isReminderDue, toLocalDateKey } from '../utils';
 import DashboardTab from '../features/dashboard/DashboardTab';
@@ -27,6 +31,7 @@ const loadAssistantChat = () => import('../features/assistant/AssistantChat');
 const AssistantChat = lazy(loadAssistantChat);
 // เลขากระรอกติดตัว: the squirrel at the corner of every page for Pro accounts (owner, 2026-10-23).
 const AssistantBuddy = lazy(() => import('../features/assistant/AssistantBuddy'));
+const FlexDisplay = lazy(() => import('../features/flex/FlexDisplay'));
 // The squirrel's arrival: only right after a payment for Pro is confirmed (owner, 2026-10-23: "ขึ้นเฉพาะตอนที่เพิ่งเติมโปรเสร็จ").
 const AssistantBirth = lazy(() => import('../features/assistant/AssistantBirth'));
 const loadDashboardTab = () => import('../features/dashboard/DashboardTab');
@@ -79,7 +84,7 @@ import { financeKey, setFinanceWorkspace, assertFinanceWorkspace } from '../serv
 import { groupApi } from '../services/groups';
 import { usageAnalyticsApi } from '../services/usageAnalytics';
 import { authClient } from '../services/auth';
-import { apiFetch, apiJson } from '../services/api';
+import { apiFetch, apiJson, getCurrentAccount } from '../services/api';
 import { readCloud, saveCloud, saveAppCloud, clearCloud, exportCloud, flushCloud } from '../services/cloud';
 import { useLanguage } from '../i18n/LanguageContext';
 // Aliased: this file already has its own local `currentMonthKey` (a memoized string further
@@ -87,6 +92,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 // it, and calling the shadowed string as a function is exactly the "Je is not a function" bug
 // that made the LINE-notify balance figure fail (found via a decoded production sourcemap).
 import { nowInBangkok } from '../../../shared/monthlySummary';
+import { buildBriefing } from '../../../shared/briefing';
+import { currentCash } from '../../../shared/cashBalance';
 import { Mascot } from '../components/mascot/Mascot';
 import { MascotToast } from '../components/mascot/MascotToast';
 import { normalizeProfileSetupSettings } from '../features/onboarding/profileSetupState';
@@ -141,7 +148,8 @@ import {
   Plus,
   Clock,
   Receipt,
-  MessageSquare
+  MessageSquare,
+  Presentation,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -489,6 +497,8 @@ export default function App() {
   // Render the safe tab immediately; async role lookup can never flash a hidden page.
   const activeTab: TabKey = resolvePhaseOneTab(requestedActiveTab, fullFeatureAccess);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [assistantFollowing, setAssistantFollowing] = useState(false);
+  const [assistantDocumentEntry, setAssistantDocumentEntry] = useState(0);
   // The settings page a phone-menu entry asked for; `n` remounts the page when asked again.
   const [settingsEntry, setSettingsEntry] = useState<{ view: SettingsView; n: number }>({ view: 'home', n: 0 });
   // Once the settings page is left, the next visit opens on its overview again. Only on leaving: the
@@ -502,6 +512,8 @@ export default function App() {
   // Switching between accounts signed in on this browser (owner, 2026-10-21). Adding one shows the
   // sign-in page while the current account stays signed in; the page reloads once the new one is in.
   const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false);
+  // โหมดโชว์ผลงาน (pkg78): full screen over the app; admins on computers and iPads until the owner opens it.
+  const [flexOpen, setFlexOpen] = useState(false);
   const [addingAccount, setAddingAccount] = useState<{ email?: string; from: string } | null>(null);
   // The account corner lives in the desktop sidebar and in the floating top bar on smaller screens;
   // only one is rendered so there is a single profile menu and workspace picker on the page.
@@ -666,6 +678,10 @@ export default function App() {
             </button>
             <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('settings'); }} className={profileMenuItem}>
               <Settings className="h-4 w-4 text-brand-muted" />{tr("ตั้งค่า")}</button>
+            {!isPhone && session && !session.isGuest && !financeGroupId && isPhaseOneFeatureAvailable('flex', fullFeatureAccess) && (
+              <button type="button" onClick={() => { setIsProfileMenuOpen(false); setFlexOpen(true); }} className={profileMenuItem}>
+                <Presentation className="h-4 w-4 text-brand-muted" />{tr("โหมดโชว์ผลงาน")}</button>
+            )}
             <button type="button" role="switch" aria-checked={darkMode} onClick={() => setDarkMode(!darkMode)} className={profileMenuItem}>
               <Moon className="h-4 w-4 text-brand-muted" />
               <span className="flex-1">{tr("โหมดมืด")}</span>
@@ -801,6 +817,23 @@ export default function App() {
   const [switchingFinance, setSwitchingFinance] = useState(false);
   const financeGroupId = financeSelection.account === session?.user?.id ? financeSelection.groupId : undefined;
   const financeOwner = session?.user?.id ? financeKey(session.user.id, financeGroupId) : '';
+  useEffect(() => { setAssistantFollowing(false); }, [financeOwner]);
+  const assistantWorkspaceSlug = routeContext && routeContext.userId === session?.user?.id ? personalWorkspaceSlug(routeContext.profile) : undefined;
+  const navigateAssistant = (path: string, follow = false) => {
+    if (financeGroupId || !session?.user?.id || (!session.isGuest && getCurrentAccount() !== session.user.id)) return;
+    const safe = safeAssistantPath(path, { accountId: session.user.id, workspaceSlug: assistantWorkspaceSlug, fullFeatureAccess }, true);
+    if (!safe || !assistantWorkspaceSlug) return;
+    const url = new URL(safe, window.location.origin);
+    const tab = parseWorkspaceRoute(url.pathname).tab;
+    if (follow) setAssistantFollowing(true);
+    setIsMobileMenuOpen(false);
+    if (tab === 'settings') setSettingsEntry(entry => ({ view: (url.searchParams.get('view') || 'home') as SettingsView, n: entry.n + 1 }));
+    if (tab === 'invoice') setAssistantDocumentEntry(value => value + 1);
+    prefetchFeature(tab);
+    window.history.pushState({}, '', safe);
+    setPathname(url.pathname);
+    startTransition(() => setActiveTab(tab));
+  };
   const financeOwnerRef = useRef(financeOwner);
   financeOwnerRef.current = financeOwner;
   setFinanceWorkspace(financeOwner || undefined);
@@ -1241,13 +1274,12 @@ export default function App() {
     setIsProPromoOpen(false);
   }, [billingUserId]);
 
-  // First 14 days after signup are free automatically, based on the account's real creation
-  // date from Supabase Auth (not something the client can fake). No Stripe interaction needed.
-  const FREE_TRIAL_DAYS = 14;
+  // The free trial after signup (shared/trial.ts: 3 days for accounts created from 25 Oct 2569, 14 before), based on
+  // the account's real creation date from Supabase Auth (not something the client can fake). No Stripe needed.
   const trialEndsAt = React.useMemo(() => {
     const createdAt = session?.user?.created_at;
     if (!createdAt || session?.isGuest) return null;
-    return new Date(new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    return trialEndsOn(createdAt);
   }, [session?.user?.created_at, session?.isGuest]);
   const isAdminProRevoked = ['admin_revoked', 'admin_removed'].includes(subscription?.plan || '');
   const isInFreeTrial = !isAdminProRevoked && !!trialEndsAt && trialEndsAt.getTime() > Date.now();
@@ -1267,7 +1299,59 @@ export default function App() {
   const isGuestProPreview = session?.isGuest === true;
   const isPro = isGuestProPreview || isInFreeTrial || isPaidActive;
   // The floating squirrel follows Pro accounts to every page but the chat itself (and steps aside for เมนู on phones).
-  const showBuddy = isPro && activeTab !== 'assistant' && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) && !(isPhone && isMobileMenuOpen);
+  const showBuddy = isPro && !assistantFollowing && activeTab !== 'assistant' && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) && !(isPhone && isMobileMenuOpen);
+  // "สรุปวันนี้" for เลขา's panel (pkg77): computers and iPads, the personal account, worked out on this device from the
+  // data already loaded (documents from the documents page's own cache, when it has one). No request, no AI.
+  const briefingDay = nowInBangkok().toISOString().slice(0, 10);
+  const briefing = useMemo(() => {
+    if (isPhone || !showBuddy || financeGroupId || !session || session.isGuest) return null;
+    let invoices: Invoice[] | undefined;
+    try { const saved = privateCache.getItem(`cashflow_invoices_${financeOwner}`); invoices = saved ? JSON.parse(saved) as Invoice[] : undefined; } catch { invoices = undefined; }
+    const cashNow = settings.cashOpening ? currentCash(settings.cashOpening, jobs, expenses).balance : null;
+    return buildBriefing({ jobs, expenses, invoices, monthlyExpense: settings.monthlyExpense, fixedExpenseItems: settings.fixedExpenseItems, cashNow });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPhone, showBuddy, financeGroupId, session?.user?.id, session?.isGuest, financeOwner, jobs, expenses, settings.cashOpening, settings.monthlyExpense, settings.fixedExpenseItems, briefingDay]);
+  // เลขากระรอก goes live once /api/assistant is switched on for this account (AI_ENABLED on the server); until then
+  // the chat and the floating squirrel keep their labelled sample answers. Personal workspace only for now, and only
+  // accounts that can see เลขา at all ask (no extra request for everyone else).
+  const assistantUserId = session && !session.isGuest && isPro && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) ? session.user.id : null;
+  const [assistantTransport, setAssistantTransport] = useState<AssistantTransport | undefined>(undefined);
+  // Why the real เลขา is not on for this account, shown to system admins under the chat (never to members).
+  const [assistantNote, setAssistantNote] = useState<string | null>(null);
+  // The real notifications thread, for every account that sees the chat (it does not need the AI).
+  const [lineInbox, setLineInbox] = useState<LineInboxApi | undefined>(undefined);
+  useEffect(() => {
+    setLineInbox(undefined);
+    if (!assistantUserId || financeGroupId) return;
+    let live = true;
+    import('../features/assistant/lineInbox').then(({ createLineInbox }) => {
+      if (live) setLineInbox(createLineInbox({ account: assistantUserId, onChanged: () => assistantAppliedRef.current() }));
+    }).catch(() => { /* the sample thread stays */ });
+    return () => { live = false; };
+  }, [assistantUserId, financeGroupId]);
+  const assistantAppliedRef = useRef<() => void>(() => {});
+  assistantAppliedRef.current = () => { void loadCloudData(session?.user?.email || ''); };
+  useEffect(() => {
+    setAssistantTransport(undefined);
+    setAssistantNote(null);
+    if (!assistantUserId) return;
+    if (financeGroupId) { setAssistantNote(tr("กำลังดูบัญชีกลุ่ม เลขา AI ใช้ได้กับบัญชีส่วนตัวเท่านั้น")); return; }
+    const controller = new AbortController();
+    // Loaded on demand so the sample data and the chat code stay out of the first page load.
+    import('../features/assistant/assistantApi').then(async ({ readAssistantStatus, createLiveTransport }) => {
+      const status = await readAssistantStatus(assistantUserId, controller.signal);
+      if (controller.signal.aborted) return;
+      if (!status.enabled || status.plan === 'none') {
+        setAssistantNote(status.plan === 'none' ? tr("บัญชีนี้ไม่มีสิทธิ์ Pro") : status.plan === 'admin' ? tr("เซิร์ฟเวอร์ยังปิด AI อยู่ (AI_ENABLED)") : tr("ตอนนี้เปิด AI ให้แอดมินระบบเท่านั้น"));
+        return;
+      }
+      setAssistantTransport(createLiveTransport({ account: assistantUserId, status, instant: false, onApplied: () => assistantAppliedRef.current() }));
+    }).catch(error => {
+      // Not reachable or not ready: the sample chat stays, and admins see why.
+      if (!controller.signal.aborted) setAssistantNote((error as Error)?.message || tr("เชื่อมต่อเลขา AI ไม่ได้"));
+    });
+    return () => controller.abort();
+  }, [assistantUserId, financeGroupId]);
   const [buddyPanelOpen, setBuddyPanelOpen] = useState(false);
   const [birthOpen, setBirthOpen] = useState(false);
   const [buddyArrival, setBuddyArrival] = useState(0);
@@ -1396,9 +1480,10 @@ export default function App() {
       if (qrAttempt.current !== attempt) { setBillingBusy(false); return false; }
       setPreparingCard(null);
       if (result.destination === 'qr') {
-        const expected = PRO_PRICING[period];
+        const expected = proPricing()[period];
         const image = new URL(result.qrImage);
-        if (result.period !== period || result.amount !== expected.total * 100 || result.months !== expected.months
+        // Either date's price for this period (a QR made just before 1 Dec 2569 keeps its amount).
+        if (result.period !== period || result.months !== expected.months || !proPricePartsForCharge(expected.months, result.amount / 100)
           || !result.orderId || image.protocol !== 'https:' || !image.hostname.endsWith('.stripe.com')) throw new Error(tr("ข้อมูล QR ไม่ตรงกับแพ็กเกจที่เลือก"));
         markCheckoutPending(userId); setBillingPollVersion(version => version + 1);
         if (qrAttempt.current === attempt) setQrPayment({ period, checkout: result, status: 'pending' });
@@ -2982,6 +3067,19 @@ export default function App() {
 
         {/* Scrollable Container with responsive max widths */}
         <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto ${chatFocus ? 'px-3 pt-3 pb-0' : `px-4 sm:px-6 lg:px-8 xl:px-10 ${isPhone ? 'pt-[10px]' : 'pt-16'} pb-6 lg:pb-8`} no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${chatFocus ? '' : activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}${isPhone ? ' ksm-home-scroller' : ''}${showBuddy && !isPhone ? ' has-buddy' : ''}`}>
+          {(activeTab === 'assistant' || assistantFollowing) && <Suspense fallback={null}>
+            <div className={activeTab !== 'assistant' ? 'asx-follow-panel' : undefined}>
+              <AssistantChat key={financeOwner} mobile={isPhone} isPro={isPro} accountId={!financeGroupId ? session.user.id : undefined}
+                workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} floating={activeTab !== 'assistant'}
+                onExpand={() => navigateTab('assistant')} onBack={() => setIsMobileMenuOpen(true)}
+                onExit={() => { setAssistantFollowing(false); if (activeTab === 'assistant') navigateTab(chatReturnTab.current); }} focus={chatFocus} previewTools={fullFeatureAccess}
+                onPreviewBirth={fullFeatureAccess && isPro ? () => { setAssistantFollowing(false); navigateTab('dashboard'); window.setTimeout(() => setBirthOpen(true), 500); } : undefined}
+                onOpenNotifications={() => { setAssistantFollowing(false); setSettingsEntry(entry => ({ view: 'notif', n: entry.n + 1 })); navigateTab('settings'); }}
+                onUpgrade={() => { setAssistantFollowing(false); navigateTab('plans'); }}
+                onNavigate={path => navigateAssistant(path, true)} onAutoNavigate={path => navigateAssistant(path, true)} transport={assistantTransport}
+                liveNote={fullFeatureAccess ? assistantNote ?? undefined : undefined} lineInbox={lineInbox} />
+            </div>
+          </Suspense>}
           {/* Document vault for the open finance workspace, shared by Documents, Jobs and Tax */}
           <VaultProvider
             key={financeOwner}
@@ -3088,12 +3186,6 @@ export default function App() {
               )}
 
               {activeTab === 'feedback' && <FeedbackPage userId={session.user.id} isGuest={!!session.isGuest} onSignIn={() => void handleSignOut()} mobile={isPhone} onBack={() => setIsMobileMenuOpen(true)} />}
-              {activeTab === 'assistant' && <AssistantChat mobile={isPhone} isPro={isPro} onBack={() => setIsMobileMenuOpen(true)}
-                onExit={() => navigateTab(chatReturnTab.current)} focus={chatFocus} previewTools={fullFeatureAccess}
-                onPreviewBirth={fullFeatureAccess && isPro ? () => { navigateTab('dashboard'); window.setTimeout(() => setBirthOpen(true), 500); } : undefined}
-                onOpenNotifications={() => { setSettingsEntry(entry => ({ view: 'notif', n: entry.n + 1 })); navigateTab('settings'); }}
-                onUpgrade={() => navigateTab('plans')} onNavigate={path => navigatePath(path)} />}
-
               {activeTab === 'jobs' && (
                     <JobsTab
                       fullFeatureAccess={fullFeatureAccess}
@@ -3175,7 +3267,7 @@ export default function App() {
               {activeTab === 'invoice' && (
                 <InvoiceTab
                   fullFeatureAccess={fullFeatureAccess}
-                  key={financeOwner || 'guest'}
+                  key={`${financeOwner || 'guest'}:${assistantDocumentEntry}`}
                   ownerId={session?.isGuest ? undefined : financeOwner}
                   jobs={jobs}
                   triggerAlert={triggerAlert}
@@ -3365,15 +3457,22 @@ export default function App() {
         )}
         {showBuddy && (
           <Suspense fallback={null}>
-            <AssistantBuddy mobile={isPhone} docked={isDesktop && !isPhone} push={isDesktop && !isPhone && isWideForPanel} page={activeTab} pageName={t(NAV_ITEMS.find(item => item.key === activeTab)?.labelKey ?? 'nav.dashboard')}
+            <AssistantBuddy key={financeOwner} accountId={!financeGroupId ? session.user.id : undefined} workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} mobile={isPhone} docked={isDesktop && !isPhone} push={isDesktop && !isPhone && isWideForPanel} page={activeTab} pageName={t(NAV_ITEMS.find(item => item.key === activeTab)?.labelKey ?? 'nav.dashboard')}
               userName={routeContext?.profile.displayName || undefined} hidden={birthOpen} arrival={buddyArrival} onPanelChange={setBuddyPanelOpen}
-              onOpenChat={() => navigateTab('assistant')} onNavigate={path => navigatePath(path)} />
+              onOpenChat={() => navigateTab('assistant')} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} briefing={briefing} />
+          </Suspense>
+        )}
+        {flexOpen && !isPhone && (
+          <Suspense fallback={null}>
+            <FlexDisplay jobs={jobs} onClose={() => setFlexOpen(false)} invoices={(() => {
+              try { const saved = privateCache.getItem(`cashflow_invoices_${financeOwner}`); return saved ? JSON.parse(saved) as Invoice[] : null; } catch { return null; }
+            })()} />
           </Suspense>
         )}
         {birthOpen && (
           <Suspense fallback={null}>
             <AssistantBirth name={routeContext?.profile.displayName || undefined} onDone={finishBirth}
-              target={() => document.querySelector('.asx-buddy-btn')?.getBoundingClientRect() ?? null} />
+              target={() => document.querySelector('.asx-buddy-avatar')?.getBoundingClientRect() ?? null} />
           </Suspense>
         )}
 
@@ -3406,7 +3505,7 @@ export default function App() {
           status={qrPayment.status} error={qrPayment.error}
           onClose={() => { qrAttempt.current++; setQrPayment(null); }}
           onRetry={() => { void handleUpgrade('promptpay', qrPayment.period); }} />}
-        {preparingCard && !embeddedPayment && <PreparingCardModal amount={PRO_PRICING[preparingCard].total} months={PRO_PRICING[preparingCard].months}
+        {preparingCard && !embeddedPayment && <PreparingCardModal amount={proPricing()[preparingCard].total} months={proPricing()[preparingCard].months}
           onClose={() => { qrAttempt.current++; setPreparingCard(null); }}/>}
         {embeddedPayment?.customCard && <CardPaymentModal checkout={embeddedPayment} busy={billingBusy}
           onOptions={options => handleUpgrade('card', embeddedPayment.period, options, true)}

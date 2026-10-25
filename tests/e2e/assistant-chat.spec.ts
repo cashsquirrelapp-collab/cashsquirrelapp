@@ -51,9 +51,9 @@ for (const [label, width, height] of [['phone', 390, 844], ['iPad', 820, 1180], 
     await expect(chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button')).toHaveCount(4);
     // The header is slim (owner: the top took too much room).
     expect((await chat.locator('.asx-bar').boundingBox())!.height).toBeLessThan(66);
-    // Attach and microphone are clearly not ready; send waits for text.
+    // The sample transport cannot read files or transcribe recordings; Send waits for text.
     await expect(chat.getByRole('button', { name: 'แนบไฟล์ · เร็ว ๆ นี้' })).toHaveAttribute('aria-disabled', 'true');
-    await expect(chat.getByRole('button', { name: 'พูดแทนการพิมพ์ · เร็ว ๆ นี้' })).toHaveAttribute('aria-disabled', 'true');
+    await expect(chat.getByRole('button', { name: 'ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI', exact: true })).toHaveAttribute('aria-disabled', 'true');
     await expect(chat.getByRole('button', { name: 'ส่งข้อความ' })).toBeDisabled();
     await expect(chat.locator('.asx-bar-status')).toHaveText(/พร้อมช่วยแล้ว/, { timeout: 6000 });
     expect(await textOverlapIssues(page)).toEqual([]);
@@ -69,7 +69,7 @@ for (const [label, width, height] of [['phone', 390, 844], ['iPad', 820, 1180], 
     await expect(chat.locator('.asx-msg.is-bot .asx-meta').last()).toContainText('คำตอบตัวอย่าง');
     await expect(chat.locator('.asx-msg.is-me .asx-meta').last()).toContainText('อ่านแล้ว');
     const left = Number((await chat.locator('.asx-token span').textContent())!.replace(/,/g, ''));
-    expect(left).toBeLessThan(730);
+    expect(left).toBeLessThan(1210);
     await expect(chat.locator('.asx-bar-status')).toHaveText(/พร้อมช่วยแล้ว/, { timeout: 6000 });
     expect(await textOverlapIssues(page)).toEqual([]);
     await snap(page, `assistant-${width}-answer.png`);
@@ -92,7 +92,7 @@ for (const [label, width, height] of [['phone', 390, 844], ['iPad', 820, 1180], 
     // Tokens: the compact indicator opens its (sample) details.
     await chat.locator('.asx-token').click();
     const pop = page.getByRole('dialog', { name: 'Krarok Tokens' });
-    await expect(pop.getByText('จาก 1,000 โทเค็นต่อรอบ')).toBeVisible();
+    await expect(pop.getByText('จาก 1,650 โทเค็นต่อรอบ')).toBeVisible();
     await expect(pop.getByText(/^เติมรอบใหม่/)).toBeVisible();
     await expect(pop.getByText('ข้อมูลตัวอย่าง')).toBeVisible();
     expect(await textOverlapIssues(page)).toEqual([]);
@@ -277,22 +277,32 @@ test('computer: the sidebar entry wears the squirrel; the chat folds the app sid
   await expect(appSidebar).toHaveCSS('visibility', 'visible');
 });
 
-test('the welcome questions are four equal cards in a 2 × 2 grid, on computers and phones', async ({ page }) => {
+// Owner, 2026-10-24: computers and iPads show the questions as one iOS-style list ("ทางการขึ้น เหมือนระบบ iOS");
+// phones keep their 2 × 2 cards.
+test('the welcome questions: one iOS-style list of four rows on computers, a 2 × 2 grid on phones', async ({ page }) => {
   for (const [width, height] of [[1280, 820], [390, 844]] as const) {
     await open(page, width, height);
     const cards = chatOf(page).getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button');
     await expect(cards).toHaveCount(4);
     const boxes = await cards.evaluateAll(list => list.map(el => { const r = el.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; }));
     expect(new Set(boxes.map(b => b[2])).size).toBe(1); // equal widths
-    expect(boxes[0][1]).toBe(boxes[1][1]); expect(boxes[2][1]).toBe(boxes[3][1]); // two rows
-    expect(boxes[0][0]).toBe(boxes[2][0]); expect(boxes[1][0]).toBe(boxes[3][0]); // two columns
-    expect(boxes[2][1]).toBeGreaterThan(boxes[0][1]);
+    if (width >= 744) {
+      expect(new Set(boxes.map(b => b[0])).size).toBe(1); // one column
+      for (let n = 1; n < 4; n++) expect(boxes[n][1]).toBe(boxes[n - 1][1] + boxes[n - 1][3]); // rows touch, split by hairlines
+      await expect(chatOf(page).locator('.asx-prompts-head')).toHaveText('คำถามแนะนำ');
+      await expect(chatOf(page).locator('.asx-prompt-go')).toHaveCount(4);
+    } else {
+      expect(boxes[0][1]).toBe(boxes[1][1]); expect(boxes[2][1]).toBe(boxes[3][1]); // two rows
+      expect(boxes[0][0]).toBe(boxes[2][0]); expect(boxes[1][0]).toBe(boxes[3][0]); // two columns
+      expect(boxes[2][1]).toBeGreaterThan(boxes[0][1]);
+      await expect(chatOf(page).locator('.asx-prompts-head, .asx-prompt-go')).toHaveCount(0);
+    }
     expect(await textOverlapIssues(page)).toEqual([]);
   }
 });
 
 // Owner's typography brief (2026-10-23): light, natural Thai text with a clear hierarchy, chat page only.
-test('typography: the app font with real weights only (400 reading, 500 emphasis, 600 titles), Thai line height, no tiny text', async ({ page }) => {
+test('typography: the looped chat font with real weights only (400 reading, 500 emphasis, 600 titles), Thai line height, no tiny text', async ({ page }) => {
   for (const [width, height] of [[1280, 820], [390, 844]] as const) {
     await open(page, width, height);
     const chat = chatOf(page);
@@ -316,7 +326,8 @@ test('typography: the app font with real weights only (400 reading, 500 emphasis
         if (!hasText || el.closest('.asx-sr, svg')) continue;
         const c = getComputedStyle(el);
         const label = `${el.tagName.toLowerCase()}.${[...el.classList].join('.')} “${(el.textContent || '').trim().slice(0, 16)}”`;
-        if (!c.fontFamily.startsWith('"IBM Plex Sans Thai"')) bad.push(`${label}: font ${c.fontFamily}`);
+        // Owner, 2026-10-24: the chat reads like the Claude app (Apple's Thonburi; Noto Sans Thai Looped elsewhere).
+        if (!c.fontFamily.startsWith('"Krarok Chat Thai"')) bad.push(`${label}: font ${c.fontFamily}`);
         if (!['400', '500', '600'].includes(c.fontWeight)) bad.push(`${label}: weight ${c.fontWeight}`);
         if (parseFloat(c.fontSize) < 11) bad.push(`${label}: ${c.fontSize}`);
         if (c.textShadow !== 'none' || parseFloat(c.webkitTextStrokeWidth) > 0) bad.push(`${label}: shadow/stroke`);
@@ -511,8 +522,9 @@ test('chat history: delete one chat or all of it, and undo brings it back', asyn
   const rows = side.locator('.asx-side-row');
   await expect(rows).toHaveCount(4);
   const menu = await rowMenu(page, 'เพิ่มงานถ่ายภาพแคมเปญ');
-  for (const item of ['เปลี่ยนชื่อ', 'ปักหมุด', 'แชร์ · เร็ว ๆ นี้', 'เก็บถาวร', 'ลบ']) await expect(menu.getByRole('menuitem', { name: item, exact: true })).toBeVisible();
-  await expect(menu.getByRole('menuitem', { name: 'แชร์ · เร็ว ๆ นี้' })).toHaveAttribute('aria-disabled', 'true');
+  for (const item of ['เปลี่ยนชื่อ', 'ปักหมุด', 'เก็บถาวร', 'ลบ']) await expect(menu.getByRole('menuitem', { name: item, exact: true })).toBeVisible();
+  // Owner, 2026-10-24: no Share item.
+  await expect(menu.getByRole('menuitem', { name: /แชร์/ })).toHaveCount(0);
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'assistant-history-menu.png');
   await menu.getByRole('menuitem', { name: 'ลบ', exact: true }).click();

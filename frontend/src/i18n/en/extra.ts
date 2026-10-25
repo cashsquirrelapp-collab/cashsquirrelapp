@@ -25,6 +25,7 @@ export const extra: Record<string, string> = {
   "ค่อย ๆ ไปตามจังหวะ": "At your own pace",
   "รอบถัดไป ฿{0} ทุกปี · ปิดการต่ออายุได้": "Next charge ฿{0} every year · auto-renewal can be turned off",
   "รอบถัดไป ฿{0} ทุกเดือน · ปิดการต่ออายุได้": "Next charge ฿{0} every month · auto-renewal can be turned off",
+  "รอบถัดไป ฿{0} · ตั้งแต่ {1} ฿{2} ทุกเดือน · ปิดการต่ออายุได้": "Next charge ฿{0} · from {1}, ฿{2} every month · auto-renewal can be turned off",
   "รอบถัดไป ฿{0} ทุก 6 เดือน · ปิดการต่ออายุได้": "Next charge ฿{0} every 6 months · auto-renewal can be turned off",
   " และบันทึกบัตร": " and save the card",
   "อา": "Sun",

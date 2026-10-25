@@ -1,3 +1,4 @@
+import { inFreeTrial, trialEndsAt } from '../../../shared/trial.js';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { systemRoleActionSchema, type AdminAccount } from '../../../shared/groups.js';
@@ -12,7 +13,6 @@ import { groupDbError } from './groups.js';
 import { loadPresenceByUserId, ONLINE_WINDOW_MS } from '../repositories/presence.js';
 
 const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
-const FREE_TRIAL_DAYS = 14;
 const createRecoveryLinkSchema = z.object({ action: z.literal('create-recovery-link') }).strict();
 const setProAccessSchema = z.object({
   action: z.literal('set-pro-access'),
@@ -212,7 +212,7 @@ export default withGuard(
           else if (subscription?.plan === 'admin_removed') proStatus = 'revoked';
           else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
           else if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > Date.now()) proStatus = 'paid';
-          else if (profile?.created_at && new Date(profile.created_at).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now()) proStatus = 'trial';
+          else if (profile?.created_at && inFreeTrial(profile.created_at)) proStatus = 'trial';
           return {
             userId: row.user_id,
             publicId: profile?.public_id || '—',
@@ -226,7 +226,7 @@ export default withGuard(
               proExpiresAt: proStatus === 'paid'
                 ? subscription?.current_period_end || null
                 : proStatus === 'trial' && profile?.created_at
-                  ? new Date(new Date(profile.created_at).getTime() + FREE_TRIAL_DAYS * 86400000).toISOString()
+                  ? trialEndsAt(profile.created_at)!.toISOString()
                   : null,
               plan: subscription?.plan,
               currentPeriodEnd: subscription?.current_period_end,
@@ -325,11 +325,11 @@ export default withGuard(
           else if (subscription?.plan === 'admin_removed') proStatus = 'revoked';
           else if (subscription?.status === 'active' && subscription.plan === 'admin_grant') proStatus = 'admin';
           else if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) proStatus = 'paid';
-          else if (new Date(account.createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > now) proStatus = 'trial';
+          else if (inFreeTrial(account.createdAt, now)) proStatus = 'trial';
           const proExpiresAt = proStatus === 'paid'
             ? subscription?.current_period_end || null
             : proStatus === 'trial'
-              ? new Date(new Date(account.createdAt).getTime() + FREE_TRIAL_DAYS * 86400000).toISOString()
+              ? trialEndsAt(account.createdAt)!.toISOString()
               : null;
           return {
             ...account,

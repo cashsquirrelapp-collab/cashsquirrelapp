@@ -1,5 +1,7 @@
 // Plans, card payment, PromptPay QR.
 export const billing: Record<string, string> = {
+  "ราคาพิเศษถึง {0}": "Special price until {0}",
+  "ตั้งแต่ {0} รายเดือน {1}": "from {0}, {1} a month",
   '1 ปี': '1 year',
   'Google Pay / Apple Pay ยังไม่พร้อมในเบราว์เซอร์นี้ ใช้ช่องกรอกบัตรด้านบนได้': 'Google Pay / Apple Pay is not available in this browser. You can use the card form above.',
   'QR พร้อมเพย์สำหรับชำระแพ็กเกจ Pro': 'PromptPay QR for the Pro plan',
@@ -16,6 +18,8 @@ export const billing: Record<string, string> = {
   'กำลังเตรียมรายการ…': 'Preparing your order…',
   'กำลังเปิดหน้าชำระ…': 'Opening the payment page…',
   'ชำระครั้งเดียว': 'One-off payment',
+  'ค่าสมาชิก': 'Membership',
+  'ค่าธรรมเนียมชำระเงิน': 'Payment fee',
   'ชำระด้วย QR พร้อมเพย์': 'Pay with PromptPay QR',
   'ชำระด้วยบัตร': 'Pay by card',
   'ชำระผ่านกระเป๋าเงิน': 'Pay with a wallet',

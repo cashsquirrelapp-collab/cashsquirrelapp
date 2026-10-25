@@ -11,6 +11,8 @@ import { calendar } from './calendar';
 import { common } from './common';
 import { data } from './data';
 import { extra } from './extra';
+import { briefing } from './briefing';
+import { flex } from './flex';
 import { server } from './server';
 import { importing } from './importing';
 import { components } from './components';
@@ -32,6 +34,8 @@ import { vault } from './vault';
 export const EN: Record<string, string> = {
   ...admin,
   ...assistant,
+  ...briefing,
+  ...flex,
   ...app,
   ...auth,
   ...billing,

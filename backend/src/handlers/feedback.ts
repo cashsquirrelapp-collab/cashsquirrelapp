@@ -1,3 +1,4 @@
+import { inFreeTrial } from '../../../shared/trial.js';
 import { z } from 'zod';
 import {
   feedbackActionSchema, feedbackBoxSchema, feedbackKindSchema, feedbackStatusSchema,
@@ -25,14 +26,13 @@ const adminListSchema = z.object({
   page: pageSchema,
 }).strict();
 
-const FREE_TRIAL_DAYS = 14;
 type SubscriptionRow = { user_id: string; status: string | null; plan: string | null; current_period_end: string | null };
 /** The same plan rule as the admin accounts list (handlers/admin-users.ts). */
 function ownerPlan(subscription: SubscriptionRow | undefined, createdAt: string | null | undefined, now: number): FeedbackOwnerPlan {
   if (['admin_revoked', 'admin_removed'].includes(subscription?.plan || '')) return 'revoked';
   if (subscription?.status === 'active' && subscription.plan === 'admin_grant') return 'admin';
   if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) return 'paid';
-  if (createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > now) return 'trial';
+  if (inFreeTrial(createdAt, now)) return 'trial';
   return 'none';
 }
 

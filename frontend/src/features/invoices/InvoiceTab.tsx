@@ -5,6 +5,7 @@ import { privateCache } from '../../services/privateCache';
 import { imageFileToDataUrl } from '../../services/images';
 import { readInvoices, saveCloud, type DocumentQuota } from '../../services/cloud';
 import { validateChanges } from '../../../../shared/validation';
+import { applyDocumentBranding, issuerForDocumentEdit } from '../../../../shared/documentBranding';
 import { useLanguage } from '../../i18n/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -450,12 +451,13 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   // the form while editing.
   const buildDraftInvoice = (): Invoice => ({
     id: editingInvoiceId || 'draft',
+    assistantDraft: editingInvoiceId ? invoices.find(invoice => invoice.id === editingInvoiceId)?.assistantDraft : undefined,
     documentType: docType,
     documentNo: docNo,
     createdDate: createdDate,
     dueDate: dueDate || undefined,
     responseDate: responseDate || undefined,
-    issuer: issuerProfile,
+    issuer: issuerForDocumentEdit(editingInvoiceId ? invoices.find(invoice => invoice.id === editingInvoiceId) : undefined, issuerProfile),
     client: {
       name: clientName,
       address: clientAddress,
@@ -691,19 +693,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
   // Documents keep the issuer details they were created with, but the logo and signature come
   // from the current profile so uploading them also updates documents created earlier.
-  const withCurrentBranding = (inv: Invoice): Invoice => ({
-    ...inv,
-    issuer: {
-      ...inv.issuer,
-      logoUrl: issuerProfile.logoUrl || inv.issuer.logoUrl,
-      logoHeight: issuerProfile.logoUrl ? issuerProfile.logoHeight : inv.issuer.logoHeight,
-      logoPosition: issuerProfile.logoUrl ? issuerProfile.logoPosition : inv.issuer.logoPosition,
-      logoOffset: issuerProfile.logoUrl ? issuerProfile.logoOffset : inv.issuer.logoOffset,
-      signatureUrl: issuerProfile.signatureUrl || inv.issuer.signatureUrl,
-      // documents made before any bank details were saved pick up the current ones
-      ...(inv.issuer.bankAccount ? {} : { bankName: issuerProfile.bankName, bankAccount: issuerProfile.bankAccount, bankAccountName: issuerProfile.bankAccountName })
-    }
-  });
+  const withCurrentBranding = (inv: Invoice): Invoice => applyDocumentBranding(inv, issuerProfile);
 
   // Copy details of an invoice to make a new one
   const handleDuplicateInvoice = (inv: Invoice, event?: React.MouseEvent) => {

@@ -5,6 +5,8 @@ import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { listVaultFiles, storeVaultFile, updateVaultFile } from './vault.js';
 import { VAULT_KIND_LABEL, VAULT_MAX_BYTES, type VaultKind } from '../../../shared/vault.js';
+import { lineAreaOpen } from './lineLaunch.js';
+import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 
 type AttachKind = 'wht50' | 'contract' | 'expense' | 'other';
 export type VaultAction = { step: 'choose'; kind: AttachKind; fileId: string }
@@ -25,9 +27,11 @@ export interface LineFileEvent { id?: string; type: string; fileName?: string; f
 
 async function owner(lineUserId: string): Promise<{ user: UserRow; auth: NonNullable<Awaited<ReturnType<ReturnType<typeof getSupabaseAdmin>['auth']['admin']['getUserById']>>['data']['user']> } | LineMessage> {
   const user = await findUserByLineId(lineUserId);
-  if (!user) return { type: 'text', text: 'เชื่อมบัญชีกระรอกตุนเงินกับ LINE ก่อน จึงจะเก็บไฟล์เข้าคลังส่วนตัวได้ครับ' };
+  if (!user) return { type: 'text', text: isPhaseOneFeatureAvailable('vault', false) ? 'เชื่อมบัญชีกระรอกตุนเงินกับ LINE ก่อน จึงจะเก็บไฟล์เข้าคลังส่วนตัวได้ครับ' : 'ตอนนี้ LINE ยังรับไฟล์และรูปภาพไม่ได้ครับ' };
   const access = await checkLinkedAccountWriteAccess(user.user_id);
   if (!access.allowed) return { type: 'text', text: access.error };
+  // The document vault is not on the website for ordinary accounts yet, so LINE does not keep files for them either.
+  if (!await lineAreaOpen('vault', user.user_id)) return { type: 'text', text: 'ตอนนี้ LINE ยังรับไฟล์และรูปภาพไม่ได้ครับ' };
   const account = await getSupabaseAdmin().auth.admin.getUserById(user.user_id);
   if (account.error || !account.data.user || !await isProUser(user.user_id)) {
     return { type: 'text', text: 'การแนบไฟล์ผ่าน LINE ใช้ได้ในช่วงทดลองหรือแพ็กเกจ Pro ครับ' };

@@ -1,3 +1,4 @@
+import { inFreeTrial } from '../../../shared/trial.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { User } from '@supabase/supabase-js';
@@ -11,7 +12,6 @@ import { VAULT_EXT, VAULT_KINDS, VAULT_MAX_BYTES, VAULT_MAX_FILES, cleanVaultFil
 // signed-in user and their membership of the workspace first. Nothing in the bucket is public.
 
 export const VAULT_BUCKET = 'document-vault';
-const FREE_TRIAL_DAYS = 14;
 
 export interface VaultScope { kind: 'user' | 'group'; id: string }
 
@@ -38,7 +38,7 @@ export async function hasProAccess(user: User): Promise<boolean> {
   if (error) throw error;
   if (data?.plan === 'admin_revoked') return false;
 
-  const trial = !!user.created_at && new Date(user.created_at).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
+  const trial = inFreeTrial(user.created_at);
   if (trial) return true;
   return data?.status === 'active' && (
     data.plan === 'admin_grant' ||

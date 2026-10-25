@@ -4,7 +4,7 @@
  * Live operations are restricted to the owner's approved Vispark account.
  */
 import Stripe from 'stripe';
-import { PRO_PERIODS, PRO_PRICING } from '../../shared/proPricing.js';
+import { PRO_PERIODS, proPricing } from '../../shared/proPricing.js';
 import { PREPAID_OFFER, prepaidLookup, validPrepaidPrice } from '../src/services/prepaidPlans.js';
 import { stripeLivemodeForKey } from '../src/config/stripe.js';
 
@@ -22,7 +22,7 @@ let productId: string | undefined;
 const report: Record<string, unknown>[] = [];
 let ready = true;
 for (const period of PRO_PERIODS) {
-  const plan = PRO_PRICING[period];
+  const plan = proPricing()[period];
   const lookup = prepaidLookup(period);
   const metadata = { offer_version: PREPAID_OFFER, period, months: String(plan.months) };
   const matches = await stripe.prices.list({ lookup_keys: [lookup], limit: 2 });

@@ -2,7 +2,7 @@ import React from 'react';
 import { LoaderCircle, ShieldCheck, QrCode } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { uiPrimaryButton } from '../../components/ui/uiStyles';
-import { PRO_PRICING, type ProPeriod } from '../../../../shared/proPricing';
+import { proPriceParts, proPricePartsForCharge, proPricing, type ProPeriod } from '../../../../shared/proPricing';
 import { tr } from '../../i18n/tr';
 export type DirectQrPayment = {
   orderId: string; qrImage: string; amount: number; months: number; period: ProPeriod; expiresAt: string;
@@ -11,7 +11,10 @@ export function DirectQrModal({ period, checkout, status, error, onClose, onRetr
   period: ProPeriod; checkout: DirectQrPayment | null; status: 'loading' | 'pending' | 'paid' | 'expired';
   error?: string; onClose: () => void; onRetry: () => void;
 }) {
-  const plan = PRO_PRICING[period];
+  const plan = proPricing()[period];
+  // What the amount is made of, shown before paying (owner, 2026-10-25): the QR's own amount, so a QR made just before
+  // 1 Dec 2569 keeps showing the amount it charges.
+  const parts = (checkout ? proPricePartsForCharge(checkout.months, checkout.amount / 100) : undefined) ?? proPriceParts(period);
   const [imageFailed, setImageFailed] = React.useState(false);
   React.useEffect(() => setImageFailed(false), [checkout?.qrImage]);
   return <Modal open onClose={onClose} label={tr("สแกนเพื่อชำระเงิน")} width={440}>
@@ -29,7 +32,9 @@ export function DirectQrModal({ period, checkout, status, error, onClose, onRetr
       </div>
       <div className="space-y-2 rounded-xl bg-black/5 p-4 text-sm dark:bg-white/5">
         <div className="flex justify-between gap-3"><span className="text-brand-muted">{tr("สิทธิ์ Pro")}</span><span>{plan.months === 12 ? tr("1 ปี") : tr("{0} เดือน", plan.months)}</span></div>
-        <div className="flex justify-between gap-3"><span className="text-brand-muted">{tr("ชำระครั้งเดียว")}</span><strong className="text-lg text-brand-primary">{tr("฿{0}", plan.total.toLocaleString('th-TH'))}</strong></div>
+        <div className="flex justify-between gap-3" data-testid="qr-price"><span className="text-brand-muted">{tr("ค่าสมาชิก")}</span><span className="tabular-nums">{tr("฿{0}", parts.price.toLocaleString('th-TH'))}</span></div>
+        <div className="flex justify-between gap-3" data-testid="qr-fee"><span className="text-brand-muted">{tr("ค่าธรรมเนียมชำระเงิน")}</span><span className="tabular-nums">{tr("฿{0}", parts.fee.toLocaleString('th-TH'))}</span></div>
+        <div className="flex justify-between gap-3 border-t border-brand-border pt-2 dark:border-white/10"><span className="text-brand-muted">{tr("ชำระครั้งเดียว")}</span><strong className="text-lg text-brand-primary">{tr("฿{0}", parts.total.toLocaleString('th-TH'))}</strong></div>
       </div>
       {!error && status === 'pending' && <p role="status" className="mt-4 flex items-center justify-center gap-2 text-xs text-brand-muted"><LoaderCircle size={15} className="shrink-0 animate-spin" />{tr("รอรับชำระ · เปิดแอปธนาคารแล้วสแกน QR")}</p>}
       <p className="mt-3 text-center text-xs text-brand-muted">{tr("ชำระสำเร็จแล้ว Pro เปิดอัตโนมัติ · ไม่ต่ออายุอัตโนมัติ")}</p>

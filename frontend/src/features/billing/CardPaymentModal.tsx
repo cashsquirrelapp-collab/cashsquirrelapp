@@ -4,6 +4,8 @@ import type { StripeCheckoutLoadActionsSuccess, StripePaymentElement, StripeChec
 import { CreditCard, LockKeyhole } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { CARD_SAVE_DISCLOSURE, renewalConsentText, type CardOptions } from '../../../../shared/cardConsent';
+import { PRO_MONTH_PROMO_NEXT_DAY, PRO_MONTH_RENEWAL_STEP, proMonthPromoRunning, proPricePartsForCharge } from '../../../../shared/proPricing';
+import { promoDay } from './promoNotice';
 import type { EmbeddedPayment } from './EmbeddedPaymentModal';
 
 import { tr } from '../../i18n/tr';
@@ -12,7 +14,7 @@ export function PreparingCardModal({ amount, months, onClose }: { amount: number
   return <Modal open onClose={onClose} label={tr("ชำระด้วยบัตร")} width={520}>
     <div className="p-6 pt-9 font-sans sm:p-7 sm:pt-10">
       <CardHeader duration={months === 12 ? tr("1 ปี") : tr("{0} เดือน", months)} />
-      <AmountSummary amount={amount.toLocaleString('th-TH')} />
+      <AmountSummary amount={amount.toLocaleString('th-TH')} parts={proPricePartsForCharge(months, amount)} />
       <p role="status" className="mt-6 text-[13px] text-brand-muted">{tr("กำลังเตรียมช่องกรอกบัตร…")}</p>
       <div aria-hidden="true" className="mt-3 h-28 animate-pulse rounded-2xl bg-brand-faint motion-reduce:animate-none"/>
       <SecureNote />
@@ -29,8 +31,13 @@ function CardHeader({ duration }: { duration: string }) {
       <p className="mt-0.5 text-[13px] text-brand-muted">{tr("กระรอกตุนเงิน · Pro {0}", duration)}</p></div>
   </div>;
 }
-function AmountSummary({ amount, note }: { amount: string; note?: React.ReactNode }) {
+// What the amount is made of (owner, 2026-10-25): the membership and the payment fee, shown before paying.
+function AmountSummary({ amount, note, parts }: { amount: string; note?: React.ReactNode; parts?: { price: number; fee: number } }) {
   return <div className="mt-5 rounded-2xl border border-brand-border bg-brand-faint/60 px-4 py-3.5 dark:bg-white/[0.04]">
+    {parts && <div className="mb-2.5 space-y-1 border-b border-brand-border pb-2.5 text-[13px] leading-relaxed dark:border-white/10" data-testid="card-fee-breakdown">
+      <div className="flex justify-between gap-3"><span className="text-brand-muted">{tr("ค่าสมาชิก")}</span><span className="tabular-nums text-brand-text dark:text-white">{tr("฿{0}", parts.price.toLocaleString('th-TH'))}</span></div>
+      <div className="flex justify-between gap-3"><span className="text-brand-muted">{tr("ค่าธรรมเนียมชำระเงิน")}</span><span className="tabular-nums text-brand-text dark:text-white">{tr("฿{0}", parts.fee.toLocaleString('th-TH'))}</span></div>
+    </div>}
     <div className="flex items-baseline justify-between gap-3">
       <span className="text-[13px] text-brand-muted">{tr("ยอดชำระวันนี้")}</span>
       <strong className="text-[26px] font-semibold leading-none tracking-[-0.02em] text-brand-text tabular-nums dark:text-white">{tr("฿{0}", amount)}</strong>
@@ -181,13 +188,20 @@ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplet
     finally { confirmationLock.current = false; setPaying(false); }
   };
   walletConfirm.current = (event, secret) => { void confirm(event, secret); };
+  // A monthly renewal agreed to while the monthly promotion runs costs ฿271 (฿249 + the payment fee) from 1 Dec 2569
+  // (consent v4, owner 2026-10-25).
+  const nextRenewal = new Date(Date.now() + 7 * 3600_000); nextRenewal.setUTCMonth(nextRenewal.getUTCMonth() + 1);
+  const stepUp = checkout.months === 1 && proMonthPromoRunning() && checkout.amount === PRO_MONTH_RENEWAL_STEP.fromTotal * 100;
+  const regular = PRO_MONTH_RENEWAL_STEP.total.toLocaleString('en-US');
   const nextRound = checkout.months === 12 ? tr("รอบถัดไป ฿{0} ทุกปี · ปิดการต่ออายุได้", amount)
+    : stepUp && nextRenewal.toISOString().slice(0, 10) >= PRO_MONTH_PROMO_NEXT_DAY ? tr("รอบถัดไป ฿{0} ทุกเดือน · ปิดการต่ออายุได้", regular)
+    : stepUp ? tr("รอบถัดไป ฿{0} · ตั้งแต่ {1} ฿{2} ทุกเดือน · ปิดการต่ออายุได้", amount, promoDay(PRO_MONTH_PROMO_NEXT_DAY), regular)
     : checkout.months === 1 ? tr("รอบถัดไป ฿{0} ทุกเดือน · ปิดการต่ออายุได้", amount)
     : tr("รอบถัดไป ฿{0} ทุก 6 เดือน · ปิดการต่ออายุได้", amount);
   return <Modal open onClose={paying ? () => {} : onClose} label={tr("ชำระด้วยบัตร")} width={520}>
     <div className="overflow-y-auto p-6 pt-9 font-sans sm:p-7 sm:pt-10">
       <CardHeader duration={duration} />
-      <AmountSummary amount={amount} note={completed ? undefined : nextRound} />
+      <AmountSummary amount={amount} note={completed ? undefined : nextRound} parts={proPricePartsForCharge(checkout.months, checkout.amount / 100)} />
       {completed ? <p role="status" className="py-8 text-center text-[14px] text-brand-text dark:text-white">{tr("กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ")}</p> : <>
         <div className="mt-6" />
         {!ready && !error && <p role="status" className="mb-3 text-[13px] text-brand-muted">{tr("กำลังเตรียมช่องกรอกบัตร…")}</p>}

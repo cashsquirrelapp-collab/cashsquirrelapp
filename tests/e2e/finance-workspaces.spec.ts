@@ -142,7 +142,8 @@ async function setup(page: Page) {
   await page.route("**/api/groups?*", (route) =>
     route.fulfill({
       json: {
-        systemRole: "user",
+        // Team finance is not open to every account yet (shared/featureAvailability.ts): tested as a system admin.
+        systemRole: "admin",
         groups: [group, other].map((id, i) => ({
           id,
           name: i ? "Other team" : "Design team",

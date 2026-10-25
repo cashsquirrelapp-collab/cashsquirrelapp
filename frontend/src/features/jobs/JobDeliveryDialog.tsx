@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { CalendarCheck, X } from 'lucide-react';
 import type { Job } from '../../../../shared/types';
+import { CREDIT_TERM_PRESETS } from '../../../../shared/creditTerms';
 import { calculatePayDate, safeFormatThaiDate } from '../../utils';
 
 import { tr } from '../../i18n/tr';
@@ -10,7 +11,8 @@ import { tr } from '../../i18n/tr';
 // before saving. The preview calls the same calculatePayDate the save uses (weekend and Thai
 // holiday skipping included), so what the user sees is what gets stored.
 
-export const CREDIT_TERM_PRESETS = [0, 30, 45, 60, 90];
+// The app's credit terms (shared/creditTerms.ts), also offered by เลขา's payment question.
+export { CREDIT_TERM_PRESETS };
 
 export interface DeliveryValues {
   postDate: string;

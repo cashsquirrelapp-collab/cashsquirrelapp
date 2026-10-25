@@ -102,7 +102,8 @@ async function setup(
 ) {
   await page.route('**/api/auth', route => route.fulfill({ json: { session: { user } } }));
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'Test user' } }));
-  await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
+  // The document vault and 50 ทวิ are not open to every account yet (shared/featureAvailability.ts): tested as a system admin.
+  await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'admin', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/data*', route => route.fulfill({ json: { snapshot: dataSnapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2027-01-01T00:00:00Z' } } }));
   await page.route('**/api/usage-analytics', route => route.fulfill({ json: { ok: true } }));
   await page.route('**/api/account', route => route.fulfill({ json: { backupEmail: null } }));
@@ -236,7 +237,7 @@ test('the vault opens the separate 50 ทวิ page without conflating job and 
 
   await page.getByRole('tab', { name: 'คลังไฟล์' }).click();
   await expect(page).toHaveURL(/\/vault\/test-user$/);
-  await expect(page.getByRole('heading', { name: 'คลังเอกสาร', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'คลังเอกสาร', level: 2 })).toBeVisible(); // the phone page title, as for 50 ทวิ above
   await expect(page.getByText('PO_General.pdf')).toBeVisible();
 });
 

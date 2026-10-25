@@ -10,6 +10,7 @@ import JobTypeManager from './JobTypeManager';
 import { KsIcon } from '../mobile/icons';
 import { useMobileLayout } from '../mobile/useMobileLayout';
 import { WHT_PRESET_RATES, isEWhtJob, isValidWhtRate, whtAmountFor, roundMoney } from '../../../../shared/wht';
+import { CREDIT_TERM_PRESETS } from '../../../../shared/creditTerms';
 
 import { tr, T } from '../../i18n/tr';
 type Payment = 'unpaid' | 'paid' | 'partial' | 'installment';
@@ -25,7 +26,8 @@ const PAYMENT_OPTIONS: { key: Payment; label: string }[] = [
   { key: 'partial', label: T("รับบางส่วน") },
   { key: 'installment', label: T("แบ่งงวด") },
 ];
-const CREDIT_TERMS = [0, 30, 45, 60, 90];
+// The app's credit terms (shared/creditTerms.ts), also offered by เลขา's payment question.
+const CREDIT_TERMS = CREDIT_TERM_PRESETS;
 const CUSTOM_TYPE = '__custom__';
 
 const todayStr = (offsetDays = 0) => {

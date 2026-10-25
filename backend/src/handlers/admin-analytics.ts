@@ -1,3 +1,4 @@
+import { inFreeTrial } from '../../../shared/trial.js';
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import type {
@@ -24,7 +25,6 @@ import {
 
 const querySchema = z.object({ range: z.coerce.number().pipe(z.union([z.literal(7), z.literal(30), z.literal(90)])).default(30) });
 const DAY_MS = 86_400_000;
-const TRIAL_DAYS = 14;
 
 type ProfileRow = { user_id: string; public_id: string; display_name: string; created_at: string };
 type SubscriptionRow = AnalyticsBillingAccount & { status: string; plan: string | null; current_period_end: string | null };
@@ -75,7 +75,7 @@ function planStatusOf(profile: ProfileRow, subscription: SubscriptionRow | undef
   if (subscription?.status === 'active' && subscription.plan === 'admin_grant') return 'admin';
   if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) return 'pro';
   if (subscription && (['admin_revoked', 'admin_removed'].includes(subscription.plan || '') || subscription.current_period_end)) return 'expired';
-  if (new Date(profile.created_at).getTime() + TRIAL_DAYS * DAY_MS > now) return 'trial';
+  if (inFreeTrial(profile.created_at, now)) return 'trial';
   return 'free';
 }
 

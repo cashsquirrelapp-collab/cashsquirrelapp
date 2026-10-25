@@ -184,6 +184,6 @@ test('a button press reaches the assistant and is recorded without the model', a
   assert.equal((reply?.[0] as { text?: string })?.text, 'ok');
   // An expired account still gets the renewal prompt first.
   const expired = await handleAssistantMessage('U1', `due:paid:${JOB}`, 'op-due-2', { ...deps, async isProUser() { return false; } });
-  assert.match(json(expired), /Pro ของคุณหมดอายุ/);
+  assert.match(json(expired), /Pro ของบัญชีนี้หมดอายุ/);
   assert.deepEqual(calls, ['due:paid']);
 });

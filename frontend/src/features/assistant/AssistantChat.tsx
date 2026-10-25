@@ -1,22 +1,37 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, FileText, FolderPlus, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Share, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';
+import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Image as ImageIcon, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Square, Trash2, Volume2, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
+import { Modal } from '../../components/ui/Modal';
 import { tr } from '../../i18n/tr';
 import { dateLocale } from '../../utils';
-import { AssistantRequestError, createSampleTransport, tokenLevel, type AssistantTransport } from './assistantApi';
+import { AssistantRequestError, createSampleTransport, splitMemo, tokenLevel, type AssistantTransport } from './assistantApi';
 import { LINE_QUICK_REPLIES, arrivingNotice, dueDisplayText, laterReply, partialPrompt, receiptCard, type LineDueAction, type LineItem } from './lineMock';
 import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
+import { prepareFile, useReadAloud, type PreparedFile } from './voice';
+import { useDictation } from './useDictation';
+import { VoiceComposer } from './VoiceComposer';
+import { isPartialAmountText, type LineInboxApi } from './lineInbox';
+import type { LineCardData, LineInbox, LineQuickKind } from '../../../../shared/lineInbox';
+
+const QUICK_THAI: Record<LineQuickKind, string> = { unpaid: 'รอรับเงิน', month: 'สรุปเดือนนี้', wip: 'กำลังดำเนินการ' };
+import { getCurrentAccount } from '../../services/api';
+import { automaticNavigation, safeAssistantPath, type NavigationContext } from './assistantNavigation';
+import { NavigationModeControl, useNavigationMode } from './NavigationModeControl';
+import { confirmationCommand } from './assistantCommands';
 import './assistant.css';
+
+/** The longest message เลขา takes (a pasted list is fine); the server allows the same (handlers/assistant.ts). */
+const MAX_MESSAGE = 6000;
 
 // เลขากระรอก, the chat workspace (owner's brief "KRAROK — AI SECRETARY CHAT UI BRIEF", 2026-10-23).
 // ChatGPT/Dot-style conversation with Apple Liquid Glass used on purpose: the chat sidebar, the slim
-// header, the floating composer and the popovers. Screen only -- it talks to an AssistantTransport
-// (assistantApi.ts), which today is the sample transport: nothing calls an AI, billing or the backend.
+// header, the floating composer and the popovers. It talks to an AssistantTransport (assistantApi.ts): the
+// sample one (nothing leaves the browser) unless the app passes the live one once /api/assistant is switched on.
 
 type Props = {
   mobile: boolean;
@@ -39,11 +54,21 @@ type Props = {
   onPreviewBirth?: () => void;
   /** The AI connection; defaults to the sample transport. */
   transport?: AssistantTransport;
+  /** Admins only: why the real เลขา is not on for this account (shown under the composer). */
+  liveNote?: string;
+  /** The real notifications thread (this account's data); without it the thread is the labelled sample. */
+  lineInbox?: LineInboxApi;
+  accountId?: string;
+  workspaceSlug?: string | null;
+  fullFeatureAccess?: boolean;
+  floating?: boolean;
+  onExpand?: () => void;
+  onAutoNavigate?: (path: string) => void;
 };
 
 const SUGGESTION_ICONS: Record<SuggestionIcon, typeof FileText> = { today: ListChecks, quote: FileText, howto: FolderPlus, unpaid: Wallet };
 const GROUPS: { id: ChatGroup; label: string }[] = [
-  { id: 'today', label: "วันนี้" }, { id: 'yesterday', label: "เมื่อวาน" }, { id: 'week', label: "7 วันที่ผ่านมา" },
+  { id: 'today', label: "วันนี้" }, { id: 'yesterday', label: "เมื่อวาน" }, { id: 'week', label: "7 วันที่ผ่านมา" }, { id: 'earlier', label: "ก่อนหน้านี้" },
 ];
 const SIDEBAR_KEY = 'krarok_assistant_sidebar';
 const readSidebar = (): boolean | null => { try { const v = localStorage.getItem(SIDEBAR_KEY); return v === null ? null : v === 'open'; } catch { return null; } };
@@ -119,7 +144,38 @@ const popMotion = (reduce: boolean | null) => reduce
   // The fill fades in quickly (so nothing behind ever shows through for long); the size settles with a spring.
   : { initial: { opacity: 0, scale: 0.94, y: -6 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.96, y: -4 }, transition: { default: { type: 'spring' as const, stiffness: 520, damping: 34 }, opacity: { duration: 0.12 } } };
 
-export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onOpenNotifications, onUpgrade, onNavigate, transport: given }: Props) {
+/** The notifications thread with this account's real notices instead of the sample ones. */
+/** What was tapped and typed in the thread before, kept in the account (2026-10-24). */
+const keptThread = (inbox: LineInbox): ChatMessage[] => (inbox.history ?? []).map(message => ({
+  id: message.id, from: message.role === 'user' ? 'me' as const : 'bot' as const, at: Date.parse(message.at), note: '',
+  text: message.role === 'user' ? tr(message.text) : message.text,
+  ...splitMemo(message.cards),
+}));
+/** Confirmation cards in the kept thread show what became of them, as in a stored chat. */
+const keptStates = (messages: ChatMessage[]): Record<string, ConfirmState> => {
+  const states: Record<string, ConfirmState> = {};
+  for (const message of messages) for (const card of message.cards ?? []) {
+    if (card.kind === 'confirm' && card.status && card.status !== 'pending') states[card.id] = card.status === 'applied' ? 'done' : card.status === 'cancelled' ? 'cancelled' : 'expired';
+  }
+  return states;
+};
+
+function withInbox(list: Conversation[], inbox: LineInbox, openId: string | null): Conversation[] {
+  const cards = (card: LineCardData) => [{ kind: 'line' as const, card }];
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const messages: ChatMessage[] = [
+    ...(!inbox.reminderOn ? [{ id: 'line-off', from: 'bot' as const, at: inbox.notices[0]?.at ?? Date.now(), note: '',
+      text: inbox.lineLinked ? tr("แจ้งเตือนรับเงินทาง LINE ยังปิดอยู่ · เปิดได้ที่ ตั้งค่า > การแจ้งเตือน ด้านล่างคือสิ่งที่จะส่งให้จากข้อมูลบัญชีนี้") : tr("ยังไม่ได้เชื่อม LINE กับบัญชีนี้ · เชื่อมได้ที่ ตั้งค่า > เชื่อมต่อ LINE ด้านล่างคือสิ่งที่ LINE จะส่งให้จากข้อมูลบัญชีนี้") }] : []),
+    ...inbox.notices.map(notice => ({ id: `line-${notice.id}`, from: 'bot' as const, text: '', at: notice.at, note: '', cards: cards(notice.card) })),
+    ...keptThread(inbox),
+  ].sort((a, b) => a.at - b.at);
+  const unreadToday = inbox.notices.filter(notice => notice.at >= startOfToday.getTime() && notice.id.startsWith('reminder-')).length;
+  return list.map(conversation => (conversation.kind === 'line' && conversation.sample
+    ? { ...conversation, sample: false, messages, unread: openId === conversation.id ? 0 : unreadToday }
+    : conversation));
+}
+
+export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate }: Props) {
   const reduce = useReducedMotion();
   const rootRef = React.useRef<HTMLElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -142,15 +198,52 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     tokens: () => balanceRef.current,
     instant: Boolean(reduce),
   }), [given, reduce]);
+  const navigationContext: NavigationContext = { accountId, workspaceSlug, fullFeatureAccess };
+  const [navigationMode, setNavigationMode] = useNavigationMode(accountId);
+  const navigationRef = React.useRef({ navigationContext, navigationMode, transport });
+  navigationRef.current = { navigationContext, navigationMode, transport };
+  const go = (path: string) => {
+    if (accountId && getCurrentAccount() !== accountId) return;
+    const safe = safeAssistantPath(path, navigationContext, true); if (safe) onNavigate(safe);
+  };
 
   const [conversations, setConversations] = React.useState<Conversation[] | null>(null);
+  // The real notifications thread: what LINE sends this account (owner, 2026-10-24), loaded from the server.
+  const [inbox, setInbox] = React.useState<LineInbox | null>(null);
+  const inboxRef = React.useRef(inbox); inboxRef.current = inbox;
   const [currentId, setCurrentId] = React.useState<string | null>(null);
   const [opening, setOpening] = React.useState(false);
   const [mode, setMode] = React.useState<AssistantMode>('greeting');
   const [draft, setDraft] = React.useState('');
+  // A picture or PDF waiting to go with the next message (live เลขา only), and why the last pick failed.
+  const [upload, setUpload] = React.useState<PreparedFile | null>(null);
+  const [fileProblem, setFileProblem] = React.useState<'type' | 'size' | null>(null);
+  // Pictures as pictures (owner, 2026-10-24: "เอาแบบเป็นพรีวิวขึ้นเหมือนที่ทำกับมึงเลย"): drag one in, see it above the
+  // box before sending and in the chat after; a sent picture opens large.
+  const [dropping, setDropping] = React.useState(false);
+  const dragDepth = React.useRef(0);
+  const [viewer, setViewer] = React.useState<string | null>(null);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const onDraftRef = React.useRef<(value: string) => void>(() => {});
+  // Recording stays on-device until stop. The transcript becomes an editable draft, never a sent message.
+  const speechLang = dateLocale();
+  const voice = useDictation({
+    transport, language: speechLang,
+    onText: text => {
+      onDraftRef.current(text);
+      requestAnimationFrame(() => {
+        const input = inputRef.current;
+        if (input) { input.focus(); input.style.height = 'auto'; input.style.height = `${Math.min(160, input.scrollHeight)}px`; input.setSelectionRange(text.length, text.length); }
+      });
+    },
+    onCharged: () => { void transport.balance().then(setBalance).catch(() => {}); },
+  });
+  const reader = useReadAloud(speechLang);
   const [streamingId, setStreamingId] = React.useState<string | null>(null);
   const [readId, setReadId] = React.useState<string | null>(null);
   const [confirmStates, setConfirmStates] = React.useState<Record<string, ConfirmState>>({});
+  const [confirmedPaths, setConfirmedPaths] = React.useState<Record<string, string>>({});
+  const confirmControllers = React.useRef(new Set<AbortController>());
   const [query, setQuery] = React.useState('');
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [tokenOpen, setTokenOpen] = React.useState(false);
@@ -176,6 +269,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const id = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${++nextId.current}`;
 
   const busy = mode === 'thinking' || mode === 'working';
+  const displayMode: AssistantMode = voice.phase === 'transcribing' ? 'thinking' : voice.active ? 'listening' : mode;
   const current = conversations?.find(conversation => conversation.id === currentId) ?? null;
   const messages = current?.messages ?? [];
   const currentIdRef = React.useRef(currentId); currentIdRef.current = currentId;
@@ -191,25 +285,46 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   // Without Pro the chat is a try mode: preset questions answer, typed questions ask for Pro. With Pro, an
   // empty token cycle stops sending.
   const blocked = !gate && level === 'empty';
-  const refill = new Date(effective.refillsOn).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
+  const pendingConfirmation = !inLine && confirmationCommand('ยืนยัน', messages, confirmStates) !== null;
+  // The real เลขากระรอก (live transport): no sample labels. The trial has no refill date.
+  const live = Boolean(transport.live);
+  const refillDate = new Date(effective.refillsOn);
+  const refill = Number.isNaN(refillDate.getTime()) ? '' : refillDate.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
   const share = effective.total ? effective.remaining / effective.total : 0;
 
   // Load the history and the balance through the transport (the sample one answers at once).
   React.useEffect(() => {
     let live = true;
-    transport.conversations().then(list => { if (live) setConversations(list); }).catch(() => { if (live) setConversations([]); });
+    transport.conversations().then(list => { if (live) setConversations(inboxRef.current ? withInbox(list, inboxRef.current, currentIdRef.current) : list); }).catch(() => { if (live) setConversations([]); });
     transport.balance().then(value => { if (live) setBalance(value); }).catch(() => {});
-    return () => { live = false; abortRef.current?.abort(); };
+    return () => { live = false; abortRef.current?.abort(); for (const controller of confirmControllers.current) controller.abort(); };
   }, [transport]);
+  React.useEffect(() => {
+    setInbox(null);
+    if (!lineInbox) return;
+    const controller = new AbortController();
+    lineInbox.load(controller.signal).then(data => {
+      if (!Array.isArray(data?.notices) || !data.quick?.unpaid) return;
+      setConfirmStates(current => ({ ...keptStates(keptThread(data)), ...current }));
+      setInbox(data);
+    }).catch(() => { /* the sample thread stays */ });
+    return () => controller.abort();
+  }, [lineInbox]);
+  // Put the real notices into the thread whichever arrives last: the inbox, or a (re)loaded history (the
+  // transport can change once the real เลขา turns on, and its history brings the thread's place back).
+  React.useEffect(() => {
+    if (!inbox) return;
+    setConversations(list => (list ? withInbox(list, inbox, currentIdRef.current) : list));
+  }, [inbox]);
   // The sidebar starts open where it fits beside the conversation, and remembers the viewer's choice.
   React.useEffect(() => { setSidebarOpen(wide ? (readSidebar() ?? true) : false); }, [wide]);
   // A wave hello, then awake; a nap after a while with nothing happening.
   React.useEffect(() => { const t = window.setTimeout(() => setMode(m => (m === 'greeting' ? 'awake' : m)), 2400); return () => window.clearTimeout(t); }, []);
   React.useEffect(() => {
-    if (mode !== 'awake' || draft) return;
+    if (mode !== 'awake' || draft || voice.active) return;
     const nap = window.setTimeout(() => setMode(m => (m === 'awake' ? 'sleeping' : m)), NAP_AFTER_MS);
     return () => window.clearTimeout(nap);
-  }, [mode, draft]);
+  }, [mode, draft, voice.active]);
   // The floating composer's height, so the last message always clears it. Measured right after each change
   // that resizes the dock (in the same frame, before it is painted) and by a ResizeObserver for the rest.
   const syncDock = React.useCallback(() => {
@@ -227,7 +342,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     observer.observe(dock);
     return () => observer.disconnect();
   }, [syncDock]);
-  React.useLayoutEffect(() => { syncDock(); }, [syncDock, upsell, gate, inLine, busy, level, draft, undo]);
+  React.useLayoutEffect(() => { syncDock(); }, [syncDock, upsell, gate, inLine, busy, level, draft, undo, upload, fileProblem, voice.error, voice.phase, voice.review]);
   // Follow new messages only while the reader is at the bottom; otherwise offer a "new message" pill.
   React.useLayoutEffect(() => {
     const list = listRef.current; if (!list) return;
@@ -276,24 +391,34 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
 
   const time = (at: number) => new Date(at).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 
-  const ask = async (conversationId: string, text: string, history: ChatMessage[]) => {
+  const ask = async (conversationId: string, text: string, history: ChatMessage[], file?: PreparedFile) => {
     const botId = id('bot');
     const controller = new AbortController();
     abortRef.current?.abort();
     abortRef.current = controller;
     setMode('thinking');
     let started = false;
+    let responseCards: ChatMessage['cards'];
+    const isCurrent = () => !controller.signal.aborted && navigationRef.current.transport === transport && navigationRef.current.navigationContext.accountId === accountId;
     try {
-      const result = await transport.send({ conversationId, text, history }, textSoFar => {
+      const result = await transport.send({ conversationId, text, history, ...(file ? { attachment: { name: file.name, mimeType: file.mimeType, data: file.data } } : {}) }, textSoFar => {
+        if (!isCurrent()) return;
         if (!started) {
           started = true;
           setStreamingId(botId);
           setMode('working');
-          patch(conversationId, list => [...list, { id: botId, from: 'bot' as const, text: textSoFar, at: Date.now() }]);
+          patch(conversationId, list => [...list, { id: botId, from: 'bot' as const, text: textSoFar, cards: responseCards, at: Date.now() }]);
         } else patch(conversationId, list => list.map(message => (message.id === botId ? { ...message, text: textSoFar } : message)));
-      }, controller.signal);
+      }, controller.signal, cards => {
+        if (!isCurrent()) return;
+        responseCards = cards;
+        const state = navigationRef.current;
+        const path = automaticNavigation(cards, state.navigationContext, state.navigationMode, getCurrentAccount());
+        if (path) onAutoNavigate?.(path);
+      });
+      if (!isCurrent()) return;
       patch(conversationId, list => (started ? list : [...list, { id: botId, from: 'bot' as const, text: '', at: Date.now() }])
-        .map(message => (message.id === botId ? { ...message, text: result.text, cards: result.cards } : message)));
+        .map(message => (message.id === botId ? { ...message, text: result.text, cards: result.cards, ...(result.memo ? { memo: result.memo } : {}) } : message)));
       setBalance(value => ({ ...value, remaining: Math.max(0, value.remaining - result.tokensUsed) }));
       setStreamingId(null);
       setMode('done');
@@ -302,20 +427,67 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
       if (controller.signal.aborted && !(error instanceof AssistantRequestError)) return;
       setStreamingId(null);
       patch(conversationId, list => [...list.filter(message => message.id !== botId), { id: botId, from: 'bot' as const, text: '', at: Date.now(), failed: true, question: text }]);
+      if (file) retryFiles.current.set(botId, file);
       setMode('awake');
     }
   };
 
+  // A failed send keeps its file here so ลองอีกครั้ง sends it again.
+  const retryFiles = React.useRef(new Map<string, PreparedFile>());
+  /** The real notifications thread answers its quick replies and typed amounts itself, as LINE does. */
+  const lineThreadAnswer = (text: string): boolean => {
+    if (!inLine || !lineInbox || !inbox || !currentId) return false;
+    // Kept in Thai, as LINE's menu sends them; the thread shows them in the viewer's language.
+    const kind: LineQuickKind | null = text === tr("รอรับเงิน") || text === 'รอรับเงิน' ? 'unpaid'
+      : text === tr("สรุปเดือนนี้") || text === 'สรุปเดือนนี้' ? 'month'
+      : text === tr("กำลังดำเนินการ") || text === 'กำลังดำเนินการ' ? 'wip' : null;
+    const quick = kind ? inbox.quick[kind] : null;
+    if (!quick && !isPartialAmountText(text)) return false;
+    const conversationId = currentId;
+    lineUserBubble(conversationId, text);
+    setDraft('');
+    if (inputRef.current) inputRef.current.style.height = '';
+    if (kind && quick) {
+      void lineInbox.keepQuick(kind, QUICK_THAI[kind]).catch(() => { /* answered already; only not kept */ });
+      window.setTimeout(() => lineReply(conversationId, { card: quick }), reduce ? 0 : 450);
+      return true;
+    }
+    setMode('working');
+    lineInbox.partial(text)
+      .then(reply => lineReply(conversationId, reply))
+      .catch(() => lineReply(conversationId, { text: tr("บันทึกไม่สำเร็จ ลองกดอีกครั้ง หรือบันทึกในแอป") }))
+      .finally(() => setMode('awake'));
+    return true;
+  };
   const send = (raw: string, preset = false) => {
-    const text = raw.trim();
-    if (!text || busy || blocked) return;
+    if (busy || voice.active) return;
+    const command = !preset && !upload && !inLine ? confirmationCommand(raw, messages, confirmStates) : null;
+    if (command && currentId) {
+      if (accountId && getCurrentAccount() !== accountId) return;
+      voice.clearReview(); setDraft('');
+      if (inputRef.current) inputRef.current.style.height = '';
+      patch(currentId, list => [...list, { id: id('me'), from: 'me', text: raw.trim(), at: Date.now() }, ...(command.ambiguous ? [{ id: id('bot'), from: 'bot' as const, text: tr('มีหลายรายการที่รอยืนยัน กรุณากดปุ่มของรายการที่ต้องการก่อนครับ'), at: Date.now() }] : [])]);
+      if (command.card) {
+        if (command.action === 'confirm') void confirm(command.card);
+        else { setConfirmStates(states => ({ ...states, [command.card!.id]: 'cancelled' })); void transport.cancel?.(command.card); }
+      }
+      return;
+    }
+    if (blocked) return;
+    if (lineThreadAnswer(raw.trim())) { voice.clearReview(); return; }
+    const file = preset ? undefined : upload ?? undefined;
+    const text = raw.trim() || (file ? tr("ช่วยดูไฟล์นี้หน่อย") : '');
+    if (!text || text.length > MAX_MESSAGE) return;
+    voice.clearReview();
     if (gate && !preset) { setUpsell(true); return; }
     setUpsell(false);
-    const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now() };
+    const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now(), ...(file && !raw.trim() ? { textAuto: true } : {}),
+      ...(file ? { attachment: { name: file.name, kind: file.kind, ...(file.kind === 'image' ? { preview: `data:${file.mimeType};base64,${file.data}` } : {}) } } : {}) };
     let conversationId = currentId;
     let history = messages;
     if (!conversationId) {
-      conversationId = id('chat');
+      // A real chat gets an id the server keeps it under (the account's history, 2026-10-24).
+      conversationId = live && typeof crypto?.randomUUID === 'function' ? `c_${crypto.randomUUID()}` : id('chat');
       const created: Conversation = { id: conversationId, title: text.length > 42 ? `${text.slice(0, 42)}…` : text, group: 'today', sample: false, messages: [] };
       setConversations(list => [created, ...(list ?? [])]);
       setCurrentId(conversationId);
@@ -327,24 +499,49 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     setDraft('');
     if (inputRef.current) inputRef.current.style.height = '';
     atBottom.current = true;
-    void ask(conversationId, text, [...history, mine]);
+    if (file) { setUpload(null); setFileProblem(null); }
+    void ask(conversationId, text, [...history, mine], file);
+  };
+
+  // A confirmation card edited before confirming: the new card (new id) takes the old one's place.
+  const revise = async (card: ConfirmCard, edits: Record<string, string>) => {
+    const conversationId = currentId;
+    const next = await transport.revise!(card, edits);
+    if (!conversationId) return;
+    patch(conversationId, list => list.map(message => (message.cards?.some(item => item.kind === 'confirm' && item.id === card.id)
+      ? { ...message, cards: message.cards.map(item => (item.kind === 'confirm' && item.id === card.id ? next : item)) } : message)));
   };
 
   const retry = (message: ChatMessage) => {
     if (!currentId || !message.question || busy) return;
     patch(currentId, list => list.filter(item => item.id !== message.id));
-    void ask(currentId, message.question, messages.filter(item => item.id !== message.id));
+    const file = retryFiles.current.get(message.id);
+    retryFiles.current.delete(message.id);
+    void ask(currentId, message.question, messages.filter(item => item.id !== message.id), file);
   };
 
   const confirm = async (card: ConfirmCard) => {
+    if (confirmStates[card.id] === 'working' || confirmStates[card.id] === 'done') return;
+    const conversationId = currentIdRef.current;
+    const controller = new AbortController(); confirmControllers.current.add(controller);
     setConfirmStates(states => ({ ...states, [card.id]: 'working' }));
     try {
-      const result = await transport.confirm(card, new AbortController().signal);
+      const result = await transport.confirm(card, controller.signal);
+      if (controller.signal.aborted || navigationRef.current.transport !== transport || navigationRef.current.navigationContext.accountId !== accountId) return;
       setConfirmStates(states => ({ ...states, [card.id]: result.ok ? 'done' : 'failed' }));
-    } catch { setConfirmStates(states => ({ ...states, [card.id]: 'failed' })); }
+      const path = result.ok ? safeAssistantPath(result.path, navigationRef.current.navigationContext) : null;
+      if (path) {
+        setConfirmedPaths(paths => ({ ...paths, [card.id]: path }));
+        const state = navigationRef.current;
+        const autoPath = automaticNavigation([{ kind: 'navigation', label: 'เอกสาร', path, autoOpen: true }], state.navigationContext, state.navigationMode, getCurrentAccount());
+        if (autoPath && currentIdRef.current === conversationId) onAutoNavigate?.(autoPath);
+      }
+    } catch { if (!controller.signal.aborted) setConfirmStates(states => ({ ...states, [card.id]: 'failed' })); }
+    finally { confirmControllers.current.delete(controller); }
   };
 
   const openConversation = (conversationId: string | null) => {
+    voice.cancel(); voice.clearReview(); voice.clearError();
     abortRef.current?.abort();
     setStreamingId(null);
     setMode(m => (m === 'thinking' || m === 'working' ? 'awake' : m));
@@ -353,7 +550,23 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     if (conversationId === LINE_THREAD_ID) { setPush(null); setConversations(list => list?.map(conversation => (conversation.id === LINE_THREAD_ID ? { ...conversation, unread: 0 } : conversation)) ?? list); }
     atBottom.current = true;
     if (!wide) setSidebarOpen(false);
-    if (conversationId) { setOpening(true); window.setTimeout(() => setOpening(false), reduce ? 0 : 450); }
+    const stored = conversationId ? conversations?.find(conversation => conversation.id === conversationId) : undefined;
+    if (stored && stored.loaded === false && transport.loadMessages) {
+      // A stored chat: its messages come from the account's history; confirmation cards show what became of them.
+      setOpening(true);
+      const target = conversationId!;
+      void transport.loadMessages(target).then(list => {
+        const states: Record<string, ConfirmState> = {};
+        for (const message of list) for (const card of message.cards ?? []) {
+          if (card.kind === 'confirm' && card.status && card.status !== 'pending') states[card.id] = card.status === 'applied' ? 'done' : card.status === 'cancelled' ? 'cancelled' : 'expired';
+        }
+        setConfirmStates(current => ({ ...states, ...current }));
+        setConversations(current => current?.map(conversation => (conversation.id === target ? { ...conversation, messages: list, loaded: true } : conversation)) ?? current);
+      }).catch(() => {
+        setConversations(current => current?.map(conversation => (conversation.id === target
+          ? { ...conversation, messages: [{ id: `load-${Date.now()}`, from: 'bot' as const, text: tr("เปิดบทสนทนานี้ไม่ได้ในตอนนี้ ลองเปิดใหม่อีกครั้ง"), at: Date.now() }] } : conversation)) ?? current);
+      }).finally(() => setOpening(false));
+    } else if (conversationId) { setOpening(true); window.setTimeout(() => setOpening(false), reduce ? 0 : 450); }
     else window.setTimeout(() => inputRef.current?.focus(), 0);
   };
   const commitRemoval = React.useCallback((removed: { conversation: Conversation }[]) => {
@@ -413,10 +626,40 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const deletable = (conversations ?? []).filter(conversation => conversation.kind !== 'line');
   // The reminder card's buttons do what they do in LINE: ได้รับแล้ว / ยังไม่ได้ answer at once, ได้ไม่ครบ fills
   // the message box with the partial-payment line. Sample only: nothing is recorded.
+  /** A reply in the real notifications thread: a LINE card or a message, from the server. */
+  const lineReply = (conversationId: string, reply: { text?: string; card?: LineCardData; prompt?: string }) => {
+    patch(conversationId, list => [...list, reply.card
+      ? { id: id('bot'), from: 'bot' as const, text: '', at: Date.now(), note: '', cards: [{ kind: 'line' as const, card: reply.card }] }
+      : { id: id('bot'), from: 'bot' as const, text: reply.text || '', at: Date.now(), note: '' }]);
+    if (reply.prompt) { onDraft(reply.prompt); window.setTimeout(() => inputRef.current?.focus(), 0); }
+  };
+  const lineUserBubble = (conversationId: string, text: string) => {
+    const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now() };
+    atBottom.current = true;
+    patch(conversationId, list => [...list, mine]);
+    setReadId(null);
+    window.setTimeout(() => setReadId(mine.id), 450);
+  };
   const lineDue = (action: LineDueAction, item: LineItem) => {
     const conversationId = currentIdRef.current;
     if (!conversationId || busy || blocked) return;
     setUpsell(false);
+    if (lineInbox && inbox) {
+      // Real: the same recording as LINE's 08:00 buttons; ได้ไม่ครบ puts the code in the box for the amount.
+      if (action === 'partial') {
+        if (item.prompt) { onDraft(item.prompt); window.setTimeout(() => { const el = inputRef.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }
+        else lineReply(conversationId, { text: tr("งานแบ่งงวดบันทึกทีละงวดครับ กด \"ได้รับแล้ว\" ของงวดนั้น หรือแก้ยอดในแอป") });
+        return;
+      }
+      const shown = dueDisplayText(action, item);
+      lineUserBubble(conversationId, shown);
+      setMode('working');
+      lineInbox.due(action, item.id, shown)
+        .then(reply => lineReply(conversationId, reply))
+        .catch(() => lineReply(conversationId, { text: tr("บันทึกไม่สำเร็จ ลองกดอีกครั้ง หรือบันทึกในแอป") }))
+        .finally(() => setMode('awake'));
+      return;
+    }
     if (action === 'partial') {
       onDraft(partialPrompt(item));
       window.setTimeout(() => { const el = inputRef.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0);
@@ -456,6 +699,24 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     if (!busy) setMode(value.trim() ? 'listening' : 'awake');
     const el = inputRef.current;
     if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(160, el.scrollHeight)}px`; }
+  };
+
+  onDraftRef.current = onDraft;
+  const toggleMic = () => {
+    if (busy || blocked || voice.active) return;
+    if (gate) { setUpsell(true); return; }
+    reader.stop();
+    void voice.start(draft);
+  };
+  const cancelVoice = () => { voice.cancel(); requestAnimationFrame(() => inputRef.current?.focus()); };
+  // A file dropped anywhere on the chat never opens in the browser tab; it is attached only when attaching is possible.
+  const hasFiles = (event: React.DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  const canDrop = (event: React.DragEvent) => live && !busy && !blocked && hasFiles(event);
+  const pickFile = async (file: File | undefined) => {
+    if (!file) return;
+    setFileProblem(null);
+    try { setUpload(await prepareFile(file)); inputRef.current?.focus(); }
+    catch (error) { setUpload(null); setFileProblem((error as Error).message === 'size' ? 'size' : 'type'); }
   };
 
   const q = query.trim().toLocaleLowerCase();
@@ -522,7 +783,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 <button type="button" className={`asx-side-item is-line${currentId === LINE_THREAD_ID ? ' is-active' : ''}`} aria-current={currentId === LINE_THREAD_ID ? 'page' : undefined} onClick={() => openConversation(LINE_THREAD_ID)}>
                   <span className="asx-line-avatar" aria-hidden="true"><img src="/brand/logo01-v1/symbol-white.png" alt="" width={16} height={16} /></span>
                   <span className="asx-side-stack"><span className="asx-side-title">{lineThread.title}</span>{lastNoticeText && <span className="asx-side-preview">{lastNoticeText}</span>}</span>
-                  {unread > 0 ? <span className="asx-badge is-inline" aria-label={tr("ยังไม่อ่าน {0}", unread)}>{unread}</span> : <span className="asx-side-tag">{tr("ตัวอย่าง")}</span>}
+                  {unread > 0 ? <span className="asx-badge is-inline" aria-label={tr("ยังไม่อ่าน {0}", unread)}>{unread}</span> : lineThread.sample ? <span className="asx-side-tag">{tr("ตัวอย่าง")}</span> : null}
                 </button>
               </li>
               {pinnedChats.map(row)}
@@ -562,7 +823,6 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
           <motion.div key="pop" ref={rowMenuRef} className="asx-pop is-menu-list lg-glass is-menu" role="menu" aria-label={tr("ตัวเลือกของ “{0}”", menuChat.title)} style={rowMenu.at} {...popMotion(reduce)}>
             <button type="button" role="menuitem" onClick={() => startRename(menuChat)}><span>{tr("เปลี่ยนชื่อ")}</span><Pencil size={16} /></button>
             {!menuChat.archived && <button type="button" role="menuitem" onClick={() => { setRowMenu(null); changeConversation(menuChat.id, { pinned: !menuChat.pinned }); }}><span>{menuChat.pinned ? tr("เลิกปักหมุด") : tr("ปักหมุด")}</span>{menuChat.pinned ? <PinOff size={16} /> : <Pin size={16} />}</button>}
-            <button type="button" role="menuitem" className="is-soon" aria-disabled="true"><span>{tr("แชร์ · เร็ว ๆ นี้")}</span><Share size={16} /></button>
             <div className="asx-menu-sep" role="separator" />
             <button type="button" role="menuitem" onClick={() => { setRowMenu(null); changeConversation(menuChat.id, menuChat.archived ? { archived: false } : { archived: true, pinned: false }); }}>
               <span>{menuChat.archived ? tr("นำออกจากที่เก็บถาวร") : tr("เก็บถาวร")}</span>{menuChat.archived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
@@ -571,32 +831,41 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
           </motion.div>
         )}
       </AnimatePresence>, document.body)}
-      <p className="asx-side-note">{tr("ประวัติแชตเป็นข้อมูลตัวอย่าง")}</p>
+      <p className="asx-side-note">{live ? tr("ประวัติแชตเก็บไว้ในบัญชีของคุณ") : tr("ประวัติแชตเป็นข้อมูลตัวอย่าง")}</p>
     </aside>
   );
 
   return (
-    <section ref={rootRef} className={`asx${mobile ? ' is-mobile' : ''}${wide ? ' is-wide' : ''}${sidebarOpen ? ' has-side' : ''}`} style={box} aria-labelledby="asx-title">
+    <section ref={rootRef} className={`asx${mobile ? ' is-mobile' : ''}${wide ? ' is-wide' : ''}${sidebarOpen ? ' has-side' : ''}${floating ? ' is-following' : ''}`} style={floating ? { height: '100%' } : box} aria-labelledby="asx-title">
       {sidebar}
       {overlaySidebar && sidebarOpen && <button type="button" className="asx-scrim" aria-label={tr("ปิดแถบประวัติแชต")} onClick={() => setSidebarOpen(false)} />}
-      <div className="asx-chat">
+      <div className="asx-chat"
+        onDragEnter={event => { if (!canDrop(event)) return; event.preventDefault(); dragDepth.current += 1; setDropping(true); }}
+        onDragOver={event => { if (!hasFiles(event)) return; event.preventDefault(); event.dataTransfer.dropEffect = canDrop(event) ? 'copy' : 'none'; }}
+        onDragLeave={event => { if (!canDrop(event)) return; dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDropping(false); }}
+        onDrop={event => { if (!hasFiles(event)) return; event.preventDefault(); dragDepth.current = 0; setDropping(false); if (canDrop(event)) void pickFile(event.dataTransfer.files?.[0]); }}>
+        {dropping && <div className="asx-drop" aria-hidden="true"><span><ImageIcon size={18} />{tr("วางรูปหรือ PDF ที่นี่")}</span></div>}
+        <Modal open={Boolean(viewer)} onClose={() => setViewer(null)} label={tr("รูปที่แนบ")} width={760}>
+          {viewer && <img className="asx-viewer-img" src={viewer} alt={tr("รูปที่แนบ")} />}
+        </Modal>
         <div className="asx-aurora" aria-hidden="true"><i /><i /></div>
         {/* No bar across the top (owner: the glass bar blocked the view): round glass buttons at the sides and
             only the squirrel in the middle. The name and status stay for screen readers. */}
         <header className="asx-bar">
           <div className="asx-bar-side">
-            {mobile && onBack && <button type="button" className="asx-icon-btn lg-glass" onClick={onBack} aria-label={tr("กลับไปเมนู")} title={tr("กลับไปเมนู")}><ArrowLeft size={19} /></button>}
+            {floating && <><button type="button" className="asx-icon-btn" onClick={onExit} aria-label={tr('ปิดแชต')}><X size={18} /></button><button type="button" className="asx-link-btn" onClick={onExpand}>{tr('แชตเต็ม')}</button></>}
+            {!floating && mobile && onBack && <button type="button" className="asx-icon-btn lg-glass" onClick={onBack} aria-label={tr("กลับไปเมนู")} title={tr("กลับไปเมนู")}><ArrowLeft size={19} /></button>}
             {/* With the history hidden, the way out moves here, so the chat never traps anyone. */}
-            {!mobile && onExit && (!sidebarOpen || overlaySidebar) && <button type="button" className="asx-icon-btn lg-glass" onClick={onExit} aria-label={tr("กลับ")} title={tr("ออกจากเลขากระรอก")}><ArrowLeft size={19} /></button>}
+            {!floating && !mobile && onExit && (!sidebarOpen || overlaySidebar) && <button type="button" className="asx-icon-btn lg-glass" onClick={onExit} aria-label={tr("กลับ")} title={tr("ออกจากเลขากระรอก")}><ArrowLeft size={19} /></button>}
             {(!sidebarOpen || overlaySidebar) && (
               <button type="button" className="asx-icon-btn lg-glass asx-has-dot" onClick={toggleSidebar} aria-label={tr("ประวัติและค้นหาแชต")} title={tr("ประวัติและค้นหาแชต")} aria-expanded={sidebarOpen}><PanelLeft size={19} />{mobile && unread > 0 && <span className="asx-dot" aria-hidden="true" />}</button>
             )}
           </div>
           <div className="asx-bar-center">
-            {!welcome && <span className="asx-bar-mascot" aria-hidden="true"><MascotSlot mode={mode} size={mobile ? 64 : 80} /></span>}
+            {!welcome && <span className="asx-bar-mascot" aria-hidden="true"><MascotSlot mode={displayMode} size={mobile ? 64 : 80} /></span>}
             <div className="asx-bar-text asx-sr">
               <span className="asx-bar-title"><h1 id="asx-title">{tr("เลขากระรอก")}</h1><span className="asx-pro">Pro</span></span>
-              <span className={`asx-bar-status is-${mode}`} role="status" aria-live="polite"><i aria-hidden="true" />{statusFor(mode)}</span>
+              <span className={`asx-bar-status is-${displayMode}`} role="status" aria-live="polite"><i aria-hidden="true" />{voice.phase === 'transcribing' ? tr("กำลังถอดเสียงเป็นข้อความ…") : statusFor(displayMode)}</span>
             </div>
           </div>
           <div className="asx-bar-side is-end">
@@ -608,7 +877,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
             )}
             {!gate && <div className="asx-pop-anchor">
               <button ref={tokenBtnRef} type="button" className={`asx-token lg-glass is-${level}`} onClick={() => { placeUnder(tokenBtnRef.current); setTokenOpen(open => !open); setMenuOpen(false); }}
-                aria-expanded={tokenOpen} aria-label={tr("Krarok Tokens คงเหลือ {0} จาก {1} (ข้อมูลตัวอย่าง)", effective.remaining, effective.total)} title={tr("Krarok Tokens")}>
+                aria-expanded={tokenOpen} aria-label={live ? tr("Krarok Tokens คงเหลือ {0} จาก {1}", effective.remaining, effective.total) : tr("Krarok Tokens คงเหลือ {0} จาก {1} (ข้อมูลตัวอย่าง)", effective.remaining, effective.total)} title={tr("Krarok Tokens")}>
                 <Ring share={share} size={20} stroke={3} level={level} /><span>{effective.remaining.toLocaleString(dateLocale())}</span>
               </button>
               {createPortal(
@@ -616,7 +885,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 {tokenOpen && <motion.div key="scrim" className="asx-pop-scrim" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />}
                 {tokenOpen && (
                   <motion.div key="pop" ref={tokenPopRef} className="asx-pop lg-glass is-menu" role="dialog" aria-label={tr("Krarok Tokens")} style={popAt} {...popMotion(reduce)}>
-                    <div className="asx-pop-head"><b>Krarok Tokens</b><span className="asx-card-tag">{tr("ข้อมูลตัวอย่าง")}</span></div>
+                    <div className="asx-pop-head"><b>Krarok Tokens</b>{!live && <span className="asx-card-tag">{tr("ข้อมูลตัวอย่าง")}</span>}</div>
                     <div className="asx-token-big">
                       <span className="asx-token-num">{effective.remaining.toLocaleString(dateLocale())}</span>
                       <span className="asx-token-of">{tr("จาก {0} โทเค็นต่อรอบ", effective.total.toLocaleString(dateLocale()))}</span>
@@ -625,8 +894,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                     <p className={`asx-token-state is-${level}`}>
                       {level === 'empty' ? tr("โทเค็นรอบนี้หมดแล้ว") : level === 'low' ? tr("โทเค็นใกล้หมด") : tr("เหลือ {0}% ของรอบนี้", Math.round(share * 100))}
                     </p>
-                    <p className="asx-token-refill">{tr("เติมรอบใหม่ {0}", refill)}</p>
-                    <p className="asx-pop-note">{tr("ตัวอย่างหน้าจอ · ยังไม่เชื่อมระบบชำระเงินหรือการหักโทเค็นจริง")}</p>
+                    {refill && <p className="asx-token-refill">{tr("เติมรอบใหม่ {0}", refill)}</p>}
+                    {!live && <p className="asx-pop-note">{tr("ตัวอย่างหน้าจอ · ยังไม่เชื่อมระบบชำระเงินหรือการหักโทเค็นจริง")}</p>}
                     {level !== 'ok' && <button type="button" className="asx-pill-btn is-primary is-block" onClick={onUpgrade}>{tr("ดูแพ็กเกจ Pro")}</button>}
                   </motion.div>
                 )}
@@ -665,6 +934,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
             </div>
           </div>
         </header>
+        <NavigationModeControl mode={navigationMode} onChange={setNavigationMode} />
 
         <div className="asx-push-wrap" aria-live="polite">
           <AnimatePresence>
@@ -685,14 +955,16 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         <div ref={listRef} className="asx-scroll" onScroll={onScroll} role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
           {welcome ? (
             <div className="asx-welcome">
-              <span className="asx-spot"><MascotSlot mode={mode} size={mobile ? 84 : 96} /></span>
+              <span className="asx-spot"><MascotSlot mode={displayMode} size={mobile ? 84 : 72} /></span>
               <h2>{tr("วันนี้อยากให้เลขากระรอกช่วยอะไร?")}</h2>
               <p>{tr("ถามเรื่องงาน เอกสาร หรือเงินที่ยังไม่ได้รับได้เลย")}</p>
+              {/* Computer and iPad: one iOS-style grouped list with a section title (owner, 2026-10-24); phones keep their tiles. */}
+              {!blocked && !mobile && <h3 className="asx-prompts-head" aria-hidden="true">{tr("คำถามแนะนำ")}</h3>}
               {!blocked && (
                 <div className="asx-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
                   {SUGGESTIONS.map(({ label, ask, icon }) => {
                     const Icon = SUGGESTION_ICONS[icon];
-                    return <button key={label} type="button" onClick={() => send(tr(ask), true)}><span className="asx-prompt-icon" aria-hidden="true"><Icon size={17} /></span><span className="asx-prompt-label">{tr(label)}</span></button>;
+                    return <button key={label} type="button" onClick={() => send(tr(ask), true)}><span className="asx-prompt-icon" aria-hidden="true"><Icon size={17} /></span><span className="asx-prompt-label">{tr(label)}</span>{!mobile && <ChevronRight className="asx-prompt-go" size={17} aria-hidden="true" />}</button>;
                   })}
                 </div>
               )}
@@ -710,14 +982,24 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                   {/* As in LINE: อ่านแล้ว and the time sit beside the bubble, at its foot. */}
                   <div className="asx-me-row">
                     <span className="asx-meta is-side">{(message.id !== lastMine || readId === message.id) && <span>{tr("อ่านแล้ว")}</span>}<span>{time(message.at)}</span></span>
-                    <p className="asx-bubble">{message.text}</p>
+                    <div className="asx-me-stack">
+                      {message.attachment?.preview ? (
+                        <button type="button" className="asx-sent-image" onClick={() => setViewer(message.attachment!.preview!)} aria-label={tr("ดูรูปที่แนบ")}>
+                          <img src={message.attachment.preview} alt={tr("รูปที่แนบ")} />
+                        </button>
+                      ) : message.attachment && (
+                        <div className="asx-sent-file"><span className="asx-file-icon" aria-hidden="true"><FileText size={18} /></span>
+                          <span className="asx-file-text"><b>{message.attachment.name}</b><small>{message.attachment.kind === 'pdf' ? 'PDF' : tr("รูป")}</small></span></div>
+                      )}
+                      {!message.textAuto && <p className="asx-bubble">{message.text}</p>}
+                    </div>
                   </div>
                 </li>
               ) : message.cards?.length && !message.text && message.cards.every(card => card.kind === 'line') ? (
                 <li key={message.id} className="asx-msg is-bot is-line">
                   <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-line-row">
-                    {message.cards.map((card, c) => <ChatCardView key={c} card={card} onConfirm={() => {}} onCancel={() => {}} onNavigate={onNavigate} onLineDue={lineDue} />)}
+                    {message.cards.map((card, c) => <ChatCardView key={c} card={card} onConfirm={() => {}} onCancel={() => {}} onNavigate={go} onLineDue={lineDue} />)}
                     <span className="asx-meta is-side"><span>{message.note ?? tr("ตัวอย่าง")}</span><span>{time(message.at)}</span></span>
                   </div>
                 </li>
@@ -725,7 +1007,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 <li key={message.id} className="asx-msg is-bot is-line">
                   <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-line-row">
-                    <div className="asx-bubble is-bot"><Markdown text={message.text} onNavigate={onNavigate} />{message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}</div>
+                    <div className="asx-bubble is-bot"><Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />{message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}</div>
                     {message.id !== streamingId && <span className="asx-meta is-side"><span>{message.note ?? tr("ตัวอย่าง")}</span><span>{time(message.at)}</span></span>}
                   </div>
                 </li>
@@ -743,13 +1025,24 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 <li key={message.id} className="asx-msg is-bot">
                   <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-msg-body">
-                    {(message.text || message.id === streamingId) && <Markdown text={message.text} onNavigate={onNavigate} />}
+                    {(message.text || message.id === streamingId) && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
                     {message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}
                     {message.cards?.map((card, c) => (
-                      <ChatCardView key={c} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined}
-                        onConfirm={item => void confirm(item)} onCancel={item => setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' }))} onNavigate={onNavigate} onLineDue={lineDue} />
+                      <ChatCardView key={c} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
+                        onConfirm={item => void confirm(item)} onCancel={item => { setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' })); void transport.cancel?.(item); }} onNavigate={go} onLineDue={lineDue}
+                        onAnswer={text => send(text)} answered={messages.slice(n + 1).some(later => later.from === 'me') || busy}
+                        onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
                     ))}
-                    {message.id !== streamingId && <span className="asx-meta">{time(message.at)} · {tr("คำตอบตัวอย่าง")}</span>}
+                    {message.id !== streamingId && (
+                      <span className="asx-meta">{live ? time(message.at) : <>{time(message.at)} · {tr("คำตอบตัวอย่าง")}</>}
+                        {reader.supported && message.text && (
+                          <button type="button" className={`asx-meta-btn${reader.speakingId === message.id ? ' is-on' : ''}`} onClick={() => reader.toggle(message.id, message.text)}
+                            aria-pressed={reader.speakingId === message.id} aria-label={reader.speakingId === message.id ? tr("หยุดอ่าน") : tr("ฟังคำตอบ")} title={reader.speakingId === message.id ? tr("หยุดอ่าน") : tr("ฟังคำตอบ")}>
+                            {reader.speakingId === message.id ? <Square size={12} /> : <Volume2 size={13} />}
+                          </button>
+                        )}
+                      </span>
+                    )}
                   </div>
                 </li>
               )])}
@@ -812,18 +1105,66 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                   {LINE_QUICK_REPLIES.map(label => <button key={label} type="button" onClick={() => send(tr(label), true)}>{tr(label)}</button>)}
                 </div>
               )}
-              <form className="asx-composer lg-glass is-menu" onSubmit={event => { event.preventDefault(); send(draft); }} aria-disabled={blocked || undefined}>
-                <button type="button" className="asx-icon-btn is-soon" aria-disabled="true" aria-label={tr("แนบไฟล์ · เร็ว ๆ นี้")} title={tr("แนบไฟล์ · เร็ว ๆ นี้")}><Paperclip size={18} /></button>
+              {(voice.error || fileProblem) && (
+                <p className="asx-notice is-low" role="status">
+                  <AlertCircle size={15} />
+                  {fileProblem === 'size' ? tr("ไฟล์ใหญ่เกิน 4 MB กรุณาเลือกไฟล์ที่เล็กลง") : fileProblem === 'type' ? tr("แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF")
+                    : voice.error}
+                  <button type="button" className="asx-link-btn" onClick={() => { setFileProblem(null); voice.clearError(); }}>{tr("ปิด")}</button>
+                </p>
+              )}
+              {upload?.kind === 'image' ? (
+                <div className="asx-attach-row">
+                  <div className="asx-attach-tile" role="group" aria-label={tr("รูปที่จะส่ง")}>
+                    <img src={`data:${upload.mimeType};base64,${upload.data}`} alt={tr("รูปที่จะส่ง")} />
+                    <button type="button" className="asx-attach-remove" onClick={() => setUpload(null)} aria-label={tr("เอารูปออก")} title={tr("เอารูปออก")}><X size={14} /></button>
+                  </div>
+                </div>
+              ) : upload && (
+                <div className="asx-attach-row">
+                  <div className="asx-attach-file" role="group" aria-label={tr("ไฟล์ที่จะส่ง")}>
+                    <span className="asx-file-icon" aria-hidden="true"><FileText size={18} /></span>
+                    <span className="asx-file-text"><b>{upload.name}</b><small>PDF · {upload.bytes >= 1048576 ? `${(upload.bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(upload.bytes / 1024))} KB`}</small></span>
+                    <button type="button" className="asx-attach-remove" onClick={() => setUpload(null)} aria-label={tr("เอาไฟล์ออก")} title={tr("เอาไฟล์ออก")}><X size={14} /></button>
+                  </div>
+                </div>
+              )}
+              {draft.length > MAX_MESSAGE && <p className="asx-notice is-low" role="alert">{tr("ข้อความยาวเกิน 6,000 ตัวอักษร กรุณาย่อก่อนส่ง")}</p>}
+              {voice.review && !voice.active && (
+                <p className="asx-notice asx-voice-review" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>
+              )}
+              <form className={`asx-composer lg-glass is-menu${voice.active ? ' has-voice' : ''}`} onSubmit={event => { event.preventDefault(); send(draft); }} aria-disabled={(blocked && !pendingConfirmation) || undefined}>
+                {voice.active ? (
+                  <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} reduce={Boolean(reduce)} onCancel={cancelVoice} onFinish={() => { void voice.finish(); }} />
+                ) : <>
+                {live ? (
+                  <>
+                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" className="asx-sr" tabIndex={-1} aria-hidden="true"
+                      onChange={event => { void pickFile(event.target.files?.[0]); event.target.value = ''; }} />
+                    <button type="button" className="asx-icon-btn" onClick={() => fileRef.current?.click()} disabled={busy || blocked}
+                      aria-label={tr("แนบรูปหรือไฟล์ PDF")} title={tr("แนบรูปหรือไฟล์ PDF")}><Paperclip size={18} /></button>
+                  </>
+                ) : (
+                  <button type="button" className="asx-icon-btn is-soon" aria-disabled="true" aria-label={tr("แนบไฟล์ · เร็ว ๆ นี้")} title={tr("แนบไฟล์ · เร็ว ๆ นี้")}><Paperclip size={18} /></button>
+                )}
                 <label htmlFor="asx-message" className="asx-sr">{tr("ข้อความถึงเลขากระรอก")}</label>
-                <textarea id="asx-message" ref={inputRef} rows={1} value={draft} disabled={blocked}
-                  placeholder={level === 'empty' ? tr("โทเค็นหมด รอเติมรอบใหม่") : tr("ถามเลขากระรอกได้เลย")}
+                <textarea id="asx-message" ref={inputRef} rows={1} value={draft} maxLength={MAX_MESSAGE} disabled={blocked && !pendingConfirmation}
+                  placeholder={blocked && pendingConfirmation ? tr('พิมพ์ยืนยันหรือยกเลิกรายการ') : level === 'empty' ? tr("โทเค็นหมด รอเติมรอบใหม่") : tr("ถามเลขากระรอกได้เลย")}
                   onFocus={() => { if (mode === 'sleeping' || mode === 'greeting') setMode(draft ? 'listening' : 'awake'); }}
                   onChange={event => onDraft(event.target.value)}
+                  onPaste={event => { const pasted = event.clipboardData?.files?.[0]; if (pasted && live && !busy && !blocked) { event.preventDefault(); void pickFile(pasted); } }}
                   onKeyDown={event => { if (event.key === 'Escape' && upsell) { setUpsell(false); return; } if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !mobile) { event.preventDefault(); send(draft); } }} />
-                <button type="button" className="asx-icon-btn is-soon" aria-disabled="true" aria-label={tr("พูดแทนการพิมพ์ · เร็ว ๆ นี้")} title={tr("พูดแทนการพิมพ์ · เร็ว ๆ นี้")}><Mic size={18} /></button>
-                <button type="submit" className="asx-send" disabled={busy || blocked || !draft.trim()} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
+                {voice.supported ? (
+                  <button type="button" className="asx-icon-btn asx-mic" onClick={toggleMic} disabled={busy || blocked}
+                    aria-label={tr("พูดแทนการพิมพ์")} title={tr("อัดเสียงแล้วถอดเป็นข้อความ · ใช้โทเค็น")}><Mic size={18} /></button>
+                ) : (
+                  <button type="button" className="asx-icon-btn is-soon" aria-disabled="true" aria-label={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI")} title={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI")}><Mic size={18} /></button>
+                )}
+                <button type="submit" className="asx-send" disabled={busy || (blocked && !confirmationCommand(draft, messages, confirmStates)) || draft.length > MAX_MESSAGE || (!draft.trim() && !upload)} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
+                </>}
               </form>
-              <p className="asx-hint">{tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
+              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 1 นาที")) : live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
+              {!live && liveNote && <p className="asx-hint is-admin" role="status">{tr("สำหรับแอดมิน: เลขา AI ยังไม่เปิดในบัญชีนี้ · {0}", liveNote)}</p>}
           </>
         </div>
       </div>

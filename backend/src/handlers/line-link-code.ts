@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '../config/supabase.js';
 import { rateLimit,challengeHash } from '../security/rateLimit.js';
 import { sendLineMessagePayload } from '../services/line.js';
 import { buildLineDisconnected } from '../services/lineLinkCards.js';
+import { resetLineMenu } from '../services/lineRichMenus.js';
 export default withGuard(async(req,res)=>{
  if(req.method!=='POST')throw new HttpError(405,'Method not allowed');
  const user=await requireUser(req,res);
@@ -20,6 +21,8 @@ export default withGuard(async(req,res)=>{
   if(typeof lineUserId==='string'&&lineUserId){
    try{lineNotified=await sendLineMessagePayload(lineUserId,buildLineDisconnected());}
    catch{console.error('line-link-code: disconnect notice was not sent');}
+   // The disconnected chat goes back to LINE's default menu (an admin's menu has แนบเอกสาร).
+   await resetLineMenu(lineUserId);
   }
   res.json({ok:true,lineNotified});return;
  }

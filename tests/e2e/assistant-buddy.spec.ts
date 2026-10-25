@@ -178,7 +178,13 @@ test('paying: success message first, then the squirrel arrives on the same page 
   await expect(stage.getByText('ผู้ช่วยส่วนตัว')).toHaveCount(0);
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'arrival-1280-hello.png');
+  // Owner, 2026-10-24 ("ให้มันคอนติเนียกัน ... มูฟลงไปแล้วก็ค่อยขยายออก"): the corner pill waits folded round the
+  // squirrel's picture while the scene plays, the squirrel lands on that picture, then the pill opens out.
+  const more = page.locator('.asx-buddy-more');
+  expect(await more.evaluate(el => el.getBoundingClientRect().width)).toBe(0);
   await expect(stage).toHaveCount(0, { timeout: 10000 });
+  await expect.poll(() => more.evaluate(el => el.getBoundingClientRect().width), { timeout: 3000 }).toBeGreaterThan(100);
+  await expect.poll(() => page.locator('.asx-buddy-more-in').evaluate(el => Number(getComputedStyle(el).opacity)), { timeout: 3000 }).toBe(1);
   await expect(page.getByRole('button', { name: /^ถามเลขากระรอกเรื่องหน้า/ })).toBeVisible();
   const tip = page.locator('.asx-buddy-tip');
   await expect(tip).toContainText('แตะผมได้ทุกหน้า');
@@ -239,5 +245,5 @@ test('removed for the redo: no automatic Pro promo for accounts without Pro', as
   await expect(page.locator('#dashboard-top')).toBeVisible();
   await page.waitForTimeout(1200);
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByText('฿159')).toHaveCount(0);
+  await expect(page.getByText('฿177')).toHaveCount(0);
 });

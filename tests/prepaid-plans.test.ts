@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type Stripe from 'stripe';
-import { PRO_PERIODS, PRO_PRICING } from '../shared/proPricing.js';
+import { PRO_PERIODS, proPricing } from '../shared/proPricing.js';
+const PRO_PRICING = proPricing();
 import { buildPrepaidCheckout, prepaidMetadata, validatedPrepaidPayment, validPrepaidPrice,
   prepaidLookup, PREPAID_OFFER, type PrepaidOrder } from '../backend/src/services/prepaidPlans.js';
 const order = (period: PrepaidOrder['period']='month', method: PrepaidOrder['method']='card'): PrepaidOrder => ({
@@ -49,7 +50,7 @@ test('refunds and disputes are returned as revoked evidence, not a fresh grant',
   assert.equal(validatedPrepaidPayment(s,o).refunded,true);
 });
 test('configured price must be fixed one-time and match the server catalog',()=>{
-  const price:any={active:true,livemode:false,type:'one_time',recurring:null,currency:'thb',unit_amount:84900,
+  const price:any={active:true,livemode:false,type:'one_time',recurring:null,currency:'thb',unit_amount:PRO_PRICING.halfYear.total*100,
     billing_scheme:'per_unit',lookup_key:prepaidLookup('halfYear'),metadata:{offer_version:PREPAID_OFFER,period:'halfYear',months:'6'}};
   assert.equal(validPrepaidPrice(price,'halfYear',false),true);
   for(const patch of [{unit_amount:15900},{recurring:{interval:'month'}},{custom_unit_amount:{enabled:true}},{livemode:true},{lookup_key:'old'}])

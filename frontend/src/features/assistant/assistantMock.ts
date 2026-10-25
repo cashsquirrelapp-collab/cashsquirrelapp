@@ -1,6 +1,8 @@
 import type { MascotAction, MascotMood } from '../../components/mascot/Mascot';
 import { tr, T } from '../../i18n/tr';
 import { lineReplyFor, sampleLineNotices, type LineCardData } from './lineMock';
+import type { NavigationCard } from './assistantNavigation';
+import type { AskQuestion } from '../../../../shared/askQuestions';
 
 // เลขากระรอก chat (owner's brief "KRAROK — AI SECRETARY CHAT UI BRIEF", 2026-10-23): the screen only.
 // Every conversation, card and token figure here is labelled sample data. A real AI replaces this file
@@ -12,16 +14,29 @@ export type AssistantMode = 'greeting' | 'awake' | 'sleeping' | 'listening' | 't
 export type ProjectCard = { kind: 'project'; name: string; client: string; amount: string; status: string };
 export type DocumentCard = { kind: 'document'; docType: string; number: string; client: string; amount: string; path: string };
 export type SummaryCard = { kind: 'summary'; period: string; income: string; expense: string; balance: string };
-export type ConfirmCard = { kind: 'confirm'; id: string; title: string; changes: { label: string; value: string }[] };
+/** Several months of money, from financial_summary's own figures (backend/src/ai/moneyChart.ts). Amounts in baht. */
+export type MoneyChartCard = { kind: 'money_chart'; title: string; period: string; omitted: number;
+  months: { month: string; label: string; income: number; expense: number; net: number; partial: boolean }[];
+  totals: { income: number; expense: number; net: number } };
+/** `edit`: fields the user may change on the card before confirming (owner, 2026-10-24). */
+export type EditField = { field: string; label: string; type: 'text' | 'money' | 'date' | 'choice'; value: string; options?: string[] };
+/** `status`: what became of it, when a stored chat is opened again. */
+export type ConfirmCard = { kind: 'confirm'; id: string; title: string; changes: { label: string; value: string }[]; edit?: EditField[]; status?: 'pending' | 'applied' | 'cancelled' | 'stale' | 'expired' };
 /** A LINE notification card (LineCard.tsx), the same template the app sends to LINE. */
 export type LineChatCard = { kind: 'line'; card: LineCardData };
-export type ChatCard = ProjectCard | DocumentCard | SummaryCard | ConfirmCard | LineChatCard;
+/** Tap-to-answer questions from เลขา (owner, 2026-10-24: tick the answers instead of typing them). */
+export type QuestionsCard = { kind: 'questions'; id: string; questions: AskQuestion[] };
+export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard;
 
 /** `failed` + `question`: a send that did not go through, kept so it can be retried. */
-export type ChatMessage = { id: string; from: 'me' | 'bot'; text: string; cards?: ChatCard[]; at: number; failed?: boolean; question?: string; note?: string };
-export type ChatGroup = 'today' | 'yesterday' | 'week';
+/** `attachment`: the name and kind of a file sent with the message (the file itself is not kept). */
+export type ChatMessage = { id: string; from: 'me' | 'bot'; text: string; cards?: ChatCard[]; at: number; failed?: boolean; question?: string; note?: string; attachment?: { name: string; kind: 'image' | 'pdf'; preview?: string }; textAuto?: boolean;
+  /** เลขา's note of what an attached file showed: never drawn, sent with the chat's later messages (2026-10-24). */
+  memo?: string };
+export type ChatGroup = 'today' | 'yesterday' | 'week' | 'earlier';
 /** `kind: 'line'`: the pinned automatic-notifications thread, drawn like a LINE chat. */
-export type Conversation = { id: string; title: string; group: ChatGroup; sample: boolean; messages: ChatMessage[]; kind?: 'line'; unread?: number; pinned?: boolean; archived?: boolean };
+/** `loaded: false`: a stored chat whose messages are fetched when it is opened. */
+export type Conversation = { id: string; title: string; group: ChatGroup; sample: boolean; messages: ChatMessage[]; kind?: 'line'; unread?: number; pinned?: boolean; archived?: boolean; loaded?: boolean };
 export const LINE_THREAD_ID = 'line-notices';
 export type TokenBalance = { remaining: number; total: number; refillsOn: string };
 
@@ -38,7 +53,7 @@ export const PREVIEW_STATES: { id: PreviewState; label: string }[] = [
 ];
 
 /** Sample only (the brief's example): no billing or token deduction is connected. */
-export const SAMPLE_TOKENS: TokenBalance = { remaining: 730, total: 1000, refillsOn: '2026-11-01' };
+export const SAMPLE_TOKENS: TokenBalance = { remaining: 1210, total: 1650, refillsOn: '2026-11-01' };
 export const LOW_TOKENS = 100;
 /** How long with nothing happening before the squirrel naps. */
 export const NAP_AFTER_MS = 30_000;

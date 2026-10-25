@@ -7,6 +7,8 @@ export type LineFeatureJob = WhtTrackingJob & { name: string; client?: string };
 export interface LineFeatureContext {
   /** Omit if the owner's vault lookup has not succeeded. An unavailable list is not an empty vault. */
   vaultFiles?: readonly VaultFile[];
+  /** false: the document vault is not open to this account (lineLaunch.ts), so its link is left out. */
+  vaultOpen?: boolean;
 }
 
 const normalize = (text: string) => text.normalize('NFKC').trim().replace(/\s+/g, '').toLocaleLowerCase();
@@ -26,6 +28,14 @@ export function isLineFeatureShortcut(text: string): boolean {
 
 export function isLineWhtShortcut(text: string): boolean {
   return commands[normalize(text)] === 'wht50';
+}
+
+/** The area a shortcut belongs to when that area may not be open yet; 'extras' only links to the vault. */
+export function lineShortcutArea(text: string): 'vault' | 'wht50' | 'extras' | null {
+  const command = commands[normalize(text)];
+  if (command === 'wht50') return 'wht50';
+  if (command === 'vault' || command === 'upload') return 'vault';
+  return command === 'extras' ? 'extras' : null;
 }
 
 function secondaryLink(path: string, label: string): any[] {
@@ -52,12 +62,12 @@ export function buildLineFeatureShortcut(
   const command = commands[normalize(text)];
   if (command === 'extras') {
     const links = [
-      ...secondaryLink('/line-documents', 'จัดเอกสารของฉัน'),
+      ...(context.vaultOpen === false ? [] : secondaryLink('/line-documents', 'จัดเอกสารของฉัน')),
       ...secondaryLink('/invoice', 'ออกเอกสาร'),
       ...secondaryLink('/calendar', 'ปฏิทินเงิน'),
     ];
     return lineCard({
-    title: 'ทำต่อในแอป', subtitle: 'เลือกเฉพาะสิ่งที่ต้องใช้ตอนนี้', character: 'guide', altText: 'คลังเอกสาร · ใบ 50 ทวิ · ออกเอกสาร · ปฏิทินเงิน',
+    title: 'ทำต่อในแอป', subtitle: 'เลือกเฉพาะสิ่งที่ต้องใช้ตอนนี้', character: 'guide', altText: context.vaultOpen === false ? 'ออกเอกสาร · ปฏิทินเงิน' : 'คลังเอกสาร · ใบ 50 ทวิ · ออกเอกสาร · ปฏิทินเงิน',
     body: links.length ? links : [paragraph('เมนูนี้ยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง')],
     note: 'เปิดด้วยบัญชีที่คุณเชื่อมกับ LINE ไว้',
     });

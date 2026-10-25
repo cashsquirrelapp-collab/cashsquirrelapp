@@ -8,6 +8,7 @@ import {
   BriefcaseBusiness,
   ChevronRight,
   CircleDollarSign,
+  Cpu,
   Lightbulb,
   MessageSquare,
   RefreshCw,
@@ -38,9 +39,11 @@ const AdminUsersPanel = lazy(() => import('./AdminUsersPanel'));
 const GroupsTab = lazy(() => import('./GroupsTab'));
 const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
 const AdminStripeFinance = lazy(() => import('./AdminStripeFinance'));
+const AdminProfitLive = lazy(() => import('./AdminProfitLive'));
+const AiCreditBanner = lazy(() => import('./AdminAiCredit').then(module => ({ default: module.AiCreditBanner })));
 const AdminDashboardPhone = lazy(() => import('./AdminDashboardPhone'));
 
-type View = 'overview' | 'product' | 'revenue' | 'customers' | 'feedback' | 'operations';
+type View = 'overview' | 'product' | 'revenue' | 'profit' | 'customers' | 'feedback' | 'operations';
 type OperationsPanel = 'users' | 'groups' | null;
 
 const surface = uiSurface;
@@ -302,6 +305,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
     { key: 'overview', label: copy('ภาพรวม', 'Overview'), icon: BarChart3 },
     { key: 'product', label: copy('การใช้ฟีเจอร์', 'Product usage'), icon: Activity },
     { key: 'revenue', label: copy('รายได้ / Pro', 'Revenue / Pro'), icon: CircleDollarSign },
+    { key: 'profit', label: copy('กำไรและต้นทุน AI', 'Profit and AI cost'), icon: Cpu },
     { key: 'customers', label: copy('รายบัญชี', 'Customers'), icon: UsersRound },
     { key: 'feedback', label: copy('ข้อความจากผู้ใช้', 'User feedback'), icon: MessageSquare },
     { key: 'operations', label: copy('จัดการระบบ', 'Operations'), icon: BriefcaseBusiness },
@@ -324,7 +328,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
   return (
     <section aria-labelledby="admin-dashboard-title" className="space-y-5 pb-8">
       <PageHeader page="adminDashboard" id="admin-dashboard-title">
-        {view !== 'feedback' && <div className="flex flex-wrap items-center gap-2">
+        {view !== 'feedback' && view !== 'profit' && <div className="flex flex-wrap items-center gap-2">
           <select className="ui-input !w-auto" aria-label={copy('เลือกช่วงเวลา', 'Select date range')} value={range} onChange={event => setRange(Number(event.target.value) as AnalyticsRange)}>
             {([7, 30, 90] as AnalyticsRange[]).map(days => <option key={days} value={days}>{copy(`${days} วันล่าสุด`, `Last ${days} days`)}</option>)}
           </select>
@@ -332,6 +336,8 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
           <button type="button" className={secondary} onClick={() => setRevision(value => value + 1)} disabled={loading}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />{copy('อัปเดต', 'Refresh')}</button>
         </div>}
       </PageHeader>
+
+      <Suspense fallback={null}><AiCreditBanner userId={userId} onOpen={() => setView('profit')} /></Suspense>
 
       <div className="overflow-x-auto border-b border-brand-border">
         <nav className="flex min-w-max gap-1" aria-label={copy('หมวดการวิเคราะห์', 'Analytics sections')}>
@@ -341,8 +347,9 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
 
       {(view === 'overview' || view === 'revenue') && <Suspense fallback={null}><AdminStripeFinance userId={userId} range={range} revision={revision} liveTick={liveTick} detailed={view === 'revenue'} onViewDetails={() => setView('revenue')} /></Suspense>}
       {view === 'feedback' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminFeedbackInbox userId={userId} /></Suspense>}
-      {view !== 'feedback' && error && <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">{error}</div>}
-      {view !== 'feedback' && (loading && !data ? <AnalyticsSkeleton /> : data && (
+      {view === 'profit' && <Suspense fallback={null}><AdminProfitLive userId={userId} accounts={data?.accounts} appDays={range} liveTick={liveTick} revision={revision} /></Suspense>}
+      {view !== 'feedback' && view !== 'profit' && error && <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">{error}</div>}
+      {view !== 'feedback' && view !== 'profit' && (loading && !data ? <AnalyticsSkeleton /> : data && (
         <>
           {view === 'overview' && (
             <div className="space-y-4">

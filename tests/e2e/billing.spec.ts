@@ -1,6 +1,8 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { CARD_CONSENT_VERSION } from '../../shared/cardConsent';
 import { expect, test, type Page, type Request } from '@playwright/test';
-import { PRO_CHECKOUT_OPEN } from '../../shared/proPricing';
+import { PRO_CHECKOUT_OPEN, proPriceParts, type ProPeriod } from '../../shared/proPricing';
 
 const user = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -97,7 +99,7 @@ async function openPlans(
     }
     billingRequests.push(route.request());
     const body = route.request().postDataJSON();
-    const plan = body.period === 'year' ? {amount:149000,months:12} : body.period === 'halfYear' ? {amount:84900,months:6} : {amount:15900,months:1};
+    const plan = body.period === 'year' ? {amount:156200,months:12} : body.period === 'halfYear' ? {amount:89500,months:6} : {amount:17700,months:1};
     await route.fulfill({ json: body.action === 'portal' ? {url:stripeUrl,destination:'portal'} : {
       ...billingResponse, ...plan, destination:'embedded',period:body.period,
       method:body.action==='promptpay_checkout'?'promptpay':'card',
@@ -135,21 +137,23 @@ async function openPlans(
 
 test('abandoned orders never show a cancel banner and a closed form allows another choice',async({page})=>{
   const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false},'');
-  await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
+  await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿177',exact:true}).click();
   await expect(page.getByText('Secure payment form')).toBeVisible();
   await page.getByRole('dialog').getByRole('button',{name:'ปิด',exact:true}).click();
   await expect(page.getByRole('button',{name:'ยกเลิกรายการที่ยังไม่ชำระ',exact:true})).toHaveCount(0);
-  await page.getByRole('radio',{name:'6 เดือน',exact:true}).click();
+  // Another choice: 6 months by QR while it is on sale, otherwise the month by QR (owner, 2026-10-25: monthly only for now).
+  const other:ProPeriod=PRO_CHECKOUT_OPEN.halfYear?'halfYear':'month';
+  if(other==='halfYear') await page.getByRole('radio',{name:'6 เดือน',exact:true}).click();
   await page.getByTestId('pro-card').getByRole('button',{name:/จ่ายด้วย QR/}).click();
   await expect(page.getByRole('dialog',{name:'ชำระด้วย QR พร้อมเพย์'})).toBeVisible();
   await expect(page.getByText('Secure payment form')).toBeVisible();
-  expect(requests.map(r=>r.postDataJSON())).toEqual([{action:'checkout',period:'month',autoRenew:true,saveCard:true,consentVersion:CARD_CONSENT_VERSION},{action:'promptpay_checkout',period:'halfYear'}]);
+  expect(requests.map(r=>r.postDataJSON())).toEqual([{action:'checkout',period:'month',autoRenew:true,saveCard:true,consentVersion:CARD_CONSENT_VERSION},{action:'promptpay_checkout',period:other}]);
   await expect(page).toHaveURL(/\/plans/);
 });
 
 test('a free account opens an inline card form for the monthly price', async ({ page }) => {
   // The UI submits the selected period; the server fixes price and duration.
-  test.fixme(!PRO_CHECKOUT_OPEN.month, 'monthly checkout opens once Stripe and the billing API charge ฿159 (shared/proPricing.ts)');
+  test.fixme(!PRO_CHECKOUT_OPEN.month, 'monthly checkout opens once Stripe and the billing API charge ฿177 (shared/proPricing.ts)');
   const stripeUrl = 'https://checkout.stripe.com/c/pay/cs_test_intro';
   const requests = await openPlans(page, {
     status: 'free',
@@ -163,7 +167,7 @@ test('a free account opens an inline card form for the monthly price', async ({ 
   }, stripeUrl);
 
   const plans = page.locator('#main-content');
-  await plans.getByRole('button', { name: 'สมัคร Pro รายเดือน ฿159', exact: true }).click();
+  await plans.getByRole('button', { name: 'สมัคร Pro รายเดือน ฿177', exact: true }).click();
 
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0].method()).toBe('POST');
@@ -200,23 +204,30 @@ test('the Pro card and its prices stay readable on mobile', async ({ page }) => 
   const size = await monthly.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
   expect(size).toBeGreaterThanOrEqual(52);
   expect(size).toBeLessThanOrEqual(64);
-  await page.getByRole('radio', { name: '1 ปี' }).click();
-  const yearly = page.getByTestId('pro-price').getByText('฿1,490', { exact: true });
-  await expect(yearly).toBeVisible();
-  // "คุ้มที่สุด" is in the card's top-right corner, so the price line does not move between periods
-  await expect.poll(async () => Math.round((await yearly.boundingBox())!.y)).toBe(monthLine);
-  const card = (await page.getByTestId('pro-card').boundingBox())!;
-  const badge = (await page.getByTestId('pro-card').getByText('คุ้มที่สุด', { exact: true }).boundingBox())!;
-  expect(card.x + card.width - (badge.x + badge.width)).toBeLessThan(40);
-  expect(badge.y - card.y).toBeLessThan(40);
-  await expect(page.getByTestId('pro-price').getByText('ประหยัด ฿1,498 (50%)')).toBeVisible();
+  if (PRO_CHECKOUT_OPEN.year) {
+    await page.getByRole('radio', { name: '1 ปี' }).click();
+    const yearly = page.getByTestId('pro-price').getByText('฿1,490', { exact: true });
+    await expect(yearly).toBeVisible();
+    // "คุ้มที่สุด" is in the card's top-right corner, so the price line does not move between periods
+    await expect.poll(async () => Math.round((await yearly.boundingBox())!.y)).toBe(monthLine);
+    const card = (await page.getByTestId('pro-card').boundingBox())!;
+    const badge = (await page.getByTestId('pro-card').getByText('คุ้มที่สุด', { exact: true }).boundingBox())!;
+    expect(card.x + card.width - (badge.x + badge.width)).toBeLessThan(40);
+    expect(badge.y - card.y).toBeLessThan(40);
+    await expect(page.getByTestId('pro-price').getByText('ประหยัด ฿1,498 (50%)')).toBeVisible();
+  } else {
+    // Monthly only for now (owner, 2026-10-25): no period switch and no long-plan price on the phone either.
+    await expect(page.getByTestId('period-switch')).toHaveCount(0);
+    await expect(page.getByRole('radio')).toHaveCount(0);
+    await expect(plans.getByText(/฿849|฿1,490|คุ้มที่สุด/)).toHaveCount(0);
+  }
   await expect(plans.getByRole('heading', { name: 'บัตรเครดิต / เดบิต', exact: true })).toBeVisible();
   await expect(plans.getByRole('heading', { name: 'พร้อมเพย์ QR', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
 test('PromptPay opens inside the site with its exact price and one-time payment guidance', async ({ page }) => {
-  test.fixme(!PRO_CHECKOUT_OPEN.month, 'PromptPay opens once the billing API charges ฿159 (shared/proPricing.ts)');
+  test.fixme(!PRO_CHECKOUT_OPEN.month, 'PromptPay opens once the billing API charges ฿177 (shared/proPricing.ts)');
   const stripeUrl = 'https://checkout.stripe.com/c/pay/cs_test_promptpay';
   const requests = await openPlans(page, {
     status: 'free',
@@ -234,14 +245,14 @@ test('PromptPay opens inside the site with its exact price and one-time payment 
   });
 
   const plans = page.locator('#main-content');
-  await plans.getByRole('button', { name: 'จ่ายด้วย QR ฿159', exact: true }).click();
+  await plans.getByRole('button', { name: 'จ่ายด้วย QR ฿177', exact: true }).click();
   // Status GETs may already have polled by the time the click resolves on a busy host.
   const checkoutRequests = () => requests.filter(request => request.method() === 'POST');
   await expect.poll(() => checkoutRequests().length).toBe(1);
   expect(checkoutRequests()[0].postDataJSON()).toEqual({ action: 'promptpay_checkout', period: 'month' });
   const dialog = page.getByRole('dialog', { name: 'ชำระด้วย QR พร้อมเพย์' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(/Pro 1 เดือน · ฿159/)).toBeVisible();
+  await expect(dialog.getByText(/Pro 1 เดือน · ฿177/)).toBeVisible();
   await expect(dialog.getByText('Secure payment form')).toBeVisible();
   await expect(dialog.getByRole('link',{name:/เปิด QR ใน Stripe/})).toHaveCount(0);
   await expect(page).toHaveURL(/\/plans/);
@@ -271,7 +282,8 @@ test('a managed nonterminal subscription chooses the Stripe Billing Portal', asy
 
 test('the official mascot on the Pro card returns from tap to idle and is petted, respecting reduced motion',async({page})=>{
   await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock');
-  await expect(page.getByRole('radio',{name:'รายเดือน'})).toHaveAttribute('aria-checked','true'); // monthly by default
+  if(PRO_CHECKOUT_OPEN.halfYear||PRO_CHECKOUT_OPEN.year) await expect(page.getByRole('radio',{name:'รายเดือน'})).toHaveAttribute('aria-checked','true'); // monthly by default
+  else await expect(page.getByTestId('pro-card')).toHaveAttribute('data-period','month'); // monthly only for now
   const mascot=page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'});
   await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','idle');
   await mascot.click();
@@ -341,50 +353,66 @@ test('plans page: Pro only at the owner\'s prices; squirrel and price lead; noth
     await expect(page.getByTestId('pro-actions').getByTestId('checkout-not-open')).toBeVisible();
     await expect(card.getByRole('button',{name:/สมัคร Pro|จ่ายด้วย QR/})).toHaveCount(0);
   };
-  // monthly: the regular ฿249 struck, ฿159 as the promotion
+  // monthly: the regular ฿249 struck, ฿159 as the promotion, then the payment fee and the amount to pay (owner, 2026-10-25)
   await expect(card).toHaveAttribute('data-period','month');
   await expect(price.locator('s')).toContainText('฿249');
   await expect(price.getByText('ราคาโปรโมชัน',{exact:true})).toBeVisible();
   await expect(price.getByText('ประหยัด ฿90 ทุกเดือน (36%)')).toBeVisible();
+  await expect(price.getByTestId('plan-fee').filter({hasText:'฿18 '})).toHaveText('+ ค่าธรรมเนียมชำระเงิน ฿18 · ยอดชำระ ฿177');
   await expect(price.getByText(/คุ้มที่สุด|เฉลี่ย/)).toHaveCount(0);
   await closed();
-  // 6 months: the total leads beside the struck regular price, then the average and the saving
-  await page.getByRole('radio',{name:'6 เดือน'}).click();
-  await expect(card).toHaveAttribute('data-period','halfYear');
-  await expect(price.getByText('฿849',{exact:true})).toBeVisible();
-  await expect(price.getByText('/ 6 เดือน',{exact:true})).toBeVisible();
-  await expect(price.getByText('เฉลี่ย ฿141.50/เดือน',{exact:true})).toBeVisible();
-  await expect(price.locator('s',{hasText:'฿1,494'})).toBeVisible();
-  await expect(price.getByText('ประหยัด ฿645 (43%)')).toBeVisible();
-  await expect(price.getByText('คุ้มที่สุด',{exact:true})).toHaveCount(0);
-  const total=await price.getByText('฿849',{exact:true}).evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
-  const average=await price.getByText('เฉลี่ย ฿141.50/เดือน',{exact:true}).evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
-  expect(total).toBeGreaterThan(average*3);
-  await closed();
-  // 1 year, reached with the arrow key as in any radio group; the one place that says best value
-  await page.getByRole('radio',{name:'6 เดือน'}).press('ArrowRight');
-  await expect(page.getByRole('radio',{name:'1 ปี'})).toHaveAttribute('aria-checked','true');
-  await expect(card).toHaveAttribute('data-period','year');
-  await expect(price.getByText('฿1,490',{exact:true})).toBeVisible();
-  await expect(price.getByText('/ ปี',{exact:true})).toBeVisible();
-  await expect(price.getByText('เฉลี่ย ฿124.17/เดือน',{exact:true})).toBeVisible();
-  await expect(price.locator('s',{hasText:'฿2,988'})).toBeVisible();
-  await expect(price.getByText('ประหยัด ฿1,498 (50%)')).toBeVisible();
-  await expect(page.locator('#main-content').getByText('คุ้มที่สุด',{exact:true})).toHaveCount(1);
-  await closed();
-  const yearCard=(await card.boundingBox())!;
-  expect(yearCard.y+yearCard.height).toBeLessThanOrEqual(720);
-  // back to monthly: the other periods' figures fade out and are gone
-  await page.getByRole('radio',{name:'รายเดือน'}).click();
-  await expect(price.getByText('฿159',{exact:true})).toBeVisible();
-  await expect(price.getByText(/เฉลี่ย|คุ้มที่สุด|฿849|฿1,490/)).toHaveCount(0);
+  if (PRO_CHECKOUT_OPEN.halfYear && PRO_CHECKOUT_OPEN.year) {
+    // 6 months: the total leads beside the struck regular price, then the average and the saving
+    await page.getByRole('radio',{name:'6 เดือน'}).click();
+    await expect(card).toHaveAttribute('data-period','halfYear');
+    await expect(price.getByText('฿849',{exact:true})).toBeVisible();
+    await expect(price.getByText('/ 6 เดือน',{exact:true})).toBeVisible();
+    await expect(price.getByText('เฉลี่ย ฿141.50/เดือน',{exact:true})).toBeVisible();
+    await expect(price.locator('s',{hasText:'฿1,494'})).toBeVisible();
+    await expect(price.getByText('ประหยัด ฿645 (43%)')).toBeVisible();
+    await expect(price.getByTestId('plan-fee').filter({hasText:'฿46 '})).toHaveText('+ ค่าธรรมเนียมชำระเงิน ฿46 · ยอดชำระ ฿895');
+    await expect(price.getByText('คุ้มที่สุด',{exact:true})).toHaveCount(0);
+    const total=await price.getByText('฿849',{exact:true}).evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
+    const average=await price.getByText('เฉลี่ย ฿141.50/เดือน',{exact:true}).evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
+    expect(total).toBeGreaterThan(average*3);
+    await closed();
+    // 1 year, reached with the arrow key as in any radio group; the one place that says best value
+    await page.getByRole('radio',{name:'6 เดือน'}).press('ArrowRight');
+    await expect(page.getByRole('radio',{name:'1 ปี'})).toHaveAttribute('aria-checked','true');
+    await expect(card).toHaveAttribute('data-period','year');
+    await expect(price.getByText('฿1,490',{exact:true})).toBeVisible();
+    await expect(price.getByText('/ ปี',{exact:true})).toBeVisible();
+    await expect(price.getByText('เฉลี่ย ฿124.17/เดือน',{exact:true})).toBeVisible();
+    await expect(price.locator('s',{hasText:'฿2,988'})).toBeVisible();
+    await expect(price.getByText('ประหยัด ฿1,498 (50%)')).toBeVisible();
+    await expect(price.getByTestId('plan-fee').filter({hasText:'฿72 '})).toHaveText('+ ค่าธรรมเนียมชำระเงิน ฿72 · ยอดชำระ ฿1,562');
+    await expect(page.locator('#main-content').getByText('คุ้มที่สุด',{exact:true})).toHaveCount(1);
+    await closed();
+    const yearCard=(await card.boundingBox())!;
+    expect(yearCard.y+yearCard.height).toBeLessThanOrEqual(720);
+    // back to monthly: the other periods' figures fade out and are gone
+    await page.getByRole('radio',{name:'รายเดือน'}).click();
+    await expect(price.getByText('฿159',{exact:true})).toBeVisible();
+    await expect(price.getByText(/เฉลี่ย|คุ้มที่สุด|฿849|฿1,490/)).toHaveCount(0);
+  } else {
+    // Monthly only for now (owner, 2026-10-25): the long plans are hidden, not removed; no switch, no long-plan price.
+    await expect(page.getByTestId('period-switch')).toHaveCount(0);
+    await expect(page.getByRole('radio')).toHaveCount(0);
+    await expect(page.locator('#main-content').getByText(/฿849|฿1,490|฿895|฿1,562|คุ้มที่สุด|เฉลี่ย/)).toHaveCount(0);
+  }
   // nothing was sent to checkout
   expect(requests.filter(request=>request.method()==='POST')).toEqual([]);
-  // the same four Pro groups whichever period; the AI chat is marked as not live
+  // the same four Pro groups whichever period; the AI row shows that plan's tokens a month (owner, 2026-10-25)
   const features=card.getByRole('list',{name:'ทุกรอบชำระได้ Pro ครบเท่ากัน'}).getByRole('listitem');
   await expect(features).toHaveCount(4);
   await expect(features.nth(0)).toContainText('LINE AI เลขาการเงินส่วนตัว');
-  await expect(features.nth(0)).toContainText('เร็ว ๆ นี้');
+  await expect(features.nth(0)).not.toContainText('เร็ว ๆ นี้');
+  const aiTokens=card.getByTestId('plan-ai-tokens');
+  await expect(aiTokens).toHaveText('1,650 โทเคนต่อเดือน สำหรับเลขา AI ใช้ร่วมกันในแอปและ LINE');
+  if (PRO_CHECKOUT_OPEN.halfYear && PRO_CHECKOUT_OPEN.year) {
+    // Long-plan buyers never get fewer tokens than a month (owner, 2026-10-25).
+    for (const label of ['6 เดือน','1 ปี','รายเดือน']) { await page.getByRole('radio',{name:label}).click(); await expect(aiTokens).toContainText('1,650 โทเคนต่อเดือน'); }
+  }
   await expect(features.nth(1)).toContainText('แจ้งเตือนอัตโนมัติ');
   await expect(features.nth(2)).toContainText('ออกเอกสารไม่จำกัด');
   await expect(features.nth(2)).not.toContainText('เร็ว ๆ นี้');
@@ -396,7 +424,7 @@ test('plans page: every account sees the same monthly price, with or without the
   const price=page.getByTestId('pro-price');
   await expect(price.getByText('฿159',{exact:true})).toBeVisible();
   await expect(price.locator('s')).toContainText('฿249');
-  await expect(page.getByRole('radio')).toHaveCount(3);
+  await expect(page.getByRole('radio')).toHaveCount(PRO_CHECKOUT_OPEN.halfYear && PRO_CHECKOUT_OPEN.year ? 3 : 0);
 });
 
 test('plans page: an active Pro member sees the status in the card and manages the subscription',async({page})=>{
@@ -511,6 +539,7 @@ test('a direct account switch clears plan state and rejects the old checkout pol
 for(const plan of [{period:'halfYear',label:'6 เดือน',months:6,amount:849},{period:'year',label:'1 ปี',months:12,amount:1490}]) {
   for(const method of ['card','promptpay']) {
     test(`prepaid ${plan.period} ${method} sends only the chosen period and shows its duration`,async({page})=>{
+      test.skip(!PRO_CHECKOUT_OPEN[plan.period as ProPeriod],'6 months and a year are hidden for now (owner, 2026-10-25: monthly only)');
       const stripeUrl=`https://checkout.stripe.com/c/pay/cs_test_${plan.period}_${method}`;
       const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},stripeUrl,{destination:method==='promptpay'?'promptpay':'checkout',months:plan.months,period:plan.period,amount:plan.amount*100,expiresAt:new Date(Date.now()+30*60_000).toISOString()});
       await page.getByRole('radio',{name:plan.label,exact:true}).click();
@@ -537,7 +566,7 @@ test('banned Pro explains admin unlock and offers no purchase button', async ({p
 test('embedded completion waits for authoritative payment before showing Pro',async({page})=>{
  const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
  await openPlans(page,free,'');
- await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
+ await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿177',exact:true}).click();
  await page.getByRole('button',{name:'Mock payment complete'}).click();
  await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toBeVisible();
  await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toHaveCount(0);
@@ -545,8 +574,9 @@ test('embedded completion waits for authoritative payment before showing Pro',as
  await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toBeVisible({timeout:10000});
 });
 
-for (const plan of [{period:'month',label:'รายเดือน',months:1,amount:15900},{period:'halfYear',label:'6 เดือน',months:6,amount:84900},{period:'year',label:'1 ปี',months:12,amount:149000}]) {
+for (const plan of [{period:'month',label:'รายเดือน',months:1,amount:17700},{period:'halfYear',label:'6 เดือน',months:6,amount:89500},{period:'year',label:'1 ปี',months:12,amount:156200}]) {
  test(`direct QR ${plan.period} displays immediately in our modal without a Stripe form or Continue button`,async({page})=>{
+  test.skip(!PRO_CHECKOUT_OPEN[plan.period as ProPeriod],'6 months and a year are hidden for now (owner, 2026-10-25: monthly only)');
   const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
   await openPlans(page,free,'');
   let posted:any;let paymentStatus='pending';let paid=false;
@@ -556,11 +586,16 @@ for (const plan of [{period:'month',label:'รายเดือน',months:1,am
     if(route.request().method()==='POST'){posted=route.request().postDataJSON();return route.fulfill({json:{destination:'qr',qrImage:'https://qr.stripe.com/test.png',orderId:'qr-test',period:plan.period,amount:plan.amount,months:plan.months,expiresAt:new Date(Date.now()+45*60_000).toISOString()}});}
     return route.fulfill({json:{checkout_ready:true,subscription:paid?{...free,status:'active',plan:'pro_prepaid',current_period_end:'2099-01-01T00:00:00Z'}:free}});
   });
-  await page.getByRole('radio',{name:plan.label,exact:true}).click();
+  // With one period on sale there is no switch; the card already shows it.
+  if(await page.getByRole('radio').count()) await page.getByRole('radio',{name:plan.label,exact:true}).click();
   await page.getByTestId('pro-card').getByRole('button',{name:/จ่ายด้วย QR/}).click();
   const dialog=page.getByRole('dialog',{name:'สแกนเพื่อชำระเงิน'});
   await expect(dialog.getByRole('img',{name:'QR พร้อมเพย์สำหรับชำระแพ็กเกจ Pro'})).toBeVisible();
   await expect(dialog.getByText(`฿${(plan.amount/100).toLocaleString('th-TH')}`,{exact:true})).toBeVisible();
+  // Before paying: the membership and the payment fee that make up the amount (owner, 2026-10-25).
+  const parts=proPriceParts(plan.period as ProPeriod);
+  await expect(dialog.getByTestId('qr-price')).toHaveText(`ค่าสมาชิก฿${parts.price.toLocaleString('th-TH')}`);
+  await expect(dialog.getByTestId('qr-fee')).toHaveText(`ค่าธรรมเนียมชำระเงิน฿${parts.fee.toLocaleString('th-TH')}`);
   await expect(dialog.locator('iframe')).toHaveCount(0);await expect(dialog.getByText('Secure payment form')).toHaveCount(0);
   await expect(dialog.getByRole('button',{name:/ดำเนินการต่อ|Continue/})).toHaveCount(0);
   expect(posted).toEqual({action:'promptpay_checkout',period:plan.period});
@@ -591,9 +626,9 @@ test('custom card uses CI fonts and disclosed button consent without a save chec
   if(route.request().method()==='GET')return route.fulfill({json:{checkout_ready:true,subscription:free}});
   requests.push(route.request());const body=route.request().postDataJSON();attempt++;
   return route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:body.autoRenew,saveCard:body.saveCard,period:body.period,
-   amount:15900,months:1,method:'card',orderId:'test-'+attempt,clientSecret:'cs_card_secret_'+attempt,publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
+   amount:17700,months:1,method:'card',orderId:'test-'+attempt,clientSecret:'cs_card_secret_'+attempt,publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
  });
- await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
+ await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿177',exact:true}).click();
  await expect(page.getByText('Secure card fields')).toBeVisible();
  const auto=page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/});
  await expect(auto).not.toBeChecked();
@@ -604,7 +639,8 @@ test('custom card uses CI fonts and disclosed button consent without a save chec
  expect(appearance.fonts[0].cssSrc).toContain('IBM+Plex+Sans+Thai');
  expect(await page.evaluate(()=> (window as any).__cardConfirm)).toBeUndefined();
  expect(requests.at(-1)?.postDataJSON()).toMatchObject({autoRenew:true,saveCard:true,consentVersion:CARD_CONSENT_VERSION});
- const pay=page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true});
+ const pay=page.getByRole('button',{name:'ยืนยันชำระ ฿177 และบันทึกบัตร',exact:true});
+ await expect(page.getByTestId('card-fee-breakdown')).toHaveText('ค่าสมาชิก฿159ค่าธรรมเนียมชำระเงิน฿18');
  await expect(pay).toBeDisabled(); // nothing is charged before the renewal consent
  await auto.click();await expect(auto).toBeChecked();
  await expect(pay).toBeEnabled();
@@ -645,9 +681,9 @@ test('ticking the renewal consent is instant and never prepares another payment'
  await page.route('**/api/billing',async route=>{
   if(route.request().method()==='GET')return route.fulfill({json:{checkout_ready:true,subscription:free}});
   const body=route.request().postDataJSON();writes.push(body);const attempt=writes.length;
-  return route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:body.autoRenew,saveCard:true,period:'month',amount:15900,months:1,method:'card',orderId:'slow-'+attempt,clientSecret:'cs_slow_'+attempt,publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
+  return route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:body.autoRenew,saveCard:true,period:'month',amount:17700,months:1,method:'card',orderId:'slow-'+attempt,clientSecret:'cs_slow_'+attempt,publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
  });
- await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
+ await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿177',exact:true}).click();
  await expect(page.getByText('Secure card fields')).toBeVisible();
  const auto=page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/});
  for(let i=0;i<4;i++){await auto.click();}
@@ -656,7 +692,7 @@ test('ticking the renewal consent is instant and never prepares another payment'
  await page.waitForTimeout(500);
  expect(writes.map(w=>w.autoRenew)).toEqual([true]);
  expect(await page.evaluate(()=>(window as any).__mounts)).toBe(1); // the card fields were never rebuilt
- const pay=page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true});
+ const pay=page.getByRole('button',{name:'ยืนยันชำระ ฿177 และบันทึกบัตร',exact:true});
  await expect(pay).toBeEnabled();await pay.click();
  await expect.poll(()=>page.evaluate(()=>(window as any).__confirmedSession)).toBe('cs_slow_1');
 });
@@ -675,18 +711,18 @@ test('failed renewal preparation keeps the choice, blocks payment and reconciles
   const body=route.request().postDataJSON();writes.push(body);const attempt=writes.length;
   if(attempt===2)return route.fulfill({status:503,json:{error:'Temporary outage'}});
   // The first answer is an older one-time order, which the dialog must turn into the renewal.
-  return route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:attempt===1?false:body.autoRenew,saveCard:true,period:'month',amount:15900,months:1,method:'card',orderId:'retry-'+attempt,clientSecret:'cs_retry_'+attempt,publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
+  return route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:attempt===1?false:body.autoRenew,saveCard:true,period:'month',amount:17700,months:1,method:'card',orderId:'retry-'+attempt,clientSecret:'cs_retry_'+attempt,publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
  });
- await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
+ await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿177',exact:true}).click();
  await expect(page.getByText('Secure card fields')).toBeVisible();
  const auto=page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/});
  await expect(page.getByRole('alert')).toContainText('ตัวเลือกของคุณยังอยู่');
  await auto.check();
  await expect(auto).toBeChecked();await expect(auto).toBeEnabled();
- await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿177 และบันทึกบัตร',exact:true})).toBeDisabled();
  await page.getByRole('button',{name:'ลองเตรียมรายการอีกครั้ง',exact:true}).click();
  await expect.poll(()=>writes.length).toBe(3);expect(writes[2].autoRenew).toBe(true);
- await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿177 และบันทึกบัตร',exact:true})).toBeEnabled();
  await expect(auto).toBeChecked();
 });
 
@@ -709,16 +745,16 @@ test('card SDK loads during server preparation and fields mount before confirmat
   if(route.request().method()==='GET')return route.fulfill({json:{checkout_ready:true,subscription:free}});
   await gate;
   await route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:true,saveCard:true,period:'month',
-   amount:15900,months:1,method:'card',orderId:'speed-test',clientSecret:'cs_speed_secret',publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
+   amount:17700,months:1,method:'card',orderId:'speed-test',clientSecret:'cs_speed_secret',publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
  });
- await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
+ await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿177',exact:true}).click();
  try {
   await expect(page.getByRole('dialog',{name:'ชำระด้วยบัตร'})).toBeVisible();
   await expect(page.getByText('กำลังเตรียมช่องกรอกบัตร…',{exact:true})).toBeVisible();
   await expect.poll(()=>scriptLoaded).toBe(true);
  } finally {release();}
  await expect(page.getByText('Secure card fields')).toBeVisible();
- const pay=page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true});
+ const pay=page.getByRole('button',{name:'ยืนยันชำระ ฿177 และบันทึกบัตร',exact:true});
  await expect(pay).toBeDisabled();
  await page.evaluate(()=>(window as any).__releaseCardActions());
  await expect(pay).toBeDisabled(); // ready, but waiting for the renewal consent
@@ -734,12 +770,12 @@ test('closing the immediate card dialog never reopens it when a delayed server r
  await page.route('**/api/billing',async route=>{
   if(route.request().method()==='GET')return route.fulfill({json:{checkout_ready:true,subscription:free}});
   await gate;
-  await route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:true,saveCard:true,period:'month',amount:15900,months:1,method:'card',orderId:'late',clientSecret:'cs_late_secret',publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
+  await route.fulfill({json:{destination:'embedded',customCard:true,autoRenew:true,saveCard:true,period:'month',amount:17700,months:1,method:'card',orderId:'late',clientSecret:'cs_late_secret',publishableKey:'pk_test_card',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
  });
- await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true}).click();
+ await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿177',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'ชำระด้วยบัตร'});
  try {await dialog.getByRole('button',{name:'ปิด',exact:true}).click();} finally {release();}
- await expect(page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿159',exact:true})).toBeEnabled();
+ await expect(page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน ฿177',exact:true})).toBeEnabled();
  await expect(dialog).toHaveCount(0);
 });
 
@@ -752,7 +788,7 @@ async function openWalletCheckout(page: Page, period='month') {
  await page.route('**/api/billing',route=>{
   if(route.request().method()==='GET')return route.fulfill({json:{checkout_ready:true,subscription:free}});
   const body=route.request().postDataJSON();writes.push(body);
-  const plan=body.period==='year'?{amount:149000,months:12}:body.period==='halfYear'?{amount:84900,months:6}:{amount:15900,months:1};
+  const plan=body.period==='year'?{amount:156200,months:12}:body.period==='halfYear'?{amount:89500,months:6}:{amount:17700,months:1};
   return route.fulfill({json:{...plan,destination:'embedded',customCard:true,autoRenew:body.autoRenew,saveCard:true,period:body.period,method:'card',orderId:'wallet-'+writes.length,clientSecret:'cs_wallet_'+writes.length,publishableKey:'pk_test_wallet',expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
  });
  await page.route('https://js.stripe.com/**',route=>route.fulfill({contentType:'application/javascript',body:`
@@ -781,6 +817,7 @@ async function openWalletCheckout(page: Page, period='month') {
 }
 for(const period of ['month','halfYear','year']) {
  test(`wallet waits for the renewal consent, then uses native authorization exactly once for ${period}`,async({page})=>{
+  test.skip(!PRO_CHECKOUT_OPEN[period as ProPeriod],'6 months and a year are hidden for now (owner, 2026-10-25: monthly only)');
   const writes=await openWalletCheckout(page,period);
   const consent=page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/});
   await expect(consent).not.toBeChecked();
@@ -813,5 +850,103 @@ test('wallet unavailable never presents a blank Google Pay tab and leaves the ca
  await expect(page.getByTestId('wallet-buttons')).toBeHidden();
  await expect(page.getByText('Google Pay / Apple Pay ยังไม่พร้อมในเบราว์เซอร์นี้ ใช้ช่องกรอกบัตรด้านบนได้')).toBeVisible();
  await page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/}).check();
- await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿159 และบันทึกบัตร',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿177 และบันทึกบัตร',exact:true})).toBeEnabled();
+});
+
+// Owner's rule (2026-10-23): no overlapping text. The fee line added on 2026-10-25 sits between the saving and the
+// promotion notice: every line of the price block stays in order with no overlap, on a phone and a computer, light
+// and dark. Where the owner's overlap checker is on this machine, it runs on the whole price card too.
+test('plans page: the price, saving, payment fee and notice lines never overlap, on a phone and a computer, light and dark', async ({ page }) => {
+  const checker = path.resolve(process.cwd(), '../../text-overlap-check/appcheck.js');
+  const overlapScript = fs.existsSync(checker) ? fs.readFileSync(checker, 'utf8') : null;
+  await openPlans(page, { status: 'free', plan: null, current_period_end: null, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false }, 'https://checkout.stripe.com/c/pay/mock');
+  for (const scheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const size of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+      await page.setViewportSize(size);
+      // Only the periods on sale are on the page (owner, 2026-10-25: monthly only for now; no switch with one).
+      const labels = ({ month: 'รายเดือน', halfYear: '6 เดือน', year: '1 ปี' }) as Record<ProPeriod, string>;
+      for (const label of (['month', 'halfYear', 'year'] as ProPeriod[]).filter(period => PRO_CHECKOUT_OPEN[period]).map(period => labels[period])) {
+        if (await page.getByRole('radio').count()) await page.getByRole('radio', { name: label, exact: true }).click();
+        const price = page.getByTestId('pro-price');
+        await expect(price.getByTestId('plan-fee')).toHaveCount(1);
+        // SHOT_DIR=… saves the card for review (never in a normal run).
+        if (process.env.SHOT_DIR && label === 'รายเดือน') await page.getByTestId('pro-card').screenshot({ path: path.join(process.env.SHOT_DIR, `plans-${scheme}-${size.width}.png`) });
+        const boxes = await price.locator('.plan-price-row, .plan-sub').evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); return { top: box.top, bottom: box.bottom, text: (node.textContent || '').slice(0, 30) }; }));
+        expect(boxes.length).toBeGreaterThanOrEqual(3);
+        for (let index = 1; index < boxes.length; index++) expect(boxes[index].top, `${scheme} ${size.width} ${label}: ${boxes[index].text}`).toBeGreaterThanOrEqual(boxes[index - 1].bottom - 0.5);
+        if (overlapScript) {
+          const result = await page.evaluate(overlapScript) as { issues: { kind: string; a: string; b?: string }[] };
+          const inCard = result.issues.filter(issue => issue.kind !== 'CLOSE' && /฿|ค่าธรรมเนียม|ยอดชำระ|ประหยัด|ราคา|เฉลี่ย|โทเคน/.test(`${issue.a} ${issue.b ?? ''}`));
+          expect(inCard, `${scheme} ${size.width} ${label}`).toEqual([]);
+        }
+      }
+    }
+  }
+});
+
+// Owner, 2026-10-25: from 1 Dec 2569 a month is shown at ฿249 with the ฿22 payment fee and ฿271 to pay; the promotion's
+// struck price and saving line go away by themselves at midnight, and nothing overlaps.
+test('plans page from 1 Dec 2569: ฿249 shown, fee ฿22 and ฿271 to pay, no struck price, nothing overlapping', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-12-02T03:00:00Z'));
+  const checker = path.resolve(process.cwd(), '../../text-overlap-check/appcheck.js');
+  const overlapScript = fs.existsSync(checker) ? fs.readFileSync(checker, 'utf8') : null;
+  await openPlans(page, { status: 'free', plan: null, current_period_end: null, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false }, 'https://checkout.stripe.com/c/pay/mock');
+  for (const scheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const size of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+      await page.setViewportSize(size);
+      if (await page.getByRole('radio').count()) await page.getByRole('radio', { name: 'รายเดือน', exact: true }).click();
+      const price = page.getByTestId('pro-price');
+      await expect(price.getByTestId('plan-fee')).toHaveCount(1); // the crossfade between periods has finished
+      await expect(price.locator('.plan-figure')).toHaveText('฿249');
+      await expect(price.getByTestId('plan-fee')).toHaveText(/ค่าธรรมเนียมชำระเงิน ฿22.*ยอดชำระ ฿271/);
+      await expect(price.locator('.plan-was')).toHaveCount(0);
+      await expect(price.getByTestId('plan-promo-ends')).toHaveCount(0);
+      await expect(page.getByTestId('pro-card').getByRole('button', { name: 'สมัคร Pro รายเดือน ฿271', exact: true })).toBeVisible();
+      await expect(page.getByTestId('plan-ai-tokens')).toContainText('1,650 โทเคนต่อเดือน');
+      if (process.env.SHOT_DIR) await page.getByTestId('pro-card').screenshot({ path: path.join(process.env.SHOT_DIR, `plans-december-${scheme}-${size.width}.png`) });
+      const boxes = await price.locator('.plan-price-row, .plan-sub').evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); return { top: box.top, bottom: box.bottom }; }));
+      for (let index = 1; index < boxes.length; index++) expect(boxes[index].top).toBeGreaterThanOrEqual(boxes[index - 1].bottom - 0.5);
+      if (overlapScript) {
+        const result = await page.evaluate(overlapScript) as { issues: { kind: string; a: string; b?: string }[] };
+        expect(result.issues.filter(issue => issue.kind !== 'CLOSE' && /฿|ค่าธรรมเนียม|ยอดชำระ|ราคา|เฉลี่ย|โทเคน/.test(`${issue.a} ${issue.b ?? ''}`)), `${scheme} ${size.width}`).toEqual([]);
+      }
+      // 6 months and a year keep their promotion against the regular price, while they are on sale.
+      if (PRO_CHECKOUT_OPEN.year) {
+        await page.getByRole('radio', { name: '1 ปี', exact: true }).click();
+        await expect(price.getByTestId('plan-fee').filter({ hasText: '฿72' })).toHaveText(/ค่าธรรมเนียมชำระเงิน ฿72.*ยอดชำระ ฿1,562/);
+        await expect(price.getByTestId('plan-fee')).toHaveCount(1);
+        await expect(price.locator('.plan-was')).toHaveCount(1);
+      } else await expect(page.getByRole('radio')).toHaveCount(0);
+    }
+  }
+});
+
+test('the monthly card renewal consent (v4) names ฿177 until 30 Nov and ฿271 (฿249 + ฿22 fee) from 1 Dec, readable on a phone', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
+  const free = { status: 'free', plan: null, current_period_end: null, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false };
+  await openPlans(page, free, '');
+  await page.route('https://js.stripe.com/**', route => route.fulfill({ contentType: 'application/javascript', body: `
+   window.Stripe=function(){return {initCheckoutElementsSdk:function(){let el; return {
+    loadActions:async()=>({type:'success',actions:{confirm:async()=>({type:'success'})}}),
+    createPaymentElement:()=>({on:(event,cb)=>{if(event==='ready')setTimeout(cb,10)},mount:root=>{el=root;root.innerHTML='<p>Secure card fields</p>'},destroy:()=>{if(el)el.innerHTML=''}})
+   }}}};` }));
+  await page.route('**/api/billing', route => route.request().method() === 'GET' ? route.fulfill({ json: { checkout_ready: true, subscription: free } })
+    : route.fulfill({ json: { destination: 'embedded', customCard: true, autoRenew: true, saveCard: true, period: 'month', amount: 17700, months: 1, method: 'card',
+      orderId: 'test-v4', clientSecret: 'cs_card_secret_v4', publishableKey: 'pk_test_card', expiresAt: new Date(Date.now() + 45 * 60_000).toISOString() } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId('pro-card').getByRole('button', { name: 'สมัคร Pro รายเดือน ฿177', exact: true }).click();
+  const consent = page.getByRole('checkbox', { name: /ยินยอมต่ออายุ/ });
+  await expect(consent).toBeVisible();
+  const label = page.locator('label', { has: consent });
+  await expect(label).toContainText('฿177/เดือน (ราคา ฿159 + ค่าธรรมเนียมชำระเงิน ฿18) ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿271/เดือน (ราคา ฿249 + ค่าธรรมเนียมชำระเงิน ฿22)');
+  // The next renewal (10 Dec) is after 1 Dec: it says ฿271.
+  await expect(page.getByText(/รอบถัดไป ฿271 ทุกเดือน/)).toBeVisible();
+  if (process.env.SHOT_DIR) await page.locator('[role="dialog"]').screenshot({ path: path.join(process.env.SHOT_DIR, 'card-consent-v4-390.png') });
+  const checker = path.resolve(process.cwd(), '../../text-overlap-check/appcheck.js');
+  if (fs.existsSync(checker)) {
+    const result = await page.evaluate(fs.readFileSync(checker, 'utf8')) as { issues: { kind: string; a: string; b?: string }[] };
+    expect(result.issues.filter(issue => issue.kind !== 'CLOSE' && /ยินยอม|฿|ค่าธรรมเนียม|รอบถัดไป/.test(`${issue.a} ${issue.b ?? ''}`))).toEqual([]);
+  }
 });

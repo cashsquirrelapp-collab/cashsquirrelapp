@@ -4,18 +4,15 @@ import type Stripe from 'stripe';
 import { stripe, configuredStripeLivemode } from '../config/stripe.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
-import { prepaidMetadata, PREPAID_OFFER, stripeId, type PrepaidOrder } from './prepaidPlans.js';
+import { orderPriceAllowed, prepaidMetadata, PREPAID_OFFER, stripeId, type PrepaidOrder } from './prepaidPlans.js';
 import { rpc, orderById } from './prepaidBilling.js';
-import { PRO_PRICING } from '../../../shared/proPricing.js';
 
 const FLOW = 'direct_promptpay';
 export const isDirectQr = (order: PrepaidOrder) => order.request?.metadata?.payment_flow === FLOW;
 const metadata = (order: PrepaidOrder) => ({ ...prepaidMetadata(order), payment_flow: FLOW, price_id: order.price_id });
 const expand = ['latest_charge', 'payment_method'];
 export function buildDirectQr(order: PrepaidOrder, email: string): Stripe.PaymentIntentCreateParams {
-  const plan = PRO_PRICING[order.period];
-  if (!order.customer_id || order.method !== 'promptpay' || order.amount !== plan.total * 100
-    || order.months !== plan.months || !email) throw new Error('Invalid QR reservation');
+  if (!order.customer_id || order.method !== 'promptpay' || !orderPriceAllowed(order) || !email) throw new Error('Invalid QR reservation');
   return { amount: order.amount, currency: 'thb', customer: order.customer_id,
     allowed_payment_method_types: ['promptpay'],
     payment_method_data: { type: 'promptpay', billing_details: { email } },

@@ -93,5 +93,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       reminderFailed += 1;
     }
   }
-  res.json({ deleted, deferred, reminded, reminderFailed });
+  // เลขา's learning data past its retention (owner-approved 2026-10-25): memories unused for 12 months, their history
+  // and corrections after 12 months, feature signals after 6. Before 20261025090000_ai_learning.sql runs there is
+  // no such function, and the job's own work above is unaffected.
+  const swept = await admin.rpc('cashflow_ai_learning_sweep').then(result => (result.error ? null : result.data), () => null);
+  res.json({ deleted, deferred, reminded, reminderFailed, ...(swept ? { aiLearning: swept } : {}) });
 }

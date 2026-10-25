@@ -1,3 +1,4 @@
+import { inFreeTrial } from '../../../shared/trial.js';
 import { stagingRecipientAllowed } from '../security/staging.js';
 import { randomUUID } from 'node:crypto';
 import { claimDelivery, releaseDelivery } from '../repositories/deliveries.js';
@@ -10,7 +11,6 @@ import { attemptDelivery, notificationOutcomeCounts, recordChannelOutcome, type 
 import { buildDigestFlexMessage, findJobsNeedingAttention, todayInBangkok, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
 export { buildDigestFlexMessage } from '../services/lineReminders.js';
 
-const FREE_TRIAL_DAYS = 14;
 
 interface NotifSettingsRow {
   enabled?: boolean;
@@ -125,7 +125,7 @@ function isPro(
   const sub = subscriptionByUserId.get(userId);
   if (['admin_revoked', 'admin_removed'].includes(sub?.plan || '')) return false;
   const createdAt = createdAtByUserId.get(userId);
-  const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
+  const isInFreeTrial = inFreeTrial(createdAt);
 
   const isAdminGrant = sub?.status === 'active' && sub.plan === 'admin_grant';
   const isPaidActive = sub?.status === 'active' && !!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now();

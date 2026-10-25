@@ -12,6 +12,8 @@
   "account_id": "7cb26b23e102b0d36824da093b2a267c",
   "workers_dev": true,
   "preview_urls": false,
+  // Keep variables set in the Cloudflare dashboard on deploy, as the 2026-10-24 direct deploys did; the vars below still apply.
+  "keep_vars": true,
   // Set at cutover. On the domain day, add "routes": [{ "pattern": "<domain>", "custom_domain": true }].
   // Scheduled jobs run here since 2026-10-22 (owner approved): the Vercel deployment that ran them is
   // paused. 01:00 UTC = 08:00 Bangkok digest (and the monthly report on the 1st); 02:00 UTC = 09:00
@@ -32,7 +34,23 @@
     "SUPABASE_URL": "https://rcllghixkclvkxhvttaw.supabase.co",
     "STRIPE_MODE": "live",
     // On since 2026-10-22 (owner approved): Vercel's deployment, which ran the crons, is paused.
-    "CRON_ENABLED": "true"
+    "CRON_ENABLED": "true",
+    // เลขากระรอก (2026-10-24): available to active Pro/trial accounts and system admins, within existing quotas.
+    // API keys remain secrets: wrangler secret put GEMINI_API_KEY.
+    // Accounts allowed in before customers (owner, 2026-10-24) are a secret too, comma-separated emails, never in the
+    // repository: wrangler secret put AI_ALLOWED_EMAILS.
+    "AI_ENABLED": "true",
+    "AI_ADMINS_ONLY": "false",
+    // Routing V2 (owner's brief, 2026-10-25; backend/src/ai/routingPolicy.ts): documents, deletes, important edits,
+    // complex changes, files, long texts and analysis go to Claude Sonnet 5.5; everyday talk, questions, summaries and
+    // plain changes stay on Gemini. Without the secret (wrangler secret put ANTHROPIC_API_KEY) Gemini answers everything.
+    // If Sonnet fails, Gemini answers questions and analysis, but documents, deletes and important edits wait for Sonnet
+    // ("AI_LIGHT_FALLBACK_WRITES": "true" lets Gemini take them over). "AI_ROUTING_POLICY": "v1" restores the 24 Oct rules.
+    "AI_SMART_MODEL": "claude-sonnet-5-5",
+    // Krarok Tokens (1 = $0.001 of real AI cost), one pool per account across the app, LINE and voice (owner,
+    // 2026-10-24): 1,650 a Pro month for every Pro account (owner, 2026-10-25: "ให้ทุกคนได้ 1,650"), at most 100 for one message.
+    "AI_PRO_TOKENS_PER_CYCLE": "1650",
+    "AI_MESSAGE_TOKEN_CAP": "100"
   },
   "observability": { "enabled": true }
 }

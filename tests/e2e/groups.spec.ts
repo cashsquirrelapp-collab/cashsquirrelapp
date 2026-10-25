@@ -290,7 +290,9 @@ test('pending confirmation and group state cannot carry across accounts', async 
   await expect(page.getByRole('button', { name: /Design team/ })).toHaveCount(0);
 });
 
-test('until Team launches, regular users see a sample team and nothing is sent', async ({ page }) => {
+// Phase one (shared/featureAvailability.ts): until Team launches, ordinary accounts see no Team entry at all (the
+// sample team was the earlier preview), its address opens the overview, and nothing about groups is sent.
+test('until Team launches, regular users see no Team entry, its address opens the overview, and nothing is sent', async ({ page }) => {
   const calls: string[] = [];
   await page.route('**/api/auth', (route) => route.fulfill({ json: { session: { user } } }));
   await finance(page);
@@ -300,15 +302,11 @@ test('until Team launches, regular users see a sample team and nothing is sent',
   });
   await page.goto('/');
   const sidebar = page.locator('aside');
-  await expect(sidebar.getByRole('button', { name: /ทีม.*เร็วๆ นี้/ })).toBeVisible();
-  await sidebar.getByRole('button', { name: /^ทีม/ }).click();
-  await expect(page.getByRole('note')).toContainText('ฟีเจอร์ทีมสำหรับธุรกิจขนาดเล็กกำลังจะมา');
-  await expect(page.getByText('May', { exact: true })).toBeVisible();
-  await expect(page.getByText('ใช้งานล่าสุด 18 นาทีที่แล้ว')).toBeVisible();
-  const before = calls.length;
-  await page.getByRole('button', { name: 'ตัวเลือกของ Bank' }).click();
-  await page.getByRole('menuitem', { name: 'นำออกจากทีม' }).click();
-  await expect(page.getByRole('status')).toContainText('นี่คือหน้าตัวอย่าง');
-  expect(calls.slice(before).filter(c => c.startsWith('POST'))).toEqual([]);
+  await expect(sidebar.getByRole('button', { name: 'ภาพรวม', exact: true })).toBeVisible();
+  await expect(sidebar.getByRole('button', { name: /^ทีม/ })).toHaveCount(0);
+  await page.goto('/groups');
+  await expect(page.locator('#dashboard-top')).toBeVisible();
+  await expect(page.getByLabel('บัญชีการเงิน', { exact: true })).toHaveCount(0);
+  expect(calls.filter(c => c.startsWith('POST'))).toEqual([]);
   expect(calls.filter(c => c.includes('groupId='))).toEqual([]);
 });

@@ -11,7 +11,7 @@ import { stripe, configuredStripeLivemode } from '../config/stripe.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
 import { isStripeCustomerOwnedByUser } from './stripeSubscriptions.js';
-import { PRO_PRICING, type ProPeriod } from '../../../shared/proPricing.js';
+import { PRO_CHECKOUT_OPEN, type ProPeriod } from '../../../shared/proPricing.js';
 import { assertPrepaidSession, buildPrepaidCheckout, isProPeriod, prepaidLookup, PREPAID_OFFER,
   stripeId, validatedPrepaidPayment, validPrepaidPrice, type PaymentMethod, type PrepaidOrder } from './prepaidPlans.js';
 
@@ -137,6 +137,8 @@ export async function startPrepaidCheckout(user: User, periodValue: unknown, met
   if (!prepaidEnabled()) throw new HttpError(503, 'ระบบชำระเงินกำลังเตรียมเปิดให้บริการ');
   if (!isProPeriod(periodValue)) throw new HttpError(400, 'กรุณาเลือกแพ็กเกจ 1 เดือน, 6 เดือน หรือ 1 ปี');
   const period: ProPeriod = periodValue;
+  // Only the periods on sale (owner, 2026-10-25: monthly only for now), whatever an old page or a crafted request asks.
+  if (!PRO_CHECKOUT_OPEN[period]) throw new HttpError(409, 'ตอนนี้เปิดรับเฉพาะแพ็กเกจรายเดือน', 'period_closed');
   const customCard = method === 'card' && process.env.KRAROK_CUSTOM_CARD_ENABLED === 'true';
   const autoRenew = customCard && cardOptions?.autoRenew === true;
   if (cardOptions && !customCard) throw new HttpError(503, 'หน้าบัตรใหม่ยังไม่พร้อม');
@@ -144,14 +146,16 @@ export async function startPrepaidCheckout(user: User, periodValue: unknown, met
   const livemode = configuredStripeLivemode();
   const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || '';
   if (!publishableKey.startsWith(livemode ? 'pk_live_' : 'pk_test_')) throw new HttpError(503, 'หน้าชำระเงินยังไม่พร้อม กรุณาลองใหม่ภายหลัง');
+  // One moment for the price looked up and checked: on 1 Dec 2569 the monthly price changes at midnight.
+  const pricedAt = Date.now();
   const [prices, configuration, pending] = await Promise.all([
-    timing.measure('prices', () => stripe.prices.list({ lookup_keys: [autoRenew ? recurringLookup(period) : prepaidLookup(period)], active: true, limit: 2 })),
+    timing.measure('prices', () => stripe.prices.list({ lookup_keys: [autoRenew ? recurringLookup(period, pricedAt) : prepaidLookup(period, pricedAt)], active: true, limit: 2 })),
     timing.measure('configuration', () => checkoutConfiguration(livemode)),
     timing.measure('pending', () => getSupabaseAdmin().from('cashflow_prepaid_orders').select('*')
       .eq('user_id', user.id).in('status', ['reserved','open'])),
   ]);
   const price = prices.data[0];
-  if (prices.data.length !== 1 || !(autoRenew ? validRecurringPrice(price, period, livemode) : validPrepaidPrice(price, period, livemode))) {
+  if (prices.data.length !== 1 || !(autoRenew ? validRecurringPrice(price, period, livemode, pricedAt) : validPrepaidPrice(price, period, livemode, pricedAt))) {
     throw new HttpError(503, 'ราคายังไม่พร้อมรับชำระ กรุณาลองใหม่ภายหลัง');
   }
   // Abandoned attempts are managed here, never as a task for the customer. Preserve
@@ -159,7 +163,8 @@ export async function startPrepaidCheckout(user: User, periodValue: unknown, met
   if (pending.error) throw pending.error;
   for (const old of (pending.data || []) as PrepaidOrder[]) {
     if (old.user_id !== user.id || old.livemode !== livemode) throw new Error('Invalid pending checkout owner');
-    const replace = old.period !== period || old.method !== method
+    // A price changed since the order was made (the monthly price at midnight on 1 Dec 2569) replaces it as well.
+    const replace = old.period !== period || old.method !== method || old.price_id !== price.id
       || (old.request && (isDirectQr(old) !== directQr || (!isDirectQr(old) && (old.request as Stripe.Checkout.SessionCreateParams).ui_mode !== (customCard ? 'elements' : 'embedded_page'))))
       || (old.request && (isAutoOrder(old) !== autoRenew || (customCard && old.request.metadata?.save_card !== String(cardOptions?.saveCard === true))))
       || (old.request && customCard && cardOptions?.saveCard === true && old.request.metadata?.save_disclosure_version !== CARD_SAVE_DISCLOSURE_VERSION)

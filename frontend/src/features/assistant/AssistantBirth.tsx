@@ -18,18 +18,20 @@ import './assistant.css';
 // The drawing is always the official Mascot with the Pro outfit (MascotProGear).
 // Skippable at any moment (ข้าม, Escape, or a tap once it is ready); still with reduced motion.
 
-type Phase = 'arrive' | 'jump' | 'ready' | 'open' | 'fly';
+type Phase = 'arrive' | 'jump' | 'ready' | 'leave' | 'open' | 'fly';
 
 type Props = {
   /** The person's name for the greeting, when known. */
   name?: string;
-  /** Where the squirrel lands: the corner squirrel's button. */
+  /** Where the squirrel lands: the corner squirrel's own picture, so the hand-over is seamless. */
   target: () => DOMRect | null;
   onDone: () => void;
 };
 
-// Six steps out of the doorway (1.2–2.85 s), a jump (0.65 s), then the wave and the greeting.
-const TIMES = { walk: 1.2, walkFor: 1.65, jump: 2850, ready: 3500, type: 3700, open: 6600, fly: 7100, safety: 9100 };
+// Six steps out of the doorway (1.2–2.85 s), a jump (0.65 s), then the wave and the greeting. The words leave half
+// a second before the glass opens, and the flight starts while it opens, so one movement runs into the next
+// (owner, 2026-10-24: "ค่อย ๆ เฟด ... ให้มันคอนติเนียกัน ... สมูท").
+const TIMES = { walk: 1.2, walkFor: 1.65, jump: 2850, ready: 3500, type: 3700, leave: 6100, open: 6600, fly: 6900, flyFor: 1.15, safety: 9000 };
 const TWINKLE = 'M12 0C13 8 16 11 24 12C16 13 13 16 12 24C11 16 8 13 0 12C8 11 11 8 12 0Z';
 
 /** Thai letters carry vowel and tone marks; splitting by grapheme keeps each letter whole while it types. */
@@ -74,7 +76,14 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
     const to = target();
     setPhase('fly');
     if (!from || !to) { window.setTimeout(finish, 450); return; }
-    setFlight({ x: to.left + to.width / 2 - (from.left + from.width / 2), y: to.top + to.height / 2 - (from.top + from.height / 2), scale: Math.max(0.2, Math.min(to.width, to.height) / from.width) });
+    // Phones draw the scene smaller (scale 0.86), and a move inside it shrinks by the same amount, so the distance is
+    // divided by that scale to land exactly on the corner squirrel.
+    const sceneScale = from.width / (figureRef.current?.offsetWidth || from.width) || 1;
+    setFlight({
+      x: (to.left + to.width / 2 - (from.left + from.width / 2)) / sceneScale,
+      y: (to.top + to.height / 2 - (from.top + from.height / 2)) / sceneScale,
+      scale: Math.max(0.2, Math.min(to.width, to.height) / from.width),
+    });
   }, [finish, reduce, target]);
 
   React.useEffect(() => {
@@ -87,6 +96,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
         window.setTimeout(() => setPhase('jump'), TIMES.jump),
         window.setTimeout(() => setPhase('ready'), TIMES.ready),
         window.setTimeout(() => setTyping(true), TIMES.type),
+        window.setTimeout(() => setPhase('leave'), TIMES.leave),
         window.setTimeout(() => setPhase('open'), TIMES.open),
         window.setTimeout(fly, TIMES.fly),
         window.setTimeout(finish, TIMES.safety), // a safety net if the flight never reports back
@@ -94,7 +104,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
     return () => { document.removeEventListener('keydown', onKey); timers.forEach(timer => window.clearTimeout(timer)); };
   }, [finish, fly, reduce]);
 
-  const ready = phase === 'ready' || phase === 'open' || phase === 'fly';
+  const ready = phase === 'ready' || phase === 'leave' || phase === 'open' || phase === 'fly';
   const greeting = name ? tr("สวัสดีครับ คุณ{0}", name) : tr("สวัสดีครับ");
   const line = useTyping(greeting, typing, !!reduce);
   const showWords = phase === 'ready' || (reduce && phase !== 'fly');
@@ -111,13 +121,20 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
             <motion.div ref={figureRef} className="kb-figure" aria-hidden="true"
               initial={false}
               animate={flight ? { x: flight.x, y: flight.y, scale: flight.scale } : { x: 0, y: 0, scale: 1 }}
-              transition={flight ? { type: 'spring', stiffness: 120, damping: 18, mass: 0.9 } : { duration: 0 }}
+              // One curved, continuous move: it drops first (y leads), then glides across (x follows) and shrinks
+              // into the corner squirrel's picture.
+              transition={flight ? {
+                x: { duration: TIMES.flyFor, ease: [0.55, 0, 0.25, 1] },
+                y: { duration: TIMES.flyFor, ease: [0.3, 0.35, 0.25, 1] },
+                scale: { duration: TIMES.flyFor, ease: [0.4, 0, 0.2, 1] },
+              } : { duration: 0 }}
               onAnimationComplete={() => { if (flight) finish(); }}>
               {/* Out of the light of the doorway: small and bright far inside, its own size and colours at the front. */}
               <motion.div className="kb-walk"
                 initial={reduce ? false : { opacity: 0, scale: 0.6, y: -12, filter: 'brightness(2.4) blur(3px)' }}
                 animate={{ opacity: 1, scale: 1, y: 0, filter: 'brightness(1) blur(0px)' }}
-                transition={{ delay: TIMES.walk, duration: TIMES.walkFor, ease: [0.3, 0, 0.3, 1], opacity: { delay: TIMES.walk, duration: 0.4 }, filter: { delay: TIMES.walk, duration: 0.8 } }}>
+                // It fades in out of the light while it walks (not all at once): a second to appear, the glow settling as it comes.
+                transition={{ delay: TIMES.walk, duration: TIMES.walkFor, ease: [0.3, 0, 0.3, 1], opacity: { delay: TIMES.walk, duration: 1, ease: [0.4, 0, 0.2, 1] }, filter: { delay: TIMES.walk, duration: 1.3, ease: [0.4, 0, 0.2, 1] } }}>
                 <Mascot gear="pro" mood="wave" action={reduce ? 'wave' : phase === 'arrive' ? 'walk' : phase === 'jump' ? 'jump' : ready && phase !== 'fly' ? 'wave' : 'idle'} size={168} />
               </motion.div>
               {/* ติ๊ง ๆ ๆ: little twinkles by the waving paw. */}
@@ -140,13 +157,13 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
         <motion.div className="kb-hello" aria-live="polite"
           initial={false}
           // The words leave before the glass opens, so they never sit over the page.
-          animate={showWords ? { opacity: 1, y: 0, filter: 'blur(0px)' } : { opacity: 0, y: ready ? -8 : 0, filter: ready ? 'blur(6px)' : 'blur(0px)' }}
-          transition={{ duration: showWords ? 0.3 : 0.28, ease: [0.22, 1, 0.36, 1] }}>
+          animate={showWords ? { opacity: 1, y: 0, filter: 'blur(0px)' } : { opacity: 0, y: ready ? -10 : 0, filter: ready ? 'blur(8px)' : 'blur(0px)' }}
+          transition={{ duration: showWords ? 0.6 : 0.5, ease: [0.22, 1, 0.36, 1] }}>
           <h2>
             <span className="asx-sr">{greeting}</span>
             <span aria-hidden="true">{line.typed}<span className={`kb-caret${line.done ? ' is-done' : ''}`} /><span className="kb-untyped">{line.rest}</span></span>
           </h2>
-          <motion.p initial={false} animate={line.done && showWords ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}>
+          <motion.p initial={false} animate={line.done && showWords ? { opacity: 1, y: 0, filter: 'blur(0px)' } : { opacity: 0, y: 8, filter: 'blur(4px)' }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
             {tr("เลขากระรอกพร้อมช่วยดูแลงาน เอกสาร และการเงินของคุณแล้ว")}
           </motion.p>
         </motion.div>

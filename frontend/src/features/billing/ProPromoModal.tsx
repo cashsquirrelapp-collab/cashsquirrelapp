@@ -3,7 +3,8 @@ import { motion } from 'motion/react';
 import { X, FileText, MessageCircle, CreditCard, ArrowRight } from 'lucide-react';
 import { IconCrown } from '../../components/ui/icons';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { PRO_CHECKOUT_OPEN, PRO_PRICING, PRO_REGULAR_MONTHLY, formatBaht } from '../../../../shared/proPricing';
+import { PRO_CHECKOUT_OPEN, PRO_REGULAR_MONTHLY, formatBaht, proMonthPromoRunning, proPriceParts } from '../../../../shared/proPricing';
+import { MonthPromoNotice } from './promoNotice';
 
 interface ProPromoModalProps {
   /** Kept for the caller; the dialog shows the one monthly price from shared/proPricing.ts. */
@@ -69,10 +70,12 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ manageSubscription
               {t('login.brandName')} Pro <IconCrown className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473]" />
             </h3>
             <p className="inline-flex items-baseline gap-1 bg-[#E65F2B]/10 rounded-2xl px-3.5 py-1.5 mt-2.5">
-              <s className="mr-1 text-sm font-semibold font-mono text-brand-muted"><span className="sr-only">{t('plans.regularPrice')} </span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>
-              <span className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473]">{formatBaht(PRO_PRICING.month.total)}</span>
+              {proMonthPromoRunning() && <s className="mr-1 text-sm font-semibold font-mono text-brand-muted"><span className="sr-only">{t('plans.regularPrice')} </span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>}
+              <span className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473]">{formatBaht(proPriceParts('month').price)}</span>
               <span className="text-xs text-brand-muted font-sans font-bold">{t('promo.perMonth')}</span>
             </p>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-brand-muted" data-testid="promo-fee">{t('plans.feeAdded', { fee: formatBaht(proPriceParts('month').fee) })} · {t('plans.payTotal', { total: formatBaht(proPriceParts('month').total) })}</p>
+            <MonthPromoNotice className="mt-2 text-[12.5px] leading-relaxed text-brand-muted" testId="promo-ends" />
           </div>
           <img src="/pro-promo-hero.png" alt="" className="w-32 sm:w-36 shrink-0" />
         </div>

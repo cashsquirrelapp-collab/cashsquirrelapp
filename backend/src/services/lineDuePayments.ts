@@ -136,6 +136,11 @@ const baht = (amount: number) => `฿ ${amount.toLocaleString('th-TH', { minimum
 const text = (value: string): LineMessage => ({ type: 'text', text: value });
 const isSample = (ref: DueRef) => ref.jobId.startsWith('demo-');
 
+/** What a payment button did, for any screen: a message, or the saved job and the amount it recorded. */
+export type DueOutcome =
+  | { kind: 'text'; text: string }
+  | { kind: 'receipt'; job: Job; amount: number; full: boolean; installmentLabel?: string };
+
 function receipt(job: Job, applied: Applied): LineMessage {
   const pending = job.pending || 0;
   return lineCard({
@@ -153,56 +158,73 @@ function receipt(job: Job, applied: Applied): LineMessage {
   });
 }
 
-function refusal(job: Job, refused: Refused): LineMessage {
+function refusalText(job: Job, refused: Refused): string {
   const name = job.name || 'งานนี้';
   switch (refused.error) {
-    case 'already_paid': return text(`"${name}" บันทึกรับเงินครบไว้แล้วครับ ไม่ต้องทำอะไรเพิ่ม`);
-    case 'missing_installment': return text(`ไม่พบงวดนี้ใน "${name}" แล้วครับ อาจมีการแก้ตารางงวดในแอป กรุณาบันทึกรับเงินในแอปครับ`);
-    case 'installments': return text(`"${name}" แบ่งรับเป็นงวด กด "ได้รับแล้ว" ทีละงวด หรือแก้ยอดในแอปได้ครับ`);
-    case 'already_partial': return text(`"${name}" รับเงินบางส่วนไว้แล้ว ถ้าได้รับส่วนที่เหลือครบ กด "ได้รับแล้ว" ครับ ถ้ายังไม่ครบ แก้ยอดในแอปได้ครับ`);
-    default: return text('ยอดเงินไม่ถูกต้องครับ พิมพ์เป็นตัวเลข เช่น รับเงินบางส่วน #ABC123 ยอด 5000');
+    case 'already_paid': return `"${name}" บันทึกรับเงินครบไว้แล้วครับ ไม่ต้องทำอะไรเพิ่ม`;
+    case 'missing_installment': return `ไม่พบงวดนี้ใน "${name}" แล้วครับ อาจมีการแก้ตารางงวดในแอป กรุณาบันทึกรับเงินในแอปครับ`;
+    case 'installments': return `"${name}" แบ่งรับเป็นงวด กด "ได้รับแล้ว" ทีละงวด หรือแก้ยอดในแอปได้ครับ`;
+    case 'already_partial': return `"${name}" รับเงินบางส่วนไว้แล้ว ถ้าได้รับส่วนที่เหลือครบ กด "ได้รับแล้ว" ครับ ถ้ายังไม่ครบ แก้ยอดในแอปได้ครับ`;
+    default: return 'ยอดเงินไม่ถูกต้องครับ พิมพ์เป็นตัวเลข เช่น รับเงินบางส่วน #ABC123 ยอด 5000';
   }
 }
+
+const toLine = (outcome: DueOutcome): LineMessage => (outcome.kind === 'text' ? text(outcome.text)
+  : receipt(outcome.job, { job: outcome.job, amount: outcome.amount, full: outcome.full, installmentLabel: outcome.installmentLabel }));
 
 /** Load, apply, save; one retry when another device saved the same job in between. */
-async function record(userId: string, ref: DueRef, apply: (job: Job) => Applied | Refused, deps: DuePaymentDependencies): Promise<LineMessage> {
+async function record(userId: string, ref: DueRef, apply: (job: Job) => Applied | Refused, deps: DuePaymentDependencies): Promise<DueOutcome> {
   for (let attempt = 0; attempt < 2; attempt++) {
     const row = await deps.loadJob(userId, ref.jobId);
-    if (!row) return text('ไม่พบงานนี้แล้วครับ อาจถูกลบหรือย้ายไปแล้ว ดูรายการล่าสุดในแอปได้ครับ');
+    if (!row) return { kind: 'text', text: 'ไม่พบงานนี้แล้วครับ อาจถูกลบหรือย้ายไปแล้ว ดูรายการล่าสุดในแอปได้ครับ' };
     const result = apply(row.data);
-    if ('error' in result) return refusal(row.data, result);
-    if (await deps.saveJob(userId, ref.jobId, row.version, result.job)) return receipt(result.job, result);
+    if ('error' in result) return { kind: 'text', text: refusalText(row.data, result) };
+    if (await deps.saveJob(userId, ref.jobId, row.version, result.job)) return { kind: 'receipt', job: result.job, amount: result.amount, full: result.full, installmentLabel: result.installmentLabel };
   }
-  return text('งานนี้เพิ่งถูกแก้จากอีกเครื่องครับ กรุณากดอีกครั้ง หรือบันทึกในแอป');
+  return { kind: 'text', text: 'งานนี้เพิ่งถูกแก้จากอีกเครื่องครับ กรุณากดอีกครั้ง หรือบันทึกในแอป' };
 }
 
-export async function handleDueAction(user: { user_id: string }, action: DueAction, deps: DuePaymentDependencies = duePaymentDependencies): Promise<LineMessage> {
-  if (isSample(action.ref)) return text('นี่คือแจ้งเตือนตัวอย่างครับ ในแจ้งเตือนจริง ปุ่มนี้จะบันทึกรับเงินของงานนั้นให้ทันที');
+/** A payment button (LINE's 08:00 card, or the same card in the app's notifications thread). */
+export async function dueActionOutcome(user: { user_id: string }, action: DueAction, deps: DuePaymentDependencies = duePaymentDependencies): Promise<DueOutcome> {
+  if (isSample(action.ref)) return { kind: 'text', text: 'นี่คือแจ้งเตือนตัวอย่างครับ ในแจ้งเตือนจริง ปุ่มนี้จะบันทึกรับเงินของงานนั้นให้ทันที' };
   if (action.kind === 'later') {
     const row = await deps.loadJob(user.user_id, action.ref.jobId);
     const name = row?.data.name || 'งานนี้';
-    return text(`รับทราบครับ ยังไม่บันทึกรับเงิน "${name}" ถ้ายังไม่ได้รับ พรุ่งนี้ 08:00 กระรอกจะเตือนอีกครั้ง`);
+    return { kind: 'text', text: `รับทราบครับ ยังไม่บันทึกรับเงิน "${name}" ถ้ายังไม่ได้รับ พรุ่งนี้ 08:00 กระรอกจะเตือนอีกครั้ง` };
   }
   if (action.kind === 'partial') {
-    if (action.ref.installmentId) return text('งานแบ่งงวดบันทึกทีละงวดครับ กด "ได้รับแล้ว" ของงวดนั้น หรือแก้ยอดในแอป');
-    return text(`พิมพ์ยอดที่ได้รับต่อท้ายข้อความนี้แล้วกดส่งครับ\n${partialPrompt(action.ref)}5000`);
+    if (action.ref.installmentId) return { kind: 'text', text: 'งานแบ่งงวดบันทึกทีละงวดครับ กด "ได้รับแล้ว" ของงวดนั้น หรือแก้ยอดในแอป' };
+    return { kind: 'text', text: `พิมพ์ยอดที่ได้รับต่อท้ายข้อความนี้แล้วกดส่งครับ\n${partialPrompt(action.ref)}5000` };
   }
   const today = deps.today();
   const nowIso = deps.now().toISOString();
   return record(user.user_id, action.ref, job => applyFullPayment(job, action.ref.installmentId, today, nowIso), deps);
 }
 
+export async function handleDueAction(user: { user_id: string }, action: DueAction, deps: DuePaymentDependencies = duePaymentDependencies): Promise<LineMessage> {
+  return toLine(await dueActionOutcome(user, action, deps));
+}
+
 /** The amount typed after "ได้ไม่ครบ": matched to the job by its short code among unpaid jobs. */
+export async function duePartialOutcome(
+  user: { user_id: string; jobs?: { id: string; pending?: number; installments?: unknown[] }[] },
+  message: string,
+  deps: DuePaymentDependencies = duePaymentDependencies,
+): Promise<DueOutcome | null> {
+  const parsed = parsePartialText(message);
+  if (!parsed) return null;
+  const matches = (user.jobs || []).filter(job => (job.pending || 0) > 0 && !job.installments?.length && dueShortRef({ jobId: job.id }) === parsed.shortRef);
+  if (matches.length !== 1) return { kind: 'text', text: 'ไม่พบงานที่ตรงกับรหัสนี้ครับ กดปุ่ม "ได้ไม่ครบ" ในแจ้งเตือนอีกครั้ง หรือบันทึกในแอป' };
+  const today = deps.today();
+  const nowIso = deps.now().toISOString();
+  return record(user.user_id, { jobId: matches[0].id }, job => applyPartialPayment(job, parsed.amount, today, nowIso), deps);
+}
+
 export async function handleDuePartialText(
   user: { user_id: string; jobs?: { id: string; pending?: number; installments?: unknown[] }[] },
   message: string,
   deps: DuePaymentDependencies = duePaymentDependencies,
 ): Promise<LineMessage | null> {
-  const parsed = parsePartialText(message);
-  if (!parsed) return null;
-  const matches = (user.jobs || []).filter(job => (job.pending || 0) > 0 && !job.installments?.length && dueShortRef({ jobId: job.id }) === parsed.shortRef);
-  if (matches.length !== 1) return text('ไม่พบงานที่ตรงกับรหัสนี้ครับ กดปุ่ม "ได้ไม่ครบ" ในแจ้งเตือนอีกครั้ง หรือบันทึกในแอป');
-  const today = deps.today();
-  const nowIso = deps.now().toISOString();
-  return record(user.user_id, { jobId: matches[0].id }, job => applyPartialPayment(job, parsed.amount, today, nowIso), deps);
+  const outcome = await duePartialOutcome(user, message, deps);
+  return outcome ? toLine(outcome) : null;
 }

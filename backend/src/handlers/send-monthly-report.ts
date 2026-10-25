@@ -1,3 +1,5 @@
+import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
+import { inFreeTrial } from '../../../shared/trial.js';
 import { stagingRecipientAllowed } from '../security/staging.js';
 import { randomUUID } from 'node:crypto';
 import { ensurePrivateReportBucket, REPORTS_BUCKET } from '../services/reportStorage.js';
@@ -27,7 +29,6 @@ import {
   formatCurrency,
 } from '../services/monthlySummary.js';
 
-const FREE_TRIAL_DAYS = 14;
 
 interface NotifSettingsRow {
   alertEmail?: string;
@@ -93,14 +94,15 @@ export function buildReportLineText(monthLabel: string, s: MonthlySummary, downl
     `รายจ่ายรวม: ${formatMonthlyMoney(monthly.totalExpense)}`,
     `กำไรสุทธิ: ${formatMonthlyMoney(monthly.netProfit)}`,
     '',
-    'รวมรายจ่ายประจำและรายจ่ายทั่วไป · กำไรก่อนแบ่งออม',
-    downloadUrl ? `ดาวน์โหลดไฟล์ Excel ฉบับเต็ม: ${downloadUrl}` : emailAccepted ? 'ไฟล์ Excel ฉบับเต็มส่งไปในอีเมลแล้ว' : 'เปิดหน้ารายงานในแอปเพื่อดูรายละเอียด',
+    isPhaseOneFeatureAvailable('split', false) ? 'รวมรายจ่ายประจำและรายจ่ายทั่วไป · กำไรก่อนแบ่งออม' : 'รวมรายจ่ายประจำและรายจ่ายทั่วไป',
+    downloadUrl ? `ดาวน์โหลดไฟล์ Excel ฉบับเต็ม: ${downloadUrl}` : emailAccepted ? 'ไฟล์ Excel ฉบับเต็มส่งไปในอีเมลแล้ว' : (isPhaseOneFeatureAvailable('report', false) ? 'เปิดหน้ารายงานในแอปเพื่อดูรายละเอียด' : 'เปิดแอปเพื่อดูรายละเอียด'),
   ].join('\n');
 }
 
 // Keep the scheduled LINE report and the chat shortcut on the same three-number summary.
 export function buildReportFlexMessage(monthLabel: string, s: MonthlySummary, downloadUrl: string | null): LineMessage {
-  let footer = lineAppLink('/report', 'ดูรายงานในแอป');
+  // The reports page is not open to every account yet; until it is, the link goes to the overview.
+  let footer = isPhaseOneFeatureAvailable('report', false) ? lineAppLink('/report', 'ดูรายงานในแอป') : lineAppLink('/dashboard', 'ดูภาพรวมในแอป');
   if (downloadUrl) {
     try {
       if (new URL(downloadUrl).protocol === 'https:') footer = { label: 'ดาวน์โหลดไฟล์ Excel', uri: downloadUrl };
@@ -240,7 +242,7 @@ function isPro(
   const sub = subscriptionByUserId.get(userId);
   if (['admin_revoked', 'admin_removed'].includes(sub?.plan || '')) return false;
   const createdAt = createdAtByUserId.get(userId);
-  const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
+  const isInFreeTrial = inFreeTrial(createdAt);
 
   const isAdminGrant = sub?.status === 'active' && sub.plan === 'admin_grant';
   const isPaidActive = sub?.status === 'active' && !!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now();

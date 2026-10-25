@@ -7,6 +7,9 @@ import groups from '../handlers/groups.js';
 import adminUsers from '../handlers/admin-users.js';
 import adminAnalytics from '../handlers/admin-analytics.js';
 import adminStripeFinance from '../handlers/admin-stripe-finance.js';
+import adminProfitLive from '../handlers/admin-profit-live.js';
+import adminAiCredit from '../handlers/admin-ai-credit.js';
+import checkAiCredit from '../handlers/check-ai-credit.js';
 import download from '../handlers/download-report.js';
 import lineSession from '../handlers/line-session.js';
 import liffConfig from '../handlers/liff-config.js';
@@ -17,6 +20,8 @@ import notify from '../handlers/notify.js';
 import reset from '../handlers/password-reset-line.js';
 import report from '../handlers/send-monthly-report.js';
 import digest from '../handlers/send-overdue-digest.js';
+import adminProfitReport from '../handlers/send-admin-profit-report.js';
+import advanceCardRenewals from '../handlers/advance-card-renewals.js';
 import wht50Reminder from '../handlers/send-wht50-reminder.js';
 import setup from '../handlers/setup-line-richmenu.js';
 import stripe from '../handlers/stripe-webhook.js';
@@ -31,10 +36,15 @@ import vault from '../handlers/vault.js';
 import vaultUpload from '../handlers/vault-upload.js';
 import vaultFile from '../handlers/vault-file.js';
 import feedback from '../handlers/feedback.js';
-const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'setup-line-richmenu':setup,'stripe-webhook':stripe};
+import assistant from '../handlers/assistant.js';
+const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'send-admin-profit-report':adminProfitReport,'advance-card-renewals':advanceCardRenewals,'setup-line-richmenu':setup,'stripe-webhook':stripe};
 const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 routes.feedback = feedback;
+routes.assistant = assistant;
 routes['admin-stripe-finance'] = adminStripeFinance;
+routes['admin-profit-live'] = adminProfitLive;
+routes['admin-ai-credit'] = adminAiCredit;
+routes['check-ai-credit'] = checkAiCredit;
 routes['send-wht50-reminder'] = wht50Reminder;
 export function routeHandler(route:string):Handler {
  return withGuard(async(req,res)=>{
@@ -43,11 +53,11 @@ export function routeHandler(route:string):Handler {
   if(!rawRoutes.has(route)&&!['GET','HEAD'].includes(req.method||'')) {
    const contentType=req.headers['content-type']||'';
    if(!contentType.startsWith('application/json'))throw new HttpError(415,'Expected application/json');
-   const raw=await readRawBody(req,route==='data'?4*1024*1024:route==='notify'?128*1024:16*1024);
+   const raw=await readRawBody(req,route==='data'?4*1024*1024:route==='notify'?128*1024:route==='assistant'?6*1024*1024:16*1024);
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
- },{csrf:['line-session','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback'].includes(route)});
+ },{csrf:['line-session','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-profit-live','admin-ai-credit','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','assistant'].includes(route)});
 }
 export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
  const route=req.query.route;

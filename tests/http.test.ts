@@ -31,6 +31,9 @@ before(async()=>{
   if(url==='https://api.line.me/v2/bot/message/push'){
    linePushes++;lastLinePush=JSON.parse(String(init?.body));lineLinkCalls.push('push');return json(linePushStatus===200?{}:{message:'provider rejected'},linePushStatus);
   }
+  if(url==='https://api.line.me/v2/bot/user/U-linked-chat/richmenu'){
+   assert.equal(init?.method,'DELETE');return json({});
+  }
   if(!url.startsWith('https://project.supabase.co/'))return realFetch(input,init);
   if(url.includes('/auth/v1/signup'))return json({...signupError,error_code:signupError.code},422);
   if(url.includes('/auth/v1/token')){refreshed++;return json({access_token:jwt,refresh_token:'private-refresh',expires_in:3600,token_type:'bearer',user});}
@@ -270,11 +273,15 @@ test('reports require login, reject other owners and arbitrary URLs, and downloa
 test('existing public report buckets are explicitly converted to private with size limits',async()=>{
  await ensurePrivateReportBucket();assert.equal(bucketUpdates,1);
 });
-test('LINE notification failures never expose internal DB errors',async()=>{
+// Web record notifications (record-added/edited/deleted, goal-event) are acknowledged without a lookup or a LINE call
+// since the LINE cards moved to their own verified routes (notify.ts), so these checks use an event that still sends.
+test('notification failures never expose internal DB errors',async()=>{
  notifyFailure=true;
  try {
   const response=await realFetch(origin+'/api/notify',{method:'POST',headers:{cookie,'x-account-id':user.id,origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"event":"line-disconnected"}'});
   assert.equal(response.status,500);assert.ok(!(await response.text()).includes('private notification'));
+  const skipped=await realFetch(origin+'/api/notify',{method:'POST',headers:{cookie,'x-account-id':user.id,origin:process.env.APP_URL!,'x-csrf-protection':'1','content-type':'application/json'},body:'{"event":"record-added"}'});
+  assert.equal(skipped.status,200);assert.deepEqual(await skipped.json(),{ok:true,skipped:'web_record_notifications_disabled'});
  }finally{notifyFailure=false;}
 });
 test('disconnecting LINE removes the link first, then tells that chat; a failed notice never blocks it',async()=>{
@@ -292,7 +299,7 @@ test('disconnecting LINE removes the link first, then tells that chat; a failed 
   assert.deepEqual(lineLinkCalls.slice(0,3),['links:GET','links:DELETE','challenges:DELETE']);
  } finally { linePushStatus=200; }
 });
-test('LINE notification endpoint reports delivery rejection instead of silently succeeding',async()=>{
+test('notification endpoint reports LINE delivery rejection instead of silently succeeding',async()=>{
  notifyLinked=true;linePushStatus=401;
  try {
   const before=linePushes;

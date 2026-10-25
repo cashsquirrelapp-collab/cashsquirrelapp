@@ -162,12 +162,13 @@ test('monthly work value is the after-WHT value of jobs with money in or due tha
     { ...base, id: 'w3', value: 10_000, whtRate: 3, whtAmount: 300, received: 9_700, payDate: '2026-09-20' },
     // taken in Aug, paid in Sep
     { ...base, id: 'w4', value: 5_000, startDate: '2026-08-30', payDate: '2026-09-29', received: 5_000 },
-    // A scheduled WIP payment is still counted in the month it is due.
+    // Work still in progress with a payment date this month: counted in that month by its payment date (owner,
+    // 2026-10-25: "นับตามวันนัดจ่าย", as the app has shown since the Cloudflare move; getJobScheduledPendingEntries).
     { ...base, id: 'w5', value: 8_000, pending: 8_000, isPosted: false, payDate: '2026-09-25' },
   ];
   const sep = workValueForMonth(jobs, '2026-09');
-  assert.equal(sep.grossValue, 533_000);
-  assert.equal(sep.value, 533_000 - 300);
+  assert.equal(sep.grossValue, 525_000 + 8_000);
+  assert.equal(sep.value, 525_000 + 8_000 - 300);
   assert.equal(sep.count, 5);
   assert.equal(sep.received, 3_000 + 300_000 + 9_700 + 5_000);
   assert.equal(sep.pending, 8_000);
@@ -183,5 +184,7 @@ test('monthly work value is the after-WHT value of jobs with money in or due tha
   assert.equal(oct.value, oct.received + oct.pending + oct.otherMonths);
   assert.equal(workValueForMonth(jobs, '2026-07').value, 0);
   const paidLater = jobs.map((j) => (j.id === 'w1' ? { ...j, received: 10_000, pending: 0, payDate: '2026-10-05' } : j));
-  assert.equal(workValueForMonth(paidLater, '2026-09').value, 533_000 - 300);
+  assert.equal(workValueForMonth(paidLater, '2026-09').value, 525_000 + 8_000 - 300);
+  // Delivered later or not, the same job lands in the month of its payment date, never in two months.
+  assert.equal(workValueForMonth(jobs.map((j) => (j.id === 'w5' ? { ...j, isPosted: true, postDate: '2026-09-20' } : j)), '2026-09').grossValue, 533_000);
 });
