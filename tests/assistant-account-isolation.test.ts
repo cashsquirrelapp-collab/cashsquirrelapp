@@ -5,6 +5,7 @@ import { seal } from '../backend/src/security/cookies';
 import { routeHandler } from '../backend/src/http/router';
 import type { UserRow } from '../backend/src/services/lineAssistant';
 import { inboxConversationId } from '../backend/src/ai/conversations';
+import { createToolbox } from '../backend/src/ai/tools';
 
 // Full router -> session -> repository -> service -> gateway -> tools regression tests.
 // Every outgoing request is intercepted. These are synthetic accounts and fake model replies;
@@ -65,6 +66,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 
 // Chat history tables (2026-10-24), kept in memory and filtered the way PostgREST reads its query string.
 let chats: { conversations: any[]; messages: any[]; memories: any[]; memoryEvents: any[] };
+let proposalRows: any[];
 let touched: { owner: string; ids: string[] }[];
 const memoryId = (owner: string, n = 0) => `${owner.slice(0, 8)}-0000-4000-8000-${String(n).padStart(12, '0')}`;
 let nextMessage = 1;
@@ -80,7 +82,15 @@ function matches(row: any, url: URL) {
   return true;
 }
 function chatTable(table: string, method: string, url: URL, body: any, headers = new Headers()) {
-  if (table === 'cashflow_ai_proposals') return json([]);
+  if (table === 'cashflow_ai_proposals') {
+    if (method === 'POST') {
+      proposalRows.push({ status: 'pending', created_at: new Date().toISOString(), expires_at: '2099-01-01T00:00:00Z', ...body });
+      return new Response(null, { status: 201 });
+    }
+    const found = proposalRows.filter(row => matches(row, url));
+    if (method === 'PATCH') { for (const row of found) Object.assign(row, body); }
+    return json((headers.get('accept') || '').includes('vnd.pgrst.object') ? found[0] ?? null : found);
+  }
   const rows = ({ cashflow_ai_conversations: chats.conversations, cashflow_ai_messages: chats.messages, cashflow_ai_memories: chats.memories, cashflow_ai_memory_events: chats.memoryEvents } as Record<string, any[]>)[table];
   if (method === 'POST') {
     const added = [body].flat().map(row => (table === 'cashflow_ai_messages' || table === 'cashflow_ai_memory_events'
@@ -103,6 +113,7 @@ function chatTable(table: string, method: string, url: URL, body: any, headers =
 beforeEach(() => {
   events = []; modelBodies = []; modelResults = new Map(); unknownUrls = []; revoked = new Set(); chats = { conversations: [], messages: [], memories: owners.map(owner => ({ id: memoryId(owner), user_id: owner, kind: 'preferred_name', value: tag(owner), updated_at: '2026-10-20T00:00:00Z' })), memoryEvents: [] }; nextMessage = 1; touched = [];
   verifiedOwner = undefined; snapshotOwner = undefined; snapshotFails = false;
+  proposalRows = [];
   callsFor = () => [{ name: 'financial_summary', args: { year: 2569 } }];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
@@ -183,6 +194,95 @@ async function request(options: { session?: string | null; header?: string | nul
   return out;
 }
 const result = (owner: string, name: string, occurrence = 0) => modelResults.get(owner)!.filter(row => row.name === name)[occurrence].response.result;
+
+// A real prepared document, represented as the database row the HTTP handler reads. No model or document write.
+async function editableDocument(owner = A) {
+  const execute = createToolbox({ user: account(owner), memory: { remember: async () => undefined }, proposals: {
+    save: async proposal => { proposalRows.push({ id: proposal.id, user_id: proposal.userId, kind: proposal.kind, job_id: proposal.jobId,
+      record: proposal.record, base_version: null, title: proposal.title, changes: proposal.changes, tool: proposal.tool, args: proposal.args,
+      status: 'pending', created_at: new Date().toISOString(), expires_at: '2099-01-01T00:00:00Z' }); },
+  } });
+  const outcome = await execute({ id: 'prepare-document', name: 'propose_add_document', args: {
+    document_type: 'quotation', issuer: { name: 'ธุรกิจผู้ออกตัวอย่าง' }, client: { name: 'บริษัทลูกค้าตัวอย่าง' },
+    items: Array.from({ length: 5 }, (_, index) => ({ description: `รายการเดิม ${index + 1}`, quantity: 1, price: 100 })),
+  } });
+  assert.equal(outcome.card?.kind, 'confirm');
+  return outcome.card as Extract<NonNullable<typeof outcome.card>, { kind: 'confirm' }>;
+}
+const partyEdits = {
+  issuer_name: 'ชื่อผู้ออกฉบับแก้ไข', issuer_address: 'ที่อยู่ผู้ออก', issuer_phone: '020000001', issuer_email: 'issuer@example.test', issuer_tax_id: '0100000000001',
+  client_name: 'ชื่อลูกค้าฉบับแก้ไข', client_address: 'ที่อยู่ลูกค้า', client_phone: '020000002', client_email: 'client@example.test', client_tax_id: '0100000000002',
+};
+
+test('HTTP revise accepts all ten party fields and indexed item edits, returning replacement proposals without model calls', async () => {
+  const card = await editableDocument();
+  const revised = await request({ body: { action: 'revise', proposalId: card.id, edits: partyEdits } });
+  assert.equal(revised.status, 200, JSON.stringify(revised.body));
+  assert.equal(revised.body.card.kind, 'confirm');
+  assert.notEqual(revised.body.card.id, card.id);
+  assert.equal(proposalRows.find(row => row.id === card.id).status, 'cancelled');
+  const next = proposalRows.find(row => row.id === revised.body.card.id);
+  assert.equal(next.user_id, A);
+  assert.equal(next.record.issuer.name, partyEdits.issuer_name);
+  assert.equal(next.record.issuer.taxId, partyEdits.issuer_tax_id);
+  assert.equal(next.record.client.email, partyEdits.client_email);
+  assert.equal(next.record.client.address, partyEdits.client_address);
+
+  const item = await request({ body: { action: 'revise', proposalId: next.id, edits: { item_1_price: '250' } } });
+  assert.equal(item.status, 200, JSON.stringify(item.body));
+  const last = proposalRows.find(row => row.id === item.body.card.id);
+  assert.equal(last.record.items[0].price, 250);
+  assert.equal(last.record.issuer.name, partyEdits.issuer_name);
+  assert.equal(last.record.client.taxId, partyEdits.client_tax_id);
+  assert.equal(modelBodies.length, 0);
+  assert.equal(events.some(event => /cashflow_apply_changes|cashflow_ai_reserve|cashflow_patch_private/.test(event.path)), false);
+});
+
+test('HTTP revise accepts the full 28-field document and rejects 29 fields before proposal access', async () => {
+  const card = await editableDocument();
+  const edits = { ...partyEdits, ...Object.fromEntries(Array.from({ length: 5 }, (_, index) => [
+    [`item_${index + 1}_description`, `รายการใหม่ ${index + 1}`], [`item_${index + 1}_quantity`, '2'], [`item_${index + 1}_price`, '250'],
+  ]).flat()), vat_rate: '7', wht_rate: '3', created_date: '2026-10-26' };
+  assert.equal(Object.keys(edits).length, 28);
+  const reply = await request({ body: { action: 'revise', proposalId: card.id, edits } });
+  assert.equal(reply.status, 200, JSON.stringify(reply.body));
+  const record = proposalRows.find(row => row.id === reply.body.card.id).record;
+  assert.equal(record.items[4].price, 250);
+  assert.equal(record.items[4].quantity, 2);
+  assert.equal(record.vatRate, 7);
+  assert.equal(record.whtRate, 3);
+  assert.equal(record.createdDate, '2026-10-26');
+  events = [];
+  const oversized = await request({ body: { action: 'revise', proposalId: reply.body.card.id, edits: { ...edits, note: 'extra field' } } });
+  assert.equal(oversized.status, 400);
+  assert.equal(events.some(event => event.path.endsWith('/cashflow_ai_proposals')), false);
+});
+
+test('HTTP revise still rejects forbidden fields downstream and cannot read another owner\'s proposal', async () => {
+  const card = await editableDocument();
+  for (const edits of [{ issuer_owner: B }, { issuer_signatureUrl: 'signature' }, { item_6_price: '100' }]) {
+    const reply = await request({ body: { action: 'revise', proposalId: card.id, edits } });
+    assert.equal(reply.status, 400);
+    // Signature key is rejected by the syntax check; syntactically valid keys still reach the strict tool allowlist.
+    if (!('issuer_signatureUrl' in edits)) assert.equal(reply.body.code, 'ai_revise_field');
+  }
+  const foreign = await request({ session: B, header: B, body: { action: 'revise', proposalId: card.id, edits: { client_name: 'foreign edit' } } });
+  assert.equal(foreign.status, 409);
+  assert.equal(foreign.body.code, 'ai_revise_unavailable');
+  assert.equal(proposalRows.length, 1);
+  assert.equal(proposalRows[0].status, 'pending');
+  assert.equal(modelBodies.length, 0);
+});
+
+test('HTTP revise keeps its empty-edit, key-length, value-length and nested-value limits', async () => {
+  const card = await editableDocument();
+  for (const edits of [{}, { ['x'.repeat(31)]: 'x' }, { 'issuer.name': 'x' }, { issuer_name: 'x'.repeat(201) }, { issuer_name: { name: 'nested' } }]) {
+    const reply = await request({ body: { action: 'revise', proposalId: card.id, edits } });
+    assert.equal(reply.status, 400);
+  }
+  assert.equal(events.some(event => event.path.endsWith('/cashflow_ai_proposals')), false);
+  assert.equal(proposalRows.length, 1);
+});
 
 test('HTTP boundary rejects forged/missing account headers, extra owner/model arguments, group scope and foreign origins before account/model reads', async () => {
   const invalid: { options: Parameters<typeof request>[0]; status: number }[] = [

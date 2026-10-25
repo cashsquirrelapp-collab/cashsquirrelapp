@@ -1,8 +1,8 @@
 import React from 'react';
-import { AlertCircle, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, FileText, ListChecks, Loader2, Pencil, Send, X } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, ListChecks, Loader2, Pencil, Send, X } from 'lucide-react';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type PartyValues } from '../../../../shared/askQuestions';
-import type { ChatCard, ConfirmCard, DocumentCard, MoneyChartCard, ProjectCard, QuestionsCard, SummaryCard } from './assistantMock';
+import type { ChatCard, ConfirmCard, DocumentCard, EditField, MoneyChartCard, ProjectCard, QuestionsCard, SummaryCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { dateLocale } from '../../utils';
 import { LineCard } from './LineCard';
@@ -27,39 +27,101 @@ function Head({ icon: Icon, title }: { icon: typeof Briefcase; title: string }) 
 function Rows({ rows }: { rows: { label: string; value: string; tone?: 'income' | 'expense' }[] }) {
   return (
     <dl className="asx-rcard-rows">
-      {rows.map(row => <div key={row.label}><dt>{row.label}</dt><dd className={row.tone ? `is-${row.tone}` : undefined}>{row.value}</dd></div>)}
+      {rows.map((row, index) => <div key={`${row.label}-${index}`}><dt>{row.label}</dt><dd className={row.tone ? `is-${row.tone}` : undefined}>{row.value}</dd></div>)}
     </dl>
   );
 }
 
 function Project({ card, onNavigate }: { card: ProjectCard; onNavigate: (path: string) => void }) {
   return (
-    <div className="asx-rcard">
-      <Head icon={Briefcase} title={tr("โปรเจกต์")} />
-      <Rows rows={[{ label: tr("ชื่องาน"), value: card.name }, { label: tr("ลูกค้า"), value: card.client }, { label: tr("มูลค่างาน"), value: card.amount }, { label: tr("สถานะ"), value: card.status }]} />
-      <div className="asx-rcard-actions"><button type="button" className="asx-pill-btn" onClick={() => onNavigate('/jobs')}>{tr("ตรวจสอบในหน้างาน")}<ArrowUpRight size={14} /></button></div>
+    <div className="asx-rcard is-project">
+      <button type="button" className="asx-card-open" onClick={() => onNavigate('/jobs')} aria-label={tr("ตรวจสอบในหน้างาน")}>
+        <Head icon={Briefcase} title={tr("โปรเจกต์")} /><ArrowUpRight size={16} aria-hidden="true" />
+      </button>
+      <div className="asx-card-preview">
+        <p className="asx-card-subtitle">{card.name}</p>
+        <p className="asx-card-eyebrow">{card.client}</p>
+        <span className="asx-card-eyebrow">{tr("มูลค่างาน")}</span><strong className="asx-card-amount">{card.amount}</strong>
+        <span className="asx-card-status">{card.status}</span>
+      </div>
     </div>
   );
 }
 
 function Document({ card, onNavigate }: { card: DocumentCard; onNavigate: (path: string) => void }) {
   return (
-    <div className="asx-rcard">
-      <Head icon={FileText} title={card.docType} />
-      <Rows rows={[{ label: tr("เลขที่เอกสาร"), value: card.number }, { label: tr("ลูกค้า"), value: card.client }, { label: tr("ยอดเงิน"), value: card.amount }]} />
-      <div className="asx-rcard-actions"><button type="button" className="asx-pill-btn" onClick={() => onNavigate(card.path)}>{tr("เปิดในแอป")}<ArrowUpRight size={14} /></button></div>
+    <div className="asx-rcard is-document">
+      <button type="button" className="asx-card-open" onClick={() => onNavigate(card.path)} aria-label={`${tr("เปิดในแอป")} · ${card.number}`}>
+        <Head icon={FileText} title={card.docType} /><ArrowUpRight size={16} aria-hidden="true" />
+      </button>
+      <div className="asx-card-preview">
+        <p className="asx-card-eyebrow">{card.number}</p>
+        <p className="asx-card-subtitle">{card.client}</p>
+        <span className="asx-card-eyebrow">{tr("ยอดเงิน")}</span><strong className="asx-card-amount">{card.amount}</strong>
+      </div>
     </div>
   );
 }
 
 function Summary({ card }: { card: SummaryCard }) {
   return (
-    <div className="asx-rcard">
+    <div className="asx-rcard is-summary">
       <Head icon={BarChart3} title={tr("สรุปการเงิน")} />
       <p className="asx-rcard-period">{card.period}</p>
-      <Rows rows={[{ label: tr("รายรับ"), value: card.income, tone: 'income' }, { label: tr("รายจ่าย"), value: card.expense, tone: 'expense' }, { label: tr("เงินคงเหลือ"), value: card.balance }]} />
+      <MoneyOverview balance={card.balance} income={card.income} expense={card.expense} />
     </div>
   );
+}
+
+/** Display the server's amounts verbatim; totals are never recomputed by the card. */
+function MoneyOverview({ balance, income, expense, totals = false }: { balance: string; income: string; expense: string; totals?: boolean }) {
+  return <>
+    <div className="asx-card-preview"><span className="asx-card-eyebrow">{tr("เงินคงเหลือ")}</span><strong className="asx-card-amount">{balance}</strong></div>
+    <dl className="asx-card-metrics">
+      <div><dt>{totals ? tr("รายรับรวม") : tr("รายรับ")}</dt><dd className="is-income">{income}</dd></div>
+      <div><dt>{totals ? tr("รายจ่ายรวม") : tr("รายจ่าย")}</dt><dd className="is-expense">{expense}</dd></div>
+    </dl>
+  </>;
+}
+
+/** A compact view is only used for known create forms. Other actions keep every change visible. */
+function ConfirmPreview({ card, onEditParty }: { card: ConfirmCard; onEditParty?: (group: string) => void }) {
+  const isDocument = card.changes.some(row => row.label === 'เอกสาร') && card.changes.some(row => row.label === 'ยอดชำระสุทธิ');
+  const isNewProject = card.title === 'เพิ่มงานใหม่ 1 งาน' || card.title === tr("เพิ่มงานใหม่ 1 งาน");
+  if (!isDocument && !isNewProject) return <Rows rows={card.changes} />;
+  const amount = card.changes.find(row => isDocument ? row.label === 'ยอดชำระสุทธิ' : ['มูลค่า', 'มูลค่างาน', 'ค่าจ้าง', tr("ค่าจ้าง")].includes(row.label));
+  const subject = isNewProject ? card.changes.find(row => ['งาน', tr("งาน")].includes(row.label)) : undefined;
+  const parties = isDocument && card.edit?.some(field => field.field === 'issuer_name');
+  const preferred = isDocument ? [...(parties ? [] : ['ผู้ออก / ลูกค้า']), 'รายการ 1', 'กำหนดชำระ'] : ['ลูกค้า', 'สถานะงาน', 'การชำระ', tr("ลูกค้า")];
+  const visible = card.changes.filter(row => preferred.includes(row.label));
+  const effects = card.changes.filter(row => ['เมื่อยืนยัน', 'ผลกระทบ', 'ผลการลบ'].includes(row.label));
+  // All source rows stay available, including tax, installments, dates and long party details.
+  return <div className="asx-card-review">
+    <div className="asx-card-preview">
+      {subject && <p className="asx-card-subtitle">{subject.value}</p>}
+      {amount && <><span className="asx-card-eyebrow">{amount.label}</span><strong className="asx-card-amount">{amount.value}</strong></>}
+    </div>
+    {parties && <DocumentParties fields={card.edit!} onEdit={onEditParty} />}
+    <Rows rows={visible} />
+    <details className="asx-card-details">
+      <summary>{tr("ดูรายละเอียดทั้งหมด")}</summary>
+      <Rows rows={card.changes.filter(row => !effects.includes(row))} />
+    </details>
+    {effects.map((row, index) => <p key={index} className="asx-card-context"><span>{row.label}: </span>{row.value}</p>)}
+  </div>;
+}
+
+/** Party tiles use the same editable values as the server proposal, including intentionally blank fields. */
+function DocumentParties({ fields, onEdit }: { fields: EditField[]; onEdit?: (group: string) => void }) {
+  return <div className="asx-card-parties">{(['issuer', 'client'] as const).map(role => {
+    const own = role === 'issuer';
+    const label = own ? tr("ผู้ออกเอกสาร") : tr("ลูกค้า");
+    const name = fields.find(field => field.field === `${role}_name`)?.value;
+    const content = <><span className="asx-party-copy"><small>{label}</small><strong>{name || tr("ยังไม่ระบุชื่อ")}</strong></span>
+      {onEdit && <ChevronRight size={16} aria-hidden="true" />}</>;
+    return onEdit ? <button key={role} type="button" className={`asx-party-tile is-${role}`} onClick={() => onEdit(role)} aria-label={own ? tr("แก้ไขข้อมูลผู้ออกเอกสาร") : tr("แก้ไขข้อมูลลูกค้า")}>{content}</button>
+      : <div key={role} className={`asx-party-tile is-${role}`}>{content}</div>;
+  })}</div>;
 }
 
 // Money over several months (owner, 2026-10-25: no more ASCII bars or Markdown tables). The figures come from the
@@ -90,7 +152,7 @@ function MoneyChart({ card }: { card: MoneyChartCard }) {
     <div ref={box} className="asx-rcard is-chart">
       <Head icon={BarChart3} title={tr(card.title)} />
       <p className="asx-rcard-period">{card.omitted > 0 ? card.period : period}</p>
-      <Rows rows={[{ label: tr("รายรับรวม"), value: formatTHB(card.totals.income), tone: 'income' }, { label: tr("รายจ่ายรวม"), value: formatTHB(card.totals.expense), tone: 'expense' }, { label: tr("คงเหลือ"), value: formatTHB(card.totals.net) }]} />
+      <MoneyOverview totals balance={formatTHB(card.totals.net)} income={formatTHB(card.totals.income)} expense={formatTHB(card.totals.expense)} />
       {empty ? <p className="asx-chart-empty">{tr("ยังไม่มีรายรับหรือรายจ่ายในช่วงนี้")}</p> : months.length > 1 && (
         <figure className="asx-chart">
           <div className="asx-chart-legend" aria-hidden="true"><span className="is-income"><i />{tr("รายรับ")}</span><span className="is-expense"><i />{tr("รายจ่าย")}</span></div>
@@ -132,20 +194,48 @@ function MoneyChart({ card }: { card: MoneyChartCard }) {
 const RATE_FIELDS = new Set(['wht_rate', 'vat_rate']);
 const choiceLabel = (option: string, field: string) => (!RATE_FIELDS.has(field) ? tr(option) : option !== '0' ? `${option}%` : field === 'vat_rate' ? tr("ไม่มี VAT") : tr("ไม่หัก"));
 
-function Confirm({ card, state, onConfirm, onCancel, confirmedPath, onNavigate, onRevise }: { card: ConfirmCard; state: ConfirmState; onConfirm: () => void; onCancel: () => void; confirmedPath?: string; onNavigate: (path: string) => void; onRevise?: (card: ConfirmCard, edits: Record<string, string>) => Promise<void> }) {
+type EditSection = { id: string; title: string; tab: string; note?: string; fields: EditField[] };
+function partyEditFields(fields: EditField[], role: string) {
+  const order = ['name', 'tax_id', 'address', 'phone', 'email'];
+  return fields.filter(field => field.field.startsWith(`${role}_`)).sort((a, b) => order.indexOf(a.field.slice(role.length + 1)) - order.indexOf(b.field.slice(role.length + 1)));
+}
+function editSections(fields: EditField[]): EditSection[] {
+  if (!fields.some(field => field.field.startsWith('issuer_'))) return [{ id: 'general', title: tr("แก้ไขข้อมูล"), tab: '', fields }];
+  return [
+    { id: 'issuer', title: tr("ข้อมูลผู้ออกเอกสาร"), tab: tr("ผู้ออก"), note: tr("ข้อมูลสำหรับเอกสารฉบับนี้"), fields: partyEditFields(fields, 'issuer') },
+    { id: 'client', title: tr("ข้อมูลลูกค้า"), tab: tr("ลูกค้า"), note: tr("ข้อมูลผู้รับเอกสาร"), fields: partyEditFields(fields, 'client') },
+    { id: 'items', title: tr("รายการสินค้าและบริการ"), tab: tr("รายการ"), fields: fields.filter(field => field.field.startsWith('item_')) },
+    { id: 'document', title: tr("ภาษีและวันที่เอกสาร"), tab: tr("ภาษี"), fields: fields.filter(field => !/^(issuer|client|item)_/.test(field.field)) },
+  ].filter(section => section.fields.length > 0);
+}
+const PARTY_EDIT_LABELS: Record<string, string> = { name: T("ชื่อ / บริษัท"), address: T("ที่อยู่"), phone: T("โทรศัพท์"), email: T("อีเมล"), tax_id: T("เลขประจำตัวผู้เสียภาษี") };
+
+function Confirm({ card, state, onConfirm, confirmedPath, onNavigate, onRevise }: { card: ConfirmCard; state: ConfirmState; onConfirm: () => void; confirmedPath?: string; onNavigate: (path: string) => void; onRevise?: (card: ConfirmCard, edits: Record<string, string>) => Promise<void> }) {
   const live = React.useContext(LiveContext);
-  // Change fields right on the card before confirming (owner, 2026-10-24); the card is prepared again with them.
   const [editing, setEditing] = React.useState(false);
+  const [activeSection, setActiveSection] = React.useState('issuer');
   const [values, setValues] = React.useState<Record<string, string>>({});
   const [saving, setSaving] = React.useState(false);
   const [problem, setProblem] = React.useState<string | null>(null);
   const fields = card.edit ?? [];
+  const sections = editSections(fields);
+  const section = sections.find(item => item.id === activeSection) ?? sections[0];
   const canEdit = live && Boolean(onRevise) && fields.length > 0 && state === 'pending';
   const box = React.useRef<HTMLDivElement>(null);
-  // The card grows while editing: bring all of it above the message box, so its buttons are never under the dock.
-  React.useEffect(() => { if (editing) requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); }, [editing]);
-  const startEdit = () => { setValues(Object.fromEntries(fields.map(field => [field.field, field.value]))); setProblem(null); setEditing(true); };
+  const editScroll = React.useRef<HTMLDivElement>(null);
+  const editorId = React.useId();
+  React.useEffect(() => { if (editing) requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'nearest' })); }, [editing]);
+  React.useEffect(() => { if (editScroll.current) editScroll.current.scrollTop = 0; }, [activeSection]);
+  const startEdit = (group?: string) => {
+    setValues(Object.fromEntries(fields.map(field => [field.field, field.value])));
+    setActiveSection(group ?? sections[0].id); setProblem(null); setEditing(true);
+  };
   const saveEdit = async () => {
+    const missingName = fields.find(field => /^(issuer|client)_name$/.test(field.field) && !(values[field.field] ?? '').trim());
+    if (missingName) {
+      setActiveSection(missingName.field.startsWith('issuer_') ? 'issuer' : 'client');
+      setProblem(tr("กรุณากรอกชื่อผู้ออกเอกสารและชื่อลูกค้า")); return;
+    }
     const changed = Object.fromEntries(fields.filter(field => (values[field.field] ?? '') !== field.value).map(field => [field.field, values[field.field] ?? '']));
     if (!Object.keys(changed).length) { setEditing(false); return; }
     setSaving(true); setProblem(null);
@@ -153,44 +243,57 @@ function Confirm({ card, state, onConfirm, onCancel, confirmedPath, onNavigate, 
     catch (error) { setProblem((error as Error)?.message || tr("แก้รายการนี้ไม่สำเร็จ")); }
     finally { setSaving(false); }
   };
+  const changeValue = (field: string, value: string) => setValues(current => ({ ...current, [field]: value }));
   return (
-    <div ref={box} className={`asx-rcard is-confirm is-${state}${editing ? ' is-editing' : ''}`}
-      // Focusing a field scrolls only that field into view (a phone keyboard, a tap): bring the whole card back so
-      // ใช้ค่านี้ / ไม่แก้แล้ว stay above the message box.
-      onFocus={editing ? () => requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'nearest' })) : undefined}>
-      <Head icon={CheckCircle2} title={card.title} />
-      {editing ? (
-        <div className="asx-edit-list">
-          {fields.map(field => (
-            <label key={field.field} className="asx-edit-row">
-              <span>{field.label}</span>
-              {field.type === 'choice' ? (
-                <select value={values[field.field] ?? ''} onChange={event => setValues(state => ({ ...state, [field.field]: event.target.value }))} disabled={saving}>
+    <div ref={box} className={`asx-rcard is-confirm is-${state}${editing ? ' is-editing' : ''}`} aria-busy={saving || state === 'working'}>
+      <Head icon={state === 'done' ? CheckCircle2 : card.changes.some(row => row.label === 'เอกสาร') ? FileText : ListChecks} title={card.title} />
+      {editing ? <div className="asx-edit-sections">
+        {sections.length > 1 && <div className="asx-edit-tabs" role="tablist" aria-label={tr("ส่วนของเอกสาร")}>
+          {sections.map((item, index) => <button key={item.id} type="button" role="tab" id={`${editorId}-${item.id}-tab`} aria-controls={`${editorId}-panel`} aria-selected={section.id === item.id}
+            tabIndex={section.id === item.id ? 0 : -1} disabled={saving} onClick={() => setActiveSection(item.id)}
+            onKeyDown={event => {
+              const next = event.key === 'ArrowRight' ? (index + 1) % sections.length : event.key === 'ArrowLeft' ? (index + sections.length - 1) % sections.length : event.key === 'Home' ? 0 : event.key === 'End' ? sections.length - 1 : -1;
+              if (next < 0) return;
+              event.preventDefault(); setActiveSection(sections[next].id);
+              (event.currentTarget.parentElement?.children[next] as HTMLButtonElement)?.focus();
+            }}>{item.tab}</button>)}
+        </div>}
+        <div ref={editScroll} className="asx-edit-scroll" id={`${editorId}-panel`} role={sections.length > 1 ? 'tabpanel' : undefined} aria-labelledby={sections.length > 1 ? `${editorId}-${section.id}-tab` : undefined}>
+          <fieldset className={`asx-edit-section is-${section.id}`} disabled={saving}>
+            <legend>{section.title}</legend>
+            {section.note && <p className="asx-edit-note">{section.note}</p>}
+            <div className="asx-edit-list">{section.fields.map(field => {
+              const partyKey = /^(issuer|client)_(.+)$/.exec(field.field)?.[2];
+              const label = partyKey ? tr(PARTY_EDIT_LABELS[partyKey] ?? field.label) : tr(field.label);
+              const required = partyKey === 'name';
+              return <label key={field.field} className="asx-edit-row">
+                <span>{label}{required && <span aria-hidden="true"> *</span>}</span>
+                {field.type === 'choice' ? <select value={values[field.field] ?? ''} onChange={event => changeValue(field.field, event.target.value)}>
                   {(field.options ?? []).map(option => <option key={option} value={option}>{choiceLabel(option, field.field)}</option>)}
-                </select>
-              ) : (
-                <input type={field.type === 'date' ? 'date' : 'text'} inputMode={field.type === 'money' ? 'decimal' : undefined} value={values[field.field] ?? ''} disabled={saving} maxLength={200}
-                  onChange={event => setValues(state => ({ ...state, [field.field]: event.target.value }))}
-                  onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void saveEdit(); } }} />
-              )}
-            </label>
-          ))}
-          {problem && <p className="asx-edit-problem" role="alert"><AlertCircle size={14} />{problem}</p>}
+                </select> : partyKey === 'address' ? <textarea rows={3} value={values[field.field] ?? ''} maxLength={200} placeholder={tr("เพิ่มที่อยู่")} onChange={event => changeValue(field.field, event.target.value)} />
+                : <input type={field.type === 'date' ? 'date' : partyKey === 'email' ? 'email' : partyKey === 'phone' ? 'tel' : 'text'}
+                    inputMode={field.type === 'money' ? 'decimal' : partyKey === 'tax_id' ? 'numeric' : undefined}
+                    value={values[field.field] ?? ''} maxLength={200} required={required} placeholder={partyKey && !required ? tr("ยังไม่ระบุ") : undefined}
+                    onChange={event => changeValue(field.field, event.target.value)}
+                    onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void saveEdit(); } }} />}
+              </label>;
+            })}</div>
+          </fieldset>
         </div>
-      ) : <Rows rows={card.changes} />}
+        {problem && <p className="asx-edit-problem" role="alert"><AlertCircle size={14} />{problem}</p>}
+      </div> : <ConfirmPreview card={card} onEditParty={canEdit ? startEdit : undefined} />}
       {editing ? (
         <div className="asx-rcard-actions">
-          <button type="button" className="asx-pill-btn" onClick={() => { setEditing(false); setProblem(null); }} disabled={saving}>{tr("ไม่แก้แล้ว")}</button>
+          <button type="button" className="asx-pill-btn" onClick={() => { setEditing(false); setProblem(null); }} disabled={saving}>{tr("ยกเลิก")}</button>
           <button type="button" className="asx-pill-btn is-primary" onClick={() => void saveEdit()} disabled={saving}>
-            {saving && <Loader2 size={14} className="animate-spin" />}{tr("ใช้ค่านี้")}
+            {saving && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{tr("ตรวจสอบข้อมูล")}
           </button>
         </div>
       ) : state === 'pending' || state === 'working' ? (
         <div className="asx-rcard-actions">
-          {canEdit && <button type="button" className="asx-pill-btn asx-edit-btn" onClick={startEdit}><Pencil size={14} />{tr("แก้ไข")}</button>}
-          <button type="button" className="asx-pill-btn" onClick={onCancel} disabled={state === 'working'}>{tr("ยกเลิก")}</button>
+          {canEdit && <button type="button" className="asx-pill-btn asx-edit-btn" onClick={() => startEdit()}><Pencil size={14} />{tr("แก้ไข")}</button>}
           <button type="button" className="asx-pill-btn is-primary" onClick={onConfirm} disabled={state === 'working'}>
-            {state === 'working' && <Loader2 size={14} className="animate-spin" />}{tr("ยืนยัน")}
+            {state === 'working' && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{state === 'working' ? tr("กำลังบันทึก") : tr("ยืนยัน")}
           </button>
         </div>
       ) : (
@@ -346,7 +449,7 @@ function CardBody({ card, confirmState, confirmedPath, onConfirm, onCancel, onNa
     case 'document': return <Document card={card} onNavigate={onNavigate} />;
     case 'summary': return <Summary card={card} />;
     case 'money_chart': return <MoneyChart card={card} />;
-    case 'confirm': return <Confirm card={card} state={confirmState ?? 'pending'} onConfirm={() => onConfirm(card)} onCancel={() => onCancel(card)} confirmedPath={confirmedPath} onNavigate={onNavigate} onRevise={onRevise} />;
+    case 'confirm': return <Confirm key={card.id} card={card} state={confirmState ?? 'pending'} onConfirm={() => onConfirm(card)} confirmedPath={confirmedPath} onNavigate={onNavigate} onRevise={onRevise} />;
     case 'line': return <LineCard card={card.card} onDue={onLineDue} onOpen={onNavigate} />;
     case 'questions': return <Questions card={card} onAnswer={onAnswer} answered={answered} />;
   }

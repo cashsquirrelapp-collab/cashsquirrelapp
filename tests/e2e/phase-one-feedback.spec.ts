@@ -75,6 +75,7 @@ async function setup(page: Page, options: { admin?: boolean; guest?: boolean; se
   await page.route('**/api/assistant', route => route.fulfill({ json: { enabled: false, plan: 'admin', tokensLeft: null, trialLeft: null, resetsAt: null, tokenLimit: null, requestLimit: null } }));
   await page.route('**/api/admin-analytics?*', route => route.fulfill({ status: 503, json: { error: 'Analytics is temporarily unavailable' } }));
   await page.route('**/api/admin-stripe-finance?*', route => route.fulfill({ status: 503, json: { error: 'Stripe is temporarily unavailable' } }));
+  await page.route('**/api/admin-ai-credit', route => route.fulfill({ status: 503, json: { error: 'AI credit is temporarily unavailable' } }));
   await page.route('**/api/feedback*', async route => {
     requestHeaders.push(route.request().headers());
     const url = new URL(route.request().url());

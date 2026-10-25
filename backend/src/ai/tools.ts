@@ -210,21 +210,29 @@ export interface ToolContext { user: UserRow; proposals: ProposalStore; memory: 
 const fail = (message: string): ToolOutcome => ({ result: { ok: false, error: message } });
 
 // Fields a confirmation card lets the user change before confirming, per proposal tool (owner, 2026-10-24).
-// A quotation or invoice card (owner, 2026-10-25: "ทำให้มันมีปุ่มแก้ไข"): the client, up to five lines, VAT, withholding
-// and the date are changed on the card; a longer document is changed in the app.
+// A quotation or invoice card edits both document parties, up to five lines, VAT, withholding and the date.
+// These are this document's party details, never an instruction to update the account's issuer profile.
 const DOCUMENT_ITEM_EDITS = 5;
+const DOCUMENT_PARTY_FIELDS = { name: 'name', address: 'address', phone: 'phone', email: 'email', tax_id: 'taxId' } as const;
+const DOCUMENT_PARTIES = ['issuer', 'client'] as const;
+const DOCUMENT_PARTY_EDITS = DOCUMENT_PARTIES.flatMap(party => Object.keys(DOCUMENT_PARTY_FIELDS).map(field => `${party}_${field}`));
+function documentPartyEdit(field: string) {
+  const match = /^(issuer|client)_(name|address|phone|email|tax_id)$/.exec(field);
+  return match ? { party: match[1] as typeof DOCUMENT_PARTIES[number], field: match[2] as keyof typeof DOCUMENT_PARTY_FIELDS } : null;
+}
 export const EDITABLE_FIELDS: Record<string, string[]> = {
   propose_add_job: ['name', 'client', 'value', 'wht_rate', 'delivery_date', 'paid_date'],
   propose_record_payment: ['amount', 'date'],
   propose_add_expense: ['name', 'amount', 'category', 'date'],
-  propose_add_document: ['client_name', 'created_date', 'vat_rate', 'wht_rate',
+  propose_add_document: [...DOCUMENT_PARTY_EDITS, 'created_date', 'vat_rate', 'wht_rate',
     ...Array.from({ length: DOCUMENT_ITEM_EDITS }, (_, index) => [`item_${index + 1}_description`, `item_${index + 1}_quantity`, `item_${index + 1}_price`]).flat()],
 };
 /** A card field's value in the call that prepared it (or the prepared record), before the user changes it. */
 export function cardValue(tool: string, args: Record<string, unknown>, record: Record<string, unknown> | null, field: string): unknown {
   if (tool === 'propose_add_document') {
-    const client = (args.client as { name?: unknown } | undefined)?.name ?? (record?.client as { name?: unknown } | undefined)?.name;
-    if (field === 'client_name') return client;
+    const party = documentPartyEdit(field);
+    if (party) return (args[party.party] as Record<string, unknown> | undefined)?.[party.field]
+      ?? (record?.[party.party] as Record<string, unknown> | undefined)?.[DOCUMENT_PARTY_FIELDS[party.field]];
     const line = /^item_(\d)_(description|quantity|price)$/.exec(field);
     if (line) {
       const index = Number(line[1]) - 1;
@@ -238,7 +246,8 @@ export function cardValue(tool: string, args: Record<string, unknown>, record: R
 export function applyCardEdit(tool: string, args: Record<string, unknown>, field: string, raw: string): void {
   const number = (text: string) => Number(text.replace(/[,฿\s]/g, ''));
   if (tool === 'propose_add_document') {
-    if (field === 'client_name') { args.client = { ...((args.client as Record<string, unknown>) || {}), name: raw }; return; }
+    const party = documentPartyEdit(field);
+    if (party) { args[party.party] = { ...((args[party.party] as Record<string, unknown>) || {}), [party.field]: raw }; return; }
     const line = /^item_(\d)_(description|quantity|price)$/.exec(field);
     if (line) {
       const items = (Array.isArray(args.items) ? args.items as Record<string, unknown>[] : []).map(item => ({ ...item }));
@@ -296,11 +305,16 @@ function editFields(tool: string, args: Record<string, unknown>, record: Record<
     ];
   }
   if (tool === 'propose_add_document' && record) {
-    const doc = record as { client?: { name?: string }; items?: { description?: string; quantity?: number; price?: number }[]; vatRate?: number; whtRate?: number; createdDate?: string };
+    const doc = record as { issuer?: Record<string, unknown>; client?: Record<string, unknown>; items?: { description?: string; quantity?: number; price?: number }[]; vatRate?: number; whtRate?: number; createdDate?: string };
     const items = doc.items ?? [];
     const one = items.length === 1;
+    const partyLabels = { issuer: 'ผู้ออก', client: 'ลูกค้า' };
+    const fieldLabels = { name: 'ชื่อ', address: 'ที่อยู่', phone: 'โทรศัพท์', email: 'อีเมล', tax_id: 'เลขผู้เสียภาษี' };
     return [
-      { field: 'client_name', label: 'ลูกค้า', type: 'text', value: text(doc.client?.name) },
+      ...DOCUMENT_PARTIES.flatMap(party => (Object.keys(DOCUMENT_PARTY_FIELDS) as (keyof typeof DOCUMENT_PARTY_FIELDS)[]).map(field => ({
+        field: `${party}_${field}`, label: `${partyLabels[party]} · ${fieldLabels[field]}`, type: 'text' as const,
+        value: text(doc[party]?.[DOCUMENT_PARTY_FIELDS[field]]),
+      }))),
       ...(items.length <= DOCUMENT_ITEM_EDITS ? items.flatMap((item, index) => {
         const of = one ? '' : ` (รายการที่ ${index + 1})`;
         return [

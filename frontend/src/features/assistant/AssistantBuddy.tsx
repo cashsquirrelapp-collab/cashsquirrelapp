@@ -15,7 +15,7 @@ import type { Briefing, BriefingItem } from '../../../../shared/briefing';
 import { Markdown } from './Markdown';
 import { getCurrentAccount } from '../../services/api';
 import { automaticNavigation, safeAssistantPath, type NavigationContext } from './assistantNavigation';
-import { NavigationModeControl, useNavigationMode } from './NavigationModeControl';
+import { useNavigationMode } from './NavigationModeControl';
 import { confirmationCommand } from './assistantCommands';
 import './assistant.css';
 
@@ -139,7 +139,7 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
   const transport = React.useMemo(() => given ?? createSampleTransport({ failSends: () => false, failActions: () => false, tokens: () => SAMPLE_TOKENS, instant: Boolean(reduce) }), [given, reduce]);
   const live = Boolean(transport.live);
   const navigationContext: NavigationContext = { accountId, workspaceSlug, fullFeatureAccess };
-  const [navigationMode, setNavigationMode] = useNavigationMode(accountId);
+  const [navigationMode] = useNavigationMode(accountId);
   const scopeRef = React.useRef({ accountId, transport, navigationMode, navigationContext });
   scopeRef.current = { accountId, transport, navigationMode, navigationContext };
   const [open, setOpen] = React.useState(false);
@@ -444,7 +444,6 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
                 <button type="button" className="asx-icon-btn" onClick={() => { setOpen(false); onOpenChat(); }} aria-label={tr("เปิดแชตเต็ม")} title={tr("เปิดแชตเต็ม")}><Maximize2 size={17} /></button>
                 <button type="button" className="asx-icon-btn" onClick={close} aria-label={tr("ปิด")} title={tr("ปิด")}><X size={18} /></button>
               </header>
-              <NavigationModeControl mode={navigationMode} onChange={setNavigationMode} />
               <div ref={listRef} className="asx-buddy-body" role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
                 {messages.length === 0 ? (
                   <div className="asx-buddy-hello">

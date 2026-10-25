@@ -43,8 +43,10 @@ const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('confirm'), proposalId: z.string().regex(/^p_[0-9a-f-]{36}$/) }).strict(),
   z.object({ action: z.literal('cancel'), proposalId: z.string().regex(/^p_[0-9a-f-]{36}$/) }).strict(),
   // Fields changed on a confirmation card before confirming (2026-10-24); the card is prepared again, no model call.
+  // A full document card has 10 party fields, 15 item fields and 3 tax/date fields. The service still checks
+  // each key against the proposal tool's allowlist; item_1_price and similar keys include numeric indices.
   z.object({ action: z.literal('revise'), proposalId: z.string().regex(/^p_[0-9a-f-]{36}$/),
-    edits: z.record(z.string().regex(/^[a-z_]{1,30}$/), z.union([z.string().max(200), z.number()])).refine(value => Object.keys(value).length > 0 && Object.keys(value).length <= 8) }).strict(),
+    edits: z.record(z.string().regex(/^[a-z_][a-z0-9_]{0,29}$/), z.union([z.string().max(200), z.number()])).refine(value => Object.keys(value).length > 0 && Object.keys(value).length <= 28) }).strict(),
   // The notifications thread: a payment button on a reminder, or the amount typed after ได้ไม่ครบ.
   // `shown` is the button's line in the thread ("ได้รับเงินแล้ว · งาน"), kept with the answer.
   z.object({ action: z.literal('line-due'), kind: z.enum(['paid', 'later', 'partial']), id: z.string().regex(/^[A-Za-z0-9_.-]{1,128}(?::[A-Za-z0-9_.-]{1,128})?$/),

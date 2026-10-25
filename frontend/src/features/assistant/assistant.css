@@ -844,3 +844,134 @@ textarea.asx-q-input { resize: vertical; min-height: 60px; line-height: 1.5; }
 .asx-brief-tip-main span { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 .asx-brief-tip-x { display: grid; place-items: center; flex: none; width: 28px; height: 28px; margin-top: 4px; border-radius: 50%; color: var(--muted); cursor: pointer; }
 .asx-brief-tip-x:hover { background: rgba(118, 118, 128, 0.12); color: var(--text); }
+
+/* Chat result/action cards only (2026-10-26): liquid-glass material with a restrained document
+   hierarchy inside. LINE, question cards, the mascot and other pages retain their own styles. */
+.asx-rcard:not(.is-questions) {
+  --asx-card-surface: #FFFFFF; --asx-card-divider: #E4E5E7; --asx-card-field-border: #D2D4D8;
+  --asx-card-secondary: #62666D; --asx-card-hover: #F6F7F8;
+  width: min(420px, 100%); min-width: 0; max-width: 100%; border: 1px solid var(--asx-card-divider); border-radius: 24px;
+  background: var(--asx-card-surface); color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 10px 32px rgba(60, 40, 28, 0.08), 0 2px 4px rgba(60, 40, 28, 0.025);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  scroll-margin-bottom: calc(var(--asx-dock-h, 120px) + 48px); scroll-margin-top: 72px;
+}
+.asx-rcard:not(.is-questions).is-chart { width: min(520px, 100%); }
+.dark .asx-rcard:not(.is-questions) {
+  --asx-card-surface: #202124; --asx-card-divider: #393B40; --asx-card-field-border: #4C4F56;
+  --asx-card-secondary: #ADB1B9; --asx-card-hover: #292B30;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .asx-rcard:not(.is-questions) {
+    background: radial-gradient(120% 95% at 100% 0%, rgba(230, 95, 43, 0.075), transparent 58%), linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.68));
+    border-color: rgba(255, 255, 255, 0.78);
+    -webkit-backdrop-filter: blur(24px) saturate(130%); backdrop-filter: blur(24px) saturate(130%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98), inset 0 -1px 0 rgba(255, 255, 255, 0.35), 0 0 0 0.5px rgba(136, 114, 98, 0.2), 0 12px 34px rgba(60, 40, 28, 0.085), 0 2px 5px rgba(60, 40, 28, 0.03);
+  }
+  .dark .asx-rcard:not(.is-questions) {
+    background: radial-gradient(120% 95% at 100% 0%, rgba(240, 116, 64, 0.075), transparent 58%), linear-gradient(145deg, rgba(36, 37, 41, 0.88), rgba(30, 31, 35, 0.72));
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.035), 0 12px 34px rgba(0, 0, 0, 0.23);
+  }
+}
+.asx-rcard:not(.is-questions) .asx-rcard-head { gap: 8px; padding: 16px 16px 12px; border: 0; background: none; align-items: flex-start; }
+.asx-rcard:not(.is-questions) .asx-rcard-head b { align-self: center; font-size: 14px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; color: var(--text); }
+.asx-rcard:not(.is-questions) .asx-rcard-icon { width: 18px; height: 21px; border-radius: 0; background: none; color: var(--asx-accent-text); box-shadow: none; }
+.asx-rcard:not(.is-questions) .asx-card-tag { align-self: center; padding: 2px 6px; border: 1px solid var(--asx-card-divider); border-radius: 4px; font-size: 11px; background: none; color: var(--asx-card-secondary); }
+.asx-rcard:not(.is-questions) .asx-rcard-period { margin: 0; padding: 0 16px 12px; font-size: 12.5px; line-height: 1.5; color: var(--asx-card-secondary); }
+.asx-card-preview { display: grid; gap: 4px; min-width: 0; margin: 0; padding: 0 16px 16px; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.asx-card-eyebrow { margin: 0; color: var(--asx-card-secondary); font-size: 12px; font-weight: 400; line-height: 1.55; overflow-wrap: anywhere; }
+.asx-card-amount { display: block; margin: 0; color: var(--text); font-size: 30px; font-weight: 600; line-height: 1.4; letter-spacing: -0.6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.asx-card-subtitle { margin: 0; color: var(--text); font-size: 14px; font-weight: 500; line-height: 1.6; overflow-wrap: anywhere; }
+.asx-card-status { display: inline-flex; align-items: center; justify-self: start; gap: 5px; max-width: 100%; margin-top: 3px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--asx-card-secondary); font-size: 12px; font-weight: 400; line-height: 1.55; overflow-wrap: anywhere; }
+.asx-card-heading-line { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+.asx-card-heading-line > * { min-width: 0; }
+.asx-card-review { min-width: 0; }
+.asx-rcard:not(.is-questions) .asx-rcard-rows { gap: 0; margin: 0; padding: 0 16px 12px; border: 0; border-radius: 0; background: none; }
+.asx-rcard:not(.is-questions) .asx-rcard-rows > div { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.4fr); align-items: baseline; gap: 12px; padding: 9px 0; }
+.asx-rcard:not(.is-questions) .asx-rcard-rows > div + div { border-top: 1px solid var(--asx-card-divider); }
+.asx-rcard:not(.is-questions) .asx-rcard-rows dt { min-width: 0; color: var(--asx-card-secondary); font-size: 12.5px; line-height: 1.6; overflow-wrap: anywhere; }
+.asx-rcard:not(.is-questions) .asx-rcard-rows dd { font-size: 13px; line-height: 1.6; }
+.asx-card-details { margin: 0 16px 12px; border: 0; border-top: 1px solid var(--asx-card-divider); border-radius: 0; background: none; }
+.asx-card-details:not([open]) > :not(summary) { display: none; }
+.asx-card-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 10px 0; color: var(--asx-card-secondary); font-size: 12.5px; font-weight: 500; line-height: 1.5; list-style: none; cursor: pointer; }
+.asx-card-details > summary::-webkit-details-marker { display: none; }
+.asx-card-details > summary::after { content: ''; flex: none; width: 6px; height: 6px; margin-right: 3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); }
+.asx-card-details[open] > summary::after { transform: rotate(225deg) translate(-1px, -1px); }
+.asx-card-details > summary:hover { color: var(--text); }
+.asx-rcard:not(.is-questions) .asx-card-details .asx-rcard-rows { margin: 0; padding: 0 0 4px; border: 0; }
+.asx-card-context { margin: 0; padding: 0 16px 14px; color: var(--asx-card-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.asx-card-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin: 0 16px 16px; padding: 12px 0; border-top: 1px solid var(--asx-card-divider); border-bottom: 1px solid var(--asx-card-divider); }
+.asx-card-metrics > div { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 0 12px 0 0; border: 0; border-radius: 0; background: none; }
+.asx-card-metrics > div + div { padding: 0 0 0 12px; border-left: 1px solid var(--asx-card-divider); }
+.asx-card-metrics dt { color: var(--asx-card-secondary); font-size: 12px; font-weight: 400; line-height: 1.55; }
+.asx-card-metrics dd { margin: 0; color: var(--text); font-size: 17px; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.asx-card-metrics dd.is-income, .asx-card-amount.is-income { color: var(--asx-income); }
+.asx-card-metrics dd.is-expense, .asx-card-amount.is-expense { color: var(--asx-expense); }
+.asx-card-open { display: flex; width: 100%; min-width: 0; align-items: center; text-align: left; color: var(--text); background: none; cursor: pointer; }
+.asx-card-open > .asx-rcard-head { flex: 1; min-width: 0; }
+.asx-card-open > svg { flex: none; margin: 0 16px 0 0; color: var(--asx-card-secondary); }
+.asx-card-open:hover { background: var(--asx-card-hover); }
+.asx-card-open:focus-visible { outline-offset: -4px !important; border-radius: 22px; }
+.asx-card-parties { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; min-width: 0; padding: 0 16px 8px; }
+.asx-party-tile { display: grid; grid-template-columns: minmax(0, 1fr) 16px; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 64px; padding: 10px 0; border: 0; border-top: 1px solid var(--asx-card-divider); border-radius: 0; background: none; color: var(--text); text-align: left; }
+button.asx-party-tile { cursor: pointer; }
+button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(--asx-accent-text); }
+.asx-party-tile:disabled { cursor: default; }
+.asx-party-copy { display: grid; gap: 3px; min-width: 0; }
+.asx-party-copy small { color: var(--asx-card-secondary); font-size: 12px; line-height: 1.5; font-weight: 400; }
+.asx-party-copy strong { color: var(--text); font-size: 13.5px; font-weight: 500; line-height: 1.55; overflow-wrap: anywhere; }
+.asx-party-copy > span { color: var(--asx-card-secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.asx-party-tile > svg { width: 16px; color: var(--asx-card-secondary); }
+.asx-rcard:not(.is-questions) .asx-rcard-actions { display: flex; flex-wrap: nowrap; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--asx-card-divider); background: none; }
+.asx-rcard:not(.is-questions) .asx-rcard-actions > .asx-pill-btn { flex: 1 1 0; min-width: 0; min-height: 44px; margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 13.5px; font-weight: 500; overflow-wrap: anywhere; box-shadow: none; }
+.asx-rcard:not(.is-questions) .asx-rcard-actions > .asx-pill-btn svg { flex: none; }
+.asx-rcard:not(.is-questions) .asx-rcard-actions > .asx-pill-btn:not(.is-primary) { border-color: var(--asx-card-field-border); background: var(--asx-card-surface); color: var(--text); }
+.asx-rcard:not(.is-questions) .asx-rcard-actions > .asx-pill-btn:not(.is-primary):hover:not(:disabled) { background: var(--asx-card-hover); }
+.asx-rcard:not(.is-questions) .asx-rcard-actions > .asx-pill-btn.is-primary { border-color: transparent; background: var(--asx-accent-text); color: var(--asx-card-surface); }
+.asx-rcard:not(.is-questions) .asx-rcard-actions > .asx-pill-btn.is-primary:hover:not(:disabled) { background: var(--asx-accent-text); filter: brightness(0.95); }
+.asx-rcard:not(.is-questions) .asx-rcard-result { gap: 7px; margin: 0; padding: 12px 16px; background: none; border-top-color: var(--asx-card-divider); font-size: 12.5px; line-height: 1.6; }
+.asx-rcard:not(.is-questions) .asx-rcard-result > svg { flex: none; }
+.asx-rcard:not(.is-questions) .asx-rcard-result .asx-link-btn { min-height: 32px; margin-left: auto; padding: 4px 0 4px 8px; }
+.asx-rcard:not(.is-questions) .asx-rcard-result:is(.is-expired, .is-cancelled) { color: var(--asx-card-secondary); }
+.asx-rcard:not(.is-questions) .asx-edit-sections { display: grid; gap: 12px; min-width: 0; padding: 0 16px 14px; background: none; }
+.asx-rcard:not(.is-questions) .asx-edit-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; min-width: 0; margin: 0; padding: 0; border: 0; border-bottom: 1px solid var(--asx-card-divider); border-radius: 0; background: none; }
+.asx-rcard:not(.is-questions) .asx-edit-tabs > button { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 44px; margin-bottom: -1px; padding: 9px 3px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--asx-card-secondary); font: inherit; font-size: 12.5px; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere; cursor: pointer; }
+.asx-rcard:not(.is-questions) .asx-edit-tabs > button[aria-selected="true"] { border-bottom-color: var(--asx-accent); background: none; color: var(--text); font-weight: 500; box-shadow: none; }
+.asx-rcard:not(.is-questions) .asx-edit-tabs > button:hover:not([aria-selected="true"]):not(:disabled) { color: var(--text); }
+.asx-rcard:not(.is-questions) .asx-edit-tabs > button:disabled { cursor: default; opacity: 0.65; }
+.asx-rcard:not(.is-questions) .asx-edit-scroll { max-height: max(120px, min(320px, calc(100svh - 500px))); min-width: 0; min-height: 0; padding: 3px; overflow-y: auto; overscroll-behavior-y: contain; scroll-padding: 18px; scrollbar-width: thin; scrollbar-color: var(--asx-card-field-border) transparent; border: 0; border-radius: 0; }
+.asx-rcard:not(.is-questions) .asx-edit-section { display: grid; gap: 10px; min-width: 0; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+.asx-rcard:not(.is-questions) .asx-edit-section > legend { display: block; max-width: 100%; min-width: 0; margin: 0 0 10px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--text); font-size: 13.5px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.asx-rcard:not(.is-questions) .asx-edit-list { gap: 12px; min-width: 0; padding: 8px 16px 16px; }
+.asx-rcard:not(.is-questions) .asx-edit-section .asx-edit-list { padding: 0; }
+.asx-rcard:not(.is-questions) .asx-edit-note { margin: 0; color: var(--asx-card-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.asx-rcard:not(.is-questions) .asx-edit-row { gap: 5px; min-width: 0; }
+.asx-rcard:not(.is-questions) .asx-edit-row > span { color: var(--asx-card-secondary); font-size: 12px; }
+.asx-rcard:not(.is-questions) .asx-edit-row :is(input, select, textarea) { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; padding: 9px 11px; border: 1px solid var(--asx-card-field-border); border-radius: 8px; background: var(--asx-card-surface); color: var(--text); font: inherit; font-size: 16px; line-height: 1.5; box-shadow: none; }
+.asx-rcard:not(.is-questions) .asx-edit-row textarea { min-height: 80px; resize: vertical; }
+.asx-rcard:not(.is-questions) .asx-edit-row select { color-scheme: light; }
+.dark .asx-rcard:not(.is-questions) .asx-edit-row :is(input, select, textarea) { color-scheme: dark; }
+.asx-rcard:not(.is-questions) :is(button, summary, input, select, textarea):focus-visible { outline: 2px solid var(--asx-accent); outline-offset: 3px; }
+.asx-rcard:not(.is-questions) .asx-edit-tabs > button:focus-visible { outline-offset: -3px; }
+.asx-rcard:not(.is-questions) .asx-chart { gap: 10px; margin: 0 16px 14px; padding: 0; border: 0; border-radius: 0; background: none; }
+.asx-rcard:not(.is-questions) .asx-chart-legend { padding-top: 0; color: var(--asx-card-secondary); }
+.asx-rcard:not(.is-questions) .asx-chart-plot { height: 140px; }
+.asx-rcard:not(.is-questions) .asx-chart-table { border-top-color: var(--asx-card-divider); }
+.asx-rcard:not(.is-questions) .asx-chart-table summary { min-height: 44px; padding: 12px 16px; color: var(--asx-card-secondary); font-size: 12.5px; }
+.asx-rcard:not(.is-questions) .asx-chart-scroll { padding: 0 16px 14px; }
+.asx-rcard:not(.is-questions) .asx-chart-note.is-pad, .asx-rcard:not(.is-questions) .asx-chart-empty { padding: 0 16px 14px; color: var(--asx-card-secondary); }
+@media (max-width: 380px) {
+  .asx-card-amount { font-size: 26px; letter-spacing: -0.4px; }
+  .asx-card-metrics dd { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .asx-rcard:not(.is-questions) *, .asx-rcard:not(.is-questions) *::after { transition: none !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .asx-rcard:not(.is-questions), .dark .asx-rcard:not(.is-questions) {
+    background: var(--asx-card-surface); border-color: var(--asx-card-divider);
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+}

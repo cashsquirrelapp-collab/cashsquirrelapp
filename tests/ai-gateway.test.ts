@@ -499,7 +499,11 @@ test('who gets the real เลขา while it is admins-only: admins and the all
   assert.equal(aiAllowedFor(aiConfig({ AI_ENABLED: 'false', AI_ALLOWED_EMAILS: 'owner@example.com' }), 'admin', 'owner@example.com'), false);
 });
 
-test('Gemini adapter: a call that stalls or answers busy is tried once more; a second stall still fails', async () => {
+test('Gemini adapter: a call that stalls or answers busy is tried once more; a second stall still fails', { timeout: 5000 }, async (t) => {
+  // AbortSignal.timeout does not keep Node alive, and the fake fetch below has no socket to do so.
+  // Keep this test alive until its assertions finish (or its bounded timeout fires), then always clean up.
+  const keepAlive = setInterval(() => {}, 1000);
+  t.after(() => clearInterval(keepAlive));
   const run = (fetchImpl: typeof fetch) => geminiProvider.run({
     apiKey: 'k', model: 'gemini-x', system: 'S', turns: [{ role: 'user', text: 'hi' }], tools: [], maxOutputTokens: 100,
     execute: async () => ({ result: null }), fetchImpl, stallMs: 50,
