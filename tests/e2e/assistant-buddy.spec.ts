@@ -102,8 +102,10 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
 // Living mascot (owner, 2026-10-26: "อยากให้น้องแบบมุดออกมาจากวงกลมแล้วก็เกาะอยู่ ... จะมีคำโผล่มาบนหัวน้อง"): on
 // computers the pill's squirrel climbs out of its own ring and holds its rim, with fixed words above its head, only
 // for real events: a hello while the pointer rests on it, a send in progress after the chat is closed, a card waiting
-// for a yes, an answer that arrived unseen. An answer is never shown as a job done.
+// for a yes, an answer that arrived unseen. An answer is never shown as a job done, and it is said in the squirrel's
+// own words: the reply itself, typed out above its head (owner: "น้องพิมพ์ออกมาเลยเป็นประโยค").
 const say = (page: Page) => page.locator('.asx-climb-say');
+const typed = (page: Page) => page.locator('.asx-climb-say .asx-climb-typed');
 test('computers: the squirrel climbs out of its ring to say what is happening while the chat is closed', async ({ page }) => {
   await open(page, 1280, 820, { path: '/jobs' });
   const button = page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' });
@@ -112,7 +114,7 @@ test('computers: the squirrel climbs out of its ring to say what is happening wh
   await expect(page.locator('.mascot-climb')).toHaveCount(0);
   // A hello while the pointer rests on the pill: out of the ring, paws on its rim, the words above its ears.
   await button.hover();
-  await expect(say(page)).toHaveText('มีอะไรให้ช่วยไหมครับ');
+  await expect(typed(page)).toHaveText('มีอะไรให้ช่วยไหมครับ');
   await expect(say(page)).toHaveAttribute('aria-hidden', 'true');
   const climb = page.locator('.mascot-climb');
   await expect(climb).toHaveCount(1);
@@ -138,9 +140,11 @@ test('computers: the squirrel climbs out of its ring to say what is happening wh
   await page.keyboard.press('Escape');
   await expect(chat).toHaveCount(0);
   await page.mouse.move(400, 300);
-  await expect(say(page)).toContainText('กำลังคิด');
-  await expect(say(page)).toHaveText('ร่างเสร็จแล้ว กรุณาตรวจก่อนยืนยัน', { timeout: 10000 });
+  await expect(typed(page)).toHaveText('กำลังคิด');
+  // The squirrel types the answer itself; it stays while the card waits for a yes.
+  await expect(typed(page)).toHaveText('นี่คือรายละเอียดที่จะบันทึกครับ ตรวจสอบก่อนกดยืนยันได้เลย', { timeout: 10000 });
   await expect(say(page)).toHaveAttribute('data-kind', 'awaiting');
+  await expect(say(page)).toHaveClass(/is-said/);
   await expect(say(page)).toHaveAttribute('role', 'status');
   await page.waitForTimeout(700);
   expect(await textOverlapIssues(page)).toEqual([]);
@@ -161,7 +165,14 @@ test('computers: the squirrel climbs out of its ring to say what is happening wh
   await chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).press('Enter');
   await page.keyboard.press('Escape');
   await page.mouse.move(400, 300);
-  await expect(say(page)).toHaveText('คำตอบพร้อมแล้ว', { timeout: 10000 });
+  // A long answer: its first words as one plain sentence (no ** marks), cut at a word with "…"; the chat has the rest.
+  await expect(typed(page)).toHaveText(/^หน้างานใช้ดูงานทั้งหมด สถานะ และการรับเงินของแต่ละงานครับ .+…$/, { timeout: 10000 });
+  await expect(say(page)).toHaveAttribute('data-kind', 'answered');
+  const lines = await typed(page).evaluate(el => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)));
+  expect(lines).toBeLessThanOrEqual(3);
+  await page.waitForTimeout(300);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await snap(page, 'buddy-climb-answer.png');
   await button.click();
   await expect(chat.locator('.asx-md').last()).toContainText('งานทั้งหมด สถานะ และการรับเงินของแต่ละงาน');
   await page.keyboard.press('Escape');
@@ -178,7 +189,14 @@ test('dark mode and reduced motion: the climbing squirrel and its words', async 
   await panel(page).getByRole('button', { name: 'สรุปเดือนนี้' }).click();
   await page.keyboard.press('Escape');
   await page.mouse.move(400, 300);
-  await expect(say(page)).toHaveText('คำตอบพร้อมแล้ว', { timeout: 10000 });
+  // Reduced motion: the answer's words are there at once, not typed.
+  await expect(say(page)).toHaveAttribute('data-kind', 'answered', { timeout: 10000 });
+  // An answer that is only a LINE card is said from the card (its one-line banner text), never "คำตอบพร้อมแล้ว".
+  await expect(say(page)).toHaveClass(/is-said/);
+  await expect(typed(page)).not.toHaveText('คำตอบพร้อมแล้ว');
+  const words = await say(page).locator('.asx-climb-ghost').textContent();
+  expect(words?.length).toBeGreaterThan(10);
+  await expect(typed(page)).toHaveText(words!);
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'buddy-climb-dark.png');
 });

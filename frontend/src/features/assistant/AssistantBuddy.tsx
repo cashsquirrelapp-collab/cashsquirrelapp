@@ -7,7 +7,7 @@ import { MascotClimb } from '../../components/mascot/MascotClimb';
 import { tr, T } from '../../i18n/tr';
 import { createSampleTransport, type AssistantTransport } from './assistantApi';
 import { PAGE_HELP, SAMPLE_TOKENS, afterReply, buddyPrompts, isPendingConfirm, type AssistantMode, type ChatMessage, type ConfirmCard } from './assistantMock';
-import { climbFor, type BuddyNews, type Climb } from './buddyClimb';
+import { cardSpeech, climbFor, graphemes, speechPreview, type BuddyNews, type Climb } from './buddyClimb';
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { BriefingCard, briefingText } from './BriefingCard';
@@ -66,6 +66,36 @@ const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(n
 const AVATAR = 44;
 const CLIMB = 72;
 const CLIMB_AT: React.CSSProperties = { left: (AVATAR - CLIMB) / 2, top: 0.56 * (AVATAR - CLIMB), zIndex: 2 };
+
+/** The squirrel's words, typed out letter by letter (whole Thai letters). An answer still arriving keeps typing on
+ *  from where it was; new words start again. The finished text sizes the bubble from the start, so it does not
+ *  jump while it types, and screen readers get the finished words once instead of every letter. */
+function TypedWords({ text, instant, quiet }: { text: string; instant: boolean; quiet: boolean }) {
+  const letters = React.useMemo(() => graphemes(text), [text]);
+  const [count, setCount] = React.useState(instant ? letters.length : 0);
+  const before = React.useRef(letters);
+  React.useEffect(() => {
+    if (instant) { setCount(letters.length); return; }
+    // Keep what still matches (the answer grew, or its preview was cut back to a whole word), type on from there.
+    let same = 0;
+    while (same < before.current.length && same < letters.length && before.current[same] === letters[same]) same++;
+    before.current = letters;
+    setCount(c => Math.min(c, same));
+  }, [letters, instant]);
+  // One letter at a time, and nothing left running once the words are all there.
+  React.useEffect(() => {
+    if (instant || count >= letters.length) return;
+    const t = window.setTimeout(() => setCount(c => Math.min(letters.length, c + 1)), 28);
+    return () => window.clearTimeout(t);
+  }, [count, letters, instant]);
+  return (
+    <span className="asx-climb-text">
+      <span className="asx-climb-ghost" aria-hidden="true">{text}</span>
+      <span className="asx-climb-typed" aria-hidden="true">{letters.slice(0, count).join('')}</span>
+      <span className="asx-sr">{quiet ? '' : text}</span>
+    </span>
+  );
+}
 
 /** Phones: the sheet sits on the visible screen, above the keyboard. */
 function useSheetBox(active: boolean) {
@@ -172,7 +202,10 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
   // only in the latest answer: once the user has asked something else, an older card no longer calls them back.
   const lastBot = [...messages].reverse().find(message => message.from === 'bot');
   const pending = Boolean(lastBot?.cards?.some(card => card.kind === 'confirm' && isPendingConfirm(card, confirmStates[card.id])));
-  const climb: Climb | null = mobile || open || hidden ? null : climbFor({ mode, pending, news, hover: hover && !tip && !briefTip });
+  // What the squirrel says of the latest answer: its own first words, as one plain short sentence (or, for an answer
+  // that is only a card, what the card says).
+  const reply = React.useMemo(() => speechPreview(lastBot?.text || '') || speechPreview(cardSpeech(lastBot?.cards)), [lastBot?.text, lastBot?.cards]);
+  const climb: Climb | null = mobile || open || hidden ? null : climbFor({ mode, pending, news, hover: hover && !tip && !briefTip, reply });
   const telling = Boolean(climb && climb.kind !== 'hello');
   // One note a day; later the same day only something new and critical (a newly overdue payment) speaks up again.
   const briefSeen = mobile || !briefing ? {} : briefingSeen(accountId, briefing.day);
@@ -382,11 +415,12 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
             status, like the notes above the pill; the hello is only a greeting, so it stays silent. */}
           <AnimatePresence mode="wait">
             {climb && (
-              <motion.span key={climb.kind} className="asx-climb-say lg-glass is-menu" {...(climb.kind === 'hello' ? { 'aria-hidden': true } : { role: 'status' })} data-kind={climb.kind} onClick={() => setOpen(true)}
+              <motion.span key={climb.said ? 'said' : climb.kind} className={`asx-climb-say lg-glass is-menu${climb.said ? ' is-said' : ''}`} {...(climb.kind === 'hello' ? { 'aria-hidden': true } : { role: 'status' })} data-kind={climb.kind} onClick={() => setOpen(true)}
                 style={{ x: '-50%' }} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: reduce ? 0 : 3, transition: { duration: 0.14 } }}
                 transition={{ duration: reduce ? 0.15 : 0.3, delay: reduce ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}>
-                {tr(climb.words)}{climb.dots && <span className="asx-climb-dots" aria-hidden="true"><i /><i /><i /></span>}
+                <TypedWords text={climb.said ? climb.words : tr(climb.words)} instant={Boolean(reduce)} quiet={climb.kind === 'working'} />
+                {climb.dots && <span className="asx-climb-dots" aria-hidden="true"><i /><i /><i /></span>}
               </motion.span>
             )}
           </AnimatePresence>

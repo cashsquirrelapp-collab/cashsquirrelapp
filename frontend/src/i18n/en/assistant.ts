@@ -335,4 +335,5 @@ export const assistant: Record<string, string> = {
   "ร่างเสร็จแล้ว กรุณาตรวจก่อนยืนยัน": "Draft ready. Please check it before confirming",
   "คำตอบพร้อมแล้ว": "Your answer is ready",
   "มีอะไรให้ช่วยไหมครับ": "How can I help?",
+  "{0} รายรับ {1} รายจ่าย {2} คงเหลือ {3}": "{0}: income {1}, expenses {2}, balance {3}",
 };
