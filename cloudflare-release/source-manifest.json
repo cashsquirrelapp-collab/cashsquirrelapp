@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg76 profit report: every account, failed payments, costs not known yet, filtered answers (on pkg75)",
+  "source_label": "pkg77 today's briefing in the secretary panel (on pkg76)",
   "archive": "source.tar.gz",
-  "archive_sha256": "397e05c220e183f1ee64f251ce973689b4988164adfd842029f3ff54931fc560",
-  "file_count": 857,
-  "total_source_bytes": 22906883,
+  "archive_sha256": "9d95c65d7459604fe9728a9de32ade561bd7cbdadf6815120e517ba2af00af40",
+  "file_count": 863,
+  "total_source_bytes": 22947801,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -648,8 +648,8 @@
     },
     {
       "path": "backend/src/services/lineReminders.ts",
-      "size": 10776,
-      "sha256": "68496af8c06201831524807434f8070b9e7adc0a3c4f7e23e7421970c5e229d5"
+      "size": 8278,
+      "sha256": "26ca86bebd3c434aabd6462382136399050b4144c52b290da8252703587eb10e"
     },
     {
       "path": "backend/src/services/lineRichMenus.ts",
@@ -1968,8 +1968,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 208766,
-      "sha256": "71d8ac2e0ff1ea5d4a8f96e3bed06b5c9de6acc61bdb62a1637221cdd07a2789"
+      "size": 210112,
+      "sha256": "1a6b6a0e0d442f9c740331dd2de6101cbde35482fd10ef7c4cb32eed77acc9a2"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -2103,13 +2103,18 @@
     },
     {
       "path": "frontend/src/features/assistant/AssistantBuddy.tsx",
-      "size": 25064,
-      "sha256": "f6acc623a246fb1cf81168092ecded012b60de0c1b9b517d5df880202ed2be6e"
+      "size": 28725,
+      "sha256": "0c5bdf966eb3154471de7e9b7dc97735012c1193943428872dcf40cca23a6a4f"
     },
     {
       "path": "frontend/src/features/assistant/AssistantChat.tsx",
       "size": 90267,
       "sha256": "3f601857eeebbb46ea13eb3a92f798f02df0a2fa41b49fd974380be5422c4abf"
+    },
+    {
+      "path": "frontend/src/features/assistant/BriefingCard.tsx",
+      "size": 5179,
+      "sha256": "4fd2816eb6ad9d7715ba7d34b42d0163282ccc2c3a7e38bf5730a4b693d0ad75"
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
@@ -2143,8 +2148,8 @@
     },
     {
       "path": "frontend/src/features/assistant/assistant.css",
-      "size": 84773,
-      "sha256": "2c8de2de3230c5436cf8ad73a3beac6fe484c1a45d4c2da7a2f545131109bcaa"
+      "size": 88007,
+      "sha256": "ee2aabbbde9709dc69d24e546a390ae3da01106f7dcd5c22a03d3b5011b5382f"
     },
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
@@ -2927,6 +2932,11 @@
       "sha256": "818e9bd263adfd2397ec2cd53fd119692322ec0af800178a5b376f286a3ebcb5"
     },
     {
+      "path": "frontend/src/i18n/en/briefing.ts",
+      "size": 2496,
+      "sha256": "ef0813700495aff0a381c51950c6fa5ee0a16fbbc0cdf1725c8027e14726212a"
+    },
+    {
       "path": "frontend/src/i18n/en/calendar.ts",
       "size": 5136,
       "sha256": "0e972b01d1cf0f1a37f6ac340b1af0330c17a604af18cbfa396506a576cb2786"
@@ -2973,8 +2983,8 @@
     },
     {
       "path": "frontend/src/i18n/en/index.ts",
-      "size": 1693,
-      "sha256": "86b17a4a38838c7499474f70e6a281fba0fa924a64a619ef378495318993ddc8"
+      "size": 1747,
+      "sha256": "e32bf9d75c5301ffc12358379201e8be84866f034ea5e8fe380592782549b0e8"
     },
     {
       "path": "frontend/src/i18n/en/invoices.ts",
@@ -3357,6 +3367,11 @@
       "sha256": "19571e729e200e483e01dc831f36f1f6be4da57e76359469a1beb1c672440277"
     },
     {
+      "path": "shared/briefing.ts",
+      "size": 11760,
+      "sha256": "b33657f226e5253f2cc8db241c9b2f2182993a767f08a47cce8dcba5f7582e5e"
+    },
+    {
       "path": "shared/calendar.ts",
       "size": 8191,
       "sha256": "2792f959155ceb10a1be4d227d94e9de3cb0cf216779b11f88936a776a8b7859"
@@ -3385,6 +3400,11 @@
       "path": "shared/documentReturnPath.ts",
       "size": 1365,
       "sha256": "b48d626d377d112f1374e509b421cd161c2e7b93df233831a57c432e40e29a94"
+    },
+    {
+      "path": "shared/dueJobs.ts",
+      "size": 3066,
+      "sha256": "839f01c53bd718cea7773d9f2738c21b00f1d88d0b58a2b52d1399d8aefdd886"
     },
     {
       "path": "shared/featureAvailability.ts",
@@ -3802,6 +3822,11 @@
       "sha256": "43a8fcfb6f9e87e7cf340574ac544ff9de36921c9415707cd1bca4270a1f8776"
     },
     {
+      "path": "tests/briefing.test.ts",
+      "size": 6637,
+      "sha256": "b0f742973c7eedd69496c202bfb2bae3e712b2a3e5d316ea6cb2d72949f647fb"
+    },
+    {
       "path": "tests/calendar-events.test.ts",
       "size": 4941,
       "sha256": "004acee3c5a1baaa5fe98476620511c1749331c66742ee752a8aa012bcd653be"
@@ -3925,6 +3950,11 @@
       "path": "tests/e2e/billing.spec.ts",
       "size": 67114,
       "sha256": "da5f7d729817b2cd97fbb5f7f8319902d10a598fae6e1cd9c8ce0b58dd13c8ca"
+    },
+    {
+      "path": "tests/e2e/briefing.spec.ts",
+      "size": 5983,
+      "sha256": "3f1b6b776cd790303306a9cc8445df9c34a41f1d1be1b8d3825966bb1eb5d011"
     },
     {
       "path": "tests/e2e/card-choice.spec.ts",

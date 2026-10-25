@@ -2313,3 +2313,26 @@ Built on package 75. No SQL. No screen changes. Only the owner's LINE report tex
 **Checks.**
 - Unit tests 838/838 in the extracted package, including 2 new report tests.
 - cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## Today's briefing in เลขา's panel, and the squirrel's one note a day - 2026-10-25
+
+Built on package 76. No SQL. Computers and iPads only; the phone screens are unchanged. Pro and trial accounts, the ones that already have the floating เลขา.
+
+**Why.** Owner's Master Product Backlog, Part 6 (Krarok Intelligence Briefing). The owner approved the mockup (https://claude.ai/artifact/DtUqzPw2g6pSZUZpdYuw9q) with "ตามแนะนำหมด" on 2026-10-25.
+
+**What changes**
+- shared/briefing.ts picks 1–3 items from the saved data, using rules and no AI:
+  - overdue, due today and due soon, by the LINE 08:00 rule;
+  - money that may run short in 30 days, a forecast that is always labelled;
+  - fixed costs not recorded after the 20th;
+  - quotations waiting a week.
+- Items are ranked by urgency, amount, a next step and whether they are new today. financialRadar keeps received, overdue, expected, known costs and the projection apart.
+- shared/dueJobs.ts: the LINE 08:00 rule, moved unchanged from lineReminders.ts, which re-exports it. The briefing and LINE use the same function.
+- เลขา's panel shows "สรุปวันนี้" as its first card, with buttons that only open a page.
+- While the panel is closed, the squirrel shows one note a day for 6 seconds. It never shows while the user is typing. Later the same day only a new critical item speaks again. What was shown is kept per account on the device.
+- Worked out on the device from the data already loaded. No request, no AI, no tokens.
+
+**Checks.**
+- Unit tests 842/842 in the extracted package, including the briefing engine and the LINE rule identity.
+- Screen tests 34/34 in the extracted package: the briefing (note, card, button, once a day) and the phone (none), plus the buddy, phone and computer-parity suites and the overlap checker.
+- cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
