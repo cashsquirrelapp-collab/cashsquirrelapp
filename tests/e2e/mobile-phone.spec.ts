@@ -266,8 +266,12 @@ for (const width of [390, 320]) {
     await today.locator('.ksm-tl-event').first().click();
     await expect(page.getByRole('button', { name: /แก้ไข/ }).first()).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
 
-    // the box opens เงินรอรับ
+    // Opening the timeline event may scroll the header into its collapsed state. A collapsed box's
+    // first tap expands it; return to the top before checking that the expanded box opens เงินรอรับ.
+    await page.locator('#main-content').evaluate(el => el.scrollTo(0, 0));
+    await expect.poll(() => page.locator('.ksm-toolhero .ksm-pagehero-lead').evaluate(el => Number(getComputedStyle(el).opacity))).toBe(1);
     await box.getByRole('button', { name: /^เงินรอรับ .* ฿16,500 · ดูรายการ$/ }).click();
     await expect(page.getByRole('heading', { name: 'เงินรอรับ', exact: true })).toBeVisible();
   });

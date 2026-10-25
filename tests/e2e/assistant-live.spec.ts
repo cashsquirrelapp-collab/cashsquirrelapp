@@ -150,18 +150,27 @@ test('live: real answer and card without sample labels, real token count, saved 
   await page.screenshot({ path: test.info().outputPath('live-confirmed.png') });
 });
 
-test('live: ยกเลิก tells the server, and a follow-up sends the earlier turns as history', async ({ page }) => {
-  const mock = await open(page);
+test('live: cancelling an edit leaves the proposal pending, and a follow-up sends the earlier turns as history', async ({ page }) => {
+  const mock = await open(page, { reply: body => body.action === 'message'
+    ? { status: 200, json: { text: 'เตรียมเพิ่มงานแปลเอกสารไว้แล้วครับ', route: 'action', tokens: 4, tokensLeft: 990, trialLeft: null, cards: [EDITABLE] } }
+    : { status: 200, json: {} } });
   await ask(page, 'เพิ่มงานแปลเอกสาร 4000');
   const card = page.locator('.asx-rcard.is-confirm');
+  await expect(card.locator('.asx-rcard-actions button')).toHaveText(['แก้ไข', 'ยืนยัน']);
+  await expect(card.getByRole('button', { name: 'ยกเลิก', exact: true })).toHaveCount(0);
+  await card.getByRole('button', { name: 'แก้ไข', exact: true }).click();
+  await card.getByRole('textbox', { name: 'มูลค่า (บาท)', exact: true }).fill('4500');
   await card.getByRole('button', { name: 'ยกเลิก' }).click();
-  await expect(card).toContainText('ยกเลิกรายการนี้แล้ว');
-  await expect.poll(() => mock.posts.filter(post => post.body.action === 'cancel').length).toBe(1);
+  await expect(card.locator('.asx-card-amount')).toHaveText('฿4,000');
+  await expect(card.locator('.asx-rcard-actions button')).toHaveText(['แก้ไข', 'ยืนยัน']);
+  expect(mock.posts.filter(post => ['revise', 'confirm', 'cancel'].includes(post.body.action))).toEqual([]);
   await ask(page, 'ขอบคุณ');
   await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(2);
   const second = mock.posts.filter(post => post.body.action === 'message')[1].body;
   expect(second.history.map((turn: any) => turn.role)).toEqual(['user', 'assistant']);
   expect(second.history[0].text).toBe('เพิ่มงานแปลเอกสาร 4000');
+  expect(second.history[1].text).toBe('เตรียมเพิ่มงานแปลเอกสารไว้แล้วครับ');
+  expect(mock.posts.filter(post => ['revise', 'confirm', 'cancel'].includes(post.body.action))).toEqual([]);
 });
 
 test('live: tokens used up shows the server message and stops the composer', async ({ page }) => {
@@ -537,12 +546,14 @@ for (const [label, width, height] of [['computer', 1440, 900], ['phone', 390, 84
   await page.waitForTimeout(500);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath(`${label}-edit.png`) });
-  await confirm.getByRole('button', { name: 'ใช้ค่านี้' }).click();
+  await confirm.getByRole('button', { name: 'ตรวจสอบข้อมูล' }).click();
   await expect(confirm).toContainText('฿4,500');
   const revise = mock.posts.find(post => post.body.action === 'revise').body;
   expect(revise).toEqual({ action: 'revise', proposalId: PROPOSAL, edits: { value: '4500' } });
+  expect(mock.posts.filter(post => post.body.action === 'confirm')).toEqual([]);
   await confirm.getByRole('button', { name: 'ยืนยัน' }).click();
   await expect.poll(() => mock.posts.find(post => post.body.action === 'confirm')?.body.proposalId).toBe(REVISED);
+  await expect(confirm).toContainText('บันทึกแล้ว');
 });
 
 // Owner, 2026-10-24: chats are kept in the account, so they are there after reloading and on another device.
@@ -550,7 +561,9 @@ for (const [label, width, height] of [['computer', 1440, 900], ['phone', 390, 84
 const QUOTE = { kind: 'confirm', id: PROPOSAL, title: 'สร้างใบเสนอราคา QT-2569-TEST0001', changes: [
   { label: 'เอกสาร', value: 'ใบเสนอราคา QT-2569-TEST0001' }, { label: 'ผู้ออก / ลูกค้า', value: 'ผู้ออกตัวอย่าง → ลูกค้าตัวอย่าง' },
   { label: 'รายการ 1', value: 'ออกแบบโลโก้งาน · 1 หน่วย × ฿3,000.00' }, { label: 'ยอดชำระสุทธิ', value: '฿3,000.00' }],
-  edit: [{ field: 'client_name', label: 'ลูกค้า', type: 'text', value: 'ลูกค้าตัวอย่าง' },
+  edit: [{ field: 'issuer_name', label: 'ผู้ออกเอกสาร', type: 'text', value: 'ผู้ออกตัวอย่าง' },
+    { field: 'issuer_address', label: 'ที่อยู่ผู้ออกเอกสาร', type: 'text', value: '99 กรุงเทพฯ' },
+    { field: 'client_name', label: 'ลูกค้า', type: 'text', value: 'ลูกค้าตัวอย่าง' },
     { field: 'item_1_description', label: 'รายการ', type: 'text', value: 'ออกแบบโลโก้งาน' }, { field: 'item_1_quantity', label: 'จำนวน', type: 'money', value: '1' },
     { field: 'item_1_price', label: 'ราคาต่อหน่วย (บาท)', type: 'money', value: '3000' },
     { field: 'vat_rate', label: 'VAT (%)', type: 'choice', value: '0', options: ['0', '7'] }, { field: 'wht_rate', label: 'หัก ณ ที่จ่าย (%)', type: 'choice', value: '0', options: ['0', '1', '2', '3', '5'] },
@@ -560,28 +573,45 @@ for (const [label, width, height] of [['computer', 1440, 900], ['phone', 390, 84
     if (body.action === 'message') return { status: 200, json: { text: 'เตรียมการ์ดใบเสนอราคาให้แล้วครับ', route: 'action', tokens: 4, tokensLeft: 990, trialLeft: null, cards: [QUOTE] } };
     if (body.action === 'revise') return { status: 200, json: { card: { ...QUOTE, id: REVISED, changes: QUOTE.changes.map(change => change.label === 'รายการ 1' ? { ...change, value: 'ออกแบบโลโก้งาน · 1 หน่วย × ฿3,500.00' } : change.label === 'ยอดชำระสุทธิ' ? { ...change, value: '฿3,500.00' } : change),
       edit: QUOTE.edit.map(field => (field.field === 'item_1_price' ? { ...field, value: '3500' } : field)) } } };
+    if (body.action === 'confirm') return { status: 200, json: { status: 'applied', kind: 'create_quotation', documentId: 'quote-new' } };
     return { status: 200, json: { cancelled: true } };
   } });
   await page.locator('#asx-message').fill('ทำใบเสนอราคาออกแบบโลโก้ 3000 ให้ลูกค้าตัวอย่าง');
   await page.locator('.asx-send').click();
   const card = page.locator('.asx-rcard.is-confirm');
-  await card.getByRole('button', { name: 'แก้ไข' }).click();
-  for (const name of ['ลูกค้า', 'รายการ', 'จำนวน', 'ราคาต่อหน่วย (บาท)']) await expect(card.getByRole('textbox', { name, exact: true })).toBeVisible();
-  await expect(card.getByRole('combobox', { name: 'VAT (%)' })).toHaveValue('0');
+  await expect(card.getByRole('button', { name: 'แก้ไขข้อมูลผู้ออกเอกสาร' })).toContainText('ผู้ออกตัวอย่าง');
+  await expect(card.getByRole('button', { name: 'แก้ไขข้อมูลลูกค้า' })).toContainText('ลูกค้าตัวอย่าง');
+  await card.getByRole('button', { name: 'แก้ไข', exact: true }).click();
+  await expect(card.getByRole('tab')).toHaveText(['ผู้ออก', 'ลูกค้า', 'รายการ', 'ภาษี']);
+  await expect(card.getByRole('tab', { name: 'ผู้ออก', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(card.getByRole('textbox', { name: 'ชื่อ / บริษัท', exact: true })).toHaveValue('ผู้ออกตัวอย่าง');
+  await expect(card.getByRole('textbox', { name: 'ที่อยู่', exact: true })).toHaveValue('99 กรุงเทพฯ');
+  await card.getByRole('tab', { name: 'ลูกค้า', exact: true }).click();
+  await expect(card.getByRole('tabpanel', { name: 'ลูกค้า', exact: true })).toBeVisible();
+  await expect(card.getByRole('textbox', { name: 'ชื่อ / บริษัท', exact: true })).toHaveValue('ลูกค้าตัวอย่าง');
+  await card.getByRole('tab', { name: 'รายการ', exact: true }).click();
+  for (const name of ['รายการ', 'จำนวน', 'ราคาต่อหน่วย (บาท)']) await expect(card.getByRole('textbox', { name, exact: true })).toBeVisible();
   await card.getByRole('textbox', { name: 'ราคาต่อหน่วย (บาท)', exact: true }).fill('3500');
+  await card.getByRole('tab', { name: 'ภาษี', exact: true }).click();
+  await expect(card.getByRole('combobox', { name: 'VAT (%)' })).toHaveValue('0');
   await expect(card.getByRole('combobox', { name: 'VAT (%)' }).locator('option:checked')).toHaveText('ไม่มี VAT');
   await expect(card.getByRole('combobox', { name: 'หัก ณ ที่จ่าย (%)' }).locator('option:checked')).toHaveText('ไม่หัก');
-  // A long card on a phone: scroll to its buttons, as the user does.
-  await card.getByRole('button', { name: 'ใช้ค่านี้' }).scrollIntoViewIfNeeded();
-  await page.locator('.asx-scroll').evaluate(list => list.scrollTo({ top: list.scrollHeight }));
+  await card.getByRole('tab', { name: 'รายการ', exact: true }).click();
+  await expect(card.getByRole('textbox', { name: 'ราคาต่อหน่วย (บาท)', exact: true })).toHaveValue('3500');
+  // Switching editor groups preserves the draft; review does not commit the document.
+  await card.getByRole('button', { name: 'ตรวจสอบข้อมูล' }).scrollIntoViewIfNeeded();
   await page.waitForTimeout(500);
   await page.screenshot({ path: test.info().outputPath(`${label}-quote-edit.png`) });
   expect(await textOverlapIssues(page)).toEqual([]);
-  await card.getByRole('button', { name: 'ใช้ค่านี้' }).click();
-  await expect(card).toContainText('฿3,500.00');
+  await card.getByRole('button', { name: 'ตรวจสอบข้อมูล' }).click();
+  await expect(card.locator('.asx-card-amount')).toHaveText('฿3,500.00');
   const revise = mock.posts.find(post => post.body.action === 'revise').body;
   expect(revise).toEqual({ action: 'revise', proposalId: PROPOSAL, edits: { item_1_price: '3500' } });
+  expect(mock.posts.filter(post => post.body.action === 'confirm')).toEqual([]);
   expect(await textOverlapIssues(page)).toEqual([]);
+  await card.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'confirm').map(post => post.body)).toEqual([{ action: 'confirm', proposalId: REVISED }]);
+  await expect(card).toContainText('บันทึกแล้ว');
 });
 
 // Owner, 2026-10-25: money over several months is a chart card from the server's figures, never ASCII bars or a table.
@@ -599,9 +629,11 @@ for (const [label, width, height, dark] of [['computer', 1440, 900, false], ['co
   const card = page.locator('.asx-rcard.is-chart');
   await expect(card).toBeVisible();
   await expect(card.locator('.asx-rcard-period')).toHaveText('ก.ย. 2569 – ต.ค. 2569');
-  await expect(card.locator('.asx-rcard-rows')).toContainText('฿17,640.10');
-  await expect(card.locator('.asx-rcard-rows')).toContainText('฿1,800.24');
-  await expect(card.locator('.asx-rcard-rows')).toContainText('฿15,839.86');
+  await expect(card.locator('.asx-card-metrics dt')).toHaveText(['รายรับรวม', 'รายจ่ายรวม']);
+  await expect(card.locator('.asx-card-metrics .is-income')).toHaveText('฿17,640.10');
+  await expect(card.locator('.asx-card-metrics .is-expense')).toHaveText('฿1,800.24');
+  await expect(card.locator('.asx-card-preview .asx-card-eyebrow')).toHaveText('เงินคงเหลือ');
+  await expect(card.locator('.asx-card-amount')).toHaveText('฿15,839.86');
   await expect(card.locator('.asx-chart-group')).toHaveCount(2);
   await expect(card.locator('.asx-chart-bars i')).toHaveCount(4);
   await expect(card.locator('.asx-chart-legend')).toContainText('รายรับ');
@@ -634,7 +666,8 @@ test('a period with no money shows the empty state, not empty bars', async ({ pa
   await expect(card.locator('.asx-chart-empty')).toHaveText('ยังไม่มีรายรับหรือรายจ่ายในช่วงนี้');
   await expect(card.locator('.asx-chart-group')).toHaveCount(0);
   await expect(card.locator('.asx-chart-table')).toHaveCount(0);
-  await expect(card.locator('.asx-rcard-rows')).toContainText('฿0.00');
+  await expect(card.locator('.asx-card-amount')).toHaveText('฿0.00');
+  await expect(card.locator('.asx-card-metrics dd')).toHaveText(['฿0.00', '฿0.00']);
 });
 
 // Owner, 2026-10-25 ("อยากให้กดแก้ไขได้" on an expense card in the floating panel): the panel on every page edits a card
@@ -655,6 +688,7 @@ test('floating panel: questions are answered by tapping and an expense card is e
     }
     if (body.action === 'revise') return { status: 200, json: { card: { ...EXPENSE, id: REVISED, changes: EXPENSE.changes.map(change => change.label === 'หมวดหมู่' ? { ...change, value: 'ค่าอุปกรณ์/ซอฟต์แวร์' } : change),
       edit: EXPENSE.edit.map(field => (field.field === 'category' ? { ...field, value: 'ค่าอุปกรณ์/ซอฟต์แวร์' } : field)) } } };
+    if (body.action === 'confirm') return { status: 200, json: { status: 'applied', kind: 'add_expense', expenseId: 'expense-new' } };
     return { status: 200, json: { cancelled: true } };
   } });
   await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้าภาพรวม' }).click();
@@ -673,13 +707,17 @@ test('floating panel: questions are answered by tapping and an expense card is e
   await expect(category.locator('option')).toHaveCount(8);
   await expect(category.locator('option').first()).toHaveText('ค่าอุปกรณ์/ซอฟต์แวร์');
   await category.selectOption('ค่าอุปกรณ์/ซอฟต์แวร์');
-  await card.getByRole('button', { name: 'ใช้ค่านี้' }).scrollIntoViewIfNeeded();
+  await card.getByRole('button', { name: 'ตรวจสอบข้อมูล' }).scrollIntoViewIfNeeded();
   await page.waitForTimeout(400);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('buddy-expense-edit.png') });
-  await card.getByRole('button', { name: 'ใช้ค่านี้' }).click();
+  await card.getByRole('button', { name: 'ตรวจสอบข้อมูล' }).click();
   await expect(card).toContainText('ค่าอุปกรณ์/ซอฟต์แวร์');
   expect(mock.posts.find(post => post.body.action === 'revise').body).toEqual({ action: 'revise', proposalId: PROPOSAL, edits: { category: 'ค่าอุปกรณ์/ซอฟต์แวร์' } });
+  expect(mock.posts.filter(post => post.body.action === 'confirm')).toEqual([]);
+  await card.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'confirm').map(post => post.body)).toEqual([{ action: 'confirm', proposalId: REVISED }]);
+  await expect(card).toContainText('บันทึกแล้ว');
 });
 
 test('stored chats: the list comes from the account, a chat opens with its messages and card states, new messages are kept in it', async ({ page }) => {

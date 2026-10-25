@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { loadLayoutFonts } from './testFonts';
 
 // The owner's rule (2026-10-23): no text may overlap, touch, or poke out half-covered from under a
 // menu, notification or button. This measures the real letter shapes (canvas measureText, so Thai tone marks
@@ -9,6 +10,7 @@ const CHECK = "(() => {\n  const vw = innerWidth, vh = innerHeight;\n  const hid
 export type TextIssue = { kind: 'TOUCH' | 'CLOSE' | 'PEEK' | 'COVERED'; a: string; b?: string; gap?: number };
 
 export async function textOverlapIssues(page: Page): Promise<TextIssue[]> {
+  await loadLayoutFonts(page);
   const result = await page.evaluate(code => (0, eval)(code), CHECK) as { issues: TextIssue[] };
   return result.issues;
 }
