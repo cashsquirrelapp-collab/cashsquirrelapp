@@ -21,7 +21,7 @@ import type { LineCardData, LineInbox, LineQuickKind } from '../../../../shared/
 const QUICK_THAI: Record<LineQuickKind, string> = { unpaid: 'รอรับเงิน', month: 'สรุปเดือนนี้', wip: 'กำลังดำเนินการ' };
 import { getCurrentAccount } from '../../services/api';
 import { automaticNavigation, safeAssistantPath, type NavigationContext } from './assistantNavigation';
-import { NavigationModeControl, useNavigationMode } from './NavigationModeControl';
+import { useNavigationMode } from './NavigationModeControl';
 import { confirmationCommand } from './assistantCommands';
 import './assistant.css';
 
@@ -199,7 +199,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     instant: Boolean(reduce),
   }), [given, reduce]);
   const navigationContext: NavigationContext = { accountId, workspaceSlug, fullFeatureAccess };
-  const [navigationMode, setNavigationMode] = useNavigationMode(accountId);
+  const [navigationMode] = useNavigationMode(accountId);
   const navigationRef = React.useRef({ navigationContext, navigationMode, transport });
   navigationRef.current = { navigationContext, navigationMode, transport };
   const go = (path: string) => {
@@ -934,7 +934,6 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
             </div>
           </div>
         </header>
-        <NavigationModeControl mode={navigationMode} onChange={setNavigationMode} />
 
         <div className="asx-push-wrap" aria-live="polite">
           <AnimatePresence>
