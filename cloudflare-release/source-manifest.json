@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg81 Monthly only (6 months and a year hidden), 1,650 tokens a month, 2,500 kept for periods paid before 27 Oct (on pkg80)",
+  "source_label": "pkg82 เลขา's quotation questions: client details, issuer only when not saved (then kept), payment date with every credit term (on pkg81)",
   "archive": "source.tar.gz",
-  "archive_sha256": "acd50d38cbc8babf2fcfd81e8da6fa4c56b8936829ab62170684520efdb3f3cb",
-  "file_count": 893,
-  "total_source_bytes": 23179263,
+  "archive_sha256": "4e1897ebf0f58e0dc1bc8c2c6d0f584acdeaa687dd5e4a2218232db788677d2c",
+  "file_count": 896,
+  "total_source_bytes": 23213255,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -83,8 +83,8 @@
     },
     {
       "path": "backend/src/ai/documentActions.ts",
-      "size": 16266,
-      "sha256": "f2f69433a287077aa5f2e8faff224c4b0b04806ec3f00996d3f453b53be3b269"
+      "size": 17347,
+      "sha256": "c161f00a5c5409433cdd7b47e6f14c3f2a96b7c066502df698cc54508e1bd9af"
     },
     {
       "path": "backend/src/ai/documentQuota.ts",
@@ -133,8 +133,8 @@
     },
     {
       "path": "backend/src/ai/lineFormat.ts",
-      "size": 17771,
-      "sha256": "82a35a021fc59989f6e726ab58411b38a1d76d1bf8a30fbf70dfc29138abb208"
+      "size": 19393,
+      "sha256": "8198184b606045dcdd10d0337e7556b842cb442e29a778170f9fd84a434dc5db"
     },
     {
       "path": "backend/src/ai/lineInbox.ts",
@@ -163,8 +163,8 @@
     },
     {
       "path": "backend/src/ai/prompt.ts",
-      "size": 36260,
-      "sha256": "c2c4596c8468765e2058a708da0a8e7e99c767429e2995b52a21b3cab260755b"
+      "size": 38619,
+      "sha256": "469b187e94e27dd1f7c6466c785d43b034c2bfa7753bf469e63ca83450c87ffb"
     },
     {
       "path": "backend/src/ai/proposals.ts",
@@ -218,8 +218,8 @@
     },
     {
       "path": "backend/src/ai/tools.ts",
-      "size": 72452,
-      "sha256": "35f50b145e7aac5a551c83ddb7d2b7b4f7f65f8be9558fa84f007ab7753f4550"
+      "size": 74851,
+      "sha256": "ed66d2ba9eb92e114d55e9addd0a4503c62215c507ea28d38b985fe9de961a2f"
     },
     {
       "path": "backend/src/ai/transcription.ts",
@@ -228,8 +228,8 @@
     },
     {
       "path": "backend/src/ai/types.ts",
-      "size": 7910,
-      "sha256": "dbbb266d1645e767b616ea94aa3217c98b1c62c49687af6247978a4b7ab22c40"
+      "size": 8016,
+      "sha256": "2d919bb74b96784ff681fd1173201dea06fc0cd269025dbf315bd67051d1088c"
     },
     {
       "path": "backend/src/ai/vaultQueries.ts",
@@ -2153,8 +2153,8 @@
     },
     {
       "path": "frontend/src/features/assistant/ChatCards.tsx",
-      "size": 21205,
-      "sha256": "fce3a784aac42d0b69123fdbf11513febbc603587f2c2614454fff95fdf9e48b"
+      "size": 26412,
+      "sha256": "5b1d2403bddf1c4500a5dd8a1dee0cbc6d1838814423ed77f3b25037009bf45f"
     },
     {
       "path": "frontend/src/features/assistant/LineCard.tsx",
@@ -2183,8 +2183,8 @@
     },
     {
       "path": "frontend/src/features/assistant/assistant.css",
-      "size": 88007,
-      "sha256": "ee2aabbbde9709dc69d24e546a390ae3da01106f7dcd5c22a03d3b5011b5382f"
+      "size": 89279,
+      "sha256": "5460b306c46ba82a144948fbea95d520534d0727a54c59fca20bd4c8f3fd70e7"
     },
     {
       "path": "frontend/src/features/assistant/assistantApi.ts",
@@ -2198,8 +2198,8 @@
     },
     {
       "path": "frontend/src/features/assistant/assistantMock.ts",
-      "size": 18283,
-      "sha256": "4f4f8122b39408116f2aa3e6295a0c0bdf24579e7772d5a2bd1de31e6a019193"
+      "size": 18273,
+      "sha256": "0e751a89043d2210f1cffd8cb5a7441fae10f34af906427b61db7dc1794dcd41"
     },
     {
       "path": "frontend/src/features/assistant/assistantNavigation.ts",
@@ -2573,8 +2573,8 @@
     },
     {
       "path": "frontend/src/features/jobs/JobDeliveryDialog.tsx",
-      "size": 11070,
-      "sha256": "8d01f61a6edfddcd8b7ec2a79fa74ad08c424914f91ba9b30cec8917ba29065d"
+      "size": 11216,
+      "sha256": "fc723261e877a4852274cf89b986f754ac079951c5253738b90af07e8a1565a7"
     },
     {
       "path": "frontend/src/features/jobs/JobDetailModal.tsx",
@@ -2583,8 +2583,8 @@
     },
     {
       "path": "frontend/src/features/jobs/JobFormDrawer.tsx",
-      "size": 49312,
-      "sha256": "87cef0b1ab1b235ca8f2163e1710723ef09282dadab183226a60d04c0273df8f"
+      "size": 49482,
+      "sha256": "2a9d03d6ab01a5390e043d1e779c9bab8bd03263bfe940368a878e943473d0a9"
     },
     {
       "path": "frontend/src/features/jobs/JobPaymentDialog.tsx",
@@ -2983,8 +2983,8 @@
     },
     {
       "path": "frontend/src/i18n/en/assistant.ts",
-      "size": 34475,
-      "sha256": "4cc5e0b90d123dcbab6be04caca23cbdac4976b234442ac080d8aaaef6cf6dc9"
+      "size": 34930,
+      "sha256": "f9513f1f716bf559304c5cf902bf77c7253c03f32b3e49dd189d09265bce2faf"
     },
     {
       "path": "frontend/src/i18n/en/auth.ts",
@@ -3462,6 +3462,11 @@
       "sha256": "ee26a0d1ec50813bf161e91d87f8ef8c79d775a480ec35ade26735dab6f60ecc"
     },
     {
+      "path": "shared/askQuestions.ts",
+      "size": 3017,
+      "sha256": "507efd2a2a03e96148bfef08f32ed3881a45d790d72536e5bb38e1bfb5cd12dc"
+    },
+    {
       "path": "shared/briefing.ts",
       "size": 11760,
       "sha256": "b33657f226e5253f2cc8db241c9b2f2182993a767f08a47cce8dcba5f7582e5e"
@@ -3485,6 +3490,11 @@
       "path": "shared/changes.ts",
       "size": 1347,
       "sha256": "d108b6ed5d831df1afa9d36b6065823c23adaf1965ac05daeab1a60b2dfcf2cc"
+    },
+    {
+      "path": "shared/creditTerms.ts",
+      "size": 433,
+      "sha256": "7c79c66e937927fe55d2432a8c6a1a2b712430045c952b3cf0d3a9c613816495"
     },
     {
       "path": "shared/documentBranding.ts",
@@ -3755,6 +3765,11 @@
       "path": "tests/ai-anthropic.test.ts",
       "size": 18164,
       "sha256": "2d3f482d6a441ad4d6d7f952bc3e613b3c4d1d309630f4c4b2722afbae4853a4"
+    },
+    {
+      "path": "tests/ai-ask-kinds.test.ts",
+      "size": 9766,
+      "sha256": "3005dfbaf3144026e8d4f55962a59e4254654d95962386534ccf623ab5af1c4d"
     },
     {
       "path": "tests/ai-compound-job-actions.test.ts",
@@ -4058,8 +4073,8 @@
     },
     {
       "path": "tests/e2e/app.spec.ts",
-      "size": 126413,
-      "sha256": "e16d4bd813a00f20dc61af8cd2357e1abbda56daa053c459219739ed1cfdca50"
+      "size": 126629,
+      "sha256": "b5ebea606ae8cfb798fd2e863c45d4433df8e5450615dd4c7d13f6c88f20bd14"
     },
     {
       "path": "tests/e2e/assistant-buddy.spec.ts",
@@ -4073,8 +4088,8 @@
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
-      "size": 59665,
-      "sha256": "f5f4256043f43051f53d9a83f3ab963e56edf7a88bd879ef7068bdd60249e434"
+      "size": 65418,
+      "sha256": "6352955c3795b43a30ff1759b1b11e13a95601a59416a098c232ebac16b321ad"
     },
     {
       "path": "tests/e2e/auth-oauth-back.spec.ts",
@@ -4224,7 +4239,7 @@
     {
       "path": "tests/founder-confidentiality.test.ts",
       "size": 16925,
-      "sha256": "da68e23b31cd58200b5f9b3bc0face4cf1fb7fd3dba43219d011cc9aa4d9841d"
+      "sha256": "29f6b3a4daf07d806ecfdfadf707d0ef95c93c46b4cdac84d0fb10594803288d"
     },
     {
       "path": "tests/goal-ledger.test.ts",

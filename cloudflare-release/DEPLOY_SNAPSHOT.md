@@ -2482,3 +2482,42 @@ Built on package 80. No SQL.
 - Screen tests 61 passed there, and 8 long-plan purchase tests skipped while those plans are hidden.
 - In the work tree: 128/128 landing, English, admin, secretary and flex screen tests, and the plans page overlap check on phone and computer, light and dark.
 - cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## เลขา's quotation questions: the client's details, the issuer once, when the client pays - 2026-10-25
+
+Built on package 81. No SQL.
+
+**Why.** Owner, 2026-10-25, from a chat making a quotation ("ตัดต่อ 3000 บาท ลูกค้าชื่อปล่อยจอย"). That chat had three problems:
+- เลขา asked only for the issuer, and offered the client's name as the issuer's.
+- It asked "เครดิตเทอม" with 0/7/15/30 days. The owner asked for:
+  - "ชำระวันไหน" on a calendar, with "มีเครดิตเทอมไหม" (ไม่มี / มี, then the app's own 0/30/45/60/90 days, all of them);
+  - credit terms mostly for sponsor and influencer work.
+- It did not ask the client's details. The owner wants them asked, and the issuer's details asked only when none are saved, then kept. They change only when the user asks.
+
+**What changes**
+- ask_user (backend/src/ai/tools.ts, shared/askQuestions.ts) has three new kinds of question:
+  - date: a calendar.
+  - payment: "ชำระวันไหน" with a calendar, then "มีเครดิตเทอมไหม" (ไม่มี / มี), then the days. The days are always the app's CREDIT_TERM_PRESETS (shared/creditTerms.ts, now also used by the job form and the delivery dialog), whatever the model listed.
+  - party: a small form for name, address, tax ID and phone, for the client or the issuer, prefilled with what is known.
+- The answers come back as one line each, for example:
+  - "ชำระวันไหน: 15 พ.ย. 2569 (2026-11-15) · เครดิตเทอม: 30 วัน"
+  - "ชื่อ …; ที่อยู่ …; เลขประจำตัวผู้เสียภาษี ไม่ระบุ; โทรศัพท์ ไม่ระบุ"
+- LINE shows these as lines to answer, with the credit terms as quick replies.
+- The prompt is now secretary-v15:
+  - It asks when the client pays with the payment question, never with the word เครดิตเทอม alone.
+  - It asks the client's details with a party question, unless past work, a saved client or a file gives them.
+  - It reads the saved issuer profile. If a name is saved, it never asks about the issuer and never changes it unless the user says so. If no name is saved, it asks once with an issuer party question, then prepares the document with those details and propose_update_issuer in the same turn, so they are kept.
+  - The answers map to pay_date / credit_term_days for a job and to due_date / payment_term for a document.
+- documentActions refuses a document whose issuer name matches the client's (ignoring spaces, บริษัท/จำกัด and Co./Ltd.).
+- The chat card (ChatCards.tsx, assistant.css):
+  - It adds the calendar, the ไม่มี/มี chips with the days, and the details form.
+  - Labels sit above fields, with Thai line-height of at least 1.5.
+  - The form is two columns on a computer and one on a phone.
+  - English labels are included.
+- tests/e2e/app.spec.ts: the pay-date preview test waited too little after ticking "ไม่นับวันหยุด" and failed now and then, also on package 81. It now waits for the business-day line.
+
+**Checks.**
+- Unit tests 875/875 in the extracted package, including tests/ai-ask-kinds.test.ts (5): the kinds, LINE, the answer text, the issuer guard and the prompt.
+- Screen tests 123 passed there and 8 long-plan tests skipped. These include the new quotation questions test on a computer and a phone, with the overlap check and no sideways scroll.
+- In the work tree: job form, English and chat screen tests.
+- cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
