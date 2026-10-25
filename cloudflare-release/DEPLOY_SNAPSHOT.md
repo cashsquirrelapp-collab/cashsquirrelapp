@@ -2405,3 +2405,38 @@ Built on package 78. No SQL. Owner-only (the same access check as the Stripe fin
   - 3 for the usage levels, the joined rows and the CSV.
 - Screen tests 57/57 there: the new tab with the minute refresh, every account, filters, the CSV and an iPad width, plus the admin analytics, live revenue, phone admin, Pro and English suites.
 - cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## AI credit and reserve: days left, what to top up, LINE warnings before it runs out - 2026-10-25
+
+Built on package 79. SQL first: supabase/migrations/20261025230000_admin_ai_credit.sql. The owner-only parts show "the SQL has not been run" until it is; chat is not affected either way.
+
+**Why.** Owner, 2026-10-25: "แจ้งเตือนกูด้วยว่าถ้าโทเค็น AI ตัวไหนกำลังจะหมดแล้วให้กูเติม ... ต้องมีเงินสำรองประมาณนี้ ... ไม่ใช่ว่าหมดแล้วค่อยเติม แล้วคนใช้อาจจะงง". Neither Anthropic nor Google lets the app read the credit left: Anthropic's Admin API has usage and cost reports but no balance. So the owner records the balance shown in the console, and the app takes off what it measured since.
+
+**What changes**
+- SQL (owner-only, service role):
+  - table cashflow_admin_ai_credit holds the recorded balances;
+  - cashflow_admin_ai_provider_spend(from, to) gives spend per provider per Bangkok day, from the per-call routing log or else the row's model;
+  - cashflow_admin_ai_billing_issues(since) lists billing answers logged in routing.
+- backend/src/ai/billing.ts tells billing answers apart from passing faults: Anthropic "credit balance is too low" / 402, and Gemini "current quota ... billing details" or billing not enabled. A plain 429 burst or a 5xx is not one.
+- The gateway logs these in routing.billing, and a failed request as routing.error billing_*.
+- In a chat, the chat service tells the owner at once on LINE, once per problem per Bangkok day (cashflow_delivery_claims). A request that cannot be answered now tells the user "เลขากระรอกพักให้บริการชั่วคราว ทีมงานได้รับแจ้งแล้ว ... ไม่มีการหักโทเคน" (503 ai_paused) instead of "ตอบไม่ทัน".
+- backend/src/services/aiCredit.ts works out, per provider:
+  - credit left = recorded − measured since;
+  - the pace = the last 7 full days, or today's spend when higher;
+  - days left and the run-out day;
+  - a reserve of 30 days at that pace + 30%, and what to top up;
+  - a status: ok, watch (<14 days), low (<7), out (past the balance, or a billing answer in 24 hours), or unknown (nothing recorded).
+- GET/POST /api/admin-ai-credit is owner-only and records a balance.
+- GET /api/check-ai-credit runs at 08:00 daily (added to the 0 1 * * * list) and sends LINE to the owner when a provider is low or out, or answered with a billing problem.
+- Admin page:
+  - a red strip above the tabs when a provider is low or out;
+  - in "กำไรและต้นทุน AI", a part "เครดิต AI และเงินสำรอง" with both providers, a form to record the balance, a link to the provider's billing page, and what to keep ready for 30 days (at the pace, if every paying member used their allowance, and the app's cap).
+- The phone admin page is unchanged; the LINE warnings reach the phone.
+
+**Checks.**
+- Unit tests 860/860 in the extracted package:
+  - 6 credit tests: status maths, billing classification, once-a-day alerts, Gemini answering when Claude is out, the paused message, and the SQL on PGlite with per-day split and no browser access;
+  - 2 endpoint access tests;
+  - the schedule test.
+- Screen tests 19/19 there, and 114/114 admin, secretary and English screen tests in the work tree.
+- cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.

@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg79 live profit, AI cost and usage by account on the admin page (on pkg78)",
+  "source_label": "pkg80 AI credit and reserve: days left, top-up, LINE warnings (on pkg79)",
   "archive": "source.tar.gz",
-  "archive_sha256": "f1ca21eafa1ec04d9711ba6d8048526153e60c3cd97c71e542f52db5fee0559b",
-  "file_count": 879,
-  "total_source_bytes": 23071312,
+  "archive_sha256": "c66b5965d6b54c353211ecb40624be48ea0de63a752dc84d8d80683be0ebc43c",
+  "file_count": 890,
+  "total_source_bytes": 23143588,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -45,6 +45,11 @@
       "path": "backend/src/ai/attachment.ts",
       "size": 2635,
       "sha256": "93c1917be59c9e188187f859b60904154a312b10dc4a40fa877958600e6018cc"
+    },
+    {
+      "path": "backend/src/ai/billing.ts",
+      "size": 1186,
+      "sha256": "ec43452ba4dad094c9639ab4489c593c478fd6c4df9d9cc2ead31ee3fd438ada"
     },
     {
       "path": "backend/src/ai/confidentiality.ts",
@@ -98,8 +103,8 @@
     },
     {
       "path": "backend/src/ai/gateway.ts",
-      "size": 31842,
-      "sha256": "1ed084cba8aaaade105adf7bd981d1cfe15eee0d69180d9ed3887c374d6dea78"
+      "size": 32165,
+      "sha256": "146bc9c9b21efb2efb9d4b9e27aa580d891f7f2fd3028cc0547428268915edea"
     },
     {
       "path": "backend/src/ai/jobFinancialEdit.ts",
@@ -123,8 +128,8 @@
     },
     {
       "path": "backend/src/ai/lineBridge.ts",
-      "size": 7647,
-      "sha256": "c18e2bfed4f0202d4da336645336acd28ad20300875e50af0893bec8e4658f6b"
+      "size": 7768,
+      "sha256": "79f0877385b375751b82f194a5a45f42c8348c161a9e7985be128d5f546ef060"
     },
     {
       "path": "backend/src/ai/lineFormat.ts",
@@ -193,13 +198,13 @@
     },
     {
       "path": "backend/src/ai/routingPolicy.ts",
-      "size": 24126,
-      "sha256": "be75daa2733d1c0027de6749dc11608269e16e2cc9c807b09c2c2c6e5aad286b"
+      "size": 24320,
+      "sha256": "5b06938c408373dfa933163fbac7c4a0297c804ceae261c70e1cd5198b360a0d"
     },
     {
       "path": "backend/src/ai/service.ts",
-      "size": 31308,
-      "sha256": "853bcae5b96447624e9b760ef93b9ca0a526c11965baacb17d42250bca81ead1"
+      "size": 32257,
+      "sha256": "2bcb54e29d9a3cf608393a2ebbfd1751446b7b80e127763ab961fb9399a296af"
     },
     {
       "path": "backend/src/ai/signals.ts",
@@ -257,6 +262,11 @@
       "sha256": "fc8c17779d4d470290c469cd1d6ae0e9f2a6b5e70f0cd47f3f80b2be6065719c"
     },
     {
+      "path": "backend/src/handlers/admin-ai-credit.ts",
+      "size": 3295,
+      "sha256": "c0d660e4cc8bd03e00c1e83ca5e327c83abfb80885890bd23f493b317ea0e9ee"
+    },
+    {
       "path": "backend/src/handlers/admin-analytics.ts",
       "size": 16220,
       "sha256": "7885a1cd96a93d558c31aeb311776908be6955a0578b8ae83c88e85d832180ef"
@@ -283,8 +293,8 @@
     },
     {
       "path": "backend/src/handlers/assistant.ts",
-      "size": 12760,
-      "sha256": "63f88046d0d34909d19dc4b4396f948b5e198f00e85cf7db3a0c1de793aab93c"
+      "size": 12881,
+      "sha256": "de084fdc679cde80c98fba67b2893c7e56152fe4bcce0b649112f2ca70870b9e"
     },
     {
       "path": "backend/src/handlers/auth.ts",
@@ -295,6 +305,11 @@
       "path": "backend/src/handlers/billing.ts",
       "size": 5616,
       "sha256": "6edd0603531bbcfe674eec211582ec74368efa31a9929d4f756e4f9a0d04dfcc"
+    },
+    {
+      "path": "backend/src/handlers/check-ai-credit.ts",
+      "size": 2263,
+      "sha256": "d1d53f78f8c17c84861e553f0a1465df80314d55b21bf41f01a2146dc3b1869a"
     },
     {
       "path": "backend/src/handlers/close-expired-accounts.ts",
@@ -433,8 +448,8 @@
     },
     {
       "path": "backend/src/http/router.ts",
-      "size": 4370,
-      "sha256": "87c176ed874b966234685b9d9c6af3f557fabd5375668f0f3655cdf4b2942a60"
+      "size": 4594,
+      "sha256": "2ce56110736939be7defde755aeceb5556ecb6bf79c984359b0b84b0a80af8f7"
     },
     {
       "path": "backend/src/http/securityHeaders.ts",
@@ -550,6 +565,11 @@
       "path": "backend/src/services/adminStripeFinance.ts",
       "size": 16686,
       "sha256": "9579ad3f1a4a5fe9732414d018018a4ebe1c50526641231dae1ece068cd44ec1"
+    },
+    {
+      "path": "backend/src/services/aiCredit.ts",
+      "size": 12806,
+      "sha256": "57d7452c945d2ace5ef31559c88c04fabbbc049bd6100066569e73b26b56ad2e"
     },
     {
       "path": "backend/src/services/cardPlans.ts",
@@ -692,6 +712,11 @@
       "sha256": "620de02264371eecd36c56ec3edd5fb297e56afe0667d4731001ab0ccc925228"
     },
     {
+      "path": "backend/src/services/ownerAlerts.ts",
+      "size": 1443,
+      "sha256": "753e5dcdf4a4789ddaff70e3612a974b5d5105250ab9fc232f41ec45d05ca789"
+    },
+    {
       "path": "backend/src/services/prepaidBilling.ts",
       "size": 19500,
       "sha256": "545db3eda429eb0227f42f91f4c58d0c8c6a6f4702e8f279c8768c345b4571af"
@@ -738,8 +763,8 @@
     },
     {
       "path": "cloudflare/schedule.ts",
-      "size": 1715,
-      "sha256": "622e80a44ee048c421a1dd5a2c149a143d0242fb221f307c690613bbce869a1d"
+      "size": 1891,
+      "sha256": "70fa4cca3cb17bc0e67cd9c9837aff191229775e422b143dfd55f5f4fd4b727b"
     },
     {
       "path": "cloudflare/worker.ts",
@@ -2387,9 +2412,14 @@
       "sha256": "ed36baf3493373037eab82b24e49b0e35a1e18794835380335b4973fd35bc171"
     },
     {
+      "path": "frontend/src/features/groups/AdminAiCredit.tsx",
+      "size": 15295,
+      "sha256": "4965d7f2584b7714239cd810c6077dc2eb7ec40dee1db87e721d36cd794c0c8f"
+    },
+    {
       "path": "frontend/src/features/groups/AdminDashboard.tsx",
-      "size": 47390,
-      "sha256": "f2bcd1bb16d58d1fcf537fd8f4c59280811becbfa6c27d4afd6390bd57c88267"
+      "size": 47617,
+      "sha256": "405f16c885491625a9abd7eeb034f3e5900f8e46700483cecd7861fdab024133"
     },
     {
       "path": "frontend/src/features/groups/AdminDashboardPhone.tsx",
@@ -2398,8 +2428,8 @@
     },
     {
       "path": "frontend/src/features/groups/AdminProfitLive.tsx",
-      "size": 20199,
-      "sha256": "7864aa98e51aac0be70cdb94dca5a34e915f90a70a4bec6dd8c8192efe2005e5"
+      "size": 20339,
+      "sha256": "65c541f36cbaa566a4abe473a94720e27c6d7b7b59c94254876c5e58feb1d560"
     },
     {
       "path": "frontend/src/features/groups/AdminStripeFinance.tsx",
@@ -3063,8 +3093,8 @@
     },
     {
       "path": "frontend/src/i18n/en/server.ts",
-      "size": 32141,
-      "sha256": "a35764a58d3dd4e2740241b8c21b57d8e872e46b23db9ee108eb8847856fcf34"
+      "size": 32993,
+      "sha256": "864681c74d25dd96250a90baa304eb2fb3741e7f801dc6cafd9593f71d09b4d7"
     },
     {
       "path": "frontend/src/i18n/en/settings.ts",
@@ -3120,6 +3150,11 @@
       "path": "frontend/src/sampleData.ts",
       "size": 5534,
       "sha256": "8c5b84b05aee94c2ebb4086c07cb2d253b2c35a1a9d9ec8da0f9b2a5dd68d47e"
+    },
+    {
+      "path": "frontend/src/services/adminAiCredit.ts",
+      "size": 888,
+      "sha256": "cc5742f9f77690a4766c49a2408def46f16e65e05ca8e54585ef18a67034fdb3"
     },
     {
       "path": "frontend/src/services/adminAnalytics.ts",
@@ -3417,6 +3452,11 @@
       "sha256": "db551f6e68672133dd2de0ba50fcb95d10b17a9634744c263e178c8597c8806a"
     },
     {
+      "path": "shared/aiCredit.ts",
+      "size": 1945,
+      "sha256": "e62a2305edbceaf2ad51c3a90b90c816ae16ee2725efb19794f583bd502e9ecc"
+    },
+    {
       "path": "shared/briefing.ts",
       "size": 11760,
       "sha256": "b33657f226e5253f2cc8db241c9b2f2182993a767f08a47cce8dcba5f7582e5e"
@@ -3632,6 +3672,16 @@
       "sha256": "83f0236345e1cb3ed520cd3e2bdca5ea578bf5f8951cbf35c7492abc1e51114f"
     },
     {
+      "path": "supabase/migrations/20261025230000_admin_ai_credit.sql",
+      "size": 4993,
+      "sha256": "c43c6a091eb51acaf9e9a446967c43f9d505a76e5ea919aba06475d4023cdda8"
+    },
+    {
+      "path": "tests/admin-ai-credit.test.ts",
+      "size": 6381,
+      "sha256": "f29d67681399f4bb3cdd6e6bf756792cc10ab4aa42f7614e00685d7f82684c0b"
+    },
+    {
       "path": "tests/admin-analytics-access.test.ts",
       "size": 11339,
       "sha256": "583a3c1fb6e00fa71e874483838698567f700a3ce7851ce682363e625836e833"
@@ -3715,6 +3765,11 @@
       "path": "tests/ai-cost-accounting.test.ts",
       "size": 24145,
       "sha256": "0bf34850e797134f1d0b6d815bd85a13e143d133a17aa6cdf8e22efb040c6f13"
+    },
+    {
+      "path": "tests/ai-credit.test.ts",
+      "size": 14428,
+      "sha256": "16c08207050f198eb67f333bac73a4e59be07005a225d1c83a3bd6c704939322"
     },
     {
       "path": "tests/ai-cross-channel.test.ts",
@@ -3923,8 +3978,8 @@
     },
     {
       "path": "tests/cloudflare-scheduled.test.ts",
-      "size": 3923,
-      "sha256": "2741888e00e1522de770f8eb7ccd2251411d2baa72786e3c440a602a933e4cf4"
+      "size": 4108,
+      "sha256": "67a9373253bc41645f2deae188bcbe3322a84ce90941b3da7ceb22908a54e2f9"
     },
     {
       "path": "tests/database.test.ts",
@@ -3978,8 +4033,8 @@
     },
     {
       "path": "tests/e2e/admin-profit-live.spec.ts",
-      "size": 12159,
-      "sha256": "fc76e298117aa8cbe51734d90351983a1889fd5c8e995a37b5d1d1e5b5fdc3ac"
+      "size": 16000,
+      "sha256": "dcc52e24357237de23040067a09e0bebc8d77036d07a3ca8f3f4899a72b11e35"
     },
     {
       "path": "tests/e2e/admin-stripe-finance-phone.spec.ts",
