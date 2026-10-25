@@ -2194,3 +2194,17 @@ Built on package 68. No SQL. Stripe step after the deploy (owner): scripts/strip
 - Nets per payment: domestic card ฿159.39 / ฿849.35 / ฿1,490.30; PromptPay about ฿174 / ฿879 / ฿1,534; foreign cards up to about ฿2 / ฿10 / ฿18 less than the target. At a 10% VAT rate a domestic card nets ฿0.11 / ฿0.93 / ฿1.71 under the target.
 
 **Checks.** Unit tests 784/784 (pricing, consent text, catalog checks, checkout amounts, the repricing plan); pricing and card screen tests 34/34 on phone and computer; cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+
+## The plans page shows ฿159 with the payment fee before paying (฿159 + ฿18 = ฿177) - 2026-10-25
+
+Built on ce049ea (package 69). No SQL. No Stripe change: the catalog keeps ฿177 / ฿895 / ฿1,562.
+
+**Why.** Owner, with a screenshot of the plans page: "ราคาตั้ง 159 แต่จ่ายจริงแค่บอกค่าธรรมเนียมแจ้งรายละเอียดก่อนจ่าย" (the price is ฿159; the fee is told, with the details, before paying).
+
+**What changes**
+- shared/proPricing.ts: proPriceParts (price 159 / 849 / 1,490, payment fee 18 / 46 / 72, total 177 / 895 / 1,562) and proPricePartsForCharge; proPriceDetails' saving and average use the shown price again (฿90 / 36%, ฿645 / 43% with ฿141.50 a month, ฿1,498 / 50% with ฿124.17 a month). The charged total is unchanged everywhere on the server.
+- Plans page (phone and computer): the large figure is the price; under the saving, "+ ค่าธรรมเนียมชำระเงิน ฿18 · ยอดชำระ ฿177"; the payment buttons keep the amount charged. QR dialog: ค่าสมาชิก, ค่าธรรมเนียมชำระเงิน, then ชำระครั้งเดียว. Card dialog: the same two lines above ยอดชำระวันนี้. Promo dialog and landing page: the price with the same fee line. เลขา's knowledge states price + fee (total). English for every new line.
+- tests/e2e/billing.spec.ts: the fee line for each period, the QR and card breakdowns, and a no-overlap test of the price block on a phone and a computer, light and dark (runs the owner's text-overlap checker where it is present).
+
+**Checks.** Unit tests 784/784; plans and card screen tests 35/35 (the 3 landing story tests that expect an older English headline fail as before); cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.

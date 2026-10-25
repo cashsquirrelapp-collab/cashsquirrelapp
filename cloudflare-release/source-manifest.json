@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg69 prices include the Stripe card fee: 177 / 895 / 1,562",
+  "source_label": "pkg70 show the price and the payment fee before paying: 159 + 18 = 177",
   "archive": "source.tar.gz",
-  "archive_sha256": "b87a9abd0abd7d001d4a74c2e32490ed122f5743ff4c12c14610d32d673e7b3b",
+  "archive_sha256": "1cbc3e4c6bf9541e3e8ac2a7f95e676b4b5b5c7e1c504ffff68b7954ab69afe7",
   "file_count": 840,
-  "total_source_bytes": 22598456,
+  "total_source_bytes": 22609171,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -98,8 +98,8 @@
     },
     {
       "path": "backend/src/ai/knowledgeBase.ts",
-      "size": 48266,
-      "sha256": "b8bc12ed7e9553113173f541a4b4174cbf0af7e18469a6aa19e579823ce19868"
+      "size": 48775,
+      "sha256": "115dc551b24e5e22f824859b3b4120b8780b176559f840f85739ebbb51b95913"
     },
     {
       "path": "backend/src/ai/learning.ts",
@@ -2153,13 +2153,13 @@
     },
     {
       "path": "frontend/src/features/billing/CardPaymentModal.tsx",
-      "size": 19657,
-      "sha256": "7b5fec23ac343f056dc447f8faa90fc193caa7897366921d49cc6da0888d3c03"
+      "size": 20674,
+      "sha256": "4b252b9a236a526184d42d3a2f464e53a32ae50a91ea88c61f2b92400d80798a"
     },
     {
       "path": "frontend/src/features/billing/DirectQrModal.tsx",
-      "size": 4369,
-      "sha256": "4b2ccaae01429495a93aeabe6966c9f94294c6505b5a1bc68a956b7a9e6716c7"
+      "size": 5077,
+      "sha256": "f34cedb416080308b9ba5b679fed3ac6011016e9099bb2fff286552ef2f0733f"
     },
     {
       "path": "frontend/src/features/billing/EmbeddedPaymentModal.tsx",
@@ -2173,8 +2173,8 @@
     },
     {
       "path": "frontend/src/features/billing/PlansTab.tsx",
-      "size": 18898,
-      "sha256": "a31f63fa2bafee269f84396793fed0e3d0cb4cdbe86391e29ab7e9a95b387956"
+      "size": 19436,
+      "sha256": "3b23dfc3e528475e5cb939bcd1a7f3c68317861df7744c987dc6216daaa719af"
     },
     {
       "path": "frontend/src/features/billing/PremiumUpsell.tsx",
@@ -2183,8 +2183,8 @@
     },
     {
       "path": "frontend/src/features/billing/ProPromoModal.tsx",
-      "size": 6618,
-      "sha256": "93cc49c43190fc1cd505db2c616fbf8944d9b8a5703d36deb940ff1b86d37c02"
+      "size": 6891,
+      "sha256": "28cd09532eb4a39ef0cca9b43e19ac528c537bad814a1b6cdb999ec211c56052"
     },
     {
       "path": "frontend/src/features/billing/PromptPayCheckoutModal.tsx",
@@ -2193,8 +2193,8 @@
     },
     {
       "path": "frontend/src/features/billing/plans.css",
-      "size": 9693,
-      "sha256": "ccfe4e2db5770fe46ac8e10955f72df9e4d80406119f764f98a2a3b4a0080b91"
+      "size": 9782,
+      "sha256": "2a3e912d0a9274281d68764f36ae0d5ea633b1db35245f287b1bfe555ecfef37"
     },
     {
       "path": "frontend/src/features/billing/promoNotice.tsx",
@@ -2658,13 +2658,13 @@
     },
     {
       "path": "frontend/src/features/marketing/saas/SaasLanding.tsx",
-      "size": 30220,
-      "sha256": "4ccd54878f73823eeccf9161a6daf872d026c05c250a5230e65f0130a7e18975"
+      "size": 30551,
+      "sha256": "5137869f87e86ac5d85b92c6923e428b732d48fc67646f645288099062203fe7"
     },
     {
       "path": "frontend/src/features/marketing/saas/saas.css",
-      "size": 24597,
-      "sha256": "3b2e6bce25eedf7449900876ee577f982a97511f4a668fd5be29de972187604d"
+      "size": 24866,
+      "sha256": "7ee604841d980a803594d874e908d91aaa8320a3ad21b5169908dfafceee8ac8"
     },
     {
       "path": "frontend/src/features/mobile/MobileChrome.tsx",
@@ -2878,8 +2878,8 @@
     },
     {
       "path": "frontend/src/i18n/en/billing.ts",
-      "size": 6976,
-      "sha256": "482cd05af15a2d189a493facabb57a9367a3cb0e47e0a27029f75b7f108da916"
+      "size": 7104,
+      "sha256": "818e9bd263adfd2397ec2cd53fd119692322ec0af800178a5b376f286a3ebcb5"
     },
     {
       "path": "frontend/src/i18n/en/calendar.ts",
@@ -2943,8 +2943,8 @@
     },
     {
       "path": "frontend/src/i18n/en/landing.ts",
-      "size": 11438,
-      "sha256": "9cea69618f4efb72d7eaf76c76d485029dce42d5ed9681c480a249a84d8e2265"
+      "size": 11807,
+      "sha256": "b9d3d59cadea1510472cdc249a35780a52a9dfc056149113b7e0043ee915e58b"
     },
     {
       "path": "frontend/src/i18n/en/misc.ts",
@@ -2998,8 +2998,8 @@
     },
     {
       "path": "frontend/src/i18n/translations.ts",
-      "size": 150675,
-      "sha256": "6e8482e6c5f06b2fc0a8d056ad207508c488c533a38cc174aa0f859c43aca019"
+      "size": 150911,
+      "sha256": "3460e43e94498b6e311c22848842a2441dffca92396c75e84ad3dc130df52f9d"
     },
     {
       "path": "frontend/src/index.css",
@@ -3393,8 +3393,8 @@
     },
     {
       "path": "shared/proPricing.ts",
-      "size": 4417,
-      "sha256": "c7f256b6105156b06001ed093e4918759236a0db058b00d6a1ff06e9601949f0"
+      "size": 5818,
+      "sha256": "be3a8f32222e27b6c611a9a667bb330cf91b9c0d68d659ab94d2315cddc2e175"
     },
     {
       "path": "shared/tax.ts",
@@ -3848,8 +3848,8 @@
     },
     {
       "path": "tests/e2e/billing.spec.ts",
-      "size": 56888,
-      "sha256": "8eee47567615dd3b152ba5a7f552f10d1eec536eb6d9b43d5cb33b95008a582f"
+      "size": 60914,
+      "sha256": "ab9211f555d67d5a94573132444b13910119a780fb8f483bac0938ace555df74"
     },
     {
       "path": "tests/e2e/card-choice.spec.ts",
@@ -4103,8 +4103,8 @@
     },
     {
       "path": "tests/pro-pricing.test.ts",
-      "size": 2507,
-      "sha256": "5db2d82d2e33b1c6b81f29a133f6587f4d9e9e3263d8c0433ff4d921188b334d"
+      "size": 3328,
+      "sha256": "ed82b3a7ba58fb0b1cb566939767ee187cd10ace8ded164a32502ff0d08a5496"
     },
     {
       "path": "tests/report-data.test.ts",
