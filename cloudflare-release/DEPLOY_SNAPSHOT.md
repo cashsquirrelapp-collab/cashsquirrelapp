@@ -2336,3 +2336,37 @@ Built on package 76. No SQL. Computers and iPads only; the phone screens are unc
 - Unit tests 842/842 in the extracted package, including the briefing engine and the LINE rule identity.
 - Screen tests 34/34 in the extracted package: the briefing (note, card, button, once a day) and the phone (none), plus the buddy, phone and computer-parity suites and the overlap checker.
 - cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## Showcase mode and Story pictures, for admins first - 2026-10-25
+
+Built on package 77. No SQL. Computers and iPads only. Admins only until the owner opens it to everyone; Free/Pro is not decided yet.
+
+**Why.** Owner's Master Product Backlog, Part 7–8 (Flex Display, Story Flex). The owner approved the mockup with "ตามแนะนำหมด" on 2026-10-25:
+- it opens from the account menu;
+- amounts are hidden by default;
+- there are five templates;
+- admins get it first.
+
+**What changes**
+- shared/flexStats.ts works only from the saved jobs and documents. A figure the data cannot support is null and is never filled in. It covers:
+  - received per Bangkok month;
+  - growth against last month, the streak and the best month;
+  - wrapped: jobs paid in full, distinct clients, payments, quotations;
+  - achievements: the day ฿10K and ฿100K were first reached, the 10th job paid off, the best month.
+- The account menu gets "โหมดโชว์ผลงาน". It opens a full-screen page (full screen where the browser allows) with three views: income, growth and month in review.
+  - Amounts stay hidden until "แสดงยอดเงิน" is pressed.
+  - The page never shows client names, document numbers or accounts.
+  - The controls fade after 3 seconds without movement. Esc leaves.
+- "ทำภาพ Story" makes a 1080 × 1920 PNG on the device with html2canvas-pro, the tool the app already uses for PDFs.
+  - Templates: Income, Project, Growth, Monthly Wrapped and Achievement, the last with the existing celebrate mascot.
+  - The month can be this one or last.
+  - The picture can be saved, or shared where the device can share files.
+- No AI, no request, nothing stored.
+
+**Checks.**
+- Unit tests 846/846 in the extracted package, including the flex statistics.
+- Screen tests 58/58 in the extracted package (with the English and phone suites); every screen test in the work tree 282/282:
+  - showcase mode: admin only, hidden amounts, the three views, the controls fading, Esc;
+  - Story: five templates, hidden by default, a saved PNG of 1080 × 1920;
+  - the overlap checker.
+- cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.

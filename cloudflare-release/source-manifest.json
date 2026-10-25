@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg77 today's briefing in the secretary panel (on pkg76)",
+  "source_label": "pkg78 showcase mode and Story pictures, admins first (on pkg77)",
   "archive": "source.tar.gz",
-  "archive_sha256": "9d95c65d7459604fe9728a9de32ade561bd7cbdadf6815120e517ba2af00af40",
-  "file_count": 863,
-  "total_source_bytes": 22947801,
+  "archive_sha256": "f1a46f4f7264ea8904feac4c3d457c63dfe4515681312ceee03b2cfd738e9991",
+  "file_count": 870,
+  "total_source_bytes": 23005141,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -1968,8 +1968,8 @@
     },
     {
       "path": "frontend/src/app/App.tsx",
-      "size": 210112,
-      "sha256": "1a6b6a0e0d442f9c740331dd2de6101cbde35482fd10ef7c4cb32eed77acc9a2"
+      "size": 211185,
+      "sha256": "bd0d3b8621568a65b4a988a1a1aea3aa3b2fe77c50196b1f68453803bacf9604"
     },
     {
       "path": "frontend/src/app/appUpdate.ts",
@@ -2345,6 +2345,21 @@
       "path": "frontend/src/features/feedback/feedbackUi.tsx",
       "size": 4331,
       "sha256": "5be055243ff2e3179993cbac6afb88245580f432bb652a8e07aee4e95fca9294"
+    },
+    {
+      "path": "frontend/src/features/flex/FlexDisplay.tsx",
+      "size": 11579,
+      "sha256": "b13f0618dc1c0f2f81ee366576cec4f799b9839883986c1cb197f0db31e0bfc8"
+    },
+    {
+      "path": "frontend/src/features/flex/StoryMaker.tsx",
+      "size": 12370,
+      "sha256": "5763f9120a4065eb1b7981224dd0abb3748d6b2918304d762ced15e282f23ca3"
+    },
+    {
+      "path": "frontend/src/features/flex/flex.css",
+      "size": 9159,
+      "sha256": "217c8937acbb0c32f76115535da98d893c1d12ac3d42d266b40042985d8e652a"
     },
     {
       "path": "frontend/src/features/goals/SplitParts.tsx",
@@ -2972,6 +2987,11 @@
       "sha256": "22a9c6ed7370a57749e17da99af26cb99cd1db3aa5cff7e3d18744e016971183"
     },
     {
+      "path": "frontend/src/i18n/en/flex.ts",
+      "size": 5037,
+      "sha256": "9cb0b26db7d0f35b546c09af00c5176ef40bf4d11652937153a333f6d85a1316"
+    },
+    {
       "path": "frontend/src/i18n/en/goals.ts",
       "size": 10878,
       "sha256": "ba8fc9ccbceb96db4a12322543afb2a0aaa86526a83b6dd4859e26fec7db8893"
@@ -2983,8 +3003,8 @@
     },
     {
       "path": "frontend/src/i18n/en/index.ts",
-      "size": 1747,
-      "sha256": "e32bf9d75c5301ffc12358379201e8be84866f034ea5e8fe380592782549b0e8"
+      "size": 1789,
+      "sha256": "1bea3f88b81b2d539a0c8c0fb692a4c57088015e23a68011b87528d89b04bc13"
     },
     {
       "path": "frontend/src/i18n/en/invoices.ts",
@@ -3415,6 +3435,11 @@
       "path": "shared/feedback.ts",
       "size": 3525,
       "sha256": "e5d736ac3c2a7d2a81665b6655a1b0bfbcc5d2b42aa999e1fe02d84496d27db9"
+    },
+    {
+      "path": "shared/flexStats.ts",
+      "size": 5984,
+      "sha256": "52174381a216bc15bc00bbc2ae4820734cf00ee46addb327f0599210bfb205d6"
     },
     {
       "path": "shared/goalLedger.ts",
@@ -3977,6 +4002,11 @@
       "sha256": "719e206eeb2ce76f051cfbe006b218f0b4fc44f69a687e9d90457afbdbb6483f"
     },
     {
+      "path": "tests/e2e/flex.spec.ts",
+      "size": 8166,
+      "sha256": "47c5fc0c1331650087843d5c848d5c5c1dd9630a3d86fabd00c5649854fd5fd2"
+    },
+    {
       "path": "tests/e2e/goal-image-shrink.spec.ts",
       "size": 3742,
       "sha256": "d4554cac4bd88e574fcc362af5b7788d80693299c3fa65c2b9838d6234473372"
@@ -4075,6 +4105,11 @@
       "path": "tests/fixtures/import/solo_freelancer_september_2026.xlsx",
       "size": 14987,
       "sha256": "61da7c777271463b7681ae4c26b2f293914237671422201ca983b837844330bf"
+    },
+    {
+      "path": "tests/flex-stats.test.ts",
+      "size": 3930,
+      "sha256": "d8cca0fbe6ef7a48822db1511fe31212b67cd9d48853d2ded37740aadb332089"
     },
     {
       "path": "tests/founder-confidentiality.test.ts",
