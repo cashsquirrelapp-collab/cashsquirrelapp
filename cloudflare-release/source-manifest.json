@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg74 monthly price from 1 Dec 2569: 249 shown, 271 charged; screen tests updated (on be1396b)",
+  "source_label": "pkg75 founder knowledge and confidentiality guard (on 2791c70)",
   "archive": "source.tar.gz",
-  "archive_sha256": "de8cbae12a0c6c9d24c57f12968c4c1830f5429229fecefa65700e82da51c2fa",
-  "file_count": 854,
-  "total_source_bytes": 22855562,
+  "archive_sha256": "7aff13f504007aaf0941ab883815102073decd096ceb9eb7b3bb6d7ed671c683",
+  "file_count": 857,
+  "total_source_bytes": 22896571,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -47,6 +47,11 @@
       "sha256": "93c1917be59c9e188187f859b60904154a312b10dc4a40fa877958600e6018cc"
     },
     {
+      "path": "backend/src/ai/confidentiality.ts",
+      "size": 4354,
+      "sha256": "2c2143747ea9ffb66512c13c081a9509d7b9df911bedbf0ffd70981902efedd8"
+    },
+    {
       "path": "backend/src/ai/config.ts",
       "size": 5905,
       "sha256": "0d83f19b4a7067a3de5f6259985f92fdc33529d38352486ce84b9fe6d5749cce"
@@ -87,9 +92,14 @@
       "sha256": "df3fb9a6cda307380682cb70de4cd9ab6a09d06a50a9ccbda92e47ec6edcfcb5"
     },
     {
+      "path": "backend/src/ai/founderKnowledge.ts",
+      "size": 15205,
+      "sha256": "5b20091fa2b8f88612364a00f6af58f1a1cdd867f4eea3b50760ddd8648ebc00"
+    },
+    {
       "path": "backend/src/ai/gateway.ts",
-      "size": 30583,
-      "sha256": "ba3cf5b4cf74357b20e1011ca0bf86471d4774952f718afeb873b416167fbfea"
+      "size": 31842,
+      "sha256": "1ed084cba8aaaade105adf7bd981d1cfe15eee0d69180d9ed3887c374d6dea78"
     },
     {
       "path": "backend/src/ai/jobFinancialEdit.ts",
@@ -103,8 +113,8 @@
     },
     {
       "path": "backend/src/ai/knowledgeBase.ts",
-      "size": 49407,
-      "sha256": "ffae213b359e1b9749c3e557caf4c7381ca58530acae3468bea516d49c72168a"
+      "size": 49397,
+      "sha256": "80279ecc52df081fd1b20c0e894d28538fcbde560bc7b303e3829e069b2e4e5f"
     },
     {
       "path": "backend/src/ai/learning.ts",
@@ -128,8 +138,8 @@
     },
     {
       "path": "backend/src/ai/memory.ts",
-      "size": 12115,
-      "sha256": "1ffc142bde6cd47a5b12a14b41b432d7165f0f1724897c41ffeeeace533c051a"
+      "size": 13185,
+      "sha256": "6dee2f095e04c823ac50d0bfbef13cc13a7b7c482bc2336f8a35b240ba945478"
     },
     {
       "path": "backend/src/ai/moneyChart.ts",
@@ -148,8 +158,8 @@
     },
     {
       "path": "backend/src/ai/prompt.ts",
-      "size": 35121,
-      "sha256": "811bfc7fe8b08d36573d1dbb23d3b0c585d006edd629a0ecb0779bd52b071d5f"
+      "size": 36260,
+      "sha256": "c2c4596c8468765e2058a708da0a8e7e99c767429e2995b52a21b3cab260755b"
     },
     {
       "path": "backend/src/ai/proposals.ts",
@@ -183,8 +193,8 @@
     },
     {
       "path": "backend/src/ai/routingPolicy.ts",
-      "size": 23059,
-      "sha256": "f9026200a267dd056f7baaf2ea7fdeea6f7641f9a707095234df2189c64306e1"
+      "size": 24126,
+      "sha256": "be75daa2733d1c0027de6749dc11608269e16e2cc9c807b09c2c2c6e5aad286b"
     },
     {
       "path": "backend/src/ai/service.ts",
@@ -4035,6 +4045,11 @@
       "path": "tests/fixtures/import/solo_freelancer_september_2026.xlsx",
       "size": 14987,
       "sha256": "61da7c777271463b7681ae4c26b2f293914237671422201ca983b837844330bf"
+    },
+    {
+      "path": "tests/founder-confidentiality.test.ts",
+      "size": 16925,
+      "sha256": "da68e23b31cd58200b5f9b3bc0face4cf1fb7fd3dba43219d011cc9aa4d9841d"
     },
     {
       "path": "tests/goal-ledger.test.ts",
