@@ -8,7 +8,7 @@ import { tr } from '../../i18n/tr';
 import { dateLocale } from '../../utils';
 import { AssistantRequestError, createSampleTransport, splitMemo, tokenLevel, type AssistantTransport } from './assistantApi';
 import { LINE_QUICK_REPLIES, arrivingNotice, dueDisplayText, laterReply, partialPrompt, receiptCard, type LineDueAction, type LineItem } from './lineMock';
-import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
+import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, afterReply, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
@@ -421,8 +421,10 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         .map(message => (message.id === botId ? { ...message, text: result.text, cards: result.cards, ...(result.memo ? { memo: result.memo } : {}) } : message)));
       setBalance(value => ({ ...value, remaining: Math.max(0, value.remaining - result.tokensUsed) }));
       setStreamingId(null);
-      setMode('done');
-      window.setTimeout(() => setMode(m => (m === 'done' ? 'awake' : m)), 1600);
+      // An answer is not a job done: a card still waiting for a yes keeps the squirrel waiting with it.
+      const next = afterReply(result.cards);
+      setMode(next);
+      if (next === 'answered') window.setTimeout(() => setMode(m => (m === 'answered' ? 'awake' : m)), 1600);
     } catch (error) {
       if (controller.signal.aborted && !(error instanceof AssistantRequestError)) return;
       setStreamingId(null);
@@ -469,7 +471,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
       patch(currentId, list => [...list, { id: id('me'), from: 'me', text: raw.trim(), at: Date.now() }, ...(command.ambiguous ? [{ id: id('bot'), from: 'bot' as const, text: tr('มีหลายรายการที่รอยืนยัน กรุณากดปุ่มของรายการที่ต้องการก่อนครับ'), at: Date.now() }] : [])]);
       if (command.card) {
         if (command.action === 'confirm') void confirm(command.card);
-        else { setConfirmStates(states => ({ ...states, [command.card!.id]: 'cancelled' })); void transport.cancel?.(command.card); }
+        else { setConfirmStates(states => ({ ...states, [command.card!.id]: 'cancelled' })); stopWaiting(); void transport.cancel?.(command.card); }
       }
       return;
     }
@@ -520,6 +522,12 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     void ask(currentId, message.question, messages.filter(item => item.id !== message.id), file);
   };
 
+  // The proud squirrel only after the server says it saved; a failed save shows a worried one for a moment.
+  const settled = (ok: boolean) => {
+    setMode(ok ? 'done' : 'failed');
+    window.setTimeout(() => setMode(m => (m === (ok ? 'done' : 'failed') ? 'awake' : m)), ok ? 1600 : 4000);
+  };
+  const stopWaiting = () => setMode(m => (m === 'awaiting' ? 'awake' : m));
   const confirm = async (card: ConfirmCard) => {
     if (confirmStates[card.id] === 'working' || confirmStates[card.id] === 'done') return;
     const conversationId = currentIdRef.current;
@@ -529,6 +537,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
       const result = await transport.confirm(card, controller.signal);
       if (controller.signal.aborted || navigationRef.current.transport !== transport || navigationRef.current.navigationContext.accountId !== accountId) return;
       setConfirmStates(states => ({ ...states, [card.id]: result.ok ? 'done' : 'failed' }));
+      settled(result.ok);
       const path = result.ok ? safeAssistantPath(result.path, navigationRef.current.navigationContext) : null;
       if (path) {
         setConfirmedPaths(paths => ({ ...paths, [card.id]: path }));
@@ -536,7 +545,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         const autoPath = automaticNavigation([{ kind: 'navigation', label: 'เอกสาร', path, autoOpen: true }], state.navigationContext, state.navigationMode, getCurrentAccount());
         if (autoPath && currentIdRef.current === conversationId) onAutoNavigate?.(autoPath);
       }
-    } catch { if (!controller.signal.aborted) setConfirmStates(states => ({ ...states, [card.id]: 'failed' })); }
+    } catch { if (!controller.signal.aborted) { setConfirmStates(states => ({ ...states, [card.id]: 'failed' })); settled(false); } }
     finally { confirmControllers.current.delete(controller); }
   };
 
@@ -544,7 +553,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     voice.cancel(); voice.clearReview(); voice.clearError();
     abortRef.current?.abort();
     setStreamingId(null);
-    setMode(m => (m === 'thinking' || m === 'working' ? 'awake' : m));
+    setMode(m => (m === 'thinking' || m === 'working' || m === 'awaiting' ? 'awake' : m));
     setCurrentId(conversationId);
     setNewBelow(false);
     if (conversationId === LINE_THREAD_ID) { setPush(null); setConversations(list => list?.map(conversation => (conversation.id === LINE_THREAD_ID ? { ...conversation, unread: 0 } : conversation)) ?? list); }
@@ -1028,7 +1037,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                     {message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}
                     {message.cards?.map((card, c) => (
                       <ChatCardView key={c} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
-                        onConfirm={item => void confirm(item)} onCancel={item => { setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' })); void transport.cancel?.(item); }} onNavigate={go} onLineDue={lineDue}
+                        onConfirm={item => void confirm(item)} onCancel={item => { setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' })); stopWaiting(); void transport.cancel?.(item); }} onNavigate={go} onLineDue={lineDue}
                         onAnswer={text => send(text)} answered={messages.slice(n + 1).some(later => later.from === 'me') || busy}
                         onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
                     ))}

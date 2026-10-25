@@ -356,4 +356,12 @@ export const assistant: Record<string, string> = {
   "วิธีเปิดหน้าจากเลขากระรอก": "How the assistant opens pages",
   "กดเปิดเอง": "Open manually",
   "พาไปอัตโนมัติ": "Open automatically",
+  // The squirrel's state once an answer has arrived, and the words above its head on the pill (2026-10-26).
+  "รอคุณยืนยัน": "Waiting for your confirmation",
+  "บันทึกเรียบร้อยแล้ว": "Saved",
+  "ยังไม่สำเร็จ": "Not done yet",
+  "ยังไม่สำเร็จ ดูรายละเอียดในแชต": "Not done yet. See the details in the chat",
+  "ร่างเสร็จแล้ว กรุณาตรวจก่อนยืนยัน": "Draft ready. Please check it before confirming",
+  "คำตอบพร้อมแล้ว": "Your answer is ready",
+  "มีอะไรให้ช่วยไหมครับ": "How can I help?",
 };

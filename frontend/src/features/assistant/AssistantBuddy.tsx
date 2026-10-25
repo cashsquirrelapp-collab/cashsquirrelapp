@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowUp, BarChart3, Clock, FileText, FolderPlus, HelpCircle, ListChecks, Maximize2, MousePointerClick, Pointer, Sparkles, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
+import { MascotClimb } from '../../components/mascot/MascotClimb';
 import { tr, T } from '../../i18n/tr';
 import { createSampleTransport, type AssistantTransport } from './assistantApi';
-import { PAGE_HELP, SAMPLE_TOKENS, buddyPrompts, type AssistantMode, type ChatMessage, type ConfirmCard } from './assistantMock';
+import { PAGE_HELP, SAMPLE_TOKENS, afterReply, buddyPrompts, isPendingConfirm, type AssistantMode, type ChatMessage, type ConfirmCard } from './assistantMock';
+import { climbFor, type BuddyNews, type Climb } from './buddyClimb';
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { BriefingCard, briefingText } from './BriefingCard';
@@ -58,6 +60,12 @@ const PROMPT_ICONS: Record<string, typeof HelpCircle> = {
   'ช่วยเพิ่มงานใหม่ให้หน่อย': FolderPlus, 'สรุปงานของวันนี้': ListChecks, 'ใบเสนอราคาอยู่ตรงไหน': FileText,
 };
 const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+// The pill's squirrel climbing out of its ring (MascotClimb): the 44 px avatar's ring grows to 72 px while it is out,
+// centred on the same ring, so the pill itself keeps its size. In front of the pill's turning border, so the paws
+// hold the rim over it.
+const AVATAR = 44;
+const CLIMB = 72;
+const CLIMB_AT: React.CSSProperties = { left: (AVATAR - CLIMB) / 2, top: 0.56 * (AVATAR - CLIMB), zIndex: 2 };
 
 /** Phones: the sheet sits on the visible screen, above the keyboard. */
 function useSheetBox(active: boolean) {
@@ -113,6 +121,10 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
   const [confirmedPaths, setConfirmedPaths] = React.useState<Record<string, string>>({});
   const confirmControllers = React.useRef(new Set<AbortController>());
   const [tip, setTip] = React.useState(false);
+  // Something that happened while the chat was closed (an answer, a save, a failure), until the chat is opened.
+  const [news, setNews] = React.useState<BuddyNews>(null);
+  const [hover, setHover] = React.useState(false);
+  const hoverTimer = React.useRef<number | undefined>(undefined);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -145,15 +157,29 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
     return () => window.clearTimeout(t);
   }, [arrival]);
   React.useEffect(() => { if (open) setTip(false); }, [open]);
+  // Opening the chat shows what happened, so the squirrel has nothing left to tell; a save is told for a moment only.
+  React.useEffect(() => { if (open) { setNews(null); setHover(false); } }, [open]);
+  React.useEffect(() => {
+    if (news !== 'done') return;
+    const t = window.setTimeout(() => setNews(n => (n === 'done' ? null : n)), 3200);
+    return () => window.clearTimeout(t);
+  }, [news]);
+  React.useEffect(() => () => window.clearTimeout(hoverTimer.current), []);
   // The squirrel says the day's most important thing once (pkg77): one note a day, 6 seconds, never
   // while the user types or fills in a form, never over the arrival note, never on phones.
   const [briefTip, setBriefTip] = React.useState<BriefingItem | null>(null);
+  // Climbing out of the ring (computers and iPads; phones keep their round button as it is). A card counts as waiting
+  // only in the latest answer: once the user has asked something else, an older card no longer calls them back.
+  const lastBot = [...messages].reverse().find(message => message.from === 'bot');
+  const pending = Boolean(lastBot?.cards?.some(card => card.kind === 'confirm' && isPendingConfirm(card, confirmStates[card.id])));
+  const climb: Climb | null = mobile || open || hidden ? null : climbFor({ mode, pending, news, hover: hover && !tip && !briefTip });
+  const telling = Boolean(climb && climb.kind !== 'hello');
   // One note a day; later the same day only something new and critical (a newly overdue payment) speaks up again.
   const briefSeen = mobile || !briefing ? {} : briefingSeen(accountId, briefing.day);
   const briefNext = mobile || !briefing ? undefined
     : briefing.items.find(item => !briefSeen[item.key] && (!Object.keys(briefSeen).length || item.tone === 'critical'));
   React.useEffect(() => {
-    if (!briefNext || !briefing || open || hidden || tip) return;
+    if (!briefNext || !briefing || open || hidden || tip || telling) return;
     const show = window.setTimeout(() => {
       const active = document.activeElement as HTMLElement | null;
       if (active && (/^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) || active.isContentEditable)) return;
@@ -161,7 +187,7 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
       setBriefTip(briefNext);
     }, 1500);
     return () => window.clearTimeout(show);
-  }, [briefNext?.key, briefing?.day, open, hidden, tip, accountId]);
+  }, [briefNext?.key, briefing?.day, open, hidden, tip, telling, accountId]);
   React.useEffect(() => {
     if (!briefTip) return;
     const hide = window.setTimeout(() => setBriefTip(null), 6000);
@@ -213,12 +239,16 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
       });
       if (!isCurrent()) return;
       setMessages(list => (started ? list : [...list, { id: botId, from: 'bot' as const, text: '', at: Date.now() }]).map(message => (message.id === botId ? { ...message, text: result.text, cards: result.cards, ...(result.memo ? { memo: result.memo } : {}) } : message)));
-      setMode('done');
-      window.setTimeout(() => setMode(m => (m === 'done' ? 'awake' : m)), 1600);
+      // An answer is not a job done: a card still waiting for a yes keeps the squirrel waiting with it.
+      const next = afterReply(result.cards);
+      setMode(next);
+      if (next === 'answered') window.setTimeout(() => setMode(m => (m === 'answered' ? 'awake' : m)), 1600);
+      if (!openRef.current) setNews('answered');
     } catch {
       if (controller.signal.aborted) return;
       setMessages(list => [...list.filter(message => message.id !== botId), { id: botId, from: 'bot' as const, text: tr("ส่งไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"), at: Date.now() }]);
       setMode('awake');
+      if (!openRef.current) setNews('failed');
     }
   };
   // The same แก้ไข on a card as in the full chat (owner, 2026-10-25: "อยากให้กดแก้ไขได้" in this panel too).
@@ -236,6 +266,9 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
       const result = await transport.confirm(card, controller.signal);
       if (controller.signal.aborted || scopeRef.current.accountId !== accountId || scopeRef.current.transport !== transport) return;
       setConfirmStates(states => ({ ...states, [card.id]: result.ok ? 'done' : 'failed' }));
+      // The proud squirrel only after the server says it saved.
+      if (result.ok) { setMode('done'); window.setTimeout(() => setMode(m => (m === 'done' ? 'awake' : m)), 1600); }
+      if (!openRef.current) setNews(result.ok ? 'done' : 'failed');
       const state = scopeRef.current;
       const path = result.ok ? safeAssistantPath(result.path, state.navigationContext) : null;
       if (path) {
@@ -243,7 +276,11 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
         const autoPath = automaticNavigation([{ kind: 'navigation', label: 'เอกสาร', path, autoOpen: true }], state.navigationContext, state.navigationMode, getCurrentAccount());
         if (autoPath && openRef.current) onNavigate(autoPath);
       }
-    } catch { if (!controller.signal.aborted) setConfirmStates(states => ({ ...states, [card.id]: 'failed' })); }
+    } catch {
+      if (controller.signal.aborted) return;
+      setConfirmStates(states => ({ ...states, [card.id]: 'failed' }));
+      if (!openRef.current) setNews('failed');
+    }
     finally { confirmControllers.current.delete(controller); }
   };
   const onDraft = (value: string) => {
@@ -259,6 +296,21 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
   // The pill waits folded while the arrival plays (it is hidden then) and opens out when the squirrel has landed.
   const collapsed = hidden && !mobile;
 
+  // Kept while the squirrel goes back down into the ring, so it can sink with the face it had.
+  const [climbShown, setClimbShown] = React.useState(false);
+  const lastClimb = React.useRef<Climb | null>(null);
+  if (climb) lastClimb.current = climb;
+  const climbing = Boolean(climb);
+  const climbingRef = React.useRef(climbing); climbingRef.current = climbing;
+  React.useEffect(() => { if (climbing) setClimbShown(true); }, [climbing]);
+  const shownClimb = climb ?? lastClimb.current;
+  const onPointerEnter = (event: React.PointerEvent) => {
+    if (event.pointerType !== 'mouse' || mobile) return;
+    window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => setHover(true), 280);
+  };
+  const onPointerLeave = () => { window.clearTimeout(hoverTimer.current); setHover(false); };
+
   const panelMotion = reduce
     ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 0 } }
     : mobile
@@ -267,36 +319,20 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
         ? { initial: { x: 40, opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: 40, opacity: 0 }, transition: { default: { type: 'spring' as const, stiffness: 380, damping: 36 }, opacity: { duration: 0.16 } } }
         : { initial: { opacity: 0, scale: 0.92, y: 16 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.95, y: 10 }, transition: { default: { type: 'spring' as const, stiffness: 440, damping: 32 }, opacity: { duration: 0.14 } } };
 
-  return (
-    <>
-      <div className={`asx-buddy${mobile ? ' is-mobile' : ' is-pill'}${open ? ' is-open' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden ? ' has-tip' : ''}`}>
-        <AnimatePresence>
-          {tip && !open && !hidden && (
-            // After the arrival the tip comes in softly, once the pill has opened out (owner: "ค่อย ๆ ทรานซิชั่นดี ๆ").
-            <motion.span key={arrival} className="asx-buddy-tip lg-glass is-menu" role="status"
-              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: 4, transition: { duration: 0.3 } }}
-              transition={{ duration: reduce ? 0.2 : 0.55, delay: reduce ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}>
-              {mobile ? <Pointer size={14} aria-hidden="true" /> : <MousePointerClick size={14} aria-hidden="true" />}{tr("แตะผมได้ทุกหน้า")}{!mobile && <kbd>{shortcut}</kbd>}
-            </motion.span>
-          )}
-          {briefTip && !tip && !open && !hidden && (
-            <motion.div key={briefTip.key} className="asx-brief-tip lg-glass is-menu" role="status"
-              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4, transition: { duration: 0.25 } }}
-              transition={{ duration: reduce ? 0.2 : 0.4, ease: [0.22, 1, 0.36, 1] }}>
-              <button type="button" className="asx-brief-tip-main" onClick={() => { setBriefTip(null); setOpen(true); }}>
-                <b>{briefingText(briefTip).title}</b><span>{tr("กดเพื่อดูสรุปวันนี้")}</span>
-              </button>
-              <button type="button" className="asx-brief-tip-x" onClick={() => setBriefTip(null)} aria-label={tr("ปิด")}><X size={15} aria-hidden="true" /></button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {/* While the arrival plays, the pill waits as a round bubble just big enough for the squirrel, which is where
-            the flying squirrel lands. Then it opens out to the side ("ถามเลขากระรอก ⌘K"), so the hand-over is one
-            continuous movement instead of a pop. Phones keep the round button, so nothing changes there. */}
+  const pillButton = (
         <motion.button ref={buttonRef} type="button" className="asx-buddy-btn lg-glass" onClick={() => setOpen(true)} aria-expanded={open} aria-haspopup="dialog"
-          aria-label={tr("ถามเลขากระรอกเรื่องหน้า{0}", pageName)} title={tr("ถามเลขากระรอกเรื่องหน้านี้")}
+          aria-label={tr("ถามเลขากระรอกเรื่องหน้า{0}", pageName)} title={climb ? undefined : tr("ถามเลขากระรอกเรื่องหน้านี้")}
           initial={false} animate={mobile ? undefined : { paddingRight: collapsed ? 6 : 12 }} transition={{ duration: reduce ? 0 : 0.75, ease: [0.33, 0, 0.2, 1] }}>
-          <span className="asx-buddy-avatar"><MascotSlot mode={open ? mode : 'awake'} size={mobile ? 46 : 44} /></span>
+          <span className="asx-buddy-avatar">
+            {mobile ? <MascotSlot mode={open ? mode : 'awake'} size={46} /> : (
+              <>
+                <span className={`asx-buddy-home${climb ? ' is-away' : ''}`}><MascotSlot mode={open ? mode : 'awake'} size={AVATAR} /></span>
+                {climbShown && shownClimb && (
+                  <MascotClimb mood={shownClimb.mood} size={CLIMB} out={Boolean(climb)} style={CLIMB_AT} onGone={() => { if (!climbingRef.current) setClimbShown(false); }} />
+                )}
+              </>
+            )}
+          </span>
           {!mobile && (
             // The pill widens first; the words fade and slide in on their own while it does (the fade cannot share
             // the element whose width goes to "auto": it would only switch on at the end).
@@ -311,6 +347,52 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
             </motion.span>
           )}
         </motion.button>
+  );
+
+  return (
+    <>
+      <div className={`asx-buddy${mobile ? ' is-mobile' : ' is-pill'}${open ? ' is-open' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden && !telling ? ' has-tip' : ''}${climb ? ' is-climbing' : ''}`}>
+        <AnimatePresence>
+          {tip && !open && !hidden && !telling && (
+            // After the arrival the tip comes in softly, once the pill has opened out (owner: "ค่อย ๆ ทรานซิชั่นดี ๆ").
+            <motion.span key={arrival} className="asx-buddy-tip lg-glass is-menu" role="status"
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: 4, transition: { duration: 0.3 } }}
+              transition={{ duration: reduce ? 0.2 : 0.55, delay: reduce ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}>
+              {mobile ? <Pointer size={14} aria-hidden="true" /> : <MousePointerClick size={14} aria-hidden="true" />}{tr("แตะผมได้ทุกหน้า")}{!mobile && <kbd>{shortcut}</kbd>}
+            </motion.span>
+          )}
+          {briefTip && !tip && !open && !hidden && !telling && (
+            <motion.div key={briefTip.key} className="asx-brief-tip lg-glass is-menu" role="status"
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4, transition: { duration: 0.25 } }}
+              transition={{ duration: reduce ? 0.2 : 0.4, ease: [0.22, 1, 0.36, 1] }}>
+              <button type="button" className="asx-brief-tip-main" onClick={() => { setBriefTip(null); setOpen(true); }}>
+                <b>{briefingText(briefTip).title}</b><span>{tr("กดเพื่อดูสรุปวันนี้")}</span>
+              </button>
+              <button type="button" className="asx-brief-tip-x" onClick={() => setBriefTip(null)} aria-label={tr("ปิด")}><X size={15} aria-hidden="true" /></button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* While the arrival plays, the pill waits as a round bubble just big enough for the squirrel, which is where
+            the flying squirrel lands. Then it opens out to the side ("ถามเลขากระรอก ⌘K"), so the hand-over is one
+            continuous movement instead of a pop. Phones keep the round button, so nothing changes there. */}
+        {/* Phones keep their round button exactly as it was; computers and iPads get the climbing squirrel's words. */}
+        {mobile ? pillButton : (
+        <span className="asx-buddy-anchor" onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
+        {/* The words above the climbing squirrel's head; tapping them opens the chat like the pill. They are read out as a
+            status, like the notes above the pill; the hello is only a greeting, so it stays silent. */}
+          <AnimatePresence mode="wait">
+            {climb && (
+              <motion.span key={climb.kind} className="asx-climb-say lg-glass is-menu" {...(climb.kind === 'hello' ? { 'aria-hidden': true } : { role: 'status' })} data-kind={climb.kind} onClick={() => setOpen(true)}
+                style={{ x: '-50%' }} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: reduce ? 0 : 3, transition: { duration: 0.14 } }}
+                transition={{ duration: reduce ? 0.15 : 0.3, delay: reduce ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}>
+                {tr(climb.words)}{climb.dots && <span className="asx-climb-dots" aria-hidden="true"><i /><i /><i /></span>}
+              </motion.span>
+            )}
+          </AnimatePresence>
+          {pillButton}
+        </span>
+        )}
       </div>
       {createPortal(
         <AnimatePresence>

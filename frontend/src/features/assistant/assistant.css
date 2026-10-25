@@ -105,6 +105,8 @@
 .asx-bar-status.is-sleeping i { background: #9A968F; }
 .asx-bar-status.is-listening i, .asx-bar-status.is-working i { background: var(--asx-accent); }
 .asx-bar-status.is-thinking i { background: #C17817; }
+.asx-bar-status.is-awaiting i { background: #C17817; }
+.asx-bar-status.is-failed i { background: var(--asx-expense); }
 
 /* The official mascot in its slot (MascotSlot.tsx): existing poses plus a gentle motion per mode. */
 .asx-figure { position: relative; display: inline-block; line-height: 0; transform-origin: 50% 92%; animation: asx-bob 2.6s ease-in-out infinite; }
@@ -468,6 +470,29 @@
 .asx-buddy.is-pill .asx-buddy-btn::after { content: ""; position: absolute; inset: -1.5px; padding: 1.5px; border-radius: inherit; pointer-events: none; background: conic-gradient(from var(--kb-spin), rgba(230, 95, 43, 0.9), rgba(255, 179, 71, 0.6), rgba(255, 111, 145, 0.8), rgba(161, 139, 255, 0.55), rgba(230, 95, 43, 0.9));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: kb-spin 6s linear infinite; }
 .asx-buddy.is-pill .asx-buddy-avatar { margin-top: -18px; }
+/* The pill's squirrel climbing out of its ring (MascotClimb + buddyClimb.ts, owner 2026-10-26): the squirrel in the
+   ring ducks away while the climbing one comes up over the rim, and comes back once it has gone down again. The words
+   sit above its ears and grow upwards, so they never cover its face; tapping them opens the chat. */
+.asx-buddy-anchor { position: relative; display: inline-flex; }
+.asx-buddy.is-pill .asx-buddy-avatar { position: relative; }
+.asx-buddy-home { display: inline-block; line-height: 0; transform-origin: 50% 56%; transition: opacity 0.2s ease 0.34s, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1) 0.34s; }
+.asx-buddy-home.is-away { opacity: 0; transform: scale(0.72); transition-delay: 0s; }
+.asx-climb-say { position: absolute; left: 29px; bottom: calc(100% + 49px); z-index: 2; display: block; width: max-content; max-width: 260px; padding: 7px 13px; border-radius: 16px;
+  color: var(--text); font-size: 13px; font-weight: 500; line-height: 1.5; text-align: center; cursor: pointer; }
+/* A light shadow of its own: the menus' deep one would cloud the squirrel just below. */
+.asx-climb-say.lg-glass.is-menu { box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(28, 25, 23, 0.08), 0 6px 16px rgba(28, 25, 23, 0.1); }
+.dark .asx-climb-say.lg-glass.is-menu { box-shadow: inset 0 1px 0 var(--glass-highlight), 0 0 0 0.5px rgba(255, 255, 255, 0.06), 0 6px 16px rgba(0, 0, 0, 0.4); }
+/* The tail: only the half below the words is drawn, so it never doubles the glass over them. */
+.asx-climb-say::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg); background: var(--glass-strong);
+  border-right: 1px solid var(--glass-border); border-bottom: 1px solid var(--glass-border); clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.asx-climb-dots { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.asx-climb-dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: 0.3; animation: asx-climb-dot 1.2s ease-in-out infinite; }
+.asx-climb-dots i:nth-child(2) { animation-delay: 0.2s; }
+.asx-climb-dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes asx-climb-dot { 0%, 100% { opacity: 0.3; } 40% { opacity: 0.85; } }
+/* The patch of page colour reaches up behind the climbing squirrel and its words. */
+.asx-buddy.is-pill.is-climbing::before { inset: -150px -48px -28px -190px; height: auto; border-radius: 64px; }
+.asx-buddy.is-climbing .asx-buddy-btn:hover { transform: none; }
 .asx-buddy-more { display: inline-flex; align-items: center; overflow: hidden; white-space: nowrap; }
 .asx-buddy-more-in { display: inline-flex; align-items: center; gap: 8px; }
 .asx-buddy-label { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--text); white-space: nowrap; }
@@ -627,6 +652,8 @@ body:has(.ksm-layer) .asx.is-mobile { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .asx-figure, .asx-bulb, .asx-msg, .asx-typing i, .asx-caret, .asx-side-skeleton i, .asx-skeleton i, .asx-aurora i { animation: none !important; }
   .asx-buddy-btn { transition: none; }
+  .asx-buddy-home { transition: none; }
+  .asx-climb-dots i { animation: none; opacity: 0.55; }
   .asx-side, .asx-side.is-overlay, .asx-ring-fill, .asx-meter i { transition: none !important; }
   .asx-pop-scrim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(28, 25, 23, 0.16); }
 }

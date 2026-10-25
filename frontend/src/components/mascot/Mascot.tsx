@@ -50,11 +50,148 @@ interface MascotProps {
   size?: number | 'sm' | 'md' | 'lg';
   /** Crop of the 100x100 artwork (e.g. a tighter square for icons). The drawing never changes. */
   viewBox?: string;
-  /** An outfit drawn over the unchanged squirrel: 'pro' is เลขากระรอก's headset, aura and star (MascotProGear). */
-  gear?: 'none' | 'pro';
+  /** An outfit drawn over the unchanged squirrel: 'pro' is เลขากระรอก's headset, aura and star (MascotProGear).
+   *  'pro-front' is the same outfit without the aura and ring behind it, for the squirrel climbing out of its ring. */
+  gear?: 'none' | 'pro' | 'pro-front';
 }
 
 const SIZE_PRESETS: Record<'sm' | 'md' | 'lg', number> = { sm: 48, md: 88, lg: 140 };
+
+// Color presets based on mood. New moods reuse an existing base palette (character lock:
+// body/head/ear/tail/belly shapes never change across moods, only color + face + pose do)
+// and only shift the accessory tint so each reads as a distinct, purposeful state. Exported so MascotClimb's
+// paws wear the same fur.
+export function mascotColors(mood: MascotMood) {
+  switch (mood) {
+    case 'alert':
+      return {
+        body: '#C17817', // Caramel Orange
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#9E5B0F',
+        accessory: '#A63F1B',
+      };
+    case 'celebrate':
+      return {
+        body: '#E65F2B', // Vibrant brand acorn orange
+        belly: '#FBF2E4',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#A63F1B',
+        accessory: '#C17817',
+      };
+    case 'sleepy':
+      return {
+        body: '#7A5C43', // Hazelnut slate brown
+        belly: '#F5EFE6',
+        cheeks: '#CBD5E1',
+        eyes: '#3D2314',
+        tail: '#5C4430',
+        accessory: '#94A3B8',
+      };
+    case 'wave':
+      return {
+        body: '#C27A3F', // Warm squirrel brown-orange
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#7A4419',
+        accessory: '#F59E0B',
+      };
+    case 'proud':
+      return {
+        body: '#D97706', // Rich golden caramel
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#92400E',
+        accessory: '#F59E0B',
+      };
+    case 'thinking':
+      return {
+        body: '#C27A3F',
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#7A4419',
+        accessory: '#94A3B8', // neutral slate, matches a thought/question mark
+      };
+    case 'worried':
+      return {
+        body: '#C17817',
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#9E5B0F',
+        accessory: '#60A5FA', // cool blue sweat-drop tint
+      };
+    case 'relieved':
+      return {
+        body: '#C27A3F',
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#7A4419',
+        accessory: '#86EFAC', // soft green, tension resolved
+      };
+    case 'excited':
+      return {
+        body: '#E65F2B',
+        belly: '#FBF2E4',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#A63F1B',
+        accessory: '#EAB308',
+      };
+    case 'received-money':
+      return {
+        body: '#D97706',
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#92400E',
+        accessory: '#EAB308',
+      };
+    case 'checking':
+      return {
+        body: '#C27A3F',
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#7A4419',
+        accessory: '#94A3B8',
+      };
+    case 'waiting':
+      return {
+        body: '#C27A3F',
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#7A4419',
+        accessory: '#C17817',
+      };
+    case 'error':
+      return {
+        body: '#C17817',
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#9E5B0F',
+        accessory: '#EF4444',
+      };
+    case 'happy':
+    default:
+      return {
+        body: '#C27A3F', // Warm squirrel brown-orange
+        belly: '#FDF6EC',
+        cheeks: '#FCA5A5',
+        eyes: '#3D2314',
+        tail: '#7A4419', // Chestnut brown
+        accessory: '#C17817',
+      };
+  }
+}
 
 export function Mascot({
   mood = 'happy',
@@ -69,145 +206,10 @@ export function Mascot({
   const resolvedSize = typeof size === 'number' ? size : SIZE_PRESETS[size];
   // Each drawing gets its own gradient ids, so a hidden copy never breaks another one's colours.
   const gearUid = `mpg${React.useId().replace(/[^a-zA-Z0-9]/g, '')}`;
-  const hasGear = gear === 'pro';
+  const hasGear = gear !== 'none';
   const fullGear = resolvedSize >= 40;
 
-  // Color presets based on mood. New moods reuse an existing base palette (character lock:
-  // body/head/ear/tail/belly shapes never change across moods, only color + face + pose do)
-  // and only shift the accessory tint so each reads as a distinct, purposeful state.
-  const getSquirrelColors = () => {
-    switch (mood) {
-      case 'alert':
-        return {
-          body: '#C17817', // Caramel Orange
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#9E5B0F',
-          accessory: '#A63F1B',
-        };
-      case 'celebrate':
-        return {
-          body: '#E65F2B', // Vibrant brand acorn orange
-          belly: '#FBF2E4',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#A63F1B',
-          accessory: '#C17817',
-        };
-      case 'sleepy':
-        return {
-          body: '#7A5C43', // Hazelnut slate brown
-          belly: '#F5EFE6',
-          cheeks: '#CBD5E1',
-          eyes: '#3D2314',
-          tail: '#5C4430',
-          accessory: '#94A3B8',
-        };
-      case 'wave':
-        return {
-          body: '#C27A3F', // Warm squirrel brown-orange
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#7A4419',
-          accessory: '#F59E0B',
-        };
-      case 'proud':
-        return {
-          body: '#D97706', // Rich golden caramel
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#92400E',
-          accessory: '#F59E0B',
-        };
-      case 'thinking':
-        return {
-          body: '#C27A3F',
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#7A4419',
-          accessory: '#94A3B8', // neutral slate, matches a thought/question mark
-        };
-      case 'worried':
-        return {
-          body: '#C17817',
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#9E5B0F',
-          accessory: '#60A5FA', // cool blue sweat-drop tint
-        };
-      case 'relieved':
-        return {
-          body: '#C27A3F',
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#7A4419',
-          accessory: '#86EFAC', // soft green, tension resolved
-        };
-      case 'excited':
-        return {
-          body: '#E65F2B',
-          belly: '#FBF2E4',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#A63F1B',
-          accessory: '#EAB308',
-        };
-      case 'received-money':
-        return {
-          body: '#D97706',
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#92400E',
-          accessory: '#EAB308',
-        };
-      case 'checking':
-        return {
-          body: '#C27A3F',
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#7A4419',
-          accessory: '#94A3B8',
-        };
-      case 'waiting':
-        return {
-          body: '#C27A3F',
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#7A4419',
-          accessory: '#C17817',
-        };
-      case 'error':
-        return {
-          body: '#C17817',
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#9E5B0F',
-          accessory: '#EF4444',
-        };
-      case 'happy':
-      default:
-        return {
-          body: '#C27A3F', // Warm squirrel brown-orange
-          belly: '#FDF6EC',
-          cheeks: '#FCA5A5',
-          eyes: '#3D2314',
-          tail: '#7A4419', // Chestnut brown
-          accessory: '#C17817',
-        };
-    }
-  };
-
-  const colors = getSquirrelColors();
+  const colors = mascotColors(mood);
 
   // Animation CSS injected into a local style tag to keep tail-wagging simple, performant, and reliable
   const tailAnimationClass = animated ? 'squirrel-tail-wag' : '';
@@ -373,7 +375,7 @@ export function Mascot({
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        {hasGear && <><ProGearDefs uid={gearUid} /><g className={rigClass('body')}><ProGearBack uid={gearUid} full={fullGear} /></g></>}
+        {hasGear && <><ProGearDefs uid={gearUid} />{gear === 'pro' && <g className={rigClass('body')}><ProGearBack uid={gearUid} full={fullGear} /></g>}</>}
         {/* Shadow */}
         <ellipse cx="50" cy="90" rx="25" ry="5" fill="black" fillOpacity="0.08" className={rigClass('shadow')} />
 
