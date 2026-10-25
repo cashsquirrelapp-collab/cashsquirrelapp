@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
+import { loadLayoutFonts } from './testFonts';
 
 // เลขากระรอก switched on (/api/assistant says enabled): the same chat screen talks to the backend, shows the
 // account's real answers without sample labels, saves a confirmation card only on ยืนยัน and reloads the data.
@@ -72,6 +73,8 @@ async function open(page: Page, mock: Mock = {}) {
   // The page itself must allow the microphone, or the browser refuses the mic button (fakes below cannot catch that).
   expect(response?.headers()['permissions-policy']).toContain('microphone=(self)');
   if (!mock.path) await expect(page.locator('#asx-message')).toBeVisible();
+  // Fonts must settle before card insertion and scrolling, not first load during the final overlap check.
+  await loadLayoutFonts(page);
   return { posts, dataReads: () => dataReads };
 }
 
