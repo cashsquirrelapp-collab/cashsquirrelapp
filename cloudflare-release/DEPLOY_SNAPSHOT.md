@@ -2559,3 +2559,22 @@ Built on package 82. No SQL. Owner's brief "KRAROK AI — EXTROVERT PERSONALITY 
   - Average Gemini cost per message went from $0.00240 to $0.00212.
 - Chat screen tests: 48 passed, plus one mic test that failed once and passed 3/3 alone.
 - cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## 1,650 tokens a month for every Pro account, now - 2026-10-26
+
+Built on package 83. No SQL.
+
+**Why.** Owner, 2026-10-26: "ให้ทุกคนได้ 1,650". Package 81 had kept 2,500 for periods paid before 27 Oct 2569 and for Pro the owner gave, and the owner saw 2,500 on such an account.
+
+**What changes**
+- Every Pro account gets 1,650 Krarok Tokens a month from now: periods paid earlier, owner grants, manual and older Stripe subscriptions alike.
+  - wrangler.production.jsonc sets AI_PRO_TOKENS_PER_CYCLE to 1650, and the code default is 1,650 too.
+  - shared/proTokens.ts no longer keeps 2,500 for periods paid before 27 Oct.
+- Unchanged: admins (no cap, still counted), the trial (25 tokens) and the 100-token limit per message.
+- Tokens already used this cycle count against 1,650. An account that has used 1,650 or more waits for its next renewal day.
+- The sample token figure in the chat (used before AI is live, and for admins) reads 1,650.
+
+**Checks.**
+- Unit tests 881/881 in the extracted package.
+- Screen tests 44 passed (chat and plans page), 8 long-plan tests skipped while those plans are hidden.
+- cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run, which shows AI_PRO_TOKENS_PER_CYCLE = "1650".

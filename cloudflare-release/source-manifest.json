@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg83 เลขา's personality: everyday talk, natural offers back to the app by rules, no uninvited emoji (on pkg82)",
+  "source_label": "pkg84 1,650 tokens a month for every Pro account now (paid earlier, owner grants, older subscriptions) (on pkg83)",
   "archive": "source.tar.gz",
-  "archive_sha256": "9347be18357c75a081558057343675a8d8d9de566b69dba1b44c7a108ed91438",
+  "archive_sha256": "85ea8b63ee800cb9348feb5ca0dd3a605fad30f0bcd326d0613837e16a2d765a",
   "file_count": 899,
-  "total_source_bytes": 23243881,
+  "total_source_bytes": 23243230,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -63,8 +63,8 @@
     },
     {
       "path": "backend/src/ai/config.ts",
-      "size": 5905,
-      "sha256": "0d83f19b4a7067a3de5f6259985f92fdc33529d38352486ce84b9fe6d5749cce"
+      "size": 5893,
+      "sha256": "ae98e9713ae321fe8623631bf30e98fb03ca51936473bf5539c928a8e32f28f0"
     },
     {
       "path": "backend/src/ai/conversations.ts",
@@ -2209,7 +2209,7 @@
     {
       "path": "frontend/src/features/assistant/assistantMock.ts",
       "size": 18273,
-      "sha256": "0e751a89043d2210f1cffd8cb5a7441fae10f34af906427b61db7dc1794dcd41"
+      "sha256": "3a435f1e51578f4400d13709e5e6766b91a0601eec721153e982806104efe529"
     },
     {
       "path": "frontend/src/features/assistant/assistantNavigation.ts",
@@ -3583,8 +3583,8 @@
     },
     {
       "path": "shared/proTokens.ts",
-      "size": 3865,
-      "sha256": "c42aec3d56a53f4c13abdfd88938b418df3ac20c9e5cc7feae96a4c812d6538b"
+      "size": 3421,
+      "sha256": "27dd8855c9392963f988f364ee3a26661dd1c0730a99094c60f32d859cf11787"
     },
     {
       "path": "shared/tax.ts",
@@ -3709,7 +3709,7 @@
     {
       "path": "tests/admin-ai-credit.test.ts",
       "size": 7495,
-      "sha256": "46cc509aa06d30c074e6a516702f32d8e7d58ca023259a7ac96c37fcddcbbbf8"
+      "sha256": "e898770d2542cd140608abb769770a7db8884d6443f4a48d2a56ebca1f2c5182"
     },
     {
       "path": "tests/admin-analytics-access.test.ts",
@@ -3798,8 +3798,8 @@
     },
     {
       "path": "tests/ai-cost-accounting.test.ts",
-      "size": 24145,
-      "sha256": "0bf34850e797134f1d0b6d815bd85a13e143d133a17aa6cdf8e22efb040c6f13"
+      "size": 24183,
+      "sha256": "f38a88ac5cf6d3863c54873b3887c91c7dadd30cc88e4be01bb18eaeaa5974f7"
     },
     {
       "path": "tests/ai-credit.test.ts",
@@ -3883,8 +3883,8 @@
     },
     {
       "path": "tests/ai-message-ceiling.test.ts",
-      "size": 6154,
-      "sha256": "11be3951a85f2759c3adae7dc69aa6faaee34b49bf3591bec56faf582a09d6b4"
+      "size": 6174,
+      "sha256": "81d5146ae81f7c819898ff57272e0af952ae4dc1514a6d6fa3045d85c337ba8d"
     },
     {
       "path": "tests/ai-money-chart.test.ts",
@@ -3968,8 +3968,8 @@
     },
     {
       "path": "tests/assistant-pro-rollout.test.ts",
-      "size": 16979,
-      "sha256": "5119bb36b34fa05685ec753ac6a9d7a45b757e032efca55d7e1c35df98703b2d"
+      "size": 16830,
+      "sha256": "4057e78ce5c33548141bae5cd472035703d5598353758214e0cdb04bba0e391d"
     },
     {
       "path": "tests/assistant-record-security.test.ts",
@@ -4099,7 +4099,7 @@
     {
       "path": "tests/e2e/assistant-chat.spec.ts",
       "size": 47432,
-      "sha256": "88a75edeec5980c448ac2aa9fbf14b42aaa8a06cbc5b6b8dac496a6b755619dd"
+      "sha256": "1e594278866a634baf95512472603f76f8f21ffef891ee9c90ffdba0d1ae23ee"
     },
     {
       "path": "tests/e2e/assistant-live.spec.ts",
@@ -4398,8 +4398,8 @@
     },
     {
       "path": "tests/pro-tokens.test.ts",
-      "size": 13038,
-      "sha256": "fd2fc86e79ce481abe2ea4f291a0a03455f2a778748f94383171bbae8dd671aa"
+      "size": 12849,
+      "sha256": "9d2b1791f5ff6da5a60964ef379158bf255280483ac60bca443e3b19b5056d31"
     },
     {
       "path": "tests/report-data.test.ts",
@@ -4498,8 +4498,8 @@
     },
     {
       "path": "wrangler.production.jsonc",
-      "size": 3654,
-      "sha256": "411f840317ca47283f211eea2f3f71dcd2656e7aacea32b0acce83c84eb68612"
+      "size": 3739,
+      "sha256": "0b464fc469d2fcfba25878f312083e0d5e34c515fe70a88b148838afdca52374"
     }
   ]
 }
