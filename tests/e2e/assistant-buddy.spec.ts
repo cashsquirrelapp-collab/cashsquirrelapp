@@ -60,6 +60,9 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
   const chat = panel(page);
   await expect(chat).toBeVisible();
   await expect(chat).toContainText('กำลังดูหน้างาน');
+  // No "เปิดหน้าที่เกี่ยวข้อง" choice any more (owner, 2026-10-26).
+  await expect(chat.getByText('เปิดหน้าที่เกี่ยวข้อง')).toHaveCount(0);
+  await expect(chat.getByRole('combobox')).toHaveCount(0);
   await expect(chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button')).toHaveText(['ช่วยเพิ่มงานใหม่ให้หน่อย', 'ตรวจงานที่ยังไม่ได้รับเงิน', 'หน้านี้ใช้ทำอะไร', 'สรุปเดือนนี้', 'รอรับเงิน', 'กำลังดำเนินการ']);
   // Ordinary computers: the panel docks at the right as a side sheet over a dimmed, blurred page, which keeps its own
   // width (a narrower page broke tables that size themselves by the screen; a clear page left text peeking out).

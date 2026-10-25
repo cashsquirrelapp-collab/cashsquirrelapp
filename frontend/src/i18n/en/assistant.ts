@@ -352,10 +352,6 @@ export const assistant: Record<string, string> = {
   "แชตเต็ม": "Full chat",
   "พิมพ์ยืนยันหรือยกเลิกรายการ": "Type to confirm or cancel the action",
   "เปิดเอกสาร": "Open document",
-  "เปิดหน้าที่เกี่ยวข้อง": "Open the relevant page",
-  "วิธีเปิดหน้าจากเลขากระรอก": "How the assistant opens pages",
-  "กดเปิดเอง": "Open manually",
-  "พาไปอัตโนมัติ": "Open automatically",
   // The squirrel's state once an answer has arrived, and the words above its head on the pill (2026-10-26).
   "รอคุณยืนยัน": "Waiting for your confirmation",
   "บันทึกเรียบร้อยแล้ว": "Saved",

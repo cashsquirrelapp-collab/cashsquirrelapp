@@ -20,8 +20,7 @@ import type { LineCardData, LineInbox, LineQuickKind } from '../../../../shared/
 
 const QUICK_THAI: Record<LineQuickKind, string> = { unpaid: 'รอรับเงิน', month: 'สรุปเดือนนี้', wip: 'กำลังดำเนินการ' };
 import { getCurrentAccount } from '../../services/api';
-import { automaticNavigation, safeAssistantPath, type NavigationContext } from './assistantNavigation';
-import { useNavigationMode } from './NavigationModeControl';
+import { automaticNavigation, safeAssistantPath, type NavigationContext, type NavigationMode } from './assistantNavigation';
 import { confirmationCommand } from './assistantCommands';
 import './assistant.css';
 
@@ -199,7 +198,9 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     instant: Boolean(reduce),
   }), [given, reduce]);
   const navigationContext: NavigationContext = { accountId, workspaceSlug, fullFeatureAccess };
-  const [navigationMode] = useNavigationMode(accountId);
+  // Pages open only when the user taps เลขา's button (owner, 2026-10-26: the "เปิดหน้าที่เกี่ยวข้อง" choice is removed, so
+  // nobody is moved to another page by itself, including accounts that had chosen "พาไปอัตโนมัติ" before).
+  const navigationMode: NavigationMode = 'manual';
   const navigationRef = React.useRef({ navigationContext, navigationMode, transport });
   navigationRef.current = { navigationContext, navigationMode, transport };
   const go = (path: string) => {

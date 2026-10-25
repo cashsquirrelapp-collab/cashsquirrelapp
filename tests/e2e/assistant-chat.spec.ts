@@ -49,6 +49,9 @@ for (const [label, width, height] of [['phone', 390, 844], ['iPad', 820, 1180], 
     await expect(chat.getByRole('heading', { name: 'เลขากระรอก', exact: true })).toBeVisible();
     await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
     await expect(chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button')).toHaveCount(4);
+    // No "เปิดหน้าที่เกี่ยวข้อง" choice any more (owner, 2026-10-26): pages open only from เลขา's button.
+    await expect(page.getByText('เปิดหน้าที่เกี่ยวข้อง')).toHaveCount(0);
+    await expect(page.getByRole('combobox', { name: 'วิธีเปิดหน้าจากเลขากระรอก' })).toHaveCount(0);
     // The header is slim (owner: the top took too much room).
     expect((await chat.locator('.asx-bar').boundingBox())!.height).toBeLessThan(66);
     // The sample transport cannot read files or transcribe recordings; Send waits for text.

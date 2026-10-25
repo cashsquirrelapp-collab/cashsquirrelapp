@@ -14,8 +14,7 @@ import { BriefingCard, briefingText } from './BriefingCard';
 import type { Briefing, BriefingItem } from '../../../../shared/briefing';
 import { Markdown } from './Markdown';
 import { getCurrentAccount } from '../../services/api';
-import { automaticNavigation, safeAssistantPath, type NavigationContext } from './assistantNavigation';
-import { useNavigationMode } from './NavigationModeControl';
+import { automaticNavigation, safeAssistantPath, type NavigationContext, type NavigationMode } from './assistantNavigation';
 import { confirmationCommand } from './assistantCommands';
 import './assistant.css';
 
@@ -139,7 +138,9 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
   const transport = React.useMemo(() => given ?? createSampleTransport({ failSends: () => false, failActions: () => false, tokens: () => SAMPLE_TOKENS, instant: Boolean(reduce) }), [given, reduce]);
   const live = Boolean(transport.live);
   const navigationContext: NavigationContext = { accountId, workspaceSlug, fullFeatureAccess };
-  const [navigationMode] = useNavigationMode(accountId);
+  // Pages open only when the user taps เลขา's button (owner, 2026-10-26: the "เปิดหน้าที่เกี่ยวข้อง" choice is removed, so
+  // nobody is moved to another page by itself, including accounts that had chosen "พาไปอัตโนมัติ" before).
+  const navigationMode: NavigationMode = 'manual';
   const scopeRef = React.useRef({ accountId, transport, navigationMode, navigationContext });
   scopeRef.current = { accountId, transport, navigationMode, navigationContext };
   const [open, setOpen] = React.useState(false);
