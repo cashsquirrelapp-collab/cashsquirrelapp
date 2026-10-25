@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "source_label": "pkg82 เลขา's quotation questions: client details, issuer only when not saved (then kept), payment date with every credit term (on pkg81)",
+  "source_label": "pkg83 เลขา's personality: everyday talk, natural offers back to the app by rules, no uninvited emoji (on pkg82)",
   "archive": "source.tar.gz",
-  "archive_sha256": "4e1897ebf0f58e0dc1bc8c2c6d0f584acdeaa687dd5e4a2218232db788677d2c",
-  "file_count": 896,
-  "total_source_bytes": 23213255,
+  "archive_sha256": "9347be18357c75a081558057343675a8d8d9de566b69dba1b44c7a108ed91438",
+  "file_count": 899,
+  "total_source_bytes": 23243881,
   "files": [
     {
       "path": ".github/workflows/check.yml",
@@ -50,6 +50,11 @@
       "path": "backend/src/ai/billing.ts",
       "size": 1186,
       "sha256": "ec43452ba4dad094c9639ab4489c593c478fd6c4df9d9cc2ead31ee3fd438ada"
+    },
+    {
+      "path": "backend/src/ai/bridge.ts",
+      "size": 5282,
+      "sha256": "8af64a2a00404655b85ea24f3fd8bec1de7ba682f792af4e8b63377f37fba0ff"
     },
     {
       "path": "backend/src/ai/confidentiality.ts",
@@ -103,8 +108,8 @@
     },
     {
       "path": "backend/src/ai/gateway.ts",
-      "size": 32165,
-      "sha256": "146bc9c9b21efb2efb9d4b9e27aa580d891f7f2fd3028cc0547428268915edea"
+      "size": 32563,
+      "sha256": "30bb0bbbc2de0db898dc6cd660fa3fb8c51d481a6b3de47191b3779fc83766b3"
     },
     {
       "path": "backend/src/ai/jobFinancialEdit.ts",
@@ -163,8 +168,8 @@
     },
     {
       "path": "backend/src/ai/prompt.ts",
-      "size": 38619,
-      "sha256": "469b187e94e27dd1f7c6466c785d43b034c2bfa7753bf469e63ca83450c87ffb"
+      "size": 44134,
+      "sha256": "430dcfe883d40d29cd4d6b9c3edddb06d32a32c686d91f84652ba76a6627ad19"
     },
     {
       "path": "backend/src/ai/proposals.ts",
@@ -192,14 +197,19 @@
       "sha256": "ad5a6535468cfcf3852c589fe206b9581a64f1b92b01c373e7c15dda254779ae"
     },
     {
+      "path": "backend/src/ai/replyStyle.ts",
+      "size": 1471,
+      "sha256": "29a7b26e1c8ad2e17a6f5716c14fb9e03c7c04f59e78fef7d524979e9944344f"
+    },
+    {
       "path": "backend/src/ai/router.ts",
       "size": 2594,
       "sha256": "c4a3a92912b85d53f31c445fa9f6d1be2838095116b52473765e3dedb9feacba"
     },
     {
       "path": "backend/src/ai/routingPolicy.ts",
-      "size": 24320,
-      "sha256": "5b06938c408373dfa933163fbac7c4a0297c804ceae261c70e1cd5198b360a0d"
+      "size": 26008,
+      "sha256": "d584a32ed13665e5eff9deb356d3a250a3a3b9e3493eade3a1e1225f9581b3d5"
     },
     {
       "path": "backend/src/ai/service.ts",
@@ -3769,7 +3779,7 @@
     {
       "path": "tests/ai-ask-kinds.test.ts",
       "size": 9766,
-      "sha256": "3005dfbaf3144026e8d4f55962a59e4254654d95962386534ccf623ab5af1c4d"
+      "sha256": "d25415c00df20b10d19f6c3e1d258837cad956083c04f3ff49b123e36e3ae008"
     },
     {
       "path": "tests/ai-compound-job-actions.test.ts",
@@ -3890,6 +3900,11 @@
       "path": "tests/ai-past-work.test.ts",
       "size": 8513,
       "sha256": "a6ae37538b22b9d5a4dfd6b20ec0dcf4174ed82391b91e2011683b6497713545"
+    },
+    {
+      "path": "tests/ai-personality.test.ts",
+      "size": 16272,
+      "sha256": "f63bda8c540bbffc70de2370046f869fc77407db2f4bc24327e42fc00de6a591"
     },
     {
       "path": "tests/ai-proposals-database.test.ts",
@@ -4239,7 +4254,7 @@
     {
       "path": "tests/founder-confidentiality.test.ts",
       "size": 16925,
-      "sha256": "29f6b3a4daf07d806ecfdfadf707d0ef95c93c46b4cdac84d0fb10594803288d"
+      "sha256": "fa81580e426e944ce7e9dd272caaab272e7ab665255a9b2836a8bcd774a3746a"
     },
     {
       "path": "tests/goal-ledger.test.ts",

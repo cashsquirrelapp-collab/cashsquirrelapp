@@ -2521,3 +2521,41 @@ Built on package 81. No SQL.
 - Screen tests 123 passed there and 8 long-plan tests skipped. These include the new quotation questions test on a computer and a phone, with the overlap check and no sideways scroll.
 - In the work tree: job form, English and chat screen tests.
 - cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
+
+## เลขา's personality: everyday talk, natural offers back to the app - 2026-10-25
+
+Built on package 82. No SQL. Owner's brief "KRAROK AI — EXTROVERT PERSONALITY & NATURAL FINANCIAL ENGAGEMENT".
+
+**Why.** เลขา answered a food question, then refused the follow-up as "not finance". It pushed money offers after almost every message and sounded scripted. Two lines in the instructions caused it: "You are not a general chatbot", and "ONLY OPEN AREAS" read as a ban on any other topic.
+
+**What changes**
+- Prompt secretary-v16 (prompt.ts)
+  - Personality: friendly, playful, witty, socially aware; adapts to friend, polite, boss, sibling or serious; never more familiar than the user.
+  - EVERYDAY TALK: no refusing a topic for not being about money; follow-ups keep the thread; limits on harmful requests; crisis hotlines 1323 and 1669.
+  - OFFERS BACK TO THE APP: one short line at most, only when the message touches work or money.
+  - News without the details is answered with a reaction and an offer, not a card.
+  - Two new money and memory rules: never compute a figure the tools did not return unless asked; a short reply ("เอาแบบนั้นแหละ") is never saved as a memory.
+  - ONLY OPEN AREAS now limits talk about the app, not everyday conversation.
+  - Courtesy (no กู/มึง), confidentiality and the confirmation steps are unchanged.
+- bridge.ts decides by rules whether an offer fits this turn. It is "none" when:
+  - the topic has nothing to do with work or money;
+  - an offer was made in the last 3 answers;
+  - the user turned one down, or asked for no more;
+  - the user is talking about something personal or hard.
+  It costs no model call and reads no account data. The result goes into the prompt's per-user part ("OFFER THIS TURN").
+- replyStyle.ts runs on every answer:
+  - It removes emoji when the user's message has none or they asked for none.
+  - It turns made-up tool links ("[…](default_api:…)") into plain words.
+- routingPolicy.ts (v2 only; v1 kept for rollback) sends analysis words ("แนะนำ", "ทำไม", "ควร…", "ดีที่สุด") to Sonnet only when the message is about work, money, clients or this app. Everyday questions ("แนะนำหนัง", "แอปวาดรูป") stay on Gemini.
+
+**Checks.**
+- Unit tests 881/881 in the extracted package, including tests/ai-personality.test.ts. It covers:
+  - the brief's 15 conversations on mock providers: model, tools, offer state, one model call each, the history reaching the model;
+  - the prompt rules;
+  - the reply style;
+  - the routing.
+- Real models, owner-approved budget of $1, $0.70 spent. 16 cases, 29 messages, before and after. Report: artifacts/ai-secretary/09-personality-report.md.
+  - Offers where none fit went from 7/16 to 0/16, uninvited emoji from 4 to 0, refusals from 2 to 0, and invented figures from 1 to 0.
+  - Average Gemini cost per message went from $0.00240 to $0.00212.
+- Chat screen tests: 48 passed, plus one mic test that failed once and passed 3/3 alone.
+- cloudflare:check 17/17, cloudflare:build, preflight, wrangler dry-run.
