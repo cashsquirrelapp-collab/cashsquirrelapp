@@ -86,6 +86,8 @@ type WindowProps = {
   /** The window is on screen (false while it is folded into the squirrel: it stays mounted so nothing is lost). */
   shown: boolean;
   mood: MascotMood;
+  /** The chat is thinking or writing: the squirrel taps on its hologram screen. */
+  busy?: boolean;
   label: string;
   /** Read out with the header, e.g. "กำลังดูหน้างาน"; not shown, the name is on the capsule. */
   note: string;
@@ -98,7 +100,7 @@ type WindowProps = {
   children: React.ReactNode;
 };
 
-export function FloatingWindow({ accountId, shown, mood, label, note, zones, reduce, onMinimize, onClose, windowRef, children }: WindowProps) {
+export function FloatingWindow({ accountId, shown, mood, busy = false, label, note, zones, reduce, onMinimize, onClose, windowRef, children }: WindowProps) {
   const [rect, setRect] = React.useState<Rect>(() => {
     const saved = load<Saved>(storeKey(accountId));
     return saved && validRect(saved.rect) ? clampRect(saved.rect, view()) : defaultRect(view());
@@ -212,7 +214,7 @@ export function FloatingWindow({ accountId, shown, mood, label, note, zones, red
       exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 10 }} transition={{ duration: reduce ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}>
       {/* The squirrel above the window: it moves with the window, always in the middle, and moves it when dragged. */}
       <span className="kfw-perch" onPointerDown={begin('move')} onDoubleClick={reset} title={tr("ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม")}>
-        <MascotPeek size={size} mood={mood} gear="headset" motion={reduce ? 'still' : 'calm'} className="kfw-perch-art" />
+        <MascotPeek size={size} mood={mood} motion={reduce ? 'still' : 'calm'} holo={busy} className="kfw-perch-art" />
       </span>
       <div className="kfw-shell">
         <header className="kfw-head" onPointerDown={begin('move')} onDoubleClick={event => { if (!(event.target as HTMLElement).closest('button')) reset(); }}>
@@ -308,7 +310,7 @@ export function MiniMascot({ accountId, mood, zones, label, onRestore, bubble, b
       <button ref={buttonRef} type="button" className="kfw-mini-btn" onPointerDown={begin} onKeyDown={onKey}
         onClick={event => { if ((event.currentTarget as HTMLElement).dataset.dragged) return; onRestore(); }}
         aria-label={label} title={tr("แตะเพื่อเปิดแชต · ลากเพื่อย้าย")}>
-        <Mascot gear="headset" mood={mood} size={MINI} animated={false} />
+        <Mascot mood={mood} size={MINI} animated={false} />
       </button>
       {bubble && (
         <span ref={bubbleRef} key={bubbleKey} className={`kfw-mini-say lg-glass is-menu is-${side}`} role="status" onClick={onRestore}>

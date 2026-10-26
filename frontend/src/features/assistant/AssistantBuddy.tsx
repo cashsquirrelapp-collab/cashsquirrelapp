@@ -361,7 +361,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
           initial={false} animate={mobile ? undefined : { paddingRight: collapsed ? 6 : 12 }} transition={{ duration: reduce ? 0 : 0.75, ease: [0.33, 0, 0.2, 1] }}>
           <span className="asx-buddy-avatar">
             {mobile ? <MascotSlot mode={open ? mode : 'awake'} size={46} /> : (
-              <span className="asx-buddy-face is-pill" data-mood={faceMood}><Mascot gear="pro" mood={faceMood} animated={false} size={FACE} viewBox="12 8 76 76" /></span>
+              <span className="asx-buddy-face is-pill" data-mood={faceMood}><Mascot mood={faceMood} animated={false} size={FACE} viewBox="12 8 76 76" /></span>
             )}
           </span>
           {!mobile && (
@@ -411,7 +411,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                       <li key={message.id} className="asx-msg is-me"><div className="asx-me-row"><p className="asx-bubble">{message.text}</p></div></li>
                     ) : (
                       <li key={message.id} className="asx-msg is-bot">
-                        <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={26} viewBox="12 8 76 76" /></span>
+                        <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={26} viewBox="12 8 76 76" /></span>
                         <div className="asx-msg-body">
                           {message.text && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
                           {message.cards?.map((card, n) => (
@@ -426,7 +426,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                     ))}
                     {mode === 'thinking' && (
                       <li className="asx-msg is-bot">
-                        <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="thinking" animated={false} size={26} viewBox="12 8 76 76" /></span>
+                        <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="thinking" animated={false} size={26} viewBox="12 8 76 76" /></span>
                         <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>
                       </li>
                     )}
@@ -510,7 +510,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
             </motion.div>
           )}
           {!mobile && (open || minimized) && (
-            <FloatingWindow key="float" accountId={accountId} shown={open} mood={poseFor(mode).mood} label={tr("เลขากระรอก · หน้า{0}", pageName)}
+            <FloatingWindow key="float" accountId={accountId} shown={open} mood={poseFor(mode).mood} busy={busy} label={tr("เลขากระรอก · หน้า{0}", pageName)}
               note={tr("กำลังดูหน้า{0}", pageName)} zones={zones} reduce={Boolean(reduce)} onMinimize={minimize} onClose={close} windowRef={windowRef}>
               {contents}
             </FloatingWindow>
