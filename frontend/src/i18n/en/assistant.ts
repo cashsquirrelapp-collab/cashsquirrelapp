@@ -370,4 +370,12 @@ export const assistant: Record<string, string> = {
   // Official website cards (Accounting Brain, 2026-10-26).
   "เปิดเว็บไซต์": "Open website",
   "ทำในเว็บนี้": "What to do there",
+  // The floating window on computers and iPads (2026-10-26).
+  "ย่อหน้าต่าง": "Minimise",
+  "ขยายหน้าต่าง": "Maximise",
+  "คืนขนาด": "Restore size",
+  "เปิดแชตเลขากระรอกอีกครั้ง": "Open the Krarok Assistant chat again",
+  "ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม": "Drag to move · double-click to put it back",
+  "ย้ายหน้าต่าง: ลากหรือใช้ปุ่มลูกศร · Alt + ลูกศรเพื่อปรับขนาด · Home เพื่อคืนตำแหน่งเดิม": "Move the window: drag or use the arrow keys · Alt + arrows to resize · Home to put it back",
+  "แตะเพื่อเปิดแชต · ลากเพื่อย้าย": "Tap to open the chat · drag to move",
 };

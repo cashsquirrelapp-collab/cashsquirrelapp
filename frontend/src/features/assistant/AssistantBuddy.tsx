@@ -10,6 +10,7 @@ import { cardSpeech, climbFor, graphemes, speechPreview, type BuddyNews, type Cl
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { BriefingCard, briefingText } from './BriefingCard';
+import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
 import type { Briefing, BriefingItem } from '../../../../shared/briefing';
 import { Markdown } from './Markdown';
 import { getCurrentAccount } from '../../services/api';
@@ -28,9 +29,8 @@ import './assistant.css';
 
 type Props = {
   mobile: boolean;
-  /** Computers (1024px+): the panel docks at the right. */
-  docked: boolean;
-  /** Very wide screens: the page makes room beside the panel (App adds the padding), so no dimmed backdrop. */
+  /** Unused since the floating window (2026-10-26); kept so older callers still type-check. */
+  docked?: boolean;
   push?: boolean;
   /** The page's key (e.g. 'jobs') and its name as the sidebar shows it. */
   page: string;
@@ -130,7 +130,7 @@ function markBriefingSeen(accountId: string | undefined, day: string, key: strin
   try { window.localStorage.setItem(briefingStore(accountId), JSON.stringify({ ...briefingSeen(accountId, day), [key]: day })); } catch { /* private mode */ }
 }
 
-export default function AssistantBuddy({ mobile, docked, push = false, page, pageName, userName, hidden = false, arrival = 0, onPanelChange, onOpenChat, onNavigate, transport: given, accountId, workspaceSlug, fullFeatureAccess, briefing }: Props) {
+export default function AssistantBuddy({ mobile, page, pageName, userName, hidden = false, arrival = 0, onPanelChange, onOpenChat, onNavigate, transport: given, accountId, workspaceSlug, fullFeatureAccess, briefing }: Props) {
   const reduce = useReducedMotion();
   const transport = React.useMemo(() => given ?? createSampleTransport({ failSends: () => false, failActions: () => false, tokens: () => SAMPLE_TOKENS, instant: Boolean(reduce) }), [given, reduce]);
   const live = Boolean(transport.live);
@@ -142,6 +142,13 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
   scopeRef.current = { accountId, transport, navigationMode, navigationContext };
   const [open, setOpen] = React.useState(false);
   const openRef = React.useRef(open); openRef.current = open;
+  // Computers and iPads: the window folded into the squirrel (brief "FLOATING TOP MASCOT CHAT UI V2"). The chat and its
+  // work stay as they were. `autoFolded` marks a fold made by the chat itself to clear a document preview.
+  const [minimized, setMinimized] = React.useState(false);
+  const autoFolded = React.useRef(false);
+  const windowRef = React.useRef<HTMLDivElement>(null);
+  const miniRef = React.useRef<HTMLButtonElement>(null);
+  const zones = useAvoidZones(!mobile && (open || minimized), [windowRef]);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [mode, setMode] = React.useState<AssistantMode>('awake');
   const [draft, setDraft] = React.useState('');
@@ -163,16 +170,30 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
 
   React.useEffect(() => { onPanelChange?.(open); }, [open, onPanelChange]);
   React.useEffect(() => () => onPanelChange?.(false), [onPanelChange]);
-  const close = React.useCallback(() => { setOpen(false); window.setTimeout(() => buttonRef.current?.focus(), 0); }, []);
-  // ⌘K / Ctrl+K opens it from any page, as the search-or-ask box does in the reference.
+  const close = React.useCallback(() => { setOpen(false); setMinimized(false); autoFolded.current = false; window.setTimeout(() => buttonRef.current?.focus(), 0); }, []);
+  const minimize = React.useCallback((auto?: boolean) => {
+    autoFolded.current = Boolean(auto);
+    setOpen(false); setMinimized(true);
+    if (!auto) window.setTimeout(() => miniRef.current?.focus(), 0);
+  }, []);
+  const restore = React.useCallback(() => { autoFolded.current = false; setMinimized(false); setOpen(true); }, []);
+  // Folded by itself for a preview: back as it was once the preview has closed.
+  React.useEffect(() => { if (minimized && autoFolded.current && !zones.key) restore(); }, [minimized, zones.key, restore]);
+  // ⌘K / Ctrl+K opens it from any page, as the search-or-ask box does in the reference. On computers the window does not
+  // hold the page, so Escape closes it only from inside it.
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') { event.preventDefault(); setOpen(value => !value); }
-      else if (event.key === 'Escape' && open) close();
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') { event.preventDefault(); if (minimized) restore(); else setOpen(value => !value); }
+      else if (event.key === 'Escape' && open) {
+        // From inside the window, or when nothing else has the keyboard and no dialog or menu is open over the page.
+        const active = document.activeElement;
+        const idle = !active || active === document.body;
+        if (mobile || windowRef.current?.contains(active) || (idle && !document.querySelector('[role="dialog"][aria-modal="true"], [role="menu"]'))) close();
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, close]);
+  }, [open, minimized, mobile, close, restore]);
   React.useEffect(() => { if (open && !mobile) window.setTimeout(() => inputRef.current?.focus(), 80); }, [open, mobile]);
   React.useEffect(() => () => { abortRef.current?.abort(); for (const c of confirmControllers.current) c.abort(); }, [transport, accountId]);
   // Just arrived from its birth: say where it lives for a moment.
@@ -332,9 +353,7 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
     ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 0 } }
     : mobile
       ? { initial: { y: 40, opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: 40, opacity: 0 }, transition: { type: 'spring' as const, stiffness: 420, damping: 36 } }
-      : docked
-        ? { initial: { x: 40, opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: 40, opacity: 0 }, transition: { default: { type: 'spring' as const, stiffness: 380, damping: 36 }, opacity: { duration: 0.16 } } }
-        : { initial: { opacity: 0, scale: 0.92, y: 16 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.95, y: 10 }, transition: { default: { type: 'spring' as const, stiffness: 440, damping: 32 }, opacity: { duration: 0.14 } } };
+      : { initial: { opacity: 0, scale: 0.92, y: 16 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.95, y: 10 }, transition: { default: { type: 'spring' as const, stiffness: 440, damping: 32 }, opacity: { duration: 0.14 } } };
 
   const pillButton = (
         <motion.button ref={buttonRef} type="button" className="asx-buddy-btn lg-glass" onClick={() => setOpen(true)} aria-expanded={open} aria-haspopup="dialog"
@@ -361,9 +380,73 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
         </motion.button>
   );
 
+  const greeting = (
+    <>
+      <h3>{userName ? tr("สวัสดีครับ คุณ{0}", userName) : tr("สวัสดีครับ")}</h3>
+      <p>{tr("อยู่หน้า{0}ใช่ไหมครับ ถามหรือพิมพ์ให้ผมช่วยทำได้เลย", pageName)}</p>
+    </>
+  );
+  // The conversation and the composer: in the phone sheet, or in the floating window on computers and iPads.
+  const contents = (
+    <>
+              <div ref={listRef} className="asx-buddy-body" role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
+                {messages.length === 0 ? (
+                  <div className="asx-buddy-hello">
+                    {mobile && <span className="asx-buddy-hero" aria-hidden="true"><MascotSlot mode={mode} size={84} /></span>}
+                    {/* Computers and iPads: the greeting is the window's one liquid gradient card (CI orange to rust). */}
+                    {mobile ? greeting : <div className="kfw-hero">{greeting}</div>}
+                    {!mobile && briefing && briefing.items.length > 0 && (
+                      <BriefingCard briefing={briefing} onOpen={path => { setOpen(false); onNavigate(path); }} />
+                    )}
+                    <div className="asx-buddy-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
+                      {prompts.map(prompt => {
+                        const Icon = PROMPT_ICONS[prompt] ?? Sparkles;
+                        return <button key={prompt} type="button" onClick={() => { void send(tr(prompt)); if (!mobile) inputRef.current?.focus(); }}>{mobile ? <Icon size={16} aria-hidden="true" /> : <span className="kfw-tile" aria-hidden="true"><Icon size={16} /></span>}<span>{tr(prompt)}</span>{!mobile && <ChevronRight className="asx-buddy-go" size={16} aria-hidden="true" />}</button>;
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <ol className="asx-thread is-buddy">
+                    {messages.map((message, index) => message.from === 'me' ? (
+                      <li key={message.id} className="asx-msg is-me"><div className="asx-me-row"><p className="asx-bubble">{message.text}</p></div></li>
+                    ) : (
+                      <li key={message.id} className="asx-msg is-bot">
+                        <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={26} viewBox="12 8 76 76" /></span>
+                        <div className="asx-msg-body">
+                          {message.text && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
+                          {message.cards?.map((card, n) => (
+                            <ChatCardView key={n} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
+                              onConfirm={item => void confirm(item)} onCancel={item => { setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' })); void transport.cancel?.(item); }} onNavigate={go}
+                              onAnswer={text => void send(text)} answered={messages.slice(index + 1).some(later => later.from === 'me') || busy}
+                              onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
+                          ))}
+                          {!live && (mode === 'done' || mode === 'awake' || mode === 'listening') && <span className="asx-meta">{tr("คำตอบตัวอย่าง")}</span>}
+                        </div>
+                      </li>
+                    ))}
+                    {mode === 'thinking' && (
+                      <li className="asx-msg is-bot">
+                        <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="thinking" animated={false} size={26} viewBox="12 8 76 76" /></span>
+                        <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>
+                      </li>
+                    )}
+                  </ol>
+                )}
+              </div>
+              <form className="asx-buddy-composer" onSubmit={event => { event.preventDefault(); void send(draft); }}>
+                <label htmlFor="asx-buddy-message" className="asx-sr">{tr("ข้อความถึงเลขากระรอก")}</label>
+                <textarea id="asx-buddy-message" ref={inputRef} rows={1} value={draft} placeholder={tr("ถามเรื่องงาน รายรับ กำไร หรือให้ช่วยทำ")}
+                  onChange={event => onDraft(event.target.value)}
+                  onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !mobile) { event.preventDefault(); void send(draft); } }} />
+                <button type="submit" className="asx-send" disabled={busy || !draft.trim()} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
+              </form>
+              <p className="asx-hint">{live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
+    </>
+  );
+
   return (
     <>
-      <div className={`asx-buddy${mobile ? ' is-mobile' : ' is-pill'}${open ? ' is-open' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden && !telling ? ' has-tip' : ''}${climb ? ' is-climbing' : ''}`}>
+      <div className={`asx-buddy${mobile ? ' is-mobile' : ' is-pill'}${open ? ' is-open' : ''}${minimized ? ' is-min' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden && !telling ? ' has-tip' : ''}${climb ? ' is-climbing' : ''}`}>
         <AnimatePresence>
           {tip && !open && !hidden && !telling && (
             // After the arrival the tip comes in softly, once the pill has opened out (owner: "ค่อย ๆ ทรานซิชั่นดี ๆ").
@@ -409,11 +492,11 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
       </div>
       {createPortal(
         <AnimatePresence>
-          {open && !push && <motion.div key="scrim" className={`asx-pop-scrim asx-buddy-scrim${docked ? ' is-side' : ''}`} aria-hidden="true" onClick={close} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />}
-          {open && (
-            <motion.div key="panel" className={`asx-pop asx-buddy-panel lg-glass is-menu${mobile ? ' is-sheet' : docked ? ' is-docked' : ''}`} role="dialog" aria-modal={!push}
-              aria-label={tr("เลขากระรอก · หน้า{0}", pageName)} style={mobile ? sheetBox : undefined} {...panelMotion}>
-              {mobile && <span className="asx-buddy-grabber" aria-hidden="true" />}
+          {open && mobile && <motion.div key="scrim" className="asx-pop-scrim asx-buddy-scrim" aria-hidden="true" onClick={close} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />}
+          {open && mobile && (
+            <motion.div key="panel" className="asx-pop asx-buddy-panel lg-glass is-menu is-sheet" role="dialog" aria-modal
+              aria-label={tr("เลขากระรอก · หน้า{0}", pageName)} style={sheetBox} {...panelMotion}>
+              <span className="asx-buddy-grabber" aria-hidden="true" />
               <header className="asx-buddy-head">
                 <span className="asx-buddy-face" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                 <div className="asx-buddy-title">
@@ -423,62 +506,21 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
                 <button type="button" className="asx-icon-btn" onClick={() => { setOpen(false); onOpenChat(); }} aria-label={tr("เปิดแชตเต็ม")} title={tr("เปิดแชตเต็ม")}><Maximize2 size={17} /></button>
                 <button type="button" className="asx-icon-btn" onClick={close} aria-label={tr("ปิด")} title={tr("ปิด")}><X size={18} /></button>
               </header>
-              <div ref={listRef} className="asx-buddy-body" role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
-                {messages.length === 0 ? (
-                  <div className="asx-buddy-hello">
-                    {mobile ? <span className="asx-buddy-hero" aria-hidden="true"><MascotSlot mode={mode} size={84} /></span>
-                      : <span className="asx-buddy-face is-hero" aria-hidden="true"><Mascot gear="headset" mood={poseFor(mode).mood} animated={false} size={56} viewBox="12 8 76 76" /></span>}
-                    <h3>{userName ? tr("สวัสดีครับ คุณ{0}", userName) : tr("สวัสดีครับ")}</h3>
-                    <p>{tr("อยู่หน้า{0}ใช่ไหมครับ ถามหรือพิมพ์ให้ผมช่วยทำได้เลย", pageName)}</p>
-                    {!mobile && briefing && briefing.items.length > 0 && (
-                      <BriefingCard briefing={briefing} onOpen={path => { setOpen(false); onNavigate(path); }} />
-                    )}
-                    <div className="asx-buddy-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
-                      {prompts.map(prompt => {
-                        const Icon = PROMPT_ICONS[prompt] ?? Sparkles;
-                        return <button key={prompt} type="button" onClick={() => void send(tr(prompt))}><Icon size={16} aria-hidden="true" /><span>{tr(prompt)}</span>{!mobile && <ChevronRight className="asx-buddy-go" size={16} aria-hidden="true" />}</button>;
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <ol className="asx-thread is-buddy">
-                    {messages.map((message, index) => message.from === 'me' ? (
-                      <li key={message.id} className="asx-msg is-me"><div className="asx-me-row"><p className="asx-bubble">{message.text}</p></div></li>
-                    ) : (
-                      <li key={message.id} className="asx-msg is-bot">
-                        <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={26} viewBox="12 8 76 76" /></span>
-                        <div className="asx-msg-body">
-                          {message.text && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
-                          {message.cards?.map((card, n) => (
-                            <ChatCardView key={n} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
-                              onConfirm={item => void confirm(item)} onCancel={item => { setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' })); void transport.cancel?.(item); }} onNavigate={go}
-                              onAnswer={text => void send(text)} answered={messages.slice(index + 1).some(later => later.from === 'me') || busy}
-                              onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
-                          ))}
-                          {!live && (mode === 'done' || mode === 'awake' || mode === 'listening') && <span className="asx-meta">{tr("คำตอบตัวอย่าง")}</span>}
-                        </div>
-                      </li>
-                    ))}
-                    {mode === 'thinking' && (
-                      <li className="asx-msg is-bot">
-                        <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="thinking" animated={false} size={26} viewBox="12 8 76 76" /></span>
-                        <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>
-                      </li>
-                    )}
-                  </ol>
-                )}
-              </div>
-              <form className="asx-buddy-composer" onSubmit={event => { event.preventDefault(); void send(draft); }}>
-                <label htmlFor="asx-buddy-message" className="asx-sr">{tr("ข้อความถึงเลขากระรอก")}</label>
-                <textarea id="asx-buddy-message" ref={inputRef} rows={1} value={draft} placeholder={tr("ถามเรื่องงาน รายรับ กำไร หรือให้ช่วยทำ")}
-                  onChange={event => onDraft(event.target.value)}
-                  onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !mobile) { event.preventDefault(); void send(draft); } }} />
-                <button type="submit" className="asx-send" disabled={busy || !draft.trim()} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
-              </form>
-              <p className="asx-hint">{live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
+              {contents}
             </motion.div>
           )}
+          {!mobile && (open || minimized) && (
+            <FloatingWindow key="float" accountId={accountId} shown={open} mood={poseFor(mode).mood} label={tr("เลขากระรอก · หน้า{0}", pageName)}
+              note={tr("กำลังดูหน้า{0}", pageName)} zones={zones} reduce={Boolean(reduce)} onMinimize={minimize} onClose={close} windowRef={windowRef}>
+              {contents}
+            </FloatingWindow>
+          )}
         </AnimatePresence>, document.body)}
+      {!mobile && minimized && !open && createPortal(
+        <MiniMascot accountId={accountId} mood={faceMood} zones={zones} label={tr("เปิดแชตเลขากระรอกอีกครั้ง")} onRestore={restore} buttonRef={miniRef}
+          bubbleKey={climb ? (climb.said ? 'said' : climb.kind) : undefined}
+          bubble={climb ? <><TypedWords text={climb.said ? climb.words : tr(climb.words)} instant={Boolean(reduce)} quiet={climb.kind === 'working'} />{climb.dots && <span className="asx-climb-dots" aria-hidden="true"><i /><i /><i /></span>}</> : undefined} />,
+        document.body)}
     </>
   );
 }

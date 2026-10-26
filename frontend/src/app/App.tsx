@@ -527,16 +527,6 @@ export default function App() {
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
-  // Only very wide screens leave room for the docked เลขากระรอก panel beside the page (the page keeps 1,000px+, as
-  // its tables need at these widths). Narrower computers get the panel as a side sheet over a dimmed page.
-  const [isWideForPanel, setIsWideForPanel] = useState(() => window.matchMedia('(min-width: 1720px)').matches);
-  useEffect(() => {
-    const query = window.matchMedia('(min-width: 1720px)');
-    const update = () => setIsWideForPanel(query.matches);
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
-
   // เลขากระรอก on computers (owner, 2026-10-23, option ข.): the app's sidebar folds away so only the chat's
   // own history sidebar is on screen, and "กลับ" returns to the page the person came from.
   const chatFocus = activeTab === 'assistant' && isDesktop;
@@ -1352,7 +1342,6 @@ export default function App() {
     });
     return () => controller.abort();
   }, [assistantUserId, financeGroupId]);
-  const [buddyPanelOpen, setBuddyPanelOpen] = useState(false);
   const [birthOpen, setBirthOpen] = useState(false);
   const [buddyArrival, setBuddyArrival] = useState(0);
   // Only right after paying: set when the server confirms the payment, played once its "สมัครสมาชิกสำเร็จ!" message
@@ -3010,7 +2999,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* 📱 / 💻 Main Section: Handles responsive paddings & maximum constraints */}
-      <div className={`asx-panel-host flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-brand-bg ${isPhone ? 'h-[100dvh]' : chatFocus ? 'h-screen pb-3' : 'h-screen pb-6 lg:pb-6'}${showBuddy && buddyPanelOpen && isDesktop && isWideForPanel ? ' asx-has-panel' : ''}${chatFocus ? ' is-chat-focus' : ''}`}>
+      <div className={`asx-panel-host flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-brand-bg ${isPhone ? 'h-[100dvh]' : chatFocus ? 'h-screen pb-3' : 'h-screen pb-6 lg:pb-6'}${chatFocus ? ' is-chat-focus' : ''}`}>
         
         {/* Floating menu + account controls for screens without the sidebar. */}
         {!isDesktop && !isPhone && (
@@ -3457,8 +3446,8 @@ export default function App() {
         )}
         {showBuddy && (
           <Suspense fallback={null}>
-            <AssistantBuddy key={financeOwner} accountId={!financeGroupId ? session.user.id : undefined} workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} mobile={isPhone} docked={isDesktop && !isPhone} push={isDesktop && !isPhone && isWideForPanel} page={activeTab} pageName={t(NAV_ITEMS.find(item => item.key === activeTab)?.labelKey ?? 'nav.dashboard')}
-              userName={routeContext?.profile.displayName || undefined} hidden={birthOpen} arrival={buddyArrival} onPanelChange={setBuddyPanelOpen}
+            <AssistantBuddy key={financeOwner} accountId={!financeGroupId ? session.user.id : undefined} workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} mobile={isPhone} page={activeTab} pageName={t(NAV_ITEMS.find(item => item.key === activeTab)?.labelKey ?? 'nav.dashboard')}
+              userName={routeContext?.profile.displayName || undefined} hidden={birthOpen} arrival={buddyArrival}
               onOpenChat={() => navigateTab('assistant')} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} briefing={briefing} />
           </Suspense>
         )}

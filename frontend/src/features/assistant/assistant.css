@@ -12,13 +12,13 @@
 @font-face { font-family: 'Krarok Chat Thai'; src: local('Thonburi'); unicode-range: U+0E00-0E7F; font-weight: 300 500; }
 @font-face { font-family: 'Krarok Chat Thai'; src: local('Thonburi Bold'), local('Thonburi-Bold'); unicode-range: U+0E00-0E7F; font-weight: 600 900; }
 .asx, .asx-pop, .asx-buddy { font-family: 'Krarok Chat Thai', -apple-system, BlinkMacSystemFont, 'Noto Sans Thai Looped', var(--font-sans); font-synthesis: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-.asx, .asx-pop {
+.asx, .asx-pop, .kfw, .kfw-mini {
   --asx-accent: #E65F2B; --asx-accent-hover: #D35221; --asx-accent-text: #C24A16; --asx-cream: #FFF1E8; --asx-media: #F1EFEC;
   --asx-income: #12804F; --asx-expense: #C43A3A; --asx-amber: #8A5A0B; --asx-amber-bg: #FDF6EC; --asx-red-bg: #FDEEEE;
   /* Chart bars (2026-10-25): checked for colour-blind separation on the light surface; labels and a table go with them. */
   --asx-chart-income: #0F7A4A; --asx-chart-expense: #E58A7F;
 }
-.dark .asx, .dark .asx-pop {
+.dark .asx, .dark .asx-pop, .dark .kfw, .dark .kfw-mini {
   --asx-accent: #F07440; --asx-accent-text: #FFA473; --asx-cream: rgba(255, 164, 115, 0.14); --asx-media: #1B1C20;
   --asx-income: #4ADE80; --asx-expense: #F19A9A; --asx-amber: #F2B76B; --asx-amber-bg: rgba(242, 183, 107, 0.12); --asx-red-bg: rgba(241, 154, 154, 0.12);
   --asx-chart-income: #2EAE64; --asx-chart-expense: #B04A42;
@@ -503,20 +503,14 @@
 .asx-buddy-panel { right: 20px; bottom: 20px; display: flex; flex-direction: column; width: min(392px, calc(100vw - 32px)); max-width: none; height: min(640px, calc(100vh - 40px)); padding: 0; border-radius: 26px; overflow: hidden; transform-origin: bottom right; }
 .asx-buddy-panel.lg-glass { background: color-mix(in srgb, var(--white) 96%, transparent); }
 .dark .asx-buddy-panel.lg-glass { background: rgba(26, 20, 17, 0.96); }
-.asx-buddy-panel.is-docked { top: 12px; right: 12px; bottom: 12px; width: 400px; height: auto; border-radius: 28px; transform-origin: right center; }
 .asx-buddy-panel.is-sheet { left: 0; right: 0; bottom: auto; width: auto; border-radius: 26px 26px 0 0; transform-origin: bottom center; }
 .asx-buddy-scrim { z-index: 299; }
 /* Computers: the page makes room for the docked panel, so nothing sits under it. */
 /* The docked panel: beside the page on very wide screens (the page keeps 1,000px+, enough for tables sized by the
    screen); on other computers a side sheet over the dimmed, blurred page, so no page text peeks out next to it. */
 .asx-panel-host { transition: padding-right 0.34s cubic-bezier(0.22, 1, 0.36, 1); }
-@media (min-width: 1720px) { .asx-panel-host.asx-has-panel { padding-right: 424px; } }
 @media (prefers-reduced-motion: reduce) { .asx-panel-host { transition: none; } }
-.asx-buddy-scrim.is-side { background: rgba(28, 25, 23, 0.12); }
-.dark .asx-buddy-scrim.is-side { background: rgba(0, 0, 0, 0.32); }
-.asx-buddy-panel.is-docked { box-shadow: 0 24px 60px rgba(60, 30, 15, 0.18), 0 2px 8px rgba(60, 30, 15, 0.08); }
-.dark .asx-buddy-panel.is-docked { box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3); }
-@media (prefers-reduced-motion: reduce) { .asx-buddy.is-pill .asx-buddy-btn::after { animation: none; } }
+.dark @media (prefers-reduced-motion: reduce) { .asx-buddy.is-pill .asx-buddy-btn::after { animation: none; } }
 .asx-buddy-grabber { align-self: center; flex: none; width: 40px; height: 5px; margin-top: 8px; border-radius: 3px; background: rgba(118, 118, 128, 0.3); }
 .asx-buddy-head { display: flex; align-items: center; gap: 8px; flex: none; padding: 12px 10px 10px 14px; border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
 .asx-buddy-face { display: grid; place-items: center; flex: none; width: 34px; height: 34px; overflow: hidden; border-radius: 50%; background: var(--asx-cream); }
@@ -1013,20 +1007,143 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 
 /* The panel beside the page: neutral charcoal in dark, a small avatar instead of the glowing hero, and the questions as
    one grouped list with chevrons, as in the full chat. */
-.dark .asx-buddy-panel.lg-glass:not(.is-sheet) { background: rgba(33, 34, 38, 0.97); }
-.asx-buddy-face.is-hero { width: 56px; height: 56px; margin: 6px auto 0; box-shadow: inset 0 0 0 0.5px rgba(60, 40, 28, 0.14); }
-.dark .asx-buddy-face.is-hero { box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1); }
-.asx-buddy-panel:not(.is-sheet) .asx-buddy-hello h3 { font-size: 19px; }
-.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts { display: flex; flex-direction: column; gap: 0; overflow: hidden; border-radius: 14px; background: var(--white); box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 1px 2px rgba(0, 0, 0, 0.04); }
-.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button { position: relative; align-items: center; gap: 12px; min-height: 46px; padding: 10px 12px 10px 14px; border: 0; border-radius: 0; background: transparent; }
-.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button + button::before { content: ""; position: absolute; top: 0; right: 0; left: 42px; height: 0.5px; background: rgba(60, 60, 67, 0.29); }
-.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button > svg { margin-top: 0; }
-.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button > span { flex: 1 1 auto; }
-.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button:hover { border-color: transparent; background: rgba(116, 116, 128, 0.08); }
-.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button:active { transform: none; background: rgba(116, 116, 128, 0.16); }
+.kfw .asx-buddy-hello h3 { font-size: 19px; }
+.kfw .asx-buddy-prompts { display: flex; flex-direction: column; gap: 0; overflow: hidden; border-radius: 14px; background: var(--white); box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 1px 2px rgba(0, 0, 0, 0.04); }
+.kfw .asx-buddy-prompts > button { position: relative; align-items: center; gap: 12px; min-height: 46px; padding: 10px 12px 10px 14px; border: 0; border-radius: 0; background: transparent; }
+.kfw .asx-buddy-prompts > button + button::before { content: ""; position: absolute; top: 0; right: 0; left: 42px; height: 0.5px; background: rgba(60, 60, 67, 0.29); }
+.kfw .asx-buddy-prompts > button > svg { margin-top: 0; }
+.kfw .asx-buddy-prompts > button > span { flex: 1 1 auto; }
+.kfw .asx-buddy-prompts > button:hover { border-color: transparent; background: rgba(116, 116, 128, 0.08); }
+.kfw .asx-buddy-prompts > button:active { transform: none; background: rgba(116, 116, 128, 0.16); }
 .asx-buddy-go { flex: none; color: rgba(60, 60, 67, 0.3); }
-.dark .asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts { background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
-.dark .asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button { background: transparent; }
-.dark .asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button + button::before { background: rgba(84, 84, 88, 0.65); }
-.dark .asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button:hover { background: rgba(255, 255, 255, 0.05); }
+.dark .kfw .asx-buddy-prompts { background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+.dark .kfw .asx-buddy-prompts > button { background: transparent; }
+.dark .kfw .asx-buddy-prompts > button + button::before { background: rgba(84, 84, 88, 0.65); }
+.dark .kfw .asx-buddy-prompts > button:hover { background: rgba(255, 255, 255, 0.05); }
 .dark .asx-buddy-go { color: rgba(235, 235, 245, 0.3); }
+
+/* The floating เลขากระรอก window on computers and iPads (owner's brief "FLOATING TOP MASCOT CHAT UI V2", 2026-10-26):
+   Soft Spatial Glass — milky translucent white over warm ivory with a breath of sage and blush, a hairline edge, a large
+   corner and a diffused shadow. The official squirrel perches on the middle of the top edge, paws on the edge, its name
+   on a dark capsule under it. No glow. Below every dialog (FloatingChat.tsx). */
+.kfw { position: fixed; z-index: 90; overflow: visible; transform-origin: 85% 100%; color: var(--text); font-weight: 400; }
+.kfw.is-folded { pointer-events: none; visibility: hidden; transition: visibility 0s linear 0.22s; }
+.kfw.is-moving, .kfw.is-moving * { -webkit-user-select: none; user-select: none; }
+.kfw-shell { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.86); border-radius: 28px;
+  background: radial-gradient(110% 55% at 0% 0%, rgba(186, 212, 188, 0.18), transparent 62%), radial-gradient(90% 48% at 100% 100%, rgba(246, 198, 184, 0.16), transparent 64%), rgba(255, 252, 247, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 0 0 0.5px rgba(60, 40, 28, 0.08), 0 28px 70px rgba(60, 40, 28, 0.15), 0 6px 18px rgba(60, 40, 28, 0.06);
+  -webkit-backdrop-filter: blur(26px) saturate(160%); backdrop-filter: blur(26px) saturate(160%); }
+.dark .kfw-shell { border-color: rgba(255, 255, 255, 0.08);
+  background: radial-gradient(110% 55% at 0% 0%, rgba(140, 172, 150, 0.08), transparent 62%), radial-gradient(90% 48% at 100% 100%, rgba(232, 146, 126, 0.07), transparent 64%), rgba(31, 32, 36, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.4), 0 28px 70px rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.3); }
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) { .kfw-shell { background-color: #FFFCF7; } .dark .kfw-shell { background-color: #1F2024; } }
+/* The header: a drag area with a grip on the left, the name capsule in the middle and three controls on the right. */
+.kfw-head { position: relative; display: flex; flex: none; align-items: center; height: 52px; padding: 0 10px 0 8px; cursor: grab; touch-action: none; }
+.kfw.is-moving .kfw-head, .kfw.is-moving .kfw-perch { cursor: grabbing; }
+.kfw-grip { display: inline-grid; place-items: center; width: 26px; height: 32px; border-radius: 9px; color: color-mix(in srgb, var(--muted) 65%, transparent); cursor: grab; transition: background-color 0.15s, color 0.15s; }
+.kfw-grip:hover { background: rgba(118, 118, 128, 0.1); color: var(--muted); }
+.kfw-name { position: absolute; top: 7px; left: 50%; padding: 2px 12px; border-radius: 999px; background: #2B2420; color: #FFF8F2; font-size: 12.5px; font-weight: 600; line-height: 1.5; white-space: nowrap; transform: translateX(-50%); box-shadow: 0 2px 6px rgba(43, 36, 32, 0.18); pointer-events: none; }
+.dark .kfw-name { background: #0E0F11; color: #F2F0ED; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 2px 6px rgba(0, 0, 0, 0.4); }
+.kfw-controls { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.kfw-ctrl { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: var(--muted); cursor: pointer; transition: background-color 0.15s, color 0.15s; }
+.kfw-ctrl:hover { background: rgba(118, 118, 128, 0.12); color: var(--text); }
+/* The squirrel above the top edge, always in the middle; dragging it moves the window. Outside the clipped shell. */
+.kfw-perch { position: absolute; bottom: calc(100% - 1px); left: 50%; z-index: 2; width: var(--kfw-perch); height: calc(var(--kfw-perch) * 0.64); transform: translateX(-50%); cursor: grab; touch-action: none; }
+.kfw-perch-art { top: 0; left: 0; }
+/* The conversation inside the glass. */
+.kfw .asx-buddy-body { padding-top: 10px; }
+.kfw .asx-buddy-hello { padding-top: 2px; }
+.kfw .asx-hint { flex: none; margin: 6px 14px 12px; }
+.kfw .asx-buddy-composer { margin: 0 12px; background: color-mix(in srgb, var(--white) 92%, transparent); }
+/* Resize handles on the edges and corners. */
+.kfw-rz { position: absolute; z-index: 3; touch-action: none; }
+.kfw-rz.is-n { top: -3px; right: 22px; left: 22px; height: 8px; cursor: ns-resize; }
+.kfw-rz.is-s { right: 22px; bottom: -3px; left: 22px; height: 8px; cursor: ns-resize; }
+.kfw-rz.is-e { top: 22px; right: -3px; bottom: 22px; width: 8px; cursor: ew-resize; }
+.kfw-rz.is-w { top: 22px; bottom: 22px; left: -3px; width: 8px; cursor: ew-resize; }
+.kfw-rz.is-ne { top: -3px; right: -3px; width: 22px; height: 22px; cursor: nesw-resize; }
+.kfw-rz.is-sw { bottom: -3px; left: -3px; width: 22px; height: 22px; cursor: nesw-resize; }
+.kfw-rz.is-nw { top: -3px; left: -3px; width: 22px; height: 22px; cursor: nwse-resize; }
+.kfw-rz.is-se { right: -3px; bottom: -3px; width: 22px; height: 22px; cursor: nwse-resize; }
+/* Folded: the squirrel alone, draggable, with its words beside it. The pill waits hidden meanwhile. */
+.asx-buddy.is-min { visibility: hidden; }
+.kfw-mini { position: fixed; z-index: 90; }
+.kfw-mini-btn { position: relative; display: block; width: 100%; height: 100%; border-radius: 50%; line-height: 0; cursor: grab; touch-action: none; filter: drop-shadow(0 10px 14px rgba(60, 40, 28, 0.16)); transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1); }
+.dark .kfw-mini-btn { filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.5)); }
+.kfw-mini-btn:hover { transform: translateY(-2px); }
+.kfw-mini.is-moving .kfw-mini-btn { cursor: grabbing; transform: none; }
+.kfw-mini-say { position: absolute; top: 50%; width: max-content; max-width: 260px; padding: 9px 13px; border-radius: 16px; color: var(--text); font-size: 13.5px; font-weight: 400; line-height: 1.55; text-align: left; cursor: pointer; }
+.kfw-mini-say.is-left { right: calc(100% + 10px); transform: translateY(-50%); }
+.kfw-mini-say.is-right { left: calc(100% + 10px); transform: translateY(-50%); }
+.kfw-mini-say.is-above { top: auto; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); }
+/* No side clear of the preview: measured but not shown. */
+.kfw-mini-say.is-none { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { .kfw-mini-btn { transition: none; } }
+
+/* The floating window in the mood of the owner's reference (rondesignlab "superpower", 2026-10-27), in Krarok's CI only:
+   "ไม่ต้องไปตามเขา แค่องค์ประกอบรอบข้าง ... ฟีลมูดนี้". A warm near-white surface with large corners and a deep, soft
+   shadow; light, large type in the CI font (Prompt); one liquid gradient card (CI orange to rust, a fine grain) that
+   greets; questions as rounded pill rows with thin icons; white round controls; ordinary readable figures. The original
+   squirrel stays. Phones keep their own look. */
+.kfw, .kfw-mini, .asx-buddy.is-pill { --kfw-font: 'Prompt', 'IBM Plex Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif; font-family: var(--kfw-font); font-synthesis: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.kfw textarea, .kfw button, .kfw input { font-family: inherit; }
+.kfw-shell { border: 0;
+  background: radial-gradient(90% 34% at 50% 0%, rgba(230, 95, 43, 0.10), transparent 72%), radial-gradient(70% 40% at 100% 100%, rgba(193, 120, 23, 0.07), transparent 70%), linear-gradient(180deg, #FCFBFA, #F6F4F1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 0 0 0.5px rgba(28, 25, 23, 0.07), 0 40px 90px rgba(28, 25, 23, 0.14), 0 8px 24px rgba(28, 25, 23, 0.06);
+  -webkit-backdrop-filter: none; backdrop-filter: none; }
+.dark .kfw-shell { background: radial-gradient(90% 34% at 50% 0%, rgba(230, 95, 43, 0.14), transparent 72%), radial-gradient(70% 40% at 100% 100%, rgba(193, 120, 23, 0.08), transparent 70%), linear-gradient(180deg, #202125, #19191C);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 40px 90px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.3); }
+/* The name capsule in the CI ink; white round controls. */
+.kfw-name { background: #1C1917; color: #FFFFFF; font-weight: 500; letter-spacing: 0.1px; box-shadow: 0 4px 12px rgba(28, 25, 23, 0.18); }
+.dark .kfw-name { background: #F2F0ED; color: #1C1917; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+.kfw-ctrl { width: 30px; height: 30px; background: #FFFFFF; color: #6F6862; box-shadow: 0 1px 2px rgba(28, 25, 23, 0.06), 0 0 0 0.5px rgba(28, 25, 23, 0.06); }
+.kfw-ctrl:hover { background: #FFFFFF; color: #1C1917; box-shadow: 0 4px 10px rgba(28, 25, 23, 0.1), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
+.dark .kfw-ctrl { background: rgba(255, 255, 255, 0.08); color: #C9C3BC; box-shadow: none; }
+.dark .kfw-ctrl:hover { background: rgba(255, 255, 255, 0.14); color: #FFFFFF; }
+/* The greeting: one liquid gradient card in CI orange to rust, with a fine grain. */
+.kfw .asx-buddy-hello { padding-top: 0; text-align: left; }
+.kfw-hero { position: relative; overflow: hidden; margin: 0 2px; padding: 20px 20px 22px; border-radius: 26px; color: #FFFFFF; isolation: isolate;
+  background: radial-gradient(120% 95% at 90% 120%, rgba(166, 63, 27, 0.95), rgba(166, 63, 27, 0) 58%), radial-gradient(90% 85% at 8% -10%, rgba(255, 184, 140, 0.95), rgba(255, 184, 140, 0) 62%), linear-gradient(135deg, #F28C52 0%, #E65F2B 52%, #C24A16 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 16px 34px rgba(166, 63, 27, 0.22), 0 2px 6px rgba(166, 63, 27, 0.12); }
+.kfw-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0.16; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.kfw-hero::before { content: ""; position: absolute; right: -30px; top: -40px; z-index: -1; width: 170px; height: 170px; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0)); }
+.kfw .kfw-hero h3 { margin: 0; color: #FFFFFF; font-size: 25px; font-weight: 300; line-height: 1.45; letter-spacing: -0.2px; }
+.kfw .kfw-hero p { margin-top: 4px; color: rgba(255, 255, 255, 0.9); font-size: 13.5px; font-weight: 300; line-height: 1.6; }
+.dark .kfw-hero { background: radial-gradient(120% 95% at 90% 120%, rgba(110, 38, 14, 0.95), rgba(110, 38, 14, 0) 58%), radial-gradient(90% 85% at 8% -10%, rgba(240, 138, 75, 0.7), rgba(240, 138, 75, 0) 62%), linear-gradient(135deg, #D9672F 0%, #C24A16 55%, #8E3412 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 16px 34px rgba(0, 0, 0, 0.4); }
+/* Questions as rounded pill rows: a thin icon, the words, a round arrow. */
+.kfw .asx-buddy-prompts, .dark .kfw .asx-buddy-prompts { gap: 8px; margin-top: 14px; overflow: visible; border-radius: 0; background: none; box-shadow: none; }
+.kfw .asx-buddy-prompts > button, .dark .kfw .asx-buddy-prompts > button { min-height: 50px; padding: 6px 8px 6px 16px; gap: 12px; border: 0; border-radius: 999px; background: #FFFFFF; font-size: 14.5px; font-weight: 400; line-height: 1.5;
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04), 0 0 0 0.5px rgba(28, 25, 23, 0.05); transition: box-shadow 0.18s, transform 0.18s cubic-bezier(0.22, 1, 0.36, 1); }
+.kfw .asx-buddy-prompts > button + button::before { display: none; }
+.kfw .asx-buddy-prompts > button:hover { transform: translateY(-1px); background: #FFFFFF; box-shadow: 0 8px 20px rgba(28, 25, 23, 0.07), 0 0 0 0.5px rgba(28, 25, 23, 0.06); }
+.kfw .asx-buddy-prompts > button:active { transform: none; }
+.dark .kfw .asx-buddy-prompts > button { background: rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.07); }
+.dark .kfw .asx-buddy-prompts > button:hover { background: rgba(255, 255, 255, 0.1); }
+.kfw .asx-buddy-prompts > button > span.kfw-tile { flex: 0 0 20px; width: 20px; color: #6F6862; }
+.kfw-tile { display: inline-grid; place-items: center; }
+.kfw-tile > svg { margin: 0; color: inherit; stroke-width: 1.6; }
+.dark .kfw .asx-buddy-prompts > button > span.kfw-tile { color: #C9C3BC; }
+.kfw .asx-buddy-go { box-sizing: border-box; width: 30px; height: 30px; padding: 7px; border-radius: 50%; background: #F1EFEC; color: #77706A; }
+.dark .kfw .asx-buddy-go { background: rgba(255, 255, 255, 0.08); color: #C9C3BC; }
+/* The conversation: light type, a warm CI bubble for your own words, white cards. */
+.kfw .asx-thread { font-weight: 400; }
+.kfw .asx-msg.is-me .asx-bubble { border: 0; background: linear-gradient(135deg, #FFEADF, #FFDCCA); color: #1C1917; box-shadow: 0 4px 12px rgba(166, 63, 27, 0.08); }
+.dark .kfw .asx-msg.is-me .asx-bubble { background: linear-gradient(135deg, #C24A16, #A63F1B); color: #FFFFFF; }
+.kfw .asx-rcard { border: 0; border-radius: 22px; background: #FFFFFF; box-shadow: 0 10px 26px rgba(28, 25, 23, 0.07), 0 0 0 0.5px rgba(28, 25, 23, 0.05); }
+.dark .kfw .asx-rcard { background: rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+/* The composer: a white pill; the send button is the one strong orange. */
+.kfw .asx-buddy-composer { min-height: 54px; align-items: center; padding: 6px 7px 6px 18px; border: 0; border-radius: 999px; background: #FFFFFF; box-shadow: 0 10px 24px rgba(28, 25, 23, 0.07), 0 0 0 0.5px rgba(28, 25, 23, 0.06); }
+.kfw .asx-buddy-composer:focus-within { box-shadow: 0 10px 24px rgba(28, 25, 23, 0.07), 0 0 0 1.5px rgba(230, 95, 43, 0.45); }
+.dark .kfw .asx-buddy-composer { background: rgba(255, 255, 255, 0.07); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+.kfw .asx-send { width: 40px; height: 40px; background: linear-gradient(135deg, #F28C52, #E65F2B 55%, #C24A16); box-shadow: 0 6px 14px rgba(230, 95, 43, 0.3); }
+.kfw .asx-send:hover:not(:disabled) { background: linear-gradient(135deg, #E9773E, #D35221 55%, #A63F1B); }
+.kfw .asx-send:disabled { background: #F3C3A6; box-shadow: none; }
+.kfw .asx-hint { font-weight: 300; }
+/* The folded squirrel's words and the pill, in the same warm white. */
+.kfw-mini-say.lg-glass.is-menu { border: 0; background: #FFFFFF; box-shadow: 0 12px 30px rgba(28, 25, 23, 0.12), 0 0 0 0.5px rgba(28, 25, 23, 0.06); }
+.dark .kfw-mini-say.lg-glass.is-menu { background: #26272B; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+.asx-buddy.is-pill .asx-buddy-btn { border: 0; background: #FFFFFF; box-shadow: 0 12px 30px rgba(28, 25, 23, 0.12), 0 0 0 0.5px rgba(28, 25, 23, 0.06); }
+.asx-buddy.is-pill .asx-buddy-btn:hover { background: #FFFFFF; box-shadow: 0 14px 34px rgba(28, 25, 23, 0.15), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
+.dark .asx-buddy.is-pill .asx-buddy-btn { background: #26272B; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+.asx-buddy.is-pill .asx-buddy-label { font-weight: 500; }

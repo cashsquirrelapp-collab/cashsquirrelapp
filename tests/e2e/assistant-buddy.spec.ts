@@ -12,7 +12,7 @@ const user = { id: '11111111-1111-4111-8111-111111111111', email: 'assistant@exa
 const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance' }, statuses: [], job_types: [], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null };
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 
-async function open(page: Page, width: number, height: number, options: { role?: 'admin' | 'user'; dark?: boolean; path?: string; free?: boolean; billing?: unknown } = {}) {
+async function open(page: Page, width: number, height: number, options: { role?: 'admin' | 'user'; dark?: boolean; path?: string; free?: boolean; billing?: unknown; snapshot?: Record<string, unknown>; versions?: Record<string, unknown> } = {}) {
   const calls: string[] = [];
   await page.addInitScript(isDark => {
     localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', String(isDark));
@@ -28,7 +28,7 @@ async function open(page: Page, width: number, height: number, options: { role?:
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'ผู้ใช้ตัวอย่าง' } }));
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: options.role ?? 'admin', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
-  await page.route('**/api/data*', route => route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot, versions, subscription: options.free ? null : { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } }));
+  await page.route('**/api/data*', route => route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot: { ...snapshot, ...options.snapshot }, versions: { ...versions, ...options.versions }, subscription: options.free ? null : { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } }));
   if (options.billing) await page.route('**/api/billing', route => route.fulfill({ json: options.billing }));
   await page.setViewportSize({ width, height });
   await page.goto(options.path ?? '/assistant');
@@ -64,15 +64,16 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
   await expect(chat.getByText('เปิดหน้าที่เกี่ยวข้อง')).toHaveCount(0);
   await expect(chat.getByRole('combobox')).toHaveCount(0);
   await expect(chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button')).toHaveText(['ช่วยเพิ่มงานใหม่ให้หน่อย', 'ตรวจงานที่ยังไม่ได้รับเงิน', 'หน้านี้ใช้ทำอะไร', 'สรุปเดือนนี้', 'รอรับเงิน', 'กำลังดำเนินการ']);
-  // Ordinary computers: the panel docks at the right as a side sheet over a dimmed, blurred page, which keeps its own
-  // width (a narrower page broke tables that size themselves by the screen; a clear page left text peeking out).
+  // Computers and iPads (owner's brief "FLOATING TOP MASCOT CHAT UI V2", 2026-10-26): a floating window over the page,
+  // which keeps its width and is not dimmed; the window stays inside the screen.
   const panelBox = (await chat.boundingBox())!;
-  expect(Math.round(1280 - (panelBox.x + panelBox.width))).toBeLessThanOrEqual(14);
-  expect(Math.round(panelBox.height)).toBeGreaterThan(780);
-  await expect(chat).toHaveAttribute('aria-modal', 'true');
-  await expect(page.locator('.asx-buddy-scrim.is-side')).toBeVisible();
+  expect(panelBox.x).toBeGreaterThanOrEqual(12); expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(1280 - 12);
+  expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(820 - 12);
+  await expect(chat).toHaveAttribute('aria-modal', 'false');
+  await expect(page.locator('.asx-buddy-scrim')).toHaveCount(0);
   expect(Math.round((await page.locator('#main-content').boundingBox())!.width)).toBe(mainWidth);
-  expect(await chat.evaluate(el => parseFloat(getComputedStyle(el).backgroundColor.match(/[\d.]+(?=\)$)/)?.[0] ?? '1'))).toBeGreaterThan(0.9);
+  // A solid warm surface (owner's reference mood, 2026-10-27): the page behind never reads through the words.
+  expect(await chat.locator('.kfw-shell').evaluate(el => { const s = getComputedStyle(el); return s.backgroundImage.includes('rgb(252, 251, 250)') && s.backdropFilter === 'none'; })).toBe(true);
   await expect(chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' })).toBeFocused();
   expect(await textOverlapIssues(page)).toEqual([]);
   // It prepares an action to confirm, like a coworker; confirming changes nothing (sample).
@@ -92,13 +93,14 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
   await page.keyboard.press('Escape');
   await expect(chat).toHaveCount(0);
   await expect(button).toBeFocused();
-  // On another page it knows that page; "เปิดแชตเต็ม" opens the chat, where it steps aside.
+  // On another page it knows that page; the full chat (from the sidebar) has the squirrel step aside.
   await page.locator('aside.app-sidebar').getByRole('button', { name: 'ภาพรวม' }).click();
   await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้าภาพรวม' }).click();
   await expect(panel(page)).toContainText('กำลังดูหน้าภาพรวม');
-  await panel(page).getByRole('button', { name: 'เปิดแชตเต็ม' }).click();
+  await page.locator('aside.app-sidebar').getByRole('button', { name: 'เลขากระรอก', exact: true }).click();
   await expect(page).toHaveURL(/\/assistant/);
   await expect(buddy(page)).toHaveCount(0);
+  await expect(page.locator('.kfw')).toHaveCount(0);
   expect(calls.filter(call => /openai|anthropic|gemini|line\.me|\/api\/(ai|assistant|chat)/i.test(call))).toEqual([]);
 });
 
@@ -188,23 +190,231 @@ test('computers: a status card above the plain glass pill says what is happening
   await expect(say(page)).toHaveCount(0);
 });
 
-test('computers: the panel greets with a small avatar and lists its questions with chevrons', async ({ page }) => {
-  await open(page, 1280, 820, { path: '/dashboard' });
-  await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้าภาพรวม' }).click();
-  const chat = panel(page);
-  const hero = chat.locator('.asx-buddy-face.is-hero');
-  await expect(hero.locator('.mpg-headset')).toHaveCount(1);
-  await expect(hero.locator('.mpg-back, .mpg-spark')).toHaveCount(0);
-  await expect(chat.locator('.asx-buddy-hero')).toHaveCount(0);
-  const rows = chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button');
-  await expect(rows.first().locator('.asx-buddy-go')).toHaveCount(1);
-  // Measured together once the panel has slid in, so its motion cannot shift one row against the other.
-  await expect.poll(() => chat.evaluate(el => getComputedStyle(el).transform)).toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
-  const [a, b] = await rows.evaluateAll(list => list.slice(0, 2).map(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, height: r.height }; }));
-  expect(Math.round(a.x)).toBe(Math.round(b.x));
-  expect(b.y).toBeGreaterThan(a.y + a.height - 1);
+// Owner's brief "FLOATING TOP MASCOT CHAT UI V2" (2026-10-26): the official squirrel perches on the middle of the
+// window's top edge, paws on the edge, its name on a dark capsule under it; the header has only minimise, maximise and
+// close; the window moves, resizes and remembers; minimising folds it into the squirrel; it keeps clear of documents.
+const win = (page: Page) => page.locator('.kfw');
+const rectOf = (page: Page, selector: string) => page.locator(selector).first().evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+const overlaps = (a: { x: number; y: number; w: number; h: number }, b: typeof a) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+/** Waits out the window's short open animation, so measurements are of where it really is. */
+const settle = (page: Page) => expect.poll(() => win(page).evaluate(el => getComputedStyle(el).transform)).toBe('none');
+async function openWindow(page: Page, path = '/jobs', width = 1280, height = 820, dark = false) {
+  await open(page, width, height, { path, dark });
+  await page.locator('.asx-buddy-btn').click();
+  await expect(win(page)).toBeVisible();
+  await settle(page);
+}
+
+for (const dark of [false, true]) {
+  test(`computers${dark ? ', dark' : ''}: the squirrel perches on the middle of the window's top edge, its name under it, never clipped`, async ({ page }) => {
+    await openWindow(page, '/dashboard', 1280, 820, dark);
+    const w = await rectOf(page, '.kfw');
+    const perch = await rectOf(page, '.kfw-perch');
+    const name = await rectOf(page, '.kfw-name');
+    // In the middle, rising above the edge, its paws on the edge (to the pixel), fully on screen.
+    expect(Math.abs(perch.x + perch.w / 2 - (w.x + w.w / 2))).toBeLessThanOrEqual(1);
+    expect(perch.y).toBeLessThan(w.y - 40);
+    expect(Math.abs(perch.y + perch.h - (w.y + 1))).toBeLessThanOrEqual(1.5);
+    expect(perch.y).toBeGreaterThanOrEqual(0);
+    // Outside the clipped glass, so nothing cuts it off; the official drawing with the headset only, no glow.
+    expect(await page.locator('.kfw-perch').evaluate(el => el.closest('.kfw-shell') === null && getComputedStyle(el.closest('.kfw')!).overflow === 'visible')).toBe(true);
+    await expect(page.locator('.kfw-perch .mpg-headset')).toHaveCount(1);
+    await expect(page.locator('.kfw-perch .mpg-back, .kfw-perch .mpg-spark')).toHaveCount(0);
+    expect(await page.locator('.kfw-perch').evaluate(el => getComputedStyle(el).filter)).toBe('none');
+    // The dark capsule under it, centred, inside the window.
+    await expect(page.locator('.kfw-name')).toHaveText('เลขากระรอก');
+    expect(Math.abs(name.x + name.w / 2 - (w.x + w.w / 2))).toBeLessThanOrEqual(1);
+    expect(name.y).toBeGreaterThanOrEqual(w.y);
+    // Only minimise, maximise and close, in the top right, clear of the squirrel and its name.
+    const controls = win(page).locator('.kfw-controls button');
+    await expect(controls).toHaveCount(3);
+    expect(await controls.evaluateAll(list => list.map(el => el.getAttribute('aria-label')))).toEqual(['ย่อหน้าต่าง', 'ขยายหน้าต่าง', 'ปิด']);
+    const ctrl = await rectOf(page, '.kfw-controls');
+    expect(overlaps(ctrl, perch) || overlaps(ctrl, name)).toBe(false);
+    expect(ctrl.x + ctrl.w).toBeGreaterThan(w.x + w.w - 24);
+    // The CI typeface throughout the window, and the greeting on one liquid gradient card in the CI orange.
+    expect(await win(page).evaluate(el => getComputedStyle(el).fontFamily)).toMatch(/^"?Prompt/);
+    await expect(win(page).locator('.kfw-hero h3')).toHaveText('สวัสดีครับ คุณผู้ใช้ตัวอย่าง');
+    expect(await win(page).locator('.kfw-hero').evaluate(el => getComputedStyle(el).backgroundImage)).toMatch(/rgb\(230, 95, 43\)|rgb\(194, 74, 22\)/); // #E65F2B, or #C24A16 in dark
+    // The name is said once (the capsule); no voice button was added.
+    await expect(win(page).getByText('เลขากระรอก', { exact: true })).toHaveCount(1);
+    await expect(win(page).getByRole('button', { name: /ไมค์|พูด|เสียง/ })).toHaveCount(0);
+    // The questions as one grouped list with chevrons.
+    const rows = win(page).getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button');
+    await expect(rows.first().locator('.asx-buddy-go')).toHaveCount(1);
+    const [a, b] = await rows.evaluateAll(list => list.slice(0, 2).map(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, h: r.height }; }));
+    expect(Math.round(a.x)).toBe(Math.round(b.x));
+    expect(b.y).toBeGreaterThan(a.y + a.h - 1);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await snap(page, `float-perch${dark ? '-dark' : ''}.png`);
+  });
+}
+
+test('computers: the window moves and resizes inside the screen, remembers its place, and the squirrel stays in the middle', async ({ page }) => {
+  await openWindow(page);
+  const start = await rectOf(page, '.kfw');
+  const head = await rectOf(page, '.kfw-head');
+  // Drag by the header's empty part.
+  await page.mouse.move(head.x + 70, head.y + 26); await page.mouse.down();
+  await page.mouse.move(head.x - 330, head.y - 80, { steps: 10 }); await page.mouse.up();
+  const moved = await rectOf(page, '.kfw');
+  const room = 12 + Math.round(Math.min(136, Math.max(96, start.w * 0.34)) * 0.64); // the squirrel's room above the window
+  expect(Math.round(moved.x)).toBe(Math.round(start.x - 400)); expect(Math.round(moved.y)).toBe(Math.max(Math.round(start.y - 106), room));
+  let perch = await rectOf(page, '.kfw-perch');
+  expect(Math.abs(perch.x + perch.w / 2 - (moved.x + moved.w / 2))).toBeLessThanOrEqual(1);
+  // Dragging the squirrel moves the window too, and a drag never presses a button.
+  await page.mouse.move(perch.x + perch.w / 2, perch.y + 20); await page.mouse.down();
+  await page.mouse.move(perch.x + perch.w / 2 + 60, perch.y + 50, { steps: 6 }); await page.mouse.up();
+  const byPerch = await rectOf(page, '.kfw');
+  expect(Math.round(byPerch.x - moved.x)).toBe(60); expect(Math.round(byPerch.y - moved.y)).toBe(30);
+  await expect(win(page)).toBeVisible();
+  // Resize from the bottom-right corner and from the left edge.
+  const se = await rectOf(page, '.kfw-rz.is-se');
+  await page.mouse.move(se.x + se.w / 2, se.y + se.h / 2); await page.mouse.down(); await page.mouse.move(se.x + se.w / 2 + 80, se.y + se.h / 2 + 40, { steps: 6 }); await page.mouse.up();
+  const grown = await rectOf(page, '.kfw');
+  expect(Math.round(grown.w - byPerch.w)).toBe(80); expect(Math.round(grown.h - byPerch.h)).toBe(40);
+  const west = await rectOf(page, '.kfw-rz.is-w');
+  await page.mouse.move(west.x + 3, west.y + 40); await page.mouse.down(); await page.mouse.move(west.x + 400, west.y + 40, { steps: 6 }); await page.mouse.up();
+  const narrow = await rectOf(page, '.kfw');
+  expect(Math.round(narrow.w)).toBe(320); // never narrower than the chat reads well in
+  expect(Math.round(narrow.x + narrow.w)).toBe(Math.round(grown.x + grown.w)); // the right edge stayed put
+  perch = await rectOf(page, '.kfw-perch');
+  expect(Math.abs(perch.x + perch.w / 2 - (narrow.x + narrow.w / 2))).toBeLessThanOrEqual(1);
+  // Never off the screen, the squirrel included.
+  const head2 = await rectOf(page, '.kfw-head');
+  await page.mouse.move(head2.x + 40, head2.y + 26); await page.mouse.down(); await page.mouse.move(-500, -500, { steps: 8 }); await page.mouse.up();
+  const corner = await rectOf(page, '.kfw');
+  perch = await rectOf(page, '.kfw-perch');
+  expect(corner.x).toBeGreaterThanOrEqual(12); expect(perch.y).toBeGreaterThanOrEqual(12);
+  // The composer stays whole and reachable at the smallest size.
+  const composer = await rectOf(page, '.kfw .asx-buddy-composer');
+  expect(composer.y + composer.h).toBeLessThanOrEqual(corner.y + corner.h);
+  // Remembered after a reload.
+  await page.reload();
+  await page.locator('.asx-buddy-btn').click();
+  await expect(win(page)).toBeVisible();
+  await settle(page);
+  const again = await rectOf(page, '.kfw');
+  expect([Math.round(again.x), Math.round(again.y), Math.round(again.w)]).toEqual([Math.round(corner.x), Math.round(corner.y), Math.round(corner.w)]);
+  // The keyboard moves it too (arrows on the grip), and a double-click on the header puts it back where it started.
+  await win(page).getByRole('button', { name: /^ย้ายหน้าต่าง/ }).focus();
+  await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowDown');
+  const keyed = await rectOf(page, '.kfw');
+  expect(Math.round(keyed.x - again.x)).toBe(32); expect(Math.round(keyed.y - again.y)).toBe(16);
+  const head3 = await rectOf(page, '.kfw-head');
+  await page.mouse.dblclick(head3.x + 60, head3.y + 26);
+  const reset = await rectOf(page, '.kfw');
+  expect([Math.round(reset.x), Math.round(reset.y), Math.round(reset.w), Math.round(reset.h)]).toEqual([Math.round(start.x), Math.round(start.y), Math.round(start.w), Math.round(start.h)]);
+});
+
+test('computers: minimise folds the chat into the squirrel, which keeps the conversation and its work and opens it again', async ({ page }) => {
+  await openWindow(page);
+  await win(page).getByRole('button', { name: 'ช่วยเพิ่มงานใหม่ให้หน่อย' }).click();
+  const card = win(page).locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' });
+  await expect(card).toBeVisible({ timeout: 10000 });
+  await win(page).getByRole('button', { name: 'ย่อหน้าต่าง' }).click();
+  await expect(win(page)).toBeHidden();
+  await expect(page.locator('.asx-buddy-btn')).toBeHidden();
+  const mini = page.getByRole('button', { name: 'เปิดแชตเลขากระรอกอีกครั้ง' });
+  await expect(mini).toBeVisible(); await expect(mini).toBeFocused();
+  // Its words come from what really happened: the draft waits for a yes.
+  const say = page.locator('.kfw-mini-say');
+  await expect(say).toContainText('นี่คือรายละเอียดที่จะบันทึกครับ', { timeout: 6000 });
+  await expect(say).toHaveAttribute('role', 'status');
+  const m = await rectOf(page, '.kfw-mini');
+  const words = await rectOf(page, '.kfw-mini-say');
+  expect(overlaps(m, words)).toBe(false);
+  expect(m.x + m.w).toBeLessThanOrEqual(1280 - 12); expect(m.y + m.h).toBeLessThanOrEqual(820 - 12);
   expect(await textOverlapIssues(page)).toEqual([]);
-  await snap(page, 'buddy-panel-formal.png');
+  await snap(page, 'float-folded.png');
+  // It can be dragged; a drag is not a tap.
+  await page.mouse.move(m.x + m.w / 2, m.y + m.h / 2); await page.mouse.down(); await page.mouse.move(m.x + m.w / 2 - 300, m.y + m.h / 2 - 200, { steps: 8 }); await page.mouse.up();
+  await expect(win(page)).toBeHidden();
+  const dragged = await rectOf(page, '.kfw-mini');
+  expect([Math.round(m.x - dragged.x), Math.round(m.y - dragged.y)]).toEqual([300, 200]);
+  // A tap opens the window again with everything as it was.
+  await mini.click();
+  await expect(win(page)).toBeVisible();
+  await settle(page);
+  await expect(card).toBeVisible();
+  await expect(card.getByRole('button', { name: 'ยืนยัน' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'เปิดแชตเลขากระรอกอีกครั้ง' })).toHaveCount(0);
+  // Maximise and back.
+  const before = await rectOf(page, '.kfw');
+  await win(page).getByRole('button', { name: 'ขยายหน้าต่าง' }).click();
+  const big = await rectOf(page, '.kfw');
+  expect(big.w).toBeGreaterThan(before.w + 300);
+  const perch = await rectOf(page, '.kfw-perch');
+  expect(perch.y).toBeGreaterThanOrEqual(12);
+  await win(page).getByRole('button', { name: 'คืนขนาด' }).click();
+  const back = await rectOf(page, '.kfw');
+  expect([Math.round(back.x), Math.round(back.y), Math.round(back.w), Math.round(back.h)]).toEqual([Math.round(before.x), Math.round(before.y), Math.round(before.w), Math.round(before.h)]);
+  // Close returns to the pill; Escape closes only from inside the window.
+  await page.locator('#main-content').click({ position: { x: 40, y: 400 } });
+  await page.keyboard.press('Escape');
+  await expect(win(page)).toBeVisible();
+  await win(page).getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).focus();
+  await page.keyboard.press('Escape');
+  await expect(win(page)).toHaveCount(0);
+  await expect(page.locator('.asx-buddy-btn')).toBeFocused();
+});
+
+test('computers: the chat keeps clear of a document preview, folds when there is no room, and goes back when it closes', async ({ page }) => {
+  await openWindow(page, '/jobs', 1365, 860);
+  const home = await rectOf(page, '.kfw');
+  const footprint = async () => { const w = await rectOf(page, '.kfw'); const p = await rectOf(page, '.kfw-perch'); return { x: w.x, y: p.y, w: w.w, h: w.y + w.h - p.y }; };
+  const preview = (box: { left: number; top: number; width: number; height: number }) => page.evaluate(b => {
+    const el = document.createElement('div');
+    el.id = 'fake-preview'; el.dataset.krarokAvoid = 'document';
+    Object.assign(el.style, { position: 'fixed', left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, background: 'rgba(0,0,0,0.05)' });
+    document.body.appendChild(el);
+  }, box);
+  const close = () => page.evaluate(() => document.getElementById('fake-preview')?.remove());
+  // A preview on the right half: the window moves to the left of it, its squirrel included.
+  await preview({ left: 700, top: 0, width: 665, height: 860 });
+  await expect.poll(async () => (await footprint()).x + (await footprint()).w <= 700 - 12).toBe(true);
+  const zone = await rectOf(page, '#fake-preview');
+  expect(overlaps(await footprint(), zone)).toBe(false);
+  await snap(page, 'float-avoid.png');
+  // Closed: back where it was.
+  await close();
+  await expect.poll(async () => Math.round((await rectOf(page, '.kfw')).x)).toBe(Math.round(home.x));
+  // A preview that leaves no room: the chat folds into the squirrel, which sits clear of it, and opens again afterwards.
+  await preview({ left: 60, top: 60, width: 1150, height: 740 });
+  await expect(win(page)).toBeHidden({ timeout: 3000 });
+  const mini = await rectOf(page, '.kfw-mini');
+  expect(overlaps(mini, await rectOf(page, '#fake-preview'))).toBe(false);
+  await close();
+  await expect(win(page)).toBeVisible({ timeout: 3000 });
+  await settle(page);
+  expect(Math.round((await rectOf(page, '.kfw')).x)).toBe(Math.round(home.x));
+  // Moved by the user during a preview: it stays where they put it, during the preview and after it.
+  await preview({ left: 700, top: 0, width: 665, height: 860 });
+  await expect.poll(async () => (await footprint()).x + (await footprint()).w <= 700 - 12).toBe(true);
+  const head = await rectOf(page, '.kfw-head');
+  await page.mouse.move(head.x + 60, head.y + 26); await page.mouse.down(); await page.mouse.move(head.x + 160, head.y + 26, { steps: 5 }); await page.mouse.up();
+  const placed = await rectOf(page, '.kfw');
+  await page.waitForTimeout(700);
+  expect(Math.round((await rectOf(page, '.kfw')).x)).toBe(Math.round(placed.x));
+  await close(); await page.waitForTimeout(700);
+  expect(Math.round((await rectOf(page, '.kfw')).x)).toBe(Math.round(placed.x));
+});
+
+test('computers: on the real documents page the chat opens clear of the document and its buttons', async ({ page }) => {
+  const profile = { name: 'สตูดิโอกระรอกน้อย', address: 'กรุงเทพฯ', phone: '', email: 'a@example.com', taxId: '', bankName: '', bankAccount: '', bankAccountName: '' };
+  const quote = { id: 'qt-1', documentType: 'quotation', documentNo: 'QT-2569-001', createdDate: '2026-10-20', issuer: profile, client: { name: 'บริษัท ตัวอย่าง จำกัด', address: '', phone: '', email: '', taxId: '' }, items: [{ id: 'i1', description: 'ตัดต่อวิดีโอ', quantity: 1, price: 15000 }], vatRate: 0, whtRate: 0 };
+  await open(page, 1440, 900, { path: '/dashboard', snapshot: { invoices: [quote], issuer_profile: profile }, versions: { cashflow_invoices: { 'qt-1': 1 } } });
+  await page.locator('aside.app-sidebar').getByRole('button', { name: 'เอกสาร', exact: true }).click();
+  await page.getByText('QT-2569-001').first().click();
+  const pane = page.locator('[data-krarok-avoid="document"]').first();
+  await expect(pane).toBeVisible();
+  await page.locator('.asx-buddy-btn').click();
+  await expect(win(page)).toBeVisible();
+  await expect.poll(async () => { const w = await rectOf(page, '.kfw'); const p = await rectOf(page, '.kfw-perch'); const d = await pane.evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }); return overlaps({ x: w.x, y: p.y, w: w.w, h: w.y + w.h - p.y }, d); }).toBe(false);
+  await expect(page.getByRole('button', { name: 'ดาวน์โหลด PDF' })).toBeVisible();
+  const paper = new Set(await page.locator('[data-testid="document-preview"]').first().evaluate(el => [...el.querySelectorAll('*')].map(n => (n.textContent || '').trim().slice(0, 40)).filter(Boolean)));
+  expect((await textOverlapIssues(page)).filter(issue => !(paper.has(issue.a) && (!issue.b || paper.has(issue.b))))).toEqual([]);
+  await snap(page, 'float-documents.png');
 });
 
 test('dark mode and reduced motion: the status card and its words', async ({ page }) => {
@@ -239,16 +449,15 @@ test('phones keep their round squirrel: no status card above it', async ({ page 
   await expect(page.locator('.mascot-climb')).toHaveCount(0);
 });
 
-test('very wide screens: the page makes room beside the docked panel and stays wide enough for its tables', async ({ page }) => {
+test('very wide screens: the window floats over the page, which keeps its full width', async ({ page }) => {
   await open(page, 1800, 900, { path: '/jobs' });
+  const before = (await page.locator('#main-content').boundingBox())!.width;
   await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' }).click();
   const chat = panel(page);
   await expect(chat).toBeVisible();
   await expect(chat).toHaveAttribute('aria-modal', 'false');
   await expect(page.locator('.asx-buddy-scrim')).toHaveCount(0);
-  const panelBox = (await chat.boundingBox())!;
-  await expect.poll(async () => { const box = (await page.locator('#main-content').boundingBox())!; return box.x + box.width <= panelBox.x + 1; }).toBe(true);
-  expect((await page.locator('#main-content').boundingBox())!.width).toBeGreaterThanOrEqual(1000);
+  expect((await page.locator('#main-content').boundingBox())!.width).toBe(before);
   expect(await textOverlapIssues(page)).toEqual([]);
 });
 

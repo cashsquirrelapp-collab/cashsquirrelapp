@@ -936,7 +936,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             )}
           </section>
 
-          <section className="min-w-0" aria-label={tr("ตัวอย่างเอกสาร")}>
+          <section className="min-w-0" aria-label={tr("ตัวอย่างเอกสาร")} data-krarok-avoid="document">
             {selectedInvoice && shownInvoice ? (
               <div className="flex min-w-0 flex-col gap-4 lg:h-[calc(100vh-232px)] lg:min-h-[560px]">
                 {/* The document is the hero: a title, a few actions, then the paper itself */}
@@ -1265,8 +1265,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             </dl>
           </section>
 
-          {/* Actions stay in reach while scrolling a long form */}
-          <div className="sticky bottom-3 z-10 mx-3 mb-3 flex flex-nowrap items-center gap-1 rounded-xl border border-brand-border bg-brand-white/95 px-3 py-2.5 shadow-[0_8px_28px_rgba(20,18,16,0.12)] backdrop-blur sm:mx-4 sm:mb-4 dark:bg-[#232428]/95 dark:shadow-[0_8px_28px_rgba(0,0,0,0.4)]">
+          {/* Actions stay in reach while scrolling a long form; the floating เลขากระรอก keeps clear of them (data-krarok-avoid) */}
+          <div data-krarok-avoid="actions" className="sticky bottom-3 z-10 mx-3 mb-3 flex flex-nowrap items-center gap-1 rounded-xl border border-brand-border bg-brand-white/95 px-3 py-2.5 shadow-[0_8px_28px_rgba(20,18,16,0.12)] backdrop-blur sm:mx-4 sm:mb-4 dark:bg-[#232428]/95 dark:shadow-[0_8px_28px_rgba(0,0,0,0.4)]">
             <button type="button" onClick={() => setActiveSubTab('list')} className="hidden h-11 rounded-xl px-4 text-[13px] font-medium sm:inline-flex sm:items-center text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer">{tr("ยกเลิก")}</button>
             <button type="button" onClick={() => setMobilePreviewOpen(true)} className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer xl:hidden"><Eye className="h-4 w-4" />{tr("ดูตัวอย่าง")}</button>
             <button type="button" onClick={handleClearForm} title={tr("ล้างข้อมูลทั้งหมด")} aria-label={tr("ล้างข้อมูล")} className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-[13px] font-medium text-brand-muted transition-colors hover:bg-brand-faint hover:text-brand-text cursor-pointer sm:px-4"><RotateCcw className="h-4 w-4 sm:hidden" /><span className="hidden sm:inline">{tr("ล้างข้อมูล")}</span></button>
@@ -1279,7 +1279,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         </form>
 
         {/* Live preview: beside the form on wide screens, a full-screen sheet on phones */}
-        <aside className="hidden xl:sticky xl:top-4 xl:block xl:h-[calc(100vh-2rem)]" aria-label={tr("ตัวอย่างเอกสาร")}>
+        <aside className="hidden xl:sticky xl:top-4 xl:block xl:h-[calc(100vh-2rem)]" aria-label={tr("ตัวอย่างเอกสาร")} data-krarok-avoid="document">
           <PreviewCanvas invoice={withCurrentBranding(buildDraftInvoice())} watermark={freePlan} className="h-full" />
         </aside>
         </div>
