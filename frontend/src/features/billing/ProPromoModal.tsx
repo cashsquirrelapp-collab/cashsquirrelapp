@@ -3,8 +3,8 @@ import { motion } from 'motion/react';
 import { X, FileText, MessageCircle, CreditCard, ArrowRight } from 'lucide-react';
 import { IconCrown } from '../../components/ui/icons';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { PRO_CHECKOUT_OPEN, PRO_REGULAR_MONTHLY, formatBaht, proMonthPromoRunning, proPriceParts } from '../../../../shared/proPricing';
-import { MonthPromoNotice } from './promoNotice';
+import { PRO_CHECKOUT_OPEN, PRO_REGULAR_MONTHLY, formatBaht, proPriceParts } from '../../../../shared/proPricing';
+import { MonthPromoNotice, useMonthPromoRunning } from './promoNotice';
 
 interface ProPromoModalProps {
   /** Kept for the caller; the dialog shows the one monthly price from shared/proPricing.ts. */
@@ -22,6 +22,7 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ manageSubscription
   // The monthly price from shared/proPricing.ts. Until checkout charges it, the button opens the plans
   // page rather than a checkout at another amount; managing an existing subscription charges nothing.
   const { t } = useLanguage();
+  const promoRunning = useMonthPromoRunning();
 
   const FEATURES = [
     {
@@ -51,7 +52,7 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ manageSubscription
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
-        className="relative bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 rounded-3xl max-w-md w-full shadow-xl overflow-hidden"
+        className="relative bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 rounded-3xl max-w-md w-full shadow-xl max-h-[calc(100dvh-2rem)] overflow-y-auto"
       >
         <button
           type="button"
@@ -70,7 +71,7 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ manageSubscription
               {t('login.brandName')} Pro <IconCrown className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473]" />
             </h3>
             <p className="inline-flex items-baseline gap-1 bg-[#E65F2B]/10 rounded-2xl px-3.5 py-1.5 mt-2.5">
-              {proMonthPromoRunning() && <s className="mr-1 text-sm font-semibold font-mono text-brand-muted"><span className="sr-only">{t('plans.regularPrice')} </span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>}
+              {promoRunning && <s className="mr-1 text-sm font-semibold font-mono text-brand-muted"><span className="sr-only">{t('plans.regularPrice')} </span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>}
               <span className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473]">{formatBaht(proPriceParts('month').price)}</span>
               <span className="text-xs text-brand-muted font-sans font-bold">{t('promo.perMonth')}</span>
             </p>

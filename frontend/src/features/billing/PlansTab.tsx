@@ -9,7 +9,7 @@ import { dateLocale } from '../../utils';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { PRO_CHECKOUT_OPEN, PRO_PERIODS_ON_SALE, formatBaht, proPriceDetails, type ProPeriod } from '../../../../shared/proPricing';
 import { proTokensOnSale } from '../../../../shared/proTokens';
-import { MonthPromoNotice } from './promoNotice';
+import { MonthPromoNotice, useMonthPromoRunning } from './promoNotice';
 
 import { tr } from '../../i18n/tr';
 // The membership page (owner's briefs, 2026-10-20): Pro only, one card, three billing periods at the
@@ -78,6 +78,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
 }) => {
   const { t } = useLanguage();
   const reduceMotion = useReducedMotion();
+  const promoRunning = useMonthPromoRunning();
   const [period, setPeriod] = React.useState<BillingPeriod>('month');
   const periodButtons = React.useRef<Record<BillingPeriod, HTMLButtonElement | null>>({ month: null, halfYear: null, year: null });
   // Arrow keys move between the three periods, as in any radio group.
@@ -146,7 +147,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
             : <><span className="plan-promo">{t('plans.averagePerMonthShort', { price: formatBaht(price.average, 2) })}</span><span aria-hidden="true"> · </span>{t('plans.savingText', { amount: formatBaht(price.saving), pct: String(price.savingPct) })}</>}
         </p>}
         <p className="plan-sub plan-fee" data-testid="plan-fee">{t('plans.feeAdded', { fee: formatBaht(price.fee) })}{' '}<span aria-hidden="true">·</span>{' '}<span className="plan-fee-total">{t('plans.payTotal', { total: formatBaht(price.total) })}</span></p>
-        {option === 'month' && <MonthPromoNotice className="plan-sub plan-ends" testId="plan-promo-ends" />}
+        {option === 'month' && promoRunning && <MonthPromoNotice className="plan-sub plan-ends" testId="plan-promo-ends" />}
       </div>
     );
   };
