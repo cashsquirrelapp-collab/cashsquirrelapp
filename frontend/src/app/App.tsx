@@ -3010,7 +3010,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* 📱 / 💻 Main Section: Handles responsive paddings & maximum constraints */}
-      <div className={`asx-panel-host flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-brand-bg ${isPhone ? 'h-[100dvh]' : chatFocus ? 'h-screen pb-3' : 'h-screen pb-6 lg:pb-6'}${showBuddy && buddyPanelOpen && isDesktop && isWideForPanel ? ' asx-has-panel' : ''}`}>
+      <div className={`asx-panel-host flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-brand-bg ${isPhone ? 'h-[100dvh]' : chatFocus ? 'h-screen pb-3' : 'h-screen pb-6 lg:pb-6'}${showBuddy && buddyPanelOpen && isDesktop && isWideForPanel ? ' asx-has-panel' : ''}${chatFocus ? ' is-chat-focus' : ''}`}>
         
         {/* Floating menu + account controls for screens without the sidebar. */}
         {!isDesktop && !isPhone && (

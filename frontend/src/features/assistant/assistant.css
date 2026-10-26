@@ -448,6 +448,8 @@
    colour under it fades out whatever scrolls past (nothing peeks from under it), and the pages leave room for
    it at the bottom. On computers its panel docks at the right and the page makes room for it. */
 .asx-buddy { position: fixed; right: 22px; bottom: 22px; z-index: 45; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+/* Computers and iPads with the sidebar: the page is a card with a 12px margin, so the pill keeps 18px inside its corner. */
+@media (min-width: 1024px) { .asx-buddy { right: 30px; bottom: 30px; } }
 .asx-buddy::before { content: ""; position: absolute; inset: -30px; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, var(--bg) 62%, color-mix(in srgb, var(--bg) 0%, transparent)); pointer-events: none; }
 .asx-buddy.is-pill::before { inset: auto -34px -28px -34px; height: calc(52px + 56px); border-radius: 60px; }
 /* While the "แตะผมได้ทุกหน้า" note shows, the patch grows to sit under it too. */

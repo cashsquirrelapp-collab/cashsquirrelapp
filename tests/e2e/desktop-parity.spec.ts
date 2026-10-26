@@ -138,3 +138,27 @@ test('computer: notifications sit with LINE in the Pro section of settings', asy
   await expect(pro.getByRole('button', { name: /^การแจ้งเตือน/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'การใช้งาน' }).getByRole('button', { name: /^การแจ้งเตือน/ })).toHaveCount(0);
 });
+
+// Owner, 2026-10-26: beside the rounded glass sidebar the page is a rounded card too, not a flat area with a straight
+// edge. Dialogs still dim the whole screen, the sidebar included, and phones keep the full page.
+test('computer: the page is a rounded card beside the sidebar, and a dialog still covers the whole screen', async ({ page }) => {
+  await open(page, 1280, 800, '/jobs');
+  const card = page.locator('.asx-panel-host');
+  const look = await card.evaluate(el => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return { radius: s.borderTopLeftRadius, top: r.top, right: innerWidth - r.right, bottom: innerHeight - r.bottom }; });
+  expect(look).toEqual({ radius: '28px', top: 12, right: 12, bottom: 12 });
+  const sidebar = await page.locator('.app-sidebar').boundingBox();
+  const box = await card.boundingBox();
+  expect(Math.round(box!.x - (sidebar!.x + sidebar!.width))).toBe(12);
+
+  await page.getByRole('button', { name: 'เพิ่มงาน' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'เพิ่มงาน' });
+  await expect(dialog).toBeVisible();
+  const dim = await dialog.evaluate(el => { let node: HTMLElement | null = el as HTMLElement; while (node && !(node.classList.contains('fixed') && node.classList.contains('inset-0'))) node = node.parentElement; const r = node?.getBoundingClientRect(); return r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null; });
+  expect(dim).toEqual({ x: 0, y: 0, w: 1280, h: 800 });
+});
+
+test('phone: the page keeps its full-screen layout, no card', async ({ page }) => {
+  await open(page, 390, 844, '/');
+  const look = await page.locator('.asx-panel-host').evaluate(el => { const s = getComputedStyle(el); return { radius: s.borderTopLeftRadius, margin: s.marginTop }; });
+  expect(look).toEqual({ radius: '0px', margin: '0px' });
+});

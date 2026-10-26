@@ -43,8 +43,8 @@ export function MascotToast() {
 
   return (
     // From 744px (46.5rem, in rem so it sorts after sm:) the toast sits just below the page header so it never covers its buttons
-    // (เพิ่มงาน, ส่งออก): they end at 93px on desktop and 122px under the tablet top bar.
-    <div aria-live="polite" className="fixed top-4 inset-x-4 sm:top-20 min-[46.5rem]:top-[132px] lg:top-[104px] sm:right-6 sm:left-auto z-[9999] flex flex-col gap-2.5 max-w-[calc(100vw-2rem)] sm:max-w-[380px] w-auto sm:w-full pointer-events-none">
+    // (เพิ่มงาน, ส่งออก): they end at 106px on desktop (the page sits in a card 13px down) and 122px under the tablet top bar.
+    <div aria-live="polite" className="fixed top-4 inset-x-4 sm:top-20 min-[46.5rem]:top-[132px] lg:top-[117px] sm:right-6 sm:left-auto z-[9999] flex flex-col gap-2.5 max-w-[calc(100vw-2rem)] sm:max-w-[380px] w-auto sm:w-full pointer-events-none">
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => {
           const tone = toneOf(toast);

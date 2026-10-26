@@ -309,6 +309,64 @@ svg.lucide[stroke-width="2"] { stroke-width: 1.7; }
   background-image: radial-gradient(circle at 92% 4%, rgba(230, 192, 140, .10), transparent 22%);
 }
 
+/* Computers and iPads with the sidebar (owner, 2026-10-26): the page sits on its own rounded glass card beside the
+   glass sidebar -- same corner, rim and shadow -- instead of a flat area that ends in a straight line next to it.
+   The wash behind both cards is a shade deeper so their edges read. The card's own color stays the page color, so
+   nothing inside it changes. No backdrop blur on the card: behind it is only the plain wash, and a blur would
+   trap the page's full-screen dialogs inside the card. Phones and iPads without the sidebar keep the full page. */
+:root {
+  --shell-bg: #F1EFEB;
+  --panel-bg: rgba(250, 250, 249, 0.86);
+  --panel-sheen: rgba(255, 255, 255, 0.7);
+}
+.dark {
+  --shell-bg: #0E0F11;
+  --panel-bg: rgba(23, 24, 27, 0.9);
+  --panel-sheen: rgba(255, 255, 255, 0.035);
+}
+@media (min-width: 1024px) {
+  .app-shell {
+    background: radial-gradient(520px 420px at 0% 0%, rgba(230, 95, 43, 0.1), transparent 70%), radial-gradient(480px 380px at 0% 100%, rgba(193, 120, 23, 0.08), transparent 70%), radial-gradient(640px 420px at 100% 0%, rgba(230, 95, 43, 0.06), transparent 70%), var(--shell-bg);
+  }
+  .dark .app-shell {
+    background: radial-gradient(520px 420px at 0% 0%, rgba(255, 164, 115, 0.08), transparent 70%), radial-gradient(480px 380px at 0% 100%, rgba(242, 183, 107, 0.05), transparent 70%), radial-gradient(640px 420px at 100% 0%, rgba(255, 164, 115, 0.04), transparent 70%), var(--shell-bg);
+  }
+  .app-shell > .asx-panel-host:not(.is-chat-focus) {
+    height: auto;
+    margin: 12px;
+    padding-bottom: 0;
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    background: linear-gradient(180deg, var(--panel-sheen) 0, transparent 180px), var(--panel-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+    transition: margin-right 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .app-shell > .asx-panel-host > #main-content { background-color: transparent; }
+  /* The card's margin and rim (13px a side) come out of the page's side padding, so every page keeps the width
+     its tables and grids were sized for. */
+  .app-shell > .asx-panel-host:not(.is-chat-focus) > #main-content { padding-left: 19px; padding-right: 19px; }
+  /* The full-page chat: its history panel takes the sidebar's place on the wash and the conversation is the card. */
+  .app-shell > .asx-panel-host.is-chat-focus { background: transparent; }
+  .app-shell > .asx-panel-host.is-chat-focus .asx-chat {
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    background: linear-gradient(180deg, var(--panel-sheen) 0, transparent 180px), var(--panel-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  }
+  /* Keeps the round buttons at the top clear of the card's rim on narrower computers. */
+  .app-shell > .asx-panel-host.is-chat-focus .asx-bar { padding: 0 16px; }
+}
+@media (min-width: 1280px) {
+  .app-shell > .asx-panel-host:not(.is-chat-focus) > #main-content { padding-left: 27px; padding-right: 27px; }
+}
+/* Very wide screens with เลขากระรอก docked on the right: the card ends 12px before the docked panel. */
+@media (min-width: 1720px) {
+  .app-shell > .asx-panel-host.asx-has-panel { padding-right: 0; margin-right: 424px; }
+}
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+  .app-shell > .asx-panel-host { transition: none; }
+}
+
 /* Shared workspace primitives; utilities remain available for each page's layout. */
 @layer components {
   .ui-page-header {
