@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CARD_CONSENT_VERSION } from '../../shared/cardConsent';
 import { expect, test, type Page, type Request } from '@playwright/test';
-import { PRO_CHECKOUT_OPEN, proPriceParts, type ProPeriod } from '../../shared/proPricing';
+import { PRO_CHECKOUT_OPEN, PRO_MONTH_REGULAR_FROM, proPriceParts, type ProPeriod } from '../../shared/proPricing';
 
 const user = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -949,4 +949,33 @@ test('the monthly card renewal consent (v4) names ฿177 until 30 Nov and ฿271
     const result = await page.evaluate(fs.readFileSync(checker, 'utf8')) as { issues: { kind: string; a: string; b?: string }[] };
     expect(result.issues.filter(issue => issue.kind !== 'CLOSE' && /ยินยอม|฿|ค่าธรรมเนียม|รอบถัดไป/.test(`${issue.a} ${issue.b ?? ''}`))).toEqual([]);
   }
+});
+
+
+test('promotion countdown keeps ticking, survives reload and updates prices at expiry without navigation', async ({ page }) => {
+  const start = PRO_MONTH_REGULAR_FROM - (86400 + 2 * 3600 + 3 * 60 + 4) * 1000;
+  await page.clock.setFixedTime(start);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openPlans(page, { status: 'free', plan: null, current_period_end: null, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false }, '');
+  const price = page.getByTestId('pro-price');
+  const timer = price.getByTestId('promo-countdown');
+  for (const [unit, value] of Object.entries({ days: '01', hours: '02', minutes: '03', seconds: '04' })) {
+    await expect(timer.getByTestId(`promo-countdown-${unit}`)).toHaveText(value);
+  }
+  await expect(timer).toHaveAttribute('aria-live', 'off');
+  await page.clock.setFixedTime(start + 1000);
+  await expect(timer.getByTestId('promo-countdown-seconds')).toHaveText('03');
+  await page.reload();
+  await expect(timer.getByTestId('promo-countdown-seconds')).toHaveText('03');
+  // A suspended tab catches up to the deadline instead of decrementing a stale stored counter.
+  await page.clock.setFixedTime(PRO_MONTH_REGULAR_FROM - 1000);
+  await page.evaluate(() => window.dispatchEvent(new Event('pageshow')));
+  await expect(timer).toHaveAttribute('data-seconds-left', '1');
+  await expect(price.locator('.plan-figure')).toHaveText('฿159');
+  await page.clock.setFixedTime(PRO_MONTH_REGULAR_FROM);
+  await expect(timer).toHaveCount(0);
+  await expect(price.locator('.plan-figure')).toHaveText('฿249');
+  await expect(price.getByTestId('plan-fee')).toHaveText(/ค่าธรรมเนียม ฿22.*ยอดชำระ ฿271/);
+  await expect(price.locator('.plan-was')).toHaveCount(0);
 });
