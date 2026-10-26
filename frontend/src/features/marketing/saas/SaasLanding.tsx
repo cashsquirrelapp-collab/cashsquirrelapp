@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import './saas.css';
-import { PRO_CHECKOUT_OPEN, PRO_REGULAR_MONTHLY, formatBaht, proMonthPromoRunning, proPriceParts } from '../../../../../shared/proPricing';
-import { MonthPromoNotice } from '../../billing/promoNotice';
+import { PRO_CHECKOUT_OPEN, PRO_REGULAR_MONTHLY, formatBaht, proPriceParts } from '../../../../../shared/proPricing';
+import { MonthPromoNotice, useMonthPromoRunning } from '../../billing/promoNotice';
 
 import { tr, trc, T } from '../../../i18n/tr';
 // Landing page after the owner's reference (2026-10-20): split hero with the real desktop and phone
@@ -88,6 +88,7 @@ const FAQ: { q: string; a: string }[] = [
 
 function Reveal({ children, className, delay = 0, as = 'div', id }: { children: React.ReactNode; className?: string; delay?: number; as?: 'div' | 'section'; id?: string }) {
   const reduce = useReducedMotion();
+  const promoRunning = useMonthPromoRunning();
   const Tag = as === 'section' ? motion.section : motion.div;
   return (
     <Tag id={id} className={className} initial={reduce ? false : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
@@ -112,6 +113,7 @@ function Phone({ children, label, className = '' }: { children: React.ReactNode;
 
 export default function SaasLanding() {
   const reduce = useReducedMotion();
+  const promoRunning = useMonthPromoRunning();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [tab, setTab] = useState<ShowcaseKey>('overview');
@@ -301,7 +303,7 @@ export default function SaasLanding() {
               </article>
               <article className="sl-plan is-pro">
                 <p className="sl-plan-name">PRO</p>
-                <p className="sl-plan-price">{proMonthPromoRunning() && <s className="sl-plan-was"><span className="sr-only">{tr("ราคาปกติ")}{' '}</span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>}<strong>{formatBaht(proPriceParts('month').price)}</strong><span>{tr("/ เดือน")}</span></p>
+                <p className="sl-plan-price">{promoRunning && <s className="sl-plan-was"><span className="sr-only">{tr("ราคาปกติ")}{' '}</span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>}<strong>{formatBaht(proPriceParts('month').price)}</strong><span>{tr("/ เดือน")}</span></p>
                 <p className="sl-plan-fee">{tr("+ ค่าธรรมเนียมชำระเงิน {0} · ยอดชำระ {1}", formatBaht(proPriceParts('month').fee), formatBaht(proPriceParts('month').total))}</p>
                 <MonthPromoNotice className="sl-plan-ends" />
                 <ul>{PRO.map(item => <li key={item.text} className={item.soon ? 'is-soon' : ''}>{tr(item.text)}{item.soon && <em>{tr(SOON)}</em>}</li>)}</ul>
