@@ -40,24 +40,29 @@ export async function orderById(id: string): Promise<PrepaidOrder> {
   if (result.error) throw result.error;
   return result.data as PrepaidOrder;
 }
+/**
+ * The Stripe payment method settings checkout uses (KRAROK_PAYMENT_CONFIGURATION, else the default one): card and
+ * PromptPay must be on, and no other payment type may be on, since the app has no fulfillment check for it. Checkout
+ * and the admin page's payment check read the same answer.
+ */
+export function inspectPaymentMethods(configurations: Stripe.PaymentMethodConfiguration[], livemode: boolean) {
+  const configuration = configurations.find(c => c.id === process.env.KRAROK_PAYMENT_CONFIGURATION)
+    || configurations.find(c => !process.env.KRAROK_PAYMENT_CONFIGURATION && c.is_default);
+  const on = (method?: { available: boolean; display_preference: { value: string } } | null) => Boolean(method?.available && method.display_preference.value === 'on');
+  const card = on(configuration?.card), promptpay = on(configuration?.promptpay);
+  // Do not silently accept a newly enabled payment type without a fulfillment validator.
+  const extra = configuration ? Object.entries(configuration).filter(([key, value]) => value && typeof value === 'object' && 'display_preference' in value
+    && !['card', 'promptpay', 'apple_pay', 'google_pay'].includes(key)
+    && (value as {display_preference?: {value?: string}}).display_preference?.value === 'on').map(([key]) => key) : [];
+  const usable = Boolean(configuration?.active && configuration.livemode === livemode && card && promptpay);
+  return { id: configuration?.id ?? null, card, promptpay, extra, usable };
+}
 async function checkoutConfiguration(livemode: boolean): Promise<string> {
   const configurations = await stripe.paymentMethodConfigurations.list({ limit: 100 });
-  const configuration = configurations.data.find(c => c.id === process.env.KRAROK_PAYMENT_CONFIGURATION)
-    || configurations.data.find(c => !process.env.KRAROK_PAYMENT_CONFIGURATION && c.is_default);
-  if (!configuration?.active || configuration.livemode !== livemode
-    || !configuration.card?.available || configuration.card.display_preference.value !== 'on'
-    || !configuration.promptpay?.available || configuration.promptpay.display_preference.value !== 'on') {
-    throw new HttpError(503, 'ยังไม่ได้เปิดช่องทางบัตรและ PromptPay ใน Stripe');
-  }
-  // Do not silently accept a newly enabled payment type without a fulfillment validator.
-  for (const [key, value] of Object.entries(configuration)) {
-    if (value && typeof value === 'object' && 'display_preference' in value
-      && !['card', 'promptpay', 'apple_pay', 'google_pay'].includes(key)
-      && (value as {display_preference?: {value?: string}}).display_preference?.value === 'on') {
-      throw new HttpError(503, 'กรุณาตรวจการตั้งค่าช่องทางชำระเงิน');
-    }
-  }
-  return configuration.id;
+  const methods = inspectPaymentMethods(configurations.data, livemode);
+  if (!methods.usable || !methods.id) throw new HttpError(503, 'ยังไม่ได้เปิดช่องทางบัตรและ PromptPay ใน Stripe');
+  if (methods.extra.length) throw new HttpError(503, 'กรุณาตรวจการตั้งค่าช่องทางชำระเงิน');
+  return methods.id;
 }
 async function ensureCustomer(user: User, order: PrepaidOrder): Promise<PrepaidOrder> {
   const customer = order.customer_id ? await stripe.customers.retrieve(order.customer_id)

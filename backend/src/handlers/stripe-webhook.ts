@@ -18,30 +18,13 @@ import { promptPayCheckoutRecord, validatePromptPayLineItems } from '../services
 
 import { applyPrepaidSession, retrieveAndApplyPrepaid } from '../services/prepaidBilling.js';
 import { retrieveAndApplyDirectQr } from '../services/directPromptPay.js';
+import { STRIPE_WEBHOOK_EVENTS } from '../services/stripeWebhookEvents.js';
 import { PREPAID_OFFER } from '../services/prepaidPlans.js';
 
 export const config = { api: { bodyParser: false } };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const handled = new Set([
-  'payment_intent.succeeded',
-  'payment_intent.payment_failed',
-  'payment_intent.canceled',
-  'checkout.session.completed',
-  'checkout.session.async_payment_succeeded',
-  'checkout.session.async_payment_failed',
-  'checkout.session.expired',
-  'customer.subscription.created',
-  'customer.subscription.updated',
-  'customer.subscription.deleted',
-  'invoice.paid',
-  'invoice.payment_failed',
-  'invoice.payment_action_required',
-  'invoice.finalization_failed',
-  'charge.refunded',
-  'charge.dispute.created',
-  'charge.dispute.closed',
-]);
+const handled = new Set<string>(STRIPE_WEBHOOK_EVENTS);
 
 function id(value: string | { id: string } | null | undefined): string | null {
   return typeof value === 'string' ? value : value?.id || null;

@@ -42,6 +42,7 @@ const AdminStripeFinance = lazy(() => import('./AdminStripeFinance'));
 const AdminProfitLive = lazy(() => import('./AdminProfitLive'));
 const AiCreditBanner = lazy(() => import('./AdminAiCredit').then(module => ({ default: module.AiCreditBanner })));
 const AdminDashboardPhone = lazy(() => import('./AdminDashboardPhone'));
+const AdminPaymentReadiness = lazy(() => import('./AdminPaymentReadiness'));
 
 type View = 'overview' | 'product' | 'revenue' | 'profit' | 'customers' | 'feedback' | 'operations';
 type OperationsPanel = 'users' | 'groups' | null;
@@ -345,6 +346,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
         </nav>
       </div>
 
+      {(view === 'overview' || view === 'revenue') && <Suspense fallback={null}><AdminPaymentReadiness userId={userId} triggerConfirm={triggerConfirm} /></Suspense>}
       {(view === 'overview' || view === 'revenue') && <Suspense fallback={null}><AdminStripeFinance userId={userId} range={range} revision={revision} liveTick={liveTick} detailed={view === 'revenue'} onViewDetails={() => setView('revenue')} /></Suspense>}
       {view === 'feedback' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminFeedbackInbox userId={userId} /></Suspense>}
       {view === 'profit' && <Suspense fallback={null}><AdminProfitLive userId={userId} accounts={data?.accounts} appDays={range} liveTick={liveTick} revision={revision} /></Suspense>}

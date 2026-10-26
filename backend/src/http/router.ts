@@ -7,6 +7,7 @@ import groups from '../handlers/groups.js';
 import adminUsers from '../handlers/admin-users.js';
 import adminAnalytics from '../handlers/admin-analytics.js';
 import adminStripeFinance from '../handlers/admin-stripe-finance.js';
+import adminPaymentReadiness from '../handlers/admin-payment-readiness.js';
 import adminProfitLive from '../handlers/admin-profit-live.js';
 import adminAiCredit from '../handlers/admin-ai-credit.js';
 import checkAiCredit from '../handlers/check-ai-credit.js';
@@ -42,6 +43,7 @@ const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 routes.feedback = feedback;
 routes.assistant = assistant;
 routes['admin-stripe-finance'] = adminStripeFinance;
+routes['admin-payment-readiness'] = adminPaymentReadiness;
 routes['admin-profit-live'] = adminProfitLive;
 routes['admin-ai-credit'] = adminAiCredit;
 routes['check-ai-credit'] = checkAiCredit;
@@ -57,7 +59,7 @@ export function routeHandler(route:string):Handler {
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
- },{csrf:['line-session','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-profit-live','admin-ai-credit','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','assistant'].includes(route)});
+ },{csrf:['line-session','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','assistant'].includes(route)});
 }
 export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
  const route=req.query.route;
