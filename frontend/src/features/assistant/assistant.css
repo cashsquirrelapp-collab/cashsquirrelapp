@@ -914,6 +914,8 @@ textarea.asx-q-input { resize: vertical; min-height: 60px; line-height: 1.5; }
 .asx-card-open > .asx-rcard-head { flex: 1; min-width: 0; }
 .asx-card-open > svg { flex: none; margin: 0 16px 0 0; color: var(--asx-card-secondary); }
 .asx-card-open:hover { background: var(--asx-card-hover); }
+/* An official website card opens a new tab (ChatCards OfficialLink): a link that looks like the other cards' open row. */
+a.asx-card-open { text-decoration: none; }
 .asx-card-open:focus-visible { outline-offset: -4px !important; border-radius: 22px; }
 .asx-card-parties { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; min-width: 0; padding: 0 16px 8px; }
 .asx-party-tile { display: grid; grid-template-columns: minmax(0, 1fr) 16px; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 64px; padding: 10px 0; border: 0; border-top: 1px solid var(--asx-card-divider); border-radius: 0; background: none; color: var(--text); text-align: left; }

@@ -28,7 +28,9 @@ export type ConfirmCard = { kind: 'confirm'; id: string; title: string; changes:
 export type LineChatCard = { kind: 'line'; card: LineCardData };
 /** Tap-to-answer questions from เลขา (owner, 2026-10-24: tick the answers instead of typing them). */
 export type QuestionsCard = { kind: 'questions'; id: string; questions: AskQuestion[] };
-export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard;
+/** An official website (Revenue Department, DBD, TFAC) from the server's fixed list (backend ai/accounting/officialLinks.ts). */
+export type OfficialLinkCard = { kind: 'official_link'; id: string; org: string; title: string; description: string; todo: string; url: string };
+export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard;
 
 /** `failed` + `question`: a send that did not go through, kept so it can be retried. */
 /** `attachment`: the name and kind of a file sent with the message (the file itself is not kept). */

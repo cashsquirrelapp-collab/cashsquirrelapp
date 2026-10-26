@@ -367,4 +367,7 @@ export const assistant: Record<string, string> = {
   "คำตอบพร้อมแล้ว": "Your answer is ready",
   "มีอะไรให้ช่วยไหมครับ": "How can I help?",
   "{0} รายรับ {1} รายจ่าย {2} คงเหลือ {3}": "{0}: income {1}, expenses {2}, balance {3}",
+  // Official website cards (Accounting Brain, 2026-10-26).
+  "เปิดเว็บไซต์": "Open website",
+  "ทำในเว็บนี้": "What to do there",
 };

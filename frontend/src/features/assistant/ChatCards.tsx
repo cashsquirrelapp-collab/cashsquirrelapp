@@ -1,8 +1,8 @@
 import React from 'react';
-import { AlertCircle, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, ListChecks, Loader2, Pencil, Send, X } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, Landmark, ListChecks, Loader2, Pencil, Send, X } from 'lucide-react';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type PartyValues } from '../../../../shared/askQuestions';
-import type { ChatCard, ConfirmCard, DocumentCard, EditField, MoneyChartCard, ProjectCard, QuestionsCard, SummaryCard } from './assistantMock';
+import type { ChatCard, ConfirmCard, DocumentCard, EditField, MoneyChartCard, OfficialLinkCard, ProjectCard, QuestionsCard, SummaryCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { dateLocale } from '../../utils';
 import { LineCard } from './LineCard';
@@ -58,6 +58,36 @@ function Document({ card, onNavigate }: { card: DocumentCard; onNavigate: (path:
         <p className="asx-card-eyebrow">{card.number}</p>
         <p className="asx-card-subtitle">{card.client}</p>
         <span className="asx-card-eyebrow">{tr("ยอดเงิน")}</span><strong className="asx-card-amount">{card.amount}</strong>
+      </div>
+    </div>
+  );
+}
+
+// Official websites only (the server picks them from a fixed list; the address is checked again here before it becomes
+// a link). They open in a new tab: the Revenue Department's site cannot be embedded, and passwords and OTPs are typed
+// there, never in the chat (brief "ACCOUNTING BRAIN & TAX NAVIGATOR", 2026-10-26).
+const OFFICIAL_HOSTS = ['www.rd.go.th', 'rd.go.th', 'efiling.rd.go.th', 'www.dbd.go.th', 'dbd.go.th', 'tfac.or.th', 'www.tfac.or.th'];
+export function officialHref(url: string): URL | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && OFFICIAL_HOSTS.includes(parsed.hostname) ? parsed : null;
+  } catch { return null; }
+}
+
+function OfficialLink({ card }: { card: OfficialLinkCard }) {
+  const href = officialHref(card.url);
+  const head = <div className="asx-rcard-head"><span className="asx-rcard-icon"><Landmark size={16} strokeWidth={1.9} /></span><b>{card.title}</b></div>;
+  return (
+    <div className="asx-rcard is-official">
+      {href ? (
+        <a className="asx-card-open" href={href.href} target="_blank" rel="noopener noreferrer" aria-label={`${tr("เปิดเว็บไซต์")} · ${card.title}`}>
+          {head}<ArrowUpRight size={16} aria-hidden="true" />
+        </a>
+      ) : head}
+      <div className="asx-card-preview">
+        <p className="asx-card-eyebrow">{card.org}{href ? ` · ${href.hostname}` : ''}</p>
+        <p className="asx-card-subtitle">{card.description}</p>
+        <p className="asx-card-eyebrow">{tr("ทำในเว็บนี้")}: {card.todo}</p>
       </div>
     </div>
   );
@@ -452,5 +482,6 @@ function CardBody({ card, confirmState, confirmedPath, onConfirm, onCancel, onNa
     case 'confirm': return <Confirm key={card.id} card={card} state={confirmState ?? 'pending'} onConfirm={() => onConfirm(card)} confirmedPath={confirmedPath} onNavigate={onNavigate} onRevise={onRevise} />;
     case 'line': return <LineCard card={card.card} onDue={onLineDue} onOpen={onNavigate} />;
     case 'questions': return <Questions card={card} onAnswer={onAnswer} answered={answered} />;
+    case 'official_link': return <OfficialLink card={card} />;
   }
 }

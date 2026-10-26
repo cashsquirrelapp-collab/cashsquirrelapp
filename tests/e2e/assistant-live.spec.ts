@@ -184,6 +184,29 @@ test('live: tokens used up shows the server message and stops the composer', asy
   await expect(page.locator('#asx-message')).toBeDisabled();
 });
 
+// Accounting Brain (2026-10-26): official website cards open the Revenue Department's site in a new tab; an address
+// that is not on the official list never becomes a link, even if a stored chat carried one.
+test('live: official website cards open official sites in a new tab, and nothing else becomes a link', async ({ page }, testInfo) => {
+  const card = (id: string, url: string) => ({ kind: 'official_link', id, org: 'กรมสรรพากร', title: id === 'efiling' ? 'ยื่นแบบออนไลน์ (e-Filing)' : 'เว็บปลอม',
+    description: 'ยื่น ภ.ง.ด.90 / 91 / 94 และชำระภาษีออนไลน์', todo: 'กด "ยื่นแบบออนไลน์" แล้วเข้าสู่ระบบด้วยบัญชีของกรมสรรพากร', url });
+  await open(page, { reply: body => (body.action === 'message' ? { status: 200, json: {
+    text: 'ยื่นออนไลน์ได้ที่เว็บกรมสรรพากรครับ', route: 'chat', tokens: 2, tokensLeft: 990, trialLeft: null,
+    cards: [card('efiling', 'https://efiling.rd.go.th/rd-cms/'), card('fake', 'https://rd.go.th.evil.example/login')],
+  } } : { status: 200, json: { cancelled: true } }) });
+  await ask(page, 'ยื่นภาษีออนไลน์ยังไง');
+  const cards = page.locator('.asx-rcard.is-official');
+  await expect(cards).toHaveCount(2);
+  const official = cards.first().getByRole('link', { name: /เปิดเว็บไซต์ · ยื่นแบบออนไลน์/ });
+  await expect(official).toHaveAttribute('href', 'https://efiling.rd.go.th/rd-cms/');
+  await expect(official).toHaveAttribute('target', '_blank');
+  await expect(official).toHaveAttribute('rel', /noopener/);
+  await expect(cards.first()).toContainText('efiling.rd.go.th');
+  await expect(cards.first()).toContainText('ทำในเว็บนี้');
+  await expect(cards.nth(1).getByRole('link')).toHaveCount(0);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: testInfo.outputPath('official-link-card.png') });
+});
+
 test('live: a connection failure keeps the retry state', async ({ page }) => {
   await open(page, { reply: () => ({ status: 503, json: { error: 'เลขากระรอกตอบไม่ทันในตอนนี้ กรุณาลองใหม่อีกครั้ง', code: 'ai_provider' } }) });
   await ask(page, 'สวัสดี');
