@@ -980,3 +980,53 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
     -webkit-backdrop-filter: none; backdrop-filter: none;
   }
 }
+
+/* Formal เลขากระรอก on computers and iPads (owner, 2026-10-26: "เหมือนเกม ... เหมือนของเล่นเด็ก ... ไม่ได้เหมือนพวก
+   นักบัญชีใช้", with soft-glass business apps as the reference). The same frosted glass, hairlines and soft shadows as
+   the sidebar and the page cards; the squirrel in a round avatar wearing only its headset; no glow, rainbow ring,
+   bouncing or pure-black stage; tinted icon chips instead of solid orange squares. Phones keep their own look. */
+
+/* The pill: plain glass like the sidebar, the squirrel inside its avatar (it no longer climbs out). */
+.asx-buddy.is-pill .asx-buddy-btn { height: 48px; gap: 10px; padding-left: 6px; border-radius: 24px; background: var(--glass-side); }
+.asx-buddy.is-pill .asx-buddy-btn::after { content: none; animation: none; }
+.asx-buddy.is-pill .asx-buddy-btn:hover { transform: none; background: var(--glass-strong); }
+.asx-buddy.is-pill .asx-buddy-btn:active { transform: scale(0.98); }
+.asx-buddy.is-pill .asx-buddy-avatar { margin-top: 0; }
+.asx-buddy-face.is-pill { width: 36px; height: 36px; background: #FFF1E8; box-shadow: inset 0 0 0 0.5px rgba(60, 40, 28, 0.14); }
+.dark .asx-buddy-face.is-pill { background: rgba(255, 164, 115, 0.14); box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1); }
+/* What it says: a small status card above the pill, lined up with its right edge, no comic tail. */
+.asx-climb-say { left: auto; right: 0; bottom: calc(100% + 10px); max-width: 300px; padding: 10px 14px; border-radius: 16px; font-size: 14px; font-weight: 400; line-height: 1.55; text-align: left; }
+.asx-climb-say::after { content: none; }
+.asx-climb-dots { margin-left: 8px; }
+.asx-buddy.is-pill.is-climbing::before { inset: -110px -40px -28px -110px; height: auto; border-radius: 56px; }
+
+/* The full chat: a round avatar at the top instead of the big glowing squirrel. */
+.asx-bar-face { display: grid; place-items: center; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: var(--asx-cream); box-shadow: inset 0 0 0 0.5px rgba(60, 40, 28, 0.14), 0 1px 2px rgba(28, 25, 23, 0.06); pointer-events: none; }
+.dark .asx-bar-face { box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1); }
+/* Dark: the app's own charcoal glass, not a black stage of its own. */
+.dark .asx:not(.is-mobile) .asx-aurora { display: none; }
+.dark .asx:not(.is-mobile) .asx-badge, .dark .asx:not(.is-mobile) .asx-dot { box-shadow: 0 0 0 2px var(--bg); }
+.dark .asx:not(.is-mobile) .asx-prompts { background: var(--white); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06); }
+/* The questions keep the grouped list; their icons sit in soft tinted chips. */
+.asx:not(.is-mobile) .asx-prompt-icon, .asx:not(.is-mobile) .asx-prompts > button:hover .asx-prompt-icon { border-radius: 9px; background: rgba(230, 95, 43, 0.12); color: #C24A16; }
+.dark .asx:not(.is-mobile) .asx-prompt-icon, .dark .asx:not(.is-mobile) .asx-prompts > button:hover .asx-prompt-icon { background: rgba(255, 164, 115, 0.14); color: #FFA473; }
+
+/* The panel beside the page: neutral charcoal in dark, a small avatar instead of the glowing hero, and the questions as
+   one grouped list with chevrons, as in the full chat. */
+.dark .asx-buddy-panel.lg-glass:not(.is-sheet) { background: rgba(33, 34, 38, 0.97); }
+.asx-buddy-face.is-hero { width: 56px; height: 56px; margin: 6px auto 0; box-shadow: inset 0 0 0 0.5px rgba(60, 40, 28, 0.14); }
+.dark .asx-buddy-face.is-hero { box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1); }
+.asx-buddy-panel:not(.is-sheet) .asx-buddy-hello h3 { font-size: 19px; }
+.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts { display: flex; flex-direction: column; gap: 0; overflow: hidden; border-radius: 14px; background: var(--white); box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 1px 2px rgba(0, 0, 0, 0.04); }
+.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button { position: relative; align-items: center; gap: 12px; min-height: 46px; padding: 10px 12px 10px 14px; border: 0; border-radius: 0; background: transparent; }
+.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button + button::before { content: ""; position: absolute; top: 0; right: 0; left: 42px; height: 0.5px; background: rgba(60, 60, 67, 0.29); }
+.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button > svg { margin-top: 0; }
+.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button > span { flex: 1 1 auto; }
+.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button:hover { border-color: transparent; background: rgba(116, 116, 128, 0.08); }
+.asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button:active { transform: none; background: rgba(116, 116, 128, 0.16); }
+.asx-buddy-go { flex: none; color: rgba(60, 60, 67, 0.3); }
+.dark .asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts { background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+.dark .asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button { background: transparent; }
+.dark .asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button + button::before { background: rgba(84, 84, 88, 0.65); }
+.dark .asx-buddy-panel:not(.is-sheet) .asx-buddy-prompts > button:hover { background: rgba(255, 255, 255, 0.05); }
+.dark .asx-buddy-go { color: rgba(235, 235, 245, 0.3); }

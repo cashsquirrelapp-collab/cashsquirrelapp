@@ -51,8 +51,9 @@ interface MascotProps {
   /** Crop of the 100x100 artwork (e.g. a tighter square for icons). The drawing never changes. */
   viewBox?: string;
   /** An outfit drawn over the unchanged squirrel: 'pro' is เลขากระรอก's headset, aura and star (MascotProGear).
-   *  'pro-front' is the same outfit without the aura and ring behind it, for the squirrel climbing out of its ring. */
-  gear?: 'none' | 'pro' | 'pro-front';
+   *  'pro-front' is the same outfit without the aura and ring behind it, for the squirrel climbing out of its ring.
+   *  'headset' is the headset alone at any size (no aura, ring, star or sparkles): the formal look on computers. */
+  gear?: 'none' | 'pro' | 'pro-front' | 'headset';
 }
 
 const SIZE_PRESETS: Record<'sm' | 'md' | 'lg', number> = { sm: 48, md: 88, lg: 140 };
@@ -867,7 +868,7 @@ export function Mascot({
             )}
           </>
         )}
-        {hasGear && <ProGearFront uid={gearUid} full={fullGear} />}
+        {hasGear && <ProGearFront uid={gearUid} full={fullGear && gear !== 'headset'} />}
         </g>
       </svg>
     </div>

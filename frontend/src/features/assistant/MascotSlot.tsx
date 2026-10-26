@@ -14,6 +14,8 @@ export type MascotSlotProps = {
   onOpen?: () => void;
   label?: string;
   className?: string;
+  /** The outfit; computers use 'headset' (no aura or sparkles) for the formal look. */
+  gear?: 'pro' | 'headset';
 };
 
 /** A small bulb beside the squirrel while it thinks (an accessory, the squirrel itself is unchanged). */
@@ -26,13 +28,13 @@ function Bulb() {
   );
 }
 
-export function MascotSlot({ mode, size, onOpen, label, className = '' }: MascotSlotProps) {
+export function MascotSlot({ mode, size, onOpen, label, className = '', gear = 'pro' }: MascotSlotProps) {
   const reduce = useReducedMotion();
   const pose = poseFor(mode);
   const figure = (
     <span className={`asx-figure is-${mode} ${className}`}>
       <motion.span key={`${pose.mood}-${pose.action}`} className="asx-figure-pose" initial={reduce ? false : { opacity: 0.55, scale: 0.94, y: 3 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: 'spring', stiffness: 420, damping: 26 }}>
-        <Mascot gear="pro" mood={pose.mood} action={pose.action} size={size} />
+        <Mascot gear={gear} mood={pose.mood} action={pose.action} size={size} />
       </motion.span>
       {mode === 'thinking' && <span className="asx-bulb"><Bulb /></span>}
     </span>

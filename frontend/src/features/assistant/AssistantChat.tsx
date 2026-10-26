@@ -8,7 +8,7 @@ import { tr, trc } from '../../i18n/tr';
 import { dateLocale } from '../../utils';
 import { AssistantRequestError, createSampleTransport, splitMemo, tokenLevel, type AssistantTransport } from './assistantApi';
 import { LINE_QUICK_REPLIES, arrivingNotice, dueDisplayText, laterReply, partialPrompt, receiptCard, type LineDueAction, type LineItem } from './lineMock';
-import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, afterReply, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
+import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, afterReply, poseFor, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
@@ -874,7 +874,10 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
           <div className="asx-bar-center">
             {/* The squirrel lives up here on the welcome too (owner, 2026-10-26: "ย้ายน้องกระรอกขึ้นไปข้างบน"), so the
                 welcome below is only a line, a sentence and the questions. */}
-            <span className="asx-bar-mascot" aria-hidden="true"><MascotSlot mode={displayMode} size={mobile ? 64 : 80} /></span>
+            {/* Computers and iPads (owner, 2026-10-26: formal, for accountants): a round avatar with the headset only, no
+                aura, glow or bounce; its face still shows what the chat is doing. Phones keep their squirrel. */}
+            {mobile ? <span className="asx-bar-mascot" aria-hidden="true"><MascotSlot mode={displayMode} size={64} /></span>
+              : <span className="asx-bar-face" aria-hidden="true" data-mood={poseFor(displayMode).mood}><Mascot gear="headset" mood={poseFor(displayMode).mood} animated={false} size={44} viewBox="12 8 76 76" /></span>}
             <div className="asx-bar-text asx-sr">
               <span className="asx-bar-title"><h1 id="asx-title">{tr("เลขากระรอก")}</h1><span className="asx-pro">Pro</span></span>
               <span className={`asx-bar-status is-${displayMode}`} role="status" aria-live="polite"><i aria-hidden="true" />{voice.phase === 'transcribing' ? tr("กำลังถอดเสียงเป็นข้อความ…") : statusFor(displayMode)}</span>

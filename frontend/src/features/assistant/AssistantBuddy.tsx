@@ -1,12 +1,11 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowUp, BarChart3, Clock, FileText, FolderPlus, HelpCircle, ListChecks, Maximize2, MousePointerClick, Pointer, Sparkles, Wallet, X } from 'lucide-react';
+import { ArrowUp, BarChart3, ChevronRight, Clock, FileText, FolderPlus, HelpCircle, ListChecks, Maximize2, MousePointerClick, Pointer, Sparkles, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
-import { MascotClimb } from '../../components/mascot/MascotClimb';
 import { tr, T } from '../../i18n/tr';
 import { createSampleTransport, type AssistantTransport } from './assistantApi';
-import { PAGE_HELP, SAMPLE_TOKENS, afterReply, buddyPrompts, isPendingConfirm, type AssistantMode, type ChatMessage, type ConfirmCard } from './assistantMock';
+import { PAGE_HELP, SAMPLE_TOKENS, afterReply, buddyPrompts, isPendingConfirm, poseFor, type AssistantMode, type ChatMessage, type ConfirmCard } from './assistantMock';
 import { cardSpeech, climbFor, graphemes, speechPreview, type BuddyNews, type Climb } from './buddyClimb';
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
@@ -59,12 +58,10 @@ const PROMPT_ICONS: Record<string, typeof HelpCircle> = {
   'ช่วยเพิ่มงานใหม่ให้หน่อย': FolderPlus, 'สรุปงานของวันนี้': ListChecks, 'ใบเสนอราคาอยู่ตรงไหน': FileText,
 };
 const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-// The pill's squirrel climbing out of its ring (MascotClimb): the 44 px avatar's ring grows to 72 px while it is out,
-// centred on the same ring, so the pill itself keeps its size. In front of the pill's turning border, so the paws
-// hold the rim over it.
-const AVATAR = 44;
-const CLIMB = 72;
-const CLIMB_AT: React.CSSProperties = { left: (AVATAR - CLIMB) / 2, top: 0.56 * (AVATAR - CLIMB), zIndex: 2 };
+// Computers and iPads (owner, 2026-10-26: the climbing squirrel and its comic bubble read as a toy, "ไม่เหมือนพวกนักบัญชี
+// ใช้"): the squirrel stays in a round avatar on a plain glass pill, its face shows what it is doing, and what it says
+// is a small status card above the pill. Phones keep their round squirrel as it was.
+const FACE = 36;
 
 /** The squirrel's words, typed out letter by letter (whole Thai letters). An answer still arriving keeps typing on
  *  from where it was; new words start again. The finished text sizes the bubble from the start, so it does not
@@ -154,8 +151,6 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
   const [tip, setTip] = React.useState(false);
   // Something that happened while the chat was closed (an answer, a save, a failure), until the chat is opened.
   const [news, setNews] = React.useState<BuddyNews>(null);
-  const [hover, setHover] = React.useState(false);
-  const hoverTimer = React.useRef<number | undefined>(undefined);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -189,24 +184,23 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
   }, [arrival]);
   React.useEffect(() => { if (open) setTip(false); }, [open]);
   // Opening the chat shows what happened, so the squirrel has nothing left to tell; a save is told for a moment only.
-  React.useEffect(() => { if (open) { setNews(null); setHover(false); } }, [open]);
+  React.useEffect(() => { if (open) setNews(null); }, [open]);
   React.useEffect(() => {
     if (news !== 'done') return;
     const t = window.setTimeout(() => setNews(n => (n === 'done' ? null : n)), 3200);
     return () => window.clearTimeout(t);
   }, [news]);
-  React.useEffect(() => () => window.clearTimeout(hoverTimer.current), []);
   // The squirrel says the day's most important thing once (pkg77): one note a day, 6 seconds, never
   // while the user types or fills in a form, never over the arrival note, never on phones.
   const [briefTip, setBriefTip] = React.useState<BriefingItem | null>(null);
-  // Climbing out of the ring (computers and iPads; phones keep their round button as it is). A card counts as waiting
+  // The status card (computers and iPads; phones keep their round button as it is). A card counts as waiting
   // only in the latest answer: once the user has asked something else, an older card no longer calls them back.
   const lastBot = [...messages].reverse().find(message => message.from === 'bot');
   const pending = Boolean(lastBot?.cards?.some(card => card.kind === 'confirm' && isPendingConfirm(card, confirmStates[card.id])));
   // What the squirrel says of the latest answer: its own first words, as one plain short sentence (or, for an answer
   // that is only a card, what the card says).
   const reply = React.useMemo(() => speechPreview(lastBot?.text || '') || speechPreview(cardSpeech(lastBot?.cards)), [lastBot?.text, lastBot?.cards]);
-  const climb: Climb | null = mobile || open || hidden ? null : climbFor({ mode, pending, news, hover: hover && !tip && !briefTip, reply });
+  const climb: Climb | null = mobile || open || hidden ? null : climbFor({ mode, pending, news, hover: false, reply });
   const telling = Boolean(climb && climb.kind !== 'hello');
   // One note a day; later the same day only something new and critical (a newly overdue payment) speaks up again.
   const briefSeen = mobile || !briefing ? {} : briefingSeen(accountId, briefing.day);
@@ -330,20 +324,9 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
   // The pill waits folded while the arrival plays (it is hidden then) and opens out when the squirrel has landed.
   const collapsed = hidden && !mobile;
 
-  // Kept while the squirrel goes back down into the ring, so it can sink with the face it had.
-  const [climbShown, setClimbShown] = React.useState(false);
-  const lastClimb = React.useRef<Climb | null>(null);
-  if (climb) lastClimb.current = climb;
-  const climbing = Boolean(climb);
-  const climbingRef = React.useRef(climbing); climbingRef.current = climbing;
-  React.useEffect(() => { if (climbing) setClimbShown(true); }, [climbing]);
-  const shownClimb = climb ?? lastClimb.current;
-  const onPointerEnter = (event: React.PointerEvent) => {
-    if (event.pointerType !== 'mouse' || mobile) return;
-    window.clearTimeout(hoverTimer.current);
-    hoverTimer.current = window.setTimeout(() => setHover(true), 280);
-  };
-  const onPointerLeave = () => { window.clearTimeout(hoverTimer.current); setHover(false); };
+  // The face in the pill's avatar: what the status card says (thinking, waiting for a yes, saved, failed), or what
+  // the chat is doing while it is open.
+  const faceMood = climb?.mood ?? poseFor(open ? mode : 'awake').mood;
 
   const panelMotion = reduce
     ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 0 } }
@@ -359,12 +342,7 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
           initial={false} animate={mobile ? undefined : { paddingRight: collapsed ? 6 : 12 }} transition={{ duration: reduce ? 0 : 0.75, ease: [0.33, 0, 0.2, 1] }}>
           <span className="asx-buddy-avatar">
             {mobile ? <MascotSlot mode={open ? mode : 'awake'} size={46} /> : (
-              <>
-                <span className={`asx-buddy-home${climb ? ' is-away' : ''}`}><MascotSlot mode={open ? mode : 'awake'} size={AVATAR} /></span>
-                {climbShown && shownClimb && (
-                  <MascotClimb mood={shownClimb.mood} size={CLIMB} out={Boolean(climb)} style={CLIMB_AT} onGone={() => { if (!climbingRef.current) setClimbShown(false); }} />
-                )}
-              </>
+              <span className="asx-buddy-face is-pill" data-mood={faceMood}><Mascot gear="pro" mood={faceMood} animated={false} size={FACE} viewBox="12 8 76 76" /></span>
             )}
           </span>
           {!mobile && (
@@ -409,17 +387,17 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
         {/* While the arrival plays, the pill waits as a round bubble just big enough for the squirrel, which is where
             the flying squirrel lands. Then it opens out to the side ("ถามเลขากระรอก ⌘K"), so the hand-over is one
             continuous movement instead of a pop. Phones keep the round button, so nothing changes there. */}
-        {/* Phones keep their round button exactly as it was; computers and iPads get the climbing squirrel's words. */}
+        {/* Phones keep their round button exactly as it was; computers and iPads get the status card. */}
         {mobile ? pillButton : (
-        <span className="asx-buddy-anchor" onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
-        {/* The words above the climbing squirrel's head; tapping them opens the chat like the pill. They are read out as a
-            status, like the notes above the pill; the hello is only a greeting, so it stays silent. */}
+        <span className="asx-buddy-anchor">
+        {/* The status card above the pill; tapping it opens the chat like the pill. It is read out as a status, like the
+            notes above the pill. */}
           <AnimatePresence mode="wait">
             {climb && (
               <motion.span key={climb.said ? 'said' : climb.kind} className={`asx-climb-say lg-glass is-menu${climb.said ? ' is-said' : ''}`} {...(climb.kind === 'hello' ? { 'aria-hidden': true } : { role: 'status' })} data-kind={climb.kind} onClick={() => setOpen(true)}
-                style={{ x: '-50%' }} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: reduce ? 0 : 3, transition: { duration: 0.14 } }}
-                transition={{ duration: reduce ? 0.15 : 0.3, delay: reduce ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}>
+                transition={{ duration: reduce ? 0.15 : 0.26, ease: [0.22, 1, 0.36, 1] }}>
                 <TypedWords text={climb.said ? climb.words : tr(climb.words)} instant={Boolean(reduce)} quiet={climb.kind === 'working'} />
                 {climb.dots && <span className="asx-climb-dots" aria-hidden="true"><i /><i /><i /></span>}
               </motion.span>
@@ -448,7 +426,8 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
               <div ref={listRef} className="asx-buddy-body" role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
                 {messages.length === 0 ? (
                   <div className="asx-buddy-hello">
-                    <span className="asx-buddy-hero" aria-hidden="true"><MascotSlot mode={mode} size={mobile ? 84 : 96} /></span>
+                    {mobile ? <span className="asx-buddy-hero" aria-hidden="true"><MascotSlot mode={mode} size={84} /></span>
+                      : <span className="asx-buddy-face is-hero" aria-hidden="true"><Mascot gear="headset" mood={poseFor(mode).mood} animated={false} size={56} viewBox="12 8 76 76" /></span>}
                     <h3>{userName ? tr("สวัสดีครับ คุณ{0}", userName) : tr("สวัสดีครับ")}</h3>
                     <p>{tr("อยู่หน้า{0}ใช่ไหมครับ ถามหรือพิมพ์ให้ผมช่วยทำได้เลย", pageName)}</p>
                     {!mobile && briefing && briefing.items.length > 0 && (
@@ -457,7 +436,7 @@ export default function AssistantBuddy({ mobile, docked, push = false, page, pag
                     <div className="asx-buddy-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
                       {prompts.map(prompt => {
                         const Icon = PROMPT_ICONS[prompt] ?? Sparkles;
-                        return <button key={prompt} type="button" onClick={() => void send(tr(prompt))}><Icon size={16} aria-hidden="true" /><span>{tr(prompt)}</span></button>;
+                        return <button key={prompt} type="button" onClick={() => void send(tr(prompt))}><Icon size={16} aria-hidden="true" /><span>{tr(prompt)}</span>{!mobile && <ChevronRight className="asx-buddy-go" size={16} aria-hidden="true" />}</button>;
                       })}
                     </div>
                   </div>

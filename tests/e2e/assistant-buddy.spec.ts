@@ -102,41 +102,36 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
   expect(calls.filter(call => /openai|anthropic|gemini|line\.me|\/api\/(ai|assistant|chat)/i.test(call))).toEqual([]);
 });
 
-// Living mascot (owner, 2026-10-26: "อยากให้น้องแบบมุดออกมาจากวงกลมแล้วก็เกาะอยู่ ... จะมีคำโผล่มาบนหัวน้อง"): on
-// computers the pill's squirrel climbs out of its own ring and holds its rim, with fixed words above its head, only
-// for real events: a hello while the pointer rests on it, a send in progress after the chat is closed, a card waiting
-// for a yes, an answer that arrived unseen. An answer is never shown as a job done, and it is said in the squirrel's
-// own words: the reply itself, typed out above its head (owner: "น้องพิมพ์ออกมาเลยเป็นประโยค").
+// Formal เลขากระรอก on computers (owner, 2026-10-26: the climbing squirrel and its comic bubble read as a toy, "ไม่ได้
+// เหมือนพวกนักบัญชีใช้"; it had replaced the 2026-10-26 climbing squirrel): a plain glass pill with the squirrel in a
+// round avatar (headset only), its face showing what is happening, and a small status card above the pill for real
+// events only: a send in progress after the chat is closed, a card waiting for a yes, an answer that arrived unseen.
+// An answer is never shown as a job done, and it is said in the squirrel's own words, typed out (owner: "น้องพิมพ์ออก
+// มาเลยเป็นประโยค"). No hello on hover, no rainbow ring.
 const say = (page: Page) => page.locator('.asx-climb-say');
 const typed = (page: Page) => page.locator('.asx-climb-say .asx-climb-typed');
-test('computers: the squirrel climbs out of its ring to say what is happening while the chat is closed', async ({ page }) => {
+test('computers: a status card above the plain glass pill says what is happening while the chat is closed', async ({ page }) => {
   await open(page, 1280, 820, { path: '/jobs' });
   const button = page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' });
   await expect(button).toBeVisible();
   await expect(say(page)).toHaveCount(0);
   await expect(page.locator('.mascot-climb')).toHaveCount(0);
-  // A hello while the pointer rests on the pill: out of the ring, paws on its rim, the words above its ears.
-  await button.hover();
-  await expect(typed(page)).toHaveText('มีอะไรให้ช่วยไหมครับ');
-  await expect(say(page)).toHaveAttribute('aria-hidden', 'true');
-  const climb = page.locator('.mascot-climb');
-  await expect(climb).toHaveCount(1);
-  await expect(climb.locator('.mpg-headset')).toHaveCount(1);
-  await page.waitForTimeout(700);
-  const words = (await say(page).boundingBox())!;
+  // The pill: plain glass, no turning rainbow ring; the squirrel stays in its round avatar with only the headset.
+  expect(await button.evaluate(el => getComputedStyle(el, '::after').content)).toBe('none');
+  const face = button.locator('.asx-buddy-face.is-pill');
+  await expect(face.locator('.mpg-headset')).toHaveCount(1);
+  await expect(face.locator('.mpg-back')).toHaveCount(0);
   const pill = (await button.boundingBox())!;
-  const ears = (await climb.locator('.mpg-headset').boundingBox())!;
-  expect(words.y + words.height).toBeLessThanOrEqual(ears.y - 4);
-  expect(words.x).toBeGreaterThanOrEqual(0);
-  expect(words.x + words.width).toBeLessThanOrEqual(1280);
-  // The pill keeps its size and place.
-  expect(Math.round(pill.height)).toBe(52);
-  expect(await textOverlapIssues(page)).toEqual([]);
-  await snap(page, 'buddy-climb-hello.png');
-  await page.mouse.move(400, 300);
+  const faceBox = (await face.boundingBox())!;
+  expect(Math.round(pill.height)).toBe(48);
+  expect(faceBox.y).toBeGreaterThanOrEqual(pill.y);
+  expect(faceBox.y + faceBox.height).toBeLessThanOrEqual(pill.y + pill.height);
+  // Hovering says nothing.
+  await button.hover();
+  await page.waitForTimeout(700);
   await expect(say(page)).toHaveCount(0);
-  await expect(climb).toHaveCount(0, { timeout: 3000 });
-  // Ask for something to confirm, then close the chat while it thinks: the squirrel tells the steps outside.
+  await expect(page.locator('.mascot-climb')).toHaveCount(0);
+  // Ask for something to confirm, then close the chat while it thinks: the card tells the steps outside.
   await button.click();
   const chat = panel(page);
   await chat.getByRole('button', { name: 'ช่วยเพิ่มงานใหม่ให้หน่อย' }).click();
@@ -144,20 +139,28 @@ test('computers: the squirrel climbs out of its ring to say what is happening wh
   await expect(chat).toHaveCount(0);
   await page.mouse.move(400, 300);
   await expect(typed(page)).toHaveText('กำลังคิด');
-  // The squirrel types the answer itself; it stays while the card waits for a yes.
+  await expect(face).toHaveAttribute('data-mood', 'thinking');
+  // The squirrel types the answer itself; it stays while the card waits for a yes, with a checking face.
   await expect(typed(page)).toHaveText('นี่คือรายละเอียดที่จะบันทึกครับ ตรวจสอบก่อนกดยืนยันได้เลย', { timeout: 10000 });
   await expect(say(page)).toHaveAttribute('data-kind', 'awaiting');
   await expect(say(page)).toHaveClass(/is-said/);
   await expect(say(page)).toHaveAttribute('role', 'status');
+  await expect(face).toHaveAttribute('data-mood', 'checking');
   await page.waitForTimeout(700);
+  // The card sits just above the pill, lined up with its right edge, with no tail.
+  const card = (await say(page).boundingBox())!;
+  expect(Math.abs(card.x + card.width - (pill.x + pill.width))).toBeLessThanOrEqual(1);
+  expect(card.y + card.height).toBeLessThanOrEqual(pill.y - 6);
+  expect(card.x).toBeGreaterThanOrEqual(0);
+  expect(await say(page).evaluate(el => getComputedStyle(el, '::after').content)).toBe('none');
   expect(await textOverlapIssues(page)).toEqual([]);
-  await snap(page, 'buddy-climb-awaiting.png');
-  // Tapping the words opens the chat with the card; once confirmed nothing is left to tell.
+  await snap(page, 'buddy-status-awaiting.png');
+  // Tapping the card opens the chat with the draft; once confirmed nothing is left to tell.
   await say(page).click();
   await expect(chat).toBeVisible();
-  const card = chat.locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' });
-  await card.getByRole('button', { name: 'ยืนยัน' }).click();
-  await expect(card).toContainText('ยืนยันแล้ว (ตัวอย่าง)');
+  const draft = chat.locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' });
+  await draft.getByRole('button', { name: 'ยืนยัน' }).click();
+  await expect(draft).toContainText('ยืนยันแล้ว (ตัวอย่าง)');
   await page.keyboard.press('Escape');
   await page.mouse.move(400, 300);
   await page.waitForTimeout(500);
@@ -175,16 +178,36 @@ test('computers: the squirrel climbs out of its ring to say what is happening wh
   expect(lines).toBeLessThanOrEqual(3);
   await page.waitForTimeout(300);
   expect(await textOverlapIssues(page)).toEqual([]);
-  await snap(page, 'buddy-climb-answer.png');
+  await snap(page, 'buddy-status-answer.png');
   await button.click();
   await expect(chat.locator('.asx-md').last()).toContainText('งานทั้งหมด สถานะ และการรับเงินของแต่ละงาน');
+  // The panel's questions are one grouped list with chevrons; its greeting has the small avatar, no glow.
   await page.keyboard.press('Escape');
   await page.mouse.move(400, 300);
   await page.waitForTimeout(500);
   await expect(say(page)).toHaveCount(0);
 });
 
-test('dark mode and reduced motion: the climbing squirrel and its words', async ({ page }) => {
+test('computers: the panel greets with a small avatar and lists its questions with chevrons', async ({ page }) => {
+  await open(page, 1280, 820, { path: '/dashboard' });
+  await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้าภาพรวม' }).click();
+  const chat = panel(page);
+  const hero = chat.locator('.asx-buddy-face.is-hero');
+  await expect(hero.locator('.mpg-headset')).toHaveCount(1);
+  await expect(hero.locator('.mpg-back, .mpg-spark')).toHaveCount(0);
+  await expect(chat.locator('.asx-buddy-hero')).toHaveCount(0);
+  const rows = chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button');
+  await expect(rows.first().locator('.asx-buddy-go')).toHaveCount(1);
+  // Measured together once the panel has slid in, so its motion cannot shift one row against the other.
+  await expect.poll(() => chat.evaluate(el => getComputedStyle(el).transform)).toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+  const [a, b] = await rows.evaluateAll(list => list.slice(0, 2).map(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, height: r.height }; }));
+  expect(Math.round(a.x)).toBe(Math.round(b.x));
+  expect(b.y).toBeGreaterThan(a.y + a.height - 1);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await snap(page, 'buddy-panel-formal.png');
+});
+
+test('dark mode and reduced motion: the status card and its words', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await open(page, 1280, 820, { path: '/dashboard', dark: true });
   const button = page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้าภาพรวม' });
@@ -201,10 +224,10 @@ test('dark mode and reduced motion: the climbing squirrel and its words', async 
   expect(words?.length).toBeGreaterThan(10);
   await expect(typed(page)).toHaveText(words!);
   expect(await textOverlapIssues(page)).toEqual([]);
-  await snap(page, 'buddy-climb-dark.png');
+  await snap(page, 'buddy-status-dark.png');
 });
 
-test('phones keep their round squirrel: no climbing out of the ring', async ({ page }) => {
+test('phones keep their round squirrel: no status card above it', async ({ page }) => {
   await open(page, 390, 844, { path: '/dashboard' });
   const button = page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้าภาพรวม' });
   await button.click();

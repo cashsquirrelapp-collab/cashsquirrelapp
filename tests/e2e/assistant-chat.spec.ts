@@ -200,19 +200,49 @@ for (const lang of ['th', 'en'] as const) {
   });
 }
 
-test('computers and iPads: the squirrel sits in the top bar on the welcome too', async ({ page }) => {
+// Owner, 2026-10-26 ("เหมือนเกม ... ไม่ได้เหมือนพวกนักบัญชีใช้"): on computers and iPads the top is a round avatar with
+// the headset only: no aura, ring, sparkles or bounce.
+async function checkTopFace(page: Page) {
+  const chat = chatOf(page);
+  const face = chat.locator('.asx-bar-face');
+  await expect(face.locator('.mpg-headset')).toHaveCount(1);
+  await expect(face.locator('.mpg-back, .mpg-spark, .mpg-pin')).toHaveCount(0);
+  await expect(chat.locator('.asx-bar-mascot')).toHaveCount(0);
+  const box = (await face.boundingBox())!;
+  const bar = (await chat.locator('.asx-bar').boundingBox())!;
+  const column = (await chat.locator('.asx-chat').boundingBox())!;
+  expect(Math.round(box.height)).toBe(44);
+  expect(Math.abs(box.x + box.width / 2 - (column.x + column.width / 2))).toBeLessThan(4);
+  expect(box.y).toBeGreaterThanOrEqual(bar.y);
+  expect(box.y + box.height).toBeLessThanOrEqual(bar.y + bar.height + 1);
+  expect(await face.evaluate(el => getComputedStyle(el).pointerEvents)).toBe('none');
+}
+
+test('computers and iPads: a round avatar sits in the top bar on the welcome too', async ({ page }) => {
   await open(page, 1280, 820);
   const chat = chatOf(page);
   await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
-  await expect(chat.locator('.asx-bar-mascot .asx-figure')).toBeVisible();
+  await checkTopFace(page);
   await expect(chat.locator('.asx-welcome .asx-figure')).toHaveCount(0);
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'assistant-welcome-1280.png');
   await page.setViewportSize({ width: 820, height: 1180 });
   await page.reload();
-  await expect(chat.locator('.asx-bar-mascot .asx-figure')).toBeVisible();
+  await checkTopFace(page);
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'assistant-welcome-820.png');
+});
+
+test('computers, dark: the chat wears the app\'s charcoal glass, not a black stage of its own', async ({ page }) => {
+  await open(page, 1280, 820, { dark: true });
+  const chat = chatOf(page);
+  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
+  await expect(chat.locator('.asx-aurora')).toBeHidden();
+  expect(await chat.locator('.asx-chat').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(23, 24, 27, 0.9)');
+  // The questions' icons sit in soft tinted chips, not solid orange squares.
+  expect(await chat.locator('.asx-prompt-icon').first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(255, 164, 115, 0.14)');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await snap(page, 'assistant-welcome-1280-dark.png');
 });
 
 test('the squirrel naps after a while with nothing happening, and typing wakes it', async ({ page }) => {
@@ -223,7 +253,7 @@ test('the squirrel naps after a while with nothing happening, and typing wakes i
   await expect(status).toHaveText(/พร้อมช่วยแล้ว/);
   await page.clock.runFor(31_000);
   await expect(status).toHaveText(/งีบอยู่/);
-  await expect(chatOf(page).locator('.asx-bar-mascot .asx-figure.is-sleeping')).toBeVisible();
+  await expect(chatOf(page).locator('.asx-bar-face')).toHaveAttribute('data-mood', 'sleepy');
   await page.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).fill('สวัสดี');
   await expect(status).toHaveText(/กำลังฟังอยู่/);
 });
@@ -478,12 +508,8 @@ test('LINE: a notification arriving shows the LINE banner; there is no rich menu
   await expect(chat.locator('.asx-bar-text')).toHaveClass(/asx-sr/);
   await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปงานของวันนี้' }).click();
   await expect(chat.locator('.asx-bar-status')).toHaveText(/พร้อมช่วยแล้ว/, { timeout: 10000 });
-  const mascot = (await chat.locator('.asx-bar-mascot').boundingBox())!;
-  const column = (await chat.locator('.asx-chat').boundingBox())!;
-  expect(Math.abs(mascot.x + mascot.width / 2 - (column.x + column.width / 2))).toBeLessThan(4);
-  // Owner, 2026-10-23: the squirrel is the star of the top: bigger, hanging a little below the row, but never
-  // over text: it only overlaps the strip where the conversation has already faded out, and lets clicks through.
-  await checkTopSquirrel(page, 78);
+  // The round avatar in the middle of the top, letting clicks through.
+  await checkTopFace(page);
 
   // The preview: a notification arrives while another chat is open.
   await chat.getByRole('button', { name: 'จัดการแชต' }).click();
