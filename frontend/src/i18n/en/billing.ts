@@ -1,5 +1,11 @@
 // Plans, card payment, PromptPay QR.
 export const billing: Record<string, string> = {
+  'โปรโมชันสิ้นสุดใน': 'Offer ends in',
+  'เวลาที่เหลือ {0} วัน {1} ชั่วโมง {2} นาที {3} วินาที': 'Time remaining: {0} days, {1} hr, {2} min, {3} sec',
+  'countdown|วัน': 'Days',
+  'countdown|ชั่วโมง': 'Hours',
+  'countdown|นาที': 'Min',
+  'countdown|วินาที': 'Sec',
   "ราคาพิเศษถึง {0}": "Special price until {0}",
   "ตั้งแต่ {0} รายเดือน {1}": "from {0}, {1} a month",
   '1 ปี': '1 year',
