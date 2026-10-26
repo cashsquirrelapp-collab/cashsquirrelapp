@@ -1023,7 +1023,7 @@ test('landing: the hero says what the app does and starts free at once; the page
  const parts=proPriceParts('month');
  const pricing=page.locator('#pricing');
  await expect(pricing).toContainText(formatBaht(parts.price));
- await expect(pricing).toContainText(`+ ค่าธรรมเนียมชำระเงิน ${formatBaht(parts.fee)} · ยอดชำระ ${formatBaht(parts.total)}`);
+ await expect(pricing).toContainText(`+ ค่าธรรมเนียม ${formatBaht(parts.fee)} · รวม ${formatBaht(parts.total)}`);
  await expect(pricing).not.toContainText('฿149');
  expect(api.filter(a=>a!=='GET /api/auth')).toEqual([]); // the page reads no account data and writes nothing
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
