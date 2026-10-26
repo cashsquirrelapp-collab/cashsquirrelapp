@@ -361,6 +361,26 @@ svg.lucide[stroke-width="2"] { stroke-width: 1.7; }
 @media (min-width: 1280px) {
   .app-shell > .asx-panel-host:not(.is-chat-focus) > #main-content { padding-left: 27px; padding-right: 27px; }
 }
+/* One continuous card with the sidebar layered on top (owner, 2026-10-27: "ลากยาวจนเลยแท็บไปเลย ... ให้มันคอนตินิวกัน
+   แล้วก็ให้แท็บเนี่ยซ้อนกันเหมือนมีเลเยอร์", margins to the screen unchanged). The page card now starts 12px from the
+   screen's left edge, under the sidebar; the sidebar sits on it 8px inside the card's rim, with concentric corners
+   (28 - 8 = 20px) and its own shadow on the card. The card's left padding puts the page exactly where it was, so every
+   page keeps its width. The full-page chat keeps its own layout. */
+@media (min-width: 1024px) {
+  /* A more solid fill than the card under it and a tighter shadow, so the layer reads on the near-white card. */
+  .app-sidebar:not(.is-folded) {
+    margin: 20px 0 20px 20px; border-radius: 20px; z-index: 2;
+    background: var(--glass-strong);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 12px 32px rgba(28, 25, 23, 0.11), 0 2px 6px rgba(28, 25, 23, 0.07), 0 0 0 0.5px rgba(28, 25, 23, 0.08);
+  }
+  .dark .app-sidebar:not(.is-folded) {
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+  }
+  .app-shell > .asx-panel-host:not(.is-chat-focus) {
+    margin-left: calc(-15rem - 8px);
+    padding-left: calc(15rem + 12px);
+  }
+}
 @media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
   .app-shell > .asx-panel-host { transition: none; }
 }

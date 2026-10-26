@@ -141,20 +141,25 @@ test('computer: notifications sit with LINE in the Pro section of settings', asy
 
 // Owner, 2026-10-26: beside the rounded glass sidebar the page is a rounded card too, not a flat area with a straight
 // edge. Dialogs still dim the whole screen, the sidebar included, and phones keep the full page.
-test('computer: the page is a rounded card beside the sidebar, and a dialog still covers the whole screen', async ({ page }) => {
+test('computer: the page is a rounded card under the layered sidebar, and a dialog still covers the whole screen', async ({ page }) => {
   await open(page, 1280, 800, '/jobs');
   const card = page.locator('.asx-panel-host');
   const look = await card.evaluate(el => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return { radius: s.borderTopLeftRadius, top: r.top, right: innerWidth - r.right, bottom: innerHeight - r.bottom }; });
   expect(look).toEqual({ radius: '28px', top: 12, right: 12, bottom: 12 });
+  // Owner, 2026-10-27: the card runs on under the sidebar, which is layered on it 8px inside the rim.
   const sidebar = await page.locator('.app-sidebar').boundingBox();
   const box = await card.boundingBox();
-  expect(Math.round(box!.x - (sidebar!.x + sidebar!.width))).toBe(12);
+  expect(Math.round(box!.x)).toBe(12);
+  expect(Math.round(sidebar!.x - box!.x)).toBe(8);
 
   await page.getByRole('button', { name: 'เพิ่มงาน' }).first().click();
   const dialog = page.getByRole('dialog', { name: 'เพิ่มงาน' });
   await expect(dialog).toBeVisible();
   const dim = await dialog.evaluate(el => { let node: HTMLElement | null = el as HTMLElement; while (node && !(node.classList.contains('fixed') && node.classList.contains('inset-0'))) node = node.parentElement; const r = node?.getBoundingClientRect(); return r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null; });
   expect(dim).toEqual({ x: 0, y: 0, w: 1280, h: 800 });
+  // The sidebar is a layer above the page card, but never above a dialog's dim.
+  const onSidebar = await page.evaluate(([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest('.app-sidebar')), [sidebar!.x + 40, sidebar!.y + 200]);
+  expect(onSidebar).toBe(false);
 });
 
 test('phone: the page keeps its full-screen layout, no card', async ({ page }) => {
