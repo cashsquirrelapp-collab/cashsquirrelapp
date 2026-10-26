@@ -436,6 +436,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                             <ChatCardView key={n} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
                               onConfirm={item => void confirm(item)} onCancel={item => { setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' })); void transport.cancel?.(item); }} onNavigate={go}
                               onAnswer={text => void send(text)} answered={messages.slice(index + 1).some(later => later.from === 'me') || busy}
+                              onAsk={text => void send(text)}
                               onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
                           ))}
                           {!live && (mode === 'done' || mode === 'awake' || mode === 'listening') && <span className="asx-meta">{tr("คำตอบตัวอย่าง")}</span>}

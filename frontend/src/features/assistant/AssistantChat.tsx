@@ -1044,6 +1044,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                       <ChatCardView key={c} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
                         onConfirm={item => void confirm(item)} onCancel={item => { setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' })); stopWaiting(); void transport.cancel?.(item); }} onNavigate={go} onLineDue={lineDue}
                         onAnswer={text => send(text)} answered={messages.slice(n + 1).some(later => later.from === 'me') || busy}
+                        onAsk={text => send(text)}
                         onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
                     ))}
                     {message.id !== streamingId && (

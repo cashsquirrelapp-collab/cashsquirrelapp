@@ -126,6 +126,8 @@ export function lineCard(opts: {
   compact?: boolean;
   metric?: { label: string; value: string; note?: string; color?: string };
   footer?: { label: string; uri: string }; note?: string;
+  /** 'secondary' when the card already has its own primary buttons (the 08:00 reminder). */
+  footerStyle?: 'primary' | 'secondary';
 }): LineMessage {
   const requested = opts.character || 'guide';
   // Legacy draft kinds do not imply that money has already changed hands.
@@ -194,7 +196,9 @@ export function lineCard(opts: {
       ...(opts.note ? [{ type: 'separator', color: C.border, margin: 'xl' }, { type: 'text', text: opts.note, size: 'xs', color: C.muted, wrap: true, margin: 'lg' }] : []),
     ] },
     ...(opts.footer ? { footer: { type: 'box', layout: 'vertical', paddingAll: padding, paddingTop: '0px', contents: [
-      { type: 'button', style: 'primary', color: C.accent, height: 'sm', action: { type: 'uri', ...opts.footer } },
+      opts.footerStyle === 'secondary'
+        ? { type: 'button', style: 'secondary', color: C.subtle, height: 'sm', action: { type: 'uri', ...opts.footer } }
+        : { type: 'button', style: 'primary', color: C.accent, height: 'sm', action: { type: 'uri', ...opts.footer } },
     ] } } : {}),
     styles: { header: { backgroundColor: theme.center }, body: { backgroundColor: C.white }, footer: { backgroundColor: C.white } },
   } };

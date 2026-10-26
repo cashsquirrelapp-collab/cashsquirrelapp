@@ -94,7 +94,7 @@ export function LineCard({ card, onDue, onOpen }: Props) {
       </div>
       {card.footer && (
         <div className="lnc-footer">
-          <a className="lnc-button" href={card.footer.path} onClick={event => { if (!onOpen) return; event.preventDefault(); onOpen(card.footer!.path); }}>{card.footer.label}</a>
+          <a className={`lnc-button${onDue && card.blocks.some(block => (block.kind === 'section' || block.kind === 'items') && block.items.some(item => item.due)) ? ' is-secondary' : ''}`} href={card.footer.path} onClick={event => { if (!onOpen) return; event.preventDefault(); onOpen(card.footer!.path); }}>{card.footer.label}</a>
         </div>
       )}
     </article>

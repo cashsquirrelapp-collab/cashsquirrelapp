@@ -51,10 +51,11 @@ typography:
 radius:
   page-card: 28px      # the computer/iPad page card
   sidebar: 20px        # concentric with the page card (28 - 8)
-  chat-card: 16px
+  chat-card: 20px     # direction A (owner, 2026-10-27)
+  chat-group: 14px     # the grey group of rows inside a chat card
   control: 10px        # buttons, inputs, selects (.ui-button, .ui-input)
   icon-tile: 9px
-  pill: 999px          # chips, segmented controls, answer options, quick replies only
+  pill: 999px          # chips, segmented controls, quick replies only
 spacing: [4, 8, 12, 16, 20, 24, 32]
 ---
 
@@ -113,28 +114,35 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
 
 - Primary: brand-orange fill, white text, radius 10, min-height 40 (44 on phones). **One per card or dialog.**
 - Secondary: white fill, 1px hairline, ink text. Quiet actions (แก้ไข, ดูรายละเอียด) may be text buttons.
-- Pills (radius 999) are for chips, segmented controls, answer options and quick replies, not for actions.
+- Pills (radius 999) are for chips, segmented controls and quick replies, not for actions. Chat cards use the
+  grouped buttons of §4.
 - Destructive: rust text on a secondary button, or a rust fill only inside the confirmation of that action.
 
-### Chat cards (เลขากระรอก)
+### Chat cards (เลขากระรอก): direction A "Grouped" (owner, 2026-10-27: "เอาแบบ A เลย เป็นระเบียบดี")
 
-Every card the assistant draws follows one anatomy, top to bottom; leave out the parts a card does not need:
+Like iOS Wallet and Settings. Every card the assistant draws follows one anatomy, top to bottom; leave out the parts a
+card does not need:
 
-1. **Header**: 28px icon tile (cream, orange icon), title 14.5/600, a state chip on the right.
-2. **Hero**: an eyebrow label (muted) and the key figure (26/600, tabular), or one subject line.
-3. **Rows**: label left (muted), value right (tabular, wraps instead of clipping).
+1. **Header**: a small orange icon and the kind (13/600, orange text) on the left; the state on the right (a dot and
+   its word).
+2. **Figure**: an eyebrow label (muted), the key amount (32/600, digits in IBM Plex Sans), then what it is (15, ink-2).
+3. **Group**: the facts as rows in a grey rounded group (radius 14), label left (muted), value right (tabular, wraps).
 4. **Details**: everything else behind "ดูรายละเอียดทั้งหมด".
-5. **Action bar**: secondary actions left, the one primary action right; full width on phones.
-6. **Note**: one muted line for context ("คำนวณจากข้อมูลที่บันทึกในแอป").
+5. **Actions**: one full-width primary button (orange, 46px, radius 14) that names what happens ("บันทึกงาน",
+   "สร้างใบเสนอราคา", "ลบรายการนี้" in rust), and grey secondary buttons side by side under it (แก้ไข, ยกเลิก).
+6. **Note**: one muted line when needed.
 
-- Surface: white, 1px hairline, radius 16, at most a 1px/2px soft shadow. Max width 380px in the chat.
-- States are a chip in the header, the same words everywhere: รอยืนยัน (neutral), กำลังบันทึก (neutral,
-  spinner), บันทึกแล้ว (green), ทำรายการไม่สำเร็จ (red, with ลองอีกครั้ง), ยกเลิกแล้ว (muted), หมดเวลา (muted).
-- Anything that changes data goes through a confirmation card the user confirms **(owner)**. A confirmation card
-  offers ยกเลิก as well as ยืนยัน.
+- Surface: solid white (dark #1F2023), radius 20, padding 16, a soft two-layer shadow; no glass, no border.
+- States, the same words everywhere: รอยืนยัน, กำลังบันทึก, บันทึกแล้ว (green), ไม่สำเร็จ (red, with
+  ลองอีกครั้ง), ยกเลิกแล้ว, หมดเวลา (with เตรียมใหม่).
+- Questions: each question is a grey group of rows with a round tick; typed answers sit in the same group. Credit
+  terms are a segmented control (ไม่มี / 30 / 45 / 60 / 90). Withholding questions always offer ไม่หัก, 1% ค่าขนส่ง,
+  2% ค่าโฆษณา, 3% ค่าบริการ ค่าจ้าง ฟรีแลนซ์, 5% ค่าเช่า and "อัตราอื่น" typed by hand.
+- Anything that changes data goes through a confirmation card the user confirms **(owner)**.
 - Cards show the server's figures verbatim; they never recompute totals.
-- LINE notification cards use the same template as the real LINE Flex messages (`frontend/src/features/assistant/
-  LineCard.tsx` and `backend/src/services/lineCards.ts`). Change both together.
+- LINE notification cards keep the CI gradient band (owner, 2026-10-22); their buttons follow this section: the one
+  primary in orange, the rest grey, corners 10px. They share a template with the real LINE Flex messages
+  (`frontend/src/features/assistant/LineCard.tsx` and `backend/src/services/lineCards.ts`, `lineReminders.ts`).
 
 ### Forms
 
@@ -199,6 +207,7 @@ Don't:
 - Before a UI change: read sections 2, 4 and 7 and the owner rules. Use existing tokens; add a token here first if a
   new one is needed.
 - After a UI change: run the text overlap check, compare phone screenshots against production (they must match unless
-  the change is for phones), and show the owner before/after pictures before anything is deployed.
-- Production deploys from `main`; push only after the owner says "ดีพอย" for that change.
+  the change is for phones), and show the owner before/after pictures with the release.
+- Production deploys from `main`. Deploy once every check passes (owner, 2026-10-27); changes needing an owner-only
+  step (SQL, Stripe, secrets) or touching payments wait for the owner.
 - After changing a chat card, retake the card gallery (every card, phone and computer) and show it to the owner.

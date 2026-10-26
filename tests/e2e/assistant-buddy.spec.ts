@@ -80,7 +80,7 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
   await chat.getByRole('button', { name: 'ช่วยเพิ่มงานใหม่ให้หน่อย' }).click();
   const card = chat.locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' });
   await expect(card).toBeVisible({ timeout: 10000 });
-  await card.getByRole('button', { name: 'ยืนยัน' }).click();
+  await card.getByRole('button', { name: 'บันทึกงาน' }).click();
   await expect(card).toContainText('ยืนยันแล้ว (ตัวอย่าง) · ยังไม่มีการเปลี่ยนแปลงข้อมูลจริง');
   await expect(chat.locator('.asx-meta').last()).toContainText('คำตอบตัวอย่าง', { timeout: 6000 });
   expect(await textOverlapIssues(page)).toEqual([]);
@@ -162,7 +162,7 @@ test('computers: a status card above the plain glass pill says what is happening
   await say(page).click();
   await expect(chat).toBeVisible();
   const draft = chat.locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' });
-  await draft.getByRole('button', { name: 'ยืนยัน' }).click();
+  await draft.getByRole('button', { name: 'บันทึกงาน' }).click();
   await expect(draft).toContainText('ยืนยันแล้ว (ตัวอย่าง)');
   await page.keyboard.press('Escape');
   await page.mouse.move(400, 300);
@@ -351,7 +351,7 @@ test('computers: minimise folds the chat into the squirrel, which keeps the conv
   await expect(win(page)).toBeVisible();
   await settle(page);
   await expect(card).toBeVisible();
-  await expect(card.getByRole('button', { name: 'ยืนยัน' })).toBeEnabled();
+  await expect(card.getByRole('button', { name: 'บันทึกงาน' })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'เปิดแชตเลขากระรอกอีกครั้ง' })).toHaveCount(0);
   // Maximise and back.
   const before = await rectOf(page, '.kfw');

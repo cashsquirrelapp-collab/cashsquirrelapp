@@ -2,11 +2,14 @@ import type { LineMessage } from './line.js';
 import { LINE_CARD_COLORS as C, lineAppLink, lineCard, lineJobItem } from './lineCards.js';
 import { dueRefFromDigestId, encodeDueAction, partialPrompt } from './lineDuePayments.js';
 
-/** A rounded tap target inside the card (a Flex box with a postback action). */
+/**
+ * A rounded tap target inside the card (a Flex box with a postback action). Owner, 2026-10-27 (chat cards direction A,
+ * "ของไลน์เอาตามคำแนะนำ"): ได้รับแล้ว is the one orange button, the others are quiet grey, corners 10px as in the app.
+ */
 function duePill(label: string, action: Record<string, unknown>, primary = false) {
   return {
-    type: 'box', layout: 'vertical', flex: 1, cornerRadius: '6px', paddingTop: '8px', paddingBottom: '8px',
-    backgroundColor: primary ? C.accent : C.white, borderWidth: '1px', borderColor: primary ? C.accent : '#D6D3D1',
+    type: 'box', layout: 'vertical', flex: 1, cornerRadius: '10px', paddingTop: '10px', paddingBottom: '10px',
+    backgroundColor: primary ? C.accent : C.subtle, borderWidth: '1px', borderColor: primary ? C.accent : C.subtle,
     action: { type: 'postback', label, ...action },
     contents: [{ type: 'text', text: label, size: 'xs', weight: 'bold', color: primary ? C.white : C.text, align: 'center' }],
   };
@@ -101,6 +104,8 @@ export function buildDigestFlexMessage(jobs: JobWithDiff[], options: { test?: bo
     subtitle: `เครดิตเทอม · ${shortDate(todayInBangkok(options.now))}`,
     altText: `${options.test ? '[ทดสอบ] ' : ''}เตือนรับเงิน: เลยกำหนด ${groups[0].items.length} · วันนี้ ${groups[1].items.length} · ใกล้ครบกำหนด ${groups[2].items.length} รายการ`,
     metric, body, note, footer: lineAppLink('/receivables', 'ดูรายการรอรับเงิน'),
+    // With ได้รับแล้ว under the jobs, the link to the app is a quiet button: one kind of primary action per card.
+    footerStyle: hasButtons ? 'secondary' : 'primary',
   });
 }
 

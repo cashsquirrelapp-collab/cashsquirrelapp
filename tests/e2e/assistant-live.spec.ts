@@ -146,7 +146,7 @@ test('live: real answer and card without sample labels, real token count, saved 
   expect(mock.posts.some(post => post.body.action === 'confirm')).toBe(false);
 
   const readsBefore = mock.dataReads();
-  await card.getByRole('button', { name: 'ยืนยัน' }).click();
+  await card.getByRole('button', { name: 'บันทึกงาน' }).click();
   await expect(card).toContainText('บันทึกแล้ว');
   expect(mock.posts.filter(post => post.body.action === 'confirm').map(post => post.body)).toEqual([{ action: 'confirm', proposalId: PROPOSAL }]);
   await expect.poll(() => mock.dataReads()).toBeGreaterThan(readsBefore);
@@ -159,13 +159,14 @@ test('live: cancelling an edit leaves the proposal pending, and a follow-up send
     : { status: 200, json: {} } });
   await ask(page, 'เพิ่มงานแปลเอกสาร 4000');
   const card = page.locator('.asx-rcard.is-confirm');
-  await expect(card.locator('.asx-rcard-actions button')).toHaveText(['แก้ไข', 'ยืนยัน']);
-  await expect(card.getByRole('button', { name: 'ยกเลิก', exact: true })).toHaveCount(0);
+  await expect(card.locator('.asx-rcard-actions button')).toHaveText(['บันทึกงาน', 'แก้ไข', 'ยกเลิก']);
+  // Owner, 2026-10-27 (direction A): a waiting card can be cancelled; editing has its own "ยกเลิกการแก้ไข".
+  await expect(card.getByRole('button', { name: 'ยกเลิก', exact: true })).toHaveCount(1);
   await card.getByRole('button', { name: 'แก้ไข', exact: true }).click();
   await card.getByRole('textbox', { name: 'มูลค่า (บาท)', exact: true }).fill('4500');
-  await card.getByRole('button', { name: 'ยกเลิก' }).click();
+  await card.getByRole('button', { name: 'ยกเลิกการแก้ไข' }).click();
   await expect(card.locator('.asx-card-amount')).toHaveText('฿4,000');
-  await expect(card.locator('.asx-rcard-actions button')).toHaveText(['แก้ไข', 'ยืนยัน']);
+  await expect(card.locator('.asx-rcard-actions button')).toHaveText(['บันทึกงาน', 'แก้ไข', 'ยกเลิก']);
   expect(mock.posts.filter(post => ['revise', 'confirm', 'cancel'].includes(post.body.action))).toEqual([]);
   await ask(page, 'ขอบคุณ');
   await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(2);
@@ -551,10 +552,10 @@ for (const [label, width, height] of [['computer', 1440, 900], ['phone', 390, 84
   await expect(card).toBeVisible();
   const sendAnswers = card.getByRole('button', { name: 'ส่งคำตอบ' });
   await expect(sendAnswers).toBeDisabled();
-  await card.getByRole('button', { name: 'ร้านกาแฟตัวอย่าง' }).click();
-  await card.getByRole('button', { name: 'ส่งแล้ววันนี้' }).click();
-  await card.getByRole('button', { name: '3%' }).click();
-  await expect(card.getByRole('button', { name: '3%' })).toHaveAttribute('aria-pressed', 'true');
+  await card.getByRole('radio', { name: 'ร้านกาแฟตัวอย่าง' }).click();
+  await card.getByRole('radio', { name: 'ส่งแล้ววันนี้' }).click();
+  await card.getByRole('radio', { name: '3%' }).click();
+  await expect(card.getByRole('radio', { name: '3%' })).toHaveAttribute('aria-checked', 'true');
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath(`${label}-questions.png`) });
   await sendAnswers.click();
@@ -577,7 +578,7 @@ for (const [label, width, height] of [['computer', 1440, 900], ['phone', 390, 84
   const revise = mock.posts.find(post => post.body.action === 'revise').body;
   expect(revise).toEqual({ action: 'revise', proposalId: PROPOSAL, edits: { value: '4500' } });
   expect(mock.posts.filter(post => post.body.action === 'confirm')).toEqual([]);
-  await confirm.getByRole('button', { name: 'ยืนยัน' }).click();
+  await confirm.getByRole('button', { name: 'บันทึกงาน' }).click();
   await expect.poll(() => mock.posts.find(post => post.body.action === 'confirm')?.body.proposalId).toBe(REVISED);
   await expect(confirm).toContainText('บันทึกแล้ว');
 });
@@ -635,7 +636,7 @@ for (const [label, width, height] of [['computer', 1440, 900], ['phone', 390, 84
   expect(revise).toEqual({ action: 'revise', proposalId: PROPOSAL, edits: { item_1_price: '3500' } });
   expect(mock.posts.filter(post => post.body.action === 'confirm')).toEqual([]);
   expect(await textOverlapIssues(page)).toEqual([]);
-  await card.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
+  await card.getByRole('button', { name: 'สร้างใบเสนอราคา', exact: true }).click();
   await expect.poll(() => mock.posts.filter(post => post.body.action === 'confirm').map(post => post.body)).toEqual([{ action: 'confirm', proposalId: REVISED }]);
   await expect(card).toContainText('บันทึกแล้ว');
 });
@@ -722,7 +723,7 @@ test('floating panel: questions are answered by tapping and an expense card is e
   await chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).fill('จ่ายร้านสมาน');
   await chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).press('Enter');
   const questions = chat.locator('.asx-rcard.is-questions');
-  await questions.getByRole('button', { name: '60' }).click();
+  await questions.getByRole('radio', { name: '60' }).click();
   await questions.getByRole('button', { name: 'ส่งคำตอบ' }).click();
   await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(2);
   expect(mock.posts.filter(post => post.body.action === 'message')[1].body.text).toBe('จ่ายเท่าไหร่: 60');
@@ -795,15 +796,12 @@ for (const [label, width, height] of [['computer', 1440, 900], ['phone', 390, 84
   const card = page.locator('.asx-rcard.is-questions').first();
   await expect(card).toBeVisible();
   const send = card.getByRole('button', { name: 'ส่งคำตอบ' });
-  // No credit term question with the word alone, and the days appear only after "มี".
+  // Direction A (owner, 2026-10-27): the credit term is one segmented control, ไม่มี or the app's days.
   const payment = card.locator('fieldset.is-payment');
   await expect(payment.getByText('ชำระวันไหน', { exact: true })).toBeVisible();
-  await expect(payment.getByRole('group', { name: 'มีเครดิตเทอมไหม' })).toBeVisible();
-  await expect(payment.getByRole('button', { name: '30 วัน' })).toHaveCount(0);
-  await payment.getByRole('button', { name: 'มี', exact: true }).click();
-  const terms = payment.getByRole('group', { name: 'เครดิตเทอมกี่วัน' }).getByRole('button');
-  await expect(terms).toHaveText(['0 วัน', '30 วัน', '45 วัน', '60 วัน', '90 วัน']);
-  await payment.getByRole('button', { name: '30 วัน' }).click();
+  const terms = payment.getByRole('radiogroup', { name: 'เครดิตเทอม' }).getByRole('radio');
+  await expect(terms).toHaveText(['ไม่มี', '30', '45', '60', '90']);
+  await payment.getByRole('radio', { name: '30 วัน' }).click();
   await payment.locator('input[type="date"]').fill('2026-11-15');
   // The client's form starts with the name already known; the issuer's is empty and needs a name.
   const client = card.locator('fieldset.is-party').first();

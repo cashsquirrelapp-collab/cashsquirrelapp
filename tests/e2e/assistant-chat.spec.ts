@@ -145,7 +145,7 @@ test('every UI state from the brief can be previewed and behaves', async ({ page
   if (!(await chat.locator('.asx-side.is-open').count())) await chat.getByRole('button', { name: 'ประวัติและค้นหาแชต' }).click();
   await chat.getByRole('complementary', { name: 'ประวัติแชต' }).getByRole('button', { name: /^เพิ่มงานถ่ายภาพแคมเปญ/ }).click();
   const card = chat.locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' });
-  await card.getByRole('button', { name: 'ยืนยัน' }).click();
+  await card.getByRole('button', { name: 'บันทึกงาน' }).click();
   await expect(card.getByText('ทำรายการไม่สำเร็จ')).toBeVisible({ timeout: 6000 });
   await pickState(page, 'ปกติ');
   await card.getByRole('button', { name: 'ลองอีกครั้ง' }).click();
