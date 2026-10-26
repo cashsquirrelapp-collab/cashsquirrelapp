@@ -237,9 +237,9 @@ for (const dark of [false, true]) {
     expect(await win(page).evaluate(el => getComputedStyle(el).fontFamily)).toMatch(/^"?Prompt/);
     await expect(win(page).locator('.kfw-hero h3')).toHaveText('สวัสดีครับ คุณผู้ใช้ตัวอย่าง');
     expect(await win(page).locator('.kfw-hero').evaluate(el => getComputedStyle(el).backgroundImage)).toMatch(/rgb\(230, 95, 43\)|rgb\(194, 74, 22\)/); // #E65F2B, or #C24A16 in dark
-    // The name is said once (the capsule); no voice button was added.
+    // The name is said once (the capsule). One mic in the composer (owner, 2026-10-27), as in the full chat.
     await expect(win(page).getByText('เลขากระรอก', { exact: true })).toHaveCount(1);
-    await expect(win(page).getByRole('button', { name: /ไมค์|พูด|เสียง/ })).toHaveCount(0);
+    await expect(win(page).locator('.asx-buddy-composer .asx-mic')).toHaveCount(1);
     // The questions as one grouped list with chevrons.
     const rows = win(page).getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button');
     await expect(rows.first().locator('.asx-buddy-go')).toHaveCount(1);

@@ -214,7 +214,7 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
       exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 10 }} transition={{ duration: reduce ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}>
       {/* The squirrel above the window: it moves with the window, always in the middle, and moves it when dragged. */}
       <span className="kfw-perch" onPointerDown={begin('move')} onDoubleClick={reset} title={tr("ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม")}>
-        <MascotPeek size={size} mood={mood} motion={reduce ? 'still' : 'calm'} holo={busy} className="kfw-perch-art" />
+        <MascotPeek size={size} mood={mood} motion={reduce ? 'still' : 'calm'} holo={busy} thoughtDots={false} className="kfw-perch-art" />
       </span>
       <div className="kfw-shell">
         <header className="kfw-head" onPointerDown={begin('move')} onDoubleClick={event => { if (!(event.target as HTMLElement).closest('button')) reset(); }}>
@@ -310,7 +310,7 @@ export function MiniMascot({ accountId, mood, zones, label, onRestore, bubble, b
       <button ref={buttonRef} type="button" className="kfw-mini-btn" onPointerDown={begin} onKeyDown={onKey}
         onClick={event => { if ((event.currentTarget as HTMLElement).dataset.dragged) return; onRestore(); }}
         aria-label={label} title={tr("แตะเพื่อเปิดแชต · ลากเพื่อย้าย")}>
-        <Mascot mood={mood} size={MINI} animated={false} />
+        <Mascot mood={mood} size={MINI} animated={false} thoughtDots={false} />
       </button>
       {bubble && (
         <span ref={bubbleRef} key={bubbleKey} className={`kfw-mini-say lg-glass is-menu is-${side}`} role="status" onClick={onRestore}>

@@ -1147,3 +1147,10 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-buddy.is-pill .asx-buddy-btn:hover { background: #FFFFFF; box-shadow: 0 14px 34px rgba(28, 25, 23, 0.15), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
 .dark .asx-buddy.is-pill .asx-buddy-btn { background: #26272B; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
 .asx-buddy.is-pill .asx-buddy-label { font-weight: 500; }
+/* The mic in the window's composer (2026-10-27), and the recording bar that replaces the text while you speak. */
+.kfw .asx-mic { flex: none; width: 36px; height: 36px; color: #6F6862; }
+.dark .kfw .asx-mic { color: #C9C3BC; }
+.kfw .asx-buddy-composer.has-voice { padding: 7px; }
+.kfw .asx-buddy-composer .asx-voice-composer { min-height: 40px; gap: 10px; }
+.kfw .asx-buddy-composer .asx-voice-cancel, .kfw .asx-buddy-composer .asx-voice-finish { flex: none; width: 40px; height: 40px; border-radius: 50%; }
+.kfw .kfw-voice-note { margin: 0 14px 6px; }

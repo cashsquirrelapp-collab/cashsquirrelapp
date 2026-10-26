@@ -54,6 +54,8 @@ interface MascotProps {
    *  'pro-front' is the same outfit without the aura and ring behind it, for the squirrel climbing out of its ring.
    *  'headset' is the headset alone at any size (no aura, ring, star or sparkles): the formal look on computers. */
   gear?: 'none' | 'pro' | 'pro-front' | 'headset';
+  /** false hides the thinking face's three trailing thought dots (owner, 2026-10-27, for เลขากระรอก's window). */
+  thoughtDots?: boolean;
 }
 
 const SIZE_PRESETS: Record<'sm' | 'md' | 'lg', number> = { sm: 48, md: 88, lg: 140 };
@@ -203,6 +205,7 @@ export function Mascot({
   size = 120,
   viewBox = '0 0 100 100',
   gear = 'none',
+  thoughtDots = true,
 }: MascotProps) {
   const resolvedSize = typeof size === 'number' ? size : SIZE_PRESETS[size];
   // Each drawing gets its own gradient ids, so a hidden copy never breaks another one's colours.
@@ -826,7 +829,7 @@ export function Mascot({
                 <circle cx="50" cy="22" r="1.5" fill="#F59E0B" />
               </g>
             )}
-            {mood === 'thinking' && (
+            {mood === 'thinking' && thoughtDots && (
               <g className="squirrel-accessory">
                 {/* Small trailing thought dots */}
                 <circle cx="74" cy="30" r="1.6" fill="#94A3B8" />

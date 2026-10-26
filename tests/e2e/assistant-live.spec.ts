@@ -833,3 +833,32 @@ for (const [label, width, height] of [['computer', 1440, 900], ['phone', 390, 84
   ].join('\n'));
   await expect(card.getByRole('button', { name: 'ส่งคำตอบแล้ว' })).toBeDisabled();
 });
+
+// The floating window has the same mic (owner, 2026-10-27: "ปุ่มไมค์อ่ะที่เอาไว้พูดมันอยู่ไหน"): recorded on the device,
+// transcribed once on stop, left as a draft in the window to check before sending; while it transcribes the squirrel
+// works on its hologram screen.
+test('floating window mic: record, stop, one transcription, an editable draft in the window, nothing sent', async ({ page }) => {
+  await syntheticMicrophone(page);
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  const mock = await open(page, { path: '/jobs', transcribe: async () => { await pending; return { text: 'คุณพิมพ์ชนกโอนมา 12,500 บาท', tokens: 1, tokensLeft: 993, trialLeft: null }; } });
+  await page.locator('.asx-buddy-btn').click();
+  const win = page.locator('.kfw');
+  await expect(win).toBeVisible();
+  const mic = win.getByRole('button', { name: 'พูดแทนการพิมพ์', exact: true });
+  await expect(mic).toBeEnabled();
+  await mic.click();
+  await expect(win.getByRole('group', { name: 'พูดแทนการพิมพ์' }).getByText('กำลังฟังอยู่', { exact: true })).toBeVisible();
+  await expect(win.locator('.asx-voice-time')).toHaveText(/^0:0[1-9] \/ 2:00$/);
+  await expect(win.locator('.kfw-perch [data-holo]')).toHaveCount(0);
+  await win.getByRole('button', { name: 'หยุดและถอดข้อความ' }).click();
+  await expect(win.locator('.kfw-perch [data-holo]')).toHaveCount(1);
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'transcribe').length).toBe(1);
+  release();
+  await expect(win.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' })).toHaveValue('คุณพิมพ์ชนกโอนมา 12,500 บาท');
+  await expect(win.getByText('ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง')).toBeVisible();
+  await expect(win.locator('.kfw-perch [data-holo]')).toHaveCount(0);
+  expect(mock.posts.filter(post => post.body.action === 'message')).toHaveLength(0);
+  expect(await microphoneStopped(page)).toBe(true);
+  expect(await textOverlapIssues(page)).toEqual([]);
+});

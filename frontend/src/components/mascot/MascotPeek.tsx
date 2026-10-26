@@ -23,10 +23,12 @@ type Props = {
   motion?: 'peek' | 'calm' | 'still';
   /** Working: the hologram screen in front, and the paws tapping on it. */
   holo?: boolean;
+  /** false hides the thinking face's thought dots. */
+  thoughtDots?: boolean;
   style?: React.CSSProperties;
 };
 
-export function MascotPeek({ size = 104, className = '', mood = 'happy', gear = 'none', motion = 'peek', holo = false, style }: Props) {
+export function MascotPeek({ size = 104, className = '', mood = 'happy', gear = 'none', motion = 'peek', holo = false, thoughtDots = true, style }: Props) {
   const u = size / 100;
   const fur = mascotColors(mood).body;
   const body = motion === 'peek' ? 'mascot-peek-body' : motion === 'calm' ? 'mascot-perch-body' : '';
@@ -90,7 +92,7 @@ export function MascotPeek({ size = 104, className = '', mood = 'happy', gear = 
       {/* Everything below the paws stays hidden behind the edge */}
       <span className="absolute inset-x-0 top-0 block overflow-hidden" style={{ height: PAW_Y * u }}>
         <span className={`${body} block`} style={{ width: size, height: size }}>
-          <Mascot mood={mood} size={size} gear={gear} animated={motion !== 'still'} />
+          <Mascot mood={mood} size={size} gear={gear} animated={motion !== 'still'} thoughtDots={thoughtDots} />
         </span>
       </span>
       {/* The paws, in front of the edge (and, while it works, the hologram screen under them) */}

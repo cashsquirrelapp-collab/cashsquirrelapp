@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowUp, BarChart3, ChevronRight, Clock, FileText, FolderPlus, HelpCircle, ListChecks, Maximize2, MousePointerClick, Pointer, Sparkles, Wallet, X } from 'lucide-react';
+import { ArrowUp, BarChart3, Check, ChevronRight, Clock, FileText, FolderPlus, HelpCircle, ListChecks, Maximize2, Mic, MousePointerClick, Pointer, Sparkles, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { tr, T } from '../../i18n/tr';
 import { createSampleTransport, type AssistantTransport } from './assistantApi';
@@ -11,6 +11,9 @@ import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { BriefingCard, briefingText } from './BriefingCard';
 import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
+import { useDictation } from './useDictation';
+import { VoiceComposer } from './VoiceComposer';
+import { dateLocale } from '../../utils';
 import type { Briefing, BriefingItem } from '../../../../shared/briefing';
 import { Markdown } from './Markdown';
 import { getCurrentAccount } from '../../services/api';
@@ -149,6 +152,21 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const windowRef = React.useRef<HTMLDivElement>(null);
   const miniRef = React.useRef<HTMLButtonElement>(null);
   const zones = useAvoidZones(!mobile && (open || minimized), [windowRef]);
+  // Speaking instead of typing in the window (owner, 2026-10-27: "ปุ่มไมค์อ่ะที่เอาไว้พูดมันอยู่ไหน"), the same dictation as the
+  // full chat: recorded on the device, transcribed once on stop, and left as a draft to check before sending.
+  const voice = useDictation({
+    transport, language: dateLocale(),
+    onText: text => {
+      setDraft(text);
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (el) { el.focus(); el.style.height = 'auto'; el.style.height = `${Math.min(120, el.scrollHeight)}px`; el.setSelectionRange(text.length, text.length); }
+      });
+    },
+    onCharged: () => {},
+  });
+  const voiceRef = React.useRef(voice); voiceRef.current = voice;
+  React.useEffect(() => { if (!open && voiceRef.current.active) voiceRef.current.cancel(); }, [open]);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [mode, setMode] = React.useState<AssistantMode>('awake');
   const [draft, setDraft] = React.useState('');
@@ -361,7 +379,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
           initial={false} animate={mobile ? undefined : { paddingRight: collapsed ? 6 : 12 }} transition={{ duration: reduce ? 0 : 0.75, ease: [0.33, 0, 0.2, 1] }}>
           <span className="asx-buddy-avatar">
             {mobile ? <MascotSlot mode={open ? mode : 'awake'} size={46} /> : (
-              <span className="asx-buddy-face is-pill" data-mood={faceMood}><Mascot mood={faceMood} animated={false} size={FACE} viewBox="12 8 76 76" /></span>
+              <span className="asx-buddy-face is-pill" data-mood={faceMood}><Mascot thoughtDots={false} mood={faceMood} animated={false} size={FACE} viewBox="12 8 76 76" /></span>
             )}
           </span>
           {!mobile && (
@@ -426,21 +444,35 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                     ))}
                     {mode === 'thinking' && (
                       <li className="asx-msg is-bot">
-                        <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="thinking" animated={false} size={26} viewBox="12 8 76 76" /></span>
+                        <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} thoughtDots={mobile} mood="thinking" animated={false} size={26} viewBox="12 8 76 76" /></span>
                         <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>
                       </li>
                     )}
                   </ol>
                 )}
               </div>
-              <form className="asx-buddy-composer" onSubmit={event => { event.preventDefault(); void send(draft); }}>
+              {!mobile && voice.error && !voice.active && <p className="asx-notice is-low kfw-voice-note" role="alert">{voice.error}</p>}
+              {!mobile && voice.review && !voice.active && <p className="asx-notice asx-voice-review kfw-voice-note" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>}
+              <form className={`asx-buddy-composer${!mobile && voice.active ? ' has-voice' : ''}`} onSubmit={event => { event.preventDefault(); void send(draft); }}>
+                {!mobile && voice.active ? (
+                  <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} reduce={Boolean(reduce)}
+                    onCancel={() => { voice.cancel(); requestAnimationFrame(() => inputRef.current?.focus()); }} onFinish={() => { void voice.finish(); }} />
+                ) : <>
                 <label htmlFor="asx-buddy-message" className="asx-sr">{tr("ข้อความถึงเลขากระรอก")}</label>
                 <textarea id="asx-buddy-message" ref={inputRef} rows={1} value={draft} placeholder={tr("ถามเรื่องงาน รายรับ กำไร หรือให้ช่วยทำ")}
                   onChange={event => onDraft(event.target.value)}
                   onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !mobile) { event.preventDefault(); void send(draft); } }} />
+                {!mobile && (voice.supported ? (
+                  <button type="button" className="asx-icon-btn asx-mic" onClick={() => { if (!busy && !voice.active) void voice.start(draft); }} disabled={busy}
+                    aria-label={tr("พูดแทนการพิมพ์")} title={tr("อัดเสียงแล้วถอดเป็นข้อความ · ใช้โทเค็น")}><Mic size={18} /></button>
+                ) : (
+                  <button type="button" className="asx-icon-btn asx-mic is-soon" aria-disabled="true" aria-label={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI")}
+                    title={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI")}><Mic size={18} /></button>
+                ))}
                 <button type="submit" className="asx-send" disabled={busy || !draft.trim()} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
+                </>}
               </form>
-              <p className="asx-hint">{live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
+              <p className="asx-hint">{!mobile && voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
     </>
   );
 
@@ -510,7 +542,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
             </motion.div>
           )}
           {!mobile && (open || minimized) && (
-            <FloatingWindow key="float" accountId={accountId} shown={open} mood={poseFor(mode).mood} busy={busy} label={tr("เลขากระรอก · หน้า{0}", pageName)}
+            <FloatingWindow key="float" accountId={accountId} shown={open} mood={voice.active ? (voice.phase === 'transcribing' ? 'thinking' : 'checking') : poseFor(mode).mood} busy={busy || voice.phase === 'transcribing'} label={tr("เลขากระรอก · หน้า{0}", pageName)}
               note={tr("กำลังดูหน้า{0}", pageName)} zones={zones} reduce={Boolean(reduce)} onMinimize={minimize} onClose={close} windowRef={windowRef}>
               {contents}
             </FloatingWindow>
