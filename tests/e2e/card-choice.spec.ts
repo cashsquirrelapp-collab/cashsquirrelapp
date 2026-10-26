@@ -43,7 +43,7 @@ async function openCard(page: Page) {
   });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/plans');
-  await page.getByTestId('pro-card').getByRole('button', { name: 'สมัคร Pro รายเดือน ฿177', exact: true }).click();
+  await page.getByTestId('pro-card').getByRole('button', { name: 'สมัคร Pro รายเดือน', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'ชำระด้วยบัตร' });
   await expect(dialog.getByLabel('หมายเลขบัตรทดสอบ')).toBeVisible();
   return { dialog, posts };
