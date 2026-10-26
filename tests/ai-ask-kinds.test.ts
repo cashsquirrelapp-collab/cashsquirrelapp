@@ -94,7 +94,7 @@ test('a quotation never uses the client as its issuer; the user\'s own issuer go
 });
 
 test('the prompt: client details asked, issuer asked only when not saved and then kept, the payment question', () => {
-  assert.equal(PROMPT_VERSION, 'secretary-v16');
+  assert.equal(PROMPT_VERSION, 'secretary-v17');
   const prompt = buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: 'x', knowledge: '-', accountContext: '-' });
   assert.match(prompt, /ONE ask_user question of kind party, role client/);
   assert.match(prompt, /When it has a name, never ask about the issuer and never change it/);

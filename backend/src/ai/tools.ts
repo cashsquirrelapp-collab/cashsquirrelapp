@@ -14,6 +14,7 @@ import type { AssistantCard, EditField, Route, ToolCall, ToolOutcome, ToolSpec }
 import { ACCOUNT_TOOLS, executeAccountTool, isAccountTool } from './accountQueries.js';
 import { FINANCIAL_TOOLS, executeFinancialTool, isFinancialTool } from './financialQueries.js';
 import { VAULT_TOOLS, executeVaultTool, isVaultTool, type VaultLoader } from './vaultQueries.js';
+import { executeAccountingTool, isAccountingTool } from './accounting/tools.js';
 import { DOCUMENT_ACTION_TOOLS, executeDocumentAction, isDocumentActionTool } from './documentActions.js';
 import { RECORD_ACTION_TOOLS, executeRecordAction, isRecordActionTool } from './recordActions.js';
 import { NAVIGATION_TOOLS, executeNavigationTool, isNavigationTool, featureNavigation } from './navigation.js';
@@ -389,6 +390,8 @@ export function createToolbox(context: ToolContext) {
 
   async function run(call: ToolCall): Promise<ToolOutcome> {
     const args = call.args || {};
+    // Accounting tools are offered only on accounting turns (gateway.ts), so they are not in toolsFor(); read only.
+    if (isAccountingTool(call.name)) return typeof args === 'object' && !Array.isArray(args) ? executeAccountingTool(call.name, args, user, context.now) : fail('ตัวกรองไม่ถูกต้อง');
     const spec = [...toolsFor('chat'), ...toolsFor('action')].find(tool => tool.name === call.name);
     if (!spec) return fail('ไม่รู้จักเครื่องมือนี้');
     if (typeof args !== 'object' || Array.isArray(args) || Object.keys(args).some(key => !Object.prototype.hasOwnProperty.call(spec.parameters.properties, key))) return fail('ตัวกรองไม่ถูกต้อง เครื่องมืออ่านได้เฉพาะบัญชีที่เข้าสู่ระบบ');

@@ -21,6 +21,17 @@ import { emptyUsage, partialUsageOf, ProviderError, subtractUsage, withPartialUs
 import type { VaultLoader } from './vaultQueries.js';
 import { offerLine, offerState } from './bridge.js';
 import { styleReply } from './replyStyle.js';
+import { accountingEnabled, autoOfficialLinks, selectAccountingReference } from './accounting/reference.js';
+import { OFFICIAL_LINKS } from './accounting/officialLinks.js';
+import { ACCOUNTING_TOOLS } from './accounting/tools.js';
+
+// The light model sometimes writes a tool call out as text ("tax_estimate(incomes:[...])") instead of making it
+// (real-model test, 2026-10-26). On an accounting turn that is an unfinished answer, never one to show.
+const PRINTED_CALL = /^\s*(?:default_api[.:])?([a-z_]{3,40})\s*\([\s\S]*\)\s*$/;
+function printedToolCall(text: string): boolean {
+  const name = PRINTED_CALL.exec(text)?.[1];
+  return Boolean(name && [...toolsFor('chat'), ...toolsFor('action'), ...ACCOUNTING_TOOLS].some(tool => tool.name === name));
+}
 
 // One request to เลขากระรอก: pick the model (routingPolicy.ts), build the prompt, run the model with the account's tools,
 // and hand over from the chat model to the action model when the user wants something done. Returns the reply,
@@ -324,6 +335,10 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   }
 
   const knowledge = knowledgeSnippets(lookupKnowledge(request.text, 3));
+  // Accounting Brain (brief "ACCOUNTING BRAIN & TAX NAVIGATOR", 2026-10-26): on an accounting or tax message only, and
+  // only while it is on for this account (AI_ACCOUNTING, admins first), a short reference and five read-only tools.
+  // Every other message keeps exactly the existing prompt, tools and cost.
+  const accounting = accountingEnabled(config.accounting, request.plan) ? selectAccountingReference(request.text, request.history) : undefined;
   const context = accountContext(request.user, deps.now, request.access);
   const turns: ChatTurn[] = [...trimHistory(request.history), { role: 'user', text: request.text.slice(0, MAX_MESSAGE_CHARS), ...(request.attachment ? { attachment: request.attachment } : {}) }];
 
@@ -354,7 +369,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
 
   const run = async (route: Route, handoff?: string): Promise<ProviderResult> => {
     lastEditError = undefined;
-    const availableTools = toolsFor(route);
+    const availableTools = [...toolsFor(route), ...(accounting ? ACCOUNTING_TOOLS : [])];
     const allowed = new Set(availableTools.map(tool => tool.name));
     // What this run prepared, kept here so a provider failure after it cannot lose a saved card (cost brief, phase 4).
     const prepared: AssistantCard[] = [];
@@ -388,7 +403,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     const system = buildSystemPrompt({
       route, plan: request.plan, trialLeft: request.trialLeft, tokensLeft: request.tokensLeft,
       preferredName: request.preferredName, communicationProfile: request.communicationProfile, memories: request.memories,
-      nowLocal: bangkokNow(deps.now), pageName: request.pageName, channel: request.channel, knowledge, founder, accountContext: context,
+      nowLocal: bangkokNow(deps.now), pageName: request.pageName, channel: request.channel, knowledge, founder, accounting: accounting?.text, accountContext: context,
       offer: offerLine(offerState(request.text, request.history)),
     }) + (handoff ? `\n\nHANDOVER FROM THE CONVERSATION ASSISTANT: ${handoff}` : '');
     // Gemini Flash-Lite thinks least by default; the action model reasons a little before changing data.
@@ -473,7 +488,8 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     // One step up at most, only when the light model could not finish and left nothing behind: no answer, stuck in
     // tool calls, or its change kept failing the tool's checks. If Sonnet then fails, the light answer stands.
     const reason = !result.text.trim() && !result.stoppedAt ? 'empty_answer'
-      : result.stoppedAt === 'max_steps' ? 'max_steps' : failedWrites >= 3 ? 'tool_errors' : undefined;
+      : result.stoppedAt === 'max_steps' ? 'max_steps' : failedWrites >= 3 ? 'tool_errors'
+      : accounting && printedToolCall(result.text) ? 'printed_call' : undefined;
     if (reason) {
       escalations.push(reason);
       smart = config.smartModel;
@@ -493,7 +509,12 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // Same response contract for Gemini and Sonnet: no character-drawn charts, no table repeating a money card. Then the
   // confidentiality check (Master Backlog Part 3): no AI provider or model names, internals or keys, for every account.
   // House style (replyStyle.ts): no emoji unless the user used them, no made-up tool links.
-  const styled = styleReply(cleanAnswerText(result.text, cards), { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])] });
+  const finalText = accounting && printedToolCall(result.text) ? '' : result.text;
+  // A filing or refund answer always comes with the official site (brief 4C), even when the model did not ask for it.
+  if (accounting && !cards.some(card => card.kind === 'official_link')) {
+    for (const id of autoOfficialLinks(accounting.topics)) cards.push({ kind: 'official_link', ...OFFICIAL_LINKS[id] });
+  }
+  const styled = styleReply(cleanAnswerText(finalText, cards), { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])] });
   const checked = guardReply(styled, { userText: request.text, userData: () => JSON.stringify(request.user) });
   guardHits.push(...checked.hits);
   const answer = checked.text;

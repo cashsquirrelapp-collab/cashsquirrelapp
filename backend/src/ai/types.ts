@@ -50,7 +50,9 @@ export type AssistantCard =
    * client pays and a party's details where needed (shared/askQuestions.ts, 2026-10-25). */
   | { kind: 'questions'; id: string; questions: AskQuestion[] }
   /** Several months of money (financial_summary), drawn as a chart from the tool's own figures (moneyChart.ts). */
-  | MoneyChartCard;
+  | MoneyChartCard
+  /** An official website (accounting/officialLinks.ts): chosen by id from a fixed list, never a URL from a model. */
+  | { kind: 'official_link'; id: string; org: string; title: string; description: string; todo: string; url: string };
 
 /**
  * cacheWriteTokens: Claude's prompt-cache writes, part of inputTokens, billed at 1.25× the input price for 5 minutes;

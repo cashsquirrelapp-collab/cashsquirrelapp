@@ -40,6 +40,8 @@ export interface AiConfig {
   requestCostLimitUsd: number;
   /** Share of dailyCostCapUsd after which optional Sonnet use stops (soft alert); the cap itself is the hard stop. */
   softBudgetShare: number;
+  /** Accounting Brain & Tax Navigator (ai/accounting): 'admin' while it is checked (default), 'all' or 'off'. */
+  accounting?: 'off' | 'admin' | 'all';
 }
 
 const num = (value: string | undefined, fallback: number, min: number, max: number) => {
@@ -85,6 +87,7 @@ export function aiConfig(env: Record<string, string | undefined> = process.env):
     lightFallbackWrites: env.AI_LIGHT_FALLBACK_WRITES?.trim().toLowerCase() === 'true',
     requestCostLimitUsd: num(env.AI_REQUEST_COST_LIMIT_USD, 0.3, 0.05, 5),
     softBudgetShare: num(env.AI_SOFT_BUDGET_SHARE, 0.8, 0.1, 1),
+    accounting: (['off', 'admin', 'all'] as const).find(mode => mode === env.AI_ACCOUNTING?.trim().toLowerCase()) ?? 'admin',
   };
 }
 

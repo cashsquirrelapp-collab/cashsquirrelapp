@@ -3,6 +3,7 @@ import type { LineMessage } from '../services/line.js';
 import type { AssistantCard } from './types.js';
 import { formatTHB } from './moneyChart.js';
 import { featureNavigation, NAVIGATION_TOOLS } from './navigation.js';
+import { OFFICIAL_LINKS, isOfficialUrl } from './accounting/officialLinks.js';
 
 // เลขากระรอก answers in LINE (owner, 2026-10-24: "ส่วนของ LINE AI ยังไม่เชื่อม ทำให้มันเชื่อมด้วย"). LINE shows
 // neither Markdown nor tables, so an answer becomes short plain lines, and the chat's cards become the app's own
@@ -161,6 +162,12 @@ function confirmationMessage(card: ConfirmationCard): LineMessage {
 }
 
 function cardMessage(card: AssistantCard): LineMessage | null {
+  if (card.kind === 'official_link') {
+    // An official website from the fixed list, looked up again by id: LINE shows it as text it links by itself.
+    const site = OFFICIAL_LINKS[card.id];
+    if (!site || !isOfficialUrl(site.url)) return null;
+    return { type: 'text', text: `${site.title} (${site.org})\n${site.description}\nทำอะไร: ${site.todo}\n${site.url}` } as LineMessage;
+  }
   if (card.kind === 'navigation') {
     // The issuing navigation tool already checked the account's feature rights. Resolve the exact path
     // again against that server-owned catalog; neither model-provided labels nor arbitrary URLs are trusted.
