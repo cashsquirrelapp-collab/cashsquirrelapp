@@ -1,5 +1,6 @@
 /** Local microphone capture. Nothing in this module makes a network request. */
-export const AUDIO_MAX_SECONDS = 60;
+// Two minutes (owner, 2026-10-26: notes spoken while walking); the server takes the same (transcription.ts).
+export const AUDIO_MAX_SECONDS = 120;
 export const AUDIO_MAX_BYTES = 4 * 1024 * 1024;
 const WAV_SAMPLE_RATE = 16_000;
 const MIN_SECONDS = 0.25;

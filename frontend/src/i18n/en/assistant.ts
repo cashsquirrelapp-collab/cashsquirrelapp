@@ -71,7 +71,7 @@ export const assistant: Record<string, string> = {
   "รูปที่แนบ": "Attached picture",
   "วางรูปหรือ PDF ที่นี่": "Drop a picture or PDF here",
   "ไฟล์เสียงไม่ถูกต้อง กรุณาอัดเสียงใหม่": "This audio could not be read. Please record it again.",
-  "อัดเสียงได้ครั้งละไม่เกิน 60 วินาที": "Record up to 60 seconds at a time.",
+  "อัดเสียงได้ครั้งละไม่เกิน 2 นาที": "Record up to 2 minutes at a time.",
   "การถอดเสียงยังไม่พร้อมใช้งาน": "Voice transcription is not available yet.",
   "ยกเลิกการถอดเสียงแล้ว": "Transcription cancelled.",
   "ถอดเสียงไม่สำเร็จ กรุณาลองใหม่ภายหลัง": "Could not transcribe the audio. Please try again later.",
@@ -87,7 +87,7 @@ export const assistant: Record<string, string> = {
   "อัดเสียงแล้วถอดเป็นข้อความ · ใช้โทเค็น": "Record and transcribe \u00b7 uses tokens",
   "ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI": "Voice input is available when the AI assistant is connected",
   "ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง": "You can review and edit the transcript before sending.",
-  "หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 1 นาที": "Stop to transcribe \u00b7 uses tokens \u00b7 up to 1 minute",
+  "หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที": "Stop to transcribe \u00b7 uses tokens \u00b7 up to 2 minutes",
   "ข้อความยาวเกิน 6,000 ตัวอักษร กรุณาย่อก่อนส่ง": "Your message exceeds 6,000 characters. Shorten it before sending.",
 
   "เลขากระรอก": "Krarok Assistant",

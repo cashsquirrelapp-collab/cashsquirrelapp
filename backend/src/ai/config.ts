@@ -12,6 +12,8 @@ export interface AiConfig {
   /** The smart model for hard requests (difficulty.ts), e.g. claude-sonnet-5-5; off when unset or its key is missing. */
   smartModel?: string;
   actionModel: string;
+  /** Dictation (transcription.ts): a Gemini model that hears Thai well; AI_VOICE_MODEL changes it. */
+  voiceModel: string;
   geminiKey?: string;
   openaiKey?: string;
   anthropicKey?: string;
@@ -69,6 +71,10 @@ export function aiConfig(env: Record<string, string | undefined> = process.env):
     chatModel: env.AI_CHAT_MODEL?.trim() || 'gemini-3.5-flash-lite',
     actionModel: env.AI_ACTION_MODEL?.trim() || 'gemini-3.5-flash-lite',
     smartModel: env.AI_SMART_MODEL?.trim() || undefined,
+    // Owner, 2026-10-26: dictation must be accurate. In the before/after check (artifacts/ai-secretary/eval/voice-1),
+    // Gemini 3.8 Flash wrote all 10 noisy clips without a mistake; Flash-Lite with the same spelling lists got every name
+    // and amount but still misheard a few words. AI_VOICE_MODEL=gemini-3.5-flash-lite costs about half.
+    voiceModel: env.AI_VOICE_MODEL?.trim() || 'gemini-3.8-flash',
     geminiKey: env.GEMINI_API_KEY?.trim() || undefined,
     openaiKey: env.OPENAI_API_KEY?.trim() || undefined,
     anthropicKey: env.ANTHROPIC_API_KEY?.trim() || undefined,

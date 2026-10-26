@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, LoaderCircle, X } from 'lucide-react';
 import { tr } from '../../i18n/tr';
 import type { DictationPhase } from './useDictation';
+import { AUDIO_MAX_SECONDS } from './audioRecorder';
 
 function Waveform({ levels, active, reduce }: { levels: React.RefObject<number[]>; active: boolean; reduce: boolean }) {
   const ref = React.useRef<HTMLCanvasElement>(null);
@@ -59,7 +60,7 @@ export function VoiceComposer({ phase, seconds, levels, reduce, onCancel, onFini
       <div className="asx-voice-body">
         <div className="asx-voice-caption">
           <span role="status" aria-live="polite">{status}</span>
-          <span className="asx-voice-time" aria-hidden="true">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')} / 1:00</span>
+          <span className="asx-voice-time" aria-hidden="true">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')} / {Math.floor(AUDIO_MAX_SECONDS / 60)}:{String(AUDIO_MAX_SECONDS % 60).padStart(2, '0')}</span>
         </div>
         <Waveform levels={levels} active={recording} reduce={reduce} />
       </div>

@@ -1,0 +1,29 @@
+{
+  "about": "Dictation check (owner, 2026-10-26: make voice notes accurate). A made-up account; each case is what the person says (spoken, numbers in Thai words as people say them) and what should be written (reference, amounts as digits). keys are the words that must come out exactly: names, amounts, terms.",
+  "account": {
+    "issuer_profile": { "name": "สตูดิโอกระรอกน้อย" },
+    "job_types": ["Sponsored Post", "Video Production"],
+    "jobs": [
+      { "name": "รีวิวเซรั่มวิตซีไกลว์", "client": "บริษัท ณัฐฐาพร มีเดีย จำกัด", "type": "Sponsored Post", "startDate": "2026-10-20" },
+      { "name": "ไลฟ์ขายของ Shopee", "client": "คุณพิมพ์ชนก", "type": "Sponsored Post", "startDate": "2026-10-18" },
+      { "name": "ถ่ายภาพแคมเปญปีใหม่", "client": "ร้านบ้านขนมปังอุ่นรัก", "type": "Video Production", "startDate": "2026-10-15" },
+      { "name": "คลิป TikTok ลิปสติก", "client": "เอเจนซี่ ไบรท์ไลน์", "type": "Video Production", "startDate": "2026-10-12" },
+      { "name": "ออกแบบโลโก้ร้านกาแฟ", "client": "คุณธีรวัฒน์", "type": "Sponsored Post", "startDate": "2026-10-10" },
+      { "name": "รีวิวครีมกันแดด", "client": "Glow Skin Thailand", "type": "Sponsored Post", "startDate": "2026-09-30" }
+    ],
+    "invoices": [ { "client": { "name": "เอเจนซี่ ไบรท์ไลน์", "contactName": "คุณศิริลักษณ์" }, "items": [ { "description": "ค่าตัดต่อวิดีโอ" }, { "description": "ค่าเดินทาง" } ] } ],
+    "expenses": [ { "name": "ค่าไฟสตูดิโอ" }, { "name": "ค่าเช่าไฟถ่ายภาพ" } ]
+  },
+  "cases": [
+    { "id": "v01", "voice": "kanya", "spoken": "งานรีวิวเซรั่มวิตซีไกลว์ของบริษัทณัฐฐาพรมีเดีย ได้มัดจำแล้วห้าพันบาท เหลืออีกเจ็ดพันห้า", "reference": "งานรีวิวเซรั่มวิตซีไกลว์ของบริษัท ณัฐฐาพร มีเดีย ได้มัดจำแล้ว 5,000 บาท เหลืออีก 7,500", "keys": { "names": ["รีวิวเซรั่มวิตซีไกลว์", "ณัฐฐาพร"], "amounts": ["5,000", "7,500"], "terms": ["มัดจำ"] } },
+    { "id": "v02", "voice": "kanya", "spoken": "คุณพิมพ์ชนกโอนค่าไลฟ์ขายของช้อปปี้มาแล้วหนึ่งหมื่นสองพันห้าร้อยบาท เข้ากสิกรไทย", "reference": "คุณพิมพ์ชนกโอนค่าไลฟ์ขายของ Shopee มาแล้ว 12,500 บาท เข้ากสิกรไทย", "keys": { "names": ["พิมพ์ชนก", "Shopee"], "amounts": ["12,500"], "terms": ["กสิกรไทย"] } },
+    { "id": "v03", "voice": "kanya", "spoken": "นัดถ่ายภาพแคมเปญปีใหม่กับร้านบ้านขนมปังอุ่นรัก วันที่สิบห้าธันวาคม เก็บสามสิบเปอร์เซ็นต์ก่อน", "reference": "นัดถ่ายภาพแคมเปญปีใหม่กับร้านบ้านขนมปังอุ่นรัก วันที่ 15 ธันวาคม เก็บ 30% ก่อน", "keys": { "names": ["ถ่ายภาพแคมเปญปีใหม่", "บ้านขนมปังอุ่นรัก"], "amounts": ["15", "30%"], "terms": [] } },
+    { "id": "v04", "voice": "kanya", "spoken": "ออกใบเสนอราคาให้เอเจนซี่ไบรท์ไลน์ งานคลิปติ๊กต๊อกลิปสติก สามคลิป คลิปละแปดพันบาท", "reference": "ออกใบเสนอราคาให้เอเจนซี่ ไบรท์ไลน์ งานคลิป TikTok ลิปสติก 3 คลิป คลิปละ 8,000 บาท", "keys": { "names": ["ไบรท์ไลน์", "TikTok"], "amounts": ["3", "8,000"], "terms": ["ใบเสนอราคา"] } },
+    { "id": "v05", "voice": "kanya", "spoken": "คุณธีรวัฒน์ขอเครดิตเทอมสามสิบวัน หักณที่จ่ายสามเปอร์เซ็นต์ ต้องส่งห้าสิบทวิด้วย", "reference": "คุณธีรวัฒน์ขอเครดิตเทอม 30 วัน หัก ณ ที่จ่าย 3% ต้องส่ง 50 ทวิ ด้วย", "keys": { "names": ["ธีรวัฒน์"], "amounts": ["30", "3%"], "terms": ["เครดิตเทอม", "หัก ณ ที่จ่าย", "50 ทวิ"] } },
+    { "id": "v06", "voice": "kanya", "spoken": "จ่ายค่าไฟสตูดิโอเดือนนี้สองพันสามร้อยแปดสิบบาท กับค่าเช่าไฟถ่ายภาพหนึ่งพันห้าร้อยบาท", "reference": "จ่ายค่าไฟสตูดิโอเดือนนี้ 2,380 บาท กับค่าเช่าไฟถ่ายภาพ 1,500 บาท", "keys": { "names": ["ค่าไฟสตูดิโอ", "ค่าเช่าไฟถ่ายภาพ"], "amounts": ["2,380", "1,500"], "terms": [] } },
+    { "id": "v07", "voice": "kanya", "spoken": "โกลว์สกินไทยแลนด์ยังค้างชำระสามหมื่นสองพันห้า เลยกำหนดมาแล้วสิบวัน", "reference": "Glow Skin Thailand ยังค้างชำระ 32,500 เลยกำหนดมาแล้ว 10 วัน", "keys": { "names": ["Glow Skin Thailand"], "amounts": ["32,500", "10"], "terms": ["ค้างชำระ"] } },
+    { "id": "v08", "voice": "kanya", "spoken": "เพิ่มงานออกแบบโลโก้ร้านกาแฟ ราคาหมื่นห้า ลูกค้าจ่ายครึ่งหนึ่งก่อน", "reference": "เพิ่มงานออกแบบโลโก้ร้านกาแฟ ราคา 15,000 ลูกค้าจ่ายครึ่งหนึ่งก่อน", "keys": { "names": ["ออกแบบโลโก้ร้านกาแฟ"], "amounts": ["15,000"], "terms": [] } },
+    { "id": "v09", "voice": "gemini", "style": "a Thai freelancer talking casually while walking along a busy street, a little out of breath, natural pauses", "spoken": "เอ่อ วันนี้ได้เงินจากคุณพิมพ์ชนกมาสองพันห้า แล้วก็ค่าเดินทางไปกองถ่ายสามร้อยแปดสิบบาท", "reference": "วันนี้ได้เงินจากคุณพิมพ์ชนกมา 2,500 แล้วก็ค่าเดินทางไปกองถ่าย 380 บาท", "keys": { "names": ["พิมพ์ชนก", "ค่าเดินทาง"], "amounts": ["2,500", "380"], "terms": [] } },
+    { "id": "v10", "voice": "gemini", "style": "a Thai business owner speaking quickly into a phone while walking, relaxed and conversational", "spoken": "สตูดิโอกระรอกน้อยต้องออกใบแจ้งหนี้ให้เอเจนซี่ไบรท์ไลน์ ห้าหมื่นบาท ภายในวันศุกร์นี้ ห้าพัน เอ้ย หกพันเป็นค่าตัดต่อวิดีโอนะ", "reference": "สตูดิโอกระรอกน้อยต้องออกใบแจ้งหนี้ให้เอเจนซี่ ไบรท์ไลน์ 50,000 บาท ภายในวันศุกร์นี้ 6,000 เป็นค่าตัดต่อวิดีโอนะ", "keys": { "names": ["สตูดิโอกระรอกน้อย", "ไบรท์ไลน์", "ค่าตัดต่อวิดีโอ"], "amounts": ["50,000", "6,000"], "terms": ["ใบแจ้งหนี้"] } }
+  ]
+}

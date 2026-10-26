@@ -308,7 +308,7 @@ test('mic: recording stays local until Stop, transcribes once, and leaves an edi
     const waveform = page.locator('canvas.asx-voice-wave');
     await expect(waveform).toBeVisible();
     // Wait for captured audio (not a timer fake), and verify the meter is drawing above its flat baseline.
-    await expect(page.locator('.asx-voice-time')).toHaveText(/^0:0[1-9] \/ 1:00$/);
+    await expect(page.locator('.asx-voice-time')).toHaveText(/^0:0[1-9] \/ 2:00$/);
     await expect.poll(() => waveform.evaluate((canvas: HTMLCanvasElement) => {
       const pixels = canvas.getContext('2d')!.getImageData(0, Math.floor(canvas.height / 4), canvas.width, 1).data;
       return pixels.some((value, index) => index % 4 === 3 && value > 0);
@@ -370,7 +370,7 @@ test('mic: Cancel releases the microphone, keeps the existing draft, and never t
   await page.locator('#asx-message').fill(original);
   await page.getByRole('button', { name: 'พูดแทนการพิมพ์', exact: true }).click();
   await expect(page.getByRole('group', { name: 'พูดแทนการพิมพ์' }).getByText('กำลังฟังอยู่', { exact: true })).toBeVisible();
-  await expect(page.locator('.asx-voice-time')).toHaveText(/^0:0[1-9] \/ 1:00$/);
+  await expect(page.locator('.asx-voice-time')).toHaveText(/^0:0[1-9] \/ 2:00$/);
   expect(mock.posts).toHaveLength(0);
   await page.getByRole('button', { name: 'ยกเลิกเสียงนี้' }).click();
   await expect(page.locator('#asx-message')).toHaveValue(original);

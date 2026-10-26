@@ -153,7 +153,9 @@ test('active paid Pro and existing Pro grants get live status, chat and voice wi
     assert.equal(transcript.status, 200); assert.equal(transcript.body.text, 'ทดสอบเสียง');
   }
   assert.equal(providerCalls, 4);
-  assert.deepEqual(snapshotOwners, [A, B], 'dictation never reads an account snapshot');
+  // The chat reads the account; dictation reads it once more, only for names to spell (owner, 2026-10-26), and each
+  // read is the caller's own account.
+  assert.deepEqual(snapshotOwners, [A, A, B, B]);
   assert.deepEqual(reservations.map(row => row.p_user_id), [A, A, B, B]);
   assert.deepEqual(settlements.map(row => row.p_user_id), [A, A, B, B]);
   assert.ok(reservations.every(row => row.p_token_limit === 1000 && row.p_daily_cap_usd === 0.25));

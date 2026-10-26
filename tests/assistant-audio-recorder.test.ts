@@ -105,12 +105,12 @@ test('WAV contains PCM16 mono 16 kHz header and downmixed, resampled samples', (
   assert.equal(header.getInt16(44, true), 8192);
 });
 
-test('WAV handles 44.1 kHz and 8 kHz inputs, averages source intervals, and clamps duration to 60 seconds', () => {
+test('WAV handles 44.1 kHz and 8 kHz inputs, averages source intervals, and clamps duration to the two-minute limit', () => {
   for (const rate of [44_100, 8_000, 16_000]) assert.equal(encodeMonoWav([samples(rate)], rate).byteLength, 32_044);
   const alternating = samples(48_000, 1, 0);
   for (let i = 0; i < alternating.length; i += 3) alternating[i] = 0.9;
   assert.equal(new DataView(encodeMonoWav([alternating], 48_000)).getInt16(44, true), 9830);
-  assert.equal(encodeMonoWav([samples(8_000, 61)], 8_000).byteLength, 44 + 60 * 16_000 * 2);
+  assert.equal(encodeMonoWav([samples(8_000, AUDIO_MAX_SECONDS + 1)], 8_000).byteLength, 44 + AUDIO_MAX_SECONDS * 16_000 * 2);
 });
 
 test('WAV rejects short, silent and malformed audio, and clamps overflowing samples', () => {
@@ -147,8 +147,8 @@ test('duplicate start and finish do not acquire, stop, or decode twice', async (
   assert.equal(f.recorder.stops, 1); assert.equal(f.counts().decodeCalls, 1);
 });
 
-test('60-second timer stops capture even if the UI has not called finish yet', async () => {
-  const f = fixture(); await f.audio.start(); f.fireTimer(60_000);
+test('the two-minute timer stops capture even if the UI has not called finish yet', async () => {
+  const f = fixture(); await f.audio.start(); f.fireTimer(AUDIO_MAX_SECONDS * 1000);
   assert.equal(f.counts().stoppedTracks, 1); assert.equal(f.events.limits, 1);
   assert.equal(f.events.elapsed.at(-1), AUDIO_MAX_SECONDS);
   assert.equal(f.intervals.size, 0);
@@ -225,7 +225,7 @@ test('a recorder error stops capture and notifies the UI with a typed error', as
 test('unexpected native stop discards the partial clip, cleans up, and never triggers auto-finish', async () => {
   const f = fixture(); await f.audio.start();
   f.recorder.ondataavailable?.({ data: new Blob(['partial recording']) });
-  const staleLimit = [...f.timers.values()].find(timer => timer.milliseconds === 60_000)!.callback;
+  const staleLimit = [...f.timers.values()].find(timer => timer.milliseconds === AUDIO_MAX_SECONDS * 1000)!.callback;
   f.recorder.state = 'inactive'; f.recorder.onstop?.();
   assert.equal(f.events.errors.length, 1); assert.equal(f.events.errors[0].code, 'failed');
   assert.equal(f.counts().stoppedTracks, 1); assert.equal(f.counts().closes, 1);
