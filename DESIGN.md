@@ -220,10 +220,11 @@ Don't:
 - Phones are in the same set, drawn for a phone: the perched squirrel (68px in the chat bar, 72px in the sheet header)
   with its name, the token chip, one-line greeting and sentence, the questions as one grouped list with short words,
   the white composer; the top bar stays under 66px.
-- Money cards (owner, 2026-10-27: "ชอบแบบ A กับ C"): the month is design A (money left large, "+฿… จากเดือนก่อน" from
-  the server, a bar of the income spent, income and expenses side by side); several months are design C (one line of
-  the money left with its area, the month shown marked with its figure, a running month dashed, totals below, the
-  table kept). Drawn at the card's real width, so the figures on the chart never shrink.
+- Money cards (owner, 2026-10-27): the month is design A (money left large, "+฿… จากเดือนก่อน" from
+  the server, a bar of the income spent, income and expenses side by side); several months are design A too ("เปลี่ยน
+  เป็น A อย่างเดียว"): the money left over the period large, a pair of bars a month (income, expenses) on one scale,
+  the month shown lit, a legend with the totals, the table kept. Drawn at the card's real width, so the figures on the
+  chart never shrink.
 - เลขา calls the person by the account's name. A new name ("เรียกผมว่า…", "อยากเปลี่ยนชื่อ") is a rename card the person
   saves themselves through the profile API; nothing is remembered as a nickname.
 

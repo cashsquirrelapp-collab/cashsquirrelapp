@@ -795,7 +795,7 @@ textarea.asx-q-input { resize: vertical; min-height: 60px; line-height: 1.5; }
 .asx-rcard.is-chart { width: min(520px, 100%); scroll-margin-bottom: calc(var(--asx-dock-h, 120px) + 48px); scroll-margin-top: 72px; }
 .asx-chart { display: grid; gap: 8px; margin: 0; padding: 4px 12px 10px; border-top: 1px solid var(--border); }
 .asx-chart-legend { display: flex; gap: 14px; padding-top: 8px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
-.asx-chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.asx-chart-legend > span { display: inline-flex; align-items: center; gap: 6px; }
 .asx-chart-legend i { width: 10px; height: 10px; border-radius: 3px; }
 .asx-chart-legend .is-income i, .asx-chart-bars .is-income { background: var(--asx-chart-income); }
 .asx-chart-legend .is-expense i, .asx-chart-bars .is-expense { background: var(--asx-chart-expense); }
@@ -1342,22 +1342,26 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-sum-figure.is-expense { color: var(--asx-expense); }
 .dark .asx-sum-delta.is-up { background: rgba(74, 222, 128, 0.14); }
 .dark .asx-sum-bar { background: rgba(74, 222, 128, 0.16); }
-/* Design C: the line of money left. */
-.asx-line { display: grid; gap: 6px; margin: 0; }
-.asx-line svg { display: block; width: 100%; height: auto; overflow: visible; }
-.asx-line-grid { stroke: rgba(60, 60, 67, 0.14); stroke-width: 1; }
-.asx-line-tick { fill: var(--asx-card-secondary); font-family: var(--asx-card-num); font-size: 10.5px; }
-.asx-line-area { fill: rgba(230, 95, 43, 0.12); }
-.asx-line-path { fill: none; stroke: var(--asx-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.asx-line-path.is-partial { stroke-dasharray: 4 4; }
-.asx-line-dot { fill: var(--asx-card-surface); stroke: var(--asx-accent); stroke-width: 2; }
-.asx-line-dot.is-shown { fill: var(--asx-accent); }
-.asx-line-value { fill: var(--text); font-family: var(--asx-card-num); font-size: 12px; font-weight: 600; }
-.asx-line-hit { fill: transparent; cursor: pointer; }
-.asx-line-months { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); margin: -2px var(--asx-line-right, 14px) 0 var(--asx-line-left, 38px); }
-.asx-line-month { min-width: 0; padding: 3px 0; overflow: hidden; border-radius: 8px; color: var(--asx-card-secondary); font-size: 11.5px; line-height: 1.45; text-align: center; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-.asx-line-month:hover, .asx-line-month.is-picked { background: rgba(118, 118, 128, 0.08); color: var(--text); }
-.asx-line-month.is-picked { font-weight: 600; }
-.asx-line-month:focus-visible { outline: 2px solid var(--asx-accent); outline-offset: 1px; }
-.dark .asx-line-grid { stroke: rgba(255, 255, 255, 0.08); }
-.dark .asx-line-area { fill: rgba(255, 164, 115, 0.14); }
+/* Design A, several months: a pair of bars a month on one scale, the month shown lit. */
+.asx-bars { display: grid; gap: 6px; margin: 0; }
+.asx-bars svg { display: block; width: 100%; height: auto; overflow: visible; }
+.asx-bars-grid { stroke: rgba(60, 60, 67, 0.14); stroke-width: 1; }
+.asx-bars-tick { fill: var(--asx-card-secondary); font-family: var(--asx-card-num); font-size: 10.5px; }
+.asx-bar-income { fill: var(--asx-chart-income); }
+.asx-bar-expense { fill: var(--asx-chart-expense); }
+.asx-bars-month.is-partial .asx-bar-income, .asx-bars-month.is-partial .asx-bar-expense { opacity: 0.72; }
+.asx-bars-band { fill: transparent; }
+.asx-bars-month.is-shown .asx-bars-band { fill: rgba(118, 118, 128, 0.08); }
+.asx-bars-hit { fill: transparent; cursor: pointer; }
+.asx-bars-months { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); margin: -4px var(--asx-bars-right, 6px) 0 var(--asx-bars-left, 38px); }
+.asx-bars-label { min-width: 0; padding: 3px 0; overflow: hidden; border-radius: 8px; color: var(--asx-card-secondary); font-size: 11.5px; line-height: 1.45; text-align: center; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.asx-bars-label:hover, .asx-bars-label.is-picked { color: var(--text); }
+.asx-bars-label.is-picked { font-weight: 600; }
+.asx-bars-label:focus-visible { outline: 2px solid var(--asx-accent); outline-offset: 1px; }
+.asx-bars .asx-chart-legend { padding-top: 4px; font-variant-numeric: tabular-nums; }
+.dark .asx-bars-grid { stroke: rgba(255, 255, 255, 0.08); }
+.dark .asx-bars-month.is-shown .asx-bars-band { fill: rgba(255, 255, 255, 0.05); }
+
+/* Computers and iPads: no patch of page colour behind the pill (owner, 2026-10-27: "เอาของฟุ้งดำๆออกหน่อย": in dark it
+   showed as a black smudge on the page card). The pill itself is solid. Phones keep theirs. */
+.asx-buddy.is-pill::before, .asx-buddy.is-pill.is-climbing::before { display: none; }

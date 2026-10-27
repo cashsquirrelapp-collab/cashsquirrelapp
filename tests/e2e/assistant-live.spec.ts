@@ -666,24 +666,25 @@ for (const [label, width, height, dark] of [['computer', 1440, 900, false], ['co
   await page.locator('.asx-send').click();
   const card = page.locator('.asx-rcard.is-chart');
   await expect(card).toBeVisible();
-  // Design C (owner, 2026-10-27): the money left each month as a line, the period on the head's chip, the totals below.
-  await expect(card.locator('.asx-rcard-head b')).toHaveText('คงเหลือ 2 เดือน');
+  // Design A (owner, 2026-10-27): the money left over the period large, paired bars a month, a legend with the totals.
+  await expect(card.locator('.asx-rcard-head b')).toHaveText('สรุป 2 เดือน');
   await expect(card.locator('.asx-card-chip')).toHaveText('ก.ย. 2569 – ต.ค. 2569');
-  await expect(card.locator('.asx-card-metrics dt')).toHaveText(['รายรับรวม', 'รายจ่ายรวม', 'คงเหลือรวม']);
-  await expect(card.locator('.asx-card-metrics .is-income')).toHaveText('฿17,640.10');
-  await expect(card.locator('.asx-card-metrics .is-expense')).toHaveText('฿1,800.24');
-  await expect(card.locator('.asx-card-metrics dd').last()).toHaveText('฿15,839.86');
-  await expect(card.locator('.asx-line-month')).toHaveCount(2);
-  await expect(card.locator('.asx-line-dot')).toHaveCount(2);
-  await expect(card.locator('.asx-line-path.is-partial')).toHaveCount(1); // October is still running
-  // The latest month by default; hovering another shows its figures and marks its point.
+  await expect(card.locator('.asx-card-preview .asx-card-eyebrow')).toHaveText('คงเหลือรวม');
+  await expect(card.locator('.asx-card-amount')).toHaveText('฿15,839.86');
+  await expect(card.locator('.asx-chart-legend .is-income')).toHaveText('รายรับ ฿17,640.10');
+  await expect(card.locator('.asx-chart-legend .is-expense')).toHaveText('รายจ่าย ฿1,800.24');
+  await expect(card.locator('.asx-bars-label')).toHaveCount(2);
+  await expect(card.locator('.asx-bar-income')).toHaveCount(2);
+  await expect(card.locator('.asx-bar-expense')).toHaveCount(2);
+  await expect(card.locator('.asx-bars-month.is-partial')).toHaveCount(1); // October is still running
+  // The latest month by default; hovering another shows its figures and lights its pair.
   await expect(card.locator('.asx-chart-readout')).toHaveText('ต.ค. 2569 (ถึงวันนี้) · รายรับ ฿6,000.10 · รายจ่าย ฿299.99 · คงเหลือ ฿5,700.11');
-  await expect(card.locator('.asx-line-value')).toHaveText('฿5,700.11');
-  await card.locator('.asx-line-month').first().hover();
+  await card.locator('.asx-bars-label').first().hover();
   await expect(card.locator('.asx-chart-readout')).toHaveText('ก.ย. 2569 · รายรับ ฿11,640.00 · รายจ่าย ฿1,500.25 · คงเหลือ ฿10,139.75');
-  await expect(card.locator('.asx-line-value')).toHaveText('฿10,139.75');
-  const dots = await card.locator('.asx-line-dot').evaluateAll(list => list.map(dot => dot.getBoundingClientRect().y));
-  expect(dots[0]).toBeLessThan(dots[1]); // September left more money: its point is higher
+  await expect(card.locator('.asx-bars-month').first()).toHaveClass(/is-shown/);
+  const heights = await card.locator('.asx-bar-income, .asx-bar-expense').evaluateAll(bars => bars.map(bar => Math.round(bar.getBoundingClientRect().height)));
+  expect(heights[0]).toBeGreaterThan(heights[2]); // September's income is the tallest bar
+  expect(heights[0]).toBeGreaterThan(heights[1]);
   await expect(card.locator('.asx-chart-note')).toContainText('เดือนนี้ยังไม่จบ');
   await card.getByText('ดูเป็นตาราง').click();
   await expect(card.locator('table tbody tr')).toHaveCount(2);
@@ -723,9 +724,9 @@ test('a period with no money shows the empty state, not empty bars', async ({ pa
   await page.locator('.asx-send').click();
   const card = page.locator('.asx-rcard.is-chart');
   await expect(card.locator('.asx-chart-empty')).toHaveText('ยังไม่มีรายรับหรือรายจ่ายในช่วงนี้');
-  await expect(card.locator('.asx-line-month')).toHaveCount(0);
+  await expect(card.locator('.asx-bars-label')).toHaveCount(0);
   await expect(card.locator('.asx-chart-table')).toHaveCount(0);
-  await expect(card.locator('.asx-card-metrics dd')).toHaveText(['฿0.00', '฿0.00', '฿0.00']);
+  await expect(card.locator('.asx-card-amount')).toHaveText('฿0');
 });
 
 // Owner, 2026-10-25 ("อยากให้กดแก้ไขได้" on an expense card in the floating panel): the panel on every page edits a card

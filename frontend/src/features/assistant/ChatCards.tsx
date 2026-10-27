@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, Briefcase, Check, CheckCircle2, ChevronRight, FileText, Landmark, ListChecks, Loader2, Pencil, Send, TrendingUp, UserRound, Wallet, X } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, Landmark, ListChecks, Loader2, Pencil, Send, UserRound, Wallet, X } from 'lucide-react';
 import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
@@ -192,22 +192,24 @@ function DocumentParties({ fields, onEdit }: { fields: EditField[]; onEdit?: (gr
 const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value);
 const isMoneyChart = (card: MoneyChartCard) => Array.isArray(card.months) && card.months.length <= 12 && card.months.every(month =>
   typeof month.label === 'string' && finite(month.income) && finite(month.expense) && finite(month.net)) && finite(card.totals?.income) && finite(card.totals?.expense) && finite(card.totals?.net);
-/** A round top for the y-axis: 1, 2, 2.5 or 5 times a power of ten, at or above the value. */
-function niceTop(value: number): number {
-  if (value <= 0) return 0;
+/** A round step for the y-axis: 1, 2, 2.5 or 5 times a power of ten, at or above the value. */
+function niceStep(value: number): number {
+  if (value <= 0) return 1;
   const power = 10 ** Math.floor(Math.log10(value));
   const f = value / power;
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * power;
 }
 const compact = (amount: number) => new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(amount);
+/** A whole amount without its ".00" (฿42,900), as on the month card; satang stay (฿15,839.86). */
+const plainTHB = (amount: number) => (Number.isInteger(amount) ? formatTHB(amount).replace(/\.00$/, '') : formatTHB(amount));
 
-/** Several months, design C (owner, 2026-10-27: "ชอบแบบ ... C"): the money left each month as one line with its area,
- *  the month shown (the latest, or the one pointed at) marked with its figure, then the totals. A month still running is
- *  dashed. Hover, focus or a tap on a month shows its figures; the table stays for screen readers and exact numbers. */
+/** Several months, design A (owner, 2026-10-27: "เปลี่ยนเป็น A อย่างเดียว"): the money left over the period large, then a
+ *  pair of bars a month (income, expenses) on one scale, the month shown (the latest, or the one pointed at) lit, a
+ *  legend with the totals, and a running month marked. Hover, focus or a tap on a month shows its figures; the table
+ *  stays for screen readers and exact numbers. Drawn at the card's real width, so its figures keep their size. */
 function MoneyChart({ card }: { card: MoneyChartCard }) {
   const [picked, setPicked] = React.useState<number | null>(null);
   const box = React.useRef<HTMLDivElement>(null);
-  // Drawn at the card's real width, so the figures on it stay at their size on a phone too.
   const plot = React.useRef<HTMLElement>(null);
   const [plotWidth, setPlotWidth] = React.useState(360);
   React.useLayoutEffect(() => {
@@ -233,59 +235,64 @@ function MoneyChart({ card }: { card: MoneyChartCard }) {
   const shownIndex = picked ?? months.length - 1;
   const shown = months[shownIndex];
   const line = (month: MoneyChartCard['months'][number]) => tr("{0} · รายรับ {1} · รายจ่าย {2} · คงเหลือ {3}", `${full(month)}${month.partial ? ` (${tr("ถึงวันนี้")})` : ''}`, formatTHB(month.income), formatTHB(month.expense), formatTHB(month.net));
-  // The drawing, in viewBox units: the plot between the left labels and a little room at the right.
-  const W = Math.max(220, plotWidth), LEFT = 38, RIGHT = 14, TOP = 30, BOTTOM = 128;
-  const nets = months.map(month => month.net);
-  const top = niceTop(Math.max(1, ...nets));
-  const floor = Math.min(0, ...nets) < 0 ? -niceTop(-Math.min(...nets)) : 0;
-  const ticks = floor < 0 ? [floor, 0, top] : [0, top / 2, top];
+  // One scale for both bars, in steps that read well (0, 4k, 8k, 12k).
+  const W = Math.max(220, plotWidth), LEFT = 38, RIGHT = 6, TOP = 12, BOTTOM = 132;
+  const highest = Math.max(1, ...months.flatMap(month => [month.income, month.expense]));
+  const step = niceStep(highest / 3);
+  const top = step * Math.max(1, Math.ceil(highest / step));
+  const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
   const colW = (W - LEFT - RIGHT) / Math.max(1, months.length);
-  const x = (index: number) => LEFT + colW * (index + 0.5);
-  const y = (amount: number) => BOTTOM - ((amount - floor) / Math.max(1, top - floor)) * (BOTTOM - TOP);
-  const points = months.map((month, index) => [x(index), y(month.net)] as const);
-  const partialLast = months.at(-1)?.partial && months.length > 1;
-  const solid = partialLast ? points.slice(0, -1) : points;
-  const pathOf = (list: readonly (readonly [number, number])[]) => list.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join('');
-  const zero = y(0);
-  const area = points.length > 1 ? `${pathOf(points)}L${points.at(-1)![0].toFixed(1)},${zero.toFixed(1)}L${points[0][0].toFixed(1)},${zero.toFixed(1)}Z` : '';
-  const [sx, sy] = points[shownIndex] ?? [0, 0];
-  const valueRight = sx > W * 0.62;
+  const barW = Math.max(6, Math.min(16, colW * 0.3));
+  const y = (amount: number) => BOTTOM - (Math.max(0, amount) / top) * (BOTTOM - TOP);
+  const bar = (x0: number, amount: number) => {
+    const h = BOTTOM - y(amount); if (h <= 0) return '';
+    const r = Math.min(4, barW / 2, h);
+    return `M${x0},${BOTTOM}V${BOTTOM - h + r}Q${x0},${BOTTOM - h} ${x0 + r},${BOTTOM - h}H${x0 + barW - r}Q${x0 + barW},${BOTTOM - h} ${x0 + barW},${BOTTOM - h + r}V${BOTTOM}Z`;
+  };
   return (
     <div ref={box} className="asx-rcard is-chart">
-      <Head icon={TrendingUp} title={months.length > 1 ? tr("คงเหลือ {0} เดือน", months.length) : tr(card.title)} chip={card.omitted > 0 ? card.period : period} />
+      <Head icon={BarChart3} title={months.length > 1 ? tr("สรุป {0} เดือน", months.length) : tr(card.title)} chip={card.omitted > 0 ? card.period : period} />
+      <div className="asx-card-preview">
+        <span className="asx-card-eyebrow">{tr("คงเหลือรวม")}</span>
+        <strong className="asx-card-amount"><Money value={plainTHB(card.totals.net)} /></strong>
+      </div>
       {empty ? <p className="asx-chart-empty">{tr("ยังไม่มีรายรับหรือรายจ่ายในช่วงนี้")}</p> : months.length > 1 && (
-        <figure ref={plot} className="asx-line" onMouseLeave={() => setPicked(null)} style={{ ['--asx-line-left' as string]: `${LEFT}px`, ['--asx-line-right' as string]: `${RIGHT}px` }}>
+        <figure ref={plot} className="asx-bars" onMouseLeave={() => setPicked(null)} style={{ ['--asx-bars-left' as string]: `${LEFT}px`, ['--asx-bars-right' as string]: `${RIGHT}px` }}>
           <svg viewBox={`0 0 ${W} 140`} aria-hidden="true">
             {ticks.map(tick => (
               <g key={tick}>
-                <line className="asx-line-grid" x1={LEFT} x2={W - RIGHT + 6} y1={y(tick)} y2={y(tick)} />
-                <text className="asx-line-tick" x={LEFT - 6} y={y(tick) + 3.5} textAnchor="end">{tick === 0 ? '0' : compact(tick)}</text>
+                <line className="asx-bars-grid" x1={LEFT} x2={W - RIGHT} y1={y(tick)} y2={y(tick)} />
+                <text className="asx-bars-tick" x={LEFT - 6} y={y(tick) + 3.5} textAnchor="end">{tick === 0 ? '0' : compact(tick)}</text>
               </g>
             ))}
-            {area && <path className="asx-line-area" d={area} />}
-            <path className="asx-line-path" d={pathOf(solid)} />
-            {partialLast && <path className="asx-line-path is-partial" d={pathOf(points.slice(-2))} />}
-            {points.map(([px, py], index) => <circle key={months[index].month} className={`asx-line-dot${index === shownIndex ? ' is-shown' : ''}${months[index].partial ? ' is-partial' : ''}`} cx={px} cy={py} r={index === shownIndex ? 5 : 3.2} />)}
-            <text className="asx-line-value" x={valueRight ? sx - 9 : sx + 9} y={Math.max(12, sy - 10)} textAnchor={valueRight ? 'end' : 'start'}>{`${shown.net < 0 ? '-' : ''}฿${Math.abs(shown.net).toLocaleString('en-US', { maximumFractionDigits: 2 })}`}</text>
-            {months.map((month, index) => <rect key={month.month} className="asx-line-hit" x={LEFT + colW * index} y={0} width={colW} height={BOTTOM + 6} onMouseEnter={() => setPicked(index)} onClick={() => setPicked(index)} />)}
+            {months.map((month, index) => {
+              const cx = LEFT + colW * (index + 0.5);
+              return (
+                <g key={month.month} className={`asx-bars-month${index === shownIndex ? ' is-shown' : ''}${month.partial ? ' is-partial' : ''}`}>
+                  <rect className="asx-bars-band" x={LEFT + colW * index + 1} y={TOP - 6} width={colW - 2} height={BOTTOM - TOP + 6} rx={8} />
+                  <path className="asx-bar-income" d={bar(cx - barW - 1, month.income)} />
+                  <path className="asx-bar-expense" d={bar(cx + 1, month.expense)} />
+                  <rect className="asx-bars-hit" x={LEFT + colW * index} y={0} width={colW} height={BOTTOM + 6} onMouseEnter={() => setPicked(index)} onClick={() => setPicked(index)} />
+                </g>
+              );
+            })}
           </svg>
-          <div className="asx-line-months" style={{ ['--n' as string]: months.length }}>
+          <div className="asx-bars-months" style={{ ['--n' as string]: months.length }}>
             {months.map((month, index) => (
-              <button type="button" key={month.month} className={`asx-line-month${index === shownIndex ? ' is-picked' : ''}`}
+              <button type="button" key={month.month} className={`asx-bars-label${index === shownIndex ? ' is-picked' : ''}`}
                 aria-label={line(month)} aria-pressed={picked === index} onMouseEnter={() => setPicked(index)} onFocus={() => setPicked(index)} onClick={() => setPicked(index)}>
                 {short(month, index)}{month.partial ? '*' : ''}
               </button>
             ))}
           </div>
+          <div className="asx-chart-legend">
+            <span className="is-income"><i aria-hidden="true" />{tr("รายรับ")} <span className="asx-legend-amt"><Money value={plainTHB(card.totals.income)} /></span></span>
+            <span className="is-expense"><i aria-hidden="true" />{tr("รายจ่าย")} <span className="asx-legend-amt"><Money value={plainTHB(card.totals.expense)} /></span></span>
+          </div>
           <figcaption className="asx-chart-readout" aria-live="polite">{line(shown)}</figcaption>
           {months.some(month => month.partial) && <p className="asx-chart-note">{tr("* เดือนนี้ยังไม่จบ เป็นยอดถึงวันนี้")}</p>}
         </figure>
       )}
-      <dl className="asx-rcard-rows asx-card-metrics">
-        <div><dt>{tr("รายรับรวม")}</dt><dd className="is-income"><Money value={formatTHB(card.totals.income)} /></dd></div>
-        <div><dt>{tr("รายจ่ายรวม")}</dt><dd className="is-expense"><Money value={formatTHB(card.totals.expense)} /></dd></div>
-        <div><dt>{tr("คงเหลือรวม")}</dt><dd><Money value={formatTHB(card.totals.net)} /></dd></div>
-      </dl>
       {card.omitted > 0 && <p className="asx-chart-note is-pad">{tr("แสดง {0} เดือนล่าสุด ยอดรวมนับทั้งช่วงที่ถาม", months.length)}</p>}
       {!empty && (
         // The opened table grows the card: bring all of it above the message box.
