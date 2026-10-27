@@ -51,7 +51,7 @@ for (const [label, width, height] of [['phone', 390, 844], ['iPad', 820, 1180], 
     const calls = await open(page, width, height);
     const chat = chatOf(page);
     await expect(chat.getByRole('heading', { name: 'เลขากระรอก', exact: true })).toBeVisible();
-    await expect(chat.getByRole('heading', { name: width < 744 ? 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' : GREETING })).toBeVisible();
+    await expect(chat.getByRole('heading', { name: GREETING })).toBeVisible();
     await expect(chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button')).toHaveCount(4);
     // No "เปิดหน้าที่เกี่ยวข้อง" choice any more (owner, 2026-10-26): pages open only from เลขา's button.
     await expect(page.getByText('เปิดหน้าที่เกี่ยวข้อง')).toHaveCount(0);
@@ -179,7 +179,8 @@ for (const lang of ['th', 'en'] as const) {
       await expect(page.locator('#app-splash')).toHaveCount(0, { timeout: 8000 });
       const welcome = chat.locator('.asx-welcome');
       await expect(welcome.locator('h2')).toBeVisible();
-      await expect(chat.locator('.asx-bar-mascot .asx-figure')).toBeVisible();
+      // The window's perched squirrel and its name in the top bar (owner, 2026-10-27: phones in the same set).
+      await expect(chat.locator('.asx-perch.is-phone .asx-perch-name')).toBeVisible();
       await expect(welcome.locator('.asx-figure')).toHaveCount(0);
       for (const part of ['.asx-welcome h2', '.asx-welcome > p']) {
         const fit = await chat.locator(part).evaluate(el => ({ fits: el.scrollWidth <= el.clientWidth + 1, lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)) }));
@@ -196,7 +197,7 @@ for (const lang of ['th', 'en'] as const) {
       if (width === 390) await snap(page, `assistant-welcome-${lang}-390.png`);
     }
     if (lang === 'en') {
-      await expect(chat.locator('.asx-welcome h2')).toHaveText('How can Krarok Assistant help today?');
+      await expect(chat.locator('.asx-welcome h2')).toHaveText(/^(?:Good (?:morning|afternoon|evening)|Working late tonight)$/);
       // Short English on the pills; tapping one still asks the full question.
       await expect(chat.locator('.asx-prompt-label')).toHaveText(["Today's summary", 'Find a quotation', 'Add a project', 'Unpaid jobs']);
       await chat.getByRole('button', { name: 'Find a quotation' }).click();
@@ -381,31 +382,24 @@ test('computer: the sidebar entry wears the squirrel; the chat folds the app sid
 
 // Owner, 2026-10-24: computers and iPads show the questions as one iOS-style list ("ทางการขึ้น เหมือนระบบ iOS");
 // phones keep their 2 × 2 cards.
-test('the welcome questions: one iOS-style list of four rows on computers, one-line pills two to a row on phones', async ({ page }) => {
+test('the welcome questions: one iOS-style list of four rows, on computers and on phones (short words on phones)', async ({ page }) => {
   for (const [width, height] of [[1280, 820], [390, 844]] as const) {
     await open(page, width, height);
     const cards = chatOf(page).getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button');
     await expect(cards).toHaveCount(4);
     const boxes = await cards.evaluateAll(list => list.map(el => { const r = el.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; }));
-    if (width >= 744) {
-      expect(new Set(boxes.map(b => b[2])).size).toBe(1); // equal widths
-      expect(new Set(boxes.map(b => b[0])).size).toBe(1); // one column
-      for (let n = 1; n < 4; n++) expect(boxes[n][1]).toBe(boxes[n - 1][1] + boxes[n - 1][3]); // rows touch, split by hairlines
-      await expect(chatOf(page).locator('.asx-prompts-head')).toHaveText('คำถามแนะนำ');
-      await expect(chatOf(page).locator('.asx-prompt-go')).toHaveCount(4);
-    } else {
-      // Pills that fit their words (owner: "เรียงให้มันสวยๆ อย่าเกินบรรทัด"): two rows of two, each row centred.
-      expect(boxes[0][1]).toBe(boxes[1][1]); expect(boxes[2][1]).toBe(boxes[3][1]);
-      expect(boxes[2][1]).toBeGreaterThan(boxes[0][1]);
-      for (const [a, b] of [[0, 1], [2, 3]]) expect(Math.abs((boxes[a][0] + boxes[b][0] + boxes[b][2]) / 2 - width / 2)).toBeLessThan(3);
-      await expect(chatOf(page).locator('.asx-prompts-head, .asx-prompt-go')).toHaveCount(0);
-    }
+    // Phones in the same set since 2026-10-27 ("ทำในมือถือด้วยนะ"); each question still on one line there.
+    expect(new Set(boxes.map(b => b[2])).size).toBe(1); // equal widths
+    expect(new Set(boxes.map(b => b[0])).size).toBe(1); // one column
+    for (let n = 1; n < 4; n++) expect(boxes[n][1]).toBe(boxes[n - 1][1] + boxes[n - 1][3]); // rows touch, split by hairlines
+    await expect(chatOf(page).locator('.asx-prompts-head')).toHaveText('คำถามแนะนำ');
+    await expect(chatOf(page).locator('.asx-prompt-go')).toHaveCount(4);
     expect(await textOverlapIssues(page)).toEqual([]);
   }
 });
 
 // Owner's typography brief (2026-10-23): light, natural Thai text with a clear hierarchy, chat page only.
-test('typography: the chat font (CI on computers, looped on phones) with real weights only (400 reading, 500 emphasis, 600 titles), Thai line height, no tiny text', async ({ page }) => {
+test('typography: the CI type with real weights only (400 reading, 500 emphasis, 600 titles), Thai line height, no tiny text', async ({ page }) => {
   for (const [width, height] of [[1280, 820], [390, 844]] as const) {
     await open(page, width, height);
     const chat = chatOf(page);
@@ -417,7 +411,7 @@ test('typography: the chat font (CI on computers, looped on phones) with real we
     await chat.locator('.asx-side.is-open .asx-side-item.is-line').click();
     await expect(chat.locator('.lnc')).toHaveCount(3);
     if (!(await chat.locator('.asx-side.is-open').count())) await chat.getByRole('button', { name: 'ประวัติและค้นหาแชต' }).click();
-    const report = await page.evaluate(phone => {
+    const report = await page.evaluate(() => {
       const bad: string[] = [];
       const roots = [document.querySelector('section.asx')!, ...document.querySelectorAll('.asx-pop')];
       for (const root of roots) {
@@ -429,9 +423,9 @@ test('typography: the chat font (CI on computers, looped on phones) with real we
         if (!hasText || el.closest('.asx-sr, svg')) continue;
         const c = getComputedStyle(el);
         const label = `${el.tagName.toLowerCase()}.${[...el.classList].join('.')} “${(el.textContent || '').trim().slice(0, 16)}”`;
-        // Phones (owner, 2026-10-24): the chat reads like the Claude app (Apple's Thonburi; Noto Sans Thai Looped elsewhere).
-        // Computers and iPads (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI"): the app's CI type, IBM Plex Sans Thai.
-        if (!c.fontFamily.startsWith(phone ? '"Krarok Chat Thai"' : '"IBM Plex Sans Thai"')) bad.push(`${label}: font ${c.fontFamily}`);
+        // The app's CI type, IBM Plex Sans Thai (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI"), on computers and, since the same
+        // day ("ทำในมือถือด้วยนะ"), on phones too.
+        if (!c.fontFamily.startsWith('"IBM Plex Sans Thai"')) bad.push(`${label}: font ${c.fontFamily}`);
         if (!['400', '500', '600'].includes(c.fontWeight)) bad.push(`${label}: weight ${c.fontWeight}`);
         if (parseFloat(c.fontSize) < 11) bad.push(`${label}: ${c.fontSize}`);
         if (c.textShadow !== 'none' || parseFloat(c.webkitTextStrokeWidth) > 0) bad.push(`${label}: shadow/stroke`);
@@ -443,7 +437,7 @@ test('typography: the chat font (CI on computers, looped on phones) with real we
         if (ratio < 1.6 || ratio > 1.75) bad.push(`reading line height ${ratio.toFixed(2)}`);
       }
       return bad;
-    }, width < 744);
+    });
     expect(report).toEqual([]);
     expect(await textOverlapIssues(page)).toEqual([]);
   }
@@ -500,17 +494,17 @@ test('LINE: the pinned notifications thread shows the real LINE cards, and their
   expect(calls.filter(call => /line\.me|api\/line|openai|anthropic|gemini/i.test(call))).toEqual([]);
 });
 
+// Phones (2026-10-27): the window's perched squirrel and its name sit inside the top bar, above the conversation.
 async function checkTopSquirrel(page: Page, minSize: number) {
   const chat = chatOf(page);
-  const mascot = (await chat.locator('.asx-bar-mascot').boundingBox())!;
+  const perch = (await chat.locator('.asx-perch.is-phone').boundingBox())!;
   const bar = (await chat.locator('.asx-bar').boundingBox())!;
-  const scroll = chat.locator('.asx-scroll');
-  const top = (await scroll.boundingBox())!.y;
-  const fade = await scroll.evaluate(el => parseFloat(getComputedStyle(el).getPropertyValue('--asx-top-fade')));
-  expect(mascot.height).toBeGreaterThanOrEqual(minSize);
-  expect(mascot.y + mascot.height).toBeGreaterThan(bar.y + bar.height);
-  expect(mascot.y + mascot.height).toBeLessThanOrEqual(top + fade + 1);
-  expect(await chat.locator('.asx-bar-mascot').evaluate(el => getComputedStyle(el).pointerEvents)).toBe('none');
+  const top = (await chat.locator('.asx-scroll').boundingBox())!.y;
+  expect(perch.height).toBeGreaterThanOrEqual(minSize);
+  expect(perch.y).toBeGreaterThanOrEqual(bar.y);
+  expect(perch.y + perch.height).toBeLessThanOrEqual(bar.y + bar.height + 1);
+  expect(bar.y + bar.height).toBeLessThanOrEqual(top + 1);
+  expect(await chat.locator('.asx-perch.is-phone').evaluate(el => getComputedStyle(el).pointerEvents)).toBe('none');
 }
 
 test('LINE: a notification arriving shows the LINE banner; there is no rich menu and no glass bar across the top', async ({ page }) => {
@@ -548,10 +542,9 @@ test('LINE on phones and in dark mode: the drawer shows the thread first, cards 
   await open(page, 390, 844, { dark: true });
   const chat = chatOf(page);
   await expect(chat.locator('.asx-bar .asx-dot')).toBeVisible();
-  // Dark: the aurora lights the stage and the headings carry a gradient.
-  await expect(chat.locator('.asx-aurora')).toBeVisible();
-  await expect(chat.locator('.asx-aurora i')).toHaveCount(2);
-  expect(await chat.locator('.asx-welcome h2').evaluate(el => getComputedStyle(el).backgroundClip)).toBe('text');
+  // Dark in the window's set since 2026-10-27: a plain stage and plain headings (no aurora, no gradient text).
+  await expect(chat.locator('.asx-aurora')).toBeHidden();
+  expect(await chat.locator('.asx-welcome h2').evaluate(el => getComputedStyle(el).backgroundClip)).not.toBe('text');
   expect(await textOverlapIssues(page)).toEqual([]);
   await chat.getByRole('button', { name: 'ประวัติและค้นหาแชต' }).click();
   const side = chat.getByRole('complementary', { name: 'ประวัติแชต' });

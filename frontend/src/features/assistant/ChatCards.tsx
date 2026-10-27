@@ -33,10 +33,20 @@ function Head({ icon: Icon, title, state }: { icon: typeof Briefcase; title: str
   );
 }
 
+/** An amount with its baht sign set a hair apart from the figure (owner, 2026-10-27: "ติดสัญลักษณ์ของบาทเกินไป อาจจะต้อง
+ *  เว้นสเปซนิดนึง"). The text stays exactly as given ("฿9,650"), so copying and screen readers read it as before; a sign
+ *  that already has a space after it is left alone. Anything that is not an amount passes through. */
+export function Money({ value }: { value: string }) {
+  const sign = /^([−-]?)฿/.exec(value);
+  const rest = sign ? value.slice(sign[0].length) : '';
+  if (!sign || !/^\s?\d/.test(rest)) return <>{value}</>;
+  return <>{sign[1]}<span className={`asx-baht${/^\s/.test(rest) ? '' : ' is-tight'}`}>฿</span>{rest}</>;
+}
+
 function Rows({ rows }: { rows: { label: string; value: string; tone?: 'income' | 'expense' }[] }) {
   return (
     <dl className="asx-rcard-rows">
-      {rows.map((row, index) => <div key={`${row.label}-${index}`}><dt>{row.label}</dt><dd className={row.tone ? `is-${row.tone}` : undefined}>{row.value}</dd></div>)}
+      {rows.map((row, index) => <div key={`${row.label}-${index}`}><dt>{row.label}</dt><dd className={row.tone ? `is-${row.tone}` : undefined}><Money value={row.value} /></dd></div>)}
     </dl>
   );
 }
@@ -48,7 +58,7 @@ function Project({ card, onNavigate }: { card: ProjectCard; onNavigate: (path: s
         <Head icon={Briefcase} title={tr("โปรเจกต์")} /><ArrowUpRight size={16} aria-hidden="true" />
       </button>
       <div className="asx-card-preview">
-        <span className="asx-card-eyebrow">{tr("มูลค่างาน")}</span><strong className="asx-card-amount">{card.amount}</strong>
+        <span className="asx-card-eyebrow">{tr("มูลค่างาน")}</span><strong className="asx-card-amount"><Money value={card.amount} /></strong>
         <p className="asx-card-subtitle">{card.name}</p>
       </div>
       <Rows rows={[{ label: tr("ลูกค้า"), value: card.client }, { label: tr("สถานะงาน"), value: card.status }]} />
@@ -63,7 +73,7 @@ function Document({ card, onNavigate }: { card: DocumentCard; onNavigate: (path:
         <Head icon={FileText} title={card.docType} /><ArrowUpRight size={16} aria-hidden="true" />
       </button>
       <div className="asx-card-preview">
-        <span className="asx-card-eyebrow">{tr("ยอดเงิน")}</span><strong className="asx-card-amount">{card.amount}</strong>
+        <span className="asx-card-eyebrow">{tr("ยอดเงิน")}</span><strong className="asx-card-amount"><Money value={card.amount} /></strong>
         <p className="asx-card-subtitle">{card.number}</p>
       </div>
       <Rows rows={[{ label: tr("ลูกค้า"), value: card.client }]} />
@@ -114,10 +124,10 @@ function Summary({ card }: { card: SummaryCard }) {
 /** Display the server's amounts verbatim; totals are never recomputed by the card. */
 function MoneyOverview({ balance, income, expense, totals = false }: { balance: string; income: string; expense: string; totals?: boolean }) {
   return <>
-    <div className="asx-card-preview"><span className="asx-card-eyebrow">{tr("เงินคงเหลือ")}</span><strong className="asx-card-amount">{balance}</strong></div>
+    <div className="asx-card-preview"><span className="asx-card-eyebrow">{tr("เงินคงเหลือ")}</span><strong className="asx-card-amount"><Money value={balance} /></strong></div>
     <dl className="asx-rcard-rows asx-card-metrics">
-      <div><dt>{totals ? tr("รายรับรวม") : tr("รายรับ")}</dt><dd className="is-income">{income}</dd></div>
-      <div><dt>{totals ? tr("รายจ่ายรวม") : tr("รายจ่าย")}</dt><dd className="is-expense">{expense}</dd></div>
+      <div><dt>{totals ? tr("รายรับรวม") : tr("รายรับ")}</dt><dd className="is-income"><Money value={income} /></dd></div>
+      <div><dt>{totals ? tr("รายจ่ายรวม") : tr("รายจ่าย")}</dt><dd className="is-expense"><Money value={expense} /></dd></div>
     </dl>
   </>;
 }
@@ -136,7 +146,7 @@ function ConfirmPreview({ card, onEditParty }: { card: ConfirmCard; onEditParty?
   // All source rows stay available, including tax, installments, dates and long party details.
   return <div className="asx-card-review">
     <div className="asx-card-preview">
-      {amount && <><span className="asx-card-eyebrow">{amount.label}</span><strong className="asx-card-amount">{amount.value}</strong></>}
+      {amount && <><span className="asx-card-eyebrow">{amount.label}</span><strong className="asx-card-amount"><Money value={amount.value} /></strong></>}
       {subject && <p className="asx-card-subtitle">{subject.value}</p>}
     </div>
     {parties && <DocumentParties fields={card.edit!} onEdit={onEditParty} />}
@@ -218,7 +228,7 @@ function MoneyChart({ card }: { card: MoneyChartCard }) {
           <div className="asx-chart-scroll">
             <table>
               <thead><tr><th scope="col">{tr("เดือน")}</th><th scope="col">{tr("รายรับ")}</th><th scope="col">{tr("รายจ่าย")}</th><th scope="col">{tr("คงเหลือ")}</th></tr></thead>
-              <tbody>{months.map(month => <tr key={month.month}><th scope="row">{full(month)}{month.partial ? '*' : ''}</th><td>{formatTHB(month.income)}</td><td>{formatTHB(month.expense)}</td><td>{formatTHB(month.net)}</td></tr>)}</tbody>
+              <tbody>{months.map(month => <tr key={month.month}><th scope="row">{full(month)}{month.partial ? '*' : ''}</th><td><Money value={formatTHB(month.income)} /></td><td><Money value={formatTHB(month.expense)} /></td><td><Money value={formatTHB(month.net)} /></td></tr>)}</tbody>
             </table>
           </div>
         </details>

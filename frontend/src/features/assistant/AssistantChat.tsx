@@ -945,11 +945,11 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 aura, glow or bounce; its face still shows what the chat is doing. Phones keep their squirrel. */}
             {/* Computers and iPads (owner, 2026-10-27: "ทำให้เหมือนตัวนี้เลย ทั้งแอนิเมชัน"): the floating window's squirrel, perched
                 with its calm motion and its hologram while it works, and its name on the dark capsule under it. */}
-            {mobile ? <span className="asx-bar-mascot" aria-hidden="true"><MascotSlot mode={displayMode} size={64} /></span>
-              : <span className="asx-perch" aria-hidden="true" data-mood={perchMood}>
-                  <span className="asx-perch-box"><MascotPeek size={108} mood={perchMood} motion={reduce ? 'still' : 'calm'} holo={busy || voice.phase === 'transcribing'} thoughtDots={false} className="asx-perch-art" /></span>
+            {/* Phones too since 2026-10-27 ("ทำในมือถือด้วยนะ"), smaller. */}
+            <span className={`asx-perch${mobile ? ' is-phone' : ''}`} aria-hidden="true" data-mood={perchMood}>
+                  <span className="asx-perch-box"><MascotPeek size={mobile ? 68 : 108} mood={perchMood} motion={reduce ? 'still' : 'calm'} holo={busy || voice.phase === 'transcribing'} thoughtDots={false} className="asx-perch-art" /></span>
                   <span className="asx-perch-name">{tr("เลขากระรอก")}</span>
-                </span>}
+                </span>
             <div className="asx-bar-text asx-sr">
               <span className="asx-bar-title"><h1 id="asx-title">{tr("เลขากระรอก")}</h1><span className="asx-pro">Pro</span></span>
               <span className={`asx-bar-status is-${displayMode}`} role="status" aria-live="polite"><i aria-hidden="true" />{voice.phase === 'transcribing' ? tr("กำลังถอดเสียงเป็นข้อความ…") : statusFor(displayMode)}</span>
@@ -1016,17 +1016,17 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         <div ref={listRef} className="asx-scroll" onScroll={onScroll} role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
           {welcome ? (
             <div className="asx-welcome">
-              {/* Computers and iPads greet as the small window does (owner, 2026-10-27); phones keep their words. */}
-              <h2>{mobile ? tr("วันนี้อยากให้เลขากระรอกช่วยอะไร?") : tr(hello.title)}</h2>
-              <p>{mobile ? tr("ถามเรื่องงาน เอกสาร หรือเงินที่ยังไม่ได้รับได้เลย") : tr(hello.line)}</p>
+              {/* The time of day and the person's habit, as the small window greets (owner, 2026-10-27), phones too. */}
+              <h2>{tr(hello.title)}</h2>
+              <p>{tr(hello.line)}</p>
               {!mobile && !blocked && briefing && briefing.items.length > 0 && <BriefingCard briefing={briefing} onOpen={go} />}
               {/* Computer and iPad: one iOS-style grouped list with a section title (owner, 2026-10-24); phones keep their tiles. */}
-              {!blocked && !mobile && <h3 className="asx-prompts-head" aria-hidden="true">{tr("คำถามแนะนำ")}</h3>}
+              {!blocked && <h3 className="asx-prompts-head" aria-hidden="true">{tr("คำถามแนะนำ")}</h3>}
               {!blocked && (
                 <div className="asx-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
                   {SUGGESTIONS.map(({ label, ask, icon }) => {
                     const Icon = SUGGESTION_ICONS[icon];
-                    return <button key={label} type="button" onClick={() => send(tr(ask), true)}><span className="asx-prompt-icon" aria-hidden="true"><Icon size={17} /></span><span className="asx-prompt-label">{mobile ? trc('prompt', label) : tr(label)}</span>{!mobile && <ChevronRight className="asx-prompt-go" size={17} aria-hidden="true" />}</button>;
+                    return <button key={label} type="button" onClick={() => send(tr(ask), true)}><span className="asx-prompt-icon" aria-hidden="true"><Icon size={17} /></span><span className="asx-prompt-label">{mobile ? trc('prompt', label) : tr(label)}</span><ChevronRight className="asx-prompt-go" size={17} aria-hidden="true" /></button>;
                   })}
                 </div>
               )}

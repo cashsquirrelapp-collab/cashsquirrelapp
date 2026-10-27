@@ -389,7 +389,7 @@ export const assistant: Record<string, string> = {
   "วันนี้มีบิลหรือค่าใช้จ่ายใหม่ให้บันทึกไหมครับ": "Any new bill or cost to record today?",
   "วันนี้อยากเช็กเงินที่ยังไม่ได้รับไหมครับ": "Would you like to check what is still unpaid today?",
   "วันนี้มีงานไหนต้องตามเงินไหมครับ": "Any job to chase payment for today?",
-  "วันนี้อยากดูว่ามีกำหนดส่งงานหรือนัดรับเงินอะไรบ้างไหมครับ": "Would you like to see today's deadlines and payment dates?",
+  "วันนี้อยากดูกำหนดส่งงานหรือวันรับเงินไหมครับ": "Would you like to see your deadlines and payment dates?",
   "วันนี้อยากให้เลขากระรอกช่วยอะไรครับ": "What can the assistant help you with today?",
   "กำลังเชื่อมต่อเลขา AI…": "Connecting to the AI assistant…",
   // The rename card (2026-10-27): the account's name, the one the assistant calls you by.

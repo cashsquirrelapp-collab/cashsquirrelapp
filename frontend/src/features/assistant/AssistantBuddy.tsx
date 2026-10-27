@@ -12,6 +12,7 @@ import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { BriefingCard, briefingText } from './BriefingCard';
 import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
+import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { useDictation } from './useDictation';
 import { chatTitle, type ChatHandoff } from './chatHandoff';
 import { greetingNow, noteQuestion } from './greeting';
@@ -228,7 +229,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   React.useEffect(() => { if (open && !mobile) window.setTimeout(() => inputRef.current?.focus(), 80); }, [open, mobile]);
   const answers = messages.filter(message => message.from === 'bot').length;
   React.useEffect(() => {
-    if (!open || mobile) return;
+    if (!open) return;
     let current = true;
     transport.balance().then(value => { if (current) setBalance(value); }).catch(() => {});
     return () => { current = false; };
@@ -445,15 +446,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
       <span>{balance.remaining.toLocaleString(dateLocale())}</span>
     </span>
   );
-  // Phones keep their greeting as it was.
-  const greeting = (
-    <>
-      <h3>{userName ? tr("สวัสดีครับ คุณ{0}", userName) : tr("สวัสดีครับ")}</h3>
-      <p>{tr("อยู่หน้า{0}ใช่ไหมครับ ถามหรือพิมพ์ให้ผมช่วยทำได้เลย", pageName)}</p>
-    </>
-  );
-  // Computers and iPads (owner, 2026-10-27): the time of day and a question about what this person does most, worked
-  // out again each time the window opens, instead of "สวัสดีครับ คุณ…" every time.
+  // The time of day and a question about what this person does most, worked out again each time the chat opens, instead of
+  // "สวัสดีครับ คุณ…" every time (owner, 2026-10-27); phones too since "ทำในมือถือด้วยนะ".
   const hello = React.useMemo(() => greetingNow(accountId, page), [accountId, page, open]); // eslint-disable-line react-hooks/exhaustive-deps
   // The conversation and the composer: in the phone sheet, or in the floating window on computers and iPads.
   const contents = (
@@ -461,18 +455,17 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
               <div ref={listRef} className="asx-buddy-body" role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
                 {messages.length === 0 ? (
                   <div className="asx-buddy-hello">
-                    {mobile && <span className="asx-buddy-hero" aria-hidden="true"><MascotSlot mode={mode} size={84} /></span>}
-                    {/* Computers and iPads: the same start as the full chat (owner, 2026-10-27: "ทำเป็นชุดใหม่ทั้งหมด"), a plain
-                        title and line, then the questions as one grouped list. */}
-                    {mobile ? greeting : <div className="kfw-welcome"><h3>{tr(hello.title)}</h3><p>{tr(hello.line)}</p></div>}
+                    {/* The same start as the full chat (owner, 2026-10-27: "ทำเป็นชุดใหม่ทั้งหมด"; phones too), a plain title and
+                        line, then the questions as one grouped list. */}
+                    <div className={`kfw-welcome${mobile ? ' is-phone' : ''}`}><h3>{tr(hello.title)}</h3><p>{tr(hello.line)}</p></div>
                     {!mobile && briefing && briefing.items.length > 0 && (
                       <BriefingCard briefing={briefing} onOpen={path => { setOpen(false); onNavigate(path); }} />
                     )}
-                    {!mobile && <h4 className="kfw-section" aria-hidden="true">{tr("คำถามแนะนำ")}</h4>}
+                    <h4 className="kfw-section" aria-hidden="true">{tr("คำถามแนะนำ")}</h4>
                     <div className="asx-buddy-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
                       {prompts.map(prompt => {
                         const Icon = PROMPT_ICONS[prompt] ?? Sparkles;
-                        return <button key={prompt} type="button" onClick={() => { void send(tr(prompt)); if (!mobile) inputRef.current?.focus(); }}>{mobile ? <Icon size={16} aria-hidden="true" /> : <span className="kfw-tile" aria-hidden="true"><Icon size={16} /></span>}<span>{tr(prompt)}</span>{!mobile && <ChevronRight className="asx-buddy-go" size={17} aria-hidden="true" />}</button>;
+                        return <button key={prompt} type="button" onClick={() => { void send(tr(prompt)); if (!mobile) inputRef.current?.focus(); }}><span className="kfw-tile" aria-hidden="true"><Icon size={16} /></span><span>{tr(prompt)}</span><ChevronRight className="asx-buddy-go" size={17} aria-hidden="true" /></button>;
                       })}
                     </div>
                   </div>
@@ -583,14 +576,19 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
             <motion.div key="panel" className="asx-pop asx-buddy-panel lg-glass is-menu is-sheet" role="dialog" aria-modal
               aria-label={tr("เลขากระรอก · หน้า{0}", pageName)} style={sheetBox} {...panelMotion}>
               <span className="asx-buddy-grabber" aria-hidden="true" />
-              <header className="asx-buddy-head">
-                <span className="asx-buddy-face" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
-                <div className="asx-buddy-title">
-                  <b>{tr("เลขากระรอก")}</b>
-                  <span><i aria-hidden="true" />{tr("กำลังดูหน้า{0}", pageName)}</span>
-                </div>
+              {/* Phones (owner, 2026-10-27: "ทำในมือถือด้วยนะ"): the window's set in the sheet: Krarok Tokens at the left, the
+                  perched squirrel with its calm motion and its name in the middle, the buttons at the right. */}
+              <header className="asx-buddy-head is-perched">
+                <div className="asx-sheet-side">{tokenCorner}</div>
+                <span className="asx-perch is-sheet" aria-hidden="true" data-mood={poseFor(mode).mood}>
+                  <span className="asx-perch-box"><MascotPeek size={72} mood={poseFor(mode).mood} motion={reduce ? 'still' : 'calm'} holo={busy} thoughtDots={false} className="asx-perch-art" /></span>
+                  <span className="asx-perch-name">{tr("เลขากระรอก")}</span>
+                </span>
+                <span className="asx-sr">{tr("กำลังดูหน้า{0}", pageName)}</span>
+                <div className="asx-sheet-side is-end">
                 <button type="button" className="asx-icon-btn" onClick={expand} aria-disabled={expandWaits || undefined} aria-label={tr("เปิดแชตเต็ม")} title={expandWaits ? tr("เปิดแชตเต็มได้เมื่อเลขากระรอกทำรายการนี้เสร็จ") : tr("เปิดแชตเต็ม")}><Maximize2 size={17} /></button>
                 <button type="button" className="asx-icon-btn" onClick={close} aria-label={tr("ปิด")} title={tr("ปิด")}><X size={18} /></button>
+                </div>
               </header>
               {contents}
             </motion.div>

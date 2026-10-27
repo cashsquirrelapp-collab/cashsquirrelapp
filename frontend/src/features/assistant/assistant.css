@@ -1203,8 +1203,8 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 /* CI type for เลขา on computers and iPads (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI"): the app's own IBM Plex Sans Thai, as on
    every other page, in the full chat, the floating window, the pill, the folded squirrel and their menus. Phones keep
    their chat face. */
-.asx:not(.is-mobile), .asx-pop.is-desk, .kfw, .kfw-mini, .asx-buddy.is-pill { font-family: var(--font-sans); }
-.asx:not(.is-mobile) textarea, .asx:not(.is-mobile) button, .asx:not(.is-mobile) input, .asx-pop.is-desk button { font-family: inherit; }
+.asx, .asx-pop, .kfw, .kfw-mini, .asx-buddy, .asx-buddy-panel { font-family: var(--font-sans); }
+.asx textarea, .asx button, .asx input, .asx-pop button, .asx-buddy-panel textarea, .asx-buddy-panel button { font-family: inherit; }
 
 /* The full chat on computers and iPads, the same set as the floating window (owner, 2026-10-27: "ทำให้เหมือนตัวนี้เลย
    ทั้งแอนิเมชัน ... UI ทั้งหมด"): the window's perched squirrel with its calm motion and its name on the dark capsule, the
@@ -1218,14 +1218,14 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .dark .asx-perch-name { background: #F2F0ED; color: #1C1917; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
 .asx:not(.is-mobile) .asx-bar { margin-top: 8px; align-items: start; }
 .asx:not(.is-mobile) .asx-bar-side { padding-top: 4px; }
-.asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass, .dark .asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass { width: 36px; height: 36px; border: 0; background: #FFFFFF; color: #6F6862;
+.asx .asx-bar .asx-icon-btn.lg-glass, .dark .asx .asx-bar .asx-icon-btn.lg-glass { width: 36px; height: 36px; border: 0; background: #FFFFFF; color: #6F6862;
   -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 1px 2px rgba(28, 25, 23, 0.06), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
-.asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass::before, .asx:not(.is-mobile) .asx-bar .asx-token.lg-glass::before { display: none; }
-.asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass:hover { color: #1C1917; box-shadow: 0 4px 10px rgba(28, 25, 23, 0.1), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
-.dark .asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass { background: rgba(255, 255, 255, 0.08); color: #C9C3BC; box-shadow: none; }
-.asx:not(.is-mobile) .asx-bar .asx-token, .dark .asx:not(.is-mobile) .asx-bar .asx-token { height: 34px; padding: 0 11px 0 8px; border: 0; border-radius: 17px; background: #FFFFFF; font-size: 13.5px;
+.asx .asx-bar .asx-icon-btn.lg-glass::before, .asx .asx-bar .asx-token.lg-glass::before { display: none; }
+.asx .asx-bar .asx-icon-btn.lg-glass:hover { color: #1C1917; box-shadow: 0 4px 10px rgba(28, 25, 23, 0.1), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
+.dark .asx .asx-bar .asx-icon-btn.lg-glass { background: rgba(255, 255, 255, 0.08); color: #C9C3BC; box-shadow: none; }
+.asx .asx-bar .asx-token, .dark .asx .asx-bar .asx-token { height: 34px; padding: 0 11px 0 8px; border: 0; border-radius: 17px; background: #FFFFFF; font-size: 13.5px;
   -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 1px 2px rgba(28, 25, 23, 0.06), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
-.dark .asx:not(.is-mobile) .asx-bar .asx-token { background: rgba(255, 255, 255, 0.08); box-shadow: none; }
+.dark .asx .asx-bar .asx-token { background: rgba(255, 255, 255, 0.08); box-shadow: none; }
 /* The start: top of the column, as in the window; title, line, briefing and questions share one width. */
 .asx:not(.is-mobile) .asx-welcome { justify-content: flex-start; padding-top: 6px; }
 .asx:not(.is-mobile) .asx-welcome h2, .dark .asx:not(.is-mobile) .asx-welcome h2 { font-size: 24px; }
@@ -1242,10 +1242,81 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx:not(.is-mobile) .asx-prompts > button + button::before { left: 54px; }
 /* The composer: white with a hairline, an orange ring while typing, the one solid orange send button. */
 .asx:not(.is-mobile) .asx-dock > * { max-width: 760px; }
-.asx:not(.is-mobile) .asx-composer.lg-glass { min-height: 52px; align-items: center; padding: 6px 7px 6px 8px; border: 0; background: #FFFFFF; -webkit-backdrop-filter: none; backdrop-filter: none;
+.asx .asx-composer.lg-glass { min-height: 52px; align-items: center; padding: 6px 7px 6px 8px; border: 0; background: #FFFFFF; -webkit-backdrop-filter: none; backdrop-filter: none;
   box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 8px 20px rgba(28, 25, 23, 0.06); }
-.asx:not(.is-mobile) .asx-composer.lg-glass::before { display: none; }
-.asx:not(.is-mobile) .asx-composer.lg-glass:focus-within { box-shadow: 0 0 0 1.5px rgba(230, 95, 43, 0.45), 0 8px 20px rgba(28, 25, 23, 0.06); }
-.dark .asx:not(.is-mobile) .asx-composer.lg-glass { background: #2C2C2E; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
-.dark .asx:not(.is-mobile) .asx-composer.lg-glass:focus-within { box-shadow: 0 0 0 1.5px rgba(255, 150, 100, 0.45); }
-.asx:not(.is-mobile) .asx-composer .asx-send { width: 38px; height: 38px; }
+.asx .asx-composer.lg-glass::before { display: none; }
+.asx .asx-composer.lg-glass:focus-within { box-shadow: 0 0 0 1.5px rgba(230, 95, 43, 0.45), 0 8px 20px rgba(28, 25, 23, 0.06); }
+.dark .asx .asx-composer.lg-glass { background: #2C2C2E; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+.dark .asx .asx-composer.lg-glass:focus-within { box-shadow: 0 0 0 1.5px rgba(255, 150, 100, 0.45); }
+.asx .asx-composer .asx-send { width: 38px; height: 38px; }
+
+/* Amounts on the cards (owner, 2026-10-27: "ติดสัญลักษณ์ของบาทเกินไป อาจจะต้องเว้นสเปซนิดนึง"): the baht sign a hair
+   apart from the figure, more on the large figures; the text itself is unchanged. */
+.asx-baht.is-tight { margin-right: 0.1em; }
+.asx-card-amount .asx-baht.is-tight { margin-right: 0.16em; }
+
+/* Phones in the same set (owner, 2026-10-27: "ทำในมือถือด้วยนะของ UI"), drawn for a phone: the perched squirrel smaller,
+   the token chip with its number at the right, the greeting on one line each, the questions as one grouped list, the
+   white composer; the เลขา sheet the same, with the token ring at its left. */
+.asx-perch.is-phone .asx-perch-box { width: 68px; height: calc(68px * 0.64); }
+.asx-perch.is-sheet .asx-perch-box { width: 72px; height: calc(72px * 0.64); }
+.asx-perch.is-phone .asx-perch-name, .asx-perch.is-sheet .asx-perch-name { margin-top: 1px; padding: 1px 10px; font-size: 12px; }
+.asx.is-mobile .asx-aurora { display: none; }
+.asx.is-mobile .asx-chat { background: none; }
+.asx.is-mobile .asx-bar { align-items: start; }
+.asx.is-mobile .asx-bar-side { padding-top: 2px; }
+.asx.is-mobile .asx-bar .asx-token { width: auto; padding: 0 10px 0 7px; }
+.asx.is-mobile .asx-bar .asx-token span { display: inline; }
+.asx.is-mobile .asx-scroll { padding-top: 22px; }
+.asx.is-mobile .asx-welcome { justify-content: flex-start; padding: 4px 2px 12px; }
+.asx.is-mobile .asx-welcome h2, .dark .asx.is-mobile .asx-welcome h2 { font-size: clamp(18px, 5.2vw, 21px); color: var(--text); background: none; -webkit-background-clip: border-box; background-clip: border-box; }
+.asx.is-mobile .asx-welcome > p { font-size: clamp(12px, 3.6vw, 14px); }
+.asx.is-mobile .asx-prompts-head { display: block; width: 100%; margin: 20px 0 6px; padding: 0 14px; color: var(--muted); font-size: 13px; font-weight: 400; line-height: 1.5; text-align: left; }
+.asx.is-mobile .asx-prompts { display: flex; flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; gap: 0; width: 100%; max-width: none; margin-top: 0; overflow: hidden; border-radius: 14px;
+  background: #FFFFFF; box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 1px 2px rgba(0, 0, 0, 0.04); }
+.asx.is-mobile .asx-prompts > button { position: relative; flex: none; width: 100%; max-width: none; min-height: 48px; padding: 8px 12px 8px 14px; gap: 12px; border: 0; border-radius: 0; background: transparent;
+  -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+.asx.is-mobile .asx-prompts > button + button::before { content: ""; position: absolute; top: 0; right: 0; left: 54px; height: 0.5px; background: rgba(60, 60, 67, 0.29); }
+.asx.is-mobile .asx-prompts > button:hover, .asx.is-mobile .asx-prompts > button:active { border: 0; transform: none; background: rgba(116, 116, 128, 0.12); }
+.asx.is-mobile .asx-prompt-icon, .asx.is-mobile .asx-prompts > button:hover .asx-prompt-icon { width: 28px; height: 28px; border-radius: 9px; background: rgba(230, 95, 43, 0.12); color: #C24A16; }
+.asx.is-mobile .asx-prompt-icon svg { width: 16px; height: 16px; }
+.asx.is-mobile .asx-prompt-label { flex: 1 1 auto; font-size: 15px; line-height: 1.5; white-space: normal; overflow: visible; }
+.dark .asx.is-mobile .asx-prompts { background: #1C1C1E; box-shadow: none; }
+.dark .asx.is-mobile .asx-prompts > button + button::before { background: rgba(84, 84, 88, 0.65); }
+.dark .asx.is-mobile .asx-prompt-icon, .dark .asx.is-mobile .asx-prompts > button:hover .asx-prompt-icon { background: rgba(255, 164, 115, 0.14); color: #FFA473; }
+/* The เลขา sheet on phones. */
+.asx-buddy-panel.is-sheet.lg-glass { background: #FCFBFA; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.asx-buddy-panel.is-sheet.lg-glass::before { display: none; }
+.dark .asx-buddy-panel.is-sheet.lg-glass { background: #1C1C1E; }
+.asx-buddy-head.is-perched { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 6px; padding: 4px 10px 6px; border-bottom: 0; }
+.asx-sheet-side { display: flex; align-items: center; gap: 4px; min-width: 0; padding-top: 6px; }
+.asx-sheet-side.is-end { justify-content: flex-end; }
+.asx-buddy-head.is-perched .asx-icon-btn { width: 34px; height: 34px; background: #FFFFFF; color: #6F6862; box-shadow: 0 1px 2px rgba(28, 25, 23, 0.06), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
+.dark .asx-buddy-head.is-perched .asx-icon-btn { background: rgba(255, 255, 255, 0.08); color: #C9C3BC; box-shadow: none; }
+.asx-buddy-panel.is-sheet .asx-buddy-body { padding-top: 6px; }
+.asx-buddy-panel.is-sheet .asx-buddy-hello { padding-top: 0; text-align: left; }
+.kfw-welcome.is-phone { padding: 2px 4px 0; }
+.asx-buddy-panel .kfw-welcome h3 { margin: 0; color: var(--text); font-size: 20px; font-weight: 600; line-height: 1.45; }
+.asx-buddy-panel .kfw-welcome p { margin: 2px 0 0; color: var(--muted); font-size: 14px; font-weight: 400; line-height: 1.55; }
+.asx-buddy-panel .kfw-section { margin-top: 16px; }
+.asx-buddy-panel.is-sheet .asx-buddy-prompts { display: flex; flex-direction: column; gap: 0; margin-top: 0; overflow: hidden; border-radius: 14px; background: #FFFFFF;
+  box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 1px 2px rgba(0, 0, 0, 0.04); }
+.asx-buddy-panel.is-sheet .asx-buddy-prompts > button { position: relative; align-items: center; min-height: 48px; padding: 8px 12px 8px 14px; gap: 12px; border: 0; border-radius: 0; background: transparent;
+  font-size: 15px; line-height: 1.5; transform: none; }
+.asx-buddy-panel.is-sheet .asx-buddy-prompts > button > span:not(.kfw-tile) { flex: 1 1 auto; }
+.asx-buddy-panel.is-sheet .asx-buddy-prompts > button + button::before { content: ""; position: absolute; top: 0; right: 0; left: 54px; height: 0.5px; background: rgba(60, 60, 67, 0.29); }
+.asx-buddy-panel.is-sheet .asx-buddy-prompts > button:hover, .asx-buddy-panel.is-sheet .asx-buddy-prompts > button:active { border: 0; background: rgba(116, 116, 128, 0.12); transform: none; }
+.asx-buddy-panel.is-sheet .asx-buddy-prompts > button > span.kfw-tile { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 9px; background: rgba(230, 95, 43, 0.12); color: #C24A16; }
+.asx-buddy-panel.is-sheet .asx-buddy-go { flex: none; width: 17px; height: 17px; color: rgba(60, 60, 67, 0.3); }
+.dark .asx-buddy-panel.is-sheet .asx-buddy-prompts { background: #2C2C2E; box-shadow: none; }
+.dark .asx-buddy-panel.is-sheet .asx-buddy-prompts > button + button::before { background: rgba(84, 84, 88, 0.65); }
+.dark .asx-buddy-panel.is-sheet .asx-buddy-prompts > button > span.kfw-tile { background: rgba(255, 164, 115, 0.14); color: #FFA473; }
+.dark .asx-buddy-panel.is-sheet .asx-buddy-go { color: rgba(235, 235, 245, 0.3); }
+.asx-buddy-panel.is-sheet .asx-buddy-composer { min-height: 50px; align-items: center; padding: 6px 6px 6px 16px; border: 0; border-radius: 25px; background: #FFFFFF;
+  box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 8px 20px rgba(28, 25, 23, 0.06); }
+.asx-buddy-panel.is-sheet .asx-buddy-composer:focus-within { box-shadow: 0 0 0 1.5px rgba(230, 95, 43, 0.45), 0 8px 20px rgba(28, 25, 23, 0.06); }
+.dark .asx-buddy-panel.is-sheet .asx-buddy-composer { background: #2C2C2E; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+.asx-buddy-panel.is-sheet .asx-send { width: 38px; height: 38px; }
+/* A card's buttons and fields, when scrolled to (keyboard focus, or a tap that brings one into view), always clear the
+   floating composer below the chat. */
+.asx-rcard button, .asx-rcard input, .asx-rcard select, .asx-rcard textarea { scroll-margin-bottom: calc(var(--asx-dock-h, 120px) + 16px); scroll-margin-top: 16px; }

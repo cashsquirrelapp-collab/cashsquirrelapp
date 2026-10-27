@@ -44,7 +44,7 @@ colors-dark:
 typography:
   ui: "'IBM Plex Sans Thai', 'IBM Plex Sans', system-ui, sans-serif"     # every page
   brand: "'Prompt', 'IBM Plex Sans Thai', sans-serif"                     # wordmark
-  chat: "'Krarok Chat Thai' (local Thonburi), -apple-system, 'Noto Sans Thai Looped', var(--font-sans)"  # เลขา on phones only
+  # เลขา uses the ui type on every device since 2026-10-27 (the old chat face, Thonburi, is no longer used)
   numbers: "font-variant-numeric: tabular-nums on every amount, date and count that lines up"
   weights: [400, 500, 600]      # 700+ only in the logo wordmark
   thai-line-height-min: 1.45    # body text 1.6-1.65
@@ -101,11 +101,13 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
 ## 3. Typography
 
 - UI: IBM Plex Sans Thai (with IBM Plex Sans for Latin and digits), the CI type. Brand: Prompt, for the wordmark only.
-  On computers and iPads everything of เลขา (the full chat, the floating window, its pill, the folded squirrel and their
-  menus) is in the CI type too (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI"). Phones keep the chat face: the system Thai face
-  (Thonburi on Apple), then Noto Sans Thai Looped.
+  Everything of เลขา (the full chat, the floating window, the phone sheet, the pill, the folded squirrel and their menus)
+  is in the CI type too, on every device (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI", "ทำในมือถือด้วยนะ").
+- Amounts on cards keep the sign with the figure in the text ("฿9,650") but set it a hair apart on screen (0.16em on the
+  large figure, 0.1em in rows: owner, 2026-10-27 "ติดสัญลักษณ์ของบาทเกินไป").
 - **Thai line-height at least 1.45 (owner, 2026-10-23)**; body 1.6 to 1.65. No letter-spacing on Thai.
-- Weights 400 / 500 / 600 only. Amounts: 600, tabular numerals, the currency sign attached (฿12,000).
+- Weights 400 / 500 / 600 only. Amounts: 600, tabular numerals, the currency sign written attached (฿12,000); chat cards
+  set it a hair apart on screen (see above).
 - Card scale: title 14.5/600, hero amount 26/600, label 12.5-13.5 muted, value 14/500, body 15/400.
 - UI copy is formal Thai **(owner)**: no ค้าบ/น้า in system messages; toasts are icon + heading + one line;
   a deletion notice is information, not a warning.
@@ -213,7 +215,10 @@ Don't:
   one solid orange send button, and Krarok Tokens as a ring in the header's top-left corner for everyone.
 - เลขา never greets with "สวัสดีครับ คุณ…" on every open. Computers and iPads start with the time of day ("สวัสดีตอน
   บ่ายครับ") and one question about what the person does most (pages opened and questions asked over 30 days, counted
-  on the device, greeting.ts), else about the page they are on. Phones keep their words.
+  on the device, greeting.ts), else about the page they are on. Phones the same since 2026-10-27.
+- Phones are in the same set, drawn for a phone: the perched squirrel (68px in the chat bar, 72px in the sheet header)
+  with its name, the token chip, one-line greeting and sentence, the questions as one grouped list with short words,
+  the white composer; the top bar stays under 66px.
 - เลขา calls the person by the account's name. A new name ("เรียกผมว่า…", "อยากเปลี่ยนชื่อ") is a rename card the person
   saves themselves through the profile API; nothing is remembered as a nickname.
 
