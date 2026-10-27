@@ -25,6 +25,8 @@ export type TranscriptionResult = { text: string; tokens: number; tokensLeft: nu
 export interface AssistantTransport {
   /** True for the real เลขากระรอก (createLiveTransport): the screen drops its "sample" labels. */
   live?: boolean;
+  /** The plan the server reported; 'lapsed' chats on with the tokens left after Pro ended. */
+  plan?: 'pro' | 'trial' | 'admin' | 'lapsed' | 'none';
   /** One completed recording, transcribed into an editable draft. Never sends a chat message. */
   transcribe?(audio: VoiceAudio, language: 'th-TH' | 'en-US', signal: AbortSignal): Promise<TranscriptionResult>;
   send(input: SendInput, onDelta: (textSoFar: string) => void, signal: AbortSignal, onCards?: (cards: ChatCard[]) => void): Promise<SendResult>;
@@ -111,7 +113,8 @@ export const tokenLevel = (balance: TokenBalance): 'ok' | 'low' | 'empty' =>
 
 /** GET /api/assistant: whether เลขากระรอก is switched on for this account, and what is left. */
 export type AssistantStatus = {
-  enabled: boolean; plan: 'pro' | 'trial' | 'admin' | 'none';
+  /** 'lapsed': Pro has ended, tokens are left from its last month; the chat goes on until they run out (2026-10-28). */
+  enabled: boolean; plan: 'pro' | 'trial' | 'admin' | 'lapsed' | 'none';
   tokensLeft: number | null; trialLeft: number | null; resetsAt: string | null; tokenLimit: number | null; requestLimit: number | null;
 };
 export const readAssistantStatus = (account: string, signal?: AbortSignal) =>
@@ -140,6 +143,7 @@ export function createLiveTransport(options: { account: string; status: Assistan
   };
   return {
     live: true,
+    plan: options.status.plan,
     async transcribe(audio, language, signal) {
       try {
         const reply = await post<TranscriptionResult>({ action: 'transcribe', audio, language }, signal);

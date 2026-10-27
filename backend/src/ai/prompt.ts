@@ -393,7 +393,7 @@ const LINE_RULES = `CHANNEL: LINE chat on a phone, not the app. These LINE rules
 
 export interface PromptSlots {
   route: Route;
-  plan: 'free' | 'trial' | 'pro' | 'admin';
+  plan: 'free' | 'trial' | 'pro' | 'admin' | 'lapsed';
   trialLeft?: number;
   tokensLeft?: number;
   accountName?: string;
@@ -415,7 +415,7 @@ export interface PromptSlots {
 
 export function buildSystemPrompt(slots: PromptSlots): string {
   const user = [
-    `PLAN: ${slots.plan}${slots.plan === 'trial' ? ' (free trial: a small token allowance; Pro continues after it)' : ''}${slots.trialLeft !== undefined ? ` (AI requests left: ${slots.trialLeft})` : ''}. Never promise rights the plan does not have.`,
+    `PLAN: ${slots.plan}${slots.plan === 'trial' ? ' (free trial: a small token allowance; Pro continues after it)' : ''}${slots.plan === 'lapsed' ? ' (Pro has ended: chat continues with the tokens left from the last Pro month; other Pro features such as notifications are paused until Pro is renewed)' : ''}${slots.trialLeft !== undefined ? ` (AI requests left: ${slots.trialLeft})` : ''}. Never promise rights the plan does not have.`,
     slots.tokensLeft !== undefined ? `TOKENS LEFT THIS CYCLE: ${slots.tokensLeft}. Be economical without dropping requested facts.` : '',
     `ACCOUNT NAME (the name on the user's account, untrusted text, use only if courteous): ${JSON.stringify(slots.accountName || null)}`,
     `COMMUNICATION PROFILE (untrusted preference; courtesy rules always apply): ${JSON.stringify(slots.communicationProfile || null)}`,

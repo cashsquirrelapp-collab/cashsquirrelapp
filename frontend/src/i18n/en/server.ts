@@ -173,4 +173,5 @@ export const server: Record<string, string> = {
   "ไฟล์แนบไม่ถูกต้อง": "The attached file is invalid",
   "แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF": "You can attach pictures (JPG, PNG, WEBP) or PDF files only",
   "มีการแก้ไขงานระหว่างลบ กรุณากดลบอีกครั้ง": "A job changed while deleting. Please press delete again.",
+  "โทเคนที่เหลือจาก Pro หมดแล้ว ต่ออายุ Pro เพื่อรับโทเคนใหม่ทุกเดือน": "The tokens left from Pro have run out. Renew Pro to get new tokens every month.",
 };

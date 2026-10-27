@@ -1312,7 +1312,13 @@ export default function App() {
   const isGuestProPreview = session?.isGuest === true;
   const isPro = isGuestProPreview || isInFreeTrial || isPaidActive;
   // The floating squirrel follows Pro accounts to every page but the chat itself (and steps aside for เมนู on phones).
-  const showBuddy = isPro && !assistantFollowing && activeTab !== 'assistant' && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) && !(isPhone && isMobileMenuOpen);
+  const [assistantTransport, setAssistantTransport] = useState<AssistantTransport | undefined>(undefined);
+  // Pro that has ended keeps เลขา while tokens are left from its last month (owner, 2026-10-28): the server says so
+  // (plan 'lapsed'); every other Pro feature stays off.
+  const proEnded = !isPro && !isAdminProRevoked && Boolean(subscription?.currentPeriodEnd) && subscription?.plan !== 'admin_grant'
+    && new Date(subscription!.currentPeriodEnd!).getTime() <= Date.now();
+  const assistantLapsed = assistantTransport?.plan === 'lapsed';
+  const showBuddy = (isPro || assistantLapsed) && !assistantFollowing && activeTab !== 'assistant' && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) && !(isPhone && isMobileMenuOpen);
   // "สรุปวันนี้" for เลขา's panel (pkg77): computers and iPads, the personal account, worked out on this device from the
   // data already loaded (documents from the documents page's own cache, when it has one). No request, no AI.
   const briefingDay = nowInBangkok().toISOString().slice(0, 10);
@@ -1328,8 +1334,7 @@ export default function App() {
   // เลขากระรอก goes live once /api/assistant is switched on for this account (AI_ENABLED on the server); until then
   // the chat and the floating squirrel keep their labelled sample answers. Personal workspace only for now, and only
   // accounts that can see เลขา at all ask (no extra request for everyone else).
-  const assistantUserId = session && !session.isGuest && isPro && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) ? session.user.id : null;
-  const [assistantTransport, setAssistantTransport] = useState<AssistantTransport | undefined>(undefined);
+  const assistantUserId = session && !session.isGuest && (isPro || proEnded) && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) ? session.user.id : null;
   // Why the real เลขา is not on for this account, shown to system admins under the chat (never to members).
   const [assistantNote, setAssistantNote] = useState<string | null>(null);
   // The real notifications thread, for every account that sees the chat (it does not need the AI).

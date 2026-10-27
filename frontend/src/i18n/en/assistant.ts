@@ -449,4 +449,5 @@ export const assistant: Record<string, string> = {
   "เปิดการตั้งค่า": "Open settings",
   "ลบงานทั้งหมด": "Delete all jobs",
   "ยืนยันทั้งหมด {0} รายการ": "Confirm all {0}",
+  "Pro หมดอายุแล้ว ใช้โทเคนที่เหลือได้จนหมด ต่ออายุ Pro เพื่อรับโทเคนใหม่": "Pro has ended. You can use the tokens left until they run out; renew Pro for new tokens.",
 };

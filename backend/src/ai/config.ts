@@ -55,8 +55,9 @@ const num = (value: string | undefined, fallback: number, min: number, max: numb
 export function assistantEnabledForPlan(config: AiConfig, plan: string, email?: string | null): boolean {
   if (!config.enabled) return false;
   if (plan === 'admin') return true;
-  // The existing free Pro trial keeps its own small token allowance; expired/free accounts have plan none.
-  if (plan !== 'pro' && plan !== 'trial') return false;
+  // The existing free Pro trial keeps its own small token allowance; expired/free accounts have plan none. Pro that has
+  // ended keeps chatting with the tokens left from its last month (lapsed, owner 2026-10-28).
+  if (plan !== 'pro' && plan !== 'trial' && plan !== 'lapsed') return false;
   return !config.adminsOnly || Boolean(email && config.allowedEmails.includes(email.trim().toLowerCase()));
 }
 

@@ -48,7 +48,21 @@ export async function assistantPlan(user: User, now = Date.now()): Promise<PlanI
     return { plan: 'pro', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, now, sub.pro_access_reset_at) : undefined };
   }
   const trial = inFreeTrial(user.created_at, now);
-  return { plan: trial ? 'trial' : 'none' };
+  if (trial) return { plan: 'trial' };
+  // Pro has ended (owner, 2026-10-28): the tokens left from its last paid month stay usable for เลขา until they run out;
+  // every other Pro feature has already stopped (hasProAccess). Only after a paid period (an end date that has passed),
+  // never for a removed or revoked admin grant, nor a subscription whose first payment never went through.
+  if (sub && proHasEnded(sub, now)) {
+    return { plan: 'lapsed', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, Date.parse(sub.current_period_end!) - 1, sub.pro_access_reset_at) : undefined };
+  }
+  return { plan: 'none' };
+}
+
+/** A paid Pro period that has passed: not an admin grant (given or taken away), not a first payment that never went through. */
+export function proHasEnded(sub: { status?: string | null; plan?: string | null; current_period_end?: string | null }, now = Date.now()): boolean {
+  const ended = sub.current_period_end ? Date.parse(sub.current_period_end) : NaN;
+  return Number.isFinite(ended) && ended <= now && !['admin_grant', 'admin_revoked', 'admin_removed'].includes(String(sub.plan))
+    && !['incomplete', 'incomplete_expired'].includes(String(sub.status));
 }
 
 /**

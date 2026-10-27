@@ -36,6 +36,7 @@ export function tokenBalanceText(status: UsageStatus): string {
   if (status.tokenLimit === null) return `ยังอ่านจำนวนโทเคนของบัญชีนี้ไม่ได้ กรุณาลองใหม่ภายหลัง\n${shared}`;
   const left = (status.tokensLeft ?? 0).toLocaleString('en-US');
   const next = status.plan === 'trial' ? 'สิทธิ์ทดลองใช้ไม่เติมใหม่ ใช้ต่อได้เมื่อเป็น Pro'
+    : status.plan === 'lapsed' ? 'Pro หมดอายุแล้ว ใช้โทเคนที่เหลือได้จนหมด ต่ออายุ Pro เพื่อรับโทเคนใหม่'
     : status.resetsAt ? `ได้รับใหม่วันที่ ${thaiDay(new Date(status.resetsAt))}` : '';
   return [`โทเคนเลขารอบนี้ เหลือ ${left} จาก ${status.tokenLimit.toLocaleString('en-US')}`, next, shared].filter(Boolean).join('\n');
 }

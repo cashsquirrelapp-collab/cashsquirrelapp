@@ -309,7 +309,10 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const lastNoticeText = lastNotice?.cards?.find((card): card is LineChatCard => card.kind === 'line')?.card.alt ?? '';
   const effective: TokenBalance = preview === 'tokensLow' ? { ...balance, remaining: 64 } : preview === 'tokensEmpty' ? { ...balance, remaining: 0 } : balance;
   const level = tokenLevel(effective);
-  const gate = preview === 'trialExpired' ? 'trial' : preview === 'proRequired' || !isPro ? 'pro' : null;
+  // Pro that has ended still chats with the tokens left from its last month (owner, 2026-10-28); only its other Pro
+  // features stop. The server decides (plan 'lapsed'); an empty pool still stops sending below.
+  const lapsed = transport.plan === 'lapsed';
+  const gate = preview === 'trialExpired' ? 'trial' : preview === 'proRequired' || (!isPro && !lapsed) ? 'pro' : null;
   // Without Pro the chat is a try mode: preset questions answer, typed questions ask for Pro. With Pro, an
   // empty token cycle stops sending.
   const blocked = !gate && level === 'empty';
@@ -1276,7 +1279,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 <button type="submit" className="asx-send" disabled={busy || waiting || (blocked && !confirmationCommand(draft, messages, confirmStates)) || draft.length > MAX_MESSAGE || (!draft.trim() && !upload)} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
                 </>}
               </form>
-              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : waiting ? tr("กำลังเชื่อมต่อเลขา AI…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
+              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? (lapsed ? tr("Pro หมดอายุแล้ว ใช้โทเคนที่เหลือได้จนหมด ต่ออายุ Pro เพื่อรับโทเคนใหม่") : tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง")) : waiting ? tr("กำลังเชื่อมต่อเลขา AI…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
               {!live && !waiting && liveNote && <p className="asx-hint is-admin" role="status">{tr("สำหรับแอดมิน: เลขา AI ยังไม่เปิดในบัญชีนี้ · {0}", liveNote)}</p>}
           </>
         </div>

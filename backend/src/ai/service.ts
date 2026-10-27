@@ -22,7 +22,8 @@ import { MEMORY_LIMIT, overLimit, replacedMemory, selectMemories, type MemoryKin
 // real cost after the answer, and applying a proposal when the user presses confirm. The database sits behind
 // AssistantDb so the rules can be tested without one (the Supabase version is in supabaseDb.ts).
 
-export type AssistantPlan = 'pro' | 'trial' | 'admin' | 'none';
+/** 'lapsed': Pro has ended, but tokens are left from its last month; เลขา chats until they run out (owner, 2026-10-28). */
+export type AssistantPlan = 'pro' | 'trial' | 'admin' | 'lapsed' | 'none';
 /** Tokens held while the model runs; the real cost replaces it afterwards (a request costs about 2). */
 export const RESERVE_TOKENS = 5;
 
@@ -103,6 +104,16 @@ export function renewalCycle(periodEnd: string, now = new Date()): { cycle: stri
   return { cycle: new Date(start.getTime() + BANGKOK).toISOString().slice(0, 10), resetsAt: shiftMonths(anchor, k + 1) };
 }
 
+/**
+ * The last renewal month a Pro period paid for: the one that ends on the day the period ends. Tokens renew at 00:00
+ * Bangkok on the renewal day, so the moment just before the period's end can already sit in a month it never paid for.
+ */
+export function lastPaidCycle(periodEnd: string): string {
+  const local = new Date(Date.parse(periodEnd) + BANGKOK);
+  const dayStart = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - BANGKOK;
+  return renewalCycle(periodEnd, new Date(dayStart - 1)).cycle;
+}
+
 export interface PlanInfo {
   plan: AssistantPlan; periodEnd?: string | null;
   /** Tokens a month for the plan this account paid for (shared/proTokens.ts); none = the default allowance. */
@@ -118,6 +129,13 @@ const asPlan = (value: AssistantPlan | PlanInfo): PlanInfo => (typeof value === 
 export function allowance(value: AssistantPlan | PlanInfo, config: AiConfig, now = new Date()) {
   const { plan, periodEnd, tokens } = asPlan(value);
   if (plan === 'trial') return { cycle: 'trial', resetsAt: null, tokenLimit: config.trialTokens, requestLimit: null };
+  if (plan === 'lapsed') {
+    // Pro has ended (owner, 2026-10-28: "ถ้าหมดโปรไป เขายังเหลือ 500 โทเค็น ให้เขาใช้จนหมดก่อน"): the last paid month's
+    // allowance, with what was used in it; nothing renews until Pro does.
+    const ended = periodEnd ? Date.parse(periodEnd) : NaN;
+    if (!Number.isFinite(ended)) return { cycle: 'lapsed', resetsAt: null, tokenLimit: 0, requestLimit: null };
+    return { cycle: lastPaidCycle(periodEnd!), resetsAt: null, tokenLimit: tokens ?? config.proTokensPerCycle, requestLimit: null };
+  }
   const month = () => {
     const local = new Date(now.getTime() + BANGKOK);
     return { cycle: tokenCycle(now), resetsAt: new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1) - BANGKOK) };
@@ -134,8 +152,9 @@ export const thaiDay = (date: Date) => {
 };
 
 const NO_ACCESS = 'เลขากระรอกเป็นสิทธิ์ของสมาชิก Pro';
-export function refuse(reason: 'tokens' | 'requests' | 'daily_cap', resetsAt: Date | null, trial = false): never {
+export function refuse(reason: 'tokens' | 'requests' | 'daily_cap', resetsAt: Date | null, trial = false, lapsed = false): never {
   if (reason === 'requests' || (reason === 'tokens' && trial)) throw new HttpError(402, 'สิทธิ์ทดลองใช้เลขากระรอกครบแล้ว อัปเกรดเป็น Pro เพื่อใช้งานต่อ', 'ai_trial_used');
+  if (reason === 'tokens' && lapsed) throw new HttpError(402, 'โทเคนที่เหลือจาก Pro หมดแล้ว ต่ออายุ Pro เพื่อรับโทเคนใหม่ทุกเดือน', 'ai_tokens_used');
   if (reason === 'tokens') throw new HttpError(402, `โทเคนของรอบนี้หมดแล้ว จะได้รับใหม่วันที่ ${resetsAt ? thaiDay(resetsAt) : 'รอบถัดไป'}`, 'ai_tokens_used');
   throw new HttpError(503, 'เลขากระรอกพักการใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง', 'ai_daily_cap');
 }
@@ -149,9 +168,12 @@ export async function usageStatus(db: AssistantDb, config: AiConfig, userId: str
   if (!config.enabled || plan === 'none') return { enabled: config.enabled, plan, tokensLeft: null, trialLeft: null, resetsAt: null, tokenLimit: null, requestLimit: null };
   const limits = allowance(value, config, now);
   const used = await db.usage(userId, limits.cycle);
+  const left = limits.tokenLimit === null ? null : Math.max(0, limits.tokenLimit - used.tokens);
+  // Pro ended and its last month's tokens are gone: an ordinary account again, as far as the app's screens go.
+  if (plan === 'lapsed' && !left) return { enabled: true, plan: 'none', tokensLeft: null, trialLeft: null, resetsAt: null, tokenLimit: null, requestLimit: null };
   return {
     enabled: true, plan,
-    tokensLeft: limits.tokenLimit === null ? null : Math.max(0, limits.tokenLimit - used.tokens),
+    tokensLeft: left,
     trialLeft: limits.requestLimit === null ? null : Math.max(0, limits.requestLimit - used.requests),
     resetsAt: limits.resetsAt ? limits.resetsAt.toISOString() : null,
     tokenLimit: limits.tokenLimit, requestLimit: limits.requestLimit,
@@ -175,7 +197,7 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
   const requestId = randomUUID();
   const reserved = await db.reserve({ userId, cycle: limits.cycle, requestId, tokens: limits.requestLimit !== null ? 0 : RESERVE_TOKENS,
     tokenLimit: limits.tokenLimit, requestLimit: limits.requestLimit, dailyCapUsd: config.dailyCostCapUsd });
-  if (!reserved.ok) refuse(reserved.reason, limits.resetsAt, plan === 'trial');
+  if (!reserved.ok) refuse(reserved.reason, limits.resetsAt, plan === 'trial', plan === 'lapsed');
   // Hard stop before the start (cost brief, phase 4/7): a request that could take the app past its daily cap is refused
   // now, instead of being started and cut off. Sonnet requests can reach about $0.12 (a first-of-the-hour cache write).
   if (reserved.spentTodayUsd !== undefined && config.dailyCostCapUsd > 0) {

@@ -148,7 +148,7 @@ export async function transcribeVoice(db: AssistantDb, deps: TranscriptionDeps, 
   const names = Promise.resolve().then(() => db.loadAccount(userId)).then(({ user }) => voiceVocabulary(user)).catch(() => [] as string[]);
   const reserved = await db.reserve({ userId, cycle: limits.cycle, requestId, tokens: reserveTokens,
     tokenLimit: limits.tokenLimit, requestLimit: limits.requestLimit, dailyCapUsd: config.dailyCostCapUsd });
-  if (!reserved.ok) refuse(reserved.reason, limits.resetsAt, plan === 'trial');
+  if (!reserved.ok) refuse(reserved.reason, limits.resetsAt, plan === 'trial', plan === 'lapsed');
   const vocabulary = await namesInTime(names, deps.vocabularyWaitMs ?? VOCABULARY_WAIT_MS);
 
   const timeout = AbortSignal.timeout(config.timeoutMs);

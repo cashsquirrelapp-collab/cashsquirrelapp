@@ -190,8 +190,8 @@ test('pkg51 email exceptions survive rollback using verified email, without gran
   assert.equal(providerCalls, 2); assert.ok(reservations.every(row => row.p_user_id === A));
 });
 
-test('free, expired and revoked accounts cannot use chat/voice despite editable metadata claiming admin or Pro', async () => {
-  for (const member of ['free', 'expired', 'revoked'] as const) {
+test('free and revoked accounts cannot use chat/voice despite editable metadata claiming admin or Pro', async () => {
+  for (const member of ['free', 'revoked'] as const) {
     membership = member;
     const status = await request(A);
     assert.deepEqual([status.status, status.body.enabled, status.body.plan, status.body.tokensLeft], [200, false, 'none', null]);
@@ -201,6 +201,22 @@ test('free, expired and revoked accounts cannot use chat/voice despite editable 
     }
   }
   assert.equal(providerCalls, 0); assert.equal(reservations.length, 0); assert.deepEqual(snapshotOwners, []);
+});
+
+test('Pro that has ended chats on with the tokens left from its last month, and says to renew when they are gone', async () => {
+  // Owner, 2026-10-28: "ถ้าหมดโปรไป เขายังเหลืออีกตั้ง 500 โทเค็น ก็คือให้เขาใช้จนหมดก่อน".
+  membership = 'expired';
+  const status = await request(A);
+  assert.deepEqual([status.status, status.body.enabled, status.body.plan, status.body.resetsAt], [200, true, 'lapsed', null]);
+  assert.equal(status.body.tokensLeft, status.body.tokenLimit - 10, 'the last month\'s allowance less what it used');
+  reserveFailure = 'tokens';
+  for (const body of [chat, voice]) {
+    const reply = await request(A, body);
+    assert.equal(reply.status, 402); assert.equal(reply.body.code, 'ai_tokens_used');
+    assert.match(reply.body.error, /ต่ออายุ Pro/);
+  }
+  reserveFailure = undefined;
+  assert.equal(providerCalls, 0);
 });
 
 test('the explicit admin-only rollback and global-off switch still block Pro chat and transcription', async () => {

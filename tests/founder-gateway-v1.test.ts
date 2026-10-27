@@ -224,12 +224,12 @@ test('gateway: an action-first mixed request retains founder context and its nor
 });
 
 test('gateway: prompt version and bytes remain unchanged by the knowledge connection', async () => {
-  // secretary-v19 (owner, 2026-10-28): DELETING JOBS, SAVING AT ONCE and MANY ITEMS. secretary-v18 (owner, 2026-10-27): ACCOUNT NAME
+  // secretary-v19 (owner, 2026-10-28): DELETING JOBS, SAVING AT ONCE, MANY ITEMS and the lapsed PLAN note. secretary-v18 (owner, 2026-10-27): ACCOUNT NAME
   // replaces the remembered PREFERRED NAME. secretary-v17 (owner-approved
   // 2026-10-26, Accounting Brain): one ACCOUNTING REFERENCE slot added after FOUNDER;
   // every existing rule is byte-identical and a message without that slot builds exactly the v16 prompt.
   assert.equal(PROMPT_VERSION, 'secretary-v19');
   const prompt = await readFile(new URL('../backend/src/ai/prompt.ts', import.meta.url));
   // Captured before the approved gateway-only connection; recaptured for secretary-v19. No dependency on a local audit folder.
-  assert.equal(createHash('sha256').update(prompt).digest('hex'), '84a3f1d4578863d667a2ceeaf11a1a9cd58c4bedcc5aced076f2669c810a1fae');
+  assert.equal(createHash('sha256').update(prompt).digest('hex'), 'f9ad1c20cc3ba6890b99f13788726b5c596ed6a3f59672ec0a7c8b017789ee06');
 });

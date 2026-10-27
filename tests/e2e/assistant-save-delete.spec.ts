@@ -17,7 +17,8 @@ const snapshot = { jobs: [job('job-a', 'ตัดคลิปรีวิว', 2
 const versions = { cashflow_jobs: { 'job-a': 1, 'job-b': 1 }, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 const P = (n: number) => `p_0b9d3c1e-4f5a-4b6c-8d7e-9f0a1b2c3d4${n}`;
 
-async function open(page: Page, reply: (body: any) => { status?: number; json: unknown }, size = { width: 1440, height: 900 }) {
+type Plan = { subscription?: Record<string, unknown>; status?: Record<string, unknown>; path?: string };
+async function open(page: Page, reply: (body: any) => { status?: number; json: unknown }, size = { width: 1440, height: 900 }, plan: Plan = {}) {
   const posts: any[] = [];
   let dataReads = 0;
   await page.addInitScript(() => {
@@ -33,19 +34,19 @@ async function open(page: Page, reply: (body: any) => { status?: number; json: u
   await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
   await page.route('**/api/data*', route => {
     if (route.request().method() === 'GET') dataReads += 1;
-    return route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
+    return route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot, versions, subscription: plan.subscription ?? { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
   });
   await page.route('**/api/assistant', async route => {
     const request = route.request();
-    if (request.method() === 'GET') return route.fulfill({ json: { enabled: true, plan: 'pro', tokensLeft: 994, trialLeft: null, resetsAt: '2026-11-15T17:00:00.000Z', tokenLimit: 1000, requestLimit: null } });
+    if (request.method() === 'GET') return route.fulfill({ json: plan.status ?? { enabled: true, plan: 'pro', tokensLeft: 994, trialLeft: null, resetsAt: '2026-11-15T17:00:00.000Z', tokenLimit: 1000, requestLimit: null } });
     const body = request.postDataJSON();
     posts.push(body);
     const answer = reply(body);
     return route.fulfill({ status: answer.status ?? 200, json: answer.json });
   });
   await page.setViewportSize(size);
-  await page.goto('/assistant');
-  await expect(page.locator('#asx-message')).toBeVisible();
+  await page.goto(plan.path ?? '/assistant');
+  if (!plan.path) await expect(page.locator('#asx-message')).toBeVisible();
   await loadLayoutFonts(page);
   return { posts, dataReads: () => dataReads };
 }
@@ -135,4 +136,20 @@ test('several cards waiting: ยืนยันทั้งหมด confirms ea
   await expect(page.locator('.asx-rcard.is-confirm', { hasText: 'บันทึกแล้ว' })).toHaveCount(3);
   await expect(all).toHaveCount(0);
   expect(mock.posts.filter(post => post.action === 'confirm').map(post => post.proposalId).sort()).toEqual([P(5), P(6), P(7)].sort());
+});
+
+test('Pro ended: เลขา still answers with the tokens left, says so, and the floating window stays', async ({ page }, info) => {
+  const ended = { subscription: { status: 'canceled', plan: 'pro_monthly', current_period_end: '2026-10-01T00:00:00Z' },
+    status: { enabled: true, plan: 'lapsed', tokensLeft: 500, trialLeft: null, resetsAt: null, tokenLimit: 1650, requestLimit: null } };
+  const mock = await open(page, body => (body.action === 'message' ? { json: { text: 'สวัสดีครับ คุณมายด์', route: 'chat', tokens: 2, tokensLeft: 498, trialLeft: null, cards: [] } } : { json: {} }), undefined, ended);
+  await expect(page.locator('.asx-hint')).toHaveText('Pro หมดอายุแล้ว ใช้โทเคนที่เหลือได้จนหมด ต่ออายุ Pro เพื่อรับโทเคนใหม่');
+  await expect(page.locator('.asx-token')).toContainText('500');
+  await ask(page, 'สวัสดี');
+  await expect(page.getByText('สวัสดีครับ คุณมายด์')).toBeVisible();
+  expect(mock.posts.filter(post => post.action === 'message')).toHaveLength(1);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('pro-ended-chat-1440.png') });
+  // Elsewhere in the app the floating เลขา is still there while tokens are left.
+  await page.goto('/jobs');
+  await expect(page.locator('.asx-buddy')).toBeVisible();
 });
