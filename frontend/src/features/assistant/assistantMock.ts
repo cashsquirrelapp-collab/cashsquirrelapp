@@ -1,4 +1,5 @@
 import type { MascotAction, MascotMood } from '../../components/mascot/Mascot';
+import { sampleRename } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { lineReplyFor, sampleLineNotices, type LineCardData } from './lineMock';
 import type { NavigationCard } from './assistantNavigation';
@@ -30,7 +31,9 @@ export type LineChatCard = { kind: 'line'; card: LineCardData };
 export type QuestionsCard = { kind: 'questions'; id: string; questions: AskQuestion[] };
 /** An official website (Revenue Department, DBD, TFAC) from the server's fixed list (backend ai/accounting/officialLinks.ts). */
 export type OfficialLinkCard = { kind: 'official_link'; id: string; org: string; title: string; description: string; todo: string; url: string };
-export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard;
+/** Changing the account's name (2026-10-27): typed or checked on the card and saved by the user (accountName.ts). */
+export type RenameCard = { kind: 'rename'; current: string; suggested: string };
+export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard;
 
 /** `failed` + `question`: a send that did not go through, kept so it can be retried. */
 /** `attachment`: the name and kind of a file sent with the message (the file itself is not kept). */
@@ -136,6 +139,9 @@ export function sampleReply(text: string, confirmId: string): { text: string; ca
   // Quick reply messages get the card LINE itself answers with.
   const line = lineReplyFor(text, Date.now());
   if (line) return { text: '', cards: [{ kind: 'line', card: line }] };
+  // A new name to be called is a change of the account's name, as in the real เลขา.
+  const rename = sampleRename(text);
+  if (rename) return { text: rename.name ? tr("เปลี่ยนชื่อบัญชีเป็น “{0}” ใช่ไหมครับ ตรวจชื่อแล้วกดบันทึกได้เลย ต่อไปผมจะเรียกตามชื่อบัญชี", rename.name) : tr("พิมพ์ชื่อใหม่ที่ต้องการแล้วกดบันทึกได้เลยครับ ต่อไปผมจะเรียกตามชื่อบัญชี"), cards: [{ kind: 'rename', current: '', suggested: rename.name }] };
   switch (intentOf(text)) {
     case 'today': return { text: tr("วันนี้มี **3 งาน** ที่ต้องติดตามครับ\n\n| งาน | ลูกค้า | สถานะ |\n|---|---|---|\n| ถ่ายภาพแคมเปญ | บริษัท ตัวอย่าง จำกัด | ครบกำหนดพรุ่งนี้ |\n| ตัดต่อวิดีโอโปรโมต | สตูดิโอตัวอย่าง | เลยกำหนด 3 วัน |\n| ออกแบบโลโก้ | ร้านตัวอย่าง | กำลังทำ |\n\nดูทั้งหมดได้ที่ [หน้างาน](/jobs)"), cards: [cards.summary()] };
     case 'quote': return { text: tr("เจอแล้วครับ ใบเสนอราคาล่าสุดของ **บริษัท ตัวอย่าง จำกัด** อยู่ในหน้าเอกสาร"), cards: [cards.quote()] };

@@ -35,6 +35,10 @@ async function open(page: Page, width: number, height: number, options: { role?:
 }
 
 const chatOf = (page: Page) => page.locator('section.asx');
+const GREETING = /^(?:สวัสดีตอน(?:เช้า|บ่าย|เย็น|ค่ำ)ครับ|ทำงานดึกเลยนะครับ)$/;
+// The full chat's start: the old question on phones, the time-of-day greeting on computers and iPads (owner, 2026-10-27).
+const WELCOME = /^(?:วันนี้อยากให้เลขากระรอกช่วยอะไร\?|สวัสดีตอน(?:เช้า|บ่าย|เย็น|ค่ำ)ครับ|ทำงานดึกเลยนะครับ)$/;
+
 const snap = async (page: Page, name: string) => { await page.waitForTimeout(420); await page.screenshot({ path: test.info().outputPath(name) }); };
 const pickState = async (page: Page, label: string) => {
   await chatOf(page).getByRole('button', { name: 'จัดการแชต' }).click();
@@ -47,7 +51,7 @@ for (const [label, width, height] of [['phone', 390, 844], ['iPad', 820, 1180], 
     const calls = await open(page, width, height);
     const chat = chatOf(page);
     await expect(chat.getByRole('heading', { name: 'เลขากระรอก', exact: true })).toBeVisible();
-    await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
+    await expect(chat.getByRole('heading', { name: width < 744 ? 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' : GREETING })).toBeVisible();
     await expect(chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button')).toHaveCount(4);
     // No "เปิดหน้าที่เกี่ยวข้อง" choice any more (owner, 2026-10-26): pages open only from เลขา's button.
     await expect(page.getByText('เปิดหน้าที่เกี่ยวข้อง')).toHaveCount(0);
@@ -221,7 +225,7 @@ async function checkTopFace(page: Page) {
 test('computers and iPads: a round avatar sits in the top bar on the welcome too', async ({ page }) => {
   await open(page, 1280, 820);
   const chat = chatOf(page);
-  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
+  await expect(chat.getByRole('heading', { name: WELCOME })).toBeVisible();
   await checkTopFace(page);
   await expect(chat.locator('.asx-welcome .asx-figure')).toHaveCount(0);
   expect(await textOverlapIssues(page)).toEqual([]);
@@ -236,7 +240,7 @@ test('computers and iPads: a round avatar sits in the top bar on the welcome too
 test('computers, dark: the chat wears the app\'s charcoal glass, not a black stage of its own', async ({ page }) => {
   await open(page, 1280, 820, { dark: true });
   const chat = chatOf(page);
-  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
+  await expect(chat.getByRole('heading', { name: WELCOME })).toBeVisible();
   await expect(chat.locator('.asx-aurora')).toBeHidden();
   expect(await chat.locator('.asx-chat').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(23, 24, 27, 0.9)');
   // The questions' icons sit in soft tinted chips, not solid orange squares.
@@ -267,7 +271,7 @@ test('members see the chat in the sidebar and the phone menu, without the team p
   await entry.click();
   const chat = chatOf(page);
   await expect(page).toHaveURL(/\/assistant/);
-  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
+  await expect(chat.getByRole('heading', { name: WELCOME })).toBeVisible();
   await expect(chat.getByText('ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI')).toBeVisible();
   await chat.getByRole('button', { name: 'จัดการแชต' }).click();
   const menu = page.getByRole('menu', { name: 'จัดการแชต' });
@@ -284,7 +288,7 @@ test('members see the chat in the sidebar and the phone menu, without the team p
   const tools = page.getByRole('region', { name: 'เครื่องมือทั้งหมด' });
   await tools.locator('summary', { hasText: 'LINE AI Pro' }).click();
   await tools.getByRole('button', { name: /^เลขากระรอก/ }).click();
-  await expect(chatOf(page).getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
+  await expect(chatOf(page).getByRole('heading', { name: WELCOME })).toBeVisible();
 });
 
 test('dark mode, phone and computer: the chat reads clearly and no text overlaps', async ({ page }) => {
@@ -622,7 +626,7 @@ test('chat history: delete one chat or all of it, and undo brings it back', asyn
   await expect(chat.locator('.asx-md ol li')).toHaveCount(2);
   await chat.getByRole('button', { name: 'จัดการแชต' }).click();
   await page.getByRole('menuitem', { name: 'ลบแชตนี้' }).click();
-  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
+  await expect(chat.getByRole('heading', { name: WELCOME })).toBeVisible();
   await expect(rows).toHaveCount(3);
   // Delete all: only the pinned notifications thread stays.
   await chat.getByRole('button', { name: 'จัดการแชต' }).click();

@@ -199,17 +199,27 @@ test('confirm: another account cannot apply it, a changed job is refused, a fail
   assert.equal(stale.proposals.get(id)!.status, 'stale');
 });
 
-test('memory: "เรียกผมว่าบอส" is saved and used as the name next time', async () => {
-  const fake = fakeDb();
-  await handleMessage(fake.db, { config: config(), fetchImpl: geminiReplies(call('remember', { kind: 'preferred_name', value: 'บอส' }), text('รับทราบครับบอส')) }, USER, 'pro', { text: 'เรียกผมว่าบอสนะ' });
-  assert.deepEqual(fake.remembered.map(({ kind, value }) => ({ kind, value })), [{ kind: 'preferred_name', value: 'บอส' }]);
+// Owner, 2026-10-27: "อิงชื่อตามชื่อ account": a remembered "เรียกผมว่า…" kept the first name; now เลขา calls the user by the
+// account's name, and a new name is a card to change the account's name (saved by the user through the profile API).
+test('name: เลขา calls the user by the account name; "เรียกผมว่าบอส" shows the rename card and remembers nothing', async () => {
+  const fake = fakeDb({ async accountName() { return 'แตงโม'; } });
+  const asked = await handleMessage(fake.db, { config: config(), fetchImpl: (async () => { throw new Error('no model for this'); }) as unknown as typeof fetch }, USER, 'pro', { text: 'เรียกผมว่าบอสนะ' });
+  assert.deepEqual(asked.cards, [{ kind: 'rename', current: 'แตงโม', suggested: 'บอส' }]);
+  assert.match(asked.text, /บอส/);
+  assert.equal(asked.tokens, 0);
+  assert.deepEqual(fake.remembered, []);
+  // The model asked to remember a name gets the same card, and nothing is saved.
+  const viaModel = await handleMessage(fake.db, { config: config(), fetchImpl: geminiReplies(call('remember', { kind: 'preferred_name', value: 'ปาร์ค' }), text('กดบันทึกชื่อบนการ์ดได้เลยครับ')) }, USER, 'pro', { text: 'ต่อไปช่วยเรียกผมด้วยชื่อเล่นใหม่ ปาร์ค ได้ไหม' });
+  assert.ok(viaModel.cards?.some(card => card.kind === 'rename' && card.suggested === 'ปาร์ค'));
+  assert.deepEqual(fake.remembered, []);
   let system = '';
   const capture = (async (_url: string, init: RequestInit) => {
     system = JSON.parse(String(init.body)).systemInstruction.parts[0].text;
-    return new Response(JSON.stringify(text('ครับบอส').json), { status: 200 });
+    return new Response(JSON.stringify(text('ครับคุณแตงโม').json), { status: 200 });
   }) as unknown as typeof fetch;
   await handleMessage(fake.db, { config: config(), fetchImpl: capture }, USER, 'pro', { text: 'สวัสดี' });
-  assert.match(system, /PREFERRED NAME[^\n]*: "บอส"/);
+  assert.match(system, /ACCOUNT NAME[^\n]*: "แตงโม"/);
+  assert.doesNotMatch(system, /PREFERRED NAME/);
 });
 
 test('Pro tokens renew every month on the renewal day, also for 6-month and yearly plans', () => {

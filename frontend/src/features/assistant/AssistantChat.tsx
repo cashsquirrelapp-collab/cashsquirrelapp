@@ -23,6 +23,8 @@ import { getCurrentAccount } from '../../services/api';
 import { automaticNavigation, safeAssistantPath, type NavigationContext, type NavigationMode } from './assistantNavigation';
 import { confirmationCommand } from './assistantCommands';
 import type { ChatHandoff } from './chatHandoff';
+import { TokenRing } from './TokenRing';
+import { greetingNow, noteQuestion } from './greeting';
 import './assistant.css';
 
 /** The longest message เลขา takes (a pasted list is fine); the server allows the same (handlers/assistant.ts). */
@@ -68,6 +70,8 @@ type Props = {
   handoff?: ChatHandoff | null;
   /** The carried conversation is now this page's: the app forgets it. */
   onHandoff?: () => void;
+  /** The app is still checking whether the real เลขา is on: nothing is answered with sample data meanwhile. */
+  connecting?: boolean;
 };
 
 const SUGGESTION_ICONS: Record<SuggestionIcon, typeof FileText> = { today: ListChecks, quote: FileText, howto: FolderPlus, unpaid: Wallet };
@@ -131,18 +135,6 @@ function useDismiss(open: boolean, close: () => void, refs: React.RefObject<HTML
   }, [open, close, refs]);
 }
 
-function Ring({ share, size, stroke, level }: { share: number; size: number; stroke: number; level: 'ok' | 'low' | 'empty' }) {
-  const r = (size - stroke) / 2;
-  const length = 2 * Math.PI * r;
-  return (
-    <svg className={`asx-ring is-${level}`} width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-      <circle className="asx-ring-track" cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} fill="none" />
-      <circle className="asx-ring-fill" cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} fill="none" strokeLinecap="round"
-        strokeDasharray={length} strokeDashoffset={length * (1 - Math.max(0, Math.min(1, share)))} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-    </svg>
-  );
-}
-
 const popMotion = (reduce: boolean | null) => reduce
   ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 0 } }
   // The fill fades in quickly (so nothing behind ever shows through for long); the size settles with a spring.
@@ -179,7 +171,7 @@ function withInbox(list: Conversation[], inbox: LineInbox, openId: string | null
     : conversation));
 }
 
-export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff }: Props) {
+export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff, connecting = false }: Props) {
   const reduce = useReducedMotion();
   const rootRef = React.useRef<HTMLElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -275,6 +267,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const id = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${++nextId.current}`;
 
   const busy = mode === 'thinking' || mode === 'working';
+  // The start's greeting: the time of day and the person's habit, worked out again for each new chat.
+  const hello = React.useMemo(() => greetingNow(accountId), [accountId, currentId === null]); // eslint-disable-line react-hooks/exhaustive-deps
   const displayMode: AssistantMode = voice.phase === 'transcribing' ? 'thinking' : voice.active ? 'listening' : mode;
   const current = conversations?.find(conversation => conversation.id === currentId) ?? null;
   const messages = current?.messages ?? [];
@@ -294,6 +288,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const pendingConfirmation = !inLine && confirmationCommand('ยืนยัน', messages, confirmStates) !== null;
   // The real เลขากระรอก (live transport): no sample labels. The trial has no refill date.
   const live = Boolean(transport.live);
+  const waiting = connecting && !live;
   const refillDate = new Date(effective.refillsOn);
   const refill = Number.isNaN(refillDate.getTime()) ? '' : refillDate.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
   const share = effective.total ? effective.remaining / effective.total : 0;
@@ -498,7 +493,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     return true;
   };
   const send = (raw: string, preset = false) => {
-    if (busy || voice.active) return;
+    if (busy || voice.active || waiting) return;
     const command = !preset && !upload && !inLine ? confirmationCommand(raw, messages, confirmStates) : null;
     if (command && currentId) {
       if (accountId && getCurrentAccount() !== accountId) return;
@@ -521,6 +516,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     setUpsell(false);
     const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now(), ...(file && !raw.trim() ? { textAuto: true } : {}),
       ...(file ? { attachment: { name: file.name, kind: file.kind, ...(file.kind === 'image' ? { preview: `data:${file.mimeType};base64,${file.data}` } : {}) } } : {}) };
+    noteQuestion(accountId, text);
     let conversationId = currentId;
     let history = messages;
     if (!conversationId) {
@@ -928,7 +924,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
             {!gate && <div className="asx-pop-anchor">
               <button ref={tokenBtnRef} type="button" className={`asx-token lg-glass is-${level}`} onClick={() => { placeUnder(tokenBtnRef.current); setTokenOpen(open => !open); setMenuOpen(false); }}
                 aria-expanded={tokenOpen} aria-label={live ? tr("Krarok Tokens คงเหลือ {0} จาก {1}", effective.remaining, effective.total) : tr("Krarok Tokens คงเหลือ {0} จาก {1} (ข้อมูลตัวอย่าง)", effective.remaining, effective.total)} title={tr("Krarok Tokens")}>
-                <Ring share={share} size={20} stroke={3} level={level} /><span>{effective.remaining.toLocaleString(dateLocale())}</span>
+                <TokenRing share={share} size={20} stroke={3} level={level} /><span>{effective.remaining.toLocaleString(dateLocale())}</span>
               </button>
               {createPortal(
               <AnimatePresence>
@@ -1004,8 +1000,9 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         <div ref={listRef} className="asx-scroll" onScroll={onScroll} role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
           {welcome ? (
             <div className="asx-welcome">
-              <h2>{tr("วันนี้อยากให้เลขากระรอกช่วยอะไร?")}</h2>
-              <p>{tr("ถามเรื่องงาน เอกสาร หรือเงินที่ยังไม่ได้รับได้เลย")}</p>
+              {/* Computers and iPads greet as the small window does (owner, 2026-10-27); phones keep their words. */}
+              <h2>{mobile ? tr("วันนี้อยากให้เลขากระรอกช่วยอะไร?") : tr(hello.title)}</h2>
+              <p>{mobile ? tr("ถามเรื่องงาน เอกสาร หรือเงินที่ยังไม่ได้รับได้เลย") : tr(hello.line)}</p>
               {/* Computer and iPad: one iOS-style grouped list with a section title (owner, 2026-10-24); phones keep their tiles. */}
               {!blocked && !mobile && <h3 className="asx-prompts-head" aria-hidden="true">{tr("คำถามแนะนำ")}</h3>}
               {!blocked && (
@@ -1209,11 +1206,11 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 ) : (
                   <button type="button" className="asx-icon-btn is-soon" aria-disabled="true" aria-label={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI")} title={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI")}><Mic size={18} /></button>
                 )}
-                <button type="submit" className="asx-send" disabled={busy || (blocked && !confirmationCommand(draft, messages, confirmStates)) || draft.length > MAX_MESSAGE || (!draft.trim() && !upload)} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
+                <button type="submit" className="asx-send" disabled={busy || waiting || (blocked && !confirmationCommand(draft, messages, confirmStates)) || draft.length > MAX_MESSAGE || (!draft.trim() && !upload)} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
                 </>}
               </form>
-              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
-              {!live && liveNote && <p className="asx-hint is-admin" role="status">{tr("สำหรับแอดมิน: เลขา AI ยังไม่เปิดในบัญชีนี้ · {0}", liveNote)}</p>}
+              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : waiting ? tr("กำลังเชื่อมต่อเลขา AI…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
+              {!live && !waiting && liveNote && <p className="asx-hint is-admin" role="status">{tr("สำหรับแอดมิน: เลขา AI ยังไม่เปิดในบัญชีนี้ · {0}", liveNote)}</p>}
           </>
         </div>
       </div>

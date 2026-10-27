@@ -4,8 +4,9 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowUp, BarChart3, Check, ChevronRight, Clock, FileText, FolderPlus, HelpCircle, ListChecks, Maximize2, Mic, MousePointerClick, Pointer, Sparkles, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { tr, T } from '../../i18n/tr';
-import { createSampleTransport, type AssistantTransport } from './assistantApi';
-import { PAGE_HELP, SAMPLE_TOKENS, afterReply, buddyPrompts, isPendingConfirm, poseFor, type AssistantMode, type ChatMessage, type ConfirmCard } from './assistantMock';
+import { createSampleTransport, tokenLevel, type AssistantTransport } from './assistantApi';
+import { TokenRing } from './TokenRing';
+import { PAGE_HELP, SAMPLE_TOKENS, afterReply, buddyPrompts, isPendingConfirm, poseFor, type AssistantMode, type ChatMessage, type ConfirmCard, type TokenBalance } from './assistantMock';
 import { cardSpeech, climbFor, graphemes, speechPreview, type BuddyNews, type Climb } from './buddyClimb';
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
@@ -13,6 +14,7 @@ import { BriefingCard, briefingText } from './BriefingCard';
 import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
 import { useDictation } from './useDictation';
 import { chatTitle, type ChatHandoff } from './chatHandoff';
+import { greetingNow, noteQuestion } from './greeting';
 import { VoiceComposer } from './VoiceComposer';
 import { dateLocale } from '../../utils';
 import type { Briefing, BriefingItem } from '../../../../shared/briefing';
@@ -53,6 +55,8 @@ type Props = {
   accountId?: string;
   workspaceSlug?: string | null;
   fullFeatureAccess?: boolean;
+  /** The app is still checking whether the real เลขา is on: nothing is answered with sample data meanwhile. */
+  connecting?: boolean;
   /** Today's briefing (shared/briefing.ts), on computers and iPads only; phones never get one. */
   briefing?: Briefing | null;
 };
@@ -135,10 +139,11 @@ function markBriefingSeen(accountId: string | undefined, day: string, key: strin
   try { window.localStorage.setItem(briefingStore(accountId), JSON.stringify({ ...briefingSeen(accountId, day), [key]: day })); } catch { /* private mode */ }
 }
 
-export default function AssistantBuddy({ mobile, page, pageName, userName, hidden = false, arrival = 0, onPanelChange, onOpenChat, onNavigate, transport: given, accountId, workspaceSlug, fullFeatureAccess, briefing }: Props) {
+export default function AssistantBuddy({ mobile, page, pageName, userName, hidden = false, arrival = 0, onPanelChange, onOpenChat, onNavigate, transport: given, accountId, workspaceSlug, fullFeatureAccess, connecting = false, briefing }: Props) {
   const reduce = useReducedMotion();
   const transport = React.useMemo(() => given ?? createSampleTransport({ failSends: () => false, failActions: () => false, tokens: () => SAMPLE_TOKENS, instant: Boolean(reduce) }), [given, reduce]);
   const live = Boolean(transport.live);
+  const waiting = connecting && !live;
   const navigationContext: NavigationContext = { accountId, workspaceSlug, fullFeatureAccess };
   // Pages open only when the user taps เลขา's button (owner, 2026-10-26: the "เปิดหน้าที่เกี่ยวข้อง" choice is removed, so
   // nobody is moved to another page by itself, including accounts that had chosen "พาไปอัตโนมัติ" before).
@@ -170,6 +175,9 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const voiceRef = React.useRef(voice); voiceRef.current = voice;
   React.useEffect(() => { if (!open && voiceRef.current.active) voiceRef.current.cancel(); }, [open]);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
+  // Krarok Tokens left, in the window's corner for everyone (owner, 2026-10-27: "จำนวนโทเค็นอะให้ทุกคนเห็นด้วย ... เป็นยอด
+  // แบบโทเค็นวงกลม"), read when the window opens and after each answer.
+  const [balance, setBalance] = React.useState<TokenBalance | null>(null);
   // The id the account's history keeps this chat under (live เลขา), given with the first message, so the chat asked
   // here is the same chat in the full chat page and its history (owner, 2026-10-27).
   const conversationRef = React.useRef<string | null>(null);
@@ -218,6 +226,13 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     return () => document.removeEventListener('keydown', onKey);
   }, [open, minimized, mobile, close, restore]);
   React.useEffect(() => { if (open && !mobile) window.setTimeout(() => inputRef.current?.focus(), 80); }, [open, mobile]);
+  const answers = messages.filter(message => message.from === 'bot').length;
+  React.useEffect(() => {
+    if (!open || mobile) return;
+    let current = true;
+    transport.balance().then(value => { if (current) setBalance(value); }).catch(() => {});
+    return () => { current = false; };
+  }, [open, mobile, transport, answers]);
   React.useEffect(() => () => { abortRef.current?.abort(); for (const c of confirmControllers.current) c.abort(); }, [transport, accountId]);
   // Just arrived from its birth: say where it lives for a moment.
   React.useEffect(() => {
@@ -273,7 +288,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const id = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${++nextId.current}`;
   const send = async (raw: string) => {
     const text = raw.trim();
-    if (!text || busy) return;
+    if (!text || busy || waiting) return;
     const command = confirmationCommand(text, messages, confirmStates);
     if (command) {
       if (accountId && getCurrentAccount() !== accountId) return;
@@ -288,6 +303,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     }
     const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now() };
     const history = [...messages, mine];
+    noteQuestion(accountId, text);
     if (!conversationRef.current) conversationRef.current = live && typeof crypto?.randomUUID === 'function' ? `c_${crypto.randomUUID()}` : 'buddy';
     const conversationId = conversationRef.current;
     setMessages(history);
@@ -421,12 +437,24 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     onOpenChat(handoff);
   };
 
+  const level = balance ? tokenLevel(balance) : 'ok';
+  const tokenCorner = balance && (
+    <span className={`kfw-token is-${level}`} role="img" title={tr("Krarok Tokens")}
+      aria-label={live ? tr("Krarok Tokens คงเหลือ {0} จาก {1}", balance.remaining, balance.total) : tr("Krarok Tokens คงเหลือ {0} จาก {1} (ข้อมูลตัวอย่าง)", balance.remaining, balance.total)}>
+      <TokenRing share={balance.total ? balance.remaining / balance.total : 0} size={18} stroke={2.6} level={level} />
+      <span>{balance.remaining.toLocaleString(dateLocale())}</span>
+    </span>
+  );
+  // Phones keep their greeting as it was.
   const greeting = (
     <>
       <h3>{userName ? tr("สวัสดีครับ คุณ{0}", userName) : tr("สวัสดีครับ")}</h3>
       <p>{tr("อยู่หน้า{0}ใช่ไหมครับ ถามหรือพิมพ์ให้ผมช่วยทำได้เลย", pageName)}</p>
     </>
   );
+  // Computers and iPads (owner, 2026-10-27): the time of day and a question about what this person does most, worked
+  // out again each time the window opens, instead of "สวัสดีครับ คุณ…" every time.
+  const hello = React.useMemo(() => greetingNow(accountId, page), [accountId, page, open]); // eslint-disable-line react-hooks/exhaustive-deps
   // The conversation and the composer: in the phone sheet, or in the floating window on computers and iPads.
   const contents = (
     <>
@@ -434,15 +462,17 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 {messages.length === 0 ? (
                   <div className="asx-buddy-hello">
                     {mobile && <span className="asx-buddy-hero" aria-hidden="true"><MascotSlot mode={mode} size={84} /></span>}
-                    {/* Computers and iPads: the greeting is the window's one liquid gradient card (CI orange to rust). */}
-                    {mobile ? greeting : <div className="kfw-hero">{greeting}</div>}
+                    {/* Computers and iPads: the same start as the full chat (owner, 2026-10-27: "ทำเป็นชุดใหม่ทั้งหมด"), a plain
+                        title and line, then the questions as one grouped list. */}
+                    {mobile ? greeting : <div className="kfw-welcome"><h3>{tr(hello.title)}</h3><p>{tr(hello.line)}</p></div>}
                     {!mobile && briefing && briefing.items.length > 0 && (
                       <BriefingCard briefing={briefing} onOpen={path => { setOpen(false); onNavigate(path); }} />
                     )}
+                    {!mobile && <h4 className="kfw-section" aria-hidden="true">{tr("คำถามแนะนำ")}</h4>}
                     <div className="asx-buddy-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
                       {prompts.map(prompt => {
                         const Icon = PROMPT_ICONS[prompt] ?? Sparkles;
-                        return <button key={prompt} type="button" onClick={() => { void send(tr(prompt)); if (!mobile) inputRef.current?.focus(); }}>{mobile ? <Icon size={16} aria-hidden="true" /> : <span className="kfw-tile" aria-hidden="true"><Icon size={16} /></span>}<span>{tr(prompt)}</span>{!mobile && <ChevronRight className="asx-buddy-go" size={16} aria-hidden="true" />}</button>;
+                        return <button key={prompt} type="button" onClick={() => { void send(tr(prompt)); if (!mobile) inputRef.current?.focus(); }}>{mobile ? <Icon size={16} aria-hidden="true" /> : <span className="kfw-tile" aria-hidden="true"><Icon size={16} /></span>}<span>{tr(prompt)}</span>{!mobile && <ChevronRight className="asx-buddy-go" size={17} aria-hidden="true" />}</button>;
                       })}
                     </div>
                   </div>
@@ -493,10 +523,10 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                   <button type="button" className="asx-icon-btn asx-mic is-soon" aria-disabled="true" aria-label={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI")}
                     title={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI")}><Mic size={18} /></button>
                 ))}
-                <button type="submit" className="asx-send" disabled={busy || !draft.trim()} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
+                <button type="submit" className="asx-send" disabled={busy || waiting || !draft.trim()} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
                 </>}
               </form>
-              <p className="asx-hint">{!mobile && voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
+              <p className="asx-hint">{!mobile && voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : waiting ? tr("กำลังเชื่อมต่อเลขา AI…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI")}</p>
     </>
   );
 
@@ -567,7 +597,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
           )}
           {!mobile && (open || minimized) && (
             <FloatingWindow key="float" accountId={accountId} shown={open} mood={voice.active ? (voice.phase === 'transcribing' ? 'thinking' : 'checking') : poseFor(mode).mood} busy={busy || voice.phase === 'transcribing'} label={tr("เลขากระรอก · หน้า{0}", pageName)}
-              note={tr("กำลังดูหน้า{0}", pageName)} zones={zones} reduce={Boolean(reduce)} onMinimize={minimize} onExpand={expand} expandWaits={expandWaits} onClose={close} windowRef={windowRef}>
+              note={tr("กำลังดูหน้า{0}", pageName)} corner={tokenCorner} zones={zones} reduce={Boolean(reduce)} onMinimize={minimize} onExpand={expand} expandWaits={expandWaits} onClose={close} windowRef={windowRef}>
               {contents}
             </FloatingWindow>
           )}

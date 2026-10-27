@@ -159,17 +159,25 @@ test('routing V2: "where is it" and "call me …" are answered without a model a
   assert.match(where.text, /ใบเสนอราคา/);
   assert.deepEqual([where.routing?.tier, where.routing?.outcome], ['direct', 'direct']);
 
-  // Two accounts at once: each name is saved for its own account only.
+  // Two accounts at once: a new name is the rename card for its own account (2026-10-27: the account's name, nothing
+  // remembered); "no emoji" is saved for its own account only.
   const stores = memoryStores();
   const [mine, theirs] = await Promise.all([
-    runAssistant({ user: account(A), plan: 'pro', text: 'จำไว้นะ เรียกกูว่าบอส' }, { config: config(), ...stores, fetchImpl: none.fetchImpl }),
+    runAssistant({ user: account(A), plan: 'pro', text: 'จำไว้นะ เรียกกูว่าบอส', accountName: 'แตงโม' }, { config: config(), ...stores, fetchImpl: none.fetchImpl }),
     runAssistant({ user: account(B), plan: 'pro', text: 'ต่อไปไม่ต้องใช้อีโมจินะ' }, { config: config(), ...stores, fetchImpl: none.fetchImpl }),
   ]);
   assert.deepEqual(none.asked, []);
   assert.match(mine.text, /บอส/);
+  assert.deepEqual(mine.cards, [{ kind: 'rename', current: 'แตงโม', suggested: 'บอส' }]);
   assert.match(theirs.text, /ไม่ใช้อีโมจิ/);
-  assert.deepEqual(stores.remembered.map(row => [row.userId, row.kind, row.value]).sort(), [[A, 'preferred_name', 'บอส'], [B, 'emoji', 'ไม่ใช้อีโมจิ']].sort());
+  assert.deepEqual(stores.remembered.map(row => [row.userId, row.kind, row.value]), [[B, 'emoji', 'ไม่ใช้อีโมจิ']]);
   assert.equal(mine.tokens + theirs.tokens, 0);
+  // "อยากเปลี่ยนชื่อ" with no name: the same card, empty; a client's or a job's name is not the user's.
+  const plain = await runAssistant({ user: account(A), plan: 'pro', text: 'อยากเปลี่ยนชื่อครับ', accountName: 'แตงโม' }, { config: config(), ...memoryStores(), fetchImpl: none.fetchImpl });
+  assert.deepEqual(plain.cards, [{ kind: 'rename', current: 'แตงโม', suggested: '' }]);
+  const client = providers([gText('ได้ครับ')]);
+  const other = await runAssistant({ user: account(A), plan: 'pro', text: 'เปลี่ยนชื่อลูกค้าในงานถ่ายภาพเป็น บริษัท ข' }, { config: config(), ...memoryStores(), fetchImpl: client.fetchImpl });
+  assert.ok(!other.cards.some(card => card.kind === 'rename'));
 
   // A page that is not open yet goes to the model as before (it answers "not available yet").
   const hidden = providers([gText('ยังไม่มีในแอปตอนนี้ครับ')]);
@@ -303,8 +311,11 @@ test('routing V2 service: the charge is settled first, the routing log rides on 
   assert.deepEqual(usage.map(row => [row.tokens, row.status]), [[0, 'settled']]);
   assert.deepEqual(routing.map(row => [row.requestId === usage[0].requestId, row.routing.tier, row.routing.channel]), [[true, 'direct', 'app']]);
 
-  await handleMessage(db, { config: config(), fetchImpl: none.fetchImpl }, A, 'pro', { text: 'จำไว้นะ เรียกกูว่าบอส', channel: 'line' });
-  assert.deepEqual(remembered.map(row => [row.kind, row.value]), [['preferred_name', 'บอส']]);
+  // LINE has no form: a new name is where to change it in the app, nothing remembered.
+  const line = await handleMessage(db, { config: config(), fetchImpl: none.fetchImpl }, A, 'pro', { text: 'จำไว้นะ เรียกกูว่าบอส', channel: 'line' });
+  assert.deepEqual(remembered, []);
+  assert.deepEqual(line.cards ?? [], []);
+  assert.match(line.text, /ตั้งค่า > ข้อมูลส่วนตัว > ชื่อที่แสดง/);
   assert.equal(routing[1].routing.channel, 'line');
 
   // The routing log failing (before the SQL runs) never blocks the answer or the charge.

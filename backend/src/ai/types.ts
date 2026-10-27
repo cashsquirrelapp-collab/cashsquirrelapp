@@ -52,7 +52,10 @@ export type AssistantCard =
   /** Several months of money (financial_summary), drawn as a chart from the tool's own figures (moneyChart.ts). */
   | MoneyChartCard
   /** An official website (accounting/officialLinks.ts): chosen by id from a fixed list, never a URL from a model. */
-  | { kind: 'official_link'; id: string; org: string; title: string; description: string; todo: string; url: string };
+  | { kind: 'official_link'; id: string; org: string; title: string; description: string; todo: string; url: string }
+  /** Changing the account's name (owner, 2026-10-27: "อิงชื่อตามชื่อ account ... ให้มันเอาการ์ดมาแล้วก็ให้กรอกชื่อใหม่"): the user
+   *  types or checks the name and saves it themselves through the profile API; เลขา only shows the card. */
+  | { kind: 'rename'; current: string; suggested: string };
 
 /**
  * cacheWriteTokens: Claude's prompt-cache writes, part of inputTokens, billed at 1.25× the input price for 5 minutes;

@@ -92,8 +92,8 @@ test('knowledge: a question finds the matching app feature', () => {
 
 test('prompt: the shared part comes first and is the same for every user (so providers can cache it)', () => {
   const base = { route: 'chat' as const, plan: 'pro' as const, nowLocal: '24 ต.ค. 2569 10:00', knowledge: '-', accountContext: '{}' };
-  const a = buildSystemPrompt({ ...base, preferredName: 'ก' });
-  const b = buildSystemPrompt({ ...base, preferredName: 'ข', plan: 'trial', trialLeft: 2 });
+  const a = buildSystemPrompt({ ...base, accountName: 'ก' });
+  const b = buildSystemPrompt({ ...base, accountName: 'ข', plan: 'trial', trialLeft: 2 });
   const shared = a.slice(0, a.indexOf('\n\nUSER'));
   assert.ok(shared.length > 1500);
   assert.ok(b.startsWith(shared));

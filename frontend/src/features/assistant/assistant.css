@@ -11,7 +11,7 @@
    the system font for English (no download); other devices get Noto Sans Thai Looped, the closest free font. */
 @font-face { font-family: 'Krarok Chat Thai'; src: local('Thonburi'); unicode-range: U+0E00-0E7F; font-weight: 300 500; }
 @font-face { font-family: 'Krarok Chat Thai'; src: local('Thonburi Bold'), local('Thonburi-Bold'); unicode-range: U+0E00-0E7F; font-weight: 600 900; }
-.asx, .asx-pop, .asx-buddy { font-family: 'Krarok Chat Thai', -apple-system, BlinkMacSystemFont, 'Noto Sans Thai Looped', var(--font-sans); font-synthesis: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.asx, .asx-pop, .asx-buddy, .kfw, .kfw-mini { font-family: 'Krarok Chat Thai', -apple-system, BlinkMacSystemFont, 'Noto Sans Thai Looped', var(--font-sans); font-synthesis: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 .asx, .asx-pop, .kfw, .kfw-mini {
   --asx-accent: #E65F2B; --asx-accent-hover: #D35221; --asx-accent-text: #C24A16; --asx-cream: #FFF1E8; --asx-media: #F1EFEC;
   --asx-income: #12804F; --asx-expense: #C43A3A; --asx-amber: #8A5A0B; --asx-amber-bg: #FDF6EC; --asx-red-bg: #FDEEEE;
@@ -1120,19 +1120,14 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .kfw-mini-say.is-none { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .kfw-mini-btn { transition: none; } }
 
-/* The floating window in the mood of the owner's reference (rondesignlab "superpower", 2026-10-27), in Krarok's CI only:
-   "ไม่ต้องไปตามเขา แค่องค์ประกอบรอบข้าง ... ฟีลมูดนี้". A warm near-white surface with large corners and a deep, soft
-   shadow; light, large type in the CI font (Prompt); one liquid gradient card (CI orange to rust, a fine grain) that
-   greets; questions as rounded pill rows with thin icons; white round controls; ordinary readable figures. The original
-   squirrel stays. Phones keep their own look. */
-.kfw, .kfw-mini, .asx-buddy.is-pill { --kfw-font: 'Prompt', 'IBM Plex Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif; font-family: var(--kfw-font); font-synthesis: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+/* The floating window, the same set as the full chat (owner, 2026-10-27: "ทำเป็นชุดใหม่ทั้งหมด ... ฟอนต์ยังเป็น CI เดิม"):
+   the chat's own type, a plain warm-white surface with a soft deep shadow, a plain title and line, the questions and the
+   briefing as iOS inset-grouped lists, your words in the chat's cream bubble, a white composer with one solid orange
+   send button, the token ring in the corner. The perched squirrel and its name stay. Phones keep their own look. */
 .kfw textarea, .kfw button, .kfw input { font-family: inherit; }
-.kfw-shell { border: 0;
-  background: radial-gradient(90% 34% at 50% 0%, rgba(230, 95, 43, 0.10), transparent 72%), radial-gradient(70% 40% at 100% 100%, rgba(193, 120, 23, 0.07), transparent 70%), linear-gradient(180deg, #FCFBFA, #F6F4F1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 0 0 0.5px rgba(28, 25, 23, 0.07), 0 40px 90px rgba(28, 25, 23, 0.14), 0 8px 24px rgba(28, 25, 23, 0.06);
-  -webkit-backdrop-filter: none; backdrop-filter: none; }
-.dark .kfw-shell { background: radial-gradient(90% 34% at 50% 0%, rgba(230, 95, 43, 0.14), transparent 72%), radial-gradient(70% 40% at 100% 100%, rgba(193, 120, 23, 0.08), transparent 70%), linear-gradient(180deg, #202125, #19191C);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 40px 90px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.3); }
+.kfw-shell { border: 0; background: #FCFBFA; -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: 0 0 0 0.5px rgba(28, 25, 23, 0.08), 0 30px 70px rgba(28, 25, 23, 0.14), 0 6px 18px rgba(28, 25, 23, 0.06); }
+.dark .kfw-shell { background: #1C1C1E; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 30px 70px rgba(0, 0, 0, 0.55), 0 6px 18px rgba(0, 0, 0, 0.3); }
 /* The name capsule in the CI ink; white round controls. */
 .kfw-name { background: #1C1917; color: #FFFFFF; font-weight: 500; letter-spacing: 0.1px; box-shadow: 0 4px 12px rgba(28, 25, 23, 0.18); }
 .dark .kfw-name { background: #F2F0ED; color: #1C1917; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
@@ -1140,44 +1135,53 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .kfw-ctrl:hover { background: #FFFFFF; color: #1C1917; box-shadow: 0 4px 10px rgba(28, 25, 23, 0.1), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
 .dark .kfw-ctrl { background: rgba(255, 255, 255, 0.08); color: #C9C3BC; box-shadow: none; }
 .dark .kfw-ctrl:hover { background: rgba(255, 255, 255, 0.14); color: #FFFFFF; }
-/* The greeting: one liquid gradient card in CI orange to rust, with a fine grain. */
+/* Krarok Tokens left, in the header's top-left corner (the full chat's ring, smaller). */
+.kfw-token { display: inline-flex; flex: none; align-items: center; gap: 6px; height: 30px; margin-left: 2px; padding: 0 10px 0 7px; border-radius: 15px; background: #FFFFFF; color: var(--text);
+  font-size: 13px; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; box-shadow: 0 1px 2px rgba(28, 25, 23, 0.06), 0 0 0 0.5px rgba(28, 25, 23, 0.06); cursor: default; }
+.kfw-token.is-low { color: var(--asx-amber); }
+.kfw-token.is-empty { color: #C43A3A; }
+.dark .kfw-token { background: rgba(255, 255, 255, 0.08); box-shadow: none; }
+/* The start, as in the full chat: a plain title (the time of day) and a line (a question about the person's habit). */
 .kfw .asx-buddy-hello { padding-top: 0; text-align: left; }
-.kfw-hero { position: relative; overflow: hidden; margin: 0 2px; padding: 20px 20px 22px; border-radius: 26px; color: #FFFFFF; isolation: isolate;
-  background: radial-gradient(120% 95% at 90% 120%, rgba(166, 63, 27, 0.95), rgba(166, 63, 27, 0) 58%), radial-gradient(90% 85% at 8% -10%, rgba(255, 184, 140, 0.95), rgba(255, 184, 140, 0) 62%), linear-gradient(135deg, #F28C52 0%, #E65F2B 52%, #C24A16 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 16px 34px rgba(166, 63, 27, 0.22), 0 2px 6px rgba(166, 63, 27, 0.12); }
-.kfw-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0.16; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
-.kfw-hero::before { content: ""; position: absolute; right: -30px; top: -40px; z-index: -1; width: 170px; height: 170px; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0)); }
-.kfw .kfw-hero h3 { margin: 0; color: #FFFFFF; font-size: 25px; font-weight: 300; line-height: 1.45; letter-spacing: -0.2px; }
-.kfw .kfw-hero p { margin-top: 4px; color: rgba(255, 255, 255, 0.9); font-size: 13.5px; font-weight: 300; line-height: 1.6; }
-.dark .kfw-hero { background: radial-gradient(120% 95% at 90% 120%, rgba(110, 38, 14, 0.95), rgba(110, 38, 14, 0) 58%), radial-gradient(90% 85% at 8% -10%, rgba(240, 138, 75, 0.7), rgba(240, 138, 75, 0) 62%), linear-gradient(135deg, #D9672F 0%, #C24A16 55%, #8E3412 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 16px 34px rgba(0, 0, 0, 0.4); }
-/* Questions as rounded pill rows: a thin icon, the words, a round arrow. */
-.kfw .asx-buddy-prompts, .dark .kfw .asx-buddy-prompts { gap: 8px; margin-top: 14px; overflow: visible; border-radius: 0; background: none; box-shadow: none; }
-.kfw .asx-buddy-prompts > button, .dark .kfw .asx-buddy-prompts > button { min-height: 50px; padding: 6px 8px 6px 16px; gap: 12px; border: 0; border-radius: 999px; background: #FFFFFF; font-size: 14.5px; font-weight: 400; line-height: 1.5;
-  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04), 0 0 0 0.5px rgba(28, 25, 23, 0.05); transition: box-shadow 0.18s, transform 0.18s cubic-bezier(0.22, 1, 0.36, 1); }
-.kfw .asx-buddy-prompts > button + button::before { display: none; }
-.kfw .asx-buddy-prompts > button:hover { transform: translateY(-1px); background: #FFFFFF; box-shadow: 0 8px 20px rgba(28, 25, 23, 0.07), 0 0 0 0.5px rgba(28, 25, 23, 0.06); }
-.kfw .asx-buddy-prompts > button:active { transform: none; }
-.dark .kfw .asx-buddy-prompts > button { background: rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.07); }
-.dark .kfw .asx-buddy-prompts > button:hover { background: rgba(255, 255, 255, 0.1); }
-.kfw .asx-buddy-prompts > button > span.kfw-tile { flex: 0 0 20px; width: 20px; color: #6F6862; }
+.kfw-welcome { padding: 12px 6px 2px; text-align: center; }
+.kfw .kfw-welcome h3 { margin: 0; color: var(--text); font-size: 22px; font-weight: 600; line-height: 1.45; }
+.kfw .kfw-welcome p { margin: 4px 0 0; color: var(--muted); font-size: 14.5px; font-weight: 400; line-height: 1.6; }
+.kfw-section { margin: 18px 0 6px; padding: 0 14px; color: var(--muted); font-size: 13px; font-weight: 400; line-height: 1.5; }
+/* The briefing and the questions: iOS inset-grouped lists, white on the warm surface, hairlines between rows. */
+.kfw .asx-brief { margin-top: 14px; border: 0; border-radius: 14px; background: #FFFFFF; box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 1px 2px rgba(0, 0, 0, 0.04); }
+.kfw .asx-brief-item { border-top: 0.5px solid rgba(60, 60, 67, 0.22); }
+.dark .kfw .asx-brief { background: #2C2C2E; box-shadow: none; }
+.dark .kfw .asx-brief-item { border-top-color: rgba(84, 84, 88, 0.65); }
+.kfw .asx-buddy-prompts, .dark .kfw .asx-buddy-prompts { display: flex; flex-direction: column; gap: 0; margin-top: 0; overflow: hidden; border-radius: 14px; background: #FFFFFF;
+  box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 1px 2px rgba(0, 0, 0, 0.04); }
+.dark .kfw .asx-buddy-prompts { background: #2C2C2E; box-shadow: none; }
+.kfw .asx-buddy-prompts > button, .dark .kfw .asx-buddy-prompts > button { position: relative; align-items: center; min-height: 50px; padding: 9px 12px 9px 14px; gap: 12px; border: 0; border-radius: 0;
+  background: transparent; font-size: 15px; font-weight: 400; line-height: 1.5; box-shadow: none; transform: none; transition: background-color 0.15s; }
+.kfw .asx-buddy-prompts > button > span:not(.kfw-tile) { flex: 1 1 auto; }
+.kfw .asx-buddy-prompts > button + button::before { content: ""; display: block; position: absolute; top: 0; right: 0; left: 54px; height: 0.5px; background: rgba(60, 60, 67, 0.29); }
+.dark .kfw .asx-buddy-prompts > button + button::before { background: rgba(84, 84, 88, 0.65); }
+.kfw .asx-buddy-prompts > button:hover { border: 0; transform: none; background: rgba(116, 116, 128, 0.08); box-shadow: none; }
+.kfw .asx-buddy-prompts > button:active { transform: none; background: rgba(116, 116, 128, 0.16); }
+.dark .kfw .asx-buddy-prompts > button:hover { background: rgba(255, 255, 255, 0.05); }
+.dark .kfw .asx-buddy-prompts > button:active { background: rgba(255, 255, 255, 0.09); }
+.kfw .asx-buddy-prompts > button > span.kfw-tile { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 9px; background: rgba(230, 95, 43, 0.12); color: #C24A16; }
+.dark .kfw .asx-buddy-prompts > button > span.kfw-tile { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 9px; background: rgba(255, 164, 115, 0.14); color: #FFA473; }
 .kfw-tile { display: inline-grid; place-items: center; }
-.kfw-tile > svg { margin: 0; color: inherit; stroke-width: 1.6; }
-.dark .kfw .asx-buddy-prompts > button > span.kfw-tile { color: #C9C3BC; }
-.kfw .asx-buddy-go { box-sizing: border-box; width: 30px; height: 30px; padding: 7px; border-radius: 50%; background: #F1EFEC; color: #77706A; }
-.dark .kfw .asx-buddy-go { background: rgba(255, 255, 255, 0.08); color: #C9C3BC; }
-/* The conversation: light type, a warm CI bubble for your own words, white cards. */
+.kfw-tile > svg { margin: 0; color: inherit; }
+.kfw .asx-buddy-go { flex: none; box-sizing: content-box; width: 17px; height: 17px; padding: 0; border-radius: 0; background: none; color: rgba(60, 60, 67, 0.3); }
+.dark .kfw .asx-buddy-go { background: none; color: rgba(235, 235, 245, 0.3); }
+/* The conversation: your words in the full chat's cream bubble (solid in dark, as in the full chat). */
 .kfw .asx-thread { font-weight: 400; }
-.kfw .asx-msg.is-me .asx-bubble { border: 0; background: linear-gradient(135deg, #FFEADF, #FFDCCA); color: #1C1917; box-shadow: 0 4px 12px rgba(166, 63, 27, 0.08); }
-.dark .kfw .asx-msg.is-me .asx-bubble { background: linear-gradient(135deg, #C24A16, #A63F1B); color: #FFFFFF; }
-/* The composer: a white pill; the send button is the one strong orange. */
-.kfw .asx-buddy-composer { min-height: 54px; align-items: center; padding: 6px 7px 6px 18px; border: 0; border-radius: 999px; background: #FFFFFF; box-shadow: 0 10px 24px rgba(28, 25, 23, 0.07), 0 0 0 0.5px rgba(28, 25, 23, 0.06); }
-.kfw .asx-buddy-composer:focus-within { box-shadow: 0 10px 24px rgba(28, 25, 23, 0.07), 0 0 0 1.5px rgba(230, 95, 43, 0.45); }
-.dark .kfw .asx-buddy-composer { background: rgba(255, 255, 255, 0.07); box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
-.kfw .asx-send { width: 40px; height: 40px; background: linear-gradient(135deg, #F28C52, #E65F2B 55%, #C24A16); box-shadow: 0 6px 14px rgba(230, 95, 43, 0.3); }
-.kfw .asx-send:hover:not(:disabled) { background: linear-gradient(135deg, #E9773E, #D35221 55%, #A63F1B); }
-.kfw .asx-send:disabled { background: #F3C3A6; box-shadow: none; }
-.kfw .asx-hint { font-weight: 300; }
+.dark .kfw .asx-msg.is-me .asx-bubble { background: #C9541F; color: #FFFFFF; }
+/* The composer: white with a hairline; the send button is the one solid orange. */
+.kfw .asx-buddy-composer { min-height: 52px; align-items: center; padding: 6px 7px 6px 16px; border: 0; border-radius: 26px; background: #FFFFFF;
+  box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 8px 20px rgba(28, 25, 23, 0.06); }
+.kfw .asx-buddy-composer:focus-within { box-shadow: 0 0 0 1.5px rgba(230, 95, 43, 0.45), 0 8px 20px rgba(28, 25, 23, 0.06); }
+.dark .kfw .asx-buddy-composer { background: #2C2C2E; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+.kfw .asx-send { width: 38px; height: 38px; background: var(--asx-accent); box-shadow: none; }
+.kfw .asx-send:hover:not(:disabled) { background: var(--asx-accent-hover); }
+.kfw .asx-send:disabled { background: #F3B08C; box-shadow: none; }
+.kfw .asx-hint { font-weight: 400; }
 /* The folded squirrel's words and the pill, in the same warm white. */
 .kfw-mini-say.lg-glass.is-menu { border: 0; background: #FFFFFF; box-shadow: 0 12px 30px rgba(28, 25, 23, 0.12), 0 0 0 0.5px rgba(28, 25, 23, 0.06); }
 .dark .kfw-mini-say.lg-glass.is-menu { background: #26272B; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
@@ -1192,3 +1196,6 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .kfw .asx-buddy-composer .asx-voice-composer { min-height: 40px; gap: 10px; }
 .kfw .asx-buddy-composer .asx-voice-cancel, .kfw .asx-buddy-composer .asx-voice-finish { flex: none; width: 40px; height: 40px; border-radius: 50%; }
 .kfw .kfw-voice-note { margin: 0 14px 6px; }
+/* The rename card (2026-10-27): the name field sits clear of the card's title, its note under it. */
+.asx-rcard.is-rename .asx-edit-list { margin-top: 10px; }
+.asx-rcard.is-rename .asx-edit-note { margin: 6px 2px 0; }

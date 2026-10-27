@@ -874,3 +874,41 @@ test('floating window mic: record, stop, one transcription, an editable draft in
   expect(await microphoneStopped(page)).toBe(true);
   expect(await textOverlapIssues(page)).toEqual([]);
 });
+
+// Owner, 2026-10-27: "อิงชื่อตามชื่อ account ... ถ้าบอกว่าอยากเปลี่ยนชื่อ ให้มันเอาการ์ดมาแล้วให้กรอกชื่อใหม่ มันก็จะเปลี่ยนชื่อ
+// account ใหม่". The card is typed or checked and saved by the user, through the same profile API as Settings.
+test('name: "เรียกผมว่า…" brings a card to change the account name; saving it changes the name across the app', async ({ page }) => {
+  const saved: unknown[] = [];
+  let displayName = 'ผู้ใช้ตัวอย่าง';
+  await open(page, {
+    reply: body => body.action === 'message'
+      ? { status: 200, json: { text: 'เปลี่ยนชื่อบัญชีเป็น “บอส” ใช่ไหมครับ ตรวจชื่อแล้วกดบันทึกได้เลย ต่อไปผมจะเรียกตามชื่อบัญชี', route: 'chat', tokens: 0, tokensLeft: 994, trialLeft: null,
+        cards: [{ kind: 'rename', current: 'ผู้ใช้ตัวอย่าง', suggested: 'บอส' }] } }
+      : { status: 200, json: { cancelled: true } },
+    routes: async target => {
+      await target.route('**/api/profile', route => {
+        if (route.request().method() === 'POST') { const body = route.request().postDataJSON(); saved.push({ body, account: route.request().headers()['x-account-id'] }); displayName = body.displayName; }
+        return route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName } });
+      });
+    },
+  });
+  await ask(page, 'เรียกผมว่าบอส');
+  const card = page.locator('.asx-rcard.is-rename');
+  await expect(card).toBeVisible();
+  await expect(card.locator('.asx-rcard-head')).toContainText('ชื่อบัญชี');
+  await expect(card.locator('.asx-card-state')).toHaveText('รอบันทึก');
+  await expect(card.getByRole('textbox', { name: 'ชื่อที่ใช้ในบัญชี' })).toHaveValue('บอส');
+  await expect(card).toContainText('ผู้ใช้ตัวอย่าง');
+  // Too short is refused on the card before anything is sent.
+  await card.getByRole('textbox', { name: 'ชื่อที่ใช้ในบัญชี' }).fill('บ');
+  await expect(card.getByRole('button', { name: 'บันทึกชื่อ' })).toBeDisabled();
+  await card.getByRole('textbox', { name: 'ชื่อที่ใช้ในบัญชี' }).fill('บอสใหญ่');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await card.getByRole('button', { name: 'บันทึกชื่อ' }).click();
+  await expect(card.locator('.asx-card-state')).toHaveText('บันทึกแล้ว');
+  await expect(card).toContainText('บันทึกชื่อแล้ว ต่อไปเลขากระรอกจะเรียกตามชื่อนี้');
+  expect(saved).toEqual([{ body: { displayName: 'บอสใหญ่' }, account: user.id }]);
+  // The app shows the new name (the sidebar's account corner, once the chat is left), as after saving it in Settings.
+  await page.locator('section.asx').getByRole('button', { name: 'กลับ', exact: true }).first().click();
+  await expect(page.locator('aside.app-sidebar').getByText('บอสใหญ่', { exact: true })).toBeVisible();
+});

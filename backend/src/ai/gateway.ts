@@ -16,6 +16,7 @@ import { openaiProvider } from './providers/openai.js';
 import { anthropicProvider } from './providers/anthropic.js';
 import { featureNavigation } from './navigation.js';
 import { clearMemoryCommand, decideRoute, routingRecord, wherePage, type Direct, type RoutingOutcome, type RoutingRecord } from './routingPolicy.js';
+import { renameReply, renameRequest } from './rename.js';
 import { accountContext, createToolbox, toolsFor, type MemoryStore, type ProposalStore } from './tools.js';
 import { emptyUsage, partialUsageOf, ProviderError, subtractUsage, withPartialUsage, type AssistantCard, type ChatTurn, type Effort, type Provider, type ProviderName, type ProviderResult, type Route, type ToolCall, type ToolOutcome, type Usage } from './types.js';
 import type { VaultLoader } from './vaultQueries.js';
@@ -59,7 +60,8 @@ export interface AssistantRequest {
   pendingConfirmation?: boolean;
   pageName?: string;
   channel?: 'app' | 'line';
-  preferredName?: string;
+  /** The name on the account, the one เลขา calls the user by. */
+  accountName?: string;
   communicationProfile?: string;
   memories?: string[];
   trialLeft?: number;
@@ -185,7 +187,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   }
 
   const toolbox = createToolbox({ user: request.user, proposals: deps.proposals, memory: deps.memory, loadVaultFiles: deps.loadVaultFiles, now: deps.now,
-    isAdmin: request.plan === 'admin', requestText: request.text, hasAttachment: Boolean(request.attachment) });
+    isAdmin: request.plan === 'admin', requestText: request.text, hasAttachment: Boolean(request.attachment), accountName: request.accountName, channel: request.channel });
   const memos: string[] = [];
   const signals: KnowledgeSignal[] = detectSignals(request.text, request.history);
   const calls: ModelCall[] = [];
@@ -318,7 +320,14 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       const card = page ? featureNavigation(page, { isAdmin: request.plan === 'admin', requestText: request.text }, true) : undefined;
       return card?.kind === 'navigation' ? { text: `อยู่ที่หน้า **${card.label}** ครับ กดปุ่มด้านล่างเพื่อเปิดได้เลย`, cards: [card] } : undefined;
     }
-    const memory = clearMemoryCommand(request.text);
+    // A new name to be called is a change of the account's name: a card to type and save it (owner, 2026-10-27).
+    const rename = kind === 'rename' ? renameRequest(request.text) : undefined;
+    const memory = rename ? undefined : clearMemoryCommand(request.text);
+    if (rename || memory?.kind === 'preferred_name') {
+      toolNames.push('rename_card');
+      const asked = renameReply(rename ? rename.name ?? '' : memory!.value, request.accountName, request.channel);
+      return { text: asked.text, cards: asked.card ? [asked.card] : [] };
+    }
     if (!memory) return undefined;
     toolNames.push('remember');
     const outcome = await toolbox({ id: 'direct-memory', name: 'remember', args: { ...memory } });
@@ -402,7 +411,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     const name = providerFor(model);
     const system = buildSystemPrompt({
       route, plan: request.plan, trialLeft: request.trialLeft, tokensLeft: request.tokensLeft,
-      preferredName: request.preferredName, communicationProfile: request.communicationProfile, memories: request.memories,
+      accountName: request.accountName, communicationProfile: request.communicationProfile, memories: request.memories,
       nowLocal: bangkokNow(deps.now), pageName: request.pageName, channel: request.channel, knowledge, founder, accounting: accounting?.text, accountContext: context,
       offer: offerLine(offerState(request.text, request.history)),
     }) + (handoff ? `\n\nHANDOVER FROM THE CONVERSATION ASSISTANT: ${handoff}` : '');

@@ -4,6 +4,7 @@ import type { AssistantTransport } from '../features/assistant/assistantApi';
 import { safeAssistantPath } from '../features/assistant/assistantNavigation';
 import type { LineInboxApi } from '../features/assistant/lineInbox';
 import type { ChatHandoff } from '../features/assistant/chatHandoff';
+import { notePage } from '../features/assistant/greeting';
 import { CARD_CONSENT_VERSION, type CardOptions } from '../../../shared/cardConsent';
 import { proPricePartsForCharge, proPricing, type ProPeriod } from '../../../shared/proPricing';
 import PageHeader from '../components/ui/PageHeader';
@@ -535,6 +536,8 @@ export default function App() {
   const chatFocus = activeTab === 'assistant' && isDesktop;
   const chatReturnTab = React.useRef<TabKey>('dashboard');
   useEffect(() => { if (activeTab !== 'assistant') chatReturnTab.current = activeTab; }, [activeTab]);
+  // What the person opens, for เลขา's greeting (greeting.ts): counted on this device, per account, never sent.
+  useEffect(() => { if (session && !session.isGuest) notePage(session.user.id, activeTab); }, [activeTab, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigateTab = (requestedTab: TabKey) => {
     const tab: TabKey = resolvePhaseOneTab(requestedTab, fullFeatureAccess);
@@ -1324,26 +1327,37 @@ export default function App() {
   }, [assistantUserId, financeGroupId]);
   const assistantAppliedRef = useRef<() => void>(() => {});
   assistantAppliedRef.current = () => { void loadCloudData(session?.user?.email || ''); };
+  // While the check below runs, เลขา waits instead of answering with sample data (owner, 2026-10-27: the window "ไม่รู้
+  // เรื่อง" while the full chat answered; a slow check had left the window on the sample answers).
+  const [assistantChecking, setAssistantChecking] = useState(false);
   useEffect(() => {
     setAssistantTransport(undefined);
     setAssistantNote(null);
+    setAssistantChecking(false);
     if (!assistantUserId) return;
     if (financeGroupId) { setAssistantNote(tr("กำลังดูบัญชีกลุ่ม เลขา AI ใช้ได้กับบัญชีส่วนตัวเท่านั้น")); return; }
     const controller = new AbortController();
+    let retry = 0;
+    setAssistantChecking(true);
     // Loaded on demand so the sample data and the chat code stay out of the first page load.
-    import('../features/assistant/assistantApi').then(async ({ readAssistantStatus, createLiveTransport }) => {
+    const check = (attempt: number) => import('../features/assistant/assistantApi').then(async ({ readAssistantStatus, createLiveTransport }) => {
       const status = await readAssistantStatus(assistantUserId, controller.signal);
       if (controller.signal.aborted) return;
+      setAssistantChecking(false);
       if (!status.enabled || status.plan === 'none') {
         setAssistantNote(status.plan === 'none' ? tr("บัญชีนี้ไม่มีสิทธิ์ Pro") : status.plan === 'admin' ? tr("เซิร์ฟเวอร์ยังปิด AI อยู่ (AI_ENABLED)") : tr("ตอนนี้เปิด AI ให้แอดมินระบบเท่านั้น"));
         return;
       }
       setAssistantTransport(createLiveTransport({ account: assistantUserId, status, instant: false, onApplied: () => assistantAppliedRef.current() }));
     }).catch(error => {
-      // Not reachable or not ready: the sample chat stays, and admins see why.
-      if (!controller.signal.aborted) setAssistantNote((error as Error)?.message || tr("เชื่อมต่อเลขา AI ไม่ได้"));
+      if (controller.signal.aborted) return;
+      // A slow or failed check is tried again a few times; after that the sample chat stays, and admins see why.
+      if (attempt < 3) { retry = window.setTimeout(() => { void check(attempt + 1); }, [3000, 10000, 30000][attempt]); return; }
+      setAssistantChecking(false);
+      setAssistantNote((error as Error)?.message || tr("เชื่อมต่อเลขา AI ไม่ได้"));
     });
-    return () => controller.abort();
+    void check(0);
+    return () => { controller.abort(); window.clearTimeout(retry); };
   }, [assistantUserId, financeGroupId]);
   const [birthOpen, setBirthOpen] = useState(false);
   const [buddyArrival, setBuddyArrival] = useState(0);
@@ -3070,7 +3084,7 @@ export default function App() {
                 onUpgrade={() => { setAssistantFollowing(false); navigateTab('plans'); }}
                 onNavigate={path => navigateAssistant(path, true)} onAutoNavigate={path => navigateAssistant(path, true)} transport={assistantTransport}
                 liveNote={fullFeatureAccess ? assistantNote ?? undefined : undefined} lineInbox={lineInbox}
-                handoff={activeTab === 'assistant' ? chatHandoff : null} onHandoff={() => setChatHandoff(null)} />
+                handoff={activeTab === 'assistant' ? chatHandoff : null} onHandoff={() => setChatHandoff(null)} connecting={assistantChecking} />
             </div>
           </Suspense>}
           {/* Document vault for the open finance workspace, shared by Documents, Jobs and Tax */}
@@ -3452,7 +3466,7 @@ export default function App() {
           <Suspense fallback={null}>
             <AssistantBuddy key={financeOwner} accountId={!financeGroupId ? session.user.id : undefined} workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} mobile={isPhone} page={activeTab} pageName={t(NAV_ITEMS.find(item => item.key === activeTab)?.labelKey ?? 'nav.dashboard')}
               userName={routeContext?.profile.displayName || undefined} hidden={birthOpen} arrival={buddyArrival}
-              onOpenChat={handoff => { setChatHandoff(handoff ?? null); navigateTab('assistant'); }} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} briefing={briefing} />
+              onOpenChat={handoff => { setChatHandoff(handoff ?? null); navigateTab('assistant'); }} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} connecting={assistantChecking} briefing={briefing} />
           </Suspense>
         )}
         {flexOpen && !isPhone && (

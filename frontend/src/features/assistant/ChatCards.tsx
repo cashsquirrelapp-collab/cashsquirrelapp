@@ -1,8 +1,9 @@
 import React from 'react';
-import { AlertCircle, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, Landmark, ListChecks, Loader2, Pencil, Send, X } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, Landmark, ListChecks, Loader2, Pencil, Send, UserRound, X } from 'lucide-react';
+import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
-import type { ChatCard, ConfirmCard, DocumentCard, EditField, MoneyChartCard, OfficialLinkCard, ProjectCard, QuestionsCard, SummaryCard } from './assistantMock';
+import type { ChatCard, ConfirmCard, DocumentCard, EditField, MoneyChartCard, OfficialLinkCard, ProjectCard, QuestionsCard, RenameCard, SummaryCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
 import { dateLocale } from '../../utils';
@@ -544,6 +545,59 @@ function Questions({ card, onAnswer, answered }: { card: QuestionsCard; onAnswer
   );
 }
 
+/** Changing the account's name (owner, 2026-10-27: "อิงชื่อตามชื่อ account ... ให้มันเอาการ์ดมาแล้วก็ให้กรอกชื่อใหม่"): the
+ *  name is typed or checked here and saved through the profile API, as in Settings; เลขา then calls the user by it.
+ *  A sample answer changes nothing. */
+function Rename({ card }: { card: RenameCard }) {
+  const live = React.useContext(LiveContext);
+  const [name, setName] = React.useState(card.suggested || card.current);
+  const [state, setState] = React.useState<'pending' | 'working' | 'done' | 'failed' | 'cancelled'>('pending');
+  const [problem, setProblem] = React.useState<string | null>(null);
+  const [saved, setSaved] = React.useState('');
+  const save = async () => {
+    const value = name.trim();
+    if (value.length < 2 || value.length > 60) { setProblem(tr("ชื่อต้องมี 2–60 ตัวอักษร")); return; }
+    setProblem(null);
+    if (!live) { setSaved(value); setState('done'); return; }
+    setState('working');
+    try { setSaved(await saveAccountName(value)); setState('done'); }
+    catch (error) { setProblem((error as Error)?.message || tr("บันทึกชื่อไม่สำเร็จ")); setState('failed'); }
+  };
+  const status: CardState = state === 'done' ? { tone: 'done', text: tr("บันทึกแล้ว") } : state === 'working' ? { tone: 'busy', text: tr("กำลังบันทึก") }
+    : state === 'cancelled' ? { tone: 'muted', text: tr("ยกเลิกแล้ว") } : state === 'failed' ? { tone: 'failed', text: tr("ไม่สำเร็จ") } : { tone: 'wait', text: tr("รอบันทึก") };
+  return (
+    <div className="asx-rcard is-rename">
+      <Head icon={UserRound} title={tr("ชื่อบัญชี")} state={status} />
+      {state === 'done' ? <>
+        <Rows rows={[{ label: tr("ชื่อที่ใช้ในบัญชี"), value: saved }]} />
+        <div className="asx-rcard-result is-done" role="status"><p>{live ? tr("บันทึกชื่อแล้ว ต่อไปเลขากระรอกจะเรียกตามชื่อนี้") : tr("บันทึกแล้ว (ตัวอย่าง) · ยังไม่มีการเปลี่ยนแปลงข้อมูลจริง")}</p></div>
+      </> : state === 'cancelled' ? (
+        <div className="asx-rcard-result is-cancelled" role="status"><p>{tr("ไม่เปลี่ยนชื่อ ใช้ชื่อเดิมต่อไป")}</p></div>
+      ) : <>
+        {card.current && card.current !== name.trim() && <Rows rows={[{ label: tr("ชื่อตอนนี้"), value: card.current }]} />}
+        <div className="asx-edit-list">
+          <label className="asx-edit-row">
+            <span>{tr("ชื่อที่ใช้ในบัญชี")}</span>
+            <input type="text" value={name} maxLength={60} autoComplete="name" disabled={state === 'working'} placeholder={tr("พิมพ์ชื่อใหม่")}
+              onChange={event => { setName(event.target.value); setProblem(null); }}
+              onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void save(); } }} />
+          </label>
+        </div>
+        <p className="asx-edit-note">{tr("ชื่อนี้จะแสดงในแอป ในทีม และเป็นชื่อที่เลขากระรอกใช้เรียกคุณ")}</p>
+        {problem && <p className="asx-edit-problem" role="alert"><AlertCircle size={14} />{problem}</p>}
+        <div className="asx-rcard-actions">
+          <button type="button" className="asx-pill-btn is-primary" onClick={() => void save()} disabled={state === 'working' || name.trim().length < 2}>
+            {state === 'working' && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{state === 'working' ? tr("กำลังบันทึก") : tr("บันทึกชื่อ")}
+          </button>
+          {state !== 'working' && <div className="asx-rcard-secondary">
+            <button type="button" className="asx-pill-btn" onClick={() => setState('cancelled')}>{tr("ยกเลิก")}</button>
+          </div>}
+        </div>
+      </>}
+    </div>
+  );
+}
+
 export function ChatCardView({ live = false, ...props }: {
   card: ChatCard; confirmState?: ConfirmState; confirmedPath?: string; onConfirm: (card: ConfirmCard) => void; onCancel: (card: ConfirmCard) => void; onNavigate: (path: string) => void;
   onLineDue?: (action: LineDueAction, item: LineItem) => void;
@@ -574,5 +628,6 @@ function CardBody({ card, confirmState, confirmedPath, onConfirm, onCancel, onNa
     case 'line': return <LineCard card={card.card} onDue={onLineDue} onOpen={onNavigate} />;
     case 'questions': return <Questions card={card} onAnswer={onAnswer} answered={answered} />;
     case 'official_link': return <OfficialLink card={card} />;
+    case 'rename': return <Rename card={card} />;
   }
 }

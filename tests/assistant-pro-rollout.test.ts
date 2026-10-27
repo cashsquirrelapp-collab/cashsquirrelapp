@@ -95,6 +95,8 @@ beforeEach(() => {
       return json({ user_id: owner, jobs: [], expenses: [], goals: [], settings: {}, versions: {} });
     }
     if (url.pathname.endsWith('/cashflow_ai_memories')) return json([]);
+    // The name เลขา calls the user by (2026-10-27), read for the signed-in account only.
+    if (url.pathname.endsWith('/cashflow_profiles') && (owner === A || owner === B)) return json({ display_name: 'ผู้ใช้ทดสอบ' });
     // Package E: the app chat's latest turns, read for the signed-in account only, to continue a task from LINE.
     if (url.pathname.endsWith('/cashflow_ai_messages') && (init?.method ?? 'GET') === 'GET' && (owner === A || owner === B)) return json([]);
     if (url.pathname.endsWith('/rpc/cashflow_ai_reserve')) {

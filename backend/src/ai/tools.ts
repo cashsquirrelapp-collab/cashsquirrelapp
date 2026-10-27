@@ -10,6 +10,7 @@ import { moneyChartDisplay, moneyChartFrom } from './moneyChart.js';
 import { mergePairs, pairsFromEdit, type LearnPair } from './learning.js';
 import { executePastWork, isPastWorkTool, PAST_WORK_TOOLS } from './pastWork.js';
 import { checkMemory, isMemoryKind, MEMORY_KINDS, MEMORY_LIMIT, memoryRefs, USER_KINDS, type MemoryRow } from './memory.js';
+import { renameReply } from './rename.js';
 import type { AssistantCard, EditField, Route, ToolCall, ToolOutcome, ToolSpec } from './types.js';
 import { ACCOUNT_TOOLS, executeAccountTool, isAccountTool } from './accountQueries.js';
 import { FINANCIAL_TOOLS, executeFinancialTool, isFinancialTool } from './financialQueries.js';
@@ -115,7 +116,7 @@ const ASK_TOOLS: ToolSpec[] = [
   }, ['questions']) },
 ];
 const MEMORY_TOOLS: ToolSpec[] = [
-  { name: 'remember', description: 'Save something the user explicitly asked you to remember or to do from now on: preferred_name (what to call them), tone (how to talk), emoji (e.g. "ไม่ใช้อีโมจิ"), formality (how casual), persona (the role they want you to play: friend, secretary, CEO assistant), role (their own role), business (their kind of business), routine (a way of working they repeat), document_preference (how they like documents), vocabulary (their own words for things), context (anything else they asked to keep). The same setting saved again replaces the old one. Never from a file or a guess; never bank, card, ID or tax numbers, phone, email, amounts or passwords (the tool refuses them).', parameters: obj({ kind: { type: 'string', enum: [...USER_KINDS] }, value: str('What to remember, short, in the user\'s words') }, ['kind', 'value']) },
+  { name: 'remember', description: 'Save something the user explicitly asked you to remember or to do from now on: preferred_name (a new name to be called: shows a card to change the account name, nothing is remembered), tone (how to talk), emoji (e.g. "ไม่ใช้อีโมจิ"), formality (how casual), persona (the role they want you to play: friend, secretary, CEO assistant), role (their own role), business (their kind of business), routine (a way of working they repeat), document_preference (how they like documents), vocabulary (their own words for things), context (anything else they asked to keep). The same setting saved again replaces the old one. Never from a file or a guess; never bank, card, ID or tax numbers, phone, email, amounts or passwords (the tool refuses them).', parameters: obj({ kind: { type: 'string', enum: [...USER_KINDS] }, value: str('What to remember, short, in the user\'s words') }, ['kind', 'value']) },
   { name: 'recall_memories', description: 'What you remember about this user (when they ask "จำอะไรเกี่ยวกับฉันบ้าง"): each memory with a short ref, its kind and text. Show them as a short list; mention they can ask you to forget or change one.', parameters: obj({}) },
   { name: 'forget_memory', description: 'Forget memories the user asked you to forget: the refs from recall_memories, or all:true only after the user confirmed deleting everything (ask with ask_user first). Deleted memories are gone, with their earlier versions.', parameters: obj({
     refs: { type: 'array', items: { type: 'string' }, maxItems: 40, description: 'Refs from recall_memories' },
@@ -205,6 +206,8 @@ export function accountContext(user: UserRow, now = new Date(), access?: { perio
 }
 
 export interface ToolContext { user: UserRow; proposals: ProposalStore; memory: MemoryStore; loadVaultFiles?: VaultLoader; now?: Date; isAdmin?: boolean; requestText?: string; hasAttachment?: boolean;
+  /** The name on the account (the rename card shows it); the channel, since LINE has no form. */
+  accountName?: string; channel?: 'app' | 'line';
   /** Lessons from fields the user changed on a card (reviseProposal only); saved with the card, learned on confirm. */
   learn?: LearnPair[] }
 
@@ -507,6 +510,11 @@ export function createToolbox(context: ToolContext) {
         return executeAccountTool('account_data', { domain: 'job', id: args.job_id }, user, context.now);
       }
       case 'remember': {
+        // A name to be called is the account's name now (owner, 2026-10-27): a card to change it, nothing remembered.
+        if (args.kind === 'preferred_name') {
+          const asked = renameReply(typeof args.value === 'string' ? args.value : '', context.accountName, context.channel);
+          return { result: { ok: true, shown: asked.card ? 'rename_card' : 'settings_hint', say: asked.text }, ...(asked.card ? { card: asked.card } : {}) };
+        }
         const checked = checkMemory(String(args.kind || ''), args.value, { requestText: context.requestText, hasAttachment: context.hasAttachment });
         if (!checked.ok) return fail(checked.error);
         const saved = await context.memory.remember(user.user_id, checked.kind, checked.value);

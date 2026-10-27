@@ -94,6 +94,8 @@ type WindowProps = {
   label: string;
   /** Read out with the header, e.g. "กำลังดูหน้างาน"; not shown, the name is on the capsule. */
   note: string;
+  /** Shown in the header's top-left corner, after the grip (the token ring). */
+  corner?: React.ReactNode;
   zones: Zones;
   reduce: boolean;
   onMinimize: (auto?: boolean) => void;
@@ -107,7 +109,7 @@ type WindowProps = {
   children: React.ReactNode;
 };
 
-export function FloatingWindow({ accountId, shown, mood, busy = false, label, note, zones, reduce, onMinimize, onExpand, expandWaits = false, onClose, windowRef, children }: WindowProps) {
+export function FloatingWindow({ accountId, shown, mood, busy = false, label, note, corner, zones, reduce, onMinimize, onExpand, expandWaits = false, onClose, windowRef, children }: WindowProps) {
   const [rect, setRect] = React.useState<Rect>(() => {
     const saved = load<Saved>(storeKey(accountId));
     // A window left maximised before 2026-10-27 opens at the size it had before that.
@@ -222,6 +224,7 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
             aria-label={tr("ย้ายหน้าต่าง: ลากหรือใช้ปุ่มลูกศร · Alt + ลูกศรเพื่อปรับขนาด · Home เพื่อคืนตำแหน่งเดิม")} title={tr("ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม")}>
             <svg viewBox="0 0 10 16" width="8" height="13" aria-hidden="true">{[3, 8, 13].flatMap(y => [2.5, 7.5].map(x => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.3" fill="currentColor" />))}</svg>
           </button>
+          {corner}
           <span className="kfw-name">{tr("เลขากระรอก")}</span>
           <span className="asx-sr">{note}</span>
           <div className="kfw-controls">

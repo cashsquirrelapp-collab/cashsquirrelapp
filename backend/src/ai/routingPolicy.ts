@@ -1,4 +1,5 @@
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
+import { renameRequest } from './rename.js';
 import { ACTIONS, ANALYSIS, DEPENDS, MONEY_GOAL, RANKING, TARGET, VERY_LONG, needsSmartModel } from './difficulty.js';
 import { founderTopic, techQuestion } from './founderKnowledge.js';
 import { KNOWLEDGE_BASE } from './knowledgeBase.js';
@@ -24,7 +25,7 @@ export type Complexity = 'low' | 'medium' | 'high';
 export type Risk = 'read' | 'create' | 'update' | 'delete' | 'external';
 export type ContextSize = 'short' | 'standard' | 'long' | 'file';
 export type Tier = 'light' | 'smart';
-export type Direct = 'knowledge' | 'memory' | 'founder' | 'confidential';
+export type Direct = 'knowledge' | 'memory' | 'founder' | 'confidential' | 'rename';
 
 export interface Assessment { intent: Intent; complexity: Complexity; risk: Risk; context: ContextSize; asking: boolean }
 export interface RoutingDecision extends Assessment {
@@ -232,6 +233,7 @@ function decide(input: RouteInput, policy: RoutingPolicy, withHistory = false): 
     if ((plain || assessed.intent === 'update') && founderTopic(input.text)) return make('light', 'direct_founder', false, { direct: 'founder' });
     if (assessed.intent === 'feature_help' && wherePage(input.text)) return make('light', 'direct_where', false, { direct: 'knowledge' });
     if (assessed.intent === 'memory' && clearMemoryCommand(input.text)) return make('light', 'direct_memory', false, { direct: 'memory' });
+    if (renameRequest(input.text)) return make('light', 'direct_rename', false, { direct: 'rename' });
   }
   if (assessed.context === 'file') return make('smart', 'file', assessed.risk !== 'read');
   if (assessed.intent === 'document') return make('smart', 'document', true);

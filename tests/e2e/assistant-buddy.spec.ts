@@ -39,6 +39,9 @@ const snap = async (page: Page, name: string) => { await page.waitForTimeout(420
 
 // เลขากระรอกติดตัว (owner, 2026-10-23: "ให้น้องตามไปทุกที่ทุกฟีเจอร์สำหรับคนที่ใช้โปร ... คล้าย Cowork"): the squirrel
 // at the corner of every page for Pro accounts, with a small chat that knows the page. Screen only.
+const GREETING = /^(?:สวัสดีตอน(?:เช้า|บ่าย|เย็น|ค่ำ)ครับ|ทำงานดึกเลยนะครับ)$/;
+// The full chat's start: the old question on phones, the time-of-day greeting on computers and iPads (owner, 2026-10-27).
+const WELCOME = /^(?:วันนี้อยากให้เลขากระรอกช่วยอะไร\?|สวัสดีตอน(?:เช้า|บ่าย|เย็น|ค่ำ)ครับ|ทำงานดึกเลยนะครับ)$/;
 const buddy = (page: Page) => page.locator('.asx-buddy');
 const panel = (page: Page) => page.getByRole('dialog', { name: /^เลขากระรอก · หน้า/ });
 
@@ -73,7 +76,8 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
   await expect(page.locator('.asx-buddy-scrim')).toHaveCount(0);
   expect(Math.round((await page.locator('#main-content').boundingBox())!.width)).toBe(mainWidth);
   // A solid warm surface (owner's reference mood, 2026-10-27): the page behind never reads through the words.
-  expect(await chat.locator('.kfw-shell').evaluate(el => { const s = getComputedStyle(el); return s.backgroundImage.includes('rgb(252, 251, 250)') && s.backdropFilter === 'none'; })).toBe(true);
+  // Plain since 2026-10-27 (the same set as the full chat): no gradient, no blur.
+  expect(await chat.locator('.kfw-shell').evaluate(el => { const s = getComputedStyle(el); return s.backgroundColor === 'rgb(252, 251, 250)' && s.backgroundImage === 'none' && s.backdropFilter === 'none'; })).toBe(true);
   await expect(chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' })).toBeFocused();
   expect(await textOverlapIssues(page)).toEqual([]);
   // It prepares an action to confirm, like a coworker; confirming changes nothing (sample).
@@ -233,10 +237,23 @@ for (const dark of [false, true]) {
     const ctrl = await rectOf(page, '.kfw-controls');
     expect(overlaps(ctrl, perch) || overlaps(ctrl, name)).toBe(false);
     expect(ctrl.x + ctrl.w).toBeGreaterThan(w.x + w.w - 24);
-    // The CI typeface throughout the window, and the greeting on one liquid gradient card in the CI orange.
-    expect(await win(page).evaluate(el => getComputedStyle(el).fontFamily)).toMatch(/^"?Prompt/);
-    await expect(win(page).locator('.kfw-hero h3')).toHaveText('สวัสดีครับ คุณผู้ใช้ตัวอย่าง');
-    expect(await win(page).locator('.kfw-hero').evaluate(el => getComputedStyle(el).backgroundImage)).toMatch(/rgb\(230, 95, 43\)|rgb\(194, 74, 22\)/); // #E65F2B, or #C24A16 in dark
+    // The same set as the full chat (owner, 2026-10-27: "ทำเป็นชุดใหม่ทั้งหมด ... ฟอนต์ยังเป็น CI เดิม"): the chat's own type, no
+    // gradient card; the greeting is the time of day and a question, never "สวัสดีครับ คุณ…".
+    const chatFont = await page.evaluate(() => { const probe = document.createElement('div'); probe.className = 'asx'; document.body.append(probe); const font = getComputedStyle(probe).fontFamily; probe.remove(); return font; });
+    expect(await win(page).evaluate(el => getComputedStyle(el).fontFamily)).toBe(chatFont);
+    expect(chatFont).toMatch(/Krarok Chat Thai/);
+    await expect(win(page).locator('.kfw-hero')).toHaveCount(0);
+    await expect(win(page).locator('.kfw-welcome h3')).toHaveText(GREETING);
+    await expect(win(page).locator('.kfw-welcome p')).toHaveText(/ครับ$/);
+    await expect(win(page).getByText(/สวัสดีครับ คุณ/)).toHaveCount(0);
+    // Krarok Tokens for everyone, as a ring in the header's top-left corner, clear of the squirrel and its name.
+    const token = win(page).locator('.kfw-head .kfw-token');
+    await expect(token).toBeVisible();
+    await expect(token).toHaveText(/^[\d,]+$/);
+    await expect(token.locator('svg.asx-ring')).toHaveCount(1);
+    const ring = await rectOf(page, '.kfw-token');
+    expect(ring.x).toBeLessThan(w.x + 80);
+    expect(overlaps(ring, perch) || overlaps(ring, name)).toBe(false);
     // The name is said once (the capsule). One mic in the composer (owner, 2026-10-27), as in the full chat.
     await expect(win(page).getByText('เลขากระรอก', { exact: true })).toHaveCount(1);
     await expect(win(page).locator('.asx-buddy-composer .asx-mic')).toHaveCount(1);
@@ -364,24 +381,24 @@ test('computers: minimise folds the chat into the squirrel, which keeps the conv
 });
 
 // The expand button opens the full chat page, the same one as the sidebar's เลขากระรอก (owner, 2026-10-27: "2 หน้านี้มันควร
-// เป็นหน้าเดียวกัน"), with the conversation as it stood; the big screen has no "สวัสดีครับ" greeting, the small window does.
+// เป็นหน้าเดียวกัน"), with the conversation as it stood; neither says "สวัสดีครับ คุณ…" (2026-10-27): both greet for the time of day.
 test('computers: the expand button opens the full chat page with the same conversation, and no greeting there', async ({ page }) => {
   await openWindow(page, '/jobs', 1440, 900);
   const chat = page.locator('section.asx');
   // Nothing asked yet: the full chat opens on its own start, without the window's greeting.
-  await expect(win(page).locator('.kfw-hero h3')).toHaveText('สวัสดีครับ คุณผู้ใช้ตัวอย่าง');
+  await expect(win(page).locator('.kfw-welcome h3')).toHaveText(GREETING);
   await win(page).getByRole('button', { name: 'เปิดแชตเต็ม' }).click();
   await expect(page).toHaveURL(/\/assistant/);
   await expect(win(page)).toHaveCount(0);
-  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
-  await expect(page.getByText(/สวัสดีครับ/)).toHaveCount(0);
+  await expect(chat.getByRole('heading', { name: GREETING })).toBeVisible();
+  await expect(page.getByText(/สวัสดีครับ คุณ/)).toHaveCount(0);
   // Back to the page it was opened on: the small window greets again.
   await chat.getByRole('button', { name: 'กลับ', exact: true }).first().click();
   await expect(page).toHaveURL(/\/jobs/);
   await page.locator('.asx-buddy-btn').click();
   await expect(win(page)).toBeVisible();
   await settle(page);
-  await expect(win(page).locator('.kfw-hero h3')).toHaveText('สวัสดีครับ คุณผู้ใช้ตัวอย่าง');
+  await expect(win(page).locator('.kfw-welcome h3')).toHaveText(GREETING);
   // A question with a card still waiting for a yes, and something typed: all of it goes to the full chat.
   await win(page).getByRole('button', { name: 'ช่วยเพิ่มงานใหม่ให้หน่อย' }).click();
   await expect(win(page).locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' })).toBeVisible({ timeout: 10000 });
@@ -394,8 +411,8 @@ test('computers: the expand button opens the full chat page with the same conver
   const card = chat.locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' });
   await expect(card.getByRole('button', { name: 'บันทึกงาน' })).toBeEnabled();
   await expect(chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' })).toHaveValue('ราคา 5,000 บาท');
-  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toHaveCount(0);
-  await expect(page.getByText(/สวัสดีครับ/)).toHaveCount(0);
+  await expect(chat.getByRole('heading', { name: GREETING })).toHaveCount(0);
+  await expect(page.getByText(/สวัสดีครับ คุณ/)).toHaveCount(0);
   // It is a chat of the history like any other, open and first.
   const side = chat.getByRole('complementary', { name: 'ประวัติแชต' });
   await expect(side.locator('.asx-side-item[aria-current="page"]')).toContainText('ช่วยเพิ่มงานใหม่ให้หน่อย');

@@ -166,6 +166,11 @@ beforeEach(() => {
         client: `${tag(owner!)} CLIENT`, file_name: `${tag(owner!)}.pdf`, mime_type: 'application/pdf', size_bytes: 20,
         storage_path: 'PRIVATE_STORAGE_PATH_MUST_NOT_REACH_MODEL', created_at: '2026-01-01T00:00:00Z' }]);
     }
+    // The name เลขา calls the user by (2026-10-27): the account's own profile, read with the authenticated owner only.
+    if (url.pathname.endsWith('/cashflow_profiles')) {
+      assert.ok(owners.includes(owner!), 'the account name must be read with an authenticated owner filter');
+      return json({ display_name: tag(owner!) });
+    }
     const table = /\/(cashflow_ai_conversations|cashflow_ai_messages|cashflow_ai_proposals|cashflow_ai_memories|cashflow_ai_memory_events)$/.exec(url.pathname)?.[1];
     if (table) return chatTable(table, init?.method ?? 'GET', url, body, new Headers(init?.headers));
     unknownUrls.push(url.pathname); throw new Error(`Unmocked route ${url.pathname}`);

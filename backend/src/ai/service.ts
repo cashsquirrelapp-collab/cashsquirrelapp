@@ -70,6 +70,8 @@ export interface AssistantDb {
   recentAppTurns?(userId: string, sinceIso: string): Promise<{ turns: ChannelTurn[]; lastAt: number | null }>;
   /** This account's cards still waiting for confirmation, prepared since then (package E). */
   pendingProposals?(userId: string, sinceIso: string): Promise<StoredProposal[]>;
+  /** The name on the account (its profile), the name เลขา calls the user by (owner, 2026-10-27). */
+  accountName?(userId: string): Promise<string | null>;
 }
 
 /** 'YYYY-MM' in Bangkok: the calendar month, for admins and Pro granted by an admin (no renewal date). */
@@ -191,8 +193,9 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
   const channel = input.channel === 'line' ? 'line' as const : 'app' as const;
   try {
     const nowMs = (deps.now ?? new Date()).getTime();
-    const [{ user, versions, absentRecords }, memories, appRecent] = await Promise.all([db.loadAccount(userId), db.memories(userId),
-      db.recentAppTurns ? db.recentAppTurns(userId, new Date(nowMs - CONTINUE_WINDOW_MS).toISOString()).catch(() => undefined) : Promise.resolve(undefined)]);
+    const [{ user, versions, absentRecords }, memories, appRecent, accountName] = await Promise.all([db.loadAccount(userId), db.memories(userId),
+      db.recentAppTurns ? db.recentAppTurns(userId, new Date(nowMs - CONTINUE_WINDOW_MS).toISOString()).catch(() => undefined) : Promise.resolve(undefined),
+      db.accountName ? db.accountName(userId).catch(() => null) : Promise.resolve(null)]);
     if (user.user_id !== userId) throw new HttpError(403, 'ข้อมูลบัญชีไม่ตรงกับผู้ใช้งาน', 'ai_account_mismatch');
     const proposals: ProposalStore = { save: proposal => db.saveProposal({ ...proposal,
       baseVersion: proposalBaseVersion(proposal, versions, absentRecords) }) };
@@ -245,7 +248,8 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
     const tokensLeft = limits.tokenLimit === null ? undefined : Math.max(0, limits.tokenLimit - reserved.usedTokens + RESERVE_TOKENS);
     reply = await runAssistant({
       user, plan, text: input.text, history, pageName: input.pageName, channel: input.channel, attachment: input.attachment,
-      preferredName: selected.preferredName, communicationProfile: selected.communicationProfile, memories: selected.memories,
+      // The account's name, never a remembered nickname: an old "เรียกผมว่า…" kept winning over a newer one.
+      accountName: accountName ?? undefined, communicationProfile: selected.communicationProfile, memories: selected.memories,
       trialLeft: limits.requestLimit === null ? undefined : Math.max(0, limits.requestLimit - reserved.usedRequests),
       tokensLeft,
       access: { period_end: asPlan(value).periodEnd ?? null, tokens_reset_at: limits.resetsAt?.toISOString() ?? null, token_limit: limits.tokenLimit },

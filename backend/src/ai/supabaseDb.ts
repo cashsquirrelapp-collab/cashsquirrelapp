@@ -167,6 +167,12 @@ export const supabaseAssistantDb: AssistantDb = {
     return { lastAt: Date.parse(data[0].created_at) || null,
       turns: rows.map(row => ({ role: row.role, text: String(row.text || ''), cards: Array.isArray(row.cards) ? row.cards : [], attachment: row.attachment ?? null }) as ChannelTurn) };
   },
+  async accountName(userId) {
+    const { data, error } = await getSupabaseAdmin().from('cashflow_profiles').select('display_name').eq('user_id', userId).maybeSingle();
+    if (error || !data) return null;
+    const name = String((data as { display_name?: unknown }).display_name ?? '').trim();
+    return name || null;
+  },
   async pendingProposals(userId, sinceIso) {
     // Package E: cards still waiting for this account, newest first, to show again in the channel the user is in.
     const { data, error } = await getSupabaseAdmin().from('cashflow_ai_proposals').select('id,user_id,kind,job_id,record,base_version,title,changes,created_at,status,expires_at,tool,args')
