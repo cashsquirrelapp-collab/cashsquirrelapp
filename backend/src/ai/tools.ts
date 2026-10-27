@@ -437,7 +437,11 @@ export function createToolbox(context: ToolContext) {
         // can stay to a line or two.
         const profit = monthlyProfitSummary(month);
         const [y, m] = month.monthKey.split('-').map(Number);
-        const card: AssistantCard = { kind: 'summary', period: `${MONTHS[m - 1]} ${y + 543}`, income: baht(profit.received), expense: baht(profit.totalExpense), balance: baht(profit.netProfit) };
+        // Design A (owner, 2026-10-27): this month's money left against last month's, and the part of the income spent.
+        const change = args.month === 'last' ? null : Math.round((profit.netProfit - monthlyProfitSummary(snapshot.lastMonth).netProfit) * 100) / 100;
+        const card: AssistantCard = { kind: 'summary', period: `${MONTHS[m - 1]} ${y + 543}`, income: baht(profit.received), expense: baht(profit.totalExpense), balance: baht(profit.netProfit),
+          ...(change === null ? {} : { previous: { change: `${change > 0 ? '+' : change < 0 ? '-' : ''}${baht(Math.abs(change))}`, direction: change > 0 ? 'up' as const : change < 0 ? 'down' as const : 'same' as const } }),
+          ...(profit.received > 0 ? { spentShare: Math.round((profit.totalExpense / profit.received) * 1000) / 1000 } : {}) };
         return { result: { ...formatAssistantMonthlySummary(month), card_shown: 'A summary card with รายรับ, รายจ่าย and เงินคงเหลือ is shown under your answer; do not repeat all of it.' }, card };
       }
       case 'receivables': {

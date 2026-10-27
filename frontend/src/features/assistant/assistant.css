@@ -1320,3 +1320,44 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 /* A card's buttons and fields, when scrolled to (keyboard focus, or a tap that brings one into view), always clear the
    floating composer below the chat. */
 .asx-rcard button, .asx-rcard input, .asx-rcard select, .asx-rcard textarea { scroll-margin-bottom: calc(var(--asx-dock-h, 120px) + 16px); scroll-margin-top: 16px; }
+
+/* The money cards (owner, 2026-10-27: "ชอบแบบ A กับ C", the month as A, several months as C). */
+.asx-rcard-head .asx-card-chip { flex: none; padding: 1px 9px; border-radius: 999px; background: var(--asx-card-well); color: var(--asx-card-secondary); font-size: 12.5px; font-weight: 400; line-height: 1.5; white-space: nowrap; }
+.asx-sum-delta { display: inline-flex; align-items: center; justify-self: start; gap: 4px; width: fit-content; margin-top: 6px; padding: 2px 10px; border-radius: 999px; font-family: var(--asx-card-num); font-size: 13px; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.asx-sum-delta.is-up { background: rgba(15, 122, 74, 0.12); color: var(--asx-income); }
+.asx-sum-delta.is-down { background: var(--asx-red-bg); color: var(--asx-expense); }
+.asx-sum-delta.is-same { background: var(--asx-card-well); color: var(--asx-card-secondary); }
+.asx-sum-split { display: grid; gap: 6px; margin-top: 14px; }
+.asx-sum-bar { display: block; height: 10px; overflow: hidden; border-radius: 6px; background: rgba(15, 122, 74, 0.14); }
+.asx-sum-bar i { display: block; height: 100%; border-radius: 6px 0 0 6px; background: var(--asx-chart-expense); }
+.asx-sum-note { color: var(--asx-card-secondary); font-size: 12.5px; line-height: 1.5; }
+.asx-sum-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.asx-sum-two > div { display: grid; gap: 2px; min-width: 0; padding: 10px 12px; border-radius: 14px; background: var(--asx-card-well); }
+.asx-sum-label { display: flex; align-items: center; gap: 6px; color: var(--asx-card-secondary); font-size: 12.5px; line-height: 1.5; }
+.asx-sum-label i { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.asx-sum-label i.is-income { background: var(--asx-chart-income); }
+.asx-sum-label i.is-expense { background: var(--asx-chart-expense); }
+.asx-sum-figure { font-family: var(--asx-card-num); font-size: 17px; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.asx-sum-figure.is-income { color: var(--asx-income); }
+.asx-sum-figure.is-expense { color: var(--asx-expense); }
+.dark .asx-sum-delta.is-up { background: rgba(74, 222, 128, 0.14); }
+.dark .asx-sum-bar { background: rgba(74, 222, 128, 0.16); }
+/* Design C: the line of money left. */
+.asx-line { display: grid; gap: 6px; margin: 0; }
+.asx-line svg { display: block; width: 100%; height: auto; overflow: visible; }
+.asx-line-grid { stroke: rgba(60, 60, 67, 0.14); stroke-width: 1; }
+.asx-line-tick { fill: var(--asx-card-secondary); font-family: var(--asx-card-num); font-size: 10.5px; }
+.asx-line-area { fill: rgba(230, 95, 43, 0.12); }
+.asx-line-path { fill: none; stroke: var(--asx-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.asx-line-path.is-partial { stroke-dasharray: 4 4; }
+.asx-line-dot { fill: var(--asx-card-surface); stroke: var(--asx-accent); stroke-width: 2; }
+.asx-line-dot.is-shown { fill: var(--asx-accent); }
+.asx-line-value { fill: var(--text); font-family: var(--asx-card-num); font-size: 12px; font-weight: 600; }
+.asx-line-hit { fill: transparent; cursor: pointer; }
+.asx-line-months { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); margin: -2px var(--asx-line-right, 14px) 0 var(--asx-line-left, 38px); }
+.asx-line-month { min-width: 0; padding: 3px 0; overflow: hidden; border-radius: 8px; color: var(--asx-card-secondary); font-size: 11.5px; line-height: 1.45; text-align: center; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.asx-line-month:hover, .asx-line-month.is-picked { background: rgba(118, 118, 128, 0.08); color: var(--text); }
+.asx-line-month.is-picked { font-weight: 600; }
+.asx-line-month:focus-visible { outline: 2px solid var(--asx-accent); outline-offset: 1px; }
+.dark .asx-line-grid { stroke: rgba(255, 255, 255, 0.08); }
+.dark .asx-line-area { fill: rgba(255, 164, 115, 0.14); }

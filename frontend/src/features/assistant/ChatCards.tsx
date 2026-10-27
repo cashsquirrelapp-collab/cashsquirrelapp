@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, Landmark, ListChecks, Loader2, Pencil, Send, UserRound, X } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, Briefcase, Check, CheckCircle2, ChevronRight, FileText, Landmark, ListChecks, Loader2, Pencil, Send, TrendingUp, UserRound, Wallet, X } from 'lucide-react';
 import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
@@ -23,11 +23,12 @@ const LiveContext = React.createContext(false);
 
 /** A card's state, top right, the same words on every card (DESIGN.md §4). */
 type CardState = { tone: 'wait' | 'busy' | 'done' | 'failed' | 'muted'; text: string };
-function Head({ icon: Icon, title, state }: { icon: typeof Briefcase; title: string; state?: CardState }) {
+function Head({ icon: Icon, title, state, chip }: { icon: typeof Briefcase; title: string; state?: CardState; chip?: string }) {
   const live = React.useContext(LiveContext);
   return (
     <div className="asx-rcard-head">
       <span className="asx-rcard-icon"><Icon size={16} strokeWidth={1.9} /></span><b>{title}</b>{!live && <SampleTag />}
+      {chip && <span className="asx-card-chip">{chip}</span>}
       {state && <span className={`asx-card-state is-${state.tone}`}>{state.tone === 'busy' ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <i aria-hidden="true" />}{state.text}</span>}
     </div>
   );
@@ -111,25 +112,39 @@ function OfficialLink({ card }: { card: OfficialLinkCard }) {
   );
 }
 
+/** The month's money, design A (owner, 2026-10-27: "ชอบแบบ A"): the money left large, how it changed from last month,
+ *  a bar of the income spent, then income and expenses side by side. Figures are the server's, shown as they come. */
 function Summary({ card }: { card: SummaryCard }) {
+  const share = typeof card.spentShare === 'number' && Number.isFinite(card.spentShare) ? Math.max(0, card.spentShare) : null;
+  const spent = share === null ? 0 : Math.round(share * 100);
+  const Arrow = card.previous?.direction === 'down' ? ArrowDown : ArrowUp;
   return (
     <div className="asx-rcard is-summary">
-      <Head icon={BarChart3} title={tr("สรุปการเงิน")} />
-      <p className="asx-rcard-period">{card.period}</p>
-      <MoneyOverview balance={card.balance} income={card.income} expense={card.expense} />
+      <Head icon={Wallet} title={tr("สรุปการเงิน")} chip={card.period} />
+      <div className="asx-card-preview">
+        <span className="asx-card-eyebrow">{tr("เงินคงเหลือ")}</span>
+        <strong className="asx-card-amount"><Money value={card.balance} /></strong>
+        {card.previous && (
+          <span className={`asx-sum-delta is-${card.previous.direction}`}>
+            {card.previous.direction !== 'same' && <Arrow size={12} strokeWidth={2.4} aria-hidden="true" />}
+            {card.previous.direction === 'same' ? tr("เท่ากับเดือนก่อน") : tr("{0} จากเดือนก่อน", card.previous.change)}
+          </span>
+        )}
+      </div>
+      {share !== null && (
+        <div className="asx-sum-split">
+          <span className="asx-sum-bar" role="img" aria-label={share > 1 ? tr("รายจ่ายมากกว่ารายรับ") : tr("รายจ่าย {0}% ของรายรับ · เหลือ {1}%", spent, 100 - spent)}>
+            <i style={{ width: `${Math.min(100, spent)}%` }} />
+          </span>
+          <span className="asx-sum-note" aria-hidden="true">{share > 1 ? tr("รายจ่ายมากกว่ารายรับ") : tr("รายจ่าย {0}% ของรายรับ · เหลือ {1}%", spent, 100 - spent)}</span>
+        </div>
+      )}
+      <div className="asx-sum-two">
+        <div><span className="asx-sum-label"><i className="is-income" aria-hidden="true" />{tr("รายรับ")}</span><span className="asx-sum-figure is-income"><Money value={card.income} /></span></div>
+        <div><span className="asx-sum-label"><i className="is-expense" aria-hidden="true" />{tr("รายจ่าย")}</span><span className="asx-sum-figure is-expense"><Money value={card.expense.replace(/^[−-]/, '')} /></span></div>
+      </div>
     </div>
   );
-}
-
-/** Display the server's amounts verbatim; totals are never recomputed by the card. */
-function MoneyOverview({ balance, income, expense, totals = false }: { balance: string; income: string; expense: string; totals?: boolean }) {
-  return <>
-    <div className="asx-card-preview"><span className="asx-card-eyebrow">{tr("เงินคงเหลือ")}</span><strong className="asx-card-amount"><Money value={balance} /></strong></div>
-    <dl className="asx-rcard-rows asx-card-metrics">
-      <div><dt>{totals ? tr("รายรับรวม") : tr("รายรับ")}</dt><dd className="is-income"><Money value={income} /></dd></div>
-      <div><dt>{totals ? tr("รายจ่ายรวม") : tr("รายจ่าย")}</dt><dd className="is-expense"><Money value={expense} /></dd></div>
-    </dl>
-  </>;
 }
 
 /** A compact view is only used for known create forms. Other actions keep every change visible. */
@@ -177,14 +192,35 @@ function DocumentParties({ fields, onEdit }: { fields: EditField[]; onEdit?: (gr
 const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value);
 const isMoneyChart = (card: MoneyChartCard) => Array.isArray(card.months) && card.months.length <= 12 && card.months.every(month =>
   typeof month.label === 'string' && finite(month.income) && finite(month.expense) && finite(month.net)) && finite(card.totals?.income) && finite(card.totals?.expense) && finite(card.totals?.net);
+/** A round top for the y-axis: 1, 2, 2.5 or 5 times a power of ten, at or above the value. */
+function niceTop(value: number): number {
+  if (value <= 0) return 0;
+  const power = 10 ** Math.floor(Math.log10(value));
+  const f = value / power;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * power;
+}
+const compact = (amount: number) => new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(amount);
+
+/** Several months, design C (owner, 2026-10-27: "ชอบแบบ ... C"): the money left each month as one line with its area,
+ *  the month shown (the latest, or the one pointed at) marked with its figure, then the totals. A month still running is
+ *  dashed. Hover, focus or a tap on a month shows its figures; the table stays for screen readers and exact numbers. */
 function MoneyChart({ card }: { card: MoneyChartCard }) {
   const [picked, setPicked] = React.useState<number | null>(null);
   const box = React.useRef<HTMLDivElement>(null);
+  // Drawn at the card's real width, so the figures on it stay at their size on a phone too.
+  const plot = React.useRef<HTMLElement>(null);
+  const [plotWidth, setPlotWidth] = React.useState(360);
+  React.useLayoutEffect(() => {
+    const el = plot.current; if (!el) return;
+    const measure = () => { const width = Math.round(el.getBoundingClientRect().width); if (width > 0) setPlotWidth(current => (Math.abs(current - width) < 1 ? current : width)); };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   if (!isMoneyChart(card)) return null;
   const months = card.months;
   const empty = months.every(month => month.income === 0 && month.expense === 0);
-  const top = Math.max(1, ...months.flatMap(month => [month.income, month.expense]));
-  const height = (amount: number) => (amount > 0 ? Math.max(3, Math.round((amount / top) * 100)) : 0);
   // Month names in the reader's language (ก.ย. 2569 / Sep 2026); the server's Thai labels are the fallback.
   const named = (month: string, withYear: boolean) => {
     const date = new Date(`${month}-01T00:00:00Z`);
@@ -194,25 +230,50 @@ function MoneyChart({ card }: { card: MoneyChartCard }) {
   const short = (month: MoneyChartCard['months'][number], index: number) => named(month.month, years && (index === 0 || month.month.endsWith('-01')));
   const full = (month: MoneyChartCard['months'][number]) => named(month.month, true) || month.label;
   const period = months.length ? (months.length === 1 ? full(months[0]) : `${full(months[0])} – ${full(months.at(-1)!)}`) : card.period;
-  const shown = months[picked ?? months.length - 1];
+  const shownIndex = picked ?? months.length - 1;
+  const shown = months[shownIndex];
   const line = (month: MoneyChartCard['months'][number]) => tr("{0} · รายรับ {1} · รายจ่าย {2} · คงเหลือ {3}", `${full(month)}${month.partial ? ` (${tr("ถึงวันนี้")})` : ''}`, formatTHB(month.income), formatTHB(month.expense), formatTHB(month.net));
+  // The drawing, in viewBox units: the plot between the left labels and a little room at the right.
+  const W = Math.max(220, plotWidth), LEFT = 38, RIGHT = 14, TOP = 30, BOTTOM = 128;
+  const nets = months.map(month => month.net);
+  const top = niceTop(Math.max(1, ...nets));
+  const floor = Math.min(0, ...nets) < 0 ? -niceTop(-Math.min(...nets)) : 0;
+  const ticks = floor < 0 ? [floor, 0, top] : [0, top / 2, top];
+  const colW = (W - LEFT - RIGHT) / Math.max(1, months.length);
+  const x = (index: number) => LEFT + colW * (index + 0.5);
+  const y = (amount: number) => BOTTOM - ((amount - floor) / Math.max(1, top - floor)) * (BOTTOM - TOP);
+  const points = months.map((month, index) => [x(index), y(month.net)] as const);
+  const partialLast = months.at(-1)?.partial && months.length > 1;
+  const solid = partialLast ? points.slice(0, -1) : points;
+  const pathOf = (list: readonly (readonly [number, number])[]) => list.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join('');
+  const zero = y(0);
+  const area = points.length > 1 ? `${pathOf(points)}L${points.at(-1)![0].toFixed(1)},${zero.toFixed(1)}L${points[0][0].toFixed(1)},${zero.toFixed(1)}Z` : '';
+  const [sx, sy] = points[shownIndex] ?? [0, 0];
+  const valueRight = sx > W * 0.62;
   return (
     <div ref={box} className="asx-rcard is-chart">
-      <Head icon={BarChart3} title={tr(card.title)} />
-      <p className="asx-rcard-period">{card.omitted > 0 ? card.period : period}</p>
-      <MoneyOverview totals balance={formatTHB(card.totals.net)} income={formatTHB(card.totals.income)} expense={formatTHB(card.totals.expense)} />
+      <Head icon={TrendingUp} title={months.length > 1 ? tr("คงเหลือ {0} เดือน", months.length) : tr(card.title)} chip={card.omitted > 0 ? card.period : period} />
       {empty ? <p className="asx-chart-empty">{tr("ยังไม่มีรายรับหรือรายจ่ายในช่วงนี้")}</p> : months.length > 1 && (
-        <figure className="asx-chart">
-          <div className="asx-chart-legend" aria-hidden="true"><span className="is-income"><i />{tr("รายรับ")}</span><span className="is-expense"><i />{tr("รายจ่าย")}</span></div>
-          <div className="asx-chart-plot" onMouseLeave={() => setPicked(null)}>
+        <figure ref={plot} className="asx-line" onMouseLeave={() => setPicked(null)} style={{ ['--asx-line-left' as string]: `${LEFT}px`, ['--asx-line-right' as string]: `${RIGHT}px` }}>
+          <svg viewBox={`0 0 ${W} 140`} aria-hidden="true">
+            {ticks.map(tick => (
+              <g key={tick}>
+                <line className="asx-line-grid" x1={LEFT} x2={W - RIGHT + 6} y1={y(tick)} y2={y(tick)} />
+                <text className="asx-line-tick" x={LEFT - 6} y={y(tick) + 3.5} textAnchor="end">{tick === 0 ? '0' : compact(tick)}</text>
+              </g>
+            ))}
+            {area && <path className="asx-line-area" d={area} />}
+            <path className="asx-line-path" d={pathOf(solid)} />
+            {partialLast && <path className="asx-line-path is-partial" d={pathOf(points.slice(-2))} />}
+            {points.map(([px, py], index) => <circle key={months[index].month} className={`asx-line-dot${index === shownIndex ? ' is-shown' : ''}${months[index].partial ? ' is-partial' : ''}`} cx={px} cy={py} r={index === shownIndex ? 5 : 3.2} />)}
+            <text className="asx-line-value" x={valueRight ? sx - 9 : sx + 9} y={Math.max(12, sy - 10)} textAnchor={valueRight ? 'end' : 'start'}>{`${shown.net < 0 ? '-' : ''}฿${Math.abs(shown.net).toLocaleString('en-US', { maximumFractionDigits: 2 })}`}</text>
+            {months.map((month, index) => <rect key={month.month} className="asx-line-hit" x={LEFT + colW * index} y={0} width={colW} height={BOTTOM + 6} onMouseEnter={() => setPicked(index)} onClick={() => setPicked(index)} />)}
+          </svg>
+          <div className="asx-line-months" style={{ ['--n' as string]: months.length }}>
             {months.map((month, index) => (
-              <button type="button" key={month.month} className={`asx-chart-group${month.partial ? ' is-partial' : ''}${picked === index ? ' is-picked' : ''}`}
+              <button type="button" key={month.month} className={`asx-line-month${index === shownIndex ? ' is-picked' : ''}`}
                 aria-label={line(month)} aria-pressed={picked === index} onMouseEnter={() => setPicked(index)} onFocus={() => setPicked(index)} onClick={() => setPicked(index)}>
-                <span className="asx-chart-bars" aria-hidden="true">
-                  <i className="is-income" style={{ height: `${height(month.income)}%` }} />
-                  <i className="is-expense" style={{ height: `${height(month.expense)}%` }} />
-                </span>
-                <span className="asx-chart-label" aria-hidden="true">{short(month, index)}{month.partial ? '*' : ''}</span>
+                {short(month, index)}{month.partial ? '*' : ''}
               </button>
             ))}
           </div>
@@ -220,6 +281,11 @@ function MoneyChart({ card }: { card: MoneyChartCard }) {
           {months.some(month => month.partial) && <p className="asx-chart-note">{tr("* เดือนนี้ยังไม่จบ เป็นยอดถึงวันนี้")}</p>}
         </figure>
       )}
+      <dl className="asx-rcard-rows asx-card-metrics">
+        <div><dt>{tr("รายรับรวม")}</dt><dd className="is-income"><Money value={formatTHB(card.totals.income)} /></dd></div>
+        <div><dt>{tr("รายจ่ายรวม")}</dt><dd className="is-expense"><Money value={formatTHB(card.totals.expense)} /></dd></div>
+        <div><dt>{tr("คงเหลือรวม")}</dt><dd><Money value={formatTHB(card.totals.net)} /></dd></div>
+      </dl>
       {card.omitted > 0 && <p className="asx-chart-note is-pad">{tr("แสดง {0} เดือนล่าสุด ยอดรวมนับทั้งช่วงที่ถาม", months.length)}</p>}
       {!empty && (
         // The opened table grows the card: bring all of it above the message box.

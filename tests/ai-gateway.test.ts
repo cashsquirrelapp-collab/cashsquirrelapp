@@ -218,6 +218,22 @@ test('Gemini adapter: key in the header, thinking level set, tool results sent b
   assert.deepEqual(result.usage, { inputTokens: 1900, cachedInputTokens: 0, outputTokens: 60, thinkingTokens: 10 });
 });
 
+// Owner, 2026-10-27 (design A): the month card shows the money left against last month and the part of the income spent.
+test('money_summary: the month card carries the change from last month and the part of the income spent', async () => {
+  const execute = createToolbox({ user: fixture(), ...memoryStores() });
+  const value = (text: string) => Number(text.replace(/[^\d.-]/g, ''));
+  const now = (await execute({ id: 'm1', name: 'money_summary', args: { month: 'this' } })) as any;
+  const last = (await execute({ id: 'm2', name: 'money_summary', args: { month: 'last' } })) as any;
+  assert.equal(now.card.kind, 'summary');
+  assert.equal(last.card.previous, undefined, 'only this month is compared');
+  const change = value(now.card.balance) - value(last.card.balance);
+  assert.deepEqual(now.card.previous, { change: `${change > 0 ? '+' : change < 0 ? '-' : ''}฿${Math.abs(change).toLocaleString('en-US', { maximumFractionDigits: 2 })}`, direction: change > 0 ? 'up' : change < 0 ? 'down' : 'same' });
+  for (const card of [now.card, last.card]) {
+    if (value(card.income) > 0) assert.equal(card.spentShare, Math.round((value(card.expense) / value(card.income)) * 1000) / 1000);
+    else assert.equal(card.spentShare, undefined);
+  }
+});
+
 test('Gemini adapter: a model that rejects the thinking setting is retried once without it', async () => {
   const sent: Sent[] = [];
   const result = await geminiProvider.run({

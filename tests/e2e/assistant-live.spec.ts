@@ -666,22 +666,24 @@ for (const [label, width, height, dark] of [['computer', 1440, 900, false], ['co
   await page.locator('.asx-send').click();
   const card = page.locator('.asx-rcard.is-chart');
   await expect(card).toBeVisible();
-  await expect(card.locator('.asx-rcard-period')).toHaveText('ก.ย. 2569 – ต.ค. 2569');
-  await expect(card.locator('.asx-card-metrics dt')).toHaveText(['รายรับรวม', 'รายจ่ายรวม']);
+  // Design C (owner, 2026-10-27): the money left each month as a line, the period on the head's chip, the totals below.
+  await expect(card.locator('.asx-rcard-head b')).toHaveText('คงเหลือ 2 เดือน');
+  await expect(card.locator('.asx-card-chip')).toHaveText('ก.ย. 2569 – ต.ค. 2569');
+  await expect(card.locator('.asx-card-metrics dt')).toHaveText(['รายรับรวม', 'รายจ่ายรวม', 'คงเหลือรวม']);
   await expect(card.locator('.asx-card-metrics .is-income')).toHaveText('฿17,640.10');
   await expect(card.locator('.asx-card-metrics .is-expense')).toHaveText('฿1,800.24');
-  await expect(card.locator('.asx-card-preview .asx-card-eyebrow')).toHaveText('เงินคงเหลือ');
-  await expect(card.locator('.asx-card-amount')).toHaveText('฿15,839.86');
-  await expect(card.locator('.asx-chart-group')).toHaveCount(2);
-  await expect(card.locator('.asx-chart-bars i')).toHaveCount(4);
-  await expect(card.locator('.asx-chart-legend')).toContainText('รายรับ');
-  // The latest month by default; hovering another shows its figures.
+  await expect(card.locator('.asx-card-metrics dd').last()).toHaveText('฿15,839.86');
+  await expect(card.locator('.asx-line-month')).toHaveCount(2);
+  await expect(card.locator('.asx-line-dot')).toHaveCount(2);
+  await expect(card.locator('.asx-line-path.is-partial')).toHaveCount(1); // October is still running
+  // The latest month by default; hovering another shows its figures and marks its point.
   await expect(card.locator('.asx-chart-readout')).toHaveText('ต.ค. 2569 (ถึงวันนี้) · รายรับ ฿6,000.10 · รายจ่าย ฿299.99 · คงเหลือ ฿5,700.11');
-  await card.locator('.asx-chart-group').first().hover();
+  await expect(card.locator('.asx-line-value')).toHaveText('฿5,700.11');
+  await card.locator('.asx-line-month').first().hover();
   await expect(card.locator('.asx-chart-readout')).toHaveText('ก.ย. 2569 · รายรับ ฿11,640.00 · รายจ่าย ฿1,500.25 · คงเหลือ ฿10,139.75');
-  const heights = await card.locator('.asx-chart-bars i').evaluateAll(bars => bars.map(bar => Math.round(bar.getBoundingClientRect().height)));
-  expect(heights[0]).toBeGreaterThan(heights[2]); // September's income is the tallest bar
-  expect(heights[0]).toBeGreaterThan(heights[1]);
+  await expect(card.locator('.asx-line-value')).toHaveText('฿10,139.75');
+  const dots = await card.locator('.asx-line-dot').evaluateAll(list => list.map(dot => dot.getBoundingClientRect().y));
+  expect(dots[0]).toBeLessThan(dots[1]); // September left more money: its point is higher
   await expect(card.locator('.asx-chart-note')).toContainText('เดือนนี้ยังไม่จบ');
   await card.getByText('ดูเป็นตาราง').click();
   await expect(card.locator('table tbody tr')).toHaveCount(2);
@@ -693,6 +695,25 @@ for (const [label, width, height, dark] of [['computer', 1440, 900, false], ['co
   await page.screenshot({ path: test.info().outputPath(`${label}-money-chart.png`) });
 });
 
+// Owner, 2026-10-27 (design A): the month card shows the money left, the change from last month, the part of the
+// income spent and income and expenses side by side.
+test('the month card: money left, the change from last month, the income spent, income and expenses', async ({ page }) => {
+  await open(page, { reply: body => body.action === 'message'
+    ? { status: 200, json: { text: 'เดือนนี้เหลือเงิน ฿9,650 ครับ', route: 'chat', tokens: 2, tokensLeft: 990, trialLeft: null,
+      cards: [{ kind: 'summary', period: 'ตุลาคม 2569', income: '฿11,640', expense: '฿1,990', balance: '฿9,650', previous: { change: '+฿2,100', direction: 'up' }, spentShare: 0.171 }] } }
+    : { status: 200, json: {} } });
+  await page.locator('#asx-message').fill('เดือนนี้เหลือเงินเท่าไหร่');
+  await page.locator('.asx-send').click();
+  const card = page.locator('.asx-rcard.is-summary');
+  await expect(card.locator('.asx-card-chip')).toHaveText('ตุลาคม 2569');
+  await expect(card.locator('.asx-card-amount')).toHaveText('฿9,650');
+  await expect(card.locator('.asx-sum-delta.is-up')).toHaveText('+฿2,100 จากเดือนก่อน');
+  await expect(card.locator('.asx-sum-bar')).toHaveAttribute('aria-label', 'รายจ่าย 17% ของรายรับ · เหลือ 83%');
+  expect(await card.locator('.asx-sum-bar i').evaluate(el => Math.round(parseFloat(getComputedStyle(el).width) / el.parentElement!.getBoundingClientRect().width * 100))).toBe(17);
+  await expect(card.locator('.asx-sum-figure')).toHaveText(['฿11,640', '฿1,990']);
+  expect(await textOverlapIssues(page)).toEqual([]);
+});
+
 test('a period with no money shows the empty state, not empty bars', async ({ page }) => {
   await open(page, { reply: body => body.action === 'message'
     ? { status: 200, json: { text: 'ช่วงนี้ยังไม่มีรายการครับ', route: 'chat', tokens: 2, tokensLeft: 990, trialLeft: null,
@@ -702,10 +723,9 @@ test('a period with no money shows the empty state, not empty bars', async ({ pa
   await page.locator('.asx-send').click();
   const card = page.locator('.asx-rcard.is-chart');
   await expect(card.locator('.asx-chart-empty')).toHaveText('ยังไม่มีรายรับหรือรายจ่ายในช่วงนี้');
-  await expect(card.locator('.asx-chart-group')).toHaveCount(0);
+  await expect(card.locator('.asx-line-month')).toHaveCount(0);
   await expect(card.locator('.asx-chart-table')).toHaveCount(0);
-  await expect(card.locator('.asx-card-amount')).toHaveText('฿0.00');
-  await expect(card.locator('.asx-card-metrics dd')).toHaveText(['฿0.00', '฿0.00']);
+  await expect(card.locator('.asx-card-metrics dd')).toHaveText(['฿0.00', '฿0.00', '฿0.00']);
 });
 
 // Owner, 2026-10-25 ("อยากให้กดแก้ไขได้" on an expense card in the floating panel): the panel on every page edits a card

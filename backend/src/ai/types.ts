@@ -39,7 +39,11 @@ export interface ToolOutcome {
 /** A field the user may change on a confirmation card before confirming (owner, 2026-10-24: "แก้ไขยอดได้ในแชทเลย"). */
 export interface EditField { field: string; label: string; type: 'text' | 'money' | 'date' | 'choice'; value: string; options?: string[] }
 export type AssistantCard =
-  | { kind: 'summary'; period: string; income: string; expense: string; balance: string }
+  | { kind: 'summary'; period: string; income: string; expense: string; balance: string;
+      /** The money left against the month before (this month only): "+฿2,100 จากเดือนก่อน" (owner's design A, 2026-10-27). */
+      previous?: { change: string; direction: 'up' | 'down' | 'same' };
+      /** The part of the income spent, 0 and up (above 1 when more went out than came in); absent without income. */
+      spentShare?: number }
   | { kind: 'project'; name: string; client: string; amount: string; status: string }
   | { kind: 'document'; docType: string; number: string; client: string; amount: string; path: string }
   | { kind: 'navigation'; label: string; path: string; autoOpen: boolean }

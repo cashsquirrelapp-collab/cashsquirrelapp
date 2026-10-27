@@ -16,7 +16,9 @@ export type AssistantMode = 'greeting' | 'awake' | 'sleeping' | 'listening' | 't
 
 export type ProjectCard = { kind: 'project'; name: string; client: string; amount: string; status: string };
 export type DocumentCard = { kind: 'document'; docType: string; number: string; client: string; amount: string; path: string };
-export type SummaryCard = { kind: 'summary'; period: string; income: string; expense: string; balance: string };
+export type SummaryCard = { kind: 'summary'; period: string; income: string; expense: string; balance: string;
+  /** The money left against last month (this month only), and the part of the income spent (design A, 2026-10-27). */
+  previous?: { change: string; direction: 'up' | 'down' | 'same' }; spentShare?: number };
 /** Several months of money, from financial_summary's own figures (backend/src/ai/moneyChart.ts). Amounts in baht. */
 export type MoneyChartCard = { kind: 'money_chart'; title: string; period: string; omitted: number;
   months: { month: string; label: string; income: number; expense: number; net: number; partial: boolean }[];
@@ -125,7 +127,7 @@ export function intentOf(text: string): Intent {
 }
 
 const cards = {
-  summary: (): SummaryCard => ({ kind: 'summary', period: tr("ตุลาคม 2569"), income: '฿11,640', expense: '-฿1,990', balance: '฿9,650' }),
+  summary: (): SummaryCard => ({ kind: 'summary', period: tr("ตุลาคม 2569"), income: '฿11,640', expense: '-฿1,990', balance: '฿9,650', previous: { change: '+฿2,100', direction: 'up' }, spentShare: 0.171 }),
   quote: (): DocumentCard => ({ kind: 'document', docType: tr("ใบเสนอราคา"), number: 'QT-2569-008', client: tr("บริษัท ตัวอย่าง จำกัด"), amount: '฿12,000', path: '/invoice' }),
   project: (): ProjectCard => ({ kind: 'project', name: tr("ถ่ายภาพแคมเปญ"), client: tr("บริษัท ตัวอย่าง จำกัด"), amount: '฿8,000', status: tr("รอยืนยัน") }),
   confirm: (id: string): ConfirmCard => ({ kind: 'confirm', id, title: tr("เพิ่มงานใหม่ 1 งาน"), changes: [
