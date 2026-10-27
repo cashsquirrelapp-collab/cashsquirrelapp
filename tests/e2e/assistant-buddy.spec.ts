@@ -644,6 +644,25 @@ test('paying: success message first, then the squirrel arrives on the same page 
   expect(await textOverlapIssues(page)).toEqual([]);
 });
 
+// The page re-rendering while the arrival plays (data arriving, a route change) must not start its steps over: its
+// timers used to restart on every render of the page, so a busy page could hold the squirrel at the doorway (owner,
+// 2026-10-28: "แก้บั๊กจังหวะคลิป ห้ามเปลี่ยนหน้าตา").
+test('the arrival keeps its timing while the page re-renders underneath it', async ({ page }) => {
+  await open(page, 1280, 820, { path: '/dashboard?hello=krarok' });
+  const stage = stageOf(page);
+  await expect(stage).toBeVisible();
+  const started = Date.now();
+  // Switch the page under the scene every 250 ms for four seconds: each switch renders the whole app again.
+  for (let i = 0; Date.now() - started < 4000; i += 1) {
+    await page.evaluate(path => { history.pushState(history.state, '', path); window.dispatchEvent(new PopStateEvent('popstate')); }, i % 2 ? '/dashboard' : '/jobs');
+    await page.waitForTimeout(250);
+  }
+  // Its own clock kept running: by now it has walked out, jumped and is waving (ready from 3.5 s).
+  await expect(page.locator('.kb-stage.is-ready')).toHaveCount(1, { timeout: 1500 });
+  // ...and it still leaves on time (the flight ends near 8 s; the safety net is at 9 s).
+  await expect(stage).toHaveCount(0, { timeout: Math.max(1000, 9500 - (Date.now() - started)) });
+});
+
 test('the greeting types itself out letter by letter, keeping Thai marks whole and the line still', async ({ page }) => {
   await open(page, 1280, 820, { path: '/dashboard?hello=krarok' });
   const stage = stageOf(page);

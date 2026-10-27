@@ -69,12 +69,17 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
   const done = React.useRef(false);
   const skipRef = React.useRef<HTMLButtonElement>(null);
 
-  const finish = React.useCallback(() => { if (done.current) return; done.current = true; onDone(); }, [onDone]);
+  // The page passes a new target and onDone on every render. The steps' timers must not start over each time it does
+  // (owner, 2026-10-28: "แก้บั๊กจังหวะคลิป"): a busy page held the squirrel at the doorway. Both are read from refs, so the
+  // timers are set once.
+  const targetRef = React.useRef(target); targetRef.current = target;
+  const onDoneRef = React.useRef(onDone); onDoneRef.current = onDone;
+  const finish = React.useCallback(() => { if (done.current) return; done.current = true; onDoneRef.current(); }, []);
   const fly = React.useCallback(() => {
     if (done.current) return;
     if (reduce) { finish(); return; }
     const from = figureRef.current?.getBoundingClientRect();
-    const to = target();
+    const to = targetRef.current();
     setPhase('fly');
     if (!from || !to) { window.setTimeout(finish, 450); return; }
     // Phones draw the scene smaller (scale 0.86), and a move inside it shrinks by the same amount, so the distance is
@@ -85,7 +90,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
       y: (to.top + to.height / 2 - (from.top + from.height / 2)) / sceneScale,
       scale: Math.max(0.2, Math.min(to.width, to.height) / from.width),
     });
-  }, [finish, reduce, target]);
+  }, [finish, reduce]);
 
   React.useEffect(() => {
     skipRef.current?.focus({ preventScroll: true });
