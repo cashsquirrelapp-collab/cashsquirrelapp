@@ -1365,3 +1365,25 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 /* Computers and iPads: no patch of page colour behind the pill (owner, 2026-10-27: "เอาของฟุ้งดำๆออกหน่อย": in dark it
    showed as a black smudge on the page card). The pill itself is solid. Phones keep theirs. */
 .asx-buddy.is-pill::before, .asx-buddy.is-pill.is-climbing::before { display: none; }
+
+/* The corner on computers and iPads, version 2 (owner, 2026-10-27: "ชอบแบบที่สอง", only "กดที่ผม" under the words): the
+   squirrel standing, waving, with what it says in a bubble at its left. The hello comes and goes; any news (thinking,
+   an answer, a card waiting, a save) takes the same bubble and stays until it is read. Phones keep their round squirrel. */
+.asx-buddy.is-pill.is-stand { right: 20px; bottom: 14px; }
+.asx-buddy.is-pill.is-stand .asx-buddy-btn.is-stand { display: grid; place-items: end center; width: 96px; height: 96px; padding: 0; border: 0; border-radius: 22px;
+  background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.asx-buddy.is-pill.is-stand .asx-buddy-btn.is-stand::before, .asx-buddy.is-pill.is-stand .asx-buddy-btn.is-stand::after { display: none; }
+.asx-buddy.is-pill.is-stand .asx-buddy-btn.is-stand:hover { transform: translateY(-3px); background: none; box-shadow: none; }
+.asx-buddy.is-pill.is-stand .asx-buddy-btn.is-stand:active { transform: scale(0.96); }
+.asx-buddy.is-pill.is-stand .asx-buddy-btn.is-stand:focus-visible { outline: 2px solid var(--asx-accent, #E65F2B); outline-offset: 2px; }
+.asx-buddy-stand { display: block; line-height: 0; pointer-events: none; }
+/* The bubble: at the squirrel's left, its corner toward the squirrel's face. */
+.asx-buddy.is-pill.is-stand .asx-climb-say, .asx-hello-say { position: absolute; left: auto; right: calc(100% - 6px); bottom: 54px; z-index: 2; width: max-content; max-width: 240px;
+  padding: 9px 13px; border: 0; border-radius: 16px 16px 4px 16px; background: #FFFFFF; color: var(--text); font-size: 13.5px; font-weight: 500; line-height: 1.5; text-align: left;
+  box-shadow: 0 10px 26px rgba(28, 25, 23, 0.14), 0 0 0 0.5px rgba(28, 25, 23, 0.08); -webkit-backdrop-filter: none; backdrop-filter: none; cursor: pointer; }
+.asx-buddy.is-pill.is-stand .asx-climb-say::after, .asx-buddy.is-pill.is-stand .asx-climb-say::before { content: none; }
+.asx-hello-say small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
+.asx-hello-say { animation: asx-hello-say 8s ease-in-out infinite; }
+@keyframes asx-hello-say { 0%, 8% { opacity: 0; transform: translateY(6px); } 14%, 78% { opacity: 1; transform: none; } 86%, 100% { opacity: 0; transform: translateY(4px); } }
+.dark .asx-buddy.is-pill.is-stand .asx-climb-say, .dark .asx-hello-say { background: #2C2C30; color: #F2F0ED; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+@media (prefers-reduced-motion: reduce) { .asx-hello-say { animation: none; } .asx-buddy.is-pill.is-stand .asx-buddy-btn.is-stand { transition: none; } }

@@ -72,6 +72,8 @@ const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(n
 // ใช้"): the squirrel stays in a round avatar on a plain glass pill, its face shows what it is doing, and what it says
 // is a small status card above the pill. Phones keep their round squirrel as it was.
 const FACE = 36;
+/** The standing squirrel at the corner (computers and iPads, 2026-10-27). */
+const STAND = 96;
 
 /** The squirrel's words, typed out letter by letter (whole Thai letters). An answer still arriving keeps typing on
  *  from where it was; new words start again. The finished text sizes the bubble from the start, so it does not
@@ -391,6 +393,11 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   // The face in the pill's avatar: what the status card says (thinking, waiting for a yes, saved, failed), or what
   // the chat is doing while it is open.
   const faceMood = climb?.mood ?? poseFor(open ? mode : 'awake').mood;
+  // The standing squirrel (computers): a wave while nothing is going on, else the status card's face.
+  const standMood = climb?.mood ?? 'wave';
+  // Its hello, in a bubble beside it now and then while nothing else is said (owner: "มีอะไรให้ช่วยไหมครับ" and only
+  // "กดที่ผม" under it, no shortcut).
+  const sayHello = !mobile && !climb && !open && !minimized && !hidden && !tip && !briefTip;
 
   const panelMotion = reduce
     ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 0 } }
@@ -399,26 +406,13 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
       : { initial: { opacity: 0, scale: 0.92, y: 16 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.95, y: 10 }, transition: { default: { type: 'spring' as const, stiffness: 440, damping: 32 }, opacity: { duration: 0.14 } } };
 
   const pillButton = (
-        <motion.button ref={buttonRef} type="button" className="asx-buddy-btn lg-glass" onClick={() => setOpen(true)} aria-expanded={open} aria-haspopup="dialog"
+        <motion.button ref={buttonRef} type="button" className={`asx-buddy-btn${mobile ? ' lg-glass' : ' is-stand'}`} onClick={() => setOpen(true)} aria-expanded={open} aria-haspopup="dialog"
           aria-label={tr("ถามเลขากระรอกเรื่องหน้า{0}", pageName)} title={climb ? undefined : tr("ถามเลขากระรอกเรื่องหน้านี้")}
-          initial={false} animate={mobile ? undefined : { paddingRight: collapsed ? 6 : 12 }} transition={{ duration: reduce ? 0 : 0.75, ease: [0.33, 0, 0.2, 1] }}>
-          <span className="asx-buddy-avatar">
-            {mobile ? <MascotSlot mode={open ? mode : 'awake'} size={46} /> : (
-              <span className="asx-buddy-face is-pill" data-mood={faceMood}><Mascot thoughtDots={false} mood={faceMood} animated={false} size={FACE} viewBox="12 8 76 76" /></span>
-            )}
-          </span>
-          {!mobile && (
-            // The pill widens first; the words fade and slide in on their own while it does (the fade cannot share
-            // the element whose width goes to "auto": it would only switch on at the end).
-            <motion.span className="asx-buddy-more" initial={false}
-              animate={collapsed ? { width: 0, marginLeft: -8 } : { width: 'auto', marginLeft: 0 }}
-              transition={reduce ? { duration: 0 } : { duration: 0.75, ease: [0.33, 0, 0.2, 1] }}>
-              <motion.span className="asx-buddy-more-in" initial={false}
-                animate={collapsed ? { opacity: 0, x: -8, filter: 'blur(3px)' } : { opacity: 1, x: 0, filter: 'blur(0px)' }}
-                transition={reduce ? { duration: 0 } : { duration: collapsed ? 0.2 : 0.5, delay: collapsed ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}>
-                <span className="asx-buddy-label">{tr("ถามเลขากระรอก")}</span><kbd className="asx-buddy-kbd" aria-hidden="true">{shortcut}</kbd>
-              </motion.span>
-            </motion.span>
+          initial={false} animate={mobile ? undefined : { opacity: collapsed ? 0 : 1, scale: collapsed ? 0.8 : 1 }} transition={{ duration: reduce ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}>
+          {mobile ? <span className="asx-buddy-avatar"><MascotSlot mode={open ? mode : 'awake'} size={46} /></span> : (
+            // Computers and iPads (owner, 2026-10-27: version 2, "ชอบแบบที่สอง"): the squirrel standing at the corner,
+            // waving while nothing is going on, its face showing what the chat is doing otherwise.
+            <span className="asx-buddy-stand" data-mood={standMood}><Mascot thoughtDots={false} mood={standMood} action={climb ? 'idle' : 'wave'} animated={!reduce} size={STAND} /></span>
           )}
         </motion.button>
   );
@@ -525,7 +519,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
 
   return (
     <>
-      <div className={`asx-buddy${mobile ? ' is-mobile' : ' is-pill'}${open ? ' is-open' : ''}${minimized ? ' is-min' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden && !telling ? ' has-tip' : ''}${climb ? ' is-climbing' : ''}`}>
+      <div className={`asx-buddy${mobile ? ' is-mobile' : ' is-pill is-stand'}${open ? ' is-open' : ''}${minimized ? ' is-min' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden && !telling ? ' has-tip' : ''}${climb ? ' is-climbing' : ''}`}>
         <AnimatePresence>
           {tip && !open && !hidden && !telling && (
             // After the arrival the tip comes in softly, once the pill has opened out (owner: "ค่อย ๆ ทรานซิชั่นดี ๆ").
@@ -565,6 +559,11 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
               </motion.span>
             )}
           </AnimatePresence>
+          {sayHello && (
+            <span className="asx-hello-say" aria-hidden="true" onClick={() => setOpen(true)}>
+              {tr("มีอะไรให้ช่วยไหมครับ")}<small>{tr("กดที่ผม")}</small>
+            </span>
+          )}
           {pillButton}
         </span>
         )}

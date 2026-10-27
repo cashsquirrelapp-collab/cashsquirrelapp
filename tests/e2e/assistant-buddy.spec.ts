@@ -116,22 +116,30 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
 // มาเลยเป็นประโยค"). No hello on hover, no rainbow ring.
 const say = (page: Page) => page.locator('.asx-climb-say');
 const typed = (page: Page) => page.locator('.asx-climb-say .asx-climb-typed');
-test('computers: a status card above the plain glass pill says what is happening while the chat is closed', async ({ page }) => {
+test('computers: the squirrel stands at the corner and waves; its bubble says hello now and then, and what is happening', async ({ page }) => {
   await open(page, 1280, 820, { path: '/jobs' });
   const button = page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' });
   await expect(button).toBeVisible();
   await expect(say(page)).toHaveCount(0);
   await expect(page.locator('.mascot-climb')).toHaveCount(0);
-  // The pill: plain, no turning rainbow ring; the squirrel stays in its round avatar, no headset.
+  // Version 2 (owner, 2026-10-27: "ชอบแบบที่สอง"): the official squirrel standing whole at the corner, waving, no headset,
+  // no ring; no words or shortcut on a pill any more.
   expect(await button.evaluate(el => getComputedStyle(el, '::after').content)).toBe('none');
-  const face = button.locator('.asx-buddy-face.is-pill');
+  const face = button.locator('.asx-buddy-stand');
   await expect(face.locator('.mpg-headset')).toHaveCount(0); // no headset (owner, 2026-10-27)
   await expect(face.locator('.mpg-back')).toHaveCount(0);
+  await expect(face).toHaveAttribute('data-mood', 'wave');
+  await expect(button.locator('.asx-buddy-label, kbd')).toHaveCount(0);
   const pill = (await button.boundingBox())!;
-  const faceBox = (await face.boundingBox())!;
-  expect(Math.round(pill.height)).toBe(48);
-  expect(faceBox.y).toBeGreaterThanOrEqual(pill.y);
-  expect(faceBox.y + faceBox.height).toBeLessThanOrEqual(pill.y + pill.height);
+  expect([Math.round(pill.width), Math.round(pill.height)]).toEqual([96, 96]);
+  // Its hello in a bubble at its left, now and then: "มีอะไรให้ช่วยไหมครับ" and only "กดที่ผม" under it (no ⌘K).
+  const hello = page.locator('.asx-hello-say');
+  await expect(hello).toHaveText('มีอะไรให้ช่วยไหมครับกดที่ผม');
+  await expect(hello).not.toContainText('⌘');
+  await expect.poll(() => hello.evaluate(el => Number(getComputedStyle(el).opacity)), { timeout: 4000 }).toBeGreaterThan(0.9);
+  const bubble = (await hello.boundingBox())!;
+  expect(bubble.x + bubble.width).toBeLessThanOrEqual(pill.x + 8);
+  expect(bubble.y + bubble.height).toBeLessThanOrEqual(pill.y + pill.height);
   // Hovering says nothing.
   await button.hover();
   await page.waitForTimeout(700);
@@ -154,10 +162,11 @@ test('computers: a status card above the plain glass pill says what is happening
   await expect(say(page)).toHaveAttribute('role', 'status');
   await expect(face).toHaveAttribute('data-mood', 'checking');
   await page.waitForTimeout(700);
-  // The card sits just above the pill, lined up with its right edge, with no tail.
+  // The news takes the same bubble at the squirrel's left (the hello steps aside), with no tail.
+  await expect(hello).toHaveCount(0);
   const card = (await say(page).boundingBox())!;
-  expect(Math.abs(card.x + card.width - (pill.x + pill.width))).toBeLessThanOrEqual(1);
-  expect(card.y + card.height).toBeLessThanOrEqual(pill.y - 6);
+  expect(card.x + card.width).toBeLessThanOrEqual(pill.x + 8);
+  expect(card.y + card.height).toBeLessThanOrEqual(pill.y + pill.height);
   expect(card.x).toBeGreaterThanOrEqual(0);
   expect(await say(page).evaluate(el => getComputedStyle(el, '::after').content)).toBe('none');
   expect(await textOverlapIssues(page)).toEqual([]);
@@ -591,13 +600,12 @@ test('paying: success message first, then the squirrel arrives on the same page 
   await expect(stage.getByText('ผู้ช่วยส่วนตัว')).toHaveCount(0);
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'arrival-1280-hello.png');
-  // Owner, 2026-10-24 ("ให้มันคอนติเนียกัน ... มูฟลงไปแล้วก็ค่อยขยายออก"): the corner pill waits folded round the
-  // squirrel's picture while the scene plays, the squirrel lands on that picture, then the pill opens out.
-  const more = page.locator('.asx-buddy-more');
-  expect(await more.evaluate(el => el.getBoundingClientRect().width)).toBe(0);
+  // The standing squirrel at the corner waits out of sight while the scene plays, then appears where the squirrel landed.
+  const standing = page.locator('.asx-buddy-btn.is-stand');
+  await expect(standing).toBeHidden();
   await expect(stage).toHaveCount(0, { timeout: 10000 });
-  await expect.poll(() => more.evaluate(el => el.getBoundingClientRect().width), { timeout: 3000 }).toBeGreaterThan(100);
-  await expect.poll(() => page.locator('.asx-buddy-more-in').evaluate(el => Number(getComputedStyle(el).opacity)), { timeout: 3000 }).toBe(1);
+  await expect(standing).toBeVisible({ timeout: 3000 });
+  await expect.poll(() => standing.evaluate(el => Number(getComputedStyle(el).opacity)), { timeout: 3000 }).toBe(1);
   await expect(page.getByRole('button', { name: /^ถามเลขากระรอกเรื่องหน้า/ })).toBeVisible();
   const tip = page.locator('.asx-buddy-tip');
   await expect(tip).toContainText('แตะผมได้ทุกหน้า');

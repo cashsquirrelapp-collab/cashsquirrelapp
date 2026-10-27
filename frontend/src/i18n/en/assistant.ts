@@ -392,6 +392,8 @@ export const assistant: Record<string, string> = {
   "วันนี้อยากดูกำหนดส่งงานหรือวันรับเงินไหมครับ": "Would you like to see your deadlines and payment dates?",
   "วันนี้อยากให้เลขากระรอกช่วยอะไรครับ": "What can the assistant help you with today?",
   "กำลังเชื่อมต่อเลขา AI…": "Connecting to the AI assistant…",
+  // The standing squirrel's hello at the corner (2026-10-27).
+  "กดที่ผม": "Tap me",
   // The money cards, designs A and C (2026-10-27).
   "สรุป {0} เดือน": "{0}-month summary",
   "คงเหลือรวม": "Total left",

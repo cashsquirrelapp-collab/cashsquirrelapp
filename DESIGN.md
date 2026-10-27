@@ -204,6 +204,10 @@ Don't:
 
 - Touch targets at least 44px on phones; 40px on computers.
 - Cards go full width on phones; action bars stack with the primary action last (closest to the thumb).
+- The corner on computers and iPads (owner, 2026-10-27: version 2): the official squirrel standing whole, waving, with
+  a bubble at its left: "มีอะไรให้ช่วยไหมครับ" and only "กดที่ผม" under it (no shortcut written), now and then; news
+  (thinking, an answer, a card waiting, a save) takes the same bubble. No pill, no haze behind it. Phones keep their
+  round squirrel above the bottom bar.
 - The floating เลขา window (computers and iPads) moves aside or folds into the mini squirrel when a document preview
   would be covered.
 - Its expand button is never a bigger window: it opens the full chat page, the same page as the sidebar's เลขากระรอก,
