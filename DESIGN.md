@@ -201,6 +201,9 @@ Don't:
 - Cards go full width on phones; action bars stack with the primary action last (closest to the thumb).
 - The floating เลขา window (computers and iPads) moves aside or folds into the mini squirrel when a document preview
   would be covered.
+- Its expand button is never a bigger window: it opens the full chat page, the same page as the sidebar's เลขากระรอก,
+  with the conversation carried over. The "สวัสดีครับ คุณ…" greeting card belongs to the small window only; the full
+  chat starts with "วันนี้อยากให้เลขากระรอกช่วยอะไร?" (owner, 2026-10-27).
 
 ## 9. Working with this file (for AI agents)
 

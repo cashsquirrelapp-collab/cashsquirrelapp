@@ -1,6 +1,8 @@
 /** Local microphone capture. Nothing in this module makes a network request. */
 // Two minutes (owner, 2026-10-26: notes spoken while walking); the server takes the same (transcription.ts).
 export const AUDIO_MAX_SECONDS = 120;
+/** How often the microphone level is read (about 15 times a second); the waveform glides between readings. */
+export const METER_MS = 66;
 export const AUDIO_MAX_BYTES = 4 * 1024 * 1024;
 const WAV_SAMPLE_RATE = 16_000;
 const MIN_SECONDS = 0.25;
@@ -245,7 +247,7 @@ export function createAudioRecorder(callbacks: AudioRecorderCallbacks, platform:
         callbacks.onElapsed(seconds);
         if (seconds >= AUDIO_MAX_SECONDS) reportLimit();
       };
-      clearMeter = platform.every(meter, 66);
+      clearMeter = platform.every(meter, METER_MS);
       clearLimit = platform.after(() => {
         if (halted || cancelled) return;
         callbacks.onElapsed(AUDIO_MAX_SECONDS); reportLimit();

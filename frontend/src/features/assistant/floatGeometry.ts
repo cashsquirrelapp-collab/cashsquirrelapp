@@ -44,13 +44,6 @@ export function defaultRect(view: Size): Rect {
   return clampRect({ x: view.w - w - 24, y: view.h - h - 24, w, h }, view);
 }
 
-/** Large and centred, still inside the screen with the squirrel's room above it. */
-export function maximizedRect(view: Size): Rect {
-  const w = Math.min(MAX_W, view.w - 2 * (EDGE + 12));
-  const top = EDGE + overhangFor(w) + 8;
-  return clampRect({ x: (view.w - w) / 2, y: top, w, h: view.h - top - EDGE - 12 }, view);
-}
-
 const clear = (rect: Rect, obstacles: Rect[], gap: number) => obstacles.every(block => !intersects(footprint(rect), block, gap));
 const distance = (a: Rect, b: Rect) => Math.hypot(a.x - b.x, a.y - b.y);
 

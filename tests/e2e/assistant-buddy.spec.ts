@@ -226,10 +226,10 @@ for (const dark of [false, true]) {
     await expect(page.locator('.kfw-name')).toHaveText('เลขากระรอก');
     expect(Math.abs(name.x + name.w / 2 - (w.x + w.w / 2))).toBeLessThanOrEqual(1);
     expect(name.y).toBeGreaterThanOrEqual(w.y);
-    // Only minimise, maximise and close, in the top right, clear of the squirrel and its name.
+    // Only minimise, open the full chat and close, in the top right, clear of the squirrel and its name.
     const controls = win(page).locator('.kfw-controls button');
     await expect(controls).toHaveCount(3);
-    expect(await controls.evaluateAll(list => list.map(el => el.getAttribute('aria-label')))).toEqual(['ย่อหน้าต่าง', 'ขยายหน้าต่าง', 'ปิด']);
+    expect(await controls.evaluateAll(list => list.map(el => el.getAttribute('aria-label')))).toEqual(['ย่อหน้าต่าง', 'เปิดแชตเต็ม', 'ปิด']);
     const ctrl = await rectOf(page, '.kfw-controls');
     expect(overlaps(ctrl, perch) || overlaps(ctrl, name)).toBe(false);
     expect(ctrl.x + ctrl.w).toBeGreaterThan(w.x + w.w - 24);
@@ -353,16 +353,6 @@ test('computers: minimise folds the chat into the squirrel, which keeps the conv
   await expect(card).toBeVisible();
   await expect(card.getByRole('button', { name: 'บันทึกงาน' })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'เปิดแชตเลขากระรอกอีกครั้ง' })).toHaveCount(0);
-  // Maximise and back.
-  const before = await rectOf(page, '.kfw');
-  await win(page).getByRole('button', { name: 'ขยายหน้าต่าง' }).click();
-  const big = await rectOf(page, '.kfw');
-  expect(big.w).toBeGreaterThan(before.w + 300);
-  const perch = await rectOf(page, '.kfw-perch');
-  expect(perch.y).toBeGreaterThanOrEqual(12);
-  await win(page).getByRole('button', { name: 'คืนขนาด' }).click();
-  const back = await rectOf(page, '.kfw');
-  expect([Math.round(back.x), Math.round(back.y), Math.round(back.w), Math.round(back.h)]).toEqual([Math.round(before.x), Math.round(before.y), Math.round(before.w), Math.round(before.h)]);
   // Close returns to the pill; Escape closes only from inside the window.
   await page.locator('#main-content').click({ position: { x: 40, y: 400 } });
   await page.keyboard.press('Escape');
@@ -371,6 +361,49 @@ test('computers: minimise folds the chat into the squirrel, which keeps the conv
   await page.keyboard.press('Escape');
   await expect(win(page)).toHaveCount(0);
   await expect(page.locator('.asx-buddy-btn')).toBeFocused();
+});
+
+// The expand button opens the full chat page, the same one as the sidebar's เลขากระรอก (owner, 2026-10-27: "2 หน้านี้มันควร
+// เป็นหน้าเดียวกัน"), with the conversation as it stood; the big screen has no "สวัสดีครับ" greeting, the small window does.
+test('computers: the expand button opens the full chat page with the same conversation, and no greeting there', async ({ page }) => {
+  await openWindow(page, '/jobs', 1440, 900);
+  const chat = page.locator('section.asx');
+  // Nothing asked yet: the full chat opens on its own start, without the window's greeting.
+  await expect(win(page).locator('.kfw-hero h3')).toHaveText('สวัสดีครับ คุณผู้ใช้ตัวอย่าง');
+  await win(page).getByRole('button', { name: 'เปิดแชตเต็ม' }).click();
+  await expect(page).toHaveURL(/\/assistant/);
+  await expect(win(page)).toHaveCount(0);
+  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toBeVisible();
+  await expect(page.getByText(/สวัสดีครับ/)).toHaveCount(0);
+  // Back to the page it was opened on: the small window greets again.
+  await chat.getByRole('button', { name: 'กลับ', exact: true }).first().click();
+  await expect(page).toHaveURL(/\/jobs/);
+  await page.locator('.asx-buddy-btn').click();
+  await expect(win(page)).toBeVisible();
+  await settle(page);
+  await expect(win(page).locator('.kfw-hero h3')).toHaveText('สวัสดีครับ คุณผู้ใช้ตัวอย่าง');
+  // A question with a card still waiting for a yes, and something typed: all of it goes to the full chat.
+  await win(page).getByRole('button', { name: 'ช่วยเพิ่มงานใหม่ให้หน่อย' }).click();
+  await expect(win(page).locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' })).toBeVisible({ timeout: 10000 });
+  await expect(win(page).getByRole('button', { name: 'เปิดแชตเต็ม' })).not.toHaveAttribute('aria-disabled', 'true');
+  await win(page).getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).fill('ราคา 5,000 บาท');
+  await win(page).getByRole('button', { name: 'เปิดแชตเต็ม' }).click();
+  await expect(page).toHaveURL(/\/assistant/);
+  await expect(win(page)).toHaveCount(0);
+  await expect(chat.locator('.asx-msg.is-me').first()).toContainText('ช่วยเพิ่มงานใหม่ให้หน่อย');
+  const card = chat.locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' });
+  await expect(card.getByRole('button', { name: 'บันทึกงาน' })).toBeEnabled();
+  await expect(chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' })).toHaveValue('ราคา 5,000 บาท');
+  await expect(chat.getByRole('heading', { name: 'วันนี้อยากให้เลขากระรอกช่วยอะไร?' })).toHaveCount(0);
+  await expect(page.getByText(/สวัสดีครับ/)).toHaveCount(0);
+  // It is a chat of the history like any other, open and first.
+  const side = chat.getByRole('complementary', { name: 'ประวัติแชต' });
+  await expect(side.locator('.asx-side-item[aria-current="page"]')).toContainText('ช่วยเพิ่มงานใหม่ให้หน่อย');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await snap(page, 'expand-full-chat.png');
+  // The card works there as it would have in the window.
+  await card.getByRole('button', { name: 'บันทึกงาน' }).click();
+  await expect(card.locator('.asx-card-state')).toHaveText(/บันทึกแล้ว|ยืนยันแล้ว/, { timeout: 8000 });
 });
 
 test('computers: the chat keeps clear of a document preview, folds when there is no room, and goes back when it closes', async ({ page }) => {

@@ -3,6 +3,7 @@ import { CardPaymentModal, PreparingCardModal } from '../features/billing/CardPa
 import type { AssistantTransport } from '../features/assistant/assistantApi';
 import { safeAssistantPath } from '../features/assistant/assistantNavigation';
 import type { LineInboxApi } from '../features/assistant/lineInbox';
+import type { ChatHandoff } from '../features/assistant/chatHandoff';
 import { CARD_CONSENT_VERSION, type CardOptions } from '../../../shared/cardConsent';
 import { proPricePartsForCharge, proPricing, type ProPeriod } from '../../../shared/proPricing';
 import PageHeader from '../components/ui/PageHeader';
@@ -499,6 +500,8 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [assistantFollowing, setAssistantFollowing] = useState(false);
   const [assistantDocumentEntry, setAssistantDocumentEntry] = useState(0);
+  // The floating chat's conversation on its way to the full chat page (its expand button, owner 2026-10-27).
+  const [chatHandoff, setChatHandoff] = useState<ChatHandoff | null>(null);
   // The settings page a phone-menu entry asked for; `n` remounts the page when asked again.
   const [settingsEntry, setSettingsEntry] = useState<{ view: SettingsView; n: number }>({ view: 'home', n: 0 });
   // Once the settings page is left, the next visit opens on its overview again. Only on leaving: the
@@ -3066,7 +3069,8 @@ export default function App() {
                 onOpenNotifications={() => { setAssistantFollowing(false); setSettingsEntry(entry => ({ view: 'notif', n: entry.n + 1 })); navigateTab('settings'); }}
                 onUpgrade={() => { setAssistantFollowing(false); navigateTab('plans'); }}
                 onNavigate={path => navigateAssistant(path, true)} onAutoNavigate={path => navigateAssistant(path, true)} transport={assistantTransport}
-                liveNote={fullFeatureAccess ? assistantNote ?? undefined : undefined} lineInbox={lineInbox} />
+                liveNote={fullFeatureAccess ? assistantNote ?? undefined : undefined} lineInbox={lineInbox}
+                handoff={activeTab === 'assistant' ? chatHandoff : null} onHandoff={() => setChatHandoff(null)} />
             </div>
           </Suspense>}
           {/* Document vault for the open finance workspace, shared by Documents, Jobs and Tax */}
@@ -3448,7 +3452,7 @@ export default function App() {
           <Suspense fallback={null}>
             <AssistantBuddy key={financeOwner} accountId={!financeGroupId ? session.user.id : undefined} workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} mobile={isPhone} page={activeTab} pageName={t(NAV_ITEMS.find(item => item.key === activeTab)?.labelKey ?? 'nav.dashboard')}
               userName={routeContext?.profile.displayName || undefined} hidden={birthOpen} arrival={buddyArrival}
-              onOpenChat={() => navigateTab('assistant')} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} briefing={briefing} />
+              onOpenChat={handoff => { setChatHandoff(handoff ?? null); navigateTab('assistant'); }} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} briefing={briefing} />
           </Suspense>
         )}
         {flexOpen && !isPhone && (

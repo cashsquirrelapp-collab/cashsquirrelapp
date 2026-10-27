@@ -314,6 +314,20 @@ test('mic: recording stays local until Stop, transcribes once, and leaves an edi
       const pixels = canvas.getContext('2d')!.getImageData(0, Math.floor(canvas.height / 4), canvas.width, 1).data;
       return pixels.some((value, index) => index % 4 === 3 && value > 0);
     })).toBe(true);
+    // Smooth (owner, 2026-10-27: "อยากได้มันสมูท 60 เฟรม"): the bars move on (almost) every screen frame, not in steps.
+    const moving = await waveform.evaluate(async (canvas: HTMLCanvasElement) => {
+      const context = canvas.getContext('2d')!;
+      let last = 0; let changes = 0;
+      for (let i = 0; i < 30; i += 1) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let print = 0; for (let k = 3; k < data.length; k += 8) print = (print * 31 + data[k]) | 0;
+        if (print !== last) changes += 1;
+        last = print;
+      }
+      return changes;
+    });
+    expect(moving).toBeGreaterThanOrEqual(24);
     await expect(page.getByRole('button', { name: 'ส่งข้อความ', exact: true })).toHaveCount(0);
     expect(mock.posts).toHaveLength(0);
 

@@ -8,7 +8,7 @@ import { tr, trc } from '../../i18n/tr';
 import { dateLocale } from '../../utils';
 import { AssistantRequestError, createSampleTransport, splitMemo, tokenLevel, type AssistantTransport } from './assistantApi';
 import { LINE_QUICK_REPLIES, arrivingNotice, dueDisplayText, laterReply, partialPrompt, receiptCard, type LineDueAction, type LineItem } from './lineMock';
-import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, afterReply, poseFor, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
+import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, afterReply, isPendingConfirm, poseFor, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
@@ -22,6 +22,7 @@ const QUICK_THAI: Record<LineQuickKind, string> = { unpaid: 'รอรับเ�
 import { getCurrentAccount } from '../../services/api';
 import { automaticNavigation, safeAssistantPath, type NavigationContext, type NavigationMode } from './assistantNavigation';
 import { confirmationCommand } from './assistantCommands';
+import type { ChatHandoff } from './chatHandoff';
 import './assistant.css';
 
 /** The longest message เลขา takes (a pasted list is fine); the server allows the same (handlers/assistant.ts). */
@@ -63,6 +64,10 @@ type Props = {
   floating?: boolean;
   onExpand?: () => void;
   onAutoNavigate?: (path: string) => void;
+  /** The small window's conversation (and draft), carried here by its expand button. */
+  handoff?: ChatHandoff | null;
+  /** The carried conversation is now this page's: the app forgets it. */
+  onHandoff?: () => void;
 };
 
 const SUGGESTION_ICONS: Record<SuggestionIcon, typeof FileText> = { today: ListChecks, quote: FileText, howto: FolderPlus, unpaid: Wallet };
@@ -174,7 +179,7 @@ function withInbox(list: Conversation[], inbox: LineInbox, openId: string | null
     : conversation));
 }
 
-export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate }: Props) {
+export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff }: Props) {
   const reduce = useReducedMotion();
   const rootRef = React.useRef<HTMLElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -293,10 +298,40 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const refill = Number.isNaN(refillDate.getTime()) ? '' : refillDate.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
   const share = effective.total ? effective.remaining / effective.total : 0;
 
+  // The chat carried from the small window (owner, 2026-10-27: "2 หน้านี้มันควรเป็นหน้าเดียวกัน"): it opens here as it
+  // stood and stays first in the history once the account's chats load (the server keeps it under the same id).
+  const carriedRef = React.useRef<Conversation | null>(null);
+  const withCarried = (list: Conversation[], current: Conversation[] | null) => {
+    const carriedId = carriedRef.current?.id;
+    const carried = carriedId ? current?.find(conversation => conversation.id === carriedId) ?? carriedRef.current : null;
+    return carried ? [carried, ...list.filter(conversation => conversation.id !== carried.id)] : list;
+  };
+  React.useEffect(() => {
+    if (!handoff) return;
+    const chat = handoff.chat;
+    if (chat) {
+      const carried: Conversation = { id: chat.id, title: chat.title, group: 'today', sample: false, messages: chat.messages, loaded: true };
+      carriedRef.current = carried;
+      setConversations(list => [carried, ...(list ?? []).filter(conversation => conversation.id !== carried.id)]);
+      setConfirmStates(states => ({ ...states, ...chat.confirmStates }));
+      setConfirmedPaths(paths => ({ ...paths, ...chat.confirmedPaths }));
+      setCurrentId(chat.id);
+      atBottom.current = true;
+      // A card still waiting for a yes keeps the squirrel waiting with it, as when the answer has just come.
+      const last = [...chat.messages].reverse().find(message => message.from === 'bot');
+      if (last?.cards?.some(card => card.kind === 'confirm' && isPendingConfirm(card, chat.confirmStates[card.id]))) setMode('awaiting');
+    }
+    if (handoff.draft) window.setTimeout(() => { onDraftRef.current(handoff.draft!); inputRef.current?.focus(); }, 0);
+    onHandoff?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoff]);
+
   // Load the history and the balance through the transport (the sample one answers at once).
   React.useEffect(() => {
     let live = true;
-    transport.conversations().then(list => { if (live) setConversations(inboxRef.current ? withInbox(list, inboxRef.current, currentIdRef.current) : list); }).catch(() => { if (live) setConversations([]); });
+    transport.conversations().then(list => {
+      if (live) setConversations(current => { const all = withCarried(list, current); return inboxRef.current ? withInbox(all, inboxRef.current, currentIdRef.current) : all; });
+    }).catch(() => { if (live) setConversations(current => withCarried([], current)); });
     transport.balance().then(value => { if (live) setBalance(value); }).catch(() => {});
     return () => { live = false; abortRef.current?.abort(); for (const controller of confirmControllers.current) controller.abort(); };
   }, [transport]);
@@ -1149,7 +1184,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               )}
               <form className={`asx-composer lg-glass is-menu${voice.active ? ' has-voice' : ''}`} onSubmit={event => { event.preventDefault(); send(draft); }} aria-disabled={(blocked && !pendingConfirmation) || undefined}>
                 {voice.active ? (
-                  <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} reduce={Boolean(reduce)} onCancel={cancelVoice} onFinish={() => { void voice.finish(); }} />
+                  <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} levelsAt={voice.levelsAt} reduce={Boolean(reduce)} onCancel={cancelVoice} onFinish={() => { void voice.finish(); }} />
                 ) : <>
                 {live ? (
                   <>

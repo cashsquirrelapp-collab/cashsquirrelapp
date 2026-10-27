@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, EDGE, footprint, intersects, mascotSizeFor, maximizedRect, MIN_SIZE, overhangFor } from '../frontend/src/features/assistant/floatGeometry.js';
+import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, EDGE, footprint, intersects, mascotSizeFor, MIN_SIZE, overhangFor } from '../frontend/src/features/assistant/floatGeometry.js';
 
 // The floating เลขากระรอก window (owner's brief "FLOATING TOP MASCOT CHAT UI V2", 2026-10-26): where it may sit.
 const view = { w: 1280, h: 820 };
@@ -26,12 +26,10 @@ test('the window stays inside the screen with room for the squirrel, and never b
   assert.ok(tiny.w <= 300 - 2 * EDGE && tiny.y + tiny.h <= 420 - EDGE);
 });
 
-test('it starts at the bottom right, where the pill is, and maximises large and centred', () => {
+test('it starts at the bottom right, where the pill is', () => {
   const d = defaultRect(view);
   assert.deepEqual(d, { x: 856, y: 176, w: 400, h: 620 });
-  const m = maximizedRect(view);
-  assert.equal(m.w, 1100); assert.equal(Math.round(m.x + m.w / 2), 640);
-  assert.ok(inside(m));
+  assert.ok(inside(d));
 });
 
 test('a preview: the window moves beside it at its own size, the squirrel included, nearest to where it was', () => {

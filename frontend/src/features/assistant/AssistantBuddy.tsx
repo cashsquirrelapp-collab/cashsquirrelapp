@@ -12,6 +12,7 @@ import { MascotSlot } from './MascotSlot';
 import { BriefingCard, briefingText } from './BriefingCard';
 import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
 import { useDictation } from './useDictation';
+import { chatTitle, type ChatHandoff } from './chatHandoff';
 import { VoiceComposer } from './VoiceComposer';
 import { dateLocale } from '../../utils';
 import type { Briefing, BriefingItem } from '../../../../shared/briefing';
@@ -45,7 +46,8 @@ type Props = {
   /** Bumped when the squirrel has just arrived: it pops in and says where it lives. */
   arrival?: number;
   onPanelChange?: (open: boolean) => void;
-  onOpenChat: () => void;
+  /** Open the full chat page, carrying this conversation when there is one. */
+  onOpenChat: (handoff?: ChatHandoff) => void;
   onNavigate: (path: string) => void;
   transport?: AssistantTransport;
   accountId?: string;
@@ -168,6 +170,9 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const voiceRef = React.useRef(voice); voiceRef.current = voice;
   React.useEffect(() => { if (!open && voiceRef.current.active) voiceRef.current.cancel(); }, [open]);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
+  // The id the account's history keeps this chat under (live เลขา), given with the first message, so the chat asked
+  // here is the same chat in the full chat page and its history (owner, 2026-10-27).
+  const conversationRef = React.useRef<string | null>(null);
   const [mode, setMode] = React.useState<AssistantMode>('awake');
   const [draft, setDraft] = React.useState('');
   const [confirmStates, setConfirmStates] = React.useState<Record<string, ConfirmState>>({});
@@ -261,8 +266,9 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     return () => window.clearTimeout(hide);
   }, [briefTip]);
   React.useEffect(() => { if (open || hidden) setBriefTip(null); }, [open, hidden]);
-  // Follow the conversation as it grows.
-  React.useLayoutEffect(() => { const list = listRef.current; if (list) list.scrollTop = list.scrollHeight; }, [messages, mode, open]);
+  // Follow the conversation as it grows. Before anything is asked, computers and iPads open at the top, so the greeting
+  // card is whole under the header (phones keep their sheet as it was).
+  React.useLayoutEffect(() => { const list = listRef.current; if (list) list.scrollTop = messages.length || mobile ? list.scrollHeight : 0; }, [messages, mode, open, mobile]);
 
   const id = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${++nextId.current}`;
   const send = async (raw: string) => {
@@ -282,6 +288,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     }
     const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now() };
     const history = [...messages, mine];
+    if (!conversationRef.current) conversationRef.current = live && typeof crypto?.randomUUID === 'function' ? `c_${crypto.randomUUID()}` : 'buddy';
+    const conversationId = conversationRef.current;
     setMessages(history);
     setDraft('');
     if (inputRef.current) inputRef.current.style.height = '';
@@ -293,7 +301,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     let responseCards: ChatMessage['cards'];
     const isCurrent = () => !controller.signal.aborted && scopeRef.current.accountId === accountId && scopeRef.current.transport === transport;
     try {
-      const result = await transport.send({ conversationId: 'buddy', text, history, context: { page, pageName } }, textSoFar => {
+      const result = await transport.send({ conversationId, text, history, context: { page, pageName } }, textSoFar => {
         if (!isCurrent()) return;
         if (!started) { started = true; setMode('working'); setMessages(list => [...list, { id: botId, from: 'bot' as const, text: textSoFar, cards: responseCards, at: Date.now() }]); }
         else setMessages(list => list.map(message => (message.id === botId ? { ...message, text: textSoFar } : message)));
@@ -398,6 +406,21 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
         </motion.button>
   );
 
+  // The window's expand button (and the phone sheet's เปิดแชตเต็ม) opens the full chat page with this conversation, as
+  // it stands, cards and draft included. Not while an answer or a save is on its way: it would be cut off.
+  const expandWaits = busy || Object.values(confirmStates).includes('working');
+  const expand = () => {
+    if (expandWaits) return;
+    const first = messages.find(message => message.from === 'me');
+    const chat: ChatHandoff['chat'] = messages.length ? {
+      id: live && conversationRef.current ? conversationRef.current : id('chat'), title: first ? chatTitle(first.text) : tr("แชตใหม่"),
+      messages, confirmStates, confirmedPaths,
+    } : undefined;
+    const handoff: ChatHandoff | undefined = chat || draft.trim() ? { ...(chat ? { chat } : {}), ...(draft.trim() ? { draft } : {}) } : undefined;
+    setOpen(false); setMinimized(false); autoFolded.current = false;
+    onOpenChat(handoff);
+  };
+
   const greeting = (
     <>
       <h3>{userName ? tr("สวัสดีครับ คุณ{0}", userName) : tr("สวัสดีครับ")}</h3>
@@ -456,7 +479,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
               {!mobile && voice.review && !voice.active && <p className="asx-notice asx-voice-review kfw-voice-note" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>}
               <form className={`asx-buddy-composer${!mobile && voice.active ? ' has-voice' : ''}`} onSubmit={event => { event.preventDefault(); void send(draft); }}>
                 {!mobile && voice.active ? (
-                  <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} reduce={Boolean(reduce)}
+                  <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} levelsAt={voice.levelsAt} reduce={Boolean(reduce)}
                     onCancel={() => { voice.cancel(); requestAnimationFrame(() => inputRef.current?.focus()); }} onFinish={() => { void voice.finish(); }} />
                 ) : <>
                 <label htmlFor="asx-buddy-message" className="asx-sr">{tr("ข้อความถึงเลขากระรอก")}</label>
@@ -536,7 +559,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                   <b>{tr("เลขากระรอก")}</b>
                   <span><i aria-hidden="true" />{tr("กำลังดูหน้า{0}", pageName)}</span>
                 </div>
-                <button type="button" className="asx-icon-btn" onClick={() => { setOpen(false); onOpenChat(); }} aria-label={tr("เปิดแชตเต็ม")} title={tr("เปิดแชตเต็ม")}><Maximize2 size={17} /></button>
+                <button type="button" className="asx-icon-btn" onClick={expand} aria-disabled={expandWaits || undefined} aria-label={tr("เปิดแชตเต็ม")} title={expandWaits ? tr("เปิดแชตเต็มได้เมื่อเลขากระรอกทำรายการนี้เสร็จ") : tr("เปิดแชตเต็ม")}><Maximize2 size={17} /></button>
                 <button type="button" className="asx-icon-btn" onClick={close} aria-label={tr("ปิด")} title={tr("ปิด")}><X size={18} /></button>
               </header>
               {contents}
@@ -544,7 +567,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
           )}
           {!mobile && (open || minimized) && (
             <FloatingWindow key="float" accountId={accountId} shown={open} mood={voice.active ? (voice.phase === 'transcribing' ? 'thinking' : 'checking') : poseFor(mode).mood} busy={busy || voice.phase === 'transcribing'} label={tr("เลขากระรอก · หน้า{0}", pageName)}
-              note={tr("กำลังดูหน้า{0}", pageName)} zones={zones} reduce={Boolean(reduce)} onMinimize={minimize} onClose={close} windowRef={windowRef}>
+              note={tr("กำลังดูหน้า{0}", pageName)} zones={zones} reduce={Boolean(reduce)} onMinimize={minimize} onExpand={expand} expandWaits={expandWaits} onClose={close} windowRef={windowRef}>
               {contents}
             </FloatingWindow>
           )}

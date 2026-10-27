@@ -35,6 +35,8 @@ export function useDictation(options: {
   const [review, setReview] = React.useState(false);
   // The canvas reads these samples without re-rendering the entire chat at audio frame rate.
   const levels = React.useRef<number[]>(Array(80).fill(0));
+  // When the latest sample came in (performance.now()), so the waveform can glide between samples.
+  const levelsAt = React.useRef(0);
   const session = React.useRef<Session | null>(null);
   const mounted = React.useRef(true);
   const latest = React.useRef(options); latest.current = options;
@@ -94,6 +96,7 @@ export function useDictation(options: {
         onLevel: level => {
           if (session.current !== recording) return;
           levels.current.push(level); levels.current.shift();
+          levelsAt.current = performance.now();
         },
         onElapsed: elapsed => { if (session.current === recording) setSeconds(Math.floor(elapsed)); },
         onLimit: () => { if (session.current === recording) finishRef.current(); },
@@ -132,7 +135,7 @@ export function useDictation(options: {
   }, [cancel]);
 
   return {
-    phase, active: phase !== 'idle', seconds, levels, error, review,
+    phase, active: phase !== 'idle', seconds, levels, levelsAt, error, review,
     supported: isSupported() && Boolean(options.transport.transcribe),
     start, finish, cancel,
     clearError: () => setError(null), clearReview: () => setReview(false),

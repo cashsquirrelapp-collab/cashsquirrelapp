@@ -1,20 +1,23 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Maximize2, Minimize2, Minus, X } from 'lucide-react';
+import { Maximize2, Minus, X } from 'lucide-react';
 import { Mascot, type MascotMood } from '../../components/mascot/Mascot';
 import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { tr } from '../../i18n/tr';
-import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, EDGE, footprint, intersects, mascotSizeFor, maximizedRect, MIN_SIZE, type Rect, type Size } from './floatGeometry';
+import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, EDGE, footprint, intersects, mascotSizeFor, MIN_SIZE, type Rect, type Size } from './floatGeometry';
 
 // The floating เลขากระรอก window on computers and iPads (owner's brief "FLOATING TOP MASCOT CHAT UI V2", 2026-10-26):
 // the official squirrel perches on the middle of the window's top edge, paws on the edge, with its name on a dark
-// capsule under it; a calm header with minimise, maximise and close only; the window moves and resizes, remembers
-// where it was put, keeps clear of document previews, and folds into the squirrel when there is no room. Phones keep
-// their sheet (AssistantBuddy). Below every dialog (z-index 90), so a dialog always covers it and never the reverse.
+// capsule under it; a calm header with minimise, open the full chat and close only; the window moves and resizes,
+// remembers where it was put, keeps clear of document previews, and folds into the squirrel when there is no room.
+// Phones keep their sheet (AssistantBuddy). Below every dialog (z-index 90), so a dialog always covers it and never
+// the reverse. The expand button opens the full chat page with this conversation (owner, 2026-10-27: "2 หน้านี้มันควร
+// เป็นหน้าเดียวกัน"), so the window is never maximised in place any more.
 
 const view = (): Size => ({ w: window.innerWidth, h: window.innerHeight });
 const storeKey = (accountId?: string) => `krarok.buddy.window.${accountId || 'guest'}`;
 const miniKey = (accountId?: string) => `krarok.buddy.mini.${accountId || 'guest'}`;
+// `max` and `restore` were written while the window could be maximised in place (until 2026-10-27).
 type Saved = { rect: Rect; max?: boolean; restore?: Rect };
 function load<T>(key: string): T | null {
   try { const value = JSON.parse(window.localStorage.getItem(key) || 'null'); return value && typeof value === 'object' ? value as T : null; } catch { return null; }
@@ -94,19 +97,23 @@ type WindowProps = {
   zones: Zones;
   reduce: boolean;
   onMinimize: (auto?: boolean) => void;
+  /** Open the full chat page with this conversation. */
+  onExpand: () => void;
+  /** Not while an answer or a save is on its way: it would be cut off. */
+  expandWaits?: boolean;
   onClose: () => void;
   /** The window has room again after it folded by itself. */
   windowRef: React.RefObject<HTMLDivElement | null>;
   children: React.ReactNode;
 };
 
-export function FloatingWindow({ accountId, shown, mood, busy = false, label, note, zones, reduce, onMinimize, onClose, windowRef, children }: WindowProps) {
+export function FloatingWindow({ accountId, shown, mood, busy = false, label, note, zones, reduce, onMinimize, onExpand, expandWaits = false, onClose, windowRef, children }: WindowProps) {
   const [rect, setRect] = React.useState<Rect>(() => {
     const saved = load<Saved>(storeKey(accountId));
-    return saved && validRect(saved.rect) ? clampRect(saved.rect, view()) : defaultRect(view());
+    // A window left maximised before 2026-10-27 opens at the size it had before that.
+    const placed = saved?.max && validRect(saved.restore) ? saved.restore : saved?.rect;
+    return validRect(placed) ? clampRect(placed, view()) : defaultRect(view());
   });
-  const [max, setMax] = React.useState(() => Boolean(load<Saved>(storeKey(accountId))?.max));
-  const restoreRef = React.useRef<Rect | null>((() => { const r = load<Saved>(storeKey(accountId))?.restore; return validRect(r) ? r : null; })());
   const rectRef = React.useRef(rect); rectRef.current = rect;
   const [moving, setMoving] = React.useState<null | Edge | 'move'>(null);
   // Set by the chat itself to keep clear of a preview; dropped the moment the user moves or resizes the window.
@@ -116,21 +123,18 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
   // The previews the user opened the folded chat over: it may still move aside, but it does not fold again.
   const noFoldRef = React.useRef<string | null>(null);
 
-  const persist = React.useCallback((next: Rect, isMax: boolean, restore: Rect | null) => {
-    save(storeKey(accountId), { rect: next, max: isMax, ...(restore ? { restore } : {}) });
-  }, [accountId]);
-  const userPlaced = React.useCallback((next: Rect, isMax = false, restore: Rect | null = null) => {
+  const userPlaced = React.useCallback((next: Rect) => {
     autoRef.current = null;
     if (zones.key) frozenRef.current = zones.key;
-    setRect(next); setMax(isMax); persist(next, isMax, restore);
-  }, [persist, zones.key]);
+    setRect(next); save(storeKey(accountId), { rect: next } satisfies Saved);
+  }, [accountId, zones.key]);
 
   // Keep inside the screen when the browser window changes size.
   React.useEffect(() => {
-    const onResize = () => setRect(r => clampRect(max ? maximizedRect(view()) : r, view()));
+    const onResize = () => setRect(r => clampRect(r, view()));
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [max]);
+  }, []);
 
   // Opening the folded squirrel again over a preview is the user's choice: the chat may move aside but stays open.
   const wasShown = React.useRef(shown);
@@ -150,22 +154,22 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
       return;
     }
     if (!shown || frozenRef.current === zones.key) return;
-    const current = max ? maximizedRect(view()) : rectRef.current;
+    const current = rectRef.current;
     if (zones.rects.every(block => !intersects(footprint(current), block, 12))) return;
     const spot = clearRect(current, zones.rects, view());
     if (!spot && noFoldRef.current === zones.key) return;
     if (!autoRef.current) autoRef.current = { before: current, key: zones.key };
     else autoRef.current.key = zones.key;
-    if (spot) { setMax(false); setRect(spot); }
+    if (spot) setRect(spot);
     else onMinimize(true);
-  }, [zones, shown, moving, max, onMinimize]);
+  }, [zones, shown, moving, onMinimize]);
 
   const begin = (edge: Edge | 'move') => (event: React.PointerEvent) => {
-    if (event.button !== 0 || max && edge !== 'move') return;
+    if (event.button !== 0) return;
     if (edge === 'move' && (event.target as HTMLElement).closest('button:not(.kfw-grip)')) return;
     event.preventDefault();
     const el = windowRef.current;
-    const start = max ? maximizedRect(view()) : rectRef.current;
+    const start = rectRef.current;
     const sx = event.clientX, sy = event.clientY;
     let latest = start;
     let started = false;
@@ -189,11 +193,7 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
     window.addEventListener('pointercancel', onUp);
   };
 
-  const toggleMax = () => {
-    if (max) { const back = clampRect(restoreRef.current ?? defaultRect(view()), view()); restoreRef.current = null; userPlaced(back); }
-    else { restoreRef.current = rectRef.current; userPlaced(maximizedRect(view()), true, rectRef.current); }
-  };
-  const reset = () => { restoreRef.current = null; autoRef.current = null; save(storeKey(accountId), null); setMax(false); setRect(defaultRect(view())); };
+  const reset = () => { autoRef.current = null; save(storeKey(accountId), null); setRect(defaultRect(view())); };
   // The grip also moves (arrows) and resizes (Alt + arrows) the window from the keyboard.
   const onGripKey = (event: React.KeyboardEvent) => {
     const step = event.shiftKey ? 64 : 16;
@@ -204,10 +204,10 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
     userPlaced(event.altKey ? clampRect({ ...r, w: r.w + d[0], h: r.h + d[1] }, view()) : clampRect({ ...r, x: r.x + d[0], y: r.y + d[1] }, view()));
   };
 
-  const box = max ? maximizedRect({ w: window.innerWidth, h: window.innerHeight }) : rect;
+  const box = rect;
   const size = mascotSizeFor(box.w);
   return (
-    <motion.div ref={windowRef} className={`kfw${moving ? ' is-moving' : ''}${max ? ' is-max' : ''}${shown ? '' : ' is-folded'}`} role="dialog" aria-modal="false" aria-label={label}
+    <motion.div ref={windowRef} className={`kfw${moving ? ' is-moving' : ''}${shown ? '' : ' is-folded'}`} role="dialog" aria-modal="false" aria-label={label}
       aria-hidden={!shown || undefined} inert={!shown || undefined}
       style={{ left: box.x, top: box.y, width: box.w, height: box.h, ['--kfw-perch' as string]: `${size}px` }}
       initial={reduce ? false : { opacity: 0, scale: 0.96, y: 12 }} animate={shown ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.92, y: 6 }}
@@ -226,15 +226,16 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
           <span className="asx-sr">{note}</span>
           <div className="kfw-controls">
             <button type="button" className="kfw-ctrl" onClick={() => onMinimize(false)} aria-label={tr("ย่อหน้าต่าง")} title={tr("ย่อหน้าต่าง")}><Minus size={16} /></button>
-            <button type="button" className="kfw-ctrl" onClick={toggleMax} aria-label={max ? tr("คืนขนาด") : tr("ขยายหน้าต่าง")} title={max ? tr("คืนขนาด") : tr("ขยายหน้าต่าง")}>
-              {max ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            <button type="button" className="kfw-ctrl" onClick={() => { if (!expandWaits) onExpand(); }} aria-disabled={expandWaits || undefined}
+              aria-label={tr("เปิดแชตเต็ม")} title={expandWaits ? tr("เปิดแชตเต็มได้เมื่อเลขากระรอกทำรายการนี้เสร็จ") : tr("เปิดแชตเต็ม")}>
+              <Maximize2 size={14} />
             </button>
             <button type="button" className="kfw-ctrl" onClick={onClose} aria-label={tr("ปิด")} title={tr("ปิด")}><X size={16} /></button>
           </div>
         </header>
         {children}
       </div>
-      {!max && EDGES.map(edge => <span key={edge} className={`kfw-rz is-${edge}`} onPointerDown={begin(edge)} aria-hidden="true" />)}
+      {EDGES.map(edge => <span key={edge} className={`kfw-rz is-${edge}`} onPointerDown={begin(edge)} aria-hidden="true" />)}
     </motion.div>
   );
 }
