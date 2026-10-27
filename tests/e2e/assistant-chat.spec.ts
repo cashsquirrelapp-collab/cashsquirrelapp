@@ -541,9 +541,11 @@ test('LINE on phones and in dark mode: the drawer shows the thread first, cards 
   await open(page, 390, 844, { dark: true });
   const chat = chatOf(page);
   await expect(chat.locator('.asx-bar .asx-dot')).toBeVisible();
-  // Dark in the window's set since 2026-10-27: a plain stage and plain headings (no aurora, no gradient text).
+  // Dark in the window's set since 2026-10-27: a plain stage (no aurora); the greeting alone wears the Pro arrival's
+  // gradient (owner, 2026-10-27: "เทคทักทายในแชท ... อยากได้สีเกรเดียน"), in its dark colours.
   await expect(chat.locator('.asx-aurora')).toBeHidden();
-  expect(await chat.locator('.asx-welcome h2').evaluate(el => getComputedStyle(el).backgroundClip)).not.toBe('text');
+  expect(await chat.locator('.asx-welcome h2').evaluate(el => { const s = getComputedStyle(el); return [s.backgroundClip, s.backgroundImage.startsWith('linear-gradient'), s.color]; })).toEqual(['text', true, 'rgba(0, 0, 0, 0)']);
+  expect(await chat.locator('.asx-welcome p').evaluate(el => getComputedStyle(el).backgroundClip)).not.toBe('text');
   expect(await textOverlapIssues(page)).toEqual([]);
   await chat.getByRole('button', { name: 'ประวัติและค้นหาแชต' }).click();
   const side = chat.getByRole('complementary', { name: 'ประวัติแชต' });

@@ -15,7 +15,8 @@ import './assistant.css';
 //   jump:   a real jump (Mascot action 'jump'): crouch, push off, feet tucked, land.
 //   ready:  it waves with little twinkles by its paw; the greeting types itself out, then one formal line.
 //   open / fly: the glass opens from the squirrel outward and it flies to its corner (AssistantBuddy).
-// The drawing is always the official Mascot with the Pro outfit (MascotProGear).
+// The drawing is always the official Mascot, dressed as it stands in the corner (owner, 2026-10-27: the corner
+// squirrel has no headset, "เปลี่ยนให้มันคอนติเนียกัน"), and it flies into that squirrel's place at the end.
 // Skippable at any moment (ข้าม, Escape, or a tap once it is ready); still with reduced motion.
 
 type Phase = 'arrive' | 'jump' | 'ready' | 'leave' | 'open' | 'fly';
@@ -135,7 +136,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
                 animate={{ opacity: 1, scale: 1, y: 0, filter: 'brightness(1) blur(0px)' }}
                 // It fades in out of the light while it walks (not all at once): a second to appear, the glow settling as it comes.
                 transition={{ delay: TIMES.walk, duration: TIMES.walkFor, ease: [0.3, 0, 0.3, 1], opacity: { delay: TIMES.walk, duration: 1, ease: [0.4, 0, 0.2, 1] }, filter: { delay: TIMES.walk, duration: 1.3, ease: [0.4, 0, 0.2, 1] } }}>
-                <Mascot gear="pro" mood="wave" action={reduce ? 'wave' : phase === 'arrive' ? 'walk' : phase === 'jump' ? 'jump' : ready && phase !== 'fly' ? 'wave' : 'idle'} size={168} />
+                <Mascot gear="none" mood="wave" action={reduce ? 'wave' : phase === 'arrive' ? 'walk' : phase === 'jump' ? 'jump' : ready && phase !== 'fly' ? 'wave' : 'idle'} size={168} />
               </motion.div>
               {/* ติ๊ง ๆ ๆ: little twinkles by the waving paw. */}
               {!reduce && <span className="kb-tings">{[1, 2, 3].map(n => <svg key={n} className={`is-${n}`} viewBox="0 0 24 24"><path d={TWINKLE} /></svg>)}</span>}

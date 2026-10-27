@@ -1402,6 +1402,32 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-buddy.is-mobile .asx-hello-say { animation: asx-hello-say-phone 20s ease-in-out infinite; }
 @keyframes asx-hello-say-phone { 0%, 4% { opacity: 0; transform: translateY(6px); visibility: hidden; } 6%, 28% { opacity: 1; transform: none; visibility: visible; } 31%, 100% { opacity: 0; transform: translateY(4px); visibility: hidden; } }
 @media (prefers-reduced-motion: reduce) { .asx-buddy.is-mobile .asx-hello-say { animation: none; } }
+/* A speech bubble out of the standing squirrel (owner, 2026-10-27: "กล่องข้อความโค้ง ๆ ออกมาจากตัวน้อง ... ให้คลิกเพื่อใช้งาน
+   น้อง"): a tail fills the bubble's lower right corner and curls out toward the squirrel; one drop shadow covers both, so
+   they read as one shape. On computers and iPads the hello stays up while nothing else is said (it is the way in, as the
+   pill was), and it answers the pointer like a button. Phones keep it now and then. */
+.asx-say-tail { display: none; }
+.asx-buddy.is-stand .asx-say-tail { display: block; position: absolute; right: -18px; bottom: -4px; width: 28px; height: 22px; overflow: visible; fill: #FFFFFF; pointer-events: none; }
+.dark .asx-buddy.is-stand .asx-say-tail { fill: #2C2C30; }
+.asx-buddy.is-stand .asx-hello-say, .asx-buddy.is-pill.is-stand .asx-climb-say { border-radius: 18px 18px 8px 18px;
+  box-shadow: none; filter: drop-shadow(0 8px 16px rgba(28, 25, 23, 0.13)) drop-shadow(0 0 0.6px rgba(28, 25, 23, 0.3)); }
+.dark .asx-buddy.is-stand .asx-hello-say, .dark .asx-buddy.is-pill.is-stand .asx-climb-say { box-shadow: none;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 0.6px rgba(255, 255, 255, 0.28)); }
+.asx-buddy.is-stand .asx-hello-say small { color: #C24A16; font-weight: 500; }
+.dark .asx-buddy.is-stand .asx-hello-say small { color: #FFA473; }
+.asx-buddy.is-pill.is-stand .asx-hello-say { animation: asx-hello-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.6s both; transition: transform 0.18s ease; }
+.asx-buddy.is-pill.is-stand .asx-hello-say:hover { transform: translateY(-2px); }
+.asx-buddy.is-pill.is-stand .asx-hello-say:active { transform: translateY(0) scale(0.98); }
+@keyframes asx-hello-in { from { opacity: 0; transform: translate(6px, 6px) scale(0.94); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .asx-buddy.is-pill.is-stand .asx-hello-say { animation: none; transition: none; } }
+/* The chat's greeting heading in the Pro arrival's colours (owner, 2026-10-27: "เทคทักทายในแชท ... อยากได้สีเกรเดียนประมาณนี้"):
+   the full chat, the window and the phone sheet; no glow. The heading is only as wide as its words, so the whole
+   gradient runs across them; a little room above and below keeps Thai marks inside the painted box. */
+.asx:not(.is-mobile) .asx-welcome h2, .asx.is-mobile .asx-welcome h2, .kfw .kfw-welcome h3, .asx-buddy-panel .kfw-welcome h3 {
+  width: fit-content; max-width: 100%; margin-inline: auto; padding-block: 0.06em;
+  background: linear-gradient(90deg, #6E2A12, #C9542A 38%, #A63C74 68%, #5B4BD8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.dark .asx:not(.is-mobile) .asx-welcome h2, .dark .asx.is-mobile .asx-welcome h2, .dark .kfw .kfw-welcome h3, .dark .asx-buddy-panel .kfw-welcome h3 {
+  background: linear-gradient(90deg, #D4E9FF, #FFF1CC 35%, #FFCADF 66%, #D9CDFF); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 /* Mic and attach in the window and the phone sheet (owner, 2026-10-27: "เพิ่มปุ่มไมค์ ... ไม่มีปุ่มเพิ่มรูปภาพด้วย"):
    the paperclip leads the composer as in the full chat, the mic sits before send, and while you speak the recording

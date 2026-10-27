@@ -140,6 +140,20 @@ test('computers: the squirrel stands at the corner and waves; its bubble says he
   const bubble = (await hello.boundingBox())!;
   expect(bubble.x + bubble.width).toBeLessThanOrEqual(pill.x + 8);
   expect(bubble.y + bubble.height).toBeLessThanOrEqual(pill.y + pill.height);
+  // A speech bubble out of the squirrel (owner, 2026-10-27: "กล่องข้อความโค้ง ๆ ออกมาจากตัวน้อง ... ให้คลิกเพื่อใช้งาน"):
+  // its tail curls out toward the squirrel, it stays up while nothing else is said, and pressing it opens เลขา.
+  const tail = (await hello.locator('.asx-say-tail').boundingBox())!;
+  expect(tail.x + tail.width).toBeGreaterThan(bubble.x + bubble.width + 12);
+  expect(tail.x + tail.width).toBeLessThanOrEqual(pill.x + 30);
+  expect(tail.y + tail.height).toBeGreaterThan(bubble.y + bubble.height);
+  expect(await hello.evaluate(el => getComputedStyle(el).animationIterationCount)).toBe('1');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await snap(page, 'stand-hello-bubble.png');
+  await hello.click();
+  await expect(panel(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(panel(page)).toHaveCount(0);
+  await expect(hello).toBeVisible();
   // Hovering says nothing.
   await button.hover();
   await page.waitForTimeout(700);
@@ -600,16 +614,25 @@ test('paying: success message first, then the squirrel arrives on the same page 
   const stage = stageOf(page);
   await expect(stage).toBeVisible();
   await expect(stage.locator('.kb-door')).toHaveCount(1);
-  await expect(stage.locator('.kb-figure .mpg-headset')).toHaveCount(1); // the Pro outfit (owner chose ก.)
+  // Dressed as the corner squirrel, no headset (owner, 2026-10-27: "ให้มันคอนติเนียกัน").
+  await expect(stage.locator('.kb-figure .mpg-headset, .kb-figure .mpg-back')).toHaveCount(0);
   await expect(stage.getByText(/%/)).toHaveCount(0); // no loading counter: not a game
   await expect(stage.getByRole('heading', { name: 'สวัสดีครับ คุณผู้ใช้ตัวอย่าง' })).toBeVisible({ timeout: 5000 });
   await expect(stage.getByText('เลขากระรอกพร้อมช่วยดูแลงาน เอกสาร และการเงินของคุณแล้ว')).toBeVisible({ timeout: 4000 });
   await expect(stage.getByText('ผู้ช่วยส่วนตัว')).toHaveCount(0);
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'arrival-1280-hello.png');
-  // The standing squirrel at the corner waits out of sight while the scene plays, then appears where the squirrel landed.
+  // The standing squirrel at the corner waits out of sight while the scene plays, then appears where the squirrel landed:
+  // the arrival's squirrel flies into its place (it used to aim at the old pill's avatar, gone since 2026-10-27, and
+  // vanished in the middle of the screen instead).
   const standing = page.locator('.asx-buddy-btn.is-stand');
   await expect(standing).toBeHidden();
+  await expect(page.locator('.kb-stage.is-fly')).toHaveCount(1, { timeout: 9000 });
+  const spot = (await page.locator('.asx-buddy-stand svg').boundingBox())!;
+  await expect.poll(async () => {
+    const box = await page.locator('.kb-figure').boundingBox().catch(() => null);
+    return box ? Math.hypot(box.x + box.width / 2 - (spot.x + spot.width / 2), box.y + box.height / 2 - (spot.y + spot.height / 2)) : 0;
+  }, { timeout: 3000, intervals: [50] }).toBeLessThan(12);
   await expect(stage).toHaveCount(0, { timeout: 10000 });
   await expect(standing).toBeVisible({ timeout: 3000 });
   await expect.poll(() => standing.evaluate(el => Number(getComputedStyle(el).opacity)), { timeout: 3000 }).toBe(1);

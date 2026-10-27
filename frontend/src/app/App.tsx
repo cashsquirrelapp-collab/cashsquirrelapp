@@ -3488,7 +3488,8 @@ export default function App() {
         {birthOpen && (
           <Suspense fallback={null}>
             <AssistantBirth name={routeContext?.profile.displayName || undefined} onDone={finishBirth}
-              target={() => document.querySelector('.asx-buddy-avatar')?.getBoundingClientRect() ?? null} />
+              // It lands on the standing squirrel in the corner (the old pill's avatar is gone since 2026-10-27).
+              target={() => document.querySelector('.asx-buddy-stand svg, .asx-buddy-stand, .asx-buddy-avatar')?.getBoundingClientRect() ?? null} />
           </Suspense>
         )}
 

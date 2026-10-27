@@ -74,8 +74,9 @@ owner's approval to change.
 - Warm neutrals with one orange. Depth comes from surfaces (white on warm wash), not from heavy shadows.
 - **Liquid glass is chrome only (owner, 2026-10-23):** the sidebar, menus, toasts, the phone's bottom capsule and the
   floating เลขา window. Content cards are solid.
-- No glows, neon, gradient text, emoji as icons, or decorative gradients on content. The two sanctioned gradients
-  are the overview's rust hero band and the LINE card header (owner choices).
+- No glows, neon, gradient text, emoji as icons, or decorative gradients on content. The sanctioned gradients are the
+  overview's rust hero band, the LINE card header and the chat greeting heading in the Pro arrival's colours (owner
+  choices; the greeting since 2026-10-27).
 
 ## 2. Colour and roles
 
@@ -194,7 +195,7 @@ Do:
 - Test light and dark, phone and computer, Thai and English.
 
 Don't:
-- Don't add a second accent colour, gradient text, glows or emoji.
+- Don't add a second accent colour, gradient text (beyond the chat greeting heading), glows or emoji.
 - Don't pill-round action buttons or mix radii within one component.
 - Don't change phone screens, the mascot drawing or the CI colours without the owner.
 - Don't let text clip, overlap or run under another element.

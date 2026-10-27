@@ -75,6 +75,9 @@ const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(n
 // ใช้"): the squirrel stays in a round avatar on a plain glass pill, its face shows what it is doing, and what it says
 // is a small status card above the pill. Since 2026-10-27 the corner is the squirrel standing and waving, on phones too.
 const FACE = 36;
+/** The tail of the standing squirrel's speech bubbles: it fills the bubble's lower right corner and curls out toward
+ *  the squirrel, so bubble and tail are one shape under one shadow (assistant.css .asx-say-tail). */
+const sayTail = <svg className="asx-say-tail" viewBox="0 0 28 22" aria-hidden="true"><path d="M0 4H10C10.8 12 16 18 28 22C19 22.6 9.6 21 2 18H0Z" /></svg>;
 /** The standing squirrel at the corner (computers and iPads, 2026-10-27). */
 const STAND = 96;
 const STAND_PHONE = 72;
@@ -407,8 +410,6 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     if (accountId && getCurrentAccount() !== accountId) return;
     const safe = safeAssistantPath(path, navigationContext, true); if (safe) onNavigate(safe);
   };
-  // The pill waits folded while the arrival plays (it is hidden then) and opens out when the squirrel has landed.
-  const collapsed = hidden && !mobile;
 
   // The face in the pill's avatar: what the status card says (thinking, waiting for a yes, saved, failed), or what
   // the chat is doing while it is open.
@@ -428,7 +429,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const pillButton = (
         <motion.button ref={buttonRef} type="button" className="asx-buddy-btn is-stand" onClick={() => setOpen(true)} aria-expanded={open} aria-haspopup="dialog"
           aria-label={tr("ถามเลขากระรอกเรื่องหน้า{0}", pageName)} title={climb ? undefined : tr("ถามเลขากระรอกเรื่องหน้านี้")}
-          initial={false} animate={mobile ? undefined : { opacity: collapsed ? 0 : 1, scale: collapsed ? 0.8 : 1 }} transition={{ duration: reduce ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}>
+          initial={false}>
           {/* Owner, 2026-10-27: version 2 ("ชอบแบบที่สอง"), then "ทำในมือถือด้วยเลย": the squirrel standing at the corner, waving
               while nothing is going on, its face showing what the chat is doing otherwise; smaller on phones. */}
           <span className="asx-buddy-stand" data-mood={standMood}><Mascot thoughtDots={false} mood={standMood} action={standMood === 'wave' ? 'wave' : 'idle'} animated={!reduce} size={mobile ? STAND_PHONE : STAND} /></span>
@@ -613,13 +614,17 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 exit={{ opacity: 0, y: reduce ? 0 : 3, transition: { duration: 0.14 } }}
                 transition={{ duration: reduce ? 0.15 : 0.26, ease: [0.22, 1, 0.36, 1] }}>
                 <TypedWords text={climb.said ? climb.words : tr(climb.words)} instant={Boolean(reduce)} quiet={climb.kind === 'working'} />
+                {sayTail}
                 {climb.dots && <span className="asx-climb-dots" aria-hidden="true"><i /><i /><i /></span>}
               </motion.span>
             )}
           </AnimatePresence>
           {sayHello && (
+            // A speech bubble out of the squirrel (owner, 2026-10-27: "กล่องข้อความโค้ง ๆ ออกมาจากตัวน้อง ... ให้คลิกเพื่อใช้งาน
+            // น้อง"): its tail curls toward it, and pressing it opens เลขา as the squirrel does. Computers and iPads keep it
+            // up while nothing else is said; phones show it now and then, as it covers the page there.
             <span className="asx-hello-say" aria-hidden="true" onClick={() => setOpen(true)}>
-              {tr("มีอะไรให้ช่วยไหมครับ")}<small>{tr("กดที่ผม")}</small>
+              {tr("มีอะไรให้ช่วยไหมครับ")}<small>{tr("กดที่ผม")}</small>{sayTail}
             </span>
           )}
           {pillButton}
