@@ -9,7 +9,6 @@ import { TokenRing } from './TokenRing';
 import { PAGE_HELP, SAMPLE_TOKENS, afterReply, buddyPrompts, isPendingConfirm, poseFor, type AssistantMode, type ChatMessage, type ConfirmCard, type TokenBalance } from './assistantMock';
 import { cardSpeech, climbFor, graphemes, speechPreview, type BuddyNews, type Climb } from './buddyClimb';
 import { ChatCardView, type ConfirmState } from './ChatCards';
-import { MascotSlot } from './MascotSlot';
 import { BriefingCard, briefingText } from './BriefingCard';
 import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
 import { MascotPeek } from '../../components/mascot/MascotPeek';
@@ -70,10 +69,11 @@ const PROMPT_ICONS: Record<string, typeof HelpCircle> = {
 const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 // Computers and iPads (owner, 2026-10-26: the climbing squirrel and its comic bubble read as a toy, "ไม่เหมือนพวกนักบัญชี
 // ใช้"): the squirrel stays in a round avatar on a plain glass pill, its face shows what it is doing, and what it says
-// is a small status card above the pill. Phones keep their round squirrel as it was.
+// is a small status card above the pill. Since 2026-10-27 the corner is the squirrel standing and waving, on phones too.
 const FACE = 36;
 /** The standing squirrel at the corner (computers and iPads, 2026-10-27). */
 const STAND = 96;
+const STAND_PHONE = 72;
 
 /** The squirrel's words, typed out letter by letter (whole Thai letters). An answer still arriving keeps typing on
  *  from where it was; new words start again. The finished text sizes the bubble from the start, so it does not
@@ -394,10 +394,10 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   // the chat is doing while it is open.
   const faceMood = climb?.mood ?? poseFor(open ? mode : 'awake').mood;
   // The standing squirrel (computers): a wave while nothing is going on, else the status card's face.
-  const standMood = climb?.mood ?? 'wave';
+  const standMood = climb?.mood ?? (mobile && busy ? 'thinking' : 'wave');
   // Its hello, in a bubble beside it now and then while nothing else is said (owner: "มีอะไรให้ช่วยไหมครับ" and only
   // "กดที่ผม" under it, no shortcut).
-  const sayHello = !mobile && !climb && !open && !minimized && !hidden && !tip && !briefTip;
+  const sayHello = !climb && !busy && !open && !minimized && !hidden && !tip && !briefTip;
 
   const panelMotion = reduce
     ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 0 } }
@@ -406,14 +406,12 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
       : { initial: { opacity: 0, scale: 0.92, y: 16 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.95, y: 10 }, transition: { default: { type: 'spring' as const, stiffness: 440, damping: 32 }, opacity: { duration: 0.14 } } };
 
   const pillButton = (
-        <motion.button ref={buttonRef} type="button" className={`asx-buddy-btn${mobile ? ' lg-glass' : ' is-stand'}`} onClick={() => setOpen(true)} aria-expanded={open} aria-haspopup="dialog"
+        <motion.button ref={buttonRef} type="button" className="asx-buddy-btn is-stand" onClick={() => setOpen(true)} aria-expanded={open} aria-haspopup="dialog"
           aria-label={tr("ถามเลขากระรอกเรื่องหน้า{0}", pageName)} title={climb ? undefined : tr("ถามเลขากระรอกเรื่องหน้านี้")}
           initial={false} animate={mobile ? undefined : { opacity: collapsed ? 0 : 1, scale: collapsed ? 0.8 : 1 }} transition={{ duration: reduce ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}>
-          {mobile ? <span className="asx-buddy-avatar"><MascotSlot mode={open ? mode : 'awake'} size={46} /></span> : (
-            // Computers and iPads (owner, 2026-10-27: version 2, "ชอบแบบที่สอง"): the squirrel standing at the corner,
-            // waving while nothing is going on, its face showing what the chat is doing otherwise.
-            <span className="asx-buddy-stand" data-mood={standMood}><Mascot thoughtDots={false} mood={standMood} action={climb ? 'idle' : 'wave'} animated={!reduce} size={STAND} /></span>
-          )}
+          {/* Owner, 2026-10-27: version 2 ("ชอบแบบที่สอง"), then "ทำในมือถือด้วยเลย": the squirrel standing at the corner, waving
+              while nothing is going on, its face showing what the chat is doing otherwise; smaller on phones. */}
+          <span className="asx-buddy-stand" data-mood={standMood}><Mascot thoughtDots={false} mood={standMood} action={standMood === 'wave' ? 'wave' : 'idle'} animated={!reduce} size={mobile ? STAND_PHONE : STAND} /></span>
         </motion.button>
   );
 
@@ -519,7 +517,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
 
   return (
     <>
-      <div className={`asx-buddy${mobile ? ' is-mobile' : ' is-pill is-stand'}${open ? ' is-open' : ''}${minimized ? ' is-min' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden && !telling ? ' has-tip' : ''}${climb ? ' is-climbing' : ''}`}>
+      <div className={`asx-buddy is-stand${mobile ? ' is-mobile' : ' is-pill'}${open ? ' is-open' : ''}${minimized ? ' is-min' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden && !telling ? ' has-tip' : ''}${climb ? ' is-climbing' : ''}`}>
         <AnimatePresence>
           {tip && !open && !hidden && !telling && (
             // After the arrival the tip comes in softly, once the pill has opened out (owner: "ค่อย ๆ ทรานซิชั่นดี ๆ").
@@ -543,8 +541,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
         {/* While the arrival plays, the pill waits as a round bubble just big enough for the squirrel, which is where
             the flying squirrel lands. Then it opens out to the side ("ถามเลขากระรอก ⌘K"), so the hand-over is one
             continuous movement instead of a pop. Phones keep the round button, so nothing changes there. */}
-        {/* Phones keep their round button exactly as it was; computers and iPads get the status card. */}
-        {mobile ? pillButton : (
+        {/* The standing squirrel, with its bubble at its left (the hello, or the status card on computers and iPads). */}
         <span className="asx-buddy-anchor">
         {/* The status card above the pill; tapping it opens the chat like the pill. It is read out as a status, like the
             notes above the pill. */}
@@ -566,7 +563,6 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
           )}
           {pillButton}
         </span>
-        )}
       </div>
       {createPortal(
         <AnimatePresence>

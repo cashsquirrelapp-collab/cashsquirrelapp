@@ -510,9 +510,16 @@ test('dark mode and reduced motion: the status card and its words', async ({ pag
   await snap(page, 'buddy-status-dark.png');
 });
 
-test('phones keep their round squirrel: no status card above it', async ({ page }) => {
+// Owner, 2026-10-27: "ทำในมือถือด้วยเลย": phones get the standing, waving squirrel too, smaller, with the same hello.
+test('phones: the squirrel stands and waves above the bottom bar, says hello now and then, no status card', async ({ page }) => {
   await open(page, 390, 844, { path: '/dashboard' });
   const button = page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้าภาพรวม' });
+  await expect(button.locator('.asx-buddy-stand')).toHaveAttribute('data-mood', 'wave');
+  const box = (await button.boundingBox())!;
+  expect([Math.round(box.width), Math.round(box.height)]).toEqual([72, 72]);
+  const hello = page.locator('.asx-hello-say');
+  await expect(hello).toHaveText('มีอะไรให้ช่วยไหมครับกดที่ผม');
+  await expect(hello).not.toContainText('⌘');
   await button.click();
   const sheet = panel(page);
   await sheet.getByRole('button', { name: 'หน้านี้ใช้ทำอะไร' }).click();

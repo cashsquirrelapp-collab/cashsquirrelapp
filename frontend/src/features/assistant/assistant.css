@@ -1387,3 +1387,18 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 @keyframes asx-hello-say { 0%, 8% { opacity: 0; transform: translateY(6px); } 14%, 78% { opacity: 1; transform: none; } 86%, 100% { opacity: 0; transform: translateY(4px); } }
 .dark .asx-buddy.is-pill.is-stand .asx-climb-say, .dark .asx-hello-say { background: #2C2C30; color: #F2F0ED; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
 @media (prefers-reduced-motion: reduce) { .asx-hello-say { animation: none; } .asx-buddy.is-pill.is-stand .asx-buddy-btn.is-stand { transition: none; } }
+/* Phones (owner, 2026-10-27: "ทำในมือถือด้วยเลย"): the same standing squirrel, smaller, above the bottom bar, with its
+   hello bubble at its left; no patch of page colour behind it. */
+.asx-buddy.is-stand::before, .asx-buddy.is-stand.has-tip::before { display: none; }
+.asx-buddy.is-mobile.is-stand { right: 10px; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+.asx-buddy.is-mobile.is-stand .asx-buddy-btn.is-stand { display: grid; place-items: end center; width: 72px; height: 72px; padding: 0; border: 0; border-radius: 18px;
+  background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.asx-buddy.is-mobile.is-stand .asx-buddy-btn.is-stand::before, .asx-buddy.is-mobile.is-stand .asx-buddy-btn.is-stand::after { display: none; }
+.asx-buddy.is-mobile.is-stand .asx-buddy-btn.is-stand:hover { transform: none; }
+.asx-buddy.is-mobile.is-stand .asx-buddy-btn.is-stand:active { transform: scale(0.96); }
+.asx-buddy.is-mobile .asx-hello-say { right: calc(100% - 4px); bottom: 40px; max-width: 190px; padding: 8px 12px; font-size: 13px; }
+.asx-buddy.is-mobile .asx-hello-say small { font-size: 11.5px; }
+/* On a phone the bubble sits over the page's content, so it says hello less often: about 5 seconds in every 20. */
+.asx-buddy.is-mobile .asx-hello-say { animation: asx-hello-say-phone 20s ease-in-out infinite; }
+@keyframes asx-hello-say-phone { 0%, 4% { opacity: 0; transform: translateY(6px); visibility: hidden; } 6%, 28% { opacity: 1; transform: none; visibility: visible; } 31%, 100% { opacity: 0; transform: translateY(4px); visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .asx-buddy.is-mobile .asx-hello-say { animation: none; } }
