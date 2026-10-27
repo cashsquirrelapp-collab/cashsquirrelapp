@@ -1200,10 +1200,10 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-rcard.is-rename .asx-edit-list { margin-top: 10px; }
 .asx-rcard.is-rename .asx-edit-note { margin: 6px 2px 0; }
 
-/* CI type for เลขา on computers and iPads (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI"): the app's own IBM Plex Sans Thai, as on
-   every other page, in the full chat, the floating window, the pill, the folded squirrel and their menus. Phones keep
-   their chat face. */
-.asx, .asx-pop, .kfw, .kfw-mini, .asx-buddy, .asx-buddy-panel { font-family: var(--font-sans); }
+/* เลขา's type: the CI family, IBM Plex Sans Thai, in its looped cut, with heads on the Thai letters (owner, 2026-10-27:
+   "ฟอนต์ยังไม่ตรง CI", then "เปลี่ยนเป็นฟอนต์ Looped"), in the full chat, the floating window, the phone sheet, the pill,
+   the folded squirrel and their menus, on every device. Latin letters and digits stay IBM Plex Sans. */
+.asx, .asx-pop, .kfw, .kfw-mini, .asx-buddy, .asx-buddy-panel { font-family: 'IBM Plex Sans Thai Looped', 'IBM Plex Sans', var(--font-sans); }
 .asx textarea, .asx button, .asx input, .asx-pop button, .asx-buddy-panel textarea, .asx-buddy-panel button { font-family: inherit; }
 
 /* The full chat on computers and iPads, the same set as the floating window (owner, 2026-10-27: "ทำให้เหมือนตัวนี้เลย

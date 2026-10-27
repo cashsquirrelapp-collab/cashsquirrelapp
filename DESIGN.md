@@ -44,7 +44,7 @@ colors-dark:
 typography:
   ui: "'IBM Plex Sans Thai', 'IBM Plex Sans', system-ui, sans-serif"     # every page
   brand: "'Prompt', 'IBM Plex Sans Thai', sans-serif"                     # wordmark
-  # เลขา uses the ui type on every device since 2026-10-27 (the old chat face, Thonburi, is no longer used)
+  assistant: "'IBM Plex Sans Thai Looped', 'IBM Plex Sans', var(--font-sans)"  # เลขา on every device (2026-10-27)
   numbers: "font-variant-numeric: tabular-nums on every amount, date and count that lines up"
   weights: [400, 500, 600]      # 700+ only in the logo wordmark
   thai-line-height-min: 1.45    # body text 1.6-1.65
@@ -102,7 +102,8 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
 
 - UI: IBM Plex Sans Thai (with IBM Plex Sans for Latin and digits), the CI type. Brand: Prompt, for the wordmark only.
   Everything of เลขา (the full chat, the floating window, the phone sheet, the pill, the folded squirrel and their menus)
-  is in the CI type too, on every device (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI", "ทำในมือถือด้วยนะ").
+  is in the CI family's looped cut, IBM Plex Sans Thai Looped, on every device (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI",
+  "ทำในมือถือด้วยนะ", then "เปลี่ยนเป็นฟอนต์ Looped"); Latin and digits in IBM Plex Sans.
 - Amounts on cards keep the sign with the figure in the text ("฿9,650") but set it a hair apart on screen (0.16em on the
   large figure, 0.1em in rows: owner, 2026-10-27 "ติดสัญลักษณ์ของบาทเกินไป").
 - **Thai line-height at least 1.45 (owner, 2026-10-23)**; body 1.6 to 1.65. No letter-spacing on Thai.

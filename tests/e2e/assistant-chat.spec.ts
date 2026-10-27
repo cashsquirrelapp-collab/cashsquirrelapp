@@ -231,8 +231,8 @@ async function checkTopFace(page: Page) {
     const ring = (await token.boundingBox())!;
     expect(ring.x + ring.width).toBeLessThan(box.x);
   }
-  // The app's CI type, as on every other page.
-  expect(await chat.evaluate(el => getComputedStyle(el).fontFamily)).toMatch(/^"?IBM Plex Sans Thai/);
+  // The CI family in its looped cut (owner, 2026-10-27).
+  expect(await chat.evaluate(el => getComputedStyle(el).fontFamily)).toMatch(/^"?IBM Plex Sans Thai Looped/);
 }
 
 test('computers and iPads: the window\'s perched squirrel sits at the top on the welcome too', async ({ page }) => {
@@ -423,9 +423,8 @@ test('typography: the CI type with real weights only (400 reading, 500 emphasis,
         if (!hasText || el.closest('.asx-sr, svg')) continue;
         const c = getComputedStyle(el);
         const label = `${el.tagName.toLowerCase()}.${[...el.classList].join('.')} “${(el.textContent || '').trim().slice(0, 16)}”`;
-        // The app's CI type, IBM Plex Sans Thai (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI"), on computers and, since the same
-        // day ("ทำในมือถือด้วยนะ"), on phones too.
-        if (!c.fontFamily.startsWith('"IBM Plex Sans Thai"')) bad.push(`${label}: font ${c.fontFamily}`);
+        // The CI family in its looped cut (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI", then "เปลี่ยนเป็นฟอนต์ Looped"), everywhere.
+        if (!c.fontFamily.startsWith('"IBM Plex Sans Thai Looped"')) bad.push(`${label}: font ${c.fontFamily}`);
         if (!['400', '500', '600'].includes(c.fontWeight)) bad.push(`${label}: weight ${c.fontWeight}`);
         if (parseFloat(c.fontSize) < 11) bad.push(`${label}: ${c.fontSize}`);
         if (c.textShadow !== 'none' || parseFloat(c.webkitTextStrokeWidth) > 0) bad.push(`${label}: shadow/stroke`);

@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Noto+Sans+Thai+Looped:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+/* เลขากระรอก's type (owner, 2026-10-27: "เปลี่ยนเป็นฟอนต์ Looped"): the CI family with heads on the Thai letters. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap');
 /* Logo wordmark only: Prompt 600 subset to the letters of กระรอกตุนเงิน (a few KB). */
 /* Prompt, the CI typeface, for the floating เลขากระรอก window (2026-10-27). */
 @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500&display=swap');
