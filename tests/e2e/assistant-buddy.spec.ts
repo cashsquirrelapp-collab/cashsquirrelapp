@@ -241,7 +241,7 @@ for (const dark of [false, true]) {
     // gradient card; the greeting is the time of day and a question, never "สวัสดีครับ คุณ…".
     const chatFont = await page.evaluate(() => { const probe = document.createElement('div'); probe.className = 'asx'; document.body.append(probe); const font = getComputedStyle(probe).fontFamily; probe.remove(); return font; });
     expect(await win(page).evaluate(el => getComputedStyle(el).fontFamily)).toBe(chatFont);
-    expect(chatFont).toMatch(/Krarok Chat Thai/);
+    expect(chatFont).toMatch(/^"?IBM Plex Sans Thai/); // the app's CI type (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI")
     await expect(win(page).locator('.kfw-hero')).toHaveCount(0);
     await expect(win(page).locator('.kfw-welcome h3')).toHaveText(GREETING);
     await expect(win(page).locator('.kfw-welcome p')).toHaveText(/ครับ$/);

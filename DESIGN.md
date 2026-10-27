@@ -44,7 +44,7 @@ colors-dark:
 typography:
   ui: "'IBM Plex Sans Thai', 'IBM Plex Sans', system-ui, sans-serif"     # every page
   brand: "'Prompt', 'IBM Plex Sans Thai', sans-serif"                     # wordmark
-  chat: "'Krarok Chat Thai' (local Thonburi), -apple-system, 'Noto Sans Thai Looped', var(--font-sans)"  # full chat and floating เลขา window
+  chat: "'Krarok Chat Thai' (local Thonburi), -apple-system, 'Noto Sans Thai Looped', var(--font-sans)"  # เลขา on phones only
   numbers: "font-variant-numeric: tabular-nums on every amount, date and count that lines up"
   weights: [400, 500, 600]      # 700+ only in the logo wordmark
   thai-line-height-min: 1.45    # body text 1.6-1.65
@@ -100,9 +100,10 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
 
 ## 3. Typography
 
-- UI: IBM Plex Sans Thai (with IBM Plex Sans for Latin and digits). Brand: Prompt, for the wordmark. Everything of
-  เลขา (the full chat, the floating window, its pill and the folded squirrel) uses the chat face: the system Thai face
-  (Thonburi on Apple) for an iOS feel, then Noto Sans Thai Looped (owner, 2026-10-27: no more Prompt in the window).
+- UI: IBM Plex Sans Thai (with IBM Plex Sans for Latin and digits), the CI type. Brand: Prompt, for the wordmark only.
+  On computers and iPads everything of เลขา (the full chat, the floating window, its pill, the folded squirrel and their
+  menus) is in the CI type too (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI"). Phones keep the chat face: the system Thai face
+  (Thonburi on Apple), then Noto Sans Thai Looped.
 - **Thai line-height at least 1.45 (owner, 2026-10-23)**; body 1.6 to 1.65. No letter-spacing on Thai.
 - Weights 400 / 500 / 600 only. Amounts: 600, tabular numerals, the currency sign attached (฿12,000).
 - Card scale: title 14.5/600, hero amount 26/600, label 12.5-13.5 muted, value 14/500, body 15/400.
@@ -204,6 +205,9 @@ Don't:
   would be covered.
 - Its expand button is never a bigger window: it opens the full chat page, the same page as the sidebar's เลขากระรอก,
   with the conversation carried over (owner, 2026-10-27).
+- The full chat on computers and iPads is the same set as the window (owner, 2026-10-27: "ทำให้เหมือนตัวนี้เลย"): the
+  window's perched squirrel with its calm motion and name capsule at the top, the token ring top-left, white round
+  buttons, the start's title, line, briefing and questions in one 760px column, the white composer.
 - The window is the same set as the full chat (owner, 2026-10-27: "ทำเป็นชุดใหม่ทั้งหมด"): a plain warm-white surface,
   a plain title and line, the briefing and the questions as inset-grouped lists, the cream bubble, a white composer with
   one solid orange send button, and Krarok Tokens as a ring in the header's top-left corner for everyone.

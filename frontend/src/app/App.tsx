@@ -1300,13 +1300,14 @@ export default function App() {
   // data already loaded (documents from the documents page's own cache, when it has one). No request, no AI.
   const briefingDay = nowInBangkok().toISOString().slice(0, 10);
   const briefing = useMemo(() => {
-    if (isPhone || !showBuddy || financeGroupId || !session || session.isGuest) return null;
+    // The floating window, and the full chat on computers too (owner, 2026-10-27: the full chat like the window).
+    if (isPhone || !(showBuddy || activeTab === 'assistant') || financeGroupId || !session || session.isGuest) return null;
     let invoices: Invoice[] | undefined;
     try { const saved = privateCache.getItem(`cashflow_invoices_${financeOwner}`); invoices = saved ? JSON.parse(saved) as Invoice[] : undefined; } catch { invoices = undefined; }
     const cashNow = settings.cashOpening ? currentCash(settings.cashOpening, jobs, expenses).balance : null;
     return buildBriefing({ jobs, expenses, invoices, monthlyExpense: settings.monthlyExpense, fixedExpenseItems: settings.fixedExpenseItems, cashNow });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPhone, showBuddy, financeGroupId, session?.user?.id, session?.isGuest, financeOwner, jobs, expenses, settings.cashOpening, settings.monthlyExpense, settings.fixedExpenseItems, briefingDay]);
+  }, [isPhone, showBuddy, activeTab, financeGroupId, session?.user?.id, session?.isGuest, financeOwner, jobs, expenses, settings.cashOpening, settings.monthlyExpense, settings.fixedExpenseItems, briefingDay]);
   // เลขากระรอก goes live once /api/assistant is switched on for this account (AI_ENABLED on the server); until then
   // the chat and the floating squirrel keep their labelled sample answers. Personal workspace only for now, and only
   // accounts that can see เลขา at all ask (no extra request for everyone else).
@@ -3084,7 +3085,7 @@ export default function App() {
                 onUpgrade={() => { setAssistantFollowing(false); navigateTab('plans'); }}
                 onNavigate={path => navigateAssistant(path, true)} onAutoNavigate={path => navigateAssistant(path, true)} transport={assistantTransport}
                 liveNote={fullFeatureAccess ? assistantNote ?? undefined : undefined} lineInbox={lineInbox}
-                handoff={activeTab === 'assistant' ? chatHandoff : null} onHandoff={() => setChatHandoff(null)} connecting={assistantChecking} />
+                handoff={activeTab === 'assistant' ? chatHandoff : null} onHandoff={() => setChatHandoff(null)} connecting={assistantChecking} briefing={briefing} />
             </div>
           </Suspense>}
           {/* Document vault for the open finance workspace, shared by Documents, Jobs and Tax */}

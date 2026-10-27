@@ -56,8 +56,9 @@ for (const [label, width, height] of [['phone', 390, 844], ['iPad', 820, 1180], 
     // No "เปิดหน้าที่เกี่ยวข้อง" choice any more (owner, 2026-10-26): pages open only from เลขา's button.
     await expect(page.getByText('เปิดหน้าที่เกี่ยวข้อง')).toHaveCount(0);
     await expect(page.getByRole('combobox', { name: 'วิธีเปิดหน้าจากเลขากระรอก' })).toHaveCount(0);
-    // The header is slim (owner: the top took too much room).
-    expect((await chat.locator('.asx-bar').boundingBox())!.height).toBeLessThan(66);
+    // The header is slim (owner: the top took too much room); on computers and iPads it holds the window's perched squirrel
+    // and its name since 2026-10-27 ("ทำให้เหมือนตัวนี้เลย"), and nothing more.
+    expect((await chat.locator('.asx-bar').boundingBox())!.height).toBeLessThan(width < 744 ? 66 : 106);
     // The sample transport cannot read files or transcribe recordings; Send waits for text.
     await expect(chat.getByRole('button', { name: 'แนบไฟล์ · เร็ว ๆ นี้' })).toHaveAttribute('aria-disabled', 'true');
     await expect(chat.getByRole('button', { name: 'ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI', exact: true })).toHaveAttribute('aria-disabled', 'true');
@@ -204,25 +205,36 @@ for (const lang of ['th', 'en'] as const) {
   });
 }
 
-// Owner, 2026-10-26 ("เหมือนเกม ... ไม่ได้เหมือนพวกนักบัญชีใช้"): on computers and iPads the top is a round avatar with
-// the headset only: no aura, ring, sparkles or bounce.
+// Owner, 2026-10-27 ("ทำให้ตัวน้องกระรอกเหมือนตัวนี้เลย ทั้งแอนิเมชัน ... UI ทั้งหมด"): on computers and iPads the top is the
+// floating window's perched squirrel, with its name on the dark capsule under it, no headset, aura or sparkles; the
+// token ring sits in the top-left corner, as in the window.
 async function checkTopFace(page: Page) {
   const chat = chatOf(page);
-  const face = chat.locator('.asx-bar-face');
-  await expect(face.locator('.mpg-headset')).toHaveCount(1);
-  await expect(face.locator('.mpg-back, .mpg-spark, .mpg-pin')).toHaveCount(0);
+  const perch = chat.locator('.asx-perch');
+  await expect(perch.locator('.mpg-headset, .mpg-back, .mpg-spark, .mpg-pin')).toHaveCount(0);
   await expect(chat.locator('.asx-bar-mascot')).toHaveCount(0);
-  const box = (await face.boundingBox())!;
+  await expect(chat.locator('.asx-perch-name')).toHaveText('เลขากระรอก');
+  const box = (await chat.locator('.asx-perch-box').boundingBox())!;
+  const name = (await chat.locator('.asx-perch-name').boundingBox())!;
   const bar = (await chat.locator('.asx-bar').boundingBox())!;
   const column = (await chat.locator('.asx-chat').boundingBox())!;
-  expect(Math.round(box.height)).toBe(44);
+  expect(Math.round(box.width)).toBe(108);
   expect(Math.abs(box.x + box.width / 2 - (column.x + column.width / 2))).toBeLessThan(4);
+  expect(Math.abs(name.x + name.width / 2 - (column.x + column.width / 2))).toBeLessThan(4);
+  expect(name.y).toBeGreaterThanOrEqual(box.y + box.height - 1);
   expect(box.y).toBeGreaterThanOrEqual(bar.y);
-  expect(box.y + box.height).toBeLessThanOrEqual(bar.y + bar.height + 1);
-  expect(await face.evaluate(el => getComputedStyle(el).pointerEvents)).toBe('none');
+  expect(name.y + name.height).toBeLessThanOrEqual(bar.y + bar.height + 1);
+  expect(await perch.evaluate(el => getComputedStyle(el).pointerEvents)).toBe('none');
+  const token = chat.locator('.asx-bar .asx-token');
+  if (await token.count()) {
+    const ring = (await token.boundingBox())!;
+    expect(ring.x + ring.width).toBeLessThan(box.x);
+  }
+  // The app's CI type, as on every other page.
+  expect(await chat.evaluate(el => getComputedStyle(el).fontFamily)).toMatch(/^"?IBM Plex Sans Thai/);
 }
 
-test('computers and iPads: a round avatar sits in the top bar on the welcome too', async ({ page }) => {
+test('computers and iPads: the window\'s perched squirrel sits at the top on the welcome too', async ({ page }) => {
   await open(page, 1280, 820);
   const chat = chatOf(page);
   await expect(chat.getByRole('heading', { name: WELCOME })).toBeVisible();
@@ -257,7 +269,7 @@ test('the squirrel naps after a while with nothing happening, and typing wakes i
   await expect(status).toHaveText(/พร้อมช่วยแล้ว/);
   await page.clock.runFor(31_000);
   await expect(status).toHaveText(/งีบอยู่/);
-  await expect(chatOf(page).locator('.asx-bar-face')).toHaveAttribute('data-mood', 'sleepy');
+  await expect(chatOf(page).locator('.asx-perch')).toHaveAttribute('data-mood', 'sleepy');
   await page.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).fill('สวัสดี');
   await expect(status).toHaveText(/กำลังฟังอยู่/);
 });
@@ -393,7 +405,7 @@ test('the welcome questions: one iOS-style list of four rows on computers, one-l
 });
 
 // Owner's typography brief (2026-10-23): light, natural Thai text with a clear hierarchy, chat page only.
-test('typography: the looped chat font with real weights only (400 reading, 500 emphasis, 600 titles), Thai line height, no tiny text', async ({ page }) => {
+test('typography: the chat font (CI on computers, looped on phones) with real weights only (400 reading, 500 emphasis, 600 titles), Thai line height, no tiny text', async ({ page }) => {
   for (const [width, height] of [[1280, 820], [390, 844]] as const) {
     await open(page, width, height);
     const chat = chatOf(page);
@@ -405,7 +417,7 @@ test('typography: the looped chat font with real weights only (400 reading, 500 
     await chat.locator('.asx-side.is-open .asx-side-item.is-line').click();
     await expect(chat.locator('.lnc')).toHaveCount(3);
     if (!(await chat.locator('.asx-side.is-open').count())) await chat.getByRole('button', { name: 'ประวัติและค้นหาแชต' }).click();
-    const report = await page.evaluate(() => {
+    const report = await page.evaluate(phone => {
       const bad: string[] = [];
       const roots = [document.querySelector('section.asx')!, ...document.querySelectorAll('.asx-pop')];
       for (const root of roots) {
@@ -417,8 +429,9 @@ test('typography: the looped chat font with real weights only (400 reading, 500 
         if (!hasText || el.closest('.asx-sr, svg')) continue;
         const c = getComputedStyle(el);
         const label = `${el.tagName.toLowerCase()}.${[...el.classList].join('.')} “${(el.textContent || '').trim().slice(0, 16)}”`;
-        // Owner, 2026-10-24: the chat reads like the Claude app (Apple's Thonburi; Noto Sans Thai Looped elsewhere).
-        if (!c.fontFamily.startsWith('"Krarok Chat Thai"')) bad.push(`${label}: font ${c.fontFamily}`);
+        // Phones (owner, 2026-10-24): the chat reads like the Claude app (Apple's Thonburi; Noto Sans Thai Looped elsewhere).
+        // Computers and iPads (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI"): the app's CI type, IBM Plex Sans Thai.
+        if (!c.fontFamily.startsWith(phone ? '"Krarok Chat Thai"' : '"IBM Plex Sans Thai"')) bad.push(`${label}: font ${c.fontFamily}`);
         if (!['400', '500', '600'].includes(c.fontWeight)) bad.push(`${label}: weight ${c.fontWeight}`);
         if (parseFloat(c.fontSize) < 11) bad.push(`${label}: ${c.fontSize}`);
         if (c.textShadow !== 'none' || parseFloat(c.webkitTextStrokeWidth) > 0) bad.push(`${label}: shadow/stroke`);
@@ -430,7 +443,7 @@ test('typography: the looped chat font with real weights only (400 reading, 500 
         if (ratio < 1.6 || ratio > 1.75) bad.push(`reading line height ${ratio.toFixed(2)}`);
       }
       return bad;
-    });
+    }, width < 744);
     expect(report).toEqual([]);
     expect(await textOverlapIssues(page)).toEqual([]);
   }

@@ -1199,3 +1199,53 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 /* The rename card (2026-10-27): the name field sits clear of the card's title, its note under it. */
 .asx-rcard.is-rename .asx-edit-list { margin-top: 10px; }
 .asx-rcard.is-rename .asx-edit-note { margin: 6px 2px 0; }
+
+/* CI type for เลขา on computers and iPads (owner, 2026-10-27: "ฟอนต์ยังไม่ตรง CI"): the app's own IBM Plex Sans Thai, as on
+   every other page, in the full chat, the floating window, the pill, the folded squirrel and their menus. Phones keep
+   their chat face. */
+.asx:not(.is-mobile), .asx-pop.is-desk, .kfw, .kfw-mini, .asx-buddy.is-pill { font-family: var(--font-sans); }
+.asx:not(.is-mobile) textarea, .asx:not(.is-mobile) button, .asx:not(.is-mobile) input, .asx-pop.is-desk button { font-family: inherit; }
+
+/* The full chat on computers and iPads, the same set as the floating window (owner, 2026-10-27: "ทำให้เหมือนตัวนี้เลย
+   ทั้งแอนิเมชัน ... UI ทั้งหมด"): the window's perched squirrel with its calm motion and its name on the dark capsule, the
+   token ring in the top-left corner, white round buttons, the start's title, line, briefing and questions in one column,
+   and the white composer with the one solid orange send button. */
+.asx-perch { position: relative; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.asx-perch-box { position: relative; display: block; width: 108px; height: calc(108px * 0.64); }
+.asx-perch-art { top: 0; left: 0; }
+.asx-perch-name { position: relative; z-index: 1; margin-top: 6px; padding: 2px 12px; border-radius: 999px; background: #1C1917; color: #FFFFFF; font-size: 12.5px; font-weight: 500;
+  line-height: 1.5; letter-spacing: 0.1px; white-space: nowrap; box-shadow: 0 4px 12px rgba(28, 25, 23, 0.18); }
+.dark .asx-perch-name { background: #F2F0ED; color: #1C1917; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+.asx:not(.is-mobile) .asx-bar { margin-top: 8px; align-items: start; }
+.asx:not(.is-mobile) .asx-bar-side { padding-top: 4px; }
+.asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass, .dark .asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass { width: 36px; height: 36px; border: 0; background: #FFFFFF; color: #6F6862;
+  -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 1px 2px rgba(28, 25, 23, 0.06), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
+.asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass::before, .asx:not(.is-mobile) .asx-bar .asx-token.lg-glass::before { display: none; }
+.asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass:hover { color: #1C1917; box-shadow: 0 4px 10px rgba(28, 25, 23, 0.1), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
+.dark .asx:not(.is-mobile) .asx-bar .asx-icon-btn.lg-glass { background: rgba(255, 255, 255, 0.08); color: #C9C3BC; box-shadow: none; }
+.asx:not(.is-mobile) .asx-bar .asx-token, .dark .asx:not(.is-mobile) .asx-bar .asx-token { height: 34px; padding: 0 11px 0 8px; border: 0; border-radius: 17px; background: #FFFFFF; font-size: 13.5px;
+  -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 1px 2px rgba(28, 25, 23, 0.06), 0 0 0 0.5px rgba(28, 25, 23, 0.08); }
+.dark .asx:not(.is-mobile) .asx-bar .asx-token { background: rgba(255, 255, 255, 0.08); box-shadow: none; }
+/* The start: top of the column, as in the window; title, line, briefing and questions share one width. */
+.asx:not(.is-mobile) .asx-welcome { justify-content: flex-start; padding-top: 6px; }
+.asx:not(.is-mobile) .asx-welcome h2, .dark .asx:not(.is-mobile) .asx-welcome h2 { font-size: 24px; }
+.asx:not(.is-mobile) .asx-welcome .asx-brief { width: 100%; max-width: 760px; margin-top: 18px; border: 0; border-radius: 14px; background: #FFFFFF; box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 1px 2px rgba(0, 0, 0, 0.04); }
+.asx:not(.is-mobile) .asx-welcome .asx-brief-item { border-top: 0.5px solid rgba(60, 60, 67, 0.22); }
+.dark .asx:not(.is-mobile) .asx-welcome .asx-brief { background: #1C1C1E; box-shadow: none; }
+.dark .asx:not(.is-mobile) .asx-welcome .asx-brief-item { border-top-color: rgba(84, 84, 88, 0.65); }
+.asx:not(.is-mobile) .asx-prompts-head, .asx:not(.is-mobile) .asx-prompts { max-width: 760px; }
+.asx:not(.is-mobile) .asx-prompts-head { margin-top: 18px; }
+.asx:not(.is-mobile) .asx-prompts > button { min-height: 50px; padding: 9px 12px 9px 14px; gap: 12px; }
+.asx:not(.is-mobile) .asx-prompt-icon, .asx:not(.is-mobile) .asx-prompts > button:hover .asx-prompt-icon,
+.dark .asx:not(.is-mobile) .asx-prompt-icon, .dark .asx:not(.is-mobile) .asx-prompts > button:hover .asx-prompt-icon { width: 28px; height: 28px; }
+.asx:not(.is-mobile) .asx-prompt-label { font-size: 15px; }
+.asx:not(.is-mobile) .asx-prompts > button + button::before { left: 54px; }
+/* The composer: white with a hairline, an orange ring while typing, the one solid orange send button. */
+.asx:not(.is-mobile) .asx-dock > * { max-width: 760px; }
+.asx:not(.is-mobile) .asx-composer.lg-glass { min-height: 52px; align-items: center; padding: 6px 7px 6px 8px; border: 0; background: #FFFFFF; -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.16), 0 8px 20px rgba(28, 25, 23, 0.06); }
+.asx:not(.is-mobile) .asx-composer.lg-glass::before { display: none; }
+.asx:not(.is-mobile) .asx-composer.lg-glass:focus-within { box-shadow: 0 0 0 1.5px rgba(230, 95, 43, 0.45), 0 8px 20px rgba(28, 25, 23, 0.06); }
+.dark .asx:not(.is-mobile) .asx-composer.lg-glass { background: #2C2C2E; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08); }
+.dark .asx:not(.is-mobile) .asx-composer.lg-glass:focus-within { box-shadow: 0 0 0 1.5px rgba(255, 150, 100, 0.45); }
+.asx:not(.is-mobile) .asx-composer .asx-send { width: 38px; height: 38px; }

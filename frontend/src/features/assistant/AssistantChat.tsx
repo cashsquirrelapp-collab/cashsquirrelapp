@@ -24,6 +24,9 @@ import { automaticNavigation, safeAssistantPath, type NavigationContext, type Na
 import { confirmationCommand } from './assistantCommands';
 import type { ChatHandoff } from './chatHandoff';
 import { TokenRing } from './TokenRing';
+import { MascotPeek } from '../../components/mascot/MascotPeek';
+import { BriefingCard } from './BriefingCard';
+import type { Briefing } from '../../../../shared/briefing';
 import { greetingNow, noteQuestion } from './greeting';
 import './assistant.css';
 
@@ -72,6 +75,8 @@ type Props = {
   onHandoff?: () => void;
   /** The app is still checking whether the real เลขา is on: nothing is answered with sample data meanwhile. */
   connecting?: boolean;
+  /** Today's briefing, on computers and iPads, as in the floating window (owner, 2026-10-27). */
+  briefing?: Briefing | null;
 };
 
 const SUGGESTION_ICONS: Record<SuggestionIcon, typeof FileText> = { today: ListChecks, quote: FileText, howto: FolderPlus, unpaid: Wallet };
@@ -171,7 +176,7 @@ function withInbox(list: Conversation[], inbox: LineInbox, openId: string | null
     : conversation));
 }
 
-export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff, connecting = false }: Props) {
+export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff, connecting = false, briefing }: Props) {
   const reduce = useReducedMotion();
   const rootRef = React.useRef<HTMLElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -861,7 +866,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
       <AnimatePresence>
         {rowMenu && <motion.div key="scrim" className="asx-pop-scrim" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />}
         {rowMenu && menuChat && (
-          <motion.div key="pop" ref={rowMenuRef} className="asx-pop is-menu-list lg-glass is-menu" role="menu" aria-label={tr("ตัวเลือกของ “{0}”", menuChat.title)} style={rowMenu.at} {...popMotion(reduce)}>
+          <motion.div key="pop" ref={rowMenuRef} className={`asx-pop is-menu-list lg-glass is-menu${mobile ? '' : ' is-desk'}`} role="menu" aria-label={tr("ตัวเลือกของ “{0}”", menuChat.title)} style={rowMenu.at} {...popMotion(reduce)}>
             <button type="button" role="menuitem" onClick={() => startRename(menuChat)}><span>{tr("เปลี่ยนชื่อ")}</span><Pencil size={16} /></button>
             {!menuChat.archived && <button type="button" role="menuitem" onClick={() => { setRowMenu(null); changeConversation(menuChat.id, { pinned: !menuChat.pinned }); }}><span>{menuChat.pinned ? tr("เลิกปักหมุด") : tr("ปักหมุด")}</span>{menuChat.pinned ? <PinOff size={16} /> : <Pin size={16} />}</button>}
             <div className="asx-menu-sep" role="separator" />
@@ -876,6 +881,36 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     </aside>
   );
 
+  const perchMood = voice.active ? (voice.phase === 'transcribing' ? 'thinking' : 'checking') : poseFor(displayMode).mood;
+  // Krarok Tokens: in the top-left corner on computers and iPads (as in the floating window), at the right on phones.
+  const tokenAnchor = (
+    <div className="asx-pop-anchor">
+          <button ref={tokenBtnRef} type="button" className={`asx-token lg-glass is-${level}`} onClick={() => { placeUnder(tokenBtnRef.current); setTokenOpen(open => !open); setMenuOpen(false); }}
+            aria-expanded={tokenOpen} aria-label={live ? tr("Krarok Tokens คงเหลือ {0} จาก {1}", effective.remaining, effective.total) : tr("Krarok Tokens คงเหลือ {0} จาก {1} (ข้อมูลตัวอย่าง)", effective.remaining, effective.total)} title={tr("Krarok Tokens")}>
+            <TokenRing share={share} size={20} stroke={3} level={level} /><span>{effective.remaining.toLocaleString(dateLocale())}</span>
+          </button>
+          {createPortal(
+          <AnimatePresence>
+            {tokenOpen && <motion.div key="scrim" className="asx-pop-scrim" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />}
+            {tokenOpen && (
+              <motion.div key="pop" ref={tokenPopRef} className={`asx-pop lg-glass is-menu${mobile ? '' : ' is-desk'}`} role="dialog" aria-label={tr("Krarok Tokens")} style={popAt} {...popMotion(reduce)}>
+                <div className="asx-pop-head"><b>Krarok Tokens</b>{!live && <span className="asx-card-tag">{tr("ข้อมูลตัวอย่าง")}</span>}</div>
+                <div className="asx-token-big">
+                  <span className="asx-token-num">{effective.remaining.toLocaleString(dateLocale())}</span>
+                  <span className="asx-token-of">{tr("จาก {0} โทเค็นต่อรอบ", effective.total.toLocaleString(dateLocale()))}</span>
+                </div>
+                <div className={`asx-meter is-${level}`} role="progressbar" aria-valuemin={0} aria-valuemax={effective.total} aria-valuenow={effective.remaining} aria-label={tr("โทเค็นคงเหลือ")}><i style={{ width: `${Math.round(share * 100)}%` }} /></div>
+                <p className={`asx-token-state is-${level}`}>
+                  {level === 'empty' ? tr("โทเค็นรอบนี้หมดแล้ว") : level === 'low' ? tr("โทเค็นใกล้หมด") : tr("เหลือ {0}% ของรอบนี้", Math.round(share * 100))}
+                </p>
+                {refill && <p className="asx-token-refill">{tr("เติมรอบใหม่ {0}", refill)}</p>}
+                {!live && <p className="asx-pop-note">{tr("ตัวอย่างหน้าจอ · ยังไม่เชื่อมระบบชำระเงินหรือการหักโทเค็นจริง")}</p>}
+                {level !== 'ok' && <button type="button" className="asx-pill-btn is-primary is-block" onClick={onUpgrade}>{tr("ดูแพ็กเกจ Pro")}</button>}
+              </motion.div>
+            )}
+          </AnimatePresence>, document.body)}
+        </div>
+  );
   return (
     <section ref={rootRef} className={`asx${mobile ? ' is-mobile' : ''}${wide ? ' is-wide' : ''}${sidebarOpen ? ' has-side' : ''}${floating ? ' is-following' : ''}`} style={floating ? { height: '100%' } : box} aria-labelledby="asx-title">
       {sidebar}
@@ -898,6 +933,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
             {!floating && mobile && onBack && <button type="button" className="asx-icon-btn lg-glass" onClick={onBack} aria-label={tr("กลับไปเมนู")} title={tr("กลับไปเมนู")}><ArrowLeft size={19} /></button>}
             {/* With the history hidden, the way out moves here, so the chat never traps anyone. */}
             {!floating && !mobile && onExit && (!sidebarOpen || overlaySidebar) && <button type="button" className="asx-icon-btn lg-glass" onClick={onExit} aria-label={tr("กลับ")} title={tr("ออกจากเลขากระรอก")}><ArrowLeft size={19} /></button>}
+            {!gate && !mobile && tokenAnchor}
             {(!sidebarOpen || overlaySidebar) && (
               <button type="button" className="asx-icon-btn lg-glass asx-has-dot" onClick={toggleSidebar} aria-label={tr("ประวัติและค้นหาแชต")} title={tr("ประวัติและค้นหาแชต")} aria-expanded={sidebarOpen}><PanelLeft size={19} />{mobile && unread > 0 && <span className="asx-dot" aria-hidden="true" />}</button>
             )}
@@ -907,8 +943,13 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 welcome below is only a line, a sentence and the questions. */}
             {/* Computers and iPads (owner, 2026-10-26: formal, for accountants): a round avatar with the headset only, no
                 aura, glow or bounce; its face still shows what the chat is doing. Phones keep their squirrel. */}
+            {/* Computers and iPads (owner, 2026-10-27: "ทำให้เหมือนตัวนี้เลย ทั้งแอนิเมชัน"): the floating window's squirrel, perched
+                with its calm motion and its hologram while it works, and its name on the dark capsule under it. */}
             {mobile ? <span className="asx-bar-mascot" aria-hidden="true"><MascotSlot mode={displayMode} size={64} /></span>
-              : <span className="asx-bar-face" aria-hidden="true" data-mood={poseFor(displayMode).mood}><Mascot gear="headset" mood={poseFor(displayMode).mood} animated={false} size={44} viewBox="12 8 76 76" /></span>}
+              : <span className="asx-perch" aria-hidden="true" data-mood={perchMood}>
+                  <span className="asx-perch-box"><MascotPeek size={108} mood={perchMood} motion={reduce ? 'still' : 'calm'} holo={busy || voice.phase === 'transcribing'} thoughtDots={false} className="asx-perch-art" /></span>
+                  <span className="asx-perch-name">{tr("เลขากระรอก")}</span>
+                </span>}
             <div className="asx-bar-text asx-sr">
               <span className="asx-bar-title"><h1 id="asx-title">{tr("เลขากระรอก")}</h1><span className="asx-pro">Pro</span></span>
               <span className={`asx-bar-status is-${displayMode}`} role="status" aria-live="polite"><i aria-hidden="true" />{voice.phase === 'transcribing' ? tr("กำลังถอดเสียงเป็นข้อความ…") : statusFor(displayMode)}</span>
@@ -921,32 +962,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 <Bell size={18} />{unread > 0 && <span className="asx-badge" aria-hidden="true">{unread}</span>}
               </button>
             )}
-            {!gate && <div className="asx-pop-anchor">
-              <button ref={tokenBtnRef} type="button" className={`asx-token lg-glass is-${level}`} onClick={() => { placeUnder(tokenBtnRef.current); setTokenOpen(open => !open); setMenuOpen(false); }}
-                aria-expanded={tokenOpen} aria-label={live ? tr("Krarok Tokens คงเหลือ {0} จาก {1}", effective.remaining, effective.total) : tr("Krarok Tokens คงเหลือ {0} จาก {1} (ข้อมูลตัวอย่าง)", effective.remaining, effective.total)} title={tr("Krarok Tokens")}>
-                <TokenRing share={share} size={20} stroke={3} level={level} /><span>{effective.remaining.toLocaleString(dateLocale())}</span>
-              </button>
-              {createPortal(
-              <AnimatePresence>
-                {tokenOpen && <motion.div key="scrim" className="asx-pop-scrim" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />}
-                {tokenOpen && (
-                  <motion.div key="pop" ref={tokenPopRef} className="asx-pop lg-glass is-menu" role="dialog" aria-label={tr("Krarok Tokens")} style={popAt} {...popMotion(reduce)}>
-                    <div className="asx-pop-head"><b>Krarok Tokens</b>{!live && <span className="asx-card-tag">{tr("ข้อมูลตัวอย่าง")}</span>}</div>
-                    <div className="asx-token-big">
-                      <span className="asx-token-num">{effective.remaining.toLocaleString(dateLocale())}</span>
-                      <span className="asx-token-of">{tr("จาก {0} โทเค็นต่อรอบ", effective.total.toLocaleString(dateLocale()))}</span>
-                    </div>
-                    <div className={`asx-meter is-${level}`} role="progressbar" aria-valuemin={0} aria-valuemax={effective.total} aria-valuenow={effective.remaining} aria-label={tr("โทเค็นคงเหลือ")}><i style={{ width: `${Math.round(share * 100)}%` }} /></div>
-                    <p className={`asx-token-state is-${level}`}>
-                      {level === 'empty' ? tr("โทเค็นรอบนี้หมดแล้ว") : level === 'low' ? tr("โทเค็นใกล้หมด") : tr("เหลือ {0}% ของรอบนี้", Math.round(share * 100))}
-                    </p>
-                    {refill && <p className="asx-token-refill">{tr("เติมรอบใหม่ {0}", refill)}</p>}
-                    {!live && <p className="asx-pop-note">{tr("ตัวอย่างหน้าจอ · ยังไม่เชื่อมระบบชำระเงินหรือการหักโทเค็นจริง")}</p>}
-                    {level !== 'ok' && <button type="button" className="asx-pill-btn is-primary is-block" onClick={onUpgrade}>{tr("ดูแพ็กเกจ Pro")}</button>}
-                  </motion.div>
-                )}
-              </AnimatePresence>, document.body)}
-            </div>}
+            {!gate && mobile && tokenAnchor}
             <div className="asx-pop-anchor">
               <button ref={menuBtnRef} type="button" className="asx-icon-btn lg-glass" onClick={() => { placeUnder(menuBtnRef.current); setMenuOpen(open => !open); setTokenOpen(false); }} aria-expanded={menuOpen} aria-haspopup="menu" aria-label={tr("จัดการแชต")} title={tr("จัดการแชต")}>
                 <MoreHorizontal size={19} />
@@ -955,7 +971,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               <AnimatePresence>
                 {menuOpen && <motion.div key="scrim" className="asx-pop-scrim" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />}
                 {menuOpen && (
-                  <motion.div key="pop" ref={menuPopRef} className="asx-pop is-menu-list lg-glass is-menu" role="menu" aria-label={tr("จัดการแชต")} style={popAt} {...popMotion(reduce)}>
+                  <motion.div key="pop" ref={menuPopRef} className={`asx-pop is-menu-list lg-glass is-menu${mobile ? '' : ' is-desk'}`} role="menu" aria-label={tr("จัดการแชต")} style={popAt} {...popMotion(reduce)}>
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); openConversation(null); }}><span>{tr("แชตใหม่")}</span><SquarePen size={16} /></button>
                     {currentId && currentId !== LINE_THREAD_ID && <button type="button" role="menuitem" className="is-danger" onClick={() => { setMenuOpen(false); removeCurrent(); }}><span>{tr("ลบแชตนี้")}</span><Trash2 size={16} /></button>}
                     {deletable.length > 0 && <button type="button" role="menuitem" className="is-danger" onClick={() => { setMenuOpen(false); removeConversations(deletable.map(conversation => conversation.id)); }}><span>{tr("ลบประวัติแชตทั้งหมด")}</span><Trash2 size={16} /></button>}
@@ -1003,6 +1019,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               {/* Computers and iPads greet as the small window does (owner, 2026-10-27); phones keep their words. */}
               <h2>{mobile ? tr("วันนี้อยากให้เลขากระรอกช่วยอะไร?") : tr(hello.title)}</h2>
               <p>{mobile ? tr("ถามเรื่องงาน เอกสาร หรือเงินที่ยังไม่ได้รับได้เลย") : tr(hello.line)}</p>
+              {!mobile && !blocked && briefing && briefing.items.length > 0 && <BriefingCard briefing={briefing} onOpen={go} />}
               {/* Computer and iPad: one iOS-style grouped list with a section title (owner, 2026-10-24); phones keep their tiles. */}
               {!blocked && !mobile && <h3 className="asx-prompts-head" aria-hidden="true">{tr("คำถามแนะนำ")}</h3>}
               {!blocked && (
@@ -1042,7 +1059,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 </li>
               ) : message.cards?.length && !message.text && message.cards.every(card => card.kind === 'line') ? (
                 <li key={message.id} className="asx-msg is-bot is-line">
-                  <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-line-row">
                     {message.cards.map((card, c) => <ChatCardView key={c} card={card} onConfirm={() => {}} onCancel={() => {}} onNavigate={go} onLineDue={lineDue} />)}
                     <span className="asx-meta is-side"><span>{message.note ?? tr("ตัวอย่าง")}</span><span>{time(message.at)}</span></span>
@@ -1050,7 +1067,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 </li>
               ) : inLine && !message.failed ? (
                 <li key={message.id} className="asx-msg is-bot is-line">
-                  <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-line-row">
                     <div className="asx-bubble is-bot"><Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />{message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}</div>
                     {message.id !== streamingId && <span className="asx-meta is-side"><span>{message.note ?? tr("ตัวอย่าง")}</span><span>{time(message.at)}</span></span>}
@@ -1068,7 +1085,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 </li>
               ) : (
                 <li key={message.id} className="asx-msg is-bot">
-                  <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-msg-body">
                     {(message.text || message.id === streamingId) && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
                     {message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}
