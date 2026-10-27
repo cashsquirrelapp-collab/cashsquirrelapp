@@ -75,8 +75,8 @@ owner's approval to change.
 - **Liquid glass is chrome only (owner, 2026-10-23):** the sidebar, menus, toasts, the phone's bottom capsule and the
   floating เลขา window. Content cards are solid.
 - No glows, neon, gradient text, emoji as icons, or decorative gradients on content. The sanctioned gradients are the
-  overview's rust hero band, the LINE card header and the chat greeting heading in the Pro arrival's colours (owner
-  choices; the greeting since 2026-10-27).
+  overview's rust hero band, the LINE card header, the chat greeting heading in the Pro arrival's colours (owner
+  choices; the greeting since 2026-10-27) and the Welcome Onboarding greeting in CI colours (2026-10-28).
 
 ## 2. Colour and roles
 
@@ -155,16 +155,22 @@ card does not need:
 - Inputs and selects: radius 10, min-height 42, hairline border, 16px text on phones (no iOS zoom).
 - Labels above fields; helper text muted; errors in expense red next to the field, saying how to fix it.
 
-### Welcome Onboarding (owner brief, 2026-10-28)
+### Welcome Onboarding (owner brief, 2026-10-28; look E)
 
 - Four questions after the first sign-in of a new account (`WelcomeOnboarding.tsx`, `shared/onboarding.ts`): the name
   เลขา uses (saved as the account's name), work type (one), occupations (several, "อื่น ๆ" opens a box), what Krarok
-  should help with (several; "ยังไม่แน่ใจ อยากลองใช้ก่อน" stands alone). None is required.
-- Computers and iPads: a level-4 dialog, 540px, radius 20, solid white on a frosted scrim. Phones: the whole screen,
-  back and next fixed at the bottom (next last), 16px inputs.
-- The top: "1/4" and a four-part bar; "ข้ามก่อน" as a quiet text button at the right (from Settings: a round ปิด).
-- Choices are one grey group of rows with a tick on the right: round for one choice, rounded square for several; the
-  picked tick is solid orange. One orange action at the bottom (ถัดไป, then เริ่มใช้งาน or บันทึก).
+  should help with (several; "ยังไม่แน่ใจ อยากลองใช้ก่อน" stands alone). The name is required (2+ letters); the
+  other three can be skipped.
+- The whole screen on every device, white (dark follows the app), with background option 2 "กราฟโตขึ้น"
+  (`OnboardingBackdrop.tsx`): graph-paper dots, a rising line chart that draws once, coins drifting up, soft CI glows.
+  CI colours only: no space motifs, no violet or pink (owner, 2026-10-28). Still under reduced motion.
+- Step 1 has as few things as possible: "สวัสดีครับ" in a CI gradient (rust → orange → caramel), the name appearing
+  under it as it is typed, the question, one glass field with the next arrow, one note line. No logo, no step count,
+  no ข้ามก่อน.
+- Steps 2-4: a four-part bar and ข้ามก่อน (from Settings: a round ปิด) on top; glass tiles with a CI icon (orange on
+  cream) and a tick, orange ring when picked. Phones: two-column tiles for several choices, rows for one, back at the
+  top left, ถัดไป full width at the bottom. Computers and iPads: two columns, back and next under the choices.
+- Exceptions for this screen only (owner): gradient text on the greeting, glass content tiles, pill-round buttons.
 - Answers keep stable IDs; labels can change. Never put the nickname on documents.
 
 ### Mascot (เลขากระรอก)
@@ -207,7 +213,7 @@ Do:
 - Test light and dark, phone and computer, Thai and English.
 
 Don't:
-- Don't add a second accent colour, gradient text (beyond the chat greeting heading), glows or emoji.
+- Don't add a second accent colour, gradient text (beyond the chat and onboarding greetings), glows or emoji.
 - Don't pill-round action buttons or mix radii within one component.
 - Don't change phone screens, the mascot drawing or the CI colours without the owner.
 - Don't let text clip, overlap or run under another element.

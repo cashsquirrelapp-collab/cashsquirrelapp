@@ -2,9 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
 import { loadLayoutFonts } from './testFonts';
 
-// Welcome Onboarding V1 (owner brief, 2026-10-28): four questions after the first sign-in of a new account; the name
-// becomes the account's name (what เลขา calls the person); the answers are kept with stable IDs in the settings;
-// ข้ามก่อน keeps SKIPPED and never asks again; the answers can be changed from Settings; the admin sees the groups.
+// Welcome Onboarding (owner brief, 2026-10-28; look E): four questions after the first sign-in of a new account. The
+// name is required and becomes the account's name (what เลขา calls the person); step 1 is only the greeting and one
+// field, with no step count and no ข้ามก่อน. The answers are kept with stable IDs in the settings; ข้ามก่อน (steps 2-4)
+// keeps SKIPPED and never asks again; the answers can be changed from Settings; the admin sees the groups.
 // Everything is mocked: no real account or service is used.
 
 test.use({ serviceWorkers: 'block' });
@@ -15,15 +16,15 @@ const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {},
 const baseSettings = { monthlyExpense: 0, monthlyRevenueGoal: 0, savingsPercentage: 40, profileSetupCompleted: false };
 
 type Saved = { settings: any[]; names: string[] };
-async function open(page: Page, options: { user?: typeof NEW_USER; settings?: Record<string, unknown>; width?: number; height?: number; path?: string; admin?: boolean; analytics?: unknown } = {}) {
+async function open(page: Page, options: { user?: typeof NEW_USER; settings?: Record<string, unknown>; width?: number; height?: number; path?: string; admin?: boolean; analytics?: unknown; dark?: boolean } = {}) {
   const user = options.user ?? NEW_USER;
   let settings: Record<string, unknown> = { ...baseSettings, ...(options.settings ?? {}) };
   let displayName = 'new.user';
   const saved: Saved = { settings: [], names: [] };
-  await page.addInitScript(() => {
-    localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', 'false');
+  await page.addInitScript(dark => {
+    localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', String(dark));
     localStorage.setItem('cashflow_theme_auto_period', String(Math.floor((Date.now() + 7 * 3600e3 - 6 * 3600e3) / (12 * 3600e3))));
-  });
+  }, options.dark === true);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
   await page.route('**/api/**', route => route.fulfill({ json: {} }));
@@ -62,22 +63,31 @@ test('a new account: four steps in order, "อื่น ๆ" opens a box, the ex
   const mock = await open(page);
   const box = dialog(page);
   await expect(box).toBeVisible();
-  await expect(step(page)).toHaveAttribute('aria-valuenow', '1');
-  await expect(box.getByText('1/4')).toBeVisible();
+  // Step 1: the greeting, the question and one field; no step count, no ข้ามก่อน, no back.
+  await expect(box.getByText('สวัสดีครับ', { exact: true })).toBeVisible();
   await expect(box.getByRole('heading', { name: 'อยากให้เราเรียกคุณว่าอะไร?' })).toBeVisible();
-  await expect(box.getByText('ชื่อเล่นหรือชื่อที่คุณชอบก็ได้ เปลี่ยนภายหลังได้เสมอ')).toBeVisible();
+  await expect(box.getByText('ใช้ทั้งในแอปและ LINE ไม่ใช้แทนชื่อจริงในเอกสาร')).toBeVisible();
+  await expect(step(page)).toHaveCount(0);
+  await expect(box.getByRole('button', { name: 'ข้ามก่อน' })).toHaveCount(0);
+  await expect(box.getByRole('button', { name: 'ย้อนกลับ' })).toHaveCount(0);
   const name = box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก');
   await expect(name).toHaveAttribute('placeholder', 'เช่น ปาร์ค, มายด์, บอส');
-  await expect(box.getByRole('button', { name: 'ย้อนกลับ' })).toHaveCount(0);
+  await expect(name).toBeFocused();
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-1280-step1.png') });
-  // One letter is too short: it says so and stays.
+  // The name is required: empty or one letter says so and stays.
+  await box.getByRole('button', { name: 'ถัดไป' }).click();
+  await expect(box.getByText('กรุณาใส่ชื่อที่อยากให้เราเรียก')).toBeVisible();
   await name.fill('ม');
   await box.getByRole('button', { name: 'ถัดไป' }).click();
   await expect(box.getByText('ชื่อต้องมีอย่างน้อย 2 ตัวอักษร')).toBeVisible();
-  await expect(step(page)).toHaveAttribute('aria-valuenow', '1');
+  await expect(box.getByRole('heading', { name: 'อยากให้เราเรียกคุณว่าอะไร?' })).toBeVisible();
   await name.fill('มายด์');
-  await box.getByRole('button', { name: 'ถัดไป' }).click();
+  // The name appears under the greeting as it is typed.
+  await expect(box.getByText('คุณมายด์', { exact: true })).toBeVisible();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('onboarding-1280-step1-named.png') });
+  await name.press('Enter');
 
   await expect(step(page)).toHaveAttribute('aria-valuenow', '2');
   await expect(box.getByRole('heading', { name: 'ตอนนี้คุณทำงานรูปแบบไหน?' })).toBeVisible();
@@ -142,15 +152,17 @@ test('ข้ามก่อน keeps SKIPPED with what was picked, and the next 
   const mock = await open(page);
   const box = dialog(page);
   await expect(box).toBeVisible();
+  await expect(box.getByRole('button', { name: 'ข้ามก่อน' })).toHaveCount(0);
+  await box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('บอส');
   await box.getByRole('button', { name: 'ถัดไป' }).click();
   await box.getByRole('radiogroup').getByText('พนักงานประจำ').click();
   await box.getByRole('button', { name: 'ข้ามก่อน' }).click();
   await expect(box).toHaveCount(0);
   await expect.poll(() => mock.saved.settings.at(-1)?.onboarding?.status).toBe('SKIPPED');
   expect(mock.saved.settings.at(-1).onboarding).toMatchObject({ status: 'SKIPPED', skipped_at_step: 2, work_type: 'employee', goals: [] });
-  // The work type already sets the menu as the old setup did.
+  // The work type already sets the menu as the old setup did; the name given in step 1 is kept.
   expect(mock.saved.settings.at(-1).userPersona).toBe('employee');
-  expect(mock.saved.names).toEqual([]);
+  expect(mock.saved.names).toEqual(['บอส']);
   await page.reload();
   await page.waitForTimeout(1500);
   await expect(dialog(page)).toHaveCount(0);
@@ -163,19 +175,31 @@ test('accounts from before the rollout are never asked', async ({ page }) => {
   await expect(dialog(page)).toHaveCount(0);
 });
 
-test('390px phone: the whole screen, the actions at the bottom within reach, nothing overlaps', async ({ page }, info) => {
+test('390px phone: the whole screen, step 1 as few things as possible, ถัดไป within reach, nothing overlaps', async ({ page }, info) => {
   const mock = await open(page, { width: 390, height: 844 });
   const box = dialog(page);
   await expect(box).toBeVisible();
   const frame = (await box.boundingBox())!;
   expect([Math.round(frame.width), Math.round(frame.height)]).toEqual([390, 844]);
   const next = box.getByRole('button', { name: 'ถัดไป' });
-  expect((await next.boundingBox())!.y).toBeGreaterThan(740);
-  expect((await next.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // Step 1: the arrow sits in the name field, in the upper half (above the keyboard), at least 44px.
+  const arrow = (await next.boundingBox())!;
+  expect(arrow.height).toBeGreaterThanOrEqual(44);
+  expect(arrow.y + arrow.height).toBeLessThan(500);
+  await expect(step(page)).toHaveCount(0);
+  await expect(box.getByRole('button', { name: 'ข้ามก่อน' })).toHaveCount(0);
+  await expect(box.getByText('ยินดีต้อนรับสู่กระรอกตุนเงิน')).toHaveCount(0);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-390-step1.png') });
   await box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('บอส');
+  await expect(box.getByText('คุณบอส', { exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('onboarding-390-step1-named.png') });
   await next.click();
+  await expect(step(page)).toHaveAttribute('aria-valuenow', '2');
+  expect((await next.boundingBox())!.y).toBeGreaterThan(740);
+  expect((await next.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('onboarding-390-step2.png') });
   await box.getByRole('radiogroup').getByText('ฟรีแลนซ์ / อาชีพอิสระ').click();
   await next.click();
   await box.getByRole('group').getByText('ช่างภาพ / วิดีโอ').click();
@@ -190,6 +214,31 @@ test('390px phone: the whole screen, the actions at the bottom within reach, not
   await expect.poll(() => mock.saved.settings.at(-1)?.onboarding?.goals).toEqual(['cashflow_overview']);
   expect(mock.saved.settings.at(-1).userPersona).toBe('freelance');
   expect(mock.saved.names).toEqual(['บอส']);
+});
+
+test('dark mode: the same screens on the dark sky, computer and phone, nothing overlaps', async ({ page }, info) => {
+  await open(page, { dark: true });
+  const box = dialog(page);
+  await expect(box).toBeVisible();
+  await box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('มายด์');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('onboarding-1280-dark-step1.png') });
+  await box.getByRole('button', { name: 'ถัดไป' }).click();
+  await box.getByRole('button', { name: 'ถัดไป' }).click();
+  await box.getByRole('group').getByText('คอนเทนต์ครีเอเตอร์').click();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('onboarding-1280-dark-step3.png') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(dialog(page)).toBeVisible();
+  await dialog(page).getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('มายด์');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('onboarding-390-dark-step1.png') });
+  await dialog(page).getByRole('button', { name: 'ถัดไป' }).click();
+  await dialog(page).getByRole('button', { name: 'ถัดไป' }).click();
+  await dialog(page).getByRole('group').getByText('คอนเทนต์ครีเอเตอร์').click();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('onboarding-390-dark-step3.png') });
 });
 
 test('Settings: the answers open again with what was chosen, and saving changes them', async ({ page }) => {
