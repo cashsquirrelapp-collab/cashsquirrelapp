@@ -66,6 +66,7 @@ import Login from '../features/auth/Login';
 import LandingPage from '../features/marketing/LandingPage';
 import { MobileBottomNav, MobileHeader, MobileMenuPage, type MobileTool, type MobileToolGroup } from '../features/mobile/MobileChrome';
 import { ADVANCED_MOBILE_TOOLS, MOBILE_MENU_SECTIONS, type MobileMenuSectionId } from '../features/mobile/mobileNavigation';
+import { useFeedbackWaiting } from '../features/feedback/useFeedbackWaiting';
 import { applyFields, carriesBatch, recentImports, undoUpdate } from '../features/import/importBatches';
 import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/ImportWizard';
 import type { SettingsView } from '../features/settings/SettingsTab';
@@ -620,7 +621,9 @@ export default function App() {
         } },
       ],
     };
-    const advanced = ADVANCED_MOBILE_TOOLS.flatMap(item => tool(item.key, tr(item.title), tr(item.description), item.icon, item.search));
+    // บอกเรา messages waiting for the team show on the admin tool (owner, 2026-10-27), as on the computer's sidebar.
+    const advanced = ADVANCED_MOBILE_TOOLS.flatMap(item => tool(item.key, tr(item.title),
+      item.key === 'adminDashboard' && feedbackWaiting ? tr("ข้อความจากผู้ใช้รอตอบ {0} เรื่อง", feedbackWaiting) : tr(item.description), item.icon, item.search));
     const groups: MobileToolGroup[] = [
       // LINE AI Pro wears the LINE logo (owner, 2026-10-21); the logo keeps its official colours.
       ...MOBILE_MENU_SECTIONS.map(section => ({ ...section, name: tr(section.name), sub: tr(section.sub), items: entries[section.id], mark: section.id === 'line' ? <LineLogo size={36} /> : undefined })),
@@ -725,6 +728,10 @@ export default function App() {
         <span>{item.key === 'feedback' ? (language === 'th' ? 'บอกเรา' : 'Tell us') : item.key === 'plans' && !fullFeatureAccess ? (language === 'th' ? 'การสมัครสมาชิก' : 'Subscription') : t(item.labelKey)}</span>
         {subsOpen !== undefined && (
           <ChevronDown aria-hidden className={`ml-auto h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${subsOpen ? 'rotate-180' : ''}`} />
+        )}
+        {item.key === 'adminDashboard' && !!feedbackWaiting && (
+          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#E65F2B] px-1.5 text-[11px] font-bold leading-none text-white"
+            aria-label={tr("ข้อความจากผู้ใช้รอตอบ {0} เรื่อง", feedbackWaiting)} title={tr("ข้อความจากผู้ใช้รอตอบ {0} เรื่อง", feedbackWaiting)}>{feedbackWaiting > 99 ? '99+' : feedbackWaiting}</span>
         )}
         {item.key === 'groups' && teamIsPreview && (
           <span className="ml-auto rounded-full bg-[#FFF1E8] px-1.5 py-px text-[10px] font-semibold text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]">{tr("เร็วๆ นี้")}</span>
@@ -1131,6 +1138,7 @@ export default function App() {
     && session?.user?.canViewAdminAnalytics === true
     && routeContext?.userId === session?.user?.id
     && routeContext?.systemRole === 'admin';
+  const feedbackWaiting = useFeedbackWaiting(canViewAdminAnalytics ? session?.user?.id : null);
   const navItems = React.useMemo(() => {
     const base = NAV_ITEMS.filter(item =>
       isPhaseOneFeatureAvailable(item.key, fullFeatureAccess) &&

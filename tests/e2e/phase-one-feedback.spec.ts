@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import type { FeedbackAction, FeedbackMessage, FeedbackThread } from '../../shared/feedback';
+import { textOverlapIssues } from './textOverlap';
 
 test.use({ serviceWorkers: 'block' });
 
@@ -361,4 +362,52 @@ test('guest feedback asks for an account and never calls the feedback API', asyn
   expect(await page.evaluate(() => localStorage.getItem('cashflow_guest_session'))).toBeNull();
   expect(mock.reads).toEqual([]);
   expect(mock.mutations).toEqual([]);
+});
+
+// Owner, 2026-10-27: "เวลาที่คนพิมพ์มามันดันไม่แจ้งเข้าระบบของแอดมินเลย". The conversations waiting for the team show as a
+// count on the admin menu and the inbox tab, the count follows the team's answers, and the LINE alert's link
+// (/adminDashboard?view=feedback) opens the inbox straight away.
+test('admin: the waiting count on the menu and the inbox tab follows the answers; the alert link opens the inbox', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 860 });
+  const mock = await setup(page, { admin: true, inbox: true });
+  await page.goto('/adminDashboard/feedback-admin?view=feedback');
+  await expect(page.getByRole('heading', { name: 'กล่องข้อความจากผู้ใช้' })).toBeVisible();
+  const menu = page.locator('aside button', { hasText: 'แดชบอร์ดแอดมิน' }).first();
+  await expect(menu.getByLabel('ข้อความจากผู้ใช้รอตอบ 2 เรื่อง')).toHaveText('2');
+  const tab = page.getByRole('button', { name: 'ข้อความจากผู้ใช้', exact: true });
+  await expect(tab.locator('span')).toHaveText('2');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await screenshot(page, testInfo, 'feedback-admin-count.png');
+  // Answering and closing one takes it out of the count.
+  const conversation = page.getByRole('region', { name: 'บทสนทนา' });
+  await conversation.getByLabel('ตอบกลับ', { exact: true }).fill('แก้ไขแล้วครับ');
+  await conversation.getByLabel('ส่งแล้วปิดเรื่อง').check();
+  await conversation.getByRole('button', { name: 'ส่ง', exact: true }).click();
+  await expect(menu.getByLabel('ข้อความจากผู้ใช้รอตอบ 1 เรื่อง')).toHaveText('1');
+  await expect(tab.locator('span')).toHaveText('1');
+  // Nothing waiting: no count at all.
+  for (const thread of mock.threads) thread.status = 'resolved';
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(menu.locator('span[aria-label^="ข้อความจากผู้ใช้รอตอบ"]')).toHaveCount(0);
+  await expect(tab.locator('span')).toHaveCount(0);
+  expect(mock.unhandledApi).toEqual([]);
+});
+
+test('admin: the alert link without the workspace still lands in the inbox', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 860 });
+  await setup(page, { admin: true, inbox: true });
+  await page.goto('/adminDashboard?view=feedback');
+  await expect(page.getByRole('heading', { name: 'กล่องข้อความจากผู้ใช้' })).toBeVisible();
+});
+
+test('390px admin: the inbox row and the phone menu say how many wait', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mock = await setup(page, { admin: true, inbox: true });
+  await page.goto('/adminDashboard/feedback-admin');
+  await expect(page.getByText('รอตอบ 2 เรื่อง · อ่านและตอบได้ที่นี่')).toBeVisible();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await screenshot(page, testInfo, 'feedback-admin-count-mobile.png');
+  await page.goto('/adminDashboard/feedback-admin?view=feedback');
+  await expect(page.getByRole('heading', { name: 'กล่องข้อความจากผู้ใช้' })).toBeVisible();
+  expect(mock.unhandledApi).toEqual([]);
 });

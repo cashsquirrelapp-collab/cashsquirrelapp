@@ -34,6 +34,8 @@ const PATHS = {
   alert: '<path d="m12 3 10 18H2ZM12 9v5m0 3v.5"/>',
   receive: '<path d="M12 3v11m-5-5 5 5 5-5M4 14v6h16v-6"/>',
   income: '<path d="M3 18 9 12l4 4 8-11M15 5h6v6"/>',
+  // The computer's "เพิ่มรายจ่าย" icon (lucide trending-down), so phones show the same sign (owner, 2026-10-27).
+  trendDown: '<path d="M16 17h6v-6"/><path d="m22 17-8.5-8.5-5 5L2 7"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff: '<path d="M10.6 5.1Q11.3 5 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.4 3.3M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a10 10 0 0 0 5.4-1.6M3 3l18 18M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',

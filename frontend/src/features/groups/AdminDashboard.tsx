@@ -35,6 +35,7 @@ import { featureLabels, personaLabels, planLabels } from './adminLabels';
 import { secondary, type Confirm } from './groupUi';
 
 import { tr } from '../../i18n/tr';
+import { useFeedbackWaiting } from '../feedback/useFeedbackWaiting';
 const AdminUsersPanel = lazy(() => import('./AdminUsersPanel'));
 const GroupsTab = lazy(() => import('./GroupsTab'));
 const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
@@ -221,7 +222,9 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
   const { language } = useLanguage();
   const copy = (th: string, en: string) => language === 'th' ? th : en;
   const [range, setRange] = useState<AnalyticsRange>(30);
-  const [view, setView] = useState<View>('overview');
+  // The LINE alert for a new บอกเรา message links here with ?view=feedback (owner, 2026-10-27).
+  const [view, setView] = useState<View>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'feedback' ? 'feedback' : 'overview'));
+  const feedbackWaiting = useFeedbackWaiting(userId);
   const [data, setData] = useState<AdminAnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -319,7 +322,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
   if (mobile) {
     return (
       <Suspense fallback={null}>
-        <AdminDashboardPhone userId={userId} triggerConfirm={triggerConfirm} data={data} loading={loading} error={error} range={range}
+        <AdminDashboardPhone userId={userId} feedbackWaiting={feedbackWaiting} triggerConfirm={triggerConfirm} data={data} loading={loading} error={error} range={range}
           onRange={setRange} onRefresh={() => setRevision(value => value + 1)} live={live} onBack={onMobileBack}
           onRoleChanged={async () => setRevision(value => value + 1)} language={language} />
       </Suspense>
@@ -342,7 +345,10 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
 
       <div className="overflow-x-auto border-b border-brand-border">
         <nav className="flex min-w-max gap-1" aria-label={copy('หมวดการวิเคราะห์', 'Analytics sections')}>
-          {views.map(item => <button key={item.key} type="button" onClick={() => setView(item.key)} className={`${tabButton} ${view === item.key ? 'border-brand-blue-acc text-brand-blue-acc' : 'border-transparent text-brand-muted hover:text-brand-text'}`} aria-current={view === item.key ? 'page' : undefined}>{item.label}</button>)}
+          {views.map(item => <button key={item.key} type="button" onClick={() => setView(item.key)} className={`${tabButton} ${view === item.key ? 'border-brand-blue-acc text-brand-blue-acc' : 'border-transparent text-brand-muted hover:text-brand-text'}`} aria-current={view === item.key ? 'page' : undefined}>{item.label}{item.key === 'feedback' && !!feedbackWaiting && (
+            <span className="ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#E65F2B] px-1 text-[10.5px] font-bold leading-none text-white" aria-hidden="true"
+              title={copy(`รอตอบ ${feedbackWaiting} เรื่อง`, `${feedbackWaiting} waiting`)}>{feedbackWaiting > 99 ? '99+' : feedbackWaiting}</span>
+          )}</button>)}
         </nav>
       </div>
 

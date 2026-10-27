@@ -124,9 +124,9 @@ function wipCard(): LineCardData {
 export function lineReplyFor(text: string, now: number): LineCardData | null {
   const said = text.trim();
   const is = (...keys: string[]) => keys.some(key => said === key || said === tr(key));
-  if (is(T("รอรับเงิน"), 'งานค้างจ่าย')) return unpaidCard(now);
+  if (is(T("รอรับเงิน"), 'งานค้างจ่าย', T("มีงานไหนที่ยังรอรับเงินอยู่บ้าง"))) return unpaidCard(now);
   if (is(T("สรุปเดือนนี้"))) { const d = new Date(now); return monthlyCard(new Date(d.getFullYear(), d.getMonth(), 1).getTime(), tr("สรุปเดือนนี้"), { label: tr("ดูรายงานฉบับเต็ม"), path: '/report' }); }
-  if (is(T("กำลังดำเนินการ"), T("กำลังดำเนินงาน"), 'งานสต็อก')) return wipCard();
+  if (is(T("กำลังดำเนินการ"), T("กำลังดำเนินงาน"), 'งานสต็อก', T("มีงานไหนที่กำลังดำเนินการอยู่บ้าง"))) return wipCard();
   return null;
 }
 

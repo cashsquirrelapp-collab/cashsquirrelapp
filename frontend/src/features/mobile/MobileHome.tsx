@@ -102,7 +102,7 @@ export function MobileHome(props: MobileHomeProps) {
       ? { label: tr("รับเงินด่วน"), icon: 'arrowDown', level: 'primary', run: props.onQuickPay }
       : { label: tr("ออกเอกสาร"), icon: 'document', level: 'primary', run: props.onDocuments },
     { label: tr("เพิ่มรายรับ"), icon: 'arrowUp', level: 'secondary', run: props.onAddIncome },
-    { label: tr("เพิ่มรายจ่าย"), icon: 'wallet', level: 'secondary', run: props.onAddExpense },
+    { label: tr("เพิ่มรายจ่าย"), icon: 'trendDown', level: 'secondary', run: props.onAddExpense },
     { label: tr("เพิ่มเติม"), icon: 'more', level: 'secondary', run: () => setMoreOpen(true) },
   ];
   const more: { title: string; description: string; icon: KsIconName; run: () => void }[] = [

@@ -9,6 +9,8 @@ import { HttpError, withGuard } from '../http/guard.js';
 import { systemRole } from '../repositories/roles.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
+import { alertFeedback } from '../services/feedbackAlert.js';
+import { ownerDeliveryDeps } from '../services/ownerAlerts.js';
 
 const pageSchema = z.coerce.number().int().min(0).max(10000).default(0);
 const listSchema = z.object({
@@ -127,5 +129,18 @@ export default withGuard(async (req, res) => {
     p_actor: user.id, p_action: action, p_input: input,
   });
   if (result.error) feedbackDbError(result.error);
+  // The admins hear about a new message (owner, 2026-10-27): a new conversation from anyone, or a reply from its owner;
+  // an admin answering a member is the team's own word. Waited for briefly, and never fails the message.
+  if (action === 'create' || action === 'reply') {
+    const fromAdmin = await systemRole(user.id).then(role => role === 'admin').catch(() => false);
+    if (action === 'create' || !fromAdmin) {
+      const threadId = (result.data as { threadId?: string } | null)?.threadId ?? ('threadId' in input ? String(input.threadId) : '');
+      const body = 'body' in input ? input.body : '';
+      if (threadId && body) {
+        const alert = alertFeedback({ threadId, action, body, ...('category' in input && input.category ? { category: input.category } : {}), fromAdmin }, ownerDeliveryDeps());
+        await Promise.race([alert, new Promise(resolve => setTimeout(resolve, 2500))]);
+      }
+    }
+  }
   res.status(action === 'create' ? 201 : 200).json(result.data);
 }, { csrf: true });

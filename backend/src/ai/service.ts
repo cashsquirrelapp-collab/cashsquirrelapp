@@ -6,6 +6,7 @@ import { AiUnavailableError, failedRouting, runAssistant, type AssistantReply } 
 import { decideRoute, routingRecord, type RoutingRecord } from './routingPolicy.js';
 import { CONTINUE_WINDOW_MS, continuationTurns, GO_AHEAD, goAheadFits, mentionsCard, PENDING_WINDOW_MS, type ChannelTurn } from './crossChannel.js';
 import { PROMPT_VERSION } from './prompt.js';
+import { quickAnswer, quickKind } from './quickAnswers.js';
 import type { PromptSlots } from './prompt.js';
 import { applyCardEdit, cardForStoredProposal, cardValue, createToolbox, EDITABLE_FIELDS, type MemoryStore, type Proposal, type ProposalStore } from './tools.js';
 import { learnedPairs, learnFromConfirmed, mergePairs, pairFromCardEdit, type CorrectionDomain, type LearnPair } from './learning.js';
@@ -248,6 +249,13 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
       reply = { route: 'chat', handedOff: false, cards, calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,
         text: cards.length === 1 ? 'รายการนี้ยังรอยืนยันอยู่ครับ ตรวจรายละเอียดแล้วกดยืนยันบนการ์ดได้เลย' : `มี ${cards.length} รายการที่ยังรอยืนยันครับ ตรวจรายละเอียดแล้วกดยืนยันทีละการ์ดได้เลย`,
         routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'waiting_cards', outcome: 'direct', proposal_ids: cards.map(card => (card as { id: string }).id) }) };
+    } else if (channel === 'app' && !input.attachment && quickKind(input.text, input.history)) {
+      // "กำลังดำเนินการ" / "รอรับเงิน" (the window's buttons, or typed in the app; LINE has its own quick replies): the
+      // list from the account's jobs, no model, no tokens.
+      const kind = quickKind(input.text, input.history)!;
+      reply = { route: 'chat', handedOff: false, cards: [], calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,
+        text: quickAnswer(kind, user),
+        routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: `quick_${kind}`, outcome: 'direct' }) };
     } else {
     const tokensLeft = limits.tokenLimit === null ? undefined : Math.max(0, limits.tokenLimit - reserved.usedTokens + RESERVE_TOKENS);
     reply = await runAssistant({

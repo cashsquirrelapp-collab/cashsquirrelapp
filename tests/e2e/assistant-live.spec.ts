@@ -999,3 +999,48 @@ test('buddy on a phone: a PDF is attached with its name and size, and the mic le
   expect(await microphoneStopped(page)).toBe(true);
   expect(await textOverlapIssues(page)).toEqual([]);
 });
+
+// Owner, 2026-10-27: the window's "กำลังดำเนินการ" asks which jobs are in progress (the AI had read the bare word as a
+// status); the button sends that whole question, and the bubble shows it.
+test('buddy: กำลังดำเนินการ asks which jobs are in progress, and the bubble says so', async ({ page }) => {
+  const mock = await open(page, { path: '/jobs', reply: body => (body.action === 'message'
+    ? { status: 200, json: { text: 'ตอนนี้ยังไม่มีงานที่กำลังดำเนินการครับ', route: 'chat', tokens: 0, tokensLeft: 994, trialLeft: null } }
+    : { status: 200, json: {} }) });
+  await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' }).click();
+  const chat = page.getByRole('dialog', { name: /^เลขากระรอก · หน้า/ });
+  await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'กำลังดำเนินการ' }).click();
+  await expect(chat.locator('.asx-msg.is-me .asx-bubble')).toHaveText('มีงานไหนที่กำลังดำเนินการอยู่บ้าง');
+  await expect(chat.getByText('ตอนนี้ยังไม่มีงานที่กำลังดำเนินการครับ')).toBeVisible();
+  expect(mock.posts.filter(post => post.body.action === 'message').map(post => post.body.text)).toEqual(['มีงานไหนที่กำลังดำเนินการอยู่บ้าง']);
+  expect(await textOverlapIssues(page)).toEqual([]);
+});
+
+// Owner, 2026-10-27: the bell said 1 and there was nothing of theirs inside. That was the sample thread, shown while the
+// account's own notices had not arrived (or could not load). A real account now never sees the sample's count or cards.
+test('notifications bell: no sample count for a real account; the thread says it is loading, and opening it again retries', async ({ page }) => {
+  test.setTimeout(60_000);
+  let reads = 0;
+  await open(page, { routes: async target => {
+    await target.route('**/api/assistant?view=line', route => { reads += 1; return reads <= 3 ? route.fulfill({ status: 503, json: { error: 'ลองใหม่' } }) : route.fulfill({ json: REAL_INBOX }); });
+  } });
+  const bell = page.locator('.asx-bell');
+  await expect(bell).toHaveAttribute('aria-label', 'แจ้งเตือนอัตโนมัติ');
+  await expect(bell.locator('.asx-badge')).toHaveCount(0);
+  const row = page.locator('.asx-side-item.is-line');
+  await expect(row.locator('.asx-badge, .asx-side-tag')).toHaveCount(0);
+  await bell.click();
+  const thread = page.locator('.asx-thread');
+  await expect(thread.getByText('กำลังโหลดแจ้งเตือนของบัญชีนี้…')).toBeVisible();
+  await expect(page.locator('.asx-sample-banner')).toHaveCount(0);
+  await expect(thread.getByText('ตัวอย่าง', { exact: true })).toHaveCount(0);
+  // Three tries (now, after 3 s and after 10 s), then it says so; the bell still shows no count.
+  await expect(thread.getByText('โหลดแจ้งเตือนของบัญชีนี้ไม่สำเร็จ กรุณาเปิดใหม่อีกครั้ง')).toBeVisible({ timeout: 20_000 });
+  expect(reads).toBe(3);
+  await expect(bell.locator('.asx-badge')).toHaveCount(0);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  // Opening it again loads the account's own notices.
+  await row.click();
+  await expect(thread.getByText('ออกแบบโลโก้จริง').first()).toBeVisible();
+  await expect(thread.getByText('โหลดแจ้งเตือนของบัญชีนี้ไม่สำเร็จ กรุณาเปิดใหม่อีกครั้ง')).toHaveCount(0);
+  expect(reads).toBe(4);
+});

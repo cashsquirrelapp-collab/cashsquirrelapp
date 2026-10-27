@@ -8,7 +8,7 @@ import { tr, trc } from '../../i18n/tr';
 import { dateLocale } from '../../utils';
 import { AssistantRequestError, createSampleTransport, splitMemo, tokenLevel, type AssistantTransport } from './assistantApi';
 import { LINE_QUICK_REPLIES, arrivingNotice, dueDisplayText, laterReply, partialPrompt, receiptCard, type LineDueAction, type LineItem } from './lineMock';
-import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, afterReply, isPendingConfirm, poseFor, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
+import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, afterReply, sampleConversations, isPendingConfirm, poseFor, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
@@ -161,6 +161,23 @@ const keptStates = (messages: ChatMessage[]): Record<string, ConfirmState> => {
   return states;
 };
 
+/**
+ * A real account's notifications thread before its own notices arrive, or when they could not load: never the sample's
+ * reminders and its "1 unread" (owner, 2026-10-27: the bell said 1, and there was nothing of theirs inside).
+ */
+function awaitingInbox(list: Conversation[], failed: boolean): Conversation[] {
+  return list.map(conversation => (conversation.kind === 'line' && (conversation.sample || conversation.awaitingInbox)
+    ? { ...conversation, sample: false, awaitingInbox: true, unread: 0, messages: [{ id: 'line-awaiting', from: 'bot' as const, at: Date.now(), note: '',
+      text: failed ? tr("โหลดแจ้งเตือนของบัญชีนี้ไม่สำเร็จ กรุณาเปิดใหม่อีกครั้ง") : tr("กำลังโหลดแจ้งเตือนของบัญชีนี้…") }] }
+    : conversation));
+}
+
+/** A server that has no notifications thread for this account answers without one: the labelled sample comes back. */
+function sampleInbox(list: Conversation[]): Conversation[] {
+  const sample = sampleConversations(Date.now()).find(conversation => conversation.kind === 'line');
+  return sample ? list.map(conversation => (conversation.kind === 'line' && conversation.awaitingInbox ? { ...sample, id: conversation.id, title: conversation.title } : conversation)) : list;
+}
+
 function withInbox(list: Conversation[], inbox: LineInbox, openId: string | null): Conversation[] {
   const cards = (card: LineCardData) => [{ kind: 'line' as const, card }];
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
@@ -171,8 +188,8 @@ function withInbox(list: Conversation[], inbox: LineInbox, openId: string | null
     ...keptThread(inbox),
   ].sort((a, b) => a.at - b.at);
   const unreadToday = inbox.notices.filter(notice => notice.at >= startOfToday.getTime() && notice.id.startsWith('reminder-')).length;
-  return list.map(conversation => (conversation.kind === 'line' && conversation.sample
-    ? { ...conversation, sample: false, messages, unread: openId === conversation.id ? 0 : unreadToday }
+  return list.map(conversation => (conversation.kind === 'line' && (conversation.sample || conversation.awaitingInbox)
+    ? { ...conversation, sample: false, awaitingInbox: false, messages, unread: openId === conversation.id ? 0 : unreadToday }
     : conversation));
 }
 
@@ -214,6 +231,13 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   // The real notifications thread: what LINE sends this account (owner, 2026-10-24), loaded from the server.
   const [inbox, setInbox] = React.useState<LineInbox | null>(null);
   const inboxRef = React.useRef(inbox); inboxRef.current = inbox;
+  const lineInboxRef = React.useRef(lineInbox); lineInboxRef.current = lineInbox;
+  // The account's own notices: still loading, could not load, or the server has none for it (then the labelled sample).
+  const [inboxState, setInboxState] = React.useState<'loading' | 'failed' | 'absent' | 'ready'>('loading');
+  const inboxStateRef = React.useRef(inboxState); inboxStateRef.current = inboxState;
+  const inboxFailed = inboxState === 'failed';
+  /** Bumped to load the account's notices again (the thread opened after they could not load). */
+  const [inboxTry, setInboxTry] = React.useState(0);
   const [currentId, setCurrentId] = React.useState<string | null>(null);
   const [opening, setOpening] = React.useState(false);
   const [mode, setMode] = React.useState<AssistantMode>('greeting');
@@ -329,22 +353,42 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   React.useEffect(() => {
     let live = true;
     transport.conversations().then(list => {
-      if (live) setConversations(current => { const all = withCarried(list, current); return inboxRef.current ? withInbox(all, inboxRef.current, currentIdRef.current) : all; });
+      if (live) setConversations(current => {
+        const all = withCarried(list, current);
+        if (inboxRef.current) return withInbox(all, inboxRef.current, currentIdRef.current);
+        return lineInboxRef.current && inboxStateRef.current !== 'absent' ? awaitingInbox(all, inboxStateRef.current === 'failed') : all;
+      });
     }).catch(() => { if (live) setConversations(current => withCarried([], current)); });
     transport.balance().then(value => { if (live) setBalance(value); }).catch(() => {});
     return () => { live = false; abortRef.current?.abort(); for (const controller of confirmControllers.current) controller.abort(); };
   }, [transport]);
   React.useEffect(() => {
     setInbox(null);
+    setInboxState('loading');
     if (!lineInbox) return;
+    setConversations(list => (list ? awaitingInbox(list, false) : list));
     const controller = new AbortController();
-    lineInbox.load(controller.signal).then(data => {
-      if (!Array.isArray(data?.notices) || !data.quick?.unpaid) return;
+    let retry = 0;
+    // A slow or failed read is tried again twice (the database can stall for a while); then the thread says so.
+    const load = (attempt: number) => lineInbox.load(controller.signal).then(data => {
+      if (controller.signal.aborted) return;
+      if (!Array.isArray(data?.notices) || !data.quick?.unpaid) {
+        setInboxState('absent');
+        setConversations(list => (list ? sampleInbox(list) : list));
+        return;
+      }
       setConfirmStates(current => ({ ...keptStates(keptThread(data)), ...current }));
+      setInboxState('ready');
       setInbox(data);
-    }).catch(() => { /* the sample thread stays */ });
-    return () => controller.abort();
-  }, [lineInbox]);
+    }).catch(() => {
+      if (controller.signal.aborted) return;
+      if (attempt < 2) { retry = window.setTimeout(() => { void load(attempt + 1); }, [3000, 10000][attempt]); return; }
+      setInboxState('failed');
+      setConversations(list => (list ? awaitingInbox(list, true) : list));
+    });
+    void load(0);
+    return () => { controller.abort(); window.clearTimeout(retry); };
+  }, [lineInbox, inboxTry]);
   // Put the real notices into the thread whichever arrives last: the inbox, or a (re)loaded history (the
   // transport can change once the real เลขา turns on, and its history brings the thread's place back).
   React.useEffect(() => {
@@ -592,7 +636,11 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     setMode(m => (m === 'thinking' || m === 'working' || m === 'awaiting' ? 'awake' : m));
     setCurrentId(conversationId);
     setNewBelow(false);
-    if (conversationId === LINE_THREAD_ID) { setPush(null); setConversations(list => list?.map(conversation => (conversation.id === LINE_THREAD_ID ? { ...conversation, unread: 0 } : conversation)) ?? list); }
+    if (conversationId === LINE_THREAD_ID) {
+      setPush(null);
+      setConversations(list => list?.map(conversation => (conversation.id === LINE_THREAD_ID ? { ...conversation, unread: 0 } : conversation)) ?? list);
+      if (inboxFailed) setInboxTry(n => n + 1);
+    }
     atBottom.current = true;
     if (!wide) setSidebarOpen(false);
     const stored = conversationId ? conversations?.find(conversation => conversation.id === conversationId) : undefined;

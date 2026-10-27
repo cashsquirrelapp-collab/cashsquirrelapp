@@ -43,9 +43,11 @@ function Bars({ values, label }: { values: number[]; label: string }) {
 }
 
 export default function AdminDashboardPhone({
-  userId, triggerConfirm, data, loading, error, range, onRange, onRefresh, live, onBack, onRoleChanged, language,
+  userId, feedbackWaiting = null, triggerConfirm, data, loading, error, range, onRange, onRefresh, live, onBack, onRoleChanged, language,
 }: {
   userId: string;
+  /** บอกเรา conversations waiting for the team (useFeedbackWaiting), shown on the ข้อความจากผู้ใช้ row. */
+  feedbackWaiting?: number | null;
   triggerConfirm: Confirm;
   data: AdminAnalyticsSummary | null;
   loading: boolean;
@@ -63,7 +65,8 @@ export default function AdminDashboardPhone({
   const copy: Copy = (th, en) => (language === 'th' ? th : en);
   const lang = language === 'th' ? 0 : 1;
   const locale = language === 'th' ? 'th-TH' : 'en-US';
-  const [page, setPage] = useState<Page | null>(null);
+  // The LINE alert for a new บอกเรา message opens the inbox straight away (?view=feedback).
+  const [page, setPage] = useState<Page | null>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'feedback' ? 'feedback' : null));
   const [account, setAccount] = useState<AdminAnalyticsAccount | null>(null);
   const [query, setQuery] = useState('');
   const [plan, setPlan] = useState<AccountPlanStatus | 'all'>('all');
@@ -251,7 +254,7 @@ export default function AdminDashboardPhone({
       { key: 'payments', icon: 'receive', title: copy('รายได้และการชำระเงิน', 'Revenue and payments'), sub: copy('รายได้รายวัน · ประวัติการเติม Pro', 'Daily revenue · Pro payments'), needsData: true },
       { key: 'accounts', icon: 'users', title: copy('รายบัญชี', 'Accounts'), sub: totals ? copy(`${totals.accounts} บัญชี · ค้นหาและกรอง`, `${totals.accounts} accounts · search and filter`) : copy('ค้นหาและกรอง', 'Search and filter'), needsData: true },
       { key: 'features', icon: 'chart', title: copy('การใช้ฟีเจอร์', 'Feature usage'), sub: bestFeature ? copy(`${featureLabels[bestFeature.key][0]} ใช้มากสุด ${bestFeature.activeUsers} คน`, `${featureLabels[bestFeature.key][1]} leads with ${bestFeature.activeUsers}`) : copy('Free และ Pro ใช้อะไร', 'What Free and Pro use'), needsData: true },
-      { key: 'feedback', icon: 'chat', title: copy('ข้อความจากผู้ใช้', 'User feedback'), sub: copy('อ่านและตอบเรื่องที่ผู้ใช้ส่งมา', 'Read and answer what users sent') },
+      { key: 'feedback', icon: 'chat', title: copy('ข้อความจากผู้ใช้', 'User feedback'), sub: feedbackWaiting ? copy(`รอตอบ ${feedbackWaiting} เรื่อง · อ่านและตอบได้ที่นี่`, `${feedbackWaiting} waiting · read and answer here`) : copy('อ่านและตอบเรื่องที่ผู้ใช้ส่งมา', 'Read and answer what users sent') },
       { key: 'users', icon: 'shield', title: copy('จัดการผู้ใช้', 'Manage users'), sub: copy('สิทธิ์แอดมิน · ให้หรือยกเลิก Pro', 'Admin roles · grant or revoke Pro') },
       { key: 'groups', icon: 'briefcase', title: copy('จัดการทีม', 'Manage groups'), sub: copy('ทีม สมาชิก คำเชิญ และบทบาท', 'Groups, members, invitations, roles') },
     ];

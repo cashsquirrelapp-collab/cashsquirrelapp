@@ -63,6 +63,9 @@ type Props = {
 };
 
 const EXTRA_PROMPTS = [T("สรุปเดือนนี้"), T("รอรับเงิน"), T("กำลังดำเนินการ"), T("สรุปงานของวันนี้"), T("ตรวจงานที่ยังไม่ได้รับเงิน")];
+/** Short buttons that send a whole question, so เลขา and the bubble both read it as one (owner, 2026-10-27: "กำลังดำเนินการ"
+ *  means which jobs are in progress, not a status). */
+const PROMPT_ASKS: Record<string, string> = { 'กำลังดำเนินการ': T("มีงานไหนที่กำลังดำเนินการอยู่บ้าง"), 'รอรับเงิน': T("มีงานไหนที่ยังรอรับเงินอยู่บ้าง") };
 const PROMPT_ICONS: Record<string, typeof HelpCircle> = {
   [PAGE_HELP]: HelpCircle, 'สรุปเดือนนี้': BarChart3, 'รอรับเงิน': Wallet, 'ตรวจงานที่ยังไม่ได้รับเงิน': Wallet, 'กำลังดำเนินการ': Clock,
   'ช่วยเพิ่มงานใหม่ให้หน่อย': FolderPlus, 'สรุปงานของวันนี้': ListChecks, 'ใบเสนอราคาอยู่ตรงไหน': FileText,
@@ -474,7 +477,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                     <div className="asx-buddy-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
                       {prompts.map(prompt => {
                         const Icon = PROMPT_ICONS[prompt] ?? Sparkles;
-                        return <button key={prompt} type="button" onClick={() => { void send(tr(prompt)); if (!mobile) inputRef.current?.focus(); }}><span className="kfw-tile" aria-hidden="true"><Icon size={16} /></span><span>{tr(prompt)}</span><ChevronRight className="asx-buddy-go" size={17} aria-hidden="true" /></button>;
+                        return <button key={prompt} type="button" onClick={() => { void send(tr(PROMPT_ASKS[prompt] ?? prompt)); if (!mobile) inputRef.current?.focus(); }}><span className="kfw-tile" aria-hidden="true"><Icon size={16} /></span><span>{tr(prompt)}</span><ChevronRight className="asx-buddy-go" size={17} aria-hidden="true" /></button>;
                       })}
                     </div>
                   </div>
