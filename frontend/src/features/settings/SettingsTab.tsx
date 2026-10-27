@@ -17,6 +17,7 @@ import {
   ArrowLeft, Bell, Building2, FileSpreadsheet, CalendarClock, Clock3, Copy, Database, Download, ExternalLink, FileJson, FileText,
   Globe, Link2, LogOut, Mail, Monitor, Moon, PenLine, PiggyBank, Plus, RefreshCw, ShieldCheck, Sun, Target, Trash2,
   Upload, User, UserRound,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { Drawer } from '../../components/ui/Drawer';
 import { LineLogo } from '../../components/ui/LineLogo';
@@ -67,6 +68,8 @@ export type SettingsView = 'home' | 'profile' | 'security' | 'business' | 'fixed
 
 interface SettingsTabProps {
   fullFeatureAccess?: boolean;
+  /** Welcome Onboarding V1: change the first-sign-in answers (personal account only). */
+  onOpenOnboarding?: () => void;
   /** Excel import (computer and iPad): open it, and the imports that can still be undone. */
   onOpenImport?: () => void;
   recentImports?: ImportBatch[];
@@ -125,6 +128,7 @@ interface SettingsTabProps {
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
   fullFeatureAccess = false,
+  onOpenOnboarding,
   onOpenImport,
   recentImports = [],
   onUndoImport,
@@ -1117,6 +1121,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
                   <Section icon={UserRound} title={tr("บัญชี")} id="settings-account">
                     <NavRow icon={User} title={tr("ข้อมูลส่วนตัว")} desc={tr("ชื่อที่แสดง อีเมล และ User ID")} onClick={() => openView('profile')} />
+                    {onOpenOnboarding && <NavRow icon={BriefcaseBusiness} title={tr("เกี่ยวกับการทำงานของคุณ")} desc={tr("รูปแบบงาน สายงาน และเรื่องที่อยากให้ช่วย")} onClick={onOpenOnboarding} />}
                     <NavRow icon={ShieldCheck} title={tr("บัญชี & ความปลอดภัย")} desc={tr("อีเมลสำรอง การเข้าสู่ระบบ และการจัดการบัญชี")} onClick={() => openView('security')} />
                   </Section>
 

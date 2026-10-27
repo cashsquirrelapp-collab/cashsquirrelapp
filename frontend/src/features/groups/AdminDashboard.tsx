@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Search,
   UsersRound,
+  ClipboardList,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -36,6 +37,7 @@ import { secondary, type Confirm } from './groupUi';
 
 import { tr } from '../../i18n/tr';
 import { useFeedbackWaiting } from '../feedback/useFeedbackWaiting';
+import AdminOnboarding from './AdminOnboarding';
 const AdminUsersPanel = lazy(() => import('./AdminUsersPanel'));
 const GroupsTab = lazy(() => import('./GroupsTab'));
 const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
@@ -45,7 +47,7 @@ const AiCreditBanner = lazy(() => import('./AdminAiCredit').then(module => ({ de
 const AdminDashboardPhone = lazy(() => import('./AdminDashboardPhone'));
 const AdminPaymentReadiness = lazy(() => import('./AdminPaymentReadiness'));
 
-type View = 'overview' | 'product' | 'revenue' | 'profit' | 'customers' | 'feedback' | 'operations';
+type View = 'overview' | 'product' | 'revenue' | 'profit' | 'customers' | 'onboarding' | 'feedback' | 'operations';
 type OperationsPanel = 'users' | 'groups' | null;
 
 const surface = uiSurface;
@@ -311,6 +313,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
     { key: 'revenue', label: copy('รายได้ / Pro', 'Revenue / Pro'), icon: CircleDollarSign },
     { key: 'profit', label: copy('กำไรและต้นทุน AI', 'Profit and AI cost'), icon: Cpu },
     { key: 'customers', label: copy('รายบัญชี', 'Customers'), icon: UsersRound },
+    { key: 'onboarding', label: copy('ผู้ใช้ใหม่', 'New users'), icon: ClipboardList },
     { key: 'feedback', label: copy('ข้อความจากผู้ใช้', 'User feedback'), icon: MessageSquare },
     { key: 'operations', label: copy('จัดการระบบ', 'Operations'), icon: BriefcaseBusiness },
   ];
@@ -428,6 +431,8 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
             </div>
           )}
 
+          {/* Welcome Onboarding V1 (2026-10-28): who signs up, what they want, what each group really does. */}
+          {view === 'onboarding' && <AdminOnboarding data={data.onboarding} language={language} />}
           {view === 'customers' && (
             <section className={`${surface} overflow-hidden`}>
               <div className="border-b border-brand-border/60 p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="mt-1 text-base font-semibold">{copy('พฤติกรรมและมูลค่ารายบัญชี', 'Account behavior and value')}</h2><p className="mt-1 text-sm text-brand-muted">{filteredAccounts.length.toLocaleString(locale)} {copy('บัญชีที่ตรงกับตัวกรอง', 'matching accounts')}</p></div></div><div className="mt-5 grid gap-2 md:grid-cols-[minmax(240px,1fr)_180px_180px]"><label className="relative"><span className="sr-only">{copy('ค้นหาบัญชี', 'Search accounts')}</span><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={copy('ค้นหาชื่อ, Public ID, ประเภทงาน', 'Search name, public ID, work type')} className="ui-input pl-9" /></label><select aria-label={copy('กรองตามแพ็กเกจ', 'Filter by plan')} className="ui-input" value={planFilter} onChange={event => setPlanFilter(event.target.value as AccountPlanStatus | 'all')}><option value="all">{copy('ทุกแพ็กเกจ', 'All plans')}</option>{Object.entries(planLabels).map(([key, labels]) => <option key={key} value={key}>{labels[language === 'th' ? 0 : 1]}</option>)}</select><select aria-label={copy('กรองตามกลุ่มผู้ใช้', 'Filter by persona')} className="ui-input" value={personaFilter} onChange={event => setPersonaFilter(event.target.value as AccountPersona | 'all')}><option value="all">{copy('ทุกกลุ่มผู้ใช้', 'All personas')}</option>{Object.entries(personaLabels).map(([key, labels]) => <option key={key} value={key}>{labels[language === 'th' ? 0 : 1]}</option>)}</select></div></div>

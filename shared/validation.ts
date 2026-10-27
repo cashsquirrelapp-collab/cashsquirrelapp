@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isValidWhtRate } from './wht.js';
+import { onboardingRecordSchema } from './onboarding.js';
 export const entityTables = ['cashflow_jobs','cashflow_expenses','cashflow_goals','cashflow_invoices','cashflow_documents'] as const;
 const id=z.string().min(1).max(128).refine(value=>!['__proto__','prototype','constructor'].includes(value));
 const money=z.number().finite().min(0).max(1_000_000_000_000);
@@ -16,7 +17,7 @@ const expense=z.object({id,name:z.string().min(1).max(500),amount:money,category
 const goal=z.object({id,name:z.string().min(1).max(500),target:money,current:money,history:z.array(z.object({id,type:z.enum(['deposit','withdraw']),amount:money,date:text,reason:text}).passthrough()).max(10000).optional()}).passthrough();
 const profile=z.object({name:text,address:text,phone:text,email:text,taxId:text,bankName:text,bankAccount:text,bankAccountName:text,logoUrl:z.string().max(500000).optional(),signatureUrl:z.string().max(500000).optional(),logoHeight:z.number().min(20).max(300).optional(),logoPosition:z.enum(['left','center','right','custom']).optional(),logoOffset:z.number().min(0).max(100).optional(),website:text.optional()});
 const invoice=z.object({id,documentType:z.enum(['invoice','receipt','quotation','taxInvoice','receiptTaxInvoice']),documentNo:text,createdDate:text,issuer:profile,client:z.object({name:text,address:text,phone:text,email:text,taxId:text,contactName:text.optional(),code:text.optional(),branch:text.optional()}),items:z.array(z.object({id,description:text,quantity:money,price:money,discount:money.optional(),unit:text.optional(),detail:text.optional()})).max(1000),vatRate:z.number().min(0).max(100),whtRate:z.number().min(0).max(100)}).passthrough();
-const settings=z.object({monthlyExpense:money,monthlyRevenueGoal:money,savingsPercentage:z.number().min(0).max(100),fixedExpenseItems:z.array(z.object({id,name:text,amount:money})).max(1000).optional(),cashOpening:z.object({amount:z.number().finite().min(-1e12).max(1e12),createdAt:z.string().max(40),updatedAt:z.string().max(40)}).strict().optional()}).passthrough();
+const settings=z.object({monthlyExpense:money,monthlyRevenueGoal:money,savingsPercentage:z.number().min(0).max(100),fixedExpenseItems:z.array(z.object({id,name:text,amount:money})).max(1000).optional(),cashOpening:z.object({amount:z.number().finite().min(-1e12).max(1e12),createdAt:z.string().max(40),updatedAt:z.string().max(40)}).strict().optional(),onboarding:onboardingRecordSchema.optional()}).passthrough();
 const documentSchemas:Record<string,z.ZodType>={
  settings,statuses:z.array(z.object({id,label:text,behavior:z.enum(['done','partial','pending'])})).max(1000),job_types:z.array(z.string().max(500)).max(1000),
  notif_settings:notificationPreferences,avatar_data_url:z.union([z.literal(''),z.string().max(500000).regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/),z.null()]),issuer_profile:profile

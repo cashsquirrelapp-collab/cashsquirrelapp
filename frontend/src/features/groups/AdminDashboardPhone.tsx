@@ -17,8 +17,9 @@ import type { Confirm } from './groupUi';
 const AdminUsersPanel = lazy(() => import('./AdminUsersPanel'));
 const GroupsTab = lazy(() => import('./GroupsTab'));
 const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
+import AdminOnboarding from './AdminOnboarding';
 
-type Page = 'payments' | 'accounts' | 'features' | 'feedback' | 'users' | 'groups';
+type Page = 'payments' | 'accounts' | 'features' | 'onboarding' | 'feedback' | 'users' | 'groups';
 type Copy = (th: string, en: string) => string;
 
 const baht = (minor: number) => formatCurrency(minor / 100);
@@ -228,6 +229,20 @@ export default function AdminDashboardPhone({
         )}
       </>
     );
+  } else if (page === 'onboarding') {
+    // Welcome Onboarding V1 (2026-10-28): the same answers and groups as on the computer, as cards.
+    const ob = data?.onboarding;
+    body = (
+      <>
+        <MobilePageHero key="onboarding" title={copy('ผู้ใช้ใหม่', 'New users')} {...back} actions={actions} box={{
+          label: copy('แบบสอบถามตอนสมัคร', 'Sign-up questionnaire'), icon: 'target', amount: ob ? (ob.completed + ob.skipped).toLocaleString(locale) : '—', region: copy('สรุปแบบสอบถาม', 'Questionnaire summary'),
+          detail: !ob ? pending : <p>{copy(`ตอบครบ ${ob.completed} · ข้าม ${ob.skipped} · ยังไม่ได้ตอบ ${ob.pending}`, `${ob.completed} completed · ${ob.skipped} skipped · ${ob.pending} not yet`)}</p>,
+        }} />
+        {rangeSwitch}
+        {failed}
+        {data && <div className="ksm-admin-onboarding"><AdminOnboarding data={data.onboarding} language={language} mobile /></div>}
+      </>
+    );
   } else if (page === 'feedback' || page === 'users' || page === 'groups') {
     const titles: Record<'feedback' | 'users' | 'groups', string> = {
       feedback: copy('ข้อความจากผู้ใช้', 'User feedback'), users: copy('จัดการผู้ใช้', 'Manage users'), groups: copy('จัดการทีม', 'Manage groups'),
@@ -254,6 +269,7 @@ export default function AdminDashboardPhone({
       { key: 'payments', icon: 'receive', title: copy('รายได้และการชำระเงิน', 'Revenue and payments'), sub: copy('รายได้รายวัน · ประวัติการเติม Pro', 'Daily revenue · Pro payments'), needsData: true },
       { key: 'accounts', icon: 'users', title: copy('รายบัญชี', 'Accounts'), sub: totals ? copy(`${totals.accounts} บัญชี · ค้นหาและกรอง`, `${totals.accounts} accounts · search and filter`) : copy('ค้นหาและกรอง', 'Search and filter'), needsData: true },
       { key: 'features', icon: 'chart', title: copy('การใช้ฟีเจอร์', 'Feature usage'), sub: bestFeature ? copy(`${featureLabels[bestFeature.key][0]} ใช้มากสุด ${bestFeature.activeUsers} คน`, `${featureLabels[bestFeature.key][1]} leads with ${bestFeature.activeUsers}`) : copy('Free และ Pro ใช้อะไร', 'What Free and Pro use'), needsData: true },
+      { key: 'onboarding', icon: 'target', title: copy('ผู้ใช้ใหม่', 'New users'), sub: data?.onboarding ? copy(`ตอบแบบสอบถาม ${data.onboarding.completed + data.onboarding.skipped} บัญชี · กลุ่มอาชีพและสิ่งที่ใช้จริง`, `${data.onboarding.completed + data.onboarding.skipped} answered · groups and what they use`) : copy('กลุ่มอาชีพและสิ่งที่ใช้จริง', 'Groups and what they use'), needsData: true },
       { key: 'feedback', icon: 'chat', title: copy('ข้อความจากผู้ใช้', 'User feedback'), sub: feedbackWaiting ? copy(`รอตอบ ${feedbackWaiting} เรื่อง · อ่านและตอบได้ที่นี่`, `${feedbackWaiting} waiting · read and answer here`) : copy('อ่านและตอบเรื่องที่ผู้ใช้ส่งมา', 'Read and answer what users sent') },
       { key: 'users', icon: 'shield', title: copy('จัดการผู้ใช้', 'Manage users'), sub: copy('สิทธิ์แอดมิน · ให้หรือยกเลิก Pro', 'Admin roles · grant or revoke Pro') },
       { key: 'groups', icon: 'briefcase', title: copy('จัดการทีม', 'Manage groups'), sub: copy('ทีม สมาชิก คำเชิญ และบทบาท', 'Groups, members, invitations, roles') },

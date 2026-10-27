@@ -155,6 +155,18 @@ card does not need:
 - Inputs and selects: radius 10, min-height 42, hairline border, 16px text on phones (no iOS zoom).
 - Labels above fields; helper text muted; errors in expense red next to the field, saying how to fix it.
 
+### Welcome Onboarding (owner brief, 2026-10-28)
+
+- Four questions after the first sign-in of a new account (`WelcomeOnboarding.tsx`, `shared/onboarding.ts`): the name
+  เลขา uses (saved as the account's name), work type (one), occupations (several, "อื่น ๆ" opens a box), what Krarok
+  should help with (several; "ยังไม่แน่ใจ อยากลองใช้ก่อน" stands alone). None is required.
+- Computers and iPads: a level-4 dialog, 540px, radius 20, solid white on a frosted scrim. Phones: the whole screen,
+  back and next fixed at the bottom (next last), 16px inputs.
+- The top: "1/4" and a four-part bar; "ข้ามก่อน" as a quiet text button at the right (from Settings: a round ปิด).
+- Choices are one grey group of rows with a tick on the right: round for one choice, rounded square for several; the
+  picked tick is solid orange. One orange action at the bottom (ถัดไป, then เริ่มใช้งาน or บันทึก).
+- Answers keep stable IDs; labels can change. Never put the nickname on documents.
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

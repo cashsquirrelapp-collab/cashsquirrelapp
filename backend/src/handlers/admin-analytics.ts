@@ -10,6 +10,7 @@ import type {
   AnalyticsRange,
 } from '../../../shared/adminAnalytics.js';
 import { USAGE_FEATURE_KEYS, type UsageFeatureKey } from '../../../shared/usageAnalytics.js';
+import { onboardingAnalytics } from '../../../shared/onboarding.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { sessionSecret } from '../config/env.js';
 import { HttpError, withGuard } from '../http/guard.js';
@@ -117,6 +118,16 @@ export default withGuard(async (req, res) => {
     loadAll<AnalyticsCardCycleRow>((from, to) => db.from('cashflow_card_cycles').select('invoice_id,payment_id,user_id,refunded,cashflow_prepaid_orders!inner(livemode)').eq('cashflow_prepaid_orders.livemode', true).order('period_start', { ascending: false }).range(from, to) as never),
   ]);
   const payments = await analyticsPayments(legacyPayments, promptPayPayments, invoiceEvents, subscriptions, { prepaid, cardCycles });
+  // Welcome Onboarding V1 (2026-10-28): what each account really did, counted from its own records (who made a job,
+  // a document, an expense, asked เลขา): only how many, never what they hold. The page shows groups, not people.
+  const owners = (table: 'cashflow_jobs' | 'cashflow_invoices' | 'cashflow_expenses') =>
+    loadAll<{ user_id: string }>((from, to) => db.from(table).select('user_id').order('user_id').range(from, to) as never).catch(() => [] as { user_id: string }[]);
+  const [jobOwners, documentOwners, expenseOwners, aiAskers] = await Promise.all([
+    owners('cashflow_jobs'), owners('cashflow_invoices'), owners('cashflow_expenses'),
+    loadAll<{ user_id: string }>((from, to) => db.from('cashflow_ai_usage').select('user_id').eq('status', 'settled').order('created_at').range(from, to) as never).catch(() => [] as { user_id: string }[]),
+  ]);
+  const tally = (rows: { user_id: string }[]) => { const counts = new Map<string, number>(); for (const row of rows) counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1); return counts; };
+  const [jobsBy, documentsBy, expensesBy, aiBy] = [tally(jobOwners), tally(documentOwners), tally(expenseOwners), tally(aiAskers)];
 
   const now = Date.now();
   const profilesById = new Map(profiles.map(profile => [profile.user_id, profile] as const));
@@ -269,6 +280,16 @@ export default withGuard(async (req, res) => {
       averageRevenuePerPayer: currentPayerIds.size ? revenue / currentPayerIds.size : 0,
     },
     daily, features, personas, accounts, payments: paymentHistory,
+    onboarding: onboardingAnalytics(accounts.map(account => ({
+      createdAt: account.createdAt,
+      onboarding: (settingsById.get(account.userId) as { onboarding?: unknown } | undefined)?.onboarding ?? null,
+      behavior: {
+        project_created: jobsBy.get(account.userId) ?? 0, document_created: documentsBy.get(account.userId) ?? 0,
+        expense_created: expensesBy.get(account.userId) ?? 0, ai_message_sent: aiBy.get(account.userId) ?? 0,
+        pro_subscription_activated: account.paymentCount > 0 || ['pro', 'admin'].includes(account.planStatus),
+        active_days: account.activeDays,
+      },
+    }))),
   };
   res.json(result);
 });

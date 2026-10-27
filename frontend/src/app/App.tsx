@@ -36,6 +36,9 @@ const AssistantBuddy = lazy(() => import('../features/assistant/AssistantBuddy')
 const FlexDisplay = lazy(() => import('../features/flex/FlexDisplay'));
 // The squirrel's arrival: only right after a payment for Pro is confirmed (owner, 2026-10-23: "ขึ้นเฉพาะตอนที่เพิ่งเติมโปรเสร็จ").
 const AssistantBirth = lazy(() => import('../features/assistant/AssistantBirth'));
+const WelcomeOnboarding = lazy(() => import('../features/onboarding/WelcomeOnboarding'));
+import type { OnboardingResult } from '../features/onboarding/WelcomeOnboarding';
+import { jobTypesForOccupations, onboardingRecord, personaForWorkType, shouldShowOnboarding, type OnboardingStatus } from '../../../shared/onboarding';
 const loadDashboardTab = () => import('../features/dashboard/DashboardTab');
 const loadAdminDashboardTab = () => import('../features/groups/AdminDashboard');
 const loadJobsTab = () => import('../features/jobs/JobsTab');
@@ -1369,6 +1372,10 @@ export default function App() {
     return () => { controller.abort(); window.clearTimeout(retry); };
   }, [assistantUserId, financeGroupId]);
   const [birthOpen, setBirthOpen] = useState(false);
+  // Welcome Onboarding V1 (owner brief, 2026-10-28): the four questions after the first sign-in of a new account, once
+  // its own settings have loaded (so an answered account never sees it flash); and from Settings to change the answers.
+  const [onboardingEdit, setOnboardingEdit] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
   const [buddyArrival, setBuddyArrival] = useState(0);
   // Only right after paying: set when the server confirms the payment, played once its "สมัครสมาชิกสำเร็จ!" message
   // is closed, so the two never sit on top of each other. Ordinary visits, the trial and renewals never play it.
@@ -2601,6 +2608,29 @@ export default function App() {
     }
   };
 
+  const onboardingFirst = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner && !onboardingDone && !birthOpen
+    && shouldShowOnboarding({ createdAt: session?.user?.created_at, onboarding: settings.onboarding, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId) });
+  /** Keeps the answers in the account's settings (and the name as the account's name, the one เลขา uses), and lets
+   *  them do what the old setup did: the work type sets the menu's default grouping, the occupations add job types. */
+  const saveOnboarding = async (result: OnboardingResult, status: OnboardingStatus) => {
+    const userId = session?.user?.id;
+    if (!userId || session?.isGuest) return;
+    if (result.name && result.name !== routeContext?.profile.displayName) {
+      const profile = await apiJson<PublicProfile>('/api/profile', { method: 'POST', headers: { 'X-Account-ID': userId }, body: JSON.stringify({ displayName: result.name }) });
+      window.dispatchEvent(new CustomEvent('cash-squirrel:profile-updated', { detail: profile }));
+    }
+    const previous = settings.onboarding;
+    // A skipped questionnaire finished later from Settings becomes COMPLETED; a completed one stays completed.
+    const kept: OnboardingStatus = status === 'SKIPPED' && previous?.status === 'COMPLETED' ? 'COMPLETED' : status;
+    const record = onboardingRecord(result.answers, kept, new Date(), previous, result.skippedAtStep);
+    const persona = personaForWorkType(result.answers.workType);
+    handleUpdateSettings({ ...settings, onboarding: record, profileSetupCompleted: true, ...(persona ? { userPersona: persona } : {}) });
+    const extra = jobTypesForOccupations(result.answers.occupations, jobTypes);
+    if (extra.length) setJobTypes(prev => [...prev, ...extra.filter(type => !prev.includes(type))]);
+    setOnboardingDone(true);
+    setOnboardingEdit(false);
+  };
+
   const handleUpdateSettings = (newSettings: AppSettings) => {
     // Older snapshots may carry accumulatedRemainder, but that value mirrors money already
     // included in the live net-profit calculation. Retire it on the next ordinary settings write
@@ -3415,6 +3445,7 @@ export default function App() {
               {activeTab === 'settings' && (
                 <SettingsTab
                   onMobileBack={openPhoneMenu}
+                  onOpenOnboarding={!session?.isGuest && !financeGroupId ? () => setOnboardingEdit(true) : undefined}
                   onOpenImport={() => setIsImportOpen(true)}
                   recentImports={recentImports(jobs, expenses)}
                   onUndoImport={batchId => triggerConfirm(tr("ยกเลิกการนำเข้านี้"), tr("งานและรายจ่ายที่นำเข้าจากไฟล์นี้จะถูกนำออก และรายการที่ไฟล์นี้อัปเดตจะกลับเป็นค่าเดิม ข้อมูลอื่นไม่เปลี่ยน"), () => handleUndoImport(batchId))}
@@ -3643,7 +3674,14 @@ export default function App() {
         </AnimatePresence>
 
         {/* The new-member questionnaire (นักเรียน / ฟรีแลนซ์ …) was removed on 2026-10-23 (owner: "เราจะรื้อแล้วเราจะทำใหม่").
-            features/onboarding/ProfileSetupWizard.tsx is no longer rendered; it stays only as a reference for the redo. */}
+            Its redo is Welcome Onboarding V1 (2026-10-28) below; ProfileSetupWizard.tsx stays unused, as a reference. */}
+        {(onboardingFirst || onboardingEdit) && session?.user && !session.isGuest && (
+          <Suspense fallback={null}>
+            <WelcomeOnboarding mode={onboardingEdit ? 'edit' : 'first'} mobile={isPhone} accountName={routeContext?.profile.displayName ?? ''}
+              previous={settings.onboarding ?? null} onFinish={result => saveOnboarding(result, 'COMPLETED')} onSkip={result => saveOnboarding(result, 'SKIPPED')}
+              onClose={() => setOnboardingEdit(false)} />
+          </Suspense>
+        )}
 
         <MascotToast />
       </div>

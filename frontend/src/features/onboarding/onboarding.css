@@ -1,0 +1,89 @@
+/* Welcome Onboarding V1 (owner brief, 2026-10-28). DESIGN.md: a level-4 dialog (solid white surface) on a frosted
+   scrim (the only glass), one orange action, the choices as a grouped list with ticks as in เลขา's question cards,
+   Thai line height 1.45+, 16px inputs on phones. Phones: the whole screen, the actions fixed at the bottom. */
+.wob-scrim { position: fixed; inset: 0; z-index: 240; display: grid; place-items: center; padding: 24px;
+  background: rgba(28, 25, 23, 0.32); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%); }
+.dark .wob-scrim { background: rgba(0, 0, 0, 0.55); }
+.wob { display: flex; flex-direction: column; width: min(540px, 100%); max-height: min(720px, calc(100vh - 48px)); overflow: hidden;
+  border-radius: 20px; background: var(--white); color: var(--text);
+  box-shadow: 0 24px 60px rgba(28, 25, 23, 0.22), 0 0 0 1px rgba(28, 25, 23, 0.06); }
+.dark .wob { background: #1F2023; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.07); }
+
+.wob-head { display: flex; align-items: center; gap: 16px; min-height: 64px; padding: 16px 20px 8px 28px; }
+.wob-progress { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; }
+.wob-count { flex: none; color: var(--muted); font-size: 13px; font-weight: 500; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.wob-bar { display: grid; flex: 1; grid-template-columns: repeat(4, 1fr); gap: 6px; max-width: 220px; }
+.wob-bar i { height: 4px; border-radius: 999px; background: var(--border); transition: background 0.25s ease; }
+.wob-bar i.is-on { background: var(--blue-acc); }
+.wob-skip { flex: none; min-height: 40px; padding: 0 12px; border-radius: 10px; color: var(--muted); font-size: 14px; font-weight: 500; line-height: 1.45; cursor: pointer; }
+.wob-skip:hover:not(:disabled) { background: var(--faint); color: var(--text); }
+.wob-close { display: grid; flex: none; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(118, 118, 128, 0.12); color: var(--text); cursor: pointer; }
+.wob-close:hover:not(:disabled) { background: rgba(118, 118, 128, 0.2); }
+.wob-skip:disabled, .wob-close:disabled { cursor: default; opacity: 0.6; }
+
+.wob-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 28px 8px; overscroll-behavior: contain; }
+.wob-step { padding-bottom: 8px; }
+.wob-hello { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+.wob-mascot { display: block; flex: none; line-height: 0; }
+.wob-eyebrow { margin: 0; color: #C24A16; font-size: 14px; font-weight: 600; line-height: 1.45; }
+.dark .wob-eyebrow { color: #FFA473; }
+.wob-title { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.45; }
+.wob-sub { margin: 4px 0 18px; color: var(--muted); font-size: 14.5px; font-weight: 400; line-height: 1.6; }
+
+.wob-field-label { display: block; margin: 0 0 6px; font-size: 13.5px; font-weight: 500; line-height: 1.45; }
+.wob-field .ui-input { width: 100%; }
+.wob-note { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.wob-note.is-error { color: #C43A3A; }
+.dark .wob-note.is-error { color: #F19A9A; }
+
+/* The choices: one grey group of rows, a tick on the right (round for one choice, rounded square for several). */
+.wob-group { margin: 0; padding: 4px 0; overflow: hidden; border-radius: 14px; background: var(--faint); list-style: none; }
+.dark .wob-group { background: #2A2B2F; }
+.wob-group li + li .wob-row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--border); }
+.dark .wob-group li + li .wob-row::before { background: #34353A; }
+.wob-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 10px 14px 10px 16px; cursor: pointer; }
+.wob-row:hover { background: rgba(28, 25, 23, 0.03); }
+.dark .wob-row:hover { background: rgba(255, 255, 255, 0.04); }
+.wob-input { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.wob-label { flex: 1; min-width: 0; font-size: 15px; font-weight: 400; line-height: 1.5; }
+.wob-label small { display: block; margin-top: 1px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.wob-row.is-picked .wob-label { font-weight: 500; }
+.wob-tick { display: grid; flex: none; place-items: center; width: 22px; height: 22px; border: 1.5px solid #C9C4BE; color: #fff; transition: background 0.15s ease, border-color 0.15s ease; }
+.wob-tick.is-radio { border-radius: 50%; }
+.wob-tick.is-check { border-radius: 7px; }
+.dark .wob-tick { border-color: #5A5B60; }
+.wob-row.is-picked .wob-tick { border-color: var(--blue-acc); background: var(--blue-acc); }
+.wob-input:focus-visible + .wob-label + .wob-tick { box-shadow: 0 0 0 3px rgba(230, 95, 43, 0.3); }
+.wob-other { margin-top: 10px; }
+.wob-other .ui-input { width: 100%; }
+
+.wob-error { display: flex; align-items: center; gap: 6px; margin: 4px 0 8px; color: #C43A3A; font-size: 13.5px; line-height: 1.5; }
+.dark .wob-error { color: #F19A9A; }
+
+.wob-foot { padding: 12px 28px 22px; border-top: 1px solid var(--border); }
+.dark .wob-foot { border-top-color: #34353A; }
+.wob-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.wob-back-space { flex: 1; }
+.wob-back { min-width: 108px; }
+.wob-next { min-width: 140px; }
+
+/* Phones: the whole screen; the actions stay at the bottom, back and next side by side, next last (closest to the
+   thumb); 16px inputs, so iOS does not zoom. */
+.wob-scrim.is-phone { padding: 0; place-items: stretch; background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.wob.is-phone { width: 100%; max-height: none; height: 100%; border-radius: 0; box-shadow: none; background: var(--bg); }
+.dark .wob.is-phone { background: var(--bg); }
+.wob.is-phone .wob-head { min-height: 56px; padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 4px 20px; }
+.wob.is-phone .wob-bar { max-width: none; }
+.wob.is-phone .wob-body { padding: 10px 16px 12px; }
+.wob.is-phone .wob-title { font-size: 21px; }
+.wob.is-phone .wob-group { background: var(--white); box-shadow: 0 0 0 1px var(--border); }
+.dark .wob.is-phone .wob-group { background: #212226; box-shadow: 0 0 0 1px #34353A; }
+.wob.is-phone .wob-row { min-height: 52px; }
+.wob.is-phone .ui-input { font-size: 16px; min-height: 46px; }
+.wob.is-phone .wob-foot { padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg); }
+.wob.is-phone .wob-actions { gap: 10px; }
+.wob.is-phone .wob-back-space { display: none; }
+.wob.is-phone .wob-back, .wob.is-phone .wob-next { flex: 1; min-width: 0; min-height: 48px; font-size: 15px; }
+.wob.is-phone .wob-back { flex: 0 0 38%; }
+
+@media (prefers-reduced-motion: reduce) { .wob-bar i, .wob-tick { transition: none; } }

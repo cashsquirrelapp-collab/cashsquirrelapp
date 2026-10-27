@@ -60,6 +60,11 @@ before(async () => {
       return json([]);
     }
     if (['subscriptions', 'cashflow_usage_daily', 'cashflow_documents', 'cashflow_promptpay_payments', 'cashflow_stripe_events'].some(table => url.pathname.endsWith(`/${table}`))) return json([]);
+    // Welcome Onboarding V1 (2026-10-28): who made a job, a document, an expense, asked เลขา; only the owner column is read.
+    if (['cashflow_jobs', 'cashflow_invoices', 'cashflow_expenses', 'cashflow_ai_usage'].some(table => url.pathname.endsWith(`/${table}`))) {
+      assert.equal(url.searchParams.get('select'), 'user_id');
+      return json([]);
+    }
     throw new Error(`Unexpected mock endpoint ${url.pathname}`);
   };
   server = await new Promise<Server>(resolve => {
@@ -104,7 +109,9 @@ test('verified owner can receive analytics and its financial fields', async () =
   assert.equal(body.totals.revenue, 14900);
   assert.equal(body.payments[0].amount, 14900);
   assert.equal(body.accounts[0].totalSpent, 14900);
-  assert.equal(privateReads, 9);
+  // 9 reads, and 4 for the onboarding groups (jobs, documents, expenses, เลขา use: the owner column only).
+  assert.equal(privateReads, 13);
+  assert.deepEqual([body.onboarding.eligible, body.onboarding.completed], [0, 0]);
 });
 
 test('live prepaid QR updates dashboard revenue, payer history and account spending without a legacy ledger entry', async () => {

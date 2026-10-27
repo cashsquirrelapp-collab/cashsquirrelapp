@@ -1,4 +1,5 @@
 import type { UsageFeatureKey } from './usageAnalytics.js';
+import type { OnboardingAnalytics } from './onboarding.js';
 
 export type AnalyticsRange = 7 | 30 | 90;
 export type AccountPlanStatus = 'pro' | 'admin' | 'trial' | 'free' | 'expired';
@@ -52,6 +53,8 @@ export interface AdminAnalyticsSummary {
   }[];
   accounts: AdminAnalyticsAccount[];
   payments: AdminAnalyticsPayment[];
+  /** Welcome Onboarding V1: who signs up, what they want, and what each group does (counts only). */
+  onboarding?: OnboardingAnalytics;
 }
 
 export interface AdminAnalyticsAccount {
