@@ -630,7 +630,7 @@ test('custom card uses CI fonts and disclosed button consent without a save chec
  });
  await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน',exact:true}).click();
  await expect(page.getByText('Secure card fields')).toBeVisible();
- const auto=page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/});
+ const auto=page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/});
  await expect(auto).not.toBeChecked();
  await expect(page.getByRole('checkbox',{name:/จำบัตรไว้ใช้ครั้งหน้า/})).toHaveCount(0);
  await expect(page.getByText(/เมื่อกดยืนยันชำระ คุณยินยอมให้ Stripe บันทึกบัตร/)).toBeVisible();
@@ -685,7 +685,7 @@ test('ticking the renewal consent is instant and never prepares another payment'
  });
  await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน',exact:true}).click();
  await expect(page.getByText('Secure card fields')).toBeVisible();
- const auto=page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/});
+ const auto=page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/});
  for(let i=0;i<4;i++){await auto.click();}
  await expect(auto).not.toBeChecked();
  await auto.check();await expect(auto).toBeChecked({timeout:250});
@@ -715,7 +715,7 @@ test('failed renewal preparation keeps the choice, blocks payment and reconciles
  });
  await page.getByTestId('pro-card').getByRole('button',{name:'สมัคร Pro รายเดือน',exact:true}).click();
  await expect(page.getByText('Secure card fields')).toBeVisible();
- const auto=page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/});
+ const auto=page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/});
  await expect(page.getByRole('alert')).toContainText('ตัวเลือกของคุณยังอยู่');
  await auto.check();
  await expect(auto).toBeChecked();await expect(auto).toBeEnabled();
@@ -758,7 +758,7 @@ test('card SDK loads during server preparation and fields mount before confirmat
  await expect(pay).toBeDisabled();
  await page.evaluate(()=>(window as any).__releaseCardActions());
  await expect(pay).toBeDisabled(); // ready, but waiting for the renewal consent
- await page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/}).check();
+ await page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/}).check();
  await expect(pay).toBeEnabled();
 });
 
@@ -819,7 +819,7 @@ for(const period of ['month','halfYear','year']) {
  test(`wallet waits for the renewal consent, then uses native authorization exactly once for ${period}`,async({page})=>{
   test.skip(!PRO_CHECKOUT_OPEN[period as ProPeriod],'6 months and a year are hidden for now (owner, 2026-10-25: monthly only)');
   const writes=await openWalletCheckout(page,period);
-  const consent=page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/});
+  const consent=page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/});
   await expect(consent).not.toBeChecked();
   await expect(page.getByTestId('wallet-buttons')).toHaveAttribute('inert','');
   await consent.check();
@@ -833,13 +833,13 @@ for(const period of ['month','halfYear','year']) {
 }
 test('wallet thrown failure releases the payment control, hides confidential errors and allows retry',async({page})=>{
  await openWalletCheckout(page);
- await page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/}).check();
+ await page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/}).check();
  await page.evaluate(()=>{(window as any).__walletMode='throw'});
  await page.getByRole('button',{name:'Google Pay test',exact:true}).click();
  await expect(page.getByRole('alert')).toContainText('ยืนยันผ่านกระเป๋าเงินไม่สำเร็จ');
  await expect(page.getByRole('alert')).not.toContainText('cs_hidden_secret');
  await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toHaveCount(0);
- await expect(page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/})).toBeEnabled();
+ await expect(page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/})).toBeEnabled();
  await page.evaluate(()=>{(window as any).__walletMode='success'});
  await page.getByRole('button',{name:'Google Pay test',exact:true}).click();
  await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toBeVisible();
@@ -849,7 +849,7 @@ test('wallet unavailable never presents a blank Google Pay tab and leaves the ca
  await openWalletCheckout(page);
  await expect(page.getByTestId('wallet-buttons')).toBeHidden();
  await expect(page.getByText('Google Pay / Apple Pay ยังไม่พร้อมในเบราว์เซอร์นี้ ใช้ช่องกรอกบัตรด้านบนได้')).toBeVisible();
- await page.getByRole('checkbox',{name:/ยินยอมต่ออายุ/}).check();
+ await page.getByRole('checkbox',{name:/ยินยอมให้ต่ออายุ/}).check();
  await expect(page.getByRole('button',{name:'ยืนยันชำระ ฿177 และบันทึกบัตร',exact:true})).toBeEnabled();
 });
 
@@ -937,10 +937,14 @@ test('the monthly card renewal consent (v4) names ฿177 until 30 Nov and ฿271
       orderId: 'test-v4', clientSecret: 'cs_card_secret_v4', publishableKey: 'pk_test_card', expiresAt: new Date(Date.now() + 45 * 60_000).toISOString() } }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByTestId('pro-card').getByRole('button', { name: 'สมัคร Pro รายเดือน', exact: true }).click();
-  const consent = page.getByRole('checkbox', { name: /ยินยอมต่ออายุ/ });
+  const consent = page.getByRole('checkbox', { name: /ยินยอมให้ต่ออายุ/ });
   await expect(consent).toBeVisible();
   const label = page.locator('label', { has: consent });
-  await expect(label).toContainText('฿177/เดือน (ราคา ฿159 + ค่าธรรมเนียมชำระเงิน ฿18) ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿271/เดือน (ราคา ฿249 + ค่าธรรมเนียมชำระเงิน ฿22)');
+  // The owner's sentence (2026-10-27); the amounts are shown just above it: today's price and fee, and the next round.
+  await expect(label).toHaveText('ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติทุกเดือนตามราคาที่กำหนด จนกว่าจะยกเลิก');
+  const dialog = page.locator('[role="dialog"]');
+  await expect(dialog).toContainText('฿159');
+  await expect(dialog).toContainText('฿18');
   // The next renewal (10 Dec) is after 1 Dec: it says ฿271.
   await expect(page.getByText(/รอบถัดไป ฿271 ทุกเดือน/)).toBeVisible();
   if (process.env.SHOT_DIR) await page.locator('[role="dialog"]').screenshot({ path: path.join(process.env.SHOT_DIR, 'card-consent-v4-390.png') });

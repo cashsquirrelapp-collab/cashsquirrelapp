@@ -12,6 +12,15 @@ export const CARD_CONSENT_VERSION = 'krarok-card-20261025-v4';
 export const ACCEPTED_CARD_CONSENT_VERSIONS: readonly string[] = ['krarok-card-20261021-v1', 'krarok-card-20261021-v2', 'krarok-card-20261024-v3', CARD_CONSENT_VERSION];
 export const CARD_SAVE_DISCLOSURE_VERSION = 'krarok-card-save-20261021-v2';
 export const CARD_SAVE_DISCLOSURE = 'เมื่อกดยืนยันชำระ คุณยินยอมให้ Stripe บันทึกบัตรเพื่อใช้ชำระครั้งถัดไป การบันทึกบัตรไม่ใช่การยินยอมให้ตัดเงินอัตโนมัติ';
+// The sentence beside the checkbox (owner, 2026-10-27: "ใช้ประโยคนี้แทน"): the amounts are shown just above it (the
+// amount due now, its price and fee, and the next round). Still v4: renewals and the database checks depend on the
+// version, not the wording, and the record kept with each checkout (renewalConsentText) still names the amounts.
+export function renewalConsentLabel(period: ProPeriod, now: Date | number = Date.now()): string {
+  const months = proPricing(now)[period].months;
+  const every = months === 12 ? 'ทุกปี' : months === 1 ? 'ทุกเดือน' : 'ทุก 6 เดือน';
+  return `ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติ${every}ตามราคาที่กำหนด จนกว่าจะยกเลิก`;
+}
+/** What each checkout keeps as its consent: the sentence the person ticked, and the amounts shown with it. */
 export function renewalConsentText(period: ProPeriod, now: Date | number = Date.now()): string {
   const plan = proPricing(now)[period];
   const cadence = plan.months === 12 ? 'ปี' : plan.months === 1 ? 'เดือน' : '6 เดือน';
@@ -22,6 +31,6 @@ export function renewalConsentText(period: ProPeriod, now: Date | number = Date.
   const steps = period === 'month' && proMonthPromoRunning(now)
     ? `${charged(parts.total, parts.price, parts.fee)} ถึงวันที่ ${thaiShortDate(PRO_MONTH_PROMO_LAST_DAY)} จากนั้น ${charged(step.total, step.price, step.fee)}`
     : charged(parts.total, parts.price, parts.fee);
-  return `ยินยอมต่ออายุ Pro อัตโนมัติ ${steps} จนกว่าจะยกเลิก โดยสามารถยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก`;
+  return `${renewalConsentLabel(period, now)} (ราคาที่แสดง: ${steps} · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`;
 }
 export type CardOptions = { autoRenew: boolean; saveCard: boolean; consentVersion: string };

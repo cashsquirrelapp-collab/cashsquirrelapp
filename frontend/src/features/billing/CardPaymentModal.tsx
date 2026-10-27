@@ -3,7 +3,7 @@ import { loadStripe } from '@stripe/stripe-js/pure';
 import type { StripeCheckoutLoadActionsSuccess, StripePaymentElement, StripeCheckoutExpressCheckoutElement, StripeExpressCheckoutElementConfirmEvent } from '@stripe/stripe-js';
 import { CreditCard, LockKeyhole } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
-import { CARD_SAVE_DISCLOSURE, renewalConsentText, type CardOptions } from '../../../../shared/cardConsent';
+import { CARD_SAVE_DISCLOSURE, renewalConsentLabel, type CardOptions } from '../../../../shared/cardConsent';
 import { PRO_MONTH_PROMO_NEXT_DAY, PRO_MONTH_RENEWAL_STEP, proMonthPromoRunning, proPricePartsForCharge } from '../../../../shared/proPricing';
 import { promoDay } from './promoNotice';
 import type { EmbeddedPayment } from './EmbeddedPaymentModal';
@@ -210,7 +210,7 @@ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplet
           <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 text-[13px] leading-relaxed text-brand-text transition-colors dark:text-white ${consented ? 'border-[#F3B08C] bg-[#FFF8F3] dark:border-[#E65F2B]/50 dark:bg-[#E65F2B]/10' : 'border-brand-border hover:bg-brand-faint/60'}`}>
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#E65F2B]" checked={consented}
               onChange={e => setConsented(e.target.checked)}/>
-            <span>{renewalConsentText(checkout.period)}</span>
+            <span>{renewalConsentLabel(checkout.period)}</span>
           </label>
         </fieldset>
         {!consented && !optionsPending && !syncError && <p className="mt-2 text-[12px] text-brand-muted">{tr("ติ๊กยินยอมการต่ออายุก่อน จึงจะกดชำระได้")}</p>}

@@ -4,7 +4,7 @@ import { customCardCheckout, recurringLookup, RECURRING_OFFER, renewalStepOf, va
 import { assertAutoSubscription, validateAutoInvoice, validateAutoInvoiceCharge } from '../backend/src/services/cardRenewals.js';
 import { advanceCardRenewals } from '../backend/src/handlers/advance-card-renewals.js';
 import { buildPrepaidCheckout, type PrepaidOrder } from '../backend/src/services/prepaidPlans.js';
-import { ACCEPTED_CARD_CONSENT_VERSIONS, CARD_CONSENT_VERSION, CARD_SAVE_DISCLOSURE, CARD_SAVE_DISCLOSURE_VERSION, renewalConsentText } from '../shared/cardConsent.js';
+import { ACCEPTED_CARD_CONSENT_VERSIONS, CARD_CONSENT_VERSION, CARD_SAVE_DISCLOSURE, CARD_SAVE_DISCLOSURE_VERSION, renewalConsentLabel, renewalConsentText } from '../shared/cardConsent.js';
 import { PRO_MONTH_REGULAR_FROM, PRO_PERIODS, proPricing } from '../shared/proPricing.js';
 const PRO_PRICING = proPricing();
 Object.assign(process.env, { STRIPE_MODE: 'test', STRIPE_SECRET_KEY: 'sk_test_only' });
@@ -62,13 +62,21 @@ for (const period of PRO_PERIODS) {
 test('the renewal consent names the amount charged, its price and fee, and the step to ฿271 from 1 Dec (v4)', () => {
   // v4 (owner, 2026-10-25): shown ฿249, ฿271 charged with the payment fee from 1 Dec 2569; while the promotion runs a
   // monthly renewal agrees to both amounts. v1–v3 subscriptions keep renewing at what they agreed.
-  assert.equal(renewalConsentText('month', new Date('2026-10-24T05:00:00Z')), 'ยินยอมต่ออายุ Pro อัตโนมัติ ฿177/เดือน (ราคา ฿159 + ค่าธรรมเนียมชำระเงิน ฿18) ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿271/เดือน (ราคา ฿249 + ค่าธรรมเนียมชำระเงิน ฿22) จนกว่าจะยกเลิก โดยสามารถยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก');
+  // Since 2026-10-27 the checkbox reads the owner's sentence (the amounts are shown just above it); the record kept with
+  // each checkout is that sentence and the amounts it was shown with.
+  const label = 'ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติทุกเดือนตามราคาที่กำหนด จนกว่าจะยกเลิก';
+  assert.equal(renewalConsentLabel('month'), label);
+  assert.equal(renewalConsentLabel('halfYear'), 'ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติทุก 6 เดือนตามราคาที่กำหนด จนกว่าจะยกเลิก');
+  assert.equal(renewalConsentLabel('year'), 'ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติทุกปีตามราคาที่กำหนด จนกว่าจะยกเลิก');
+  assert.equal(renewalConsentText('month', new Date('2026-10-24T05:00:00Z')), `${label} (ราคาที่แสดง: ฿177/เดือน (ราคา ฿159 + ค่าธรรมเนียมชำระเงิน ฿18) ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿271/เดือน (ราคา ฿249 + ค่าธรรมเนียมชำระเงิน ฿22) · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`);
   assert.equal(renewalConsentText('month', new Date('2026-11-30T16:59:00Z')), renewalConsentText('month', new Date('2026-10-24T05:00:00Z')));
-  assert.equal(renewalConsentText('month', new Date('2026-11-30T17:00:00Z')), 'ยินยอมต่ออายุ Pro อัตโนมัติ ฿271/เดือน (ราคา ฿249 + ค่าธรรมเนียมชำระเงิน ฿22) จนกว่าจะยกเลิก โดยสามารถยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก');
+  assert.equal(renewalConsentText('month', new Date('2026-11-30T17:00:00Z')), `${label} (ราคาที่แสดง: ฿271/เดือน (ราคา ฿249 + ค่าธรรมเนียมชำระเงิน ฿22) · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`);
   assert.deepEqual([...ACCEPTED_CARD_CONSENT_VERSIONS], ['krarok-card-20261021-v1', 'krarok-card-20261021-v2', 'krarok-card-20261024-v3', 'krarok-card-20261025-v4']);
   assert.equal(CARD_CONSENT_VERSION, 'krarok-card-20261025-v4');
-  assert.equal(renewalConsentText('halfYear'), 'ยินยอมต่ออายุ Pro อัตโนมัติ ฿895/6 เดือน (ราคา ฿849 + ค่าธรรมเนียมชำระเงิน ฿46) จนกว่าจะยกเลิก โดยสามารถยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก');
-  assert.equal(renewalConsentText('year'), 'ยินยอมต่ออายุ Pro อัตโนมัติ ฿1,562/ปี (ราคา ฿1,490 + ค่าธรรมเนียมชำระเงิน ฿72) จนกว่าจะยกเลิก โดยสามารถยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก');
+  assert.match(renewalConsentText('halfYear'), /ทุก 6 เดือนตามราคาที่กำหนด จนกว่าจะยกเลิก \(ราคาที่แสดง: ฿895\/6 เดือน \(ราคา ฿849 \+ ค่าธรรมเนียมชำระเงิน ฿46\)/);
+  assert.match(renewalConsentText('year'), /ทุกปีตามราคาที่กำหนด จนกว่าจะยกเลิก \(ราคาที่แสดง: ฿1,562\/ปี \(ราคา ฿1,490 \+ ค่าธรรมเนียมชำระเงิน ฿72\)/);
+  // The database accepts a consent text longer than 30 characters (cashflow_prepare_prepaid_checkout).
+  assert.ok(renewalConsentText('month').length > 30);
 });
 
 test('an auto-renewal bought at ฿159 before the payment fee keeps renewing at ฿159; nothing else passes for it', () => {

@@ -51,7 +51,7 @@ async function openCard(page: Page) {
 
 test('the renewal choice stays under the card fields (the layout the owner prefers)', async ({ page }) => {
   const { dialog } = await openCard(page);
-  const consent = (await dialog.getByRole('checkbox', { name: /ยินยอมต่ออายุ/ }).boundingBox())!;
+  const consent = (await dialog.getByRole('checkbox', { name: /ยินยอมให้ต่ออายุ/ }).boundingBox())!;
   const card = (await dialog.getByTestId('custom-card-fields').boundingBox())!;
   expect(consent.y).toBeGreaterThan(card.y);
 });
@@ -60,7 +60,7 @@ test('the card payment opens as the renewal, and payment waits for the consent',
   const { dialog, posts } = await openCard(page);
   expect(posts).toHaveLength(1);
   expect(posts[0]).toMatchObject({ autoRenew: true, saveCard: true });
-  await expect(dialog.getByRole('checkbox', { name: /ยินยอมต่ออายุ/ })).not.toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: /ยินยอมให้ต่ออายุ/ })).not.toBeChecked();
   await expect(dialog.getByRole('button', { name: /^ยืนยันชำระ/ })).toBeDisabled();
   await expect(dialog.getByText('ติ๊กยินยอมการต่ออายุก่อน จึงจะกดชำระได้')).toBeVisible();
 });
@@ -68,7 +68,7 @@ test('the card payment opens as the renewal, and payment waits for the consent',
 test('ticking the consent after typing the card keeps the card and prepares nothing new', async ({ page }) => {
   const { dialog, posts } = await openCard(page);
   await dialog.getByLabel('หมายเลขบัตรทดสอบ').fill('4242 4242');
-  const consent = dialog.getByRole('checkbox', { name: /ยินยอมต่ออายุ/ });
+  const consent = dialog.getByRole('checkbox', { name: /ยินยอมให้ต่ออายุ/ });
   await consent.check();
   await page.waitForTimeout(500);
   expect(posts).toHaveLength(1);
