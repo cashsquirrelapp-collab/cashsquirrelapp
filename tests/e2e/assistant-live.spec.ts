@@ -930,3 +930,72 @@ test('name: "เรียกผมว่า…" brings a card to change the acco
   await page.locator('section.asx').getByRole('button', { name: 'กลับ', exact: true }).first().click();
   await expect(page.locator('aside.app-sidebar').getByText('บอสใหญ่', { exact: true })).toBeVisible();
 });
+
+// Owner, 2026-10-27: "เพิ่มปุ่มไมค์ไว้ในพวกฟังก์ชันมือถือหน่อย ... ไม่มีปุ่มเพิ่มรูปภาพด้วย". The window on computers and the
+// sheet on phones both get the full chat's paperclip (a picture or PDF, sent once with the next message) and its mic.
+for (const width of [1440, 390]) test(`buddy ${width}px: the paperclip sends a picture with the message once, and the mic is there`, async ({ page }) => {
+  const mock = await open(page, { path: '/jobs', width, height: width < 744 ? 844 : 900 });
+  await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' }).click();
+  const chat = page.getByRole('dialog', { name: /^เลขากระรอก · หน้า/ });
+  await expect(chat).toBeVisible();
+  const composer = chat.locator('.asx-buddy-composer');
+  await expect(composer.getByRole('button', { name: 'แนบรูปหรือไฟล์ PDF' })).toBeEnabled();
+  await expect(composer.getByRole('button', { name: 'พูดแทนการพิมพ์', exact: true })).toBeVisible();
+  await expect(composer.locator('.asx-send')).toBeDisabled();
+
+  // Anything but a picture or a PDF is refused on screen.
+  await composer.locator('input[type=file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+  await expect(chat.getByText('แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF')).toBeVisible();
+  await composer.locator('input[type=file]').setInputFiles({ name: 'สลิปโอน.png', mimeType: 'image/png', buffer: PNG });
+  await expect(chat.getByText('แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF')).toHaveCount(0);
+  const tile = chat.locator('.asx-attach-tile');
+  await expect(tile.locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,\/9j\//);
+  await expect(composer.locator('.asx-send')).toBeEnabled();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath(`buddy-attach-${width}-before.png`) });
+
+  await composer.locator('.asx-send').click();
+  await expect(chat.locator('.asx-msg.is-me .asx-sent-image img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
+  await expect(chat.locator('.asx-msg.is-me .asx-bubble')).toHaveCount(0);
+  await expect(tile).toHaveCount(0);
+  await expect(chat.locator('.asx-rcard').first()).toBeVisible();
+  const sent = mock.posts.filter(post => post.body.action === 'message');
+  expect(sent).toHaveLength(1);
+  expect([sent[0].body.text, sent[0].body.attachment.name, sent[0].body.attachment.mimeType]).toEqual(['ช่วยดูไฟล์นี้หน่อย', 'สลิปโอน.jpg', 'image/jpeg']);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath(`buddy-attach-${width}-sent.png`) });
+
+  // The next message goes without the file.
+  await chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).fill('ขอบคุณครับ');
+  await composer.locator('.asx-send').click();
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(2);
+  expect(mock.posts.filter(post => post.body.action === 'message')[1].body.attachment).toBeUndefined();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('buddy on a phone: a PDF is attached with its name and size, and the mic leaves a draft to check, nothing sent', async ({ page }) => {
+  await syntheticMicrophone(page);
+  const mock = await open(page, { path: '/jobs', width: 390, height: 844 });
+  await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' }).click();
+  const sheet = page.getByRole('dialog', { name: /^เลขากระรอก · หน้า/ });
+  const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
+  await sheet.locator('.asx-buddy-composer input[type=file]').setInputFiles({ name: 'ใบเสนอราคา.pdf', mimeType: 'application/pdf', buffer: pdf });
+  const file = sheet.locator('.asx-attach-file');
+  await expect(file).toContainText('ใบเสนอราคา.pdf');
+  await expect(file).toContainText('PDF · 1 KB');
+  await file.getByRole('button', { name: 'เอาไฟล์ออก' }).click();
+  await expect(file).toHaveCount(0);
+
+  await sheet.getByRole('button', { name: 'พูดแทนการพิมพ์', exact: true }).click();
+  await expect(sheet.getByRole('group', { name: 'พูดแทนการพิมพ์' }).getByText('กำลังฟังอยู่', { exact: true })).toBeVisible();
+  await expect(sheet.locator('.asx-voice-time')).toHaveText(/^0:0[1-9] \/ 2:00$/);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath('buddy-390-mic.png') });
+  await sheet.getByRole('button', { name: 'หยุดและถอดข้อความ' }).click();
+  await expect(sheet.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' })).toHaveValue('เดือนนี้ได้เงินเท่าไหร่');
+  await expect(sheet.getByText('ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง')).toBeVisible();
+  expect(mock.posts.filter(post => post.body.action === 'transcribe')).toHaveLength(1);
+  expect(mock.posts.filter(post => post.body.action === 'message')).toHaveLength(0);
+  expect(await microphoneStopped(page)).toBe(true);
+  expect(await textOverlapIssues(page)).toEqual([]);
+});

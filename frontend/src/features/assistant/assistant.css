@@ -1402,3 +1402,20 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-buddy.is-mobile .asx-hello-say { animation: asx-hello-say-phone 20s ease-in-out infinite; }
 @keyframes asx-hello-say-phone { 0%, 4% { opacity: 0; transform: translateY(6px); visibility: hidden; } 6%, 28% { opacity: 1; transform: none; visibility: visible; } 31%, 100% { opacity: 0; transform: translateY(4px); visibility: hidden; } }
 @media (prefers-reduced-motion: reduce) { .asx-buddy.is-mobile .asx-hello-say { animation: none; } }
+
+/* Mic and attach in the window and the phone sheet (owner, 2026-10-27: "เพิ่มปุ่มไมค์ ... ไม่มีปุ่มเพิ่มรูปภาพด้วย"):
+   the paperclip leads the composer as in the full chat, the mic sits before send, and while you speak the recording
+   bar takes the composer's place. */
+.kfw .asx-buddy-composer, .asx-buddy-panel.is-sheet .asx-buddy-composer { padding-left: 6px; }
+.kfw .asx-attach, .asx-buddy-panel.is-sheet .asx-attach, .asx-buddy-panel.is-sheet .asx-mic { flex: none; width: 36px; height: 36px; color: #6F6862; }
+.dark .kfw .asx-attach, .dark .asx-buddy-panel.is-sheet .asx-attach, .dark .asx-buddy-panel.is-sheet .asx-mic { color: #C9C3BC; }
+.asx-buddy-panel.is-sheet .asx-buddy-composer.has-voice { padding: 7px; }
+.asx-buddy-panel.is-sheet .asx-buddy-composer .asx-voice-composer { min-height: 40px; gap: 10px; }
+.asx-buddy-panel.is-sheet .asx-buddy-composer .asx-voice-cancel, .asx-buddy-panel.is-sheet .asx-buddy-composer .asx-voice-finish { flex: none; width: 40px; height: 40px; border-radius: 50%; }
+.asx-buddy-panel.is-sheet .kfw-voice-note { margin: 0 14px 6px; }
+.kfw-voice-note.is-low { flex-wrap: wrap; }
+.asx-attach-row.kfw-attach-row { padding: 0 14px 8px; }
+.asx-buddy-panel.is-sheet .asx-attach-tile { width: 64px; height: 64px; }
+/* A picture sent from the window stays in the thread; the full chat is where it opens large. */
+.asx-thread.is-buddy .asx-sent-image.is-still { width: 180px; height: 180px; cursor: default; }
+.asx-thread.is-buddy .asx-sent-file { width: 220px; }
