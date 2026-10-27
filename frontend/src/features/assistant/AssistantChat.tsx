@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Image as ImageIcon, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Square, Trash2, Volume2, Wallet, X } from 'lucide-react';
+import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Image as ImageIcon, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { Modal } from '../../components/ui/Modal';
 import { tr, trc } from '../../i18n/tr';
@@ -12,7 +12,7 @@ import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTION
 import { ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
-import { prepareFile, useReadAloud, type PreparedFile } from './voice';
+import { prepareFile, type PreparedFile } from './voice';
 import { useDictation } from './useDictation';
 import { VoiceComposer } from './VoiceComposer';
 import { isPartialAmountText, type LineInboxApi } from './lineInbox';
@@ -241,7 +241,6 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     },
     onCharged: () => { void transport.balance().then(setBalance).catch(() => {}); },
   });
-  const reader = useReadAloud(speechLang);
   const [streamingId, setStreamingId] = React.useState<string | null>(null);
   const [readId, setReadId] = React.useState<string | null>(null);
   const [confirmStates, setConfirmStates] = React.useState<Record<string, ConfirmState>>({});
@@ -751,7 +750,6 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const toggleMic = () => {
     if (busy || blocked || voice.active) return;
     if (gate) { setUpsell(true); return; }
-    reader.stop();
     void voice.start(draft);
   };
   const cancelVoice = () => { voice.cancel(); requestAnimationFrame(() => inputRef.current?.focus()); };
@@ -1097,14 +1095,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                         onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
                     ))}
                     {message.id !== streamingId && (
-                      <span className="asx-meta">{live ? time(message.at) : <>{time(message.at)} · {tr("คำตอบตัวอย่าง")}</>}
-                        {reader.supported && message.text && (
-                          <button type="button" className={`asx-meta-btn${reader.speakingId === message.id ? ' is-on' : ''}`} onClick={() => reader.toggle(message.id, message.text)}
-                            aria-pressed={reader.speakingId === message.id} aria-label={reader.speakingId === message.id ? tr("หยุดอ่าน") : tr("ฟังคำตอบ")} title={reader.speakingId === message.id ? tr("หยุดอ่าน") : tr("ฟังคำตอบ")}>
-                            {reader.speakingId === message.id ? <Square size={12} /> : <Volume2 size={13} />}
-                          </button>
-                        )}
-                      </span>
+                      // No read-aloud button any more (owner, 2026-10-27: "เอาปุ่มที่กดฟังเสียงออก ที่มันเป็นโทรโข่ง").
+                      <span className="asx-meta">{live ? time(message.at) : <>{time(message.at)} · {tr("คำตอบตัวอย่าง")}</>}</span>
                     )}
                   </div>
                 </li>

@@ -1,39 +1,5 @@
-import React from 'react';
-
-// Reading aloud uses the device's own voices. Dictation now lives in useDictation.ts:
-// record locally, then transcribe once after stopping, with the server's normal token accounting.
-export const canSpeak = () => typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
-
-/** Plain words for reading aloud: no Markdown marks, links read as their text. */
-export const speakable = (markdown: string) => markdown
-  .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-  .replace(/[*_`#>|~]+/g, ' ')
-  .replace(/^\s*[-•]\s+/gm, '')
-  .replace(/\s+/g, ' ')
-  .trim();
-
-/** Read one answer aloud (or stop if it is the one being read). Returns false when the device cannot speak. */
-export function useReadAloud(lang: string) {
-  const [speakingId, setSpeakingId] = React.useState<string | null>(null);
-  React.useEffect(() => () => { if (canSpeak()) window.speechSynthesis.cancel(); }, []);
-  const stop = React.useCallback(() => { if (canSpeak()) window.speechSynthesis.cancel(); setSpeakingId(null); }, []);
-  const toggle = React.useCallback((id: string, text: string) => {
-    if (!canSpeak()) return false;
-    const synth = window.speechSynthesis;
-    synth.cancel();
-    if (speakingId === id) { setSpeakingId(null); return true; }
-    const utterance = new SpeechSynthesisUtterance(speakable(text));
-    utterance.lang = lang;
-    const voice = synth.getVoices().find(item => item.lang?.toLowerCase().startsWith(lang.slice(0, 2).toLowerCase()));
-    if (voice) utterance.voice = voice;
-    utterance.onend = () => setSpeakingId(current => (current === id ? null : current));
-    utterance.onerror = () => setSpeakingId(current => (current === id ? null : current));
-    setSpeakingId(id);
-    synth.speak(utterance);
-    return true;
-  }, [lang, speakingId]);
-  return { supported: canSpeak(), speakingId, toggle, stop };
-}
+// Files sent to เลขา. Dictation lives in useDictation.ts: record locally, then transcribe once after stopping, with the
+// server's normal token accounting. Reading answers aloud was removed (owner, 2026-10-27).
 
 export type PreparedFile = { name: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf'; data: string; kind: 'image' | 'pdf'; bytes: number };
 export const FILE_MAX_BYTES = 4 * 1024 * 1024;

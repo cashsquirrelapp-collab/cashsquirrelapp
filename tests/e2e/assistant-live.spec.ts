@@ -398,16 +398,13 @@ test('mic: Cancel releases the microphone, keeps the existing draft, and never t
   await expect(page.locator('.asx-msg.is-me')).toHaveCount(0);
 });
 
-test('read aloud: an answer is spoken without Markdown marks', async ({ page }) => {
-  await page.addInitScript(() => {
-    (window as any).__spoken = [];
-    window.speechSynthesis.speak = (utterance: SpeechSynthesisUtterance) => { (window as any).__spoken.push({ text: utterance.text, lang: utterance.lang }); };
-  });
+// Owner, 2026-10-27: "เอาปุ่มที่กดฟังเสียงออก ที่มันเป็นโทรโข่ง": answers carry no read-aloud button any more.
+test('no read-aloud button next to an answer', async ({ page }) => {
   await open(page);
   await ask(page, 'เดือนนี้ได้เงินเท่าไหร่');
-  await page.getByRole('button', { name: 'ฟังคำตอบ' }).last().click();
-  const spoken = await page.evaluate(() => (window as any).__spoken);
-  expect(spoken).toEqual([{ text: 'เตรียมเพิ่มงาน แปลเอกสาร ไว้แล้วครับ กดยืนยันบนการ์ดเพื่อบันทึก', lang: 'th-TH' }]);
+  await expect(page.locator('.asx-msg.is-bot .asx-meta').last()).toBeVisible();
+  await expect(page.getByRole('button', { name: /ฟังคำตอบ|หยุดอ่าน/ })).toHaveCount(0);
+  await expect(page.locator('.asx-msg.is-bot .asx-meta button')).toHaveCount(0);
 });
 
 // Owner, 2026-10-24: the client in a picture was asked for again two messages later. What เลขา read from a file comes
@@ -453,7 +450,7 @@ for (const [label, width, height] of [['computer', 1440, 900], ['phone', 390, 84
     await expect(page.locator('.asx-rcard.is-confirm')).toBeVisible();
     await expect(page.locator('.asx-sent-image img')).toBeVisible();
     await expect(page.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('ช่วยดูสลิปนี้ว่าตรงกับงานไหน');
-    await expect(page.getByRole('button', { name: 'ฟังคำตอบ' }).last()).toBeVisible();
+    await expect(page.locator('.asx-msg.is-bot .asx-meta').last()).toBeVisible();
     await page.waitForTimeout(400);
     await page.screenshot({ path: test.info().outputPath(`${label}-sent.png`) });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
