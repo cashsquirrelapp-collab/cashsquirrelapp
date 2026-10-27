@@ -108,7 +108,11 @@ export interface PlanInfo {
 }
 const asPlan = (value: AssistantPlan | PlanInfo): PlanInfo => (typeof value === 'string' ? { plan: value } : value);
 
-/** Limits for a plan: Pro has a monthly token allowance (by the plan paid for, else the default), the trial one small allowance for the whole trial, admins no cap (still counted). */
+/**
+ * Limits for a plan: Pro has a monthly token allowance (by the plan paid for, else the default), the trial one small
+ * allowance for the whole trial. Admins get the default Pro allowance for the calendar month (owner, 2026-10-27:
+ * "จำกัดโทเค็นแอดมิน ... เอาเท่ากับยูเซอร์"), so using เลขา costs them what it costs a member and shows whether it is enough.
+ */
 export function allowance(value: AssistantPlan | PlanInfo, config: AiConfig, now = new Date()) {
   const { plan, periodEnd, tokens } = asPlan(value);
   if (plan === 'trial') return { cycle: 'trial', resetsAt: null, tokenLimit: config.trialTokens, requestLimit: null };
@@ -117,7 +121,7 @@ export function allowance(value: AssistantPlan | PlanInfo, config: AiConfig, now
     return { cycle: tokenCycle(now), resetsAt: new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1) - BANGKOK) };
   };
   const period = plan === 'pro' && periodEnd ? renewalCycle(periodEnd, now) : month();
-  if (plan === 'admin') return { ...period, tokenLimit: null, requestLimit: null };
+  if (plan === 'admin') return { ...period, tokenLimit: config.proTokensPerCycle, requestLimit: null };
   return { ...period, tokenLimit: tokens ?? config.proTokensPerCycle, requestLimit: null };
 }
 

@@ -139,10 +139,10 @@ test('one bounded request returns literal Thai draft and settles usage without t
   assert.equal(JSON.stringify(db.reserves).includes(audio().data), false);
 });
 
-test('silence returns an empty draft while retaining incurred cost; admins remain counted', async () => {
+test('silence returns an empty draft while retaining incurred cost; admins are charged like members', async () => {
   const db = fakeDb(); const provider = fakeProvider(answer(''));
   const result = await transcribeVoice(db.db, { config: config({ AI_ADMINS_ONLY: 'true' }), fetchImpl: provider.fetchImpl }, USER, 'admin', { audio: audio() });
-  assert.equal(result.text, ''); assert.equal(result.tokensLeft, null); assert.equal(result.tokens, 1);
+  assert.equal(result.text, ''); assert.equal(result.tokensLeft, 989, 'an admin\'s voice comes off the same allowance'); assert.equal(result.tokens, 1);
   assert.equal(db.settlements[0].costUsd, 0.0006);
 });
 

@@ -164,14 +164,14 @@ test('active paid Pro and existing Pro grants get live status, chat and voice wi
   assert.ok(settlements.every(row => row.p_release === false));
 });
 
-test('existing free Pro trial retains 25 total tokens and verified admins retain their existing allowance', async () => {
-  for (const [member, plan, limit, left] of [['trial', 'trial', 25, 15], ['admin', 'admin', null, null]] as const) {
+test('existing free Pro trial retains 25 total tokens and verified admins get the Pro allowance (owner, 2026-10-27)', async () => {
+  for (const [member, plan, limit, left] of [['trial', 'trial', 25, 15], ['admin', 'admin', 1000, 990]] as const) {
     membership = member;
     const status = await request(A);
     assert.deepEqual([status.body.enabled, status.body.plan, status.body.tokenLimit, status.body.tokensLeft], [true, plan, limit, left]);
     for (const body of [chat, voice]) assert.equal((await request(A, body)).status, 200);
   }
-  assert.deepEqual(reservations.map(row => row.p_token_limit), [25, 25, null, null]);
+  assert.deepEqual(reservations.map(row => row.p_token_limit), [25, 25, 1000, 1000]);
   assert.deepEqual(reservations.slice(0, 2).map(row => row.p_cycle), ['trial', 'trial']);
   assert.equal(providerCalls, 4);
 });

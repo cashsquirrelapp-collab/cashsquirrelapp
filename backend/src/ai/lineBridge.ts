@@ -33,7 +33,7 @@ export const isTokenQuestion = (text: string) => text.trim().length <= 40 && /�
 /** The same balance as the token ring in the app: one pool per account for the app, LINE and voice. */
 export function tokenBalanceText(status: UsageStatus): string {
   const shared = 'โทเคนนี้ใช้ร่วมกันทั้งเลขาในแอปและใน LINE';
-  if (status.tokenLimit === null) return `บัญชีผู้ดูแลใช้เลขาได้ไม่จำกัดโทเคน ระบบยังนับการใช้งานไว้\n${shared}`;
+  if (status.tokenLimit === null) return `ยังอ่านจำนวนโทเคนของบัญชีนี้ไม่ได้ กรุณาลองใหม่ภายหลัง\n${shared}`;
   const left = (status.tokensLeft ?? 0).toLocaleString('en-US');
   const next = status.plan === 'trial' ? 'สิทธิ์ทดลองใช้ไม่เติมใหม่ ใช้ต่อได้เมื่อเป็น Pro'
     : status.resetsAt ? `ได้รับใหม่วันที่ ${thaiDay(new Date(status.resetsAt))}` : '';

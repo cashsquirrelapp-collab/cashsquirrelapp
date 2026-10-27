@@ -283,7 +283,8 @@ export function computeReport(input: ReportInput): { metrics: ReportMetrics; acc
     const contribution = directAi === null ? null : cashRevenue - refundsOwn - fee - directAi;
     // The allowance of the plan paid for (a trial cycle keeps the trial's); the database only knows the default one.
     const planLimit = input.tokenLimits?.get(userId);
-    const limit = row?.latest_cycle_limit === null || row?.latest_cycle_limit === undefined || row.is_admin ? null
+    // Admins have the default Pro allowance since 2026-10-27 (ai/service.ts allowance), so their tokens left show too.
+    const limit = row?.latest_cycle_limit === null || row?.latest_cycle_limit === undefined ? null
       : planLimit !== undefined && row.latest_cycle_limit !== input.trialTokens ? planLimit : row.latest_cycle_limit;
     const left = limit === null ? null : Math.max(0, limit - (row?.latest_cycle_used ?? 0));
     const usedUp = (row?.tokens_used_up ?? false) || (limit !== null && (row?.latest_cycle_used ?? 0) >= limit);

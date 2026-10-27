@@ -78,7 +78,8 @@ test('the allowance uses the paid plan\'s tokens; owner grants and older subscri
   assert.equal(allowance({ plan: 'pro', periodEnd: '2026-12-03T00:00:00Z' }, config, now).tokenLimit, 1650);
   assert.equal(allowance({ plan: 'pro' }, config, now).tokenLimit, 1650, 'admin grant: calendar month, default tokens');
   assert.equal(allowance({ plan: 'trial', tokens: 900 }, config, now).tokenLimit, config.trialTokens, 'a trial never takes a plan\'s tokens');
-  assert.equal(allowance({ plan: 'admin', tokens: 900 }, config, now).tokenLimit, null);
+  assert.equal(allowance({ plan: 'admin', tokens: 900 }, config, now).tokenLimit, 1650, 'admins: the default Pro allowance, like members (owner, 2026-10-27)');
+  assert.equal(allowance({ plan: 'admin' }, config, now).cycle, '2026-11', 'admins: the calendar month');
 });
 
 /** A PostgREST-like query that records its filters and answers with fixed rows. */

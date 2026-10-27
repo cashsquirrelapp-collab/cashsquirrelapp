@@ -134,6 +134,22 @@ test('Pro: charged the real cost in Krarok Tokens, and refused once the month is
   await assert.rejects(handleMessage(full.db, { config: config(), fetchImpl: geminiReplies(text('-')) }, USER, 'pro', { text: 'อีกนิด' }), rejectsWith(402, 'ai_tokens_used'));
 });
 
+// Owner, 2026-10-27: "จำกัดโทเค็นแอดมิน ... เอาเท่ากับยูเซอร์": an admin's เลขา takes tokens off the same allowance as a
+// member's, for the calendar month, and stops when it is used up.
+test('admin: the same allowance as Pro, charged the same way, and refused once the month is used up', async () => {
+  const fake = fakeDb();
+  const reply = await handleMessage(fake.db, { config: config(), fetchImpl: geminiReplies(text('เดือนนี้รับแล้ว')) }, USER, 'admin', { text: 'เดือนนี้ได้เงินเท่าไหร่' });
+  assert.equal(reply.tokens, 6);
+  assert.equal(reply.tokensLeft, 994);
+  assert.equal(fake.usage[0].cycle, tokenCycle());
+  const status = await usageStatus(fake.db, config(), USER, 'admin');
+  assert.deepEqual([status.tokenLimit, status.tokensLeft], [1000, 994]);
+
+  const full = fakeDb();
+  full.usage.push({ requestId: 'old', cycle: tokenCycle(), tokens: 1000, status: 'settled', cost: 1 });
+  await assert.rejects(handleMessage(full.db, { config: config(), fetchImpl: geminiReplies(text('-')) }, USER, 'admin', { text: 'อีกนิด' }), rejectsWith(402, 'ai_tokens_used'));
+});
+
 test('Pro: two requests at once with the last token left — only one goes through', async () => {
   const fake = fakeDb();
   fake.usage.push({ requestId: 'old', cycle: tokenCycle(), tokens: 999, status: 'settled', cost: 0.999 });
