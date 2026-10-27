@@ -116,6 +116,6 @@ export function continuationTurns(input: {
 }
 
 /** "ยืนยัน", "ตกลง", "โอเค": a short go-ahead, answered by showing the cards still waiting (no model call). */
-export const GO_AHEAD = /^(?:ยืนยัน(?:รายการ)?|ตกลง|โอเค|ok|okay|ใช่|ได้เลย|เอาเลย|confirm)(?:\s|ครับ|ค่ะ|คะ|นะ|เลย|จ้า|ด้วย|!|\.)*$/i;
+export const GO_AHEAD = /^(?:ยืนยัน(?:รายการ)?(?:\s*ทั้งหมด)?|ตกลง|โอเค|ok|okay|ใช่|ได้เลย|เอาเลย|confirm(?:\s+all)?|(?:บันทึก|ลบ)\s*ทั้งหมด(?:เลย)?)(?:\s|ครับ|ค่ะ|คะ|นะ|เลย|จ้า|ด้วย|!|\.)*$/i;
 /** Cards waiting at most this old are shown again (a proposal expires unconfirmed after 30 minutes). */
 export const PENDING_WINDOW_MS = 30 * 60_000;

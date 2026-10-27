@@ -188,7 +188,7 @@ test('a proposal records the version the AI read; confirm applies it once throug
   assert.equal(fake.applied.length, 0, 'nothing written before confirm');
 
   const done = await confirmProposal(fake.db, USER, card.id);
-  assert.deepEqual(done, { status: 'applied', kind: 'record_payment', jobId: 'job-logo' });
+  assert.deepEqual(done, { status: 'applied', kind: 'record_payment', jobId: 'job-logo', path: '/jobs?job=job-logo' });
   const [change] = fake.applied[0] as any[];
   assert.deepEqual([change.table, change.id, change.op, change.version, change.data.status, change.data.pending], ['cashflow_jobs', 'job-logo', 'set', 7, 'done', 0]);
   await assert.rejects(confirmProposal(fake.db, USER, card.id), rejectsWith(409, 'ai_proposal_gone'));

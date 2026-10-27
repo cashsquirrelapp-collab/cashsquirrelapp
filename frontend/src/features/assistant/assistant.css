@@ -927,6 +927,8 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-rcard .asx-rcard-secondary { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .asx-rcard .asx-pill-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-width: 0; min-height: 42px; margin: 0; padding: 8px 12px; border: 0; border-radius: 12px; background: var(--asx-card-gray); color: var(--text); font: inherit; font-size: 14.5px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; box-shadow: none; cursor: pointer; }
 .asx-rcard .asx-pill-btn:hover:not(:disabled) { background: var(--asx-card-gray-hover); }
+/* Several cards waiting in one answer: one button under them confirms them all (2026-10-28). */
+.asx-confirm-all { width: min(400px, 100%); min-height: 46px; margin-top: 10px; border-radius: 14px; font-size: 15px; font-weight: 600; }
 .asx-rcard .asx-pill-btn.is-primary { min-height: 46px; border-radius: 14px; background: var(--asx-accent); color: #FFFFFF; font-size: 15px; font-weight: 600; }
 .asx-rcard .asx-pill-btn.is-primary:hover:not(:disabled) { background: var(--asx-accent-hover); }
 .asx-rcard .asx-pill-btn.is-primary.is-danger { background: #A63F1B; }

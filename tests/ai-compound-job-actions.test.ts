@@ -121,7 +121,7 @@ test('compound withholding/payment edit prepares one review and confirms atomica
       await assert.rejects(confirmProposal(state.db, other(owner), card.id), rejects('ai_proposal_gone'));
       assert.equal(state.proposals.get(card.id)?.status, 'pending', 'a foreign confirmation cannot consume the owner proposal');
       assert.equal(state.attempts.length, 0);
-      assert.deepEqual(await confirmProposal(state.db, owner, card.id), { status: 'applied', kind: 'edit_job', jobId: JOB });
+      assert.deepEqual(await confirmProposal(state.db, owner, card.id), { status: 'applied', kind: 'edit_job', jobId: JOB, path: `/jobs?job=${JOB}` });
       const job = state.accounts.get(owner)!.jobs![0] as Job; const previous = before.jobs![0] as Job;
       assert.deepEqual([job.whtRate, job.whtAmount, job.received, job.pending, job.paymentStatus, job.status, job.payDate], [0, 0, previous.value, 0, 'paid', 'done', PAID_DATE]);
       for (const key of ['isPosted', 'postDate', 'creditTerm', 'depositAmount', 'depositDate', 'remindAt', 'name', 'client', 'note'] as const) assert.equal(job[key], previous[key], `${key} must be preserved`);

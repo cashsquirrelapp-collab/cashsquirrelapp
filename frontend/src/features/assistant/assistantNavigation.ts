@@ -28,6 +28,8 @@ export function safeAssistantPath(raw: unknown, context: NavigationContext, expl
   for (const [key, value] of url.searchParams) {
     if (feature === 'invoice' && key === 'type' && DOCUMENT_TYPES.has(value)) continue;
     if (feature === 'invoice' && key === 'document' && /^[\p{L}\p{N}_-]{1,128}$/u.test(value)) continue;
+    // A saved job opens in its form (owner, 2026-10-28: "กดเข้าไปดูงานตรงนั้นได้"); the id is only looked up.
+    if (feature === 'jobs' && key === 'job' && /^[\p{L}\p{N}_.:-]{1,128}$/u.test(value)) continue;
     if (feature === 'settings' && key === 'view' && SETTINGS_VIEWS.has(value)) continue;
     return null;
   }
@@ -60,6 +62,19 @@ export function readNavigationMode(account?: string, storage?: StorageLike): Nav
 export function saveNavigationMode(account: string | undefined, mode: NavigationMode, storage?: StorageLike): void {
   if (!account) return;
   try { (storage ?? localStorage).setItem(modeKey(account), mode); } catch { /* preference only */ }
+}
+
+/** Confirm cards the app already saved (the user said to save), and where each opens (only safe in-app paths). */
+export function savedCards(cards: unknown, context: NavigationContext): { ids: string[]; paths: Record<string, string> } {
+  const ids: string[] = []; const paths: Record<string, string> = {};
+  if (!Array.isArray(cards)) return { ids, paths };
+  for (const card of cards.slice(0, 50)) {
+    if (!card || card.kind !== 'confirm' || card.status !== 'applied' || typeof card.id !== 'string') continue;
+    ids.push(card.id);
+    const path = safeAssistantPath(card.path, context);
+    if (path) paths[card.id] = path;
+  }
+  return { ids, paths };
 }
 
 export function automaticNavigation(cards: unknown, context: NavigationContext, mode: NavigationMode, currentAccount?: string): string | null {

@@ -441,4 +441,12 @@ export const assistant: Record<string, string> = {
   "อัตราหัก ณ ที่จ่ายอื่น (%)": "Other withholding rate (%)",
   "ไม่แน่ใจ ดูได้ในหนังสือรับรอง 50 ทวิ ที่ลูกค้าให้": "Not sure? Check the withholding certificate (50 Tawi) from your client",
   "ตอบแล้ว {0} จาก {1} ข้อ": "{0} of {1} answered",
+  // Saved cards open their record; deleting every job in one card (2026-10-28).
+  "เปิดดูงาน": "Open job",
+  "ไปที่หน้างาน": "Go to jobs",
+  "เปิดดูรายการ": "Open entry",
+  "เปิดดูเป้าหมาย": "Open goal",
+  "เปิดการตั้งค่า": "Open settings",
+  "ลบงานทั้งหมด": "Delete all jobs",
+  "ยืนยันทั้งหมด {0} รายการ": "Confirm all {0}",
 };

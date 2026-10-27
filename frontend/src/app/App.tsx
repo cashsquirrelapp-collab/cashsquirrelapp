@@ -835,6 +835,12 @@ export default function App() {
     setIsMobileMenuOpen(false);
     if (tab === 'settings') setSettingsEntry(entry => ({ view: (url.searchParams.get('view') || 'home') as SettingsView, n: entry.n + 1 }));
     if (tab === 'invoice') setAssistantDocumentEntry(value => value + 1);
+    // A job เลขา saved opens in its form; if the list has not caught up yet, the jobs page waits for it a moment.
+    const jobId = tab === 'jobs' ? url.searchParams.get('job') : null;
+    if (jobId) {
+      setEditJobRequest(jobId);
+      window.setTimeout(() => setEditJobRequest(current => (current === jobId ? null : current)), 10000);
+    }
     prefetchFeature(tab);
     window.history.pushState({}, '', safe);
     setPathname(url.pathname);

@@ -187,6 +187,8 @@ export function createLiveTransport(options: { account: string; status: Assistan
       }
       active(signal);
       if (Array.isArray(reply.cards)) onCards?.(reply.cards);
+      // The user said to save: the app already saved these cards, so the pages show them now.
+      if (Array.isArray(reply.cards) && reply.cards.some(card => card?.kind === 'confirm' && card.status === 'applied')) options.onApplied?.();
       const parts = graphemes(reply.text);
       for (let shown = 0; shown < parts.length;) {
         active(signal);

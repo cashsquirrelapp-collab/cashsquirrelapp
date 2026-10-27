@@ -9,7 +9,7 @@ import { dateLocale } from '../../utils';
 import { AssistantRequestError, createSampleTransport, splitMemo, tokenLevel, type AssistantTransport } from './assistantApi';
 import { LINE_QUICK_REPLIES, arrivingNotice, dueDisplayText, laterReply, partialPrompt, receiptCard, type LineDueAction, type LineItem } from './lineMock';
 import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, afterReply, sampleConversations, isPendingConfirm, poseFor, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
-import { ChatCardView, type ConfirmState } from './ChatCards';
+import { ChatCardView, type ConfirmState, ConfirmAll } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
 import { prepareFile, type PreparedFile } from './voice';
@@ -20,7 +20,7 @@ import type { LineCardData, LineInbox, LineQuickKind } from '../../../../shared/
 
 const QUICK_THAI: Record<LineQuickKind, string> = { unpaid: 'รอรับเงิน', month: 'สรุปเดือนนี้', wip: 'กำลังดำเนินการ' };
 import { getCurrentAccount } from '../../services/api';
-import { automaticNavigation, safeAssistantPath, type NavigationContext, type NavigationMode } from './assistantNavigation';
+import { automaticNavigation, safeAssistantPath, savedCards, type NavigationContext, type NavigationMode } from './assistantNavigation';
 import { confirmationCommand } from './assistantCommands';
 import type { ChatHandoff } from './chatHandoff';
 import { TokenRing } from './TokenRing';
@@ -500,9 +500,16 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         .map(message => (message.id === botId ? { ...message, text: result.text, cards: result.cards, ...(result.memo ? { memo: result.memo } : {}) } : message)));
       setBalance(value => ({ ...value, remaining: Math.max(0, value.remaining - result.tokensUsed) }));
       setStreamingId(null);
+      // Cards the app saved at once (the user said to save): shown as saved, each opening its record.
+      const saved = savedCards(result.cards, navigationRef.current.navigationContext);
+      if (saved.ids.length) {
+        setConfirmStates(states => ({ ...states, ...Object.fromEntries(saved.ids.map(id => [id, 'done' as const])) }));
+        setConfirmedPaths(paths => ({ ...paths, ...saved.paths }));
+      }
       // An answer is not a job done: a card still waiting for a yes keeps the squirrel waiting with it.
-      const next = afterReply(result.cards);
+      const next = saved.ids.length && afterReply(result.cards) === 'answered' ? 'done' : afterReply(result.cards);
       setMode(next);
+      if (next === 'done') window.setTimeout(() => setMode(m => (m === 'done' ? 'awake' : m)), 1600);
       if (next === 'answered') window.setTimeout(() => setMode(m => (m === 'answered' ? 'awake' : m)), 1600);
     } catch (error) {
       if (controller.signal.aborted && !(error instanceof AssistantRequestError)) return;
@@ -654,6 +661,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
           if (card.kind === 'confirm' && card.status && card.status !== 'pending') states[card.id] = card.status === 'applied' ? 'done' : card.status === 'cancelled' ? 'cancelled' : 'expired';
         }
         setConfirmStates(current => ({ ...states, ...current }));
+        const reopened = savedCards(list.flatMap(message => message.cards ?? []), navigationRef.current.navigationContext);
+        if (Object.keys(reopened.paths).length) setConfirmedPaths(current => ({ ...reopened.paths, ...current }));
         setConversations(current => current?.map(conversation => (conversation.id === target ? { ...conversation, messages: list, loaded: true } : conversation)) ?? current);
       }).catch(() => {
         setConversations(current => current?.map(conversation => (conversation.id === target
@@ -1142,6 +1151,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                         onAsk={text => send(text)}
                         onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
                     ))}
+                    {live && <ConfirmAll cards={message.cards} states={confirmStates} onConfirm={item => void confirm(item)} />}
                     {message.id !== streamingId && (
                       // No read-aloud button any more (owner, 2026-10-27: "เอาปุ่มที่กดฟังเสียงออก ที่มันเป็นโทรโข่ง").
                       <span className="asx-meta">{live ? time(message.at) : <>{time(message.at)} · {tr("คำตอบตัวอย่าง")}</>}</span>

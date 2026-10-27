@@ -7,13 +7,14 @@ import { decideRoute, routingRecord, type RoutingRecord } from './routingPolicy.
 import { CONTINUE_WINDOW_MS, continuationTurns, GO_AHEAD, goAheadFits, mentionsCard, PENDING_WINDOW_MS, type ChannelTurn } from './crossChannel.js';
 import { PROMPT_VERSION } from './prompt.js';
 import { quickAnswer, quickKind } from './quickAnswers.js';
+import { autoSaveCards, autoSaveText, wantsSaveNow } from './autoSave.js';
 import type { PromptSlots } from './prompt.js';
 import { applyCardEdit, cardForStoredProposal, cardValue, createToolbox, EDITABLE_FIELDS, type MemoryStore, type Proposal, type ProposalStore } from './tools.js';
 import { learnedPairs, learnFromConfirmed, mergePairs, pairFromCardEdit, type CorrectionDomain, type LearnPair } from './learning.js';
 import type { KnowledgeSignal } from './signals.js';
 import { ProviderError, type AssistantCard, type ChatTurn, type Provider, type ProviderName } from './types.js';
 import type { VaultFile } from '../../../shared/vault.js';
-import { proposalBaseVersion, proposalChanges, proposalTarget } from './proposals.js';
+import { bulkDeleteChanges, isDeleteAll, proposalBaseVersion, proposalChanges, proposalTarget } from './proposals.js';
 import { documentPath } from './documentActions.js';
 import { MEMORY_LIMIT, overLimit, replacedMemory, selectMemories, type MemoryKind, type MemoryRow } from './memory.js';
 
@@ -195,6 +196,8 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
   let reply: AssistantReply;
   let selected: ReturnType<typeof selectMemories> | undefined;
   const started = Date.now();
+  // The kind each card of this answer was prepared as, so what is being recorded is saved at once when the user says so.
+  const preparedKinds = new Map<string, Proposal['kind']>();
   const channel = input.channel === 'line' ? 'line' as const : 'app' as const;
   try {
     const nowMs = (deps.now ?? new Date()).getTime();
@@ -202,8 +205,10 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
       db.recentAppTurns ? db.recentAppTurns(userId, new Date(nowMs - CONTINUE_WINDOW_MS).toISOString()).catch(() => undefined) : Promise.resolve(undefined),
       db.accountName ? db.accountName(userId).catch(() => null) : Promise.resolve(null)]);
     if (user.user_id !== userId) throw new HttpError(403, 'ข้อมูลบัญชีไม่ตรงกับผู้ใช้งาน', 'ai_account_mismatch');
-    const proposals: ProposalStore = { save: proposal => db.saveProposal({ ...proposal,
-      baseVersion: proposalBaseVersion(proposal, versions, absentRecords) }) };
+    const proposals: ProposalStore = { save: proposal => {
+      preparedKinds.set(proposal.id, proposal.kind);
+      return db.saveProposal({ ...proposal, baseVersion: proposalBaseVersion(proposal, versions, absentRecords) });
+    } };
     // Memory v2 (owner, 2026-10-25): the same thing said again replaces the old one, over 40 the least used go, and
     // every change is kept in the memory's history. Before the migration runs, the old save is used.
     let current: MemoryRow[] = memories;
@@ -244,7 +249,26 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
     const ownLast = [...(input.history ?? [])].reverse().find(turn => turn.role === 'assistant');
     const lastSeen = carried ? carried.last : ownLast ? { role: 'assistant' as const, text: ownLast.text } : undefined;
     const waiting = goAhead && pending?.length && goAheadFits(lastSeen) ? pending : [];
-    if (waiting.length) {
+    if (waiting.length && channel === 'app') {
+      // In the app the typed go-ahead is the permission itself (owner, 2026-10-28: "แค่อนุญาตในแชทก็สามารถดำเนินการได้
+      // เลย"): every card still waiting is applied through the same confirm as a tap, no model call, no tokens.
+      const cards = waiting.map(proposal => cardForStoredProposal(proposal, user));
+      let done = 0;
+      let failed = 0;
+      for (const card of cards) {
+        if (card.kind !== 'confirm') continue;
+        try {
+          const applied = await confirmProposal(db, userId, card.id, { channel });
+          card.status = 'applied';
+          if (applied.path) card.path = applied.path;
+          done += 1;
+        } catch { failed += 1; }
+      }
+      reply = { route: 'chat', handedOff: false, cards, calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,
+        text: done ? `ทำรายการให้แล้ว ${done} รายการครับ${failed ? ` อีก ${failed} รายการยังทำไม่ได้ ตรวจรายละเอียดบนการ์ดแล้วกดยืนยันได้เลย` : ''}`
+          : 'รายการที่รอยืนยันทำต่อไม่ได้แล้วครับ ขอให้เลขาเตรียมใหม่ได้เลย',
+        routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'go_ahead_applied', outcome: 'direct', proposal_ids: cards.map(card => (card as { id: string }).id) }) };
+    } else if (waiting.length) {
       const cards = waiting.map(proposal => cardForStoredProposal(proposal, user));
       reply = { route: 'chat', handedOff: false, cards, calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,
         text: cards.length === 1 ? 'รายการนี้ยังรอยืนยันอยู่ครับ ตรวจรายละเอียดแล้วกดยืนยันบนการ์ดได้เลย' : `มี ${cards.length} รายการที่ยังรอยืนยันครับ ตรวจรายละเอียดแล้วกดยืนยันทีละการ์ดได้เลย`,
@@ -291,6 +315,23 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
       throw new HttpError(503, 'เลขากระรอกตอบไม่ทันในตอนนี้ กรุณาลองใหม่อีกครั้ง', 'ai_provider');
     }
     throw error;
+  }
+
+  // "บันทึกให้หน่อย" (owner, 2026-10-28): the new jobs, money received and expenses this answer prepared are saved now,
+  // through the same confirm as a tap, with every check it runs. A card that does not pass stays to confirm by hand.
+  if (channel === 'app' && reply.cards?.length && wantsSaveNow(input.text, input.history)) {
+    const { save, others } = autoSaveCards(reply.cards, preparedKinds);
+    let saved = 0;
+    let failed = 0;
+    for (const card of save) {
+      try {
+        const done = await confirmProposal(db, userId, card.id, { channel });
+        card.status = 'applied';
+        if (done.path) card.path = done.path;
+        saved += 1;
+      } catch { failed += 1; }
+    }
+    if (saved) reply = { ...reply, text: autoSaveText({ saved, failed, waiting: others }) };
   }
 
   // Pro and the trial pay what the request cost them in Krarok Tokens (a request-count limit, if set, charges nothing),
@@ -362,13 +403,50 @@ export async function reviseProposal(db: AssistantDb, userId: string, proposalId
   return { card: outcome.card };
 }
 
-export type ConfirmResult = { status: 'applied'; kind: Proposal['kind']; jobId?: string; recordId?: string; documentId?: string; path?: string };
+export type ConfirmResult = { status: 'applied'; kind: Proposal['kind']; jobId?: string; recordId?: string; documentId?: string; path?: string; allJobs?: true; count?: number };
+
+/** Where a saved job opens: the jobs page with that job's form (a deleted one has none to open). */
+export const jobPath = (kind: Proposal['kind'], jobId: string) => (proposalTarget(kind).op === 'delete' ? '/jobs' : `/jobs?job=${encodeURIComponent(jobId)}`);
+
+/**
+ * Delete every job a delete-all card counted, with the versions the account has now, in one save (all or nothing).
+ * The user's go-ahead in the chat is enough (owner, 2026-10-28: "ไม่จำเป็นต้องใส่รหัสแล้ว แค่อนุญาตในแชท"). A job edited
+ * between reading and saving gets one retry.
+ */
+async function applyDeleteAll(db: AssistantDb, userId: string, proposal: StoredProposal): Promise<ConfirmResult> {
+  let deleted = 0;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let changes;
+    try {
+      const { user, versions } = await db.loadAccount(userId);
+      if (user.user_id !== userId) throw new HttpError(403, 'ข้อมูลบัญชีไม่ตรงกับผู้ใช้งาน', 'ai_account_mismatch');
+      changes = bulkDeleteChanges(proposal, versions);
+    } catch (error) {
+      await db.finishProposal(userId, proposal.id, 'pending').catch(() => undefined);
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(409, 'ข้อมูลที่เตรียมไว้ไม่ผ่านการตรวจของแอป กรุณาขอให้เลขาเตรียมใหม่', 'ai_proposal_invalid');
+    }
+    deleted = changes.length;
+    if (!changes.length) break;
+    let applied: boolean;
+    try { applied = await db.applyChanges(userId, changes); }
+    catch (error) { await db.finishProposal(userId, proposal.id, 'pending').catch(() => undefined); throw error; }
+    if (applied) break;
+    if (attempt === 1) {
+      await db.finishProposal(userId, proposal.id, 'pending').catch(() => undefined);
+      throw new HttpError(409, 'มีการแก้ไขงานระหว่างลบ กรุณากดลบอีกครั้ง', 'ai_proposal_stale');
+    }
+  }
+  await db.finishProposal(userId, proposal.id, 'applied');
+  return { status: 'applied', kind: proposal.kind, allJobs: true, count: deleted, path: '/jobs' };
+}
 
 /** Apply a proposal the user confirmed, through the app's own save with the version the AI read. */
 export async function confirmProposal(db: AssistantDb, userId: string, proposalId: string, options: { channel?: 'app' | 'line' } = {}): Promise<ConfirmResult> {
   const proposal = await db.claimProposal(userId, proposalId);
   if (!proposal) throw new HttpError(409, 'รายการนี้ยืนยันไปแล้วหรือหมดเวลา กรุณาขอให้เลขาเตรียมใหม่', 'ai_proposal_gone');
   if (proposal.userId !== userId) throw new HttpError(403, 'ข้อมูลบัญชีไม่ตรงกับผู้ใช้งาน', 'ai_account_mismatch');
+  if (isDeleteAll(proposal)) return applyDeleteAll(db, userId, proposal);
   let changes;
   try {
     changes = proposalChanges(proposal, proposal.baseVersion);
@@ -391,7 +469,7 @@ export async function confirmProposal(db: AssistantDb, userId: string, proposalI
   // A confirmed correction becomes this account's rule (package B); learning never costs the confirmation.
   await learnFromConfirmed(db, userId, proposal, options.channel ?? 'app').catch(() => console.warn('assistant: correction not learned'));
   const target = proposalTarget(proposal.kind);
-  if (target.table === 'cashflow_jobs') return { status: 'applied', kind: proposal.kind, jobId: proposal.jobId };
+  if (target.table === 'cashflow_jobs') return { status: 'applied', kind: proposal.kind, jobId: proposal.jobId, path: jobPath(proposal.kind, proposal.jobId) };
   const path = target.table === 'cashflow_invoices' ? (target.op === 'delete' ? '/invoice' : documentPath({ id: proposal.jobId, documentType: proposal.record!.documentType as 'quotation' | 'invoice' }))
     : target.table === 'cashflow_expenses' ? '/incomeExpense' : target.table === 'cashflow_goals' ? '/split' : proposal.kind === 'edit_issuer_profile' ? '/invoice' : '/settings';
   return { status: 'applied', kind: proposal.kind, recordId: proposal.jobId, path,

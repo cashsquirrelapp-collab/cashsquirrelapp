@@ -26,7 +26,9 @@ export type MoneyChartCard = { kind: 'money_chart'; title: string; period: strin
 /** `edit`: fields the user may change on the card before confirming (owner, 2026-10-24). */
 export type EditField = { field: string; label: string; type: 'text' | 'money' | 'date' | 'choice'; value: string; options?: string[] };
 /** `status`: what became of it, when a stored chat is opened again. */
-export type ConfirmCard = { kind: 'confirm'; id: string; title: string; changes: { label: string; value: string }[]; edit?: EditField[]; status?: 'pending' | 'applied' | 'cancelled' | 'stale' | 'expired' };
+export type ConfirmCard = { kind: 'confirm'; id: string; title: string; changes: { label: string; value: string }[]; edit?: EditField[]; status?: 'pending' | 'applied' | 'cancelled' | 'stale' | 'expired';
+  /** Set when the app saved the card at once (the user said to save): where the saved record opens. */
+  path?: string };
 /** A LINE notification card (LineCard.tsx), the same template the app sends to LINE. */
 export type LineChatCard = { kind: 'line'; card: LineCardData };
 /** Tap-to-answer questions from เลขา (owner, 2026-10-24: tick the answers instead of typing them). */

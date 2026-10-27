@@ -48,8 +48,11 @@ export type AssistantCard =
   | { kind: 'document'; docType: string; number: string; client: string; amount: string; path: string }
   | { kind: 'navigation'; label: string; path: string; autoOpen: boolean }
   | { kind: 'confirm'; id: string; title: string; changes: { label: string; value: string }[]; edit?: EditField[];
-      /** Set when a stored chat is opened again: what became of the proposal since. */
-      status?: 'pending' | 'applied' | 'cancelled' | 'stale' | 'expired' }
+      /** Set when a stored chat is opened again, or when the app saved it at once (the user said to save): what became
+       * of the proposal since. */
+      status?: 'pending' | 'applied' | 'cancelled' | 'stale' | 'expired';
+      /** Where the saved record opens in the app (a saved job opens in its form). */
+      path?: string }
   /** Tap-to-answer questions (owner, 2026-10-24: tick the answers instead of typing them), with a calendar, when the
    * client pays and a party's details where needed (shared/askQuestions.ts, 2026-10-25). */
   | { kind: 'questions'; id: string; questions: AskQuestion[] }

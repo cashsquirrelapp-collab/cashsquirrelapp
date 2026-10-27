@@ -3,7 +3,7 @@ import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, Briefcase, Ch
 import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
-import type { ChatCard, ConfirmCard, DocumentCard, EditField, MoneyChartCard, OfficialLinkCard, ProjectCard, QuestionsCard, RenameCard, SummaryCard } from './assistantMock';
+import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
 import { dateLocale } from '../../utils';
@@ -340,10 +340,20 @@ function primaryAction(card: ConfirmCard): { label: string; danger: boolean } {
   if (title.startsWith('เพิ่มงานใหม่')) return { label: tr("บันทึกงาน"), danger: false };
   const doc = card.changes.find(row => row.label === 'เอกสาร')?.value.split(' ')[0];
   if (title.startsWith('สร้าง') && doc) return { label: tr("สร้าง{0}", tr(doc)), danger: false };
+  if (title.startsWith('ลบงานทั้งหมด')) return { label: tr("ลบงานทั้งหมด"), danger: true };
   if (title.startsWith('ลบ')) return { label: tr("ลบรายการนี้"), danger: true };
   return { label: tr("ยืนยัน"), danger: false };
 }
 const STATE_OF: Record<ConfirmState, CardState['tone']> = { pending: 'wait', working: 'busy', done: 'done', failed: 'failed', cancelled: 'muted', expired: 'muted' };
+/** The button on a saved card, by where it opens (owner, 2026-10-28: a saved job opens straight to that job). */
+function openLabel(path: string): string {
+  const page = path.split(/[/?]/)[1] ?? '';
+  if (page === 'jobs') return path.includes('job=') ? tr("เปิดดูงาน") : tr("ไปที่หน้างาน");
+  if (page === 'incomeExpense') return tr("เปิดดูรายการ");
+  if (page === 'split') return tr("เปิดดูเป้าหมาย");
+  if (page === 'settings') return tr("เปิดการตั้งค่า");
+  return tr("เปิดเอกสาร");
+}
 
 function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNavigate, onRevise }: { card: ConfirmCard; state: ConfirmState; onConfirm: () => void; onCancel?: () => void; onAsk?: (text: string) => void; confirmedPath?: string; onNavigate: (path: string) => void; onRevise?: (card: ConfirmCard, edits: Record<string, string>) => Promise<void> }) {
   const live = React.useContext(LiveContext);
@@ -464,7 +474,7 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
         </div>
       ) : state === 'pending' || state === 'working' ? (
         <div className="asx-rcard-actions">
-          <button type="button" className={`asx-pill-btn is-primary${action.danger ? ' is-danger' : ''}`} onClick={onConfirm} disabled={state === 'working'}>
+          <button type="button" className={`asx-pill-btn is-primary${action.danger ? ' is-danger' : ''}`} onClick={() => onConfirm()} disabled={state === 'working'}>
             {state === 'working' && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{state === 'working' ? tr("กำลังบันทึก") : action.label}
           </button>
           {(canEdit || onCancel) && state === 'pending' && <div className="asx-rcard-secondary">
@@ -474,8 +484,8 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
         </div>
       ) : (state !== 'done' || !live || confirmedPath) && (
         <div className={`asx-rcard-result is-${state}`} role="status">
-          {state === 'done' && <>{!live && <p>{tr("ยืนยันแล้ว (ตัวอย่าง) · ยังไม่มีการเปลี่ยนแปลงข้อมูลจริง")}</p>}{confirmedPath && <button type="button" className="asx-pill-btn" onClick={() => onNavigate(confirmedPath)}>{tr('เปิดเอกสาร')}</button>}</>}
-          {state === 'failed' && <><p>{tr("ทำรายการไม่สำเร็จ")}</p><button type="button" className="asx-pill-btn is-primary" onClick={onConfirm}>{tr("ลองอีกครั้ง")}</button></>}
+          {state === 'done' && <>{!live && <p>{tr("ยืนยันแล้ว (ตัวอย่าง) · ยังไม่มีการเปลี่ยนแปลงข้อมูลจริง")}</p>}{confirmedPath && <button type="button" className="asx-pill-btn" onClick={() => onNavigate(confirmedPath)}>{openLabel(confirmedPath)}</button>}</>}
+          {state === 'failed' && <><p>{tr("ทำรายการไม่สำเร็จ")}</p><button type="button" className="asx-pill-btn is-primary" onClick={() => onConfirm()}>{tr("ลองอีกครั้ง")}</button></>}
           {state === 'cancelled' && <p>{tr("ยกเลิกรายการนี้แล้ว")}</p>}
           {state === 'expired' && <><p>{tr("รายการนี้หมดเวลายืนยันแล้ว ขอให้เลขาเตรียมใหม่ได้")}</p>{onAsk && <button type="button" className="asx-pill-btn" onClick={() => onAsk(tr("ช่วยเตรียม \"{0}\" ใหม่อีกครั้ง", card.title))}>{tr("เตรียมใหม่")}</button>}</>}
         </div>
@@ -678,6 +688,20 @@ function Rename({ card }: { card: RenameCard }) {
         </div>
       </>}
     </div>
+  );
+}
+
+/**
+ * Several cards waiting in one answer: one tap confirms them all (owner, 2026-10-28: "อะไรที่มันจะเยอะสามารถบอกน้องให้
+ * น้องจัดการได้ทั้งหมด"). Each card is still confirmed on its own, with its own checks and state.
+ */
+export function ConfirmAll({ cards, states, onConfirm }: { cards?: ChatCard[]; states: Record<string, ConfirmState | undefined>; onConfirm: (card: ConfirmCard) => void }) {
+  const waiting = (cards ?? []).filter((card): card is ConfirmCard => isPendingConfirm(card, states[card.kind === 'confirm' ? card.id : ''] ?? 'pending'));
+  if (waiting.length < 2) return null;
+  return (
+    <button type="button" className="asx-pill-btn is-primary asx-confirm-all" onClick={() => waiting.forEach(card => onConfirm(card))}>
+      <CheckCircle2 size={16} aria-hidden="true" />{tr("ยืนยันทั้งหมด {0} รายการ", waiting.length)}
+    </button>
   );
 }
 

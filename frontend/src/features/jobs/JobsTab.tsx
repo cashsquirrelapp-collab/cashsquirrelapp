@@ -169,7 +169,10 @@ export default function JobsTab({
   React.useEffect(() => {
     if (!editJobId) return;
     const job = jobs.find(j => j.id === editJobId);
-    if (job) setEditingJob(job);
+    // A job saved a moment ago (by เลขา) may not be in the list yet: keep the request until it arrives; the app
+    // drops a request that never finds its job.
+    if (!job) return;
+    setEditingJob(job);
     onEditJobHandled?.();
   }, [editJobId, jobs, onEditJobHandled]);
 

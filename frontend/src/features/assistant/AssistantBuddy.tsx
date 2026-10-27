@@ -8,7 +8,7 @@ import { createSampleTransport, tokenLevel, type AssistantTransport } from './as
 import { TokenRing } from './TokenRing';
 import { PAGE_HELP, SAMPLE_TOKENS, afterReply, buddyPrompts, isPendingConfirm, poseFor, type AssistantMode, type ChatMessage, type ConfirmCard, type TokenBalance } from './assistantMock';
 import { cardSpeech, climbFor, graphemes, speechPreview, type BuddyNews, type Climb } from './buddyClimb';
-import { ChatCardView, type ConfirmState } from './ChatCards';
+import { ChatCardView, type ConfirmState, ConfirmAll } from './ChatCards';
 import { BriefingCard, briefingText } from './BriefingCard';
 import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
 import { MascotPeek } from '../../components/mascot/MascotPeek';
@@ -21,7 +21,7 @@ import { dateLocale } from '../../utils';
 import type { Briefing, BriefingItem } from '../../../../shared/briefing';
 import { Markdown } from './Markdown';
 import { getCurrentAccount } from '../../services/api';
-import { automaticNavigation, safeAssistantPath, type NavigationContext, type NavigationMode } from './assistantNavigation';
+import { automaticNavigation, safeAssistantPath, savedCards, type NavigationContext, type NavigationMode } from './assistantNavigation';
 import { confirmationCommand } from './assistantCommands';
 import './assistant.css';
 
@@ -356,11 +356,17 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
       });
       if (!isCurrent()) return;
       setMessages(list => (started ? list : [...list, { id: botId, from: 'bot' as const, text: '', at: Date.now() }]).map(message => (message.id === botId ? { ...message, text: result.text, cards: result.cards, ...(result.memo ? { memo: result.memo } : {}) } : message)));
+      // Cards the app saved at once (the user said to save): shown as saved, each opening its record.
+      const saved = savedCards(result.cards, scopeRef.current.navigationContext);
+      if (saved.ids.length) {
+        setConfirmStates(states => ({ ...states, ...Object.fromEntries(saved.ids.map(id => [id, 'done' as const])) }));
+        setConfirmedPaths(paths => ({ ...paths, ...saved.paths }));
+      }
       // An answer is not a job done: a card still waiting for a yes keeps the squirrel waiting with it.
-      const next = afterReply(result.cards);
+      const next = saved.ids.length && afterReply(result.cards) === 'answered' ? 'done' : afterReply(result.cards);
       setMode(next);
-      if (next === 'answered') window.setTimeout(() => setMode(m => (m === 'answered' ? 'awake' : m)), 1600);
-      if (!openRef.current) setNews('answered');
+      if (next === 'answered' || next === 'done') window.setTimeout(() => setMode(m => (m === next ? 'awake' : m)), 1600);
+      if (!openRef.current) setNews(next === 'done' ? 'done' : 'answered');
     } catch {
       if (controller.signal.aborted) return;
       setMessages(list => [...list.filter(message => message.id !== botId), { id: botId, from: 'bot' as const, text: tr("ส่งไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"), at: Date.now() }]);
@@ -506,6 +512,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                               onAsk={text => void send(text)}
                               onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
                           ))}
+                          {live && <ConfirmAll cards={message.cards} states={confirmStates} onConfirm={item => void confirm(item)} />}
                           {!live && (mode === 'done' || mode === 'awake' || mode === 'listening') && <span className="asx-meta">{tr("คำตอบตัวอย่าง")}</span>}
                         </div>
                       </li>

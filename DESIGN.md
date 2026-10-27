@@ -144,7 +144,13 @@ card does not need:
 - Questions: each question is a grey group of rows with a round tick; typed answers sit in the same group. Credit
   terms are a segmented control (ไม่มี / 30 / 45 / 60 / 90). Withholding questions always offer ไม่หัก, 1% ค่าขนส่ง,
   2% ค่าโฆษณา, 3% ค่าบริการ ค่าจ้าง ฟรีแลนซ์, 5% ค่าเช่า and "อัตราอื่น" typed by hand.
-- Anything that changes data goes through a confirmation card the user confirms **(owner)**.
+- Anything that changes data goes through a confirmation card the user confirms **(owner)**. Owner rules for many
+  items (2026-10-28): when the user's own message says to save now ("บันทึกให้หน่อย", "บันทึกทั้งหมด"), new jobs, money
+  received and expenses are saved as soon as the app's checks pass and their cards arrive already บันทึกแล้ว; two or
+  more cards waiting get one ยืนยันทั้งหมด button under them, and a typed "ยืนยัน" applies every waiting card; deleting
+  every job is one card (rust ลบงานทั้งหมด), one go-ahead, no password.
+- A saved card opens what it saved: เปิดดูงาน opens that job's form, เปิดเอกสาร the document, ไปที่หน้างาน after a
+  delete.
 - Cards show the server's figures verbatim; they never recompute totals.
 - LINE notification cards keep the CI gradient band (owner, 2026-10-22); their buttons follow this section: the one
   primary in orange, the rest grey, corners 10px. They share a template with the real LINE Flex messages

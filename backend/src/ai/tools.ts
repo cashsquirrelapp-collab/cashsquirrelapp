@@ -19,7 +19,7 @@ import { executeAccountingTool, isAccountingTool } from './accounting/tools.js';
 import { DOCUMENT_ACTION_TOOLS, executeDocumentAction, isDocumentActionTool } from './documentActions.js';
 import { RECORD_ACTION_TOOLS, executeRecordAction, isRecordActionTool } from './recordActions.js';
 import { NAVIGATION_TOOLS, executeNavigationTool, isNavigationTool, featureNavigation } from './navigation.js';
-import { prepareProposal, type Proposal, type ProposalKind } from './proposals.js';
+import { ALL_JOBS, prepareProposal, type Proposal, type ProposalKind } from './proposals.js';
 import { calculateJobFinancialEdit } from './jobFinancialEdit.js';
 import type { AskKind, AskQuestion } from '../../../shared/askQuestions.js';
 import { CREDIT_TERM_PRESETS } from '../../../shared/creditTerms.js';
@@ -142,6 +142,11 @@ const ACTION_TOOLS: ToolSpec[] = [
   { name: 'propose_record_payment', description: 'Prepare recording money received for a job: in full, or a partial amount. For a job paid in installments (งวด), partial with the installment\'s amount ticks that installment as received, and full ticks every one left. Needs job_id (from search_jobs). Nothing is saved until the user confirms.', parameters: obj({
     job_id: str('job_id from search_jobs'), mode: { type: 'string', enum: ['full', 'partial'] }, amount: numArg('Amount received, for partial'), date: str('Date received, YYYY-MM-DD (optional, default today)'),
   }, ['job_id', 'mode']) },
+  { name: 'propose_record_payments', description: "Prepare recording money received IN FULL for SEVERAL jobs at once, one card per job (owner, 2026-10-28: many items are done for the user, never sent back to a page to tick one by one). Pass job_ids (from search_jobs/account_data), or all_unpaid:true when the user means every job still waiting for payment. Optional date YYYY-MM-DD (default today). For a partial amount use propose_record_payment for that job. At most 50 per call; the result says how many remain.", parameters: obj({
+    job_ids: { type: 'array', items: { type: 'string' }, maxItems: 50, description: 'job_id values from search_jobs' },
+    all_unpaid: { type: 'boolean', description: 'Every job of the account still waiting for payment' },
+    date: str('Date received, YYYY-MM-DD (optional, default today)'),
+  }) },
   { name: 'propose_edit_job', description: "Prepare all requested changes to one own job in ONE confirmation card: names, dates, value, withholding and payment status can be combined. For 'no withholding and already fully paid', pass wht_rate:0 and payment_status:'paid' together. Never changes money received just to change a calendar event. Installment financial corrections need the job editor. Nothing is saved until the user confirms.", parameters: obj({
     job_id: str('job_id from search_jobs'), name: str('New name'), client: str('New client'), value: numArg('New value in baht'), pay_date: str('New payment due date, YYYY-MM-DD'), note: str('New note'),
     wht_rate: numArg('New withholding tax percent; 0 when the user says no withholding'),
@@ -153,6 +158,7 @@ const ACTION_TOOLS: ToolSpec[] = [
     type: str('Job type'), credit_term_days: { type: 'integer', minimum: 0, maximum: 3650, description: 'Credit days from delivery; recalculates the unpaid due date using the existing holiday preference' },
   }, ['job_id']) },
   { name: 'propose_delete_job', description: 'Prepare deleting one job. Needs job_id. The card tells the user what disappears; nothing is deleted until they confirm.', parameters: obj({ job_id: str('job_id from search_jobs') }, ['job_id']) },
+  { name: 'propose_delete_all_jobs', description: "Prepare deleting EVERY job of the account at once, in ONE card. Only when the user clearly asks for all of their jobs/projects to go (ลบงานทั้งหมด, ลบทุกโปรเจกต์); for one or some named jobs use propose_delete_job once per job. The card shows how many jobs and their total; the user's one go-ahead (the card's button, or typing ยืนยัน) deletes them. No password. Documents and expenses stay.", parameters: obj({}, []) },
 ];
 
 // Tools for areas customers cannot see yet stay off for everyone (owner, 2026-10-24: "เอาแค่จำกัดความที่มีใน
@@ -212,6 +218,8 @@ export interface ToolContext { user: UserRow; proposals: ProposalStore; memory: 
   learn?: LearnPair[] }
 
 const fail = (message: string): ToolOutcome => ({ result: { ok: false, error: message } });
+/** Payments one propose_record_payments call prepares at most (the rest in the next answer). */
+const BULK_PAYMENTS = 50;
 
 // Fields a confirmation card lets the user change before confirming, per proposal tool (owner, 2026-10-24).
 // A quotation or invoice card edits both document parties, up to five lines, VAT, withholding and the date.
@@ -769,6 +777,36 @@ export function createToolbox(context: ToolContext) {
           { label: 'งาน', value: job.name }, { label: 'ลูกค้า', value: job.client || '-' }, { label: 'มูลค่า', value: baht(job.value || 0) },
           { label: 'ผลกระทบ', value: 'งานนี้จะหายจากรายการ รายงาน และเงินค้างรับ' },
         ]);
+      }
+      case 'propose_record_payments': {
+        // Many payments in one go (owner, 2026-10-28): each job gets the same card propose_record_payment makes, with
+        // every check it runs; a job that cannot be recorded is listed, never guessed.
+        const all = args.all_unpaid === true;
+        const wanted = all ? jobs().filter(job => isUnpaid(user, job)).map(job => job.id)
+          : Array.isArray(args.job_ids) ? [...new Set(args.job_ids.filter((id): id is string => typeof id === 'string' && id.length > 0))] : [];
+        if (!wanted.length) return fail(all ? 'ไม่มีงานที่รอรับเงินในบัญชีนี้' : 'ต้องระบุงานที่ได้รับเงิน');
+        const batch = wanted.slice(0, BULK_PAYMENTS);
+        const date = /^\d{4}-\d{2}-\d{2}$/.test(String(args.date || '')) ? String(args.date) : undefined;
+        const cards: AssistantCard[] = [];
+        const skipped: { job: string; error: string }[] = [];
+        for (const [index, jobId] of batch.entries()) {
+          const outcome = await execute({ id: `${call.id}-${index}`, name: 'propose_record_payment', args: { job_id: jobId, mode: 'full', ...(date ? { date } : {}) } });
+          if (outcome.card?.kind === 'confirm') cards.push(outcome.card);
+          else skipped.push({ job: findJob(jobId)?.name ?? jobId, error: String((outcome.result as { error?: unknown } | null)?.error ?? 'ไม่สำเร็จ') });
+        }
+        if (!cards.length) return { result: { ok: false, error: 'บันทึกรับเงินงานที่ระบุไม่ได้', skipped } };
+        return { result: { ok: true, prepared: cards.length, skipped, remaining: wanted.length - batch.length,
+          note: 'One card per job is ready. If the user said to save, the app saves them at once; otherwise one go-ahead (ยืนยัน) applies them all.' }, extraCards: cards };
+      }
+      case 'propose_delete_all_jobs': {
+        // Owner, 2026-10-28: deleting everything is allowed with one go-ahead in the chat ("ไม่จำเป็นต้องใส่รหัสแล้ว").
+        const jobs = (user.jobs ?? []).filter(job => typeof job?.id === 'string' && job.id);
+        if (!jobs.length) return fail('ยังไม่มีงานในบัญชีนี้');
+        const total = jobs.reduce((sum, job) => sum + (Number.isFinite(Number(job.value)) ? Number(job.value) : 0), 0);
+        return prepareProposal(context, { kind: 'delete_job', id: ALL_JOBS, record: { allJobs: true, ids: jobs.map(job => job.id) }, title: `ลบงานทั้งหมด ${jobs.length} งาน`, changes: [
+          { label: 'จำนวนงาน', value: `${jobs.length} งาน` }, { label: 'มูลค่ารวม', value: baht(total) },
+          { label: 'ผลกระทบ', value: 'งานทั้งหมดจะหายจากรายการ รายงาน และเงินค้างรับ ส่วนเอกสารและรายจ่ายยังอยู่' },
+        ] });
       }
       default:
         return fail(`ไม่มีเครื่องมือ ${call.name}`);
