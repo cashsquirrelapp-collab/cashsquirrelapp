@@ -139,3 +139,11 @@ test('document tools go with a document in the chat; a job alone does not carry 
   const later = await ask('เพิ่มอีกรายการ 3 ชิ้น ชิ้นละ 500', [gText('รับทราบครับ')], [{ role: 'user', text: 'ออกใบเสนอราคาให้ร้านกาแฟตัวอย่าง' }, { role: 'assistant', text: 'ขอรายการงานด้วยครับ' }]);
   assert.ok(later.sent[0].tools.includes('propose_add_document'));
 });
+
+test('a typed expense gets the expense naming and the app\'s categories; a placeholder client is never looked up', async () => {
+  const typed = await ask('ซื้อหมึกพิมพ์ 450 บาท', [gText('ขอวันที่ด้วยครับ')]);
+  assert.match(typed.sent[0].system, /ค่าอุปกรณ์\/ซอฟต์แวร์, ค่าโฆษณา\/ยิงแอด/);
+  const account = user();
+  account.jobs!.push({ id: 'j3', name: 'งานเล็ก', client: 'ไม่ระบุ', value: 500, received: 0, pending: 500, status: 'pending', creditTerm: 0, isPosted: false } as never);
+  assert.equal(pastWorkContext(account, ['เพิ่มงานใหม่ ลูกค้าไม่ระบุ 1,000']), undefined);
+});

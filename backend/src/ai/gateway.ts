@@ -156,8 +156,13 @@ const SHORT_CHAT_TOOLS = new Set(['remember', 'recall_memories', 'forget_memory'
   'money_summary', 'receivables', 'search_jobs', 'financial_summary']);
 /** Words about the account's records: such a message, or one right after it, keeps every tool. */
 const RECORD_WORDS = /(รายรับ|รายได้|รายจ่าย|ค่าใช้จ่าย|กำไร|ขาดทุน|ยอด|สรุป|เงิน|ลูกค้า|งาน|โปรเจ|ค้าง|กราฟ|สถิติ|สัดส่วน|เอกสาร|ใบ|จ่าย|โอน|บาท|ภาษี|หัก|เป้า|เดือน|ปี|ไตรมาส|อันไหน|ตัวไหน|อันนั้น|อันนี้|ของใคร|ทั้งหมด|เท่าไหร่|เท่าไร|กี่|฿|\d|job|client|money|income|expense|invoice|quotation|paid|owe|month|year)/i;
-/** Money received, typed or on a slip: the file rules hold how an amount shows the withholding. */
-const MONEY_IN = /(โอน|สลิป|รับเงิน|ได้เงิน|จ่ายมา|จ่ายแล้ว|ชำระ|\bslip\b|\btransfer\b|\bpaid\b)/i;
+/**
+ * Money received or spent, typed or on a slip: the file rules hold how an amount shows the withholding, how an expense
+ * is named and the app's expense categories (a typed expense needs them too).
+ */
+const MONEY_IN = /(โอน|สลิป|รับเงิน|ได้เงิน|จ่ายมา|จ่ายแล้ว|ชำระ|รายจ่าย|ค่าใช้จ่าย|ซื้อ|จ่ายค่า|จ่ายร้าน|จ่ายให้|\bslip\b|\btransfer\b|\bpaid\b|\bexpense|\bbought\b|\bspent\b)/i;
+/** Names the app or a user puts in place of a client; never a past-work lookup. */
+const NO_CLIENT = new Set(['ไม่ระบุ', 'ลูกค้า', 'ลูกค้าทั่วไป', 'ทั่วไป', 'ไม่มี', 'อื่นๆ', 'อื่น', 'na', 'n/a', 'none', '-']);
 const PAST_WORK_INTENTS = new Set(['create', 'document', 'file']);
 /** Quotations, invoices and the issuer: these tools and DOCUMENT_RULES go with a document in the chat (owner, 2026-10-28). */
 const DOCUMENT_TOOLS_WRITE = new Set(['propose_add_document', 'propose_edit_document', 'propose_delete_document', 'propose_update_issuer']);
@@ -183,7 +188,10 @@ export function pastWorkContext(user: UserRow, texts: string[]): string | undefi
   if (!said) return undefined;
   const names = [...((user as UserRow & { invoices?: { client?: { name?: string } }[] }).invoices ?? []).map(doc => doc.client?.name), ...(user.jobs ?? []).map(job => (job as { client?: string }).client)];
   const byCore = new Map<string, string>();
-  for (const name of names) { const core = clientCore(name); if (core.length >= 3 && !byCore.has(core) && said.includes(core)) byCore.set(core, String(name).trim()); }
+  for (const name of names) {
+    const core = clientCore(name);
+    if (core.length >= 3 && !NO_CLIENT.has(core) && !byCore.has(core) && said.includes(core)) byCore.set(core, String(name).trim());
+  }
   // The most specific names first; a shorter name inside a chosen one is the same mention.
   const cores = [...byCore.keys()].sort((a, b) => b.length - a.length).filter((core, index, all) => !all.slice(0, index).some(longer => longer.includes(core))).slice(0, 2);
   if (!cores.length) return undefined;
