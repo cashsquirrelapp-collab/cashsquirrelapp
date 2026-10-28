@@ -4,6 +4,7 @@ import { withCloudflareClientIp } from '../backend/src/security/requestContext.j
 import { scheduledPaths } from './schedule.js';
 import { answerWithin } from './deferred.js';
 import { runScheduledJobs } from '../migration/scheduled-runner.js';
+import { enforceHttps } from './transport.js';
 
 // Production on Cloudflare Workers: the same Express backend Vercel runs (backend/src/http/app.ts),
 // the built frontend as static assets, and the cron jobs vercel.json used to schedule.
@@ -25,7 +26,7 @@ const SITE_HEADERS: Record<string, string> = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'Content-Security-Policy': "default-src 'self'; script-src 'self' https://static.line-scdn.net https://js.stripe.com https://checkout.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.stripe.com https://*.googleusercontent.com https://profile.line-scdn.net; connect-src 'self' https://fonts.googleapis.com https://api.stripe.com https://checkout.stripe.com https://merchant-ui-api.stripe.com https://api.emailjs.com https://api.line.me https://access.line.me https://liff.line.me; frame-src https://*.js.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://access.line.me https://liff.line.me; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
   'Cross-Origin-Resource-Policy': 'same-origin',
 };
@@ -46,6 +47,8 @@ function finish(response: Response, path: string): Response {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const httpsResponse = enforceHttps(request);
+    if (httpsResponse) return httpsResponse;
     // The LINE menu job reads its pictures from the asset store (services/lineRichMenus.ts).
     (globalThis as { __krarokAssets?: Fetcher }).__krarokAssets = env.ASSETS;
     const path = new URL(request.url).pathname;
