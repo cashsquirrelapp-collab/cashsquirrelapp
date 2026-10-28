@@ -113,6 +113,8 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
 - Card scale: title 14.5/600, hero amount 26/600, label 12.5-13.5 muted, value 14/500, body 15/400.
 - UI copy is formal Thai **(owner)**: no ค้าบ/น้า in system messages; toasts are icon + heading + one line;
   a deletion notice is information, not a warning.
+- The plans menu and page title (owner, 2026-10-28): "อัปเกรด Pro" for free and trial accounts, "แพ็กเกจ Pro" for
+  members who already pay (`nav.plansMember`). Phones say "แพ็กเกจ Pro" for everyone.
 
 ## 4. Components
 
@@ -233,6 +235,7 @@ Don't:
   a bubble at its left: "มีอะไรให้ช่วยไหมครับ" and only "กดที่ผม" under it (no shortcut written), now and then; news
   (thinking, an answer, a card waiting, a save) takes the same bubble. No pill, no haze behind it. Phones the same
   since 2026-10-27 ("ทำในมือถือด้วยเลย"): 72px above the bottom bar, the hello about 5 seconds in every 20.
+  It stays off แจ้งปัญหา, which is a chat with the team (owner, 2026-10-28); an open or folded เลขา window stays.
 - The floating เลขา window (computers and iPads) moves aside or folds into the mini squirrel when a document preview
   would be covered.
 - Its expand button is never a bigger window: it opens the full chat page, the same page as the sidebar's เลขากระรอก,

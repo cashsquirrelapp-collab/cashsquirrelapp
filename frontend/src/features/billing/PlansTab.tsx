@@ -179,7 +179,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
 
   return (
     <div className="page-content mx-auto max-w-5xl pb-16">
-      <PageHeader page="plans" />
+      <PageHeader page="plans" title={isPaidActive ? t('nav.plansMember') : undefined} />
 
       <section className="plan-page mx-auto mt-6 max-w-[820px] lg:mt-4" aria-labelledby="pro-plan-title">
         {BILLING_PERIODS.length > 1 && <div className="flex justify-center">

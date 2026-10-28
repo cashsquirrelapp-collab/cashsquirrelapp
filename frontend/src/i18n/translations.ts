@@ -26,6 +26,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'nav.assistant': 'เลขากระรอก',
     // Owner, 2026-10-28: "อัปเกรดโปร", so nobody wonders what membership the menu is about (was การสมัครสมาชิก / อัปเกรด).
     'nav.plans': 'อัปเกรด Pro',
+    // Members who already pay see the plan's name instead of the upgrade call (owner, 2026-10-28).
+    'nav.plansMember': 'แพ็กเกจ Pro',
     'nav.settings': 'ตั้งค่า',
     'nav.moreTools': 'เครื่องมือเพิ่มเติม',
     'nav.backToDashboard': 'กลับไปหน้าภาพรวม',
@@ -809,6 +811,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'nav.wht50': 'Track 50 Tawi',
     'nav.assistant': 'Krarok Assistant',
     'nav.plans': 'Upgrade to Pro',
+    'nav.plansMember': 'Pro plan',
     'nav.settings': 'Settings',
     'nav.moreTools': 'More Tools',
     'nav.backToDashboard': 'Back to Overview',

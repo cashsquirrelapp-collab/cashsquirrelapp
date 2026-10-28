@@ -680,7 +680,7 @@ export default function App() {
                 <ArrowLeftRight className="h-4 w-4 text-brand-muted" />{tr("สลับบัญชี")}</button>
             )}
             <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className={profileMenuItem}>
-              <ShoppingBag className="h-4 w-4 text-brand-muted" />{tr("อัปเกรด Pro")}
+              <ShoppingBag className="h-4 w-4 text-brand-muted" />{t(navLabelKey({ key: 'plans', labelKey: 'nav.plans' }))}
             </button>
             <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('settings'); }} className={profileMenuItem}>
               <Settings className="h-4 w-4 text-brand-muted" />{tr("ตั้งค่า")}</button>
@@ -732,7 +732,7 @@ export default function App() {
         <span className="inline-flex shrink-0">
           <NavGlyph tab={item.key} active={isActive} outline={Icon} className={item.group === 'sub' ? 'w-4 h-4' : 'w-[19px] h-[19px]'} />
         </span>
-        <span>{item.key === 'feedback' ? (language === 'th' ? 'แจ้งปัญหา' : 'Report a problem') : t(item.labelKey)}</span>
+        <span>{item.key === 'feedback' ? (language === 'th' ? 'แจ้งปัญหา' : 'Report a problem') : t(navLabelKey(item))}</span>
         {subsOpen !== undefined && (
           <ChevronDown aria-hidden className={`ml-auto h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${subsOpen ? 'rotate-180' : ''}`} />
         )}
@@ -1332,6 +1332,8 @@ export default function App() {
   // still requires a real account and is checked independently by the API.
   const isGuestProPreview = session?.isGuest === true;
   const isPro = isGuestProPreview || isInFreeTrial || isPaidActive;
+  // The plans menu asks free and trial accounts to upgrade; paying members see the plan's name (owner, 2026-10-28).
+  const navLabelKey = (item: { key: string; labelKey: string }) => (item.key === 'plans' && isPaidActive ? 'nav.plansMember' : item.labelKey);
   // The floating squirrel follows Pro accounts to every page but the chat itself (and steps aside for เมนู on phones).
   const [assistantTransport, setAssistantTransport] = useState<AssistantTransport | undefined>(undefined);
   // Pro that has ended keeps เลขา while tokens are left from its last month (owner, 2026-10-28): the server says so
@@ -3536,8 +3538,10 @@ export default function App() {
         )}
         {showBuddy && (
           <Suspense fallback={null}>
-            <AssistantBuddy key={financeOwner} accountId={!financeGroupId ? session.user.id : undefined} workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} mobile={isPhone} page={activeTab} pageName={t(NAV_ITEMS.find(item => item.key === activeTab)?.labelKey ?? 'nav.dashboard')}
-              userName={routeContext?.profile.displayName || undefined} hidden={birthOpen} arrival={buddyArrival}
+            <AssistantBuddy key={financeOwner} accountId={!financeGroupId ? session.user.id : undefined} workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} mobile={isPhone} page={activeTab} pageName={t(navLabelKey(NAV_ITEMS.find(item => item.key === activeTab) ?? { key: 'dashboard', labelKey: 'nav.dashboard' }))}
+              // แจ้งปัญหา is a chat with the team, so เลขา's corner squirrel stays out of it (it covered the phone's
+              // composer); an open or folded เลขา window stays (owner, 2026-10-28).
+              userName={routeContext?.profile.displayName || undefined} hidden={birthOpen || activeTab === 'feedback'} arrival={buddyArrival}
               onOpenChat={handoff => { setChatHandoff(handoff ?? null); navigateTab('assistant'); }} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} connecting={assistantChecking} briefing={briefing}
               carried={buddyCarry} onCarried={() => setBuddyCarry(null)} />
           </Suspense>

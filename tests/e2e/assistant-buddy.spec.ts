@@ -773,3 +773,30 @@ test('phones: the standing squirrel stays where it is (no drag)', async ({ page 
   const after = await rectOf(page, '.asx-buddy-btn.is-stand');
   expect(Math.abs(after.x - before.x) + Math.abs(after.y - before.y)).toBeLessThan(6);
 });
+
+// แจ้งปัญหา is a chat with the team (owner, 2026-10-28): เลขา's corner squirrel stays out of it, on phones (it covered the
+// composer) and on computers, and comes back on the next page.
+for (const [label, width, height] of [['phone', 390, 844], ['computer', 1280, 820]] as const) {
+  test(`${label}: no corner squirrel on แจ้งปัญหา, back on the next page`, async ({ page }) => {
+    await open(page, width, height, { role: 'user', path: '/jobs' });
+    const buddy = page.locator('.asx-buddy-btn');
+    await expect(buddy).toBeVisible();
+    if (width >= 1024) await page.locator('.app-sidebar').getByRole('button', { name: 'แจ้งปัญหา', exact: true }).click();
+    else await page.goto('/feedback');
+    await expect(page.getByRole('heading', { name: 'แจ้งปัญหา', exact: true }).first()).toBeVisible();
+    await expect(buddy).toBeHidden();
+    await expect(page.locator('.asx-buddy-tip, .asx-brief-tip, .asx-hello-say, .asx-climb-say')).toHaveCount(0);
+    const send = page.locator('#main-content textarea').first();
+    await expect(page.locator('#app-splash')).toHaveCount(0); // the opening logo has faded out
+    if (await send.count()) {
+      const box = (await send.boundingBox())!;
+      const onTop = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [box.x + box.width - 12, box.y + box.height / 2]);
+      expect(onTop).toBe('TEXTAREA');
+    }
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await snap(page, `buddy-feedback-${width}.png`);
+    if (width >= 1024) await page.locator('.app-sidebar').getByRole('button', { name: 'งาน', exact: true }).click();
+    else await page.goto('/jobs');
+    await expect(buddy).toBeVisible();
+  });
+}
