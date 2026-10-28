@@ -632,10 +632,12 @@
 .kb-hill-land { fill: var(--kb-land); }
 .kb-hill-rim { fill: none; stroke: url(#kb-rim); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: kb-draw 1.3s cubic-bezier(0.45, 0, 0.25, 1) 0.45s forwards; }
 .kb-hill-rim.is-glow { stroke-width: 7; opacity: 0.85; }
-/* Words: the greeting typing itself out, in the CI's rust, orange and caramel (owner, 2026-10-29: "ยึดตามหลักสี CI ... เปลี่ยนแค่สี text"). */
+/* Words: the greeting typing itself out. */
 .kb-hello { position: relative; z-index: 2; }
-.kb-hello h2 { font-size: 32px; font-weight: 600; line-height: 1.45; background: linear-gradient(90deg, #A63F1B, #C24A16 36%, #E65F2B 66%, #C17817); -webkit-background-clip: text; background-clip: text; color: transparent; overflow-wrap: anywhere; }
-.dark .kb-hello h2 { background: linear-gradient(90deg, #FFE1CF, #FFA473 36%, #F07440 66%, #F2B76B); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 16px rgba(255, 164, 115, 0.3)); }
+/* The hero line in เลขา's own looped type and a warm pastel that sits in the scene's light (owner, 2026-10-29: "ฟอนต์ที่มีหัว
+   ... ปรับให้มันเข้ากับมูดนั้นหน่อย", the CI orange stood out): cream and peach from the CI warming into the rose of the orbs. */
+.kb-hello h2 { font-family: 'IBM Plex Sans Thai Looped', 'IBM Plex Sans', var(--font-sans); font-size: 32px; font-weight: 600; line-height: 1.45; padding-block: 0.04em; background: linear-gradient(90deg, #B4400F, #D2602F 45%, #C25A72); -webkit-background-clip: text; background-clip: text; color: transparent; overflow-wrap: anywhere; }
+.dark .kb-hello h2 { background: linear-gradient(90deg, #FFF4EC, #FFD3B8 42%, #FFBFCB 80%, #F3D6FF); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 18px rgba(255, 190, 170, 0.32)); }
 .kb-untyped { visibility: hidden; }
 .kb-caret { position: relative; display: inline-block; width: 0; height: 1em; vertical-align: -0.12em; }
 .kb-caret::after { content: ""; position: absolute; left: 2px; top: 0.08em; bottom: -0.02em; width: 2px; border-radius: 2px; background: var(--kb-ink); opacity: 0.75; animation: kb-blink 1s steps(2, start) infinite; }

@@ -75,9 +75,9 @@ owner's approval to change.
 - **Liquid glass is chrome only (owner, 2026-10-23):** the sidebar, menus, toasts, the phone's bottom capsule and the
   floating เลขา window. Content cards are solid.
 - No glows, neon, gradient text, emoji as icons, or decorative gradients on content. The sanctioned gradients are the
-  overview's rust hero band, the LINE card header, the Pro arrival's greeting and the chat greeting heading (owner
-  choices; both in CI rust, orange and caramel since 2026-10-29) and the Welcome Onboarding greeting in CI colours
-  (2026-10-28).
+  overview's rust hero band, the LINE card header, the chat greeting heading (CI rust, orange and caramel since
+  2026-10-29), the Pro arrival's greeting (เลขา's looped type in a warm pastel, cream and peach into the orbs' rose,
+  2026-10-29) and the Welcome Onboarding greeting in CI colours (2026-10-28).
 
 ## 2. Colour and roles
 
