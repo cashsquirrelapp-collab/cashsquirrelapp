@@ -15,7 +15,6 @@ import { apiJson } from './api';
 export type AdminRecoveryLink = {
   id: string;
   url: string | null;
-  recoveryCode: string | null;
   createdAt: string;
   expiresAt: string;
   consumedAt: string | null;

@@ -7,6 +7,7 @@ import { Mascot, MascotMood } from '../../components/mascot/Mascot';
 import { BrandLockup } from '../../components/brand/BrandLogo';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { isValidPassword, passwordRequirements, type PasswordRequirement } from '../../../../shared/passwordPolicy';
+import { readRecoveryToken } from '../../../../shared/recoveryLink';
 
 import { tr, trc, trServer, T } from '../../i18n/tr';
 import { currentLanguage } from '../../i18n/currentLanguage';
@@ -219,8 +220,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
   const { t, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const initialParams = new URLSearchParams(window.location.search);
-  const initialRecoveryToken = initialParams.get('r') || initialParams.get('recover') || '';
+  const initialRecovery = readRecoveryToken(window.location.search, window.location.hash);
+  const initialRecoveryToken = initialRecovery.token;
   const [accountRecoveryToken, setAccountRecoveryToken] = useState(initialRecoveryToken);
   const [isAccountRecovery, setIsAccountRecovery] = useState(() => window.location.pathname === '/recover' || initialRecoveryToken.length >= 24);
   const [loginLock, setLoginLock] = useState<{ email: string; until: number } | null>(null);
@@ -254,14 +255,15 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
   }, []);
   const [error, setError] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
+    const recovery = readRecoveryToken(window.location.search, window.location.hash);
     return params.get('confirmationExpired') === '1' ? t('login.err.confirmationExpired')
       : params.get('authLinkError') === '1' ? t('login.err.authLink')
       : params.get('accountDeletionPending') === '1' ? t('login.accountDeletionPending')
-      : (params.has('r') || params.has('recover')) && (params.get('r') || params.get('recover') || '').length < 24 ? t('login.invalidRecoveryLink') : null;
+      : recovery.present && recovery.token.length < 24 ? t('login.invalidRecoveryLink') : null;
   });
   const [success, setSuccess] = useState<string | null>(() => new URLSearchParams(window.location.search).get('emailConfirmed') === '1' ? t('login.success.emailConfirmed') : null);
   const [mascotMood, setMascotMood] = useState<MascotMood>('happy');
-  const [showWelcome, setShowWelcome] = useState(() => window.location.pathname === '/' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && !new URLSearchParams(window.location.search).has('recover') && !new URLSearchParams(window.location.search).has('r') && window.location.hash !== '#login');
+  const [showWelcome, setShowWelcome] = useState(() => window.location.pathname === '/' && new URLSearchParams(window.location.search).get('emailConfirmed') !== '1' && !initialRecovery.present && window.location.hash !== '#login');
   const [authEntry, setAuthEntry] = useState(0);
   // First screen of the card: choose how to sign in (no form). "Email" opens the existing form.
   // Coming back from an email confirmation link goes straight to the form, where the password is needed.
@@ -334,8 +336,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
     if (confirmationExpired) params.delete('confirmationExpired');
     const accountDeletionPending = params.get('accountDeletionPending') === '1';
     if (accountDeletionPending) params.delete('accountDeletionPending');
-    const hasRecoveryLink = params.has('r') || params.has('recover');
-    const recoveryToken = params.get('r') || params.get('recover') || '';
+    const recovery = readRecoveryToken(window.location.search, window.location.hash);
+    const hasRecoveryLink = recovery.present;
+    const recoveryToken = recovery.token;
     const invalidRecoveryLink = hasRecoveryLink && recoveryToken.length < 24;
     // Old links remain usable until their one-hour expiry, but do not keep
     // their secret in the browser's address bar after this page loads.
@@ -350,7 +353,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
     }
     const syncWelcomeWithHistory = () => {
       const currentParams = new URLSearchParams(window.location.search);
-      setShowWelcome(window.location.pathname === '/' && !currentParams.has('recover') && !currentParams.has('r') && currentParams.get('emailConfirmed') !== '1' && window.location.hash !== '#login');
+      const currentRecovery = readRecoveryToken(window.location.search, window.location.hash);
+      setShowWelcome(window.location.pathname === '/' && !currentRecovery.present && currentParams.get('emailConfirmed') !== '1' && window.location.hash !== '#login');
     };
     window.addEventListener('popstate', syncWelcomeWithHistory);
     return () => window.removeEventListener('popstate', syncWelcomeWithHistory);

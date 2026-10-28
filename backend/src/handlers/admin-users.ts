@@ -11,6 +11,7 @@ import { systemRole } from '../repositories/roles.js';
 import { challengeHash, rateLimit } from '../security/rateLimit.js';
 import { groupDbError } from './groups.js';
 import { loadPresenceByUserId, ONLINE_WINDOW_MS } from '../repositories/presence.js';
+import { buildRecoveryLink } from '../../../shared/recoveryLink.js';
 
 const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
 const createRecoveryLinkSchema = z.object({ action: z.literal('create-recovery-link') }).strict();
@@ -270,14 +271,13 @@ export default withGuard(
         const profilesById = new Map((profiles.data || []).map(profile => [profile.user_id, profile] as const));
         const includeUrls = req.query.includeUrls === '1';
         res.json({ links: rows.map(row => {
-          const recoveryCode = includeUrls && !row.consumed_at && !row.revoked_at && row.token_ciphertext
+          const recoveryToken = includeUrls && !row.consumed_at && !row.revoked_at && row.token_ciphertext
             ? unseal<string>(row.token_ciphertext) : null;
-          const url = recoveryCode ? new URL('/recover', appOrigin()).toString() : null;
+          const url = recoveryToken ? buildRecoveryLink(appOrigin(), recoveryToken) : null;
           const profile = row.recovered_user_id ? profilesById.get(row.recovered_user_id) : undefined;
           return {
             id: row.id,
             url,
-            recoveryCode,
             createdAt: row.created_at,
             expiresAt: row.expires_at,
             consumedAt: row.consumed_at,
@@ -363,8 +363,9 @@ export default withGuard(
       if (!parsed.success) throw new HttpError(400, 'ข้อมูลสร้างลิงก์กู้คืนไม่ถูกต้อง');
       const issuedAt = Date.now();
       const expiresAt = new Date(issuedAt + RECOVERY_LINK_TTL_MS).toISOString();
-      // The 144-bit secret is sent separately from the URL. Its keyed hash
-      // validates recovery; ciphertext lets admins retrieve active codes.
+      // Store only a keyed hash for validation and encrypted token material so
+      // admins can retrieve an active recovery link. The URL builder places the
+      // token in the fragment, outside the initial HTTP request.
       const token = randomBytes(18).toString('base64url');
       const tokenHash = challengeHash(`account-recovery-link:${token}`);
       const expired = await db.from('cashflow_account_recovery_links')
@@ -374,8 +375,8 @@ export default withGuard(
         token_hash: tokenHash, token_ciphertext: seal(token), created_by: user.id, expires_at: expiresAt,
       }).select('id,created_at').single();
       if (saved.error) throw saved.error;
-      const url = new URL('/recover', appOrigin());
-      res.json({ id: saved.data.id, url: url.toString(), recoveryCode: token, createdAt: saved.data.created_at, expiresAt, consumedAt: null, revokedAt: null,
+      const url = buildRecoveryLink(appOrigin(), token);
+      res.json({ id: saved.data.id, url, createdAt: saved.data.created_at, expiresAt, consumedAt: null, revokedAt: null,
         recoveredUserId: null, recoveredEmail: null, recoveredPublicId: null, recoveredDisplayName: null });
       return;
     }
