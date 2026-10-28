@@ -8,6 +8,7 @@ import { appOrigin, required, supabaseUrl } from '../config/env.js';
 import { readCookie, writeCookie, seal } from '../security/cookies.js';
 import { publicUser, storeSession, requireUser, revokeSession, type PrivateSession } from '../security/session.js';
 import { challengeHash, rateLimit } from '../security/rateLimit.js';
+import { decideSignIn } from '../security/loginPolicy.js';
 import { clientIp } from '../security/ingress.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { supabaseFetch } from '../config/supabaseFetch.js';
@@ -64,7 +65,7 @@ async function sendLoginSecurityAlert(email: string): Promise<void> {
   if (!confirmedEmail || confirmedEmail.toLowerCase() !== email) return;
   const occurredAt = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' });
   const sent = await sendGmailEmail(confirmedEmail, 'แจ้งเตือนความปลอดภัยในการเข้าสู่ระบบ | Krarok Tunngern',
-    `<div style="font-family:Arial,sans-serif;max-width:540px;margin:auto;color:#34251d"><h2>มีการพยายามเข้าสู่ระบบบัญชีของคุณ</h2><p>มีการกรอกรหัสผ่านไม่ถูกต้องครบ 6 ครั้ง การเข้าสู่ระบบด้วยรหัสผ่านจึงถูกพัก 5 นาที</p><p>เวลา: ${occurredAt} (เวลาไทย)</p><p>หากเป็นคุณ สามารถรอ 5 นาที หรือใช้รหัสผ่านที่ถูกต้องพร้อมรหัสยืนยันทางอีเมลเพื่อเข้าใช้ได้ทันที หากไม่ใช่คุณ แนะนำให้เปลี่ยนรหัสผ่านและตรวจสอบความปลอดภัยของอีเมล</p></div>`);
+    `<div style="font-family:Arial,sans-serif;max-width:540px;margin:auto;color:#34251d"><h2>มีการพยายามเข้าสู่ระบบบัญชีของคุณ</h2><p>มีการกรอกรหัสผ่านไม่ถูกต้องครบ 6 ครั้ง ระบบจึงจำกัดการลองรหัสผ่านที่ไม่ถูกต้องเป็นเวลา 5 นาที</p><p>เวลา: ${occurredAt} (เวลาไทย)</p><p>หากเป็นคุณและจำรหัสผ่านได้ ให้เข้าสู่ระบบด้วยรหัสผ่านที่ถูกต้อง หากไม่ใช่คุณ แนะนำให้เปลี่ยนรหัสผ่านและตรวจสอบความปลอดภัยของอีเมล</p></div>`);
   if (!sent) console.error('Login security email delivery failed');
 }
 export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
@@ -239,10 +240,10 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     const emailKey = loginEmailKey(parsed.data.email);
     const lockStatus = await getSupabaseAdmin().rpc('cashflow_login_lock_status', { p_email_key: emailKey });
     if (lockStatus.error) throw lockStatus.error;
-    if (Number(lockStatus.data) > 0) {
-      res.setHeader('Retry-After', String(lockStatus.data));
-      throw new HttpError(429, `กรอกรหัสผ่านผิดเกินจำนวนครั้งที่กำหนด โปรดลองเข้าสู่ระบบในอีก ${Math.ceil(Number(lockStatus.data) / 60)} นาที`, 'login_locked');
-    }
+    const lockedForSeconds = Number(lockStatus.data) || 0;
+    // Keep rejecting guesses during an account lock, but let the real owner in
+    // when they supply the correct password. Otherwise anyone who knows an
+    // email address can repeatedly lock that person out for five minutes.
     const {data,error}=await auth.auth.signInWithPassword(parsed.data);
     if (error?.code==='email_not_confirmed') {
       const admin=getSupabaseAdmin();
@@ -250,8 +251,14 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       if(found.data?.user_id)await sendConfirmation(found.data.user_id,parsed.data.email);
       throw new HttpError(403,'บัญชียังไม่ได้ยืนยันอีเมล ระบบส่งลิงก์ยืนยันฉบับใหม่ให้แล้ว กรุณาตรวจสอบกล่องจดหมายและสแปม');
     }
+    const credentialsRejected = Boolean(error && (error.code === 'invalid_credentials' || error.code === 'user_not_found' || error.status === 400));
+    const decision = decideSignIn(lockedForSeconds, Boolean(data.session), credentialsRejected);
+    if (decision === 'locked') {
+      res.setHeader('Retry-After', String(lockedForSeconds));
+      throw new HttpError(429, `กรอกรหัสผ่านผิดเกินจำนวนครั้งที่กำหนด โปรดลองเข้าสู่ระบบในอีก ${Math.ceil(lockedForSeconds / 60)} นาที`, 'login_locked');
+    }
     if (error || !data.session) {
-      if (error && (error.code === 'invalid_credentials' || error.code === 'user_not_found' || error.status === 400)) {
+      if (decision === 'record-failure') {
         const failed = await getSupabaseAdmin().rpc('cashflow_record_login_failure', { p_email_key: emailKey });
         if (failed.error) throw failed.error;
         const result = Array.isArray(failed.data) ? failed.data[0] : failed.data;
