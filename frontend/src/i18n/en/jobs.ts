@@ -185,4 +185,12 @@ export const jobs: Record<string, string> = {
   'ไม่บังคับ': 'Optional',
   'ไม่พบงานที่ตรงกับตัวกรองนี้': 'No jobs match this filter',
   'ไม่มีงานเลยกำหนด': 'No overdue jobs',
+  // Job form on computers (2026-10-28): the payment date is asked in the payment section.
+  'รับเงินวันไหน?': 'When will you be paid?',
+  'รับยอดที่เหลือวันไหน?': 'When will the rest be paid?',
+  'ระยะเวลารับเงิน (นับจากวันส่งงาน)': 'Payment term (from the delivery date)',
+  'วันส่งงาน': 'Delivery date',
+  'วันที่จะส่งงาน': 'Planned delivery date',
+  'ส่งงาน {0}': 'Delivered {0}',
+  'วันส่งงาน หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน': 'Delivery date, withholding tax, start date and internal note',
 };

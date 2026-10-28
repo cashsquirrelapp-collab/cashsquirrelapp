@@ -167,3 +167,43 @@ test('phone: the page keeps its full-screen layout, no card', async ({ page }) =
   const look = await page.locator('.asx-panel-host').evaluate(el => { const s = getComputedStyle(el); return { radius: s.borderTopLeftRadius, margin: s.marginTop }; });
   expect(look).toEqual({ radius: '0px', margin: '0px' });
 });
+
+// Owner, 2026-10-28: "ส่งงานวันไหน" read as a payment question. On computers the payment section asks
+// "รับเงินวันไหน?" with its own calendar; the delivery date moves under รายละเอียดเพิ่มเติม. Phones are unchanged.
+test('computer: the job form asks when the money comes in, and saves the date picked', async ({ page }) => {
+  await open(page, 1280, 800, '/jobs');
+  const sent: string[] = [];
+  page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/api/data')) sent.push(request.postData() ?? ''); });
+  await row(page, 'ออกแบบโลโก้').click();
+  const edit = page.getByRole('button', { name: 'แก้ไขงาน' }).first();
+  if (await edit.isVisible().catch(() => false)) await edit.click();
+  const drawer = page.getByRole('dialog', { name: 'แก้ไขงาน' });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText('ส่งงานวันไหน?')).toHaveCount(0);
+  await expect(drawer.locator('#job-form-postDate')).toHaveCount(0); // under รายละเอียดเพิ่มเติม, still closed
+  const due = drawer.getByLabel('รับเงินวันไหน?');
+  await expect(due).toHaveValue(day(0));
+  await drawer.getByRole('button', { name: '30', exact: true }).click();
+  await expect(due).toHaveValue(day(30));
+  await due.fill(day(10));
+  await expect(drawer.getByText(/คาดว่าจะได้รับเงิน/)).toBeVisible();
+  await drawer.getByRole('button', { name: 'รายละเอียดเพิ่มเติม' }).click();
+  await expect(drawer.getByLabel(/^วันส่งงาน/)).toHaveValue(day(0));
+  await drawer.getByRole('button', { name: 'บันทึกงาน' }).click();
+  await expect(drawer).toHaveCount(0);
+  await expect.poll(() => sent.join('')).toContain(`"payDate":"${day(10)}"`);
+  const saved = JSON.parse(sent.find(body => body.includes(`"payDate":"${day(10)}"`))!).changes.find((change: { table: string }) => change.table === 'cashflow_jobs').data;
+  expect({ payDate: saved.payDate, creditTerm: saved.creditTerm, postDate: saved.postDate }).toEqual({ payDate: day(10), creditTerm: 10, postDate: day(0) });
+});
+
+test('phone: the job sheet still asks the delivery date in its status tab', async ({ page }) => {
+  await open(page, 390, 844, '/jobs');
+  await page.getByRole('button', { name: 'เพิ่มงาน', exact: true }).first().click();
+  const sheet = page.getByRole('dialog', { name: 'เพิ่มงาน' });
+  await sheet.locator('summary').click();
+  await sheet.getByRole('radio', { name: /ส่งงานแล้ว/ }).click();
+  await expect(sheet.getByText('ส่งงานวันไหน?')).toBeVisible();
+  await sheet.getByRole('tab', { name: 'สถานะรับเงิน' }).click();
+  await expect(sheet.getByText('รับเงินวันไหน?')).toHaveCount(0);
+  await expect(sheet.getByText('ระยะเวลารับเงิน', { exact: true })).toBeVisible();
+});

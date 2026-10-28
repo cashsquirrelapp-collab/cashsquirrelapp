@@ -35,6 +35,8 @@ const todayStr = (offsetDays = 0) => {
   d.setDate(d.getDate() + offsetDays);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+/** Calendar days from one YYYY-MM-DD to another. */
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 // WHT on a custom rate can land on satang (1.5% of 1,234 = 18.51); show them instead of rounding.
 const formatMoney = (amount: number) => Number.isInteger(amount)
@@ -87,6 +89,9 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
   const [depositDate, setDepositDate] = React.useState(todayStr());
   const [paidDate, setPaidDate] = React.useState(todayStr());
   const [creditTerm, setCreditTerm] = React.useState(0);
+  // Computers and iPads (owner, 2026-10-28): "รับเงินวันไหน?" is asked in the payment section. A date picked there is
+  // kept as is; null means it follows the payment term from the delivery date.
+  const [manualDue, setManualDue] = React.useState<string | null>(null);
   const [excludeHolidays, setExcludeHolidays] = React.useState(false);
   const [installments, setInstallments] = React.useState<JobInstallment[]>([]);
   const [isPosted, setIsPosted] = React.useState(false);
@@ -120,6 +125,8 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     setPaidDate(job && behaviorOf(job.status, statuses) === 'done' && job.payDate ? job.payDate : todayStr());
     setCreditTerm(job?.creditTerm ?? 0);
     setExcludeHolidays(job?.excludeHolidays ?? false);
+    const waitingPay = job && (paymentOf(job.status, statuses) === 'unpaid' || paymentOf(job.status, statuses) === 'partial') ? job.payDate : null;
+    setManualDue(waitingPay && waitingPay !== calculatePayDate(job?.postDate, job?.creditTerm ?? 0, job?.excludeHolidays ?? false) ? waitingPay : null);
     setInstallments(job?.installments ?? []);
     setIsPosted(job ? job.isPosted !== false : false);
     setStartDate(job ? job.startDate ?? '' : todayStr());
@@ -172,6 +179,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
   const installmentTotal = installments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   const installmentsMatch = installments.length > 0 && installments.every(row => Number(row.amount) > 0) && Math.abs(installmentTotal - net) <= 0.01;
   const expectedPayDate = postDate ? calculatePayDate(postDate, creditTerm, excludeHolidays) : null;
+  const shownDue = manualDue ?? expectedPayDate ?? '';
   const customTypes = Array.from(new Set(jobTypes)).filter(t => t && !DEFAULT_JOB_TYPES.includes(t));
   const typeOptions = Array.from(new Set(['ยังไม่ระบุ', ...DEFAULT_JOB_TYPES, ...customTypes, ...(type !== CUSTOM_TYPE ? [type] : [])]));
 
@@ -211,7 +219,8 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     setErrors(next);
     const firstInvalid = (['name', 'value', 'postDate', 'received', 'installments', 'type', 'wht'] as FieldKey[]).find(key => next[key]);
     if (firstInvalid) {
-      if (firstInvalid === 'wht') setAdvancedOpen(true);
+      // Computers keep the delivery date under รายละเอียดเพิ่มเติม.
+      if (firstInvalid === 'wht' || (firstInvalid === 'postDate' && !mobile)) setAdvancedOpen(true);
       const tab = FIELD_TAB[firstInvalid];
       if (tab) { setMoreOpen(true); setExtraTab(tab); }
       requestAnimationFrame(() => {
@@ -235,11 +244,16 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
       : 0;
     const pendingFinal = Math.max(0, net - receivedFinal);
     const nextInstallmentDue = normalizedInstallments.filter(row => row.status !== 'paid' && row.dueDate).map(row => row.dueDate as string).sort()[0];
+    // A date picked under "รับเงินวันไหน?" is saved as it is; its term is the days from delivery, so the app's other
+    // places that count from the delivery date land on the same day.
+    const pickedDue = !mobile && (payment === 'unpaid' || payment === 'partial') ? manualDue : null;
+    const savedCreditTerm = pickedDue && postDate ? Math.max(0, daysBetween(postDate, pickedDue)) : creditTerm;
+    const savedExcludeHolidays = pickedDue ? false : excludeHolidays;
     const payDate = payment === 'installment'
       ? (nextInstallmentDue || null)
       : payment === 'paid'
       ? paidDate || todayStr()
-      : calculatePayDate(postDate, creditTerm, excludeHolidays);
+      : pickedDue || calculatePayDate(postDate, creditTerm, excludeHolidays);
     const derivedPaymentStatus = behavior === 'done' || (net > 0 && receivedFinal >= net)
       ? 'paid'
       : behavior === 'partial' && receivedFinal > 0 ? 'partial' : 'unpaid';
@@ -252,7 +266,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
       received: receivedFinal,
       pending: pendingFinal,
       status,
-      creditTerm,
+      creditTerm: savedCreditTerm,
       postDate,
       startDate,
       isPosted,
@@ -260,7 +274,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
       note,
       whtRate: effectiveWhtRate,
       whtAmount,
-      excludeHolidays,
+      excludeHolidays: savedExcludeHolidays,
       installments: normalizedInstallments,
     };
 
@@ -334,6 +348,43 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     </div>
   );
 
+  // Computers and iPads (owner, 2026-10-28: "ส่งงานวันไหน" read as a payment question): the payment section asks
+  // "รับเงินวันไหน?" with a calendar; the payment-term buttons fill it from the delivery date. Phones keep creditTermBlock.
+  const dueBlock = (
+    <div id="job-form-dueDate" className="space-y-2">
+      <label htmlFor="job-form-dueDate-input" className={labelClass}>
+        {payment === 'partial' ? tr("รับยอดที่เหลือวันไหน?") : tr("รับเงินวันไหน?")}
+        {!isPosted && <>{' '}<span className="font-normal text-brand-muted">{tr("(ไม่บังคับ)")}</span></>}
+      </label>
+      {dateInput('job-form-dueDate-input', shownDue, (v) => setManualDue(v || null))}
+      <p className="pt-1 text-[13px] font-medium text-brand-text">{tr("ระยะเวลารับเงิน (นับจากวันส่งงาน)")}</p>
+      <div className="grid grid-cols-5 gap-1.5">
+        {CREDIT_TERMS.map(days => (
+          <button key={days} type="button" onClick={() => { setCreditTerm(days); setManualDue(null); }} className={segment(manualDue === null && creditTerm === days)}>
+            {days === 0 ? tr("0 วัน") : days}
+          </button>
+        ))}
+      </div>
+      <div className="rounded-[10px] bg-[#FFF7F1] px-3 py-2 text-[13px] dark:bg-orange-500/10">
+        {shownDue
+          ? <span className="text-brand-text">{tr("คาดว่าจะได้รับเงิน")}{' '}<strong className="font-semibold">{safeFormatThaiDate(shownDue)}</strong></span>
+          : <span className="text-brand-muted">{tr("ยังไม่รู้ก็เว้นไว้ได้ ค่อยใส่ตอนส่งงาน")}</span>}
+      </div>
+      {manualDue === null && creditTerm > 0 && (
+        <div>
+          <button type="button" onClick={() => setCreditOptionsOpen(v => !v)} className="inline-flex items-center gap-1 text-xs text-brand-muted hover:text-brand-text cursor-pointer" aria-expanded={creditOptionsOpen}>
+            {creditOptionsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            {tr("ตัวเลือกระยะเวลารับเงิน")}</button>
+          {creditOptionsOpen && (
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-[13px] text-brand-text">
+              <input type="checkbox" checked={excludeHolidays} onChange={(e) => setExcludeHolidays(e.target.checked)} className="h-4 w-4 accent-[#E65F2B]" />
+              {tr("ไม่นับวันเสาร์–อาทิตย์และวันหยุด")}</label>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   // The blocks below are shared by the desktop drawer and the phone sheet: same fields, same state.
   const typeField = (
     <div id="job-form-type">
@@ -382,6 +433,47 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     </div>
   );
 
+  // The delivery date: in the status section on phones, under รายละเอียดเพิ่มเติม on computers.
+  const postDateField = (
+      <div id="job-form-postDate">
+        <label htmlFor="job-form-postDate-input" className={labelClass}>
+          {isPosted
+            ? <>{mobile ? tr("ส่งงานวันไหน?") : tr("วันส่งงาน")}{' '}<span className="text-[#C43A3A]">*</span></>
+            : <>{mobile ? tr("จะส่งงานวันไหน?") : tr("วันที่จะส่งงาน")}{' '}<span className="font-normal text-brand-muted">{tr("(ไม่บังคับ)")}</span></>}
+        </label>
+        {dateInput('job-form-postDate-input', postDate, (v) => { setPostDate(v); clearError('postDate'); }, errors.postDate)}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {(isPosted
+            ? [{ label: tr("วันนี้"), date: todayStr() }, { label: tr("เมื่อวาน"), date: todayStr(-1) }]
+            : [{ label: tr("วันนี้"), date: todayStr() }, { label: tr("พรุ่งนี้"), date: todayStr(1) }, { label: tr("อีก 7 วัน"), date: todayStr(7) }]
+          ).map(chip => (
+            <button
+              key={tr(chip.label)}
+              type="button"
+              onClick={() => { setPostDate(chip.date); clearError('postDate'); }}
+              className={`h-8 rounded-full border px-3 text-xs transition-colors cursor-pointer ${postDate === chip.date
+                ? 'border-[#F3B08C] bg-[#FFF1E8] font-medium text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
+                : 'border-brand-border text-brand-text hover:bg-brand-faint'}`}
+            >
+              {tr(chip.label)}
+            </button>
+          ))}
+          {!isPosted && postDate && (
+            <button type="button" onClick={() => setPostDate('')} className="h-8 px-2 text-xs text-brand-muted hover:text-brand-text cursor-pointer">
+              {tr("ยังไม่กำหนด")}</button>
+          )}
+        </div>
+        {errorText('postDate')}
+        {!errors.postDate && (
+          <p className="mt-1.5 text-xs text-brand-muted">
+            {isPosted
+              ? tr("ระยะเวลารับเงิน จะเริ่มนับจากวันส่งงาน")
+              : postDate ? tr("ถ้าส่งงานจริงคนละวัน ค่อยมาแก้ตอนส่งงานได้") : tr("ยังไม่รู้ก็เว้นไว้ได้ ค่อยใส่ตอนส่งงาน")}
+          </p>
+        )}
+      </div>
+  );
+
   const statusSection = (
     <section className="space-y-4" aria-label={tr("สถานะงาน")}>
       <div>
@@ -417,43 +509,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
         })}
       </div>
 
-      <div id="job-form-postDate">
-        <label htmlFor="job-form-postDate-input" className={labelClass}>
-          {isPosted
-            ? <>{tr("ส่งงานวันไหน?")}{' '}<span className="text-[#C43A3A]">*</span></>
-            : <>{tr("จะส่งงานวันไหน?")}{' '}<span className="font-normal text-brand-muted">{tr("(ไม่บังคับ)")}</span></>}
-        </label>
-        {dateInput('job-form-postDate-input', postDate, (v) => { setPostDate(v); clearError('postDate'); }, errors.postDate)}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {(isPosted
-            ? [{ label: tr("วันนี้"), date: todayStr() }, { label: tr("เมื่อวาน"), date: todayStr(-1) }]
-            : [{ label: tr("วันนี้"), date: todayStr() }, { label: tr("พรุ่งนี้"), date: todayStr(1) }, { label: tr("อีก 7 วัน"), date: todayStr(7) }]
-          ).map(chip => (
-            <button
-              key={tr(chip.label)}
-              type="button"
-              onClick={() => { setPostDate(chip.date); clearError('postDate'); }}
-              className={`h-8 rounded-full border px-3 text-xs transition-colors cursor-pointer ${postDate === chip.date
-                ? 'border-[#F3B08C] bg-[#FFF1E8] font-medium text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
-                : 'border-brand-border text-brand-text hover:bg-brand-faint'}`}
-            >
-              {tr(chip.label)}
-            </button>
-          ))}
-          {!isPosted && postDate && (
-            <button type="button" onClick={() => setPostDate('')} className="h-8 px-2 text-xs text-brand-muted hover:text-brand-text cursor-pointer">
-              {tr("ยังไม่กำหนด")}</button>
-          )}
-        </div>
-        {errorText('postDate')}
-        {!errors.postDate && (
-          <p className="mt-1.5 text-xs text-brand-muted">
-            {isPosted
-              ? tr("ระยะเวลารับเงิน จะเริ่มนับจากวันส่งงาน")
-              : postDate ? tr("ถ้าส่งงานจริงคนละวัน ค่อยมาแก้ตอนส่งงานได้") : tr("ยังไม่รู้ก็เว้นไว้ได้ ค่อยใส่ตอนส่งงาน")}
-          </p>
-        )}
-      </div>
+      {mobile && postDateField}
     </section>
   );
 
@@ -478,7 +534,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
         ))}
       </div>
 
-      {payment === 'unpaid' && creditTermBlock}
+      {payment === 'unpaid' && (mobile ? creditTermBlock : dueBlock)}
 
       {payment === 'paid' && (
         <div className="space-y-3">
@@ -515,7 +571,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
               {dateInput('job-form-depositDate', depositDate, setDepositDate)}
             </div>
           </div>
-          {creditTermBlock}
+          {mobile ? creditTermBlock : dueBlock}
         </div>
       )}
 
@@ -606,6 +662,8 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
           </p>
         )}
       </div>
+
+      {!mobile && postDateField}
 
       {!mobile && startDateField}
 
@@ -810,7 +868,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
 
               <div className="border-t border-brand-border" />
 
-              {/* B. สถานะงาน + วันส่งงาน -- asked together so the date always has one clear meaning */}
+              {/* B. สถานะงาน (the delivery date is under D; "รับเงินวันไหน?" is asked in C) */}
               {statusSection}
 
               <div className="border-t border-brand-border" />
@@ -833,12 +891,13 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                 </button>
                 {!advancedOpen && (() => {
                   const parts = [
+                    isPosted && postDate ? tr("ส่งงาน {0}", safeFormatThaiDate(postDate)) : '',
                     effectiveWhtRate > 0 ? tr("หัก ณ ที่จ่าย {0}%", effectiveWhtRate) : '',
                   ].filter(Boolean);
                   return (
                     <>
                       <p className="mt-0.5 text-xs text-brand-muted">
-                        {parts.length > 0 ? parts.join(' · ') : tr("หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน")}
+                        {parts.length > 0 ? parts.join(' · ') : tr("วันส่งงาน หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน")}
                       </p>
                       {note.trim() && (
                         <div className="mt-2.5 rounded-[10px] bg-brand-faint px-3 py-2">
