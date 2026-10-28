@@ -60,6 +60,57 @@ test('the full-page chat keeps its own layout: the sidebar folds away and the ch
   expect(card!.x).toBe(0);
 });
 
+// The full chat on computers and iPads (owner, 2026-10-28: "แท็บตรงหน้าจอกระรอกยาวไปเลย ... เอาแท็บด้านข้างแทรกขึ้นมา"):
+// one chat card across the width, the history layered on it 8px inside the rim with 20px corners, the composer and the
+// squirrel centred in what is visible; folding the history gives the whole card to the chat.
+for (const [width, height, dark] of [[1440, 900, false], [1024, 768, false], [1280, 820, true]] as const) {
+  test(`${width}px${dark ? ' dark' : ''}: the chat card runs under the layered history panel`, async ({ page }) => {
+    await open(page, width, height, '/assistant', dark);
+    const chat = page.locator('section.asx');
+    await expect(chat.locator('.asx-side.is-open')).toBeVisible();
+    const measure = () => page.evaluate(() => {
+      const box = (selector: string) => { const r = document.querySelector(selector)!.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
+      const side = box('.asx-side'), card = box('.asx-chat'), root = box('section.asx'), composer = box('.asx-composer'), perch = box('.asx-perch-box');
+      const top = document.elementFromPoint(side.x + side.w / 2, side.y + side.h - 40);
+      return { side, card, root, composer, perch, sideOnTop: Boolean(top?.closest('.asx-side')), opacity: Number(getComputedStyle(document.querySelector('.asx-side')!).opacity),
+        radius: getComputedStyle(document.querySelector('.asx-side')!).borderTopLeftRadius, noSideScroll: document.documentElement.scrollWidth <= document.documentElement.clientWidth };
+    });
+    const open1 = await measure();
+    expect(open1.card.x).toBe(open1.root.x); // the card starts at the root's edge, under the panel
+    expect(Math.round(open1.card.w)).toBe(Math.round(open1.root.w));
+    expect(Math.round(open1.side.x - open1.card.x)).toBe(8);
+    expect(Math.round(open1.side.y - open1.card.y)).toBe(8);
+    expect(Math.round(open1.card.y + open1.card.h - (open1.side.y + open1.side.h))).toBe(8);
+    expect(open1.radius).toBe('20px');
+    expect(open1.sideOnTop).toBe(true);
+    expect(open1.noSideScroll).toBe(true);
+    const visible = { left: open1.side.x + open1.side.w, right: open1.card.x + open1.card.w };
+    expect(open1.composer.x).toBeGreaterThan(visible.left + 8);
+    const middle = visible.left + 16 + (visible.right - visible.left - 16) / 2;
+    expect(Math.abs(open1.composer.x + open1.composer.w / 2 - middle)).toBeLessThan(4);
+    expect(Math.abs(open1.perch.x + open1.perch.w / 2 - middle)).toBeLessThan(4);
+    expect(await textOverlapIssues(page)).toEqual([]);
+
+    await chat.getByRole('button', { name: 'ย่อแถบประวัติแชต' }).click();
+    await expect(chat.locator('.asx-side.is-open')).toHaveCount(0);
+    const folded = await measure();
+    expect(folded.opacity).toBe(0);
+    expect(Math.round(folded.card.w)).toBe(Math.round(open1.card.w)); // the card does not move or change size
+    const cardMiddle = folded.card.x + folded.card.w / 2;
+    expect(Math.abs(folded.composer.x + folded.composer.w / 2 - cardMiddle)).toBeLessThan(4);
+    expect(Math.abs(folded.perch.x + folded.perch.w / 2 - cardMiddle)).toBeLessThan(4);
+    expect(await textOverlapIssues(page)).toEqual([]);
+  });
+}
+
+test('iPad portrait: the history still slides over the chat with a scrim', async ({ page }) => {
+  await open(page, 820, 1180, '/assistant');
+  const chat = page.locator('section.asx');
+  await expect(chat).toBeVisible();
+  await expect(page.locator('section.asx.is-wide')).toHaveCount(0);
+  expect(await chat.locator('.asx-chat').evaluate(el => getComputedStyle(el).paddingLeft)).toBe('0px');
+});
+
 test('phones: no sidebar, the page card is not moved', async ({ page }) => {
   await open(page, 390, 844);
   await expect(page.locator('.app-sidebar')).toBeHidden();

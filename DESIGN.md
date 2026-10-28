@@ -240,6 +240,10 @@ Don't:
 - The full chat on computers and iPads is the same set as the window (owner, 2026-10-27: "ทำให้เหมือนตัวนี้เลย"): the
   window's perched squirrel with its calm motion and name capsule at the top, the token ring top-left, white round
   buttons, the start's title, line, briefing and questions in one 760px column, the white composer.
+- The full chat page, 940px wide and up (owner, 2026-10-28: "แท็บตรงหน้าจอกระรอกยาวไปเลย ... เอาแท็บด้านข้างแทรกขึ้นมา"):
+  one chat card across the whole width; the chat history is a glass panel layered on it, 8px inside the rim, 20px
+  corners, with the sidebar's shadow. Messages, the composer and the squirrel stay centred in the part left visible;
+  folding the history gives the whole card to the chat. Narrower screens keep the history sliding over with a scrim.
 - The window is the same set as the full chat (owner, 2026-10-27: "ทำเป็นชุดใหม่ทั้งหมด"): a plain warm-white surface,
   a plain title and line, the briefing and the questions as inset-grouped lists, the cream bubble, a white composer with
   one solid orange send button, and Krarok Tokens as a ring in the header's top-left corner for everyone.

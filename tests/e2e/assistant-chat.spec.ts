@@ -218,10 +218,16 @@ async function checkTopFace(page: Page) {
   const box = (await chat.locator('.asx-perch-box').boundingBox())!;
   const name = (await chat.locator('.asx-perch-name').boundingBox())!;
   const bar = (await chat.locator('.asx-bar').boundingBox())!;
-  const column = (await chat.locator('.asx-chat').boundingBox())!;
+  // The middle of what is visible: on computers the chat card runs under the history panel and keeps its content
+  // clear of it with a left padding (owner, 2026-10-28), which slides in with the panel on load.
+  const offCentre = () => chat.evaluate(el => {
+    const card = el.querySelector('.asx-chat')!, column = card.getBoundingClientRect();
+    const room = parseFloat(getComputedStyle(card).paddingLeft) || 0, middle = column.x + room + (column.width - room) / 2;
+    const centre = (selector: string) => { const r = el.querySelector(selector)!.getBoundingClientRect(); return Math.abs(r.x + r.width / 2 - middle); };
+    return Math.max(centre('.asx-perch-box'), centre('.asx-perch-name'));
+  });
   expect(Math.round(box.width)).toBe(108);
-  expect(Math.abs(box.x + box.width / 2 - (column.x + column.width / 2))).toBeLessThan(4);
-  expect(Math.abs(name.x + name.width / 2 - (column.x + column.width / 2))).toBeLessThan(4);
+  await expect.poll(offCentre).toBeLessThan(4);
   expect(name.y).toBeGreaterThanOrEqual(box.y + box.height - 1);
   expect(box.y).toBeGreaterThanOrEqual(bar.y);
   expect(name.y + name.height).toBeLessThanOrEqual(bar.y + bar.height + 1);
