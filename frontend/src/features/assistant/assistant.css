@@ -516,7 +516,7 @@
    screen); on other computers a side sheet over the dimmed, blurred page, so no page text peeks out next to it. */
 .asx-panel-host { transition: padding-right 0.34s cubic-bezier(0.22, 1, 0.36, 1); }
 @media (prefers-reduced-motion: reduce) { .asx-panel-host { transition: none; } }
-.dark @media (prefers-reduced-motion: reduce) { .asx-buddy.is-pill .asx-buddy-btn::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .dark .asx-buddy.is-pill .asx-buddy-btn::after { animation: none; } }
 .asx-buddy-grabber { align-self: center; flex: none; width: 40px; height: 5px; margin-top: 8px; border-radius: 3px; background: rgba(118, 118, 128, 0.3); }
 .asx-buddy-head { display: flex; align-items: center; gap: 8px; flex: none; padding: 12px 10px 10px 14px; border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
 .asx-buddy-face { display: grid; place-items: center; flex: none; width: 34px; height: 34px; overflow: hidden; border-radius: 50%; background: var(--asx-cream); }

@@ -11,6 +11,7 @@ import React from 'react';
 
 const FIGURE_MIN = 16;
 const METRIC_MIN = 9;
+const FIT_STEP = 0.25;
 
 /** Width of `el`'s text on one line at `size` px, in the element's own font. */
 function textWidth(el: HTMLElement, size: number) {
@@ -27,6 +28,16 @@ function textWidth(el: HTMLElement, size: number) {
   const width = probe.getBoundingClientRect().width;
   probe.remove();
   return Math.max(1, width);
+}
+
+/** Apply the estimate, then correct for fractional font metrics and browser rounding. */
+function setFittedSize(hero: HTMLElement, property: string, values: HTMLElement[], estimate: number, min: number) {
+  let size = Math.max(min, Math.floor(estimate * 10) / 10);
+  hero.style.setProperty(property, `${size}px`);
+  while (size > min && values.some(value => value.scrollWidth > value.clientWidth)) {
+    size = Math.max(min, Math.round((size - FIT_STEP) * 100) / 100);
+    hero.style.setProperty(property, `${size}px`);
+  }
 }
 
 /** `key` changes whenever a figure or its text changes, so the card is fitted again. */
@@ -49,7 +60,7 @@ export function useFitFigures(heroRef: React.RefObject<HTMLElement | null>, key:
         const beside = [...hero.querySelectorAll<HTMLElement>('.ksm-trend, [data-fit-beside]')];
         const room = width - beside.reduce((sum, el) => sum + el.offsetWidth + 10, 0);
         const size = Math.min(base, (base * room) / textWidth(figure, base));
-        hero.style.setProperty('--ksm-figure-size', `${Math.max(FIGURE_MIN, Math.floor(size * 10) / 10)}px`);
+        setFittedSize(hero, '--ksm-figure-size', [figure], size, FIGURE_MIN);
       }
 
       const values = [...hero.querySelectorAll<HTMLElement>('.ksm-hero-metrics b')];
@@ -59,7 +70,7 @@ export function useFitFigures(heroRef: React.RefObject<HTMLElement | null>, key:
         // Equal columns; each loses its side padding and the 1px divider.
         const column = width / values.length - pad * 2 - 1;
         const size = Math.min(base, ...values.map(value => (base * column) / textWidth(value, base)));
-        hero.style.setProperty('--ksm-metric-size', `${Math.max(METRIC_MIN, Math.floor(size * 10) / 10)}px`);
+        setFittedSize(hero, '--ksm-metric-size', values, size, METRIC_MIN);
       }
     };
     fit();
