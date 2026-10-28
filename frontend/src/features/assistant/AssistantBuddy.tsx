@@ -84,6 +84,23 @@ const sayTail = <svg className="asx-say-tail" viewBox="0 0 28 22" aria-hidden="t
 /** The standing squirrel at the corner (computers and iPads, 2026-10-27). */
 const STAND = 96;
 const STAND_PHONE = 72;
+/** Where the standing squirrel was put, by its distance from the right and bottom edges (owner, 2026-10-28: "เอาเมาส์ลากน้อง
+ *  ไปอยู่ที่อื่นได้"), per account on this device; none means the corner. Its notes still grow up and out from it. */
+type StandSpot = { right: number; bottom: number };
+const standKey = (accountId?: string) => `krarok.buddy.stand.${accountId || 'guest'}`;
+const STAND_EDGE = 8;
+function loadStand(accountId?: string): StandSpot | null {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(standKey(accountId)) || 'null') as StandSpot | null;
+    return value && Number.isFinite(value.right) && Number.isFinite(value.bottom) ? value : null;
+  } catch { return null; }
+}
+const clampStand = (spot: StandSpot): StandSpot => ({
+  right: Math.min(Math.max(spot.right, STAND_EDGE), Math.max(STAND_EDGE, window.innerWidth - STAND - STAND_EDGE)),
+  bottom: Math.min(Math.max(spot.bottom, STAND_EDGE), Math.max(STAND_EDGE, window.innerHeight - STAND - STAND_EDGE)),
+});
+/** Room the bubble beside the squirrel needs; with less on its left it sits at its right. */
+const BUBBLE_ROOM = 260;
 
 /** The squirrel's words, typed out letter by letter (whole Thai letters). An answer still arriving keeps typing on
  *  from where it was; new words start again. The finished text sizes the bubble from the start, so it does not
@@ -443,6 +460,65 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   // "กดที่ผม" under it, no shortcut).
   const sayHello = !climb && !busy && !open && !minimized && !hidden && !tip && !briefTip;
 
+  // Computers and iPads: the standing squirrel can be dragged anywhere with the mouse (owner, 2026-10-28) and stays there.
+  // A drag is not a tap; the arrow keys move it too. The bubble goes to its right when its left has no room.
+  const buddyRef = React.useRef<HTMLDivElement>(null);
+  const [standSpot, setStandSpot] = React.useState<StandSpot | null>(() => (mobile ? null : loadStand(accountId)));
+  const [standMoving, setStandMoving] = React.useState(false);
+  React.useEffect(() => {
+    if (mobile || !standSpot) return;
+    const fit = () => setStandSpot(spot => {
+      if (!spot) return spot;
+      const next = clampStand(spot);
+      return next.right === spot.right && next.bottom === spot.bottom ? spot : next;
+    });
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [mobile, standSpot === null]); // eslint-disable-line react-hooks/exhaustive-deps
+  const keepStand = (spot: StandSpot) => {
+    const next = clampStand(spot);
+    setStandSpot(next);
+    try { window.localStorage.setItem(standKey(accountId), JSON.stringify(next)); } catch { /* private mode: it stays for this visit */ }
+  };
+  const currentStand = (): StandSpot => {
+    if (standSpot) return standSpot;
+    const box = buddyRef.current?.getBoundingClientRect();
+    return box ? { right: window.innerWidth - box.right, bottom: window.innerHeight - box.bottom } : { right: 20, bottom: 14 };
+  };
+  const beginStandDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0 || climb) return;
+    const button = event.currentTarget;
+    const sx = event.clientX, sy = event.clientY, start = currentStand();
+    let started = false;
+    let latest = start;
+    const onMove = (e: PointerEvent) => {
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!started && Math.hypot(dx, dy) < 4) return;
+      if (!started) { started = true; setStandMoving(true); }
+      latest = clampStand({ right: start.right - dx, bottom: start.bottom - dy });
+      const el = buddyRef.current;
+      if (el) { el.style.right = `${latest.right}px`; el.style.bottom = `${latest.bottom}px`; }
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp);
+      if (!started) return;
+      button.dataset.dragged = '1'; window.setTimeout(() => { delete button.dataset.dragged; }, 0);
+      setStandMoving(false);
+      keepStand(latest);
+    };
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp);
+  };
+  const moveStandByKey = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const step = event.shiftKey ? 64 : 16;
+    const d = ({ ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] } as Record<string, number[]>)[event.key];
+    if (!d) return;
+    event.preventDefault();
+    const spot = currentStand();
+    keepStand({ right: spot.right + d[0], bottom: spot.bottom + d[1] });
+  };
+  const standFlip = !mobile && standSpot !== null && window.innerWidth - standSpot.right - STAND < BUBBLE_ROOM;
+
   const panelMotion = reduce
     ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 0 } }
     : mobile
@@ -450,7 +526,9 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
       : { initial: { opacity: 0, scale: 0.92, y: 16 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.95, y: 10 }, transition: { default: { type: 'spring' as const, stiffness: 440, damping: 32 }, opacity: { duration: 0.14 } } };
 
   const pillButton = (
-        <motion.button ref={buttonRef} type="button" className="asx-buddy-btn is-stand" onClick={() => setOpen(true)} aria-expanded={open} aria-haspopup="dialog"
+        <motion.button ref={buttonRef} type="button" className="asx-buddy-btn is-stand"
+          onClick={event => { if ((event.currentTarget as HTMLElement).dataset.dragged) return; setOpen(true); }}
+          {...(mobile ? {} : { onPointerDown: beginStandDrag, onKeyDown: moveStandByKey })} aria-expanded={open} aria-haspopup="dialog"
           aria-label={tr("ถามเลขากระรอกเรื่องหน้า{0}", pageName)} title={climb ? undefined : tr("ถามเลขากระรอกเรื่องหน้านี้")}
           initial={false}>
           {/* Owner, 2026-10-27: version 2 ("ชอบแบบที่สอง"), then "ทำในมือถือด้วยเลย": the squirrel standing at the corner, waving
@@ -603,7 +681,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
 
   return (
     <>
-      <div className={`asx-buddy is-stand${mobile ? ' is-mobile' : ' is-pill'}${open ? ' is-open' : ''}${minimized ? ' is-min' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden && !telling ? ' has-tip' : ''}${climb ? ' is-climbing' : ''}`}>
+      <div ref={buddyRef} style={standSpot ? { right: standSpot.right, bottom: standSpot.bottom } : undefined}
+        className={`asx-buddy is-stand${mobile ? ' is-mobile' : ' is-pill'}${open ? ' is-open' : ''}${minimized ? ' is-min' : ''}${hidden ? ' is-waiting' : ''}${(tip || briefTip) && !open && !hidden && !telling ? ' has-tip' : ''}${climb ? ' is-climbing' : ''}${standFlip ? ' is-flip' : ''}${standMoving ? ' is-moving' : ''}`}>
         <AnimatePresence>
           {tip && !open && !hidden && !telling && (
             // After the arrival the tip comes in softly, once the pill has opened out (owner: "ค่อย ๆ ทรานซิชั่นดี ๆ").

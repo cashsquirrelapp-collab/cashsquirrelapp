@@ -1447,3 +1447,11 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 /* A picture sent from the window stays in the thread; the full chat is where it opens large. */
 .asx-thread.is-buddy .asx-sent-image.is-still { width: 180px; height: 180px; cursor: default; }
 .asx-thread.is-buddy .asx-sent-file { width: 220px; }
+
+/* The standing squirrel dragged somewhere else (computers and iPads, owner 2026-10-28): near the left edge its notes and
+   bubble open to its right, the bubble's tail mirrored; while moving it does not lift on hover. */
+.asx-buddy.is-pill.is-stand.is-flip { align-items: flex-start; }
+.asx-buddy.is-pill.is-stand.is-flip .asx-climb-say, .asx-buddy.is-flip .asx-hello-say { right: auto; left: calc(100% - 6px); }
+.asx-buddy.is-stand.is-flip .asx-say-tail { right: auto; left: -18px; transform: scaleX(-1); }
+.asx-buddy.is-pill.is-stand.is-moving .asx-buddy-btn.is-stand, .asx-buddy.is-pill.is-stand.is-moving .asx-buddy-btn.is-stand:hover { transform: none; cursor: grabbing; transition: none; }
+.asx-buddy.is-pill.is-stand.is-moving .asx-hello-say { animation-play-state: paused; }

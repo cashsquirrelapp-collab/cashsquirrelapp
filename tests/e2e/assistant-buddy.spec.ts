@@ -717,3 +717,59 @@ test('removed for the redo: no automatic Pro promo for accounts without Pro', as
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByText('฿177')).toHaveCount(0);
 });
+
+// Owner, 2026-10-28: "สามารถเอาเมาส์ลากน้องไปอยู่ที่อื่นได้". The standing squirrel moves with the mouse, stays where it was
+// put (also after a reload), a drag never opens the chat, and near the left edge its bubble opens to its right.
+test('computers: the standing squirrel can be dragged anywhere, stays there, and a drag is not a tap', async ({ page }) => {
+  await open(page, 1280, 820, { path: '/dashboard' });
+  const button = page.locator('.asx-buddy-btn.is-stand');
+  await expect(button).toBeVisible();
+  const before = await rectOf(page, '.asx-buddy-btn.is-stand');
+  await page.mouse.move(before.x + before.w / 2, before.y + before.h / 2);
+  await page.mouse.down();
+  await page.mouse.move(before.x + before.w / 2 - 300, before.y + before.h / 2 - 250, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const moved = await rectOf(page, '.asx-buddy-btn.is-stand');
+  expect(Math.abs(moved.x - (before.x - 300))).toBeLessThan(6);
+  expect(Math.abs(moved.y - (before.y - 250))).toBeLessThan(6);
+  await expect(panel(page)).toHaveCount(0); // the drag did not open the chat
+  await expect(win(page)).toHaveCount(0);
+  // A plain click still opens it.
+  await button.click();
+  await expect(win(page).or(panel(page)).first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Kept for the next visit.
+  await page.reload();
+  await expect(button).toBeVisible();
+  const again = await rectOf(page, '.asx-buddy-btn.is-stand');
+  expect(Math.abs(again.x - moved.x) + Math.abs(again.y - moved.y)).toBeLessThan(4);
+  // Near the left edge, the hello bubble is on its right and on screen.
+  const now = await rectOf(page, '.asx-buddy-btn.is-stand');
+  await page.mouse.move(now.x + now.w / 2, now.y + now.h / 2);
+  await page.mouse.down();
+  await page.mouse.move(60, now.y + now.h / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.locator('.asx-buddy.is-flip')).toHaveCount(1);
+  const hello = page.locator('.asx-hello-say');
+  if (await hello.count()) {
+    const bubble = await rectOf(page, '.asx-hello-say');
+    const squirrel = await rectOf(page, '.asx-buddy-btn.is-stand');
+    expect(bubble.x).toBeGreaterThan(squirrel.x + squirrel.w / 2);
+    expect(bubble.x + bubble.w).toBeLessThanOrEqual(1280);
+  }
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await snap(page, 'buddy-dragged-left.png');
+});
+
+test('phones: the standing squirrel stays where it is (no drag)', async ({ page }) => {
+  await open(page, 390, 844, { path: '/dashboard' });
+  const before = await rectOf(page, '.asx-buddy-btn.is-stand');
+  await page.mouse.move(before.x + before.w / 2, before.y + before.h / 2);
+  await page.mouse.down();
+  await page.mouse.move(before.x - 150, before.y - 200, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const after = await rectOf(page, '.asx-buddy-btn.is-stand');
+  expect(Math.abs(after.x - before.x) + Math.abs(after.y - before.y)).toBeLessThan(6);
+});
