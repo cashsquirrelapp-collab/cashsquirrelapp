@@ -147,3 +147,21 @@ test('a typed expense gets the expense naming and the app\'s categories; a place
   account.jobs!.push({ id: 'j3', name: 'งานเล็ก', client: 'ไม่ระบุ', value: 500, received: 0, pending: 500, status: 'pending', creditTerm: 0, isPosted: false } as never);
   assert.equal(pastWorkContext(account, ['เพิ่มงานใหม่ ลูกค้าไม่ระบุ 1,000']), undefined);
 });
+
+test('a quotation starts with the saved issuer and the client\'s past work already in the prompt, so the first step can ask', async () => {
+  const account = user() as UserRow & { issuer_profile?: Record<string, unknown> };
+  account.issuer_profile = { name: 'สตูดิโอของฉัน', address: 'กรุงเทพฯ', taxId: '0105555555555', bankName: 'ธนาคารตัวอย่าง', bankAccount: '123-4-56789-0' };
+  const { sent, fetchImpl } = fake([gCall('ask_user', { questions: [{ text: 'มีรายการอะไรบ้างครับ', allow_text: true }] })]);
+  const reply = await runAssistant({ user: account, plan: 'pro', text: 'ออกใบเสนอราคาให้ร้านกาแฟตัวอย่าง' }, { config, ...memoryStores(), now: new Date('2026-10-28T03:00:00Z'), fetchImpl });
+  assert.equal(sent.length, 1, 'no step only to read the issuer or past work');
+  assert.match(sent[0].system, /ISSUER \(the saved issuer profile, already read/);
+  assert.match(sent[0].system, /"name":"สตูดิโอของฉัน"/);
+  assert.match(sent[0].system, /"bank_details_saved":true/);
+  assert.doesNotMatch(sent[0].system, /123-4-56789-0/, 'bank numbers stay with account_data');
+  assert.match(sent[0].system, /PAST WORK \(past_work already looked up/);
+  assert.match(sent[0].system, /ISSUER below is that profile, already read/);
+  assert.ok(reply.cards.some(card => card.kind === 'questions'));
+  // A job alone carries neither.
+  const job = await ask('เพิ่มงานโลโก้ 5,000', [gText('ขอชื่อลูกค้าด้วยครับ')]);
+  assert.doesNotMatch(job.sent[0].system, /ISSUER \(the saved issuer profile/);
+});

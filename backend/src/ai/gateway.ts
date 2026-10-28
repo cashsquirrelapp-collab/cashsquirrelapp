@@ -198,6 +198,18 @@ export function pastWorkContext(user: UserRow, texts: string[]): string | undefi
   return JSON.stringify(cores.map(core => executePastWork({ client: byCore.get(core) }, user).result)).slice(0, 6000);
 }
 
+/**
+ * The saved issuer profile for the document rules (owner, 2026-10-28: a quotation took ~50 tokens; Sonnet spent a
+ * round reading this). The fields a document's issuer needs; bank numbers stay with account_data.
+ */
+export function issuerContext(user: UserRow): string {
+  const row = ((user as UserRow & { issuer_profile?: Record<string, unknown> }).issuer_profile ?? {}) as Record<string, unknown>;
+  const field = (key: string, max = 200) => (typeof row[key] === 'string' ? (row[key] as string).trim().slice(0, max) : '');
+  const name = field('name');
+  return JSON.stringify({ saved: Boolean(name), name, address: field('address', 600), phone: field('phone', 80), email: field('email'), tax_id: field('taxId', 80),
+    branch: field('branch', 80), website: field('website'), bank_details_saved: Boolean(field('bankAccount', 80)) });
+}
+
 function trimHistory(history: ChatTurn[] = []): ChatTurn[] {
   return history.slice(-MAX_HISTORY_TURNS).map(turn => ({ role: turn.role, text: turn.text.slice(0, MAX_TURN_CHARS) }));
 }
@@ -492,7 +504,8 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       accountName: request.accountName, communicationProfile: request.communicationProfile, memories: request.memories,
       nowLocal: bangkokNow(deps.now), pageName: request.pageName, channel: request.channel, knowledge, founder, accounting: accounting?.text, accountContext: context,
       offer: offerLine(offerState(request.text, request.history)),
-      ...(route === 'action' ? { files, documents: docs, pastWork: pastWorkFor(handoff) } : {}), ...(short ? { shortTools: true } : {}),
+      ...(route === 'action' ? { files, documents: docs, pastWork: pastWorkFor(handoff), ...(docs ? { issuer: issuerContext(request.user) } : {}) } : {}),
+      ...(short ? { shortTools: true } : {}),
     }) + (handoff ? `\n\nHANDOVER FROM THE CONVERSATION ASSISTANT: ${handoff}` : '');
     // Gemini Flash-Lite thinks least by default; the action model reasons a little before changing data.
     // Claude reasons more on changes (medium) and answers questions at low effort.
