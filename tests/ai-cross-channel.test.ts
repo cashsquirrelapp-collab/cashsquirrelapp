@@ -188,6 +188,7 @@ test('cross-channel service: the app continues what LINE left, and leaves it whe
 });
 
 test('cross-channel service: a card prepared in the app is confirmed from LINE by typing ยืนยัน, with no model call and no tokens', async () => {
+  // Owner, 2026-10-28: the typed go-ahead applies in LINE too (it used to show the card again for its button).
   const state = fakeDb();
   const prepare = providers([gCall('propose_add_job', { name: 'ตัดคลิป', value: 2000, client: 'ลูกค้าตัวอย่าง', delivered: false, payment_status: 'unpaid', credit_term_days: 15, wht_rate: 0 }), gText('เตรียมงานไว้แล้วครับ กดยืนยันบนการ์ด')]);
   const inApp = await handleMessage(state.db, { config: config(), fetchImpl: prepare.fetchImpl, now: at(now) }, A, 'pro', { text: 'เพิ่มงานตัดคลิป 2,000 ลูกค้าตัวอย่าง', history: [] });
@@ -196,20 +197,15 @@ test('cross-channel service: a card prepared in the app is confirmed from LINE b
   state.app.set(A, { turns: [{ role: 'user', text: 'เพิ่มงานตัดคลิป 2,000 ลูกค้าตัวอย่าง' }, { role: 'assistant', text: inApp.text, cards: inApp.cards as ChannelTurn['cards'] }], lastAt: now - 2 * MIN });
 
   const inLine = await handleMessage(state.db, { config: config(), fetchImpl: noModel, now: at(now) }, A, 'pro', { text: 'ยืนยันครับ', history: [], channel: 'line' });
-  assert.equal(inLine.text, 'รายการนี้ยังรอยืนยันอยู่ครับ ตรวจรายละเอียดแล้วกดยืนยันบนการ์ดได้เลย');
-  const again = inLine.cards[0] as typeof card;
-  assert.deepEqual([again.kind, again.id, again.title, again.changes], [card.kind, card.id, card.title, card.changes], 'the same card, nothing prepared again');
-  assert.deepEqual(again.edit?.map(field => field.field), card.edit?.map(field => field.field), 'still editable');
+  assert.equal(inLine.text, `ทำรายการให้แล้ว 1 รายการครับ\n• ${card.title}`);
+  assert.deepEqual(inLine.cards, [], 'listed in words: no card with buttons');
   assert.equal(inLine.tokens, 0);
   assert.deepEqual(state.usage.at(-1)!.tokens, 0);
   const log = state.routing.at(-1)!;
-  assert.deepEqual([log.tier, log.reason, log.outcome, log.proposal_ids, log.channel], ['direct', 'waiting_cards', 'direct', [card.id], 'line']);
-  // LINE shows its ยืนยัน button for the same card (the postback LINE already handles).
-  assert.match(JSON.stringify(lineAssistantReply(inLine.text, inLine.cards)), new RegExp(`ai:confirm:${card.id}`));
-  // Nothing is saved until the button: the card is still waiting, then the button confirms it once.
-  assert.equal(state.proposals.get(card.id)!.status, 'pending');
-  await confirmProposal(state.db, A, card.id);
+  assert.deepEqual([log.tier, log.reason, log.outcome, log.proposal_ids, log.channel], ['direct', 'go_ahead_applied', 'direct', [card.id], 'line']);
   assert.equal(state.proposals.get(card.id)!.status, 'applied');
+  assert.doesNotMatch(JSON.stringify(lineAssistantReply(inLine.text, inLine.cards)), new RegExp(`ai:confirm:${card.id}`));
+  await assert.rejects(confirmProposal(state.db, A, card.id), 'applied once: the card cannot be confirmed again');
 
   // Once confirmed, "ยืนยัน" goes to เลขา as an ordinary message.
   const after = providers([gText('ไม่มีรายการที่รอยืนยันครับ')]);

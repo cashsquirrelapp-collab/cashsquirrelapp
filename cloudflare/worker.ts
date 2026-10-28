@@ -18,7 +18,9 @@ const nodeFetch = httpServerHandler({ port: 3000 }).fetch;
 if (!nodeFetch) throw new Error('Cloudflare Node HTTP handler is unavailable');
 
 // LINE cancels a webhook that takes ~1.7 s; answer before that and finish the work in the background.
-const LINE_WEBHOOK_BUDGET_MS = 900;
+// LINE waits about 2 s for its 200, counted from its side, so a cold start plus a long wait here could miss it and the
+// first message after a quiet spell went unanswered (owner, 2026-10-28). Answer almost at once; the work carries on.
+const LINE_WEBHOOK_BUDGET_MS = 100;
 
 // The headers vercel.json put on every response.
 const SITE_HEADERS: Record<string, string> = {

@@ -25,7 +25,18 @@ export interface LineBridgeDeps {
   rateLimit?: typeof rateLimit;
   run?: typeof handleMessage;
   now?: Date;
+  /** How long เลขา may take in LINE before a short "try again" goes out instead (tests shorten it). */
+  budgetMs?: number;
 }
+
+/**
+ * LINE's answer has to go out inside the Worker's background time (about 30 s after LINE gets its 200; see
+ * cloudflare/deferred.ts): the reads before the model, the model, the bookkeeping and the reply. Past this, เลขา stops
+ * and says so plainly instead of the request being cut off with no answer at all (owner, 2026-10-28: "พิมพ์ข้อความแรก
+ * ไป...อ่านแต่ว่าไม่สามารถตอบได้").
+ */
+export const LINE_AI_BUDGET_MS = 20_000;
+const LINE_TOO_SLOW = 'ขอโทษครับ รอบนี้เลขาใช้เวลานานกว่าปกติ ส่งข้อความเดิมอีกครั้งได้เลยครับ (ไม่มีการหักโทเคน)';
 
 /** "เช็กโทเคน", "โทเคนเหลือเท่าไหร่": a short question about tokens is answered from the pool, with no AI call. */
 export const isTokenQuestion = (text: string) => text.trim().length <= 40 && /โท(เค|เค็)น|token/i.test(text);
@@ -56,7 +67,8 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     }
     // The same per-minute limit as the app's chat: one bucket per account, wherever the message comes from.
     await (deps.rateLimit ?? rateLimit)(MESSAGE_RATE.scope, user.user_id, MESSAGE_RATE.limit, MESSAGE_RATE.seconds);
-    const reply = await (deps.run ?? handleMessage)(db, { config, now: deps.now, onBillingIssue: issues => notifyBillingIssues(issues) }, user.user_id, plan, { text, history, channel: 'line' });
+    const reply = await (deps.run ?? handleMessage)(db, { config, now: deps.now, signal: AbortSignal.timeout(deps.budgetMs ?? LINE_AI_BUDGET_MS),
+      onBillingIssue: issues => notifyBillingIssues(issues) }, user.user_id, plan, { text, history, channel: 'line' });
     const messages = lineAssistantReply(reply.text, reply.cards);
     // Running low: say so under the answer, with the same number the app shows.
     const limit = plan.plan === 'trial' ? config.trialTokens : plan.tokens ?? config.proTokensPerCycle;
@@ -68,6 +80,8 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     // LINE's short history keeps the questions and any card waiting, so a follow-up here or in the app knows them.
     return { messages, text: lineHistoryText(reply.text, reply.cards as ChannelTurn['cards']) };
   } catch (error) {
+    // Too slow this time: a plain line to send it again (a failed request costs no tokens).
+    if (error instanceof HttpError && error.code === 'ai_provider') return { messages: [{ type: 'text', text: LINE_TOO_SLOW }], text: LINE_TOO_SLOW };
     // Token, trial and pause answers are messages for the person.
     if (error instanceof HttpError && error.status !== 500) return { messages: [{ type: 'text', text: error.message }], text: error.message };
     throw error;

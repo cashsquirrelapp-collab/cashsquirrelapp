@@ -1346,8 +1346,10 @@ async function handleAssistantMessageInner(
         catch { console.error('line-assistant: chat history not saved'); }
         return answered.messages;
       }
-    } catch {
-      console.error('line-assistant: AI answer failed');
+    } catch (error) {
+      // The kind of failure only (never the message), so a slow or broken step can be found in the Worker logs.
+      const failure = error as { name?: string; status?: number; code?: string } | null;
+      console.error('line-assistant: AI answer failed', { name: failure?.name ?? 'unknown', status: failure?.status ?? null, code: typeof failure?.code === 'string' ? failure.code.slice(0, 40) : null });
       return { type: 'text', text: 'ขออภัยครับ เลขาตอบไม่ทันในตอนนี้ ลองพิมพ์ใหม่อีกครั้งนะครับ' };
     }
     // The real เลขา is not on for this account yet: the earlier behaviour.

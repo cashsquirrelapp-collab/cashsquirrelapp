@@ -220,7 +220,7 @@ test('a confirmed job opens its form; a deleted one opens the jobs page', async 
   assert.equal(deleted.path, '/jobs');
 });
 
-test('a typed go-ahead in the app applies every card still waiting, with no model call; LINE shows them again', async () => {
+test('a typed go-ahead applies every card still waiting, with no model call: in the app, and in LINE (the list in words)', async () => {
   const state = memoryDb([{ id: 'job-1', value: 1000 }], { 'job-1': 2 });
   const noModel = (() => { throw new Error('must not call a model'); }) as unknown as typeof fetch;
   const waitingFor = (n: number) => {
@@ -231,10 +231,15 @@ test('a typed go-ahead in the app applies every card still waiting, with no mode
   };
   (state.db as AssistantDb).pendingProposals = async () => [...state.proposals.values()].filter(row => row.status === 'pending');
   (state.db as AssistantDb).recentAppTurns = async () => ({ turns: [], lastAt: null });
-  const ids = [waitingFor(1), waitingFor(2), waitingFor(3)];
+  // LINE (owner, 2026-10-28: "ทำให้ LINE พิมพ์ยืนยันทั้งหมดได้ด้วย"): applied, listed in words, no cards with buttons.
+  const first = [waitingFor(4), waitingFor(5)];
   const line = await handleMessage(state.db, { config: config(), fetchImpl: noModel, now: new Date(now) }, A, 'pro', { text: 'ยืนยันทั้งหมด', history: [], channel: 'line' });
-  assert.equal(line.cards.length, 3);
-  assert.equal(state.writes.length, 0, 'LINE keeps its buttons');
+  assert.equal(line.text, 'ทำรายการให้แล้ว 2 รายการครับ\n• เพิ่มงานใหม่ 1 งาน\n• เพิ่มงานใหม่ 1 งาน');
+  assert.deepEqual(line.cards, []);
+  assert.deepEqual(first.map(id => state.proposals.get(id)!.status), ['applied', 'applied']);
+  assert.equal(state.writes.length, 2);
+  state.writes.length = 0;
+  const ids = [waitingFor(1), waitingFor(2), waitingFor(3)];
   const app = await handleMessage(state.db, { config: config(), fetchImpl: noModel, now: new Date(now) }, A, 'pro', { text: 'ยืนยันทั้งหมดครับ', history: [] });
   assert.equal(app.text, 'ทำรายการให้แล้ว 3 รายการครับ');
   assert.deepEqual(app.cards.map(card => (card as { status?: string }).status), ['applied', 'applied', 'applied']);

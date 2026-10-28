@@ -19,6 +19,25 @@ export const config = {
 };
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
+const LINE_LOADING_URL = 'https://api.line.me/v2/bot/chat/loading/start';
+
+/**
+ * LINE's own typing dots in the chat while เลขา works (owner, 2026-10-28: "อยากให้มีสัญลักษณ์แบบ 3 จุดเหมือนกำลังพิมพ์"):
+ * shown for up to 30 s, and gone the moment the answer arrives. Best effort: a failure never stops the answer.
+ */
+export async function showTyping(accessToken: string, chatId: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+  try {
+    const res = await fetchImpl(LINE_LOADING_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(3000),
+      body: JSON.stringify({ chatId, loadingSeconds: 30 }),
+    });
+    if (!res.ok) console.warn('line-webhook: typing dots not shown', { status: res.status });
+  } catch {
+    console.warn('line-webhook: typing dots not shown');
+  }
+}
 
 
 export interface LineEvent {
@@ -150,6 +169,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (claim.error) throw claim.error;
         if (claim.data === 'done') return;
         if (claim.data !== 'claimed') throw new Error('LINE event is still processing');
+        // This message is ours to answer: the typing dots go up now, while the rest is read and worked out. Every reply
+        // waits for them first, so they can never land after the answer and linger.
+        const startedAt = Date.now();
+        const typing = showTyping(accessToken, lineUserId);
+        const send = async (messages: LineMessage[]) => { await typing; await reply(accessToken, event.replyToken!, messages); };
         await rateLimit('line-message', lineUserId, 30, 60);
         const complete = async () => {
           const result = await supabaseAdmin.from('cashflow_webhook_events').update({ status: 'done' }).eq('key', event.webhookEventId!);
@@ -163,14 +187,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const card = vaultAction
             ? await handleLineVaultAction(lineUserId, vaultAction)
             : await handleLineFile(lineUserId, vaultFile!, accessToken);
-          await reply(accessToken, event.replyToken, [card]);
+          await send([card]);
           await complete();
           return;
         }
         const assistantReply = await handleAssistantMessage(lineUserId, messageText, event.webhookEventId, undefined, linkedContext);
         if (assistantReply !== null) {
           // An empty answer is a linked message that needs no reply (an unrecognised message).
-          if (assistantReply.length) await reply(accessToken, event.replyToken, assistantReply);
+          if (assistantReply.length) await send(assistantReply);
+          // How long the answer took, with no words from the chat: what to look at if LINE feels slow again.
+          console.info('line-webhook: answered', { ms: Date.now() - startedAt, kind: event.type, replied: assistantReply.length > 0 });
           await complete();
           await syncMenu(lineUserId);
           return;
@@ -180,7 +206,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (linked) {
           // The welcome says only what this account can use; if the plan cannot be read right now it
           // takes the version that promises nothing extra (the Pro features are named, not offered).
-          await reply(accessToken, event.replyToken, [await welcomeAfterLink(lineUserId)]);
+          await send([await welcomeAfterLink(lineUserId)]);
           await complete();
           forgetLineMenu(lineUserId);
           await syncMenu(lineUserId);
@@ -188,7 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const replyText = 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ';
 
-        await reply(accessToken, event.replyToken, [{ type: 'text', text: replyText }]);
+        await send([{ type: 'text', text: replyText }]);
         await complete();
       })
     );

@@ -282,11 +282,12 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
         text: cards.length === 1 ? 'ส่งการ์ดให้อีกครั้งครับ ตรวจรายละเอียดแล้วกดยืนยัน หรือพิมพ์ "ยืนยัน" ได้เลย'
           : `ส่งการ์ดให้อีกครั้ง ${cards.length} ใบครับ ตรวจรายละเอียดแล้วกดยืนยันทั้งหมด หรือพิมพ์ "ยืนยันทั้งหมด" ได้เลย`,
         routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'cards_again', outcome: 'direct', proposal_ids: cards.map(card => (card as { id: string }).id) }) };
-    } else if (waiting.length && channel === 'app') {
-      // In the app the typed go-ahead is the permission itself (owner, 2026-10-28: "แค่อนุญาตในแชทก็สามารถดำเนินการได้
-      // เลย"): every card still waiting is applied through the same confirm as a tap, no model call, no tokens.
+    } else if (waiting.length) {
+      // The typed go-ahead is the permission itself, in the app and in LINE (owner, 2026-10-28: "แค่อนุญาตในแชทก็
+      // สามารถดำเนินการได้เลย", then "ทำให้ LINE พิมพ์ยืนยันทั้งหมดได้ด้วย"): every card still waiting is applied through the
+      // same confirm as a tap, no model call, no tokens. LINE gets the list in words (its cards carry buttons).
       const cards = waiting.map(proposal => cardForStoredProposal(proposal, user));
-      let done = 0;
+      const doneTitles: string[] = [];
       let failed = 0;
       for (const card of cards) {
         if (card.kind !== 'confirm') continue;
@@ -294,18 +295,15 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
           const applied = await confirmProposal(db, userId, card.id, { channel });
           card.status = 'applied';
           if (applied.path) card.path = applied.path;
-          done += 1;
+          doneTitles.push(card.title);
         } catch { failed += 1; }
       }
-      reply = { route: 'chat', handedOff: false, cards, calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,
-        text: done ? `ทำรายการให้แล้ว ${done} รายการครับ${failed ? ` อีก ${failed} รายการยังทำไม่ได้ ตรวจรายละเอียดบนการ์ดแล้วกดยืนยันได้เลย` : ''}`
+      const done = doneTitles.length;
+      const list = channel === 'line' && done ? `\n${doneTitles.slice(0, 10).map(title => `• ${title}`).join('\n')}${done > 10 ? `\nและอีก ${done - 10} รายการ` : ''}` : '';
+      reply = { route: 'chat', handedOff: false, cards: channel === 'app' ? cards : [], calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,
+        text: done ? `ทำรายการให้แล้ว ${done} รายการครับ${list}${failed ? `\nอีก ${failed} รายการยังทำไม่ได้ ตรวจรายละเอียดบนการ์ดแล้วกดยืนยันได้เลย` : ''}`
           : 'รายการที่รอยืนยันทำต่อไม่ได้แล้วครับ ขอให้เลขาเตรียมใหม่ได้เลย',
         routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'go_ahead_applied', outcome: 'direct', proposal_ids: cards.map(card => (card as { id: string }).id) }) };
-    } else if (waiting.length) {
-      const cards = waiting.map(proposal => cardForStoredProposal(proposal, user));
-      reply = { route: 'chat', handedOff: false, cards, calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,
-        text: cards.length === 1 ? 'รายการนี้ยังรอยืนยันอยู่ครับ ตรวจรายละเอียดแล้วกดยืนยันบนการ์ดได้เลย' : `มี ${cards.length} รายการที่ยังรอยืนยันครับ ตรวจรายละเอียดแล้วกดยืนยันทีละการ์ดได้เลย`,
-        routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'waiting_cards', outcome: 'direct', proposal_ids: cards.map(card => (card as { id: string }).id) }) };
     } else if (channel === 'app' && !input.attachment && quickKind(input.text, input.history)) {
       // "กำลังดำเนินการ" / "รอรับเงิน" (the window's buttons, or typed in the app; LINE has its own quick replies): the
       // list from the account's jobs, no model, no tokens.
@@ -379,17 +377,21 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
   const charged = typeof settled === 'number' ? settled : Math.min(wanted, leftBefore);
   // The routing log rides on the same usage row, written separately so that it can never block the charge above
   // (before 20261025130000_ai_routing_log.sql runs, the column is missing and this does nothing).
+  // The bookkeeping after the charge goes together (one wait, not four), so the answer reaches the user sooner; each
+  // one is best effort and never blocks or fails the answer.
+  const bookkeeping: Promise<unknown>[] = [];
   if (reply.routing) {
     const overrun = Math.max(0, wanted - charged) * config.tokenUsd;
     const cost = reply.routing.cost ? { ...reply.routing.cost, quota_overrun_usd: Number(overrun.toFixed(6)) } : undefined;
-    await db.saveRouting?.(userId, requestId, { ...reply.routing, channel, ...(cost ? { cost } : {}) }).catch(() => undefined);
-    if (reply.routing.billing?.length) await deps.onBillingIssue?.(reply.routing.billing)?.catch(() => undefined);
+    bookkeeping.push(db.saveRouting?.(userId, requestId, { ...reply.routing, channel, ...(cost ? { cost } : {}) })?.catch(() => undefined) ?? Promise.resolve());
+    if (reply.routing.billing?.length) bookkeeping.push(deps.onBillingIssue?.(reply.routing.billing)?.catch(() => undefined) ?? Promise.resolve());
   }
   // The memories this answer used stay fresh (unused ones expire after 12 months); a failure here costs nothing.
   const used = (selected?.rows ?? []).map(row => row.id).filter(id => /^[0-9a-f-]{36}$/.test(id));
-  if (used.length) await db.touchMemories?.(userId, used).catch(() => undefined);
+  if (used.length) bookkeeping.push(db.touchMemories?.(userId, used)?.catch(() => undefined) ?? Promise.resolve());
   // What the feature knowledge missed, for the owner's weekly report (package D); never charged, never blocks.
-  if (reply.signals?.length) await db.saveSignals?.(userId, reply.signals, input.channel === 'line' ? 'line' : 'app', reply.promptVersion).catch(() => undefined);
+  if (reply.signals?.length) bookkeeping.push(db.saveSignals?.(userId, reply.signals, input.channel === 'line' ? 'line' : 'app', reply.promptVersion)?.catch(() => undefined) ?? Promise.resolve());
+  await Promise.all(bookkeeping);
   return {
     text: reply.text, cards: reply.cards, route: reply.route, tokens: charged, ...(reply.memo ? { memo: reply.memo } : {}),
     tokensLeft: limits.tokenLimit === null ? null : Math.max(0, limits.tokenLimit - (reserved.usedTokens - RESERVE_TOKENS + charged)),
