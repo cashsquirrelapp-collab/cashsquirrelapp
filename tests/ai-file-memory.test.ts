@@ -105,7 +105,7 @@ test('note_from_file keeps a note only for a file in this message; stored notes 
 test('the rules: never ask twice, real options only, per-unit prices, the client in full from a file', () => {
   assert.ok(Number(PROMPT_VERSION.replace('secretary-v', '')) >= 9, PROMPT_VERSION);
   // secretary-v20 (owner, 2026-10-28): the file rules go with a file in the chat (files), every other rule as before.
-  const prompt = buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: '25 ต.ค. 2569 10:00', files: true } as any);
+  const prompt = buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: '25 ต.ค. 2569 10:00', files: true, documents: true } as any);
   assert.ok(!buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: '25 ต.ค. 2569 10:00' } as any).includes('call note_from_file first'));
   for (const rule of ['Never ask again for what this chat already has', 'never ask the same question twice', 'ONE ask_user call',
     'Never\n  make up round numbers as price options', 'ราคาต่อคลิป', 'never a shortened มูลนิธิ', 'call note_from_file first']) {

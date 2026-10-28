@@ -27,10 +27,13 @@ test('the rules for preparing changes go with the action route; the file rules w
   const chat = buildSystemPrompt(slots);
   const action = buildSystemPrompt({ ...slots, route: 'action' });
   const withFile = buildSystemPrompt({ ...slots, route: 'action', files: true });
-  for (const rule of ['Adding a job: the job form needs', 'Paid in installments', 'Quotations and invoices: use propose_add_document', 'When the client pays']) {
+  for (const rule of ['Adding a job: the job form needs', 'Paid in installments', 'When the client pays', 'call past_work for that client', 'CLOSING LINE']) {
     assert.ok(action.includes(rule), rule);
     assert.ok(!chat.includes(rule), rule);
   }
+  // Quotations and invoices go with a document in the chat.
+  assert.ok(!action.includes('Quotations and invoices: use propose_add_document'));
+  assert.ok(buildSystemPrompt({ ...slots, route: 'action', documents: true }).includes('Quotations and invoices: use propose_add_document'));
   assert.ok(!action.includes('TRANSFER SLIPS') && withFile.includes('TRANSFER SLIPS') && withFile.includes('Money in, thought through'));
   assert.ok(chat.length < 0.8 * buildSystemPrompt({ ...slots, route: 'action', files: true }).length);
   // The shared rules still come first and are the same for both routes (the providers cache them).
@@ -98,8 +101,10 @@ test('small talk gets the short tool set; a question about the records, or the m
 
 test('a job for a saved client is prepared in the first round with past work already in the prompt, without the slip rules', async () => {
   const job = { name: 'ตัดต่อคลิป', value: 3000, client: 'ร้านกาแฟตัวอย่าง', delivered: false, payment_status: 'unpaid', credit_term_days: 30, wht_rate: 3 };
-  const { sent, reply } = await ask('บันทึกงานตัดต่อคลิปให้ร้านกาแฟตัวอย่าง 3,000 บาท', [gCall('propose_add_job', job), gText('เตรียมการ์ดไว้แล้วครับ')]);
-  assert.equal(sent.length, 2, 'no extra round for past_work');
+  const say = 'เตรียมการ์ดงานตัดต่อคลิปให้แล้วครับ ใส่ให้ว่า: ยังไม่รับเงิน · หัก 3% ตามงานเดิม · เครดิต 30 วัน';
+  const { sent, reply } = await ask('บันทึกงานตัดต่อคลิปให้ร้านกาแฟตัวอย่าง 3,000 บาท', [gCall('propose_add_job', { ...job, say })]);
+  assert.equal(sent.length, 1, 'one round: no extra round for past_work, none only to write the closing line');
+  assert.equal(reply.text, say, 'the closing line the model wrote with the card');
   assert.match(sent[0].system, /PAST WORK \(past_work already looked up/);
   assert.match(sent[0].system, /"names_in_records":\["ร้านกาแฟตัวอย่าง"\]/);
   assert.match(sent[0].system, /unless PAST WORK below already has that\n  client/);
@@ -107,4 +112,30 @@ test('a job for a saved client is prepared in the first round with past work alr
   assert.ok(reply.cards.some(card => card.kind === 'confirm'));
   const paid = await ask('ร้านกาแฟตัวอย่างโอนมาแล้ว 2,910 บาท', [gText('ตรวจแล้วครับ')]);
   assert.match(paid.sent[0].system, /TRANSFER SLIPS/, 'money received keeps the withholding reasoning');
+});
+
+test('a step of cards only ends the turn; a card that is not ready, or a read in the same step, goes on as before', async () => {
+  const missing = await ask('บันทึกงานให้หน่อย', [gCall('propose_add_job', { name: 'งาน' }), gText('ขอยอดเงินของงานนี้ด้วยครับ')]);
+  assert.equal(missing.sent.length, 2, 'the tool answered missing: the model asks next');
+  assert.equal(missing.reply.text, 'ขอยอดเงินของงานนี้ด้วยครับ');
+  const standard = await ask('add a logo job for 5,000', [gCall('propose_add_job', { name: 'Logo', value: 5000, client: 'ไม่ระบุ', delivered: false, payment_status: 'unpaid', credit_term_days: 0, wht_rate: 0 })]);
+  assert.equal(standard.sent.length, 1);
+  assert.match(standard.reply.text, /Nothing is saved yet/, 'an English message gets the English line');
+  // The say field never reaches the tool or the saved proposal.
+  const stores = memoryStores();
+  const { fetchImpl } = fake([gCall('propose_add_job', { name: 'โลโก้', value: 5000, client: 'ไม่ระบุ', delivered: false, payment_status: 'unpaid', credit_term_days: 0, wht_rate: 0, say: 'พร้อมแล้วครับ' })]);
+  await runAssistant({ user: user(), plan: 'pro', text: 'เพิ่มงานโลโก้ 5,000' }, { config, ...stores, now: new Date('2026-10-28T03:00:00Z'), fetchImpl });
+  assert.doesNotMatch(JSON.stringify([...stores.saved.values()]), /พร้อมแล้วครับ/);
+});
+
+test('document tools go with a document in the chat; a job alone does not carry them', async () => {
+  const job = await ask('เพิ่มงานโลโก้ 5,000', [gText('ขอชื่อลูกค้าด้วยครับ')]);
+  assert.ok(!job.sent[0].tools.includes('propose_add_document') && job.sent[0].tools.includes('propose_add_job'));
+  assert.doesNotMatch(job.sent[0].system, /Quotations and invoices: use propose_add_document/);
+  const quote = await ask('ออกใบเสนอราคาให้ร้านกาแฟตัวอย่าง', [gText('ขอรายการงานด้วยครับ')]);
+  assert.ok(quote.sent[0].tools.includes('propose_add_document') && quote.sent[0].tools.includes('propose_update_issuer'));
+  assert.match(quote.sent[0].system, /Quotations and invoices: use propose_add_document/);
+  // A follow-up in a document chat that goes to the action tools keeps them.
+  const later = await ask('เพิ่มอีกรายการ 3 ชิ้น ชิ้นละ 500', [gText('รับทราบครับ')], [{ role: 'user', text: 'ออกใบเสนอราคาให้ร้านกาแฟตัวอย่าง' }, { role: 'assistant', text: 'ขอรายการงานด้วยครับ' }]);
+  assert.ok(later.sent[0].tools.includes('propose_add_document'));
 });

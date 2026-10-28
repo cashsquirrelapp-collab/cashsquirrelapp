@@ -93,6 +93,7 @@ export const geminiProvider: Provider = {
       }
       const replies: Part[] = [];
       let ended = false;
+      let closing = true;
       for (const [index, part] of calls.entries()) {
         const call = part.functionCall!;
         const args = call.args || {};
@@ -102,6 +103,7 @@ export const geminiProvider: Provider = {
         if (outcome.extraCards) cards.push(...outcome.extraCards);
         if (outcome.handoff) handoff = outcome.handoff;
         if (outcome.endTurn) ended = true;
+        if (!outcome.closesTurn) closing = false;
         replies.push({ functionResponse: { name: call.name, ...(call.id ? { id: call.id } : {}), response: { result: outcome.result } } });
       }
       contents.push({ role: 'user', parts: replies });
@@ -109,6 +111,8 @@ export const geminiProvider: Provider = {
       // Questions for the user: the turn ends here. Gemini's words written next to a tool call came out garbled in the
       // 2026-10-25 test ("…ครับผม 🙂ชำระ"), so the gateway shows its standard lead-in line instead.
       if (ended) return { provider: 'gemini', model: request.model, text: '', usage, toolCalls, cards, steps: step };
+      // Every call of this step prepared its card: the turn ends here (the gateway shows the say lines).
+      if (closing) return { provider: 'gemini', model: request.model, text: '', usage, toolCalls, cards, steps: step, closed: true };
       // The model response has already been paid for. Its final tool batch still runs through the
       // validated toolbox; the budget prevents another model request, not returning a prepared card.
       if (step >= maxSteps || request.overBudget?.(usage)) {

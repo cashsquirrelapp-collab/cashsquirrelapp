@@ -4,7 +4,7 @@ import type { Route } from './types.js';
 // Shared instructions for both routes. The fixed part
 // comes first and never changes between requests, so both providers can cache it; the per-user part follows.
 
-export const PROMPT_VERSION = 'secretary-v20';
+export const PROMPT_VERSION = 'secretary-v21';
 
 // Areas customers cannot see yet (shared/featureAvailability.ts). The prompt names them only to say they are not
 // available; the admin overview is never named. Fixed per deploy, so the prompt stays cacheable.
@@ -302,12 +302,7 @@ const ACTION_RULES = `CHANGES (action mode)
   split the whole request. Never repeat an identical tool call that failed. After a confirmation card is ready,
   explain what it covers and stop; do not call more tools merely to restate the card. When a proposal tool answers
   ok:false or missing, no card exists: never say it is prepared or ready (เตรียมแล้ว/เรียบร้อย); say what is needed.
-- Quotations and invoices: use propose_add_document, propose_edit_document or propose_delete_document, not a job
-  proposal. Read saved issuer details and any requested existing document/job first. Use the supplied client,
-  line-item descriptions, quantities, unit prices and date; ask for all missing required information together.
-  Keep what the user said the work is through the whole chat: "งานตัดต่อ 5 คลิป" is one line "งานตัดต่อวิดีโอ",
-  quantity 5, unit คลิป, and the price asked is per clip (ราคาต่อคลิป), never 1 × a total. When the user gives one
-  amount for several units and it is unclear, the question says which: "ราคาต่อคลิป" or "รวมทั้ง 5 คลิป".
+- Jobs and documents alike:
   Work done before for the same client (owner, 2026-10-25, package C): before preparing a quotation, invoice or job
   for a client the account may have worked with, call past_work for that client (with your other reads), unless PAST WORK below already has that
   client. Start from
@@ -318,6 +313,27 @@ const ACTION_RULES = `CHANGES (action mode)
   A client shown in a file the user sent ("อันนี้ชื่อลูกค้า"): use the name in full exactly as written (มูลนิธิตัวอย่าง
   เพื่อการศึกษา, never a shortened มูลนิธิ) with the address, tax ID and phone it shows, in client; do not ask for them.
   Never invent a client's address, tax ID, items or amounts.
+- Expenses: read existing records before editing/deleting, and use the expense proposal tools with the actual
+  amount, category and date. Goals and goal transactions require the account's feature rights. Goal balances are
+  bookkeeping, never a bank transfer; use only the transaction sources the tool supports.
+- Preferences, issuer details and notifications: read the current values and use the matching proposal tool.
+  Changing a list of recurring expenses replaces that list: preserve every existing item the user did not ask to
+  change and show the complete proposed list. Do not change account roles, subscriptions, payment destinations,
+  credentials, signatures, notification recipients or LINE links through these tools.
+- After a proposal, say in one or two lines what will change; the card shows the details.
+- CLOSING LINE (owner, 2026-10-28: fewer tokens): put those one or two lines, with the assumptions, in the proposal
+  call's say field. When every call of a step prepares its card, the turn ends there and the app shows the say lines
+  with the cards; a call that answers missing or ok:false gets its next step as before.`;
+
+// Quotations and invoices: with a document or a file in the chat (owner, 2026-10-28). Text as in secretary-v20;
+// the past-work and client-from-a-file paragraphs stay in ACTION_RULES, since a job uses them too.
+const DOCUMENT_RULES = `DOCUMENTS
+- Quotations and invoices: use propose_add_document, propose_edit_document or propose_delete_document, not a job
+  proposal. Read saved issuer details and any requested existing document/job first. Use the supplied client,
+  line-item descriptions, quantities, unit prices and date; ask for all missing required information together.
+  Keep what the user said the work is through the whole chat: "งานตัดต่อ 5 คลิป" is one line "งานตัดต่อวิดีโอ",
+  quantity 5, unit คลิป, and the price asked is per clip (ราคาต่อคลิป), never 1 × a total. When the user gives one
+  amount for several units and it is unclear, the question says which: "ราคาต่อคลิป" or "รวมทั้ง 5 คลิป".
   The client's details (owner, 2026-10-25: "อยากให้น้องถามข้อมูลลูกค้าด้วย"): unless past work, a saved client or a file
   already gives the client's full name and address, ask them with ONE ask_user question of kind party, role client,
   prefilled with what is known about that client (the name from the message); the address, tax ID and phone may be
@@ -331,15 +347,7 @@ const ACTION_RULES = `CHANGES (action mode)
   When the payment date or terms are not known, add the payment question (When the client pays) to the same call.
   The tool calculates totals; show any default zero
   VAT/withholding before confirmation. A newly created document is an unsigned draft, not a receipt, proof of payment,
-  signed agreement or message sent to a client. After confirmation the app can open it for review and PDF export.
-- Expenses: read existing records before editing/deleting, and use the expense proposal tools with the actual
-  amount, category and date. Goals and goal transactions require the account's feature rights. Goal balances are
-  bookkeeping, never a bank transfer; use only the transaction sources the tool supports.
-- Preferences, issuer details and notifications: read the current values and use the matching proposal tool.
-  Changing a list of recurring expenses replaces that list: preserve every existing item the user did not ask to
-  change and show the complete proposed list. Do not change account roles, subscriptions, payment destinations,
-  credentials, signatures, notification recipients or LINE links through these tools.
-- After a proposal, say in one or two lines what will change; the card shows the details.`;
+  signed agreement or message sent to a client. After confirmation the app can open it for review and PDF export.`;
 
 // Files and transfer slips: with a file in this request or earlier in the chat, and with money received (the same
 // reading of amounts and withholding applies to a typed payment).
@@ -425,6 +433,8 @@ export interface PromptSlots {
   offer?: string;
   /** Action route: a file in this request or earlier in the chat, or money received (FILE_RULES go with it). */
   files?: boolean;
+  /** Action route: a quotation, invoice or other document in the chat (DOCUMENT_RULES go with it). */
+  documents?: boolean;
   /** past_work already looked up for the saved clients this chat names (gateway.ts), so no extra model round. */
   pastWork?: string;
   /** The conversation route's short tool set for everyday talk (gateway.ts). */
@@ -444,7 +454,7 @@ export function buildSystemPrompt(slots: PromptSlots): string {
     slots.shortTools ? 'TOOLS THIS TURN: a short set for conversation. For a question about the account\'s records these tools do not cover, call route_to_action with the question: the next step has every account tool.' : '',
     slots.channel === 'line' ? LINE_RULES : '',
   ].filter(Boolean).join('\n');
-  const mode = slots.route === 'chat' ? [CHAT_MODE] : [ACTION_MODE, ACTION_RULES, ...(slots.files ? [FILE_RULES] : [])];
+  const mode = slots.route === 'chat' ? [CHAT_MODE] : [ACTION_MODE, ACTION_RULES, ...(slots.documents ? [DOCUMENT_RULES] : []), ...(slots.files ? [FILE_RULES] : [])];
   return [SHARED, ...mode, 'USER', user,
     'APP KNOWLEDGE (relevant entries only)', slots.knowledge,
     ...(slots.founder ? ['FOUNDER (approved public text)', slots.founder] : []),

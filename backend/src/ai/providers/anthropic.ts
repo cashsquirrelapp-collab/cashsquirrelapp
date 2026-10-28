@@ -63,8 +63,8 @@ export const anthropicProvider: Provider = {
     const maxSteps = request.maxSteps ?? 4;
     // The model that actually answered, as Anthropic reports it (a declined request can be finished by a fallback).
     let answeredBy = request.model;
-    const done = (text: string, steps: number, stoppedAt?: 'max_steps' | 'budget'): ProviderResult =>
-      ({ provider: 'anthropic', model: answeredBy, text, usage, toolCalls, cards, handoff, steps, ...(stoppedAt ? { stoppedAt } : {}) });
+    const done = (text: string, steps: number, stoppedAt?: 'max_steps' | 'budget', closed?: boolean): ProviderResult =>
+      ({ provider: 'anthropic', model: answeredBy, text, usage, toolCalls, cards, handoff, steps, ...(stoppedAt ? { stoppedAt } : {}), ...(closed ? { closed } : {}) });
 
     for (let step = 1; ; step += 1) {
       let response: Anthropic.Beta.BetaMessage;
@@ -105,6 +105,7 @@ export const anthropicProvider: Provider = {
       // Every tool result goes back in one user message, so the model keeps calling tools together.
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       let ended = false;
+      let closing = true;
       for (const call of calls) {
         const args = (call.input && typeof call.input === 'object' ? call.input : {}) as Record<string, unknown>;
         toolCalls.push({ name: call.name, args });
@@ -113,12 +114,15 @@ export const anthropicProvider: Provider = {
         if (outcome.extraCards) cards.push(...outcome.extraCards);
         if (outcome.handoff) handoff = outcome.handoff;
         if (outcome.endTurn) ended = true;
+        if (!outcome.closesTurn) closing = false;
         results.push({ type: 'tool_result', tool_use_id: call.id, content: JSON.stringify(outcome.result ?? null) });
       }
       messages.push({ role: 'user', content: results });
       if (handoff) return done('', step);
       // Questions for the user: the turn ends here with the words Claude wrote alongside them.
       if (ended) return done(response.content.filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === 'text').map(block => block.text).join('').trim(), step);
+      // Every call of this step prepared its card: the turn ends here (the gateway shows the say lines).
+      if (closing) return done('', step, undefined, true);
       if (step >= maxSteps) return done('', step, 'max_steps');
       if (request.overBudget?.(usage)) return done('', step, 'budget');
     }

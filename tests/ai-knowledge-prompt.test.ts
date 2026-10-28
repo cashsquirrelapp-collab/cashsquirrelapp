@@ -163,11 +163,14 @@ test('both prompt modes distinguish file metadata and website workflows from sup
   // the conversation route hands changes over. The file rules go with a file in the chat.
   const action = buildSystemPrompt({ ...slots, route: 'action' });
   const chat = buildSystemPrompt({ ...slots, route: 'chat' });
-  for (const rule of [/propose_add_document, propose_edit_document or propose_delete_document, not a job\s+proposal/,
-    /Never invent a client's address, tax ID, items or amounts/, /Do not change account roles, subscriptions, payment destinations/]) {
+  for (const rule of [/Never invent a client's address, tax ID, items or amounts/, /Do not change account roles, subscriptions, payment destinations/]) {
     assert.match(action, rule);
     assert.doesNotMatch(chat, rule);
   }
+  // secretary-v21: the document rules go with a document in the chat.
+  const documentRule = /propose_add_document, propose_edit_document or propose_delete_document, not a job\s+proposal/;
+  assert.match(buildSystemPrompt({ ...slots, route: 'action', documents: true }), documentRule);
+  assert.doesNotMatch(action, documentRule);
   const withFile = buildSystemPrompt({ ...slots, route: 'action', files: true });
   assert.match(withFile, /only read a picture or PDF when its actual content is available/);
   assert.match(withFile, /Metadata alone does\s+not mean the content was supplied or read/);

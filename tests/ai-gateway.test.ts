@@ -365,7 +365,8 @@ for (const provider of ['gemini', 'openai'] as const) {
     });
     assert.equal(sent.length, 4, 'no extra model call is made to describe the confirmation');
     assert.equal(reply.calls[0].steps, 4);
-    assert.equal(reply.calls[0].stoppedAt, 'max_steps');
+    // The step that prepared the card ends the turn (2026-10-28), before the step limit would.
+    assert.equal(reply.calls[0].stoppedAt, undefined);
     assert.equal(reply.calls[0].toolCalls.length, 4);
     assert.equal(outcomes.at(-1).ok, true);
     assert.equal(stores.saved.size, 1);

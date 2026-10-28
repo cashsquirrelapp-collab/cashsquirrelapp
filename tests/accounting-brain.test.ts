@@ -274,18 +274,19 @@ test('gateway: an admin\'s tax question gets the reference and the tools; a Pro 
   assert.ok(opened.reply.cards.some(card => card.kind === 'official_link'));
 });
 
-test('prompt: without the accounting slot the prompt is byte-identical to the approved base (v16, v18, v19, then v20)', () => {
+test('prompt: without the accounting slot the prompt is byte-identical to the approved base (v16, v18, v19, v20, then v21)', () => {
   // Captured from the v16 buildSystemPrompt on 2026-10-26 with these exact slots; recaptured for secretary-v18 (owner,
   // 2026-10-27), whose only change is ACCOUNT NAME in place of the remembered PREFERRED NAME, and for secretary-v19
   // (owner, 2026-10-28): DELETING JOBS, SAVING AT ONCE, CARD AGAIN and MANY ITEMS added, and the confirmation rule names the go-ahead;
   // and for secretary-v20 (owner, 2026-10-28, fewer tokens): the rules for preparing changes go with the action route only,
-  // the file rules with a file in the chat, and the past_work rule names PAST WORK. No rule removed.
+  // the file rules with a file in the chat, and the past_work rule names PAST WORK. No rule removed. And secretary-v21
+  // (same day): the document rules with a document in the chat, and the CLOSING LINE rule (a step of cards ends the turn).
   const slots: PromptSlots[] = [
     { route: 'chat', plan: 'pro', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', offer: 'O' },
     { route: 'action', plan: 'admin', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', founder: 'F', channel: 'line' },
   ];
-  const v20 = ['49007f3bed597eec04a8a3ebb90876a8db95fd238bfc37dbd39dd11da1498cf2', '5deebfb1be12874b4d71934a727bfada2b40df4c8c3a39ccb2a342671eaf6e17'];
-  slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v20[index]));
+  const v21 = ['49007f3bed597eec04a8a3ebb90876a8db95fd238bfc37dbd39dd11da1498cf2', '874fa479e8c86fd81c8a98e5964f4a78d14905b70d34058369458fa6352acd1d'];
+  slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v21[index]));
   const withAccounting = buildSystemPrompt({ ...slots[0], accounting: 'REF' });
   assert.match(withAccounting, /ACCOUNTING REFERENCE \(selected for this message; general information with sources, not a ruling\)\n\nREF\n\nACCOUNT CONTEXT/);
 });

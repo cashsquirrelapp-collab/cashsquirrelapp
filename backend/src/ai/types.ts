@@ -34,6 +34,11 @@ export interface ToolOutcome {
    * response are the reply; no further paid round only to write a lead-in line (cost brief, 2026-10-25).
    */
   endTurn?: boolean;
+  /**
+   * A card was prepared (owner, 2026-10-28: fewer tokens). When every call of a step closes it, the turn ends there:
+   * the gateway shows the lines the model put in the call's say field, with no paid round only to write them.
+   */
+  closesTurn?: boolean;
 }
 
 /** A field the user may change on a confirmation card before confirming (owner, 2026-10-24: "แก้ไขยอดได้ในแชทเลย"). */
@@ -110,6 +115,8 @@ export interface ProviderResult {
   steps: number;
   /** interrupted: the provider failed after a card was prepared; the gateway kept the card (no action repeated). */
   stoppedAt?: 'max_steps' | 'budget' | 'interrupted';
+  /** Every call of the last step prepared its card, so the turn ended there (ToolOutcome.closesTurn). */
+  closed?: boolean;
 }
 
 export interface Provider {

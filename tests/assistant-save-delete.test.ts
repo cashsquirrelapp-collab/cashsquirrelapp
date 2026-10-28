@@ -197,7 +197,8 @@ test('save now, end to end: "บันทึกให้หน่อย" saves e
     A, 'pro', { text: 'เพิ่มงานตัดคลิป 2,000 ลูกค้าตัวอย่าง', history: [] });
   assert.equal((plain.cards[0] as { status?: string }).status, undefined);
   assert.equal(waiting.writes.length, 0);
-  assert.equal(plain.text, 'เตรียมการ์ดไว้แล้วครับ');
+  // The turn ends with its card (2026-10-28): the standard line, as the model wrote no say line.
+  assert.equal(plain.text, 'เตรียมการ์ดให้ตรวจแล้วครับ ยังไม่ได้บันทึก ตรวจรายละเอียดแล้วกดยืนยันได้เลย');
 
   // LINE keeps its buttons.
   const line = memoryDb([], {});

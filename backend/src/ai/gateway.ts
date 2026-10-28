@@ -18,7 +18,7 @@ import { featureNavigation } from './navigation.js';
 import { clearMemoryCommand, decideRoute, routingRecord, wherePage, type Direct, type RoutingOutcome, type RoutingRecord } from './routingPolicy.js';
 import { renameReply, renameRequest } from './rename.js';
 import { accountContext, createToolbox, toolsFor, type MemoryStore, type ProposalStore } from './tools.js';
-import { emptyUsage, partialUsageOf, ProviderError, subtractUsage, withPartialUsage, type AssistantCard, type ChatTurn, type Effort, type Provider, type ProviderName, type ProviderResult, type Route, type ToolCall, type ToolOutcome, type Usage } from './types.js';
+import { emptyUsage, partialUsageOf, ProviderError, subtractUsage, withPartialUsage, type AssistantCard, type ChatTurn, type Effort, type Provider, type ProviderName, type ProviderResult, type Route, type ToolCall, type ToolOutcome, type ToolSpec, type Usage } from './types.js';
 import type { VaultLoader } from './vaultQueries.js';
 import { offerLine, offerState } from './bridge.js';
 import { styleReply } from './replyStyle.js';
@@ -159,6 +159,19 @@ const RECORD_WORDS = /(รายรับ|รายได้|รายจ่า�
 /** Money received, typed or on a slip: the file rules hold how an amount shows the withholding. */
 const MONEY_IN = /(โอน|สลิป|รับเงิน|ได้เงิน|จ่ายมา|จ่ายแล้ว|ชำระ|\bslip\b|\btransfer\b|\bpaid\b)/i;
 const PAST_WORK_INTENTS = new Set(['create', 'document', 'file']);
+/** Quotations, invoices and the issuer: these tools and DOCUMENT_RULES go with a document in the chat (owner, 2026-10-28). */
+const DOCUMENT_TOOLS_WRITE = new Set(['propose_add_document', 'propose_edit_document', 'propose_delete_document', 'propose_update_issuer']);
+const DOCUMENT_WORDS = /(ใบ|เอกสาร|บิล|ผู้ออก|ออกต่อ|ข้อมูลร้าน|ข้อมูลธุรกิจ|เลขผู้เสียภาษี|เลขประจำตัวผู้เสียภาษี|quotation|invoice|receipt|\bbill|issuer|\b(?:QT|INV|REC|IV)\b|\b(?:QT|INV|REC)-?\d)/i;
+/** The lines the model writes in a proposal call's say field (closing line), never passed to the tool. */
+const SAY = { type: 'string', description: 'One or two short lines to the user about this card in their language: what it will change and the assumptions you made. Nothing is saved yet; never say it is.' };
+const withSay = (tool: ToolSpec): ToolSpec => (/^propose_/.test(tool.name) && tool.parameters && typeof tool.parameters === 'object'
+  ? { ...tool, parameters: { ...tool.parameters, properties: { ...((tool.parameters as { properties?: Record<string, unknown> }).properties ?? {}), say: SAY } } } : tool);
+/** The closing line when the model put none in say. */
+function closingLine(cards: AssistantCard[], userText: string): string {
+  const count = cards.filter(card => card.kind === 'confirm').length;
+  if (!/[ก-๙]/.test(userText)) return count > 1 ? `${count} cards are ready to check. Nothing is saved yet: confirm them one by one, or all at once.` : 'The card is ready to check. Nothing is saved yet: review it and press Confirm.';
+  return count > 1 ? `เตรียมการ์ดให้ตรวจแล้ว ${count} รายการครับ ยังไม่ได้บันทึก ตรวจแล้วกดยืนยันทีละใบ หรือกดยืนยันทั้งหมดได้เลย` : 'เตรียมการ์ดให้ตรวจแล้วครับ ยังไม่ได้บันทึก ตรวจรายละเอียดแล้วกดยืนยันได้เลย';
+}
 
 /**
  * past_work for the saved clients this chat names, looked up before the model starts (owner-approved, 2026-10-28):
@@ -384,6 +397,9 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     || decision.intent === 'payment' || [request.text, ...recentUser.slice(-2)].some(text => MONEY_IN.test(text));
   const shortTools = !accounting && !hasFile && !request.pendingConfirmation && decision.intent === 'chat'
     && ![request.text, ...recentUser.slice(-2)].some(text => RECORD_WORDS.test(text));
+  const documents = hasFile || DOCUMENT_WORDS.test(request.text) || decision.intent === 'document'
+    || (request.history ?? []).slice(-12).some(turn => DOCUMENT_WORDS.test(turn.text) || FILE_MARK.test(turn.text));
+  const sayLines: string[] = [];
   let pastWork: string | undefined | null = null;
   const pastWorkFor = (handoff?: string) => {
     if (pastWork === null) pastWork = PAST_WORK_INTENTS.has(decision.intent) || handoff !== undefined ? pastWorkContext(request.user, [request.text, ...recentUser, handoff ?? '']) : undefined;
@@ -418,12 +434,22 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   const run = async (route: Route, handoff?: string): Promise<ProviderResult> => {
     lastEditError = undefined;
     const short = route === 'chat' && shortTools;
-    const availableTools = [...toolsFor(route).filter(tool => !short || SHORT_CHAT_TOOLS.has(tool.name)), ...(accounting ? ACCOUNTING_TOOLS : [])];
+    const docs = documents || DOCUMENT_WORDS.test(handoff ?? '');
+    const availableTools = [...toolsFor(route).filter(tool => (!short || SHORT_CHAT_TOOLS.has(tool.name)) && (docs || !DOCUMENT_TOOLS_WRITE.has(tool.name))).map(withSay),
+      ...(accounting ? ACCOUNTING_TOOLS : [])];
     const allowed = new Set(availableTools.map(tool => tool.name));
     // What this run prepared, kept here so a provider failure after it cannot lose a saved card (cost brief, phase 4).
     const prepared: AssistantCard[] = [];
     let lastingHere = 0;
-    const execute = async (call: ToolCall) => {
+    const execute = async (asked: ToolCall) => {
+      // The closing line rides on the proposal call (say); the tool itself never sees it.
+      let call = asked;
+      let say: string | undefined;
+      if (/^propose_/.test(asked.name) && asked.args && typeof asked.args === 'object' && 'say' in asked.args) {
+        const { say: line, ...args } = asked.args as Record<string, unknown>;
+        say = typeof line === 'string' ? line.trim().slice(0, 300) : undefined;
+        call = { ...asked, args };
+      }
       const permitted = allowed.has(call.name);
       const outcome = permitted ? await toolbox(call) : { result: { ok: false, error: 'เครื่องมือนี้ไม่เปิดให้ใช้ในคำขอนี้' } };
       toolNames.push(call.name);
@@ -445,7 +471,11 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
         && validation?.ok === false && typeof validation.error === 'string'
         ? validation.error.slice(0, 1200) : undefined;
       deps.observe?.(call, outcome);
-      return outcome;
+      // A card was prepared: this call lets the turn end after its step (no paid round only for the closing line).
+      const madeCard = succeeded && /^propose_/.test(call.name)
+        && ((outcome as ToolOutcome).card?.kind === 'confirm' || Boolean((outcome as ToolOutcome).extraCards?.some(card => card.kind === 'confirm')));
+      if (madeCard && say && !sayLines.includes(say)) sayLines.push(say);
+      return madeCard ? { ...outcome, closesTurn: true } : outcome;
     };
     const model = modelFor(route);
     const name = providerFor(model);
@@ -454,7 +484,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       accountName: request.accountName, communicationProfile: request.communicationProfile, memories: request.memories,
       nowLocal: bangkokNow(deps.now), pageName: request.pageName, channel: request.channel, knowledge, founder, accounting: accounting?.text, accountContext: context,
       offer: offerLine(offerState(request.text, request.history)),
-      ...(route === 'action' ? { files, pastWork: pastWorkFor(handoff) } : {}), ...(short ? { shortTools: true } : {}),
+      ...(route === 'action' ? { files, documents: docs, pastWork: pastWorkFor(handoff) } : {}), ...(short ? { shortTools: true } : {}),
     }) + (handoff ? `\n\nHANDOVER FROM THE CONVERSATION ASSISTANT: ${handoff}` : '');
     // Gemini Flash-Lite thinks least by default; the action model reasons a little before changing data.
     // Claude reasons more on changes (medium) and answers questions at low effort.
@@ -559,6 +589,10 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // Same response contract for Gemini and Sonnet: no character-drawn charts, no table repeating a money card. Then the
   // confidentiality check (Master Backlog Part 3): no AI provider or model names, internals or keys, for every account.
   // House style (replyStyle.ts): no emoji unless the user used them, no made-up tool links.
+  // The turn ended with its cards (ProviderResult.closed): the model's say lines, else the standard line.
+  if (result.closed && !result.text.trim() && cards.some(card => card.kind === 'confirm')) {
+    result = { ...result, text: sayLines.slice(0, 3).join('\n') || closingLine(cards, request.text) };
+  }
   const finalText = accounting && printedToolCall(result.text) ? '' : result.text;
   // A filing or refund answer always comes with the official site (brief 4C), even when the model did not ask for it.
   if (accounting && !cards.some(card => card.kind === 'official_link')) {

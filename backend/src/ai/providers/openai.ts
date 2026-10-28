@@ -61,6 +61,7 @@ export const openaiProvider: Provider = {
         return { provider: 'openai', model: request.model, text, usage, toolCalls, cards, steps: step };
       }
       let ended = false;
+      let closing = true;
       for (const call of calls) {
         let args: Record<string, unknown> = {};
         try { args = call.arguments ? JSON.parse(call.arguments) : {}; } catch { args = {}; }
@@ -70,6 +71,7 @@ export const openaiProvider: Provider = {
         if (outcome.extraCards) cards.push(...outcome.extraCards);
         if (outcome.handoff) handoff = outcome.handoff;
         if (outcome.endTurn) ended = true;
+        if (!outcome.closesTurn) closing = false;
         input.push({ type: 'function_call_output', call_id: call.call_id, output: JSON.stringify(outcome.result ?? null) });
       }
       // The chat model asked to hand over: stop here and let the gateway run the action model.
@@ -80,6 +82,8 @@ export const openaiProvider: Provider = {
           .flatMap(item => item.content || []).filter((part: any) => part.type === 'output_text').map((part: any) => part.text).join('').trim();
         return { provider: 'openai', model: request.model, text, usage, toolCalls, cards, steps: step };
       }
+      // Every call of this step prepared its card: the turn ends here (the gateway shows the say lines).
+      if (closing) return { provider: 'openai', model: request.model, text: '', usage, toolCalls, cards, steps: step, closed: true };
       // Execute this already-paid response's validated tools before stopping. No extra provider
       // request is needed to deliver its confirmation card to the user.
       if (step >= maxSteps || request.overBudget?.(usage)) {

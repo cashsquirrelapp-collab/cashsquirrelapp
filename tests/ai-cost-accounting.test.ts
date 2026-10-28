@@ -103,7 +103,11 @@ test('the request\'s real-spend safety limit stops before another paid round; Ge
 test('a card prepared before the provider fails is kept, charged once, never prepared twice', async () => {
   const stores = memoryStores();
   const timeout = new DOMException('The operation timed out.', 'TimeoutError');
-  const failing = providers([gCall('propose_add_job', { name: 'ตัดคลิป', value: 2000, client: 'ไม่ระบุ', delivered: false, payment_status: 'unpaid', credit_term_days: 15, wht_rate: 0 }), { fail: timeout }]);
+  // The card comes with a read in the same step, so the turn goes on (a step of cards only ends it, 2026-10-28).
+  const withRead: Reply = { json: { candidates: [{ content: { role: 'model', parts: [
+    { functionCall: { name: 'propose_add_job', args: { name: 'ตัดคลิป', value: 2000, client: 'ไม่ระบุ', delivered: false, payment_status: 'unpaid', credit_term_days: 15, wht_rate: 0 }, id: 'c-1' }, thoughtSignature: 's' },
+    { functionCall: { name: 'search_jobs', args: { query: 'ตัดคลิป' }, id: 'c-2' } }] } }], usageMetadata: { promptTokenCount: 20000, cachedContentTokenCount: 14000, candidatesTokenCount: 20 } } };
+  const failing = providers([withRead, { fail: timeout }]);
   const reply = await runAssistant({ user: account(), plan: 'pro', text: 'เพิ่มงานตัดคลิป 2,000 บาท' }, { config: config(), ...stores, fetchImpl: failing.fetchImpl });
   assert.equal(reply.cards[0]?.kind, 'confirm');
   assert.equal(stores.saved.size, 1, 'one proposal, not repeated');
