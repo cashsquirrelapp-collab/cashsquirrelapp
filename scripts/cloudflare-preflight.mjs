@@ -34,9 +34,8 @@ expect(validCronPair || (config?.vars?.CRON_ENABLED === 'false' && Array.isArray
 expect(config?.assets?.directory === './build/frontend', 'Unexpected frontend assets directory');
 expect(config?.assets?.binding === 'ASSETS', 'ASSETS binding is required');
 expect(config?.assets?.not_found_handling === 'single-page-application', 'SPA asset handling is required');
-for (const route of ['/api', '/api/*']) {
-  expect(config?.assets?.run_worker_first?.includes(route), `Missing Worker-first API route: ${route}`);
-}
+expect(config?.assets?.run_worker_first === true,
+  'All requests must run through the Worker first to enforce HTTPS before serving assets');
 for (const file of ['cloudflare/worker.ts', 'build/frontend/index.html', 'build/frontend/_headers']) {
   expect(fs.existsSync(path.join(root, file)), `Required file is missing: ${file}`);
 }
