@@ -55,8 +55,12 @@ export default {
     (globalThis as { __krarokAssets?: Fetcher }).__krarokAssets = env.ASSETS;
     const path = new URL(request.url).pathname;
     if (request.method === 'POST' && path === '/api/line-webhook') {
-      // Answer LINE within its time limit; the handler keeps running and sends the reply (see deferred.ts).
-      const work = Promise.resolve(withCloudflareClientIp(request as Request & { cf?: unknown }, () => nodeFetch(request as never, env, ctx)));
+      // Answer LINE within its time limit; the handler keeps running and sends the reply (see deferred.ts). The body is
+      // read in full first: once LINE has its answer, the request body can no longer be read (TypeError, every LINE
+      // message failed on 2026-10-28 after the budget went to 100 ms).
+      const body = await request.arrayBuffer();
+      const buffered = new Request(request.url, { method: request.method, headers: request.headers, body });
+      const work = Promise.resolve(withCloudflareClientIp(request as Request & { cf?: unknown }, () => nodeFetch(buffered as never, env, ctx)));
       const response = await answerWithin(work, LINE_WEBHOOK_BUDGET_MS, ctx,
         () => Response.json({ ok: true, deferred: true }),
         () => console.error('LINE webhook failed after the early answer'));
