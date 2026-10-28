@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Check, FileText, Sparkle, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, FileText, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { LineLogo } from '../../components/ui/LineLogo';
 import { GmailLogo } from '../../components/ui/GmailLogo';
@@ -9,6 +9,8 @@ import { tr } from '../../i18n/tr';
 // card you press springs open and the other two fold into slim upright strips; ✕ or the same card closes it again.
 // They stay smaller than the price card, which leads the page ("ไอ้งานรายละเอียดฟีเจอร์มึงไม่ต้องใหญ่ ... สิ่งที่อยากให้เด่นก็คือราคา").
 // LINE has no card of its own any more: it sits with the reminders, and its hover note says you can chat with เลขา there.
+// Phones (owner, 2026-10-29: "ทำบนมือถือด้วยเลย"): the same three, as full-width rows; the one pressed opens downward
+// and the others stay as they are (there is no room for upright strips).
 
 type TileId = 'ai' | 'alerts' | 'docs';
 
@@ -16,7 +18,7 @@ function Tick({ tone }: { tone: TileId }) {
   return <span aria-hidden="true" className={`pf-tick is-${tone}`}><Check size={10} strokeWidth={3} /></span>;
 }
 
-export function ProFeatureTiles({ tokens }: { tokens: number }) {
+export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; stacked?: boolean }) {
   const [open, setOpen] = React.useState<TileId | null>(null);
   const flex = (id: TileId) => (open === null ? '1 1 0px' : open === id ? '7 1 0px' : '0 0 64px');
   const close = () => setOpen(null);
@@ -28,10 +30,13 @@ export function ProFeatureTiles({ tokens }: { tokens: number }) {
       orb: d => <span className="pf-orb-ball is-ai" style={{ width: d, height: d }}><Mascot gear="headset" mood="happy" animated={false} size={Math.round(d * 0.66)} viewBox="12 8 76 76" /></span>,
       detail: <>
         <p className="pf-detail-head" data-testid="plan-ai-tokens"><b className="pf-num">{tokens.toLocaleString('en-US')}</b> {tr('โทเคนต่อเดือน')} · {tr('ใช้ร่วมกันในแอปและ LINE')}</p>
+        {/* What เลขา adds over recording by hand (owner, 2026-10-29): talk like to a real secretary, many projects at once,
+            ask anything about the account; short, one line each. */}
         <ul className="pf-detail-list">
-          <li><Tick tone="ai" />{tr('จดงาน รายจ่าย และการรับเงิน ทีละหลายรายการได้')}</li>
-          <li><Tick tone="ai" />{tr('ทำใบเสนอราคาและใบแจ้งหนี้ให้')}</li>
-          <li><Tick tone="ai" />{tr('ตอบเรื่องเงินพร้อมกราฟ อ่านรูป สลิป และ PDF ให้')}</li>
+          <li><Tick tone="ai" />{tr('พูดหรือพิมพ์ภาษาปกติ เหมือนสั่งเลขาจริง ไม่ต้องกรอกฟอร์มเอง')}</li>
+          <li><Tick tone="ai" />{tr('หลายโปรเจกต์ก็บอกทีเดียว น้องแยกงาน รายจ่าย และการรับเงินให้ครบ')}</li>
+          <li><Tick tone="ai" />{tr('ถามได้ทุกเรื่องในบัญชี ใครยังไม่จ่าย เดือนนี้เหลือเท่าไร ตอบพร้อมกราฟ')}</li>
+          <li><Tick tone="ai" />{tr('อ่านสลิปและ PDF ทำใบเสนอราคาให้ และจำวิธีทำงานของคุณ')}</li>
         </ul>
       </>,
     },
@@ -54,18 +59,36 @@ export function ProFeatureTiles({ tokens }: { tokens: number }) {
       id: 'docs', title: tr('เอกสารไม่จำกัด'), sub: tr('และได้ใช้ฟีเจอร์ใหม่ก่อนใคร'),
       orb: d => <span className="pf-orb-ball is-docs" style={{ width: d, height: d }}>
         <FileText size={Math.round(d * 0.44)} strokeWidth={1.7} />
-        <span className="pf-orb-spark"><Sparkle size={14} strokeWidth={2.2} /></span>
       </span>,
       detail: <>
         <p className="pf-detail-head"><b>{tr('เอกสารไม่จำกัด + ฟีเจอร์ใหม่ก่อนใคร')}</b> · {tr('แบบฟรีได้ 10 ฉบับ/เดือน')}</p>
         <ul className="pf-detail-list">
           <li><Tick tone="docs" />{tr('ใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จรับเงิน ไม่จำกัดจำนวน')}</li>
           <li><Tick tone="docs" />{tr('ออกต่อจากใบเดิมได้ ไม่มีข้อความเครดิตของแอปบนเอกสาร')}</li>
-          <li><span aria-hidden="true" className="pf-tick is-alerts"><Sparkle size={10} strokeWidth={2.6} /></span>{tr('ได้ใช้ฟีเจอร์ใหม่ก่อนใคร')}</li>
+          <li><Tick tone="docs" />{tr('ได้ใช้ฟีเจอร์ใหม่ก่อนใคร')}</li>
         </ul>
       </>,
     },
   ];
+
+  if (stacked) return (
+    <ul className="pf-rows" aria-label={tr('สิ่งที่ได้ใน Pro')} onKeyDown={onKey}>
+      {tiles.map(tile => {
+        const isOpen = open === tile.id;
+        const detailId = `pf-detail-${tile.id}`;
+        return (
+          <li key={tile.id} className={`pf-row is-${tile.id} ${isOpen ? 'is-open' : ''}`} data-feature={tile.id}>
+            <button type="button" className="pf-row-head" onClick={() => setOpen(isOpen ? null : tile.id)} aria-expanded={isOpen} aria-controls={detailId}>
+              <span className="pf-row-art" aria-hidden="true">{tile.orb(52)}</span>
+              <span className="pf-tile-text"><b>{tile.title}</b><span>{tile.sub}</span></span>
+              <span aria-hidden="true" className={`pf-go is-${tile.id}`}><ChevronDown size={14} strokeWidth={2.6} /></span>
+            </button>
+            {isOpen && <div className="pf-row-detail" id={detailId} role="region" aria-label={tile.title}>{tile.detail}</div>}
+          </li>
+        );
+      })}
+    </ul>
+  );
 
   return (
     <ul className="pf-tiles" aria-label={tr('สิ่งที่ได้ใน Pro')} onKeyDown={onKey}>

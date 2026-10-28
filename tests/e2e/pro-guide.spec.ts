@@ -3,7 +3,7 @@ import { textOverlapIssues } from './textOverlap';
 
 // The post-payment guide (owner, 2026-10-29: "การ์ดทีละขั้น พาไปกด"): after the arrival, a card beside the corner
 // squirrel lists four first steps; "ไปทำเลย" opens the page and rings the button to press; steps tick themselves from
-// the account's data. Computers and iPads; phones are unchanged.
+// the account's data. Computers and iPads; phones too since 2026-10-29 ("ทำบนมือถือด้วยเลย"), the card as a bottom sheet.
 
 test.use({ serviceWorkers: 'block' });
 
@@ -135,15 +135,46 @@ test('the guide card lists four steps beside the corner squirrel and walks each 
   await expect(card(page).locator('.pg-step.is-current')).not.toHaveAttribute('data-step', 'chat');
 });
 
-test('the guide opens after the Pro arrival and never on phones', async ({ page }) => {
+test('the guide opens after the Pro arrival', async ({ page }) => {
   test.setTimeout(45_000);
   await open(page, 1280, 820, '/dashboard?hello=krarok');
-  await expect(page.locator('.kb-stage, [data-testid="assistant-birth"]').first()).toBeVisible();
+  await expect(page.locator('.kb-stage').first()).toBeVisible();
   await expect(card(page)).toHaveCount(0);
   await expect(card(page)).toBeVisible({ timeout: 15_000 });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(card(page)).toHaveCount(0);
-  await expect(page.getByTestId('pro-guide-pill')).toHaveCount(0);
+});
+
+test('phones: the card rises as a sheet over the tab bar, and "ไปทำเลย" rings the LINE row', async ({ page }) => {
+  test.setTimeout(45_000);
+  await open(page, 390, 844, '/dashboard?guide=pro');
+  await expect(card(page)).toBeVisible();
+  await expect.poll(async () => { const b = (await card(page).boundingBox())!; return b.y + b.height; }).toBeLessThanOrEqual(844); // risen
+  const box = (await card(page).boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(6);
+  expect(box.x + box.width).toBeLessThanOrEqual(390 - 6);
+  expect(box.y).toBeGreaterThanOrEqual(12);
+  expect(box.y + box.height).toBeLessThanOrEqual(844);
+  await expect(card(page).locator('.pg-step b')).toHaveText(['เชื่อม LINE', 'เปิดแจ้งเตือนอีเมล', 'ลองคุยกับเลขา', 'ตั้งข้อมูลผู้ออกเอกสาร']);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await shot(page, 'guide-card-phone');
+  await card(page).getByRole('button', { name: 'ไปทำเลย: เชื่อม LINE' }).click();
+  await expect(page).toHaveURL(/\/settings/);
+  await ringsOn(page, 'line');
+  const coachBox = (await coach(page).boundingBox())!;
+  expect(coachBox.x).toBeGreaterThanOrEqual(12 - 0.5);
+  expect(coachBox.x + coachBox.width).toBeLessThanOrEqual(390 - 12 + 0.5);
+  // The pill sits beside the phone's squirrel; the squirrel's hello waits meanwhile.
+  await expect(page.getByTestId('pro-guide-pill')).toContainText('1/4เชื่อม LINE');
+  await expect(page.locator('.asx-hello-say')).toBeHidden();
+  await page.waitForTimeout(3800);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await shot(page, 'guide-step-phone');
+  await page.locator('[data-guide-target="line"]').click();
+  await ringsOn(page, 'line-connect');
+  // Step 3 on a phone: the full chat's composer rings.
+  await coach(page).getByRole('button', { name: 'ดูทุกขั้น' }).click();
+  await card(page).getByRole('button', { name: 'ไปทำเลย: ลองคุยกับเลขา' }).click();
+  await expect(page).toHaveURL(/\/assistant/);
+  await ringsOn(page, 'chat-composer');
 });
 
 test('the guide reads in dark mode and on an iPad', async ({ page }) => {

@@ -179,6 +179,8 @@ test('a free account opens an inline card form for the monthly price', async ({ 
 });
 
 test('the Pro card and its prices stay readable on mobile', async ({ page }) => {
+  // Design F on phones too (owner, 2026-10-29: "ทำบนมือถือด้วยเลย"): the headline, the price card full width as the
+  // focal point, the feature cards as rows; no squirrel and no fee line (the dialogs show the fee before paying).
   await page.setViewportSize({ width: 375, height: 812 });
   await openPlans(page, {
     status: 'free',
@@ -192,37 +194,52 @@ test('the Pro card and its prices stay readable on mobile', async ({ page }) => 
   }, 'https://checkout.stripe.com/c/pay/cs_test_mobile');
 
   const plans = page.locator('#main-content');
-  await expect(plans.getByRole('heading', { name: 'Pro', exact: true })).toBeVisible();
-  await expect(plans.getByText('เลขาการเงินส่วนตัวของคุณ', { exact: true })).toBeVisible();
+  await expect(plans.getByRole('heading', { name: /เรื่องบัญชี\s*ไม่จำเป็นต้องเป็นเรื่องยากอีกต่อไป/ })).toBeVisible();
+  await expect(plans.getByText('วันละไม่ถึง 6 บาท', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'ทักทายน้องกระรอก Pro' })).toHaveCount(0);
+  await expect(page.getByTestId('plan-fee')).toHaveCount(0);
+  await expect(plans.getByText(/ยอดชำระ|ค่าธรรมเนียม|ราคาเปิดตัว/)).toHaveCount(0);
+  // The headline's second line stays on one line, inside the screen, on small and large phones.
+  for (const width of [320, 375, 430]) {
+    await page.setViewportSize({ width, height: 812 });
+    const line = (await plans.locator('.pf-title-grad').boundingBox())!;
+    const hero = (await plans.locator('.pf-hero').boundingBox())!;
+    expect(line.height, `${width}`).toBeLessThan(48);
+    expect(line.x, `${width}`).toBeGreaterThanOrEqual(hero.x - 0.5);
+    expect(line.x + line.width, `${width}`).toBeLessThanOrEqual(hero.x + hero.width + 0.5);
+    expect(await plans.evaluate(el => el.scrollWidth <= el.clientWidth), `${width}`).toBe(true);
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
+  const card = (await page.getByTestId('pro-card').boundingBox())!;
+  expect(card.x).toBeGreaterThanOrEqual(8);
+  expect(card.x + card.width).toBeLessThanOrEqual(375 - 8);
   const monthly = page.getByTestId('pro-price').getByText('฿159', { exact: true });
   await expect(monthly).toBeVisible();
-  const monthLine = Math.round((await monthly.boundingBox())!.y);
-  // phone sizes: the squirrel about 144px, the price 52-64px
-  const mascot = (await page.getByRole('button', { name: 'ทักทายน้องกระรอก Pro' }).locator('svg').first().boundingBox())!;
-  expect(mascot.width).toBeGreaterThanOrEqual(135);
-  expect(mascot.width).toBeLessThanOrEqual(150);
   const size = await monthly.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
-  expect(size).toBeGreaterThanOrEqual(52);
+  expect(size).toBeGreaterThanOrEqual(56);
   expect(size).toBeLessThanOrEqual(64);
+  await expect(page.getByTestId('pro-price').getByText('ประหยัด ฿90 ทุกเดือน', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('pro-actions').getByRole('button', { name: /^สมัคร Pro$/ })).toBeVisible();
+  await expect(page.getByTestId('pro-actions').getByRole('button', { name: 'จ่ายครั้งเดียวด้วยพร้อมเพย์ QR' })).toBeVisible();
   if (PRO_CHECKOUT_OPEN.year) {
     await page.getByRole('radio', { name: '1 ปี' }).click();
-    const yearly = page.getByTestId('pro-price').getByText('฿1,490', { exact: true });
-    await expect(yearly).toBeVisible();
-    // "คุ้มที่สุด" is in the card's top-right corner, so the price line does not move between periods
-    await expect.poll(async () => Math.round((await yearly.boundingBox())!.y)).toBe(monthLine);
-    const card = (await page.getByTestId('pro-card').boundingBox())!;
-    const badge = (await page.getByTestId('pro-card').getByText('คุ้มที่สุด', { exact: true }).boundingBox())!;
-    expect(card.x + card.width - (badge.x + badge.width)).toBeLessThan(40);
-    expect(badge.y - card.y).toBeLessThan(40);
-    await expect(page.getByTestId('pro-price').getByText('ประหยัด ฿1,498 (50%)')).toBeVisible();
+    await expect(page.getByTestId('pro-price').getByText('฿1,490', { exact: true })).toBeVisible();
   } else {
     // Monthly only for now (owner, 2026-10-25): no period switch and no long-plan price on the phone either.
     await expect(page.getByTestId('period-switch')).toHaveCount(0);
     await expect(page.getByRole('radio')).toHaveCount(0);
     await expect(plans.getByText(/฿849|฿1,490|คุ้มที่สุด/)).toHaveCount(0);
   }
-  await expect(plans.getByRole('heading', { name: 'บัตรเครดิต / เดบิต', exact: true })).toBeVisible();
-  await expect(plans.getByRole('heading', { name: 'พร้อมเพย์ QR', exact: true })).toBeVisible();
+  // What Pro gives: three rows; the one pressed opens downward and closes again.
+  const rows = page.getByRole('list', { name: 'สิ่งที่ได้ใน Pro' });
+  await expect(rows.getByRole('listitem')).toHaveCount(3);
+  const ai = rows.getByRole('button', { name: /เลขากระรอก/ });
+  await ai.click();
+  await expect(ai).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('plan-ai-tokens')).toHaveText('1,650 โทเคนต่อเดือน · ใช้ร่วมกันในแอปและ LINE');
+  await rows.getByRole('button', { name: /แจ้งเตือนอัตโนมัติ/ }).click();
+  await expect(ai).toHaveAttribute('aria-expanded', 'false');
+  await expect(rows.getByRole('region', { name: 'แจ้งเตือนอัตโนมัติ' })).toContainText('แชตกับเลขาใน LINE ได้เหมือนในแอป');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
@@ -280,39 +297,7 @@ test('a managed nonterminal subscription chooses the Stripe Billing Portal', asy
   await expect(page).toHaveURL(stripeUrl);
 });
 
-test('the official mascot on the Pro card returns from tap to idle and is petted, respecting reduced motion',async({page})=>{
-  // Phones only since design F (2026-10-29): computers and iPads lead with the price, without the squirrel.
-  await page.setViewportSize({width:375,height:812});
-  await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock');
-  if(PRO_CHECKOUT_OPEN.halfYear||PRO_CHECKOUT_OPEN.year) await expect(page.getByRole('radio',{name:'รายเดือน'})).toHaveAttribute('aria-checked','true'); // monthly by default
-  else await expect(page.getByTestId('pro-card')).toHaveAttribute('data-period','month'); // monthly only for now
-  const mascot=page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'});
-  await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','idle');
-  await mascot.click();
-  await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','tap');
-  await expect(mascot.locator('[data-motion]')).toHaveAttribute('data-motion','idle',{timeout:3000});
-  const palette=await mascot.locator('[data-motion] svg').evaluate(svg=>Array.from(svg.querySelectorAll('[fill]')).map(node=>node.getAttribute('fill')));
-  expect(palette).toContain('#C27A3F');
-  // rubbing it (the cursor moving across) is petting: it leans in, then settles when left alone
-  const box=(await mascot.boundingBox())!;
-  for(let i=0;i<=6;i++)await page.mouse.move(box.x+box.width*(0.3+i*0.07),box.y+box.height*0.45);
-  await expect(mascot).toHaveAttribute('data-reaction','pet');
-  // the hearts stay small next to the squirrel
-  const heart=mascot.locator('span[aria-hidden] svg').first();
-  await expect(heart).toBeAttached();
-  expect(Number(await heart.getAttribute('width'))).toBeLessThanOrEqual(10);
-  expect((await heart.boundingBox())!.width).toBeLessThanOrEqual(12);
-  // the squirrel's own box is the size it is drawn at, so it stays centred
-  const figureBox=(await mascot.locator('[data-motion] > div').first().boundingBox())!;
-  const drawn=(await mascot.locator('svg').first().boundingBox())!;
-  expect(Math.abs(figureBox.width-drawn.width)).toBeLessThan(2);
-  await page.mouse.move(box.x-120,box.y-120);
-  await expect(mascot).toHaveAttribute('data-reaction','idle');
-  const pettedPalette=await mascot.locator('[data-motion] svg').evaluate(svg=>Array.from(svg.querySelectorAll('[fill]')).map(node=>node.getAttribute('fill')));
-  expect(pettedPalette).toContain('#C27A3F'); // the same character and colours
-  await page.emulateMedia({reducedMotion:'reduce'}); await page.reload();
-  await expect(page.getByRole('button',{name:'ทักทายน้องกระรอก Pro'}).locator('[data-motion]')).toHaveAttribute('data-motion','reduced');
-});
+// The petting squirrel on the Pro card left with design F (owner, 2026-10-29: no squirrel on the plans page, phones too).
 
 test('plans page: Pro only at the owner\'s prices; squirrel and price lead; nothing can be paid at another amount',async({page})=>{
   const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock',{},false,false);
@@ -419,14 +404,11 @@ test('plans page: Pro only at the owner\'s prices; squirrel and price lead; noth
   await expect(tiles.getByRole('button',{name:'เปิด แจ้งเตือนอัตโนมัติ'})).toBeVisible();
   await tiles.getByRole('button',{name:'ปิดรายละเอียด'}).click();
   await expect(aiTokens).toHaveCount(0);
-  // Phones keep their layout: the squirrel, the fee line and the four Pro groups.
+  // Phones: the same design as rows (owner, 2026-10-29), still no squirrel and no fee line.
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(card.getByRole('button',{name:'ทักทายน้องกระรอก Pro'})).toBeVisible();
-  await expect(price.getByTestId('plan-fee').filter({hasText:'฿18 '})).toHaveText('+ ค่าธรรมเนียม ฿18 · ยอดชำระ ฿177');
-  const features=card.getByRole('list',{name:'ทุกรอบชำระได้ Pro ครบเท่ากัน'}).getByRole('listitem');
-  await expect(features).toHaveCount(4);
-  await expect(features.nth(0)).toContainText('LINE AI เลขาการเงินส่วนตัว');
-  await expect(card.getByTestId('plan-ai-tokens')).toHaveText('1,650 โทเคนต่อเดือน สำหรับเลขา AI ใช้ร่วมกันในแอปและ LINE');
+  await expect(card.getByRole('button',{name:'ทักทายน้องกระรอก Pro'})).toHaveCount(0);
+  await expect(price.getByTestId('plan-fee')).toHaveCount(0);
+  await expect(page.locator('.pf-rows').getByRole('listitem')).toHaveCount(3);
 });
 
 test('plans page: every account sees the same monthly price, with or without the earlier intro offer',async({page})=>{
@@ -879,8 +861,8 @@ test('plans page: the price, saving, payment fee and notice lines never overlap,
       for (const label of (['month', 'halfYear', 'year'] as ProPeriod[]).filter(period => PRO_CHECKOUT_OPEN[period]).map(period => labels[period])) {
         if (await page.getByRole('radio').count()) await page.getByRole('radio', { name: label, exact: true }).click();
         const price = page.getByTestId('pro-price');
-        // Computers and iPads show no fee line since design F (the dialogs show it before paying); phones keep it.
-        await expect(price.getByTestId('plan-fee')).toHaveCount(size.width < 744 ? 1 : 0);
+        // No fee line on the plans page since design F, phones included (the dialogs show it before paying).
+        await expect(price.getByTestId('plan-fee')).toHaveCount(0);
         // SHOT_DIR=… saves the card for review (never in a normal run).
         if (process.env.SHOT_DIR && label === 'รายเดือน') await page.getByTestId('pro-card').screenshot({ path: path.join(process.env.SHOT_DIR, `plans-${scheme}-${size.width}.png`) });
         const boxes = await price.locator('.plan-price-row, .plan-sub, .pf-price-row, .pf-save, .pf-count').evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); return { top: box.top, bottom: box.bottom, text: (node.textContent || '').slice(0, 30) }; }));
@@ -909,15 +891,13 @@ test('plans page from 1 Dec 2569: ฿249 shown, fee ฿22 and ฿271 to pay, no 
       await page.setViewportSize(size);
       if (await page.getByRole('radio').count()) await page.getByRole('radio', { name: 'รายเดือน', exact: true }).click();
       const price = page.getByTestId('pro-price');
-      const phone = size.width < 744;
-      await expect(price.getByTestId('plan-fee')).toHaveCount(phone ? 1 : 0); // the crossfade between periods has finished
+      await expect(price.getByTestId('plan-fee')).toHaveCount(0); // no fee line on this page (the dialogs show ฿22 and ฿271)
       await expect(price.locator('.plan-figure')).toHaveText('฿249');
-      if (phone) await expect(price.getByTestId('plan-fee')).toHaveText(/ค่าธรรมเนียม ฿22.*ยอดชำระ ฿271/);
-      else await expect(price.getByText(/ประหยัด/)).toHaveCount(0);
+      await expect(price.getByText(/ประหยัด/)).toHaveCount(0);
       await expect(price.locator('.plan-was')).toHaveCount(0);
       await expect(price.getByTestId('plan-promo-ends')).toHaveCount(0);
       await expect(page.getByTestId('pro-card').getByRole('button', { name: /^สมัคร Pro( รายเดือน)?$/ })).toBeVisible();
-      if (!phone && !(await page.getByTestId('plan-ai-tokens').count())) await page.getByRole('list', { name: 'สิ่งที่ได้ใน Pro' }).getByRole('button', { name: /เลขากระรอก/ }).click();
+      if (!(await page.getByTestId('plan-ai-tokens').count())) await page.getByRole('list', { name: 'สิ่งที่ได้ใน Pro' }).getByRole('button', { name: /เลขากระรอก/ }).click();
       await expect(page.getByTestId('plan-ai-tokens')).toContainText('1,650 โทเคนต่อเดือน');
       if (process.env.SHOT_DIR) await page.getByTestId('pro-card').screenshot({ path: path.join(process.env.SHOT_DIR, `plans-december-${scheme}-${size.width}.png`) });
       const boxes = await price.locator('.plan-price-row, .plan-sub, .pf-price-row, .pf-save, .pf-count').evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); return { top: box.top, bottom: box.bottom }; }));
@@ -994,7 +974,7 @@ test('promotion countdown keeps ticking, survives reload and updates prices at e
   await page.clock.setFixedTime(PRO_MONTH_REGULAR_FROM);
   await expect(timer).toHaveCount(0);
   await expect(price.locator('.plan-figure')).toHaveText('฿249');
-  await expect(price.getByTestId('plan-fee')).toHaveText(/ค่าธรรมเนียม ฿22.*ยอดชำระ ฿271/);
+  await expect(price.getByTestId('plan-fee')).toHaveCount(0); // design F: the dialogs show the fee and the total
   await expect(price.locator('.plan-was')).toHaveCount(0);
 });
 

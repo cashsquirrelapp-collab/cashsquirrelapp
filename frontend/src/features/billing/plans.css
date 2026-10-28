@@ -181,10 +181,10 @@
 .pf-count-chip { position: relative; display: inline-flex; align-items: baseline; gap: 2px; padding: 3px 7px; border-radius: 8px; background: var(--pf-chip); color: var(--text); font-size: 16px; font-weight: 600; line-height: 1.4; }
 .pf-count-chip small { font-family: var(--font-sans); font-size: 11px; font-weight: 500; color: var(--muted); }
 .pf-count-chip.is-seconds { background: linear-gradient(160deg, #E65F2B, #B4400F); color: #FFFFFF; animation: pf-tick 0.6s ease-out; }
-.pf-count-chip.is-seconds::after { content: ''; position: absolute; inset: 0; border-radius: 8px; box-shadow: 0 0 0 2px rgba(230, 95, 43, 0.6); opacity: 0; animation: pf-ring 0.9s ease-out; }
-.pf-count-colon { font-weight: 600; color: #E65F2B; animation: pf-blink 1s steps(1) infinite; }
-@keyframes pf-tick { 0% { transform: scale(1.12); } 40% { transform: scale(0.96); } 70%, 100% { transform: scale(1); } }
-@keyframes pf-ring { 0% { opacity: 0.6; transform: scale(1); } 100% { opacity: 0; transform: scale(1.45); } }
+.pf-count-chip.is-seconds::after { content: ''; position: absolute; inset: 0; border-radius: 8px; box-shadow: 0 0 0 2px rgba(230, 95, 43, 0.6); opacity: 0; pointer-events: none; animation: pf-ring 0.9s ease-out; }
+.pf-count-colon { margin: 0 1px; font-weight: 600; color: #E65F2B; animation: pf-blink 1s steps(1) infinite; }
+@keyframes pf-tick { 0% { transform: scale(1.06); } 40% { transform: scale(0.97); } 70%, 100% { transform: scale(1); } }
+@keyframes pf-ring { 0% { opacity: 0.6; transform: scale(1); } 100% { opacity: 0; transform: scale(1.3); } }
 @keyframes pf-blink { 50% { opacity: 0.2; } }
 
 .pf-status { display: flex; align-items: flex-start; gap: 10px; margin: 14px 0 0; padding: 10px 14px; border-radius: 14px; background: var(--pf-cream); color: var(--muted); font-size: 12.5px; line-height: 1.6; text-align: left; }
@@ -208,7 +208,8 @@
 .pf-features-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 10px; }
 .pf-features-head h2 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.45; color: var(--text); }
 .pf-features-head p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
-.pf-tiles { display: flex; gap: 10px; height: 214px; margin: 0; padding: 0; list-style: none; }
+/* 214px tall; an open card may grow to fit its lines (iPad portrait wraps them), the others stretch with it. */
+.pf-tiles { display: flex; gap: 10px; min-height: 214px; margin: 0; padding: 0; list-style: none; }
 .pf-tile { position: relative; min-width: 0; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 20px; transition: flex 0.62s cubic-bezier(0.34, 1.32, 0.64, 1); }
 .pf-tile.is-ai { background: linear-gradient(180deg, #FFDCC9 0%, #FFF3EB 75%); box-shadow: 0 8px 22px rgba(230, 95, 43, 0.1); }
 .pf-tile.is-alerts { background: linear-gradient(180deg, #FFE7BF 0%, #FFF7E9 75%); box-shadow: 0 8px 22px rgba(193, 120, 23, 0.12); }
@@ -273,3 +274,46 @@
   .pf-deco, .pf-halo, .pf-count-chip.is-seconds, .pf-count-chip.is-seconds::after, .pf-count-colon, .pf-cta-shine, .pf-open-orb, .pf-open-card, .pf-detail-list li, .pf-line-note { animation: none; }
   .pf-tile { transition: none; }
 }
+
+/* ── Phones, design F (owner, 2026-10-29: "ทำบนมือถือด้วยเลย") ───────────────────────────────────────────────────────
+   The same page laid out for a phone: the headline smaller and balanced, the price card full width, the feature cards
+   as rows that open downward. The app's terracotta header names the page. */
+.pf-page.is-phone { overflow-x: clip; }
+.pf-page.is-phone .pf-hero { padding-top: 6px; }
+/* The second line fits on one line on every phone (it is about 14.3 times its font size wide). */
+.pf-page.is-phone .pf-title { font-size: min(24px, 6.1vw); }
+.pf-page.is-phone .pf-title-grad { white-space: nowrap; }
+.pf-page.is-phone .pf-sub { margin-top: 8px; gap: 4px 6px; font-size: 14px; line-height: 1.6; }
+.pf-page.is-phone .pf-coffee { padding: 2px 10px 2px 7px; font-size: 13px; }
+.pf-page.is-phone .pf-card-wrap { max-width: none; margin-top: 30px; }
+.pf-page.is-phone .pf-halo { width: 130%; height: 360px; margin: -180px 0 0 -65%; }
+.pf-page.is-phone .pf-card { padding: 26px 18px 18px; border-radius: 24px; }
+.pf-page.is-phone .pf-card .pf-figure { font-size: 60px; }
+.pf-page.is-phone .pf-price-row .plan-was { font-size: 16px; }
+.pf-page.is-phone .pf-count { gap: 6px 8px; padding: 8px; }
+.pf-page.is-phone .pf-count-chip { padding: 3px 6px; font-size: 15px; }
+.pf-page.is-phone .pf-cta { min-height: 52px; font-size: 17px; }
+.pf-page.is-phone .pf-qr { min-height: 48px; font-size: 14.5px; }
+.pf-page.is-phone .pf-features { margin-top: 28px; }
+
+.pf-rows { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.pf-row { overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 20px; }
+.pf-row.is-ai { background: linear-gradient(120deg, #FFDCC9 0%, #FFF3EB 80%); box-shadow: 0 8px 22px rgba(230, 95, 43, 0.1); }
+.pf-row.is-alerts { background: linear-gradient(120deg, #FFE7BF 0%, #FFF7E9 80%); box-shadow: 0 8px 22px rgba(193, 120, 23, 0.12); }
+.pf-row.is-docs { background: linear-gradient(120deg, #F6D0C0 0%, #FCEFE8 80%); box-shadow: 0 8px 22px rgba(166, 63, 27, 0.12); }
+.dark .pf-row { border-color: rgba(255, 255, 255, 0.08); box-shadow: none; }
+.dark .pf-row.is-ai { background: linear-gradient(120deg, rgba(240, 116, 64, 0.26) 0%, rgba(240, 116, 64, 0.05) 80%), #1E1A18; }
+.dark .pf-row.is-alerts { background: linear-gradient(120deg, rgba(242, 183, 107, 0.24) 0%, rgba(242, 183, 107, 0.05) 80%), #1E1A18; }
+.dark .pf-row.is-docs { background: linear-gradient(120deg, rgba(250, 126, 82, 0.24) 0%, rgba(250, 126, 82, 0.05) 80%), #1E1A18; }
+.pf-row-head { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; min-height: 72px; padding: 10px 14px 10px 8px; border: 0; background: transparent; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
+.pf-row-art { flex: none; display: grid; place-items: center; width: 78px; }
+.pf-row .pf-go { transition: transform 0.35s cubic-bezier(0.34, 1.32, 0.64, 1); }
+.pf-row.is-open .pf-go { transform: rotate(180deg); }
+.pf-row .pf-orb-spark { top: -3px; right: -5px; width: 20px; height: 20px; }
+.pf-row .pf-orb-spark svg { width: 11px; height: 11px; }
+.pf-row .pf-tip-bubble { display: none; }
+.pf-row-detail { position: relative; display: flex; flex-direction: column; gap: 8px; margin: 0 10px 10px; padding: 12px 14px; border-radius: 16px; background: var(--pf-inner);
+  box-shadow: 0 6px 18px rgba(28, 25, 23, 0.07); animation: pf-drop 0.45s cubic-bezier(0.34, 1.3, 0.64, 1) both; }
+.pf-row-detail .pf-line-note { margin-top: 2px; }
+@keyframes pf-drop { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pf-row-detail { animation: none; } .pf-row .pf-go { transition: none; } }

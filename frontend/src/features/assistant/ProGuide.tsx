@@ -9,7 +9,8 @@ import './proGuide.css';
 
 // After paying for Pro (owner, 2026-10-29, "การ์ดทีละขั้น พาไปกด"): once the arrival clip ends, a card beside the corner
 // squirrel lists four first steps. "ไปทำเลย" opens the right page, dims it for a moment and rings the button to press,
-// with a small bubble that says what to do; each step ticks itself from the account's real data. Computers and iPads.
+// with a small bubble that says what to do; each step ticks itself from the account's real data. Computers and iPads;
+// phones too since 2026-10-29 ("ทำบนมือถือด้วยเลย"): the card rises from the bottom like an iOS sheet.
 
 export type ProGuideStep = 'line' | 'email' | 'chat' | 'business';
 const STEPS: ProGuideStep[] = ['line', 'email', 'chat', 'business'];
@@ -93,7 +94,7 @@ function Face({ size }: { size: number }) {
 type Spot = { name: string; left: number; top: number; width: number; height: number };
 const modalOpen = () => Boolean(document.querySelector('[role="dialog"][aria-modal="true"], [role="alertdialog"]'));
 
-export default function ProGuide({ accountId, start, line, email, businessSaved, page, onGo }: {
+export default function ProGuide({ accountId, start, line, email, businessSaved, page, onGo, mobile = false }: {
   accountId: string;
   /** Goes up by one each time the guide should open (after the payment arrival, ?guide=pro). */
   start: number;
@@ -102,6 +103,8 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   businessSaved: () => boolean;
   page: string;
   onGo: (step: ProGuideStep) => void;
+  /** Phones: the card as a bottom sheet, the pill beside the phone's squirrel. */
+  mobile?: boolean;
 }) {
   const [saved, setSaved] = React.useState<Saved>(() => load(accountId));
   const update = React.useCallback((patch: Partial<Saved>) => setSaved(current => {
@@ -192,11 +195,13 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   }, [active, activeDone]);
 
   // While the card is out the corner squirrel's own words step aside, so nothing sits under the card.
+  const pillShown = saved.state === 'pill' || (saved.state === 'active' && page !== 'assistant');
   React.useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('pg-card-open', saved.state === 'card');
-    return () => root.classList.remove('pg-card-open');
-  }, [saved.state]);
+    root.classList.toggle('pg-pill-open', pillShown);
+    return () => { root.classList.remove('pg-card-open'); root.classList.remove('pg-pill-open'); };
+  }, [saved.state, pillShown]);
 
   React.useEffect(() => {
     if (saved.state !== 'card' && saved.state !== 'active') return;
@@ -224,8 +229,8 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   if (saved.state === 'card') {
     const finished = doneCount === STEPS.length;
     return (
-      <section className="pg-card" aria-labelledby="pg-title" data-testid="pro-guide">
-        <span aria-hidden="true" className="pg-card-tail" />
+      <section className={`pg-card${mobile ? ' is-mobile' : ''}`} aria-labelledby="pg-title" data-testid="pro-guide">
+        {mobile ? <span aria-hidden="true" className="pg-grip" /> : <span aria-hidden="true" className="pg-card-tail" />}
         <div className="pg-head">
           <Face size={46} />
           <div className="pg-head-text">
@@ -264,7 +269,7 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
 
   const pillStep = cheer ?? active;
   const pill = page === 'assistant' && saved.state === 'active' ? null : (
-    <div className={`pg-pill-wrap ${page === 'assistant' ? 'is-chat-page' : ''}`}>
+    <div className={`pg-pill-wrap${page === 'assistant' ? ' is-chat-page' : ''}${mobile ? ' is-mobile' : ''}`}>
       <button type="button" className={`pg-pill ${cheer ? 'is-cheer' : ''}`} onClick={showAll} data-testid="pro-guide-pill"
         aria-label={pillStep ? tr('ขั้นที่ {0} จาก {1}: {2} · ดูทุกขั้น', String(STEPS.indexOf(pillStep) + 1), String(STEPS.length), stepTitle(pillStep)) : tr('เริ่มใช้ Pro {0}/{1} · เปิดอีกครั้ง', String(doneCount), String(STEPS.length))}>
         {cheer ? <><span className="pg-pill-tick" aria-hidden="true"><Check size={12} strokeWidth={3} /></span>{tr('{0} เรียบร้อย', stepTitle(cheer))}</>
@@ -277,7 +282,8 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
 
   if (saved.state === 'pill' || !active) return pill;
 
-  const width = Math.min(380, window.innerWidth - 32);
+  const gutter = mobile ? 12 : 16;
+  const width = Math.min(380, window.innerWidth - gutter * 2);
   const index = STEPS.indexOf(active);
   const dots = <span aria-hidden="true" className="pg-dots">{STEPS.map((step, at) => <span key={step} className={at === index ? 'is-on' : done[step] ? 'is-done' : ''} />)}</span>;
   const actions = <span className="pg-coach-actions">
@@ -294,7 +300,7 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   if (cheer) coach = null;
   else if (spot) {
     const below = spot.top + spot.height + 18 + coachHeight <= window.innerHeight - 12;
-    const left = Math.max(16, Math.min(spot.left - 6, window.innerWidth - width - 16));
+    const left = Math.max(gutter, Math.min(spot.left - 6, window.innerWidth - width - gutter));
     const top = below ? spot.top + spot.height + 18 : Math.max(12, spot.top - 18 - coachHeight);
     const tail = Math.max(20, Math.min(spot.left + Math.min(spot.width / 2, 34) - left, width - 40));
     coach = (
@@ -307,7 +313,7 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
     );
   } else if (lost) {
     coach = (
-      <section ref={coachRef} className="pg-coach is-lost" style={{ width }} aria-labelledby="pg-coach-title" data-testid="pro-guide-coach" data-target="">
+      <section ref={coachRef} className={`pg-coach is-lost${mobile ? ' is-mobile' : ''}`} style={mobile ? undefined : { width }} aria-labelledby="pg-coach-title" data-testid="pro-guide-coach" data-target="">
         {head(stepTitle(active))}
         <p className="pg-coach-lost">{tr('ปุ่มของขั้นนี้อยู่อีกหน้า กดพาไปเพื่อทำต่อ')}</p>
         <div className="pg-coach-foot">

@@ -108,3 +108,22 @@
   .pg-card, .pg-coach, .pg-pill-wrap, .pg-go, .pg-ring { animation: none; }
   .pg-dim { animation: none; opacity: 0; }
 }
+
+/* Phones (owner, 2026-10-29: "ทำบนมือถือด้วยเลย"): the card rises from the bottom over the tab bar like an iOS sheet;
+   the pill sits beside the phone's squirrel, whose hello bubble waits meanwhile. */
+.pg-card.is-mobile { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: calc(100dvh - 88px); overflow-y: auto;
+  padding: 10px 16px 14px; border-radius: 26px; overscroll-behavior: contain; animation-name: pg-rise; }
+.pg-grip { display: block; width: 36px; height: 5px; margin: 0 auto 10px; border-radius: 3px; background: rgba(60, 60, 67, 0.22); }
+.dark .pg-grip { background: rgba(235, 235, 245, 0.25); }
+.pg-card.is-mobile .pg-head-text h2 { font-size: 16.5px; }
+.pg-card.is-mobile .pg-step-row { padding: 9px 10px; gap: 10px; }
+.pg-card.is-mobile .pg-step.is-current .pg-step-row { padding-left: 10px; padding-right: 8px; }
+.pg-card.is-mobile .pg-step-text b { font-size: 14px; }
+.pg-card.is-mobile .pg-step-text > span { font-size: 12px; }
+.pg-card.is-mobile .pg-go { padding: 0 12px; }
+.pg-pill-wrap.is-mobile { right: 88px; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.pg-pill-wrap.is-mobile.is-chat-page { right: 12px; }
+.pg-coach.is-lost.is-mobile { left: 12px; right: 12px; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+.pg-pill-open .asx-buddy.is-mobile .asx-hello-say { visibility: hidden; }
+@keyframes pg-rise { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+

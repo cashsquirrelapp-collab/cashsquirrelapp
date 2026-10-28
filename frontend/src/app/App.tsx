@@ -1343,8 +1343,9 @@ export default function App() {
     && new Date(subscription!.currentPeriodEnd!).getTime() <= Date.now();
   const assistantLapsed = assistantTransport?.plan === 'lapsed';
   const showBuddy = (isPro || assistantLapsed) && !assistantFollowing && activeTab !== 'assistant' && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) && !(isPhone && isMobileMenuOpen);
-  // The post-payment guide: computers and iPads, a paying (or trial) account of its own, not a team's books or the guest view.
-  const showProGuide = !isPhone && isPro && !isGuestProPreview && Boolean(session) && !session?.isGuest && !financeGroupId && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess);
+  // The post-payment guide: every screen (phones since 2026-10-29), a paying (or trial) account of its own, not a team's
+  // books or the guest view; it steps aside while the phone menu is open.
+  const showProGuide = !(isPhone && isMobileMenuOpen) && isPro && !isGuestProPreview && Boolean(session) && !session?.isGuest && !financeGroupId && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess);
   const issuerSaved = React.useCallback(() => {
     try {
       const profile = JSON.parse(privateCache.getItem(`cashflow_issuer_${financeOwner}`) || 'null') as { name?: unknown } | null;
@@ -3572,7 +3573,7 @@ export default function App() {
         )}
         {showProGuide && session && (
           <Suspense fallback={null}>
-            <ProGuide key={session.user.id} accountId={session.user.id} start={proGuideStart} page={activeTab}
+            <ProGuide key={session.user.id} accountId={session.user.id} start={proGuideStart} page={activeTab} mobile={isPhone}
               line={Boolean(notifSettings.lineUserId)} email={Boolean(notifSettings.dailyDigestEnabled)} businessSaved={issuerSaved}
               onGo={step => {
                 setAssistantFollowing(false);
