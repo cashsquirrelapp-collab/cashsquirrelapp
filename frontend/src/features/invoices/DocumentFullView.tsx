@@ -34,14 +34,14 @@ export function DocumentFullView({ invoice, className = '', watermark = false }:
   return (
     <div ref={ref} tabIndex={0} role="region" aria-label={tr("เอกสาร {0}", invoice.documentNo)} data-testid="document-view"
       className={`relative min-h-0 overflow-y-auto overscroll-contain rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B]/40 ${className}`}>
-      <div className="flex justify-end px-5 pt-2" style={{ height: BAR }}>
+      <div data-krarok-avoid="actions" className="ml-auto flex w-fit justify-end px-5 pt-2" style={{ height: BAR }}>
         <button type="button" onClick={() => setExpanded(true)}
           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-brand-border bg-brand-white px-3 text-xs font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
           <Maximize2 className="h-3.5 w-3.5" />{tr("ขยายเต็มจอ")}</button>
       </div>
       <div key={invoice.id} className="doc-view-enter flex justify-center" style={{ padding: PAD, paddingTop: 4 }}>
         <button type="button" onClick={() => setExpanded(true)} aria-label={tr("ขยายเอกสารเต็มจอ")} title={tr("กดเพื่อดูเต็มจอ")} tabIndex={-1}
-          className="relative block cursor-zoom-in rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B]">
+          data-krarok-avoid="document" className="relative block cursor-zoom-in rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#E65F2B]">
           <DocumentPreview invoice={invoice} scale={scale} watermark={watermark} />
         </button>
       </div>

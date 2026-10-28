@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Computer and iPad checks for the owner's rule of 2026-10-21: every phone fix gets its own
 // computer/iPad version, designed for the wide layout (sidebar, page header, tables), not copied.
-// - receive money from the jobs table in one click, as from the phone's job card;
+// - receive money from the jobs table through its การชำระ column or ⋯ menu (2026-10-28: no separate button);
 // - confirm dialogs show the official mascot beside the message;
 // - a job opened from the timeline is a centred panel, not a sheet from the bottom;
 // - orange buttons read white in dark mode too;
@@ -56,30 +56,32 @@ async function open(page: Page, width: number, height: number, path: string, { d
 
 const row = (page: Page, name: string) => page.locator('table tbody tr').filter({ hasText: name });
 
-test('computer: every unpaid job can be paid from its table row, and the client column stays whole', async ({ page }) => {
+test('computer: the การชำระ column takes the money (no separate receive button), and the client column stays whole', async ({ page }) => {
   await open(page, 1280, 800, '/jobs');
   await expect(page.locator('table tbody tr')).toHaveCount(3);
-  // A delivered job takes the full amount; one with a deposit takes the rest; a paid one has no button.
-  const full = row(page, 'ออกแบบโลโก้').getByRole('button', { name: 'รับเงิน · ออกแบบโลโก้' });
-  await expect(full).toHaveText('รับเงิน');
-  await expect(row(page, 'ถ่ายภาพแคมเปญ').getByRole('button', { name: 'รับส่วนที่เหลือ · ถ่ายภาพแคมเปญ' })).toBeVisible();
-  await expect(row(page, 'รีวิวสินค้า').getByRole('button', { name: /^รับ/ })).toHaveCount(0);
+  // Owner, 2026-10-28: the receive button repeated the การชำระ column's menu, so it is gone where that column shows.
+  await expect(page.locator('table tbody').getByRole('button', { name: /^รับ/ })).toHaveCount(0);
   const cut = await page.locator('table tbody td').filter({ hasText: /^ลูกค้าตัวอย่าง$/ }).evaluateAll(cells => cells.filter(cell => cell.scrollWidth > cell.clientWidth + 1).length);
   expect(cut).toBe(0);
 
-  await full.click();
+  await row(page, 'ออกแบบโลโก้').getByRole('button', { name: 'เปลี่ยนการชำระของงาน ออกแบบโลโก้' }).click();
+  await page.getByRole('menuitem', { name: 'รับเงินครบ' }).click();
   const pay = page.getByRole('dialog').filter({ hasText: 'ออกแบบโลโก้' });
   await expect(pay.getByRole('radio', { name: 'รับเงินครบ' })).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   await expect(pay).toHaveCount(0);
-  await expect(page.getByRole('dialog', { name: 'แก้ไขงาน' })).toHaveCount(0); // the button does not open the job
+  await expect(page.getByRole('dialog', { name: 'แก้ไขงาน' })).toHaveCount(0); // the menu does not open the job
 });
 
 for (const [width, height] of [[1024, 768], [768, 1024]]) {
-  test(`iPad ${width}px: the receive button keeps its label and the client sits under the job name`, async ({ page }) => {
+  test(`iPad ${width}px: no receive button, the ⋯ menu takes the money, and the client sits under the job name`, async ({ page }) => {
     await open(page, width, height, '/jobs');
     await expect(page.locator('.ksm-pagehero')).toHaveCount(0); // the computer layout, not the phone one
-    await expect(row(page, 'ออกแบบโลโก้').getByRole('button', { name: 'รับเงิน · ออกแบบโลโก้' })).toHaveText('รับเงิน');
+    // Owner, 2026-10-28: only phones keep the receive button.
+    await expect(page.locator('table tbody').getByRole('button', { name: /^รับ/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'ตัวเลือกของงาน ออกแบบโลโก้' }).click();
+    await expect(page.getByRole('menuitem', { name: 'รับเงินครบ' })).toBeVisible();
+    await page.keyboard.press('Escape');
     await expect(page.getByRole('columnheader', { name: 'ลูกค้า / ผู้จ่าย' })).toBeHidden();
     await expect(row(page, 'ออกแบบโลโก้').getByText('ลูกค้าตัวอย่าง ·')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);

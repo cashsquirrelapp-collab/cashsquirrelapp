@@ -1050,27 +1050,8 @@ export default function JobsTab({
                       <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold text-brand-text">{amountCell(j)}</td>
                       <td className="px-2 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {/* Money in with one click, the same forms as the ⋯ menu (owner, 2026-10-21: computers get
-                              the receive button the phone has, in the table's own style). */}
-                          {(() => {
-                            const receive = receiveAction(j, info);
-                            if (!receive) return null;
-                            const late = info.stage === 'awaiting' && info.dueTone === 'overdue';
-                            return (
-                              <button
-                                type="button"
-                                onClick={(event) => { event.stopPropagation(); receive.run(); }}
-                                aria-label={`${tr(receive.label)} · ${j.name}`}
-                                title={tr(receive.label)}
-                                className={`inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[12px] font-semibold transition-colors cursor-pointer md:px-2.5 ${late
-                                  ? 'bg-gradient-to-b from-[#E8672F] to-[#CF5420] text-white hover:from-[#DE5D27] hover:to-[#C24A16]'
-                                  : 'bg-[#FFF1E8] text-[#C24A16] hover:bg-[#FFE4D4] dark:bg-[#E65F2B]/15 dark:text-[#FFA473] dark:hover:bg-[#E65F2B]/25'}`}
-                              >
-                                <Banknote className="h-4 w-4 shrink-0" aria-hidden />
-                                <span className="hidden md:inline">{receive.label === 'รับมัดจำ' ? tr("รับมัดจำ") : tr("รับเงิน")}</span>
-                              </button>
-                            );
-                          })()}
+                          {/* Owner, 2026-10-28: no receive button on computers or iPads; the การชำระ column and the
+                              ⋯ menu take the money. Phones keep it on the job card. */}
                           <button
                             type="button"
                             onClick={(event) => openActionMenu(event, j)}

@@ -2,7 +2,7 @@ import { inFreeTrial } from '../../../shared/trial.js';
 import { z } from 'zod';
 import {
   feedbackActionSchema, feedbackBoxSchema, feedbackKindSchema, feedbackStatusSchema,
-  type FeedbackAdminListResponse, type FeedbackOwnerPlan,
+  type FeedbackAdminListResponse, type FeedbackAdminThread, type FeedbackBox, type FeedbackKind, type FeedbackOwnerPlan,
 } from '../../../shared/feedback.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError, withGuard } from '../http/guard.js';
@@ -36,6 +36,65 @@ function ownerPlan(subscription: SubscriptionRow | undefined, createdAt: string 
   if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) return 'paid';
   if (inFreeTrial(createdAt, now)) return 'trial';
   return 'none';
+}
+
+// The admin inbox without database/feedback_admin_inbox.sql (owner, 2026-10-28: the users' messages did not show).
+// That file only adds cashflow_feedback_admin_list; until it runs, the same list is worked out here from the tables
+// feedback_phase_one.sql made, with the same boxes, order and page size. Admin role is checked before this is called.
+export type InboxThreadRow = { id: string; owner_id: string; category: string | null; status: string; preview: string; created_at: string; updated_at: string;
+  last_message_at: string; last_sender_role: string; message_count: number };
+export type InboxMessageRow = { thread_id: string; sender_role: string; created_at: string };
+const INBOX_PAGE = 20;
+export function adminInboxFromRows(threads: InboxThreadRow[], messages: InboxMessageRow[], profiles: { user_id: string; display_name: string | null; public_id: string | null }[],
+  box: FeedbackBox, category: FeedbackKind | null, page: number): Omit<FeedbackAdminListResponse, 'threads'> & { threads: Omit<FeedbackAdminThread, 'ownerPlan'>[] } {
+  const boxOf = (row: InboxThreadRow): FeedbackBox => (row.status === 'resolved' ? 'resolved' : row.last_sender_role === 'user' ? 'waiting' : 'replied');
+  const kindOf = (row: InboxThreadRow): FeedbackKind => (row.category === 'bug' || row.category === 'idea' ? row.category : 'general');
+  const inBox = threads.filter(row => boxOf(row) === box);
+  const filtered = inBox.filter(row => !category || kindOf(row) === category);
+  // How long the user has waited: their first message after the team's latest reply.
+  const waitingSince = (row: InboxThreadRow): string | null => {
+    if (box !== 'waiting') return null;
+    const own = messages.filter(message => message.thread_id === row.id);
+    const lastAdmin = own.filter(message => message.sender_role === 'admin').map(message => message.created_at).sort().at(-1) ?? '';
+    return own.filter(message => message.sender_role === 'user' && message.created_at > lastAdmin).map(message => message.created_at).sort()[0] ?? row.last_message_at;
+  };
+  const time = (value: string | null) => (value ? Date.parse(value) : 0);
+  const ranked = filtered.map(row => ({ row, since: waitingSince(row) })).sort((a, b) => box === 'resolved'
+    ? time(b.row.last_message_at) - time(a.row.last_message_at) || a.row.id.localeCompare(b.row.id)
+    : time(a.since ?? a.row.last_message_at) - time(b.since ?? b.row.last_message_at) || a.row.id.localeCompare(b.row.id));
+  const names = new Map(profiles.map(profile => [profile.user_id, profile]));
+  const perOwner = new Map<string, number>();
+  for (const row of threads) perOwner.set(row.owner_id, (perOwner.get(row.owner_id) ?? 0) + 1);
+  const count = <T extends string>(rows: InboxThreadRow[], of: (row: InboxThreadRow) => T, keys: T[]) =>
+    Object.fromEntries(keys.map(key => [key, rows.filter(row => of(row) === key).length])) as Record<T, number>;
+  return {
+    threads: ranked.slice(page * INBOX_PAGE, page * INBOX_PAGE + INBOX_PAGE).map(({ row, since }) => ({
+      id: row.id, ownerId: row.owner_id, ownerName: names.get(row.owner_id)?.display_name ?? null, ownerPublicId: names.get(row.owner_id)?.public_id ?? null,
+      category: row.category as FeedbackAdminThread['category'], status: row.status as FeedbackAdminThread['status'], preview: row.preview,
+      createdAt: row.created_at, updatedAt: row.updated_at, lastMessageAt: row.last_message_at, lastSenderRole: row.last_sender_role as FeedbackAdminThread['lastSenderRole'],
+      messageCount: row.message_count, waitingSince: since, ownerThreadCount: perOwner.get(row.owner_id) ?? 1,
+    })),
+    hasMore: ranked.length > page * INBOX_PAGE + INBOX_PAGE, page, pageSize: INBOX_PAGE,
+    counts: count(threads, boxOf, ['waiting', 'replied', 'resolved']),
+    kinds: count(inBox, kindOf, ['bug', 'idea', 'general']),
+  };
+}
+
+async function adminInboxWithoutFunction(db: ReturnType<typeof getSupabaseAdmin>, box: FeedbackBox, category: FeedbackKind | null, page: number) {
+  const threads = await db.from('cashflow_feedback_threads')
+    .select('id,owner_id,category,status,preview,created_at,updated_at,last_message_at,last_sender_role,message_count').limit(5000);
+  if (threads.error) throw threads.error;
+  const rows = (threads.data ?? []) as InboxThreadRow[];
+  const waitingIds = box === 'waiting' ? rows.filter(row => row.status !== 'resolved' && row.last_sender_role === 'user').map(row => row.id) : [];
+  const messages: InboxMessageRow[] = [];
+  for (let at = 0; at < waitingIds.length; at += 200) {
+    const part = await db.from('cashflow_feedback_messages').select('thread_id,sender_role,created_at').in('thread_id', waitingIds.slice(at, at + 200)).limit(20000);
+    if (part.error) throw part.error;
+    messages.push(...((part.data ?? []) as InboxMessageRow[]));
+  }
+  const ownerIds = [...new Set(rows.map(row => row.owner_id))];
+  const profiles = ownerIds.length ? await db.from('cashflow_profiles').select('user_id,display_name,public_id').in('user_id', ownerIds.slice(0, 1000)) : { data: [], error: null };
+  return adminInboxFromRows(rows, messages, profiles.error ? [] : (profiles.data ?? []) as { user_id: string; display_name: string | null; public_id: string | null }[], box, category, page);
 }
 
 export function feedbackDbError(error: { code?: string; message?: string }): never {
@@ -81,8 +140,11 @@ export default withGuard(async (req, res) => {
       const result = await db.rpc('cashflow_feedback_admin_list', {
         p_actor: user.id, p_box: query.data.box, p_category: query.data.category ?? null, p_page: query.data.page,
       });
-      if (result.error) feedbackDbError(result.error);
-      const inbox = result.data as FeedbackAdminListResponse;
+      // Without the inbox function (feedback_admin_inbox.sql not run yet) the same list comes from the tables.
+      if (result.error && result.error.code !== 'PGRST202') feedbackDbError(result.error);
+      const inbox = (result.error
+        ? await adminInboxWithoutFunction(db, query.data.box, query.data.category ?? null, query.data.page)
+        : result.data) as FeedbackAdminListResponse;
       const ownerIds = [...new Set(inbox.threads.map(thread => thread.ownerId))];
       let plans = new Map<string, FeedbackOwnerPlan>();
       if (ownerIds.length) {

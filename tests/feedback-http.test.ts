@@ -64,6 +64,12 @@ before(async () => {
     if (url.pathname.endsWith('/cashflow_user_roles')) {
       return json({ role: url.searchParams.get('user_id') === `eq.${adminId}` && roleAdmin ? 'admin' : 'user' });
     }
+    // The tables the inbox reads when its function is not there yet (owner, 2026-10-28).
+    if (url.pathname.endsWith('/cashflow_feedback_threads')) {
+      return json(threads.map(t => ({ id: t.id, owner_id: t.ownerId, category: t.category, status: t.status, preview: t.preview, created_at: t.createdAt,
+        updated_at: t.updatedAt, last_message_at: t.lastMessageAt, last_sender_role: t.lastSenderRole, message_count: t.messageCount })));
+    }
+    if (url.pathname.endsWith('/cashflow_feedback_messages')) return json(messages.map(m => ({ thread_id: m.threadId, sender_role: m.senderRole, created_at: m.createdAt })));
     if (url.pathname.endsWith('/cashflow_profiles') || url.pathname.endsWith('/subscriptions')) {
       rpcCalls.push({ name: url.pathname.split('/').at(-1)!, input: url.searchParams.get('user_id') });
       if (failPlanLookup) return json({ code: '42P01', message: 'missing' }, 500);
@@ -245,12 +251,50 @@ test('admin inbox boxes: admins only, filters checked before SQL, plan added fro
   assert.equal((await get('?scope=admin&box=waiting', adminId)).status, 403);
 });
 
-test('admin inbox still loads without the plan, and says plainly when the SQL has not been run', async () => {
+test('admin inbox still loads without the plan, and without feedback_admin_inbox.sql it reads the tables', async () => {
   failPlanLookup = true;
   const inbox = await (await get('?scope=admin&box=waiting', adminId)).json();
   assert.deepEqual(inbox.threads.map((t: any) => t.ownerPlan), [null, null]);
+  // Owner, 2026-10-28: the users' messages did not show until that SQL ran. Now the same list comes from the tables.
+  failPlanLookup = false;
   missingAdminList = true;
-  const missing = await get('?scope=admin&box=waiting', adminId);
-  assert.equal(missing.status, 503);
-  assert.match((await missing.json()).error, /feedback_admin_inbox\.sql/);
+  const fallback = await get('?scope=admin&box=waiting', adminId);
+  assert.equal(fallback.status, 200);
+  const listed = await fallback.json();
+  assert.deepEqual(listed.threads.map((t: any) => t.id).sort(), [threadA, threadB].sort());
+  assert.deepEqual(listed.counts, { waiting: 2, replied: 0, resolved: 0 });
+  assert.equal(listed.pageSize, 20);
+  assert.ok(listed.threads.every((t: any) => t.waitingSince && t.ownerThreadCount >= 1 && t.preview));
+  roleAdmin = false;
+  assert.equal((await get('?scope=admin&box=waiting', adminId)).status, 403, 'still admins only');
+});
+
+test('the inbox worked out from the tables matches the SQL rules: boxes, kinds, waiting since, order and pages', async () => {
+  const { adminInboxFromRows } = await import('../backend/src/handlers/feedback');
+  const row = (id: string, owner: string, extra: Record<string, unknown>) => ({ id, owner_id: owner, category: null, status: 'open', preview: `p-${id}`,
+    created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z', last_message_at: '2026-10-05T00:00:00Z', last_sender_role: 'user', message_count: 2, ...extra });
+  const rows = [
+    row('a', 'u1', { category: 'bug', last_message_at: '2026-10-09T00:00:00Z' }),
+    row('b', 'u1', { category: 'other', last_message_at: '2026-10-03T00:00:00Z' }),
+    row('c', 'u2', { last_sender_role: 'admin' }),
+    row('d', 'u2', { status: 'resolved', last_message_at: '2026-10-07T00:00:00Z' }),
+    row('e', 'u3', { status: 'resolved', last_message_at: '2026-10-08T00:00:00Z' }),
+  ];
+  const messages = [
+    { thread_id: 'a', sender_role: 'user', created_at: '2026-10-01T00:00:00Z' }, { thread_id: 'a', sender_role: 'admin', created_at: '2026-10-02T00:00:00Z' },
+    { thread_id: 'a', sender_role: 'user', created_at: '2026-10-04T00:00:00Z' }, { thread_id: 'a', sender_role: 'user', created_at: '2026-10-09T00:00:00Z' },
+  ];
+  const waiting = adminInboxFromRows(rows, messages, [{ user_id: 'u1', display_name: 'มายด์', public_id: 'SQ-1' }], 'waiting', null, 0);
+  // a waits since its first user message after the team's reply (4 Oct); b since its last message (3 Oct): b first.
+  assert.deepEqual(waiting.threads.map(t => [t.id, t.waitingSince]), [['b', '2026-10-03T00:00:00Z'], ['a', '2026-10-04T00:00:00Z']]);
+  assert.deepEqual(waiting.counts, { waiting: 2, replied: 1, resolved: 2 });
+  assert.deepEqual(waiting.kinds, { bug: 1, idea: 0, general: 1 });
+  assert.deepEqual([waiting.threads[0].ownerName, waiting.threads[0].ownerPublicId, waiting.threads[0].ownerThreadCount], ['มายด์', 'SQ-1', 2]);
+  assert.deepEqual(adminInboxFromRows(rows, messages, [], 'waiting', 'bug', 0).threads.map(t => t.id), ['a']);
+  assert.deepEqual(adminInboxFromRows(rows, messages, [], 'resolved', null, 0).threads.map(t => t.id), ['e', 'd'], 'resolved: newest first');
+  assert.equal(adminInboxFromRows(rows, messages, [], 'replied', null, 0).threads[0].waitingSince, null);
+  const many = Array.from({ length: 25 }, (_, index) => row(`m${String(index).padStart(2, '0')}`, 'u9', {}));
+  const first = adminInboxFromRows(many, [], [], 'waiting', null, 0);
+  assert.deepEqual([first.threads.length, first.hasMore], [20, true]);
+  assert.deepEqual([adminInboxFromRows(many, [], [], 'waiting', null, 1).threads.length, adminInboxFromRows(many, [], [], 'waiting', null, 1).hasMore], [5, false]);
 });

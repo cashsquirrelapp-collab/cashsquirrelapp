@@ -60,6 +60,9 @@ type Props = {
   connecting?: boolean;
   /** Today's briefing (shared/briefing.ts), on computers and iPads only; phones never get one. */
   briefing?: Briefing | null;
+  /** A chat carried from the full chat page when it opened another page (computers and iPads): the window opens with it. */
+  carried?: ChatHandoff | null;
+  onCarried?: () => void;
 };
 
 const EXTRA_PROMPTS = [T("สรุปเดือนนี้"), T("รอรับเงิน"), T("กำลังดำเนินการ"), T("สรุปงานของวันนี้"), T("ตรวจงานที่ยังไม่ได้รับเงิน")];
@@ -149,7 +152,7 @@ function markBriefingSeen(accountId: string | undefined, day: string, key: strin
   try { window.localStorage.setItem(briefingStore(accountId), JSON.stringify({ ...briefingSeen(accountId, day), [key]: day })); } catch { /* private mode */ }
 }
 
-export default function AssistantBuddy({ mobile, page, pageName, userName, hidden = false, arrival = 0, onPanelChange, onOpenChat, onNavigate, transport: given, accountId, workspaceSlug, fullFeatureAccess, connecting = false, briefing }: Props) {
+export default function AssistantBuddy({ mobile, page, pageName, userName, hidden = false, arrival = 0, onPanelChange, onOpenChat, onNavigate, transport: given, accountId, workspaceSlug, fullFeatureAccess, connecting = false, briefing, carried, onCarried }: Props) {
   const reduce = useReducedMotion();
   const transport = React.useMemo(() => given ?? createSampleTransport({ failSends: () => false, failActions: () => false, tokens: () => SAMPLE_TOKENS, instant: Boolean(reduce) }), [given, reduce]);
   const live = Boolean(transport.live);
@@ -195,6 +198,21 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const [draft, setDraft] = React.useState('');
   const [confirmStates, setConfirmStates] = React.useState<Record<string, ConfirmState>>({});
   const [confirmedPaths, setConfirmedPaths] = React.useState<Record<string, string>>({});
+  // The full chat page opened another page (owner, 2026-10-28: "แชทแบบย่อ ... เอา UI ที่น้องเกาะบนข้อความ"): this window
+  // takes its chat as it stands, under the same id, and opens; the next message goes on in the same conversation.
+  React.useEffect(() => {
+    const chat = carried?.chat;
+    if (!chat) return;
+    conversationRef.current = chat.id;
+    setMessages(chat.messages);
+    setConfirmStates(chat.confirmStates);
+    setConfirmedPaths(chat.confirmedPaths);
+    setMode('awake');
+    setMinimized(false);
+    setOpen(true);
+    onCarried?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carried]);
   const confirmControllers = React.useRef(new Set<AbortController>());
   const [tip, setTip] = React.useState(false);
   // Something that happened while the chat was closed (an answer, a save, a failure), until the chat is opened.

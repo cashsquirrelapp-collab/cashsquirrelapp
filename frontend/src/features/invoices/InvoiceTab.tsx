@@ -861,7 +861,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       )}
 
       {focusLinkedDocument && activeSubTab === 'list' && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#FFF5EC] px-4 py-3 text-xs text-[#7A5C43] no-print">
+        <div data-krarok-avoid="banner" className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#FFF5EC] px-4 py-3 text-xs text-[#7A5C43] no-print">
           <span>{linkFrom.current === 'assistant' ? tr("เอกสารที่เลขาทำให้ · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง") : tr("เอกสารที่ขอจาก LINE · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง")}</span>
           <button type="button" onClick={showAllDocuments} className="font-semibold text-[#C24A16]">{tr("ดูรายการเอกสารทั้งหมด")}</button>
         </div>
@@ -946,11 +946,13 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             )}
           </section>
 
-          <section className={`min-w-0${documentSpotlight && selectedInvoice ? ' doc-spotlight' : ''}`} aria-label={tr("ตัวอย่างเอกสาร")} data-krarok-avoid="document">
+          {/* The floating เลขากระรอก keeps clear of the paper and the actions (data-krarok-avoid), not the whole section, so
+              its folded squirrel can rest in the margin beside the paper instead of over the page's words (2026-10-28). */}
+          <section className={`min-w-0${documentSpotlight && selectedInvoice ? ' doc-spotlight' : ''}`} aria-label={tr("ตัวอย่างเอกสาร")}>
             {selectedInvoice && shownInvoice ? (
               <div className="flex min-w-0 flex-col gap-4 lg:h-[calc(100vh-232px)] lg:min-h-[560px]">
                 {/* The document is the hero: a title, a few actions, then the paper itself */}
-                <div className="flex flex-wrap items-start justify-between gap-3 no-print" aria-label={tr("คำสั่งเอกสาร")}>
+                <div data-krarok-avoid="actions" className="flex flex-wrap items-start justify-between gap-3 no-print" aria-label={tr("คำสั่งเอกสาร")}>
                   <div className="min-w-0">
                     <h2 className="truncate text-[22px] font-semibold leading-tight text-brand-text sm:text-[26px]">{selectedInvoice.documentNo}</h2>
                     <p className="mt-1 truncate text-[13px] text-brand-muted">

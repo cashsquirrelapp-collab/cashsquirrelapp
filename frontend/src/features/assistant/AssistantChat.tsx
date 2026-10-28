@@ -51,7 +51,8 @@ type Props = {
   onOpenNotifications: () => void;
   onUpgrade: () => void;
   /** Open a page of the app from a link or card in an answer. */
-  onNavigate: (path: string) => void;
+  /** carry: computers and iPads, the chat to go on in the floating window on the page opened (owner, 2026-10-28). */
+  onNavigate: (path: string, carry?: ChatHandoff) => void;
   /** The team's preview tools in the ⋯ menu (ดูตัวอย่างสถานะ, จำลองแจ้งเตือนเข้า): admins only, so members never
    *  see, for example, a "trial ended" notice that is not true for them. */
   previewTools?: boolean;
@@ -224,7 +225,12 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   navigationRef.current = { navigationContext, navigationMode, transport };
   const go = (path: string) => {
     if (accountId && getCurrentAccount() !== accountId) return;
-    const safe = safeAssistantPath(path, navigationContext, true); if (safe) onNavigate(safe);
+    const safe = safeAssistantPath(path, navigationContext, true); if (!safe) return;
+    // Computers and iPads (owner, 2026-10-28: "แชทแบบย่อ ... เอา UI ที่น้องเกาะบนข้อความ"): the chat goes on in the floating
+    // window with the perched squirrel, on the page just opened. Not while an answer or a save is still on its way.
+    const chat = !mobile && !floating && current && !inLine && current.messages.length && !busy && !Object.values(confirmStates).includes('working')
+      ? { id: current.id, title: current.title, messages: current.messages, confirmStates, confirmedPaths } : undefined;
+    onNavigate(safe, chat ? { chat } : undefined);
   };
 
   const [conversations, setConversations] = React.useState<Conversation[] | null>(null);

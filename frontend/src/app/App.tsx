@@ -504,6 +504,8 @@ export default function App() {
   const activeTab: TabKey = resolvePhaseOneTab(requestedActiveTab, fullFeatureAccess);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [assistantFollowing, setAssistantFollowing] = useState(false);
+  // The full chat's conversation, carried to the floating window when the chat opens another page (computers, iPads).
+  const [buddyCarry, setBuddyCarry] = useState<ChatHandoff | null>(null);
   const [assistantDocumentEntry, setAssistantDocumentEntry] = useState(0);
   // The floating chat's conversation on its way to the full chat page (its expand button, owner 2026-10-27).
   const [chatHandoff, setChatHandoff] = useState<ChatHandoff | null>(null);
@@ -825,7 +827,7 @@ export default function App() {
   const financeOwner = session?.user?.id ? financeKey(session.user.id, financeGroupId) : '';
   useEffect(() => { setAssistantFollowing(false); }, [financeOwner]);
   const assistantWorkspaceSlug = routeContext && routeContext.userId === session?.user?.id ? personalWorkspaceSlug(routeContext.profile) : undefined;
-  const navigateAssistant = (path: string, follow = false) => {
+  const navigateAssistant = (path: string, follow = false, carry?: ChatHandoff) => {
     if (financeGroupId || !session?.user?.id || (!session.isGuest && getCurrentAccount() !== session.user.id)) return;
     const safe = safeAssistantPath(path, { accountId: session.user.id, workspaceSlug: assistantWorkspaceSlug, fullFeatureAccess }, true);
     if (!safe || !assistantWorkspaceSlug) return;
@@ -836,6 +838,8 @@ export default function App() {
     const savedRecord = (tab === 'jobs' && url.searchParams.has('job')) || (tab === 'incomeExpense' && url.searchParams.has('expense'))
       || (tab === 'invoice' && url.searchParams.has('document'));
     if (isPhone && savedRecord) setAssistantFollowing(false);
+    // Computers and iPads: the full chat's conversation goes on in the floating window (owner, 2026-10-28).
+    else if (carry && !isPhone) { setAssistantFollowing(false); setBuddyCarry(carry); }
     else if (follow) setAssistantFollowing(true);
     setIsMobileMenuOpen(false);
     if (tab === 'settings') setSettingsEntry(entry => ({ view: (url.searchParams.get('view') || 'home') as SettingsView, n: entry.n + 1 }));
@@ -3147,7 +3151,7 @@ export default function App() {
                 onPreviewBirth={fullFeatureAccess && isPro ? () => { setAssistantFollowing(false); navigateTab('dashboard'); window.setTimeout(() => setBirthOpen(true), 500); } : undefined}
                 onOpenNotifications={() => { setAssistantFollowing(false); setSettingsEntry(entry => ({ view: 'notif', n: entry.n + 1 })); navigateTab('settings'); }}
                 onUpgrade={() => { setAssistantFollowing(false); navigateTab('plans'); }}
-                onNavigate={path => navigateAssistant(path, true)} onAutoNavigate={path => navigateAssistant(path, true)} transport={assistantTransport}
+                onNavigate={(path, carry) => navigateAssistant(path, true, carry)} onAutoNavigate={path => navigateAssistant(path, true)} transport={assistantTransport}
                 liveNote={fullFeatureAccess ? assistantNote ?? undefined : undefined} lineInbox={lineInbox}
                 handoff={activeTab === 'assistant' ? chatHandoff : null} onHandoff={() => setChatHandoff(null)} connecting={assistantChecking} briefing={briefing} />
             </div>
@@ -3532,7 +3536,8 @@ export default function App() {
           <Suspense fallback={null}>
             <AssistantBuddy key={financeOwner} accountId={!financeGroupId ? session.user.id : undefined} workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} mobile={isPhone} page={activeTab} pageName={t(NAV_ITEMS.find(item => item.key === activeTab)?.labelKey ?? 'nav.dashboard')}
               userName={routeContext?.profile.displayName || undefined} hidden={birthOpen} arrival={buddyArrival}
-              onOpenChat={handoff => { setChatHandoff(handoff ?? null); navigateTab('assistant'); }} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} connecting={assistantChecking} briefing={briefing} />
+              onOpenChat={handoff => { setChatHandoff(handoff ?? null); navigateTab('assistant'); }} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} connecting={assistantChecking} briefing={briefing}
+              carried={buddyCarry} onCarried={() => setBuddyCarry(null)} />
           </Suspense>
         )}
         {flexOpen && !isPhone && (

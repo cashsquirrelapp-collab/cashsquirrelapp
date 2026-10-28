@@ -112,9 +112,21 @@ test('a quotation เลขา made opens, says so and blinks; a saved expense b
   await expect(page.getByText('เอกสารที่เลขาทำให้ · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง')).toBeVisible();
   await expect(page.getByText('เอกสารที่ขอจาก LINE')).toHaveCount(0);
   await expect(page.locator('section.doc-spotlight')).toHaveCount(1);
+  // Computers (owner, 2026-10-28): the chat goes on in the floating window with the perched squirrel, clear of the
+  // paper, its buttons and the banner; no old follow panel.
+  await expect(page.locator('.asx-follow-panel')).toHaveCount(0);
+  await expect(page.locator('.kfw:not(.is-folded)')).toBeVisible();
+  await page.waitForTimeout(900);
+  const box = async (selector: string) => page.locator(selector).first().evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  const apart = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) => a.x >= b.x + b.w || b.x >= a.x + a.w || a.y >= b.y + b.h || b.y >= a.y + a.h;
+  const win = await box('.kfw'); const perch = await box('.kfw-perch');
+  const chat = { x: win.x, y: Math.min(win.y, perch.y), w: win.w, h: win.y + win.h - Math.min(win.y, perch.y) };
+  for (const selector of ['[data-krarok-avoid="document"]', '[data-krarok-avoid="actions"]', '[data-krarok-avoid="banner"]']) expect(apart(chat, await box(selector)), selector).toBe(true);
+  const paper = new Set(await page.locator('[data-testid="document-preview"]').first().evaluate(el => [...el.querySelectorAll('*')].map(n => (n.textContent || '').trim().slice(0, 40)).filter(Boolean)));
+  expect((await textOverlapIssues(page)).filter(issue => !(paper.has(issue.a) && (!issue.b || paper.has(issue.b))))).toEqual([]);
   await page.screenshot({ path: info.outputPath('saved-quote-opened-1440.png') });
-  await page.goBack();
-  await page.locator('.asx-rcard.is-confirm').nth(1).getByRole('button', { name: 'เปิดดูรายการ' }).click();
+  // The same chat, with its cards, is in the window: the expense card opens from there.
+  await page.locator('.kfw').getByRole('button', { name: 'เปิดดูรายการ' }).click();
   await expect(page).toHaveURL(/\/incomeExpense/);
   await expect(page.locator('[data-expense-id="exp-1"].job-spotlight').filter({ visible: true })).toHaveCount(1);
   // The row's colours ease in (transition-colors): the frame is orange once they have.
