@@ -4,6 +4,7 @@ export function securityHeaders(res:VercelResponse,production:boolean) {
  res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');
  res.setHeader('Referrer-Policy','no-referrer');
  res.setHeader('Cross-Origin-Resource-Policy','same-origin');
+ res.setHeader('Cross-Origin-Opener-Policy','same-origin');
  res.setHeader('Permissions-Policy','camera=(), microphone=(self), geolocation=()');
  res.setHeader('Content-Security-Policy',production?productionCsp:productionCsp.replace("script-src 'self'","script-src 'self' 'unsafe-inline'").replace("connect-src 'self'","connect-src 'self' ws: wss:"));
  if(production)res.setHeader('Strict-Transport-Security','max-age=31536000; includeSubDomains');
