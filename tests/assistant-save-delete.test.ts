@@ -242,3 +242,33 @@ test('a typed go-ahead in the app applies every card still waiting, with no mode
   assert.equal(state.writes.length, 3);
   assert.equal(app.tokens, 0);
 });
+
+test('card again: a short ask for the card, or a bare "ขออีกรอบ", is recognised; a new request is not', async () => {
+  const { CARD_AGAIN, EXPLICIT_GO_AHEAD } = await import('../backend/src/ai/crossChannel');
+  for (const said of ['ขอการ์ดอีกรอบหน่อย', 'การ์ดไม่ขึ้นครับ', 'ส่งการ์ดใหม่', 'ขออีกรอบ', 'อีกครั้งหน่อย', 'ขอใหม่ได้ไหม', 'ไม่ขึ้นเลย', 'card not showing'])
+    assert.equal(CARD_AGAIN.test(said), true, said);
+  for (const said of ['ขอสรุปรายรับเดือนนี้อีกรอบ แยกตามลูกค้าด้วย ช่วยทำเป็นตารางให้หน่อยนะครับ ขอบคุณมาก', 'เพิ่มงานตัดคลิป 2,000', 'สวัสดี'])
+    assert.equal(CARD_AGAIN.test(said), false, said);
+  for (const said of ['ยืนยัน', 'ยืนยันทั้งหมด', 'confirm', 'บันทึกทั้งหมด', 'ลบทั้งหมด']) assert.equal(EXPLICIT_GO_AHEAD.test(said), true, said);
+  for (const said of ['ใช่', 'ได้เลย', 'โอเค']) assert.equal(EXPLICIT_GO_AHEAD.test(said), false, said);
+});
+
+test('card again and explicit go-ahead, end to end: cards come back with no model call; ยืนยันทั้งหมด applies even after a question', async () => {
+  const noModel = (() => { throw new Error('must not call a model'); }) as unknown as typeof fetch;
+  const state = memoryDb([], {});
+  const id = 'p_00000000-0000-4000-8000-000000000099';
+  state.proposals.set(id, { id, userId: A, kind: 'add_job', jobId: 'job-x', title: 'เพิ่มงานใหม่ 1 งาน', changes: [], createdAt: now - 60_000, baseVersion: null, status: 'pending',
+    record: { id: 'job-x', name: 'ตัดคลิป', client: 'ลูกค้า', value: 2000, received: 0, pending: 2000, status: 'pending', creditTerm: 0, postDate: '2026-10-28', payDate: '2026-10-28', isPosted: false, type: 'ยังไม่ระบุ', note: '' } });
+  (state.db as AssistantDb).pendingProposals = async () => [...state.proposals.values()].filter(row => row.status === 'pending');
+  (state.db as AssistantDb).recentAppTurns = async () => ({ turns: [], lastAt: null });
+  const again = await handleMessage(state.db, { config: config(), fetchImpl: noModel, now: new Date(now) }, A, 'pro', { text: 'ขอการ์ดอีกรอบหน่อย การ์ดไม่ขึ้น', history: [] });
+  assert.equal(again.cards.length, 1);
+  assert.equal((again.cards[0] as { id: string }).id, id);
+  assert.match(again.text, /^ส่งการ์ดให้อีกครั้งครับ/);
+  assert.equal(state.writes.length, 0, 'shown again, not saved');
+  // เลขา's last line was a question; "ยืนยันทั้งหมด" still applies.
+  const history = [{ role: 'user' as const, text: 'เพิ่มงานตัดคลิป 2,000' }, { role: 'assistant' as const, text: 'เตรียมการ์ดไว้แล้วครับ ต้องการแก้อะไรไหมครับ?' }];
+  const done = await handleMessage(state.db, { config: config(), fetchImpl: noModel, now: new Date(now) }, A, 'pro', { text: 'ยืนยันทั้งหมด', history });
+  assert.equal(done.text, 'ทำรายการให้แล้ว 1 รายการครับ');
+  assert.equal(state.proposals.get(id)!.status, 'applied');
+});

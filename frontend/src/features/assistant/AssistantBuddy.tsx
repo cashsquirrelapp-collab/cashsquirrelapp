@@ -318,10 +318,9 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
       setDraft('');
       if (inputRef.current) inputRef.current.style.height = '';
       setMessages(list => [...list, { id: id('me'), from: 'me', text, at: Date.now() }, ...(command.ambiguous ? [{ id: id('bot'), from: 'bot' as const, text: tr('มีหลายรายการที่รอยืนยัน กรุณากดปุ่มของรายการที่ต้องการก่อนครับ'), at: Date.now() }] : [])]);
-      if (command.card) {
-        if (command.action === 'confirm') await confirm(command.card);
-        else { setConfirmStates(states => ({ ...states, [command.card!.id]: 'cancelled' })); await transport.cancel?.(command.card); }
-      }
+      // Every card still waiting here (one, or all of them for ยืนยันทั้งหมด / ยกเลิกทั้งหมด).
+      await Promise.all(command.cards.map(card => (command.action === 'confirm' ? confirm(card)
+        : (setConfirmStates(states => ({ ...states, [card.id]: 'cancelled' })), transport.cancel?.(card)))));
       return;
     }
     const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now(), ...(file && !raw.trim() ? { textAuto: true } : {}),

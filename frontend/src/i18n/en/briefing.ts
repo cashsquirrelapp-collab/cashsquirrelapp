@@ -12,8 +12,6 @@ export const briefing: Record<string, string> = {
   "เงินอาจไม่พอใน 30 วันข้างหน้า": "Money may run short in the next 30 days",
   "รายจ่ายประจำ 30 วันข้างหน้าต้องใช้เงินที่รอรับ": "The next 30 days of fixed costs need money still to come in",
   "เงินในแอป {0} + รอรับ {1} − รายจ่ายประจำ {2} = {3}": "Cash in the app {0} + to receive {1} − fixed costs {2} = {3}",
-  "รายจ่ายประจำเดือนนี้ยังไม่บันทึก {0} รายการ": "{0} fixed costs not recorded this month",
-  "รวม {0} · บันทึกเมื่อจ่ายแล้วเพื่อให้กำไรของเดือนถูกต้อง": "{0} in total · record them when paid so the month's profit is right",
   "ใบเสนอราคารอลูกค้าตอบ {0} ฉบับ": "{0} quotations waiting for the client",
   "ฉบับที่รอนานสุด {0} วัน": "The oldest has waited {0} days",
   "สรุปวันนี้": "Today",

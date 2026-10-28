@@ -153,3 +153,19 @@ test('Pro ended: เลขา still answers with the tokens left, says so, and t
   await page.goto('/jobs');
   await expect(page.locator('.asx-buddy')).toBeVisible();
 });
+
+test('typing ยืนยันทั้งหมด confirms every waiting card here and never asks again', async ({ page }) => {
+  const expense = (n: number, name: string) => ({ kind: 'confirm', id: P(8 + n), title: 'ลบรายจ่าย', changes: [{ label: 'รายการ', value: name }, { label: 'ยอดที่จะลบ', value: '฿60' }] });
+  const mock = await open(page, body => {
+    if (body.action === 'message') return { json: { text: 'เตรียมการ์ดลบรายจ่ายไว้ 2 ใบครับ ต้องการแก้อะไรไหมครับ?', route: 'action', tokens: 3, tokensLeft: 991, trialLeft: null, cards: [expense(0, 'ร้านสมาน'), expense(1, 'ค่ากาแฟ')] } };
+    if (body.action === 'confirm') return { json: { status: 'applied', kind: 'delete_expense', recordId: 'e', path: '/incomeExpense' } };
+    return { json: {} };
+  });
+  await ask(page, 'ลบรายจ่ายร้านสมานกับค่ากาแฟ');
+  await expect(page.locator('.asx-rcard.is-confirm')).toHaveCount(2);
+  await ask(page, 'ยืนยันทั้งหมด');
+  await expect(page.locator('.asx-rcard.is-confirm', { hasText: 'บันทึกแล้ว' })).toHaveCount(2);
+  await expect(page.getByText('มีหลายรายการที่รอยืนยัน')).toHaveCount(0);
+  expect(mock.posts.filter(post => post.action === 'confirm').map(post => post.proposalId).sort()).toEqual([P(8), P(9)].sort());
+  expect(mock.posts.filter(post => post.action === 'message')).toHaveLength(1);
+});

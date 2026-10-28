@@ -4,7 +4,7 @@ import type { UserRow } from '../services/lineAssistant.js';
 import type { AiConfig } from './config.js';
 import { AiUnavailableError, failedRouting, runAssistant, type AssistantReply } from './gateway.js';
 import { decideRoute, routingRecord, type RoutingRecord } from './routingPolicy.js';
-import { CONTINUE_WINDOW_MS, continuationTurns, GO_AHEAD, goAheadFits, mentionsCard, PENDING_WINDOW_MS, type ChannelTurn } from './crossChannel.js';
+import { CARD_AGAIN, CONTINUE_WINDOW_MS, continuationTurns, EXPLICIT_GO_AHEAD, GO_AHEAD, goAheadFits, mentionsCard, PENDING_WINDOW_MS, type ChannelTurn } from './crossChannel.js';
 import { PROMPT_VERSION } from './prompt.js';
 import { quickAnswer, quickKind } from './quickAnswers.js';
 import { autoSaveCards, autoSaveText, wantsSaveNow } from './autoSave.js';
@@ -259,8 +259,10 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
     const lineTurns = (lineState?.chatHistory ?? []).map(turn => ({ role: turn.role, text: String(turn.text || '') }));
     const appTurns = appRecent?.turns ?? [];
     const goAhead = GO_AHEAD.test(input.text.trim()) && !input.attachment;
-    // The cards still waiting, read only when they matter: for a typed go-ahead, or when the other channel ended on a card.
-    const pending = db.pendingProposals && (goAhead || mentionsCard((channel === 'line' ? appTurns : lineTurns).at(-1)))
+    const askAgain = !goAhead && CARD_AGAIN.test(input.text.trim()) && !input.attachment;
+    // The cards still waiting, read only when they matter: for a typed go-ahead, a "send the card again", or when the
+    // other channel ended on a card.
+    const pending = db.pendingProposals && (goAhead || askAgain || mentionsCard((channel === 'line' ? appTurns : lineTurns).at(-1)))
       ? await db.pendingProposals(userId, new Date(nowMs - PENDING_WINDOW_MS).toISOString()).catch(() => undefined) : undefined;
     const carried = continuationTurns({ channel, appTurns, appAt: appRecent?.lastAt ?? null, lineTurns,
       lineAt: lineState?.chatHistoryUpdatedAt ? Date.parse(lineState.chatHistoryUpdatedAt) || null : null, now: nowMs,
@@ -270,8 +272,17 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
     // เลขา's last word was a question: then "ใช่" is an answer for เลขา.
     const ownLast = [...(input.history ?? [])].reverse().find(turn => turn.role === 'assistant');
     const lastSeen = carried ? carried.last : ownLast ? { role: 'assistant' as const, text: ownLast.text } : undefined;
-    const waiting = goAhead && pending?.length && goAheadFits(lastSeen) ? pending : [];
-    if (waiting.length && channel === 'app') {
+    // A confirm in so many words always applies (owner, 2026-10-28: "ไม่ใช่มาถามกูหรือวนมาถามกูอีกรอบ"); a bare "ใช่" or
+    // "ได้เลย" only when เลขา's last word was not a question.
+    const waiting = goAhead && pending?.length && (EXPLICIT_GO_AHEAD.test(input.text.trim()) || goAheadFits(lastSeen)) ? pending : [];
+    if (askAgain && pending?.length) {
+      // "ขอการ์ดอีกรอบ", "การ์ดไม่ขึ้น": the same cards again, no model call, no tokens.
+      const cards = pending.map(proposal => cardForStoredProposal(proposal, user));
+      reply = { route: 'chat', handedOff: false, cards, calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,
+        text: cards.length === 1 ? 'ส่งการ์ดให้อีกครั้งครับ ตรวจรายละเอียดแล้วกดยืนยัน หรือพิมพ์ "ยืนยัน" ได้เลย'
+          : `ส่งการ์ดให้อีกครั้ง ${cards.length} ใบครับ ตรวจรายละเอียดแล้วกดยืนยันทั้งหมด หรือพิมพ์ "ยืนยันทั้งหมด" ได้เลย`,
+        routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'cards_again', outcome: 'direct', proposal_ids: cards.map(card => (card as { id: string }).id) }) };
+    } else if (waiting.length && channel === 'app') {
       // In the app the typed go-ahead is the permission itself (owner, 2026-10-28: "แค่อนุญาตในแชทก็สามารถดำเนินการได้
       // เลย"): every card still waiting is applied through the same confirm as a tap, no model call, no tokens.
       const cards = waiting.map(proposal => cardForStoredProposal(proposal, user));

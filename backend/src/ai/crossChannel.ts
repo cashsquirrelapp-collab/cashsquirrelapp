@@ -117,5 +117,13 @@ export function continuationTurns(input: {
 
 /** "ยืนยัน", "ตกลง", "โอเค": a short go-ahead, answered by showing the cards still waiting (no model call). */
 export const GO_AHEAD = /^(?:ยืนยัน(?:รายการ)?(?:\s*ทั้งหมด)?|ตกลง|โอเค|ok|okay|ใช่|ได้เลย|เอาเลย|confirm(?:\s+all)?|(?:บันทึก|ลบ)\s*ทั้งหมด(?:เลย)?)(?:\s|ครับ|ค่ะ|คะ|นะ|เลย|จ้า|ด้วย|!|\.)*$/i;
+/** A confirm in so many words ("ยืนยัน…", "confirm", "บันทึกทั้งหมด"): it applies the cards even after a question. */
+export const EXPLICIT_GO_AHEAD = /^(?:ยืนยัน|confirm|(?:บันทึก|ลบ)\s*ทั้งหมด)/i;
+/**
+ * The user asks for the card again or says it did not show (owner, 2026-10-28: "ขอการ์ดอีกรอบหน่อย พอดีการ์ดไม่ขึ้น"):
+ * a short message naming the card, or a bare "ขออีกรอบ" / "ไม่ขึ้น". The cards still waiting are shown again; with none
+ * waiting, เลขา reads the conversation (CARD AGAIN in the prompt).
+ */
+export const CARD_AGAIN = /^(?=[\s\S]{1,60}$)(?:[\s\S]*(?:การ์ด|card)[\s\S]*(?:อีก|ใหม่|ไม่ขึ้น|ไม่แสดง|ไม่มา|หาย|ไม่เห็น|ขอ|ส่ง|โชว์|again|not\s+show|missing|didn'?t\s+(?:show|appear))|[\s\S]*(?:ขอ|ส่ง|เอา|โชว์)\s*(?:การ์ด|card)|(?:ขอ|ส่ง|เอา)?\s*(?:ใหม่|อีก\s*(?:รอบ|ครั้ง))(?:นึง|หนึ่ง)?\s*(?:หน่อย|ที|ได้ไหม|ได้มั้ย)?(?:\s|ครับ|ค่ะ|คะ|นะ|จ้า)*$|(?:มัน)?(?:ไม่ขึ้น|ไม่เห็น|ไม่โชว์|ไม่แสดง)(?:เลย)?(?:\s|ครับ|ค่ะ|คะ|นะ)*$)/i;
 /** Cards waiting at most this old are shown again (a proposal expires unconfirmed after 30 minutes). */
 export const PENDING_WINDOW_MS = 30 * 60_000;

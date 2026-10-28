@@ -8,7 +8,7 @@ import type { Expense, FixedExpenseItem, Invoice, Job } from './types.js';
 // here is stored or sent. Money due uses the same rule as the LINE 08:00 reminder (dueJobs.ts), so the briefing, the
 // overview and LINE never disagree. A forecast is always marked as one and is never shown as money that exists.
 
-export type BriefingKind = 'overdue' | 'due_today' | 'due_soon' | 'cash_short' | 'cash_watch' | 'fixed_unrecorded' | 'quote_waiting';
+export type BriefingKind = 'overdue' | 'due_today' | 'due_soon' | 'cash_short' | 'cash_watch' | 'quote_waiting';
 /** Where the button goes: a page key the app already has (navigation.ts), never a URL from data. */
 export type BriefingPage = 'receivables' | 'incomeExpense' | 'quotation' | 'dashboard';
 export interface BriefingItem {
@@ -137,14 +137,9 @@ export function buildBriefing(input: BriefingInput): Briefing {
       parts: { cashNow: radar.cashNow!, expected: radar.expected30, costs: radar.knownCosts30, projected: radar.projected30! } }, short ? 95 : 70);
   }
 
-  // ---- recurring costs of this month not recorded yet ----
-  const left = fixedLeft(input, day.slice(0, 7));
-  const dayOfMonth = Number(day.slice(8, 10));
-  if (left.amount > 0 && dayOfMonth >= 20) {
-    add({ key: `fixed:${day.slice(0, 7)}:${left.amount}`, kind: 'fixed_unrecorded', tone: 'info', title: `รายจ่ายประจำเดือนนี้ยังไม่บันทึก ${left.items} รายการ`,
-      detail: `รวม ${baht(left.amount)} · บันทึกเมื่อจ่ายแล้วเพื่อให้กำไรของเดือนถูกต้อง`, amount: left.amount, count: left.items, parts: {},
-      action: { label: 'เปิดรายรับรายจ่าย', page: 'incomeExpense' } }, 40 + (dayOfMonth >= 25 ? 15 : 0));
-  }
+  // No "recurring costs not recorded yet" item (owner, 2026-10-28: "รายจ่ายคือถ้ากูกรอกไปคือกูบันทึกแล้ว"): the fixed
+  // monthly costs from Settings already count in the month's expenses and profit (fixedExpenseForMonth, the same rule as
+  // the overview and the รายจ่าย page), so asking to record them again was wrong. They stay in the 30-day cash forecast.
 
   // ---- quotations waiting for the client ----
   const followed = new Set((input.invoices ?? []).map(doc => doc.linkedFromId).filter(Boolean));

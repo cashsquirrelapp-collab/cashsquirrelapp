@@ -13,13 +13,21 @@ const card = { kind: 'navigation', label: 'เอกสาร', path: '/invoice?
 test('only exact commands select the sole pending confirmation in the current conversation', () => {
   const proposal = { kind: 'confirm' as const, id: 'proposal-a', title: 'save', changes: [] };
   const message = { id: 'bot', from: 'bot' as const, text: 'preview', at: 1, cards: [proposal] };
-  assert.deepEqual(confirmationCommand(' ยืนยันบันทึก ', [message], {}), { action: 'confirm', card: proposal, ambiguous: false });
+  assert.deepEqual(confirmationCommand(' ยืนยันบันทึก ', [message], {}), { action: 'confirm', card: proposal, cards: [proposal], ambiguous: false });
   assert.equal(confirmationCommand('ยืนยันทุกอย่าง', [message], {}), null);
   assert.equal(confirmationCommand('confirm', [], {}), null);
   assert.equal(confirmationCommand('confirm', [{ ...message, from: 'me' }], {}), null);
   for (const state of ['done', 'working', 'cancelled', 'failed']) assert.equal(confirmationCommand('confirm', [message], { 'proposal-a': state }), null);
-  assert.deepEqual(confirmationCommand('cancel', [message, { ...message, id: 'bot-2', cards: [{ ...proposal, id: 'proposal-b' }] }], {}), { action: 'cancel', ambiguous: true });
+  const two = [message, { ...message, id: 'bot-2', cards: [{ ...proposal, id: 'proposal-b' }] }];
+  assert.deepEqual(confirmationCommand('cancel', two, {}), { action: 'cancel', cards: [], ambiguous: true });
   assert.equal(confirmationCommand('confirm', [message, message], {})?.card?.id, 'proposal-a');
+  // Owner, 2026-10-28: a typed confirm acts on every card still waiting, never asks again.
+  for (const said of ['ยืนยัน', 'ยืนยันทั้งหมด', 'ยืนยัน ทั้งหมด', 'ยืนยันทั้งหมดเลยครับ', 'confirm all']) {
+    assert.deepEqual(confirmationCommand(said, two, {})?.cards.map(card => card.id), ['proposal-a', 'proposal-b'], said);
+  }
+  assert.deepEqual(confirmationCommand('ยกเลิกทั้งหมด', two, {})?.cards.map(card => card.id), ['proposal-a', 'proposal-b']);
+  assert.deepEqual(confirmationCommand('ยืนยันทั้งหมด', two, { 'proposal-a': 'done' })?.cards.map(card => card.id), ['proposal-b'], 'only those still waiting');
+  assert.equal(confirmationCommand('ยืนยันทั้งหมด', [{ ...message, cards: [{ ...proposal, status: 'applied' as const }] }], {}), null, 'a stored card already saved');
 });
 test('navigation binds every route to current workspace and rejects escape or sensitive targets', () => {
   assert.equal(safeAssistantPath('/jobs', context), '/jobs/my-workspace');

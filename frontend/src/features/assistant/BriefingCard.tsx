@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Clock, FileText, Receipt, Wallet } from 'lucide-react';
+import { AlertCircle, Clock, FileText, Wallet } from 'lucide-react';
 import type { Briefing, BriefingItem, BriefingPage } from '../../../../shared/briefing';
 import { tr } from '../../i18n/tr';
 import { dateLocale } from '../../utils';
@@ -27,13 +27,12 @@ export function briefingText(item: BriefingItem): { title: string; detail: strin
     case 'cash_watch': return {
       title: item.kind === 'cash_short' ? tr("เงินอาจไม่พอใน 30 วันข้างหน้า") : tr("รายจ่ายประจำ 30 วันข้างหน้าต้องใช้เงินที่รอรับ"),
       detail: tr("เงินในแอป {0} + รอรับ {1} − รายจ่ายประจำ {2} = {3}", money(p.cashNow ?? 0), money(p.expected ?? 0), money(p.costs ?? 0), money(p.projected ?? 0)), action };
-    case 'fixed_unrecorded': return { title: tr("รายจ่ายประจำเดือนนี้ยังไม่บันทึก {0} รายการ", item.count), detail: tr("รวม {0} · บันทึกเมื่อจ่ายแล้วเพื่อให้กำไรของเดือนถูกต้อง", amount), action };
     default: return { title: tr("ใบเสนอราคารอลูกค้าตอบ {0} ฉบับ", item.count), detail: tr("ฉบับที่รอนานสุด {0} วัน", p.days ?? 0), action };
   }
 }
 
 const ICONS: Record<BriefingItem['kind'], typeof Clock> = {
-  overdue: AlertCircle, due_today: Clock, due_soon: Clock, cash_short: Wallet, cash_watch: Wallet, fixed_unrecorded: Receipt, quote_waiting: FileText,
+  overdue: AlertCircle, due_today: Clock, due_soon: Clock, cash_short: Wallet, cash_watch: Wallet, quote_waiting: FileText,
 };
 
 export function BriefingCard({ briefing, onOpen }: { briefing: Briefing; onOpen: (path: string) => void }) {

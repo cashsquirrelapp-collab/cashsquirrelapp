@@ -61,13 +61,15 @@ test('radar: received, overdue, expected in 30 days and recurring costs, a forec
   assert.deepEqual([financialRadar(base({ jobs, expenses, fixedExpenseItems, cashNow: 8_000 })).risk, financialRadar(base({ jobs, expenses, fixedExpenseItems, cashNow: 1_000 })).risk], ['watch', 'short']);
 });
 
-test('briefing: money that may run short is a forecast and leads; recurring costs after the 20th; quotations waiting a week', () => {
+test('briefing: money that may run short is a forecast and leads; fixed costs are never asked again; quotations waiting a week', () => {
   const fixedExpenseItems = [{ id: 'f1', name: 'ค่าห้อง', amount: 8_000 }];
   const short = buildBriefing(base({ jobs: [job('วันนี้', { pending: 2_000, payDate: '2026-10-22' })], fixedExpenseItems, cashNow: 1_000 }));
-  assert.deepEqual(short.items.map(item => item.kind), ['cash_short', 'due_today', 'fixed_unrecorded']);
+  // Owner, 2026-10-28: fixed costs entered in Settings already count in the month, so there is no "not recorded" item.
+  assert.deepEqual(short.items.map(item => item.kind), ['cash_short', 'due_today']);
+  assert.equal(short.items.some(item => /ยังไม่บันทึก/.test(item.title)), false);
   assert.equal(short.items[0].forecast, true);
   assert.match(short.items[0].detail, /^คาดการณ์: เงินในแอป ฿1,000 \+ รอรับ ฿2,000 − รายจ่ายประจำ ฿16,000 = −฿13,000$/);
-  assert.equal(buildBriefing(base({ fixedExpenseItems, now: new Date('2026-10-10T02:00:00Z') })).items.some(item => item.kind === 'fixed_unrecorded'), false, 'not before the 20th');
+  assert.equal(buildBriefing(base({ fixedExpenseItems, now: new Date('2026-10-28T02:00:00Z') })).items.length, 0, 'late in the month: still nothing to record');
 
   const doc = (id: string, createdDate: string, over: Partial<Invoice> = {}) => ({ id, documentType: 'quotation', documentNo: id, createdDate, ...over }) as Invoice;
   const invoices = [doc('QT-1', '2026-10-01'), doc('QT-2', '2026-10-20'), doc('QT-3', '2026-10-02', { responseDate: '2026-10-05' }), doc('QT-4', '2026-10-03'),

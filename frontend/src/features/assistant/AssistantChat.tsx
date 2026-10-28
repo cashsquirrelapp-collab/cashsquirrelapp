@@ -558,10 +558,12 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
       voice.clearReview(); setDraft('');
       if (inputRef.current) inputRef.current.style.height = '';
       patch(currentId, list => [...list, { id: id('me'), from: 'me', text: raw.trim(), at: Date.now() }, ...(command.ambiguous ? [{ id: id('bot'), from: 'bot' as const, text: tr('มีหลายรายการที่รอยืนยัน กรุณากดปุ่มของรายการที่ต้องการก่อนครับ'), at: Date.now() }] : [])]);
-      if (command.card) {
-        if (command.action === 'confirm') void confirm(command.card);
-        else { setConfirmStates(states => ({ ...states, [command.card!.id]: 'cancelled' })); stopWaiting(); void transport.cancel?.(command.card); }
+      // Every card still waiting here (one, or all of them for ยืนยันทั้งหมด / ยกเลิกทั้งหมด).
+      for (const card of command.cards) {
+        if (command.action === 'confirm') void confirm(card);
+        else { setConfirmStates(states => ({ ...states, [card.id]: 'cancelled' })); void transport.cancel?.(card); }
       }
+      if (command.action === 'cancel' && command.cards.length) stopWaiting();
       return;
     }
     if (blocked) return;
