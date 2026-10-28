@@ -25,6 +25,8 @@ import { styleReply } from './replyStyle.js';
 import { accountingEnabled, autoOfficialLinks, selectAccountingReference } from './accounting/reference.js';
 import { OFFICIAL_LINKS } from './accounting/officialLinks.js';
 import { ACCOUNTING_TOOLS } from './accounting/tools.js';
+import { clientCore, executePastWork } from './pastWork.js';
+import { FILE_MARK } from './routingPolicy.js';
 
 // The light model sometimes writes a tool call out as text ("tax_estimate(incomes:[...])") instead of making it
 // (real-model test, 2026-10-26). On an accounting turn that is an unfinished answer, never one to show.
@@ -147,6 +149,33 @@ const FALLBACK_TEXT = {
 // Tools whose success leaves something behind (a saved proposal or memory). After one ran, the request is never
 // answered again by the other model, so nothing is prepared twice (brief: no repeated tool action on a model switch).
 const LASTING = /^(?:propose_|remember$|forget_memory$)/;
+
+// Fewer tokens without dropping a rule (owner, 2026-10-28: "ความฉลาดยังจะคงไว้"): what each request needs only.
+/** Everyday talk on the conversation route gets these tools; anything else hands over (route_to_action) with every tool. */
+const SHORT_CHAT_TOOLS = new Set(['remember', 'recall_memories', 'forget_memory', 'feature_lookup', 'navigate_to_feature', 'route_to_action', 'ask_user',
+  'money_summary', 'receivables', 'search_jobs', 'financial_summary']);
+/** Words about the account's records: such a message, or one right after it, keeps every tool. */
+const RECORD_WORDS = /(รายรับ|รายได้|รายจ่าย|ค่าใช้จ่าย|กำไร|ขาดทุน|ยอด|สรุป|เงิน|ลูกค้า|งาน|โปรเจ|ค้าง|กราฟ|สถิติ|สัดส่วน|เอกสาร|ใบ|จ่าย|โอน|บาท|ภาษี|หัก|เป้า|เดือน|ปี|ไตรมาส|อันไหน|ตัวไหน|อันนั้น|อันนี้|ของใคร|ทั้งหมด|เท่าไหร่|เท่าไร|กี่|฿|\d|job|client|money|income|expense|invoice|quotation|paid|owe|month|year)/i;
+/** Money received, typed or on a slip: the file rules hold how an amount shows the withholding. */
+const MONEY_IN = /(โอน|สลิป|รับเงิน|ได้เงิน|จ่ายมา|จ่ายแล้ว|ชำระ|\bslip\b|\btransfer\b|\bpaid\b)/i;
+const PAST_WORK_INTENTS = new Set(['create', 'document', 'file']);
+
+/**
+ * past_work for the saved clients this chat names, looked up before the model starts (owner-approved, 2026-10-28):
+ * the model then prepares the card in its first round instead of spending one round on the lookup. Only clients the
+ * account already has; a name the account does not have is left for the model to ask or look up as before.
+ */
+export function pastWorkContext(user: UserRow, texts: string[]): string | undefined {
+  const said = clientCore(texts.join(' '));
+  if (!said) return undefined;
+  const names = [...((user as UserRow & { invoices?: { client?: { name?: string } }[] }).invoices ?? []).map(doc => doc.client?.name), ...(user.jobs ?? []).map(job => (job as { client?: string }).client)];
+  const byCore = new Map<string, string>();
+  for (const name of names) { const core = clientCore(name); if (core.length >= 3 && !byCore.has(core) && said.includes(core)) byCore.set(core, String(name).trim()); }
+  // The most specific names first; a shorter name inside a chosen one is the same mention.
+  const cores = [...byCore.keys()].sort((a, b) => b.length - a.length).filter((core, index, all) => !all.slice(0, index).some(longer => longer.includes(core))).slice(0, 2);
+  if (!cores.length) return undefined;
+  return JSON.stringify(cores.map(core => executePastWork({ client: byCore.get(core) }, user).result)).slice(0, 6000);
+}
 
 function trimHistory(history: ChatTurn[] = []): ChatTurn[] {
   return history.slice(-MAX_HISTORY_TURNS).map(turn => ({ role: turn.role, text: turn.text.slice(0, MAX_TURN_CHARS) }));
@@ -350,6 +379,16 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   const accounting = accountingEnabled(config.accounting, request.plan) ? selectAccountingReference(request.text, request.history) : undefined;
   const context = accountContext(request.user, deps.now, request.access);
   const turns: ChatTurn[] = [...trimHistory(request.history), { role: 'user', text: request.text.slice(0, MAX_MESSAGE_CHARS), ...(request.attachment ? { attachment: request.attachment } : {}) }];
+  const recentUser = (request.history ?? []).filter(turn => turn.role === 'user').slice(-4).map(turn => turn.text);
+  const files = hasFile || (request.history ?? []).slice(-12).some(turn => FILE_MARK.test(turn.text))
+    || decision.intent === 'payment' || [request.text, ...recentUser.slice(-2)].some(text => MONEY_IN.test(text));
+  const shortTools = !accounting && !hasFile && !request.pendingConfirmation && decision.intent === 'chat'
+    && ![request.text, ...recentUser.slice(-2)].some(text => RECORD_WORDS.test(text));
+  let pastWork: string | undefined | null = null;
+  const pastWorkFor = (handoff?: string) => {
+    if (pastWork === null) pastWork = PAST_WORK_INTENTS.has(decision.intent) || handoff !== undefined ? pastWorkContext(request.user, [request.text, ...recentUser, handoff ?? '']) : undefined;
+    return pastWork;
+  };
 
   const timeout = AbortSignal.timeout(config.timeoutMs);
   const signal = deps.signal ? AbortSignal.any([deps.signal, timeout]) : timeout;
@@ -378,7 +417,8 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
 
   const run = async (route: Route, handoff?: string): Promise<ProviderResult> => {
     lastEditError = undefined;
-    const availableTools = [...toolsFor(route), ...(accounting ? ACCOUNTING_TOOLS : [])];
+    const short = route === 'chat' && shortTools;
+    const availableTools = [...toolsFor(route).filter(tool => !short || SHORT_CHAT_TOOLS.has(tool.name)), ...(accounting ? ACCOUNTING_TOOLS : [])];
     const allowed = new Set(availableTools.map(tool => tool.name));
     // What this run prepared, kept here so a provider failure after it cannot lose a saved card (cost brief, phase 4).
     const prepared: AssistantCard[] = [];
@@ -414,6 +454,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       accountName: request.accountName, communicationProfile: request.communicationProfile, memories: request.memories,
       nowLocal: bangkokNow(deps.now), pageName: request.pageName, channel: request.channel, knowledge, founder, accounting: accounting?.text, accountContext: context,
       offer: offerLine(offerState(request.text, request.history)),
+      ...(route === 'action' ? { files, pastWork: pastWorkFor(handoff) } : {}), ...(short ? { shortTools: true } : {}),
     }) + (handoff ? `\n\nHANDOVER FROM THE CONVERSATION ASSISTANT: ${handoff}` : '');
     // Gemini Flash-Lite thinks least by default; the action model reasons a little before changing data.
     // Claude reasons more on changes (medium) and answers questions at low effort.

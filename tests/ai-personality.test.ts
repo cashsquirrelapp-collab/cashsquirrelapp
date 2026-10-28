@@ -105,7 +105,7 @@ test('offers: unrelated topics, a recent offer, a refusal, a request to stop and
 });
 
 test('the prompt: everyday talk allowed, the old refusal gone, personality and adapting, money work stays exact', () => {
-  assert.equal(PROMPT_VERSION, 'secretary-v19');
+  assert.equal(PROMPT_VERSION, 'secretary-v20');
   for (const route of ['chat', 'action'] as const) {
     const prompt = buildSystemPrompt({ route, plan: 'pro', nowLocal: 'x', knowledge: '-', accountContext: '-', offer: offerLine('unrelated') });
     assert.doesNotMatch(prompt, /You are not a general chatbot/, 'the line that made เลขา refuse food talk is gone');

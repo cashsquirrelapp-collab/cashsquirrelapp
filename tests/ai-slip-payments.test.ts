@@ -29,7 +29,7 @@ test('a second partial payment never overwrites the deposit already received', a
 });
 
 test('the prompt reads slips by direction and names an expense after who was paid', () => {
-  const system = buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: '24 ต.ค. 2569 18:00', knowledge: '', accountContext: '' } as any);
+  const system = buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: '24 ต.ค. 2569 18:00', knowledge: '', accountContext: '', files: true } as any);
   assert.match(system, /TRANSFER SLIPS/);
   assert.match(system, /"SCB มณี SHOP \(สมาน\)" →\s+"ร้านสมาน"/);
   assert.match(system, /Never a generic name such as\s+"บันทึกการโอน"/);
@@ -46,7 +46,7 @@ test('เลขา knows the owner\'s own names (never account numbers) to tell 
 });
 
 test('money in is thought through: payer, memo, amount against what is owed, withholding, Thai years', () => {
-  const system = buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: '24 ต.ค. 2569 18:00', knowledge: '', accountContext: '' } as any);
+  const system = buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: '24 ต.ค. 2569 18:00', knowledge: '', accountContext: '', files: true } as any);
   assert.match(system, /บจก\. = บริษัท … จำกัด/);
   assert.match(system, /"Kol bbg" → a KOL job for bbg/);
   assert.match(system, /the client did not withhold/);

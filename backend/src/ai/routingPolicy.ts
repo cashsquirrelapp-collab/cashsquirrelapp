@@ -90,7 +90,13 @@ function contextSize(text: string, history: ChatTurn[] = [], hasAttachment = fal
   return text.length >= 200 || history.length >= 6 ? 'standard' : 'short';
 }
 
+// "เดือนนี้ได้เงินเท่าไหร่แล้ว" asks for a figure; it is not "ได้เงินแล้ว" news to record (owner, 2026-10-28: such questions
+// went to the heavier action route). A message that states an amount ("ได้เงิน 5,000 เหลือเท่าไหร่") still records it.
+const AMOUNT_QUESTION = /(เท่าไหร่|เท่าไร|เท่าใด|กี่บาท|กี่งาน|กี่ราย|กี่ครั้ง|\bhow much\b|\bhow many\b)/i;
+const STATED_AMOUNT = /\d[\d,.]{2,}|\d\s*(?:บาท|พัน|หมื่น|แสน|ล้าน|k\b)/i;
+
 function isAsking(text: string): boolean {
+  if (AMOUNT_QUESTION.test(text) && !STATED_AMOUNT.test(text)) return true;
   if (!ASKING.test(text)) return false;
   return !(POLITE_REQUEST.test(text) && POLITE_END.test(text) && !REAL_QUESTION.test(text));
 }

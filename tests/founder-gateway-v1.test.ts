@@ -224,12 +224,13 @@ test('gateway: an action-first mixed request retains founder context and its nor
 });
 
 test('gateway: prompt version and bytes remain unchanged by the knowledge connection', async () => {
+  // secretary-v20 (owner, 2026-10-28, fewer tokens): change rules with the action route, file rules with a file, PAST WORK.
   // secretary-v19 (owner, 2026-10-28): DELETING JOBS, SAVING AT ONCE, CARD AGAIN, MANY ITEMS and the lapsed PLAN note. secretary-v18 (owner, 2026-10-27): ACCOUNT NAME
   // replaces the remembered PREFERRED NAME. secretary-v17 (owner-approved
   // 2026-10-26, Accounting Brain): one ACCOUNTING REFERENCE slot added after FOUNDER;
   // every existing rule is byte-identical and a message without that slot builds exactly the v16 prompt.
-  assert.equal(PROMPT_VERSION, 'secretary-v19');
+  assert.equal(PROMPT_VERSION, 'secretary-v20');
   const prompt = await readFile(new URL('../backend/src/ai/prompt.ts', import.meta.url));
-  // Captured before the approved gateway-only connection; recaptured for secretary-v19. No dependency on a local audit folder.
-  assert.equal(createHash('sha256').update(prompt).digest('hex'), '0c5887bec932b2bc6414bfab30752ca0a45b7a6a0b513095cfa23d90f9f3100d');
+  // Captured before the approved gateway-only connection; recaptured for secretary-v20. No dependency on a local audit folder.
+  assert.equal(createHash('sha256').update(prompt).digest('hex'), 'dbc4ef9a06dc15da91a9fadcdc64dbb5a7dfeefc3d6d0fed3501a6690d480c63');
 });
