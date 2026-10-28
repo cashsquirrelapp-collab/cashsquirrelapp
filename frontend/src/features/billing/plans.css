@@ -129,3 +129,147 @@
   .plan-best { animation: none; }
   .plan-press, .plan-press:active:not(:disabled) { transition: none; transform: none; }
 }
+
+/* ── Computers and iPads: design F (owner, 2026-10-28/29) ─────────────────────────────────────────────────────────────
+   The hero line, then the price card in the middle as the one focal point, then three small cards of what Pro gives.
+   CI colours only (orange, rust, caramel, cream); gradients and glow are allowed on this page alone (DESIGN.md). */
+.pf-page { --pf-ink-soft: #5D5753; --pf-cream: #FFF1E8; --pf-card-a: rgba(255, 255, 255, 0.97); --pf-card-b: rgba(255, 244, 236, 0.95); --pf-chip: #FFFFFF; --pf-inner: #FFFFFF; }
+.dark .pf-page { --pf-ink-soft: #C9C4BF; --pf-cream: rgba(255, 164, 115, 0.1); --pf-card-a: #27221F; --pf-card-b: #201B18; --pf-chip: #332B27; --pf-inner: #2A2420; }
+.pf-page button:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
+
+.pf-hero { position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 8px; text-align: center; }
+.pf-title { position: relative; margin: 0; font-size: 36px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.pf-title-grad { display: inline-block; padding-block: 0.04em; background: linear-gradient(90deg, #C24A16 0%, #E65F2B 50%, #A63F1B 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.dark .pf-title-grad { background: linear-gradient(90deg, #FFC9A8 0%, #FFA473 50%, #FA7E52 100%); -webkit-background-clip: text; background-clip: text; }
+.pf-sub { position: relative; margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; font-size: 16px; line-height: 1.65; color: var(--pf-ink-soft); }
+.pf-sub b { font-weight: 600; color: #C24A16; }
+.dark .pf-sub b { color: #FFA473; }
+.pf-coffee { display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.75); box-shadow: 0 4px 12px rgba(166, 63, 27, 0.1); color: #A63F1B; font-size: 14px; font-weight: 600; }
+.dark .pf-coffee { background: rgba(255, 255, 255, 0.07); box-shadow: none; color: #FFB48A; }
+
+/* Three CI orbs drifting at the sides, never over the words; only where there is room for them. */
+.pf-deco { position: absolute; border-radius: 50%; pointer-events: none; animation: pf-drift 7s ease-in-out infinite; }
+.pf-deco.is-1 { left: 3%; top: 150px; width: 120px; height: 120px; opacity: 0.55; background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #FFE2D1 24%, #FF9A62 62%, #D8561E 100%); box-shadow: 0 18px 40px rgba(240, 116, 64, 0.3); }
+.pf-deco.is-2 { right: 5%; top: 250px; width: 84px; height: 84px; opacity: 0.6; background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #FFF4DE 26%, #FFD99A 64%, #E7A94A 100%); box-shadow: 0 14px 30px rgba(193, 120, 23, 0.25); animation-duration: 8s; animation-delay: 1.2s; }
+.pf-deco.is-3 { right: 12%; top: 92px; width: 46px; height: 46px; opacity: 0.5; background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #F7D3C4 26%, #D9744B 64%, #A63F1B 100%); animation-duration: 6s; animation-delay: 0.6s; }
+.dark .pf-deco { opacity: 0.32; }
+@media (max-width: 1199px) { .pf-deco { display: none; } }
+@keyframes pf-drift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+/* The price card: the focal point. */
+.pf-card-wrap { position: relative; width: 100%; max-width: 440px; margin-top: 36px; }
+.pf-halo { position: absolute; left: 50%; top: 50%; width: 560px; height: 420px; margin: -210px 0 0 -280px; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgba(255, 140, 80, 0.3), rgba(255, 140, 80, 0)); animation: pf-halo 5s ease-in-out infinite; }
+.dark .pf-halo { background: radial-gradient(closest-side, rgba(255, 140, 80, 0.16), rgba(255, 140, 80, 0)); }
+@keyframes pf-halo { 0%, 100% { opacity: 0.75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
+.pf-card { position: relative; box-sizing: border-box; padding: 28px 26px 20px; border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 28px; background: linear-gradient(170deg, var(--pf-card-a), var(--pf-card-b)); box-shadow: 0 28px 60px rgba(230, 95, 43, 0.24), 0 2px 8px rgba(28, 25, 23, 0.05), inset 0 1px 0 #FFFFFF; }
+.dark .pf-card { border-color: rgba(255, 255, 255, 0.08); box-shadow: 0 28px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 164, 115, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.pf-pill { position: absolute; left: 50%; top: 0; margin: 0; transform: translate(-50%, -50%); padding: 5px 16px; border-radius: 999px; background: linear-gradient(135deg, #C8501C, #A63F1B); color: #FFFFFF; font-size: 13px; font-weight: 600; line-height: 1.5; white-space: nowrap; box-shadow: 0 8px 18px rgba(230, 95, 43, 0.35); }
+.pf-best { position: absolute; top: 14px; right: 14px; }
+.pf-price { text-align: center; }
+.pf-price-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0 10px; margin-top: 4px; }
+.pf-price-row .plan-was { font-size: 18px; }
+.pf-card .pf-figure { font-family: 'IBM Plex Sans', var(--font-sans); font-size: 72px; font-weight: 600; line-height: 1.05; letter-spacing: -0.015em; }
+.pf-currency { margin-right: 0.06em; }
+.pf-price-row .plan-per { font-size: 15px; }
+.pf-save { display: inline-block; margin-top: 6px; padding: 3px 12px; border-radius: 999px; background: linear-gradient(90deg, #FFE3D3, #FFEFC9); color: #A63F1B; font-size: 13px; font-weight: 600; line-height: 1.5; }
+.dark .pf-save { background: rgba(255, 164, 115, 0.14); color: #FFB48A; }
+
+.pf-count { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; padding: 8px 10px; border-radius: 14px; background: var(--pf-cream); }
+.pf-count-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; line-height: 1.5; color: #A63F1B; }
+.dark .pf-count-label { color: #FFB48A; }
+.pf-count-digits { display: inline-flex; align-items: center; gap: 4px; font-family: 'IBM Plex Sans', var(--font-sans); font-variant-numeric: tabular-nums; }
+.pf-count-chip { position: relative; display: inline-flex; align-items: baseline; gap: 2px; padding: 3px 7px; border-radius: 8px; background: var(--pf-chip); color: var(--text); font-size: 16px; font-weight: 600; line-height: 1.4; }
+.pf-count-chip small { font-family: var(--font-sans); font-size: 11px; font-weight: 500; color: var(--muted); }
+.pf-count-chip.is-seconds { background: linear-gradient(160deg, #E65F2B, #B4400F); color: #FFFFFF; animation: pf-tick 0.6s ease-out; }
+.pf-count-chip.is-seconds::after { content: ''; position: absolute; inset: 0; border-radius: 8px; box-shadow: 0 0 0 2px rgba(230, 95, 43, 0.6); opacity: 0; animation: pf-ring 0.9s ease-out; }
+.pf-count-colon { font-weight: 600; color: #E65F2B; animation: pf-blink 1s steps(1) infinite; }
+@keyframes pf-tick { 0% { transform: scale(1.12); } 40% { transform: scale(0.96); } 70%, 100% { transform: scale(1); } }
+@keyframes pf-ring { 0% { opacity: 0.6; transform: scale(1); } 100% { opacity: 0; transform: scale(1.45); } }
+@keyframes pf-blink { 50% { opacity: 0.2; } }
+
+.pf-status { display: flex; align-items: flex-start; gap: 10px; margin: 14px 0 0; padding: 10px 14px; border-radius: 14px; background: var(--pf-cream); color: var(--muted); font-size: 12.5px; line-height: 1.6; text-align: left; }
+.pf-status-chip { flex: none; margin-top: 1px; padding: 1px 8px; border-radius: 999px; background: #FFEFC4; color: #8A5A0B; font-size: 11px; font-weight: 600; line-height: 1.5; }
+.pf-status-chip.is-pro { background: linear-gradient(135deg, #E65F2B, #B4400F); color: #FFFFFF; }
+.dark .pf-status-chip { background: rgba(242, 183, 107, 0.18); color: #F2B76B; }
+.pf-actions { display: grid; gap: 10px; margin-top: 16px; }
+.pf-cta { position: relative; overflow: hidden; min-height: 56px; border: 0; border-radius: 16px; background: linear-gradient(135deg, #C8501C 0%, #B4400F 100%); color: #FFFFFF; font-family: inherit; font-size: 17.5px; font-weight: 600; cursor: pointer; box-shadow: 0 16px 32px rgba(230, 95, 43, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+.pf-cta:hover:not(:disabled) { filter: brightness(1.06); }
+.pf-cta:disabled, .pf-qr:disabled { cursor: default; opacity: 0.55; }
+.pf-cta-shine { position: absolute; top: 0; bottom: 0; left: 0; width: 38%; background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0)); animation: pf-shine 3.4s ease-in-out infinite; pointer-events: none; }
+@keyframes pf-shine { 0% { transform: translateX(-140%) skewX(-18deg); } 55%, 100% { transform: translateX(320%) skewX(-18deg); } }
+.pf-qr { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; border: 1.5px solid #E65F2B; border-radius: 16px; background: #FFFFFF; color: #A63F1B; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; transition: background-color 0.15s; }
+.pf-qr:hover:not(:disabled) { background: #FFF1E8; }
+.dark .pf-qr { border-color: #F07440; background: transparent; color: #FFB48A; }
+.dark .pf-qr:hover:not(:disabled) { background: rgba(255, 164, 115, 0.1); }
+.pf-terms { margin-top: 12px; font-size: 12px; line-height: 1.6; color: var(--muted); text-align: center; }
+
+/* What Pro gives: three small cards; the one pressed springs open, the others fold into upright strips. */
+.pf-features { margin-top: 36px; }
+.pf-features-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 10px; }
+.pf-features-head h2 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.pf-features-head p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.pf-tiles { display: flex; gap: 10px; height: 214px; margin: 0; padding: 0; list-style: none; }
+.pf-tile { position: relative; min-width: 0; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 20px; transition: flex 0.62s cubic-bezier(0.34, 1.32, 0.64, 1); }
+.pf-tile.is-ai { background: linear-gradient(180deg, #FFDCC9 0%, #FFF3EB 75%); box-shadow: 0 8px 22px rgba(230, 95, 43, 0.1); }
+.pf-tile.is-alerts { background: linear-gradient(180deg, #FFE7BF 0%, #FFF7E9 75%); box-shadow: 0 8px 22px rgba(193, 120, 23, 0.12); }
+.pf-tile.is-docs { background: linear-gradient(180deg, #F6D0C0 0%, #FCEFE8 75%); box-shadow: 0 8px 22px rgba(166, 63, 27, 0.12); }
+.dark .pf-tile { border-color: rgba(255, 255, 255, 0.08); box-shadow: none; }
+.dark .pf-tile.is-ai { background: linear-gradient(180deg, rgba(240, 116, 64, 0.26) 0%, rgba(240, 116, 64, 0.05) 75%), #1E1A18; }
+.dark .pf-tile.is-alerts { background: linear-gradient(180deg, rgba(242, 183, 107, 0.24) 0%, rgba(242, 183, 107, 0.05) 75%), #1E1A18; }
+.dark .pf-tile.is-docs { background: linear-gradient(180deg, rgba(250, 126, 82, 0.24) 0%, rgba(250, 126, 82, 0.05) 75%), #1E1A18; }
+.pf-tile-closed, .pf-tile-folded { width: 100%; height: 100%; box-sizing: border-box; border: 0; background: transparent; color: inherit; font-family: inherit; cursor: pointer; }
+.pf-tile-closed { display: flex; flex-direction: column; padding: 10px; text-align: left; }
+.pf-tile-art { flex-grow: 1; display: grid; place-items: center; }
+.pf-orb-ball { position: relative; display: grid; place-items: center; border-radius: 50%; }
+.pf-orb-ball.is-ai { background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #FFE2D1 22%, #FF9A62 58%, #D8561E 100%); box-shadow: 0 12px 26px rgba(240, 116, 64, 0.35), inset -6px -8px 18px rgba(150, 50, 10, 0.25); }
+.pf-orb-ball.is-docs { background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #F7D3C4 22%, #D9744B 58%, #A63F1B 100%); box-shadow: 0 12px 26px rgba(166, 63, 27, 0.34), inset -6px -8px 18px rgba(80, 20, 0, 0.25); color: #FFFFFF; }
+.pf-orb-ball.is-docs > svg { filter: drop-shadow(0 3px 5px rgba(80, 20, 0, 0.3)); }
+.pf-orb-spark { position: absolute; right: 0; top: 2px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #FFEFC4 30%, #F2B76B 100%); color: #8A5A0B; box-shadow: 0 0 0 2px #FFFFFF, 0 4px 10px rgba(110, 60, 0, 0.2); }
+.pf-orb-pill { display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 999px; background: radial-gradient(ellipse at 32% 26%, #FFFFFF 0%, #FFF4DE 30%, #FFD99A 72%, #E7A94A 100%); box-shadow: 0 12px 26px rgba(193, 120, 23, 0.26), inset -6px -8px 18px rgba(120, 70, 0, 0.14); }
+.pf-logo { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75), 0 6px 10px rgba(120, 70, 0, 0.18); }
+.pf-tip { position: relative; display: inline-grid; }
+.pf-tip-bubble { position: absolute; left: 50%; top: calc(100% + 8px); z-index: 5; width: 220px; margin-left: -110px; padding: 8px 11px; border-radius: 12px; background: #1C1917; color: #FFFFFF; font-size: 12px; font-weight: 500; line-height: 1.55; text-align: left; opacity: 0; transform: translateY(-4px); transition: opacity 0.18s, transform 0.18s; pointer-events: none; }
+.pf-tip:hover .pf-tip-bubble { opacity: 1; transform: none; }
+.pf-tile-name { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: var(--pf-inner); box-shadow: 0 3px 10px rgba(28, 25, 23, 0.05); }
+.pf-tile-text { flex-grow: 1; min-width: 0; }
+.pf-tile-text b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.pf-tile-text span { display: block; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.pf-go { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; color: #FFFFFF; }
+.pf-go.is-ai { background: linear-gradient(135deg, #FF9A62, #D8561E); }
+.pf-go.is-alerts { background: linear-gradient(135deg, #E3A03C, #C17817); }
+.pf-go.is-docs { background: linear-gradient(135deg, #C8562D, #A63F1B); }
+.pf-tile-open { display: flex; gap: 10px; height: 100%; box-sizing: border-box; padding: 10px; }
+.pf-open-art { flex: 0 0 26%; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.pf-open-art b { font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--text); text-align: center; }
+.pf-open-orb { animation: pf-orb-in 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+.pf-open-card { position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 46px 12px 14px; border-radius: 16px; background: var(--pf-inner); box-shadow: 0 6px 18px rgba(28, 25, 23, 0.07); animation: pf-pop 0.5s cubic-bezier(0.34, 1.3, 0.64, 1) 0.06s both; }
+.pf-close { position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--pf-inner); color: var(--muted); cursor: pointer; }
+.pf-detail-head { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.pf-detail-head b { font-size: 15px; font-weight: 600; color: var(--text); }
+.pf-detail-head .pf-num { font-family: 'IBM Plex Sans', var(--font-sans); font-size: 22px; font-variant-numeric: tabular-nums; }
+.pf-detail-list { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--border); list-style: none; font-size: 13px; line-height: 1.5; color: var(--text); }
+.pf-detail-list li { display: flex; gap: 8px; animation: pf-in 0.4s ease both; }
+.pf-detail-list li:nth-child(1) { animation-delay: 0.16s; }
+.pf-detail-list li:nth-child(2) { animation-delay: 0.22s; }
+.pf-detail-list li:nth-child(3) { animation-delay: 0.28s; }
+.pf-tick { flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; }
+.pf-tick.is-ai { background: #FFE2D1; color: #C24A16; }
+.pf-tick.is-alerts { background: #FFEFC4; color: #8A5A0B; }
+.pf-tick.is-docs { background: #F7D9CC; color: #A63F1B; }
+.dark .pf-tick.is-ai { background: rgba(240, 116, 64, 0.22); color: #FFB48A; }
+.dark .pf-tick.is-alerts { background: rgba(242, 183, 107, 0.2); color: #F2B76B; }
+.dark .pf-tick.is-docs { background: rgba(250, 126, 82, 0.2); color: #FA7E52; }
+.pf-line-note { display: flex; align-items: center; gap: 8px; margin: auto 0 0; padding: 7px 10px; border-radius: 12px; background: #FFF6E6; font-size: 12px; line-height: 1.5; color: var(--text); animation: pf-in 0.45s ease 0.3s both; }
+.pf-line-note b { font-weight: 600; }
+.dark .pf-line-note { background: rgba(242, 183, 107, 0.1); }
+.pf-tile-folded { display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 0 14px; }
+.pf-tile-folded .pf-orb-spark { display: none; }
+.pf-folded-stack { display: flex; gap: 4px; }
+.pf-folded-name { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 13.5px; font-weight: 600; line-height: 1.45; white-space: nowrap; color: var(--text); }
+@keyframes pf-orb-in { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: none; } }
+@keyframes pf-pop { from { opacity: 0; transform: translateX(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes pf-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .pf-deco, .pf-halo, .pf-count-chip.is-seconds, .pf-count-chip.is-seconds::after, .pf-count-colon, .pf-cta-shine, .pf-open-orb, .pf-open-card, .pf-detail-list li, .pf-line-note { animation: none; }
+  .pf-tile { transition: none; }
+}

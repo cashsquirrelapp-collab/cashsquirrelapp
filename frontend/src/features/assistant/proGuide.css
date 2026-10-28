@@ -1,0 +1,110 @@
+/* The post-payment guide (owner, 2026-10-29): the card beside the corner squirrel, the ring on the button to press and
+   the bubble that says what to do. Computers and iPads; CI colours, the plans page's warm card. */
+.pg-card, .pg-coach { --pg-surface-a: #FFFFFF; --pg-surface-b: #FFF4EC; --pg-row: rgba(255, 255, 255, 0.72); --pg-row-strong: #FFFFFF; --pg-track: #F1E4DA; --pg-soft: #FFF1E8; --pg-ink-soft: #6F6964; }
+.dark .pg-card, .dark .pg-coach { --pg-surface-a: #29231F; --pg-surface-b: #221D1A; --pg-row: rgba(255, 255, 255, 0.04); --pg-row-strong: rgba(255, 255, 255, 0.08); --pg-track: rgba(255, 255, 255, 0.1); --pg-soft: rgba(255, 164, 115, 0.12); --pg-ink-soft: #B9B2AC; }
+
+.pg-card { position: fixed; right: 124px; bottom: 22px; z-index: 60; width: min(380px, calc(100vw - 148px)); box-sizing: border-box; padding: 18px 18px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 24px; background: linear-gradient(170deg, var(--pg-surface-a), var(--pg-surface-b)); color: var(--text);
+  box-shadow: 0 24px 60px rgba(166, 63, 27, 0.25), 0 2px 8px rgba(28, 25, 23, 0.06); animation: pg-in 0.5s cubic-bezier(0.34, 1.3, 0.64, 1) both; }
+.dark .pg-card, .dark .pg-coach { border-color: rgba(255, 255, 255, 0.08); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 164, 115, 0.1); }
+.pg-card-tail { position: absolute; right: -9px; bottom: 44px; width: 18px; height: 18px; transform: rotate(45deg); border-top: 1px solid rgba(255, 255, 255, 0.95); border-right: 1px solid rgba(255, 255, 255, 0.95); background: var(--pg-surface-b); }
+.dark .pg-card-tail { border-color: rgba(255, 255, 255, 0.08); }
+.pg-head, .pg-coach-head { display: flex; align-items: center; gap: 12px; }
+.pg-coach-head { gap: 10px; }
+.pg-face { flex: none; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #FFE2D1 30%, #FF9A62 75%, #D8561E 100%); }
+.pg-head-text { flex-grow: 1; min-width: 0; }
+.pg-head-text h2 { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.pg-coach .pg-head-text h2 { font-size: 16px; }
+.pg-head-text p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--pg-ink-soft); }
+.pg-head-text .pg-coach-kicker { font-size: 12px; font-weight: 600; color: #A63F1B; }
+.dark .pg-head-text .pg-coach-kicker { color: #FFB48A; }
+.pg-count { flex: none; padding: 2px 10px; border-radius: 999px; background: var(--pg-soft); color: #A63F1B; font-family: 'IBM Plex Sans', var(--font-sans); font-size: 13px; font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.dark .pg-count { color: #FFB48A; }
+.pg-bars { margin-top: 12px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.pg-bars > span { height: 5px; border-radius: 3px; background: var(--pg-track); transition: background-color 0.4s; }
+.pg-bars > span.is-done { background: linear-gradient(90deg, #E65F2B, #F2B76B); }
+
+.pg-steps { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pg-step-row { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 0; border-radius: 16px; background: var(--pg-row); color: inherit; font-family: inherit; text-align: left; }
+.pg-step-row.is-button { cursor: pointer; transition: background-color 0.15s; }
+.pg-step-row.is-button:hover { background: var(--pg-row-strong); }
+.pg-step-row.is-button:focus-visible, .pg-go:focus-visible, .pg-link:focus-visible, .pg-pill:focus-visible, .pg-pill-x:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
+.pg-step.is-current .pg-step-row { padding-left: 12px; padding-right: 10px; background: var(--pg-row-strong); box-shadow: 0 0 0 1.5px #E65F2B, 0 6px 16px rgba(230, 95, 43, 0.14); }
+.pg-step.is-done .pg-step-row { opacity: 0.85; }
+.pg-step-icon { position: relative; flex: none; display: inline-grid; }
+.pg-icon { display: grid; place-items: center; border-radius: 10px; }
+.pg-icon.is-chat { background: #FFE2D1; }
+.pg-icon.is-docs { background: radial-gradient(circle at 32% 28%, #F7D3C4, #D9744B 70%, #A63F1B); color: #FFFFFF; }
+.pg-icon-line { box-shadow: 0 0 0 1px #F1E4DA; }
+.dark .pg-icon-line { box-shadow: none; }
+.pg-step-no { position: absolute; left: -6px; top: -6px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--pg-soft); color: #A63F1B;
+  font-family: 'IBM Plex Sans', var(--font-sans); font-size: 11px; font-weight: 600; line-height: 1; box-shadow: 0 0 0 2px var(--pg-row-strong); }
+.dark .pg-step-no { background: #3A302A; color: #FFB48A; box-shadow: 0 0 0 2px #29231F; }
+.pg-step-no.is-current, .pg-step-no.is-done { background: #E65F2B; color: #FFFFFF; }
+.pg-step-text { flex-grow: 1; min-width: 0; }
+.pg-step-text b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.pg-step-text > span { display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.5; color: var(--pg-ink-soft); }
+.pg-chevron { flex: none; color: #B5AFA9; }
+.pg-skipped, .pg-done-chip { flex: none; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; line-height: 1.5; }
+.pg-skipped { background: var(--pg-track); color: var(--pg-ink-soft); }
+.pg-done-chip { background: var(--pg-soft); color: #A63F1B; }
+.dark .pg-done-chip { color: #FFB48A; }
+.pg-go { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: linear-gradient(135deg, #C8501C, #B4400F); color: #FFFFFF;
+  font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1.45; cursor: pointer; animation: pg-pulse 1.6s ease-out infinite; }
+.pg-go.is-small { min-height: 32px; animation: none; }
+.pg-foot, .pg-coach-foot { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; font-size: 12.5px; line-height: 1.5; color: var(--pg-ink-soft); }
+.pg-coach-foot { margin-top: 12px; }
+.pg-link { padding: 0; border: 0; background: none; color: #C24A16; font-family: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.5; cursor: pointer; }
+.pg-link:hover { color: #A63F1B; text-decoration: underline; }
+.pg-link.is-quiet { color: var(--pg-ink-soft); }
+.dark .pg-link { color: #FFA473; }
+.dark .pg-link.is-quiet { color: var(--pg-ink-soft); }
+.pg-coach-actions { display: inline-flex; gap: 14px; margin-left: auto; }
+
+/* The page dims for a moment and the orange ring blinks three times on what to press; then the ring stays, the page
+   comes back so the form can be filled. Neither takes a click. */
+.pg-dim, .pg-ring { position: fixed; z-index: 70; border-radius: 16px; pointer-events: none; }
+.pg-dim { box-shadow: 0 0 0 9999px rgba(28, 25, 23, 0.38); animation: pg-dim 3.6s ease forwards; }
+.pg-ring { box-shadow: 0 0 0 3px #E65F2B, 0 0 0 9px rgba(230, 95, 43, 0.22); animation: pg-blink 1.1s ease-in-out 3; }
+.pg-coach { position: fixed; z-index: 71; box-sizing: border-box; padding: 16px 16px 14px; border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 22px;
+  background: linear-gradient(170deg, var(--pg-surface-a), var(--pg-surface-b)); color: var(--text); box-shadow: 0 24px 60px rgba(28, 25, 23, 0.3); animation: pg-in 0.45s cubic-bezier(0.34, 1.3, 0.64, 1) 0.15s both; }
+.pg-coach.is-lost { right: 124px; bottom: 70px; }
+.pg-coach-tail { position: absolute; width: 18px; height: 18px; transform: rotate(45deg); background: var(--pg-surface-a); }
+.pg-coach.is-below .pg-coach-tail { top: -9px; border-left: 1px solid rgba(255, 255, 255, 0.95); border-top: 1px solid rgba(255, 255, 255, 0.95); }
+.pg-coach.is-above .pg-coach-tail { bottom: -9px; background: var(--pg-surface-b); border-right: 1px solid rgba(255, 255, 255, 0.95); border-bottom: 1px solid rgba(255, 255, 255, 0.95); }
+.dark .pg-coach-tail { border-color: rgba(255, 255, 255, 0.08) !important; }
+.pg-coach-steps { margin: 10px 0 0; padding: 0 0 0 20px; list-style: decimal; display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.55; color: var(--text); }
+.pg-coach-steps b { font-weight: 600; }
+.pg-coach-steps li::marker { color: #A63F1B; font-family: 'IBM Plex Sans', var(--font-sans); font-weight: 600; }
+.dark .pg-coach-steps li::marker { color: #FFB48A; }
+.pg-coach-lost { margin: 10px 0 0; font-size: 13px; line-height: 1.55; color: var(--text); }
+.pg-dots { display: inline-flex; gap: 4px; }
+.pg-dots > span { width: 8px; height: 5px; border-radius: 3px; background: var(--pg-track); }
+.pg-dots > span.is-done { background: #F2B76B; }
+.pg-dots > span.is-on { width: 18px; background: #E65F2B; }
+
+/* The small pill by the squirrel's feet: which step is on, or the way back to the card after "ไว้ทีหลัง". */
+.pg-pill-wrap { position: fixed; right: 124px; bottom: 26px; z-index: 60; display: inline-flex; align-items: center; gap: 4px; animation: pg-in 0.4s cubic-bezier(0.34, 1.3, 0.64, 1) both; }
+.pg-pill-wrap.is-chat-page { right: 24px; }
+.pg-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 12px; border: 0; border-radius: 999px; background: #FFFFFF; color: #A63F1B;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.5; cursor: pointer; box-shadow: 0 8px 20px rgba(28, 25, 23, 0.18); }
+.pg-pill .pg-face { margin-left: -6px; }
+.pg-pill.is-cheer { background: linear-gradient(135deg, #C8501C, #B4400F); color: #FFFFFF; }
+.dark .pg-pill { background: #2C2622; color: #FFB48A; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45); }
+.dark .pg-pill.is-cheer { color: #FFFFFF; }
+.pg-num { font-family: 'IBM Plex Sans', var(--font-sans); font-variant-numeric: tabular-nums; }
+.pg-pill-tick { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); }
+.pg-pill-x { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.9); color: #6F6964; cursor: pointer; box-shadow: 0 4px 12px rgba(28, 25, 23, 0.14); }
+.dark .pg-pill-x { background: #2C2622; color: #B9B2AC; }
+
+/* While the card is out, the squirrel's hello and news bubbles wait (they would sit under the card). */
+.pg-card-open .asx-hello-say, .pg-card-open .asx-buddy.is-pill.is-stand .asx-climb-say { visibility: hidden; }
+
+@keyframes pg-in { from { opacity: 0; transform: translateY(12px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes pg-pulse { 0% { box-shadow: 0 0 0 0 rgba(230, 95, 43, 0.45); } 100% { box-shadow: 0 0 0 10px rgba(230, 95, 43, 0); } }
+@keyframes pg-blink { 0%, 100% { box-shadow: 0 0 0 3px #E65F2B, 0 0 0 9px rgba(230, 95, 43, 0.25); } 50% { box-shadow: 0 0 0 3px #E65F2B, 0 0 0 16px rgba(230, 95, 43, 0.06); } }
+@keyframes pg-dim { 0% { opacity: 0; } 8%, 78% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .pg-card, .pg-coach, .pg-pill-wrap, .pg-go, .pg-ring { animation: none; }
+  .pg-dim { animation: none; opacity: 0; }
+}

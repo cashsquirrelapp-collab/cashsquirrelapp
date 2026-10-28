@@ -55,12 +55,14 @@ export const RowIcon = ({ icon: Icon }: { icon: IconType }) => (
   </span>
 );
 
-export function NavRow({ icon, lead, title, desc, value, onClick }: {
+export function NavRow({ icon, lead, title, desc, value, onClick, guide }: {
   icon?: IconType; lead?: React.ReactNode; title: string; desc?: React.ReactNode; value?: React.ReactNode; onClick: () => void;
+  /** Where the post-payment guide can ring this row (data-guide-target). */
+  guide?: string;
 }) {
   const descId = React.useId();
   return (
-    <button type="button" onClick={onClick} aria-label={title} aria-describedby={desc ? descId : undefined}
+    <button type="button" onClick={onClick} aria-label={title} aria-describedby={desc ? descId : undefined} data-guide-target={guide}
       className={`${rowShell} transition-colors duration-200 hover:bg-brand-faint/70 cursor-pointer`}>
       {lead ?? (icon && <RowIcon icon={icon} />)}
       <RowText title={title} desc={desc} descId={descId} />

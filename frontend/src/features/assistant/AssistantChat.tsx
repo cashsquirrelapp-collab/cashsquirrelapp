@@ -29,6 +29,7 @@ import { BriefingCard } from './BriefingCard';
 import type { Briefing } from '../../../../shared/briefing';
 import { greetingNow, noteQuestion } from './greeting';
 import './assistant.css';
+import { noteAssistantSent } from './proGuideEvents';
 
 /** The longest message เลขา takes (a pasted list is fine); the server allows the same (handlers/assistant.ts). */
 const MAX_MESSAGE = 6000;
@@ -577,6 +578,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     const file = preset ? undefined : upload ?? undefined;
     const text = raw.trim() || (file ? tr("ช่วยดูไฟล์นี้หน่อย") : '');
     if (!text || text.length > MAX_MESSAGE) return;
+    noteAssistantSent();
     voice.clearReview();
     if (gate && !preset) { setUpsell(true); return; }
     setUpsell(false);
@@ -1257,7 +1259,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               {voice.review && !voice.active && (
                 <p className="asx-notice asx-voice-review" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>
               )}
-              <form className={`asx-composer lg-glass is-menu${voice.active ? ' has-voice' : ''}`} onSubmit={event => { event.preventDefault(); send(draft); }} aria-disabled={(blocked && !pendingConfirmation) || undefined}>
+              <form data-guide-target="chat-composer" className={`asx-composer lg-glass is-menu${voice.active ? ' has-voice' : ''}`} onSubmit={event => { event.preventDefault(); send(draft); }} aria-disabled={(blocked && !pendingConfirmation) || undefined}>
                 {voice.active ? (
                   <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} levelsAt={voice.levelsAt} reduce={Boolean(reduce)} onCancel={cancelVoice} onFinish={() => { void voice.finish(); }} />
                 ) : <>

@@ -32,6 +32,7 @@ import { findThaiBank } from '../invoices/thaiBanks';
 import { BankPicker } from './BankPicker';
 
 import { tr, trServer } from '../../i18n/tr';
+import { noteIssuerSaved } from '../assistant/proGuideEvents';
 const MAX_AVATAR_DATA_URL_LENGTH = 450_000;
 
 async function prepareAvatarDataUrl(file: File): Promise<string> {
@@ -248,6 +249,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setBusinessProfileSaving(true);
     try {
       await saveCloud(businessProfileOwnerId, { issuer_profile: issuerProfile });
+      noteIssuerSaved();
       triggerAlert(tr("บันทึกสำเร็จ"), tr("บันทึกโปรไฟล์ธุรกิจแล้ว ข้อมูลนี้จะถูกนำไปใช้เป็นค่าเริ่มต้นในเอกสารใบถัดไป"));
     } catch (error) {
       triggerAlert(tr("บันทึกไม่สำเร็จ"), (error as Error).message);
@@ -871,7 +873,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </Panel>
           <div className="sticky bottom-4 z-10 flex justify-end">
-            <button type="button" onClick={() => void saveBusinessProfile()} disabled={businessProfileSaving}
+            <button type="button" onClick={() => void saveBusinessProfile()} disabled={businessProfileSaving} data-guide-target="business-save"
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#E65F2B] px-6 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(230,95,43,0.3)] transition-colors hover:bg-[#D35221] disabled:opacity-50 cursor-pointer">
               {businessProfileSaving ? tr("กำลังบันทึก…") : tr("บันทึกโปรไฟล์ธุรกิจ")}
             </button>
@@ -960,7 +962,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   ? [[tr("ติดตามใบ 50 ทวิ"), tr("รวมงานที่รับเงินแล้วอย่างน้อย 7 วันและยังไม่มีใบ 50 ทวิแนบ ส่งเข้า LINE ที่เชื่อมไว้วันที่ 1 ของเดือนประมาณ 08:00 น. (เวลาไทย) เมื่อมีรายการค้างเท่านั้น"), !!notifSettings.wht50ReminderEnabled, handleToggleWht50Reminder] as const]
                   : []),
               ] as const).map(([title, desc, on, toggle]) => (
-                <div key={title} className={rowShell}>
+                <div key={title} className={rowShell} data-guide-target={isPro && title === tr("แจ้งเตือนเครดิตเทอม") ? 'notif-digest' : undefined}>
                   <RowIcon icon={title === tr("สรุปการเงินรายเดือน") ? Mail : Bell} />
                   <RowText title={<>{title}{!isPro && <ProBadge />}</>} desc={isPro ? desc : tr("ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน")} />
                   {isPro ? <Switch on={on} onClick={toggle} label={title} />
@@ -1006,13 +1008,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   className="inline-flex h-10 items-center rounded-xl border border-[#F0B8B8] px-4 text-[13px] font-medium text-[#B83434] transition-colors hover:bg-[#FDEEEE] cursor-pointer dark:border-[#F19A9A]/40 dark:text-[#F19A9A] dark:hover:bg-[#F19A9A]/10">
                   {tr("ยกเลิกการเชื่อมต่อ")}</button>
               ) : !lineLinkCode && (
-                <button type="button" onClick={startLineConnect} disabled={isGeneratingLineCode}
+                <button type="button" onClick={startLineConnect} disabled={isGeneratingLineCode} data-guide-target={isPro ? 'line-connect' : undefined}
                   className="inline-flex h-10 items-center rounded-xl bg-[#06C755] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#05B34C] disabled:opacity-50 cursor-pointer">
                   {isGeneratingLineCode ? tr("กำลังสร้างรหัส…") : isPro ? tr("เชื่อมต่อ LINE") : tr("อัปเกรดเป็น Pro")}
                 </button>
               )}
               {lineLinkCode && !lineConnected && (
-                <div className="space-y-3 border-t border-brand-border pt-4">
+                <div className="space-y-3 border-t border-brand-border pt-4" data-guide-target="line-code">
                   <div className="flex items-start gap-2 rounded-xl border border-[#06C755]/25 bg-[#06C755]/5 p-3">
                     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0A8F3F] dark:text-[#4ADE80]" />
                     <p className="text-xs leading-relaxed text-brand-muted"><span className="font-medium text-brand-text">{tr("ยืนยันบัญชี LINE อย่างปลอดภัย")}</span> {tr("รหัสนี้ใช้ได้ครั้งเดียวและผูกได้กับบัญชีที่กำลังเข้าใช้อยู่เท่านั้น ห้ามส่งต่อให้ผู้อื่น")}</p>
@@ -1133,7 +1135,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
                 <div className="space-y-7">
                   <Section icon={FileText} title={tr("การเงินและเอกสาร")} id="settings-finance">
-                    <NavRow icon={Building2} title={tr("โปรไฟล์ธุรกิจ")} desc={tr("โลโก้ ลายเซ็น ข้อมูลผู้ขาย และข้อมูลในเอกสาร")} onClick={() => openView('business')} />
+                    <NavRow icon={Building2} title={tr("โปรไฟล์ธุรกิจ")} desc={tr("โลโก้ ลายเซ็น ข้อมูลผู้ขาย และข้อมูลในเอกสาร")} onClick={() => openView('business')} guide="business" />
                     <NavRow icon={CalendarClock} title={tr("รายจ่ายประจำ")} desc={tr("จัดการค่าใช้จ่ายที่เกิดขึ้นเป็นประจำ")} value={<span className="font-mono">{formatCurrency(settings.monthlyExpense)}</span>} onClick={() => openView('fixed')} />
                     {fullFeatureAccess && <NavRow icon={Target} title={tr("เป้ารายรับต่อเดือน")} desc={tr("ตั้งเป้ารายรับในแต่ละเดือน")} value={<span className="font-mono">{settings.monthlyRevenueGoal ? formatCurrency(settings.monthlyRevenueGoal) : tr("ยังไม่ได้ตั้ง")}</span>}
                       onClick={() => { setTargetDraft(settings.monthlyRevenueGoal ? String(settings.monthlyRevenueGoal) : ''); setSheet('target'); }} />}
@@ -1147,8 +1149,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   {/* LINE and the reminders are Pro (the reminder jobs only send to Pro, the trial and admin grants),
                       so they share one section (owner, 2026-10-21), as in the phone menu's LINE AI Pro. */}
                   {(lineAccess || notificationsAccess || hasExistingNotifications) && <Section icon={Link2} title={tr("LINE AI Pro · การแจ้งเตือน")} id="settings-connect">
-                    {lineAccess && <NavRow lead={<LineLogo size={30} />} title="LINE" desc={tr("เชื่อมต่อ LINE เพื่อรับแจ้งเตือน")} value={lineStatus} onClick={() => openView('line')} />}
-                    {(notificationsAccess || hasExistingNotifications) && <NavRow icon={Bell} title={notificationsAccess ? tr("การแจ้งเตือน") : tr("จัดการการแจ้งเตือนเดิม")} desc={notificationsAccess ? tr("เลือกช่องทางและเรื่องที่อยากให้แจ้งเตือน") : tr("ปิดการแจ้งเตือนหรือยกเลิกช่องทางที่เชื่อมต่อไว้")} value={notificationsAccess && !isPro ? <ProBadge /> : undefined} onClick={() => openView('notif')} />}
+                    {lineAccess && <NavRow lead={<LineLogo size={30} />} title="LINE" desc={tr("เชื่อมต่อ LINE เพื่อรับแจ้งเตือน")} value={lineStatus} onClick={() => openView('line')} guide="line" />}
+                    {(notificationsAccess || hasExistingNotifications) && <NavRow icon={Bell} title={notificationsAccess ? tr("การแจ้งเตือน") : tr("จัดการการแจ้งเตือนเดิม")} desc={notificationsAccess ? tr("เลือกช่องทางและเรื่องที่อยากให้แจ้งเตือน") : tr("ปิดการแจ้งเตือนหรือยกเลิกช่องทางที่เชื่อมต่อไว้")} value={notificationsAccess && !isPro ? <ProBadge /> : undefined} onClick={() => openView('notif')} guide="notif" />}
                   </Section>}
 
                   <Section icon={Database} title={tr("ข้อมูล")} id="settings-data">

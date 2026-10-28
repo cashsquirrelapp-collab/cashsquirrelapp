@@ -72,3 +72,24 @@ export function MonthPromoNotice({ className, testId }: { className: string; tes
     </span>
   </p>;
 }
+
+/** The computer and iPad plans page's countdown (owner, 2026-10-29, design F): one small row in the price card, the seconds
+ *  ticking in orange. Same clock and boundary as MonthPromoNotice, so it ends exactly when checkout prices change. */
+export function PromoCountdownChips({ className = '' }: { className?: string }) {
+  const remaining = useSyncExternalStore(subscribeToPromoClock, secondsLeft, secondsLeft);
+  if (!remaining || !proMonthPromoRunning()) return null;
+  const { days, hours, minutes, seconds } = monthPromoCountdown(PRO_MONTH_REGULAR_FROM - remaining * 1000);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return <div className={`pf-count ${className}`}>
+    <span className="pf-count-label"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2M10 2h4" /></svg>{tr('ดีลพิเศษหมดใน')}</span>
+    <span role="timer" aria-live="off" aria-label={tr('เวลาที่เหลือ {0} วัน {1} ชั่วโมง {2} นาที {3} วินาที', days, hours, minutes, seconds)}
+      data-testid="promo-countdown" data-seconds-left={remaining} className="pf-count-digits">
+      <span aria-hidden="true" className="pf-count-chip"><b data-testid="promo-countdown-days">{pad(days)}</b><small>{trc('countdown', 'วัน')}</small></span>
+      <span aria-hidden="true" className="pf-count-chip"><b data-testid="promo-countdown-hours">{pad(hours)}</b></span>
+      <span aria-hidden="true" className="pf-count-colon">:</span>
+      <span aria-hidden="true" className="pf-count-chip"><b data-testid="promo-countdown-minutes">{pad(minutes)}</b></span>
+      <span aria-hidden="true" className="pf-count-colon">:</span>
+      <span key={seconds} aria-hidden="true" className="pf-count-chip is-seconds"><b data-testid="promo-countdown-seconds">{pad(seconds)}</b></span>
+    </span>
+  </div>;
+}

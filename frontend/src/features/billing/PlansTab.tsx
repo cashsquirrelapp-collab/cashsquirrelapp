@@ -2,14 +2,15 @@ import { uiPrimaryButton } from '../../components/ui/uiStyles';
 import PageHeader from '../../components/ui/PageHeader';
 import React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { BarChart3, BellRing, Check, Clock3, CreditCard, FileText, MessageCircle, QrCode, type LucideIcon } from 'lucide-react';
+import { BarChart3, BellRing, Check, Clock3, Coffee, CreditCard, FileText, MessageCircle, QrCode, type LucideIcon } from 'lucide-react';
 import { PlanMascot } from './PlanMascot';
 import './plans.css';
 import { dateLocale } from '../../utils';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { PRO_CHECKOUT_OPEN, PRO_PERIODS_ON_SALE, formatBaht, proPriceDetails, type ProPeriod } from '../../../../shared/proPricing';
 import { proTokensOnSale } from '../../../../shared/proTokens';
-import { MonthPromoNotice, useMonthPromoRunning } from './promoNotice';
+import { MonthPromoNotice, PromoCountdownChips, useMonthPromoRunning } from './promoNotice';
+import { ProFeatureTiles } from './ProFeatureTiles';
 
 import { tr } from '../../i18n/tr';
 // The membership page (owner's briefs, 2026-10-20): Pro only, one card, three billing periods at the
@@ -17,6 +18,8 @@ import { tr } from '../../i18n/tr';
 // from this page only; Free accounts and what they may do are unchanged everywhere else.
 
 interface PlansTabProps {
+  /** Phones keep their own layout (owner rule); computers and iPads get design F (owner, 2026-10-29). */
+  phone?: boolean;
   /** Kept for the caller; the page no longer shows a Free card or Free-only details. */
   fullFeatureAccess?: boolean;
   freeDocumentsAvailable?: boolean;
@@ -64,6 +67,7 @@ const PRO_BENEFITS: { key: string; icon: LucideIcon; soon?: string; tokens?: boo
 ];
 
 export const PlansTab: React.FC<PlansTabProps> = ({
+  phone = false,
   isGuestPreview,
   isPaidActive,
   isInFreeTrial,
@@ -152,7 +156,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
     );
   };
 
-  const actionsOf = (option: BillingPeriod) => {
+  const actionsOf = (option: BillingPeriod, desktop = false) => {
     if (isProBanned) return <p role="status" className="rounded-xl border border-red-300/30 p-3 text-sm text-red-600 dark:text-red-300">{t('plans.proBanned')}</p>;
     if (!canBuy) return <span className="rounded-full bg-emerald-500/10 px-3 py-2.5 text-center text-[13px] font-semibold text-emerald-700 dark:text-emerald-300">{t('plans.currentPlan')}</span>;
     // These never charge anything: an existing subscription opens the Stripe portal, a guest signs up.
@@ -170,12 +174,91 @@ export const PlansTab: React.FC<PlansTabProps> = ({
       <p className="text-center text-[12px] leading-relaxed text-brand-muted" data-testid="checkout-not-open">{t('plans.checkoutNotOpen')}</p>
     </>;
     const pay = (method: 'card' | 'promptpay') => option === 'month' ? (method === 'card' ? onUpgrade() : onPromptPay()) : onSubscribePeriod?.(option, method);
+    // Design F (owner, 2026-10-29): "สมัคร Pro" alone, no price on the button and no amount line above it; the card and QR
+    // dialogs still show the fee and the amount to pay before anything is charged.
+    if (desktop && option === 'month') return <>
+      <button type="button" disabled={billingBusy} onClick={() => pay('card')} className="pf-cta plan-press"><span aria-hidden="true" className="pf-cta-shine" /><span className="relative">{billingBusy ? t('plans.loadingCta') : tr('สมัคร Pro')}</span></button>
+      <button type="button" disabled={billingBusy} onClick={() => pay('promptpay')} className="pf-qr plan-press"><QrCode className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />{billingBusy ? t('plans.loadingCta') : tr('จ่ายครั้งเดียวด้วยพร้อมเพย์ QR')}</button>
+    </>;
     return <>
       <p className="text-center text-xs text-brand-muted">{t('plans.prepaidSummary', { price, months: String(proPriceDetails(option).months) })}</p>
       <button type="button" disabled={billingBusy} onClick={() => pay('card')} className={primary}>{billingBusy ? t('plans.loadingCta') : t('plans.periodSubscribeCta', { length: t(`plans.${option}SwitchLabel`), price })}</button>
       <button type="button" disabled={billingBusy} onClick={() => pay('promptpay')} className={qrButton}>{billingBusy ? t('plans.loadingCta') : t('plans.periodPromptPayCta', { price })}</button>
     </>;
   };
+
+  const periodSwitch = BILLING_PERIODS.length > 1 && <div className="flex justify-center">
+    <div role="radiogroup" aria-label={t('plans.periodSwitchLabel')} onKeyDown={onPeriodKey} data-testid="period-switch"
+      className="plan-switch relative grid w-full max-w-[400px] grid-cols-3 gap-1 rounded-full p-1">
+      {BILLING_PERIODS.map(option => {
+        const active = option === period;
+        return (
+          <button key={option} type="button" role="radio" aria-checked={active} tabIndex={active ? 0 : -1}
+            ref={node => { periodButtons.current[option] = node; }}
+            onClick={() => setPeriod(option)} data-period-option={option}
+            className={`relative flex min-h-10 items-center justify-center rounded-full px-2 text-[13.5px] font-semibold tracking-[0.01em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E65F2B] ${active ? 'text-brand-text' : 'text-brand-muted hover:text-brand-text'}`}>
+            {active && <motion.span layoutId={reduceMotion ? undefined : 'period-pill'} aria-hidden="true" className="plan-switch-pill absolute inset-0 rounded-full" transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }} />}
+            <span className="relative">{t(`plans.${option}SwitchLabel`)}</span>
+          </button>
+        );
+      })}
+    </div>
+  </div>;
+
+  // Computers and iPads, design F (owner, 2026-10-28/29): the hero line, then the price card in the middle of the page as
+  // the one thing the eye lands on (price, a small ticking countdown, สมัคร Pro and PromptPay), then three small cards of
+  // what Pro gives. CI colours only; this page may use gradients and glow (DESIGN.md exception). The fixed copy
+  // "วันละไม่ถึง 6 บาท" is the owner's own (฿177 / 30 days); they change it themselves from December.
+  if (!phone) {
+    const price = proPriceDetails(period);
+    const open = checkoutReady && PRO_CHECKOUT_OPEN[period] && (period === 'month' || Boolean(onSubscribePeriod));
+    return (
+      <div className="page-content pf-page mx-auto max-w-5xl pb-12">
+        <h1 className="sr-only">{isPaidActive ? t('nav.plansMember') : t('nav.plans')}</h1>
+        <section className="pf-hero" aria-labelledby="pf-title">
+          <span aria-hidden="true" className="pf-deco is-1" />
+          <span aria-hidden="true" className="pf-deco is-2" />
+          <span aria-hidden="true" className="pf-deco is-3" />
+          <h2 id="pf-title" className="pf-title">{tr('เรื่องบัญชี')}<br /><span className="pf-title-grad">{tr('ไม่จำเป็นต้องเป็นเรื่องยากอีกต่อไป')}</span></h2>
+          <p className="pf-sub"><b>{tr('วันละไม่ถึง 6 บาท')}</b><span className="pf-coffee"><Coffee className="h-[17px] w-[17px]" strokeWidth={2} aria-hidden />{tr('ถูกกว่ากาแฟแก้วเดียว')}</span><span>{tr('ก็มีผู้ช่วยดูแลเรื่องเงินให้คุณ')}</span></p>
+          {periodSwitch && <div className="mt-5 w-full">{periodSwitch}</div>}
+          <div className="pf-card-wrap">
+            <span aria-hidden="true" className="pf-halo" />
+            <article data-testid="pro-card" data-period={period} className="pf-card" aria-labelledby="pro-plan-title">
+              <h3 id="pro-plan-title" className="pf-pill">{tr('Pro {0}', t(`plans.${period}SwitchLabel`))}</h3>
+              {price.bestValue && <span key={period} className="plan-badge is-strong pf-best">{t('plans.bestValueBadge')}</span>}
+              <div className="pf-price" data-testid="pro-price">
+                <p className="pf-price-row">
+                  {price.saving > 0 && <s className="plan-was"><span className="sr-only">{t('plans.regularPrice')} </span>{formatBaht(price.regular)}</s>}
+                  <span className="plan-figure pf-figure"><span className="pf-currency">{tr('฿')}</span>{price.price.toLocaleString('en-US')}</span>
+                  <span className="plan-per">{t(`plans.${period}PerShort`)}</span>
+                </p>
+                {price.saving > 0 && <p className="pf-save">{period === 'month'
+                  ? tr('ประหยัด {0} ทุกเดือน', formatBaht(price.saving))
+                  : <>{t('plans.averagePerMonthShort', { price: formatBaht(price.average, 2) })} · {t('plans.savingText', { amount: formatBaht(price.saving), pct: String(price.savingPct) })}</>}</p>}
+                {period === 'month' && promoRunning && canBuy && !isProBanned && !hasOpenManagedSubscription && <PromoCountdownChips className="mt-3.5" />}
+              </div>
+              {statusText && (
+                <p className="plan-status pf-status" data-testid="plan-status">
+                  <span className={`pf-status-chip ${isPaidActive ? 'is-pro' : ''}`}>{statusChip}</span>
+                  <span className="min-w-0">{statusText}</span>
+                </p>
+              )}
+              <div className="pf-actions" data-testid="pro-actions">{actionsOf(period, true)}</div>
+              {canBuy && !isProBanned && !isGuestPreview && !hasOpenManagedSubscription && open && <p className="pf-terms">{tr('บัตร ต่ออายุอัตโนมัติเมื่อติ๊กยินยอม ปิดได้ทุกเมื่อ')}<br />{tr('พร้อมเพย์ จ่ายครั้งเดียว ไม่ต่ออายุเอง')}</p>}
+            </article>
+          </div>
+        </section>
+        <section className="pf-features" aria-labelledby="pf-features-title">
+          <div className="pf-features-head">
+            <h2 id="pf-features-title">{tr('สิ่งที่ได้ใน Pro')}</h2>
+            <p>{tr('กดการ์ดเพื่อดูรายละเอียด')}</p>
+          </div>
+          <ProFeatureTiles tokens={proTokensOnSale(period)} />
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content mx-auto max-w-5xl pb-16">

@@ -77,7 +77,8 @@ owner's approval to change.
 - No glows, neon, gradient text, emoji as icons, or decorative gradients on content. The sanctioned gradients are the
   overview's rust hero band, the LINE card header, the chat greeting heading (CI rust, orange and caramel since
   2026-10-29), the Pro arrival's greeting (เลขา's looped type in a warm pastel, cream and peach into the orbs' rose,
-  2026-10-29) and the Welcome Onboarding greeting in CI colours (2026-10-28).
+  2026-10-29), the Welcome Onboarding greeting in CI colours (2026-10-28) and the plans page on computers and iPads
+  (design F, 2026-10-29: see "Plans page").
 
 ## 2. Colour and roles
 
@@ -182,6 +183,29 @@ card does not need:
 - Exceptions for this screen only (owner): gradient text on the greeting, glass content tiles, pill-round buttons.
 - Answers keep stable IDs; labels can change. Never put the nickname on documents.
 
+### Plans page, computers and iPads (owner, 2026-10-29; design F)
+
+- One focal point: the price card in the middle. Above it the headline "เรื่องบัญชี / ไม่จำเป็นต้องเป็นเรื่องยากอีกต่อไป"
+  (second line in a CI gradient) and "วันละไม่ถึง 6 บาท · ถูกกว่ากาแฟแก้วเดียว · ...". The owner changes the 6 บาท
+  line by hand in December; do not compute it.
+- The card: "Pro รายเดือน" pill on its top edge, ฿249 struck, ฿159 at 72px, "ประหยัด ฿90 ทุกเดือน", the countdown as
+  small chips while the promotion runs, "สมัคร Pro" (no price on the button) and "จ่ายครั้งเดียวด้วยพร้อมเพย์ QR", then
+  the two terms lines. No fee or total line here: the card and QR dialogs show the fee and the amount before paying.
+  No squirrel on this page.
+- Under it three small feature cards (เลขากระรอก, แจ้งเตือนอัตโนมัติ with the real Gmail and LINE logos, เอกสารไม่จำกัด);
+  the one pressed springs open, the others fold into upright strips. They stay smaller than the price card.
+- Exceptions for this page only (owner): gradient headline, glossy CI orbs, the orange halo and button glow. CI colours
+  only (orange, rust, caramel, cream): no green, blue or violet except inside the Gmail and LINE logos.
+- Phones keep their own plans layout (the squirrel, the fee line, the four Pro groups).
+
+### Post-payment guide (owner, 2026-10-29: "การ์ดทีละขั้น พาไปกด")
+
+- After the arrival that follows a payment, a card beside the corner squirrel: "เริ่มใช้ Pro ใน 4 ขั้น", a four-part
+  bar and the steps เชื่อม LINE, เปิดแจ้งเตือนอีเมล, ลองคุยกับเลขา, ตั้งข้อมูลผู้ออกเอกสาร (`ProGuide.tsx`).
+- "ไปทำเลย" opens the page, dims it for about three seconds and rings the thing to press (elements marked
+  `data-guide-target`); a bubble says what to do, with ข้ามขั้นนี้ and ดูทุกขั้น. Steps tick themselves from real data.
+- "ไว้ทีหลัง" leaves a small pill by the squirrel that reopens the card. Computers and iPads only; `?guide=pro` opens it.
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added
@@ -225,7 +249,7 @@ Do:
 - Test light and dark, phone and computer, Thai and English.
 
 Don't:
-- Don't add a second accent colour, gradient text (beyond the chat and onboarding greetings), glows or emoji.
+- Don't add a second accent colour, gradient text (beyond the chat and onboarding greetings and the plans page), glows or emoji.
 - Don't pill-round action buttons or mix radii within one component.
 - Don't change phone screens, the mascot drawing or the CI colours without the owner.
 - Don't let text clip, overlap or run under another element.

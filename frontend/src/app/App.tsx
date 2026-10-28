@@ -36,6 +36,7 @@ const AssistantBuddy = lazy(() => import('../features/assistant/AssistantBuddy')
 const FlexDisplay = lazy(() => import('../features/flex/FlexDisplay'));
 // The squirrel's arrival: only right after a payment for Pro is confirmed (owner, 2026-10-23: "ขึ้นเฉพาะตอนที่เพิ่งเติมโปรเสร็จ").
 const AssistantBirth = lazy(() => import('../features/assistant/AssistantBirth'));
+const ProGuide = lazy(() => import('../features/assistant/ProGuide'));
 const WelcomeOnboarding = lazy(() => import('../features/onboarding/WelcomeOnboarding'));
 import type { OnboardingResult } from '../features/onboarding/WelcomeOnboarding';
 import { jobTypesForOccupations, onboardingRecord, personaForWorkType, shouldShowOnboarding, type OnboardingStatus } from '../../../shared/onboarding';
@@ -1342,6 +1343,14 @@ export default function App() {
     && new Date(subscription!.currentPeriodEnd!).getTime() <= Date.now();
   const assistantLapsed = assistantTransport?.plan === 'lapsed';
   const showBuddy = (isPro || assistantLapsed) && !assistantFollowing && activeTab !== 'assistant' && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) && !(isPhone && isMobileMenuOpen);
+  // The post-payment guide: computers and iPads, a paying (or trial) account of its own, not a team's books or the guest view.
+  const showProGuide = !isPhone && isPro && !isGuestProPreview && Boolean(session) && !session?.isGuest && !financeGroupId && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess);
+  const issuerSaved = React.useCallback(() => {
+    try {
+      const profile = JSON.parse(privateCache.getItem(`cashflow_issuer_${financeOwner}`) || 'null') as { name?: unknown } | null;
+      return Boolean(profile && typeof profile.name === 'string' && profile.name.trim());
+    } catch { return false; }
+  }, [financeOwner]);
   // "สรุปวันนี้" for เลขา's panel (pkg77): computers and iPads, the personal account, worked out on this device from the
   // data already loaded (documents from the documents page's own cache, when it has one). No request, no AI.
   const briefingDay = nowInBangkok().toISOString().slice(0, 10);
@@ -1416,6 +1425,17 @@ export default function App() {
   const birthAfterPayRef = useRef(false);
   // The team's preview (เลขากระรอก ⋯ → ดูตอนน้องเกิดอีกครั้ง) and the tests open it with ?hello=krarok.
   const birthPreviewRef = useRef(false);
+  // After the arrival that follows a payment (or the team's preview), the four-step "เริ่มใช้ Pro" guide opens beside
+  // the corner squirrel (owner, 2026-10-29); ?guide=pro opens it on its own for the team and the tests.
+  const birthGuideRef = useRef(false);
+  const [proGuideStart, setProGuideStart] = useState(0);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('guide') !== 'pro') return;
+    params.delete('guide');
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+    setProGuideStart(value => value + 1);
+  }, []);
   useEffect(() => {
     if (!showBuddy || birthOpen) return;
     const params = new URLSearchParams(window.location.search);
@@ -1431,6 +1451,7 @@ export default function App() {
     const play = () => {
       if (document.getElementById('app-splash') && Date.now() - started < 5000) { timer = window.setTimeout(play, 120); return; }
       birthPreviewRef.current = false;
+      birthGuideRef.current = true;
       setBirthOpen(true);
     };
     play();
@@ -1439,6 +1460,7 @@ export default function App() {
   const finishBirth = React.useCallback(() => {
     setBirthOpen(false);
     setBuddyArrival(value => value + 1);
+    if (birthGuideRef.current) { birthGuideRef.current = false; setProGuideStart(value => value + 1); }
   }, []);
 
   // 🌰 Global Month Exploration (สำรวจฤดูกาลเก็บเกี่ยว)
@@ -2021,6 +2043,7 @@ export default function App() {
   useEffect(() => {
     if (!birthAfterPayRef.current || dialog.isOpen || !showBuddy || birthOpen) return;
     birthAfterPayRef.current = false;
+    birthGuideRef.current = true;
     setBirthOpen(true);
   }, [dialog.isOpen, showBuddy, birthOpen]);
 
@@ -3459,6 +3482,7 @@ export default function App() {
               )}
               {activeTab === 'plans' && (
                 <PlansTab
+                  phone={isPhone}
                   fullFeatureAccess={fullFeatureAccess}
                   isPro={isPro}
                   isGuestPreview={isGuestProPreview}
@@ -3544,6 +3568,18 @@ export default function App() {
               userName={routeContext?.profile.displayName || undefined} hidden={birthOpen || activeTab === 'feedback'} arrival={buddyArrival}
               onOpenChat={handoff => { setChatHandoff(handoff ?? null); navigateTab('assistant'); }} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} connecting={assistantChecking} briefing={briefing}
               carried={buddyCarry} onCarried={() => setBuddyCarry(null)} />
+          </Suspense>
+        )}
+        {showProGuide && session && (
+          <Suspense fallback={null}>
+            <ProGuide key={session.user.id} accountId={session.user.id} start={proGuideStart} page={activeTab}
+              line={Boolean(notifSettings.lineUserId)} email={Boolean(notifSettings.dailyDigestEnabled)} businessSaved={issuerSaved}
+              onGo={step => {
+                setAssistantFollowing(false);
+                if (step === 'chat') { navigateTab('assistant'); return; }
+                setSettingsEntry(entry => ({ view: 'home', n: entry.n + 1 }));
+                navigateTab('settings');
+              }} />
           </Suspense>
         )}
         {flexOpen && !isPhone && (

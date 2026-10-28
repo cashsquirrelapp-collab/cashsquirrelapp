@@ -24,6 +24,7 @@ import { getCurrentAccount } from '../../services/api';
 import { automaticNavigation, safeAssistantPath, savedCards, type NavigationContext, type NavigationMode } from './assistantNavigation';
 import { confirmationCommand } from './assistantCommands';
 import './assistant.css';
+import { noteAssistantSent } from './proGuideEvents';
 
 // เลขากระรอกติดตัว (owner, 2026-10-23: "ให้น้องตามไปทุกที่ทุกฟีเจอร์สำหรับคนที่ใช้โปร ... คล้าย Cowork", then a video of
 // an AI dashboard to follow): for Pro accounts the squirrel waits at the corner of every page. On computers it
@@ -358,6 +359,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
         : (setConfirmStates(states => ({ ...states, [card.id]: 'cancelled' })), transport.cancel?.(card)))));
       return;
     }
+    noteAssistantSent();
     const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now(), ...(file && !raw.trim() ? { textAuto: true } : {}),
       ...(file ? { attachment: { name: file.name, kind: file.kind, ...(file.kind === 'image' ? { preview: `data:${file.mimeType};base64,${file.data}` } : {}) } } : {}) };
     const history = [...messages, mine];
