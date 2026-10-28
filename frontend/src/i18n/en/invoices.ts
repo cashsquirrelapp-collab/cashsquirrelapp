@@ -159,6 +159,8 @@ export const invoices: Record<string, string> = {
   'ออกต่อจาก{0}': 'Issued from {0}',
   'ออกต่อเป็น{0}': 'Continue as {0}',
   'ออกต่อเป็น…': 'Continue as…',
+  // Owner, 2026-10-28: the button reads in full words (was "ออกต่อเป็น…").
+  'ออกเอกสารต่อ': 'Next document',
   'ออกบิลสำเร็จ': 'Document issued',
   'ออกแบบกราฟิกแบนเนอร์โฆษณาแคมเปญครบรอบ 5 ปี': 'Banner design for a 5th anniversary campaign',
   'อัตรากำหนดเอง {0}%': 'Custom rate {0}%',

@@ -1440,7 +1440,7 @@ test('Free plan documents: a 10-a-month counter, a credit line on every page, an
  // upgrade dialog with the reason is only for accounts that see every feature)
  await page.getByRole('button',{name:'ออกเอกสารใหม่'}).click();
  await page.getByRole('menuitem').first().click();
- await expect(page.getByRole('heading',{name:'อัปเกรด',level:1})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'อัปเกรด Pro',level:1})).toBeVisible();
  await expect(page.getByRole('button',{name:'บันทึกและสร้างเอกสาร'})).toHaveCount(0);
  expect(posts.length).toBe(1);
 });

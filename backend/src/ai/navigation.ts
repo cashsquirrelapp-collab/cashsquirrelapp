@@ -10,7 +10,7 @@ export const FEATURES = {
   invoice: ['เอกสาร', '/invoice'], quotation: ['ใบเสนอราคา', '/invoice?type=quotation'],
   expenses: ['รายจ่าย', '/incomeExpense'], feedback: ['แจ้งปัญหา', '/feedback'],
   settings: ['ตั้งค่า', '/settings'], notifications: ['การแจ้งเตือน', '/settings?view=notif'],
-  line: ['เชื่อมต่อ LINE', '/settings?view=line'], plans: ['การสมัครสมาชิก', '/plans'],
+  line: ['เชื่อมต่อ LINE', '/settings?view=line'], plans: ['อัปเกรด Pro', '/plans'],
   split: ['เป้าหมายการเงิน', '/split'], report: ['รายงาน', '/report'], tax: ['ภาษี', '/tax'],
   vault: ['คลังเอกสาร', '/vault'], wht50: ['เอกสาร 50 ทวิ', '/wht50'], insight: ['วิเคราะห์ลูกค้า', '/insight'],
 } as const;

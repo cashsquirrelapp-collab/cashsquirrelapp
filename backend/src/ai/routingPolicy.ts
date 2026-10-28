@@ -150,7 +150,7 @@ const PAGE_ALIASES: Map<string, PageKey> = (() => {
   for (const [key, [label]] of Object.entries(PAGES)) add(label, key);
   // Page names only: a keyword like รายจ่ายประจำ needs the steps, so the model answers it.
   for (const feature of KNOWLEDGE_BASE.features) if (feature.id !== 'import') add(feature.name_th, feature.navigation);
-  for (const [alias, key] of Object.entries({ บอกเรา: 'feedback', หน้าแรก: 'dashboard', ใบแจ้งหนี้: 'invoice', ใบเสร็จ: 'invoice', ใบเสร็จรับเงิน: 'invoice',
+  for (const [alias, key] of Object.entries({ บอกเรา: 'feedback', การสมัครสมาชิก: 'plans', หน้าแรก: 'dashboard', ใบแจ้งหนี้: 'invoice', ใบเสร็จ: 'invoice', ใบเสร็จรับเงิน: 'invoice',
     ใบกำกับภาษี: 'invoice', เงินค้างรับ: 'receivables', แจ้งเตือน: 'notifications', ไลน์: 'line', line: 'line', สมาชิก: 'plans',
     แพ็กเกจ: 'plans', แพคเกจ: 'plans', อัปเกรด: 'plans' })) add(alias, key);
   return map;

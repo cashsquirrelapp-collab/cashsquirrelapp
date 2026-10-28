@@ -680,7 +680,7 @@ export default function App() {
                 <ArrowLeftRight className="h-4 w-4 text-brand-muted" />{tr("สลับบัญชี")}</button>
             )}
             <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('plans'); }} className={profileMenuItem}>
-              <ShoppingBag className="h-4 w-4 text-brand-muted" />{fullFeatureAccess ? tr("อัปเกรด") : tr("จัดการการสมัครสมาชิก")}
+              <ShoppingBag className="h-4 w-4 text-brand-muted" />{tr("อัปเกรด Pro")}
             </button>
             <button type="button" onClick={() => { setIsProfileMenuOpen(false); navigateTab('settings'); }} className={profileMenuItem}>
               <Settings className="h-4 w-4 text-brand-muted" />{tr("ตั้งค่า")}</button>
@@ -732,7 +732,7 @@ export default function App() {
         <span className="inline-flex shrink-0">
           <NavGlyph tab={item.key} active={isActive} outline={Icon} className={item.group === 'sub' ? 'w-4 h-4' : 'w-[19px] h-[19px]'} />
         </span>
-        <span>{item.key === 'feedback' ? (language === 'th' ? 'แจ้งปัญหา' : 'Report a problem') : item.key === 'plans' && !fullFeatureAccess ? (language === 'th' ? 'การสมัครสมาชิก' : 'Subscription') : t(item.labelKey)}</span>
+        <span>{item.key === 'feedback' ? (language === 'th' ? 'แจ้งปัญหา' : 'Report a problem') : t(item.labelKey)}</span>
         {subsOpen !== undefined && (
           <ChevronDown aria-hidden className={`ml-auto h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${subsOpen ? 'rotate-180' : ''}`} />
         )}

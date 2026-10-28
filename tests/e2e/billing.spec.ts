@@ -125,7 +125,7 @@ async function openPlans(
   `}));
   await page.goto('/plans');
   // Phones name the page on the terracotta header ("แพ็กเกจ Pro"); wider screens keep the page title.
-  await expect(page.getByRole('heading', { name: /^(อัปเกรด|แพ็กเกจ Pro)$/ }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^(อัปเกรด Pro|แพ็กเกจ Pro)$/ }).first()).toBeVisible();
   // A fresh non-Pro account may get the daily Pro promo after data loads; close it when it comes.
   const promoClose = page.getByRole('button', { name: 'ปิด', exact: true });
   if (await promoClose.waitFor({ state: 'visible', timeout: 2_500 }).then(() => true, () => false)) {

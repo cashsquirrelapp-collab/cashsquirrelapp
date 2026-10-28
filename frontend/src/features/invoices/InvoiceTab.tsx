@@ -965,7 +965,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     {issueTypes(selectedInvoice).length > 0 && (
                       <div className="hidden sm:block">
                         <NewDocumentButton secondary types={issueTypes(selectedInvoice)} onPick={type => handleIssueFrom(selectedInvoice, type)}
-                          label={tr("ออกต่อเป็น…")} menuTitle={tr("ออกต่อจาก {0}", selectedInvoice.documentNo)} itemLabel={type => tr(getDocumentMeta(type).th)} />
+                          label={tr("ออกเอกสารต่อ")} menuTitle={tr("ออกต่อจาก {0}", selectedInvoice.documentNo)} itemLabel={type => tr(getDocumentMeta(type).th)} />
                       </div>
                     )}
                     <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} aria-label={tr("ดาวน์โหลด PDF")} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint disabled:opacity-60 cursor-pointer">

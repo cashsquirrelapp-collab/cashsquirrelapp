@@ -19,6 +19,7 @@ export const app: Record<string, string> = {
   'คุณได้รับสิทธิ์ Pro จากผู้ดูแล จึงยังไม่ต้องสมัครผ่าน Stripe': 'You have Pro access granted by an administrator, so there is no need to subscribe through Stripe.',
   'งานอยู่ในสถานะรอรับเงิน': 'The job is now awaiting payment.',
   'จัดการการสมัครสมาชิก': 'Manage membership',
+  'อัปเกรด Pro': 'Upgrade to Pro',
   'จ่ายเงินครบแล้ว': 'Paid in full',
   'ชื่อ รูป และข้อมูลบัญชี': 'Name, photo and account details',
   'ซิงค์ข้อมูลระหว่างคอมและมือถืออัตโนมัติ': 'Syncs automatically between your computer and phone',
