@@ -30,6 +30,7 @@ import {
   Check,
   Copy,
   MessageSquare,
+  MessageSquareWarning,
   Flame,
   Bell,
   Mail,
@@ -976,7 +977,7 @@ export default function DashboardTab({
               { label: tr("ออกเอกสาร"), icon: IconArrowUpRight, action: () => onSwitchTab('invoice') },
               fullFeatureAccess
                 ? { label: tr("เป้าหมายออม"), icon: PiggyBank, action: () => onSwitchTab('split') }
-                : { label: tr("บอกเรา"), icon: MessageSquare, action: () => onSwitchTab('feedback') },
+                : { label: tr("แจ้งปัญหา"), icon: MessageSquareWarning, action: () => onSwitchTab('feedback') },
               { label: tr("ปฏิทิน"), icon: CalendarDays, action: () => onSwitchTab('calendar') },
             ].map(({ label, icon: Icon, action }) => (
               <button

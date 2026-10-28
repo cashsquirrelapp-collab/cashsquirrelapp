@@ -31,9 +31,9 @@ function deps(over: { admins?: string[]; links?: { user_id: string; line_user_id
 
 test('the alert says what came in, a short preview, and where to answer it', () => {
   const text = feedbackAlertText({ threadId: THREAD, action: 'create', category: 'bug', body: 'กดปุ่ม  บันทึกแล้ว\nไม่เกิดอะไรขึ้น', fromAdmin: false }, 'https://app.test');
-  assert.equal(text, 'บอกเรา · เรื่องใหม่ (แจ้งปัญหา)\n“กดปุ่ม บันทึกแล้ว ไม่เกิดอะไรขึ้น”\nอ่านและตอบได้ที่ แอดมิน › ข้อความจากผู้ใช้ › รอตอบ\nhttps://app.test/adminDashboard?view=feedback');
+  assert.equal(text, 'แจ้งปัญหา · เรื่องใหม่ (แจ้งปัญหา)\n“กดปุ่ม บันทึกแล้ว ไม่เกิดอะไรขึ้น”\nอ่านและตอบได้ที่ แอดมิน › ข้อความจากผู้ใช้ › รอตอบ\nhttps://app.test/adminDashboard?view=feedback');
   const long = feedbackAlertText({ threadId: THREAD, action: 'reply', body: 'ก'.repeat(300), fromAdmin: false }, 'https://app.test');
-  assert.match(long, /^บอกเรา · ผู้ใช้ตอบกลับในเรื่องเดิม\n“ก{120}…”/);
+  assert.match(long, /^แจ้งปัญหา · ผู้ใช้ตอบกลับในเรื่องเดิม\n“ก{120}…”/);
   // Written from an admin account (the owner trying it): the database files it under ตอบแล้ว, and the alert says so.
   assert.match(feedbackAlertText({ threadId: THREAD, action: 'create', body: 'ทดสอบ', fromAdmin: true }, 'https://app.test'), /ส่งจากบัญชีแอดมิน จึงอยู่ในกล่อง ตอบแล้ว/);
 });

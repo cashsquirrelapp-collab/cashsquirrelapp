@@ -8,7 +8,7 @@ export const FEATURES = {
   dashboard: ['ภาพรวม', '/dashboard'], incomeExpense: ['รายรับรายจ่าย', '/incomeExpense'],
   jobs: ['งาน', '/jobs'], calendar: ['ปฏิทิน', '/calendar'], receivables: ['เงินรอรับ', '/receivables'],
   invoice: ['เอกสาร', '/invoice'], quotation: ['ใบเสนอราคา', '/invoice?type=quotation'],
-  expenses: ['รายจ่าย', '/incomeExpense'], feedback: ['บอกเรา', '/feedback'],
+  expenses: ['รายจ่าย', '/incomeExpense'], feedback: ['แจ้งปัญหา', '/feedback'],
   settings: ['ตั้งค่า', '/settings'], notifications: ['การแจ้งเตือน', '/settings?view=notif'],
   line: ['เชื่อมต่อ LINE', '/settings?view=line'], plans: ['การสมัครสมาชิก', '/plans'],
   split: ['เป้าหมายการเงิน', '/split'], report: ['รายงาน', '/report'], tax: ['ภาษี', '/tax'],

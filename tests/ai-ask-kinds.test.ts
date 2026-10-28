@@ -94,7 +94,7 @@ test('a quotation never uses the client as its issuer; the user\'s own issuer go
 });
 
 test('the prompt: client details asked, issuer asked only when not saved and then kept, the payment question', () => {
-  assert.equal(PROMPT_VERSION, 'secretary-v22');
+  assert.equal(PROMPT_VERSION, 'secretary-v23');
   // secretary-v21 (owner, 2026-10-28): the document rules go with a document in the chat.
   const prompt = buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: 'x', knowledge: '-', accountContext: '-', documents: true });
   assert.doesNotMatch(buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: 'x', knowledge: '-', accountContext: '-' }), /role issuer/);

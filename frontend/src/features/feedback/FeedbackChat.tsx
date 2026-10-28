@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, ArrowUp, Check, LoaderCircle, RotateCcw } from 'lucide-react';
 import { FEEDBACK_MAX_BODY_LENGTH, FEEDBACK_MESSAGE_PAGE_SIZE, type FeedbackCategory, type FeedbackMessage, type FeedbackThread } from '../../../../shared/feedback';
 import { BrandLogo } from '../../components/brand/BrandLogo';
-import { Mascot, type MascotAction, type MascotMood } from '../../components/mascot/Mascot';
+import type { MascotAction, MascotMood } from '../../components/mascot/Mascot';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { feedbackApi } from '../../services/feedback';
 import { feedbackError } from './feedbackUi';
@@ -88,11 +88,12 @@ function usePanelBox(mobile: boolean, ref: React.RefObject<HTMLElement | null>) 
   return { box, keyboard };
 }
 
-function TeamAvatar({ mood = 'happy', action = 'idle', pop = false }: { mood?: MascotMood; action?: MascotAction; pop?: boolean }) {
+// The team's messages carry the app's logo, not the squirrel (owner, 2026-10-28: people took this page for เลขากระรอก, the AI).
+function TeamAvatar({ pop = false }: { mood?: MascotMood; action?: MascotAction; pop?: boolean }) {
   const reduce = useReducedMotion();
   return (
     <motion.span className="fbc-avatar" aria-hidden="true" initial={pop && !reduce ? { scale: 0.94, y: 10, opacity: 0 } : false} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}>
-      <Mascot mood={mood} action={action} animated={false} size={30} />
+      <BrandLogo size={20} />
       {pop && <><motion.i className="fbc-avatar-check" initial={reduce ? false : { scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.2, delay: 0.18 }}><Check size={10} strokeWidth={3} /></motion.i>{!reduce && <><i className="fbc-spark is-a" /><i className="fbc-spark is-b" /><i className="fbc-spark is-c" /></>}</>}
     </motion.span>
   );
@@ -281,12 +282,12 @@ export default function FeedbackChat({ userId, mobile = false, onBack }: { userI
         <header className="fbc-mhead">
           {onBack && <button type="button" className="fbc-back" onClick={onBack} aria-label={copy('กลับไปเมนู', 'Back to menu')}><ArrowLeft size={20} /></button>}
           <span className="fbc-mhead-logo" aria-hidden="true"><BrandLogo size={30} /></span>
-          <span className="fbc-mhead-text"><h1 id="fbc-title">{copy('บอกเรา', 'Tell us')}</h1><small>{copy('ทีมกระรอกตุนเงิน', 'The Kraroktunngern team')}</small></span>
+          <span className="fbc-mhead-text"><h1 id="fbc-title">{copy('แจ้งปัญหา', 'Report a problem')}</h1><small>{copy('ทีมกระรอกตุนเงิน', 'The Kraroktunngern team')}</small></span>
         </header>
       ) : (
         <header className="fbc-head">
-          <h1 id="fbc-title">{copy('บอกเรา', 'Tell us')}</h1>
-          <p>{copy('มีอะไรอยากบอกเราไหม? แจ้งปัญหา เสนอไอเดีย หรือพูดคุยกับทีมได้เลย', 'Anything to tell us? Report a problem, share an idea, or just talk to the team.')}</p>
+          <h1 id="fbc-title">{copy('แจ้งปัญหา', 'Report a problem')}</h1>
+          <p>{copy('แจ้งปัญหา เสนอไอเดีย หรือติดต่อทีมงานได้ที่นี่ ทีมงานจะตอบกลับในหน้านี้', 'Report a problem, share an idea or contact the team here. The team replies on this page.')}</p>
         </header>
       )}
 

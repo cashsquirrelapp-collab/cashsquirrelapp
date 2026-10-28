@@ -109,7 +109,7 @@ export function MobileHome(props: MobileHomeProps) {
     { title: tr("ออกเอกสาร"), description: quotationAccess ? tr("เสนอราคา แจ้งหนี้ หรือใบเสร็จ") : tr("ใบแจ้งหนี้ ใบเสร็จ และใบกำกับภาษี"), icon: 'document', run: props.onDocuments },
     fullFeatureAccess
       ? { title: tr("เป้าหมายออม"), description: tr("แบ่งเงินและติดตามความคืบหน้า"), icon: 'target', run: props.onGoals }
-      : { title: tr("บอกเรา"), description: tr("แจ้งปัญหา เสนอไอเดีย หรือคุยกับทีม"), icon: 'chat', run: props.onFeedback ?? props.onTools },
+      : { title: tr("แจ้งปัญหา"), description: tr("แจ้งปัญหา เสนอไอเดีย หรือติดต่อทีมงาน"), icon: 'report', run: props.onFeedback ?? props.onTools },
     { title: tr("ปฏิทิน"), description: receivablesAccess ? tr("วันส่งงานและวันครบกำหนดรับเงิน") : tr("วันส่งงานและรายการในปฏิทิน"), icon: 'calendar', run: props.onCalendar },
   ];
   const card = useCollapsingCard();
@@ -228,7 +228,7 @@ export function MobileHome(props: MobileHomeProps) {
 
       <button type="button" className="ksm-tools-entry" onClick={props.onTools}>
         <span><KsIcon name="grid" size={17} />{tr("เครื่องมือทั้งหมด")}</span>
-        <small>{fullFeatureAccess ? tr("เอกสาร · รายงาน · ภาษี") : tr("เอกสาร · ปฏิทิน · บอกเรา")}</small>
+        <small>{fullFeatureAccess ? tr("เอกสาร · รายงาน · ภาษี") : tr("เอกสาร · ปฏิทิน · แจ้งปัญหา")}</small>
         <KsIcon name="chevron" size={17} />
       </button>
 

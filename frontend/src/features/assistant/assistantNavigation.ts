@@ -4,7 +4,7 @@ export type NavigationMode = 'manual' | 'auto';
 export type NavigationCard = { kind: 'navigation'; label: string; path: string; autoOpen: boolean };
 export type NavigationContext = { accountId?: string; workspaceSlug?: string | null; fullFeatureAccess?: boolean };
 const FEATURES = new Set(['dashboard', 'incomeExpense', 'jobs', 'calendar', 'receivables', 'invoice', 'feedback', 'split', 'report', 'tax', 'vault', 'wht50', 'insight', 'settings', 'plans']);
-const LABELS: Record<string, string> = { 'ภาพรวม': 'dashboard', 'รายรับรายจ่าย': 'incomeExpense', 'รายรับ / รายจ่าย': 'incomeExpense', 'งาน': 'jobs', 'หน้างาน': 'jobs', 'ปฏิทิน': 'calendar', 'เงินรอรับ': 'receivables', 'เอกสาร': 'invoice', 'หน้าเอกสาร': 'invoice', 'ใบเสนอราคา': 'invoice', 'บอกเรา': 'feedback', 'เป้าหมาย': 'split', 'รายงาน': 'report', 'ภาษี': 'tax', 'คลังเอกสาร': 'vault', 'ใบ 50 ทวิ': 'wht50' };
+const LABELS: Record<string, string> = { 'ภาพรวม': 'dashboard', 'รายรับรายจ่าย': 'incomeExpense', 'รายรับ / รายจ่าย': 'incomeExpense', 'งาน': 'jobs', 'หน้างาน': 'jobs', 'ปฏิทิน': 'calendar', 'เงินรอรับ': 'receivables', 'เอกสาร': 'invoice', 'หน้าเอกสาร': 'invoice', 'ใบเสนอราคา': 'invoice', 'แจ้งปัญหา': 'feedback', 'บอกเรา': 'feedback', 'เป้าหมาย': 'split', 'รายงาน': 'report', 'ภาษี': 'tax', 'คลังเอกสาร': 'vault', 'ใบ 50 ทวิ': 'wht50' };
 const DOCUMENT_TYPES = new Set(['quotation', 'invoice', 'receipt', 'taxInvoice', 'receiptTaxInvoice']);
 const SETTINGS_VIEWS = new Set(['home', 'profile', 'business', 'fixed', 'notif', 'line']);
 

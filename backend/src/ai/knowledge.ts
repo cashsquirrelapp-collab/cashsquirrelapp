@@ -9,7 +9,7 @@ import { KNOWLEDGE_BASE, launched, type AppFeature } from './knowledgeBase.js';
 interface Missing { ask: string; answer: string }
 export const LIVE_FEATURES: readonly AppFeature[] = KNOWLEDGE_BASE.features.filter(feature => feature.status === 'live');
 const HIDDEN_FEATURES: readonly AppFeature[] = KNOWLEDGE_BASE.features.filter(feature => feature.status !== 'live');
-const NOT_LAUNCHED = 'ยังไม่เปิดให้ใช้งานในตอนนี้ ตอบสั้น ๆ ว่ายังไม่มีในแอปตอนนี้ ห้ามอธิบายวิธีใช้ ห้ามเดาหรือสัญญาว่าจะมีเมื่อไร และเสนอเมนู บอกเรา ถ้าอยากให้มี';
+const NOT_LAUNCHED = 'ยังไม่เปิดให้ใช้งานในตอนนี้ ตอบสั้น ๆ ว่ายังไม่มีในแอปตอนนี้ ห้ามอธิบายวิธีใช้ ห้ามเดาหรือสัญญาว่าจะมีเมื่อไร และเสนอเมนู แจ้งปัญหา ถ้าอยากให้มี';
 
 const norm = (text: string) => text.toLowerCase()
   .replace(/[๐-๙]/g, digit => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(digit)))

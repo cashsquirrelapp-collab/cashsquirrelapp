@@ -159,7 +159,7 @@ test('บอกเรา chat: sends once, thanks only after the save, shows tea
   const pauseCreate = new Promise<void>(resolve => { releaseCreate = resolve; });
   const mock = await setup(page, { pauseCreate });
   await page.goto('/feedback/feedback-user');
-  await expect(page.getByRole('heading', { name: 'บอกเรา', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'แจ้งปัญหา', exact: true })).toBeVisible();
   // first visit: one welcome bubble, no fake history
   await expect(page.getByText('สวัสดีครับ 👋 มีอะไรอยากบอกเราไหม? แจ้งปัญหาหรือเสนอไอเดียได้เลยนะครับ', { exact: true })).toBeVisible();
   await expect(page.getByRole('radio', { name: 'ทั่วไป', exact: true })).toHaveAttribute('aria-checked', 'true');
@@ -223,7 +223,7 @@ test('บอกเรา on a 390px phone: own header, composer clear of the bot
   await page.setViewportSize({ width: 390, height: 844 });
   const mock = await setup(page, { seeded: true });
   await page.goto('/feedback/feedback-user');
-  await expect(page.getByRole('heading', { name: 'บอกเรา', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'แจ้งปัญหา', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'กลับไปเมนู', exact: true })).toBeVisible();
   await expect(page.getByText('ปัญหาหน้าจอเล็ก', { exact: true })).toBeVisible();
   const composer = await page.getByLabel('ข้อความถึงทีม', { exact: true }).boundingBox();
@@ -337,11 +337,11 @@ test('390px admin inbox: one pane at a time, reply and status from the phone, ba
   expect(mock.unhandledApi).toEqual([]);
 });
 
-test('phase one hides advanced navigation for normal accounts; the feedback entry is called บอกเรา', async ({ page }) => {
+test('phase one hides advanced navigation for normal accounts; the feedback entry is called แจ้งปัญหา', async ({ page }) => {
   const mock = await setup(page);
   await page.goto('/feedback/feedback-user');
   const sidebar = page.locator('aside').first();
-  await expect(sidebar.getByRole('button', { name: 'บอกเรา', exact: true })).toBeVisible();
+  await expect(sidebar.getByRole('button', { name: 'แจ้งปัญหา', exact: true })).toBeVisible();
   for (const name of ['ภาษี', 'รายงาน', 'วิเคราะห์รายได้', 'คลังเอกสาร', 'ทีม']) await expect(sidebar.getByRole('button', { name, exact: true })).toHaveCount(0);
   await page.goto('/tax/feedback-user');
   await expect(page).toHaveURL(/\/dashboard\/feedback-user$/);

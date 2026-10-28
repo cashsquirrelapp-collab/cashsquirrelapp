@@ -41,7 +41,7 @@ function feature(entry: Omit<AppFeature, 'status'>): AppFeature {
 }
 
 export const KNOWLEDGE_BASE = {
-  version: 'kb-2026-10-25.3',
+  version: 'kb-2026-10-28.1',
   route_pattern: '/{page}/{workspace}; workspace is the current permitted workspace slug, never invent it.',
   availability: 'ส่วนที่เปิดให้ผู้ใช้ทุกคนตามเมนูของผู้ใช้ทั่วไป ส่วนอื่นยังไม่เปิดให้ใช้งาน AI, LINE, แจ้งเตือน และชำระเงินยังขึ้นกับสิทธิ์ Pro การเชื่อมบัญชี และสถานะบริการจริง',
   plans: {
@@ -188,11 +188,12 @@ export const KNOWLEDGE_BASE = {
       verified_from: 'frontend/src/features/assistant/assistantApi.ts, useDictation.ts, audioRecorder.ts, VoiceComposer.tsx; backend/src/ai',
     }),
     feature({
-      id: 'feedback', navigation: 'feedback', name_th: 'บอกเรา', name_en: 'Feedback', route: '/feedback/{workspace}',
-      description: 'แจ้งปัญหา เสนอไอเดีย หรือพูดคุยกับทีม และกลับมาอ่านคำตอบจากทีมงานได้',
-      how_to: ['เมนู บอกเรา เลือกประเภท เขียนรายละเอียดแล้วส่ง', 'เปิดเรื่องเดิมเพื่อติดตามและตอบกลับ'],
+      // Renamed from บอกเรา (owner, 2026-10-28): people took it for เลขากระรอก. It reaches the team, not the AI.
+      id: 'feedback', navigation: 'feedback', name_th: 'แจ้งปัญหา', name_en: 'Report a problem', route: '/feedback/{workspace}',
+      description: 'แจ้งปัญหา เสนอไอเดีย หรือติดต่อทีมงาน (คนในทีมตอบ ไม่ใช่เลขากระรอก) และกลับมาอ่านคำตอบจากทีมงานได้',
+      how_to: ['เมนู แจ้งปัญหา เลือกประเภท เขียนรายละเอียดแล้วส่ง', 'เปิดเรื่องเดิมเพื่อติดตามและตอบกลับ'],
       limits: ['ต้องเข้าสู่ระบบด้วยบัญชีจริง โหมดทดลองส่งข้อความไม่ได้'],
-      keywords: ['บอกเรา', 'feedback', 'แจ้งปัญหา', 'เสนอไอเดีย', 'ข้อเสนอแนะ', 'ติดต่อทีม'],
+      keywords: ['แจ้งปัญหา', 'บอกเรา', 'feedback', 'เสนอไอเดีย', 'ข้อเสนอแนะ', 'ติดต่อทีม', 'ติดต่อทีมงาน'],
       verified_from: 'frontend/src/features/feedback; walked through as an ordinary user 2026-10-24',
     }),
     feature({

@@ -155,6 +155,7 @@ import {
   Clock,
   Receipt,
   MessageSquare,
+  MessageSquareWarning,
   Presentation,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -324,7 +325,8 @@ const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ cl
   { key: 'groups', labelKey: 'nav.groups', icon: Users, group: 'more' },
   // เลขากระรอก, the chat assistant (owner, 2026-10-23): a Pro screen preview, open to every member since pkg41.
   { key: 'assistant', labelKey: 'nav.assistant', icon: Sparkles, group: 'core' },
-  { key: 'feedback', labelKey: 'nav.feedback', icon: MessageSquare, group: 'core' },
+  // แจ้งปัญหา (was บอกเรา; owner, 2026-10-28: people took it for เลขากระรอก): a report icon, not a chat bubble.
+  { key: 'feedback', labelKey: 'nav.feedback', icon: MessageSquareWarning, group: 'core' },
   { key: 'plans', labelKey: 'nav.plans', icon: ShoppingBag, group: 'bottom' },
   { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
 ];
@@ -619,7 +621,7 @@ export default function App() {
         { key: 'theme', title: tr("โหมดสว่างและมืด"), description: '', icon: darkMode ? 'moon' : 'sun', search: "มืด สว่าง ธีม dark", value: darkMode ? tr("มืด") : tr("สว่าง"), onOpen: () => setDarkMode(!darkMode) },
         { key: 'language', title: tr("ภาษา"), description: '', icon: 'globe', search: "ภาษา language english ไทย", value: language === 'th' ? tr("ไทย") : 'English', onOpen: toggleLanguage },
         ...tool('settings', tr("ตั้งค่าทั้งหมด"), tr("ผู้ออกเอกสาร สำรองข้อมูล และอื่น ๆ"), 'settings', "นำเข้า เป้ารายรับ สำรอง ผู้ออกเอกสาร"),
-        ...tool('feedback', tr("บอกเรา"), tr("แจ้งปัญหา เสนอไอเดีย หรือคุยกับทีม"), 'chat', "feedback ข้อเสนอแนะ ติดต่อ แจ้งปัญหา ไอเดีย"),
+        ...tool('feedback', tr("แจ้งปัญหา"), tr("แจ้งปัญหา เสนอไอเดีย หรือติดต่อทีมงาน"), 'report', "feedback ข้อเสนอแนะ ติดต่อ แจ้งปัญหา ไอเดีย"),
         { key: 'logout', title: tr("ออกจากระบบ"), description: '', icon: 'logout', search: 'logout ออก', onOpen: () => {
           setIsMobileMenuOpen(false);
           triggerConfirm(tr("ออกจากระบบ"), tr("คุณต้องการออกจากระบบจากแอปพลิเคชันหรือไม่?"), async () => { await handleSignOut(); });
@@ -730,7 +732,7 @@ export default function App() {
         <span className="inline-flex shrink-0">
           <NavGlyph tab={item.key} active={isActive} outline={Icon} className={item.group === 'sub' ? 'w-4 h-4' : 'w-[19px] h-[19px]'} />
         </span>
-        <span>{item.key === 'feedback' ? (language === 'th' ? 'บอกเรา' : 'Tell us') : item.key === 'plans' && !fullFeatureAccess ? (language === 'th' ? 'การสมัครสมาชิก' : 'Subscription') : t(item.labelKey)}</span>
+        <span>{item.key === 'feedback' ? (language === 'th' ? 'แจ้งปัญหา' : 'Report a problem') : item.key === 'plans' && !fullFeatureAccess ? (language === 'th' ? 'การสมัครสมาชิก' : 'Subscription') : t(item.labelKey)}</span>
         {subsOpen !== undefined && (
           <ChevronDown aria-hidden className={`ml-auto h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${subsOpen ? 'rotate-180' : ''}`} />
         )}

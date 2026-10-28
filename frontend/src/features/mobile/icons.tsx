@@ -50,6 +50,8 @@ const PATHS = {
   arrowUp: '<path d="M12 19V5m-6 6 6-6 6 6"/>',
   bars: '<path d="M6 19v-5m6 5V9m6 10V5"/>',
   chat: '<path d="M12 4c5 0 9 3.1 9 7s-4 7-9 7c-.9 0-1.8-.1-2.6-.3L5 20l1-3.6C4.2 15.1 3 13.2 3 11c0-3.9 4-7 9-7Z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>',
+  // แจ้งปัญหา (2026-10-28): the bubble with an exclamation mark, so it does not read as a chat with เลขา.
+  report: '<path d="M12 4c5 0 9 3.1 9 7s-4 7-9 7c-.9 0-1.8-.1-2.6-.3L5 20l1-3.6C4.2 15.1 3 13.2 3 11c0-3.9 4-7 9-7Z"/><path d="M12 7.5v4M12 14.5h.01"/>',
 } as const;
 
 export type KsIconName = keyof typeof PATHS;

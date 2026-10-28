@@ -40,6 +40,7 @@ export const mobile: Record<string, string> = {
   "เลือกสิ่งที่ต้องการทำต่อ": "Choose what to do next",
   "เสนอราคา แจ้งหนี้ หรือใบเสร็จ": "Quotations, invoices or receipts",
   "เอกสาร · ปฏิทิน · บอกเรา": "Documents · Calendar · Tell us",
+  "เอกสาร · ปฏิทิน · แจ้งปัญหา": "Documents · Calendar · Report a problem",
   "เอกสาร · รายงาน · ภาษี": "Documents · Reports · Tax",
   "แจ้งปัญหา เสนอไอเดีย หรือคุยกับทีม": "Report a problem, share an idea or talk to the team",
   "แบ่งเงินและติดตามความคืบหน้า": "Split money and track progress",

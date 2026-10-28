@@ -14,7 +14,7 @@ const TH = {
   secretary: 'เลขากระรอกเป็นผู้ช่วย AI ที่พัฒนาขึ้นสำหรับ Krarok โดยคุณปาร์ค ผู้ก่อตั้ง ส่วนรายละเอียดเทคโนโลยีภายในเป็นข้อมูลของระบบครับ',
   team: 'ตอนนี้ Krarok มีผู้ก่อตั้ง 1 คน คือคุณนพรัตน์ นาวะบุตร (ปาร์ค) ซึ่งดูแลการพัฒนาเองครับ',
   goal: 'เป้าหมายคือทำให้การจัดการงาน เงิน และเอกสารของฟรีแลนซ์เป็นเรื่องง่าย ตอนนี้ในแอปมีการบันทึกงานและการรับเงิน ใบเสนอราคาและใบแจ้งหนี้ เลขากระรอก และการแจ้งเตือนผ่าน LINE ส่วนแผนต่อไปที่ยังไม่มีในแอป คือรองรับทีมและเอเจนซี คอมมูนิตี้ของคนทำงานอิสระ และศึกษาการเชื่อมข้อมูลธนาคารผ่านช่องทางที่ได้รับอนุญาตครับ',
-  contact: 'ถ้าต้องการส่งความเห็นหรือข้อเสนอถึงผู้พัฒนา Krarok ส่งได้ที่เมนู “บอกเรา” ในแอปครับ',
+  contact: 'ถ้าต้องการส่งความเห็นหรือข้อเสนอถึงผู้พัฒนา Krarok ส่งได้ที่เมนู “แจ้งปัญหา” ในแอปครับ',
 };
 const EN = {
   who: 'Krarok (กระรอกตุนเงิน) was founded and built by นพรัตน์ นาวะบุตร (Park), its only founder.',
@@ -23,7 +23,7 @@ const EN = {
   secretary: 'Krarok Secretary is an AI assistant developed for Krarok by its founder, Park. The details of the technology behind it are internal to the system.',
   team: 'Krarok has one founder, นพรัตน์ นาวะบุตร (Park), who also builds it.',
   goal: 'The goal is to make work, money and documents simple for freelancers. The app already has jobs and payments, quotations and invoices, Krarok Secretary and LINE reminders. Planned and not in the app yet: support for teams and agencies, a community for independent workers, and a study of connecting bank data through authorised channels.',
-  contact: 'You can send feedback or ideas to the Krarok developer from the “บอกเรา” (Feedback) menu in the app.',
+  contact: 'You can send feedback or ideas to the Krarok developer from the “แจ้งปัญหา” (Report a problem) menu in the app.',
 };
 export type FounderTopic = keyof typeof TH;
 

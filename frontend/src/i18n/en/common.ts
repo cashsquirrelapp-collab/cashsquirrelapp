@@ -33,6 +33,8 @@ export const common: Record<string, string> = {
   'ทั้งหมด': 'All',
   'ทุกประเภท': 'All types',
   'บอกเรา': 'Tell us',
+  'แจ้งปัญหา': 'Report a problem',
+  'แจ้งปัญหา เสนอไอเดีย หรือติดต่อทีมงาน': 'Report a problem, share an idea or contact the team',
   'บันทึก': 'Save',
   'บันทึกการแก้ไข': 'Save changes',
   'บันทึกรับเงิน': 'Record payment',

@@ -73,7 +73,7 @@ test('gateway: common direct answers use V1 public biography, with no model call
 });
 
 test('gateway: existing secretary/contact answers remain available for standalone questions', async () => {
-  for (const [question, expected] of [['ใครสร้างเลขา', /ผู้ช่วย AI|เลขากระรอก/], ['อยากติดต่อผู้ก่อตั้ง', /บอกเรา/]] as const) {
+  for (const [question, expected] of [['ใครสร้างเลขา', /ผู้ช่วย AI|เลขากระรอก/], ['อยากติดต่อผู้ก่อตั้ง', /แจ้งปัญหา/]] as const) {
     const { reply, sent } = await ask(question);
     assert.equal(sent.length, 0, question);
     assert.match(reply.text, expected, question);
@@ -224,6 +224,7 @@ test('gateway: an action-first mixed request retains founder context and its nor
 });
 
 test('gateway: prompt version and bytes remain unchanged by the knowledge connection', async () => {
+  // secretary-v23 (owner, 2026-10-28): the feedback menu is called แจ้งปัญหา (was บอกเรา).
   // secretary-v22 (owner, 2026-10-28): the saved issuer profile comes with the document rules (ISSUER), no read step.
   // secretary-v21 (owner, 2026-10-28): document rules with a document in the chat, CLOSING LINE (a step of cards ends the turn).
   // secretary-v20 (owner, 2026-10-28, fewer tokens): change rules with the action route, file rules with a file, PAST WORK.
@@ -231,8 +232,8 @@ test('gateway: prompt version and bytes remain unchanged by the knowledge connec
   // replaces the remembered PREFERRED NAME. secretary-v17 (owner-approved
   // 2026-10-26, Accounting Brain): one ACCOUNTING REFERENCE slot added after FOUNDER;
   // every existing rule is byte-identical and a message without that slot builds exactly the v16 prompt.
-  assert.equal(PROMPT_VERSION, 'secretary-v22');
+  assert.equal(PROMPT_VERSION, 'secretary-v23');
   const prompt = await readFile(new URL('../backend/src/ai/prompt.ts', import.meta.url));
-  // Captured before the approved gateway-only connection; recaptured for secretary-v22. No dependency on a local audit folder.
-  assert.equal(createHash('sha256').update(prompt).digest('hex'), '80398298514ee46ddf721de1f16c316ed748bb4ec24bbfd050547198c1b570e6');
+  // Captured before the approved gateway-only connection; recaptured for secretary-v23. No dependency on a local audit folder.
+  assert.equal(createHash('sha256').update(prompt).digest('hex'), '8764ca4681533eed82ec0d8b03a5929ba924bfe60eb2fb51b6ccdb608f60abf1');
 });
