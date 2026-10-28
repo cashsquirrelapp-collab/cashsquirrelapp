@@ -98,7 +98,8 @@
 .dark .pg-pill-x { background: #2C2622; color: #B9B2AC; }
 
 /* While the card is out, the squirrel's hello and news bubbles wait (they would sit under the card). */
-.pg-card-open .asx-hello-say, .pg-card-open .asx-buddy.is-pill.is-stand .asx-climb-say { visibility: hidden; }
+/* (their own animations switch visibility, so those stop too) */
+.pg-card-open .asx-hello-say, .pg-card-open .asx-buddy.is-pill.is-stand .asx-climb-say { animation: none; visibility: hidden; }
 
 @keyframes pg-in { from { opacity: 0; transform: translateY(12px) scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes pg-pulse { 0% { box-shadow: 0 0 0 0 rgba(230, 95, 43, 0.45); } 100% { box-shadow: 0 0 0 10px rgba(230, 95, 43, 0); } }
@@ -124,6 +125,6 @@
 .pg-pill-wrap.is-mobile { right: 88px; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .pg-pill-wrap.is-mobile.is-chat-page { right: 12px; }
 .pg-coach.is-lost.is-mobile { left: 12px; right: 12px; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
-.pg-pill-open .asx-buddy.is-mobile .asx-hello-say { visibility: hidden; }
+.pg-pill-open .asx-buddy.is-mobile .asx-hello-say { animation: none; visibility: hidden; }
 @keyframes pg-rise { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
 

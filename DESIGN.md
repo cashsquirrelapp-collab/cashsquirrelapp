@@ -210,6 +210,17 @@ card does not need:
 - Phones (owner, 2026-10-29): the card rises from the bottom over the tab bar like an iOS sheet (grip, no tail); the
   pill sits beside the phone's squirrel, whose hello bubble waits meanwhile.
 
+### Weekly Pro invitation (owner, 2026-10-29; design B with the character clip)
+
+- Accounts of their own not on Pro see it on the overview, at most once in 7 days; ✕ and ไว้ทีหลัง wait for next week, สมัคร
+  Pro opens the plans page (`ProKvBanner.tsx`, the date in localStorage `krarok.proKv.<userId>`). Computers and iPads: a
+  dialog; phones: a sheet from the bottom. Automated browsers see it only with `?kv=auto` (weekly rule) or `?kv=pro` (now).
+- Left: a 30 s looping clip in flat CI drawings (มายด์ and บอส) whose phone screens are the app's real full screens
+  (`proKvClip.ts` and `public/kv/`, generated from the design canvas; do not edit by hand). Scenes crossfade, the next on
+  top, so nothing flashes. Reduced motion shows `public/kv/poster.jpg`.
+- Right: "พูดภาษาปกติ เลขาจัดการให้", four ticks, the month's price (฿249 struck while the promotion runs), the countdown chips.
+  The plans page's gradient exception applies here.
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

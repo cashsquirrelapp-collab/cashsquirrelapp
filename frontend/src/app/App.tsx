@@ -37,6 +37,7 @@ const FlexDisplay = lazy(() => import('../features/flex/FlexDisplay'));
 // The squirrel's arrival: only right after a payment for Pro is confirmed (owner, 2026-10-23: "ขึ้นเฉพาะตอนที่เพิ่งเติมโปรเสร็จ").
 const AssistantBirth = lazy(() => import('../features/assistant/AssistantBirth'));
 const ProGuide = lazy(() => import('../features/assistant/ProGuide'));
+const ProKvBanner = lazy(() => import('../features/billing/ProKvBanner'));
 const WelcomeOnboarding = lazy(() => import('../features/onboarding/WelcomeOnboarding'));
 import type { OnboardingResult } from '../features/onboarding/WelcomeOnboarding';
 import { jobTypesForOccupations, onboardingRecord, personaForWorkType, shouldShowOnboarding, type OnboardingStatus } from '../../../shared/onboarding';
@@ -2845,6 +2846,33 @@ export default function App() {
     || ['groups', 'plans', 'adminDashboard', 'feedback'].includes(activeTab));
   React.useEffect(() => { if (pageReady) hideSplash(); }, [pageReady]);
 
+  // The weekly Pro invitation (owner, 2026-10-29: "ขึ้นทุกอาทิตย์", design B with the character clip): accounts of their
+  // own not on Pro, on the overview once it has settled and nothing else is open; at most once in 7 days (✕ and ไว้ทีหลัง
+  // wait for next week). Automated browsers never get it unless ?kv=auto (the weekly rule) or ?kv=pro (now) asks.
+  const [proKvOpen, setProKvOpen] = useState(false);
+  const kvParamRef = useRef<string | null | undefined>(undefined);
+  if (kvParamRef.current === undefined) kvParamRef.current = new URLSearchParams(window.location.search).get('kv');
+  const proKvEligible = Boolean(session?.user?.id) && !session?.isGuest && !isPro && !financeGroupId && cloudSyncStatus === 'synced'
+    && loadedFinanceOwner === financeOwner && !onboardingFirst && !onboardingEdit && !birthOpen && !dialog.isOpen && !isProPromoOpen && activeTab === 'dashboard';
+  useEffect(() => {
+    if (!proKvEligible || proKvOpen || !session?.user?.id) return;
+    const param = kvParamRef.current;
+    if (navigator.webdriver && param !== 'auto' && param !== 'pro') return;
+    const key = `krarok.proKv.${session.user.id}`;
+    let last = 0;
+    try { last = Date.parse(localStorage.getItem(key) || '') || 0; } catch { /* private window: once per visit */ }
+    if (param !== 'pro' && Date.now() - last < 7 * 86_400_000) return;
+    const timer = window.setTimeout(() => {
+      kvParamRef.current = null;
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('kv')) { params.delete('kv'); window.history.replaceState(window.history.state, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`); }
+      try { localStorage.setItem(key, new Date().toISOString()); } catch { /* shown this visit only */ }
+      setProKvOpen(true);
+    }, param === 'pro' ? 300 : 2500);
+    return () => window.clearTimeout(timer);
+  }, [proKvEligible, proKvOpen, session?.user?.id]);
+  useEffect(() => { if (isPro && proKvOpen) setProKvOpen(false); }, [isPro, proKvOpen]);
+
   if (MotionStudy && pathname === '/motion-study') return <Suspense fallback={null}><MotionStudy /></Suspense>;
   if (loadingSession) {
     // A refresh by someone who was signed in: lay out the app's skeleton straight away (the page
@@ -3569,6 +3597,11 @@ export default function App() {
               userName={routeContext?.profile.displayName || undefined} hidden={birthOpen || activeTab === 'feedback'} arrival={buddyArrival}
               onOpenChat={handoff => { setChatHandoff(handoff ?? null); navigateTab('assistant'); }} onNavigate={path => navigateAssistant(path)} transport={assistantTransport} connecting={assistantChecking} briefing={briefing}
               carried={buddyCarry} onCarried={() => setBuddyCarry(null)} />
+          </Suspense>
+        )}
+        {proKvOpen && (
+          <Suspense fallback={null}>
+            <ProKvBanner mobile={isPhone} onClose={() => setProKvOpen(false)} onSubscribe={() => { setProKvOpen(false); navigateTab('plans'); }} />
           </Suspense>
         )}
         {showProGuide && session && (

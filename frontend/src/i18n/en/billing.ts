@@ -100,4 +100,12 @@ export const billing: Record<string, string> = {
   'ออกต่อจากใบเดิมได้ ไม่มีข้อความเครดิตของแอปบนเอกสาร': 'Issue the next document from the last one, with no app credit line on it',
   'ได้ใช้ฟีเจอร์ใหม่ก่อนใคร': 'New features before anyone else',
   'ปิดรายละเอียด': 'Close details',
+  // The weekly Pro invitation (2026-10-29).
+  'หลายโปรเจกต์ก็บอกทีเดียว น้องแยกบันทึกให้ครบ': 'Tell it about many projects at once; it records each one',
+  'ถามได้ทุกเรื่อง ใครยังไม่จ่าย เดือนนี้เหลือเท่าไร': 'Ask anything: who has not paid, what is left this month',
+  'เตือนเงินครบกำหนดทุกเช้า ทาง LINE และอีเมล': 'Reminders of money due every morning, by LINE and email',
+  'ออกเอกสารได้ไม่จำกัด': 'Unlimited documents',
+  'พูดภาษาปกติ': 'Just say it plainly,',
+  'เลขาจัดการให้': 'your assistant handles it',
+  'Pro · ราคาพิเศษ': 'Pro · special price',
 };

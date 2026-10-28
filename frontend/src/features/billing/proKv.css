@@ -1,0 +1,67 @@
+/* The weekly Pro invitation (owner, 2026-10-29; design B). CI colours; gradients and glow as on the plans page. */
+.pkv { position: fixed; inset: 0; z-index: 160; display: grid; place-items: center; padding: 16px; font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans); }
+.pkv-scrim { position: absolute; inset: 0; background: rgba(28, 25, 23, 0.46); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: pkv-fade 0.3s ease both; }
+.pkv-card { position: relative; display: flex; width: min(900px, 100%); min-height: 540px; overflow: hidden; border-radius: 28px; background: #FFFFFF; color: #1C1917;
+  box-shadow: 0 40px 90px rgba(28, 25, 23, 0.45); animation: pkv-in 0.55s cubic-bezier(0.34, 1.3, 0.64, 1) both; }
+.pkv-card:focus { outline: none; }
+.dark .pkv-card { background: #211C19; color: #F2F0ED; box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.pkv-left { position: relative; flex: 0 0 408px; overflow: hidden; box-sizing: border-box; padding: 40px 24px 26px; background: linear-gradient(165deg, #FFE9DC 0%, #FFF4EC 55%, #FFE7BF 100%); }
+.pkv-stage { position: relative; width: 360px; height: 460px; }
+.pkv-poster { display: block; width: 360px; height: 460px; border-radius: 22px; }
+.pkv-right { position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; box-sizing: border-box; padding: 34px 32px 28px; }
+.pkv-close { position: absolute; right: 16px; top: 16px; z-index: 2; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #ECE5DF; border-radius: 50%; background: #FFFFFF; color: #6F6964; cursor: pointer; }
+.dark .pkv-close { border-color: rgba(255, 255, 255, 0.12); background: #2B2521; color: #C9C4BF; }
+.pkv-close:focus-visible, .pkv-cta:focus-visible, .pkv-later:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
+.pkv-pill { align-self: flex-start; padding: 3px 11px; border-radius: 999px; background: #FFF1E8; color: #A63F1B; font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+.dark .pkv-pill { background: rgba(255, 164, 115, 0.14); color: #FFB48A; }
+.pkv-title { margin: 12px 0 0; font-size: 30px; font-weight: 600; line-height: 1.45; }
+.pkv-grad { padding-block: 0.04em; background: linear-gradient(90deg, #C24A16, #E65F2B 50%, #A63F1B); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.dark .pkv-grad { background: linear-gradient(90deg, #FFC9A8, #FFA473 50%, #FA7E52); -webkit-background-clip: text; background-clip: text; }
+.pkv-ticks { margin: 16px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; line-height: 1.55; }
+.pkv-ticks li { display: flex; gap: 9px; }
+.pkv-tick { flex: none; display: grid; place-items: center; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; background: #FFE2D1; color: #C24A16; }
+.pkv-tick.is-line { background: #FFF4DE; }
+.pkv-tick.is-line img { width: 14px; height: 14px; border-radius: 3px; }
+.pkv-tick.is-docs { background: #F7D9CC; color: #A63F1B; }
+.dark .pkv-tick { background: rgba(240, 116, 64, 0.2); color: #FFB48A; }
+.pkv-offer { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 18px; }
+.pkv-price { margin: 0; display: flex; align-items: baseline; gap: 8px; }
+.pkv-price s { color: #9A938D; font-size: 15px; }
+.pkv-price b { font-family: 'IBM Plex Sans', var(--font-sans); font-size: 42px; font-weight: 600; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.pkv-price > span { font-size: 13px; color: #6F6964; }
+.dark .pkv-price > span { color: #B9B2AC; }
+.pkv-count { justify-content: flex-start; }
+.pkv-actions { margin-top: 14px; display: flex; gap: 10px; }
+.pkv-cta { position: relative; overflow: hidden; flex: 1 1 auto; min-height: 52px; border: 0; border-radius: 16px; background: linear-gradient(135deg, #C8501C, #B4400F); color: #FFFFFF; font-family: inherit; font-size: 17px; font-weight: 600; cursor: pointer; box-shadow: 0 14px 28px rgba(230, 95, 43, 0.4); }
+.pkv-cta > span:last-child { position: relative; }
+.pkv-shine { position: absolute; top: 0; bottom: 0; left: 0; width: 38%; background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0)); animation: pkv-shine 3.4s ease-in-out infinite; pointer-events: none; }
+.pkv-later { flex: 0 0 auto; min-height: 52px; padding: 0 18px; border: 1px solid #ECE5DF; border-radius: 16px; background: #FFFFFF; color: #6F6964; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.dark .pkv-later { border-color: rgba(255, 255, 255, 0.12); background: transparent; color: #C9C4BF; }
+
+/* iPad portrait and small laptops: the clip a little smaller so the offer keeps its room. */
+@media (max-width: 960px) {
+  .pkv:not(.is-mobile) .pkv-left { flex-basis: 332px; padding: 36px 16px 20px; }
+  .pkv:not(.is-mobile) .pkv-stage { width: 300px; height: 384px; }
+  .pkv:not(.is-mobile) .pkv-stage > * { transform: scale(0.8333); transform-origin: 0 0; }
+}
+
+/* Phones: a sheet from the bottom over the tab bar, the clip on top, the offer under it. */
+.pkv.is-mobile { place-items: end center; padding: 0 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
+.pkv.is-mobile .pkv-card { flex-direction: column; width: 100%; min-height: 0; max-height: calc(100dvh - 16px); overflow-y: auto; border-radius: 30px; animation-name: pkv-rise; }
+.pkv.is-mobile .pkv-left { flex: none; height: 404px; padding: 0; }
+.pkv-grip { position: absolute; left: 50%; top: 8px; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: rgba(60, 60, 67, 0.22); }
+.pkv.is-mobile .pkv-stage { position: absolute; left: 50%; top: 24px; margin-left: -180px; transform: scale(0.82); transform-origin: 50% 0; }
+.pkv.is-mobile .pkv-right { position: static; padding: 14px 18px 18px; }
+.pkv.is-mobile .pkv-close { top: 14px; right: 12px; width: 30px; height: 30px; border: 0; background: rgba(255, 255, 255, 0.9); }
+.pkv.is-mobile .pkv-title { margin: 0; font-size: 22px; }
+.pkv.is-mobile .pkv-offer { margin-top: 10px; padding-top: 0; gap: 8px; }
+.pkv.is-mobile .pkv-price b { font-size: 30px; }
+.pkv.is-mobile .pkv-actions { flex-direction: column; gap: 6px; margin-top: 12px; }
+.pkv.is-mobile .pkv-cta { min-height: 50px; font-size: 16.5px; }
+.pkv.is-mobile .pkv-later { min-height: 40px; border: 0; background: none; color: #C24A16; font-size: 13px; }
+
+@keyframes pkv-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pkv-in { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes pkv-rise { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+@keyframes pkv-shine { 0% { transform: translateX(-140%) skewX(-18deg); } 55%, 100% { transform: translateX(320%) skewX(-18deg); } }
+@media (prefers-reduced-motion: reduce) { .pkv-scrim, .pkv-card, .pkv-shine { animation: none; } }
