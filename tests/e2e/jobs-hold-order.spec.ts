@@ -37,7 +37,10 @@ test('receiving money from a row keeps the row and the page where they were; the
   await row.scrollIntoViewIfNeeded();
   const before = { index: (await order(page)).indexOf('late'), scroll: await scrollTop(page), y: (await row.boundingBox())!.y };
   expect(before.index).toBe((await order(page)).length - 1); // overdue and oldest: the last row
-  await row.getByRole('button', { name: /รับเงิน/ }).first().click();
+  // Computers and iPads have no receive button in the table since 2026-10-28 (owner: "เอาปุ่มรับเงินออก ... iPad ก็ไม่ต้อง");
+  // the row's ⋯ menu takes the money with the same form.
+  await row.getByRole('button', { name: 'ตัวเลือกของงาน งานค้างจ่ายตัวอย่าง', exact: true }).click();
+  await page.getByRole('menu', { name: 'ตัวเลือกของงาน งานค้างจ่ายตัวอย่าง' }).getByRole('menuitem', { name: 'รับเงินครบ', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /บันทึก|ยืนยัน|รับเงินครบ/ }).last().click();
   await expect(page.getByText(/รับเงินครบแล้ว · งานค้างจ่ายตัวอย่าง/)).toBeVisible();
   await expect(row).toContainText('รับครบแล้ว');
