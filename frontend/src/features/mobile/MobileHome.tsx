@@ -218,7 +218,8 @@ export function MobileHome(props: MobileHomeProps) {
         <ul className="ksm-activity" aria-label={tr("รายการล่าสุด")}>
           {props.recent.map(item => (
             <li key={item.key} className={item.isIncome ? 'is-in' : 'is-out'}>
-              <span className="ksm-activity-icon"><KsIcon name={item.isIncome ? 'arrowDown' : 'wallet'} size={20} /></span>
+              {/* An expense shows the falling line, as on เพิ่มรายจ่าย and on computers, not a wallet (owner, 2026-10-28). */}
+              <span className="ksm-activity-icon"><KsIcon name={item.isIncome ? 'arrowDown' : 'trendDown'} size={20} /></span>
               <span className="ksm-grow"><b>{item.label}</b><small>{item.sub} • {item.date}</small></span>
               <strong>{hidden ? '••••' : item.amount}</strong>
             </li>

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { textOverlapIssues } from './textOverlap';
 
 // Phone checks from the owner's rounds of 2026-10-20:
 // - the overview card with large amounts keeps its layout and every figure stays whole, only smaller,
@@ -83,6 +84,23 @@ for (const width of [390, 320]) {
     expect(sizes[1]).toBeGreaterThan(sizes[2]);
   });
 }
+
+// The overview's รายการล่าสุด (owner, 2026-10-28: "ไอที่ว่าเป็นรายจ่ายมันยังเป็นกระเป๋าเงินอยู่ในบางส่วนของประวัติ"): an
+// expense shows the falling line of เพิ่มรายจ่าย, not a wallet; money in keeps its arrow.
+test('390px phone: an expense in รายการล่าสุด has the falling-line icon, not a wallet', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 1);
+  const list = page.getByRole('list', { name: 'รายการล่าสุด' });
+  const expense = list.locator('li.is-out', { hasText: 'ค่าอุปกรณ์' });
+  await expect(expense).toBeVisible();
+  const trendDown = await page.getByRole('button', { name: 'เพิ่มรายจ่าย' }).locator('svg').innerHTML();
+  expect(await expense.locator('.ksm-activity-icon svg').innerHTML()).toBe(trendDown);
+  for (const income of await list.locator('li.is-in .ksm-activity-icon svg').all()) expect(await income.innerHTML()).not.toBe(trendDown);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.evaluate(() => document.getElementById('main-content')!.scrollTo({ top: 99999 }));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: test.info().outputPath('phone-recent-expense-icon.png') });
+});
 
 test('390px phone: the menu\'s LINE AI Pro section leads to the Pro package page', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
