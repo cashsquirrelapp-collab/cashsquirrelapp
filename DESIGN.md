@@ -75,8 +75,9 @@ owner's approval to change.
 - **Liquid glass is chrome only (owner, 2026-10-23):** the sidebar, menus, toasts, the phone's bottom capsule and the
   floating เลขา window. Content cards are solid.
 - No glows, neon, gradient text, emoji as icons, or decorative gradients on content. The sanctioned gradients are the
-  overview's rust hero band, the LINE card header, the chat greeting heading in the Pro arrival's colours (owner
-  choices; the greeting since 2026-10-27) and the Welcome Onboarding greeting in CI colours (2026-10-28).
+  overview's rust hero band, the LINE card header, the Pro arrival's greeting and the chat greeting heading (owner
+  choices; both in CI rust, orange and caramel since 2026-10-29) and the Welcome Onboarding greeting in CI colours
+  (2026-10-28).
 
 ## 2. Colour and roles
 
@@ -184,7 +185,10 @@ card does not need:
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added
-  only when the owner asks (headset removed, hologram added on 2026-10-27).
+  only when the owner asks (headset removed, hologram added on 2026-10-27; the headset back on 2026-10-29).
+- **The headset (owner, 2026-10-29: "อยากได้น้องที่ใส่หูฟังแทน"):** the squirrel walking out in the Pro arrival, the
+  corner squirrel, the squirrel perched on the chat (window, full chat, phone sheet) and the folded mini squirrel all
+  wear the headset alone (`gear="headset"`: no aura, ring or star). The arrival cannot be skipped; it closes itself.
 
 ## 5. Layout
 

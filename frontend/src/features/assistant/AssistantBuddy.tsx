@@ -532,8 +532,9 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
           aria-label={tr("ถามเลขากระรอกเรื่องหน้า{0}", pageName)} title={climb ? undefined : tr("ถามเลขากระรอกเรื่องหน้านี้")}
           initial={false}>
           {/* Owner, 2026-10-27: version 2 ("ชอบแบบที่สอง"), then "ทำในมือถือด้วยเลย": the squirrel standing at the corner, waving
-              while nothing is going on, its face showing what the chat is doing otherwise; smaller on phones. */}
-          <span className="asx-buddy-stand" data-mood={standMood}><Mascot thoughtDots={false} mood={standMood} action={standMood === 'wave' ? 'wave' : 'idle'} animated={!reduce} size={mobile ? STAND_PHONE : STAND} /></span>
+              while nothing is going on, its face showing what the chat is doing otherwise; smaller on phones. In its headset since
+              2026-10-29 ("อยากได้น้องที่ใส่หูฟังแทน"), like the arrival that lands here and the squirrel on the chat. */}
+          <span className="asx-buddy-stand" data-mood={standMood}><Mascot gear="headset" thoughtDots={false} mood={standMood} action={standMood === 'wave' ? 'wave' : 'idle'} animated={!reduce} size={mobile ? STAND_PHONE : STAND} /></span>
         </motion.button>
   );
 
@@ -745,7 +746,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
               <header className="asx-buddy-head is-perched">
                 <div className="asx-sheet-side">{tokenCorner}</div>
                 <span className="asx-perch is-sheet" aria-hidden="true" data-mood={poseFor(mode).mood}>
-                  <span className="asx-perch-box"><MascotPeek size={72} mood={poseFor(mode).mood} motion={reduce ? 'still' : 'calm'} holo={busy} thoughtDots={false} className="asx-perch-art" /></span>
+                  <span className="asx-perch-box"><MascotPeek size={72} gear="headset" mood={poseFor(mode).mood} motion={reduce ? 'still' : 'calm'} holo={busy} thoughtDots={false} className="asx-perch-art" /></span>
                   <span className="asx-perch-name">{tr("เลขากระรอก")}</span>
                 </span>
                 <span className="asx-sr">{tr("กำลังดูหน้า{0}", pageName)}</span>

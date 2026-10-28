@@ -49,8 +49,9 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
   const calls = await open(page, 1280, 820, { path: '/jobs' });
   const button = page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' });
   await expect(button).toBeVisible();
-  // No headset on the corner squirrel any more (owner, 2026-10-27: "เหมือนคอลเซ็นเตอร์เกิน"); the sidebar icon keeps it.
-  await expect(button.locator('.mpg-headset')).toHaveCount(0);
+  // The corner squirrel wears its headset again (owner, 2026-10-29: "อยากได้น้องที่ใส่หูฟังแทน"), the headset alone.
+  await expect(button.locator('.mpg-headset')).toHaveCount(1);
+  await expect(button.locator('.mpg-back, .mpg-spark')).toHaveCount(0);
   await expect(page.locator('aside.app-sidebar').getByRole('button', { name: 'เลขากระรอก', exact: true }).locator('.mpg-headset')).toHaveCount(1);
   const box = (await button.boundingBox())!;
   expect(1280 - (box.x + box.width)).toBeLessThan(40);
@@ -122,11 +123,11 @@ test('computers: the squirrel stands at the corner and waves; its bubble says he
   await expect(button).toBeVisible();
   await expect(say(page)).toHaveCount(0);
   await expect(page.locator('.mascot-climb')).toHaveCount(0);
-  // Version 2 (owner, 2026-10-27: "ชอบแบบที่สอง"): the official squirrel standing whole at the corner, waving, no headset,
-  // no ring; no words or shortcut on a pill any more.
+  // Version 2 (owner, 2026-10-27: "ชอบแบบที่สอง"): the official squirrel standing whole at the corner, waving, in its headset
+  // (2026-10-29), no ring; no words or shortcut on a pill any more.
   expect(await button.evaluate(el => getComputedStyle(el, '::after').content)).toBe('none');
   const face = button.locator('.asx-buddy-stand');
-  await expect(face.locator('.mpg-headset')).toHaveCount(0); // no headset (owner, 2026-10-27)
+  await expect(face.locator('.mpg-headset')).toHaveCount(1); // the headset (owner, 2026-10-29)
   await expect(face.locator('.mpg-back')).toHaveCount(0);
   await expect(face).toHaveAttribute('data-mood', 'wave');
   await expect(button.locator('.asx-buddy-label, kbd')).toHaveCount(0);
@@ -168,7 +169,7 @@ test('computers: the squirrel stands at the corner and waves; its bubble says he
   await page.mouse.move(400, 300);
   await expect(typed(page)).toHaveText('กำลังคิด');
   await expect(face).toHaveAttribute('data-mood', 'thinking');
-  await expect(face.locator('.mpg-headset')).toHaveCount(0);
+  await expect(face.locator('.mpg-headset')).toHaveCount(1);
   // The squirrel types the answer itself; it stays while the card waits for a yes, with a checking face.
   await expect(typed(page)).toHaveText('นี่คือรายละเอียดที่จะบันทึกครับ ตรวจสอบก่อนกดยืนยันได้เลย', { timeout: 10000 });
   await expect(say(page)).toHaveAttribute('data-kind', 'awaiting');
@@ -244,9 +245,10 @@ for (const dark of [false, true]) {
     expect(perch.y).toBeLessThan(w.y - 40);
     expect(Math.abs(perch.y + perch.h - (w.y + 1))).toBeLessThanOrEqual(1.5);
     expect(perch.y).toBeGreaterThanOrEqual(0);
-    // Outside the clipped glass, so nothing cuts it off; the official drawing with no headset or outfit, no glow.
+    // Outside the clipped glass, so nothing cuts it off; the official drawing in its headset alone (2026-10-29), no outfit, no glow.
     expect(await page.locator('.kfw-perch').evaluate(el => el.closest('.kfw-shell') === null && getComputedStyle(el.closest('.kfw')!).overflow === 'visible')).toBe(true);
-    await expect(win(page).locator('.mpg-headset, .mpg-back, .mpg-spark')).toHaveCount(0);
+    await expect(page.locator('.kfw-perch .mpg-headset')).toHaveCount(1);
+    await expect(win(page).locator('.mpg-back, .mpg-spark')).toHaveCount(0);
     await expect(page.locator('.kfw-perch [data-holo]')).toHaveCount(0);
     expect(await page.locator('.kfw-perch').evaluate(el => getComputedStyle(el).filter)).toBe('none');
     // The dark capsule under it, centred, inside the window.
@@ -614,8 +616,13 @@ test('paying: success message first, then the squirrel arrives on the same page 
   const stage = stageOf(page);
   await expect(stage).toBeVisible();
   await expect(stage.locator('.kb-door')).toHaveCount(1);
-  // Dressed as the corner squirrel, no headset (owner, 2026-10-27: "ให้มันคอนติเนียกัน").
-  await expect(stage.locator('.kb-figure .mpg-headset, .kb-figure .mpg-back')).toHaveCount(0);
+  // Dressed as the corner squirrel, in its headset (owner, 2026-10-29: "เวลาที่น้องเดินออกมาก็เป็นน้องใส่หูฟัง").
+  await expect(stage.locator('.kb-figure .mpg-headset')).toHaveCount(1);
+  await expect(stage.locator('.kb-figure .mpg-back')).toHaveCount(0);
+  // No skip button (owner, 2026-10-29: "เอาปุ่มกดข้ามออก ... รอให้อนิเมชันจบ"); Escape does not close it either.
+  await expect(stage.getByRole('button')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(stage).toBeVisible();
   await expect(stage.getByText(/%/)).toHaveCount(0); // no loading counter: not a game
   await expect(stage.getByRole('heading', { name: 'สวัสดีครับ คุณผู้ใช้ตัวอย่าง' })).toBeVisible({ timeout: 5000 });
   await expect(stage.getByText('เลขากระรอกพร้อมช่วยดูแลงาน เอกสาร และการเงินของคุณแล้ว')).toBeVisible({ timeout: 4000 });
@@ -693,12 +700,15 @@ test('the greeting types itself out letter by letter, keeping Thai marks whole a
   await expect(stage.getByRole('heading', { name: 'สวัสดีครับ คุณผู้ใช้ตัวอย่าง' })).toBeVisible();
 });
 
-test('the arrival can be skipped, and with reduced motion it is a calm hello', async ({ page }) => {
+test('the arrival cannot be skipped and closes itself; with reduced motion it is a calm hello', async ({ page }) => {
   await open(page, 390, 844, { path: '/dashboard?hello=krarok' });
   const stage = stageOf(page);
   await expect(stage).toBeVisible();
-  await stage.getByRole('button', { name: 'ข้าม' }).click();
-  await expect(stage).toHaveCount(0);
+  await expect(stage.getByRole('button', { name: 'ข้าม' })).toHaveCount(0);
+  await stage.click({ position: { x: 195, y: 420 } }); // a tap does not end it early
+  await page.waitForTimeout(400);
+  await expect(stage).toBeVisible();
+  await expect(stage).toHaveCount(0, { timeout: 12000 }); // it closes when the squirrel has landed
   await expect(page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้าภาพรวม' })).toBeVisible();
   await expect(page.locator('.asx-buddy-tip svg.lucide-pointer')).toHaveCount(1);
   await page.emulateMedia({ reducedMotion: 'reduce' });

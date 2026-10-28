@@ -1013,7 +1013,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 with its calm motion and its hologram while it works, and its name on the dark capsule under it. */}
             {/* Phones too since 2026-10-27 ("ทำในมือถือด้วยนะ"), smaller. */}
             <span className={`asx-perch${mobile ? ' is-phone' : ''}`} aria-hidden="true" data-mood={perchMood}>
-                  <span className="asx-perch-box"><MascotPeek size={mobile ? 68 : 108} mood={perchMood} motion={reduce ? 'still' : 'calm'} holo={busy || voice.phase === 'transcribing'} thoughtDots={false} className="asx-perch-art" /></span>
+                  <span className="asx-perch-box"><MascotPeek size={mobile ? 68 : 108} gear="headset" mood={perchMood} motion={reduce ? 'still' : 'calm'} holo={busy || voice.phase === 'transcribing'} thoughtDots={false} className="asx-perch-art" /></span>
                   <span className="asx-perch-name">{tr("เลขากระรอก")}</span>
                 </span>
             <div className="asx-bar-text asx-sr">

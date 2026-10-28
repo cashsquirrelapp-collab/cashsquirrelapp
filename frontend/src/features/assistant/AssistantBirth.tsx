@@ -15,9 +15,10 @@ import './assistant.css';
 //   jump:   a real jump (Mascot action 'jump'): crouch, push off, feet tucked, land.
 //   ready:  it waves with little twinkles by its paw; the greeting types itself out, then one formal line.
 //   open / fly: the glass opens from the squirrel outward and it flies to its corner (AssistantBuddy).
-// The drawing is always the official Mascot, dressed as it stands in the corner (owner, 2026-10-27: the corner
-// squirrel has no headset, "เปลี่ยนให้มันคอนติเนียกัน"), and it flies into that squirrel's place at the end.
-// Skippable at any moment (ข้าม, Escape, or a tap once it is ready); still with reduced motion.
+// The drawing is always the official Mascot in its headset, dressed as it stands in the corner (owner, 2026-10-29:
+// "อยากได้น้องที่ใส่หูฟังแทน"), and it flies into that squirrel's place at the end.
+// It cannot be skipped (owner, 2026-10-29: "เอาปุ่มกดข้ามออก ... รอให้อนิเมชันจบ ... มันจะกดออกให้เอง"): it closes itself
+// when the flight lands. With reduced motion it is a calm hello that closes after about 3 seconds.
 
 type Phase = 'arrive' | 'jump' | 'ready' | 'leave' | 'open' | 'fly';
 
@@ -67,7 +68,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
   const [flight, setFlight] = React.useState<{ x: number; y: number; scale: number } | null>(null);
   const figureRef = React.useRef<HTMLDivElement>(null);
   const done = React.useRef(false);
-  const skipRef = React.useRef<HTMLButtonElement>(null);
+  const stageRef = React.useRef<HTMLDivElement>(null);
 
   // The page passes a new target and onDone on every render. The steps' timers must not start over each time it does
   // (owner, 2026-10-28: "แก้บั๊กจังหวะคลิป"): a busy page held the squirrel at the doorway. Both are read from refs, so the
@@ -93,9 +94,8 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
   }, [finish, reduce]);
 
   React.useEffect(() => {
-    skipRef.current?.focus({ preventScroll: true });
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') finish(); };
-    document.addEventListener('keydown', onKey);
+    // Focus moves into the dialog so screen readers announce it; nothing in it can be pressed.
+    stageRef.current?.focus({ preventScroll: true });
     const timers = reduce
       ? [window.setTimeout(finish, 3200)]
       : [
@@ -107,7 +107,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
         window.setTimeout(fly, TIMES.fly),
         window.setTimeout(finish, TIMES.safety), // a safety net if the flight never reports back
       ];
-    return () => { document.removeEventListener('keydown', onKey); timers.forEach(timer => window.clearTimeout(timer)); };
+    return () => { timers.forEach(timer => window.clearTimeout(timer)); };
   }, [finish, fly, reduce]);
 
   const ready = phase === 'ready' || phase === 'leave' || phase === 'open' || phase === 'fly';
@@ -116,8 +116,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
   const showWords = phase === 'ready' || (reduce && phase !== 'fly');
 
   return (
-    <div className={`kb-stage is-${phase}${reduce ? ' is-calm' : ''}`} role="dialog" aria-modal="true" aria-label={tr("เลขากระรอกพร้อมช่วยงานคุณแล้ว")}
-      onClick={() => { if ((ready || phase === 'jump') && phase !== 'fly') { if (reduce) finish(); else fly(); } }}>
+    <div ref={stageRef} tabIndex={-1} className={`kb-stage is-${phase}${reduce ? ' is-calm' : ''}`} role="dialog" aria-modal="true" aria-label={tr("เลขากระรอกพร้อมช่วยงานคุณแล้ว")}>
       <div className="kb-veil" aria-hidden="true" />
       <div className="kb-center">
         <div className="kb-scene">
@@ -141,7 +140,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
                 animate={{ opacity: 1, scale: 1, y: 0, filter: 'brightness(1) blur(0px)' }}
                 // It fades in out of the light while it walks (not all at once): a second to appear, the glow settling as it comes.
                 transition={{ delay: TIMES.walk, duration: TIMES.walkFor, ease: [0.3, 0, 0.3, 1], opacity: { delay: TIMES.walk, duration: 1, ease: [0.4, 0, 0.2, 1] }, filter: { delay: TIMES.walk, duration: 1.3, ease: [0.4, 0, 0.2, 1] } }}>
-                <Mascot gear="none" mood="wave" action={reduce ? 'wave' : phase === 'arrive' ? 'walk' : phase === 'jump' ? 'jump' : ready && phase !== 'fly' ? 'wave' : 'idle'} size={168} />
+                <Mascot gear="headset" mood="wave" action={reduce ? 'wave' : phase === 'arrive' ? 'walk' : phase === 'jump' ? 'jump' : ready && phase !== 'fly' ? 'wave' : 'idle'} size={168} />
               </motion.div>
               {/* ติ๊ง ๆ ๆ: little twinkles by the waving paw. */}
               {!reduce && <span className="kb-tings">{[1, 2, 3].map(n => <svg key={n} className={`is-${n}`} viewBox="0 0 24 24"><path d={TWINKLE} /></svg>)}</span>}
@@ -174,7 +173,6 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
           </motion.p>
         </motion.div>
       </div>
-      <button ref={skipRef} type="button" className="kb-skip lg-glass" onClick={event => { event.stopPropagation(); finish(); }}>{tr("ข้าม")}</button>
     </div>
   );
 }
