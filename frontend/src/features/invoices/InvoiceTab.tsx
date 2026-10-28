@@ -211,6 +211,16 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const requestedDocument = React.useRef(new URLSearchParams(window.location.search).get('document'));
   const [documentLinkMissing, setDocumentLinkMissing] = useState(false);
   const [focusLinkedDocument, setFocusLinkedDocument] = useState(requestedDocument.current !== null);
+  // A document เลขา made (owner, 2026-10-28): opened, said so, and blinking slowly for a moment, as a saved job does.
+  const linkFrom = React.useRef(new URLSearchParams(window.location.search).get('from'));
+  const [documentSpotlight, setDocumentSpotlight] = useState(linkFrom.current === 'assistant' && requestedDocument.current !== null);
+  useEffect(() => {
+    if (!documentSpotlight) return;
+    const stop = () => setDocumentSpotlight(false);
+    const clear = window.setTimeout(stop, 7000);
+    const arm = window.setTimeout(() => document.addEventListener('pointerdown', stop, { once: true }), 400);
+    return () => { window.clearTimeout(clear); window.clearTimeout(arm); document.removeEventListener('pointerdown', stop); };
+  }, [documentSpotlight]);
   const [requestedDocTypeFilter, setDocTypeFilter] = useState<DocumentWorkspaceTab>(() => resolveDocumentWorkspaceTab(tabFromUrl.current, fullFeatureAccess));
   const docTypeFilter = resolveDocumentWorkspaceTab(requestedDocTypeFilter, fullFeatureAccess);
   const [listQuery, setListQuery] = useState('');
@@ -852,7 +862,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
       {focusLinkedDocument && activeSubTab === 'list' && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#FFF5EC] px-4 py-3 text-xs text-[#7A5C43] no-print">
-          <span>{tr("เอกสารที่ขอจาก LINE · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง")}</span>
+          <span>{linkFrom.current === 'assistant' ? tr("เอกสารที่เลขาทำให้ · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง") : tr("เอกสารที่ขอจาก LINE · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง")}</span>
           <button type="button" onClick={showAllDocuments} className="font-semibold text-[#C24A16]">{tr("ดูรายการเอกสารทั้งหมด")}</button>
         </div>
       )}
@@ -936,7 +946,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             )}
           </section>
 
-          <section className="min-w-0" aria-label={tr("ตัวอย่างเอกสาร")} data-krarok-avoid="document">
+          <section className={`min-w-0${documentSpotlight && selectedInvoice ? ' doc-spotlight' : ''}`} aria-label={tr("ตัวอย่างเอกสาร")} data-krarok-avoid="document">
             {selectedInvoice && shownInvoice ? (
               <div className="flex min-w-0 flex-col gap-4 lg:h-[calc(100vh-232px)] lg:min-h-[560px]">
                 {/* The document is the hero: a title, a few actions, then the paper itself */}

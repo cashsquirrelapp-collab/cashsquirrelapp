@@ -1253,6 +1253,12 @@ svg.lucide[stroke-width="2"] { stroke-width: 1.7; }
   50% { outline-color: transparent; background-color: transparent; }
 }
 @media (prefers-reduced-motion: reduce) { .job-spotlight { animation: none; } }
+/* A document เลขา made, opened from its card: the same three slow blinks around the document (owner, 2026-10-28). */
+.doc-spotlight { border-radius: 18px; outline: 2px solid #E65F2B; outline-offset: 8px; animation: doc-spotlight-blink 1.6s ease-in-out 3; }
+@keyframes doc-spotlight-blink { 0%, 100% { outline-color: #E65F2B; } 50% { outline-color: transparent; } }
+.dark .doc-spotlight { outline-color: #FF9A6B; animation-name: doc-spotlight-blink-dark; }
+@keyframes doc-spotlight-blink-dark { 0%, 100% { outline-color: #FF9A6B; } 50% { outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .doc-spotlight { animation: none; } }
 
 /* Sign-in method chooser: tonal pill buttons, one per provider. */
 .auth-pill { position: relative; display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center; gap: 10px; padding: 0 18px; border-radius: 999px; background: rgb(84 84 84 / 0.10); color: var(--text); font-size: 16px; font-weight: 500; line-height: 1.2; cursor: pointer; text-decoration: none; transition: background-color .18s ease, opacity .25s ease, color .25s ease, transform .18s cubic-bezier(.16,1,.3,1); }

@@ -28,8 +28,9 @@ export function safeAssistantPath(raw: unknown, context: NavigationContext, expl
   for (const [key, value] of url.searchParams) {
     if (feature === 'invoice' && key === 'type' && DOCUMENT_TYPES.has(value)) continue;
     if (feature === 'invoice' && key === 'document' && /^[\p{L}\p{N}_-]{1,128}$/u.test(value)) continue;
-    // A saved job opens in its form (owner, 2026-10-28: "กดเข้าไปดูงานตรงนั้นได้"); the id is only looked up.
+    // A saved job or expense is shown in its list, blinking (owner, 2026-10-28); the id is only looked up.
     if (feature === 'jobs' && key === 'job' && /^[\p{L}\p{N}_.:-]{1,128}$/u.test(value)) continue;
+    if (feature === 'incomeExpense' && key === 'expense' && /^[\p{L}\p{N}_.:-]{1,128}$/u.test(value)) continue;
     if (feature === 'settings' && key === 'view' && SETTINGS_VIEWS.has(value)) continue;
     return null;
   }

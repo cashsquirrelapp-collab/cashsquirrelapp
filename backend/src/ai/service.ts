@@ -506,7 +506,8 @@ export async function confirmProposal(db: AssistantDb, userId: string, proposalI
   const target = proposalTarget(proposal.kind);
   if (target.table === 'cashflow_jobs') return { status: 'applied', kind: proposal.kind, jobId: proposal.jobId, path: jobPath(proposal.kind, proposal.jobId) };
   const path = target.table === 'cashflow_invoices' ? (target.op === 'delete' ? '/invoice' : documentPath({ id: proposal.jobId, documentType: proposal.record!.documentType as 'quotation' | 'invoice' }))
-    : target.table === 'cashflow_expenses' ? '/incomeExpense' : target.table === 'cashflow_goals' ? '/split' : proposal.kind === 'edit_issuer_profile' ? '/invoice' : '/settings';
+    : target.table === 'cashflow_expenses' ? (target.op === 'delete' ? '/incomeExpense' : `/incomeExpense?expense=${encodeURIComponent(proposal.jobId)}`)
+    : target.table === 'cashflow_goals' ? '/split' : proposal.kind === 'edit_issuer_profile' ? '/invoice' : '/settings';
   return { status: 'applied', kind: proposal.kind, recordId: proposal.jobId, path,
     ...(target.table === 'cashflow_invoices' && target.op !== 'delete' ? { documentId: proposal.jobId } : {}) };
 }

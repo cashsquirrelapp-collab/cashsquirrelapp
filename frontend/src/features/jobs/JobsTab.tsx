@@ -329,11 +329,13 @@ export default function JobsTab({
   const spotlightSaved = (id: string) => { spotlightNearest.current = true; setSpotlightTarget(id); };
   React.useEffect(() => {
     if (!scrollToJobId) return;
-    if (jobs.some(j => j.id === scrollToJobId) && !sortedJobs.some(j => j.id === scrollToJobId)) clearFilters();
+    // A job เลขา has just saved may reach the list a moment later: wait for it (the app stops waiting after 10 s).
+    if (!jobs.some(j => j.id === scrollToJobId)) return;
+    if (!sortedJobs.some(j => j.id === scrollToJobId)) clearFilters();
     setSpotlightTarget(scrollToJobId);
     onScrollToJobHandled?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollToJobId]);
+  }, [scrollToJobId, jobs]);
   React.useEffect(() => {
     if (!spotlightTarget) return;
     let frame = 0; let tries = 0;

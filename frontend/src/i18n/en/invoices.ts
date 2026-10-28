@@ -199,6 +199,7 @@ export const invoices: Record<string, string> = {
   'เห็นทั้งหน้า A4 แล้วแชร์ให้ลูกค้าได้ทันที': 'See the whole A4 page and share it with your client',
   'เอกสาร {0}': 'Document {0}',
   'เอกสารที่ขอจาก LINE · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง': 'Document requested from LINE · download the PDF or share it below',
+  'เอกสารที่เลขาทำให้ · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง': 'Document made by your secretary · download the PDF or share it below',
   'เอกสารที่ลิงก์กัน': 'Linked documents',
   'เอกสารรุ่นเดิมไม่ได้ระบุเจ้าของบัญชี กรุณายืนยันว่าเอกสารทั้งหมดนี้เป็นของคุณ ก่อนนำเข้าบัญชีปัจจุบัน': 'These older documents do not name an account owner. Please confirm they are all yours before importing them into this account.',
   'เอกสารอาจถูกลบแล้ว หรือคุณกำลังใช้คนละบัญชีกับที่เชื่อม LINE ไว้': 'The document may have been deleted, or you are signed in to a different account from the one linked to LINE.',

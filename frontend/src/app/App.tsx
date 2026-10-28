@@ -831,18 +831,33 @@ export default function App() {
     if (!safe || !assistantWorkspaceSlug) return;
     const url = new URL(safe, window.location.origin);
     const tab = parseWorkspaceRoute(url.pathname).tab;
-    if (follow) setAssistantFollowing(true);
+    // A record เลขา saved, opened on a phone: the chat closes so the blinking record can be seen (the chat would cover
+    // the page); on computers it stays beside the page.
+    const savedRecord = (tab === 'jobs' && url.searchParams.has('job')) || (tab === 'incomeExpense' && url.searchParams.has('expense'))
+      || (tab === 'invoice' && url.searchParams.has('document'));
+    if (isPhone && savedRecord) setAssistantFollowing(false);
+    else if (follow) setAssistantFollowing(true);
     setIsMobileMenuOpen(false);
     if (tab === 'settings') setSettingsEntry(entry => ({ view: (url.searchParams.get('view') || 'home') as SettingsView, n: entry.n + 1 }));
     if (tab === 'invoice') setAssistantDocumentEntry(value => value + 1);
-    // A job เลขา saved opens in its form; if the list has not caught up yet, the jobs page waits for it a moment.
+    // What เลขา saved is shown where it lives (owner, 2026-10-28: "กดไปดูหน้านั้นได้ ... กระพริบช้าๆ"): the job in the
+    // list, scrolled to and blinking slowly; the document opened, marked as made by เลขา; the expense in its month. If
+    // the list has not caught up yet, the page waits for it a moment.
     const jobId = tab === 'jobs' ? url.searchParams.get('job') : null;
     if (jobId) {
-      setEditJobRequest(jobId);
-      window.setTimeout(() => setEditJobRequest(current => (current === jobId ? null : current)), 10000);
+      url.searchParams.delete('job');
+      setScrollToJobId(jobId);
+      window.setTimeout(() => setScrollToJobId(current => (current === jobId ? null : current)), 10000);
     }
+    const expenseId = tab === 'incomeExpense' ? url.searchParams.get('expense') : null;
+    if (expenseId) {
+      url.searchParams.delete('expense');
+      setScrollToExpenseId(expenseId);
+      window.setTimeout(() => setScrollToExpenseId(current => (current === expenseId ? null : current)), 10000);
+    }
+    if (tab === 'invoice' && url.searchParams.get('document')) url.searchParams.set('from', 'assistant');
     prefetchFeature(tab);
-    window.history.pushState({}, '', safe);
+    window.history.pushState({}, '', `${url.pathname}${url.search}`);
     setPathname(url.pathname);
     startTransition(() => setActiveTab(tab));
   };

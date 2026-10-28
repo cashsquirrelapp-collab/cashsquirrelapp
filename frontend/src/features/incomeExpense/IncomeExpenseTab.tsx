@@ -141,23 +141,33 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
     props.onAutoOpenAddHandled?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.autoOpenAdd]);
+  // Arriving for one expense (LINE's link, or a card เลขา saved): its month, no filters, then scroll and blink. An
+  // expense saved a moment ago may reach the list a little later, so this waits for it (the app stops after 10 s).
+  const [spotlight, setSpotlight] = React.useState<string | null>(null);
   React.useEffect(() => {
     const id = props.scrollToExpenseId;
     if (!id) return;
     const target = expenses.find(e => e.id === id);
-    props.onScrollToExpenseHandled?.();
     if (!target) return;
+    props.onScrollToExpenseHandled?.();
     setMonthKey(target.date.slice(0, 7));
     setTypeFilter('all'); setCategory('all'); setSearch('');
-    setHighlightId(id);
+    setSpotlight(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.scrollToExpenseId, expenses]);
+  React.useEffect(() => {
+    if (!spotlight) return;
+    setHighlightId(spotlight);
     const scroll = window.setTimeout(() => {
-      Array.from(document.querySelectorAll<HTMLElement>(`[data-expense-id="${id}"]`)).find(n => n.offsetParent !== null)
+      Array.from(document.querySelectorAll<HTMLElement>(`[data-expense-id="${CSS.escape(spotlight)}"]`)).find(n => n.offsetParent !== null)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
-    const clear = window.setTimeout(() => setHighlightId(null), 2600);
-    return () => { window.clearTimeout(scroll); window.clearTimeout(clear); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.scrollToExpenseId]);
+    // Three slow blinks, as a job does (owner, 2026-10-28: "กระพริบช้าๆ"); a tap anywhere ends it.
+    const stop = () => { setHighlightId(null); setSpotlight(null); };
+    const clear = window.setTimeout(stop, 7000);
+    const arm = window.setTimeout(() => document.addEventListener('pointerdown', stop, { once: true }), 400);
+    return () => { window.clearTimeout(scroll); window.clearTimeout(clear); window.clearTimeout(arm); document.removeEventListener('pointerdown', stop); };
+  }, [spotlight]);
 
   React.useEffect(() => {
     if (!menu && !exportOpen) return;
@@ -284,7 +294,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
           <div className="ksm-list ksm-moneylist">
             {rows.map(row => (
               <button key={row.id} type="button" data-expense-id={row.id} aria-haspopup="menu" aria-label={`${row.name} ${formatCurrency(row.amount)}`}
-                className={highlightId === row.id ? 'is-highlight' : undefined}
+                className={highlightId === row.id ? 'is-highlight job-spotlight' : undefined}
                 onClick={() => setMenu({ key: row.id, items: rowMenu(row), up: false, left: 0, top: 0 })}>
                 <span className={`ksm-list-icon ${row.recurring ? 'is-recurring' : 'is-neutral'}`}><KsIcon name={row.recurring ? 'clock' : 'receipt'} /></span>
                 <span className="ksm-grow">
@@ -462,7 +472,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
               <tbody>
                 {rows.map(row => (
                   <tr key={row.id} data-expense-id={row.id} onClick={() => setDetail(row)}
-                    className={`cursor-pointer border-b border-brand-border transition-colors last:border-b-0 hover:bg-brand-faint/60 ${highlightId === row.id ? 'bg-[#FFF1E8] dark:bg-orange-500/10' : ''}`}>
+                    className={`cursor-pointer border-b border-brand-border transition-colors last:border-b-0 hover:bg-brand-faint/60 ${highlightId === row.id ? 'job-spotlight' : ''}`}>
                     <td className="truncate px-4 py-2.5 font-medium text-brand-text">{tr(row.name)}{fullFeatureAccess && !row.fromSettings && <ExpenseSlipMark expenseId={row.id} />}{row.note && <span className="block truncate text-[11px] font-normal text-brand-muted">{row.note}</span>}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-brand-muted">{dateText(row)}</td>
                     <td className="px-3 py-2.5"><TypeBadge recurring={row.recurring} /></td>
@@ -477,7 +487,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
           <ul className="space-y-2 sm:hidden">
             {rows.map(row => (
               <li key={row.id} data-expense-id={row.id} onClick={() => setDetail(row)}
-                className={`${card} cursor-pointer px-4 py-3 ${highlightId === row.id ? 'bg-[#FFF1E8] dark:bg-orange-500/10' : ''}`}>
+                className={`${card} cursor-pointer px-4 py-3 ${highlightId === row.id ? 'job-spotlight' : ''}`}>
                 <div className="flex items-start justify-between gap-3">
                   <p className="min-w-0 truncate text-sm font-medium text-brand-text">{tr(row.name)}{fullFeatureAccess && !row.fromSettings && <ExpenseSlipMark expenseId={row.id} />}</p>
                   <p className="shrink-0 font-mono text-sm font-semibold text-brand-text">{formatCurrency(row.amount)}</p>

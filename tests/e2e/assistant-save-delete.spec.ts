@@ -11,10 +11,14 @@ test.use({ serviceWorkers: 'block' });
 const user = { id: '22222222-2222-4222-8222-222222222222', email: 'save@example.test', role: 'user', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
 const job = (id: string, name: string, value: number) => ({ id, name, client: 'ลูกค้าตัวอย่าง', type: 'ยังไม่ระบุ', note: '', value, received: 0, pending: value, status: 'pending', paymentStatus: 'unpaid',
   creditTerm: 15, isPosted: false, postDate: '2026-10-28', payDate: '2026-11-12', whtRate: 0, whtAmount: 0 });
-const snapshot = { jobs: [job('job-a', 'ตัดคลิปรีวิว', 2000), job('job-b', 'ออกแบบปก', 3500)], expenses: [], goals: [], invoices: [],
+const quote = { id: 'qt-1', documentType: 'quotation', documentNo: 'QT-2569-001', createdDate: '2026-10-20',
+  issuer: { name: 'สตูดิโอมายด์', address: '', phone: '', email: '', taxId: '', bankName: '', bankAccount: '', bankAccountName: '' },
+  client: { name: 'บริษัท ตัวอย่าง จำกัด', address: '', phone: '', email: '', taxId: '' }, items: [{ id: 'i1', description: 'ตัดต่อวิดีโอ', quantity: 1, price: 15000 }], vatRate: 0, whtRate: 0 };
+const ink = { id: 'exp-1', name: 'หมึกพิมพ์', amount: 450, category: 'ค่าอุปกรณ์/ซอฟต์แวร์', date: '2026-10-28', note: '' };
+const snapshot = { jobs: [job('job-a', 'ตัดคลิปรีวิว', 2000), job('job-b', 'ออกแบบปก', 3500)], expenses: [ink], goals: [], invoices: [quote],
   settings: { monthlyExpense: 0, monthlyRevenueGoal: 0, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance' }, statuses: [], job_types: [],
   notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null };
-const versions = { cashflow_jobs: { 'job-a': 1, 'job-b': 1 }, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
+const versions = { cashflow_jobs: { 'job-a': 1, 'job-b': 1 }, cashflow_expenses: { 'exp-1': 1 }, cashflow_goals: {}, cashflow_invoices: { 'qt-1': 1 }, cashflow_documents: { settings: 1 } };
 const P = (n: number) => `p_0b9d3c1e-4f5a-4b6c-8d7e-9f0a1b2c3d4${n}`;
 
 type Plan = { subscription?: Record<string, unknown>; status?: Record<string, unknown>; path?: string };
@@ -51,11 +55,13 @@ async function open(page: Page, reply: (body: any) => { status?: number; json: u
   return { posts, dataReads: () => dataReads };
 }
 const ask = async (page: Page, text: string) => { await page.locator('#asx-message').fill(text); await page.locator('.asx-send').click(); };
-/** The job form shows this job's name in one of its fields. */
-const formShows = (page: Page, name: string) => expect.poll(() => page.getByRole('dialog', { name: 'แก้ไขงาน' }).locator('input')
-  .evaluateAll((fields, wanted) => fields.some(field => (field as HTMLInputElement).value === wanted), name)).toBe(true);
+/** Owner, 2026-10-28: a saved job is shown in the list, scrolled to and blinking slowly, not behind its form. */
+const spotlit = async (page: Page, id: string) => {
+  await expect(page.locator(`[data-job-id="${id}"].job-spotlight`).filter({ visible: true })).toHaveCount(1);
+  await expect(page.getByRole('dialog', { name: 'แก้ไขงาน' })).toHaveCount(0);
+};
 
-test('saved at once: every card says saved, the pages reload, and เปิดดูงาน opens that job\'s form', async ({ page }, info) => {
+test('saved at once: every card says saved, the pages reload, and เปิดดูงาน shows that job in the list, blinking', async ({ page }, info) => {
   const mock = await open(page, body => (body.action === 'message' ? { json: {
     text: 'บันทึกงานให้แล้ว 2 งานครับ กด "เปิดดูงาน" บนการ์ดเพื่อดูหรือแก้ไขรายละเอียดได้เลย', route: 'action', tokens: 4, tokensLeft: 990, trialLeft: null,
     cards: [
@@ -78,12 +84,12 @@ test('saved at once: every card says saved, the pages reload, and เปิด�
   await page.screenshot({ path: info.outputPath('saved-at-once-1440.png') });
   await cards.nth(1).getByRole('button', { name: 'เปิดดูงาน' }).click();
   await expect(page).toHaveURL(/\/jobs/);
-  await expect(page.getByRole('dialog', { name: 'แก้ไขงาน' })).toBeVisible();
-  await formShows(page, 'ออกแบบปก');
+  await expect(page).not.toHaveURL(/job=/);
+  await spotlit(page, 'job-b');
   await page.screenshot({ path: info.outputPath('saved-job-opened-1440.png') });
 });
 
-test('a card confirmed by tapping also opens its job', async ({ page }) => {
+test('a card confirmed by tapping also shows its job', async ({ page }) => {
   await open(page, body => body.action === 'message' ? { json: { text: 'เตรียมการ์ดไว้แล้วครับ', route: 'action', tokens: 2, tokensLeft: 992, trialLeft: null,
     cards: [{ kind: 'confirm', id: P(3), title: 'เพิ่มงานใหม่ 1 งาน', changes: [{ label: 'งาน', value: 'ตัดคลิปรีวิว' }] }] } }
     : body.action === 'confirm' ? { json: { status: 'applied', kind: 'add_job', jobId: 'job-a', path: '/jobs?job=job-a' } } : { json: {} });
@@ -91,7 +97,44 @@ test('a card confirmed by tapping also opens its job', async ({ page }) => {
   const card = page.locator('.asx-rcard.is-confirm');
   await card.getByRole('button', { name: 'บันทึกงาน' }).click();
   await card.getByRole('button', { name: 'เปิดดูงาน' }).click();
-  await formShows(page, 'ตัดคลิปรีวิว');
+  await spotlit(page, 'job-a');
+});
+
+test('a quotation เลขา made opens, says so and blinks; a saved expense blinks in its month; a phone job card blinks too', async ({ page }, info) => {
+  await open(page, body => (body.action === 'message' ? { json: { text: 'บันทึกแล้วครับ', route: 'action', tokens: 2, tokensLeft: 992, trialLeft: null, cards: [
+    { kind: 'confirm', id: P(5), title: 'สร้างใบเสนอราคา', changes: [{ label: 'เลขที่', value: 'QT-2569-001' }], status: 'applied', path: '/invoice?type=quotation&document=qt-1' },
+    { kind: 'confirm', id: P(6), title: 'เพิ่มรายจ่าย', changes: [{ label: 'รายการ', value: 'หมึกพิมพ์' }], status: 'applied', path: '/incomeExpense?expense=exp-1' },
+  ] } } : { json: {} }));
+  await ask(page, 'บันทึกให้หน่อย');
+  const cards = page.locator('.asx-rcard.is-confirm');
+  await cards.nth(0).getByRole('button', { name: 'เปิดเอกสาร' }).click();
+  await expect(page).toHaveURL(/\/invoice\/.*document=qt-1/);
+  await expect(page.getByText('เอกสารที่เลขาทำให้ · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง')).toBeVisible();
+  await expect(page.getByText('เอกสารที่ขอจาก LINE')).toHaveCount(0);
+  await expect(page.locator('section.doc-spotlight')).toHaveCount(1);
+  await page.screenshot({ path: info.outputPath('saved-quote-opened-1440.png') });
+  await page.goBack();
+  await page.locator('.asx-rcard.is-confirm').nth(1).getByRole('button', { name: 'เปิดดูรายการ' }).click();
+  await expect(page).toHaveURL(/\/incomeExpense/);
+  await expect(page.locator('[data-expense-id="exp-1"].job-spotlight').filter({ visible: true })).toHaveCount(1);
+  // The row's colours ease in (transition-colors): the frame is orange once they have.
+  await expect.poll(() => page.locator('[data-expense-id="exp-1"].job-spotlight').filter({ visible: true }).evaluate(el => getComputedStyle(el).outlineColor)).toBe('rgb(230, 95, 43)');
+  await page.screenshot({ path: info.outputPath('saved-expense-opened-1440.png') });
+});
+
+test('phone: เปิดดูงาน shows the job card blinking in the list', async ({ page }, info) => {
+  await open(page, body => (body.action === 'message' ? { json: { text: 'บันทึกแล้วครับ', route: 'action', tokens: 2, tokensLeft: 992, trialLeft: null, cards: [
+    { kind: 'confirm', id: P(7), title: 'เพิ่มงานใหม่ 1 งาน', changes: [{ label: 'งาน', value: 'ออกแบบปก' }], status: 'applied', path: '/jobs?job=job-b' },
+  ] } } : { json: {} }), { width: 390, height: 844 });
+  await ask(page, 'บันทึกให้หน่อย งานออกแบบปก 3,500');
+  await page.locator('.asx-rcard.is-confirm').getByRole('button', { name: 'เปิดดูงาน' }).click();
+  await expect(page).toHaveURL(/\/jobs/);
+  await spotlit(page, 'job-b');
+  // The chat closes on a phone so the blinking card is in sight.
+  await expect(page.locator('.asx-follow-panel')).toHaveCount(0);
+  await expect(page.locator('[data-job-id="job-b"].job-spotlight').filter({ visible: true })).toBeInViewport();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: info.outputPath('saved-job-opened-390.png') });
 });
 
 const deleteAll = { kind: 'confirm', id: P(4), title: 'ลบงานทั้งหมด 2 งาน', changes: [

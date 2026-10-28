@@ -51,7 +51,8 @@ test('confirmed documents and expenses open their trusted saved-record destinati
   assert.equal(writes[0].p_changes[0].table, 'cashflow_invoices');
   proposal = { ...proposal, kind: 'edit_expense', job_id: 'expense-a', record: { id: 'expense-a', name: 'เดินทาง', amount: 100, category: 'เดินทาง', date: '2026-10-24' } };
   const expense = await lineAssistantCommand(user(owner), { action: 'confirm', proposalId });
-  assert.ok(uris(expense).includes('https://line-confirm.example.test/incomeExpense'));
+  // The saved expense opens in its month, blinking (owner, 2026-10-28), through the app's existing ?expense= link.
+  assert.ok(uris(expense).includes('https://line-confirm.example.test/incomeExpense?expense=expense-a'));
   assert.ok(!uris(expense).includes('https://line-confirm.example.test/jobs'));
   assert.equal(writes[1].p_changes[0].table, 'cashflow_expenses');
 });
