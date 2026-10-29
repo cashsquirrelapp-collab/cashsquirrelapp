@@ -37,10 +37,13 @@ import vault from '../handlers/vault.js';
 import vaultUpload from '../handlers/vault-upload.js';
 import vaultFile from '../handlers/vault-file.js';
 import feedback from '../handlers/feedback.js';
+import feedbackPublic from '../handlers/feedback-public.js';
 import assistant from '../handlers/assistant.js';
 const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'send-admin-profit-report':adminProfitReport,'advance-card-renewals':advanceCardRenewals,'setup-line-richmenu':setup,'stripe-webhook':stripe};
 const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 routes.feedback = feedback;
+// Reports from the public landing page (signed out), into the same แจ้งปัญหา system.
+routes['feedback-public'] = feedbackPublic;
 routes.assistant = assistant;
 routes['admin-stripe-finance'] = adminStripeFinance;
 routes['admin-payment-readiness'] = adminPaymentReadiness;
@@ -55,11 +58,11 @@ export function routeHandler(route:string):Handler {
   if(!rawRoutes.has(route)&&!['GET','HEAD'].includes(req.method||'')) {
    const contentType=req.headers['content-type']||'';
    if(!contentType.startsWith('application/json'))throw new HttpError(415,'Expected application/json');
-   const raw=await readRawBody(req,route==='data'?4*1024*1024:route==='notify'?128*1024:route==='assistant'?6*1024*1024:16*1024);
+   const raw=await readRawBody(req,route==='data'?4*1024*1024:route==='notify'?128*1024:route==='assistant'?6*1024*1024:route==='feedback-public'?3*1024*1024:16*1024);
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
- },{csrf:['line-session','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','assistant'].includes(route)});
+ },{csrf:['line-session','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','feedback-public','assistant'].includes(route)});
 }
 export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
  const route=req.query.route;

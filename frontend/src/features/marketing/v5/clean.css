@@ -295,10 +295,71 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-tick b { color: #FFFFFF; font-family: 'IBM Plex Sans', var(--font-sans); font-size: 40px; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .cl-tick small { color: #FFE2D1; font-size: 13px; line-height: 1.45; }
 .cl-final-cta { margin-top: 8px; }
-.cl-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; max-width: 1240px; margin: 0 auto; padding: 26px 24px 36px; color: var(--faint); font-size: 13.5px; line-height: 1.5; }
-.cl-foot-links { display: flex; gap: 20px; }
-.cl-foot a { color: var(--muted); text-decoration: none; }
-.cl-foot a:hover { color: var(--deep); }
+/* The footer: following and reaching the team, and the way to the report form (the menu's ช่วยเหลือ lands here). */
+.cl-foot { max-width: 1240px; margin: 0 auto; padding: 44px 24px 36px; color: var(--muted); font-size: 14.5px; line-height: 1.6; scroll-margin-top: var(--bar); }
+.cl-foot-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 32px; padding-bottom: 28px; border-bottom: 1px solid rgba(28, 25, 23, 0.08); }
+.cl-foot-col h2 { color: var(--ink); font-size: 15px; font-weight: 600; line-height: 1.5; }
+.cl-foot-col ul { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.cl-foot-col a, .cl-foot-col button, .cl-foot-soon { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; line-height: 1.6; text-align: left; text-decoration: none; cursor: pointer; }
+.cl-foot-col a:hover, .cl-foot-col button:hover { color: var(--deep); }
+.cl-foot-col button:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; border-radius: 6px; }
+.cl-foot-soon { color: var(--faint); cursor: default; }
+.cl-foot-legal { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-top: 20px; color: var(--faint); font-size: 13.5px; line-height: 1.5; }
+.cl-foot-links { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.cl-foot-legal a { color: var(--muted); text-decoration: none; }
+.cl-foot-legal a:hover { color: var(--deep); }
+
+/* ช่วยเหลือ in the bar where the menu pill is hidden (iPads and phones) */
+.cl-help-link { display: none; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; font-weight: 500; line-height: 1.45; text-decoration: none; }
+.cl-help-link:hover { color: var(--deep); }
+
+/* Under the price: feedback while the app is in beta */
+.cl-feedback-cta { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 18px; max-width: 680px; margin: 30px auto 0; padding: 18px 20px 18px 24px; border-radius: 24px; background: #F7F6F5; }
+.cl-feedback-cta p { flex: 1 1 260px; color: var(--muted); font-size: 15px; line-height: 1.6; }
+.cl-feedback-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.cl-feedback-buttons button { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 0 16px; border: 1px solid rgba(28, 25, 23, 0.12); border-radius: 999px; background: #FFFFFF; color: var(--ink); font: inherit; font-size: 14.5px; font-weight: 600; line-height: 1.45; cursor: pointer; transition: border-color 0.2s ease, color 0.2s ease; }
+.cl-feedback-buttons button:hover { border-color: var(--orange); color: var(--deep); }
+.cl-feedback-buttons button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* The report form */
+.cl-help-scrim { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(28, 25, 23, 0.38); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.cl-help-dialog { width: min(560px, 100%); max-height: calc(100svh - 32px); overflow: auto; padding: 22px 24px 22px; border-radius: 28px; background: #FFFFFF; overscroll-behavior: contain; }
+.cl-help-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cl-help-top h2 { font-size: 21px; font-weight: 600; line-height: 1.45; }
+.cl-help-close { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: #F4F2F0; color: var(--ink); cursor: pointer; }
+.cl-help-form { display: grid; gap: 14px; margin-top: 16px; }
+.cl-help-kinds { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
+.cl-help-kinds legend { margin-bottom: 8px; padding: 0; color: var(--muted); font-size: 13.5px; font-weight: 600; line-height: 1.5; }
+.cl-help-kind { position: relative; display: inline-flex; align-items: center; min-height: 42px; padding: 0 15px; border: 1px solid rgba(28, 25, 23, 0.14); border-radius: 999px; color: var(--ink); font-size: 14.5px; line-height: 1.45; cursor: pointer; }
+.cl-help-kind input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.cl-help-kind.is-on { border-color: var(--orange); background: #FFF1E8; color: var(--deep); font-weight: 600; }
+.cl-help-kind:focus-within { outline: 2px solid var(--orange); outline-offset: 2px; }
+.cl-help-field { display: grid; gap: 6px; }
+.cl-help-field > span { font-size: 14px; font-weight: 600; line-height: 1.5; }
+.cl-help-field input, .cl-help-field textarea { width: 100%; min-height: 44px; padding: 10px 14px; border: 1px solid rgba(28, 25, 23, 0.16); border-radius: 14px; background: #FFFFFF; color: var(--ink); font: inherit; font-size: 15.5px; line-height: 1.55; }
+.cl-help-field textarea { resize: vertical; }
+.cl-help-field input:focus, .cl-help-field textarea:focus { outline: 2px solid var(--orange); outline-offset: 0; border-color: transparent; }
+.cl-help-field small { color: var(--faint); font-size: 12.5px; line-height: 1.5; }
+.cl-help-pick { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px dashed rgba(28, 25, 23, 0.25); border-radius: 14px; color: var(--muted); font-size: 14.5px; line-height: 1.45; cursor: pointer; }
+.cl-help-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.cl-help-pick:focus-within { outline: 2px solid var(--orange); outline-offset: 2px; }
+.cl-help-file { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 6px 0 14px; border-radius: 14px; background: #F7F6F5; font-size: 14.5px; line-height: 1.45; }
+.cl-help-file b { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.cl-help-file button { padding: 8px 10px; border: 0; background: none; color: var(--deep); font: inherit; font-weight: 600; cursor: pointer; }
+.cl-help-error { color: #B3261E !important; }
+.cl-help-trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.cl-help-failed { padding: 12px 14px; border-radius: 14px; background: #FDECEC; color: #8C1D18; font-size: 14.5px; line-height: 1.6; }
+.cl-help-failed a { color: inherit; font-weight: 600; }
+.cl-help-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+.cl-help-cancel, .cl-help-send { min-height: 44px; padding: 0 22px; border-radius: 999px; font: inherit; font-size: 15px; font-weight: 600; line-height: 1.45; cursor: pointer; }
+.cl-help-cancel { border: 1px solid rgba(28, 25, 23, 0.14); background: #FFFFFF; color: var(--ink); }
+.cl-help-send { border: 0; background: linear-gradient(111deg, #B03E0E 6%, #C64917 52%, #E4612B 100%); color: #FFFFFF; }
+.cl-help-send:disabled { opacity: 0.6; cursor: default; }
+.cl-help-cancel:focus-visible, .cl-help-send:focus-visible, .cl-help-close:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.cl-help-done { display: grid; justify-items: center; gap: 12px; padding: 24px 8px 6px; text-align: center; }
+.cl-help-done-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: #18A66A; color: #FFFFFF; }
+.cl-help-done-title { font-size: 18px; font-weight: 600; line-height: 1.55; }
+.cl-help-note { color: var(--muted); font-size: 14.5px; line-height: 1.6; }
 
 /* English runs longer than Thai: a smaller headline, and feature headings that may wrap between words. */
 .cl.is-en .cl-hero h1 { font-size: clamp(44px, 4.2vw, 64px); }
@@ -346,6 +407,7 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 /* iPads and smaller computers */
 @media (max-width: 1099px) {
   .cl-links { display: none; }
+  .cl-help-link { display: inline-flex; }
   .cl-feat { grid-template-columns: minmax(0, 1fr); gap: 40px; max-width: 680px; min-height: 0; padding: 80px 24px; text-align: center; }
   .cl-feat-text { order: -1; }
   .cl-feat-text p { margin-inline: auto; }
@@ -436,7 +498,18 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-tick b { font-size: 24px; }
   .cl-tick small { font-size: 11px; }
   .cl-final-cta { align-self: stretch; margin-top: 28px; }
-  .cl-foot { flex-direction: column; text-align: center; padding: 22px 18px 30px; font-size: 12.5px; }
+  .cl-foot { padding: 32px 18px 30px; font-size: 14px; }
+  .cl-foot-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .cl-foot-legal { flex-direction: column; align-items: flex-start; font-size: 12.5px; }
+  .cl-help-link { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; }
+  .cl-help-link span { display: none; }
+  .cl-bar-right { gap: 6px; }
+  .cl-feedback-cta { margin-top: 24px; padding: 16px; border-radius: 20px; }
+  .cl-feedback-buttons { width: 100%; }
+  .cl-feedback-buttons button { flex: 1 1 140px; justify-content: center; }
+  .cl-help-scrim { place-items: end stretch; padding: 0; }
+  .cl-help-dialog { width: 100%; max-height: 94svh; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }
+  .cl-help-actions { display: grid; grid-template-columns: 1fr 1.4fr; }
 }
 
 /* The pinned scene: computers and iPads held sideways, with motion. GSAP moves the parts (CleanLanding.tsx, SCENE).

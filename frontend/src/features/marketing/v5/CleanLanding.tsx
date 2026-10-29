@@ -13,7 +13,7 @@ import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { Physics2DPlugin } from 'gsap/Physics2DPlugin';
 import { Draggable } from 'gsap/Draggable';
-import { Bell, CalendarDays, Check, CircleHelp, FileSearch, FileText, NotebookPen, Plus, Wallet } from 'lucide-react';
+import { Bell, Bug, CalendarDays, Check, CircleHelp, FileSearch, FileText, Instagram, Lightbulb, Mail, Music2, NotebookPen, Plus, Wallet } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { Mascot } from '../../../components/mascot/Mascot';
 import { LineLogo } from '../../../components/ui/LineLogo';
@@ -26,6 +26,9 @@ import { CalendarDemo, DocsDemo, PhoneDemo } from '../v4/Demos';
 import { MascotSlot } from '../../assistant/MascotSlot';
 import { statusFor, type AssistantMode } from '../../assistant/assistantMock';
 import '../v4/demos.css';
+import { HelpForm } from './HelpForm';
+import { BRAND_LINKS } from './brandLinks';
+import type { PublicFeedbackKind } from '../../../../../shared/feedbackPublic';
 import './clean.css';
 
 // The landing page, round 5 (owner, 2026-10-29): clean and white, modern and Gen Z, liquid glass cards and a finance
@@ -248,6 +251,9 @@ export default function CleanLanding() {
   const promoRunning = useMonthPromoRunning();
   const price = proPriceParts('month');
   const root = React.useRef<HTMLDivElement>(null);
+  // The report form, opened from the menu's ช่วยเหลือ, the buttons under the price and the footer (one form for all).
+  const [help, setHelp] = React.useState<PublicFeedbackKind | null>(null);
+  const closeHelp = React.useCallback(() => setHelp(null), []);
 
   // useGSAP (@gsap/react): everything made here is reverted when the page goes or the deal changes.
   useGSAP((_context, contextSafe) => {
@@ -542,8 +548,8 @@ export default function CleanLanding() {
       <header className="cl-bar">
         <div className="cl-bar-in">
           <a href="#top" className="cl-logo" aria-label={tr('กระรอกตุนเงิน หน้าแรก')}><BrandLockup size={28} /></a>
-          <nav className="cl-links" aria-label={tr('เมนูหลัก')}><a href="#cl-features"><Roll text={tr('ฟีเจอร์')} /></a><a href="#pricing"><Roll text={tr('ราคา')} /></a><a href="#cl-faq"><Roll text={tr('คำถาม')} /></a></nav>
-          <span className="cl-bar-right"><a className="cl-login" href={LOGIN}><Roll text={tr('เข้าสู่ระบบ')} /></a><a className="cl-btn is-small" href={LOGIN}><Roll text={tr('เริ่มใช้ฟรี')} /></a></span>
+          <nav className="cl-links" aria-label={tr('เมนูหลัก')}><a href="#cl-features"><Roll text={tr('ฟีเจอร์')} /></a><a href="#pricing"><Roll text={tr('ราคา')} /></a><a href="#cl-faq"><Roll text={tr('คำถาม')} /></a><a href="#cl-help"><Roll text={tr('ช่วยเหลือ')} /></a></nav>
+          <span className="cl-bar-right"><a className="cl-help-link" href="#cl-help" aria-label={tr('ช่วยเหลือ')}><CircleHelp size={17} aria-hidden="true" /><span>{tr('ช่วยเหลือ')}</span></a><a className="cl-login" href={LOGIN}><Roll text={tr('เข้าสู่ระบบ')} /></a><a className="cl-btn is-small" href={LOGIN}><Roll text={tr('เริ่มใช้ฟรี')} /></a></span>
           <span className="cl-progress" aria-hidden="true" />
         </div>
       </header>
@@ -649,6 +655,14 @@ export default function CleanLanding() {
             </article>
           </div>
           <div className="cl-center"><StartButton /></div>
+          {/* Feedback while the app is in beta: the same form, opened at the matching kind */}
+          <div className="cl-feedback-cta">
+            <p>{tr('อยู่ในช่วงเบต้า เจอปัญหาหรืออยากให้มีอะไรเพิ่ม บอกทีมกระรอกได้เลย')}</p>
+            <span className="cl-feedback-buttons">
+              <button type="button" onClick={() => setHelp('bug')}><Bug size={16} aria-hidden="true" />{tr('แจ้งปัญหา / บั๊ก')}</button>
+              <button type="button" onClick={() => setHelp('idea')}><Lightbulb size={16} aria-hidden="true" />{tr('เสนอไอเดีย')}</button>
+            </span>
+          </div>
         </section>
 
         {/* 4 · what it does: each feature on a page of its own (owner: "เอาไว้คนละหน้าเลย") */}
@@ -729,11 +743,36 @@ export default function CleanLanding() {
         </section>
       </main>
 
-      <footer className="cl-foot">
-        <BrandLockup size={26} />
-        <span className="cl-foot-links"><a href="/privacy">{tr('นโยบายความเป็นส่วนตัว')}</a><a href="/terms">{tr('ข้อตกลงการใช้งาน')}</a></span>
-        <span className="cl-foot-copy">{tr('© 2569 กระรอกตุนเงิน')}</span>
+      {/* The footer: where to follow and reach the team, and the way to the report form (the menu's ช่วยเหลือ lands here). */}
+      <footer id="cl-help" className="cl-foot">
+        <div className="cl-foot-grid">
+          <div className="cl-foot-brand"><BrandLockup size={26} /></div>
+          <div className="cl-foot-col">
+            <h2>{tr('ติดตามและติดต่อ')}</h2>
+            <ul>
+              <li>{BRAND_LINKS.instagram
+                ? <a href={BRAND_LINKS.instagram} target="_blank" rel="noopener noreferrer"><Instagram size={16} aria-hidden="true" />{tr('ติดตามบน Instagram')}</a>
+                : <span className="cl-foot-soon"><Instagram size={16} aria-hidden="true" />{tr('Instagram — เร็ว ๆ นี้')}</span>}</li>
+              <li>{BRAND_LINKS.tiktok
+                ? <a href={BRAND_LINKS.tiktok} target="_blank" rel="noopener noreferrer"><Music2 size={16} aria-hidden="true" />{tr('ติดตามบน TikTok')}</a>
+                : <span className="cl-foot-soon"><Music2 size={16} aria-hidden="true" />{tr('TikTok — เร็ว ๆ นี้')}</span>}</li>
+              <li><a href={`mailto:${BRAND_LINKS.email}`}><Mail size={16} aria-hidden="true" />{tr('อีเมลหาเรา')}</a></li>
+            </ul>
+          </div>
+          <div className="cl-foot-col">
+            <h2>{tr('ช่วยเหลือ')}</h2>
+            <ul>
+              <li><button type="button" onClick={() => setHelp('bug')}><Bug size={16} aria-hidden="true" />{tr('แจ้งปัญหา / เสนอไอเดีย')}</button></li>
+              <li><button type="button" onClick={() => setHelp('general')}><CircleHelp size={16} aria-hidden="true" />{tr('ส่งความคิดเห็นทั่วไป')}</button></li>
+            </ul>
+          </div>
+        </div>
+        <div className="cl-foot-legal">
+          <span className="cl-foot-links"><a href="/privacy">{tr('นโยบายความเป็นส่วนตัว')}</a><a href="/terms">{tr('ข้อตกลงการใช้งาน')}</a></span>
+          <span className="cl-foot-copy">{tr('© 2569 กระรอกตุนเงิน')}</span>
+        </div>
       </footer>
+      {help && <HelpForm kind={help} onClose={closeHelp} />}
     </div>
   );
 }
