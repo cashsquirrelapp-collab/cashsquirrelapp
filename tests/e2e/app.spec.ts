@@ -632,6 +632,9 @@ test('calendar shows how much money the open month brings in, matching the timel
  const waiting={id:'wait',name:'งานรอรับ',value:3000,received:0,pending:3000,client:'ลูกค้า B',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:0,note:'',postDate:`${ym}-28`,payDate:`${ym}-28`,isPosted:true};
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,jobs:[paid,waiting]},versions:{...versions,cashflow_jobs:{paid:1,wait:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ // A job due on the 28th is overdue from the 29th, and the app then shows its once-a-day overdue alert 1.5 s after
+ // loading, over whatever the test is pressing. That alert is not what this test is about: today's check counts as done.
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
  await page.goto('/calendar?view=calendar');
  const card=page.getByRole('region',{name:'เงินเข้าเดือนนี้'});
  await expect(card).toContainText('฿8,000');
@@ -891,6 +894,9 @@ test('a job tapped on the timeline slides up as a card, and its edit button open
  const job={id:'knife',name:'มีดโกนหนวด',value:2000,whtRate:3,whtAmount:60,received:0,pending:1940,client:'Brand A',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:30,note:'',postDate:`${ym}-01`,payDate:`${ym}-28`,isPosted:true};
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  await page.route('**/api/data*',route=>route.request().method()==='POST'?route.fulfill({json:{ok:true}}):route.fulfill({json:{snapshot:{...snapshot,jobs:[job]},versions:{...versions,cashflow_jobs:{knife:1}},subscription:{status:'active',current_period_end:'2027-01-01T00:00:00Z'}}}));
+ // A job due on the 28th is overdue from the 29th, and the app then shows its once-a-day overdue alert 1.5 s after
+ // loading, over whatever the test is pressing. That alert is not what this test is about: today's check counts as done.
+ await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
  await page.goto('/calendar?view=timeline');
  await page.locator('#main-content').getByRole('button',{name:/มีดโกนหนวด/}).click();
  const sheet=page.getByRole('dialog',{name:'มีดโกนหนวด'});
