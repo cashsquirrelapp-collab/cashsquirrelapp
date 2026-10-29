@@ -606,15 +606,13 @@ test('the arrival plays only after a confirmed payment, once its success message
   expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('krarok_born')))).toEqual([]);
 });
 
-test('paying: success message first, then the squirrel arrives on the same page and lands at its corner', async ({ page }) => {
+test('paying: the squirrel walks out of its door at once, with no success message, and lands at its corner', async ({ page }) => {
   const paid = { checkout_ready: true, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z', cancel_at_period_end: false, stripe_status: 'active', has_subscription: true, intro_eligible: false, managed: false } };
   await open(page, 1280, 820, { free: true, billing: paid, path: '/plans?checkout=success&session_id=cs_test_arrival' });
-  const success = page.getByRole('heading', { name: 'สมัครสมาชิกสำเร็จ!' });
-  await expect(success).toBeVisible({ timeout: 10000 });
-  await expect(page.locator('.kb-stage')).toHaveCount(0); // never on top of the message
-  await page.getByRole('button', { name: 'ตกลง', exact: true }).click();
+  // Owner, 2026-10-29: "ไม่ต้องบอกว่าสมัครสมาชิกสำเร็จ ... น้องออกมาเลย".
   const stage = stageOf(page);
-  await expect(stage).toBeVisible();
+  await expect(stage).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('heading', { name: 'สมัครสมาชิกสำเร็จ!' })).toHaveCount(0);
   await expect(stage.locator('.kb-door')).toHaveCount(1);
   // Dressed as the corner squirrel, in its headset (owner, 2026-10-29: "เวลาที่น้องเดินออกมาก็เป็นน้องใส่หูฟัง").
   await expect(stage.locator('.kb-figure .mpg-headset')).toHaveCount(1);
@@ -641,6 +639,7 @@ test('paying: success message first, then the squirrel arrives on the same page 
     return box ? Math.hypot(box.x + box.width / 2 - (spot.x + spot.width / 2), box.y + box.height / 2 - (spot.y + spot.height / 2)) : 0;
   }, { timeout: 3000, intervals: [50] }).toBeLessThan(12);
   await expect(stage).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByRole('heading', { name: 'สมัครสมาชิกสำเร็จ!' })).toHaveCount(0); // not afterwards either
   await expect(standing).toBeVisible({ timeout: 3000 });
   await expect.poll(() => standing.evaluate(el => Number(getComputedStyle(el).opacity)), { timeout: 3000 }).toBe(1);
   await expect(page.getByRole('button', { name: /^ถามเลขากระรอกเรื่องหน้า/ })).toBeVisible();

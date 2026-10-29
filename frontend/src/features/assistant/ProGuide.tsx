@@ -1,4 +1,5 @@
 import React from 'react';
+import { flushSync } from 'react-dom';
 import { ArrowRight, Check, ChevronRight, FileText, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { LineLogo } from '../../components/ui/LineLogo';
@@ -159,15 +160,23 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
     return () => window.clearTimeout(timer);
   }, [active, activeDone, update]);
 
-  // Follow the target on the page: the first match of the step's list, re-measured as the page scrolls or changes.
+  // Follow the target on the page: the first match of the step's list. The ring and the bubble wait until the page
+  // has settled (owner, 2026-10-29: "ให้มันนิ่งก่อนแล้วค่อยคุม", the coach used to jump after the page in 250 ms steps):
+  // the new page renders and scrolls to the button, the button stays put for a few frames, then the ring appears and
+  // the bubble drops in. After that they follow the button every frame while the page scrolls, so nothing stutters.
   const [spot, setSpot] = React.useState<Spot | null>(null);
   const [lost, setLost] = React.useState(false);
   const spotName = React.useRef('');
   React.useEffect(() => {
     if (!active || activeDone) { setSpot(null); setLost(false); spotName.current = ''; return; }
-    let missing = 0;
-    const find = () => {
-      if (modalOpen()) { setSpot(null); setLost(false); return; }
+    const same = (a: Spot | null, b: Spot | null) => Boolean(a && b && a.name === b.name && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height);
+    const STILL_FRAMES = 8; // about 130 ms without moving counts as settled
+    let raf = 0;
+    let last: Spot | null = null;
+    let still = 0;
+    let settled = false;
+    let missingSince = 0;
+    const measure = (): Spot | null => {
       for (const name of TARGETS[active]) {
         const node = Array.from(document.querySelectorAll<HTMLElement>(`[data-guide-target="${name}"]`)).find(item => {
           const box = item.getBoundingClientRect();
@@ -175,23 +184,55 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
         });
         if (!node) continue;
         if (spotName.current !== name) {
+          // A new button for this step: hide the coach, bring the button into view, and settle again.
           spotName.current = name;
+          settled = false; still = 0; last = null;
+          setSpot(null);
           node.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
         }
         const box = node.getBoundingClientRect();
-        const next = { name, left: Math.round(box.left), top: Math.round(box.top), width: Math.round(box.width), height: Math.round(box.height) };
-        missing = 0; setLost(false);
-        setSpot(prev => (prev && prev.name === next.name && prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.height === next.height ? prev : next));
+        return { name, left: Math.round(box.left), top: Math.round(box.top), width: Math.round(box.width), height: Math.round(box.height) };
+      }
+      return null;
+    };
+    const frame = () => {
+      raf = 0;
+      if (modalOpen()) { settled = false; still = 0; last = null; setSpot(null); setLost(false); return; }
+      const next = measure();
+      if (!next) {
+        settled = false; still = 0; last = null; spotName.current = '';
+        setSpot(null);
+        if (!missingSince) missingSince = performance.now();
+        if (performance.now() - missingSince > 1250) setLost(true);
         return;
       }
-      setSpot(null); spotName.current = '';
-      missing += 1;
-      if (missing >= 5) setLost(true);
+      missingSince = 0; setLost(false);
+      const moved = !same(last, next);
+      last = next;
+      if (!settled) {
+        still = moved ? 0 : still + 1;
+        if (still >= STILL_FRAMES) { settled = true; setSpot(next); return; }
+        raf = requestAnimationFrame(frame); // keep watching every frame until it stops moving
+        return;
+      }
+      if (moved) {
+        // Drawn in this same frame, before the browser paints, so the ring never trails the button by a frame.
+        flushSync(() => setSpot(next));
+        raf = requestAnimationFrame(frame); // following a scroll: every frame until it stops
+      }
     };
-    find();
-    const timer = window.setInterval(find, 250);
-    window.addEventListener('resize', find);
-    return () => { window.clearInterval(timer); window.removeEventListener('resize', find); };
+    const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
+    kick();
+    // The page can change without scrolling (a route, a section opening): a light check four times a second.
+    const timer = window.setInterval(kick, 250);
+    window.addEventListener('scroll', kick, { capture: true, passive: true });
+    window.addEventListener('resize', kick);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.clearInterval(timer);
+      window.removeEventListener('scroll', kick, { capture: true });
+      window.removeEventListener('resize', kick);
+    };
   }, [active, activeDone]);
 
   // While the card is out the corner squirrel's own words step aside, so nothing sits under the card.
@@ -304,7 +345,7 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
     const top = below ? spot.top + spot.height + 18 : Math.max(12, spot.top - 18 - coachHeight);
     const tail = Math.max(20, Math.min(spot.left + Math.min(spot.width / 2, 34) - left, width - 40));
     coach = (
-      <section ref={coachRef} className={`pg-coach ${below ? 'is-below' : 'is-above'}`} style={{ left, top, width }} aria-labelledby="pg-coach-title" aria-live="polite" data-testid="pro-guide-coach" data-target={spot.name}>
+      <section ref={coachRef} className={`pg-coach is-follow ${below ? 'is-below' : 'is-above'}`} style={{ translate: `${left}px ${top}px`, width }} aria-labelledby="pg-coach-title" aria-live="polite" data-testid="pro-guide-coach" data-target={spot.name}>
         <span aria-hidden="true" className="pg-coach-tail" style={{ left: tail }} />
         {head(coachTitle(spot.name))}
         <ol className="pg-coach-steps">{coachSteps(active).map((item, at) => <li key={at}>{item}</li>)}</ol>
@@ -327,8 +368,8 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   return (
     <>
       {spot && !cheer && <>
-        <span key={`dim-${spot.name}`} aria-hidden="true" className="pg-dim" style={{ left: spot.left - 6, top: spot.top - 6, width: spot.width + 12, height: spot.height + 12 }} />
-        <span key={`ring-${spot.name}`} aria-hidden="true" className="pg-ring" data-testid="pro-guide-ring" style={{ left: spot.left - 6, top: spot.top - 6, width: spot.width + 12, height: spot.height + 12 }} />
+        <span key={`dim-${spot.name}`} aria-hidden="true" className="pg-dim" style={{ translate: `${spot.left - 6}px ${spot.top - 6}px`, width: spot.width + 12, height: spot.height + 12 }} />
+        <span key={`ring-${spot.name}`} aria-hidden="true" className="pg-ring" data-testid="pro-guide-ring" style={{ translate: `${spot.left - 6}px ${spot.top - 6}px`, width: spot.width + 12, height: spot.height + 12 }} />
       </>}
       {coach}
       {pill}

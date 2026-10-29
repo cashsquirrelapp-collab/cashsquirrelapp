@@ -12,12 +12,12 @@ const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], settings: { 
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 const KEY = `krarok.proKv.${user.id}`;
 
-async function open(page: Page, path: string, { width = 1280, height = 820, pro = false, lastShown }: { width?: number; height?: number; pro?: boolean; lastShown?: string } = {}) {
-  await page.addInitScript(([key, last]) => {
-    localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', 'false');
+async function open(page: Page, path: string, { width = 1280, height = 820, pro = false, lastShown, dark = false }: { width?: number; height?: number; pro?: boolean; lastShown?: string; dark?: boolean } = {}) {
+  await page.addInitScript(([key, last, isDark]) => {
+    localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', isDark);
     localStorage.setItem('cashflow_theme_auto_period', String(Math.floor((Date.now() + 7 * 3600e3 - 6 * 3600e3) / (12 * 3600e3))));
     if (last && !sessionStorage.getItem('kv-seeded')) { localStorage.setItem(key, last); sessionStorage.setItem('kv-seeded', '1'); }
-  }, [KEY, lastShown ?? ''] as const);
+  }, [KEY, lastShown ?? '', String(dark)] as const);
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
   await page.route('**/api/**', route => route.fulfill({ json: {} }));
   await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user } } }));
@@ -107,4 +107,20 @@ test('iPad portrait and a short laptop: the poster fits the screen', async ({ pa
   expect(close.y).toBeGreaterThanOrEqual(0);
   expect(later.y + later.height).toBeLessThanOrEqual(700);
   await shot(page, 'kv-laptop');
+});
+
+// It follows the app's theme (owner, 2026-10-29: "ทำธีมสว่างด้วยสิ"): cream and peach in light, dark rust in dark.
+test('light and dark: the poster follows the theme and reads cleanly in both', async ({ page }) => {
+  const cardBackground = () => kv(page).locator('.pkv-card').evaluate(el => getComputedStyle(el).backgroundImage);
+  await open(page, '/dashboard?kv=pro');
+  await expect(kv(page)).toBeVisible({ timeout: 8000 });
+  expect(await cardBackground()).toContain('rgb(255, 248, 242)');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await shot(page, 'kv-light');
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  await open(page, '/dashboard?kv=pro', { dark: true });
+  await expect(kv(page)).toBeVisible({ timeout: 8000 });
+  expect(await cardBackground()).toContain('rgb(43, 27, 21)');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await shot(page, 'kv-dark');
 });

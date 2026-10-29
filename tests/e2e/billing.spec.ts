@@ -57,6 +57,9 @@ const versions = {
   },
 };
 
+// Paid: the squirrel walks out of its door at once (owner, 2026-10-29: no "สมัครสมาชิกสำเร็จ!" message in between).
+const proWelcome = (page: Page) => page.getByRole('dialog', { name: 'เลขากระรอกพร้อมช่วยงานคุณแล้ว' });
+
 type SubscriptionFixture = {
   status: string;
   plan: string | null;
@@ -465,7 +468,7 @@ test('checkout success keeps polling and keeps its marker until a delayed webhoo
 
   releaseActive();
   await expect.poll(() => billingReads, { timeout: 10_000 }).toBeGreaterThanOrEqual(8);
-  await expect(page.getByRole('heading', { name: 'สมัครสมาชิกสำเร็จ!' })).toBeVisible();
+  await expect(proWelcome(page)).toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.get('checkout')).toBeNull();
   expect(new URL(page.url()).searchParams.get('keep')).toBe('1');
   expect(new URL(page.url()).searchParams.get('session_id')).toBeNull();
@@ -561,9 +564,9 @@ test('embedded completion waits for authoritative payment before showing Pro',as
  await page.getByTestId('pro-card').getByRole('button',{name:/^สมัคร Pro( รายเดือน)?$/}).click();
  await page.getByRole('button',{name:'Mock payment complete'}).click();
  await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toBeVisible();
- await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toHaveCount(0);
+ await expect(proWelcome(page)).toHaveCount(0);
  await page.route('**/api/billing',route=>route.fulfill({json:{checkout_ready:true,subscription:{...free,status:'active',plan:'pro_prepaid',current_period_end:'2099-01-01T00:00:00Z'}}}));
- await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toBeVisible({timeout:10000});
+ await expect(proWelcome(page)).toBeVisible({timeout:10000});
 });
 
 for (const plan of [{period:'month',label:'รายเดือน',months:1,amount:17700},{period:'halfYear',label:'6 เดือน',months:6,amount:89500},{period:'year',label:'1 ปี',months:12,amount:156200}]) {
@@ -591,11 +594,11 @@ for (const plan of [{period:'month',label:'รายเดือน',months:1,am
   await expect(dialog.locator('iframe')).toHaveCount(0);await expect(dialog.getByText('Secure payment form')).toHaveCount(0);
   await expect(dialog.getByRole('button',{name:/ดำเนินการต่อ|Continue/})).toHaveCount(0);
   expect(posted).toEqual({action:'promptpay_checkout',period:plan.period});
-  await expect(page).toHaveURL(/\/plans/);await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toHaveCount(0);
+  await expect(page).toHaveURL(/\/plans/);await expect(proWelcome(page)).toHaveCount(0);
   if(plan.period==='month'){
     paymentStatus='paid';await expect(dialog.getByText('รับชำระแล้ว กำลังเปิดสิทธิ์ Pro…')).toBeVisible({timeout:8000});
-    await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toHaveCount(0);
-    paid=true;await expect(page.getByRole('heading',{name:'สมัครสมาชิกสำเร็จ!'})).toBeVisible({timeout:12000});
+    await expect(proWelcome(page)).toHaveCount(0);
+    paid=true;await expect(proWelcome(page)).toBeVisible({timeout:12000});
   }else{
     await dialog.getByRole('button',{name:'ปิดหน้าต่าง',exact:true}).click();
     await expect(dialog).toHaveCount(0);

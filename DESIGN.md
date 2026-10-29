@@ -202,10 +202,14 @@ card does not need:
 
 ### Post-payment guide (owner, 2026-10-29: "การ์ดทีละขั้น พาไปกด")
 
-- After the arrival that follows a payment, a card beside the corner squirrel: "เริ่มใช้ Pro ใน 4 ขั้น", a four-part
+- Paying plays the arrival at once, with no "สมัครสมาชิกสำเร็จ!" message (owner, 2026-10-29); the message comes only where
+  the arrival cannot play. After the arrival, a card beside the corner squirrel: "เริ่มใช้ Pro ใน 4 ขั้น", a four-part
   bar and the steps เชื่อม LINE, เปิดแจ้งเตือนอีเมล, ลองคุยกับเลขา, ตั้งข้อมูลผู้ออกเอกสาร (`ProGuide.tsx`).
 - "ไปทำเลย" opens the page, dims it for about three seconds and rings the thing to press (elements marked
   `data-guide-target`); a bubble says what to do, with ข้ามขั้นนี้ and ดูทุกขั้น. Steps tick themselves from real data.
+- Motion (owner, 2026-10-29: "อย่าให้มันกระตุก ... ให้มันนิ่งก่อนแล้วค่อยคุม"): the ring and bubble wait until the page has
+  rendered and scrolled to the button and it has stayed put for a few frames; then the ring scales in and the bubble
+  drops in from just above. While the page scrolls they follow the button in every frame (placed with `translate`).
 - "ไว้ทีหลัง" leaves a small pill by the squirrel that reopens the card. `?guide=pro` opens it.
 - Phones (owner, 2026-10-29): the card rises from the bottom over the tab bar like an iOS sheet (grip, no tail); the
   pill sits beside the phone's squirrel, whose hello bubble waits meanwhile.
@@ -215,8 +219,9 @@ card does not need:
 - Accounts of their own not on Pro see it on the overview, at most once in 7 days; ✕ and ไว้ทีหลัง wait for next week,
   สมัคร Pro เลย opens the plans page (`ProKvBanner.tsx`, the date in localStorage `krarok.proKv.<userId>`). Automated
   browsers see it only with `?kv=auto` (weekly rule) or `?kv=pro` (now).
-- One portrait poster (400 x 540, scaled to fit every screen) in the **Pro look**: dark rust (#2B1B15 to #9A3A16) with gold
-  (#FFC36B to #F2A23A) as the only highlight, CI colours only. No logo in the corner.
+- One portrait poster (400 x 540, scaled to fit every screen), CI colours only, no logo in the corner. It follows the app's
+  theme (owner, 2026-10-29: "ทำธีมสว่างด้วยสิ"): light is cream into peach with dark and rust type and the big price in rust;
+  dark is dark rust (#2B1B15 to #9A3A16) with gold (#FFC36B to #F2A23A) as the only highlight.
 - The eye goes in this order: 1 the headline "จ้างเลขาส่วนตัว วันละไม่ถึง ฿N" (N worked out from the month's price, big
   gold); 2 เลขากระรอก peeking out of the glowing KRAROK PRO box (the app's own `MascotPeek`, never redrawn); 3 the round
   rust price badge (฿249 struck while the promotion runs); 4 "ได้ครบใน Pro": LINE, email and documents in a neat list;

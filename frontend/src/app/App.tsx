@@ -1422,8 +1422,8 @@ export default function App() {
   const [onboardingEdit, setOnboardingEdit] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [buddyArrival, setBuddyArrival] = useState(0);
-  // Only right after paying: set when the server confirms the payment, played once its "สมัครสมาชิกสำเร็จ!" message
-  // is closed, so the two never sit on top of each other. Ordinary visits, the trial and renewals never play it.
+  // Only right after paying: set when the server confirms the payment, and played at once (owner, 2026-10-29: no
+  // "สมัครสมาชิกสำเร็จ!" message in between). Ordinary visits, the trial and renewals never play it.
   const birthAfterPayRef = useRef(false);
   // The team's preview (เลขากระรอก ⋯ → ดูตอนน้องเกิดอีกครั้ง) and the tests open it with ?hello=krarok.
   const birthPreviewRef = useRef(false);
@@ -1697,8 +1697,14 @@ export default function App() {
               setEmbeddedPayment(null);
               setQrPayment(null); qrAttempt.current++;
               updateCheckoutQuery(true);
+              // Owner, 2026-10-29: no "สมัครสมาชิกสำเร็จ!" message after paying; the squirrel walks out of its door at once
+              // (the arrival effect below). A "still checking" note that is open closes first. Only when the arrival cannot
+              // play here (an account or screen without the corner squirrel) does the message come, after a moment.
               birthAfterPayRef.current = true;
-              triggerAlert(tr("สมัครสมาชิกสำเร็จ!"), tr("เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!"));
+              if (pendingAlertShown) setDialog(prev => ({ ...prev, isOpen: false }));
+              window.setTimeout(() => {
+                if (birthAfterPayRef.current && billingUserRef.current === userId) triggerAlert(tr("สมัครสมาชิกสำเร็จ!"), tr("เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!"));
+              }, 2500);
               return;
             }
           }
@@ -2041,7 +2047,7 @@ export default function App() {
     message: '',
     onConfirm: () => {}
   });
-  // The payment's "สมัครสมาชิกสำเร็จ!" message has been closed: the squirrel arrives (once the corner squirrel can show).
+  // Paid: the squirrel arrives straight away (once the corner squirrel can show and no other message is open).
   useEffect(() => {
     if (!birthAfterPayRef.current || dialog.isOpen || !showBuddy || birthOpen) return;
     birthAfterPayRef.current = false;

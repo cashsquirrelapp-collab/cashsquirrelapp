@@ -1,29 +1,47 @@
-/* The weekly Pro invitation (owner, 2026-10-29, Gen Z round 4, design 1): the Pro look, dark rust with gold, CI only.
-   The poster is drawn at 400 x 540 and scaled to fit the screen (ProKvBanner's useFitScale). */
-.pkv { position: fixed; inset: 0; z-index: 160; display: grid; place-items: center; padding: 12px; font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans); }
+/* The weekly Pro invitation (owner, 2026-10-29, Gen Z round 4, design 1), CI only. The poster is drawn at 400 x 540 and
+   scaled to fit the screen (ProKvBanner's useFitScale). It follows the app's theme (owner: "ทำธีมสว่างด้วยสิ"): light is
+   cream into peach with rust type, like the plans page; dark is the dark rust with gold the owner first chose. */
+.pkv {
+  --pkv-card: linear-gradient(168deg, #FFF8F2 0%, #FFEBDF 42%, #FFD8C4 82%, #FFC7AA 100%); --pkv-glow: rgba(255, 195, 107, 0.4);
+  --pkv-t1: #1C1917; --pkv-t2: #C24A16; --pkv-big: linear-gradient(180deg, #FF8A4C 0%, #E65F2B 45%, #A63F1B 100%); --pkv-big-back: #FFFFFF;
+  --pkv-feat-title: #A63F1B; --pkv-feat: #1C1917; --pkv-ic-shadow: 0 6px 12px rgba(166, 63, 27, 0.18);
+  --pkv-count-label: #A63F1B; --pkv-chip: #FFFFFF; --pkv-chip-ink: #1C1917; --pkv-chip-sub: #6F6964; --pkv-colon: #E65F2B;
+  --pkv-spark-a: #F2A23A; --pkv-spark-b: #E0901F; --pkv-streak-a: #F2A23A; --pkv-streak-b: #FFD58A; --pkv-light: rgba(255, 196, 110, 0.85);
+  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.42);
+  position: fixed; inset: 0; z-index: 160; display: grid; place-items: center; padding: 12px; font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans); }
 .pkv-scrim { position: absolute; inset: 0; background: rgba(24, 16, 12, 0.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: pkv-fade 0.3s ease both; }
 /* Room for the ✕ above and the button below, so the poster's centre sits a little high. */
 .pkv-fit { position: relative; margin-bottom: 60px; }
 .pkv-poster { position: absolute; left: 0; top: 0; width: 400px; height: 540px; transform-origin: 0 0; animation: pkv-in 0.6s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
 .pkv-poster:focus { outline: none; }
-.pkv-card { position: absolute; inset: 0; overflow: hidden; isolation: isolate; border-radius: 32px; background: linear-gradient(168deg, #2B1B15 0%, #3D2016 40%, #7A2E12 80%, #9A3A16 100%); box-shadow: 0 40px 90px rgba(0, 0, 0, 0.5); }
-.pkv-glow { position: absolute; right: -80px; top: -70px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 195, 107, 0.26), rgba(255, 195, 107, 0) 70%); }
+.dark .pkv {
+  --pkv-card: linear-gradient(168deg, #2B1B15 0%, #3D2016 40%, #7A2E12 80%, #9A3A16 100%); --pkv-glow: rgba(255, 195, 107, 0.26);
+  --pkv-t1: #FFF1E8; --pkv-t2: #FFD3BD; --pkv-big: linear-gradient(180deg, #FFF6DD 0%, #FFD58A 48%, #F2A23A 100%); --pkv-big-back: #3A1407;
+  --pkv-feat-title: #FFC36B; --pkv-feat: #FFF1E8; --pkv-ic-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  --pkv-count-label: #FFD3BD; --pkv-chip: rgba(28, 25, 23, 0.42); --pkv-chip-ink: #FFF1E8; --pkv-chip-sub: #FFD3BD; --pkv-colon: #FFC36B;
+  --pkv-spark-a: #FFE7BF; --pkv-spark-b: #FFC36B; --pkv-streak-a: #FFC36B; --pkv-streak-b: #FFE7BF; --pkv-light: rgba(255, 213, 138, 0.9);
+  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.5);
+}
+.pkv-card { position: absolute; inset: 0; overflow: hidden; isolation: isolate; border-radius: 32px; background: var(--pkv-card); box-shadow: var(--pkv-card-shadow); }
+.pkv-glow { position: absolute; right: -80px; top: -70px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, var(--pkv-glow), rgba(255, 195, 107, 0) 70%); }
+.pkv-streak .is-a { stop-color: var(--pkv-streak-a); }
+.pkv-streak .is-b { stop-color: var(--pkv-streak-b); }
 .pkv-streak { position: absolute; inset: 0; }
 
 /* 1 · the headline */
 /* The heading spans the top of the card, so its lines (each placed on its own) have a box around them. */
 .pkv-title { position: absolute; left: 0; top: 0; width: 400px; height: 226px; margin: 0; font-weight: 700; }
-.pkv-t1 { position: absolute; left: 26px; top: 16px; font-size: 32px; line-height: 1.45; color: #FFF1E8; white-space: nowrap; }
-.pkv-t2 { position: absolute; left: 28px; top: 156px; font-size: 24px; line-height: 1.45; color: #FFD3BD; white-space: nowrap; }
+.pkv-t1 { position: absolute; left: 26px; top: 16px; font-size: 32px; line-height: 1.45; color: var(--pkv-t1); white-space: nowrap; }
+.pkv-t2 { position: absolute; left: 28px; top: 156px; font-size: 24px; line-height: 1.45; color: var(--pkv-t2); white-space: nowrap; }
 .pkv-big { position: absolute; left: 168px; top: 68px; font-family: 'IBM Plex Sans', var(--font-sans); font-size: 154px; font-style: italic; line-height: 1; white-space: nowrap; }
-.pkv-big::before { content: attr(data-text); position: absolute; left: 5px; top: 8px; color: #3A1407; }
-.pkv-big > span { position: relative; background: linear-gradient(180deg, #FFF6DD 0%, #FFD58A 48%, #F2A23A 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.pkv-big::before { content: attr(data-text); position: absolute; left: 5px; top: 8px; color: var(--pkv-big-back); }
+.pkv-big > span { position: relative; background: var(--pkv-big); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 /* 2 · the hero: เลขากระรอก peeking out of the glowing box (positions from the box's top-left corner) */
 .pkv-hero { position: absolute; left: 206px; top: 370px; width: 178px; height: 92px; }
 /* The light from inside the box: brightest at the box's top edge, faded out before its own edges, and faded away
    just below the edge so no line shows beside the box. */
-.pkv-box-light { position: absolute; left: -40px; top: -200px; width: 258px; height: 300px; background: radial-gradient(ellipse 48% 30% at 50% 66%, rgba(255, 213, 138, 0.9), rgba(255, 195, 107, 0.32) 50%, rgba(255, 195, 107, 0) 100%);
+.pkv-box-light { position: absolute; left: -40px; top: -200px; width: 258px; height: 300px; background: radial-gradient(ellipse 48% 30% at 50% 66%, var(--pkv-light), rgba(255, 195, 107, 0.32) 50%, rgba(255, 195, 107, 0) 100%);
   -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 70%); mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 70%); animation: pkv-light 3.2s ease-in-out infinite; }
 .pkv-flap { position: absolute; top: -26px; width: 48px; height: 26px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, #FF9A62, #C8501C); box-shadow: inset 0 0 0 1.5px rgba(255, 195, 107, 0.45); }
 .pkv-flap.is-left { left: -46px; transform: rotate(30deg); transform-origin: 100% 100%; }
@@ -34,10 +52,10 @@
 .pkv-box { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 4px 4px 14px 14px; background: linear-gradient(160deg, #C8501C, #8E3313); box-shadow: inset 0 0 0 1.5px rgba(255, 195, 107, 0.55), 0 18px 30px rgba(0, 0, 0, 0.35); }
 .pkv-box img { width: 28px; height: 28px; filter: brightness(0) invert(1) sepia(0.3); }
 .pkv-box b { font-family: 'IBM Plex Sans', var(--font-sans); font-size: 15px; font-weight: 700; line-height: 1.4; letter-spacing: 0.14em; color: #FFE7BF; }
-.pkv-spark { position: absolute; z-index: 4; animation: pkv-twinkle 2.4s ease-in-out infinite; }
+.pkv-spark { position: absolute; z-index: 4; color: var(--pkv-spark-a); animation: pkv-twinkle 2.4s ease-in-out infinite; }
 .pkv-spark.is-1 { left: 150px; top: -108px; }
-.pkv-spark.is-2 { left: -20px; top: -70px; animation-delay: 0.8s; }
-.pkv-spark.is-3 { left: 122px; top: 240px; z-index: 8; animation-delay: 0.4s; }
+.pkv-spark.is-2 { left: -20px; top: -70px; animation-delay: 0.8s; color: var(--pkv-spark-b); }
+.pkv-spark.is-3 { left: 122px; top: 240px; z-index: 8; animation-delay: 0.4s; color: var(--pkv-spark-b); }
 .pkv-spark.is-4 { left: 12px; top: 326px; z-index: 8; animation-delay: 1.2s; }
 
 /* 3 · the price badge, past the card's edge on purpose */
@@ -49,20 +67,20 @@
 
 /* 4 · what Pro gives */
 .pkv-feats { position: absolute; left: 26px; top: 354px; }
-.pkv-feats-title { margin: 0; font-size: 11.5px; font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; color: #FFC36B; }
+.pkv-feats-title { margin: 0; font-size: 11.5px; font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; color: var(--pkv-feat-title); }
 .pkv-feats ul { margin: 3px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1px; }
-.pkv-feats li { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; line-height: 1.45; color: #FFF1E8; white-space: nowrap; }
-.pkv-ic { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #FFFFFF; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); }
+.pkv-feats li { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--pkv-feat); white-space: nowrap; }
+.pkv-ic { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #FFFFFF; box-shadow: var(--pkv-ic-shadow); }
 .pkv-ic.is-doc { border-radius: 50%; background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #F7D3C4 22%, #D9744B 58%, #A63F1B 100%); color: #FFFFFF; }
 
 /* 5 · countdown (the plans page's chips, in the poster's colours) and the button */
 .pkv .pkv-count { position: absolute; left: 0; right: 0; top: 474px; z-index: 6; flex-wrap: nowrap; gap: 6px; padding: 0; background: none; }
-.pkv .pkv-count .pf-count-label { color: #FFD3BD; font-size: 12.5px; }
+.pkv .pkv-count .pf-count-label { color: var(--pkv-count-label); font-size: 12.5px; }
 .pkv .pkv-count .pf-count-label svg { display: none; }
-.pkv .pkv-count .pf-count-chip { background: rgba(28, 25, 23, 0.42); color: #FFF1E8; font-size: 15px; font-weight: 700; padding: 3px 8px; border-radius: 9px; }
-.pkv .pkv-count .pf-count-chip small { color: #FFD3BD; font-weight: 600; }
+.pkv .pkv-count .pf-count-chip { background: var(--pkv-chip); color: var(--pkv-chip-ink); font-size: 15px; font-weight: 700; padding: 3px 8px; border-radius: 9px; }
+.pkv .pkv-count .pf-count-chip small { color: var(--pkv-chip-sub); font-weight: 600; }
 .pkv .pkv-count .pf-count-chip.is-seconds { background: linear-gradient(160deg, #E65F2B, #B4400F); color: #FFFFFF; }
-.pkv .pkv-count .pf-count-colon { color: #FFC36B; font-weight: 700; }
+.pkv .pkv-count .pf-count-colon { color: var(--pkv-colon); font-weight: 700; }
 
 .pkv-ribbon { position: absolute; pointer-events: none; }
 .pkv-ribbon.is-a { left: -98px; top: 494px; z-index: 7; transform: rotate(-24deg) scale(0.74); }
