@@ -7,6 +7,7 @@ export const landing5: Record<string, string> = {
   'มูลค่างาน รับเงินจริง รายจ่าย และกำไรสุทธิของเดือนนี้ เทียบกับเดือนก่อนให้ทันที': 'This month’s work value, money received, expenses and net profit, compared with last month at a glance.',
   'ใช้ได้ทั้งคอม iPad และมือถือ': 'On computer, iPad and phone',
   'หน้าภาพรวมของแอปบนมือถือ': 'The app’s overview on a phone',
+  'หน้าภาพรวมของแอปบนคอม': 'The app’s overview on a computer',
   'รับเงินแล้ว · รีวิวสินค้า': 'Received · Product review',
   'ออกใบเสนอราคา · ร้านบี': 'Quotation issued · Shop B',
   'เตือนรับเงิน 08:00 · 2 รายการ': 'Payment reminder 08:00 · 2 items',

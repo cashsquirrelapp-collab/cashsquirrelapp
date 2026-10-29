@@ -268,19 +268,26 @@ export default function CleanLanding() {
       const scene = q('.cl-scene')[0], pin = q('.cl-pin')[0], device = q('.cl-device')[0], hero = q('.cl-hero')[0], tiles = q('.cl-tiles')[0];
       if (!scene || !pin || !device || !hero || !tiles) return;
       // The phone first peeks up from below the words (and the cards, when they sit under the words), then rises.
+      const frame = q('.cl-device-frame')[0], deck = q('.cl-deck')[0];
+      if (!frame || !deck) return;
+      // The device sits centred below the bar (CSS left/top); GSAP keeps it centred while it changes size.
+      gsap.set(device, { xPercent: -50, yPercent: -50 });
       const peek = () => {
         const pinHeight = pin.offsetHeight, height = device.offsetHeight;
         const strip = getComputedStyle(tiles).position === 'absolute' ? 0 : tiles.offsetTop + tiles.offsetHeight;
         const above = Math.max(hero.offsetTop + hero.offsetHeight, strip);
-        return Math.max(0, Math.max(above + 34, pinHeight - 170) - (pinHeight - height) / 2);
+        return Math.max(0, Math.max(above + 34, pinHeight - 170) - (pinHeight / 2 + reserved() / 2 - height / 2));
       };
+      // The computer it becomes: its width from the stylesheet (--cl-lw), a 16:10 screen in the same 10px bezel.
+      // (A custom property reads back as its formula, so a hidden probe of that width gives the pixels.)
+      const laptop = () => { const width = q('.cl-lw-probe')[0]?.offsetWidth || 760; return { width, height: (width - 20) * 0.625 + 20 }; };
       const toPhone = (el: HTMLElement, axis: 'x' | 'y') => {
         const at = offsetIn(el, pin);
         return axis === 'x' ? pin.offsetWidth / 2 - at.x : pin.offsetHeight / 2 + reserved() / 2 - at.y;
       };
       const scroll = gsap.timeline({
         defaults: { ease: 'none' },
-        scrollTrigger: { trigger: scene, start: 'top top', end: '+=1100', pin, scrub: 0.7, invalidateOnRefresh: true, anticipatePin: 1 },
+        scrollTrigger: { trigger: scene, start: 'top top', end: '+=1900', pin, scrub: 0.7, invalidateOnRefresh: true, anticipatePin: 1 },
       });
       // autoAlpha: once gone, the words and cards are hidden too, so nothing unseen sits over what is shown.
       scroll.to(hero, { autoAlpha: 0, y: -120, duration: 0.2, ease: 'power1.in' }, 0)
@@ -293,7 +300,17 @@ export default function CleanLanding() {
         .from(q('.cl-side.is-left .cl-w'), { yPercent: 115, duration: 0.16, stagger: 0.02, ease: 'power3.out' }, 0.56)
         .from(q('.cl-side'), { opacity: 0, x: (at: number) => (at ? 48 : -48), duration: 0.22, ease: 'power2.out' }, 0.56)
         .from(q('.cl-notice'), { opacity: 0, y: 26, scale: 0.88, duration: 0.14, ease: 'back.out(2)' }, 0.72)
-        .to({}, { duration: 0.12 }, 0.88);
+        // Then the phone turns into a computer, the words beside it staying where they are: the notice goes, the body
+        // stretches into the screen's lid, the island shrinks to the camera, the phone's screen gives way to the computer's,
+        // and the keyboard deck opens out underneath.
+        .to(q('.cl-notice'), { autoAlpha: 0, y: 14, duration: 0.07 }, 0.93)
+        .to(frame, { width: () => laptop().width, height: () => laptop().height, borderRadius: 18, duration: 0.34, ease: 'power2.inOut' }, 0.98)
+        .to(q('.cl-island'), { width: 7, height: 7, top: 3, borderRadius: 4, duration: 0.2, ease: 'power2.inOut' }, 1.0)
+        // the computer's screen comes in over the phone's (never both see-through over the dark bezel), then the phone's goes
+        .to(q('.cl-screen.is-desk'), { opacity: 1, duration: 0.16 }, 1.03)
+        .set(q('.cl-screen.is-phone'), { opacity: 0 }, 1.2)
+        .fromTo(deck, { scaleX: 0.25, autoAlpha: 0 }, { scaleX: 1, autoAlpha: 1, duration: 0.18, ease: 'power3.out' }, 1.16)
+        .to({}, { duration: 0.16 }, 1.34);
     });
 
     mm.add(MOTION, () => {
@@ -557,11 +574,16 @@ export default function CleanLanding() {
                 <span className="cl-eyebrow">{tr('ภาพรวม')}</span>
                 <h2 aria-label={`${trc('stage', 'เห็นเงิน')}${trc('stage', 'ทั้งเดือน')}${trc('stage', 'ในหน้าเดียว')}`}><span aria-hidden="true"><span className="gl-nw"><Words text={trc('stage', 'เห็นเงิน')} /></span><wbr /><span className="gl-nw"><Words text={trc('stage', 'ทั้งเดือน')} /></span><wbr /><span className="gl-nw"><MaskedGrad text={trc('stage', 'ในหน้าเดียว')} /></span></span></h2>
               </div>
+              {/* The phone; on computers it turns into a computer as the page scrolls on (owner: "ให้มันแปลงร่างให้กลายเป็นคอม
+                  ... ข้อความฝั่งซ้ายฝั่งขวาให้อยู่ที่เดิม"). Both screens are the app's real overview with the same example data. */}
               <div className="cl-device">
                 <div className="cl-device-frame">
                   <span className="cl-island" aria-hidden="true" />
-                  <img className="cl-screen" src="/landing-v3/phone-overview.webp" width={1170} height={2532} alt={tr('หน้าภาพรวมของแอปบนมือถือ')} />
+                  <img className="cl-screen is-phone" src="/landing-v5/overview-phone.webp" width={1170} height={2532} alt={tr('หน้าภาพรวมของแอปบนมือถือ')} />
+                  <img className="cl-screen is-desk" src="/landing-v5/overview-desktop.webp" width={2400} height={1500} alt={tr('หน้าภาพรวมของแอปบนคอม')} />
                 </div>
+                <span className="cl-deck" aria-hidden="true" />
+                <span className="cl-lw-probe" aria-hidden="true" />
                 <div className="cl-notice cl-glass" aria-hidden="true">
                   <span className="cl-notice-icon"><Check size={16} strokeWidth={3} /></span>
                   <span className="cl-notice-text"><b>{tr('รับเงินแล้ว')}<em className="gl-num">+฿5,000</em></b><small>{tr('รีวิวสินค้า · คุณเอ')}</small></span>

@@ -117,8 +117,13 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-device { position: relative; width: var(--cl-pw); height: var(--cl-ph); }
 .cl-device-frame { position: relative; width: 100%; height: 100%; padding: 10px; border-radius: calc(var(--cl-pw) * 0.17); background: #141210;
   box-shadow: inset 0 0 0 2px #3A3330, 0 50px 90px -34px rgba(28, 25, 23, 0.45); }
-.cl-island { position: absolute; left: 50%; top: 18px; z-index: 2; width: 30%; height: 22px; margin-left: -15%; border-radius: 12px; background: #000000; }
+.cl-island { position: absolute; left: 50%; top: 18px; z-index: 2; width: 30%; height: 22px; translate: -50% 0; border-radius: 12px; background: #000000; }
 .cl-screen { display: block; width: 100%; height: 100%; border-radius: calc(var(--cl-pw) * 0.17 - 10px); object-fit: cover; object-position: top; }
+.cl-screen.is-desk, .cl-deck, .cl-lw-probe { display: none; }
+/* the computer's keyboard deck, under the lid once the phone has turned into it */
+.cl-deck { position: absolute; left: -4%; top: 100%; width: 108%; height: 16px; border-radius: 0 0 16px 16px / 0 0 12px 12px; transform-origin: 50% 0;
+  background: linear-gradient(180deg, #ECEAE7, #CFCBC6 70%, #B9B4AE); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 20px 30px -18px rgba(28, 25, 23, 0.45); }
+.cl-deck::before { content: ''; position: absolute; left: 50%; top: 0; width: 15%; height: 6px; translate: -50% 0; border-radius: 0 0 8px 8px; background: #B5B0AA; }
 .cl-notice { position: absolute; left: -30px; bottom: 21%; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px 10px; border-radius: 18px; }
 .cl-notice-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: #18A66A; color: #FFFFFF; }
 .cl-notice-text { display: flex; flex-direction: column; }
@@ -437,17 +442,28 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 /* The pinned scene: computers and iPads held sideways, with motion. GSAP moves the parts (CleanLanding.tsx, SCENE).
    The floating bar sits over the scene; the scene keeps its room clear. */
 @media (min-width: 960px) and (min-height: 600px) and (prefers-reduced-motion: no-preference) {
-  .cl { --cl-pw: clamp(232px, calc((100svh - var(--bar) - 48px) * 0.47), 300px); }
+  .cl { --cl-pw: clamp(232px, calc((100svh - var(--bar) - 48px) * 0.47), 300px); --cl-lw: min(54vw, 880px, calc((100svh - var(--bar) - 90px) * 1.42)); }
   .cl-pin { height: 100svh; overflow: hidden; }
   .cl-top { position: absolute; inset: 0; max-width: none; min-height: 0; padding: calc(var(--bar) + clamp(20px, 6svh, 70px)) 24px 0; }
   .cl-stage { position: absolute; inset: 0; z-index: 1; display: block; max-width: none; margin: 0; padding: 0; }
-  .cl-device { position: absolute; left: 50%; top: calc(50% + var(--bar) / 2); margin-left: calc(var(--cl-pw) / -2); margin-top: calc(var(--cl-ph) / -2); }
-  .cl-side { position: absolute; top: calc(50% + var(--bar) / 2); translate: 0 -50%; width: min(360px, calc(50% - var(--cl-pw) / 2 - 110px)); max-width: none; }
-  .cl-side.is-left { right: calc(50% + var(--cl-pw) / 2 + 76px); justify-self: auto; }
-  .cl-side.is-right { left: calc(50% + var(--cl-pw) / 2 + 76px); }
-  .cl-side h2 { font-size: clamp(32px, 3.2vw, 46px); }
+  /* The device is centred below the bar (GSAP keeps it centred with xPercent/yPercent while it changes size). */
+  .cl-device { position: absolute; left: 50%; top: calc(50% + var(--bar) / 2); width: auto; height: auto; }
+  .cl-device-frame { width: var(--cl-pw); height: var(--cl-ph); }
+  .cl-screen { position: absolute; left: 10px; top: 10px; width: calc(100% - 20px); height: calc(100% - 20px); }
+  .cl-screen.is-desk { display: block; opacity: 0; border-radius: 9px; }
+  .cl-deck { display: block; visibility: hidden; }
+  .cl-lw-probe { display: block; position: absolute; left: 0; top: 0; width: var(--cl-lw); height: 1px; visibility: hidden; pointer-events: none; }
+  .cl-island { width: 84px; }
+  /* The words sit outside the computer it becomes, so they never move while it changes. */
+  .cl-side { position: absolute; top: calc(50% + var(--bar) / 2); translate: 0 -50%; width: min(320px, calc(50% - var(--cl-lw) / 2 - 56px - 4vw)); max-width: none; }
+  .cl-side.is-left { right: calc(50% + var(--cl-lw) / 2 + 56px); justify-self: auto; }
+  .cl-side.is-right { left: calc(50% + var(--cl-lw) / 2 + 56px); }
+  .cl-side h2 { font-size: clamp(26px, 2.4vw, 38px); }
+  .cl-side p { font-size: 16.5px; }
+  .cl.is-en .cl-side h2 .gl-nw { white-space: normal; }
 }
 @media (min-width: 960px) and (max-width: 1199px) and (min-height: 600px) and (prefers-reduced-motion: no-preference) {
+  .cl { --cl-lw: min(50vw, calc((100svh - var(--bar) - 90px) * 1.42)); }
   .cl-hero h1 { font-size: 54px; }
   .cl-tiles { margin-top: 4px; }
 }
