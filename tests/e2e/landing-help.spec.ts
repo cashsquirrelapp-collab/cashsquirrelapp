@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
 
-// Contact, following and reports on the landing (owner, 2026-10-29): the footer's channels (only what the project holds:
-// the contact email; Instagram and TikTok have no address yet, so they say เร็ว ๆ นี้ and are not links), and one report
+// Contact, following and reports on the landing (owner, 2026-10-29): the footer's channels (the contact email, the
+// Instagram the owner gave; TikTok has no address yet, so it says เร็ว ๆ นี้ and is not a link), and one report
 // form opened from the menu's ช่วยเหลือ, the buttons under the price and the footer, sent to the existing system.
 
 async function open(page: Page, size = { width: 1440, height: 900 }) {
@@ -12,13 +12,16 @@ async function open(page: Page, size = { width: 1440, height: 900 }) {
   await page.goto('/');
 }
 
-test('the footer: email us, Instagram and TikTok not opened yet, and the way to the form', async ({ page }) => {
+test('the footer: email us, Instagram, TikTok not opened yet, and the way to the form', async ({ page }) => {
   await open(page);
   const footer = page.locator('#cl-help');
   await expect(footer.getByRole('link', { name: 'อีเมลหาเรา' })).toHaveAttribute('href', 'mailto:cashsquirrelapp@gmail.com');
-  await expect(footer.getByText('Instagram — เร็ว ๆ นี้')).toBeVisible();
+  const instagram = footer.getByRole('link', { name: 'ติดตามบน Instagram' });
+  await expect(instagram).toHaveAttribute('href', 'https://www.instagram.com/kraroktunngern/');
+  await expect(instagram).toHaveAttribute('target', '_blank');
+  await expect(instagram).toHaveAttribute('rel', 'noopener noreferrer');
   await expect(footer.getByText('TikTok — เร็ว ๆ นี้')).toBeVisible();
-  await expect(footer.getByRole('link', { name: /Instagram|TikTok/ })).toHaveCount(0);
+  await expect(footer.getByRole('link', { name: /TikTok/ })).toHaveCount(0);
   // the menu's ช่วยเหลือ leads here
   await expect(page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('link', { name: 'ช่วยเหลือ' })).toHaveAttribute('href', '#cl-help');
   await footer.getByRole('button', { name: 'แจ้งปัญหา / เสนอไอเดีย' }).click();

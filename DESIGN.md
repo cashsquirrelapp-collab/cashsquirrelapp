@@ -272,8 +272,8 @@ card does not need:
 - Only features every account has today. Nothing admin-only or still to come (50 ทวิ is not shown yet).
 - Contact and reports (owner, 2026-10-29, in the page's existing look): the footer (`#cl-help`, where the menu's
   ช่วยเหลือ goes) lists ติดตามและติดต่อ and ช่วยเหลือ. Only channels the project holds are links: อีเมลหาเรา is the email the
-  privacy and terms pages give; Instagram and TikTok read "— เร็ว ๆ นี้" until their addresses go into
-  `v5/brandLinks.ts`. One report form (`v5/HelpForm.tsx`) opens from the menu, the beta note under the price and the
+  privacy and terms pages give; ติดตามบน Instagram links to the owner's account (instagram.com/kraroktunngern);
+  TikTok reads "— เร็ว ๆ นี้" until its address goes into `v5/brandLinks.ts`. One report form (`v5/HelpForm.tsx`) opens from the menu, the beta note under the price and the
   footer, at the kind of the button pressed; it posts to `/api/feedback-public`, which files the report in the existing
   แจ้งปัญหา system (admin inbox, LINE alert) under the account set in `FEEDBACK_PUBLIC_ACCOUNT_ID`, and sends a picture to
   the team's email. No reply times or promises; a failed send says so and keeps what was typed.
