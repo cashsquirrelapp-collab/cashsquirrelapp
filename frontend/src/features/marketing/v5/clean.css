@@ -80,6 +80,12 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-login { color: var(--muted); font-size: 15px; font-weight: 500; line-height: 1.45; text-decoration: none; }
 .cl-login:hover { color: var(--deep); }
 .cl-bar-right { display: flex; align-items: center; gap: 18px; }
+/* the language switch: a quiet pill that names the language it switches to */
+.cl-lang { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px 0 12px; border-radius: 999px; background: rgba(28, 25, 23, 0.05);
+  color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1.45; cursor: pointer; transition: background 0.2s ease; }
+.cl-lang:hover { background: rgba(28, 25, 23, 0.09); }
+.cl-lang:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.cl-lang svg { color: var(--muted); }
 
 /* ── 1 · the hero and the phone ───────────────────────────────────────────────────────────────────── */
 .cl-scene { position: relative; }
@@ -564,6 +570,15 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   /* No help button in the phone's bar (owner, 2026-10-29); help is in the footer and under the price. */
   .cl-help-link { display: none; }
   .cl-bar-right { gap: 6px; }
+  .cl-lang { height: 40px; padding: 0 12px 0 10px; }
+}
+/* the narrowest phones: the switch drops its globe and the start button its extra room, so the bar keeps everything */
+@media (max-width: 374px) {
+  .cl-lang { padding: 0 11px; }
+  .cl-lang svg { display: none; }
+  .cl-bar .cl-btn.is-small { padding: 0 14px; }
+  .cl-bar-in { padding-left: 12px; }
+  .cl.is-en .cl-bar .cl-btn.is-small { padding: 0 12px; font-size: 14px; } /* the English wordmark is wider */
   .cl-feedback-cta { margin-top: 24px; padding: 16px; border-radius: 20px; }
   .cl-feedback-buttons { width: 100%; }
   .cl-feedback-buttons button { flex: 1 1 140px; justify-content: center; }

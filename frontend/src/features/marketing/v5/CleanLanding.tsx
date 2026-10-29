@@ -13,7 +13,7 @@ import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { Physics2DPlugin } from 'gsap/Physics2DPlugin';
 import { Draggable } from 'gsap/Draggable';
-import { Bell, Briefcase, Bug, Camera, Check, CircleHelp, Clapperboard, CodeXml, Coins, FileText, GraduationCap, Instagram, Lightbulb, Mail, Music2, NotebookPen, PenLine, PenTool, Plus, Video, Wallet } from 'lucide-react';
+import { Bell, Briefcase, Bug, Camera, Check, CircleHelp, Clapperboard, CodeXml, Coins, FileText, Globe, GraduationCap, Instagram, Lightbulb, Mail, Music2, NotebookPen, PenLine, PenTool, Plus, Video, Wallet } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { Mascot } from '../../../components/mascot/Mascot';
 import { LineLogo } from '../../../components/ui/LineLogo';
@@ -22,6 +22,7 @@ import { PRO_REGULAR_MONTHLY, formatBaht, proPriceParts } from '../../../../../s
 import { monthPromoCountdown, useMonthPromoRunning } from '../../billing/promoNotice';
 import { currentLanguage } from '../../../i18n/currentLanguage';
 import { tr, trc, T } from '../../../i18n/tr';
+import { useLanguage } from '../../../i18n/LanguageContext';
 import { CalendarDemo, PhoneDemo } from '../v4/Demos';
 import { MascotSlot } from '../../assistant/MascotSlot';
 import { statusFor, type AssistantMode } from '../../assistant/assistantMock';
@@ -203,6 +204,20 @@ function LaunchCountdown() {
  *  just its icon, as large as a card, with no glass around it (owner, 2026-10-29: LINE, Gmail and the document). */
 function Tile({ n, text, bare, tone = '', children }: { n: number; text?: boolean; bare?: boolean; tone?: string; children: React.ReactNode }) {
   return <span className={`cl-tile is-${n}${text ? ' has-text' : ''}${bare ? ' is-bare' : ''}`}><span className="cl-tile-float"><span className={`cl-tile-card${bare ? '' : ' cl-glass'} ${tone}`}>{bare ? <span className="cl-tile-bare">{children}</span> : children}</span></span></span>;
+}
+
+/** The language switch beside เข้าสู่ระบบ (owner, 2026-10-30: "แปลงเป็นภาษาอังกฤษ เผื่อคนต่างชาติ ... สำคัญมาก"): it shows the
+ *  language it switches to, in that language ("EN" / "ไทย"); its spoken name is English both ways, for the visitor who
+ *  reads English (as the app's own switch says "Switch to Thai"). The choice stays for the app and the sign-in page. */
+function LanguageSwitch() {
+  const { language, setLanguage } = useLanguage();
+  const next = language === 'th' ? 'en' : 'th';
+  return (
+    <button type="button" className="cl-lang" lang={next} onClick={() => setLanguage(next)}
+      aria-label={next === 'en' ? 'Switch to English' : 'Switch to Thai'} title={next === 'en' ? 'Switch to English' : 'Switch to Thai'}>
+      <Globe size={16} aria-hidden="true" /><span>{next === 'en' ? 'EN' : 'ไทย'}</span>
+    </button>
+  );
 }
 
 /** Which plan a feature is in (owner, 2026-10-29: "ฟีเจอร์โปร ฝากบอกด้วย"): KRAROK PRO, or what Free gives. */
@@ -633,7 +648,7 @@ export default function CleanLanding() {
         <div className="cl-bar-in">
           <a href="#top" className="cl-logo" aria-label={tr('กระรอกตุนเงิน หน้าแรก')}><BrandLockup size={28} /></a>
           <nav className="cl-links" aria-label={tr('เมนูหลัก')}><a href="#cl-features"><Roll text={tr('ฟีเจอร์')} /></a><a href="#pricing"><Roll text={tr('ราคา')} /></a><a href="#cl-faq"><Roll text={tr('คำถาม')} /></a><a href="#cl-help"><Roll text={tr('ช่วยเหลือ')} /></a></nav>
-          <span className="cl-bar-right"><a className="cl-help-link" href="#cl-help" aria-label={tr('ช่วยเหลือ')}><CircleHelp size={17} aria-hidden="true" /><span>{tr('ช่วยเหลือ')}</span></a><a className="cl-login" href={LOGIN}><Roll text={tr('เข้าสู่ระบบ')} /></a><a className="cl-btn is-small" href={LOGIN}><Roll text={tr('เริ่มใช้ฟรี')} /></a></span>
+          <span className="cl-bar-right"><a className="cl-help-link" href="#cl-help" aria-label={tr('ช่วยเหลือ')}><CircleHelp size={17} aria-hidden="true" /><span>{tr('ช่วยเหลือ')}</span></a><LanguageSwitch /><a className="cl-login" href={LOGIN}><Roll text={tr('เข้าสู่ระบบ')} /></a><a className="cl-btn is-small" href={LOGIN}><Roll text={tr('เริ่มใช้ฟรี')} /></a></span>
           <span className="cl-progress" aria-hidden="true" />
         </div>
       </header>

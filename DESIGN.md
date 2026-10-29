@@ -286,6 +286,9 @@ card does not need:
   the server, counted at most once a minute; asked again every 60 s, never called live; digits roll from the old
   number; no number at all when there is none (never 0). On phones the chat is a phone in the page (272px, the hero
   phone's bezel), its own left alignment.
+- The language switch (owner, 2026-10-30: "สำคัญมาก"): a quiet pill beside เข้าสู่ระบบ (beside เริ่มใช้ฟรี on phones; no
+  globe under 375px) that names the language it switches to, in that language ("EN" / "ไทย"). The landing is drawn again
+  in the new language, and the choice is kept for the app and the sign-in page.
 - Who it is for (owner, 2026-10-30): the money ticker became a small heading "รับงานแบบไหน ก็มีเลขาช่วยได้" over the
   kinds of work moving past (กราฟิกดีไซเนอร์ · ช่างภาพ · คนตัดต่อ · ครีเอเตอร์ · นักเขียน · นักพัฒนา · ติวเตอร์ · คนรับงานอิสระ),
   each in a soft chip with a plain line icon in CI orange; screen readers get the same as one list; with reduced motion
