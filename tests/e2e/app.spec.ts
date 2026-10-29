@@ -1031,7 +1031,7 @@ test('landing: the hero says what the app does and starts free at once; the page
  await expect(pricing).toContainText(formatBaht(parts.price));
  await expect(pricing).toContainText(`+ ค่าธรรมเนียมชำระเงิน ${formatBaht(parts.fee)} · ยอดชำระ ${formatBaht(parts.total)}`);
  await expect(pricing).not.toContainText('฿149');
- expect(api.filter(a=>a!=='GET /api/auth')).toEqual([]); // the page reads no account data and writes nothing
+ expect(api.filter(a=>a!=='GET /api/auth'&&a!=='GET /api/public-stats')).toEqual([]); // the page reads no account data and writes nothing (the signup total is only a number)
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await start.click();
  await expect(page).toHaveURL(/\/login$/);

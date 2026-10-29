@@ -38,12 +38,15 @@ import vaultUpload from '../handlers/vault-upload.js';
 import vaultFile from '../handlers/vault-file.js';
 import feedback from '../handlers/feedback.js';
 import feedbackPublic from '../handlers/feedback-public.js';
+import publicStats from '../handlers/public-stats.js';
 import assistant from '../handlers/assistant.js';
 const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'send-admin-profit-report':adminProfitReport,'advance-card-renewals':advanceCardRenewals,'setup-line-richmenu':setup,'stripe-webhook':stripe};
 const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 routes.feedback = feedback;
 // Reports from the public landing page (signed out), into the same แจ้งปัญหา system.
 routes['feedback-public'] = feedbackPublic;
+// The landing's signup total (only the number; counted at most once a minute).
+routes['public-stats'] = publicStats;
 routes.assistant = assistant;
 routes['admin-stripe-finance'] = adminStripeFinance;
 routes['admin-payment-readiness'] = adminPaymentReadiness;

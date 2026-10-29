@@ -1,0 +1,39 @@
+/* The signup total beside the hero's start button (SignupCount.tsx, owner 2026-10-29/30): a frosted capsule in the page's
+   own glass, as tall as the button, the Krarok coin, the real number on rolling wheels in CI orange, one line under it.
+   No faces, no reviews. Its text keeps one width while loading, shown or without a number, so the button never moves. */
+.cl-cta { flex-wrap: wrap; align-items: center; column-gap: 2px; }
+.cl-signups { display: inline-flex; align-items: center; gap: 12px; height: 66px; margin: 0; padding: 8px 24px 8px 8px; border-radius: 999px;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.96), rgba(250, 249, 248, 0.86)); border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: var(--cl-shadow), inset 0 1px 0 #FFFFFF; text-align: left; }
+.cl-signups-mark { display: grid; place-items: center; flex: none; width: 50px; height: 50px; border-radius: 50%; background: var(--cream); }
+.cl-signups-mark img { width: 30px; height: 30px; }
+/* a new total: the coin turns over once */
+.cl-signups-mark.is-new img { animation: cl-signups-flip 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1; }
+@keyframes cl-signups-flip { from { transform: perspective(200px) rotateY(0deg); } to { transform: perspective(200px) rotateY(360deg); } }
+.cl-signups-text { display: flex; flex-direction: column; gap: 0; min-width: 200px; }
+.cl-signups-count { display: block; min-height: 1.45em; color: var(--ink); font-size: 18px; font-weight: 600; line-height: 1.45; }
+/* the room the number will take, while it is on its way */
+.cl-signups-count.is-wait { width: 190px; border-radius: 10px; background: linear-gradient(100deg, #F2F1EF 30%, #FAF9F8 50%, #F2F1EF 70%); background-size: 220% 100%; animation: cl-signups-wait 1.4s linear infinite; }
+@keyframes cl-signups-wait { from { background-position: 100% 0; } to { background-position: -120% 0; } }
+.cl-signups-sub { color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+/* the wheels: each digit a strip of 0–9 that slides to its number */
+.cl-odo { display: inline-flex; align-items: flex-end; color: var(--deep); font-family: 'IBM Plex Sans', var(--font-sans); font-size: 1.32em; font-weight: 600; line-height: 1.2;
+  font-variant-numeric: tabular-nums; vertical-align: -0.08em; }
+.cl-odo-wheel { display: inline-block; height: 1.2em; overflow: hidden; }
+.cl-odo-strip { display: flex; flex-direction: column; transition: transform 1.1s cubic-bezier(0.22, 1, 0.36, 1); }
+.cl-odo-strip > span { display: block; height: 1.2em; text-align: center; }
+.cl-odo-sep { display: inline-block; padding: 0 0.06em; } /* the comma's ink stays inside its own room */
+@media (prefers-reduced-motion: reduce) {
+  .cl-odo-strip { transition: none; }
+  .cl-signups-mark.is-new img, .cl-signups-count.is-wait { animation: none; }
+}
+@media (max-width: 743px) {
+  /* phones: under the full-width button */
+  .cl-cta { row-gap: 14px; }
+  .cl-signups { height: 62px; padding-right: 20px; }
+  .cl-signups-mark { width: 46px; height: 46px; }
+  .cl-signups-mark img { width: 28px; height: 28px; }
+  .cl-signups-text { min-width: 196px; }
+  .cl-signups-count { font-size: 17px; }
+  .cl-signups-count.is-wait { width: 180px; }
+}

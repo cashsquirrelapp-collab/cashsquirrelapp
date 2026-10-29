@@ -278,6 +278,14 @@ card does not need:
   while near the screen), and the documents are the app's own DocumentA4 sheets with sample data (`v5/DocsLive.tsx`),
   so both stay sharp at any zoom. The landing keeps the page light while it shows (the app's evening dark mode would
   otherwise reach the chat).
+- The first screen (owner, 2026-10-30): headline, the launch countdown, then the start button a size up (a white light
+  crosses it now and then) with the real signup total beside it (under it on phones). The duplicate squirrel card is gone
+  (the squirrel stands in the headline). The signup total (`v5/SignupCount.tsx`, `/api/public-stats`): "มีผู้สมัครแล้ว N คน
+  · มาเริ่มจัดการเรื่องเงินไปด้วยกัน", every confirmed account once (not Pro), without guests, admins, the report inbox,
+  accounts on their way out or test addresses (and any listed in the SIGNUP_COUNT_EXCLUDE secret); only the total leaves
+  the server, counted at most once a minute; asked again every 60 s, never called live; digits roll from the old
+  number; no number at all when there is none (never 0). On phones the chat is a phone in the page (272px, the hero
+  phone's bezel), its own left alignment.
 - The problems (owner's copy, 2026-10-29): "เคยเป็นแบบนี้ไหม?", "แค่รับงาน / ก็เหนื่อยพอแล้ว…", and five notes in the
   owner's words and line breaks (forgot to note it, documents, money mixed up, who has paid, the real profit). A note is
   as wide as its longest line (270–340px) on computers; a line wraps inside its note only where there is no room.

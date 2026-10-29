@@ -89,7 +89,15 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-hero { position: relative; z-index: 2; max-width: 880px; margin: 0 auto; text-align: center; }
 /* a little smaller than before (owner, 2026-10-29 night), still the first thing on the screen */
 .cl-hero h1 { font-size: clamp(48px, 4.6vw, 68px); font-weight: 600; line-height: 1.45; }
-.cl-cta { display: flex; justify-content: center; margin-top: 10px; }
+.cl-cta { display: flex; justify-content: center; margin-top: 8px; }
+/* The hero's start button, a size up and the first thing to press (owner, 2026-10-30: "ให้มันเด่นๆไปเลย"): larger, a
+   neutral lift, and a light that crosses it now and then (white light, never an orange glow). */
+.cl-hero .cl-btn.is-big { min-height: 68px; padding: 0 58px; font-size: 20px; box-shadow: 0 18px 36px -18px rgba(28, 25, 23, 0.45); }
+.cl-hero .cl-btn.is-big::after { content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.38) 48%, transparent 66%); background-size: 260% 100%; background-position: 130% 0;
+  animation: cl-btn-light 4.8s ease-in-out 2s infinite; }
+@keyframes cl-btn-light { 0%, 62% { background-position: 130% 0; } 86%, 100% { background-position: -30% 0; } }
+@media (prefers-reduced-motion: reduce) { .cl-hero .cl-btn.is-big::after { animation: none; } }
 /* เลขากระรอก standing at the end of "…ดูแล", feet on the line, waving; sized with the type (1.3 times, 1.25 on phones),
    so it stays clear of the line above. */
 .cl-h1-end { position: relative; }
@@ -97,7 +105,7 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-perch > div { width: 100% !important; height: 100% !important; }
 /* The launch countdown under the start button (owner, 2026-10-29): the closing card's four tiles, here as the hero's
    frosted white glass with ink digits. */
-.cl-launch { margin-top: 2px; }
+.cl-launch { margin-top: 20px; }
 .cl-launch-label { color: var(--muted); font-size: 16px; font-weight: 600; line-height: 1.45; }
 .cl-launch .cl-tiles-count { margin-top: 10px; }
 .cl-launch .cl-tick { width: 96px; height: 86px; border-radius: 22px; background: linear-gradient(155deg, rgba(255, 255, 255, 0.96), rgba(250, 249, 248, 0.86));
@@ -129,8 +137,6 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-tile.is-bare .cl-tile-card { width: 62px; height: 62px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
 .cl-tile-bare { display: grid; place-items: center; width: 62px; height: 62px; flex: none; filter: drop-shadow(0 10px 14px rgba(28, 25, 23, 0.14)); }
 .cl-tile.is-bare .cl-tile-doc { width: 62px; height: 62px; border-radius: 15px; }
-/* The squirrel too, with no glass or circle around it, a little larger than the icons (owner, 2026-10-29). */
-.cl-tile.is-6 .cl-tile-card, .cl-tile.is-6 .cl-tile-bare { width: 76px; height: 76px; }
 .cl-tile-stat { display: flex; flex-direction: column; min-width: 158px; padding: 4px 2px; }
 .cl-tile-stat small { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; font-weight: 500; line-height: 1.45; }
 .cl-tile-stat small i { width: 8px; height: 8px; border-radius: 50%; }
@@ -252,14 +258,15 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-tier-legend > span:last-child { color: var(--muted); font-size: 15px; line-height: 1.6; }
 /* The live chat screen (ChatLive.tsx), drawn at the app's window size and scaled to the figure; it fills its stage. */
 .cl-chatlive { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
-.cl-chatlive-stage { position: relative; overflow: hidden; background: var(--white, #FFFFFF); }
+.cl-chatlive-stage { position: relative; overflow: hidden; background: var(--white, #FFFFFF); text-align: left; } /* the app's own alignment, not the section's centring */
 .cl-chatlive-stage > .asx { position: absolute !important; inset: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; }
 /* The A4 documents (DocsLive.tsx): each sheet drawn at its real size and scaled to its card. */
 .cl .gl-doc .cl-sheet { position: relative; width: 100%; aspect-ratio: 210 / 297; overflow: hidden; border-radius: 10px; background: #FFFFFF;
   box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.06), 0 26px 50px -18px rgba(28, 25, 23, 0.28); }
 .cl .gl-doc .cl-sheet-in { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .cl-docs-live { width: 100%; display: flex; justify-content: center; }
-.cl-feat-apps span { display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px 7px 10px; border-radius: 999px; background: #F7F6F5; font-size: 14.5px; font-weight: 600; line-height: 1.5; }
+/* the chips only (the logos inside are spans too and keep their own look) */
+.cl-feat-apps > span { display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px 7px 10px; border-radius: 999px; background: #F7F6F5; font-size: 14.5px; font-weight: 600; line-height: 1.5; }
 .cl-feat-visual { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; }
 .cl-feat:not(.is-in) .gl-demo, .cl-feat:not(.is-in) .gl-demo * { animation-play-state: paused !important; }
 .cl-feat.is-remind .gl-phone-demo { scale: 1.12; margin: 36px 0; }
@@ -432,9 +439,8 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-tile.is-8 { right: 1.5%; top: 19%; }
   .cl-tile.is-5 { right: 15%; top: 47%; }
   .cl-tile.is-2 { right: 3%; top: 60%; }
-  .cl-tile.is-6 { right: 11%; top: 79%; }
   .cl-tile.is-1 { --dx: 6; --dy: 18; } .cl-tile.is-7 { --dx: 4; --dy: 10; } .cl-tile.is-4 { --dx: 7; --dy: 22; } .cl-tile.is-3 { --dx: 5; --dy: 14; }
-  .cl-tile.is-8 { --dx: 4; --dy: 12; } .cl-tile.is-5 { --dx: 7; --dy: 20; } .cl-tile.is-2 { --dx: 5; --dy: 16; } .cl-tile.is-6 { --dx: 8; --dy: 24; }
+  .cl-tile.is-8 { --dx: 4; --dy: 12; } .cl-tile.is-5 { --dx: 7; --dy: 20; } .cl-tile.is-2 { --dx: 5; --dy: 16; }
   .cl-problem-stage { height: 620px; }
   .cl-problem-head { position: absolute; left: 50%; top: 170px; width: 520px; margin-left: -260px; }
   .cl-notes { display: block; max-width: none; margin: 0; }
@@ -488,7 +494,8 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-top { padding: calc(var(--bar) + 30px) 18px 26px; }
   /* Two lines on phones (owner, 2026-10-29): the first line (about 10.6 times the type size wide) fits the screen. */
   .cl-hero h1 { font-size: min(32px, calc((100vw - 36px) / 11.4)); line-height: 1.45; }
-  .cl-launch { margin-top: 20px; }
+  .cl-launch { margin-top: 16px; }
+  .cl-hero .cl-btn.is-big { min-height: 60px; padding: 0 28px; font-size: 18px; }
   .cl-perch { width: 1.25em; height: 1.25em; bottom: 0.16em; }
   .cl-launch .cl-tiles-count { gap: 8px; }
   .cl-launch-label { font-size: 15px; }
@@ -499,7 +506,7 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-mag .cl-btn { width: 100%; }
   .cl-btn.is-big { min-height: 56px; font-size: 17px; }
   .cl-tiles { gap: 10px; margin-top: 26px; }
-  .cl-tile.is-4, .cl-tile.is-5, .cl-tile.is-6 { display: none; }
+  .cl-tile.is-4, .cl-tile.is-5 { display: none; }
   .cl-tile-card { min-height: 52px; padding: 8px 12px 8px 8px; border-radius: 17px; }
   .cl-tile:not(.has-text) .cl-tile-card { width: 52px; }
   .cl-tile.is-bare .cl-tile-card { height: 52px; }
@@ -536,7 +543,9 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-feat-text h2 { font-size: 32px; }
   .cl-feat-text p { font-size: 15.5px; }
   .cl-feat-shot { margin-top: 32px; }
-  .cl-chatshot { max-width: 330px; margin: 0 auto; aspect-ratio: 390 / 844; border-radius: 38px; }
+  /* a phone in the page, not the page itself (owner, 2026-10-30: "มันเต็มจอจนเกินไป ลดขนาดลง"): smaller, with the hero
+     phone's dark bezel */
+  .cl-chatshot { max-width: 272px; margin: 0 auto; aspect-ratio: 390 / 844; border-radius: 40px; box-shadow: 0 0 0 7px #1C1917, 0 0 0 8px rgba(28, 25, 23, 0.25), 0 36px 60px -30px rgba(28, 25, 23, 0.5); }
   .cl-buddy { position: relative; left: auto; bottom: auto; width: fit-content; margin: 0 auto 16px; padding-right: 20px; }
   .cl-buddy-face { width: 68px; height: 68px; }
   .cl-buddy-text { min-width: 150px; }

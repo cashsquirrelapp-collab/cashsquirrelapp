@@ -29,6 +29,7 @@ import '../v4/demos.css';
 import { HelpForm } from './HelpForm';
 import { BRAND_LINKS } from './brandLinks';
 import { FULL_LAUNCH_AT } from './launch';
+import { SignupCount } from './SignupCount';
 
 // The live chat and the A4 documents load only when their sections come near (they bring the app's chat and document code).
 const ChatLive = React.lazy(() => import('./ChatLive'));
@@ -198,7 +199,7 @@ function LaunchCountdown() {
 }
 
 /** A floating glass card in the hero. Three layers: place (scroll), float (idle bob), card (entrance). A bare tile is
- *  just its icon, as large as a card, with no glass around it (owner, 2026-10-29: LINE, Gmail, the document, the squirrel). */
+ *  just its icon, as large as a card, with no glass around it (owner, 2026-10-29: LINE, Gmail and the document). */
 function Tile({ n, text, bare, tone = '', children }: { n: number; text?: boolean; bare?: boolean; tone?: string; children: React.ReactNode }) {
   return <span className={`cl-tile is-${n}${text ? ' has-text' : ''}${bare ? ' is-bare' : ''}`}><span className="cl-tile-float"><span className={`cl-tile-card${bare ? '' : ' cl-glass'} ${tone}`}>{bare ? <span className="cl-tile-bare">{children}</span> : children}</span></span></span>;
 }
@@ -417,8 +418,8 @@ export default function CleanLanding() {
       // money screen (ScrambleText, digits only) and the month's line draws itself (DrawSVG).
       const intro = gsap.timeline({ defaults: { ease: 'power3.out' } });
       intro.from(q('.cl-hero h1 .cl-w'), { yPercent: 115, rotation: 5, transformOrigin: '0% 100%', duration: 1.2, ease: 'krarok', stagger: 0.07 }, 0.05)
-        .from(q('.cl-cta'), { y: 18, autoAlpha: 0, scale: 0.92, duration: 0.8, ease: 'back.out(1.8)' }, 0.65)
-        .from(q('.cl-launch'), { y: 16, autoAlpha: 0, duration: 0.8 }, 0.8)
+        .from(q('.cl-launch'), { y: 16, autoAlpha: 0, duration: 0.8 }, 0.6)
+        .from(q('.cl-cta'), { y: 18, autoAlpha: 0, scale: 0.92, duration: 0.8, ease: 'back.out(1.8)' }, 0.78)
         .from(q('.cl-perch'), { autoAlpha: 0, y: 24, scale: 0.6, transformOrigin: '50% 100%', duration: 0.9, ease: 'back.out(1.8)' }, 0.95)
         .from(q('.cl-tile-card'), { autoAlpha: 0, scale: 0.55, rotation: () => gsap.utils.random(-14, 14), duration: 1, ease: 'back.out(1.7)', stagger: { each: 0.08, from: 'random' } }, 0.35)
         .from(q('.cl-device-frame'), { opacity: 0, duration: 0.8 }, 0.5)
@@ -648,8 +649,11 @@ export default function CleanLanding() {
                   <span className="cl-perch"><Mascot gear="headset" mood="wave" action="wave" size={120} /></span></span></span></h1>
                 {/* No line of copy under the headline (owner, 2026-10-29): typing or speaking to เลขา is Pro only, and the
                     hero must not suggest it comes free. */}
-                <div className="cl-cta"><StartButton /></div>
+                {/* The countdown under the headline, then the start button, bigger, with the real signup total beside it (under it
+                    on phones; owner, 2026-10-30: "ยอดมีผู้สมัคร ... ด้านล่างของเขาดาว ... เริ่มใช้งานฟรีให้มันเด่นๆ"). The two side by
+                    side are as tall as the button, so the first screen grows no taller. SignupCount.tsx */}
                 <LaunchCountdown />
+                <div className="cl-cta"><StartButton /><SignupCount /></div>
               </div>
               <div className="cl-tiles" aria-hidden="true">
                 <Tile n={1} bare><LineLogo size={62} /></Tile>
@@ -657,7 +661,7 @@ export default function CleanLanding() {
                 <Tile n={3} text><span className="cl-tile-icon is-green"><Plus size={16} strokeWidth={3} /></span><span className="cl-tile-pair"><b className="gl-num is-green" data-scramble>+฿5,000</b><small>{tr('รับแล้ว')}</small></span></Tile>
                 <Tile n={4} bare><span className="cl-tile-doc"><FileText size={30} /></span></Tile>
                 <Tile n={5} bare><GmailLogo size={62} bare /></Tile>
-                <Tile n={6} bare><Mascot gear="headset" mood="happy" animated={false} size={74} viewBox="12 8 76 76" /></Tile>
+                {/* no squirrel card here: เลขากระรอก stands at the end of the headline (owner, 2026-10-30: "มันซ้ำ") */}
                 <Tile n={7} text><span className="cl-tile-stat"><small><i className="is-due" />{tr('เงินรอรับ')}</small><b className="gl-num" data-scramble>฿12,500</b><em>{tr('{0} งาน', 2)}</em></span></Tile>
                 <Tile n={8} text><span className="cl-tile-stat"><small><i className="is-in" />{tr('เงินเข้าเดือนนี้')}</small><b className="gl-num" data-scramble>฿38,500</b><Sparkline /></span></Tile>
               </div>

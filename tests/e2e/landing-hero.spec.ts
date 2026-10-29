@@ -33,8 +33,11 @@ test('the hero: the new headline, no copy line under it, and the launch countdow
   expect(words.every(word => perch!.x >= word.right - 1 || perch!.x + perch!.width <= word.left || perch!.y >= word.bottom || perch!.y + perch!.height <= word.top)).toBe(true);
   // เลขากระรอก keeps running its colours (stopped only with reduced motion, as here)
   await expect(hero.locator('.cl-grad.is-flow')).toHaveText('เลขากระรอก');
-  // LINE, Gmail, the document and the squirrel float with no glass around them
-  for (const n of [1, 4, 5, 6]) await expect(page.locator(`.cl-tile.is-${n} .cl-tile-card`)).not.toHaveClass(/cl-glass/);
+  // LINE, Gmail and the document float with no glass around them; no second squirrel among the cards (it is in the headline)
+  for (const n of [1, 4, 5]) await expect(page.locator(`.cl-tile.is-${n} .cl-tile-card`)).not.toHaveClass(/cl-glass/);
+  await expect(page.locator('.cl-tile.is-6')).toHaveCount(0);
+  await expect(page.locator('.cl-tiles svg')).toHaveCount(await page.locator('.cl-tiles .cl-tile svg').count());
+  await expect(page.locator('.cl-hero .cl-perch')).toHaveCount(1);
   await expect(page.locator('.cl-links')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   expect(await textOverlapIssues(page)).toEqual([]);
   // on the day it goes
@@ -107,5 +110,21 @@ test('the chat with เลขา is the app\'s own screen drawn live: the sample
   await expect(docs.locator('.da4-page')).toHaveCount(3);
   await expect(docs).toContainText('QT-2569-001');
   await expect(docs.locator('.gl-doc > img')).toHaveCount(0);
-  expect(api.filter(call => call !== 'GET /api/auth')).toEqual([]);
+  // the page reads only who is signed in and the signup total
+  expect(api.filter(call => call !== 'GET /api/auth' && call !== 'GET /api/public-stats')).toEqual([]);
+});
+
+test('the reminder shows the real LINE and Gmail logos in its chips; on a phone the chat is a phone in the page, its words where the app puts them', async ({ page }) => {
+  await open(page, { width: 390, height: 844 });
+  const chips = page.locator('.cl-feat.is-remind .cl-feat-apps');
+  await chips.scrollIntoViewIfNeeded();
+  const logos = await chips.locator('svg').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width));
+  expect(logos).toHaveLength(2);
+  expect(logos.every(width => width >= 10)).toBe(true); // the logos themselves, not empty squares
+  const chat = page.locator('.cl-feat.is-chat');
+  await chat.scrollIntoViewIfNeeded();
+  await expect(chat.locator('.cl-chatlive .asx-msg')).toHaveCount(6);
+  const shot = (await chat.locator('.cl-chatshot').boundingBox())!;
+  expect(shot.width).toBeLessThanOrEqual(280);
+  expect(await chat.locator('.cl-chatlive-stage').evaluate(node => getComputedStyle(node).textAlign)).toBe('left');
 });

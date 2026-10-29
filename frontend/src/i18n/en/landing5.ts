@@ -5,6 +5,9 @@ export const landing5: Record<string, string> = {
   'hero|ตั้งแต่รับงาน': 'From job',
   'hero|จนถึงรับเงิน': 'to payday,',
   'พร้อมให้ใช้งานเต็มรูปแบบ 1 ธันวาคม 2569': 'Fully available from 1 December 2026',
+  // the signup total (2026-10-29)
+  'มีผู้สมัครแล้ว {0} คน': '{0} people have signed up',
+  'มาเริ่มจัดการเรื่องเงินไปด้วยกัน': 'Let’s sort out your money together',
   // features: which plan each is in (2026-10-29)
   'ครบจบในแอปเดียว': 'Everything, done in one app',
   'คือฟีเจอร์ในแพ็กเกจ Pro ส่วนที่เหลือเริ่มใช้ได้ฟรี': 'marks a Pro feature; everything else is free to start',

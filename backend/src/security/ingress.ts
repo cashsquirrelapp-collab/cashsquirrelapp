@@ -40,6 +40,7 @@ const policies: Record<string, { group: string; limit: number }> = {
   'password-reset-line': { group: 'reset', limit: 10 },
   'recover-account': { group: 'reset', limit: 10 },
   'feedback-public': { group: 'feedback-public', limit: 10 },
+  'public-stats': { group: 'public-stats', limit: 30 },
   'line-session': { group: 'line-session', limit: 20 },
   'liff-submit': { group: 'liff', limit: 20 },
   'download-report': { group: 'download', limit: 20 },
@@ -57,6 +58,9 @@ export async function ingressLimit(req: VercelRequest, route: string): Promise<v
   limiter.take(`${policy.group}:${identity}`, policy.limit, 60);
   // Guest development remains usable without a real Supabase project.
   const configured = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // The landing's signup total is a kept number read by every visitor: its limit stays in memory, so reading it never
+  // reaches the database (owner, 2026-10-29: the cached total keeps visitors off the database).
+  if (route === 'public-stats') return;
   if (configured || process.env.NODE_ENV === 'production') {
     await rateLimit('ingress-global', policy.group, policy.group.includes('webhook') ? 3000 : 6000, 60);
     await rateLimit(`ingress-${policy.group}`, identity, policy.limit, 60);
