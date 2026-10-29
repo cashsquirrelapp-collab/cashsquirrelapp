@@ -210,16 +210,19 @@ card does not need:
 - Phones (owner, 2026-10-29): the card rises from the bottom over the tab bar like an iOS sheet (grip, no tail); the
   pill sits beside the phone's squirrel, whose hello bubble waits meanwhile.
 
-### Weekly Pro invitation (owner, 2026-10-29; design B with the character clip)
+### Weekly Pro invitation (owner, 2026-10-29; Gen Z poster, round 4 design 1)
 
-- Accounts of their own not on Pro see it on the overview, at most once in 7 days; ✕ and ไว้ทีหลัง wait for next week, สมัคร
-  Pro opens the plans page (`ProKvBanner.tsx`, the date in localStorage `krarok.proKv.<userId>`). Computers and iPads: a
-  dialog; phones: a sheet from the bottom. Automated browsers see it only with `?kv=auto` (weekly rule) or `?kv=pro` (now).
-- Left: a 30 s looping clip in flat CI drawings (มายด์ and บอส) whose phone screens are the app's real full screens
-  (`proKvClip.ts` and `public/kv/`, generated from the design canvas; do not edit by hand). Scenes crossfade, the next on
-  top, so nothing flashes. Reduced motion shows `public/kv/poster.jpg`.
-- Right: "พูดภาษาปกติ เลขาจัดการให้", four ticks, the month's price (฿249 struck while the promotion runs), the countdown chips.
-  The plans page's gradient exception applies here.
+- Accounts of their own not on Pro see it on the overview, at most once in 7 days; ✕ and ไว้ทีหลัง wait for next week,
+  สมัคร Pro เลย opens the plans page (`ProKvBanner.tsx`, the date in localStorage `krarok.proKv.<userId>`). Automated
+  browsers see it only with `?kv=auto` (weekly rule) or `?kv=pro` (now).
+- One portrait poster (400 x 540, scaled to fit every screen) in the **Pro look**: dark rust (#2B1B15 to #9A3A16) with gold
+  (#FFC36B to #F2A23A) as the only highlight, CI colours only. No logo in the corner.
+- The eye goes in this order: 1 the headline "จ้างเลขาส่วนตัว วันละไม่ถึง ฿N" (N worked out from the month's price, big
+  gold); 2 เลขากระรอก peeking out of the glowing KRAROK PRO box (the app's own `MascotPeek`, never redrawn); 3 the round
+  rust price badge (฿249 struck while the promotion runs); 4 "ได้ครบใน Pro": LINE, email and documents in a neat list;
+  5 the countdown and the button. Chrome ribbons and the gold streak are decoration and never cross text.
+- The button is the one bright action: CI orange, a gold rim, a glossy top, light sweeping across, an arrow that nudges
+  (owner: "ทำให้มันเด่น ... เล่นแสงปาด ให้ดูน่ากด"). Reduced motion keeps everything still.
 
 ### Mascot (เลขากระรอก)
 

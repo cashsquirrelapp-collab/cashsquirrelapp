@@ -1,67 +1,100 @@
-/* The weekly Pro invitation (owner, 2026-10-29; design B). CI colours; gradients and glow as on the plans page. */
-.pkv { position: fixed; inset: 0; z-index: 160; display: grid; place-items: center; padding: 16px; font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans); }
-.pkv-scrim { position: absolute; inset: 0; background: rgba(28, 25, 23, 0.46); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: pkv-fade 0.3s ease both; }
-.pkv-card { position: relative; display: flex; width: min(900px, 100%); min-height: 540px; overflow: hidden; border-radius: 28px; background: #FFFFFF; color: #1C1917;
-  box-shadow: 0 40px 90px rgba(28, 25, 23, 0.45); animation: pkv-in 0.55s cubic-bezier(0.34, 1.3, 0.64, 1) both; }
-.pkv-card:focus { outline: none; }
-.dark .pkv-card { background: #211C19; color: #F2F0ED; box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06); }
-.pkv-left { position: relative; flex: 0 0 408px; overflow: hidden; box-sizing: border-box; padding: 40px 24px 26px; background: linear-gradient(165deg, #FFE9DC 0%, #FFF4EC 55%, #FFE7BF 100%); }
-.pkv-stage { position: relative; width: 360px; height: 460px; }
-.pkv-poster { display: block; width: 360px; height: 460px; border-radius: 22px; }
-.pkv-right { position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; box-sizing: border-box; padding: 34px 32px 28px; }
-.pkv-close { position: absolute; right: 16px; top: 16px; z-index: 2; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #ECE5DF; border-radius: 50%; background: #FFFFFF; color: #6F6964; cursor: pointer; }
-.dark .pkv-close { border-color: rgba(255, 255, 255, 0.12); background: #2B2521; color: #C9C4BF; }
-.pkv-close:focus-visible, .pkv-cta:focus-visible, .pkv-later:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
-.pkv-pill { align-self: flex-start; padding: 3px 11px; border-radius: 999px; background: #FFF1E8; color: #A63F1B; font-size: 12.5px; font-weight: 600; line-height: 1.5; }
-.dark .pkv-pill { background: rgba(255, 164, 115, 0.14); color: #FFB48A; }
-.pkv-title { margin: 12px 0 0; font-size: 30px; font-weight: 600; line-height: 1.45; }
-.pkv-grad { padding-block: 0.04em; background: linear-gradient(90deg, #C24A16, #E65F2B 50%, #A63F1B); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.dark .pkv-grad { background: linear-gradient(90deg, #FFC9A8, #FFA473 50%, #FA7E52); -webkit-background-clip: text; background-clip: text; }
-.pkv-ticks { margin: 16px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; line-height: 1.55; }
-.pkv-ticks li { display: flex; gap: 9px; }
-.pkv-tick { flex: none; display: grid; place-items: center; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; background: #FFE2D1; color: #C24A16; }
-.pkv-tick.is-line { background: #FFF4DE; }
-.pkv-tick.is-line img { width: 14px; height: 14px; border-radius: 3px; }
-.pkv-tick.is-docs { background: #F7D9CC; color: #A63F1B; }
-.dark .pkv-tick { background: rgba(240, 116, 64, 0.2); color: #FFB48A; }
-.pkv-offer { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 18px; }
-.pkv-price { margin: 0; display: flex; align-items: baseline; gap: 8px; }
-.pkv-price s { color: #9A938D; font-size: 15px; }
-.pkv-price b { font-family: 'IBM Plex Sans', var(--font-sans); font-size: 42px; font-weight: 600; line-height: 1.05; font-variant-numeric: tabular-nums; }
-.pkv-price > span { font-size: 13px; color: #6F6964; }
-.dark .pkv-price > span { color: #B9B2AC; }
-.pkv-count { justify-content: flex-start; }
-.pkv-actions { margin-top: 14px; display: flex; gap: 10px; }
-.pkv-cta { position: relative; overflow: hidden; flex: 1 1 auto; min-height: 52px; border: 0; border-radius: 16px; background: linear-gradient(135deg, #C8501C, #B4400F); color: #FFFFFF; font-family: inherit; font-size: 17px; font-weight: 600; cursor: pointer; box-shadow: 0 14px 28px rgba(230, 95, 43, 0.4); }
-.pkv-cta > span:last-child { position: relative; }
-.pkv-shine { position: absolute; top: 0; bottom: 0; left: 0; width: 38%; background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0)); animation: pkv-shine 3.4s ease-in-out infinite; pointer-events: none; }
-.pkv-later { flex: 0 0 auto; min-height: 52px; padding: 0 18px; border: 1px solid #ECE5DF; border-radius: 16px; background: #FFFFFF; color: #6F6964; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-.dark .pkv-later { border-color: rgba(255, 255, 255, 0.12); background: transparent; color: #C9C4BF; }
+/* The weekly Pro invitation (owner, 2026-10-29, Gen Z round 4, design 1): the Pro look, dark rust with gold, CI only.
+   The poster is drawn at 400 x 540 and scaled to fit the screen (ProKvBanner's useFitScale). */
+.pkv { position: fixed; inset: 0; z-index: 160; display: grid; place-items: center; padding: 12px; font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans); }
+.pkv-scrim { position: absolute; inset: 0; background: rgba(24, 16, 12, 0.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: pkv-fade 0.3s ease both; }
+/* Room for the ✕ above and the button below, so the poster's centre sits a little high. */
+.pkv-fit { position: relative; margin-bottom: 60px; }
+.pkv-poster { position: absolute; left: 0; top: 0; width: 400px; height: 540px; transform-origin: 0 0; animation: pkv-in 0.6s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+.pkv-poster:focus { outline: none; }
+.pkv-card { position: absolute; inset: 0; overflow: hidden; isolation: isolate; border-radius: 32px; background: linear-gradient(168deg, #2B1B15 0%, #3D2016 40%, #7A2E12 80%, #9A3A16 100%); box-shadow: 0 40px 90px rgba(0, 0, 0, 0.5); }
+.pkv-glow { position: absolute; right: -80px; top: -70px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 195, 107, 0.26), rgba(255, 195, 107, 0) 70%); }
+.pkv-streak { position: absolute; inset: 0; }
 
-/* iPad portrait and small laptops: the clip a little smaller so the offer keeps its room. */
-@media (max-width: 960px) {
-  .pkv:not(.is-mobile) .pkv-left { flex-basis: 332px; padding: 36px 16px 20px; }
-  .pkv:not(.is-mobile) .pkv-stage { width: 300px; height: 384px; }
-  .pkv:not(.is-mobile) .pkv-stage > * { transform: scale(0.8333); transform-origin: 0 0; }
-}
+/* 1 · the headline */
+/* The heading spans the top of the card, so its lines (each placed on its own) have a box around them. */
+.pkv-title { position: absolute; left: 0; top: 0; width: 400px; height: 226px; margin: 0; font-weight: 700; }
+.pkv-t1 { position: absolute; left: 26px; top: 16px; font-size: 32px; line-height: 1.45; color: #FFF1E8; white-space: nowrap; }
+.pkv-t2 { position: absolute; left: 28px; top: 156px; font-size: 24px; line-height: 1.45; color: #FFD3BD; white-space: nowrap; }
+.pkv-big { position: absolute; left: 168px; top: 68px; font-family: 'IBM Plex Sans', var(--font-sans); font-size: 154px; font-style: italic; line-height: 1; white-space: nowrap; }
+.pkv-big::before { content: attr(data-text); position: absolute; left: 5px; top: 8px; color: #3A1407; }
+.pkv-big > span { position: relative; background: linear-gradient(180deg, #FFF6DD 0%, #FFD58A 48%, #F2A23A 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
-/* Phones: a sheet from the bottom over the tab bar, the clip on top, the offer under it. */
-.pkv.is-mobile { place-items: end center; padding: 0 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
-.pkv.is-mobile .pkv-card { flex-direction: column; width: 100%; min-height: 0; max-height: calc(100dvh - 16px); overflow-y: auto; border-radius: 30px; animation-name: pkv-rise; }
-.pkv.is-mobile .pkv-left { flex: none; height: 404px; padding: 0; }
-.pkv-grip { position: absolute; left: 50%; top: 8px; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: rgba(60, 60, 67, 0.22); }
-.pkv.is-mobile .pkv-stage { position: absolute; left: 50%; top: 24px; margin-left: -180px; transform: scale(0.82); transform-origin: 50% 0; }
-.pkv.is-mobile .pkv-right { position: static; padding: 14px 18px 18px; }
-.pkv.is-mobile .pkv-close { top: 14px; right: 12px; width: 30px; height: 30px; border: 0; background: rgba(255, 255, 255, 0.9); }
-.pkv.is-mobile .pkv-title { margin: 0; font-size: 22px; }
-.pkv.is-mobile .pkv-offer { margin-top: 10px; padding-top: 0; gap: 8px; }
-.pkv.is-mobile .pkv-price b { font-size: 30px; }
-.pkv.is-mobile .pkv-actions { flex-direction: column; gap: 6px; margin-top: 12px; }
-.pkv.is-mobile .pkv-cta { min-height: 50px; font-size: 16.5px; }
-.pkv.is-mobile .pkv-later { min-height: 40px; border: 0; background: none; color: #C24A16; font-size: 13px; }
+/* 2 · the hero: เลขากระรอก peeking out of the glowing box (positions from the box's top-left corner) */
+.pkv-hero { position: absolute; left: 206px; top: 370px; width: 178px; height: 92px; }
+/* The light from inside the box: brightest at the box's top edge, faded out before its own edges, and faded away
+   just below the edge so no line shows beside the box. */
+.pkv-box-light { position: absolute; left: -40px; top: -200px; width: 258px; height: 300px; background: radial-gradient(ellipse 48% 30% at 50% 66%, rgba(255, 213, 138, 0.9), rgba(255, 195, 107, 0.32) 50%, rgba(255, 195, 107, 0) 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 70%); mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 70%); animation: pkv-light 3.2s ease-in-out infinite; }
+.pkv-flap { position: absolute; top: -26px; width: 48px; height: 26px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, #FF9A62, #C8501C); box-shadow: inset 0 0 0 1.5px rgba(255, 195, 107, 0.45); }
+.pkv-flap.is-left { left: -46px; transform: rotate(30deg); transform-origin: 100% 100%; }
+.pkv-flap.is-right { left: 176px; transform: rotate(-30deg); transform-origin: 0 100%; }
+.pkv-box-inside { position: absolute; left: 0; top: -6px; width: 178px; height: 14px; border-radius: 50%; background: #3A1407; }
+/* Above the box: MascotPeek hides everything below the paws itself, and its paws rest on the box's top edge. */
+.pkv-hero .pkv-peek { z-index: 3; }
+.pkv-box { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 4px 4px 14px 14px; background: linear-gradient(160deg, #C8501C, #8E3313); box-shadow: inset 0 0 0 1.5px rgba(255, 195, 107, 0.55), 0 18px 30px rgba(0, 0, 0, 0.35); }
+.pkv-box img { width: 28px; height: 28px; filter: brightness(0) invert(1) sepia(0.3); }
+.pkv-box b { font-family: 'IBM Plex Sans', var(--font-sans); font-size: 15px; font-weight: 700; line-height: 1.4; letter-spacing: 0.14em; color: #FFE7BF; }
+.pkv-spark { position: absolute; z-index: 4; animation: pkv-twinkle 2.4s ease-in-out infinite; }
+.pkv-spark.is-1 { left: 150px; top: -108px; }
+.pkv-spark.is-2 { left: -20px; top: -70px; animation-delay: 0.8s; }
+.pkv-spark.is-3 { left: 122px; top: 240px; z-index: 8; animation-delay: 0.4s; }
+.pkv-spark.is-4 { left: 12px; top: 326px; z-index: 8; animation-delay: 1.2s; }
+
+/* 3 · the price badge, past the card's edge on purpose */
+.pkv-badge { position: absolute; left: 22px; top: 236px; z-index: 7; display: grid; place-items: center; width: 112px; height: 112px; border-radius: 50%; transform: rotate(-10deg); background: linear-gradient(150deg, #E65F2B, #A63F1B); box-shadow: 0 14px 26px rgba(0, 0, 0, 0.4), inset 0 0 0 3px rgba(255, 255, 255, 0.88); color: #FFFFFF; text-align: center; }
+.pkv-badge p { margin: 0; }
+.pkv-badge-was { margin-bottom: 4px !important; font-size: 12px; line-height: 1.5; color: #FFE3D3; }
+.pkv-badge-price { font-family: 'IBM Plex Sans', var(--font-sans); font-size: 30px; font-weight: 700; line-height: 1.1; }
+.pkv-badge-per { margin-top: 2px !important; font-size: 11.5px; font-weight: 600; line-height: 1.5; }
+
+/* 4 · what Pro gives */
+.pkv-feats { position: absolute; left: 26px; top: 354px; }
+.pkv-feats-title { margin: 0; font-size: 11.5px; font-weight: 600; line-height: 1.5; letter-spacing: 0.02em; color: #FFC36B; }
+.pkv-feats ul { margin: 3px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1px; }
+.pkv-feats li { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; line-height: 1.45; color: #FFF1E8; white-space: nowrap; }
+.pkv-ic { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #FFFFFF; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); }
+.pkv-ic.is-doc { border-radius: 50%; background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #F7D3C4 22%, #D9744B 58%, #A63F1B 100%); color: #FFFFFF; }
+
+/* 5 · countdown (the plans page's chips, in the poster's colours) and the button */
+.pkv .pkv-count { position: absolute; left: 0; right: 0; top: 474px; z-index: 6; flex-wrap: nowrap; gap: 6px; padding: 0; background: none; }
+.pkv .pkv-count .pf-count-label { color: #FFD3BD; font-size: 12.5px; }
+.pkv .pkv-count .pf-count-label svg { display: none; }
+.pkv .pkv-count .pf-count-chip { background: rgba(28, 25, 23, 0.42); color: #FFF1E8; font-size: 15px; font-weight: 700; padding: 3px 8px; border-radius: 9px; }
+.pkv .pkv-count .pf-count-chip small { color: #FFD3BD; font-weight: 600; }
+.pkv .pkv-count .pf-count-chip.is-seconds { background: linear-gradient(160deg, #E65F2B, #B4400F); color: #FFFFFF; }
+.pkv .pkv-count .pf-count-colon { color: #FFC36B; font-weight: 700; }
+
+.pkv-ribbon { position: absolute; pointer-events: none; }
+.pkv-ribbon.is-a { left: -98px; top: 494px; z-index: 7; transform: rotate(-24deg) scale(0.74); }
+.pkv-ribbon.is-b { right: -48px; top: 176px; z-index: 1; transform: scale(0.85); }
+
+.pkv-close { position: absolute; right: -14px; top: -14px; z-index: 9; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 2px solid rgba(255, 255, 255, 0.9); border-radius: 50%; background: #1C1917; color: #FFFFFF; cursor: pointer; box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35); }
+
+/* The one action (owner, 2026-10-29: "ทำให้มันเด่น ... เล่นแสงปาด ให้ดูน่ากด"): bright CI orange, a gold rim, a glossy top,
+   light sweeping across and an arrow that nudges forward with it. */
+.pkv-cta { position: absolute; left: 48px; bottom: -29px; z-index: 8; display: flex; align-items: center; justify-content: center; gap: 10px; width: 304px; height: 58px; overflow: hidden; padding: 0; border: 0; border-radius: 18px;
+  background: linear-gradient(180deg, #FF9A5C 0%, #F2723A 38%, #E65F2B 62%, #C24A16 100%); color: #FFFFFF; font-family: inherit; font-size: 20px; font-weight: 700; line-height: 1.45; cursor: pointer;
+  text-shadow: 0 1px 2px rgba(110, 38, 12, 0.45); box-shadow: 0 0 0 2px rgba(255, 231, 191, 0.85), 0 14px 30px rgba(230, 95, 43, 0.6), 0 4px 0 #8E3313; transition: transform 0.15s ease, filter 0.15s ease; }
+.pkv-cta::before { content: ''; position: absolute; left: 6px; right: 6px; top: 3px; height: 46%; border-radius: 15px 15px 40px 40px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)); pointer-events: none; }
+.pkv-cta:hover { filter: brightness(1.06); }
+.pkv-cta:active { transform: translateY(2px); }
+.pkv-cta-label { position: relative; }
+.pkv-shine { position: absolute; top: 0; bottom: 0; left: 0; width: 28%; background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0)); animation: pkv-shine 2.6s ease-in-out infinite; pointer-events: none; }
+.pkv-shine.is-2 { width: 9%; opacity: 0.7; animation: pkv-shine-thin 2.6s ease-in-out 0.18s infinite; }
+.pkv-go { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #FFFFFF; color: #C24A16; box-shadow: 0 3px 8px rgba(110, 38, 12, 0.35); }
+.pkv-go svg { animation: pkv-nudge 2.6s ease-in-out infinite; }
+.pkv-later { position: absolute; left: 50%; bottom: -84px; z-index: 8; transform: translateX(-50%); padding: 4px 14px; border: 0; border-radius: 999px; background: rgba(28, 25, 23, 0.55); color: #FFF1E8; font-family: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.5; white-space: nowrap; cursor: pointer; }
+.pkv-close:focus-visible, .pkv-cta:focus-visible, .pkv-later:focus-visible { outline: 2px solid #FFC36B; outline-offset: 3px; }
 
 @keyframes pkv-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pkv-in { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
-@keyframes pkv-rise { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
-@keyframes pkv-shine { 0% { transform: translateX(-140%) skewX(-18deg); } 55%, 100% { transform: translateX(320%) skewX(-18deg); } }
-@media (prefers-reduced-motion: reduce) { .pkv-scrim, .pkv-card, .pkv-shine { animation: none; } }
+@keyframes pkv-in { from { opacity: 0; translate: 0 22px; scale: 0.94; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes pkv-shine { 0% { transform: translateX(-160%) skewX(-18deg); } 60%, 100% { transform: translateX(420%) skewX(-18deg); } }
+@keyframes pkv-shine-thin { 0% { transform: translateX(-420%) skewX(-18deg); } 60%, 100% { transform: translateX(1300%) skewX(-18deg); } }
+@keyframes pkv-nudge { 0%, 70%, 100% { transform: translateX(0); } 80% { transform: translateX(4px); } 90% { transform: translateX(0); } }
+@keyframes pkv-light { 0%, 100% { opacity: 0.85; } 50% { opacity: 1; } }
+@keyframes pkv-twinkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.8); } }
+@media (prefers-reduced-motion: reduce) {
+  .pkv-scrim, .pkv-poster, .pkv-shine, .pkv-go svg, .pkv-box-light, .pkv-spark { animation: none; }
+  .pkv-shine { left: 58%; }
+  .pkv-shine.is-2 { left: 72%; }
+}

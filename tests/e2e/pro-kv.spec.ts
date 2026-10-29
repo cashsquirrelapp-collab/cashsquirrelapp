@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
 
-// The weekly Pro invitation (owner, 2026-10-29): accounts not on Pro see design B with the character clip once a week;
-// ✕ and ไว้ทีหลัง wait for next week; สมัคร Pro opens the plans page. Automated browsers see it only with ?kv=auto / ?kv=pro.
+// The weekly Pro invitation (owner, 2026-10-29): accounts not on Pro see the Gen Z poster (dark rust and gold, เลขากระรอก
+// peeking out of the KRAROK PRO box) once a week; ✕ and ไว้ทีหลัง wait for next week; สมัคร Pro เลย opens the plans page.
+// Automated browsers see it only with ?kv=auto / ?kv=pro.
 
 test.use({ serviceWorkers: 'block' });
 
@@ -34,15 +35,17 @@ test('a free account gets the invitation once a week; ✕ and ไว้ทีห
   test.setTimeout(60_000);
   await open(page, '/dashboard?kv=auto');
   await expect(kv(page)).toBeVisible({ timeout: 8000 });
-  await expect(kv(page).getByRole('heading', { name: /พูดภาษาปกติ\s*เลขาจัดการให้/ })).toBeVisible();
+  // The headline: "จ้างเลขาส่วนตัว วันละไม่ถึง ฿6", the day's price worked out from ฿159 a month.
+  await expect(kv(page).getByRole('heading', { name: /จ้างเลขาส่วนตัว\s*วันละไม่ถึง\s*฿6/ })).toBeVisible();
   await expect(page).not.toHaveURL(/kv=/);
   await expect(kv(page).getByTestId('kv-price')).toContainText('฿159');
-  await expect(kv(page).getByRole('button', { name: 'สมัคร Pro', exact: true })).toBeVisible();
-  // The clip is there and its real screens load.
-  await expect(kv(page).locator('.cl-stage')).toHaveCount(1);
-  expect(await kv(page).locator('.x-state').first().evaluate(img => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0)).toBe(true);
-  // The offer side reads cleanly (the clip draws over itself by design).
-  expect((await textOverlapIssues(page)).filter(issue => !/ปัญหา|งานเยอะ|ส่งงาน|ลูกค้า|ทวงเงิน|ค้างรับ|ออกใบ|พรุ่งนี้|มายด์|บอส|รับงานเอง|ให้เลขา|จดงาน|แจ้งเตือน|รับเงิน|ถามเลขา|ขับรถ|LINE|GMAIL|กระรอกตุนเงิน|เตือนรับเงิน|สรุป|ครีเอเตอร์|ช่างภาพ|ตอนค่ำ|บันทึก|08:00|14:32|15:10|20:05|Aa|วันนี้|\+/.test(`${issue.a} ${issue.b ?? ''}`))).toEqual([]);
+  await expect(kv(page).getByTestId('kv-price')).toContainText('฿249');
+  await expect(kv(page).getByRole('button', { name: 'สมัคร Pro เลย', exact: true })).toBeVisible();
+  // เลขากระรอก is the app's own drawing, and what Pro gives is listed.
+  await expect(kv(page).locator('.pkv-hero svg').first()).toBeVisible();
+  for (const feature of ['เตือนใน LINE', 'แจ้งทางอีเมล', 'เอกสารไม่จำกัด']) await expect(kv(page).getByText(feature, { exact: true })).toBeVisible();
+  await expect(kv(page).getByTestId('promo-countdown')).toBeVisible();
+  expect(await textOverlapIssues(page)).toEqual([]);
   await shot(page, 'kv-computer');
   await kv(page).getByRole('button', { name: 'ปิด', exact: true }).click();
   await expect(kv(page)).toHaveCount(0);
@@ -70,21 +73,25 @@ test('Pro accounts never see it, and automated browsers only when asked', async 
   await expect(kv(page)).toHaveCount(0);
 });
 
-test('phones: a sheet from the bottom; สมัคร Pro opens the plans page', async ({ page }) => {
+test('phones: the poster fits the screen; สมัคร Pro เลย opens the plans page', async ({ page }) => {
   await open(page, '/dashboard?kv=pro', { width: 390, height: 844 });
   await expect(kv(page)).toBeVisible({ timeout: 8000 });
   await page.waitForTimeout(700);
   const box = (await kv(page).boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(6);
   expect(box.x + box.width).toBeLessThanOrEqual(390 - 6);
-  expect(box.y + box.height).toBeLessThanOrEqual(844);
+  expect(box.y).toBeGreaterThanOrEqual(24);
+  // The button and ไว้ทีหลัง below the poster stay on the screen.
+  const later = (await kv(page).getByRole('button', { name: 'ไว้ทีหลัง', exact: true }).boundingBox())!;
+  expect(later.y + later.height).toBeLessThanOrEqual(844 - 8);
+  expect(await textOverlapIssues(page)).toEqual([]);
   await shot(page, 'kv-phone');
-  await kv(page).getByRole('button', { name: 'สมัคร Pro', exact: true }).click();
+  await kv(page).getByRole('button', { name: 'สมัคร Pro เลย', exact: true }).click();
   await expect(kv(page)).toHaveCount(0);
   await expect(page).toHaveURL(/\/plans/);
 });
 
-test('iPad portrait: the dialog fits the screen', async ({ page }) => {
+test('iPad portrait and a short laptop: the poster fits the screen', async ({ page }) => {
   await open(page, '/dashboard?kv=pro', { width: 820, height: 1180 });
   await expect(kv(page)).toBeVisible({ timeout: 8000 });
   await page.waitForTimeout(700);
@@ -92,4 +99,12 @@ test('iPad portrait: the dialog fits the screen', async ({ page }) => {
   expect(box.x).toBeGreaterThanOrEqual(12);
   expect(box.x + box.width).toBeLessThanOrEqual(820 - 12);
   await shot(page, 'kv-ipad');
+  // A laptop 700 px high: scaled down so ✕ and ไว้ทีหลัง stay on the screen.
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await page.waitForTimeout(400);
+  const close = (await kv(page).getByRole('button', { name: 'ปิด', exact: true }).boundingBox())!;
+  const later = (await kv(page).getByRole('button', { name: 'ไว้ทีหลัง', exact: true }).boundingBox())!;
+  expect(close.y).toBeGreaterThanOrEqual(0);
+  expect(later.y + later.height).toBeLessThanOrEqual(700);
+  await shot(page, 'kv-laptop');
 });
