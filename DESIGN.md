@@ -234,15 +234,33 @@ card does not need:
 - The button is the one bright action: CI orange, a gold rim, a glossy top, light sweeping across, an arrow that nudges
   (owner: "ทำให้มันเด่น ... เล่นแสงปาด ให้ดูน่ากด"). Reduced motion keeps everything still.
 
-### Landing page (owner, 2026-10-29; our own style, `features/marketing/v4`)
+### Landing page (owner, 2026-10-29; clean liquid glass, `features/marketing/v5`)
 
-- Our own look, never a copy of another site (owner: "อย่าทำเหมือนเขา ... มันจะถือว่าเป็นการก๊อปปี้"). Order: hero with
-  the KRAROK PRO box, the problem notes, the price card, ครบในแอปเดียว, questions, the close with the countdown.
-- The handwriting font (Sriracha) is only for the problem notes and the big ฿0. Everything else is the app's type.
-- ครบในแอปเดียว shows each feature as a short motion with no frame around it: chatting with เลขา (typed, answered,
-  saved), the 08:00 reminder (locked phone, a notification arrives, opened in LINE, ได้รับแล้ว pressed), documents
-  issued one after another (quotation, invoice, receipt, then the paid stamp) and the month's calendar (each job's money
-  on its day, the month's total adding up). CSS only, looping, paused off-screen; reduced motion shows where each ends.
+- Clean and white, modern and Gen Z, with liquid glass cards and a finance feel (owner, after a premium-site reference:
+  "คลีนๆขาวๆ ... ทันสมัย ... ลิควิดการ์ด ... ไฟแนนซ์"). Our own content, CI colours and squirrel, never a copy of
+  another site (owner: "อย่าทำเหมือนเขา ... มันจะถือว่าเป็นการก๊อปปี้"). The first own-style landing stays in `v4`.
+- The landing is the one place where content sits on liquid glass: frosted white with a bright rim over slow CI colour
+  (`cl-glass`, `cl-liquid`). The app itself keeps the rule above (glass is chrome only). The landing's action is a CI
+  pill with its arrow in a white dot; it is always light (no dark theme).
+- Motion is GSAP 3.15 with `@gsap/react` (`useGSAP`), both at exact versions (owner: "เอา Gsap ไปศึกษาละทำออกมา", then the
+  official gsap-skills). In use: ScrollTrigger (the pinned scene, reveals), CustomEase `krarok` (every rise), EasePack
+  (SlowMo on the Pro card's light, ExpoScale for the cards shrinking into the phone), ScrambleText (digits only, on the
+  hero's amounts), TextPlugin (the hero chip typed a Thai word at a time), DrawSVG (underline, sparkline, ribbon),
+  MotionPath (Krarok coins riding the ribbon; they fade where they pass behind words), Physics2D and PhysicsProps (coins
+  jumping out when ฿159 lands), Observer (the ticker speeds up and leans with wheel or swipe speed), ScrollToPlugin (the
+  page's links glide to their section), Draggable (problem notes can be picked up and spring back, mouse only). GSDevTools
+  and MotionPathHelper are build tools and are not shipped.
+- Thai words come from the browser's word segmenter and React draws them (SplitText would rewrite markup React owns);
+  each word rises out of its own one-line mask. A split heading carries its whole text as `aria-label`.
+- Every motion is off with reduced motion, mouse-only effects need a fine pointer, and nothing that moves passes over
+  text (checked at 10 sizes, Thai and English, through the whole scroll).
+- Order: the hero and the phone as one scene (pinned on computers and iPads held sideways: the words lift away, the
+  floating cards fly into the phone, the phone rises to the middle with "เห็นเงินทั้งเดือนในหน้าเดียว" beside it), the
+  money ticker, the problem notes (Sriracha) around their heading, the price (Free beside the liquid Pro card, ฿249
+  counting down to ฿159 while the deal runs), ครบในแอปเดียว as a bento of glass cards with the four motions (chat,
+  08:00 reminder, documents, calendar: CSS loops in `v4/demos.css`), questions, the close in a CI card with a ribbon
+  and the countdown.
+- Phones and iPads held upright get the same sections in order, with the cards in a row under the words.
 - Only features every account has today. Nothing admin-only or still to come (50 ทวิ is not shown yet).
 
 ### Mascot (เลขากระรอก)

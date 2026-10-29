@@ -1,0 +1,27 @@
+// English for the clean, liquid-glass landing (features/marketing/v5, 2026-10-29). The rest of its copy is shared with
+// the previous landing (landing4.ts).
+export const landing5: Record<string, string> = {
+  'stage|เห็นเงิน': 'See your money ',
+  'stage|ทั้งเดือน': 'for the whole month ',
+  'stage|ในหน้าเดียว': 'on one screen',
+  'มูลค่างาน รับเงินจริง รายจ่าย และกำไรสุทธิของเดือนนี้ เทียบกับเดือนก่อนให้ทันที': 'This month’s work value, money received, expenses and net profit, compared with last month at a glance.',
+  'ใช้ได้ทั้งคอม iPad และมือถือ': 'On computer, iPad and phone',
+  'หน้าภาพรวมของแอปบนมือถือ': 'The app’s overview on a phone',
+  'รับเงินแล้ว · รีวิวสินค้า': 'Received · Product review',
+  'ออกใบเสนอราคา · ร้านบี': 'Quotation issued · Shop B',
+  'เตือนรับเงิน 08:00 · 2 รายการ': 'Payment reminder 08:00 · 2 items',
+  'รับเงินแล้ว · ถ่ายรูปสินค้า': 'Received · Product photos',
+  'รายจ่าย · ค่าโฆษณา': 'Expense · Ads',
+  'ออกใบเสร็จ · คุณเอ': 'Receipt issued · Ms A',
+  'ครบกำหนดวันนี้ · ร้านบี': 'Due today · Shop B',
+  'บันทึกงานใหม่ · ตัดต่อวิดีโอ': 'New job · Video editing',
+  'ปัญหาที่ฟรีแลนซ์เจอ': 'Sound familiar?',
+  'problem|งานฟรีแลนซ์': 'Freelancing ',
+  'problem|ก็เหนื่อยพอแล้ว…': 'is tiring enough…',
+  'eyebrow|ราคา': 'Pricing',
+  'eyebrow|คำถาม': 'Questions',
+  'faq|คำถามที่พบบ่อย': 'Frequently asked questions',
+  'แนะนำ': 'Recommended',
+  'ทุกเรื่องเงินของงานอิสระ ตั้งแต่จดงานจนได้รับเงิน': 'Every money task of freelance work, from logging a job to getting paid.',
+  'ทุกอย่างที่ควรรู้ก่อนเริ่มใช้': 'What to know before you start.',
+};

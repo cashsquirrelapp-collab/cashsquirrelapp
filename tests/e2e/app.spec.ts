@@ -1003,7 +1003,7 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await expect(modal.getByRole('button',{name:/ดูทั้งหมด/})).toHaveCount(0);
 });
 
-// The landing since 2026-10-29 is our own-style page (features/marketing/v4); the earlier pages are kept in the
+// The landing since 2026-10-29 is the clean liquid-glass page (features/marketing/v5); the earlier pages are kept in the
 // repository but no longer shown, so these check the page people see now.
 test('landing: the hero says what the app does and starts free at once; the page reads no account data',async({page})=>{
  const api:string[]=[];

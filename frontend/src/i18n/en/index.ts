@@ -23,6 +23,7 @@ import { invoices } from './invoices';
 import { jobs } from './jobs';
 import { landing } from './landing';
 import { landing4 } from './landing4';
+import { landing5 } from './landing5';
 import { misc } from './misc';
 import { mobile } from './mobile';
 import { onboarding } from './onboarding';
@@ -49,6 +50,7 @@ export const EN: Record<string, string> = {
   ...jobs,
   ...landing,
   ...landing4,
+  ...landing5,
   ...misc,
   ...mobile,
   ...onboarding,
