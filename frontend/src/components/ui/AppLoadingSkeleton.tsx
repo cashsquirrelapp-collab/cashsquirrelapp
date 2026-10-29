@@ -36,7 +36,7 @@ function Header({ page }: { page: SkeletonPage }) {
     dashboard: ['w-36', 'w-10', 'w-10', 'w-24'], adminDashboard: ['w-28'],
     jobs: ['w-24', 'w-28'], calendar: ['w-36'], incomeExpense: ['w-28', 'w-28'],
     report: ['w-24'], insight: ['w-24'], invoice: ['w-36'], groups: ['w-28'], tax: ['w-36', 'w-36', 'w-32', 'w-40'],
-    split: ['w-36', 'w-28'], vault: ['w-36', 'w-28'], plans: ['w-[52px]'],
+    split: ['w-36', 'w-28'], vault: ['w-36', 'w-28'],
   };
   return <div className="ui-page-header">
     <div className="min-w-0 flex-1 space-y-2">
@@ -44,7 +44,7 @@ function Header({ page }: { page: SkeletonPage }) {
       <Block className="h-3.5 w-full max-w-[420px]" />
     </div>
     {actions[page] && <div className="ui-page-actions">
-      {actions[page]!.map((width, index) => <Block key={index} className={`${page === 'plans' ? 'h-[52px] w-[52px] rounded-full' : 'h-10 max-w-full rounded-[10px]'} ${width}`} />)}
+      {actions[page]!.map((width, index) => <Block key={index} className={`h-10 max-w-full rounded-[10px] ${width}`} />)}
     </div>}
   </div>;
 }
@@ -320,16 +320,47 @@ export function AdminDetailsLoadingSkeleton() {
   </div></LoadingFrame>;
 }
 
+// Design F (owner, 2026-10-29: the skeleton must match the new page): the centred two-line title and price line, one
+// price card with its pill on the top edge, then สิ่งที่ได้ใน Pro: three tiles side by side, or rows on phones (743px).
 function Plans() {
-  return <div className="space-y-6">
-    <div className="grid gap-5 md:grid-cols-2">
-      {items(2).map(index => <Card key={index} className="ui-panel space-y-4">
-        <Block className="h-5 w-32" /><Block className="h-8 w-36" />
-        {items(5).map(row => <div key={row} className="flex items-center gap-2"><Block className="h-4 w-4 shrink-0" /><Block className="h-3 w-3/4" /></div>)}
-        <Block className="h-10 w-full rounded-[10px]" />
-      </Card>)}
+  // Tailwind finds classes by their full text, so the phone variants (max-[743px]:) are written out in full.
+  const tiles = items(3);
+  return <div className="flex flex-col items-center pt-2">
+    <Block className="h-10 w-40 max-[743px]:h-7 max-[743px]:w-28" />
+    <Block className="mt-3 h-11 w-full max-w-[640px] max-[743px]:mt-2 max-[743px]:h-7" />
+    <Block className="mt-5 h-6 w-full max-w-[540px] max-[743px]:mt-3 max-[743px]:h-4" />
+    <Block className="mt-2 hidden h-4 w-40 max-[743px]:block" />
+    <div className="mt-9 w-full max-w-[440px] max-[743px]:mt-[30px] max-[743px]:max-w-none">
+      <div className="relative rounded-[28px] border border-brand-border bg-brand-white px-[26px] pb-5 pt-7 max-[743px]:rounded-[24px] max-[743px]:px-[18px] max-[743px]:pt-[26px]">
+        <Block className="absolute left-1/2 top-0 h-7 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full" />
+        <div className="flex flex-col items-center">
+          <div className="flex items-end gap-3"><Block className="mb-2 h-5 w-14" /><Block className="h-[76px] w-48 max-[743px]:h-[63px] max-[743px]:w-40" /><Block className="mb-2 h-5 w-14" /></div>
+          <Block className="mt-2 h-6 w-40 rounded-full" />
+          <Block className="mt-3.5 h-12 w-full rounded-2xl" />
+        </div>
+        <div className="mt-4 grid gap-2.5"><Block className="h-14 w-full rounded-2xl" /><Block className="h-[50px] w-full rounded-2xl" /></div>
+        <div className="mt-3.5 flex flex-col items-center gap-2"><Block className="h-3 w-56 max-w-full" /><Block className="h-3 w-44 max-w-full" /></div>
+      </div>
     </div>
-    <Card className="ui-panel flex flex-col items-center gap-3"><Block className="h-5 w-48 max-w-full" /><Block className="h-3 w-72 max-w-full" /><Block className="h-10 w-40 rounded-[10px]" /></Card>
+    <div className="mt-9 w-full">
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2"><Block className="h-4 w-28" /><Block className="h-3 w-32" /></div>
+      <div className="flex min-h-[214px] gap-2.5 max-[743px]:hidden">
+        {tiles.map(index => <div key={index} className="flex min-w-0 flex-1 flex-col rounded-[20px] border border-brand-border bg-brand-white p-2.5">
+          <div className="grid flex-1 place-items-center py-4"><Block className={`h-[92px] rounded-full ${index === 1 ? 'w-[132px]' : 'w-[92px]'}`} /></div>
+          <div className="flex items-center gap-2 rounded-[14px] border border-brand-border/60 px-3 py-2.5">
+            <div className="min-w-0 flex-1 space-y-1.5"><Block className="h-3.5 w-24 max-w-full" /><Block className="h-3 w-36 max-w-full" /></div>
+            <Block className="h-[26px] w-[26px] shrink-0 rounded-full" />
+          </div>
+        </div>)}
+      </div>
+      <div className="hidden flex-col gap-2.5 max-[743px]:flex">
+        {tiles.map(index => <div key={index} className="flex min-h-[72px] items-center gap-3 rounded-[20px] border border-brand-border bg-brand-white py-2.5 pl-2 pr-3.5">
+          <Block className={`h-[52px] shrink-0 rounded-full ${index === 1 ? 'w-[75px]' : 'w-[52px]'}`} />
+          <div className="min-w-0 flex-1 space-y-1.5"><Block className="h-3.5 w-28 max-w-full" /><Block className="h-3 w-40 max-w-full" /></div>
+          <Block className="h-[26px] w-[26px] shrink-0 rounded-full" />
+        </div>)}
+      </div>
+    </div>
   </div>;
 }
 
@@ -408,8 +439,9 @@ function PageBody({ page }: { page: SkeletonPage }) {
 export function ContentLoadingSkeleton({ page = 'dashboard', includeHeader = true }: {
   page?: SkeletonPage; includeHeader?: boolean;
 }) {
-  return <LoadingFrame className={page === 'plans' ? 'mx-auto max-w-4xl' : ''}>
-    {includeHeader && <Header page={page} />}
+  // The plans page has no visible header (design F): its title is the centred one the body draws.
+  return <LoadingFrame className={page === 'plans' ? 'mx-auto max-w-5xl pb-12' : ''}>
+    {includeHeader && page !== 'plans' && <Header page={page} />}
     <PageBody page={page} />
   </LoadingFrame>;
 }
