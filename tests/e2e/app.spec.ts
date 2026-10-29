@@ -1378,7 +1378,11 @@ test('phone overview: the header figures match the statements, and ยอดเ�
 
 test('saving says it once: a reminder is told in the toast, the saved job lights up on phone and desktop, the toast leaves the header buttons free',async({page})=>{
  const day=(offset:number)=>{const d=new Date();d.setDate(d.getDate()+offset);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
- const job=(id:string,name:string)=>({id,name,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',creditTerm:0,note:'',value:1000,received:0,pending:1000,status:'pending',paymentStatus:'unpaid',isPosted:true,postDate:day(0),payDate:day(2)});
+ // Due in two days, but never past the end of this month: the phone's receivables and jobs pages open on this month and
+ // list what falls due in it, so on the 30th and 31st a date in next month left the cards (and เตือนฉัน) out. That is how
+ // the pages work, not what this test checks.
+ const dueSoon=()=>{const now=new Date();const end=new Date(now.getFullYear(),now.getMonth()+1,0);const at=new Date(Math.min(now.getTime()+2*86400000,end.getTime()));return `${at.getFullYear()}-${String(at.getMonth()+1).padStart(2,'0')}-${String(at.getDate()).padStart(2,'0')}`;};
+ const job=(id:string,name:string)=>({id,name,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',creditTerm:0,note:'',value:1000,received:0,pending:1000,status:'pending',paymentStatus:'unpaid',isPosted:true,postDate:day(0),payDate:dueSoon()});
  const jobs=[job('a','งานตัวอย่าง ก'),job('b','งานตัวอย่าง ข'),job('c','งานตัวอย่าง ค')];
  await page.addInitScript(email=>{const d=new Date().toISOString().split('T')[0];sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`,'1');},user.email);
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));

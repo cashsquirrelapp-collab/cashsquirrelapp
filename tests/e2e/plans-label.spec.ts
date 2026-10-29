@@ -6,7 +6,10 @@ import { textOverlapIssues } from './textOverlap';
 test.use({ serviceWorkers: 'block' });
 
 const OLD = '2026-01-01T00:00:00Z';
-const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance' }, statuses: [], job_types: [], notif_settings: { enabled: false } };
+// The welcome questions were answered long ago: from 2026-10-30 the trial account below ("created 2 days ago") falls on or
+// after the welcome's rollout (2026-10-28), and its first-sign-in questions would cover the sidebar this test presses.
+const ANSWERED = { version: 'welcome-v1', status: 'COMPLETED', work_type: 'freelance', work_type_other: null, occupations: [], occupation_other: null, goals: [], updated_at: '2026-10-28T01:00:00.000Z' };
+const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', onboarding: ANSWERED }, statuses: [], job_types: [], notif_settings: { enabled: false } };
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 const PAID = { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' };
 
