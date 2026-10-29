@@ -22,13 +22,17 @@ import { PRO_REGULAR_MONTHLY, formatBaht, proPriceParts } from '../../../../../s
 import { monthPromoCountdown, useMonthPromoRunning } from '../../billing/promoNotice';
 import { currentLanguage } from '../../../i18n/currentLanguage';
 import { tr, trc, T } from '../../../i18n/tr';
-import { CalendarDemo, DocsDemo, PhoneDemo } from '../v4/Demos';
+import { CalendarDemo, PhoneDemo } from '../v4/Demos';
 import { MascotSlot } from '../../assistant/MascotSlot';
 import { statusFor, type AssistantMode } from '../../assistant/assistantMock';
 import '../v4/demos.css';
 import { HelpForm } from './HelpForm';
 import { BRAND_LINKS } from './brandLinks';
 import { FULL_LAUNCH_AT } from './launch';
+
+// The live chat and the A4 documents load only when their sections come near (they bring the app's chat and document code).
+const ChatLive = React.lazy(() => import('./ChatLive'));
+const DocsLive = React.lazy(() => import('./DocsLive').then(module => ({ default: module.DocsLive })));
 import type { PublicFeedbackKind } from '../../../../../shared/feedbackPublic';
 import './clean.css';
 
@@ -199,6 +203,13 @@ function Tile({ n, text, bare, tone = '', children }: { n: number; text?: boolea
   return <span className={`cl-tile is-${n}${text ? ' has-text' : ''}${bare ? ' is-bare' : ''}`}><span className="cl-tile-float"><span className={`cl-tile-card${bare ? '' : ' cl-glass'} ${tone}`}>{bare ? <span className="cl-tile-bare">{children}</span> : children}</span></span></span>;
 }
 
+/** Which plan a feature is in (owner, 2026-10-29: "ฟีเจอร์โปร ฝากบอกด้วย"): KRAROK PRO, or what Free gives. */
+function Tier({ pro, children }: { pro?: boolean; children?: React.ReactNode }) {
+  return pro
+    ? <span className="cl-tier is-pro"><img src="/kv/symbol.svg" alt="" />KRAROK PRO</span>
+    : <span className="cl-tier">{children}</span>;
+}
+
 function Sparkline() {
   return (
     <svg className="cl-spark" viewBox="0 0 120 36" aria-hidden="true">
@@ -220,57 +231,83 @@ function StartButton({ light = false }: { light?: boolean }) {
   );
 }
 
-/** When each step happens in the two recordings (seconds): typed, sent, answered, three times over. The recordings
- *  are the app's real chat screen with example data, every answer mocked in the test browser, no AI called (made by the
- *  scratch script noted in the landing memory, its step log trimmed to the video's start). */
-const CHAT_STEPS = [1.97, 4.76, 7.56, 11.78, 17.14, 20.34, 24.57, 27.66, 30.66];
-/** What เลขา is doing at that moment of the recording: the chat's own modes (listening while typed to, thinking, typing
- *  its answer, proud once the jobs are saved). */
-function chatModeAt(t: number): AssistantMode {
-  const [type1, send1, reply1, type2, send2, reply2, type3, send3, reply3] = CHAT_STEPS;
-  if (t < type1) return 'greeting';
-  if (t < send1) return 'listening';
-  if (t < reply1) return 'thinking';
-  if (t < reply1 + 1.8) return 'working';
-  if (t < type2) return 'answered';
-  if (t < send2) return 'listening';
-  if (t < reply2) return 'thinking';
-  if (t < reply2 + 1.2) return 'working';
-  if (t < type3) return 'done';
-  if (t < send3) return 'listening';
-  if (t < reply3) return 'thinking';
-  if (t < reply3 + 1.6) return 'working';
-  return 'answered';
+/** The app's window sizes the live chat is drawn at, scaled to the figure. */
+const CHAT_STAGE = { desk: { width: 1440, height: 900 }, phone: { width: 390, height: 844 } } as const;
+
+function useMedia(query: string) {
+  const [matches, setMatches] = React.useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  React.useEffect(() => {
+    const list = window.matchMedia(query);
+    const change = () => setMatches(list.matches);
+    change();
+    list.addEventListener('change', change);
+    return () => list.removeEventListener('change', change);
+  }, [query]);
+  return matches;
 }
 
-/** The real chat screen of the app, big, with เลขากระรอก beside it doing what the squirrel in the recording is doing
- *  (owner: "ให้เห็นน้องตอนที่เรากำลังพิมพ์ ... ตอนที่น้องกำลังคิดวิเคราะห์"): the chat's own figure, poses and words. */
+/** True while the element is within `margin` of the screen (once = stays true after the first time). */
+function useNear(ref: React.RefObject<HTMLElement | null>, margin: string, once = false) {
+  const [near, setNear] = React.useState(false);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') { setNear(true); return; }
+    const observer = new IntersectionObserver(([entry]) => {
+      setNear(entry.isIntersecting);
+      if (once && entry.isIntersecting) observer.disconnect();
+    }, { rootMargin: margin });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, margin, once]);
+  return near;
+}
+
+/** The real chat screen, live in the page (owner, 2026-10-29: sharp at any zoom), with เลขากระรอก beside it doing what
+ *  the chat is doing. It runs only while it is near the screen, and from the start each time it comes back. */
 function ChatScreen() {
   const [mode, setMode] = React.useState<AssistantMode>('awake');
   const box = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    const videos = Array.from(box.current?.querySelectorAll('video') ?? []);
-    let frame = 0;
-    const follow = () => {
-      const playing = videos.find(video => !video.paused);
-      if (!playing) return;
-      setMode(chatModeAt(playing.currentTime));
-      frame = requestAnimationFrame(follow);
-    };
-    const play = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(follow); };
-    videos.forEach(video => video.addEventListener('play', play));
-    return () => { cancelAnimationFrame(frame); videos.forEach(video => video.removeEventListener('play', play)); };
-  }, []);
+  const shot = React.useRef<HTMLDivElement>(null);
+  const near = useNear(box, '400px 0px');
+  const phone = useMedia('(max-width: 743px)');
+  const still = useMedia('(prefers-reduced-motion: reduce)');
+  const stage = phone ? CHAT_STAGE.phone : CHAT_STAGE.desk;
+  const [scale, setScale] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = shot.current;
+    if (!el) return;
+    const fit = () => setScale(el.clientWidth / stage.width);
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [stage.width]);
   return (
     <div className="cl-chatwrap" ref={box}>
       <div className={`cl-buddy cl-glass is-${mode}`} aria-hidden="true">
         <span className="cl-buddy-face"><MascotSlot mode={mode} size={70} gear="headset" /></span>
         <span className="cl-buddy-text"><b>{tr('เลขากระรอก')}</b><small><i />{statusFor(mode)}</small></span>
       </div>
-      <div className="cl-chatshot" role="img" aria-label={tr('ตัวอย่าง: ถามเลขาว่าใครยังไม่จ่าย แล้วบอกงานพรุ่งนี้ให้บันทึก')}>
-        <video className="cl-video is-desk" src="/landing-v5/chat-desktop.mp4" poster="/landing-v5/chat-desktop.webp" muted loop playsInline preload="none" aria-hidden="true" />
-        <video className="cl-video is-phone" src="/landing-v5/chat-phone.mp4" poster="/landing-v5/chat-phone.webp" muted loop playsInline preload="none" aria-hidden="true" />
+      <div className={`cl-chatshot${phone ? ' is-phone' : ''}`} ref={shot} role="img" aria-label={tr('ตัวอย่าง: ถามเลขาว่าใครยังไม่จ่าย แล้วบอกงานพรุ่งนี้ให้บันทึก')}>
+        <div className="cl-chatlive" style={{ width: stage.width, height: stage.height, transform: `scale(${scale})` }}>
+          {near && scale > 0 && (
+            <React.Suspense fallback={null}>
+              <ChatLive phone={phone} still={still} width={stage.width} height={stage.height} onMode={setMode} />
+            </React.Suspense>
+          )}
+        </div>
       </div>
+    </div>
+  );
+}
+
+/** The documents, drawn once they come near the screen (the A4 renderer loads then). */
+function LiveDocs() {
+  const box = React.useRef<HTMLDivElement>(null);
+  const near = useNear(box, '600px 0px', true);
+  return (
+    <div ref={box} className="cl-docs-live" role="img" aria-label={tr('ตัวอย่าง: ใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จ ออกต่อกันจากงานเดียว')}>
+      {near ? <React.Suspense fallback={<div className="gl-demo gl-docs" />}><DocsLive /></React.Suspense> : <div className="gl-demo gl-docs" />}
     </div>
   );
 }
@@ -282,8 +319,23 @@ function offsetIn(el: HTMLElement, root: HTMLElement) {
   return { x: x + el.offsetWidth / 2, y: y + el.offsetHeight / 2 };
 }
 
+/** The landing is light only. The app turns dark by itself in the evening (a class on <html>), which would turn the live
+ *  chat screen dark too: it is kept off while the landing is shown, and put back when the landing goes. */
+function useLightOnly() {
+  React.useEffect(() => {
+    const html = document.documentElement;
+    const wasDark = html.classList.contains('dark');
+    const clear = () => { if (html.classList.contains('dark')) html.classList.remove('dark'); };
+    clear();
+    const observer = new MutationObserver(clear);
+    observer.observe(html, { attributes: true, attributeFilter: ['class'] });
+    return () => { observer.disconnect(); if (wasDark) html.classList.add('dark'); };
+  }, []);
+}
+
 export default function CleanLanding() {
   useSriracha();
+  useLightOnly();
   const promoRunning = useMonthPromoRunning();
   const price = proPriceParts('month');
   const root = React.useRef<HTMLDivElement>(null);
@@ -367,6 +419,7 @@ export default function CleanLanding() {
       intro.from(q('.cl-hero h1 .cl-w'), { yPercent: 115, rotation: 5, transformOrigin: '0% 100%', duration: 1.2, ease: 'krarok', stagger: 0.07 }, 0.05)
         .from(q('.cl-cta'), { y: 18, autoAlpha: 0, scale: 0.92, duration: 0.8, ease: 'back.out(1.8)' }, 0.65)
         .from(q('.cl-launch'), { y: 16, autoAlpha: 0, duration: 0.8 }, 0.8)
+        .from(q('.cl-perch'), { autoAlpha: 0, y: 24, scale: 0.6, transformOrigin: '50% 100%', duration: 0.9, ease: 'back.out(1.8)' }, 0.95)
         .from(q('.cl-tile-card'), { autoAlpha: 0, scale: 0.55, rotation: () => gsap.utils.random(-14, 14), duration: 1, ease: 'back.out(1.7)', stagger: { each: 0.08, from: 'random' } }, 0.35)
         .from(q('.cl-device-frame'), { opacity: 0, duration: 0.8 }, 0.5)
         .from(q('.cl-spark-line'), { drawSVG: 0, duration: 1.3, ease: 'power2.inOut' }, 0.9);
@@ -448,15 +501,8 @@ export default function CleanLanding() {
       // SlowMo: the light lingers as it crosses the price, then slips away.
       gsap.fromTo(q('.cl-plan-sheen'), { xPercent: -160 }, { xPercent: 260, duration: 2.2, ease: 'slow(0.5, 0.75, false)', repeat: -1, repeatDelay: 3, delay: 1 });
 
-      // 5 · each feature page: its motion starts as it comes into view; the chat recording plays only while in view
-      // (and only the one drawn for this screen size).
+      // 5 · each feature page: its motion starts as it comes into view (the live chat runs by itself while it is near).
       q('.cl-feat').forEach(section => ScrollTrigger.create({ trigger: section, start: 'top 75%', once: true, onEnter: () => section.classList.add('is-in') }));
-      q('.cl-video').forEach(video => {
-        const media = video as HTMLVideoElement;
-        ScrollTrigger.create({ trigger: video.parentElement, start: 'top 85%', end: 'bottom 15%', onToggle: self => {
-          if (self.isActive && media.offsetParent) media.play().catch(() => undefined); else media.pause();
-        } });
-      });
 
       // Questions open and close smoothly instead of jumping.
       q('.cl-faq details').forEach(item => {
@@ -596,7 +642,10 @@ export default function CleanLanding() {
           <div className="cl-pin">
             <div className="cl-top">
               <div className="cl-hero">
-                <h1 id="cl-h1" aria-label={`${trc('hero', 'ตั้งแต่รับงาน')} ${trc('hero', 'จนถึงรับเงิน')} ${trc('hero', 'ให้')}${tr('เลขากระรอก')}${trc('hero', 'ดูแล')}`}><span aria-hidden="true"><span className="cl-h1-top"><span className="gl-nw"><Words text={trc('hero', 'ตั้งแต่รับงาน')} /></span> <span className="gl-nw"><Words text={trc('hero', 'จนถึงรับเงิน')} /></span></span><br /><span className="gl-nw"><Words text={trc('hero', 'ให้')} /><MaskedGrad text={tr('เลขากระรอก')} className="gl-loop is-flow" /><Words text={trc('hero', 'ดูแล')} /></span></span></h1>
+                <h1 id="cl-h1" aria-label={`${trc('hero', 'ตั้งแต่รับงาน')} ${trc('hero', 'จนถึงรับเงิน')} ${trc('hero', 'ให้')}${tr('เลขากระรอก')}${trc('hero', 'ดูแล')}`}><span aria-hidden="true"><span className="cl-h1-top"><span className="gl-nw"><Words text={trc('hero', 'ตั้งแต่รับงาน')} /></span> <span className="gl-nw"><Words text={trc('hero', 'จนถึงรับเงิน')} /></span></span><br /><span className="gl-nw cl-h1-end"><Words text={trc('hero', 'ให้')} /><MaskedGrad text={tr('เลขากระรอก')} className="gl-loop is-flow" /><Words text={trc('hero', 'ดูแล')} />
+                  {/* เลขากระรอก itself, standing at the end of its line and waving (owner, 2026-10-29: the words say เลขากระรอก, so
+                      the squirrel should be there too). The locked mascot, its own wave; sized with the type. */}
+                  <span className="cl-perch"><Mascot gear="headset" mood="wave" action="wave" size={120} /></span></span></span></h1>
                 {/* No line of copy under the headline (owner, 2026-10-29): typing or speaking to เลขา is Pro only, and the
                     hero must not suggest it comes free. */}
                 <div className="cl-cta"><StartButton /></div>
@@ -707,14 +756,16 @@ export default function CleanLanding() {
         <section id="cl-features" className="cl-features" aria-labelledby="cl-features-title">
           <div className="cl-head">
             <span className="cl-eyebrow">{tr('ฟีเจอร์')}</span>
-            <h2 id="cl-features-title" data-words aria-label={tr('ครบในแอปเดียว')}><span aria-hidden="true"><Words text={tr('ครบในแอปเดียว')} /></span></h2>
+            <h2 id="cl-features-title" data-words aria-label={tr('ครบจบในแอปเดียว')}><span aria-hidden="true"><Words text={tr('ครบจบในแอปเดียว')} /></span></h2>
             <p>{tr('ทุกเรื่องเงินของงานอิสระ ตั้งแต่จดงานจนได้รับเงิน')}</p>
+            <p className="cl-tier-legend"><Tier pro /><span>{tr('คือฟีเจอร์ในแพ็กเกจ Pro ส่วนที่เหลือเริ่มใช้ได้ฟรี')}</span></p>
           </div>
         </section>
 
         {/* the chat with เลขา: the real screen, big */}
         <section className="cl-feat is-chat" aria-labelledby="cl-feat-chat">
           <div className="cl-feat-text is-center">
+            <Tier pro />
             <FeatureTitle id="cl-feat-chat" word={tr('คุย')} rest={tr('กับเลขา\nเหมือนเพื่อนร่วมงาน')} />
             <p>{tr('พิมพ์หรือพูดว่าวันนี้ทำงานอะไร เลขาแยกงาน รายจ่าย และการรับเงินให้ครบ ถามอะไรก็ได้ เช่น ใครยังไม่จ่าย')}</p>
           </div>
@@ -727,6 +778,7 @@ export default function CleanLanding() {
         {/* the morning reminder */}
         <section className="cl-feat is-remind" aria-labelledby="cl-feat-remind">
           <div className="cl-feat-text">
+            <Tier pro />
             <FeatureTitle id="cl-feat-remind" word={tr('เตือน')} rest={tr('ก่อนลืม\nทุกเช้า')} />
             <p>{tr('ทาง LINE และอีเมล งานไหนใกล้ครบกำหนดรับเงิน และกดบันทึกรับเงินจากในแจ้งเตือนได้เลย')}</p>
             <span className="cl-feat-apps" aria-hidden="true"><span><LineLogo size={22} />LINE</span><span><GmailLogo size={20} />{tr('อีเมล')}</span></span>
@@ -736,8 +788,9 @@ export default function CleanLanding() {
 
         {/* documents, one after another */}
         <section className="cl-feat is-docs" aria-labelledby="cl-feat-docs">
-          <div className="cl-feat-visual gl-feature-visual is-docs" data-rise><DocsDemo /></div>
+          <div className="cl-feat-visual gl-feature-visual is-docs" data-rise><LiveDocs /></div>
           <div className="cl-feat-text">
+            <Tier>{tr('ฟรี 10 ใบต่อเดือน · Pro ไม่จำกัด')}</Tier>
             <FeatureTitle id="cl-feat-docs" word={tr('ออก')} rest={tr('เอกสารต่อกัน\nได้ทันที')} />
             <p>{tr('ใบเสนอราคา → ใบแจ้งหนี้ → ใบเสร็จ จากงานเดียวกัน ข้อมูลลูกค้าเติมให้เอง')}</p>
           </div>
@@ -746,6 +799,7 @@ export default function CleanLanding() {
         {/* the month on a calendar */}
         <section className="cl-feat is-calendar" aria-labelledby="cl-feat-calendar">
           <div className="cl-feat-text">
+            <Tier>{tr('ใช้ฟรี')}</Tier>
             <FeatureTitle id="cl-feat-calendar" word={tr('รู้')} rest={tr('วันไหน\nเงินจะเข้าเท่าไร')} />
             <p>{tr('ปฏิทินและไทม์ไลน์บอกว่างานไหนจะได้เงินวันไหน ยอดรอรับเรียงตามวันครบกำหนด รับเงินบางส่วนหรือทั้งหมดได้ทันที')}</p>
           </div>

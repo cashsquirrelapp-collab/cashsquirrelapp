@@ -267,6 +267,17 @@ card does not need:
   sheen, a fine grain); its links sit on it with no pill; phones have no help button in it (help is in the footer and
   under the price). LINE, Gmail, the document and the squirrel float with no glass around them, the icons as large as
   a card (62px; 52px on phones), the squirrel a little larger (76px), each with only a soft shadow.
+- Hero round 7 (owner, 2026-10-29 late): the headline a size smaller (clamp 48–68px; phones fit two lines at up to
+  32px) and the launch countdown a size larger (96×86 tiles, 38px digits), the headline still the first thing seen.
+  เลขากระรอก stands at the end of "…ดูแล", waving (the locked mascot, its own wave; 1.3× the type, 1.25× on phones, clear of
+  the line above). The floating cards stay as they were, upright (a tilt toward the phone was tried and taken back).
+- Features (owner, 2026-10-29): "ครบจบในแอปเดียว", and each feature says which plan it is in: KRAROK PRO (the chat, the
+  morning reminder) or what Free gives (documents: ฟรี 10 ใบต่อเดือน · Pro ไม่จำกัด; the calendar: ใช้ฟรี), with a legend
+  under the heading. Pictures are drawn, never captured: the chat is the app's own AssistantChat running in the page
+  (`v5/ChatLive.tsx`: a scripted sample conversation, no AI called, inert, 1440×900 or 390×844 scaled to fit, only
+  while near the screen), and the documents are the app's own DocumentA4 sheets with sample data (`v5/DocsLive.tsx`),
+  so both stay sharp at any zoom. The landing keeps the page light while it shows (the app's evening dark mode would
+  otherwise reach the chat).
 - The problems (owner's copy, 2026-10-29): "เคยเป็นแบบนี้ไหม?", "แค่รับงาน / ก็เหนื่อยพอแล้ว…", and five notes in the
   owner's words and line breaks (forgot to note it, documents, money mixed up, who has paid, the real profit). A note is
   as wide as its longest line (270–340px) on computers; a line wraps inside its note only where there is no room.

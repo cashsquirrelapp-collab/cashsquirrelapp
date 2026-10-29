@@ -94,7 +94,7 @@
 /* ── documents, one after another ("ตึ้ง"): 8 s ─────────────────────────────────────────────────── */
 .gl-docs { width: 560px; max-width: 100%; aspect-ratio: 560 / 380; }
 .gl-doc { position: absolute; top: 12%; width: 34%; margin: 0; opacity: 0; }
-.gl-doc img { display: block; width: 100%; border-radius: 10px; background: #FFFFFF; box-shadow: 0 26px 50px rgba(0, 0, 0, 0.4); }
+.gl-doc > img { display: block; width: 100%; border-radius: 10px; background: #FFFFFF; box-shadow: 0 26px 50px rgba(0, 0, 0, 0.4); }
 .gl-doc figcaption { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 3px 12px; border-radius: 999px; background: rgba(255, 241, 232, 0.12); color: #FFE7BF; font-size: 13px; font-weight: 600; line-height: 1.5; }
 .gl-doc-arrow { color: #F2A23A; }
 .gl-doc.is-1 { left: 0; rotate: -6deg; animation: gl-doc1 8s cubic-bezier(0.34, 1.6, 0.64, 1) infinite; }
