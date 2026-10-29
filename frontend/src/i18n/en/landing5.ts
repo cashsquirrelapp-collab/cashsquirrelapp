@@ -24,4 +24,5 @@ export const landing5: Record<string, string> = {
   'แนะนำ': 'Recommended',
   'ทุกเรื่องเงินของงานอิสระ ตั้งแต่จดงานจนได้รับเงิน': 'Every money task of freelance work, from logging a job to getting paid.',
   'ทุกอย่างที่ควรรู้ก่อนเริ่มใช้': 'What to know before you start.',
+  'หน้าจอจริงในแอป ใช้ข้อมูลตัวอย่าง': 'The real app screen, with example data',
 };

@@ -1,10 +1,12 @@
 /* Landing page round 5 (owner, 2026-10-29): clean and white, liquid glass cards, a finance feel, moved by GSAP
-   (CleanLanding.tsx). Wide screens 1200px and up place the hero's cards beside the words; 960 to 1199px put them in a row
-   under the words; below 960px everything is in order. The pinned scene (computers and iPads held sideways) is its own
-   block near the end. Thai line-height is never under 1.45. */
+   (CleanLanding.tsx). Round 5b (owner's review): pure white, no soft orange glows ("ถ้าจะส้มก็ส้มไปเลย"), a floating
+   capsule bar, each feature on a page of its own. Wide screens 1200px and up place the hero's cards beside the words;
+   960 to 1199px put them in a row under the words; below 960px everything is in order. The pinned scene (computers and
+   iPads held sideways) is its own block near the end. Thai line-height is never under 1.45. */
 .cl { --ink: #1C1917; --muted: #6B645F; --faint: #A39C96; --orange: #E65F2B; --rust: #C24A16; --deep: #A63F1B; --cream: #FFF4EC;
-  --green: #137A4E; --green-bg: #E5F6EC; --caramel: #A35F0C; --caramel-bg: #FFF2DC; --bar: 68px;
+  --green: #137A4E; --green-bg: #E5F6EC; --caramel: #A35F0C; --bar: 92px;
   --cl-pw: 280px; --cl-ph: calc((var(--cl-pw) - 20px) * 2.164 + 20px);
+  --cl-shadow: 0 0 0 1px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04), 0 22px 46px -22px rgba(28, 25, 23, 0.22);
   position: relative; min-height: 100svh; overflow-x: clip; background: #FFFFFF; color: var(--ink);
   font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
 .cl *, .cl *::before, .cl *::after { box-sizing: border-box; }
@@ -31,49 +33,34 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-skip:focus { top: 12px; }
 .cl a:focus-visible, .cl summary:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
 
-/* Liquid glass: frosted white with a bright rim, over the soft CI colour behind it. */
-.cl-glass { background: linear-gradient(155deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.56)); border: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 0 1px rgba(120, 60, 30, 0.06), inset 0 1px 0 #FFFFFF, 0 1px 2px rgba(60, 30, 15, 0.04), 0 22px 46px -20px rgba(120, 55, 25, 0.28);
-  -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%); }
-.cl-liquid { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-.cl-blob { position: absolute; display: block; width: 560px; aspect-ratio: 1; border-radius: 50%; }
-.cl-blob.is-a { background: radial-gradient(closest-side, rgba(255, 154, 98, 0.42), rgba(255, 154, 98, 0)); }
-.cl-blob.is-b { background: radial-gradient(closest-side, rgba(242, 183, 107, 0.4), rgba(242, 183, 107, 0)); }
-.cl-blob.is-c { background: radial-gradient(closest-side, rgba(247, 183, 160, 0.42), rgba(247, 183, 160, 0)); }
-.cl-liquid.is-hero .is-a { left: -140px; top: 10%; }
-.cl-liquid.is-hero .is-b { right: -120px; top: -80px; }
-.cl-liquid.is-hero .is-c { right: 18%; bottom: -220px; }
-.cl-liquid.is-problem .is-a { left: 8%; top: 20%; width: 480px; }
-.cl-liquid.is-problem .is-b { right: 4%; bottom: 0; width: 460px; }
-.cl-liquid.is-problem .is-c { left: 42%; top: -120px; width: 420px; }
-.cl-liquid.is-price .is-a { left: 50%; top: 34%; width: 700px; margin-left: -60px; }
-.cl-liquid.is-price .is-b { left: 18%; top: 44%; width: 480px; }
-.cl-liquid.is-price .is-c { right: 10%; top: 12%; width: 380px; }
-.cl-liquid.is-features .is-a { left: -120px; top: 14%; width: 640px; }
-.cl-liquid.is-features .is-b { right: -140px; top: 42%; width: 640px; }
-.cl-liquid.is-features .is-c { left: 34%; bottom: -160px; width: 560px; }
+/* Liquid glass on white: frosted white, a bright rim, a quiet grey shadow; no coloured glow anywhere. */
+.cl-glass { background: linear-gradient(155deg, rgba(255, 255, 255, 0.96), rgba(250, 249, 248, 0.86)); border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: var(--cl-shadow), inset 0 1px 0 #FFFFFF; -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%); }
 
-/* The one action: a CI pill with its arrow in a white dot. */
-.cl-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 12px; border-radius: 999px; color: #FFFFFF; font-weight: 600; line-height: 1.45; text-decoration: none; white-space: nowrap;
-  background: linear-gradient(135deg, #D9581F, #B4400F); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 14px 30px -10px rgba(194, 74, 22, 0.55); transition: filter 0.15s ease; }
-.cl-btn:hover { filter: brightness(1.06); }
-.cl-btn.is-big { min-height: 58px; padding: 0 8px 0 28px; font-size: 17px; }
-.cl-btn-dot { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: #FFFFFF; color: var(--rust); transition: transform 0.25s ease; }
-.cl-btn:hover .cl-btn-dot { transform: rotate(-35deg); }
-.cl-btn.is-small { min-height: 42px; padding: 0 20px; font-size: 15px; }
-.cl-btn.is-ghost { min-height: 58px; padding: 0 24px; gap: 8px; background: rgba(255, 255, 255, 0.7); color: var(--ink); font-size: 16px; box-shadow: inset 0 0 0 1px rgba(28, 25, 23, 0.12); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.cl-btn.is-light { background: #FFFFFF; color: var(--deep); box-shadow: 0 18px 36px -12px rgba(60, 20, 5, 0.45); }
-.cl-btn.is-light .cl-btn-dot { background: linear-gradient(135deg, #D9581F, #B4400F); color: #FFFFFF; }
+/* The one action (GSAP's magnetic-button demo, in CI colour): a pill in a larger invisible zone that pulls it. */
+.cl-mag { display: inline-flex; padding: 26px 46px; }
+.cl-btn { position: relative; isolation: isolate; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; color: var(--ink);
+  font-weight: 600; line-height: 1.45; text-decoration: none; white-space: nowrap; will-change: transform; }
+.cl-btn-bg { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(111deg, #E65F2B 18%, #FFB48A 80%); transition: filter 0.2s ease; }
+.cl-btn:hover .cl-btn-bg { filter: brightness(1.05) saturate(1.06); }
+.cl-btn-label { position: relative; pointer-events: none; }
+.cl-btn.is-big { min-height: 62px; padding: 0 46px; font-size: 18px; }
+.cl-btn.is-light { color: var(--deep); }
+.cl-btn.is-light .cl-btn-bg { background: #FFFFFF; }
+.cl-btn.is-small { min-height: 44px; padding: 0 20px; font-size: 15px; background: linear-gradient(111deg, #E65F2B 18%, #FFB48A 80%); }
 
-/* The top bar: clear at the top, glass once the page moves. */
-.cl-bar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; gap: 16px; height: var(--bar); padding: 0 max(24px, calc((100vw - 1240px) / 2));
-  border-bottom: 1px solid transparent; background: rgba(255, 255, 255, 0.6); -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%); transition: background 0.3s ease, border-color 0.3s ease; }
-.cl-bar.is-scrolled { border-color: rgba(28, 25, 23, 0.07); background: rgba(255, 255, 255, 0.9); }
-.cl-progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: linear-gradient(90deg, #C24A16, #E65F2B 55%, #F2A23A); transform: scaleX(0); transform-origin: 0 50%; pointer-events: none; }
+/* The top bar: a floating liquid glass capsule (owner: "โค้งๆมนๆกลมๆ ไม่เป็นเหลี่ยม"). */
+.cl-bar { position: fixed; top: 14px; left: 0; right: 0; z-index: 60; padding: 0 16px; pointer-events: none; }
+.cl-bar-in { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1140px; height: 64px; margin: 0 auto; padding: 0 10px 0 22px;
+  border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 999px; background: rgba(255, 255, 255, 0.74); pointer-events: auto;
+  box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.07), inset 0 1px 0 #FFFFFF, 0 14px 34px -16px rgba(28, 25, 23, 0.25);
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); transition: background 0.3s ease, box-shadow 0.3s ease; }
+.cl-bar.is-scrolled .cl-bar-in { background: rgba(255, 255, 255, 0.88); box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.08), inset 0 1px 0 #FFFFFF, 0 18px 40px -16px rgba(28, 25, 23, 0.3); }
+.cl-progress { position: absolute; left: 28px; right: 28px; bottom: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #C24A16, #E65F2B 55%, #F2A23A); transform: scaleX(0); transform-origin: 0 50%; pointer-events: none; }
 .cl-logo { display: flex; align-items: center; color: inherit; text-decoration: none; }
 /* The wordmark's first word follows the app's text colour, which the landing does not set; it is ink here. */
 .cl .krarok-brand-name { color: #2B1B15; }
-.cl-links { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(28, 25, 23, 0.04); }
+.cl-links { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(28, 25, 23, 0.045); }
 .cl-links a { padding: 6px 16px; border-radius: 999px; color: var(--muted); font-size: 14.5px; font-weight: 500; line-height: 1.5; text-decoration: none; transition: background 0.2s ease, color 0.2s ease; }
 .cl-links a:hover { background: #FFFFFF; color: var(--ink); }
 .cl-login { color: var(--muted); font-size: 15px; font-weight: 500; line-height: 1.45; text-decoration: none; }
@@ -83,48 +70,43 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 /* ── 1 · the hero and the phone ───────────────────────────────────────────────────────────────────── */
 .cl-scene { position: relative; }
 .cl-pin { position: relative; }
-.cl-tint { position: absolute; inset: 0; z-index: 0; display: none; background: radial-gradient(70% 60% at 50% 55%, #FFE9DB, #FFF6F0 60%, #FFFBF8); opacity: 0; pointer-events: none; }
-.cl-top { position: relative; z-index: 2; max-width: 1360px; margin: 0 auto; padding: 72px 24px 36px; }
-.cl-hero { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; text-align: center; }
-.cl-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px 6px 12px; border-radius: 999px; color: var(--deep); font-size: 14px; font-weight: 600; line-height: 1.5; }
-.cl-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 4px rgba(230, 95, 43, 0.16); }
-.cl-hero h1 { margin-top: 24px; font-size: 64px; font-weight: 600; line-height: 1.45; }
-.cl-lead { margin-top: 16px; color: var(--muted); font-size: 19px; line-height: 1.65; }
-.cl-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; }
-.cl-ticks { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 22px; margin-top: 22px; }
-.cl-ticks li { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14.5px; line-height: 1.5; }
-.cl-ticks i { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #FFE2D1; color: var(--rust); }
+.cl-top { position: relative; z-index: 2; max-width: 1360px; margin: 0 auto; padding: calc(var(--bar) + 64px) 24px 36px; }
+.cl-hero { position: relative; z-index: 2; max-width: 820px; margin: 0 auto; text-align: center; }
+.cl-hero h1 { font-size: clamp(56px, 5.4vw, 80px); font-weight: 600; line-height: 1.45; }
+.cl-lead { margin-top: 18px; color: var(--muted); font-size: 20px; line-height: 1.65; }
+.cl-cta { display: flex; justify-content: center; margin-top: 10px; }
 
 /* The floating cards: in a row under the words, or (1200px and up) beside them. */
-.cl-tiles { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 34px; }
+.cl-tiles { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 12px; }
 .cl-tile { position: relative; display: block; }
 .cl-tile-float { display: block; }
 /* depth for the pointer (wide screens only): each card drifts against the pointer by its own amount */
 .cl-tile-float { translate: calc(var(--px, 0) * var(--dx, 0) * 1px) calc(var(--py, 0) * var(--dy, 0) * 1px); }
-.cl-tile-card { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 10px 14px; border-radius: 20px; }
-.cl-tile:not(.has-text) .cl-tile-card { justify-content: center; width: 60px; padding: 0; }
+.cl-tile-card { display: flex; align-items: center; gap: 10px; min-height: 62px; padding: 10px 16px 10px 12px; border-radius: 22px; }
+.cl-tile:not(.has-text) .cl-tile-card { justify-content: center; width: 62px; padding: 0; }
+.cl-tile-card.is-solid { border-color: transparent; background: linear-gradient(140deg, #E65F2B, #C24A16); color: #FFFFFF; }
 .cl-tile.is-7, .cl-tile.is-8 { display: none; }
 .cl-tile-icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; }
-.cl-tile-icon.is-orange { background: #FFE2D1; color: var(--rust); }
+.cl-tile-icon.is-white { background: rgba(255, 255, 255, 0.2); color: #FFFFFF; }
 .cl-tile-icon.is-green { background: var(--green-bg); color: var(--green); }
 .cl-tile-pair { display: flex; flex-direction: column; gap: 2px; }
 .cl-tile-pair b { font-size: 16px; font-weight: 600; line-height: 1.45; }
 .cl-tile-pair b.is-green { color: var(--green); }
 .cl-tile-pair small { color: var(--muted); font-size: 12px; line-height: 1.45; }
-.cl-tile-doc { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(160deg, #FF9A62, #D9581F); color: #FFFFFF; }
-.cl-tile-face { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #FFFFFF, #FFE2D1 40%, #FF9A62); }
-.cl-tile-stat { display: flex; flex-direction: column; min-width: 150px; padding: 4px 2px; }
+.cl-tile-card.is-solid .cl-tile-pair small { color: #FFE7D6; }
+.cl-tile-doc { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(160deg, #E65F2B, #C24A16); color: #FFFFFF; }
+.cl-tile-face { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; background: #FFF1E8; }
+.cl-tile-stat { display: flex; flex-direction: column; min-width: 158px; padding: 4px 2px; }
 .cl-tile-stat small { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; font-weight: 500; line-height: 1.45; }
 .cl-tile-stat small i { width: 8px; height: 8px; border-radius: 50%; }
 .cl-tile-stat small i.is-due { background: #F2B76B; }
 .cl-tile-stat small i.is-in { background: #18A66A; }
-.cl-tile-stat b { margin-top: 2px; font-size: 24px; font-weight: 600; line-height: 1.3; }
+.cl-tile-stat b { margin-top: 2px; font-size: 26px; font-weight: 600; line-height: 1.3; }
 .cl-tile-stat em { color: var(--caramel); font-size: 12px; font-style: normal; font-weight: 600; line-height: 1.45; }
-.cl-spark { display: block; width: 150px; height: 36px; margin-top: 4px; }
+.cl-spark { display: block; width: 158px; height: 36px; margin-top: 4px; }
 
 /* The phone: the app's own overview, with a payment just received in a glass notice. */
 .cl-stage { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 72px; max-width: 1200px; margin: 0 auto; padding: 50px 24px 110px; }
-.cl-stage::before { content: ''; position: absolute; inset: 0 calc(50% - 50vw); z-index: -1; background: radial-gradient(60% 55% at 50% 50%, #FFEDE2, rgba(255, 246, 240, 0.6) 60%, rgba(255, 255, 255, 0)); }
 .cl-eyebrow { display: inline-flex; padding: 4px 14px; border-radius: 999px; background: var(--cream); color: var(--deep); font-size: 13.5px; font-weight: 600; line-height: 1.5; }
 .cl-side h2 { margin-top: 14px; font-size: 44px; font-weight: 600; line-height: 1.45; }
 .cl-side.is-left { justify-self: end; max-width: 360px; }
@@ -133,7 +115,7 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-side .cl-side-note { margin-top: 16px; color: var(--deep); font-size: 15px; font-weight: 600; line-height: 1.5; }
 .cl-device { position: relative; width: var(--cl-pw); height: var(--cl-ph); }
 .cl-device-frame { position: relative; width: 100%; height: 100%; padding: 10px; border-radius: calc(var(--cl-pw) * 0.17); background: #141210;
-  box-shadow: inset 0 0 0 2px #3A3330, 0 50px 90px -30px rgba(120, 50, 15, 0.45), 0 20px 40px -20px rgba(0, 0, 0, 0.35); }
+  box-shadow: inset 0 0 0 2px #3A3330, 0 50px 90px -34px rgba(28, 25, 23, 0.45); }
 .cl-island { position: absolute; left: 50%; top: 18px; z-index: 2; width: 30%; height: 22px; margin-left: -15%; border-radius: 12px; background: #000000; }
 .cl-screen { display: block; width: 100%; height: 100%; border-radius: calc(var(--cl-pw) * 0.17 - 10px); object-fit: cover; object-position: top; }
 .cl-notice { position: absolute; left: -30px; bottom: 21%; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px 10px; border-radius: 18px; }
@@ -148,7 +130,7 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
 .cl-ticker-track { display: flex; width: max-content; }
 .cl-ticker-set { display: flex; gap: 12px; padding-right: 12px; }
-.cl-tick-item { display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px; border-radius: 999px; background: #FAF7F4; color: var(--ink); font-size: 14px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
+.cl-tick-item { display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px; border-radius: 999px; background: #F7F6F5; color: var(--ink); font-size: 14px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
 .cl-tick-item i { width: 8px; height: 8px; border-radius: 50%; }
 .cl-tick-item b { font-weight: 600; }
 .cl-tick-item.is-in i { background: #18A66A; }
@@ -162,10 +144,10 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 /* Section heads */
 .cl-head { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; text-align: center; }
 .cl-head h2 { margin-top: 16px; font-size: 52px; font-weight: 600; line-height: 1.45; }
-.cl-head > p:not(.cl-was) { margin-top: 10px; color: var(--muted); font-size: 18.5px; line-height: 1.65; }
+.cl-head > p { margin-top: 10px; color: var(--muted); font-size: 18.5px; line-height: 1.65; }
 
 /* ── 2 · the problems: glass notes around the heading ─────────────────────────────────────────────── */
-.cl-problem { position: relative; overflow: hidden; padding: 120px 24px 130px; background: linear-gradient(180deg, #FFFFFF, #FFFAF6 50%, #FFFFFF); }
+.cl-problem { position: relative; overflow: hidden; padding: 120px 24px 130px; }
 .cl-problem-stage { position: relative; z-index: 1; max-width: 1160px; margin: 0 auto; }
 .cl-problem-head { position: relative; z-index: 1; text-align: center; }
 .cl-problem-head h2 { margin-top: 16px; font-size: 56px; font-weight: 600; line-height: 1.45; }
@@ -181,10 +163,7 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-note.is-5 { rotate: -1.5deg; }
 
 /* ── 3 · the price ────────────────────────────────────────────────────────────────────────────────── */
-.cl-pricing { position: relative; overflow: hidden; padding: 120px 24px 120px; }
-.cl-was { margin-top: 18px; color: var(--faint); font-size: 30px; font-weight: 500; line-height: 1.45; }
-.cl-was > span { position: relative; display: inline-block; }
-.cl-was-line { position: absolute; left: -2%; right: -2%; top: 54%; height: 3px; border-radius: 2px; background: rgba(163, 156, 150, 0.9); transform-origin: 0 50%; }
+.cl-pricing { position: relative; overflow: hidden; padding: 120px 24px 110px; }
 .cl-underline { position: relative; display: inline-block; }
 .cl-underline svg { position: absolute; left: -2%; bottom: -8px; width: 104%; height: 18px; overflow: visible; }
 .cl-underline path { fill: none; stroke: var(--orange); stroke-width: 5; stroke-linecap: round; }
@@ -198,14 +177,10 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-zero { margin-top: 14px; font-size: 96px; line-height: 1.15; }
 .cl-plan h3 { margin-top: 14px; font-size: 26px; font-weight: 600; line-height: 1.45; }
 .cl-plan-text { margin-top: 8px; color: var(--muted); font-size: 16.5px; line-height: 1.65; }
-/* Pro: liquid glass with the CI colour moving inside it */
-.cl-plan.is-pro { background: linear-gradient(155deg, rgba(255, 255, 255, 0.78), rgba(255, 248, 243, 0.5)); border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 0 1px rgba(230, 95, 43, 0.22), inset 0 1px 0 #FFFFFF, 0 30px 60px -24px rgba(194, 74, 22, 0.42); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); }
-.cl-plan-liquid { position: absolute; inset: 0; z-index: 0 !important; overflow: hidden; border-radius: inherit; }
-.cl-plan-liquid i { position: absolute; border-radius: 50%; filter: blur(30px); opacity: 0.55; animation: cl-swirl 14s ease-in-out infinite alternate; }
-.cl-plan-liquid i:first-child { right: -80px; top: -90px; width: 300px; height: 300px; background: radial-gradient(circle, #FF9A62, rgba(255, 154, 98, 0) 70%); }
-.cl-plan-liquid i:last-child { left: -60px; bottom: -120px; width: 280px; height: 280px; background: radial-gradient(circle, #F2B76B, rgba(242, 183, 107, 0) 70%); animation-delay: -6s; }
-.cl-plan-sheen { position: absolute; top: -20%; bottom: -20%; left: 0; z-index: 0 !important; width: 36%; background: linear-gradient(100deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0)); rotate: 12deg; pointer-events: none; transform: translateX(-160%); }
+/* Pro: white glass ringed in CI orange, with a light that sweeps across it */
+.cl-plan.is-pro { border: 1px solid rgba(255, 255, 255, 0.95); background: linear-gradient(155deg, #FFFFFF, #FBFAF9);
+  box-shadow: 0 0 0 1.5px rgba(230, 95, 43, 0.55), inset 0 1px 0 #FFFFFF, 0 26px 54px -26px rgba(28, 25, 23, 0.3); }
+.cl-plan-sheen { position: absolute; top: -20%; bottom: -20%; left: 0; z-index: 0 !important; width: 36%; background: linear-gradient(100deg, rgba(255, 244, 236, 0), rgba(255, 236, 222, 0.9), rgba(255, 244, 236, 0)); rotate: 12deg; pointer-events: none; transform: translateX(-160%); }
 .cl-plan-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .cl-plan-brand { display: inline-flex; align-items: center; gap: 8px; color: var(--deep); font-family: 'IBM Plex Sans', var(--font-sans); font-size: 14px; font-weight: 600; line-height: 1.5; letter-spacing: 0.14em; }
 .cl-plan-brand img { width: 26px; height: 26px; }
@@ -215,38 +190,67 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-price strong { color: var(--rust); font-size: 84px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
 .cl-price > span { color: var(--muted); font-size: 18px; line-height: 1.45; }
 .cl-price-fee { margin-top: 6px; color: var(--faint); font-size: 13.5px; line-height: 1.5; }
-.cl-center { position: relative; z-index: 1; display: flex; justify-content: center; margin-top: 44px; }
+.cl-center { position: relative; z-index: 1; display: flex; justify-content: center; margin-top: 18px; }
 
-/* ── 4 · what it does: a bento of glass cards, each with its motion ──────────────────────────────── */
-.cl-features { position: relative; overflow: hidden; padding: 120px 24px 130px; background: #FBF8F5; }
-.cl-bento { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; max-width: 1200px; margin: 60px auto 0; }
-.cl-card { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 26px; padding: 34px; border-radius: 34px; }
-.cl-card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 0.3s ease;
-  background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0)); }
-.cl-card:hover::after { opacity: 1; }
-.cl-card.is-chat { grid-column: span 7; }
-.cl-card.is-remind { grid-column: span 5; }
-.cl-card.is-docs, .cl-card.is-calendar { grid-column: span 6; }
-.cl-card-text { position: relative; z-index: 1; }
-.cl-card-text h3 { font-size: 32px; font-weight: 600; line-height: 1.45; }
-.cl-card-text p { margin-top: 10px; max-width: 520px; color: var(--muted); font-size: 16px; line-height: 1.7; }
-.cl-card-visual { position: relative; z-index: 1; flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
-.cl-card.is-remind .gl-phone-demo { scale: 0.86; margin: -40px 0; }
-/* each document drops in from a little above its place: room for that under the words */
-.cl-card.is-docs .cl-card-visual { padding-top: 34px; }
-.cl-card:not(.is-in) .gl-demo, .cl-card:not(.is-in) .gl-demo * { animation-play-state: paused !important; }
-/* the motions, set on light glass instead of the old dark page */
-.cl .gl-chat { box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.05), 0 26px 60px -26px rgba(120, 55, 25, 0.38); }
-.cl .gl-device { box-shadow: inset 0 0 0 2px #3A3330, 0 34px 70px -24px rgba(120, 50, 15, 0.45); }
-.cl .gl-doc img { box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.06), 0 20px 40px -16px rgba(120, 55, 25, 0.35); }
+/* ── 4 · what it does: each feature on a page of its own ─────────────────────────────────────────── */
+.cl-features { position: relative; padding: 120px 24px 10px; }
+.cl-feat { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 80px; max-width: 1200px; min-height: min(86svh, 820px); margin: 0 auto; padding: 70px 24px; }
+.cl-feat.is-chat { display: block; max-width: 1320px; min-height: 0; }
+.cl-feat-text h2 { font-size: 54px; font-weight: 600; line-height: 1.45; }
+.cl-feat-text p { margin-top: 16px; max-width: 520px; color: var(--muted); font-size: 18.5px; line-height: 1.7; }
+.cl-feat-text.is-center { max-width: 820px; margin: 0 auto; text-align: center; }
+.cl-feat-text.is-center p { margin-inline: auto; max-width: 640px; }
+.cl-feat-apps { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.cl-feat-apps span { display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px 7px 10px; border-radius: 999px; background: #F7F6F5; font-size: 14.5px; font-weight: 600; line-height: 1.5; }
+.cl-feat-visual { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; }
+.cl-feat:not(.is-in) .gl-demo, .cl-feat:not(.is-in) .gl-demo * { animation-play-state: paused !important; }
+.cl-feat.is-remind .gl-phone-demo { scale: 1.12; margin: 36px 0; }
+/* each document drops in from a little above its place: room for that */
+.cl-feat.is-docs .cl-feat-visual { padding-top: 34px; }
+.cl .gl-docs { width: 100%; max-width: 620px; }
+.cl .gl-cal { width: 100%; max-width: 580px; }
+/* The real chat screen, big */
+.cl-feat-shot { margin: 52px auto 0; }
+.cl-chatshot { position: relative; overflow: hidden; aspect-ratio: 1440 / 900; border-radius: 30px; background: #FBFAF9;
+  box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.08), 0 46px 90px -46px rgba(28, 25, 23, 0.4); }
+.cl-video { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.cl-video.is-phone { display: none; }
+/* เลขากระรอก beside the recording, doing what it does there (the chat's own figure and motions, assistant.css) */
+.cl-chatwrap { position: relative; }
+.cl-buddy { position: absolute; left: -20px; bottom: 34px; z-index: 2; display: flex; align-items: center; gap: 14px; padding: 8px 26px 8px 8px; border-radius: 999px; }
+.cl-buddy-face { display: grid; place-items: center; width: 84px; height: 84px; border-radius: 50%; background: #FFF1E8; }
+.cl-buddy-text { display: flex; flex-direction: column; min-width: 170px; }
+.cl-buddy-text b { font-size: 16px; font-weight: 600; line-height: 1.45; }
+.cl-buddy-text small { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.cl-buddy-text small i { width: 8px; height: 8px; border-radius: 50%; background: #18A66A; }
+.cl-buddy.is-thinking small i, .cl-buddy.is-listening small i { background: #F2B76B; animation: cl-pulse 1s ease-in-out infinite; }
+.cl-buddy.is-working small i { background: var(--orange); animation: cl-pulse 0.6s ease-in-out infinite; }
+.cl-buddy .asx-figure { position: relative; display: inline-block; line-height: 0; transform-origin: 50% 92%; animation: cl-bob 2.6s ease-in-out infinite; }
+.cl-buddy .asx-figure-pose { display: inline-block; line-height: 0; }
+.cl-buddy .asx-figure.is-listening { animation: cl-lean 1.8s ease-in-out infinite; }
+.cl-buddy .asx-figure.is-thinking { animation: cl-ponder 1.6s ease-in-out infinite; }
+.cl-buddy .asx-figure.is-working { animation: cl-busy 0.5s ease-in-out infinite; }
+.cl-buddy .asx-figure.is-done { animation: cl-hop 0.7s ease-out 1; }
+.cl-buddy .asx-bulb { position: absolute; top: 0; right: -16px; z-index: 2; line-height: 0; filter: drop-shadow(0 0 6px rgba(255, 196, 64, 0.85)); animation: cl-glow 1.2s ease-in-out infinite; }
+@keyframes cl-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes cl-lean { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+@keyframes cl-ponder { 0%, 100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(3deg) translateY(-2px); } }
+@keyframes cl-busy { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes cl-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-10px); } 70% { transform: translateY(0); } 85% { transform: translateY(-3px); } 100% { transform: translateY(0); } }
+@keyframes cl-glow { 0%, 100% { opacity: 0.75; transform: scale(0.94); } 50% { opacity: 1; transform: scale(1.06); } }
+@keyframes cl-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+.cl-feat-shot figcaption { margin-top: 16px; color: var(--faint); font-size: 13.5px; line-height: 1.5; text-align: center; }
+/* the motions, on white with quiet grey shadows */
+.cl .gl-chat { box-shadow: var(--cl-shadow); }
+.cl .gl-device { box-shadow: inset 0 0 0 2px #3A3330, 0 40px 80px -30px rgba(28, 25, 23, 0.45); }
+.cl .gl-doc img { box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.07), 0 20px 40px -18px rgba(28, 25, 23, 0.3); }
 .cl .gl-doc figcaption { background: var(--cream); color: var(--deep); }
 .cl .gl-doc-arrow { color: var(--orange); }
-.cl .gl-msg.is-bot li { row-gap: 2px; }
-.cl .gl-cal { box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.05), 0 26px 60px -26px rgba(120, 55, 25, 0.38); }
+.cl .gl-cal { box-shadow: var(--cl-shadow); }
 
 /* ── 5 · questions ────────────────────────────────────────────────────────────────────────────────── */
 .cl-faq { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 60px; max-width: 1200px; margin: 0 auto; padding: 120px 24px; }
-.cl-faq-side { align-self: start; position: sticky; top: calc(var(--bar) + 40px); }
+.cl-faq-side { align-self: start; position: sticky; top: calc(var(--bar) + 30px); }
 .cl-faq-side h2 { margin-top: 16px; font-size: 48px; font-weight: 600; line-height: 1.45; }
 .cl-faq-side p { margin-top: 10px; color: var(--muted); font-size: 18px; line-height: 1.65; }
 .cl-faq-list { display: flex; flex-direction: column; gap: 12px; }
@@ -260,27 +264,23 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 /* A closed answer takes no room at all (the browser only skips drawing it otherwise). */
 .cl-faq details:not([open]) .cl-faq-a { display: none; }
 
-/* ── 6 · the close: a CI card with a ribbon running through it ───────────────────────────────────── */
+/* ── 6 · the close: a solid CI card with a ribbon running through it ─────────────────────────────── */
 .cl-final { padding: 0 24px 40px; }
-.cl-final-card { position: relative; overflow: hidden; max-width: 1240px; margin: 0 auto; padding: 100px 24px 96px; border-radius: 44px; text-align: center;
-  background: linear-gradient(140deg, #8E3313 0%, #B4400F 38%, #D9581F 78%, #E8743A 100%); box-shadow: 0 40px 80px -40px rgba(142, 51, 19, 0.6); }
-.cl-final-liquid i { position: absolute; border-radius: 50%; filter: blur(40px); animation: cl-swirl 16s ease-in-out infinite alternate; }
-.cl-final-liquid i:nth-child(1) { left: -80px; top: -120px; width: 420px; height: 420px; background: radial-gradient(circle, rgba(255, 195, 107, 0.55), rgba(255, 195, 107, 0) 70%); }
-.cl-final-liquid i:nth-child(2) { right: -60px; bottom: -160px; width: 460px; height: 460px; background: radial-gradient(circle, rgba(255, 154, 98, 0.6), rgba(255, 154, 98, 0) 70%); animation-delay: -5s; }
-.cl-final-liquid i:nth-child(3) { left: 40%; top: 30%; width: 300px; height: 300px; background: radial-gradient(circle, rgba(255, 226, 209, 0.3), rgba(255, 226, 209, 0) 70%); animation-delay: -9s; }
+.cl-final-card { position: relative; overflow: hidden; max-width: 1240px; margin: 0 auto; padding: 100px 24px 80px; border-radius: 44px; text-align: center;
+  background: linear-gradient(140deg, #A63F1B 0%, #C24A16 40%, #E65F2B 100%); box-shadow: 0 30px 60px -36px rgba(28, 25, 23, 0.5); }
 .cl-ribbon { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.cl-ribbon path { fill: none; stroke: rgba(255, 231, 191, 0.34); stroke-width: 46; stroke-linecap: round; }
+.cl-ribbon path { fill: none; stroke: rgba(255, 231, 191, 0.3); stroke-width: 46; stroke-linecap: round; }
 .cl-final-in { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
 .cl-final h2 { margin-top: 8px; color: #FFFFFF; font-size: 54px; font-weight: 600; line-height: 1.6; }
 .cl-final-em { color: #FFE7BF; }
 /* Krarok coins riding the ribbon (GSAP MotionPath), behind the words */
 .cl-coin { position: absolute; left: 0; top: 0; z-index: 0; display: none; place-items: center; width: 38px; height: 38px; border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #FFF1DA 30%, #F2B76B 72%, #D9781F 100%); box-shadow: inset 0 -2px 0 rgba(140, 60, 10, 0.25), 0 10px 20px rgba(80, 25, 5, 0.3); }
+  background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #FFF1DA 30%, #F2B76B 72%, #D9781F 100%); box-shadow: inset 0 -2px 0 rgba(140, 60, 10, 0.25), 0 8px 16px rgba(40, 12, 2, 0.25); }
 .cl-coin img { width: 22px; height: 22px; }
 @media (prefers-reduced-motion: no-preference) { .cl-coin { display: grid; } }
 /* the coins that jump out when the Pro price lands (GSAP Physics2D) */
 .cl-pop-coin { position: absolute !important; z-index: 0 !important; width: 12px; height: 12px; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle at 32% 28%, #FFFFFF, #FFE7BF 40%, #F2B76B 75%, #D9781F); box-shadow: 0 3px 6px rgba(120, 50, 10, 0.3); }
+  background: radial-gradient(circle at 32% 28%, #FFFFFF, #FFE7BF 40%, #F2B76B 75%, #D9781F); box-shadow: 0 3px 6px rgba(28, 25, 23, 0.2); }
 .cl-count { margin-top: 30px; }
 .cl-count-label { color: #FFE7BF; font-size: 14.5px; font-weight: 600; line-height: 1.45; }
 .cl-tiles-count { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
@@ -288,31 +288,34 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   background: rgba(255, 255, 255, 0.14); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.18); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 .cl-tick b { color: #FFFFFF; font-family: 'IBM Plex Sans', var(--font-sans); font-size: 40px; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .cl-tick small { color: #FFE2D1; font-size: 13px; line-height: 1.45; }
-.cl-final-cta { margin-top: 34px; }
+.cl-final-cta { margin-top: 8px; }
 .cl-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; max-width: 1240px; margin: 0 auto; padding: 26px 24px 36px; color: var(--faint); font-size: 13.5px; line-height: 1.5; }
 .cl-foot-links { display: flex; gap: 20px; }
 .cl-foot a { color: var(--muted); text-decoration: none; }
 .cl-foot a:hover { color: var(--deep); }
 
+/* English runs longer than Thai: a smaller headline, and feature headings that may wrap between words. */
+.cl.is-en .cl-hero h1 { font-size: clamp(44px, 4.2vw, 64px); }
+.cl.is-en .cl-feat-text h2 { font-size: clamp(36px, 3.4vw, 46px); }
+.cl.is-en .cl-feat-text h2 .gl-nw { white-space: normal; }
+
 /* The narrowest phones: taller calendar days, so the day and its amount keep apart. */
 @media (max-width: 360px) { .cl .gl-cal-cell { aspect-ratio: 1 / 1.3; } }
 
-@keyframes cl-swirl { from { transform: translate(0, 0) scale(1); } to { transform: translate(40px, 30px) scale(1.15); } }
-
 /* Wide screens: the hero's cards float beside the words; the notes around the problem heading. */
 @media (min-width: 1200px) {
-  .cl-top { min-height: 660px; }
-  .cl-tiles { position: absolute; inset: 0; display: block; max-width: 1360px; margin: 0 auto; }
+  .cl-top { min-height: 720px; }
+  .cl-tiles { position: absolute; inset: 0; display: block; max-width: 1400px; margin: 0 auto; }
   .cl-tile { position: absolute; }
   .cl-tile.is-7, .cl-tile.is-8 { display: block; }
-  .cl-tile.is-1 { left: 15%; top: 10%; }
-  .cl-tile.is-7 { left: 2.5%; top: 24%; }
-  .cl-tile.is-4 { left: 10%; top: 55%; }
-  .cl-tile.is-3 { left: 3%; top: 73%; }
-  .cl-tile.is-8 { right: 2%; top: 13%; }
-  .cl-tile.is-5 { right: 17%; top: 44%; }
-  .cl-tile.is-2 { right: 4%; top: 57%; }
-  .cl-tile.is-6 { right: 12%; top: 77%; }
+  .cl-tile.is-1 { left: 13%; top: 17%; }
+  .cl-tile.is-7 { left: 2%; top: 30%; }
+  .cl-tile.is-4 { left: 9%; top: 58%; }
+  .cl-tile.is-3 { left: 2.5%; top: 75%; }
+  .cl-tile.is-8 { right: 1.5%; top: 19%; }
+  .cl-tile.is-5 { right: 15%; top: 47%; }
+  .cl-tile.is-2 { right: 3%; top: 60%; }
+  .cl-tile.is-6 { right: 11%; top: 79%; }
   .cl-tile.is-1 { --dx: 6; --dy: 18; } .cl-tile.is-7 { --dx: 4; --dy: 10; } .cl-tile.is-4 { --dx: 7; --dy: 22; } .cl-tile.is-3 { --dx: 5; --dy: 14; }
   .cl-tile.is-8 { --dx: 4; --dy: 12; } .cl-tile.is-5 { --dx: 7; --dy: 20; } .cl-tile.is-2 { --dx: 5; --dy: 16; } .cl-tile.is-6 { --dx: 8; --dy: 24; }
   .cl-problem-stage { height: 620px; }
@@ -337,9 +340,11 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 /* iPads and smaller computers */
 @media (max-width: 1099px) {
   .cl-links { display: none; }
-  .cl-bento { grid-template-columns: minmax(0, 1fr); max-width: 680px; }
-  .cl-card.is-chat, .cl-card.is-remind, .cl-card.is-docs, .cl-card.is-calendar { grid-column: auto; }
-  .cl-card.is-remind .gl-phone-demo { scale: none; margin: 0; }
+  .cl-feat { grid-template-columns: minmax(0, 1fr); gap: 40px; max-width: 680px; min-height: 0; padding: 80px 24px; text-align: center; }
+  .cl-feat-text { order: -1; }
+  .cl-feat-text p { margin-inline: auto; }
+  .cl-feat-apps { justify-content: center; }
+  .cl-feat.is-remind .gl-phone-demo { scale: none; margin: 0; }
   .cl-faq { grid-template-columns: minmax(0, 1fr); gap: 32px; max-width: 760px; }
   .cl-faq-side { position: static; text-align: center; }
 }
@@ -348,27 +353,26 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-stage { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 30px; padding: 30px 24px 90px; text-align: center; }
   .cl-side.is-left, .cl-side.is-right { justify-self: center; max-width: 560px; }
   .cl-side h2 { font-size: 38px; }
-  .cl-head h2, .cl-problem-head h2 { font-size: 42px; }
+  .cl-head h2, .cl-problem-head h2, .cl-feat-text h2 { font-size: 42px; }
   .cl-plans { grid-template-columns: minmax(0, 1fr); max-width: 560px; }
   .cl-final h2 { font-size: 42px; }
 }
 
 /* Phones */
 @media (max-width: 743px) {
-  .cl { --bar: 62px; --cl-pw: 250px; }
-  .cl-bar { padding: 0 14px; }
+  .cl { --bar: 78px; --cl-pw: 250px; }
+  .cl-bar { top: 10px; padding: 0 10px; }
+  .cl-bar-in { height: 56px; padding: 0 6px 0 16px; }
+  .cl-progress { left: 20px; right: 20px; }
   .cl-login { display: none; }
-  .cl-top { padding: 34px 18px 26px; }
-  .cl-chip { font-size: 12.5px; }
-  .cl-hero h1 { margin-top: 18px; font-size: 34px; line-height: 1.45; }
-  .cl-lead { font-size: 15.5px; }
+  .cl-top { padding: calc(var(--bar) + 30px) 18px 26px; }
+  .cl-hero h1 { font-size: 36px; line-height: 1.45; }
+  .cl-lead { margin-top: 14px; font-size: 15.5px; }
   .cl-lead br { display: none; }
-  .cl-cta { flex-direction: column; margin-top: 24px; }
-  .cl-cta .cl-btn { width: 100%; }
-  .cl-btn.is-big { min-height: 54px; font-size: 16px; }
-  .cl-btn.is-ghost { min-height: 50px; font-size: 15px; }
-  .cl-ticks { gap: 8px 16px; }
-  .cl-ticks li { font-size: 13px; }
+  .cl-cta { margin-top: 22px; }
+  .cl-mag { display: flex; width: 100%; padding: 0; }
+  .cl-mag .cl-btn { width: 100%; }
+  .cl-btn.is-big { min-height: 56px; font-size: 17px; }
   .cl-tiles { gap: 10px; margin-top: 26px; }
   .cl-tile.is-4, .cl-tile.is-5, .cl-tile.is-6 { display: none; }
   .cl-tile-card { min-height: 52px; padding: 8px 12px 8px 8px; border-radius: 17px; }
@@ -383,14 +387,13 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-ticker { padding: 14px 0; }
   .cl-tick-item { font-size: 13px; }
   .cl-head h2, .cl-problem-head h2 { font-size: 30px; }
-  .cl-head > p:not(.cl-was), .cl-problem-head p { font-size: 15.5px; }
+  .cl-head > p, .cl-problem-head p { font-size: 15.5px; }
   .cl-problem { padding: 76px 16px 86px; }
   .cl-notes { grid-template-columns: minmax(0, 1fr); gap: 28px; max-width: 340px; margin-top: 34px; }
   .cl-note-in { flex-direction: row; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 20px; font-size: 18px; }
   .cl-note:nth-child(even) { margin-left: 18px; }
   .cl-note:nth-child(odd) { margin-right: 18px; }
-  .cl-pricing { padding: 76px 14px 80px; }
-  .cl-was { font-size: 20px; }
+  .cl-pricing { padding: 76px 14px 70px; }
   .cl-head .cl-underline { display: block; width: fit-content; margin: 0 auto; }
   .cl-plans { margin-top: 40px; gap: 14px; }
   .cl-plan { padding: 26px 22px 26px; border-radius: 26px; }
@@ -400,13 +403,18 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-price strong { font-size: 60px; }
   .cl-price-was { font-size: 16px; }
   .cl-price > span { font-size: 14px; }
-  .cl-center .cl-btn { width: 100%; }
-  .cl-features { padding: 76px 12px 86px; }
-  .cl-bento { gap: 14px; margin-top: 40px; }
-  .cl-card { gap: 20px; padding: 24px 16px 20px; border-radius: 28px; }
-  .cl-card-text { padding: 0 6px; }
-  .cl-card-text h3 { font-size: 26px; }
-  .cl-card-text p { font-size: 14.5px; }
+  .cl-center { margin-top: 28px; }
+  .cl-features { padding: 76px 16px 0; }
+  .cl-feat { gap: 28px; padding: 64px 16px; }
+  .cl-feat-text h2 { font-size: 32px; }
+  .cl-feat-text p { font-size: 15.5px; }
+  .cl-feat-shot { margin-top: 32px; }
+  .cl-chatshot { max-width: 330px; margin: 0 auto; aspect-ratio: 390 / 844; border-radius: 38px; }
+  .cl-buddy { position: relative; left: auto; bottom: auto; width: fit-content; margin: 0 auto 16px; padding-right: 20px; }
+  .cl-buddy-face { width: 68px; height: 68px; }
+  .cl-buddy-text { min-width: 150px; }
+  .cl-video.is-desk { display: none; }
+  .cl-video.is-phone { display: block; }
   .cl-faq { padding: 70px 16px; }
   .cl-faq-side h2 { font-size: 30px; }
   .cl-faq-side p { font-size: 15px; }
@@ -414,41 +422,39 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-faq summary span { width: 30px; height: 30px; }
   .cl-faq details p { padding: 0 20px 18px; font-size: 14.5px; }
   .cl-final { padding: 0 10px 24px; }
-  .cl-final-card { padding: 64px 16px 56px; border-radius: 32px; }
+  .cl-final-card { padding: 64px 16px 48px; border-radius: 32px; }
   .cl-final h2 { font-size: 30px; }
   .cl-ribbon path { stroke-width: 34; }
   .cl-tiles-count { gap: 7px; }
   .cl-tick { width: 72px; height: 66px; border-radius: 16px; }
   .cl-tick b { font-size: 24px; }
   .cl-tick small { font-size: 11px; }
-  .cl-final-cta { align-self: stretch; }
-  .cl-final-cta .cl-btn { width: 100%; }
+  .cl-final-cta { align-self: stretch; margin-top: 28px; }
   .cl-foot { flex-direction: column; text-align: center; padding: 22px 18px 30px; font-size: 12.5px; }
 }
 
-/* The pinned scene: computers and iPads held sideways, with motion. GSAP moves the parts (CleanLanding.tsx, SCENE). */
+/* The pinned scene: computers and iPads held sideways, with motion. GSAP moves the parts (CleanLanding.tsx, SCENE).
+   The floating bar sits over the scene; the scene keeps its room clear. */
 @media (min-width: 960px) and (min-height: 600px) and (prefers-reduced-motion: no-preference) {
-  .cl { --cl-pw: clamp(232px, calc((100svh - var(--bar) - 64px) * 0.47), 300px); }
-  .cl-pin { height: calc(100svh - var(--bar)); overflow: hidden; }
-  .cl-tint { display: block; }
-  .cl-top { position: absolute; inset: 0; max-width: none; min-height: 0; padding: clamp(36px, 8svh, 88px) 24px 0; }
+  .cl { --cl-pw: clamp(232px, calc((100svh - var(--bar) - 48px) * 0.47), 300px); }
+  .cl-pin { height: 100svh; overflow: hidden; }
+  .cl-top { position: absolute; inset: 0; max-width: none; min-height: 0; padding: calc(var(--bar) + clamp(20px, 6svh, 70px)) 24px 0; }
   .cl-stage { position: absolute; inset: 0; z-index: 1; display: block; max-width: none; margin: 0; padding: 0; }
-  .cl-stage::before { display: none; }
-  .cl-device { position: absolute; left: 50%; top: 50%; margin-left: calc(var(--cl-pw) / -2); margin-top: calc(var(--cl-ph) / -2); }
-  .cl-side { position: absolute; top: 50%; translate: 0 -50%; width: min(360px, calc(50% - var(--cl-pw) / 2 - 110px)); max-width: none; }
+  .cl-device { position: absolute; left: 50%; top: calc(50% + var(--bar) / 2); margin-left: calc(var(--cl-pw) / -2); margin-top: calc(var(--cl-ph) / -2); }
+  .cl-side { position: absolute; top: calc(50% + var(--bar) / 2); translate: 0 -50%; width: min(360px, calc(50% - var(--cl-pw) / 2 - 110px)); max-width: none; }
   .cl-side.is-left { right: calc(50% + var(--cl-pw) / 2 + 76px); justify-self: auto; }
   .cl-side.is-right { left: calc(50% + var(--cl-pw) / 2 + 76px); }
   .cl-side h2 { font-size: clamp(32px, 3.2vw, 46px); }
 }
 @media (min-width: 960px) and (max-width: 1199px) and (min-height: 600px) and (prefers-reduced-motion: no-preference) {
   .cl-hero h1 { font-size: 54px; }
-  .cl-tiles { margin-top: 26px; }
+  .cl-tiles { margin-top: 4px; }
 }
 
 /* Without motion everything is simply in place (GSAP does nothing then). */
 @media (prefers-reduced-motion: reduce) {
-  .cl-plan-liquid i, .cl-final-liquid i { animation: none; }
-  .cl-btn-dot, .cl-roll > span { transition: none; }
+  .cl-roll > span { transition: none; }
+  .cl-buddy .asx-figure, .cl-buddy .asx-bulb, .cl-buddy small i { animation: none; }
   .cl-ticker-track { width: auto; }
   .cl-ticker-set { flex-wrap: wrap; justify-content: center; padding: 0 16px; }
   .cl-ticker-set + .cl-ticker-set { display: none; }

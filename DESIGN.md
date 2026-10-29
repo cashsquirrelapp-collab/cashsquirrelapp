@@ -254,12 +254,20 @@ card does not need:
   each word rises out of its own one-line mask. A split heading carries its whole text as `aria-label`.
 - Every motion is off with reduced motion, mouse-only effects need a fine pointer, and nothing that moves passes over
   text (checked at 10 sizes, Thai and English, through the whole scroll).
+- Round 5b (owner's review, 2026-10-29 evening): pure white, no soft orange glows or tinted shadows anywhere ("ถ้าจะส้มก็
+  ส้มไปเลย"): orange is solid (the start button, one hero card, the close) or absent; shadows are neutral grey. The top
+  bar is a floating rounded glass capsule. No comparison with hiring a real secretary (accountants will use Krarok too).
+  The hero is the headline, one line of copy and เริ่มใช้ฟรี only. The start button follows GSAP's magnetic-button demo
+  (a CI gradient pill, ink label, pulled by the pointer, elastic spring back, an occasional CustomWiggle).
+- Each feature is a page of its own. The chat with เลขา is the app's real chat screen, recorded with example data
+  (`public/landing-v5/chat-*.mp4`, no AI called), big, with เลขากระรอก beside it in the chat's own poses and words, in
+  step with the recording (listening while typed to, thinking with the bulb, typing its answer, proud when saved).
 - Order: the hero and the phone as one scene (pinned on computers and iPads held sideways: the words lift away, the
   floating cards fly into the phone, the phone rises to the middle with "เห็นเงินทั้งเดือนในหน้าเดียว" beside it), the
-  money ticker, the problem notes (Sriracha) around their heading, the price (Free beside the liquid Pro card, ฿249
-  counting down to ฿159 while the deal runs), ครบในแอปเดียว as a bento of glass cards with the four motions (chat,
-  08:00 reminder, documents, calendar: CSS loops in `v4/demos.css`), questions, the close in a CI card with a ribbon
-  and the countdown.
+  money ticker, the problem notes (Sriracha) around their heading, the price (Free beside the Pro card, ฿249 counting
+  down to ฿159 while the deal runs), ครบในแอปเดียว then one page each: the chat recording, the 08:00 reminder, documents
+  and the calendar (those three CSS loops in `v4/demos.css`), questions, the close in a CI card with a ribbon and the
+  countdown.
 - Phones and iPads held upright get the same sections in order, with the cards in a row under the words.
 - Only features every account has today. Nothing admin-only or still to come (50 ทวิ is not shown yet).
 

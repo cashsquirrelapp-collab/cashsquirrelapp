@@ -2,18 +2,18 @@ import React from 'react';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { CustomEase } from 'gsap/CustomEase';
+import { CustomWiggle } from 'gsap/CustomWiggle';
 import { ExpoScaleEase, SlowMo } from 'gsap/EasePack';
 import { Observer } from 'gsap/Observer';
 import { PhysicsPropsPlugin } from 'gsap/PhysicsPropsPlugin';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
-import { TextPlugin } from 'gsap/TextPlugin';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin';
 import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { Physics2DPlugin } from 'gsap/Physics2DPlugin';
 import { Draggable } from 'gsap/Draggable';
-import { ArrowRight, Bell, CalendarDays, Check, ChevronDown, CircleHelp, FileSearch, FileText, NotebookPen, Plus, Wallet } from 'lucide-react';
+import { Bell, CalendarDays, Check, CircleHelp, FileSearch, FileText, NotebookPen, Plus, Wallet } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { Mascot } from '../../../components/mascot/Mascot';
 import { LineLogo } from '../../../components/ui/LineLogo';
@@ -22,20 +22,24 @@ import { PRO_REGULAR_MONTHLY, formatBaht, proPriceParts } from '../../../../../s
 import { monthPromoCountdown, useMonthPromoRunning } from '../../billing/promoNotice';
 import { currentLanguage } from '../../../i18n/currentLanguage';
 import { tr, trc, T } from '../../../i18n/tr';
-import { CalendarDemo, ChatDemo, DocsDemo, PhoneDemo } from '../v4/Demos';
+import { CalendarDemo, DocsDemo, PhoneDemo } from '../v4/Demos';
+import { MascotSlot } from '../../assistant/MascotSlot';
+import { statusFor, type AssistantMode } from '../../assistant/assistantMock';
 import '../v4/demos.css';
 import './clean.css';
 
 // The landing page, round 5 (owner, 2026-10-29): clean and white, modern and Gen Z, liquid glass cards and a finance
-// feel, after a premium-site reference the owner sent ("คลีนๆขาวๆ ... ทันสมัย ... ลิควิดการ์ด ... ไฟแนนซ์"), moved by GSAP
-// (owner: "เอา Gsap ไปศึกษาละทำออกมา"). Krarok's own content, colours and squirrel; the sections the owner kept
-// (problems, price, ครบในแอปเดียว with its four motions, questions, the close with the countdown). On computers the top is
-// one pinned scroll scene: the words lift away, the floating cards fly into the phone and the phone rises to the middle.
-// Phones and reduced motion get the same page laid out in order. Nothing that moves ever passes over text.
-// Only features every account has today (50 ทวิ is not shown yet). The previous landing stays in ../v4.
+// feel, after a premium-site reference the owner sent, moved by GSAP ("เอา Gsap ไปศึกษาละทำออกมา"). Round 5b, the
+// owner's review the same evening: no soft orange glows anywhere ("ถ้าจะส้มก็ส้มไปเลย ... ให้มันหน้ามันขาวไปเลย"), the top
+// bar a rounded liquid glass capsule, no comparison with hiring a real secretary (accountants will use Krarok too), the
+// chat with เลขา as the real screen, big, on a page of its own, the morning reminder on another, and a hero of the
+// headline and เริ่มใช้ฟรี alone, the button magnetic like GSAP's demo. On computers the top is one pinned scroll scene:
+// the words lift away, the floating cards fly into the phone and the phone rises to the middle. Phones and reduced motion
+// get the same page laid out in order. Nothing that moves ever passes over text. Only features every account has today
+// (50 ทวิ is not shown yet). The previous landing stays in ../v4.
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrambleTextPlugin, DrawSVGPlugin, MotionPathPlugin, Physics2DPlugin, PhysicsPropsPlugin, Draggable, Observer,
-  ScrollToPlugin, TextPlugin, CustomEase, ExpoScaleEase, SlowMo);
+  ScrollToPlugin, CustomEase, CustomWiggle, ExpoScaleEase, SlowMo);
 // Krarok's own ease for everything that rises into place: quick to leave, long and soft to land.
 CustomEase.create('krarok', '0.16, 1, 0.3, 1');
 // GSDevTools and MotionPathHelper are tools for building animations; GSAP advises against shipping them, so they are not here.
@@ -52,14 +56,6 @@ const NOTES = [
   { icon: NotebookPen, text: T('จดงานไว้ในโน้ต 3 ที่\nหาไม่เจอสักที่') },
   { icon: CircleHelp, text: T('เดือนนี้เหลือเงิน\nเท่าไรกันแน่') },
   { icon: CalendarDays, text: T('วันไหนเงินจะเข้า\nจำไม่ได้เลย') },
-];
-
-type FeatureKind = 'chat' | 'remind' | 'docs' | 'calendar';
-const FEATURES: { kind: FeatureKind; key: string; rest: string; text: string }[] = [
-  { kind: 'chat', key: T('คุย'), rest: T('กับเลขา\nเหมือนเพื่อนร่วมงาน'), text: T('พิมพ์หรือพูดว่าวันนี้ทำงานอะไร เลขาแยกงาน รายจ่าย และการรับเงินให้ครบ ถามอะไรก็ได้ เช่น ใครยังไม่จ่าย') },
-  { kind: 'remind', key: T('เตือน'), rest: T('ก่อนลืม\nทุกเช้า'), text: T('ทาง LINE และอีเมล งานไหนใกล้ครบกำหนดรับเงิน และกดบันทึกรับเงินจากในแจ้งเตือนได้เลย') },
-  { kind: 'docs', key: T('ออก'), rest: T('เอกสารต่อกัน\nได้ทันที'), text: T('ใบเสนอราคา → ใบแจ้งหนี้ → ใบเสร็จ จากงานเดียวกัน ข้อมูลลูกค้าเติมให้เอง') },
-  { kind: 'calendar', key: T('รู้'), rest: T('วันไหน\nเงินจะเข้าเท่าไร'), text: T('ปฏิทินและไทม์ไลน์บอกว่างานไหนจะได้เงินวันไหน ยอดรอรับเรียงตามวันครบกำหนด รับเงินบางส่วนหรือทั้งหมดได้ทันที') },
 ];
 
 const FAQ: { q: string; a: string }[] = [
@@ -102,6 +98,17 @@ function Words({ text }: { text: string }) {
 }
 /** A gradient phrase rises as one word (its colour runs across the whole phrase). */
 const MaskedGrad = ({ text, className = '' }: { text: string; className?: string }) => <span className="cl-wm"><span className={`cl-w cl-grad ${className}`}>{text}</span></span>;
+/** A feature heading: the key word in CI colour, then the rest, each line kept whole; split for the reveal. */
+function FeatureTitle({ id, word, rest }: { id: string; word: string; rest: string }) {
+  const parts = rest.split('\n');
+  return (
+    <h2 id={id} data-words aria-label={`${word}${parts.join('')}`}>
+      <span aria-hidden="true">{parts.map((line, at) => (
+        <React.Fragment key={at}>{at > 0 && <br />}<span className="gl-nw">{at === 0 && <MaskedGrad text={word} />}<Words text={line} /></span></React.Fragment>
+      ))}</span>
+    </h2>
+  );
+}
 
 /** Text that rolls up to a copy of itself on hover (the copy is hidden from screen readers). */
 const Roll = ({ text }: { text: string }) => <span className="cl-roll"><span>{text}</span><span aria-hidden="true">{text}</span></span>;
@@ -148,23 +155,84 @@ function Countdown() {
   );
 }
 
-/** Soft CI colour behind the glass, so the glass has something to bend. */
-function Liquid({ className = '' }: { className?: string }) {
-  return <span className={`cl-liquid ${className}`} aria-hidden="true"><i className="cl-blob is-a" /><i className="cl-blob is-b" /><i className="cl-blob is-c" /></span>;
-}
-
 /** A floating glass card in the hero. Three layers: place (scroll), float (idle bob), card (entrance). */
-function Tile({ n, text, children }: { n: number; text?: boolean; children: React.ReactNode }) {
-  return <span className={`cl-tile is-${n}${text ? ' has-text' : ''}`}><span className="cl-tile-float"><span className="cl-tile-card cl-glass">{children}</span></span></span>;
+function Tile({ n, text, tone = '', children }: { n: number; text?: boolean; tone?: string; children: React.ReactNode }) {
+  return <span className={`cl-tile is-${n}${text ? ' has-text' : ''}`}><span className="cl-tile-float"><span className={`cl-tile-card cl-glass ${tone}`}>{children}</span></span></span>;
 }
 
 function Sparkline() {
   return (
     <svg className="cl-spark" viewBox="0 0 120 36" aria-hidden="true">
-      <defs><linearGradient id="cl-spark-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#18A66A" stopOpacity="0.28" /><stop offset="1" stopColor="#18A66A" stopOpacity="0" /></linearGradient></defs>
-      <path d="M2 30 L18 26 L34 28 L50 18 L66 21 L82 12 L98 14 L118 4 L118 36 L2 36 Z" fill="url(#cl-spark-fill)" />
       <path className="cl-spark-line" d="M2 30 L18 26 L34 28 L50 18 L66 21 L82 12 L98 14 L118 4" fill="none" stroke="#18A66A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** The one action: a CI pill inside a larger magnetic zone (GSAP's magnetic-button demo): the button follows the pointer,
+ *  its label a little further, and springs back when the pointer leaves; now and then it wiggles for attention. */
+function StartButton({ light = false }: { light?: boolean }) {
+  return (
+    <span className="cl-mag">
+      <a className={`cl-btn is-big${light ? ' is-light' : ''}`} href={LOGIN}>
+        <span className="cl-btn-bg" aria-hidden="true" />
+        <span className="cl-btn-label">{tr('เริ่มใช้ฟรี')}</span>
+      </a>
+    </span>
+  );
+}
+
+/** When each step happens in the two recordings (seconds): typed, sent, answered, three times over. The recordings
+ *  are the app's real chat screen with example data, every answer mocked in the test browser, no AI called (made by the
+ *  scratch script noted in the landing memory, its step log trimmed to the video's start). */
+const CHAT_STEPS = [1.97, 4.76, 7.56, 11.78, 17.14, 20.34, 24.57, 27.66, 30.66];
+/** What เลขา is doing at that moment of the recording: the chat's own modes (listening while typed to, thinking, typing
+ *  its answer, proud once the jobs are saved). */
+function chatModeAt(t: number): AssistantMode {
+  const [type1, send1, reply1, type2, send2, reply2, type3, send3, reply3] = CHAT_STEPS;
+  if (t < type1) return 'greeting';
+  if (t < send1) return 'listening';
+  if (t < reply1) return 'thinking';
+  if (t < reply1 + 1.8) return 'working';
+  if (t < type2) return 'answered';
+  if (t < send2) return 'listening';
+  if (t < reply2) return 'thinking';
+  if (t < reply2 + 1.2) return 'working';
+  if (t < type3) return 'done';
+  if (t < send3) return 'listening';
+  if (t < reply3) return 'thinking';
+  if (t < reply3 + 1.6) return 'working';
+  return 'answered';
+}
+
+/** The real chat screen of the app, big, with เลขากระรอก beside it doing what the squirrel in the recording is doing
+ *  (owner: "ให้เห็นน้องตอนที่เรากำลังพิมพ์ ... ตอนที่น้องกำลังคิดวิเคราะห์"): the chat's own figure, poses and words. */
+function ChatScreen() {
+  const [mode, setMode] = React.useState<AssistantMode>('awake');
+  const box = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const videos = Array.from(box.current?.querySelectorAll('video') ?? []);
+    let frame = 0;
+    const follow = () => {
+      const playing = videos.find(video => !video.paused);
+      if (!playing) return;
+      setMode(chatModeAt(playing.currentTime));
+      frame = requestAnimationFrame(follow);
+    };
+    const play = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(follow); };
+    videos.forEach(video => video.addEventListener('play', play));
+    return () => { cancelAnimationFrame(frame); videos.forEach(video => video.removeEventListener('play', play)); };
+  }, []);
+  return (
+    <div className="cl-chatwrap" ref={box}>
+      <div className={`cl-buddy cl-glass is-${mode}`} aria-hidden="true">
+        <span className="cl-buddy-face"><MascotSlot mode={mode} size={70} gear="headset" /></span>
+        <span className="cl-buddy-text"><b>{tr('เลขากระรอก')}</b><small><i />{statusFor(mode)}</small></span>
+      </div>
+      <div className="cl-chatshot" role="img" aria-label={tr('ตัวอย่าง: ถามเลขาว่าใครยังไม่จ่าย แล้วบอกงานพรุ่งนี้ให้บันทึก')}>
+        <video className="cl-video is-desk" src="/landing-v5/chat-desktop.mp4" poster="/landing-v5/chat-desktop.webp" muted loop playsInline preload="none" aria-hidden="true" />
+        <video className="cl-video is-phone" src="/landing-v5/chat-phone.mp4" poster="/landing-v5/chat-phone.webp" muted loop playsInline preload="none" aria-hidden="true" />
+      </div>
+    </div>
   );
 }
 
@@ -187,17 +255,18 @@ export default function CleanLanding() {
     const page = root.current;
     if (!page) return;
     const q = (selector: string) => Array.from(page.querySelectorAll<HTMLElement>(selector));
+    /** The room kept at the top for the floating bar. */
+    const reserved = () => parseFloat(getComputedStyle(page).getPropertyValue('--bar')) || 88;
     const mm = gsap.matchMedia(page);
 
     // Without motion: everything shows where it ends, and the motions show their last frame (demos.css).
-    mm.add('(prefers-reduced-motion: reduce)', () => { q('.cl-card').forEach(card => card.classList.add('is-in')); });
+    mm.add('(prefers-reduced-motion: reduce)', () => { q('.cl-feat').forEach(section => section.classList.add('is-in')); });
 
     // The pinned scene comes first: ScrollTriggers are measured in the order they are made, and every later section
     // sits below this one's scroll room (GSAP's ScrollTrigger guidance: create them from the top of the page down).
     mm.add(SCENE, () => {
       const scene = q('.cl-scene')[0], pin = q('.cl-pin')[0], device = q('.cl-device')[0], hero = q('.cl-hero')[0], tiles = q('.cl-tiles')[0];
       if (!scene || !pin || !device || !hero || !tiles) return;
-      const bar = () => q('.cl-bar')[0]?.offsetHeight ?? 68;
       // The phone first peeks up from below the words (and the cards, when they sit under the words), then rises.
       const peek = () => {
         const pinHeight = pin.offsetHeight, height = device.offsetHeight;
@@ -207,15 +276,14 @@ export default function CleanLanding() {
       };
       const toPhone = (el: HTMLElement, axis: 'x' | 'y') => {
         const at = offsetIn(el, pin);
-        return axis === 'x' ? pin.offsetWidth / 2 - at.x : pin.offsetHeight / 2 - at.y;
+        return axis === 'x' ? pin.offsetWidth / 2 - at.x : pin.offsetHeight / 2 + reserved() / 2 - at.y;
       };
       const scroll = gsap.timeline({
         defaults: { ease: 'none' },
-        scrollTrigger: { trigger: scene, start: () => `top ${bar()}px`, end: '+=1100', pin, scrub: 0.7, invalidateOnRefresh: true, anticipatePin: 1 },
+        scrollTrigger: { trigger: scene, start: 'top top', end: '+=1100', pin, scrub: 0.7, invalidateOnRefresh: true, anticipatePin: 1 },
       });
       // autoAlpha: once gone, the words and cards are hidden too, so nothing unseen sits over what is shown.
       scroll.to(hero, { autoAlpha: 0, y: -120, duration: 0.2, ease: 'power1.in' }, 0)
-        .to(q('.cl-tint'), { opacity: 1, duration: 0.5 }, 0.1)
         .fromTo(device, { y: peek }, { y: 0, duration: 0.5, ease: 'power2.inOut' }, 0.16)
         .to(q('.cl-tile'), { x: (_i, el) => toPhone(el, 'x'), y: (_i, el) => toPhone(el, 'y'), rotation: (at: number) => (at % 2 ? 24 : -24), duration: 0.42, ease: 'power2.in' }, 0.18)
         // ExpoScaleEase: a shrink from 1 to 0.3 that looks even all the way, instead of most of it happening at the end
@@ -230,33 +298,25 @@ export default function CleanLanding() {
 
     mm.add(MOTION, () => {
       const off: (() => void)[] = [];
-      // The top bar turns to glass once the page moves, with a thin CI line showing how far down the page is.
+      // The capsule bar firms up once the page moves, with a thin CI line showing how far down the page is.
       ScrollTrigger.create({ start: 8, end: 'max', toggleClass: { targets: q('.cl-bar'), className: 'is-scrolled' } });
       gsap.fromTo(q('.cl-progress'), { scaleX: 0 }, { scaleX: 1, ease: 'none', scrollTrigger: { start: 0, end: 'max', scrub: 0.3 } });
 
       // 1 · the hero arrives: each word rises out of its own mask, the floating cards pop in, their amounts roll like a
       // money screen (ScrambleText, digits only) and the month's line draws itself (DrawSVG).
       const intro = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      intro.from(q('.cl-hero .cl-chip'), { y: 14, autoAlpha: 0, duration: 0.6 })
-        .from(q('.cl-hero h1 .cl-w'), { yPercent: 115, rotation: 5, transformOrigin: '0% 100%', duration: 1.2, ease: 'krarok', stagger: 0.07 }, 0.1)
+      intro.from(q('.cl-hero h1 .cl-w'), { yPercent: 115, rotation: 5, transformOrigin: '0% 100%', duration: 1.2, ease: 'krarok', stagger: 0.07 }, 0.05)
         .from(q('.cl-lead'), { y: 14, autoAlpha: 0, duration: 0.7 }, 0.5)
-        .from(q('.cl-cta'), { y: 14, autoAlpha: 0, duration: 0.6 }, 0.62)
-        .from(q('.cl-ticks li'), { y: 8, autoAlpha: 0, duration: 0.5, stagger: 0.06 }, 0.75)
+        .from(q('.cl-cta'), { y: 18, autoAlpha: 0, scale: 0.92, duration: 0.8, ease: 'back.out(1.8)' }, 0.65)
         .from(q('.cl-tile-card'), { autoAlpha: 0, scale: 0.55, rotation: () => gsap.utils.random(-14, 14), duration: 1, ease: 'back.out(1.7)', stagger: { each: 0.08, from: 'random' } }, 0.35)
         .from(q('.cl-device-frame'), { opacity: 0, duration: 0.8 }, 0.5)
         .from(q('.cl-spark-line'), { drawSVG: 0, duration: 1.3, ease: 'power2.inOut' }, 0.9);
-      // The chip types itself, a Thai word at a time (TextPlugin, with the words the browser finds as its steps).
-      const chip = q('.cl-chip-text')[0];
-      if (chip) {
-        const full = chip.textContent ?? '';
-        intro.fromTo(chip, { text: '' }, { text: { value: splitWords(full).join('\u200B'), delimiter: '\u200B' }, duration: 0.9, ease: 'none', onComplete: () => { chip.textContent = full; } }, 0.12);
-      }
       q('[data-scramble]').forEach((el, at) => intro.to(el, { duration: 1.2, ease: 'none', scrambleText: { text: el.textContent ?? '', chars: '0123456789', speed: 0.7, revealDelay: 0.3 } }, 0.6 + at * 0.12));
       gsap.to(q('.cl-tile-float'), { y: 'random(-10, 10)', rotation: 'random(-3, 3)', duration: 'random(2.6, 4.2)', ease: 'sine.inOut', yoyo: true, repeat: -1, repeatRefresh: true, delay: 1.2 });
 
-      // The liquid colour behind the glass slowly moves, and drifts a little slower than the page (parallax).
-      q('.cl-blob').forEach(blob => gsap.to(blob, { x: 'random(-70, 70)', y: 'random(-50, 50)', scale: 'random(0.85, 1.2)', duration: 'random(9, 14)', ease: 'sine.inOut', yoyo: true, repeat: -1, repeatRefresh: true }));
-      q('.cl-liquid:not(.is-hero)').forEach(layer => gsap.fromTo(layer, { yPercent: 10 }, { yPercent: -10, ease: 'none', scrollTrigger: { trigger: layer.parentElement, start: 'top bottom', end: 'bottom top', scrub: true } }));
+      // The buttons wiggle now and then for attention (CustomWiggle); the magnet below only moves x and y
+      // (overwrite: "auto"), so the wiggle keeps going while the pointer pulls.
+      q('.cl-btn.is-big').forEach((button, at) => gsap.to(button, { rotation: 7, duration: 1.3, ease: 'wiggle({wiggles: 7, type: easeOut})', repeat: -1, repeatDelay: 2.8, delay: 1.8 + at * 0.4 }));
 
       // Headings: each word rises out of its mask as the heading reaches the screen.
       q('[data-words]').forEach(heading => gsap.from(heading.querySelectorAll('.cl-w'), {
@@ -302,8 +362,6 @@ export default function CleanLanding() {
       // a few coins jump out (Physics2D) when it lands.
       const underline = page.querySelector<SVGPathElement>('.cl-underline path');
       if (underline) gsap.from(underline, { drawSVG: 0, duration: 1.1, ease: 'power2.inOut', scrollTrigger: { trigger: underline, start: 'top 85%' } });
-      const strike = q('.cl-was-line')[0];
-      if (strike) gsap.from(strike, { scaleX: 0, duration: 0.8, ease: 'power2.out', scrollTrigger: { trigger: strike, start: 'top 85%' } });
       const figure = q('.cl-price strong')[0];
       const from = PRO_REGULAR_MONTHLY, to = price.price;
       const coins: HTMLElement[] = [];
@@ -328,12 +386,18 @@ export default function CleanLanding() {
         off.push(() => { figure.textContent = formatBaht(to); });
       }
       off.push(() => coins.forEach(coin => coin.remove()));
-      // The Pro card's light sweeps across it now and then.
       // SlowMo: the light lingers as it crosses the price, then slips away.
       gsap.fromTo(q('.cl-plan-sheen'), { xPercent: -160 }, { xPercent: 260, duration: 2.2, ease: 'slow(0.5, 0.75, false)', repeat: -1, repeatDelay: 3, delay: 1 });
 
-      // 5 · the four motions start as their card comes into view.
-      q('.cl-card').forEach(card => ScrollTrigger.create({ trigger: card, start: 'top 82%', once: true, onEnter: () => card.classList.add('is-in') }));
+      // 5 · each feature page: its motion starts as it comes into view; the chat recording plays only while in view
+      // (and only the one drawn for this screen size).
+      q('.cl-feat').forEach(section => ScrollTrigger.create({ trigger: section, start: 'top 75%', once: true, onEnter: () => section.classList.add('is-in') }));
+      q('.cl-video').forEach(video => {
+        const media = video as HTMLVideoElement;
+        ScrollTrigger.create({ trigger: video.parentElement, start: 'top 85%', end: 'bottom 15%', onToggle: self => {
+          if (self.isActive && media.offsetParent) media.play().catch(() => undefined); else media.pause();
+        } });
+      });
 
       // Questions open and close smoothly instead of jumping.
       q('.cl-faq details').forEach(item => {
@@ -354,7 +418,7 @@ export default function CleanLanding() {
         off.push(() => summary.removeEventListener('click', toggle));
       });
 
-      // The page's own links glide to their section, below the top bar (ScrollToPlugin); the skip link stays instant.
+      // The page's own links glide to their section, below the floating bar (ScrollToPlugin); the skip link stays instant.
       q('a[href^="#"]:not(.cl-skip)').forEach(link => {
         const go = safe((event: Event) => {
           const id = link.getAttribute('href')!.slice(1);
@@ -363,8 +427,7 @@ export default function CleanLanding() {
           event.preventDefault();
           // The section, not a card inside it: cards may still be rising into place, which would throw the aim off.
           const target = found?.closest('section') ?? found;
-          const bar = q('.cl-bar')[0]?.offsetHeight ?? 68;
-          gsap.to(window, { duration: 1.2, ease: 'power3.inOut', scrollTo: { y: target ?? 0, offsetY: target ? bar : 0, autoKill: true }, overwrite: true,
+          gsap.to(window, { duration: 1.2, ease: 'power3.inOut', scrollTo: { y: target ?? 0, offsetY: target ? reserved() - 20 : 0, autoKill: true }, overwrite: true,
             onComplete: () => { if (target) { if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1'); target.focus({ preventScroll: true }); } } });
         });
         link.addEventListener('click', go);
@@ -399,12 +462,28 @@ export default function CleanLanding() {
       return () => off.forEach(undo => undo());
     });
 
-    // With a mouse: the glass cards tilt and catch a light where the pointer is, the big buttons lean towards it,
-    // the hero's cards drift against it at different depths, and the problem notes can be picked up (they spring back).
+    // With a mouse: the start buttons are magnetic (GSAP's magnetic-button demo: the button follows at 0.4 of the
+    // pointer, its label at 0.24 more, and springs back with elastic.out), the glass cards tilt and catch a light, the
+    // hero's cards drift against the pointer at different depths, and the problem notes can be picked up (they spring back).
     mm.add(`${MOTION} and ${FINE_POINTER}`, () => {
       const off: (() => void)[] = [];
       const listen = (el: EventTarget, type: string, handler: (event: PointerEvent) => void) => { el.addEventListener(type, handler as EventListener); off.push(() => el.removeEventListener(type, handler as EventListener)); };
-      q('.cl-card, .cl-plan').forEach(card => {
+      q('.cl-mag').forEach(zone => {
+        const button = zone.querySelector<HTMLElement>('.cl-btn'), label = zone.querySelector<HTMLElement>('.cl-btn-label');
+        if (!button || !label) return;
+        listen(zone, 'pointermove', event => {
+          const box = zone.getBoundingClientRect();
+          const x = gsap.utils.mapRange(box.left, box.right, -box.width / 2, box.width / 2, event.clientX);
+          const y = gsap.utils.mapRange(box.top, box.bottom, -box.height / 2, box.height / 2, event.clientY);
+          gsap.to(button, { x: x * 0.4, y: y * 0.3, duration: 0.4, ease: 'power2.out', overwrite: 'auto' });
+          gsap.to(label, { x: x * 0.24, y: y * 0.18, duration: 0.4, ease: 'power2.out', overwrite: true });
+        });
+        listen(zone, 'pointerleave', () => {
+          gsap.to(button, { x: 0, y: 0, duration: 0.7, ease: 'elastic.out(1, 0.4)', overwrite: 'auto' });
+          gsap.to(label, { x: 0, y: 0, duration: 0.7, ease: 'elastic.out(1, 0.4)', overwrite: true });
+        });
+      });
+      q('.cl-plan, .cl-feat-card').forEach(card => {
         gsap.set(card, { transformPerspective: 1100 });
         const tiltX = gsap.quickTo(card, 'rotationX', { duration: 0.6, ease: 'power3.out' }), tiltY = gsap.quickTo(card, 'rotationY', { duration: 0.6, ease: 'power3.out' });
         listen(card, 'pointermove', event => {
@@ -413,11 +492,6 @@ export default function CleanLanding() {
           tiltX((0.5 - y) * 4); tiltY((x - 0.5) * 5);
         });
         listen(card, 'pointerleave', () => { tiltX(0); tiltY(0); });
-      });
-      q('.cl-btn.is-big').forEach(button => {
-        const x = gsap.quickTo(button, 'x', { duration: 0.5, ease: 'power3.out' }), y = gsap.quickTo(button, 'y', { duration: 0.5, ease: 'power3.out' });
-        listen(button, 'pointermove', event => { const box = button.getBoundingClientRect(); x((event.clientX - box.left - box.width / 2) * 0.18); y((event.clientY - box.top - box.height / 2) * 0.28); });
-        listen(button, 'pointerleave', () => { x(0); y(0); });
       });
       const tiles = q('.cl-tiles')[0], scene = q('.cl-scene')[0];
       if (tiles && scene) {
@@ -444,35 +518,32 @@ export default function CleanLanding() {
     // The page is built once; the language and the deal re-render it through the app.
   }, { scope: root, dependencies: [promoRunning, price.price], revertOnUpdate: true });
 
-  const start = (className = '') => <a className={`cl-btn is-big ${className}`} href={LOGIN}><Roll text={tr('เริ่มใช้ฟรี')} /><span className="cl-btn-dot" aria-hidden="true"><ArrowRight size={17} /></span></a>;
-
   return (
-    <div className="cl" ref={root}>
+    <div className={`cl${currentLanguage === 'en' ? ' is-en' : ''}`} ref={root}>
       <a className="cl-skip" href="#cl-main">{tr('ข้ามไปเนื้อหา')}</a>
+      {/* The top bar: a floating liquid glass capsule (owner: "โค้งๆมนๆกลมๆ ไม่เป็นเหลี่ยม") */}
       <header className="cl-bar">
-        <a href="#top" className="cl-logo" aria-label={tr('กระรอกตุนเงิน หน้าแรก')}><BrandLockup size={30} /></a>
-        <nav className="cl-links" aria-label={tr('เมนูหลัก')}><a href="#cl-features"><Roll text={tr('ฟีเจอร์')} /></a><a href="#pricing"><Roll text={tr('ราคา')} /></a><a href="#cl-faq"><Roll text={tr('คำถาม')} /></a></nav>
-        <span className="cl-bar-right"><a className="cl-login" href={LOGIN}><Roll text={tr('เข้าสู่ระบบ')} /></a><a className="cl-btn is-small" href={LOGIN}><Roll text={tr('เริ่มใช้ฟรี')} /></a></span>
-        <span className="cl-progress" aria-hidden="true" />
+        <div className="cl-bar-in">
+          <a href="#top" className="cl-logo" aria-label={tr('กระรอกตุนเงิน หน้าแรก')}><BrandLockup size={28} /></a>
+          <nav className="cl-links" aria-label={tr('เมนูหลัก')}><a href="#cl-features"><Roll text={tr('ฟีเจอร์')} /></a><a href="#pricing"><Roll text={tr('ราคา')} /></a><a href="#cl-faq"><Roll text={tr('คำถาม')} /></a></nav>
+          <span className="cl-bar-right"><a className="cl-login" href={LOGIN}><Roll text={tr('เข้าสู่ระบบ')} /></a><a className="cl-btn is-small" href={LOGIN}><Roll text={tr('เริ่มใช้ฟรี')} /></a></span>
+          <span className="cl-progress" aria-hidden="true" />
+        </div>
       </header>
 
       <main id="cl-main">
         {/* 1 · the hero and the phone, one scene */}
         <section id="top" className="cl-scene" aria-labelledby="cl-h1">
           <div className="cl-pin">
-            <span className="cl-tint" aria-hidden="true" />
-            <Liquid className="is-hero" />
             <div className="cl-top">
               <div className="cl-hero">
-                <span className="cl-chip cl-glass"><i aria-hidden="true" /><span className="cl-chip-text">{tr('เลขาการเงินสำหรับคนทำงานอิสระ')}</span></span>
                 <h1 id="cl-h1" aria-label={`${tr('เรื่องเงินของงานอิสระ')} ${trc('hero', 'ให้')}${tr('เลขากระรอก')}${trc('hero', 'ดูแล')}`}><span aria-hidden="true"><span className="gl-nw"><Words text={tr('เรื่องเงินของงานอิสระ')} /></span><br /><span className="gl-nw"><Words text={trc('hero', 'ให้')} /><MaskedGrad text={tr('เลขากระรอก')} className="gl-loop" /><Words text={trc('hero', 'ดูแล')} /></span></span></h1>
                 <p className="cl-lead">{tr('จดงาน เตือนลูกค้าจ่าย ออกใบเสนอราคาถึงใบเสร็จ')} <br />{tr('แค่พิมพ์หรือพูดภาษาปกติ ทั้งในแอปและใน LINE')}</p>
-                <div className="cl-cta">{start()}<a className="cl-btn is-ghost" href="#cl-features">{tr('ดูว่าเลขาทำอะไรได้')}<ChevronDown size={18} aria-hidden="true" /></a></div>
-                <ul className="cl-ticks">{[tr('ไม่ต้องใช้บัตร'), tr('คอม iPad และมือถือ'), tr('เชื่อม LINE ได้')].map(item => <li key={item}><i><Check size={12} strokeWidth={3.2} /></i>{item}</li>)}</ul>
+                <div className="cl-cta"><StartButton /></div>
               </div>
               <div className="cl-tiles" aria-hidden="true">
                 <Tile n={1}><LineLogo size={30} /></Tile>
-                <Tile n={2} text><span className="cl-tile-icon is-orange"><Bell size={16} /></span><span className="cl-tile-pair"><b className="gl-num" data-scramble>08:00</b><small>{tr('เตือนรับเงิน')}</small></span></Tile>
+                <Tile n={2} text tone="is-solid"><span className="cl-tile-icon is-white"><Bell size={16} /></span><span className="cl-tile-pair"><b className="gl-num" data-scramble>08:00</b><small>{tr('เตือนรับเงิน')}</small></span></Tile>
                 <Tile n={3} text><span className="cl-tile-icon is-green"><Plus size={16} strokeWidth={3} /></span><span className="cl-tile-pair"><b className="gl-num is-green" data-scramble>+฿5,000</b><small>{tr('รับแล้ว')}</small></span></Tile>
                 <Tile n={4}><span className="cl-tile-doc"><FileText size={26} /></span></Tile>
                 <Tile n={5}><GmailLogo size={28} /></Tile>
@@ -519,7 +590,6 @@ export default function CleanLanding() {
 
         {/* 2 · the problems */}
         <section className="cl-problem" aria-labelledby="cl-problem-title">
-          <Liquid className="is-problem" />
           <div className="cl-problem-stage">
             <div className="cl-problem-head">
               <span className="cl-eyebrow">{tr('ปัญหาที่ฟรีแลนซ์เจอ')}</span>
@@ -534,12 +604,10 @@ export default function CleanLanding() {
           </div>
         </section>
 
-        {/* 3 · the price */}
+        {/* 3 · the price (no comparison with hiring a person: owner, accountants will use Krarok too) */}
         <section className="cl-pricing" aria-labelledby="cl-price-title">
-          <Liquid className="is-price" />
           <div className="cl-head">
             <span className="cl-eyebrow">{trc('eyebrow', 'ราคา')}</span>
-            <p className="cl-was"><span>{tr('จ้างเลขาจริง เดือนละหลักหมื่น')}<i className="cl-was-line" aria-hidden="true" /></span></p>
             <h2 id="cl-price-title">{tr('เลขากระรอก')} <span className="cl-underline gl-nw">{tr('วันละไม่ถึง {0}', formatBaht(Math.ceil(price.price / 30)))}<svg viewBox="0 0 300 20" preserveAspectRatio="none" aria-hidden="true"><path d="M3 14 C 60 4, 120 18, 180 9 S 270 6, 297 12" /></svg></span></h2>
           </div>
           <div className="cl-plans">
@@ -550,7 +618,6 @@ export default function CleanLanding() {
               <p className="cl-plan-text">{tr('จดงาน รายรับรายจ่าย ปฏิทิน และออกเอกสารได้ 10 ใบต่อเดือน')}</p>
             </article>
             <article className="cl-plan is-pro" id="pricing" data-rise>
-              <span className="cl-plan-liquid" aria-hidden="true"><i /><i /></span>
               <span className="cl-plan-sheen" aria-hidden="true" />
               <span className="cl-plan-head"><span className="cl-plan-brand"><img src="/kv/symbol.svg" alt="" />KRAROK PRO</span><span className="cl-plan-badge">{tr('แนะนำ')}</span></span>
               <p className="cl-price">{promoRunning && <s className="cl-price-was"><span className="sr-only">{tr('ราคาปกติ')} </span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>}<strong className="gl-num">{formatBaht(price.price)}</strong><span>{tr('/ เดือน')}</span></p>
@@ -559,30 +626,56 @@ export default function CleanLanding() {
               <p className="cl-plan-text">{tr('เลขากระรอก แจ้งเตือนทาง LINE และอีเมล ออกเอกสารได้ไม่จำกัด')}</p>
             </article>
           </div>
-          <div className="cl-center">{start()}</div>
+          <div className="cl-center"><StartButton /></div>
         </section>
 
-        {/* 4 · what it does, each shown as a short motion of the real flow, on liquid glass cards */}
+        {/* 4 · what it does: each feature on a page of its own (owner: "เอาไว้คนละหน้าเลย") */}
         <section id="cl-features" className="cl-features" aria-labelledby="cl-features-title">
-          <Liquid className="is-features" />
           <div className="cl-head">
             <span className="cl-eyebrow">{tr('ฟีเจอร์')}</span>
             <h2 id="cl-features-title" data-words aria-label={tr('ครบในแอปเดียว')}><span aria-hidden="true"><Words text={tr('ครบในแอปเดียว')} /></span></h2>
             <p>{tr('ทุกเรื่องเงินของงานอิสระ ตั้งแต่จดงานจนได้รับเงิน')}</p>
           </div>
-          <div className="cl-bento">
-            {FEATURES.map(feature => (
-              <article key={feature.kind} className={`cl-card cl-glass is-${feature.kind}`} data-rise>
-                <div className="cl-card-text">
-                  <h3><span className="cl-grad">{tr(feature.key)}</span>{lines(tr(feature.rest))}</h3>
-                  <p>{tr(feature.text)}</p>
-                </div>
-                <div className={`cl-card-visual gl-feature-visual is-${feature.kind}`}>
-                  {feature.kind === 'chat' ? <ChatDemo /> : feature.kind === 'remind' ? <PhoneDemo /> : feature.kind === 'docs' ? <DocsDemo /> : <CalendarDemo />}
-                </div>
-              </article>
-            ))}
+        </section>
+
+        {/* the chat with เลขา: the real screen, big */}
+        <section className="cl-feat is-chat" aria-labelledby="cl-feat-chat">
+          <div className="cl-feat-text is-center">
+            <FeatureTitle id="cl-feat-chat" word={tr('คุย')} rest={tr('กับเลขา\nเหมือนเพื่อนร่วมงาน')} />
+            <p>{tr('พิมพ์หรือพูดว่าวันนี้ทำงานอะไร เลขาแยกงาน รายจ่าย และการรับเงินให้ครบ ถามอะไรก็ได้ เช่น ใครยังไม่จ่าย')}</p>
           </div>
+          <figure className="cl-feat-shot" data-rise>
+            <ChatScreen />
+            <figcaption>{tr('หน้าจอจริงในแอป ใช้ข้อมูลตัวอย่าง')}</figcaption>
+          </figure>
+        </section>
+
+        {/* the morning reminder */}
+        <section className="cl-feat is-remind" aria-labelledby="cl-feat-remind">
+          <div className="cl-feat-text">
+            <FeatureTitle id="cl-feat-remind" word={tr('เตือน')} rest={tr('ก่อนลืม\nทุกเช้า')} />
+            <p>{tr('ทาง LINE และอีเมล งานไหนใกล้ครบกำหนดรับเงิน และกดบันทึกรับเงินจากในแจ้งเตือนได้เลย')}</p>
+            <span className="cl-feat-apps" aria-hidden="true"><span><LineLogo size={22} />LINE</span><span><GmailLogo size={20} />{tr('อีเมล')}</span></span>
+          </div>
+          <div className="cl-feat-visual gl-feature-visual is-remind" data-rise><PhoneDemo /></div>
+        </section>
+
+        {/* documents, one after another */}
+        <section className="cl-feat is-docs" aria-labelledby="cl-feat-docs">
+          <div className="cl-feat-visual gl-feature-visual is-docs" data-rise><DocsDemo /></div>
+          <div className="cl-feat-text">
+            <FeatureTitle id="cl-feat-docs" word={tr('ออก')} rest={tr('เอกสารต่อกัน\nได้ทันที')} />
+            <p>{tr('ใบเสนอราคา → ใบแจ้งหนี้ → ใบเสร็จ จากงานเดียวกัน ข้อมูลลูกค้าเติมให้เอง')}</p>
+          </div>
+        </section>
+
+        {/* the month on a calendar */}
+        <section className="cl-feat is-calendar" aria-labelledby="cl-feat-calendar">
+          <div className="cl-feat-text">
+            <FeatureTitle id="cl-feat-calendar" word={tr('รู้')} rest={tr('วันไหน\nเงินจะเข้าเท่าไร')} />
+            <p>{tr('ปฏิทินและไทม์ไลน์บอกว่างานไหนจะได้เงินวันไหน ยอดรอรับเรียงตามวันครบกำหนด รับเงินบางส่วนหรือทั้งหมดได้ทันที')}</p>
+          </div>
+          <div className="cl-feat-visual gl-feature-visual is-calendar" data-rise><CalendarDemo /></div>
         </section>
 
         {/* 5 · questions */}
@@ -600,7 +693,6 @@ export default function CleanLanding() {
         {/* 6 · the close */}
         <section className="cl-final" aria-labelledby="cl-final-title">
           <div className="cl-final-card">
-            <span className="cl-final-liquid" aria-hidden="true"><i /><i /><i /></span>
             <svg className="cl-ribbon" viewBox="0 0 1200 520" preserveAspectRatio="none" aria-hidden="true">
               <path d="M-40 400 C 160 520, 300 140, 470 230 S 640 520, 820 330 S 1000 40, 1250 170" />
             </svg>
@@ -609,7 +701,7 @@ export default function CleanLanding() {
               <Mascot gear="headset" mood="wave" action="wave" size={140} />
               <h2 id="cl-final-title"><span className="gl-nw">{trc('final', 'ให้เลขากระรอก')}</span><wbr /><span className="gl-nw">{trc('final', 'ช่วยดูแลเงินของคุณ')}</span><br /><span className="cl-final-em">{tr('ตั้งแต่วันนี้')}</span></h2>
               <Countdown />
-              <div className="cl-final-cta">{start('is-light')}</div>
+              <div className="cl-final-cta"><StartButton light /></div>
             </div>
           </div>
         </section>
