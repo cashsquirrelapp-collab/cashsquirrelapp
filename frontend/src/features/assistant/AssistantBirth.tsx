@@ -149,9 +149,8 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
           <svg className="kb-hill" viewBox="0 0 560 76" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <linearGradient id="kb-rim" x1="0" y1="0" x2="1" y2="0">
-                {/* The horizon's rim in the Pro look's gold (owner, 2026-10-29: one theme everywhere). */}
-                <stop offset="0" stopColor="#FFC36B" stopOpacity="0" /><stop offset="0.22" stopColor="#FFC36B" /><stop offset="0.45" stopColor="#FFE7BF" />
-                <stop offset="0.62" stopColor="#FF9A62" /><stop offset="0.8" stopColor="#FFC36B" /><stop offset="1" stopColor="#FFC36B" stopOpacity="0" />
+                <stop offset="0" stopColor="#A9C8FF" stopOpacity="0" /><stop offset="0.22" stopColor="#A9C8FF" /><stop offset="0.45" stopColor="#FFC8A8" />
+                <stop offset="0.62" stopColor="#FFB3CF" /><stop offset="0.8" stopColor="#B9F0D2" /><stop offset="1" stopColor="#B9F0D2" stopOpacity="0" />
               </linearGradient>
               <filter id="kb-rim-blur" x="-10%" y="-200%" width="120%" height="500%"><feGaussianBlur stdDeviation="5" /></filter>
             </defs>

@@ -76,18 +76,11 @@ owner's approval to change.
   floating เลขา window. Content cards are solid.
 - No glows, neon, gradient text, emoji as icons, or decorative gradients on content. The sanctioned gradients are the
   overview's rust hero band, the LINE card header, the chat greeting heading (CI rust, orange and caramel since
-  2026-10-29), the Pro look (see below), the Welcome Onboarding greeting in CI colours (2026-10-28) and the plans page (design F, 2026-10-29:
+  2026-10-29), the Pro arrival's greeting (เลขา's looped type in a warm pastel, cream and peach into the orbs' rose,
+  2026-10-29), the Welcome Onboarding greeting in CI colours (2026-10-28) and the plans page (design F, 2026-10-29:
   see "Plans page").
 
 ## 2. Colour and roles
-
-### The Pro look (owner, 2026-10-29: "ให้มันเป็น mood tone เดียวกัน ... คงธีมกันไว้ตลอด")
-
-Every Pro moment wears one look, so the invitation, the payment and the arrival feel like one brand: dark rust
-(#2B1B15 to #9A3A16) with gold (#FFC36B to #F2A23A, the caramel family) as the only highlight, cream text, CI orbs (rust,
-deep rust, gold), never purple, blue, pink or mint. It is used by the weekly Pro invitation (`ProKvBanner`) and the
-arrival after paying (`AssistantBirth`), in light and dark mode alike. Ordinary pages keep the light warm-neutral look.
-
 
 | Role | Use it for | Never for |
 | --- | --- | --- |
