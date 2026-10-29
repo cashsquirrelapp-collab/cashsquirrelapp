@@ -168,7 +168,7 @@ test('mobile login layout remains inside the viewport',async({page})=>{
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.setViewportSize({width:390,height:844});await page.goto('/');
  // the SaaS landing (2026-10-20): its sign-up links go to /login
- const start=page.getByRole('link',{name:/^เริ่มใช้งานฟรี/}).first();
+ const start=page.getByRole('link',{name:/^เริ่มใช้ฟรี/}).first();
  await expect(start).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await start.click();
@@ -1003,7 +1003,7 @@ test('กำไรสุทธิ opens the monthly statement without the curren
  await expect(modal.getByRole('button',{name:/ดูทั้งหมด/})).toHaveCount(0);
 });
 
-// The landing since 2026-10-20 is the SaaS page (features/marketing/saas); the earlier scroll story is kept in the
+// The landing since 2026-10-29 is our own-style page (features/marketing/v4); the earlier pages are kept in the
 // repository but no longer shown, so these check the page people see now.
 test('landing: the hero says what the app does and starts free at once; the page reads no account data',async({page})=>{
  const api:string[]=[];
@@ -1011,12 +1011,12 @@ test('landing: the hero says what the app does and starts free at once; the page
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.goto('/');
  const h1=page.getByRole('heading',{level:1});
- await expect(h1).toContainText('เรื่องเงินของคุณ');
- await expect(h1).toContainText('เราช่วยดูแล');
- const start=page.locator('#top').getByRole('link',{name:/เริ่มใช้งานฟรี/});
+ await expect(h1).toContainText('เรื่องเงินของงานอิสระ');
+ await expect(h1).toContainText('เลขากระรอก');
+ const start=page.locator('#top').getByRole('link',{name:/เริ่มใช้ฟรี/});
  await expect(start).toBeInViewport(); // no intro to sit through
  await expect(page.getByRole('dialog')).toHaveCount(0);
- for(const name of ['ทุกเรื่องการเงิน','ใช้ได้วันนี้','เงินก้อนไหนต้องตาม','เลขาการเงินของคุณ','เริ่มฟรี','คำถามที่พบบ่อย'])await expect(page.getByRole('heading',{name:new RegExp(name)})).toBeVisible();
+ for(const name of ['งานฟรีแลนซ์ก็เหนื่อยพอแล้ว','วันละไม่ถึง','เริ่มฟรี','ครบในแอปเดียว','คุยกับเลขา','เตือนก่อนลืม','ออกเอกสารต่อกัน','เงินจะเข้าเท่าไร','คำถามที่พบบ่อย'])await expect(page.getByRole('heading',{name:new RegExp(name)})).toBeVisible();
  // every picture is described, or marked as decoration
  expect(await page.locator('main img:not([alt])').count()).toBe(0);
  // the Pro price is the one the app sells today, with its payment fee
@@ -1036,11 +1036,13 @@ test('landing without motion: every section, its pictures and the questions are 
  await page.emulateMedia({reducedMotion:'reduce'});
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.goto('/');
- for(const name of ['ทุกเรื่องการเงิน','ใช้ได้วันนี้','เงินก้อนไหนต้องตาม','เลขาการเงินของคุณ','เริ่มฟรี','คำถามที่พบบ่อย','พร้อมให้เราช่วยดูแล'])await expect(page.getByRole('heading',{name:new RegExp(name)})).toBeVisible();
+ for(const name of ['งานฟรีแลนซ์ก็เหนื่อยพอแล้ว','วันละไม่ถึง','เริ่มฟรี','ครบในแอปเดียว','คุยกับเลขา','เตือนก่อนลืม','ออกเอกสารต่อกัน','เงินจะเข้าเท่าไร','คำถามที่พบบ่อย','ตั้งแต่วันนี้'])await expect(page.getByRole('heading',{name:new RegExp(name)})).toBeVisible();
+ // the four motions show where they end, each one described as a picture
+ for(const name of [/ใครยังไม่จ่าย/,/แจ้งเตือนเข้า LINE/,/ใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จ/,/ปฏิทินเดือนตุลาคม/])await expect(page.getByRole('img',{name})).toBeVisible();
  await expect(page.getByRole('img',{name:'การ์ดเตือนรับเงินใน LINE'})).toBeVisible();
  await expect(page.getByText('เริ่มใช้งานฟรีได้ไหม?')).toBeVisible();
  expect(await page.locator('main img').count()).toBeGreaterThan(5);
- await expect(page.locator('#top').getByRole('link',{name:/เริ่มใช้งานฟรี/})).toBeVisible();
+ await expect(page.locator('#top').getByRole('link',{name:/เริ่มใช้ฟรี/})).toBeVisible();
 });
 
 test('landing on a phone: the page stays inside the screen from top to bottom',async({page})=>{
@@ -1048,7 +1050,7 @@ test('landing on a phone: the page stays inside the screen from top to bottom',a
  await page.setViewportSize({width:390,height:844});
  await page.goto('/');
  await expect(page.getByRole('heading',{level:1})).toBeInViewport();
- await expect(page.locator('#top').getByRole('link',{name:/เริ่มใช้งานฟรี/})).toBeInViewport();
+ await expect(page.locator('#top').getByRole('link',{name:/เริ่มใช้ฟรี/})).toBeInViewport();
  const total=await page.evaluate(()=>document.documentElement.scrollHeight);
  for(let y=0;y<total;y+=Math.round(total/14)){
   await page.evaluate(top=>window.scrollTo(0,top),y);

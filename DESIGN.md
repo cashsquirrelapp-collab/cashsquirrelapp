@@ -234,6 +234,17 @@ card does not need:
 - The button is the one bright action: CI orange, a gold rim, a glossy top, light sweeping across, an arrow that nudges
   (owner: "ทำให้มันเด่น ... เล่นแสงปาด ให้ดูน่ากด"). Reduced motion keeps everything still.
 
+### Landing page (owner, 2026-10-29; our own style, `features/marketing/v4`)
+
+- Our own look, never a copy of another site (owner: "อย่าทำเหมือนเขา ... มันจะถือว่าเป็นการก๊อปปี้"). Order: hero with
+  the KRAROK PRO box, the problem notes, the price card, ครบในแอปเดียว, questions, the close with the countdown.
+- The handwriting font (Sriracha) is only for the problem notes and the big ฿0. Everything else is the app's type.
+- ครบในแอปเดียว shows each feature as a short motion with no frame around it: chatting with เลขา (typed, answered,
+  saved), the 08:00 reminder (locked phone, a notification arrives, opened in LINE, ได้รับแล้ว pressed), documents
+  issued one after another (quotation, invoice, receipt, then the paid stamp) and the month's calendar (each job's money
+  on its day, the month's total adding up). CSS only, looping, paused off-screen; reduced motion shows where each ends.
+- Only features every account has today. Nothing admin-only or still to come (50 ทวิ is not shown yet).
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added
