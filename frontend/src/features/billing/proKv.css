@@ -7,7 +7,7 @@
   --pkv-feat-title: #A63F1B; --pkv-feat: #1C1917; --pkv-ic-shadow: 0 6px 12px rgba(166, 63, 27, 0.18);
   --pkv-count-label: #A63F1B; --pkv-chip: #FFFFFF; --pkv-chip-ink: #1C1917; --pkv-chip-sub: #6F6964; --pkv-colon: #E65F2B;
   --pkv-spark-a: #F2A23A; --pkv-spark-b: #E0901F; --pkv-streak-a: #F2A23A; --pkv-streak-b: #FFD58A; --pkv-light: rgba(255, 196, 110, 0.85);
-  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.42); --pkv-timer: rgba(255, 255, 255, 0.78); --pkv-timer-line: rgba(166, 63, 27, 0.14);
+  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.42);
   position: fixed; inset: 0; z-index: 160; display: grid; place-items: center; padding: 12px; font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans); }
 .pkv-scrim { position: absolute; inset: 0; background: rgba(24, 16, 12, 0.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: pkv-fade 0.3s ease both; }
 /* Room for the ✕ above and the button below, so the poster's centre sits a little high. */
@@ -20,7 +20,7 @@
   --pkv-feat-title: #FFC36B; --pkv-feat: #FFF1E8; --pkv-ic-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
   --pkv-count-label: #FFD3BD; --pkv-chip: rgba(28, 25, 23, 0.42); --pkv-chip-ink: #FFF1E8; --pkv-chip-sub: #FFD3BD; --pkv-colon: #FFC36B;
   --pkv-spark-a: #FFE7BF; --pkv-spark-b: #FFC36B; --pkv-streak-a: #FFC36B; --pkv-streak-b: #FFE7BF; --pkv-light: rgba(255, 213, 138, 0.9);
-  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.5); --pkv-timer: rgba(28, 25, 23, 0.5); --pkv-timer-line: rgba(255, 231, 191, 0.18);
+  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.5);
 }
 .pkv-card { position: absolute; inset: 0; overflow: hidden; isolation: isolate; border-radius: 32px; background: var(--pkv-card); box-shadow: var(--pkv-card-shadow); }
 .pkv-glow { position: absolute; right: -80px; top: -70px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, var(--pkv-glow), rgba(255, 195, 107, 0) 70%); }
@@ -125,12 +125,9 @@
 .pkv.is-wide .pkv-feats ul { gap: 3px; margin-top: 4px; }
 .pkv.is-wide .pkv-feats li { gap: 11px; font-size: 16px; }
 .pkv.is-wide .pkv-ic { width: 34px; height: 34px; border-radius: 10px; }
-/* The deal's countdown as a timer in the top-right corner (owner, 2026-10-29: "ย้ายไปไว้มุมขวาบน ให้มันเหมือนคูลดาวน์"). */
-.pkv.is-wide .pkv-count { left: auto; right: 40px; top: 36px; gap: 10px; padding: 8px 10px 8px 14px; border: 1px solid var(--pkv-timer-line); border-radius: 18px; background: var(--pkv-timer);
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 10px 24px rgba(28, 25, 23, 0.12); }
-.pkv.is-wide .pkv-count .pf-count-label { gap: 6px; font-size: 13px; }
-.pkv.is-wide .pkv-count .pf-count-label svg { display: inline; }
-.pkv.is-wide .pkv-count .pf-count-chip { padding: 4px 9px; font-size: 18px; }
+/* The deal's countdown in the top-right corner (owner, 2026-10-29: "ย้ายไปไว้มุมขวาบน"), exactly as on the portrait poster:
+   the plain label and the chips, no frame around them ("จะเอาอะไรมาครอบสี่เหลี่ยมทำไม ... เอาแบบนี้เป๊ะๆ"). */
+.pkv.is-wide .pkv-count { left: auto; right: 44px; top: 44px; }
 .pkv.is-wide .pkv-hero { left: 548px; top: 336px; width: 262px; height: 124px; }
 .pkv.is-wide .pkv-box-light { left: -60px; top: -280px; width: 382px; height: 424px; }
 .pkv.is-wide .pkv-flap { top: -36px; width: 70px; height: 36px; border-radius: 8px 8px 0 0; }
