@@ -59,6 +59,12 @@ for (const width of [320, 360, 390, 430]) {
     expect(ticks).toHaveLength(4);
     expect(ticks.every(tick => tick.left >= 0 && tick.right <= width && tick.fits && Math.abs(tick.top - ticks[0].top) < 1)).toBe(true);
     await expect(page.locator('.cl-bar').getByRole('link', { name: 'ช่วยเหลือ' })).toBeHidden();
+    // the floating cards on phones: LINE, the 08:00 card, Gmail (owner, 2026-10-30) and +฿5,000, all inside the screen
+    for (const n of [1, 2, 3, 5]) {
+      const tile = (await page.locator(`.cl-tile.is-${n}`).boundingBox())!;
+      expect(tile.x >= 0 && tile.x + tile.width <= width).toBe(true);
+    }
+    await expect(page.locator('.cl-tile.is-5 [aria-label="Gmail"]')).toBeVisible();
     const perch = await page.locator('.cl-perch').boundingBox();
     expect(perch && perch.x + perch.width <= width).toBe(true); // the waving squirrel stays inside the screen
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -286,6 +286,7 @@ card does not need:
   the server, counted at most once a minute; asked again every 60 s, never called live; digits roll from the old
   number; no number at all when there is none (never 0). On phones the chat is a phone in the page (272px, the hero
   phone's bezel), its own left alignment.
+- Phones show the Gmail icon among the floating cards too (owner, 2026-10-30): LINE · 08:00 · Gmail, then +฿5,000.
 - English (owner, 2026-10-30: shorter, same meaning as the Thai, sized for phones): "From job to payday, / Krarok
   Assistant is on it" with "Krarok Assistant" in a rounded type (Nunito 800, as เลขากระรอก is in Thai's looped type),
   two lines on every phone; headings a size down on phones, each two lines ("All in one app", "Reminded each morning,

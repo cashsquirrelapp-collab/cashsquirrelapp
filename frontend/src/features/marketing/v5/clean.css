@@ -516,7 +516,10 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-mag .cl-btn { width: 100%; }
   .cl-btn.is-big { min-height: 56px; font-size: 17px; }
   .cl-tiles { gap: 10px; margin-top: 26px; }
-  .cl-tile.is-4, .cl-tile.is-5 { display: none; }
+  /* phones: LINE, the 08:00 card and Gmail, then +฿5,000 (owner, 2026-10-30: Gmail on phones too; the two icons flank the
+     reminder card); the document stays for wider screens */
+  .cl-tile.is-4 { display: none; }
+  .cl-tile.is-1 { order: 1; } .cl-tile.is-2 { order: 2; } .cl-tile.is-5 { order: 3; } .cl-tile.is-3 { order: 4; }
   .cl-tile-card { min-height: 52px; padding: 8px 12px 8px 8px; border-radius: 17px; }
   .cl-tile:not(.has-text) .cl-tile-card { width: 52px; }
   .cl-tile.is-bare .cl-tile-card { height: 52px; }
