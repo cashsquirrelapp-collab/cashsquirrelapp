@@ -5,6 +5,16 @@ export const landing5: Record<string, string> = {
   'hero|ตั้งแต่รับงาน': 'From job',
   'hero|จนถึงรับเงิน': 'to payday,',
   'พร้อมให้ใช้งานเต็มรูปแบบ 1 ธันวาคม 2569': 'Fully available from 1 December 2026',
+  // who it is for (2026-10-30)
+  'รับงานแบบไหน ก็มีเลขาช่วยได้': 'Whatever work you take on, Krarok can help',
+  'jobs|กราฟิกดีไซเนอร์': 'Graphic designers',
+  'jobs|ช่างภาพ': 'Photographers',
+  'jobs|คนตัดต่อ': 'Video editors',
+  'jobs|ครีเอเตอร์': 'Creators',
+  'jobs|นักเขียน': 'Writers',
+  'jobs|นักพัฒนา': 'Developers',
+  'jobs|ติวเตอร์': 'Tutors',
+  'jobs|คนรับงานอิสระ': 'Freelancers',
   // the signup total (2026-10-29)
   'มีผู้สมัครแล้ว {0} คน': '{0} people have signed up',
   'มาเริ่มจัดการเรื่องเงินไปด้วยกัน': 'Let’s sort out your money together',

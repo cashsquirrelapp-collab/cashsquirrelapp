@@ -13,7 +13,7 @@ import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { Physics2DPlugin } from 'gsap/Physics2DPlugin';
 import { Draggable } from 'gsap/Draggable';
-import { Bell, Bug, Check, CircleHelp, Coins, FileText, Instagram, Lightbulb, Mail, Music2, NotebookPen, Plus, Wallet } from 'lucide-react';
+import { Bell, Briefcase, Bug, Camera, Check, CircleHelp, Clapperboard, CodeXml, Coins, FileText, GraduationCap, Instagram, Lightbulb, Mail, Music2, NotebookPen, PenLine, PenTool, Plus, Video, Wallet } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { Mascot } from '../../../components/mascot/Mascot';
 import { LineLogo } from '../../../components/ui/LineLogo';
@@ -79,15 +79,16 @@ const FAQ: { q: string; a: string }[] = [
 ];
 
 /** Example events for the money ticker: what a week in the app looks like. */
-const TICKER: { label: string; amount?: string; tone: 'in' | 'out' | 'due' | 'doc' }[] = [
-  { label: T('รับเงินแล้ว · รีวิวสินค้า'), amount: '+฿5,000', tone: 'in' },
-  { label: T('ออกใบเสนอราคา · ร้านบี'), amount: '฿18,000', tone: 'doc' },
-  { label: T('เตือนรับเงิน 08:00 · 2 รายการ'), amount: '฿12,500', tone: 'due' },
-  { label: T('รับเงินแล้ว · ถ่ายรูปสินค้า'), amount: '+฿8,000', tone: 'in' },
-  { label: T('รายจ่าย · ค่าโฆษณา'), amount: '−฿1,200', tone: 'out' },
-  { label: T('ออกใบเสร็จ · คุณเอ'), amount: '฿5,000', tone: 'doc' },
-  { label: T('ครบกำหนดวันนี้ · ร้านบี'), amount: '฿7,500', tone: 'due' },
-  { label: T('บันทึกงานใหม่ · ตัดต่อวิดีโอ'), amount: '฿6,000', tone: 'doc' },
+// Who it is for (owner, 2026-10-30: "รับงานแบบไหน ก็มีเลขาช่วยได้"): the kinds of work, each with a plain icon, moving past.
+const JOBS: { label: string; icon: typeof Camera }[] = [
+  { label: 'กราฟิกดีไซเนอร์', icon: PenTool },
+  { label: 'ช่างภาพ', icon: Camera },
+  { label: 'คนตัดต่อ', icon: Clapperboard },
+  { label: 'ครีเอเตอร์', icon: Video },
+  { label: 'นักเขียน', icon: PenLine },
+  { label: 'นักพัฒนา', icon: CodeXml },
+  { label: 'ติวเตอร์', icon: GraduationCap },
+  { label: 'คนรับงานอิสระ', icon: Briefcase },
 ];
 
 /** Thai lines that must break where they were written; each piece stays whole. */
@@ -447,7 +448,7 @@ export default function CleanLanding() {
         onEnter: batch => gsap.to(batch, { y: 0, opacity: 1, duration: 1, ease: 'krarok', stagger: 0.1, overwrite: 'auto' }),
       });
 
-      // 2 · the money ticker runs on its own; scrolling speeds it up and leans it, then it eases back.
+      // 2 · the kinds of work run past on their own; scrolling speeds them up and leans them, then they ease back.
       const track = q('.cl-ticker-track')[0];
       if (track) {
         const run = gsap.to(track, { xPercent: -50, duration: 46, ease: 'none', repeat: -1 });
@@ -694,18 +695,23 @@ export default function CleanLanding() {
           </div>
         </section>
 
-        {/* the money ticker */}
-        <div className="cl-ticker" aria-hidden="true">
-          <div className="cl-ticker-track">
-            {[0, 1].map(copy => (
-              <span key={copy} className="cl-ticker-set">
-                {TICKER.map(item => (
-                  <span key={item.label} className={`cl-tick-item is-${item.tone}`}><i />{tr(item.label)}{item.amount && <b className="gl-num">{item.amount}</b>}</span>
-                ))}
-              </span>
-            ))}
+        {/* who it is for: a small heading and the kinds of work moving past (six copies: half the strip is wider than a 2560px
+            screen, so the loop never shows its end) */}
+        <section className="cl-jobs" aria-labelledby="cl-jobs-title">
+          <p id="cl-jobs-title" className="cl-jobs-title">{tr('รับงานแบบไหน ก็มีเลขาช่วยได้')}</p>
+          <ul className="sr-only">{JOBS.map(job => <li key={job.label}>{trc('jobs', job.label)}</li>)}</ul>
+          <div className="cl-ticker" aria-hidden="true">
+            <div className="cl-ticker-track">
+              {[0, 1, 2, 3, 4, 5].map(copy => (
+                <span key={copy} className="cl-ticker-set">
+                  {JOBS.map(({ label, icon: Icon }) => (
+                    <span key={label} className="cl-tick-item"><span className="cl-tick-icon"><Icon size={16} strokeWidth={2} /></span>{trc('jobs', label)}</span>
+                  ))}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        </section>
 
         {/* 2 · the problems */}
         <section className="cl-problem" aria-labelledby="cl-problem-title">

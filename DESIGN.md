@@ -286,6 +286,10 @@ card does not need:
   the server, counted at most once a minute; asked again every 60 s, never called live; digits roll from the old
   number; no number at all when there is none (never 0). On phones the chat is a phone in the page (272px, the hero
   phone's bezel), its own left alignment.
+- Who it is for (owner, 2026-10-30): the money ticker became a small heading "รับงานแบบไหน ก็มีเลขาช่วยได้" over the
+  kinds of work moving past (กราฟิกดีไซเนอร์ · ช่างภาพ · คนตัดต่อ · ครีเอเตอร์ · นักเขียน · นักพัฒนา · ติวเตอร์ · คนรับงานอิสระ),
+  each in a soft chip with a plain line icon in CI orange; screen readers get the same as one list; with reduced motion
+  the chips simply wrap.
 - The problems (owner's copy, 2026-10-29): "เคยเป็นแบบนี้ไหม?", "แค่รับงาน / ก็เหนื่อยพอแล้ว…", and five notes in the
   owner's words and line breaks (forgot to note it, documents, money mixed up, who has paid, the real profit). A note is
   as wide as its longest line (270–340px) on computers; a line wraps inside its note only where there is no room.

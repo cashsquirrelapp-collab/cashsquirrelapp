@@ -128,3 +128,19 @@ test('the reminder shows the real LINE and Gmail logos in its chips; on a phone 
   expect(shot.width).toBeLessThanOrEqual(280);
   expect(await chat.locator('.cl-chatlive-stage').evaluate(node => getComputedStyle(node).textAlign)).toBe('left');
 });
+
+test('who it is for: "รับงานแบบไหน ก็มีเลขาช่วยได้" and the eight kinds of work, each with its icon, read out once as a list', async ({ page }) => {
+  await open(page, { width: 1440, height: 900 });
+  const jobs = page.locator('.cl-jobs');
+  await jobs.scrollIntoViewIfNeeded();
+  await expect(jobs.getByText('รับงานแบบไหน ก็มีเลขาช่วยได้', { exact: true })).toBeVisible();
+  const names = ['กราฟิกดีไซเนอร์', 'ช่างภาพ', 'คนตัดต่อ', 'ครีเอเตอร์', 'นักเขียน', 'นักพัฒนา', 'ติวเตอร์', 'คนรับงานอิสระ'];
+  await expect(jobs.getByRole('listitem')).toHaveText(names);
+  await expect(jobs.locator('.cl-ticker')).toHaveAttribute('aria-hidden', 'true');
+  // the moving strip: every name with its own icon, and no money amounts any more
+  const first = jobs.locator('.cl-ticker-set').first();
+  await expect(first.locator('.cl-tick-item')).toHaveText(names);
+  await expect(first.locator('.cl-tick-icon svg')).toHaveCount(8);
+  await expect(jobs).not.toContainText('฿');
+  expect(await textOverlapIssues(page)).toEqual([]);
+});
