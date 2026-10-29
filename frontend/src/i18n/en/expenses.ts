@@ -67,4 +67,11 @@ export const expenses: Record<string, string> = {
   'แนบสลิป / ใบเสร็จ': 'Attach slip / receipt',
   'ใช้สำหรับค่าใช้จ่ายที่เกิดซ้ำเป็นประจำ เช่น อินเทอร์เน็ต ค่าบริการ หรือค่าสมาชิก': 'For regular recurring costs such as internet, services or memberships',
   'ไม่มีรายจ่ายที่ตรงกับตัวกรองนี้': 'No expenses match this filter',
+  // Slips in the expense form (admins, 2026-10-29).
+  ' แต่ยังแนบสลิปไม่ได้ คลังเอกสารใช้ได้กับสมาชิก Pro': ', but the slips could not be kept: the document vault is for Pro members',
+  ' แนบสลิปได้ {0} จาก {1} ไฟล์ แนบไฟล์ที่เหลือได้ที่รายละเอียดรายจ่าย': '. {0} of {1} slips kept; attach the rest from the expense details',
+  ' พร้อมสลิป {0} ไฟล์': ' with {0} slip(s)',
+  'เฉพาะแอดมิน': 'Admins only',
+  'มีสลิปแล้ว {0} ไฟล์': '{0} slip(s) kept',
+  'กำลังแนบสลิป {0}/{1}…': 'Attaching slips {0}/{1}…',
 };

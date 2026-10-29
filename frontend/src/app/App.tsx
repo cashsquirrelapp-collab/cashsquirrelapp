@@ -2629,10 +2629,10 @@ export default function App() {
     }
   };
 
-  const handleAddExpense = (newExp: Omit<Expense, 'id'>) => {
+  const handleAddExpense = (newExp: Omit<Expense, 'id'> & { id?: string }) => {
     const expWithId: Expense = {
       ...newExp,
-      id: crypto.randomUUID()
+      id: newExp.id || crypto.randomUUID()
     };
     setExpenses(prev => [expWithId, ...prev]);
   };

@@ -64,7 +64,7 @@ interface IncomeExpenseTabProps {
   expenses: Expense[];
   settings: AppSettings;
   onUpdateSettings: (settings: AppSettings) => void;
-  onAddExpense: (expense: Omit<Expense, 'id'>) => void;
+  onAddExpense: (expense: Omit<Expense, 'id'> & { id?: string }) => void;
   onEditExpense: (id: string, updated: Partial<Expense>) => void;
   onDeleteExpense: (id: string) => void;
   onSwitchTab: (tab: string) => void;
@@ -260,6 +260,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
         onEdit={props.onEditExpense}
         onClose={() => setDrawer(null)}
         triggerAlert={triggerAlert}
+        slips={fullFeatureAccess}
       />
     </>
   );

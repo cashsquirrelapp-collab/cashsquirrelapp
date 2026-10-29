@@ -2,11 +2,14 @@ import { uiInput, uiPrimaryButton, uiSecondaryButton } from '../../components/ui
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { CalendarDays, X } from 'lucide-react';
+import { CalendarDays, FileText, Paperclip, Upload, X } from 'lucide-react';
 import { AppSettings, Expense } from '../../../../shared/types';
 import { sumFixedExpenseItems, toLocalDateKey } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { LEGACY_FIXED_NAME } from './expenseMonth';
+import { isVaultFileType, useVaultMaybe } from '../vault/VaultProvider';
+import { expenseFiles } from '../vault/vaultStatus';
+import { VAULT_ACCEPT, VAULT_MAX_BYTES, formatFileSize } from '../../../../shared/vault';
 
 import { tr, T } from '../../i18n/tr';
 export const EXPENSE_CATEGORIES = [
@@ -41,18 +44,42 @@ interface ExpenseDrawerProps {
   preset?: { name: string; amount: number; recurring: boolean } | null;
   settings: AppSettings;
   onUpdateSettings: (settings: AppSettings) => void;
-  onAdd: (expense: Omit<Expense, 'id'>) => void;
+  /** A new expense may bring its own id (so its slips can be kept with it at once). */
+  onAdd: (expense: Omit<Expense, 'id'> & { id?: string }) => void;
   onEdit: (id: string, updated: Partial<Expense>) => void;
   onClose: () => void;
   triggerAlert: (title: string, message: string) => void;
+  /** Slips in the form itself: admins only for now (owner, 2026-10-29: "แค่เฉพาะเมนูแอดมิน ... เดี๋ยวฟีเจอร์นี้จะปล่อย"). */
+  slips?: boolean;
 }
+
+type PickedSlip = { key: string; file: File; preview: string | null; error: string };
 
 /**
  * Add/edit one expense. "ประจำ" keeps the existing behaviour: it adds (or refreshes the amount
  * of) a matching line in Settings' fixed monthly costs, and never removes one on its own --
  * that stays a deliberate action in Settings.
  */
-export default function ExpenseDrawer({ open, expense, preset, settings, onUpdateSettings, onAdd, onEdit, onClose, triggerAlert }: ExpenseDrawerProps) {
+export default function ExpenseDrawer({ open, expense, preset, settings, onUpdateSettings, onAdd, onEdit, onClose, triggerAlert, slips = false }: ExpenseDrawerProps) {
+  const vault = useVaultMaybe();
+  const slipsOn = slips && Boolean(vault?.available);
+  const [picked, setPicked] = React.useState<PickedSlip[]>([]);
+  const [uploading, setUploading] = React.useState<{ done: number; total: number } | null>(null);
+  const [dragging, setDragging] = React.useState(false);
+  const fileInput = React.useRef<HTMLInputElement>(null);
+  const previews = React.useRef<string[]>([]);
+  const releasePreviews = () => { previews.current.forEach(url => URL.revokeObjectURL(url)); previews.current = []; };
+  const addSlips = (list: FileList | File[] | null) => {
+    if (!list) return;
+    const next = Array.from(list).map((file, i): PickedSlip => {
+      const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+      if (preview) previews.current.push(preview);
+      return { key: `${Date.now()}-${i}-${file.name}`, file, preview,
+        error: !isVaultFileType(file) ? tr("รองรับเฉพาะ PDF, JPG, PNG, WEBP") : file.size > VAULT_MAX_BYTES ? tr("ไฟล์ใหญ่เกิน 10 MB") : '' };
+    });
+    setPicked(current => [...current, ...next]);
+  };
+  const keptSlips = slipsOn && expense && vault ? expenseFiles(expense, vault.files).length : 0;
   const [name, setName] = React.useState('');
   const [amount, setAmount] = React.useState('');
   const [date, setDate] = React.useState(toLocalDateKey());
@@ -84,14 +111,16 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
     // Pre-selected when this record's name already matches a fixed line in Settings.
     setRecurring(expense ? Boolean(findFixedItem(expense.name)) : Boolean(preset?.recurring));
     setErrors({});
+    setPicked([]); setUploading(null); setDragging(false);
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); releasePreviews(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, expense?.id, preset?.name]);
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (uploading) return;
     const value = parseFloat(amount) || 0;
     const next = {
       name: name.trim() ? undefined : tr("กรุณาระบุชื่อรายการ"),
@@ -103,7 +132,8 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
 
     const finalCategory = category === OTHER_CATEGORY ? customCategory.trim() || OTHER_CATEGORY : category;
     const payload = { name: name.trim(), amount: value, category: finalCategory, date, note };
-    if (expense) onEdit(expense.id, payload); else onAdd(payload);
+    const id = expense?.id ?? crypto.randomUUID();
+    if (expense) onEdit(expense.id, payload); else onAdd({ ...payload, id });
 
     let fixedNote = '';
     if (recurring) {
@@ -119,7 +149,18 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
       onUpdateSettings({ ...settings, fixedExpenseItems: updatedItems, monthlyExpense: sumFixedExpenseItems(updatedItems) });
       fixedNote = existing ? tr(" และอัปเดตยอดในรายจ่ายประจำให้แล้ว") : tr(" และเพิ่มเป็นรายจ่ายประจำทุกเดือนให้แล้ว");
     }
-    triggerAlert(expense ? tr("แก้ไขรายจ่ายสำเร็จ") : tr("บันทึกรายจ่ายสำเร็จ"), `${expense ? tr("อัปเดตข้อมูลรายจ่ายเรียบร้อยแล้ว") : tr("บันทึกรายจ่ายเรียบร้อยแล้ว")}${fixedNote}`);
+    // The expense is saved first; its slips follow (the form waits, so nothing is left half-done).
+    const ready = slipsOn && vault ? picked.filter(item => !item.error) : [];
+    let slipNote = '';
+    if (ready.length && vault) {
+      setUploading({ done: 0, total: ready.length });
+      const result = await vault.attachToExpense({ id, name: payload.name }, ready.map(item => item.file), (done, total) => setUploading({ done, total }));
+      setUploading(null);
+      if (result.proRequired) slipNote = tr(" แต่ยังแนบสลิปไม่ได้ คลังเอกสารใช้ได้กับสมาชิก Pro");
+      else if (result.failed.length) slipNote = tr(" แนบสลิปได้ {0} จาก {1} ไฟล์ แนบไฟล์ที่เหลือได้ที่รายละเอียดรายจ่าย", String(result.saved), String(ready.length));
+      else slipNote = tr(" พร้อมสลิป {0} ไฟล์", String(result.saved));
+    }
+    triggerAlert(expense ? tr("แก้ไขรายจ่ายสำเร็จ") : tr("บันทึกรายจ่ายสำเร็จ"), `${expense ? tr("อัปเดตข้อมูลรายจ่ายเรียบร้อยแล้ว") : tr("บันทึกรายจ่ายเรียบร้อยแล้ว")}${slipNote}${fixedNote}`);
     onClose();
   };
 
@@ -229,11 +270,53 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
                 <label htmlFor="expense-note" className={label}>{tr("หมายเหตุ")}</label>
                 <input id="expense-note" type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder={tr("เช่น ใบเสร็จอยู่ในอีเมล")} className={input()} />
               </div>
+              {slipsOn && (
+                <div data-testid="expense-form-slips"
+                  onDragEnter={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true); } }}
+                  onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+                  onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false); }}
+                  onDrop={(e) => { if (!e.dataTransfer.types.includes('Files')) return; e.preventDefault(); setDragging(false); addSlips(e.dataTransfer.files); }}>
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className={label.replace('mb-1.5 ', '')}>{tr("สลิป / ใบเสร็จ")}</span>
+                    <span className="rounded-full bg-brand-faint px-2 py-px text-[11px] font-semibold text-brand-muted">{tr("เฉพาะแอดมิน")}</span>
+                    {keptSlips > 0 && <span className="ml-auto text-xs text-brand-muted">{tr("มีสลิปแล้ว {0} ไฟล์", String(keptSlips))}</span>}
+                  </div>
+                  <input ref={fileInput} type="file" accept={VAULT_ACCEPT} multiple className="sr-only" tabIndex={-1} aria-hidden="true"
+                    onChange={(e) => { addSlips(e.target.files); e.target.value = ''; }} />
+                  {picked.length > 0 && (
+                    <ul className="mb-2 divide-y divide-brand-border rounded-[10px] border border-brand-border">
+                      {picked.map(item => (
+                        <li key={item.key} className="flex items-center gap-3 px-3 py-2">
+                          {item.preview
+                            ? <img src={item.preview} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                            : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-faint text-brand-muted"><FileText className="h-5 w-5" /></span>}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13px] font-medium text-brand-text">{item.file.name}</span>
+                            <span className={`block text-xs ${item.error ? 'text-[#C43A3A] dark:text-rose-300' : 'text-brand-muted'}`}>{item.error || formatFileSize(item.file.size)}</span>
+                          </span>
+                          <button type="button" onClick={() => setPicked(list => list.filter(p => p.key !== item.key))} disabled={Boolean(uploading)}
+                            aria-label={tr("เอาไฟล์ออก")} title={tr("เอาไฟล์ออก")} className="rounded-lg p-1.5 text-brand-muted hover:bg-brand-faint hover:text-brand-text disabled:opacity-40 cursor-pointer"><X className="h-4 w-4" /></button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <button type="button" onClick={() => fileInput.current?.click()} disabled={Boolean(uploading)}
+                    className={`flex w-full items-center gap-3 rounded-[10px] border border-dashed px-3 py-3 text-left transition-colors cursor-pointer disabled:opacity-50 ${dragging ? 'border-[#E65F2B] bg-[#FFF5EE] dark:bg-[#E65F2B]/10' : 'border-brand-border hover:bg-brand-faint'}`}>
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]">{picked.length ? <Paperclip className="h-4 w-4" /> : <Upload className="h-4 w-4" />}</span>
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-medium text-brand-text">{dragging ? tr("วางไฟล์ที่นี่") : picked.length ? tr("แนบเพิ่ม") : tr("แนบสลิปโอนเงินหรือใบเสร็จ")}</span>
+                      <span className="block text-xs text-brand-muted">{tr("ลากไฟล์มาวาง หรือกดเพื่อเลือกไฟล์ / ถ่ายรูป")}</span>
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 border-t border-brand-border px-6 py-4">
               <button type="button" onClick={onClose} className={`${uiSecondaryButton} h-12`}>{tr("ยกเลิก")}</button>
-              <button type="submit" className={`${uiPrimaryButton} h-12 flex-1`}>{tr("บันทึกรายจ่าย")}</button>
+              <button type="submit" disabled={Boolean(uploading)} className={`${uiPrimaryButton} h-12 flex-1 disabled:opacity-70`}>
+                {uploading ? tr("กำลังแนบสลิป {0}/{1}…", String(uploading.done), String(uploading.total)) : tr("บันทึกรายจ่าย")}
+              </button>
             </div>
           </motion.form>
         </div>

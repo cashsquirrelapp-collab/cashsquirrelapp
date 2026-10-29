@@ -41,6 +41,8 @@ interface VaultApi {
   promptAfterPayment: (job: Job) => void;
   remove: (file: VaultFile) => void;
   update: (file: VaultFile, patch: Partial<VaultMeta>) => Promise<void>;
+  /** Keeps slips with an expense straight from its form (admins, 2026-10-29); the expense may be seconds old. */
+  attachToExpense: (expense: Pick<Expense, 'id' | 'name'>, files: File[], onProgress?: (done: number, total: number) => void) => Promise<{ saved: number; failed: string[]; proRequired: boolean }>;
 }
 
 const VaultContext = React.createContext<VaultApi | null>(null);
@@ -48,6 +50,10 @@ export function useVault(): VaultApi {
   const value = React.useContext(VaultContext);
   if (!value) throw new Error('useVault must be used inside VaultProvider');
   return value;
+}
+/** The vault when the page has one (forms that may open outside it). */
+export function useVaultMaybe(): VaultApi | null {
+  return React.useContext(VaultContext);
 }
 
 export function VaultProvider({ financeKey, available, isPro, jobs, expenses, onUpgrade, triggerConfirm, triggerAlert, children }: {
@@ -95,6 +101,22 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
     setFiles(list => list.map(item => (item.id === next.id ? next : item)));
   }, [financeKey]);
 
+  const attachToExpense = React.useCallback<VaultApi['attachToExpense']>(async (expense, list, onProgress) => {
+    let saved = 0; const failed: string[] = [];
+    for (const [index, file] of list.entries()) {
+      try {
+        const stored = await uploadVault(financeKey, file, { kind: 'expense', jobId: expense.id, jobName: expense.name, client: null });
+        setFiles(current => [stored, ...current.filter(item => item.id !== stored.id)]);
+        saved += 1;
+      } catch (err) {
+        if ((err as { code?: string }).code === 'pro_required') return { saved, failed, proRequired: true };
+        failed.push(`${file.name}: ${(err as Error).message}`);
+      }
+      onProgress?.(index + 1, list.length);
+    }
+    return { saved, failed, proRequired: false };
+  }, [financeKey]);
+
   const api: VaultApi = {
     available, isPro, files, loading, ready: available && loadedFinanceKey === financeKey, error,
     refresh: () => setRevision(n => n + 1),
@@ -103,7 +125,7 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
     // Only worth asking when the workspace can actually keep the file.
     // 1% is e-WHT: there is no certificate to ask for (see isEWhtJob).
     promptAfterPayment: job => { if (available && isPro && jobWhtAmount(job) > 0 && !isEWhtJob(job)) setPaidPrompt(job); },
-    remove, update,
+    remove, update, attachToExpense,
   };
   // App announces a job that just got fully paid; ask for its 50 ทวิ when tax was withheld.
   const promptRef = React.useRef(api.promptAfterPayment);
@@ -235,6 +257,7 @@ function WhtPaidPrompt({ job, onAttach, onClose }: { job: Job | null; onAttach: 
 
 interface Picked { key: string; file: File; preview: string | null; error: string }
 const okType = (file: File) => /^(application\/pdf|image\/(jpeg|png|webp))$/.test(file.type) || /\.(pdf|jpe?g|png|webp)$/i.test(file.name);
+export const isVaultFileType = okType;
 
 /** Expense choices for linking a slip: newest first, with date and amount to tell them apart. */
 const expenseOptionLabel = (e: Expense) => `${e.name} · ${safeFormatThaiDate(e.date, { day: 'numeric', month: 'short', year: '2-digit' })} · ${formatCurrency(e.amount)}`;
