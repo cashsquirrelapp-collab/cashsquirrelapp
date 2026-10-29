@@ -93,8 +93,11 @@ test('the chat with เลขา is the app\'s own screen drawn live: the sample
   await chat.scrollIntoViewIfNeeded();
   // without motion the whole sample conversation is there at once: three questions, three answers
   await expect(chat.locator('.cl-chatlive .asx-msg')).toHaveCount(6);
-  await expect(chat.locator('.cl-chatlive')).toContainText('ตอนนี้มีงานที่ยังไม่ได้รับเงิน 2 งาน รวม ฿12,500 ครับ');
-  await expect(chat.locator('.cl-chatlive')).toContainText('สรุปเดือนตุลาคมครับ');
+  await expect(chat.locator('.cl-chatlive')).toContainText('ยังไม่ได้รับ 2 งาน รวม ฿12,500 ครับ');
+  await expect(chat.locator('.cl-chatlive')).toContainText('สรุปเดือนตุลาคม 2569 ครับ');
+  // written as the real เลขา writes: bold labels, no stray asterisks
+  await expect(chat.locator('.cl-chatlive strong').first()).toHaveText('คุณเอ:');
+  await expect(chat.locator('.cl-chatlive .asx-msg')).not.toContainText(['**']);
   await expect(chat.locator('.cl-chatlive-stage')).toHaveAttribute('inert', '');
   await expect(chat.getByRole('img', { name: /ถามเลขาว่าใครยังไม่จ่าย/ })).toBeVisible();
   await expect(chat.locator('video')).toHaveCount(0);

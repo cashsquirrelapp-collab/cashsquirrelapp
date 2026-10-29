@@ -114,10 +114,14 @@ const MaskedGrad = ({ text, className = '' }: { text: string; className?: string
 /** A feature heading: the key word in CI colour, then the rest, each line kept whole; split for the reveal. */
 function FeatureTitle({ id, word, rest }: { id: string; word: string; rest: string }) {
   const parts = rest.split('\n');
+  // English words are spaced: the space after the coloured word goes outside its mask (a trailing space inside an
+  // inline block is dropped, which made "Talkto"), and the spoken name has a space where the lines break.
+  const coloured = word.trimEnd();
+  const gap = coloured !== word ? ' ' : '';
   return (
-    <h2 id={id} data-words aria-label={`${word}${parts.join('')}`}>
+    <h2 id={id} data-words aria-label={`${coloured}${gap}${parts.join(currentLanguage === 'en' ? ' ' : '')}`}>
       <span aria-hidden="true">{parts.map((line, at) => (
-        <React.Fragment key={at}>{at > 0 && <br />}<span className="gl-nw">{at === 0 && <MaskedGrad text={word} />}<Words text={line} /></span></React.Fragment>
+        <React.Fragment key={at}>{at > 0 && <br />}<span className="gl-nw">{at === 0 && <><MaskedGrad text={coloured} />{gap}</>}<Words text={line} /></span></React.Fragment>
       ))}</span>
     </h2>
   );
@@ -350,8 +354,21 @@ function useLightOnly() {
   }, []);
 }
 
+/** In English, "Krarok Assistant" in the headline is set in a rounded type (Nunito), as เลขากระรอก is in Thai's looped
+ *  type: friendly but formal (owner, 2026-10-30). Loaded only for English. */
+function useRoundedLatin() {
+  React.useEffect(() => {
+    if (currentLanguage !== 'en' || document.getElementById('cl-round-font')) return;
+    const link = document.createElement('link');
+    link.id = 'cl-round-font'; link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Nunito:wght@800&display=swap';
+    document.head.appendChild(link);
+  }, []);
+}
+
 export default function CleanLanding() {
   useSriracha();
+  useRoundedLatin();
   useLightOnly();
   const promoRunning = useMonthPromoRunning();
   const price = proPriceParts('month');
@@ -762,7 +779,7 @@ export default function CleanLanding() {
               <span className="cl-plan-head"><span className="cl-plan-brand"><img src="/kv/symbol.svg" alt="" />KRAROK PRO</span><span className="cl-plan-badge">{tr('แนะนำ')}</span></span>
               <p className="cl-price">{promoRunning && <s className="cl-price-was"><span className="sr-only">{tr('ราคาปกติ')} </span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>}<strong className="gl-num">{formatBaht(price.price)}</strong><span>{tr('/ เดือน')}</span></p>
               <p className="cl-price-fee">{tr('+ ค่าธรรมเนียมชำระเงิน {0} · ยอดชำระ {1}', formatBaht(price.fee), formatBaht(price.total))}</p>
-              <h3>{tr('อัปเกรดเป็น')} <span className="cl-grad">Pro</span> {tr('เมื่อพร้อม')}</h3>
+              <h3>{trc('plan', 'อัปเกรดเป็น')} <span className="cl-grad">Pro</span> {trc('plan', 'เมื่อพร้อม')}</h3>
               <p className="cl-plan-text">{tr('เลขากระรอก แจ้งเตือนทาง LINE และอีเมล ออกเอกสารได้ไม่จำกัด')}</p>
             </article>
           </div>
@@ -852,7 +869,7 @@ export default function CleanLanding() {
             {[0, 1, 2, 3].map(at => <span key={at} className="cl-coin" aria-hidden="true"><img src="/kv/symbol.svg" alt="" /></span>)}
             <div className="cl-final-in">
               <Mascot gear="headset" mood="wave" action="wave" size={140} />
-              <h2 id="cl-final-title"><span className="gl-nw">{trc('final', 'ให้เลขากระรอก')}</span><wbr /><span className="gl-nw">{trc('final', 'ช่วยดูแลเงินของคุณ')}</span><br /><span className="cl-final-em">{tr('ตั้งแต่วันนี้')}</span></h2>
+              <h2 id="cl-final-title"><span className="gl-nw">{trc('final', 'ให้เลขากระรอก')}</span><wbr /><span className="gl-nw">{trc('final', 'ช่วยดูแลเงินของคุณ')}</span>{' '}<br /><span className="cl-final-em">{tr('ตั้งแต่วันนี้')}</span></h2>
               <Countdown />
               <div className="cl-final-cta"><StartButton light /></div>
             </div>

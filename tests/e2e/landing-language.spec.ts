@@ -22,13 +22,13 @@ test('to English and back, kept after a reload', async ({ page }) => {
   expect(login.x - ((await toEnglish.boundingBox())!.x + (await toEnglish.boundingBox())!.width)).toBeLessThan(30);
   await toEnglish.click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('From job to payday, let Krarok Assistant handle it');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('From job to payday, Krarok Assistant is on it');
   await expect(bar.getByRole('link', { name: 'Sign in' })).toBeVisible();
   const toThai = bar.getByRole('button', { name: 'Switch to Thai' });
   await expect(toThai).toHaveText('ไทย');
   expect(await page.evaluate(() => localStorage.getItem('cashflow_language'))).toBe('en');
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('From job to payday, let Krarok Assistant handle it');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('From job to payday, Krarok Assistant is on it');
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.locator('.cl-bar').getByRole('button', { name: 'Switch to Thai' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('ตั้งแต่รับงาน จนถึงรับเงิน ให้เลขากระรอกดูแล');

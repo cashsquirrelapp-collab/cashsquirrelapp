@@ -286,6 +286,12 @@ card does not need:
   the server, counted at most once a minute; asked again every 60 s, never called live; digits roll from the old
   number; no number at all when there is none (never 0). On phones the chat is a phone in the page (272px, the hero
   phone's bezel), its own left alignment.
+- English (owner, 2026-10-30: shorter, same meaning as the Thai, sized for phones): "From job to payday, / Krarok
+  Assistant is on it" with "Krarok Assistant" in a rounded type (Nunito 800, as เลขากระรอก is in Thai's looped type),
+  two lines on every phone; headings a size down on phones, each two lines ("All in one app", "Reminded each morning,
+  / before you forget", "Know when money lands, / and how much"). Headings and short paragraphs balance their lines in
+  both languages. The chat demo talks in the page's language, written as เลขา writes: one short line, then a list with
+  bold labels; a bold label arrives whole while it types.
 - The language switch (owner, 2026-10-30: "สำคัญมาก"): a quiet pill beside เข้าสู่ระบบ (beside เริ่มใช้ฟรี on phones; no
   globe under 375px) that names the language it switches to, in that language ("EN" / "ไทย"). The landing is drawn again
   in the new language, and the choice is kept for the app and the sign-in page.

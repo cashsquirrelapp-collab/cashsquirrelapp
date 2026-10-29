@@ -420,6 +420,11 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 
 /* English runs longer than Thai: a smaller headline, and feature headings that may wrap between words. */
 .cl.is-en .cl-hero h1 { font-size: clamp(40px, 3.7vw, 56px); }
+/* "Krarok Assistant" in a rounded type, as เลขากระรอก is in Thai's looped one: friendly but formal (owner, 2026-10-30) */
+.cl.is-en .cl-hero .gl-loop { font-family: 'Nunito', 'IBM Plex Sans', var(--font-sans); font-weight: 800; letter-spacing: -0.005em; }
+/* Lines of a heading or a short paragraph come out about the same length, never one word left alone (owner, 2026-10-30:
+   "ให้มันทัดมันเท่ากัน ... เป็นระเบียบ") */
+.cl h1, .cl h2, .cl h3, .cl-head > p, .cl-feat-text p, .cl-problem-head p, .cl-plan-text, .cl-side p, .cl-final p { text-wrap: balance; }
 .cl.is-en .cl-feat-text h2 { font-size: clamp(36px, 3.4vw, 46px); }
 .cl.is-en .cl-feat-text h2 .gl-nw { white-space: normal; }
 
@@ -498,6 +503,11 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-hero .cl-btn.is-big { min-height: 60px; padding: 0 28px; font-size: 18px; }
   .cl-perch { width: 1.25em; height: 1.25em; bottom: 0.16em; }
   .cl-launch .cl-tiles-count { gap: 8px; }
+  /* English on phones: the headline sized to its two lines (the wider, with the squirrel, is 12.45 type-widths), headings a
+     size down from Thai's */
+  .cl.is-en .cl-hero h1 { font-size: min(34px, calc((100vw - 36px) / 12.7)); }
+  .cl.is-en .cl-feat-text h2 { font-size: 28px; }
+  .cl.is-en .cl-head h2, .cl.is-en .cl-problem-head h2, .cl.is-en .cl-side h2, .cl.is-en .cl-final h2 { font-size: 27px; }
   .cl-launch-label { font-size: 15px; }
   .cl-launch .cl-tick { width: min(78px, calc((100vw - 36px - 24px) / 4)); height: 72px; border-radius: 19px; }
   .cl-launch .cl-tick b { font-size: 30px; }
