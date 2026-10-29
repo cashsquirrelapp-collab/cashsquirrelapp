@@ -82,6 +82,22 @@ test('the allowance uses the paid plan\'s tokens; owner grants and older subscri
   assert.equal(allowance({ plan: 'admin' }, config, now).cycle, '2026-11', 'admins: the calendar month');
 });
 
+test('an admin token reset starts a fresh bucket from that moment to the month\'s end; members are never touched', () => {
+  const reset = aiConfig({ AI_ENABLED: 'true', AI_ADMIN_TOKENS_RESET_AT: '2026-10-29T13:00:00+07:00' });
+  const later = new Date('2026-10-30T02:00:00Z');
+  const fresh = allowance({ plan: 'admin' }, reset, later);
+  assert.equal(fresh.cycle, '2026-10-29', 'named after the Bangkok day of the reset');
+  assert.match(fresh.cycle, /^(\d{4}-\d{2}(-\d{2})?|trial)$/, 'the usage table\'s cycle_key check accepts it');
+  assert.equal(fresh.tokenLimit, 1650);
+  assert.equal(fresh.resetsAt?.toISOString(), '2026-10-31T17:00:00.000Z', 'still renews on the 1st');
+  assert.equal(allowance({ plan: 'admin' }, reset, new Date('2026-10-29T05:00:00Z')).cycle, '2026-10', 'before the reset moment');
+  assert.equal(allowance({ plan: 'admin' }, reset, new Date('2026-11-02T03:00:00Z')).cycle, '2026-11', 'next month: the calendar month again');
+  assert.equal(allowance({ plan: 'pro' }, reset, later).cycle, '2026-10', 'a member\'s month is not reset');
+  assert.equal(allowance({ plan: 'pro', periodEnd: '2026-12-03T00:00:00Z' }, reset, later).cycle, '2026-10-03', 'nor a paid cycle');
+  assert.equal(aiConfig({ AI_ADMIN_TOKENS_RESET_AT: 'soon' }).adminTokensResetAt, undefined, 'an unreadable value: no reset');
+  assert.equal(aiConfig({}).adminTokensResetAt, undefined);
+});
+
 /** A PostgREST-like query that records its filters and answers with fixed rows. */
 function fakeDb(tables: Record<string, unknown[]>, fail?: string) {
   const calls: { table: string; select?: string; filters: string[] }[] = [];

@@ -141,7 +141,15 @@ export function allowance(value: AssistantPlan | PlanInfo, config: AiConfig, now
     return { cycle: tokenCycle(now), resetsAt: new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1) - BANGKOK) };
   };
   const period = plan === 'pro' && periodEnd ? renewalCycle(periodEnd, now) : month();
-  if (plan === 'admin') return { ...period, tokenLimit: config.proTokensPerCycle, requestLimit: null };
+  if (plan === 'admin') {
+    // A reset (AI_ADMIN_TOKENS_RESET_AT) counts admins' use from then on in a bucket of its own, named after the reset's
+    // Bangkok day: the usage table accepts 'YYYY-MM-DD' keys, and admins have no renewal-day cycles. What was used before
+    // stays recorded under the month, so costs and reports keep it.
+    const reset = config.adminTokensResetAt;
+    const fresh = reset !== undefined && reset <= now.getTime() && tokenCycle(new Date(reset)) === period.cycle;
+    const cycle = fresh ? new Date(reset + BANGKOK).toISOString().slice(0, 10) : period.cycle;
+    return { ...period, cycle, tokenLimit: config.proTokensPerCycle, requestLimit: null };
+  }
   return { ...period, tokenLimit: tokens ?? config.proTokensPerCycle, requestLimit: null };
 }
 

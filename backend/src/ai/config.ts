@@ -20,6 +20,11 @@ export interface AiConfig {
   /** 1 Krarok Token = this much real API cost, in US dollars. */
   tokenUsd: number;
   proTokensPerCycle: number;
+  /**
+   * Admins' tokens start over from this moment to the end of its Bangkok month (AI_ADMIN_TOKENS_RESET_AT, an ISO time;
+   * owner, 2026-10-29: "รีโทเค็นให้กูเลย"). Unset or unreadable: no reset.
+   */
+  adminTokensResetAt?: number;
   /** Krarok Tokens for the whole free trial (owner, 2026-10-24: about 10 ordinary messages; heavy work uses more). */
   trialTokens: number;
   dailyCostCapUsd: number;
@@ -82,6 +87,7 @@ export function aiConfig(env: Record<string, string | undefined> = process.env):
     tokenUsd: num(env.AI_TOKEN_USD, 0.001, 0.00001, 1),
     // Owner, 2026-10-25: 1,650 a month for every Pro account, paid or given (was 2,500 from 2026-10-24).
     proTokensPerCycle: num(env.AI_PRO_TOKENS_PER_CYCLE, 1650, 0, 1_000_000),
+    adminTokensResetAt: ((at: number) => (Number.isFinite(at) ? at : undefined))(Date.parse(env.AI_ADMIN_TOKENS_RESET_AT?.trim() || '')),
     trialTokens: num(env.AI_TRIAL_TOKENS, 25, 0, 100_000),
     dailyCostCapUsd: num(env.AI_DAILY_COST_CAP_USD, 5, 0, 10_000),
     maxOutputTokens: { chat: num(env.AI_MAX_OUTPUT_CHAT, 600, 64, 8192), action: num(env.AI_MAX_OUTPUT_ACTION, 1200, 64, 16384) },

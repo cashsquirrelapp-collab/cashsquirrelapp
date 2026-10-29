@@ -51,6 +51,9 @@
     // Krarok Tokens (1 = $0.001 of real AI cost), one pool per account across the app, LINE and voice (owner,
     // 2026-10-24): 1,650 a Pro month for every Pro account (owner, 2026-10-25: "ให้ทุกคนได้ 1,650"), at most 100 for one message.
     "AI_PRO_TOKENS_PER_CYCLE": "1650",
+    // Admins' tokens start over from this moment until the month ends (owner, 2026-10-29: "รีโทเค็นให้กูเลย"); to reset
+    // again, set a later time (one reset a day; backend/src/ai/service.ts allowance()).
+    "AI_ADMIN_TOKENS_RESET_AT": "2026-10-29T13:00:00+07:00",
     "AI_MESSAGE_TOKEN_CAP": "100"
   },
   "observability": { "enabled": true }
