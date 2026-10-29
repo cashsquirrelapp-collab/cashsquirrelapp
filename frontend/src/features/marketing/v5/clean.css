@@ -39,15 +39,16 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 
 /* The one action (GSAP's magnetic-button demo, in CI colour): a pill in a larger invisible zone that pulls it. */
 .cl-mag { display: inline-flex; padding: 26px 46px; }
-.cl-btn { position: relative; isolation: isolate; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; color: var(--ink);
+/* White on a deep-to-bright CI orange (owner: black on orange looked flat, "ควรเป็นสีขาว"). */
+.cl-btn { position: relative; isolation: isolate; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; color: #FFFFFF;
   font-weight: 600; line-height: 1.45; text-decoration: none; white-space: nowrap; will-change: transform; }
-.cl-btn-bg { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(111deg, #E65F2B 18%, #FFB48A 80%); transition: filter 0.2s ease; }
+.cl-btn-bg { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(111deg, #B03E0E 6%, #C64917 52%, #E4612B 100%); transition: filter 0.2s ease; }
 .cl-btn:hover .cl-btn-bg { filter: brightness(1.05) saturate(1.06); }
 .cl-btn-label { position: relative; pointer-events: none; }
 .cl-btn.is-big { min-height: 62px; padding: 0 46px; font-size: 18px; }
 .cl-btn.is-light { color: var(--deep); }
 .cl-btn.is-light .cl-btn-bg { background: #FFFFFF; }
-.cl-btn.is-small { min-height: 44px; padding: 0 20px; font-size: 15px; background: linear-gradient(111deg, #E65F2B 18%, #FFB48A 80%); }
+.cl-btn.is-small { min-height: 44px; padding: 0 20px; font-size: 15px; background: linear-gradient(111deg, #B03E0E 6%, #C64917 52%, #E4612B 100%); }
 
 /* The top bar: a floating liquid glass capsule (owner: "โค้งๆมนๆกลมๆ ไม่เป็นเหลี่ยม"). */
 .cl-bar { position: fixed; top: 14px; left: 0; right: 0; z-index: 60; padding: 0 16px; pointer-events: none; }
