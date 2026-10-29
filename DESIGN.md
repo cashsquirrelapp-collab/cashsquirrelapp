@@ -272,8 +272,8 @@ card does not need:
   เลขากระรอก stands at the end of "…ดูแล", waving (the locked mascot, its own wave; 1.3× the type, 1.25× on phones, clear of
   the line above). The floating cards stay as they were, upright (a tilt toward the phone was tried and taken back).
 - Features (owner, 2026-10-29): "ครบจบในแอปเดียว", and each feature says which plan it is in: KRAROK PRO (the chat, the
-  morning reminder) or what Free gives (documents: ฟรี 10 ใบต่อเดือน · Pro ไม่จำกัด; the calendar: ใช้ฟรี), with a legend
-  under the heading. Pictures are drawn, never captured: the chat is the app's own AssistantChat running in the page
+  morning reminder) or what Free gives (documents: ฟรี 10 ใบต่อเดือน · Pro ไม่จำกัด; the calendar: ใช้ฟรี); no legend line
+  under the heading (taken out, owner 2026-10-30). Pictures are drawn, never captured: the chat is the app's own AssistantChat running in the page
   (`v5/ChatLive.tsx`: a scripted sample conversation, no AI called, inert, 1440×900 or 390×844 scaled to fit, only
   while near the screen), and the documents are the app's own DocumentA4 sheets with sample data (`v5/DocsLive.tsx`),
   so both stay sharp at any zoom. The landing keeps the page light while it shows (the app's evening dark mode would

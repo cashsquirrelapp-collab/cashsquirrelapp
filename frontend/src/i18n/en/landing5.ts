@@ -22,7 +22,6 @@ export const landing5: Record<string, string> = {
   'ครบจบในแอปเดียว': 'All in one app',
   'plan|อัปเกรดเป็น': 'Go',
   'plan|เมื่อพร้อม': 'when ready',
-  'คือฟีเจอร์ในแพ็กเกจ Pro ส่วนที่เหลือเริ่มใช้ได้ฟรี': 'marks a Pro feature; everything else is free to start',
   'ฟรี 10 ใบต่อเดือน · Pro ไม่จำกัด': 'Free 10 a month · Pro unlimited',
   'ใช้ฟรี': 'Free',
   // the problem notes since 2026-10-29

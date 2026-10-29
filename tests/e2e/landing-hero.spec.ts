@@ -113,6 +113,9 @@ test('the chat with เลขา is the app\'s own screen drawn live: the sample
   await expect(page.locator('.cl-feat.is-docs .cl-tier')).toHaveText('ฟรี 10 ใบต่อเดือน · Pro ไม่จำกัด');
   await expect(page.locator('.cl-feat.is-calendar .cl-tier')).toHaveText('ใช้ฟรี');
   await expect(page.getByRole('heading', { name: 'ครบจบในแอปเดียว' })).toBeVisible();
+  // no legend line under the heading (taken out, owner 2026-10-30); each feature carries its own label
+  await expect(page.locator('#cl-features')).not.toContainText('คือฟีเจอร์ในแพ็กเกจ Pro');
+  await expect(page.locator('#cl-features .cl-tier')).toHaveCount(0);
   // the documents are the app's own A4 sheets, not pictures
   const docs = page.locator('.cl-feat.is-docs');
   await docs.scrollIntoViewIfNeeded();

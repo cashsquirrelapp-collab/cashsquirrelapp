@@ -254,8 +254,6 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-tier.is-pro { padding: 4px 14px 4px 6px; background: var(--cream); color: var(--deep); font-family: 'IBM Plex Sans', var(--font-sans); font-size: 12.5px; letter-spacing: 0.14em; }
 .cl-tier.is-pro img { width: 20px; height: 20px; }
 .cl-tier + h2 { margin-top: 14px; }
-.cl-tier-legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
-.cl-tier-legend > span:last-child { color: var(--muted); font-size: 15px; line-height: 1.6; }
 /* The live chat screen (ChatLive.tsx), drawn at the app's window size and scaled to the figure; it fills its stage. */
 .cl-chatlive { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .cl-chatlive-stage { position: relative; overflow: hidden; background: var(--white, #FFFFFF); text-align: left; } /* the app's own alignment, not the section's centring */

@@ -800,7 +800,6 @@ export default function CleanLanding() {
             <span className="cl-eyebrow">{tr('ฟีเจอร์')}</span>
             <h2 id="cl-features-title" data-words aria-label={tr('ครบจบในแอปเดียว')}><span aria-hidden="true"><Words text={tr('ครบจบในแอปเดียว')} /></span></h2>
             <p>{tr('ทุกเรื่องเงินของงานอิสระ ตั้งแต่จดงานจนได้รับเงิน')}</p>
-            <p className="cl-tier-legend"><Tier pro /><span>{tr('คือฟีเจอร์ในแพ็กเกจ Pro ส่วนที่เหลือเริ่มใช้ได้ฟรี')}</span></p>
           </div>
         </section>
 
