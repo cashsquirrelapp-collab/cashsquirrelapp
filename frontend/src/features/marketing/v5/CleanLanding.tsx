@@ -13,7 +13,7 @@ import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { Physics2DPlugin } from 'gsap/Physics2DPlugin';
 import { Draggable } from 'gsap/Draggable';
-import { Bell, Bug, CalendarDays, Check, CircleHelp, FileSearch, FileText, Instagram, Lightbulb, Mail, Music2, NotebookPen, Plus, Wallet } from 'lucide-react';
+import { Bell, Bug, Check, CircleHelp, Coins, FileText, Instagram, Lightbulb, Mail, Music2, NotebookPen, Plus, Wallet } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { Mascot } from '../../../components/mascot/Mascot';
 import { LineLogo } from '../../../components/ui/LineLogo';
@@ -28,6 +28,7 @@ import { statusFor, type AssistantMode } from '../../assistant/assistantMock';
 import '../v4/demos.css';
 import { HelpForm } from './HelpForm';
 import { BRAND_LINKS } from './brandLinks';
+import { FULL_LAUNCH_AT } from './launch';
 import type { PublicFeedbackKind } from '../../../../../shared/feedbackPublic';
 import './clean.css';
 
@@ -53,12 +54,14 @@ const SCENE = '(min-width: 960px) and (min-height: 600px) and (prefers-reduced-m
 const MOTION = '(prefers-reduced-motion: no-preference)';
 const FINE_POINTER = '(hover: hover) and (pointer: fine)';
 
+// The five problems, in the owner's words and order (2026-10-29): forgot to note it, documents, money mixed up,
+// chasing who has paid, not knowing the real profit.
 const NOTES = [
-  { icon: Wallet, text: T('ลูกค้ายังไม่โอนเลย\nต้องทักไปทวงอีกแล้ว') },
-  { icon: FileSearch, text: T('ใบเสนอราคา\nเดือนก่อนอยู่ไหนนะ') },
-  { icon: NotebookPen, text: T('จดงานไว้ในโน้ต 3 ที่\nหาไม่เจอสักที่') },
-  { icon: CircleHelp, text: T('เดือนนี้เหลือเงิน\nเท่าไรกันแน่') },
-  { icon: CalendarDays, text: T('วันไหนเงินจะเข้า\nจำไม่ได้เลย') },
+  { icon: NotebookPen, text: T('โอ๊ย จ่ายอะไรไปบ้างเนี่ย\nไม่ได้จดอีกแล้ว') },
+  { icon: FileText, text: T('แค่ทำใบเสนอราคา\nทำไมมันยุ่งยากจัง') },
+  { icon: Coins, text: T('อันไหนเงินงาน อันไหนเงินตัวเอง\nปนกันไปหมดแล้ว') },
+  { icon: Wallet, text: T('ลูกค้าคนไหนยังไม่จ่ายบ้างนะ\nต้องไล่เช็กใหม่อีกแล้ว') },
+  { icon: CircleHelp, text: T('ทำงานมาตั้งเยอะ\nตกลงเหลือกำไรเท่าไรกันแน่') },
 ];
 
 const FAQ: { q: string; a: string }[] = [
@@ -138,29 +141,62 @@ function usePromoSeconds(running: boolean) {
   return seconds;
 }
 
+/** Four tiles: days, hours, minutes, seconds left, read out once as a whole (not every second). */
+function CountTiles({ left }: { left: number }) {
+  const days = Math.floor(left / 86400), hours = Math.floor(left / 3600) % 24, minutes = Math.floor(left / 60) % 60, seconds = left % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return (
+    <div role="timer" aria-live="off" data-seconds-left={left} className="cl-tiles-count"
+      aria-label={tr('เวลาที่เหลือ {0} วัน {1} ชั่วโมง {2} นาที {3} วินาที', days, hours, minutes, seconds)}>
+      {[[pad(days), tr('วัน')], [pad(hours), tr('ชั่วโมง')], [pad(minutes), tr('นาที')], [pad(seconds), tr('วินาที')]].map(([value, label]) => (
+        <span key={label} className="cl-tick" aria-hidden="true"><b>{value}</b><small>{label}</small></span>
+      ))}
+    </div>
+  );
+}
+
 /** The deal's countdown as four glass tiles (days, hours, minutes, seconds), only while the offer runs. */
 function Countdown() {
   const running = useMonthPromoRunning();
   const left = usePromoSeconds(running);
   if (!running || left <= 0) return null;
-  const days = Math.floor(left / 86400), hours = Math.floor(left / 3600) % 24, minutes = Math.floor(left / 60) % 60, seconds = left % 60;
-  const pad = (value: number) => String(value).padStart(2, '0');
   return (
     <div className="cl-count">
       <p className="cl-count-label">{tr('ดีลพิเศษ Pro {0} หมดใน', formatBaht(proPriceParts('month').price))}</p>
-      <div role="timer" aria-live="off" data-seconds-left={left} className="cl-tiles-count"
-        aria-label={tr('เวลาที่เหลือ {0} วัน {1} ชั่วโมง {2} นาที {3} วินาที', days, hours, minutes, seconds)}>
-        {[[pad(days), tr('วัน')], [pad(hours), tr('ชั่วโมง')], [pad(minutes), tr('นาที')], [pad(seconds), tr('วินาที')]].map(([value, label]) => (
-          <span key={label} className="cl-tick" aria-hidden="true"><b>{value}</b><small>{label}</small></span>
-        ))}
-      </div>
+      <CountTiles left={left} />
     </div>
   );
 }
 
-/** A floating glass card in the hero. Three layers: place (scroll), float (idle bob), card (entrance). */
-function Tile({ n, text, tone = '', children }: { n: number; text?: boolean; tone?: string; children: React.ReactNode }) {
-  return <span className={`cl-tile is-${n}${text ? ' has-text' : ''}`}><span className="cl-tile-float"><span className={`cl-tile-card cl-glass ${tone}`}>{children}</span></span></span>;
+function useSecondsUntil(at: number) {
+  const secondsLeft = React.useCallback(() => Math.max(0, Math.ceil((at - Date.now()) / 1000)), [at]);
+  const [seconds, setSeconds] = React.useState(secondsLeft);
+  React.useEffect(() => {
+    if (secondsLeft() <= 0) { setSeconds(0); return; }
+    const tick = () => { const left = secondsLeft(); setSeconds(left); if (left <= 0) window.clearInterval(timer); };
+    const timer = window.setInterval(tick, 1000);
+    tick();
+    return () => window.clearInterval(timer);
+  }, [secondsLeft]);
+  return seconds;
+}
+
+/** Under the start button: the days left until Krarok is ready in full (owner, 2026-10-29); gone once the day comes. */
+function LaunchCountdown() {
+  const left = useSecondsUntil(FULL_LAUNCH_AT);
+  if (left <= 0) return null;
+  return (
+    <div className="cl-launch">
+      <p className="cl-launch-label">{tr('พร้อมให้ใช้งานเต็มรูปแบบ 1 ธันวาคม 2569')}</p>
+      <CountTiles left={left} />
+    </div>
+  );
+}
+
+/** A floating glass card in the hero. Three layers: place (scroll), float (idle bob), card (entrance). A bare tile is
+ *  just its icon, as large as a card, with no glass around it (owner, 2026-10-29: LINE, Gmail, the document, the squirrel). */
+function Tile({ n, text, bare, tone = '', children }: { n: number; text?: boolean; bare?: boolean; tone?: string; children: React.ReactNode }) {
+  return <span className={`cl-tile is-${n}${text ? ' has-text' : ''}${bare ? ' is-bare' : ''}`}><span className="cl-tile-float"><span className={`cl-tile-card${bare ? '' : ' cl-glass'} ${tone}`}>{bare ? <span className="cl-tile-bare">{children}</span> : children}</span></span></span>;
 }
 
 function Sparkline() {
@@ -329,8 +365,8 @@ export default function CleanLanding() {
       // money screen (ScrambleText, digits only) and the month's line draws itself (DrawSVG).
       const intro = gsap.timeline({ defaults: { ease: 'power3.out' } });
       intro.from(q('.cl-hero h1 .cl-w'), { yPercent: 115, rotation: 5, transformOrigin: '0% 100%', duration: 1.2, ease: 'krarok', stagger: 0.07 }, 0.05)
-        .from(q('.cl-lead'), { y: 14, autoAlpha: 0, duration: 0.7 }, 0.5)
         .from(q('.cl-cta'), { y: 18, autoAlpha: 0, scale: 0.92, duration: 0.8, ease: 'back.out(1.8)' }, 0.65)
+        .from(q('.cl-launch'), { y: 16, autoAlpha: 0, duration: 0.8 }, 0.8)
         .from(q('.cl-tile-card'), { autoAlpha: 0, scale: 0.55, rotation: () => gsap.utils.random(-14, 14), duration: 1, ease: 'back.out(1.7)', stagger: { each: 0.08, from: 'random' } }, 0.35)
         .from(q('.cl-device-frame'), { opacity: 0, duration: 0.8 }, 0.5)
         .from(q('.cl-spark-line'), { drawSVG: 0, duration: 1.3, ease: 'power2.inOut' }, 0.9);
@@ -560,17 +596,19 @@ export default function CleanLanding() {
           <div className="cl-pin">
             <div className="cl-top">
               <div className="cl-hero">
-                <h1 id="cl-h1" aria-label={`${tr('เรื่องเงินของงานอิสระ')} ${trc('hero', 'ให้')}${tr('เลขากระรอก')}${trc('hero', 'ดูแล')}`}><span aria-hidden="true"><span className="gl-nw"><Words text={tr('เรื่องเงินของงานอิสระ')} /></span><br /><span className="gl-nw"><Words text={trc('hero', 'ให้')} /><MaskedGrad text={tr('เลขากระรอก')} className="gl-loop" /><Words text={trc('hero', 'ดูแล')} /></span></span></h1>
-                <p className="cl-lead">{tr('จดงาน เตือนลูกค้าจ่าย ออกใบเสนอราคาถึงใบเสร็จ')} <br />{tr('แค่พิมพ์หรือพูดภาษาปกติ ทั้งในแอปและใน LINE')}</p>
+                <h1 id="cl-h1" aria-label={`${trc('hero', 'ตั้งแต่รับงาน')} ${trc('hero', 'จนถึงรับเงิน')} ${trc('hero', 'ให้')}${tr('เลขากระรอก')}${trc('hero', 'ดูแล')}`}><span aria-hidden="true"><span className="cl-h1-top"><span className="gl-nw"><Words text={trc('hero', 'ตั้งแต่รับงาน')} /></span> <span className="gl-nw"><Words text={trc('hero', 'จนถึงรับเงิน')} /></span></span><br /><span className="gl-nw"><Words text={trc('hero', 'ให้')} /><MaskedGrad text={tr('เลขากระรอก')} className="gl-loop is-flow" /><Words text={trc('hero', 'ดูแล')} /></span></span></h1>
+                {/* No line of copy under the headline (owner, 2026-10-29): typing or speaking to เลขา is Pro only, and the
+                    hero must not suggest it comes free. */}
                 <div className="cl-cta"><StartButton /></div>
+                <LaunchCountdown />
               </div>
               <div className="cl-tiles" aria-hidden="true">
-                <Tile n={1}><LineLogo size={30} /></Tile>
+                <Tile n={1} bare><LineLogo size={62} /></Tile>
                 <Tile n={2} text tone="is-solid"><span className="cl-tile-icon is-white"><Bell size={16} /></span><span className="cl-tile-pair"><b className="gl-num" data-scramble>08:00</b><small>{tr('เตือนรับเงิน')}</small></span></Tile>
                 <Tile n={3} text><span className="cl-tile-icon is-green"><Plus size={16} strokeWidth={3} /></span><span className="cl-tile-pair"><b className="gl-num is-green" data-scramble>+฿5,000</b><small>{tr('รับแล้ว')}</small></span></Tile>
-                <Tile n={4}><span className="cl-tile-doc"><FileText size={26} /></span></Tile>
-                <Tile n={5}><GmailLogo size={28} /></Tile>
-                <Tile n={6}><span className="cl-tile-face"><Mascot gear="headset" mood="happy" animated={false} size={46} viewBox="12 8 76 76" /></span></Tile>
+                <Tile n={4} bare><span className="cl-tile-doc"><FileText size={30} /></span></Tile>
+                <Tile n={5} bare><GmailLogo size={62} bare /></Tile>
+                <Tile n={6} bare><Mascot gear="headset" mood="happy" animated={false} size={74} viewBox="12 8 76 76" /></Tile>
                 <Tile n={7} text><span className="cl-tile-stat"><small><i className="is-due" />{tr('เงินรอรับ')}</small><b className="gl-num" data-scramble>฿12,500</b><em>{tr('{0} งาน', 2)}</em></span></Tile>
                 <Tile n={8} text><span className="cl-tile-stat"><small><i className="is-in" />{tr('เงินเข้าเดือนนี้')}</small><b className="gl-num" data-scramble>฿38,500</b><Sparkline /></span></Tile>
               </div>
@@ -620,8 +658,8 @@ export default function CleanLanding() {
         <section className="cl-problem" aria-labelledby="cl-problem-title">
           <div className="cl-problem-stage">
             <div className="cl-problem-head">
-              <span className="cl-eyebrow">{tr('ปัญหาที่ฟรีแลนซ์เจอ')}</span>
-              <h2 id="cl-problem-title" data-words aria-label={`${trc('problem', 'งานฟรีแลนซ์')}${trc('problem', 'ก็เหนื่อยพอแล้ว…')}`}><span aria-hidden="true"><span className="gl-nw"><Words text={trc('problem', 'งานฟรีแลนซ์')} /></span><wbr /><span className="gl-nw"><Words text={trc('problem', 'ก็เหนื่อยพอแล้ว…')} /></span></span></h2>
+              <span className="cl-eyebrow">{tr('เคยเป็นแบบนี้ไหม?')}</span>
+              <h2 id="cl-problem-title" data-words aria-label={`${trc('problem', 'แค่รับงาน')}${trc('problem', 'ก็เหนื่อยพอแล้ว…')}`}><span aria-hidden="true"><span className="gl-nw"><Words text={trc('problem', 'แค่รับงาน')} /></span><wbr /><span className="gl-nw"><Words text={trc('problem', 'ก็เหนื่อยพอแล้ว…')} /></span></span></h2>
               <p>{tr('เรื่องเงินที่เหลือ ให้เลขากระรอกจัดการ')}</p>
             </div>
             <ul className="cl-notes">{NOTES.map(({ icon: Icon, text }, at) => (

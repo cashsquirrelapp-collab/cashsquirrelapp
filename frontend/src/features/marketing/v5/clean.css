@@ -29,6 +29,12 @@
 a:hover > .cl-roll > span:first-child, a:focus-visible > .cl-roll > span:first-child { translate: 0 -110%; }
 a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { translate: 0 0; }
 .cl-grad { padding-block: 0.04em; background: linear-gradient(90deg, #C24A16, #E65F2B 50%, #F2A23A); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* The hero's เลขากระรอก: the same colours, running slowly across the word without stopping (owner, 2026-10-29).
+   The strip is twice the word's width and starts and ends on the same colour, so one full slide loops seamlessly. */
+.cl-grad.is-flow { background-image: linear-gradient(90deg, #C24A16 0%, #E65F2B 25%, #F2A23A 50%, #E65F2B 75%, #C24A16 100%);
+  background-size: 200% 100%; background-repeat: repeat-x; animation: cl-flow 9s linear infinite; }
+@keyframes cl-flow { from { background-position: 0% 50%; } to { background-position: -200% 50%; } }
+@media (prefers-reduced-motion: reduce) { .cl-grad.is-flow { animation: none; } }
 .cl-skip { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 8px 14px; border-radius: 10px; background: var(--ink); color: #FFFFFF; }
 .cl-skip:focus { top: 12px; }
 .cl a:focus-visible, .cl summary:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
@@ -50,18 +56,25 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-btn.is-light .cl-btn-bg { background: #FFFFFF; }
 .cl-btn.is-small { min-height: 44px; padding: 0 20px; font-size: 15px; background: linear-gradient(111deg, #B03E0E 6%, #C64917 52%, #E4612B 100%); }
 
-/* The top bar: a floating liquid glass capsule (owner: "โค้งๆมนๆกลมๆ ไม่เป็นเหลี่ยม"). */
+/* The top bar: a floating capsule of frosted glass (owner: "โค้งๆมนๆกลมๆ ไม่เป็นเหลี่ยม"; 2026-10-29: hazy and blurred,
+   "เบลอๆ มัวๆ"): see-through enough that what scrolls under it shows as soft blurred colour, a light sheen across the
+   middle, and a fine grain so the glass reads as frosted rather than as a white strip. */
 .cl-bar { position: fixed; top: 14px; left: 0; right: 0; z-index: 60; padding: 0 16px; pointer-events: none; }
-.cl-bar-in { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1140px; height: 64px; margin: 0 auto; padding: 0 10px 0 22px;
-  border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 999px; background: rgba(255, 255, 255, 0.74); pointer-events: auto;
-  box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.07), inset 0 1px 0 #FFFFFF, 0 14px 34px -16px rgba(28, 25, 23, 0.25);
-  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); transition: background 0.3s ease, box-shadow 0.3s ease; }
-.cl-bar.is-scrolled .cl-bar-in { background: rgba(255, 255, 255, 0.88); box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.08), inset 0 1px 0 #FFFFFF, 0 18px 40px -16px rgba(28, 25, 23, 0.3); }
+.cl-bar-in { position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1140px; height: 64px; margin: 0 auto; padding: 0 10px 0 22px;
+  border: 1px solid rgba(255, 255, 255, 0.72); border-radius: 999px; pointer-events: auto;
+  background: linear-gradient(100deg, rgba(244, 243, 242, 0.5) 0%, rgba(250, 249, 248, 0.42) 34%, rgba(255, 255, 255, 0.7) 56%, rgba(246, 245, 244, 0.46) 78%, rgba(240, 239, 238, 0.52) 100%);
+  box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(28, 25, 23, 0.04), 0 14px 34px -16px rgba(28, 25, 23, 0.22);
+  -webkit-backdrop-filter: blur(28px) saturate(160%); backdrop-filter: blur(28px) saturate(160%); transition: background 0.3s ease, box-shadow 0.3s ease; }
+.cl-bar-in::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"); }
+.cl-bar.is-scrolled .cl-bar-in { background: linear-gradient(100deg, rgba(244, 243, 242, 0.62) 0%, rgba(250, 249, 248, 0.56) 34%, rgba(255, 255, 255, 0.8) 56%, rgba(246, 245, 244, 0.6) 78%, rgba(240, 239, 238, 0.64) 100%);
+  box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(28, 25, 23, 0.04), 0 18px 40px -16px rgba(28, 25, 23, 0.28); }
 .cl-progress { position: absolute; left: 28px; right: 28px; bottom: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #C24A16, #E65F2B 55%, #F2A23A); transform: scaleX(0); transform-origin: 0 50%; pointer-events: none; }
 .cl-logo { display: flex; align-items: center; color: inherit; text-decoration: none; }
 /* The wordmark's first word follows the app's text colour, which the landing does not set; it is ink here. */
 .cl .krarok-brand-name { color: #2B1B15; }
-.cl-links { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(28, 25, 23, 0.045); }
+/* The menu's links sit straight on the glass, with no pill around them (owner, 2026-10-29: "เอากรอบรอบนอกออก"). */
+.cl-links { display: flex; gap: 4px; padding: 4px; }
 .cl-links a { padding: 6px 16px; border-radius: 999px; color: var(--muted); font-size: 14.5px; font-weight: 500; line-height: 1.5; text-decoration: none; transition: background 0.2s ease, color 0.2s ease; }
 .cl-links a:hover { background: #FFFFFF; color: var(--ink); }
 .cl-login { color: var(--muted); font-size: 15px; font-weight: 500; line-height: 1.45; text-decoration: none; }
@@ -72,10 +85,19 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-scene { position: relative; }
 .cl-pin { position: relative; }
 .cl-top { position: relative; z-index: 2; max-width: 1360px; margin: 0 auto; padding: calc(var(--bar) + 64px) 24px 36px; }
-.cl-hero { position: relative; z-index: 2; max-width: 820px; margin: 0 auto; text-align: center; }
+/* 880px: the headline's first line (ตั้งแต่รับงาน จนถึงรับเงิน, since 2026-10-29) stays on one line up to the 80px size. */
+.cl-hero { position: relative; z-index: 2; max-width: 880px; margin: 0 auto; text-align: center; }
 .cl-hero h1 { font-size: clamp(56px, 5.4vw, 80px); font-weight: 600; line-height: 1.45; }
-.cl-lead { margin-top: 18px; color: var(--muted); font-size: 20px; line-height: 1.65; }
 .cl-cta { display: flex; justify-content: center; margin-top: 10px; }
+/* The launch countdown under the start button (owner, 2026-10-29): the closing card's four tiles, here as the hero's
+   frosted white glass with ink digits. */
+.cl-launch { margin-top: 2px; }
+.cl-launch-label { color: var(--muted); font-size: 15px; font-weight: 600; line-height: 1.45; }
+.cl-launch .cl-tiles-count { margin-top: 10px; }
+.cl-launch .cl-tick { width: 78px; height: 72px; border-radius: 20px; background: linear-gradient(155deg, rgba(255, 255, 255, 0.96), rgba(250, 249, 248, 0.86));
+  box-shadow: var(--cl-shadow), inset 0 1px 0 #FFFFFF, inset 0 0 0 1px rgba(28, 25, 23, 0.05); }
+.cl-launch .cl-tick b { color: var(--ink); font-size: 30px; }
+.cl-launch .cl-tick small { color: var(--muted); font-size: 12.5px; }
 
 /* The floating cards: in a row under the words, or (1200px and up) beside them. */
 .cl-tiles { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 12px; }
@@ -96,7 +118,13 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-tile-pair small { color: var(--muted); font-size: 12px; line-height: 1.45; }
 .cl-tile-card.is-solid .cl-tile-pair small { color: #FFE7D6; }
 .cl-tile-doc { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(160deg, #E65F2B, #C24A16); color: #FFFFFF; }
-.cl-tile-face { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; background: #FFF1E8; }
+/* LINE, Gmail and the document with no glass around them: the icon itself is as large as a card (owner, 2026-10-29),
+   with only a soft shadow under it so it still floats. On phones the 62px icon is drawn at the 52px card size. */
+.cl-tile.is-bare .cl-tile-card { width: 62px; height: 62px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.cl-tile-bare { display: grid; place-items: center; width: 62px; height: 62px; flex: none; filter: drop-shadow(0 10px 14px rgba(28, 25, 23, 0.14)); }
+.cl-tile.is-bare .cl-tile-doc { width: 62px; height: 62px; border-radius: 15px; }
+/* The squirrel too, with no glass or circle around it, a little larger than the icons (owner, 2026-10-29). */
+.cl-tile.is-6 .cl-tile-card, .cl-tile.is-6 .cl-tile-bare { width: 76px; height: 76px; }
 .cl-tile-stat { display: flex; flex-direction: column; min-width: 158px; padding: 4px 2px; }
 .cl-tile-stat small { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; font-weight: 500; line-height: 1.45; }
 .cl-tile-stat small i { width: 8px; height: 8px; border-radius: 50%; }
@@ -158,8 +186,10 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-problem-head { position: relative; z-index: 1; text-align: center; }
 .cl-problem-head h2 { margin-top: 16px; font-size: 56px; font-weight: 600; line-height: 1.45; }
 .cl-problem-head p { margin-top: 10px; color: var(--muted); font-size: 19px; line-height: 1.6; }
-.cl-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 620px; margin: 48px auto 0; }
+.cl-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 700px; margin: 48px auto 0; }
 .cl-note { display: block; }
+/* The owner's line breaks are kept; a line longer than its note wraps inside it rather than running out. */
+.cl-note .gl-hand .gl-nw { white-space: normal; }
 .cl-note-in { display: flex; flex-direction: column; gap: 10px; height: 100%; padding: 18px 20px 20px; border-radius: 24px; font-size: 21px; line-height: 1.75; }
 .cl-note-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #FFE2D1; color: var(--rust); }
 .cl-note.is-1 { rotate: -3deg; }
@@ -375,7 +405,7 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-tiles { position: absolute; inset: 0; display: block; max-width: 1400px; margin: 0 auto; }
   .cl-tile { position: absolute; }
   .cl-tile.is-7, .cl-tile.is-8 { display: block; }
-  .cl-tile.is-1 { left: 13%; top: 17%; }
+  .cl-tile.is-1 { left: 11%; top: 17%; } /* 11%: clear of the longer headline (2026-10-29) */
   .cl-tile.is-7 { left: 2%; top: 30%; }
   .cl-tile.is-4 { left: 9%; top: 58%; }
   .cl-tile.is-3 { left: 2.5%; top: 75%; }
@@ -388,12 +418,14 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-problem-stage { height: 620px; }
   .cl-problem-head { position: absolute; left: 50%; top: 170px; width: 520px; margin-left: -260px; }
   .cl-notes { display: block; max-width: none; margin: 0; }
-  .cl-note { position: absolute; width: 270px; }
+  /* Each note is as wide as its longest line (the owner's lines, 2026-10-29), between 270px and 340px. */
+  .cl-note { position: absolute; width: max-content; min-width: 270px; max-width: 340px; }
+  .cl.is-en .cl-note { width: 270px; min-width: 0; max-width: none; } /* English wraps; the heading beside it is wider */
   .cl-note.is-1 { left: 0; top: 40px; }
   .cl-note.is-2 { right: 0; top: 10px; }
-  .cl-note.is-3 { left: 40px; top: 360px; }
+  .cl-note.is-3 { left: 0; top: 380px; }
   .cl-note.is-4 { right: 30px; top: 330px; }
-  .cl-note.is-5 { left: 50%; top: 470px; margin-left: -135px; }
+  .cl-note.is-5 { left: 0; right: 0; top: 470px; margin-inline: auto; }
 }
 
 /* Below the wide layout the notes sit in rows: a smaller tilt and more room, so tilted, bobbing notes never meet. */
@@ -434,9 +466,13 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-progress { left: 20px; right: 20px; }
   .cl-login { display: none; }
   .cl-top { padding: calc(var(--bar) + 30px) 18px 26px; }
-  .cl-hero h1 { font-size: 36px; line-height: 1.45; }
-  .cl-lead { margin-top: 14px; font-size: 15.5px; }
-  .cl-lead br { display: none; }
+  /* Two lines on phones (owner, 2026-10-29): the first line (about 10.6 times the type size wide) fits the screen. */
+  .cl-hero h1 { font-size: min(36px, calc((100vw - 36px) / 10.9)); line-height: 1.45; }
+  .cl-launch { margin-top: 20px; }
+  .cl-launch-label { font-size: 14px; }
+  .cl-launch .cl-tiles-count { gap: 8px; }
+  .cl-launch .cl-tick { width: 68px; height: 64px; border-radius: 18px; }
+  .cl-launch .cl-tick b { font-size: 26px; }
   .cl-cta { margin-top: 22px; }
   .cl-mag { display: flex; width: 100%; padding: 0; }
   .cl-mag .cl-btn { width: 100%; }
@@ -445,6 +481,8 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-tile.is-4, .cl-tile.is-5, .cl-tile.is-6 { display: none; }
   .cl-tile-card { min-height: 52px; padding: 8px 12px 8px 8px; border-radius: 17px; }
   .cl-tile:not(.has-text) .cl-tile-card { width: 52px; }
+  .cl-tile.is-bare .cl-tile-card { height: 52px; }
+  .cl-tile-bare { scale: 0.8387; }
   .cl-tile-icon { width: 30px; height: 30px; }
   .cl-tile-pair b { font-size: 14px; }
   .cl-tile-pair small { font-size: 11px; }
@@ -501,8 +539,8 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-foot { padding: 32px 18px 30px; font-size: 14px; }
   .cl-foot-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .cl-foot-legal { flex-direction: column; align-items: flex-start; font-size: 12.5px; }
-  .cl-help-link { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; }
-  .cl-help-link span { display: none; }
+  /* No help button in the phone's bar (owner, 2026-10-29); help is in the footer and under the price. */
+  .cl-help-link { display: none; }
   .cl-bar-right { gap: 6px; }
   .cl-feedback-cta { margin-top: 24px; padding: 16px; border-radius: 20px; }
   .cl-feedback-buttons { width: 100%; }
@@ -538,7 +576,7 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 @media (min-width: 960px) and (max-width: 1199px) and (min-height: 600px) and (prefers-reduced-motion: no-preference) {
   .cl { --cl-lw: min(50vw, calc((100svh - var(--bar) - 90px) * 1.42)); }
   .cl-hero h1 { font-size: 54px; }
-  .cl-tiles { margin-top: 4px; }
+  .cl-tiles { margin-top: 20px; } /* clear of the launch countdown while the cards bob */
 }
 
 /* Without motion everything is simply in place (GSAP does nothing then). */

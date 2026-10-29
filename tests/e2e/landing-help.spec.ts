@@ -88,11 +88,9 @@ test('a failed send says so and keeps what was typed; sending again works', asyn
   await expect(page.getByRole('dialog').getByText('ได้รับเรื่องแล้ว ขอบคุณที่ช่วยให้กระรอกดีขึ้น')).toBeVisible();
 });
 
-test('on a phone: ช่วยเหลือ in the bar, the form as a sheet inside the screen, nothing overlapping', async ({ page }) => {
+test('on a phone: no help button in the bar (owner, 2026-10-29); the form as a sheet inside the screen, nothing overlapping', async ({ page }) => {
   await open(page, { width: 390, height: 844 });
-  const help = page.locator('.cl-bar').getByRole('link', { name: 'ช่วยเหลือ' });
-  await expect(help).toBeVisible();
-  await expect(help).toHaveAttribute('href', '#cl-help');
+  await expect(page.locator('.cl-bar').getByRole('link', { name: 'ช่วยเหลือ' })).toBeHidden();
   await page.getByRole('button', { name: 'แจ้งปัญหา / บั๊ก' }).first().click();
   const dialog = page.getByRole('dialog', { name: 'ส่งเรื่องถึงทีมกระรอก' });
   await expect(dialog).toBeVisible();

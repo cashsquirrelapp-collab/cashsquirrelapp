@@ -1,6 +1,18 @@
 // English for the clean, liquid-glass landing (features/marketing/v5, 2026-10-29). The rest of its copy is shared with
 // the previous landing (landing4.ts).
 export const landing5: Record<string, string> = {
+  // the hero since 2026-10-29: ตั้งแต่รับงาน จนถึงรับเงิน / ให้เลขากระรอกดูแล
+  'hero|ตั้งแต่รับงาน': 'From job',
+  'hero|จนถึงรับเงิน': 'to payday,',
+  'พร้อมให้ใช้งานเต็มรูปแบบ 1 ธันวาคม 2569': 'Fully available from 1 December 2026',
+  // the problem notes since 2026-10-29
+  'เคยเป็นแบบนี้ไหม?': 'Sound familiar?',
+  'problem|แค่รับงาน': 'Just the work ',
+  'โอ๊ย จ่ายอะไรไปบ้างเนี่ย\nไม่ได้จดอีกแล้ว': 'Ugh, what did I spend on?\nForgot to note it again.',
+  'แค่ทำใบเสนอราคา\nทำไมมันยุ่งยากจัง': 'Just making a quotation,\nwhy is it such a hassle?',
+  'อันไหนเงินงาน อันไหนเงินตัวเอง\nปนกันไปหมดแล้ว': 'Which is work money, which is mine?\nIt’s all mixed up.',
+  'ลูกค้าคนไหนยังไม่จ่ายบ้างนะ\nต้องไล่เช็กใหม่อีกแล้ว': 'Which clients haven’t paid yet?\nTime to check them all again.',
+  'ทำงานมาตั้งเยอะ\nตกลงเหลือกำไรเท่าไรกันแน่': 'So much work done,\nbut how much profit is left?',
   'stage|เห็นเงิน': 'See your money ',
   'stage|ทั้งเดือน': 'for the whole month ',
   'stage|ในหน้าเดียว': 'on one screen',

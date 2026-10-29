@@ -259,6 +259,17 @@ card does not need:
   bar is a floating rounded glass capsule. No comparison with hiring a real secretary (accountants will use Krarok too).
   The hero is the headline, one line of copy and เริ่มใช้ฟรี only. The start button follows GSAP's magnetic-button demo
   (a CI gradient pill, ink label, pulled by the pointer, elastic spring back, an occasional CustomWiggle).
+- Hero round 6 (owner, 2026-10-29 night): the headline reads "ตั้งแต่รับงาน จนถึงรับเงิน / ให้เลขากระรอกดูแล", two lines
+  on every screen (phones size the type to fit). No line of copy under it: typing or speaking to เลขา is Pro only and
+  the hero must not suggest it comes free. Under เริ่มใช้ฟรี, "พร้อมให้ใช้งานเต็มรูปแบบ 1 ธันวาคม 2569" counts down in four
+  frosted tiles (`v5/launch.ts`) and goes on the day. เลขากระรอก's CI gradient runs slowly across the word without stopping
+  (`is-flow`, 9 s a loop, still with reduced motion). The top bar is hazy frosted glass (see-through, blurred, a light
+  sheen, a fine grain); its links sit on it with no pill; phones have no help button in it (help is in the footer and
+  under the price). LINE, Gmail, the document and the squirrel float with no glass around them, the icons as large as
+  a card (62px; 52px on phones), the squirrel a little larger (76px), each with only a soft shadow.
+- The problems (owner's copy, 2026-10-29): "เคยเป็นแบบนี้ไหม?", "แค่รับงาน / ก็เหนื่อยพอแล้ว…", and five notes in the
+  owner's words and line breaks (forgot to note it, documents, money mixed up, who has paid, the real profit). A note is
+  as wide as its longest line (270–340px) on computers; a line wraps inside its note only where there is no room.
 - Each feature is a page of its own. The chat with เลขา is the app's real chat screen, recorded with example data
   (`public/landing-v5/chat-*.mp4`, no AI called), big, with เลขากระรอก beside it in the chat's own poses and words, in
   step with the recording (listening while typed to, thinking with the bulb, typing its answer, proud when saved).
