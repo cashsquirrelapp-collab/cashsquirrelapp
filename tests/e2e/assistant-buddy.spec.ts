@@ -609,10 +609,18 @@ test('the arrival plays only after a confirmed payment, once its success message
 test('paying: the squirrel walks out of its door at once, with no success message, and lands at its corner', async ({ page }) => {
   const paid = { checkout_ready: true, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z', cancel_at_period_end: false, stripe_status: 'active', has_subscription: true, intro_eligible: false, managed: false } };
   await open(page, 1280, 820, { free: true, billing: paid, path: '/plans?checkout=success&session_id=cs_test_arrival' });
-  // Owner, 2026-10-29: "ไม่ต้องบอกว่าสมัครสมาชิกสำเร็จ ... น้องออกมาเลย".
+  // Owner, 2026-10-29: "ไม่ต้องบอกว่าสมัครสมาชิกสำเร็จ ... น้องออกมาเลย", then "ขึ้นว่าชำระสำเร็จแล้ว ... ติ๊กถูก": no message
+  // box; inside the scene a tick draws itself with "ชำระเงินสำเร็จ", then the door scene starts as before.
   const stage = stageOf(page);
   await expect(stage).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole('heading', { name: 'สมัครสมาชิกสำเร็จ!' })).toHaveCount(0);
+  const paidTick = stage.getByRole('status').filter({ hasText: 'ชำระเงินสำเร็จ' });
+  await expect(paidTick).toBeVisible();
+  await expect(paidTick.locator('.kb-paid-tick')).toHaveCount(1);
+  await expect(stage.locator('.kb-door')).toHaveCount(0); // the door waits for the tick
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await snap(page, 'arrival-1280-paid.png');
+  await expect(paidTick).toHaveCount(0, { timeout: 3000 });
   await expect(stage.locator('.kb-door')).toHaveCount(1);
   // Dressed as the corner squirrel, in its headset (owner, 2026-10-29: "เวลาที่น้องเดินออกมาก็เป็นน้องใส่หูฟัง").
   await expect(stage.locator('.kb-figure .mpg-headset')).toHaveCount(1);

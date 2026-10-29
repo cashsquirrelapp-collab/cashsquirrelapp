@@ -292,6 +292,9 @@ export const assistant: Record<string, string> = {
   "อัปเกรดเป็น Pro เพื่อถามเรื่องงาน เอกสาร และเงินของคุณได้ทุกเรื่อง ระหว่างนี้ลองกดคำถามตัวอย่างได้ฟรี": "Upgrade to Pro to ask anything about your jobs, documents and money. Meanwhile, try the sample questions for free.",
   "ลองคำถามตัวอย่าง": "Try a sample question",
   "ไว้ทีหลัง": "Later",
+  // After paying, before the squirrel's door (2026-10-29).
+  "ชำระเงินสำเร็จ": "Payment successful",
+  "เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว": "Pro is now on for this account",
   "ช่วงทดลองใช้ Pro สิ้นสุดแล้ว · กดคำถามตัวอย่างได้ พิมพ์ถามเองต้องใช้ Pro": "Your Pro trial has ended · sample questions work, typing your own needs Pro",
   "โหมดทดลอง · กดคำถามตัวอย่างได้ พิมพ์ถามเองต้องใช้ Pro": "Try mode · sample questions work, typing your own needs Pro",
   // The ⋯ menu on history rows.

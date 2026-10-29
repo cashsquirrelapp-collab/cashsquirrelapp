@@ -643,6 +643,20 @@
 .kb-caret::after { content: ""; position: absolute; left: 2px; top: 0.08em; bottom: -0.02em; width: 2px; border-radius: 2px; background: var(--kb-ink); opacity: 0.75; animation: kb-blink 1s steps(2, start) infinite; }
 .kb-caret.is-done::after { animation: kb-fade-out 0.4s ease 0.6s forwards; }
 .kb-hello p { margin-top: 4px; font-size: 16px; line-height: 1.7; color: var(--muted); text-wrap: balance; }
+/* After paying: a green tick drawing itself in a ring, "ชำระเงินสำเร็จ", then it fades as the door scene begins. Green is
+   the colour for paid (DESIGN.md roles). */
+.kb-paid { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px; text-align: center; transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+.kb-paid.is-leaving { opacity: 0; transform: scale(0.94) translateY(-8px); }
+.kb-paid-mark { width: 104px; height: 104px; margin-bottom: 10px; overflow: visible; animation: kb-paid-pop 0.55s cubic-bezier(0.34, 1.5, 0.64, 1) both; }
+.kb-paid-disc { fill: var(--green-bg); opacity: 0; animation: kb-fade-in 0.4s ease 0.35s forwards; }
+.kb-paid-ring { fill: none; stroke: var(--green-acc); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transform: rotate(-90deg); transform-origin: 50% 50%; animation: kb-draw 0.55s cubic-bezier(0.65, 0, 0.35, 1) 0.1s forwards; }
+.kb-paid-tick { fill: none; stroke: var(--green-acc); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: kb-draw 0.38s cubic-bezier(0.65, 0, 0.35, 1) 0.6s forwards; }
+.kb-paid h2 { font-family: 'IBM Plex Sans Thai Looped', 'IBM Plex Sans', var(--font-sans); font-size: 30px; font-weight: 600; line-height: 1.45; color: var(--text); animation: kb-paid-words 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.75s both; }
+.kb-paid p { font-size: 16px; line-height: 1.7; color: var(--muted); animation: kb-paid-words 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.9s both; }
+@keyframes kb-paid-pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes kb-paid-words { from { opacity: 0; transform: translateY(8px); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@media (max-width: 743px) { .kb-paid h2 { font-size: 25px; } .kb-paid p { font-size: 15px; } .kb-paid-mark { width: 88px; height: 88px; } }
+@media (prefers-reduced-motion: reduce) { .kb-paid-mark, .kb-paid h2, .kb-paid p, .kb-paid-disc { animation: none; opacity: 1; } .kb-paid-ring, .kb-paid-tick { animation: none; stroke-dashoffset: 0; } .kb-paid { transition: none; } }
 @keyframes kb-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes kb-fade-out { to { opacity: 0; } }
 @keyframes kb-door-in { from { opacity: 0; transform: scaleY(0.05); filter: blur(6px); } 40% { opacity: 1; } to { opacity: 1; transform: none; filter: blur(0); } }

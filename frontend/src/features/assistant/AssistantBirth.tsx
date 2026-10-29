@@ -20,13 +20,15 @@ import './assistant.css';
 // It cannot be skipped (owner, 2026-10-29: "เอาปุ่มกดข้ามออก ... รอให้อนิเมชันจบ ... มันจะกดออกให้เอง"): it closes itself
 // when the flight lands. With reduced motion it is a calm hello that closes after about 3 seconds.
 
-type Phase = 'arrive' | 'jump' | 'ready' | 'leave' | 'open' | 'fly';
+type Phase = 'paid' | 'arrive' | 'jump' | 'ready' | 'leave' | 'open' | 'fly';
 
 type Props = {
   /** The person's name for the greeting, when known. */
   name?: string;
   /** Where the squirrel lands: the corner squirrel's own picture, so the hand-over is seamless. */
   target: () => DOMRect | null;
+  /** Right after paying: "ชำระเงินสำเร็จ" with a tick drawing itself first, then the door (owner, 2026-10-29). */
+  paid?: boolean;
   onDone: () => void;
 };
 
@@ -34,6 +36,10 @@ type Props = {
 // a second before the glass opens, and the flight starts while it opens, so one movement runs into the next
 // (owner, 2026-10-24: "ค่อย ๆ เฟด ... ให้มันคอนติเนียกัน ... สมูท").
 const TIMES = { walk: 1.2, walkFor: 1.65, jump: 2850, ready: 3500, type: 3700, leave: 6100, open: 6600, fly: 6900, flyFor: 1.15, safety: 9000 };
+// After paying (owner, 2026-10-29: "ขึ้นว่าชำระสำเร็จแล้ว ... ติ๊กถูก คนจะได้รู้"): the ring and the tick draw themselves,
+// the words come in, it fades away, and then the door scene starts as before (its own timing unchanged).
+// The words are fully in by 1.4 s and stay a moment to be read.
+const PAID = { leave: 2000, done: 2400, calm: 1800 };
 const TWINKLE = 'M12 0C13 8 16 11 24 12C16 13 13 16 12 24C11 16 8 13 0 12C8 11 11 8 12 0Z';
 
 /** Thai letters carry vowel and tone marks; splitting by grapheme keeps each letter whole while it types. */
@@ -61,9 +67,20 @@ function useTyping(text: string, running: boolean, instant: boolean) {
   return { typed: letters.slice(0, count).join(''), rest: letters.slice(count).join(''), done: count >= letters.length };
 }
 
-export default function AssistantBirth({ name, target, onDone }: Props) {
+export default function AssistantBirth({ name, target, onDone, paid = false }: Props) {
   const reduce = useReducedMotion();
-  const [phase, setPhase] = React.useState<Phase>(reduce ? 'ready' : 'arrive');
+  const [phase, setPhase] = React.useState<Phase>(paid ? 'paid' : reduce ? 'ready' : 'arrive');
+  // The door scene's clock starts once the payment's tick has been shown (at once when there is none).
+  const [started, setStarted] = React.useState(!paid);
+  const [paidLeaving, setPaidLeaving] = React.useState(false);
+  React.useEffect(() => {
+    if (!paid) return;
+    const timers = [
+      window.setTimeout(() => setPaidLeaving(true), reduce ? PAID.calm - 300 : PAID.leave),
+      window.setTimeout(() => { setPhase(reduce ? 'ready' : 'arrive'); setStarted(true); }, reduce ? PAID.calm : PAID.done),
+    ];
+    return () => { timers.forEach(timer => window.clearTimeout(timer)); };
+  }, [paid, reduce]);
   const [typing, setTyping] = React.useState(false);
   const [flight, setFlight] = React.useState<{ x: number; y: number; scale: number } | null>(null);
   const figureRef = React.useRef<HTMLDivElement>(null);
@@ -93,9 +110,10 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
     });
   }, [finish, reduce]);
 
+  // Focus moves into the dialog so screen readers announce it; nothing in it can be pressed.
+  React.useEffect(() => { stageRef.current?.focus({ preventScroll: true }); }, []);
   React.useEffect(() => {
-    // Focus moves into the dialog so screen readers announce it; nothing in it can be pressed.
-    stageRef.current?.focus({ preventScroll: true });
+    if (!started) return;
     const timers = reduce
       ? [window.setTimeout(finish, 3200)]
       : [
@@ -108,7 +126,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
         window.setTimeout(finish, TIMES.safety), // a safety net if the flight never reports back
       ];
     return () => { timers.forEach(timer => window.clearTimeout(timer)); };
-  }, [finish, fly, reduce]);
+  }, [started, finish, fly, reduce]);
 
   const ready = phase === 'ready' || phase === 'leave' || phase === 'open' || phase === 'fly';
   const greeting = name ? tr("สวัสดีครับ คุณ{0}", name) : tr("สวัสดีครับ");
@@ -118,6 +136,17 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
   return (
     <div ref={stageRef} tabIndex={-1} className={`kb-stage is-${phase}${reduce ? ' is-calm' : ''}`} role="dialog" aria-modal="true" aria-label={tr("เลขากระรอกพร้อมช่วยงานคุณแล้ว")}>
       <div className="kb-veil" aria-hidden="true" />
+      {phase === 'paid' ? (
+        <div className={`kb-paid${paidLeaving ? ' is-leaving' : ''}`} role="status">
+          <svg className="kb-paid-mark" viewBox="0 0 96 96" aria-hidden="true">
+            <circle className="kb-paid-disc" cx="48" cy="48" r="42" />
+            <circle className="kb-paid-ring" cx="48" cy="48" r="42" pathLength={100} />
+            <path className="kb-paid-tick" d="M29 49.5 L42 62.5 L67 35.5" pathLength={100} />
+          </svg>
+          <h2>{tr('ชำระเงินสำเร็จ')}</h2>
+          <p>{tr('เปิดสิทธิ์ Pro ให้บัญชีนี้แล้ว')}</p>
+        </div>
+      ) : (
       <div className="kb-center">
         <div className="kb-scene">
           <div className="kb-orbs" aria-hidden="true"><i className="is-1" /><i className="is-2" /><i className="is-3" /><i className="is-4" /></div>
@@ -173,6 +202,7 @@ export default function AssistantBirth({ name, target, onDone }: Props) {
           </motion.p>
         </motion.div>
       </div>
+      )}
     </div>
   );
 }

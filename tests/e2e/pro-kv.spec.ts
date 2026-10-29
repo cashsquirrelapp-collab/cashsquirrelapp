@@ -45,6 +45,9 @@ test('a free account gets the invitation once a week; ✕ and ไว้ทีห
   await expect(kv(page).locator('.pkv-hero svg').first()).toBeVisible();
   for (const feature of ['เตือนใน LINE', 'แจ้งทางอีเมล', 'เอกสารไม่จำกัด']) await expect(kv(page).getByText(feature, { exact: true })).toBeVisible();
   await expect(kv(page).getByTestId('promo-countdown')).toBeVisible();
+  // Computers get the landscape poster, grown to fill the screen (owner, 2026-10-29: "ขนาดมันเล็ก").
+  await expect(kv(page)).toHaveAttribute('data-layout', 'wide');
+  expect((await kv(page).boundingBox())!.width).toBeGreaterThanOrEqual(1000);
   expect(await textOverlapIssues(page)).toEqual([]);
   await shot(page, 'kv-computer');
   await kv(page).getByRole('button', { name: 'ปิด', exact: true }).click();
@@ -77,6 +80,7 @@ test('phones: the poster fits the screen; สมัคร Pro เลย opens th
   await open(page, '/dashboard?kv=pro', { width: 390, height: 844 });
   await expect(kv(page)).toBeVisible({ timeout: 8000 });
   await page.waitForTimeout(700);
+  await expect(kv(page)).toHaveAttribute('data-layout', 'tall');
   const box = (await kv(page).boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(6);
   expect(box.x + box.width).toBeLessThanOrEqual(390 - 6);
@@ -91,17 +95,22 @@ test('phones: the poster fits the screen; สมัคร Pro เลย opens th
   await expect(page).toHaveURL(/\/plans/);
 });
 
-test('iPad portrait and a short laptop: the poster fits the screen', async ({ page }) => {
+test('iPad portrait and a short laptop: each gets its layout and fits the screen', async ({ page }) => {
   await open(page, '/dashboard?kv=pro', { width: 820, height: 1180 });
   await expect(kv(page)).toBeVisible({ timeout: 8000 });
   await page.waitForTimeout(700);
+  // An upright iPad: the portrait poster, grown to fill the screen.
+  await expect(kv(page)).toHaveAttribute('data-layout', 'tall');
   const box = (await kv(page).boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(600);
   expect(box.x).toBeGreaterThanOrEqual(12);
   expect(box.x + box.width).toBeLessThanOrEqual(820 - 12);
+  expect(await textOverlapIssues(page)).toEqual([]);
   await shot(page, 'kv-ipad');
   // A laptop 700 px high: scaled down so ✕ and ไว้ทีหลัง stay on the screen.
   await page.setViewportSize({ width: 1280, height: 700 });
   await page.waitForTimeout(400);
+  await expect(kv(page)).toHaveAttribute('data-layout', 'wide');
   const close = (await kv(page).getByRole('button', { name: 'ปิด', exact: true }).boundingBox())!;
   const later = (await kv(page).getByRole('button', { name: 'ไว้ทีหลัง', exact: true }).boundingBox())!;
   expect(close.y).toBeGreaterThanOrEqual(0);
@@ -123,4 +132,16 @@ test('light and dark: the poster follows the theme and reads cleanly in both', a
   expect(await cardBackground()).toContain('rgb(43, 27, 21)');
   expect(await textOverlapIssues(page)).toEqual([]);
   await shot(page, 'kv-dark');
+});
+
+test('an iPad lying down gets the landscape poster', async ({ page }) => {
+  await open(page, '/dashboard?kv=pro', { width: 1180, height: 820 });
+  await expect(kv(page)).toBeVisible({ timeout: 8000 });
+  await page.waitForTimeout(700);
+  await expect(kv(page)).toHaveAttribute('data-layout', 'wide');
+  const box = (await kv(page).boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(900);
+  expect(box.x + box.width).toBeLessThanOrEqual(1180 - 12);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await shot(page, 'kv-ipad-landscape');
 });

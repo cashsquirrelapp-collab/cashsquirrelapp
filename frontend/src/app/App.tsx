@@ -1417,6 +1417,8 @@ export default function App() {
     return () => { controller.abort(); window.clearTimeout(retry); };
   }, [assistantUserId, financeGroupId]);
   const [birthOpen, setBirthOpen] = useState(false);
+  // The arrival opened by a payment shows "ชำระเงินสำเร็จ" with its tick first; the team's preview does not.
+  const [birthPaid, setBirthPaid] = useState(false);
   // Welcome Onboarding V1 (owner brief, 2026-10-28): the four questions after the first sign-in of a new account, once
   // its own settings have loaded (so an answered account never sees it flash); and from Settings to change the answers.
   const [onboardingEdit, setOnboardingEdit] = useState(false);
@@ -2052,6 +2054,7 @@ export default function App() {
     if (!birthAfterPayRef.current || dialog.isOpen || !showBuddy || birthOpen) return;
     birthAfterPayRef.current = false;
     birthGuideRef.current = true;
+    setBirthPaid(true);
     setBirthOpen(true);
   }, [dialog.isOpen, showBuddy, birthOpen]);
 
@@ -3631,7 +3634,7 @@ export default function App() {
         )}
         {birthOpen && (
           <Suspense fallback={null}>
-            <AssistantBirth name={routeContext?.profile.displayName || undefined} onDone={finishBirth}
+            <AssistantBirth name={routeContext?.profile.displayName || undefined} onDone={() => { setBirthPaid(false); finishBirth(); }} paid={birthPaid}
               // It lands on the standing squirrel in the corner (the old pill's avatar is gone since 2026-10-27).
               target={() => document.querySelector('.asx-buddy-stand svg, .asx-buddy-stand, .asx-buddy-avatar')?.getBoundingClientRect() ?? null} />
           </Suspense>

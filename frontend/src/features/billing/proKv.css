@@ -7,12 +7,12 @@
   --pkv-feat-title: #A63F1B; --pkv-feat: #1C1917; --pkv-ic-shadow: 0 6px 12px rgba(166, 63, 27, 0.18);
   --pkv-count-label: #A63F1B; --pkv-chip: #FFFFFF; --pkv-chip-ink: #1C1917; --pkv-chip-sub: #6F6964; --pkv-colon: #E65F2B;
   --pkv-spark-a: #F2A23A; --pkv-spark-b: #E0901F; --pkv-streak-a: #F2A23A; --pkv-streak-b: #FFD58A; --pkv-light: rgba(255, 196, 110, 0.85);
-  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.42);
+  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.42); --pkv-timer: rgba(255, 255, 255, 0.78); --pkv-timer-line: rgba(166, 63, 27, 0.14);
   position: fixed; inset: 0; z-index: 160; display: grid; place-items: center; padding: 12px; font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans); }
 .pkv-scrim { position: absolute; inset: 0; background: rgba(24, 16, 12, 0.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: pkv-fade 0.3s ease both; }
 /* Room for the ✕ above and the button below, so the poster's centre sits a little high. */
 .pkv-fit { position: relative; margin-bottom: 60px; }
-.pkv-poster { position: absolute; left: 0; top: 0; width: 400px; height: 540px; transform-origin: 0 0; animation: pkv-in 0.6s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+.pkv-poster { position: absolute; left: 0; top: 0; transform-origin: 0 0; animation: pkv-in 0.6s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
 .pkv-poster:focus { outline: none; }
 .dark .pkv {
   --pkv-card: linear-gradient(168deg, #2B1B15 0%, #3D2016 40%, #7A2E12 80%, #9A3A16 100%); --pkv-glow: rgba(255, 195, 107, 0.26);
@@ -20,7 +20,7 @@
   --pkv-feat-title: #FFC36B; --pkv-feat: #FFF1E8; --pkv-ic-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
   --pkv-count-label: #FFD3BD; --pkv-chip: rgba(28, 25, 23, 0.42); --pkv-chip-ink: #FFF1E8; --pkv-chip-sub: #FFD3BD; --pkv-colon: #FFC36B;
   --pkv-spark-a: #FFE7BF; --pkv-spark-b: #FFC36B; --pkv-streak-a: #FFC36B; --pkv-streak-b: #FFE7BF; --pkv-light: rgba(255, 213, 138, 0.9);
-  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.5);
+  --pkv-card-shadow: 0 40px 90px rgba(0, 0, 0, 0.5); --pkv-timer: rgba(28, 25, 23, 0.5); --pkv-timer-line: rgba(255, 231, 191, 0.18);
 }
 .pkv-card { position: absolute; inset: 0; overflow: hidden; isolation: isolate; border-radius: 32px; background: var(--pkv-card); box-shadow: var(--pkv-card-shadow); }
 .pkv-glow { position: absolute; right: -80px; top: -70px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, var(--pkv-glow), rgba(255, 195, 107, 0) 70%); }
@@ -32,7 +32,8 @@
 /* The heading spans the top of the card, so its lines (each placed on its own) have a box around them. */
 .pkv-title { position: absolute; left: 0; top: 0; width: 400px; height: 226px; margin: 0; font-weight: 700; }
 .pkv-t1 { position: absolute; left: 26px; top: 16px; font-size: 32px; line-height: 1.45; color: var(--pkv-t1); white-space: nowrap; }
-.pkv-t2 { position: absolute; left: 28px; top: 156px; font-size: 24px; line-height: 1.45; color: var(--pkv-t2); white-space: nowrap; }
+/* Right under the headline (owner, 2026-10-29: "วันละไม่ถึงอ่ะเอาให้มันขึ้นไปด้านบนดิ"), beside the top of the big price. */
+.pkv-t2 { position: absolute; left: 28px; top: 72px; font-size: 24px; line-height: 1.45; color: var(--pkv-t2); white-space: nowrap; }
 .pkv-big { position: absolute; left: 168px; top: 68px; font-family: 'IBM Plex Sans', var(--font-sans); font-size: 154px; font-style: italic; line-height: 1; white-space: nowrap; }
 .pkv-big::before { content: attr(data-text); position: absolute; left: 5px; top: 8px; color: var(--pkv-big-back); }
 .pkv-big > span { position: relative; background: var(--pkv-big); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -103,6 +104,47 @@
 .pkv-go svg { animation: pkv-nudge 2.6s ease-in-out infinite; }
 .pkv-later { position: absolute; left: 50%; bottom: -84px; z-index: 8; transform: translateX(-50%); padding: 4px 14px; border: 0; border-radius: 999px; background: rgba(28, 25, 23, 0.55); color: #FFF1E8; font-family: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.5; white-space: nowrap; cursor: pointer; }
 .pkv-close:focus-visible, .pkv-cta:focus-visible, .pkv-later:focus-visible { outline: 2px solid #FFC36B; outline-offset: 3px; }
+
+/* Computers and iPads lying down (owner, 2026-10-29: "ทำ KV เผื่อ iPad แล้วก็คอมด้วย"): 880 x 520, grown up to 1.25x.
+   Left: the headline, then the badge beside what Pro gives, the countdown and the button; right: the squirrel, big. */
+.pkv.is-wide .pkv-card { border-radius: 36px; }
+.pkv.is-wide .pkv-glow { right: -60px; top: -90px; width: 400px; height: 400px; }
+.pkv.is-wide .pkv-title { width: 880px; height: 300px; }
+.pkv.is-wide .pkv-t1 { left: 48px; top: 30px; font-size: 42px; }
+.pkv.is-wide .pkv-t2 { left: 52px; top: 104px; font-size: 30px; }
+.pkv.is-wide .pkv-big { left: 236px; top: 100px; font-size: 196px; }
+.pkv.is-wide .pkv-big::before { left: 6px; top: 10px; }
+.pkv.is-wide .pkv-badge { left: 48px; top: 318px; width: 132px; height: 132px; }
+.pkv.is-wide .pkv-badge-was { font-size: 13px; }
+.pkv.is-wide .pkv-badge-price { font-size: 36px; }
+.pkv.is-wide .pkv-badge-per { font-size: 12.5px; }
+.pkv.is-wide .pkv-spark.is-3 { left: 170px; top: 318px; }
+.pkv.is-wide .pkv-spark.is-4 { left: 34px; top: 432px; }
+.pkv.is-wide .pkv-feats { left: 210px; top: 324px; }
+.pkv.is-wide .pkv-feats-title { font-size: 12.5px; }
+.pkv.is-wide .pkv-feats ul { gap: 3px; margin-top: 4px; }
+.pkv.is-wide .pkv-feats li { gap: 11px; font-size: 16px; }
+.pkv.is-wide .pkv-ic { width: 34px; height: 34px; border-radius: 10px; }
+/* The deal's countdown as a timer in the top-right corner (owner, 2026-10-29: "ย้ายไปไว้มุมขวาบน ให้มันเหมือนคูลดาวน์"). */
+.pkv.is-wide .pkv-count { left: auto; right: 40px; top: 36px; gap: 10px; padding: 8px 10px 8px 14px; border: 1px solid var(--pkv-timer-line); border-radius: 18px; background: var(--pkv-timer);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 10px 24px rgba(28, 25, 23, 0.12); }
+.pkv.is-wide .pkv-count .pf-count-label { gap: 6px; font-size: 13px; }
+.pkv.is-wide .pkv-count .pf-count-label svg { display: inline; }
+.pkv.is-wide .pkv-count .pf-count-chip { padding: 4px 9px; font-size: 18px; }
+.pkv.is-wide .pkv-hero { left: 548px; top: 336px; width: 262px; height: 124px; }
+.pkv.is-wide .pkv-box-light { left: -60px; top: -280px; width: 382px; height: 424px; }
+.pkv.is-wide .pkv-flap { top: -36px; width: 70px; height: 36px; border-radius: 8px 8px 0 0; }
+.pkv.is-wide .pkv-flap.is-left { left: -66px; }
+.pkv.is-wide .pkv-flap.is-right { left: 258px; }
+.pkv.is-wide .pkv-box-inside { top: -8px; width: 262px; height: 18px; }
+.pkv.is-wide .pkv-box { border-radius: 6px 6px 18px 18px; gap: 4px; }
+.pkv.is-wide .pkv-box img { width: 40px; height: 40px; }
+.pkv.is-wide .pkv-box b { font-size: 20px; }
+.pkv.is-wide .pkv-spark.is-1 { left: 236px; top: -150px; width: 24px; height: 24px; }
+.pkv.is-wide .pkv-spark.is-2 { left: -44px; top: -96px; width: 16px; height: 16px; }
+.pkv.is-wide .pkv-ribbon.is-b { right: -50px; top: 150px; }
+.pkv.is-wide .pkv-cta { width: 380px; height: 62px; font-size: 21px; }
+.pkv.is-wide .pkv-later { left: 238px; }
 
 @keyframes pkv-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pkv-in { from { opacity: 0; translate: 0 22px; scale: 0.94; } to { opacity: 1; translate: 0 0; scale: 1; } }

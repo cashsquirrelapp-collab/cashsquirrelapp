@@ -202,8 +202,9 @@ card does not need:
 
 ### Post-payment guide (owner, 2026-10-29: "การ์ดทีละขั้น พาไปกด")
 
-- Paying plays the arrival at once, with no "สมัครสมาชิกสำเร็จ!" message (owner, 2026-10-29); the message comes only where
-  the arrival cannot play. After the arrival, a card beside the corner squirrel: "เริ่มใช้ Pro ใน 4 ขั้น", a four-part
+- Paying plays the arrival at once, with no "สมัครสมาชิกสำเร็จ!" message box (owner, 2026-10-29); inside the scene a green
+  tick draws itself in a ring with "ชำระเงินสำเร็จ" (about 2.4 s), then the door scene runs as before. The message box comes
+  only where the arrival cannot play. After the arrival, a card beside the corner squirrel: "เริ่มใช้ Pro ใน 4 ขั้น", a four-part
   bar and the steps เชื่อม LINE, เปิดแจ้งเตือนอีเมล, ลองคุยกับเลขา, ตั้งข้อมูลผู้ออกเอกสาร (`ProGuide.tsx`).
 - "ไปทำเลย" opens the page, dims it for about three seconds and rings the thing to press (elements marked
   `data-guide-target`); a bubble says what to do, with ข้ามขั้นนี้ and ดูทุกขั้น. Steps tick themselves from real data.
@@ -219,7 +220,11 @@ card does not need:
 - Accounts of their own not on Pro see it on the overview, at most once in 7 days; ✕ and ไว้ทีหลัง wait for next week,
   สมัคร Pro เลย opens the plans page (`ProKvBanner.tsx`, the date in localStorage `krarok.proKv.<userId>`). Automated
   browsers see it only with `?kv=auto` (weekly rule) or `?kv=pro` (now).
-- One portrait poster (400 x 540, scaled to fit every screen), CI colours only, no logo in the corner. It follows the app's
+- Two layouts (owner, 2026-10-29: "ทำ KV เผื่อ iPad แล้วก็คอมด้วย ... ขนาดมันเล็ก"): a portrait poster (400 x 540) for phones
+  and upright iPads, grown to fill the screen (up to 1.6x), and a landscape one (880 x 520, up to 1.25x) for computers and
+  iPads lying down: headline, badge, what Pro gives and the button on the left, the squirrel big on the right, and the
+  countdown as a timer in the top-right corner. "วันละไม่ถึง" sits right under the headline. CI colours only, no logo in the
+  corner. It follows the app's
   theme (owner, 2026-10-29: "ทำธีมสว่างด้วยสิ"): light is cream into peach with dark and rust type and the big price in rust;
   dark is dark rust (#2B1B15 to #9A3A16) with gold (#FFC36B to #F2A23A) as the only highlight.
 - The eye goes in this order: 1 the headline "จ้างเลขาส่วนตัว วันละไม่ถึง ฿N" (N worked out from the month's price, big
