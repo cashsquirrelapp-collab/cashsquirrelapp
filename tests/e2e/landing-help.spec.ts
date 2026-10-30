@@ -12,7 +12,7 @@ async function open(page: Page, size = { width: 1440, height: 900 }) {
   await page.goto('/');
 }
 
-test('the footer: email us, Instagram, TikTok not opened yet, and the way to the form', async ({ page }) => {
+test('the footer: email us, Instagram, TikTok, and the way to the form', async ({ page }) => {
   await open(page);
   const footer = page.locator('#cl-help');
   await expect(footer.getByRole('link', { name: 'อีเมลหาเรา' })).toHaveAttribute('href', 'mailto:cashsquirrelapp@gmail.com');
@@ -20,8 +20,12 @@ test('the footer: email us, Instagram, TikTok not opened yet, and the way to the
   await expect(instagram).toHaveAttribute('href', 'https://www.instagram.com/kraroktunngern/');
   await expect(instagram).toHaveAttribute('target', '_blank');
   await expect(instagram).toHaveAttribute('rel', 'noopener noreferrer');
-  await expect(footer.getByText('TikTok — เร็ว ๆ นี้')).toBeVisible();
-  await expect(footer.getByRole('link', { name: /TikTok/ })).toHaveCount(0);
+  // the owner's TikTok (2026-10-30), opened in a new tab like Instagram
+  const tiktok = footer.getByRole('link', { name: 'ติดตามบน TikTok' });
+  await expect(tiktok).toHaveAttribute('href', 'https://www.tiktok.com/@krarok.official');
+  await expect(tiktok).toHaveAttribute('target', '_blank');
+  await expect(tiktok).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(footer.getByText('TikTok — เร็ว ๆ นี้')).toHaveCount(0);
   // the menu's ช่วยเหลือ leads here
   await expect(page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('link', { name: 'ช่วยเหลือ' })).toHaveAttribute('href', '#cl-help');
   await footer.getByRole('button', { name: 'แจ้งปัญหา / เสนอไอเดีย' }).click();

@@ -95,6 +95,8 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
   const [excludeHolidays, setExcludeHolidays] = React.useState(false);
   const [installments, setInstallments] = React.useState<JobInstallment[]>([]);
   const [isPosted, setIsPosted] = React.useState(false);
+  // Computers: a planned delivery date set aside while ส่งงานแล้ว is picked (that hides the calendar), restored on กำลังทำ.
+  const plannedPostDate = React.useRef('');
   const [startDate, setStartDate] = React.useState(todayStr());
   const [whtRate, setWhtRate] = React.useState(0);
   // "กำหนดเอง": free percentage (up to 2 decimals) typed as text, used instead of the preset.
@@ -205,7 +207,9 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     const next: Partial<Record<FieldKey, string>> = {};
     if (!name.trim()) next.name = tr("กรุณาระบุชื่องาน");
     if (!value.trim() || Number.isNaN(parseFloat(value)) || parseFloat(value) < 0) next.value = tr("กรุณาระบุมูลค่างาน");
-    if (isPosted && !postDate) next.postDate = tr("กรุณาเลือกวันที่ส่งงาน");
+    // Phones ask the delivery date of delivered work; computers show no calendar for ส่งงานแล้ว, so it is today.
+    if (isPosted && !postDate && mobile) next.postDate = tr("กรุณาเลือกวันที่ส่งงาน");
+    const deliveredOn = isPosted && !postDate ? todayStr() : postDate;
     if (payment === 'partial' && (receivedNum <= 0 || receivedNum > net)) next.received = receivedNum <= 0 ? tr("กรุณาระบุยอดที่รับแล้ว") : tr("ยอดที่รับแล้วต้องไม่เกินยอดรับสุทธิ");
     if (payment === 'installment' && !installmentsMatch) {
       const diff = net - installmentTotal;
@@ -219,8 +223,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     setErrors(next);
     const firstInvalid = (['name', 'value', 'postDate', 'received', 'installments', 'type', 'wht'] as FieldKey[]).find(key => next[key]);
     if (firstInvalid) {
-      // Computers keep the delivery date under รายละเอียดเพิ่มเติม.
-      if (firstInvalid === 'wht' || (firstInvalid === 'postDate' && !mobile)) setAdvancedOpen(true);
+      if (firstInvalid === 'wht') setAdvancedOpen(true);
       const tab = FIELD_TAB[firstInvalid];
       if (tab) { setMoreOpen(true); setExtraTab(tab); }
       requestAnimationFrame(() => {
@@ -247,13 +250,13 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     // A date picked under "รับเงินวันไหน?" is saved as it is; its term is the days from delivery, so the app's other
     // places that count from the delivery date land on the same day.
     const pickedDue = !mobile && (payment === 'unpaid' || payment === 'partial') ? manualDue : null;
-    const savedCreditTerm = pickedDue && postDate ? Math.max(0, daysBetween(postDate, pickedDue)) : creditTerm;
+    const savedCreditTerm = pickedDue && deliveredOn ? Math.max(0, daysBetween(deliveredOn, pickedDue)) : creditTerm;
     const savedExcludeHolidays = pickedDue ? false : excludeHolidays;
     const payDate = payment === 'installment'
       ? (nextInstallmentDue || null)
       : payment === 'paid'
       ? paidDate || todayStr()
-      : pickedDue || calculatePayDate(postDate, creditTerm, excludeHolidays);
+      : pickedDue || calculatePayDate(deliveredOn, creditTerm, excludeHolidays);
     const derivedPaymentStatus = behavior === 'done' || (net > 0 && receivedFinal >= net)
       ? 'paid'
       : behavior === 'partial' && receivedFinal > 0 ? 'partial' : 'unpaid';
@@ -267,7 +270,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
       pending: pendingFinal,
       status,
       creditTerm: savedCreditTerm,
-      postDate,
+      postDate: deliveredOn,
       startDate,
       isPosted,
       payDate,
@@ -433,7 +436,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     </div>
   );
 
-  // The delivery date: in the status section on phones, under รายละเอียดเพิ่มเติม on computers.
+  // The delivery date, in the status section: on phones for both choices, on computers only for กำลังทำ.
   const postDateField = (
       <div id="job-form-postDate">
         <label htmlFor="job-form-postDate-input" className={labelClass}>
@@ -497,6 +500,10 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                 clearError('postDate');
                 // Delivered work almost always went out today; saves a trip to the date picker.
                 if (option.posted && !postDate) setPostDate(todayStr());
+                // Computers show no calendar for ส่งงานแล้ว (owner, 2026-10-30): a planned date still ahead becomes today,
+                // and comes back if กำลังทำ is picked again.
+                if (!mobile && option.posted && postDate > todayStr()) { plannedPostDate.current = postDate; setPostDate(todayStr()); }
+                if (!mobile && !option.posted && plannedPostDate.current) { setPostDate(plannedPostDate.current); plannedPostDate.current = ''; }
               }}
               className={`rounded-[10px] border px-3 py-2.5 text-left transition-colors cursor-pointer ${active
                 ? 'border-[#F3B08C] bg-[#FFF1E8] dark:border-orange-400/40 dark:bg-orange-500/10'
@@ -509,7 +516,9 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
         })}
       </div>
 
-      {mobile && postDateField}
+      {/* Phones: the delivery date for both. Computers (owner, 2026-10-30: "ติ๊กกำลังทำ ปฏิทินย้ายมาไว้ด้านบน ถ้าติ๊กส่งแล้ว
+          ไม่ต้องขึ้นปฏิทิน"): right under the choice, and only while the work is still in progress. */}
+      {mobile ? postDateField : !isPosted && postDateField}
     </section>
   );
 
@@ -662,8 +671,6 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
           </p>
         )}
       </div>
-
-      {!mobile && postDateField}
 
       {!mobile && startDateField}
 
@@ -891,13 +898,12 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
                 </button>
                 {!advancedOpen && (() => {
                   const parts = [
-                    isPosted && postDate ? tr("ส่งงาน {0}", safeFormatThaiDate(postDate)) : '',
                     effectiveWhtRate > 0 ? tr("หัก ณ ที่จ่าย {0}%", effectiveWhtRate) : '',
                   ].filter(Boolean);
                   return (
                     <>
                       <p className="mt-0.5 text-xs text-brand-muted">
-                        {parts.length > 0 ? parts.join(' · ') : tr("วันส่งงาน หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน")}
+                        {parts.length > 0 ? parts.join(' · ') : tr("หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน")}
                       </p>
                       {note.trim() && (
                         <div className="mt-2.5 rounded-[10px] bg-brand-faint px-3 py-2">

@@ -403,6 +403,16 @@ card does not need:
   first, then แก้ไขรายการ and ยกเลิก. Missing the name or amount: เติมข้อมูล / แก้ไข first, then ยืนยันบันทึก and
   ยกเลิก; pressing ยืนยันบันทึก then answers with what is missing and the card again, and saves nothing.
 
+### Live แจ้งปัญหา chat (owner, 2026-10-30: "อยากให้ขึ้นแบบเรียลไทม์ เหมือน IG")
+- While on screen, the user's chat looks for the team's reply every 3 s, the admin inbox list every 4 s, the open
+  conversation every 3 s (whichever box it is in) and the admin menu count every 20 s; hidden pages ask nothing and look
+  again when shown. One look at a time, never stacked when the server is slow. No database change (polling, not sockets).
+
+### Job form delivery date on computers (owner, 2026-10-30)
+- Computers/iPads: the delivery-date calendar sits right under กำลังทำ / ส่งงานแล้ว and shows only for กำลังทำ; ส่งงานแล้ว
+  has no calendar and counts as delivered today (a planned future date is set aside and comes back on กำลังทำ). Phones are
+  unchanged (the date in the status section for both).
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

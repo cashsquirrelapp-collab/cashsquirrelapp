@@ -43,7 +43,10 @@ const QUICK_REPLIES: Array<{ label: string; text: string }> = [
   { label: T("แก้ไขแล้ว"), text: "ทีมงานแก้ไขเรียบร้อยแล้ว รบกวนลองใช้งานอีกครั้ง หากยังพบปัญหาสามารถตอบกลับในแชตนี้ได้" },
   { label: T("ขอบคุณไอเดีย"), text: "ขอบคุณสำหรับไอเดีย ทีมงานบันทึกไว้เพื่อพิจารณาในการพัฒนาครั้งถัดไป" },
 ];
-const POLL_MS = 60_000;
+// Live like a messaging app (owner, 2026-10-30): the list looks again every few seconds while it is on screen, and the
+// open conversation every LIVE_MS; nothing is asked while the page is hidden.
+const POLL_MS = 4_000;
+const LIVE_MS = 3_000;
 const WIDE = '(min-width: 1024px)';
 const seenKey = (userId: string) => `cashflow_admin_feedback_seen:${userId}`;
 
@@ -189,11 +192,18 @@ export default function AdminFeedbackInbox({ userId }: { userId: string }) {
     return () => { controller.abort(); busy.current = false; };
   }, [load, revision]);
 
+  const polling = useRef(false);
   useEffect(() => {
-    const poll = () => { setNow(Date.now()); if (document.visibilityState === 'visible') void load('poll'); };
+    const poll = () => {
+      setNow(Date.now());
+      if (document.visibilityState !== 'visible' || polling.current) return;
+      polling.current = true;
+      void load('poll').finally(() => { polling.current = false; });
+    };
     const timer = window.setInterval(poll, POLL_MS);
     window.addEventListener('focus', poll);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', poll); };
+    document.addEventListener('visibilitychange', poll);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', poll); document.removeEventListener('visibilitychange', poll); };
   }, [load]);
 
   async function loadMore() {
@@ -363,6 +373,7 @@ function InboxConversation({ userId, thread, lang, copy, draft, onDraft, onChang
   const editor = useRef<HTMLTextAreaElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const pinBottom = useRef(true);
+  const lastPage = useRef(0);
   const keepOffset = useRef<number | null>(null);
   const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
@@ -388,6 +399,7 @@ function InboxConversation({ userId, thread, lang, copy, draft, onDraft, onChang
       setMessages(current => first ? result.messages : mergeMessages(current, result.messages));
       setStatus(result.thread.status);
       if (first) setFirstPage(page);
+      lastPage.current = page;
       loaded.current = true;
       setLoadError('');
     })().catch(cause => {
@@ -395,6 +407,32 @@ function InboxConversation({ userId, thread, lang, copy, draft, onDraft, onChang
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [userId, thread.id, thread.messageCount, thread.lastMessageAt, reload, lang]);
+
+  // Live: the open conversation looks for the user's new messages every few seconds while it is on screen, whichever
+  // box it sits in now (one look at a time; a slow answer is never stacked with the next).
+  useEffect(() => {
+    let looking = false;
+    const look = async () => {
+      if (looking || !loaded.current || document.visibilityState !== 'visible') return;
+      looking = true;
+      try {
+        let page = lastPage.current;
+        let result = await feedbackApi.detail(userId, thread.id, page);
+        const last = Math.max(0, Math.ceil(result.thread.messageCount / result.pageSize) - 1);
+        if (last !== page) { page = last; result = await feedbackApi.detail(userId, thread.id, page); }
+        if (!mounted.current) return;
+        const box = scroller.current;
+        pinBottom.current = !box || box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+        lastPage.current = page;
+        setMessages(current => mergeMessages(current, result.messages));
+        setStatus(result.thread.status);
+      } catch { /* the next look tries again */ } finally { looking = false; }
+    };
+    const timer = window.setInterval(() => { void look(); }, LIVE_MS);
+    const shown = () => { void look(); };
+    document.addEventListener('visibilitychange', shown);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', shown); };
+  }, [userId, thread.id]);
 
   useLayoutEffect(() => {
     const box = scroller.current;

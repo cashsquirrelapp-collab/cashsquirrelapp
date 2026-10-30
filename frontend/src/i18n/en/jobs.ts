@@ -192,5 +192,4 @@ export const jobs: Record<string, string> = {
   'วันส่งงาน': 'Delivery date',
   'วันที่จะส่งงาน': 'Planned delivery date',
   'ส่งงาน {0}': 'Delivered {0}',
-  'วันส่งงาน หัก ณ ที่จ่าย วันที่เริ่มงาน และหมายเหตุภายใน': 'Delivery date, withholding tax, start date and internal note',
 };

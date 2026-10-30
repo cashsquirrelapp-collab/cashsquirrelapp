@@ -25,7 +25,9 @@ type Choice = FeedbackCategory | null;
 
 const CONTINUE_WINDOW_MS = 2 * 60 * 60 * 1000;
 const THREADS_PER_STEP = 10;
-const POLL_MS = 45_000;
+// Live like a messaging app (owner, 2026-10-30: "อยากให้มันขึ้นแบบเรียลไทม์ เหมือน IG"): while the chat is on screen it
+// looks for the team's reply every few seconds; hidden, it waits and looks again the moment it is shown.
+const POLL_MS = 3_000;
 const COUNTER_FROM = 3600;
 
 const CHIPS: { value: Choice; th: string; en: string }[] = [
@@ -163,9 +165,15 @@ export default function FeedbackChat({ userId, mobile = false, onBack }: { userI
     return () => controller.abort();
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Team replies arrive by looking again now and then, and when the page comes back into view.
+  // Team replies arrive by looking again every few seconds, and when the page comes back into view. One look at a
+  // time: a slow answer is never stacked with the next.
+  const looking = useRef(false);
   useEffect(() => {
-    const look = () => { if (document.visibilityState === 'visible' && !sending.current) refreshRef.current().catch(() => {}); };
+    const look = () => {
+      if (document.visibilityState !== 'visible' || sending.current || looking.current) return;
+      looking.current = true;
+      refreshRef.current().catch(() => {}).finally(() => { looking.current = false; });
+    };
     const timer = window.setInterval(look, POLL_MS);
     window.addEventListener('focus', look);
     document.addEventListener('visibilitychange', look);

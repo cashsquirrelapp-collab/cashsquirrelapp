@@ -182,7 +182,7 @@ test('computer: the job form asks when the money comes in, and saves the date pi
   const drawer = page.getByRole('dialog', { name: 'แก้ไขงาน' });
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText('ส่งงานวันไหน?')).toHaveCount(0);
-  await expect(drawer.locator('#job-form-postDate')).toHaveCount(0); // under รายละเอียดเพิ่มเติม, still closed
+  await expect(drawer.locator('#job-form-postDate')).toHaveCount(0); // delivered work: no delivery calendar on computers
   const due = drawer.getByLabel('รับเงินวันไหน?');
   await expect(due).toHaveValue(day(0));
   await drawer.getByRole('button', { name: '30', exact: true }).click();
@@ -190,12 +190,43 @@ test('computer: the job form asks when the money comes in, and saves the date pi
   await due.fill(day(10));
   await expect(drawer.getByText(/คาดว่าจะได้รับเงิน/)).toBeVisible();
   await drawer.getByRole('button', { name: 'รายละเอียดเพิ่มเติม' }).click();
-  await expect(drawer.getByLabel(/^วันส่งงาน/)).toHaveValue(day(0));
+  await expect(drawer.locator('#job-form-postDate')).toHaveCount(0);
   await drawer.getByRole('button', { name: 'บันทึกงาน' }).click();
   await expect(drawer).toHaveCount(0);
   await expect.poll(() => sent.join('')).toContain(`"payDate":"${day(10)}"`);
   const saved = JSON.parse(sent.find(body => body.includes(`"payDate":"${day(10)}"`))!).changes.find((change: { table: string }) => change.table === 'cashflow_jobs').data;
   expect({ payDate: saved.payDate, creditTerm: saved.creditTerm, postDate: saved.postDate }).toEqual({ payDate: day(10), creditTerm: 10, postDate: day(0) });
+});
+
+// Owner, 2026-10-30: "ติ๊กกำลังทำ จะมีปฏิทินขึ้นมาให้เลือกว่าจะส่งวันไหน ย้ายมาไว้ด้านบน ถ้าติ๊กว่าส่งแล้วไม่ต้องขึ้นปฏิทิน".
+test('computer: กำลังทำ shows the delivery calendar right under the choice; ส่งงานแล้ว hides it and counts as today', async ({ page }) => {
+  await open(page, 1280, 800, '/jobs');
+  const sent: string[] = [];
+  page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/api/data')) sent.push(request.postData() ?? ''); });
+  await page.getByRole('button', { name: 'เพิ่มงาน', exact: true }).first().click();
+  const drawer = page.getByRole('dialog', { name: 'เพิ่มงาน' });
+  await expect(drawer).toBeVisible();
+  const status = drawer.getByRole('region', { name: 'สถานะงาน' }).or(drawer.locator('section[aria-label="สถานะงาน"]')).first();
+  await expect(status.getByRole('radio', { name: /กำลังทำ/ })).toHaveAttribute('aria-checked', 'true');
+  const field = status.locator('#job-form-postDate');
+  await expect(field).toBeVisible();
+  await expect(field).toContainText('วันที่จะส่งงาน');
+  // right under the choice: above the payment section
+  const [fieldTop, paymentTop] = await Promise.all([field.boundingBox(), drawer.locator('section[aria-label="การรับเงิน"]').boundingBox()]);
+  expect(fieldTop!.y).toBeLessThan(paymentTop!.y);
+  await drawer.getByLabel(/^วันที่จะส่งงาน/).fill(day(5));
+  await status.getByRole('radio', { name: /ส่งงานแล้ว/ }).click();
+  await expect(drawer.locator('#job-form-postDate')).toHaveCount(0);
+  await status.getByRole('radio', { name: /กำลังทำ/ }).click();
+  await expect(drawer.getByLabel(/^วันที่จะส่งงาน/)).toHaveValue(day(5)); // the planned date comes back
+  await status.getByRole('radio', { name: /ส่งงานแล้ว/ }).click();
+  await drawer.getByLabel(/ชื่องาน/).first().fill('ทดสอบส่งแล้ว');
+  await drawer.getByLabel(/มูลค่างาน/).first().fill('3000');
+  await drawer.getByRole('button', { name: 'บันทึกงาน' }).click();
+  await expect(drawer).toHaveCount(0);
+  await expect.poll(() => sent.join('')).toContain('ทดสอบส่งแล้ว');
+  const saved = JSON.parse(sent.find(body => body.includes('ทดสอบส่งแล้ว'))!).changes.find((change: { table: string }) => change.table === 'cashflow_jobs').data;
+  expect({ isPosted: saved.isPosted, postDate: saved.postDate }).toEqual({ isPosted: true, postDate: day(0) });
 });
 
 test('phone: the job sheet still asks the delivery date in its status tab', async ({ page }) => {

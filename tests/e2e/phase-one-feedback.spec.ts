@@ -411,3 +411,40 @@ test('390px admin: the inbox row and the phone menu say how many wait', async ({
   await expect(page.getByRole('heading', { name: 'กล่องข้อความจากผู้ใช้' })).toBeVisible();
   expect(mock.unhandledApi).toEqual([]);
 });
+
+// Live like a messaging app (owner, 2026-10-30: "อยากให้มันขึ้นแบบเรียลไทม์ เหมือน IG"): a message written on the other
+// side shows up within a few seconds, with no refresh, on both the user's chat and the team's inbox.
+function write(mock: Awaited<ReturnType<typeof setup>>, id: string, senderRole: 'user' | 'admin', body: string) {
+  const thread = mock.threads.find(item => item.id === id)!;
+  const history = mock.messages.get(id)!;
+  const now = new Date().toISOString();
+  history.push({ id: `${id}-live-${history.length + 1}`, threadId: id, senderId: senderRole === 'admin' ? adminId : thread.ownerId, senderRole, body, createdAt: now });
+  Object.assign(thread, { lastMessageAt: now, updatedAt: now, preview: body, messageCount: history.length, lastSenderRole: senderRole, status: senderRole === 'admin' ? 'in_progress' : thread.status });
+}
+
+test('the user sees the team’s reply arrive by itself, within seconds', async ({ page }) => {
+  const mock = await setup(page, { seeded: true });
+  await page.goto('/feedback/feedback-user');
+  await expect(page.getByText('ปัญหาหน้าจอเล็ก', { exact: true }).first()).toBeVisible();
+  write(mock, threadId, 'admin', 'ทีมงานแก้ให้แล้วครับ ลองเปิดใหม่อีกครั้ง');
+  await expect(page.getByText('ทีมงานแก้ให้แล้วครับ ลองเปิดใหม่อีกครั้ง', { exact: true })).toBeVisible({ timeout: 6_000 });
+});
+
+test('the team sees the user’s new message arrive in the open conversation and the list, within seconds', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 860 });
+  const mock = await setup(page, { admin: true, inbox: true });
+  await page.goto('/adminDashboard/feedback-admin');
+  await page.getByRole('button', { name: 'ข้อความจากผู้ใช้', exact: true }).click();
+  const conversation = page.getByRole('region', { name: 'บทสนทนา' });
+  await expect(conversation.getByText('ปัญหาหน้าจอเล็ก', { exact: true })).toBeVisible();
+  write(mock, threadId, 'user', 'ยังเป็นอยู่เลยครับ ลองบนมือถือแล้ว');
+  await expect(conversation.getByText('ยังเป็นอยู่เลยครับ ลองบนมือถือแล้ว', { exact: true })).toBeVisible({ timeout: 6_000 });
+  // a conversation in another box (answered) still shows what the user writes next
+  await page.getByRole('group', { name: 'แท็บกล่องข้อความ' }).getByRole('button', { name: /^กำลังทำ/ }).click();
+  await page.getByRole('list', { name: 'รายการเรื่อง' }).getByRole('button', { name: /^เปิดบทสนทนา/ }).first().click();
+  await expect(conversation.getByText('ทีมงานกำลังตรวจสอบ', { exact: true })).toBeVisible();
+  write(mock, repliedId, 'user', 'ขอบคุณครับ รอได้เลย');
+  await expect(conversation.getByText('ขอบคุณครับ รอได้เลย', { exact: true })).toBeVisible({ timeout: 6_000 });
+  // and the waiting count follows
+  await expect(page.getByRole('group', { name: 'แท็บกล่องข้อความ' }).getByRole('button', { name: /^รอตอบ 3/ })).toBeVisible({ timeout: 8_000 });
+});
