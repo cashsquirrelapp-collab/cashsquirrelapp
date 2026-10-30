@@ -9,6 +9,7 @@ import { promoDay } from './promoNotice';
 import type { EmbeddedPayment } from './EmbeddedPaymentModal';
 
 import { tr } from '../../i18n/tr';
+import { confirmationDetail } from './confirmationDetail';
 /** Show the selected package immediately while the server validates/prepares it. */
 export function PreparingCardModal({ amount, months, onClose }: { amount: number; months: number; onClose: () => void }) {
   return <Modal open onClose={onClose} label={tr("ชำระด้วยบัตร")} width={520}>
@@ -180,10 +181,13 @@ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplet
       onComplete(); // The server, never this callback, grants Pro.
     } catch (cause) {
       walletEvent?.paymentFailed({ reason: 'fail' });
-      // Never log provider payloads, card details, or Checkout secrets.
+      // Never log provider payloads, card details, or Checkout secrets. The provider's own reason is shown (owner,
+      // 2026-10-31: a card payment failed with only the general message) with any ids and secrets taken out.
       const category = cause instanceof Error && cause.name === 'IntegrationError' ? 'integration' : 'confirmation';
-      console.warn('checkout_confirmation_failed', { method: walletEvent ? 'wallet' : 'card', category });
-      setError(walletEvent ? tr("ยืนยันผ่านกระเป๋าเงินไม่สำเร็จ กรุณาลองอีกครั้ง หรือเลือกชำระด้วยบัตร") : tr("ยืนยันการชำระไม่สำเร็จ กรุณาตรวจข้อมูลแล้วลองอีกครั้ง"));
+      const detail = confirmationDetail(cause);
+      console.warn('checkout_confirmation_failed', { method: walletEvent ? 'wallet' : 'card', category, detail });
+      const general = walletEvent ? tr("ยืนยันผ่านกระเป๋าเงินไม่สำเร็จ กรุณาลองอีกครั้ง หรือเลือกชำระด้วยบัตร") : tr("ยืนยันการชำระไม่สำเร็จ กรุณาตรวจข้อมูลแล้วลองอีกครั้ง");
+      setError(detail ? `${general} (${detail})` : general);
     }
     finally { confirmationLock.current = false; setPaying(false); }
   };
