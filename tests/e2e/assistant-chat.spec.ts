@@ -258,12 +258,13 @@ test('computers and iPads: the window\'s perched squirrel sits at the top on the
   await snap(page, 'assistant-welcome-820.png');
 });
 
-test('computers, dark: the chat wears the app\'s charcoal glass, not a black stage of its own', async ({ page }) => {
+// Onyx (owner, 2026-10-30): computers and iPads in dark mode are pure black; the chat card is the page's black card.
+test('computers, dark: the chat wears the app\'s black Onyx card, not a stage of its own', async ({ page }) => {
   await open(page, 1280, 820, { dark: true });
   const chat = chatOf(page);
   await expect(chat.getByRole('heading', { name: WELCOME })).toBeVisible();
   await expect(chat.locator('.asx-aurora')).toBeHidden();
-  expect(await chat.locator('.asx-chat').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(23, 24, 27, 0.9)');
+  expect(await chat.locator('.asx-chat').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
   // The questions' icons sit in soft tinted chips, not solid orange squares.
   expect(await chat.locator('.asx-prompt-icon').first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(255, 164, 115, 0.14)');
   expect(await textOverlapIssues(page)).toEqual([]);

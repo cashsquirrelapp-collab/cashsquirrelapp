@@ -1291,3 +1291,54 @@ svg.lucide[stroke-width="2"] { stroke-width: 1.7; }
 .auth-title { font-size: 26px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; color: var(--text); white-space: nowrap; }
 @media (max-width: 420px) { .auth-title { font-size: 22px; } }
 @media (max-width: 340px) { .auth-title { font-size: 19px; } }
+
+/* Onyx: dark mode on computers and iPads (owner, 2026-10-30: "ดำไปเลย เท่ๆ หรูๆ ... อันไหนที่เป็น CI ก็คง CI ไว้ ... การ์ด
+   สีส้มให้มันเป็นสีส้มเต็มไปเลย ... มือถือไม่ต้องเปลี่ยน"; approved from the all-pages gallery). Pure black ground, black
+   cards with hairline edges and a faint top sheen. Every CI colour stays as it is (the orange money card, buttons, the
+   active menu, chips, accents), and phones (under 744px) keep today's dark mode exactly. */
+@media (min-width: 744px) {
+  .dark {
+    --shell-bg: #000000;
+    --panel-bg: #000000;
+    --panel-sheen: rgba(255, 255, 255, 0);
+    --bg: #000000;
+    --white: #0A0A0B;
+    --faint: #141416;
+    --border: rgba(255, 255, 255, 0.075);
+    --text: #F5F2EE;
+    --muted: #8F8A85;
+    --glass-bg: rgba(10, 10, 11, 0.78);
+    --glass-side: rgba(8, 8, 9, 0.86);
+    --glass-strong: rgba(14, 14, 15, 0.97);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-highlight: rgba(255, 255, 255, 0.06);
+    --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 40%);
+    --glass-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+    --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-card-hover: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    /* The dark greys components use as their own card surfaces follow the black (their hover colours still apply). */
+    --color-neutral-950: #000000;
+    --color-neutral-900: #0A0A0B;
+    --color-stone-950: #000000;
+    --color-stone-900: #0A0A0B;
+  }
+  /* The chat's picture and chart wells. Specific enough to follow assistant.css, which loads after this file. */
+  html.dark .asx, html.dark .asx-pop, html.dark .kfw, html.dark .kfw-mini { --asx-media: #0A0A0B; }
+}
+/* Surfaces set as fixed dark colours, as utilities of the same weight: the base colour is replaced, and a hover, focus
+   or state colour on the same element still wins (hover greys stay as they are, so a hover is still lighter than rest).
+   neutral-800 changes as a fill only (its borders stay visible). */
+@layer utilities {
+  @media (min-width: 744px) {
+    :where(.dark) .dark\:bg-\[\#1F2024\], :where(.dark) .dark\:bg-\[\#1B1C20\] { background-color: #0A0A0B; }
+    :where(.dark) .dark\:bg-\[\#141518\] { background-color: #000000; }
+    :where(.dark) .dark\:bg-neutral-800, :where(.dark) .dark\:bg-stone-800,
+    :where(.dark) .dark\:bg-\[\#2A2B2F\], :where(.dark) .dark\:bg-\[\#232428\] { background-color: #141416; }
+  }
+}
+@media (min-width: 1024px) {
+  /* The page card and the full chat card: black on black, told apart by a hairline, no glow. */
+  .dark .app-shell { background: #000000; }
+  .dark .app-shell > .asx-panel-host:not(.is-chat-focus),
+  .dark .app-shell > .asx-panel-host.is-chat-focus .asx-chat { border-color: rgba(255, 255, 255, 0.07); box-shadow: none; }
+}

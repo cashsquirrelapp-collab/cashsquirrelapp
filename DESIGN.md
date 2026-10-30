@@ -41,6 +41,15 @@ colors-dark:
   income: "#4ADE80"
   expense: "#F19A9A"
   warning: "#F2B76B"
+colors-dark-onyx:              # computers and iPads (744px and wider) in dark mode since 2026-10-30; phones keep colors-dark
+  ink: "#F5F2EE"
+  muted: "#8F8A85"
+  canvas: "#000000"
+  shell: "#000000"
+  surface: "#0A0A0B"
+  faint: "#141416"
+  hairline: "rgba(255,255,255,0.075)"
+  # brand-orange, rust, cream, income, expense and warning are the colors-dark values: CI stays as it is
 typography:
   ui: "'IBM Plex Sans Thai', 'IBM Plex Sans', system-ui, sans-serif"     # every page
   brand: "'Prompt', 'IBM Plex Sans Thai', sans-serif"                     # wordmark
@@ -94,6 +103,14 @@ owner's approval to change.
 - Text on a tinted fill uses the darkest shade of the same family (orange text on cream, green on green tint).
 - Never use opacity to mute text; use `muted`.
 - Every colour is defined for light and dark. Dark mode is a designed palette, not an inversion.
+- Onyx (owner, 2026-10-30: "ดำไปเลย เท่ๆ หรูๆ ... อันไหนที่เป็น CI ก็คง CI ไว้ ... การ์ดสีส้มให้เป็นสีส้มเต็มไปเลย ...
+  มือถือไม่ต้องเปลี่ยน"): on computers and iPads dark mode is pure black with black cards, hairline edges and a faint top
+  sheen; the page card and the full chat card have a hairline and no glow. Everything in the CI keeps its colour: the
+  orange money card stays fully orange, buttons, the active menu, tabs, chips and accents are unchanged. Phones (under
+  744px) keep `colors-dark` exactly (checked pixel for pixel). The block is at the end of `frontend/src/index.css`; the
+  fixed dark greys components use as surfaces (neutral/stone 900/950 by token, neutral-800 and #141518-type fills as
+  same-weight utilities) follow the black while their hover colours still apply. New components use the tokens, not
+  fixed dark greys.
 
 ### Colour tokens (legacy names)
 
