@@ -1,6 +1,9 @@
 // Guardrails specific to the isolated migration rehearsal; no production defaults change.
 export type StagingEnvironment = Record<string, unknown>;
-export const STAGING_ORIGIN = 'https://cashsquirrel-staging.cashsquirrelapp.workers.dev';
+// The test site's own address since 2026-10-31 (owner: "ตั้งเลย staging.krarok.com"); its workers.dev address answers too.
+export const STAGING_ORIGIN = 'https://staging.krarok.com';
+export const STAGING_ORIGINS = [STAGING_ORIGIN, 'https://cashsquirrel-staging.cashsquirrelapp.workers.dev'];
+const stagingOrigin = (value: unknown) => typeof value === 'string' && STAGING_ORIGINS.includes(value.replace(/\/$/, ''));
 export const STAGING_DATABASE = 'https://odsdgxeaiqdepriqmaya.supabase.co';
 // The test recipient is independent of the system sender.
 export const STAGING_EMAIL = 'heidnsko1234@gmail.com';
@@ -9,11 +12,11 @@ export const STAGING_GOOGLE_EMAIL = 'cashsquirrelapp@gmail.com';
 export const STAGING_LOGIN_CHANNEL = '2012039027';
 
 export function isStaging(env: StagingEnvironment = process.env): boolean {
-  return Boolean(env.STAGING_MODE) || env.APP_URL === STAGING_ORIGIN || env.SUPABASE_URL === STAGING_DATABASE;
+  return Boolean(env.STAGING_MODE) || stagingOrigin(env.APP_URL) || env.SUPABASE_URL === STAGING_DATABASE;
 }
 
 export function stagingBaseReady(env: StagingEnvironment): boolean {
-  return env.STAGING_MODE === 'integrated' && env.APP_URL === STAGING_ORIGIN &&
+  return env.STAGING_MODE === 'integrated' && stagingOrigin(env.APP_URL) &&
     env.SUPABASE_URL === STAGING_DATABASE && env.STRIPE_MODE === 'test';
 }
 

@@ -8,9 +8,10 @@ import { enforceHttps, toMainHost } from './transport.js';
 
 // Production on Cloudflare Workers: the same Express backend Vercel runs (backend/src/http/app.ts),
 // the built frontend as static assets, and the cron jobs vercel.json used to schedule.
-// The staging Worker (migration/worker.ts) keeps its own allow-lists; nothing here is staging.
+// The test site (staging.krarok.com, wrangler.staging.jsonc) runs this same file since 2026-10-31; its safety rules are in
+// backend/src/security/staging.ts and its pages ask search engines not to list them.
 
-type Env = { ASSETS: Fetcher; APP_URL?: string; CRON_SECRET?: string; CRON_ENABLED?: string; [key: string]: unknown };
+type Env = { ASSETS: Fetcher; APP_URL?: string; CRON_SECRET?: string; CRON_ENABLED?: string; STAGING_MODE?: string; [key: string]: unknown };
 
 const app = createApp();
 app.listen(3000);
@@ -35,7 +36,7 @@ const SITE_HEADERS: Record<string, string> = {
 };
 const NO_STORE = /^\/(api\/|recover$|login$)/;
 
-function finish(response: Response, path: string): Response {
+function finish(response: Response, path: string, staging = false): Response {
   const headers = new Headers(response.headers);
   // Keep each Set-Cookie separate (session and PKCE cookies) through the Node-to-Fetch adapter.
   const cookies = response.headers.getSetCookie();
@@ -45,6 +46,8 @@ function finish(response: Response, path: string): Response {
   }
   for (const [name, value] of Object.entries(SITE_HEADERS)) if (!headers.has(name)) headers.set(name, value);
   if (NO_STORE.test(path)) headers.set('Cache-Control', 'no-store');
+  // The test site is never shown in search results.
+  if (staging) headers.set('X-Robots-Tag', 'noindex, nofollow');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
@@ -67,12 +70,12 @@ export default {
       const response = await answerWithin(work, LINE_WEBHOOK_BUDGET_MS, ctx,
         () => Response.json({ ok: true, deferred: true }),
         () => console.error('LINE webhook failed after the early answer'));
-      return finish(response, path);
+      return finish(response, path, Boolean(env.STAGING_MODE));
     }
     const response = path === '/api' || path.startsWith('/api/')
       ? await withCloudflareClientIp(request as Request & { cf?: unknown }, () => nodeFetch(request as never, env, ctx))
       : await env.ASSETS.fetch(request);
-    return finish(response, path);
+    return finish(response, path, Boolean(env.STAGING_MODE));
   },
 
   // Off until cutover (CRON_ENABLED=true): while Vercel still runs the same jobs, two schedulers

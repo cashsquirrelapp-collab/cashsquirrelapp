@@ -6,14 +6,57 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
+const failures = [];
+const expect = (condition, message) => { if (!condition) failures.push(message); };
+const PRODUCTION_DATABASE = 'https://rcllghixkclvkxhvttaw.supabase.co';
+
+// `--staging` checks the test site (wrangler.staging.jsonc, owner 2026-10-31) instead: it must never reach the real
+// database, live Stripe or the real domain.
+if (process.argv.includes('--staging')) {
+  const stagingPath = path.join(root, 'wrangler.staging.jsonc');
+  const staged = ts.parseConfigFileTextToJson(stagingPath, fs.readFileSync(stagingPath, 'utf8'));
+  if (staged.error) throw new Error('Cloudflare staging configuration is not valid JSONC');
+  const config = staged.config;
+  const vars = config?.vars || {};
+  expect(config?.name === 'cashsquirrel-staging', 'Unexpected staging Worker name');
+  expect(config?.account_id === '7cb26b23e102b0d36824da093b2a267c', 'Unexpected Cloudflare account ID');
+  expect(config?.main === 'cloudflare/worker.ts', 'The test site must run the same Worker entry as the real site');
+  expect(vars.APP_URL === 'https://staging.krarok.com', 'Unexpected staging application origin');
+  expect(vars.SUPABASE_URL === 'https://odsdgxeaiqdepriqmaya.supabase.co', 'The test site must use the staging Supabase project');
+  expect(!JSON.stringify(config).includes(PRODUCTION_DATABASE.replace('https://', '')), 'The test site must never name the real database');
+  expect(vars.STRIPE_MODE === 'test', 'The test site must use Stripe test mode');
+  expect(vars.STAGING_MODE === 'integrated', 'STAGING_MODE=integrated turns on the staging safety rules');
+  const routes = Array.isArray(config?.routes) ? config.routes : [];
+  expect(routes.length === 1 && routes[0]?.pattern === 'staging.krarok.com' && routes[0]?.custom_domain === true,
+    'The test site is attached to staging.krarok.com only');
+  expect(vars.CRON_ENABLED === 'false' && Array.isArray(config?.triggers?.crons) && config.triggers.crons.length === 0,
+    'No scheduled jobs on the test site');
+  expect(config?.assets?.directory === './build/frontend' && config?.assets?.run_worker_first === true, 'Unexpected assets settings');
+  for (const file of ['cloudflare/worker.ts', 'build/frontend/index.html']) {
+    expect(fs.existsSync(path.join(root, file)), `Required file is missing: ${file}`);
+  }
+  // The pages talk only to their own server; a build that names the real database would reach it from the test site.
+  const realHost = PRODUCTION_DATABASE.replace('https://', '');
+  const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
+    entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]);
+  const built = fs.existsSync(path.join(root, 'build/frontend')) ? walk(path.join(root, 'build/frontend')) : [];
+  const naming = built.filter(file => /\.(js|html|json|css|txt|webmanifest)$/.test(file) && fs.readFileSync(file, 'utf8').includes(realHost));
+  expect(naming.length === 0, `Built files name the real database: ${naming.map(file => path.relative(root, file)).join(', ')}`);
+  if (failures.length) {
+    for (const failure of failures) console.error(`Cloudflare staging preflight: ${failure}`);
+    process.exit(1);
+  }
+  console.log('Cloudflare staging configuration checked: staging.krarok.com, staging database, Stripe test mode, no scheduled jobs.');
+  process.exit(0);
+}
+
 const configPath = path.join(root, 'wrangler.production.jsonc');
 const parsed = ts.parseConfigFileTextToJson(configPath, fs.readFileSync(configPath, 'utf8'));
 if (parsed.error) throw new Error('Cloudflare production configuration is not valid JSONC');
 const config = parsed.config;
-const failures = [];
-const expect = (condition, message) => { if (!condition) failures.push(message); };
 
 expect(config?.name === 'kraroktunngern', 'Unexpected production Worker name');
+expect(!config?.vars?.STAGING_MODE, 'The real site must not run with STAGING_MODE');
 expect(config?.account_id === '7cb26b23e102b0d36824da093b2a267c', 'Unexpected production Cloudflare account ID');
 expect(config?.main === 'cloudflare/worker.ts', 'Unexpected production Worker entry point');
 expect(config?.compatibility_date === '2026-10-15', 'Unexpected Worker compatibility date');
@@ -30,7 +73,7 @@ expect(Array.isArray(config?.routes) && config.routes.some(route => route?.patte
   'krarok.com must stay attached as a custom domain');
 expect(Array.isArray(config?.routes) && config.routes.some(route => route?.pattern === 'www.krarok.com' && route?.custom_domain === true),
   'www.krarok.com must stay attached (it forwards to krarok.com)');
-expect(config?.vars?.SUPABASE_URL === 'https://rcllghixkclvkxhvttaw.supabase.co', 'Unexpected production Supabase project');
+expect(config?.vars?.SUPABASE_URL === PRODUCTION_DATABASE, 'Unexpected production Supabase project');
 expect(config?.vars?.STRIPE_MODE === 'live', 'Production Stripe mode must remain live');
 expect(['false', 'true'].includes(config?.vars?.CRON_ENABLED), 'CRON_ENABLED must be exactly false or true as a string');
 const crons = config?.triggers?.crons;

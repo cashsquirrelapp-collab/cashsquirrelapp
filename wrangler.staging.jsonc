@@ -1,0 +1,46 @@
+// The test site (owner, 2026-10-31: "ตั้งเลย staging.krarok.com"): the same code as krarok.com on its own Worker, with its
+// own database (Supabase staging), Stripe in test mode and its own LINE channel. Deploy with `npm run staging:deploy`;
+// nothing here touches the real site. scripts/cloudflare-preflight.mjs --staging refuses this file if it ever points at the
+// real database, live Stripe or the real domain.
+// Secrets live on the Worker, never here: the owner sets them with `wrangler secret put <NAME> -c wrangler.staging.jsonc`.
+// The safety rules that come with STAGING_MODE (backend/src/security/staging.ts): sign-in, e-mail and LINE only for the
+// owner's test accounts, e-mail subjects start with [STAGING], account deletion is off, Stripe test keys only.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cashsquirrel-staging",
+  "main": "cloudflare/worker.ts",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat", "enable_nodejs_http_server_modules"],
+  "account_id": "7cb26b23e102b0d36824da093b2a267c",
+  "workers_dev": true,
+  "preview_urls": false,
+  // The variables below are the whole list: old ones set by hand on this Worker are dropped on deploy.
+  "keep_vars": false,
+  "routes": [{ "pattern": "staging.krarok.com", "custom_domain": true }],
+  // No scheduled jobs on the test site: the free plan allows five per account and the real site uses two. Run a job by
+  // hand when a test needs it.
+  "triggers": { "crons": [] },
+  "assets": {
+    "directory": "./build/frontend",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "vars": {
+    "NODE_ENV": "production",
+    "APP_URL": "https://staging.krarok.com",
+    "APP_EXTRA_ORIGINS": "https://cashsquirrel-staging.cashsquirrelapp.workers.dev",
+    "SUPABASE_URL": "https://odsdgxeaiqdepriqmaya.supabase.co",
+    "STRIPE_MODE": "test",
+    "STAGING_MODE": "integrated",
+    "CRON_ENABLED": "false",
+    // เลขากระรอก as on the real site; it answers only once the owner gives this Worker its own AI keys
+    // (wrangler secret put GEMINI_API_KEY / ANTHROPIC_API_KEY -c wrangler.staging.jsonc).
+    "AI_ENABLED": "true",
+    "AI_ADMINS_ONLY": "false",
+    "AI_SMART_MODEL": "claude-sonnet-5-5",
+    "AI_PRO_TOKENS_PER_CYCLE": "1650",
+    "AI_MESSAGE_TOKEN_CAP": "100"
+  },
+  "observability": { "enabled": true }
+}
