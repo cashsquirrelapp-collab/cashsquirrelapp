@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { seal,unseal,writeCookie } from '../backend/src/security/cookies.js';
 import { assertSameOrigin,readRawBody } from '../backend/src/http/guard.js';
+import { originFor } from '../backend/src/config/env.js';
 import { reportMonth } from '../backend/src/handlers/download-report.js';
 import { appOrigin } from '../backend/src/config/env.js';
 import { RequestLimiter, clientIp } from '../backend/src/security/ingress.js';
@@ -20,6 +21,20 @@ test('CSRF rejects foreign, missing and spoofed suffix origins',()=>{
  const valid={'origin':'https://cash.example.com','x-csrf-protection':'1'};assert.doesNotThrow(()=>assertSameOrigin({headers:valid} as any));
  for(const origin of ['https://evil.com','https://cash.example.com.evil.com',undefined])assert.throws(()=>assertSameOrigin({headers:{...valid,origin}} as any));
  assert.throws(()=>assertSameOrigin({headers:{origin:valid.origin}} as any));
+});
+// Returns (sign-in, payment, billing portal) go back to the address the customer is using, when it is one of ours.
+test('originFor: the customer\'s own trusted address, by Origin or Host; anything else is the main address',()=>{
+ const before={app:process.env.APP_URL,extra:process.env.APP_EXTRA_ORIGINS};
+ try{
+  process.env.APP_URL='https://krarok.com';process.env.APP_EXTRA_ORIGINS='https://kraroktunngern.cashsquirrelapp.workers.dev';
+  assert.equal(originFor({headers:{origin:'https://kraroktunngern.cashsquirrelapp.workers.dev'}}),'https://kraroktunngern.cashsquirrelapp.workers.dev');
+  assert.equal(originFor({headers:{host:'kraroktunngern.cashsquirrelapp.workers.dev'}}),'https://kraroktunngern.cashsquirrelapp.workers.dev');
+  assert.equal(originFor({headers:{host:'KRAROK.COM'}}),'https://krarok.com');
+  for(const headers of [{origin:'https://evil.example'},{host:'evil.example'},{host:'krarok.com.evil.example'},{host:'krarok.com/evil'},{}])assert.equal(originFor({headers}),'https://krarok.com',JSON.stringify(headers));
+ }finally{
+  if(before.app===undefined)delete process.env.APP_URL;else process.env.APP_URL=before.app;
+  if(before.extra===undefined)delete process.env.APP_EXTRA_ORIGINS;else process.env.APP_EXTRA_ORIGINS=before.extra;
+ }
 });
 // The site's own domain beside the first address (owner, 2026-10-31: "ขึ้น .com"): only the listed https origins pass.
 test('CSRF also trusts the listed extra origins, and nothing that only looks like them',()=>{

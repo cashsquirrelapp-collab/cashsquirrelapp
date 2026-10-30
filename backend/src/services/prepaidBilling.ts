@@ -138,7 +138,8 @@ async function cancelOwnedCheckout(order: PrepaidOrder) {
   if (session.status !== 'expired') throw new HttpError(409, 'รายการนี้ชำระแล้วหรือกำลังยืนยัน จึงยกเลิกไม่ได้');
   return { canceled: true };
 }
-export async function startPrepaidCheckout(user: User, periodValue: unknown, method: PaymentMethod, cardOptions?: CardOptions, timing: BillingTimings = billingTimings()) {
+/** `origin`: the address the customer pays from, where the payment comes back to (env.ts originFor); else the app's own. */
+export async function startPrepaidCheckout(user: User, periodValue: unknown, method: PaymentMethod, cardOptions?: CardOptions, timing: BillingTimings = billingTimings(), origin: string = appOrigin()) {
   if (!prepaidEnabled()) throw new HttpError(503, 'ระบบชำระเงินกำลังเตรียมเปิดให้บริการ');
   if (!isProPeriod(periodValue)) throw new HttpError(400, 'กรุณาเลือกแพ็กเกจ 1 เดือน, 6 เดือน หรือ 1 ปี');
   const period: ProPeriod = periodValue;
@@ -247,7 +248,7 @@ export async function startPrepaidCheckout(user: User, periodValue: unknown, met
   if (directQr) return startDirectQr(user, order);
   let request = order.request as Stripe.Checkout.SessionCreateParams | null;
   if (!request) {
-    request = buildPrepaidCheckout(order, appOrigin(), configuration);
+    request = buildPrepaidCheckout(order, origin, configuration);
     if (customCard && cardOptions) request = customCardCheckout(order, request, cardOptions);
     const stored = await timing.measure('prepare', () => rpc('cashflow_prepare_prepaid_checkout', { p_order_id: order.id,
       p_user_id: user.id, p_customer_id: order.customer_id, p_request: request }));

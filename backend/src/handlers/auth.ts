@@ -4,7 +4,7 @@ import { createHash, randomInt } from 'node:crypto';
 import { z } from 'zod';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { withGuard, HttpError } from '../http/guard.js';
-import { appOrigin, required, supabaseUrl } from '../config/env.js';
+import { appOrigin, originFor, required, supabaseUrl } from '../config/env.js';
 import { readCookie, writeCookie, seal } from '../security/cookies.js';
 import { publicUser, storeSession, requireUser, revokeSession, type PrivateSession } from '../security/session.js';
 import { challengeHash, rateLimit } from '../security/rateLimit.js';
@@ -83,22 +83,22 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     if (typeof req.query.code === 'string') {
       if (!verifier || verifier.expires < Date.now()) {
         writeCookie(res,null,'oauth');
-        res.status(302); res.setHeader('Location',`${appOrigin()}/login?authLinkError=1`); res.end(); return;
+        res.status(302); res.setHeader('Location',`${originFor(req)}/login?authLinkError=1`); res.end(); return;
       }
       const { data,error } = await auth.auth.exchangeCodeForSession(req.query.code);
       writeCookie(res,null,'oauth');
       if (error || !data.session) {
-        res.status(302); res.setHeader('Location',`${appOrigin()}/login?authLinkError=1`); res.end(); return;
+        res.status(302); res.setHeader('Location',`${originFor(req)}/login?authLinkError=1`); res.end(); return;
       }
       const callbackAllowed = data.user?.app_metadata?.provider === 'email'
         ? stagingEmailAllowed(data.user?.email) : stagingGoogleAllowed(data.user?.email);
       if (!callbackAllowed || (isStaging() && !data.user?.email_confirmed_at)) {
         await auth.auth.signOut({ scope: 'local' });
-        res.status(302); res.setHeader('Location', `${appOrigin()}/login?stagingAccountDenied=1`); res.end(); return;
+        res.status(302); res.setHeader('Location', `${originFor(req)}/login?stagingAccountDenied=1`); res.end(); return;
       }
       if (data.user?.app_metadata?.account_closure_kind === 'deletion') {
         await auth.auth.signOut();
-        res.status(302); res.setHeader('Location',`${appOrigin()}/login?accountDeletionPending=1`); res.end(); return;
+        res.status(302); res.setHeader('Location',`${originFor(req)}/login?accountDeletionPending=1`); res.end(); return;
       }
       // First sign-up through a social provider (Google or Facebook): the same welcome email as before.
       const signupProvider = data.user?.app_metadata?.provider;
@@ -122,7 +122,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
       }
       if (data.user?.app_metadata?.provider === 'email') await sendPendingSignupWelcome(data.user);
       const returnTo = safeDocumentReturnPath(verifier.returnTo) || '/';
-      await adoptSession(req,res,data.session,data.user); res.status(302); res.setHeader('Location',`${appOrigin()}${returnTo}`); res.end(); return;
+      await adoptSession(req,res,data.session,data.user); res.status(302); res.setHeader('Location',`${originFor(req)}${returnTo}`); res.end(); return;
     }
     try { const user=await requireUser(req,res,false,true); res.json({ session:{user:await publicUser(user)} }); }
     catch (error) { if (!(error instanceof HttpError) || error.status!==401) throw error; res.json({session:null}); }
@@ -148,7 +148,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     if (!isOAuthProvider(provider)) throw new HttpError(400, 'วิธีเข้าสู่ระบบนี้ยังไม่รองรับ');
     if (isStaging() && (provider !== 'google' || !stagingProviderReady('google'))) throw new HttpError(503, 'Social sign-in staging is not configured');
     if (provider !== 'google' && !(await enabledProviders())[provider]) throw new HttpError(503, 'วิธีเข้าสู่ระบบนี้ยังไม่เปิดใช้งาน');
-    const {data,error}=await auth.auth.signInWithOAuth({provider,options:{redirectTo:`${appOrigin()}/api/auth`,skipBrowserRedirect:true}});
+    const {data,error}=await auth.auth.signInWithOAuth({provider,options:{redirectTo:`${originFor(req)}/api/auth`,skipBrowserRedirect:true}});
     if (error) throw new HttpError(400,'เริ่มการเข้าสู่ระบบไม่สำเร็จ');
     const returnTo = safeDocumentReturnPath(req.body?.returnTo);
     writeCookie(res,{storage:Object.fromEntries(Object.entries(storage).filter(([key])=>key.endsWith('-code-verifier'))),expires:Date.now()+600000,...(returnTo ? {returnTo} : {})},'oauth',600); res.json({url:data.url}); return;
@@ -287,7 +287,7 @@ export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
     };
     if (!isValidPassword(parsed.data.password)) throw new HttpError(400,'รหัสผ่านต้องยาว 8–128 ตัวอักษร และมีตัวอักษรกับตัวเลขอย่างน้อยอย่างละ 1 ตัว');
     const {email,password,displayName}=parsed.data;
-    const {data,error}=await auth.auth.signUp({email,password,options:{emailRedirectTo:`${appOrigin()}/api/auth`,data:{full_name:displayName}}});
+    const {data,error}=await auth.auth.signUp({email,password,options:{emailRedirectTo:`${originFor(req)}/api/auth`,data:{full_name:displayName}}});
     if (error) {
       const code=typeof error.code==='string' && /^[a-z_]{1,80}$/.test(error.code) ? error.code : 'unknown';
       console.warn('Signup provider rejected',{code,status:error.status});

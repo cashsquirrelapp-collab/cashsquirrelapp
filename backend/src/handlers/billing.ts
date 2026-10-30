@@ -1,7 +1,7 @@
 import { CARD_CONSENT_VERSION } from '../../../shared/cardConsent.js';
 import { stopAutoRenewal } from '../services/cardRenewals.js';
 import { directQrStatus } from '../services/directPromptPay.js';
-import { appOrigin } from '../config/env.js';
+import { originFor } from '../config/env.js';
 import { configuredStripeLivemode, stripe } from '../config/stripe.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError, withGuard } from '../http/guard.js';
@@ -58,7 +58,7 @@ export default withGuard(async (req, res) => {
       ]);
       if (!isStripeCustomerOwnedByUser(customer, user.id, configuredStripeLivemode())) throw new Error('Invalid Stripe Customer');
       const portal = await stripe.billingPortal.sessions.create({ customer: customer.id, configuration: configuration.id,
-        return_url: `${appOrigin()}/app` });
+        return_url: `${originFor(req)}/app` });
       res.json({ url: portal.url, destination: 'portal' });
       return;
     }
@@ -71,7 +71,7 @@ export default withGuard(async (req, res) => {
     if (req.body.action === 'promptpay_checkout' && ['autoRenew','saveCard','consentVersion'].some(key => key in req.body)) throw new HttpError(400, 'Invalid QR options');
     if (customCard && (typeof req.body.autoRenew !== 'boolean' || typeof req.body.saveCard !== 'boolean'
       || req.body.consentVersion !== CARD_CONSENT_VERSION || (req.body.autoRenew && !req.body.saveCard))) throw new HttpError(400, 'กรุณายืนยันตัวเลือกบัตรอีกครั้ง');
-    res.json(await startPrepaidCheckout(user, req.body.period, req.body.action === 'promptpay_checkout' ? 'promptpay' : 'card', customCard ? { autoRenew: req.body.autoRenew, saveCard: req.body.saveCard, consentVersion: req.body.consentVersion } : undefined, timing));
+    res.json(await startPrepaidCheckout(user, req.body.period, req.body.action === 'promptpay_checkout' ? 'promptpay' : 'card', customCard ? { autoRenew: req.body.autoRenew, saveCard: req.body.saveCard, consentVersion: req.body.consentVersion } : undefined, timing, originFor(req)));
   } finally {
     if (req.method === 'POST' && ['checkout', 'promptpay_checkout'].includes(req.body?.action)) timing.finish();
   }

@@ -22,6 +22,22 @@ export function trustedOrigins(): string[] {
   });
   return [...new Set([appOrigin(), ...extra])];
 }
+/**
+ * The address this request came in on, when it is one of the trusted ones (its Origin header, else its Host), else the
+ * app's own address. Sign-in returns, payment returns and the billing portal come back to the address the customer is
+ * using, where their sign-in is (owner, 2026-10-31: krarok.com beside workers.dev).
+ */
+export function originFor(req: { headers: Record<string, string | string[] | undefined> }): string {
+  const trusted = trustedOrigins();
+  const origin = req.headers.origin;
+  if (typeof origin === 'string' && trusted.includes(origin)) return origin;
+  const host = req.headers.host;
+  if (typeof host === 'string' && /^[a-z0-9.-]+(?::\d+)?$/i.test(host)) {
+    const byHost = trusted.find(value => new URL(value).host === host.toLowerCase());
+    if (byHost) return byHost;
+  }
+  return appOrigin();
+}
 export function supabaseUrl(): string {
   const url = new URL(required('SUPABASE_URL'));
   if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)) throw new Error('SUPABASE_URL must use HTTPS');

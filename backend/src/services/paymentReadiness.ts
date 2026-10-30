@@ -5,7 +5,7 @@
 import type Stripe from 'stripe';
 import { PRO_MONTH_REGULAR_FROM, PRO_PERIODS_ON_SALE } from '../../../shared/proPricing.js';
 import type { PaymentReadiness, ReadinessPrice, ReadinessState } from '../../../shared/paymentReadiness.js';
-import { appOrigin } from '../config/env.js';
+import { trustedOrigins } from '../config/env.js';
 import { HttpError } from '../http/guard.js';
 import { inspectPaymentMethods, prepaidEnabled } from './prepaidBilling.js';
 import { planReprice, priceMomentsFrom, type PlannedPrice } from './stripeCatalog.js';
@@ -31,9 +31,10 @@ const priceItem = (row: PlannedPrice, now: number): ReadinessPrice => ({
 });
 
 function webhookCheck(endpoints: Stripe.WebhookEndpoint[], livemode: boolean): Pick<PaymentReadiness['webhook'], 'state' | 'missingEvents' | 'otherHosts'> {
-  const app = new URL(appOrigin()).host;
+  // Any of the site's own addresses (krarok.com and workers.dev since 2026-10-31) is ours.
+  const hosts = trustedOrigins().map(origin => new URL(origin).host);
   const ours = endpoints.filter(endpoint => {
-    try { const url = new URL(endpoint.url); return url.host === app && url.pathname === '/api/stripe-webhook' && endpoint.livemode === livemode; } catch { return false; }
+    try { const url = new URL(endpoint.url); return hosts.includes(url.host) && url.pathname === '/api/stripe-webhook' && endpoint.livemode === livemode; } catch { return false; }
   });
   const enabled = ours.filter(endpoint => endpoint.status === 'enabled');
   const sends = (event: string) => enabled.some(endpoint => endpoint.enabled_events.includes('*') || endpoint.enabled_events.includes(event));
