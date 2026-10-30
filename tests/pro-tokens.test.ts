@@ -76,7 +76,7 @@ test('the allowance uses the paid plan\'s tokens; owner grants and older subscri
   const now = new Date('2026-11-10T03:00:00Z');
   assert.equal(allowance({ plan: 'pro', periodEnd: '2027-05-03T00:00:00Z', tokens: 750 }, config, now).tokenLimit, 750);
   assert.equal(allowance({ plan: 'pro', periodEnd: '2026-12-03T00:00:00Z' }, config, now).tokenLimit, 1650);
-  assert.equal(allowance({ plan: 'pro' }, config, now).tokenLimit, 1650, 'admin grant: calendar month, default tokens');
+  assert.equal(allowance({ plan: 'pro' }, config, now).tokenLimit, 1650, 'admin grant: the default tokens');
   assert.equal(allowance({ plan: 'trial', tokens: 900 }, config, now).tokenLimit, config.trialTokens, 'a trial never takes a plan\'s tokens');
   assert.equal(allowance({ plan: 'admin', tokens: 900 }, config, now).tokenLimit, 1650, 'admins: the default Pro allowance, like members (owner, 2026-10-27)');
   assert.equal(allowance({ plan: 'admin' }, config, now).cycle, '2026-11', 'admins: the calendar month');
@@ -92,7 +92,7 @@ test('an admin token reset starts a fresh bucket from that moment to the month\'
   assert.equal(fresh.resetsAt?.toISOString(), '2026-10-31T17:00:00.000Z', 'still renews on the 1st');
   assert.equal(allowance({ plan: 'admin' }, reset, new Date('2026-10-29T05:00:00Z')).cycle, '2026-10', 'before the reset moment');
   assert.equal(allowance({ plan: 'admin' }, reset, new Date('2026-11-02T03:00:00Z')).cycle, '2026-11', 'next month: the calendar month again');
-  assert.equal(allowance({ plan: 'pro' }, reset, later).cycle, '2026-10', 'a member\'s month is not reset');
+  assert.equal(allowance({ plan: 'pro' }, reset, later).cycle, '2026-10', 'Pro given by hand is not reset either');
   assert.equal(allowance({ plan: 'pro', periodEnd: '2026-12-03T00:00:00Z' }, reset, later).cycle, '2026-10-03', 'nor a paid cycle');
   assert.equal(aiConfig({ AI_ADMIN_TOKENS_RESET_AT: 'soon' }).adminTokensResetAt, undefined, 'an unreadable value: no reset');
   assert.equal(aiConfig({}).adminTokensResetAt, undefined);
@@ -183,4 +183,20 @@ test('the admin figures use each account\'s plan allowance; a trial cycle keeps 
   assert.deepEqual([fig(3).krarokTokensLeft, fig(3).tokensUsedUp], [5, false], 'the trial cycle keeps 25');
   assert.deepEqual([fig(4).krarokTokensLeft, fig(4).tokensUsedUp], [1600, false], 'no paid plan: the default allowance');
   assert.equal(metrics.ai.usedUpAccounts, 1);
+});
+
+// Owner, 2026-10-30: paid Pro refills on its renewal day (a new payment gives a new 1,650); admins on the 1st; Pro given
+// by hand never refills: one allowance, used up = used up.
+test('Pro given by hand is one allowance that never refills; paid Pro and admins keep their cycles', async () => {
+  const config = aiConfig({ AI_ENABLED: 'true', GEMINI_API_KEY: 'synthetic-never-sent' });
+  const months = ['2026-10-30T03:00:00Z', '2026-11-02T03:00:00Z', '2027-03-15T03:00:00Z'].map(at => allowance({ plan: 'pro' }, config, new Date(at)));
+  assert.deepEqual(months.map(item => item.cycle), ['2026-10', '2026-10', '2026-10'], 'the same bucket every month: October\'s use still counts');
+  assert.deepEqual(months.map(item => item.resetsAt), [null, null, null], 'no refill date');
+  assert.match(months[0].cycle, /^(\d{4}-\d{2}(-\d{2})?|trial)$/, 'the usage table\'s cycle_key check accepts it');
+  assert.equal(allowance({ plan: 'admin' }, config, new Date('2026-11-02T03:00:00Z')).cycle, '2026-11', 'admins: still the calendar month');
+  const paid = allowance({ plan: 'pro', periodEnd: '2026-11-29T05:00:00Z' }, config, new Date('2026-11-02T03:00:00Z'));
+  assert.deepEqual([paid.cycle, paid.resetsAt?.toISOString()], ['2026-10-29', '2026-11-28T17:00:00.000Z'], 'paid Pro: its own month, renewing on the renewal day');
+  const { refuse } = await import('../backend/src/ai/service');
+  assert.throws(() => refuse('tokens', null), (error: any) => error.status === 402 && /โทเคนที่ได้รับหมดแล้ว/.test(error.message) && !/รอบถัดไป/.test(error.message));
+  assert.throws(() => refuse('tokens', new Date('2026-11-28T17:00:00.000Z')), /จะได้รับใหม่วันที่ 29 พ\.ย\. 2569/);
 });

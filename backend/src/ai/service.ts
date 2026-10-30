@@ -77,7 +77,7 @@ export interface AssistantDb {
   accountName?(userId: string): Promise<string | null>;
 }
 
-/** 'YYYY-MM' in Bangkok: the calendar month, for admins and Pro granted by an admin (no renewal date). */
+/** 'YYYY-MM' in Bangkok: the calendar month, for admins (no renewal date). */
 export const tokenCycle = (now = new Date()) => new Date(now.getTime() + 7 * 3600_000).toISOString().slice(0, 7);
 
 const BANGKOK = 7 * 3600_000;
@@ -114,6 +114,13 @@ export function lastPaidCycle(periodEnd: string): string {
   return renewalCycle(periodEnd, new Date(dayStart - 1)).cycle;
 }
 
+/**
+ * Pro the owner gives by hand (an admin grant, no end date) does not refill (owner, 2026-10-30: "คนที่ให้ Pro เองไม่รี"):
+ * one allowance, used up = used up. Its use is filed under the month it started counting, so what was used in October
+ * 2026 still counts; the usage table's cycle_key accepts 'YYYY-MM'.
+ */
+export const GRANT_TOKEN_BUCKET = '2026-10';
+
 export interface PlanInfo {
   plan: AssistantPlan; periodEnd?: string | null;
   /** Tokens a month for the plan this account paid for (shared/proTokens.ts); none = the default allowance. */
@@ -140,6 +147,8 @@ export function allowance(value: AssistantPlan | PlanInfo, config: AiConfig, now
     const local = new Date(now.getTime() + BANGKOK);
     return { cycle: tokenCycle(now), resetsAt: new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1) - BANGKOK) };
   };
+  // Pro given by hand: one allowance that never refills (see GRANT_TOKEN_BUCKET).
+  if (plan === 'pro' && !periodEnd) return { cycle: GRANT_TOKEN_BUCKET, resetsAt: null, tokenLimit: tokens ?? config.proTokensPerCycle, requestLimit: null };
   const period = plan === 'pro' && periodEnd ? renewalCycle(periodEnd, now) : month();
   if (plan === 'admin') {
     // A reset (AI_ADMIN_TOKENS_RESET_AT) counts admins' use from then on in a bucket of its own, named after the reset's
@@ -163,7 +172,9 @@ const NO_ACCESS = 'เลขากระรอกเป็นสิทธิ์�
 export function refuse(reason: 'tokens' | 'requests' | 'daily_cap', resetsAt: Date | null, trial = false, lapsed = false): never {
   if (reason === 'requests' || (reason === 'tokens' && trial)) throw new HttpError(402, 'สิทธิ์ทดลองใช้เลขากระรอกครบแล้ว อัปเกรดเป็น Pro เพื่อใช้งานต่อ', 'ai_trial_used');
   if (reason === 'tokens' && lapsed) throw new HttpError(402, 'โทเคนที่เหลือจาก Pro หมดแล้ว ต่ออายุ Pro เพื่อรับโทเคนใหม่ทุกเดือน', 'ai_tokens_used');
-  if (reason === 'tokens') throw new HttpError(402, `โทเคนของรอบนี้หมดแล้ว จะได้รับใหม่วันที่ ${resetsAt ? thaiDay(resetsAt) : 'รอบถัดไป'}`, 'ai_tokens_used');
+  // With no refill date (Pro given by hand): said plainly, with where to ask for more.
+  if (reason === 'tokens' && !resetsAt) throw new HttpError(402, 'โทเคนที่ได้รับหมดแล้ว หากต้องการใช้ต่อ แจ้งทีมงานได้ที่เมนู แจ้งปัญหา', 'ai_tokens_used');
+  if (reason === 'tokens') throw new HttpError(402, `โทเคนของรอบนี้หมดแล้ว จะได้รับใหม่วันที่ ${thaiDay(resetsAt!)}`, 'ai_tokens_used');
   throw new HttpError(503, 'เลขากระรอกพักการใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง', 'ai_daily_cap');
 }
 

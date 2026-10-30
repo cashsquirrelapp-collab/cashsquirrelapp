@@ -1223,7 +1223,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               {!gate && level !== 'ok' && (
                 <p className={`asx-notice is-${level}`} role="status">
                   <AlertCircle size={15} />
-                  {level === 'empty' ? tr("โทเค็นรอบนี้หมดแล้ว · เติมรอบใหม่ {0}", refill) : tr("โทเค็นใกล้หมด · เหลือ {0} จาก {1}", effective.remaining, effective.total.toLocaleString(dateLocale()))}
+                  {level === 'empty' ? (refill ? tr("โทเค็นรอบนี้หมดแล้ว · เติมรอบใหม่ {0}", refill) : tr("โทเค็นที่ได้รับหมดแล้ว")) : tr("โทเค็นใกล้หมด · เหลือ {0} จาก {1}", effective.remaining, effective.total.toLocaleString(dateLocale()))}
                 </p>
               )}
               {inLine && !busy && (
@@ -1275,7 +1275,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 )}
                 <label htmlFor="asx-message" className="asx-sr">{tr("ข้อความถึงเลขากระรอก")}</label>
                 <textarea id="asx-message" ref={inputRef} rows={1} value={draft} maxLength={MAX_MESSAGE} disabled={blocked && !pendingConfirmation}
-                  placeholder={blocked && pendingConfirmation ? tr('พิมพ์ยืนยันหรือยกเลิกรายการ') : level === 'empty' ? tr("โทเค็นหมด รอเติมรอบใหม่") : tr("ถามเลขากระรอกได้เลย")}
+                  placeholder={blocked && pendingConfirmation ? tr('พิมพ์ยืนยันหรือยกเลิกรายการ') : level === 'empty' ? (refill ? tr("โทเค็นหมด รอเติมรอบใหม่") : tr("โทเค็นที่ได้รับหมดแล้ว")) : tr("ถามเลขากระรอกได้เลย")}
                   onFocus={() => { if (mode === 'sleeping' || mode === 'greeting') setMode(draft ? 'listening' : 'awake'); }}
                   onChange={event => onDraft(event.target.value)}
                   onPaste={event => { const pasted = event.clipboardData?.files?.[0]; if (pasted && live && !busy && !blocked) { event.preventDefault(); void pickFile(pasted); } }}

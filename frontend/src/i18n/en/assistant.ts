@@ -135,6 +135,7 @@ export const assistant: Record<string, string> = {
   "แนบไฟล์ · เร็ว ๆ นี้": "Attach a file · coming soon",
   "ข้อความถึงเลขากระรอก": "Message to Krarok Assistant",
   "โทเค็นหมด รอเติมรอบใหม่": "No tokens left until the next refill",
+  "โทเค็นที่ได้รับหมดแล้ว": "Your tokens are used up",
   "ถามเลขากระรอกได้เลย": "Ask Krarok Assistant anything",
   "พูดแทนการพิมพ์ · เร็ว ๆ นี้": "Speak instead of typing · coming soon",
   "ส่งข้อความ": "Send message",

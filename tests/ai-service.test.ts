@@ -314,7 +314,8 @@ test('LINE: a low balance is shown under the answer; a used-up pool is refused i
   assert.match(JSON.stringify(first!.messages), /เหลือโทเคนเลขารอบนี้ 4 จาก 10 \(ใช้ร่วมกับในแอป\)/);
   await handleMessage(state.db, { config: config({ AI_ADMINS_ONLY: 'false', AI_PRO_TOKENS_PER_CYCLE: '10' }), fetchImpl: geminiReplies(text('ตอบในแอปครับ')) }, USER, 'pro', { text: 'อีกนิด' });
   const refused = await ask('สรุปเดือนนี้');
-  assert.match(refused!.text, /โทเคนของรอบนี้หมดแล้ว จะได้รับใหม่วันที่/);
+  // 'pro' with no end date is Pro given by hand: one allowance with no refill date (owner, 2026-10-30)
+  assert.match(refused!.text, /โทเคนที่ได้รับหมดแล้ว/);
 });
 
 test('LINE: too many messages in a minute get the same polite refusal as the app, without an AI call', async () => {
