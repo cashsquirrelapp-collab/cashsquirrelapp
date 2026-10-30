@@ -90,11 +90,57 @@
 .cr-state { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-size: 14px; color: var(--cr-dim); text-align: center; }
 .cr-state-title { font-size: 18px; font-weight: 700; color: var(--cr-ink); }
 
+/* Status tabs under the title, and the pages when a status has more cards than fit. */
+.cr-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 10px; }
+.cr-tablist { display: flex; flex-wrap: wrap; gap: 8px; }
+.cr-tab {
+  --c: var(--cr-neutral);
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--cr-edge);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--cr-dim);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+.cr-tab.is-overdue { --c: var(--cr-red); }
+.cr-tab.is-soon { --c: var(--cr-amber); }
+.cr-tab.is-received { --c: var(--cr-green); }
+.cr-tab:hover:not(:disabled) { color: var(--cr-ink); border-color: color-mix(in srgb, var(--c) 55%, transparent); }
+.cr-tab.is-on { color: var(--cr-ink); border-color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--c) 28%, transparent); }
+.cr-tab:disabled { opacity: 0.4; cursor: default; }
+.cr-tab:focus-visible { outline: 2px solid #FFB98F; outline-offset: 2px; }
+.cr-tab-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 999px; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.cr-tab-count { display: inline-flex; min-width: 24px; height: 24px; align-items: center; justify-content: center; padding: 0 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.10); color: var(--cr-ink); font-size: 12px; font-weight: 700; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.cr-tab.is-on .cr-tab-count { background: var(--c); color: #160C08; }
+.cr-pager { display: inline-flex; align-items: center; gap: 8px; color: var(--cr-dim); font-size: 13px; font-weight: 600; line-height: 1.45; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cr-pager button { display: flex; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid var(--cr-edge); background: rgba(255, 255, 255, 0.06); color: var(--cr-ink); cursor: pointer; transition: background-color 0.2s ease; }
+.cr-pager button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+.cr-pager button:disabled { opacity: 0.35; cursor: default; }
+html:not(.dark) .cr-tab { background: rgba(255, 255, 255, 0.75); }
+html:not(.dark) .cr-tab.is-on { background: color-mix(in srgb, var(--c) 12%, #FFFFFF); box-shadow: 0 6px 16px color-mix(in srgb, var(--c) 18%, transparent); }
+html:not(.dark) .cr-tab-count { background: rgba(28, 25, 23, 0.07); }
+html:not(.dark) .cr-tab.is-on .cr-tab-count { color: #FFFFFF; }
+html:not(.dark) .cr-tab:focus-visible { outline-color: #E65F2B; }
+html:not(.dark) .cr-pager button { background: #FFFFFF; }
+html:not(.dark) .cr-pager button:hover:not(:disabled) { background: #FFF1E8; }
+
 /* Tall (iPads in portrait): the radar on top, the cards two by two under it. */
 .cr-stage.is-tall { display: flex; flex-direction: column; gap: 16px; }
 .cr-center.is-top { flex-shrink: 0; }
 .cr-cards { position: relative; z-index: 3; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 16px; }
 .cr.is-tall .cr-head { padding: 18px 0 6px; }
+.cr.is-tall .cr-tab { min-height: 34px; gap: 6px; padding: 0 6px 0 12px; font-size: 12px; }
+.cr.is-tall .cr-tab-count { min-width: 22px; height: 22px; }
+.cr.is-tall .cr-tabs { margin-top: 8px; }
 .cr.is-tall .crs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; padding: 10px 12px 12px; }
 .cr.is-tall .crs-metric { gap: 8px; padding: 2px 6px; }
 .cr.is-tall .crs-metric:nth-child(n + 2) { border-left: 1px solid rgba(255, 255, 255, 0.08); }
@@ -102,6 +148,7 @@
 .cr.is-tall .crs-value { font-size: 21px; }
 .cr.is-tall .crs-value.is-small { font-size: 16px; }
 .cr.is-tall .crs-actions { grid-column: 1 / -1; justify-content: flex-end; margin-left: 0; }
+.cr.is-tall .crs-actions .cr-pager { margin-right: auto; }
 html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rgba(28, 25, 23, 0.08); }
 
 /* Lines. */
@@ -388,32 +435,6 @@ html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rg
 .crh-float > img { animation: crh-float 3.6s ease-in-out infinite alternate; }
 @keyframes crh-float { from { transform: translateY(0); } to { transform: translateY(-10px); } }
 .crh-mascot { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 22px rgba(255, 140, 80, 0.45)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.5)); user-select: none; }
-.crh-chip {
-  --c: var(--cr-neutral);
-  position: absolute;
-  z-index: 4;
-  display: flex;
-  width: clamp(84px, calc(var(--R) * 0.2), 104px);
-  height: clamp(84px, calc(var(--R) * 0.2), 104px);
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 1px solid var(--c);
-  background: radial-gradient(circle at 35% 25%, rgba(80, 50, 34, 0.82) 0%, rgba(18, 11, 8, 0.9) 75%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 18px color-mix(in srgb, var(--c) 35%, transparent);
-  text-align: center;
-}
-.crh-chip.is-overdue { --c: var(--cr-red); }
-.crh-chip.is-soon { --c: var(--cr-amber); }
-.crh-chip.is-received { --c: var(--cr-green); }
-.crh-chip.at-0 { left: 0; top: 6%; }
-.crh-chip.at-1 { left: -2%; top: 46%; }
-.crh-chip.at-2 { right: -2%; top: 44%; }
-.crh-chip.at-3 { right: -2%; top: 71%; }
-.crh-chip-icon { width: 18px; height: 18px; color: var(--c); }
-.crh-chip-count { margin-top: 2px; font-size: 14px; font-weight: 700; line-height: 1.45; white-space: nowrap; }
-.crh-chip-label { font-size: 11px; line-height: 1.45; color: var(--cr-dim); white-space: nowrap; }
 
 /* The squirrel's hologram screen, rising from its laptop. */
 .crh-projection { position: absolute; inset: 0; z-index: 4; width: 100%; height: 100%; mix-blend-mode: screen; pointer-events: none; }
@@ -676,10 +697,6 @@ html:not(.dark) .crh-beam {
 }
 html:not(.dark) .crh-sparks i { background: #E65F2B; box-shadow: 0 0 8px 2px rgba(230, 95, 43, 0.4); }
 html:not(.dark) .crh-mascot { filter: drop-shadow(0 0 18px rgba(230, 95, 43, 0.25)) drop-shadow(0 10px 12px rgba(166, 63, 27, 0.22)); }
-html:not(.dark) .crh-chip {
-  background: radial-gradient(circle at 35% 25%, #FFFFFF 0%, #FFF3EA 80%);
-  box-shadow: inset 0 1px 0 #FFFFFF, 0 8px 20px rgba(166, 63, 27, 0.12), 0 0 16px color-mix(in srgb, var(--c) 22%, transparent);
-}
 html:not(.dark) .crh-projection { mix-blend-mode: normal; opacity: 0.75; }
 html:not(.dark) .crh-projection-edge { stroke: rgba(230, 95, 43, 0.45); }
 

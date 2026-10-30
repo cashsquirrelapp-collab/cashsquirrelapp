@@ -27,8 +27,10 @@ function useCounter(value: number, run: boolean) {
   return shown;
 }
 
-export function RadarSummary({ data, hiddenCount, reduce, onShowAll, onOpenReceivables }: {
+export function RadarSummary({ data, hiddenCount, reduce, onShowAll, onOpenReceivables, leading }: {
   data: CreditRadarData; hiddenCount: number; reduce: boolean; onShowAll: () => void; onOpenReceivables: () => void;
+  /** Shown at the start of the button row (the pages, on tall screens). */
+  leading?: React.ReactNode;
 }) {
   const outstanding = useCounter(data.totals.outstanding, !reduce);
   const followUp = useCounter(data.totals.followUp, !reduce);
@@ -67,6 +69,7 @@ export function RadarSummary({ data, hiddenCount, reduce, onShowAll, onOpenRecei
         </div>
       </div>
       <div className="crs-actions">
+        {leading}
         <button type="button" className="crs-btn is-quiet" onClick={onShowAll} data-testid="radar-show-all">
           {hiddenCount > 0 ? tr("ดูทั้งหมด {0} รายการ", all) : tr("ดูเป็นรายการ")}
         </button>

@@ -1,6 +1,9 @@
 // Receivables screen.
 export const receivables: Record<string, string> = {
   // Credit Radar (computers).
+  'สถานะที่แสดง': 'Status shown',
+  'หน้าก่อน': 'Previous page',
+  '{0}–{1} จาก {2}': '{0}–{1} of {2}',
   'กำลังตรวจเครดิตเทอม': 'Checking credit terms',
   'เกินกำหนด {0}': 'Overdue {0}',
   'ใกล้ครบ {0}': 'Due soon {0}',

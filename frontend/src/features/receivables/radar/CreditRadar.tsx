@@ -1,14 +1,14 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Radar, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Radar, X } from 'lucide-react';
 import type { Job } from '../../../../../shared/types';
 import { dateLocale, formatCurrency } from '../../../utils';
 import { tr } from '../../../i18n/tr';
-import { bangkokToday, buildCreditRadar, radarCards, type CreditRadarData, type RadarItem, type RadarStatus } from './radarData';
+import { bangkokToday, buildCreditRadar, type CreditRadarData, type RadarItem, type RadarStatus } from './radarData';
 import { CreditCard, daysLabel } from './CreditCard';
 import type { ScreenLine } from './HoloScreen';
-import { HolographicSquirrel, type RadarChip } from './HolographicSquirrel';
+import { HolographicSquirrel } from './HolographicSquirrel';
 import { ConnectionLines, type LineTarget } from './ConnectionLines';
 import { RadarSummary } from './RadarSummary';
 import './creditRadar.css';
@@ -19,6 +19,10 @@ import './creditRadar.css';
 // a payment recorded elsewhere turns its card green.
 
 const CARD_H = 180;
+/** A card's height in the tall layout (two across, so the same card is a little shorter than in a side column). */
+const CARD_H_TALL = 176;
+const GROUP_ORDER: RadarStatus[] = ['overdue', 'soon', 'received', 'later'];
+const groupLabel = (key: RadarStatus) => (key === 'overdue' ? tr("เกินกำหนด") : key === 'soon' ? tr("ใกล้ครบกำหนด") : key === 'received' ? tr("รับเงินแล้ว") : tr("ยังไม่ถึงกำหนด"));
 const GAP = 16;
 
 
@@ -83,6 +87,8 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   const cardRefs = React.useRef(new Map<string, HTMLElement>());
   const [hovered, setHovered] = React.useState<string | null>(null);
   const [showAll, setShowAll] = React.useState(false);
+  const [picked, setPicked] = React.useState<RadarStatus | null>(null);
+  const [page, setPage] = React.useState(0);
   const showAllRef = React.useRef(false);
   showAllRef.current = showAll;
   const onCloseRef = React.useRef(onClose);
@@ -108,9 +114,18 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   // as leave the radar at least 340px. Cards never overlap and never leave the screen.
   const tall = stage.w > 0 && (stage.w < 900 || stage.w / Math.max(1, stage.h) < 1.2);
   const perSide = Math.max(1, Math.min(4, Math.floor((stage.h + GAP) / (CARD_H + GAP)) || 3));
-  const tallRadar = (rows: number) => Math.min(stage.w - 32, stage.h - rows * (CARD_H + GAP) - 8, 560);
+  const tallRadar = (rows: number) => Math.min(stage.w - 32, stage.h - rows * (CARD_H_TALL + GAP) - 8, 560);
   const tallRows = [3, 2, 1].find(rows => tallRadar(rows) >= 340) ?? 1;
-  const shown = data ? radarCards(data, tall ? tallRows * 2 : perSide * 2) : [];
+  // One status at a time (owner, 2026-10-30: "เกินกำหนด 9 รายการ ก็ขึ้นแค่ 9 รายการที่เกินกำหนด"): the tabs pick it, the cards,
+  // the lines and the squirrel's screen all show that status only; more than fit turn over in pages.
+  const groups: Record<RadarStatus, RadarItem[]> | null = data ? { overdue: data.overdue, soon: data.soon, received: data.received, later: data.later } : null;
+  const firstGroup = GROUP_ORDER.find(key => groups?.[key].length) ?? 'overdue';
+  const active: RadarStatus = picked && groups?.[picked].length ? picked : firstGroup;
+  const list = groups ? groups[active] : [];
+  const room = Math.max(1, tall ? tallRows * 2 : perSide * 2);
+  const pages = Math.max(1, Math.ceil(list.length / room));
+  const pageNow = Math.min(page, pages - 1);
+  const shown = list.slice(pageNow * room, pageNow * room + room);
   const left = shown.filter((_, i) => i % 2 === 0), right = shown.filter((_, i) => i % 2 === 1);
   const total = data ? data.overdue.length + data.soon.length + data.received.length + data.later.length : 0;
   const colWidth = Math.round(Math.min(360, Math.max(256, stage.w * 0.25)));
@@ -120,14 +135,8 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   const targets: LineTarget[] = tall
     ? shown.map(item => ({ id: item.id, status: item.status, side: 'top' as const }))
     : [...left.map(item => ({ id: item.id, status: item.status, side: 'left' as const })), ...right.map(item => ({ id: item.id, status: item.status, side: 'right' as const }))];
-  const chips: RadarChip[] = data ? [
-    { key: 'overdue', count: data.overdue.length, label: tr("เกินกำหนด") },
-    { key: 'soon', count: data.soon.length, label: tr("ใกล้ครบกำหนด") },
-    { key: 'later', count: data.later.length, label: tr("ยังไม่ถึงกำหนด") },
-    { key: 'received', count: data.received.length, label: tr("รับเงินแล้ว") },
-  ] : [];
-  // What the squirrel types onto its screen: every job on the radar, in the order the cards use.
-  const screenLines: ScreenLine[] = data ? radarCards(data, 40).map(item => ({ key: item.id, name: item.client || item.name, amount: formatCurrency(item.amount), tone: item.status })) : [];
+  // What the squirrel types onto its screen: the jobs of the status on show.
+  const screenLines: ScreenLine[] = list.slice(0, 40).map(item => ({ key: item.id, name: item.client || item.name, amount: formatCurrency(item.amount), tone: item.status }));
   const screenCounts = data ? { overdue: data.overdue.length, soon: data.soon.length, received: data.received.length } : { overdue: 0, soon: 0, received: 0 };
   const longDate = new Date(`${today}T00:00:00`).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -155,7 +164,20 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
       before?.focus?.({ preventScroll: true });
     };
   }, [open]);
-  React.useEffect(() => { if (!open) { setShowAll(false); setHovered(null); } }, [open]);
+  React.useEffect(() => { if (!open) { setShowAll(false); setHovered(null); setPicked(null); setPage(0); } }, [open]);
+  // Back to the first page when the status or the room changes.
+  React.useEffect(() => { setPage(0); }, [active, room]);
+  const pick = (key: RadarStatus) => { setPicked(key); setPage(0); setHovered(null); };
+  // The pages: beside the tabs on wide screens, in the summary bar on tall ones (so the tabs keep one row).
+  const pagerNode = pages > 1 ? (
+    <div className="cr-pager" data-testid="radar-pager">
+      <button type="button" onClick={() => setPage(pageNow - 1)} disabled={pageNow === 0} aria-label={tr("หน้าก่อน")}><ChevronLeft className="h-4 w-4" strokeWidth={2.2} /></button>
+      <span>{tr("{0}–{1} จาก {2}", pageNow * room + 1, pageNow * room + shown.length, list.length)}</span>
+      <button type="button" onClick={() => setPage(pageNow + 1)} disabled={pageNow >= pages - 1} aria-label={tr("หน้าถัดไป")}><ChevronRight className="h-4 w-4" strokeWidth={2.2} /></button>
+    </div>
+  ) : null;
+  // Cards wait until the stage has its size, so none come in only to leave again.
+  const ready = stage.w > 0 && stage.h > 0;
 
   // Loops pause while the tab is hidden.
   React.useEffect(() => {
@@ -194,7 +216,7 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   const cardList = (list: RadarItem[], side: 'left' | 'right') => (
     <div className={`cr-col is-${side}`}>
       <AnimatePresence initial={!reduce}>
-        {list.map((item, i) => slot(item, i * 2 + (side === 'right' ? 1 : 0), side))}
+        {ready && list.map((item, i) => slot(item, i * 2 + (side === 'right' ? 1 : 0), side))}
       </AnimatePresence>
     </div>
   );
@@ -213,7 +235,19 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
               <div className="cr-head-text">
                 <p className="cr-eyebrow"><Radar className="h-4 w-4" strokeWidth={2} aria-hidden="true" />{tr("เรดาร์เครดิตเทอม · ข้อมูล ณ {0}", longDate)}</p>
                 <h2 className="cr-title">{data && data.totals.followUp > 0 ? tr("ต้องติดตาม {0} รายการ", data.totals.followUp) : tr("เรดาร์เครดิตเทอม")}</h2>
-                {data && <p className="cr-sub">{tr("เกินกำหนด {0} · ใกล้ครบกำหนด {1} · รับเงินแล้ว 7 วันล่าสุด {2}", data.overdue.length, data.soon.length, data.received.length)}</p>}
+                {groups && total > 0 && (
+                  <div className="cr-tabs">
+                    <div className="cr-tablist" role="tablist" aria-label={tr("สถานะที่แสดง")}>
+                      {GROUP_ORDER.map(key => (
+                        <button key={key} type="button" role="tab" aria-selected={key === active} disabled={!groups[key].length}
+                          className={`cr-tab is-${key}${key === active ? ' is-on' : ''}`} onClick={() => pick(key)} data-testid={`radar-tab-${key}`}>
+                          <span className="cr-tab-dot" aria-hidden="true" />{groupLabel(key)}<span className="cr-tab-count">{groups[key].length}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {!tall && pagerNode}
+                  </div>
+                )}
               </div>
               <button ref={closeRef} type="button" className="cr-close" onClick={onClose} aria-label={tr("ปิดเรดาร์")} data-testid="radar-close">
                 <X className="h-5 w-5" strokeWidth={2.2} />
@@ -222,21 +256,21 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
 
             <main ref={stageRef} className={`cr-stage${tall ? ' is-tall' : ''}`} style={tall ? undefined : { gridTemplateColumns: `${colWidth}px minmax(0, 1fr) ${colWidth}px` }}>
               {loading ? (
-                <div className="cr-state"><HolographicSquirrel ref={hubRef} size={Math.min(320, radarSize)} chips={[]} showChips={false} reduce={reduce} /><p>{tr("กำลังโหลดข้อมูล")}</p></div>
+                <div className="cr-state"><HolographicSquirrel ref={hubRef} size={Math.min(320, radarSize)} reduce={reduce} /><p>{tr("กำลังโหลดข้อมูล")}</p></div>
               ) : result.failed || !data ? (
                 <div className="cr-state"><p className="cr-state-title">{tr("แสดงเรดาร์ไม่ได้ในขณะนี้")}</p><p>{tr("ดูรายการทั้งหมดได้ที่หน้าเงินรอรับ")}</p></div>
               ) : total === 0 ? (
-                <div className="cr-state"><HolographicSquirrel ref={hubRef} size={Math.min(320, radarSize)} chips={[]} showChips={false} reduce={reduce} /><p className="cr-state-title">{tr("ตอนนี้ไม่มีรายการที่ต้องติดตาม")}</p></div>
+                <div className="cr-state"><HolographicSquirrel ref={hubRef} size={Math.min(320, radarSize)} reduce={reduce} /><p className="cr-state-title">{tr("ตอนนี้ไม่มีรายการที่ต้องติดตาม")}</p></div>
               ) : tall ? (
                 <>
                   <ConnectionLines stageRef={stageRef} hubRef={hubRef} cardRefs={cardRefs} targets={targets} hovered={hovered} reduce={reduce}
                     layoutKey={`tall:${stage.w}x${stage.h}:${targets.map(target => target.id).join(',')}`} />
                   <div className="cr-center is-top" style={{ height: radarSize }}>
-                    <HolographicSquirrel ref={hubRef} size={radarSize} chips={chips} showChips={showExtras} reduce={reduce}
+                    <HolographicSquirrel ref={hubRef} size={radarSize} reduce={reduce}
                       screen={showExtras ? { lines: screenLines, counts: screenCounts, rows: radarSize >= 420 ? 3 : 2 } : undefined} />
                   </div>
                   <div className="cr-cards">
-                    <AnimatePresence initial={!reduce}>{shown.map((item, n) => slot(item, n, 'below'))}</AnimatePresence>
+                    <AnimatePresence initial={!reduce}>{ready && shown.map((item, n) => slot(item, n, 'below'))}</AnimatePresence>
                   </div>
                 </>
               ) : (
@@ -245,7 +279,7 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
                     layoutKey={`${stage.w}x${stage.h}:${targets.map(target => target.id).join(',')}`} />
                   {cardList(left, 'left')}
                   <div className="cr-center">
-                    <HolographicSquirrel ref={hubRef} size={radarSize} chips={chips} showChips={showExtras} reduce={reduce}
+                    <HolographicSquirrel ref={hubRef} size={radarSize} reduce={reduce}
                       screen={showExtras ? { lines: screenLines, counts: screenCounts, rows: radarSize >= 420 ? 3 : 2 } : undefined} />
                   </div>
                   {cardList(right, 'right')}
@@ -255,7 +289,8 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
 
             {data && total > 0 && (
               <footer className="cr-foot">
-                <RadarSummary data={data} hiddenCount={total - shown.length} reduce={reduce} onShowAll={() => setShowAll(true)} onOpenReceivables={onOpenReceivables} />
+                <RadarSummary data={data} hiddenCount={total - shown.length} reduce={reduce} onShowAll={() => setShowAll(true)} onOpenReceivables={onOpenReceivables}
+                  leading={tall ? pagerNode : null} />
               </footer>
             )}
           </motion.div>

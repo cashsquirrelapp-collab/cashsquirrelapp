@@ -459,7 +459,7 @@ card does not need:
 - Two layouts. Wide (stage 900px+ and wider than 1.2× its height: computers, iPads in landscape): cards in a column each
   side (columns 256–360px). Tall (iPads in portrait): the radar on top, cards two by two under it (as many rows as leave
   the radar 340px+), lines to the middle of each card's top, the four figures in one row with the buttons under them.
-  Chips and the hologram screen show when the radar is 340px+ (chips 84–104px; the screen keeps two log lines under 420px).
+  The hologram screen shows when the radar is 340px+ (two log lines under 420px).
   Touch: a tap opens the job; there is no hover or mouse parallax.
 - Opens by itself once a day (the overdue check), or by hand any time: the "เรดาร์เครดิตเทอม" button at the top right of
   the receivables page (computers and iPads; owner: "ดูในคอมยังไง ต้องกดตรงไหน"), or the link `?radar=1`.
@@ -475,9 +475,13 @@ card does not need:
   screen is a prop, the squirrel is never redrawn): "กำลังตรวจเครดิตเทอม", a small radar sweeping, the counts, and the real
   jobs typing in one line every 2.6 s with a cursor. It floats (3.6 s) on an amber stand with the Krarok mark, a beam, rising sparks, a base
   pulse every 2 s, three tilted orbit rings turning (22/30/40 s) with lights, an upright radar disc (rings, cross, a scan
-  line turning every 24 s), ambient glow (4 s); four status chips (เกินกำหนด, ใกล้ครบกำหนด, ยังไม่ถึงกำหนด, รับเงินแล้ว) when
-  the radar is 400px or more.
-- Cards left and right (as many as fit, one to four a side; overdue first, then due soon, paid, not yet due): client, job,
+  line turning every 24 s), ambient glow (4 s). No status circles around it (taken off 2026-10-30: the lines through them looked
+  random).
+- One status at a time (owner, 2026-10-30: "เกินกำหนด 9 รายการ ก็ขึ้นแค่ 9 รายการที่เกินกำหนด"): tabs under the title —
+  เกินกำหนด · ใกล้ครบกำหนด · รับเงินแล้ว · ยังไม่ถึงกำหนด, each with its count (empty ones dimmed); it opens on the first
+  that has jobs. The cards, their lines and the squirrel's screen show that status only; more than fit turn over with
+  ‹ 1–6 จาก 9 › (beside the tabs; in the summary bar on tall screens).
+- Cards left and right (as many as fit, one to four a side, the chosen status in order of what needs a look first): client, job,
   status badge, amount, days, ส่งงาน / ครบกำหนด / วันนี้ (or รับเงิน) in order. They come in one by one, float slowly out of
   step, hold still and lift with a glow under the pointer; overdue cards pulse red softly. A click opens the job's form.
 - Lines from the squirrel's edge to each card, measured from the cards' layout (again on any resize); a light runs along

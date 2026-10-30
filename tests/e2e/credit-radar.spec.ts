@@ -110,18 +110,33 @@ test('computers: the overdue check opens the fullscreen radar with real figures,
   await page.screenshot({ path: test.info().outputPath('credit-radar-1440.png') });
 });
 
-test('statuses: red overdue, amber due soon, green only when paid, neutral not yet due; every line ends at its card', async ({ page }) => {
+// Owner, 2026-10-30: one status at a time — "เกินกำหนด 9 รายการ ก็ขึ้นแค่ 9 รายการที่เกินกำหนด" — picked by the tabs; no
+// status circles around the squirrel.
+test('statuses: the tabs show one status at a time, its cards and lines only (red, amber, green, neutral)', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const radar = await open(page, mixed);
   const cards = radar.getByTestId('radar-card');
-  await expect(cards).toHaveCount(5);
-  const statusOf = async (text: string) => cards.filter({ hasText: text }).getAttribute('data-status');
-  expect(await statusOf('บริษัท ผิวใส จำกัด')).toBe('overdue');
-  expect(await statusOf('ร้านกาแฟ Good Day')).toBe('soon');
-  expect(await statusOf('คุณเบย์')).toBe('received');
-  expect(await statusOf('Give Lab')).toBe('later');
-  await expect(cards.filter({ hasText: 'คุณเบย์' })).toContainText('รับเงินแล้ว');
-  await expect(cards.filter({ hasText: 'ร้านกาแฟ Good Day' })).toContainText('อีก 3 วัน');
+  await expect(radar.locator('.crh-chip')).toHaveCount(0);
+  // Overdue first: only the two overdue jobs, each with its line.
+  await expect(radar.getByTestId('radar-tab-overdue')).toHaveAttribute('aria-selected', 'true');
+  await expect(radar.getByTestId('radar-tab-overdue')).toContainText('2');
+  await expect(cards).toHaveCount(2);
+  expect(await cards.evaluateAll(list => list.map(el => el.getAttribute('data-status')))).toEqual(['overdue', 'overdue']);
+  await page.waitForTimeout(1800);
+  expect((await layoutCheck(page)).lines).toBe(2);
+  const showStatus = async (key: string, client: string, text: string) => {
+    await radar.getByTestId(`radar-tab-${key}`).click();
+    await expect(cards).toHaveCount(1);
+    await expect(cards.first()).toHaveAttribute('data-status', key);
+    await expect(cards.first()).toContainText(client);
+    await expect(cards.first()).toContainText(text);
+    await expect(radar.locator('.crv-line').first()).toContainText(client);
+  };
+  await showStatus('soon', 'ร้านกาแฟ Good Day', 'อีก 3 วัน');
+  await showStatus('received', 'คุณเบย์', 'รับเงินแล้ว');
+  await showStatus('later', 'Give Lab', 'อีก 20 วัน');
+  await radar.getByTestId('radar-tab-overdue').click();
+  await expect(cards).toHaveCount(2);
   // What came in is not owed.
   await expect(radar.getByTestId('radar-outstanding')).toHaveText('฿82,000', { timeout: 4000 });
   await page.waitForTimeout(2200);
@@ -147,16 +162,16 @@ test('hover lights the card\'s line and steps the rest back; a click opens the r
   await page.setViewportSize({ width: 1440, height: 900 });
   const radar = await open(page, mixed);
   await page.waitForTimeout(2000);
-  const card = radar.getByTestId('radar-card').filter({ hasText: 'ร้านกาแฟ Good Day' });
+  const card = radar.getByTestId('radar-card').filter({ hasText: 'IzaBelle' });
   // The cards float; the pointer is placed without waiting for one to hold still (it stops once the pointer is on it).
   await card.hover({ force: true });
-  await expect(radar.locator('.crl-line[data-line="m3"]')).toHaveClass(/is-active/);
+  await expect(radar.locator('.crl-line[data-line="m2"]')).toHaveClass(/is-active/);
   await expect(radar.locator('.crl-line[data-line="m1"]')).toHaveClass(/is-dim/);
   await expect(radar.getByTestId('radar-card').filter({ hasText: 'บริษัท ผิวใส จำกัด' })).toHaveClass(/is-dim/);
   await card.click();
   await expect(radar).toBeHidden();
   await expect(page.getByRole('heading', { name: 'แก้ไขงาน' })).toBeVisible();
-  await expect.poll(() => page.locator('input').evaluateAll(inputs => inputs.some(input => (input as HTMLInputElement).value === 'ออกแบบเมนู'))).toBe(true);
+  await expect.poll(() => page.locator('input').evaluateAll(inputs => inputs.some(input => (input as HTMLInputElement).value === 'คลิป TikTok'))).toBe(true);
 });
 
 test('Esc closes back to the page underneath; the close button too', async ({ page }) => {
@@ -174,11 +189,22 @@ test('many jobs: the cards that fit, and the full list grouped; Esc closes the l
   const many = Array.from({ length: 24 }, (_, i) => owed(`k${i}`, `งานที่ ${i + 1}`, `ลูกค้า ${i + 1}`, 1000 + i * 250, 2 + i));
   const radar = await open(page, many);
   const cards = radar.getByTestId('radar-card');
+  await page.waitForTimeout(2000);
   const shown = await cards.count();
   expect(shown).toBeGreaterThanOrEqual(2);
   expect(shown).toBeLessThan(24);
-  await page.waitForTimeout(2000);
   expect((await layoutCheck(page)).problems).toEqual([]);
+  // The pages turn: the next cards are the next overdue jobs, then back.
+  const pager = radar.getByTestId('radar-pager');
+  await expect(pager).toContainText(`1–${shown} จาก 24`);
+  const firstOnPage = await cards.first().textContent();
+  await pager.getByRole('button', { name: 'หน้าถัดไป' }).click();
+  await expect(pager).toContainText(`${shown + 1}–${shown * 2} จาก 24`);
+  await expect(cards.first()).not.toHaveText(firstOnPage || '');
+  await page.waitForTimeout(1200);
+  expect((await layoutCheck(page)).problems).toEqual([]);
+  await pager.getByRole('button', { name: 'หน้าก่อน' }).click();
+  await expect(pager).toContainText(`1–${shown} จาก 24`);
   await radar.getByTestId('radar-show-all').click();
   const list = radar.getByTestId('radar-all');
   await expect(list).toBeVisible();
@@ -221,7 +247,7 @@ const endsAtCards = (layout: Awaited<ReturnType<typeof layoutCheck>>) => layout.
 
 test.describe('iPads get the same fullscreen radar (owner, 2026-10-30: "เต็มหน้าจอเลยของบนคอมแล้วก็ iPad")', () => {
   test.use({ hasTouch: true, isMobile: true });
-  test('iPad landscape: cards beside the radar, the screen and chips, nothing overlapping', async ({ page }) => {
+  test('iPad landscape: cards beside the radar and the screen, nothing overlapping', async ({ page }) => {
     const radar = await openTouch(page, 1180, 820, [...sixLate, owed('j7', 'งานใกล้ครบกำหนด', 'ลูกค้าใหม่', 7000, -5)]);
     expect(await radar.boundingBox()).toMatchObject({ x: 0, y: 0, width: 1180, height: 820 });
     await expect(radar).not.toHaveClass(/is-tall/);
@@ -235,7 +261,7 @@ test.describe('iPads get the same fullscreen radar (owner, 2026-10-30: "เต�
     await page.screenshot({ path: test.info().outputPath('credit-radar-ipad-landscape.png') });
   });
   test('iPad portrait: the radar on top, cards two by two under it, each line ends at its card', async ({ page }) => {
-    const radar = await openTouch(page, 768, 1024, mixed);
+    const radar = await openTouch(page, 768, 1024, sixLate);
     await expect(radar).toHaveClass(/is-tall/);
     await page.waitForTimeout(2200);
     await expect(radar.getByTestId('radar-card')).toHaveCount(4);
@@ -247,7 +273,8 @@ test.describe('iPads get the same fullscreen radar (owner, 2026-10-30: "เต�
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: test.info().outputPath('credit-radar-ipad-portrait.png') });
     // A tap opens the job.
-    await radar.getByTestId('radar-card').filter({ hasText: 'ร้านกาแฟ Good Day' }).click({ force: true });
+    await expect(radar.getByTestId('radar-pager')).toContainText('1–4 จาก 6');
+    await radar.getByTestId('radar-card').filter({ hasText: 'Brew Days' }).click({ force: true });
     await expect(page.getByRole('heading', { name: 'แก้ไขงาน' })).toBeVisible();
   });
   test('iPad mini portrait and the large iPad in portrait fit too', async ({ page }) => {
@@ -318,7 +345,7 @@ test('the receivables page has a เรดาร์เครดิตเทอ�
   await page.screenshot({ path: test.info().outputPath('receivables-radar-button.png') });
   await page.getByTestId('open-credit-radar').click();
   await expect(radar).toBeVisible();
-  await expect(radar.getByTestId('radar-card')).toHaveCount(5);
+  await expect(radar.getByTestId('radar-card')).toHaveCount(2);
   await page.keyboard.press('Escape');
   await expect(radar).toHaveCount(0, { timeout: 2000 });
   await expect(page.getByTestId('open-credit-radar')).toBeVisible();
@@ -328,7 +355,7 @@ test('?radar=1 opens the radar once the jobs are in', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.addInitScript(email => { const d = new Date().toISOString().split('T')[0]; sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`, '1'); }, user.email);
   const radar = await open(page, mixed, 'light', '/?radar=1');
-  await expect(radar.getByTestId('radar-card')).toHaveCount(5);
+  await expect(radar.getByTestId('radar-card')).toHaveCount(2);
   expect(new URL(page.url()).searchParams.has('radar')).toBe(false);
 });
 
