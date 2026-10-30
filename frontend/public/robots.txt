@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://kraroktunngern.cashsquirrelapp.workers.dev/sitemap.xml
+Sitemap: https://krarok.com/sitemap.xml
