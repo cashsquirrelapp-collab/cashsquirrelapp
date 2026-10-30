@@ -461,6 +461,13 @@ card does not need:
   the radar 340px+), lines to the middle of each card's top, the four figures in one row with the buttons under them.
   The hologram screen shows when the radar is 340px+ (two log lines under 420px).
   Touch: a tap opens the job; there is no hover or mouse parallax.
+- Alive (owner, 2026-10-30): the squirrel blinks, its paws keep typing, and every 7 s its eyes look left then right with the
+  head tilting a little (Mascot `glance`). Left alone (10 s after opening, 9 s between turns, 15 s after anything the
+  person does; never while the pointer is on a card, the full list is open, the tab is hidden or with reduced motion), it
+  swipes (its wave) with a light sweeping across the screen and the next-page arrow or next tab glowing, and the radar
+  turns to the next page, then the next status, round and round.
+- A click on a card: the card blinks slowly twice, then the jobs page opens with that job scrolled to and blinking slowly
+  three times (the app's own spotlight), so it is clear which job it was.
 - Opens by itself once a day (the overdue check), or by hand any time: the "เรดาร์เครดิตเทอม" button at the top right of
   the receivables page (computers and iPads; owner: "ดูในคอมยังไง ต้องกดตรงไหน"), or the link `?radar=1`.
 - Data: the jobs as saved, with the receivables page's rules (owed = pending > 0 and sent; due = payDate; due soon = within

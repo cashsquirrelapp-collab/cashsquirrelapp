@@ -169,12 +169,62 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   // Back to the first page when the status or the room changes.
   React.useEffect(() => { setPage(0); }, [active, room]);
   const pick = (key: RadarStatus) => { setPicked(key); setPage(0); setHovered(null); };
+
+  // Left alone a while, the squirrel swipes and the radar turns to the next page, then the next status (owner,
+  // 2026-10-30: "ค้างไว้สักกี่วิ ... ให้น้องทำท่าปัด ... ต้องมีคูลดาวน์ด้วย"), so people see there is more. Not while the
+  // pointer is on a card, the full list is open or the tab is hidden; 10 s after opening, 9 s between turns, 15 s after
+  // anything the person does. Nothing turns by itself with reduced motion.
+  const nonEmpty = GROUP_ORDER.filter(key => groups?.[key].length);
+  const nextStop: { group: RadarStatus; page: number } | null = (() => {
+    if (pageNow < pages - 1) return { group: active, page: pageNow + 1 };
+    const after = nonEmpty[(nonEmpty.indexOf(active) + 1) % Math.max(1, nonEmpty.length)];
+    if (!after || (after === active && pages === 1)) return null;
+    return { group: after, page: 0 };
+  })();
+  const [swiping, setSwiping] = React.useState(false);
+  const lastTouch = React.useRef({ at: 0, by: 'open' as 'open' | 'user' | 'auto' });
+  const touch = () => { lastTouch.current = { at: performance.now(), by: 'user' }; };
+  const hoveredRef = React.useRef(hovered);
+  hoveredRef.current = hovered;
+  const nextRef = React.useRef(nextStop);
+  nextRef.current = nextStop;
+  React.useEffect(() => { if (open) lastTouch.current = { at: performance.now(), by: 'open' }; }, [open]);
+  React.useEffect(() => {
+    if (!open || reduce || !data || showAll) return;
+    const timers: number[] = [];
+    let busy = false;
+    const tick = window.setInterval(() => {
+      const next = nextRef.current;
+      if (!next || busy || document.hidden || hoveredRef.current) return;
+      const wait = lastTouch.current.by === 'user' ? 15000 : lastTouch.current.by === 'auto' ? 9000 : 10000;
+      if (performance.now() - lastTouch.current.at < wait) return;
+      busy = true;
+      setSwiping(true);
+      timers.push(window.setTimeout(() => {
+        if (next.group !== activeRef.current) setPicked(next.group);
+        setPage(next.page);
+      }, 650));
+      timers.push(window.setTimeout(() => { setSwiping(false); busy = false; lastTouch.current = { at: performance.now(), by: 'auto' }; }, 1500));
+    }, 500);
+    return () => { window.clearInterval(tick); timers.forEach(window.clearTimeout); setSwiping(false); };
+  }, [open, reduce, data, showAll]);
+  const activeRef = React.useRef(active);
+  activeRef.current = active;
+  const nudge = swiping && nextStop ? (nextStop.group === active ? 'page' : nextStop.group) : null;
+
+  // A click: the card blinks slowly, then its job opens on the jobs page, blinking there too.
+  const [flashId, setFlashId] = React.useState<string | null>(null);
+  const openJob = (id: string) => {
+    if (reduce) { onOpenJob(id); return; }
+    setFlashId(id);
+    window.setTimeout(() => onOpenJob(id), 900);
+  };
   // The pages: beside the tabs on wide screens, in the summary bar on tall ones (so the tabs keep one row).
   const pagerNode = pages > 1 ? (
     <div className="cr-pager" data-testid="radar-pager">
       <button type="button" onClick={() => setPage(pageNow - 1)} disabled={pageNow === 0} aria-label={tr("หน้าก่อน")}><ChevronLeft className="h-4 w-4" strokeWidth={2.2} /></button>
       <span>{tr("{0}–{1} จาก {2}", pageNow * room + 1, pageNow * room + shown.length, list.length)}</span>
-      <button type="button" onClick={() => setPage(pageNow + 1)} disabled={pageNow >= pages - 1} aria-label={tr("หน้าถัดไป")}><ChevronRight className="h-4 w-4" strokeWidth={2.2} /></button>
+      <button type="button" onClick={() => setPage(pageNow + 1)} disabled={pageNow >= pages - 1} aria-label={tr("หน้าถัดไป")} className={nudge === 'page' ? 'is-nudge' : undefined}><ChevronRight className="h-4 w-4" strokeWidth={2.2} /></button>
     </div>
   ) : null;
   // Cards wait until the stage has its size, so none come in only to leave again.
@@ -213,7 +263,8 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
       animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
       transition={{ duration: 0.55, delay: reduce ? 0 : (performance.now() - openedAt.current < 1500 ? 0.35 : 0.04) + n * 0.06, ease: [0.22, 1, 0.36, 1] }}>
       <div className="cr-float" style={{ animationDuration: `${5.6 + (n % 4) * 0.7}s`, animationDelay: `${-(n * 1.3)}s` }}>
-        <CreditCard item={item} today={today} dimmed={hovered !== null && hovered !== item.id} onHover={setHovered} onOpen={onOpenJob} />
+        <CreditCard item={item} today={today} dimmed={hovered !== null && hovered !== item.id} flash={flashId === item.id}
+          onHover={id => { setHovered(id); if (id) touch(); }} onOpen={openJob} />
       </div>
     </motion.div>
   );
@@ -228,7 +279,7 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
     <AnimatePresence>
       {open && (
         <motion.div ref={rootRef} className={`cr${reduce ? ' is-still' : ''}${tall ? ' is-tall' : ''}`} role="dialog" aria-modal="true" aria-label={tr("เรดาร์เครดิตเทอม")} data-testid="credit-radar"
-          onMouseMove={onMouseMove}
+          onMouseMove={onMouseMove} onPointerDown={touch} onKeyDown={touch} onWheel={touch}
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0.01 : 0.4 }}>
           <span className="cr-ambient" aria-hidden="true" />
           <span className="cr-grid" aria-hidden="true" />
@@ -241,7 +292,7 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
                     <div className="cr-tablist" role="tablist" aria-label={tr("สถานะที่แสดง")}>
                       {GROUP_ORDER.map(key => (
                         <button key={key} type="button" role="tab" aria-selected={key === active} disabled={!groups[key].length}
-                          className={`cr-tab is-${key}${key === active ? ' is-on' : ''}`} onClick={() => pick(key)} data-testid={`radar-tab-${key}`}>
+                          className={`cr-tab is-${key}${key === active ? ' is-on' : ''}${nudge === key ? ' is-nudge' : ''}`} onClick={() => pick(key)} data-testid={`radar-tab-${key}`}>
                           <span className="cr-tab-dot" aria-hidden="true" />{groupLabel(key)}<span className="cr-tab-count">{groups[key].length}</span>
                         </button>
                       ))}
@@ -267,7 +318,7 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
                   <ConnectionLines stageRef={stageRef} hubRef={hubRef} cardRefs={cardRefs} targets={targets} hovered={hovered} reduce={reduce}
                     layoutKey={`tall:${stage.w}x${stage.h}:${targets.map(target => target.id).join(',')}`} />
                   <div className="cr-center is-top" style={{ height: radarSize }}>
-                    <HolographicSquirrel ref={hubRef} size={radarSize} reduce={reduce}
+                    <HolographicSquirrel ref={hubRef} size={radarSize} reduce={reduce} swiping={swiping}
                       screen={showExtras ? { lines: screenLines, counts: screenCounts, rows: radarSize >= 420 ? 3 : 2 } : undefined} />
                   </div>
                   <div className="cr-cards">
@@ -280,7 +331,7 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
                     layoutKey={`${stage.w}x${stage.h}:${targets.map(target => target.id).join(',')}`} />
                   {cardList(left, 'left')}
                   <div className="cr-center">
-                    <HolographicSquirrel ref={hubRef} size={radarSize} reduce={reduce}
+                    <HolographicSquirrel ref={hubRef} size={radarSize} reduce={reduce} swiping={swiping}
                       screen={showExtras ? { lines: screenLines, counts: screenCounts, rows: radarSize >= 420 ? 3 : 2 } : undefined} />
                   </div>
                   {cardList(right, 'right')}

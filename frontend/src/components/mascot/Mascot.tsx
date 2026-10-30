@@ -59,6 +59,9 @@ interface MascotProps {
   /** false leaves out the typing pose's little keyboard and paper (props, not the squirrel), for a screen of the page's
    *  own in front of it: the Credit Radar's hologram (owner, 2026-10-30). */
   typingKit?: boolean;
+  /** The happy eyes look left and right now and then, as if checking something (the Credit Radar, owner 2026-10-30:
+   *  "มองซ้ายมองขวาแล้วก็พิมพ์"). Only the eyes move. */
+  glance?: boolean;
 }
 
 const SIZE_PRESETS: Record<'sm' | 'md' | 'lg', number> = { sm: 48, md: 88, lg: 140 };
@@ -209,6 +212,7 @@ export function Mascot({
   viewBox = '0 0 100 100',
   gear = 'none',
   typingKit = true,
+  glance = false,
   thoughtDots = true,
 }: MascotProps) {
   const resolvedSize = typeof size === 'number' ? size : SIZE_PRESETS[size];
@@ -255,6 +259,12 @@ export function Mascot({
           0%, 100% { transform: rotate(0deg); }
           50% { transform: rotate(-15deg); }
         }
+        @keyframes squirrelGlance {
+          0%, 34%, 72%, 100% { transform: translateX(0); }
+          40%, 50% { transform: translateX(-1.6px); }
+          56%, 66% { transform: translateX(1.6px); }
+        }
+        .squirrel-glance { animation: squirrelGlance 7s ease-in-out infinite; }
         @keyframes zzzFloat {
           0% { transform: translateY(0px); opacity: 0.4; }
           50% { transform: translateY(-4px); opacity: 1; }
@@ -358,6 +368,7 @@ export function Mascot({
         .squirrel-jump-shadow { animation: jumpShadow 0.65s ease-in-out both; transform-origin: 50px 90px; }
         .squirrel-doc-line { stroke-dasharray: 9; animation: docLine 2.6s ease-out infinite; }
         @media (prefers-reduced-motion: reduce) {
+          .squirrel-glance,
           .squirrel-tail-wag,
           .squirrel-blink,
           .squirrel-accessory,
@@ -448,11 +459,13 @@ export function Mascot({
         {(mood === 'happy' || mood === 'wave' || mood === 'proud' || mood === 'relieved' || mood === 'received-money') && (
           <>
             {/* Bright happy curved eyes or circular eyes */}
+            <g className={glance && animated ? 'squirrel-glance' : undefined}>
             <circle cx="41" cy="46" r="3" fill={colors.eyes} className={eyesAnimationClass} />
             <circle cx="59" cy="46" r="3" fill={colors.eyes} className={eyesAnimationClass} />
             {/* Eye shines */}
             <circle cx="42" cy="45" r="1" fill="white" className={eyesAnimationClass} />
             <circle cx="60" cy="45" r="1" fill="white" className={eyesAnimationClass} />
+            </g>
           </>
         )}
 

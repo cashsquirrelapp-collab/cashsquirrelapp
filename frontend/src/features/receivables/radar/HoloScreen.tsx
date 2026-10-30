@@ -11,7 +11,7 @@ import type { RadarStatus } from './radarData';
 export interface ScreenLine { key: string; name: string; amount: string; tone: RadarStatus }
 
 
-export function HoloScreen({ lines, counts, rows = 3, reduce, compact = false }: {
+export function HoloScreen({ lines, counts, rows = 3, reduce, compact = false, swiping = false }: {
   lines: ScreenLine[];
   counts: { overdue: number; soon: number; received: number };
   /** Lines in the log: three, or two on a small radar. */
@@ -19,6 +19,8 @@ export function HoloScreen({ lines, counts, rows = 3, reduce, compact = false }:
   reduce: boolean;
   /** A small radar: the counts in one row and no little radar, so the screen stays short. */
   compact?: boolean;
+  /** A light sweeps across from right to left while the squirrel swipes to the next page. */
+  swiping?: boolean;
 }) {
   const [step, setStep] = React.useState(0);
   React.useEffect(() => {
@@ -31,6 +33,7 @@ export function HoloScreen({ lines, counts, rows = 3, reduce, compact = false }:
     : [];
   return (
     <div className={`crv${compact ? ' is-compact' : ''}`} aria-hidden="true">
+      {swiping && <span className="crv-swipe" />}
       <span className="crv-corner is-tl" /><span className="crv-corner is-tr" />
       <span className="crv-corner is-bl" /><span className="crv-corner is-br" />
       <p className="crv-head"><span className="crv-live" />{tr("กำลังตรวจเครดิตเทอม")}</p>

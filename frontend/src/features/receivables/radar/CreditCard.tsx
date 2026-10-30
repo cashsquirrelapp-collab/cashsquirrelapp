@@ -36,12 +36,12 @@ function timeline(item: RadarItem, today: string) {
 }
 
 export const CreditCard = React.forwardRef<HTMLButtonElement, {
-  item: RadarItem; today: string; dimmed: boolean; onHover: (id: string | null) => void; onOpen: (id: string) => void;
-}>(function CreditCard({ item, today, dimmed, onHover, onOpen }, ref) {
+  item: RadarItem; today: string; dimmed: boolean; flash?: boolean; onHover: (id: string | null) => void; onOpen: (id: string) => void;
+}>(function CreditCard({ item, today, dimmed, flash = false, onHover, onOpen }, ref) {
   const points = timeline(item, today);
   return (
     <button ref={ref} type="button" data-testid="radar-card" data-status={item.status}
-      className={`crc is-${item.status}${dimmed ? ' is-dim' : ''}`}
+      className={`crc is-${item.status}${dimmed ? ' is-dim' : ''}${flash ? ' is-flash' : ''}`}
       onMouseEnter={() => onHover(item.id)} onMouseLeave={() => onHover(null)} onFocus={() => onHover(item.id)} onBlur={() => onHover(null)}
       onClick={() => onOpen(item.id)}
       aria-label={tr("{0} · {1} · {2} · {3}", item.client || item.name, item.name, formatCurrency(item.amount), statusLabel(item.status))}>

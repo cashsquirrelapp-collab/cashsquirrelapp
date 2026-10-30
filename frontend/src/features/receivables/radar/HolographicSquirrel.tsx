@@ -14,15 +14,17 @@ const SPARKS = Array.from({ length: 14 }, (_, i) => ({ left: 32 + ((i * 37) % 36
 
 export const HolographicSquirrel = React.forwardRef<HTMLDivElement, {
   size: number; reduce: boolean;
+  /** The squirrel swipes (its wave) while the radar turns to the next page or status by itself. */
+  swiping?: boolean;
   screen?: { lines: ScreenLine[]; counts: { overdue: number; soon: number; received: number }; rows?: number };
 }>(
-  function HolographicSquirrel({ size, reduce, screen }, hubRef) {
+  function HolographicSquirrel({ size, reduce, screen, swiping = false }, hubRef) {
     const enter = (delay: number, from: Record<string, number | string> = {}) => (reduce ? {} : {
       initial: { opacity: 0, ...from }, animate: { opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' },
       transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] as const },
     });
     return (
-      <div className="crh" style={{ width: size, height: size, ['--R' as string]: `${size}px` }}>
+      <div className={`crh${swiping ? ' is-swiping' : ''}`} style={{ width: size, height: size, ['--R' as string]: `${size}px` }}>
         <div className="crh-layer crh-depth-far">
           <span className="crh-glow" />
           <motion.span className="crh-disc" {...enter(0.15, { scale: 0.86 })}>
@@ -53,7 +55,7 @@ export const HolographicSquirrel = React.forwardRef<HTMLDivElement, {
           <div ref={hubRef} className="crh-hub">
             <motion.div className="crh-float" {...enter(0.45, { y: 24, scale: 0.94, filter: 'blur(8px)' })}>
               <div className="crh-mascot" aria-hidden="true">
-                <Mascot mood="happy" action="typing" typingKit={false} gear="headset" animated={!reduce} size={Math.round(size * 0.5)} />
+                <Mascot mood="happy" action={swiping ? 'wave' : 'typing'} typingKit={false} glance gear="headset" animated={!reduce} size={Math.round(size * 0.5)} />
               </div>
             </motion.div>
           </div>
@@ -62,7 +64,7 @@ export const HolographicSquirrel = React.forwardRef<HTMLDivElement, {
           // The blue screen in front of the squirrel, at its chest, the face above it, the typing paws faint behind it.
           <motion.div className={`crh-console${size < 420 ? ' is-small' : ''}`}
             {...(reduce ? {} : { initial: { opacity: 0, scaleY: 0.2, filter: 'blur(6px)' }, animate: { opacity: 1, scaleY: 1, filter: 'blur(0px)' }, transition: { duration: 0.7, delay: 0.95, ease: [0.22, 1, 0.36, 1] as const } })}>
-            <div className="crh-console-float"><div className="crh-console-tilt"><HoloScreen lines={screen.lines} counts={screen.counts} rows={screen.rows} reduce={reduce} compact={size < 420} /></div></div>
+            <div className="crh-console-float"><div className="crh-console-tilt"><HoloScreen lines={screen.lines} counts={screen.counts} rows={screen.rows} reduce={reduce} compact={size < 420} swiping={swiping} /></div></div>
           </motion.div>
         )}
       </div>

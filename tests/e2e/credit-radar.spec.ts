@@ -164,7 +164,7 @@ test('statuses: the tabs show one status at a time, its cards and lines only (re
   await page.screenshot({ path: test.info().outputPath('credit-radar-mixed.png') });
 });
 
-test('hover lights the card\'s line and steps the rest back; a click opens the real job', async ({ page }) => {
+test('hover lights the card\'s line and steps the rest back; a click blinks the card and shows the job blinking on the jobs page', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const radar = await open(page, mixed);
   await page.waitForTimeout(2000);
@@ -175,9 +175,11 @@ test('hover lights the card\'s line and steps the rest back; a click opens the r
   await expect(radar.locator('.crl-line[data-line="m1"]')).toHaveClass(/is-dim/);
   await expect(radar.getByTestId('radar-card').filter({ hasText: 'บริษัท ผิวใส จำกัด' })).toHaveClass(/is-dim/);
   await card.click();
-  await expect(radar).toBeHidden();
-  await expect(page.getByRole('heading', { name: 'แก้ไขงาน' })).toBeVisible();
-  await expect.poll(() => page.locator('input').evaluateAll(inputs => inputs.some(input => (input as HTMLInputElement).value === 'คลิป TikTok'))).toBe(true);
+  // The card blinks, then the job shows on the jobs page, blinking slowly (owner, 2026-10-30).
+  await expect(radar.getByTestId('radar-card').filter({ hasText: 'IzaBelle' })).toHaveClass(/is-flash/);
+  await expect(radar).toHaveCount(0, { timeout: 3000 });
+  await expect(page).toHaveURL(/\/jobs/);
+  await expect(page.locator('[data-job-id="m2"].job-spotlight').first()).toBeVisible({ timeout: 5000 });
 });
 
 test('Esc closes back to the page underneath; the close button too', async ({ page }) => {
@@ -281,7 +283,7 @@ test.describe('iPads get the same fullscreen radar (owner, 2026-10-30: "เต�
     // A tap opens the job.
     await expect(radar.getByTestId('radar-pager')).toContainText('1–4 จาก 6');
     await radar.getByTestId('radar-card').filter({ hasText: 'Brew Days' }).click({ force: true });
-    await expect(page.getByRole('heading', { name: 'แก้ไขงาน' })).toBeVisible();
+    await expect(page.locator('[data-job-id="j3"].job-spotlight').first()).toBeVisible({ timeout: 6000 });
   });
   test('iPad mini portrait and the large iPad in portrait fit too', async ({ page }) => {
     for (const [w, h] of [[744, 1133], [1024, 1366], [1024, 768]] as const) {
@@ -403,5 +405,22 @@ test('moving through the radar with Tab never slides it out of place', async ({ 
   for (let i = 0; i < 14; i++) await page.keyboard.press('Tab');
   await page.waitForTimeout(400);
   expect(await radar.evaluate(el => [el.scrollLeft, el.scrollTop])).toEqual([0, 0]);
+  expect((await layoutCheck(page)).problems).toEqual([]);
+});
+
+// Owner, 2026-10-30: left alone a few seconds, the squirrel swipes and the radar turns to what is not on screen yet.
+test('left alone, the squirrel swipes to the next page by itself; it blinks and glances about', async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const nine = [...sixLate, owed('n7', 'คลิปรีวิวแคมเปญ 2', 'Mellow Living', 7920, 15), owed('n8', 'วิดีโอโปรโมต', 'Urban Motion', 5148, 9), owed('n9', 'แบนเนอร์ 5 ชิ้น', 'Sora Home', 4950, 7)];
+  const radar = await open(page, nine);
+  await expect(radar.locator('.crh-mascot .squirrel-glance')).toHaveCount(1);
+  await expect(radar.locator('.crh-mascot .squirrel-blink').first()).toBeAttached();
+  const pager = radar.getByTestId('radar-pager');
+  await expect(pager).toContainText('1–6 จาก 9');
+  await expect(radar.locator('.crh.is-swiping')).toHaveCount(1, { timeout: 15_000 });
+  await expect(pager.getByRole('button', { name: 'หน้าถัดไป' })).toHaveClass(/is-nudge/);
+  await expect(pager).toContainText('7–9 จาก 9', { timeout: 3000 });
+  await page.waitForTimeout(1500);
   expect((await layoutCheck(page)).problems).toEqual([]);
 });

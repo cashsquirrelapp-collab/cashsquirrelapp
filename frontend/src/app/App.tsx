@@ -3691,7 +3691,13 @@ export default function App() {
         {creditRadarMounted && (
           <Suspense fallback={null}>
             <CreditRadar open={creditRadarOpen} jobs={jobs} onClose={closeCreditRadar}
-              onOpenJob={(id: string) => { setCreditRadarOpen(false); setEditJobRequest(id); navigateTab('jobs'); }}
+              onOpenJob={(id: string) => {
+                // The job on the jobs page, scrolled to and blinking slowly (owner, 2026-10-30: "กดไปแล้วไม่รู้ว่าเป็นโปรเจกต์ไหน").
+                setCreditRadarOpen(false);
+                setScrollToJobId(id);
+                window.setTimeout(() => setScrollToJobId(current => (current === id ? null : current)), 10000);
+                navigateTab('jobs');
+              }}
               onOpenReceivables={() => { setCreditRadarOpen(false); navigateTab('receivables'); }} />
           </Suspense>
         )}
