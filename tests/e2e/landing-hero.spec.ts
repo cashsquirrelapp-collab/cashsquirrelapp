@@ -32,7 +32,7 @@ test('the hero: the new headline, no copy line under it, and the launch countdow
   expect(perch && perch.width > 40).toBe(true);
   expect(words.every(word => perch!.x >= word.right - 1 || perch!.x + perch!.width <= word.left || perch!.y >= word.bottom || perch!.y + perch!.height <= word.top)).toBe(true);
   // เลขากระรอก keeps running its colours (stopped only with reduced motion, as here)
-  await expect(hero.locator('.cl-tailword svg text')).toHaveText('เลขากระรอก'); // the drawn wordmark (see below)
+  await expect(hero.locator('.cl-grad.is-flow')).toHaveText('เลขากระรอก');
   // LINE, Gmail and the document float with no glass around them; no second squirrel among the cards (it is in the headline)
   for (const n of [1, 4, 5]) await expect(page.locator(`.cl-tile.is-${n} .cl-tile-card`)).not.toHaveClass(/cl-glass/);
   await expect(page.locator('.cl-tile.is-6')).toHaveCount(0);
@@ -156,47 +156,3 @@ test('who it is for: "รับงานแบบไหน ก็มีเลข
   await expect(jobs).not.toContainText('฿');
   expect(await textOverlapIssues(page)).toEqual([]);
 });
-
-// Owner, 2026-10-30 (look D of four): in Thai, เลขากระรอก is a drawn wordmark whose second ร sweeps its top hook up into a
-// squirrel's tail. It sits on the line's baseline like the words beside it, keeps the line's height, and the tail stays
-// inside the word's reveal mask, at every size. In English the words stay in type.
-async function wordmarkFit(page: Page) {
-  return page.evaluate(() => {
-    const svg = document.querySelector('#cl-h1 .cl-tailword svg')!; const box = svg.getBoundingClientRect();
-    const mask = svg.closest('.cl-wm')!.getBoundingClientRect(); const tail = svg.querySelector('.cl-tail')!.getBoundingClientRect();
-    const words = [...document.querySelectorAll('#cl-h1 .cl-h1-end .cl-w')]; const next = words[words.indexOf(svg.parentElement!) + 1];
-    const mark = document.createElement('span'); mark.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline'; next.appendChild(mark);
-    const baseline = mark.getBoundingClientRect().bottom; mark.remove();
-    return {
-      baselineOff: Math.abs(box.top + box.height * (300 / 360) - baseline), // the drawing's baseline is at 300 of its 360 units
-      tailInMask: tail.top >= mask.top && tail.right <= mask.right,
-      heights: new Set([...document.querySelectorAll('#cl-h1 .cl-h1-end .cl-wm')].map(el => Math.round(el.getBoundingClientRect().height))).size,
-      inside: box.left >= 0 && box.right <= innerWidth,
-    };
-  });
-}
-
-for (const size of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
-  test(`at ${size.width}px เลขากระรอก is the wordmark with the squirrel-tail ร, on the baseline and inside its mask`, async ({ page }) => {
-    await open(page, size);
-    const word = page.locator('#cl-h1 .cl-tailword svg');
-    await expect(word.locator('text')).toHaveText('เลขากระรอก');
-    await expect(word.locator('.cl-tail')).toHaveClass(/is-on/); // drawn once the type has loaded
-    expect(await wordmarkFit(page)).toEqual({ baselineOff: expect.any(Number), tailInMask: true, heights: 1, inside: true });
-    expect((await wordmarkFit(page)).baselineOff).toBeLessThan(1);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('ตั้งแต่รับงาน จนถึงรับเงิน ให้เลขากระรอกดูแล');
-    await expect(word.locator('animateTransform')).toHaveCount(0); // without motion the colours hold still
-  });
-}
-
-test('with motion the wordmark’s colours keep running; in English the words stay in type', async ({ page }) => {
-  await page.route('**/api/auth*', route => route.fulfill({ json: { session: null } }));
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
-  await expect(page.locator('#cl-h1 .cl-tailword animateTransform')).toHaveAttribute('dur', '9s');
-  await page.evaluate(() => { localStorage.setItem('cashflow_language', 'en'); });
-  await page.reload();
-  await expect(page.locator('#cl-h1 .cl-grad.is-flow')).toHaveText('Krarok Assistant');
-  await expect(page.locator('#cl-h1 .cl-tailword')).toHaveCount(0);
-});
-

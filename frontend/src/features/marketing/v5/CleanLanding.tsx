@@ -32,7 +32,6 @@ import { BRAND_LINKS } from './brandLinks';
 import { FULL_LAUNCH_AT } from './launch';
 import { SignupCount } from './SignupCount';
 import { CalendarViews, ExpensesDemo } from './MoneyDemos';
-import { TailWord } from './TailWord';
 
 // The live chat and the A4 documents load only when their sections come near (they bring the app's chat and document code).
 const ChatLive = React.lazy(() => import('./ChatLive'));
@@ -731,7 +730,7 @@ export default function CleanLanding() {
           <div className="cl-pin">
             <div className="cl-top">
               <div className="cl-hero">
-                <h1 id="cl-h1" aria-label={`${trc('hero', 'ตั้งแต่รับงาน')} ${trc('hero', 'จนถึงรับเงิน')} ${trc('hero', 'ให้')}${tr('เลขากระรอก')}${trc('hero', 'ดูแล')}`}><span aria-hidden="true"><span className="cl-h1-top"><span className="gl-nw"><Words text={trc('hero', 'ตั้งแต่รับงาน')} /></span> <span className="gl-nw"><Words text={trc('hero', 'จนถึงรับเงิน')} /></span></span><br /><span className="gl-nw cl-h1-end"><Words text={trc('hero', 'ให้')} />{currentLanguage === 'en' ? <MaskedGrad text={tr('เลขากระรอก')} className="gl-loop is-flow" /> : <TailWord />}<Words text={trc('hero', 'ดูแล')} />
+                <h1 id="cl-h1" aria-label={`${trc('hero', 'ตั้งแต่รับงาน')} ${trc('hero', 'จนถึงรับเงิน')} ${trc('hero', 'ให้')}${tr('เลขากระรอก')}${trc('hero', 'ดูแล')}`}><span aria-hidden="true"><span className="cl-h1-top"><span className="gl-nw"><Words text={trc('hero', 'ตั้งแต่รับงาน')} /></span> <span className="gl-nw"><Words text={trc('hero', 'จนถึงรับเงิน')} /></span></span><br /><span className="gl-nw cl-h1-end"><Words text={trc('hero', 'ให้')} /><MaskedGrad text={tr('เลขากระรอก')} className="gl-loop is-flow" /><Words text={trc('hero', 'ดูแล')} />
                   {/* เลขากระรอก itself, standing at the end of its line and waving (owner, 2026-10-29: the words say เลขากระรอก, so
                       the squirrel should be there too). The locked mascot, its own wave; sized with the type. */}
                   <span className="cl-perch"><Mascot gear="headset" mood="wave" action="wave" size={120} /></span></span></span></h1>
