@@ -14,7 +14,9 @@
   "preview_urls": false,
   // Keep variables set in the Cloudflare dashboard on deploy, as the 2026-10-24 direct deploys did; the vars below still apply.
   "keep_vars": true,
-  // Set at cutover. On the domain day, add "routes": [{ "pattern": "<domain>", "custom_domain": true }].
+  // The site's domain (owner, 2026-10-31: "ขึ้น .com"). The workers.dev address keeps working beside it (LINE, Stripe and
+  // sign-in still point there; APP_URL moves once the owner has added the domain in Supabase and LINE).
+  "routes": [{ "pattern": "krarok.com", "custom_domain": true }],
   // Scheduled jobs run here since 2026-10-22 (owner approved): the Vercel deployment that ran them is
   // paused. 01:00 UTC = 08:00 Bangkok digest (and the monthly report on the 1st); 02:00 UTC = 09:00
   // closing of accounts past their deletion date. The 50 ทวิ reminder is hidden (cloudflare/schedule.ts).
@@ -32,6 +34,8 @@
     "NODE_ENV": "production",
     // Change to https://<domain> at cutover; until then the workers.dev address.
     "APP_URL": "https://kraroktunngern.cashsquirrelapp.workers.dev",
+    // Also answered on (same-origin check, backend/src/config/env.ts trustedOrigins).
+    "APP_EXTRA_ORIGINS": "https://krarok.com",
     "SUPABASE_URL": "https://rcllghixkclvkxhvttaw.supabase.co",
     "STRIPE_MODE": "live",
     // On since 2026-10-22 (owner approved): Vercel's deployment, which ran the crons, is paused.

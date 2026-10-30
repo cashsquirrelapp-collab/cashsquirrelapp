@@ -1,8 +1,9 @@
 import type { Handler, VercelRequest, VercelResponse } from './types.js';
-import { appOrigin } from '../config/env.js';
+import { trustedOrigins } from '../config/env.js';
 export class HttpError extends Error { constructor(public status: number, message: string, public code?: string) { super(message); } }
 export function assertSameOrigin(req: VercelRequest): void {
-  if (req.headers.origin !== appOrigin() || req.headers['x-csrf-protection'] !== '1') throw new HttpError(403, 'Invalid request origin');
+  const origin = req.headers.origin;
+  if (typeof origin !== 'string' || !trustedOrigins().includes(origin) || req.headers['x-csrf-protection'] !== '1') throw new HttpError(403, 'Invalid request origin');
 }
 export function withGuard(handler: Handler, options: { csrf?: boolean } = {}): Handler {
   return async (req, res) => {

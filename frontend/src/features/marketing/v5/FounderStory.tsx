@@ -3,11 +3,12 @@ import { ArrowLeft, ArrowRight, Camera, MessageCircleHeart } from 'lucide-react'
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { tr } from '../../../i18n/tr';
-import { HERO, PHOTOS, SECTIONS, SIGN, type Lang, type PhotoSlot, type Text } from './founderText';
+import { HERO, PHOTOS, SECTIONS, SIGN, type Lang, type PhotoSlot, type Text } from '../../../../../shared/founderStory';
+import { useLightOnly } from './lightOnly';
 import './founder.css';
 
 // "Behind Krarok" (owner, 2026-10-31): the founder's story as a page of its own (/founder), and a short part of it on the
-// landing that leads here. The words are the owner's (founderText.ts). Photos come later: each has a marked space that
+// landing that leads here. The words are the owner's (shared/founderStory.ts). Photos come later: each has a marked space that
 // says what goes there, its shape and its size, until the file is set.
 
 const PHOTO_NUMBER: Record<string, number> = Object.fromEntries(Object.keys(PHOTOS).map((id, at) => [id, at + 1]));
@@ -81,6 +82,8 @@ export default function FounderStory() {
   const { language } = useLanguage();
   const lang: Lang = language === 'en' ? 'en' : 'th';
   const root = React.useRef<HTMLDivElement>(null);
+  // Light, as the landing: in the app's dark mode the logo's words turned white on this white page (owner, 2026-10-31).
+  useLightOnly();
   useReveal(root);
   const progress = useProgress();
   React.useEffect(() => {

@@ -129,7 +129,12 @@ test('gateway: founder privacy and unknown facts never fall back to legacy biogr
     assert.doesNotMatch(text, /Park Edit|นพรัตน์ นาวะบุตร/);
     noLegacyClaims(text);
   }
-  for (const question of ['Krarok มีทีมกี่คน', 'ปาร์คก่อตั้ง Krarok วันไหนแน่', 'When did Park graduate?']) {
+  // The team is in the founder's own story since 2026-10-31 (two teammates): answered from it, with no model call.
+  const team = await ask('Krarok มีทีมกี่คน');
+  assert.equal(team.sent.length, 0);
+  assert.match(team.reply.text, /เพื่อนร่วมทีมอีกสองคน/);
+  noLegacyClaims(team.reply.text);
+  for (const question of ['ปาร์คก่อตั้ง Krarok วันไหนแน่', 'When did Park graduate?']) {
     const { reply, sent } = await ask(question);
     assert.equal(sent.length, 1, question);
     noLegacyClaims(reply.text);

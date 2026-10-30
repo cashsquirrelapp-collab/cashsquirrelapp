@@ -33,6 +33,7 @@ import { SignupCount } from './SignupCount';
 import { CalendarViews, ExpensesDemo } from './MoneyDemos';
 import { VaultStory } from './VaultStory';
 import { FounderTeaser } from './FounderStory';
+import { useLightOnly } from './lightOnly';
 import { LinePhone } from './LinePhone';
 
 // The live chat and the A4 documents load only when their sections come near (they bring the app's chat and document code).
@@ -394,17 +395,6 @@ function offsetIn(el: HTMLElement, root: HTMLElement) {
 
 /** The landing is light only. The app turns dark by itself in the evening (a class on <html>), which would turn the live
  *  chat screen dark too: it is kept off while the landing is shown, and put back when the landing goes. */
-function useLightOnly() {
-  React.useEffect(() => {
-    const html = document.documentElement;
-    const wasDark = html.classList.contains('dark');
-    const clear = () => { if (html.classList.contains('dark')) html.classList.remove('dark'); };
-    clear();
-    const observer = new MutationObserver(clear);
-    observer.observe(html, { attributes: true, attributeFilter: ['class'] });
-    return () => { observer.disconnect(); if (wasDark) html.classList.add('dark'); };
-  }, []);
-}
 
 /** In English, "Krarok Assistant" in the headline is set in a rounded type (Nunito), as เลขากระรอก is in Thai's looped
  *  type: friendly but formal (owner, 2026-10-30). Loaded only for English. */

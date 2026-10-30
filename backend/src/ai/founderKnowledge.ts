@@ -5,14 +5,15 @@
 // tokens); for anything else about the founder the model gets this text for that one message only.
 // The same file holds the line for questions about the technology behind เลขา (Part 3).
 
-export const FOUNDER_VERSION = 'founder-2026-10-31.1';
+export const FOUNDER_VERSION = 'founder-2026-10-31.2';
 
 const TH = {
   who: 'Krarok (กระรอกตุนเงิน) ก่อตั้งและพัฒนาโดยคุณนพรัตน์ นาวะบุตร (ปาร์ค) ซึ่งเป็นผู้ก่อตั้งเพียงคนเดียวครับ',
   background: 'คุณปาร์คศึกษาสาขานิเทศศาสตร์ และไม่ได้มีพื้นฐานการเขียนโปรแกรมมาก่อน จึงเริ่มจากเรียนรู้ด้วยตัวเอง ทดลองสร้างระบบ และใช้ AI ช่วยในการเรียนรู้ระหว่างสร้าง Krarok ครับ',
   why: 'แนวคิดเริ่มเมื่อราวกลางปี 2569 จากปัญหาที่คุณปาร์คเจอเองตอนทำงานฟรีแลนซ์หลายงานพร้อมกัน คือไม่เห็นภาพรวมเงินเข้า ไม่รู้ว่าแต่ละเดือนจะได้รับเงินจริงเท่าไร แต่ละงานจ่ายเงินคนละวัน และต้องตามเครดิตเทอม ทำเอกสาร และตรวจตารางเองทั้งหมด จึงสร้าง Krarok ให้ฟรีแลนซ์จัดการงาน เงิน และเอกสารได้ง่ายขึ้น และมีเวลาไปทำงานหลักมากขึ้นครับ',
   secretary: 'เลขากระรอกเป็นผู้ช่วยส่วนตัวที่พัฒนาขึ้นสำหรับ Krarok โดยคุณปาร์ค ผู้ก่อตั้ง ส่วนรายละเอียดเทคโนโลยีภายในเป็นข้อมูลของระบบครับ',
-  team: 'ตอนนี้ Krarok มีผู้ก่อตั้ง 1 คน คือคุณนพรัตน์ นาวะบุตร (ปาร์ค) ซึ่งดูแลการพัฒนาเองครับ',
+  // As the founder's story on the website says (owner, 2026-10-31): one founder, with two teammates.
+  team: 'Krarok ก่อตั้งโดยคุณนพรัตน์ นาวะบุตร (ปาร์ค) และมีเพื่อนร่วมทีมอีกสองคนที่ช่วยดูแลระบบหลังบ้าน ทดสอบ และตรวจสอบข้อผิดพลาดครับ',
   goal: 'เป้าหมายคือทำให้การจัดการงาน เงิน และเอกสารของฟรีแลนซ์เป็นเรื่องง่าย ตอนนี้ในแอปมีการบันทึกงานและการรับเงิน ใบเสนอราคาและใบแจ้งหนี้ เลขากระรอก และการแจ้งเตือนผ่าน LINE ส่วนแผนต่อไปที่ยังไม่มีในแอป คือรองรับทีมและเอเจนซี คอมมูนิตี้ของคนทำงานอิสระ และศึกษาการเชื่อมข้อมูลธนาคารผ่านช่องทางที่ได้รับอนุญาตครับ',
   contact: 'ถ้าต้องการส่งความเห็นหรือข้อเสนอถึงผู้พัฒนา Krarok ส่งได้ที่เมนู “แจ้งปัญหา” ในแอปครับ',
 };
@@ -21,7 +22,7 @@ const EN = {
   background: 'Park studied communication arts and had no programming background, so Park learned on the way: building and testing the system step by step, with AI as a learning aid while building Krarok.',
   why: 'The idea started around mid-2026 from Park\'s own problem as a freelancer with several jobs at once: no overview of money coming in, no clear idea of what each month would really bring, a different pay date for every job, and credit terms, documents and spreadsheets to keep track of alone. Park built Krarok so freelancers can manage work, money and documents more easily and keep their time for the work itself.',
   secretary: 'Krarok Secretary is the personal assistant developed for Krarok by its founder, Park. The details of the technology behind it are internal to the system.',
-  team: 'Krarok has one founder, นพรัตน์ นาวะบุตร (Park), who also builds it.',
+  team: 'Krarok was founded by นพรัตน์ นาวะบุตร (Park), and two teammates help look after the system behind the scenes, test it and catch mistakes.',
   goal: 'The goal is to make work, money and documents simple for freelancers. The app already has jobs and payments, quotations and invoices, Krarok Secretary and LINE reminders. Planned and not in the app yet: support for teams and agencies, a community for independent workers, and a study of connecting bank data through authorised channels.',
   contact: 'You can send feedback or ideas to the Krarok developer from the “แจ้งปัญหา” (Report a problem) menu in the app.',
 };

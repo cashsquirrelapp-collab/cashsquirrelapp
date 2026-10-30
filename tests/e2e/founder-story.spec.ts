@@ -59,3 +59,19 @@ test('English: the story in English, nothing overlapping', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Back to home' })).toBeVisible();
   expect(await textOverlapIssues(page)).toEqual([]);
 });
+
+// Owner, 2026-10-31: "อย่าลืมปรับสี text โลโก้ด้วย มันกลืน". With the app in dark mode the page stays light, so the logo's
+// words are dark on the white bar.
+test('in the app\'s dark mode the page stays light and the logo reads', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cashflow_dark_mode', 'true'); } catch { /* private window */ } });
+  await page.addInitScript(() => document.documentElement.classList.add('dark'));
+  await open(page, '/founder');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(false);
+  const color = await page.locator('.fs-brand .krarok-brand-lockup').evaluate(el => {
+    const words = [...el.querySelectorAll('*')].find(node => node.childElementCount === 0 && /กระรอก/.test(node.textContent || '')) as HTMLElement | undefined;
+    return getComputedStyle(words || el).color;
+  });
+  const [r, g, b] = color.match(/\d+/g)!.map(Number);
+  expect((r + g + b) / 3, color).toBeLessThan(140);
+});

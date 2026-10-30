@@ -52,7 +52,8 @@ test('founder: answers are the approved text only, in the language asked; the bl
   assert.match(founderAnswer('who', 'ใครสร้างแอปนี้'), /นพรัตน์ นาวะบุตร \(ปาร์ค\).*ผู้ก่อตั้งเพียงคนเดียว/);
   assert.match(founderAnswer('background', 'ผู้สร้างเขียนโค้ดเป็นไหม'), /นิเทศศาสตร์.*ไม่ได้มีพื้นฐานการเขียนโปรแกรม/);
   assert.match(founderAnswer('why', 'why was it built'), /freelancer/);
-  assert.match(founderAnswer('team', 'ทีมกี่คน'), /ผู้ก่อตั้ง 1 คน/);
+  // The team as the founder's story tells it (2026-10-31): the founder and two teammates.
+  assert.match(founderAnswer('team', 'ทีมกี่คน'), /ก่อตั้งโดยคุณนพรัตน์ นาวะบุตร \(ปาร์ค\) และมีเพื่อนร่วมทีมอีกสองคน/);
   // Planned features are said to be plans, not features.
   assert.match(founderAnswer('goal', 'เป้าหมายของแอป'), /แผนต่อไปที่ยังไม่มีในแอป/);
   // No romanised surname was invented, and the English text assumes no pronoun.

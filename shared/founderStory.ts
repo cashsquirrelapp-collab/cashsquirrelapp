@@ -1,7 +1,9 @@
 // "Behind Krarok", the founder's own story (owner, 2026-10-31: "อันนี้คือหน้าของแรงบันดาลใจของกู ... เอาไปใส่ในหน้า landing
 // page ... เว้น space เอาไว้สำหรับใส่รูปภาพ"). The Thai is the owner's text as written; the English follows it closely.
 // **…** marks the words the owner set in bold. Photos come from the owner: put the file in public/founder/ and set `src`;
-// until then the page shows a marked space saying which photo goes there.
+// until then the page shows a marked space saying which photo goes there. เลขากระรอก answers questions about the founder
+// from this same text (owner, 2026-10-31: "ให้น้องเอาส่วนนั้นแหละมาตอบ"; backend/src/ai/knowledgeAdditions/founderStoryWeb.ts),
+// so the page and the chat always tell the same story.
 
 export type Lang = 'th' | 'en';
 export type Text = Record<Lang, string>;
@@ -112,7 +114,7 @@ export const SECTIONS: Section[] = [
     { kind: 'p', text: { th: 'แต่ทุกครั้งที่แก้ปัญหาได้ ผมก็เห็นว่าสิ่งที่เคยอยู่แค่ในความคิดกำลังค่อย ๆ กลายเป็นผลิตภัณฑ์ที่ใช้งานได้จริง',
       en: 'But every time I solved a problem, I could see what had lived only in my head slowly becoming a product people could really use.' } },
     { kind: 'quote', text: { th: 'จากเด็กคนหนึ่งที่เคยตั้งใจหาเงินซื้อเครื่องกรองน้ำให้ยาย วันนี้ผมกำลังพยายามสร้างบางสิ่งที่อาจช่วยให้ชีวิตของคนอื่นง่ายขึ้นได้ด้วย',
-      en: 'From a kid who once set out to earn a water filter for his grandma, today I am trying to build something that might make other people’s lives easier too.' } },
+      en: 'From a kid who once set out to buy Grandma a water filter, today I am trying to build something that might make other people’s lives easier too.' } },
     { kind: 'photo', slot: PHOTOS.team },
     { kind: 'p', text: { th: 'และผมอยากขอบคุณเพื่อนร่วมทีมอีกสองคนที่คอยช่วยดูแลระบบหลังบ้าน ทดสอบ และตรวจสอบข้อผิดพลาดต่าง ๆ',
       en: 'And I want to thank my two teammates, who help look after the system behind the scenes, test it and catch mistakes.' } },

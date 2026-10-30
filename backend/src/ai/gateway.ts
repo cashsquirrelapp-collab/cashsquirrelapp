@@ -8,6 +8,7 @@ import { billingIssueOf, type BillingIssue } from './billing.js';
 import { confidentialAnswer, founderAnswer, founderTopic, techQuestion } from './founderKnowledge.js';
 import { FOUNDER_ENTRIES_V1, FOUNDER_QA_V1 } from './knowledgeAdditions/founderIdentityV1.js';
 import { selectFounderIdentityV1 } from './knowledgeAdditions/founderIdentityV1Context.js';
+import { founderStoryLine, founderStoryReference } from './knowledgeAdditions/founderStoryWeb.js';
 import { detectSignals, lookupSignal, type KnowledgeSignal } from './signals.js';
 import { knowledgeSnippets, lookupKnowledge } from './knowledge.js';
 import { PROMPT_VERSION, bangkokNow, buildSystemPrompt, type PromptSlots } from './prompt.js';
@@ -352,10 +353,14 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   const founderIdentity = founderSelections.some(selection => selection.kind === 'context')
     ? FOUNDER_ENTRIES_V1.find(entry => entry.id === 'identity') : undefined;
   // Deduplicate shared guidance and repeated facts across the selected clauses. No metadata enters the prompt.
+  // A factual founder question also gets the founder's own story from the website (/founder, owner 2026-10-31), the parts it
+  // is about; a private question (restricted) never does.
+  const story = founderIdentity ? founderStoryReference(request.text, founderLanguage) : undefined;
   const founder = founderSelections.length
     ? [...new Set([
       ...(founderIdentity ? [founderLanguage === 'th' ? founderIdentity.text_th : founderIdentity.text_en] : []),
       ...founderSelections.flatMap(selection => selection.text.split('\n\n')),
+      ...(story ? [story] : []),
     ])].join('\n\n')
     : undefined;
 
@@ -370,8 +375,9 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       const selected = founderSelections[0];
       const topic = founderTopic(request.text);
       if (selected?.kind === 'restricted') return undefined;
-      // Contact and assistant-origin answers remain available from the unchanged public legacy source.
-      if (topic === 'contact' || topic === 'secretary') return { text: founderAnswer(topic, request.text), cards: [] };
+      // Contact, assistant-origin and team answers remain available from the public legacy source (the team answer follows
+      // the founder's story since 2026-10-31: one founder and two teammates).
+      if (topic === 'contact' || topic === 'secretary' || topic === 'team') return { text: founderAnswer(topic, request.text), cards: [] };
       if (selected?.kind !== 'context' || selected.entryIds.length !== 1) return undefined;
       const entryId = selected.entryIds[0];
       const qaId = ({ identity: 'who', background: 'background', origin: 'why', vision: 'vision' } as Record<string, string>)[entryId];
@@ -379,8 +385,10 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       const qa = FOUNDER_QA_V1.find(item => item.id === `${qaId}-${founderLanguage}`);
       const entry = FOUNDER_ENTRIES_V1.find(item => item.id === entryId)!;
       // English background QA starts with "No" for one particular question; use the qualified biography for variants.
-      const text = founderLanguage === 'en' && entryId === 'background' ? entry.text_en
+      const fact = founderLanguage === 'en' && entryId === 'background' ? entry.text_en
         : qa?.answer ?? (founderLanguage === 'th' ? entry.text_th : entry.text_en);
+      // With the founder's own words from the website story and where to read it all (owner, 2026-10-31); still no model.
+      const text = `${fact}\n\n${founderStoryLine(qaId as 'who' | 'background' | 'why' | 'vision', founderLanguage)}`;
       return { text: styleReply(text, { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])] }), cards: [] };
     }
     if (kind === 'confidential') {

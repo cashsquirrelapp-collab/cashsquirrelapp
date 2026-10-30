@@ -21,6 +21,18 @@ test('CSRF rejects foreign, missing and spoofed suffix origins',()=>{
  for(const origin of ['https://evil.com','https://cash.example.com.evil.com',undefined])assert.throws(()=>assertSameOrigin({headers:{...valid,origin}} as any));
  assert.throws(()=>assertSameOrigin({headers:{origin:valid.origin}} as any));
 });
+// The site's own domain beside the first address (owner, 2026-10-31: "ขึ้น .com"): only the listed https origins pass.
+test('CSRF also trusts the listed extra origins, and nothing that only looks like them',()=>{
+ const before=process.env.APP_EXTRA_ORIGINS;
+ try{
+  process.env.APP_EXTRA_ORIGINS=' https://krarok.com , https://www.krarok.com';
+  for(const origin of ['https://cash.example.com','https://krarok.com','https://www.krarok.com'])assert.doesNotThrow(()=>assertSameOrigin({headers:{origin,'x-csrf-protection':'1'}} as any),origin);
+  for(const origin of ['http://krarok.com','https://krarok.com.evil.com','https://evil-krarok.com','https://sub.krarok.com',undefined])assert.throws(()=>assertSameOrigin({headers:{origin,'x-csrf-protection':'1'}} as any));
+  assert.throws(()=>assertSameOrigin({headers:{origin:'https://krarok.com'}} as any),/Invalid request origin/);
+  process.env.APP_EXTRA_ORIGINS='http://krarok.com';
+  assert.throws(()=>assertSameOrigin({headers:{origin:'https://cash.example.com','x-csrf-protection':'1'}} as any),/Invalid APP_EXTRA_ORIGINS/);
+ }finally{ if(before===undefined)delete process.env.APP_EXTRA_ORIGINS; else process.env.APP_EXTRA_ORIGINS=before; }
+});
 test('report references accept months only, excluding paths, arrays and URLs',()=>{
  assert.equal(reportMonth('2026-09'),'2026-09');
  for(const bad of ['2026-00','2026-13','../other','https://evil.com','2026-09/../../a',undefined,['2026-09']])assert.throws(()=>reportMonth(bad));
