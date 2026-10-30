@@ -88,6 +88,8 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   const [hovered, setHovered] = React.useState<string | null>(null);
   const [showAll, setShowAll] = React.useState(false);
   const [picked, setPicked] = React.useState<RadarStatus | null>(null);
+  const openedAt = React.useRef(0);
+  React.useEffect(() => { if (open) openedAt.current = performance.now(); }, [open]);
   const [page, setPage] = React.useState(0);
   const showAllRef = React.useRef(false);
   showAllRef.current = showAll;
@@ -202,12 +204,15 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   };
 
   // One card in its slot; n is its place in the order the cards come in.
+  // Cards leave at once and the new ones slide in (a page or status change), so the old cards never hold places in the
+  // columns and every line is measured against where the cards really end up. Right after opening they come in after
+  // the squirrel; later, almost at once.
   const slot = (item: RadarItem, n: number, from: 'left' | 'right' | 'below') => (
-    <motion.div key={item.id} layout={!reduce} className="cr-slot"
+    <motion.div key={`${active}:${pageNow}:${item.id}`} className="cr-slot"
       ref={el => { if (el) cardRefs.current.set(item.id, el); else cardRefs.current.delete(item.id); }}
       initial={reduce ? false : { opacity: 0, x: from === 'left' ? -36 : from === 'right' ? 36 : 0, y: from === 'below' ? 30 : 0, scale: 0.96 }}
-      animate={{ opacity: 1, x: 0, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ duration: 0.6, delay: reduce ? 0 : 0.35 + n * 0.07, ease: [0.22, 1, 0.36, 1] }}>
+      animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+      transition={{ duration: 0.55, delay: reduce ? 0 : (performance.now() - openedAt.current < 1500 ? 0.35 : 0.04) + n * 0.06, ease: [0.22, 1, 0.36, 1] }}>
       <div className="cr-float" style={{ animationDuration: `${5.6 + (n % 4) * 0.7}s`, animationDelay: `${-(n * 1.3)}s` }}>
         <CreditCard item={item} today={today} dimmed={hovered !== null && hovered !== item.id} onHover={setHovered} onOpen={onOpenJob} />
       </div>
@@ -215,9 +220,7 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   );
   const cardList = (list: RadarItem[], side: 'left' | 'right') => (
     <div className={`cr-col is-${side}`}>
-      <AnimatePresence initial={!reduce}>
-        {ready && list.map((item, i) => slot(item, i * 2 + (side === 'right' ? 1 : 0), side))}
-      </AnimatePresence>
+      {ready && list.map((item, i) => slot(item, i * 2 + (side === 'right' ? 1 : 0), side))}
     </div>
   );
 
@@ -270,7 +273,7 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
                       screen={showExtras ? { lines: screenLines, counts: screenCounts, rows: radarSize >= 420 ? 3 : 2 } : undefined} />
                   </div>
                   <div className="cr-cards">
-                    <AnimatePresence initial={!reduce}>{ready && shown.map((item, n) => slot(item, n, 'below'))}</AnimatePresence>
+                    {ready && shown.map((item, n) => slot(item, n, 'below'))}
                   </div>
                 </>
               ) : (

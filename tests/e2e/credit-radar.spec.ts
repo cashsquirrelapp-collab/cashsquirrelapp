@@ -77,6 +77,10 @@ async function layoutCheck(page: Page) {
   });
 }
 
+const endsAtCards = (layout: Awaited<ReturnType<typeof layoutCheck>>) => layout.ends.every(end => layout.slots.some(slot =>
+  (Math.abs(end.y - (slot.top + slot.height / 2)) < 2 && (Math.abs(end.x - slot.right) < 2 || Math.abs(end.x - slot.left) < 2))
+  || (Math.abs(end.y - slot.top) < 2 && Math.abs(end.x - (slot.left + slot.width / 2)) < 2)));
+
 test('computers: the overdue check opens the fullscreen radar with real figures, the squirrel and a card per job', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const radar = await open(page, [...sixLate, owed('j7', 'งานใกล้ครบกำหนด', 'ลูกค้าใหม่', 7000, -5), paid('j8', 'งานรับเงินแล้ว', 'คุณเบย์', 8600, 2)]);
@@ -202,7 +206,11 @@ test('many jobs: the cards that fit, and the full list grouped; Esc closes the l
   await expect(pager).toContainText(`${shown + 1}–${shown * 2} จาก 24`);
   await expect(cards.first()).not.toHaveText(firstOnPage || '');
   await page.waitForTimeout(1200);
-  expect((await layoutCheck(page)).problems).toEqual([]);
+  // Page two: its own cards only, inside the window, apart, and every line at its card.
+  const second = await layoutCheck(page);
+  expect(second.problems).toEqual([]);
+  expect(second.cards).toBe(shown);
+  expect(endsAtCards(second)).toBe(true);
   await pager.getByRole('button', { name: 'หน้าก่อน' }).click();
   await expect(pager).toContainText(`1–${shown} จาก 24`);
   await radar.getByTestId('radar-show-all').click();
@@ -241,10 +249,6 @@ async function openTouch(page: Page, width: number, height: number, list: unknow
   await page.setViewportSize({ width, height });
   return open(page, list);
 }
-const endsAtCards = (layout: Awaited<ReturnType<typeof layoutCheck>>) => layout.ends.every(end => layout.slots.some(slot =>
-  (Math.abs(end.y - (slot.top + slot.height / 2)) < 2 && (Math.abs(end.x - slot.right) < 2 || Math.abs(end.x - slot.left) < 2))
-  || (Math.abs(end.y - slot.top) < 2 && Math.abs(end.x - (slot.left + slot.width / 2)) < 2)));
-
 test.describe('iPads get the same fullscreen radar (owner, 2026-10-30: "เต็มหน้าจอเลยของบนคอมแล้วก็ iPad")', () => {
   test.use({ hasTouch: true, isMobile: true });
   test('iPad landscape: cards beside the radar and the screen, nothing overlapping', async ({ page }) => {
@@ -368,4 +372,34 @@ test.describe('phones: no radar button', () => {
     await page.waitForTimeout(1500);
     await expect(page.getByTestId('open-credit-radar')).toHaveCount(0);
   });
+});
+
+test('more overdue jobs than fit: page two shows the rest, laid out and joined like page one', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const nine = [...sixLate, owed('n7', 'คลิปรีวิวแคมเปญ 2', 'Mellow Living', 7920, 15), owed('n8', 'วิดีโอโปรโมต', 'Urban Motion', 5148, 9), owed('n9', 'แบนเนอร์ 5 ชิ้น', 'Sora Home', 4950, 7)];
+  const radar = await open(page, nine);
+  const pager = radar.getByTestId('radar-pager');
+  await expect(pager).toContainText('1–6 จาก 9');
+  await pager.getByRole('button', { name: 'หน้าถัดไป' }).click();
+  await expect(pager).toContainText('7–9 จาก 9');
+  await page.waitForTimeout(1200);
+  const layout = await layoutCheck(page);
+  expect(layout.cards).toBe(3);
+  expect(layout.problems).toEqual([]);
+  expect(layout.lines).toBe(3);
+  expect(endsAtCards(layout)).toBe(true);
+  expect(await radar.evaluate(el => [el.scrollLeft, el.scrollTop])).toEqual([0, 0]);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath('credit-radar-page2.png') });
+});
+
+test('moving through the radar with Tab never slides it out of place', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const nine = [...sixLate, owed('n7', 'คลิปรีวิวแคมเปญ 2', 'Mellow Living', 7920, 15), owed('n8', 'วิดีโอโปรโมต', 'Urban Motion', 5148, 9), owed('n9', 'แบนเนอร์ 5 ชิ้น', 'Sora Home', 4950, 7)];
+  const radar = await open(page, nine);
+  await page.waitForTimeout(1600);
+  for (let i = 0; i < 14; i++) await page.keyboard.press('Tab');
+  await page.waitForTimeout(400);
+  expect(await radar.evaluate(el => [el.scrollLeft, el.scrollTop])).toEqual([0, 0]);
+  expect((await layoutCheck(page)).problems).toEqual([]);
 });

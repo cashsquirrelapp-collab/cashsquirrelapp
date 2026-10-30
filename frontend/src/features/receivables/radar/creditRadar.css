@@ -15,7 +15,9 @@
   z-index: 260;
   width: 100vw;
   height: 100dvh;
+  /* clip, not hidden: a hidden box can still be scrolled by focus or scrollIntoView, which slid the whole radar sideways. */
   overflow: hidden;
+  overflow: clip;
   background: #070504;
   color: var(--cr-ink);
   line-height: 1.5;
