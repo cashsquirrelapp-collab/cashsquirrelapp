@@ -10,7 +10,12 @@ const drafts = {
   empty: { type: 'invoice', client: {}, items: [], vatRate: 0, whtRate: 0 },
 };
 
-async function open(page: Page, scenario: keyof typeof drafts, issuer = 'สตูดิโอตัวอย่าง', size = { width: 390, height: 844 }, query = '') {
+// The user's own business as saved (owner, 2026-10-30: name, address, 13-digit tax ID and phone are needed).
+const FULL = { name: 'สตูดิโอตัวอย่าง', address: '99 ถนนสุขุมวิท แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพมหานคร 10110', taxId: '0105561234567', phone: '089-999-9999',
+  email: 'hello@example.test', bankName: 'กสิกรไทย', bankAccount: '123-4-56789-0', bankAccountName: 'สตูดิโอตัวอย่าง' };
+type Issuer = Partial<typeof FULL>;
+
+async function open(page: Page, scenario: keyof typeof drafts, issuer: Issuer = FULL, size = { width: 390, height: 844 }, query = '') {
   const sent: any[] = [];
   await page.setViewportSize(size);
   await page.route('https://static.line-scdn.net/**', route => route.fulfill({ contentType: 'text/javascript',
@@ -18,10 +23,11 @@ async function open(page: Page, scenario: keyof typeof drafts, issuer = 'สต�
   await page.route('**/api/liff-config', route => route.fulfill({ json: { liffId: 'test-liff' } }));
   await page.route('**/api/liff-submit', route => {
     const body = route.request().postDataJSON(); sent.push(body);
-    if (body.action === 'load-draft') return route.fulfill({ json: { ok: true, kind: 'document', draft: drafts[scenario], createdAt: new Date().toISOString(), issuer: { name: issuer } } });
+    if (body.action === 'load-draft') return route.fulfill({ json: { ok: true, kind: 'document', draft: drafts[scenario], createdAt: new Date().toISOString(),
+      issuer: { name: '', address: '', taxId: '', phone: '', email: '', bankName: '', bankAccount: '', bankAccountName: '', ...issuer } } });
     if (body.action === 'document-image') return route.fulfill({ json: { ok: true, imageSent: true } });
     const record = { id: 'd1', assistantDraft: true, documentType: body.document.type, documentNo: 'QT-2569-4F2A91C0', createdDate: '2026-10-30',
-      issuer: { name: issuer || body.document.issuer?.name || '', address: '', phone: '', email: '', taxId: '', bankName: '', bankAccount: '', bankAccountName: '' },
+      issuer: { name: '', address: '', phone: '', email: '', taxId: '', bankName: '', bankAccount: '', bankAccountName: '', ...issuer, ...body.document.issuer },
       client: { email: '', ...body.document.client }, items: body.document.items.map((item: any, at: number) => ({ id: `i${at}`, ...item })), vatRate: body.document.vatRate, whtRate: body.document.whtRate };
     return route.fulfill({ json: { ok: true, documentNo: 'QT-2569-4F2A91C0', notificationSent: true, document: record } });
   });
@@ -35,6 +41,9 @@ test('a filled draft opens with what the card knew, and creating it sends the ch
   const sent = await open(page, 'full');
   await expect(page.locator('#document-title')).toHaveText('ใบเสนอราคา');
   await expect(page.locator('#document-issuer-known')).toContainText('สตูดิโอตัวอย่าง');
+  // the saved business in full, as on the document: address, tax ID, phone, email and the account to pay
+  for (const text of [FULL.address, 'เลขผู้เสียภาษี 0105561234567 · โทร 089-999-9999', FULL.email, 'รับเงิน กสิกรไทย 123-4-56789-0']) await expect(page.locator('#document-issuer-details')).toContainText(text);
+  await expect(page.locator('#document-issuer-fields')).toBeHidden();
   await expect(page.locator('#doc-client-name')).toHaveValue('บริษัท แบรนด์เอ');
   await expect(page.locator('#doc-item-qty-0')).toHaveValue('20');
   await expect(page.locator('#document-summary-amount')).toHaveText('฿6,000.00');
@@ -56,14 +65,26 @@ test('a filled draft opens with what the card knew, and creating it sends the ch
   expect(submit.document.issuer).toBeUndefined(); // the saved business stays as it is
 });
 
-test('an empty draft asks for the client and a priced line before it creates anything, and a new business is named here', async ({ page }) => {
-  const sent = await open(page, 'empty', '');
+test('an empty draft asks for the business in full, the client and a priced line before it creates anything', async ({ page }) => {
+  const sent = await open(page, 'empty', {});
   await expect(page.locator('#document-title')).toHaveText('ใบแจ้งหนี้');
   await expect(page.locator('#document-issuer-fields')).toBeVisible();
-  await page.getByRole('button', { name: 'สร้างใบแจ้งหนี้' }).click();
+  await expect(page.locator('#document-issuer-help')).toContainText('ยังไม่มีข้อมูลธุรกิจของคุณ');
+  const create = () => page.getByRole('button', { name: 'สร้างใบแจ้งหนี้' }).click();
+  await create();
   await expect(page.locator('#document-error-box')).toContainText('ชื่อธุรกิจ');
   await page.locator('#doc-issuer-name').fill('สตูดิโอใหม่');
-  await page.getByRole('button', { name: 'สร้างใบแจ้งหนี้' }).click();
+  await create();
+  await expect(page.locator('#document-error-box')).toContainText('ที่อยู่ของผู้ออกเอกสาร');
+  await page.locator('#doc-issuer-address').fill('12 ถนนนิมมานเหมินท์ เชียงใหม่ 50200');
+  await page.locator('#doc-issuer-taxId').fill('12345');
+  await create();
+  await expect(page.locator('#document-error-box')).toContainText('เลขประจำตัวผู้เสียภาษี 13 หลัก');
+  await page.locator('#doc-issuer-taxId').fill('1-2345-67890-12-3');
+  await create();
+  await expect(page.locator('#document-error-box')).toContainText('เบอร์โทรศัพท์');
+  await page.locator('#doc-issuer-phone').fill('081 234 5678');
+  await create();
   await expect(page.locator('#document-error-box')).toContainText('ชื่อลูกค้า');
   await page.locator('#doc-client-name').fill('ร้านบี');
   await page.getByRole('button', { name: 'สร้างใบแจ้งหนี้' }).click();
@@ -77,12 +98,35 @@ test('an empty draft asks for the client and a priced line before it creates any
   expect(sent.filter(body => body.action === 'confirm-draft')).toHaveLength(0);
   await page.getByRole('button', { name: 'สร้างใบแจ้งหนี้' }).click();
   await expect(page.getByRole('heading', { name: 'สร้างใบแจ้งหนี้แล้ว' })).toBeVisible();
-  expect(sent.find(body => body.action === 'confirm-draft').document).toMatchObject({ type: 'invoice', issuer: { name: 'สตูดิโอใหม่' }, items: [{ price: 7500 }, { price: 500 }] });
+  expect(sent.find(body => body.action === 'confirm-draft').document).toMatchObject({ type: 'invoice', items: [{ price: 7500 }, { price: 500 }],
+    issuer: { name: 'สตูดิโอใหม่', address: '12 ถนนนิมมานเหมินท์ เชียงใหม่ 50200', taxId: '1-2345-67890-12-3', phone: '081 234 5678', email: '', bankName: '' } });
 });
 
-for (const size of [{ width: 390, height: 844 }, { width: 320, height: 568 }]) {
-  test(`at ${size.width}px nothing covers any text in the form`, async ({ page }) => {
-    await open(page, 'full', 'สตูดิโอตัวอย่าง', size);
+test('a saved business without its address, tax ID or phone opens its fields, filled with what is saved', async ({ page }) => {
+  await open(page, 'full', { name: 'สตูดิโอตัวอย่าง', phone: '089-999-9999' }, { width: 390, height: 844 }, '&create=1');
+  await expect(page.locator('#document-card')).toBeVisible(); // not created at once: the business is not complete
+  await expect(page.locator('#document-issuer-help')).toContainText('ยังไม่ครบ');
+  await expect(page.locator('#doc-issuer-name')).toHaveValue('สตูดิโอตัวอย่าง');
+  await expect(page.locator('#doc-issuer-phone')).toHaveValue('089-999-9999');
+  await expect(page.locator('#document-issuer-known')).toBeHidden();
+});
+
+test('แก้ไข opens the saved business to change; the change is sent to be kept for the next document', async ({ page }) => {
+  const sent = await open(page, 'full');
+  await page.getByRole('button', { name: 'แก้ไข', exact: true }).click();
+  await expect(page.locator('#document-issuer-fields')).toBeVisible();
+  await expect(page.locator('#document-issuer-help')).toContainText('ใช้กับเอกสารใบต่อไป');
+  await expect(page.locator('#doc-issuer-taxId')).toHaveValue(FULL.taxId);
+  await page.locator('#doc-issuer-phone').fill('02-111-2222');
+  await page.getByRole('button', { name: 'สร้างใบเสนอราคา' }).click();
+  await expect(page.getByRole('heading', { name: 'สร้างใบเสนอราคาแล้ว' })).toBeVisible({ timeout: 20_000 });
+  expect(sent.find(body => body.action === 'confirm-draft').document.issuer).toEqual({ ...FULL, phone: '02-111-2222' });
+  expect(sent.find(body => body.action === 'document-image').image.startsWith('/9j/')).toBe(true);
+});
+
+for (const [size, issuer] of [[{ width: 390, height: 844 }, FULL], [{ width: 320, height: 568 }, FULL], [{ width: 390, height: 844 }, {}], [{ width: 320, height: 568 }, {}]] as const) {
+  test(`at ${size.width}px nothing covers any text in the form (${issuer.name ? 'saved business' : 'business fields'})`, async ({ page }) => {
+    await open(page, 'full', issuer, size);
     for (const at of [0, 0.3, 0.6, 1]) {
       await page.evaluate(share => window.scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * share), at);
       expect(await textOverlapIssues(page)).toEqual([]);
@@ -92,14 +136,14 @@ for (const size of [{ width: 390, height: 844 }, { width: 320, height: 568 }]) {
 }
 
 test('สร้างเอกสาร on the card opens straight into creating it, sends the picture, and goes back to the chat', async ({ page }) => {
-  const sent = await open(page, 'full', 'สตูดิโอตัวอย่าง', { width: 390, height: 844 }, '&create=1');
+  const sent = await open(page, 'full', FULL, { width: 390, height: 844 }, '&create=1');
   await expect(page.getByRole('heading', { name: 'สร้างใบเสนอราคาแล้ว' })).toBeVisible({ timeout: 20_000 });
   expect(sent.map(body => body.action)).toEqual(['load-draft', 'confirm-draft', 'document-image']);
   await expect(page.locator('#document-card')).toBeHidden(); // no form to press again
 });
 
 test('an incomplete draft opened to create shows its form instead', async ({ page }) => {
-  const sent = await open(page, 'empty', 'สตูดิโอตัวอย่าง', { width: 390, height: 844 }, '&create=1');
+  const sent = await open(page, 'empty', FULL, { width: 390, height: 844 }, '&create=1');
   await expect(page.locator('#document-card')).toBeVisible();
   await expect(page.locator('#document-error-box')).toContainText('ชื่อลูกค้า');
   expect(sent.filter(body => body.action === 'confirm-draft')).toHaveLength(0);

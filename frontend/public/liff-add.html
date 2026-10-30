@@ -105,8 +105,12 @@
   #document-card .card-header { background:linear-gradient(115deg,#FFFDF9 25%,#FFF1E1 73%,#FFD7B8); }
   .doc-section { font-size:13px; font-weight:600; margin:23px 0 4px; padding-top:19px; border-top:1px dashed var(--border); }
   .doc-section:first-of-type { margin-top:4px; }
-  .doc-known { display:flex; justify-content:space-between; gap:12px; align-items:baseline; background:var(--faint); border:1px solid var(--border); border-radius:12px; padding:11px 13px; margin-top:10px; font-size:13px; }
-  .doc-known span { color:var(--muted); font-size:11px; white-space:nowrap; }
+  .doc-known { background:var(--faint); border:1px solid var(--border); border-radius:12px; padding:11px 13px; margin-top:10px; font-size:13px; line-height:1.5; }
+  .doc-known-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .doc-known-head b { overflow-wrap:anywhere; }
+  .doc-known-head button { flex:none; border:1px solid var(--border); background:#fff; color:var(--text); border-radius:999px; padding:5px 13px; font-size:12px; font-weight:600; min-height:32px; margin:-4px -4px 0 0; }
+  .doc-known p { margin:5px 0 0; color:var(--muted); font-size:12px; line-height:1.55; overflow-wrap:anywhere; white-space:pre-line; }
+  .doc-sub { font-size:12px; font-weight:600; margin:21px 0 0; }
   .doc-heard { margin:0 0 4px; }
   .doc-item { border:1px solid var(--border); border-radius:14px; padding:12px; margin-top:10px; background:#FFFEFC; }
   .doc-item-head { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted); font-weight:600; }
@@ -222,17 +226,30 @@
     <div class="tip-box doc-heard hidden" id="document-heard"><p id="document-heard-text"></p></div>
 
     <h2 class="doc-section">ผู้ออกเอกสาร</h2>
-    <div class="doc-known hidden" id="document-issuer-known"><b id="document-issuer-name"></b><span>แก้ได้ในแอป</span></div>
+    <div class="doc-known hidden" id="document-issuer-known">
+      <div class="doc-known-head"><b id="document-issuer-name"></b><button type="button" id="document-issuer-edit">แก้ไข</button></div>
+      <p id="document-issuer-details"></p>
+    </div>
     <div id="document-issuer-fields" class="hidden">
-      <p class="helper">ยังไม่มีข้อมูลธุรกิจของคุณ กรอกครั้งเดียว เอกสารใบต่อไปจะใช้ข้อมูลนี้ให้เอง</p>
+      <p class="helper" id="document-issuer-help"></p>
       <label for="doc-issuer-name">ชื่อธุรกิจหรือชื่อของคุณ <span aria-hidden="true">*</span></label>
-      <input type="text" id="doc-issuer-name" maxlength="200" autocomplete="organization" />
-      <label for="doc-issuer-address">ที่อยู่ <span class="optional">ไม่บังคับ</span></label>
-      <textarea id="doc-issuer-address" maxlength="500" rows="2"></textarea>
-      <label for="doc-issuer-taxId">เลขประจำตัวผู้เสียภาษี <span class="optional">ไม่บังคับ</span></label>
-      <input type="text" id="doc-issuer-taxId" maxlength="20" inputmode="numeric" />
-      <label for="doc-issuer-phone">เบอร์โทร <span class="optional">ไม่บังคับ</span></label>
-      <input type="text" id="doc-issuer-phone" maxlength="40" inputmode="tel" autocomplete="tel" />
+      <input type="text" id="doc-issuer-name" maxlength="200" autocomplete="organization" placeholder="เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด" />
+      <label for="doc-issuer-address">ที่อยู่ออกเอกสาร / ที่อยู่จดทะเบียน <span aria-hidden="true">*</span></label>
+      <textarea id="doc-issuer-address" maxlength="500" rows="2" autocomplete="street-address"></textarea>
+      <label for="doc-issuer-taxId">เลขประจำตัวผู้เสียภาษี <span aria-hidden="true">*</span></label>
+      <input type="text" id="doc-issuer-taxId" maxlength="20" inputmode="numeric" placeholder="13 หลัก" />
+      <label for="doc-issuer-phone">เบอร์โทรศัพท์ติดต่อ <span aria-hidden="true">*</span></label>
+      <input type="text" id="doc-issuer-phone" maxlength="40" inputmode="tel" autocomplete="tel" placeholder="เช่น 089-999-9999" />
+      <label for="doc-issuer-email">อีเมล <span class="optional">ไม่บังคับ</span></label>
+      <input type="text" id="doc-issuer-email" maxlength="200" inputmode="email" autocomplete="email" />
+      <p class="doc-sub">ช่องทางรับเงิน <span class="optional">ไม่บังคับ</span></p>
+      <p class="helper">บัญชีที่ลูกค้าใช้โอนเงิน แสดงท้ายเอกสาร</p>
+      <label for="doc-issuer-bankName">ชื่อธนาคาร</label>
+      <input type="text" id="doc-issuer-bankName" maxlength="100" placeholder="เช่น กสิกรไทย หรือ พร้อมเพย์" />
+      <label for="doc-issuer-bankAccount">เลขที่บัญชี</label>
+      <input type="text" id="doc-issuer-bankAccount" maxlength="40" inputmode="numeric" placeholder="เช่น 123-4-56789-0" />
+      <label for="doc-issuer-bankAccountName">ชื่อบัญชี</label>
+      <input type="text" id="doc-issuer-bankAccountName" maxlength="200" />
     </div>
 
     <h2 class="doc-section">ลูกค้า</h2>

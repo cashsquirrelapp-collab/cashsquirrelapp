@@ -182,10 +182,29 @@ export function applyDocumentFollowUp(draft: LineDocumentDraft, input: string): 
 }
 
 const itemReady = (item: LineDocumentItem) => item.description.trim().length > 0 && item.quantity > 0 && item.price > 0;
-/** What a document still needs before it can be made (the issuer is the user's own saved business). */
-export function documentMissing(draft: LineDocumentDraft, issuerName: string | undefined): string[] {
+
+/** The parts of the user's own business the LINE form shows and may change (never the logo or the signature). */
+export const ISSUER_EDITABLE = ['name', 'address', 'taxId', 'phone', 'email', 'bankName', 'bankAccount', 'bankAccountName'] as const;
+export type IssuerEdits = Partial<Record<(typeof ISSUER_EDITABLE)[number], string>>;
+const digitCount = (value: string | undefined) => (value || '').replace(/\D/g, '').length;
+/**
+ * What the user's own business still needs before a document from LINE (owner, 2026-10-30: "ผู้ออกเอกสารต้องมีที่อยู่
+ * เลขผู้เสียภาษี เบอร์ด้วย เหมือนออกบิล"): its name, address, 13-digit tax ID and phone. Email and bank stay optional.
+ */
+export function issuerMissing(issuer: Partial<InvoiceProfile> | null | undefined): string[] {
+  const taxDigits = digitCount(issuer?.taxId);
   return [
-    ...(issuerName?.trim() ? [] : ['ผู้ออกเอกสาร']),
+    ...(issuer?.name?.trim() ? [] : ['ชื่อธุรกิจ']),
+    ...(issuer?.address?.trim() ? [] : ['ที่อยู่']),
+    ...(taxDigits === 13 ? [] : [taxDigits ? 'เลขผู้เสียภาษี 13 หลัก' : 'เลขผู้เสียภาษี']),
+    ...(digitCount(issuer?.phone) >= 9 ? [] : ['เบอร์โทร']),
+  ];
+}
+
+/** What a document still needs before it can be made (the issuer is the user's own saved business). */
+export function documentMissing(draft: LineDocumentDraft, issuer: Partial<InvoiceProfile> | null | undefined): string[] {
+  return [
+    ...(issuerMissing(issuer).length ? ['ข้อมูลผู้ออกเอกสาร'] : []),
     ...(draft.client.name?.trim() ? [] : ['ลูกค้า']),
     ...(draft.items.length && draft.items.every(itemReady) ? [] : ['รายการและราคา']),
   ];
@@ -208,11 +227,30 @@ function row(label: string, value: string | undefined) {
     { type: 'text', text: label, size: 'xs', color: C.muted, flex: 1, wrap: true }, missingText('ยังไม่ได้กรอก')] };
 }
 
+/** The user's own business on the card: its name with the address, tax ID and phone under it, or what is still missing. */
+function issuerRow(issuer: Partial<InvoiceProfile> | null | undefined) {
+  const name = issuer?.name?.trim();
+  if (!name) return row('ผู้ออกเอกสาร', undefined);
+  const small = (text: string, lines = 1) => ({ type: 'text', text, size: 'xxs', color: C.muted, align: 'end', wrap: true, maxLines: lines });
+  const gaps = issuerMissing(issuer);
+  const details = [
+    issuer?.address?.trim() ? small(issuer.address.trim(), 3) : null,
+    digitCount(issuer?.taxId) === 13 ? small(`เลขผู้เสียภาษี ${issuer!.taxId!.trim()}`) : null,
+    digitCount(issuer?.phone) >= 9 ? small(`โทร ${issuer!.phone!.trim()}`) : null,
+    gaps.length ? { ...missingText(`ยังไม่ได้กรอก ${gaps.join(' · ')}`), size: 'xs', flex: undefined } : null,
+  ].filter(Boolean);
+  return { type: 'box', layout: 'horizontal', spacing: 'md', margin: 'md', contents: [
+    { type: 'text', text: 'ผู้ออกเอกสาร', size: 'xs', color: C.muted, flex: 1, wrap: true },
+    { type: 'box', layout: 'vertical', flex: 2, spacing: 'xs', contents: [
+      { type: 'text', text: name.length > 120 ? `${name.slice(0, 119)}…` : name, size: 'sm', color: C.text, align: 'end', wrap: true }, ...details] },
+  ] };
+}
+
 /** The draft as a card: what is there, what is still to fill, and the one next step. */
-export function buildDocumentDraftCard(stored: StoredDocumentDraft, issuer: Pick<InvoiceProfile, 'name'> | null): LineMessage {
+export function buildDocumentDraftCard(stored: StoredDocumentDraft, issuer: Partial<InvoiceProfile> | null): LineMessage {
   const { draft } = stored;
   const name = DOC_NAME[draft.type];
-  const missing = documentMissing(draft, issuer?.name);
+  const missing = documentMissing(draft, issuer);
   const ready = missing.length === 0;
   const totals = itemsTotals(draft);
   const form = documentFormLink(stored);
@@ -224,7 +262,7 @@ export function buildDocumentDraftCard(stored: StoredDocumentDraft, issuer: Pick
     subtitle: ready ? 'แบบร่าง · พร้อมสร้างเอกสาร' : 'แบบร่าง · ยังไม่ได้สร้างเอกสาร',
     metric: { label: 'ยอดชำระสุทธิ', value: totals.payable > 0 ? baht(totals.payable) : 'ยังไม่มียอด' },
     body: [
-      row('ผู้ออกเอกสาร', issuer?.name?.trim() || undefined),
+      issuerRow(issuer),
       row('ลูกค้า', draft.client.name),
       ...(items.length ? items : [row('รายการ', undefined)]),
       ...(draft.items.length > 3 ? [{ type: 'text', text: `และอีก ${draft.items.length - 3} รายการ`, size: 'xs', color: C.muted, margin: 'sm', align: 'end' }] : []),
@@ -353,20 +391,32 @@ export function parseDocumentCommand(text: string): { action: 'create' | 'cancel
   return match ? { action: match[1] === 'สร้างเอกสาร' ? 'create' : 'cancel', key: match[2] } : null;
 }
 
-/** The account's saved issuer and record versions, read fresh (the LINE row carries no documents). */
-export async function loadDocumentAccount(userId: string): Promise<{ issuer: InvoiceProfile; issuerVersion: number | null }> {
+/**
+ * The account's saved issuer and record versions, read fresh (the LINE row carries no documents). `profile` is the
+ * whole saved profile (logo and signature too): it stays on the server, so edits from the form are laid over it.
+ */
+export async function loadDocumentAccount(userId: string): Promise<{ issuer: InvoiceProfile; issuerVersion: number | null; profile?: Record<string, unknown> }> {
   const { supabaseAssistantDb } = await import('../ai/supabaseDb.js');
   const account = await supabaseAssistantDb.loadAccount(userId);
   const version = account.versions['cashflow_documents:issuer_profile'];
-  return { issuer: documentIssuer((account.user as unknown as { issuer_profile?: unknown }).issuer_profile), issuerVersion: typeof version === 'number' ? version : null };
+  const saved = (account.user as unknown as { issuer_profile?: unknown }).issuer_profile;
+  return { issuer: documentIssuer(saved), issuerVersion: typeof version === 'number' ? version : null,
+    profile: saved && typeof saved === 'object' ? { ...(saved as Record<string, unknown>) } : {} };
+}
+
+/** The saved profile with the form's edits laid over it: everything the form does not show (logo, signature) is kept. */
+export function mergeIssuerEdits(profile: Record<string, unknown> | undefined, edits: IssuerEdits): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...Object.fromEntries(PROFILE_FIELDS.map(field => [field, ''])), ...(profile || {}) };
+  for (const field of ISSUER_EDITABLE) if (typeof edits[field] === 'string') next[field] = edits[field]!.trim();
+  return next;
 }
 
 /**
- * Saves the document (and, when the form filled the user's own business for the first time, the issuer profile, so the
- * next document has it) through the same checked write as a confirmed เลขา card: validation, versions and the Free
+ * Saves the document (and, when the form filled in or changed the user's own business, the issuer profile, so the next
+ * document has it) through the same checked write as a confirmed เลขา card: validation, versions and the Free
  * plan's document quota. False when it was already saved (the same draft pressed twice) or changed elsewhere.
  */
-export async function saveLineDocument(userId: string, record: Invoice, newIssuer?: { profile: InvoiceProfile; version: number | null }): Promise<boolean> {
+export async function saveLineDocument(userId: string, record: Invoice, newIssuer?: { profile: Record<string, unknown>; version: number | null }): Promise<boolean> {
   const [{ supabaseAssistantDb }, { proposalChanges }] = await Promise.all([import('../ai/supabaseDb.js'), import('../ai/proposals.js')]);
   const changes = [
     ...proposalChanges({ kind: 'add_document', jobId: record.id, record: record as unknown as Record<string, unknown> }, null),

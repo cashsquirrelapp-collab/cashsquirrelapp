@@ -2,7 +2,7 @@ import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildDocumentCreatedCard, buildDocumentDraftCard, buildLineDocumentRecord, decodeLineDocumentAction, documentIdFor, documentIssuer,
-  documentMissing, isActiveDocumentDraft, newDocumentDraft, parseDocumentCommand, parseLineDocumentCreate, DOCUMENT_DRAFT_TTL_MS,
+  documentMissing, isActiveDocumentDraft, issuerMissing, mergeIssuerEdits, newDocumentDraft, parseDocumentCommand, parseLineDocumentCreate, DOCUMENT_DRAFT_TTL_MS,
 } from '../backend/src/services/lineDocumentDraft';
 import { handleAssistantMessage, type LineAssistantDependencies, type UserRow } from '../backend/src/services/lineAssistant';
 import { lineEventCommand } from '../backend/src/handlers/line-webhook';
@@ -18,6 +18,8 @@ process.env.LIFF_ID = '1234567890-abcdefgh';
 after(() => { for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
 
 const flex = (message: any) => JSON.stringify(message.contents);
+// The user's own business, complete (owner, 2026-10-30: name, address, 13-digit tax ID and phone, as on the app's documents).
+const ISSUER = { name: 'สตูดิโอตัวอย่าง', address: '99 ถนนสุขุมวิท กรุงเทพฯ 10110', taxId: '0-1055-12345-67-8', phone: '089-999-9999' };
 const buttons = (message: any) => (JSON.stringify(message.contents.footer).match(/"label":"[^"]+"/g) || []).map(label => label.slice(9, -1));
 
 test('a short request is a document to make; a name alone is still a search', () => {
@@ -49,7 +51,7 @@ test('details typed in one message fill the draft; what is unsure is left for th
 
 test('the empty card says what is missing and opens the form; nothing can be made yet', () => {
   const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
-  const card = buildDocumentDraftCard(stored, { name: 'สตูดิโอตัวอย่าง' }) as any;
+  const card = buildDocumentDraftCard(stored, ISSUER) as any;
   assert.equal(card.type, 'flex');
   assert.match(flex(card), /ยังไม่ได้กรอก/);
   assert.match(flex(card), /สตูดิโอตัวอย่าง/);
@@ -57,22 +59,40 @@ test('the empty card says what is missing and opens the form; nothing can be mad
   assert.match(flex(card), new RegExp(`https://liff.line.me/1234567890-abcdefgh\\?draftKind=document&draftKey=${stored.id}`));
   assert.match(flex(card), new RegExp(`doc:cancel:${stored.id}`));
   assert.doesNotMatch(flex(card), /doc:create/);
-  assert.deepEqual(documentMissing(stored.draft, 'สตูดิโอตัวอย่าง'), ['ลูกค้า', 'รายการและราคา']);
-  assert.deepEqual(documentMissing(stored.draft, ''), ['ผู้ออกเอกสาร', 'ลูกค้า', 'รายการและราคา']);
+  assert.deepEqual(documentMissing(stored.draft, ISSUER), ['ลูกค้า', 'รายการและราคา']);
+  assert.deepEqual(documentMissing(stored.draft, { name: '' }), ['ข้อมูลผู้ออกเอกสาร', 'ลูกค้า', 'รายการและราคา']);
 });
 
 test('a complete draft offers สร้างเอกสาร first, the form to change it, and the total after taxes', () => {
   const stored = newDocumentDraft(parseLineDocumentCreate('ออกใบแจ้งหนี้ให้คุณบี ตัดต่อวิดีโอ 5 คลิป คลิปละ 1,500 เครดิต 30 วัน หัก 3%')!);
-  const card = buildDocumentDraftCard(stored, { name: 'สตูดิโอตัวอย่าง' }) as any;
+  const card = buildDocumentDraftCard(stored, ISSUER) as any;
   assert.deepEqual(buttons(card), ['สร้างเอกสาร', 'แก้ไข / กรอกเพิ่ม', 'ยกเลิก']);
   // สร้างเอกสาร opens the form to create at once, so the page can be sent as a picture too
   assert.match(flex(card), new RegExp(`draftKind=document&draftKey=${stored.id}&create=1`));
   const liff = process.env.LIFF_ID; delete process.env.LIFF_ID;
-  try { assert.match(flex(buildDocumentDraftCard(stored, { name: 'สตูดิโอตัวอย่าง' })), new RegExp(`doc:create:${stored.id}`)); } // no form: a postback
+  try { assert.match(flex(buildDocumentDraftCard(stored, ISSUER)), new RegExp(`doc:create:${stored.id}`)); } // no form: a postback
   finally { process.env.LIFF_ID = liff; }
   assert.match(flex(card), /฿7,275\.00/); // 7,500 less 3% withheld
   assert.match(flex(card), /เครดิต/);
   assert.match(card.altText, /ใบแจ้งหนี้ แบบร่าง ฿7,275\.00/);
+});
+
+test('the issuer needs its name, address, 13-digit tax ID and phone; the card shows them or says what is missing', () => {
+  assert.deepEqual(issuerMissing(ISSUER), []);
+  assert.deepEqual(issuerMissing({ name: 'สตูดิโอตัวอย่าง' }), ['ที่อยู่', 'เลขผู้เสียภาษี', 'เบอร์โทร']);
+  assert.deepEqual(issuerMissing({ ...ISSUER, taxId: '12345' }), ['เลขผู้เสียภาษี 13 หลัก']);
+  assert.deepEqual(issuerMissing({ ...ISSUER, phone: '1234' }), ['เบอร์โทร']);
+  const stored = newDocumentDraft(parseLineDocumentCreate('ออกใบแจ้งหนี้ให้คุณบี ตัดต่อวิดีโอ 5 คลิป คลิปละ 1,500')!);
+  const complete = flex(buildDocumentDraftCard(stored, ISSUER));
+  for (const text of ['99 ถนนสุขุมวิท กรุงเทพฯ 10110', 'เลขผู้เสียภาษี 0-1055-12345-67-8', 'โทร 089-999-9999']) assert.ok(complete.includes(text), text);
+  // a saved business without its address, tax ID or phone: the card is not ready and says what to fill
+  const partial = buildDocumentDraftCard(stored, { name: 'สตูดิโอตัวอย่าง', phone: '089-999-9999' }) as any;
+  assert.match(flex(partial), /ยังไม่ได้กรอก ที่อยู่ · เลขผู้เสียภาษี/);
+  assert.deepEqual(buttons(partial), ['กรอกข้อมูล', 'สร้างเอกสาร', 'ยกเลิก']);
+  assert.match(partial.altText, /ยังไม่ได้กรอก ข้อมูลผู้ออกเอกสาร/);
+  // the form's edits go over the saved profile: the logo and signature stay
+  assert.deepEqual(mergeIssuerEdits({ name: 'เก่า', signatureUrl: 'data:image/png;base64,AAAA', logoUrl: 'data:image/png;base64,BBBB', logoHeight: 60 }, { name: ' ใหม่ ', taxId: '1234567890123' }),
+    { name: 'ใหม่', address: '', phone: '', email: '', taxId: '1234567890123', bankName: '', bankAccount: '', bankAccountName: '', signatureUrl: 'data:image/png;base64,AAAA', logoUrl: 'data:image/png;base64,BBBB', logoHeight: 60 });
 });
 
 test('the saved document has the app เลขา draft shape: unsigned, numbered, dated, due after the credit days', () => {
@@ -145,7 +165,7 @@ function response() {
   return { res: res as any, state };
 }
 const requestId = '22222222-2222-4222-8222-222222222222';
-function formHandler(stored: any, account: { name: string }, calls: Record<string, any[]>, saveResult: boolean | Error = true, owned = true) {
+function formHandler(stored: any, account: Record<string, unknown>, calls: Record<string, any[]>, saveResult: boolean | Error = true, owned = true) {
   return createLiffSubmitHandler({
     verifyLiffIdToken: async () => 'U-line-user',
     findUserByLineId: async () => ({ user_id: userId, jobs: [], goals: [], settings: {}, expenses: [], statuses: [], notif_settings: { pendingDocumentDraft: stored } }) as any,
@@ -153,7 +173,7 @@ function formHandler(stored: any, account: { name: string }, calls: Record<strin
     rateLimit: async () => undefined,
     isProUser: async () => true,
     sendLineMessagePayload: async (_to: string, message: any) => { (calls.sent ||= []).push(message); return true; },
-    loadDocumentAccount: async () => ({ issuer: documentIssuer(account), issuerVersion: 4 }),
+    loadDocumentAccount: async () => ({ issuer: documentIssuer(account), issuerVersion: 4, profile: account }),
     saveLineDocument: async (_owner: string, record: any, issuer: any) => { (calls.saved ||= []).push({ record, issuer }); if (saveResult instanceof Error) throw saveResult; return saveResult; },
     clearDocumentDraft: async () => { (calls.cleared ||= []).push(true); },
     ownDocumentSummary: async (_owner: string, id: string) => { (calls.owned ||= []).push(id); return owned ? { documentNo: 'QT-2569-ABCDEF12' } : null; },
@@ -167,9 +187,10 @@ test('the form loads the current draft with the saved issuer, and an old card is
   const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
   const calls: Record<string, any[]> = {};
   const { res, state } = response();
-  await formHandler(stored, { name: 'สตูดิโอตัวอย่าง' }, calls)({ method: 'POST', body: { idToken: 't', action: 'load-draft', draftKind: 'document', draftKey: stored.id } } as any, res);
+  await formHandler(stored, { ...ISSUER, signatureUrl: 'data:image/png;base64,AAAA' }, calls)({ method: 'POST', body: { idToken: 't', action: 'load-draft', draftKind: 'document', draftKey: stored.id } } as any, res);
   assert.equal(state.status, 200);
-  assert.deepEqual([state.body.kind, state.body.draft.type, state.body.issuer.name], ['document', 'quotation', 'สตูดิโอตัวอย่าง']);
+  assert.deepEqual([state.body.kind, state.body.draft.type], ['document', 'quotation']);
+  assert.deepEqual(state.body.issuer, { ...ISSUER, email: '', bankName: '', bankAccount: '', bankAccountName: '' }, 'every field the form shows, never the signature');
   const old = response();
   await formHandler(stored, { name: 'สตูดิโอตัวอย่าง' }, calls)({ method: 'POST', body: { idToken: 't', action: 'load-draft', draftKind: 'document', draftKey: 'ffffffffffffffff' } } as any, old.res);
   assert.equal(old.state.status, 409);
@@ -179,7 +200,7 @@ test('the form saves one document for its draft, clears the draft, and sends the
   const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
   const calls: Record<string, any[]> = {};
   const { res, state } = response();
-  await formHandler(stored, { name: 'สตูดิโอตัวอย่าง' }, calls)({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document: form } } as any, res);
+  await formHandler(stored, ISSUER, calls)({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document: form } } as any, res);
   assert.equal(state.status, 200, JSON.stringify(state.body));
   assert.equal(state.body.ok, true);
   assert.match(state.body.documentNo, /^QT-\d{4}-[0-9A-F]{8}$/);
@@ -212,33 +233,52 @@ test('the picture of the new document goes into the chat, only for this draft’
   assert.equal(other.state.status, 404, 'not this account’s document');
 });
 
-test('with no saved issuer the form must name the user’s business, and it is kept for the next document', async () => {
+const fullIssuer = { ...ISSUER, email: '', bankName: '', bankAccount: '', bankAccountName: '' };
+const confirm = (document: unknown, stored: any) => ({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document } }) as any;
+test('the form must give the user’s business a name, address, tax ID and phone, and keeps it for the next document', async () => {
   const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
-  const missing = response();
-  await formHandler(stored, { name: '' }, {})({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document: form } } as any, missing.res);
-  assert.equal(missing.state.status, 400);
+  for (const [account, issuer] of [[{ name: '' }, undefined], [{ name: 'สตูดิโอตัวอย่าง' }, undefined],
+    [{ name: '' }, { ...fullIssuer, address: '' }], [{ name: '' }, { ...fullIssuer, taxId: '12345' }], [{ name: '' }, { ...fullIssuer, phone: '' }], [{ name: '' }, { ...fullIssuer, email: 'not-an-email' }]] as const) {
+    const refused = response(); const calls: Record<string, any[]> = {};
+    await formHandler(stored, account, calls)(confirm({ ...form, ...(issuer ? { issuer } : {}) }, stored), refused.res);
+    assert.equal(refused.state.status, 400, JSON.stringify(issuer));
+    assert.equal(calls.saved, undefined);
+  }
   const calls: Record<string, any[]> = {};
   const { res, state } = response();
-  await formHandler(stored, { name: '' }, calls)({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId,
-    document: { ...form, issuer: { name: 'สตูดิโอใหม่', address: 'กรุงเทพฯ', taxId: '', phone: '' } } } } as any, res);
-  assert.equal(state.status, 200);
-  assert.equal(calls.saved[0].record.issuer.name, 'สตูดิโอใหม่');
-  assert.deepEqual([calls.saved[0].issuer.profile.name, calls.saved[0].issuer.version], ['สตูดิโอใหม่', 4]);
+  await formHandler(stored, { name: '' }, calls)(confirm({ ...form, issuer: { ...fullIssuer, name: 'สตูดิโอใหม่', bankName: 'กสิกรไทย', bankAccount: '123-4-56789-0' } }, stored), res);
+  assert.equal(state.status, 200, JSON.stringify(state.body));
+  assert.deepEqual([calls.saved[0].record.issuer.name, calls.saved[0].record.issuer.address, calls.saved[0].record.issuer.bankAccount], ['สตูดิโอใหม่', ISSUER.address, '123-4-56789-0']);
+  assert.deepEqual([calls.saved[0].issuer.profile.name, calls.saved[0].issuer.profile.taxId, calls.saved[0].issuer.version], ['สตูดิโอใหม่', ISSUER.taxId, 4]);
+});
+
+test('a saved business changed in the form is saved over the profile, keeping its logo and signature; unchanged, it is left alone', async () => {
+  const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
+  const account = { ...ISSUER, email: '', bankName: '', bankAccount: '', bankAccountName: '', signatureUrl: 'data:image/png;base64,AAAA', logoUrl: 'data:image/png;base64,BBBB' };
+  const calls: Record<string, any[]> = {};
+  await formHandler(stored, account, calls)(confirm({ ...form, issuer: { ...fullIssuer, phone: '02-111-2222' } }, stored), response().res);
+  const { record, issuer } = calls.saved[0];
+  assert.equal(record.issuer.phone, '02-111-2222');
+  assert.equal(record.issuer.signatureUrl, undefined, 'the document itself is unsigned');
+  assert.deepEqual([issuer.profile.phone, issuer.profile.signatureUrl, issuer.profile.logoUrl, issuer.profile.address], ['02-111-2222', account.signatureUrl, account.logoUrl, ISSUER.address]);
+  const same: Record<string, any[]> = {};
+  await formHandler(stored, account, same)(confirm({ ...form, issuer: fullIssuer }, stored), response().res);
+  assert.equal(same.saved[0].issuer, undefined, 'nothing changed: the profile is not written');
 });
 
 test('the form refuses bad values, a changed type, and reports the Free plan limit as the app does', async () => {
   const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
   for (const document of [{ ...form, items: [] }, { ...form, items: [{ ...form.items[0], price: 0 }] }, { ...form, vatRate: 10 }, { ...form, client: { ...form.client, name: '' } }, { ...form, type: 'invoice' }]) {
     const { res, state } = response();
-    await formHandler(stored, { name: 'สตูดิโอตัวอย่าง' }, {})({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document } } as any, res);
+    await formHandler(stored, ISSUER, {})({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document } } as any, res);
     assert.equal(state.status, 400, JSON.stringify(document));
   }
   const quota = Object.assign(new Error('ใช้สิทธิ์ออกเอกสารฟรีครบ 10 ใบในเดือนนี้แล้ว'), { status: 402 });
   const { res, state } = response();
-  await formHandler(stored, { name: 'สตูดิโอตัวอย่าง' }, {}, quota)({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document: form } } as any, res);
+  await formHandler(stored, ISSUER, {}, quota)({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document: form } } as any, res);
   assert.deepEqual([state.status, state.body.error], [402, quota.message]);
   const twice = response();
-  await formHandler(stored, { name: 'สตูดิโอตัวอย่าง' }, {}, false)({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document: form } } as any, twice.res);
+  await formHandler(stored, ISSUER, {}, false)({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document: form } } as any, twice.res);
   assert.deepEqual([twice.state.status, twice.state.body.duplicate], [200, true]);
 });
 

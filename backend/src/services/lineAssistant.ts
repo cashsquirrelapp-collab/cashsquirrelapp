@@ -1157,7 +1157,7 @@ const lineDocumentCommand: NonNullable<LineAssistantDependencies['documentComman
   }
   const { issuer } = await loadDocumentAccount(user.user_id);
   // Something still missing (the issuer may have been cleared in the app meanwhile): the card again, with the form.
-  const missing = documentMissing(stored.draft, issuer.name);
+  const missing = documentMissing(stored.draft, issuer);
   if (missing.length) return [{ type: 'text', text: `ยังสร้างไม่ได้ครับ ขาด${missing.join(' และ ')} กด “กรอกข้อมูล” หรือพิมพ์มาได้เลย` }, buildDocumentDraftCard(stored, issuer)];
   const record = buildLineDocumentRecord(stored.draft, issuer, new Date(), documentIdFor(stored.id));
   try {

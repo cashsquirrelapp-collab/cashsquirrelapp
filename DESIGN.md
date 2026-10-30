@@ -368,8 +368,13 @@ card does not need:
   Not complete: กรอกข้อมูล (the LINE form) first, then สร้างเอกสาร (opens the form at what is missing) and ยกเลิก.
   A draft lasts 30 minutes; one card, one draft.
 - The LINE form (`liff-add.html` draftKind=document, `liff-document.js`): one page in the job form's look, what the card
-  knew filled in, the user's own words shown for reference, the business asked only when none is saved (then kept),
-  lines with quantity, unit and price, VAT, หัก ณ ที่จ่าย, credit chips (ไม่มี / 7–90 วัน) and the totals.
+  knew filled in, the user's own words shown for reference, lines with quantity, unit and price, VAT, หัก ณ ที่จ่าย,
+  credit chips (ไม่มี / 7–90 วัน) and the totals.
+- ผู้ออกเอกสาร (owner, 2026-10-30: "ต้องมีที่อยู่ เลขผู้เสียภาษี เบอร์ด้วย เหมือนออกบิล"): a document from LINE needs the
+  business's name, address, 13-digit tax ID and phone (`issuerMissing`; email and the bank account are optional). The
+  card shows them under the name, or says in amber what is missing (then the card is not ready). The form shows a
+  complete saved business as a summary with แก้ไข, otherwise its fields (as in the app's settings), filled with what is
+  saved. What is filled in or changed is saved over the profile for the next document; the logo and signature stay.
 - สร้างเอกสาร (card or form) saves the same unsigned draft document as the app's เลขา, through the same checked write
   (Free plan quota, validation); the same draft always gives the same document, so two presses make one. The created
   card shows the number, client and total, and opens the document in the app (signed in through LINE) to download the

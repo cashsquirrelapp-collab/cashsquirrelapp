@@ -24,7 +24,7 @@ import { isActiveLineDraft } from '../services/lineDraftState.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 
 import { verifyLiffIdToken } from '../security/lineIdentity.js';
-import { buildDocumentCreatedCard, buildLineDocumentRecord, clearDocumentDraft, documentIdFor, isActiveDocumentDraft, loadDocumentAccount, saveLineDocument,
+import { buildDocumentCreatedCard, buildLineDocumentRecord, clearDocumentDraft, documentIdFor, isActiveDocumentDraft, issuerMissing, ISSUER_EDITABLE, loadDocumentAccount, mergeIssuerEdits, saveLineDocument,
   type LineDocumentDraft, type StoredDocumentDraft } from '../services/lineDocumentDraft.js';
 import { decodeDocumentImage, documentImageMessage, ownDocumentSummary, storeDocumentImage } from '../services/lineDocumentImage.js';
 
@@ -118,7 +118,12 @@ const documentForm = z.object({
   whtRate: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(5)]),
   creditTerm: z.number().int().min(0).max(365),
   note: docText(2000),
-  issuer: z.object({ name: z.string().trim().min(1).max(200), address: docText(500), taxId: docText(20), phone: docText(40) }).strict().optional(),
+  // The user's own business as the form shows it (every field it can change); the saved logo and signature stay as they are.
+  issuer: z.object({
+    name: z.string().trim().min(1).max(200), address: docText(500), taxId: docText(20), phone: docText(40),
+    email: docText(200).refine(value => !value || z.email().safeParse(value).success),
+    bankName: docText(100), bankAccount: docText(40), bankAccountName: docText(200),
+  }).strict().optional(),
 }).strict();
 
 async function handleDocumentDraft(body: Record<string, unknown>, user: UserRow, lineUserId: string, res: VercelResponse, dependencies: LiffSubmitDependencies): Promise<void> {
@@ -128,10 +133,9 @@ async function handleDocumentDraft(body: Record<string, unknown>, user: UserRow,
     res.status(409).json({ error: 'แบบร่างนี้หมดเวลา สร้างแล้ว หรือมีแบบร่างใหม่ กรุณาเปิดจากการ์ดล่าสุด' }); return;
   }
   const account = await (dependencies.loadDocumentAccount ?? loadDocumentAccount)(user.user_id);
-  const issuerName = account.issuer.name?.trim() || '';
   if (body.action === 'load-draft') {
     res.status(200).json({ ok: true, kind: 'document', draft: stored.draft, createdAt: stored.createdAt,
-      issuer: { name: issuerName, address: account.issuer.address || '', taxId: account.issuer.taxId || '', phone: account.issuer.phone || '' } });
+      issuer: Object.fromEntries(ISSUER_EDITABLE.map(key => [key, (account.issuer[key] as string | undefined) || ''])) });
     return;
   }
   if (!z.uuid().safeParse(body.requestId).success) { res.status(400).json({ error: 'รหัสคำขอไม่ถูกต้อง กรุณาเปิดฟอร์มใหม่' }); return; }
@@ -139,9 +143,12 @@ async function handleDocumentDraft(body: Record<string, unknown>, user: UserRow,
   if (!parsed.success) { res.status(400).json({ error: 'กรุณาตรวจชื่อลูกค้า รายการ จำนวน ราคา ภาษี และเครดิตเทอม' }); return; }
   const form = parsed.data;
   if (form.type !== stored.draft.type) { res.status(400).json({ error: 'ไม่สามารถเปลี่ยนประเภทเอกสารของแบบร่างนี้ได้' }); return; }
-  // The user's own business: the saved one when it has a name; otherwise the form's, kept for the next document.
-  if (!issuerName && !form.issuer) { res.status(400).json({ error: 'กรุณากรอกชื่อธุรกิจหรือชื่อของคุณ (ผู้ออกเอกสาร)' }); return; }
-  const issuer = issuerName ? account.issuer : { ...account.issuer, name: form.issuer!.name, address: form.issuer!.address, taxId: form.issuer!.taxId, phone: form.issuer!.phone };
+  // The user's own business: the saved one, with what the form filled in or changed (kept for the next document). It
+  // needs its name, address, 13-digit tax ID and phone (owner, 2026-10-30), as on the app's documents.
+  const issuer = form.issuer ? { ...account.issuer, ...form.issuer } : account.issuer;
+  const issuerGaps = issuerMissing(issuer);
+  if (issuerGaps.length) { res.status(400).json({ error: `กรุณากรอกข้อมูลผู้ออกเอกสารให้ครบ: ${issuerGaps.join(' ')}` }); return; }
+  const issuerChanged = Boolean(form.issuer) && ISSUER_EDITABLE.some(key => ((account.issuer[key] as string | undefined) || '') !== ((issuer[key] as string | undefined) || ''));
   const draft: LineDocumentDraft = {
     type: form.type,
     client: { name: form.client.name, address: form.client.address, taxId: form.client.taxId, branch: form.client.branch, phone: form.client.phone },
@@ -151,7 +158,8 @@ async function handleDocumentDraft(body: Record<string, unknown>, user: UserRow,
   const record = buildLineDocumentRecord(draft, issuer, new Date(), documentIdFor(stored.id));
   let saved: boolean;
   try {
-    saved = await (dependencies.saveLineDocument ?? saveLineDocument)(user.user_id, record, issuerName ? undefined : { profile: issuer, version: account.issuerVersion });
+    saved = await (dependencies.saveLineDocument ?? saveLineDocument)(user.user_id, record,
+      issuerChanged ? { profile: mergeIssuerEdits(account.profile ?? (account.issuer as unknown as Record<string, unknown>), form.issuer!), version: account.issuerVersion } : undefined);
   } catch (error) {
     // The Free plan's monthly documents, or a value the app's checks refuse: said as the app says it.
     const status = (error as { status?: unknown }).status;

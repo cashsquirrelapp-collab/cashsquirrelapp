@@ -6,7 +6,8 @@
   var NAMES = { quotation: 'ใบเสนอราคา', invoice: 'ใบแจ้งหนี้' };
   var TERMS = [0, 7, 15, 30, 45, 60, 90];
   var MAX_ITEMS = 30;
-  var state = { reference: null, type: 'quotation', items: [], creditTerm: 0, issuerKnown: false, submitting: false, requestId: crypto.randomUUID() };
+  var ISSUER_KEYS = ['name', 'address', 'taxId', 'phone', 'email', 'bankName', 'bankAccount', 'bankAccountName'];
+  var state = { reference: null, type: 'quotation', items: [], creditTerm: 0, issuer: {}, issuerComplete: false, issuerOpen: false, submitting: false, requestId: crypto.randomUUID() };
   var field = function (id) { return document.getElementById(id); };
   var value = function (id) { return field(id).value.trim(); };
   var round2 = function (n) { return Math.round((n + Number.EPSILON) * 100) / 100; };
@@ -145,6 +146,42 @@
     });
   }
 
+  // The user's own business (owner, 2026-10-30: "ผู้ออกเอกสารต้องมีที่อยู่ เลขผู้เสียภาษี เบอร์ด้วย เหมือนออกบิล"): its name,
+  // address, 13-digit tax ID and phone are needed, as the server checks too; email and the bank account are optional.
+  var digitCount = function (text) { return String(text || '').replace(/\D/g, '').length; };
+  function issuerProblem(issuer) {
+    if (!String(issuer.name || '').trim()) return { id: 'doc-issuer-name', text: 'กรุณากรอกชื่อธุรกิจหรือชื่อของคุณ (ผู้ออกเอกสาร)' };
+    if (!String(issuer.address || '').trim()) return { id: 'doc-issuer-address', text: 'กรุณากรอกที่อยู่ของผู้ออกเอกสาร' };
+    if (digitCount(issuer.taxId) !== 13) return { id: 'doc-issuer-taxId', text: 'กรุณากรอกเลขประจำตัวผู้เสียภาษี 13 หลักของผู้ออกเอกสาร' };
+    if (digitCount(issuer.phone) < 9) return { id: 'doc-issuer-phone', text: 'กรุณากรอกเบอร์โทรศัพท์ของผู้ออกเอกสาร' };
+    if (issuer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(issuer.email)) return { id: 'doc-issuer-email', text: 'อีเมลของผู้ออกเอกสารไม่ถูกต้อง' };
+    return null;
+  }
+  function issuerFromFields() {
+    var issuer = {}; ISSUER_KEYS.forEach(function (key) { issuer[key] = value('doc-issuer-' + key); }); return issuer;
+  }
+  function openIssuer(help) {
+    state.issuerOpen = true;
+    field('document-issuer-known').classList.add('hidden');
+    field('document-issuer-fields').classList.remove('hidden');
+    field('document-issuer-help').textContent = help;
+  }
+  function fillIssuer(issuer) {
+    state.issuer = issuer;
+    ISSUER_KEYS.forEach(function (key) { field('doc-issuer-' + key).value = issuer[key] || ''; });
+    state.issuerComplete = !issuerProblem(issuer);
+    field('document-issuer-name').textContent = issuer.name || '';
+    var bank = [issuer.bankName, issuer.bankAccount, issuer.bankAccountName].filter(Boolean).join(' ');
+    field('document-issuer-details').textContent = [issuer.address, 'เลขผู้เสียภาษี ' + issuer.taxId + ' · โทร ' + issuer.phone, issuer.email, bank && 'รับเงิน ' + bank]
+      .filter(Boolean).join('\n');
+    state.issuerOpen = false;
+    field('document-issuer-known').classList.toggle('hidden', !state.issuerComplete);
+    field('document-issuer-fields').classList.toggle('hidden', state.issuerComplete);
+    if (!state.issuerComplete) openIssuer(String(issuer.name || '').trim()
+      ? 'ข้อมูลผู้ออกเอกสารยังไม่ครบ กรอกครั้งเดียว ระบบจะบันทึกไว้ใช้กับเอกสารใบต่อไป'
+      : 'ยังไม่มีข้อมูลธุรกิจของคุณ กรอกครั้งเดียว เอกสารใบต่อไปจะใช้ข้อมูลนี้ให้เอง');
+  }
+
   function fill(data) {
     var draft = data.draft || {}, client = draft.client || {}, issuer = data.issuer || {};
     state.type = draft.type === 'invoice' ? 'invoice' : 'quotation';
@@ -153,10 +190,7 @@
     field('document-submit-btn').textContent = 'สร้าง' + name;
     document.title = name + ' · Krarok Tunngern';
     if (draft.heard) { field('document-heard-text').textContent = 'จากข้อความของคุณ: “' + draft.heard + '”'; field('document-heard').classList.remove('hidden'); }
-    state.issuerKnown = Boolean(issuer.name && String(issuer.name).trim());
-    field('document-issuer-known').classList.toggle('hidden', !state.issuerKnown);
-    field('document-issuer-fields').classList.toggle('hidden', state.issuerKnown);
-    field('document-issuer-name').textContent = issuer.name || '';
+    fillIssuer(issuer);
     ['name', 'address', 'taxId', 'phone'].forEach(function (key) { field('doc-client-' + key).value = client[key] || ''; });
     field('doc-client-branch').value = client.branch || '';
     field('doc-vat').value = String(draft.vatRate === 7 ? 7 : 0);
@@ -170,7 +204,8 @@
   }
 
   function validate() {
-    if (!state.issuerKnown && !value('doc-issuer-name')) { showError('กรุณากรอกชื่อธุรกิจหรือชื่อของคุณ (ผู้ออกเอกสาร)', 'doc-issuer-name'); return false; }
+    var issuerIssue = issuerProblem(state.issuerOpen ? issuerFromFields() : state.issuer);
+    if (issuerIssue) { if (!state.issuerOpen) openIssuer('กรอกให้ครบ ระบบจะบันทึกไว้ใช้กับเอกสารใบต่อไป'); showError(issuerIssue.text, issuerIssue.id); return false; }
     if (!value('doc-client-name')) { showError('กรุณากรอกชื่อลูกค้าหรือบริษัท', 'doc-client-name'); return false; }
     for (var at = 0; at < state.items.length; at++) {
       var item = state.items[at];
@@ -198,7 +233,8 @@
           vatRate: Number(value('doc-vat')) || 0, whtRate: Number(value('doc-wht')) || 0, creditTerm: state.creditTerm, note: value('doc-note'),
         },
       };
-      if (!state.issuerKnown) payload.document.issuer = { name: value('doc-issuer-name'), address: value('doc-issuer-address'), taxId: value('doc-issuer-taxId'), phone: value('doc-issuer-phone') };
+      // The business as filled in or changed here; the server keeps it for the next document (the logo and signature stay).
+      if (state.issuerOpen) payload.document.issuer = issuerFromFields();
       var response = await fetch('/api/liff-submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       var data = await response.json();
       if (!response.ok || data.ok !== true) {
@@ -237,7 +273,7 @@
     field('document-card').classList.remove('hidden');
     field('return-chat-btn').classList.remove('hidden');
     // สร้างเอกสาร on a complete card opens here to create at once (so the picture can be drawn); anything missing shows the form.
-    if (linkParam('create') === '1' && state.issuerKnown) {
+    if (linkParam('create') === '1' && state.issuerComplete) {
       clearError();
       if (validate()) { status('กำลังสร้าง' + NAMES[state.type], 'รอสักครู่ครับ', 'working', false); await submit(true); return; }
     }
@@ -255,6 +291,10 @@
     });
     ['doc-vat', 'doc-wht', 'doc-client-name'].forEach(function (id) { field(id).addEventListener('input', updateTotals); field(id).addEventListener('change', updateTotals); });
     field('document-submit-btn').addEventListener('click', function () { submit(false); });
+    field('document-issuer-edit').addEventListener('click', function () {
+      openIssuer('แก้ไขแล้วจะบันทึกเป็นข้อมูลธุรกิจของคุณ ใช้กับเอกสารใบต่อไปด้วย');
+      field('doc-issuer-name').focus();
+    });
   });
   window.KrarokDocumentForm = { open: open, fill: fill };
 })();
