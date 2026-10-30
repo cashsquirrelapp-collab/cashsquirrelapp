@@ -23,7 +23,7 @@ import { monthPromoCountdown, useMonthPromoRunning } from '../../billing/promoNo
 import { currentLanguage } from '../../../i18n/currentLanguage';
 import { tr, trc, T } from '../../../i18n/tr';
 import { useLanguage } from '../../../i18n/LanguageContext';
-import { CalendarDemo, PhoneDemo } from '../v4/Demos';
+import { PhoneDemo } from '../v4/Demos';
 import { MascotSlot } from '../../assistant/MascotSlot';
 import { statusFor, type AssistantMode } from '../../assistant/assistantMock';
 import '../v4/demos.css';
@@ -31,6 +31,7 @@ import { HelpForm } from './HelpForm';
 import { BRAND_LINKS } from './brandLinks';
 import { FULL_LAUNCH_AT } from './launch';
 import { SignupCount } from './SignupCount';
+import { CalendarViews, ExpensesDemo } from './MoneyDemos';
 
 // The live chat and the A4 documents load only when their sections come near (they bring the app's chat and document code).
 const ChatLive = React.lazy(() => import('./ChatLive'));
@@ -890,14 +891,24 @@ export default function CleanLanding() {
           </div>
         </section>
 
-        {/* the month on a calendar */}
+        {/* the month on a calendar, and the same money as a timeline (owner, 2026-10-29: both views) */}
         <section className="cl-feat is-calendar" aria-labelledby="cl-feat-calendar">
           <div className="cl-feat-text">
             <Tier>{tr('ใช้ฟรี')}</Tier>
             <FeatureTitle id="cl-feat-calendar" word={tr('รู้')} rest={tr('วันไหน\nเงินจะเข้าเท่าไร')} />
             <p>{tr('ปฏิทินและไทม์ไลน์บอกว่างานไหนจะได้เงินวันไหน ยอดรอรับเรียงตามวันครบกำหนด รับเงินบางส่วนหรือทั้งหมดได้ทันที')}</p>
           </div>
-          <div className="cl-feat-visual gl-feature-visual is-calendar" data-rise><CalendarDemo /></div>
+          <div className="cl-feat-visual gl-feature-visual is-calendar" data-rise><CalendarViews /></div>
+        </section>
+
+        {/* spending, free for every account (owner, 2026-10-29: "ฟีเจอร์ฟรี ... รายจ่ายใส่เข้าไปด้วย") */}
+        <section className="cl-feat is-expense" aria-labelledby="cl-feat-expense">
+          <div className="cl-feat-visual gl-feature-visual is-expense" data-rise><ExpensesDemo /></div>
+          <div className="cl-feat-text">
+            <Tier>{tr('ใช้ฟรี')}</Tier>
+            <FeatureTitle id="cl-feat-expense" word={trc('feat', 'จด')} rest={tr('รายจ่าย\nรู้กำไรจริง')} />
+            <p>{tr('ค่าใช้จ่ายประจำตั้งไว้ครั้งเดียว ขึ้นให้ทุกเดือน รายจ่ายอื่นจดพร้อมหมวดหมู่ แล้วเห็นทันทีว่าเดือนนี้เหลือกำไรเท่าไร')}</p>
+          </div>
         </section>
 
         {/* 5 · questions */}

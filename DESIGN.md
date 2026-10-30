@@ -313,9 +313,18 @@ card does not need:
 - Order: the hero and the phone as one scene (pinned on computers and iPads held sideways: the words lift away, the
   floating cards fly into the phone, the phone rises to the middle with "เห็นเงินทั้งเดือนในหน้าเดียว" beside it), the
   money ticker, the problem notes (Sriracha) around their heading, the price (Free beside the Pro card, ฿249 counting
-  down to ฿159 while the deal runs), ครบในแอปเดียว then one page each: the chat recording, the 08:00 reminder, documents
-  and the calendar (those three CSS loops in `v4/demos.css`), questions, the close in a CI card with a ribbon and the
-  countdown.
+  down to ฿159 while the deal runs), ครบในแอปเดียว then one page each: the chat recording, the 08:00 reminder, documents,
+  the calendar and spending, questions, the close in a CI card with a ribbon and the countdown.
+- Free features shown too (owner, 2026-10-29: "ฟีเจอร์ฟรี ... รายจ่ายใส่เข้าไปด้วย ... ไทม์ไลน์ ... 2 แบบ"), both in
+  `v5/MoneyDemos.tsx` + `money.css`, drawn in the app's look with the page's one set of example numbers (October 2569,
+  today the 13th, ฿13,000 received, ฿1,200 spent, ฿11,800 left, as the chat's monthly summary says):
+  - The calendar section has the ปฏิทิน page's two views behind its iOS segmented switch: the month on a calendar, and
+    the timeline with the jobs listed down the months in the app's own order and status colours (due soon, still to
+    come, received), moving up to November and stopping on a row's edge. While on screen the views take turns (9 s
+    each), each starting its motion again; a visitor's press keeps one. The calendar sets the height, so nothing moves.
+  - "จดรายจ่าย / รู้กำไรจริง" (ใช้ฟรี): three costs are added one after another (a ประจำ one and two ทั่วไป ones with their
+    categories), the total rolls up, then รับเงินจริง · รายจ่ายรวม · กำไรสุทธิ. Inside both cards the text keeps the app's
+    left alignment on phones.
 - Phones and iPads held upright get the same sections in order, with the cards in a row under the words.
 - Only features every account has today. Nothing admin-only or still to come (50 ทวิ is not shown yet).
 - Contact and reports (owner, 2026-10-29, in the page's existing look): the footer (`#cl-help`, where the menu's

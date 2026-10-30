@@ -1,0 +1,159 @@
+/* The landing's two free features (MoneyDemos.tsx): the calendar section's two views and the month of spending.
+   Drawn in the app's own look: the iOS segmented switch of the ปฏิทิน page, the timeline's status colours
+   (TimelineView.tsx) and the รายจ่าย page's ประจำ / ทั่วไป pills. Motions are CSS; nothing that moves passes over text. */
+
+/* ── the calendar section: ปฏิทิน | ไทม์ไลน์ ─────────────────────────────────────────────────────── */
+.cl-views { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; max-width: 580px; }
+.cl-seg { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 999px; background: rgba(118, 118, 128, 0.12); }
+.cl-seg-thumb { position: absolute; left: 3px; top: 3px; bottom: 3px; width: calc(50% - 3px); border-radius: 999px; background: #FFFFFF;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); transition: transform 0.5s cubic-bezier(0.34, 1.4, 0.64, 1); }
+.cl-views[data-view="timeline"] .cl-seg-thumb { transform: translateX(100%); }
+.cl-seg button { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 0 22px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 14.5px; font-weight: 600; line-height: 1.45;
+  cursor: pointer; transition: color 0.25s ease; }
+.cl-seg button[aria-pressed="true"] { color: var(--ink); }
+.cl-seg button:hover { color: var(--ink); }
+.cl-seg button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.cl-views-stage { position: relative; width: 100%; }
+/* the calendar sets the height; the timeline lies over it in the same box */
+.cl-view { transition: opacity 0.4s ease, transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s; }
+.cl-view:not(.is-shown) { opacity: 0; visibility: hidden; transform: translateY(10px) scale(0.985); pointer-events: none; transition-delay: 0s, 0s, 0.4s; }
+.cl-view.is-timeline { position: absolute; inset: 0; display: flex; }
+
+/* the timeline: months down a line, each with what is expected, then its jobs */
+.gl-tl { display: flex; flex-direction: column; width: 100%; padding: 20px 20px 0; border-radius: 24px; background: #FFFFFF; text-align: left; } /* the app's alignment, not the section's centring on phones */
+.cl .gl-tl { box-shadow: var(--cl-shadow); }
+.gl-tl-window { position: relative; flex: 1; min-height: 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 40px), transparent); mask-image: linear-gradient(#000 calc(100% - 40px), transparent); }
+.gl-tl-track { position: relative; padding: 2px 0 34px 30px; animation: gl-tl-scroll 1.5s cubic-bezier(0.65, 0, 0.35, 1) 3.7s both; }
+.gl-tl-track::before { content: ''; position: absolute; left: 9px; top: 12px; bottom: 0; width: 1px; background: #E8E4E0; }
+.gl-tl-month { position: relative; }
+.gl-tl-month + .gl-tl-month { margin-top: 22px; }
+.gl-tl-node { position: absolute; left: -27px; top: 7px; width: 14px; height: 14px; border: 2px solid #F3B08C; border-radius: 50%; background: #FFFFFF; }
+.gl-tl-month.is-current .gl-tl-node { border-color: #E65F2B; background: #E65F2B; }
+.gl-tl-month h4 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; color: #1C1917; font-size: 18px; font-weight: 600; line-height: 1.45; }
+.gl-tl-month h4 small { color: #C24A16; font-size: 12px; font-weight: 600; line-height: 1.45; }
+.gl-tl-sum { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 8px; padding: 10px 14px; border-radius: 14px; box-shadow: inset 0 0 0 1px #EEEAE6; }
+.gl-tl-sum > span:first-child { display: grid; }
+.gl-tl-sum small { color: #6F6964; font-size: 11.5px; line-height: 1.45; }
+.gl-tl-sum > span:first-child b { color: #1C1917; font-size: 19px; font-weight: 600; line-height: 1.35; }
+.gl-tl-split { display: grid; justify-items: end; gap: 1px; text-align: right; }
+.gl-tl-split b { color: #1C1917; font-weight: 600; }
+.gl-tl-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; padding: 9px 12px; border-radius: 14px; background: #FFFFFF; box-shadow: inset 0 0 0 1px #EEEAE6; }
+.gl-tl-row.is-received { opacity: 0.72; }
+.gl-tl-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #F36A2D; }
+.gl-tl-row.is-dueSoon .gl-tl-dot { background: #F2A93B; }
+.gl-tl-row.is-received .gl-tl-dot { background: #18A66A; }
+.gl-tl-main { display: grid; flex: 1; min-width: 0; }
+.gl-tl-main b { color: #1C1917; font-size: 13.5px; font-weight: 600; line-height: 1.45; }
+.gl-tl-main small { color: #6F6964; font-size: 11.5px; line-height: 1.45; }
+.gl-tl-end { display: grid; flex: none; justify-items: end; gap: 2px; }
+.gl-tl-end b { color: #1C1917; font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.gl-tl-end em { padding: 0 7px; border-radius: 6px; background: #FFF1E8; color: #C24A16; font-size: 11px; font-style: normal; font-weight: 600; line-height: 1.6; white-space: nowrap; }
+.gl-tl-row.is-dueSoon em { background: #FAEEDA; color: #8A5A0B; }
+.gl-tl-row.is-received em { background: #E9F8F1; color: #12724A; }
+/* the motion: October rises in, its jobs one by one, then the list moves up to November */
+.gl-tl-month > h4, .gl-tl-month > .gl-tl-node, .gl-tl-month > .gl-tl-sum, .gl-tl-row { animation: gl-tl-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.gl-tl-month.is-1 > .gl-tl-sum { animation-delay: 0.22s; }
+.gl-tl-month.is-1 .gl-tl-row { animation-delay: calc(0.6s + var(--i) * 0.28s); }
+.gl-tl-month.is-2 > h4, .gl-tl-month.is-2 > .gl-tl-node { animation-delay: 4.1s; }
+.gl-tl-month.is-2 > .gl-tl-sum { animation-delay: 4.3s; }
+.gl-tl-month.is-2 .gl-tl-row { animation-delay: calc(4.55s + (var(--i) - 5) * 0.28s); }
+@keyframes gl-tl-rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes gl-tl-scroll { from { transform: none; } to { transform: translateY(calc(-1 * var(--tl-shift, 0px))); } }
+
+/* ── a month of spending ─────────────────────────────────────────────────────────────────────────── */
+.gl-exp { width: 100%; max-width: 560px; padding: 20px; border-radius: 24px; background: #FFFFFF; text-align: left; }
+.cl .gl-exp { box-shadow: var(--cl-shadow); }
+.gl-exp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.gl-exp-head > span:first-child { display: grid; }
+.gl-exp-head b { color: #1C1917; font-size: 18px; font-weight: 700; line-height: 1.45; }
+.gl-exp-head small { color: #6F6964; font-size: 12.5px; line-height: 1.45; }
+.gl-exp-add { position: relative; display: inline-flex; flex: none; align-items: center; gap: 6px; height: 38px; padding: 0 16px 0 12px; border-radius: 999px;
+  background: #E65F2B; color: #FFFFFF; font-size: 13.5px; font-weight: 600; line-height: 1.45; animation: gl-exp-press 10s ease infinite; }
+.gl-exp-tap { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; pointer-events: none;
+  background: rgba(255, 255, 255, 0.42); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8); opacity: 0; animation: gl-exp-tap 10s ease-out infinite; }
+.gl-exp-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 10px 16px; border-radius: 16px; background: #FFF4EC; }
+.gl-exp-total small { color: #A63F1B; font-size: 13px; font-weight: 600; line-height: 1.45; }
+.gl-exp-sum { position: relative; display: inline-block; width: 130px; height: 34px; overflow: hidden; }
+.gl-exp-sum i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; color: #1C1917; font-size: 22px; font-style: normal; font-weight: 600; line-height: 1.3; opacity: 0; }
+.gl-exp-sum i.is-4 { opacity: 1; }
+.gl-exp-sum i.is-1 { animation: gl-exp-s1 10s linear infinite; }
+.gl-exp-sum i.is-2 { animation: gl-exp-s2 10s linear infinite; }
+.gl-exp-sum i.is-3 { animation: gl-exp-s3 10s linear infinite; }
+.gl-exp-sum i.is-4 { animation: gl-exp-s4 10s linear infinite; }
+.gl-exp-rows { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.gl-exp-rows li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: #FFFFFF; box-shadow: inset 0 0 0 1px #EEEAE6; }
+.gl-exp-rows li.is-1 { animation: gl-exp-r1 10s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+.gl-exp-rows li.is-2 { animation: gl-exp-r2 10s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+.gl-exp-rows li.is-3 { animation: gl-exp-r3 10s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+.gl-exp-icon { display: grid; flex: none; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: #F2F1EF; color: #6F6964; }
+.gl-exp-icon.is-fixed { background: #FFF1E8; color: #C24A16; }
+.gl-exp-main { display: grid; flex: 1; min-width: 0; }
+.gl-exp-main b { color: #1C1917; font-size: 14px; font-weight: 600; line-height: 1.45; }
+.gl-exp-main small { margin-top: 3px; color: #6F6964; font-size: 12px; line-height: 1.55; }
+.gl-exp-main em { display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 999px; background: #F2F1EF; color: #6F6964; font-size: 10.5px; font-style: normal; font-weight: 600; line-height: 17px; vertical-align: 1px; }
+.gl-exp-main em.is-fixed { background: #FFF1E8; color: #C24A16; }
+.gl-exp-rows strong { flex: none; color: #1C1917; font-size: 14.5px; font-weight: 600; line-height: 1.45; }
+.gl-exp-profit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.gl-exp-profit > span { display: grid; gap: 2px; padding: 10px 12px; border-radius: 14px; background: #F7F6F5; animation: gl-exp-p 10s cubic-bezier(0.16, 1, 0.3, 1) infinite backwards; }
+.gl-exp-profit > span:nth-child(2) { animation-delay: 0.12s; }
+.gl-exp-profit > span:nth-child(3) { animation-delay: 0.24s; }
+.gl-exp-profit small { color: #6F6964; font-size: 11.5px; line-height: 1.45; }
+.gl-exp-profit b { display: flex; align-items: center; gap: 4px; color: #1C1917; font-size: 16px; font-weight: 600; line-height: 1.35; }
+.gl-exp-profit .is-profit { background: #E8F8F0; }
+.gl-exp-profit .is-profit small, .gl-exp-profit .is-profit b { color: #137A4E; }
+@keyframes gl-exp-press { 0%, 4%, 6.5%, 28%, 30.5%, 52%, 54.5%, 100% { transform: none; } 5%, 29%, 53% { transform: scale(0.94); } }
+@keyframes gl-exp-tap { 0%, 3.5% { opacity: 0; transform: scale(0.5); } 5% { opacity: 1; transform: scale(1); } 8% { opacity: 0; transform: scale(1.35); }
+  27.5% { opacity: 0; transform: scale(0.5); } 29% { opacity: 1; transform: scale(1); } 32% { opacity: 0; transform: scale(1.35); }
+  51.5% { opacity: 0; transform: scale(0.5); } 53% { opacity: 1; transform: scale(1); } 56%, 100% { opacity: 0; transform: scale(1.35); } }
+@keyframes gl-exp-r1 { 0%, 6.5% { opacity: 0; transform: translateY(-10px) scale(0.97); } 10%, 94% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; transform: none; } }
+@keyframes gl-exp-r2 { 0%, 30.5% { opacity: 0; transform: translateY(-10px) scale(0.97); } 34%, 94% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; transform: none; } }
+@keyframes gl-exp-r3 { 0%, 54.5% { opacity: 0; transform: translateY(-10px) scale(0.97); } 58%, 94% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; transform: none; } }
+@keyframes gl-exp-s1 { 0%, 9.4% { opacity: 1; transform: none; } 10%, 98.9% { opacity: 0; transform: translateY(-100%); } 99%, 100% { opacity: 1; transform: none; } }
+@keyframes gl-exp-s2 { 0%, 9.4% { opacity: 0; transform: translateY(100%); } 10%, 33.4% { opacity: 1; transform: none; } 34%, 100% { opacity: 0; transform: translateY(-100%); } }
+@keyframes gl-exp-s3 { 0%, 33.4% { opacity: 0; transform: translateY(100%); } 34%, 57.4% { opacity: 1; transform: none; } 58%, 100% { opacity: 0; transform: translateY(-100%); } }
+@keyframes gl-exp-s4 { 0%, 57.4% { opacity: 0; transform: translateY(100%); } 58%, 96% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; transform: none; } }
+@keyframes gl-exp-p { 0%, 64% { opacity: 0; transform: translateY(12px); } 68%, 94% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; transform: none; } }
+
+@media (max-width: 743px) {
+  .cl-views { gap: 12px; }
+  .cl-seg button { min-height: 38px; padding: 0 18px; font-size: 14px; }
+  .gl-tl { padding: 14px 14px 0; border-radius: 20px; }
+  .gl-tl-track { padding-left: 24px; }
+  .gl-tl-track::before { left: 6px; }
+  .gl-tl-node { left: -24px; width: 12px; height: 12px; }
+  .gl-tl-month h4 { font-size: 15.5px; }
+  .gl-tl-sum { padding: 8px 12px; }
+  .gl-tl-sum > span:first-child b { font-size: 16.5px; }
+  .gl-tl-sum small { font-size: 11px; }
+  .gl-tl-row { gap: 8px; padding: 8px 10px; }
+  .gl-tl-main b, .gl-tl-end b { font-size: 12.5px; }
+  .gl-tl-main small { font-size: 11px; }
+  .gl-tl-end em { padding: 0 6px; font-size: 10.5px; }
+  .gl-exp { padding: 14px; border-radius: 20px; }
+  .gl-exp-head b { font-size: 15.5px; }
+  .gl-exp-head small { font-size: 11.5px; }
+  .gl-exp-add { height: 34px; padding: 0 13px 0 10px; font-size: 12.5px; }
+  .gl-exp-total { margin-top: 12px; padding: 8px 12px; }
+  .gl-exp-total small { font-size: 12px; }
+  .gl-exp-sum { width: 110px; height: 30px; }
+  .gl-exp-sum i { font-size: 19px; }
+  .gl-exp-rows { gap: 6px; margin-top: 10px; }
+  .gl-exp-rows li { gap: 10px; padding: 9px 10px; border-radius: 14px; }
+  .gl-exp-icon { width: 34px; height: 34px; border-radius: 11px; }
+  .gl-exp-main b { font-size: 13px; }
+  .gl-exp-main small { font-size: 11px; }
+  .gl-exp-rows strong { font-size: 13.5px; }
+  .gl-exp-profit { gap: 6px; margin-top: 10px; }
+  .gl-exp-profit > span { padding: 8px 9px; border-radius: 12px; }
+  .gl-exp-profit small { font-size: 10.5px; }
+  .gl-exp-profit b { gap: 3px; font-size: 13.5px; }
+  .gl-exp-profit b svg { width: 12px; height: 12px; }
+}
+
+/* Without motion: each shows where it ends (demos.css stops every animation inside .gl-demo); the switch just changes. */
+@media (prefers-reduced-motion: reduce) {
+  .cl-seg-thumb, .cl-view { transition: none; }
+  .gl-exp-add { animation: none; }
+}

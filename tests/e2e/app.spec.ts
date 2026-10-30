@@ -1022,7 +1022,7 @@ test('landing: the hero says what the app does and starts free at once; the page
  const start=page.locator('#top').getByRole('link',{name:/เริ่มใช้ฟรี/});
  await expect(start).toBeInViewport(); // no intro to sit through
  await expect(page.getByRole('dialog')).toHaveCount(0);
- for(const name of ['แค่รับงานก็เหนื่อยพอแล้ว','วันละไม่ถึง','เริ่มฟรี','ครบจบในแอปเดียว','คุยกับเลขา','เตือนก่อนลืม','ออกเอกสารต่อกัน','เงินจะเข้าเท่าไร','คำถามที่พบบ่อย'])await expect(page.getByRole('heading',{name:new RegExp(name)})).toBeVisible();
+ for(const name of ['แค่รับงานก็เหนื่อยพอแล้ว','วันละไม่ถึง','เริ่มฟรี','ครบจบในแอปเดียว','คุยกับเลขา','เตือนก่อนลืม','ออกเอกสารต่อกัน','เงินจะเข้าเท่าไร','รู้กำไรจริง','คำถามที่พบบ่อย'])await expect(page.getByRole('heading',{name:new RegExp(name)})).toBeVisible();
  // every picture is described, or marked as decoration
  expect(await page.locator('main img:not([alt])').count()).toBe(0);
  // the Pro price is the one the app sells today, with its payment fee
@@ -1042,9 +1042,9 @@ test('landing without motion: every section, its pictures and the questions are 
  await page.emulateMedia({reducedMotion:'reduce'});
  await page.route('**/api/auth',route=>route.fulfill({json:{session:null}}));
  await page.goto('/');
- for(const name of ['แค่รับงานก็เหนื่อยพอแล้ว','วันละไม่ถึง','เริ่มฟรี','ครบจบในแอปเดียว','คุยกับเลขา','เตือนก่อนลืม','ออกเอกสารต่อกัน','เงินจะเข้าเท่าไร','คำถามที่พบบ่อย','ตั้งแต่วันนี้'])await expect(page.getByRole('heading',{name:new RegExp(name)})).toBeVisible();
- // the four motions show where they end, each one described as a picture
- for(const name of [/ใครยังไม่จ่าย/,/แจ้งเตือนเข้า LINE/,/ใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จ/,/ปฏิทินเดือนตุลาคม/])await expect(page.getByRole('img',{name})).toBeVisible();
+ for(const name of ['แค่รับงานก็เหนื่อยพอแล้ว','วันละไม่ถึง','เริ่มฟรี','ครบจบในแอปเดียว','คุยกับเลขา','เตือนก่อนลืม','ออกเอกสารต่อกัน','เงินจะเข้าเท่าไร','รู้กำไรจริง','คำถามที่พบบ่อย','ตั้งแต่วันนี้'])await expect(page.getByRole('heading',{name:new RegExp(name)})).toBeVisible();
+ // the motions show where they end, each one described as a picture
+ for(const name of [/ใครยังไม่จ่าย/,/แจ้งเตือนเข้า LINE/,/ใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จ/,/ปฏิทินเดือนตุลาคม/,/จดรายจ่ายเดือนตุลาคม/])await expect(page.getByRole('img',{name})).toBeVisible();
  await expect(page.getByRole('img',{name:'การ์ดเตือนรับเงินใน LINE'})).toBeVisible();
  await expect(page.getByText('เริ่มใช้งานฟรีได้ไหม?')).toBeVisible();
  expect(await page.locator('main img').count()).toBeGreaterThan(5);
