@@ -47,7 +47,7 @@ export const HolographicSquirrel = React.forwardRef<HTMLDivElement, {
           <motion.span className="crh-stand" {...enter(0.35, { y: 16 })}>
             <span className="crh-stand-top" />
             <span className="crh-stand-core" />
-            <span className="crh-stand-front"><img src="/brand/logo01-v1/symbol-white.svg" alt="" width="14" height="14" />Krarok</span>
+            <span className="crh-stand-front"><img className="crh-logo is-on-dark" src="/brand/logo01-v1/symbol-white.svg" alt="" width="14" height="14" /><img className="crh-logo is-on-light" src="/brand/logo01-v1/symbol-ci.svg" alt="" width="14" height="14" />Krarok</span>
           </motion.span>
           <span className="crh-beam" />
           <span className="crh-sparks">

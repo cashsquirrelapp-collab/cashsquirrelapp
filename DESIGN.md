@@ -477,7 +477,9 @@ card does not need:
 - Data: the jobs as saved, with the receivables page's rules (owed = pending > 0 and sent; due = payDate; due soon = within
   7 days); green only for jobs marked paid in full in the last 7 days; days on the Bangkok calendar. "เงินค้างรับทั้งหมด"
   never includes money already received.
-- Obsidian with copper light. Header: "เรดาร์เครดิตเทอม · ข้อมูล ณ date", "ต้องติดตาม N รายการ", counts; the round close
+- Follows the app theme (owner: "ทำโหมดสว่างด้วย"): dark = obsidian with copper light; light = Liquid Amber daylight
+  (cream #FFF9F4 with soft amber glows, white glass cards with copper edges, a light amber stand with the colour logo,
+  a light hologram screen; text in ink #1C1917, red #C43A3A, amber #A8650A, green #138A55). Header: "เรดาร์เครดิตเทอม · ข้อมูล ณ date", "ต้องติดตาม N รายการ", counts; the round close
   button top right (turns and glows on hover); Esc closes (the full list first); focus stays inside and returns after.
 - Centre: the real working squirrel (`mascot-v6-working.png`, headset and laptop; owner: "ให้น้องมีจอโฮโลแกรม ... คอยพิมพ์งาน
   หรือตรวจเรดาร์") typing its report onto a hologram screen that rises from the laptop (a light cone joins them; the

@@ -38,7 +38,7 @@ const mixed = [
   owed('m5', 'โฆษณา IG & Reels', 'Give Lab', 6000, -20),
 ];
 
-async function open(page: Page, list: unknown[]) {
+async function open(page: Page, list: unknown[], mode: 'light' | 'dark' = 'light') {
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'Test user' } }));
   await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
@@ -47,7 +47,7 @@ async function open(page: Page, list: unknown[]) {
   await page.route('**/api/auth', route => route.fulfill({ json: { session: { user } } }));
   const snapshot = {
     jobs: list, expenses: [], goals: [], invoices: [], statuses, job_types: ['Sponsored Post'],
-    settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', theme: { mode: 'light', darkFrom: '18:00', lightFrom: '06:00', asked: true } },
+    settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', theme: { mode, darkFrom: '18:00', lightFrom: '06:00', asked: true } },
     notif_settings: { enabled: true, alertEmail: user.email, serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], lineUserId: null },
     avatar_data_url: null, issuer_profile: null,
   };
@@ -231,4 +231,27 @@ test.describe('iPads keep the report dialog', () => {
     await expect(page.getByTestId('overdue-report')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId('credit-radar')).toHaveCount(0);
   });
+});
+
+test('light and dark: the radar follows the app theme (cream glass by day, obsidian at night), nothing overlapping', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const radar = await open(page, mixed, 'dark');
+  await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(true);
+  expect(await radar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(7, 5, 4)');
+  await page.waitForTimeout(2200);
+  expect((await layoutCheck(page)).problems).toEqual([]);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath('credit-radar-dark.png') });
+});
+
+test('light mode: cream background, white glass cards, the colour logo on the stand', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const radar = await open(page, mixed, 'light');
+  expect(await radar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 249, 244)');
+  await expect(radar.locator('.crh-logo.is-on-light')).toBeVisible();
+  await expect(radar.locator('.crh-logo.is-on-dark')).toBeHidden();
+  expect(await radar.getByTestId('radar-card').first().evaluate(el => getComputedStyle(el).color)).toBe('rgb(28, 25, 23)');
+  await page.waitForTimeout(2200);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath('credit-radar-light.png') });
 });
