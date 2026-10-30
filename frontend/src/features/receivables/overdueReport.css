@@ -1,6 +1,6 @@
-/* Overdue report (computers and iPads). CI colours only: rust for overdue, orange for the one action,
-   caramel for the newest wait. The glass card sits on a soft warm wash with a faint dot grid so the blur
-   has something to show; text keeps Thai line-height of at least 1.45. */
+/* Overdue report, round 2: a hologram mind map (computers and iPads). CI colours only: rust for over 30 days, orange for
+   8–30 days, caramel for the newest wait, orange for the one action. Thai text keeps a line-height of at least 1.45; nodes
+   sit in fixed columns so no text can run into another. */
 .odr {
   --odr-week: #C17817;
   --odr-month: #E65F2B;
@@ -11,249 +11,250 @@
   --odr-week-text: #8A5A0B;
   --odr-month-text: #C24A16;
   --odr-older-text: #A63F1B;
+  --odr-stage-bg: linear-gradient(160deg, #FFFBF8 0%, #FFF3EA 55%, #FFEBDD 100%);
+  --odr-grid: rgba(166, 63, 27, 0.07);
+  --odr-scan: rgba(230, 95, 43, 0.035);
+  --odr-node-bg: linear-gradient(180deg, #FFFFFF 0%, #FFF8F3 100%);
+  --odr-corner: rgba(166, 63, 27, 0.45);
+  --odr-hud: #C24A16;
   display: flex;
   min-height: 0;
   flex-direction: column;
   overflow-y: auto;
   color: var(--text);
   line-height: 1.5;
+  background:
+    radial-gradient(70% 140px at 100% 0%, rgba(230, 95, 43, 0.12), rgba(230, 95, 43, 0) 100%),
+    var(--white);
 }
 .dark .odr {
   --odr-week: #F2C27F;
   --odr-month: #F28A4E;
-  --odr-older: #D9542A;
+  --odr-older: #E0582C;
   --odr-week-bg: rgba(242, 183, 107, 0.14);
   --odr-month-bg: rgba(255, 154, 107, 0.14);
   --odr-older-bg: rgba(250, 126, 82, 0.16);
   --odr-week-text: #F2B76B;
   --odr-month-text: #FFA473;
   --odr-older-text: #FA7E52;
+  --odr-stage-bg: linear-gradient(160deg, #0B0807 0%, #120B08 55%, #1A0E09 100%);
+  --odr-grid: rgba(255, 164, 115, 0.07);
+  --odr-scan: rgba(255, 164, 115, 0.03);
+  --odr-node-bg: linear-gradient(180deg, #1B1614 0%, #110E0D 100%);
+  --odr-corner: rgba(255, 164, 115, 0.5);
+  --odr-hud: #FFA473;
+  background:
+    radial-gradient(70% 140px at 100% 0%, rgba(240, 116, 64, 0.14), rgba(240, 116, 64, 0) 100%),
+    var(--white);
 }
 
+.odr-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 64px 14px 24px; /* room for the dialog's close button */
+}
+.odr-mascot { width: 60px; height: 60px; flex-shrink: 0; object-fit: contain; }
+.odr-eyebrow { font-size: 12px; font-weight: 600; line-height: 1.5; color: var(--odr-older-text); }
+.odr-title { margin-top: 2px; font-size: 20px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
+.odr-sub { margin-top: 2px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+
+.odr-body {
+  display: grid;
+  grid-template-columns: 560px minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+  padding: 4px 24px 0;
+}
+@media (max-width: 1023px) {
+  .odr-body { grid-template-columns: minmax(0, 1fr); }
+  .odr-map { justify-self: center; }
+}
+.odr-map { min-width: 0; }
+
+/* The hologram stage: a fine grid, faint scan lines, HUD corners and one scan beam. */
 .odr-stage {
   position: relative;
   overflow: hidden;
-  flex-shrink: 0;
-  padding: 24px 24px 20px;
-  background:
-    radial-gradient(120% 90% at 100% 0%, rgba(230, 95, 43, 0.20) 0%, rgba(230, 95, 43, 0) 58%),
-    radial-gradient(90% 80% at 0% 100%, rgba(193, 120, 23, 0.16) 0%, rgba(193, 120, 23, 0) 60%),
-    #FFF7F2;
+  border-radius: 20px;
+  background: var(--odr-stage-bg);
+  box-shadow: inset 0 0 0 1px rgba(230, 95, 43, 0.16), 0 10px 30px rgba(166, 63, 27, 0.08);
   isolation: isolate;
 }
+.dark .odr-stage { box-shadow: inset 0 0 0 1px rgba(255, 164, 115, 0.14), 0 10px 30px rgba(0, 0, 0, 0.5); }
 .odr-stage::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-image: radial-gradient(circle, rgba(166, 63, 27, 0.13) 1px, transparent 1.3px);
-  background-size: 14px 14px;
-  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0) 85%);
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0) 85%);
-  pointer-events: none;
-}
-.dark .odr-stage {
   background:
-    radial-gradient(120% 90% at 100% 0%, rgba(240, 116, 64, 0.20) 0%, rgba(240, 116, 64, 0) 58%),
-    radial-gradient(90% 80% at 0% 100%, rgba(242, 183, 107, 0.10) 0%, rgba(242, 183, 107, 0) 60%),
-    #120D0B;
-}
-.dark .odr-stage::before { background-image: radial-gradient(circle, rgba(255, 164, 115, 0.12) 1px, transparent 1.3px); }
-
-/* Two soft colour orbs under the glass: the blur turns them into the liquid look. */
-.odr-orb {
-  position: absolute;
-  z-index: 0;
-  border-radius: 999px;
+    repeating-linear-gradient(0deg, var(--odr-scan) 0 1px, transparent 1px 3px),
+    linear-gradient(var(--odr-grid) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, var(--odr-grid) 1px, transparent 1px) 0 0 / 24px 24px;
+  -webkit-mask-image: radial-gradient(120% 100% at 30% 50%, #000 40%, rgba(0, 0, 0, 0.25) 100%);
+  mask-image: radial-gradient(120% 100% at 30% 50%, #000 40%, rgba(0, 0, 0, 0.25) 100%);
   pointer-events: none;
 }
-.odr-orb.is-a {
-  top: 128px;
-  right: 8px;
-  width: 240px;
-  height: 240px;
-  background: radial-gradient(circle at 40% 40%, rgba(230, 95, 43, 0.55), rgba(230, 95, 43, 0) 68%);
-}
-.odr-orb.is-b {
-  bottom: -70px;
-  left: 40px;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle at 50% 50%, rgba(193, 120, 23, 0.42), rgba(193, 120, 23, 0) 68%);
-}
-.dark .odr-orb.is-a { background: radial-gradient(circle at 40% 40%, rgba(240, 116, 64, 0.42), rgba(240, 116, 64, 0) 68%); }
-.dark .odr-orb.is-b { background: radial-gradient(circle at 50% 50%, rgba(242, 183, 107, 0.24), rgba(242, 183, 107, 0) 68%); }
-.odr-head, .odr-glass { z-index: 1; }
-
-.odr-head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding-right: 36px; /* room for the dialog's close button */
-}
-.odr-mascot {
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
-  object-fit: contain;
-}
-.odr-eyebrow {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-  color: var(--odr-older-text);
-}
-.odr-title {
-  margin-top: 2px;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.45;
-  letter-spacing: -0.01em;
-}
-.odr-sub {
-  margin-top: 2px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--muted);
-}
-
-/* The liquid-glass summary. */
-.odr-glass {
-  position: relative;
-  margin-top: 18px;
-  overflow: hidden;
-  border-radius: 20px;
-  padding: 18px 18px 16px;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 12px 32px rgba(166, 63, 27, 0.12), 0 0 0 0.5px rgba(28, 25, 23, 0.05);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  backdrop-filter: blur(18px) saturate(170%);
-}
-.dark .odr-glass {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px rgba(0, 0, 0, 0.45);
-}
-.odr-glass.is-sheen::after {
+.odr.is-live .odr-stage::after {
   content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 70%);
-  transform: translateX(-120%);
-  animation: odr-sheen 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.45s 1 forwards;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 42%;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(230, 95, 43, 0) 0%, rgba(230, 95, 43, 0.10) 70%, rgba(255, 196, 150, 0.30) 98%, rgba(230, 95, 43, 0) 100%);
+  transform: translateY(-110%);
+  animation: odr-scan 1.6s cubic-bezier(0.45, 0, 0.2, 1) 0.2s 1 both;
   pointer-events: none;
 }
-.dark .odr-glass.is-sheen::after { background: linear-gradient(105deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.10) 50%, rgba(255, 255, 255, 0) 70%); }
-@keyframes odr-sheen { to { transform: translateX(120%); } }
-
-.odr-glass-top {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
+@keyframes odr-scan { to { transform: translateY(260%); } }
+.odr-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: var(--odr-corner);
+  border-style: solid;
+  border-width: 0;
+  pointer-events: none;
 }
-.odr-label {
-  font-size: 12px;
+.odr-corner.is-tl { left: 8px; top: 8px; border-left-width: 1.5px; border-top-width: 1.5px; border-top-left-radius: 6px; }
+.odr-corner.is-tr { right: 8px; top: 8px; border-right-width: 1.5px; border-top-width: 1.5px; border-top-right-radius: 6px; }
+.odr-corner.is-bl { left: 8px; bottom: 8px; border-left-width: 1.5px; border-bottom-width: 1.5px; border-bottom-left-radius: 6px; }
+.odr-corner.is-br { right: 8px; bottom: 8px; border-right-width: 1.5px; border-bottom-width: 1.5px; border-bottom-right-radius: 6px; }
+.odr-hud {
+  position: absolute;
+  left: 28px;
+  top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--odr-hud);
+  opacity: 0.8;
+}
+
+/* Branches: a soft glow under a crisp line, in the colour of how late. */
+.odr-lines { position: absolute; left: 0; top: 0; z-index: 1; overflow: visible; }
+.odr-line { color: var(--odr-month); }
+.odr-line.is-week { color: var(--odr-week); }
+.odr-line.is-older { color: var(--odr-older); }
+.odr-line path { fill: none; stroke: currentColor; stroke-linecap: round; }
+.odr-line-glow { stroke-width: 5; opacity: 0.35; }
+.odr-line-core { stroke-width: 1.6; }
+.odr-pulse {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 1.5px var(--odr-month), 0 0 10px 3px var(--odr-month);
+  offset-rotate: 0deg;
+  opacity: 0;
+  animation: odr-travel 0.9s cubic-bezier(0.45, 0, 0.2, 1) 1 both;
+  pointer-events: none;
+}
+.odr-pulse.is-week { box-shadow: 0 0 0 1.5px var(--odr-week), 0 0 10px 3px var(--odr-week); }
+.odr-pulse.is-older { box-shadow: 0 0 0 1.5px var(--odr-older), 0 0 10px 3px var(--odr-older); }
+@keyframes odr-travel {
+  0% { offset-distance: 0%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* Nodes: a solid card (so the edge never shows through) with a holographic edge that turns once. */
+@property --odr-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.odr-node-at { position: absolute; z-index: 3; transform: translateY(-50%); }
+.odr-node { position: relative; border-radius: 14px; }
+.odr-holo {
+  border: 1px solid transparent;
+  background:
+    var(--odr-node-bg) padding-box,
+    conic-gradient(from var(--odr-angle), rgba(230, 95, 43, 0.85), rgba(242, 183, 107, 0.75), rgba(255, 241, 232, 0.95), rgba(193, 120, 23, 0.75), rgba(166, 63, 27, 0.8), rgba(230, 95, 43, 0.85)) border-box;
+  box-shadow: 0 6px 18px rgba(166, 63, 27, 0.10);
+}
+.dark .odr-holo { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 0 14px rgba(240, 116, 64, 0.10); }
+.odr.is-live .odr-holo { animation: odr-turn 2.4s cubic-bezier(0.22, 1, 0.36, 1) 0.4s 1 both; }
+@keyframes odr-turn { from { --odr-angle: 0deg; } to { --odr-angle: 360deg; } }
+
+.odr-node-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1.5;
   color: var(--muted);
 }
-.odr-total {
-  font-size: 32px;
+.odr-node-meta { font-size: 11px; line-height: 1.5; color: var(--muted); }
+.odr-root { padding: 12px 12px 10px; text-align: center; }
+.odr-root .odr-node-label { justify-content: center; }
+.odr-root::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 18px;
+  border: 1px solid rgba(230, 95, 43, 0.45);
+  opacity: 0;
+  pointer-events: none;
+}
+.odr.is-live .odr-root::after { animation: odr-ring 1.5s ease-out 0.45s 2 both; }
+@keyframes odr-ring { 0% { opacity: 0.9; transform: scale(0.97); } 100% { opacity: 0; transform: scale(1.14); } }
+.odr-root-total {
+  font-size: 22px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.35;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.odr-stat { flex-shrink: 0; text-align: right; }
-.odr-stat-value {
-  font-size: 17px;
+.odr-root-total.is-long { font-size: 17px; }
+.odr-root-total.is-longer { font-size: 14px; }
+.odr-branch-amount, .odr-leaf-amount { overflow: hidden; text-overflow: ellipsis; }
+.odr-branch { padding: 7px 11px; }
+.odr-branch-amount {
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.45;
-  color: var(--odr-older-text);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-
-.odr-bar {
-  display: flex;
-  gap: 2px;
-  height: 10px;
-  margin-top: 14px;
+.odr-branch.is-older .odr-branch-amount { color: var(--odr-older-text); }
+.odr-leaf { padding: 6px 10px 7px; }
+.odr-leaf-name {
   overflow: hidden;
-  border-radius: 999px;
-  background: rgba(28, 25, 23, 0.06);
-}
-.dark .odr-bar { background: rgba(255, 255, 255, 0.08); }
-.odr-bar-part { flex-basis: 0; min-width: 6px; transform-origin: left center; }
-.odr-bar-part:first-child { border-radius: 999px 0 0 999px; }
-.odr-bar-part:last-child { border-radius: 0 999px 999px 0; }
-.odr-bar-part:only-child { border-radius: 999px; }
-.odr-bar-part.is-week, .odr-dot.is-week { background: var(--odr-week); }
-.odr-bar-part.is-month, .odr-dot.is-month { background: var(--odr-month); }
-.odr-bar-part.is-older, .odr-dot.is-older { background: var(--odr-older); }
-
-.odr-buckets {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 14px;
-}
-.odr-bucket { min-width: 0; }
-.odr-bucket dt {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--muted);
-}
-.odr-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 999px; }
-.odr-bucket dd {
-  display: flex;
-  flex-direction: column;
-  margin-top: 2px;
   font-size: 13px;
-  line-height: 1.5;
-  color: var(--muted);
-}
-.odr-bucket dd span {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-
-/* The largest items. */
-.odr-items { padding: 16px 24px 4px; }
-.odr-list-head {
-  font-size: 12px;
   font-weight: 600;
   line-height: 1.5;
-  color: var(--muted);
-}
-.odr-list { margin-top: 4px; }
-.odr-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
-}
-.odr-row:first-child { border-top: 0; }
-.odr-row-name, .odr-row-client {
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.odr-row-name { font-size: 14px; font-weight: 600; line-height: 1.5; }
-.odr-row-client { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.odr-leaf-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+.odr-leaf-amount {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.odr-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 999px; }
+.odr-dot.is-week { background: var(--odr-week); }
+.odr-dot.is-month { background: var(--odr-month); }
+.odr-dot.is-older { background: var(--odr-older); }
 .odr-chip {
-  padding: 2px 9px;
+  padding: 1px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.5;
   white-space: nowrap;
@@ -261,21 +262,62 @@
 .odr-chip.is-week { background: var(--odr-week-bg); color: var(--odr-week-text); }
 .odr-chip.is-month { background: var(--odr-month-bg); color: var(--odr-month-text); }
 .odr-chip.is-older { background: var(--odr-older-bg); color: var(--odr-older-text); }
-.odr-row-amount {
-  min-width: 96px;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.5;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.odr-more { margin-top: 8px; padding-left: 4px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+
+/* The short summary beside the map: each line types in once. */
+.odr-brief {
+  min-width: 0;
+  padding: 14px 16px 16px;
+  border-radius: 20px;
+  background: var(--faint);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
-.odr-more {
-  padding: 2px 0 0;
-  font-size: 13px;
+.odr-brief-title { font-size: 13px; font-weight: 700; line-height: 1.5; }
+.odr-brief-list { margin-top: 6px; }
+.odr-brief-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+}
+.odr-brief-line:first-child { border-top: 0; }
+.odr-brief-line dt {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--muted);
 }
+.odr-brief-line dd {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.odr-brief-line:first-child dd { font-weight: 700; }
+.odr-advice {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: var(--odr-month-bg);
+  color: var(--odr-month-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.odr.is-live .odr-brief-line,
+.odr.is-live .odr-advice {
+  clip-path: inset(0 100% 0 0);
+  animation: odr-type 0.42s steps(14, end) 1 both;
+}
+@keyframes odr-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 
 .odr-actions {
   display: flex;
@@ -301,5 +343,6 @@
 .odr-btn:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .odr-glass.is-sheen::after { animation: none; display: none; }
+  .odr-stage::after, .odr-pulse { display: none; }
+  .odr-holo, .odr-root::after, .odr-brief-line, .odr-advice { animation: none !important; clip-path: none !important; }
 }

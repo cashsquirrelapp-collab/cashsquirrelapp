@@ -448,17 +448,22 @@ card does not need:
   person already chose is never changed. Confirmed layouts are remembered like any other choice. A guest, the AI off or
   any failure: the import goes on as before.
 
-### Overdue report (owner, 2026-10-30: "เหมือนกำลังรายงาน CEO ... liquid card ภาพรวม ... transition motion เบาๆ")
+### Overdue report (owner, 2026-10-30: "เหมือนกำลังรายงาน CEO ... liquid card ภาพรวม"; round 2: "ฟิลโฮโลแกรม แบบ mind map แตกแขนง ... ข้อความสรุปอีกฝั่ง")
 - Computers and iPads (744px+): the once-a-day overdue alert opens as a short report
-  (`features/receivables/OverdueReport.tsx` + `overdueReport.css`) instead of the plain confirm. Phones keep the old alert.
+  (`features/receivables/OverdueReport.tsx` + `overdueReport.css`, dialog 940px) instead of the plain confirm. Phones keep
+  the old alert.
 - Top: the real report mascot (`/line/mascot-v6-report.png`), "รายงานประจำวัน · date", the count, and how many became
-  overdue today. A warm wash with a faint dot grid and two soft orbs sits under one liquid-glass card: the total not yet
-  received, the longest wait, a bar split by how late (1–7 caramel, 8–30 orange, 30+ rust; 2px gaps) and the three buckets
-  with counts and amounts.
-- Below: the five largest items (name, client, a "เลย N วัน" chip in its bucket's colour, amount), "และอีก N รายการ…", then
-  ไว้ทีหลัง and the one orange action ไปที่เงินรอรับ.
-- Motion plays once and is soft: rows rise in turn, the total counts up, the bar grows from the left, one sheen crosses the
-  glass. Nothing moves with reduced motion.
+  overdue today.
+- Left, a hologram mind map on a 560px stage (fine grid, faint scan lines, HUD corners): the total on the left branches
+  to how late (over 30 days on top, rust; 8–30 orange; 1–7 caramel; empty groups left out), each branching to its two
+  largest jobs (name, "เลย N วัน" chip, amount). Nodes are solid cards with a holographic conic edge; lines are the group's
+  colour with a soft glow. Anything not drawn: "และอีก N รายการในหน้าเงินรอรับ".
+- Right (below on iPad portrait), "สรุปสั้น ๆ": the total, each group, the client owing the most, the longest wait, and one
+  orange line "ควรติดตาม … ก่อน" for the largest job in the latest group. Plain figures worked out in the app, no AI.
+- Motion plays once (about 1.6 s): the stage fades in and one scan beam passes, the total counts up with a ring pulse,
+  branches draw out with a light running along each, nodes come into focus (blur to sharp) while the edge turns once, the
+  summary types in line by line. Nothing moves with reduced motion. Built with the app's own motion library; no GSAP
+  (a scroll-driven library; the dialog does not scroll).
 
 ### Mascot (เลขากระรอก)
 

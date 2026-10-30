@@ -28,7 +28,7 @@ const jobs = [
   { ...job('j7', 'งานยังไม่ถึงกำหนด', 'ลูกค้าใหม่', 7000, -5) },
 ];
 
-async function open(page: Page, mode: 'light' | 'dark' = 'light') {
+async function open(page: Page, mode: 'light' | 'dark' = 'light', list = jobs) {
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'Test user' } }));
   await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
@@ -36,7 +36,7 @@ async function open(page: Page, mode: 'light' | 'dark' = 'light') {
   await page.route('**/api/account', route => route.fulfill({ json: { backupEmail: null } }));
   await page.route('**/api/auth', route => route.fulfill({ json: { session: { user } } }));
   const snapshot = {
-    jobs, expenses: [], goals: [], invoices: [], statuses, job_types: ['Sponsored Post'],
+    jobs: list, expenses: [], goals: [], invoices: [], statuses, job_types: ['Sponsored Post'],
     settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', theme: { mode, darkFrom: '18:00', lightFrom: '06:00', asked: true } },
     notif_settings: { enabled: true, alertEmail: user.email, serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], lineUserId: null },
     avatar_data_url: null, issuer_profile: null,
@@ -45,7 +45,7 @@ async function open(page: Page, mode: 'light' | 'dark' = 'light') {
   await page.goto('/');
 }
 
-test('computers: the overdue alert is a report with a glass summary and the largest items', async ({ page }) => {
+test('computers: the overdue alert is a hologram map of how late and the largest jobs, with a short summary', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 860 });
   await open(page);
   const report = page.getByTestId('overdue-report');
@@ -53,18 +53,28 @@ test('computers: the overdue alert is a report with a glass summary and the larg
   await expect(report.getByRole('heading', { name: 'เงินค้างรับเลยกำหนด 6 รายการ' })).toBeVisible();
   await expect(report).toContainText('เพิ่งเลยกำหนดวันนี้ 1 รายการ');
   // The total counts up to the six overdue jobs (the job not yet due is left out).
-  await expect(report.locator('.odr-total')).toHaveText('฿94,700', { timeout: 3000 });
-  await expect(report.locator('.odr-stat-value')).toHaveText('52 วัน');
-  await expect(report.locator('.odr-bucket').nth(0)).toContainText('3 รายการ');
-  await expect(report.locator('.odr-bucket').nth(1)).toContainText('2 รายการ');
-  await expect(report.locator('.odr-bucket').nth(2)).toContainText('1 รายการ');
-  const rows = report.locator('.odr-row');
-  await expect(rows).toHaveCount(5);
-  await expect(rows.first()).toContainText('รีวิวสกินแคร์ 3 คลิป');
-  await expect(rows.first()).toContainText('เลย 52 วัน');
+  await expect(report.locator('.odr-root-total')).toHaveText('฿94,700', { timeout: 3000 });
+  // Over 30 days on top, then 8–30, then 1–7; each branch shows its two largest jobs.
+  const branches = report.locator('.odr-branch');
+  await expect(branches).toHaveCount(3);
+  await expect(branches.nth(0)).toContainText('เกิน 30 วัน');
+  await expect(branches.nth(0)).toContainText('฿45,000');
+  await expect(branches.nth(1)).toContainText('฿27,700');
+  await expect(branches.nth(2)).toContainText('฿22,000');
+  await expect(branches.nth(2)).toContainText('3 รายการ');
+  const leaves = report.locator('.odr-leaf');
+  await expect(leaves).toHaveCount(5);
+  await expect(leaves.first()).toContainText('รีวิวสกินแคร์ 3 คลิป');
+  await expect(leaves.first()).toContainText('เลย 52 วัน');
   await expect(report).toContainText('และอีก 1 รายการในหน้าเงินรอรับ');
   await expect(report).not.toContainText('งานยังไม่ถึงกำหนด');
-  await page.waitForTimeout(1600);
+  // The summary beside the map.
+  const brief = report.locator('.odr-brief');
+  await expect(brief).toContainText('฿94,700 · 6 รายการ');
+  await expect(brief).toContainText('บริษัท ผิวใส จำกัด · ฿45,000');
+  await expect(brief).toContainText('รีวิวสกินแคร์ 3 คลิป · 52 วัน');
+  await expect(brief).toContainText('ควรติดตาม บริษัท ผิวใส จำกัด ก่อน ยอด ฿45,000 เลยกำหนดมา 52 วัน');
+  await page.waitForTimeout(2600);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('overdue-report-light.png') });
 
@@ -79,7 +89,7 @@ test('computers in dark mode: the report reads on the dark surface', async ({ pa
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(true);
   const report = page.getByTestId('overdue-report');
   await expect(report).toBeVisible({ timeout: 10_000 });
-  await page.waitForTimeout(1600);
+  await page.waitForTimeout(2600);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('overdue-report-dark.png') });
   await report.getByRole('button', { name: 'ไว้ทีหลัง' }).click();
@@ -91,7 +101,7 @@ test('iPad portrait shows the same report', async ({ page }) => {
   await open(page);
   const report = page.getByTestId('overdue-report');
   await expect(report).toBeVisible({ timeout: 10_000 });
-  await page.waitForTimeout(1600);
+  await page.waitForTimeout(2600);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('overdue-report-ipad.png') });
 });
@@ -101,4 +111,26 @@ test('phones keep the old alert', async ({ page }) => {
   await open(page);
   await expect(page.getByText('ตรวจพบดีลค้างชำระเลยกำหนด!')).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId('overdue-report')).toHaveCount(0);
+});
+
+test('the motion plays once: frames while it opens', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 860 });
+  await open(page);
+  const report = page.getByTestId('overdue-report');
+  await expect(report).toBeVisible({ timeout: 10_000 });
+  for (let n = 0; n < 4; n++) {
+    await page.screenshot({ path: test.info().outputPath(`overdue-report-frame-${n}.png`) });
+    await page.waitForTimeout(260);
+  }
+});
+
+test('a very large total still fits its card, with nothing overlapping', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 860 });
+  await open(page, 'light', [job('b1', 'งานยอดสูงมาก', 'ลูกค้าใหญ่', 312_327_222, 40), job('b2', 'งานที่สอง', 'ลูกค้าเล็ก', 98_765_432, 10)]);
+  const report = page.getByTestId('overdue-report');
+  await expect(report.locator('.odr-root-total')).toHaveText('฿411,092,654', { timeout: 10_000 });
+  const fits = await report.locator('.odr-root-total').evaluate(el => el.scrollWidth <= el.clientWidth + 1);
+  expect(fits).toBe(true);
+  await page.waitForTimeout(2600);
+  expect(await textOverlapIssues(page)).toEqual([]);
 });
