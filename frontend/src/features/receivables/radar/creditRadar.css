@@ -90,6 +90,20 @@
 .cr-state { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-size: 14px; color: var(--cr-dim); text-align: center; }
 .cr-state-title { font-size: 18px; font-weight: 700; color: var(--cr-ink); }
 
+/* Tall (iPads in portrait): the radar on top, the cards two by two under it. */
+.cr-stage.is-tall { display: flex; flex-direction: column; gap: 16px; }
+.cr-center.is-top { flex-shrink: 0; }
+.cr-cards { position: relative; z-index: 3; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 16px; }
+.cr.is-tall .cr-head { padding: 18px 0 6px; }
+.cr.is-tall .crs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; padding: 10px 12px 12px; }
+.cr.is-tall .crs-metric { gap: 8px; padding: 2px 6px; }
+.cr.is-tall .crs-metric:nth-child(n + 2) { border-left: 1px solid rgba(255, 255, 255, 0.08); }
+.cr.is-tall .crs-icon { width: 18px; height: 18px; }
+.cr.is-tall .crs-value { font-size: 21px; }
+.cr.is-tall .crs-value.is-small { font-size: 16px; }
+.cr.is-tall .crs-actions { grid-column: 1 / -1; justify-content: flex-end; margin-left: 0; }
+html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rgba(28, 25, 23, 0.08); }
+
 /* Lines. */
 .crl { position: absolute; left: 0; top: 0; z-index: 1; overflow: visible; pointer-events: none; }
 .crl-line { --c: var(--cr-neutral); color: var(--c); transition: opacity 0.3s ease; }
@@ -379,8 +393,8 @@
   position: absolute;
   z-index: 4;
   display: flex;
-  width: 104px;
-  height: 104px;
+  width: clamp(84px, calc(var(--R) * 0.2), 104px);
+  height: clamp(84px, calc(var(--R) * 0.2), 104px);
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -395,8 +409,8 @@
 .crh-chip.is-received { --c: var(--cr-green); }
 .crh-chip.at-0 { left: 0; top: 6%; }
 .crh-chip.at-1 { left: -2%; top: 46%; }
-.crh-chip.at-2 { right: -2%; top: 47%; }
-.crh-chip.at-3 { right: 2%; top: 70%; }
+.crh-chip.at-2 { right: -2%; top: 44%; }
+.crh-chip.at-3 { right: -2%; top: 71%; }
 .crh-chip-icon { width: 18px; height: 18px; color: var(--c); }
 .crh-chip-count { margin-top: 2px; font-size: 14px; font-weight: 700; line-height: 1.45; white-space: nowrap; }
 .crh-chip-label { font-size: 11px; line-height: 1.45; color: var(--cr-dim); white-space: nowrap; }

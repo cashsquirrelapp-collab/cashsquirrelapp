@@ -6,7 +6,7 @@ import type { RadarStatus } from './radarData';
 // stage or a card changes size), so a line always ends at its card. A light runs along each line now and then; the line
 // of the card under the pointer lights up and the others step back.
 
-export interface LineTarget { id: string; status: RadarStatus; side: 'left' | 'right' }
+export interface LineTarget { id: string; status: RadarStatus; side: 'left' | 'right' | 'top' }
 
 interface Path { id: string; status: RadarStatus; d: string }
 
@@ -49,13 +49,17 @@ export function ConnectionLines({ stageRef, hubRef, cardRefs, targets, hovered, 
       const el = cardRefs.current.get(target.id);
       if (!el) continue;
       const r = layoutBox(el, stage);
-      const ax = target.side === 'left' ? r.x + r.w : r.x;
-      const ay = r.y + r.h / 2;
+      // Cards beside the radar take the line at their inner edge; cards under it at the middle of their top.
+      const ax = target.side === 'top' ? r.x + r.w / 2 : target.side === 'left' ? r.x + r.w : r.x;
+      const ay = target.side === 'top' ? r.y : r.y + r.h / 2;
       // Start at the squirrel's edge, toward the card.
       const angle = Math.atan2(ay - hy, ax - hx);
       const sx = hx + Math.cos(angle) * reach, sy = hy + Math.sin(angle) * reach * 0.85;
-      const dx = ax - sx;
-      next.push({ id: target.id, status: target.status, d: `M ${sx.toFixed(1)} ${sy.toFixed(1)} C ${(sx + dx * 0.45).toFixed(1)} ${sy.toFixed(1)}, ${(ax - dx * 0.4).toFixed(1)} ${ay.toFixed(1)}, ${ax.toFixed(1)} ${ay.toFixed(1)}` });
+      const dx = ax - sx, dy = ay - sy;
+      const d = target.side === 'top'
+        ? `M ${sx.toFixed(1)} ${sy.toFixed(1)} C ${sx.toFixed(1)} ${(sy + dy * 0.5).toFixed(1)}, ${ax.toFixed(1)} ${(ay - dy * 0.45).toFixed(1)}, ${ax.toFixed(1)} ${ay.toFixed(1)}`
+        : `M ${sx.toFixed(1)} ${sy.toFixed(1)} C ${(sx + dx * 0.45).toFixed(1)} ${sy.toFixed(1)}, ${(ax - dx * 0.4).toFixed(1)} ${ay.toFixed(1)}, ${ax.toFixed(1)} ${ay.toFixed(1)}`;
+      next.push({ id: target.id, status: target.status, d });
     }
     const w = stage.clientWidth, height = stage.clientHeight;
     setBox(current => (current.w === w && current.h === height ? current : { w, h: height }));

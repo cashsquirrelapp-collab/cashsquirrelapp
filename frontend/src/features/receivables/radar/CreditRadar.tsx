@@ -103,15 +103,23 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   }, [jobs, today]);
   const data = result.data;
 
-  // Cards per side: as many as fit the height (one to four), never overlapping.
+  // Two layouts. Wide (computers, iPads in landscape): cards in a column on each side of the radar, as many as fit the
+  // height (one to four a side). Tall (iPads in portrait): the radar on top, the cards two by two under it, as many rows
+  // as leave the radar at least 340px. Cards never overlap and never leave the screen.
+  const tall = stage.w > 0 && (stage.w < 900 || stage.w / Math.max(1, stage.h) < 1.2);
   const perSide = Math.max(1, Math.min(4, Math.floor((stage.h + GAP) / (CARD_H + GAP)) || 3));
-  const shown = data ? radarCards(data, perSide * 2) : [];
+  const tallRadar = (rows: number) => Math.min(stage.w - 32, stage.h - rows * (CARD_H + GAP) - 8, 560);
+  const tallRows = [3, 2, 1].find(rows => tallRadar(rows) >= 340) ?? 1;
+  const shown = data ? radarCards(data, tall ? tallRows * 2 : perSide * 2) : [];
   const left = shown.filter((_, i) => i % 2 === 0), right = shown.filter((_, i) => i % 2 === 1);
   const total = data ? data.overdue.length + data.soon.length + data.received.length + data.later.length : 0;
-  const colWidth = Math.round(Math.min(360, Math.max(290, stage.w * 0.25)));
+  const colWidth = Math.round(Math.min(360, Math.max(256, stage.w * 0.25)));
   const centerWidth = Math.max(0, stage.w - 2 * colWidth - 2 * 32);
-  const radarSize = Math.round(Math.max(260, Math.min(centerWidth, stage.h - 8, 620)));
-  const targets: LineTarget[] = [...left.map(item => ({ id: item.id, status: item.status, side: 'left' as const })), ...right.map(item => ({ id: item.id, status: item.status, side: 'right' as const }))];
+  const radarSize = Math.round(Math.max(240, tall ? tallRadar(tallRows) : Math.min(centerWidth, stage.h - 8, 620)));
+  const showExtras = radarSize >= 340;
+  const targets: LineTarget[] = tall
+    ? shown.map(item => ({ id: item.id, status: item.status, side: 'top' as const }))
+    : [...left.map(item => ({ id: item.id, status: item.status, side: 'left' as const })), ...right.map(item => ({ id: item.id, status: item.status, side: 'right' as const }))];
   const chips: RadarChip[] = data ? [
     { key: 'overdue', count: data.overdue.length, label: tr("เกินกำหนด") },
     { key: 'soon', count: data.soon.length, label: tr("ใกล้ครบกำหนด") },
@@ -171,20 +179,22 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
     });
   };
 
+  // One card in its slot; n is its place in the order the cards come in.
+  const slot = (item: RadarItem, n: number, from: 'left' | 'right' | 'below') => (
+    <motion.div key={item.id} layout={!reduce} className="cr-slot"
+      ref={el => { if (el) cardRefs.current.set(item.id, el); else cardRefs.current.delete(item.id); }}
+      initial={reduce ? false : { opacity: 0, x: from === 'left' ? -36 : from === 'right' ? 36 : 0, y: from === 'below' ? 30 : 0, scale: 0.96 }}
+      animate={{ opacity: 1, x: 0, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.6, delay: reduce ? 0 : 0.35 + n * 0.07, ease: [0.22, 1, 0.36, 1] }}>
+      <div className="cr-float" style={{ animationDuration: `${5.6 + (n % 4) * 0.7}s`, animationDelay: `${-(n * 1.3)}s` }}>
+        <CreditCard item={item} today={today} dimmed={hovered !== null && hovered !== item.id} onHover={setHovered} onOpen={onOpenJob} />
+      </div>
+    </motion.div>
+  );
   const cardList = (list: RadarItem[], side: 'left' | 'right') => (
     <div className={`cr-col is-${side}`}>
       <AnimatePresence initial={!reduce}>
-        {list.map((item, i) => (
-          <motion.div key={item.id} layout={!reduce} className="cr-slot"
-            ref={el => { if (el) cardRefs.current.set(item.id, el); else cardRefs.current.delete(item.id); }}
-            initial={reduce ? false : { opacity: 0, x: side === 'left' ? -36 : 36, scale: 0.96 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.6, delay: reduce ? 0 : 0.35 + (i * 2 + (side === 'right' ? 1 : 0)) * 0.07, ease: [0.22, 1, 0.36, 1] }}>
-            <div className="cr-float" style={{ animationDuration: `${5.6 + ((i * 2 + (side === 'right' ? 1 : 0)) % 4) * 0.7}s`, animationDelay: `${-(i * 1.3 + (side === 'right' ? 0.6 : 0))}s` }}>
-              <CreditCard item={item} today={today} dimmed={hovered !== null && hovered !== item.id} onHover={setHovered} onOpen={onOpenJob} />
-            </div>
-          </motion.div>
-        ))}
+        {list.map((item, i) => slot(item, i * 2 + (side === 'right' ? 1 : 0), side))}
       </AnimatePresence>
     </div>
   );
@@ -193,7 +203,7 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   return createPortal(
     <AnimatePresence>
       {open && (
-        <motion.div ref={rootRef} className={`cr${reduce ? ' is-still' : ''}`} role="dialog" aria-modal="true" aria-label={tr("เรดาร์เครดิตเทอม")} data-testid="credit-radar"
+        <motion.div ref={rootRef} className={`cr${reduce ? ' is-still' : ''}${tall ? ' is-tall' : ''}`} role="dialog" aria-modal="true" aria-label={tr("เรดาร์เครดิตเทอม")} data-testid="credit-radar"
           onMouseMove={onMouseMove}
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0.01 : 0.4 }}>
           <span className="cr-ambient" aria-hidden="true" />
@@ -210,21 +220,33 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
               </button>
             </header>
 
-            <main ref={stageRef} className="cr-stage" style={{ gridTemplateColumns: `${colWidth}px minmax(0, 1fr) ${colWidth}px` }}>
+            <main ref={stageRef} className={`cr-stage${tall ? ' is-tall' : ''}`} style={tall ? undefined : { gridTemplateColumns: `${colWidth}px minmax(0, 1fr) ${colWidth}px` }}>
               {loading ? (
                 <div className="cr-state"><HolographicSquirrel ref={hubRef} size={Math.min(320, radarSize)} chips={[]} showChips={false} reduce={reduce} /><p>{tr("กำลังโหลดข้อมูล")}</p></div>
               ) : result.failed || !data ? (
                 <div className="cr-state"><p className="cr-state-title">{tr("แสดงเรดาร์ไม่ได้ในขณะนี้")}</p><p>{tr("ดูรายการทั้งหมดได้ที่หน้าเงินรอรับ")}</p></div>
               ) : total === 0 ? (
                 <div className="cr-state"><HolographicSquirrel ref={hubRef} size={Math.min(320, radarSize)} chips={[]} showChips={false} reduce={reduce} /><p className="cr-state-title">{tr("ตอนนี้ไม่มีรายการที่ต้องติดตาม")}</p></div>
+              ) : tall ? (
+                <>
+                  <ConnectionLines stageRef={stageRef} hubRef={hubRef} cardRefs={cardRefs} targets={targets} hovered={hovered} reduce={reduce}
+                    layoutKey={`tall:${stage.w}x${stage.h}:${targets.map(target => target.id).join(',')}`} />
+                  <div className="cr-center is-top" style={{ height: radarSize }}>
+                    <HolographicSquirrel ref={hubRef} size={radarSize} chips={chips} showChips={showExtras} reduce={reduce}
+                      screen={showExtras ? { lines: screenLines, counts: screenCounts, rows: radarSize >= 420 ? 3 : 2 } : undefined} />
+                  </div>
+                  <div className="cr-cards">
+                    <AnimatePresence initial={!reduce}>{shown.map((item, n) => slot(item, n, 'below'))}</AnimatePresence>
+                  </div>
+                </>
               ) : (
                 <>
                   <ConnectionLines stageRef={stageRef} hubRef={hubRef} cardRefs={cardRefs} targets={targets} hovered={hovered} reduce={reduce}
                     layoutKey={`${stage.w}x${stage.h}:${targets.map(target => target.id).join(',')}`} />
                   {cardList(left, 'left')}
                   <div className="cr-center">
-                    <HolographicSquirrel ref={hubRef} size={radarSize} chips={chips} showChips={radarSize >= 400} reduce={reduce}
-                      screen={radarSize >= 400 ? { lines: screenLines, counts: screenCounts } : undefined} />
+                    <HolographicSquirrel ref={hubRef} size={radarSize} chips={chips} showChips={showExtras} reduce={reduce}
+                      screen={showExtras ? { lines: screenLines, counts: screenCounts, rows: radarSize >= 420 ? 3 : 2 } : undefined} />
                   </div>
                   {cardList(right, 'right')}
                 </>

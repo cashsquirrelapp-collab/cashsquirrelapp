@@ -17,7 +17,7 @@ const SPARKS = Array.from({ length: 14 }, (_, i) => ({ left: 32 + ((i * 37) % 36
 
 export const HolographicSquirrel = React.forwardRef<HTMLDivElement, {
   size: number; chips: RadarChip[]; showChips: boolean; reduce: boolean;
-  screen?: { lines: ScreenLine[]; counts: { overdue: number; soon: number; received: number } };
+  screen?: { lines: ScreenLine[]; counts: { overdue: number; soon: number; received: number }; rows?: number };
 }>(
   function HolographicSquirrel({ size, chips, showChips, reduce, screen }, hubRef) {
     const enter = (delay: number, from: Record<string, number | string> = {}) => (reduce ? {} : {
@@ -76,7 +76,7 @@ export const HolographicSquirrel = React.forwardRef<HTMLDivElement, {
             </motion.svg>
             <motion.div className="crh-screen"
               {...(reduce ? {} : { initial: { opacity: 0, scale: 0.6, y: 30, filter: 'blur(6px)' }, animate: { opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }, transition: { duration: 0.7, delay: 1.0, ease: [0.22, 1, 0.36, 1] as const } })}>
-              <div className="crh-screen-float"><div className="crh-screen-tilt"><HoloScreen lines={screen.lines} counts={screen.counts} reduce={reduce} /></div></div>
+              <div className="crh-screen-float"><div className="crh-screen-tilt"><HoloScreen lines={screen.lines} counts={screen.counts} rows={screen.rows} reduce={reduce} /></div></div>
             </motion.div>
           </>
         )}

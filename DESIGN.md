@@ -448,33 +448,19 @@ card does not need:
   person already chose is never changed. Confirmed layouts are remembered like any other choice. A guest, the AI off or
   any failure: the import goes on as before.
 
-### Overdue report (owner, 2026-10-30; round 3 from the owner's reference picture: "ฟีลๆ นี้ ... แต่ให้ฟีลพื้นหลังดูเหมือนการเงิน")
-- Computers and iPads (744px+): the once-a-day overdue alert opens as a short report
-  (`features/receivables/OverdueReport.tsx` + `overdueReport.css`, dialog 940px) instead of the plain confirm. Phones keep
-  the old alert. Rounds 1 (glass summary) and 2 (light mind map) are in git history (5d92c8d, 4421258).
-- Header: "รายงานประจำวัน · date", the count, how many became overdue today.
-- A hologram stage that follows the theme (owner, 2026-10-30: "ทำของ iPad ให้เป็นโหมดสว่างด้วย"): dark = obsidian; light =
-  Liquid Amber daylight like the Credit Radar (cream, white glass cards with copper edges, light amber stand, colour logo).
-  892×452 on wide screens, 660×452 on iPads in portrait. Backdrop: price grid, candlesticks and a rising line, shapes only (no text). The real report squirrel
-  (`/line/mascot-v6-report.png`, glasses and calculator; never redrawn, only a glow) stands on a glowing stand with the
-  Krarok mark, in a light beam, inside two orbit rings.
-- The total floats above in a glass card (bell badge). The four largest jobs float around as glass cards tilted toward
-  the squirrel: avatar (building icon for companies, else the initial), client, job, amount, "เกินกำหนด" / "เพิ่งเลยกำหนด"
-  with days, and a ส่งงาน → ครบกำหนด → วันนี้ line (the late part glows). Branches join the squirrel to the total and to each
-  card, in the colour of how late (over 30 red-orange, 8–30 orange, 1–7 caramel). Computers also show four orbit chips:
-  the three groups' counts and how many clients. "และอีก N รายการในหน้าเงินรอรับ" under the stage.
-- "สรุปสั้น ๆ" under the stage: on computers one row (total, client owing the most, longest wait, "ควรติดตาม … ก่อน");
-  on iPads, which have no chips, the three groups too. Plain figures worked out in the app, no AI.
-- Motion plays once (about 1.8 s): candles rise and the trend line draws, the stand's rings light, the beam rises, the
-  squirrel comes into focus, the total card drops in and counts up, branches draw with a light running along each, cards
-  slide in from the squirrel's side, chips pop, the summary types in. Nothing moves with reduced motion. Built with the
-  app's own motion library; no GSAP (a scroll-driven library; the dialog does not scroll).
+### Overdue report (retired 2026-10-30)
+- The iPad report dialog (rounds 1–3: 5d92c8d, 4421258, 20d6cd0, light mode 9642fae) was replaced by the fullscreen
+  Credit Radar on iPads too (owner: "อยากได้แบบเต็มหน้าจอ ... ของบนคอมแล้วก็ iPad"). It is in git history.
 
 ### Credit Radar (owner's brief "KRAROK — FULLSCREEN HOLOGRAPHIC CREDIT RADAR", 2026-10-30)
-- Computers only (`(min-width: 1024px) and (hover: hover) and (pointer: fine)`, `radar/desktopQuery.ts`): the once-a-day
-  overdue check opens a fullscreen radar (`features/receivables/radar/`: `CreditRadar`, `HolographicSquirrel`,
-  `CreditCard`, `ConnectionLines`, `RadarSummary`, `radarData.ts`, `creditRadar.css`). Touch iPads keep the overdue
-  report dialog; phones keep their alert.
+- Computers and iPads (744px+, `RADAR_QUERY` in `radar/desktopQuery.ts`): the once-a-day overdue check opens a
+  fullscreen radar (`features/receivables/radar/`: `CreditRadar`, `HolographicSquirrel`, `HoloScreen`, `CreditCard`,
+  `ConnectionLines`, `RadarSummary`, `radarData.ts`, `creditRadar.css`). Phones keep their alert.
+- Two layouts. Wide (stage 900px+ and wider than 1.2× its height: computers, iPads in landscape): cards in a column each
+  side (columns 256–360px). Tall (iPads in portrait): the radar on top, cards two by two under it (as many rows as leave
+  the radar 340px+), lines to the middle of each card's top, the four figures in one row with the buttons under them.
+  Chips and the hologram screen show when the radar is 340px+ (chips 84–104px; the screen keeps two log lines under 420px).
+  Touch: a tap opens the job; there is no hover or mouse parallax.
 - Data: the jobs as saved, with the receivables page's rules (owed = pending > 0 and sent; due = payDate; due soon = within
   7 days); green only for jobs marked paid in full in the last 7 days; days on the Bangkok calendar. "เงินค้างรับทั้งหมด"
   never includes money already received.

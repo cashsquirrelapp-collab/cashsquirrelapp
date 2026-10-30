@@ -77,8 +77,7 @@ import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import
 import type { SettingsView } from '../features/settings/SettingsTab';
 import { KsIcon, type KsIconName } from '../features/mobile/icons';
 import { useMobileLayout } from '../features/mobile/useMobileLayout';
-import { OverdueReport, type OverdueItem } from '../features/receivables/OverdueReport';
-import { DESKTOP_RADAR_QUERY } from '../features/receivables/radar/desktopQuery';
+import { RADAR_QUERY } from '../features/receivables/radar/desktopQuery';
 const CreditRadar = lazy(() => import('../features/receivables/radar/CreditRadar').then(m => ({ default: m.CreditRadar })));
 import { hideSplash } from './splash';
 import { isUpdateReady, reloadForUpdate, setUpdateGuard } from './appUpdate';
@@ -544,9 +543,8 @@ export default function App() {
   const isPhone = useMobileLayout();
   const isPhoneRef = useRef(isPhone);
   isPhoneRef.current = isPhone;
-  // Overdue money on computers and iPads opens as a short report (phones keep their alert).
-  const [overdueReport, setOverdueReport] = useState<{ items: OverdueItem[]; newToday: number } | null>(null);
-  // Computers (a mouse, 1024px+): the overdue check opens the fullscreen Credit Radar instead (owner's brief, 2026-10-30).
+  // Computers and iPads (744px+): the overdue check opens the fullscreen Credit Radar (owner, 2026-10-30: "เต็มหน้าจอเลย
+  // ของบนคอมแล้วก็ iPad"); phones keep their alert.
   const [creditRadarOpen, setCreditRadarOpen] = useState(false);
   // Kept mounted once opened, so closing can fade out.
   const [creditRadarMounted, setCreditRadarMounted] = useState(false);
@@ -2302,21 +2300,8 @@ export default function App() {
 
           const newCount = updatedQueue.filter(r => r.detectedDate === todayStr && r.status === 'pending').length;
           
-          const reportItems: OverdueItem[] = overdueJobs.map(j => ({
-            id: j.id,
-            name: j.name,
-            client: j.client || tr("ไม่ระบุ"),
-            pending: j.pending,
-            daysLate: Math.max(1, Math.round((today.getTime() - new Date(`${j.dueDate || j.payDate}T00:00:00`).getTime()) / 86_400_000)),
-            sentOn: j.postDate || null,
-            dueOn: j.dueDate || j.payDate || null,
-          }));
           setTimeout(() => {
-            if (window.matchMedia(DESKTOP_RADAR_QUERY).matches) { setCreditRadarMounted(true); setCreditRadarOpen(true); return; }
-            if (!isPhoneRef.current) {
-              setOverdueReport({ items: reportItems, newToday: reportItems.filter(item => item.daysLate === 1).length });
-              return;
-            }
+            if (!isPhoneRef.current && window.matchMedia(RADAR_QUERY).matches) { setCreditRadarMounted(true); setCreditRadarOpen(true); return; }
             triggerConfirm(
               tr("ตรวจพบดีลค้างชำระเลยกำหนด!"),
               tr("ระบบตรวจพบดีลงานเลยกำหนดเครดิตเทอมใหม่วันนี้ (จำนวน {0} รายการ)\n\nต้องการไปที่หน้าเงินรอรับ เพื่อตั้งเตือนหรือบันทึกรับเงินเลยไหมครับ?", newCount),
@@ -3696,8 +3681,6 @@ export default function App() {
               onOpenReceivables={() => { setCreditRadarOpen(false); navigateTab('receivables'); }} />
           </Suspense>
         )}
-        <OverdueReport open={!!overdueReport && !isPhone} items={overdueReport?.items ?? []} newToday={overdueReport?.newToday ?? 0}
-          onOpen={() => { setOverdueReport(null); navigateTab('receivables'); }} onClose={() => setOverdueReport(null)} />
         {proKvOpen && (
           <Suspense fallback={null}>
             <ProKvBanner mobile={isPhone} onClose={() => setProKvOpen(false)} onSubscribe={() => { setProKvOpen(false); navigateTab('plans'); }} />

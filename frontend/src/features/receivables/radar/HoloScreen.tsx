@@ -10,21 +10,22 @@ import type { RadarStatus } from './radarData';
 
 export interface ScreenLine { key: string; name: string; amount: string; tone: RadarStatus }
 
-const ROWS = 3;
 
-export function HoloScreen({ lines, counts, reduce }: {
+export function HoloScreen({ lines, counts, rows = 3, reduce }: {
   lines: ScreenLine[];
   counts: { overdue: number; soon: number; received: number };
+  /** Lines in the log: three, or two on a small radar. */
+  rows?: number;
   reduce: boolean;
 }) {
   const [step, setStep] = React.useState(0);
   React.useEffect(() => {
-    if (reduce || lines.length <= ROWS) return;
+    if (reduce || lines.length <= rows) return;
     const id = window.setInterval(() => { if (!document.hidden) setStep(current => current + 1); }, 2600);
     return () => window.clearInterval(id);
-  }, [reduce, lines.length]);
+  }, [reduce, lines.length, rows]);
   const shown = lines.length
-    ? Array.from({ length: Math.min(ROWS, lines.length) }, (_, i) => ({ slot: step + i, line: lines[(step + i) % lines.length] }))
+    ? Array.from({ length: Math.min(rows, lines.length) }, (_, i) => ({ slot: step + i, line: lines[(step + i) % lines.length] }))
     : [];
   return (
     <div className="crv" aria-hidden="true">

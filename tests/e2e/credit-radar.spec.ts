@@ -211,10 +211,61 @@ test('reduced motion: everything still, no running lights', async ({ page }) => 
   await expect(radar.getByTestId('radar-outstanding')).toHaveText('฿82,000');
 });
 
-test.describe('iPads keep the report dialog', () => {
+async function openTouch(page: Page, width: number, height: number, list: unknown[] = sixLate) {
+  await page.setViewportSize({ width, height });
+  return open(page, list);
+}
+const endsAtCards = (layout: Awaited<ReturnType<typeof layoutCheck>>) => layout.ends.every(end => layout.slots.some(slot =>
+  (Math.abs(end.y - (slot.top + slot.height / 2)) < 2 && (Math.abs(end.x - slot.right) < 2 || Math.abs(end.x - slot.left) < 2))
+  || (Math.abs(end.y - slot.top) < 2 && Math.abs(end.x - (slot.left + slot.width / 2)) < 2)));
+
+test.describe('iPads get the same fullscreen radar (owner, 2026-10-30: "เต็มหน้าจอเลยของบนคอมแล้วก็ iPad")', () => {
   test.use({ hasTouch: true, isMobile: true });
-  test('a touch iPad in landscape gets the dialog, not the radar', async ({ page }) => {
-    await page.setViewportSize({ width: 1180, height: 820 });
+  test('iPad landscape: cards beside the radar, the screen and chips, nothing overlapping', async ({ page }) => {
+    const radar = await openTouch(page, 1180, 820, [...sixLate, owed('j7', 'งานใกล้ครบกำหนด', 'ลูกค้าใหม่', 7000, -5)]);
+    expect(await radar.boundingBox()).toMatchObject({ x: 0, y: 0, width: 1180, height: 820 });
+    await expect(radar).not.toHaveClass(/is-tall/);
+    await expect(radar.locator('.crv')).toBeVisible();
+    await page.waitForTimeout(2200);
+    const layout = await layoutCheck(page);
+    expect(layout.problems).toEqual([]);
+    expect(layout.scrollX).toBe(false);
+    expect(endsAtCards(layout)).toBe(true);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath('credit-radar-ipad-landscape.png') });
+  });
+  test('iPad portrait: the radar on top, cards two by two under it, each line ends at its card', async ({ page }) => {
+    const radar = await openTouch(page, 768, 1024, mixed);
+    await expect(radar).toHaveClass(/is-tall/);
+    await page.waitForTimeout(2200);
+    await expect(radar.getByTestId('radar-card')).toHaveCount(4);
+    await expect(radar.locator('.crv')).toBeVisible();
+    const layout = await layoutCheck(page);
+    expect(layout.problems).toEqual([]);
+    expect(layout.scrollX).toBe(false);
+    expect(endsAtCards(layout)).toBe(true);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath('credit-radar-ipad-portrait.png') });
+    // A tap opens the job.
+    await radar.getByTestId('radar-card').filter({ hasText: 'ร้านกาแฟ Good Day' }).click({ force: true });
+    await expect(page.getByRole('heading', { name: 'แก้ไขงาน' })).toBeVisible();
+  });
+  test('iPad mini portrait and the large iPad in portrait fit too', async ({ page }) => {
+    for (const [w, h] of [[744, 1133], [1024, 1366], [1024, 768]] as const) {
+      const radar = await openTouch(page, w, h, mixed);
+      await page.waitForTimeout(2000);
+      const layout = await layoutCheck(page);
+      expect(layout.problems, `${w}x${h}`).toEqual([]);
+      expect(layout.scrollX, `${w}x${h}`).toBe(false);
+      expect(endsAtCards(layout), `${w}x${h} lines`).toBe(true);
+      expect(await textOverlapIssues(page), `${w}x${h} text`).toEqual([]);
+      await page.keyboard.press('Escape');
+      await expect(radar).toHaveCount(0, { timeout: 2000 });
+      await page.evaluate(() => sessionStorage.clear());
+    }
+  });
+  test('phones keep the old alert', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
     await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'Test user' } }));
     await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
@@ -228,7 +279,7 @@ test.describe('iPads keep the report dialog', () => {
       avatar_data_url: null, issuer_profile: null,
     }, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2027-01-01T00:00:00Z' } } }));
     await page.goto('/');
-    await expect(page.getByTestId('overdue-report')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('ตรวจพบดีลค้างชำระเลยกำหนด!')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId('credit-radar')).toHaveCount(0);
   });
 });
