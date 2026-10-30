@@ -1,0 +1,234 @@
+import { test, expect, type Page } from '@playwright/test';
+import { textOverlapIssues } from './textOverlap';
+
+// KRAROK — Fullscreen Holographic Credit Radar (owner's brief, 2026-10-30): computers only. The once-a-day overdue check
+// opens it over the whole window; iPads keep the report dialog (overdue-report.spec.ts) and phones their alert.
+
+const user = { id: '11111111-1111-4111-8111-111111111111', email: 'test@example.com', role: 'user', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
+const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1, statuses: 1, job_types: 1, notif_settings: 1 } };
+const statuses = [{ id: 'done', label: 'จ่ายเงินครบแล้ว', behavior: 'done' }, { id: 'partial', label: 'มัดจำแล้ว', behavior: 'partial' }, { id: 'pending', label: 'ยังไม่จ่าย', behavior: 'pending' }];
+
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const owed = (id: string, name: string, client: string, pending: number, late: number) => ({
+  id, name, client, value: pending, received: 0, pending, type: 'Sponsored Post', status: 'pending', paymentStatus: 'unpaid', creditTerm: 30, note: '',
+  isPosted: true, postDate: daysAgo(late + 30), payDate: daysAgo(late), dueDate: daysAgo(late),
+});
+const paid = (id: string, name: string, client: string, amount: number, daysBack: number) => ({
+  id, name, client, value: amount, received: amount, pending: 0, type: 'Sponsored Post', status: 'done', paymentStatus: 'paid', creditTerm: 30, note: '',
+  isPosted: true, postDate: daysAgo(daysBack + 25), payDate: daysAgo(daysBack),
+});
+const sixLate = [
+  owed('j1', 'รีวิวสกินแคร์ 3 คลิป', 'บริษัท ผิวใส จำกัด', 45000, 52),
+  owed('j2', 'ไลฟ์ขายของ 2 ชั่วโมง', 'ร้านเสื้อผ้า Mint', 18500, 21),
+  owed('j3', 'ถ่ายภาพสินค้า', 'Brew Days', 9200, 12),
+  owed('j4', 'โพสต์ IG 1 โพสต์', 'Glow Lab', 6000, 5),
+  owed('j5', 'คลิป TikTok', 'IzaBelle', 12500, 1),
+  owed('j6', 'ออกแบบโลโก้', 'สตูดิโอเล็ก', 3500, 3),
+];
+const mixed = [
+  owed('m1', 'รีวิวสกินแคร์ 3 คลิป', 'บริษัท ผิวใส จำกัด', 45000, 52),
+  owed('m2', 'คลิป TikTok', 'IzaBelle', 12500, 2),
+  owed('m3', 'ออกแบบเมนู', 'ร้านกาแฟ Good Day', 18500, -3),
+  paid('m4', 'งานถ่ายภาพสินค้า', 'คุณเบย์', 8600, 2),
+  owed('m5', 'โฆษณา IG & Reels', 'Give Lab', 6000, -20),
+];
+
+async function open(page: Page, list: unknown[]) {
+  await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
+  await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'Test user' } }));
+  await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
+  await page.route('**/api/usage-analytics', route => route.fulfill({ json: { ok: true } }));
+  await page.route('**/api/account', route => route.fulfill({ json: { backupEmail: null } }));
+  await page.route('**/api/auth', route => route.fulfill({ json: { session: { user } } }));
+  const snapshot = {
+    jobs: list, expenses: [], goals: [], invoices: [], statuses, job_types: ['Sponsored Post'],
+    settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', theme: { mode: 'light', darkFrom: '18:00', lightFrom: '06:00', asked: true } },
+    notif_settings: { enabled: true, alertEmail: user.email, serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], lineUserId: null },
+    avatar_data_url: null, issuer_profile: null,
+  };
+  await page.route('**/api/data*', route => route.fulfill({ json: { snapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2027-01-01T00:00:00Z' } } }));
+  await page.goto('/');
+  const radar = page.getByTestId('credit-radar');
+  await expect(radar).toBeVisible({ timeout: 10_000 });
+  return radar;
+}
+
+/** Cards inside the window, apart from each other; each line ends at its card's inner edge. */
+async function layoutCheck(page: Page) {
+  return page.evaluate(() => {
+    const cards = [...document.querySelectorAll<HTMLElement>('[data-testid="radar-card"]')].map(el => ({ el, r: el.getBoundingClientRect() }));
+    const stage = document.querySelector('.cr-stage')!.getBoundingClientRect();
+    const problems: string[] = [];
+    for (const { r } of cards) if (r.left < 0 || r.top < 0 || r.right > innerWidth || r.bottom > innerHeight) problems.push(`off screen ${JSON.stringify(r)}`);
+    for (let i = 0; i < cards.length; i++) for (let j = i + 1; j < cards.length; j++) {
+      const a = cards[i].r, b = cards[j].r;
+      if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) problems.push(`overlap ${i}/${j}`);
+    }
+    const ends = [...document.querySelectorAll('.crl-line')].map(g => {
+      const d = g.querySelector('path')!.getAttribute('d')!.trim().split(/[ ,]+/);
+      return { id: g.getAttribute('data-line'), x: +d[d.length - 2] + stage.left, y: +d[d.length - 1] + stage.top };
+    });
+    return { problems, cards: cards.length, lines: ends.length, scrollX: document.documentElement.scrollWidth > innerWidth, ends, slots: [...document.querySelectorAll<HTMLElement>('.cr-slot')].map(el => el.getBoundingClientRect().toJSON()) };
+  });
+}
+
+test('computers: the overdue check opens the fullscreen radar with real figures, the squirrel and a card per job', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const radar = await open(page, [...sixLate, owed('j7', 'งานใกล้ครบกำหนด', 'ลูกค้าใหม่', 7000, -5), paid('j8', 'งานรับเงินแล้ว', 'คุณเบย์', 8600, 2)]);
+  await expect(page.getByTestId('overdue-report')).toHaveCount(0);
+  const box = await radar.boundingBox();
+  expect(box).toMatchObject({ x: 0, y: 0, width: 1440, height: 900 });
+  // The working squirrel (headset, laptop) with its hologram screen typing the real jobs.
+  await expect(radar.locator('.crh-mascot')).toHaveAttribute('src', '/line/mascot-v6-working.png');
+  await expect(radar.locator('.crv')).toContainText('กำลังตรวจเครดิตเทอม');
+  await expect(radar.locator('.crv')).toContainText('เกินกำหนด 6');
+  await expect(radar.locator('.crv-line').first()).toContainText('บริษัท ผิวใส จำกัด');
+  await expect(radar.getByRole('heading', { name: 'ต้องติดตาม 7 รายการ' })).toBeVisible();
+  // The figures: everything owed (never what came in), how many to follow up, overdue, due soon.
+  await expect(radar.getByTestId('radar-outstanding')).toHaveText('฿101,700', { timeout: 4000 });
+  await expect(radar.getByTestId('radar-followup')).toHaveText('7 รายการ');
+  await expect(radar.getByTestId('radar-overdue')).toHaveText('฿94,700');
+  await expect(radar.getByTestId('radar-soon')).toHaveText('฿7,000');
+  // Overdue first: six red cards fill both sides at this height.
+  const cards = radar.getByTestId('radar-card');
+  await expect(cards).toHaveCount(6);
+  await expect(cards.first()).toHaveAttribute('data-status', 'overdue');
+  await expect(cards.first()).toContainText('บริษัท ผิวใส จำกัด');
+  await expect(cards.first()).toContainText('เลย 52 วัน');
+  await expect(radar.getByTestId('radar-show-all')).toHaveText('ดูทั้งหมด 8 รายการ');
+  await page.waitForTimeout(2200);
+  const layout = await layoutCheck(page);
+  expect(layout.problems).toEqual([]);
+  expect(layout.scrollX).toBe(false);
+  expect(layout.lines).toBe(6);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath('credit-radar-1440.png') });
+});
+
+test('statuses: red overdue, amber due soon, green only when paid, neutral not yet due; every line ends at its card', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const radar = await open(page, mixed);
+  const cards = radar.getByTestId('radar-card');
+  await expect(cards).toHaveCount(5);
+  const statusOf = async (text: string) => cards.filter({ hasText: text }).getAttribute('data-status');
+  expect(await statusOf('บริษัท ผิวใส จำกัด')).toBe('overdue');
+  expect(await statusOf('ร้านกาแฟ Good Day')).toBe('soon');
+  expect(await statusOf('คุณเบย์')).toBe('received');
+  expect(await statusOf('Give Lab')).toBe('later');
+  await expect(cards.filter({ hasText: 'คุณเบย์' })).toContainText('รับเงินแล้ว');
+  await expect(cards.filter({ hasText: 'ร้านกาแฟ Good Day' })).toContainText('อีก 3 วัน');
+  // What came in is not owed.
+  await expect(radar.getByTestId('radar-outstanding')).toHaveText('฿82,000', { timeout: 4000 });
+  await page.waitForTimeout(2200);
+  const check = async () => {
+    const layout = await layoutCheck(page);
+    expect(layout.problems).toEqual([]);
+    // Each line's end sits on the inner edge of a card's slot.
+    for (const end of layout.ends) {
+      const hit = layout.slots.some(slot => Math.abs(end.y - (slot.top + slot.height / 2)) < 2 && (Math.abs(end.x - slot.right) < 2 || Math.abs(end.x - slot.left) < 2));
+      expect(hit, `line ${end.id} ends at its card`).toBe(true);
+    }
+  };
+  await check();
+  // The window changes size: the lines follow the cards.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.waitForTimeout(600);
+  await check();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath('credit-radar-mixed.png') });
+});
+
+test('hover lights the card\'s line and steps the rest back; a click opens the real job', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const radar = await open(page, mixed);
+  await page.waitForTimeout(2000);
+  const card = radar.getByTestId('radar-card').filter({ hasText: 'ร้านกาแฟ Good Day' });
+  // The cards float; the pointer is placed without waiting for one to hold still (it stops once the pointer is on it).
+  await card.hover({ force: true });
+  await expect(radar.locator('.crl-line[data-line="m3"]')).toHaveClass(/is-active/);
+  await expect(radar.locator('.crl-line[data-line="m1"]')).toHaveClass(/is-dim/);
+  await expect(radar.getByTestId('radar-card').filter({ hasText: 'บริษัท ผิวใส จำกัด' })).toHaveClass(/is-dim/);
+  await card.click();
+  await expect(radar).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'แก้ไขงาน' })).toBeVisible();
+  await expect.poll(() => page.locator('input').evaluateAll(inputs => inputs.some(input => (input as HTMLInputElement).value === 'ออกแบบเมนู'))).toBe(true);
+});
+
+test('Esc closes back to the page underneath; the close button too', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const radar = await open(page, mixed);
+  await expect(page.getByTestId('radar-close')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(radar).toBeHidden();
+  await expect(page.locator('#dashboard-top')).toBeVisible();
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe('');
+});
+
+test('many jobs: the cards that fit, and the full list grouped; Esc closes the list first', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const many = Array.from({ length: 24 }, (_, i) => owed(`k${i}`, `งานที่ ${i + 1}`, `ลูกค้า ${i + 1}`, 1000 + i * 250, 2 + i));
+  const radar = await open(page, many);
+  const cards = radar.getByTestId('radar-card');
+  const shown = await cards.count();
+  expect(shown).toBeGreaterThanOrEqual(2);
+  expect(shown).toBeLessThan(24);
+  await page.waitForTimeout(2000);
+  expect((await layoutCheck(page)).problems).toEqual([]);
+  await radar.getByTestId('radar-show-all').click();
+  const list = radar.getByTestId('radar-all');
+  await expect(list).toBeVisible();
+  await expect(list.locator('.cra-row')).toHaveCount(24);
+  await expect(list).toContainText('24 รายการ');
+  await page.keyboard.press('Escape');
+  await expect(list).toBeHidden();
+  await expect(radar).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Gone from the page, not just faded: nothing invisible is left over it.
+  await expect(radar).toHaveCount(0, { timeout: 2000 });
+  await page.locator('#dashboard-top').click({ trial: true });
+});
+
+test('one job: one card, nothing overlapping', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const radar = await open(page, [owed('o1', 'ออกแบบโลโก้', 'สตูดิโอเล็ก', 3500, 3)]);
+  await expect(radar.getByTestId('radar-card')).toHaveCount(1);
+  await page.waitForTimeout(2000);
+  expect((await layoutCheck(page)).problems).toEqual([]);
+  expect(await textOverlapIssues(page)).toEqual([]);
+});
+
+test('reduced motion: everything still, no running lights', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const radar = await open(page, mixed);
+  await expect(radar).toHaveClass(/is-still/);
+  await expect(radar.locator('.crl-dot')).toHaveCount(0);
+  await expect(radar.getByTestId('radar-outstanding')).toHaveText('฿82,000');
+});
+
+test.describe('iPads keep the report dialog', () => {
+  test.use({ hasTouch: true, isMobile: true });
+  test('a touch iPad in landscape gets the dialog, not the radar', async ({ page }) => {
+    await page.setViewportSize({ width: 1180, height: 820 });
+    await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
+    await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'Test user' } }));
+    await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
+    await page.route('**/api/usage-analytics', route => route.fulfill({ json: { ok: true } }));
+    await page.route('**/api/account', route => route.fulfill({ json: { backupEmail: null } }));
+    await page.route('**/api/auth', route => route.fulfill({ json: { session: { user } } }));
+    await page.route('**/api/data*', route => route.fulfill({ json: { snapshot: {
+      jobs: sixLate, expenses: [], goals: [], invoices: [], statuses, job_types: ['Sponsored Post'],
+      settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', theme: { mode: 'light', darkFrom: '18:00', lightFrom: '06:00', asked: true } },
+      notif_settings: { enabled: true, alertEmail: user.email, serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], lineUserId: null },
+      avatar_data_url: null, issuer_profile: null,
+    }, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2027-01-01T00:00:00Z' } } }));
+    await page.goto('/');
+    await expect(page.getByTestId('overdue-report')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('credit-radar')).toHaveCount(0);
+  });
+});

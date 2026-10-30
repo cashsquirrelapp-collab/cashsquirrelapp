@@ -469,6 +469,33 @@ card does not need:
   slide in from the squirrel's side, chips pop, the summary types in. Nothing moves with reduced motion. Built with the
   app's own motion library; no GSAP (a scroll-driven library; the dialog does not scroll).
 
+### Credit Radar (owner's brief "KRAROK — FULLSCREEN HOLOGRAPHIC CREDIT RADAR", 2026-10-30)
+- Computers only (`(min-width: 1024px) and (hover: hover) and (pointer: fine)`, `radar/desktopQuery.ts`): the once-a-day
+  overdue check opens a fullscreen radar (`features/receivables/radar/`: `CreditRadar`, `HolographicSquirrel`,
+  `CreditCard`, `ConnectionLines`, `RadarSummary`, `radarData.ts`, `creditRadar.css`). Touch iPads keep the overdue
+  report dialog; phones keep their alert.
+- Data: the jobs as saved, with the receivables page's rules (owed = pending > 0 and sent; due = payDate; due soon = within
+  7 days); green only for jobs marked paid in full in the last 7 days; days on the Bangkok calendar. "เงินค้างรับทั้งหมด"
+  never includes money already received.
+- Obsidian with copper light. Header: "เรดาร์เครดิตเทอม · ข้อมูล ณ date", "ต้องติดตาม N รายการ", counts; the round close
+  button top right (turns and glows on hover); Esc closes (the full list first); focus stays inside and returns after.
+- Centre: the real working squirrel (`mascot-v6-working.png`, headset and laptop; owner: "ให้น้องมีจอโฮโลแกรม ... คอยพิมพ์งาน
+  หรือตรวจเรดาร์") typing its report onto a hologram screen that rises from the laptop (a light cone joins them; the
+  screen is a prop, the squirrel is never redrawn): "กำลังตรวจเครดิตเทอม", a small radar sweeping, the counts, and the real
+  jobs typing in one line every 2.6 s with a cursor. It floats (3.6 s) on an amber stand with the Krarok mark, a beam, rising sparks, a base
+  pulse every 2 s, three tilted orbit rings turning (22/30/40 s) with lights, an upright radar disc (rings, cross, a scan
+  line turning every 24 s), ambient glow (4 s); four status chips (เกินกำหนด, ใกล้ครบกำหนด, ยังไม่ถึงกำหนด, รับเงินแล้ว) when
+  the radar is 400px or more.
+- Cards left and right (as many as fit, one to four a side; overdue first, then due soon, paid, not yet due): client, job,
+  status badge, amount, days, ส่งงาน / ครบกำหนด / วันนี้ (or รับเงิน) in order. They come in one by one, float slowly out of
+  step, hold still and lift with a glow under the pointer; overdue cards pulse red softly. A click opens the job's form.
+- Lines from the squirrel's edge to each card, measured from the cards' layout (again on any resize); a light runs along
+  each now and then; the hovered card's line lights up, the rest step back.
+- Bottom bar: เงินค้างรับทั้งหมด (largest), ต้องติดตาม, เกินกำหนด, ใกล้ครบกำหนด (counters on open and when a figure
+  changes), "ดูทั้งหมด N รายการ" (a grouped list panel) and ไปที่เงินรอรับ.
+- Loops are CSS transform/opacity only; they pause while the tab is hidden and stop with reduced motion. Mouse parallax
+  moves the backdrop and rings by a few px through CSS variables (no React render).
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

@@ -1,8 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
 
-// Overdue money on computers and iPads opens as a short report (owner, 2026-10-30: "เหมือนกำลังรายงาน CEO ... liquid card
-// ภาพรวม"); phones keep their alert.
+// Overdue money on iPads opens as a short report (owner, 2026-10-30: "เหมือนกำลังรายงาน CEO ... liquid card ภาพรวม"); phones
+// keep their alert; computers open the fullscreen Credit Radar (tests/e2e/credit-radar.spec.ts). These run as touch devices.
+test.use({ hasTouch: true, isMobile: true });
 
 const user = { id: '11111111-1111-4111-8111-111111111111', email: 'test@example.com', role: 'user', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1, statuses: 1, job_types: 1, notif_settings: 1 } };
@@ -45,8 +46,8 @@ async function open(page: Page, mode: 'light' | 'dark' = 'light', list = jobs) {
   await page.goto('/');
 }
 
-test('computers: the overdue alert is a hologram stage over a finance backdrop, with the largest jobs around the squirrel', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 860 });
+test('iPad landscape: the overdue alert is a hologram stage over a finance backdrop, with the largest jobs around the squirrel', async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 820 });
   await open(page);
   const report = page.getByTestId('overdue-report');
   await expect(report).toBeVisible({ timeout: 10_000 });
@@ -94,8 +95,8 @@ test('computers: the overdue alert is a hologram stage over a finance backdrop, 
   await expect(page).toHaveURL(/receivables/);
 });
 
-test('computers in dark mode: the report reads on the dark surface', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 860 });
+test('iPad landscape in dark mode: the report reads on the dark surface', async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 820 });
   await open(page, 'dark');
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(true);
   const report = page.getByTestId('overdue-report');
@@ -128,8 +129,8 @@ test('phones keep the old alert', async ({ page }) => {
   await expect(page.getByTestId('overdue-report')).toHaveCount(0);
 });
 
-test('the motion plays once: frames while it opens', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 860 });
+test('iPad landscape: the motion plays once, frames while it opens', async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 820 });
   await open(page);
   const report = page.getByTestId('overdue-report');
   await expect(report).toBeVisible({ timeout: 10_000 });
@@ -139,8 +140,8 @@ test('the motion plays once: frames while it opens', async ({ page }) => {
   }
 });
 
-test('a very large total still fits its card, with nothing overlapping', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 860 });
+test('iPad landscape: a very large total still fits its card, with nothing overlapping', async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 820 });
   await open(page, 'light', [job('b1', 'งานยอดสูงมาก', 'ลูกค้าใหญ่', 312_327_222, 40), job('b2', 'งานที่สอง', 'ลูกค้าเล็ก', 98_765_432, 10)]);
   const report = page.getByTestId('overdue-report');
   await expect(report.locator('.odr-total')).toHaveText('฿411,092,654', { timeout: 10_000 });

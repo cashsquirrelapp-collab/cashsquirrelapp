@@ -1,0 +1,246 @@
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Radar, X } from 'lucide-react';
+import type { Job } from '../../../../../shared/types';
+import { dateLocale, formatCurrency } from '../../../utils';
+import { tr } from '../../../i18n/tr';
+import { bangkokToday, buildCreditRadar, radarCards, type CreditRadarData, type RadarItem, type RadarStatus } from './radarData';
+import { CreditCard, daysLabel } from './CreditCard';
+import type { ScreenLine } from './HoloScreen';
+import { HolographicSquirrel, type RadarChip } from './HolographicSquirrel';
+import { ConnectionLines, type LineTarget } from './ConnectionLines';
+import { RadarSummary } from './RadarSummary';
+import './creditRadar.css';
+
+// KRAROK — FULLSCREEN HOLOGRAPHIC CREDIT RADAR (owner's brief, 2026-10-30), computers only (a mouse and 1024px+); iPads
+// keep the report dialog and phones their alert. Opens over the whole window from the once-a-day overdue check and
+// closes back to the page underneath (the close button, Esc, or opening a job). The jobs are the app's own, read live:
+// a payment recorded elsewhere turns its card green.
+
+const CARD_H = 180;
+const GAP = 16;
+
+
+function useElementSize(ref: React.RefObject<HTMLElement | null>, active: boolean) {
+  const [size, setSize] = React.useState({ w: 0, h: 0 });
+  React.useLayoutEffect(() => {
+    if (!active || !ref.current) return;
+    const el = ref.current;
+    const read = () => setSize(current => (current.w === el.clientWidth && current.h === el.clientHeight ? current : { w: el.clientWidth, h: el.clientHeight }));
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, active]);
+  return size;
+}
+
+function AllItems({ data, onOpen, onClose }: { data: CreditRadarData; onOpen: (id: string) => void; onClose: () => void }) {
+  const groups: { key: RadarStatus; title: string; items: RadarItem[] }[] = [
+    { key: 'overdue', title: tr("เกินกำหนด"), items: data.overdue },
+    { key: 'soon', title: tr("ใกล้ครบกำหนด (7 วัน)"), items: data.soon },
+    { key: 'received', title: tr("รับเงินแล้ว (7 วันล่าสุด)"), items: data.received },
+    { key: 'later', title: tr("ยังไม่ถึงกำหนด"), items: data.later },
+  ];
+  return (
+    <motion.aside className="cra" role="region" aria-label={tr("รายการทั้งหมด")} data-testid="radar-all"
+      initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}>
+      <div className="cra-head">
+        <p className="cra-title">{tr("รายการทั้งหมด")}</p>
+        <button type="button" className="cra-close" onClick={onClose} aria-label={tr("ปิดรายการทั้งหมด")}><X className="h-4 w-4" strokeWidth={2.2} /></button>
+      </div>
+      <div className="cra-body">
+        {groups.filter(group => group.items.length).map(group => (
+          <section key={group.key} className="cra-group">
+            <p className={`cra-group-title is-${group.key}`}>{group.title}<span>{tr("{0} รายการ", group.items.length)} · {formatCurrency(group.items.reduce((sum, item) => sum + item.amount, 0))}</span></p>
+            {group.items.map(item => (
+              <button key={item.id} type="button" className="cra-row" onClick={() => onOpen(item.id)}>
+                <span className="cra-row-who"><span className="cra-row-client">{item.client || item.name}</span><span className="cra-row-job">{item.name}</span></span>
+                <span className="cra-row-end"><span className="cra-row-amount">{formatCurrency(item.amount)}</span><span className={`cra-row-days is-${item.status}`}>{daysLabel(item)}</span></span>
+              </button>
+            ))}
+          </section>
+        ))}
+      </div>
+    </motion.aside>
+  );
+}
+
+export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, onOpenReceivables }: {
+  open: boolean;
+  jobs: Job[];
+  loading?: boolean;
+  onClose: () => void;
+  onOpenJob: (id: string) => void;
+  onOpenReceivables: () => void;
+}) {
+  const reduce = useReducedMotion() ?? false;
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const stageRef = React.useRef<HTMLDivElement>(null);
+  const hubRef = React.useRef<HTMLDivElement>(null);
+  const closeRef = React.useRef<HTMLButtonElement>(null);
+  const cardRefs = React.useRef(new Map<string, HTMLElement>());
+  const [hovered, setHovered] = React.useState<string | null>(null);
+  const [showAll, setShowAll] = React.useState(false);
+  const showAllRef = React.useRef(false);
+  showAllRef.current = showAll;
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+  const stage = useElementSize(stageRef, open);
+  // A safety net: once closed, the radar is gone within 0.7 s even if its fade-out never reports back, so an invisible
+  // layer can never sit over the page.
+  const [present, setPresent] = React.useState(open);
+  React.useEffect(() => {
+    if (open) { setPresent(true); return; }
+    const timer = window.setTimeout(() => setPresent(false), 700);
+    return () => window.clearTimeout(timer);
+  }, [open]);
+
+  const today = React.useMemo(() => bangkokToday(), [open]);
+  const result = React.useMemo((): { data: CreditRadarData | null; failed: boolean } => {
+    try { return { data: buildCreditRadar(jobs, today), failed: false }; } catch { return { data: null, failed: true }; }
+  }, [jobs, today]);
+  const data = result.data;
+
+  // Cards per side: as many as fit the height (one to four), never overlapping.
+  const perSide = Math.max(1, Math.min(4, Math.floor((stage.h + GAP) / (CARD_H + GAP)) || 3));
+  const shown = data ? radarCards(data, perSide * 2) : [];
+  const left = shown.filter((_, i) => i % 2 === 0), right = shown.filter((_, i) => i % 2 === 1);
+  const total = data ? data.overdue.length + data.soon.length + data.received.length + data.later.length : 0;
+  const colWidth = Math.round(Math.min(360, Math.max(290, stage.w * 0.25)));
+  const centerWidth = Math.max(0, stage.w - 2 * colWidth - 2 * 32);
+  const radarSize = Math.round(Math.max(260, Math.min(centerWidth, stage.h - 8, 620)));
+  const targets: LineTarget[] = [...left.map(item => ({ id: item.id, status: item.status, side: 'left' as const })), ...right.map(item => ({ id: item.id, status: item.status, side: 'right' as const }))];
+  const chips: RadarChip[] = data ? [
+    { key: 'overdue', count: data.overdue.length, label: tr("เกินกำหนด") },
+    { key: 'soon', count: data.soon.length, label: tr("ใกล้ครบกำหนด") },
+    { key: 'later', count: data.later.length, label: tr("ยังไม่ถึงกำหนด") },
+    { key: 'received', count: data.received.length, label: tr("รับเงินแล้ว") },
+  ] : [];
+  // What the squirrel types onto its screen: every job on the radar, in the order the cards use.
+  const screenLines: ScreenLine[] = data ? radarCards(data, 40).map(item => ({ key: item.id, name: item.client || item.name, amount: formatCurrency(item.amount), tone: item.status })) : [];
+  const screenCounts = data ? { overdue: data.overdue.length, soon: data.soon.length, received: data.received.length } : { overdue: 0, soon: 0, received: 0 };
+  const longDate = new Date(`${today}T00:00:00`).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Esc closes the list first, then the radar; Tab stays inside; focus returns where it was.
+  React.useEffect(() => {
+    if (!open) return;
+    const before = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusTimer = window.setTimeout(() => closeRef.current?.focus({ preventScroll: true }), 30);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); if (showAllRef.current) setShowAll(false); else onCloseRef.current(); return; }
+      if (event.key !== 'Tab' || !rootRef.current) return;
+      const focusable = [...rootRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')].filter(el => el.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+      before?.focus?.({ preventScroll: true });
+    };
+  }, [open]);
+  React.useEffect(() => { if (!open) { setShowAll(false); setHovered(null); } }, [open]);
+
+  // Loops pause while the tab is hidden.
+  React.useEffect(() => {
+    if (!open) return;
+    const sync = () => rootRef.current?.classList.toggle('is-paused', document.hidden);
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, [open]);
+
+  // A light parallax with the mouse: CSS variables set once a frame, no React render.
+  const frame = React.useRef(0);
+  const onMouseMove = (event: React.MouseEvent) => {
+    if (reduce || !rootRef.current) return;
+    const { innerWidth: w, innerHeight: h } = window;
+    const x = (event.clientX / w - 0.5) * 2, y = (event.clientY / h - 0.5) * 2;
+    cancelAnimationFrame(frame.current);
+    frame.current = requestAnimationFrame(() => {
+      rootRef.current?.style.setProperty('--mx', x.toFixed(3));
+      rootRef.current?.style.setProperty('--my', y.toFixed(3));
+    });
+  };
+
+  const cardList = (list: RadarItem[], side: 'left' | 'right') => (
+    <div className={`cr-col is-${side}`}>
+      <AnimatePresence initial={!reduce}>
+        {list.map((item, i) => (
+          <motion.div key={item.id} layout={!reduce} className="cr-slot"
+            ref={el => { if (el) cardRefs.current.set(item.id, el); else cardRefs.current.delete(item.id); }}
+            initial={reduce ? false : { opacity: 0, x: side === 'left' ? -36 : 36, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.6, delay: reduce ? 0 : 0.35 + (i * 2 + (side === 'right' ? 1 : 0)) * 0.07, ease: [0.22, 1, 0.36, 1] }}>
+            <div className="cr-float" style={{ animationDuration: `${5.6 + ((i * 2 + (side === 'right' ? 1 : 0)) % 4) * 0.7}s`, animationDelay: `${-(i * 1.3 + (side === 'right' ? 0.6 : 0))}s` }}>
+              <CreditCard item={item} today={today} dimmed={hovered !== null && hovered !== item.id} onHover={setHovered} onOpen={onOpenJob} />
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+
+  if (!open && !present) return null;
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <motion.div ref={rootRef} className={`cr${reduce ? ' is-still' : ''}`} role="dialog" aria-modal="true" aria-label={tr("เรดาร์เครดิตเทอม")} data-testid="credit-radar"
+          onMouseMove={onMouseMove}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0.01 : 0.4 }}>
+          <span className="cr-ambient" aria-hidden="true" />
+          <span className="cr-grid" aria-hidden="true" />
+          <motion.div className="cr-scene" initial={reduce ? false : { scale: 1.03 }} animate={{ scale: 1 }} exit={{ scale: 0.985 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
+            <header className="cr-head">
+              <div className="cr-head-text">
+                <p className="cr-eyebrow"><Radar className="h-4 w-4" strokeWidth={2} aria-hidden="true" />{tr("เรดาร์เครดิตเทอม · ข้อมูล ณ {0}", longDate)}</p>
+                <h2 className="cr-title">{data && data.totals.followUp > 0 ? tr("ต้องติดตาม {0} รายการ", data.totals.followUp) : tr("เรดาร์เครดิตเทอม")}</h2>
+                {data && <p className="cr-sub">{tr("เกินกำหนด {0} · ใกล้ครบกำหนด {1} · รับเงินแล้ว 7 วันล่าสุด {2}", data.overdue.length, data.soon.length, data.received.length)}</p>}
+              </div>
+              <button ref={closeRef} type="button" className="cr-close" onClick={onClose} aria-label={tr("ปิดเรดาร์")} data-testid="radar-close">
+                <X className="h-5 w-5" strokeWidth={2.2} />
+              </button>
+            </header>
+
+            <main ref={stageRef} className="cr-stage" style={{ gridTemplateColumns: `${colWidth}px minmax(0, 1fr) ${colWidth}px` }}>
+              {loading ? (
+                <div className="cr-state"><HolographicSquirrel ref={hubRef} size={Math.min(320, radarSize)} chips={[]} showChips={false} reduce={reduce} /><p>{tr("กำลังโหลดข้อมูล")}</p></div>
+              ) : result.failed || !data ? (
+                <div className="cr-state"><p className="cr-state-title">{tr("แสดงเรดาร์ไม่ได้ในขณะนี้")}</p><p>{tr("ดูรายการทั้งหมดได้ที่หน้าเงินรอรับ")}</p></div>
+              ) : total === 0 ? (
+                <div className="cr-state"><HolographicSquirrel ref={hubRef} size={Math.min(320, radarSize)} chips={[]} showChips={false} reduce={reduce} /><p className="cr-state-title">{tr("ตอนนี้ไม่มีรายการที่ต้องติดตาม")}</p></div>
+              ) : (
+                <>
+                  <ConnectionLines stageRef={stageRef} hubRef={hubRef} cardRefs={cardRefs} targets={targets} hovered={hovered} reduce={reduce}
+                    layoutKey={`${stage.w}x${stage.h}:${targets.map(target => target.id).join(',')}`} />
+                  {cardList(left, 'left')}
+                  <div className="cr-center">
+                    <HolographicSquirrel ref={hubRef} size={radarSize} chips={chips} showChips={radarSize >= 400} reduce={reduce}
+                      screen={radarSize >= 400 ? { lines: screenLines, counts: screenCounts } : undefined} />
+                  </div>
+                  {cardList(right, 'right')}
+                </>
+              )}
+            </main>
+
+            {data && total > 0 && (
+              <footer className="cr-foot">
+                <RadarSummary data={data} hiddenCount={total - shown.length} reduce={reduce} onShowAll={() => setShowAll(true)} onOpenReceivables={onOpenReceivables} />
+              </footer>
+            )}
+          </motion.div>
+          <AnimatePresence>{showAll && data && <AllItems data={data} onOpen={onOpenJob} onClose={() => setShowAll(false)} />}</AnimatePresence>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  );
+}

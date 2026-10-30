@@ -78,6 +78,8 @@ import type { SettingsView } from '../features/settings/SettingsTab';
 import { KsIcon, type KsIconName } from '../features/mobile/icons';
 import { useMobileLayout } from '../features/mobile/useMobileLayout';
 import { OverdueReport, type OverdueItem } from '../features/receivables/OverdueReport';
+import { DESKTOP_RADAR_QUERY } from '../features/receivables/radar/desktopQuery';
+const CreditRadar = lazy(() => import('../features/receivables/radar/CreditRadar').then(m => ({ default: m.CreditRadar })));
 import { hideSplash } from './splash';
 import { isUpdateReady, reloadForUpdate, setUpdateGuard } from './appUpdate';
 import { MobilePageHero } from '../features/mobile/MobilePageHero';
@@ -544,6 +546,11 @@ export default function App() {
   isPhoneRef.current = isPhone;
   // Overdue money on computers and iPads opens as a short report (phones keep their alert).
   const [overdueReport, setOverdueReport] = useState<{ items: OverdueItem[]; newToday: number } | null>(null);
+  // Computers (a mouse, 1024px+): the overdue check opens the fullscreen Credit Radar instead (owner's brief, 2026-10-30).
+  const [creditRadarOpen, setCreditRadarOpen] = useState(false);
+  // Kept mounted once opened, so closing can fade out.
+  const [creditRadarMounted, setCreditRadarMounted] = useState(false);
+  const closeCreditRadar = React.useCallback(() => setCreditRadarOpen(false), []);
   const openPhoneMenu = React.useCallback(() => setIsMobileMenuOpen(true), []);
   useEffect(() => {
     const query = window.matchMedia('(min-width: 1024px)');
@@ -2305,6 +2312,7 @@ export default function App() {
             dueOn: j.dueDate || j.payDate || null,
           }));
           setTimeout(() => {
+            if (window.matchMedia(DESKTOP_RADAR_QUERY).matches) { setCreditRadarMounted(true); setCreditRadarOpen(true); return; }
             if (!isPhoneRef.current) {
               setOverdueReport({ items: reportItems, newToday: reportItems.filter(item => item.daysLate === 1).length });
               return;
@@ -3681,6 +3689,13 @@ export default function App() {
           </Suspense>
         )}
         {showThemeTip && !proKvOpen && <ThemeTip phone={isPhone} onChoose={answerThemeTip} />}
+        {creditRadarMounted && (
+          <Suspense fallback={null}>
+            <CreditRadar open={creditRadarOpen} jobs={jobs} onClose={closeCreditRadar}
+              onOpenJob={(id: string) => { setCreditRadarOpen(false); setEditJobRequest(id); navigateTab('jobs'); }}
+              onOpenReceivables={() => { setCreditRadarOpen(false); navigateTab('receivables'); }} />
+          </Suspense>
+        )}
         <OverdueReport open={!!overdueReport && !isPhone} items={overdueReport?.items ?? []} newToday={overdueReport?.newToday ?? 0}
           onOpen={() => { setOverdueReport(null); navigateTab('receivables'); }} onClose={() => setOverdueReport(null)} />
         {proKvOpen && (
