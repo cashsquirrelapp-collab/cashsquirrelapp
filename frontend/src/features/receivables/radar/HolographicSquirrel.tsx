@@ -1,12 +1,14 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { Mascot } from '../../../components/mascot/Mascot';
 import { HoloScreen, type ScreenLine } from './HoloScreen';
 
-// The centre of the Credit Radar: the working squirrel (the real picture, headset and laptop; never redrawn or recoloured,
-// only lit) floating over a holographic stand, typing its report onto a hologram screen that rises from the laptop (owner,
-// 2026-10-30), with radar rings, a turning scan line, orbiting lights, rising sparks and a pulse at the base. Everything
-// that loops is CSS (transform and opacity only), so React never redraws it; it pauses with the tab and stops with reduced
-// motion. (The status chips that sat on the radar were taken off, owner 2026-10-30: the tabs above say which status shows.)
+// The centre of the Credit Radar: the squirrel (the app's own Mascot, headset on, paws typing; never redrawn — only its
+// little keyboard and paper are left out) floating over a holographic stand, with a blue sci-fi screen hovering in front of
+// it (owner, 2026-10-30: "จอด้านหน้าน้อง ... จอสีฟ้าๆ เหมือนในหนังแฟนตาซี", instead of the laptop and the hologram rising from
+// it), radar rings, a turning scan line, orbiting lights, rising sparks and a pulse at the base. Everything that loops is
+// CSS (transform and opacity only); it pauses with the tab and stops with reduced motion. (The status chips that sat on the
+// radar were taken off, owner 2026-10-30: the tabs above say which status shows.)
 
 const SPARKS = Array.from({ length: 14 }, (_, i) => ({ left: 32 + ((i * 37) % 36), delay: -(i * 0.83), duration: 6.5 + (i % 4) * 0.9 }));
 
@@ -42,7 +44,7 @@ export const HolographicSquirrel = React.forwardRef<HTMLDivElement, {
           <motion.span className="crh-stand" {...enter(0.35, { y: 16 })}>
             <span className="crh-stand-top" />
             <span className="crh-stand-core" />
-            <span className="crh-stand-front"><img className="crh-logo is-on-dark" src="/brand/logo01-v1/symbol-white.svg" alt="" width="14" height="14" /><img className="crh-logo is-on-light" src="/brand/logo01-v1/symbol-ci.svg" alt="" width="14" height="14" />Krarok</span>
+            <span className="crh-stand-front">{(size >= 420 || !screen) && <span className="crh-brand"><img className="crh-logo is-on-dark" src="/brand/logo01-v1/symbol-white.svg" alt="" width="14" height="14" /><img className="crh-logo is-on-light" src="/brand/logo01-v1/symbol-ci.svg" alt="" width="14" height="14" />Krarok</span>}</span>
           </motion.span>
           <span className="crh-beam" />
           <span className="crh-sparks">
@@ -50,30 +52,18 @@ export const HolographicSquirrel = React.forwardRef<HTMLDivElement, {
           </span>
           <div ref={hubRef} className="crh-hub">
             <motion.div className="crh-float" {...enter(0.45, { y: 24, scale: 0.94, filter: 'blur(8px)' })}>
-              <img src="/line/mascot-v6-working.png" alt="" aria-hidden="true" className="crh-mascot" draggable={false} />
+              <div className="crh-mascot" aria-hidden="true">
+                <Mascot mood="happy" action="typing" typingKit={false} gear="headset" animated={!reduce} size={Math.round(size * 0.5)} />
+              </div>
             </motion.div>
           </div>
         </div>
         {screen && (
-          <>
-            {/* The light from the laptop up to the screen. */}
-            <motion.svg className="crh-projection" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"
-              {...(reduce ? {} : { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.6, delay: 0.95 } })}>
-              <defs>
-                <linearGradient id="crh-projection-fill" x1="0.1" y1="1" x2="0.6" y2="0">
-                  <stop offset="0%" stopColor="#FFB070" stopOpacity="0.55" />
-                  <stop offset="100%" stopColor="#FFB070" stopOpacity="0.06" />
-                </linearGradient>
-              </defs>
-              <polygon points="48.5,67 52.5,67 95,43 58,43" fill="url(#crh-projection-fill)" />
-              <line x1="48.5" y1="67" x2="58" y2="43" className="crh-projection-edge" />
-              <line x1="52.5" y1="67" x2="95" y2="43" className="crh-projection-edge" />
-            </motion.svg>
-            <motion.div className="crh-screen"
-              {...(reduce ? {} : { initial: { opacity: 0, scale: 0.6, y: 30, filter: 'blur(6px)' }, animate: { opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }, transition: { duration: 0.7, delay: 1.0, ease: [0.22, 1, 0.36, 1] as const } })}>
-              <div className="crh-screen-float"><div className="crh-screen-tilt"><HoloScreen lines={screen.lines} counts={screen.counts} rows={screen.rows} reduce={reduce} /></div></div>
-            </motion.div>
-          </>
+          // The blue screen in front of the squirrel, at its chest, the face above it, the typing paws faint behind it.
+          <motion.div className={`crh-console${size < 420 ? ' is-small' : ''}`}
+            {...(reduce ? {} : { initial: { opacity: 0, scaleY: 0.2, filter: 'blur(6px)' }, animate: { opacity: 1, scaleY: 1, filter: 'blur(0px)' }, transition: { duration: 0.7, delay: 0.95, ease: [0.22, 1, 0.36, 1] as const } })}>
+            <div className="crh-console-float"><div className="crh-console-tilt"><HoloScreen lines={screen.lines} counts={screen.counts} rows={screen.rows} reduce={reduce} compact={size < 420} /></div></div>
+          </motion.div>
         )}
       </div>
     );

@@ -1,9 +1,9 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ChevronLeft, ChevronRight, Radar, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { Job } from '../../../../../shared/types';
-import { dateLocale, formatCurrency } from '../../../utils';
+import { formatCurrency } from '../../../utils';
 import { tr } from '../../../i18n/tr';
 import { bangkokToday, buildCreditRadar, type CreditRadarData, type RadarItem, type RadarStatus } from './radarData';
 import { CreditCard, daysLabel } from './CreditCard';
@@ -140,7 +140,6 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
   // What the squirrel types onto its screen: the jobs of the status on show.
   const screenLines: ScreenLine[] = list.slice(0, 40).map(item => ({ key: item.id, name: item.client || item.name, amount: formatCurrency(item.amount), tone: item.status }));
   const screenCounts = data ? { overdue: data.overdue.length, soon: data.soon.length, received: data.received.length } : { overdue: 0, soon: 0, received: 0 };
-  const longDate = new Date(`${today}T00:00:00`).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
 
   // Esc closes the list first, then the radar; Tab stays inside; focus returns where it was.
   React.useEffect(() => {
@@ -236,7 +235,6 @@ export function CreditRadar({ open, jobs, loading = false, onClose, onOpenJob, o
           <motion.div className="cr-scene" initial={reduce ? false : { scale: 1.03 }} animate={{ scale: 1 }} exit={{ scale: 0.985 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
             <header className="cr-head">
               <div className="cr-head-text">
-                <p className="cr-eyebrow"><Radar className="h-4 w-4" strokeWidth={2} aria-hidden="true" />{tr("เรดาร์เครดิตเทอม · ข้อมูล ณ {0}", longDate)}</p>
                 <h2 className="cr-title">{data && data.totals.followUp > 0 ? tr("ต้องติดตาม {0} รายการ", data.totals.followUp) : tr("เรดาร์เครดิตเทอม")}</h2>
                 {groups && total > 0 && (
                   <div className="cr-tabs">

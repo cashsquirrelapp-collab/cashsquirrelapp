@@ -87,9 +87,11 @@ test('computers: the overdue check opens the fullscreen radar with real figures,
   await expect(page.getByTestId('overdue-report')).toHaveCount(0);
   const box = await radar.boundingBox();
   expect(box).toMatchObject({ x: 0, y: 0, width: 1440, height: 900 });
-  // The working squirrel (headset, laptop) with its hologram screen typing the real jobs.
-  await expect(radar.locator('.crh-mascot')).toHaveAttribute('src', '/line/mascot-v6-working.png');
-  await expect(radar.locator('.crv')).toContainText('กำลังตรวจเครดิตเทอม');
+  // The squirrel (the app's own Mascot, headset, typing) with a blue screen in front of it, typing the real jobs; no laptop.
+  await expect(radar.locator('.crh-mascot svg')).toBeVisible();
+  await expect(radar.locator('img[src*="mascot-v6-working"]')).toHaveCount(0);
+  await expect(radar.locator('.crh-console .crv')).toContainText('กำลังตรวจเครดิตเทอม');
+  await expect(radar.locator('.cr-eyebrow')).toHaveCount(0);
   await expect(radar.locator('.crv')).toContainText('เกินกำหนด 6');
   await expect(radar.locator('.crv-line').first()).toContainText('บริษัท ผิวใส จำกัด');
   await expect(radar.getByRole('heading', { name: 'ต้องติดตาม 7 รายการ' })).toBeVisible();

@@ -3,20 +3,22 @@ import { tr } from '../../../i18n/tr';
 import type { RadarStatus } from './radarData';
 
 // The squirrel's own hologram screen (owner, 2026-10-30: "ให้น้องมีจอเหมือนจอโฮโลแกรมของน้อง ที่กำลังดูงาน คอยพิมพ์งาน
-// หรือตรวจเรดาร์"): it rises from the laptop in the squirrel's hands (the real "working" picture; the squirrel is never
-// redrawn, the screen is a prop beside it). A small radar sweeps, the counts sit under it, and the real jobs type in one
+// หรือตรวจเรดาร์"; then "จอด้านหน้าน้อง จอสีฟ้าๆ เหมือนในหนังแฟนตาซี"): a blue sci-fi screen floating in front of the squirrel
+// (a prop; the squirrel is never redrawn). A small radar sweeps, the counts sit under it, and the real jobs type in one
 // line at a time, newest at the bottom with a cursor. Only this screen re-renders, every few seconds, and not while the
 // tab is hidden; with reduced motion it shows the first lines, still.
 
 export interface ScreenLine { key: string; name: string; amount: string; tone: RadarStatus }
 
 
-export function HoloScreen({ lines, counts, rows = 3, reduce }: {
+export function HoloScreen({ lines, counts, rows = 3, reduce, compact = false }: {
   lines: ScreenLine[];
   counts: { overdue: number; soon: number; received: number };
   /** Lines in the log: three, or two on a small radar. */
   rows?: number;
   reduce: boolean;
+  /** A small radar: the counts in one row and no little radar, so the screen stays short. */
+  compact?: boolean;
 }) {
   const [step, setStep] = React.useState(0);
   React.useEffect(() => {
@@ -28,12 +30,12 @@ export function HoloScreen({ lines, counts, rows = 3, reduce }: {
     ? Array.from({ length: Math.min(rows, lines.length) }, (_, i) => ({ slot: step + i, line: lines[(step + i) % lines.length] }))
     : [];
   return (
-    <div className="crv" aria-hidden="true">
+    <div className={`crv${compact ? ' is-compact' : ''}`} aria-hidden="true">
       <span className="crv-corner is-tl" /><span className="crv-corner is-tr" />
       <span className="crv-corner is-bl" /><span className="crv-corner is-br" />
       <p className="crv-head"><span className="crv-live" />{tr("กำลังตรวจเครดิตเทอม")}</p>
       <div className="crv-top">
-        <span className="crv-radar"><span className="crv-sweep" /><i /><i /><i /></span>
+        {!compact && <span className="crv-radar"><span className="crv-sweep" /><i /><i /><i /></span>}
         <span className="crv-counts">
           <span className="is-overdue">{tr("เกินกำหนด {0}", counts.overdue)}</span>
           <span className="is-soon">{tr("ใกล้ครบ {0}", counts.soon)}</span>

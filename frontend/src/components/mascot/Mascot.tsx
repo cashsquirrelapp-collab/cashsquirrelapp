@@ -56,6 +56,9 @@ interface MascotProps {
   gear?: 'none' | 'pro' | 'pro-front' | 'headset';
   /** false hides the thinking face's three trailing thought dots (owner, 2026-10-27, for เลขากระรอก's window). */
   thoughtDots?: boolean;
+  /** false leaves out the typing pose's little keyboard and paper (props, not the squirrel), for a screen of the page's
+   *  own in front of it: the Credit Radar's hologram (owner, 2026-10-30). */
+  typingKit?: boolean;
 }
 
 const SIZE_PRESETS: Record<'sm' | 'md' | 'lg', number> = { sm: 48, md: 88, lg: 140 };
@@ -205,6 +208,7 @@ export function Mascot({
   size = 120,
   viewBox = '0 0 100 100',
   gear = 'none',
+  typingKit = true,
   thoughtDots = true,
 }: MascotProps) {
   const resolvedSize = typeof size === 'number' ? size : SIZE_PRESETS[size];
@@ -615,7 +619,7 @@ export function Mascot({
           <path d="M47 56Q50 57 53 56" stroke={colors.eyes} strokeWidth="1.4" fill="none" strokeLinecap="round" />
         )}
 
-        {isTypingAction && (
+        {isTypingAction && typingKit && (
           <>
             {/* The document being keyed in, lines appearing one after another */}
             <g className={animated ? 'squirrel-doc' : ''}>

@@ -470,13 +470,15 @@ card does not need:
   (cream #FFF9F4 with soft amber glows, white glass cards with copper edges, a light amber stand with the colour logo,
   a light hologram screen; text in ink #1C1917, red #C43A3A, amber #A8650A, green #138A55). Header: "เรดาร์เครดิตเทอม · ข้อมูล ณ date", "ต้องติดตาม N รายการ", counts; the round close
   button top right (turns and glows on hover); Esc closes (the full list first); focus stays inside and returns after.
-- Centre: the real working squirrel (`mascot-v6-working.png`, headset and laptop; owner: "ให้น้องมีจอโฮโลแกรม ... คอยพิมพ์งาน
-  หรือตรวจเรดาร์") typing its report onto a hologram screen that rises from the laptop (a light cone joins them; the
-  screen is a prop, the squirrel is never redrawn): "กำลังตรวจเครดิตเทอม", a small radar sweeping, the counts, and the real
-  jobs typing in one line every 2.6 s with a cursor. It floats (3.6 s) on an amber stand with the Krarok mark, a beam, rising sparks, a base
-  pulse every 2 s, three tilted orbit rings turning (22/30/40 s) with lights, an upright radar disc (rings, cross, a scan
-  line turning every 24 s), ambient glow (4 s). No status circles around it (taken off 2026-10-30: the lines through them looked
-  random).
+- Centre: the squirrel is the app's own Mascot (happy, headset, paws typing; its little keyboard and paper left out with
+  `typingKit={false}`), floating (3.6 s) on an amber stand with the Krarok mark. In front of it, at chest height, a blue
+  sci-fi screen (owner, 2026-10-30: "จอด้านหน้าน้อง จอสีฟ้าๆ เหมือนในหนังแฟนตาซี", instead of the laptop and the hologram
+  rising from it): see-through, cyan edge and top light, scan lines, a glare passing now and then; "กำลังตรวจเครดิตเทอม",
+  a small radar, the counts and the jobs of the status on show typing in with a cursor (compact on a radar under 420px,
+  where the stand's mark is left off). Around them: a beam, rising sparks, a base pulse every 2 s, three tilted orbit rings
+  turning (22/30/40 s), an upright radar disc with a scan line turning every 24 s, ambient glow (4 s). No status circles
+  around it (taken off 2026-10-30: the lines through them looked random). The header has no date line (owner asked to remove
+  it).
 - One status at a time (owner, 2026-10-30: "เกินกำหนด 9 รายการ ก็ขึ้นแค่ 9 รายการที่เกินกำหนด"): tabs under the title —
   เกินกำหนด · ใกล้ครบกำหนด · รับเงินแล้ว · ยังไม่ถึงกำหนด, each with its count (empty ones dimmed); it opens on the first
   that has jobs. The cards, their lines and the squirrel's screen show that status only; more than fit turn over with
