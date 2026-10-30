@@ -645,6 +645,8 @@ test('custom card uses CI fonts and disclosed button consent without a save chec
  await pay.click();
  await expect(page.getByText('กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ')).toBeVisible();
  expect(await page.evaluate(()=> (window as any).__cardConfirm)).toMatchObject({savePaymentMethod:true});
+ // The session already carries its return_url; Stripe refuses a second one from confirm() (owner's live payment, 2026-10-31).
+ expect(await page.evaluate(()=> 'returnUrl' in ((window as any).__cardConfirm||{}))).toBe(false);
  await expect(page).toHaveURL(/\/plans/);
 });
 

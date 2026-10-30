@@ -171,10 +171,12 @@ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplet
     if (Date.parse(checkout.expiresAt) <= Date.now()) { setError(tr("รายการหมดเวลาแล้ว กรุณาปิดและเปิดชำระใหม่")); walletEvent?.paymentFailed({ reason: 'fail' }); return; }
     confirmationLock.current = true; setPaying(true); setError('');
     try {
+      // No returnUrl here: the Checkout Session already has its return_url (with the session id) from the server, and
+      // Stripe refuses a second one (owner's live card payment, 2026-10-31: "You cannot provide `returnUrl` to confirm()
+      // when `return_url` was already provided when creating the Checkout Session").
       const result = await actions.current.confirm({
         redirect: 'if_required', savePaymentMethod: checkout.saveCard === true,
         ...(walletEvent ? { expressCheckoutConfirmEvent: walletEvent } : {}),
-        returnUrl: `${window.location.origin}/app?checkout=success`,
       });
       if (result.type === 'error') { walletEvent?.paymentFailed({ reason: 'fail' }); setError(result.error.message || tr("ชำระไม่สำเร็จ กรุณาตรวจข้อมูลบัตร")); return; }
       setCompleted(true);
