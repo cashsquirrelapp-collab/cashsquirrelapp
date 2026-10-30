@@ -65,7 +65,11 @@ test('a complete draft offers สร้างเอกสาร first, the form 
   const stored = newDocumentDraft(parseLineDocumentCreate('ออกใบแจ้งหนี้ให้คุณบี ตัดต่อวิดีโอ 5 คลิป คลิปละ 1,500 เครดิต 30 วัน หัก 3%')!);
   const card = buildDocumentDraftCard(stored, { name: 'สตูดิโอตัวอย่าง' }) as any;
   assert.deepEqual(buttons(card), ['สร้างเอกสาร', 'แก้ไข / กรอกเพิ่ม', 'ยกเลิก']);
-  assert.match(flex(card), new RegExp(`doc:create:${stored.id}`));
+  // สร้างเอกสาร opens the form to create at once, so the page can be sent as a picture too
+  assert.match(flex(card), new RegExp(`draftKind=document&draftKey=${stored.id}&create=1`));
+  const liff = process.env.LIFF_ID; delete process.env.LIFF_ID;
+  try { assert.match(flex(buildDocumentDraftCard(stored, { name: 'สตูดิโอตัวอย่าง' })), new RegExp(`doc:create:${stored.id}`)); } // no form: a postback
+  finally { process.env.LIFF_ID = liff; }
   assert.match(flex(card), /฿7,275\.00/); // 7,500 less 3% withheld
   assert.match(flex(card), /เครดิต/);
   assert.match(card.altText, /ใบแจ้งหนี้ แบบร่าง ฿7,275\.00/);
@@ -141,7 +145,7 @@ function response() {
   return { res: res as any, state };
 }
 const requestId = '22222222-2222-4222-8222-222222222222';
-function formHandler(stored: any, account: { name: string }, calls: Record<string, any[]>, saveResult: boolean | Error = true) {
+function formHandler(stored: any, account: { name: string }, calls: Record<string, any[]>, saveResult: boolean | Error = true, owned = true) {
   return createLiffSubmitHandler({
     verifyLiffIdToken: async () => 'U-line-user',
     findUserByLineId: async () => ({ user_id: userId, jobs: [], goals: [], settings: {}, expenses: [], statuses: [], notif_settings: { pendingDocumentDraft: stored } }) as any,
@@ -152,6 +156,8 @@ function formHandler(stored: any, account: { name: string }, calls: Record<strin
     loadDocumentAccount: async () => ({ issuer: documentIssuer(account), issuerVersion: 4 }),
     saveLineDocument: async (_owner: string, record: any, issuer: any) => { (calls.saved ||= []).push({ record, issuer }); if (saveResult instanceof Error) throw saveResult; return saveResult; },
     clearDocumentDraft: async () => { (calls.cleared ||= []).push(true); },
+    ownDocumentSummary: async (_owner: string, id: string) => { (calls.owned ||= []).push(id); return owned ? { documentNo: 'QT-2569-ABCDEF12' } : null; },
+    storeDocumentImage: async (_owner: string, id: string, bytes: Uint8Array) => { (calls.stored ||= []).push({ id, size: bytes.length }); return `https://storage.example.test/${id}.jpg?token=x`; },
   } as any);
 }
 const form = { type: 'quotation', client: { name: 'บริษัท แบรนด์เอ', address: '', taxId: '', branch: '', phone: '' },
@@ -183,6 +189,27 @@ test('the form saves one document for its draft, clears the draft, and sends the
   assert.equal(issuer, undefined, 'the saved issuer is kept as it is');
   assert.equal(calls.cleared.length, 1);
   assert.match(JSON.stringify(calls.sent[0].contents), /สร้างใบเสนอราคาแล้ว/);
+  assert.equal(state.body.document.id, record.id, 'the saved document goes back to be drawn as a picture');
+});
+
+const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7)]).toString('base64');
+test('the picture of the new document goes into the chat, only for this draft’s own document and only as a real JPEG', async () => {
+  const key = '0123456789abcdef';
+  const calls: Record<string, any[]> = {};
+  const { res, state } = response();
+  await formHandler(undefined, { name: 'สตูดิโอตัวอย่าง' }, calls)({ method: 'POST', body: { idToken: 't', action: 'document-image', draftKind: 'document', draftKey: key, image: jpeg } } as any, res);
+  assert.deepEqual([state.status, state.body.imageSent], [200, true], JSON.stringify(state.body));
+  assert.deepEqual(calls.owned, [documentIdFor(key)]);
+  assert.equal(calls.stored[0].id, documentIdFor(key));
+  assert.deepEqual(calls.sent[0], { type: 'image', originalContentUrl: `https://storage.example.test/${documentIdFor(key)}.jpg?token=x`, previewImageUrl: `https://storage.example.test/${documentIdFor(key)}.jpg?token=x` });
+  for (const image of ['not-base64!', Buffer.from('GIF89a' + 'x'.repeat(200)).toString('base64'), Buffer.alloc(1_100_000, 0xff).toString('base64')]) {
+    const bad = response();
+    await formHandler(undefined, { name: 'x' }, {})({ method: 'POST', body: { idToken: 't', action: 'document-image', draftKind: 'document', draftKey: key, image } } as any, bad.res);
+    assert.equal(bad.state.status, 400);
+  }
+  const other = response();
+  await formHandler(undefined, { name: 'x' }, {}, true, false)({ method: 'POST', body: { idToken: 't', action: 'document-image', draftKind: 'document', draftKey: key, image: jpeg } } as any, other.res);
+  assert.equal(other.state.status, 404, 'not this account’s document');
 });
 
 test('with no saved issuer the form must name the user’s business, and it is kept for the next document', async () => {
@@ -213,4 +240,70 @@ test('the form refuses bad values, a changed type, and reports the Free plan lim
   const twice = response();
   await formHandler(stored, { name: 'สตูดิโอตัวอย่าง' }, {}, false)({ method: 'POST', body: { idToken: 't', action: 'confirm-draft', draftKind: 'document', draftKey: stored.id, requestId, document: form } } as any, twice.res);
   assert.deepEqual([twice.state.status, twice.state.body.duplicate], [200, true]);
+});
+
+// Jobs in LINE (owner, 2026-10-30): a card every time, even when everything is there; nothing missing is asked as a
+// question (the card's form takes it); details typed afterwards fill the draft.
+import { parseLineJobRequest, parseLineQuickDraft } from '../backend/src/services/lineQuickDraft';
+import { applyDocumentFollowUp, splitClientWork } from '../backend/src/services/lineDocumentDraft';
+
+test('a job in everyday words becomes a draft; several jobs or a date stay with เลขา', () => {
+  assert.deepEqual(parseLineJobRequest('บันทึกงาน ถ่ายรูปให้ร้านบี 8,000 เครดิต 30 วัน หัก 3%'),
+    { intent: 'add_job', freshDraft: true, jobCreditTerm: 30, jobWhtRate: 3, jobValue: 8000, jobName: 'ถ่ายรูป', jobClient: 'ร้านบี' });
+  assert.deepEqual(parseLineJobRequest('รับงาน ออกแบบโลโก้ 5 ชิ้น ชิ้นละ 1,500 ยังไม่ได้รับเงิน'),
+    { intent: 'add_job', freshDraft: true, jobPaymentStatus: 'pending', jobValue: 7500, jobName: 'ออกแบบโลโก้ 5 ชิ้น' });
+  assert.deepEqual(parseLineJobRequest('จดงาน รีวิวสินค้า บริษัท แบรนด์เอ ยอด 5,000 รับเงินแล้ว'),
+    { intent: 'add_job', freshDraft: true, jobPaymentStatus: 'paid', jobValue: 5000, jobName: 'รีวิวสินค้า', jobClient: 'บริษัท แบรนด์เอ' });
+  assert.deepEqual(parseLineJobRequest('ได้งาน ตัดต่อ ให้คุณเอ 6000 มัดจำ 2000'),
+    { intent: 'add_job', freshDraft: true, jobReceivedAmount: 2000, jobValue: 6000, jobPaymentStatus: 'partial', jobName: 'ตัดต่อ', jobClient: 'คุณเอ' });
+  assert.deepEqual(parseLineJobRequest('มีงานใหม่ ตัดต่อวิดีโอ ให้คุณบี'), { intent: 'add_job', freshDraft: true, jobName: 'ตัดต่อวิดีโอ', jobClient: 'คุณบี' });
+  assert.deepEqual(parseLineQuickDraft('บันทึกงานหน่อย'), { intent: 'add_job', freshDraft: true }, 'a bare request is the empty card, not a job named หน่อย');
+  for (const text of ['บันทึกงาน รีวิว 2 งาน งานละ 5,000', 'บันทึกงาน รีวิวพรุ่งนี้ 5000', 'มีงานไหม', 'วันนี้มีอะไรบ้าง']) assert.equal(parseLineJobRequest(text), null, text);
+  assert.deepEqual(splitClientWork('ให้คำปรึกษาการตลาด'), { client: '', work: 'ให้คำปรึกษาการตลาด' }, 'ให้ inside a word is not a client');
+});
+
+test('details typed after the job card fill its draft', () => {
+  const pendingJob = { name: 'ถ่ายรูป', value: 8000 } as any;
+  assert.deepEqual(parseLineQuickDraft('เครดิต 30 วัน', { pendingJob }), { intent: 'add_job', jobCreditTerm: 30, freshDraft: false });
+  assert.deepEqual(parseLineQuickDraft('หัก 3%', { pendingJob }), { intent: 'add_job', jobWhtRate: 3, freshDraft: false });
+  assert.deepEqual(parseLineQuickDraft('ให้ร้านบี', { pendingJob }), { intent: 'add_job', jobClient: 'ร้านบี', freshDraft: false });
+  assert.deepEqual(parseLineQuickDraft('มัดจำ 2000', { pendingJob }), { intent: 'add_job', jobPaymentStatus: 'partial', jobReceivedAmount: 2000, freshDraft: false });
+  assert.equal(parseLineQuickDraft('มัดจำ 9000', { pendingJob }), null, 'a deposit over the value is unclear');
+  assert.deepEqual(parseLineQuickDraft('ยอด 6000 ยังไม่ได้รับเงิน', { pendingJob: { name: 'ตัดต่อวิดีโอ' } as any }),
+    { intent: 'add_job', jobValue: 6000, jobPaymentStatus: 'pending', freshDraft: false });
+  assert.equal(parseLineQuickDraft('เครดิต 30 วัน'), null, 'with no job open, credit words stay away from new records');
+});
+
+test('details typed after the document card fill the draft; other messages are left alone', () => {
+  let draft = parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!;
+  for (const text of ['ลูกค้า บริษัท แบรนด์เอ จำกัด', 'ที่อยู่ 88 ถนนพระราม 9 กรุงเทพฯ', 'เลขผู้เสียภาษี 0105-56123-4567', 'รายการ ถ่ายรูปสินค้า 20 รูป รูปละ 300', 'รายการ รีทัช 1000', 'VAT', 'หัก 3%', 'เครดิต 30 วัน']) {
+    const next = applyDocumentFollowUp(draft, text);
+    assert.ok(next, text); draft = next!;
+  }
+  assert.deepEqual(draft, { type: 'quotation', vatRate: 7, whtRate: 3, creditTerm: 30,
+    client: { name: 'บริษัท แบรนด์เอ จำกัด', address: '88 ถนนพระราม 9 กรุงเทพฯ', taxId: '0105561234567' },
+    items: [{ description: 'ถ่ายรูปสินค้า', quantity: 20, unit: 'รูป', price: 300 }, { description: 'รีทัช', quantity: 1, price: 1000 }] });
+  assert.equal(applyDocumentFollowUp(draft, 'สวัสดีครับ'), null);
+  assert.equal(applyDocumentFollowUp(draft, 'ยอด 500'), null, 'every line has a price already: unclear');
+  const priced = applyDocumentFollowUp(parseLineDocumentCreate('ทำใบเสนอราคา ออกแบบโลโก้ ให้คุณบี')!, 'ยอด 8000')!;
+  assert.equal(priced.items[0].price, 8000, 'an amount alone prices the one open line');
+});
+
+test('in LINE a typed detail goes to the newest draft card; a job request gets its card, not the AI', async () => {
+  const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!, new Date(Date.now() - 60_000));
+  const user: UserRow = { user_id: userId, jobs: [], goals: [], settings: {}, expenses: [], statuses: [], notif_settings: { pendingDocumentDraft: stored } };
+  const calls: string[] = [];
+  const deps = { ...lineDeps(calls, user), async updateDocument(_user: UserRow, _stored: any, draft: any) { calls.push(`update:${draft.client.name}`); return { type: 'text' as const, text: 'card' }; } };
+  await handleAssistantMessage('Uline', 'ลูกค้า ร้านบี', 'op-doc-follow', deps);
+  assert.deepEqual(calls.filter(call => call.startsWith('update') || call === 'ai'), ['update:ร้านบี']);
+  // a job draft started after the document takes the typed details instead
+  const later = { ...user, notif_settings: { pendingDocumentDraft: stored, pendingJobDraft: { createdAt: new Date(Date.now() - 1000).toISOString(), draft: { name: 'ถ่ายรูป', value: 8000 } } } } as UserRow;
+  const jobCalls: string[] = [];
+  await handleAssistantMessage('Uline', 'ลูกค้า ร้านบี', 'op-job-follow', { ...lineDeps(jobCalls, later), async updateDocument() { jobCalls.push('update'); return { type: 'text' as const, text: 'card' }; },
+    async saveJobDraft(u: UserRow, draft: any) { jobCalls.push(`job:${draft.client}`); u.notif_settings = { ...u.notif_settings, pendingJobDraft: { createdAt: new Date().toISOString(), draft } }; } } as any);
+  assert.ok(jobCalls.includes('job:ร้านบี') && !jobCalls.includes('update'), jobCalls.join(', '));
+  const aiCalls: string[] = [];
+  await handleAssistantMessage('Uline', 'บันทึกงาน ถ่ายรูปให้ร้านบี 8,000 เครดิต 30 วัน', 'op-job', { ...lineDeps(aiCalls, { ...user, notif_settings: {} }),
+    async saveJobDraft(u: UserRow, draft: any) { aiCalls.push(`job:${draft.name}:${draft.client}:${draft.value}:${draft.creditTerm}`); u.notif_settings = { ...u.notif_settings, pendingJobDraft: { createdAt: new Date().toISOString(), draft } }; } } as any);
+  assert.ok(aiCalls.includes('job:ถ่ายรูป:ร้านบี:8000:30') && !aiCalls.includes('ai'), aiCalls.join(', '));
 });

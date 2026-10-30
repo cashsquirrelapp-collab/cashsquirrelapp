@@ -26,6 +26,7 @@ import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js
 import { verifyLiffIdToken } from '../security/lineIdentity.js';
 import { buildDocumentCreatedCard, buildLineDocumentRecord, clearDocumentDraft, documentIdFor, isActiveDocumentDraft, loadDocumentAccount, saveLineDocument,
   type LineDocumentDraft, type StoredDocumentDraft } from '../services/lineDocumentDraft.js';
+import { decodeDocumentImage, documentImageMessage, ownDocumentSummary, storeDocumentImage } from '../services/lineDocumentImage.js';
 
 export interface LiffSubmitDependencies {
   verifyLiffIdToken: typeof verifyLiffIdToken;
@@ -47,6 +48,8 @@ export interface LiffSubmitDependencies {
   loadDocumentAccount?: typeof loadDocumentAccount;
   saveLineDocument?: typeof saveLineDocument;
   clearDocumentDraft?: typeof clearDocumentDraft;
+  ownDocumentSummary?: typeof ownDocumentSummary;
+  storeDocumentImage?: typeof storeDocumentImage;
 }
 
 const defaultDependencies: LiffSubmitDependencies = {
@@ -161,7 +164,27 @@ async function handleDocumentDraft(body: Record<string, unknown>, user: UserRow,
   let notificationSent = false;
   try { notificationSent = await dependencies.sendLineMessagePayload(lineUserId, buildDocumentCreatedCard(record)); }
   catch { console.error('liff-submit: document notification failed'); }
-  res.status(200).json({ ok: true, documentNo: record.documentNo, notificationSent });
+  // The saved document goes back to the form, which draws its page as a picture for the chat (document-image below).
+  res.status(200).json({ ok: true, documentNo: record.documentNo, notificationSent, document: record });
+}
+
+/**
+ * The picture of a document just created from the form, sent into the chat after its card (owner: "ส่งรูป PDF เข้าแชท
+ * เหมือน Paypers"). Only for the document this draft made, owned by this LINE account, and only a real JPEG.
+ */
+async function handleDocumentImage(body: Record<string, unknown>, user: UserRow, lineUserId: string, res: VercelResponse, dependencies: LiffSubmitDependencies): Promise<void> {
+  const key = body.draftKey;
+  if (typeof key !== 'string' || !/^[a-f0-9]{16}$/.test(key)) { res.status(400).json({ error: 'ลิงก์เอกสารไม่ถูกต้อง' }); return; }
+  const bytes = decodeDocumentImage(body.image);
+  if (!bytes) { res.status(400).json({ error: 'รูปเอกสารไม่ถูกต้องหรือใหญ่เกินไป' }); return; }
+  const documentId = documentIdFor(key);
+  const owned = await (dependencies.ownDocumentSummary ?? ownDocumentSummary)(user.user_id, documentId);
+  if (!owned) { res.status(404).json({ error: 'ไม่พบเอกสารนี้ในบัญชี' }); return; }
+  const url = await (dependencies.storeDocumentImage ?? storeDocumentImage)(user.user_id, documentId, bytes);
+  let imageSent = false;
+  try { imageSent = await dependencies.sendLineMessagePayload(lineUserId, documentImageMessage(url)); }
+  catch { console.error('liff-submit: document picture not sent'); }
+  res.status(200).json({ ok: true, imageSent });
 }
 
 async function handleDraftEditor(
@@ -275,13 +298,14 @@ export async function handleLiffSubmit(
 
   try {
     if (body.action !== undefined) {
-      if (body.action !== 'load-draft' && body.action !== 'confirm-draft') {
+      if (body.action !== 'load-draft' && body.action !== 'confirm-draft' && !(body.action === 'document-image' && body.draftKind === 'document')) {
         res.status(400).json({ error: 'คำสั่งไม่ถูกต้อง' }); return;
       }
       await dependencies.rateLimit('liff-submit', user.user_id, 30, 60);
       if (!await dependencies.isProUser(user.user_id)) {
         res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro' }); return;
       }
+      if (body.action === 'document-image') { await handleDocumentImage(body, user, lineUserId, res, dependencies); return; }
       if (body.draftKind === 'document') { await handleDocumentDraft(body, user, lineUserId, res, dependencies); return; }
       await handleDraftEditor(body, user, lineUserId, res, dependencies);
       return;

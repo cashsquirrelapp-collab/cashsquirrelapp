@@ -373,6 +373,16 @@ card does not need:
   (Free plan quota, validation); the same draft always gives the same document, so two presses make one. The created
   card shows the number, client and total, and opens the document in the app (signed in through LINE) to download the
   PDF, edit it or issue the next document.
+- The page as a picture in the chat (owner: "ส่งรูป PDF เข้าแชทเหมือน Paypers"): สร้างเอกสาร on a complete card opens the
+  form to create at once (`&create=1`, it closes by itself); the form draws the app's own A4 sheet
+  (`frontend/src/liff/documentImage.tsx`, built on its own by `scripts/build-liff-image.mjs`, Thai only) and the
+  server keeps it in the private `line-document-images` bucket and sends it after the created card (a JPEG under 1 MB).
+- Details typed after a draft card fill it ("ลูกค้า …", "ที่อยู่ …", "รายการ … 20 รูป รูปละ 300", "VAT", "หัก 3%",
+  "เครดิต 30 วัน", an amount for the one line without a price); the newest open draft (document or job) takes them.
+- Jobs in LINE work the same way: "บันทึกงาน / เพิ่มงาน / จดงาน / มีงาน / รับงาน / ได้งาน …" in everyday words becomes
+  the draft card (ยืนยันบันทึก even when everything is there; เติมข้อมูล / แก้ไข and tap answers when something is
+  missing), never questions; "เครดิต 30 วัน", "หัก 3%", "ให้ร้านบี", "มัดจำ 2000", "ยอด 6000 ยังไม่ได้รับเงิน" typed
+  afterwards fill it. Several jobs or a date in one message stay with เลขา (it can record them all and their dates).
 
 ### Mascot (เลขากระรอก)
 

@@ -84,8 +84,23 @@ export function parseLineDocumentCreate(input: string): LineDocumentDraft | null
     if (found) { price = money(found[1]); rest = rest.replace(found[0], ' '); }
   }
 
-  // The client: after ให้ / ลูกค้า / สำหรับ, or a name that starts like a business.
-  const tokens = rest.replace(FILLER, '').split(/\s+/).filter(Boolean);
+  const { client: clientName, work: description } = splitClientWork(rest);
+  if (clientName) draft.client.name = clientName.slice(0, 200);
+  if (description || price !== null) {
+    draft.items.push({ description: description.slice(0, 200), quantity, ...(unit ? { unit } : {}), price: price ?? 0 });
+  }
+  return draft;
+}
+
+/**
+ * Who it is for and what the work is, from the words left once amounts are taken out: the client after ให้ / ลูกค้า /
+ * สำหรับ (with the word after a business word: "บริษัท แบรนด์เอ", and จำกัด), or a name that starts like a business; the
+ * work from a word like "งาน…" on, or the words left. Shared by documents and jobs (lineQuickDraft.ts).
+ */
+export function splitClientWork(text: string): { client: string; work: string } {
+  // "ถ่ายรูปให้ร้านบี" written as one word: split at ให้ when a business word follows (never "ให้คำปรึกษา").
+  const tokens = text.replace(FILLER, '').split(/\s+/).filter(Boolean)
+    .flatMap(token => { const glued = new RegExp(`^(.+?)ให้(${COMPANY.source.slice(1)}.*)$`, 'u').exec(token); return glued ? [glued[1], `ให้${glued[2]}`] : [token]; });
   let client: string[] = [];
   const takeClient = (at: number, first: string) => {
     const name = [first];
@@ -95,7 +110,8 @@ export function parseLineDocumentCreate(input: string): LineDocumentDraft | null
     tokens.splice(at, next - at);
     client = name;
   };
-  const marker = tokens.findIndex(token => /^(?:ให้|ลูกค้า|สำหรับ)/u.test(token));
+  // ให้ starts a client, except the verbs it starts: ให้คำปรึกษา, ให้บริการ, ให้เช่า…
+  const marker = tokens.findIndex(token => /^(?:ให้|ลูกค้า|สำหรับ)/u.test(token) && !/^ให้(?:คำ|บริการ|เช่า|ยืม|ความ|ข้อมูล|การ)/u.test(token));
   if (marker >= 0) {
     const first = tokens[marker].replace(/^(?:ให้|ลูกค้า|สำหรับ)/u, '');
     if (first) { tokens[marker] = first; takeClient(marker, first); }
@@ -104,18 +120,65 @@ export function parseLineDocumentCreate(input: string): LineDocumentDraft | null
     const company = tokens.findIndex(token => COMPANY.test(token));
     if (company >= 0) takeClient(company, tokens[company]);
   }
-  // What the work is: from a word like "งาน…" on, or the words left.
   const workAt = tokens.findIndex(token => WORK.test(token));
-  let description = (workAt >= 0 ? tokens.slice(workAt) : tokens).join(' ').trim();
+  const work = (workAt >= 0 ? tokens.slice(workAt) : tokens).join(' ').replace(/^(?:เรื่อง|รายการ)\s*/u, '').replace(/[,，]+$/u, '').trim();
   // "12 Ngam ยอด 4,000 งานรื้อ…": with no ให้, the words before the work name the client.
   if (!client.length && workAt > 0) client = tokens.slice(0, workAt);
-  description = description.replace(/^(?:เรื่อง|รายการ)\s*/u, '').replace(/[,，]+$/u, '').trim();
-  const clientName = client.join(' ').replace(/[,，]+$/u, '').trim();
-  if (clientName) draft.client.name = clientName.slice(0, 200);
-  if (description || price !== null) {
-    draft.items.push({ description: description.slice(0, 200), quantity, ...(unit ? { unit } : {}), price: price ?? 0 });
-  }
-  return draft;
+  return { client: client.join(' ').replace(/[,，]+$/u, '').trim(), work };
+}
+
+/** Amounts and terms read the same way for documents and jobs. */
+export const LINE_MONEY = MONEY;
+export const readMoney = money;
+export const normalizeLineText = (input: string) => thaiDigits(input.normalize('NFC')).replace(/\s+/g, ' ').trim();
+
+/**
+ * A detail typed in the chat while a document draft is open ("ลูกค้า บริษัท เอ", "ที่อยู่ …", "VAT", "เครดิต 30 วัน",
+ * "รายการ ออกแบบโลโก้ 8000", "ยอด 5000"): the draft with it filled in, or null when the message is not one of these (the
+ * owner: "ถ้าเขาอยากพิมพ์ลงในแชทเอง ข้อมูลในส่วนนั้นมึงก็เอาไปกรอกให้เขาโดยอัตโนมัติ").
+ */
+export function applyDocumentFollowUp(draft: LineDocumentDraft, input: string): LineDocumentDraft | null {
+  if (input.length > 500) return null;
+  const text = normalizeLineText(input).replace(FILLER, '').trim();
+  const next: LineDocumentDraft = { ...draft, client: { ...draft.client }, items: draft.items.map(item => ({ ...item })) };
+  let match: RegExpExecArray | null;
+  if ((match = /^(?:ลูกค้า|ชื่อลูกค้า|ให้)\s*(?:คือ|ชื่อ)?\s*(.{1,200})$/u.exec(text))) next.client.name = match[1].trim();
+  else if ((match = /^ที่อยู่(?:ลูกค้า)?\s*(?:คือ)?\s*(.{3,500})$/u.exec(text))) next.client.address = match[1].trim();
+  else if ((match = /^(?:เลข(?:ประจำตัว)?ผู้เสียภาษี(?:ลูกค้า)?|เลขภาษี|tax\s*id)\s*(?:คือ)?\s*([\d\s-]{10,20})$/iu.exec(text))) next.client.taxId = match[1].replace(/\D/g, '');
+  else if ((match = /^(?:เบอร์(?:โทร)?|โทร(?:ศัพท์)?)(?:ลูกค้า)?\s*(?:คือ)?\s*([\d\s+-]{6,20})$/u.exec(text))) next.client.phone = match[1].trim();
+  else if ((match = /^สาขา\s*(.{1,100})$/u.exec(text))) next.client.branch = match[1].trim();
+  else if (/^(?:มี|คิด|รวม|บวก|\+)?\s*VAT(?:\s*7\s*%?)?$|^ภาษีมูลค่าเพิ่ม(?:\s*7\s*%?)?$/iu.test(text)) next.vatRate = 7;
+  else if (/^ไม่(?:มี|คิด|รวม)\s*VAT$/iu.test(text)) next.vatRate = 0;
+  else if ((match = /^หัก\s*(?:ณ\s*ที่\s*จ่าย)?\s*([1-5])\s*%$/u.exec(text))) next.whtRate = Number(match[1]);
+  else if (/^ไม่(?:มี)?หัก(?:\s*ณ\s*ที่\s*จ่าย)?$/u.test(text)) next.whtRate = 0;
+  else if ((match = /^เครดิต\s*(\d{1,3})\s*วัน$/u.exec(text))) next.creditTerm = Math.min(365, Number(match[1]));
+  else if (/^ไม่มีเครดิต(?:เทอม)?$/u.test(text)) delete next.creditTerm;
+  else if ((match = /^หมายเหตุ\s*(.{1,2000})$/u.exec(text))) next.note = match[1].trim();
+  else if ((match = new RegExp(`^(?:ยอด|ราคา)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`, 'u').exec(text)) || (match = new RegExp(`^(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`, 'u').exec(text))) {
+    // An amount alone fills the one line still without a price, or starts the first line.
+    const price = money(match[1]);
+    if (price === null) return null;
+    const open = next.items.filter(item => !(item.price > 0));
+    if (open.length === 1) open[0].price = price;
+    else if (!next.items.length) next.items.push({ description: '', quantity: 1, price });
+    else return null;
+  } else if ((match = /^(?:รายการ|เพิ่มรายการ|เพิ่ม)\s*(.{1,300})$/u.exec(text))) {
+    let rest = match[1];
+    let quantity = 1, unit: string | undefined, price: number | null = null;
+    const each = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*([ก-๛A-Za-z]{1,12}?)\\s*(?:\\2)?\\s*ละ\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?`, 'u').exec(rest);
+    if (each) { quantity = Number(each[1]); unit = each[2]; price = money(each[3]); rest = rest.replace(each[0], ' '); }
+    else {
+      const last = [...rest.matchAll(new RegExp(`(?:^|\\s)(?:ยอด|ราคา)?\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?(?=\\s|$)`, 'gu'))].at(-1);
+      if (last) { price = money(last[1]); rest = rest.replace(last[0], ' '); }
+    }
+    const description = rest.replace(/\s+/g, ' ').trim();
+    if (!description || next.items.length >= 30) return null;
+    // A first line typed before any price replaces the empty one the card started with.
+    const blank = next.items.findIndex(item => !item.description && !(item.price > 0));
+    const item = { description: description.slice(0, 200), quantity: quantity > 0 ? quantity : 1, ...(unit ? { unit } : {}), price: price ?? 0 };
+    if (blank >= 0) next.items[blank] = item; else next.items.push(item);
+  } else return null;
+  return next;
 }
 
 const itemReady = (item: LineDocumentItem) => item.description.trim().length > 0 && item.quantity > 0 && item.price > 0;
@@ -178,8 +241,11 @@ export function buildDocumentDraftCard(stored: StoredDocumentDraft, issuer: Pick
   const cancel = { type: 'button', style: 'secondary', color: C.subtle, height: 'sm', flex: 1,
     action: { type: 'postback', label: 'ยกเลิก', data: `doc:cancel:${stored.id}`, displayText: 'ยกเลิกเอกสาร' } };
   card.contents = { ...(card.contents as object), footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '20px', paddingTop: '0px', contents: [
+    // สร้างเอกสาร opens the form to create at once, so the page can also be sent as a picture; with no form, a postback.
     ready
-      ? { type: 'button', style: 'primary', color: C.accent, height: 'sm', action: { type: 'postback', label: 'สร้างเอกสาร', data: `doc:create:${stored.id}`, displayText: `สร้าง${name}` } }
+      ? { type: 'button', style: 'primary', color: C.accent, height: 'sm', action: form
+        ? { type: 'uri', label: 'สร้างเอกสาร', uri: `${form}&create=1` }
+        : { type: 'postback', label: 'สร้างเอกสาร', data: `doc:create:${stored.id}`, displayText: `สร้าง${name}` } }
       : form ? { type: 'button', style: 'primary', color: C.accent, height: 'sm', action: { type: 'uri', label: 'กรอกข้อมูล', uri: form } } : null,
     { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
       ...(ready && form ? [{ type: 'button', style: 'secondary', height: 'sm', flex: 2, action: { type: 'uri', label: 'แก้ไข / กรอกเพิ่ม', uri: form } }] : []),

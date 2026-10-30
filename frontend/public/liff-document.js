@@ -33,6 +33,38 @@
     if (focusId && field(focusId)) field(focusId).focus(); else box.focus();
   }
   function clearError() { field('document-error-box').style.display = 'none'; }
+  // A query value from the LIFF link itself or from LINE's liff.state (read only, never followed).
+  // LIFF may rewrite the address during init, so the address as first opened is kept too (this file runs before it).
+  var firstSearch = window.location.search;
+  function linkParam(name) {
+    var found = null;
+    [window.location.search, firstSearch].some(function (search) {
+      var params = new URLSearchParams(search);
+      if (params.has(name)) { found = params.get(name); return true; }
+      var state = params.get('liff.state');
+      if (!state) return false;
+      var at = state.indexOf('?');
+      var nested = new URLSearchParams(at >= 0 ? state.slice(at + 1) : state.replace(/^\?/, ''));
+      if (nested.has(name)) { found = nested.get(name); return true; }
+      return false;
+    });
+    return found;
+  }
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) { var script = document.createElement('script'); script.src = src; script.onload = resolve; script.onerror = reject; document.head.append(script); });
+  }
+  // The new document's page as a picture in the chat, after its card (owner: "ส่งรูป PDF เข้าแชทเหมือน Paypers").
+  async function sendPicture(documentRecord) {
+    try {
+      status('กำลังส่งรูปเอกสารเข้าแชท', 'รอสักครู่ครับ', 'working', false);
+      if (!window.KrarokDocumentImage) await loadScript('/liff-document-image.js');
+      var image = await window.KrarokDocumentImage.render(documentRecord);
+      var response = await fetch('/api/liff-submit', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'document-image', draftKind: 'document', draftKey: state.reference.key, idToken: liff.getIDToken(), image: image }) });
+      var data = await response.json();
+      return response.ok && data.ok === true && data.imageSent === true;
+    } catch (error) { return false; }
+  }
 
   function totals() {
     var subtotal = state.items.reduce(function (sum, item) { return sum + (Number(item.quantity) || 0) * (Number(item.price) || 0); }, 0);
@@ -148,7 +180,7 @@
     }
     return true;
   }
-  async function submit() {
+  async function submit(auto) {
     if (state.submitting) return;
     clearError();
     if (!validate()) return;
@@ -156,7 +188,7 @@
     state.submitting = true; button.disabled = true; button.textContent = 'กำลังสร้าง…';
     try {
       var idToken = liff.getIDToken();
-      if (!idToken) { showError('กรุณาเปิดฟอร์มนี้จาก LINE อีกครั้งเพื่อยืนยันบัญชี'); return; }
+      if (!idToken) { if (auto) showForm(); showError('กรุณาเปิดฟอร์มนี้จาก LINE อีกครั้งเพื่อยืนยันบัญชี'); return; }
       var payload = {
         action: 'confirm-draft', draftKind: 'document', draftKey: state.reference.key, requestId: state.requestId, idToken: idToken,
         document: {
@@ -171,13 +203,19 @@
       var data = await response.json();
       if (!response.ok || data.ok !== true) {
         if ([404, 409, 410].indexOf(response.status) >= 0) { status('เปิดแบบร่างนี้ไม่ได้', (data.error || 'แบบร่างนี้หมดเวลาหรือมีแบบร่างใหม่แล้ว') + '\nกลับไปแชทแล้วพิมพ์ “ทำใบเสนอราคา” เพื่อเริ่มใหม่', 'urgent', true); return; }
+        if (auto) showForm();
         showError(data.error || 'สร้างเอกสารไม่สำเร็จ กรุณาลองอีกครั้ง'); return;
       }
+      var pictured = !data.duplicate && data.document ? await sendPicture(data.document) : false;
       var message = (data.documentNo ? 'เลขที่ ' + data.documentNo + '\n' : '') + (data.notificationSent === false
         ? 'สร้างแล้ว แต่ยังส่งการ์ดเข้าแชทไม่สำเร็จ ดูเอกสารได้ที่เมนู เอกสาร ในแอป'
+        : pictured ? 'ส่งการ์ดและรูปเอกสารเข้าแชทแล้ว ดาวน์โหลด PDF ได้จากปุ่มบนการ์ด'
         : 'ส่งการ์ดพร้อมปุ่มดูเอกสารและดาวน์โหลด PDF ไปที่แชทแล้ว');
       status(data.duplicate ? 'สร้างไว้แล้ว' : 'สร้าง' + NAMES[state.type] + 'แล้ว', message, 'document', true);
+      // From the card's สร้างเอกสาร: back to the chat by itself, where the card and the picture are.
+      if (auto && !data.duplicate) setTimeout(close, 1600);
     } catch (error) {
+      if (auto) showForm();
       showError('ยังยืนยันผลไม่ได้ กรุณาลองอีกครั้งจากหน้านี้ ระบบจะไม่สร้างเอกสารซ้ำ');
     } finally { state.submitting = false; button.disabled = false; button.textContent = original; }
   }
@@ -198,6 +236,14 @@
     document.querySelector('.kind-tabs').classList.add('hidden');
     field('document-card').classList.remove('hidden');
     field('return-chat-btn').classList.remove('hidden');
+    // สร้างเอกสาร on a complete card opens here to create at once (so the picture can be drawn); anything missing shows the form.
+    if (linkParam('create') === '1' && state.issuerKnown) {
+      clearError();
+      if (validate()) { status('กำลังสร้าง' + NAMES[state.type], 'รอสักครู่ครับ', 'working', false); await submit(true); return; }
+    }
+    showForm();
+  }
+  function showForm() {
     field('status-view').classList.add('hidden'); field('form-view').classList.remove('hidden');
   }
 
@@ -208,7 +254,7 @@
       var last = field('doc-item-desc-' + (state.items.length - 1)); if (last) last.focus();
     });
     ['doc-vat', 'doc-wht', 'doc-client-name'].forEach(function (id) { field(id).addEventListener('input', updateTotals); field(id).addEventListener('change', updateTotals); });
-    field('document-submit-btn').addEventListener('click', submit);
+    field('document-submit-btn').addEventListener('click', function () { submit(false); });
   });
   window.KrarokDocumentForm = { open: open, fill: fill };
 })();

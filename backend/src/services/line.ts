@@ -14,7 +14,9 @@ export interface LineQuickReply {
 // attach tappable Quick Reply shortcuts that answer without ever calling the AI.
 export type LineMessage =
   | { type: 'text'; text: string; quickReply?: LineQuickReply }
-  | { type: 'flex'; altText: string; contents: unknown; quickReply?: LineQuickReply };
+  | { type: 'flex'; altText: string; contents: unknown; quickReply?: LineQuickReply }
+  // A picture, such as a new document's page (lineDocumentImage.ts). Both links must be HTTPS.
+  | { type: 'image'; originalContentUrl: string; previewImageUrl: string; quickReply?: LineQuickReply };
 
 // Ad-hoc recipient list, for accounts that were never self-service linked: maps an app-user's
 // email straight to a LINE user ID via env var. Format: "email1:lineUserId1,email2:lineUserId2".

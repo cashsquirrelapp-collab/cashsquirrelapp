@@ -10,14 +10,14 @@ import { calculatePayDate, getRelativeDaysText, formatMonthKey, DEFAULT_JOB_TYPE
 import type { Expense, Goal } from '../../../shared/types.js';
 import type { LineMessage } from './line.js';
 import { appOrigin } from '../config/env.js';
-import { parseLineQuickDraft } from './lineQuickDraft.js';
+import { parseLineJobRequest, parseLineQuickDraft } from './lineQuickDraft.js';
 import { getLineAiPolicy, compactLineAiContext } from './lineAiPolicy.js';
 import { listVaultFiles } from './vault.js';
 import { lineDraftKey, lineDraftOperationId, buildLineDraftReview } from './lineDraftReview.js';
 import { explicitLineAiText, LINE_JOB_EXAMPLES } from './lineEntryRouting.js';
 import { isActiveLineDraft, lineDraftResolution } from './lineDraftState.js';
 import { buildLineFeatureShortcut, isLineWhtShortcut, lineShortcutArea } from './lineFeatureShortcuts.js';
-import { buildDocumentCreatedCard, buildDocumentDraftCard, buildLineDocumentRecord, clearDocumentDraft, documentIdFor, documentMissing, isActiveDocumentDraft, loadDocumentAccount, newDocumentDraft, parseDocumentCommand, parseLineDocumentCreate, saveDocumentDraft, saveLineDocument } from './lineDocumentDraft.js';
+import { applyDocumentFollowUp, buildDocumentCreatedCard, buildDocumentDraftCard, buildLineDocumentRecord, clearDocumentDraft, documentIdFor, documentMissing, isActiveDocumentDraft, loadDocumentAccount, newDocumentDraft, parseDocumentCommand, parseLineDocumentCreate, saveDocumentDraft, saveLineDocument, type LineDocumentDraft, type StoredDocumentDraft } from './lineDocumentDraft.js';
 import { lineAreaOpen, NOT_OPEN_TEXT } from './lineLaunch.js';
 import { parseLineDocumentRequest, findLineDocuments, buildLineDocumentMessages } from './lineDocuments.js';
 import { buildLineCashSummary, lineCashPosition, type LineCashPosition } from './lineCashSummary.js';
@@ -1115,6 +1115,7 @@ export interface LineAssistantDependencies {
   /** A new quotation or invoice draft card (tests replace the account reads and writes). */
   startDocument?: (user: UserRow, draft: NonNullable<ReturnType<typeof parseLineDocumentCreate>>) => Promise<LineMessage | LineMessage[]>;
   documentCommand?: (user: UserRow, command: { action: 'create' | 'cancel'; key: string }) => Promise<LineMessage | LineMessage[]>;
+  updateDocument?: (user: UserRow, stored: StoredDocumentDraft, draft: LineDocumentDraft) => Promise<LineMessage | LineMessage[]>;
 }
 
 // Loaded when first needed: the AI modules import this file (buildDataSnapshot), so a static import would be circular.
@@ -1126,6 +1127,22 @@ const startLineDocument: NonNullable<LineAssistantDependencies['startDocument']>
   catch { console.error('line-document: issuer profile unavailable'); }
   await saveDocumentDraft(user, stored);
   return buildDocumentDraftCard(stored, issuer);
+};
+
+/** The document draft is the most recent one (a job or expense draft started after it takes the typed details instead). */
+function isNewestDraft(createdAt: string, state: NotifSettingsRow | undefined): boolean {
+  const at = Date.parse(createdAt);
+  return [state?.pendingJobDraft?.createdAt, state?.pendingExpenseDraft?.createdAt].every(other => !other || Date.parse(other) <= at);
+}
+
+const updateLineDocument: NonNullable<LineAssistantDependencies['updateDocument']> = async (user, stored, draft) => {
+  // The same draft (its buttons and form link keep working), with the detail filled in and its time renewed.
+  const next: StoredDocumentDraft = { ...stored, createdAt: new Date().toISOString(), draft };
+  let issuer = null;
+  try { issuer = (await loadDocumentAccount(user.user_id)).issuer; }
+  catch { console.error('line-document: issuer profile unavailable'); }
+  await saveDocumentDraft(user, next);
+  return buildDocumentDraftCard(next, issuer);
 };
 
 const lineDocumentCommand: NonNullable<LineAssistantDependencies['documentCommand']> = async (user, command) => {
@@ -1279,6 +1296,12 @@ async function handleAssistantMessageInner(
   if (documentCommand) return await (dependencies.documentCommand ?? lineDocumentCommand)(user, documentCommand);
   const documentCreate = parseLineDocumentCreate(trimmed);
   if (documentCreate) return await (dependencies.startDocument ?? startLineDocument)(user, documentCreate);
+  // A detail typed while a document draft is the latest one open fills it and shows the card again.
+  const documentDraft = user.notif_settings?.pendingDocumentDraft;
+  if (isActiveDocumentDraft(documentDraft) && isNewestDraft(documentDraft.createdAt, user.notif_settings)) {
+    const filled = applyDocumentFollowUp(documentDraft.draft, trimmed);
+    if (filled) return await (dependencies.updateDocument ?? updateLineDocument)(user, documentDraft, filled);
+  }
   const documentRequest = parseLineDocumentRequest(trimmed);
   if (documentRequest) {
     if (documentRequest.query.length > 120) return buildLineDocumentMessages(documentRequest);
@@ -1381,7 +1404,8 @@ async function handleAssistantMessageInner(
   // Quick entries ("เพิ่มงาน …", answers to a draft) stay on the deterministic path: free, instant, no tokens.
   // Everything else goes to เลขากระรอก, the same Gemini assistant as the app (owner, 2026-10-24), with or without
   // the old "ถาม AI" prefix. The earlier Claude path is no longer called (owner: Gemini only).
-  const quickDraft = parseLineQuickDraft(trimmed, { pendingJob: pendingDraft, pendingExpense: pendingExpenseDraft });
+  // A job in everyday words becomes the same draft card (lineQuickDraft.ts parseLineJobRequest), never questions.
+  const quickDraft = parseLineQuickDraft(trimmed, { pendingJob: pendingDraft, pendingExpense: pendingExpenseDraft }) ?? parseLineJobRequest(trimmed);
   if (!quickDraft) {
     const question = explicitLineAiText(trimmed) ?? trimmed;
     try {

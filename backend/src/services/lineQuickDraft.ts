@@ -1,6 +1,7 @@
 import { validateChanges } from '../../../shared/validation.js';
 import { roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import type { ClassifyResult, ExpenseDraft, JobDraft } from './lineAssistant.js';
+import { LINE_MONEY, normalizeLineText, readMoney, splitClientWork } from './lineDocumentDraft.js';
 
 export interface LineQuickDraftContext {
   // The caller supplies only drafts that have passed its existing expiry/access checks.
@@ -104,6 +105,29 @@ export function parseLineQuickDraft(input: string, context: LineQuickDraftContex
   if (context.pendingExpense && !context.pendingJob && category && categoryNames.includes(category)) {
     return validated({ intent: 'add_expense', expenseCategory: category, freshDraft: false }, context);
   }
+  // Details typed for the job being recorded (owner, 2026-10-30: "ถ้าเขาอยากพิมพ์ลงในแชทเอง ข้อมูลในส่วนนั้นมึงก็เอาไป
+  // กรอกให้เขาโดยอัตโนมัติ"): credit days, withholding, the client, a deposit. Read before the general refusals below,
+  // which keep tax and credit words away from new records.
+  if (context.pendingJob && !context.pendingExpense) {
+    const credit = /^(?:เครดิต|เครดิตเทอม)\s*(\d{1,4})\s*วัน$/.exec(text);
+    if (credit) return validated({ intent: 'add_job', jobCreditTerm: Math.min(3650, Number(credit[1])), freshDraft: false }, context);
+    if (/^ไม่มีเครดิต(?:เทอม)?$/.test(text)) return validated({ intent: 'add_job', jobCreditTerm: 0, freshDraft: false }, context);
+    const wht = /^หัก\s*(?:ณ\s*ที่\s*จ่าย)?\s*([1-5])\s*%$/.exec(text);
+    if (wht && [1, 2, 3, 5].includes(Number(wht[1]))) return validated({ intent: 'add_job', jobWhtRate: Number(wht[1]), freshDraft: false }, context);
+    if (/^ไม่(?:มี)?หัก(?:\s*ณ\s*ที่\s*จ่าย)?$/.test(text)) return validated({ intent: 'add_job', jobWhtRate: 0, freshDraft: false }, context);
+    const client = /^(?:ให้|ลูกค้า(?:คือ|ชื่อ)?)\s*(.{1,200})$/.exec(text);
+    if (client && !/\d/.test(client[1])) return validated({ intent: 'add_job', jobClient: client[1].trim(), freshDraft: false }, context);
+    // "ยอด 6000 ยังไม่ได้รับเงิน": the amount and the payment in one line.
+    const both = new RegExp(`^(?:ยอด|ราคา|มูลค่า)?\\s*(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท)?\\s+(.+)$`).exec(text);
+    const bothValue = both ? amount(both[1]) : null;
+    const bothStatus = both && bothValue !== null ? payment(both[2].trim(), bothValue) : null;
+    if (bothValue !== null && bothStatus) return validated({ intent: 'add_job', jobValue: bothValue, ...bothStatus, freshDraft: false }, context);
+    const deposit = new RegExp(`^(?:ได้|รับ)?มัดจำ(?:มา)?\\s*(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท)?(?:แล้ว)?$`).exec(text);
+    const received = deposit ? amount(deposit[1]) : null;
+    if (received !== null && context.pendingJob.value && received < context.pendingJob.value) {
+      return validated({ intent: 'add_job', jobPaymentStatus: 'partial', jobReceivedAmount: received, freshDraft: false }, context);
+    }
+  }
   if (unsupported.test(text)) return null;
   if (expensePrefix.test(text)) {
     const body = text.replace(expensePrefix, '');
@@ -113,7 +137,9 @@ export function parseLineQuickDraft(input: string, context: LineQuickDraftContex
     return value === null ? null : expenseResult(match[1].trim(), value, context);
   }
   if (jobPrefix.test(text)) {
-    const body = text.replace(jobPrefix, '');
+    const body = text.replace(jobPrefix, '').replace(/^(?:ให้\s*)?(?:หน่อย|ด้วย|ที)$/, '');
+    // "บันทึกงาน" alone: the empty draft card, its form for everything (never questions).
+    if (!body) return { intent: 'add_job', freshDraft: true };
     const explicitTotal = body.includes('ยอด');
     const job = body.match(explicitTotal ? jobNamedAmount : jobAmount);
     if (!job) return safeName(body) ? validated({ intent: 'add_job', jobName: body, freshDraft: true }, context) : null;
@@ -151,4 +177,55 @@ export function parseLineQuickDraft(input: string, context: LineQuickDraftContex
     if (value !== null) return validated({ intent: 'add_expense', expenseAmount: value, freshDraft: false }, context);
   }
   return null;
+}
+
+// Recording a job in everyday words (owner, 2026-10-30: "เวลาบันทึกงานก็ให้การ์ดมาเหมือนกัน ... ถ้าไม่ครบ ... ไม่ต้องถาม
+// ให้เขากรอกให้ครบ"): "บันทึกงาน ถ่ายรูปให้ร้านบี 8,000 เครดิต 30 วัน หัก 3%", "มีงานใหม่ ตัดต่อวิดีโอ ให้คุณบี",
+// "รับงาน ออกแบบโลโก้ 5 ชิ้น ชิ้นละ 1,500 ยังไม่ได้รับเงิน". It always becomes the draft card (ยืนยันบันทึก even when
+// everything is there; the form for whatever is missing), never questions. Several jobs or a date in one message
+// stay with เลขา, which can record them all and their dates.
+const JOB_START = /^(?:(?:ช่วย|รบกวน|ขอ)\s*)?(?:(?:บันทึก|เพิ่ม|จด|ลง)\s*(?:งาน|โปรเจกต์|โปรเจ็กต์|โปรเจค)(?:ใหม่)?|(?:มี|รับ|ได้)\s*(?:งาน|โปรเจกต์|โปรเจ็กต์|โปรเจค)(?:ใหม่)?|งานใหม่)\s*(?:ให้หน่อย|หน่อย)?\s*/u;
+const SEVERAL_OR_DATED = /งานละ|กับงาน|และงาน|อีกงาน|\d+\s*งาน(?:\s|$)|พรุ่งนี้|มะรืน|เมื่อวาน|วันนี้|วันที่|สัปดาห์|อาทิตย์|เดือนหน้า|ปีหน้า|เมื่อไร|เมื่อไหร่|[?？]|ไหม|มั้ย|เท่าไร|เท่าไหร่/u;
+const JOB_FILLER = /(?:\s*(?:ให้หน่อย|หน่อย|ด้วย|นะ|น้า|จ้า|ครับ|คับ|ค่ะ|คะ))+$/u;
+
+export function parseLineJobRequest(input: string): LineQuickDraftResult | null {
+  if (input.length > 600) return null;
+  const text = normalizeLineText(input).replace(JOB_FILLER, '').trim();
+  const start = JOB_START.exec(text);
+  if (!start) return null;
+  let rest = text.slice(start[0].length).trim();
+  if (SEVERAL_OR_DATED.test(rest)) return null;
+  const result: LineQuickDraftResult = { intent: 'add_job', freshDraft: true };
+  // Payment first, so "ยังไม่ได้รับเงิน" or "มัดจำ 2,000" never becomes part of the work's name or its amount.
+  const deposit = new RegExp(`(?:ได้|รับ)?มัดจำ(?:มา)?\\s*(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท)?(?:แล้ว)?`, 'u').exec(rest);
+  if (deposit) { result.jobReceivedAmount = readMoney(deposit[1]) ?? undefined; rest = rest.replace(deposit[0], ' '); }
+  const pending = /ยังไม่(?:ได้)?(?:รับ|ได้)(?:เงิน)?|ยังไม่จ่าย|ยังไม่โอน|รอรับ(?:เงิน)?|ค้าง(?:จ่าย|รับ)(?:อยู่)?/u.exec(rest);
+  const paid = /(?:ได้รับ(?:เงิน)?|รับเงิน|ได้เงิน|ลูกค้าโอน(?:มา)?|โอน(?:มา)?|จ่าย(?:มา)?)(?:ครบ)?แล้ว|รับครบแล้ว/u.exec(rest);
+  if (pending) { result.jobPaymentStatus = 'pending'; rest = rest.replace(pending[0], ' '); }
+  else if (paid) { result.jobPaymentStatus = 'paid'; rest = rest.replace(paid[0], ' '); }
+  const credit = /เครดิต(?:เทอม)?\s*(\d{1,4})\s*วัน/u.exec(rest);
+  if (credit) { result.jobCreditTerm = Math.min(3650, Number(credit[1])); rest = rest.replace(credit[0], ' '); }
+  const wht = /หัก\s*(?:ณ\s*ที่\s*จ่าย)?\s*([1-5])\s*%/u.exec(rest);
+  if (wht && [1, 2, 3, 5].includes(Number(wht[1]))) { result.jobWhtRate = Number(wht[1]); rest = rest.replace(wht[0], ' '); }
+  // "5 ชิ้น ชิ้นละ 1,500": the job's value is the whole, the units stay in its name.
+  const each = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*([ก-๛A-Za-z]{1,12}?)\\s*(?:\\2)?\\s*ละ\\s*(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท)?`, 'u').exec(rest);
+  if (each) {
+    const unitPrice = readMoney(each[3]);
+    if (unitPrice !== null) result.jobValue = Math.round(Number(each[1]) * unitPrice * 100) / 100;
+    rest = rest.replace(each[0], ` ${each[1]} ${each[2]} `);
+  } else {
+    const named = new RegExp(`(?:ยอด|ราคา|ค่าจ้าง|มูลค่า|รวม)\\s*(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท|\\.-)?`, 'u').exec(rest);
+    const plain = [...rest.matchAll(new RegExp(`(?:^|\\s)(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท|\\.-)?(?=\\s|$)`, 'gu'))].at(-1);
+    const found = named ?? plain;
+    if (found) { result.jobValue = readMoney(found[1]) ?? undefined; rest = rest.replace(found[0], ' '); }
+  }
+  if (result.jobReceivedAmount !== undefined) {
+    // A deposit is part paid only when it is less than the whole; otherwise the words are unclear: ask through the card.
+    if (result.jobValue && result.jobReceivedAmount < result.jobValue) result.jobPaymentStatus = 'partial';
+    else delete result.jobReceivedAmount;
+  }
+  const { client, work } = splitClientWork(rest);
+  if (work) result.jobName = work.replace(/^งาน\s+/u, '').slice(0, 500);
+  if (client) result.jobClient = client.slice(0, 500);
+  return validated(result, {});
 }

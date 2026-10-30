@@ -10,7 +10,7 @@ const drafts = {
   empty: { type: 'invoice', client: {}, items: [], vatRate: 0, whtRate: 0 },
 };
 
-async function open(page: Page, scenario: keyof typeof drafts, issuer = 'สตูดิโอตัวอย่าง', size = { width: 390, height: 844 }) {
+async function open(page: Page, scenario: keyof typeof drafts, issuer = 'สตูดิโอตัวอย่าง', size = { width: 390, height: 844 }, query = '') {
   const sent: any[] = [];
   await page.setViewportSize(size);
   await page.route('https://static.line-scdn.net/**', route => route.fulfill({ contentType: 'text/javascript',
@@ -19,10 +19,14 @@ async function open(page: Page, scenario: keyof typeof drafts, issuer = 'สต�
   await page.route('**/api/liff-submit', route => {
     const body = route.request().postDataJSON(); sent.push(body);
     if (body.action === 'load-draft') return route.fulfill({ json: { ok: true, kind: 'document', draft: drafts[scenario], createdAt: new Date().toISOString(), issuer: { name: issuer } } });
-    return route.fulfill({ json: { ok: true, documentNo: 'QT-2569-4F2A91C0', notificationSent: true } });
+    if (body.action === 'document-image') return route.fulfill({ json: { ok: true, imageSent: true } });
+    const record = { id: 'd1', assistantDraft: true, documentType: body.document.type, documentNo: 'QT-2569-4F2A91C0', createdDate: '2026-10-30',
+      issuer: { name: issuer || body.document.issuer?.name || '', address: '', phone: '', email: '', taxId: '', bankName: '', bankAccount: '', bankAccountName: '' },
+      client: { email: '', ...body.document.client }, items: body.document.items.map((item: any, at: number) => ({ id: `i${at}`, ...item })), vatRate: body.document.vatRate, whtRate: body.document.whtRate };
+    return route.fulfill({ json: { ok: true, documentNo: 'QT-2569-4F2A91C0', notificationSent: true, document: record } });
   });
-  await page.goto('/liff-add.html?draftKind=document&draftKey=0123456789abcdef');
-  await expect(page.locator('#document-card')).toBeVisible();
+  await page.goto(`/liff-add.html?draftKind=document&draftKey=0123456789abcdef${query}`);
+  if (!query) await expect(page.locator('#document-card')).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   return sent;
 }
@@ -39,7 +43,13 @@ test('a filled draft opens with what the card knew, and creating it sends the ch
   await page.locator('#doc-vat').selectOption('7');
   await expect(page.locator('#doc-payable')).toHaveText('฿6,420.00');
   await page.getByRole('button', { name: 'สร้างใบเสนอราคา' }).click();
-  await expect(page.getByRole('heading', { name: 'สร้างใบเสนอราคาแล้ว' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'สร้างใบเสนอราคาแล้ว' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('#status-view')).toContainText('ส่งการ์ดและรูปเอกสารเข้าแชทแล้ว');
+  // the page drawn as a picture by the app's own A4 sheet: a real JPEG, under LINE's 1 MB
+  const picture = sent.find(body => body.action === 'document-image');
+  expect(picture.draftKey).toBe('0123456789abcdef');
+  expect(picture.image.startsWith('/9j/')).toBe(true);
+  expect(Buffer.from(picture.image, 'base64').length).toBeLessThan(1_000_000);
   const submit = sent.find(body => body.action === 'confirm-draft');
   expect(submit).toMatchObject({ draftKind: 'document', draftKey: '0123456789abcdef', document: { type: 'quotation', vatRate: 7, creditTerm: 30,
     client: { name: 'บริษัท แบรนด์เอ' }, items: [{ description: 'ถ่ายรูปสินค้า', quantity: 20, unit: 'รูป', price: 300 }] } });
@@ -80,3 +90,17 @@ for (const size of [{ width: 390, height: 844 }, { width: 320, height: 568 }]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
+
+test('สร้างเอกสาร on the card opens straight into creating it, sends the picture, and goes back to the chat', async ({ page }) => {
+  const sent = await open(page, 'full', 'สตูดิโอตัวอย่าง', { width: 390, height: 844 }, '&create=1');
+  await expect(page.getByRole('heading', { name: 'สร้างใบเสนอราคาแล้ว' })).toBeVisible({ timeout: 20_000 });
+  expect(sent.map(body => body.action)).toEqual(['load-draft', 'confirm-draft', 'document-image']);
+  await expect(page.locator('#document-card')).toBeHidden(); // no form to press again
+});
+
+test('an incomplete draft opened to create shows its form instead', async ({ page }) => {
+  const sent = await open(page, 'empty', 'สตูดิโอตัวอย่าง', { width: 390, height: 844 }, '&create=1');
+  await expect(page.locator('#document-card')).toBeVisible();
+  await expect(page.locator('#document-error-box')).toContainText('ชื่อลูกค้า');
+  expect(sent.filter(body => body.action === 'confirm-draft')).toHaveLength(0);
+});
