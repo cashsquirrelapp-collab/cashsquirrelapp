@@ -322,6 +322,22 @@ card does not need:
   แจ้งปัญหา system (admin inbox, LINE alert) under the account set in `FEEDBACK_PUBLIC_ACCOUNT_ID`, and sends a picture to
   the team's email. No reply times or promises; a failed send says so and keeps what was typed.
 
+### Sign-in page (owner, 2026-10-30: "ดูสร้างสรรค์มากกว่านี้เหมือนกับหน้า landing page")
+
+- The landing's look (`features/auth/AuthStage.tsx`, `authStage.css`): white, always light (no moon; the app's own dark or
+  light setting comes back after signing in), no language switch (the language is chosen on the landing beside
+  เข้าสู่ระบบ). A frosted white card (28px corners) rises in once; switching forms does not replay it.
+- Around the card on computers float the landing's things: LINE, เงินเข้าเดือนนี้ with its line, a document, Gmail, the
+  08:00 reminder and +฿5,000 รับแล้ว, each arriving in turn and then drifting gently. iPads keep the icons only. Phones
+  put LINE and Gmail on the card's top-left edge, so they move with the card whatever form it shows. Pictures only
+  (aria-hidden); nothing floats over the card, the squirrel or the top bar on any form (`tests/e2e/login-stage.spec.ts`).
+- เลขากระรอก stands on the card's top-right edge, waving (its own wave, never redrawn). The page keeps room at the top
+  for the bar and the squirrel however tall the form grows.
+- The sign-in buttons wear their brands' colours: Google white with Google's four-colour G and a grey line, Facebook in
+  Facebook blue (#1877F2) with the white f, email in CI cream (#FFF1E8) with rust words. A switched-off Facebook still
+  fades as before.
+- With reduced motion nothing moves; everything is simply in place.
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

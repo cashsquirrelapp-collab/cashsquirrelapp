@@ -1,0 +1,83 @@
+/* The sign-in page in the landing's look (AuthStage.tsx, owner 2026-10-30): white, the landing's floating things around a
+   frosted card, the waving squirrel on the card's edge, and the sign-in buttons in their own brands' colours. */
+/* room at the top for the bar (76px) and the squirrel standing on the card (80px), however tall the form grows */
+.auth-page.is-stage { background: #FFFFFF; padding-top: 164px; padding-bottom: 40px; }
+.auth-stage { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.auth-float { position: absolute; display: block; }
+.auth-float-in { display: inline-flex; animation: auth-float-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) var(--d, 0s) both, auth-bob var(--b, 5s) ease-in-out calc(var(--d, 0s) + 0.8s) infinite alternate; }
+@keyframes auth-float-in { from { opacity: 0; transform: translateY(14px) scale(0.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes auth-bob { from { translate: 0 0; rotate: 0deg; } to { translate: 0 -10px; rotate: 2deg; } }
+.auth-float.is-line { left: 16%; top: 21%; --d: 0.15s; --b: 4.6s; }
+.auth-float.is-month { left: 5.5%; top: 43%; --d: 0.3s; --b: 5.6s; }
+.auth-float.is-doc { left: 17%; top: 70%; --d: 0.45s; --b: 4.2s; }
+.auth-float.is-gmail { right: 17%; top: 19%; --d: 0.22s; --b: 5.1s; }
+.auth-float.is-remind { right: 5.5%; top: 42%; --d: 0.38s; --b: 4.8s; }
+.auth-float.is-paid { right: 14%; top: 69%; --d: 0.52s; --b: 5.4s; }
+.auth-float :is(svg, span) { flex: none; }
+:is(.auth-float, .auth-card-icons) .auth-float-in > span[role="img"] { filter: drop-shadow(0 12px 16px rgba(28, 25, 23, 0.16)); }
+.auth-card-icons { display: none; }
+.auth-doc { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 15px; background: linear-gradient(160deg, #E65F2B, #C24A16); color: #FFFFFF;
+  filter: drop-shadow(0 12px 16px rgba(28, 25, 23, 0.16)); }
+.auth-glass { align-items: center; gap: 10px; padding: 10px 18px 10px 12px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.95);
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.97), rgba(250, 249, 248, 0.88));
+  box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.06), 0 22px 40px -20px rgba(28, 25, 23, 0.32), inset 0 1px 0 #FFFFFF; color: #1C1917; }
+.auth-float.is-month .auth-glass { flex-direction: column; align-items: flex-start; gap: 2px; min-width: 176px; padding: 14px 18px; }
+.auth-glass small { display: flex; align-items: center; gap: 6px; color: #6B625B; font-size: 12.5px; line-height: 1.45; }
+.auth-glass small i { width: 7px; height: 7px; border-radius: 50%; background: #18A66A; }
+.auth-glass b { font-family: 'IBM Plex Sans', var(--font-sans); font-size: 20px; font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.auth-spark { width: 120px; height: 28px; margin-top: 4px; fill: none; stroke: #18A66A; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.auth-glass.is-solid { border-color: transparent; background: linear-gradient(140deg, #E65F2B, #C24A16); color: #FFFFFF; }
+.auth-chip-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #E8F6EE; color: #13804F; }
+.auth-glass.is-solid .auth-chip-icon { background: rgba(255, 255, 255, 0.2); color: #FFFFFF; }
+.auth-pair { display: flex; flex-direction: column; }
+.auth-pair b { font-size: 16px; }
+.auth-pair b.is-green { color: #13804F; }
+.auth-glass.is-solid .auth-pair small { color: #FFE7D6; }
+
+/* the card: frosted white, rising in */
+.auth-page.is-stage .auth-form-card { position: relative; overflow: visible; border-radius: 28px; padding: 34px 28px 26px;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.98), rgba(250, 249, 248, 0.92)); border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.06), 0 34px 70px -30px rgba(28, 25, 23, 0.32), inset 0 1px 0 #FFFFFF;
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+/* the layout row spans the page but is see-through: only the card's column takes clicks, so the floating things beside it stay
+   in plain view (and are never "under" an empty layer) */
+.auth-page.is-stage .auth-layout { pointer-events: none; }
+.auth-page.is-stage .auth-form-column { pointer-events: auto; }
+/* the card's column rises in once when the page opens (switching between ways to sign in does not replay it) */
+.auth-page.is-stage .auth-form-column { position: relative; animation: auth-card-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes auth-card-rise { from { opacity: 0; transform: translateY(22px) scale(0.98); } to { opacity: 1; transform: none; } }
+/* เลขากระรอก on the card's top edge, waving */
+.auth-perch { position: absolute; top: -80px; right: 20px; z-index: 2; width: 92px; height: 92px; line-height: 0; pointer-events: none;
+  animation: auth-perch-in 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s both; }
+.auth-perch > div { width: 100% !important; height: 100% !important; }
+@keyframes auth-perch-in { from { opacity: 0; transform: translateY(26px) scale(0.7); } to { opacity: 1; transform: none; } }
+
+/* the sign-in buttons, each in its own brand's colour */
+.auth-page.is-stage .auth-pill { min-height: 52px; font-weight: 600; transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, opacity 0.25s ease, color 0.25s ease; }
+.auth-page.is-stage .auth-pill:hover:not(:disabled) { transform: translateY(-1px); }
+.auth-page.is-stage .auth-pill.is-google { background: #FFFFFF; color: #1F1F1F; box-shadow: inset 0 0 0 1px #DADCE0; }
+.auth-page.is-stage .auth-pill.is-google:hover:not(:disabled) { background: #F8F9FA; box-shadow: inset 0 0 0 1px #C6C9CC, 0 10px 20px -12px rgba(28, 25, 23, 0.35); }
+.auth-page.is-stage .auth-pill.is-facebook { background: #1877F2; color: #FFFFFF; }
+.auth-page.is-stage .auth-pill.is-facebook:hover:not(:disabled) { background: #166FE5; box-shadow: 0 10px 20px -12px rgba(24, 119, 242, 0.7); }
+.auth-page.is-stage .auth-pill.is-email { background: #FFF1E8; color: #B03E0E; }
+.auth-page.is-stage .auth-pill.is-email:hover:not(:disabled) { background: #FFE6D6; box-shadow: 0 10px 20px -12px rgba(176, 62, 14, 0.45); }
+.auth-page.is-stage .auth-pill.is-email svg { color: #C24A16; }
+
+/* iPads and small laptops: the icons only, closer to the sides */
+@media (max-width: 1023px) {
+  .auth-float.is-month, .auth-float.is-remind, .auth-float.is-paid { display: none; }
+  .auth-float.is-line { left: 6%; top: 24%; }
+  .auth-float.is-doc { left: 8%; top: 66%; }
+  .auth-float.is-gmail { right: 6%; top: 30%; }
+}
+/* phones: LINE and Gmail ride on the card's top-left edge, the squirrel on its right; nothing floats beside the card */
+@media (max-width: 743px) {
+  .auth-float { display: none; }
+  .auth-card-icons { position: absolute; top: -54px; left: 18px; z-index: 2; display: flex; gap: 12px; pointer-events: none; }
+  .auth-page.is-stage { padding-top: 154px; padding-bottom: 32px; }
+  .auth-page.is-stage .auth-form-card { padding: 30px 20px 22px; border-radius: 24px; }
+  .auth-perch { top: -70px; right: 14px; width: 80px; height: 80px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-float-in, .auth-page.is-stage .auth-form-column, .auth-perch { animation: none; }
+}

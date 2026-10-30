@@ -1,10 +1,11 @@
 import { apiFetch } from '../../services/api';
 import React, { useState } from 'react';
 import { authClient } from '../../services/auth';
-import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft, Eye, EyeOff, Check } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft, Eye, EyeOff, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from '../../components/mascot/Mascot';
 import { BrandLockup } from '../../components/brand/BrandLogo';
+import { AuthCardIcons, AuthPerch, AuthStage, FacebookF, GoogleG, useAuthLight } from './AuthStage';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { isValidPassword, passwordRequirements, type PasswordRequirement } from '../../../../shared/passwordPolicy';
 import { readRecoveryToken } from '../../../../shared/recoveryLink';
@@ -217,7 +218,9 @@ function PasswordChecklist({ password, confirmation }: { password: string; confi
 }
 
 export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount }: LoginProps) {
-  const { t, toggleLanguage } = useLanguage();
+  const { t } = useLanguage();
+  // light, like the landing; the language is chosen on the landing (owner, 2026-10-30: no moon or language switch here)
+  useAuthLight(darkMode);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const initialRecovery = readRecoveryToken(window.location.search, window.location.hash);
@@ -640,7 +643,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
           <AuthWelcome onContinue={openLogin} />
         </motion.div>
       )}
-    <div className="auth-page is-clean min-h-screen bg-[#F7F7F5] dark:bg-brand-bg flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden transition-colors duration-300">
+    <div className="auth-page is-clean is-stage min-h-screen bg-[#F7F7F5] dark:bg-brand-bg flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative overflow-hidden transition-colors duration-300">
       <header className="auth-topbar">
         <div className="auth-topbar-side">
           {addAccount ? (
@@ -654,19 +657,15 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
           )}
         </div>
         <BrandLockup size={26} latin />
-        <div className="auth-topbar-side justify-end">
-          <button type="button" onClick={toggleLanguage} className="auth-topbar-btn text-xs font-bold" aria-label={t('login.languageSwitchLabel')} title={t('login.languageSwitchLabel')}>
-            {t('login.languageToggle')}
-          </button>
-          <button type="button" onClick={() => setDarkMode(!darkMode)} className="auth-topbar-btn"
-            aria-label={darkMode ? t('login.darkModeOff') : t('login.darkModeOn')} title={darkMode ? t('login.darkModeOff') : t('login.darkModeOn')}>
-            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
-        </div>
+        {/* no language or dark-mode switch on this page (owner, 2026-10-30): the language is chosen on the landing */}
+        <div className="auth-topbar-side justify-end" />
       </header>
 
+      <AuthStage />
       <div className="auth-layout relative z-10 w-full">
       <div className="auth-form-column">
+        <AuthPerch />
+        <AuthCardIcons />
         {/* Form Card */}
         <motion.div
           key={`${authEntry}-${authMethod}`}
@@ -686,17 +685,17 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
                 </div>
               )}
               <div className="mt-5 space-y-3">
-                <button type="button" onClick={() => { void handleOAuthLogin('google'); }} disabled={loading} className="auth-pill">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg>
+                <button type="button" onClick={() => { void handleOAuthLogin('google'); }} disabled={loading} className="auth-pill is-google">
+                  <GoogleG size={20} />
                   {loading && pendingProvider === 'google' ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{t('login.processing')}</> : tr("ดำเนินการต่อด้วย Google")}
                 </button>
                 <button type="button" onClick={() => { if (providers.facebook) void handleOAuthLogin('facebook'); }}
-                  disabled={loading || !providers.facebook} aria-disabled={!providers.facebook} className="auth-pill">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M14.2 7.6h2.6V4.1a33 33 0 0 0-3.1-.16c-3.07 0-5.17 1.93-5.17 5.46v3.04H5.1v3.92h3.43V24h4.2v-7.64h3.36l.53-3.92h-3.89V9.78c0-1.13.3-2.18 1.47-2.18z"/></svg>
+                  disabled={loading || !providers.facebook} aria-disabled={!providers.facebook} className="auth-pill is-facebook">
+                  <FacebookF size={20} />
                   {loading && pendingProvider === 'facebook' ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{t('login.processing')}</> : tr("ดำเนินการต่อด้วย Facebook")}
                 </button>
-                <button type="button" onClick={() => { setAuthMethod('email'); setError(null); }} className="auth-pill">
-                  <Mail className="h-5 w-5 text-brand-text" aria-hidden="true" />
+                <button type="button" onClick={() => { setAuthMethod('email'); setError(null); }} className="auth-pill is-email">
+                  <Mail className="h-5 w-5" aria-hidden="true" />
                   {tr("ดำเนินการต่อด้วยอีเมล")}
                 </button>
               </div>
