@@ -182,7 +182,7 @@
       kind = kind || nested.get('draftKind'); key = key || nested.get('draftKey');
     }
     if (kind === null && key === null) return null;
-    if (['job', 'expense'].indexOf(kind) === -1 || !/^[a-f0-9]{16}$/i.test(key || '')) return { invalid: true };
+    if (['job', 'expense', 'document'].indexOf(kind) === -1 || !/^[a-f0-9]{16}$/i.test(key || '')) return { invalid: true };
     return { kind: kind, key: key.toLowerCase() };
   }
   function populateDraft(kind, draft) {
@@ -289,6 +289,8 @@
       if (openPath !== null) { await openLinkedApp(openPath); return; }
       draftReference = draftParams(window.location.search) || draftParams(originalSearch);
       if (draftReference && draftReference.invalid) { blockDraft('ลิงก์รายการร่างไม่ถูกต้อง'); return; }
+      // A quotation or invoice draft has its own form (liff-document.js).
+      if (draftReference && draftReference.kind === 'document' && window.KrarokDocumentForm) { await window.KrarokDocumentForm.open(draftReference); return; }
       if (draftReference) { await loadDraft(draftReference); return; }
       // Old rich-menu links now use the real app form after the same verified LINE sign-in.
       await openLinkedApp('/jobs?openAddJob=1');

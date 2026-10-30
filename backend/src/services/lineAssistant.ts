@@ -17,6 +17,7 @@ import { lineDraftKey, lineDraftOperationId, buildLineDraftReview } from './line
 import { explicitLineAiText, LINE_JOB_EXAMPLES } from './lineEntryRouting.js';
 import { isActiveLineDraft, lineDraftResolution } from './lineDraftState.js';
 import { buildLineFeatureShortcut, isLineWhtShortcut, lineShortcutArea } from './lineFeatureShortcuts.js';
+import { buildDocumentCreatedCard, buildDocumentDraftCard, buildLineDocumentRecord, clearDocumentDraft, documentIdFor, documentMissing, isActiveDocumentDraft, loadDocumentAccount, newDocumentDraft, parseDocumentCommand, parseLineDocumentCreate, saveDocumentDraft, saveLineDocument } from './lineDocumentDraft.js';
 import { lineAreaOpen, NOT_OPEN_TEXT } from './lineLaunch.js';
 import { parseLineDocumentRequest, findLineDocuments, buildLineDocumentMessages } from './lineDocuments.js';
 import { buildLineCashSummary, lineCashPosition, type LineCashPosition } from './lineCashSummary.js';
@@ -1111,9 +1112,47 @@ export interface LineAssistantDependencies {
   /** เลขากระรอก (ai/lineBridge.ts); tests replace it. null = the real เลขา is not on for this account. */
   assistantAnswer?: (user: UserRow, text: string, history: { role: 'user' | 'assistant'; text: string }[]) => Promise<{ messages: LineMessage[]; text: string } | null>;
   assistantCommand?: (user: UserRow, command: { action: 'confirm' | 'cancel'; proposalId: string }) => Promise<LineMessage[]>;
+  /** A new quotation or invoice draft card (tests replace the account reads and writes). */
+  startDocument?: (user: UserRow, draft: NonNullable<ReturnType<typeof parseLineDocumentCreate>>) => Promise<LineMessage | LineMessage[]>;
+  documentCommand?: (user: UserRow, command: { action: 'create' | 'cancel'; key: string }) => Promise<LineMessage | LineMessage[]>;
 }
 
 // Loaded when first needed: the AI modules import this file (buildDataSnapshot), so a static import would be circular.
+// A quotation or invoice from LINE: the draft card first, the document only on สร้างเอกสาร (lineDocumentDraft.ts).
+const startLineDocument: NonNullable<LineAssistantDependencies['startDocument']> = async (user, draft) => {
+  const stored = newDocumentDraft(draft);
+  let issuer = null;
+  try { issuer = (await loadDocumentAccount(user.user_id)).issuer; }
+  catch { console.error('line-document: issuer profile unavailable'); }
+  await saveDocumentDraft(user, stored);
+  return buildDocumentDraftCard(stored, issuer);
+};
+
+const lineDocumentCommand: NonNullable<LineAssistantDependencies['documentCommand']> = async (user, command) => {
+  const stored = user.notif_settings?.pendingDocumentDraft;
+  if (!isActiveDocumentDraft(stored, command.key)) {
+    return { type: 'text', text: 'การ์ดนี้หมดเวลาหรือมีแบบร่างใหม่แล้วครับ พิมพ์ “ทำใบเสนอราคา” หรือ “ออกใบแจ้งหนี้” เพื่อเริ่มใหม่ได้เลย' };
+  }
+  if (command.action === 'cancel') {
+    await clearDocumentDraft(user);
+    return lineCard({ title: 'ยกเลิกแบบร่างแล้ว', subtitle: 'เอกสารนี้ไม่ได้ถูกสร้าง', character: 'cancelled', compact: true, altText: 'ยกเลิกแบบร่างเอกสารแล้ว',
+      body: [{ type: 'text', text: 'พิมพ์ “ทำใบเสนอราคา” หรือ “ออกใบแจ้งหนี้” เพื่อเริ่มใหม่ได้เลย', size: 'sm', color: C.muted, wrap: true }] });
+  }
+  const { issuer } = await loadDocumentAccount(user.user_id);
+  // Something still missing (the issuer may have been cleared in the app meanwhile): the card again, with the form.
+  if (documentMissing(stored.draft, issuer.name).length) return buildDocumentDraftCard(stored, issuer);
+  const record = buildLineDocumentRecord(stored.draft, issuer, new Date(), documentIdFor(stored.id));
+  try {
+    if (!await saveLineDocument(user.user_id, record)) return { type: 'text', text: 'เอกสารจากแบบร่างนี้สร้างไว้แล้วครับ ดูได้ที่เมนู เอกสาร ในแอป' };
+  } catch (error) {
+    // The Free plan's monthly documents, or a value the app's checks refuse: the reason, as the app says it.
+    if (error instanceof Error && 'status' in error && typeof (error as { status?: unknown }).status === 'number' && (error as { status: number }).status < 500) return { type: 'text', text: error.message };
+    throw error;
+  }
+  try { await clearDocumentDraft(user); } catch { console.error('line-document: saved draft not cleared'); }
+  return buildDocumentCreatedCard(record);
+};
+
 const lineAssistantAnswer: NonNullable<LineAssistantDependencies['assistantAnswer']> = async (user, text, history) =>
   (await import('../ai/lineBridge.js')).lineAssistantAnswer(user, text, history);
 const lineAssistantCommand: NonNullable<LineAssistantDependencies['assistantCommand']> = async (user, command) =>
@@ -1234,6 +1273,12 @@ async function handleAssistantMessageInner(
   if (dueAction) return await (dependencies.handleDueAction ?? handleDueAction)(user, dueAction);
   const duePartial = await (dependencies.handleDuePartialText ?? handleDuePartialText)(user, trimmed);
   if (duePartial) return duePartial;
+  // Quotations and invoices as cards, with no model call (owner, 2026-10-30): "ทำ/ออก/ขอ ใบเสนอราคา …" opens a draft
+  // card, its form fills what is missing, and สร้างเอกสาร saves it. A lookup ("ขอใบเสนอราคา คุณเอ") still searches below.
+  const documentCommand = parseDocumentCommand(trimmed);
+  if (documentCommand) return await (dependencies.documentCommand ?? lineDocumentCommand)(user, documentCommand);
+  const documentCreate = parseLineDocumentCreate(trimmed);
+  if (documentCreate) return await (dependencies.startDocument ?? startLineDocument)(user, documentCreate);
   const documentRequest = parseLineDocumentRequest(trimmed);
   if (documentRequest) {
     if (documentRequest.query.length > 120) return buildLineDocumentMessages(documentRequest);

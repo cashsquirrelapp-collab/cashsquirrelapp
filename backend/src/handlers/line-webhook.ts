@@ -8,6 +8,7 @@ import { findUserByLineId, getQuickReply, handleAssistantMessage, isProUser, pre
 import { buildLineWelcome } from '../services/lineLinkCards.js';
 import type { LineMessage } from '../services/line.js';
 import { decodeLineDraftAction } from '../services/lineDraftReview.js';
+import { decodeLineDocumentAction } from '../services/lineDocumentDraft.js';
 import { decodeVaultAction, handleLineFile, handleLineVaultAction } from '../services/lineVaultChat.js';
 import { forgetLineMenu, lineMenuDeps, syncLineMenuFor } from '../services/lineRichMenus.js';
 import { decodeDueAction } from '../services/lineDuePayments.js';
@@ -58,7 +59,8 @@ export function lineEventCommand(event: LineEvent): string | null {
     // ยืนยัน / ยกเลิก on a เลขากระรอก confirmation card.
     const ai = /^ai:(confirm|cancel):(p_[0-9a-f-]{36})$/.exec(data);
     if (ai) return `${ai[1] === 'confirm' ? 'ยืนยัน' : 'ยกเลิก'}รายการเลขา ${ai[2]}`;
-    return decodeLineDraftAction(data);
+    // สร้างเอกสาร / ยกเลิก on a quotation or invoice draft card (lineDocumentDraft.ts).
+    return decodeLineDocumentAction(data) ?? decodeLineDraftAction(data);
   }
   if (event.type !== 'message') return null;
   if (event.message?.type === 'text') return (event.message.text || '').slice(0, 5000);

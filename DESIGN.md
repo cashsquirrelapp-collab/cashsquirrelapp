@@ -359,6 +359,21 @@ card does not need:
   they keep one line. A switched-off Facebook still fades as before.
 - With reduced motion nothing moves; everything is simply in place.
 
+### Quotations and invoices in LINE (owner, 2026-10-30, after a competitor's LINE: cards, not question after question)
+- "ทำ / ออก / สร้าง / ขอ + ใบเสนอราคา / ใบแจ้งหนี้ / ใบวางบิล" in LINE is read by fixed rules, with no model call
+  (`backend/src/services/lineDocumentDraft.ts`): the client, line items ("20 รูป รูปละ 300"), the amount ("ยอด 4,000"),
+  VAT, หัก ณ ที่จ่าย and เครดิต N วัน. "ขอใบเสนอราคา คุณเอ" (a name, no amount) is still a search.
+- The draft card (the formal LINE card, `document` kind): ผู้ออกเอกสาร (the saved business), ลูกค้า, the lines, taxes,
+  the net total, and "ยังไม่ได้กรอก" in amber for what is missing. Complete: สร้างเอกสาร, then แก้ไข / กรอกเพิ่ม and ยกเลิก.
+  Not complete: กรอกข้อมูล (the LINE form) and ยกเลิก. A draft lasts 30 minutes; one card, one draft.
+- The LINE form (`liff-add.html` draftKind=document, `liff-document.js`): one page in the job form's look, what the card
+  knew filled in, the user's own words shown for reference, the business asked only when none is saved (then kept),
+  lines with quantity, unit and price, VAT, หัก ณ ที่จ่าย, credit chips (ไม่มี / 7–90 วัน) and the totals.
+- สร้างเอกสาร (card or form) saves the same unsigned draft document as the app's เลขา, through the same checked write
+  (Free plan quota, validation); the same draft always gives the same document, so two presses make one. The created
+  card shows the number, client and total, and opens the document in the app (signed in through LINE) to download the
+  PDF, edit it or issue the next document.
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

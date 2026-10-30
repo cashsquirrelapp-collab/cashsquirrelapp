@@ -100,6 +100,25 @@
   @keyframes spin { to{transform:rotate(360deg)} }
   @media(prefers-reduced-motion:reduce){.loading-dot{animation:none}.btn-primary:active{transform:none}}
   @media(max-width:370px){.page{padding:13px 11px 28px}.card{padding:17px}.card-header{margin:-17px -17px 17px;padding:11px 91px 12px 15px;min-height:90px}.mascot-peek{width:100px;height:100px;bottom:-24px}.card-header .card-title{font-size:18px}.card-header .card-subtitle{font-size:10px}.card-header::after{right:76px;font-size:15px}.card-header .eyebrow,.card-header .step-eyebrow{font-size:8px;padding:2px 5px}.summary-amount{font-size:30px}.step-label{font-size:9px}}
+
+  /* The document form (liff-document.js): a quotation or invoice draft from the LINE chat, everything on one page. */
+  #document-card .card-header { background:linear-gradient(115deg,#FFFDF9 25%,#FFF1E1 73%,#FFD7B8); }
+  .doc-section { font-size:13px; font-weight:600; margin:23px 0 4px; padding-top:19px; border-top:1px dashed var(--border); }
+  .doc-section:first-of-type { margin-top:4px; }
+  .doc-known { display:flex; justify-content:space-between; gap:12px; align-items:baseline; background:var(--faint); border:1px solid var(--border); border-radius:12px; padding:11px 13px; margin-top:10px; font-size:13px; }
+  .doc-known span { color:var(--muted); font-size:11px; white-space:nowrap; }
+  .doc-heard { margin:0 0 4px; }
+  .doc-item { border:1px solid var(--border); border-radius:14px; padding:12px; margin-top:10px; background:#FFFEFC; }
+  .doc-item-head { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted); font-weight:600; }
+  .doc-item-head button { border:0; background:transparent; color:#9B3D28; font-size:12px; padding:6px 4px; min-height:32px; }
+  .doc-item label { margin-top:10px; }
+  .doc-item-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .doc-item-grid .wide { grid-column:1 / -1; }
+  .doc-item-line { text-align:right; font-family:'IBM Plex Sans',var(--font); font-size:12px; color:var(--muted); margin-top:8px; }
+  .doc-add { display:block; width:100%; margin-top:10px; padding:11px; border:1px dashed #D8B79B; border-radius:12px; background:#FFFBF5; color:var(--text); font-size:13px; font-weight:600; min-height:46px; }
+  .doc-terms { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .doc-terms button { border:1px solid var(--border); background:#fff; color:var(--text); border-radius:999px; padding:7px 13px; font-size:12px; min-height:36px; }
+  .doc-terms button[aria-pressed="true"] { background:var(--text); border-color:var(--text); color:#fff; font-weight:600; }
   .hidden { display:none!important; }
 </style>
 </head>
@@ -188,9 +207,73 @@
     <div class="nav-row"><button type="button" class="btn btn-primary" id="expense-submit-btn">ยืนยันบันทึก</button></div>
     <p class="save-caption">บันทึกเมื่อคุณกดยืนยันเท่านั้น</p>
   </section>
+  <section id="document-card" class="card hidden" aria-labelledby="document-title">
+    <div class="card-header"><img class="mascot-peek" src="/line/mascot-v6-document.png" alt="" aria-hidden="true" />
+      <div class="eyebrow">เอกสารจากแชท</div>
+      <h1 class="card-title" id="document-title">ใบเสนอราคา</h1>
+      <p class="card-subtitle">กรอกส่วนที่ยังขาดในหน้าเดียว แล้วกดสร้างเอกสาร</p>
+    </div>
+    <div class="draft-summary" aria-label="ยอดของเอกสาร">
+      <div class="summary-label">ยอดชำระสุทธิ</div>
+      <div class="summary-amount income" id="document-summary-amount">฿0</div>
+      <div class="summary-name" id="document-summary-name">ยังไม่มีรายการ</div>
+      <div class="summary-state">แบบร่าง · ยังไม่ได้สร้างเอกสาร</div>
+    </div>
+    <div class="tip-box doc-heard hidden" id="document-heard"><p id="document-heard-text"></p></div>
+
+    <h2 class="doc-section">ผู้ออกเอกสาร</h2>
+    <div class="doc-known hidden" id="document-issuer-known"><b id="document-issuer-name"></b><span>แก้ได้ในแอป</span></div>
+    <div id="document-issuer-fields" class="hidden">
+      <p class="helper">ยังไม่มีข้อมูลธุรกิจของคุณ กรอกครั้งเดียว เอกสารใบต่อไปจะใช้ข้อมูลนี้ให้เอง</p>
+      <label for="doc-issuer-name">ชื่อธุรกิจหรือชื่อของคุณ <span aria-hidden="true">*</span></label>
+      <input type="text" id="doc-issuer-name" maxlength="200" autocomplete="organization" />
+      <label for="doc-issuer-address">ที่อยู่ <span class="optional">ไม่บังคับ</span></label>
+      <textarea id="doc-issuer-address" maxlength="500" rows="2"></textarea>
+      <label for="doc-issuer-taxId">เลขประจำตัวผู้เสียภาษี <span class="optional">ไม่บังคับ</span></label>
+      <input type="text" id="doc-issuer-taxId" maxlength="20" inputmode="numeric" />
+      <label for="doc-issuer-phone">เบอร์โทร <span class="optional">ไม่บังคับ</span></label>
+      <input type="text" id="doc-issuer-phone" maxlength="40" inputmode="tel" autocomplete="tel" />
+    </div>
+
+    <h2 class="doc-section">ลูกค้า</h2>
+    <label for="doc-client-name">ชื่อลูกค้าหรือบริษัท <span aria-hidden="true">*</span></label>
+    <input type="text" id="doc-client-name" maxlength="200" placeholder="เช่น บริษัท แบรนด์เอ จำกัด" />
+    <label for="doc-client-address">ที่อยู่ <span class="optional">ไม่บังคับ</span></label>
+    <textarea id="doc-client-address" maxlength="500" rows="2"></textarea>
+    <label for="doc-client-taxId">เลขประจำตัวผู้เสียภาษี <span class="optional">ไม่บังคับ</span></label>
+    <input type="text" id="doc-client-taxId" maxlength="20" inputmode="numeric" />
+    <label for="doc-client-branch">สาขา <span class="optional">ไม่บังคับ</span></label>
+    <input type="text" id="doc-client-branch" maxlength="100" placeholder="เช่น สำนักงานใหญ่" />
+    <label for="doc-client-phone">เบอร์โทร <span class="optional">ไม่บังคับ</span></label>
+    <input type="text" id="doc-client-phone" maxlength="40" inputmode="tel" />
+
+    <h2 class="doc-section">รายการ</h2>
+    <div id="document-items"></div>
+    <button type="button" class="doc-add" id="document-add-item">+ เพิ่มรายการ</button>
+
+    <h2 class="doc-section">ภาษีและการชำระเงิน</h2>
+    <label for="doc-vat">ภาษีมูลค่าเพิ่ม (VAT)</label>
+    <select id="doc-vat"><option value="0">ไม่มี VAT</option><option value="7">VAT 7%</option></select>
+    <label for="doc-wht">หัก ณ ที่จ่าย</label>
+    <select id="doc-wht"><option value="0">0% · ไม่มีหัก</option><option value="1">1%</option><option value="2">2%</option><option value="3">3%</option><option value="5">5%</option></select>
+    <label id="doc-credit-label">เครดิตเทอม</label>
+    <div class="doc-terms" role="group" aria-labelledby="doc-credit-label" id="document-terms"></div>
+    <label for="doc-note">หมายเหตุ <span class="optional">ไม่บังคับ</span></label>
+    <textarea id="doc-note" maxlength="2000" rows="2" placeholder="เช่น ราคานี้รวมค่าเดินทางแล้ว"></textarea>
+    <div class="receipt-box" aria-label="สรุปยอดเอกสาร">
+      <div class="receipt-row"><span>รวมก่อนภาษี</span><span id="doc-subtotal">฿0</span></div>
+      <div class="receipt-row" id="doc-vat-row"><span>VAT 7%</span><span id="doc-vat-amount">฿0</span></div>
+      <div class="receipt-row" id="doc-wht-row"><span id="doc-wht-label">หัก ณ ที่จ่าย</span><span id="doc-wht-amount">−฿0</span></div>
+      <div class="receipt-row total"><span>ยอดชำระสุทธิ</span><span id="doc-payable">฿0</span></div>
+    </div>
+    <div class="error" id="document-error-box" role="alert" tabindex="-1"></div>
+    <div class="nav-row"><button type="button" class="btn btn-primary" id="document-submit-btn">สร้างใบเสนอราคา</button></div>
+    <p class="save-caption">สร้างเป็นเอกสารในแอป ยังไม่ได้ส่งให้ลูกค้า แก้ไขต่อได้ภายหลัง</p>
+  </section>
   <button type="button" class="return-btn hidden" id="return-chat-btn">กลับไปแชท</button>
 </main>
 <section id="status-view" class="status" aria-live="polite"><img class="emoji" src="/line/mascot-v6-working.png" alt="" /><h2>กำลังเปิดรายการ</h2><p>รอสักครู่ครับ</p><div class="loading-dot" aria-hidden="true"></div></section>
+<script src="/liff-document.js" defer></script>
 <script src="/liff-add.js" defer></script>
 </body>
 </html>
