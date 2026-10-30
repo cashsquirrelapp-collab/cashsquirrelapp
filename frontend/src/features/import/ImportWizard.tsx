@@ -464,8 +464,9 @@ export function ImportWizard({ open, onClose, jobs, expenses, statuses, jobTypes
             {error && <p role="alert" className="flex items-start gap-2 rounded-xl bg-[#FFF0F0] px-3 py-2.5 text-[13px] text-[#C43A3A] dark:bg-rose-500/10 dark:text-rose-300"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                [T("อ่านในเครื่องของคุณ"), T("ไฟล์ยังไม่ถูกส่งขึ้นระบบจนกว่าคุณจะกดนำเข้า ระบบอ่านเฉพาะค่าในเซลล์ ไม่รันสูตรหรือมาโคร")],
-                [T("ตรวจได้ทุกแถวก่อนบันทึก"), T("ระบบจับคู่คอลัมน์และเทียบยอดกับไฟล์ให้ แถวที่ต้องเดาจะรอให้คุณยืนยันก่อน")],
+                [T("อ่านในเครื่องของคุณ"), T("ข้อมูลทั้งไฟล์ยังไม่ถูกส่งขึ้นระบบจนกว่าคุณจะกดนำเข้า ระบบอ่านเฉพาะค่าในเซลล์ ไม่รันสูตรหรือมาโคร")],
+                // Said as it is since 2026-10-30: unknown columns' headers and a few samples go to เลขากระรอก before import.
+                [T("เลขากระรอกช่วยจับคู่คอลัมน์"), T("คอลัมน์ที่ระบบไม่รู้จัก ส่งแค่ชื่อคอลัมน์กับตัวอย่างสั้น ๆ ให้เลขาแนะนำ ทุกช่องและทุกแถวรอให้คุณตรวจก่อนบันทึก")],
                 [T("ยกเลิกได้ทั้งชุด"), T("ถ้านำเข้าแล้วไม่ถูกต้อง ยกเลิกทั้งชุดได้ภายใน 7 วัน")],
               ].map(([title, text]) => (
                 <div key={title} className="rounded-xl border border-brand-border px-4 py-3">

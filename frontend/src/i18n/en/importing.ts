@@ -224,6 +224,9 @@ export const importing: Record<string, string> = {
   "ไฟล์สำรอง .json ของแอป: ระบบจะถามยืนยันก่อนแทนที่ข้อมูล": "The app's .json backup: you'll be asked before it replaces your data",
   // เลขากระรอก's column suggestions (2026-10-30).
   'เลขากระรอกแนะนำ': 'Suggested by Krarok',
+  'ข้อมูลทั้งไฟล์ยังไม่ถูกส่งขึ้นระบบจนกว่าคุณจะกดนำเข้า ระบบอ่านเฉพาะค่าในเซลล์ ไม่รันสูตรหรือมาโคร': "The file's data isn't sent anywhere until you import. Only cell values are read; formulas and macros never run.",
+  'เลขากระรอกช่วยจับคู่คอลัมน์': 'Krarok helps match columns',
+  'คอลัมน์ที่ระบบไม่รู้จัก ส่งแค่ชื่อคอลัมน์กับตัวอย่างสั้น ๆ ให้เลขาแนะนำ ทุกช่องและทุกแถวรอให้คุณตรวจก่อนบันทึก': "For columns the app doesn't know, only the header and a few short samples go to Krarok for a suggestion. You check every field and row before saving.",
   'เลขาแนะนำ · ยืนยัน': 'Suggested · confirm',
   'เลขากระรอกกำลังช่วยดูคอลัมน์ที่ระบบยังไม่รู้จัก': 'Krarok is looking at the columns the app did not recognise',
   'เลขากระรอกแนะนำ {0} คอลัมน์ ตรวจว่าตรงไหม แล้วกด ยืนยัน หรือเลือกช่องอื่น': 'Krarok suggests {0} columns. Check each one, then confirm it or pick another field',
