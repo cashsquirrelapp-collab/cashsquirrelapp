@@ -1384,7 +1384,7 @@ export default function App() {
     setAssistantNote(null);
     setAssistantChecking(false);
     if (!assistantUserId) return;
-    if (financeGroupId) { setAssistantNote(tr("กำลังดูบัญชีกลุ่ม เลขา AI ใช้ได้กับบัญชีส่วนตัวเท่านั้น")); return; }
+    if (financeGroupId) { setAssistantNote(tr("กำลังดูบัญชีกลุ่ม เลขากระรอกใช้ได้กับบัญชีส่วนตัวเท่านั้น")); return; }
     const controller = new AbortController();
     let retry = 0;
     setAssistantChecking(true);
@@ -1403,7 +1403,7 @@ export default function App() {
       // A slow or failed check is tried again a few times; after that the sample chat stays, and admins see why.
       if (attempt < 3) { retry = window.setTimeout(() => { void check(attempt + 1); }, [3000, 10000, 30000][attempt]); return; }
       setAssistantChecking(false);
-      setAssistantNote((error as Error)?.message || tr("เชื่อมต่อเลขา AI ไม่ได้"));
+      setAssistantNote((error as Error)?.message || tr("เชื่อมต่อเลขากระรอกไม่ได้"));
     });
     void check(0);
     return () => { controller.abort(); window.clearTimeout(retry); };

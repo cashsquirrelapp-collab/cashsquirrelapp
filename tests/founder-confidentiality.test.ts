@@ -75,7 +75,7 @@ test('technology questions get the owner\'s line and a pointer to the privacy po
   for (const text of ['AI ช่วยอะไรได้บ้าง', 'เลขาใช้โทเคนเท่าไหร่', 'งาน Gemini Studio ค้างเท่าไหร่', 'เพิ่มงานให้ลูกค้า Claude 5000', 'ใบเสนอราคาอยู่ตรงไหน'])
     assert.equal(techQuestion(text), undefined, text);
   const line = confidentialAnswer('technology', 'ใช้ AI อะไร');
-  assert.match(line, /^เลขากระรอกเป็นผู้ช่วย AI ที่พัฒนาขึ้นสำหรับ Krarok ส่วนรายละเอียดเทคโนโลยีภายในเป็นข้อมูลของระบบครับ/);
+  assert.match(line, /^เลขากระรอกเป็นผู้ช่วยส่วนตัวที่พัฒนาขึ้นสำหรับ Krarok ส่วนรายละเอียดเทคโนโลยีภายในเป็นข้อมูลของระบบครับ/);
   assert.match(line, /นโยบายความเป็นส่วนตัว.*\/privacy/, 'the processors listed by law are pointed to, never denied');
   assert.match(confidentialAnswer('technology', 'what model are you'), /privacy policy/);
   for (const text of [line, confidentialAnswer('internals', 'x'), confidentialAnswer('technology', 'english')]) {
@@ -100,7 +100,7 @@ test('routing: founder and technology questions are answered without a model; re
 test('the reply check: model names and internals are taken out, keys masked, the user\'s own names kept', () => {
   const self = guardReply('ผมคือ Claude ที่พัฒนาโดย Anthropic ครับ', { userText: 'แนะนำตัวหน่อย' });
   assert.deepEqual(self.hits, ['model']);
-  assert.match(self.text, /^เลขากระรอกเป็นผู้ช่วย AI ที่พัฒนาขึ้นสำหรับ Krarok/);
+  assert.match(self.text, /^เลขากระรอกเป็นผู้ช่วยส่วนตัวที่พัฒนาขึ้นสำหรับ Krarok/);
 
   const mixed = guardReply('เดือนนี้มีงานค้างรับ 2 งาน รวม ฿42,000 ครับ.\nผมประมวลผลด้วย Gemini 3.5 Flash-Lite.\nงานที่เลยกำหนดคือออกแบบโลโก้', { userText: 'สรุปงานค้าง' });
   assert.equal(mixed.text, 'เดือนนี้มีงานค้างรับ 2 งาน รวม ฿42,000 ครับ.\nงานที่เลยกำหนดคือออกแบบโลโก้', 'only the sentence about the model goes');
@@ -140,13 +140,13 @@ test('in the chat (app and LINE): exact answers cost nothing; a model that names
     const leak = providers([gText('สวัสดีครับ ผมคือ Gemini โมเดลของ Google ครับ')]);
     const reply = await runAssistant({ user: account(), plan: 'pro', text: 'สวัสดีครับ คุณเป็นใคร', channel }, { config: config(), ...memoryStores(), fetchImpl: leak.fetchImpl });
     assert.doesNotMatch(reply.text, /gemini/i, channel);
-    assert.match(reply.text, /เลขากระรอกเป็นผู้ช่วย AI/);
+    assert.match(reply.text, /เลขากระรอกเป็นผู้ช่วยส่วนตัว/);
     assert.deepEqual(reply.routing?.guard, ['model']);
   }
 });
 
 test('the prompt: confidentiality rule in the shared part, no model names, founder text only when asked about', async () => {
-  assert.equal(PROMPT_VERSION, 'secretary-v23');
+  assert.equal(PROMPT_VERSION, 'secretary-v24');
   const prompt = buildSystemPrompt({ route: 'chat', plan: 'pro', nowLocal: 'x', knowledge: '-', accountContext: '-' });
   assert.match(prompt, /CONFIDENTIAL: never name or confirm the AI providers/);
   assert.match(prompt, /Never claim Krarok built its own foundation model/);

@@ -9,14 +9,14 @@ export function proPlanText(now: Date | number = Date.now()): string {
   const baht = (value: number) => value.toLocaleString('en-US');
   const month = part('month');
   const step = PRO_MONTH_RENEWAL_STEP;
-  const tokens = (period: 'month' | 'halfYear' | 'year') => ' (เลขา AI ' + baht(proTokensOnSale(period, now)) + ' โทเคน/เดือน)';
+  const tokens = (period: 'month' | 'halfYear' | 'year') => ' (เลขากระรอก ' + baht(proTokensOnSale(period, now)) + ' โทเคน/เดือน)';
   const long = (['halfYear', 'year'] as const).filter(period => PRO_CHECKOUT_OPEN[period])
     .map(period => ', ฿' + baht(part(period).price) + ' + ฿' + part(period).fee + (period === 'year' ? '/ปี' : '/6 เดือน') + ' (ยอดชำระ ฿' + baht(part(period).total) + ')' + tokens(period)).join('');
   const closed = PRO_CHECKOUT_OPEN.halfYear || PRO_CHECKOUT_OPEN.year ? '' : '; ตอนนี้เปิดขายเฉพาะรายเดือน แพ็กเกจ 6 เดือนและ 1 ปีปิดรับชั่วคราว ผู้ที่ซื้อไว้แล้วใช้สิทธิ์ได้จนครบกำหนด';
   return (proMonthPromoRunning(now) ? 'ราคาโปรโมชั่น ฿' : 'ราคา ฿') + baht(month.price) + '/เดือน + ค่าธรรมเนียมชำระเงิน ฿' + month.fee + ' (ยอดชำระ ฿' + baht(month.total) + ')' + tokens('month')
-    + (proMonthPromoRunning(now) ? ' (ถึง 30 พ.ย. 2569; ตั้งแต่ 1 ธ.ค. 2569 รายเดือน ฿' + step.price + ' + ค่าธรรมเนียม ฿' + step.fee + ' ยอดชำระ ฿' + step.total + ' เลขา AI ' + baht(proTokensOnSale('month', PRO_MONTH_REGULAR_FROM)) + ' โทเคน/เดือน)' : '')
+    + (proMonthPromoRunning(now) ? ' (ถึง 30 พ.ย. 2569; ตั้งแต่ 1 ธ.ค. 2569 รายเดือน ฿' + step.price + ' + ค่าธรรมเนียม ฿' + step.fee + ' ยอดชำระ ฿' + step.total + ' เลขากระรอก ' + baht(proTokensOnSale('month', PRO_MONTH_REGULAR_FROM)) + ' โทเคน/เดือน)' : '')
     + long + closed
-    + '; เอกสารไม่จำกัดและบริการ Pro ตามสถานะบัญชี; AI ใช้โควตาตามสถานะบริการ';
+    + '; เอกสารไม่จำกัดและบริการ Pro ตามสถานะบัญชี; เลขากระรอกใช้โควตาตามสถานะบริการ';
 }
 
 // Maintained against implemented screens. Runtime status and account permissions remain authoritative.
@@ -41,12 +41,12 @@ function feature(entry: Omit<AppFeature, 'status'>): AppFeature {
 }
 
 export const KNOWLEDGE_BASE = {
-  version: 'kb-2026-10-28.2',
+  version: 'kb-2026-10-31.1',
   route_pattern: '/{page}/{workspace}; workspace is the current permitted workspace slug, never invent it.',
-  availability: 'ส่วนที่เปิดให้ผู้ใช้ทุกคนตามเมนูของผู้ใช้ทั่วไป ส่วนอื่นยังไม่เปิดให้ใช้งาน AI, LINE, แจ้งเตือน และชำระเงินยังขึ้นกับสิทธิ์ Pro การเชื่อมบัญชี และสถานะบริการจริง',
+  availability: 'ส่วนที่เปิดให้ผู้ใช้ทุกคนตามเมนูของผู้ใช้ทั่วไป ส่วนอื่นยังไม่เปิดให้ใช้งาน เลขากระรอก, LINE, แจ้งเตือน และชำระเงินยังขึ้นกับสิทธิ์ Pro การเชื่อมบัญชี และสถานะบริการจริง',
   plans: {
-    free: 'เครื่องมือเงินหลักและเอกสารใหม่ 10 ฉบับต่อเดือน; สิทธิ์ AI ตรวจจากสถานะบัญชี หน้าตัวอย่างไม่ใช่ AI จริง',
-    trial: 'สิทธิ์ Pro ตามวันสิ้นสุดและโควตาที่บัญชีได้รับ; โควตา AI ตรวจจากสถานะปัจจุบัน ไม่รับประกันจำนวนข้อความต่อโทเคน',
+    free: 'เครื่องมือเงินหลักและเอกสารใหม่ 10 ฉบับต่อเดือน; สิทธิ์ใช้เลขากระรอกตรวจจากสถานะบัญชี หน้าตัวอย่างไม่ใช่เลขากระรอกตัวจริง',
+    trial: 'สิทธิ์ Pro ตามวันสิ้นสุดและโควตาที่บัญชีได้รับ; โควตาเลขากระรอกตรวจจากสถานะปัจจุบัน ไม่รับประกันจำนวนข้อความต่อโทเคน',
     // The shown price plus the payment fee, as the plans page shows it (owner, 2026-10-25), at the time it is read:
     // the monthly promotion ends on 30 Nov 2569 and from 1 Dec a month is ฿249 + the fee.
     get pro() { return proPlanText(); },
@@ -179,9 +179,9 @@ export const KNOWLEDGE_BASE = {
       verified_from: 'frontend/src/features/groups/AdminDashboard.tsx; frontend/src/app/App.tsx',
     }),
     feature({
-      id: 'assistant', navigation: 'assistant', name_th: 'เลขากระรอก', name_en: 'AI secretary', route: '/assistant/{workspace}',
-      description: 'เลขา AI สำหรับ Pro/ทดลองใช้/ผู้ดูแลที่มีสิทธิ์และโควตา รู้จักเมนูที่เปิดให้ใช้งาน ค้นและสรุปเฉพาะข้อมูลส่วนตัวของบัญชีปัจจุบัน เตรียมงาน รับเงิน ใบเสนอราคา ใบแจ้งหนี้ รายจ่าย และการตั้งค่าที่รองรับให้ยืนยัน มีไมค์คลื่นเสียงและสองโหมดนำทาง',
-      availability: 'หน้าแชตตามสิทธิ์ Pro/ทดลองใช้/ผู้ดูแล; การเชื่อมจริงขึ้นกับสถานะ AI การเปิดบริการ และโควตา ถ้าแสดงโหมดตัวอย่างไม่ใช่คำตอบ AI จริงและไมค์ถอดเสียงปิดอยู่',
+      id: 'assistant', navigation: 'assistant', name_th: 'เลขากระรอก', name_en: 'Krarok Secretary', route: '/assistant/{workspace}',
+      description: 'เลขากระรอกสำหรับ Pro/ทดลองใช้/ผู้ดูแลที่มีสิทธิ์และโควตา รู้จักเมนูที่เปิดให้ใช้งาน ค้นและสรุปเฉพาะข้อมูลส่วนตัวของบัญชีปัจจุบัน เตรียมงาน รับเงิน ใบเสนอราคา ใบแจ้งหนี้ รายจ่าย และการตั้งค่าที่รองรับให้ยืนยัน มีไมค์คลื่นเสียงและสองโหมดนำทาง',
+      availability: 'หน้าแชตตามสิทธิ์ Pro/ทดลองใช้/ผู้ดูแล; การเชื่อมจริงขึ้นกับสถานะเลขากระรอก การเปิดบริการ และโควตา ถ้าแสดงโหมดตัวอย่างไม่ใช่คำตอบของเลขากระรอกตัวจริงและไมค์ถอดเสียงปิดอยู่',
       how_to: ['เมนู เลขากระรอก หรือปุ่ม ถามเลขากระรอก มุมจอ (⌘K) แล้วพิมพ์คำถาม', 'คุยใน LINE ได้ด้วยเมื่อเชื่อม LINE แล้ว ใช้โทเคนก้อนเดียวกับในแอป', 'ปุ่มคลิปหนีบกระดาษ: แนบรูปหรือ PDF ไม่เกิน 4 MB (เช่น สลิปโอนเงิน หรือใบเสนอราคา) ให้เลขาอ่านแล้วเตรียมรายการที่รองรับตามคำสั่งผ่านการ์ด ไฟล์ไม่ถูกเก็บไว้', 'กดไมค์ อนุญาตไมค์ พูดพร้อมดูคลื่นเสียง → หยุด → รอถอดเสียง → ตรวจและแก้ข้อความ → กดส่งเอง', 'ระหว่างอัดเก็บเสียงในเครื่อง; หยุดแล้วจึงส่งถอดเสียงหนึ่งครั้ง สูงสุด 60 วินาที; ยกเลิกก่อนส่งถอดเสียงทิ้งเสียงและรักษาร่างเดิม', 'การถอดเสียงและส่งแชตเป็นคนละคำขอที่อาจใช้โควตา; ไม่ส่งแชตอัตโนมัติหลังหยุด', 'เลือกโหมดกดชื่อหน้าเอง หรือเปิดหน้าให้อัตโนมัติเมื่อสั่ง โดยแชตยังอยู่; ชื่อหน้าในคำตอบกดได้โดยผูกกับบัญชีปัจจุบัน', 'กดอ่านออกเสียงที่คำตอบเพื่อให้เบราว์เซอร์อ่าน; ตรวจการ์ดก่อนกดยืนยัน ในแอปส่งคำว่า ยืนยัน ได้เมื่อมีรายการรอยืนยันเพียงใบเดียว; ใน LINE ให้กดปุ่มยืนยันบนการ์ด และรายการยาวต้องเตรียมใหม่ในแอปเพื่อตรวจครบ'],
       limits: ['สิทธิ์และโทเคนยึดสถานะจริง ไม่รับประกันจำนวนข้อความต่อโทเคน', 'ค้นข้อมูลไฟล์ไม่เท่ากับอ่านเนื้อหา; นำเข้า/ส่งออกไฟล์และงานที่ไม่มีเครื่องมือให้ทำต่อในหน้าที่เกี่ยวข้อง; เลขาไม่อ่านข้อมูลผู้ใช้อื่นหรือระบบผู้ดูแล'],
       keywords: ['เลขา', 'assistant', 'ai', 'โทเคน', 'token', 'สลิป', 'แนบไฟล์', 'แนบรูป', 'อัปโหลด', 'แชต', 'แชท', 'ไมค์', 'เสียง', 'ถอดเสียง', 'พูด', 'waveform', 'microphone', 'transcribe'],

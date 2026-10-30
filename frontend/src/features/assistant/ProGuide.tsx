@@ -23,7 +23,9 @@ const TARGETS: Record<ProGuideStep, string[]> = {
   line: ['line-code', 'line-connect', 'line'],
   email: ['notif-digest', 'notif'],
   chat: ['chat-composer'],
-  business: ['business-save', 'business'],
+  // The business details first, not the save button (owner, 2026-10-31: "บอกให้มากรอกตรงนี้ด้วย ... กรอกเสร็จแล้วค่อยกด
+  // บันทึกโปรไฟล์"); saving them ends the guide.
+  business: ['business-form', 'business'],
 };
 
 const storageKey = (account: string) => `krarok.proGuide.${account}`;
@@ -55,10 +57,11 @@ function coachTitle(target: string) {
     case 'notif-digest': return tr('เปิดสวิตช์แจ้งเตือนเครดิตเทอม');
     case 'chat-composer': return tr('พิมพ์ตรงนี้แล้วกดส่ง');
     case 'business': return tr('กดตรงนี้เพื่อตั้งข้อมูลผู้ออกเอกสาร');
+    case 'business-form': return tr('กรอกข้อมูลธุรกิจตรงนี้');
     default: return tr('กรอกข้อมูลด้านบน แล้วกดบันทึก');
   }
 }
-function coachSteps(step: ProGuideStep): React.ReactNode[] {
+function coachSteps(step: ProGuideStep, target: string): React.ReactNode[] {
   if (step === 'line') return [
     <>{tr('กด')} <b>LINE</b> {tr('แล้วกด')} <b>{tr('เชื่อมต่อ LINE')}</b> {tr('เพื่อรับรหัส')}</>,
     tr('เพิ่มเพื่อน LINE ของกระรอกตุนเงิน แล้วส่งรหัสในแชต'),
@@ -74,10 +77,16 @@ function coachSteps(step: ProGuideStep): React.ReactNode[] {
     tr('กดส่ง แล้วเลขาจะทำให้'),
     tr('ส่งข้อความแรกแล้ว น้องจะติ๊กขั้นนี้ให้เอง'),
   ];
-  return [
+  const save = <>{tr('กรอกเสร็จแล้วกด')} <b>{tr('บันทึกโปรไฟล์ธุรกิจ')}</b> {tr('ด้านล่างขวา')}</>;
+  if (target === 'business') return [
     <>{tr('กด')} <b>{tr('โปรไฟล์ธุรกิจ')}</b></>,
-    tr('กรอกชื่อ ที่อยู่ และเลขผู้เสียภาษี'),
-    <>{tr('กด')} <b>{tr('บันทึกโปรไฟล์ธุรกิจ')}</b> {tr('น้องจะติ๊กขั้นนี้ให้เอง')}</>,
+    tr('กรอกชื่อธุรกิจ เลขผู้เสียภาษี ที่อยู่ เบอร์โทร และอีเมล'),
+    save,
+  ];
+  return [
+    tr('กรอกชื่อธุรกิจ เลขผู้เสียภาษี และที่อยู่ออกใบเสร็จ'),
+    tr('ใส่เบอร์โทรและอีเมลติดต่อ (ถ้ามี)'),
+    save,
   ];
 }
 
@@ -155,6 +164,8 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   const activeDone = active ? done[active] : false;
   React.useEffect(() => {
     if (!active || !activeDone) return;
+    // Saving the business profile ends the guide there and then (owner, 2026-10-31: "พอกดบันทึกโปรไฟล์ปุ๊บก็เลิกสอนทันที").
+    if (active === 'business') { update({ state: 'off', active: undefined }); return; }
     setCheer(active);
     const timer = window.setTimeout(() => { setCheer(null); update({ state: 'card', active: undefined }); }, 1600);
     return () => window.clearTimeout(timer);
@@ -340,7 +351,10 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   let coach: React.ReactNode = null;
   if (cheer) coach = null;
   else if (spot) {
-    const below = spot.top + spot.height + 18 + coachHeight <= window.innerHeight - 12;
+    // The business details are filled in under their first row, so the bubble goes above it when it fits.
+    const fitsBelow = spot.top + spot.height + 18 + coachHeight <= window.innerHeight - 12;
+    const fitsAbove = spot.top - 18 - coachHeight >= 12;
+    const below = spot.name === 'business-form' ? !fitsAbove && fitsBelow : fitsBelow;
     const left = Math.max(gutter, Math.min(spot.left - 6, window.innerWidth - width - gutter));
     const top = below ? spot.top + spot.height + 18 : Math.max(12, spot.top - 18 - coachHeight);
     const tail = Math.max(20, Math.min(spot.left + Math.min(spot.width / 2, 34) - left, width - 40));
@@ -348,7 +362,7 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
       <section ref={coachRef} className={`pg-coach is-follow ${below ? 'is-below' : 'is-above'}`} style={{ translate: `${left}px ${top}px`, width }} aria-labelledby="pg-coach-title" aria-live="polite" data-testid="pro-guide-coach" data-target={spot.name}>
         <span aria-hidden="true" className="pg-coach-tail" style={{ left: tail }} />
         {head(coachTitle(spot.name))}
-        <ol className="pg-coach-steps">{coachSteps(active).map((item, at) => <li key={at}>{item}</li>)}</ol>
+        <ol className="pg-coach-steps">{coachSteps(active, spot.name).map((item, at) => <li key={at}>{item}</li>)}</ol>
         <div className="pg-coach-foot">{dots}{actions}</div>
       </section>
     );

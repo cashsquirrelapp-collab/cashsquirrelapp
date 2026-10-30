@@ -216,7 +216,7 @@ test('live: a connection failure keeps the retry state', async ({ page }) => {
 
 test('switched off: the chat keeps its labelled sample answers', async ({ page }) => {
   await open(page, { status: { enabled: false } });
-  await expect(page.locator('.asx-hint:not(.is-admin)')).toHaveText('ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI');
+  await expect(page.locator('.asx-hint:not(.is-admin)')).toHaveText('ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก');
   // This test account is a system admin, so it also sees why: AI is on for admins only (the mock says pro).
   await expect(page.locator('.asx-hint.is-admin')).toContainText('ตอนนี้เปิด AI ให้แอดมินระบบเท่านั้น');
 });
@@ -435,7 +435,7 @@ test('attach: what เลขา read from a file goes with the next messages, th
 test('switched off: attaching stays "coming soon" (sample answers cannot read files)', async ({ page }) => {
   await open(page, { status: { enabled: false } });
   await expect(page.getByRole('button', { name: 'แนบไฟล์ · เร็ว ๆ นี้' })).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.getByRole('button', { name: 'ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI' })).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByRole('button', { name: 'ใช้เสียงได้เมื่อเชื่อมต่อเลขากระรอก' })).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('.asx-composer input[type=file]')).toHaveCount(0);
 });
 

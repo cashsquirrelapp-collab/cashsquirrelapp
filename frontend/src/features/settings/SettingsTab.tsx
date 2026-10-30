@@ -830,12 +830,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </Panel>
           <Panel title={tr("ข้อมูลธุรกิจ")} desc={tr("ชื่อและที่อยู่ผู้ออกเอกสาร")}>
             <div className="grid gap-4 sm:grid-cols-2">
+              {/* The post-payment guide rings these first fields (owner, 2026-10-31: fill the details in, then save). */}
+              <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2" data-guide-target="business-form">
               <Field label={tr("ชื่อธุรกิจ")} hint={tr("ใช้เป็นชื่อผู้ออกเอกสาร")} htmlFor="biz-name">
                 <input id="biz-name" type="text" value={issuerProfile.name} onChange={(e) => setIssuerProfile({ ...issuerProfile, name: e.target.value })} placeholder={tr("เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด")} className={uiInput} />
               </Field>
               <Field label={tr("เลขผู้เสียภาษี")} hint={tr("แสดงบนใบกำกับภาษีเต็มรูป")} htmlFor="biz-tax">
                 <input id="biz-tax" type="text" value={issuerProfile.taxId} onChange={(e) => setIssuerProfile({ ...issuerProfile, taxId: e.target.value })} placeholder={tr("เลขผู้เสียภาษี 13 หลัก")} className={`${uiInput} font-mono`} />
               </Field>
+              </div>
               <div className="sm:col-span-2">
                 <Field label={tr("ที่อยู่ออกใบเสร็จ / ที่อยู่จดทะเบียน")} htmlFor="biz-address">
                   <textarea id="biz-address" value={issuerProfile.address} onChange={(e) => setIssuerProfile({ ...issuerProfile, address: e.target.value })} placeholder={tr("เช่น 456 ถนนสุขุมวิท 21 แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพมหานคร 10110")} rows={3} className={uiInput} />

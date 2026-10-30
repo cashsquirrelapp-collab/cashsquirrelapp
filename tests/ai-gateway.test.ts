@@ -97,7 +97,7 @@ test('prompt: the shared part comes first and is the same for every user (so pro
   const shared = a.slice(0, a.indexOf('\n\nUSER'));
   assert.ok(shared.length > 1500);
   assert.ok(b.startsWith(shared));
-  assert.match(b, /AI requests left: 2/);
+  assert.match(b, /requests left: 2/);
 });
 
 test('tools: the chat model cannot propose changes, the action model can', () => {

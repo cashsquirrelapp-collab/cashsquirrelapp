@@ -97,25 +97,10 @@ test('the guide card lists four steps beside the corner squirrel and walks each 
   await expect(card(page).locator('.pg-step[data-step="email"]')).toContainText('เรียบร้อย');
   await expect(card(page).locator('.pg-step.is-current')).toHaveAttribute('data-step', 'chat');
 
-  // Step 4 before 3 (any row can be started): the business profile; saving it ticks the step.
-  await card(page).getByRole('button', { name: 'ไปทำเลย: ตั้งข้อมูลผู้ออกเอกสาร' }).click();
-  await ringsOn(page, 'business');
-  await page.locator('[data-guide-target="business"]').click();
-  await ringsOn(page, 'business-save');
-  await page.locator('#biz-name').fill('สตูดิโอตัวอย่าง');
-  await page.locator('[data-guide-target="business-save"]').click();
-  // The saved message is a modal: the bubble steps aside while it is open; the card waits behind it.
-  const saved = page.locator('.ksm-modal');
-  await expect(saved).toBeVisible();
-  await expect(coach(page)).toHaveCount(0);
-  await saved.getByRole('button').last().click();
-  await expect(card(page)).toBeVisible({ timeout: 6000 });
-  await expect(card(page).locator('.pg-count')).toHaveText('2/4');
-
   // "ไว้ทีหลัง" leaves a small pill by the squirrel, which reopens the card, also after a reload.
   await card(page).getByRole('button', { name: 'ไว้ทีหลัง' }).click();
   await expect(card(page)).toHaveCount(0);
-  await expect(page.getByTestId('pro-guide-pill')).toContainText('เริ่มใช้ Pro2/4');
+  await expect(page.getByTestId('pro-guide-pill')).toContainText('เริ่มใช้ Pro1/4');
   await page.reload();
   await expect(page.getByTestId('pro-guide-pill')).toBeVisible();
   await shot(page, 'guide-pill');
@@ -133,6 +118,48 @@ test('the guide card lists four steps beside the corner squirrel and walks each 
   // (This test's server keeps nothing across the reload above, so only the chat step, kept on this device, counts here.)
   await expect(card(page).locator('.pg-step[data-step="chat"]')).toContainText('เรียบร้อย');
   await expect(card(page).locator('.pg-step.is-current')).not.toHaveAttribute('data-step', 'chat');
+
+  // Step 4: the business profile. The bubble asks for the details first (owner, 2026-10-31: "บอกให้มากรอกตรงนี้ด้วย"),
+  // then for บันทึกโปรไฟล์ธุรกิจ; saving ends the guide there and then ("พอกดบันทึกโปรไฟล์ปุ๊บก็เลิกสอนทันที").
+  await card(page).getByRole('button', { name: 'ไปทำเลย: ตั้งข้อมูลผู้ออกเอกสาร' }).click();
+  await expect(page).toHaveURL(/\/settings/);
+  await ringsOn(page, 'business');
+  await expect(coach(page).locator('.pg-coach-steps li')).toHaveText(['กด โปรไฟล์ธุรกิจ', 'กรอกชื่อธุรกิจ เลขผู้เสียภาษี ที่อยู่ เบอร์โทร และอีเมล', 'กรอกเสร็จแล้วกด บันทึกโปรไฟล์ธุรกิจ ด้านล่างขวา']);
+  await page.locator('[data-guide-target="business"]').click();
+  await ringsOn(page, 'business-form');
+  await expect(coach(page).getByRole('heading', { name: 'กรอกข้อมูลธุรกิจตรงนี้' })).toBeVisible();
+  await expect(coach(page).locator('.pg-coach-steps li')).toHaveText(['กรอกชื่อธุรกิจ เลขผู้เสียภาษี และที่อยู่ออกใบเสร็จ', 'ใส่เบอร์โทรและอีเมลติดต่อ (ถ้ามี)', 'กรอกเสร็จแล้วกด บันทึกโปรไฟล์ธุรกิจ ด้านล่างขวา']);
+  // The ring holds the name and tax ID fields; the bubble sits above them, off the fields.
+  const fields = (await page.locator('[data-guide-target="business-form"]').boundingBox())!;
+  const bubble = (await coach(page).boundingBox())!;
+  expect(fields.width).toBeGreaterThan(500);
+  expect(bubble.y + bubble.height).toBeLessThanOrEqual(fields.y);
+  await expect(page.locator('#biz-name')).toBeInViewport();
+  await expect(page.locator('#biz-tax')).toBeInViewport();
+  await page.waitForTimeout(3800); // the dim has gone, so the page reads again
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await shot(page, 'guide-step-business');
+  // Filling the fields keeps the guide on this step.
+  await page.locator('#biz-name').fill('สตูดิโอตัวอย่าง');
+  await page.locator('#biz-tax').fill('0105555555555');
+  await page.locator('#biz-address').fill('99 ถนนสุขุมวิท กรุงเทพมหานคร 10110');
+  await expect(coach(page)).toHaveAttribute('data-target', 'business-form');
+  await page.locator('[data-guide-target="business-save"]').click();
+  const saved = page.locator('.ksm-modal');
+  await expect(saved).toBeVisible();
+  await expect(coach(page)).toHaveCount(0);
+  await saved.getByRole('button').last().click();
+  // The guide has ended: no card, no bubble, no ring, no pill; it stays ended after a reload.
+  await page.waitForTimeout(2000);
+  await expect(card(page)).toHaveCount(0);
+  await expect(coach(page)).toHaveCount(0);
+  await expect(ring(page)).toHaveCount(0);
+  await expect(page.getByTestId('pro-guide-pill')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('.asx-buddy-btn')).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect(card(page)).toHaveCount(0);
+  await expect(page.getByTestId('pro-guide-pill')).toHaveCount(0);
 });
 
 test('the guide opens after the Pro arrival', async ({ page }) => {

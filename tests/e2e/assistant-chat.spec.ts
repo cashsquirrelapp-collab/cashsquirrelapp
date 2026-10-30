@@ -61,7 +61,7 @@ for (const [label, width, height] of [['phone', 390, 844], ['iPad', 820, 1180], 
     expect((await chat.locator('.asx-bar').boundingBox())!.height).toBeLessThan(width < 744 ? 66 : 106);
     // The sample transport cannot read files or transcribe recordings; Send waits for text.
     await expect(chat.getByRole('button', { name: 'แนบไฟล์ · เร็ว ๆ นี้' })).toHaveAttribute('aria-disabled', 'true');
-    await expect(chat.getByRole('button', { name: 'ใช้เสียงได้เมื่อเชื่อมต่อเลขา AI', exact: true })).toHaveAttribute('aria-disabled', 'true');
+    await expect(chat.getByRole('button', { name: 'ใช้เสียงได้เมื่อเชื่อมต่อเลขากระรอก', exact: true })).toHaveAttribute('aria-disabled', 'true');
     await expect(chat.getByRole('button', { name: 'ส่งข้อความ' })).toBeDisabled();
     await expect(chat.locator('.asx-bar-status')).toHaveText(/พร้อมช่วยแล้ว/, { timeout: 6000 });
     expect(await textOverlapIssues(page)).toEqual([]);
@@ -294,7 +294,7 @@ test('members see the chat in the sidebar and the phone menu, without the team p
   const chat = chatOf(page);
   await expect(page).toHaveURL(/\/assistant/);
   await expect(chat.getByRole('heading', { name: WELCOME })).toBeVisible();
-  await expect(chat.getByText('ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อ AI')).toBeVisible();
+  await expect(chat.getByText('ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก')).toBeVisible();
   await chat.getByRole('button', { name: 'จัดการแชต' }).click();
   const menu = page.getByRole('menu', { name: 'จัดการแชต' });
   await expect(menu.getByRole('menuitem', { name: 'แชตใหม่' })).toBeVisible();
