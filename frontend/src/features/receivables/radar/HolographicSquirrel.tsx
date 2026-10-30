@@ -4,8 +4,8 @@ import { Mascot } from '../../../components/mascot/Mascot';
 import { HoloScreen, type ScreenLine } from './HoloScreen';
 
 // The centre of the Credit Radar: the squirrel (the app's own Mascot, headset on, paws typing; never redrawn — only its
-// little keyboard and paper are left out) floating over a holographic stand, with a blue sci-fi screen hovering in front of
-// it (owner, 2026-10-30: "จอด้านหน้าน้อง ... จอสีฟ้าๆ เหมือนในหนังแฟนตาซี", instead of the laptop and the hologram rising from
+// little keyboard and paper are left out) floating over a holographic stand, with a sci-fi screen in the CI copper hovering in front
+// of it (owner, 2026-10-30: "จอด้านหน้าน้อง ... จอสีฟ้าๆ เหมือนในหนังแฟนตาซี", instead of the laptop and the hologram rising from
 // it), radar rings, a turning scan line, orbiting lights, rising sparks and a pulse at the base. Everything that loops is
 // CSS (transform and opacity only); it pauses with the tab and stops with reduced motion. (The status chips that sat on the
 // radar were taken off, owner 2026-10-30: the tabs above say which status shows.)
@@ -61,7 +61,7 @@ export const HolographicSquirrel = React.forwardRef<HTMLDivElement, {
           </div>
         </div>
         {screen && (
-          // The blue screen in front of the squirrel, at its chest, the face above it, the typing paws faint behind it.
+          // The screen in front of the squirrel, at its chest, the face above it, the typing paws faint behind it.
           <motion.div className={`crh-console${size < 420 ? ' is-small' : ''}`}
             {...(reduce ? {} : { initial: { opacity: 0, scaleY: 0.2, filter: 'blur(6px)' }, animate: { opacity: 1, scaleY: 1, filter: 'blur(0px)' }, transition: { duration: 0.7, delay: 0.95, ease: [0.22, 1, 0.36, 1] as const } })}>
             <div className="crh-console-float"><div className="crh-console-tilt"><HoloScreen lines={screen.lines} counts={screen.counts} rows={screen.rows} reduce={reduce} compact={size < 420} swiping={swiping} /></div></div>

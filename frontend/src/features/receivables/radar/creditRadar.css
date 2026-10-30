@@ -442,7 +442,8 @@ html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rg
 .crh-mascot { width: 100%; height: 100%; filter: drop-shadow(0 0 22px rgba(255, 140, 80, 0.45)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.5)); user-select: none; }
 .crh-mascot svg { display: block; width: 100%; height: 100%; }
 
-/* The blue sci-fi screen in front of the squirrel (owner, 2026-10-30), its face above it. */
+/* The sci-fi screen in front of the squirrel (owner, 2026-10-30), its face above it, in the CI copper (blue first, then
+   "ให้มันเป็นโทนสี CI เราดีกว่า มันเด่นแปลกๆ"). */
 .crh-console { position: absolute; z-index: 5; left: 18%; right: 18%; top: 65%; perspective: 800px; }
 .crh-console.is-small { left: 12%; right: 12%; top: 65%; }
 .crh-console-float { animation: cr-float 5s ease-in-out infinite alternate; }
@@ -452,14 +453,14 @@ html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rg
   overflow: hidden;
   padding: 9px 12px 9px;
   border-radius: 14px;
-  border: 1px solid rgba(110, 205, 255, 0.7);
+  border: 1px solid rgba(255, 170, 110, 0.7);
   background:
-    repeating-linear-gradient(0deg, rgba(170, 225, 255, 0.07) 0 1px, rgba(170, 225, 255, 0) 1px 3px),
-    linear-gradient(160deg, rgba(40, 150, 255, 0.30) 0%, rgba(20, 90, 210, 0.16) 60%, rgba(40, 150, 255, 0.24) 100%);
-  box-shadow: 0 0 30px rgba(60, 170, 255, 0.5), inset 0 0 24px rgba(90, 190, 255, 0.25), inset 0 1px 0 rgba(200, 240, 255, 0.5);
+    repeating-linear-gradient(0deg, rgba(255, 200, 160, 0.07) 0 1px, rgba(255, 200, 160, 0) 1px 3px),
+    linear-gradient(160deg, rgba(255, 140, 70, 0.26) 0%, rgba(230, 95, 43, 0.12) 60%, rgba(255, 140, 70, 0.20) 100%);
+  box-shadow: 0 0 30px rgba(255, 120, 60, 0.45), inset 0 0 24px rgba(255, 150, 90, 0.22), inset 0 1px 0 rgba(255, 220, 190, 0.5);
   -webkit-backdrop-filter: blur(1.5px);
   backdrop-filter: blur(1.5px);
-  color: #E6F6FF;
+  color: #FFF1E6;
   animation: crv-flicker 7s linear infinite;
 }
 .crv::before {
@@ -470,15 +471,15 @@ html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rg
   right: 12%;
   height: 2px;
   border-radius: 2px;
-  background: linear-gradient(90deg, rgba(120, 220, 255, 0), #8FE4FF, rgba(120, 220, 255, 0));
-  box-shadow: 0 0 12px #5CCBFF;
+  background: linear-gradient(90deg, rgba(255, 180, 130, 0), #FFC9A0, rgba(255, 180, 130, 0));
+  box-shadow: 0 0 12px #FF8A4C;
   pointer-events: none;
 }
 .crv::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(115deg, rgba(255, 255, 255, 0) 35%, rgba(200, 240, 255, 0.16) 46%, rgba(255, 255, 255, 0) 57%);
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0) 35%, rgba(255, 230, 210, 0.16) 46%, rgba(255, 255, 255, 0) 57%);
   transform: translateX(-100%);
   animation: crv-glare 6s ease-in-out infinite;
   pointer-events: none;
@@ -489,7 +490,7 @@ html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rg
   top: 0;
   bottom: 0;
   width: 40%;
-  background: linear-gradient(90deg, rgba(140, 225, 255, 0), rgba(170, 235, 255, 0.55), rgba(140, 225, 255, 0));
+  background: linear-gradient(90deg, rgba(255, 190, 140, 0), rgba(255, 215, 180, 0.55), rgba(255, 190, 140, 0));
   animation: crv-swipe 0.8s cubic-bezier(0.45, 0, 0.2, 1) both;
   pointer-events: none;
 }
@@ -505,13 +506,13 @@ html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rg
 @keyframes crc-flash { from { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 40px rgba(0, 0, 0, 0.45); } to { box-shadow: 0 0 0 3px var(--c-edge), 0 0 36px var(--c-edge); transform: translateY(-6px) scale(1.02); } }
 @keyframes crv-flicker { 0%, 46%, 50%, 100% { opacity: 1; } 48% { opacity: 0.86; } }
 @keyframes crv-glare { 0%, 55% { transform: translateX(-100%); } 85%, 100% { transform: translateX(100%); } }
-.crv-corner { position: absolute; width: 8px; height: 8px; border: 0 solid rgba(170, 230, 255, 0.9); }
+.crv-corner { position: absolute; width: 8px; height: 8px; border: 0 solid rgba(255, 210, 170, 0.9); }
 .crv-corner.is-tl { left: 4px; top: 4px; border-left-width: 1.5px; border-top-width: 1.5px; }
 .crv-corner.is-tr { right: 4px; top: 4px; border-right-width: 1.5px; border-top-width: 1.5px; }
 .crv-corner.is-bl { left: 4px; bottom: 4px; border-left-width: 1.5px; border-bottom-width: 1.5px; }
 .crv-corner.is-br { right: 4px; bottom: 4px; border-right-width: 1.5px; border-bottom-width: 1.5px; }
-.crv-head { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; line-height: 1.5; letter-spacing: 0.01em; color: #9BE0FF; }
-.crv-live { width: 6px; height: 6px; flex-shrink: 0; border-radius: 999px; background: #5CE1FF; box-shadow: 0 0 8px #5CE1FF; animation: cr-breathe 1.6s ease-in-out infinite; }
+.crv-head { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; line-height: 1.5; letter-spacing: 0.01em; color: #FFC9A0; }
+.crv-live { width: 6px; height: 6px; flex-shrink: 0; border-radius: 999px; background: #FF8A4C; box-shadow: 0 0 8px #FF8A4C; animation: cr-breathe 1.6s ease-in-out infinite; }
 .crv-top { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
 .crv-radar {
   position: relative;
@@ -520,13 +521,13 @@ html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rg
   flex-shrink: 0;
   overflow: hidden;
   border-radius: 50%;
-  border: 1px solid rgba(140, 215, 255, 0.6);
+  border: 1px solid rgba(255, 190, 140, 0.6);
   background:
-    radial-gradient(circle closest-side, transparent 0 32%, rgba(140, 215, 255, 0.3) 33% 35%, transparent 36% 66%, rgba(140, 215, 255, 0.25) 67% 69%, transparent 70%),
-    linear-gradient(90deg, transparent calc(50% - 0.5px), rgba(140, 215, 255, 0.3) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
-    rgba(60, 170, 255, 0.10);
+    radial-gradient(circle closest-side, transparent 0 32%, rgba(255, 190, 140, 0.3) 33% 35%, transparent 36% 66%, rgba(255, 190, 140, 0.25) 67% 69%, transparent 70%),
+    linear-gradient(90deg, transparent calc(50% - 0.5px), rgba(255, 190, 140, 0.3) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    rgba(255, 140, 70, 0.10);
 }
-.crv-sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, rgba(120, 220, 255, 0) 0deg 270deg, rgba(150, 230, 255, 0.6) 360deg); animation: crh-spin 3s linear infinite; }
+.crv-sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, rgba(255, 170, 110, 0) 0deg 270deg, rgba(255, 200, 150, 0.6) 360deg); animation: crh-spin 3s linear infinite; }
 .crv-radar i { position: absolute; width: 4px; height: 4px; border-radius: 999px; background: #FF8A7A; box-shadow: 0 0 6px 1px #FF8A7A; animation: cr-breathe 2s ease-in-out infinite; }
 .crv-radar i:nth-of-type(1) { left: 62%; top: 28%; }
 .crv-radar i:nth-of-type(2) { left: 26%; top: 60%; background: #FFD98A; box-shadow: 0 0 6px 1px #FFD98A; animation-delay: -0.7s; }
@@ -537,15 +538,15 @@ html:not(.dark) .cr.is-tall .crs-metric:nth-child(n + 2) { border-left-color: rg
 .crv-counts .is-overdue { color: #FFB3A8; }
 .crv-counts .is-soon { color: #FFE0A0; }
 .crv-counts .is-received { color: #A6F3C4; }
-.crv-log { margin-top: 5px; padding-top: 3px; border-top: 1px solid rgba(140, 215, 255, 0.3); }
+.crv-log { margin-top: 5px; padding-top: 3px; border-top: 1px solid rgba(255, 190, 140, 0.3); }
 .crv-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; font-size: 11px; line-height: 1.55; }
-.crv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(230, 246, 255, 0.92); }
-.crv-amount { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; color: #BFE9FF; }
+.crv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255, 241, 230, 0.92); }
+.crv-amount { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; color: #FFD7BE; }
 .crv-line.is-overdue .crv-amount { color: #FFB3A8; }
 .crv-line.is-soon .crv-amount { color: #FFE0A0; }
 .crv-line.is-received .crv-amount { color: #A6F3C4; }
 .crv-line.is-typing { clip-path: inset(0 100% 0 0); animation: crv-type 0.9s steps(18, end) 0.15s both; }
-.crv-line.is-typing .crv-amount::after { content: ''; display: inline-block; width: 5px; height: 11px; margin-left: 3px; vertical-align: -1px; background: #BFE9FF; animation: crv-caret 1s steps(1) infinite; }
+.crv-line.is-typing .crv-amount::after { content: ''; display: inline-block; width: 5px; height: 11px; margin-left: 3px; vertical-align: -1px; background: #FFD7BE; animation: crv-caret 1s steps(1) infinite; }
 @keyframes crv-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes crv-caret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 
@@ -737,37 +738,39 @@ html:not(.dark) .crh-beam {
 html:not(.dark) .crh-sparks i { background: #E65F2B; box-shadow: 0 0 8px 2px rgba(230, 95, 43, 0.4); }
 html:not(.dark) .crh-mascot { filter: drop-shadow(0 0 18px rgba(230, 95, 43, 0.25)) drop-shadow(0 10px 12px rgba(166, 63, 27, 0.22)); }
 
-/* The blue screen in daylight. */
+/* The screen in daylight, in the CI copper. */
 html:not(.dark) .crv {
-  border-color: rgba(20, 120, 230, 0.55);
+  border-color: rgba(230, 95, 43, 0.5);
   background:
-    repeating-linear-gradient(0deg, rgba(30, 130, 230, 0.06) 0 1px, rgba(30, 130, 230, 0) 1px 3px),
-    linear-gradient(160deg, rgba(222, 240, 255, 0.82) 0%, rgba(192, 226, 255, 0.66) 100%);
-  box-shadow: 0 0 24px rgba(40, 140, 255, 0.32), 0 10px 24px rgba(20, 80, 160, 0.12), inset 0 0 18px rgba(80, 170, 255, 0.18);
-  color: #0B3A66;
+    repeating-linear-gradient(0deg, rgba(230, 95, 43, 0.05) 0 1px, rgba(230, 95, 43, 0) 1px 3px),
+    linear-gradient(160deg, rgba(255, 250, 246, 0.88) 0%, rgba(255, 232, 214, 0.72) 100%);
+  box-shadow: 0 0 24px rgba(230, 95, 43, 0.28), 0 10px 24px rgba(166, 63, 27, 0.12), inset 0 0 18px rgba(255, 160, 110, 0.18);
+  color: #1C1917;
 }
+html:not(.dark) .crv::before { background: linear-gradient(90deg, rgba(230, 95, 43, 0), #E65F2B, rgba(230, 95, 43, 0)); box-shadow: 0 0 10px rgba(230, 95, 43, 0.6); }
+html:not(.dark) .crv-swipe { background: linear-gradient(90deg, rgba(230, 95, 43, 0), rgba(255, 170, 110, 0.5), rgba(230, 95, 43, 0)); }
 html:not(.dark) .crv::after { background: linear-gradient(115deg, rgba(255, 255, 255, 0) 35%, rgba(255, 255, 255, 0.65) 46%, rgba(255, 255, 255, 0) 57%); }
-html:not(.dark) .crv-corner { border-color: rgba(10, 107, 194, 0.6); }
-html:not(.dark) .crv-head { color: #0A6BC2; }
-html:not(.dark) .crv-live { background: #1E90FF; box-shadow: 0 0 8px #1E90FF; }
+html:not(.dark) .crv-corner { border-color: rgba(194, 74, 22, 0.6); }
+html:not(.dark) .crv-head { color: #C24A16; }
+html:not(.dark) .crv-live { background: #E65F2B; box-shadow: 0 0 8px #E65F2B; }
 html:not(.dark) .crv-radar {
-  border-color: rgba(10, 107, 194, 0.4);
+  border-color: rgba(194, 74, 22, 0.4);
   background:
-    radial-gradient(circle closest-side, transparent 0 32%, rgba(10, 107, 194, 0.22) 33% 35%, transparent 36% 66%, rgba(10, 107, 194, 0.18) 67% 69%, transparent 70%),
-    linear-gradient(90deg, transparent calc(50% - 0.5px), rgba(10, 107, 194, 0.2) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
-    rgba(40, 140, 255, 0.08);
+    radial-gradient(circle closest-side, transparent 0 32%, rgba(166, 63, 27, 0.22) 33% 35%, transparent 36% 66%, rgba(166, 63, 27, 0.18) 67% 69%, transparent 70%),
+    linear-gradient(90deg, transparent calc(50% - 0.5px), rgba(166, 63, 27, 0.18) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    rgba(230, 95, 43, 0.06);
 }
-html:not(.dark) .crv-sweep { background: conic-gradient(from 0deg, rgba(30, 144, 255, 0) 0deg 270deg, rgba(30, 144, 255, 0.45) 360deg); }
+html:not(.dark) .crv-sweep { background: conic-gradient(from 0deg, rgba(230, 95, 43, 0) 0deg 270deg, rgba(230, 95, 43, 0.42) 360deg); }
 html:not(.dark) .crv-counts .is-overdue { color: #C43A3A; }
 html:not(.dark) .crv-counts .is-soon { color: #9A5B06; }
 html:not(.dark) .crv-counts .is-received { color: #12804F; }
-html:not(.dark) .crv-log { border-top-color: rgba(10, 107, 194, 0.25); }
-html:not(.dark) .crv-name { color: #134B80; }
-html:not(.dark) .crv-amount { color: #0A5FB0; }
+html:not(.dark) .crv-log { border-top-color: rgba(194, 74, 22, 0.22); }
+html:not(.dark) .crv-name { color: #44403C; }
+html:not(.dark) .crv-amount { color: #C24A16; }
 html:not(.dark) .crv-line.is-overdue .crv-amount { color: #C43A3A; }
 html:not(.dark) .crv-line.is-soon .crv-amount { color: #9A5B06; }
 html:not(.dark) .crv-line.is-received .crv-amount { color: #12804F; }
-html:not(.dark) .crv-line.is-typing .crv-amount::after { background: #0A5FB0; }
+html:not(.dark) .crv-line.is-typing .crv-amount::after { background: #C24A16; }
 
 /* Summary bar and full list. */
 html:not(.dark) .crs {

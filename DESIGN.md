@@ -478,9 +478,9 @@ card does not need:
   a light hologram screen; text in ink #1C1917, red #C43A3A, amber #A8650A, green #138A55). Header: "เรดาร์เครดิตเทอม · ข้อมูล ณ date", "ต้องติดตาม N รายการ", counts; the round close
   button top right (turns and glows on hover); Esc closes (the full list first); focus stays inside and returns after.
 - Centre: the squirrel is the app's own Mascot (happy, headset, paws typing; its little keyboard and paper left out with
-  `typingKit={false}`), floating (3.6 s) on an amber stand with the Krarok mark. In front of it, at chest height, a blue
-  sci-fi screen (owner, 2026-10-30: "จอด้านหน้าน้อง จอสีฟ้าๆ เหมือนในหนังแฟนตาซี", instead of the laptop and the hologram
-  rising from it): see-through, cyan edge and top light, scan lines, a glare passing now and then; "กำลังตรวจเครดิตเทอม",
+  `typingKit={false}`), floating (3.6 s) on an amber stand with the Krarok mark. In front of it, at chest height, a sci-fi
+  screen (owner, 2026-10-30: "จอด้านหน้าน้อง ... เหมือนในหนังแฟนตาซี", instead of the laptop and the hologram rising from it;
+  first blue, then the CI copper: "ให้มันเป็นโทนสี CI เราดีกว่า มันเด่นแปลกๆ"): see-through, copper edge and top light, scan lines, a glare passing now and then; "กำลังตรวจเครดิตเทอม",
   a small radar, the counts and the jobs of the status on show typing in with a cursor (compact on a radar under 420px,
   where the stand's mark is left off). Around them: a beam, rising sparks, a base pulse every 2 s, three tilted orbit rings
   turning (22/30/40 s), an upright radar disc with a scan line turning every 24 s, ambient glow (4 s). No status circles

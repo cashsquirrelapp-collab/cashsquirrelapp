@@ -3,8 +3,8 @@ import { tr } from '../../../i18n/tr';
 import type { RadarStatus } from './radarData';
 
 // The squirrel's own hologram screen (owner, 2026-10-30: "ให้น้องมีจอเหมือนจอโฮโลแกรมของน้อง ที่กำลังดูงาน คอยพิมพ์งาน
-// หรือตรวจเรดาร์"; then "จอด้านหน้าน้อง จอสีฟ้าๆ เหมือนในหนังแฟนตาซี"): a blue sci-fi screen floating in front of the squirrel
-// (a prop; the squirrel is never redrawn). A small radar sweeps, the counts sit under it, and the real jobs type in one
+// หรือตรวจเรดาร์"; then "จอด้านหน้าน้อง จอสีฟ้าๆ เหมือนในหนังแฟนตาซี"): a sci-fi screen floating in front of the squirrel, in the
+// CI copper (blue first; owner: "ให้มันเป็นโทนสี CI เราดีกว่า") (a prop; the squirrel is never redrawn). A small radar sweeps, the counts sit under it, and the real jobs type in one
 // line at a time, newest at the bottom with a cursor. Only this screen re-renders, every few seconds, and not while the
 // tab is hidden; with reduced motion it shows the first lines, still.
 

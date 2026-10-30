@@ -336,6 +336,8 @@ test('light mode: cream background, white glass cards, the colour logo on the st
   expect(await radar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 249, 244)');
   await expect(radar.locator('.crh-logo.is-on-light')).toBeVisible();
   await expect(radar.locator('.crh-logo.is-on-dark')).toBeHidden();
+  // The squirrel's screen is in the CI copper, not blue (owner, 2026-10-30).
+  expect(await radar.locator('.crv').evaluate(el => getComputedStyle(el).borderTopColor)).toBe('rgba(230, 95, 43, 0.5)');
   expect(await radar.getByTestId('radar-card').first().evaluate(el => getComputedStyle(el).color)).toBe('rgb(28, 25, 23)');
   await page.waitForTimeout(2200);
   expect(await textOverlapIssues(page)).toEqual([]);
