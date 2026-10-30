@@ -3,7 +3,12 @@
 // draft card; the server (liff-submit, draftKind document) checks it again and saves the document.
 (function () {
   'use strict';
-  var NAMES = { quotation: 'ใบเสนอราคา', invoice: 'ใบแจ้งหนี้' };
+  var NAMES = { quotation: 'ใบเสนอราคา', invoice: 'ใบแจ้งหนี้', receipt: 'ใบเสร็จรับเงิน', taxInvoice: 'ใบกำกับภาษี', receiptTaxInvoice: 'ใบเสร็จรับเงิน/ใบกำกับภาษี' };
+  // A receipt records money received (its date and method, no credit days); a tax invoice always carries VAT 7%.
+  var isReceipt = function () { return state.type === 'receipt' || state.type === 'receiptTaxInvoice'; };
+  var isTax = function () { return state.type === 'taxInvoice' || state.type === 'receiptTaxInvoice'; };
+  var METHODS = ['โอนเงิน', 'เงินสด', 'พร้อมเพย์', 'เช็ค', 'บัตรเครดิต'];
+  var bangkokToday = function () { return new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10); };
   var TERMS = [0, 7, 15, 30, 45, 60, 90];
   var MAX_ITEMS = 30;
   var ISSUER_KEYS = ['name', 'address', 'taxId', 'phone', 'email', 'bankName', 'bankAccount', 'bankAccountName'];
@@ -135,6 +140,15 @@
     field('document-add-item').classList.toggle('hidden', state.items.length >= MAX_ITEMS);
     updateTotals();
   }
+  function renderMethods() {
+    var group = field('document-methods'); group.replaceChildren();
+    METHODS.forEach(function (method) {
+      var chip = document.createElement('button'); chip.type = 'button'; chip.textContent = method;
+      chip.setAttribute('aria-pressed', String(value('doc-paid-method') === method));
+      chip.addEventListener('click', function () { field('doc-paid-method').value = method; renderMethods(); });
+      group.append(chip);
+    });
+  }
   function renderTerms() {
     var group = field('document-terms'); group.replaceChildren();
     TERMS.forEach(function (days) {
@@ -184,7 +198,7 @@
 
   function fill(data) {
     var draft = data.draft || {}, client = draft.client || {}, issuer = data.issuer || {};
-    state.type = draft.type === 'invoice' ? 'invoice' : 'quotation';
+    state.type = NAMES[draft.type] ? draft.type : 'quotation';
     var name = NAMES[state.type];
     field('document-title').textContent = name;
     field('document-submit-btn').textContent = 'สร้าง' + name;
@@ -193,7 +207,14 @@
     fillIssuer(issuer);
     ['name', 'address', 'taxId', 'phone'].forEach(function (key) { field('doc-client-' + key).value = client[key] || ''; });
     field('doc-client-branch').value = client.branch || '';
-    field('doc-vat').value = String(draft.vatRate === 7 ? 7 : 0);
+    field('doc-vat').value = String(draft.vatRate === 7 || isTax() ? 7 : 0);
+    field('doc-vat').disabled = isTax();
+    field('doc-vat-fixed').classList.toggle('hidden', !isTax());
+    field('doc-credit-wrap').classList.toggle('hidden', isReceipt());
+    field('doc-paid-wrap').classList.toggle('hidden', !isReceipt());
+    field('doc-paid-date').value = /^\d{4}-\d{2}-\d{2}$/.test(draft.paidDate || '') ? draft.paidDate : bangkokToday();
+    field('doc-paid-method').value = draft.paymentMethod || '';
+    renderMethods();
     field('doc-wht').value = String([1, 2, 3, 5].indexOf(draft.whtRate) >= 0 ? draft.whtRate : 0);
     state.creditTerm = TERMS.indexOf(draft.creditTerm) >= 0 ? draft.creditTerm : 0;
     if (draft.creditTerm && TERMS.indexOf(draft.creditTerm) < 0) { TERMS.push(draft.creditTerm); TERMS.sort(function (a, b) { return a - b; }); state.creditTerm = draft.creditTerm; }
@@ -207,6 +228,7 @@
     var issuerIssue = issuerProblem(state.issuerOpen ? issuerFromFields() : state.issuer);
     if (issuerIssue) { if (!state.issuerOpen) openIssuer('กรอกให้ครบ ระบบจะบันทึกไว้ใช้กับเอกสารใบต่อไป'); showError(issuerIssue.text, issuerIssue.id); return false; }
     if (!value('doc-client-name')) { showError('กรุณากรอกชื่อลูกค้าหรือบริษัท', 'doc-client-name'); return false; }
+    if (isReceipt() && !/^\d{4}-\d{2}-\d{2}$/.test(value('doc-paid-date'))) { showError('กรุณาเลือกวันที่รับชำระเงิน', 'doc-paid-date'); return false; }
     for (var at = 0; at < state.items.length; at++) {
       var item = state.items[at];
       if (!item.description.trim()) { showError('กรุณากรอกรายละเอียดรายการ ' + (at + 1), 'doc-item-desc-' + at); return false; }
@@ -230,9 +252,10 @@
           type: state.type,
           client: { name: value('doc-client-name'), address: value('doc-client-address'), taxId: value('doc-client-taxId'), branch: value('doc-client-branch'), phone: value('doc-client-phone') },
           items: state.items.map(function (item) { return { description: item.description.trim(), quantity: item.quantity, unit: (item.unit || '').trim(), price: item.price }; }),
-          vatRate: Number(value('doc-vat')) || 0, whtRate: Number(value('doc-wht')) || 0, creditTerm: state.creditTerm, note: value('doc-note'),
+          vatRate: isTax() ? 7 : Number(value('doc-vat')) || 0, whtRate: Number(value('doc-wht')) || 0, creditTerm: isReceipt() ? 0 : state.creditTerm, note: value('doc-note'),
         },
       };
+      if (isReceipt()) { payload.document.paidDate = value('doc-paid-date'); payload.document.paymentMethod = value('doc-paid-method'); }
       // The business as filled in or changed here; the server keeps it for the next document (the logo and signature stay).
       if (state.issuerOpen) payload.document.issuer = issuerFromFields();
       var response = await fetch('/api/liff-submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -290,6 +313,7 @@
       var last = field('doc-item-desc-' + (state.items.length - 1)); if (last) last.focus();
     });
     ['doc-vat', 'doc-wht', 'doc-client-name'].forEach(function (id) { field(id).addEventListener('input', updateTotals); field(id).addEventListener('change', updateTotals); });
+    field('doc-paid-method').addEventListener('input', renderMethods);
     field('document-submit-btn').addEventListener('click', function () { submit(false); });
     field('document-issuer-edit').addEventListener('click', function () {
       openIssuer('แก้ไขแล้วจะบันทึกเป็นข้อมูลธุรกิจของคุณ ใช้กับเอกสารใบต่อไปด้วย');

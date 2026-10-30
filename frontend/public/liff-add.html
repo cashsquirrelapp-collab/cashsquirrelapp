@@ -62,7 +62,7 @@
   label { display:block; font-size:12px; font-weight:600; color:var(--text); margin:17px 0 6px; }
   .field:first-child>label,.step-fields>label:first-child { margin-top:0; }
   .optional { font-size:10px; color:var(--muted); font-weight:400; margin-left:4px; }
-  input[type=text],input[type=number],select,textarea { width:100%; border:1px solid var(--border); background:#FFFEFC; color:var(--text); border-radius:11px; padding:11px 12px; font-size:16px; min-height:47px; }
+  input[type=text],input[type=number],input[type=date],select,textarea { width:100%; border:1px solid var(--border); background:#FFFEFC; color:var(--text); border-radius:11px; padding:11px 12px; font-size:16px; min-height:47px; }
   input:focus,select:focus,textarea:focus { outline:3px solid #EB5E291A; outline-offset:0; border-color:#D8875E; background:#fff; }
   input::placeholder,textarea::placeholder { color:#9B8B7D; }
   select { padding-right:25px; }
@@ -271,10 +271,20 @@
     <h2 class="doc-section">ภาษีและการชำระเงิน</h2>
     <label for="doc-vat">ภาษีมูลค่าเพิ่ม (VAT)</label>
     <select id="doc-vat"><option value="0">ไม่มี VAT</option><option value="7">VAT 7%</option></select>
+    <p class="helper hidden" id="doc-vat-fixed">ใบกำกับภาษีคิด VAT 7% เสมอ</p>
     <label for="doc-wht">หัก ณ ที่จ่าย</label>
     <select id="doc-wht"><option value="0">0% · ไม่มีหัก</option><option value="1">1%</option><option value="2">2%</option><option value="3">3%</option><option value="5">5%</option></select>
-    <label id="doc-credit-label">เครดิตเทอม</label>
-    <div class="doc-terms" role="group" aria-labelledby="doc-credit-label" id="document-terms"></div>
+    <div id="doc-credit-wrap">
+      <label id="doc-credit-label">เครดิตเทอม</label>
+      <div class="doc-terms" role="group" aria-labelledby="doc-credit-label" id="document-terms"></div>
+    </div>
+    <div id="doc-paid-wrap" class="hidden">
+      <label for="doc-paid-date">วันที่รับชำระเงิน <span aria-hidden="true">*</span></label>
+      <input type="date" id="doc-paid-date" />
+      <label id="doc-method-label" for="doc-paid-method">วิธีชำระเงิน <span class="optional">ไม่บังคับ</span></label>
+      <div class="doc-terms" role="group" aria-labelledby="doc-method-label" id="document-methods"></div>
+      <input type="text" id="doc-paid-method" maxlength="100" placeholder="หรือพิมพ์เอง เช่น โอนเข้าบัญชีกสิกรไทย" style="margin-top:8px" />
+    </div>
     <label for="doc-note">หมายเหตุ <span class="optional">ไม่บังคับ</span></label>
     <textarea id="doc-note" maxlength="2000" rows="2" placeholder="เช่น ราคานี้รวมค่าเดินทางแล้ว"></textarea>
     <div class="receipt-box" aria-label="สรุปยอดเอกสาร">

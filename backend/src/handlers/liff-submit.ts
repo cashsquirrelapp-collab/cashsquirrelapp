@@ -24,7 +24,7 @@ import { isActiveLineDraft } from '../services/lineDraftState.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 
 import { verifyLiffIdToken } from '../security/lineIdentity.js';
-import { buildDocumentCreatedCard, buildLineDocumentRecord, clearDocumentDraft, documentIdFor, isActiveDocumentDraft, issuerMissing, ISSUER_EDITABLE, loadDocumentAccount, mergeIssuerEdits, saveLineDocument,
+import { buildDocumentCreatedCard, buildLineDocumentRecord, clearDocumentDraft, documentIdFor, isActiveDocumentDraft, isReceiptType, isTaxType, issuerMissing, ISSUER_EDITABLE, loadDocumentAccount, mergeIssuerEdits, saveLineDocument,
   type LineDocumentDraft, type StoredDocumentDraft } from '../services/lineDocumentDraft.js';
 import { decodeDocumentImage, documentImageMessage, ownDocumentSummary, storeDocumentImage } from '../services/lineDocumentImage.js';
 
@@ -106,7 +106,7 @@ const editedJob = z.object({
 // document is built here from checked fields only, with the same id for the same draft (no double document).
 const docText = (max: number) => z.string().trim().max(max).optional().default('');
 const documentForm = z.object({
-  type: z.enum(['quotation', 'invoice']),
+  type: z.enum(['quotation', 'invoice', 'receipt', 'taxInvoice', 'receiptTaxInvoice']),
   client: z.object({ name: z.string().trim().min(1).max(200), address: docText(500), taxId: docText(20), branch: docText(100), phone: docText(40) }).strict(),
   items: z.array(z.object({
     description: z.string().trim().min(1).max(200),
@@ -118,6 +118,9 @@ const documentForm = z.object({
   whtRate: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(5)]),
   creditTerm: z.number().int().min(0).max(365),
   note: docText(2000),
+  // Receipts: the day the money came in and how (the form fills today when it is left empty).
+  paidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => !Number.isNaN(Date.parse(`${value}T00:00:00Z`))).optional(),
+  paymentMethod: docText(100),
   // The user's own business as the form shows it (every field it can change); the saved logo and signature stay as they are.
   issuer: z.object({
     name: z.string().trim().min(1).max(200), address: docText(500), taxId: docText(20), phone: docText(40),
@@ -153,7 +156,9 @@ async function handleDocumentDraft(body: Record<string, unknown>, user: UserRow,
     type: form.type,
     client: { name: form.client.name, address: form.client.address, taxId: form.client.taxId, branch: form.client.branch, phone: form.client.phone },
     items: form.items.map(item => ({ description: item.description, quantity: item.quantity, ...(item.unit ? { unit: item.unit } : {}), price: item.price })),
-    vatRate: form.vatRate, whtRate: form.whtRate, ...(form.creditTerm ? { creditTerm: form.creditTerm } : {}), ...(form.note ? { note: form.note } : {}),
+    vatRate: isTaxType(form.type) ? 7 : form.vatRate, whtRate: form.whtRate,
+    ...(form.creditTerm && !isReceiptType(form.type) ? { creditTerm: form.creditTerm } : {}), ...(form.note ? { note: form.note } : {}),
+    ...(isReceiptType(form.type) ? { ...(form.paidDate ? { paidDate: form.paidDate } : {}), ...(form.paymentMethod ? { paymentMethod: form.paymentMethod } : {}) } : {}),
   };
   const record = buildLineDocumentRecord(draft, issuer, new Date(), documentIdFor(stored.id));
   let saved: boolean;

@@ -385,6 +385,14 @@ card does not need:
   server keeps it in the private `line-document-images` bucket and sends it after the created card (a JPEG under 1 MB).
 - Details typed after a draft card fill it ("ลูกค้า …", "ที่อยู่ …", "รายการ … 20 รูป รูปละ 300", "VAT", "หัก 3%",
   "เครดิต 30 วัน", an amount for the one line without a price); the newest open draft (document or job) takes them.
+- Every document the app makes works this way (owner, 2026-10-30: "ใบแจ้งหนี้กับใบเสร็จยังถามปกติอยู่ ... ทั้งหมดเลยที่เป็น
+  คำสั่งให้เพิ่ม ต้องเพิ่มการ์ดมา", each with its picture): ใบเสนอราคา, ใบแจ้งหนี้ / ใบวางบิล / บิล (ออก / เปิด / วาง),
+  ใบเสร็จรับเงิน, ใบกำกับภาษี and ใบเสร็จรับเงิน/ใบกำกับภาษี, with the app's number prefixes (QT, INV, REC, TAX, RTX).
+  A receipt shows วันที่รับเงิน (today unless changed) and วิธีชำระ (โอนเงิน / เงินสด / พร้อมเพย์ / เช็ค / บัตรเครดิต, read from
+  "โอนแล้ว", "รับเงินสด") and has no credit days; a tax invoice is always VAT 7% (fixed in the form). "ขอใบเสร็จ คุณบี"
+  still looks one up, "ขอใบเสร็จให้คุณบี" makes one, and "ออก…จาก INV-…" stays with เลขา.
+- Expenses too: บันทึก / เพิ่ม / จด / ลง / มี + รายจ่าย or ค่าใช้จ่าย, จ่าย…, and ซื้อ… / เสียค่า… with an amount give the
+  expense card; the bare request is the empty card; "รายจ่ายเดือนนี้", "ค่าใช้จ่ายประจำ", "จ่ายแล้ว" are not expenses.
 - Jobs in LINE work the same way: "บันทึกงาน / เพิ่มงาน / จดงาน / มีงาน / รับงาน / ได้งาน …" in everyday words becomes
   the draft card (ยืนยันบันทึก even when everything is there; เติมข้อมูล / แก้ไข and tap answers when something is
   missing), never questions; "เครดิต 30 วัน", "หัก 3%", "ให้ร้านบี", "มัดจำ 2000", "ยอด 6000 ยังไม่ได้รับเงิน" typed

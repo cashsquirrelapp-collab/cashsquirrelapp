@@ -399,3 +399,100 @@ test('every job card has ยืนยันบันทึก; payment not said 
   assert.deepEqual(card[0].quickReply.items.map((item: any) => item.action.label), ['ยังไม่ได้รับเงิน', 'รับเงินครบแล้ว']);
 });
 
+
+// Every add command in LINE gets its card (owner, 2026-10-30: "ใบแจ้งหนี้กับใบเสร็จยังถามปกติอยู่ ... ทั้งหมดเลยที่เป็น
+// คำสั่งให้เพิ่ม ต้องเพิ่มการ์ดมา"), and every document its picture: quotations, invoices, receipts and tax invoices alike.
+import { isReceiptType, isTaxType } from '../backend/src/services/lineDocumentDraft';
+
+test('every document the app makes is read from everyday words; a lookup still searches', () => {
+  for (const [text, type] of [
+    ['ขอใบแจ้งหนี้ให้คุณเอ', 'invoice'], ['ออกบิล', 'invoice'], ['เปิดบิล', 'invoice'], ['วางบิลคุณเอ 5000', 'invoice'], ['เพิ่มใบแจ้งหนี้', 'invoice'], ['อยากออกใบแจ้งหนี้', 'invoice'],
+    ['ทำใบเสร็จ', 'receipt'], ['ขอใบเสร็จหน่อย', 'receipt'], ['ออกใบเสร็จรับเงินให้คุณบี 3000', 'receipt'],
+    ['สร้างใบกำกับภาษี', 'taxInvoice'], ['ออกใบเสร็จรับเงิน/ใบกำกับภาษี ให้คุณซี 2000', 'receiptTaxInvoice'], ['ออกใบกำกับภาษี/ใบเสร็จรับเงิน', 'receiptTaxInvoice'],
+    ['ใบเสนอราคาใหม่', 'quotation'],
+  ] as const) assert.equal(parseLineDocumentCreate(text)?.type, type, text);
+  assert.deepEqual(parseLineDocumentCreate('ทำใบเสนอราคาใหม่')!.items, [], '"ใหม่" is not a line item');
+  for (const text of ['ขอใบเสร็จ คุณบี', 'ขอใบแจ้งหนี้ คุณเอ', 'เปิดใบเสนอราคา QT-2569-001', 'บิล', 'ใบเสร็จ', 'ออกใบเสร็จจากใบแจ้งหนี้ INV-2569-AAAA1111']) {
+    assert.equal(parseLineDocumentCreate(text), null, text);
+  }
+  const receipt = parseLineDocumentCreate('ออกใบเสร็จ คุณบี ค่าตัดต่อ 5000 รับเงินสดแล้ว')!;
+  assert.deepEqual([receipt.client.name, receipt.items, receipt.paymentMethod], ['คุณบี', [{ description: 'ค่าตัดต่อ', quantity: 1, price: 5000 }], 'เงินสด']);
+  assert.equal(parseLineDocumentCreate('ออกใบเสร็จให้คุณบี 3000 โอนแล้ว')!.paymentMethod, 'โอนเงิน');
+  assert.equal(parseLineDocumentCreate('ออกใบเสร็จให้คุณบี 3000 เครดิต 30 วัน')!.creditTerm, undefined, 'a receipt has no credit days');
+  assert.equal(parseLineDocumentCreate('ทำใบกำกับภาษีให้ บริษัท เอ จำกัด ค่าออกแบบ 10000')!.vatRate, 7);
+  assert.deepEqual([isReceiptType('receiptTaxInvoice'), isTaxType('receiptTaxInvoice'), isReceiptType('invoice'), isTaxType('receipt')], [true, true, false, false]);
+});
+
+test('each type is saved as the app saves it: its own number prefix, a receipt dated and paid, a tax invoice with VAT 7%', () => {
+  const at = new Date('2026-10-30T08:00:00Z');
+  for (const [type, prefix] of [['quotation', 'QT'], ['invoice', 'INV'], ['receipt', 'REC'], ['taxInvoice', 'TAX'], ['receiptTaxInvoice', 'RTX']] as const) {
+    const record = buildLineDocumentRecord({ type, client: { name: 'คุณบี' }, items: [{ description: 'ตัดต่อ', quantity: 1, price: 5000 }], vatRate: 0, whtRate: 0, creditTerm: 30, paymentMethod: 'โอนเงิน' }, documentIssuer(ISSUER), at, documentIdFor(`0123456789abcd${type.length}0`));
+    assert.match(record.documentNo, new RegExp(`^${prefix}-2569-[0-9A-F]{8}$`), type);
+    assert.equal(record.vatRate, isTaxType(type) ? 7 : 0, type);
+    assert.deepEqual([record.paidDate, record.paymentMethod, record.dueDate, record.paymentTerm],
+      isReceiptType(type) ? ['2026-10-30', 'โอนเงิน', undefined, undefined] : [undefined, undefined, type === 'quotation' ? undefined : '2026-11-29', 'เครดิต 30 วัน'], type);
+    assert.doesNotThrow(() => validateChanges([{ table: 'cashflow_invoices', id: record.id, op: 'set', version: null, data: record as any }]), type);
+  }
+  const card = buildDocumentDraftCard(newDocumentDraft(parseLineDocumentCreate('ออกใบเสร็จ คุณบี ค่าตัดต่อ 5000 โอนแล้ว')!), ISSUER) as any;
+  assert.match(flex(card), /ใบเสร็จรับเงิน/);
+  assert.match(flex(card), /วันที่รับเงิน.*วันนี้/);
+  assert.match(flex(card), /วิธีชำระ/);
+  assert.match(flex(card), /โอนเงิน/);
+  assert.doesNotMatch(flex(card), /เครดิต/);
+  assert.deepEqual(buttons(card), ['สร้างเอกสาร', 'แก้ไข / กรอกเพิ่ม', 'ยกเลิก']);
+  const created = buildDocumentCreatedCard(buildLineDocumentRecord(newDocumentDraft(parseLineDocumentCreate('ออกใบเสร็จ คุณบี ค่าตัดต่อ 5000 โอนแล้ว')!).draft, documentIssuer(ISSUER), at, documentIdFor('0123456789abcdef'))) as any;
+  assert.match(flex(created), /สร้างใบเสร็จรับเงินแล้ว/);
+  assert.match(flex(created), /วันที่รับเงิน/);
+  // typed afterwards: how it was paid; a tax invoice keeps its VAT
+  assert.equal(applyDocumentFollowUp(parseLineDocumentCreate('ทำใบเสร็จ')!, 'เงินสด')!.paymentMethod, 'เงินสด');
+  assert.equal(applyDocumentFollowUp(parseLineDocumentCreate('สร้างใบกำกับภาษี')!, 'ไม่มี VAT')!.vatRate, 7);
+});
+
+test('the form saves a receipt with its date and method, and a tax invoice always with VAT 7%', async () => {
+  for (const [type, extra, expected] of [
+    ['receipt', { paidDate: '2026-10-29', paymentMethod: 'พร้อมเพย์', creditTerm: 30 }, { paidDate: '2026-10-29', paymentMethod: 'พร้อมเพย์', paymentTerm: undefined }],
+    ['taxInvoice', { vatRate: 0 }, { vatRate: 7 }],
+    ['receiptTaxInvoice', { paidDate: '2026-10-30' }, { vatRate: 7, paidDate: '2026-10-30' }],
+  ] as const) {
+    const stored = newDocumentDraft({ type, client: {}, items: [], vatRate: isTaxType(type) ? 7 : 0, whtRate: 0 });
+    const calls: Record<string, any[]> = {};
+    const { res, state } = response();
+    await formHandler(stored, ISSUER, calls)(confirm({ ...form, type, ...extra }, stored), res);
+    assert.equal(state.status, 200, `${type}: ${JSON.stringify(state.body)}`);
+    assert.match(calls.saved[0].record.documentNo, /^(REC|TAX|RTX)-/);
+    for (const [key, value] of Object.entries(expected)) assert.equal(calls.saved[0].record[key], value, `${type} ${key}`);
+  }
+  const stored = newDocumentDraft({ type: 'receipt', client: {}, items: [], vatRate: 0, whtRate: 0 });
+  const bad = response();
+  await formHandler(stored, ISSUER, {})(confirm({ ...form, type: 'receipt', paidDate: '30/10/2026' }, stored), bad.res);
+  assert.equal(bad.state.status, 400);
+});
+
+test('in LINE invoices, receipts and tax invoices open their card, never the AI', async () => {
+  const user: UserRow = { user_id: userId, jobs: [], goals: [], settings: {}, expenses: [], statuses: [], notif_settings: {} };
+  for (const [message, expected] of [['ออกใบเสร็จให้คุณบี 3000', 'start:receipt:คุณบี'], ['ขอใบแจ้งหนี้ให้คุณเอ', 'start:invoice:คุณเอ'], ['วางบิล', 'start:invoice:'], ['สร้างใบกำกับภาษี', 'start:taxInvoice:']] as const) {
+    const calls: string[] = [];
+    await handleAssistantMessage('Uline', message, `op-${message}`, lineDeps(calls, { ...user }));
+    assert.ok(calls.includes(expected) && !calls.includes('ai'), `${message}: ${calls.join(', ')}`);
+  }
+});
+
+test('an expense in everyday words is its card; the bare request is the empty card; a question is not an expense', async () => {
+  for (const [text, name, value] of [['จดรายจ่าย ค่ากาแฟ 80', 'ค่ากาแฟ', 80], ['ลงรายจ่าย ค่าไฟ 1200', 'ค่าไฟ', 1200], ['บันทึกค่าใช้จ่าย ค่าเน็ต 599', 'ค่าเน็ต', 599],
+    ['ค่าใช้จ่าย ค่าเช่า 8000', 'ค่าเช่า', 8000], ['ซื้อกล้อง 25000', 'ซื้อกล้อง', 25000], ['เสียค่าจอดรถ 60', 'ค่าจอดรถ', 60], ['มีรายจ่าย ค่าโฆษณา 3000', 'ค่าโฆษณา', 3000],
+    ['ช่วยบันทึกรายจ่าย ค่ากาแฟ 80', 'ค่ากาแฟ', 80]] as const) {
+    const draft = parseLineQuickDraft(text);
+    assert.deepEqual([draft?.intent, draft?.expenseName, draft?.expenseAmount], ['add_expense', name, value], text);
+  }
+  for (const text of ['เพิ่มรายจ่าย', 'บันทึกรายจ่ายหน่อย', 'รายจ่ายใหม่', 'ขอบันทึกรายจ่ายหน่อย']) assert.deepEqual(parseLineQuickDraft(text), { intent: 'add_expense', freshDraft: true }, text);
+  for (const text of ['รายจ่ายเดือนนี้', 'ค่าใช้จ่ายประจำ', 'รายจ่ายทั้งหมด', 'จ่ายแล้ว', 'ซื้อของให้แม่']) assert.equal(parseLineQuickDraft(text), null, text);
+  // the empty card goes out with its form, not to the AI
+  const calls: string[] = [];
+  const user: UserRow = { user_id: userId, jobs: [], goals: [], settings: {}, expenses: [], statuses: [], notif_settings: {} };
+  const reply = await handleAssistantMessage('Uline', 'เพิ่มรายจ่าย', 'op-expense-empty', { ...lineDeps(calls, user),
+    async saveExpenseDraft(u: UserRow, draft: any) { calls.push(`expense:${draft.name ?? ''}`); u.notif_settings = { ...u.notif_settings, pendingExpenseDraft: { createdAt: new Date().toISOString(), draft } }; } } as any) as any;
+  assert.ok(calls.includes('expense:') && !calls.includes('ai'), calls.join(', '));
+  const cards = (Array.isArray(reply) ? reply : [reply]).filter((message: any) => message.type === 'flex');
+  assert.equal(cards.length, 1);
+  assert.ok(buttons(cards[0]).includes('ยืนยันบันทึก'));
+});

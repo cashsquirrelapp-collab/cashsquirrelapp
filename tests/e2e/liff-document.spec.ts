@@ -5,7 +5,9 @@ import { textOverlapIssues } from './textOverlap';
 // what the card already knew filled in, and one button that creates the document. LINE's SDK and the server's answers
 // are stood in; the server side is tested in tests/line-document-draft.test.ts.
 
-const drafts = {
+const drafts: Record<string, Record<string, unknown>> = {
+  receipt: { type: 'receipt', client: { name: 'คุณบี' }, items: [{ description: 'ตัดต่อวิดีโอ', quantity: 1, price: 5000 }], vatRate: 0, whtRate: 0, paymentMethod: 'โอนเงิน' },
+  tax: { type: 'taxInvoice', client: { name: 'บริษัท เอ จำกัด' }, items: [{ description: 'ออกแบบโลโก้', quantity: 1, price: 10000 }], vatRate: 7, whtRate: 0 },
   full: { type: 'quotation', client: { name: 'บริษัท แบรนด์เอ' }, items: [{ description: 'ถ่ายรูปสินค้า', quantity: 20, unit: 'รูป', price: 300 }], vatRate: 0, whtRate: 0, heard: 'ให้ บริษัท แบรนด์เอ ถ่ายรูปสินค้า 20 รูป รูปละ 300' },
   empty: { type: 'invoice', client: {}, items: [], vatRate: 0, whtRate: 0 },
 };
@@ -28,7 +30,8 @@ async function open(page: Page, scenario: keyof typeof drafts, issuer: Issuer = 
     if (body.action === 'document-image') return route.fulfill({ json: { ok: true, imageSent: true } });
     const record = { id: 'd1', assistantDraft: true, documentType: body.document.type, documentNo: 'QT-2569-4F2A91C0', createdDate: '2026-10-30',
       issuer: { name: '', address: '', phone: '', email: '', taxId: '', bankName: '', bankAccount: '', bankAccountName: '', ...issuer, ...body.document.issuer },
-      client: { email: '', ...body.document.client }, items: body.document.items.map((item: any, at: number) => ({ id: `i${at}`, ...item })), vatRate: body.document.vatRate, whtRate: body.document.whtRate };
+      client: { email: '', ...body.document.client }, items: body.document.items.map((item: any, at: number) => ({ id: `i${at}`, ...item })), vatRate: body.document.vatRate, whtRate: body.document.whtRate,
+      ...(body.document.paidDate ? { paidDate: body.document.paidDate, paymentMethod: body.document.paymentMethod } : {}) };
     return route.fulfill({ json: { ok: true, documentNo: 'QT-2569-4F2A91C0', notificationSent: true, document: record } });
   });
   await page.goto(`/liff-add.html?draftKind=document&draftKey=0123456789abcdef${query}`);
@@ -148,3 +151,47 @@ test('an incomplete draft opened to create shows its form instead', async ({ pag
   await expect(page.locator('#document-error-box')).toContainText('ชื่อลูกค้า');
   expect(sent.filter(body => body.action === 'confirm-draft')).toHaveLength(0);
 });
+
+// Receipts and tax invoices (owner, 2026-10-30: "ใบแจ้งหนี้กับใบเสร็จ ... ต้องเพิ่มการ์ดมา ... ส่งรูปภาพมาเหมือนใบเสนอราคา").
+test('a receipt asks when and how the money came in instead of credit days, and its picture goes to the chat', async ({ page }) => {
+  const sent = await open(page, 'receipt');
+  await expect(page.locator('#document-title')).toHaveText('ใบเสร็จรับเงิน');
+  await expect(page.locator('#doc-paid-wrap')).toBeVisible();
+  await expect(page.locator('#doc-credit-wrap')).toBeHidden();
+  const today = await page.evaluate(() => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10));
+  await expect(page.locator('#doc-paid-date')).toHaveValue(today);
+  await expect(page.locator('#doc-paid-method')).toHaveValue('โอนเงิน');
+  await expect(page.getByRole('button', { name: 'โอนเงิน', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'เงินสด', exact: true }).click();
+  await page.locator('#doc-paid-date').fill('2026-10-29');
+  await page.getByRole('button', { name: 'สร้างใบเสร็จรับเงิน' }).click();
+  await expect(page.getByRole('heading', { name: 'สร้างใบเสร็จรับเงินแล้ว' })).toBeVisible({ timeout: 20_000 });
+  expect(sent.find(body => body.action === 'confirm-draft').document).toMatchObject({ type: 'receipt', paidDate: '2026-10-29', paymentMethod: 'เงินสด', creditTerm: 0 });
+  expect(sent.find(body => body.action === 'document-image').image.startsWith('/9j/')).toBe(true);
+});
+
+test('a tax invoice keeps VAT at 7% and sends its picture too', async ({ page }) => {
+  const sent = await open(page, 'tax', FULL, { width: 390, height: 844 }, '&create=1');
+  await expect(page.getByRole('heading', { name: 'สร้างใบกำกับภาษีแล้ว' })).toBeVisible({ timeout: 20_000 });
+  expect(sent.find(body => body.action === 'confirm-draft').document).toMatchObject({ type: 'taxInvoice', vatRate: 7 });
+  expect(sent.find(body => body.action === 'document-image').image.startsWith('/9j/')).toBe(true);
+});
+
+test('on a tax invoice the VAT choice is fixed at 7%', async ({ page }) => {
+  await open(page, 'tax');
+  await expect(page.locator('#doc-vat')).toBeDisabled();
+  await expect(page.locator('#doc-vat')).toHaveValue('7');
+  await expect(page.locator('#doc-vat-fixed')).toBeVisible();
+  await expect(page.locator('#doc-payable')).toHaveText('฿10,700.00');
+});
+
+for (const size of [{ width: 390, height: 844 }, { width: 320, height: 568 }]) {
+  test(`at ${size.width}px nothing covers any text in the receipt form`, async ({ page }) => {
+    await open(page, 'receipt', FULL, size);
+    for (const at of [0, 0.5, 0.8, 1]) {
+      await page.evaluate(share => window.scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * share), at);
+      expect(await textOverlapIssues(page)).toEqual([]);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}

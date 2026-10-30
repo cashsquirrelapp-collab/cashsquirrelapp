@@ -12,7 +12,9 @@ import type { LineMessage } from './line.js';
 // draftKind=document) fills the rest in one go, and "สร้างเอกสาร" saves the same unsigned draft document the app's เลขา
 // saves (ai/documentActions.ts), through the same checked write (quota, validation, versions).
 
-export type LineDocumentType = 'quotation' | 'invoice';
+// Every document the app makes (owner, 2026-10-30: "ใบแจ้งหนี้กับใบเสร็จยังถามปกติอยู่ ... ทั้งหมดเลยที่เป็นคำสั่งให้เพิ่ม
+// ต้องเพิ่มการ์ดมา"), each with its picture in the chat: the same types, names and number prefixes as the app (DocumentA4).
+export type LineDocumentType = 'quotation' | 'invoice' | 'receipt' | 'taxInvoice' | 'receiptTaxInvoice';
 export interface LineDocumentItem { description: string; quantity: number; unit?: string; price: number }
 export interface LineDocumentClient { name?: string; address?: string; taxId?: string; phone?: string; email?: string; branch?: string; contactName?: string }
 export interface LineDocumentDraft {
@@ -24,6 +26,9 @@ export interface LineDocumentDraft {
   /** Days the client has to pay (credit terms). */
   creditTerm?: number;
   note?: string;
+  /** Receipts: the day the money came in (YYYY-MM-DD; empty = the day it is made) and how it was paid. */
+  paidDate?: string;
+  paymentMethod?: string;
   /** What the user typed, shown in the form for reference (never saved on the document). */
   heard?: string;
 }
@@ -31,12 +36,35 @@ export interface StoredDocumentDraft { id: string; createdAt: string; draft: Lin
 
 /** Long enough to fill a document in the form; a card older than this asks for a new one. */
 export const DOCUMENT_DRAFT_TTL_MS = 30 * 60 * 1000;
-export const DOC_NAME: Record<LineDocumentType, string> = { quotation: 'ใบเสนอราคา', invoice: 'ใบแจ้งหนี้' };
+export const DOC_NAME: Record<LineDocumentType, string> = {
+  quotation: 'ใบเสนอราคา', invoice: 'ใบแจ้งหนี้', receipt: 'ใบเสร็จรับเงิน', taxInvoice: 'ใบกำกับภาษี', receiptTaxInvoice: 'ใบเสร็จรับเงิน/ใบกำกับภาษี',
+};
+const DOC_PREFIX: Record<LineDocumentType, string> = { quotation: 'QT', invoice: 'INV', receipt: 'REC', taxInvoice: 'TAX', receiptTaxInvoice: 'RTX' };
+export const LINE_DOCUMENT_TYPES = Object.keys(DOC_NAME) as LineDocumentType[];
+/** A receipt records money received: its date and method, and no credit days. */
+export const isReceiptType = (type: string) => type === 'receipt' || type === 'receiptTaxInvoice';
+/** A tax invoice always carries VAT 7%, as the app sets it. */
+export const isTaxType = (type: string) => type === 'taxInvoice' || type === 'receiptTaxInvoice';
+/** The ways money is received, as the app's receipt suggests them. */
+export const PAYMENT_METHODS = ['โอนเงิน', 'เงินสด', 'พร้อมเพย์', 'เช็ค', 'บัตรเครดิต'];
 const C = LINE_CARD_COLORS;
 
 const MONEY = '(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d{1,2})?';
 const money = (text: string) => { const value = Number(text.replace(/,/g, '')); return Number.isFinite(value) && value > 0 && value <= 1e12 ? value : null; };
-const START = /^(?:(ช่วย|รบกวน)\s*)?(ทำ|ออก|สร้าง|ร่าง|เขียน|ขอ|อยากได้|อยากทำ|ต้องการ)?\s*(ใบเสนอราคา|ใบแจ้งหนี้|ใบวางบิล)\s*([\s\S]*)$/u;
+// The document words, longest first: "ใบเสร็จรับเงิน/ใบกำกับภาษี" before "ใบเสร็จ", "ใบวางบิล" before "บิล".
+const DOC_WORD = '(ใบเสร็จ(?:รับเงิน)?\\s*/?\\s*ใบกำกับภาษี|ใบกำกับภาษี\\s*/?\\s*ใบเสร็จ(?:รับเงิน)?|ใบเสนอราคา|ใบแจ้งหนี้|ใบวางบิล|ใบเสร็จรับเงิน|ใบเสร็จ|ใบกำกับภาษี|ใบกำกับ|บิล)';
+const START = new RegExp(`^(?:(ช่วย|รบกวน)\\s*)?(ทำ|ออก|สร้าง|ร่าง|เขียน|ขอ|เพิ่ม|อยากได้|อยากทำ|อยากออก|อยากสร้าง|ต้องการ|วาง|เปิด)?\\s*${DOC_WORD}(\\s*ใหม่)?\\s*([\\s\\S]*)$`, 'u');
+function documentTypeOf(word: string): LineDocumentType {
+  if (/ใบเสร็จ/.test(word) && /ใบกำกับ/.test(word)) return 'receiptTaxInvoice';
+  if (/ใบกำกับ/.test(word)) return 'taxInvoice';
+  if (/ใบเสร็จ/.test(word)) return 'receipt';
+  return word === 'ใบเสนอราคา' ? 'quotation' : 'invoice';
+}
+/** "โอนแล้ว", "จ่ายเงินสด", "ชำระด้วยพร้อมเพย์": how a receipt's money came in. */
+const METHOD = /(?:(?:รับ|จ่าย|ชำระ)(?:เงิน)?\s*)?(?:ด้วย|เป็น|ทาง|โดย|ผ่าน)?\s*(เงินสด|โอนเงิน|โอน|พร้อมเพย์|พร้อมเพ|เช็ค|เช็ก|บัตรเครดิต|บัตร)(?:เงิน)?(?:มา)?(?:แล้ว)?/u;
+export function paymentMethodOf(word: string): string {
+  return /สด/.test(word) ? 'เงินสด' : /โอน/.test(word) ? 'โอนเงิน' : /พร้อม/.test(word) ? 'พร้อมเพย์' : /เช็/.test(word) ? 'เช็ค' : 'บัตรเครดิต';
+}
 const FILLER = /(?:\s*(?:ให้หน่อย|หน่อย|ด้วย|นะ|น้า|จ้า|จ้ะ|ครับ|คับ|ค้าบ|ค่ะ|คะ|ที))+$/u;
 /** Words that start a client's name, kept with the word after them ("บริษัท แบรนด์เอ"). */
 const COMPANY = /^(?:บริษัท|บจก\.?|หจก\.?|ห้างหุ้นส่วน(?:จำกัด)?|ร้าน|คุณ|โรงแรม|โรงเรียน|มูลนิธิ|สำนักงาน|สตูดิโอ|คลินิก|สมาคม|กลุ่ม)/u;
@@ -56,21 +84,33 @@ export function parseLineDocumentCreate(input: string): LineDocumentDraft | null
   const text = thaiDigits(input.normalize('NFC')).replace(/\s+/g, ' ').trim();
   const match = START.exec(text);
   if (!match) return null;
-  const [, helped, verb, word] = match;
-  if (!helped && !verb) return null;
-  const type: LineDocumentType = word === 'ใบเสนอราคา' ? 'quotation' : 'invoice';
-  let rest = match[4].replace(/^ให้\s*(?:หน่อย|ผม|ฉัน|หนู|เรา|กู|เค้า|ที)(?=\s|$)\s*/u, '').replace(FILLER, '').trim();
+  const [, helped, verb, word, fresh] = match;
+  if (!helped && !verb && !fresh) return null; // "ใบแจ้งหนี้ คุณเอ" is a search; "ใบเสนอราคาใหม่" is a new one
+  // วาง / เปิด only make a bill ("วางบิล", "เปิดบิล"): "เปิดใบเสนอราคา QT-…" opens one that exists.
+  if ((verb === 'วาง' || verb === 'เปิด') && word !== 'บิล') return null;
+  if (word === 'บิล' && !verb && !helped) return null;
+  const type = documentTypeOf(word);
+  let rest = match[5].replace(/^ให้\s*(?:หน่อย|ผม|ฉัน|หนู|เรา|กู|เค้า|ที)(?=\s|$)\s*/u, '').replace(FILLER, '').trim();
   rest = rest.replace(/^(?:ให้\s*)?(?:หน่อย|ที)\s*/u, '').trim();
-  const draft: LineDocumentDraft = { type, client: {}, items: [], vatRate: 0, whtRate: 0, ...(rest ? { heard: rest.slice(0, 300) } : {}) };
-  if (verb === 'ขอ' && !helped && rest && (!new RegExp(MONEY).test(rest) || LOOKUP.test(rest))) return null;
+  // "ออกใบเสร็จจากใบแจ้งหนี้ INV-…": issuing on from a document stays with เลขา, which reads the document.
+  if (/^จาก|(?:^|\s)(?:QT|INV|REC|TAX|RTX)-\d/u.test(rest)) return null;
+  const draft: LineDocumentDraft = { type, client: {}, items: [], vatRate: isTaxType(type) ? 7 : 0, whtRate: 0, ...(rest ? { heard: rest.slice(0, 300) } : {}) };
+  // "ขอใบแจ้งหนี้ คุณเอ" looks one up; "ขอใบแจ้งหนี้ให้คุณเอ" (for someone) makes one.
+  if (verb === 'ขอ' && !helped && rest && !/^(?:ให้|สำหรับ|ลูกค้า)/u.test(rest) && (!new RegExp(MONEY).test(rest) || LOOKUP.test(rest))) return null;
   if (!rest) return draft;
+  if (isReceiptType(type)) {
+    const method = METHOD.exec(rest);
+    if (method) { draft.paymentMethod = paymentMethodOf(method[1]); rest = rest.replace(method[0], ' '); }
+    rest = rest.replace(/(?:ได้)?(?:รับเงิน|ชำระ(?:เงิน)?|จ่าย(?:เงิน)?)(?:ครบ)?(?:แล้ว)?/gu, ' ').replace(/\s+/g, ' ').trim();
+  }
 
   // Taxes and terms, taken out of the words once read.
   if (/(?:\+|รวม|บวก|คิด|มี)?\s*VAT(?:\s*7\s*%?)?|ภาษีมูลค่าเพิ่ม/iu.test(rest)) { draft.vatRate = 7; rest = rest.replace(/(?:\+|รวม|บวก|คิด|มี)?\s*VAT(?:\s*7\s*%?)?|ภาษีมูลค่าเพิ่ม(?:\s*7\s*%?)?/giu, ' '); }
   const wht = /หัก\s*(?:ณ\s*ที่\s*จ่าย)?\s*([1-5])\s*%/u.exec(rest);
   if (wht) { draft.whtRate = Number(wht[1]); rest = rest.replace(wht[0], ' '); }
   const credit = /เครดิต\s*(\d{1,3})\s*วัน/u.exec(rest);
-  if (credit) { draft.creditTerm = Math.min(365, Number(credit[1])); rest = rest.replace(credit[0], ' '); }
+  if (credit) { if (!isReceiptType(type)) draft.creditTerm = Math.min(365, Number(credit[1])); rest = rest.replace(credit[0], ' '); }
+  if (isTaxType(type)) draft.vatRate = 7;
 
   // "20 รูป รูปละ 300": quantity, unit and the price of one.
   let quantity = 1, unit: string | undefined, price: number | null = null;
@@ -148,7 +188,8 @@ export function applyDocumentFollowUp(draft: LineDocumentDraft, input: string): 
   else if ((match = /^(?:เบอร์(?:โทร)?|โทร(?:ศัพท์)?)(?:ลูกค้า)?\s*(?:คือ)?\s*([\d\s+-]{6,20})$/u.exec(text))) next.client.phone = match[1].trim();
   else if ((match = /^สาขา\s*(.{1,100})$/u.exec(text))) next.client.branch = match[1].trim();
   else if (/^(?:มี|คิด|รวม|บวก|\+)?\s*VAT(?:\s*7\s*%?)?$|^ภาษีมูลค่าเพิ่ม(?:\s*7\s*%?)?$/iu.test(text)) next.vatRate = 7;
-  else if (/^ไม่(?:มี|คิด|รวม)\s*VAT$/iu.test(text)) next.vatRate = 0;
+  else if (/^ไม่(?:มี|คิด|รวม)\s*VAT$/iu.test(text)) { if (!isTaxType(next.type)) next.vatRate = 0; }
+  else if (isReceiptType(next.type) && (match = new RegExp(`^${METHOD.source}$`, 'u').exec(text))) next.paymentMethod = paymentMethodOf(match[1]);
   else if ((match = /^หัก\s*(?:ณ\s*ที่\s*จ่าย)?\s*([1-5])\s*%$/u.exec(text))) next.whtRate = Number(match[1]);
   else if (/^ไม่(?:มี)?หัก(?:\s*ณ\s*ที่\s*จ่าย)?$/u.test(text)) next.whtRate = 0;
   else if ((match = /^เครดิต\s*(\d{1,3})\s*วัน$/u.exec(text))) next.creditTerm = Math.min(365, Number(match[1]));
@@ -268,7 +309,11 @@ export function buildDocumentDraftCard(stored: StoredDocumentDraft, issuer: Part
       ...(draft.items.length > 3 ? [{ type: 'text', text: `และอีก ${draft.items.length - 3} รายการ`, size: 'xs', color: C.muted, margin: 'sm', align: 'end' }] : []),
       ...(draft.vatRate ? [lineValueRow(`VAT ${draft.vatRate}%`, baht(totals.vatAmount), { bold: false })] : []),
       ...(draft.whtRate ? [lineValueRow(`หัก ณ ที่จ่าย ${draft.whtRate}%`, `−${baht(totals.whtAmount)}`, { bold: false })] : []),
-      ...(draft.creditTerm ? [lineValueRow('เครดิต', `${draft.creditTerm} วัน`, { bold: false })] : []),
+      ...(draft.creditTerm && !isReceiptType(draft.type) ? [lineValueRow('เครดิต', `${draft.creditTerm} วัน`, { bold: false })] : []),
+      ...(isReceiptType(draft.type) ? [
+        lineValueRow('วันที่รับเงิน', draft.paidDate ? thaiDay(draft.paidDate) : `วันนี้ (${thaiDay(bangkokToday(new Date()))})`, { bold: false }),
+        lineValueRow('วิธีชำระ', draft.paymentMethod || 'ไม่ระบุ', { bold: false, ...(draft.paymentMethod ? {} : { color: C.muted }) }),
+      ] : []),
       ...(optional.length ? [{ type: 'text', text: `ยังไม่ได้กรอก (ไม่บังคับ): ${optional.join(' · ')}`, size: 'xxs', color: C.muted, margin: 'lg', wrap: true }] : []),
     ],
     note: ready ? 'ตรวจแล้วกด สร้างเอกสาร ได้เลย หรือเพิ่มรายละเอียดในฟอร์มก่อน' : form
@@ -311,6 +356,8 @@ export function buildDocumentCreatedCard(record: Invoice): LineMessage {
       lineValueRow('ลูกค้า', record.client.name, { bold: false }),
       lineValueRow('วันที่ออก', thaiDay(record.createdDate), { bold: false }),
       ...(record.dueDate ? [lineValueRow('ครบกำหนดชำระ', thaiDay(record.dueDate), { bold: false })] : []),
+      ...(record.paidDate ? [lineValueRow('วันที่รับเงิน', thaiDay(record.paidDate), { bold: false })] : []),
+      ...(record.paymentMethod ? [lineValueRow('วิธีชำระ', record.paymentMethod, { bold: false })] : []),
       ...(record.paymentTerm ? [lineValueRow('เงื่อนไขชำระ', record.paymentTerm, { bold: false })] : []),
     ],
     note: 'ยังไม่ได้ส่งให้ลูกค้า · เปิดเอกสารเพื่อตรวจ แก้ไข ดาวน์โหลด PDF หรือออกเอกสารต่อ',
@@ -343,16 +390,20 @@ export function buildLineDocumentRecord(draft: LineDocumentDraft, issuer: Invoic
   const created = bangkokToday(now);
   const record: Invoice = {
     id, assistantDraft: true, documentType: draft.type,
-    documentNo: `${draft.type === 'invoice' ? 'INV' : 'QT'}-${Number(created.slice(0, 4)) + 543}-${id.slice(0, 8).toUpperCase()}`,
+    documentNo: `${DOC_PREFIX[draft.type] ?? 'INV'}-${Number(created.slice(0, 4)) + 543}-${id.slice(0, 8).toUpperCase()}`,
     createdDate: created, issuer,
     client: { name: draft.client.name?.trim() || '', address: draft.client.address?.trim() || '', phone: draft.client.phone?.trim() || '', email: draft.client.email?.trim() || '', taxId: draft.client.taxId?.trim() || '',
       ...(draft.client.branch?.trim() ? { branch: draft.client.branch.trim() } : {}), ...(draft.client.contactName?.trim() ? { contactName: draft.client.contactName.trim() } : {}) },
     items: draft.items.map(item => ({ id: randomUUID(), description: item.description.trim(), quantity: item.quantity, price: item.price, ...(item.unit?.trim() ? { unit: item.unit.trim() } : {}) })),
-    vatRate: draft.vatRate, whtRate: draft.whtRate,
+    vatRate: isTaxType(draft.type) ? 7 : draft.vatRate, whtRate: draft.whtRate,
     ...(draft.note?.trim() ? { note: draft.note.trim() } : {}),
   };
-  if (draft.creditTerm) {
-    if (draft.type === 'invoice') record.dueDate = addDays(created, draft.creditTerm);
+  if (isReceiptType(draft.type)) {
+    // The money is in: the day it came (the day it is made, unless the form said) and how; no credit days.
+    record.paidDate = /^\d{4}-\d{2}-\d{2}$/.test(draft.paidDate || '') ? draft.paidDate : created;
+    if (draft.paymentMethod?.trim()) record.paymentMethod = draft.paymentMethod.trim().slice(0, 100);
+  } else if (draft.creditTerm) {
+    if (draft.type !== 'quotation') record.dueDate = addDays(created, draft.creditTerm); // invoices and tax invoices fall due
     record.paymentTerm = `เครดิต ${draft.creditTerm} วัน`;
   }
   return record;

@@ -11,7 +11,13 @@ export interface LineQuickDraftContext {
 export type LineQuickDraftResult = ClassifyResult & { freshDraft: boolean };
 
 const MONEY = '(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d{1,2})?';
-const expensePrefix = /^(?:บันทึกรายจ่าย|เพิ่มรายจ่าย|รายจ่าย|จ่าย)\s*/;
+// An expense in everyday words (owner, 2026-10-30: "ทั้งหมดเลยที่เป็นคำสั่งให้เพิ่ม ต้องเพิ่มการ์ดมา"): บันทึก / เพิ่ม / จด /
+// ลง / มี + รายจ่าย or ค่าใช้จ่าย, or จ่าย…; "ซื้อ…" and "เสียค่า…" only with an amount. The bare request is the empty card.
+const expensePrefix = /^(?:(?:ช่วย|รบกวน|ขอ)\s*)?(?:(?:(?:บันทึก|เพิ่ม|จด|ลง|มี)\s*)?(?:รายจ่าย|ค่าใช้จ่าย)(?:ใหม่)?|จ่าย)\s*/;
+const boughtPrefix = /^(?:(?:ช่วย|รบกวน|ขอ)\s*)?(?:(?:บันทึก|จด|ลง)\s*)?(?:เสีย(?=ค่า)|(?=ซื้อ))/;
+const REQUEST_FILLER = /^(?:ให้\s*)?(?:หน่อย|ด้วย|ที|นะ|ครับ|ค่ะ|คะ)?$/;
+/** "รายจ่ายเดือนนี้", "ค่าใช้จ่ายประจำ", "รายจ่ายทั้งหมด": a question or a setting, not an expense to record. */
+const EXPENSE_LOOKUP = /^(?:เดือน|วันนี้|ปีนี้|ปี|สัปดาห์|อาทิตย์|ล่าสุด|ทั้งหมด|สรุป|ดู|บ้าง|ของ(?:เดือน|ปี|วัน)|ประจำ|รวม|ย้อนหลัง|เก่า|ที่ผ่านมา|แล้ว)/;
 const jobPrefix = /^(?:บันทึกงาน|เพิ่มงาน|รายรับ|รายได้)\s*/;
 const namedAmount = new RegExp(`^(.+?)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`);
 const jobAmount = new RegExp(`^(.+?)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?\\s*(.*)$`);
@@ -130,11 +136,19 @@ export function parseLineQuickDraft(input: string, context: LineQuickDraftContex
   }
   if (unsupported.test(text)) return null;
   if (expensePrefix.test(text)) {
-    const body = text.replace(expensePrefix, '');
+    const body = text.replace(expensePrefix, '').replace(/\s*(?:ให้หน่อย|หน่อย|ด้วย)$/, '').trim();
+    // "บันทึกรายจ่าย" / "เพิ่มรายจ่ายหน่อย" alone: the empty card and its form, never an expense named หน่อย.
+    if (REQUEST_FILLER.test(body)) return { intent: 'add_expense', freshDraft: true };
+    if (EXPENSE_LOOKUP.test(body)) return null;
     const match = body.match(namedAmount);
     if (!match) return safeName(body) ? expenseResult(body, undefined, context) : null;
     const value = amount(match[2]);
     return value === null ? null : expenseResult(match[1].trim(), value, context);
+  }
+  if (boughtPrefix.test(text)) {
+    const match = text.replace(boughtPrefix, '').match(namedAmount);
+    const value = match ? amount(match[2]) : null;
+    if (match && value !== null) return expenseResult(match[1].trim(), value, context);
   }
   if (jobPrefix.test(text)) {
     const body = text.replace(jobPrefix, '').replace(/^(?:ให้\s*)?(?:หน่อย|ด้วย|ที)$/, '');
