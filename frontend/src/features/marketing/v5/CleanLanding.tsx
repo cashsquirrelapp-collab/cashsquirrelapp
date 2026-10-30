@@ -23,7 +23,6 @@ import { monthPromoCountdown, useMonthPromoRunning } from '../../billing/promoNo
 import { currentLanguage } from '../../../i18n/currentLanguage';
 import { tr, trc, T } from '../../../i18n/tr';
 import { useLanguage } from '../../../i18n/LanguageContext';
-import { PhoneDemo } from '../v4/Demos';
 import { MascotSlot } from '../../assistant/MascotSlot';
 import { statusFor, type AssistantMode } from '../../assistant/assistantMock';
 import '../v4/demos.css';
@@ -32,6 +31,7 @@ import { BRAND_LINKS } from './brandLinks';
 import { FULL_LAUNCH_AT } from './launch';
 import { SignupCount } from './SignupCount';
 import { CalendarViews, ExpensesDemo } from './MoneyDemos';
+import { LinePhone } from './LinePhone';
 
 // The live chat and the A4 documents load only when their sections come near (they bring the app's chat and document code).
 const ChatLive = React.lazy(() => import('./ChatLive'));
@@ -878,7 +878,7 @@ export default function CleanLanding() {
             <p>{tr('ทาง LINE และอีเมล งานไหนใกล้ครบกำหนดรับเงิน และกดบันทึกรับเงินจากในแจ้งเตือนได้เลย')}</p>
             <span className="cl-feat-apps" aria-hidden="true"><span><LineLogo size={22} />LINE</span><span><GmailLogo size={20} />{tr('อีเมล')}</span></span>
           </div>
-          <div className="cl-feat-visual gl-feature-visual is-remind" data-rise><PhoneDemo /></div>
+          <div className="cl-feat-visual gl-feature-visual is-remind" data-rise><LinePhone /></div>
         </section>
 
         {/* documents, one after another */}

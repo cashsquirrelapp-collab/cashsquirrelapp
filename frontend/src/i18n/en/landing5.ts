@@ -44,6 +44,8 @@ export const landing5: Record<string, string> = {
   'ค่าใช้จ่ายประจำตั้งไว้ครั้งเดียว ขึ้นให้ทุกเดือน รายจ่ายอื่นจดพร้อมหมวดหมู่ แล้วเห็นทันทีว่าเดือนนี้เหลือกำไรเท่าไร': 'Set your regular costs once and they show up every month. Note other spending with a category, and see straight away how much profit this month leaves.',
   'ตัวอย่าง: จดรายจ่ายเดือนตุลาคม 3 รายการ รวม ฿1,200 แล้วเห็นกำไรสุทธิ ฿11,800': 'Example: three October expenses noted, ฿1,200 in all, and the month’s net profit of ฿11,800',
   'ค่าอินเทอร์เน็ต': 'Internet',
+  // the LINE chat in the 08:00 phone (2026-10-30): the name of LINE's menu bar
+  'เลขาการเงิน': 'Money assistant',
   'ค่าแท็กซี่ไปถ่ายงาน': 'Taxi to a shoot',
   'กาแฟคุยงานกับลูกค้า': 'Coffee with a client',
   // the problem notes since 2026-10-29

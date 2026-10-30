@@ -1,0 +1,39 @@
+/* The LINE chat in the landing's 08:00 phone (LinePhone.tsx), as LINE draws it in its dark look (owner's screenshot,
+   2026-10-30): bars #111111, chat #1A1A1A, grey times, the bot's picture beside each card, LINE's green for what you send.
+   The cards are LINE's own size on a phone (about three quarters of the screen), with room around them. */
+.lp-chat { background: #1A1A1A; color: #FFFFFF; text-align: left; } /* LINE's own alignment, not the section's centring on phones */
+.lp-bar { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; align-items: center; gap: 4px; height: 78px; padding: 36px 12px 0 8px; background: #111111; }
+.lp-bar b { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; line-height: 1.45; white-space: nowrap; }
+.lp-bar-icons { display: flex; align-items: center; gap: 14px; }
+.lp-area { position: absolute; left: 0; right: 0; top: 78px; bottom: 44px; overflow: hidden; }
+.lp-track { display: flex; flex-direction: column; gap: 10px; padding: 10px 0 12px; animation: lp-scroll 13s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+.lp-day { align-self: center; padding: 1px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: #BDBDBD; font-size: 9.5px; line-height: 1.6; }
+.lp-row { display: flex; align-items: flex-end; gap: 4px; padding: 0 8px; }
+.lp-row.is-bot { align-items: flex-start; }
+.lp-row.is-me { justify-content: flex-end; }
+.lp-avatar { display: grid; flex: none; place-items: center; width: 26px; height: 26px; margin-right: 2px; border-radius: 50%; background: #FFFAF7; }
+.lp-avatar img { width: 17px; height: 17px; }
+.lp-card { display: block; flex: none; width: 72%; height: auto; border-radius: 11px; }
+.lp-row.is-bot .lp-time { align-self: flex-end; }
+.lp-time { color: #929292; font-family: 'IBM Plex Sans', var(--font-sans); font-size: 8.5px; line-height: 1.5; }
+.lp-meta { display: grid; justify-items: end; gap: 1px; color: #929292; }
+.lp-read { font-size: 8.5px; line-height: 1.5; }
+.lp-bubble { position: relative; max-width: 68%; margin: 0; padding: 6px 10px; border-radius: 14px; background: #6AE27C; color: #0A0A0A; font-size: 11px; font-weight: 500; line-height: 1.45; }
+.lp-bubble::after { content: ''; position: absolute; right: -3px; top: 0; width: 10px; height: 10px; background: #6AE27C; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.lp-menu { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: center; height: 44px; background: #111111;
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.06); color: #FFFFFF; font-size: 12px; font-weight: 600; line-height: 1.45; }
+.lp-menu svg { position: absolute; left: 14px; top: 50%; translate: 0 -50%; color: #CFCFCF; }
+.lp-tap { z-index: 3; }
+/* the motion, in the reminder's 13 s: the tap on ได้รับแล้ว (49–53.5 %), LINE's green message, read, then the reply card */
+.lp-sent { animation: lp-sent 13s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+.lp-read { animation: lp-read 13s linear infinite; }
+.lp-reply { animation: lp-reply 13s cubic-bezier(0.34, 1.3, 0.64, 1) infinite; }
+@keyframes lp-scroll { 0%, 53.5% { transform: none; } 56.5%, 58.5% { transform: translateY(calc(-1 * var(--lp-a, 0px))); } 62%, 100% { transform: translateY(calc(-1 * var(--lp-b, 0px))); } }
+@keyframes lp-sent { 0%, 54% { opacity: 0; transform: translateY(10px); } 56.5%, 100% { opacity: 1; transform: none; } }
+@keyframes lp-read { 0%, 57.5% { opacity: 0; } 58.5%, 100% { opacity: 1; } }
+@keyframes lp-reply { 0%, 59% { opacity: 0; transform: translateY(14px) scale(0.97); } 62.5%, 100% { opacity: 1; transform: none; } }
+/* Without motion: the chat as it ends, the reply in view. */
+@media (prefers-reduced-motion: reduce) { .lp-track { transform: translateY(calc(-1 * var(--lp-b, 0px))); } .lp-tap { opacity: 0; } }
+/* The screen's round corners as a clip path: with border-radius alone, Chromium let the chat's moving layer show white
+   strips down the screen's left edge. */
+.cl .gl-screen { clip-path: inset(0 round 38px); background: #141210; }

@@ -287,6 +287,11 @@ card does not need:
   number; no number at all when there is none (never 0). On phones the chat is a phone in the page (272px, the hero
   phone's bezel), its own left alignment.
 - Phones show the Gmail icon among the floating cards too (owner, 2026-10-30): LINE · 08:00 · Gmail, then +฿5,000.
+- The 08:00 reminder phone shows LINE as LINE draws it (owner, 2026-10-30, from a screenshot of the real chat: the cards
+  were too zoomed in): `v5/LinePhone.tsx` + `linePhone.css`, LINE's dark look (bars #111111, chat #1A1A1A), the bot's
+  picture beside each card at about three quarters of the screen, grey times, the green message LINE sends when
+  ได้รับแล้ว is pressed ("ได้รับเงินแล้ว · <job>", the button's displayText), the reply card, and the menu bar
+  "เลขาการเงิน ▴". The chat moves up as messages arrive; the cards never pass over the bar.
 - The hero's เลขากระรอก stays in type with its ordinary ร: a drawn wordmark with a squirrel-tail ร was tried and taken
   back (owner, 2026-10-30: "ใช้รอเรือเหมือนเดิมดีกว่า"; the drafts stay in `artifacts/wordmark-tail`).
 - English (owner, 2026-10-30: shorter, same meaning as the Thai, sized for phones): "From job to payday, / Krarok
