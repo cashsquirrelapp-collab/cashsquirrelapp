@@ -238,17 +238,21 @@ export function buildDocumentDraftCard(stored: StoredDocumentDraft, issuer: Pick
       : `พิมพ์รายละเอียดในข้อความเดียว เช่น ทำ${name} ให้คุณบี ถ่ายรูปสินค้า 20 รูป รูปละ 300`,
     altText: `${name} แบบร่าง${totals.payable > 0 ? ` ${baht(totals.payable)}` : ''}${ready ? '' : ` · ยังไม่ได้กรอก ${missing.join(', ')}`}`,
   }) as Extract<LineMessage, { type: 'flex' }>;
+  const createAction = form
+    ? { type: 'uri', label: 'สร้างเอกสาร', uri: `${form}&create=1` }
+    : { type: 'postback', label: 'สร้างเอกสาร', data: `doc:create:${stored.id}`, displayText: `สร้าง${name}` };
   const cancel = { type: 'button', style: 'secondary', color: C.subtle, height: 'sm', flex: 1,
     action: { type: 'postback', label: 'ยกเลิก', data: `doc:cancel:${stored.id}`, displayText: 'ยกเลิกเอกสาร' } };
   card.contents = { ...(card.contents as object), footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '20px', paddingTop: '0px', contents: [
     // สร้างเอกสาร opens the form to create at once, so the page can also be sent as a picture; with no form, a postback.
+    // It is always on the card (owner: "ปุ่มเสร็จสิ้นมันยังไม่มี"): with something missing the form comes first, and
+    // สร้างเอกสาร opens the form at what is missing instead of creating.
     ready
-      ? { type: 'button', style: 'primary', color: C.accent, height: 'sm', action: form
-        ? { type: 'uri', label: 'สร้างเอกสาร', uri: `${form}&create=1` }
-        : { type: 'postback', label: 'สร้างเอกสาร', data: `doc:create:${stored.id}`, displayText: `สร้าง${name}` } }
+      ? { type: 'button', style: 'primary', color: C.accent, height: 'sm', action: createAction }
       : form ? { type: 'button', style: 'primary', color: C.accent, height: 'sm', action: { type: 'uri', label: 'กรอกข้อมูล', uri: form } } : null,
     { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
       ...(ready && form ? [{ type: 'button', style: 'secondary', height: 'sm', flex: 2, action: { type: 'uri', label: 'แก้ไข / กรอกเพิ่ม', uri: form } }] : []),
+      ...(!ready ? [{ type: 'button', style: 'secondary', height: 'sm', flex: 2, action: createAction }] : []),
       cancel,
     ] },
   ].filter(Boolean) } };

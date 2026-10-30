@@ -365,7 +365,8 @@ card does not need:
   VAT, หัก ณ ที่จ่าย and เครดิต N วัน. "ขอใบเสนอราคา คุณเอ" (a name, no amount) is still a search.
 - The draft card (the formal LINE card, `document` kind): ผู้ออกเอกสาร (the saved business), ลูกค้า, the lines, taxes,
   the net total, and "ยังไม่ได้กรอก" in amber for what is missing. Complete: สร้างเอกสาร, then แก้ไข / กรอกเพิ่ม and ยกเลิก.
-  Not complete: กรอกข้อมูล (the LINE form) and ยกเลิก. A draft lasts 30 minutes; one card, one draft.
+  Not complete: กรอกข้อมูล (the LINE form) first, then สร้างเอกสาร (opens the form at what is missing) and ยกเลิก.
+  A draft lasts 30 minutes; one card, one draft.
 - The LINE form (`liff-add.html` draftKind=document, `liff-document.js`): one page in the job form's look, what the card
   knew filled in, the user's own words shown for reference, the business asked only when none is saved (then kept),
   lines with quantity, unit and price, VAT, หัก ณ ที่จ่าย, credit chips (ไม่มี / 7–90 วัน) and the totals.
@@ -383,6 +384,10 @@ card does not need:
   the draft card (ยืนยันบันทึก even when everything is there; เติมข้อมูล / แก้ไข and tap answers when something is
   missing), never questions; "เครดิต 30 วัน", "หัก 3%", "ให้ร้านบี", "มัดจำ 2000", "ยอด 6000 ยังไม่ได้รับเงิน" typed
   afterwards fill it. Several jobs or a date in one message stay with เลขา (it can record them all and their dates).
+- The confirm button is on every job and expense card (owner, 2026-10-30: "ปุ่มเสร็จสิ้นมันยังไม่มี"): a job needs only
+  its name and amount; payment not said shows and saves as ยังไม่ได้รับเงิน (tap answers change it). Complete: ยืนยันบันทึก
+  first, then แก้ไขรายการ and ยกเลิก. Missing the name or amount: เติมข้อมูล / แก้ไข first, then ยืนยันบันทึก and
+  ยกเลิก; pressing ยืนยันบันทึก then answers with what is missing and the card again, and saves nothing.
 
 ### Mascot (เลขากระรอก)
 

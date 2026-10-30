@@ -36,9 +36,10 @@ export function buildLineDraftReview(kind: DraftKind, stored: StoredLineDraft): 
   const job = draft as JobDraft;
   const expense = draft as ExpenseDraft;
   const amount = kind === 'job' ? job.value || 0 : expense.amount || 0;
-  const complete = !!draft.name && amount > 0 && (kind === 'expense' || ['paid','partial','pending'].includes(job.paymentStatus || ''));
+  // A job with no payment said is one not paid yet (owner, 2026-10-30: the card had no confirm button); it can be changed.
+  const complete = !!draft.name && amount > 0;
   const editUrl = lineDraftEditLink(kind, stored);
-  const payment = job.paymentStatus === 'paid' ? 'รับเงินครบแล้ว' : job.paymentStatus === 'partial' ? `รับมัดจำ ${formatCurrency(job.receivedAmount || 0)}` : job.paymentStatus === 'pending' ? 'ยังไม่ได้รับเงิน' : 'ยังไม่ได้เลือก';
+  const payment = job.paymentStatus === 'paid' ? 'รับเงินครบแล้ว' : job.paymentStatus === 'partial' ? `รับมัดจำ ${formatCurrency(job.receivedAmount || 0)}` : 'ยังไม่ได้รับเงิน';
   const card = lineCard({
     title: 'ตรวจรายการก่อนบันทึก',
     character: 'review', compact: true,
@@ -57,16 +58,21 @@ export function buildLineDraftReview(kind: DraftKind, stored: StoredLineDraft): 
   });
   (card as Extract<LineMessage, { type: 'flex' }>).contents = {
     ...(card as any).contents,
+    // ยืนยันบันทึก is always there (owner: "ปุ่มเสร็จสิ้นมันยังไม่มี"): first when the record is complete; when something is
+    // still missing the form comes first, and ยืนยันบันทึก says what is missing instead of saving.
     footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '20px', paddingTop: '0px', contents: [
-      ...(complete ? [{ type: 'button', style: 'primary', color: LINE_CARD_COLORS.accent, height: 'sm',
-        action: { type: 'postback', label: 'ยืนยันบันทึก', data: `draft:confirm:${kind}:${key}`, displayText: commands[kind] } }] : []),
+      complete
+        ? { type: 'button', style: 'primary', color: LINE_CARD_COLORS.accent, height: 'sm',
+          action: { type: 'postback', label: 'ยืนยันบันทึก', data: `draft:confirm:${kind}:${key}`, displayText: commands[kind] } }
+        : editUrl ? { type: 'button', style: 'primary', color: LINE_CARD_COLORS.accent, height: 'sm', action: { type: 'uri', label: 'เติมข้อมูล / แก้ไข', uri: editUrl } } : null,
       { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
-        ...(editUrl ? [{ type: 'button', style: complete ? 'secondary' : 'primary', height: 'sm', flex: 2,
-          ...(complete ? {} : { color: LINE_CARD_COLORS.accent }), action: { type: 'uri', label: complete ? 'แก้ไขรายการ' : 'เติมข้อมูล / แก้ไข', uri: editUrl } }] : []),
+        complete
+          ? editUrl ? { type: 'button', style: 'secondary', height: 'sm', flex: 2, action: { type: 'uri', label: 'แก้ไขรายการ', uri: editUrl } } : null
+          : { type: 'button', style: 'secondary', height: 'sm', flex: 2, action: { type: 'postback', label: 'ยืนยันบันทึก', data: `draft:confirm:${kind}:${key}`, displayText: commands[kind] } },
         { type: 'button', style: 'secondary', color: LINE_CARD_COLORS.subtle, height: 'sm', flex: 1,
           action: { type: 'postback', label: 'ยกเลิก', data: `draft:cancel:${kind}:${key}`, displayText: 'ยกเลิกรายการ' } },
-      ] },
-    ] },
+      ].filter(Boolean) },
+    ].filter(Boolean) },
   };
   return card;
 }

@@ -53,7 +53,7 @@ test('the empty card says what is missing and opens the form; nothing can be mad
   assert.equal(card.type, 'flex');
   assert.match(flex(card), /ยังไม่ได้กรอก/);
   assert.match(flex(card), /สตูดิโอตัวอย่าง/);
-  assert.deepEqual(buttons(card), ['กรอกข้อมูล', 'ยกเลิก']);
+  assert.deepEqual(buttons(card), ['กรอกข้อมูล', 'สร้างเอกสาร', 'ยกเลิก']); // สร้างเอกสาร is always there; here it opens the form at what is missing
   assert.match(flex(card), new RegExp(`https://liff.line.me/1234567890-abcdefgh\\?draftKind=document&draftKey=${stored.id}`));
   assert.match(flex(card), new RegExp(`doc:cancel:${stored.id}`));
   assert.doesNotMatch(flex(card), /doc:create/);
@@ -307,3 +307,28 @@ test('in LINE a typed detail goes to the newest draft card; a job request gets i
     async saveJobDraft(u: UserRow, draft: any) { aiCalls.push(`job:${draft.name}:${draft.client}:${draft.value}:${draft.creditTerm}`); u.notif_settings = { ...u.notif_settings, pendingJobDraft: { createdAt: new Date().toISOString(), draft } }; } } as any);
   assert.ok(aiCalls.includes('job:ถ่ายรูป:ร้านบี:8000:30') && !aiCalls.includes('ai'), aiCalls.join(', '));
 });
+
+import { buildLineDraftReview } from '../backend/src/services/lineDraftReview';
+test('every job card has ยืนยันบันทึก; payment not said means not paid yet; missing details are said, not asked', async () => {
+  const at = new Date().toISOString();
+  const complete = buildLineDraftReview('job', { createdAt: at, draft: { name: 'ตัดต่อวิดีโอ', client: 'คุณบี', value: 6000 } }) as any;
+  assert.deepEqual(buttons(complete), ['ยืนยันบันทึก', 'แก้ไขรายการ', 'ยกเลิก'], 'no payment said: still complete');
+  assert.match(flex(complete), /ยังไม่ได้รับเงิน/);
+  const open = buildLineDraftReview('job', { createdAt: at, draft: { name: 'ตัดต่อวิดีโอ' } }) as any;
+  assert.deepEqual(buttons(open), ['เติมข้อมูล / แก้ไข', 'ยืนยันบันทึก', 'ยกเลิก']);
+  // pressing ยืนยันบันทึก on it says what is missing and shows the card again
+  const user: UserRow = { user_id: userId, jobs: [], goals: [], settings: {}, expenses: [], statuses: [], notif_settings: { pendingJobDraft: { createdAt: at, draft: { name: 'ตัดต่อวิดีโอ' } } } };
+  const { lineDraftKey } = await import('../backend/src/services/lineDraftReview');
+  const key = lineDraftKey('job', user.notif_settings!.pendingJobDraft as any);
+  const reply = await handleAssistantMessage('Uline', `ยืนยันบันทึกงาน ${key}`, 'op-confirm-open', lineDeps([], user)) as any[];
+  assert.match(reply[0].text, /ขาดมูลค่างาน/);
+  assert.equal(reply[1].type, 'flex');
+  // a job typed without payment gets the confirm button and taps to change the payment
+  const saved: any[] = [];
+  const card = await handleAssistantMessage('Uline', 'บันทึกงาน ตัดต่อวิดีโอ ให้คุณบี 6000', 'op-no-payment', { ...lineDeps([], { ...user, notif_settings: {} }),
+    async saveJobDraft(u: UserRow, draft: any) { saved.push(draft); u.notif_settings = { ...u.notif_settings, pendingJobDraft: { createdAt: new Date().toISOString(), draft } }; } } as any) as any[];
+  assert.equal(saved[0].paymentStatus, 'pending');
+  assert.deepEqual(buttons(card[0]), ['ยืนยันบันทึก', 'แก้ไขรายการ', 'ยกเลิก']);
+  assert.deepEqual(card[0].quickReply.items.map((item: any) => item.action.label), ['ยังไม่ได้รับเงิน', 'รับเงินครบแล้ว']);
+});
+

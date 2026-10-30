@@ -1157,7 +1157,8 @@ const lineDocumentCommand: NonNullable<LineAssistantDependencies['documentComman
   }
   const { issuer } = await loadDocumentAccount(user.user_id);
   // Something still missing (the issuer may have been cleared in the app meanwhile): the card again, with the form.
-  if (documentMissing(stored.draft, issuer.name).length) return buildDocumentDraftCard(stored, issuer);
+  const missing = documentMissing(stored.draft, issuer.name);
+  if (missing.length) return [{ type: 'text', text: `ยังสร้างไม่ได้ครับ ขาด${missing.join(' และ ')} กด “กรอกข้อมูล” หรือพิมพ์มาได้เลย` }, buildDocumentDraftCard(stored, issuer)];
   const record = buildLineDocumentRecord(stored.draft, issuer, new Date(), documentIdFor(stored.id));
   try {
     if (!await saveLineDocument(user.user_id, record)) return { type: 'text', text: 'เอกสารจากแบบร่างนี้สร้างไว้แล้วครับ ดูได้ที่เมนู เอกสาร ในแอป' };
@@ -1376,14 +1377,19 @@ async function handleAssistantMessageInner(
     // from creating two records when separate confirmations arrive concurrently.
     user.operationId = lineDraftOperationId(kind, stored);
     if (kind === 'job') {
-      if (!pendingDraft?.name || !pendingDraft.value || !pendingDraft.paymentStatus) return { type: 'text', text: 'ข้อมูลงานยังไม่ครบครับ กรุณาเพิ่มข้อมูลที่ขาดก่อนยืนยัน' };
-      const job = buildJobFromDraft(pendingDraft);
+      // Still missing the name or the amount: what is missing, and the card with its form (no questions).
+      const missing = [!pendingDraft?.name && 'ชื่องาน', !pendingDraft?.value && 'มูลค่างาน'].filter(Boolean);
+      if (missing.length) return [{ type: 'text', text: `ยังบันทึกไม่ได้ครับ ขาด${missing.join(' และ ')} กด “เติมข้อมูล / แก้ไข” หรือพิมพ์มาได้เลย เช่น ยอด 5000` }, buildLineDraftReview('job', stored)];
+      const job = buildJobFromDraft({ ...pendingDraft!, paymentStatus: pendingDraft!.paymentStatus || 'pending' });
       if (!(await (dependencies.persistJob ?? persistJob)(user, job))) return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองยืนยันอีกครั้งนะครับ' };
       try { await (dependencies.clearJobDraft ?? clearJobDraft)(user); }
       catch { console.error('line-assistant: saved job draft resolution failed'); }
       return buildJobSavedMessage(job, computeMonthNetForUser(user, job));
     }
-    if (!pendingExpenseDraft?.name || !pendingExpenseDraft.amount) return { type: 'text', text: 'ข้อมูลรายจ่ายยังไม่ครบครับ กรุณาเพิ่มข้อมูลที่ขาดก่อนยืนยัน' };
+    if (!pendingExpenseDraft?.name || !pendingExpenseDraft.amount) {
+      const missing = [!pendingExpenseDraft?.name && 'ชื่อรายการ', !pendingExpenseDraft?.amount && 'จำนวนเงิน'].filter(Boolean);
+      return [{ type: 'text', text: `ยังบันทึกไม่ได้ครับ ขาด${missing.join(' และ ')} กด “เติมข้อมูล / แก้ไข” หรือพิมพ์มาได้เลย` }, buildLineDraftReview('expense', stored)];
+    }
     const expense = buildExpenseFromDraft(pendingExpenseDraft);
     if (!(await (dependencies.persistExpense ?? persistExpense)(user, expense))) return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองยืนยันอีกครั้งนะครับ' };
     try { await (dependencies.clearExpenseDraft ?? clearExpenseDraft)(user); }
@@ -1483,11 +1489,18 @@ async function handleAssistantMessageInner(
     // the essentials worth pausing to ask about. Client and credit term are left as-is (blank
     // unless the message happened to mention them) and can be filled in later from the app itself
     // instead of turning every quick "just add this" message into a multi-question exchange.
+    // Payment not said means not paid yet (owner, 2026-10-30: every job card needs its confirm button); the card offers
+    // the other answers as taps.
+    const paymentSaid = Boolean(merged.paymentStatus);
+    if (!merged.paymentStatus) merged.paymentStatus = 'pending';
     const missingLabels = [
       !merged.name && 'ชื่องาน',
       !merged.value && 'มูลค่างาน',
-      !merged.paymentStatus && 'ได้รับเงินหรือยัง (ได้แล้ว/ยังไม่ได้/ได้มัดจำบางส่วน)',
     ].filter((s): s is string => !!s);
+    const paymentTaps = { items: [
+      { type: 'action', action: { type: 'message', label: 'ยังไม่ได้รับเงิน', text: 'ยังไม่ได้รับเงิน' } },
+      { type: 'action', action: { type: 'message', label: 'รับเงินครบแล้ว', text: 'รับเงินครบแล้ว' } },
+    ] } as const;
 
     if (missingLabels.length === 0) {
       const jobValue = merged.value!;
@@ -1502,7 +1515,9 @@ async function handleAssistantMessageInner(
         whtRate: merged.whtRate || 0,
       };
       await (dependencies.saveJobDraft ?? saveJobDraft)(user, draft, quickDraft?.freshDraft || false);
-      return buildLineDraftReview('job', user.notif_settings!.pendingJobDraft!);
+      const card = buildLineDraftReview('job', user.notif_settings!.pendingJobDraft!);
+      if (!paymentSaid) card.quickReply = { items: [...paymentTaps.items] };
+      return card;
     }
 
     // Still missing something -- keep what's been said so far and ask specifically for what's
@@ -1512,10 +1527,7 @@ async function handleAssistantMessageInner(
     const knownText = [merged.name, merged.value ? formatCurrency(merged.value) : null, merged.client].filter(Boolean).join(' ');
     if (quickDraft) {
       const card = buildLineDraftReview('job', user.notif_settings!.pendingJobDraft!);
-      if (!merged.paymentStatus) card.quickReply = { items: [
-        { type: 'action', action: { type: 'message', label: 'ยังไม่ได้รับเงิน', text: 'ยังไม่ได้รับเงิน' } },
-        { type: 'action', action: { type: 'message', label: 'รับเงินครบแล้ว', text: 'รับเงินครบแล้ว' } },
-      ] };
+      if (!paymentSaid) card.quickReply = { items: [...paymentTaps.items] };
       return card;
     }
     return finishConversationalReply(user, trimmed, !!knownName, alreadyAskedName, `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`);
