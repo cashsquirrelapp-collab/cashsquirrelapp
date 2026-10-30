@@ -56,6 +56,9 @@ test('iPad landscape: the overdue alert is a hologram stage over a finance backd
   // The total counts up to the six overdue jobs (the job not yet due is left out).
   await expect(report.locator('.odr-total')).toHaveText('฿94,700', { timeout: 4000 });
   await expect(report.locator('.odr-squirrel')).toHaveAttribute('src', '/line/mascot-v6-report.png');
+  // Light mode: the stage is daylight too (owner, 2026-10-30), with dark text and the colour logo on the stand.
+  expect(await report.locator('.odr-total-card').evaluate(el => getComputedStyle(el).color)).toBe('rgb(28, 25, 23)');
+  await expect(report.locator('.odr-logo.is-on-light')).toBeVisible();
   // The four largest jobs as cards: client, job, how late, amount, sent -> due -> today.
   const cards = report.getByTestId('overdue-card');
   await expect(cards).toHaveCount(4);
@@ -99,6 +102,9 @@ test('iPad landscape in dark mode: the report reads on the dark surface', async 
   await page.setViewportSize({ width: 1180, height: 820 });
   await open(page, 'dark');
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(true);
+  const report0 = page.getByTestId('overdue-report');
+  await expect(report0).toBeVisible({ timeout: 10_000 });
+  expect(await report0.locator('.odr-total-card').evaluate(el => getComputedStyle(el).color)).toBe('rgb(255, 244, 236)');
   const report = page.getByTestId('overdue-report');
   await expect(report).toBeVisible({ timeout: 10_000 });
   await page.waitForTimeout(2600);

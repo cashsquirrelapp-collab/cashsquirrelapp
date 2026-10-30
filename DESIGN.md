@@ -453,8 +453,9 @@ card does not need:
   (`features/receivables/OverdueReport.tsx` + `overdueReport.css`, dialog 940px) instead of the plain confirm. Phones keep
   the old alert. Rounds 1 (glass summary) and 2 (light mind map) are in git history (5d92c8d, 4421258).
 - Header: "รายงานประจำวัน · date", the count, how many became overdue today.
-- A dark hologram stage (dark in both themes; the dialog around it follows the theme), 892×452 on computers, 660×452 on
-  iPads. Backdrop: price grid, candlesticks and a rising line, shapes only (no text). The real report squirrel
+- A hologram stage that follows the theme (owner, 2026-10-30: "ทำของ iPad ให้เป็นโหมดสว่างด้วย"): dark = obsidian; light =
+  Liquid Amber daylight like the Credit Radar (cream, white glass cards with copper edges, light amber stand, colour logo).
+  892×452 on wide screens, 660×452 on iPads in portrait. Backdrop: price grid, candlesticks and a rising line, shapes only (no text). The real report squirrel
   (`/line/mascot-v6-report.png`, glasses and calculator; never redrawn, only a glow) stands on a glowing stand with the
   Krarok mark, in a light beam, inside two orbit rings.
 - The total floats above in a glass card (bell badge). The four largest jobs float around as glass cards tilted toward

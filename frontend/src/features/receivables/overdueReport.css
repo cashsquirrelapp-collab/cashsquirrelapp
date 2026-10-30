@@ -358,6 +358,89 @@
   .odr-brief-line, .odr-advice { animation: none !important; clip-path: none !important; }
 }
 
+/* Light mode (owner, 2026-10-30: "ทำของ iPad ให้เป็นโหมดสว่างด้วย"): the same stage in Liquid Amber daylight, like the
+   computers' Credit Radar — cream, white glass with copper edges, a light amber stand with the colour logo. Dark mode
+   above is unchanged. */
+.odr-logo.is-on-light { display: none; }
+html:not(.dark) .odr-logo.is-on-dark { display: none; }
+html:not(.dark) .odr-logo.is-on-light { display: inline; }
+html:not(.dark) .odr {
+  --odr-ink: #1C1917;
+  --odr-dim: #7D7772;
+  --odr-side-top: #FBE3D1;
+  --odr-side-bottom: #EDBE9E;
+}
+html:not(.dark) .odr-stage {
+  background:
+    radial-gradient(60% 55% at 50% 78%, rgba(230, 95, 43, 0.18) 0%, rgba(230, 95, 43, 0) 70%),
+    radial-gradient(40% 40% at 12% 10%, rgba(193, 120, 23, 0.12) 0%, rgba(193, 120, 23, 0) 70%),
+    radial-gradient(40% 40% at 90% 12%, rgba(166, 63, 27, 0.10) 0%, rgba(166, 63, 27, 0) 70%),
+    linear-gradient(180deg, #FFFBF7 0%, #FFF3EA 60%, #FDEBDD 100%);
+  box-shadow: inset 0 0 0 1px rgba(166, 63, 27, 0.12), 0 18px 40px rgba(166, 63, 27, 0.10);
+}
+html:not(.dark) .odr-stage::after { background: radial-gradient(120% 90% at 50% 50%, rgba(255, 255, 255, 0) 60%, rgba(166, 63, 27, 0.06) 100%); }
+html:not(.dark) .odr-fin-grid { stroke: rgba(166, 63, 27, 0.07); }
+html:not(.dark) .odr-fin-grid.is-v { stroke: rgba(166, 63, 27, 0.045); }
+html:not(.dark) .odr-fin-candle line { stroke: rgba(196, 74, 40, 0.35); }
+html:not(.dark) .odr-fin-candle rect { fill: rgba(166, 63, 27, 0.18); }
+html:not(.dark) .odr-fin-candle.is-up line { stroke: rgba(230, 95, 43, 0.4); }
+html:not(.dark) .odr-fin-candle.is-up rect { fill: rgba(240, 116, 64, 0.22); }
+html:not(.dark) .odr-fin-trend { stroke: rgba(230, 95, 43, 0.55); }
+html:not(.dark) .odr-floor-ring { stroke: rgba(166, 63, 27, 0.18); }
+html:not(.dark) .odr-stand-side { stroke: rgba(166, 63, 27, 0.22); }
+html:not(.dark) .odr-stand-top { fill: #F7D7BF; }
+html:not(.dark) .odr-orbit { stroke: rgba(166, 63, 27, 0.26); }
+html:not(.dark) .odr-orbit.is-far { stroke: rgba(166, 63, 27, 0.16); }
+html:not(.dark) .odr-branch-line { color: #E65F2B; }
+html:not(.dark) .odr-branch-line.is-older { color: #E5484D; }
+html:not(.dark) .odr-branch-line.is-week { color: #C17817; }
+html:not(.dark) .odr-branch-glow { opacity: 0.25; }
+html:not(.dark) .odr-pulse { --c: #E65F2B; background: #FFFFFF; }
+html:not(.dark) .odr-pulse.is-older { --c: #E5484D; }
+html:not(.dark) .odr-pulse.is-week { --c: #C17817; }
+html:not(.dark) .odr-beam {
+  background:
+    repeating-linear-gradient(90deg, rgba(230, 95, 43, 0.06) 0 2px, rgba(230, 95, 43, 0) 2px 9px),
+    linear-gradient(0deg, rgba(255, 150, 90, 0.30) 0%, rgba(255, 150, 90, 0.10) 55%, rgba(255, 150, 90, 0) 100%);
+  mix-blend-mode: normal;
+}
+html:not(.dark) .odr-squirrel { filter: drop-shadow(0 0 16px rgba(230, 95, 43, 0.25)) drop-shadow(0 8px 10px rgba(166, 63, 27, 0.22)); }
+html:not(.dark) .odr-brand { color: #A63F1B; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); }
+html:not(.dark) .odr-glass {
+  border-color: rgba(166, 63, 27, 0.14);
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 247, 240, 0.86) 100%);
+  box-shadow: inset 0 1px 0 #FFFFFF, 0 14px 30px rgba(166, 63, 27, 0.12);
+}
+html:not(.dark) .odr-glass::before { background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 38%); }
+html:not(.dark) .odr-total-icon { color: #E65F2B; filter: none; }
+html:not(.dark) .odr-total-label { color: #C24A16; }
+html:not(.dark) .odr-total { text-shadow: none; }
+html:not(.dark) .odr-avatar { border-color: rgba(166, 63, 27, 0.18); background: linear-gradient(145deg, #FFF1E8, #FFFFFF); color: #C24A16; }
+html:not(.dark) .odr-pill { border-color: rgba(230, 95, 43, 0.4); background: rgba(230, 95, 43, 0.10); color: #C24A16; }
+html:not(.dark) .odr-pill.is-older { border-color: rgba(196, 58, 58, 0.4); background: rgba(229, 72, 77, 0.10); color: #C43A3A; box-shadow: none; }
+html:not(.dark) .odr-pill.is-week { border-color: rgba(193, 120, 23, 0.45); background: rgba(193, 120, 23, 0.12); color: #8A5A0B; }
+html:not(.dark) .odr-late { color: #C24A16; }
+html:not(.dark) .odr-late.is-older { color: #C43A3A; }
+html:not(.dark) .odr-late.is-week { color: #8A5A0B; }
+html:not(.dark) .odr-tl { --c: #E65F2B; }
+html:not(.dark) .odr-tl.is-older { --c: #D14343; }
+html:not(.dark) .odr-tl.is-week { --c: #C17817; }
+html:not(.dark) .odr-tl-track::before { background: rgba(28, 25, 23, 0.12); }
+html:not(.dark) .odr-tl-done { background: linear-gradient(90deg, rgba(28, 25, 23, 0.25), var(--c)); }
+html:not(.dark) .odr-tl-late { box-shadow: 0 0 6px var(--c); }
+html:not(.dark) .odr-tl-track i { box-shadow: 0 0 0 2px rgba(28, 25, 23, 0.06); }
+html:not(.dark) .odr-tl-track i:nth-of-type(1) { background: rgba(28, 25, 23, 0.32); }
+html:not(.dark) .odr-tl-labels p { color: #44403C; }
+html:not(.dark) .odr-tl-labels .is-now { color: var(--c); }
+html:not(.dark) .odr-chip-orb {
+  --c: rgba(28, 25, 23, 0.25);
+  background: radial-gradient(circle at 35% 25%, #FFFFFF 0%, #FFF3EA 80%);
+  box-shadow: inset 0 1px 0 #FFFFFF, 0 8px 20px rgba(166, 63, 27, 0.12), 0 0 14px color-mix(in srgb, var(--c) 30%, transparent);
+}
+html:not(.dark) .odr-chip-orb.is-older { --c: rgba(209, 67, 67, 0.6); }
+html:not(.dark) .odr-chip-orb.is-month { --c: rgba(230, 95, 43, 0.6); }
+html:not(.dark) .odr-chip-orb.is-week { --c: rgba(193, 120, 23, 0.6); }
+
 /* iPads: narrower cards, a slightly smaller amount. */
 @media (max-width: 1023px) {
   .odr-card-amount { font-size: 21px; }

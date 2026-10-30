@@ -242,8 +242,8 @@ export function OverdueReport({ open, items: given, newToday, onOpen, onClose }:
                   <stop offset="100%" stopColor="#E65F2B" stopOpacity="0.05" />
                 </radialGradient>
                 <linearGradient id={`${glowId}-side`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3A2117" />
-                  <stop offset="100%" stopColor="#120B08" />
+                  <stop offset="0%" style={{ stopColor: 'var(--odr-side-top, #3A2117)' }} />
+                  <stop offset="100%" style={{ stopColor: 'var(--odr-side-bottom, #120B08)' }} />
                 </linearGradient>
               </defs>
               {/* The floor and the stand. */}
@@ -280,7 +280,8 @@ export function OverdueReport({ open, items: given, newToday, onOpen, onClose }:
               style={{ left: hub.x - stage.mascot / 2, top: pedestalY - stage.mascot + 14, width: stage.mascot, height: stage.mascot }}
               {...focus(0.4, { y: 18, scale: 0.96 })} />
             <motion.div className="odr-brand" aria-hidden="true" style={{ left: hub.x - 60, top: pedestalY + 28 }} {...rise(0.5)}>
-              <img src="/brand/logo01-v1/symbol-white.svg" alt="" width="16" height="16" />
+              <img className="odr-logo is-on-dark" src="/brand/logo01-v1/symbol-white.svg" alt="" width="16" height="16" />
+              <img className="odr-logo is-on-light" src="/brand/logo01-v1/symbol-ci.svg" alt="" width="16" height="16" />
               <span>Krarok</span>
             </motion.div>
 
