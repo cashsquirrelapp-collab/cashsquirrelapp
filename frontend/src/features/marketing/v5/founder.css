@@ -1,0 +1,152 @@
+/* "Behind Krarok": the founder's story page (/founder) and its part on the landing (FounderStory.tsx). Light, as the
+   landing; the CI orange and rust, cream for the quotes; Thai line-height never under 1.45. Photo spaces are dashed
+   cream frames that say which photo goes there until the owner's photos arrive. */
+
+.fs { --ink: #1C1917; --body: #3F3A36; --muted: #6B645F; --faint: #A39C96; --orange: #E65F2B; --rust: #C24A16; --deep: #A63F1B; --cream: #FFF4EC;
+  min-height: 100svh; background: #FFFFFF; color: var(--ink); font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans); line-height: 1.6;
+  -webkit-font-smoothing: antialiased; overflow-x: clip; }
+.fs *, .fs *::before, .fs *::after { box-sizing: border-box; }
+/* :where keeps this reset weaker than the spacing below (a plain .fs :is() outranked .fs-p and flattened the story). */
+:where(.fs) :is(h1, h2, p, blockquote, figure) { margin: 0; }
+.fs a { color: inherit; text-decoration: none; }
+.fs a:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; border-radius: 8px; }
+
+/* the bar, with how far the story has been read */
+.fs-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 68px; padding: 0 28px;
+  background: rgba(255, 255, 255, 0.86); backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px); box-shadow: 0 1px 0 rgba(28, 25, 23, 0.06); }
+.fs-bar-links { display: flex; align-items: center; gap: 10px; }
+.fs-back { display: inline-flex; white-space: nowrap; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 999px; color: var(--muted); font-size: 14.5px; font-weight: 600; line-height: 1.45; }
+.fs-back:hover { background: #F7F6F5; color: var(--ink); }
+.fs-start { display: inline-flex; white-space: nowrap; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 999px; background: var(--orange); color: #FFFFFF !important;
+  font-size: 14.5px; font-weight: 700; line-height: 1.45; box-shadow: 0 10px 24px -12px rgba(230, 95, 43, 0.7); transition: background-color 0.2s, transform 0.2s; }
+.fs-start:hover { background: #D35221; transform: translateY(-1px); }
+.fs-start.is-big { height: 52px; padding: 0 26px; font-size: 16.5px; }
+.fs-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, #C24A16, #E65F2B 60%, #F2A23A); transform-origin: 0 50%; }
+
+/* the opening: the title and the founder's first words beside the main photo */
+.fs-hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); align-items: center; gap: 64px; max-width: 1160px; margin: 0 auto; padding: 88px 28px 64px; }
+.fs-eyebrow { color: var(--rust); font-family: 'IBM Plex Sans', var(--font-sans); font-size: 12.5px; font-weight: 700; letter-spacing: 0.14em; line-height: 1.5; }
+.fs-hero h1 { margin-top: 18px; font-size: 50px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; text-wrap: balance; }
+.fs.is-en .fs-hero h1 { font-size: 46px; line-height: 1.25; }
+.fs-lead { position: relative; margin-top: 28px; padding: 4px 0 4px 26px; border-left: 3px solid var(--orange); }
+.fs-lead p { color: var(--deep); font-size: 21px; font-weight: 600; line-height: 1.65; text-wrap: pretty; }
+.fs-hello { margin-top: 30px; color: var(--muted); font-size: 17px; line-height: 1.75; }
+.fs-hero-photo { justify-self: end; width: 100%; max-width: 440px; }
+
+/* the story */
+.fs-article { max-width: 760px; margin: 0 auto; padding: 0 28px; }
+.fs-section { margin-top: 88px; }
+.fs-section:first-child { margin-top: 32px; }
+.fs-section-head { display: grid; gap: 10px; margin-bottom: 8px; }
+.fs-num { display: inline-flex; align-items: center; gap: 12px; color: var(--rust); font-family: 'IBM Plex Sans', var(--font-sans); font-size: 15px; font-weight: 700; letter-spacing: 0.08em; line-height: 1.5; }
+.fs-num::after { content: ''; width: 44px; height: 2px; border-radius: 2px; background: #F3C3A9; }
+/* Computers and iPads: a title breaks between its phrases, never inside one ("…เคยเจอ / สู่สิ่งที่…"). */
+@media (min-width: 744px) { .fs-chunk { display: inline-block; } }
+.fs-section-head h2 { font-size: 34px; font-weight: 700; line-height: 1.45; text-wrap: balance; }
+.fs.is-en .fs-section-head h2 { line-height: 1.3; }
+.fs-p { margin-top: 18px; color: var(--body); font-size: 18.5px; line-height: 1.85; text-wrap: pretty; }
+.fs-p strong, .fs-quote strong { color: var(--ink); font-weight: 650; background: linear-gradient(transparent 64%, #FFE2D2 64%); }
+.fs-quote { position: relative; margin: 34px 0; padding: 28px 32px 28px 64px; border-radius: 22px; background: var(--cream); }
+.fs-quote::before { content: '“'; position: absolute; left: 22px; top: 10px; color: var(--orange); font-family: Georgia, 'Times New Roman', serif; font-size: 64px; line-height: 1; }
+.fs-quote p { color: var(--deep); font-size: 22px; font-weight: 600; line-height: 1.65; text-wrap: pretty; }
+.fs-figure { margin: 36px -48px; }
+
+/* a photo, or the space for it */
+.fs-photo { display: block; width: 100%; height: auto; border-radius: 24px; object-fit: cover; box-shadow: 0 24px 50px -28px rgba(28, 25, 23, 0.35); }
+.fs-slot { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 28px; border: 1.5px dashed #EDB596;
+  border-radius: 24px; background: repeating-linear-gradient(135deg, #FFF9F5 0 14px, #FFF2EA 14px 28px); text-align: center; }
+.fs-slot-no { position: absolute; left: 14px; top: 14px; padding: 3px 11px; border-radius: 999px; background: #FFFFFF; color: var(--rust); font-size: 12.5px; font-weight: 700; line-height: 1.5;
+  box-shadow: 0 0 0 1px #F3D2BF; }
+.fs-slot-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: #FFFFFF; color: var(--orange); box-shadow: 0 10px 24px -14px rgba(230, 95, 43, 0.6); }
+.fs-slot b { margin-top: 4px; color: var(--ink); font-size: 16.5px; font-weight: 700; line-height: 1.45; }
+.fs-slot small { max-width: 360px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+.fs-slot em { margin-top: 2px; padding: 2px 10px; border-radius: 999px; background: rgba(230, 95, 43, 0.1); color: var(--deep); font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', var(--font-sans);
+  font-size: 12px; font-style: normal; font-weight: 600; line-height: 1.6; }
+.fs-slot.is-compact { gap: 4px; padding: 10px; border-radius: 50%; }
+.fs-slot.is-compact .fs-slot-no { position: static; padding: 1px 8px; font-size: 11px; }
+.fs-slot.is-compact .fs-slot-icon { width: 34px; height: 34px; }
+
+/* the signature */
+.fs-sign { display: flex; align-items: center; gap: 22px; margin-top: 56px; padding-top: 32px; border-top: 1px solid #EEEAE6; }
+.fs-sign-photo { flex: none; width: 112px; }
+.fs-sign .fs-photo { border-radius: 50%; }
+.fs-sign-with { color: var(--muted); font-size: 16px; line-height: 1.6; }
+.fs-sign-name { margin-top: 4px; font-size: 22px; font-weight: 700; line-height: 1.45; }
+.fs-sign-role { color: var(--rust); font-family: 'IBM Plex Sans', var(--font-sans); font-size: 14.5px; font-weight: 600; line-height: 1.5; }
+.fs-tagline { margin-top: 28px; color: var(--faint); font-family: 'IBM Plex Sans', var(--font-sans); font-size: 15px; font-style: italic; line-height: 1.6; }
+
+/* the way on */
+.fs-cta { max-width: 760px; margin: 88px auto 0; padding: 40px 32px; border-radius: 28px; background: var(--cream); text-align: center; }
+.fs-cta h2 { font-size: 26px; font-weight: 700; line-height: 1.5; text-wrap: balance; }
+.fs-cta-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 22px; }
+.fs-ghost { display: inline-flex; align-items: center; gap: 8px; height: 52px; padding: 0 22px; border-radius: 999px; background: #FFFFFF; color: var(--ink); font-size: 16px; font-weight: 600; line-height: 1.45;
+  box-shadow: inset 0 0 0 1px #EEDCD0; }
+.fs-ghost:hover { box-shadow: inset 0 0 0 1px #E8B393; }
+.fs-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; margin-top: 72px; padding: 28px; border-top: 1px solid #F2EFEC; color: var(--faint); font-size: 13.5px; line-height: 1.5; }
+.fs-foot a:hover { color: var(--ink); }
+
+/* things rise into place as they are reached */
+.fs [data-reveal] { opacity: 0; transform: translateY(22px); transition: opacity 0.7s ease, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+.fs [data-reveal].is-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .fs [data-reveal] { opacity: 1; transform: none; transition: none; } .fs-start { transition: none; } }
+
+@media (max-width: 959px) {
+  .fs-hero { grid-template-columns: minmax(0, 1fr); gap: 36px; padding: 56px 24px 32px; }
+  .fs-hero-photo { justify-self: center; max-width: 420px; }
+  .fs-figure { margin: 32px 0; }
+}
+@media (max-width: 743px) {
+  .fs-bar { height: 60px; padding: 0 14px; }
+  .fs-back { width: 38px; justify-content: center; padding: 0; }
+  .fs-back-text { display: none; }
+  .fs-brand .krarok-brand-lockup { transform-origin: 0 50%; scale: 0.88; }
+  .fs-start { height: 38px; padding: 0 15px; font-size: 13.5px; }
+  .fs-hero { padding: 40px 18px 24px; }
+  .fs-hero h1 { font-size: 32px; }
+  .fs.is-en .fs-hero h1 { font-size: 30px; }
+  .fs-lead { margin-top: 20px; padding-left: 18px; }
+  .fs-lead p { font-size: 17.5px; }
+  .fs-hello { font-size: 15.5px; }
+  .fs-article { padding: 0 18px; }
+  .fs-section { margin-top: 64px; }
+  .fs-section-head h2 { font-size: 26px; }
+  .fs-p { font-size: 16.5px; line-height: 1.8; }
+  .fs-quote { margin: 26px 0; padding: 22px 20px 22px 50px; border-radius: 18px; }
+  .fs-quote::before { left: 14px; top: 8px; font-size: 52px; }
+  .fs-quote p { font-size: 18px; }
+  .fs-slot { padding: 22px 16px; border-radius: 18px; }
+  .fs-slot-icon { width: 46px; height: 46px; }
+  .fs-slot b { font-size: 15px; }
+  .fs-slot small { font-size: 12.5px; }
+  .fs-sign { gap: 16px; }
+  .fs-sign-photo { width: 88px; }
+  .fs-sign-name { font-size: 19px; }
+  .fs-cta { margin: 64px 18px 0; padding: 30px 18px; border-radius: 22px; }
+  .fs-cta h2 { font-size: 21px; }
+  .fs-start.is-big, .fs-ghost { height: 48px; font-size: 15px; }
+}
+
+/* ── on the landing: the photo, the title, the first words, the way to the whole story ────────────────────────── */
+.cl-founder { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: center; gap: 72px; max-width: 1120px; margin: 0 auto; padding: 96px 24px; }
+.cl-founder-photo { width: 100%; max-width: 440px; justify-self: center; }
+.cl-founder-text h2 { margin-top: 14px; font-size: 44px; font-weight: 700; line-height: 1.45; text-wrap: balance; }
+.cl.is-en .cl-founder-text h2 { font-size: 38px; line-height: 1.3; }
+.cl-founder-text blockquote { margin: 24px 0 0; padding: 2px 0 2px 22px; border-left: 3px solid var(--orange); }
+.cl-founder-text blockquote p { color: var(--deep); font-size: 20px; font-weight: 600; line-height: 1.65; }
+.cl-founder-by { margin-top: 18px !important; color: var(--muted); font-size: 15px; line-height: 1.6; }
+.cl-founder-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 28px; height: 50px; padding: 0 24px; border-radius: 999px; background: var(--ink); color: #FFFFFF;
+  font-size: 15.5px; font-weight: 600; line-height: 1.45; text-decoration: none; transition: transform 0.2s, background-color 0.2s; }
+.cl-founder-link:hover { background: #000000; transform: translateY(-1px); }
+@media (max-width: 959px) {
+  .cl-founder { grid-template-columns: minmax(0, 1fr); gap: 36px; max-width: 680px; padding: 72px 24px; text-align: center; }
+  .cl-founder-photo { max-width: 360px; }
+  .cl-founder-text blockquote { border-left: 0; padding-left: 0; }
+}
+@media (max-width: 743px) {
+  .cl-founder { padding: 56px 18px; }
+  .cl-founder-text h2 { font-size: 28px; }
+  .cl.is-en .cl-founder-text h2 { font-size: 26px; }
+  .cl-founder-text blockquote p { font-size: 17px; }
+  .cl-founder-link { height: 46px; font-size: 14.5px; }
+}
+@media (prefers-reduced-motion: reduce) { .cl-founder-link { transition: none; } }

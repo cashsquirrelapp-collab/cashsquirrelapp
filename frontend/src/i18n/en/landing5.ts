@@ -40,6 +40,13 @@ export const landing5: Record<string, string> = {
   'ร้านบี': 'Shop B',
   'ถ่ายรูปแคตตาล็อก': 'Catalogue photos',
   'feat|จด': 'Track ',
+  // The founder's story (2026-10-31): the page's own words; the story itself is in founderText.ts.
+  'พื้นที่สำหรับรูปที่ {0}: {1}': 'Space for photo {0}: {1}',
+  'รูปที่ {0}': 'Photo {0}',
+  'กลับหน้าแรก': 'Back to home',
+  'ลองใช้กระรอกตุนเงิน แล้วบอกเราว่าอะไรช่วยคุณได้': 'Try Krarok, and tell us what helps you',
+  'ส่งความคิดเห็นถึงเรา': 'Send us your thoughts',
+  'อ่านเรื่องราวจากผู้ก่อตั้ง': 'Read the founder’s story',
   // The vault and ใบ 50 ทวิ section (2026-10-31).
   'ฟรี 5 ไฟล์ · Pro ไม่จำกัด': 'Free: 5 files · Pro: unlimited',
   'feat|เก็บ': 'Keep ',

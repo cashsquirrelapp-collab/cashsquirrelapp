@@ -32,6 +32,7 @@ import { FULL_LAUNCH_AT } from './launch';
 import { SignupCount } from './SignupCount';
 import { CalendarViews, ExpensesDemo } from './MoneyDemos';
 import { VaultStory } from './VaultStory';
+import { FounderTeaser } from './FounderStory';
 import { LinePhone } from './LinePhone';
 
 // The live chat and the A4 documents load only when their sections come near (they bring the app's chat and document code).
@@ -927,6 +928,9 @@ export default function CleanLanding() {
           </div>
           <div className="cl-feat-visual gl-feature-visual is-vault" data-rise><VaultStory /></div>
         </section>
+
+        {/* the founder's story, in short, leading to /founder (owner, 2026-10-31) */}
+        <FounderTeaser />
 
         {/* 5 · questions */}
         <section id="cl-faq" className="cl-faq" aria-labelledby="cl-faq-title">
