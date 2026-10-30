@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
 
-// The English switch beside เข้าสู่ระบบ (owner, 2026-10-30: "แปลงเป็นภาษาอังกฤษ เผื่อคนต่างชาติมาใช้ ... สำคัญมาก"): it names
+// The English switch at the bar's right end (owner, 2026-10-30: "แปลงเป็นภาษาอังกฤษ เผื่อคนต่างชาติมาใช้ ... สำคัญมาก"): it names
 // the language it switches to, in that language; the whole landing is drawn again in it; the choice stays (for the
 // app and the sign-in page too); and it fits the bar on every phone.
 
@@ -17,13 +17,15 @@ test('to English and back, kept after a reload', async ({ page }) => {
   const bar = page.locator('.cl-bar');
   const toEnglish = bar.getByRole('button', { name: 'Switch to English' });
   await expect(toEnglish).toHaveText('EN');
-  // it sits beside เข้าสู่ระบบ
-  const login = (await bar.getByRole('link', { name: 'เข้าสู่ระบบ' }).boundingBox())!;
-  expect(login.x - ((await toEnglish.boundingBox())!.x + (await toEnglish.boundingBox())!.width)).toBeLessThan(30);
+  // on the first screen it is the last thing in the bar (no เข้าสู่ระบบ, and the bar's start button is away while the big
+  // one shows; landing-bar-start.spec.ts)
+  const end = (await page.locator('.cl-bar-in').boundingBox())!, english = (await toEnglish.boundingBox())!;
+  expect(end.x + end.width - (english.x + english.width)).toBeLessThan(16);
+  await expect(bar.getByRole('link', { name: /เข้าสู่ระบบ|Sign in/ })).toHaveCount(0);
   await toEnglish.click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('From job to payday, Krarok Assistant is on it');
-  await expect(bar.getByRole('link', { name: 'Sign in' })).toBeVisible();
+  await expect(bar.getByRole('link', { name: /เข้าสู่ระบบ|Sign in/ })).toHaveCount(0);
   const toThai = bar.getByRole('button', { name: 'Switch to Thai' });
   await expect(toThai).toHaveText('ไทย');
   expect(await page.evaluate(() => localStorage.getItem('cashflow_language'))).toBe('en');

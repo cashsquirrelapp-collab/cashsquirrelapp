@@ -293,9 +293,13 @@ card does not need:
   / before you forget", "Know when money lands, / and how much"). Headings and short paragraphs balance their lines in
   both languages. The chat demo talks in the page's language, written as เลขา writes: one short line, then a list with
   bold labels; a bold label arrives whole while it types.
-- The language switch (owner, 2026-10-30: "สำคัญมาก"): a quiet pill beside เข้าสู่ระบบ (beside เริ่มใช้ฟรี on phones; no
-  globe under 375px) that names the language it switches to, in that language ("EN" / "ไทย"). The landing is drawn again
-  in the new language, and the choice is kept for the app and the sign-in page.
+- The language switch (owner, 2026-10-30: "สำคัญมาก"): a quiet pill at the bar's right end (beside เริ่มใช้ฟรี on phones;
+  no globe under 375px) that names the language it switches to, in that language ("EN" / "ไทย"). The landing is drawn
+  again in the new language, and the choice is kept for the app and the sign-in page.
+- The bar has no เข้าสู่ระบบ (owner, 2026-10-30): every start button opens /login, which signs in or signs up. On computers
+  and iPads the bar's start button is away while another start button is on screen (`useBarStart`): not on the first
+  screen, sliding in (its room opening to its width, a small spring) once the page moves on to the phone, stepping aside
+  under the price and at the closing card. The menu stays in the bar's middle. Phones keep their bar as it was.
 - Who it is for (owner, 2026-10-30): the money ticker became a small heading "รับงานแบบไหน ก็มีเลขาช่วยได้" over the
   kinds of work moving past (กราฟิกดีไซเนอร์ · ช่างภาพ · คนตัดต่อ · ครีเอเตอร์ · นักเขียน · นักพัฒนา · ติวเตอร์ · คนรับงานอิสระ),
   each in a soft chip with a plain line icon in CI orange; screen readers get the same as one list; with reduced motion

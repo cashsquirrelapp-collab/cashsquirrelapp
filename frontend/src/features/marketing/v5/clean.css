@@ -77,9 +77,31 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-links { display: flex; gap: 4px; padding: 4px; }
 .cl-links a { padding: 6px 16px; border-radius: 999px; color: var(--muted); font-size: 14.5px; font-weight: 500; line-height: 1.5; text-decoration: none; transition: background 0.2s ease, color 0.2s ease; }
 .cl-links a:hover { background: #FFFFFF; color: var(--ink); }
-.cl-login { color: var(--muted); font-size: 15px; font-weight: 500; line-height: 1.45; text-decoration: none; }
-.cl-login:hover { color: var(--deep); }
 .cl-bar-right { display: flex; align-items: center; gap: 18px; }
+.cl-bar-cta { display: inline-flex; }
+/* Computers and iPads (useBarStart, owner 2026-10-30): the bar's start button is away while another start button is on
+   screen and slides in when none is; its room opens and closes with it, so the language switch moves aside smoothly.
+   Phones keep theirs as it was. */
+@media (min-width: 744px) {
+  /* its room opens to the button's own width (--cl-cta-w, measured by useBarStart) */
+  .cl-bar-cta { max-width: 0; margin-left: -18px; overflow: hidden;
+    transition: max-width 0.55s cubic-bezier(0.22, 1, 0.36, 1), margin-left 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
+  .cl-bar-cta > .cl-btn { flex: none; opacity: 0; transform: translateX(18px) scale(0.85);
+    transition: opacity 0.3s ease, transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .cl-bar.has-start .cl-bar-cta { max-width: var(--cl-cta-w, 12rem); margin-left: 0; }
+  .cl-bar.has-start .cl-bar-cta > .cl-btn { opacity: 1; transform: none; transition-delay: 0.08s; }
+}
+@media (min-width: 744px) and (prefers-reduced-motion: reduce) {
+  .cl-bar-cta, .cl-bar-cta > .cl-btn { transition: none; }
+}
+/* With the menu shown, it stays in the middle of the bar whatever the right side holds (it no longer moves when the start
+   button comes or goes). */
+@media (min-width: 1100px) {
+  .cl-bar-in { display: grid; grid-template-columns: 1fr auto 1fr; }
+  .cl-logo { grid-column: 1; justify-self: start; }
+  .cl-links { grid-column: 2; }
+  .cl-bar-right { grid-column: 3; justify-self: end; }
+}
 /* the language switch: a quiet pill that names the language it switches to */
 .cl-lang { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px 0 12px; border-radius: 999px; background: rgba(28, 25, 23, 0.05);
   color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1.45; cursor: pointer; transition: background 0.2s ease; }
@@ -493,7 +515,6 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-bar { top: 10px; padding: 0 10px; }
   .cl-bar-in { height: 56px; padding: 0 6px 0 16px; }
   .cl-progress { left: 20px; right: 20px; }
-  .cl-login { display: none; }
   .cl-top { padding: calc(var(--bar) + 30px) 18px 26px; }
   /* Two lines on phones (owner, 2026-10-29): the first line (about 10.6 times the type size wide) fits the screen. */
   .cl-hero h1 { font-size: min(32px, calc((100vw - 36px) / 11.4)); line-height: 1.45; }

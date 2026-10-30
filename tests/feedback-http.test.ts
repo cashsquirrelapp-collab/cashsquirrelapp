@@ -245,8 +245,8 @@ test('admin inbox boxes: admins only, filters checked before SQL, plan added fro
   const inbox = await response.json();
   assert.deepEqual(rpcCalls[0], { name: 'cashflow_feedback_admin_list', input: { p_actor: adminId, p_box: 'waiting', p_category: 'general', p_page: 0 } });
   assert.deepEqual(inbox.counts, { waiting: 2, replied: 0, resolved: 0 });
-  // ownerA pays until 2099; ownerB signed up today, so is in the 14-day trial
-  assert.deepEqual(inbox.threads.map((t: any) => [t.id, t.ownerPlan]), [[threadA, 'paid'], [threadB, 'trial']]);
+  // ownerA pays until 2099; ownerB signed up today, and there is no free trial any more (owner, 2026-10-30: shared/trial.ts)
+  assert.deepEqual(inbox.threads.map((t: any) => [t.id, t.ownerPlan]), [[threadA, 'paid'], [threadB, 'none']]);
   roleAdmin = false;
   assert.equal((await get('?scope=admin&box=waiting', adminId)).status, 403);
 });

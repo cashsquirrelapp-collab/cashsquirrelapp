@@ -252,6 +252,55 @@ function StartButton({ light = false }: { light?: boolean }) {
   );
 }
 
+/** The bar's start button on computers and iPads (owner, 2026-10-30): not while another start button is on screen. So it
+ *  is not there on the first screen (the big one is), slides in once the page moves on to the phone (the hero's words
+ *  lift away in the pinned scene, so the big button's fade counts, not only where it sits), and steps aside again
+ *  wherever the page shows its own start button (under the price, the closing card). Phones keep theirs as it was. */
+const BAR_START_FROM = '(min-width: 744px)';
+function useBarStart(root: React.RefObject<HTMLDivElement | null>) {
+  React.useEffect(() => {
+    const page = root.current;
+    const bar = page?.querySelector<HTMLElement>('.cl-bar'), slot = page?.querySelector<HTMLElement>('.cl-bar-cta');
+    if (!page || !bar || !slot) return;
+    const wide = window.matchMedia(BAR_START_FROM);
+    let frame = 0, settle = 0, shown: boolean | null = null;
+    const onScreen = (button: HTMLElement) => {
+      const box = button.getBoundingClientRect();
+      if (!box.height) return false;
+      const room = Math.min(box.bottom, window.innerHeight) - Math.max(box.top, bar.getBoundingClientRect().bottom);
+      if (room < box.height / 2) return false;
+      // the hero's words fade away as the scene moves on; the button goes with them
+      const hero = button.closest('.cl-hero');
+      if (!hero) return true;
+      const look = getComputedStyle(hero);
+      return look.visibility !== 'hidden' && parseFloat(look.opacity) > 0.5;
+    };
+    const update = () => {
+      frame = 0;
+      const show = !wide.matches || !Array.from(page.querySelectorAll<HTMLElement>('main .cl-btn.is-big')).some(onScreen);
+      if (show === shown) return;
+      shown = show;
+      const button = slot.firstElementChild as HTMLElement | null;
+      if (button) slot.style.setProperty('--cl-cta-w', `${Math.ceil(button.offsetWidth)}px`);
+      bar.classList.toggle('has-start', show);
+      slot.inert = !show;
+    };
+    const ask = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+      // the scene follows the scroll a moment behind (scrub), so look once more after it settles
+      window.clearTimeout(settle); settle = window.setTimeout(update, 900);
+    };
+    update();
+    window.addEventListener('scroll', ask, { passive: true });
+    window.addEventListener('resize', ask);
+    wide.addEventListener('change', ask);
+    return () => {
+      cancelAnimationFrame(frame); window.clearTimeout(settle);
+      window.removeEventListener('scroll', ask); window.removeEventListener('resize', ask); wide.removeEventListener('change', ask);
+    };
+  }, [root]);
+}
+
 /** The app's window sizes the live chat is drawn at, scaled to the figure. */
 const CHAT_STAGE = { desk: { width: 1440, height: 900 }, phone: { width: 390, height: 844 } } as const;
 
@@ -373,6 +422,7 @@ export default function CleanLanding() {
   const promoRunning = useMonthPromoRunning();
   const price = proPriceParts('month');
   const root = React.useRef<HTMLDivElement>(null);
+  useBarStart(root);
   // The report form, opened from the menu's ช่วยเหลือ, the buttons under the price and the footer (one form for all).
   const [help, setHelp] = React.useState<PublicFeedbackKind | null>(null);
   const closeHelp = React.useCallback(() => setHelp(null), []);
@@ -665,7 +715,10 @@ export default function CleanLanding() {
         <div className="cl-bar-in">
           <a href="#top" className="cl-logo" aria-label={tr('กระรอกตุนเงิน หน้าแรก')}><BrandLockup size={28} /></a>
           <nav className="cl-links" aria-label={tr('เมนูหลัก')}><a href="#cl-features"><Roll text={tr('ฟีเจอร์')} /></a><a href="#pricing"><Roll text={tr('ราคา')} /></a><a href="#cl-faq"><Roll text={tr('คำถาม')} /></a><a href="#cl-help"><Roll text={tr('ช่วยเหลือ')} /></a></nav>
-          <span className="cl-bar-right"><a className="cl-help-link" href="#cl-help" aria-label={tr('ช่วยเหลือ')}><CircleHelp size={17} aria-hidden="true" /><span>{tr('ช่วยเหลือ')}</span></a><LanguageSwitch /><a className="cl-login" href={LOGIN}><Roll text={tr('เข้าสู่ระบบ')} /></a><a className="cl-btn is-small" href={LOGIN}><Roll text={tr('เริ่มใช้ฟรี')} /></a></span>
+          <span className="cl-bar-right"><a className="cl-help-link" href="#cl-help" aria-label={tr('ช่วยเหลือ')}><CircleHelp size={17} aria-hidden="true" /><span>{tr('ช่วยเหลือ')}</span></a><LanguageSwitch />
+            {/* no เข้าสู่ระบบ here (owner, 2026-10-30): every start button opens the page that signs in or signs up; the bar's
+                start button comes and goes with the page (useBarStart) */}
+            <span className="cl-bar-cta"><a className="cl-btn is-small" href={LOGIN}><Roll text={tr('เริ่มใช้ฟรี')} /></a></span></span>
           <span className="cl-progress" aria-hidden="true" />
         </div>
       </header>
