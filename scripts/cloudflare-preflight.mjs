@@ -28,6 +28,8 @@ expect(String(config?.vars?.APP_EXTRA_ORIGINS || '').split(',').map(value => val
   'The workers.dev address must stay trusted (LINE and Stripe webhooks, LIFF)');
 expect(Array.isArray(config?.routes) && config.routes.some(route => route?.pattern === 'krarok.com' && route?.custom_domain === true),
   'krarok.com must stay attached as a custom domain');
+expect(Array.isArray(config?.routes) && config.routes.some(route => route?.pattern === 'www.krarok.com' && route?.custom_domain === true),
+  'www.krarok.com must stay attached (it forwards to krarok.com)');
 expect(config?.vars?.SUPABASE_URL === 'https://rcllghixkclvkxhvttaw.supabase.co', 'Unexpected production Supabase project');
 expect(config?.vars?.STRIPE_MODE === 'live', 'Production Stripe mode must remain live');
 expect(['false', 'true'].includes(config?.vars?.CRON_ENABLED), 'CRON_ENABLED must be exactly false or true as a string');

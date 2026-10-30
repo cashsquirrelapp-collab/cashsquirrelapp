@@ -16,7 +16,8 @@
   "keep_vars": true,
   // The site's domain (owner, 2026-10-31: "ขึ้น .com"), the main address since the same day. The workers.dev address keeps
   // working beside it: LINE's webhook and LIFF and Stripe's webhook still point there.
-  "routes": [{ "pattern": "krarok.com", "custom_domain": true }],
+  // www.krarok.com forwards to krarok.com (cloudflare/transport.ts toMainHost).
+  "routes": [{ "pattern": "krarok.com", "custom_domain": true }, { "pattern": "www.krarok.com", "custom_domain": true }],
   // Scheduled jobs run here since 2026-10-22 (owner approved): the Vercel deployment that ran them is
   // paused. 01:00 UTC = 08:00 Bangkok digest (and the monthly report on the 1st); 02:00 UTC = 09:00
   // closing of accounts past their deletion date. The 50 ทวิ reminder is hidden (cloudflare/schedule.ts).

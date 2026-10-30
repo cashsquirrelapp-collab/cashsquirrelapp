@@ -4,7 +4,7 @@ import { withCloudflareClientIp } from '../backend/src/security/requestContext.j
 import { scheduledPaths } from './schedule.js';
 import { answerWithin } from './deferred.js';
 import { runScheduledJobs } from '../migration/scheduled-runner.js';
-import { enforceHttps } from './transport.js';
+import { enforceHttps, toMainHost } from './transport.js';
 
 // Production on Cloudflare Workers: the same Express backend Vercel runs (backend/src/http/app.ts),
 // the built frontend as static assets, and the cron jobs vercel.json used to schedule.
@@ -52,6 +52,8 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const httpsResponse = enforceHttps(request);
     if (httpsResponse) return httpsResponse;
+    const wwwResponse = toMainHost(request);
+    if (wwwResponse) return wwwResponse;
     // The LINE menu job reads its pictures from the asset store (services/lineRichMenus.ts).
     (globalThis as { __krarokAssets?: Fetcher }).__krarokAssets = env.ASSETS;
     const path = new URL(request.url).pathname;

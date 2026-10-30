@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { enforceHttps } from '../cloudflare/transport.js';
+import { enforceHttps, toMainHost } from '../cloudflare/transport.js';
 
 test('HTTP page requests redirect to the same HTTPS path and query', () => {
   const response = enforceHttps(new Request('http://cash.example.test/login?next=%2Fdashboard'));
@@ -21,4 +21,18 @@ test('HTTP mutation requests are rejected without replaying credentials or bodie
 
 test('HTTPS requests continue to the normal Worker and asset routing', () => {
   assert.equal(enforceHttps(new Request('https://cash.example.test/dashboard')), null);
+});
+
+// Owner, 2026-10-31: "ต่อ www.krarok.com ด้วย". One address for the site.
+test('www.krarok.com page loads go to krarok.com, same path and query; other hosts and methods are left alone', async () => {
+  const page = toMainHost(new Request('https://www.krarok.com/founder?x=1#top'));
+  assert.equal(page?.status, 301);
+  assert.equal(page?.headers.get('location'), 'https://krarok.com/founder?x=1');
+  assert.equal(toMainHost(new Request('https://www.krarok.com/'))?.headers.get('location'), 'https://krarok.com/');
+  const post = toMainHost(new Request('https://www.krarok.com/api/auth', { method: 'POST', body: '{}' }));
+  assert.equal(post?.status, 421);
+  assert.equal(post?.headers.get('location'), null);
+  for (const url of ['https://krarok.com/', 'https://kraroktunngern.cashsquirrelapp.workers.dev/app', 'https://www.krarok.com.evil.example/']) {
+    assert.equal(toMainHost(new Request(url)), null, url);
+  }
 });
