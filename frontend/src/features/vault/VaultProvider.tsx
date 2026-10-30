@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { Camera, CheckCircle2, Download, ExternalLink, FileText, Plus, Trash2, Upload, X } from 'lucide-react';
 import type { Expense, Job } from '../../../../shared/types';
-import { VAULT_ACCEPT, VAULT_KIND_LABEL, VAULT_MAX_BYTES, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
+import { VAULT_ACCEPT, VAULT_FREE_FILES, VAULT_KIND_LABEL, VAULT_MAX_BYTES, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { isEWhtJob, jobWhtAmount, jobNetReceivable } from '../../../../shared/wht';
 import { formatCurrency, safeFormatThaiDate } from '../../utils';
 import { Drawer } from '../../components/ui/Drawer';
@@ -11,6 +11,7 @@ import { Modal } from '../../components/ui/Modal';
 import { RowMenu } from '../../components/ui/RowMenu';
 import { deleteVault, listVault, updateVault, uploadVault, vaultFileUrl, type VaultMeta } from '../../services/vault';
 import { isWht50Trackable, wht50Files, wht50StatusOf } from './vaultStatus';
+import { VAULT_ATTACHED_EVENT, VAULT_ATTACH_EVENT, type VaultAttachRequest } from '../assistant/chatFiles';
 
 import { tr } from '../../i18n/tr';
 // The document vault for the finance workspace that is open: one list of files shared by the
@@ -24,12 +25,18 @@ interface UploadRequest {
   expense?: Expense | null;
   /** Files dropped on a page before the dialog opened. */
   files?: File[];
+  /** A file handed over from เลขา's chat: its card is told when the file is kept. */
+  requestId?: string;
 }
 
 interface VaultApi {
   /** Signed-in account (not guest): the vault works here. */
   available: boolean;
   isPro: boolean;
+  /** Files a free account can still add (VAULT_FREE_FILES in all); null for Pro, which has no limit. */
+  freeLeft: number | null;
+  /** Opens the plans page. */
+  upgrade: () => void;
   files: VaultFile[];
   loading: boolean;
   /** The current finance workspace's file list completed successfully. */
@@ -109,7 +116,8 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
         setFiles(current => [stored, ...current.filter(item => item.id !== stored.id)]);
         saved += 1;
       } catch (err) {
-        if ((err as { code?: string }).code === 'pro_required') return { saved, failed, proRequired: true };
+        const code = (err as { code?: string }).code;
+        if (code === 'pro_required' || code === 'vault_free_full') return { saved, failed, proRequired: true };
         failed.push(`${file.name}: ${(err as Error).message}`);
       }
       onProgress?.(index + 1, list.length);
@@ -117,16 +125,35 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
     return { saved, failed, proRequired: false };
   }, [financeKey]);
 
+  // Free accounts keep VAULT_FREE_FILES files; Pro has no limit (owner, 2026-10-31). The server checks it too.
+  const freeLeft = isPro ? null : Math.max(0, VAULT_FREE_FILES - files.length);
   const api: VaultApi = {
-    available, isPro, files, loading, ready: available && loadedFinanceKey === financeKey, error,
+    available, isPro, freeLeft, upgrade: onUpgrade, files, loading, ready: available && loadedFinanceKey === financeKey, error,
     refresh: () => setRevision(n => n + 1),
     openUpload: request => setUpload(request),
     openJob: job => setJobView(job),
     // Only worth asking when the workspace can actually keep the file.
     // 1% is e-WHT: there is no certificate to ask for (see isEWhtJob).
-    promptAfterPayment: job => { if (available && isPro && jobWhtAmount(job) > 0 && !isEWhtJob(job)) setPaidPrompt(job); },
+    promptAfterPayment: job => { if (available && freeLeft !== 0 && jobWhtAmount(job) > 0 && !isEWhtJob(job)) setPaidPrompt(job); },
     remove, update, attachToExpense,
   };
+  // เลขา's attach card hands over the file sent in the chat (2026-10-31): open the upload window with it and its link.
+  const jobsRef = React.useRef(jobs); jobsRef.current = jobs;
+  const expensesRef = React.useRef(expenses); expensesRef.current = expenses;
+  React.useEffect(() => {
+    const onAttach = (event: Event) => {
+      const detail = (event as CustomEvent<VaultAttachRequest>).detail;
+      if (!detail?.file || !available) return;
+      // A record prepared in the same answer has no id yet: its name finds it once it is saved (the latest one).
+      const byName = <T extends { name: string }>(list: T[], name?: string) => (name ? [...list].reverse().find(row => row.name === name) : undefined);
+      const job = detail.kind === 'expense' ? null : jobsRef.current.find(row => row.id === detail.jobId) || byName(jobsRef.current, detail.jobName) || null;
+      const expense = detail.kind === 'expense' ? expensesRef.current.find(row => row.id === detail.expenseId) || byName(expensesRef.current, detail.expenseName) || null : null;
+      setUpload({ kind: detail.kind, job, expense, files: [detail.file], requestId: detail.requestId });
+    };
+    window.addEventListener(VAULT_ATTACH_EVENT, onAttach);
+    return () => window.removeEventListener(VAULT_ATTACH_EVENT, onAttach);
+  }, [available]);
+
   // App announces a job that just got fully paid; ask for its 50 ทวิ when tax was withheld.
   const promptRef = React.useRef(api.promptAfterPayment);
   promptRef.current = api.promptAfterPayment;
@@ -151,12 +178,15 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
         request={upload}
         financeKey={financeKey}
         available={available}
-        isPro={isPro}
+        freeLeft={freeLeft}
         jobs={jobs}
         expenses={expenses}
         existing={files}
         onUpgrade={() => { setUpload(null); onUpgrade(); }}
-        onUploaded={file => setFiles(list => [file, ...list.filter(item => item.id !== file.id)])}
+        onUploaded={file => {
+          setFiles(list => [file, ...list.filter(item => item.id !== file.id)]);
+          if (upload?.requestId) window.dispatchEvent(new CustomEvent(VAULT_ATTACHED_EVENT, { detail: { requestId: upload.requestId } }));
+        }}
         onRemove={remove}
         onClose={() => setUpload(null)}
       />
@@ -262,11 +292,12 @@ export const isVaultFileType = okType;
 /** Expense choices for linking a slip: newest first, with date and amount to tell them apart. */
 const expenseOptionLabel = (e: Expense) => `${e.name} · ${safeFormatThaiDate(e.date, { day: 'numeric', month: 'short', year: '2-digit' })} · ${formatCurrency(e.amount)}`;
 
-function UploadDialog({ request, financeKey, available, isPro, jobs, expenses, existing, onUpgrade, onUploaded, onRemove, onClose }: {
+function UploadDialog({ request, financeKey, available, freeLeft, jobs, expenses, existing, onUpgrade, onUploaded, onRemove, onClose }: {
   request: UploadRequest | null;
   financeKey: string;
   available: boolean;
-  isPro: boolean;
+  /** Files a free account can still add; null for Pro. */
+  freeLeft: number | null;
   jobs: Job[];
   expenses: Expense[];
   existing: VaultFile[];
@@ -331,8 +362,17 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, expenses, e
     onDrop: (e: React.DragEvent) => { e.preventDefault(); dragDepth.current = 0; setDragging(false); if (!busy) add(e.dataTransfer.files); },
   };
 
+  // Past a free account's last slot, a picked file waits with a note instead of being sent.
+  let room = freeLeft ?? Infinity;
+  const checked = picked.map(p => {
+    if (p.error) return p;
+    if (room <= 0) return { ...p, error: tr("เกิน {0} ไฟล์ของบัญชีฟรี", VAULT_FREE_FILES) };
+    room -= 1;
+    return p;
+  });
+
   const save = async () => {
-    const ready = picked.filter(p => !p.error);
+    const ready = checked.filter(p => !p.error);
     if (!ready.length) return;
     setBusy({ done: 0, total: ready.length }); setFailures([]);
     const ids: string[] = []; const failed: string[] = [];
@@ -341,8 +381,10 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, expenses, e
         const file = await uploadVault(financeKey, item.file, { kind, ...link });
         onUploaded(file); ids.push(file.id);
       } catch (err) {
-        if ((err as { code?: string }).code === 'pro_required') { setBusy(null); onUpgrade(); return; }
+        const code = (err as { code?: string }).code;
+        if (code === 'pro_required') { setBusy(null); onUpgrade(); return; }
         failed.push(`${item.file.name}: ${(err as Error).message}`);
+        if (code === 'vault_free_full') break;
       }
       setBusy({ done: index + 1, total: ready.length });
     }
@@ -360,10 +402,10 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, expenses, e
           <p className="text-[16px] font-semibold text-brand-text">{title}</p>
           <p className="mt-2 text-[13px] leading-relaxed text-brand-muted">{tr("คลังเอกสารเก็บไฟล์ไว้ในบัญชีของคุณ จึงใช้ได้กับบัญชีจริงเท่านั้น ออกจากโหมดทดลองแล้วเข้าสู่ระบบเพื่อใช้งาน")}</p>
         </div>
-      ) : !isPro ? (
-        <div className="p-6 pr-12">
-          <p className="text-[16px] font-semibold text-brand-text">{title}</p>
-          <p className="mt-2 text-[13px] leading-relaxed text-brand-muted">{tr("คลังเอกสารเป็นฟีเจอร์สำหรับสมาชิก Pro เก็บใบ 50 ทวิ สัญญา และเอกสารลูกค้าไว้กับงาน ดาวน์โหลดรวมตอนยื่นภาษีได้ในคลิกเดียว")}</p>
+      ) : freeLeft === 0 && !doneIds ? (
+        <div className="p-6 pr-12" data-testid="vault-free-full">
+          <p className="text-[16px] font-semibold text-brand-text">{tr("คลังเอกสารครบ {0} ไฟล์แล้ว", VAULT_FREE_FILES)}</p>
+          <p className="mt-2 text-[13px] leading-relaxed text-brand-muted">{tr("บัญชีฟรีเก็บไฟล์ได้ {0} ไฟล์ ลบไฟล์ที่ไม่ใช้แล้วเพื่อเพิ่มไฟล์ใหม่ หรืออัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด", VAULT_FREE_FILES)}</p>
           <button type="button" onClick={onUpgrade} className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#E65F2B] text-[14px] font-semibold text-white hover:bg-[#D35221] cursor-pointer">{tr("อัปเกรดเป็น Pro")}</button>
         </div>
       ) : doneIds ? (
@@ -440,12 +482,13 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, expenses, e
             <input ref={fileInput} type="file" accept={VAULT_ACCEPT} multiple className="hidden" onChange={e => { add(e.target.files); e.target.value = ''; }} data-testid="vault-file-input" />
             <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { add(e.target.files); e.target.value = ''; }} />
             <p className="mt-2 text-xs text-brand-muted">{tr("ขนาดไม่เกิน 10 MB ต่อไฟล์")}</p>
+            {freeLeft !== null && <p className="mt-1 text-xs leading-[1.5] text-brand-muted" data-testid="vault-free-left">{tr("บัญชีฟรีเพิ่มได้อีก {0} จาก {1} ไฟล์ · Pro เก็บได้ไม่จำกัด", freeLeft, VAULT_FREE_FILES)}</p>}
 
             {picked.length > 0 && (
               <div className="mt-4">
                 <p className="mb-2 text-[13px] font-medium text-brand-text">{tr("ไฟล์ที่เลือก ({0})", picked.length)}</p>
                 <ul className="grid grid-cols-3 gap-2.5">
-                  {picked.map(p => (
+                  {checked.map(p => (
                     <li key={p.key} className="relative">
                       <span className={`block aspect-[3/4] overflow-hidden rounded-xl border ${p.error ? 'border-[#E95454]' : 'border-brand-border'}`}>
                         {p.preview ? <img src={p.preview} alt="" className="h-full w-full object-cover" /> : <PdfIcon className="h-full w-full" />}
@@ -467,7 +510,7 @@ function UploadDialog({ request, financeKey, available, isPro, jobs, expenses, e
           </div>
           <div className="flex gap-2 border-t border-brand-border px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <button type="button" onClick={onClose} disabled={Boolean(busy)} className="h-11 flex-1 rounded-xl border border-brand-border text-[14px] font-medium text-brand-text hover:bg-brand-faint disabled:opacity-50 cursor-pointer">{tr("ยกเลิก")}</button>
-            <button type="button" onClick={() => void save()} disabled={Boolean(busy) || !picked.some(p => !p.error)}
+            <button type="button" onClick={() => void save()} disabled={Boolean(busy) || !checked.some(p => !p.error)}
               className="h-11 flex-[1.4] rounded-xl bg-[#E65F2B] text-[14px] font-semibold text-white hover:bg-[#D35221] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
               {busy ? tr("กำลังอัปโหลด {0}/{1}…", busy.done, busy.total) : tr("บันทึก")}
             </button>

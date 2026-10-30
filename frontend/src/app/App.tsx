@@ -78,6 +78,7 @@ import type { SettingsView } from '../features/settings/SettingsTab';
 import { KsIcon, type KsIconName } from '../features/mobile/icons';
 import { useMobileLayout } from '../features/mobile/useMobileLayout';
 import { RADAR_QUERY } from '../features/receivables/radar/desktopQuery';
+import { bangkokToday, buildCreditRadar } from '../features/receivables/radar/radarData';
 const CreditRadar = lazy(() => import('../features/receivables/radar/CreditRadar').then(m => ({ default: m.CreditRadar })));
 import { hideSplash } from './splash';
 import { isUpdateReady, reloadForUpdate, setUpdateGuard } from './appUpdate';
@@ -552,6 +553,10 @@ export default function App() {
   const openCreditRadar = React.useCallback(() => { setCreditRadarMounted(true); setCreditRadarOpen(true); }, []);
   // ?radar=1 opens it once the account's jobs are in (for the team and the tests), on computers and iPads.
   const radarLinkRef = useRef(new URLSearchParams(window.location.search).get('radar') === '1');
+  // The account whose visit has already been checked for overdue jobs (once per page load and account).
+  const radarVisitRef = useRef<string | null>(null);
+  // The address the visit started with: links clean their own action off the address (?openAddJob=1) before the jobs load.
+  const entrySearchRef = useRef(window.location.search);
   const openPhoneMenu = React.useCallback(() => setIsMobileMenuOpen(true), []);
   useEffect(() => {
     const query = window.matchMedia('(min-width: 1024px)');
@@ -579,7 +584,7 @@ export default function App() {
   };
   // Old links to the vault (/invoice?area=vault) open its own page now.
   useEffect(() => {
-    if (!fullFeatureAccess || activeTab !== 'invoice' || new URLSearchParams(window.location.search).get('area') !== 'vault') return;
+    if (!isPhaseOneFeatureAvailable('vault', fullFeatureAccess) || activeTab !== 'invoice' || new URLSearchParams(window.location.search).get('area') !== 'vault') return;
     const workspace = parseWorkspaceRoute(window.location.pathname).workspaceSlug;
     if (!workspace) return; // wait until the address carries the workspace
     window.history.replaceState(window.history.state, '', window.location.pathname);
@@ -587,7 +592,7 @@ export default function App() {
   }, [activeTab, pathname, fullFeatureAccess]); // eslint-disable-line react-hooks/exhaustive-deps
   // Old links to the 50 ทวิ tab on the tax page (/tax?view=wht50) open its page under เอกสาร.
   useEffect(() => {
-    if (!fullFeatureAccess || activeTab !== 'tax' || new URLSearchParams(window.location.search).get('view') !== 'wht50') return;
+    if (!isPhaseOneFeatureAvailable('wht50', fullFeatureAccess) || activeTab !== 'tax' || new URLSearchParams(window.location.search).get('view') !== 'wht50') return;
     const workspace = parseWorkspaceRoute(window.location.pathname).workspaceSlug;
     if (!workspace) return;
     window.history.replaceState(window.history.state, '', window.location.pathname);
@@ -616,7 +621,10 @@ export default function App() {
       // Off the bottom bar since 2026-10-20 (owner), so it leads the menu; the page itself is unchanged.
       receivables: tool('receivables', tr("เงินรอรับ"), tr("ยอดตามวันครบกำหนด ยอดค้างจากเดือนก่อน และเตือนตามเงิน"), 'wallet', "รอรับ ค้างรับ ตามเงิน เตือน ลูกหนี้"),
       expenses: tool('incomeExpense', tr("รายจ่าย"), tr("บันทึกและดูรายการรายจ่าย"), 'expense', "ค่าใช้จ่าย บันทึก รายรับ รายการประจำ"),
-      documents: tool('invoice', tr("เอกสาร"), quotationAccess ? tr("ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ใบกำกับภาษี") : tr("ใบแจ้งหนี้ ใบเสร็จ และใบกำกับภาษี"), 'document', "invoice quotation receipt pdf ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ใบกำกับภาษี ดาวน์โหลด"),
+      documents: [...tool('invoice', tr("เอกสาร"), quotationAccess ? tr("ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ใบกำกับภาษี") : tr("ใบแจ้งหนี้ ใบเสร็จ และใบกำกับภาษี"), 'document', "invoice quotation receipt pdf ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ใบกำกับภาษี ดาวน์โหลด"),
+        // Open to everyone since 2026-10-31 (owner): under เอกสาร, as on the computer's sidebar.
+        ...tool('vault', tr("คลังเอกสาร"), tr("ใบ 50 ทวิ สัญญา สลิป และหลักฐานแนบงาน"), 'folder', 'อัปโหลด รูป กล้อง คลังไฟล์ สลิป vault'),
+        ...tool('wht50', tr("ติดตามใบ 50 ทวิ"), tr("ใบรับรองหัก ณ ที่จ่ายของแต่ละงาน"), 'receipt', '50ทวิ ทวิ50 wht ใบรับรอง')],
       // The package page, as in the desktop sidebar (owner, 2026-10-20: upgrading was only on computers
       // and iPads), then LINE, which needs Pro (or the Pro trial) and a linked account.
       line: [
@@ -2244,6 +2252,24 @@ export default function App() {
     openCreditRadar();
   }, [session, isLoadedForUser, isPhone, openCreditRadar]);
 
+  // Every visit on a computer or iPad (owner, 2026-10-31: "เข้าเว็บไซต์มา มีรายการเลยกำหนด ให้ขึ้นหน้าเรดาร์ทันที ทุกครั้ง"):
+  // when the account's jobs are in and the radar counts any overdue job, it opens at once. Once per page load and
+  // account, so closing it is respected until the next visit.
+  useEffect(() => {
+    // Signed-in accounts only: the guest preview's sample jobs never open it.
+    if (isPhone || session?.isGuest || !(session?.user?.email && isLoadedForUser === session.user.email) || !session.user.id) return;
+    // The jobs arrive with the load; the visit is decided once they are in.
+    if (radarVisitRef.current === session.user.id || jobs.length === 0) return;
+    radarVisitRef.current = session.user.id;
+    if (!window.matchMedia(RADAR_QUERY).matches) return;
+    // A plain visit only: a link that carries its own action (LINE's เพิ่มงาน, a document, a payment, a guide, ?radar=0
+    // for opening the app without it) goes straight to what it opens.
+    if (entrySearchRef.current.length > 1 || window.location.search.length > 1) return;
+    let overdue = 0;
+    try { overdue = buildCreditRadar(jobs, bangkokToday()).overdue.length; } catch { return; }
+    if (overdue > 0) openCreditRadar();
+  }, [session, isLoadedForUser, isPhone, jobs, openCreditRadar]);
+
   // Check for overdue credit terms on login/data load
   useEffect(() => {
     if (!notificationsAccess) return;
@@ -2314,7 +2340,8 @@ export default function App() {
           const newCount = updatedQueue.filter(r => r.detectedDate === todayStr && r.status === 'pending').length;
           
           setTimeout(() => {
-            if (!isPhoneRef.current && window.matchMedia(RADAR_QUERY).matches) { setCreditRadarMounted(true); setCreditRadarOpen(true); return; }
+            // Computers and iPads: the radar already opened on this visit (above); phones keep this alert.
+            if (!isPhoneRef.current && window.matchMedia(RADAR_QUERY).matches) return;
             triggerConfirm(
               tr("ตรวจพบดีลค้างชำระเลยกำหนด!"),
               tr("ระบบตรวจพบดีลงานเลยกำหนดเครดิตเทอมใหม่วันนี้ (จำนวน {0} รายการ)\n\nต้องการไปที่หน้าเงินรอรับ เพื่อตั้งเตือนหรือบันทึกรับเงินเลยไหมครับ?", newCount),
@@ -3017,7 +3044,8 @@ export default function App() {
   }
 
   if (pathname === '/line-documents') {
-    if (!fullFeatureAccess) return <ContentLoadingSkeleton page="dashboard" />;
+    // LINE's แนบเอกสาร tile opens this page; every account has it since the vault opened to all (2026-10-31).
+    if (!isPhaseOneFeatureAvailable('vault', fullFeatureAccess)) return <ContentLoadingSkeleton page="dashboard" />;
     if (session.isGuest) return <Login darkMode={darkMode} setDarkMode={setDarkMode} onGuestLogin={handleGuestLogin} />;
     if (financeOwner !== session.user.id || loadedFinanceOwner !== financeOwner) {
       return cloudSyncStatus === 'failed'
@@ -3300,7 +3328,7 @@ export default function App() {
           <VaultProvider
             key={financeOwner}
             financeKey={financeOwner}
-            available={fullFeatureAccess && !session.isGuest && Boolean(financeOwner)}
+            available={isPhaseOneFeatureAvailable('vault', fullFeatureAccess) && !session.isGuest && Boolean(financeOwner)}
             isPro={isInFreeTrial || isPaidActive}
             jobs={jobs}
             expenses={expenses}

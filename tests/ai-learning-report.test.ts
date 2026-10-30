@@ -13,7 +13,8 @@ const B = '22222222-2222-4222-8222-222222222222';
 
 test('signals: not found, not available, asked for, and a menu answer the user says was wrong', () => {
   assert.deepEqual(detectSignals('ปุ่มสแกนบาร์โค้ดอยู่ตรงไหนในแอป').map(signal => signal.kind), ['not_found']);
-  assert.equal(detectSignals('ออกใบทวิ 50 ได้ไหม')[0]?.kind, 'not_available');
+  // ใบ 50 ทวิ opened to everyone on 2026-10-31; goals are still not open.
+  assert.equal(detectSignals('ตั้งเป้าหมายออมเงินได้ไหม')[0]?.kind, 'not_available');
   assert.equal(detectSignals('เมนูปฏิทินภาษีอยู่ตรงไหนในแอป')[0]?.kind, 'not_available', 'a feature not open to everyone yet');
   const asked = detectSignals('อยากให้มีระบบเชื่อมบัญชีธนาคาร 1234567890 อัตโนมัติ');
   assert.deepEqual(asked.map(signal => [signal.kind, signal.question]), [['feature_request', 'อยากให้มีระบบเชื่อมบัญชีธนาคาร # อัตโนมัติ']]);

@@ -347,10 +347,11 @@ test('light mode: cream background, white glass cards, the colour logo on the st
 // Owner, 2026-10-30: "ดูในคอมยังไง ต้องกดตรงไหน" — the radar also opens by hand, from the receivables page, any time.
 test('the receivables page has a เรดาร์เครดิตเทอม button that opens the radar any time', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  // The once-a-day check already ran today: the radar does not open by itself.
-  await page.addInitScript(email => { const d = new Date().toISOString().split('T')[0]; sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`, '1'); }, user.email);
-  const radar = await open(page, mixed, 'light', '/receivables', false);
-  await page.waitForTimeout(2000);
+  // The radar opens by itself on the visit (overdue jobs); once closed, the page's button opens it again.
+  const radar = await open(page, mixed, 'light', '/receivables');
+  await page.keyboard.press('Escape');
+  await expect(radar).toHaveCount(0, { timeout: 2000 });
+  await page.waitForTimeout(1600);
   await expect(radar).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath('receivables-radar-button.png') });
   await page.getByTestId('open-credit-radar').click();
@@ -359,6 +360,38 @@ test('the receivables page has a เรดาร์เครดิตเทอ�
   await page.keyboard.press('Escape');
   await expect(radar).toHaveCount(0, { timeout: 2000 });
   await expect(page.getByTestId('open-credit-radar')).toBeVisible();
+});
+
+// Owner, 2026-10-31: "เข้าเว็บไซต์มา มีรายการเลยกำหนด ให้ขึ้นหน้าเรดาร์ทันที ทุกครั้งที่เข้าเว็บไซต์". Every visit, not once a day,
+// and whether or not the e-mail reminders are on; closed, it stays closed while moving around until the next visit.
+test('every visit with an overdue job opens the radar at once, also after the day was checked and with reminders off', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(email => { const d = new Date().toISOString().split('T')[0]; sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`, '1'); }, user.email);
+  const radar = await open(page, mixed);
+  await page.keyboard.press('Escape');
+  await expect(radar).toHaveCount(0, { timeout: 2000 });
+  // Moving around in the same visit: it stays closed.
+  await page.locator('aside').getByRole('button', { name: 'งาน', exact: true }).click();
+  await page.waitForTimeout(1600);
+  await expect(radar).toHaveCount(0);
+  // The next visit: it opens again by itself.
+  await page.reload();
+  await expect(radar).toBeVisible({ timeout: 10_000 });
+});
+
+test('a link that carries its own action (LINE\'s เพิ่มงาน, ?radar=0) opens what it links to, without the radar', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const radar = await open(page, mixed, 'light', '/jobs?openAddJob=1', false);
+  await expect(page.getByRole('dialog', { name: 'เพิ่มงาน' })).toBeVisible({ timeout: 10_000 });
+  await page.waitForTimeout(1500);
+  await expect(radar).toHaveCount(0);
+});
+
+test('nothing overdue: no radar on the visit', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const radar = await open(page, [owed('f1', 'ออกแบบเมนู', 'ร้านกาแฟ Good Day', 18500, -3), paid('f2', 'งานถ่ายภาพสินค้า', 'คุณเบย์', 8600, 2)], 'light', '/', false);
+  await page.waitForTimeout(2500);
+  await expect(radar).toHaveCount(0);
 });
 
 test('?radar=1 opens the radar once the jobs are in', async ({ page }) => {

@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { noRadar } from './radarVisit';
 
 const user = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -118,7 +119,7 @@ test('the vault opens the separate 50 ทวิ page without conflating job and 
     return route.fulfill({ body: Buffer.from('%PDF-1.7 test'), contentType: 'application/pdf' });
   });
 
-  await page.goto('/vault');
+  await page.goto(noRadar('/vault'));
   await expect(page.getByRole('heading', { name: 'คลังเอกสาร', level: 1 })).toBeVisible();
   await expect(page.getByRole('tablist', { name: 'มุมมองคลังเอกสาร' })).toHaveCount(0);
   await expect(page.getByText('PO_General.pdf')).toBeVisible();
@@ -244,7 +245,7 @@ test('the vault opens the separate 50 ทวิ page without conflating job and 
 test('legacy 50 ทวิ links open the separate 50 ทวิ page', async ({ page }) => {
   await setup(page);
   for (const path of ['/wht50', '/wht50/test-user', '/tax?view=wht50', '/tax/test-user?view=wht50']) {
-    await page.goto(path);
+    await page.goto(noRadar(path));
     await expect(page.getByRole('heading', { name: 'ติดตามใบ 50 ทวิ', level: 1 })).toBeVisible();
     await expect(page.getByRole('tablist', { name: 'มุมมองคลังเอกสาร' })).toHaveCount(0);
     await expect(page.locator('aside').getByRole('button', { name: /ใบ 50 ทวิ/ })).toHaveAttribute('aria-current', 'page');
@@ -269,7 +270,7 @@ test('deleting the final linked certificate immediately returns its job to waiti
     return route.fulfill({ json: { files: storedFiles } });
   });
 
-  await page.goto('/wht50');
+  await page.goto(noRadar('/wht50'));
   const summary = page.getByLabel('สรุปการติดตามใบ 50 ทวิ');
   const statuses = page.getByRole('tablist', { name: 'สถานะใบ 50 ทวิ' });
   await statuses.getByRole('tab', { name: /^ได้รับแล้ว/ }).click();
@@ -297,7 +298,7 @@ test('50 ทวิ waits for the vault before deriving status and fails safely',
   let release: (() => void) | undefined;
   const gate = new Promise<void>(resolve => { release = resolve; });
   await setup(page, async route => { await gate; await route.fulfill({ json: { files } }); });
-  await page.goto('/wht50');
+  await page.goto(noRadar('/wht50'));
   await expect(page.getByRole('heading', { name: 'ติดตามใบ 50 ทวิ', level: 1 })).toBeVisible();
   await expect(page.getByLabel('กำลังโหลดสถานะใบ 50 ทวิ')).toBeVisible();
   await expect(page.getByLabel('สรุปการติดตามใบ 50 ทวิ')).toHaveCount(0);
@@ -321,7 +322,7 @@ test('50 ทวิ waits for the vault before deriving status and fails safely',
 
 test('50 ทวิ shows a truthful empty state when the selected year has no eligible jobs', async ({ page }) => {
   await setup(page, undefined, { ...snapshot, jobs: [] });
-  await page.goto('/wht50');
+  await page.goto(noRadar('/wht50'));
 
   await expect(page.getByRole('heading', { name: 'ติดตามใบ 50 ทวิ', level: 1 })).toBeVisible();
   const summary = page.getByLabel('สรุปการติดตามใบ 50 ทวิ');
@@ -337,7 +338,7 @@ test('50 ทวิ shows a truthful empty state when the selected year has no el
 test('a 1% job is e-WHT: counted as backed, never waited on, and a file can still be attached', async ({ page }) => {
   const eWhtJob = { ...paidJob(13), id: 'ewht-job', name: 'Bank e-WHT Campaign', value: 20_000, whtRate: 1, whtAmount: 200, received: 19_800 };
   await setup(page, undefined, { ...snapshot, jobs: [...jobs, eWhtJob] });
-  await page.goto('/wht50');
+  await page.goto(noRadar('/wht50'));
 
   const summary = page.getByLabel('สรุปการติดตามใบ 50 ทวิ');
   await expect(summary).toContainText('8 งานที่ต้องมีใบ 50 ทวิ · e-WHT 1 งาน');

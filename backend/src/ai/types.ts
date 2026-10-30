@@ -67,7 +67,13 @@ export type AssistantCard =
   | { kind: 'official_link'; id: string; org: string; title: string; description: string; todo: string; url: string }
   /** Changing the account's name (owner, 2026-10-27: "อิงชื่อตามชื่อ account ... ให้มันเอาการ์ดมาแล้วก็ให้กรอกชื่อใหม่"): the user
    *  types or checks the name and saves it themselves through the profile API; เลขา only shows the card. */
-  | { kind: 'rename'; current: string; suggested: string };
+  | { kind: 'rename'; current: string; suggested: string }
+  /** Keep the file the user sent in the chat in the document vault, linked to one of their jobs or expenses (owner,
+   *  2026-10-31: "ส่งสลิปเข้าแชท แล้วน้องแนบเข้าโปรเจกต์นั้นได้เลย"). The app opens the vault's own upload window with the
+   *  file and the link filled in; the user saves it there. A name alone (a record prepared in this answer) is looked up
+   *  in the app when the button is pressed. */
+  | { kind: 'attach'; id: string; fileKind: 'wht50' | 'contract' | 'expense' | 'other'; fileName: string;
+      jobId?: string; jobName?: string; client?: string; expenseId?: string; expenseName?: string };
 
 /**
  * cacheWriteTokens: Claude's prompt-cache writes, part of inputTokens, billed at 1.25× the input price for 5 minutes;

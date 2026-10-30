@@ -50,15 +50,14 @@ export const MOBILE_MENU_SECTIONS = [
 export type MobileMenuSectionId = typeof MOBILE_MENU_SECTIONS[number]['id'];
 
 /**
- * Not released to everyone yet (phase 2 and 3). On a phone they sit together in one admin-only group
+ * Not released to everyone yet (phase 2 and 3). The vault and 50 ทวิ moved to เอกสาร when they opened (2026-10-31).
+ * On a phone they sit together in one admin-only group
  * instead of among the five sections; accounts the launch policy keeps them from never see the group.
  */
 export const ADVANCED_MOBILE_TOOLS = [
   { key: 'split', title: T("เป้าหมายการเงิน"), description: T("เป้าหมาย การแบ่งเงิน ฝาก ถอน โอน"), icon: 'target', search: 'ออม สัดส่วน จัดสรร' },
   { key: 'report', title: T("รายงาน"), description: T("รายรับ ลูกค้า ประเภท และจังหวะรับเงิน"), icon: 'chart', search: 'วิเคราะห์ กราฟ CSV' },
   { key: 'tax', title: T("ภาษี"), description: T("รายได้ ค่าใช้จ่าย ลดหย่อน และสรุป"), icon: 'receipt', search: 'ปี แบบประเมิน' },
-  { key: 'vault', title: T("คลังไฟล์"), description: T("สัญญา สลิป และหลักฐานแนบงาน"), icon: 'folder', search: 'อัปโหลด รูป กล้อง คลังเอกสาร' },
-  { key: 'wht50', title: T("ติดตาม 50 ทวิ"), description: T("ใบรับรองหัก ณ ที่จ่ายของแต่ละงาน"), icon: 'receipt', search: '50ทวิ wht ใบรับรอง' },
   { key: 'groups', title: T("ทีมและสมาชิก"), description: T("กลุ่ม คำเชิญ และบทบาท"), icon: 'users', search: 'กลุ่ม ทีม' },
   { key: 'adminDashboard', title: 'Admin Analytics', description: T("ภาพรวมผู้ใช้สำหรับผู้ดูแล"), icon: 'chart', search: 'admin' },
 ] as const satisfies readonly { key: string; title: string; description: string; icon: KsIconName; search: string }[];

@@ -20,6 +20,8 @@ export interface VaultFile {
 
 export const VAULT_MAX_BYTES = 10 * 1024 * 1024;
 export const VAULT_MAX_FILES = 1000; // per personal account or group workspace
+/** Free accounts keep this many files in the vault; Pro has no limit (owner, 2026-10-31). */
+export const VAULT_FREE_FILES = 5;
 export const VAULT_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
 
 export const VAULT_KIND_LABEL: Record<VaultKind, string> = {

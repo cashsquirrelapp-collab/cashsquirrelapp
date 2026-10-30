@@ -109,6 +109,14 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
     [jobs, expenses, settings, monthKey, currentMonth],
   );
   const monthLabel = formatMonthKey(monthKey);
+  // Slips for every expense, the fixed monthly ones too (owner, 2026-10-31: "รายจ่ายประจำ ... แนบสลิปได้ด้วย ไม่ใช่แค่
+  // รายจ่ายทั่วไป"). A fixed line from Settings keeps them for its month; once recorded as paid, that expense shows them.
+  const fixedSlipId = (rowId: string) => `${rowId}@${monthKey}`;
+  const slipExpense = (row: ExpenseRow): Expense | null => row.fromSettings
+    ? { id: fixedSlipId(row.id), name: tr("{0} · {1}", tr(row.name), monthLabel), amount: row.amount, date: `${monthKey}-01`, category: '' }
+    : expenses.find(e => e.id === row.id) || null;
+  const slipIds = (row: ExpenseRow): string[] => row.fromSettings ? [fixedSlipId(row.id)] : [row.id,
+    ...(row.recurring ? (settings.fixedExpenseItems || []).filter(item => item.name.trim().toLowerCase() === row.name.trim().toLowerCase()).map(item => fixedSlipId(`fixed-${item.id}`)) : [])];
   const query = search.trim().toLowerCase();
   const rows = sortExpenseRows(month.rows.filter(r =>
     (typeFilter === 'all' || (typeFilter === 'recurring' ? r.recurring : !r.recurring))
@@ -126,12 +134,13 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
     ? [
         { label: tr("ดูรายละเอียด"), run: () => setDetail(row) },
         { label: tr("บันทึกว่าจ่ายแล้วเดือนนี้"), run: () => openAdd({ name: row.name, amount: row.amount, recurring: true }) },
+        ...(vault.available ? [{ label: tr("แนบสลิป / ใบเสร็จ"), run: () => { const expense = slipExpense(row); if (expense) vault.openUpload({ kind: 'expense', expense }); } }] : []),
         { label: tr("จัดการรายจ่ายประจำ"), run: () => setManageOpen(true) },
       ]
     : [
         { label: tr("ดูรายละเอียด"), run: () => setDetail(row) },
         { label: tr("แก้ไข"), run: () => openEdit(row.id) },
-        ...(fullFeatureAccess && vault.available ? [{ label: tr("แนบสลิป / ใบเสร็จ"), run: () => { const expense = expenses.find(e => e.id === row.id); if (expense) vault.openUpload({ kind: 'expense', expense }); } }] : []),
+        ...(vault.available ? [{ label: tr("แนบสลิป / ใบเสร็จ"), run: () => { const expense = expenses.find(e => e.id === row.id); if (expense) vault.openUpload({ kind: 'expense', expense }); } }] : []),
         { label: tr("ลบ"), danger: true, run: () => confirmDelete(row) },
       ];
 
@@ -243,6 +252,8 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
           fullFeatureAccess={fullFeatureAccess}
           row={detail}
           expense={detail.fromSettings ? null : expenses.find(e => e.id === detail.id) || null}
+          slipExpense={slipExpense(detail)}
+          slipAlsoIds={slipIds(detail).slice(1)}
           onClose={() => setDetail(null)}
           onEdit={() => { setDetail(null); openEdit(detail.id); }}
           onDelete={() => { setDetail(null); confirmDelete(detail); }}
@@ -261,7 +272,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
         onEdit={props.onEditExpense}
         onClose={() => setDrawer(null)}
         triggerAlert={triggerAlert}
-        slips={fullFeatureAccess}
+        slips
       />
     </>
   );
@@ -300,7 +311,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                 onClick={() => setMenu({ key: row.id, items: rowMenu(row), up: false, left: 0, top: 0 })}>
                 <span className={`ksm-list-icon ${row.recurring ? 'is-recurring' : 'is-neutral'}`}><KsIcon name={row.recurring ? 'clock' : 'receipt'} /></span>
                 <span className="ksm-grow">
-                  <b>{tr(row.name)}{fullFeatureAccess && !row.fromSettings && <ExpenseSlipMark expenseId={row.id} />}</b>
+                  <b>{tr(row.name)}<ExpenseSlipMark ids={slipIds(row)} /></b>
                   {/* Every row says whether it is a monthly cost or a one-off (owner, 2026-10-20), as the desktop table does. */}
                   <p><span className={`ksm-typepill ${row.recurring ? 'is-recurring' : 'is-general'}`}>{row.recurring ? tr("ประจำ") : tr("ทั่วไป")}</span>{row.fromSettings ? tr("ตั้งไว้ · ยังไม่บันทึกจ่าย") : `${dateText(row, true)} · ${categoryText(row.category)}`}</p>
                 </span>
@@ -475,7 +486,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                 {rows.map(row => (
                   <tr key={row.id} data-expense-id={row.id} onClick={() => setDetail(row)}
                     className={`cursor-pointer border-b border-brand-border transition-colors last:border-b-0 hover:bg-brand-faint/60 ${highlightId === row.id ? 'job-spotlight' : ''}`}>
-                    <td className="truncate px-4 py-2.5 font-medium text-brand-text">{tr(row.name)}{fullFeatureAccess && !row.fromSettings && <ExpenseSlipMark expenseId={row.id} />}{row.note && <span className="block truncate text-[11px] font-normal text-brand-muted">{row.note}</span>}</td>
+                    <td className="truncate px-4 py-2.5 font-medium text-brand-text">{tr(row.name)}<ExpenseSlipMark ids={slipIds(row)} />{row.note && <span className="block truncate text-[11px] font-normal text-brand-muted">{row.note}</span>}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-brand-muted">{dateText(row)}</td>
                     <td className="px-3 py-2.5"><TypeBadge recurring={row.recurring} /></td>
                     <td className="truncate px-3 py-2.5 text-brand-muted">{row.fromSettings ? tr("ตั้งไว้ทุกเดือน") : categoryText(row.category)}</td>
@@ -491,7 +502,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
               <li key={row.id} data-expense-id={row.id} onClick={() => setDetail(row)}
                 className={`${card} cursor-pointer px-4 py-3 ${highlightId === row.id ? 'job-spotlight' : ''}`}>
                 <div className="flex items-start justify-between gap-3">
-                  <p className="min-w-0 truncate text-sm font-medium text-brand-text">{tr(row.name)}{fullFeatureAccess && !row.fromSettings && <ExpenseSlipMark expenseId={row.id} />}</p>
+                  <p className="min-w-0 truncate text-sm font-medium text-brand-text">{tr(row.name)}<ExpenseSlipMark ids={slipIds(row)} /></p>
                   <p className="shrink-0 font-mono text-sm font-semibold text-brand-text">{formatCurrency(row.amount)}</p>
                 </div>
                 <p className="mt-0.5 truncate text-xs text-brand-muted">{dateText(row, true)} · {row.fromSettings ? tr("ตั้งไว้ทุกเดือน") : categoryText(row.category)}</p>
@@ -550,8 +561,10 @@ function SidePanel({ title, subtitle, onClose, children, footer }: { title: stri
   );
 }
 
-function ExpenseDetail({ fullFeatureAccess, row, expense, onClose, onEdit, onDelete, onRecordPaid, onManage }: {
+function ExpenseDetail({ fullFeatureAccess, row, expense, slipExpense, slipAlsoIds, onClose, onEdit, onDelete, onRecordPaid, onManage }: {
   fullFeatureAccess: boolean; row: ExpenseRow; expense: Expense | null; onClose: () => void; onEdit: () => void; onDelete: () => void; onRecordPaid: () => void; onManage: () => void;
+  /** Where this row's slips are kept: the expense, or the fixed cost's month. */
+  slipExpense: Expense | null; slipAlsoIds: string[];
 }) {
   const field = (label: string, value: React.ReactNode) => (
     <div className="flex justify-between gap-4 border-b border-brand-border py-2.5 last:border-b-0">
@@ -582,7 +595,7 @@ function ExpenseDetail({ fullFeatureAccess, row, expense, onClose, onEdit, onDel
         {!row.fromSettings && field(tr("หมวดหมู่"), categoryText(row.category))}
         {!row.fromSettings && field(tr("หมายเหตุ"), row.note || '—')}
       </dl>
-      {fullFeatureAccess && expense && <ExpenseSlips expense={expense} />}
+      {slipExpense && <ExpenseSlips expense={slipExpense} alsoIds={slipAlsoIds} />}
       {row.fromSettings && (
         <p className="mt-4 rounded-[10px] bg-brand-faint px-3 py-2.5 text-xs leading-relaxed text-brand-muted">
           {tr("ยอดนี้นับเป็นรายจ่ายของทุกเดือนอยู่แล้ว เมื่อบันทึกว่าจ่ายแล้ว รายการที่บันทึกจะแทนยอดนี้ในเดือนนั้น ไม่นับซ้ำ")}</p>

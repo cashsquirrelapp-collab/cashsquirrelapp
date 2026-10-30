@@ -79,6 +79,8 @@ export const app: Record<string, string> = {
   'ออกจากระบบไม่สำเร็จ': 'Could not sign out',
   'อัปเกรดและตั้งค่า': 'Upgrade and settings',
   'เครื่องมือขั้นสูง': 'Advanced tools',
+  'คลังเอกสาร': 'Document vault',
+  'ใบ 50 ทวิ สัญญา สลิป และหลักฐานแนบงาน': '50 Tawi certificates, contracts, slips and job evidence',
   'เฉพาะผู้ดูแล · ยังไม่เปิดให้ผู้ใช้ทั่วไป': 'Admins only · not yet available to everyone',
   'เปลี่ยนบัญชีการเงินไม่สำเร็จ': 'Could not switch the finance account',
   'เปลี่ยนเป็นโหมดมืด': 'Switch to dark mode',

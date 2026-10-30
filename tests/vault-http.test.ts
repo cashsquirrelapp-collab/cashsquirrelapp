@@ -68,11 +68,25 @@ test('uploading needs a signed-in account and the CSRF header', async () => {
   assert.equal(stored.length, 0);
 });
 
-test('only Pro accounts can upload, and nothing is stored otherwise', async () => {
-  const response = await upload(pdf);
-  assert.equal(response.status, 402);
-  assert.equal((await response.json()).code, 'pro_required');
-  assert.equal(stored.length, 0); assert.equal(rows.length, 0);
+// Owner, 2026-10-31: free accounts keep 5 files in the vault, Pro has no limit.
+test('a free account keeps up to 5 files; the 6th is refused and nothing more is stored', async () => {
+  for (let at = 0; at < 5; at += 1) assert.equal((await upload(pdf)).status, 201, `file ${at + 1}`);
+  assert.equal(stored.length, 5); assert.equal(rows.length, 5);
+  const sixth = await upload(pdf);
+  assert.equal(sixth.status, 402);
+  const body = await sixth.json();
+  assert.equal(body.code, 'vault_free_full');
+  assert.match(body.error, /บัญชีฟรีเก็บไฟล์ในคลังเอกสารได้ 5 ไฟล์ อัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด/);
+  assert.equal(stored.length, 5); assert.equal(rows.length, 5);
+  // Deleting a file frees its place.
+  rows.pop();
+  assert.equal((await upload(pdf)).status, 201);
+});
+
+test('a Pro account has no 5-file limit', async () => {
+  pro = true;
+  for (let at = 0; at < 7; at += 1) assert.equal((await upload(pdf)).status, 201, `file ${at + 1}`);
+  assert.equal(rows.length, 7);
 });
 
 test('the file type is checked from its bytes: a renamed web page is rejected', async () => {

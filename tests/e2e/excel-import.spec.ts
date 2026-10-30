@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { noRadar } from './radarVisit';
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
 
@@ -52,7 +53,7 @@ async function open(page: Page, width: number, path: string, language: 'th' | 'e
     return route.fulfill({ json: { snapshot, versions: { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1, statuses: 1, job_types: 1, notif_settings: 1 } }, subscription: null } });
   });
   await page.setViewportSize({ width, height: 900 });
-  await page.goto(path);
+  await page.goto(noRadar(path));
   return saved;
 }
 
@@ -112,7 +113,7 @@ test('phone: the jobs page and settings stay as they were, with no import button
   await open(page, 390, '/jobs');
   await expect(page.getByRole('heading').first()).toBeVisible();
   await expect(page.getByTestId('jobs-import-button')).toHaveCount(0);
-  await page.goto('/settings');
+  await page.goto(noRadar('/settings'));
   await page.getByRole('button', { name: /สำรอง & นำเข้าข้อมูล/ }).click();
   await expect(page.getByTestId('settings-import-button')).toHaveCount(0);
   // The phone keeps its .json restore card as it was.

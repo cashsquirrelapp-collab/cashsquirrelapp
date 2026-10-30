@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { noRadar } from './radarVisit';
 import { readFileSync } from 'node:fs';
 import { textOverlapIssues } from './textOverlap';
 
@@ -33,7 +34,7 @@ async function open(page: Page, width: number, height: number, options: { role?:
   await page.route('**/api/data*', route => route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions }
     : { snapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2026-12-31T00:00:00Z' } } }));
   await page.setViewportSize({ width, height });
-  await page.goto(options.path ?? '/jobs');
+  await page.goto(noRadar(options.path ?? '/jobs'));
 }
 
 test('showcase mode: admins on a computer; amounts hidden until shown; real figures only; Esc leaves', async ({ page }) => {

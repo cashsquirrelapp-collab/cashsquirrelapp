@@ -37,7 +37,10 @@ export type QuestionsCard = { kind: 'questions'; id: string; questions: AskQuest
 export type OfficialLinkCard = { kind: 'official_link'; id: string; org: string; title: string; description: string; todo: string; url: string };
 /** Changing the account's name (2026-10-27): typed or checked on the card and saved by the user (accountName.ts). */
 export type RenameCard = { kind: 'rename'; current: string; suggested: string };
-export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard;
+/** Keep the file sent in the chat in the document vault, with a job or an expense (2026-10-31). */
+export type AttachCard = { kind: 'attach'; id: string; fileKind: 'wht50' | 'contract' | 'expense' | 'other'; fileName: string;
+  jobId?: string; jobName?: string; client?: string; expenseId?: string; expenseName?: string };
+export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard | AttachCard;
 
 /** `failed` + `question`: a send that did not go through, kept so it can be retried. */
 /** `attachment`: the name and kind of a file sent with the message (the file itself is not kept). */

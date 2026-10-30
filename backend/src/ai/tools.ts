@@ -14,7 +14,7 @@ import { renameReply } from './rename.js';
 import type { AssistantCard, EditField, Route, ToolCall, ToolOutcome, ToolSpec } from './types.js';
 import { ACCOUNT_TOOLS, executeAccountTool, isAccountTool } from './accountQueries.js';
 import { FINANCIAL_TOOLS, executeFinancialTool, isFinancialTool } from './financialQueries.js';
-import { VAULT_TOOLS, executeVaultTool, isVaultTool, type VaultLoader } from './vaultQueries.js';
+import { ATTACH_TOOL, VAULT_TOOLS, executeVaultTool, isVaultTool, type VaultLoader } from './vaultQueries.js';
 import { executeAccountingTool, isAccountingTool } from './accounting/tools.js';
 import { DOCUMENT_ACTION_TOOLS, executeDocumentAction, isDocumentActionTool } from './documentActions.js';
 import { RECORD_ACTION_TOOLS, executeRecordAction, isRecordActionTool } from './recordActions.js';
@@ -164,7 +164,7 @@ const ACTION_TOOLS: ToolSpec[] = [
 // Tools for areas customers cannot see yet stay off for everyone (owner, 2026-10-24: "เอาแค่จำกัดความที่มีใน
 // เว็บไซต์"); each returns by itself the day its area joins the launch policy (shared/featureAvailability.ts).
 const HIDDEN_TOOLS = new Set([
-  ...(launched('vault') ? [] : ['search_vault']),
+  ...(launched('vault') ? [] : ['search_vault', 'attach_file']),
   ...(launched('wht50') ? [] : ['wht_tracking']),
   ...(launched('tax') ? [] : ['tax_year_summary']),
   ...(launched('split') ? [] : ['propose_add_goal', 'propose_edit_goal', 'propose_delete_goal', 'propose_goal_transaction']),
@@ -191,7 +191,7 @@ function openSpec(spec: ToolSpec): ToolSpec {
 const openTools = (specs: ToolSpec[]) => specs.filter(spec => !HIDDEN_TOOLS.has(spec.name)).map(openSpec);
 
 export function toolsFor(route: Route): ToolSpec[] {
-  const read = openTools([...READ_TOOLS, ...DOCUMENT_TOOLS, ...FINANCIAL_TOOLS, ...ACCOUNT_TOOLS, ...PAST_WORK_TOOLS, ...VAULT_TOOLS, ...NAVIGATION_TOOLS]);
+  const read = openTools([...READ_TOOLS, ...DOCUMENT_TOOLS, ...FINANCIAL_TOOLS, ...ACCOUNT_TOOLS, ...PAST_WORK_TOOLS, ...VAULT_TOOLS, ATTACH_TOOL, ...NAVIGATION_TOOLS]);
   return route === 'chat' ? [...read, ...CHAT_ONLY, ...MEMORY_TOOLS, ...ASK_TOOLS] : openTools([...read, ...MEMORY_TOOLS, ...ASK_TOOLS, ...ACTION_TOOLS, ...DOCUMENT_ACTION_TOOLS, ...RECORD_ACTION_TOOLS]);
 }
 
@@ -212,6 +212,8 @@ export function accountContext(user: UserRow, now = new Date(), access?: { perio
 }
 
 export interface ToolContext { user: UserRow; proposals: ProposalStore; memory: MemoryStore; loadVaultFiles?: VaultLoader; now?: Date; isAdmin?: boolean; requestText?: string; hasAttachment?: boolean;
+  /** The name of the file in the chat (this message's, else the latest one): the attach card shows it. */
+  attachmentName?: string;
   /** The name on the account (the rename card shows it); the channel, since LINE has no form. */
   accountName?: string; channel?: 'app' | 'line';
   /** Lessons from fields the user changed on a card (reviseProposal only); saved with the card, learned on confirm. */
@@ -424,7 +426,7 @@ export function createToolbox(context: ToolContext) {
       }
       return outcome;
     }
-    if (isVaultTool(call.name)) return executeVaultTool(call.name, args, user, loadVaultFiles, context.now);
+    if (isVaultTool(call.name)) return executeVaultTool(call.name, args, user, loadVaultFiles, context.now, context.attachmentName);
     if (isPastWorkTool(call.name)) return executePastWork(args, user);
     if (isDocumentActionTool(call.name)) return executeDocumentAction(call.name, args, context);
     if (isRecordActionTool(call.name)) return executeRecordAction(call.name, args, context);

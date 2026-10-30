@@ -3,7 +3,7 @@ import { textOverlapIssues } from './textOverlap';
 
 // Slips in the เพิ่มรายจ่าย form (owner, 2026-10-29: "เพิ่มเป็นการแนบสลิป ... แค่เฉพาะเมนูแอดมิน"): admins pick or drop slips
 // in the form itself; saving keeps the expense first, then its slips in the vault (kind 'expense', linked by the
-// expense's id). Everyone else's form is unchanged.
+// expense's id). Since 2026-10-31 every account has it (the vault opened to all).
 
 test.use({ serviceWorkers: 'block' });
 
@@ -68,10 +68,12 @@ test('admins attach a slip in the form; it is kept with the new expense', async 
   await expect(drawer).toHaveCount(0);
 });
 
-test('everyone else: the form has no slip field', async ({ page }) => {
+// Since 2026-10-31 the vault is open to every account (owner: slips for every expense, the fixed ones too), so the form's
+// slip field is everyone's.
+test('every account: the form has the slip field too', async ({ page }) => {
   await open(page, { admin: false });
   const drawer = await openForm(page);
-  await expect(drawer.getByTestId('expense-form-slips')).toHaveCount(0);
+  await expect(drawer.getByTestId('expense-form-slips')).toBeVisible();
 });
 
 test('phones: admins see the slip field in the form, nothing overlapping', async ({ page }) => {

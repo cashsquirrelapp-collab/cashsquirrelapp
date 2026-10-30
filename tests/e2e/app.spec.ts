@@ -1091,8 +1091,11 @@ test('mobile shell: top bar, bottom bar with the squirrel add button, tools scre
  await tools.getByText('LINE AI Pro').click();
  await tools.getByText('บัญชีและการตั้งค่า').click();
  await expect(tools.locator('details[open]')).toHaveCount(1);
+ // ใบ 50 ทวิ opened to every account on 2026-10-31; goals are still not open (shared/featureAvailability.ts)
  await tools.getByPlaceholder(/ค้นหา เช่น/).fill('50 ทวิ');
- await expect(tools.getByText(/ไม่พบเครื่องมือ/)).toBeVisible(); // not open to every account yet (shared/featureAvailability.ts)
+ await expect(tools.getByRole('button',{name:/ติดตามใบ 50 ทวิ/}).first()).toBeVisible();
+ await tools.getByPlaceholder(/ค้นหา เช่น/).fill('เป้าหมายออม');
+ await expect(tools.getByText(/ไม่พบเครื่องมือ/)).toBeVisible();
  await tools.getByPlaceholder(/ค้นหา เช่น/).fill('เอกสาร');
  await tools.getByRole('button',{name:/^เอกสาร/}).first().click();
  await expect(page.getByRole('heading',{name:'เอกสาร',exact:true})).toBeVisible();

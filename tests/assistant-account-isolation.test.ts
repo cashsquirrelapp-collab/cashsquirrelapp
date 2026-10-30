@@ -314,7 +314,8 @@ test('revoked sessions and Auth identities that disagree with the sealed session
   assert.equal(events.some(row => /cashflow_account_snapshot|cashflow_ai_reserve/.test(row.path)), false);
 });
 
-test('concurrent HTTP requests isolate open account data and memories while hidden vault tools cannot load any data', async () => {
+// The vault opened to everyone on 2026-10-31: its file search now reads, and only the signed-in owner's files.
+test('concurrent HTTP requests isolate open account data, memories and vault files', async () => {
   callsFor = () => [
     { name: 'financial_summary', args: { year: 2569 } },
     { name: 'search_receipts', args: { year: 2026, limit: 1 } },
@@ -344,18 +345,17 @@ test('concurrent HTTP requests isolate open account data and memories while hidd
       assert.equal(detail.includes(tag(other(owner))), false, name);
     }
     for (const occurrence of [0, 1]) {
-      const denied = result(owner, 'search_vault', occurrence);
-      assert.equal(denied.ok, false, 'a model-emitted hidden tool must be denied even with an own job ID');
-      assert.equal(typeof denied.error, 'string');
-      assert.equal(Object.hasOwn(denied, 'rows'), false);
-      const detail = JSON.stringify(denied);
-      for (const accountId of owners) assert.equal(detail.includes(tag(accountId)), false, 'no account vault metadata enters a denial');
+      const files = result(owner, 'search_vault', occurrence);
+      assert.notEqual(files.ok, false, 'the open vault search answers');
+      const detail = JSON.stringify(files);
+      assert.ok(detail.includes(tag(owner)), 'this owner’s own file metadata');
+      assert.equal(detail.includes(tag(other(owner))), false, 'never the other account’s files');
     }
     const payload = JSON.stringify(modelResults.get(owner));
     assert.ok(payload.includes(tag(owner)));
     assert.equal(payload.includes(tag(other(owner))), false);
     assert.equal(payload.includes('PRIVATE_STORAGE_PATH_MUST_NOT_REACH_MODEL'), false);
-    assert.equal(events.filter(row => row.path.endsWith('/cashflow_vault_files')).length, 0, 'hidden vault tools must not invoke the repository for either owner');
+    assert.ok(events.filter(row => row.path.endsWith('/cashflow_vault_files') && row.owner === owner).length >= 1, 'the vault is read for this owner');
     for (const path of ['cashflow_account_snapshot', 'cashflow_ai_memories', 'rpc/cashflow_ai_reserve', 'rpc/cashflow_ai_settle']) {
       assert.equal(events.filter(row => row.path.endsWith(`/${path}`) && row.owner === owner).length, 1, path);
     }
@@ -363,11 +363,11 @@ test('concurrent HTTP requests isolate open account data and memories while hidd
   assert.equal(modelBodies.length, 4, 'two fake tool rounds for each request');
   for (const { body } of modelBodies) {
     const declarations = body.tools.flatMap((group: any) => group.functionDeclarations);
-    assert.equal(declarations.some((tool: any) => tool.name === 'search_vault'), false, 'the hidden tool is not advertised to either model request');
+    assert.equal(declarations.some((tool: any) => tool.name === 'search_vault'), true, 'the vault search is offered');
   }
   // A subsequent request loads A's open data afresh instead of reusing B or an earlier request's snapshot.
   assert.equal((await request()).status, 200);
-  assert.equal(events.filter(row => row.path.endsWith('/cashflow_vault_files')).length, 0);
+  assert.equal(events.filter(row => row.path.endsWith('/cashflow_vault_files') && row.owner !== A && row.owner !== B).length, 0);
   for (const path of ['cashflow_account_snapshot', 'cashflow_ai_memories', 'rpc/cashflow_ai_reserve', 'rpc/cashflow_ai_settle']) {
     assert.equal(events.filter(row => row.path.endsWith(`/${path}`) && row.owner === A).length, 2, path);
     assert.equal(events.filter(row => row.path.endsWith(`/${path}`) && row.owner === B).length, 1, path);

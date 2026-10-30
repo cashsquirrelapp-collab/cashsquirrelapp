@@ -1,7 +1,7 @@
 import React from 'react';
 import { Download, ExternalLink, FolderOpen, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
 import type { Expense, Job } from '../../../../shared/types';
-import { VAULT_KIND_LABEL, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
+import { VAULT_FREE_FILES, VAULT_KIND_LABEL, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { safeFormatThaiDate } from '../../utils';
 import { Drawer } from '../../components/ui/Drawer';
 import { RowMenu } from '../../components/ui/RowMenu';
@@ -93,6 +93,13 @@ export function VaultTab({ jobs, expenses }: {
         <div>
           <h2 className="text-[16px] font-semibold text-brand-text">{tr("ไฟล์ที่จัดเก็บ")}</h2>
           <p className="mt-0.5 text-[13px] text-brand-muted">{vault.files.length ? tr("{0} ไฟล์ในคลัง · เลือกประเภทหรือปีที่อัปโหลดเพื่อค้นหา", vault.files.length) : tr("ใบ 50 ทวิ สัญญา PO สลิป และเอกสารอื่นที่อัปโหลดไว้")}</p>
+          {/* Free accounts keep VAULT_FREE_FILES files; Pro has no limit (owner, 2026-10-31). */}
+          {vault.freeLeft !== null && (
+            <p className="mt-1 text-[12.5px] leading-[1.5] text-brand-muted" data-testid="vault-free-usage">
+              {tr("บัญชีฟรีเก็บได้ {0} ไฟล์ · ใช้ไป {1} ไฟล์", VAULT_FREE_FILES, vault.files.length)}{' · '}
+              <button type="button" onClick={vault.upgrade} className="font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">{tr("Pro เก็บได้ไม่จำกัด")}</button>
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <button type="button" onClick={() => void downloadShown()} disabled={!shown.length || zipping}

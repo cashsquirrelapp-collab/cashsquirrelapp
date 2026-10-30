@@ -5,7 +5,7 @@ import type { User } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
 import type { VercelRequest } from '../http/types.js';
-import { VAULT_EXT, VAULT_KINDS, VAULT_MAX_BYTES, VAULT_MAX_FILES, cleanVaultFileName, sniffVaultMime, type VaultFile, type VaultKind } from '../../../shared/vault.js';
+import { VAULT_EXT, VAULT_FREE_FILES, VAULT_KINDS, VAULT_MAX_BYTES, VAULT_MAX_FILES, cleanVaultFileName, sniffVaultMime, type VaultFile, type VaultKind } from '../../../shared/vault.js';
 
 // Document vault storage. Files sit in a private bucket under the owning workspace's folder
 // (user/<id>/… or group/<id>/…); every read and write goes through the API, which checks the
@@ -84,7 +84,8 @@ export const vaultMetaSchema = z.object({
   fileName: z.string().max(400),
 }).strict();
 
-export async function storeVaultFile(scope: VaultScope, user: User, body: Buffer, meta: z.infer<typeof vaultMetaSchema>): Promise<VaultFile> {
+/** `maxFiles`: VAULT_FREE_FILES for a free account (the upload is refused with 402 vault_free_full at the limit). */
+export async function storeVaultFile(scope: VaultScope, user: User, body: Buffer, meta: z.infer<typeof vaultMetaSchema>, maxFiles = VAULT_MAX_FILES): Promise<VaultFile> {
   if (!body.length) throw new HttpError(400, 'ไฟล์ว่างเปล่า');
   if (body.length > VAULT_MAX_BYTES) throw new HttpError(413, 'ไฟล์ใหญ่เกิน 10 MB');
   // Trust the bytes, not the name or the browser's type.
@@ -93,7 +94,11 @@ export async function storeVaultFile(scope: VaultScope, user: User, body: Buffer
   const admin = getSupabaseAdmin();
   const counted = await admin.from('cashflow_vault_files').select('id', { count: 'exact', head: true }).eq(scopeColumn(scope), scope.id);
   if (counted.error) throw counted.error;
-  if ((counted.count || 0) >= VAULT_MAX_FILES) throw new HttpError(409, 'คลังเอกสารเต็มแล้ว กรุณาลบไฟล์ที่ไม่ใช้ก่อน');
+  const count = counted.count || 0;
+  if (maxFiles < VAULT_MAX_FILES && count >= maxFiles) {
+    throw new HttpError(402, `บัญชีฟรีเก็บไฟล์ในคลังเอกสารได้ ${VAULT_FREE_FILES} ไฟล์ อัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด`, 'vault_free_full');
+  }
+  if (count >= VAULT_MAX_FILES) throw new HttpError(409, 'คลังเอกสารเต็มแล้ว กรุณาลบไฟล์ที่ไม่ใช้ก่อน');
   await ensureVaultBucket();
   const id = randomUUID();
   const path = `${scope.kind}/${scope.id}/${id}.${VAULT_EXT[mime]}`;

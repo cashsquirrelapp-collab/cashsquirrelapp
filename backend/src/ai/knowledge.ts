@@ -37,6 +37,8 @@ function score(feature: AppFeature, query: string): number {
   if (feature.id === (launched('report') ? 'report' : 'jobs') && annual && /รายรับ|รายได้|รายงาน|ส่งออก|สรุป|income|report|export/.test(query)) total += 15;
   if (feature.id === 'tax' && /ปีภาษี|ภาษี|tax/.test(query)) total += 12;
   if (feature.id === 'wht50' && /50\s*ทวิ|wht50/.test(query)) total += 15;
+  // "คลังเอกสาร" holds the word เอกสาร too; the vault comes before the documents page (open to all since 2026-10-31).
+  if (feature.id === 'vault' && /คลังเอกสาร|คลังไฟล์|\bvault\b/.test(query)) total += 15;
   if (feature.id === 'import' && /นำเข้า|import/.test(query)) total += 12;
   return total;
 }

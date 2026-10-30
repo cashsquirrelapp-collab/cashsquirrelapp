@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { noRadar } from './radarVisit';
 
 // English mode shows no Thai (owner, 2026-10-22: "อย่าให้มันหลุดภาษาไทยออกมา"). Every page and the main
 // forms are opened in English on a computer and a phone with English sample data, and the visible
@@ -67,7 +68,7 @@ async function open(page: Page, width: number, height: number, path: string) {
     subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' },
   } }));
   await page.setViewportSize({ width, height });
-  await page.goto(path);
+  await page.goto(noRadar(path));
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(400);
 }
@@ -160,7 +161,7 @@ test('English: the sign-in page and the landing page show no Thai', async ({ pag
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
   await page.route('**/api/auth*', route => route.fulfill({ status: 401, json: { error: 'กรุณาเข้าสู่ระบบ' } }));
   for (const path of ['/', '/login']) {
-    await page.goto(path);
+    await page.goto(noRadar(path));
     await page.waitForTimeout(500);
     expect(await thaiLines(page), `Thai text on ${path}`).toEqual([]);
   }
@@ -170,7 +171,7 @@ test('English: the privacy and terms pages follow the app language', async ({ pa
   await page.addInitScript(() => localStorage.setItem('cashflow_language', 'en'));
   // Production serves these at /privacy and /terms; the local test server needs the file names.
   for (const path of ['/privacy.html', '/terms.html']) {
-    await page.goto(path);
+    await page.goto(noRadar(path));
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     expect(await thaiLines(page), `Thai text on ${path}`).toEqual([]);
   }

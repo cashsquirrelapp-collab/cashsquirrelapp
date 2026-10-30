@@ -154,8 +154,9 @@ const LASTING = /^(?:propose_|remember$|forget_memory$)/;
 /** Everyday talk on the conversation route gets these tools; anything else hands over (route_to_action) with every tool. */
 const SHORT_CHAT_TOOLS = new Set(['remember', 'recall_memories', 'forget_memory', 'feature_lookup', 'navigate_to_feature', 'route_to_action', 'ask_user',
   'money_summary', 'receivables', 'search_jobs', 'financial_summary']);
-/** Words about the account's records: such a message, or one right after it, keeps every tool. */
-const RECORD_WORDS = /(รายรับ|รายได้|รายจ่าย|ค่าใช้จ่าย|กำไร|ขาดทุน|ยอด|สรุป|เงิน|ลูกค้า|งาน|โปรเจ|ค้าง|กราฟ|สถิติ|สัดส่วน|เอกสาร|ใบ|จ่าย|โอน|บาท|ภาษี|หัก|เป้า|เดือน|ปี|ไตรมาส|อันไหน|ตัวไหน|อันนั้น|อันนี้|ของใคร|ทั้งหมด|เท่าไหร่|เท่าไร|กี่|฿|\d|job|client|money|income|expense|invoice|quotation|paid|owe|month|year)/i;
+/** Words about the account's records: such a message, or one right after it, keeps every tool. Files and 50 ทวิ joined
+ * on 2026-10-31, when the vault opened to everyone (its search_vault and wht_tracking tools are not in the short set). */
+const RECORD_WORDS = /(รายรับ|รายได้|รายจ่าย|ค่าใช้จ่าย|กำไร|ขาดทุน|ยอด|สรุป|เงิน|ลูกค้า|งาน|โปรเจ|ค้าง|กราฟ|สถิติ|สัดส่วน|เอกสาร|ใบ|จ่าย|โอน|บาท|ภาษี|หัก|เป้า|เดือน|ปี|ไตรมาส|อันไหน|ตัวไหน|อันนั้น|อันนี้|ของใคร|ทั้งหมด|เท่าไหร่|เท่าไร|กี่|฿|\d|job|client|money|income|expense|invoice|quotation|paid|owe|month|year|ไฟล์|คลัง|ทวิ|สลิป|สัญญา|\bfiles?\b|vault|wht)/i;
 /**
  * Money received or spent, typed or on a slip: the file rules hold how an amount shows the withholding, how an expense
  * is named and the app's expense categories (a typed expense needs them too).
@@ -248,8 +249,12 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     if (!keys[providerFor(lightModel(route))]) throw new AiUnavailableError('missing_key');
   }
 
+  // The file in the chat: this message's, else the latest one named in the recent history (" [แนบไฟล์: name]").
+  const recentFile = [...(request.history ?? []).slice(-6)].reverse().map(turn => / \[แนบไฟล์: ([^\]\n]{1,160})\]/.exec(turn.text)?.[1]).find(Boolean);
+  const attachmentName = request.attachment?.name || recentFile || '';
   const toolbox = createToolbox({ user: request.user, proposals: deps.proposals, memory: deps.memory, loadVaultFiles: deps.loadVaultFiles, now: deps.now,
-    isAdmin: request.plan === 'admin', requestText: request.text, hasAttachment: Boolean(request.attachment), accountName: request.accountName, channel: request.channel });
+    isAdmin: request.plan === 'admin', requestText: request.text, hasAttachment: Boolean(request.attachment), accountName: request.accountName, channel: request.channel,
+    attachmentName });
   const memos: string[] = [];
   const signals: KnowledgeSignal[] = detectSignals(request.text, request.history);
   const calls: ModelCall[] = [];
@@ -306,6 +311,11 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     .replace(/แอปนี้|แอพนี้|เว็บไซต์นี้|เว็บนี้|ระบบนี้|โปรแกรมนี้|\b(?:this|the) app\b/gi, 'Krarok')
     .replace(/(?:ผู้สร้าง|ผู้พัฒนา|คน(?:ที่)?(?:สร้าง|พัฒนา))\s*(?:ของ\s*)?(?:Krarok\b|กระรอก(?:ตุนเงิน)?|เลขา(?:กระรอก)?|มึง|คุณ|นาย|แก|เธอ|ตัวเอง)(?=\s|$|[?？!.,]|เป็น|คือ|มี|ชื่อ|เขา|เค้า|นิสัย|บุคลิก|เรียน|ทำ|คิด|มอง|อยาก|เกิด|ก่อตั้ง|รวย|รายได้|ทรัพย์สิน|ครอบครัว)/gi, 'ผู้ก่อตั้ง Krarok')
     .replace(/(?:ผู้สร้าง|ผู้พัฒนา|คน(?:ที่)?(?:สร้าง|พัฒนา))(?=\s*(?:$|[?？!.,]|(?:ครับ|ค่ะ|คะ|คับ|หน่อย|มา)(?:$|[?？!.,])|เป็น(?:คน|ใคร)|คือใคร|ชื่อ(?:อะไร|ใคร|ว่า|จริง)|นิสัย|บุคลิก|เรียน(?:อะไร|จบ|ที่ไหน|ด้าน|สาย)|(?:เขา|เค้า)(?:เป็น|มี|คิด|มอง|อยาก|เรียน)|มี(?:นิสัย|บุคลิก|พื้นฐาน|ประวัติ|รายได้|ทรัพย์สิน|เป้าหมาย|วิสัยทัศน์|ทีม|พนักงาน|แฟน|ครอบครัว|เงิน|ทัศนคติ)|ทำไม|คิด(?:อะไร|ยังไง|อย่างไร)|มอง(?:อะไร|ยังไง|อย่างไร)|อยาก(?:ให้|ทำ|เป็น)|รายได้|ทรัพย์สิน|ครอบครัว|ก่อตั้ง|เกิด(?:วัน|เมื่อ|ปี)|ทำอะไร|ทำงาน|อยู่(?:ที่ไหน|ไหน)|(?:จน|รวย)(?:ไหม|มั้ย)))/g, 'ผู้ก่อตั้ง Krarok')
+    // Krarok's CEO, owner or maker by any of those words is its founder (owner, 2026-10-31: "ประวัติผู้สร้าง CEO ...
+    // น้องไปจำชื่อใครก็ไม่รู้"): the question gets the founder's own facts, never a guessed name. A client's CEO
+    // ("CEO ของบริษัท ABC") stays a work question.
+    .replace(/(?:CEO|ซีอีโอ|ผู้บริหาร|เจ้าของ|คน(?:ที่)?(?:ทำ|คิด))\s*(?:ของ\s*)?(?:Krarok\b|กระรอก(?:ตุนเงิน)?|แอป|แอพ|เว็บ(?:ไซต์)?)/gi, 'ผู้ก่อตั้ง Krarok')
+    .replace(/ใคร(?:คือ|เป็น)\s*(?:CEO|ซีอีโอ)(?=\s*(?:$|[?？!.,]|ครับ|ค่ะ|คะ|หน่อย|ของ\s*(?:Krarok|กระรอก)))|(?:^|\s)(?:CEO|ซีอีโอ)\s*(?:คือ|เป็น)?\s*ใคร|(?:CEO|ซีอีโอ)\s*ชื่อ(?:อะไร|ใคร)|ประวัติ\s*(?:CEO|ซีอีโอ)/gi, ' ใครเป็นผู้ก่อตั้ง Krarok')
     .replace(/ใคร(?:คือ|เป็น)\s*ผู้ก่อตั้ง\s*Krarok/gi, 'ใครสร้าง Krarok')
     .replace(/เล่า(?:เรื่อง|ของ)?\s*ผู้ก่อตั้ง/g, 'เล่าประวัติผู้ก่อตั้ง')
     .replace(/(?:เป็น|คือ)คน(?:ยังไง|อย่างไร|แบบไหน)/g, 'มีบุคลิกอย่างไร')
@@ -455,7 +465,10 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     lastEditError = undefined;
     const short = route === 'chat' && shortTools;
     const docs = documents || DOCUMENT_WORDS.test(handoff ?? '');
-    const availableTools = [...toolsFor(route).filter(tool => (!short || SHORT_CHAT_TOOLS.has(tool.name)) && (docs || !DOCUMENT_TOOLS_WRITE.has(tool.name))).map(withSay),
+    // attach_file only with a file in this chat, in the app (LINE keeps its files through its own vault cards).
+    const attachHere = Boolean(attachmentName) && request.channel !== 'line';
+    const availableTools = [...toolsFor(route).filter(tool => (!short || SHORT_CHAT_TOOLS.has(tool.name)) && (docs || !DOCUMENT_TOOLS_WRITE.has(tool.name))
+      && (attachHere || tool.name !== 'attach_file')).map(withSay),
       ...(accounting ? ACCOUNTING_TOOLS : [])];
     const allowed = new Set(availableTools.map(tool => tool.name));
     // What this run prepared, kept here so a provider failure after it cannot lose a saved card (cost brief, phase 4).

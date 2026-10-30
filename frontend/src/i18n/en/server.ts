@@ -149,6 +149,7 @@ export const server: Record<string, string> = {
   "ไฟล์ว่างเปล่า": "The file is empty",
   "รองรับเฉพาะ PDF, JPG, PNG และ WEBP": "Only PDF, JPG, PNG and WebP are supported",
   "คลังเอกสารเต็มแล้ว กรุณาลบไฟล์ที่ไม่ใช้ก่อน": "The vault is full. Please delete files you no longer need.",
+  "บัญชีฟรีเก็บไฟล์ในคลังเอกสารได้ {0} ไฟล์ อัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด": "A free account keeps up to {0} files in the vault. Upgrade to Pro to keep as many as you like.",
   "รหัสไฟล์ไม่ถูกต้อง": "Invalid file code",
   "ไม่พบไฟล์": "File not found",
   "กรอกรหัสผ่านผิดเกินจำนวนครั้งที่กำหนด โปรดลองเข้าสู่ระบบในอีก {0} นาที": "Too many incorrect passwords. Please try signing in again in {0} minutes.",

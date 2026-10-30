@@ -72,6 +72,7 @@ export function cardSpeech(cards?: ChatCard[]): string {
     case 'questions': return card.questions[0]?.text ?? '';
     case 'navigation': return card.label;
     case 'official_link': return card.title;
+    case 'attach': return tr("แนบไฟล์เข้าคลังเอกสาร");
     default: return '';
   }
 }

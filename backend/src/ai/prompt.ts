@@ -4,7 +4,7 @@ import type { Route } from './types.js';
 // Shared instructions for both routes. The fixed part
 // comes first and never changes between requests, so both providers can cache it; the per-user part follows.
 
-export const PROMPT_VERSION = 'secretary-v24';
+export const PROMPT_VERSION = 'secretary-v25';
 
 // Areas customers cannot see yet (shared/featureAvailability.ts). The prompt names them only to say they are not
 // available; the admin overview is never named. Fixed per deploy, so the prompt stays cacheable.
@@ -404,6 +404,22 @@ For a supplied quotation/invoice, follow the user's stated
 intent: creating a document uses propose_add_document; adding its work as a job uses propose_add_job. If the
 file is unreadable or matches nothing, say so and ask.`;
 
+// The vault opened to everyone on 2026-10-31 (owner: "ส่งสลิปเข้าแชท แล้วน้องแนบเข้าโปรเจกต์นั้นได้เลย"): with a file in the
+// chat, เลขา offers to keep it with its job or expense. Added after the file rules; every earlier rule stays as it was.
+const VAULT_FILE_RULES = `FILES TO KEEP: the app keeps the user's files in คลังเอกสาร with their jobs and expenses.
+- When the file is a ใบ 50 ทวิ, a contract / PO, a transfer slip or a receipt that belongs with one of the user's jobs
+  or expenses, also call attach_file in the same step: kind wht50, contract, expense (a slip or receipt of money paid
+  out) or other (a slip of money received, kept with its job), with the job_id or expense_id, or record_name for one
+  you are preparing in this answer. Offer it in one short line; the file is kept only after the user presses the card.
+- A ใบ 50 ทวิ: find its job (wht_tracking or search_jobs, by the payer and amount on it), then attach_file with kind
+  wht50. A certificate alone never records a payment.`;
+
+// 50 ทวิ follow-up (owner, 2026-10-31: "ใบ 50 ทวิ แจ้งเตือนได้ด้วย ... อยากให้น้องถามแนบนั่นนี่ไหม").
+const WHT50_RULES = `ใบ 50 ทวิ: after you prepare a received payment (propose_record_payment, or a job saved as paid) for a job with 3%
+or 5% withholding, add one short line asking for its certificate, e.g. "ได้ใบ 50 ทวิจากลูกค้าแล้ว ส่งรูปหรือ PDF มาในแชตนี้ได้เลยครับ
+เลขาจะแนบไว้กับงานนี้ให้". Not for 1% (e-WHT: no paper certificate) or a job without withholding. When the user asks
+which jobs still lack one, use wht_tracking.`;
+
 // LINE is read on a phone, in bubbles (owner, 2026-10-24: "ข้อความยังยาวเหยียด ตัวหนังสือติดกัน อ่านยาก").
 const LINE_RULES = `CHANNEL: LINE chat on a phone, not the app. These LINE rules win over VOICE and FORMAT above.
 - LINE shows no Markdown: no tables, no **bold**, no headings, no links in brackets.
@@ -465,7 +481,8 @@ export function buildSystemPrompt(slots: PromptSlots): string {
     slots.shortTools ? 'TOOLS THIS TURN: a short set for conversation. For a question about the account\'s records these tools do not cover, call route_to_action with the question: the next step has every account tool.' : '',
     slots.channel === 'line' ? LINE_RULES : '',
   ].filter(Boolean).join('\n');
-  const mode = slots.route === 'chat' ? [CHAT_MODE] : [ACTION_MODE, ACTION_RULES, ...(slots.documents ? [DOCUMENT_RULES] : []), ...(slots.files ? [FILE_RULES] : [])];
+  const mode = slots.route === 'chat' ? [CHAT_MODE] : [ACTION_MODE, ACTION_RULES, ...(slots.documents ? [DOCUMENT_RULES] : []), ...(slots.files ? [FILE_RULES] : []),
+    ...(slots.files && launched('vault') ? [VAULT_FILE_RULES] : []), ...(launched('wht50') ? [WHT50_RULES] : [])];
   return [SHARED, ...mode, 'USER', user,
     'APP KNOWLEDGE (relevant entries only)', slots.knowledge,
     ...(slots.founder ? ['FOUNDER (approved public text)', slots.founder] : []),

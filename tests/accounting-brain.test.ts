@@ -283,13 +283,16 @@ test('prompt: without the accounting slot the prompt is byte-identical to the ap
   // (same day): the document rules with a document in the chat, and the CLOSING LINE rule (a step of cards ends the turn);
   // secretary-v23 (same day): the feedback menu is called แจ้งปัญหา (was บอกเรา). secretary-v24 (owner, 2026-10-31): the
   // SELF rule added (เลขากระรอก never calls itself AI, never claims to be a person) and "AI" taken out of three lines that
-  // เลขา could repeat about itself; no rule removed.
+  // เลขา could repeat about itself; no rule removed. Recaptured the same day when the vault and 50 ทวิ opened to everyone:
+  // the existing launch-gated vault lines (file metadata, search_vault, wht_tracking) now appear; no wording changed.
+  // secretary-v25 (owner, 2026-10-31): the action route adds the ใบ 50 ทวิ follow-up line (WHT50_RULES), and with a file the
+  // FILES TO KEEP rule (attach_file); the chat route is unchanged.
   const slots: PromptSlots[] = [
     { route: 'chat', plan: 'pro', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', offer: 'O' },
     { route: 'action', plan: 'admin', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', founder: 'F', channel: 'line' },
   ];
-  const v24 = ['3f76e65bf40de240eb8287e5b7c14832b79e17bf795c6d662b27cdc54cd93a9a', 'cc5c114e6de46c2d3bc07303b12a1079c1dab854b434968ae75430587bc61af6'];
-  slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v24[index]));
+  const v25 = ['c92e1cf123f0c3ef7d4baf89e04ebd2018cd5b34555fa5bb8893b4e65be6ebcb', '767f02f4e45057b496283a85b9bd584d31707bd0ef70a6bebf597189d3750b70'];
+  slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v25[index]));
   const withAccounting = buildSystemPrompt({ ...slots[0], accounting: 'REF' });
   assert.match(withAccounting, /ACCOUNTING REFERENCE \(selected for this message; general information with sources, not a ruling\)\n\nREF\n\nACCOUNT CONTEXT/);
 });

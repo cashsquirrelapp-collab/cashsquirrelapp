@@ -14,8 +14,10 @@ export interface VaultMeta {
 }
 
 export async function listVault(financeKey: string): Promise<VaultFile[]> {
-  const result = await apiJson<{ files: VaultFile[] }>('/api/vault', { headers: financeHeaders(financeKey) });
-  return result.files;
+  const result = await apiJson<{ files?: VaultFile[] }>('/api/vault', { headers: financeHeaders(financeKey) });
+  // Every account loads the vault since it opened to all (2026-10-31): an answer without a list is an empty vault,
+  // never a crash of the page.
+  return Array.isArray(result?.files) ? result.files : [];
 }
 
 export async function uploadVault(financeKey: string, file: File, meta: VaultMeta): Promise<VaultFile> {

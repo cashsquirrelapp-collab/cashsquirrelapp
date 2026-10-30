@@ -13,6 +13,7 @@ import { ChatCardView, type ConfirmState, ConfirmAll } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
 import { prepareFile, type PreparedFile } from './voice';
+import { rememberChatFile } from './chatFiles';
 import { useDictation } from './useDictation';
 import { VoiceComposer } from './VoiceComposer';
 import { isPartialAmountText, type LineInboxApi } from './lineInbox';
@@ -602,6 +603,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     if (inputRef.current) inputRef.current.style.height = '';
     atBottom.current = true;
     if (file) { setUpload(null); setFileProblem(null); }
+    // The file stays in memory for this tab, so an attach card can hand it to the vault.
+    if (file) rememberChatFile(file);
     void ask(conversationId, text, [...history, mine], file);
   };
 

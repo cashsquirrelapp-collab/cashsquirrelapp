@@ -7,13 +7,15 @@ import { expenseFiles } from './vaultStatus';
 import { tr } from '../../i18n/tr';
 // Slips and receipts kept with an expense, shown in the expense's detail panel. Files can be
 // picked or dropped straight onto the section; they go to the document vault as kind 'expense'.
+// A fixed monthly cost keeps its slips under "fixed-<item>@<YYYY-MM>" (2026-10-31); once it is recorded as paid, the
+// recorded expense shows them too (`alsoIds`).
 
-export function ExpenseSlips({ expense }: { expense: Expense }) {
+export function ExpenseSlips({ expense, alsoIds = [] }: { expense: Expense; alsoIds?: string[] }) {
   const vault = useVault();
   const [dragging, setDragging] = React.useState(false);
   const depth = React.useRef(0);
   if (!vault.available) return null;
-  const files = expenseFiles(expense, vault.files);
+  const files = [expense.id, ...alsoIds].flatMap(id => expenseFiles({ id }, vault.files));
   const attach = (dropped?: File[]) => vault.openUpload({ kind: 'expense', expense, files: dropped });
   const hasFiles = (e: React.DragEvent) => e.dataTransfer.types.includes('Files');
   const drop = {
@@ -53,9 +55,9 @@ export function ExpenseSlips({ expense }: { expense: Expense }) {
 }
 
 /** Small paperclip next to an expense's name when it has slips kept. */
-export function ExpenseSlipMark({ expenseId }: { expenseId: string }) {
+export function ExpenseSlipMark({ ids }: { ids: string[] }) {
   const vault = useVault();
-  const count = vault.available ? expenseFiles({ id: expenseId }, vault.files).length : 0;
+  const count = vault.available ? ids.reduce((sum, id) => sum + expenseFiles({ id }, vault.files).length, 0) : 0;
   if (!count) return null;
   return (
     <span className="ml-1.5 inline-flex shrink-0 items-center gap-0.5 align-middle text-[11px] font-medium text-brand-muted" title={tr("มีสลิป / ใบเสร็จ {0} ไฟล์", count)} aria-label={tr("มีสลิป {0} ไฟล์", count)}>

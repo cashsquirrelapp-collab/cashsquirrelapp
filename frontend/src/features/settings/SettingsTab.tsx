@@ -970,8 +970,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {([
                 [tr("สรุปการเงินรายเดือน"), tr("ส่งทุกวันที่ 1 ของเดือน ทางอีเมลของบัญชีนี้ (และ LINE ถ้าเชื่อมต่อไว้)"), !!notifSettings.monthlyReportEnabled, handleToggleMonthlyReport],
                 [tr("แจ้งเตือนเครดิตเทอม"), tr("เตือนก่อนครบกำหนดรับเงิน 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้"), !!notifSettings.dailyDigestEnabled, handleToggleDailyDigest],
-                // 50 ทวิ is not launched yet (owner, 2026-10-21: it comes back here when they launch it). Accounts
-                // that see the 50 ทวิ page, or that already turned the reminder on, keep the switch.
+                // The 50 ทวิ page and its monthly LINE reminder opened to everyone on 2026-10-31 (owner: "แจ้งเตือนได้ด้วย").
                 ...(isPhaseOneFeatureAvailable('wht50', fullFeatureAccess) || notifSettings.wht50ReminderEnabled
                   ? [[tr("ติดตามใบ 50 ทวิ"), tr("รวมงานที่รับเงินแล้วอย่างน้อย 7 วันและยังไม่มีใบ 50 ทวิแนบ ส่งเข้า LINE ที่เชื่อมไว้วันที่ 1 ของเดือนประมาณ 08:00 น. (เวลาไทย) เมื่อมีรายการค้างเท่านั้น"), !!notifSettings.wht50ReminderEnabled, handleToggleWht50Reminder] as const]
                   : []),

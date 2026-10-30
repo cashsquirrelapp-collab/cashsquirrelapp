@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { noRadar } from './radarVisit';
 import { textOverlapIssues } from './textOverlap';
 
 // pkg77–78 (owner approved the mockups 2026-10-25, "ตามแนะนำหมด"): today's briefing in เลขา's panel and the squirrel's
@@ -32,7 +33,7 @@ async function open(page: Page, width: number, height: number, options: { role?:
   await page.route('**/api/data*', route => route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions }
     : { snapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2026-12-31T00:00:00Z' } } }));
   await page.setViewportSize({ width, height });
-  await page.goto(options.path ?? '/jobs');
+  await page.goto(noRadar(options.path ?? '/jobs'));
 }
 
 test('computer: the squirrel says the most important thing once, and the panel opens on today\'s briefing', async ({ page }) => {

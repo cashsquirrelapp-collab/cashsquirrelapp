@@ -349,6 +349,8 @@ test('390px phone: the menu is reordered and every page it opens shares the terr
 
   for (const [entry, title] of [['เงินรอรับ', 'เงินรอรับ'], ['รายจ่าย', 'รายจ่าย'], ['เอกสาร', 'เอกสาร']] as const) {
     await nav.getByRole('button', { name: 'เมนู', exact: true }).click();
+    // เอกสาร holds คลังเอกสาร and ติดตามใบ 50 ทวิ too since 2026-10-31, so it opens as a group first.
+    if (entry === 'เอกสาร') await menu.getByText('ใบเสนอราคาและใบเสร็จรับเงิน').click();
     await menu.getByRole('button', { name: new RegExp(`^${entry}`) }).first().click();
     const hero = page.locator('.ksm-toolhero');
     await expect(hero.getByRole('heading', { name: title, exact: true })).toBeVisible();

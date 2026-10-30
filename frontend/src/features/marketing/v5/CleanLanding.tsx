@@ -13,7 +13,7 @@ import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { Physics2DPlugin } from 'gsap/Physics2DPlugin';
 import { Draggable } from 'gsap/Draggable';
-import { Bell, Briefcase, Bug, Camera, Check, CircleHelp, Clapperboard, CodeXml, Coins, FileText, Globe, GraduationCap, Instagram, Lightbulb, Mail, Music2, NotebookPen, PenLine, PenTool, Plus, Video, Wallet } from 'lucide-react';
+import { Bell, Briefcase, FileCheck2, FolderArchive, Bug, Camera, Check, CircleHelp, Clapperboard, CodeXml, Coins, FileText, Globe, GraduationCap, Instagram, Lightbulb, Mail, Music2, NotebookPen, PenLine, PenTool, Plus, Video, Wallet } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { Mascot } from '../../../components/mascot/Mascot';
 import { LineLogo } from '../../../components/ui/LineLogo';
@@ -31,6 +31,7 @@ import { BRAND_LINKS } from './brandLinks';
 import { FULL_LAUNCH_AT } from './launch';
 import { SignupCount } from './SignupCount';
 import { CalendarViews, ExpensesDemo } from './MoneyDemos';
+import { VaultStory } from './VaultStory';
 import { LinePhone } from './LinePhone';
 
 // The live chat and the A4 documents load only when their sections come near (they bring the app's chat and document code).
@@ -47,7 +48,7 @@ import './clean.css';
 // headline and เริ่มใช้ฟรี alone, the button magnetic like GSAP's demo. On computers the top is one pinned scroll scene:
 // the words lift away, the floating cards fly into the phone and the phone rises to the middle. Phones and reduced motion
 // get the same page laid out in order. Nothing that moves ever passes over text. Only features every account has today
-// (50 ทวิ is not shown yet). The previous landing stays in ../v4.
+// (the vault and 50 ทวิ since 2026-10-31). The previous landing stays in ../v4.
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrambleTextPlugin, DrawSVGPlugin, MotionPathPlugin, Physics2DPlugin, PhysicsPropsPlugin, Draggable, Observer,
   ScrollToPlugin, CustomEase, CustomWiggle, ExpoScaleEase, SlowMo);
@@ -909,6 +910,22 @@ export default function CleanLanding() {
             <FeatureTitle id="cl-feat-expense" word={trc('feat', 'จด')} rest={tr('รายจ่าย\nรู้กำไรจริง')} />
             <p>{tr('ค่าใช้จ่ายประจำตั้งไว้ครั้งเดียว ขึ้นให้ทุกเดือน รายจ่ายอื่นจดพร้อมหมวดหมู่ แล้วเห็นทันทีว่าเดือนนี้เหลือกำไรเท่าไร')}</p>
           </div>
+        </section>
+
+        {/* the vault and ใบ 50 ทวิ (owner, 2026-10-31: "ไม่รู้จะเก็บไว้ที่ไหน สิ้นปีต้องมานั่งไล่หา ... เรารวมให้คุณไว้ในที่เดียว
+            คุณก็เอาไปยื่นหรือเป็นหลักฐาน จบ"): drawn, not a screenshot */}
+        <section className="cl-feat is-vault" aria-labelledby="cl-feat-vault">
+          <div className="cl-feat-text">
+            <Tier>{tr('ฟรี 5 ไฟล์ · Pro ไม่จำกัด')}</Tier>
+            <FeatureTitle id="cl-feat-vault" word={trc('feat', 'เก็บ')} rest={tr('เอกสารทั้งปี\nไว้ที่เดียว')} />
+            {/* The owner's own sentence (2026-10-31). */}
+            <p>{tr('ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ และสัญญา ทุกไฟล์จัดเก็บเป็นระเบียบ ผูกกับงานอัตโนมัติ ค้นหาง่าย ดาวน์โหลดพร้อมใช้ ไม่ต้องเสียเวลาตามหาเอกสารอีกต่อไป')}</p>
+            <span className="cl-feat-apps" aria-hidden="true">
+              <span><FileCheck2 size={18} strokeWidth={2.2} />{tr('บอกงานที่ยังรอใบ 50 ทวิ')}</span>
+              <span><FolderArchive size={18} strokeWidth={2.2} />{tr('ZIP แยกตามงาน')}</span>
+            </span>
+          </div>
+          <div className="cl-feat-visual gl-feature-visual is-vault" data-rise><VaultStory /></div>
         </section>
 
         {/* 5 · questions */}

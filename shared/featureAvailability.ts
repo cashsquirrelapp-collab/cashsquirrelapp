@@ -11,6 +11,10 @@ const PHASE_ONE_FEATURES = new Set([
   // Released to everyone on 2026-10-23 (owner: "เปิดให้สมาชิกทั่วไปเห็นหน้าแชตด้วย"): the เลขากระรอก chat
   // screen. It is still a labelled screen preview (no AI, LINE or billing behind it) and stays Pro-gated.
   'assistant',
+  // Released to everyone on 2026-10-31 (owner: "ฝากเอา 2 ฟีเจอร์นี้เข้ามาด้วย ... ฟรีจำกัดได้แค่ 5 เอกสาร ... Pro ใช้ได้ไม่จำกัด"):
+  // เอกสาร › คลังเอกสาร and ติดตามใบ 50 ทวิ. Free accounts keep up to VAULT_FREE_FILES files (shared/vault.ts); Pro has
+  // no limit. The monthly 50 ทวิ LINE reminder stays off (cloudflare/schedule.ts) until the owner turns it on.
+  'vault', 'wht50',
 ]);
 
 export function hasFullFeatureAccess(context: {

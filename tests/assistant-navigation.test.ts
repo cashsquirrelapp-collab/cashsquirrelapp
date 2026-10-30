@@ -36,7 +36,7 @@ test('navigation binds every route to current workspace and rejects escape or se
   for (const path of ['https://foreign.test/jobs', '//foreign.test/jobs', '/\\foreign.test', '/jobs/another-account', '/jobs/my-workspace/other',
     '/jobs?user_id=owner-b', '/jobs?redirect=https://foreign.test', '/jobs#security', '/jobs/../plans', '/jobs/%2e%2e/plans', '/jobs%2Fforeign',
     '/adminDashboard', '/groups', '/api/assistant', '/settings?view=security', '/settings?view=backup', '/invoice?type=wrong',
-    '/invoice?document=a&document=b', '/invoice?document=../../private', '/invoice?unknown=1', '/tax', '/vault', '/report']) {
+    '/invoice?document=a&document=b', '/invoice?document=../../private', '/invoice?unknown=1', '/tax', '/report']) {
     assert.equal(safeAssistantPath(path, context, true), null, path);
   }
   assert.equal(safeAssistantPath('/settings?view=notif', context), null);
@@ -44,6 +44,9 @@ test('navigation binds every route to current workspace and rejects escape or se
   assert.equal(safeAssistantPath('/plans', context), null);
   assert.equal(safeAssistantPath('/plans', context, true), '/plans/my-workspace');
   assert.equal(safeAssistantPath('/tax', { ...context, fullFeatureAccess: true }), '/tax/my-workspace');
+  // The vault and 50 ทวิ opened to everyone on 2026-10-31.
+  assert.equal(safeAssistantPath('/vault', context, true), '/vault/my-workspace');
+  assert.equal(safeAssistantPath('/wht50', context, true), '/wht50/my-workspace');
 });
 
 test('automatic opening requires opted-in mode, trusted metadata and matching signed-in account', () => {

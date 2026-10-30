@@ -68,7 +68,7 @@ test('navigation accepts only exact feature enums and rejects URLs, account sele
 });
 
 test('assistant navigation follows public launch policy even for admins while open pages remain reachable', () => {
-  for (const feature of ['split', 'report', 'tax', 'vault', 'wht50', 'insight']) {
+  for (const feature of ['split', 'report', 'tax', 'insight']) {
     const blocked = executeNavigationTool('navigate_to_feature', { feature }, context('เปิดหน้านี้', false));
     assert.equal((blocked.result as { ok: boolean }).ok, false, feature);
     assert.equal(blocked.card, undefined);
@@ -76,7 +76,7 @@ test('assistant navigation follows public launch policy even for admins while op
     assert.equal((adminBlocked.result as { ok: boolean }).ok, false, feature);
     assert.equal(adminBlocked.card, undefined);
   }
-  for (const [feature, path] of [['settings', '/settings'], ['invoice', '/invoice'], ['quotation', '/invoice?type=quotation'], ['expenses', '/incomeExpense'], ['notifications', '/settings?view=notif'], ['line', '/settings?view=line']] as const) {
+  for (const [feature, path] of [['settings', '/settings'], ['invoice', '/invoice'], ['quotation', '/invoice?type=quotation'], ['expenses', '/incomeExpense'], ['notifications', '/settings?view=notif'], ['line', '/settings?view=line'], ['vault', '/vault'], ['wht50', '/wht50']] as const) {
     const card = navigation(executeNavigationTool('navigate_to_feature', { feature }, context('เปิดหน้านี้')));
     assert.equal(card.path, path);
     assert.equal(card.autoOpen, true);
@@ -91,11 +91,13 @@ test('model declarations keep document actions and navigation while excluding un
   const tools = toolsFor('action');
   const names = tools.map(tool => tool.name);
   for (const name of ['propose_add_document', 'propose_edit_document', 'propose_delete_document', 'propose_add_expense', 'navigate_to_feature']) assert.ok(names.includes(name), name);
-  for (const name of ['search_vault', 'wht_tracking', 'tax_year_summary', 'propose_add_goal', 'propose_edit_goal', 'propose_delete_goal', 'propose_goal_transaction']) assert.ok(!names.includes(name), name);
+  // The vault and 50 ทวิ opened to everyone on 2026-10-31, and with them search_vault and wht_tracking.
+  for (const name of ['search_vault', 'wht_tracking']) assert.ok(names.includes(name), name);
+  for (const name of ['tax_year_summary', 'propose_add_goal', 'propose_edit_goal', 'propose_delete_goal', 'propose_goal_transaction']) assert.ok(!names.includes(name), name);
   const declaration = tools.find(tool => tool.name === 'navigate_to_feature')!;
   const features = (declaration.parameters.properties as Record<string, { enum: string[] }>).feature.enum;
-  for (const hidden of ['split', 'report', 'tax', 'vault', 'wht50', 'insight']) assert.ok(!features.includes(hidden), hidden);
-  for (const open of ['invoice', 'quotation', 'jobs', 'calendar', 'settings', 'expenses']) assert.ok(features.includes(open), open);
+  for (const hidden of ['split', 'report', 'tax', 'insight']) assert.ok(!features.includes(hidden), hidden);
+  for (const open of ['invoice', 'quotation', 'jobs', 'calendar', 'settings', 'expenses', 'vault', 'wht50']) assert.ok(features.includes(open), open);
   const blocked = await createToolbox(context('เพิ่มเป้าหมาย', true))({ id: 'hidden-goal', name: 'propose_add_goal', args: { name: 'hidden', target: 100, type: 'save', deadline: '2026-12-31' } });
   assert.equal((blocked.result as { ok: boolean }).ok, false);
 });

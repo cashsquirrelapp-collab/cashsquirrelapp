@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { noRadar } from './radarVisit';
 
 // Owner, 2026-10-24 ("เวลากดรับเงินทำไมมันเด้งขึ้นด้านบน แก้ด้วย"): recording money from a row of the jobs list
 // used to re-sort the list at once. A paid job is dated the day the money arrived, so under "ล่าสุด" it jumped to
@@ -25,7 +26,7 @@ async function open(page: Page) {
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'admin', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/data*', route => route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot, versions, subscription: null } }));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/jobs');
+  await page.goto(noRadar('/jobs'));
 }
 
 const order = (page: Page) => page.locator('[data-job-id]').filter({ visible: true }).evaluateAll(els => els.map(el => el.getAttribute('data-job-id')));

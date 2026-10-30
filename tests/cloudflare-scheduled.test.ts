@@ -5,7 +5,7 @@ import { runScheduledJobs } from '../migration/scheduled-runner.js';
 
 test('all first-day jobs run even when a preceding daily or monthly delivery fails', async () => {
   const paths = scheduledPaths('0 1 * * *', Date.parse('2026-11-01T01:00:00Z'));
-  for (const failedPath of ['/api/send-overdue-digest', '/api/send-monthly-report', '/api/send-admin-profit-report', '/api/check-ai-credit']) {
+  for (const failedPath of ['/api/send-overdue-digest', '/api/send-monthly-report', '/api/send-wht50-reminder', '/api/send-admin-profit-report', '/api/check-ai-credit']) {
     const invoked: string[] = [];
     const logs: unknown[] = [];
     await assert.rejects(runScheduledJobs(paths, async path => {
@@ -14,7 +14,7 @@ test('all first-day jobs run even when a preceding daily or monthly delivery fai
         ? { processed: 2, sent: 1, failed: 1, recipient: 'must-not-enter-logs@example.invalid' }
         : { processed: 1, sent: 1, failed: 0 });
     }, result => logs.push(result)), /Scheduled jobs failed|scheduled jobs failed/);
-    assert.deepEqual(invoked, ['/api/send-overdue-digest', '/api/send-monthly-report', '/api/send-admin-profit-report', '/api/check-ai-credit']);
+    assert.deepEqual(invoked, ['/api/send-overdue-digest', '/api/send-monthly-report', '/api/send-wht50-reminder', '/api/send-admin-profit-report', '/api/check-ai-credit']);
     assert.equal(JSON.stringify(logs).includes('must-not-enter-logs'), false);
     assert.deepEqual(logs.map(log => (log as { outcome: string }).outcome), paths.map(path => path === failedPath ? 'failed' : 'ok'));
   }
@@ -33,13 +33,14 @@ test('two triggers preserve daily and first-day jobs using the event timestamp',
   // Historical timestamps also represent delayed events; the actual current day is irrelevant.
   for (const date of ['2020-01-01', '2026-11-01', '2027-01-01']) {
     assert.deepEqual(scheduledPaths('0 1 * * *', Date.parse(`${date}T01:00:00Z`)),
-      ['/api/send-overdue-digest', '/api/send-monthly-report', '/api/send-admin-profit-report', '/api/check-ai-credit']);
+      ['/api/send-overdue-digest', '/api/send-monthly-report', '/api/send-wht50-reminder', '/api/send-admin-profit-report', '/api/check-ai-credit']);
     assert.deepEqual(scheduledPaths('0 2 * * *', Date.parse(`${date}T02:00:00Z`)), ['/api/close-expired-accounts', '/api/setup-line-richmenu', '/api/advance-card-renewals']);
   }
-  // 50 ทวิ is hidden until the owner launches it (2026-10-22): its reminder is never scheduled.
-  for (const cron of CRONS) for (const day of ['2026-11-01', '2026-11-02']) {
+  // The 50 ทวิ reminder is back with the page (2026-10-31): on the 1st only, once.
+  for (const cron of CRONS) for (const day of ['2026-11-02', '2026-11-15']) {
     assert.equal(scheduledPaths(cron, Date.parse(`${day}T01:00:00Z`)).includes('/api/send-wht50-reminder'), false);
   }
+  assert.equal(CRONS.flatMap(cron => scheduledPaths(cron, Date.parse('2026-11-01T01:00:00Z'))).filter(path => path === '/api/send-wht50-reminder').length, 1);
   assert.throws(() => scheduledPaths('0 1 * * *', Number.NaN), /Invalid scheduled event time/);
   assert.deepEqual(scheduledPaths('0 1 1 * *', Date.parse('2026-11-01T01:00:00Z')), [], 'Retired monthly trigger cannot duplicate the new daily dispatch');
 });

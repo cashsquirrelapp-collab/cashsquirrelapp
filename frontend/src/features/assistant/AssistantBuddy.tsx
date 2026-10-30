@@ -14,6 +14,7 @@ import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
 import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { useDictation } from './useDictation';
 import { prepareFile, type PreparedFile } from './voice';
+import { rememberChatFile } from './chatFiles';
 import { chatTitle, type ChatHandoff } from './chatHandoff';
 import { greetingNow, noteQuestion } from './greeting';
 import { VoiceComposer } from './VoiceComposer';
@@ -379,6 +380,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     let responseCards: ChatMessage['cards'];
     const isCurrent = () => !controller.signal.aborted && scopeRef.current.accountId === accountId && scopeRef.current.transport === transport;
     try {
+      if (file) rememberChatFile(file);
       const result = await transport.send({ conversationId, text, history, context: { page, pageName }, ...(file ? { attachment: { name: file.name, mimeType: file.mimeType, data: file.data } } : {}) }, textSoFar => {
         if (!isCurrent()) return;
         if (!started) { started = true; setMode('working'); setMessages(list => [...list, { id: botId, from: 'bot' as const, text: textSoFar, cards: responseCards, at: Date.now() }]); }

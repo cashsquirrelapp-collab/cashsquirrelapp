@@ -1,9 +1,11 @@
 import React from 'react';
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, Landmark, ListChecks, Loader2, Pencil, Send, UserRound, Wallet, X } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, FolderOpen, Landmark, ListChecks, Loader2, Pencil, Send, UserRound, Wallet, X } from 'lucide-react';
+import { VAULT_KIND_LABEL } from '../../../../shared/vault';
+import { VAULT_ATTACHED_EVENT, VAULT_ATTACH_EVENT, asFile, chatFileFor, type VaultAttachRequest } from './chatFiles';
 import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
-import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard } from './assistantMock';
+import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
 import { dateLocale } from '../../utils';
@@ -692,6 +694,71 @@ function Rename({ card }: { card: RenameCard }) {
 }
 
 /**
+ * Keep the file sent in the chat in the document vault (owner, 2026-10-31: "ส่งสลิปเข้าแชท แล้วน้องแนบเข้าโปรเจกต์นั้น
+ * ได้เลย"). The button opens the vault's own upload window with the file, its type and its job or expense filled in,
+ * so the free-account limit, the job picker and the saved screen are the vault's own. A file from before a reload is
+ * gone from memory: the card asks for it again. A sample answer changes nothing.
+ */
+const ATTACHED_KEY = (id: string) => `krarok.chatAttach.${id}`;
+function Attach({ card, onNavigate }: { card: AttachCard; onNavigate: (path: string) => void }) {
+  const live = React.useContext(LiveContext);
+  const [state, setState] = React.useState<'pending' | 'opened' | 'done' | 'missing' | 'cancelled'>(() => {
+    try { return localStorage.getItem(ATTACHED_KEY(card.id)) === 'done' ? 'done' : 'pending'; } catch { return 'pending'; }
+  });
+  React.useEffect(() => {
+    const onAttached = (event: Event) => {
+      if ((event as CustomEvent<{ requestId?: string }>).detail?.requestId !== card.id) return;
+      setState('done');
+      try { localStorage.setItem(ATTACHED_KEY(card.id), 'done'); } catch { /* the card still shows it for this visit */ }
+    };
+    window.addEventListener(VAULT_ATTACHED_EVENT, onAttached);
+    return () => window.removeEventListener(VAULT_ATTACHED_EVENT, onAttached);
+  }, [card.id]);
+  const forExpense = card.fileKind === 'expense';
+  const target = forExpense ? card.expenseName : card.jobName;
+  const open = () => {
+    if (!live) { setState('done'); return; }
+    const prepared = chatFileFor(card.fileName || undefined);
+    if (!prepared) { setState('missing'); return; }
+    const detail: VaultAttachRequest = { requestId: card.id, kind: card.fileKind, file: asFile(prepared),
+      jobId: card.jobId, jobName: card.jobName, expenseId: card.expenseId, expenseName: card.expenseName };
+    window.dispatchEvent(new CustomEvent(VAULT_ATTACH_EVENT, { detail }));
+    setState('opened');
+  };
+  const status: CardState = state === 'done' ? { tone: 'done', text: tr("แนบแล้ว") } : state === 'cancelled' ? { tone: 'muted', text: tr("ไม่แนบ") }
+    : state === 'missing' ? { tone: 'failed', text: tr("ไม่พบไฟล์") } : { tone: 'wait', text: tr("รอแนบ") };
+  return (
+    <div className="asx-rcard is-attach" data-testid="chat-attach-card">
+      <Head icon={FolderOpen} title={tr("แนบเข้าคลังเอกสาร")} state={status} />
+      <Rows rows={[
+        { label: tr("ประเภท"), value: tr(VAULT_KIND_LABEL[card.fileKind]) },
+        ...(card.fileName ? [{ label: tr("ไฟล์"), value: card.fileName }] : []),
+        { label: forExpense ? tr("รายจ่าย") : tr("งาน"), value: target ? (card.client && !forExpense ? `${target} · ${card.client}` : target) : tr("เลือกในหน้าต่างแนบไฟล์") },
+      ]} />
+      {state === 'done' ? (
+        <div className="asx-rcard-result is-done" role="status">
+          <p>{tr("เก็บไฟล์ไว้ในคลังเอกสารแล้ว")}</p>
+          <button type="button" className="asx-pill-btn" onClick={() => onNavigate('/vault')}>{tr("ดูในคลังเอกสาร")}<ArrowUpRight size={14} aria-hidden="true" /></button>
+        </div>
+      ) : state === 'cancelled' ? (
+        <div className="asx-rcard-result is-cancelled" role="status"><p>{tr("ไม่แนบไฟล์นี้ แนบเองได้ที่ คลังเอกสาร")}</p></div>
+      ) : state === 'missing' ? (
+        <div className="asx-rcard-result is-failed" role="alert"><p>{tr("ไฟล์นี้ไม่อยู่ในหน้านี้แล้ว ส่งไฟล์ในแชตอีกครั้ง แล้วกดแนบได้เลย")}</p></div>
+      ) : (
+        <div className="asx-rcard-actions">
+          <button type="button" className="asx-pill-btn is-primary" onClick={open}>
+            <FolderOpen size={14} aria-hidden="true" />{state === 'opened' ? tr("เปิดหน้าต่างแนบไฟล์อีกครั้ง") : tr("แนบเข้าคลังเอกสาร")}
+          </button>
+          <div className="asx-rcard-secondary">
+            <button type="button" className="asx-pill-btn" onClick={() => setState('cancelled')}>{tr("ไม่ต้องแนบ")}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Several cards waiting in one answer: one tap confirms them all (owner, 2026-10-28: "อะไรที่มันจะเยอะสามารถบอกน้องให้
  * น้องจัดการได้ทั้งหมด"). Each card is still confirmed on its own, with its own checks and state.
  */
@@ -736,5 +803,6 @@ function CardBody({ card, confirmState, confirmedPath, onConfirm, onCancel, onNa
     case 'questions': return <Questions card={card} onAnswer={onAnswer} answered={answered} />;
     case 'official_link': return <OfficialLink card={card} />;
     case 'rename': return <Rename card={card} />;
+    case 'attach': return <Attach card={card} onNavigate={onNavigate} />;
   }
 }

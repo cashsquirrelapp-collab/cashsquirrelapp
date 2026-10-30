@@ -146,7 +146,7 @@ test('in the chat (app and LINE): exact answers cost nothing; a model that names
 });
 
 test('the prompt: confidentiality rule in the shared part, no model names, founder text only when asked about', async () => {
-  assert.equal(PROMPT_VERSION, 'secretary-v24');
+  assert.equal(PROMPT_VERSION, 'secretary-v25');
   const prompt = buildSystemPrompt({ route: 'chat', plan: 'pro', nowLocal: 'x', knowledge: '-', accountContext: '-' });
   assert.match(prompt, /CONFIDENTIAL: never name or confirm the AI providers/);
   assert.match(prompt, /Never claim Krarok built its own foundation model/);
