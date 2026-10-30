@@ -35,6 +35,11 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   background-size: 200% 100%; background-repeat: repeat-x; animation: cl-flow 9s linear infinite; }
 @keyframes cl-flow { from { background-position: 0% 50%; } to { background-position: -200% 50%; } }
 @media (prefers-reduced-motion: reduce) { .cl-grad.is-flow { animation: none; } }
+/* The Thai hero's เลขากระรอก is a drawn wordmark (TailWord.tsx, owner 2026-10-30): as wide as the word set in type, one em
+   above the baseline and 0.2em below, so the line keeps its height; the ร's tail appears once the type has loaded. */
+.cl-tailword svg { display: inline-block; width: 5.8733em; height: 1.2em; vertical-align: -0.2em; overflow: visible; }
+.cl-tail { opacity: 0; transition: opacity 0.3s ease; }
+.cl-tail.is-on { opacity: 1; }
 .cl-skip { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 8px 14px; border-radius: 10px; background: var(--ink); color: #FFFFFF; }
 .cl-skip:focus { top: 12px; }
 .cl a:focus-visible, .cl summary:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }

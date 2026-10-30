@@ -287,6 +287,10 @@ card does not need:
   number; no number at all when there is none (never 0). On phones the chat is a phone in the page (272px, the hero
   phone's bezel), its own left alignment.
 - Phones show the Gmail icon among the floating cards too (owner, 2026-10-30): LINE · 08:00 · Gmail, then +฿5,000.
+- The Thai hero's เลขากระรอก is a drawn wordmark (owner, 2026-10-30, look D of four: "ทำให้ตัวอักษร ... เหมือนหางกระรอก"):
+  the word in its own Looped type with the second ร's top hook swept up into a squirrel's tail, smooth like the brand's
+  tail mark, in the same running CI colours (`v5/TailWord.tsx`; drafts in `artifacts/wordmark-tail`). It sits on the
+  line's baseline, keeps the line's height and rises in with the other words. English keeps "Krarok Assistant" in type.
 - English (owner, 2026-10-30: shorter, same meaning as the Thai, sized for phones): "From job to payday, / Krarok
   Assistant is on it" with "Krarok Assistant" in a rounded type (Nunito 800, as เลขากระรอก is in Thai's looped type),
   two lines on every phone; headings a size down on phones, each two lines ("All in one app", "Reminded each morning,
