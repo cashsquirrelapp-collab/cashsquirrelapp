@@ -1,4 +1,5 @@
 import { uiInput, uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles';
+import { ownMonthlyExpense } from '../../../../shared/monthlySummary';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -90,7 +91,7 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
   const [errors, setErrors] = React.useState<{ name?: string; amount?: string; date?: string }>({});
 
   const fixedItems = settings.fixedExpenseItems || [];
-  const legacyLump = fixedItems.length === 0 && settings.monthlyExpense > 0;
+  const legacyLump = fixedItems.length === 0 && ownMonthlyExpense(settings.monthlyExpense, fixedItems) > 0;
   const findFixedItem = (value: string) => fixedItems.find(item => item.name.trim().toLowerCase() === value.trim().toLowerCase());
 
   React.useEffect(() => {
@@ -139,7 +140,7 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
     if (recurring) {
       // An account that only has the old lump-sum total keeps it as its own item -- and the match
       // is looked up in that list, so recording the lump itself updates it instead of adding a twin.
-      const baseItems = fixedItems.length === 0 && settings.monthlyExpense > 0
+      const baseItems = fixedItems.length === 0 && ownMonthlyExpense(settings.monthlyExpense, fixedItems) > 0
         ? [{ id: crypto.randomUUID(), name: LEGACY_FIXED_NAME, amount: settings.monthlyExpense }]
         : fixedItems;
       const existing = baseItems.find(item => item.name.trim().toLowerCase() === payload.name.trim().toLowerCase());

@@ -1,6 +1,7 @@
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { incomeRows, isValidDateKey, sumIncome, type IncomeRow } from '../../../shared/incomeExport.js';
 import { getJobPaymentEntries } from '../../../shared/installmentPayments.js';
+import { ownMonthlyExpense } from '../../../shared/monthlySummary.js';
 import { currentCash } from '../../../shared/cashBalance.js';
 import { settleConfirmedTax } from '../../../shared/tax.js';
 import { jobNetReceivable, jobWhtAmount, roundMoney } from '../../../shared/wht.js';
@@ -159,7 +160,7 @@ function monthlyBuckets(receipts: Receipt[], expenses: ExpenseRecord[], period: 
 }
 function recurringBudget(settings: Partial<AppSettings>) {
   const fixed = Array.isArray(settings.fixedExpenseItems) ? settings.fixedExpenseItems : [];
-  return { monthly_configured: fixed.length ? roundMoney(fixed.reduce((sum, item) => sum + money(item.amount), 0)) : money(settings.monthlyExpense),
+  return { monthly_configured: fixed.length ? roundMoney(fixed.reduce((sum, item) => sum + money(item.amount), 0)) : money(ownMonthlyExpense(settings.monthlyExpense, fixed)),
     included_in_actual_expenses: false, note: 'งบประจำที่ตั้งไว้ไม่ใช่รายการจ่ายจริง; รายจ่ายจริงนับรายการที่มีวันที่เพียงครั้งเดียว และไม่รวมการย้ายเงินเข้ากระปุก' };
 }
 

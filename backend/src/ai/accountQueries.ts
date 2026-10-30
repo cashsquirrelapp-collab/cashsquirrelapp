@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { calculateDocumentTotals } from '../../../frontend/src/features/invoices/documentMath.js';
 import { getJobPaymentEntries, getJobScheduledPendingEntries } from '../../../shared/installmentPayments.js';
 import { isValidDateKey } from '../../../shared/incomeExport.js';
+import { ownMonthlyExpense } from '../../../shared/monthlySummary.js';
 import type { InvoiceItem, Job } from '../../../shared/types.js';
 import { roundMoney } from '../../../shared/wht.js';
 import type { UserRow } from '../services/lineAssistant.js';
@@ -148,7 +149,7 @@ export function executeAccountTool(name: string, args: Record<string, unknown>, 
 
   if (input.domain === 'settings') {
     const settings = record(user.settings), notifications = record(user.notif_settings);
-    return ok({ settings: { monthly_expense_budget: optionalNumber(settings.monthlyExpense), monthly_revenue_goal: optionalNumber(settings.monthlyRevenueGoal),
+    return ok({ settings: { monthly_expense_budget: optionalNumber(ownMonthlyExpense(settings.monthlyExpense as number | undefined, Array.isArray(settings.fixedExpenseItems) ? settings.fixedExpenseItems as { name: string; amount: number }[] : undefined)), monthly_revenue_goal: optionalNumber(settings.monthlyRevenueGoal),
       savings_percentage: optionalNumber(settings.savingsPercentage), user_persona: text(settings.userPersona), goals_enabled: settings.goalsFeatureEnabled !== false,
       profile_job_types: page((Array.isArray(settings.profileJobTypes) ? settings.profileJobTypes : []).filter((item): item is string => typeof item === 'string').map(item => text(item)), input),
       profile_job_type_other: text(settings.profileJobTypeOther), cash_opening: optionalNumber(record(settings.cashOpening).amount) },

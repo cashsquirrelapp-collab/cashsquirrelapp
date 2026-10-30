@@ -1,6 +1,6 @@
 import type { AppSettings, Expense, Job } from '../../../../shared/types';
 import { T } from '../../i18n/tr';
-import { firstActivityMonth, fixedExpenseForMonth } from '../../../../shared/monthlySummary';
+import { firstActivityMonth, fixedExpenseForMonth, ownMonthlyExpense } from '../../../../shared/monthlySummary';
 
 // One month of the รายจ่าย page: recorded expenses plus the fixed monthly lines from Settings that
 // no recorded payment covers yet -- the same rule as the dashboard's รายจ่ายเดือนนี้, so both pages
@@ -52,9 +52,10 @@ export function buildExpenseMonth(
 
   // Fixed lines count from the account's first recorded month on (never before it existed).
   const counts = monthKey >= (firstActivityMonth(jobs, expenses) ?? currentMonth);
-  const legacyLump = fixedItems.length === 0 && (settings.monthlyExpense || 0) > 0;
+  const lump = ownMonthlyExpense(settings.monthlyExpense, fixedItems);
+  const legacyLump = fixedItems.length === 0 && lump > 0;
   const settingsRows: ExpenseRow[] = !counts ? [] : legacyLump
-    ? [{ id: 'fixed-legacy', name: LEGACY_FIXED_NAME, amount: settings.monthlyExpense, date: null, category: '', recurring: true, fromSettings: true }]
+    ? [{ id: 'fixed-legacy', name: LEGACY_FIXED_NAME, amount: lump, date: null, category: '', recurring: true, fromSettings: true }]
     : fixedItems
         .filter(item => item.amount > 0 && !recorded.some(e => sameName(e.name, item.name)))
         .map(item => ({ id: `fixed-${item.id}`, name: item.name, amount: item.amount, date: null, category: '', recurring: true, fromSettings: true }));

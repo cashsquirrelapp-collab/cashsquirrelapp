@@ -1,8 +1,9 @@
 import { Job, Goal, Expense, AppSettings } from '../../shared/types';
 
 import { tr } from './i18n/tr';
+// No fixed monthly cost until the person sets one (owner, 2026-10-31; it was 12,000 ฿ for every account).
 export const defaultSettings: AppSettings = {
-  monthlyExpense: 12000,
+  monthlyExpense: 0,
   monthlyRevenueGoal: 35000,
   savingsPercentage: 40,
   accumulatedRemainder: 0,

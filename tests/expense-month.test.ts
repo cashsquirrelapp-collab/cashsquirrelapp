@@ -1,4 +1,6 @@
 import test from 'node:test';
+import { fixedExpenseForMonth, ownMonthlyExpense } from '../shared/monthlySummary.ts';
+import { defaultSettings } from '../frontend/src/sampleData.ts';
 import assert from 'node:assert/strict';
 import type { Expense, Job } from '../shared/types';
 import { buildExpenseMonth, sortExpenseRows } from '../frontend/src/features/incomeExpense/expenseMonth';
@@ -29,8 +31,8 @@ test('a recorded fixed bill is not counted twice with its fixed line', () => {
 });
 
 test('old lump-sum fixed expense shows as one recurring line', () => {
-  const m = buildExpenseMonth(jobs, [], { monthlyExpense: 12000, fixedExpenseItems: [] }, '2026-10', '2026-10');
-  assert.deepEqual(m.rows.map(r => [r.name, r.amount, r.recurring]), [['ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)', 12000, true]]);
+  const m = buildExpenseMonth(jobs, [], { monthlyExpense: 9500, fixedExpenseItems: [] }, '2026-10', '2026-10');
+  assert.deepEqual(m.rows.map(r => [r.name, r.amount, r.recurring]), [['ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)', 9500, true]]);
   // Recording it as paid that month replaces the line rather than adding to it.
   const paid = buildExpenseMonth(jobs, [exp('x', 'ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)', 12000, '2026-10-01')], { monthlyExpense: 12000, fixedExpenseItems: [{ id: 'l', name: 'ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)', amount: 12000 }] }, '2026-10', '2026-10');
   assert.equal(paid.total, 12000);
@@ -54,4 +56,19 @@ test('sorting uses real dates and amounts; fixed lines lead date sorts', () => {
   assert.deepEqual(sortExpenseRows(m.rows, 'oldest').map(r => r.name), ['ค่าเช่าห้อง', 'อินเทอร์เน็ต', 'A', 'C', 'B']);
   assert.deepEqual(sortExpenseRows(m.rows, 'amountDesc').map(r => r.amount), [5000, 900, 590, 100, 50]);
   assert.deepEqual(sortExpenseRows(m.rows, 'amountAsc').map(r => r.amount), [50, 100, 590, 900, 5000]);
+});
+
+// Owner, 2026-10-31: every account used to start with a fixed 12,000 ฿ it never set; it is removed (0) until the person
+// sets their own. A 12,000 the person set is always an item, so only 12,000 with no items is the old default.
+test('the old automatic 12,000 fixed cost counts as nothing; a 12,000 the person set still counts', () => {
+  const m = buildExpenseMonth(jobs, [], { monthlyExpense: 12000, fixedExpenseItems: [] }, '2026-10', '2026-10');
+  assert.deepEqual([m.rows.length, m.recurringTotal, m.total], [0, 0, 0]);
+  const own = buildExpenseMonth(jobs, [], { monthlyExpense: 12000, fixedExpenseItems: [{ id: 'r', name: 'ค่าห้อง', amount: 12000 }] }, '2026-10', '2026-10');
+  assert.deepEqual(own.rows.map(r => [r.name, r.amount]), [['ค่าห้อง', 12000]]);
+  assert.equal(ownMonthlyExpense(12000, undefined), 0);
+  assert.equal(ownMonthlyExpense(12000, []), 0);
+  assert.equal(ownMonthlyExpense(12500, []), 12500);
+  assert.equal(ownMonthlyExpense(12000, [{ name: 'ค่าห้อง', amount: 12000 }]), 12000);
+  assert.equal(fixedExpenseForMonth(12000, [], []), 0);
+  assert.equal(defaultSettings.monthlyExpense, 0);
 });

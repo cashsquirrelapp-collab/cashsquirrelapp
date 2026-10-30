@@ -1,4 +1,5 @@
 import { uiSurface } from '../../components/ui/uiStyles';
+import { ownMonthlyExpense } from '../../../../shared/monthlySummary';
 import { uiInput, uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles';
 import PageHeader from '../../components/ui/PageHeader';
 import React, { useState, useEffect } from 'react';
@@ -488,7 +489,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
     // First item ever added: carry the existing lump-sum value forward so nothing is lost
     let baseItems = fixedExpenseItems;
-    if (baseItems.length === 0 && settings.monthlyExpense > 0) {
+    if (baseItems.length === 0 && ownMonthlyExpense(settings.monthlyExpense, fixedExpenseItems) > 0) {
       baseItems = [{ id: crypto.randomUUID(), name: tr("ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)"), amount: settings.monthlyExpense }];
     }
 
@@ -897,7 +898,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <Panel>
             <div className="flex items-baseline justify-between">
               <p className="text-[13px] font-medium text-brand-muted">{isGroupFinance ? tr("ค่าใช้จ่ายกลุ่มรายเดือนคงที่") : tr("รวมต่อเดือน")}</p>
-              <p className="font-mono text-[20px] font-semibold text-brand-text">{formatCurrency(settings.monthlyExpense)}</p>
+              <p className="font-mono text-[20px] font-semibold text-brand-text">{formatCurrency(ownMonthlyExpense(settings.monthlyExpense, settings.fixedExpenseItems))}</p>
             </div>
             {fixedExpenseItems.length > 0 ? (
               <ul className="divide-y divide-brand-border rounded-xl border border-brand-border">
@@ -1148,7 +1149,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <div className="space-y-7">
                   <Section icon={FileText} title={tr("การเงินและเอกสาร")} id="settings-finance">
                     <NavRow icon={Building2} title={tr("โปรไฟล์ธุรกิจ")} desc={tr("โลโก้ ลายเซ็น ข้อมูลผู้ขาย และข้อมูลในเอกสาร")} onClick={() => openView('business')} guide="business" />
-                    <NavRow icon={CalendarClock} title={tr("รายจ่ายประจำ")} desc={tr("จัดการค่าใช้จ่ายที่เกิดขึ้นเป็นประจำ")} value={<span className="font-mono">{formatCurrency(settings.monthlyExpense)}</span>} onClick={() => openView('fixed')} />
+                    <NavRow icon={CalendarClock} title={tr("รายจ่ายประจำ")} desc={tr("จัดการค่าใช้จ่ายที่เกิดขึ้นเป็นประจำ")} value={<span className="font-mono">{formatCurrency(ownMonthlyExpense(settings.monthlyExpense, settings.fixedExpenseItems))}</span>} onClick={() => openView('fixed')} />
                     {fullFeatureAccess && <NavRow icon={Target} title={tr("เป้ารายรับต่อเดือน")} desc={tr("ตั้งเป้ารายรับในแต่ละเดือน")} value={<span className="font-mono">{settings.monthlyRevenueGoal ? formatCurrency(settings.monthlyRevenueGoal) : tr("ยังไม่ได้ตั้ง")}</span>}
                       onClick={() => { setTargetDraft(settings.monthlyRevenueGoal ? String(settings.monthlyRevenueGoal) : ''); setSheet('target'); }} />}
                     {fullFeatureAccess && <div className={rowShell}>

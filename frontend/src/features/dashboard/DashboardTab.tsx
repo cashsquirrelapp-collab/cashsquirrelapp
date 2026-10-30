@@ -1,4 +1,5 @@
 import { uiSurface } from '../../components/ui/uiStyles';
+import { ownMonthlyExpense } from '../../../../shared/monthlySummary';
 import { GoalAvatar } from '../goals/SplitParts';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -1321,7 +1322,7 @@ export default function DashboardTab({
           const loggedExpenseNames = new Set(monthRecordedExpenses.map(e => e.name.trim().toLowerCase()));
           const fixedRows = settings.fixedExpenseItems && settings.fixedExpenseItems.length > 0
             ? settings.fixedExpenseItems.map(item => ({ id: item.id, name: item.name, amount: item.amount, covered: loggedExpenseNames.has(item.name.trim().toLowerCase()) }))
-            : settings.monthlyExpense > 0 ? [{ id: 'legacy-total', name: tr("ค่าใช้จ่ายคงที่รายเดือน"), amount: settings.monthlyExpense, covered: false }] : [];
+            : ownMonthlyExpense(settings.monthlyExpense, settings.fixedExpenseItems) > 0 ? [{ id: 'legacy-total', name: tr("ค่าใช้จ่ายคงที่รายเดือน"), amount: settings.monthlyExpense, covered: false }] : [];
           const workRows = breakdownFilter === 'workValue' ? workValueRowsForMonth(jobs, selectedMonthKey) : [];
           const workTotals = workRows.reduce((acc, row) => ({
             value: acc.value + row.value, received: acc.received + row.received, pending: acc.pending + row.pending,

@@ -123,12 +123,23 @@ export function firstActivityMonth(
   return dates[0]?.slice(0, 7) ?? null;
 }
 
+/**
+ * Every account used to start with a fixed monthly cost of 12,000 ฿ it never set (sampleData before 2026-10-31). The owner
+ * (2026-10-31): "ค่าใช้จ่ายที่ตั้งให้อัตโนมัติทุกบัญชี 12,000 ลบออกเลย ให้เหลือ 0 ... ผู้ใช้อยากเซตเองก็ให้เขาไปเซตเอง".
+ * Costs a person sets are always items (Settings, เลขากระรอก), so 12,000 with no items is that old default: it counts as 0.
+ */
+export const OLD_DEFAULT_MONTHLY_EXPENSE = 12000;
+export function ownMonthlyExpense(monthlyExpense: number | undefined, fixedItems: FixedItemRow[] | undefined): number {
+  if (fixedItems?.length) return monthlyExpense || 0;
+  return monthlyExpense === OLD_DEFAULT_MONTHLY_EXPENSE ? 0 : monthlyExpense || 0;
+}
+
 export function fixedExpenseForMonth(
   monthlyExpense: number | undefined,
   fixedItems: FixedItemRow[] | undefined,
   monthExpenseNames: Array<string | undefined>,
 ): number {
-  if (!fixedItems?.length) return monthlyExpense || 0;
+  if (!fixedItems?.length) return ownMonthlyExpense(monthlyExpense, fixedItems);
   const logged = new Set(monthExpenseNames.map((name) => (name || '').trim().toLowerCase()).filter(Boolean));
   return fixedItems.reduce((sum, item) => (logged.has(item.name.trim().toLowerCase()) ? sum : sum + (item.amount || 0)), 0);
 }

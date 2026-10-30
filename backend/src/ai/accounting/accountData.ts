@@ -1,5 +1,6 @@
 import { getJobPendingEntries } from '../../../../shared/installmentPayments.js';
 import { todayInBangkok } from '../../../../shared/dueJobs.js';
+import { ownMonthlyExpense } from '../../../../shared/monthlySummary.js';
 import { jobNetReceivable, jobWhtAmount, whtAmountFor } from '../../../../shared/wht.js';
 import type { Expense, Job } from '../../../../shared/types.js';
 import type { UserRow } from '../../services/lineAssistant.js';
@@ -108,7 +109,8 @@ export function cashForecast(user: UserRow, windowDays: 30 | 60 | 90 = 30, inclu
       else if (away <= windowDays) { expected += amount; expectedRows.push({ job: job.name, client: job.client || '', amount: baht(amount), due: entry.dueDate }); }
     }
   }
-  const monthly = satang(Number((user.settings as { monthlyExpense?: number } | undefined)?.monthlyExpense) || 0);
+  const ownSettings = user.settings as { monthlyExpense?: number; fixedExpenseItems?: { name: string; amount: number }[] } | undefined;
+  const monthly = satang(ownMonthlyExpense(Number(ownSettings?.monthlyExpense) || 0, ownSettings?.fixedExpenseItems));
   const budget = includeBudget ? Math.round(monthly * windowDays / 30) : 0;
   const best = expected + overdue - budget;
   const base = expected - budget;

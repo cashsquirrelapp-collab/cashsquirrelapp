@@ -1,4 +1,5 @@
 import PageHeader from '../../components/ui/PageHeader';
+import { ownMonthlyExpense } from '../../../../shared/monthlySummary';
 import { KsIcon } from '../mobile/icons';
 import { MobileSheet } from '../mobile/MobileHome';
 import { useMobileLayout } from '../mobile/useMobileLayout';
@@ -598,7 +599,8 @@ function RecurringManager({ settings, onUpdateSettings, onClose }: { settings: A
   const [newAmount, setNewAmount] = React.useState('');
   const save = (updated: FixedExpenseItem[]) => onUpdateSettings({ ...settings, fixedExpenseItems: updated, monthlyExpense: sumFixedExpenseItems(updated) });
   // An account that only has the old lump-sum total keeps it as its own editable item.
-  const base = (): FixedExpenseItem[] => items.length === 0 && settings.monthlyExpense > 0
+  const lumpSum = ownMonthlyExpense(settings.monthlyExpense, items);
+  const base = (): FixedExpenseItem[] => items.length === 0 && lumpSum > 0
     ? [{ id: crypto.randomUUID(), name: LEGACY_FIXED_NAME, amount: settings.monthlyExpense }]
     : items;
   const add = () => {
@@ -609,14 +611,14 @@ function RecurringManager({ settings, onUpdateSettings, onClose }: { settings: A
   };
   const update = (id: string, patch: Partial<FixedExpenseItem>) => save(items.map(item => item.id === id ? { ...item, ...patch } : item));
   const input = uiInput;
-  const legacyOnly = items.length === 0 && settings.monthlyExpense > 0;
+  const legacyOnly = items.length === 0 && lumpSum > 0;
 
   return (
     <SidePanel title={tr("จัดการรายจ่ายประจำ")} subtitle={tr("ค่าใช้จ่ายที่นับทุกเดือน เช่น ค่าห้อง อินเทอร์เน็ต ค่าสมาชิก")} onClose={onClose}>
       <ul className="space-y-2">
         {legacyOnly && (
           <li className="rounded-[10px] border border-brand-border px-3 py-2.5 text-[13px]">
-            <div className="flex justify-between"><span className="text-brand-text">{LEGACY_FIXED_NAME}</span><span className="font-mono text-brand-text">{formatCurrency(settings.monthlyExpense)}</span></div>
+            <div className="flex justify-between"><span className="text-brand-text">{LEGACY_FIXED_NAME}</span><span className="font-mono text-brand-text">{formatCurrency(lumpSum)}</span></div>
             <p className="mt-1 text-[11px] text-brand-muted">{tr("เพิ่มรายการแรกด้านล่าง ยอดเดิมจะถูกแยกเป็นรายการที่แก้ชื่อได้")}</p>
           </li>
         )}
@@ -642,7 +644,7 @@ function RecurringManager({ settings, onUpdateSettings, onClose }: { settings: A
       </div>
       <div className="mt-4 flex justify-between rounded-[10px] bg-brand-faint px-3 py-2.5 text-[13px]">
         <span className="text-brand-muted">{tr("รวมต่อเดือน")}</span>
-        <span className="font-mono font-semibold text-brand-text">{formatCurrency(items.length ? sumFixedExpenseItems(items) : settings.monthlyExpense || 0)}</span>
+        <span className="font-mono font-semibold text-brand-text">{formatCurrency(items.length ? sumFixedExpenseItems(items) : lumpSum)}</span>
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-brand-muted">{tr("ยอดเหล่านี้นับเป็นรายจ่ายทุกเดือนโดยอัตโนมัติ ถ้าเดือนไหนบันทึกจ่ายรายการชื่อเดียวกัน ระบบใช้ยอดที่บันทึกแทน ไม่นับซ้ำ")}</p>
     </SidePanel>

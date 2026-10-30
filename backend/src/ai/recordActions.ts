@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { applyGoalTransaction, hasLinkedGoalTransactions } from '../../../shared/goalLedger.js';
 import { saveOpening } from '../../../shared/cashBalance.js';
 import { roundMoney } from '../../../shared/wht.js';
+import { ownMonthlyExpense } from '../../../shared/monthlySummary.js';
 import type { Goal } from '../../../shared/types.js';
 import type { ToolContext } from './tools.js';
 import type { ToolOutcome, ToolSpec } from './types.js';
@@ -126,6 +127,7 @@ export async function executeRecordAction(name: string, args: Record<string, unk
   if (name === 'propose_update_preferences') {
     const previous = record(user.settings);
     const next = { monthlyExpense: 0, monthlyRevenueGoal: 0, savingsPercentage: 0, ...previous } as Record<string, unknown>;
+    next.monthlyExpense = ownMonthlyExpense(next.monthlyExpense as number | undefined, Array.isArray(previous.fixedExpenseItems) ? previous.fixedExpenseItems as { name: string; amount: number }[] : undefined);
     const changes: { label: string; value: string }[] = [];
     if (input.monthly_revenue_goal !== undefined) { next.monthlyRevenueGoal = roundMoney(Number(input.monthly_revenue_goal)); changes.push({ label: 'เป้ารายรับต่อเดือน', value: baht(next.monthlyRevenueGoal) }); }
     if (input.savings_percentage !== undefined) { next.savingsPercentage = input.savings_percentage; changes.push({ label: 'สัดส่วนออม', value: `${input.savings_percentage}%` }); }
