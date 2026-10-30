@@ -213,6 +213,33 @@ test('the form saves one document for its draft, clears the draft, and sends the
   assert.equal(state.body.document.id, record.id, 'the saved document goes back to be drawn as a picture');
 });
 
+// The real router in front of the form (the browser tests stand in for the server): a picture of the largest size the
+// server keeps (1 MB) must reach the form's handler, not be refused as too large (it was, with the 16 KB default).
+test('the router lets a full-size document picture through to the LINE form handler', async () => {
+  const { Readable } = await import('node:stream');
+  const { routeHandler } = await import('../backend/src/http/router');
+  const keys = ['APP_URL', 'NODE_ENV', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const;
+  const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  process.env.NODE_ENV = 'development'; delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const call = async (body: Buffer) => {
+    const req = Object.assign(Readable.from([body]), { method: 'POST', url: '/api/liff-submit', headers: { 'content-type': 'application/json', 'content-length': String(body.length) } });
+    let status = 200; const headers: Record<string, unknown> = {};
+    const res = { headersSent: false, setHeader: (key: string, value: unknown) => { headers[key] = value; }, getHeader: (key: string) => headers[key], hasHeader: (key: string) => key in headers,
+      status(value: number) { status = value; return this; }, json() { this.headersSent = true; } };
+    await routeHandler('liff-submit')(req as any, res as any);
+    return status;
+  };
+  try {
+    const picture = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(1_000_000 - 4, 7)]).toString('base64');
+    const body = Buffer.from(JSON.stringify({ action: 'document-image', draftKind: 'document', draftKey: '0123456789abcdef', image: picture }));
+    assert.ok(body.length > 1_300_000);
+    assert.equal(await call(body), 400, 'reached the handler (no LINE sign-in in this call), not refused as too large');
+    assert.equal(await call(Buffer.alloc(1536 * 1024 + 1)), 413);
+  } finally {
+    for (const key of keys) if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
+  }
+});
+
 const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7)]).toString('base64');
 test('the picture of the new document goes into the chat, only for this draft’s own document and only as a real JPEG', async () => {
   const key = '0123456789abcdef';

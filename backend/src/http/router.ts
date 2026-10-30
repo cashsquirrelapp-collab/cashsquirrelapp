@@ -61,7 +61,8 @@ export function routeHandler(route:string):Handler {
   if(!rawRoutes.has(route)&&!['GET','HEAD'].includes(req.method||'')) {
    const contentType=req.headers['content-type']||'';
    if(!contentType.startsWith('application/json'))throw new HttpError(415,'Expected application/json');
-   const raw=await readRawBody(req,route==='data'?4*1024*1024:route==='notify'?128*1024:route==='assistant'?6*1024*1024:route==='feedback-public'?3*1024*1024:16*1024);
+   // liff-submit carries the picture of a new document for the LINE chat (a JPEG up to 1 MB, as base64 in JSON).
+   const raw=await readRawBody(req,route==='data'?4*1024*1024:route==='notify'?128*1024:route==='assistant'?6*1024*1024:route==='feedback-public'?3*1024*1024:route==='liff-submit'?1536*1024:16*1024);
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
