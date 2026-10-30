@@ -578,7 +578,8 @@ test('settings overview shows current values and opens each setting on its own p
  // theme sheet
  await main.getByRole('button',{name:'การแสดงผล',exact:true}).click();
  const dark=await page.locator('html').evaluate(el=>el.classList.contains('dark'));
- await page.getByRole('dialog').getByRole('radio',{name:dark?'สว่าง':'มืด'}).click();
+ // the display sheet's choices since 2026-10-30: by the clock, always light, always dark
+ await page.getByRole('dialog').getByRole('radio',{name:dark?/สว่างตลอด/:/มืดตลอด/}).click();
  await expect.poll(()=>page.locator('html').evaluate(el=>el.classList.contains('dark'))).toBe(!dark);
  await page.keyboard.press('Escape');
  // a detail page has a back link and no settings sidebar

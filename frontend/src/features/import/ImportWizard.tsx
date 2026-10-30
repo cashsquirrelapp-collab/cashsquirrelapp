@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft, Download, FileSpreadsheet, RefreshCw, Upload } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft, Download, FileSpreadsheet, Loader2, RefreshCw, Sparkles, Upload } from 'lucide-react';
+import { applySuggestions, askColumns, columnsToAsk } from './aiColumns';
 import type { Expense, Job, StatusOption } from '../../../../shared/types';
 import { roundMoney, whtAmountFor } from '../../../../shared/wht';
 import { calculatePayDate } from '../../../../shared/calendar';
@@ -47,6 +48,8 @@ interface Props {
   onRestoreBackup?: (text: string) => void;
   onUndo: (batchId: string) => void;
   onViewJobs: () => void;
+  /** The signed-in account: เลขากระรอก suggests the columns the rules could not name (none for a guest). */
+  accountId?: string;
 }
 
 type Step = 'file' | 'map' | 'review' | 'done';
@@ -82,7 +85,7 @@ const QUIET_ISSUES: IssueCode[] = ['duplicate', 'alreadyImported', 'total', 'bla
 const REASON_LABELS: Record<NonNullable<ColumnGuess['reason']>, string> = {
   header: T("หัวตารางตรงกับช่องนี้"), headerPartial: T("หัวตารางใกล้เคียง"), code: T("รหัส แปลงเป็นชื่อจากแท็บอื่น"),
   valuesStrong: T("ข้อมูลในคอลัมน์บอกชัด"), values: T("เดาจากข้อมูล คุณยืนยันแล้ว"), person: T("คุณเลือกเอง"),
-  remembered: T("ตามที่เลือกไว้ครั้งก่อน"), none: T("เก็บไว้ในหมายเหตุ"),
+  remembered: T("ตามที่เลือกไว้ครั้งก่อน"), ai: T("เลขากระรอกแนะนำ"), none: T("เก็บไว้ในหมายเหตุ"),
 };
 const METRIC_LABELS: Record<MetricField, string> = {
   received: T("รับแล้ว"), pending: T("ค้างรับ"), value: T("มูลค่างาน"), expense: T("รายจ่าย"), expenseBusiness: T("รายจ่ายธุรกิจ"),
@@ -168,7 +171,7 @@ function shown(field: string, value: unknown): string {
   return String(value);
 }
 
-export function ImportWizard({ open, onClose, jobs, expenses, statuses, jobTypes, onImport, onRetrySave, onRestoreBackup, onUndo, onViewJobs }: Props) {
+export function ImportWizard({ open, onClose, jobs, expenses, statuses, jobTypes, onImport, onRetrySave, onRestoreBackup, onUndo, onViewJobs, accountId }: Props) {
   const [step, setStep] = React.useState<Step>('file');
   const [fileName, setFileName] = React.useState('');
   const [fingerprint, setFingerprint] = React.useState('');
@@ -188,8 +191,27 @@ export function ImportWizard({ open, onClose, jobs, expenses, statuses, jobTypes
   const [result, setResult] = React.useState<ImportResult | null>(null);
   const [saveState, setSaveState] = React.useState<'saving' | SaveOutcome>('saving');
   const [undone, setUndone] = React.useState(false);
+  // เลขากระรอก's suggestions for unnamed columns (owner, 2026-10-30): asked by itself after the file is read; a newer
+  // file or a reset makes an older answer stale.
+  const aiRun = React.useRef(0);
+  const [aiAsking, setAiAsking] = React.useState(false);
+  const suggestColumns = async (list: SheetState[], account: string) => {
+    const run = ++aiRun.current;
+    const targets = list.map((sheet, index) => ({ sheet, index })).filter(({ sheet }) => sheet.include && columnsToAsk(sheet.analysis).length).slice(0, 4);
+    if (!targets.length) return;
+    setAiAsking(true);
+    await Promise.all(targets.map(async ({ sheet, index }) => {
+      try {
+        const answer = await askColumns(account, sheet.grid.name, sheet.analysis);
+        if (run !== aiRun.current || !answer.columns.length) return;
+        setSheets(current => current.map((item, i) => (i === index && item.grid === sheet.grid ? { ...item, analysis: applySuggestions(item.analysis, answer.columns).analysis } : item)));
+      } catch { /* the import goes on with its own guesses */ }
+    }));
+    if (run === aiRun.current) setAiAsking(false);
+  };
 
   const reset = () => {
+    aiRun.current += 1; setAiAsking(false);
     setStep('file'); setFileName(''); setFingerprint(''); setSheets([]); setActive(0); setAmountsAreNet(false); setError(''); setIncluded({}); setEdits({});
     setIncludePersonal(true); setFilter('all'); setShownRows(PAGE); setOpenRow(null); setShowChecks(false); setResult(null); setSaveState('saving'); setUndone(false);
   };
@@ -225,6 +247,7 @@ export function ImportWizard({ open, onClose, jobs, expenses, statuses, jobTypes
       setActive(Math.max(0, next.findIndex(s => s.include)));
       setFileName(file.name);
       setStep('map');
+      if (accountId) void suggestColumns(next, accountId);
     } catch {
       setError(tr("เปิดไฟล์นี้ไม่ได้ ไฟล์อาจเสียหายหรือมีรหัสผ่าน ลองบันทึกเป็น .xlsx หรือ .csv แล้วเลือกใหม่"));
     } finally {
@@ -509,6 +532,12 @@ export function ImportWizard({ open, onClose, jobs, expenses, statuses, jobTypes
                   </select>
                 </label>
               </div>
+              {(() => {
+                const pending = sheet.analysis.columns.filter(column => column.reason === 'ai').length;
+                if (aiAsking && !pending) return <p role="status" className="mb-3 flex items-center gap-2 rounded-xl bg-brand-faint px-4 py-2.5 text-[13px] text-brand-text"><Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#E65F2B]" aria-hidden="true" />{tr("เลขากระรอกกำลังช่วยดูคอลัมน์ที่ระบบยังไม่รู้จัก")}</p>;
+                if (pending) return <p role="status" className="mb-3 flex items-start gap-2 rounded-xl bg-[#FFF1E8] px-4 py-2.5 text-[13px] text-[#8A3A12] dark:bg-[#E65F2B]/10 dark:text-[#FFB38A]"><Sparkles className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{tr("เลขากระรอกแนะนำ {0} คอลัมน์ ตรวจว่าตรงไหม แล้วกด ยืนยัน หรือเลือกช่องอื่น", pending)}</p>;
+                return null;
+              })()}
               <div className="overflow-hidden rounded-xl border border-brand-border">
                 <table className="w-full table-fixed text-left text-[13px]">
                   <thead className="bg-brand-faint/70 text-[12px] text-brand-muted">
@@ -528,7 +557,7 @@ export function ImportWizard({ open, onClose, jobs, expenses, statuses, jobTypes
                                 className={`h-9 min-w-0 flex-1 rounded-[10px] border bg-brand-white px-2.5 text-[13px] dark:bg-neutral-950 ${guessed || unsure ? 'border-[#F2A93B]' : 'border-brand-border'}`}>
                                 {[...new Set([...fieldsForSheet, column.target])].map(target => <option key={target} value={target}>{tr(FIELD_LABELS[target])}</option>)}
                               </select>
-                              {guessed && <button type="button" onClick={() => confirmColumn(column.index)} className={`${chip} ${amber} shrink-0 cursor-pointer font-medium hover:brightness-95`} aria-label={tr("ยืนยันว่าคอลัมน์ {0} คือ {1}", column.header || columnLetter(column.index), tr(FIELD_LABELS[column.target]))}>{tr("เดาจากข้อมูล · ยืนยัน")}</button>}
+                              {guessed && <button type="button" onClick={() => confirmColumn(column.index)} className={`${chip} ${amber} shrink-0 cursor-pointer font-medium hover:brightness-95`} aria-label={tr("ยืนยันว่าคอลัมน์ {0} คือ {1}", column.header || columnLetter(column.index), tr(FIELD_LABELS[column.target]))}>{column.reason === 'ai' ? tr("เลขาแนะนำ · ยืนยัน") : tr("เดาจากข้อมูล · ยืนยัน")}</button>}
                               {unsure && <span className={`${chip} ${amber} shrink-0`}>{tr("ควรตรวจ")}</span>}
                             </div>
                           </td>

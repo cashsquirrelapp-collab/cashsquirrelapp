@@ -437,6 +437,17 @@ card does not need:
   has no calendar and counts as delivered today (a planned future date is set aside and comes back on กำลังทำ). Phones are
   unchanged (the date in the status section for both).
 
+### Import: เลขากระรอก suggests unknown columns (owner, 2026-10-30)
+- People moving from another app bring files whose columns are not named like ours. The import's own rules run first
+  (header words in Thai and English, the values); the columns they cannot name are sent to เลขากระรอก automatically,
+  free for every signed-in account (no Krarok tokens; 6 a minute, 30 a day; the real cost is recorded and counted in the
+  daily AI cost cap). Only those columns' headers and up to 5 short samples go out, with emails and long numbers masked
+  (`backend/src/ai/columnMapping.ts`, `frontend/src/features/import/aiColumns.ts`).
+- The answer only names a field per column; amounts, dates and statuses are still read by the import's rules. Each
+  suggestion shows "เลขาแนะนำ · ยืนยัน" and blocks the review until the person confirms or picks another field; a column the
+  person already chose is never changed. Confirmed layouts are remembered like any other choice. A guest, the AI off or
+  any failure: the import goes on as before.
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

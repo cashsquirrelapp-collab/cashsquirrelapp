@@ -319,15 +319,17 @@ export interface ColumnGuess {
    * Why the column has its target: header (the header names the field), headerPartial (part of it
    * does), code (a code column: Client ID), valuesStrong (its values say so: Income/Expense),
    * values (guessed from the values alone: confirmed by the person before money is read from it),
-   * person (chosen by the person), remembered (chosen last time for the same headers), none (kept).
+   * person (chosen by the person), remembered (chosen last time for the same headers), ai (suggested by เลขากระรอก
+   * for a header the rules did not know: confirmed by the person, whatever the field), none (kept).
    */
-  reason?: 'header' | 'headerPartial' | 'code' | 'valuesStrong' | 'values' | 'person' | 'remembered' | 'none';
+  reason?: 'header' | 'headerPartial' | 'code' | 'valuesStrong' | 'values' | 'person' | 'remembered' | 'ai' | 'none';
 }
 
 // Money, dates and payment words read from a column guessed by its values alone could be wrong:
 // the person confirms such a column before the review (owner's brief, 2026-10-22: no guessing).
 const CONFIRM_TARGETS: ColumnTarget[] = ['value', 'amount', 'received', 'pending', 'income', 'expense', 'whtAmount', 'whtRate', 'date', 'postDate', 'dueDate', 'paidDate', 'status', 'kind', 'use'];
-export const needsConfirmation = (column: ColumnGuess) => column.reason === 'values' && CONFIRM_TARGETS.includes(column.target);
+export const needsConfirmation = (column: ColumnGuess) => (column.reason === 'values' && CONFIRM_TARGETS.includes(column.target))
+  || (column.reason === 'ai' && column.target !== 'keep' && column.target !== 'ignore');
 
 export interface SheetAnalysis {
   name: string;

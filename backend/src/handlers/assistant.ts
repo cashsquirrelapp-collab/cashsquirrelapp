@@ -11,6 +11,7 @@ import { confirmProposal, handleMessage, MESSAGE_RATE, reviseProposal, usageStat
 import { appendTurns, BROWSER_CONVERSATION_ID, CONVERSATION_ID, deleteConversations, INBOX_MESSAGES, inboxConversationId, listConversations, loadConversation, replaceStoredCard, updateConversation, type StoredTurn } from '../ai/conversations.js';
 import { assistantPlan, supabaseAssistantDb } from '../ai/supabaseDb.js';
 import { transcribeVoice, VOICE_MAX_BASE64 } from '../ai/transcription.js';
+import { COLUMN_FIELDS, MAX_COLUMNS, MAX_SAMPLES, suggestColumns } from '../ai/columnMapping.js';
 import { HttpError, withGuard } from '../http/guard.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
@@ -22,6 +23,10 @@ import { requireUser } from '../security/session.js';
 // 2,000 characters: a turn can carry what was read from a file sent earlier (note_from_file), 2026-10-24.
 const turnSchema = z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(2000) }).strict();
 const actionSchema = z.discriminatedUnion('action', [
+  // Import: the fields of the columns the import's rules could not name (free for every account, no tokens).
+  z.object({ action: z.literal('map-columns'), sheet: z.string().max(120),
+    columns: z.array(z.object({ index: z.number().int().min(0).max(499), header: z.string().max(120), samples: z.array(z.string().max(120)).max(MAX_SAMPLES) }).strict()).min(1).max(MAX_COLUMNS),
+    taken: z.array(z.enum(COLUMN_FIELDS)).max(COLUMN_FIELDS.length) }).strict(),
   z.object({
     action: z.literal('message'),
     text: z.string().trim().min(1).max(6000),
@@ -116,6 +121,13 @@ export default withGuard(async (req, res) => {
   const parsed = actionSchema.safeParse(req.body);
   if (!parsed.success) throw new HttpError(400, 'ข้อความไม่ถูกต้อง หรือยาวเกิน 6,000 ตัวอักษร');
   const body = parsed.data;
+  if (body.action === 'map-columns') {
+    // For every signed-in account, Pro or not (owner, 2026-10-30): its own small limits, no Krarok tokens.
+    await rateLimit('import-columns-minute', user.id, 6, 60);
+    await rateLimit('import-columns-day', user.id, 30, 86_400);
+    res.json(await suggestColumns(db, config, user.id, { sheet: body.sheet, columns: body.columns, taken: body.taken }));
+    return;
+  }
   if (body.action === 'transcribe') {
     await rateLimit('assistant-voice-minute', user.id, 6, 60);
     await rateLimit('assistant-voice-window', user.id, 20, 600);

@@ -3744,6 +3744,7 @@ export default function App() {
         {isImportOpen && (
           <Suspense fallback={null}>
             <ImportWizard
+              accountId={session && !session.isGuest ? session.user.id : undefined}
               open={isImportOpen}
               onClose={() => setIsImportOpen(false)}
               jobs={jobs}

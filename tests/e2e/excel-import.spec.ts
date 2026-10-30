@@ -212,3 +212,45 @@ test('computer: rows that need a guess wait to be confirmed; a failed save can b
   await expect(wizard.getByRole('heading', { name: 'นำเข้าเรียบร้อย' })).toBeVisible({ timeout: 15000 });
   await expect.poll(() => savedRows(saved, 'cashflow_jobs').length).toBe(3);
 });
+
+// A file from another app (owner, 2026-10-30): the columns the rules do not know are sent to เลขากระรอก (headers and a few
+// samples only), its suggestions are marked to confirm, and nothing is read from them until the person confirms.
+test('computer: unknown columns get เลขากระรอก suggestions to confirm; only their headers and samples are sent', async ({ page }) => {
+  const saved = await open(page, 1280, '/jobs');
+  const asked: any[] = [];
+  await page.route('**/api/assistant', async route => {
+    const body = route.request().postDataJSON();
+    if (body?.action !== 'map-columns') return route.fulfill({ status: 501, json: { error: 'Unmocked test endpoint' } });
+    asked.push(body);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const byHeader = Object.fromEntries(body.columns.map((c: any) => [c.header, c.index]));
+    return route.fulfill({ json: { available: true, columns: [{ index: byHeader['Bill to'], field: 'client' }, { index: byHeader['ช่องทาง'], field: 'type' }] } });
+  });
+  const rows = [['Project', 'Bill to', 'Fee THB', 'Collected', 'ช่องทาง'], ['รีวิวสินค้า', 'ร้านบี', 12000, 12000, 'TikTok'], ['ถ่ายภาพแคมเปญ', 'บริษัท เอ', 8000, 0, 'IG']];
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows), 'Export');
+  await page.getByTestId('jobs-import-button').click();
+  const wizard = page.getByTestId('import-wizard');
+  await wizard.locator('#import-sheet-file').setInputFiles({ name: 'other-app.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' })) });
+  await expect(wizard.getByRole('heading', { name: 'จับคู่คอลัมน์' })).toBeVisible();
+  await expect(wizard.getByRole('status').filter({ hasText: 'เลขากระรอกแนะนำ 2 คอลัมน์' })).toBeVisible();
+  // only the two unknown columns went out, with their samples; the known ones and the rows did not
+  expect(asked).toHaveLength(1);
+  expect(asked[0].columns.map((c: any) => c.header)).toEqual(['Bill to', 'ช่องทาง']);
+  expect(asked[0].columns[0].samples).toEqual(['ร้านบี', 'บริษัท เอ']);
+  expect(asked[0].taken).toEqual(expect.arrayContaining(['name', 'value', 'received']));
+  await expect(wizard.getByRole('combobox', { name: 'ใช้คอลัมน์ Bill to เป็น' })).toHaveValue('client');
+  await expect(wizard.getByRole('combobox', { name: 'ใช้คอลัมน์ ช่องทาง เป็น' })).toHaveValue('type');
+  // not read until confirmed
+  await expect(wizard.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ Bill to คือ ลูกค้า' })).toHaveText('เลขาแนะนำ · ยืนยัน');
+  await wizard.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ Bill to คือ ลูกค้า' }).click();
+  await wizard.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ ช่องทาง คือ ประเภทงาน' }).click();
+  await expect(wizard.getByRole('status').filter({ hasText: 'เลขากระรอกแนะนำ' })).toHaveCount(0);
+  await wizard.getByRole('button', { name: 'ตรวจทานข้อมูล' }).click();
+  await expect(wizard.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await wizard.getByTestId('import-commit').click();
+  await expect(wizard.getByRole('heading', { name: 'นำเข้าเรียบร้อย' })).toBeVisible();
+  await expect.poll(() => saved.flatMap(body => body?.changes || []).filter((c: any) => c.table === 'cashflow_jobs' && c.data?.importBatchId).length).toBe(2);
+  const jobs = saved.flatMap(body => body.changes ?? []).filter((change: any) => change.table === 'cashflow_jobs' && change.data?.importBatchId).map((change: any) => change.data);
+  expect(jobs.map((job: any) => [job.name, job.client, job.type, job.value])).toEqual(expect.arrayContaining([['รีวิวสินค้า', 'ร้านบี', 'TikTok', 12000], ['ถ่ายภาพแคมเปญ', 'บริษัท เอ', 'IG', 8000]]));
+});

@@ -222,4 +222,9 @@ export const importing: Record<string, string> = {
   "เลือกไฟล์นำเข้า": "Choose a file to import",
   "รองรับไฟล์ Excel (.xlsx .xls) CSV .ods และไฟล์สำรอง .json": "Excel (.xlsx .xls), CSV, .ods and .json backup files are supported",
   "ไฟล์สำรอง .json ของแอป: ระบบจะถามยืนยันก่อนแทนที่ข้อมูล": "The app's .json backup: you'll be asked before it replaces your data",
+  // เลขากระรอก's column suggestions (2026-10-30).
+  'เลขากระรอกแนะนำ': 'Suggested by Krarok',
+  'เลขาแนะนำ · ยืนยัน': 'Suggested · confirm',
+  'เลขากระรอกกำลังช่วยดูคอลัมน์ที่ระบบยังไม่รู้จัก': 'Krarok is looking at the columns the app did not recognise',
+  'เลขากระรอกแนะนำ {0} คอลัมน์ ตรวจว่าตรงไหม แล้วกด ยืนยัน หรือเลือกช่องอื่น': 'Krarok suggests {0} columns. Check each one, then confirm it or pick another field',
 };
