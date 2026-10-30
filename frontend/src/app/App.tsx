@@ -77,6 +77,7 @@ import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import
 import type { SettingsView } from '../features/settings/SettingsTab';
 import { KsIcon, type KsIconName } from '../features/mobile/icons';
 import { useMobileLayout } from '../features/mobile/useMobileLayout';
+import { OverdueReport, type OverdueItem } from '../features/receivables/OverdueReport';
 import { hideSplash } from './splash';
 import { isUpdateReady, reloadForUpdate, setUpdateGuard } from './appUpdate';
 import { MobilePageHero } from '../features/mobile/MobilePageHero';
@@ -539,6 +540,10 @@ export default function App() {
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   // Phones only get the mobile design; tablets and computers keep the layout they always had.
   const isPhone = useMobileLayout();
+  const isPhoneRef = useRef(isPhone);
+  isPhoneRef.current = isPhone;
+  // Overdue money on computers and iPads opens as a short report (phones keep their alert).
+  const [overdueReport, setOverdueReport] = useState<{ items: OverdueItem[]; newToday: number } | null>(null);
   const openPhoneMenu = React.useCallback(() => setIsMobileMenuOpen(true), []);
   useEffect(() => {
     const query = window.matchMedia('(min-width: 1024px)');
@@ -2290,7 +2295,18 @@ export default function App() {
 
           const newCount = updatedQueue.filter(r => r.detectedDate === todayStr && r.status === 'pending').length;
           
+          const reportItems: OverdueItem[] = overdueJobs.map(j => ({
+            id: j.id,
+            name: j.name,
+            client: j.client || tr("ไม่ระบุ"),
+            pending: j.pending,
+            daysLate: Math.max(1, Math.round((today.getTime() - new Date(`${j.dueDate || j.payDate}T00:00:00`).getTime()) / 86_400_000)),
+          }));
           setTimeout(() => {
+            if (!isPhoneRef.current) {
+              setOverdueReport({ items: reportItems, newToday: reportItems.filter(item => item.daysLate === 1).length });
+              return;
+            }
             triggerConfirm(
               tr("ตรวจพบดีลค้างชำระเลยกำหนด!"),
               tr("ระบบตรวจพบดีลงานเลยกำหนดเครดิตเทอมใหม่วันนี้ (จำนวน {0} รายการ)\n\nต้องการไปที่หน้าเงินรอรับ เพื่อตั้งเตือนหรือบันทึกรับเงินเลยไหมครับ?", newCount),
@@ -3663,6 +3679,8 @@ export default function App() {
           </Suspense>
         )}
         {showThemeTip && !proKvOpen && <ThemeTip phone={isPhone} onChoose={answerThemeTip} />}
+        <OverdueReport open={!!overdueReport && !isPhone} items={overdueReport?.items ?? []} newToday={overdueReport?.newToday ?? 0}
+          onOpen={() => { setOverdueReport(null); navigateTab('receivables'); }} onClose={() => setOverdueReport(null)} />
         {proKvOpen && (
           <Suspense fallback={null}>
             <ProKvBanner mobile={isPhone} onClose={() => setProKvOpen(false)} onSubscribe={() => { setProKvOpen(false); navigateTab('plans'); }} />

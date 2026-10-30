@@ -448,6 +448,18 @@ card does not need:
   person already chose is never changed. Confirmed layouts are remembered like any other choice. A guest, the AI off or
   any failure: the import goes on as before.
 
+### Overdue report (owner, 2026-10-30: "เหมือนกำลังรายงาน CEO ... liquid card ภาพรวม ... transition motion เบาๆ")
+- Computers and iPads (744px+): the once-a-day overdue alert opens as a short report
+  (`features/receivables/OverdueReport.tsx` + `overdueReport.css`) instead of the plain confirm. Phones keep the old alert.
+- Top: the real report mascot (`/line/mascot-v6-report.png`), "รายงานประจำวัน · date", the count, and how many became
+  overdue today. A warm wash with a faint dot grid and two soft orbs sits under one liquid-glass card: the total not yet
+  received, the longest wait, a bar split by how late (1–7 caramel, 8–30 orange, 30+ rust; 2px gaps) and the three buckets
+  with counts and amounts.
+- Below: the five largest items (name, client, a "เลย N วัน" chip in its bucket's colour, amount), "และอีก N รายการ…", then
+  ไว้ทีหลัง and the one orange action ไปที่เงินรอรับ.
+- Motion plays once and is soft: rows rise in turn, the total counts up, the bar grows from the left, one sheen crosses the
+  glass. Nothing moves with reduced motion.
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

@@ -57,6 +57,9 @@ test('reading values: amounts, rates, credit terms and status words', () => {
   assert.equal(parseRate({ raw: '3%', text: '3%' }), 3);
   assert.equal(parseRate({ raw: 0.03, text: '0.03' }), 3);
   assert.equal(parseRate({ raw: 1.5, text: '1.5' }), 1.5);
+  // A cell Excel formats as a percentage keeps 0.01 and shows 1% (owner's demo workbook, 2026-10-30).
+  assert.equal(parseRate({ raw: 0.01, text: '1%' }), 1);
+  assert.equal(parseRate({ raw: 0.03, text: '3.00%' }), 3);
   assert.equal(parseCreditTerm({ raw: '30 วัน', text: '30 วัน' }), 30);
   assert.equal(parseCreditTerm({ raw: 'Net 45', text: 'Net 45' }), 45);
   assert.equal(parseCreditTerm({ raw: 'เงินสด', text: 'เงินสด' }), 0);
@@ -64,6 +67,8 @@ test('reading values: amounts, rates, credit terms and status words', () => {
   assert.equal(parseStatus({ raw: 'โอนแล้ว', text: 'โอนแล้ว' }).payment, 'paid');
   assert.equal(parseStatus({ raw: 'ยังไม่จ่าย', text: 'ยังไม่จ่าย' }).payment, 'unpaid');
   assert.equal(parseStatus({ raw: 'รอโอน', text: 'รอโอน' }).payment, 'unpaid');
+  assert.equal(parseStatus({ raw: 'รอรับเงิน', text: 'รอรับเงิน' }).waiting, true);
+  assert.equal(parseStatus({ raw: 'ยังไม่จ่าย', text: 'ยังไม่จ่าย' }).waiting, undefined);
   assert.equal(parseStatus({ raw: 'มัดจำ 50%', text: 'มัดจำ 50%' }).payment, 'partial');
   assert.equal(parseStatus({ raw: '✓', text: '✓' }).payment, 'paid');
   assert.equal(parseStatus({ raw: true, text: 'TRUE' }).payment, 'paid');

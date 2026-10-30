@@ -105,11 +105,13 @@ export function headerScore(header: string, field: Field): number {
 
 // A column of codes ("Client ID", "Expense ID", "Invoice No.", "รหัสลูกค้า", "เลขที่"): never an amount or
 // a date. "Client ID" and "Project ID" still say whose job a row is, through the tab that names each code.
-const ID_WORD = /(^|[\s_\-.(/])(id|no\.?|#|ref\.?)($|[\s_\-.)/:])|reference|\bcode\b|รหัส|เลขที่|หมายเลข/i;
+const ID_WORD = /(^|[\s_\-.(/])(id|no\.?|#|ref\.?)($|[\s_\-.)/:])|reference|\bcode\b|รหัส|เลขที่|หมายเลข|อ้างอิง/i;
 const CAMEL_ID = /[a-z](ID|Id)$/;
 export const isIdHeader = (header: string) => ID_WORD.test(header.trim()) || CAMEL_ID.test(header.trim());
 /** "Client ID" -> "Client", "รหัสลูกค้า" -> "ลูกค้า". */
-const idBase = (header: string) => header.trim().replace(/(ID|Id)$/, '').replace(/\b(id|no\.?|ref\.?|code|number)\b|#|reference|รหัส|เลขที่|หมายเลข/gi, '').trim();
+const idBase = (header: string) => header.trim().replace(/(ID|Id)$/, '').replace(/\b(id|no\.?|ref\.?|code|number)\b|#|reference|รหัส|เลขที่|หมายเลข|อ้างอิง/gi, '').trim();
+// How money moved ("ช่องทางรับเงิน: โอนธนาคาร", "Payment method: Card"): kept in the note, never an amount or a status.
+const METHOD_HEADER = /ช่องทาง|วิธีชำระ|วิธีการชำระ|วิธีจ่าย|วิธีการจ่าย|วิธีรับ|วิธีการรับ|paymentmethod|paymethod|method|channel/;
 /** A code as files write them: P001, C-12, INV-2609-001, TX0001. */
 const CODE = /^[A-Za-z]{1,8}[-_/]?\d{1,10}(?:[-_/]\d{1,10})*$/;
 
@@ -212,11 +214,14 @@ export function parseMoney(cell: SheetCell | undefined): number | null {
   return sign * Number(text);
 }
 
-/** A WHT rate: "3%", 3, 0.03 -> 3. */
+/** A WHT rate: "3%", 3, 0.03 -> 3. A cell Excel formats as a percentage keeps 0.03 and shows "3%": read as shown. */
 export function parseRate(cell: SheetCell | undefined): number | null {
   if (!cell) return null;
-  const percent = /%/.test(cell.text);
-  const value = parseMoney({ ...cell, raw: typeof cell.raw === 'string' ? cell.raw.replace('%', '') : cell.raw, text: cell.text.replace('%', '') });
+  const percent = /%/.test(cell.text) || (typeof cell.raw === 'string' && /%/.test(cell.raw));
+  const shown = cell.text.replace('%', '').trim();
+  const value = percent && typeof cell.raw === 'number' && shown
+    ? parseMoney({ raw: shown, text: shown })
+    : parseMoney({ ...cell, raw: typeof cell.raw === 'string' ? cell.raw.replace('%', '') : cell.raw, text: cell.text.replace('%', '') });
   if (value === null || value < 0) return null;
   const rate = !percent && value > 0 && value < 1 ? value * 100 : value;
   return rate <= 100 ? Math.round(rate * 100) / 100 : null;
@@ -236,11 +241,13 @@ export function parseCreditTerm(cell: SheetCell | undefined): number | null {
 }
 
 export type PaymentWord = 'paid' | 'partial' | 'unpaid';
-export interface StatusReading { payment?: PaymentWord; delivered?: boolean }
+/** waiting: the words say money is still to come ("รอรับเงิน", "Pending"), which a part already received does not contradict. */
+export interface StatusReading { payment?: PaymentWord; delivered?: boolean; waiting?: boolean }
 
 const PAID_WORDS = /(^|[^ม])จ่ายแล้ว|ได้รับแล้ว|ได้รับเงินแล้ว|รับแล้ว|รับเงินแล้ว|รับครบ|ได้เงินแล้ว|ได้แล้ว|โอนแล้ว|ชำระแล้ว|เคลียร์แล้ว|ปิดยอด|^paid|fullypaid|received|settled|^done$|^yes$|^y$|^true$|^✓|^✔|^☑|^✅|^ใช่$/
 const PARTIAL_WORDS = /มัดจำ|บางส่วน|แบ่งจ่าย|แบ่งชำระ|แบ่งงวด|partial|deposit|installment/;
 const UNPAID_WORDS = /ยังไม่|ค้าง|รอโอน|รอจ่าย|รอรับ|รอชำระ|^รอ|unpaid|notpaid|pending|outstanding|overdue|^no$|^n$|^false$|^ไม่$|^✗|^✕|^❌|^⏳|^x$/;
+const WAITING_WORDS = /ค้าง|รอโอน|รอจ่าย|รอรับ|รอชำระ|^รอ|pending|outstanding|overdue/;
 const DELIVERED_WORDS = /ส่งงานแล้ว|ส่งแล้ว|เสร็จแล้ว|ลงแล้ว|โพสต์แล้ว|delivered|posted|completed|^done$/;
 const WORKING_WORDS = /กำลังทำ|ยังไม่ส่ง|ยังไม่เสร็จ|inprogress|working|ongoing|todo/;
 
@@ -252,7 +259,7 @@ export function parseStatus(cell: SheetCell | undefined): StatusReading {
   if (!text) return {};
   const reading: StatusReading = {};
   if (PARTIAL_WORDS.test(text)) reading.payment = 'partial';
-  else if (UNPAID_WORDS.test(text)) reading.payment = 'unpaid';
+  else if (UNPAID_WORDS.test(text)) { reading.payment = 'unpaid'; if (WAITING_WORDS.test(text)) reading.waiting = true; }
   else if (PAID_WORDS.test(text)) reading.payment = 'paid';
   if (DELIVERED_WORDS.test(text)) reading.delivered = true;
   else if (WORKING_WORDS.test(text)) reading.delivered = false;
@@ -562,10 +569,12 @@ export function analyzeSheet(grid: SheetGrid, override: { headerRow?: number | n
   const candidates: { col: number; field: Field; score: number; reason: NonNullable<ColumnGuess['reason']> }[] = [];
   const profiles: ColumnProfile[] = [];
   const idCols = new Set<number>();
+  const keptCols = new Set<number>();
   for (let col = 0; col < width; col++) {
     const profile = profileColumn(dataCells, col, dayOrder);
     profiles[col] = profile;
     const header = headerCells[col]?.text || '';
+    if (header && METHOD_HEADER.test(normalizeHeader(header))) { keptCols.add(col); continue; }
     // A code column: its header says so ("Client ID", "เลขที่"), or nearly every value is a code
     // ("Invoice": INV-2609-001), whatever the header says.
     if (header && (isIdHeader(header) || (profile.total >= 2 && profile.codes >= profile.total * 0.8))) {
@@ -577,7 +586,10 @@ export function analyzeSheet(grid: SheetGrid, override: { headerRow?: number | n
       else if (base && Math.max(headerScore(base, 'project'), headerScore(base, 'name')) >= 0.9) candidates.push({ col, field: 'project', score: 0.7, reason: 'code' });
       continue;
     }
+    // "จำนวนงาน (คำนวณ)": 3, 2, 3 is a count, not the job's name.
+    const numeric = profile.total > 0 && profile.numbers >= profile.total * 0.8;
     for (const { field } of HEADER_INDEX) {
+      if (numeric && (field === 'name' || field === 'client' || field === 'type' || field === 'category')) continue;
       const byHeader = headerScore(header, field);
       const fit = valueFit(field, profile);
       // An exact header word counts more than its values; a partial match leans on the values.
@@ -615,7 +627,7 @@ export function analyzeSheet(grid: SheetGrid, override: { headerRow?: number | n
   // Columns no header named: guess from the values alone (sheets without headers, or odd headers).
   const free = (field: Field) => !used.has(field);
   for (let col = 0; col < width; col++) {
-    if (targetOf.has(col) || !profiles[col].total || headerMatched.has(col) || idCols.has(col)) continue;
+    if (targetOf.has(col) || !profiles[col].total || headerMatched.has(col) || idCols.has(col) || keptCols.has(col)) continue;
     const p = profiles[col], share = (n: number) => n / p.total;
     // Emails, web addresses and phone numbers are kept in the note, never guessed as a name.
     const contacts = dataCells.filter(row => /^\S+@\S+\.\S+$|^https?:\/\/|^www\.|^\+?[\d\s()-]{9,}$/.test(cellAt(row, col)?.text?.trim() || '')).length;
@@ -659,8 +671,11 @@ export function analyzeSheet(grid: SheetGrid, override: { headerRow?: number | n
   const named = targets.has('name') || targets.has('client') || targets.has('project');
   const dated = DATE_FIELDS.some(field => targets.has(field));
   const hasMoney = MONEY_FIELDS.some(field => targets.has(field));
+  const clientCol = columns.find(c => c.target === 'client');
+  const clientList = Boolean(clientCol) && !targets.has('name') && !targets.has('project') && !dated
+    && profiles[clientCol!.index].total >= 2 && profiles[clientCol!.index].distinct === profiles[clientCol!.index].total;
   const role: SheetAnalysis['role'] = SUMMARY_SHEET.test(normalizeHeader(grid.name)) || (!named && !dated) ? 'summary'
-    : !hasMoney && !dated ? (codeNamesOf(grid).size ? 'lookup' : 'summary') : 'data';
+    : (!hasMoney && !dated) || clientList ? (codeNamesOf(grid).size ? 'lookup' : 'summary') : 'data';
   // The row's own code: an ID column that is not the client or project and is (nearly) unique.
   const refColumn = [...idCols].find(col => !targetOf.has(col) && profiles[col].total > 0 && profiles[col].distinct >= profiles[col].total * 0.9) ?? null;
   return { name: grid.name, headerRow, columns, kind, dayOrder, sheetMonth: sheetMonthOf(grid), dataRows, monthsAcross, role, refColumn };
@@ -871,6 +886,10 @@ export function buildImportPlan(sheets: { grid: SheetGrid; analysis: SheetAnalys
     const targets = new Set(analysis.columns.map(col => col.target));
     const receivedList = analysis.kind === 'jobs' && /รายรับ|รายได้|เงินเข้า|income|revenue|received|deposit/.test(normalizeHeader(analysis.name))
       && !(['status', 'received', 'pending', 'dueDate', 'creditTerm'] as Field[]).some(field => targets.has(field));
+    // A list of payments ("รับชำระเงิน": job code, day received, amount) and nothing about the job's value or what is due:
+    // each row is money in for a job in another tab, folded into that job like a ledger's.
+    const paymentList = analysis.kind === 'jobs' && targets.has('paidDate') && (targets.has('amount') || targets.has('received'))
+      && !(['value', 'pending', 'dueDate', 'postDate', 'creditTerm'] as Field[]).some(field => targets.has(field));
     for (const r of analysis.dataRows) {
       if (rows.length >= MAX_IMPORT_ROWS) break;
       const row = grid.rows[r] || [];
@@ -1011,7 +1030,8 @@ export function buildImportPlan(sheets: { grid: SheetGrid; analysis: SheetAnalys
       else if (received !== null) {
         receivedFinal = Math.min(received, net);
         payment = received >= net && net > 0 ? 'paid' : received > 0 ? 'partial' : 'unpaid';
-        if (status.payment && status.payment !== payment && !(status.payment === 'partial' && payment !== 'unpaid')) issues.push('statusConflict');
+        if (status.payment && status.payment !== payment && !(status.payment === 'partial' && payment !== 'unpaid')
+          && !(status.waiting && payment === 'partial')) issues.push('statusConflict');
       } else if (pendingCell !== null) {
         receivedFinal = Math.max(0, net - pendingCell);
         payment = pendingCell <= 0 ? 'paid' : receivedFinal > 0 ? 'partial' : 'unpaid';
@@ -1078,7 +1098,7 @@ export function buildImportPlan(sheets: { grid: SheetGrid; analysis: SheetAnalys
         paid: partStatus ? partStatus === 'paid' : (received ?? 0) > 0 && !pendingCell,
       } : undefined;
       const paymentKnown = analysis.kind === 'mixed' || receivedList || received !== null || pendingCell !== null || Boolean(status.payment) || Boolean(paidDate);
-      rows.push({ ...base, kind: 'job', job, ...stateOf(issues), source, link: { key: matchKey(job.name), ledger: analysis.kind === 'mixed', paidOn, part, paymentKnown, delivered: status.delivered } });
+      rows.push({ ...base, kind: 'job', job, ...stateOf(issues), source, link: { key: matchKey(job.name), ledger: analysis.kind === 'mixed' || paymentList, paidOn, part, paymentKnown, delivered: status.delivered } });
     }
     for (const field of TOTAL_FIELDS) {
       if (sheetTotals[field] === undefined) continue;
@@ -1167,10 +1187,10 @@ function matchExisting(rows: ImportRow[], context: ImportContext) {
 // Figures a dashboard states
 
 const METRIC_LABELS: [MetricField, RegExp][] = [
-  ['received', /^(cashreceived|totalreceived|received|cashincome|incomereceived|moneyreceived|totalcashreceived|รับแล้ว|รับเงินแล้ว|เงินรับจริง|รายรับที่ได้รับ|ยอดรับเงิน|เงินเข้าจริง)$/],
-  ['pending', /^(receivablesoutstanding|outstandingreceivables|outstanding|outstandinginvoices|accountsreceivable|receivables|unpaidinvoices|ค้างรับ|ยอดค้างรับ|ลูกหนี้คงค้าง|ใบแจ้งหนี้ค้างชำระ)$/],
-  ['value', /^(totalinvoicesissued|totalinvoiced|invoicedtotal|totalcontractvalue|contractvalue|totalprojectvalue|มูลค่างานรวม|ยอดออกใบแจ้งหนี้)$/],
-  ['expense', /^(totalexpenses?|expensestotal|totalspent|รายจ่ายรวม|ค่าใช้จ่ายรวม|รวมรายจ่าย)$/],
+  ['received', /^(cashreceived|totalreceived|received|cashincome|incomereceived|moneyreceived|totalcashreceived|รับแล้ว|รับเงินแล้ว|เงินรับจริง|เงินรับจริงสุทธิ|รายรับที่ได้รับ|ยอดรับเงิน|เงินเข้าจริง)$/],
+  ['pending', /^(receivablesoutstanding|outstandingreceivables|outstanding|outstandinginvoices|accountsreceivable|receivables|unpaidinvoices|ค้างรับ|ค้างรับสุทธิ|ยอดค้างรับ|ยอดค้างรับสุทธิ|ลูกหนี้คงค้าง|ใบแจ้งหนี้ค้างชำระ)$/],
+  ['value', /^(totalinvoicesissued|totalinvoiced|invoicedtotal|totalcontractvalue|contractvalue|totalprojectvalue|มูลค่างานรวม|มูลค่างานก่อนหักภาษี|มูลค่างานรวมก่อนหักภาษี|ยอดออกใบแจ้งหนี้)$/],
+  ['expense', /^(totalexpenses?|expensestotal|totalspent|รายจ่ายรวม|รายจ่ายทั้งหมด|ค่าใช้จ่ายรวม|ค่าใช้จ่ายทั้งหมด|รวมรายจ่าย)$/],
   ['expenseBusiness', /^(businessexpenses?(paid)?|businesscosts|ค่าใช้จ่ายธุรกิจ|รายจ่ายธุรกิจ)$/],
   ['expensePersonal', /^(personalexpenses?(paid)?|personalspending|ค่าใช้จ่ายส่วนตัว|รายจ่ายส่วนตัว)$/],
   ['transfers', /^(ownertransfersout|ownertransfers|savings(and|&)?taxtransfers|savingstransfers|transferstosavings|โอนเข้าเงินออม|เงินโอนออม)$/],
@@ -1183,19 +1203,29 @@ export function fileMetrics(grids: SheetGrid[]): FileMetric[] {
   for (const grid of grids) {
     if (analyzeSheet(grid).role !== 'summary') continue;
     const seen = new Set<MetricField>();
-    for (const row of grid.rows.slice(0, 200)) {
-      for (let col = 0; col < (row?.length || 0) - 1; col++) {
+    const rows = grid.rows.slice(0, 200);
+    rows.forEach((row, r) => {
+      for (let col = 0; col < (row?.length || 0); col++) {
         const label = row[col];
         if (!label || typeof label.raw !== 'string' || isNumberLike(label)) continue;
-        const valueCell = [row[col + 1], row[col + 2]].find(cell => !isEmpty(cell));
-        const value = valueCell && isNumberLike(valueCell) ? parseMoney(valueCell) : null;
-        if (value === null) continue;
         const field = METRIC_LABELS.find(([, words]) => words.test(normalizeHeader(label.text)))?.[0];
         if (!field || seen.has(field)) continue;
+        // The figure beside its label, or on a tile under it (the label on top, the number below).
+        const beside = [row[col + 1], row[col + 2]].find(cell => !isEmpty(cell));
+        const below = [rows[r + 1]?.[col], rows[r + 2]?.[col]].find(cell => !isEmpty(cell));
+        const read = (cell: SheetCell | undefined) => {
+          if (!cell) return null;
+          if (isNumberLike(cell)) return parseMoney(cell);
+          // A count written with its unit: "26 งาน", "26 jobs".
+          const count = field === 'jobs' ? /^(\d{1,6})\s*(งาน|โปรเจกต์|โครงการ|รายการ|jobs?|projects?)$/i.exec(cell.text.trim()) : null;
+          return count ? Number(count[1]) : null;
+        };
+        const value = read(beside) ?? read(below);
+        if (value === null) continue;
         seen.add(field);
         found.push({ sheet: grid.name, label: label.text.trim(), field, value });
       }
-    }
+    });
   }
   return found;
 }
@@ -1298,6 +1328,7 @@ function reconcileAcrossSheets(rows: ImportRow[], options: ImportOptions, contex
     anchor.job = scheduledJob(job, paid, due, merged.map(r => r.job!), options, context);
     anchor.mergedCount = (anchor.mergedCount || 0) + merged.length;
     anchor.issues = anchor.issues.filter(issue => !(['noDate', 'paidWithoutDate'] as IssueCode[]).includes(issue) || !(anchor.job!.postDate || anchor.job!.payDate));
+    if (paidMatches && payments.every(r => r.link!.paidOn)) anchor.issues = anchor.issues.filter(issue => issue !== 'paidDateFromDate');
     Object.assign(anchor, stateOf(anchor.issues));
     for (const r of merged) { r.state = 'skip'; r.issues = ['merged']; r.mergedInto = `${anchor.sheet} ${anchor.rowNumber}`; }
     for (const r of others) if (!merged.includes(r)) Object.assign(r, stateOf([...r.issues, 'sameNameOtherSheet']));

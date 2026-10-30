@@ -1,5 +1,22 @@
 // Receivables screen.
 export const receivables: Record<string, string> = {
+  // Overdue report dialog (computers and iPads).
+  'รายงานเงินค้างรับเลยกำหนด': 'Overdue payments report',
+  'รายงานประจำวัน · {0}': 'Daily report · {0}',
+  'เงินค้างรับเลยกำหนด {0} รายการ': 'Overdue payments: {0} items',
+  'เพิ่งเลยกำหนดวันนี้ {0} รายการ': 'Became overdue today: {0} items',
+  'ยอดที่ยังไม่ได้รับ': 'Not yet received',
+  'รอนานสุด': 'Longest wait',
+  'เลยมา 1–7 วัน': '1–7 days late',
+  'เลยมา 8–30 วัน': '8–30 days late',
+  'เลยมาเกิน 30 วัน': 'Over 30 days late',
+  'รายการที่ยอดสูงสุด': 'Largest amounts',
+  'ยอดสูงสุด {0} รายการ': 'Top {0} by amount',
+  'ทุกรายการ': 'All items',
+  'เลย {0} วัน': '{0} days late',
+  'และอีก {0} รายการในหน้าเงินรอรับ': 'and {0} more items on the Receivables page',
+  'ไว้ทีหลัง': 'Later',
+  'ไปที่เงินรอรับ': 'Go to Receivables',
   '{0} งาน · กำหนดรับเงินใน {1}': '{0} jobs · payment due in {1}',
   '{0} รายการ · {1}': '{0} items · {1}',
   'กรองเงินรอรับ': 'Filter receivables',

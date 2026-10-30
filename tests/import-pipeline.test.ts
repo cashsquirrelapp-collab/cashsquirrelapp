@@ -268,3 +268,39 @@ test('an amount in another currency is never imported as baht without the person
   assert.deepEqual([byName('Poster').state, byName('Poster').issues.includes('foreignCurrency')], ['confirm', true]);
   assert.equal(byName('Banner').state, 'ready');
 });
+
+// The owner's demo freelance workbook (2026-10-30; every client, job and amount in it is fictional): a jobs tab with 1%
+// withholding typed as an Excel percentage, a payments tab that names each job by its code, an expenses tab, a clients
+// tab with totals per client and an overview with its figures on tiles (label on top, number below).
+test('reference: the demo freelance workbook imports every row and matches its overview', () => {
+  const DEMO = 'freelance_demo_krarok_2026.xlsx';
+  const grids = gridsOf(bytesOf(DEMO), DEMO);
+  const roles = Object.fromEntries(grids.map(grid => [grid.name, analyzeSheet(grid).role]));
+  assert.equal(roles['ลูกค้า'], 'lookup', 'the clients tab names codes; its totals are not jobs');
+  const payments = analyzeSheet(grids.find(grid => grid.name === 'รับชำระเงิน')!);
+  const targetOf = (header: string) => payments.columns.find(col => col.header === header)?.target;
+  assert.equal(targetOf('ช่องทางรับเงิน'), 'keep', 'how the money came is a note, not an amount');
+  assert.equal(targetOf('อ้างอิงการชำระ'), 'keep', 'a payment reference is a code, not a status');
+
+  const { result, totals } = plan(grids, 'demo', { jobs: [], expenses: [] }, DEMO);
+  const jobs = result.rows.filter(row => row.kind === 'job' && on(row));
+  assert.equal(jobs.length, 26);
+  assert.equal(result.rows.filter(row => row.kind === 'expense' && on(row)).length, 42);
+  assert.deepEqual(result.rows.filter(row => row.state === 'confirm').map(row => `${row.sheet} ${row.rowNumber}`), []);
+  // Each payment is folded into its job, with the day it came in; none is a job of its own.
+  const paid = result.rows.filter(row => row.sheet === 'รับชำระเงิน');
+  assert.equal(paid.length, 16);
+  assert.ok(paid.every(row => row.issues.includes('merged')));
+  const reels = jobs.find(row => row.job!.name === 'ตัดต่อ Reels เปิดตัวเมนู')!.job!;
+  assert.deepEqual([reels.whtRate, reels.received, reels.pending, reels.paymentStatus, reels.payDate], [1, 4455, 0, 'paid', '2026-08-09']);
+  const cash = jobs.find(row => row.job!.name === 'ถ่ายและตัดคลิปบรรยากาศร้าน')!;
+  assert.equal(cash.job!.payDate, '2026-08-17', 'paid on the day the payments tab says, not the start date');
+  const partPaid = jobs.find(row => row.job!.name === 'ปรับ UI หน้า Pricing')!;
+  assert.deepEqual([partPaid.state, partPaid.job!.received, partPaid.job!.pending], ['ready', 7672.5, 7672.5]);
+  // The overview's five figures, exactly.
+  assert.deepEqual([totals.value, totals.received, totals.pending, totals.expenseAmount, totals.jobs], [250700, 113364, 135036, 37045, 26]);
+  const checks = compareMetrics(result.metrics, totals, planDetails(result.rows, on), result.transfersTotal);
+  assert.deepEqual(checks.map(check => [check.label, check.ok]), [
+    ['มูลค่างาน (ก่อนหักภาษี)', true], ['เงินรับจริง (สุทธิ)', true], ['รายจ่ายทั้งหมด', true], ['ค้างรับสุทธิ', true], ['จำนวนโปรเจกต์', true],
+  ]);
+});

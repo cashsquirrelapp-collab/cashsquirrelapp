@@ -1,0 +1,305 @@
+/* Overdue report (computers and iPads). CI colours only: rust for overdue, orange for the one action,
+   caramel for the newest wait. The glass card sits on a soft warm wash with a faint dot grid so the blur
+   has something to show; text keeps Thai line-height of at least 1.45. */
+.odr {
+  --odr-week: #C17817;
+  --odr-month: #E65F2B;
+  --odr-older: #A63F1B;
+  --odr-week-bg: #FBF0DF;
+  --odr-month-bg: #FDEBE3;
+  --odr-older-bg: #F7E4DC;
+  --odr-week-text: #8A5A0B;
+  --odr-month-text: #C24A16;
+  --odr-older-text: #A63F1B;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  color: var(--text);
+  line-height: 1.5;
+}
+.dark .odr {
+  --odr-week: #F2C27F;
+  --odr-month: #F28A4E;
+  --odr-older: #D9542A;
+  --odr-week-bg: rgba(242, 183, 107, 0.14);
+  --odr-month-bg: rgba(255, 154, 107, 0.14);
+  --odr-older-bg: rgba(250, 126, 82, 0.16);
+  --odr-week-text: #F2B76B;
+  --odr-month-text: #FFA473;
+  --odr-older-text: #FA7E52;
+}
+
+.odr-stage {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  padding: 24px 24px 20px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(230, 95, 43, 0.20) 0%, rgba(230, 95, 43, 0) 58%),
+    radial-gradient(90% 80% at 0% 100%, rgba(193, 120, 23, 0.16) 0%, rgba(193, 120, 23, 0) 60%),
+    #FFF7F2;
+  isolation: isolate;
+}
+.odr-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(circle, rgba(166, 63, 27, 0.13) 1px, transparent 1.3px);
+  background-size: 14px 14px;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0) 85%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0) 85%);
+  pointer-events: none;
+}
+.dark .odr-stage {
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(240, 116, 64, 0.20) 0%, rgba(240, 116, 64, 0) 58%),
+    radial-gradient(90% 80% at 0% 100%, rgba(242, 183, 107, 0.10) 0%, rgba(242, 183, 107, 0) 60%),
+    #120D0B;
+}
+.dark .odr-stage::before { background-image: radial-gradient(circle, rgba(255, 164, 115, 0.12) 1px, transparent 1.3px); }
+
+/* Two soft colour orbs under the glass: the blur turns them into the liquid look. */
+.odr-orb {
+  position: absolute;
+  z-index: 0;
+  border-radius: 999px;
+  pointer-events: none;
+}
+.odr-orb.is-a {
+  top: 128px;
+  right: 8px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle at 40% 40%, rgba(230, 95, 43, 0.55), rgba(230, 95, 43, 0) 68%);
+}
+.odr-orb.is-b {
+  bottom: -70px;
+  left: 40px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle at 50% 50%, rgba(193, 120, 23, 0.42), rgba(193, 120, 23, 0) 68%);
+}
+.dark .odr-orb.is-a { background: radial-gradient(circle at 40% 40%, rgba(240, 116, 64, 0.42), rgba(240, 116, 64, 0) 68%); }
+.dark .odr-orb.is-b { background: radial-gradient(circle at 50% 50%, rgba(242, 183, 107, 0.24), rgba(242, 183, 107, 0) 68%); }
+.odr-head, .odr-glass { z-index: 1; }
+
+.odr-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-right: 36px; /* room for the dialog's close button */
+}
+.odr-mascot {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.odr-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--odr-older-text);
+}
+.odr-title {
+  margin-top: 2px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+.odr-sub {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* The liquid-glass summary. */
+.odr-glass {
+  position: relative;
+  margin-top: 18px;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 18px 18px 16px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 12px 32px rgba(166, 63, 27, 0.12), 0 0 0 0.5px rgba(28, 25, 23, 0.05);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  backdrop-filter: blur(18px) saturate(170%);
+}
+.dark .odr-glass {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.odr-glass.is-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 70%);
+  transform: translateX(-120%);
+  animation: odr-sheen 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.45s 1 forwards;
+  pointer-events: none;
+}
+.dark .odr-glass.is-sheen::after { background: linear-gradient(105deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.10) 50%, rgba(255, 255, 255, 0) 70%); }
+@keyframes odr-sheen { to { transform: translateX(120%); } }
+
+.odr-glass-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.odr-label {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.odr-total {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.odr-stat { flex-shrink: 0; text-align: right; }
+.odr-stat-value {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--odr-older-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.odr-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(28, 25, 23, 0.06);
+}
+.dark .odr-bar { background: rgba(255, 255, 255, 0.08); }
+.odr-bar-part { flex-basis: 0; min-width: 6px; transform-origin: left center; }
+.odr-bar-part:first-child { border-radius: 999px 0 0 999px; }
+.odr-bar-part:last-child { border-radius: 0 999px 999px 0; }
+.odr-bar-part:only-child { border-radius: 999px; }
+.odr-bar-part.is-week, .odr-dot.is-week { background: var(--odr-week); }
+.odr-bar-part.is-month, .odr-dot.is-month { background: var(--odr-month); }
+.odr-bar-part.is-older, .odr-dot.is-older { background: var(--odr-older); }
+
+.odr-buckets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.odr-bucket { min-width: 0; }
+.odr-bucket dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.odr-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 999px; }
+.odr-bucket dd {
+  display: flex;
+  flex-direction: column;
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.odr-bucket dd span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The largest items. */
+.odr-items { padding: 16px 24px 4px; }
+.odr-list-head {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.odr-list { margin-top: 4px; }
+.odr-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.odr-row:first-child { border-top: 0; }
+.odr-row-name, .odr-row-client {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.odr-row-name { font-size: 14px; font-weight: 600; line-height: 1.5; }
+.odr-row-client { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.odr-chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.odr-chip.is-week { background: var(--odr-week-bg); color: var(--odr-week-text); }
+.odr-chip.is-month { background: var(--odr-month-bg); color: var(--odr-month-text); }
+.odr-chip.is-older { background: var(--odr-older-bg); color: var(--odr-older-text); }
+.odr-row-amount {
+  min-width: 96px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.odr-more {
+  padding: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.odr-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px 20px;
+}
+.odr-btn {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.odr-btn.is-quiet { background: var(--faint); color: var(--text); }
+.odr-btn.is-quiet:hover { background: var(--border); }
+.odr-btn.is-primary { background: #E65F2B; color: #fff; }
+.odr-btn.is-primary:hover { background: #D35221; }
+.dark .odr-btn.is-primary { background: #F07440; }
+.odr-btn:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .odr-glass.is-sheen::after { animation: none; display: none; }
+}
