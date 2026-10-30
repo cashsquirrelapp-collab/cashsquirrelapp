@@ -16,11 +16,11 @@ async function open(page: Page, { width = 1440, height = 900, motion = false, la
 }
 
 /** Brings a part of the page to just under the top bar, scrolling the way a visitor does so the reveals play. */
-async function scrollTo(page: Page, selector: string) {
+async function scrollToPart(page: Page, selector: string) {
   await page.evaluate(async sel => {
     const target = () => document.querySelector(sel)!.getBoundingClientRect().top + scrollY - 110;
-    for (let y = scrollY; y < target(); y += 400) { scrollTo(0, y); await new Promise(r => setTimeout(r, 30)); }
-    scrollTo(0, target());
+    for (let y = window.scrollY; y < target(); y += 400) { window.scrollTo(0, y); await new Promise(r => setTimeout(r, 30)); }
+    window.scrollTo(0, target());
   }, selector);
   await page.waitForTimeout(400);
 }
@@ -29,7 +29,7 @@ test('the calendar section shows both views: the calendar, then the timeline wit
   test.setTimeout(60_000);
   await open(page, { motion: true });
   const views = page.locator('.cl-views');
-  await scrollTo(page, '.cl-views');
+  await scrollToPart(page, '.cl-views');
   const calendar = page.getByRole('button', { name: 'ปฏิทิน' });
   const timeline = page.getByRole('button', { name: 'ไทม์ไลน์' });
   await expect(calendar).toHaveAttribute('aria-pressed', 'true');
@@ -82,15 +82,15 @@ test('spending is a free feature: three costs, the month’s total, and the net 
 for (const [width, height] of [[1440, 900], [1024, 768], [768, 1024], [430, 932], [390, 844], [320, 568]] as const) {
   test(`at ${width}×${height} nothing covers any text in either view or in the spending card`, async ({ page }) => {
     await open(page, { width, height });
-    await scrollTo(page, '.cl-views');
+    await scrollToPart(page, '.cl-views');
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.getByRole('button', { name: 'ไทม์ไลน์' }).click();
     await expect(page.getByRole('img', { name: /ไทม์ไลน์ที่เรียงงานลงมา/ })).toBeVisible();
     expect(await textOverlapIssues(page)).toEqual([]);
-    await scrollTo(page, '.cl-feat.is-expense .gl-exp');
+    await scrollToPart(page, '.cl-feat.is-expense .gl-exp');
     await expect(page.locator('.gl-exp')).toBeInViewport();
     expect(await textOverlapIssues(page)).toEqual([]);
-    await scrollTo(page, '.cl-feat.is-expense .cl-feat-text');
+    await scrollToPart(page, '.cl-feat.is-expense .cl-feat-text');
     expect(await textOverlapIssues(page)).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
@@ -98,12 +98,12 @@ for (const [width, height] of [[1440, 900], [1024, 768], [768, 1024], [430, 932]
 
 test('in English both sections read in English, with nothing covered', async ({ page }) => {
   await open(page, { width: 390, height: 844, lang: 'en' });
-  await scrollTo(page, '.cl-views');
+  await scrollToPart(page, '.cl-views');
   await page.getByRole('button', { name: 'Timeline' }).click();
   await expect(page.locator('.gl-tl-month.is-1 .gl-tl-row').first()).toContainText('Video editing');
   await expect(page.locator('.gl-tl-month.is-1 .gl-tl-row em').first()).toHaveText('Due in 3 days');
   expect(await textOverlapIssues(page)).toEqual([]);
-  await scrollTo(page, '.cl-feat.is-expense .gl-exp');
+  await scrollToPart(page, '.cl-feat.is-expense .gl-exp');
   await expect(page.locator('.gl-exp-head')).toContainText('Add expense');
   await expect(page.locator('.gl-exp-profit .is-profit')).toContainText('Net profit');
   expect(await textOverlapIssues(page)).toEqual([]);
