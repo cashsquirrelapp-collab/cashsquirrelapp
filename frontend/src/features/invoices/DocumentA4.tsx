@@ -461,6 +461,24 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print, watermar
                   </div>
                 ) : null}
 
+                {/* A receipt records money already received (owner, 2026-10-30: "ใส่วันที่รับเงินกับวิธีชำระลงในใบเสร็จด้วย"):
+                    when it came in, how, and how much, where other documents say how to pay. */}
+                {meta.isReceipt ? (
+                  <div className="da4-sec">
+                    <div className="lab"><Ico name="banknote" />{tr("การรับชำระเงิน")}</div>
+                    <div className="da4-pay">
+                      <div className="kv2">
+                        <span className="k">{tr("วันที่รับเงิน :")}</span><span>{formatDocDate(invoice.paidDate) || '-'}</span>
+                        <span className="k">{tr("วิธีชำระเงิน :")}</span><span>{invoice.paymentMethod?.trim() ? tr(invoice.paymentMethod.trim()) : '-'}</span>
+                      </div>
+                      <div className="kv2">
+                        <span className="k">{tr("จำนวนเงินที่ได้รับ :")}</span><span>{tr("{0} บาท", formatMoney(invoice.paidAmount ?? totals.payable))}</span>
+                      </div>
+                      <div />
+                    </div>
+                  </div>
+                ) : null}
+
                 {invoice.note?.trim() ? (
                   <div className="da4-sec">
                     <div className="lab"><Ico name="message" />{tr("หมายเหตุ")}</div>

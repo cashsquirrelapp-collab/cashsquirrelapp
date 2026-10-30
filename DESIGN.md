@@ -389,7 +389,8 @@ card does not need:
   คำสั่งให้เพิ่ม ต้องเพิ่มการ์ดมา", each with its picture): ใบเสนอราคา, ใบแจ้งหนี้ / ใบวางบิล / บิล (ออก / เปิด / วาง),
   ใบเสร็จรับเงิน, ใบกำกับภาษี and ใบเสร็จรับเงิน/ใบกำกับภาษี, with the app's number prefixes (QT, INV, REC, TAX, RTX).
   A receipt shows วันที่รับเงิน (today unless changed) and วิธีชำระ (โอนเงิน / เงินสด / พร้อมเพย์ / เช็ค / บัตรเครดิต, read from
-  "โอนแล้ว", "รับเงินสด") and has no credit days; a tax invoice is always VAT 7% (fixed in the form). "ขอใบเสร็จ คุณบี"
+  "โอนแล้ว", "รับเงินสด") and has no credit days; the A4 sheet itself (app preview, PDF, LINE picture) prints them in an
+  การรับชำระเงิน block where other documents say how to pay: วันที่รับเงิน, วิธีชำระเงิน, จำนวนเงินที่ได้รับ (- when not given); a tax invoice is always VAT 7% (fixed in the form). "ขอใบเสร็จ คุณบี"
   still looks one up, "ขอใบเสร็จให้คุณบี" makes one, and "ออก…จาก INV-…" stays with เลขา.
 - Expenses too: บันทึก / เพิ่ม / จด / ลง / มี + รายจ่าย or ค่าใช้จ่าย, จ่าย…, and ซื้อ… / เสียค่า… with an amount give the
   expense card; the bare request is the empty card; "รายจ่ายเดือนนี้", "ค่าใช้จ่ายประจำ", "จ่ายแล้ว" are not expenses.
