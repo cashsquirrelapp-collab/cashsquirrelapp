@@ -386,6 +386,13 @@ Don't:
 - Don't change phone screens, the mascot drawing or the CI colours without the owner.
 - Don't let text clip, overlap or run under another element.
 - Don't put API keys or secrets anywhere in the frontend, logs or this repository.
+- Don't name, in anything customers can read (pages, the app, LINE, emails, the terms and privacy pages), the AI
+  companies or models behind เลขา, the tools the app is built with, or the database and hosting companies; describe
+  them by kind ("ผู้ให้บริการ AI"), which the privacy law allows (owner, 2026-10-30: "ต้องปิดเป็นความลับ"). Names people
+  meet themselves stay: Google and Facebook sign-in, Gmail, LINE, Stripe.
+- Don't mention features ordinary accounts cannot use yet (see `shared/featureAvailability.ts`), or a free trial: there
+  is none for accounts created from 30 Oct 2569 09:30 (`shared/trial.ts`). Terms, privacy and help text follow only
+  what is in effect today.
 
 ## 8. Responsive behaviour
 

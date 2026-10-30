@@ -84,7 +84,7 @@ export function buildLineFeatureShortcut(
     body: [paragraph('แตะปุ่ม + ในแชทนี้แล้วส่ง PDF หรือรูปมาได้เลย ระบบจะเก็บเข้าคลังส่วนตัว จากนั้นเลือกประเภทและงานจากการ์ดตอบกลับ'),
       lineSection('รองรับ PDF, JPG, PNG และ WEBP · ไม่เกิน 10 MB ต่อไฟล์')],
     footer: lineAppLink('/line-documents', 'จัดเอกสารของฉัน'),
-    note: 'ส่งจากบัญชี LINE ที่เชื่อมแล้ว · ใช้สิทธิ์ Pro หรือช่วงทดลอง',
+    note: 'ส่งจากบัญชี LINE ที่เชื่อมแล้ว · ใช้สิทธิ์ Pro',
   });
   if (command === 'invoice') return lineCard({
     title: 'ออกเอกสาร', subtitle: 'เริ่มจากข้อมูลที่มีอยู่ในแอป', character: 'document', altText: 'เปิดหน้าออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จ',

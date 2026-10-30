@@ -209,7 +209,7 @@ export async function handleLiffSubmit(
       }
       await dependencies.rateLimit('liff-submit', user.user_id, 30, 60);
       if (!await dependencies.isProUser(user.user_id)) {
-        res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro หรือช่วงทดลองใช้งาน' }); return;
+        res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro' }); return;
       }
       await handleDraftEditor(body, user, lineUserId, res, dependencies);
       return;
@@ -218,7 +218,7 @@ export async function handleLiffSubmit(
     if(!requestId.success){res.status(400).json({error:'รหัสคำขอไม่ถูกต้อง กรุณาเปิดฟอร์มใหม่'});return;}
     user.operationId=requestId.data;
     await dependencies.rateLimit('liff-submit', user.user_id, 30, 60);
-    if (!await dependencies.isProUser(user.user_id)) { res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro หรือช่วงทดลองใช้งาน' }); return; }
+    if (!await dependencies.isProUser(user.user_id)) { res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro' }); return; }
     if (!['job','expense'].includes(body.kind)) { res.status(400).json({ error: 'ประเภทข้อมูลไม่ถูกต้อง' }); return; }
     if (body.kind === 'expense') {
       const draft: ExpenseDraft = {
