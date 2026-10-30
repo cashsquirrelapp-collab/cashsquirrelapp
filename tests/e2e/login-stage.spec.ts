@@ -42,17 +42,23 @@ function collisions(page: Page) {
   });
 }
 
-test('light, with no moon or language switch, and the sign-in buttons in Google’s and Facebook’s own colours', async ({ page }) => {
+test('light, with no moon or language switch, and the sign-in buttons white with each brand’s logo on a circle of its colour', async ({ page }) => {
   await openLogin(page, { dark: 'true' }); // even when the app is set to dark
   await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
   await expect(page.locator('.auth-page')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByRole('button', { name: /โหมดมืด|โหมดสว่าง|dark mode|light mode|English|ภาษา|language/i })).toHaveCount(0);
   await expect(page.locator('.auth-topbar-btn')).toHaveCount(1); // only the way back to the welcome page
+  // owner, 2026-10-30: the solid blue Facebook button stood out, so all three are white and equal; the colour is in the
+  // logos, each on a soft circle of its brand's colour
   const google = page.getByRole('button', { name: 'ดำเนินการต่อด้วย Google' });
-  await expect(google).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const facebook = page.getByRole('button', { name: 'ดำเนินการต่อด้วย Facebook' });
+  const email = page.getByRole('button', { name: 'ดำเนินการต่อด้วยอีเมล' });
+  for (const button of [google, facebook, email]) await expect(button).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   for (const colour of ['#4285F4', '#34A853', '#FBBC05', '#EA4335']) await expect(google.locator(`path[fill="${colour}"]`)).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'ดำเนินการต่อด้วย Facebook' })).toHaveCSS('background-color', 'rgb(24, 119, 242)');
-  await expect(page.getByRole('button', { name: 'ดำเนินการต่อด้วยอีเมล' })).toHaveCSS('background-color', 'rgb(255, 241, 232)');
+  await expect(facebook.locator('svg')).toHaveAttribute('fill', '#1877F2');
+  await expect(google.locator('.auth-pill-chip')).toHaveCSS('background-color', 'rgb(241, 243, 244)');
+  await expect(facebook.locator('.auth-pill-chip')).toHaveCSS('background-color', 'rgb(231, 240, 254)');
+  await expect(email.locator('.auth-pill-chip')).toHaveCSS('background-color', 'rgb(255, 241, 232)');
   // the waving squirrel stands on the card; the floating things are pictures only
   await expect(page.locator('.auth-form-card').locator('..').locator('.auth-perch')).toHaveCount(1);
   await expect(page.locator('.auth-stage')).toHaveAttribute('aria-hidden', 'true');
@@ -68,6 +74,13 @@ for (const [width, height] of [[1440, 900], [1280, 720], [1024, 768], [768, 1024
     }
     expect(await collisions(page)).toEqual([]);
     expect(await textOverlapIssues(page)).toEqual([]);
+    // each button's words stay on one line, clear of its logo circle
+    expect(await page.evaluate(() => [...document.querySelectorAll('.auth-pill')].map(button => {
+      const words = [...button.childNodes].find(node => node.nodeType === 3 && node.textContent!.trim())!;
+      const range = document.createRange(); range.selectNodeContents(words);
+      const lines = new Set([...range.getClientRects()].map(rect => Math.round(rect.top))).size;
+      return lines === 1 && range.getBoundingClientRect().left - button.querySelector('.auth-pill-chip')!.getBoundingClientRect().right >= 8;
+    }))).toEqual([true, true, true]);
     await page.getByRole('button', { name: 'ดำเนินการต่อด้วยอีเมล' }).click();
     await expect(page.locator('input[type=email]').first()).toBeVisible();
     expect(await collisions(page)).toEqual([]);

@@ -346,9 +346,10 @@ card does not need:
   (aria-hidden); nothing floats over the card, the squirrel or the top bar on any form (`tests/e2e/login-stage.spec.ts`).
 - เลขากระรอก stands on the card's top-right edge, waving (its own wave, never redrawn). The page keeps room at the top
   for the bar and the squirrel however tall the form grows.
-- The sign-in buttons wear their brands' colours: Google white with Google's four-colour G and a grey line, Facebook in
-  Facebook blue (#1877F2) with the white f, email in CI cream (#FFF1E8) with rust words. A switched-off Facebook still
-  fades as before.
+- The sign-in buttons are equal (owner, 2026-10-30: the solid Facebook blue stood out): all three white with a grey line,
+  the words in the middle, and each brand's own logo on a soft circle of its colour at the left (Google's four-colour G on
+  #F1F3F4, the blue f on #E7F0FE, the CI mail icon on cream #FFF1E8). Below 390px the words sit just right of the circle so
+  they keep one line. A switched-off Facebook still fades as before.
 - With reduced motion nothing moves; everything is simply in place.
 
 ### Mascot (เลขากระรอก)

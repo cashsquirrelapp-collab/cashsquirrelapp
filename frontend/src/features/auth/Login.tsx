@@ -686,16 +686,16 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
               )}
               <div className="mt-5 space-y-3">
                 <button type="button" onClick={() => { void handleOAuthLogin('google'); }} disabled={loading} className="auth-pill is-google">
-                  <GoogleG size={20} />
+                  <span className="auth-pill-chip" aria-hidden="true"><GoogleG size={20} /></span>
                   {loading && pendingProvider === 'google' ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{t('login.processing')}</> : tr("ดำเนินการต่อด้วย Google")}
                 </button>
                 <button type="button" onClick={() => { if (providers.facebook) void handleOAuthLogin('facebook'); }}
                   disabled={loading || !providers.facebook} aria-disabled={!providers.facebook} className="auth-pill is-facebook">
-                  <FacebookF size={20} />
+                  <span className="auth-pill-chip" aria-hidden="true"><FacebookF size={20} color="#1877F2" /></span>
                   {loading && pendingProvider === 'facebook' ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{t('login.processing')}</> : tr("ดำเนินการต่อด้วย Facebook")}
                 </button>
                 <button type="button" onClick={() => { setAuthMethod('email'); setError(null); }} className="auth-pill is-email">
-                  <Mail className="h-5 w-5" aria-hidden="true" />
+                  <span className="auth-pill-chip" aria-hidden="true"><Mail className="h-5 w-5" /></span>
                   {tr("ดำเนินการต่อด้วยอีเมล")}
                 </button>
               </div>
