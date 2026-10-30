@@ -111,6 +111,13 @@ owner's approval to change.
   fixed dark greys components use as surfaces (neutral/stone 900/950 by token, neutral-800 and #141518-type fills as
   same-weight utilities) follow the black while their hover colours still apply. New components use the tokens, not
   fixed dark greys.
+- Light and dark by the clock or by hand (owner, 2026-10-30), `shared/themeSchedule.ts`: Settings › การแสดงผล offers
+  อัตโนมัติตามเวลา (two times: เริ่มโหมดมืด, กลับเป็นโหมดสว่าง; 18:00 / 06:00 unless changed), สว่างตลอด, มืดตลอด. The choice
+  is kept in the account's own settings (`settings.theme`, every device) and on the device. Accounts from before keep
+  18:00 / 06:00; a new account (from 30 Oct 2569) stays light all night until it chooses. From 18:00 a new account gets one
+  tip (`app/ThemeTip.tsx`; bottom centre on computers, top on phones): ใช้โหมดมืดตอนกลางคืน / ตั้งเวลาเอง (opens the sheet) /
+  ใช้โหมดสว่างต่อ; any answer is kept and it never shows again. The sun / moon button holds until the next switch
+  (automatic) or becomes the choice (by hand).
 
 ### Colour tokens (legacy names)
 

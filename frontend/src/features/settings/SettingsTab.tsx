@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { Drawer } from '../../components/ui/Drawer';
 import { LineLogo } from '../../components/ui/LineLogo';
+import { ThemeScheduleChoices } from './ThemeScheduleChoices';
+import type { ThemePreference } from '../../../../shared/themeSchedule';
 import { Choice, DetailHeader, Field, NavRow, Note, Panel, ProBadge, RowIcon, RowText, Section, SettingsHeadContext, Switch, rowShell, type SettingsHead } from './SettingsParts';
 import { useMobileLayout } from '../mobile/useMobileLayout';
 import { MobilePageHero } from '../mobile/MobilePageHero';
@@ -125,6 +127,11 @@ interface SettingsTabProps {
   isPro?: boolean;
   darkMode: boolean;
   onSetDarkMode: (dark: boolean) => void;
+  /** Light and dark by the clock or by hand (shared/themeSchedule.ts); the display sheet sets it. */
+  themePref?: ThemePreference;
+  onChangeThemePref?: (pref: ThemePreference) => void;
+  /** Opens with a sheet showing (the new-account tip's "ตั้งเวลาเอง" opens the display sheet). */
+  initialSheet?: 'display';
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -161,6 +168,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   isPro,
   isGroupFinance = false,
   darkMode,
+  themePref,
+  onChangeThemePref,
+  initialSheet,
   onSetDarkMode
 }) => {
   const { t, language, toggleLanguage } = useLanguage();
@@ -214,7 +224,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const hasExistingNotifications = !session?.isGuest && !isGroupFinance && Boolean(
     notifSettings.lineUserId || notifSettings.monthlyReportEnabled || notifSettings.dailyDigestEnabled || notifSettings.wht50ReminderEnabled,
   );
-  const [sheet, setSheet] = useState<null | 'language' | 'display' | 'target'>(null);
+  const [sheet, setSheet] = useState<null | 'language' | 'display' | 'target'>(initialSheet ?? null);
   const [idCopied, setIdCopied] = useState(false);
   const [targetDraft, setTargetDraft] = useState('');
 
@@ -1129,7 +1139,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
                   <Section icon={Monitor} title={tr("การใช้งาน")} id="settings-usage">
                     <NavRow icon={Globe} title={tr("ภาษา")} desc={tr("เลือกภาษาที่ใช้ในแอป")} value={language === 'th' ? 'ไทย' : 'English'} onClick={() => setSheet('language')} />
-                    <NavRow icon={darkMode ? Moon : Sun} title={tr("การแสดงผล")} desc={tr("ธีมและการแสดงผลของแอป")} value={darkMode ? tr("มืด") : tr("สว่าง")} onClick={() => setSheet('display')} />
+                    <NavRow icon={darkMode ? Moon : Sun} title={tr("การแสดงผล")} desc={tr("ธีมและการแสดงผลของแอป")}
+                      value={themePref ? (themePref.mode === 'auto' ? tr("อัตโนมัติ") : themePref.mode === 'dark' ? tr("มืดตลอด") : tr("สว่างตลอด")) : darkMode ? tr("มืด") : tr("สว่าง")}
+                      onClick={() => setSheet('display')} />
                   </Section>
                 </div>
 
@@ -1175,7 +1187,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <p className="pt-2 text-xs leading-relaxed text-brand-muted">{t('settings.languageDescription')}</p>
           </div>
         )}
-        {sheet === 'display' && (
+        {sheet === 'display' && themePref && onChangeThemePref && <ThemeScheduleChoices pref={themePref} onChange={onChangeThemePref} />}
+        {sheet === 'display' && !(themePref && onChangeThemePref) && (
           <div role="radiogroup" aria-label={tr("การแสดงผล")} className="space-y-2">
             <Choice selected={!darkMode} label={tr("สว่าง")} onClick={() => { onSetDarkMode(false); }} />
             <Choice selected={darkMode} label={tr("มืด")} onClick={() => { onSetDarkMode(true); }} />

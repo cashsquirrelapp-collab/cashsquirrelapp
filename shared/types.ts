@@ -167,6 +167,8 @@ export interface AppSettings {
   // nav and dashboard. Defaults to true (undefined treated as enabled) so existing accounts that
   // already use it keep seeing it; this only lets users who don't want it hide it.
   goalsFeatureEnabled?: boolean;
+  /** Light and dark by the clock or by hand, for this account on every device (shared/themeSchedule.ts, 2026-10-30). */
+  theme?: { mode: 'auto' | 'light' | 'dark'; darkFrom: string; lightFrom: string; asked?: boolean };
   // ยอดตั้งต้น for เงินจริงที่มีอยู่ตอนนี้: money held before the app tracked anything (see shared/cashBalance).
   cashOpening?: { amount: number; createdAt: string; updatedAt: string };
 }

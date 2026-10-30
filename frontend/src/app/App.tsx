@@ -100,6 +100,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 // it, and calling the shadowed string as a function is exactly the "Je is not a function" bug
 // that made the LINE-notify balance figure fail (found via a decoded production sourcemap).
 import { nowInBangkok } from '../../../shared/monthlySummary';
+import { DEFAULT_DARK_FROM, DEFAULT_LIGHT_FROM, effectiveThemePreference, readThemePreference, scheduleIsDark, schedulePeriod, shouldOfferThemeTip, type ThemePreference } from '../../../shared/themeSchedule';
+import { ThemeTip, type ThemeTipChoice } from './ThemeTip';
 import { buildBriefing } from '../../../shared/briefing';
 import { currentCash } from '../../../shared/cashBalance';
 import { Mascot } from '../components/mascot/Mascot';
@@ -226,6 +228,9 @@ const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split
 const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api', 'line-documents']);
 // The ลูกค้า page was removed; its per-client numbers live in รายงาน › ลูกค้า (the insight alias).
 const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense', clients: 'insight' };
+/** The account's light / dark choice kept on the device, and the stretch of the clock last applied (themeSchedule). */
+const THEME_PREF_KEY = 'cashflow_theme_pref';
+const THEME_PERIOD_KEY = 'cashflow_theme_auto_period';
 
 function isTabKey(value: string | undefined): value is TabKey {
   return !!value && TAB_KEYS.includes(value as TabKey);
@@ -514,12 +519,12 @@ export default function App() {
   // The floating chat's conversation on its way to the full chat page (its expand button, owner 2026-10-27).
   const [chatHandoff, setChatHandoff] = useState<ChatHandoff | null>(null);
   // The settings page a phone-menu entry asked for; `n` remounts the page when asked again.
-  const [settingsEntry, setSettingsEntry] = useState<{ view: SettingsView; n: number }>({ view: 'home', n: 0 });
+  const [settingsEntry, setSettingsEntry] = useState<{ view: SettingsView; n: number; sheet?: 'display' }>({ view: 'home', n: 0 });
   // Once the settings page is left, the next visit opens on its overview again. Only on leaving: the
   // tab switch runs in a transition, so the page asked for is not yet the active one when the entry is set.
   const lastTabRef = React.useRef(activeTab);
   useEffect(() => {
-    if (lastTabRef.current === 'settings' && activeTab !== 'settings') setSettingsEntry(entry => (entry.view === 'home' ? entry : { ...entry, view: 'home' }));
+    if (lastTabRef.current === 'settings' && activeTab !== 'settings') setSettingsEntry(entry => (entry.view === 'home' && !entry.sheet ? entry : { ...entry, view: 'home', sheet: undefined }));
     lastTabRef.current = activeTab;
   }, [activeTab]);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -620,7 +625,7 @@ export default function App() {
       ],
       account: [
         ...(has('settings') ? [{ key: 'profile', title: tr("โปรไฟล์"), description: tr("ชื่อ รูป และข้อมูลบัญชี"), icon: 'users' as const, search: "ชื่อ รูปโปรไฟล์ อีเมล", onOpen: openSettings('profile') }] : []),
-        { key: 'theme', title: tr("โหมดสว่างและมืด"), description: '', icon: darkMode ? 'moon' : 'sun', search: "มืด สว่าง ธีม dark", value: darkMode ? tr("มืด") : tr("สว่าง"), onOpen: () => setDarkMode(!darkMode) },
+        { key: 'theme', title: tr("โหมดสว่างและมืด"), description: '', icon: darkMode ? 'moon' : 'sun', search: "มืด สว่าง ธีม dark", value: darkMode ? tr("มืด") : tr("สว่าง"), onOpen: toggleDarkMode },
         { key: 'language', title: tr("ภาษา"), description: '', icon: 'globe', search: "ภาษา language english ไทย", value: language === 'th' ? tr("ไทย") : 'English', onOpen: toggleLanguage },
         ...tool('settings', tr("ตั้งค่าทั้งหมด"), tr("ผู้ออกเอกสาร สำรองข้อมูล และอื่น ๆ"), 'settings', "นำเข้า เป้ารายรับ สำรอง ผู้ออกเอกสาร"),
         ...tool('feedback', tr("แจ้งปัญหา"), tr("แจ้งปัญหา เสนอไอเดีย หรือติดต่อทีมงาน"), 'report', "feedback ข้อเสนอแนะ ติดต่อ แจ้งปัญหา ไอเดีย"),
@@ -690,7 +695,7 @@ export default function App() {
               <button type="button" onClick={() => { setIsProfileMenuOpen(false); setFlexOpen(true); }} className={profileMenuItem}>
                 <Presentation className="h-4 w-4 text-brand-muted" />{tr("โหมดโชว์ผลงาน")}</button>
             )}
-            <button type="button" role="switch" aria-checked={darkMode} onClick={() => setDarkMode(!darkMode)} className={profileMenuItem}>
+            <button type="button" role="switch" aria-checked={darkMode} onClick={toggleDarkMode} className={profileMenuItem}>
               <Moon className="h-4 w-4 text-brand-muted" />
               <span className="flex-1">{tr("โหมดมืด")}</span>
               <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${darkMode ? 'bg-[#E65F2B]' : 'bg-[#D9D4CE] dark:bg-[#3A3B40]'}`}>
@@ -986,33 +991,7 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Auto-switch to dark mode ("โหมดตอนเย็น") in the evening and back to light in the morning,
-  // Bangkok time. Boundaries are 12-hour blocks starting 06:00 (light) / 18:00 (dark), tracked as
-  // a period id so a manual toggle mid-period is respected until the next boundary is crossed.
-  useEffect(() => {
-    const getAutoThemePeriod = () => {
-      const bkkMs = nowInBangkok().getTime();
-      const sixAmEpochMs = Date.UTC(1970, 0, 1, 6, 0, 0, 0);
-      const periodId = Math.floor((bkkMs - sixAmEpochMs) / (12 * 60 * 60 * 1000));
-      return { isDark: periodId % 2 !== 0, periodId };
-    };
-    const applyAutoThemeIfNeeded = () => {
-      const { isDark, periodId } = getAutoThemePeriod();
-      const lastAppliedRaw = localStorage.getItem('cashflow_theme_auto_period');
-      const lastApplied = lastAppliedRaw !== null ? Number(lastAppliedRaw) : null;
-      if (lastApplied !== periodId) {
-        localStorage.setItem('cashflow_theme_auto_period', String(periodId));
-        setDarkMode(isDark);
-      }
-    };
-    applyAutoThemeIfNeeded();
-    const interval = setInterval(applyAutoThemeIfNeeded, 60 * 1000);
-    document.addEventListener('visibilitychange', applyAutoThemeIfNeeded);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', applyAutoThemeIfNeeded);
-    };
-  }, []);
+  // The clock that switches light and dark is set up below with the account's choice (themeSchedule).
 
   // Auth session listener
   useEffect(() => {
@@ -1423,6 +1402,75 @@ export default function App() {
   // its own settings have loaded (so an answered account never sees it flash); and from Settings to change the answers.
   const [onboardingEdit, setOnboardingEdit] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
+
+  // Light and dark by the clock or by hand (owner, 2026-10-30; shared/themeSchedule.ts). The account's own settings hold
+  // the choice for every device; the device keeps a copy for a quick start and for a group workspace (whose settings are
+  // the group's). Accounts from before keep 18:00 / 06:00; a new account stays light until it chooses and gets the
+  // evening tip once. A change by the sun / moon button holds until the next switch (automatic) or becomes the choice.
+  const personalSettings = Boolean(session?.user?.id && !session.isGuest && !financeGroupId);
+  const accountLoaded = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner;
+  const accountThemePref = personalSettings && accountLoaded ? readThemePreference(settings.theme) : null;
+  const [localThemePref, setLocalThemePref] = useState<ThemePreference | null>(() => {
+    try { return readThemePreference(JSON.parse(localStorage.getItem(THEME_PREF_KEY) || 'null')); } catch { return null; }
+  });
+  const savedThemePref = accountThemePref ?? localThemePref;
+  // Before the account is known, a device that has followed the clock before keeps doing so; a fresh one waits (a new
+  // account signing up at night is not turned dark).
+  const [deviceFollowedClock] = useState(() => { try { return localStorage.getItem(THEME_PERIOD_KEY) !== null; } catch { return false; } });
+  const themeAccount = session?.user && !session.isGuest ? { createdAt: session.user.created_at } : null;
+  const themePref = effectiveThemePreference(savedThemePref, themeAccount);
+  const themeForced = savedThemePref && savedThemePref.mode !== 'auto' ? savedThemePref.mode : null;
+  const themeFollowsClock = !themeForced && themePref.mode === 'auto' && (savedThemePref !== null || themeAccount !== null || deviceFollowedClock || session?.isGuest === true);
+  useEffect(() => {
+    if (themeForced) { setDarkMode(themeForced === 'dark'); return; }
+    if (!themeFollowsClock) return;
+    const clock = { darkFrom: themePref.darkFrom, lightFrom: themePref.lightFrom };
+    const apply = () => {
+      const now = new Date();
+      const period = schedulePeriod(clock, now);
+      let last: string | null = null;
+      try { last = localStorage.getItem(THEME_PERIOD_KEY); } catch { /* storage blocked: follow the clock */ }
+      if (last !== period) {
+        try { localStorage.setItem(THEME_PERIOD_KEY, period); } catch { /* storage blocked */ }
+        setDarkMode(scheduleIsDark(clock, now));
+      }
+    };
+    apply();
+    const interval = setInterval(apply, 60 * 1000);
+    document.addEventListener('visibilitychange', apply);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', apply); };
+  }, [themeForced, themeFollowsClock, themePref.darkFrom, themePref.lightFrom]);
+  // The account's choice, kept on the device too.
+  const accountThemeRaw = accountThemePref ? JSON.stringify(accountThemePref) : null;
+  useEffect(() => {
+    if (!accountThemeRaw) return;
+    try { if (localStorage.getItem(THEME_PREF_KEY) !== accountThemeRaw) localStorage.setItem(THEME_PREF_KEY, accountThemeRaw); } catch { /* storage blocked */ }
+    setLocalThemePref(current => (current && JSON.stringify(current) === accountThemeRaw ? current : readThemePreference(JSON.parse(accountThemeRaw))));
+  }, [accountThemeRaw]);
+  const saveThemePref = (next: ThemePreference) => {
+    try { localStorage.setItem(THEME_PREF_KEY, JSON.stringify(next)); localStorage.removeItem(THEME_PERIOD_KEY); } catch { /* storage blocked */ }
+    setLocalThemePref(next);
+    if (personalSettings && accountLoaded) handleUpdateSettings({ ...settings, theme: next });
+  };
+  const toggleDarkMode = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    if (themeForced) saveThemePref({ ...themePref, mode: next ? 'dark' : 'light' });
+  };
+  // The evening tip is looked at again every minute, so it appears when 18:00 comes while the app is open.
+  const [themeTipClock, setThemeTipClock] = useState(() => Date.now());
+  useEffect(() => { const timer = setInterval(() => setThemeTipClock(Date.now()), 60 * 1000); return () => clearInterval(timer); }, []);
+  const answerThemeTip = (choice: ThemeTipChoice) => {
+    const usual = { darkFrom: DEFAULT_DARK_FROM, lightFrom: DEFAULT_LIGHT_FROM, asked: true };
+    if (choice === 'auto') saveThemePref({ mode: 'auto', ...usual });
+    else if (choice === 'light') saveThemePref({ mode: 'light', ...usual });
+    else {
+      // Their own times: answered, still light for now; the display sheet opens to set them.
+      saveThemePref({ ...themePref, asked: true });
+      setSettingsEntry(entry => ({ view: 'home', n: entry.n + 1, sheet: 'display' }));
+      navigateTab('settings');
+    }
+  };
   const [buddyArrival, setBuddyArrival] = useState(0);
   // Only right after paying: set when the server confirms the payment, and played at once (owner, 2026-10-29: no
   // "สมัครสมาชิกสำเร็จ!" message in between). Ordinary visits, the trial and renewals never play it.
@@ -2678,6 +2726,9 @@ export default function App() {
 
   const onboardingFirst = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner && !onboardingDone && !birthOpen
     && shouldShowOnboarding({ createdAt: session?.user?.created_at, onboarding: settings.onboarding, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId) });
+  // The one-time evening tip for a new account, once its own settings have loaded, never over the first questions.
+  const showThemeTip = accountLoaded && !onboardingFirst && !onboardingEdit && !birthOpen
+    && shouldOfferThemeTip({ saved: accountThemePref, createdAt: session?.user?.created_at, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId), now: new Date(themeTipClock) });
   /** Keeps the answers in the account's settings (and the name as the account's name, the one เลขา uses), and lets
    *  them do what the old setup did: the work type sets the menu's default grouping, the occupations add job types. */
   const saveOnboarding = async (result: OnboardingResult, status: OnboardingStatus) => {
@@ -3190,7 +3241,7 @@ export default function App() {
           <MobileHeader
             alertsAccess={notificationsAccess}
             dark={darkMode}
-            onToggleTheme={() => setDarkMode(!darkMode)}
+            onToggleTheme={toggleDarkMode}
             alerts={dueReminderJobs.length}
             onOpenAlerts={() => { setIsMobileMenuOpen(false); navigateTab('receivables'); }}
             onHome={() => { setIsMobileMenuOpen(false); navigateTab('dashboard'); }}
@@ -3269,7 +3320,7 @@ export default function App() {
                   </button>}
                   <button
                     type="button"
-                    onClick={() => setDarkMode(!darkMode)}
+                    onClick={toggleDarkMode}
                     className="lg-glass flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-brand-muted transition-colors hover:text-brand-text cursor-pointer"
                     title={darkMode ? tr("เปลี่ยนเป็นโหมดสว่าง") : tr("เปลี่ยนเป็นโหมดมืด")}
                     aria-label={darkMode ? tr("เปลี่ยนเป็นโหมดสว่าง") : tr("เปลี่ยนเป็นโหมดมืด")}
@@ -3575,6 +3626,9 @@ export default function App() {
                   isPro={isPro}
                   darkMode={darkMode}
                   onSetDarkMode={setDarkMode}
+                  themePref={themePref}
+                  onChangeThemePref={saveThemePref}
+                  initialSheet={settingsEntry.sheet}
                 />
               )}
             </div>}
@@ -3608,6 +3662,7 @@ export default function App() {
               carried={buddyCarry} onCarried={() => setBuddyCarry(null)} />
           </Suspense>
         )}
+        {showThemeTip && !proKvOpen && <ThemeTip phone={isPhone} onChoose={answerThemeTip} />}
         {proKvOpen && (
           <Suspense fallback={null}>
             <ProKvBanner mobile={isPhone} onClose={() => setProKvOpen(false)} onSubscribe={() => { setProKvOpen(false); navigateTab('plans'); }} />
