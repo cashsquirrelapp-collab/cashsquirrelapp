@@ -121,8 +121,12 @@ function TimelineDemo() {
       const room = Math.max(0, list.scrollHeight - frame.clientHeight);
       // Layout positions, not drawn ones: the rows are still rising (moved down) when this first runs.
       const topIn = (el: HTMLElement) => { let y = 0; for (let e: HTMLElement | null = el; e && e !== list; e = e.offsetParent as HTMLElement | null) y += e.offsetTop; return y; };
-      const edges = Array.from(list.querySelectorAll<HTMLElement>('.gl-tl-row, .gl-tl-month > h4'), el => topIn(el) - 6);
-      const shift = edges.filter(edge => edge >= room).sort((a, b) => a - b)[0] ?? room;
+      const edges = Array.from(list.querySelectorAll<HTMLElement>('.gl-tl-row, .gl-tl-month > h4'), el => topIn(el) - 3);
+      // The edge nearest the end of the list: just past it only when that leaves little empty room below (phones
+      // otherwise showed a blank stretch under November), else just before it, the last row going under the fade.
+      const after = edges.filter(edge => edge >= room).sort((a, b) => a - b)[0];
+      const before = edges.filter(edge => edge <= room).sort((a, b) => b - a)[0];
+      const shift = after !== undefined && (after - room <= 24 || before === undefined) ? after : before ?? room;
       list.style.setProperty('--tl-shift', `${Math.round(Math.max(0, shift))}px`);
     };
     measure();
