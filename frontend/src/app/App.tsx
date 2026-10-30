@@ -549,6 +549,9 @@ export default function App() {
   // Kept mounted once opened, so closing can fade out.
   const [creditRadarMounted, setCreditRadarMounted] = useState(false);
   const closeCreditRadar = React.useCallback(() => setCreditRadarOpen(false), []);
+  const openCreditRadar = React.useCallback(() => { setCreditRadarMounted(true); setCreditRadarOpen(true); }, []);
+  // ?radar=1 opens it once the account's jobs are in (for the team and the tests), on computers and iPads.
+  const radarLinkRef = useRef(new URLSearchParams(window.location.search).get('radar') === '1');
   const openPhoneMenu = React.useCallback(() => setIsMobileMenuOpen(true), []);
   useEffect(() => {
     const query = window.matchMedia('(min-width: 1024px)');
@@ -2231,6 +2234,16 @@ export default function App() {
     };
   }, [jobs, goals, statuses, jobTypes, settings, notifSettings, expenses, session, isLoadedForUser, cloudSyncStatus, financeOwner]);
 
+  // ?radar=1: the Credit Radar opens once the account's jobs are in (computers and iPads).
+  useEffect(() => {
+    if (!radarLinkRef.current || isPhone || !(session?.user?.email && isLoadedForUser === session.user.email)) return;
+    radarLinkRef.current = false;
+    const params = new URLSearchParams(window.location.search);
+    params.delete('radar');
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+    openCreditRadar();
+  }, [session, isLoadedForUser, isPhone, openCreditRadar]);
+
   // Check for overdue credit terms on login/data load
   useEffect(() => {
     if (!notificationsAccess) return;
@@ -3535,6 +3548,7 @@ export default function App() {
               {activeTab === 'receivables' && (
                 <ReceivablesTab
                   onMobileBack={openPhoneMenu}
+                  onOpenRadar={isPhone ? undefined : openCreditRadar}
                   jobs={jobs}
                   onEditJob={handleEditJob}
                   onViewJob={handleViewJob}

@@ -461,6 +461,8 @@ card does not need:
   the radar 340px+), lines to the middle of each card's top, the four figures in one row with the buttons under them.
   Chips and the hologram screen show when the radar is 340px+ (chips 84–104px; the screen keeps two log lines under 420px).
   Touch: a tap opens the job; there is no hover or mouse parallax.
+- Opens by itself once a day (the overdue check), or by hand any time: the "เรดาร์เครดิตเทอม" button at the top right of
+  the receivables page (computers and iPads; owner: "ดูในคอมยังไง ต้องกดตรงไหน"), or the link `?radar=1`.
 - Data: the jobs as saved, with the receivables page's rules (owed = pending > 0 and sent; due = payDate; due soon = within
   7 days); green only for jobs marked paid in full in the last 7 days; days on the Bangkok calendar. "เงินค้างรับทั้งหมด"
   never includes money already received.

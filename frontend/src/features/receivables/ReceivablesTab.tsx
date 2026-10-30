@@ -1,5 +1,6 @@
 import { uiSurface } from '../../components/ui/uiStyles';
-import { uiPrimaryButton } from '../../components/ui/uiStyles';
+import { uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles';
+import { Radar } from 'lucide-react';
 import PageHeader from '../../components/ui/PageHeader';
 import React, { useMemo, useState } from 'react';
 import { Job } from '../../../../shared/types';
@@ -22,6 +23,8 @@ interface ReceivablesTabProps {
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   /** Phones: back to the menu, drawn in this page's own terracotta header. */
   onMobileBack?: () => void;
+  /** Computers and iPads: open the fullscreen Credit Radar now (owner, 2026-10-30: "ดูในคอมยังไง ต้องกดตรงไหน"). */
+  onOpenRadar?: () => void;
 }
 
 type GroupKey = 'overdue' | 'dueToday' | 'dueSoon' | 'normal';
@@ -35,7 +38,7 @@ const GROUP_META: Record<GroupKey, { label: string; dot: string; badgeBg: string
 
 const GROUP_ORDER: GroupKey[] = ['overdue', 'dueToday', 'dueSoon', 'normal'];
 
-export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerConfirm, onMobileBack }: ReceivablesTabProps) {
+export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerConfirm, onMobileBack, onOpenRadar }: ReceivablesTabProps) {
   const { language } = useLanguage();
   const unpaidJobs = useMemo(() => jobs.filter(j => j.pending > 0 && j.isPosted !== false), [jobs]);
 
@@ -203,10 +206,16 @@ export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerConf
     );
   }
 
+  const radarButton = onOpenRadar ? (
+    <button type="button" onClick={onOpenRadar} className={`${uiSecondaryButton} gap-2`} data-testid="open-credit-radar">
+      <Radar className="h-4 w-4" strokeWidth={2} aria-hidden="true" />{tr("เรดาร์เครดิตเทอม")}
+    </button>
+  ) : null;
+
   if (unpaidJobs.length === 0) {
     return (
       <div className="page-content space-y-4">
-        <PageHeader page="receivables" />
+        <PageHeader page="receivables">{radarButton}</PageHeader>
         <div className="mx-auto max-w-[860px]">
           <div className={`${uiSurface} p-10 text-center`}>
             {/* The mascot on its own, without a tile (owner, 2026-10-21: "เอากรอบกระรอกออก"). */}
@@ -223,7 +232,7 @@ export default function ReceivablesTab({ jobs, onEditJob, onViewJob, triggerConf
 
   return (
     <div className="page-content space-y-4">
-        <PageHeader page="receivables" />
+        <PageHeader page="receivables">{radarButton}</PageHeader>
       <div className="mx-auto max-w-[860px] space-y-5">
         <div>
           <p className="text-xs text-brand-muted">{tr("เงินค้างรับทั้งหมด")}</p>

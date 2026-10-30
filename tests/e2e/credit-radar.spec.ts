@@ -38,7 +38,7 @@ const mixed = [
   owed('m5', 'โฆษณา IG & Reels', 'Give Lab', 6000, -20),
 ];
 
-async function open(page: Page, list: unknown[], mode: 'light' | 'dark' = 'light') {
+async function open(page: Page, list: unknown[], mode: 'light' | 'dark' = 'light', path = '/', expectRadar = true) {
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'Test user' } }));
   await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
@@ -52,9 +52,9 @@ async function open(page: Page, list: unknown[], mode: 'light' | 'dark' = 'light
     avatar_data_url: null, issuer_profile: null,
   };
   await page.route('**/api/data*', route => route.fulfill({ json: { snapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2027-01-01T00:00:00Z' } } }));
-  await page.goto('/');
+  await page.goto(path);
   const radar = page.getByTestId('credit-radar');
-  await expect(radar).toBeVisible({ timeout: 10_000 });
+  if (expectRadar) await expect(radar).toBeVisible({ timeout: 10_000 });
   return radar;
 }
 
@@ -305,4 +305,40 @@ test('light mode: cream background, white glass cards, the colour logo on the st
   await page.waitForTimeout(2200);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('credit-radar-light.png') });
+});
+
+// Owner, 2026-10-30: "ดูในคอมยังไง ต้องกดตรงไหน" — the radar also opens by hand, from the receivables page, any time.
+test('the receivables page has a เรดาร์เครดิตเทอม button that opens the radar any time', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // The once-a-day check already ran today: the radar does not open by itself.
+  await page.addInitScript(email => { const d = new Date().toISOString().split('T')[0]; sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`, '1'); }, user.email);
+  const radar = await open(page, mixed, 'light', '/receivables', false);
+  await page.waitForTimeout(2000);
+  await expect(radar).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('receivables-radar-button.png') });
+  await page.getByTestId('open-credit-radar').click();
+  await expect(radar).toBeVisible();
+  await expect(radar.getByTestId('radar-card')).toHaveCount(5);
+  await page.keyboard.press('Escape');
+  await expect(radar).toHaveCount(0, { timeout: 2000 });
+  await expect(page.getByTestId('open-credit-radar')).toBeVisible();
+});
+
+test('?radar=1 opens the radar once the jobs are in', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(email => { const d = new Date().toISOString().split('T')[0]; sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`, '1'); }, user.email);
+  const radar = await open(page, mixed, 'light', '/?radar=1');
+  await expect(radar.getByTestId('radar-card')).toHaveCount(5);
+  expect(new URL(page.url()).searchParams.has('radar')).toBe(false);
+});
+
+test.describe('phones: no radar button', () => {
+  test.use({ hasTouch: true, isMobile: true });
+  test('the phone receivables page stays as it was', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(email => { const d = new Date().toISOString().split('T')[0]; sessionStorage.setItem(`cashflow_queue_checked_${email}_${d}`, '1'); }, user.email);
+    await open(page, mixed, 'light', '/receivables', false);
+    await page.waitForTimeout(1500);
+    await expect(page.getByTestId('open-credit-radar')).toHaveCount(0);
+  });
 });
