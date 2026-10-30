@@ -448,22 +448,26 @@ card does not need:
   person already chose is never changed. Confirmed layouts are remembered like any other choice. A guest, the AI off or
   any failure: the import goes on as before.
 
-### Overdue report (owner, 2026-10-30: "เหมือนกำลังรายงาน CEO ... liquid card ภาพรวม"; round 2: "ฟิลโฮโลแกรม แบบ mind map แตกแขนง ... ข้อความสรุปอีกฝั่ง")
+### Overdue report (owner, 2026-10-30; round 3 from the owner's reference picture: "ฟีลๆ นี้ ... แต่ให้ฟีลพื้นหลังดูเหมือนการเงิน")
 - Computers and iPads (744px+): the once-a-day overdue alert opens as a short report
   (`features/receivables/OverdueReport.tsx` + `overdueReport.css`, dialog 940px) instead of the plain confirm. Phones keep
-  the old alert.
-- Top: the real report mascot (`/line/mascot-v6-report.png`), "รายงานประจำวัน · date", the count, and how many became
-  overdue today.
-- Left, a hologram mind map on a 560px stage (fine grid, faint scan lines, HUD corners): the total on the left branches
-  to how late (over 30 days on top, rust; 8–30 orange; 1–7 caramel; empty groups left out), each branching to its two
-  largest jobs (name, "เลย N วัน" chip, amount). Nodes are solid cards with a holographic conic edge; lines are the group's
-  colour with a soft glow. Anything not drawn: "และอีก N รายการในหน้าเงินรอรับ".
-- Right (below on iPad portrait), "สรุปสั้น ๆ": the total, each group, the client owing the most, the longest wait, and one
-  orange line "ควรติดตาม … ก่อน" for the largest job in the latest group. Plain figures worked out in the app, no AI.
-- Motion plays once (about 1.6 s): the stage fades in and one scan beam passes, the total counts up with a ring pulse,
-  branches draw out with a light running along each, nodes come into focus (blur to sharp) while the edge turns once, the
-  summary types in line by line. Nothing moves with reduced motion. Built with the app's own motion library; no GSAP
-  (a scroll-driven library; the dialog does not scroll).
+  the old alert. Rounds 1 (glass summary) and 2 (light mind map) are in git history (5d92c8d, 4421258).
+- Header: "รายงานประจำวัน · date", the count, how many became overdue today.
+- A dark hologram stage (dark in both themes; the dialog around it follows the theme), 892×452 on computers, 660×452 on
+  iPads. Backdrop: price grid, candlesticks and a rising line, shapes only (no text). The real report squirrel
+  (`/line/mascot-v6-report.png`, glasses and calculator; never redrawn, only a glow) stands on a glowing stand with the
+  Krarok mark, in a light beam, inside two orbit rings.
+- The total floats above in a glass card (bell badge). The four largest jobs float around as glass cards tilted toward
+  the squirrel: avatar (building icon for companies, else the initial), client, job, amount, "เกินกำหนด" / "เพิ่งเลยกำหนด"
+  with days, and a ส่งงาน → ครบกำหนด → วันนี้ line (the late part glows). Branches join the squirrel to the total and to each
+  card, in the colour of how late (over 30 red-orange, 8–30 orange, 1–7 caramel). Computers also show four orbit chips:
+  the three groups' counts and how many clients. "และอีก N รายการในหน้าเงินรอรับ" under the stage.
+- "สรุปสั้น ๆ" under the stage: on computers one row (total, client owing the most, longest wait, "ควรติดตาม … ก่อน");
+  on iPads, which have no chips, the three groups too. Plain figures worked out in the app, no AI.
+- Motion plays once (about 1.8 s): candles rise and the trend line draws, the stand's rings light, the beam rises, the
+  squirrel comes into focus, the total card drops in and counts up, branches draw with a light running along each, cards
+  slide in from the squirrel's side, chips pop, the summary types in. Nothing moves with reduced motion. Built with the
+  app's own motion library; no GSAP (a scroll-driven library; the dialog does not scroll).
 
 ### Mascot (เลขากระรอก)
 

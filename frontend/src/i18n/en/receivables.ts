@@ -17,6 +17,8 @@ export const receivables: Record<string, string> = {
   '1–7 วัน': '1–7 days',
   'แผนผังเงินค้างรับ': 'Overdue map',
   'ค้างรับรวม': 'Total overdue',
+  'ค้างรับเลยกำหนด': 'Overdue total',
+  'เพิ่งเลยกำหนด': 'Just overdue',
   'ไม่มีรายการ': 'None',
   '{0} · {1} รายการ': '{0} · {1} items',
   'ลูกค้าที่ค้างมากที่สุด': 'Client owing the most',

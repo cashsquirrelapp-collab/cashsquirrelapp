@@ -16,7 +16,7 @@ function daysAgo(n: number): string {
 }
 const job = (id: string, name: string, client: string, pending: number, late: number) => ({
   id, name, client, value: pending, received: 0, pending, type: 'Sponsored Post', status: 'pending', paymentStatus: 'unpaid', creditTerm: 0, note: '',
-  isPosted: true, deliveredOn: daysAgo(late), payDate: daysAgo(late),
+  isPosted: true, postDate: daysAgo(late + 30), payDate: daysAgo(late),
 });
 const jobs = [
   job('j1', 'รีวิวสกินแคร์ 3 คลิป', 'บริษัท ผิวใส จำกัด', 45000, 52),
@@ -45,7 +45,7 @@ async function open(page: Page, mode: 'light' | 'dark' = 'light', list = jobs) {
   await page.goto('/');
 }
 
-test('computers: the overdue alert is a hologram map of how late and the largest jobs, with a short summary', async ({ page }) => {
+test('computers: the overdue alert is a hologram stage over a finance backdrop, with the largest jobs around the squirrel', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 860 });
   await open(page);
   const report = page.getByTestId('overdue-report');
@@ -53,27 +53,38 @@ test('computers: the overdue alert is a hologram map of how late and the largest
   await expect(report.getByRole('heading', { name: 'เงินค้างรับเลยกำหนด 6 รายการ' })).toBeVisible();
   await expect(report).toContainText('เพิ่งเลยกำหนดวันนี้ 1 รายการ');
   // The total counts up to the six overdue jobs (the job not yet due is left out).
-  await expect(report.locator('.odr-root-total')).toHaveText('฿94,700', { timeout: 3000 });
-  // Over 30 days on top, then 8–30, then 1–7; each branch shows its two largest jobs.
-  const branches = report.locator('.odr-branch');
-  await expect(branches).toHaveCount(3);
-  await expect(branches.nth(0)).toContainText('เกิน 30 วัน');
-  await expect(branches.nth(0)).toContainText('฿45,000');
-  await expect(branches.nth(1)).toContainText('฿27,700');
-  await expect(branches.nth(2)).toContainText('฿22,000');
-  await expect(branches.nth(2)).toContainText('3 รายการ');
-  const leaves = report.locator('.odr-leaf');
-  await expect(leaves).toHaveCount(5);
-  await expect(leaves.first()).toContainText('รีวิวสกินแคร์ 3 คลิป');
-  await expect(leaves.first()).toContainText('เลย 52 วัน');
-  await expect(report).toContainText('และอีก 1 รายการในหน้าเงินรอรับ');
+  await expect(report.locator('.odr-total')).toHaveText('฿94,700', { timeout: 4000 });
+  await expect(report.locator('.odr-squirrel')).toHaveAttribute('src', '/line/mascot-v6-report.png');
+  // The four largest jobs as cards: client, job, how late, amount, sent -> due -> today.
+  const cards = report.getByTestId('overdue-card');
+  await expect(cards).toHaveCount(4);
+  await expect(cards.first()).toContainText('บริษัท ผิวใส จำกัด');
+  await expect(cards.first()).toContainText('รีวิวสกินแคร์ 3 คลิป');
+  await expect(cards.first()).toContainText('เกินกำหนด');
+  await expect(cards.first()).toContainText('52 วัน');
+  await expect(cards.first()).toContainText('฿45,000');
+  await expect(cards.first().locator('.odr-tl-labels')).toContainText('ส่งงาน');
+  await expect(cards.first().locator('.odr-tl-labels')).toContainText('ครบกำหนด');
+  await expect(cards.first().locator('.odr-tl-labels')).toContainText('วันนี้');
+  await expect(cards.nth(2)).toContainText('คลิป TikTok');
+  await expect(cards.nth(2)).toContainText('เพิ่งเลยกำหนด');
+  await expect(report).toContainText('และอีก 2 รายการในหน้าเงินรอรับ');
   await expect(report).not.toContainText('งานยังไม่ถึงกำหนด');
-  // The summary beside the map.
+  // How late, and how many clients, on the orbit.
+  const chips = report.locator('.odr-chip-orb');
+  await expect(chips).toHaveCount(4);
+  await expect(chips.nth(0)).toContainText('1 รายการ');
+  await expect(chips.nth(1)).toContainText('2 รายการ');
+  await expect(chips.nth(2)).toContainText('3 รายการ');
+  await expect(chips.nth(3)).toContainText('6 ราย');
+  // The short summary, one row.
   const brief = report.locator('.odr-brief');
   await expect(brief).toContainText('฿94,700 · 6 รายการ');
   await expect(brief).toContainText('บริษัท ผิวใส จำกัด · ฿45,000');
   await expect(brief).toContainText('รีวิวสกินแคร์ 3 คลิป · 52 วัน');
   await expect(brief).toContainText('ควรติดตาม บริษัท ผิวใส จำกัด ก่อน ยอด ฿45,000 เลยกำหนดมา 52 วัน');
+  // The whole report fits the window without scrolling.
+  expect(await report.evaluate(el => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
   await page.waitForTimeout(2600);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('overdue-report-light.png') });
@@ -96,11 +107,15 @@ test('computers in dark mode: the report reads on the dark surface', async ({ pa
   await expect(report).toBeHidden();
 });
 
-test('iPad portrait shows the same report', async ({ page }) => {
+test('iPad portrait shows the same stage, narrower: no orbit chips, the summary counts how late instead', async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
   await open(page);
   const report = page.getByTestId('overdue-report');
   await expect(report).toBeVisible({ timeout: 10_000 });
+  await expect(report.getByTestId('overdue-card')).toHaveCount(4);
+  await expect(report.locator('.odr-chip-orb')).toHaveCount(0);
+  await expect(report.locator('.odr-brief')).toContainText('เลยมาเกิน 30 วัน');
+  await expect(report.locator('.odr-brief')).toContainText('฿22,000 · 3 รายการ');
   await page.waitForTimeout(2600);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('overdue-report-ipad.png') });
@@ -128,8 +143,8 @@ test('a very large total still fits its card, with nothing overlapping', async (
   await page.setViewportSize({ width: 1280, height: 860 });
   await open(page, 'light', [job('b1', 'งานยอดสูงมาก', 'ลูกค้าใหญ่', 312_327_222, 40), job('b2', 'งานที่สอง', 'ลูกค้าเล็ก', 98_765_432, 10)]);
   const report = page.getByTestId('overdue-report');
-  await expect(report.locator('.odr-root-total')).toHaveText('฿411,092,654', { timeout: 10_000 });
-  const fits = await report.locator('.odr-root-total').evaluate(el => el.scrollWidth <= el.clientWidth + 1);
+  await expect(report.locator('.odr-total')).toHaveText('฿411,092,654', { timeout: 10_000 });
+  const fits = await report.locator('.odr-total').evaluate(el => el.scrollWidth <= el.clientWidth + 1);
   expect(fits).toBe(true);
   await page.waitForTimeout(2600);
   expect(await textOverlapIssues(page)).toEqual([]);
