@@ -21,7 +21,13 @@ for (const flag of ['nodejs_compat', 'enable_nodejs_http_server_modules']) {
   expect(config?.compatibility_flags?.includes(flag), `Missing compatibility flag: ${flag}`);
 }
 expect(config?.vars?.NODE_ENV === 'production', 'Production mode is required');
-expect(config?.vars?.APP_URL === 'https://kraroktunngern.cashsquirrelapp.workers.dev', 'Unexpected production application origin');
+// The site's domain is the main address since 2026-10-31; the workers.dev address stays trusted beside it (LINE and
+// Stripe webhooks, LIFF), and the domain is attached to this Worker.
+expect(config?.vars?.APP_URL === 'https://krarok.com', 'Unexpected production application origin');
+expect(String(config?.vars?.APP_EXTRA_ORIGINS || '').split(',').map(value => value.trim()).includes('https://kraroktunngern.cashsquirrelapp.workers.dev'),
+  'The workers.dev address must stay trusted (LINE and Stripe webhooks, LIFF)');
+expect(Array.isArray(config?.routes) && config.routes.some(route => route?.pattern === 'krarok.com' && route?.custom_domain === true),
+  'krarok.com must stay attached as a custom domain');
 expect(config?.vars?.SUPABASE_URL === 'https://rcllghixkclvkxhvttaw.supabase.co', 'Unexpected production Supabase project');
 expect(config?.vars?.STRIPE_MODE === 'live', 'Production Stripe mode must remain live');
 expect(['false', 'true'].includes(config?.vars?.CRON_ENABLED), 'CRON_ENABLED must be exactly false or true as a string');
