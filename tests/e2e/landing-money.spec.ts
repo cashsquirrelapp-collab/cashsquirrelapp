@@ -75,7 +75,8 @@ test('spending is a free feature: three costs, the month’s total, and the net 
   await expect(section.locator('.gl-exp-profit .is-profit')).toContainText('฿11,800');
   // after the calendar, before the questions; nothing here belongs to Pro
   const order = await page.evaluate(() => [...document.querySelectorAll('.cl-feat')].map(el => el.classList[1]));
-  expect(order).toEqual(['is-chat', 'is-remind', 'is-docs', 'is-calendar', 'is-expense']);
+  // the vault and ใบ 50 ทวิ joined after spending on 2026-10-31
+  expect(order).toEqual(['is-chat', 'is-remind', 'is-docs', 'is-calendar', 'is-expense', 'is-vault']);
   await expect(section.locator('.cl-tier.is-pro')).toHaveCount(0);
 });
 
