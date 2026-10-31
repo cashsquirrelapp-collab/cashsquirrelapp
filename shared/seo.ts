@@ -13,7 +13,8 @@ const HOME_DESCRIPTION = 'จัดการงานและการเงิ
 
 export type SeoPage = { title: string; description: string };
 export const SEO_PAGES: Record<string, SeoPage> = {
-  '/': { title: 'Krarok | ให้ทุกเรื่องงานและเงิน ง่ายขึ้นในที่เดียว', description: HOME_DESCRIPTION },
+  // Both names in the title (owner, 2026-10-31: "ได้เลย"), so the page is found by the Thai name and the English one.
+  '/': { title: 'Krarok กระรอกตุนเงิน | ให้ทุกเรื่องงานและเงิน ง่ายขึ้นในที่เดียว', description: HOME_DESCRIPTION },
   '/founder': { title: 'เรื่องราวจากผู้ก่อตั้ง | Krarok', description: HERO.lead.th },
   '/login': { title: 'เข้าสู่ระบบ | Krarok', description: HOME_DESCRIPTION },
 };

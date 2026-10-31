@@ -9,14 +9,14 @@ import { SEO_PAGES, seoHead, withSeoHead } from '../shared/seo.js';
 const indexHtml = fs.readFileSync('frontend/index.html', 'utf8');
 
 test('the home page carries the owner\'s title and description, word for word', () => {
-  assert.equal(SEO_PAGES['/'].title, 'Krarok | ให้ทุกเรื่องงานและเงิน ง่ายขึ้นในที่เดียว');
+  assert.equal(SEO_PAGES['/'].title, 'Krarok กระรอกตุนเงิน | ให้ทุกเรื่องงานและเงิน ง่ายขึ้นในที่เดียว');
   assert.equal(SEO_PAGES['/'].description, 'จัดการงานและการเงินอย่างชาญฉลาด พร้อมเลขากระรอก ผู้ช่วยส่วนตัวที่ช่วยทำงานแทนคุณ ติดตามเงินค้างรับ แจ้งเตือนเครดิตเทอมอัตโนมัติ และออกเอกสารได้ง่ายในที่เดียว');
   const html = withSeoHead(indexHtml, '/');
-  assert.match(html, /<title>Krarok \| ให้ทุกเรื่องงานและเงิน ง่ายขึ้นในที่เดียว<\/title>/);
+  assert.match(html, /<title>Krarok กระรอกตุนเงิน \| ให้ทุกเรื่องงานและเงิน ง่ายขึ้นในที่เดียว<\/title>/);
   assert.equal((html.match(/<title>/g) || []).length, 1);
   assert.match(html, /<meta name="description" content="จัดการงานและการเงินอย่างชาญฉลาด/);
   assert.match(html, /<link rel="canonical" href="https:\/\/krarok\.com\/" \/>/);
-  assert.match(html, /<meta property="og:title" content="Krarok \| ให้ทุกเรื่องงานและเงิน/);
+  assert.match(html, /<meta property="og:title" content="Krarok กระรอกตุนเงิน \| ให้ทุกเรื่องงานและเงิน/);
 });
 
 test('the home page tells search engines the site\'s name and logo', () => {
