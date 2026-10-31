@@ -39,7 +39,10 @@ test('the 08:00 reminder holds this account\'s overdue, due-today and soon jobs,
   assert.deepEqual([inbox.lineLinked, inbox.reminderOn], [true, true]);
 });
 
-test('the monthly summary and the quick replies come from the same data', () => {
+test('the monthly summary and the quick replies come from the same data', (t) => {
+  // The month cards are worked out from the real clock (buildDataSnapshot takes no date), so the test fixes it at NOW:
+  // from 1 November 2026 the month before was no longer September.
+  t.mock.timers.enable({ apis: ['Date'], now: NOW });
   const inbox = buildLineInbox(account(), NOW);
   assert.ok(inbox.notices.some(notice => notice.id === 'month-2026-09' && notice.card.title === 'สรุปการเงินประจำเดือน'));
   // Same rule as LINE's รอรับเงิน button: every job with money still owed, work in progress included, undated last.

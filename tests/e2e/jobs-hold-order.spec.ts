@@ -9,7 +9,9 @@ import { noRadar } from './radarVisit';
 test.use({ serviceWorkers: 'block' });
 
 const user = { id: '11111111-1111-4111-8111-111111111111', email: 'jobs@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
-const today = new Date();
+// A fixed day late in a month, for the page and these dates alike (2026-11-01: on the 1st the jobs, dated up to 20 days
+// back, all fell in the month before, which the list does not open on). The clock still runs from it.
+const today = new Date('2026-10-28T05:00:00Z');
 const day = (offset: number) => { const d = new Date(today); d.setDate(d.getDate() - offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const paid = (n: number) => ({ id: `p${n}`, name: `งานตัวอย่าง ${n}`, client: 'ลูกค้าตัวอย่าง', type: 'Design', creditTerm: 30, note: '', value: 1000 * n, received: 1000 * n, pending: 0, status: 'done', paymentStatus: 'paid', isPosted: true, postDate: day(n), payDate: day(n), whtRate: 0, whtAmount: 0 });
 const jobs = [...Array.from({ length: 14 }, (_, n) => paid(n + 1)),
@@ -18,6 +20,7 @@ const snapshot = { jobs, expenses: [], goals: [], invoices: [], settings: { mont
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 
 async function open(page: Page) {
+  await page.clock.install({ time: today });
   await page.addInitScript(() => { localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', 'false'); });
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
   await page.route('**/api/**', route => route.fulfill({ json: {} }));

@@ -6,7 +6,10 @@ import { test, expect, type Page } from '@playwright/test';
 const user = { id: '11111111-1111-4111-8111-111111111111', email: 'test@example.com', role: 'user', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1, statuses: 1, job_types: 1, notif_settings: 1 } };
 const statuses = [{ id: 'done', label: 'จ่ายเงินครบแล้ว', behavior: 'done' }, { id: 'pending', label: 'ยังไม่จ่าย', behavior: 'pending' }];
-const month = new Date().toISOString().slice(0, 7);
+// This month as the app counts it (the browser's own day), not in UTC: from midnight to 07:00 in Thailand on the 1st,
+// UTC was still in the month before and the expense fell outside the month shown (seen 2026-11-01).
+const now = new Date();
+const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 const expenses = [{ id: 'e1', name: 'อุปกรณ์สำนักงาน', amount: 335, category: 'อื่นๆ', date: `${month}-01`, note: '' }];
 
 async function open(page: Page, settings: Record<string, unknown>) {
