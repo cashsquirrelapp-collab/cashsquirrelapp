@@ -5,6 +5,7 @@ import { scheduledPaths } from './schedule.js';
 import { answerWithin } from './deferred.js';
 import { runScheduledJobs } from '../migration/scheduled-runner.js';
 import { enforceHttps, toMainHost } from './transport.js';
+import { seoPage, withSeoHead } from '../shared/seo.js';
 
 // Production on Cloudflare Workers: the same Express backend Vercel runs (backend/src/http/app.ts),
 // the built frontend as static assets, and the cron jobs vercel.json used to schedule.
@@ -51,6 +52,22 @@ function finish(response: Response, path: string, staging = false): Response {
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
+// The public pages (/, /founder, /login) get their own title, description and preview tags in the head, so search
+// engines read them without running the app (shared/seo.ts, owner 2026-10-31). Asked for in full each time: the
+// stored copy of index.html is the same for every page, so a "not changed" answer could bring back another page's head.
+async function pageAsset(request: Request, env: Env, path: string): Promise<Response> {
+  if (request.method !== 'GET' || !seoPage(path)) return env.ASSETS.fetch(request);
+  const headers = new Headers(request.headers);
+  headers.delete('If-None-Match');
+  headers.delete('If-Modified-Since');
+  const response = await env.ASSETS.fetch(new Request(request.url, { method: 'GET', headers }));
+  if (response.status !== 200 || !(response.headers.get('Content-Type') || '').includes('text/html')) return response;
+  const page = new Headers(response.headers);
+  page.delete('ETag');
+  page.delete('Content-Length');
+  return new Response(withSeoHead(await response.text(), path), { status: 200, headers: page });
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const httpsResponse = enforceHttps(request);
@@ -74,7 +91,7 @@ export default {
     }
     const response = path === '/api' || path.startsWith('/api/')
       ? await withCloudflareClientIp(request as Request & { cf?: unknown }, () => nodeFetch(request as never, env, ctx))
-      : await env.ASSETS.fetch(request);
+      : await pageAsset(request, env, path);
     return finish(response, path, Boolean(env.STAGING_MODE));
   },
 

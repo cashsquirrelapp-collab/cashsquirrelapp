@@ -4,6 +4,7 @@ import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { tr } from '../../../i18n/tr';
 import { HERO, PHOTOS, SECTIONS, SIGN, type Lang, type PhotoSlot, type Text } from '../../../../../shared/founderStory';
+import { SEO_PAGES } from '../../../../../shared/seo';
 import { useLightOnly } from './lightOnly';
 import './founder.css';
 
@@ -88,7 +89,7 @@ export default function FounderStory() {
   const progress = useProgress();
   React.useEffect(() => {
     const before = document.title;
-    document.title = lang === 'en' ? 'Behind Krarok · A story from the founder' : 'เรื่องราวจากผู้ก่อตั้ง · กระรอกตุนเงิน';
+    document.title = lang === 'en' ? 'Behind Krarok · A story from the founder' : SEO_PAGES['/founder'].title;
     return () => { document.title = before; };
   }, [lang]);
 

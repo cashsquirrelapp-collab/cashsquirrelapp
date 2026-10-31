@@ -1,9 +1,17 @@
-import { afterEach, beforeEach, test } from 'node:test';
+import { afterEach, beforeEach, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { aiConfig, assistantEnabledForPlan } from '../backend/src/ai/config';
 import { routeHandler } from '../backend/src/http/router';
 import { seal } from '../backend/src/security/cookies';
+import { NO_TRIAL_FROM } from '../shared/trial';
+
+// Free trials stopped for accounts made from 30 Oct 09:30 (shared/trial.ts); the trial fixture is an account made the day
+// before "now", so the tests about an existing trial run with the clock at that moment, not the real date.
+const atTrialTime = async (run: () => Promise<void>) => {
+  mock.timers.enable({ apis: ['Date'], now: NO_TRIAL_FROM });
+  try { await run(); } finally { mock.timers.reset(); }
+};
 
 // Actual router/auth/repository/gateway code, with synthetic accounts and every fetch intercepted.
 // No production configuration, database, microphone or paid provider is used.
@@ -164,7 +172,7 @@ test('active paid Pro and existing Pro grants get live status, chat and voice wi
   assert.ok(settlements.every(row => row.p_release === false));
 });
 
-test('existing free Pro trial retains 25 total tokens and verified admins get the Pro allowance (owner, 2026-10-27)', async () => {
+test('existing free Pro trial retains 25 total tokens and verified admins get the Pro allowance (owner, 2026-10-27)', () => atTrialTime(async () => {
   for (const [member, plan, limit, left] of [['trial', 'trial', 25, 15], ['admin', 'admin', 1000, 990]] as const) {
     membership = member;
     const status = await request(A);
@@ -174,7 +182,7 @@ test('existing free Pro trial retains 25 total tokens and verified admins get th
   assert.deepEqual(reservations.map(row => row.p_token_limit), [25, 25, 1000, 1000]);
   assert.deepEqual(reservations.slice(0, 2).map(row => row.p_cycle), ['trial', 'trial']);
   assert.equal(providerCalls, 4);
-});
+}));
 
 test('pkg51 email exceptions survive rollback using verified email, without granting a plan or trusting metadata email', async () => {
   process.env.AI_ADMINS_ONLY = 'true'; process.env.AI_ALLOWED_EMAILS = 'a@example.test';
@@ -233,7 +241,7 @@ test('the explicit admin-only rollback and global-off switch still block Pro cha
   assert.equal(providerCalls, 0); assert.equal(reservations.length, 0);
 });
 
-test('Pro rollout does not bypass exhausted tokens, trial tokens, daily cap or provider keys', async () => {
+test('Pro rollout does not bypass exhausted tokens, trial tokens, daily cap or provider keys', () => atTrialTime(async () => {
   for (const member of ['paid', 'trial'] as const) {
     membership = member;
     for (const failure of ['tokens', 'daily_cap'] as const) {
@@ -251,7 +259,7 @@ test('Pro rollout does not bypass exhausted tokens, trial tokens, daily cap or p
   assert.equal((await request(A, voice)).body.code, 'ai_voice_unavailable');
   assert.equal(providerCalls, 0);
   assert.ok(settlements.every(row => row.p_release === true && row.p_user_id === A));
-});
+}));
 
 test('browser owner, plan and rollout overrides cannot change authenticated scope or eligibility', async () => {
   assert.equal((await request(B, chat, A)).status, 401);
