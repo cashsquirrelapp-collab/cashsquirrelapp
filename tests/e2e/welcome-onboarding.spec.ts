@@ -216,10 +216,12 @@ test('390px phone: the whole screen, step 1 as few things as possible, ถัด
   expect(mock.saved.names).toEqual(['บอส']);
 });
 
-test('dark mode: the same screens on the dark sky, computer and phone, nothing overlaps', async ({ page }, info) => {
+// Look A (owner, 2026-11-01): white like the landing page in dark mode too.
+test('dark mode: the screens stay white like the landing page, computer and phone, nothing overlaps', async ({ page }, info) => {
   await open(page, { dark: true });
   const box = dialog(page);
   await expect(box).toBeVisible();
+  expect(await box.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 255, 255)');
   await box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('มายด์');
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-1280-dark-step1.png') });
@@ -240,6 +242,71 @@ test('dark mode: the same screens on the dark sky, computer and phone, nothing o
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-390-dark-step3.png') });
 });
+
+// Look A "การ์ดลอย" (owner, 2026-11-01: "เอาแบบการ์ดที่1"): the landing page's cards float behind, the LINE card greets the
+// name being typed, a name in English letters gets a space after คุณ, the last question lights the card of each goal,
+// and the first run ends on "พร้อมแล้วครับ" before the screen closes.
+test('look A: floating cards, the name in the LINE card, the goal cards light up, and a short finish', async ({ page }, info) => {
+  const mock = await open(page);
+  const box = dialog(page);
+  const cards = box.locator('.wob-backdrop .wob-card');
+  await expect(cards).toHaveCount(8);
+  await expect(box.locator('.wob-backdrop')).toHaveAttribute('aria-hidden', 'true');
+  await expect(box.locator('.wob-chat-dots')).toBeVisible();
+  await box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('CEO Park');
+  await expect(box.getByText('คุณ CEO Park', { exact: true })).toBeVisible();
+  await expect(box.locator('.wob-chat-text')).toHaveText('สวัสดีครับ คุณ CEO Park');
+  await page.waitForTimeout(1400);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('look-a-1280-step1.png') });
+  await box.getByRole('button', { name: 'ถัดไป' }).click();
+  // the questions: the cards fade back, the title says which question this is
+  await expect(box.locator('.wob-backdrop')).toHaveClass(/is-quiet/);
+  await expect(box.getByText('ข้อ 2 จาก 4')).toBeVisible();
+  await box.getByRole('button', { name: 'ถัดไป' }).click();
+  await box.getByRole('group').getByText('คอนเทนต์ครีเอเตอร์').click();
+  await box.getByRole('group').getByText('การตลาด / โฆษณา').click();
+  await expect(box.locator('.wob-count')).toHaveText('เลือกแล้ว 2');
+  await box.getByRole('button', { name: 'ถัดไป' }).click();
+  await expect(box.getByText('ข้อสุดท้าย')).toBeVisible();
+  await box.getByRole('group').getByText('ติดตามเงินค้างรับจากลูกค้า').click();
+  await box.getByRole('group').getByText('ทำใบเสนอราคาและเอกสาร').click();
+  await expect(box.locator('.wob-card.is-lit')).toHaveCount(2);
+  await expect(box.locator('.wob-card.is-owed')).toHaveClass(/is-lit/);
+  await expect(box.locator('.wob-card.is-quote')).toHaveClass(/is-lit/);
+  await page.waitForTimeout(900);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('look-a-1280-step4.png') });
+  await box.getByRole('button', { name: 'เริ่มใช้งาน' }).click();
+  await expect(box.getByText('พร้อมแล้วครับ')).toBeVisible();
+  await page.screenshot({ path: info.outputPath('look-a-1280-done.png') });
+  await expect(box).toHaveCount(0, { timeout: 8000 });
+  await expect.poll(() => mock.saved.settings.at(-1)?.onboarding?.goals).toEqual(['receivables', 'documents']);
+  expect(mock.saved.names).toEqual(['CEO Park']);
+});
+
+for (const [width, height] of [[1024, 768], [768, 1024], [375, 667]] as const) {
+  test(`look A at ${width}×${height}: the cards that stay never cover the words`, async ({ page }, info) => {
+    await open(page, { width, height });
+    const box = dialog(page);
+    await box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('มายด์');
+    await page.waitForTimeout(1400);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    // no card overlaps the greeting, the field or the note
+    const clash = await box.evaluate(stage => {
+      const words = [...stage.querySelectorAll('.wob-hello, .wob-ask, .wob-capsule, .wob-note')].map(el => el.getBoundingClientRect());
+      return [...stage.querySelectorAll('.wob-card')].filter(card => getComputedStyle(card).display !== 'none').map(card => card.getBoundingClientRect())
+        .some(card => words.some(word => card.left < word.right && card.right > word.left && card.top < word.bottom && card.bottom > word.top));
+    });
+    expect(clash).toBe(false);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`look-a-${width}-step1.png`) });
+    await box.getByRole('button', { name: 'ถัดไป' }).click();
+    await box.getByRole('button', { name: 'ถัดไป' }).click();
+    await page.waitForTimeout(1000);
+    expect(await textOverlapIssues(page)).toEqual([]);
+  });
+}
 
 test('Settings: the answers open again with what was chosen, and saving changes them', async ({ page }) => {
   const done = { version: 'welcome-v1', status: 'COMPLETED', work_type: 'student', work_type_other: null, occupations: ['teacher_coach'], occupation_other: null, goals: ['exploring'], updated_at: '2026-10-28T01:00:00.000Z', completed_at: '2026-10-28T01:00:00.000Z' };

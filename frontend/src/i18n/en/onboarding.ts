@@ -64,4 +64,13 @@ export const onboarding: Record<string, string> = {
   "เริ่มใช้งาน": "Get started",
   "เกี่ยวกับการทำงานของคุณ": "About your work",
   "รูปแบบงาน สายงาน และเรื่องที่อยากให้ช่วย": "How you work, your field and what you want help with",
+  // Look A (2026-11-01): the step label, the count, the last question's note, the finish, and the cards behind.
+  "ข้อสุดท้าย": "Last question",
+  "ข้อ {0} จาก {1}": "Question {0} of {1}",
+  "เลือกแล้ว {0}": "{0} chosen",
+  "เลือกแล้วจะเห็นว่าแอปช่วยตรงไหน": "pick one to see where the app helps",
+  "พร้อมแล้วครับ": "All set",
+  "ตั้งค่าเริ่มต้นตามที่คุณตอบให้แล้ว": "Your answers set up the app to start with",
+  "งานที่กำลังทำ": "In progress",
+  "ส่งงานอีก {0} วัน": "Due in {0} days",
 };

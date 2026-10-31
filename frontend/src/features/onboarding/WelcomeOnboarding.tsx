@@ -10,12 +10,15 @@ import {
   EXCLUSIVE_GOAL, GOALS, OCCUPATIONS, ONBOARDING_STEPS, OTHER_TEXT_MAX, WORK_TYPES, answersOf, toggleGoal, toggleOccupation,
   type GoalId, type OccupationId, type OnboardingAnswers, type OnboardingRecord, type WorkTypeId,
 } from '../../../../shared/onboarding';
-import { OnboardingBackdrop } from './OnboardingBackdrop';
+import { Mascot } from '../../components/mascot/Mascot';
+import { OnboardingBackdrop, type BackdropCard } from './OnboardingBackdrop';
 import './onboarding.css';
 
-// Welcome Onboarding (owner brief, 2026-10-28; look = option E, owner: "แบบ E ได้แล้ว"): four short questions after
-// the first sign-in, on the whole screen of every device, on white with a rising chart behind (background option 2;
-// dark follows the app).
+// Welcome Onboarding (owner brief, 2026-10-28): four short questions after the first sign-in, on the whole screen of
+// every device. Look A "การ์ดลอย" since 2026-11-01 (owner: "ปรับ UI ... ให้มันลิงก์กับ UI landing page"; picked from three
+// options on the canvas Pq9Lo57QVdan83pEAKhNa3): white like the landing page in light and dark alike, its floating glass
+// cards behind, words rising into place, the name in the flowing CI gradient beside the mascot, and on the last question
+// the card of each goal picked lights up. A short "พร้อมแล้วครับ" closes the first run.
 // - Step 1 is only the greeting, the question and one glass field ("ให้มันเอลเมนต์น้อยที่สุด"): no logo, no step
 //   count, no ข้ามก่อน. The name is required ("ต้องตั้งชื่อเรียก"), at least two letters; it appears under
 //   สวัสดีครับ as it is typed.
@@ -60,6 +63,38 @@ const QUESTIONS = [
   { title: T("คุณทำงานด้านไหนบ้าง?"), sub: T("เลือกได้มากกว่า 1 ข้อ") },
   { title: T("อยากให้ Krarok ช่วยเรื่องไหนบ้าง?"), sub: T("เลือกได้หลายข้อ") },
 ];
+// The Thai titles in pieces that rise one after another, the coloured piece marked; other languages rise word by word.
+const TITLE_PARTS: Record<string, [string, boolean?][]> = {
+  'สวัสดีครับ': [['สวัสดี'], ['ครับ']],
+  'ตอนนี้คุณทำงานรูปแบบไหน?': [['ตอนนี้คุณ'], ['ทำงาน'], ['รูปแบบไหน?', true]],
+  'คุณทำงานด้านไหนบ้าง?': [['คุณทำงาน'], ['ด้านไหน', true], ['บ้าง?']],
+  'อยากให้ Krarok ช่วยเรื่องไหนบ้าง?': [['อยากให้ '], ['Krarok', true], [' ช่วยเรื่องไหนบ้าง?']],
+};
+function pieces(text: string, flowLast: boolean): [string, boolean?][] {
+  const known = TITLE_PARTS[text];
+  if (known) return known;
+  const words = text.split(/(?<= )/);
+  return words.map((word, index) => [word, flowLast && index === words.length - 1]);
+}
+/** Each piece in a one-line mask it rises out of. The gradient sits on an inner span: on the same span its animation
+ *  would replace the rise and the piece would stay hidden. Edge spaces become no-break spaces so they are kept. */
+function Rising({ text, flowLast = true, start = 0.05 }: { text: string; flowLast?: boolean; start?: number }) {
+  return (
+    <>
+      {pieces(text, flowLast).map(([piece, flow], index) => {
+        const kept = piece.replace(/^ | $/g, '\u00A0');
+        return (
+          <span key={index} className="wob-wm" aria-hidden="true">
+            <span className="wob-w" style={{ '--d': `${(start + index * 0.08).toFixed(2)}s` } as React.CSSProperties}>{flow ? <span className="wob-flow">{kept}</span> : kept}</span>
+          </span>
+        );
+      })}
+    </>
+  );
+}
+// The last question lights the background card of each goal picked.
+const GOAL_CARDS: Partial<Record<GoalId, BackdropCard>> = { cashflow_overview: 'income', receivables: 'owed', projects: 'work', documents: 'quote' };
+const COINS = [[-220, -170, 0.2], [230, -150, 0.26], [-260, 60, 0.32], [250, 90, 0.22], [-90, -240, 0.3], [110, -250, 0.36]] as const;
 const NAME_MIN = 2;
 const NAME_MAX = 60;
 
@@ -85,6 +120,7 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
   const [name, setName] = React.useState(mode === 'edit' ? accountName : '');
   const [nameTried, setNameTried] = React.useState(false);
   const [busy, setBusy] = React.useState<'finish' | 'skip' | null>(null);
+  const [celebrating, setCelebrating] = React.useState(false);
   const [error, setError] = React.useState('');
   const titleId = React.useId();
   const otherRef = React.useRef<HTMLInputElement>(null);
@@ -97,6 +133,11 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     ? (trimmed ? tr("ชื่อต้องมีอย่างน้อย {0} ตัวอักษร", NAME_MIN) : tr("กรุณาใส่ชื่อที่อยากให้เราเรียก"))
     : '';
   const last = step === ONBOARDING_STEPS - 1;
+  // "คุณ" before the name (none in English), with a space before a name in Latin letters: คุณ CEO Park, not คุณCEO Park.
+  const honorific = tr("คุณ{0}", '').trim();
+  const gap = honorific && /^[A-Za-z0-9]/.test(trimmed) ? ' ' : '';
+  const lit = React.useMemo(() => new Set<BackdropCard>(step === ONBOARDING_STEPS - 1 && !mobile
+    ? answers.goals.map(goal => GOAL_CARDS[goal]).filter((card): card is BackdropCard => Boolean(card)) : []), [step, mobile, answers.goals]);
   const result = (skippedAtStep?: number): OnboardingResult => ({ answers, name: nameOk ? trimmed : null, ...(skippedAtStep ? { skippedAtStep } : {}) });
 
   React.useEffect(() => {
@@ -115,8 +156,13 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     if (step === 0 && !nameOk) { setNameTried(true); nameRef.current?.focus(); return; }
     if (!last) { setStep(value => value + 1); setError(''); return; }
     setBusy('finish'); setError('');
+    // The first run ends on a short "พร้อมแล้วครับ" before the answers are saved and the screen closes.
+    if (mode === 'first') {
+      setCelebrating(true);
+      await new Promise(resolve => window.setTimeout(resolve, reduce ? 700 : 1700));
+    }
     try { await onFinish(result()); }
-    catch { setError(tr("บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง")); }
+    catch { setCelebrating(false); setError(tr("บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง")); }
     finally { setBusy(null); }
   };
   const back = () => { if (!busy && step > 0) { setStep(value => value - 1); setError(''); } };
@@ -164,20 +210,17 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     <div className="wob-name">
       {mode === 'edit' && <div className="wob-name-top">{closeButton}</div>}
       <div className="wob-name-center">
-        <motion.div layout={reduce ? false : 'position'} className="wob-hello" aria-hidden="true">
-          <p className="wob-hello-line">{tr("สวัสดีครับ")}</p>
-          <AnimatePresence initial={false}>
-            {trimmed && (
-              <motion.p key="name" className="wob-hello-line is-name"
-                initial={reduce ? false : { opacity: 0, y: 12, filter: 'blur(8px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={reduce ? { opacity: 0 } : { opacity: 0, y: 6, filter: 'blur(6px)' }} transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}>
-                {tr("คุณ{0}", trimmed)}
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </motion.div>
-        {/* The field slides down (rather than jumps) when the name line appears above it. */}
-        <motion.div layout={reduce ? false : 'position'} className="wob-name-form" transition={{ duration: 0.45, ease: [0.2, 0.8, 0.2, 1] }}>
+        <div className="wob-hello" aria-hidden="true">
+          <p className="wob-hello-line"><span className="wob-hello-words"><Rising text={tr("สวัสดีครับ")} flowLast={false} /></span>
+            <span className="wob-mascot"><Mascot mood="happy" gear="headset" animated={false} size={mobile ? 58 : 92} viewBox="10 14 82 82" /></span></p>
+          <p className="wob-hello-name">
+            {trimmed
+              ? <span key="name" className="wob-name-in">{honorific}{gap}<span className="wob-flow">{trimmed}</span></span>
+              : <span key="empty" className="wob-name-empty">{honorific}<span className="wob-caret" /></span>}
+          </p>
+        </div>
+        {/* The name line keeps its height before a name is typed, so the field never moves. */}
+        <div className="wob-name-form">
           <h2 id={titleId} className="wob-ask">{tr("อยากให้เราเรียกคุณว่าอะไร?")}</h2>
           <form className={`wob-capsule${trimmed ? ' is-filled' : ''}${nameError ? ' is-error' : ''}`} noValidate
             onSubmit={event => { event.preventDefault(); void next(); }}>
@@ -193,7 +236,7 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
             {nameError || tr("ใช้ทั้งในแอปและ LINE ไม่ใช้แทนชื่อจริงในเอกสาร")}
           </p>
           {errorLine}
-        </motion.div>
+        </div>
       </div>
     </div>
   );
@@ -247,8 +290,11 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
         <AnimatePresence mode="wait" initial={false}>
           <motion.section key={step} className="wob-q-step" initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
-            <h2 id={titleId} className="wob-q-title">{tr(question.title)}</h2>
-            <p className="wob-q-sub">{tr(question.sub)}</p>
+            <p className="wob-q-num">{last ? tr("ข้อสุดท้าย") : tr("ข้อ {0} จาก {1}", step + 1, ONBOARDING_STEPS)}</p>
+            <h2 id={titleId} className="wob-q-title" aria-label={tr(question.title)}><Rising text={tr(question.title)} /></h2>
+            <p className="wob-q-sub">{tr(question.sub)}
+              {step === 2 && <span className="wob-count">{tr("เลือกแล้ว {0}", answers.occupations.length)}</span>}
+              {last && !mobile && <span className="wob-sub-more">{tr("เลือกแล้วจะเห็นว่าแอปช่วยตรงไหน")}</span>}</p>
             {choices}
           </motion.section>
         </AnimatePresence>
@@ -267,13 +313,23 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
   return createPortal(
     <motion.div className={`wob-stage${mobile ? ' is-phone' : ''}${step === 0 ? ' is-name-step' : ''}`} role="dialog" aria-modal="true"
       aria-labelledby={titleId} initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
-      <OnboardingBackdrop phone={mobile} still={reduce} />
+      <OnboardingBackdrop phone={mobile} still={reduce} quiet={step > 0} name={trimmed ? `${gap}${trimmed}` : ''} lit={lit} />
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={step === 0 ? 'name' : 'questions'} className="wob-layer" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }}
           exit={{ opacity: 0 }} transition={{ duration: 0.22 }}>
           {step === 0 ? nameStage : questionStage}
         </motion.div>
       </AnimatePresence>
+      {celebrating && (
+        <motion.div className="wob-done" role="status" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
+          {!reduce && COINS.map(([x, y, delay], index) => (
+            <span key={index} className="wob-coin" style={{ '--x': `${mobile ? Math.round(x * 0.6) : x}px`, '--y': `${mobile ? Math.round(y * 0.75) : y}px`, '--d': `${delay}s` } as React.CSSProperties} aria-hidden="true" />
+          ))}
+          <span className="wob-done-mascot" aria-hidden="true"><Mascot mood="celebrate" action="celebrate" gear="headset" animated={!reduce} size={mobile ? 120 : 150} viewBox="10 14 82 82" /></span>
+          <p className="wob-done-title">{tr("พร้อมแล้วครับ")}{trimmed && <> <span className="wob-flow">{honorific}{gap}{trimmed}</span></>}</p>
+          <p className="wob-done-sub">{tr("ตั้งค่าเริ่มต้นตามที่คุณตอบให้แล้ว")}</p>
+        </motion.div>
+      )}
     </motion.div>,
     document.body,
   );
