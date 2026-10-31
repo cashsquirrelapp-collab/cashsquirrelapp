@@ -14,7 +14,7 @@ const rich = (text: string) => esc(text).split('**').map((part, at) => (at % 2 ?
 
 const STYLE = '<style>#ssr{max-width:760px;margin:0 auto;padding:40px 20px 64px;color:#1C1917;font:17px/1.75 \'IBM Plex Sans Thai\',system-ui,sans-serif;'
   + 'opacity:0;animation:ssr-show 0s linear 2s forwards}#ssr h1{margin:12px 0;font-size:30px;line-height:1.45}#ssr h2{margin:32px 0 8px;font-size:22px;line-height:1.5}'
-  + '#ssr p,#ssr li{line-height:1.75}#ssr a{color:#C24A16}#ssr table{border-collapse:collapse}#ssr td,#ssr th{padding:6px 12px;border-bottom:1px solid #EEE4DD;text-align:left}'
+  + '#ssr p,#ssr li{line-height:1.75}#ssr p,#ssr figure,#ssr ul,#ssr ol,#ssr table,#ssr blockquote{margin:10px 0}#ssr ul,#ssr ol{padding-left:1.4em}#ssr a{color:#C24A16}#ssr table{border-collapse:collapse}#ssr td,#ssr th{padding:6px 12px;border-bottom:1px solid #EEE4DD;text-align:left}'
   + '@keyframes ssr-show{to{opacity:1}}</style>';
 
 const nav = '<nav><a href="/">กระรอกตุนเงิน</a> · <a href="/guides">ความรู้เรื่องงานและเงิน</a> · <a href="/founder">เรื่องราวจากผู้ก่อตั้ง</a> · <a href="/login">เริ่มใช้ฟรี</a></nav>';
