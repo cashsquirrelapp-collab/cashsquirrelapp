@@ -1,6 +1,8 @@
 /* Guides (/guides, Guides.tsx): the founder page's bar, type and colours (founder.css), plus the guide list, lists,
    the rate table, worked examples and the "ทำได้ในกระรอกตุนเงิน" box. Light only; Thai line-height never under 1.45. */
 
+.gd-nw { white-space: nowrap; }
+
 .gd-en { max-width: 760px; margin: 24px auto 0; padding: 10px 16px; border-radius: 12px; background: #F7F6F5; color: var(--muted); font-size: 14px; line-height: 1.6; }
 
 .gd-head { max-width: 760px; margin: 0 auto; padding: 72px 28px 8px; }

@@ -15,9 +15,23 @@ import './guides.css';
 
 const ICONS: Record<string, typeof FileText> = { quotation: FileText, 'wht-50-tawi': Percent, receivables: CalendarClock };
 
-/** The owner's **bold** words, kept bold. */
+// Words the browser's Thai dictionary does not know, so it would break them in the middle ("ฟรีแลน|ซ์").
+const WHOLE_WORDS = ['ฟรีแลนซ์', 'เครดิตเทอม', 'กระรอกตุนเงิน', 'เลขากระรอก', 'คอมพิวเตอร์', 'e-Withholding'];
+const WHOLE = new RegExp(`(${WHOLE_WORDS.map(word => word.replace(/[-]/g, '\\$&')).join('|')})`, 'g');
+
+/** Text with those words kept whole. */
+function Words({ text }: { text: string }) {
+  return <>{text.split(WHOLE).map((part, at) => (at % 2 ? <span key={at} className="gd-nw">{part}</span> : <React.Fragment key={at}>{part}</React.Fragment>))}</>;
+}
+
+/** A heading in its phrases: on computers and iPads a line breaks only between them (founder.css .fs-chunk). */
+function Phrases({ text }: { text: string }) {
+  return <>{text.split(' ').map((part, at) => <React.Fragment key={at}>{at > 0 && ' '}<span className="fs-chunk"><Words text={part} /></span></React.Fragment>)}</>;
+}
+
+/** **bold** words kept bold. */
 function Rich({ text }: { text: string }) {
-  return <>{text.split('**').map((part, at) => (at % 2 ? <strong key={at}>{part}</strong> : <React.Fragment key={at}>{part}</React.Fragment>))}</>;
+  return <>{text.split('**').map((part, at) => (at % 2 ? <strong key={at}><Words text={part} /></strong> : <Words key={at} text={part} />))}</>;
 }
 
 function Block({ block }: { block: GuideBlock }) {
@@ -33,13 +47,13 @@ function Block({ block }: { block: GuideBlock }) {
           <thead><tr><th scope="col">{block.head[0]}</th><th scope="col">{block.head[1]}</th></tr></thead>
           <tbody>{block.rows.map(([name, value]) => <tr key={name}><td>{name}</td><td>{value}</td></tr>)}</tbody>
         </table>
-        {block.note && <p className="gd-note">{block.note}</p>}
+        {block.note && <p className="gd-note"><Words text={block.note} /></p>}
       </div>
     );
     case 'example': return (
       <figure className="gd-example">
         <figcaption>{block.title}</figcaption>
-        {block.lines.map((line, at) => <p key={at}>{line}</p>)}
+        {block.lines.map((line, at) => <p key={at}><Words text={line} /></p>)}
       </figure>
     );
     case 'krarok': return (
@@ -48,7 +62,7 @@ function Block({ block }: { block: GuideBlock }) {
         <ul>{block.items.map((item, at) => <li key={at}><Check size={18} strokeWidth={2.6} aria-hidden="true" /><span><Rich text={item} /></span></li>)}</ul>
       </aside>
     );
-    case 'note': return <p className="gd-disclaimer">{block.text}</p>;
+    case 'note': return <p className="gd-disclaimer"><Words text={block.text} /></p>;
   }
 }
 
@@ -57,8 +71,8 @@ function GuideCard({ guide }: { guide: Guide }) {
   return (
     <a className="gd-card" href={guide.path}>
       <span className="gd-card-icon" aria-hidden="true"><Icon size={22} strokeWidth={2.2} /></span>
-      <h2>{guide.title}</h2>
-      <p>{guide.summary}</p>
+      <h2><Words text={guide.title} /></h2>
+      <p><Words text={guide.summary} /></p>
       <span className="gd-card-more">{tr('อ่านบทความ')}<ArrowRight size={16} strokeWidth={2.4} aria-hidden="true" /></span>
     </a>
   );
@@ -96,8 +110,8 @@ function GuideList() {
     <Shell>
       <header className="gd-head">
         <p className="fs-eyebrow">KRAROK GUIDES</p>
-        <h1>{GUIDES_INDEX.title}</h1>
-        <p className="gd-lead">{GUIDES_INDEX.lead}</p>
+        <h1><Phrases text={GUIDES_INDEX.title} /></h1>
+        <p className="gd-lead"><Words text={GUIDES_INDEX.lead} /></p>
       </header>
       <div className="gd-cards">{GUIDES.map(guide => <GuideCard key={guide.slug} guide={guide} />)}</div>
     </Shell>
@@ -111,14 +125,14 @@ function GuidePage({ guide }: { guide: Guide }) {
         <nav className="gd-crumbs" aria-label={tr('ตำแหน่งของหน้านี้')}>
           <a href={GUIDES_PATH}>{tr('ความรู้เรื่องงานและเงิน')}</a><span aria-hidden="true">›</span><span aria-current="page">{guide.title}</span>
         </nav>
-        <h1>{guide.title}</h1>
-        <p className="gd-lead">{guide.lead}</p>
+        <h1><Phrases text={guide.title} /></h1>
+        <p className="gd-lead"><Words text={guide.lead} /></p>
         <p className="gd-updated">{tr('อัปเดตล่าสุด {0}', guide.updated)}</p>
       </header>
       <article className="fs-article">
         {guide.sections.map((section, at) => (
           <section key={section.title} className="fs-section" aria-labelledby={`gd-s${at}`}>
-            <header className="fs-section-head"><h2 id={`gd-s${at}`}>{section.title}</h2></header>
+            <header className="fs-section-head"><h2 id={`gd-s${at}`}><Words text={section.title} /></h2></header>
             {section.blocks.map((block, index) => <Block key={index} block={block} />)}
           </section>
         ))}
