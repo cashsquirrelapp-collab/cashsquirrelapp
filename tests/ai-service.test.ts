@@ -119,21 +119,22 @@ test('trial: 25 Krarok Tokens for the whole trial, charged at the real cost; the
   assert.deepEqual([status.tokensLeft, status.tokenLimit, status.resetsAt], [0, 25, null]);
 });
 
-// 'pro' with no renewal date is Pro given by hand: one allowance filed under GRANT_TOKEN_BUCKET, never the current month
-// (owner, 2026-10-30). The two were the same until 1 November 2026, when these tests began to fail.
-test('Pro: charged the real cost in Krarok Tokens, and refused once the month is used up', async () => {
+// Paid Pro has a renewal date and uses that recurring cycle; a manual grant without one uses GRANT_TOKEN_BUCKET.
+test('paid Pro: charged the real cost in Krarok Tokens, and refused once the cycle is used up', async () => {
+  const plan = { plan: 'pro' as const, periodEnd: new Date(Date.now() + 10 * 86400000).toISOString() };
+  const cycle = renewalCycle(plan.periodEnd).cycle;
   const fake = fakeDb();
-  const reply = await handleMessage(fake.db, { config: config(), fetchImpl: geminiReplies(text('เดือนนี้รับแล้ว')) }, USER, 'pro', { text: 'เดือนนี้ได้เงินเท่าไหร่' });
+  const reply = await handleMessage(fake.db, { config: config(), fetchImpl: geminiReplies(text('เดือนนี้รับแล้ว')) }, USER, plan, { text: 'เดือนนี้ได้เงินเท่าไหร่' });
   assert.equal(reply.tokens, 6);
   assert.equal(reply.tokensLeft, 994);
   assert.equal(fake.usage[0].status, 'settled');
-  assert.equal(fake.usage[0].cycle, GRANT_TOKEN_BUCKET);
-  const status = await usageStatus(fake.db, config(), USER, 'pro');
+  assert.equal(fake.usage[0].cycle, cycle);
+  const status = await usageStatus(fake.db, config(), USER, plan);
   assert.deepEqual([status.tokensLeft, status.trialLeft], [994, null]);
 
   const full = fakeDb();
-  full.usage.push({ requestId: 'old', cycle: GRANT_TOKEN_BUCKET, tokens: 1000, status: 'settled', cost: 1 });
-  await assert.rejects(handleMessage(full.db, { config: config(), fetchImpl: geminiReplies(text('-')) }, USER, 'pro', { text: 'อีกนิด' }), rejectsWith(402, 'ai_tokens_used'));
+  full.usage.push({ requestId: 'old', cycle, tokens: 1000, status: 'settled', cost: 1 });
+  await assert.rejects(handleMessage(full.db, { config: config(), fetchImpl: geminiReplies(text('-')) }, USER, plan, { text: 'อีกนิด' }), rejectsWith(402, 'ai_tokens_used'));
 });
 
 // Owner, 2026-10-27: "จำกัดโทเค็นแอดมิน ... เอาเท่ากับยูเซอร์": an admin's เลขา takes tokens off the same allowance as a
@@ -153,11 +154,13 @@ test('admin: the same allowance as Pro, charged the same way, and refused once t
 });
 
 test('Pro: two requests at once with the last token left — only one goes through', async () => {
+  const plan = { plan: 'pro' as const, periodEnd: new Date(Date.now() + 10 * 86400000).toISOString() };
+  const cycle = renewalCycle(plan.periodEnd).cycle;
   const fake = fakeDb();
-  fake.usage.push({ requestId: 'old', cycle: GRANT_TOKEN_BUCKET, tokens: 999, status: 'settled', cost: 0.999 });
+  fake.usage.push({ requestId: 'old', cycle, tokens: 999, status: 'settled', cost: 0.999 });
   const results = await Promise.allSettled([
-    handleMessage(fake.db, { config: config(), fetchImpl: geminiReplies(text('ก')) }, USER, 'pro', { text: 'หนึ่ง' }),
-    handleMessage(fake.db, { config: config(), fetchImpl: geminiReplies(text('ข')) }, USER, 'pro', { text: 'สอง' }),
+    handleMessage(fake.db, { config: config(), fetchImpl: geminiReplies(text('ก')) }, USER, plan, { text: 'หนึ่ง' }),
+    handleMessage(fake.db, { config: config(), fetchImpl: geminiReplies(text('ข')) }, USER, plan, { text: 'สอง' }),
   ]);
   assert.deepEqual(results.map(result => result.status).sort(), ['fulfilled', 'rejected']);
   assert.equal(RESERVE_TOKENS > 1, true);

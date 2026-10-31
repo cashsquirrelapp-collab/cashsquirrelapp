@@ -77,7 +77,7 @@ function monthCard(summary: Parameters<typeof monthlyProfitSummary>[0] & { month
 
 /** The whole thread for one account, as of `now`. */
 export function buildLineInbox(user: UserRow, now = new Date()): LineInbox {
-  const snapshot = buildDataSnapshot(user);
+  const snapshot = buildDataSnapshot(user, now);
   const today = todayInBangkok(now);
   const notices: LineInbox['notices'] = [];
   const monthStart = `${today.slice(0, 7)}-01`;

@@ -31,7 +31,6 @@ import {
   ExpenseRow,
   SettingsRow,
   currentMonthKey,
-  previousMonthKey,
   computeMonthlySummary,
   jobsInMonth,
   dateKeyInMonth,
@@ -246,7 +245,7 @@ function addMonthsToKey(monthKey: string, n: number): string {
 
 // All the deterministic math lives here in plain JS -- matches the app's own formulas exactly
 // (via computeMonthlySummary), so answers can't drift from what the app itself shows.
-export function buildDataSnapshot(user: UserRow): DataSnapshot {
+export function buildDataSnapshot(user: UserRow, now = new Date()): DataSnapshot {
   const jobs = user.jobs || [];
   const statuses = user.statuses || [];
   const isUnpaidBehavior = (statusId: string) => statusBehavior(statuses, statusId) !== 'done';
@@ -293,8 +292,9 @@ export function buildDataSnapshot(user: UserRow): DataSnapshot {
     .filter((j): j is { name: string; client: string; pending: number; dueText: string; daysCount: number } => j !== null)
     .sort((a, b) => a.daysCount - b.daysCount);
 
-  const thisMonthKey = currentMonthKey();
-  const lastMonthKey = previousMonthKey();
+  const bangkokNow = new Date(now.getTime() + 7 * 3600_000);
+  const thisMonthKey = `${bangkokNow.getUTCFullYear()}-${String(bangkokNow.getUTCMonth() + 1).padStart(2, '0')}`;
+  const lastMonthKey = addMonthsToKey(thisMonthKey, -1);
   const thisMonth = { ...computeMonthlySummary(jobs, user.expenses || [], user.goals || [], user.settings || {}, thisMonthKey), monthKey: thisMonthKey };
   const lastMonth = { ...computeMonthlySummary(jobs, user.expenses || [], user.goals || [], user.settings || {}, lastMonthKey), monthKey: lastMonthKey };
 
