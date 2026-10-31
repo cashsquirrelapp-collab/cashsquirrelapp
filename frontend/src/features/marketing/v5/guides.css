@@ -18,7 +18,8 @@
 .gd .fs-section:first-child { margin-top: 40px; }
 .gd .fs-section-head h2 { font-size: 28px; }
 
-.gd-list { margin: 16px 0 0; padding-left: 1.5em; color: var(--body); font-size: 18px; line-height: 1.8; }
+.gd-list { margin: 16px 0 0; padding-left: 1.5em; list-style: disc outside; color: var(--body); font-size: 18px; line-height: 1.8; }
+ol.gd-list { list-style: decimal outside; }
 .gd-list li { padding-left: 4px; }
 .gd-list li + li { margin-top: 8px; }
 .gd-list li::marker { color: var(--orange); font-weight: 700; }
