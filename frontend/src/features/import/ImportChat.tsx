@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, ArrowUp, Check, CheckCircle2, ChevronDown, Download, FileSpreadsheet, Loader2, Paperclip, RefreshCw, Undo2, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowUp, Check, CheckCircle2, Download, FileSpreadsheet, Loader2, Paperclip, RefreshCw, Undo2, Upload } from 'lucide-react';
 import type { Expense, Job, StatusOption } from '../../../../shared/types';
 import { roundMoney } from '../../../../shared/wht';
 import { Modal } from '../../components/ui/Modal';
@@ -20,8 +20,8 @@ import {
   type ImportCommit, type ImportResult, type RowEdit, type SaveOutcome, type SheetState,
 } from './importShared';
 import {
-  CHAT_LIMIT_PER_FILE, applyActions, applyGroupFix, columnsWaiting, issueGroups, quietCounts, sheetReports, withConfirmed, withTarget,
-  type ChatState, type GroupFix, type IssueGroup, type SheetReport,
+  CHAT_LIMIT_PER_FILE, applyActions, applyGroupFix, columnsWaiting, issueGroups, primaryIssue, sheetReports, withConfirmed, withTarget,
+  type ChatState, type ColumnLine, type GroupFix, type IssueGroup, type SheetReport,
 } from './importChatModel';
 import { askImportChat } from './importChatApi';
 import { ImportReview, type ReviewFilter } from './ImportReview';
@@ -34,6 +34,8 @@ import './importChat.css';
 // every account, 10 messages a file and 3 files a day (owner's answer, 2026-10-31); its answer is applied by the same
 // rules and can be taken back. Nothing is saved until นำเข้า, and the whole import can be undone for 7 days.
 // Computers and iPads see a centred window; phones a sheet from the bottom (owner: "ทำมือถือด้วยเลย").
+// Owner, 2026-11-01 ("มันเยอะเกินไป ... อยากให้มันมีแค่แบบว่าบันทึกได้กับไม่ได้"): the chat says only what saves, asks only
+// what it is unsure of, and names what looks wrong. The columns that matched are not listed; ตั้งค่าคอลัมน์ shows them all.
 
 export type { ImportCommit, ImportResult, SaveOutcome } from './importShared';
 
@@ -61,7 +63,9 @@ const FIX_LABELS: Record<GroupFix, string> = {
   skip: T("ข้ามแถวเหล่านี้"), include: T("นำเข้าด้วย"), update: T("อัปเดตรายการเดิม"), noUpdate: T("ไม่อัปเดต"), review: T("ดูแถว"),
 };
 const GUESSED_DATE: IssueCode[] = ['monthOnly', 'dateFromSheet'];
-const STATE_WORDS: Record<IssueGroup['state'], string> = { confirm: T("รอยืนยัน"), skip: T("ยังไม่นำเข้า"), check: T("นำเข้าพร้อมหมายเหตุ") };
+const STATE_WORDS: Record<IssueGroup['state'], string> = { confirm: T("รอคำตอบ"), skip: T("บันทึกไม่ได้"), check: T("บันทึกพร้อมหมายเหตุ") };
+/** A group is a question when its rows wait for the person's choice; the rest (saved with a note, or left out) look wrong. */
+const isQuestion = (group: IssueGroup) => group.state === 'confirm';
 const NOT_IMPORTED: Record<NonNullable<SheetReport['notImported']>, string> = {
   monthsAcross: T("แท็บ “{0}” เป็นตารางสรุปรายเดือน มีแต่ยอดรวม จึงนำเข้าเป็นรายการไม่ได้"),
   summary: T("แท็บ “{0}” ดูเป็นหน้าสรุปหรือคำอธิบาย จึงยังไม่ได้นำเข้า"),
@@ -104,7 +108,8 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
   const [draft, setDraft] = React.useState('');
   const [sending, setSending] = React.useState(false);
   const [used, setUsed] = React.useState(0);
-  const [columnsOpen, setColumnsOpen] = React.useState<Record<number, boolean>>({});
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [whtAnswered, setWhtAnswered] = React.useState(false);
   const [changing, setChanging] = React.useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = React.useState(false);
   const [reviewFilter, setReviewFilter] = React.useState<ReviewFilter>('all');
@@ -116,6 +121,7 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
   const talkId = React.useRef(0);
   const scroller = React.useRef<HTMLDivElement>(null);
   const reviewRef = React.useRef<HTMLDivElement>(null);
+  const settingsRef = React.useRef<HTMLDivElement>(null);
 
   // ── reading the file ──────────────────────────────────────────────────────────────────────────────────────────────
   const suggestColumns = async (list: SheetState[], account: string) => {
@@ -136,7 +142,7 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
   const reset = () => {
     aiRun.current += 1; setAiAsking(false);
     setFileName(''); setFileSize(0); setFingerprint(''); setSheets([]); setAmountsAreNet(false); setError(''); setIncluded({}); setEdits({}); setIncludePersonal(true);
-    setHistory([]); setResolved([]); setTalk([]); setDraft(''); setUsed(0); setColumnsOpen({}); setChanging(null); setReviewOpen(false); setReviewFilter('all');
+    setHistory([]); setResolved([]); setTalk([]); setDraft(''); setUsed(0); setSettingsOpen(false); setWhtAnswered(false); setChanging(null); setReviewOpen(false); setReviewFilter('all');
     setResult(null); setSaveState('saving'); setUndone(false);
   };
   const close = () => { reset(); onClose(); };
@@ -194,7 +200,6 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
   const totals = React.useMemo(() => planTotals(rows, isIncluded), [rows, isIncluded]);
   const details = React.useMemo(() => planDetails(rows, isIncluded), [rows, isIncluded]);
   const groups = React.useMemo(() => issueGroups(rows, included), [rows, included]);
-  const quiet = React.useMemo(() => quietCounts(rows), [rows]);
   const reports = React.useMemo(() => sheetReports(sheets), [sheets]);
   const waiting = columnsWaiting(sheets);
   const multiSheet = sheets.filter(s => s.include).length > 1;
@@ -305,73 +310,67 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
     </select>
   );
 
-  const columnsCard = (report: SheetReport) => {
+  const openSettings = () => {
+    setSettingsOpen(true);
+    requestAnimationFrame(() => settingsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
+  /** Every column of a tab and the tab's own settings, shown only under ตั้งค่าคอลัมน์. */
+  const settingsCard = (report: SheetReport) => {
     const sheet = sheets[report.index];
-    const all = !!columnsOpen[report.index];
     return (
-      <section className="ic-card" key={`cols-${report.index}`} aria-label={tr("คอลัมน์ของแท็บ {0}", report.name)} data-testid="import-columns">
-        <header className="ic-card-head">
-          <span className="ic-card-title">{multiSheet || sheets.length > 1 ? tr("แท็บ “{0}” · คอลัมน์ในไฟล์ → ช่องในแอป", report.name) : tr("คอลัมน์ในไฟล์ → ช่องในแอป")}</span>
-          <span className={`ic-card-state ${report.toConfirm.length ? 'is-wait' : 'is-ok'}`}>{tr("ตรงแล้ว {0}", report.matched.length)}{report.toConfirm.length ? ` · ${tr("รอยืนยัน {0}", report.toConfirm.length)}` : ''}</span>
-        </header>
-        {report.matched.length > 0 && (
-          <ul className="ic-matched">
-            {report.matched.map(column => <li key={column.index}><Check className="h-3.5 w-3.5 shrink-0 text-[#12804F] dark:text-[#6FD3A3]" aria-hidden="true" /><span className="truncate">{columnName(column.header, column.index)}</span><span className="shrink-0 text-brand-muted">→ {tr(FIELD_LABELS[column.target])}</span></li>)}
+      <section className="ic-card" key={`cols-${report.index}`} aria-label={tr("คอลัมน์ของแท็บ {0}", report.name)} data-testid="import-columns-all">
+        <header className="ic-card-head"><span className="ic-card-title">{tr("แท็บ “{0}” · คอลัมน์ในไฟล์ → ช่องในแอป", report.name)}</span></header>
+        <div className="ic-all">
+          <div className="ic-settings">
+            <label><span>{tr("ข้อมูลในแท็บนี้คือ")}</span>
+              <select className="ic-select" value={sheet.analysis.kind} onChange={e => updateSheet(report.index, s => ({ ...s, analysis: { ...s.analysis, kind: e.target.value as DataKind } }))}>
+                {(['jobs', 'expenses', 'mixed'] as DataKind[]).map(kind => <option key={kind} value={kind}>{tr(KIND_LABELS[kind])}</option>)}
+              </select></label>
+            <label><span>{tr("หัวตารางอยู่แถวที่")}</span>
+              <select className="ic-select" value={sheet.analysis.headerRow ?? -1} onChange={e => { const value = Number(e.target.value); updateSheet(report.index, s => ({ ...s, analysis: analyzeSheet(s.grid, { headerRow: value < 0 ? null : value }) })); }}>
+                <option value={-1}>{tr("ไม่มีหัวตาราง")}</option>
+                {sheet.grid.rows.slice(0, 15).map((_, r) => <option key={r} value={r}>{tr("แถว {0}", r + 1)}</option>)}
+              </select></label>
+          </div>
+          <ul className="ic-columns">
+            {sheet.analysis.columns.map(column => (
+              <li key={column.index}>
+                <span className="min-w-0"><b className="block truncate">{columnName(column.header, column.index)}</b><span className="block truncate text-[12px] text-brand-muted" title={column.samples.join(' · ')}>{column.samples.join(' · ') || '—'}</span></span>
+                {fieldSelect(report, column.index, column.target, target => updateSheet(report.index, s => withTarget(s, column.index, target)))}
+              </li>
+            ))}
           </ul>
-        )}
-        {report.toConfirm.map(column => {
-          const key = `${report.index}:${column.index}`;
-          return (
-            <div className="ic-ask" key={key} data-testid="import-column-ask">
-              <p><b>{columnName(column.header, column.index)}</b>{column.samples.length > 0 && <span className="text-brand-muted"> {tr("เช่น {0}", column.samples.slice(0, 2).map(sample => `“${sample}”`).join(', '))}</span>} → <b className="text-[#C24A16] dark:text-[#FFA473]">{tr(FIELD_LABELS[column.target])}</b> {tr("ใช่ไหม")}
-                {column.reason === 'ai' && <span className="ic-tag">{tr("เลขาแนะนำ")}</span>}</p>
-              {changing === key ? fieldSelect(report, column.index, column.target, target => { updateSheet(report.index, s => withTarget(s, column.index, target)); setChanging(null); }) : (
-                <div className="ic-chips">
-                  <button type="button" className="ic-chip is-main" onClick={() => updateSheet(report.index, s => withConfirmed(s, column.index))} aria-label={tr("ยืนยันว่าคอลัมน์ {0} คือ {1}", columnName(column.header, column.index), tr(FIELD_LABELS[column.target]))}>{tr("ใช่")}</button>
-                  <button type="button" className="ic-chip" onClick={() => setChanging(key)}>{tr("เปลี่ยน")}</button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {report.kept.length > 0 && (
-          <div className="ic-note-row" data-testid="import-columns-kept">
-            <p>{tr("ยังไม่มีช่องในแอปสำหรับ {0} เลขาเก็บไว้ในหมายเหตุของแต่ละรายการให้", report.kept.map(c => `“${columnName(c.header, c.index)}”`).join(', '))}</p>
-            <button type="button" className="ic-link" onClick={() => updateSheet(report.index, s => report.kept.reduce((next, c) => withTarget(next, c.index, 'ignore'), s))}>{tr("ไม่ต้องเก็บ")}</button>
-          </div>
-        )}
-        {(report.missingName || report.missingAmount) && (
-          <p role="alert" className="ic-alert"><AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />{report.missingName ? tr("ยังไม่มีคอลัมน์ที่เป็นชื่องานหรือรายการ เลือกให้อย่างน้อยหนึ่งคอลัมน์ใน ดูทุกคอลัมน์") : tr("ยังไม่มีคอลัมน์ที่เป็นยอดเงิน เลือกให้อย่างน้อยหนึ่งคอลัมน์ใน ดูทุกคอลัมน์")}</p>
-        )}
-        <button type="button" className="ic-more" aria-expanded={all} onClick={() => setColumnsOpen(state => ({ ...state, [report.index]: !all }))}>
-          {all ? tr("ซ่อนรายละเอียดคอลัมน์") : tr("ดูทุกคอลัมน์และตั้งค่าแท็บ")}<ChevronDown className={`h-4 w-4 transition-transform ${all ? 'rotate-180' : ''}`} aria-hidden="true" />
-        </button>
-        {all && (
-          <div className="ic-all" data-testid="import-columns-all">
-            <div className="ic-settings">
-              <label><span>{tr("ข้อมูลในแท็บนี้คือ")}</span>
-                <select className="ic-select" value={sheet.analysis.kind} onChange={e => updateSheet(report.index, s => ({ ...s, analysis: { ...s.analysis, kind: e.target.value as DataKind } }))}>
-                  {(['jobs', 'expenses', 'mixed'] as DataKind[]).map(kind => <option key={kind} value={kind}>{tr(KIND_LABELS[kind])}</option>)}
-                </select></label>
-              <label><span>{tr("หัวตารางอยู่แถวที่")}</span>
-                <select className="ic-select" value={sheet.analysis.headerRow ?? -1} onChange={e => { const value = Number(e.target.value); updateSheet(report.index, s => ({ ...s, analysis: analyzeSheet(s.grid, { headerRow: value < 0 ? null : value }) })); }}>
-                  <option value={-1}>{tr("ไม่มีหัวตาราง")}</option>
-                  {sheet.grid.rows.slice(0, 15).map((_, r) => <option key={r} value={r}>{tr("แถว {0}", r + 1)}</option>)}
-                </select></label>
-            </div>
-            <ul className="ic-columns">
-              {sheet.analysis.columns.map(column => (
-                <li key={column.index}>
-                  <span className="min-w-0"><b className="block truncate">{columnName(column.header, column.index)}</b><span className="block truncate text-[12px] text-brand-muted" title={column.samples.join(' · ')}>{column.samples.join(' · ') || '—'}</span></span>
-                  {fieldSelect(report, column.index, column.target, target => updateSheet(report.index, s => withTarget(s, column.index, target)))}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        </div>
       </section>
     );
   };
+
+  /** A column the rules or เลขา guessed, where money or dates come from: asked as a question, ใช่ or เปลี่ยน. */
+  const columnAsk = (report: SheetReport, column: ColumnLine) => {
+    const key = `${report.index}:${column.index}`;
+    return (
+      <div className="ic-ask" key={key} data-testid="import-column-ask">
+        <p><b>{columnName(column.header, column.index)}</b>{column.samples.length > 0 && <span className="text-brand-muted"> {tr("เช่น {0}", column.samples.slice(0, 2).map(sample => `“${sample}”`).join(', '))}</span>} → <b className="text-[#C24A16] dark:text-[#FFA473]">{tr(FIELD_LABELS[column.target])}</b> {tr("ใช่ไหม")}
+          {column.reason === 'ai' && <span className="ic-tag">{tr("เลขาแนะนำ")}</span>}
+          {multiSheet && <span className="block text-[12.5px] text-brand-muted">{tr("แท็บ “{0}”", report.name)}</span>}</p>
+        {changing === key ? fieldSelect(report, column.index, column.target, target => { updateSheet(report.index, s => withTarget(s, column.index, target)); setChanging(null); }) : (
+          <div className="ic-chips">
+            <button type="button" className="ic-chip is-main" onClick={() => updateSheet(report.index, s => withConfirmed(s, column.index))} aria-label={tr("ยืนยันว่าคอลัมน์ {0} คือ {1}", columnName(column.header, column.index), tr(FIELD_LABELS[column.target]))}>{tr("ใช่")}</button>
+            <button type="button" className="ic-chip" onClick={() => setChanging(key)}>{tr("เปลี่ยน")}</button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /** A tab with no column for the name or the amount: nothing in it can be saved until one is chosen. */
+  const missingAsk = (report: SheetReport) => (
+    <div className="ic-ask" key={`missing-${report.index}`} data-testid="import-column-missing">
+      <p role="alert">{report.missingName ? tr("แท็บ “{0}”: คอลัมน์ไหนคือชื่องานหรือรายการครับ", report.name) : tr("แท็บ “{0}”: คอลัมน์ไหนคือยอดเงินครับ", report.name)}</p>
+      <div className="ic-chips"><button type="button" className="ic-chip is-main" onClick={openSettings}>{tr("เลือกคอลัมน์")}</button></div>
+    </div>
+  );
 
   const groupRow = (group: IssueGroup) => {
     const label = group.issue === 'noDate' ? tr("{0} แถวไม่มีวันที่", group.rows.length) : tr("{0} · {1} แถว", tr(ISSUE_LABELS[group.issue]), group.rows.length);
@@ -396,10 +395,27 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
 
   const fixedRows = resolved.filter(item => !groups.some(group => group.issue === item.issue));
   const tabsRead = reports.filter(report => report.include);
-  const tabsLeft = reports.filter(report => !report.include && report.notImported);
+  // Only tabs the person may have meant to bring in; a list of names used for codes, or an empty tab, is not a problem.
+  const tabsLeft = reports.filter(report => !report.include && (report.notImported === 'summary' || report.notImported === 'monthsAcross'));
   const left = Math.max(0, CHAT_LIMIT_PER_FILE - used);
   const importCount = totals.jobs + newExpenses + details.updates;
   const allMatch = reconciliation.length > 0 && reconciliation.every(check => check.ok);
+  const mismatch = reconciliation.filter(check => !check.ok);
+
+  // What to ask (guessed columns, a tab with no name or amount column, before or after tax, rows waiting for a choice)
+  // and what looks wrong (rows saved with a note or left out, tabs not read, totals that differ from the file).
+  const columnAsks = tabsRead.flatMap(report => report.toConfirm.map(column => ({ report, column })));
+  const missingTabs = tabsRead.filter(report => report.missingName || report.missingAmount);
+  const questionGroups = groups.filter(isQuestion);
+  const problemGroups = groups.filter(group => !isQuestion(group));
+  const openQuestions = columnAsks.length + missingTabs.length + (hasWht && !whtAnswered ? 1 : 0) + questionGroups.filter(group => !group.decided).length;
+  const showQuestions = columnAsks.length + missingTabs.length + questionGroups.length + fixedRows.length > 0 || hasWht;
+  const problems = problemGroups.length + (mismatch.length ? 1 : 0);
+  const heldRows = rows.filter(row => !isIncluded(row) && primaryIssue(row)).length;
+  const readLine = openQuestions ? tr("ขอถามก่อน {0} ข้อ", openQuestions)
+    : !importCount && !problems ? tr("ไม่มีรายการใหม่ที่ต้องบันทึก")
+      : problems ? tr("ส่วนที่ถูกต้องบันทึกได้เลย") : tr("ทุกอย่างถูกต้อง บันทึกได้เลย");
+  const setNet = (value: boolean) => { setWhtAnswered(true); if (value !== amountsAreNet) change({ ...snapshot(), amountsAreNet: value }); };
 
   return (
     <Modal open={open} onClose={close} label={tr("ย้ายข้อมูลเข้าแอป")} width={860}>
@@ -447,35 +463,25 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
 
             {sheets.length > 0 && plan && (<>
               <Bot testId="import-read">
-                <p className="ic-text">{tr("อ่านไฟล์แล้วครับ")} {tabsRead.length ? tabsRead.map(report => tr("แท็บ “{0}” มี {1} แถว", report.name, report.rows)).join(' · ') : tr("ยังไม่มีแท็บที่นำเข้าได้")}{waiting.length ? ` ${tr("มี {0} คอลัมน์ที่เลขาเดาให้ ช่วยดูหน่อยว่าใช่ไหม", waiting.length)}` : ''}</p>
+                <p className="ic-text">{tr("อ่านไฟล์แล้วครับ")} {readLine}</p>
                 {earlier !== null && <p className="ic-note" data-testid="import-seen-before"><RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />{earlier ? tr("ไฟล์นี้เคยนำเข้าแล้วเมื่อ {0} แถวที่นำเข้าไปแล้วจะไม่ถูกนำเข้าซ้ำ", importedLabel(earlier)) : tr("ไฟล์นี้เคยนำเข้าแล้ว แถวที่นำเข้าไปแล้วจะไม่ถูกนำเข้าซ้ำ")}</p>}
-                {tabsLeft.map(report => (
-                  <div className="ic-note-row" key={`left-${report.index}`} data-testid="import-tab-left">
-                    <p>{tr(NOT_IMPORTED[report.notImported!], report.name)}</p>
-                    {report.notImported === 'summary' && <button type="button" className="ic-link" onClick={() => updateSheet(report.index, s => ({ ...s, include: true }))}>{tr("นำเข้าแท็บนี้ด้วย")}</button>}
-                  </div>
-                ))}
                 {aiAsking && <p className="ic-note" role="status"><Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#E65F2B]" aria-hidden="true" />{tr("เลขากระรอกกำลังช่วยดูคอลัมน์ที่ระบบยังไม่รู้จัก")}</p>}
-                {tabsRead.map(columnsCard)}
                 {totalRows > MAX_IMPORT_ROWS && <p className="ic-alert"><AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />{tr("นำเข้าได้ครั้งละไม่เกิน {0} แถว แถวที่เกินจะยังไม่นำเข้า", MAX_IMPORT_ROWS.toLocaleString('en-US'))}</p>}
-              </Bot>
-
-              {hasWht && (
-                <Bot face={false}>
-                  <p className="ic-text">{tr("ยอดเงินในไฟล์เป็นยอดก่อนหรือหลังหัก ณ ที่จ่ายครับ")}</p>
-                  <div className="ic-segment" role="radiogroup" aria-label={tr("ยอดเงินในไฟล์")}>
-                    <button type="button" role="radio" aria-checked={!amountsAreNet} onClick={() => amountsAreNet && change({ ...snapshot(), amountsAreNet: false })}>{tr("ยอดเต็มก่อนหัก")}</button>
-                    <button type="button" role="radio" aria-checked={amountsAreNet} onClick={() => !amountsAreNet && change({ ...snapshot(), amountsAreNet: true })}>{tr("หลังหักแล้ว")}</button>
-                  </div>
-                  <p className="ic-meta">{tr("เช่น งาน 10,000 บาท หัก 3% แล้วกรอกไว้ 9,700 ให้เลือก หลังหักแล้ว ระบบจะคำนวณมูลค่างานก่อนหักให้")}</p>
-                </Bot>
-              )}
-
-              <Bot face={false} testId="import-issues">
-                <p className="ic-text">{groups.length ? tr("ข้อมูลอีก {0} จุดยังไม่ตรงกับแอป เลือกวิธีแก้ได้เลย หรือพิมพ์บอกเลขาเองก็ได้ครับ", groups.length) : tr("ไม่มีจุดที่ต้องแก้ครับ ข้อมูลพร้อมนำเข้า")}</p>
-                {(groups.length > 0 || fixedRows.length > 0) && (
-                  <section className="ic-card" aria-label={tr("ข้อมูลที่ยังไม่ตรง")}>
-                    {groups.map(groupRow)}
+                {showQuestions && (
+                  <section className="ic-card" aria-label={tr("คำถามก่อนบันทึก")} data-testid="import-questions">
+                    {missingTabs.map(missingAsk)}
+                    {columnAsks.map(({ report, column }) => columnAsk(report, column))}
+                    {hasWht && (
+                      <div className="ic-ask is-stack" data-testid="import-wht-ask">
+                        <p>{tr("ยอดเงินในไฟล์เป็นยอดก่อนหรือหลังหัก ณ ที่จ่ายครับ")}</p>
+                        <div className="ic-segment" role="radiogroup" aria-label={tr("ยอดเงินในไฟล์")}>
+                          <button type="button" role="radio" aria-checked={!amountsAreNet} onClick={() => setNet(false)}>{tr("ยอดเต็มก่อนหัก")}</button>
+                          <button type="button" role="radio" aria-checked={amountsAreNet} onClick={() => setNet(true)}>{tr("หลังหักแล้ว")}</button>
+                        </div>
+                        <p className="ic-meta">{tr("เช่น งาน 10,000 บาท หัก 3% แล้วกรอกไว้ 9,700 ให้เลือก หลังหักแล้ว ระบบจะคำนวณมูลค่างานก่อนหักให้")}</p>
+                      </div>
+                    )}
+                    {questionGroups.map(groupRow)}
                     {fixedRows.map(item => (
                       <div className="ic-issue is-done" key={`done-${item.issue}`}>
                         <div className="ic-issue-head"><p className="ic-issue-title">{tr("{0} · {1} แถว", tr(ISSUE_LABELS[item.issue]), item.count)}</p><span className="ic-pill is-ok"><Check className="h-3 w-3" aria-hidden="true" />{tr(item.label)}</span></div>
@@ -483,9 +489,32 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
                     ))}
                   </section>
                 )}
-                {quiet.length > 0 && <p className="ic-meta" data-testid="import-quiet">{tr("ข้ามให้อัตโนมัติ: {0}", quiet.map(item => `${tr(ISSUE_LABELS[item.issue])} ${item.count}`).join(' · '))}</p>}
-                {history.length > 0 && <button type="button" className="ic-link" onClick={undo}><Undo2 className="inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" /> {tr("เปลี่ยนกลับการแก้ล่าสุด")}</button>}
+                {tabsLeft.length > 0 && (
+                  <div className="ic-note is-col" data-testid="import-tabs-left">
+                    <p>{tabsLeft.some(report => report.notImported === 'summary') ? tr("แท็บที่เป็นหน้าสรุปหรือคำอธิบายไม่ได้นำเข้า แตะชื่อแท็บถ้าต้องการนำเข้าด้วย") : tr("แท็บที่เป็นหน้าสรุปหรือคำอธิบายไม่ได้นำเข้า")}</p>
+                    <div className="ic-chips">
+                      {tabsLeft.map(report => (report.notImported === 'summary'
+                        ? <button key={report.index} type="button" className="ic-chip" data-testid="import-tab-left" title={tr(NOT_IMPORTED.summary, report.name)} aria-label={tr("นำเข้าแท็บ {0} ด้วย", report.name)} onClick={() => updateSheet(report.index, s => ({ ...s, include: true }))}>+ {report.name}</button>
+                        : <span key={report.index} className="ic-pill" data-testid="import-tab-left" title={tr(NOT_IMPORTED.monthsAcross, report.name)}>{report.name}</span>))}
+                    </div>
+                  </div>
+                )}
               </Bot>
+
+              {problems > 0 && (
+                <Bot face={false} testId="import-problems">
+                  <p className="ic-text">{tr("พบจุดผิดปกติ {0} จุดครับ", problems)}</p>
+                  <section className="ic-card" aria-label={tr("จุดที่ผิดปกติ")}>
+                    {mismatch.length > 0 && (
+                      <div className="ic-issue" data-testid="import-total-check" data-state="mismatch">
+                        <div className="ic-issue-head"><p className="ic-issue-title">{tr("ยอดรวมไม่ตรงกับไฟล์")}</p><span className="ic-pill is-wait">{tr("ไม่ตรง {0} จาก {1} ยอด", mismatch.length, reconciliation.length)}</span></div>
+                        <p className="ic-issue-rows">{mismatch.map(check => check.label).slice(0, 3).join(', ')}</p>
+                      </div>
+                    )}
+                    {problemGroups.map(groupRow)}
+                  </section>
+                </Bot>
+              )}
 
               {talk.map(item => (item.who === 'me' ? <Me key={item.id}>{item.text}</Me> : (
                 <Bot key={item.id} mood={item.failed ? 'worried' : 'happy'}>
@@ -498,17 +527,19 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
               {!result && (
                 <Bot face={false} testId="import-summary">
                   <section className="ic-card ic-summary" aria-label={tr("สรุปก่อนนำเข้า")}>
-                    <p className="ic-card-title">{blocked ? tr("พร้อมนำเข้าเมื่อแก้ครบแล้ว") : tr("สรุปก่อนนำเข้า")}</p>
+                    <p className="ic-card-title">{blocked ? tr("ตอบคำถามด้านบนก่อน แล้วจึงบันทึกได้") : tr("บันทึกได้ {0} รายการ", importCount)}</p>
                     <div className="ic-tiles">
                       <div><span>{tr("งาน")}</span><b data-testid="import-job-count">{tr("{0} งาน", totals.jobs)}</b><em>{formatCurrency(totals.value)}</em></div>
                       <div><span>{tr("รายจ่าย")}</span><b data-testid="import-expense-count">{tr("{0} รายการ", newExpenses)}</b><em>{formatCurrency(totals.expenseAmount)}</em></div>
-                      <div><span>{tr("ไม่นำเข้า")}</span><b>{tr("{0} แถว", notImportedRows)}</b><em>{details.updates ? tr("อัปเดต {0} รายการ", details.updates) : tr("ข้ามหรือรอยืนยัน")}</em></div>
                     </div>
-                    {reconciliation.length > 0 && (
-                      <p className={`ic-check ${allMatch ? 'is-ok' : 'is-wait'}`} data-testid="import-total-check">
-                        {allMatch ? <><CheckCircle2 className="h-4 w-4" aria-hidden="true" />{reconciliation.length === 1 ? tr("ตรงกับยอดในไฟล์ {0}", reconciliation[0].count ? String(reconciliation[0].file) : formatCurrency(reconciliation[0].file)) : tr("ตรงกับยอดในไฟล์ทุกตัว ({0} ยอด)", reconciliation.length)}</>
-                          : <><AlertTriangle className="h-4 w-4" aria-hidden="true" />{tr("ไม่ตรง {0} จาก {1} ยอด", reconciliation.filter(check => !check.ok).length, reconciliation.length)} · {reconciliation.filter(check => !check.ok).map(check => check.label).slice(0, 2).join(', ')}</>}
+                    {details.updates > 0 && <p className="ic-meta">{tr("อัปเดต {0} รายการ", details.updates)}</p>}
+                    {allMatch && (
+                      <p className="ic-check is-ok" data-testid="import-total-check">
+                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />{reconciliation.length === 1 ? tr("ตรงกับยอดในไฟล์ {0}", reconciliation[0].count ? String(reconciliation[0].file) : formatCurrency(reconciliation[0].file)) : tr("ตรงกับยอดในไฟล์ทุกตัว ({0} ยอด)", reconciliation.length)}
                       </p>
+                    )}
+                    {heldRows > 0 && (
+                      <p className="ic-meta is-warn" data-testid="import-held">{tr("ยังไม่บันทึก {0} แถว รอคำตอบหรือผิดปกติ", heldRows)} · <button type="button" className="ic-link" onClick={() => { setReviewFilter('skip'); setReviewOpen(true); requestAnimationFrame(() => reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }}>{tr("ดูแถว")}</button></p>
                     )}
                     {personalRows.length > 0 && (
                       <label className="ic-tick">
@@ -517,15 +548,17 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
                       </label>
                     )}
                     {missingExpenseDates > 0 && <p className="ic-meta is-warn">{tr("รายจ่าย {0} รายการยังไม่มีวันที่ ใส่วันที่ก่อน ไม่อย่างนั้นจะยังไม่นำเข้า", missingExpenseDates)}</p>}
-                    {waiting.length > 0 && <p className="ic-meta is-warn" data-testid="import-columns-to-confirm">{tr("ยืนยันคอลัมน์ที่เลขาเดาให้ก่อน: {0}", waiting.map(c => columnName(c.header, c.index)).join(', '))}</p>}
-                    <p className="ic-meta">{tr("ยังไม่ได้บันทึกจนกว่าจะกดนำเข้า · ยกเลิกทั้งชุดได้ภายใน 7 วัน")}</p>
+                    <p className="ic-meta">{tr("ยังไม่ได้บันทึกจนกว่าจะกดนำเข้า · ยกเลิกทั้งชุดได้ภายใน 7 วัน")}
+                      {history.length > 0 && <> · <button type="button" className="ic-link" onClick={undo}><Undo2 className="inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" /> {tr("เปลี่ยนกลับการแก้ล่าสุด")}</button></>}</p>
                     <div className="ic-actions">
+                      <button type="button" className="ic-button" aria-expanded={settingsOpen} onClick={() => (settingsOpen ? setSettingsOpen(false) : openSettings())}>{settingsOpen ? tr("ซ่อนการตั้งค่าคอลัมน์") : tr("ตั้งค่าคอลัมน์")}</button>
                       <button type="button" className="ic-button" aria-expanded={reviewOpen} onClick={() => { setReviewFilter('all'); setReviewOpen(shown => !shown); }}>{reviewOpen ? tr("ซ่อนตาราง") : tr("ดูทุกแถวก่อน")}</button>
                       <button type="button" className="ic-button is-primary" onClick={commit} disabled={blocked || !importCount} data-testid="import-commit">
                         <Upload className="h-4 w-4" aria-hidden="true" />{tr("นำเข้า {0} รายการ", importCount)}
                       </button>
                     </div>
                   </section>
+                  {settingsOpen && <div ref={settingsRef} className="ic-review ic-settings-list">{tabsRead.map(settingsCard)}</div>}
                   {reviewOpen && (
                     <div ref={reviewRef} className="ic-review">
                       <ImportReview rows={rows} isIncluded={isIncluded} included={included} setIncluded={change2 => setIncluded(change2)} edits={edits} setEdits={change2 => setEdits(change2)}

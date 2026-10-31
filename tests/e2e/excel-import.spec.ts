@@ -5,8 +5,8 @@ import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
 
 // Bringing data in as a chat with เลขากระรอก (owner, 2026-10-31; the import itself since 2026-10-22, free for every account):
-// a file dropped in the chat is read by the import's rules; the chat says which columns matched, which it guessed, which the
-// app has no field for, and which rows need a decision, each with fixes; typing to เลขา is free with caps; nothing is saved
+// a file dropped in the chat is read by the import's rules; the chat says what saves, asks only what it is unsure of (guessed
+// columns, rows waiting for a choice) and names what looks wrong (owner, 2026-11-01); typing to เลขา is free with caps; nothing is saved
 // until นำเข้า, and the whole import can be undone. Computers, iPads and phones (owner: "ทำมือถือด้วยเลย").
 
 test.use({ serviceWorkers: 'block' });
@@ -74,18 +74,25 @@ test('computer: the chat reads the file, says what matched and what has no field
   await expect(chat.getByRole('heading', { name: 'ย้ายข้อมูลเข้าแอป' })).toBeVisible();
   await chat.locator('#import-sheet-file').setInputFiles({ name: 'งานของฉัน.xlsx', mimeType: XLSX_TYPE, buffer: sheetFile() });
 
-  // เลขา's reading: the file as the person's message, the tabs, the matched columns, the one the app has no field for.
+  // เลขา's reading (owner, 2026-11-01: "อยากให้มันมีแค่แบบว่าบันทึกได้กับไม่ได้"): the file as the person's message, then only
+  // what it is unsure of as a question. The columns that matched are not listed, and the total row is left out quietly.
   await expect(chat.getByText('งานของฉัน.xlsx')).toBeVisible();
   const read = chat.getByTestId('import-read');
-  await expect(read).toContainText('อ่านไฟล์แล้วครับ');
-  // Three rows in the tab: two jobs and the total row, which is skipped and said so below.
-  await expect(read).toContainText('แท็บ “งาน” มี 3 แถว');
-  const columns = read.getByTestId('import-columns').first();
+  await expect(read).toContainText('อ่านไฟล์แล้วครับ ขอถามก่อน 1 ข้อ');
+  await expect(chat.getByTestId('import-wht-ask')).toContainText('ยอดเงินในไฟล์เป็นยอดก่อนหรือหลังหัก ณ ที่จ่ายครับ');
+  await expect(chat.getByTestId('import-columns-all')).toHaveCount(0);
+  await expect(chat.getByText(/ตรงแล้ว|ข้ามให้อัตโนมัติ|ยังไม่มีช่องในแอป/)).toHaveCount(0);
+  await expect(chat.getByTestId('import-problems')).toHaveCount(0);
+  await chat.getByRole('radio', { name: 'ยอดเต็มก่อนหัก' }).click();
+  await expect(read).toContainText('อ่านไฟล์แล้วครับ ทุกอย่างถูกต้อง บันทึกได้เลย');
+  // Every column is still one tap away under ตั้งค่าคอลัมน์; the one the app has no field for goes in the note.
+  await chat.getByRole('button', { name: 'ตั้งค่าคอลัมน์' }).click();
+  const columns = chat.getByTestId('import-columns-all').first();
   await expect(columns).toContainText('ชื่องาน');
-  await expect(columns).toContainText('→ มูลค่างาน');
-  await expect(columns).toContainText('→ หัก ณ ที่จ่าย (%)');
-  await expect(read.getByTestId('import-columns-kept').first()).toContainText('ยังไม่มีช่องในแอปสำหรับ “ช่องทาง”');
-  await expect(chat.getByTestId('import-quiet')).toContainText('แถวรวมยอด 1');
+  await expect(columns.getByRole('combobox', { name: 'ใช้คอลัมน์ ราคา เป็น' })).toHaveValue('value');
+  await expect(columns.getByRole('combobox', { name: 'ใช้คอลัมน์ ช่องทาง เป็น' })).toHaveValue('keep');
+  await chat.getByRole('button', { name: 'ซ่อนการตั้งค่าคอลัมน์' }).click();
+  await expect(chat.getByTestId('import-columns-all')).toHaveCount(0);
 
   // The summary: two jobs and one expense; the file's own total matches.
   await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
@@ -176,7 +183,14 @@ test('computer: the owner\'s code-linked workbook matches its Dashboard, saves w
   await page.getByTestId('jobs-import-button').click();
   const chat = page.getByTestId('import-wizard');
   await chat.locator('#import-sheet-file').setInputFiles(soloFile());
-  await expect(chat.getByTestId('import-tab-left').filter({ hasText: 'Clients' })).toContainText('รายชื่อสำหรับแปลงรหัส');
+  // The tab of names used for codes is not a problem, so it is not mentioned.
+  await expect(chat.getByTestId('import-tab-left').filter({ hasText: 'Clients' })).toHaveCount(0);
+  // Its read-me and Dashboard tabs are named once, in one line, each a tap away; nothing in the file looks wrong.
+  await expect(chat.getByTestId('import-tabs-left')).toContainText('แท็บที่เป็นหน้าสรุปหรือคำอธิบายไม่ได้นำเข้า');
+  await expect(chat.getByRole('button', { name: 'นำเข้าแท็บ Dashboard ด้วย' })).toBeVisible();
+  await expect(chat.getByTestId('import-problems')).toHaveCount(0);
+  await expect(chat.getByTestId('import-read')).toContainText('อ่านไฟล์แล้วครับ ทุกอย่างถูกต้อง บันทึกได้เลย');
+  await expect(chat.getByTestId('import-summary')).toContainText('บันทึกได้ 38 รายการ');
   await expect(chat.getByTestId('import-job-count')).toHaveText('8 งาน');
   await expect(chat.getByTestId('import-expense-count')).toHaveText('30 รายการ');
   await expect(chat.getByTestId('import-total-check')).toHaveText('ตรงกับยอดในไฟล์ทุกตัว (7 ยอด)');
@@ -265,7 +279,8 @@ test('computer: unknown columns get เลขากระรอก suggestions t
   await expect(chat.getByTestId('import-column-ask').first()).toContainText('เลขาแนะนำ');
   // Not importable until both are confirmed.
   await expect(chat.getByTestId('import-commit')).toBeDisabled();
-  await expect(chat.getByTestId('import-columns-to-confirm')).toContainText('Bill to');
+  await expect(chat.getByTestId('import-summary')).toContainText('ตอบคำถามด้านบนก่อน แล้วจึงบันทึกได้');
+  await expect(chat.getByTestId('import-read')).toContainText('ขอถามก่อน 2 ข้อ');
   await chat.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ Bill to คือ ลูกค้า' }).click();
   await chat.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ ช่องทาง คือ ประเภทงาน' }).click();
   await expect(chat.getByTestId('import-column-ask')).toHaveCount(0);
