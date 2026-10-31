@@ -71,6 +71,7 @@ import Login from '../features/auth/Login';
 import LandingPage from '../features/marketing/LandingPage';
 import { MobileBottomNav, MobileHeader, MobileMenuPage, type MobileTool, type MobileToolGroup } from '../features/mobile/MobileChrome';
 import { ADVANCED_MOBILE_TOOLS, MOBILE_MENU_SECTIONS, type MobileMenuSectionId } from '../features/mobile/mobileNavigation';
+import { VAULT_FREE_FILES } from '../../../shared/vault';
 import { useFeedbackWaiting } from '../features/feedback/useFeedbackWaiting';
 import { applyFields, carriesBatch, recentImports, undoUpdate } from '../features/import/importBatches';
 import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/importShared';
@@ -646,6 +647,9 @@ export default function App() {
           : hasOldNotifications && has('settings')
             ? { key: 'notif', title: tr("จัดการการแจ้งเตือนเดิม"), description: tr("ปิดการแจ้งเตือนหรือช่องทางที่เคยเปิดไว้"), icon: 'bell', search: "แจ้งเตือน เตือน", onOpen: openSettings('notif') }
             : soon('notif', tr("การแจ้งเตือน"), fullFeatureAccess ? tr("สรุปรายเดือน เตือนครบกำหนดรับเงิน และใบ 50 ทวิ") : tr("สรุปรายเดือน และเตือนครบกำหนดรับเงิน"), 'bell', "แจ้งเตือน เตือน"),
+        // Unlimited file storage is Pro too (owner, 2026-11-01): the vault, with Free's limit beside it.
+        ...tool('vault', tr("เก็บไฟล์ไม่จำกัด"), tr("ใบ 50 ทวิ สลิป บิล และใบเสร็จ ในคลังเอกสาร"), 'folder', 'คลังเอกสาร ไฟล์ สลิป บิล ใบเสร็จ 50 ทวิ ไม่จำกัด', undefined, 'vault-pro')
+          .map(item => ({ ...item, value: hasPro ? tr("ไม่จำกัด") : tr("ฟรี {0} ไฟล์", VAULT_FREE_FILES) })),
         // Price and upgrade last (owner, 2026-11-01): the group is แพ็กเกจ Pro itself, its rows what Pro gives.
         ...tool('plans', hasPro ? tr("สถานะแพ็กเกจ") : tr("ดูราคาและอัปเกรด"), hasPro ? tr("สถานะ การต่ออายุ และการชำระเงิน") : tr("ราคาและสิ่งที่ได้เมื่อเป็น Pro"), 'shield', "Pro สมัคร อัปเกรด ชำระเงิน แพ็กเกจ ราคา").map(item => ({ ...item, value: plan })),
       ],

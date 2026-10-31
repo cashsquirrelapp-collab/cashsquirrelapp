@@ -118,6 +118,8 @@ test('390px phone: the menu\'s แพ็กเกจ Pro section lists what Pro 
   await expect(plans).toContainText('ราคาและสิ่งที่ได้เมื่อเป็น Pro');
   await expect(pro.getByRole('button', { name: /เชื่อมต่อ LINE/ })).toBeVisible();
   await expect(pro.getByRole('button', { name: /^การแจ้งเตือน/ })).toBeVisible();
+  // unlimited file storage is listed with Pro too, with this Free account's limit (2026-11-01)
+  await expect(pro.getByRole('button', { name: /^เก็บไฟล์ไม่จำกัด/ })).toContainText('ฟรี 5 ไฟล์');
   // the price row comes after the features
   const rows = await pro.getByRole('button').evaluateAll(nodes => nodes.map(node => node.querySelector('b')?.textContent || ''));
   expect(rows.at(-1)).toBe('ดูราคาและอัปเกรด');

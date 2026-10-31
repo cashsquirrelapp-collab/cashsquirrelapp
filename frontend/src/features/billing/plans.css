@@ -203,7 +203,7 @@
 .dark .pf-qr:hover:not(:disabled) { background: rgba(255, 164, 115, 0.1); }
 .pf-terms { margin-top: 12px; font-size: 12px; line-height: 1.6; color: var(--muted); text-align: center; }
 
-/* What Pro gives: three small cards; the one pressed springs open, the others fold into upright strips. */
+/* What Pro gives: four small cards; the one pressed springs open, the others fold into upright strips. */
 .pf-features { margin-top: 36px; }
 .pf-features-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 10px; }
 .pf-features-head h2 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.45; color: var(--text); }
@@ -214,10 +214,12 @@
 .pf-tile.is-ai { background: linear-gradient(180deg, #FFDCC9 0%, #FFF3EB 75%); box-shadow: 0 8px 22px rgba(230, 95, 43, 0.1); }
 .pf-tile.is-alerts { background: linear-gradient(180deg, #FFE7BF 0%, #FFF7E9 75%); box-shadow: 0 8px 22px rgba(193, 120, 23, 0.12); }
 .pf-tile.is-docs { background: linear-gradient(180deg, #F6D0C0 0%, #FCEFE8 75%); box-shadow: 0 8px 22px rgba(166, 63, 27, 0.12); }
+.pf-tile.is-vault { background: linear-gradient(180deg, #F5E2C6 0%, #FCF5EA 75%); box-shadow: 0 8px 22px rgba(138, 75, 12, 0.12); }
 .dark .pf-tile { border-color: rgba(255, 255, 255, 0.08); box-shadow: none; }
 .dark .pf-tile.is-ai { background: linear-gradient(180deg, rgba(240, 116, 64, 0.26) 0%, rgba(240, 116, 64, 0.05) 75%), #1E1A18; }
 .dark .pf-tile.is-alerts { background: linear-gradient(180deg, rgba(242, 183, 107, 0.24) 0%, rgba(242, 183, 107, 0.05) 75%), #1E1A18; }
 .dark .pf-tile.is-docs { background: linear-gradient(180deg, rgba(250, 126, 82, 0.24) 0%, rgba(250, 126, 82, 0.05) 75%), #1E1A18; }
+.dark .pf-tile.is-vault { background: linear-gradient(180deg, rgba(224, 163, 90, 0.24) 0%, rgba(224, 163, 90, 0.05) 75%), #1E1A18; }
 .pf-tile-closed, .pf-tile-folded { width: 100%; height: 100%; box-sizing: border-box; border: 0; background: transparent; color: inherit; font-family: inherit; cursor: pointer; }
 .pf-tile-closed { display: flex; flex-direction: column; padding: 10px; text-align: left; }
 .pf-tile-art { flex-grow: 1; display: grid; place-items: center; }
@@ -225,6 +227,10 @@
 .pf-orb-ball.is-ai { background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #FFE2D1 22%, #FF9A62 58%, #D8561E 100%); box-shadow: 0 12px 26px rgba(240, 116, 64, 0.35), inset -6px -8px 18px rgba(150, 50, 10, 0.25); }
 .pf-orb-ball.is-docs { background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #F7D3C4 22%, #D9744B 58%, #A63F1B 100%); box-shadow: 0 12px 26px rgba(166, 63, 27, 0.34), inset -6px -8px 18px rgba(80, 20, 0, 0.25); color: #FFFFFF; }
 .pf-orb-ball.is-docs > svg { filter: drop-shadow(0 3px 5px rgba(80, 20, 0, 0.3)); }
+.pf-orb-ball.is-vault { background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #F6DFBE 22%, #D9954A 58%, #8A4B0C 100%); box-shadow: 0 12px 26px rgba(138, 75, 12, 0.32), inset -6px -8px 18px rgba(70, 35, 0, 0.25); color: #FFFFFF; }
+.pf-orb-ball.is-vault > svg { filter: drop-shadow(0 3px 5px rgba(70, 35, 0, 0.3)); }
+/* ใหม่ beside a card's name (the vault card, 2026-11-01). */
+.pf-new { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; background: #E65F2B; color: #FFFFFF; font-size: 10.5px; font-style: normal; font-weight: 600; line-height: 1.6; vertical-align: 2px; }
 .pf-orb-spark { position: absolute; right: 0; top: 2px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #FFFFFF 0%, #FFEFC4 30%, #F2B76B 100%); color: #8A5A0B; box-shadow: 0 0 0 2px #FFFFFF, 0 4px 10px rgba(110, 60, 0, 0.2); }
 .pf-orb-pill { display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 999px; background: radial-gradient(ellipse at 32% 26%, #FFFFFF 0%, #FFF4DE 30%, #FFD99A 72%, #E7A94A 100%); box-shadow: 0 12px 26px rgba(193, 120, 23, 0.26), inset -6px -8px 18px rgba(120, 70, 0, 0.14); }
 .pf-logo { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75), 0 6px 10px rgba(120, 70, 0, 0.18); }
@@ -239,6 +245,7 @@
 .pf-go.is-ai { background: linear-gradient(135deg, #FF9A62, #D8561E); }
 .pf-go.is-alerts { background: linear-gradient(135deg, #E3A03C, #C17817); }
 .pf-go.is-docs { background: linear-gradient(135deg, #C8562D, #A63F1B); }
+.pf-go.is-vault { background: linear-gradient(135deg, #C98A3E, #8A4B0C); }
 .pf-tile-open { display: flex; gap: 10px; height: 100%; box-sizing: border-box; padding: 10px; }
 .pf-open-art { flex: 0 0 26%; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
 .pf-open-art b { font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--text); text-align: center; }
@@ -257,9 +264,11 @@
 .pf-tick.is-ai { background: #FFE2D1; color: #C24A16; }
 .pf-tick.is-alerts { background: #FFEFC4; color: #8A5A0B; }
 .pf-tick.is-docs { background: #F7D9CC; color: #A63F1B; }
+.pf-tick.is-vault { background: #F5E2C6; color: #8A4B0C; }
 .dark .pf-tick.is-ai { background: rgba(240, 116, 64, 0.22); color: #FFB48A; }
 .dark .pf-tick.is-alerts { background: rgba(242, 183, 107, 0.2); color: #F2B76B; }
 .dark .pf-tick.is-docs { background: rgba(250, 126, 82, 0.2); color: #FA7E52; }
+.dark .pf-tick.is-vault { background: rgba(224, 163, 90, 0.2); color: #F2B76B; }
 .pf-line-note { display: flex; align-items: center; gap: 8px; margin: auto 0 0; padding: 7px 10px; border-radius: 12px; background: #FFF6E6; font-size: 12px; line-height: 1.5; color: var(--text); animation: pf-in 0.45s ease 0.3s both; }
 .pf-line-note b { font-weight: 600; }
 .dark .pf-line-note { background: rgba(242, 183, 107, 0.1); }
@@ -301,10 +310,12 @@
 .pf-row.is-ai { background: linear-gradient(120deg, #FFDCC9 0%, #FFF3EB 80%); box-shadow: 0 8px 22px rgba(230, 95, 43, 0.1); }
 .pf-row.is-alerts { background: linear-gradient(120deg, #FFE7BF 0%, #FFF7E9 80%); box-shadow: 0 8px 22px rgba(193, 120, 23, 0.12); }
 .pf-row.is-docs { background: linear-gradient(120deg, #F6D0C0 0%, #FCEFE8 80%); box-shadow: 0 8px 22px rgba(166, 63, 27, 0.12); }
+.pf-row.is-vault { background: linear-gradient(120deg, #F5E2C6 0%, #FCF5EA 80%); box-shadow: 0 8px 22px rgba(138, 75, 12, 0.12); }
 .dark .pf-row { border-color: rgba(255, 255, 255, 0.08); box-shadow: none; }
 .dark .pf-row.is-ai { background: linear-gradient(120deg, rgba(240, 116, 64, 0.26) 0%, rgba(240, 116, 64, 0.05) 80%), #1E1A18; }
 .dark .pf-row.is-alerts { background: linear-gradient(120deg, rgba(242, 183, 107, 0.24) 0%, rgba(242, 183, 107, 0.05) 80%), #1E1A18; }
 .dark .pf-row.is-docs { background: linear-gradient(120deg, rgba(250, 126, 82, 0.24) 0%, rgba(250, 126, 82, 0.05) 80%), #1E1A18; }
+.dark .pf-row.is-vault { background: linear-gradient(120deg, rgba(224, 163, 90, 0.24) 0%, rgba(224, 163, 90, 0.05) 80%), #1E1A18; }
 .pf-row-head { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; min-height: 72px; padding: 10px 14px 10px 8px; border: 0; background: transparent; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
 .pf-row-art { flex: none; display: grid; place-items: center; width: 78px; }
 .pf-row .pf-go { transition: transform 0.35s cubic-bezier(0.34, 1.32, 0.64, 1); }

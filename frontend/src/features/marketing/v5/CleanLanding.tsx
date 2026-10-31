@@ -77,7 +77,7 @@ const NOTES = [
 const FAQ: { q: string; a: string }[] = [
   { q: T('กระรอกตุนเงินเหมาะกับใคร?'), a: T('ฟรีแลนซ์ ครีเอเตอร์ ติวเตอร์ และคนที่รับงานจากหลายลูกค้า แล้วอยากเห็นว่าเงินก้อนไหนเข้าแล้ว ก้อนไหนยังรอ') },
   { q: T('เริ่มใช้งานฟรีได้ไหม?'), a: T('ได้ สมัครด้วย Google, Facebook หรืออีเมล ไม่ต้องใช้บัตร') },
-  { q: T('Pro ต่างจาก Free อย่างไร?'), a: T('Pro ออกเอกสารได้ไม่จำกัดและไม่มีลายน้ำ ใช้ผู้ช่วยใน LINE และรับแจ้งเตือนทาง LINE หรืออีเมลได้ ส่วน Free ออกเอกสารใหม่ได้ 10 ใบต่อเดือน') },
+  { q: T('Pro ต่างจาก Free อย่างไร?'), a: T('Pro ออกเอกสารได้ไม่จำกัดและไม่มีลายน้ำ เก็บไฟล์ในคลังเอกสารได้ไม่จำกัด ใช้ผู้ช่วยใน LINE และรับแจ้งเตือนทาง LINE หรืออีเมลได้ ส่วน Free ออกเอกสารใหม่ได้ 10 ใบต่อเดือน และเก็บไฟล์ได้ 5 ไฟล์') },
   { q: T('ออกใบเสนอราคาได้ไหม?'), a: T('ได้ทั้ง Free และ Pro พร้อมใบแจ้งหนี้ ใบเสร็จ ใบกำกับภาษี และดาวน์โหลด PDF') },
   { q: T('เชื่อมต่อ LINE อย่างไร?'), a: T('สมัคร Pro แล้วไปที่ ตั้งค่า > LINE กดเชื่อมต่อ แล้วทำตามขั้นตอนใน LINE') },
   { q: T('ยกเลิก Pro ได้ไหม?'), a: T('ได้ทุกเมื่อจากหน้าแพ็กเกจ สิทธิ์ใช้ต่อได้ถึงสิ้นรอบที่ชำระแล้ว') },
@@ -826,7 +826,7 @@ export default function CleanLanding() {
               <p className="cl-price">{promoRunning && <s className="cl-price-was"><span className="sr-only">{tr('ราคาปกติ')} </span>{formatBaht(PRO_REGULAR_MONTHLY)}</s>}<strong className="gl-num">{formatBaht(price.price)}</strong><span>{tr('/ เดือน')}</span></p>
               <p className="cl-price-fee">{tr('+ ค่าธรรมเนียมชำระเงิน {0} · ยอดชำระ {1}', formatBaht(price.fee), formatBaht(price.total))}</p>
               <h3>{trc('plan', 'อัปเกรดเป็น')} <span className="cl-grad">Pro</span> {trc('plan', 'เมื่อพร้อม')}</h3>
-              <p className="cl-plan-text">{tr('เลขากระรอก แจ้งเตือนทาง LINE และอีเมล ออกเอกสารได้ไม่จำกัด')}</p>
+              <p className="cl-plan-text">{tr('เลขากระรอก แจ้งเตือนทาง LINE และอีเมล ออกเอกสารและเก็บไฟล์ได้ไม่จำกัด')}</p>
             </article>
           </div>
           <div className="cl-center"><StartButton /></div>

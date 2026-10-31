@@ -233,9 +233,11 @@ test('the Pro card and its prices stay readable on mobile', async ({ page }) => 
     await expect(page.getByRole('radio')).toHaveCount(0);
     await expect(plans.getByText(/฿849|฿1,490|คุ้มที่สุด/)).toHaveCount(0);
   }
-  // What Pro gives: three rows; the one pressed opens downward and closes again.
+  // What Pro gives: four rows (unlimited file storage since 2026-11-01); the one pressed opens downward and closes again.
   const rows = page.getByRole('list', { name: 'สิ่งที่ได้ใน Pro' });
-  await expect(rows.getByRole('listitem')).toHaveCount(3);
+  await expect(rows.getByRole('listitem')).toHaveCount(4);
+  await rows.getByRole('button', { name: /เก็บไฟล์ไม่จำกัด/ }).click();
+  await expect(rows.getByRole('region', { name: 'เก็บไฟล์ไม่จำกัด' })).toContainText('แบบฟรีเก็บได้ 5 ไฟล์');
   const ai = rows.getByRole('button', { name: /เลขากระรอก/ });
   await ai.click();
   await expect(ai).toHaveAttribute('aria-expanded', 'true');
@@ -394,9 +396,12 @@ test('plans page: Pro only at the owner\'s prices; squirrel and price lead; noth
   }
   // nothing was sent to checkout
   expect(requests.filter(request=>request.method()==='POST')).toEqual([]);
-  // What Pro gives: three small cards (owner, 2026-10-29); the one pressed opens, the others fold to strips.
+  // What Pro gives: small cards (owner, 2026-10-29), four since 2026-11-01 with unlimited file storage marked ใหม่;
+  // the one pressed opens, the others fold to strips.
   const tiles=page.getByRole('list',{name:'สิ่งที่ได้ใน Pro'});
-  await expect(tiles.getByRole('listitem')).toHaveCount(3);
+  await expect(tiles.getByRole('listitem')).toHaveCount(4);
+  await expect(tiles.getByRole('listitem').nth(3)).toContainText('เก็บไฟล์ไม่จำกัดใหม่');
+  await expect(tiles.getByRole('listitem').nth(3)).toContainText('ใบ 50 ทวิ สลิป บิล และใบเสร็จ');
   await expect(tiles.getByRole('listitem').nth(0)).toContainText('เลขากระรอก');
   await expect(tiles.getByRole('listitem').nth(1)).toContainText('แจ้งเตือนอัตโนมัติ');
   await expect(tiles.getByRole('listitem').nth(1).locator('[aria-label="Gmail"]')).toHaveCount(1); // decorative inside the card's button
@@ -411,7 +416,7 @@ test('plans page: Pro only at the owner\'s prices; squirrel and price lead; noth
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(card.getByRole('button',{name:'ทักทายน้องกระรอก Pro'})).toHaveCount(0);
   await expect(price.getByTestId('plan-fee')).toHaveCount(0);
-  await expect(page.locator('.pf-rows').getByRole('listitem')).toHaveCount(3);
+  await expect(page.locator('.pf-rows').getByRole('listitem')).toHaveCount(4);
 });
 
 test('plans page: every account sees the same monthly price, with or without the earlier intro offer',async({page})=>{

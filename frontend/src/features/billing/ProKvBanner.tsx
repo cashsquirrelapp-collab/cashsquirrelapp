@@ -102,7 +102,7 @@ export default function ProKvBanner({ mobile, onClose, onSubscribe }: { mobile: 
               <ul>
                 <li><span className="pkv-ic"><LineLogo size={18} /></span>{tr('เตือนใน LINE')}</li>
                 <li><span className="pkv-ic"><GmailLogo size={18} /></span>{tr('แจ้งทางอีเมล')}</li>
-                <li><span className="pkv-ic is-doc"><FileText size={15} strokeWidth={2} /></span>{tr('เอกสารไม่จำกัด')}</li>
+                <li><span className="pkv-ic is-doc"><FileText size={15} strokeWidth={2} /></span>{tr('เอกสารและไฟล์ไม่จำกัด')}</li>
               </ul>
             </div>
             <PromoCountdownChips className="pkv-count" />

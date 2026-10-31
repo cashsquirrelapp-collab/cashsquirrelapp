@@ -43,7 +43,7 @@ test('a free account gets the invitation once a week; ✕ and ไว้ทีห
   await expect(kv(page).getByRole('button', { name: 'สมัคร Pro เลย', exact: true })).toBeVisible();
   // เลขากระรอก is the app's own drawing, and what Pro gives is listed.
   await expect(kv(page).locator('.pkv-hero svg').first()).toBeVisible();
-  for (const feature of ['เตือนใน LINE', 'แจ้งทางอีเมล', 'เอกสารไม่จำกัด']) await expect(kv(page).getByText(feature, { exact: true })).toBeVisible();
+  for (const feature of ['เตือนใน LINE', 'แจ้งทางอีเมล', 'เอกสารและไฟล์ไม่จำกัด']) await expect(kv(page).getByText(feature, { exact: true })).toBeVisible();
   await expect(kv(page).getByTestId('promo-countdown')).toBeVisible();
   // Computers get the landscape poster, grown to fill the screen (owner, 2026-10-29: "ขนาดมันเล็ก").
   await expect(kv(page)).toHaveAttribute('data-layout', 'wide');

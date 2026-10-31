@@ -1,9 +1,10 @@
 import React from 'react';
-import { ArrowRight, Check, ChevronDown, FileText, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, FileText, FolderOpen, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { LineLogo } from '../../components/ui/LineLogo';
 import { GmailLogo } from '../../components/ui/GmailLogo';
 import { tr } from '../../i18n/tr';
+import { VAULT_FREE_FILES } from '../../../../shared/vault';
 
 // What Pro gives, as three small cards under the price (owner, 2026-10-29, design F after the "Matiz" reference): the
 // card you press springs open and the other two fold into slim upright strips; ✕ or the same card closes it again.
@@ -11,8 +12,10 @@ import { tr } from '../../i18n/tr';
 // LINE has no card of its own any more: it sits with the reminders, and its hover note says you can chat with เลขา there.
 // Phones (owner, 2026-10-29: "ทำบนมือถือด้วยเลย"): the same three, as full-width rows; the one pressed opens downward
 // and the others stay as they are (there is no room for upright strips).
+// A fourth card since 2026-11-01 (owner: "ต้องการให้มึงเขียนในฟีเจอร์โปรด้วยว่ามันมีอันนี้เพิ่มเข้ามา ... มันมีแค่เขียนว่าเอกสาร
+// ไม่จำกัด"): unlimited file storage in คลังเอกสาร (ใบ 50 ทวิ, slips, bills, receipts), Free keeping VAULT_FREE_FILES, marked ใหม่.
 
-type TileId = 'ai' | 'alerts' | 'docs';
+type TileId = 'ai' | 'alerts' | 'docs' | 'vault';
 
 function Tick({ tone }: { tone: TileId }) {
   return <span aria-hidden="true" className={`pf-tick is-${tone}`}><Check size={10} strokeWidth={3} /></span>;
@@ -24,7 +27,7 @@ export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; s
   const close = () => setOpen(null);
   const onKey = (event: React.KeyboardEvent) => { if (event.key === 'Escape' && open) { event.stopPropagation(); close(); } };
 
-  const tiles: { id: TileId; title: string; sub: string; orb: (d: number) => React.ReactNode; detail: React.ReactNode }[] = [
+  const tiles: { id: TileId; title: string; sub: string; isNew?: boolean; orb: (d: number) => React.ReactNode; detail: React.ReactNode }[] = [
     {
       id: 'ai', title: tr('เลขากระรอก'), sub: tr('พิมพ์หรือพูด สั่งงานได้ทันที'),
       orb: d => <span className="pf-orb-ball is-ai" style={{ width: d, height: d }}><Mascot gear="headset" mood="happy" animated={false} size={Math.round(d * 0.66)} viewBox="12 8 76 76" /></span>,
@@ -69,6 +72,20 @@ export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; s
         </ul>
       </>,
     },
+    {
+      id: 'vault', title: tr('เก็บไฟล์ไม่จำกัด'), sub: tr('ใบ 50 ทวิ สลิป บิล และใบเสร็จ'), isNew: true,
+      orb: d => <span className="pf-orb-ball is-vault" style={{ width: d, height: d }}>
+        <FolderOpen size={Math.round(d * 0.44)} strokeWidth={1.7} />
+      </span>,
+      detail: <>
+        <p className="pf-detail-head"><b>{tr('คลังเอกสารไม่จำกัด')}</b> · {tr('แบบฟรีเก็บได้ {0} ไฟล์', VAULT_FREE_FILES)}</p>
+        <ul className="pf-detail-list">
+          <li><Tick tone="vault" />{tr('เก็บใบ 50 ทวิ สลิปโอนเงิน บิลรายจ่าย และใบเสร็จ ได้ไม่จำกัดจำนวน')}</li>
+          <li><Tick tone="vault" />{tr('แยกเป็นใบ 50 ทวิ สัญญา สลิป และหลักฐานแนบงาน หาเจอง่ายตอนยื่นภาษีสิ้นปี')}</li>
+          <li><Tick tone="vault" />{tr('ส่งรูปหรือ PDF ให้เลขากระรอกเก็บเข้าคลังให้จากในแชท')}</li>
+        </ul>
+      </>,
+    },
   ];
 
   if (stacked) return (
@@ -80,7 +97,7 @@ export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; s
           <li key={tile.id} className={`pf-row is-${tile.id} ${isOpen ? 'is-open' : ''}`} data-feature={tile.id}>
             <button type="button" className="pf-row-head" onClick={() => setOpen(isOpen ? null : tile.id)} aria-expanded={isOpen} aria-controls={detailId}>
               <span className="pf-row-art" aria-hidden="true">{tile.orb(52)}</span>
-              <span className="pf-tile-text"><b>{tile.title}</b><span>{tile.sub}</span></span>
+              <span className="pf-tile-text"><b>{tile.title}{tile.isNew && <i className="pf-new">{tr('ใหม่')}</i>}</b><span>{tile.sub}</span></span>
               <span aria-hidden="true" className={`pf-go is-${tile.id}`}><ChevronDown size={14} strokeWidth={2.6} /></span>
             </button>
             {isOpen && <div className="pf-row-detail" id={detailId} role="region" aria-label={tile.title}>{tile.detail}</div>}
@@ -101,7 +118,7 @@ export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; s
               <button type="button" className="pf-tile-closed" onClick={() => setOpen(tile.id)} aria-expanded={false} aria-controls={detailId}>
                 <span className="pf-tile-art" aria-hidden="true">{tile.orb(92)}</span>
                 <span className="pf-tile-name">
-                  <span className="pf-tile-text"><b>{tile.title}</b><span>{tile.sub}</span></span>
+                  <span className="pf-tile-text"><b>{tile.title}{tile.isNew && <i className="pf-new">{tr('ใหม่')}</i>}</b><span>{tile.sub}</span></span>
                   <span aria-hidden="true" className={`pf-go is-${tile.id}`}><ArrowRight size={12} strokeWidth={2.6} /></span>
                 </span>
               </button>
