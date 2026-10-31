@@ -1,5 +1,6 @@
 import { HERO } from './founderStory.js';
 import { GUIDES, GUIDES_INDEX, GUIDES_PATH, guideByPath } from './guides.js';
+import { seoBody } from './seoBody.js';
 
 // What search engines and link previews read for each public page (owner, 2026-10-31: "ทำเลย", with the home page's
 // title and description in the owner's own words). The Worker writes these into the page head when it serves the page
@@ -72,4 +73,13 @@ export function withSeoHead(html: string, path: string): string {
   const head = seoHead(path);
   if (!head || !/<title>[^<]*<\/title>/.test(html)) return html;
   return html.replace(/<title>[^<]*<\/title>/, () => head);
+}
+
+/** The served page with its own head and, for pages that have words of their own, those words inside #root
+ *  (shared/seoBody.ts), so a search engine reads the page without running the app. */
+export function withSeoPage(html: string, path: string): string {
+  const page = seoPage(path);
+  const withHead = withSeoHead(html, path);
+  const body = page ? seoBody(path, page.description) : '';
+  return body && withHead.includes('<div id="root"></div>') ? withHead.replace('<div id="root"></div>', () => `<div id="root">${body}</div>`) : withHead;
 }

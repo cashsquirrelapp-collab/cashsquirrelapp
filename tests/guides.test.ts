@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { GUIDES, GUIDES_PATH } from '../shared/guides.js';
 import { SEO_PAGES, SHARE_IMAGE, seoHead } from '../shared/seo.js';
 import { FREE_DOCUMENT_LIMIT } from '../backend/src/services/documentQuota.js';
+import { VAULT_FREE_FILES } from '../shared/vault.js';
 
 // The guides on the website (owner, 2026-10-31): every figure matches the verified accounting knowledge and the app's own
 // limits, features open only to Pro say so, no vendor names or free trial, and every guide is in the search data and the
@@ -53,6 +54,7 @@ test('the withholding rates in the 50 ทวิ guide are the verified ones', ()
 
 test('the app\'s own limits and the pricing example are right', () => {
   assert.ok(all.some(text => text.includes(`${FREE_DOCUMENT_LIMIT} ฉบับต่อเดือน`)), 'the free document limit');
+  assert.ok(all.some(text => text.includes(`แพ็กเกจฟรี ${VAULT_FREE_FILES} ไฟล์ Pro ไม่จำกัด`)), 'the free vault limit');
   assert.ok(all.some(text => text.includes('7,000 ÷ (1 − 0.30) = 10,000')));
   assert.equal(Math.round(7000 / (1 - 0.3)), 10000);
   assert.equal(7000 * 1.3, 9100);
@@ -61,7 +63,8 @@ test('the app\'s own limits and the pricing example are right', () => {
 test('features only Pro has are named as Pro; no vendor names, no free trial', () => {
   for (const text of all) {
     if (/เลขากระรอก/.test(text)) assert.match(text, /Pro/, text);
-    if (/เตือน.*50 ทวิ|50 ทวิ.*เตือน/.test(text) && /LINE/.test(text)) assert.match(text, /Pro/, text);
+    // Chatting, documents and reminders through LINE are Pro (backend/src/services/lineAssistant.ts, notify.ts).
+    if (/LINE/.test(text)) assert.match(text, /Pro/, text);
     assert.doesNotMatch(text, /Gemini|Claude|Anthropic|OpenAI|Supabase|Cloudflare|Stripe|Vercel|ทดลองฟรี|ทดลองใช้ฟรี|\bAI\b/i, text);
   }
 });

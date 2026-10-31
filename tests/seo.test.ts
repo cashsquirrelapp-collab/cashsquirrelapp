@@ -60,7 +60,7 @@ test('every tag in the head is well formed: attribute values closed, nothing bre
 test('the Worker writes the head for listed pages and the founder tab uses the same title', () => {
   const worker = fs.readFileSync('cloudflare/worker.ts', 'utf8');
   assert.match(worker, /await pageAsset\(request, env, path\)/);
-  assert.match(worker, /withSeoHead\(await response\.text\(\), path\)/);
+  assert.match(worker, /withSeoPage\(await response\.text\(\), path\)/);
   assert.match(worker, /headers\.delete\('If-None-Match'\)/);
   const founder = fs.readFileSync('frontend/src/features/marketing/v5/FounderStory.tsx', 'utf8');
   assert.match(founder, /SEO_PAGES\['\/founder'\]\.title/);
