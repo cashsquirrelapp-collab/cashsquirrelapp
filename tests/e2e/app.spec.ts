@@ -1279,8 +1279,11 @@ test('mobile jobs and receivables follow the design; every job action is still r
  await page.getByRole('button',{name:'ตัวกรองและเครื่องมืองาน'}).click();
  const tools=page.getByRole('dialog',{name:'ตัวกรอง'});
  await expect(tools.getByText('เรียงตาม')).toBeVisible();
- await expect(tools.getByRole('button',{name:/Excel/})).toBeVisible();
- await expect(tools.getByRole('button',{name:/CSV/})).toBeVisible();
+ const exports=tools.locator('fieldset',{hasText:'ส่งออก'});
+ await expect(exports.getByRole('button',{name:/Excel/})).toBeVisible();
+ await expect(exports.getByRole('button',{name:/CSV/})).toBeVisible();
+ // the import chat on phones (owner, 2026-10-31: "ทำมือถือด้วยเลย") sits beside the exports
+ await expect(tools.getByTestId('jobs-import-button-phone')).toBeVisible();
  await tools.getByRole('button',{name:'ปิด',exact:true}).click();
  // the chevron opens the job's actions; tapping the card opens the job itself
  await page.getByRole('button',{name:/^ตัวเลือกของงาน/}).first().click();

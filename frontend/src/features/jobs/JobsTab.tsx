@@ -1250,6 +1250,16 @@ export default function JobsTab({
                     </div>
                   </fieldset>
                 )}
+                {/* Phones get the import chat too (owner, 2026-10-31: "ทำมือถือด้วยเลย"), beside the exports. */}
+                {mobile && onOpenImport && (
+                  <fieldset>
+                    <legend className="mb-2 text-xs font-medium text-brand-muted">{tr("นำเข้า")}</legend>
+                    <button type="button" onClick={() => { setPanel(null); onOpenImport(); }} data-testid="jobs-import-button-phone"
+                      className="inline-flex h-8 max-w-full items-center gap-1.5 truncate rounded-full border border-brand-border px-3 text-xs text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
+                      <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />{tr("นำเข้าจาก Excel")}
+                    </button>
+                  </fieldset>
+                )}
                 <div className="flex gap-2 border-t border-brand-border pt-3">
                   <button
                     type="button"

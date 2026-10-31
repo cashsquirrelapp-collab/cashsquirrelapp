@@ -448,6 +448,25 @@ card does not need:
   person already chose is never changed. Confirmed layouts are remembered like any other choice. A guest, the AI off or
   any failure: the import goes on as before.
 
+### Import as a chat with เลขากระรอก (owner, 2026-10-31: "ทำให้มันเป็นแบบแชท ... ตรงไหนที่ไม่สามารถดึงได้มันก็แจ้งเขาเลย")
+- "ย้ายข้อมูลเข้าแอป" replaced the 4-step dialog on every device (`features/import/ImportChat.tsx`, `importChatModel.ts`,
+  `ImportReview.tsx`, `importChat.css`): a centred window on computers and iPads, the Modal's sheet on phones (opened from
+  the Jobs page's tools sheet and Settings › สำรอง & นำเข้าข้อมูล). The file is read in the browser by the same rules as
+  before; nothing is saved until นำเข้า; the whole import can be undone for 7 days.
+- The conversation, top to bottom: เลขา's hello with the drop place, the file as the person's message, เลขา's reading
+  (tabs, columns that matched with ✓, columns to confirm with ใช่ / เปลี่ยน, columns the app has no field for kept in the
+  note with ไม่ต้องเก็บ, tabs not imported and why), the before/after-withholding question when the file has withholding,
+  the groups of rows that need a decision (one primary issue per row, each with its fixes as chips: ใช้วันนี้,
+  ใช้วันสิ้นเดือน, นำเข้าตามที่อ่านได้, ข้าม N แถวนี้, ดูแถว), rows skipped by themselves in one muted line, typed messages,
+  then the summary card (งาน / รายจ่าย / ไม่นำเข้า, the file's totals, ดูทุกแถวก่อน and the one primary นำเข้า N รายการ).
+- Every fix is kept so เปลี่ยนกลับ restores what was there. White grouped cards, the user's bubble in cream, เลขา's looped
+  type, chips are pills (quick replies), one orange primary.
+- Typing to เลขา (owner's answer, 2026-10-31): free for every account, 10 messages a file, 3 files a day, 6 a minute, no
+  Krarok tokens (`backend/src/ai/importChat.ts`, action `import-chat`). It gets the message, the tabs and columns (headers,
+  current fields, 3 masked samples) and the problems' counts, never the rows; it answers with a short reply and at most 8
+  actions from a fixed list (set a column, a tab's kind, include a tab, fill dates, skip or confirm a problem, amounts after
+  withholding), applied by the app's rules.
+
 ### Overdue report (retired 2026-10-30)
 - The iPad report dialog (rounds 1–3: 5d92c8d, 4421258, 20d6cd0, light mode 9642fae) was replaced by the fullscreen
   Credit Radar on iPads too (owner: "อยากได้แบบเต็มหน้าจอ ... ของบนคอมแล้วก็ iPad"). It is in git history.

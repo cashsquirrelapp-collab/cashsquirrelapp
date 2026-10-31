@@ -1,11 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { noRadar } from './radarVisit';
+import { textOverlapIssues } from './textOverlap';
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
 
-// Import from Excel (owner, 2026-10-22, free for every account): a sheet people already keep comes
-// in through column matching and a review table, is saved with a batch tag, and can be undone.
-// Computers and iPads have the button; the phone layout is unchanged.
+// Bringing data in as a chat with เลขากระรอก (owner, 2026-10-31; the import itself since 2026-10-22, free for every account):
+// a file dropped in the chat is read by the import's rules; the chat says which columns matched, which it guessed, which the
+// app has no field for, and which rows need a decision, each with fixes; typing to เลขา is free with caps; nothing is saved
+// until นำเข้า, and the whole import can be undone. Computers, iPads and phones (owner: "ทำมือถือด้วยเลย").
 
 test.use({ serviceWorkers: 'block' });
 
@@ -16,6 +18,7 @@ const snapshot = {
   statuses: [{ id: 'done', label: 'จ่ายเงินครบแล้ว', behavior: 'done' }, { id: 'partial', label: 'มัดจำแล้ว', behavior: 'partial' }, { id: 'pending', label: 'ยังไม่จ่าย', behavior: 'pending' }],
   job_types: ['Sponsored Post'], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null,
 };
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 function sheetFile(): Buffer {
   const rows = [
@@ -31,6 +34,11 @@ function sheetFile(): Buffer {
   XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['วันที่', 'รายการ', 'หมวด', 'จำนวนเงิน'], ['05/10/2567', 'ค่าโปรแกรมตัดต่อ', 'ซอฟต์แวร์', 790]]), 'รายจ่าย');
   return Buffer.from(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }));
 }
+const bookFile = (name: string, rows: (string | number)[][], tab = 'งาน') => {
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows), tab);
+  return { name, mimeType: XLSX_TYPE, buffer: Buffer.from(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' })) };
+};
 
 async function open(page: Page, width: number, path: string, language: 'th' | 'en' = 'th') {
   const saved: any[] = [];
@@ -56,51 +64,57 @@ async function open(page: Page, width: number, path: string, language: 'th' | 'e
   await page.goto(noRadar(path));
   return saved;
 }
+const changes = (saved: any[]) => saved.flatMap(body => body?.changes || []);
+const savedRows = (saved: any[], table: string) => changes(saved).filter((c: any) => c.table === table && c.op === 'set' && c.data?.importBatchId).map((c: any) => c.data);
 
-test('computer: a sheet is matched, reviewed, imported with a batch tag and can be undone', async ({ page }) => {
+test('computer: the chat reads the file, says what matched and what has no field, and imports a batch that can be undone', async ({ page }) => {
   const saved = await open(page, 1280, '/jobs');
   await page.getByTestId('jobs-import-button').click();
-  const wizard = page.getByTestId('import-wizard');
-  await wizard.locator('#import-sheet-file').setInputFiles({ name: 'งานของฉัน.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: sheetFile() });
+  const chat = page.getByTestId('import-wizard');
+  await expect(chat.getByRole('heading', { name: 'ย้ายข้อมูลเข้าแอป' })).toBeVisible();
+  await chat.locator('#import-sheet-file').setInputFiles({ name: 'งานของฉัน.xlsx', mimeType: XLSX_TYPE, buffer: sheetFile() });
 
-  // Column matching: guessed from the headers, and the extra column is kept in the note.
-  await expect(wizard.getByRole('heading', { name: 'จับคู่คอลัมน์' })).toBeVisible();
-  await expect(wizard.getByRole('combobox', { name: 'ใช้คอลัมน์ ชื่องาน เป็น' })).toHaveValue('name');
-  await expect(wizard.getByRole('combobox', { name: 'ใช้คอลัมน์ ราคา เป็น' })).toHaveValue('value');
-  await expect(wizard.getByRole('combobox', { name: 'ใช้คอลัมน์ หัก ณ ที่จ่าย เป็น' })).toHaveValue('whtRate');
-  await expect(wizard.getByRole('combobox', { name: 'ใช้คอลัมน์ ช่องทาง เป็น' })).toHaveValue('keep');
-  await wizard.getByRole('button', { name: 'ตรวจทานข้อมูล' }).click();
+  // เลขา's reading: the file as the person's message, the tabs, the matched columns, the one the app has no field for.
+  await expect(chat.getByText('งานของฉัน.xlsx')).toBeVisible();
+  const read = chat.getByTestId('import-read');
+  await expect(read).toContainText('อ่านไฟล์แล้วครับ');
+  // Three rows in the tab: two jobs and the total row, which is skipped and said so below.
+  await expect(read).toContainText('แท็บ “งาน” มี 3 แถว');
+  const columns = read.getByTestId('import-columns').first();
+  await expect(columns).toContainText('ชื่องาน');
+  await expect(columns).toContainText('→ มูลค่างาน');
+  await expect(columns).toContainText('→ หัก ณ ที่จ่าย (%)');
+  await expect(read.getByTestId('import-columns-kept').first()).toContainText('ยังไม่มีช่องในแอปสำหรับ “ช่องทาง”');
+  await expect(chat.getByTestId('import-quiet')).toContainText('แถวรวมยอด 1');
 
-  // Review: two jobs and one expense; the file's total matches; the total row is not imported.
-  await expect(wizard.getByTestId('import-job-count')).toHaveText('2 งาน');
-  await expect(wizard.getByTestId('import-expense-count')).toHaveText('1 รายการ');
-  await expect(wizard.getByText('ตรงกัน ฿20,000')).toBeVisible();
-  await expect(wizard.getByText('แถวรวมยอด')).toBeVisible();
-  await wizard.getByRole('textbox', { name: 'ชื่อแถว 5' }).fill('ถ่ายภาพแคมเปญ ปีใหม่');
-  await wizard.getByTestId('import-commit').click();
+  // The summary: two jobs and one expense; the file's own total matches.
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await expect(chat.getByTestId('import-expense-count')).toHaveText('1 รายการ');
+  await expect(chat.getByTestId('import-total-check')).toHaveText('ตรงกับยอดในไฟล์ ฿20,000');
+  await chat.getByRole('button', { name: 'ดูทุกแถวก่อน' }).click();
+  await chat.getByRole('textbox', { name: 'ชื่อแถว 5' }).fill('ถ่ายภาพแคมเปญ ปีใหม่');
+  await chat.getByTestId('import-commit').click();
 
-  await expect(wizard.getByRole('heading', { name: 'นำเข้าเรียบร้อย' })).toBeVisible();
-  await expect.poll(() => saved.flatMap(body => body?.changes || []).filter((c: any) => c.data?.importBatchId).length).toBe(3);
-  const jobsSaved = saved.flatMap(body => body?.changes || []).filter((c: any) => c.table === 'cashflow_jobs' && c.data?.importBatchId).map((c: any) => c.data);
-  const paid = jobsSaved.find((j: any) => j.name === 'รีวิวสินค้า');
-  expect(paid).toMatchObject({ value: 12000, whtRate: 3, whtAmount: 360, received: 11640, pending: 0, status: 'done', payDate: '2024-10-30', postDate: '2024-10-15', note: 'ช่องทาง: TikTok' });
+  await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'saved');
+  await expect(chat.getByText('นำเข้าเรียบร้อยครับ')).toBeVisible();
+  await expect.poll(() => changes(saved).filter((c: any) => c.data?.importBatchId).length).toBe(3);
+  const jobsSaved = savedRows(saved, 'cashflow_jobs');
+  expect(jobsSaved.find((j: any) => j.name === 'รีวิวสินค้า')).toMatchObject({ value: 12000, whtRate: 3, whtAmount: 360, received: 11640, pending: 0, status: 'done', payDate: '2024-10-30', postDate: '2024-10-15', note: 'ช่องทาง: TikTok' });
   expect(jobsSaved.some((j: any) => j.name === 'ถ่ายภาพแคมเปญ ปีใหม่')).toBe(true);
 
   // Undo removes everything this import added.
-  await wizard.getByRole('button', { name: 'ยกเลิกการนำเข้านี้' }).click();
-  await expect(wizard.getByRole('heading', { name: 'ยกเลิกการนำเข้าแล้ว' })).toBeVisible();
-  await expect.poll(() => saved.flatMap(body => body?.changes || []).filter((c: any) => c.op === 'delete').length).toBe(3);
-  await wizard.getByRole('button', { name: 'ปิด', exact: true }).last().click();
+  await chat.getByRole('button', { name: 'ยกเลิกการนำเข้านี้' }).click();
+  await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'undone');
+  await expect.poll(() => changes(saved).filter((c: any) => c.op === 'delete').length).toBe(3);
+  await chat.getByRole('button', { name: 'ปิด', exact: true }).last().click();
   await expect(page.locator('table tbody tr')).toHaveCount(0);
 });
 
-test('settings: one import on a computer takes Excel and the .json backup, which still asks before replacing data', async ({ page }) => {
+test('settings: one import takes Excel and the .json backup, which still asks before replacing data', async ({ page }) => {
   await open(page, 1280, '/settings');
-  // The browser tab shows the English name, in Thai mode too (owner, 2026-10-23).
   await expect(page).toHaveTitle('Krarok Tunngern');
   await page.getByRole('button', { name: /สำรอง & นำเข้าข้อมูล/ }).click();
   await expect(page.getByTestId('settings-import-button')).toBeVisible();
-  // One import card (owner, 2026-10-23): the separate .json drop zone is gone on computers.
   await expect(page.locator('#json-settings-uploader')).toHaveCount(0);
   await page.getByTestId('settings-import-button').click();
   const backup = JSON.stringify({ jobs: [], expenses: [], goals: [] });
@@ -109,113 +123,126 @@ test('settings: one import on a computer takes Excel and the .json backup, which
   await expect(page.getByTestId('import-wizard')).toHaveCount(0);
 });
 
-test('phone: the jobs page and settings stay as they were, with no import button', async ({ page }) => {
-  await open(page, 390, '/jobs');
-  await expect(page.getByRole('heading').first()).toBeVisible();
+test('phone: the jobs page tools and settings open the chat as a sheet; it imports, fits the screen, nothing overlaps', async ({ page }) => {
+  const saved = await open(page, 390, '/jobs');
   await expect(page.getByTestId('jobs-import-button')).toHaveCount(0);
+  await page.getByRole('button', { name: 'ตัวกรองและเครื่องมืองาน' }).click();
+  await page.getByTestId('jobs-import-button-phone').click();
+  const chat = page.getByTestId('import-wizard');
+  await expect(chat.getByText('แตะเพื่อเลือกไฟล์')).toBeVisible();
+  await chat.locator('#import-sheet-file').setInputFiles({ name: 'jobs.xlsx', mimeType: XLSX_TYPE, buffer: sheetFile() });
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const box = (await chat.boundingBox())!;
+  expect(box.width).toBeLessThanOrEqual(390);
+  for (const at of [0, 0.5, 1]) {
+    await chat.locator('.ic-scroll').evaluate((el, share) => { el.scrollTop = (el.scrollHeight - el.clientHeight) * share; }, at);
+    await page.waitForTimeout(150);
+    expect(await textOverlapIssues(page), `at ${at}`).toEqual([]);
+  }
+  await chat.getByRole('button', { name: 'ดูทุกแถวก่อน' }).click();
+  await expect(chat.getByTestId('import-review').locator('li')).not.toHaveCount(0);
+  await chat.getByTestId('import-commit').click();
+  await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'saved');
+  await expect.poll(() => savedRows(saved, 'cashflow_jobs').length).toBe(2);
+  await chat.getByRole('button', { name: 'ปิด', exact: true }).last().click();
+
   await page.goto(noRadar('/settings'));
   await page.getByRole('button', { name: /สำรอง & นำเข้าข้อมูล/ }).click();
-  await expect(page.getByTestId('settings-import-button')).toHaveCount(0);
-  // The phone keeps its .json restore card as it was.
-  await expect(page.locator('#json-settings-uploader')).toHaveCount(1);
-  await expect(page.getByText('ลากไฟล์ .json มาวางที่นี่')).toBeVisible();
+  await expect(page.getByTestId('settings-import-button')).toBeVisible();
 });
 
-test('English: the import reads in English from start to finish', async ({ page }) => {
+test('English: the chat reads in English from start to finish', async ({ page }) => {
   await open(page, 1280, '/jobs', 'en');
   await page.getByTestId('jobs-import-button').click();
-  const wizard = page.getByTestId('import-wizard');
+  const chat = page.getByTestId('import-wizard');
   const thai = /[ก-ฺเ-๛]/;
   // Text from the person's file is Thai on purpose; the app's own words must not be.
-  const appText = async () => (await wizard.evaluate(el => {
+  const appText = async () => (await chat.evaluate(el => {
     const clone = el.cloneNode(true) as HTMLElement;
-    clone.querySelectorAll('td:nth-child(2), td:nth-child(4), td:nth-child(5), option, input, [title]').forEach(n => n.remove());
+    clone.querySelectorAll('.ic-matched li span.truncate, .ic-ask b:first-child, .ic-ask .text-brand-muted, .ic-row.is-me, option, input, [title], .ic-issue-rows, .ic-note-row p, .ic-columns b, .ic-card-title').forEach(n => n.remove());
     return clone.innerText;
   })).split('\n').filter(line => thai.test(line));
   expect(await appText()).toEqual([]);
-  await wizard.locator('#import-sheet-file').setInputFiles({ name: 'jobs.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: sheetFile() });
-  await expect(wizard.getByRole('heading', { name: 'Match columns' })).toBeVisible();
-  await wizard.getByRole('button', { name: 'Review the data' }).click();
-  await expect(wizard.getByTestId('import-job-count')).toHaveText('2 jobs');
-  await expect(wizard.getByText('Total row', { exact: true })).toBeVisible();
+  await chat.locator('#import-sheet-file').setInputFiles({ name: 'jobs.xlsx', mimeType: XLSX_TYPE, buffer: sheetFile() });
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 jobs');
+  await expect(chat.getByText('I have read the file.')).toBeVisible();
 });
 
-const soloFile = () => ({ name: 'solo_freelancer_september_2026.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: readFileSync('tests/fixtures/import/solo_freelancer_september_2026.xlsx') });
-const savedRows = (saved: any[], table: string) => saved.flatMap(body => body?.changes || []).filter((c: any) => c.table === table && c.op === 'set' && c.data?.importBatchId).map((c: any) => c.data);
+const soloFile = () => ({ name: 'solo_freelancer_september_2026.xlsx', mimeType: XLSX_TYPE, buffer: readFileSync('tests/fixtures/import/solo_freelancer_september_2026.xlsx') });
 
 test('computer: the owner\'s code-linked workbook matches its Dashboard, saves with source links, and is not imported twice', async ({ page }) => {
   const saved = await open(page, 1280, '/jobs');
   await page.getByTestId('jobs-import-button').click();
-  const wizard = page.getByTestId('import-wizard');
-  await wizard.locator('#import-sheet-file').setInputFiles(soloFile());
-  await wizard.getByRole('tab', { name: 'Clients' }).click();
-  await expect(wizard.getByText('แท็บนี้เป็นรายชื่อสำหรับแปลงรหัส เช่น C001 คือ Northstar Creative Ltd.', { exact: false })).toBeVisible();
-  await wizard.getByRole('button', { name: 'ตรวจทานข้อมูล' }).click();
-  await expect(wizard.getByTestId('import-job-count')).toHaveText('8 งาน');
-  await expect(wizard.getByTestId('import-expense-count')).toHaveText('30 รายการ');
-  await expect(wizard.getByText('มูลค่า ฿167,000 · รับแล้ว ฿84,000 · ค้างรับ ฿83,000')).toBeVisible();
-  await expect(wizard.getByTestId('import-total-check')).toHaveText('ตรงกับยอดในไฟล์ทุกตัว (7 ยอด)');
-  // Where a row comes from: the file's cells, the field each went to, and why.
-  await wizard.getByRole('button', { name: 'ดูที่มาของแถว 2' }).first().click();
-  await expect(wizard.getByTestId('import-row-detail')).toContainText('ในไฟล์ · แท็บ');
-  await wizard.getByTestId('import-commit').click();
-  await expect(wizard.getByRole('heading', { name: 'นำเข้าเรียบร้อย' })).toBeVisible();
+  const chat = page.getByTestId('import-wizard');
+  await chat.locator('#import-sheet-file').setInputFiles(soloFile());
+  await expect(chat.getByTestId('import-tab-left').filter({ hasText: 'Clients' })).toContainText('รายชื่อสำหรับแปลงรหัส');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('8 งาน');
+  await expect(chat.getByTestId('import-expense-count')).toHaveText('30 รายการ');
+  await expect(chat.getByTestId('import-total-check')).toHaveText('ตรงกับยอดในไฟล์ทุกตัว (7 ยอด)');
+  await chat.getByRole('button', { name: 'ดูทุกแถวก่อน' }).click();
+  await chat.getByRole('button', { name: 'ดูที่มาของแถว 2' }).first().click();
+  await expect(chat.getByTestId('import-row-detail')).toContainText('ในไฟล์ · แท็บ');
+  await chat.getByTestId('import-commit').click();
+  await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'saved');
   await expect.poll(() => savedRows(saved, 'cashflow_jobs').length).toBe(8);
   const jobsSaved = savedRows(saved, 'cashflow_jobs');
   expect(jobsSaved.map((j: any) => j.importSource.ref).sort()).toEqual(['INV-2609-001', 'INV-2609-002', 'INV-2609-003', 'INV-2609-004', 'INV-2609-005', 'INV-2609-006', 'INV-2609-007', 'INV-2609-008']);
   expect(jobsSaved.reduce((sum: number, j: any) => sum + j.received, 0)).toBe(84000);
   expect(savedRows(saved, 'cashflow_expenses')).toHaveLength(30);
   expect(jobsSaved.every((j: any) => /^[0-9a-f]{64}$/.test(j.importSource.fingerprint))).toBe(true);
-  await wizard.getByRole('button', { name: 'ปิด', exact: true }).last().click();
+  await chat.getByRole('button', { name: 'ปิด', exact: true }).last().click();
 
   // The same file again: recognised, nothing to add.
   await page.getByTestId('jobs-import-button').click();
-  await wizard.locator('#import-sheet-file').setInputFiles(soloFile());
-  await expect(wizard.getByTestId('import-seen-before')).toBeVisible();
-  await wizard.getByRole('button', { name: 'ตรวจทานข้อมูล' }).click();
-  await expect(wizard.getByTestId('import-job-count')).toHaveText('0 งาน');
-  await expect(wizard.getByTestId('import-expense-count')).toHaveText('0 รายการ');
-  await expect(wizard.getByTestId('import-commit')).toBeDisabled();
+  await chat.locator('#import-sheet-file').setInputFiles(soloFile());
+  await expect(chat.getByTestId('import-seen-before')).toBeVisible();
+  await expect(chat.getByTestId('import-job-count')).toHaveText('0 งาน');
+  await expect(chat.getByTestId('import-expense-count')).toHaveText('0 รายการ');
+  await expect(chat.getByTestId('import-commit')).toBeDisabled();
 });
 
-test('computer: rows that need a guess wait to be confirmed; a failed save can be tried again', async ({ page }) => {
+test('computer: rows that need a decision are grouped with fixes; tapping one decides the group; a failed save can be tried again', async ({ page }) => {
   const saved = await open(page, 1280, '/jobs');
-  const book = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
+  await page.getByTestId('jobs-import-button').click();
+  const chat = page.getByTestId('import-wizard');
+  await chat.locator('#import-sheet-file').setInputFiles(bookFile('jobs.xlsx', [
     ['ชื่องาน', 'ลูกค้า', 'ราคา', 'วันที่', 'สถานะ'],
     ['ออกแบบโลโก้', 'ลูกค้าตัวอย่าง', 5000, '05/10/2569', 'ยังไม่จ่าย'],
     ['ถ่ายสินค้า', 'ลูกค้าตัวอย่าง', 3000, 'ยังไม่ได้นัด', 'ยังไม่จ่าย'],
     ['ตัดต่อคลิป', 'ลูกค้าตัวอย่าง', 4000, '08/10/2569', 'จ่ายแล้ว'],
-  ]), 'งาน');
-  await page.getByTestId('jobs-import-button').click();
-  const wizard = page.getByTestId('import-wizard');
-  await wizard.locator('#import-sheet-file').setInputFiles({ name: 'jobs.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' })) });
-  await wizard.getByRole('button', { name: 'ตรวจทานข้อมูล' }).click();
-  await expect(wizard.getByTestId('import-job-count')).toHaveText('1 งาน');
-  // An unreadable date, and a paid date taken from the job's own date: both wait for the person.
-  await expect(wizard.getByTestId('import-confirm-count')).toHaveText('อีก 2 แถวรอคุณยืนยัน ยังไม่นำเข้า');
-  await wizard.getByRole('checkbox', { name: 'ยืนยันและนำเข้าแถว 3' }).check();
-  await expect(wizard.getByTestId('import-job-count')).toHaveText('2 งาน');
-  await wizard.getByTestId('import-confirm-groups').getByRole('button', { name: 'ยืนยันทั้ง 1 แถว' }).click();
-  await expect(wizard.getByTestId('import-job-count')).toHaveText('3 งาน');
-  await expect(wizard.getByTestId('import-confirm-groups')).toHaveCount(0);
+  ]));
+  await expect(chat.getByTestId('import-job-count')).toHaveText('1 งาน');
+  // An unreadable date, and a paid date taken from the job's own date: two groups waiting for the person.
+  const unreadable = chat.locator('[data-issue="dateUnreadable"]');
+  await expect(unreadable).toContainText('แถว 3');
+  await unreadable.getByRole('button', { name: 'ใช้วันนี้' }).click();
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await expect(chat.locator('[data-issue="dateUnreadable"]')).toHaveCount(0);
+  await chat.locator('[data-issue="paidDateFromDate"]').getByRole('button', { name: 'นำเข้าตามที่อ่านได้' }).click();
+  await expect(chat.getByTestId('import-job-count')).toHaveText('3 งาน');
+  // เปลี่ยนกลับ takes the last fix back.
+  await chat.getByRole('button', { name: 'เปลี่ยนกลับการแก้ล่าสุด' }).click();
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await chat.locator('[data-issue="paidDateFromDate"]').getByRole('button', { name: 'นำเข้าตามที่อ่านได้' }).click();
+  await expect(chat.getByTestId('import-job-count')).toHaveText('3 งาน');
 
-  // The server refuses the first save: the window says so and offers to try again.
+  // The server refuses the first save: the chat says so and offers to try again.
   let fail = true;
   await page.route('**/api/data*', async route => {
     if (route.request().method() === 'POST' && fail) return route.fulfill({ status: 503, json: { error: 'ระบบไม่พร้อมชั่วคราว' } });
     return route.fallback();
   });
-  await wizard.getByTestId('import-commit').click();
-  await expect(wizard.getByRole('heading', { name: 'บันทึกขึ้นระบบไม่สำเร็จ' })).toBeVisible({ timeout: 15000 });
+  await chat.getByTestId('import-commit').click();
+  await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'failed', { timeout: 15000 });
   fail = false;
-  await wizard.getByRole('button', { name: 'ลองบันทึกอีกครั้ง' }).click();
-  await expect(wizard.getByRole('heading', { name: 'นำเข้าเรียบร้อย' })).toBeVisible({ timeout: 15000 });
+  await chat.getByRole('button', { name: 'ลองบันทึกอีกครั้ง' }).click();
+  await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'saved', { timeout: 15000 });
   await expect.poll(() => savedRows(saved, 'cashflow_jobs').length).toBe(3);
 });
 
 // A file from another app (owner, 2026-10-30): the columns the rules do not know are sent to เลขากระรอก (headers and a few
-// samples only), its suggestions are marked to confirm, and nothing is read from them until the person confirms.
+// samples only), its suggestions wait for ใช่, and nothing is read from them until the person confirms.
 test('computer: unknown columns get เลขากระรอก suggestions to confirm; only their headers and samples are sent', async ({ page }) => {
   const saved = await open(page, 1280, '/jobs');
   const asked: any[] = [];
@@ -227,31 +254,87 @@ test('computer: unknown columns get เลขากระรอก suggestions t
     const byHeader = Object.fromEntries(body.columns.map((c: any) => [c.header, c.index]));
     return route.fulfill({ json: { available: true, columns: [{ index: byHeader['Bill to'], field: 'client' }, { index: byHeader['ช่องทาง'], field: 'type' }] } });
   });
-  const rows = [['Project', 'Bill to', 'Fee THB', 'Collected', 'ช่องทาง'], ['รีวิวสินค้า', 'ร้านบี', 12000, 12000, 'TikTok'], ['ถ่ายภาพแคมเปญ', 'บริษัท เอ', 8000, 0, 'IG']];
-  const book = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows), 'Export');
   await page.getByTestId('jobs-import-button').click();
-  const wizard = page.getByTestId('import-wizard');
-  await wizard.locator('#import-sheet-file').setInputFiles({ name: 'other-app.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' })) });
-  await expect(wizard.getByRole('heading', { name: 'จับคู่คอลัมน์' })).toBeVisible();
-  await expect(wizard.getByRole('status').filter({ hasText: 'เลขากระรอกแนะนำ 2 คอลัมน์' })).toBeVisible();
-  // only the two unknown columns went out, with their samples; the known ones and the rows did not
+  const chat = page.getByTestId('import-wizard');
+  await chat.locator('#import-sheet-file').setInputFiles(bookFile('other-app.xlsx', [['Project', 'Bill to', 'Fee THB', 'Collected', 'ช่องทาง'], ['รีวิวสินค้า', 'ร้านบี', 12000, 12000, 'TikTok'], ['ถ่ายภาพแคมเปญ', 'บริษัท เอ', 8000, 0, 'IG']], 'Export'));
+  await expect(chat.getByTestId('import-column-ask')).toHaveCount(2);
   expect(asked).toHaveLength(1);
   expect(asked[0].columns.map((c: any) => c.header)).toEqual(['Bill to', 'ช่องทาง']);
   expect(asked[0].columns[0].samples).toEqual(['ร้านบี', 'บริษัท เอ']);
   expect(asked[0].taken).toEqual(expect.arrayContaining(['name', 'value', 'received']));
-  await expect(wizard.getByRole('combobox', { name: 'ใช้คอลัมน์ Bill to เป็น' })).toHaveValue('client');
-  await expect(wizard.getByRole('combobox', { name: 'ใช้คอลัมน์ ช่องทาง เป็น' })).toHaveValue('type');
-  // not read until confirmed
-  await expect(wizard.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ Bill to คือ ลูกค้า' })).toHaveText('เลขาแนะนำ · ยืนยัน');
-  await wizard.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ Bill to คือ ลูกค้า' }).click();
-  await wizard.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ ช่องทาง คือ ประเภทงาน' }).click();
-  await expect(wizard.getByRole('status').filter({ hasText: 'เลขากระรอกแนะนำ' })).toHaveCount(0);
-  await wizard.getByRole('button', { name: 'ตรวจทานข้อมูล' }).click();
-  await expect(wizard.getByTestId('import-job-count')).toHaveText('2 งาน');
-  await wizard.getByTestId('import-commit').click();
-  await expect(wizard.getByRole('heading', { name: 'นำเข้าเรียบร้อย' })).toBeVisible();
-  await expect.poll(() => saved.flatMap(body => body?.changes || []).filter((c: any) => c.table === 'cashflow_jobs' && c.data?.importBatchId).length).toBe(2);
-  const jobs = saved.flatMap(body => body.changes ?? []).filter((change: any) => change.table === 'cashflow_jobs' && change.data?.importBatchId).map((change: any) => change.data);
-  expect(jobs.map((job: any) => [job.name, job.client, job.type, job.value])).toEqual(expect.arrayContaining([['รีวิวสินค้า', 'ร้านบี', 'TikTok', 12000], ['ถ่ายภาพแคมเปญ', 'บริษัท เอ', 'IG', 8000]]));
+  await expect(chat.getByTestId('import-column-ask').first()).toContainText('เลขาแนะนำ');
+  // Not importable until both are confirmed.
+  await expect(chat.getByTestId('import-commit')).toBeDisabled();
+  await expect(chat.getByTestId('import-columns-to-confirm')).toContainText('Bill to');
+  await chat.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ Bill to คือ ลูกค้า' }).click();
+  await chat.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ ช่องทาง คือ ประเภทงาน' }).click();
+  await expect(chat.getByTestId('import-column-ask')).toHaveCount(0);
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await chat.getByTestId('import-commit').click();
+  await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'saved');
+  await expect.poll(() => savedRows(saved, 'cashflow_jobs').length).toBe(2);
+  expect(savedRows(saved, 'cashflow_jobs').map((job: any) => [job.name, job.client, job.type, job.value])).toEqual(expect.arrayContaining([['รีวิวสินค้า', 'ร้านบี', 'TikTok', 12000], ['ถ่ายภาพแคมเปญ', 'บริษัท เอ', 'IG', 8000]]));
+});
+
+// Typing to เลขา (owner, 2026-10-31: free for every account, 10 a file, 3 files a day): only headers, fields, 3 samples and
+// problem counts are sent; the reply's actions are applied by the app's rules and can be taken back.
+test('computer: a typed message is answered with fixes the app applies; the rows themselves are never sent; เปลี่ยนกลับ restores', async ({ page }) => {
+  await open(page, 1280, '/jobs');
+  const asked: any[] = [];
+  await page.route('**/api/assistant', async route => {
+    const body = route.request().postDataJSON();
+    if (body?.action === 'map-columns') return route.fulfill({ json: { available: true, columns: [] } });
+    if (body?.action !== 'import-chat') return route.fulfill({ status: 501, json: { error: 'Unmocked test endpoint' } });
+    asked.push(body);
+    return route.fulfill({ json: { available: true, reply: 'ใส่วันสิ้นเดือนให้ 2 แถวแล้วครับ', actions: [{ type: 'fillDate', issue: 'noDate', mode: 'monthEnd' }] } });
+  });
+  await page.getByTestId('jobs-import-button').click();
+  const chat = page.getByTestId('import-wizard');
+  await chat.locator('#import-sheet-file').setInputFiles(bookFile('jobs.xlsx', [
+    ['ชื่องาน', 'ลูกค้า', 'ราคา', 'วันที่'],
+    ['ออกแบบโลโก้', 'ร้านเอ', 5000, '05/10/2569'],
+    ['ถ่ายสินค้า', 'ร้านบี', 3000, ''],
+    ['ตัดต่อคลิป', 'ร้านซี', 4000, ''],
+  ]));
+  await expect(chat.locator('[data-issue="noDate"]')).toContainText('2 แถวไม่มีวันที่');
+  await expect(chat.getByTestId('import-chat-left')).toHaveText('คุยเรื่องไฟล์นี้ได้อีก 10 ข้อความ');
+  await chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).fill('แถวที่ไม่มีวันที่ ใช้วันสุดท้ายของเดือนแทน');
+  await chat.getByRole('button', { name: 'ส่งข้อความ' }).click();
+  await expect(chat.getByTestId('import-chat-reply').last()).toHaveText('ใส่วันสิ้นเดือนให้ 2 แถวแล้วครับ');
+  await expect(chat.locator('[data-issue="noDate"]')).toHaveCount(0);
+  await expect(chat.getByTestId('import-chat-left')).toHaveText('คุยเรื่องไฟล์นี้ได้อีก 9 ข้อความ');
+  // What went out: the message, the tab, its columns with short samples and the problem counts; no row as a whole.
+  expect(asked).toHaveLength(1);
+  expect(asked[0].text).toBe('แถวที่ไม่มีวันที่ ใช้วันสุดท้ายของเดือนแทน');
+  expect(asked[0].issues).toEqual([{ code: 'noDate', count: 2 }]);
+  expect(asked[0].sheets[0].columns.every((c: any) => c.samples.length <= 3)).toBe(true);
+  expect(JSON.stringify(asked[0])).not.toContain('rowNumber');
+  await chat.getByRole('button', { name: 'เปลี่ยนกลับ', exact: true }).click();
+  await expect(chat.locator('[data-issue="noDate"]')).toContainText('2 แถวไม่มีวันที่');
+  // At the cap the box says so and the buttons still work.
+  await page.unroute('**/api/assistant');
+  await page.route('**/api/assistant', route => route.fulfill({ status: 429, json: { error: 'ทำรายการบ่อยเกินไป กรุณารอสักครู่' } }));
+  await chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).fill('ข้ามแถวที่ไม่มีวันที่');
+  await chat.getByRole('button', { name: 'ส่งข้อความ' }).click();
+  await expect(chat.getByTestId('import-chat-reply').last()).toContainText('คุยเรื่องไฟล์นี้ครบแล้วสำหรับวันนี้');
+  await expect(chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' })).toBeDisabled();
+  await chat.locator('[data-issue="noDate"]').getByRole('button', { name: 'ใช้วันนี้' }).click();
+  await expect(chat.locator('[data-issue="noDate"]')).toHaveCount(0);
+});
+
+test('computer and iPad: the chat fits, nothing overlaps while it scrolls', async ({ page }) => {
+  for (const width of [1280, 1024, 768]) {
+    await open(page, width, '/jobs');
+    await page.getByTestId('jobs-import-button').click();
+    const chat = page.getByTestId('import-wizard');
+    await chat.locator('#import-sheet-file').setInputFiles(soloFile());
+    await expect(chat.getByTestId('import-job-count')).toHaveText('8 งาน');
+    for (const at of [0, 0.5, 1]) {
+      await chat.locator('.ic-scroll').evaluate((el, share) => { el.scrollTop = (el.scrollHeight - el.clientHeight) * share; }, at);
+      await page.waitForTimeout(150);
+      expect(await textOverlapIssues(page), `${width}px at ${at}`).toEqual([]);
+    }
+    await page.keyboard.press('Escape');
+    await expect(chat).toHaveCount(0);
+  }
 });

@@ -12,6 +12,7 @@ import { appendTurns, BROWSER_CONVERSATION_ID, CONVERSATION_ID, deleteConversati
 import { assistantPlan, supabaseAssistantDb } from '../ai/supabaseDb.js';
 import { transcribeVoice, VOICE_MAX_BASE64 } from '../ai/transcription.js';
 import { COLUMN_FIELDS, MAX_COLUMNS, MAX_SAMPLES, suggestColumns } from '../ai/columnMapping.js';
+import { IMPORT_CHAT_ISSUES, IMPORT_CHAT_KINDS, IMPORT_CHAT_TARGETS, importChat } from '../ai/importChat.js';
 import { HttpError, withGuard } from '../http/guard.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
@@ -27,6 +28,13 @@ const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('map-columns'), sheet: z.string().max(120),
     columns: z.array(z.object({ index: z.number().int().min(0).max(499), header: z.string().max(120), samples: z.array(z.string().max(120)).max(MAX_SAMPLES) }).strict()).min(1).max(MAX_COLUMNS),
     taken: z.array(z.enum(COLUMN_FIELDS)).max(COLUMN_FIELDS.length) }).strict(),
+  // Import chat (owner, 2026-10-31): a typed message about the file being imported, free for every account with caps.
+  z.object({ action: z.literal('import-chat'), text: z.string().trim().min(1).max(400), fingerprint: z.union([z.string().regex(/^[0-9a-f]{64}$/), z.literal('')]),
+    today: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    sheets: z.array(z.object({ name: z.string().max(120), kind: z.enum(IMPORT_CHAT_KINDS), include: z.boolean(), rows: z.number().int().min(0).max(100_000),
+      columns: z.array(z.object({ index: z.number().int().min(0).max(499), header: z.string().max(120), target: z.enum(IMPORT_CHAT_TARGETS),
+        samples: z.array(z.string().max(120)).max(3) }).strict()).max(MAX_COLUMNS) }).strict()).min(1).max(8),
+    issues: z.array(z.object({ code: z.enum(IMPORT_CHAT_ISSUES), count: z.number().int().min(0).max(100_000) }).strict()).max(24) }).strict(),
   z.object({
     action: z.literal('message'),
     text: z.string().trim().min(1).max(6000),
@@ -126,6 +134,19 @@ export default withGuard(async (req, res) => {
     await rateLimit('import-columns-minute', user.id, 6, 60);
     await rateLimit('import-columns-day', user.id, 30, 86_400);
     res.json(await suggestColumns(db, config, user.id, { sheet: body.sheet, columns: body.columns, taken: body.taken }));
+    return;
+  }
+  if (body.action === 'import-chat') {
+    // Free for every signed-in account, Pro or not (owner, 2026-10-31): 10 messages a file, 3 files a day, 6 a minute.
+    const fileKey = `${user.id}:${body.fingerprint || 'no-fingerprint'}`;
+    let firstForFile = true;
+    try { await rateLimit('import-chat-file-first', fileKey, 1, 86_400); } catch (error) {
+      if (error instanceof HttpError && error.status === 429) firstForFile = false; else throw error;
+    }
+    if (firstForFile) await rateLimit('import-chat-files', user.id, 3, 86_400);
+    await rateLimit('import-chat-file', fileKey, 10, 86_400);
+    await rateLimit('import-chat-minute', user.id, 6, 60);
+    res.json(await importChat(db, config, user.id, { text: body.text, today: body.today, sheets: body.sheets, issues: body.issues }));
     return;
   }
   if (body.action === 'transcribe') {

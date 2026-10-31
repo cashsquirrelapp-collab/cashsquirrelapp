@@ -1068,9 +1068,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <Panel title={tr("สำรองข้อมูล")} desc={tr("ดาวน์โหลดงาน รายรับ รายจ่าย เอกสาร และการตั้งค่าทั้งหมดเป็นไฟล์ .json")}>
             <button type="button" onClick={onExportData} className={`${uiSecondaryButton} px-4 text-[13px]`}><Download className="h-4 w-4" />{tr("ดาวน์โหลด .json")}</button>
           </Panel>
-          {/* Computers and iPads: one import for Excel, CSV and the app's own .json backup (owner,
-              2026-10-23: two import cards read as the same thing). The phone keeps its .json card. */}
-          {!mobile && onOpenImport ? (
+          {/* One import for Excel, CSV and the app's own .json backup (owner, 2026-10-23: two import cards read as the
+              same thing), on phones too since the import became a chat (owner, 2026-10-31: "ทำมือถือด้วยเลย"). */}
+          {onOpenImport ? (
             <Panel title={tr("นำเข้าข้อมูล")} desc={tr("นำเข้างานและรายจ่ายจาก Excel หรือ CSV หรือกู้คืนจากไฟล์สำรอง .json ที่เคยดาวน์โหลดไว้")}>
               <button type="button" onClick={onOpenImport} className={`${uiSecondaryButton} px-4 text-[13px]`} data-testid="settings-import-button"><FileSpreadsheet className="h-4 w-4" />{tr("เลือกไฟล์นำเข้า")}</button>
               {recentImports.length > 0 && (

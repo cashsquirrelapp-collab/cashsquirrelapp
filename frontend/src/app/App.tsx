@@ -73,7 +73,7 @@ import { MobileBottomNav, MobileHeader, MobileMenuPage, type MobileTool, type Mo
 import { ADVANCED_MOBILE_TOOLS, MOBILE_MENU_SECTIONS, type MobileMenuSectionId } from '../features/mobile/mobileNavigation';
 import { useFeedbackWaiting } from '../features/feedback/useFeedbackWaiting';
 import { applyFields, carriesBatch, recentImports, undoUpdate } from '../features/import/importBatches';
-import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/ImportWizard';
+import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/importShared';
 import type { SettingsView } from '../features/settings/SettingsTab';
 import { KsIcon, type KsIconName } from '../features/mobile/icons';
 import { useMobileLayout } from '../features/mobile/useMobileLayout';
@@ -114,7 +114,7 @@ import { PremiumUpsell } from '../features/billing/PremiumUpsell';
 import { DirectQrModal, type DirectQrPayment } from '../features/billing/DirectQrModal';
 import { EmbeddedPaymentModal, type EmbeddedPayment } from '../features/billing/EmbeddedPaymentModal';
 const ProPromoModal = lazy(() => import('../features/billing/ProPromoModal').then(module => ({ default: module.ProPromoModal })));
-const ImportWizard = lazy(() => import('../features/import/ImportWizard').then(module => ({ default: module.ImportWizard })));
+const ImportChat = lazy(() => import('../features/import/ImportChat').then(module => ({ default: module.ImportChat })));
 // Development only: the study of the landing reference's motion. Left out of production builds.
 const MotionStudy = import.meta.env.DEV ? lazy(() => import('../features/marketing/landing/study/MotionStudy')) : null;
 // The founder's story (owner, 2026-10-31): a public page, signed in or not.
@@ -3811,10 +3811,10 @@ export default function App() {
           }}
         />}
 
-        {/* Import from Excel: computers and iPads open it from Settings and the Jobs page. */}
+        {/* Moving data in as a chat with เลขากระรอก (owner, 2026-10-31): opened from Settings and the Jobs page, on every device. */}
         {isImportOpen && (
           <Suspense fallback={null}>
-            <ImportWizard
+            <ImportChat
               accountId={session && !session.isGuest ? session.user.id : undefined}
               open={isImportOpen}
               onClose={() => setIsImportOpen(false)}

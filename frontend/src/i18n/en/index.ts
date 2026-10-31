@@ -15,6 +15,7 @@ import { briefing } from './briefing';
 import { flex } from './flex';
 import { server } from './server';
 import { importing } from './importing';
+import { importChat } from './importChat';
 import { components } from './components';
 import { dashboard } from './dashboard';
 import { expenses } from './expenses';
@@ -62,6 +63,7 @@ export const EN: Record<string, string> = {
   ...extra,
   ...server,
   ...importing,
+  ...importChat,
   ...data,
   ...common,
 };
