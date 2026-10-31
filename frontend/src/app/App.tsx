@@ -167,6 +167,7 @@ import {
   MessageSquare,
   MessageSquareWarning,
   Presentation,
+  Crown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -635,7 +636,6 @@ export default function App() {
         ...tool('assistant', tr("เลขากระรอก"), tr("นักบัญชีส่วนตัวในแชท · ตัวอย่างหน้าจอ"), 'chat', "ai แชท ผู้ช่วย กระรอก bot เลขา นักบัญชี").map(item => ({ ...item, mark: (
           <span className="grid h-[30px] w-[30px] place-items-center overflow-hidden rounded-[8px] bg-[#FFF1E8] dark:bg-[#E65F2B]/15" aria-hidden="true"><Mascot mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
         ) })),
-        ...tool('plans', tr("แพ็กเกจ Pro"), hasPro ? tr("สถานะ การต่ออายุ และการชำระเงิน") : tr("ดูราคาและอัปเกรดเป็น Pro"), 'shield', "Pro สมัคร อัปเกรด ชำระเงิน แพ็กเกจ ราคา").map(item => ({ ...item, value: plan })),
         lineAvailable
           ? { key: 'line', title: tr("เชื่อมต่อ LINE"), description: tr("ผู้ช่วยการเงินผ่าน LINE"), icon: 'chat', mark: <LineLogo size={30} />, search: "line ไลน์ ผู้ช่วย ai", value: !hasPro ? tr("ต้องใช้ Pro") : lineLinked ? tr("เชื่อมต่อแล้ว") : tr("ยังไม่เชื่อมต่อ"), onOpen: openSettings('line') }
           : { ...soon('line', tr("เชื่อมต่อ LINE"), tr("ผู้ช่วยการเงินผ่าน LINE"), 'chat', "line ไลน์ ผู้ช่วย ai"), mark: <LineLogo size={30} /> },
@@ -646,6 +646,8 @@ export default function App() {
           : hasOldNotifications && has('settings')
             ? { key: 'notif', title: tr("จัดการการแจ้งเตือนเดิม"), description: tr("ปิดการแจ้งเตือนหรือช่องทางที่เคยเปิดไว้"), icon: 'bell', search: "แจ้งเตือน เตือน", onOpen: openSettings('notif') }
             : soon('notif', tr("การแจ้งเตือน"), fullFeatureAccess ? tr("สรุปรายเดือน เตือนครบกำหนดรับเงิน และใบ 50 ทวิ") : tr("สรุปรายเดือน และเตือนครบกำหนดรับเงิน"), 'bell', "แจ้งเตือน เตือน"),
+        // Price and upgrade last (owner, 2026-11-01): the group is แพ็กเกจ Pro itself, its rows what Pro gives.
+        ...tool('plans', hasPro ? tr("สถานะแพ็กเกจ") : tr("ดูราคาและอัปเกรด"), hasPro ? tr("สถานะ การต่ออายุ และการชำระเงิน") : tr("ราคาและสิ่งที่ได้เมื่อเป็น Pro"), 'shield', "Pro สมัคร อัปเกรด ชำระเงิน แพ็กเกจ ราคา").map(item => ({ ...item, value: plan })),
       ],
       account: [
         ...(has('settings') ? [{ key: 'profile', title: tr("โปรไฟล์"), description: tr("ชื่อ รูป และข้อมูลบัญชี"), icon: 'users' as const, search: "ชื่อ รูปโปรไฟล์ อีเมล", onOpen: openSettings('profile') }] : []),
@@ -663,8 +665,10 @@ export default function App() {
     const advanced = ADVANCED_MOBILE_TOOLS.flatMap(item => tool(item.key, tr(item.title),
       item.key === 'adminDashboard' && feedbackWaiting ? tr("ข้อความจากผู้ใช้รอตอบ {0} เรื่อง", feedbackWaiting) : tr(item.description), item.icon, item.search));
     const groups: MobileToolGroup[] = [
-      // LINE AI Pro wears the LINE logo (owner, 2026-10-21); the logo keeps its official colours.
-      ...MOBILE_MENU_SECTIONS.map(section => ({ ...section, name: tr(section.name), sub: tr(section.sub), items: entries[section.id], mark: section.id === 'line' ? <LineLogo size={36} /> : undefined })),
+      // แพ็กเกจ Pro wears a crown on the CI orange (owner, 2026-11-01: "ใส่ไอคอนที่มันเป็นโปรนิดนึง"; was LINE AI Pro with the LINE logo).
+      ...MOBILE_MENU_SECTIONS.map(section => ({ ...section, name: tr(section.name), sub: tr(section.sub), items: entries[section.id], mark: section.id === 'line' ? (
+        <span className="grid h-[38px] w-[38px] place-items-center rounded-[12px] bg-[linear-gradient(140deg,#E4612B,#B03E0E)] text-white shadow-[0_8px_18px_-10px_rgba(176,62,14,0.8)]" role="img" aria-label="Pro"><Crown size={19} strokeWidth={2.1} aria-hidden="true" /></span>
+      ) : undefined })),
       { id: 'advanced', name: tr("เครื่องมือขั้นสูง"), sub: tr("เฉพาะผู้ดูแล · ยังไม่เปิดให้ผู้ใช้ทั่วไป"), icon: 'grid' as const, items: advanced },
     ].filter(group => group.items.length > 0);
     const name = routeContext?.profile.displayName || session?.user?.email?.split('@')[0] || tr("บัญชีของฉัน");

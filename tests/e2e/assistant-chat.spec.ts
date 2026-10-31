@@ -304,11 +304,11 @@ test('members see the chat in the sidebar and the phone menu, without the team p
   await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปงานของวันนี้' }).click();
   await expect(chat.locator('.asx-md table')).toBeVisible({ timeout: 10000 });
   expect(await textOverlapIssues(page)).toEqual([]);
-  // Phones: the entry sits in the LINE AI Pro section of เมนู.
+  // Phones: the entry sits in the แพ็กเกจ Pro section of เมนู (was LINE AI Pro until 2026-11-01).
   await open(page, 390, 844, { role: 'user', path: '/dashboard' });
   await page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('button', { name: 'เมนู', exact: true }).click();
   const tools = page.getByRole('region', { name: 'เครื่องมือทั้งหมด' });
-  await tools.locator('summary', { hasText: 'LINE AI Pro' }).click();
+  await tools.locator('summary', { hasText: 'แพ็กเกจ Pro' }).click();
   await tools.getByRole('button', { name: /^เลขากระรอก/ }).click();
   await expect(chatOf(page).getByRole('heading', { name: WELCOME })).toBeVisible();
 });
@@ -337,7 +337,7 @@ test('phone: the chat takes the whole screen, history is a drawer, and the featu
   await chat.getByRole('button', { name: 'ปิดแถบประวัติแชต' }).click({ position: { x: 370, y: 420 } }); // outside the drawer
   await chat.getByRole('button', { name: 'กลับไปเมนู' }).click();
   const menu = page.getByRole('region', { name: 'เครื่องมือทั้งหมด' });
-  await menu.locator('summary', { hasText: 'LINE AI Pro' }).click();
+  await menu.locator('summary', { hasText: 'แพ็กเกจ Pro' }).click();
   await expect(menu.getByRole('button', { name: /^เลขากระรอก/ }).locator('.ksm-row-icon.is-mark svg')).toBeVisible();
 });
 

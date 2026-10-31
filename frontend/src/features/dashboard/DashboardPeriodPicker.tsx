@@ -2,6 +2,8 @@ import React from 'react';
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { currentMonthKeyNow, dateLocale, formatMonthKey } from '../../utils';
 import { KsIcon } from '../mobile/icons';
+import { MobileSheet } from '../mobile/MobileHome';
+import { useMobileLayout } from '../mobile/useMobileLayout';
 
 import { tr } from '../../i18n/tr';
 const shiftMonth = (monthKey: string, delta: number) => {
@@ -36,10 +38,15 @@ export function DashboardPeriodPicker({ monthKey, onChange, compact = false, lab
   const rootRef = React.useRef<HTMLDivElement>(null);
   const currentMonth = currentMonthKeyNow();
   const isCurrent = monthKey === currentMonth;
+  // Phones (owner, 2026-11-01: "ตรงปฏิทินมันแอบไม่สวย"): the chooser is a sheet from the bottom, so it never runs past the
+  // screen's edge and pushes the page sideways; it closes from its backdrop, its close button or Escape.
+  const phone = useMobileLayout();
+  const sheet = compact && phone;
 
   React.useEffect(() => {
     if (!open) return;
     setViewYear(Number(monthKey.slice(0, 4)));
+    if (sheet) return;
     const onPointer = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -102,7 +109,34 @@ export function DashboardPeriodPicker({ monthKey, onChange, compact = false, lab
         </div>
       )}
 
-      {open && (
+      {open && sheet && (
+        <MobileSheet title={tr("เลือกเดือน")} onClose={() => setOpen(false)}>
+          <div className="ksm-monthsheet">
+            <div className="ksm-monthsheet-year">
+              <button type="button" onClick={() => setViewYear(y => y - 1)} aria-label={tr("ปีก่อนหน้า")}><KsIcon name="left" size={20} /></button>
+              <p>{yearLabel(viewYear)}</p>
+              <button type="button" onClick={() => setViewYear(y => y + 1)} aria-label={tr("ปีถัดไป")}><KsIcon name="chevron" size={20} /></button>
+            </div>
+            <div className="ksm-monthsheet-grid">
+              {Array.from({ length: 12 }, (_, i) => {
+                const key = `${viewYear}-${String(i + 1).padStart(2, '0')}`;
+                const selected = key === monthKey;
+                const isThisMonth = key === currentMonth;
+                return (
+                  <button key={key} type="button" onClick={() => choose(key)} aria-pressed={selected}
+                    aria-label={`${monthLabel(key)}${isThisMonth ? tr(" (เดือนนี้)") : ''}`}
+                    className={`${selected ? 'is-selected' : ''}${isThisMonth ? ' is-now' : ''}`}>
+                    {new Date(viewYear, i, 1).toLocaleDateString(dateLocale(), { month: 'short' })}
+                  </button>
+                );
+              })}
+            </div>
+            <button type="button" className="ksm-monthsheet-now" onClick={() => choose(currentMonth)} disabled={isCurrent}>{tr("กลับมาเดือนนี้")}</button>
+          </div>
+        </MobileSheet>
+      )}
+
+      {open && !sheet && (
         <div
           role="dialog"
           aria-label={tr("เลือกเดือน")}

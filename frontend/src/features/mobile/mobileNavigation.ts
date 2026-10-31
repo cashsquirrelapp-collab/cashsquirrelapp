@@ -43,7 +43,8 @@ export const MOBILE_MENU_SECTIONS = [
   { id: 'receivables', number: '01', name: T("เงินรอรับ"), sub: T("ยอดตามวันครบกำหนด และเตือนตามเงิน"), icon: 'wallet' },
   { id: 'expenses', number: '02', name: T("รายจ่าย"), sub: T("บันทึกและดูรายการรายจ่าย"), icon: 'expense' },
   { id: 'documents', number: '03', name: T("เอกสาร"), sub: T("ใบเสนอราคาและใบเสร็จรับเงิน"), icon: 'document' },
-  { id: 'line', number: '04', name: 'LINE AI Pro', sub: T("แพ็กเกจ Pro ผู้ช่วย LINE และการแจ้งเตือน"), icon: 'chat' },
+  // Owner, 2026-11-01: the heading is the package itself; its rows are what Pro gives (was LINE AI Pro).
+  { id: 'line', number: '04', name: T("แพ็กเกจ Pro"), sub: T("เลขากระรอก LINE และการแจ้งเตือน"), icon: 'shield' },
   { id: 'account', number: '05', name: T("บัญชีและการตั้งค่า"), sub: T("โปรไฟล์ การแสดงผล และภาษา"), icon: 'settings' },
 ] as const satisfies readonly { id: string; number: string; name: string; sub: string; icon: KsIconName }[];
 

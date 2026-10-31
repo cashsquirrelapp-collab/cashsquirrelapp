@@ -173,6 +173,19 @@ body:has(.fbc.is-mobile, .asx.is-mobile) .ksm-nav-fade { display: none; }
 .ksm-month > .ksm-month-label { gap: 2px; padding: 0 4px; font-size: 12px; font-weight: 500; line-height: 1.5; white-space: nowrap; }
 .ksm-month > .ksm-month-label.is-other { color: var(--ksm-accent-text); }
 .ksm-month > button:hover { background: var(--ksm-muted); }
+/* The month chooser on phones: a sheet from the bottom (owner, 2026-11-01), large months in a 3 × 4 grid. */
+.ksm-monthsheet { padding-top: 14px; }
+.ksm-monthsheet-year { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.ksm-monthsheet-year p { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.ksm-monthsheet-year button { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--ksm-muted); color: var(--ksm-text); cursor: pointer; }
+.ksm-monthsheet-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.ksm-monthsheet-grid button { position: relative; height: 54px; border-radius: 16px; background: var(--ksm-muted); color: var(--ksm-text); font-size: 15.5px; font-weight: 500; line-height: 1.45; cursor: pointer; transition: background 0.15s ease; }
+.ksm-monthsheet-grid button.is-now { color: var(--ksm-accent-text); font-weight: 600; }
+.ksm-monthsheet-grid button.is-now::after { content: ''; position: absolute; left: 50%; bottom: 8px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--ksm-accent); }
+.ksm-monthsheet-grid button.is-selected { background: #E65F2B; color: #FFFFFF; font-weight: 600; box-shadow: 0 10px 22px -12px rgba(230, 95, 43, 0.75); }
+.ksm-monthsheet-grid button.is-selected::after { display: none; }
+.ksm-monthsheet-now { display: flex; align-items: center; justify-content: center; width: 100%; height: 50px; margin-top: 14px; border-radius: 16px; color: var(--ksm-accent-text); font-size: 15px; font-weight: 600; line-height: 1.45; cursor: pointer; box-shadow: inset 0 0 0 1px var(--ksm-border); }
+.ksm-monthsheet-now:disabled { color: var(--ksm-secondary); cursor: default; box-shadow: none; background: var(--ksm-muted); }
 .ksm-month-pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; width: 272px; max-width: calc(100vw - 32px); padding: 12px; border: 1px solid var(--ksm-border); border-radius: 16px; background: var(--ksm-surface); box-shadow: 0 8px 24px var(--ksm-shadow-far); }
 
 .ksm-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

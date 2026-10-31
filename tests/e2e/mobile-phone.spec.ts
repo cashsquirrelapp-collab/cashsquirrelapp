@@ -102,18 +102,27 @@ test('390px phone: an expense in รายการล่าสุด has the fa
   await page.screenshot({ path: test.info().outputPath('phone-recent-expense-icon.png') });
 });
 
-test('390px phone: the menu\'s LINE AI Pro section leads to the Pro package page', async ({ page }) => {
+// Owner, 2026-11-01: the section is แพ็กเกจ Pro itself (was LINE AI Pro); its rows are what Pro gives, price and upgrade last.
+test('390px phone: the menu\'s แพ็กเกจ Pro section lists what Pro gives and leads to the Pro package page', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   // a Free account past its trial
   await open(page, 1, { status: 'inactive', plan: null, current_period_end: null });
   await page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('button', { name: 'เมนู', exact: true }).click();
   const menu = page.getByRole('region', { name: 'เครื่องมือทั้งหมด' });
   // sections with several rows open in place
-  await menu.getByText('LINE AI Pro', { exact: true }).click();
-  const plans = menu.getByRole('button', { name: /แพ็กเกจ Pro/ });
+  await menu.getByText('แพ็กเกจ Pro', { exact: true }).click();
+  const pro = menu.locator('details[open]');
+  await expect(pro).toContainText('เลขากระรอก LINE และการแจ้งเตือน');
+  const plans = pro.getByRole('button', { name: /ดูราคาและอัปเกรด/ });
   await expect(plans).toContainText('FREE');
-  await expect(plans).toContainText('ดูราคาและอัปเกรดเป็น Pro');
-  await expect(menu.getByRole('button', { name: /เชื่อมต่อ LINE/ })).toBeVisible();
+  await expect(plans).toContainText('ราคาและสิ่งที่ได้เมื่อเป็น Pro');
+  await expect(pro.getByRole('button', { name: /เชื่อมต่อ LINE/ })).toBeVisible();
+  await expect(pro.getByRole('button', { name: /^การแจ้งเตือน/ })).toBeVisible();
+  // the price row comes after the features
+  const rows = await pro.getByRole('button').evaluateAll(nodes => nodes.map(node => node.querySelector('b')?.textContent || ''));
+  expect(rows.at(-1)).toBe('ดูราคาและอัปเกรด');
+  expect(rows.indexOf('เชื่อมต่อ LINE')).toBeLessThan(rows.length - 1);
+  await expect(menu.getByText('LINE AI Pro')).toHaveCount(0);
   // the package page is no longer listed twice: section 05 has no package row of its own
   const account = menu.getByRole('group').filter({ hasText: 'บัญชีและการตั้งค่า' });
   await expect(account.locator('button', { hasText: 'แพ็กเกจ' })).toHaveCount(0);
@@ -193,6 +202,43 @@ for (const width of [390, 320]) {
     await expect(page.locator('.ksm-filter-note')).toBeVisible();
   });
 }
+
+// Owner, 2026-11-01 ("ตรงปฏิทินมันแอบไม่สวย"): the overview's month pill opened a box that ran past the screen's right edge
+// and pushed the whole page sideways. On phones it is now a sheet from the bottom: it fits the screen, the page never
+// scrolls sideways, and picking a month closes it.
+for (const width of [390, 320]) test(`${width}px phone: the month chooser is a sheet from the bottom that fits the screen`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 844 });
+  await open(page, 1);
+  const pill = page.getByRole('button', { name: /ช่วงเวลาที่แสดง/ }).first();
+  await expect(pill).toBeVisible();
+  const shown = await pill.innerText();
+  await pill.click();
+  const sheet = page.getByRole('dialog', { name: 'เลือกเดือน' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('.ksm-monthsheet-grid button')).toHaveCount(12);
+  await page.waitForTimeout(300);
+  const box = (await sheet.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(width + 0.5);
+  expect(box.y + box.height).toBeLessThanOrEqual(844 + 0.5);
+  expect(await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) <= innerWidth)).toBe(true);
+  expect(await page.evaluate(() => window.scrollX)).toBe(0);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  // the selected month is marked; the next year's January changes the month shown and closes the sheet
+  await expect(sheet.locator('.ksm-monthsheet-grid button.is-selected')).toHaveCount(1);
+  await sheet.getByRole('button', { name: 'ปีถัดไป' }).click();
+  await sheet.getByRole('button', { name: /^มกราคม/ }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(pill).not.toHaveText(shown);
+  // back to this month from the sheet's own button; the backdrop closes it too
+  await pill.click();
+  await page.getByRole('dialog', { name: 'เลือกเดือน' }).getByRole('button', { name: 'กลับมาเดือนนี้' }).click();
+  await expect(pill).toHaveText(shown);
+  await pill.click();
+  await expect(page.getByRole('button', { name: 'กลับมาเดือนนี้' })).toBeDisabled();
+  await page.mouse.click(width / 2, 40);
+  await expect(page.getByRole('dialog', { name: 'เลือกเดือน' })).toHaveCount(0);
+});
 
 test('320px phone: งาน summary keeps every digit of hundreds of millions', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
@@ -344,7 +390,7 @@ test('390px phone: the menu is reordered and every page it opens shares the terr
   await nav.getByRole('button', { name: 'เมนู', exact: true }).click();
   const menu = page.getByRole('region', { name: 'เครื่องมือทั้งหมด' });
   const names = await menu.locator('.ksm-groups > .ksm-group').evaluateAll(nodes => nodes.map(node => node.querySelector('b')?.textContent));
-  expect(names).toEqual(['เงินรอรับ', 'รายจ่าย', 'เอกสาร', 'LINE AI Pro', 'บัญชีและการตั้งค่า']);
+  expect(names).toEqual(['เงินรอรับ', 'รายจ่าย', 'เอกสาร', 'แพ็กเกจ Pro', 'บัญชีและการตั้งค่า']);
   await expect(menu.getByText('ปฏิทินและไทม์ไลน์')).toHaveCount(0);
 
   for (const [entry, title] of [['เงินรอรับ', 'เงินรอรับ'], ['รายจ่าย', 'รายจ่าย'], ['เอกสาร', 'เอกสาร']] as const) {
@@ -392,7 +438,7 @@ test('390px phone: settings pages use the terracotta header, reminders are in th
   const nav = page.getByRole('navigation', { name: 'เมนูหลัก' });
   await nav.getByRole('button', { name: 'เมนู', exact: true }).click();
   const menu = page.getByRole('region', { name: 'เครื่องมือทั้งหมด' });
-  await menu.getByText('LINE AI Pro', { exact: true }).click();
+  await menu.getByText('แพ็กเกจ Pro', { exact: true }).click();
   const pro = menu.locator('details[open]');
   await expect(pro.getByRole('button', { name: /^การแจ้งเตือน/ })).toBeVisible();
   await menu.getByText('บัญชีและการตั้งค่า', { exact: true }).click();
@@ -417,8 +463,8 @@ test('390px phone: settings pages use the terracotta header, reminders are in th
 });
 
 // Phones (owner, 2026-10-21): confirming a deletion is a centred card with the mascot holding up a red
-// "no" sign, and the LINE AI Pro section wears the LINE logo.
-test('390px phone: deleting a job asks in a centred card with the mascot, and LINE AI Pro shows the LINE logo', async ({ page }) => {
+// "no" sign. The Pro section wears a crown on CI orange (owner, 2026-11-01; it wore the LINE logo as LINE AI Pro).
+test('390px phone: deleting a job asks in a centred card with the mascot, and the Pro section shows its crown', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, 1);
   await page.goto('/jobs');
@@ -436,5 +482,5 @@ test('390px phone: deleting a job asks in a centred card with the mascot, and LI
 
   await page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('button', { name: 'เมนู', exact: true }).click();
   const menu = page.getByRole('region', { name: 'เครื่องมือทั้งหมด' });
-  await expect(menu.locator('.ksm-group-symbol.is-mark').getByRole('img', { name: 'LINE' })).toBeVisible();
+  await expect(menu.locator('.ksm-group-symbol.is-mark').getByRole('img', { name: 'Pro' })).toBeVisible();
 });

@@ -19,6 +19,11 @@ test.beforeEach(async({page})=>{
 const asAdmin=(page:import('@playwright/test').Page)=>page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'admin',groups:[],invitations:[],total:0,page:0}}));
 const user={id:'11111111-1111-4111-8111-111111111111',email:'test@example.com',role:'user',created_at:'2026-01-01T00:00:00Z',user_metadata:{}};
 const snapshot={jobs:[],expenses:[],goals:[],invoices:[],settings:{monthlyExpense:0,monthlyRevenueGoal:20000,savingsPercentage:40,profileSetupCompleted:true,userPersona:'freelance'},statuses:[{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}],job_types:['Sponsored Post'],notif_settings:{enabled:true,alertEmail:user.email,serviceType:'mailto',emailjsServiceId:'',emailjsTemplateId:'',emailjsPublicKey:'',pendingQueue:[],lineUserId:null},avatar_data_url:null,issuer_profile:null};
+// Tests whose sample jobs sit in one month run on a fixed day in it (2026-11-01: the jobs list shows the current month,
+// so October jobs vanished on 1 November, and a job 3 days late fell into the month before on the 1st to the 3rd).
+// The clock still runs; only the starting day is fixed, in Bangkok's afternoon so no date is near midnight.
+const OCTOBER_DAY=new Date('2026-10-24T05:00:00Z');
+const MID_MONTH=new Date('2026-10-15T05:00:00Z');
 const versions={cashflow_jobs:{},cashflow_expenses:{},cashflow_goals:{},cashflow_invoices:{},cashflow_documents:{settings:1,statuses:1,job_types:1,notif_settings:1}};
 
 test('refresh shows the branded skeleton until the account session is ready',async({page})=>{
@@ -601,6 +606,7 @@ test('settings overview shows current values and opens each setting on its own p
 });
 
 test('a job can be paid in full while still in progress and keeps its payment date when delivered',async({page})=>{
+ await page.clock.install({time:OCTOBER_DAY});
  const wip={id:'wip-job',name:'ถ่ายคลิปรีวิว',value:3000,received:0,pending:3000,client:'ร้านตัวอย่าง',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:15,note:'',payDate:null,isPosted:false,startDate:'2026-10-01'};
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  const saved:any[]=[];
@@ -647,6 +653,7 @@ test('calendar shows how much money the open month brings in, matching the timel
 });
 
 test('marking work as done previews the expected payment date with the same calculation that is saved',async({page})=>{
+ await page.clock.install({time:OCTOBER_DAY});
  const wip={id:'wip2',name:'ตัดต่อวิดีโอ',value:4000,received:0,pending:4000,client:'ลูกค้า C',type:'Sponsored Post',status:'pending',paymentStatus:'unpaid',creditTerm:30,note:'',payDate:null,isPosted:false,startDate:'2026-10-01'};
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
  const saved:any[]=[];
@@ -1088,7 +1095,7 @@ test('mobile shell: top bar, bottom bar with the squirrel add button, tools scre
  await nav.getByRole('button',{name:'เมนู',exact:true}).click();
  const tools=page.getByRole('region',{name:'เครื่องมือทั้งหมด'});
  await expect(tools.getByRole('heading',{name:'เมนู',exact:true})).toBeVisible();
- await tools.getByText('LINE AI Pro').click();
+ await tools.getByText('แพ็กเกจ Pro',{exact:true}).click();
  await tools.getByText('บัญชีและการตั้งค่า').click();
  await expect(tools.locator('details[open]')).toHaveCount(1);
  // ใบ 50 ทวิ opened to every account on 2026-10-31; goals are still not open (shared/featureAvailability.ts)
@@ -1242,11 +1249,13 @@ test('tablets keep the layout they had: drawer and floating menu, no mobile desi
 });
 
 test('mobile jobs and receivables follow the design; every job action is still reachable',async({page})=>{
+ // Mid-month: the late job (3 days back) and the one due today stay in this month whatever day the suite runs.
+ await page.clock.install({time:MID_MONTH});
  await asAdmin(page);
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
   // sample jobs: one late, one due later this month, one still in progress, one closed (example clients only)
- const day=(offset:number)=>{const d=new Date();d.setDate(d.getDate()+offset);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+ const day=(offset:number)=>{const d=new Date(MID_MONTH);d.setDate(d.getDate()+offset);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
  const job=(id:string,name:string,extra:Record<string,unknown>)=>({id,name,client:'ลูกค้าตัวอย่าง',type:'Sponsored Post',creditTerm:0,note:'',value:1000,received:0,pending:1000,status:'pending',paymentStatus:'unpaid',isPosted:true,postDate:day(-10),payDate:day(-3),...extra});
  const jobs=[
   job('late','งานเลยกำหนด',{value:12000,pending:12000}),
@@ -1315,7 +1324,7 @@ test('mobile jobs and receivables follow the design; every job action is still r
  await nav.getByRole('button',{name:'ปฏิทิน',exact:true}).click();
  await expect(page.getByRole('heading',{name:'ปฏิทิน',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'เครื่องมือทั้งหมด'})).toHaveCount(0); // ปฏิทิน is on the bottom bar now (owner, 2026-10-20)
- const today=new Date();
+ const today=new Date(MID_MONTH);
  await expect(page.locator('.ksm-calgrid > button')).toHaveCount(new Date(today.getFullYear(),today.getMonth()+1,0).getDate());
  await expect(page.locator('.ksm-calgrid > button.is-selected')).toHaveText(String(today.getDate())); // opens on today
  await expect(page.locator('.ksm-daylist')).toContainText('฿4,000'); // the job due today
