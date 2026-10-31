@@ -4,7 +4,7 @@ import type { Route } from './types.js';
 // Shared instructions for both routes. The fixed part
 // comes first and never changes between requests, so both providers can cache it; the per-user part follows.
 
-export const PROMPT_VERSION = 'secretary-v25';
+export const PROMPT_VERSION = 'secretary-v26';
 
 // Areas customers cannot see yet (shared/featureAvailability.ts). The prompt names them only to say they are not
 // available; the admin overview is never named. Fixed per deploy, so the prompt stays cacheable.
@@ -412,7 +412,9 @@ const VAULT_FILE_RULES = `FILES TO KEEP: the app keeps the user's files in ค�
   out) or other (a slip of money received, kept with its job), with the job_id or expense_id, or record_name for one
   you are preparing in this answer. Offer it in one short line; the file is kept only after the user presses the card.
 - A ใบ 50 ทวิ: find its job (wht_tracking or search_jobs, by the payer and amount on it), then attach_file with kind
-  wht50. A certificate alone never records a payment.`;
+  wht50. A certificate alone never records a payment.
+- Several files in one message (each named before it, ไฟล์ที่ N: name): read every one, handle each as its own item (one
+  card per slip or receipt, never one card adding them up), and give attach_file the file_name of the file it keeps.`;
 
 // 50 ทวิ follow-up (owner, 2026-10-31: "ใบ 50 ทวิ แจ้งเตือนได้ด้วย ... อยากให้น้องถามแนบนั่นนี่ไหม").
 const WHT50_RULES = `ใบ 50 ทวิ: after you prepare a received payment (propose_record_payment, or a job saved as paid) for a job with 3%

@@ -31,9 +31,10 @@ export const ATTACH_TOOL: ToolSpec = { name: 'attach_file', description: 'Offer 
   job_id: { type: 'string', description: 'Own job ID from another tool' },
   expense_id: { type: 'string', description: 'Own expense ID from another tool' },
   record_name: { type: 'string', description: 'Name of a job or expense being prepared in this answer (not saved yet)' },
+  file_name: { type: 'string', description: 'When the user sent several files: the name of the one this card keeps, as given before it (ไฟล์ที่ N: name). One card per file.' },
 }, required: ['kind'] } };
 const attachSchema = z.object({ kind: z.enum(VAULT_KINDS), job_id: z.string().trim().max(120).optional(), expense_id: z.string().trim().max(120).optional(),
-  record_name: z.string().trim().max(200).optional() }).strict();
+  record_name: z.string().trim().max(200).optional(), file_name: z.string().trim().max(200).optional() }).strict();
 
 export const isVaultTool = (name: string) => name === ATTACH_TOOL.name || VAULT_TOOLS.some(tool => tool.name === name);
 const fail = (error: string): ToolOutcome => ({ result: { ok: false, error } });
@@ -41,9 +42,9 @@ const paginate = <T,>(rows: T[], offset: number, limit: number) => ({ total: row
 const text = (value: unknown, max = 300) => typeof value === 'string' ? value.slice(0, max) : '';
 const metadata = (file: VaultFile) => ({ file_id: file.id, kind: file.kind, file_name: text(file.fileName), job_id: file.jobId, job_name: text(file.jobName), client: text(file.client), mime_type: file.mimeType, size_bytes: file.sizeBytes, created_at: file.createdAt });
 
-export async function executeVaultTool(name: string, args: Record<string, unknown>, user: UserRow, load: VaultLoader | undefined, now = new Date(), fileName = ''): Promise<ToolOutcome> {
+export async function executeVaultTool(name: string, args: Record<string, unknown>, user: UserRow, load: VaultLoader | undefined, now = new Date(), fileName = '', fileNames: string[] = []): Promise<ToolOutcome> {
   if (!isVaultTool(name)) return fail('ไม่รู้จักเครื่องมือคลังเอกสาร');
-  if (name === ATTACH_TOOL.name) return attachCard(args, user, fileName);
+  if (name === ATTACH_TOOL.name) return attachCard(args, user, fileName, fileNames);
   const parsed = name === 'search_vault' ? filesSchema.safeParse(args) : trackingSchema.safeParse(args);
   if (!parsed.success) return fail('ตัวกรองคลังเอกสารไม่ถูกต้อง ใช้เฉพาะตัวกรองที่เครื่องมือรองรับ');
   if (!load) return fail('ยังอ่านคลังเอกสารไม่ได้ในคำขอนี้ จึงยังยืนยันไม่ได้ว่ามีไฟล์หรือไม่');
@@ -73,10 +74,14 @@ export async function executeVaultTool(name: string, args: Record<string, unknow
   } };
 }
 
-function attachCard(args: Record<string, unknown>, user: UserRow, fileName: string): ToolOutcome {
+function attachCard(args: Record<string, unknown>, user: UserRow, defaultName: string, fileNames: string[] = []): ToolOutcome {
   const parsed = attachSchema.safeParse(args);
   if (!parsed.success) return fail('ข้อมูลการแนบไฟล์ไม่ถูกต้อง');
-  const { kind, job_id: jobId, expense_id: expenseId, record_name: recordName } = parsed.data;
+  const { kind, job_id: jobId, expense_id: expenseId, record_name: recordName, file_name: asked } = parsed.data;
+  // Several files: the one named, which must be one the user sent; with one file, that file.
+  if (fileNames.length > 1 && !asked) return fail(`ข้อความนี้มี ${fileNames.length} ไฟล์ ระบุ file_name ว่าแนบไฟล์ไหน: ${fileNames.join(', ')}`);
+  if (asked && fileNames.length && !fileNames.includes(asked)) return fail(`ไม่พบไฟล์ชื่อนี้ ใช้ชื่อใดชื่อหนึ่ง: ${fileNames.join(', ')}`);
+  const fileName = asked || defaultName;
   const job = jobId ? (user.jobs || []).find(row => row.id === jobId) : undefined;
   if (jobId && !job) return fail('ไม่พบงานนี้ในบัญชี ค้นหางานก่อนแล้วใช้ job_id ที่ได้');
   // Saved expenses carry their id (the shared summary type leaves it out).

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { addUsage, emptyUsage, ProviderError, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult } from '../types.js';
+import { addUsage, emptyUsage, fileLabel, ProviderError, turnFiles, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult } from '../types.js';
 
 // Claude through Anthropic's official SDK, for the model comparison the owner asked for (2026-10-24: "ลองเทียบให้ดู").
 // Production stays on Gemini until the owner chooses a model (AI_CHAT_MODEL / AI_ACTION_MODEL).
@@ -18,11 +18,15 @@ const maxTokensFor = (visibleCap: number) => Math.min(8000, Math.max(2000, visib
 type Block = Anthropic.Beta.BetaContentBlockParam;
 
 function userContent(turn: ProviderRequest['turns'][number]): string | Block[] {
-  if (!turn.attachment) return turn.text;
-  const file: Block = turn.attachment.mimeType === 'application/pdf'
-    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: turn.attachment.data } }
-    : { type: 'image', source: { type: 'base64', media_type: turn.attachment.mimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: turn.attachment.data } };
-  return [file, { type: 'text', text: turn.text }];
+  const files = turnFiles(turn);
+  if (!files.length) return turn.text;
+  const blocks = files.flatMap((file, index): Block[] => [
+    ...(files.length > 1 ? [{ type: 'text', text: fileLabel(index, file.name) } as Block] : []),
+    file.mimeType === 'application/pdf'
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: file.data } }
+      : { type: 'image', source: { type: 'base64', media_type: file.mimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: file.data } },
+  ]);
+  return [...blocks, { type: 'text', text: turn.text }];
 }
 
 export const anthropicProvider: Provider = {

@@ -44,7 +44,7 @@ export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard
 
 /** `failed` + `question`: a send that did not go through, kept so it can be retried. */
 /** `attachment`: the name and kind of a file sent with the message (the file itself is not kept). */
-export type ChatMessage = { id: string; from: 'me' | 'bot'; text: string; cards?: ChatCard[]; at: number; failed?: boolean; question?: string; note?: string; attachment?: { name: string; kind: 'image' | 'pdf'; preview?: string }; textAuto?: boolean;
+export type ChatMessage = { id: string; from: 'me' | 'bot'; text: string; cards?: ChatCard[]; at: number; failed?: boolean; question?: string; note?: string; attachment?: { name: string; kind: 'image' | 'pdf'; preview?: string }; attachments?: { name: string; kind: 'image' | 'pdf'; preview?: string }[]; textAuto?: boolean;
   /** เลขา's note of what an attached file showed: never drawn, sent with the chat's later messages (2026-10-24). */
   memo?: string };
 export type ChatGroup = 'today' | 'yesterday' | 'week' | 'earlier';

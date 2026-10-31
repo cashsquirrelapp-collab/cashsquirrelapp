@@ -13,8 +13,11 @@ import { BriefingCard, briefingText } from './BriefingCard';
 import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
 import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { useDictation } from './useDictation';
-import { prepareFile, type PreparedFile } from './voice';
+import type { PreparedFile } from './voice';
 import { rememberChatFile } from './chatFiles';
+import { addChatFiles, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
+import { SentFiles, UploadTray } from './ChatUploadViews';
+import { messageFiles } from './assistantApi';
 import { chatTitle, type ChatHandoff } from './chatHandoff';
 import { greetingNow, noteQuestion } from './greeting';
 import { VoiceComposer } from './VoiceComposer';
@@ -240,8 +243,9 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
   // A picture or PDF to send with the next message (owner, 2026-10-27: phones had no mic and no way to add a picture),
   // the same as the full chat: live เลขา only, prepared on the device (voice.ts prepareFile) and sent once.
-  const [upload, setUpload] = React.useState<PreparedFile | null>(null);
-  const [fileProblem, setFileProblem] = React.useState<'type' | 'size' | null>(null);
+  // Up to 5 pictures or PDFs with one message (owner, 2026-10-31), as in the full chat.
+  const [uploads, setUploads] = React.useState<PreparedFile[]>([]);
+  const [fileProblem, setFileProblem] = React.useState<FileProblem | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
   const abortRef = React.useRef<AbortController | null>(null);
@@ -338,18 +342,21 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   React.useLayoutEffect(() => { const list = listRef.current; if (list) list.scrollTop = messages.length || mobile ? list.scrollHeight : 0; }, [messages, mode, open, mobile]);
 
   const id = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${++nextId.current}`;
-  const pickFile = async (file: File | undefined) => {
-    if (!file) return;
+  const pickFiles = async (list: FileList | File[] | null | undefined) => {
+    const picked = Array.from(list ?? []);
+    if (!picked.length) return;
     setFileProblem(null);
-    try { setUpload(await prepareFile(file)); inputRef.current?.focus(); }
-    catch (error) { setUpload(null); setFileProblem((error as Error).message === 'size' ? 'size' : 'type'); }
+    const { files, problem } = await addChatFiles(uploads, picked);
+    setUploads(files);
+    setFileProblem(problem);
+    inputRef.current?.focus();
   };
   /** `withFile`: the composer's own send, which carries the attached picture or PDF; suggested questions never do. */
   const send = async (raw: string, withFile = false) => {
-    const file = withFile && live ? upload ?? undefined : undefined;
-    const text = raw.trim() || (file ? tr("ช่วยดูไฟล์นี้หน่อย") : '');
+    const files = withFile && live ? uploads : [];
+    const text = raw.trim() || (files.length > 1 ? tr("ช่วยดูไฟล์เหล่านี้หน่อย") : files.length ? tr("ช่วยดูไฟล์นี้หน่อย") : '');
     if (!text || busy || waiting) return;
-    const command = file ? null : confirmationCommand(text, messages, confirmStates);
+    const command = files.length ? null : confirmationCommand(text, messages, confirmStates);
     if (command) {
       if (accountId && getCurrentAccount() !== accountId) return;
       setDraft('');
@@ -361,8 +368,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
       return;
     }
     noteAssistantSent();
-    const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now(), ...(file && !raw.trim() ? { textAuto: true } : {}),
-      ...(file ? { attachment: { name: file.name, kind: file.kind, ...(file.kind === 'image' ? { preview: `data:${file.mimeType};base64,${file.data}` } : {}) } } : {}) };
+    const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now(), ...(files.length && !raw.trim() ? { textAuto: true } : {}),
+      ...(files.length > 1 ? { attachments: shownFiles(files) } : files.length ? { attachment: shownFiles(files)[0] } : {}) };
     const history = [...messages, mine];
     noteQuestion(accountId, text);
     if (!conversationRef.current) conversationRef.current = live && typeof crypto?.randomUUID === 'function' ? `c_${crypto.randomUUID()}` : 'buddy';
@@ -370,7 +377,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     setMessages(history);
     setDraft('');
     if (inputRef.current) inputRef.current.style.height = '';
-    if (file) { setUpload(null); setFileProblem(null); }
+    if (files.length) { setUploads([]); setFileProblem(null); }
     voice.clearReview();
     setMode('thinking');
     const controller = new AbortController();
@@ -380,8 +387,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     let responseCards: ChatMessage['cards'];
     const isCurrent = () => !controller.signal.aborted && scopeRef.current.accountId === accountId && scopeRef.current.transport === transport;
     try {
-      if (file) rememberChatFile(file);
-      const result = await transport.send({ conversationId, text, history, context: { page, pageName }, ...(file ? { attachment: { name: file.name, mimeType: file.mimeType, data: file.data } } : {}) }, textSoFar => {
+      files.forEach(rememberChatFile);
+      const result = await transport.send({ conversationId, text, history, context: { page, pageName }, ...(files.length ? { attachments: sentFiles(files) } : {}) }, textSoFar => {
         if (!isCurrent()) return;
         if (!started) { started = true; setMode('working'); setMessages(list => [...list, { id: botId, from: 'bot' as const, text: textSoFar, cards: responseCards, at: Date.now() }]); }
         else setMessages(list => list.map(message => (message.id === botId ? { ...message, text: textSoFar } : message)));
@@ -592,12 +599,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                   <ol className="asx-thread is-buddy">
                     {messages.map((message, index) => message.from === 'me' ? (
                       <li key={message.id} className="asx-msg is-me"><div className="asx-me-row"><div className="asx-me-stack">
-                        {message.attachment?.preview ? (
-                          <span className="asx-sent-image is-still"><img src={message.attachment.preview} alt={tr("รูปที่แนบ")} /></span>
-                        ) : message.attachment && (
-                          <div className="asx-sent-file"><span className="asx-file-icon" aria-hidden="true"><FileText size={18} /></span>
-                            <span className="asx-file-text"><b>{message.attachment.name}</b><small>{message.attachment.kind === 'pdf' ? 'PDF' : tr("รูป")}</small></span></div>
-                        )}
+                        <SentFiles files={messageFiles(message)} />
                         {!message.textAuto && <p className="asx-bubble">{message.text}</p>}
                       </div></div></li>
                     ) : (
@@ -628,27 +630,12 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
               </div>
               {(voice.error || fileProblem) && !voice.active && (
                 <p className="asx-notice is-low kfw-voice-note" role="alert"><AlertCircle size={15} />
-                  {fileProblem === 'size' ? tr("ไฟล์ใหญ่เกิน 4 MB กรุณาเลือกไฟล์ที่เล็กลง") : fileProblem === 'type' ? tr("แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF") : voice.error}
+                  {fileProblem ? tr(FILE_PROBLEM_TEXT[fileProblem]) : voice.error}
                   <button type="button" className="asx-link-btn" onClick={() => { setFileProblem(null); voice.clearError(); }}>{tr("ปิด")}</button>
                 </p>
               )}
               {voice.review && !voice.active && <p className="asx-notice asx-voice-review kfw-voice-note" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>}
-              {upload && !voice.active && (
-                <div className="asx-attach-row kfw-attach-row">
-                  {upload.kind === 'image' ? (
-                    <div className="asx-attach-tile" role="group" aria-label={tr("รูปที่จะส่ง")}>
-                      <img src={`data:${upload.mimeType};base64,${upload.data}`} alt={tr("รูปที่จะส่ง")} />
-                      <button type="button" className="asx-attach-remove" onClick={() => setUpload(null)} aria-label={tr("เอารูปออก")} title={tr("เอารูปออก")}><X size={14} /></button>
-                    </div>
-                  ) : (
-                    <div className="asx-attach-file" role="group" aria-label={tr("ไฟล์ที่จะส่ง")}>
-                      <span className="asx-file-icon" aria-hidden="true"><FileText size={18} /></span>
-                      <span className="asx-file-text"><b>{upload.name}</b><small>PDF · {upload.bytes >= 1048576 ? `${(upload.bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(upload.bytes / 1024))} KB`}</small></span>
-                      <button type="button" className="asx-attach-remove" onClick={() => setUpload(null)} aria-label={tr("เอาไฟล์ออก")} title={tr("เอาไฟล์ออก")}><X size={14} /></button>
-                    </div>
-                  )}
-                </div>
-              )}
+              {!voice.active && <UploadTray className="kfw-attach-row" files={uploads} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} />}
               <form className={`asx-buddy-composer${voice.active ? ' has-voice' : ''}`} onSubmit={event => { event.preventDefault(); void send(draft, true); }}>
                 {voice.active ? (
                   <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} levelsAt={voice.levelsAt} reduce={Boolean(reduce)}
@@ -657,8 +644,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 {/* Attach a picture or PDF (2026-10-27, phones and computers alike), as in the full chat. */}
                 {live ? (
                   <>
-                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" className="asx-sr" tabIndex={-1} aria-hidden="true"
-                      onChange={event => { void pickFile(event.target.files?.[0]); event.target.value = ''; }} />
+                    <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" className="asx-sr" tabIndex={-1} aria-hidden="true"
+                      onChange={event => { void pickFiles(event.target.files); event.target.value = ''; }} />
                     <button type="button" className="asx-icon-btn asx-attach" onClick={() => fileRef.current?.click()} disabled={busy}
                       aria-label={tr("แนบรูปหรือไฟล์ PDF")} title={tr("แนบรูปหรือไฟล์ PDF")}><Paperclip size={18} /></button>
                   </>
@@ -668,7 +655,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 <label htmlFor="asx-buddy-message" className="asx-sr">{tr("ข้อความถึงเลขากระรอก")}</label>
                 <textarea id="asx-buddy-message" ref={inputRef} rows={1} value={draft} placeholder={tr("ถามเลขากระรอกได้เลย")}
                   onChange={event => onDraft(event.target.value)}
-                  onPaste={event => { const pasted = event.clipboardData?.files?.[0]; if (pasted && live && !busy) { event.preventDefault(); void pickFile(pasted); } }}
+                  onPaste={event => { const pasted = event.clipboardData?.files; if (pasted?.length && live && !busy) { event.preventDefault(); void pickFiles(pasted); } }}
                   onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !mobile) { event.preventDefault(); void send(draft, true); } }} />
                 {voice.supported ? (
                   <button type="button" className="asx-icon-btn asx-mic" onClick={() => { if (!busy && !voice.active) void voice.start(draft); }} disabled={busy}
@@ -677,7 +664,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                   <button type="button" className="asx-icon-btn asx-mic is-soon" aria-disabled="true" aria-label={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขากระรอก")}
                     title={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขากระรอก")}><Mic size={18} /></button>
                 )}
-                <button type="submit" className="asx-send" disabled={busy || waiting || (!draft.trim() && !(live && upload))} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
+                <button type="submit" className="asx-send" disabled={busy || waiting || (!draft.trim() && !(live && uploads.length))} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
                 </>}
               </form>
               <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : waiting ? tr("กำลังเชื่อมต่อเลขากระรอก…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก")}</p>

@@ -6,8 +6,14 @@ export type Route = 'chat' | 'action';
 export type ProviderName = 'gemini' | 'openai' | 'anthropic';
 export type Effort = 'minimal' | 'low' | 'medium';
 
-/** `attachment`: a picture or PDF sent with this one user turn (never stored). */
-export interface ChatTurn { role: 'user' | 'assistant'; text: string; attachment?: { name: string; mimeType: string; data: string } }
+/** A picture or PDF sent with one user turn (never stored). */
+export interface ChatFile { name: string; mimeType: string; data: string }
+/** `attachment`: one file with this user turn; `attachments`: up to 5 (owner, 2026-10-31: "ไม่เกิน 5 ภาพ ละไฟล์ล่ะ"). */
+export interface ChatTurn { role: 'user' | 'assistant'; text: string; attachment?: ChatFile; attachments?: ChatFile[] }
+/** The files of a turn, whichever way they came. */
+export const turnFiles = (turn: Pick<ChatTurn, 'attachment' | 'attachments'>): ChatFile[] => (turn.attachments?.length ? turn.attachments : turn.attachment ? [turn.attachment] : []);
+/** When a turn has several files, each is named before it, so an answer and an attach card can say which one. */
+export const fileLabel = (index: number, name: string) => `ไฟล์ที่ ${index + 1}: ${name}`;
 
 /** A tool as the models see it: a name, what it is for, and a JSON-Schema object for its arguments. */
 export interface ToolSpec {

@@ -30,7 +30,7 @@ export async function inboxConversationId(userId: string): Promise<string> {
 
 /** `memo`: what an attached file showed (note_from_file), hidden on screen and sent with later messages. */
 export type StoredCard = AssistantCard | { kind: 'line'; card: LineCardData } | { kind: 'memo'; text: string };
-export interface StoredTurn { role: 'user' | 'assistant'; text: string; cards?: StoredCard[]; attachment?: { name: string; kind: 'image' | 'pdf' } }
+export interface StoredTurn { role: 'user' | 'assistant'; text: string; cards?: StoredCard[]; attachment?: { name: string; kind: 'image' | 'pdf'; files?: { name: string; kind: 'image' | 'pdf' }[] } }
 export interface ConversationSummary { id: string; title: string; pinned: boolean; archived: boolean; createdAt: string; updatedAt: string }
 export interface StoredMessage extends StoredTurn { id: string; at: string }
 

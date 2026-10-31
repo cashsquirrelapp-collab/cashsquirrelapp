@@ -521,4 +521,9 @@ export const assistant: Record<string, string> = {
   'ขั้นที่ {0} จาก {1}': 'Step {0} of {1}',
   'ปุ่มของขั้นนี้อยู่อีกหน้า กดพาไปเพื่อทำต่อ': 'This step’s button is on another page. Press Take me there to carry on.',
   'พาไป': 'Take me there',
+  // several files in one message (2026-10-31)
+  'ช่วยดูไฟล์เหล่านี้หน่อย': 'Please take a look at these files',
+  'ไฟล์ที่จะส่ง {0} จาก {1}': 'Files to send: {0} of {1}',
+  'แนบได้ครั้งละไม่เกิน 5 ไฟล์': 'Up to 5 files at a time',
+  'ไฟล์รวมกันใหญ่เกิน 8 MB กรุณาส่งทีละน้อยลง': 'The files are over 8 MB together. Please send fewer at a time.',
 };

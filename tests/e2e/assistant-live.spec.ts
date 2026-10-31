@@ -295,6 +295,43 @@ test('attach: a PDF goes as it is; other files are refused on screen before anyt
   expect([body.text, body.attachment.name, body.attachment.mimeType, body.attachment.data]).toEqual(['ช่วยเพิ่มงานจากใบนี้', 'ใบเสนอราคา.pdf', 'application/pdf', pdf.toString('base64')]);
 });
 
+// Owner, 2026-10-31: "เอาเลยไม่เกิน 5 ภาพ ละไฟล์ล่ะ": up to 5 pictures and PDFs in one message, each shown before sending and
+// in the chat; a sixth is refused on screen; the server gets them as a list.
+for (const width of [1440, 390]) test(`attach ${width}px: several pictures and a PDF go in one message; a sixth file is refused`, async ({ page }) => {
+  const mock = await open(page, { width });
+  const input = page.locator('.asx-composer input[type=file]');
+  const pdf = Buffer.from('%PDF-1.4\n% ใบ 50 ทวิ ตัวอย่าง\n');
+  await input.setInputFiles([
+    { name: 'สลิป1.png', mimeType: 'image/png', buffer: PNG },
+    { name: 'สลิป2.png', mimeType: 'image/png', buffer: PNG },
+    { name: 'ใบ50ทวิ.pdf', mimeType: 'application/pdf', buffer: pdf },
+  ]);
+  const tray = page.getByTestId('chat-upload-tray');
+  await expect(tray.locator('.asx-attach-tile')).toHaveCount(2);
+  await expect(tray.locator('.asx-attach-file')).toContainText('ใบ50ทวิ.pdf');
+  await expect(tray.locator('.asx-attach-count')).toHaveText('3/5');
+  await input.setInputFiles([1, 2, 3].map(n => ({ name: `เพิ่ม${n}.png`, mimeType: 'image/png', buffer: PNG })));
+  await expect(page.locator('.asx-notice')).toContainText('แนบได้ครั้งละไม่เกิน 5 ไฟล์');
+  await expect(tray.locator('.asx-attach-tile, .asx-attach-file')).toHaveCount(5);
+  await tray.getByRole('button', { name: 'เอารูปออก' }).last().click();
+  await tray.getByRole('button', { name: 'เอารูปออก' }).last().click();
+  await expect(tray.locator('.asx-attach-count')).toHaveText('3/5');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.locator('#asx-message').fill('สลิปสองใบกับ 50 ทวิ');
+  await page.locator('.asx-send').click();
+  const sent = page.getByTestId('chat-sent-files');
+  await expect(sent.locator('.asx-sent-image')).toHaveCount(2);
+  await expect(sent.locator('.asx-sent-file')).toContainText('ใบ50ทวิ.pdf');
+  await expect(tray).toHaveCount(0);
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(1);
+  const body = mock.posts.find(post => post.body.action === 'message').body;
+  expect(body.attachment).toBeUndefined();
+  expect(body.attachments.map((file: { name: string; mimeType: string }) => [file.name, file.mimeType])).toEqual([['สลิป1.jpg', 'image/jpeg'], ['สลิป2.jpg', 'image/jpeg'], ['ใบ50ทวิ.pdf', 'application/pdf']]);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath(`attach-many-${width}.png`) });
+});
+
 test('mic: recording stays local until Stop, transcribes once, and leaves an editable draft for explicit Send', async ({ page }) => {
   await syntheticMicrophone(page);
   let releaseTranscription!: () => void;

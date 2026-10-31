@@ -12,8 +12,11 @@ import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTION
 import { ChatCardView, type ConfirmState, ConfirmAll } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
-import { prepareFile, type PreparedFile } from './voice';
+import type { PreparedFile } from './voice';
 import { rememberChatFile } from './chatFiles';
+import { addChatFiles, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
+import { SentFiles, UploadTray } from './ChatUploadViews';
+import { messageFiles } from './assistantApi';
 import { useDictation } from './useDictation';
 import { VoiceComposer } from './VoiceComposer';
 import { isPartialAmountText, type LineInboxApi } from './lineInbox';
@@ -251,8 +254,9 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const [mode, setMode] = React.useState<AssistantMode>('greeting');
   const [draft, setDraft] = React.useState('');
   // A picture or PDF waiting to go with the next message (live เลขา only), and why the last pick failed.
-  const [upload, setUpload] = React.useState<PreparedFile | null>(null);
-  const [fileProblem, setFileProblem] = React.useState<'type' | 'size' | null>(null);
+  // Up to 5 pictures or PDFs with one message (owner, 2026-10-31).
+  const [uploads, setUploads] = React.useState<PreparedFile[]>([]);
+  const [fileProblem, setFileProblem] = React.useState<FileProblem | null>(null);
   // Pictures as pictures (owner, 2026-10-24: "เอาแบบเป็นพรีวิวขึ้นเหมือนที่ทำกับมึงเลย"): drag one in, see it above the
   // box before sending and in the chat after; a sent picture opens large.
   const [dropping, setDropping] = React.useState(false);
@@ -432,7 +436,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     observer.observe(dock);
     return () => observer.disconnect();
   }, [syncDock]);
-  React.useLayoutEffect(() => { syncDock(); }, [syncDock, upsell, gate, inLine, busy, level, draft, undo, upload, fileProblem, voice.error, voice.phase, voice.review]);
+  React.useLayoutEffect(() => { syncDock(); }, [syncDock, upsell, gate, inLine, busy, level, draft, undo, uploads, fileProblem, voice.error, voice.phase, voice.review]);
   // Follow new messages only while the reader is at the bottom; otherwise offer a "new message" pill.
   React.useLayoutEffect(() => {
     const list = listRef.current; if (!list) return;
@@ -481,7 +485,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
 
   const time = (at: number) => new Date(at).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 
-  const ask = async (conversationId: string, text: string, history: ChatMessage[], file?: PreparedFile) => {
+  const ask = async (conversationId: string, text: string, history: ChatMessage[], files: PreparedFile[] = []) => {
     const botId = id('bot');
     const controller = new AbortController();
     abortRef.current?.abort();
@@ -491,7 +495,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     let responseCards: ChatMessage['cards'];
     const isCurrent = () => !controller.signal.aborted && navigationRef.current.transport === transport && navigationRef.current.navigationContext.accountId === accountId;
     try {
-      const result = await transport.send({ conversationId, text, history, ...(file ? { attachment: { name: file.name, mimeType: file.mimeType, data: file.data } } : {}) }, textSoFar => {
+      const result = await transport.send({ conversationId, text, history, ...(files.length ? { attachments: sentFiles(files) } : {}) }, textSoFar => {
         if (!isCurrent()) return;
         if (!started) {
           started = true;
@@ -526,13 +530,13 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
       if (controller.signal.aborted && !(error instanceof AssistantRequestError)) return;
       setStreamingId(null);
       patch(conversationId, list => [...list.filter(message => message.id !== botId), { id: botId, from: 'bot' as const, text: '', at: Date.now(), failed: true, question: text }]);
-      if (file) retryFiles.current.set(botId, file);
+      if (files.length) retryFiles.current.set(botId, files);
       setMode('awake');
     }
   };
 
   // A failed send keeps its file here so ลองอีกครั้ง sends it again.
-  const retryFiles = React.useRef(new Map<string, PreparedFile>());
+  const retryFiles = React.useRef(new Map<string, PreparedFile[]>());
   /** The real notifications thread answers its quick replies and typed amounts itself, as LINE does. */
   const lineThreadAnswer = (text: string): boolean => {
     if (!inLine || !lineInbox || !inbox || !currentId) return false;
@@ -560,7 +564,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   };
   const send = (raw: string, preset = false) => {
     if (busy || voice.active || waiting) return;
-    const command = !preset && !upload && !inLine ? confirmationCommand(raw, messages, confirmStates) : null;
+    const command = !preset && !uploads.length && !inLine ? confirmationCommand(raw, messages, confirmStates) : null;
     if (command && currentId) {
       if (accountId && getCurrentAccount() !== accountId) return;
       voice.clearReview(); setDraft('');
@@ -576,15 +580,15 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     }
     if (blocked) return;
     if (lineThreadAnswer(raw.trim())) { voice.clearReview(); return; }
-    const file = preset ? undefined : upload ?? undefined;
-    const text = raw.trim() || (file ? tr("ช่วยดูไฟล์นี้หน่อย") : '');
+    const files = preset ? [] : uploads;
+    const text = raw.trim() || (files.length > 1 ? tr("ช่วยดูไฟล์เหล่านี้หน่อย") : files.length ? tr("ช่วยดูไฟล์นี้หน่อย") : '');
     if (!text || text.length > MAX_MESSAGE) return;
     noteAssistantSent();
     voice.clearReview();
     if (gate && !preset) { setUpsell(true); return; }
     setUpsell(false);
-    const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now(), ...(file && !raw.trim() ? { textAuto: true } : {}),
-      ...(file ? { attachment: { name: file.name, kind: file.kind, ...(file.kind === 'image' ? { preview: `data:${file.mimeType};base64,${file.data}` } : {}) } } : {}) };
+    const mine: ChatMessage = { id: id('me'), from: 'me', text, at: Date.now(), ...(files.length && !raw.trim() ? { textAuto: true } : {}),
+      ...(files.length > 1 ? { attachments: shownFiles(files) } : files.length ? { attachment: shownFiles(files)[0] } : {}) };
     noteQuestion(accountId, text);
     let conversationId = currentId;
     let history = messages;
@@ -602,10 +606,10 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     setDraft('');
     if (inputRef.current) inputRef.current.style.height = '';
     atBottom.current = true;
-    if (file) { setUpload(null); setFileProblem(null); }
-    // The file stays in memory for this tab, so an attach card can hand it to the vault.
-    if (file) rememberChatFile(file);
-    void ask(conversationId, text, [...history, mine], file);
+    if (files.length) { setUploads([]); setFileProblem(null); }
+    // The files stay in memory for this tab, so an attach card can hand each to the vault.
+    files.forEach(rememberChatFile);
+    void ask(conversationId, text, [...history, mine], files);
   };
 
   // A confirmation card edited before confirming: the new card (new id) takes the old one's place.
@@ -620,9 +624,9 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const retry = (message: ChatMessage) => {
     if (!currentId || !message.question || busy) return;
     patch(currentId, list => list.filter(item => item.id !== message.id));
-    const file = retryFiles.current.get(message.id);
+    const files = retryFiles.current.get(message.id) ?? [];
     retryFiles.current.delete(message.id);
-    void ask(currentId, message.question, messages.filter(item => item.id !== message.id), file);
+    void ask(currentId, message.question, messages.filter(item => item.id !== message.id), files);
   };
 
   // The proud squirrel only after the server says it saved; a failed save shows a worried one for a moment.
@@ -829,11 +833,14 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   // A file dropped anywhere on the chat never opens in the browser tab; it is attached only when attaching is possible.
   const hasFiles = (event: React.DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes('Files');
   const canDrop = (event: React.DragEvent) => live && !busy && !blocked && hasFiles(event);
-  const pickFile = async (file: File | undefined) => {
-    if (!file) return;
+  const pickFiles = async (list: FileList | File[] | null | undefined) => {
+    const picked = Array.from(list ?? []);
+    if (!picked.length) return;
     setFileProblem(null);
-    try { setUpload(await prepareFile(file)); inputRef.current?.focus(); }
-    catch (error) { setUpload(null); setFileProblem((error as Error).message === 'size' ? 'size' : 'type'); }
+    const { files, problem } = await addChatFiles(uploads, picked);
+    setUploads(files);
+    setFileProblem(problem);
+    inputRef.current?.focus();
   };
 
   const q = query.trim().toLocaleLowerCase();
@@ -990,7 +997,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         onDragEnter={event => { if (!canDrop(event)) return; event.preventDefault(); dragDepth.current += 1; setDropping(true); }}
         onDragOver={event => { if (!hasFiles(event)) return; event.preventDefault(); event.dataTransfer.dropEffect = canDrop(event) ? 'copy' : 'none'; }}
         onDragLeave={event => { if (!canDrop(event)) return; dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDropping(false); }}
-        onDrop={event => { if (!hasFiles(event)) return; event.preventDefault(); dragDepth.current = 0; setDropping(false); if (canDrop(event)) void pickFile(event.dataTransfer.files?.[0]); }}>
+        onDrop={event => { if (!hasFiles(event)) return; event.preventDefault(); dragDepth.current = 0; setDropping(false); if (canDrop(event)) void pickFiles(event.dataTransfer.files); }}>
         {dropping && <div className="asx-drop" aria-hidden="true"><span><ImageIcon size={18} />{tr("วางรูปหรือ PDF ที่นี่")}</span></div>}
         <Modal open={Boolean(viewer)} onClose={() => setViewer(null)} label={tr("รูปที่แนบ")} width={760}>
           {viewer && <img className="asx-viewer-img" src={viewer} alt={tr("รูปที่แนบ")} />}
@@ -1116,14 +1123,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                   <div className="asx-me-row">
                     <span className="asx-meta is-side">{(message.id !== lastMine || readId === message.id) && <span>{tr("อ่านแล้ว")}</span>}<span>{time(message.at)}</span></span>
                     <div className="asx-me-stack">
-                      {message.attachment?.preview ? (
-                        <button type="button" className="asx-sent-image" onClick={() => setViewer(message.attachment!.preview!)} aria-label={tr("ดูรูปที่แนบ")}>
-                          <img src={message.attachment.preview} alt={tr("รูปที่แนบ")} />
-                        </button>
-                      ) : message.attachment && (
-                        <div className="asx-sent-file"><span className="asx-file-icon" aria-hidden="true"><FileText size={18} /></span>
-                          <span className="asx-file-text"><b>{message.attachment.name}</b><small>{message.attachment.kind === 'pdf' ? 'PDF' : tr("รูป")}</small></span></div>
-                      )}
+                      <SentFiles files={messageFiles(message)} onView={setViewer} />
                       {!message.textAuto && <p className="asx-bubble">{message.text}</p>}
                     </div>
                   </div>
@@ -1237,27 +1237,11 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               {(voice.error || fileProblem) && (
                 <p className="asx-notice is-low" role="status">
                   <AlertCircle size={15} />
-                  {fileProblem === 'size' ? tr("ไฟล์ใหญ่เกิน 4 MB กรุณาเลือกไฟล์ที่เล็กลง") : fileProblem === 'type' ? tr("แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF")
-                    : voice.error}
+                  {fileProblem ? tr(FILE_PROBLEM_TEXT[fileProblem]) : voice.error}
                   <button type="button" className="asx-link-btn" onClick={() => { setFileProblem(null); voice.clearError(); }}>{tr("ปิด")}</button>
                 </p>
               )}
-              {upload?.kind === 'image' ? (
-                <div className="asx-attach-row">
-                  <div className="asx-attach-tile" role="group" aria-label={tr("รูปที่จะส่ง")}>
-                    <img src={`data:${upload.mimeType};base64,${upload.data}`} alt={tr("รูปที่จะส่ง")} />
-                    <button type="button" className="asx-attach-remove" onClick={() => setUpload(null)} aria-label={tr("เอารูปออก")} title={tr("เอารูปออก")}><X size={14} /></button>
-                  </div>
-                </div>
-              ) : upload && (
-                <div className="asx-attach-row">
-                  <div className="asx-attach-file" role="group" aria-label={tr("ไฟล์ที่จะส่ง")}>
-                    <span className="asx-file-icon" aria-hidden="true"><FileText size={18} /></span>
-                    <span className="asx-file-text"><b>{upload.name}</b><small>PDF · {upload.bytes >= 1048576 ? `${(upload.bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(upload.bytes / 1024))} KB`}</small></span>
-                    <button type="button" className="asx-attach-remove" onClick={() => setUpload(null)} aria-label={tr("เอาไฟล์ออก")} title={tr("เอาไฟล์ออก")}><X size={14} /></button>
-                  </div>
-                </div>
-              )}
+              <UploadTray files={uploads} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} />
               {draft.length > MAX_MESSAGE && <p className="asx-notice is-low" role="alert">{tr("ข้อความยาวเกิน 6,000 ตัวอักษร กรุณาย่อก่อนส่ง")}</p>}
               {voice.review && !voice.active && (
                 <p className="asx-notice asx-voice-review" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>
@@ -1268,8 +1252,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 ) : <>
                 {live ? (
                   <>
-                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" className="asx-sr" tabIndex={-1} aria-hidden="true"
-                      onChange={event => { void pickFile(event.target.files?.[0]); event.target.value = ''; }} />
+                    <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" className="asx-sr" tabIndex={-1} aria-hidden="true"
+                      onChange={event => { void pickFiles(event.target.files); event.target.value = ''; }} />
                     <button type="button" className="asx-icon-btn" onClick={() => fileRef.current?.click()} disabled={busy || blocked}
                       aria-label={tr("แนบรูปหรือไฟล์ PDF")} title={tr("แนบรูปหรือไฟล์ PDF")}><Paperclip size={18} /></button>
                   </>
@@ -1281,7 +1265,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                   placeholder={blocked && pendingConfirmation ? tr('พิมพ์ยืนยันหรือยกเลิกรายการ') : level === 'empty' ? (refill ? tr("โทเค็นหมด รอเติมรอบใหม่") : tr("โทเค็นที่ได้รับหมดแล้ว")) : tr("ถามเลขากระรอกได้เลย")}
                   onFocus={() => { if (mode === 'sleeping' || mode === 'greeting') setMode(draft ? 'listening' : 'awake'); }}
                   onChange={event => onDraft(event.target.value)}
-                  onPaste={event => { const pasted = event.clipboardData?.files?.[0]; if (pasted && live && !busy && !blocked) { event.preventDefault(); void pickFile(pasted); } }}
+                  onPaste={event => { const pasted = event.clipboardData?.files; if (pasted?.length && live && !busy && !blocked) { event.preventDefault(); void pickFiles(pasted); } }}
                   onKeyDown={event => { if (event.key === 'Escape' && upsell) { setUpsell(false); return; } if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !mobile) { event.preventDefault(); send(draft); } }} />
                 {voice.supported ? (
                   <button type="button" className="asx-icon-btn asx-mic" onClick={toggleMic} disabled={busy || blocked}
@@ -1289,7 +1273,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 ) : (
                   <button type="button" className="asx-icon-btn is-soon" aria-disabled="true" aria-label={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขากระรอก")} title={transport.transcribe ? tr("เบราว์เซอร์นี้ยังพูดแทนการพิมพ์ไม่ได้") : tr("ใช้เสียงได้เมื่อเชื่อมต่อเลขากระรอก")}><Mic size={18} /></button>
                 )}
-                <button type="submit" className="asx-send" disabled={busy || waiting || (blocked && !confirmationCommand(draft, messages, confirmStates)) || draft.length > MAX_MESSAGE || (!draft.trim() && !upload)} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
+                <button type="submit" className="asx-send" disabled={busy || waiting || (blocked && !confirmationCommand(draft, messages, confirmStates)) || draft.length > MAX_MESSAGE || (!draft.trim() && !uploads.length)} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
                 </>}
               </form>
               <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? (lapsed ? tr("Pro หมดอายุแล้ว ใช้โทเคนที่เหลือได้จนหมด ต่ออายุ Pro เพื่อรับโทเคนใหม่") : tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง")) : waiting ? tr("กำลังเชื่อมต่อเลขากระรอก…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก")}</p>

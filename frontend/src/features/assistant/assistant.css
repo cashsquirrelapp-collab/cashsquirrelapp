@@ -733,7 +733,12 @@ body:has(.ksm-layer) .asx.is-mobile { visibility: hidden; }
 .asx-file-chip .asx-icon-btn { width: 28px; height: 28px; }
 .asx-file-chip.is-sent { margin: 0 0 4px auto; padding: 4px 12px; border: 1px solid var(--border); background: var(--white); color: var(--muted); }
 /* Pictures as pictures: a thumbnail above the box before sending, the picture in the chat after (2026-10-24). */
-.asx-attach-row { display: flex; padding: 0 14px 8px; }
+.asx-attach-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 14px 8px; }
+/* Up to 5 files with one message (owner, 2026-10-31): the tray counts them, the sent message shows them as a small grid. */
+.asx-attach-count { align-self: flex-end; padding: 2px 8px; border-radius: 999px; background: var(--faint); color: var(--muted); font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.asx-sent-grid { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 360px; margin: 0 0 6px auto; }
+.asx-sent-grid .asx-sent-image { width: 112px; height: 112px; margin: 0; border-radius: 14px; }
+.asx-sent-grid .asx-sent-file { width: 100%; margin: 0; }
 .asx-attach-tile { position: relative; flex: none; width: 76px; height: 76px; overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--white); box-shadow: 0 6px 16px rgba(60, 40, 28, 0.1); }
 .asx-attach-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .asx-attach-remove { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: rgba(28, 25, 23, 0.72); color: #fff; cursor: pointer; }
@@ -795,6 +800,9 @@ textarea.asx-q-input { resize: vertical; min-height: 60px; line-height: 1.5; }
 .asx.is-mobile .asx-attach-tile { width: 64px; height: 64px; }
 .asx.is-mobile .asx-sent-image { width: 200px; height: 200px; }
 .asx.is-mobile .asx-sent-file { width: 220px; }
+.asx.is-mobile .asx-sent-grid { max-width: 300px; }
+.asx.is-mobile .asx-sent-grid .asx-sent-image { width: 94px; height: 94px; }
+.asx.is-mobile .asx-sent-grid .asx-sent-file { width: 100%; }
 .asx.is-mobile .asx-attach-row { padding: 0 10px 8px; }
 .asx-me-stack { display: flex; flex-direction: column; align-items: flex-end; min-width: 0; }
 .asx-me-stack .asx-bubble { min-width: 0; }

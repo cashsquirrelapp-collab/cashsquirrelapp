@@ -17,7 +17,10 @@ import { LINE_THREAD_ID, LOW_TOKENS, PAGE_HELP, SAMPLE_TOKENS, estimateTokens, p
 
 /** `context`: where the person is in the app (the floating squirrel sends the page it was opened on). */
 /** `attachment`: a picture or PDF prepared by voice.ts prepareFile (live transport only). */
-export type SendInput = { conversationId: string; text: string; history: ChatMessage[]; context?: { page: string; pageName: string }; attachment?: { name: string; mimeType: string; data: string } };
+export type SendInput = { conversationId: string; text: string; history: ChatMessage[]; context?: { page: string; pageName: string }; attachments?: { name: string; mimeType: string; data: string }[] };
+
+/** A message's files, one or several (2026-10-31), whichever way the message has them. */
+export const messageFiles = (message: Pick<ChatMessage, 'attachment' | 'attachments'>) => (message.attachments?.length ? message.attachments : message.attachment ? [message.attachment] : []);
 export type SendResult = { text: string; cards?: ChatCard[]; tokensUsed: number; memo?: string };
 export type VoiceAudio = { mimeType: 'audio/wav'; data: string };
 export type TranscriptionResult = { text: string; tokens: number; tokensLeft: number | null; trialLeft: number | null };
@@ -52,7 +55,7 @@ export function groupOf(at: number, now = Date.now()): ChatGroup {
   return gap <= 0 ? 'today' : gap === 1 ? 'yesterday' : gap < 7 ? 'week' : 'earlier';
 }
 type MemoCard = { kind: 'memo'; text: string };
-type StoredMessage = { id: string; role: 'user' | 'assistant'; text: string; at: string; cards?: (ChatCard | MemoCard)[]; attachment?: { name: string; kind: 'image' | 'pdf' } };
+type StoredMessage = { id: string; role: 'user' | 'assistant'; text: string; at: string; cards?: (ChatCard | MemoCard)[]; attachment?: { name: string; kind: 'image' | 'pdf'; files?: { name: string; kind: 'image' | 'pdf' }[] } };
 /** A stored answer's cards, with the hidden note of a file (kept as a `memo` card) taken out. */
 export function splitMemo(cards: unknown[] | undefined): { cards?: ChatCard[]; memo?: string } {
   const list = (cards ?? []) as (ChatCard | MemoCard)[];
@@ -63,7 +66,7 @@ export function splitMemo(cards: unknown[] | undefined): { cards?: ChatCard[]; m
 /** One earlier message as เลขา reads it: a file by its name, and what was read from it before the answer. */
 export function historyText(message: ChatMessage): string {
   const asked = (message.cards ?? []).flatMap(card => (card.kind === 'questions' ? card.questions.map(question => `\n- ${question.text}`) : [])).join('');
-  const file = message.from === 'me' && message.attachment ? ` [แนบไฟล์: ${message.attachment.name}]` : '';
+  const file = message.from === 'me' ? messageFiles(message).map(item => ` [แนบไฟล์: ${item.name}]`).join('') : '';
   const memo = message.from === 'bot' && message.memo ? `[อ่านจากไฟล์ที่แนบ: ${message.memo}]\n` : '';
   return `${memo}${message.text}${file}${asked}`.slice(0, 2000);
 }
@@ -165,18 +168,18 @@ export function createLiveTransport(options: { account: string; status: Assistan
     async loadMessages(conversationId) {
       const reply = await apiJson<{ messages: StoredMessage[] }>(`/api/assistant?view=conversation&id=${encodeURIComponent(conversationId)}`, { headers });
       return reply.messages.map(message => ({ id: message.id, from: message.role === 'user' ? 'me' as const : 'bot' as const, text: message.text, at: Date.parse(message.at),
-        ...splitMemo(message.cards), ...(message.attachment ? { attachment: message.attachment } : {}) }));
+        ...splitMemo(message.cards), ...(message.attachment?.files?.length ? { attachments: message.attachment.files } : message.attachment ? { attachment: { name: message.attachment.name, kind: message.attachment.kind } } : {}) }));
     },
     async send(input, onDelta, signal, onCards) {
       active(signal);
       // A questions card is part of what เลขา said, so the next answer is read against it; a file sent earlier comes
       // back as what was read from it (the file itself is never sent again).
-      const earlier = input.history.slice(0, -1).filter(message => !message.failed && (message.text.trim() || message.memo || message.attachment))
+      const earlier = input.history.slice(0, -1).filter(message => !message.failed && (message.text.trim() || message.memo || messageFiles(message).length))
         .slice(-12).map(message => ({ role: message.from === 'me' ? 'user' as const : 'assistant' as const, text: historyText(message) }))
         .filter(turn => turn.text.trim());
       let reply: LiveReply;
       try {
-        reply = await post<LiveReply>({ action: 'message', text: input.text.slice(0, 6000), history: earlier, ...(input.conversationId === LINE_THREAD_ID ? { thread: 'line' } : /^c_[0-9a-f-]{36}$/.test(input.conversationId) ? { conversationId: input.conversationId } : {}), ...(input.context ? { pageName: input.context.pageName.slice(0, 40) } : {}), ...(input.attachment ? { attachment: input.attachment } : {}) }, signal);
+        reply = await post<LiveReply>({ action: 'message', text: input.text.slice(0, 6000), history: earlier, ...(input.conversationId === LINE_THREAD_ID ? { thread: 'line' } : /^c_[0-9a-f-]{36}$/.test(input.conversationId) ? { conversationId: input.conversationId } : {}), ...(input.context ? { pageName: input.context.pageName.slice(0, 40) } : {}), ...(input.attachments?.length === 1 ? { attachment: input.attachments[0] } : input.attachments?.length ? { attachments: input.attachments } : {}) }, signal);
       } catch (error) {
         active(signal);
         const status = (error as { status?: number }).status;

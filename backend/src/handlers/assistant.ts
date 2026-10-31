@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { notifyBillingIssues } from '../services/ownerAlerts.js';
-import { ATTACHMENT_MAX_BASE64, ATTACHMENT_TYPES, checkAttachment } from '../ai/attachment.js';
+import { ATTACHMENT_MAX_BASE64, ATTACHMENT_TYPES, MAX_FILES, checkAttachments, storedAttachment } from '../ai/attachment.js';
 import { aiConfig, aiConfigFor } from '../ai/config.js';
 import { buildLineInbox, inboxReply } from '../ai/lineInbox.js';
 import { accountSnapshot } from '../repositories/accounts.js';
@@ -41,6 +41,8 @@ const actionSchema = z.discriminatedUnion('action', [
     history: z.array(turnSchema).max(12).optional(),
     pageName: z.string().trim().max(40).optional(),
     attachment: z.object({ name: z.string().max(200), mimeType: z.enum(ATTACHMENT_TYPES), data: z.string().min(4).max(ATTACHMENT_MAX_BASE64) }).strict().optional(),
+    // Up to 5 pictures or PDFs in one message (owner, 2026-10-31); `attachment` stays for an app opened before this.
+    attachments: z.array(z.object({ name: z.string().max(200), mimeType: z.enum(ATTACHMENT_TYPES), data: z.string().min(4).max(ATTACHMENT_MAX_BASE64) }).strict()).min(1).max(MAX_FILES).optional(),
     // The chat this message belongs to, kept in the account's history (2026-10-24); or the notifications thread.
     conversationId: z.string().regex(BROWSER_CONVERSATION_ID).optional(),
     thread: z.literal('line').optional(),
@@ -213,16 +215,17 @@ export default withGuard(async (req, res) => {
     return;
   }
   await rateLimit(MESSAGE_RATE.scope, user.id, MESSAGE_RATE.limit, MESSAGE_RATE.seconds);
-  const attachment = body.attachment ? checkAttachment(body.attachment) : undefined;
-  if (attachment) await rateLimit('assistant-file', user.id, 10, 600);
+  const attachments = checkAttachments(body.attachments?.length ? body.attachments : body.attachment ? [body.attachment] : []);
+  // Counted per file: 25 files in 10 minutes (five messages of five), as one file a message had 10.
+  for (let file = 0; file < attachments.length; file += 1) await rateLimit('assistant-file', user.id, 25, 600);
   const plan = await assistantPlan(user);
-  const result = await handleMessage(db, { config: requestConfigFor(plan), onBillingIssue: issues => notifyBillingIssues(issues) }, user.id, plan, { text: body.text, history: body.history, pageName: body.pageName, attachment });
+  const result = await handleMessage(db, { config: requestConfigFor(plan), onBillingIssue: issues => notifyBillingIssues(issues) }, user.id, plan, { text: body.text, history: body.history, pageName: body.pageName, ...(attachments.length ? { attachments } : {}) });
   // Kept in the account's history: the message (a file only by its name and kind) and the answer with its cards.
   // A history failure never costs the answer; before the migration runs the chat simply is not kept.
   const keepIn = body.thread === 'line' ? await inboxConversationId(user.id) : body.conversationId;
   if (keepIn) {
     await appendTurns(user.id, keepIn, [
-      { role: 'user', text: body.text, ...(attachment ? { attachment: { name: attachment.name.slice(0, 120), kind: attachment.mimeType === 'application/pdf' ? 'pdf' as const : 'image' as const } } : {}) },
+      { role: 'user', text: body.text, ...(attachments.length ? { attachment: storedAttachment(attachments) } : {}) },
       { role: 'assistant', text: result.text, ...(result.cards?.length || result.memo ? { cards: [...(result.cards ?? []), ...(result.memo ? [{ kind: 'memo' as const, text: result.memo }] : [])] } : {}) },
     ], body.thread === 'line' ? { title: 'แจ้งเตือนอัตโนมัติ', keep: INBOX_MESSAGES } : {}).catch(() => console.warn('assistant: chat history not kept'));
   }

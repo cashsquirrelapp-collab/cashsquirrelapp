@@ -19,7 +19,7 @@ import { featureNavigation } from './navigation.js';
 import { clearMemoryCommand, decideRoute, routingRecord, wherePage, type Direct, type RoutingOutcome, type RoutingRecord } from './routingPolicy.js';
 import { renameReply, renameRequest } from './rename.js';
 import { accountContext, createToolbox, toolsFor, type MemoryStore, type ProposalStore } from './tools.js';
-import { emptyUsage, partialUsageOf, ProviderError, subtractUsage, withPartialUsage, type AssistantCard, type ChatTurn, type Effort, type Provider, type ProviderName, type ProviderResult, type Route, type ToolCall, type ToolOutcome, type ToolSpec, type Usage } from './types.js';
+import { emptyUsage, partialUsageOf, ProviderError, subtractUsage, turnFiles, withPartialUsage, type AssistantCard, type ChatFile, type ChatTurn, type Effort, type Provider, type ProviderName, type ProviderResult, type Route, type ToolCall, type ToolOutcome, type ToolSpec, type Usage } from './types.js';
 import type { VaultLoader } from './vaultQueries.js';
 import { offerLine, offerState } from './bridge.js';
 import { styleReply } from './replyStyle.js';
@@ -59,7 +59,9 @@ export interface AssistantRequest {
   history?: ChatTurn[];
   hasAttachment?: boolean;
   /** A picture or PDF with this message (checked by attachment.ts); it goes to the action model. */
-  attachment?: { name: string; mimeType: string; data: string };
+  attachment?: ChatFile;
+  /** Up to 5 pictures or PDFs with this message (owner, 2026-10-31). */
+  attachments?: ChatFile[];
   pendingConfirmation?: boolean;
   pageName?: string;
   channel?: 'app' | 'line';
@@ -232,7 +234,8 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // with it (2026-10-24: the owner's address and tax ID, sent after Sonnet asked for the quotation's issuer, went to
   // Gemini and came back empty).
   const policy = config.routingPolicy ?? 'v2';
-  const hasFile = request.hasAttachment || Boolean(request.attachment);
+  const sentFiles = turnFiles(request);
+  const hasFile = request.hasAttachment || sentFiles.length > 0;
   const decision = decideRoute({ text: request.text, history: request.history, hasAttachment: hasFile, pendingConfirmation: request.pendingConfirmation }, policy);
   const smartReady = Boolean(config.smartModel && keys[providerFor(config.smartModel)]);
   // Soft budget (cost brief, phase 7): past this share of the app's daily cap nothing optional calls Sonnet: no step
@@ -251,11 +254,13 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   }
 
   // The file in the chat: this message's, else the latest one named in the recent history (" [แนบไฟล์: name]").
-  const recentFile = [...(request.history ?? []).slice(-6)].reverse().map(turn => / \[แนบไฟล์: ([^\]\n]{1,160})\]/.exec(turn.text)?.[1]).find(Boolean);
-  const attachmentName = request.attachment?.name || recentFile || '';
+  // Several files in one message (2026-10-31): every name of this message's, else of the latest message that had files.
+  const recentFiles = [...(request.history ?? []).slice(-6)].reverse().map(turn => [...turn.text.matchAll(/ \[แนบไฟล์: ([^\]\n]{1,160})\]/g)].map(match => match[1])).find(names => names.length) ?? [];
+  const attachmentNames = sentFiles.length ? sentFiles.map(file => file.name) : recentFiles;
+  const attachmentName = attachmentNames[0] || '';
   const toolbox = createToolbox({ user: request.user, proposals: deps.proposals, memory: deps.memory, loadVaultFiles: deps.loadVaultFiles, now: deps.now,
-    isAdmin: request.plan === 'admin', requestText: request.text, hasAttachment: Boolean(request.attachment), accountName: request.accountName, channel: request.channel,
-    attachmentName });
+    isAdmin: request.plan === 'admin', requestText: request.text, hasAttachment: sentFiles.length > 0, accountName: request.accountName, channel: request.channel,
+    attachmentName, attachmentNames });
   const memos: string[] = [];
   const signals: KnowledgeSignal[] = detectSignals(request.text, request.history);
   const calls: ModelCall[] = [];
@@ -429,7 +434,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // Every other message keeps exactly the existing prompt, tools and cost.
   const accounting = accountingEnabled(config.accounting, request.plan) ? selectAccountingReference(request.text, request.history) : undefined;
   const context = accountContext(request.user, deps.now, request.access);
-  const turns: ChatTurn[] = [...trimHistory(request.history), { role: 'user', text: request.text.slice(0, MAX_MESSAGE_CHARS), ...(request.attachment ? { attachment: request.attachment } : {}) }];
+  const turns: ChatTurn[] = [...trimHistory(request.history), { role: 'user', text: request.text.slice(0, MAX_MESSAGE_CHARS), ...(sentFiles.length ? { attachments: sentFiles } : {}) }];
   const recentUser = (request.history ?? []).filter(turn => turn.role === 'user').slice(-4).map(turn => turn.text);
   const files = hasFile || (request.history ?? []).slice(-12).some(turn => FILE_MARK.test(turn.text))
     || decision.intent === 'payment' || [request.text, ...recentUser.slice(-2)].some(text => MONEY_IN.test(text));
@@ -660,8 +665,8 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
 }
 
 /** The routing log of a request that failed before an answer (the service saves it with the released usage row). */
-export function failedRouting(request: Pick<AssistantRequest, 'text' | 'history' | 'hasAttachment' | 'attachment' | 'pendingConfirmation'>, config: AiConfig, error: unknown, latencyMs: number): RoutingRecord {
-  const decision = decideRoute({ text: request.text, history: request.history, hasAttachment: request.hasAttachment || Boolean(request.attachment), pendingConfirmation: request.pendingConfirmation }, config.routingPolicy ?? 'v2');
+export function failedRouting(request: Pick<AssistantRequest, 'text' | 'history' | 'hasAttachment' | 'attachment' | 'attachments' | 'pendingConfirmation'>, config: AiConfig, error: unknown, latencyMs: number): RoutingRecord {
+  const decision = decideRoute({ text: request.text, history: request.history, hasAttachment: request.hasAttachment || turnFiles(request).length > 0, pendingConfirmation: request.pendingConfirmation }, config.routingPolicy ?? 'v2');
   const name = (error as Error | undefined)?.name;
   const issue = billingIssueOf(error);
   const kind = issue ? `billing_${issue}` : error instanceof AiUnavailableError ? `unavailable_${error.reason}`

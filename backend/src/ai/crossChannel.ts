@@ -15,7 +15,7 @@ export interface ChannelTurn {
   role: 'user' | 'assistant';
   text: string;
   cards?: { kind: string; id?: string; title?: string; text?: string; questions?: { text: string }[] }[];
-  attachment?: { name: string } | null;
+  attachment?: { name: string; files?: { name: string }[] } | null;
 }
 
 // Words that ask the user something (the routing policy's signals, without its "- question" lines).
@@ -37,7 +37,8 @@ export function turnText(turn: ChannelTurn): string {
   const memo = turn.role === 'assistant' ? (turn.cards ?? []).find(card => card.kind === 'memo' && card.text)?.text : undefined;
   const asked = (turn.cards ?? []).flatMap(card => (card.kind === 'questions' ? (card.questions ?? []).map(question => `\n- ${question.text}`) : [])).join('');
   const cards = turn.role === 'assistant' ? (turn.cards ?? []).filter(card => card.kind === 'confirm').map(card => `\n[การ์ดรอยืนยัน: ${card.title ?? 'รายการ'}]`).join('') : '';
-  const file = turn.role === 'user' && turn.attachment?.name ? ` [แนบไฟล์: ${turn.attachment.name}]` : '';
+  const names = turn.attachment?.files?.length ? turn.attachment.files.map(file => file.name) : turn.attachment?.name ? [turn.attachment.name] : [];
+  const file = turn.role === 'user' ? names.map(name => ` [แนบไฟล์: ${name}]`).join('') : '';
   return `${memo ? `[อ่านจากไฟล์ที่แนบ: ${memo}]\n` : ''}${turn.text}${file}${asked}${cards}`;
 }
 

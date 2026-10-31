@@ -4,7 +4,7 @@ import type { PreparedFile } from './voice';
 // vault (owner, 2026-10-31: "ส่งสลิปเข้าแชท แล้วน้องแนบเข้าโปรเจกต์นั้นได้เลย"). Nothing is stored: after a reload the card
 // asks for the file again.
 
-const KEEP = 8;
+const KEEP = 15;
 const files: PreparedFile[] = [];
 
 export function rememberChatFile(file: PreparedFile): void {

@@ -12,7 +12,7 @@ import type { PromptSlots } from './prompt.js';
 import { applyCardEdit, cardForStoredProposal, cardValue, createToolbox, EDITABLE_FIELDS, type MemoryStore, type Proposal, type ProposalStore } from './tools.js';
 import { learnedPairs, learnFromConfirmed, mergePairs, pairFromCardEdit, type CorrectionDomain, type LearnPair } from './learning.js';
 import type { KnowledgeSignal } from './signals.js';
-import { ProviderError, type AssistantCard, type ChatTurn, type Provider, type ProviderName } from './types.js';
+import { ProviderError, turnFiles, type AssistantCard, type ChatFile, type ChatTurn, type Provider, type ProviderName } from './types.js';
 import type { VaultFile } from '../../../shared/vault.js';
 import { bulkDeleteChanges, isDeleteAll, proposalBaseVersion, proposalChanges, proposalTarget } from './proposals.js';
 import { documentPath } from './documentActions.js';
@@ -199,7 +199,7 @@ export async function usageStatus(db: AssistantDb, config: AiConfig, userId: str
   };
 }
 
-export interface MessageInput { text: string; history?: ChatTurn[]; pageName?: string; channel?: 'app' | 'line'; attachment?: { name: string; mimeType: string; data: string } }
+export interface MessageInput { text: string; history?: ChatTurn[]; pageName?: string; channel?: 'app' | 'line'; attachment?: ChatFile; attachments?: ChatFile[] }
 export interface MessageDeps {
   config: AiConfig; providers?: Partial<Record<ProviderName, Provider>>; fetchImpl?: typeof fetch; now?: Date; signal?: AbortSignal;
   /** A provider answered with a billing problem (out of credit, billing, over quota): tell the owner at once. Best effort. */
@@ -221,7 +221,7 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
   // now, instead of being started and cut off. Sonnet requests can reach about $0.12 (a first-of-the-hour cache write).
   if (reserved.spentTodayUsd !== undefined && config.dailyCostCapUsd > 0) {
     const smartPossible = Boolean(config.smartModel && config.anthropicKey)
-      && decideRoute({ text: input.text, history: input.history, hasAttachment: Boolean(input.attachment) }, config.routingPolicy ?? 'v2').tier === 'smart';
+      && decideRoute({ text: input.text, history: input.history, hasAttachment: turnFiles(input).length > 0 }, config.routingPolicy ?? 'v2').tier === 'smart';
     const worst = smartPossible ? 0.12 : 0.02;
     if (reserved.spentTodayUsd + worst > config.dailyCostCapUsd) {
       await db.settle({ userId, requestId, tokens: 0, costUsd: 0, model: null, route: null, promptVersion: null, release: true }).catch(() => undefined);
@@ -272,13 +272,13 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
         return count;
       },
     };
-    selected = selectMemories(memories, input.text, undefined, { hasAttachment: Boolean(input.attachment) });
+    selected = selectMemories(memories, input.text, undefined, { hasAttachment: turnFiles(input).length > 0 });
     // Package E: a task left unfinished in the other channel continues here (crossChannel.ts).
     const lineState = user.notif_settings as { chatHistory?: { role: 'user' | 'assistant'; text: string }[]; chatHistoryUpdatedAt?: string } | undefined;
     const lineTurns = (lineState?.chatHistory ?? []).map(turn => ({ role: turn.role, text: String(turn.text || '') }));
     const appTurns = appRecent?.turns ?? [];
-    const goAhead = GO_AHEAD.test(input.text.trim()) && !input.attachment;
-    const askAgain = !goAhead && CARD_AGAIN.test(input.text.trim()) && !input.attachment;
+    const goAhead = GO_AHEAD.test(input.text.trim()) && !turnFiles(input).length;
+    const askAgain = !goAhead && CARD_AGAIN.test(input.text.trim()) && !turnFiles(input).length;
     // The cards still waiting, read only when they matter: for a typed go-ahead, a "send the card again", or when the
     // other channel ended on a card.
     const pending = db.pendingProposals && (goAhead || askAgain || mentionsCard((channel === 'line' ? appTurns : lineTurns).at(-1)))
@@ -323,7 +323,7 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
         text: done ? `ทำรายการให้แล้ว ${done} รายการครับ${list}${failed ? `\nอีก ${failed} รายการยังทำไม่ได้ ตรวจรายละเอียดบนการ์ดแล้วกดยืนยันได้เลย` : ''}`
           : 'รายการที่รอยืนยันทำต่อไม่ได้แล้วครับ ขอให้เลขาเตรียมใหม่ได้เลย',
         routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'go_ahead_applied', outcome: 'direct', proposal_ids: cards.map(card => (card as { id: string }).id) }) };
-    } else if (channel === 'app' && !input.attachment && quickKind(input.text, input.history)) {
+    } else if (channel === 'app' && !turnFiles(input).length && quickKind(input.text, input.history)) {
       // "กำลังดำเนินการ" / "รอรับเงิน" (the window's buttons, or typed in the app; LINE has its own quick replies): the
       // list from the account's jobs, no model, no tokens.
       const kind = quickKind(input.text, input.history)!;
@@ -333,7 +333,7 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
     } else {
     const tokensLeft = limits.tokenLimit === null ? undefined : Math.max(0, limits.tokenLimit - reserved.usedTokens + RESERVE_TOKENS);
     reply = await runAssistant({
-      user, plan, text: input.text, history, pageName: input.pageName, channel: input.channel, attachment: input.attachment,
+      user, plan, text: input.text, history, pageName: input.pageName, channel: input.channel, attachments: turnFiles(input),
       // The account's name, never a remembered nickname: an old "เรียกผมว่า…" kept winning over a newer one.
       accountName: accountName ?? undefined, communicationProfile: selected.communicationProfile, memories: selected.memories,
       trialLeft: limits.requestLimit === null ? undefined : Math.max(0, limits.requestLimit - reserved.usedRequests),

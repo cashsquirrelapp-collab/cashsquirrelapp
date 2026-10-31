@@ -1,4 +1,4 @@
-import { ProviderError, addUsage, emptyUsage, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult } from '../types.js';
+import { ProviderError, addUsage, emptyUsage, fileLabel, turnFiles, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult } from '../types.js';
 
 // OpenAI through the Responses API with fetch (no SDK). store: false, so OpenAI keeps no conversation state
 // (our own database holds the history); include reasoning.encrypted_content so the model's reasoning can be
@@ -10,11 +10,14 @@ export const openaiProvider: Provider = {
   name: 'openai',
   async run(request: ProviderRequest): Promise<ProviderResult> {
     const fetchImpl = request.fetchImpl ?? fetch;
-    const input: unknown[] = request.turns.map(turn => (turn.attachment && turn.role === 'user'
+    const input: unknown[] = request.turns.map(turn => (turnFiles(turn).length && turn.role === 'user'
       ? { role: 'user', content: [
-        turn.attachment.mimeType === 'application/pdf'
-          ? { type: 'input_file', filename: turn.attachment.name, file_data: `data:application/pdf;base64,${turn.attachment.data}` }
-          : { type: 'input_image', image_url: `data:${turn.attachment.mimeType};base64,${turn.attachment.data}` },
+        ...turnFiles(turn).flatMap((file, index, all) => [
+          ...(all.length > 1 ? [{ type: 'input_text', text: fileLabel(index, file.name) }] : []),
+          file.mimeType === 'application/pdf'
+            ? { type: 'input_file', filename: file.name, file_data: `data:application/pdf;base64,${file.data}` }
+            : { type: 'input_image', image_url: `data:${file.mimeType};base64,${file.data}` },
+        ]),
         { type: 'input_text', text: turn.text },
       ] }
       : { role: turn.role, content: turn.text }));

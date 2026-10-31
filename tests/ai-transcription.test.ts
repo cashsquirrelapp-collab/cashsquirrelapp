@@ -214,7 +214,8 @@ test('shared Express/Cloudflare router accepts maximum WAV JSON size, still requ
     const maxBody = Buffer.from(JSON.stringify({ action: 'transcribe', audio: audio(VOICE_MAX_SECONDS), language: 'th-TH' }));
     assert.ok(maxBody.length > 5_000_000);
     assert.equal(await call(maxBody), 401, 'body reached authentication rather than failing the upload parser');
-    assert.equal(await call(Buffer.alloc(6 * 1024 * 1024 + 1)), 413);
+    // The assistant takes up to 12 MB since up to 5 files go in one message (2026-10-31).
+    assert.equal(await call(Buffer.alloc(12 * 1024 * 1024 + 1)), 413);
   } finally {
     for (const key of keys) if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
   }

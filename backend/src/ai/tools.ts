@@ -214,6 +214,8 @@ export function accountContext(user: UserRow, now = new Date(), access?: { perio
 export interface ToolContext { user: UserRow; proposals: ProposalStore; memory: MemoryStore; loadVaultFiles?: VaultLoader; now?: Date; isAdmin?: boolean; requestText?: string; hasAttachment?: boolean;
   /** The name of the file in the chat (this message's, else the latest one): the attach card shows it. */
   attachmentName?: string;
+  /** Every file of this message (several since 2026-10-31): attach_file names one of them. */
+  attachmentNames?: string[];
   /** The name on the account (the rename card shows it); the channel, since LINE has no form. */
   accountName?: string; channel?: 'app' | 'line';
   /** Lessons from fields the user changed on a card (reviseProposal only); saved with the card, learned on confirm. */
@@ -426,7 +428,7 @@ export function createToolbox(context: ToolContext) {
       }
       return outcome;
     }
-    if (isVaultTool(call.name)) return executeVaultTool(call.name, args, user, loadVaultFiles, context.now, context.attachmentName);
+    if (isVaultTool(call.name)) return executeVaultTool(call.name, args, user, loadVaultFiles, context.now, context.attachmentName, context.attachmentNames);
     if (isPastWorkTool(call.name)) return executePastWork(args, user);
     if (isDocumentActionTool(call.name)) return executeDocumentAction(call.name, args, context);
     if (isRecordActionTool(call.name)) return executeRecordAction(call.name, args, context);

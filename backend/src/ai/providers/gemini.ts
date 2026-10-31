@@ -1,4 +1,4 @@
-import { ProviderError, addUsage, emptyUsage, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult, type ToolSpec } from '../types.js';
+import { ProviderError, addUsage, emptyUsage, fileLabel, turnFiles, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult, type ToolSpec } from '../types.js';
 
 // Gemini through its REST API with fetch (no SDK, so the Worker bundle stays small).
 // POST /v1beta/models/{model}:generateContent, key in the x-goog-api-key header.
@@ -22,8 +22,8 @@ export const geminiProvider: Provider = {
     const fetchImpl = request.fetchImpl ?? fetch;
     const contents: Content[] = request.turns.map(turn => ({
       role: turn.role === 'assistant' ? 'model' : 'user',
-      // A picture or PDF goes first as inline data, then the words about it.
-      parts: [...(turn.attachment ? [{ inlineData: { mimeType: turn.attachment.mimeType, data: turn.attachment.data } }] : []), { text: turn.text }],
+      // Pictures and PDFs go first as inline data (each named when there are several), then the words about them.
+      parts: [...turnFiles(turn).flatMap((file, index, all) => [...(all.length > 1 ? [{ text: fileLabel(index, file.name) }] : []), { inlineData: { mimeType: file.mimeType, data: file.data } }]), { text: turn.text }],
     }));
     let usage = emptyUsage();
     const toolCalls: ProviderResult['toolCalls'] = [];
