@@ -13,7 +13,7 @@ import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { Physics2DPlugin } from 'gsap/Physics2DPlugin';
 import { Draggable } from 'gsap/Draggable';
-import { Bell, Briefcase, FileCheck2, FolderArchive, Bug, Camera, Check, CircleHelp, Clapperboard, CodeXml, Coins, FileText, Globe, GraduationCap, Instagram, Lightbulb, Mail, Music2, NotebookPen, PenLine, PenTool, Plus, Video, Wallet } from 'lucide-react';
+import { Bell, BookOpen, Briefcase, FileCheck2, FolderArchive, Bug, Camera, Check, CircleHelp, Clapperboard, CodeXml, Coins, FileText, Globe, GraduationCap, Instagram, Lightbulb, Mail, Music2, NotebookPen, PenLine, PenTool, Plus, Video, Wallet } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { Mascot } from '../../../components/mascot/Mascot';
 import { LineLogo } from '../../../components/ui/LineLogo';
@@ -972,6 +972,7 @@ export default function CleanLanding() {
             <ul>
               <li><button type="button" onClick={() => setHelp('bug')}><Bug size={16} aria-hidden="true" />{tr('แจ้งปัญหา / เสนอไอเดีย')}</button></li>
               <li><button type="button" onClick={() => setHelp('general')}><CircleHelp size={16} aria-hidden="true" />{tr('ส่งความคิดเห็นทั่วไป')}</button></li>
+              <li><a href="/guides"><BookOpen size={16} aria-hidden="true" />{tr('ความรู้เรื่องงานและเงิน')}</a></li>
             </ul>
           </div>
         </div>

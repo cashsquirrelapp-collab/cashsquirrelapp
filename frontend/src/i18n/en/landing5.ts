@@ -157,4 +157,12 @@ export const landing5: Record<string, string> = {
   'กรุณากรอกหัวข้อและรายละเอียดให้ครบ แล้วลองส่งอีกครั้ง': 'Please fill in the subject and details, then send again.',
   'ตอนนี้ยังรับเรื่องจากหน้าเว็บไม่ได้ กรุณาลองใหม่ภายหลัง หรืออีเมลหาเรา': 'Reports from this page can’t be received right now. Please try later, or email us.',
   'ไฟล์นี้ไม่ใช่ภาพ PNG, JPG หรือ WebP': 'This file is not a PNG, JPG or WebP picture.',
+  // guides (/guides, 2026-10-31)
+  'ความรู้เรื่องงานและเงิน': 'Guides to work and money',
+  'ทำได้ในกระรอกตุนเงิน': 'What you can do in Krarok',
+  'อ่านบทความ': 'Read the guide',
+  'อ่านต่อ': 'Read next',
+  'อัปเดตล่าสุด {0}': 'Last updated {0}',
+  'ตำแหน่งของหน้านี้': 'Where this page is',
+  'คู่มือเหล่านี้เขียนสำหรับประเทศไทย จึงเป็นภาษาไทย': 'These guides are written for Thailand, so they are in Thai.',
 };

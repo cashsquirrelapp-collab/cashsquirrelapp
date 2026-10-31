@@ -1,4 +1,5 @@
 import { HERO } from './founderStory.js';
+import { GUIDES, GUIDES_INDEX, GUIDES_PATH, guideByPath } from './guides.js';
 
 // What search engines and link previews read for each public page (owner, 2026-10-31: "ทำเลย", with the home page's
 // title and description in the owner's own words). The Worker writes these into the page head when it serves the page
@@ -8,6 +9,8 @@ export const SITE_URL = 'https://krarok.com';
 export const SITE_NAME = 'Krarok';
 export const SITE_ALTERNATE_NAMES = ['กระรอกตุนเงิน', 'Krarok Tunngern'];
 const LOGO = `${SITE_URL}/brand/home-v2/home-icon-512.png`;
+/** The picture LINE, Facebook and others show with a shared link (1200×630, the logo, the owner's line and the mascot). */
+export const SHARE_IMAGE = { url: `${SITE_URL}/og/krarok-share.png`, width: 1200, height: 630 };
 
 const HOME_DESCRIPTION = 'จัดการงานและการเงินอย่างชาญฉลาด พร้อมเลขากระรอก ผู้ช่วยส่วนตัวที่ช่วยทำงานแทนคุณ ติดตามเงินค้างรับ แจ้งเตือนเครดิตเทอมอัตโนมัติ และออกเอกสารได้ง่ายในที่เดียว';
 
@@ -17,6 +20,8 @@ export const SEO_PAGES: Record<string, SeoPage> = {
   '/': { title: 'Krarok กระรอกตุนเงิน | ให้ทุกเรื่องงานและเงิน ง่ายขึ้นในที่เดียว', description: HOME_DESCRIPTION },
   '/founder': { title: 'เรื่องราวจากผู้ก่อตั้ง | Krarok', description: HERO.lead.th },
   '/login': { title: 'เข้าสู่ระบบ | Krarok', description: HOME_DESCRIPTION },
+  [GUIDES_PATH]: { title: GUIDES_INDEX.seoTitle, description: GUIDES_INDEX.description },
+  ...Object.fromEntries(GUIDES.map(guide => [guide.path, { title: guide.seoTitle, description: guide.description }])),
 };
 
 export const seoPage = (path: string): SeoPage | undefined => Object.prototype.hasOwnProperty.call(SEO_PAGES, path) ? SEO_PAGES[path] : undefined;
@@ -39,7 +44,19 @@ export function seoHead(path: string): string {
     `<meta property="og:description" content="${escape(page.description)}" />`,
     `<meta property="og:url" content="${url}" />`,
     '<meta property="og:locale" content="th_TH" />',
+    `<meta property="og:image" content="${SHARE_IMAGE.url}" />`,
+    `<meta property="og:image:width" content="${SHARE_IMAGE.width}" />`,
+    `<meta property="og:image:height" content="${SHARE_IMAGE.height}" />`,
+    '<meta name="twitter:card" content="summary_large_image" />',
   ];
+  const guide = guideByPath(path);
+  if (guide) {
+    // A guide is an article from the site, dated, for search engines that show articles.
+    const data = { '@context': 'https://schema.org', '@type': 'Article', headline: guide.title, description: guide.description, inLanguage: 'th',
+      datePublished: '2026-10-31', dateModified: '2026-10-31', image: SHARE_IMAGE.url, mainEntityOfPage: url,
+      author: { '@type': 'Organization', name: SITE_NAME, url: `${SITE_URL}/` }, publisher: { '@type': 'Organization', name: SITE_NAME, logo: { '@type': 'ImageObject', url: LOGO } } };
+    tags.push(`<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`);
+  }
   if (path === '/') {
     const data = [
       { '@context': 'https://schema.org', '@type': 'WebSite', name: SITE_NAME, alternateName: SITE_ALTERNATE_NAMES, url: `${SITE_URL}/` },

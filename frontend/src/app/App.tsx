@@ -119,6 +119,7 @@ const ImportWizard = lazy(() => import('../features/import/ImportWizard').then(m
 const MotionStudy = import.meta.env.DEV ? lazy(() => import('../features/marketing/landing/study/MotionStudy')) : null;
 // The founder's story (owner, 2026-10-31): a public page, signed in or not.
 const FounderStory = lazy(() => import('../features/marketing/v5/FounderStory'));
+const Guides = lazy(() => import('../features/marketing/v5/Guides'));
 import { fireMascot } from '../mascotBus';
 import { leafBus } from '../leafBus';
 import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
@@ -2988,6 +2989,7 @@ export default function App() {
 
   if (MotionStudy && pathname === '/motion-study') return <Suspense fallback={null}><MotionStudy /></Suspense>;
   if (pathname === '/founder') return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><FounderStory /></Suspense>;
+  if (pathname === '/guides' || pathname.startsWith('/guides/')) return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><Guides /></Suspense>;
   if (loadingSession) {
     // A refresh by someone who was signed in: lay out the app's skeleton straight away (the page
     // they are on, with the sidebar) instead of a blank screen. First visits keep the loader.
