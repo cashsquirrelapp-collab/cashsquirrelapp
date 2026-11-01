@@ -28,6 +28,12 @@ export function formatMonthlyMoney(amount: number): string {
   return `${rounded < 0 ? '−' : ''}฿ ${Math.abs(rounded).toLocaleString('th-TH', { maximumFractionDigits: 2 })}`;
 }
 
+/** The line under the monthly figures, shared by the LINE card and the monthly email so both say the same. */
+export function monthlyProfitNote(): string {
+  // Goals are not open to every account yet, so the note mentions them only once they launch.
+  return isPhaseOneFeatureAvailable('split', false) ? 'กำไรของเดือนนี้ ก่อนแบ่งออมเข้าเป้าหมาย' : 'รายรับที่ได้จริง หักรายจ่ายของเดือนนี้';
+}
+
 export function buildLineCashSummary(options: {
   title: string;
   monthLabel: string;
@@ -45,8 +51,7 @@ export function buildLineCashSummary(options: {
     // Net profit is the headline, on the coloured band; income and expenses are the rows under it.
     metric: { label: 'กำไรสุทธิ', value: formatMonthlyMoney(monthly.netProfit), note: 'รายรับ − รายจ่าย' },
     body,
-    // Goals are not open to every account yet, so the note mentions them only once they launch.
-    note: isPhaseOneFeatureAvailable('split', false) ? 'กำไรของเดือนนี้ ก่อนแบ่งออมเข้าเป้าหมาย' : 'รายรับที่ได้จริง หักรายจ่ายของเดือนนี้',
+    note: monthlyProfitNote(),
     footer: options.footer,
     altText: `${options.title} (${monthLabel}) · รายรับ ${formatMonthlyMoney(monthly.received)} · รายจ่ายรวม ${formatMonthlyMoney(monthly.totalExpense)} · กำไรสุทธิ ${formatMonthlyMoney(monthly.netProfit)}`,
   });

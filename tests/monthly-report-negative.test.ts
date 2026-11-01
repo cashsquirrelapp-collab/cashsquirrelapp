@@ -25,14 +25,18 @@ const summary: MonthlySummary = {
 };
 
 // LINE shows the same three numbers as the app's overview since package 26 (formal cards, 2026-10-22): received,
-// total expenses and net profit (4,000 − 8,000 = −4,000), the loss in the card's header. The email and the Excel file
-// keep the net cash flow after the money moved to savings goals (−5,000). Either way a loss stays negative.
+// total expenses and net profit (4,000 − 8,000 = −4,000), the loss in the card's header. Since 2026-11-01 the email and
+// the Excel file show those same numbers too (they used to show the cash flow after goal transfers, −5,000, which did
+// not match the LINE card). A loss stays negative everywhere.
 const headerRow = (card: any, label: string) => card.contents.header.contents.flatMap((item: any) => item.contents ?? [])
   .find((item: any) => item.contents?.[0]?.text === label);
 
-test('scheduled report outputs preserve a negative net cash flow', () => {
-  const expected = '฿ -5,000';
-  assert.match(buildReportHtml('กันยายน 2569', summary), new RegExp(expected));
+test('scheduled report outputs show the same negative net profit everywhere', () => {
+  const html = buildReportHtml('กันยายน 2569', summary);
+  assert.match(html, /กำไรสุทธิ[\s\S]*−฿ 4,000/);
+  assert.match(html, /รายรับ[\s\S]*฿ 4,000/);
+  assert.match(html, /รายจ่ายรวม[\s\S]*−?฿ 8,000/);
+  assert.doesNotMatch(html, /-5,000|−฿ 5,000|NET CASH FLOW|ยอดออม/);
   assert.match(buildReportLineText('กันยายน 2569', summary, null), /กำไรสุทธิ: −฿ 4,000/);
 
   const flex = buildReportFlexMessage('กันยายน 2569', summary, null) as any;
@@ -40,7 +44,13 @@ test('scheduled report outputs preserve a negative net cash flow', () => {
 
   const workbook = XLSX.read(Buffer.from(buildMonthlyExcelBase64('กันยายน 2569', summary, [], []), 'base64'), { type: 'buffer' });
   const rows = XLSX.utils.sheet_to_json<(string | number)[]>(workbook.Sheets['สรุปเดือน'], { header: 1 });
-  assert.deepEqual(rows.find(row => row[0] === 'กระแสเงินสดสุทธิคงเหลือ'), ['กระแสเงินสดสุทธิคงเหลือ', -5_000]);
+  assert.deepEqual(rows.slice(1), [
+    ['รายรับ', 4_000],
+    ['รายจ่ายประจำ', 3_000],
+    ['รายจ่ายทั่วไป', 5_000],
+    ['รายจ่ายรวม', 8_000],
+    ['กำไรสุทธิ (รายรับ − รายจ่าย)', -4_000],
+  ]);
 });
 
 test('LINE assistant context and monthly summary card preserve the same shortfall', () => {

@@ -21,7 +21,7 @@
   // Scheduled jobs run here since 2026-10-22 (owner approved): the Vercel deployment that ran them is
   // paused. 01:00 UTC = 08:00 Bangkok digest (and the monthly report on the 1st); 02:00 UTC = 09:00
   // closing of accounts past their deletion date. The 50 ทวิ reminder is hidden (cloudflare/schedule.ts).
-  "triggers": { "crons": ["0 1 * * *", "5 1 * * *", "0,30 1-10 1-3 * *", "2,32 1-10 1-3 * *", "0 2 * * *"] },
+  "triggers": { "crons": ["0 1 * * *", "5 1 * * *", "0 1-10 1-3 * *", "2 1-10 1-3 * *", "0 2 * * *"] },
   "assets": {
     "directory": "./build/frontend",
     "binding": "ASSETS",

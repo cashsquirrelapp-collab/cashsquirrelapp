@@ -14,9 +14,7 @@
 //                      promotion-month card renewals moved to ฿271 before their first December renewal
 // The 50 ทวิ reminder is back since the owner launched the page (2026-10-31: "ใบ 50 ทวิ แจ้งเตือนได้ด้วย"): to accounts
 // that turned it on in Settings (Pro, LINE linked).
-// TEMPORARY (owner, 2026-11-01 13:12: "เอาส่งตอนนี้เลย"): the monthly and profit triggers also run at :30/:32 today so the
-// October reports go out at 13:30; back to :00/:02 right after.
-export const CRONS = ['0 1 * * *', '5 1 * * *', '0,30 1-10 1-3 * *', '2,32 1-10 1-3 * *', '0 2 * * *'] as const;
+export const CRONS = ['0 1 * * *', '5 1 * * *', '0 1-10 1-3 * *', '2 1-10 1-3 * *', '0 2 * * *'] as const;
 const MONTHLY_DAYS = 3;
 
 export function scheduledPaths(cron: string, scheduledTime: number): string[] {
@@ -27,8 +25,8 @@ export function scheduledPaths(cron: string, scheduledTime: number): string[] {
   switch (cron) {
     case '0 1 * * *': return ['/api/send-overdue-digest'];
     case '5 1 * * *': return ['/api/check-ai-credit'];
-    case '0,30 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-monthly-report', '/api/send-wht50-reminder'] : [];
-    case '2,32 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-admin-profit-report'] : [];
+    case '0 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-monthly-report', '/api/send-wht50-reminder'] : [];
+    case '2 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-admin-profit-report'] : [];
     case '0 2 * * *': return ['/api/close-expired-accounts', '/api/setup-line-richmenu', '/api/advance-card-renewals'];
     default: return [];
   }

@@ -6,9 +6,9 @@ import { runScheduledJobs } from '../migration/scheduled-runner.js';
 // 2026-11-01: every 08:00 job ran in one Worker invocation and shared its 50 outgoing requests (Workers Free); the
 // overdue digest used most of them and the four jobs after it failed. Each trigger is now its own invocation, and the
 // monthly jobs run hourly on the 1st–3rd, each sending once per account and month.
-const MONTHLY = '0,30 1-10 1-3 * *';
+const MONTHLY = '0 1-10 1-3 * *';
 const MONTHLY_JOBS = ['/api/send-monthly-report', '/api/send-wht50-reminder'];
-const PROFIT = '2,32 1-10 1-3 * *';
+const PROFIT = '2 1-10 1-3 * *';
 
 test('the monthly jobs all run even when an earlier one fails', async () => {
   const paths = scheduledPaths(MONTHLY, Date.parse('2026-11-01T01:00:00Z'));

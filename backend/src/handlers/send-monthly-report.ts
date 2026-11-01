@@ -8,13 +8,15 @@ import { patchPrivate } from '../repositories/accounts.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import * as XLSX from 'xlsx';
 import { supabaseAdmin } from '../config/supabase.js';
+import { appOrigin } from '../config/env.js';
 import { sendGmailEmailOutcome } from '../services/gmail.js';
 import { sendLineMessageToEmailOutcome } from '../services/line.js';
 import { attemptDelivery, notificationOutcomeCounts, recordChannelOutcome, type DeliveryOutcome } from '../services/notificationOutcome.js';
 import type { LineMessage } from '../services/line.js';
-import { lineAppLink } from '../services/lineCards.js';
-import { buildLineCashSummary, formatMonthlyMoney } from '../services/lineCashSummary.js';
+import { lineAppLink, LINE_CARD_COLORS, LINE_CARD_THEMES } from '../services/lineCards.js';
+import { buildLineCashSummary, formatMonthlyMoney, monthlyProfitNote } from '../services/lineCashSummary.js';
 import { monthlyProfitSummary } from '../../../shared/monthlySummary.js';
+import { roundMoney } from '../../../shared/wht.js';
 import { formatMonthKey } from '../../../shared/calendar.js';
 import {
   JobRow,
@@ -26,7 +28,6 @@ import {
   jobsInMonth,
   expensesInMonth,
   computeMonthlySummary,
-  formatCurrency,
 } from '../services/monthlySummary.js';
 
 
@@ -45,41 +46,65 @@ function targetMonthKey(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+// The email is the LINE card in email form (owner, 2026-11-01: the email's net profit and amounts did not match the
+// LINE card): the same three numbers (รายรับ, รายจ่ายรวม, กำไรสุทธิ = รายรับ − รายจ่าย), the same words and the same CI
+// band with the official symbol and the report mascot. Email clients get tables and inline styles; where a client
+// drops the gradient, the band keeps its solid brand colour.
+function emailOrigin(): string | null {
+  try { return appOrigin(); } catch { return null; }
+}
+
 export function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
-  const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
-  const netFlowColor = s.netFlow < 0 ? '#B91C1C' : '#3730A3';
-  return `
-  <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#3D2314;">
-    <span style="display:inline-block;background:#ECFDF5;color:#059669;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:6px;">MONTHLY FINANCIAL REPORT</span>
-    <h2 style="color:#059669;margin:12px 0 4px;">สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}</h2>
-    <table style="width:100%;border-collapse:collapse;margin-top:16px;">
-      <tr>
-        <td style="width:50%;padding:16px;background:#ECFDF5;border-radius:12px 0 0 12px;text-align:center;">
-          <div style="font-size:11px;color:#059669;font-weight:bold;">รายรับจริง (RECEIVED)</div>
-          <div style="font-size:22px;color:#047857;font-weight:900;margin-top:4px;">${formatCurrency(s.received)}</div>
-        </td>
-        <td style="width:50%;padding:16px;background:#FEF2F2;border-radius:0 12px 12px 0;text-align:center;">
-          <div style="font-size:11px;color:#DC2626;font-weight:bold;">รายจ่ายและงบประจำ</div>
-          <div style="font-size:22px;color:#B91C1C;font-weight:900;margin-top:4px;">${formatCurrency(totalExpense)}</div>
-        </td>
-      </tr>
-    </table>
-    <div style="margin-top:12px;padding:16px;background:#EEF2FF;border-radius:12px;text-align:center;">
-      <div style="font-size:11px;color:#4338CA;font-weight:bold;">กระแสเงินสดสุทธิคงเหลือ (NET CASH FLOW)</div>
-      <div style="font-size:26px;color:${netFlowColor};font-weight:900;margin-top:4px;">${formatCurrency(s.netFlow)}</div>
-    </div>
-    <div style="margin-top:20px;padding:16px;background:#FDF6EC;border-radius:12px;">
-      <div style="font-size:12px;font-weight:bold;color:#3D2314;margin-bottom:8px;">รายละเอียดการเงินแยกตามส่วน</div>
-      <table style="width:100%;font-size:13px;">
-        <tr><td style="padding:4px 0;color:#7A5C43;">มูลค่ารวมสัญญาดีลทั้งหมด</td><td style="padding:4px 0;text-align:right;font-weight:bold;">${formatCurrency(s.income)}</td></tr>
-        <tr><td style="padding:4px 0;color:#7A5C43;">ยอดโอนรับแล้วจริง</td><td style="padding:4px 0;text-align:right;font-weight:bold;color:#059669;">${formatCurrency(s.received)}</td></tr>
-        <tr><td style="padding:4px 0;color:#7A5C43;">หัก ค่าใช้จ่ายคงที่รายเดือน</td><td style="padding:4px 0;text-align:right;font-weight:bold;color:#DC2626;">${formatCurrency(s.fixedExpenseCalculated)}</td></tr>
-        <tr><td style="padding:4px 0;color:#7A5C43;">ค่าใช้จ่ายผันแปร</td><td style="padding:4px 0;text-align:right;font-weight:bold;color:#DC2626;">${formatCurrency(s.variableExpense)}</td></tr>
-        <tr><td style="padding:4px 0;color:#7A5C43;">ยอดออมสะสมโดยประมาณ</td><td style="padding:4px 0;text-align:right;font-weight:bold;">${formatCurrency(s.actualSavings)}</td></tr>
-      </table>
-    </div>
-    <p style="color:#7A5C43;font-size:12px;margin-top:24px;">แนบไฟล์ Excel สรุปรายรับ-รายจ่ายของเดือนนี้มาด้วยแล้ว ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
-  </div>`;
+  const monthly = monthlyProfitSummary(s);
+  const C = LINE_CARD_COLORS;
+  const band = LINE_CARD_THEMES.brand;
+  const origin = emailOrigin();
+  const page = isPhaseOneFeatureAvailable('report', false) ? { path: '/report', label: 'ดูรายงานในแอป' } : { path: '/dashboard', label: 'ดูภาพรวมในแอป' };
+  const soft = 'rgba(255,255,255,0.85)';
+  const faint = 'rgba(255,255,255,0.7)';
+  const symbol = origin ? `<img src="${origin}/brand/logo01-v1/symbol-white.png" alt="" width="18" height="18" style="vertical-align:middle;margin-right:6px;border:0" />` : '';
+  const mascot = origin ? `<td valign="bottom" width="80" style="width:80px;padding:0;"><img src="${origin}/line/mascot-v6-report.png" alt="" width="80" height="80" style="display:block;border:0" /></td>` : '';
+  const row = (label: string, value: string, color: string, caption?: string) => `
+            <tr>
+              <td style="padding:8px 0;font-size:14px;line-height:1.5;color:${C.muted};">${label}${caption ? `<div style="font-size:12px;line-height:1.5;">${caption}</div>` : ''}</td>
+              <td align="right" valign="top" style="padding:8px 0;font-size:17px;line-height:1.5;font-weight:700;color:${color};white-space:nowrap;">${value}</td>
+            </tr>`;
+  return `<!doctype html>
+<html lang="th"><body style="margin:0;padding:24px 12px;background:${C.subtle};font-family:'Noto Sans Thai',Arial,sans-serif;color:${C.text};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${C.white};border:1px solid ${C.border};border-radius:18px;overflow:hidden;border-collapse:separate;">
+    <tr>
+      <td style="padding:20px 20px 0;background-color:${band.center};background-image:linear-gradient(120deg,${band.start},${band.center} 55%,${band.end});color:${C.white};">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="font-size:13px;line-height:1.5;font-weight:700;color:${C.white};">${symbol}กระรอกตุนเงิน</td>
+            <td align="right"><span style="display:inline-block;padding:3px 10px;border-radius:10px;background:rgba(255,255,255,0.18);font-size:11px;line-height:1.5;font-weight:700;color:${C.white};">รายงาน</span></td>
+          </tr>
+        </table>
+        <div style="margin-top:16px;font-size:19px;line-height:1.45;font-weight:700;color:${C.white};">สรุปการเงินประจำเดือน</div>
+        <div style="font-size:13px;line-height:1.5;color:${soft};">${monthLabel}</div>
+        <div style="height:1px;line-height:1px;font-size:0;margin:16px 0 12px;background:rgba(255,255,255,0.22);">&nbsp;</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td valign="bottom" style="padding:0 0 20px;">
+              <div style="font-size:13px;line-height:1.5;color:${soft};">กำไรสุทธิ</div>
+              <div style="font-size:29px;line-height:1.45;font-weight:700;color:${C.white};">${formatMonthlyMoney(monthly.netProfit)}</div>
+              <div style="font-size:12px;line-height:1.5;color:${faint};">รายรับ − รายจ่าย</div>
+            </td>${mascot}
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:14px 20px 20px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${row('รายรับ', formatMonthlyMoney(monthly.received), C.positive)}${row('รายจ่ายรวม', formatMonthlyMoney(monthly.totalExpense), C.negative, 'ประจำ + ทั่วไป')}
+        </table>
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid ${C.border};font-size:12px;line-height:1.6;color:${C.muted};">${monthlyProfitNote()}</div>${origin ? `
+        <a href="${origin}${page.path}" style="display:block;margin-top:20px;padding:12px 16px;border-radius:10px;background:${C.accent};color:${C.white};text-align:center;text-decoration:none;font-size:14px;line-height:1.5;font-weight:700;">${page.label}</a>` : ''}
+      </td>
+    </tr>
+  </table>
+  <p style="max-width:480px;margin:16px auto 0;font-size:12px;line-height:1.6;color:${C.muted};">แนบไฟล์ Excel สรุปรายรับและรายจ่ายของเดือนนี้มาด้วยแล้ว ตัวเลขชุดเดียวกับการ์ดสรุปใน LINE และหน้าภาพรวมในแอป ปิดการส่งสรุปนี้ได้ที่หน้าตั้งค่าในแอป</p>
+</body></html>`;
 }
 
 // Same income, total expenses and profit as the dashboard. downloadUrl is null when
@@ -145,14 +170,15 @@ async function uploadReportAndGetLink(userId: string, monthKey: string, excelBas
 // Same 3-sheet shape as the Tax tab's Excel export (src/components/TaxTab.tsx handleExportExcel),
 // scoped to just the target month instead of a whole tax year.
 export function buildMonthlyExcelBase64(monthLabel: string, s: MonthlySummary, jobs: JobRow[], expenses: ExpenseRow[]): string {
+  // The same figures as the email and the LINE card, with the two kinds of expense that make up the total.
+  const monthly = monthlyProfitSummary(s);
   const summaryRows: (string | number)[][] = [
-    [`สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`, ''],
-    ['มูลค่ารวมสัญญาดีลทั้งหมด', s.income],
-    ['ยอดโอนรับแล้วจริง', s.received],
-    ['หัก ค่าใช้จ่ายคงที่รายเดือน', s.fixedExpenseCalculated],
-    ['ค่าใช้จ่ายผันแปร', s.variableExpense],
-    ['กระแสเงินสดสุทธิคงเหลือ', s.netFlow],
-    ['ยอดออมสะสมโดยประมาณ', s.actualSavings]
+    [`สรุปการเงินประจำเดือน ${monthLabel}`, ''],
+    ['รายรับ', monthly.received],
+    ['รายจ่ายประจำ', roundMoney(s.fixedExpenseCalculated)],
+    ['รายจ่ายทั่วไป', roundMoney(s.variableExpense)],
+    ['รายจ่ายรวม', monthly.totalExpense],
+    ['กำไรสุทธิ (รายรับ − รายจ่าย)', monthly.netProfit]
   ];
 
   const incomeHeaders = [
@@ -206,7 +232,7 @@ async function sendReportEmail(
 ): Promise<DeliveryOutcome> {
   return sendGmailEmailOutcome(
     to,
-    `[กระรอกตุนเงิน] สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
+    `[กระรอกตุนเงิน] สรุปการเงินประจำเดือน ${monthLabel}`,
     buildReportHtml(monthLabel, summary),
     [
       {
