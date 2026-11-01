@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { GUIDES } from '../../shared/guides';
 import { textOverlapIssues } from './textOverlap';
 
 // Guides (owner, 2026-10-31): /guides lists three guides, each guide is a page of its own, readable at every size, light,
@@ -26,7 +27,7 @@ for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]] as const) {
   test(`${width}px: the guide list shows three guides and opens each one`, async ({ page }) => {
     await open(page, '/guides', { width, height });
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('ความรู้เรื่องงานและเงิน สำหรับฟรีแลนซ์และธุรกิจเล็ก');
-    await expect(page.locator('.gd-cards .gd-card')).toHaveCount(3);
+    await expect(page.locator('.gd-cards .gd-card')).toHaveCount(GUIDES.length);
     await expect(page).toHaveTitle('ความรู้เรื่องงานและเงิน สำหรับฟรีแลนซ์ | กระรอกตุนเงิน');
     await noOverlapWhileScrolling(page);
     await page.locator('.gd-card', { hasText: '50 ทวิ' }).click();
@@ -35,13 +36,13 @@ for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]] as const) {
   });
 
   for (const [path, heading] of [['/guides/quotation', 'วิธีออกใบเสนอราคาให้ลูกค้าตัดสินใจง่าย'], ['/guides/wht-50-tawi', '50 ทวิ คืออะไร ฟรีแลนซ์ต้องเก็บไว้ทำอะไร'],
-    ['/guides/receivables', 'ติดตามเงินค้างรับอย่างไร ไม่ให้ลืมและไม่เสียลูกค้า']] as const) {
+    ['/guides/receivables', 'ติดตามเงินค้างรับอย่างไร ไม่ให้ลืมและไม่เสียลูกค้า'], ['/guides/freelance-accounting', 'ทำบัญชีฟรีแลนซ์ง่าย ๆ ด้วยเว็บทำบัญชีออนไลน์']] as const) {
     test(`${width}px ${path}: the whole guide, the box of what Krarok does, the next guides, nothing overlapping`, async ({ page }) => {
       await open(page, path, { width, height });
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(heading);
       await expect(page.getByRole('link', { name: 'ความรู้เรื่องงานและเงิน' }).first()).toHaveAttribute('href', '/guides');
       await expect(page.locator('.gd-krarok').first()).toBeVisible();
-      await expect(page.locator('.gd-related .gd-card')).toHaveCount(2);
+      await expect(page.locator('.gd-related .gd-card')).toHaveCount(GUIDES.length - 1);
       await expect(page.getByRole('link', { name: 'เริ่มใช้ฟรี' }).last()).toHaveAttribute('href', '/login');
       await noOverlapWhileScrolling(page);
     });
@@ -60,7 +61,7 @@ test('the 50 ทวิ guide shows the rate table with its note', async ({ page 
 
 test('a guide that does not exist shows the list', async ({ page }) => {
   await open(page, '/guides/nothing-here');
-  await expect(page.locator('.gd-cards .gd-card')).toHaveCount(3);
+  await expect(page.locator('.gd-cards .gd-card')).toHaveCount(GUIDES.length);
 });
 
 test('English: a note says the guides are in Thai, nothing overlapping', async ({ page }) => {

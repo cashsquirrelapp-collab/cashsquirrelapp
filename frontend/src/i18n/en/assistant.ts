@@ -379,6 +379,7 @@ export const assistant: Record<string, string> = {
   // Official website cards (Accounting Brain, 2026-10-26).
   "เปิดเว็บไซต์": "Open website",
   "ทำในเว็บนี้": "What to do there",
+  "แหล่งอ้างอิง": "Sources",
   // The floating window on computers and iPads (2026-10-26).
   "ย่อหน้าต่าง": "Minimise",
   "เปิดแชตเต็มได้เมื่อเลขากระรอกทำรายการนี้เสร็จ": "The full chat opens once the assistant has finished this",

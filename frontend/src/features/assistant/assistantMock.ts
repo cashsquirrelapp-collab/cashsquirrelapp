@@ -40,7 +40,9 @@ export type RenameCard = { kind: 'rename'; current: string; suggested: string };
 /** Keep the file sent in the chat in the document vault, with a job or an expense (2026-10-31). */
 export type AttachCard = { kind: 'attach'; id: string; fileKind: 'wht50' | 'contract' | 'expense' | 'other'; fileName: string;
   jobId?: string; jobName?: string; client?: string; expenseId?: string; expenseName?: string };
-export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard | AttachCard;
+/** The web pages an answer cites (2026-11-01: "แปะลิงก์อ้างอิงช่วงท้าย"), from the search provider's citations (server-checked). */
+export type SourcesCard = { kind: 'sources'; items: { title: string; url: string }[] };
+export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard | AttachCard | SourcesCard;
 
 /** `failed` + `question`: a send that did not go through, kept so it can be retried. */
 /** `attachment`: the name and kind of a file sent with the message (the file itself is not kept). */

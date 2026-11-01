@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { addUsage, emptyUsage, fileLabel, ProviderError, turnFiles, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult } from '../types.js';
+import { addUsage, emptyUsage, fileLabel, ProviderError, turnFiles, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult, type WebSource } from '../types.js';
 
 // Claude through Anthropic's official SDK, for the model comparison the owner asked for (2026-10-24: "ลองเทียบให้ดู").
 // Production stays on Gemini until the owner chooses a model (AI_CHAT_MODEL / AI_ACTION_MODEL).
@@ -14,6 +14,28 @@ const EFFORT = { minimal: 'low', low: 'low', medium: 'medium' } as const;
 // 2,400, action 1,200 → 4,800; the longest answer measured on 2026-10-24 used 1,261). One call can no longer write
 // 8,000 tokens ($0.08), which the per-message ceiling could not stop.
 const maxTokensFor = (visibleCap: number) => Math.min(8000, Math.max(2000, visibleCap * 4));
+
+/** With web search, the answer is the text after the last search result; a line said before searching ("ขอค้นก่อนนะครับ")
+ *  is not part of it. Without a search in the reply, all of its text. */
+function answerText(content: Anthropic.Beta.BetaContentBlock[], web: boolean): string {
+  const all = (blocks: Anthropic.Beta.BetaContentBlock[]) => blocks.filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === 'text').map(block => block.text).join('').trim();
+  if (!web) return all(content);
+  let last = -1;
+  content.forEach((block, at) => { if (block.type === 'server_tool_use' || /_tool_result$/.test(block.type)) last = at; });
+  return (last >= 0 ? all(content.slice(last + 1)) : '') || all(content);
+}
+
+/** The pages an answer's text blocks cite (web search), each URL once, http(s) only. */
+function citedPages(content: Anthropic.Beta.BetaContentBlock[], into: WebSource[]): void {
+  for (const block of content) {
+    if (block.type !== 'text' || !block.citations) continue;
+    for (const citation of block.citations) {
+      if (citation.type !== 'web_search_result_location' || !/^https?:\/\//i.test(citation.url)) continue;
+      if (into.some(page => page.url === citation.url)) continue;
+      into.push({ title: (citation.title || '').trim() || new URL(citation.url).hostname, url: citation.url });
+    }
+  }
+}
 
 type Block = Anthropic.Beta.BetaContentBlockParam;
 
@@ -52,9 +74,19 @@ export const anthropicProvider: Provider = {
     const system: Anthropic.Beta.BetaTextBlockParam[] = at > 0
       ? [{ type: 'text', text: request.system.slice(0, at), ...(shared ? { cache_control: shared } : {}) }, { type: 'text', text: request.system.slice(at) }]
       : [{ type: 'text', text: request.system, ...(shared ? { cache_control: shared } : {}) }];
-    const tools: Anthropic.Beta.BetaTool[] = request.tools.map(tool => ({
+    const tools: Anthropic.Beta.BetaToolUnion[] = request.tools.map(tool => ({
       name: tool.name, description: tool.description, input_schema: tool.parameters as unknown as Anthropic.Beta.BetaTool.InputSchema,
     }));
+    // Outside facts (owner, 2026-11-01: tax and money questions answered from outside sources, with links): Anthropic's own
+    // web search, last in the list so the client tools before it read the same, searched on Bangkok time. Called directly,
+    // not through code filtering: measured 2026-11-01 on the same question, the direct search answered in 6 s for USD 0.046
+    // with its page cited, the filtered one in 19 s for USD 0.064 with no citation (the answer read code output).
+    if (request.webSearch) {
+      tools.push({ type: 'web_search_20260318', name: 'web_search', max_uses: request.webSearch.maxUses, allowed_callers: ['direct'],
+        // Thailand's country code is not accepted for search location (API answer, 2026-11-01): the time zone only.
+        user_location: { type: 'approximate', timezone: 'Asia/Bangkok' } });
+    }
+    const sources: WebSource[] = [];
     const messages: Anthropic.Beta.BetaMessageParam[] = request.turns.map(turn => (
       turn.role === 'user' ? { role: 'user', content: userContent(turn) } : { role: 'assistant', content: turn.text }
     ));
@@ -68,7 +100,8 @@ export const anthropicProvider: Provider = {
     // The model that actually answered, as Anthropic reports it (a declined request can be finished by a fallback).
     let answeredBy = request.model;
     const done = (text: string, steps: number, stoppedAt?: 'max_steps' | 'budget', closed?: boolean): ProviderResult =>
-      ({ provider: 'anthropic', model: answeredBy, text, usage, toolCalls, cards, handoff, steps, ...(stoppedAt ? { stoppedAt } : {}), ...(closed ? { closed } : {}) });
+      ({ provider: 'anthropic', model: answeredBy, text, usage, toolCalls, cards, handoff, steps, ...(stoppedAt ? { stoppedAt } : {}), ...(closed ? { closed } : {}),
+        ...(sources.length ? { sources: sources.slice(0, 5) } : {}) });
 
     for (let step = 1; ; step += 1) {
       let response: Anthropic.Beta.BetaMessage;
@@ -95,17 +128,22 @@ export const anthropicProvider: Provider = {
         thinkingTokens: 0,
         cacheWriteTokens: u.cache_creation_input_tokens || 0,
         cacheWrite1hTokens: u.cache_creation?.ephemeral_1h_input_tokens || 0,
+        webSearches: u.server_tool_use?.web_search_requests || 0,
         // The shared rules were written (not read) this round: their part of the 5-minute write.
         ...(sharedEstimate && (u.cache_read_input_tokens || 0) < sharedEstimate / 2
           ? { sharedWrite5mTokens: Math.min(sharedEstimate, u.cache_creation?.ephemeral_5m_input_tokens ?? Math.max(0, (u.cache_creation_input_tokens || 0) - (u.cache_creation?.ephemeral_1h_input_tokens || 0))) } : {}),
       });
       if (response.stop_reason === 'refusal') return done('ขออภัยครับ เรื่องนี้ผมช่วยไม่ได้', step);
       messages.push({ role: 'assistant', content: response.content as unknown as Block[] });
-      const calls = response.content.filter((block): block is Anthropic.Beta.BetaToolUseBlock => block.type === 'tool_use');
-      if (!calls.length || handoff) {
-        const text = response.content.filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === 'text').map(block => block.text).join('').trim();
-        return done(text, step);
+      citedPages(response.content, sources);
+      // A long search turn can pause on the server: the same request goes on from where it stopped (the paused turn is
+      // already the last message), as one more paid round within the step limit.
+      if (response.stop_reason === 'pause_turn') {
+        if (step >= maxSteps || request.overBudget?.(usage)) return done('', step, step >= maxSteps ? 'max_steps' : 'budget');
+        continue;
       }
+      const calls = response.content.filter((block): block is Anthropic.Beta.BetaToolUseBlock => block.type === 'tool_use');
+      if (!calls.length || handoff) return done(answerText(response.content, Boolean(request.webSearch)), step);
       // Every tool result goes back in one user message, so the model keeps calling tools together.
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       let ended = false;

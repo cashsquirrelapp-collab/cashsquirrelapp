@@ -37,6 +37,9 @@ export interface RoutingDecision extends Assessment {
   /** Short code saved with the request: why this model. */
   reason: string;
   direct?: Direct;
+  /** A question about facts outside the app (tax rules, rates, deadlines, official steps): Sonnet may search the web and
+   *  cite its sources (webResearch). */
+  web?: boolean;
 }
 export interface RouteInput { text: string; history?: ChatTurn[]; hasAttachment?: boolean; pendingConfirmation?: boolean }
 
@@ -141,6 +144,28 @@ export function assessMessage(input: RouteInput): Assessment {
   return result('chat', 'read', 'low');
 }
 
+// ---------- facts from outside the app ----------
+// Owner, 2026-11-01: "ค้นหาข้อมูลด้านนอก ... ข้อมูลเกี่ยวกับการเงิน หรือการยื่นภาษี ... แปะลิงก์อ้างอิงช่วงท้าย". A question about
+// how things work outside the app: Thai tax rules and filing, social security, VAT, rates, laws and official steps, or
+// an explicit ask to look something up or for sources. Questions about the user's own records or about the app never
+// count (the app's data and knowledge answer those).
+const WEB_TOPIC = /(ลดหย่อน|ยื่นภาษี|ยื่นแบบ|ภ\.?\s?ง\.?\s?ด|ภงด|เงินได้พึงประเมิน|40\s*\(\s*[1-8]\s*\)|อัตราภาษี|ขั้นบันได|สรรพากร|ภาษีมูลค่าเพิ่ม|จด\s*vat|จด\s*แวต|จดทะเบียน(?:ภาษี|บริษัท|ห้าง|พาณิชย์)|ประกันสังคม|มาตรา\s*(?:39|40)|กองทุน|\bssf\b|\brmf\b|thai\s*esg|ดอกเบี้ย|เงินเฟ้อ|อัตราแลกเปลี่ยน|e-?filing|e-?tax|e-?withholding|กฎหมาย|ประกาศกรม|พระราชกฤษฎีกา|กำหนดยื่น|เส้นตาย|เดดไลน์|คืนภาษี|ค่าปรับ|เงินเพิ่ม|ภาษีป้าย|ภาษีที่ดิน|ภาษีธุรกิจเฉพาะ|อากรแสตมป์|เสียภาษี|ภาษีเงินได้|tax\s+(?:return|deduction|rate|law|filing))/i;
+const WEB_ASK = /(ค้นหา(?:ข้อมูล)?(?:ให้|หน่อย|จาก)|ค้นเว็บ|ค้นในเน็ต|หาข้อมูล|เสิร์ช|search the web|look (?:it )?up|แหล่งอ้างอิง|อ้างอิงจาก|แหล่งที่มา|แหล่งข้อมูล|ขอลิงก์|มีลิงก์|ข่าว|\bsources?\b|\breferences?\b)/i;
+// The user's own records: their jobs, clients, documents or totals in this app ("งานนี้หักภาษีเท่าไร").
+const OWN_RECORDS = /(งานนี้|งานของ(?:ฉัน|ผม|เรา|หนู|กู)|ลูกค้า(?:คนนี้|รายนี้|ของ)|ใบนี้|ในแอป|ในระบบ|ของฉัน|ของผม|ของเรา|ของกู|เดือนนี้(?:ได้|มี|รับ)|ยอดของ|บันทึก|เพิ่มงาน|รายการล่าสุด)/;
+
+/** A question the web can answer better than the app's own knowledge (see above). */
+export function webResearch(text: string, assessed: Assessment): boolean {
+  if (WRITES.has(assessed.intent) && !assessed.asking) return false;
+  if (['memory', 'import', 'external', 'file'].includes(assessed.intent)) return false;
+  if (OWN_RECORDS.test(text) || (ABOUT_APP.test(text) && !WEB_ASK.test(text))) return false;
+  // "จ่ายประกันสังคมแล้ว 750" or "ยื่นภาษีแล้วนะ" tells what happened; it asks nothing.
+  if (/แล้ว/.test(text) && !assessed.asking && !WEB_ASK.test(text) && !/(อะไร|ยังไง|อย่างไร|เท่าไ|กี่|ไหม|มั้ย|[?？])/.test(text)) return false;
+  // A tax or money rule named in a message that changes nothing is a request for that information ("อัตราภาษีขั้นบันไดปี 2568").
+  if (WEB_TOPIC.test(text)) return true;
+  return WEB_ASK.test(text) && ANALYSIS_TOPIC.test(text);
+}
+
 // ---------- answers without a model ----------
 const TRAILING = /(?:\s|[?？!.]|ครับผม|ครับ|คับ|ค่ะ|คะ|ค่า|นะ|จ้า|จ้ะ|ฮะ|หรอ|เหรอ|อะ|อ่ะ|หน่อย|เอ่ย)+$/;
 type PageKey = keyof typeof PAGES;
@@ -242,6 +267,8 @@ function decide(input: RouteInput, policy: RoutingPolicy, withHistory = false): 
     if (renameRequest(input.text)) return make('light', 'direct_rename', false, { direct: 'rename' });
   }
   if (assessed.context === 'file') return make('smart', 'file', assessed.risk !== 'read');
+  // Facts from outside the app: Sonnet, which can search the web and cite its pages (no data changes on this route).
+  if (!input.pendingConfirmation && webResearch(input.text, assessed)) return make('smart', 'web_research', false, { web: true });
   if (assessed.intent === 'document') return make('smart', 'document', true);
   if (assessed.intent === 'delete') return make('smart', 'delete', true);
   if (assessed.intent === 'update' && assessed.complexity !== 'low') return make('smart', 'important_edit', true);
@@ -287,6 +314,8 @@ export interface RoutingRecord {
   billing?: ('anthropic_credit' | 'gemini_billing' | 'gemini_quota')[];
   /** What the confidentiality check took out of the answer (confidentiality.ts); never the words themselves. */
   guard?: ('model' | 'internal' | 'secret')[];
+  /** Web searches run for this request (decision.web), and how many pages the answer cited. */
+  web?: { searches: number; sources: number };
 }
 
 export function routingRecord(decision: RoutingDecision, extra: Partial<RoutingRecord> = {}): RoutingRecord {

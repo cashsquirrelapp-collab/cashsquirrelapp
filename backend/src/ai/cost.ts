@@ -13,6 +13,9 @@ export const PRICES: Record<string, { input: number; cachedInput: number; output
   'claude-sonnet-5-5': { input: 2, cachedInput: 0.1, output: 10 },
 };
 const FALLBACK = { input: 2.5, cachedInput: 0.25, output: 15 };
+/** Anthropic's web search: USD 10 per 1,000 searches on top of the tokens (platform.claude.com/docs web search tool,
+ * checked 2026-11-01); a search that fails is not billed and is not counted. */
+export const WEB_SEARCH_USD = 0.01;
 
 /**
  * Gemini reports thinking separately from the answer (both billed as output); OpenAI's output count already
@@ -25,7 +28,8 @@ export function costUsd(provider: ProviderName, model: string, usage: Usage): nu
   // Claude bills the tokens written to its prompt cache at 1.25× input for 5 minutes and 2× for an hour (the 1× is
   // already in `fresh`).
   const cacheWrite = (usage.cacheWriteTokens || 0) * price.input * 0.25 + (usage.cacheWrite1hTokens || 0) * price.input * 0.75;
-  return (fresh * price.input + usage.cachedInputTokens * price.cachedInput + output * price.output + cacheWrite) / 1_000_000;
+  return (fresh * price.input + usage.cachedInputTokens * price.cachedInput + output * price.output + cacheWrite) / 1_000_000
+    + (usage.webSearches || 0) * WEB_SEARCH_USD;
 }
 
 /** Krarok Tokens for a request: its real cost divided by the configured rate, rounded up, at least 1. */

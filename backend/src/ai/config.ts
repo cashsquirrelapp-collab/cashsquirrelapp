@@ -47,6 +47,8 @@ export interface AiConfig {
   requestCostLimitUsd: number;
   /** Share of dailyCostCapUsd after which optional Sonnet use stops (soft alert); the cap itself is the hard stop. */
   softBudgetShare: number;
+  /** Web searches Sonnet may run for one outside-facts question (routingPolicy.webResearch); 0 turns web search off. */
+  webSearchMaxUses: number;
   /** Accounting Brain & Tax Navigator (ai/accounting): 'admin' while it is checked (default), 'all' or 'off'. */
   accounting?: 'off' | 'admin' | 'all';
 }
@@ -100,6 +102,9 @@ export function aiConfig(env: Record<string, string | undefined> = process.env):
     lightFallbackWrites: env.AI_LIGHT_FALLBACK_WRITES?.trim().toLowerCase() === 'true',
     requestCostLimitUsd: num(env.AI_REQUEST_COST_LIMIT_USD, 0.3, 0.05, 5),
     softBudgetShare: num(env.AI_SOFT_BUDGET_SHARE, 0.8, 0.1, 1),
+    // Owner, 2026-11-01: tax and money questions answered from outside sources with links. Two searches at most (USD 0.01
+    // each, paid from the user's tokens like the rest of the answer).
+    webSearchMaxUses: Math.floor(num(env.AI_WEB_SEARCH_MAX_USES, 2, 0, 5)),
     accounting: (['off', 'admin', 'all'] as const).find(mode => mode === env.AI_ACCOUNTING?.trim().toLowerCase()) ?? 'admin',
   };
 }

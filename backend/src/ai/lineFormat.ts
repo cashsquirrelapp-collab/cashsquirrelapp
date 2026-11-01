@@ -168,6 +168,12 @@ function cardMessage(card: AssistantCard): LineMessage | null {
     if (!site || !isOfficialUrl(site.url)) return null;
     return { type: 'text', text: `${site.title} (${site.org})\n${site.description}\nทำอะไร: ${site.todo}\n${site.url}` } as LineMessage;
   }
+  if (card.kind === 'sources') {
+    // The pages a web answer cited (the provider's citations, checked in gateway.webSources): LINE links them by itself.
+    const pages = card.items.filter(page => /^https?:\/\//i.test(page.url)).slice(0, 5);
+    if (!pages.length) return null;
+    return { type: 'text', text: ['แหล่งอ้างอิง', ...pages.map((page, at) => `${at + 1}. ${page.title}\n${page.url}`)].join('\n') } as LineMessage;
+  }
   if (card.kind === 'navigation') {
     // The issuing navigation tool already checked the account's feature rights. Resolve the exact path
     // again against that server-owned catalog; neither model-provided labels nor arbitrary URLs are trusted.

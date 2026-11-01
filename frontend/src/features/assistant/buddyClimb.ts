@@ -60,7 +60,8 @@ export function speechPreview(markdown: string, max = 84): string {
 /** An answer that is only a card (a LINE summary, a document, a draft to confirm) is said from the card: LINE's own
  *  one-line banner text, or the card's main facts. */
 export function cardSpeech(cards?: ChatCard[]): string {
-  const card = cards?.find(item => item.kind !== 'navigation') ?? cards?.[0];
+  // A sources card only accompanies an answer's text; it is never what the answer says.
+  const card = cards?.find(item => item.kind !== 'navigation' && item.kind !== 'sources') ?? cards?.find(item => item.kind !== 'sources');
   if (!card) return '';
   switch (card.kind) {
     case 'line': return card.card.alt || card.card.title;

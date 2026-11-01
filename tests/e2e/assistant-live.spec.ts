@@ -208,6 +208,40 @@ test('live: official website cards open official sites in a new tab, and nothing
   await page.screenshot({ path: testInfo.outputPath('official-link-card.png') });
 });
 
+// Web answers (2026-11-01: "แปะลิงก์อ้างอิงช่วงท้าย"): the cited pages sit under the answer as numbered links that open in a
+// new tab; an address that is not http(s) never becomes a link. Checked on a computer and on a phone.
+for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
+  test(`live: a web answer shows its sources as numbered links (${size.name})`, async ({ page }, testInfo) => {
+    await open(page, { reply: body => (body.action === 'message' ? { status: 200, json: {
+      text: 'ฟรีแลนซ์ลดหย่อนได้หลายรายการ เช่น ค่าลดหย่อนส่วนตัว ประกันสังคม และกองทุนที่ลดหย่อนได้ ตามเงื่อนไขของปีภาษีนั้นครับ', route: 'chat', tokens: 40, tokensLeft: 950, trialLeft: null,
+      cards: [{ kind: 'sources', items: [
+        { title: 'ค่าลดหย่อนภาษีเงินได้บุคคลธรรมดา ปีภาษี 2568 | กรมสรรพากร ข้อมูลสำหรับผู้มีเงินได้ทุกประเภท รวมฟรีแลนซ์และผู้รับจ้างอิสระ', url: 'https://www.rd.go.th/59670.html' },
+        { title: 'สิทธิประโยชน์ผู้ประกันตนมาตรา 40', url: 'https://www.sso.go.th/wpr/main/privilege' },
+        { title: 'ลิงก์อันตราย', url: 'javascript:alert(1)' },
+      ] }],
+    } } : { status: 200, json: { cancelled: true } }) });
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await ask(page, 'ฟรีแลนซ์ลดหย่อนภาษีอะไรได้บ้าง');
+    const card = page.locator('.asx-rcard.is-sources');
+    await expect(card).toHaveCount(1);
+    await expect(card.locator('.asx-rcard-head')).toHaveText('แหล่งอ้างอิง');
+    const links = card.getByRole('link');
+    await expect(links).toHaveCount(2);
+    await expect(links.first()).toHaveAttribute('href', 'https://www.rd.go.th/59670.html');
+    await expect(links.first()).toHaveAttribute('target', '_blank');
+    await expect(links.first()).toHaveAttribute('rel', /noopener/);
+    await expect(card.locator('.asx-source-n')).toHaveText(['1', '2']);
+    await expect(card).toContainText('rd.go.th');
+    await expect(card).toContainText('sso.go.th');
+    await expect(card).not.toContainText('ลิงก์อันตราย');
+    await card.scrollIntoViewIfNeeded();
+    const box = await card.boundingBox();
+    expect(box && box.x >= 0 && box.x + box.width <= size.width).toBeTruthy();
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath(`sources-card-${size.name}.png`) });
+  });
+}
+
 test('live: a connection failure keeps the retry state', async ({ page }) => {
   await open(page, { reply: () => ({ status: 503, json: { error: 'เลขากระรอกตอบไม่ทันในตอนนี้ กรุณาลองใหม่อีกครั้ง', code: 'ai_provider' } }) });
   await ask(page, 'สวัสดี');

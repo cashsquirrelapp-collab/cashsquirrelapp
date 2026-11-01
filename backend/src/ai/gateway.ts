@@ -19,7 +19,7 @@ import { featureNavigation } from './navigation.js';
 import { clearMemoryCommand, decideRoute, routingRecord, wherePage, type Direct, type RoutingOutcome, type RoutingRecord } from './routingPolicy.js';
 import { renameReply, renameRequest } from './rename.js';
 import { accountContext, createToolbox, toolsFor, type MemoryStore, type ProposalStore } from './tools.js';
-import { emptyUsage, partialUsageOf, ProviderError, subtractUsage, turnFiles, withPartialUsage, type AssistantCard, type ChatFile, type ChatTurn, type Effort, type Provider, type ProviderName, type ProviderResult, type Route, type ToolCall, type ToolOutcome, type ToolSpec, type Usage } from './types.js';
+import { emptyUsage, partialUsageOf, ProviderError, subtractUsage, turnFiles, withPartialUsage, type AssistantCard, type ChatFile, type ChatTurn, type Effort, type Provider, type ProviderName, type ProviderResult, type Route, type ToolCall, type ToolOutcome, type ToolSpec, type Usage, type WebSource } from './types.js';
 import type { VaultLoader } from './vaultQueries.js';
 import { offerLine, offerState } from './bridge.js';
 import { styleReply } from './replyStyle.js';
@@ -221,6 +221,22 @@ function trimHistory(history: ChatTurn[] = []): ChatTurn[] {
 /** A file was sent earlier in the chat (routingPolicy.ts keeps the rule; exported here for earlier importers). */
 export { FILE_MARK } from './routingPolicy.js';
 
+/** Cited pages fit to show: http(s) only, no credentials in the address, each address once, five at most, short titles. */
+export function webSources(pages: readonly WebSource[] | undefined): WebSource[] {
+  const out: WebSource[] = [];
+  for (const page of pages ?? []) {
+    let url: URL;
+    try { url = new URL(page.url); } catch { continue; }
+    if (!/^https?:$/.test(url.protocol) || url.username || url.password) continue;
+    const href = url.toString();
+    if (out.some(item => item.url === href)) continue;
+    const title = String(page.title || '').replace(/\s+/g, ' ').trim().slice(0, 140) || url.hostname;
+    out.push({ title, url: href });
+    if (out.length === 5) break;
+  }
+  return out;
+}
+
 export async function runAssistant(request: AssistantRequest, deps: AssistantDependencies): Promise<AssistantReply> {
   const started = Date.now();
   const { config } = deps;
@@ -293,6 +309,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
         failed_attempt_usd: round(sum(call => (call.failed ? call.costUsd : 0))), quota_overrun_usd: 0, cache_saved_usd: round(sum(call => call.cacheSavedUsd)) },
       ...(soft ? { budget: 'soft' as const } : {}),
       ...(guardHits.length ? { guard: guardHits } : {}),
+      ...(decision.web ? { web: { searches: sum(call => call.usage.webSearches || 0), sources: cards.filter(card => card.kind === 'sources').reduce((count, card) => count + (card.kind === 'sources' ? card.items.length : 0), 0) } } : {}),
       ...(billing.length ? { billing } : {}),
       ...(calls.some(call => call.provider === 'anthropic') ? { claude_cache: deps.claudeCache ?? request.cacheHint ?? '1h' } : {}),
     });
@@ -428,7 +445,8 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     }
   }
 
-  const knowledge = knowledgeSnippets(lookupKnowledge(request.text, 3));
+  // A how/where question about the app also looks at the labels the pages show today (uiKnowledge.ts).
+  const knowledge = knowledgeSnippets(lookupKnowledge(request.text, 3, { ui: decision.intent === 'feature_help' || (decision.asking && decision.intent !== 'analysis') }));
   // Accounting Brain (brief "ACCOUNTING BRAIN & TAX NAVIGATOR", 2026-10-26): on an accounting or tax message only, and
   // only while it is on for this account (AI_ACCOUNTING, admins first), a short reference and five read-only tools.
   // Every other message keeps exactly the existing prompt, tools and cost.
@@ -525,6 +543,9 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     };
     const model = modelFor(route);
     const name = providerFor(model);
+    // Outside facts (routingPolicy.webResearch): Claude's own web search on the conversation route, one search in LINE
+    // (its answer has a 20-second deadline), two in the app.
+    const web = Boolean(decision.web && route === 'chat' && name === 'anthropic' && config.webSearchMaxUses > 0);
     const system = buildSystemPrompt({
       route, plan: request.plan, trialLeft: request.trialLeft, tokensLeft: request.tokensLeft,
       accountName: request.accountName, communicationProfile: request.communicationProfile, memories: request.memories,
@@ -532,6 +553,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       offer: offerLine(offerState(request.text, request.history)),
       ...(route === 'action' ? { files, documents: docs, pastWork: pastWorkFor(handoff), ...(docs ? { issuer: issuerContext(request.user) } : {}) } : {}),
       ...(short ? { shortTools: true } : {}),
+      ...(web ? { web: true } : {}),
     }) + (handoff ? `\n\nHANDOVER FROM THE CONVERSATION ASSISTANT: ${handoff}` : '');
     // Gemini Flash-Lite thinks least by default; the action model reasons a little before changing data.
     // Claude reasons more on changes (medium) and answers questions at low effort.
@@ -553,6 +575,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
         maxOutputTokens: config.maxOutputTokens[route], effort, execute,
         maxSteps: config.maxToolSteps, signal, fetchImpl: deps.fetchImpl, overBudget,
         onRetry: () => { providerRetries += 1; }, ...(deps.claudeCache ?? request.cacheHint ? { cacheMode: deps.claudeCache ?? request.cacheHint } : {}),
+        ...(web ? { webSearch: { maxUses: request.channel === 'line' ? 1 : config.webSearchMaxUses } } : {}),
       });
     } catch (error) {
       // A card was prepared and saved before the provider failed (a timeout on the closing line, an outage): keep it,
@@ -645,6 +668,9 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   if (accounting && !cards.some(card => card.kind === 'official_link')) {
     for (const id of autoOfficialLinks(accounting.topics)) cards.push({ kind: 'official_link', ...OFFICIAL_LINKS[id] });
   }
+  // The pages a web answer cites, under it (owner, 2026-11-01: "แปะลิงก์อ้างอิงช่วงท้าย"): the provider's own citations only.
+  const sources = decision.web && config.webSearchMaxUses > 0 && finalText.trim() ? webSources(result.sources) : [];
+  if (sources.length) cards.push({ kind: 'sources', items: sources });
   const styled = styleReply(cleanAnswerText(finalText, cards), { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])] });
   const checked = guardReply(styled, { userText: request.text, userData: () => JSON.stringify(request.user) });
   guardHits.push(...checked.hits);

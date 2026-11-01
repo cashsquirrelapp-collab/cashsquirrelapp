@@ -8,7 +8,9 @@ import { seoBody } from './seoBody.js';
 
 export const SITE_URL = 'https://krarok.com';
 export const SITE_NAME = 'Krarok';
-export const SITE_ALTERNATE_NAMES = ['กระรอกตุนเงิน', 'Krarok Tunngern'];
+// The names people type for the app (owner, 2026-11-01: "กระรอก หรือกระรอกตุนเงิน ... ภาษาคาราโอเกะ ... ภาษาอังกฤษ"): Thai,
+// with a space, the romanised spellings and the short forms. The first stays the Organization's other name.
+export const SITE_ALTERNATE_NAMES = ['กระรอกตุนเงิน', 'Krarok Tunngern', 'กระรอก ตุนเงิน', 'Krarok Tun Ngern', 'Kra Rok Tun Ngoen', 'แอปกระรอก'];
 const LOGO = `${SITE_URL}/brand/home-v2/home-icon-512.png`;
 /** The picture LINE, Facebook and others show with a shared link (1200×630, the logo, the owner's line and the mascot). */
 export const SHARE_IMAGE = { url: `${SITE_URL}/og/krarok-share.png`, width: 1200, height: 630 };

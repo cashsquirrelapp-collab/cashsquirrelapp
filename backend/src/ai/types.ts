@@ -79,7 +79,12 @@ export type AssistantCard =
    *  file and the link filled in; the user saves it there. A name alone (a record prepared in this answer) is looked up
    *  in the app when the button is pressed. */
   | { kind: 'attach'; id: string; fileKind: 'wht50' | 'contract' | 'expense' | 'other'; fileName: string;
-      jobId?: string; jobName?: string; client?: string; expenseId?: string; expenseName?: string };
+      jobId?: string; jobName?: string; client?: string; expenseId?: string; expenseName?: string }
+  /** The web pages an answer cites (owner, 2026-11-01: "แปะลิงก์อ้างอิงช่วงท้าย"): taken from the search provider's own
+   *  citations, never a URL the model wrote; https/http only, at most five. */
+  | SourcesCard;
+export type WebSource = { title: string; url: string };
+export type SourcesCard = { kind: 'sources'; items: WebSource[] };
 
 /**
  * cacheWriteTokens: Claude's prompt-cache writes, part of inputTokens, billed at 1.25× the input price for 5 minutes;
@@ -87,7 +92,9 @@ export type AssistantCard =
  */
 export interface Usage { inputTokens: number; cachedInputTokens: number; outputTokens: number; thinkingTokens: number; cacheWriteTokens?: number; cacheWrite1hTokens?: number;
   /** Of the 5-minute writes, the shared rules' part (estimated from their size; the 5-minute cache mode only). */
-  sharedWrite5mTokens?: number }
+  sharedWrite5mTokens?: number;
+  /** Web searches the provider ran (billed per search on top of the tokens). */
+  webSearches?: number }
 
 export interface ProviderRequest {
   apiKey: string;
@@ -114,6 +121,9 @@ export interface ProviderRequest {
    * comparison only (no shared breakpoint; no cache at all).
    */
   cacheMode?: '1h' | '5m' | 'auto' | 'off';
+  /** The provider's own web search for this request (Claude only), at most this many searches; its citations come back
+   *  as ProviderResult.sources. Absent: no web search. */
+  webSearch?: { maxUses: number };
 }
 
 export interface ProviderResult {
@@ -129,6 +139,8 @@ export interface ProviderResult {
   stoppedAt?: 'max_steps' | 'budget' | 'interrupted';
   /** Every call of the last step prepared its card, so the turn ended there (ToolOutcome.closesTurn). */
   closed?: boolean;
+  /** The web pages the answer cites (webSearch), in the order first cited, without repeats. */
+  sources?: WebSource[];
 }
 
 export interface Provider {
@@ -163,11 +175,13 @@ export const subtractUsage = (a: Usage, b: Usage): Usage => ({
   outputTokens: a.outputTokens - b.outputTokens, thinkingTokens: a.thinkingTokens - b.thinkingTokens,
   cacheWriteTokens: (a.cacheWriteTokens || 0) - (b.cacheWriteTokens || 0), cacheWrite1hTokens: (a.cacheWrite1hTokens || 0) - (b.cacheWrite1hTokens || 0),
   sharedWrite5mTokens: (a.sharedWrite5mTokens || 0) - (b.sharedWrite5mTokens || 0),
+  webSearches: (a.webSearches || 0) - (b.webSearches || 0),
 });
 export const addUsage = (a: Usage, b: Usage): Usage => {
   const cacheWriteTokens = (a.cacheWriteTokens || 0) + (b.cacheWriteTokens || 0);
   const cacheWrite1hTokens = (a.cacheWrite1hTokens || 0) + (b.cacheWrite1hTokens || 0);
   const sharedWrite5mTokens = (a.sharedWrite5mTokens || 0) + (b.sharedWrite5mTokens || 0);
+  const webSearches = (a.webSearches || 0) + (b.webSearches || 0);
   return {
     inputTokens: a.inputTokens + b.inputTokens,
     cachedInputTokens: a.cachedInputTokens + b.cachedInputTokens,
@@ -177,5 +191,6 @@ export const addUsage = (a: Usage, b: Usage): Usage => {
     ...(cacheWriteTokens ? { cacheWriteTokens } : {}),
     ...(cacheWrite1hTokens ? { cacheWrite1hTokens } : {}),
     ...(sharedWrite5mTokens ? { sharedWrite5mTokens } : {}),
+    ...(webSearches ? { webSearches } : {}),
   };
 };

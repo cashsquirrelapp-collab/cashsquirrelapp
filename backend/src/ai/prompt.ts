@@ -4,7 +4,7 @@ import type { Route } from './types.js';
 // Shared instructions for both routes. The fixed part
 // comes first and never changes between requests, so both providers can cache it; the per-user part follows.
 
-export const PROMPT_VERSION = 'secretary-v26';
+export const PROMPT_VERSION = 'secretary-v27';
 
 // Areas customers cannot see yet (shared/featureAvailability.ts). The prompt names them only to say they are not
 // available; the admin overview is never named. Fixed per deploy, so the prompt stays cacheable.
@@ -439,6 +439,17 @@ const LINE_RULES = `CHANNEL: LINE chat on a phone, not the app. These LINE rules
   preparing them again in the app for full review. Do not tell a LINE user that plain-text ยืนยัน saves the proposal
   or that an app link loads the same pending LINE card.`;
 
+// Owner, 2026-11-01: "ค้นหาข้อมูลด้านนอก ... แปะลิงก์อ้างอิงช่วงท้าย". Only on a question about facts outside the app
+// (routingPolicy.webResearch), where the web_search tool is offered. The app shows the cited pages as a sources card.
+const WEB_RULES = `WEB SEARCH THIS TURN: the question is about facts outside this app (Thai tax rules and filing, social security,
+VAT, rates, laws, official steps or deadlines). You may call web_search, at most twice, when the answer depends on rules
+or figures that change or that you are not certain of. Prefer official Thai sources (rd.go.th, efiling.rd.go.th, sso.go.th,
+dbd.go.th, bot.or.th, sec.or.th, set.or.th, ratchakitcha.soc.go.th) and say which year a rule or figure is for. Never
+search for the user's own records or for how to use this app; the account tools and APP KNOWLEDGE answer those. Answer in
+the user's language from what the sources say, briefly. Do not write URLs, links or a source list yourself: the app shows
+the pages you cite under your answer. When the answer affects how much tax someone pays, add one short line that rules can
+change and that the Revenue Department (กรมสรรพากร) or a tax professional confirms their own case.`;
+
 export interface PromptSlots {
   route: Route;
   plan: 'free' | 'trial' | 'pro' | 'admin' | 'lapsed';
@@ -468,6 +479,8 @@ export interface PromptSlots {
   issuer?: string;
   /** The conversation route's short tool set for everyday talk (gateway.ts). */
   shortTools?: boolean;
+  /** A question about outside facts with the web_search tool offered (WEB_RULES). */
+  web?: boolean;
   accountContext: string;
 }
 
@@ -482,6 +495,7 @@ export function buildSystemPrompt(slots: PromptSlots): string {
     slots.offer ?? '',
     slots.shortTools ? 'TOOLS THIS TURN: a short set for conversation. For a question about the account\'s records these tools do not cover, call route_to_action with the question: the next step has every account tool.' : '',
     slots.channel === 'line' ? LINE_RULES : '',
+    slots.web ? WEB_RULES : '',
   ].filter(Boolean).join('\n');
   const mode = slots.route === 'chat' ? [CHAT_MODE] : [ACTION_MODE, ACTION_RULES, ...(slots.documents ? [DOCUMENT_RULES] : []), ...(slots.files ? [FILE_RULES] : []),
     ...(slots.files && launched('vault') ? [VAULT_FILE_RULES] : []), ...(launched('wht50') ? [WHT50_RULES] : [])];

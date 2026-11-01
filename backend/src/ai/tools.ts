@@ -438,7 +438,7 @@ export function createToolbox(context: ToolContext) {
       (args.limit !== undefined && (!Number.isInteger(args.limit) || Number(args.limit) < 1 || Number(args.limit) > 25)))) return fail('หน้ารายการไม่ถูกต้อง ใช้ limit 1–25 และ offset ตั้งแต่ 0');
     switch (call.name) {
       case 'feature_lookup': {
-        const features = lookupKnowledge(String(args.query || ''), 3);
+        const features = lookupKnowledge(String(args.query || ''), 3, { ui: true });
         return { result: knowledgeSnippets(features), extraCards: features.features.map(feature => featureNavigation(feature.id, context)).filter((card): card is NonNullable<typeof card> => Boolean(card)) };
       }
       case 'money_summary': {

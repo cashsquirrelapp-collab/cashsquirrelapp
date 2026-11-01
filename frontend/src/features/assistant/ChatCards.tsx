@@ -1,11 +1,11 @@
 import React from 'react';
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, Briefcase, Check, CheckCircle2, ChevronRight, FileText, FolderOpen, Landmark, ListChecks, Loader2, Pencil, Send, UserRound, Wallet, X } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, BookOpen, Briefcase, Check, CheckCircle2, ChevronRight, FileText, FolderOpen, Landmark, ListChecks, Loader2, Pencil, Send, UserRound, Wallet, X } from 'lucide-react';
 import { VAULT_KIND_LABEL } from '../../../../shared/vault';
 import { VAULT_ATTACHED_EVENT, VAULT_ATTACH_EVENT, asFile, chatFileFor, type VaultAttachRequest } from './chatFiles';
 import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
-import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard } from './assistantMock';
+import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard, type SourcesCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
 import { dateLocale } from '../../utils';
@@ -110,6 +110,39 @@ function OfficialLink({ card }: { card: OfficialLinkCard }) {
         <p className="asx-card-subtitle">{card.description}</p>
         <p className="asx-card-eyebrow">{tr("ทำในเว็บนี้")}: {card.todo}</p>
       </div>
+    </div>
+  );
+}
+
+/** A web page address safe to open: http(s) only, no credentials in it. */
+export function sourceHref(url: string): URL | null {
+  try {
+    const parsed = new URL(url);
+    return /^https?:$/.test(parsed.protocol) && !parsed.username && !parsed.password ? parsed : null;
+  } catch { return null; }
+}
+
+/** The pages a web answer cites, numbered under the answer (2026-11-01: "แปะลิงก์อ้างอิงช่วงท้าย"). */
+function Sources({ card }: { card: SourcesCard }) {
+  const pages = card.items.flatMap(page => {
+    const href = sourceHref(page.url);
+    return href ? [{ title: page.title || href.hostname, href }] : [];
+  }).slice(0, 5);
+  if (!pages.length) return null;
+  return (
+    <div className="asx-rcard is-sources">
+      <div className="asx-rcard-head"><span className="asx-rcard-icon"><BookOpen size={16} strokeWidth={1.9} /></span><b>{tr("แหล่งอ้างอิง")}</b></div>
+      <ol className="asx-sources">
+        {pages.map((page, at) => (
+          <li key={page.href.href}>
+            <a href={page.href.href} target="_blank" rel="noopener noreferrer nofollow" aria-label={`${tr("เปิดเว็บไซต์")} · ${page.title}`}>
+              <span className="asx-source-n" aria-hidden="true">{at + 1}</span>
+              <span className="asx-source-text"><b>{page.title}</b><small>{page.href.hostname.replace(/^www\./, '')}</small></span>
+              <ArrowUpRight size={15} aria-hidden="true" />
+            </a>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -802,6 +835,7 @@ function CardBody({ card, confirmState, confirmedPath, onConfirm, onCancel, onNa
     case 'line': return <LineCard card={card.card} onDue={onLineDue} onOpen={onNavigate} />;
     case 'questions': return <Questions card={card} onAnswer={onAnswer} answered={answered} />;
     case 'official_link': return <OfficialLink card={card} />;
+    case 'sources': return <Sources card={card} />;
     case 'rename': return <Rename card={card} />;
     case 'attach': return <Attach card={card} onNavigate={onNavigate} />;
   }

@@ -770,6 +770,15 @@ body:has(.ksm-layer) .asx.is-mobile { visibility: hidden; }
 .asx-rcard-actions .asx-edit-btn { margin-right: auto; }
 /* Tap-to-answer questions (2026-10-24): one row of choices per question, a typed answer only where needed. */
 .asx-rcard.is-questions { width: min(420px, 100%); }
+/* The pages a web answer cites (2026-11-01): numbered links under the answer, two lines of title at most. */
+.asx-sources { display: grid; gap: 2px; margin: 0; padding: 6px; list-style: none; }
+.asx-sources a { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 7px 8px; border-radius: 12px; color: inherit; text-decoration: none; }
+.asx-sources a:hover, .asx-sources a:focus-visible { background: var(--asx-cream); }
+.asx-sources a > svg { flex: none; color: var(--muted); }
+.asx-source-n { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--asx-cream); color: var(--asx-accent-text); font-size: 12px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.asx-source-text { display: grid; flex: 1 1 auto; min-width: 0; }
+.asx-source-text b { display: -webkit-box; overflow: hidden; font-size: 13.5px; font-weight: 600; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.asx-source-text small { overflow: hidden; font-size: 12px; line-height: 1.45; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
 .asx-q-list { display: grid; gap: 14px; padding: 12px; }
 .asx-q { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .asx-q legend { padding: 0; margin-bottom: 8px; font-size: 14.5px; font-weight: 500; line-height: 1.5; }
