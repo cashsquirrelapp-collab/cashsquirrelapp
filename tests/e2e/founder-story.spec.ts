@@ -21,15 +21,18 @@ for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]] as const) {
     await expect(page.locator('.fs-section')).toHaveCount(7);
     await expect(page.locator('.fs-section-head h2')).toHaveText(['จุดเริ่มต้นของผม', 'ปัญหาที่ทำให้เกิด Krarok', '5 เดือนแห่งการลงมือสร้าง',
       'ทำไมผมถึงอยากสร้าง Krarok ให้ทุกคน', 'อนาคตที่ผมอยากสร้างให้ Krarok', 'ความไว้วางใจของคุณ คือความรับผิดชอบของเรา', 'ขอบคุณที่เป็นส่วนหนึ่งของการเริ่มต้น']);
-    // Slots 1, 2 and 6 have the owner's photos since 2026-11-01; the other three still show their marked space.
-    await expect(page.locator('[data-photo-slot]')).toHaveCount(3);
+    // Slots 1, 2, 3 and 6 have their pictures since 2026-11-01; the other two still show their marked space.
+    await expect(page.locator('[data-photo-slot]')).toHaveCount(2);
     const portrait = page.getByRole('img', { name: 'ปาร์ค นพรัตน์ นาวะบุตร ผู้ก่อตั้ง Krarok' });
     await expect(portrait).toBeVisible();
     await expect.poll(() => portrait.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(1000);
     const grandma = page.getByRole('img', { name: 'ปาร์คกับเครื่องกรองน้ำที่ซื้อให้ยาย และยายที่บ้าน' });
     await grandma.scrollIntoViewIfNeeded();
     await expect.poll(() => grandma.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1600);
-    await expect(page.getByRole('img', { name: 'พื้นที่สำหรับรูปที่ 3: ช่วงที่งานเยอะจนเอกสารล้นมือ' })).toBeAttached();
+    const desk = page.getByRole('img', { name: 'หน้าจอที่เต็มไปด้วยไฟล์บัญชี ใบเสนอราคาหลายฉบับ โน้ตเตือนตามเงิน และการแจ้งเตือนที่ยังไม่ได้เปิด' });
+    await desk.scrollIntoViewIfNeeded();
+    await expect.poll(() => desk.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1920);
+    await expect(page.getByRole('img', { name: 'พื้นที่สำหรับรูปที่ 4: คืนที่ทำงานถึงตี 3–4' })).toBeAttached();
     const sign = page.getByRole('img', { name: 'ปาร์คที่ชายหาดตอนพลบค่ำ' });
     await sign.scrollIntoViewIfNeeded();
     await expect.poll(() => sign.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(450);

@@ -53,6 +53,11 @@ export const PHOTOS = {
     title: { th: 'ช่วงที่งานเยอะจนเอกสารล้นมือ', en: 'When the work piled up' },
     hint: { th: 'โต๊ะทำงานกับใบเสร็จ เอกสาร หรือหน้าจอตัดต่อ ช่วงที่ต้องจัดการบัญชีเอง', en: 'The desk with receipts, papers or the editing screen, from the days of doing the books alone' },
     size: { th: 'แนวนอน 16:9 · 1920 × 1080 px', en: 'Landscape 16:9 · 1920 × 1080 px' },
+    // Made for the owner, 2026-11-01 ("เอกสารมันดูวุ่นวาย ดูรกตา ... ทำคนเดียว"): a cluttered desktop drawn from the two
+    // made-up demo workbooks, and quotations in the owner's layout with the demo's made-up clients. The real quotations
+    // carry the owner's address, tax ID and phone and the clients' details, so they are never shown.
+    src: '/landing-v5/founder/desk.webp',
+    alt: { th: 'หน้าจอที่เต็มไปด้วยไฟล์บัญชี ใบเสนอราคาหลายฉบับ โน้ตเตือนตามเงิน และการแจ้งเตือนที่ยังไม่ได้เปิด', en: 'A screen full of spreadsheets, several quotations, sticky notes about chasing payments and unread notifications' },
   },
   night: {
     id: 'night', ratio: '16 / 9',
