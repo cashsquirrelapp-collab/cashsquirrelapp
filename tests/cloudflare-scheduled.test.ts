@@ -28,7 +28,8 @@ test('the monthly jobs all run even when an earlier one fails', async () => {
 });
 
 test('four triggers: the digest, the AI credit check and the monthly jobs each run in an invocation of their own', () => {
-  assert.deepEqual(CRONS, ['0 1 * * *', '5 1 * * *', MONTHLY, '0 2 * * *']);
+  assert.deepEqual(CRONS, ['0 1 * * *', '5 1 * * *', MONTHLY, '0 2 * * *', '42 5 1 11 *']);
+  assert.deepEqual(scheduledPaths('42 5 1 11 *', Date.parse('2026-11-01T05:42:00Z')), ['/api/send-admin-profit-report']);
   for (const date of ['2026-10-31', '2026-11-01', '2026-11-04', '2028-02-29']) {
     assert.deepEqual(scheduledPaths('0 1 * * *', Date.parse(`${date}T01:00:00Z`)), ['/api/send-overdue-digest']);
     assert.deepEqual(scheduledPaths('5 1 * * *', Date.parse(`${date}T01:05:00Z`)), ['/api/check-ai-credit']);
@@ -42,7 +43,7 @@ test('four triggers: the digest, the AI credit check and the monthly jobs each r
   // 3rd sends nothing.
   for (const date of ['2026-11-04', '2026-11-15']) assert.deepEqual(scheduledPaths(MONTHLY, Date.parse(`${date}T01:00:00Z`)), []);
   // No job shares the digest's invocation, and each job has exactly one trigger.
-  const all = CRONS.flatMap(cron => scheduledPaths(cron, Date.parse('2026-11-01T01:00:00Z')));
+  const all = CRONS.filter(cron => cron !== '42 5 1 11 *').flatMap(cron => scheduledPaths(cron, Date.parse('2026-11-01T01:00:00Z')));
   assert.equal(new Set(all).size, all.length);
   assert.throws(() => scheduledPaths('0 1 * * *', Number.NaN), /Invalid scheduled event time/);
   assert.deepEqual(scheduledPaths('0 1 1 * *', Date.parse('2026-11-01T01:00:00Z')), [], 'A retired trigger runs nothing');

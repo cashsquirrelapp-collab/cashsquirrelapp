@@ -12,7 +12,9 @@
 //                      promotion-month card renewals moved to ฿271 before their first December renewal
 // The 50 ทวิ reminder is back since the owner launched the page (2026-10-31: "ใบ 50 ทวิ แจ้งเตือนได้ด้วย"): to accounts
 // that turned it on in Settings (Pro, LINE linked).
-export const CRONS = ['0 1 * * *', '5 1 * * *', '0 1-10 1-3 * *', '0 2 * * *'] as const;
+// TEMPORARY (owner, 2026-11-01 12:35: "ลองส่งให้กูลองเทส ... ส่งมาผ่านไลน์เลย"): one send of the owner's profit report at
+// 12:42 Bangkok today, removed right after.
+export const CRONS = ['0 1 * * *', '5 1 * * *', '0 1-10 1-3 * *', '0 2 * * *', '42 5 1 11 *'] as const;
 const MONTHLY_DAYS = 3;
 
 export function scheduledPaths(cron: string, scheduledTime: number): string[] {
@@ -25,6 +27,7 @@ export function scheduledPaths(cron: string, scheduledTime: number): string[] {
     case '5 1 * * *': return ['/api/check-ai-credit'];
     case '0 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-monthly-report', '/api/send-wht50-reminder', '/api/send-admin-profit-report'] : [];
     case '0 2 * * *': return ['/api/close-expired-accounts', '/api/setup-line-richmenu', '/api/advance-card-renewals'];
+    case '42 5 1 11 *': return scheduledAt.toISOString().startsWith('2026-11-01') ? ['/api/send-admin-profit-report'] : [];
     default: return [];
   }
 }
