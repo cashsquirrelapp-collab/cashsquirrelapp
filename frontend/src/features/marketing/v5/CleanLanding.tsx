@@ -1,3 +1,4 @@
+import { openCookieSettings } from '../../../services/cookieConsent';
 import React from 'react';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -977,7 +978,8 @@ export default function CleanLanding() {
           </div>
         </div>
         <div className="cl-foot-legal">
-          <span className="cl-foot-links"><a href="/privacy">{tr('นโยบายความเป็นส่วนตัว')}</a><a href="/terms">{tr('ข้อตกลงการใช้งาน')}</a></span>
+          <span className="cl-foot-links"><a href="/privacy">{tr('นโยบายความเป็นส่วนตัว')}</a><a href="/terms">{tr('ข้อตกลงการใช้งาน')}</a>
+            <button type="button" onClick={openCookieSettings}>{tr('ตั้งค่าคุกกี้')}</button></span>
           <span className="cl-foot-copy">{tr('© 2569 กระรอกตุนเงิน')}</span>
         </div>
       </footer>

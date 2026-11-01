@@ -34,10 +34,13 @@ test('refresh shows the branded skeleton until the account session is ready',asy
   await route.fulfill({json:{session:null}});
  });
  await page.goto('/',{waitUntil:'domcontentloaded'});
- await expect(page.getByRole('status')).toContainText('กำลังโหลดข้อมูล กรุณารอสักครู่');
+ // The logo, as on phones (owner, 2026-11-02: not the waiting squirrel), and the wait said to screen readers.
+ await expect(page.locator('#app-splash .splash-mark')).toBeVisible();
+ await expect(page.locator('#root [role="status"][aria-busy="true"]')).toContainText('กำลังโหลดข้อมูล กรุณารอสักครู่');
  releaseAuth();
  // the landing's start button opens /login, which signs in or signs up (no separate เข้าสู่ระบบ link since 2026-10-30)
  await expect(page.locator('.cl-hero a.cl-btn.is-big[href="/login"]')).toBeVisible();
+ await expect(page.locator('#app-splash')).toHaveCount(0,{timeout:6000});
 });
 
 // The new-member questionnaire was removed on 2026-10-23 (owner: "เอาออกให้หมดเพราะเราจะรื้อแล้วเราจะทำใหม่").

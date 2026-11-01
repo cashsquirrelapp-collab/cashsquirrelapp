@@ -3,6 +3,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './app/App.tsx';
 import { LanguageProvider } from './i18n/LanguageContext';
+import { CookieConsent } from './components/consent/CookieConsent';
 import './index.css';
 import { clearLegacyFinancialCache } from './services/privateCache';
 import { startUpdateWatch } from './app/appUpdate';
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary><LanguageProvider>
       <App />
+      <CookieConsent />
     </LanguageProvider></ErrorBoundary>
   </StrictMode>,
 );

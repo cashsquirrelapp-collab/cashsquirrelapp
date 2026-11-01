@@ -106,6 +106,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { nowInBangkok } from '../../../shared/monthlySummary';
 import { DEFAULT_DARK_FROM, DEFAULT_LIGHT_FROM, effectiveThemePreference, readThemePreference, scheduleIsDark, schedulePeriod, shouldOfferThemeTip, type ThemePreference } from '../../../shared/themeSchedule';
 import { ThemeTip, type ThemeTipChoice } from './ThemeTip';
+import { usageStatsAllowed } from '../services/cookieConsent';
 import { buildBriefing } from '../../../shared/briefing';
 import { currentCash } from '../../../shared/cashBalance';
 import { Mascot } from '../components/mascot/Mascot';
@@ -824,7 +825,8 @@ export default function App() {
 
     let inFlight = false;
     const heartbeat = () => {
-      if (inFlight || document.visibilityState !== 'visible') return;
+      // Off when this browser chose essential cookies only (services/cookieConsent.ts); checked on every beat.
+      if (inFlight || document.visibilityState !== 'visible' || !usageStatsAllowed()) return;
       inFlight = true;
       void usageAnalyticsApi.presenceHeartbeat(userId)
         .catch(() => {})
@@ -858,7 +860,7 @@ export default function App() {
     // React StrictMode replays effects in development; count a tab transition only once.
     if (lastTrackedUsageRef.current === viewKey) return;
     lastTrackedUsageRef.current = viewKey;
-    void usageAnalyticsApi.recordFeatureView(userId, feature).catch(() => {
+    if (usageStatsAllowed()) void usageAnalyticsApi.recordFeatureView(userId, feature).catch(() => {
       // Usage metrics are optional and must never delay or interrupt navigation.
     });
   }, [activeTab, loadingSession, pathname, session?.isGuest, session?.user?.id, fullFeatureAccess]);

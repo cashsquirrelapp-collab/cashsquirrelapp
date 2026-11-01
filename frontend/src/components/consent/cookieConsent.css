@@ -1,0 +1,28 @@
+/* The cookie banner (2026-11-02): a plain white card, CI orange for the one primary button, neutral grey shadow.
+   Bottom left on computers and iPads; across the bottom on phones, over the tab bar until a choice is made. */
+.ck-banner { position: fixed; z-index: 2147482000; left: 24px; bottom: 24px; box-sizing: border-box; width: min(420px, calc(100vw - 32px)); padding: 16px 16px 14px;
+  border: 1px solid #E7E2DE; border-radius: 18px; background: #FFFFFF; color: #1C1917; font-family: inherit; text-align: left;
+  box-shadow: 0 18px 44px -18px rgba(28, 25, 23, 0.35), 0 2px 6px rgba(28, 25, 23, 0.06); }
+.ck-head { display: flex; align-items: center; gap: 10px; }
+.ck-icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 10px; background: #FDEBE2; color: #C24A16; }
+.ck-banner h2 { margin: 0; font-size: 15.5px; font-weight: 700; line-height: 1.45; letter-spacing: 0; }
+.ck-banner p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.6; color: #57534E; }
+.ck-banner a { color: #C24A16; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.ck-actions { display: flex; gap: 8px; margin-top: 12px; }
+.ck-btn { flex: 1 1 0; min-width: 0; min-height: 40px; padding: 6px 14px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.45; cursor: pointer; }
+.ck-btn.is-secondary { border: 1px solid #E7E2DE; background: #FFFFFF; color: #1C1917; }
+.ck-btn.is-secondary:hover { background: #F5F5F4; }
+.ck-btn.is-primary { border: 1px solid #E65F2B; background: #E65F2B; color: #FFFFFF; }
+.ck-btn.is-primary:hover { background: #D4541F; border-color: #D4541F; }
+.ck-btn:focus-visible, .ck-banner a:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
+@media (max-width: 743px) {
+  .ck-banner { left: 12px; right: 12px; width: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .ck-btn { min-height: 44px; }
+}
+.dark .ck-banner { border-color: #34353A; background: #1F2023; color: #F5F5F4; box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.7); }
+.dark .ck-banner p { color: #A8A29E; }
+.dark .ck-icon { background: rgba(230, 95, 43, 0.16); color: #FF7A45; }
+.dark .ck-banner a { color: #FF7A45; }
+.dark .ck-btn.is-secondary { border-color: #3A3B40; background: #2A2B30; color: #F5F5F4; }
+@media (prefers-reduced-motion: no-preference) { .ck-banner { animation: ck-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; } }
+@keyframes ck-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }

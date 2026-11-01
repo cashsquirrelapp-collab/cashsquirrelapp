@@ -383,8 +383,9 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-foot-soon { color: var(--faint); cursor: default; }
 .cl-foot-legal { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-top: 20px; color: var(--faint); font-size: 13.5px; line-height: 1.5; }
 .cl-foot-links { display: flex; flex-wrap: wrap; gap: 8px 20px; }
-.cl-foot-legal a { color: var(--muted); text-decoration: none; }
-.cl-foot-legal a:hover { color: var(--deep); }
+.cl-foot-legal a, .cl-foot-legal button { padding: 0; border: 0; background: none; color: var(--muted); font: inherit; line-height: 1.5; text-decoration: none; cursor: pointer; }
+.cl-foot-legal a:hover, .cl-foot-legal button:hover { color: var(--deep); }
+.cl-foot-legal button:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; border-radius: 6px; }
 
 /* ช่วยเหลือ in the bar where the menu pill is hidden (iPads and phones) */
 .cl-help-link { display: none; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; font-weight: 500; line-height: 1.45; text-decoration: none; }

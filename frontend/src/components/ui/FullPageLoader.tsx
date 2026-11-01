@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
-import { LoadingMascot } from '../mascot/LoadingMascot';
+import React from 'react';
+import { hideSplash, showSplash } from '../../app/splash';
 
 import { tr, T } from '../../i18n/tr';
 // Plain, honest wording: the app is loading, nothing more specific is happening.
@@ -13,52 +12,25 @@ interface FullPageLoaderProps {
   messages?: string[];
 }
 
-function LoadingDots() {
-  const reduceMotion = useReducedMotion();
-  const dots = [0, 0.12, 0.24];
-  return (
-    <div className="mt-1 flex items-center gap-1.5">
-      {dots.map((delay, i) => (
-        <motion.span
-          key={i}
-          className="h-1.5 w-1.5 rounded-full bg-[#F36A2D]"
-          animate={reduceMotion ? { opacity: [0.4, 0.8, 0.4] } : { scale: [0.65, 1, 0.65] }}
-          transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut', delay }}
-        />
-      ))}
-    </div>
-  );
-}
-
 /**
  * Full-screen loading moment -- reserved for the handful of cases the loading-system spec calls
  * out (first app open, session init, a major workspace switch, first Dashboard load). Everything
  * else uses a skeleton instead; see useDelayedLoader for the show-delay/min-visible gating that
  * keeps this from flashing on fast loads.
+ *
+ * It shows the logo (owner, 2026-11-02: the phone's opening logo on every device instead of the waiting squirrel;
+ * app/splash.ts): drawn over the page while this is mounted, then it finishes its entrance and fades into the page.
+ * The default wording is not printed (the logo says it); a specific one ("กำลังย้ายไปพื้นที่ทำงานใหม่…") is.
  */
 export function FullPageLoader({ title = tr("กำลังโหลด…"), messages = DEFAULT_MESSAGES }: FullPageLoaderProps) {
-  const [messageIndex, setMessageIndex] = useState(0);
-
-  useEffect(() => {
-    if (messages.length <= 1) return;
-    const interval = window.setInterval(() => {
-      setMessageIndex(prev => (prev + 1) % messages.length);
-    }, 1800);
-    return () => window.clearInterval(interval);
-  }, [messages]);
-
+  const defaultTitle = title === tr("กำลังโหลด…");
+  React.useEffect(() => {
+    showSplash({ caption: defaultTitle ? undefined : title, label: title });
+    return () => hideSplash();
+  }, [defaultTitle, title]);
   return (
-    <div
-      className="flex min-h-screen flex-col items-center justify-center gap-2.5 bg-brand-bg px-4"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <LoadingMascot state="loading-wait" mood="waiting" size={104} />
-      <p className="mt-1 text-sm font-semibold text-brand-text">{title}</p>
-      <p className="text-xs text-brand-muted" aria-live="off">{tr(messages[messageIndex])}</p>
-      <LoadingDots />
-      {messages[messageIndex] !== 'กำลังโหลดข้อมูล กรุณารอสักครู่' && <span className="sr-only">{tr("กำลังโหลดข้อมูล กรุณารอสักครู่")}</span>}
+    <div className="min-h-screen bg-brand-bg" role="status" aria-live="polite" aria-busy="true">
+      <span className="sr-only">{title} {tr(messages[0] ?? DEFAULT_MESSAGES[0])}</span>
     </div>
   );
 }

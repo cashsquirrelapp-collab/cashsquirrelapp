@@ -1,5 +1,10 @@
 // Shared phrases used across many screens.
 export const common: Record<string, string> = {
+  'เว็บไซต์นี้ใช้คุกกี้': 'This website uses cookies',
+  'เราใช้คุกกี้ที่จำเป็นต่อการเข้าสู่ระบบและความปลอดภัย และนับการใช้งานแต่ละฟีเจอร์แบบไม่ระบุตัวตนเพื่อปรับปรุงบริการ ไม่มีคุกกี้โฆษณาหรือการติดตามข้ามเว็บไซต์': 'We use cookies needed for sign-in and security, and count how each feature is used, without identifying you, to improve the service. No advertising cookies or cross-site tracking.',
+  'เฉพาะที่จำเป็น': 'Essential only',
+  'ยอมรับทั้งหมด': 'Accept all',
+  'ตั้งค่าคุกกี้': 'Cookie settings',
   '12 เดือน': '12 months',
   '3 เดือน': '3 months',
   '{0} งาน': '{0} jobs',
