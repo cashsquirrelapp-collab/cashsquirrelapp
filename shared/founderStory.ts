@@ -71,6 +71,9 @@ export const PHOTOS = {
     title: { th: 'รูปปาร์คท้ายบทความ', en: 'Park, at the end' },
     hint: { th: 'ภาพยิ้ม ๆ ใช้คู่กับลายเซ็น', en: 'A smiling photo to go with the signature' },
     size: { th: 'จัตุรัส 1:1 · 1200 × 1200 px', en: 'Square 1:1 · 1200 × 1200 px' },
+    // The owner's photo, 2026-11-01 ("เอาใส่ภาพนี้"): a close square around the face (450 × 450 from 768 × 1024), no location data.
+    src: '/landing-v5/founder/sign.webp',
+    alt: { th: 'ปาร์คที่ชายหาดตอนพลบค่ำ', en: 'Park on the beach at dusk' },
   },
 } satisfies Record<string, PhotoSlot>;
 
