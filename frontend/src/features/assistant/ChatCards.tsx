@@ -1,11 +1,11 @@
 import React from 'react';
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, BookOpen, Briefcase, Check, CheckCircle2, ChevronRight, FileText, FolderOpen, Landmark, ListChecks, Loader2, Pencil, Send, UserRound, Wallet, X } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, BookOpen, Briefcase, Check, CheckCircle2, ChevronRight, Copy, FileText, FolderOpen, Landmark, ListChecks, Loader2, MessageSquareText, Pencil, Send, UserRound, Wallet, X } from 'lucide-react';
 import { VAULT_KIND_LABEL } from '../../../../shared/vault';
 import { VAULT_ATTACHED_EVENT, VAULT_ATTACH_EVENT, asFile, chatFileFor, type VaultAttachRequest } from './chatFiles';
 import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
-import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard, type SourcesCard } from './assistantMock';
+import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard, type SourcesCard, type MessageDraftCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
 import { dateLocale } from '../../utils';
@@ -143,6 +143,32 @@ function Sources({ card }: { card: SourcesCard }) {
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+/** A message to copy and send yourself (2026-11-02: "ช่วยทวงเงิน"): the words as they will be read, and one copy button. */
+function MessageDraft({ card }: { card: MessageDraftCard }) {
+  const [copied, setCopied] = React.useState<'idle' | 'done' | 'failed'>('idle');
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(card.text);
+      setCopied('done');
+    } catch {
+      setCopied('failed');
+    }
+  };
+  return (
+    <div className="asx-rcard is-draft">
+      <div className="asx-rcard-head"><span className="asx-rcard-icon"><MessageSquareText size={16} strokeWidth={1.9} /></span><b>{card.title}</b></div>
+      <p className="asx-draft-text">{card.text}</p>
+      <div className="asx-rcard-actions">
+        <span className="asx-draft-note">{copied === 'done' ? tr("คัดลอกแล้ว วางในแชตลูกค้าได้เลย") : copied === 'failed' ? tr("คัดลอกไม่สำเร็จ กดค้างที่ข้อความเพื่อคัดลอกเอง") : card.note}</span>
+        <button type="button" className="asx-pill-btn is-primary" onClick={copy} aria-live="polite">
+          {copied === 'done' ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+          {copied === 'done' ? tr("คัดลอกแล้ว") : tr("คัดลอกข้อความ")}
+        </button>
+      </div>
     </div>
   );
 }
@@ -836,6 +862,7 @@ function CardBody({ card, confirmState, confirmedPath, onConfirm, onCancel, onNa
     case 'questions': return <Questions card={card} onAnswer={onAnswer} answered={answered} />;
     case 'official_link': return <OfficialLink card={card} />;
     case 'sources': return <Sources card={card} />;
+    case 'message_draft': return <MessageDraft card={card} />;
     case 'rename': return <Rename card={card} />;
     case 'attach': return <Attach card={card} onNavigate={onNavigate} />;
   }

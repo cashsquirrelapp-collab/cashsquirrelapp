@@ -770,6 +770,12 @@ body:has(.ksm-layer) .asx.is-mobile { visibility: hidden; }
 .asx-rcard-actions .asx-edit-btn { margin-right: auto; }
 /* Tap-to-answer questions (2026-10-24): one row of choices per question, a typed answer only where needed. */
 .asx-rcard.is-questions { width: min(420px, 100%); }
+/* A message to copy and send yourself (2026-11-02): the words as the client reads them, then the copy button. */
+.asx-rcard.is-draft { width: min(420px, 100%); }
+.asx-draft-text { margin: 0; padding: 12px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.asx-rcard.is-draft .asx-rcard-actions { align-items: center; justify-content: space-between; gap: 10px; }
+.asx-draft-note { flex: 1 1 160px; min-width: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.asx-rcard.is-draft .asx-pill-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 /* The pages a web answer cites (2026-11-01): numbered links under the answer, two lines of title at most. */
 .asx-sources { display: grid; gap: 2px; margin: 0; padding: 6px; list-style: none; }
 .asx-sources a { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 7px 8px; border-radius: 12px; color: inherit; text-decoration: none; }

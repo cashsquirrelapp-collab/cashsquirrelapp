@@ -168,6 +168,11 @@ function cardMessage(card: AssistantCard): LineMessage | null {
     if (!site || !isOfficialUrl(site.url)) return null;
     return { type: 'text', text: `${site.title} (${site.org})\n${site.description}\nทำอะไร: ${site.todo}\n${site.url}` } as LineMessage;
   }
+  if (card.kind === 'message_draft') {
+    // The message by itself (no heading), so a long press copies or forwards exactly what the client should read.
+    const text = card.text.trim().slice(0, 4800);
+    return text ? { type: 'text', text } as LineMessage : null;
+  }
   if (card.kind === 'sources') {
     // The pages a web answer cited (the provider's citations, checked in gateway.webSources): LINE links them by itself.
     const pages = card.items.filter(page => /^https?:\/\//i.test(page.url)).slice(0, 5);

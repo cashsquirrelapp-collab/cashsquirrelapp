@@ -1,12 +1,13 @@
 import { buildDataSnapshot, type UserRow } from '../services/lineAssistant.js';
 import type { ChatTurn } from './types.js';
+import { weekPlan, weekPlanText } from './weekPlan.js';
 
 // The short questions the เลขา window offers as buttons, answered from the account's own jobs without a model call
 // (owner, 2026-10-27: "กำลังดำเนินการ" means "which jobs are in progress", and if there are none, say so; the AI had
 // read the bare word as a status and answered "มีอะไรให้ผมช่วยต่อไหมครับ"). The same rules as LINE's quick replies
 // (buildDataSnapshot): in progress = not delivered yet; waiting for money = something still to receive.
 
-export type QuickKind = 'wip' | 'unpaid';
+export type QuickKind = 'wip' | 'unpaid' | 'week' | 'next_week';
 const MAX_LISTED = 10;
 
 const baht = (amount: number) => `฿${Number(amount || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })}`;
@@ -20,11 +21,16 @@ const WIP = /^(มี)?(งาน)?(ไหน|อะไร)?(ที่)?(ยั�
 const WIP_EN = /^(which|what)jobsare(still)?(inprogress|ongoing)(now)?$|^(jobs)?inprogress$/;
 const UNPAID = /^(มี)?(งาน)?(ไหน|อะไร)?(ที่)?(ยัง)?(รอรับเงิน|ค้างรับเงิน|ค้างจ่าย|ยังไม่(ได้)?รับเงิน)(อยู่)?(บ้าง|มีอะไรบ้าง|มีไหม|ไหม|กี่งาน)?$/;
 const UNPAID_EN = /^(which|what)jobsare(still)?(waitingforpayment|unpaid)(now)?$|^(waitingforpayment|unpaid)$/;
+// "สัปดาห์นี้มีอะไรต้องทำ", "อาทิตย์นี้มีงานอะไรบ้าง", "แผนสัปดาห์หน้า" (owner, 2026-11-02: plan the week).
+const WEEK = /^(ช่วย)?(สรุป|วาง)?(แผน)?(งาน)?(ของ)?(สัปดาห์|อาทิตย์|วีค)(นี้|หน้า)(มี)?(อะไร|งานอะไร|เรื่องอะไร)?(ที่)?(ต้อง|ควร)?(ทำ|ตาม|ส่ง|เคลียร์)?(อะไร)?(บ้าง|ไหม)?$/;
+const WEEK_EN = /^(what('?s|is)?|plan)(do i have|to do|on)?(this|next)week(plan|todo)?$|^(this|next)weekplan$/;
 
 /** Which quick question this is, or null. Not when เลขา has just asked about a job's stage or payment: "กำลังทำ" is then an answer. */
 export function quickKind(text: string, history: ChatTurn[] = []): QuickKind | null {
   const said = plain(text);
-  const kind: QuickKind | null = WIP.test(said) || WIP_EN.test(said) ? 'wip' : UNPAID.test(said) || UNPAID_EN.test(said) ? 'unpaid' : null;
+  const week = WEEK.test(said) || WEEK_EN.test(said);
+  const kind: QuickKind | null = WIP.test(said) || WIP_EN.test(said) ? 'wip' : UNPAID.test(said) || UNPAID_EN.test(said) ? 'unpaid'
+    : week ? (/หน้า|next/.test(said) ? 'next_week' : 'week') : null;
   if (!kind) return null;
   const last = [...history].reverse().find(turn => turn.role === 'assistant')?.text ?? '';
   const asked = /[?？]|ไหม|หรือยัง|หรือเปล่า|หรือไม่/.test(last) && /ส่งงาน|สถานะ|กำลังทำ|ดำเนินการ|รับเงิน|จ่าย/.test(last);
@@ -32,7 +38,8 @@ export function quickKind(text: string, history: ChatTurn[] = []): QuickKind | n
 }
 
 /** The answer, from this account's jobs: the list, or plainly that there is none. */
-export function quickAnswer(kind: QuickKind, user: UserRow): string {
+export function quickAnswer(kind: QuickKind, user: UserRow, now = new Date()): string {
+  if (kind === 'week' || kind === 'next_week') return weekPlanText(weekPlan(user, { next: kind === 'next_week', now }));
   const snapshot = buildDataSnapshot(user);
   if (kind === 'wip') {
     const jobs = snapshot.wip;

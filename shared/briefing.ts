@@ -8,9 +8,9 @@ import type { Expense, FixedExpenseItem, Invoice, Job } from './types.js';
 // here is stored or sent. Money due uses the same rule as the LINE 08:00 reminder (dueJobs.ts), so the briefing, the
 // overview and LINE never disagree. A forecast is always marked as one and is never shown as money that exists.
 
-export type BriefingKind = 'overdue' | 'due_today' | 'due_soon' | 'cash_short' | 'cash_watch' | 'quote_waiting';
+export type BriefingKind = 'overdue' | 'due_today' | 'due_soon' | 'cash_short' | 'cash_watch' | 'quote_waiting' | 'not_invoiced';
 /** Where the button goes: a page key the app already has (navigation.ts), never a URL from data. */
-export type BriefingPage = 'receivables' | 'incomeExpense' | 'quotation' | 'dashboard';
+export type BriefingPage = 'receivables' | 'incomeExpense' | 'quotation' | 'dashboard' | 'invoice';
 export interface BriefingItem {
   /** Same key on the same day = the same news (used to show it once a day). */
   key: string;
@@ -58,6 +58,11 @@ export interface Briefing { day: string; items: BriefingItem[]; radar: Financial
 
 const MAX_ITEMS = 3;
 const QUOTE_WAIT_DAYS = 7;
+/** Days after delivery before a missing invoice is mentioned, and how far back deliveries count (owner, 2026-11-02:
+ *  "ส่งงานไป 3 วันแล้วยังไม่ออกใบแจ้งหนี้ ออกเลยไหม"). */
+export const INVOICE_AFTER_DAYS = 3;
+const INVOICE_LOOKBACK_DAYS = 60;
+const BILLING_TYPES = new Set(['invoice', 'receipt', 'taxInvoice', 'receiptTaxInvoice']);
 const round = (value: number) => Math.round(value * 100) / 100;
 const baht = (value: number) => `${value < 0 ? '−' : ''}฿${Math.abs(round(value)).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 const dayMs = 86_400_000;
@@ -89,6 +94,25 @@ export function financialRadar(input: BriefingInput): FinancialRadar {
   const projected30 = cashNow === null ? null : round(cashNow + expected30 - knownCosts30);
   const risk = cashNow === null ? 'unknown' : projected30! < 0 ? 'short' : cashNow < knownCosts30 ? 'watch' : 'ok';
   return { receivedThisMonth, overdue, expected30, knownCosts30, cashNow, projected30, risk, forecast: true };
+}
+
+export interface UninvoicedJob { id: string; name: string; client: string; pending: number; deliveredOn: string; days: number }
+const sameClient = (a: string, b: string) => a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase();
+
+/**
+ * Delivered jobs still owed money with no bill for their client: delivered at least INVOICE_AFTER_DAYS and at most 60
+ * days ago, and no invoice, receipt or tax invoice for the same client dated from 45 days before the delivery on (one
+ * can be issued before the work is handed over). Documents carry no job id, so the client and dates decide.
+ */
+export function deliveredNotInvoiced(jobs: Job[], invoices: Invoice[] | undefined, today: string, minDays = INVOICE_AFTER_DAYS): UninvoicedJob[] {
+  const bills = (invoices ?? []).filter(doc => BILLING_TYPES.has(doc.documentType) && /^\d{4}-\d{2}-\d{2}$/.test(doc.createdDate || ''));
+  return jobs.filter(job => job.isPosted === true && (job.pending || 0) > 0 && job.status !== 'done' && job.paymentStatus !== 'paid'
+    && /^\d{4}-\d{2}-\d{2}$/.test(job.postDate || ''))
+    .map(job => ({ job, days: daysBetween(job.postDate!, today) }))
+    .filter(({ job, days }) => days >= minDays && days <= INVOICE_LOOKBACK_DAYS
+      && !bills.some(doc => sameClient(doc.client?.name || '', job.client || '') && doc.createdDate >= addDays(job.postDate!, -45)))
+    .map(({ job, days }) => ({ id: String(job.id), name: job.name || 'งาน', client: (job.client || '').trim(), pending: round(job.pending || 0), deliveredOn: job.postDate!, days }))
+    .sort((a, b) => b.days - a.days || b.pending - a.pending);
 }
 
 /** The briefing for now: at most three items, the most important first. */
@@ -140,6 +164,17 @@ export function buildBriefing(input: BriefingInput): Briefing {
   // No "recurring costs not recorded yet" item (owner, 2026-10-28: "รายจ่ายคือถ้ากูกรอกไปคือกูบันทึกแล้ว"): the fixed
   // monthly costs from Settings already count in the month's expenses and profit (fixedExpenseForMonth, the same rule as
   // the overview and the รายจ่าย page), so asking to record them again was wrong. They stay in the 30-day cash forecast.
+
+  // ---- delivered, no invoice yet (only for an account that issues its bills in the app) ----
+  const unbilled = (input.invoices ?? []).some(doc => BILLING_TYPES.has(doc.documentType)) ? deliveredNotInvoiced(input.jobs, input.invoices, day) : [];
+  if (unbilled.length) {
+    const first = unbilled[0];
+    const total = round(unbilled.reduce((sum, job) => sum + job.pending, 0));
+    add({ key: `not_invoiced:${unbilled.map(job => job.id).join(',').slice(0, 120)}`, kind: 'not_invoiced', tone: 'warning',
+      title: `ส่งงานแล้วยังไม่ออกใบแจ้งหนี้ ${unbilled.length} งาน`,
+      detail: `${first.name}${first.client ? ` · ${first.client}` : ''} · ส่งงานมา ${first.days} วัน`, amount: total, count: unbilled.length,
+      parts: { name: first.name, days: first.days }, action: { label: 'ออกใบแจ้งหนี้', page: 'invoice' } }, 75 + Math.min(15, first.days));
+  }
 
   // ---- quotations waiting for the client ----
   const followed = new Set((input.invoices ?? []).map(doc => doc.linkedFromId).filter(Boolean));

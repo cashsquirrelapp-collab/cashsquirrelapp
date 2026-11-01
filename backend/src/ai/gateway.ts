@@ -159,7 +159,8 @@ const SHORT_CHAT_TOOLS = new Set(['remember', 'recall_memories', 'forget_memory'
   'money_summary', 'receivables', 'search_jobs', 'financial_summary']);
 /** Words about the account's records: such a message, or one right after it, keeps every tool. Files and 50 ทวิ joined
  * on 2026-10-31, when the vault opened to everyone (its search_vault and wht_tracking tools are not in the short set). */
-const RECORD_WORDS = /(รายรับ|รายได้|รายจ่าย|ค่าใช้จ่าย|กำไร|ขาดทุน|ยอด|สรุป|เงิน|ลูกค้า|งาน|โปรเจ|ค้าง|กราฟ|สถิติ|สัดส่วน|เอกสาร|ใบ|จ่าย|โอน|บาท|ภาษี|หัก|เป้า|เดือน|ปี|ไตรมาส|อันไหน|ตัวไหน|อันนั้น|อันนี้|ของใคร|ทั้งหมด|เท่าไหร่|เท่าไร|กี่|฿|\d|job|client|money|income|expense|invoice|quotation|paid|owe|month|year|ไฟล์|คลัง|ทวิ|สลิป|สัญญา|\bfiles?\b|vault|wht)/i;
+// ทวง and สัปดาห์/อาทิตย์ (2026-11-02): asking for a payment reminder or the week's plan needs collection_draft / week_plan.
+const RECORD_WORDS = /(ทวง|ติดตามเงิน|สัปดาห์|อาทิตย์|\bweek\b|รายรับ|รายได้|รายจ่าย|ค่าใช้จ่าย|กำไร|ขาดทุน|ยอด|สรุป|เงิน|ลูกค้า|งาน|โปรเจ|ค้าง|กราฟ|สถิติ|สัดส่วน|เอกสาร|ใบ|จ่าย|โอน|บาท|ภาษี|หัก|เป้า|เดือน|ปี|ไตรมาส|อันไหน|ตัวไหน|อันนั้น|อันนี้|ของใคร|ทั้งหมด|เท่าไหร่|เท่าไร|กี่|฿|\d|job|client|money|income|expense|invoice|quotation|paid|owe|month|year|ไฟล์|คลัง|ทวิ|สลิป|สัญญา|\bfiles?\b|vault|wht)/i;
 /**
  * Money received or spent, typed or on a slip: the file rules hold how an amount shows the withholding, how an expense
  * is named and the app's expense categories (a typed expense needs them too).

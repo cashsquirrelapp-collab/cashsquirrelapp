@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Clock, FileText, Wallet } from 'lucide-react';
+import { AlertCircle, Clock, FileText, Receipt, Wallet } from 'lucide-react';
 import type { Briefing, BriefingItem, BriefingPage } from '../../../../shared/briefing';
 import { tr } from '../../i18n/tr';
 import { dateLocale } from '../../utils';
@@ -9,7 +9,7 @@ import { dateLocale } from '../../utils';
 
 /** The page each button opens: the same paths เลขา's own navigation cards use. */
 export const BRIEFING_PATHS: Record<BriefingPage, string> = {
-  receivables: '/receivables', incomeExpense: '/incomeExpense', quotation: '/invoice?type=quotation', dashboard: '/dashboard',
+  receivables: '/receivables', incomeExpense: '/incomeExpense', quotation: '/invoice?type=quotation', dashboard: '/dashboard', invoice: '/invoice?type=invoice',
 };
 const money = (value: number) => `${value < 0 ? '−' : ''}฿${Math.abs(Math.round(value * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 
@@ -18,7 +18,7 @@ export function briefingText(item: BriefingItem): { title: string; detail: strin
   const p = item.parts;
   const amount = money(item.amount ?? 0);
   const action = item.action.page === 'receivables' ? tr("ดูรายการรอรับเงิน") : item.action.page === 'dashboard' ? tr("ดูภาพรวม")
-    : item.action.page === 'incomeExpense' ? tr("เปิดรายรับรายจ่าย") : tr("เปิดใบเสนอราคา");
+    : item.action.page === 'incomeExpense' ? tr("เปิดรายรับรายจ่าย") : item.action.page === 'invoice' ? tr("ออกใบแจ้งหนี้") : tr("เปิดใบเสนอราคา");
   switch (item.kind) {
     case 'overdue': return { title: tr("เลยกำหนดรับเงิน {0} รายการ", item.count), detail: tr("รวม {0} · นานสุด {1} วัน ({2})", amount, p.days ?? 0, p.name ?? ''), action };
     case 'due_today': return { title: tr("ครบกำหนดรับเงินวันนี้ {0} รายการ", item.count), detail: tr("รวม {0} ({1})", amount, p.name ?? ''), action };
@@ -27,12 +27,13 @@ export function briefingText(item: BriefingItem): { title: string; detail: strin
     case 'cash_watch': return {
       title: item.kind === 'cash_short' ? tr("เงินอาจไม่พอใน 30 วันข้างหน้า") : tr("รายจ่ายประจำ 30 วันข้างหน้าต้องใช้เงินที่รอรับ"),
       detail: tr("เงินในแอป {0} + รอรับ {1} − รายจ่ายประจำ {2} = {3}", money(p.cashNow ?? 0), money(p.expected ?? 0), money(p.costs ?? 0), money(p.projected ?? 0)), action };
+    case 'not_invoiced': return { title: tr("ส่งงานแล้วยังไม่ออกใบแจ้งหนี้ {0} งาน", item.count), detail: tr("{0} · ส่งงานมา {1} วัน", p.name ?? '', p.days ?? 0), action };
     default: return { title: tr("ใบเสนอราคารอลูกค้าตอบ {0} ฉบับ", item.count), detail: tr("ฉบับที่รอนานสุด {0} วัน", p.days ?? 0), action };
   }
 }
 
 const ICONS: Record<BriefingItem['kind'], typeof Clock> = {
-  overdue: AlertCircle, due_today: Clock, due_soon: Clock, cash_short: Wallet, cash_watch: Wallet, quote_waiting: FileText,
+  overdue: AlertCircle, due_today: Clock, due_soon: Clock, cash_short: Wallet, cash_watch: Wallet, quote_waiting: FileText, not_invoiced: Receipt,
 };
 
 export function BriefingCard({ briefing, onOpen }: { briefing: Briefing; onOpen: (path: string) => void }) {

@@ -82,7 +82,11 @@ export type AssistantCard =
       jobId?: string; jobName?: string; client?: string; expenseId?: string; expenseName?: string }
   /** The web pages an answer cites (owner, 2026-11-01: "แปะลิงก์อ้างอิงช่วงท้าย"): taken from the search provider's own
    *  citations, never a URL the model wrote; https/http only, at most five. */
-  | SourcesCard;
+  | SourcesCard
+  /** A message for the user to copy and send themselves (owner, 2026-11-02: "ช่วยทวงเงิน"): the words come from fixed
+   *  templates and saved figures (collections.ts), never from the model; เลขา never sends it. */
+  | MessageDraftCard;
+export type MessageDraftCard = { kind: 'message_draft'; id: string; title: string; text: string; note: string };
 export type WebSource = { title: string; url: string };
 export type SourcesCard = { kind: 'sources'; items: WebSource[] };
 

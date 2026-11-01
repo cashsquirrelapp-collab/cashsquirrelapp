@@ -1,3 +1,5 @@
+import { clientStandings, collectionDraft } from './collections.js';
+import { weekPlan, weekPlanFacts } from './weekPlan.js';
 import { randomUUID } from 'node:crypto';
 import { validateChanges } from '../../../shared/validation.js';
 import { isValidWhtRate, whtAmountFor, roundMoney } from '../../../shared/wht.js';
@@ -82,7 +84,12 @@ const validDate = (value: unknown): value is string => typeof value === 'string'
 const READ_TOOLS: ToolSpec[] = [
   { name: 'feature_lookup', description: 'Look up what the Krarok app can do: a feature, where it is, how to use it, its plan rights and whether it is live. Use before answering any question about the app.', parameters: obj({ query: str('What the user asks about, in their words') }, ['query']) },
   { name: 'money_summary', description: "This or last month's dashboard figures, including recurring budgets. For a year, another month, actual receipts or a date range use financial_summary instead.", parameters: obj({ month: { type: 'string', enum: ['this', 'last'], description: 'This month or last month' } }) },
-  { name: 'receivables', description: 'Money clients still owe: overdue, due today, due within 10 days, and every unpaid job. Lists have pagination and complete counts.', parameters: obj(pageArgs) },
+  { name: 'receivables', description: 'Money clients still owe: overdue, due today, due within 10 days, and every unpaid job, plus by_client: each client\'s owed and late money, late jobs, most days late and follow-ups so far (who pays late now). Lists have pagination and complete counts.', parameters: obj(pageArgs) },
+  { name: 'collection_draft', description: 'A polite message asking a client to pay, ready for the user to copy and send themselves: built from the saved jobs and amounts with fixed courteous wording by how late the money is, with the user\'s saved bank details. Shown as a card with a copy button; do not repeat the message. Without client or job_id it picks the client whose money is latest. If the user wants other wording, write it yourself from the facts returned. You never send messages to clients.', parameters: obj({
+    client: str('Client name as the user said it (optional)'), job_id: str('One job (optional, from search_jobs)'),
+    particle: { type: 'string', enum: ['ครับ', 'ค่ะ'], description: 'The polite ending the user uses in their own messages; ครับ when unknown' },
+  }) },
+  { name: 'week_plan', description: 'What needs doing this week or next (Monday to Sunday, Bangkok): jobs to deliver, delivered jobs with no invoice yet, money expected, money already late, quotations waiting for an answer. From saved data only.', parameters: obj({ week: { type: 'string', enum: ['this', 'next'], description: 'This week (default) or next week' } }) },
   { name: 'search_jobs', description: 'Find own jobs by name, client or type, stage, calendar year or month using the app’s receipt/due-date membership. Full-match totals are CONTRACT values and outstanding balances, not received income. For receipts use financial_summary/search_receipts. Returns job_id for detail, never show raw IDs.', parameters: obj({ query: str('Words from job name/client/type'), status: { type: 'string', enum: ['all', 'working', 'unpaid', 'closed'], description: 'working = not delivered; unpaid = still owed; closed = delivered and fully paid' }, month: str('all, this, last, or YYYY-MM (CE)'), year: { type: 'integer', description: 'Calendar year CE or BE, mutually exclusive with month' }, ...pageArgs }) },
   { name: 'get_job', description: 'One job in detail by job_id (from search_jobs).', parameters: obj({ job_id: str('job_id from search_jobs') }, ['job_id']) },
 ];
@@ -464,7 +471,26 @@ export function createToolbox(context: ToolContext) {
           due_today: capped(snapshot.dueToday.map(row => ({ name: row.name, client: row.client, pending: baht(row.pending) })), args),
           due_within_10_days: capped(snapshot.dueSoon.map(row => ({ name: row.name, client: row.client, pending: baht(row.pending), when: row.dueText })), args),
           all_unpaid: capped(snapshot.unpaid.map(row => ({ name: row.name, client: row.client, pending: baht(row.pending), due: thaiDate(row.dueDate), when: row.dueText })), args),
+          // Who pays late now (collections.ts): past payments overwrite their due date, so this is today's lateness only.
+          by_client: clientStandings(user, context.now).slice(0, 10).map(row => ({ client: row.client, owed: baht(row.owed), late: baht(row.late), late_jobs: row.lateJobs,
+            most_days_late: row.maxDaysLate, jobs: row.jobs, follow_ups: row.followUps, last_follow_up: row.lastFollowUp ? thaiDate(row.lastFollowUp) : null })),
         } };
+      }
+      case 'collection_draft': {
+        const particle = args.particle === 'ค่ะ' ? 'ค่ะ' as const : 'ครับ' as const;
+        const draft = collectionDraft(user, { client: typeof args.client === 'string' ? args.client : undefined, jobId: typeof args.job_id === 'string' ? args.job_id : undefined, particle, now: context.now });
+        if (!draft) return fail(args.client || args.job_id ? 'ไม่พบงานที่ยังรอรับเงินของลูกค้ารายนี้' : 'ตอนนี้ไม่มีงานที่รอรับเงิน');
+        const card: AssistantCard = { kind: 'message_draft', id: `draft-${randomUUID()}`, title: `ข้อความทวงเงิน · ${draft.client}`.slice(0, 120), text: draft.text,
+          note: 'คัดลอกไปส่งลูกค้าเองได้เลย เลขาไม่ส่งแทน' };
+        return { result: { ok: true, client: draft.client, tone: draft.tone, total: baht(draft.total), most_days_late: Math.max(0, draft.maxDaysLate),
+          jobs: draft.jobs.map(job => ({ name: job.name, amount: baht(job.amount), due: job.due ? thaiDate(job.due) : '-', days_late: job.daysLate, follow_ups: job.followUps })),
+          bank_details_included: draft.bank,
+          card_shown: 'The message is shown as a card with a copy button. Say in one short line who it is for and how late; do not repeat the message.'
+            + (draft.bank ? '' : ' The user has no bank details saved (ตั้งค่า → โปรไฟล์ธุรกิจ); mention it once if helpful.') }, card };
+      }
+      case 'week_plan': {
+        const plan = weekPlan(user, { next: args.week === 'next', now: context.now });
+        return { result: { ok: true, ...weekPlanFacts(plan) } };
       }
       case 'search_jobs': {
         const query = String(args.query || '').trim().toLowerCase();

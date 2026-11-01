@@ -8,7 +8,9 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { sendGmailEmailOutcome } from '../services/gmail.js';
 import { sendLineMessageToEmailOutcome } from '../services/line.js';
 import { attemptDelivery, notificationOutcomeCounts, recordChannelOutcome, type DeliveryOutcome } from '../services/notificationOutcome.js';
-import { buildDigestFlexMessage, findJobsNeedingAttention, todayInBangkok, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
+import { buildDigestFlexMessage, buildInsightFlexMessage, findJobsNeedingAttention, todayInBangkok, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
+import { mergeTold, morningInsights, type MorningInsights } from '../services/morningInsights.js';
+import type { Expense, Invoice, Job } from '../../../shared/types.js';
 export { buildDigestFlexMessage } from '../services/lineReminders.js';
 
 
@@ -145,7 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const [{ data: rows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
-      supabaseAdmin.from('cashflow_account_snapshot').select('user_id, email, jobs, notif_settings'),
+      supabaseAdmin.from('cashflow_account_snapshot').select('user_id, email, jobs, expenses, invoices, settings, notif_settings'),
       supabaseAdmin.from('subscriptions').select('user_id, status, plan, current_period_end'),
       listAllAuthUsers(),
     ]);
@@ -201,8 +203,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (account.data.user?.app_metadata?.account_paused === true) { skipped += 1; continue; }
         const jobs: JobRow[] = row.jobs || [];
         const attentionJobs = findJobsNeedingAttention(jobs);
+        // What เลขา noticed besides money due (owner, 2026-11-02): LINE only, each thing at most once a week. A rule that
+        // fails to compute never stops the reminder itself.
+        let insights: MorningInsights = { items: [], told: {} };
+        if (notifSettings.lineUserId) {
+          try {
+            insights = morningInsights({ jobs: jobs as unknown as Job[], expenses: (row.expenses || []) as Expense[], invoices: (row.invoices || []) as Invoice[],
+              settings: row.settings || null, told: (notifSettings as { insightTold?: Record<string, string> }).insightTold });
+          } catch (error) {
+            console.error('morning insights failed', error instanceof Error ? error.message : 'unknown');
+          }
+        }
 
-        if (attentionJobs.length === 0) {
+        if (attentionJobs.length === 0 && insights.items.length === 0) {
           skipped += 1;
           continue;
         }
@@ -210,7 +223,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         claimed = await claimDelivery(deliveryKey);
         if (!claimed) { skipped += 1; continue; }
         const recipient = notifSettings.alertEmail || row.email;
-        const emailOutcome: DeliveryOutcome = recipient ? await attemptDelivery(() => sendDigestEmail(recipient, attentionJobs)) : 'skipped';
+        // The email stays the money reminder; a morning with only เลขา's notes goes to LINE alone.
+        const emailOutcome: DeliveryOutcome = recipient && attentionJobs.length ? await attemptDelivery(() => sendDigestEmail(recipient, attentionJobs)) : 'skipped';
         record('email', emailOutcome);
 
         // Independent of the email outcome above -- LINE and email are separate channels, and
@@ -222,14 +236,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
         let lineOutcome: DeliveryOutcome = 'skipped';
-        if (row.email) {
-          lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId, randomUUID()));
+        if (row.email && attentionJobs.length) {
+          lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, buildDigestFlexMessage(attentionJobs, { insights: insights.items }), notifSettings.lineUserId, randomUUID()));
           // The payment buttons are new (2026-10-22): if LINE refuses that card, the reminder still
-          // goes out, as the card without buttons.
+          // goes out, as the card without buttons (and without เลขา's notes).
           if (lineOutcome === 'rejected') {
             console.error('LINE refused the reminder with payment buttons; sending it without them');
+            insights = { items: [], told: {} };
             lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, buildDigestFlexMessage(attentionJobs, { buttons: false }), notifSettings.lineUserId, randomUUID()));
           }
+        } else if (row.email && insights.items.length) {
+          lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, buildInsightFlexMessage(insights.items), notifSettings.lineUserId, randomUUID()));
         }
         record('line', lineOutcome);
 
@@ -252,7 +269,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const result = await supabaseAdmin.rpc('cashflow_follow_up', { p_user_id: row.user_id, p_id: id, p_date: todayStr });
           if (result.error) throw result.error;
         }
-        await patchPrivate(row.user_id, { lastDigestSentDate: todayStr });
+        await patchPrivate(row.user_id, { lastDigestSentDate: todayStr,
+          ...(lineOutcome === 'accepted' && Object.keys(insights.told).length ? { insightTold: mergeTold((notifSettings as { insightTold?: Record<string, string> }).insightTold, insights.told) } : {}) });
 
       } catch {
         if (marking) outcomes.markerFailed += 1;

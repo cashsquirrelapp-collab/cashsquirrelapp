@@ -380,6 +380,13 @@ export const assistant: Record<string, string> = {
   "เปิดเว็บไซต์": "Open website",
   "ทำในเว็บนี้": "What to do there",
   "แหล่งอ้างอิง": "Sources",
+  "คัดลอกข้อความ": "Copy message",
+  "คัดลอกแล้ว": "Copied",
+  "คัดลอกแล้ว วางในแชตลูกค้าได้เลย": "Copied. Paste it into your chat with the client.",
+  "คัดลอกไม่สำเร็จ กดค้างที่ข้อความเพื่อคัดลอกเอง": "Could not copy. Press and hold the text to copy it.",
+  "ส่งงานแล้วยังไม่ออกใบแจ้งหนี้ {0} งาน": "{0} delivered jobs have no invoice yet",
+  "{0} · ส่งงานมา {1} วัน": "{0} · delivered {1} days ago",
+  "ออกใบแจ้งหนี้": "Issue an invoice",
   // The floating window on computers and iPads (2026-10-26).
   "ย่อหน้าต่าง": "Minimise",
   "เปิดแชตเต็มได้เมื่อเลขากระรอกทำรายการนี้เสร็จ": "The full chat opens once the assistant has finished this",

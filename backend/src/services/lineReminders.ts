@@ -1,6 +1,7 @@
 import type { LineMessage } from './line.js';
 import { LINE_CARD_COLORS as C, lineAppLink, lineCard, lineJobItem } from './lineCards.js';
 import { dueRefFromDigestId, encodeDueAction, partialPrompt } from './lineDuePayments.js';
+import type { MorningInsight } from './morningInsights.js';
 
 /**
  * A rounded tap target inside the card (a Flex box with a postback action). Owner, 2026-10-27 (chat cards direction A,
@@ -48,7 +49,35 @@ function dueText(days: number): string {
 }
 
 /** One compact digest, with a visible example from every urgency group and complete totals. */
-export function buildDigestFlexMessage(jobs: JobWithDiff[], options: { test?: boolean; now?: Date; /** Payment buttons (default on); off is the fallback if LINE refuses them. */ buttons?: boolean } = {}): LineMessage {
+/** "เลขาชวนดู": each thing เลขา noticed, its lines, and a quiet link to the page that deals with it. */
+function insightRows(insights: MorningInsight[]): any[] {
+  return insights.map((insight, at) => {
+    const link = lineAppLink(insight.link.path, insight.link.label);
+    return {
+      type: 'box', layout: 'vertical', spacing: 'xs', margin: at ? 'lg' : 'md',
+      contents: [
+        { type: 'text', text: insight.title, size: 'sm', weight: 'bold', color: insight.kind === 'cash_short' ? C.negative : C.text, wrap: true },
+        ...insight.lines.map(line => ({ type: 'text', text: line, size: 'xs', color: C.muted, wrap: true })),
+        ...(link ? [{ type: 'text', text: `${link.label} ›`, size: 'xs', weight: 'bold', color: C.accent, margin: 'sm', action: { type: 'uri', label: link.label.slice(0, 20), uri: link.uri } }] : []),
+      ],
+    };
+  });
+}
+
+/** The 08:00 message on a morning with nothing due: only what เลขา noticed (morningInsights.ts). */
+export function buildInsightFlexMessage(insights: MorningInsight[], options: { now?: Date } = {}): LineMessage {
+  const first = insights[0];
+  return lineCard({
+    compact: true, character: first.kind === 'cash_short' ? 'urgent' : 'reminder', title: 'เลขาชวนดู',
+    subtitle: `คิดล่วงหน้าให้ · ${shortDate(todayInBangkok(options.now))}`,
+    altText: `เลขาชวนดู: ${insights.map(insight => insight.title).join(' · ')}`.slice(0, 380),
+    body: insightRows(insights), note: 'คิดจากข้อมูลที่บันทึกในแอป เรื่องเดิมจะเตือนซ้ำไม่เกินสัปดาห์ละครั้ง',
+    footer: lineAppLink(first.link.path, first.link.label),
+  });
+}
+
+export function buildDigestFlexMessage(jobs: JobWithDiff[], options: { test?: boolean; now?: Date; /** Payment buttons (default on); off is the fallback if LINE refuses them. */ buttons?: boolean;
+  /** What เลขา noticed besides the money due (morningInsights.ts), under the jobs. */ insights?: MorningInsight[] } = {}): LineMessage {
   const sorted = [...jobs].sort((a, b) => a.diffDays - b.diffDays || (a.dueDate || a.payDate || '').localeCompare(b.dueDate || b.payDate || ''));
   const groups = [
     { title: 'เลยกำหนด', color: C.negative, items: sorted.filter(j => j.diffDays < 0) },
@@ -95,6 +124,11 @@ export function buildDigestFlexMessage(jobs: JobWithDiff[], options: { test?: bo
         }),
       ],
     });
+  }
+  if (options.insights?.length) {
+    body.push({ type: 'separator', color: C.border, margin: 'xl' });
+    body.push({ type: 'text', text: 'เลขาชวนดู', size: 'xs', weight: 'bold', color: C.accent, margin: 'lg' });
+    body.push(...insightRows(options.insights));
   }
   const hiddenCount = jobs.length - visible.size;
   const note = options.test ? 'ข้อมูลตัวอย่างสำหรับทดสอบเท่านั้น\nไม่มีการเพิ่มงานหรือเปลี่ยนยอดเงินจริง'

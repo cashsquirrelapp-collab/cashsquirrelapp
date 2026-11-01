@@ -42,7 +42,9 @@ export type AttachCard = { kind: 'attach'; id: string; fileKind: 'wht50' | 'cont
   jobId?: string; jobName?: string; client?: string; expenseId?: string; expenseName?: string };
 /** The web pages an answer cites (2026-11-01: "แปะลิงก์อ้างอิงช่วงท้าย"), from the search provider's citations (server-checked). */
 export type SourcesCard = { kind: 'sources'; items: { title: string; url: string }[] };
-export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard | AttachCard | SourcesCard;
+/** A message to copy and send yourself (2026-11-02: "ช่วยทวงเงิน"): fixed courteous wording and saved figures (server). */
+export type MessageDraftCard = { kind: 'message_draft'; id: string; title: string; text: string; note: string };
+export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard | AttachCard | SourcesCard | MessageDraftCard;
 
 /** `failed` + `question`: a send that did not go through, kept so it can be retried. */
 /** `attachment`: the name and kind of a file sent with the message (the file itself is not kept). */

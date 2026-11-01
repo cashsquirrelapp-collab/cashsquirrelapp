@@ -242,6 +242,35 @@ for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'pho
   });
 }
 
+// Help getting paid (2026-11-02): the reminder for a client is a card with the message as the client will read it and
+// one copy button; เลขา never sends it. Checked on a computer and on a phone.
+for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
+  test(`live: a payment reminder draft can be copied (${size.name})`, async ({ page, context }, testInfo) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const draft = 'สวัสดีครับ คุณเอ ขออนุญาตติดตามค่าบริการงาน "ออกแบบโลโก้" ยอด 5,000 บาท ซึ่งครบกำหนดชำระเมื่อวันที่ 30 ต.ค. 2569 (เลยกำหนดมา 5 วัน)\nรบกวนช่วยตรวจสอบให้ด้วยนะครับ หากชำระแล้ว รบกวนส่งหลักฐานการโอนให้ด้วย ขอบคุณมากครับ\nช่องทางชำระ: กสิกรไทย 123-4-56789-0 ชื่อบัญชี สตูดิโอ ตัวอย่าง\nสตูดิโอตัวอย่าง';
+    await open(page, { reply: body => (body.action === 'message' ? { status: 200, json: {
+      text: 'ร่างข้อความทวงคุณเอไว้แล้วครับ เลยกำหนดมา 5 วัน', route: 'chat', tokens: 6, tokensLeft: 980, trialLeft: null,
+      cards: [{ kind: 'message_draft', id: 'draft-1', title: 'ข้อความทวงเงิน · คุณเอ', text: draft, note: 'คัดลอกไปส่งลูกค้าเองได้เลย เลขาไม่ส่งแทน' }],
+    } } : { status: 200, json: { cancelled: true } }) });
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await ask(page, 'ช่วยร่างข้อความทวงคุณเอหน่อย');
+    const card = page.locator('.asx-rcard.is-draft');
+    await expect(card).toHaveCount(1);
+    await expect(card.locator('.asx-rcard-head')).toHaveText('ข้อความทวงเงิน · คุณเอ');
+    await expect(card.locator('.asx-draft-text')).toHaveText(draft);
+    await expect(card.locator('.asx-draft-note')).toHaveText('คัดลอกไปส่งลูกค้าเองได้เลย เลขาไม่ส่งแทน');
+    await card.getByRole('button', { name: 'คัดลอกข้อความ' }).click();
+    await expect(card.getByRole('button', { name: 'คัดลอกแล้ว' })).toBeVisible();
+    await expect(card.locator('.asx-draft-note')).toHaveText('คัดลอกแล้ว วางในแชตลูกค้าได้เลย');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(draft);
+    await card.scrollIntoViewIfNeeded();
+    const box = await card.boundingBox();
+    expect(box && box.x >= 0 && box.x + box.width <= size.width).toBeTruthy();
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath(`draft-card-${size.name}.png`) });
+  });
+}
+
 test('live: a connection failure keeps the retry state', async ({ page }) => {
   await open(page, { reply: () => ({ status: 503, json: { error: 'เลขากระรอกตอบไม่ทันในตอนนี้ กรุณาลองใหม่อีกครั้ง', code: 'ai_provider' } }) });
   await ask(page, 'สวัสดี');

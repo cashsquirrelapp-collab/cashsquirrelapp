@@ -1083,7 +1083,7 @@ export function buildGoalTransactionDeletedMessage(
   return buildReceiptCard(bodyContents, `ลบรายการ "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`, 'cancelled');
 }
 
-function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
+export function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
   return statuses.find((s) => s.id === statusId)?.behavior || 'pending';
 }
 
