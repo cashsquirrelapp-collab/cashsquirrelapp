@@ -26,6 +26,12 @@ export function recordChannelOutcome(counts: NotificationOutcomeCounts, channel:
 }
 
 // A thrown transport error may occur after the provider accepted the message.
+/** Cloudflare refuses a request over the invocation's allowance before it leaves the Worker ("Too many subrequests"):
+ *  nothing was sent, so it is a plain failure that may be retried, not an unknown that keeps its claim (2026-11-01). */
+export function neverSent(error: unknown): boolean {
+  return /too many subrequests/i.test(String((error as { message?: unknown } | null)?.message ?? error));
+}
+
 export async function attemptDelivery(send: () => Promise<DeliveryOutcome>): Promise<DeliveryOutcome> {
-  try { return await send(); } catch { return 'unknown'; }
+  try { return await send(); } catch (error) { return neverSent(error) ? 'rejected' : 'unknown'; }
 }

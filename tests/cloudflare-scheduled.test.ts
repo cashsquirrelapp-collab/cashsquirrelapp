@@ -7,7 +7,8 @@ import { runScheduledJobs } from '../migration/scheduled-runner.js';
 // overdue digest used most of them and the four jobs after it failed. Each trigger is now its own invocation, and the
 // monthly jobs run hourly on the 1st–3rd, each sending once per account and month.
 const MONTHLY = '0 1-10 1-3 * *';
-const MONTHLY_JOBS = ['/api/send-monthly-report', '/api/send-wht50-reminder', '/api/send-admin-profit-report'];
+const MONTHLY_JOBS = ['/api/send-monthly-report', '/api/send-wht50-reminder'];
+const PROFIT = '2 1-10 1-3 * *';
 
 test('the monthly jobs all run even when an earlier one fails', async () => {
   const paths = scheduledPaths(MONTHLY, Date.parse('2026-11-01T01:00:00Z'));
@@ -27,9 +28,11 @@ test('the monthly jobs all run even when an earlier one fails', async () => {
   }
 });
 
-test('four triggers: the digest, the AI credit check and the monthly jobs each run in an invocation of their own', () => {
-  assert.deepEqual(CRONS, ['0 1 * * *', '5 1 * * *', MONTHLY, '0 2 * * *', '42 5 1 11 *']);
-  assert.deepEqual(scheduledPaths('42 5 1 11 *', Date.parse('2026-11-01T05:42:00Z')), ['/api/send-admin-profit-report']);
+test('five triggers: the digest, the AI credit check, the monthly jobs and the profit report each run in an invocation of their own', () => {
+  assert.deepEqual(CRONS, ['0 1 * * *', '5 1 * * *', MONTHLY, PROFIT, '0 2 * * *']);
+  // The owner's profit report alone at 08:02 on the 1st (2026-11-01: at 13:00 it failed sharing the monthly jobs' 50).
+  assert.deepEqual(scheduledPaths(PROFIT, Date.parse('2026-11-01T01:02:00Z')), ['/api/send-admin-profit-report']);
+  assert.deepEqual(scheduledPaths(PROFIT, Date.parse('2026-11-04T01:02:00Z')), []);
   for (const date of ['2026-10-31', '2026-11-01', '2026-11-04', '2028-02-29']) {
     assert.deepEqual(scheduledPaths('0 1 * * *', Date.parse(`${date}T01:00:00Z`)), ['/api/send-overdue-digest']);
     assert.deepEqual(scheduledPaths('5 1 * * *', Date.parse(`${date}T01:05:00Z`)), ['/api/check-ai-credit']);
@@ -43,7 +46,7 @@ test('four triggers: the digest, the AI credit check and the monthly jobs each r
   // 3rd sends nothing.
   for (const date of ['2026-11-04', '2026-11-15']) assert.deepEqual(scheduledPaths(MONTHLY, Date.parse(`${date}T01:00:00Z`)), []);
   // No job shares the digest's invocation, and each job has exactly one trigger.
-  const all = CRONS.filter(cron => cron !== '42 5 1 11 *').flatMap(cron => scheduledPaths(cron, Date.parse('2026-11-01T01:00:00Z')));
+  const all = CRONS.flatMap(cron => scheduledPaths(cron, Date.parse('2026-11-01T01:00:00Z')));
   assert.equal(new Set(all).size, all.length);
   assert.throws(() => scheduledPaths('0 1 * * *', Number.NaN), /Invalid scheduled event time/);
   assert.deepEqual(scheduledPaths('0 1 1 * *', Date.parse('2026-11-01T01:00:00Z')), [], 'A retired trigger runs nothing');
@@ -61,3 +64,14 @@ test('successful scheduled execution accepts zero failures and known cron mappin
   assert.deepEqual(scheduledPaths('0 2 * * *', scheduledTime), ['/api/close-expired-accounts', '/api/setup-line-richmenu', '/api/advance-card-renewals']);
   await runScheduledJobs(scheduledPaths('0 1 * * *', scheduledTime), async () => Response.json({ processed: 0, failed: 0, skipped: 0 }), () => {});
 });
+
+// 2026-11-01: a send refused by Cloudflare for going over the invocation's 50 requests never left the Worker, so it is
+// "rejected" (its claim is released and a later run retries) rather than "unknown" (claim kept, never retried).
+test('a request refused for the allowance counts as not sent', async () => {
+  const { attemptDelivery, neverSent } = await import('../backend/src/services/notificationOutcome.js');
+  assert.equal(neverSent(new Error('Too many subrequests.')), true);
+  assert.equal(neverSent(new Error('network connection lost')), false);
+  assert.equal(await attemptDelivery(async () => { throw new Error('Too many subrequests.'); }), 'rejected');
+  assert.equal(await attemptDelivery(async () => { throw new Error('socket hang up'); }), 'unknown');
+});
+

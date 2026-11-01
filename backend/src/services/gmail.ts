@@ -2,7 +2,7 @@ import { isStaging, stagingEmailAllowed } from '../security/staging.js';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { connect as connectTls, type TLSSocket } from 'node:tls';
-import type { DeliveryOutcome } from './notificationOutcome.js';
+import { neverSent, type DeliveryOutcome } from './notificationOutcome.js';
 
 // Sends automated emails through a real Gmail account instead of a third-party transactional
 // service, since Resend's free sandbox domain (onboarding@resend.dev) can only deliver to the
@@ -85,7 +85,7 @@ export async function sendGmailEmailOutcome(
   } catch (err) {
     // An explicit SMTP rejection proves non-acceptance. A timeout/disconnect does not.
     const status = Number((err as { responseCode?: unknown })?.responseCode);
-    const outcome = status >= 400 && status < 600 ? 'rejected' : 'unknown';
+    const outcome = (status >= 400 && status < 600) || neverSent(err) ? 'rejected' : 'unknown';
     console.error('Email delivery did not confirm acceptance', { outcome, ...(Number.isFinite(status) ? { smtpStatus: status } : {}) });
     return outcome;
   }

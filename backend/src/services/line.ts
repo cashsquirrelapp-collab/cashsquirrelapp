@@ -1,5 +1,5 @@
 import { stagingLineAllowed } from '../security/staging.js';
-import type { DeliveryOutcome } from './notificationOutcome.js';
+import { neverSent, type DeliveryOutcome } from './notificationOutcome.js';
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 
 export interface LineQuickReply {
@@ -62,7 +62,8 @@ export async function sendLineMessagePayloadOutcome(lineUserId: string, message:
     const outcome = res.status >= 400 && res.status < 500 ? 'rejected' : 'unknown';
     console.error('LINE delivery did not confirm acceptance', { outcome, status: res.status });
     return outcome;
-  } catch {
+  } catch (error) {
+    if (neverSent(error)) { console.error('LINE delivery was not sent (request allowance used up)'); return 'rejected'; }
     console.error('LINE delivery acceptance is unknown');
     return 'unknown';
   }
