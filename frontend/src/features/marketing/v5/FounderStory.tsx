@@ -29,7 +29,7 @@ function Rich({ text }: { text: string }) {
 /** A photo, or until it comes, a marked space saying which photo goes here. */
 export function PhotoFrame({ slot, lang, compact = false, className = '' }: { slot: PhotoSlot; lang: Lang; compact?: boolean; className?: string }) {
   const number = PHOTO_NUMBER[slot.id];
-  if (slot.src) return <img className={`fs-photo ${className}`} src={slot.src} alt={slot.title[lang]} style={{ aspectRatio: slot.ratio }} loading="lazy" />;
+  if (slot.src) return <img className={`fs-photo ${className}`} src={slot.src} alt={(slot.alt ?? slot.title)[lang]} style={{ aspectRatio: slot.ratio }} loading="lazy" />;
   return (
     <div className={`fs-slot${compact ? ' is-compact' : ''} ${className}`} style={{ aspectRatio: slot.ratio }} role="img"
       aria-label={tr('พื้นที่สำหรับรูปที่ {0}: {1}', number, slot.title[lang])} data-photo-slot={slot.id}>

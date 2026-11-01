@@ -14,14 +14,18 @@ async function open(page: Page, path: string, { width = 1440, height = 900, lang
 }
 
 for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]] as const) {
-  test(`${width}px: the whole story, its seven parts, six photo spaces, the signature, nothing overlapping`, async ({ page }) => {
+  test(`${width}px: the whole story, its seven parts, the founder's photo and five photo spaces, the signature, nothing overlapping`, async ({ page }) => {
     await open(page, '/founder', { width, height });
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('จากปัญหาที่ผมเคยเจอ สู่สิ่งที่อยากสร้างให้ทุกคน');
     await expect(page.getByText('BEHIND KRAROK · A STORY FROM THE FOUNDER')).toBeVisible();
     await expect(page.locator('.fs-section')).toHaveCount(7);
     await expect(page.locator('.fs-section-head h2')).toHaveText(['จุดเริ่มต้นของผม', 'ปัญหาที่ทำให้เกิด Krarok', '5 เดือนแห่งการลงมือสร้าง',
       'ทำไมผมถึงอยากสร้าง Krarok ให้ทุกคน', 'อนาคตที่ผมอยากสร้างให้ Krarok', 'ความไว้วางใจของคุณ คือความรับผิดชอบของเรา', 'ขอบคุณที่เป็นส่วนหนึ่งของการเริ่มต้น']);
-    await expect(page.locator('[data-photo-slot]')).toHaveCount(6);
+    // Slot 1 has the owner's photo since 2026-11-01; the other five still show their marked space.
+    await expect(page.locator('[data-photo-slot]')).toHaveCount(5);
+    const portrait = page.getByRole('img', { name: 'ปาร์ค นพรัตน์ นาวะบุตร ผู้ก่อตั้ง Krarok' });
+    await expect(portrait).toBeVisible();
+    await expect.poll(() => portrait.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(1000);
     await expect(page.getByRole('img', { name: 'พื้นที่สำหรับรูปที่ 2: ยายกับเครื่องกรองน้ำ' })).toBeAttached();
     await expect(page.locator('.fs-quote')).toHaveCount(4);
     await expect(page.locator('.fs-p strong').first()).toHaveText('สิ่งที่เคยเป็นเพียงความคิด สามารถกลายเป็นความจริงได้ หากเรากล้าลงมือทำ');
@@ -45,7 +49,8 @@ test('the landing has the story in short, and its button opens the whole story',
   await teaser.scrollIntoViewIfNeeded();
   await expect(teaser.getByRole('heading', { level: 2 })).toHaveText('จากปัญหาที่ผมเคยเจอ สู่สิ่งที่อยากสร้างให้ทุกคน');
   await expect(teaser).toContainText('ผมเริ่มสร้าง Krarok เพราะอยากแก้ปัญหาของตัวเอง');
-  await expect(teaser.locator('[data-photo-slot="portrait"]')).toBeVisible();
+  await expect(teaser.getByRole('img', { name: 'ปาร์ค นพรัตน์ นาวะบุตร ผู้ก่อตั้ง Krarok' })).toHaveAttribute('src', '/landing-v5/founder/portrait.webp');
+  await expect(teaser.getByRole('img', { name: 'ปาร์ค นพรัตน์ นาวะบุตร ผู้ก่อตั้ง Krarok' })).toBeVisible();
   expect(await textOverlapIssues(page)).toEqual([]);
   await teaser.getByRole('link', { name: 'อ่านเรื่องราวจากผู้ก่อตั้ง' }).click();
   await expect(page).toHaveURL(/\/founder$/);

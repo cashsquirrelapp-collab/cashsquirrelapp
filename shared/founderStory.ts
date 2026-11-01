@@ -1,6 +1,6 @@
 // "Behind Krarok", the founder's own story (owner, 2026-10-31: "อันนี้คือหน้าของแรงบันดาลใจของกู ... เอาไปใส่ในหน้า landing
 // page ... เว้น space เอาไว้สำหรับใส่รูปภาพ"). The Thai is the owner's text as written; the English follows it closely.
-// **…** marks the words the owner set in bold. Photos come from the owner: put the file in public/founder/ and set `src`;
+// **…** marks the words the owner set in bold. Photos come from the owner: put the file in public/landing-v5/founder/ (never public/founder/, which would take the page's address) and set `src`;
 // until then the page shows a marked space saying which photo goes there. เลขากระรอก answers questions about the founder
 // from this same text (owner, 2026-10-31: "ให้น้องเอาส่วนนั้นแหละมาตอบ"; backend/src/ai/knowledgeAdditions/founderStoryWeb.ts),
 // so the page and the chat always tell the same story.
@@ -17,6 +17,8 @@ export interface PhotoSlot {
   size: Text;
   /** The owner's photo, e.g. '/founder/portrait.jpg'. Empty: the marked space shows. */
   src?: string;
+  /** What the photo shows, for screen readers (the title describes the space, not the picture). */
+  alt?: Text;
 }
 
 export type Block =
@@ -32,6 +34,10 @@ export const PHOTOS = {
     title: { th: 'รูปปาร์ค (ภาพหลัก)', en: 'Park (main photo)' },
     hint: { th: 'ภาพครึ่งตัว หน้าตรงหรือเฉียงเล็กน้อย พื้นหลังโล่ง เช่น ที่โต๊ะตัดต่อ', en: 'Half-length, facing the camera or slightly turned, a plain background such as the editing desk' },
     size: { th: 'แนวตั้ง 4:5 · 1600 × 2000 px', en: 'Portrait 4:5 · 1600 × 2000 px' },
+    // The owner's photo, 2026-11-01 ("เอาภาพใส่หน้านี้"): cropped to 4:5 from the middle, no location data. Not in
+    // public/founder/: a folder of that name would take over the /founder page's address.
+    src: '/landing-v5/founder/portrait.webp',
+    alt: { th: 'ปาร์ค นพรัตน์ นาวะบุตร ผู้ก่อตั้ง Krarok', en: 'Park, the founder of Krarok' },
   },
   grandma: {
     id: 'grandma', ratio: '4 / 3',
